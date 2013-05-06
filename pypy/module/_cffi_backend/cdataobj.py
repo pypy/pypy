@@ -1,6 +1,6 @@
 import operator
 
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
@@ -13,7 +13,7 @@ from rpython.tool.sourcetools import func_with_new_name
 from pypy.module._cffi_backend import misc
 
 
-class W_CData(Wrappable):
+class W_CData(W_Root):
     _attrs_ = ['space', '_cdata', 'ctype', '_lifeline_']
     _immutable_fields_ = ['_cdata', 'ctype']
     _cdata = lltype.nullptr(rffi.CCHARP.TO)
@@ -56,13 +56,13 @@ class W_CData(Wrappable):
     def nonzero(self):
         return self.space.wrap(bool(self._cdata))
 
-    def int(self):
-        w_result = self.ctype.int(self._cdata)
+    def int(self, space):
+        w_result = self.ctype.cast_to_int(self._cdata)
         keepalive_until_here(self)
         return w_result
 
-    def long(self):
-        w_result = self.int()
+    def long(self, space):
+        w_result = self.int(space)
         space = self.space
         if space.is_w(space.type(w_result), space.w_int):
             w_result = space.newlong(space.int_w(w_result))
@@ -90,22 +90,16 @@ class W_CData(Wrappable):
             from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitive
             space = self.space
             cdata1 = self._cdata
-            other = space.interpclass_w(w_other)
-            if isinstance(other, W_CData):
-                if requires_ordering:
-                    if (isinstance(self.ctype, W_CTypePrimitive) or
-                        isinstance(other.ctype, W_CTypePrimitive)):
-                        raise OperationError(space.w_TypeError,
-                            space.wrap("cannot do comparison on a "
-                                       "primitive cdata"))
-                cdata2 = other._cdata
-            elif (misc.is_zero(space, w_other) and
-                     not isinstance(self.ctype, W_CTypePrimitive)):
-                cdata2 = lltype.nullptr(rffi.CCHARP.TO)
+            if isinstance(w_other, W_CData):
+                cdata2 = w_other._cdata
             else:
                 return space.w_NotImplemented
 
             if requires_ordering:
+                if (isinstance(self.ctype, W_CTypePrimitive) or
+                    isinstance(w_other.ctype, W_CTypePrimitive)):
+                    raise OperationError(space.w_TypeError,
+                       space.wrap("cannot do comparison on a primitive cdata"))
                 cdata1 = rffi.cast(lltype.Unsigned, cdata1)
                 cdata2 = rffi.cast(lltype.Unsigned, cdata2)
             return space.newbool(op(cdata1, cdata2))
@@ -246,10 +240,9 @@ class W_CData(Wrappable):
 
     def sub(self, w_other):
         space = self.space
-        ob = space.interpclass_w(w_other)
-        if isinstance(ob, W_CData):
+        if isinstance(w_other, W_CData):
             from pypy.module._cffi_backend import ctypeptr, ctypearray
-            ct = ob.ctype
+            ct = w_other.ctype
             if isinstance(ct, ctypearray.W_CTypeArray):
                 ct = ct.ctptr
             #
@@ -261,7 +254,7 @@ class W_CData(Wrappable):
                     self.ctype.name, ct.name)
             #
             diff = (rffi.cast(lltype.Signed, self._cdata) -
-                    rffi.cast(lltype.Signed, ob._cdata)) // ct.ctitem.size
+                    rffi.cast(lltype.Signed, w_other._cdata)) // ct.ctitem.size
             return space.wrap(diff)
         #
         return self._add_or_sub(w_other, -1)
@@ -287,8 +280,13 @@ class W_CData(Wrappable):
         return self.ctype.iter(self)
 
     @specialize.argtype(1)
-    def write_raw_integer_data(self, source):
-        misc.write_raw_integer_data(self._cdata, source, self.ctype.size)
+    def write_raw_signed_data(self, source):
+        misc.write_raw_signed_data(self._cdata, source, self.ctype.size)
+        keepalive_until_here(self)
+
+    @specialize.argtype(1)
+    def write_raw_unsigned_data(self, source):
+        misc.write_raw_unsigned_data(self._cdata, source, self.ctype.size)
         keepalive_until_here(self)
 
     def write_raw_float_data(self, source):

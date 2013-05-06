@@ -10,6 +10,8 @@ from rpython.jit.codewriter import heaptracker, longlong
 from rpython.jit.backend.detect_cpu import getcpuclass
 from rpython.jit.backend.test.runner_test import Runner
 import py
+import sys
+import platform
 
 def boxfloat(x):
     return BoxFloat(longlong.getfloatstorage(x))
@@ -381,6 +383,9 @@ class CallingConvTests(Runner):
         raise NotImplementedError
 
     def test_call_aligned_explicit_check(self):
+        if (not platform.machine().startswith('arm') and
+                sys.maxint == 2 ** 31 - 1): # XXX is still necessary on x86?
+            py.test.skip("libffi on 32bit is broken")
         cpu = self.cpu
         if not cpu.supports_floats:
             py.test.skip('requires floats')

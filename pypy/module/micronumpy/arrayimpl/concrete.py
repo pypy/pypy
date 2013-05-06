@@ -1,4 +1,3 @@
-
 from pypy.module.micronumpy.arrayimpl import base, scalar
 from pypy.module.micronumpy import support, loop, iter
 from pypy.module.micronumpy.base import convert_to_array, W_NDimArray,\
@@ -14,6 +13,7 @@ from rpython.rlib.rawstorage import free_raw_storage, raw_storage_getitem,\
      raw_storage_setitem, RAW_STORAGE
 from pypy.module.micronumpy.arrayimpl.sort import argsort_array
 from rpython.rlib.debug import make_sure_not_resized
+
 
 class BaseConcreteArray(base.BaseArrayImplementation):
     start = 0
@@ -49,8 +49,8 @@ class BaseConcreteArray(base.BaseArrayImplementation):
             return
         shape = shape_agreement(space, self.get_shape(), arr)
         if impl.storage == self.storage:
-            impl = impl.copy()
-        loop.setslice(shape, self, impl)
+            impl = impl.copy(space)
+        loop.setslice(space, shape, self, impl)
 
     def get_size(self):
         return self.size // self.dtype.itemtype.get_element_size()
@@ -82,6 +82,10 @@ class BaseConcreteArray(base.BaseArrayImplementation):
         return SliceArray(self.start, strides, backstrides,
                           self.get_shape(), self, orig_array)
 
+    def set_real(self, space, orig_array, w_value):
+        tmp = self.get_real(orig_array)
+        tmp.setslice(space, convert_to_array(space, w_value))
+
     def get_imag(self, orig_array):
         strides = self.get_strides()
         backstrides = self.get_backstrides()
@@ -97,6 +101,10 @@ class BaseConcreteArray(base.BaseArrayImplementation):
                              backstrides)
         impl.fill(self.dtype.box(0))
         return impl
+
+    def set_imag(self, space, orig_array, w_value):
+        tmp = self.get_imag(orig_array)
+        tmp.setslice(space, convert_to_array(space, w_value))
 
     # -------------------- applevel get/setitem -----------------------
 
@@ -237,12 +245,12 @@ class BaseConcreteArray(base.BaseArrayImplementation):
         return SliceArray(self.start, strides,
                           backstrides, shape, self, orig_array)
 
-    def copy(self):
+    def copy(self, space):
         strides, backstrides = support.calc_strides(self.get_shape(), self.dtype,
                                                     self.order)
         impl = ConcreteArray(self.get_shape(), self.dtype, self.order, strides,
                              backstrides)
-        return loop.setslice(self.get_shape(), impl, self)
+        return loop.setslice(space, self.get_shape(), impl, self)
 
     def create_axis_iter(self, shape, dim, cum):
         return iter.AxisIterator(self, shape, dim, cum)
@@ -273,8 +281,13 @@ class BaseConcreteArray(base.BaseArrayImplementation):
 
     def astype(self, space, dtype):
         new_arr = W_NDimArray.from_shape(self.get_shape(), dtype)
-        loop.copy_from_to(self, new_arr.implementation, dtype)
+        if self.dtype.is_str_or_unicode() and not dtype.is_str_or_unicode():
+            raise OperationError(space.w_NotImplementedError, space.wrap(
+                "astype(%s) not implemented yet" % self.dtype))
+        else:
+            loop.setslice(space, new_arr.get_shape(), new_arr.implementation, self)
         return new_arr
+
 
 class ConcreteArrayNotOwning(BaseConcreteArray):
     def __init__(self, shape, dtype, order, strides, backstrides, storage):
@@ -313,6 +326,7 @@ class ConcreteArrayNotOwning(BaseConcreteArray):
     def base(self):
         return None
 
+
 class ConcreteArray(ConcreteArrayNotOwning):
     def __init__(self, shape, dtype, order, strides, backstrides):
         # we allocate the actual storage later because we need to compute
@@ -324,8 +338,6 @@ class ConcreteArray(ConcreteArrayNotOwning):
 
     def __del__(self):
         free_raw_storage(self.storage, track_allocation=False)
-
-
 
 
 class NonWritableArray(ConcreteArray):
@@ -404,6 +416,7 @@ class SliceArray(BaseConcreteArray):
             new_backstrides[nd] = (new_shape[nd] - 1) * new_strides[nd]
         return SliceArray(self.start, new_strides, new_backstrides, new_shape,
                           self, orig_array)
+
 
 class ArrayBuffer(RWBuffer):
     def __init__(self, impl):

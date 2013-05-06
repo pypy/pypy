@@ -503,7 +503,7 @@ class FixedSizeArray(Struct):
         return obj
 
     def __init__(self, OF, length, **kwds):
-        if hasattr(self, '_name'):
+        if '_name' in self.__dict__:
             assert self.OF == OF
             assert self.length == length
             return

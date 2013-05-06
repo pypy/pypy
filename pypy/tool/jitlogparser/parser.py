@@ -34,7 +34,7 @@ class Op(object):
         self.descr = descr
         self._is_guard = name.startswith('guard_')
         if self._is_guard:
-            self.guard_no = int(self.descr[len('<Guard'):-1], 16)
+            self.guard_no = int(self.descr[len('<Guard0x'):-1], 16)
 
     def setfailargs(self, failargs):
         self.failargs = failargs
@@ -364,16 +364,17 @@ def adjust_bridges(loop, bridges):
 
 def import_log(logname, ParserCls=SimpleParser):
     log = parse_log_file(logname)
+    hex_re = '0x(-?[\da-f]+)'
     addrs = {}
     for entry in extract_category(log, 'jit-backend-addr'):
-        m = re.search('bootstrap ([-\da-f]+)', entry)
+        m = re.search('bootstrap ' + hex_re, entry)
         if not m:
             # a bridge
-            m = re.search('has address ([-\da-f]+)', entry)
+            m = re.search('has address ' + hex_re, entry)
             addr = int(m.group(1), 16)
             entry = entry.lower()
-            m = re.search('guard [\da-f]+', entry)
-            name = m.group(0)
+            m = re.search('guard ' + hex_re, entry)
+            name = 'guard ' + m.group(1)
         else:
             name = entry[:entry.find('(') - 1].lower()
             addr = int(m.group(1), 16)
@@ -395,8 +396,8 @@ def import_log(logname, ParserCls=SimpleParser):
         comm = loop.comment
         comm = comm.lower()
         if comm.startswith('# bridge'):
-            m = re.search('guard (\d+)', comm)
-            name = 'guard ' + hex(int(m.group(1)))[2:]
+            m = re.search('guard (-?[\da-f]+)', comm)
+            name = 'guard ' + m.group(1)
         elif "(" in comm:
             name = comm[2:comm.find('(')-1]
         else:
@@ -414,7 +415,8 @@ def import_log(logname, ParserCls=SimpleParser):
 def split_trace(trace):
     labels = [0]
     if trace.comment and 'Guard' in trace.comment:
-        descrs = ['bridge ' + re.search('Guard ([\da-f]+)', trace.comment).group(1)]
+        descrs = ['bridge %d' % int(
+            re.search('Guard 0x(-?[\da-f]+)', trace.comment).group(1), 16)]
     else:
         descrs = ['entry ' + re.search('Loop (\d+)', trace.comment).group(1)]
     for i, op in enumerate(trace.operations):
@@ -444,6 +446,17 @@ def parse_log_counts(input, loops):
         if line:
             num, count = line.split(':', 2)
             mapping[num].count = int(count)
+
+
+def mangle_descr(descr):
+    if descr.startswith('TargetToken('):
+        return descr[len('TargetToken('):-1]
+    if descr.startswith('<Guard'):
+        return 'bridge-' + str(int(descr[len('<Guard0x'):-1], 16))
+    if descr.startswith('<Loop'):
+        return 'entry-' + descr[len('<Loop'):-1]
+    return descr.replace(" ", '-')
+
 
 if __name__ == '__main__':
     import_log(sys.argv[1])

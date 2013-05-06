@@ -1,12 +1,12 @@
 import py
-from py.builtin import set
-from rpython.rtyper.lltypesystem.lltype import LowLevelType, Signed, Unsigned, Float, Char
-from rpython.rtyper.lltypesystem.lltype import Bool, Void, UniChar, typeOf, \
-        Primitive, isCompatibleType, enforce, saferecursive, SignedLongLong, UnsignedLongLong
-from rpython.rtyper.lltypesystem.lltype import frozendict
-from rpython.rtyper.lltypesystem.lltype import identityhash
+
+from rpython.rlib import objectmodel, types
+from rpython.rlib.signature import signature
 from rpython.rlib.rarithmetic import intmask
-from rpython.rlib import objectmodel
+from rpython.rtyper.lltypesystem.lltype import (LowLevelType, Signed, Unsigned,
+    Float, Char, Bool, Void, UniChar, typeOf, Primitive, isCompatibleType,
+    enforce, saferecursive, SignedLongLong, UnsignedLongLong, frozendict,
+    identityhash)
 from rpython.tool.uid import uid
 
 
@@ -75,7 +75,7 @@ class Class(OOType):
 
     def _example(self):
         return _class(ROOT)
-    
+
 Class = Class()
 
 class Instance(OOType):
@@ -111,7 +111,7 @@ class Instance(OOType):
 
     def __hash__(self):
         return object.__hash__(self)
-        
+
     def _defl(self):
         return self._null
 
@@ -153,7 +153,7 @@ class Instance(OOType):
             _, meth = self._lookup(name)
             if meth is not None:
                 raise TypeError("Cannot add field %r: method already exists" % name)
-        
+
             if self._superclass is not None:
                 if self._superclass._has_field(name):
                     raise TypeError("Field %r exists in superclass" % name)
@@ -161,7 +161,7 @@ class Instance(OOType):
             if type(defn) is not tuple:
                 if isinstance(defn, Meth):
                     raise TypeError("Attempting to store method in field")
-                
+
                 fields[name] = (defn, defn._defl())
             else:
                 ootype, default = defn
@@ -198,7 +198,7 @@ class Instance(OOType):
     def _init_instance(self, instance):
         if self._superclass is not None:
             self._superclass._init_instance(instance)
-        
+
         for name, (ootype, default) in self._fields.iteritems():
             instance.__dict__[name] = enforce(ootype, default)
 
@@ -587,10 +587,10 @@ class List(BuiltinADTType):
 
     # this is the equivalent of the lltypesystem ll_newlist that is
     # marked as typeMethod.
+    @signature(types.any(), types.int(), returns=types.any())
     def ll_newlist(self, length):
         from rpython.rtyper.ootypesystem import rlist
         return rlist.ll_newlist(self, length)
-    ll_newlist._annenforceargs_ = (None, int)
 
     # NB: We are expecting Lists of the same ITEMTYPE to compare/hash
     # equal. We don't redefine __eq__/__hash__ since the implementations
@@ -613,7 +613,7 @@ class List(BuiltinADTType):
     def __hash__(self):
         if self.ITEM is None:
             raise TypeError("Can't hash uninitialized List type.")
-        return BuiltinADTType.__hash__(self)    
+        return BuiltinADTType.__hash__(self)
 
     def __str__(self):
         return '%s(%s)' % (self.__class__.__name__,
@@ -625,7 +625,7 @@ class List(BuiltinADTType):
     def _specialize(self, generic_types):
         ITEMTYPE = self._specialize_type(self.ITEM, generic_types)
         return self.__class__(ITEMTYPE)
-    
+
     def _defl(self):
         return self._null
 
@@ -644,7 +644,7 @@ class Array(BuiltinADTType):
     # placeholders for types
     # make sure that each derived class has his own SELFTYPE_T
     # placeholder, because we want backends to distinguish that.
-    
+
     SELFTYPE_T = object()
     ITEMTYPE_T = object()
     oopspec_name = 'list'
@@ -694,7 +694,7 @@ class Array(BuiltinADTType):
     def __hash__(self):
         if self.ITEM is None:
             raise TypeError("Can't hash uninitialized List type.")
-        return BuiltinADTType.__hash__(self)    
+        return BuiltinADTType.__hash__(self)
 
     def __str__(self):
         return '%s(%s)' % (self.__class__.__name__,
@@ -717,13 +717,14 @@ class Array(BuiltinADTType):
         self.ITEM = ITEMTYPE
         self._init_methods()
 
+    @signature(types.any(), types.int(), returns=types.any())
     def ll_newlist(self, length):
         from rpython.rtyper.ootypesystem import rlist
         return rlist.ll_newarray(self, length)
-    ll_newlist._annenforceargs_ = (None, int)
 
     def ll_convert_from_array(self, array):
         return array
+
 
 class Dict(BuiltinADTType):
     # placeholders for types
@@ -790,7 +791,7 @@ class Dict(BuiltinADTType):
             return False
         if not self._is_initialized() or not other._is_initialized():
             return False # behave like a ForwardReference, i.e. compare by identity
-        return BuiltinADTType.__eq__(self, other) 
+        return BuiltinADTType.__eq__(self, other)
 
     def __ne__(self, other):
         return not (self == other)
@@ -812,7 +813,7 @@ class Dict(BuiltinADTType):
         self._KEYTYPE = KEYTYPE
         self._VALUETYPE = VALUETYPE
         self._init_methods()
-                                           
+
 
 class CustomDict(Dict):
     def __init__(self, KEYTYPE=None, VALUETYPE=None):
@@ -871,7 +872,7 @@ class DictItemsIterator(BuiltinADTType):
         KEYTYPE = self._specialize_type(self._KEYTYPE, generic_types)
         VALUETYPE = self._specialize_type(self._VALUETYPE, generic_types)
         return self.__class__(KEYTYPE, VALUETYPE)
-    
+
 # ____________________________________________________________
 
 class _object(object):
@@ -943,7 +944,7 @@ nullruntimeclass = _class(None)
 Class._null = nullruntimeclass
 
 class _instance(object):
-    
+
     def __init__(self, INSTANCE):
         self.__dict__["_TYPE"] = INSTANCE
         INSTANCE._init_instance(self)
@@ -958,7 +959,7 @@ class _instance(object):
         DEFINST, meth = self._TYPE._lookup(name)
         if meth is not None:
             return meth._bound(DEFINST, self)
-        
+
         self._TYPE._check_field(name)
 
         return self.__dict__[name]
@@ -998,7 +999,7 @@ class _instance(object):
         return self
 
     _enforce = _upcast
-    
+
     def _downcast(self, INSTANCE):
         assert instanceof(self, INSTANCE)
         return self
@@ -1023,7 +1024,7 @@ def _null_mixin(klass):
         def __getattribute__(self, name):
             if name.startswith("_"):
                 return object.__getattribute__(self, name)
-        
+
             raise RuntimeError("Access to field in null object")
 
         def __setattr__(self, name, value):
@@ -1189,7 +1190,7 @@ class _callable(object):
 
    def __ne__(self, other):
        return not (self == other)
-   
+
    def __hash__(self):
        return hash(frozendict(self.__dict__))
 
@@ -1227,7 +1228,7 @@ class _forward_static_meth(_static_meth):
 
    def __eq__(self, other):
        return self is other
-   
+
    def __hash__(self):
        return id(self)
 
@@ -1251,7 +1252,7 @@ class _bound_meth(object):
 
 class _meth(_callable):
     _bound_class = _bound_meth
-    
+
     def __init__(self, METHOD, **attrs):
         assert isinstance(METHOD, Meth)
         _callable.__init__(self, METHOD, **attrs)
@@ -1339,7 +1340,7 @@ class OverloadingResolver(object):
             return True
         else:
             return False
-    
+
     def annotation_to_lltype(cls, ann):
         from rpython.annotator import model as annmodel
         return annmodel.annotation_to_lltype(ann)
@@ -1605,7 +1606,7 @@ class _list(_builtin_type):
         return len(self._list)
 
     def _ll_resize_ge(self, length):
-        # NOT_RPYTHON        
+        # NOT_RPYTHON
         if len(self._list) < length:
             diff = length - len(self._list)
             self._list += [self._TYPE.ITEM._defl()] * diff
@@ -1641,7 +1642,7 @@ class _list(_builtin_type):
 class _null_list(_null_mixin(_list), _list):
 
     def __init__(self, LIST):
-        self.__dict__["_TYPE"] = LIST 
+        self.__dict__["_TYPE"] = LIST
 
 class _array(_builtin_type):
     def __init__(self, ARRAY, length):
@@ -1674,7 +1675,7 @@ class _array(_builtin_type):
 class _null_array(_null_mixin(_array), _array):
 
     def __init__(self, ARRAY):
-        self.__dict__["_TYPE"] = ARRAY 
+        self.__dict__["_TYPE"] = ARRAY
 
 class _dict(_builtin_type):
     def __init__(self, DICT):
@@ -1772,7 +1773,7 @@ class _dict_items_iterator(_builtin_type):
     def ll_go_next(self):
         # NOT_RPYTHON
         self._check_stamp()
-        self._index += 1        
+        self._index += 1
         if self._index >= len(self._items):
             return False
         else:
@@ -1783,7 +1784,7 @@ class _dict_items_iterator(_builtin_type):
         self._check_stamp()
         assert 0 <= self._index < len(self._items)
         return self._items[self._index][0]
-    
+
     def ll_current_value(self):
         # NOT_RPYTHON
         self._check_stamp()
@@ -1843,7 +1844,7 @@ class _record(object):
 class _null_record(_null_mixin(_record), _record):
 
     def __init__(self, RECORD):
-        self.__dict__["_TYPE"] = RECORD 
+        self.__dict__["_TYPE"] = RECORD
 
 
 def new(TYPE):
@@ -1935,7 +1936,7 @@ def commonBaseclass(INSTANCE1, INSTANCE2):
 
 def ooupcast(INSTANCE, instance):
     return instance._upcast(INSTANCE)
-    
+
 def oodowncast(INSTANCE, instance):
     return instance._downcast(INSTANCE)
 
@@ -1962,7 +1963,7 @@ def oounbox_int(x):
 def oostring(obj, base):
     """
     Convert char, int, float, instances and str to str.
-    
+
     Base is used only for formatting int: for other types is ignored
     and should be set to -1. For int only base 8, 10 and 16 are
     supported.

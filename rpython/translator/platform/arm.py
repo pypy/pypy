@@ -1,8 +1,6 @@
-import py, os
 from rpython.translator.platform.linux import Linux
 from rpython.translator.platform.posix import _run_subprocess, GnuMakefile
 from rpython.translator.platform import ExecutionResult, log
-from rpython.tool.udir import udir
 from os import getenv
 
 SB2 = getenv('SB2')
@@ -49,11 +47,12 @@ class ARM(Linux):
         return ExecutionResult(returncode, stdout, stderr)
 
     def include_dirs_for_libffi(self):
-        return [SB2 + '/usr/include/arm-linux-gnueabi/']
+        return [SB2 + '/usr/include/arm-linux-gnueabi/',
+                SB2 + '/usr/include/arm-linux-gnueabihf/']
 
     def library_dirs_for_libffi(self):
-        # on the other hand, library lands in usual place...
-        return []
+        return [SB2 + '/usr/lib/arm-linux-gnueabi/',
+                SB2 + '/usr/lib/arm-linux-gnueabihf/']
 
     def execute_makefile(self, path_to_makefile, extra_opts=[]):
         if isinstance(path_to_makefile, GnuMakefile):

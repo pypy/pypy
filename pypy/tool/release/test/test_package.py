@@ -17,7 +17,7 @@ def test_dir_structure(test='test'):
         exe_name_in_archive = 'bin/pypy'
     pypy_c = py.path.local(pypydir).join('goal', basename)
     if not pypy_c.check():
-        os.system("echo faked_pypy_c> %s" % (pypy_c,))
+        pypy_c.write("#!/bin/sh")
         pypy_c.chmod(0755)
         fake_pypy_c = True
     else:
@@ -26,7 +26,7 @@ def test_dir_structure(test='test'):
         builddir = package.package(py.path.local(pypydir).dirpath(), test,
                                    rename_pypy_c)
         prefix = builddir.join(test)
-        cpyver = '%d' % CPYTHON_VERSION[0]
+        cpyver = '%d.%d' % CPYTHON_VERSION[:2]
         assert prefix.join('lib-python', cpyver, 'test').check()
         assert prefix.join(exe_name_in_archive).check()
         assert prefix.join('lib_pypy', 'syslog.py').check()
@@ -45,8 +45,11 @@ def test_dir_structure(test='test'):
             assert exe.mode == 0755
             assert exe.uname == ''
             assert exe.gname == ''
-            assert exe.uid == 0
-            assert exe.gid == 0
+            # The tar program on MacOSX or the FreeBSDs does not support
+            # setting the numeric uid and gid when creating a tar file.
+            if not(sys.platform == 'darwin' or sys.platform.startswith('freebsd')):
+                assert exe.uid == 0
+                assert exe.gid == 0
 
         # the headers file could be not there, because they are copied into
         # trunk/include only during translation

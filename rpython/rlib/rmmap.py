@@ -287,10 +287,25 @@ class MMap(object):
         self.data = data
         self.size = size
 
+    def unmap(self):
+        if _MS_WINDOWS:
+            UnmapViewOfFile(self.getptr(0))
+        elif _POSIX:
+            self.unmap_range(0, self.size)
+
+    if _POSIX:
+        def unmap_range(self, offset, size):
+            """Unmap (a portion of) the mapped range.
+
+            Per munmap(1), the offset must be a multiple of the page size,
+            and the size will be rounded up to a multiple of the page size.
+            """
+            c_munmap_safe(self.getptr(offset), size)
+
     def close(self):
         if _MS_WINDOWS:
             if self.size > 0:
-                self.unmapview()
+                self.unmap()
                 self.setdata(NODATA, 0)
             if self.map_handle != INVALID_HANDLE:
                 rwin32.CloseHandle(self.map_handle)
@@ -307,14 +322,11 @@ class MMap(object):
                 os.close(self.fd)
                 self.fd = -1
             if self.size > 0:
-                c_munmap_safe(self.getptr(0), self.size)
+                self.unmap()
                 self.setdata(NODATA, 0)
 
     def __del__(self):
         self.close()
-
-    def unmapview(self):
-        UnmapViewOfFile(self.getptr(0))
 
     def read_byte(self):
         self.check_valid()
@@ -527,7 +539,7 @@ class MMap(object):
             self.setdata(newdata, newsize)
         elif _MS_WINDOWS:
             # disconnect the mapping
-            self.unmapview()
+            self.unmap()
             rwin32.CloseHandle(self.map_handle)
 
             # move to the desired EOF position
@@ -677,6 +689,11 @@ if _POSIX:
         m.setdata(res, map_size)
         return m
 
+    def alloc_hinted(hintp, map_size):
+        flags = MAP_PRIVATE | MAP_ANONYMOUS
+        prot = PROT_EXEC | PROT_READ | PROT_WRITE
+        return c_mmap_safe(hintp, map_size, prot, flags, -1, 0)
+
     # XXX is this really necessary?
     class Hint:
         pos = -0x4fff0000   # for reproducible results
@@ -695,15 +712,11 @@ if _POSIX:
             if res == rffi.cast(PTR, 0):
                 raise MemoryError
             return res
-        flags = MAP_PRIVATE | MAP_ANONYMOUS
-        prot = PROT_EXEC | PROT_READ | PROT_WRITE
-        hintp = rffi.cast(PTR, hint.pos)
-        res = c_mmap_safe(hintp, map_size, prot, flags, -1, 0)
+        res = alloc_hinted(rffi.cast(PTR, hint.pos), map_size)
         if res == rffi.cast(PTR, -1):
             # some systems (some versions of OS/X?) complain if they
             # are passed a non-zero address.  Try again.
-            hintp = rffi.cast(PTR, 0)
-            res = c_mmap_safe(hintp, map_size, prot, flags, -1, 0)
+            res = alloc_hinted(rffi.cast(PTR, 0), map_size)
             if res == rffi.cast(PTR, -1):
                 raise MemoryError
         else:

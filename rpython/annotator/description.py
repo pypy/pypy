@@ -282,7 +282,7 @@ class FunctionDesc(Desc):
             raise Exception("%r: signature and enforceargs cannot both be used" % (self,))
         if enforceargs:
             if not callable(enforceargs):
-                from rpython.annotator.policy import Sig
+                from rpython.annotator.signature import Sig
                 enforceargs = Sig(*enforceargs)
                 self.pyobj._annenforceargs_ = enforceargs
             enforceargs(self, inputcells) # can modify inputcells in-place
@@ -867,7 +867,6 @@ class MethodDesc(Desc):
 
     def consider_call_site(bookkeeper, family, descs, args, s_result, op):
         shape = rawshape(args, nextra=1)     # account for the extra 'self'
-        funcdescs = [methoddesc.funcdesc for methoddesc in descs]
         row = FunctionDesc.row_to_consider(descs, args, op)
         family.calltable_add_row(shape, row)
     consider_call_site = staticmethod(consider_call_site)
@@ -1028,7 +1027,6 @@ class MethodOfFrozenDesc(Desc):
 
     def consider_call_site(bookkeeper, family, descs, args, s_result, op):
         shape = rawshape(args, nextra=1)    # account for the extra 'self'
-        funcdescs = [mofdesc.funcdesc for mofdesc in descs]
         row = FunctionDesc.row_to_consider(descs, args, op)
         family.calltable_add_row(shape, row)
     consider_call_site = staticmethod(consider_call_site)

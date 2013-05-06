@@ -6,33 +6,39 @@ from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.intobject import W_IntObject
 
+
 class W_BoolObject(W_Object):
     from pypy.objspace.std.booltype import bool_typedef as typedef
     _immutable_fields_ = ['boolval']
 
-    def __init__(w_self, boolval):
-        w_self.boolval = not not boolval
+    def __init__(self, boolval):
+        self.boolval = not not boolval
 
-    def __nonzero__(w_self):
-        raise Exception, "you cannot do that, you must use space.is_true()"
+    def __nonzero__(self):
+        raise Exception("you cannot do that, you must use space.is_true()")
 
-    def __repr__(w_self):
+    def __repr__(self):
         """ representation for debugging purposes """
-        return "%s(%s)" % (w_self.__class__.__name__, w_self.boolval)
+        return "%s(%s)" % (self.__class__.__name__, self.boolval)
 
-    def unwrap(w_self, space):
-        return w_self.boolval
+    def unwrap(self, space):
+        return self.boolval
 
-    def int_w(w_self, space):
-        return int(w_self.boolval)
+    def int_w(self, space):
+        return int(self.boolval)
 
-    def uint_w(w_self, space):
-        intval = int(w_self.boolval)
+    def uint_w(self, space):
+        intval = int(self.boolval)
         return r_uint(intval)
 
-    def bigint_w(w_self, space):
-        return rbigint.fromint(int(w_self.boolval))
+    def bigint_w(self, space):
+        return rbigint.fromint(int(self.boolval))
 
+    def float_w(self, space):
+        return float(self.boolval)
+
+    def int(self, space):
+        return space.newint(int(self.boolval))
 
 registerimplementation(W_BoolObject)
 

@@ -27,7 +27,6 @@ import sys
 import math
 import time
 
-import autopath
 from rpython.rlib import rrandom
 
 PRINT_IT = True
@@ -187,8 +186,6 @@ def demo():
 
 
 # __________  Entry point for stand-alone builds __________
-
-import time
 
 def entry_point(argv):
     if len(argv) > 1:

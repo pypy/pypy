@@ -11,11 +11,11 @@ def test_required():
 
     assert conf.objspace.usemodules.gc
 
-    conf.objspace.std.withsmallint = True
-    assert not conf.objspace.std.withprebuiltint
+    conf.objspace.std.withmapdict = True
+    assert conf.objspace.std.withmethodcache
     conf = get_pypy_config()
-    conf.objspace.std.withprebuiltint = True
-    py.test.raises(ConfigError, "conf.objspace.std.withsmallint = True")
+    conf.objspace.std.withmethodcache = False
+    py.test.raises(ConfigError, "conf.objspace.std.withmapdict = True")
 
 def test_conflicting_gcrootfinder():
     conf = get_pypy_config()

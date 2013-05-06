@@ -2,7 +2,8 @@ import sys
 import os
 
 from rpython.jit.backend.llsupport import symbolic, jitframe
-from rpython.jit.backend.llsupport.assembler import GuardToken, BaseAssembler, DEBUG_COUNTER
+from rpython.jit.backend.llsupport.assembler import (GuardToken, BaseAssembler,
+                                                DEBUG_COUNTER, debug_bridge)
 from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 from rpython.jit.metainterp.history import Const, Box
@@ -22,7 +23,7 @@ from rpython.jit.backend.x86.regloc import (eax, ecx, edx, ebx, esp, ebp, esi,
     r12, r13, r14, r15, X86_64_SCRATCH_REG, X86_64_XMM_SCRATCH_REG,
     RegLoc, FrameLoc, ConstFloatLoc, ImmedLoc, AddressLoc, imm,
     imm0, imm1, FloatImmedLoc, RawEbpLoc, RawEspLoc)
-from rpython.rlib.objectmodel import we_are_translated, specialize
+from rpython.rlib.objectmodel import we_are_translated
 from rpython.jit.backend.x86 import rx86, codebuf
 from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.backend.x86 import support
@@ -61,17 +62,10 @@ class Assembler386(BaseAssembler):
         self.malloc_slowpath = 0
         self.wb_slowpath = [0, 0, 0, 0, 0]
         self.setup_failure_recovery()
-        self._debug = False
-        self.debug_counter_descr = cpu.fielddescrof(DEBUG_COUNTER, 'i')
         self.datablockwrapper = None
         self.stack_check_slowpath = 0
         self.propagate_exception_path = 0
         self.teardown()
-
-    def set_debug(self, v):
-        r = self._debug
-        self._debug = v
-        return r
 
     def setup_once(self):
         BaseAssembler.setup_once(self)
@@ -101,20 +95,6 @@ class Assembler386(BaseAssembler):
             self.pending_memoryerror_trampoline_from = None
         self.mc = None
         self.current_clt = None
-
-    def finish_once(self):
-        if self._debug:
-            debug_start('jit-backend-counts')
-            for i in range(len(self.loop_run_counters)):
-                struct = self.loop_run_counters[i]
-                if struct.type == 'l':
-                    prefix = 'TargetToken(%d)' % struct.number
-                elif struct.type == 'b':
-                    prefix = 'bridge ' + str(struct.number)
-                else:
-                    prefix = 'entry ' + str(struct.number)
-                debug_print(prefix + ':' + str(struct.i))
-            debug_stop('jit-backend-counts')
 
     def _build_float_constants(self):
         datablockwrapper = MachineDataBlockWrapper(self.cpu.asmmemmgr, [])
@@ -553,11 +533,7 @@ class Assembler386(BaseAssembler):
         rawstart = self.materialize_loop(original_loop_token)
         self.patch_stack_checks(frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE,
                                 rawstart)
-        debug_start("jit-backend-addr")
-        debug_print("bridge out of Guard 0x%x has address 0x%x to 0x%x" %
-                    (r_uint(descr_number), r_uint(rawstart),
-                     r_uint(rawstart + codeendpos)))
-        debug_stop("jit-backend-addr")
+        debug_bridge(descr_number, rawstart, codeendpos)
         self.patch_pending_failure_recoveries(rawstart)
         # patch the jump from original guard
         self.patch_jump_for_descr(faildescr, rawstart)
@@ -701,22 +677,6 @@ class Assembler386(BaseAssembler):
         allblocks = self.get_asmmemmgr_blocks(looptoken)
         return self.mc.materialize(self.cpu.asmmemmgr, allblocks,
                                    self.cpu.gc_ll_descr.gcrootmap)
-
-    def _register_counter(self, tp, number, token):
-        # YYY very minor leak -- we need the counters to stay alive
-        # forever, just because we want to report them at the end
-        # of the process
-        struct = lltype.malloc(DEBUG_COUNTER, flavor='raw',
-                               track_allocation=False)
-        struct.i = 0
-        struct.type = tp
-        if tp == 'b' or tp == 'e':
-            struct.number = number
-        else:
-            assert token
-            struct.number = compute_unique_id(token)
-        self.loop_run_counters.append(struct)
-        return struct
  
     def patch_jump_for_descr(self, faildescr, adr_new_target):
         adr_jump_offset = faildescr._x86_adr_jump_offset
@@ -745,24 +705,6 @@ class Assembler386(BaseAssembler):
         for targettoken in self.target_tokens_currently_compiling:
             targettoken._ll_loop_code += rawstart
         self.target_tokens_currently_compiling = None
-
-    @specialize.argtype(1)
-    def _inject_debugging_code(self, looptoken, operations, tp, number):
-        if self._debug:
-            s = 0
-            for op in operations:
-                s += op.getopnum()
-
-            newoperations = []
-            self._append_debugging_code(newoperations, tp, number,
-                                        None)
-            for op in operations:
-                newoperations.append(op)
-                if op.getopnum() == rop.LABEL:
-                    self._append_debugging_code(newoperations, 'l', number,
-                                                op.getdescr())
-            operations = newoperations
-        return operations
 
     def _assemble(self, regalloc, inputargs, operations):
         self._regalloc = regalloc

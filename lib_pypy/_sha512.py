@@ -30,23 +30,23 @@ Gamma1 = lambda x: (S(x, 19) ^ S(x, 61) ^ R(x, 6))
 
 def sha_transform(sha_info):
     W = []
-    
+
     d = sha_info['data']
     for i in xrange(0,16):
         W.append( (d[8*i]<<56) + (d[8*i+1]<<48) + (d[8*i+2]<<40) + (d[8*i+3]<<32) + (d[8*i+4]<<24) + (d[8*i+5]<<16) + (d[8*i+6]<<8) + d[8*i+7])
-    
+
     for i in xrange(16,80):
         W.append( (Gamma1(W[i - 2]) + W[i - 7] + Gamma0(W[i - 15]) + W[i - 16]) & 0xffffffffffffffff )
-    
+
     ss = sha_info['digest'][:]
-    
+
     def RND(a,b,c,d,e,f,g,h,i,ki):
         t0 = (h + Sigma1(e) + Ch(e, f, g) + ki + W[i]) & 0xffffffffffffffff
         t1 = (Sigma0(a) + Maj(a, b, c)) & 0xffffffffffffffff
         d = (d + t0) & 0xffffffffffffffff
         h = (t0 + t1) & 0xffffffffffffffff
         return d & 0xffffffffffffffff, h & 0xffffffffffffffff
-    
+
     ss[3], ss[7] = RND(ss[0],ss[1],ss[2],ss[3],ss[4],ss[5],ss[6],ss[7],0,0x428a2f98d728ae22)
     ss[2], ss[6] = RND(ss[7],ss[0],ss[1],ss[2],ss[3],ss[4],ss[5],ss[6],1,0x7137449123ef65cd)
     ss[1], ss[5] = RND(ss[6],ss[7],ss[0],ss[1],ss[2],ss[3],ss[4],ss[5],2,0xb5c0fbcfec4d3b2f)
@@ -127,8 +127,7 @@ def sha_transform(sha_info):
     ss[6], ss[2] = RND(ss[3],ss[4],ss[5],ss[6],ss[7],ss[0],ss[1],ss[2],77,0x597f299cfc657e2a)
     ss[5], ss[1] = RND(ss[2],ss[3],ss[4],ss[5],ss[6],ss[7],ss[0],ss[1],78,0x5fcb6fab3ad6faec)
     ss[4], ss[0] = RND(ss[1],ss[2],ss[3],ss[4],ss[5],ss[6],ss[7],ss[0],79,0x6c44198c4a475817)
-    
-    
+
     dig = []
     for i, x in enumerate(sha_info['digest']):
         dig.append( (x + ss[i]) & 0xffffffffffffffff )
@@ -167,36 +166,35 @@ def sha_update(sha_info, buffer):
     if clo < sha_info['count_lo']:
         sha_info['count_hi'] += 1
     sha_info['count_lo'] = clo
-    
+
     sha_info['count_hi'] += (count >> 29)
-    
+
     if sha_info['local']:
         i = SHA_BLOCKSIZE - sha_info['local']
         if i > count:
             i = count
-        
+
         # copy buffer
         for x in enumerate(buffer[buffer_idx:buffer_idx+i]):
             sha_info['data'][sha_info['local']+x[0]] = struct.unpack('B', x[1])[0]
-        
+
         count -= i
         buffer_idx += i
-        
+
         sha_info['local'] += i
         if sha_info['local'] == SHA_BLOCKSIZE:
             sha_transform(sha_info)
             sha_info['local'] = 0
         else:
             return
-    
+
     while count >= SHA_BLOCKSIZE:
         # copy buffer
         sha_info['data'] = [struct.unpack('B',c)[0] for c in buffer[buffer_idx:buffer_idx + SHA_BLOCKSIZE]]
         count -= SHA_BLOCKSIZE
         buffer_idx += SHA_BLOCKSIZE
         sha_transform(sha_info)
-    
-    
+
     # copy buffer
     pos = sha_info['local']
     sha_info['data'][pos:pos+count] = [struct.unpack('B',c)[0] for c in buffer[buffer_idx:buffer_idx + count]]
@@ -216,7 +214,7 @@ def sha_final(sha_info):
         sha_info['data'] = [0] * SHA_BLOCKSIZE
     else:
         sha_info['data'] = sha_info['data'][:count] + ([0] * (SHA_BLOCKSIZE - count))
-    
+
     sha_info['data'][112] = 0;
     sha_info['data'][113] = 0;
     sha_info['data'][114] = 0;
@@ -225,7 +223,7 @@ def sha_final(sha_info):
     sha_info['data'][117] = 0;
     sha_info['data'][118] = 0;
     sha_info['data'][119] = 0;
-    
+
     sha_info['data'][120] = (hi_bit_count >> 24) & 0xff
     sha_info['data'][121] = (hi_bit_count >> 16) & 0xff
     sha_info['data'][122] = (hi_bit_count >>  8) & 0xff
@@ -234,9 +232,9 @@ def sha_final(sha_info):
     sha_info['data'][125] = (lo_bit_count >> 16) & 0xff
     sha_info['data'][126] = (lo_bit_count >>  8) & 0xff
     sha_info['data'][127] = (lo_bit_count >>  0) & 0xff
-    
+
     sha_transform(sha_info)
-    
+
     dig = []
     for i in sha_info['digest']:
         dig.extend([ ((i>>56) & 0xff), ((i>>48) & 0xff), ((i>>40) & 0xff), ((i>>32) & 0xff), ((i>>24) & 0xff), ((i>>16) & 0xff), ((i>>8) & 0xff), (i & 0xff) ])
@@ -250,13 +248,13 @@ class sha512(object):
         self._sha = sha_init()
         if s:
             sha_update(self._sha, getbuf(s))
-    
+
     def update(self, s):
         sha_update(self._sha, getbuf(s))
-    
+
     def digest(self):
         return sha_final(self._sha.copy())[:self._sha['digestsize']]
-    
+
     def hexdigest(self):
         return ''.join(['%.2x' % ord(i) for i in self.digest()])
 
@@ -279,12 +277,14 @@ class sha384(sha512):
         return new
 
 def test():
+    import _sha512
+
     a_str = "just a test string"
-    
+
     assert _sha512.sha512().hexdigest() == sha512().hexdigest()
     assert _sha512.sha512(a_str).hexdigest() == sha512(a_str).hexdigest()
     assert _sha512.sha512(a_str*7).hexdigest() == sha512(a_str*7).hexdigest()
-    
+
     s = sha512(a_str)
     s.update(a_str)
     assert _sha512.sha512(a_str+a_str).hexdigest() == s.hexdigest()

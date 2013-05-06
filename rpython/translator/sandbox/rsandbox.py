@@ -3,7 +3,10 @@ In place of real calls to any external function, this code builds
 trampolines that marshal their input arguments, dump them to STDOUT,
 and wait for an answer on STDIN.  Enable with 'translate.py --sandbox'.
 """
-from rpython.rlib import rmarshal
+import py
+
+from rpython.rlib import rmarshal, types
+from rpython.rlib.signature import signature
 
 # ____________________________________________________________
 #
@@ -12,12 +15,10 @@ from rpython.rlib import rmarshal
 
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.annotator import model as annmodel
-from rpython.rlib.unroll import unrolling_iterable
-from rpython.rlib.objectmodel import CDefinedIntSymbolic
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rtyper.annlowlevel import MixLevelHelperAnnotator
 from rpython.tool.ansi_print import ansi_log
-import py
+
 log = py.log.Producer("sandbox")
 py.log.setconsumer("sandbox", ansi_log)
 
@@ -27,13 +28,15 @@ py.log.setconsumer("sandbox", ansi_log)
 ll_read_not_sandboxed = rffi.llexternal('read',
                                         [rffi.INT, rffi.CCHARP, rffi.SIZE_T],
                                         rffi.SIZE_T,
-                                        sandboxsafe = True)
+                                        sandboxsafe=True)
 
 ll_write_not_sandboxed = rffi.llexternal('write',
                                          [rffi.INT, rffi.CCHARP, rffi.SIZE_T],
                                          rffi.SIZE_T,
-                                         sandboxsafe = True)
+                                         sandboxsafe=True)
 
+
+@signature(types.int(), types.ptr(rffi.CCHARP.TO), types.int(), returns=types.none())
 def writeall_not_sandboxed(fd, buf, length):
     while length > 0:
         size = rffi.cast(rffi.SIZE_T, length)
@@ -43,22 +46,6 @@ def writeall_not_sandboxed(fd, buf, length):
         length -= count
         buf = lltype.direct_ptradd(lltype.direct_arrayitems(buf), count)
         buf = rffi.cast(rffi.CCHARP, buf)
-writeall_not_sandboxed._annenforceargs_ = [int, rffi.CCHARP, int]
-
-##def readall_not_sandboxed(fd, length):
-##    buf = lltype.malloc(rffi.CCHARP.TO, length, flavor='raw')
-##    p = buf
-##    got = 0
-##    while got < length:
-##        size1 = rffi.cast(rffi.SIZE_T, length - got)
-##        count = rffi.cast(lltype.Signed, ll_read_not_sandboxed(fd, p, size1))
-##        if count <= 0:
-##            raise IOError
-##        got += count
-##        p = lltype.direct_ptradd(lltype.direct_arrayitems(p), count)
-##        p = rffi.cast(rffi.CCHARP, p)
-##    return buf
-##readall_not_sandboxed._annenforceargs_ = [int, int]
 
 
 class FdLoader(rmarshal.Loader):
@@ -112,13 +99,14 @@ def reraise_error(error, loader):
     elif error == 8: raise IndexError
     else:            raise RuntimeError
 
+
+@signature(types.str(), returns=types.none())
 def not_implemented_stub(msg):
     STDERR = 2
     buf = rffi.str2charp(msg + '\n')
     writeall_not_sandboxed(STDERR, buf, len(msg) + 1)
     rffi.free_charp(buf)
     raise RuntimeError(msg)  # XXX in RPython, the msg is ignored at the moment
-not_implemented_stub._annenforceargs_ = [str]
 
 dump_string = rmarshal.get_marshaller(str)
 load_int    = rmarshal.get_loader(int)

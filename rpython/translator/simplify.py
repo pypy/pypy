@@ -6,10 +6,10 @@ simplify_graph() applies all simplifications defined in this file.
 """
 
 import py
+
 from rpython.flowspace import operation
-from rpython.flowspace.model import (SpaceOperation, Variable, Constant, Block,
-                                      Link, c_last_exception, checkgraph,
-                                      mkentrymap)
+from rpython.flowspace.model import (SpaceOperation, Variable, Constant,
+                                     c_last_exception, checkgraph, mkentrymap)
 from rpython.rlib import rarithmetic
 from rpython.translator import unsimplify
 from rpython.translator.backendopt import ssa
@@ -21,7 +21,7 @@ def get_funcobj(func):
     Return an object which is supposed to have attributes such as graph and
     _callable
     """
-    if hasattr(func, '_obj'): 
+    if hasattr(func, '_obj'):
         return func._obj # lltypesystem
     else:
         return func # ootypesystem
@@ -489,7 +489,7 @@ def transform_dead_op_vars_in_blocks(blocks, graphs, translator=None):
                     pending.append(prevvar)
 
     flow_read_var_backward(read_vars)
-    
+
     for block in blocks:
 
         # look for removable operations whose result is never used
@@ -501,7 +501,7 @@ def transform_dead_op_vars_in_blocks(blocks, graphs, translator=None):
                 elif op.opname == 'simple_call': 
                     # XXX we want to have a more effective and safe 
                     # way to check if this operation has side effects
-                    # ... 
+                    # ...
                     if op.args and isinstance(op.args[0], Constant):
                         func = op.args[0].value
                         try:
@@ -956,7 +956,6 @@ class ListComprehensionDetector(object):
                 break
         else:
             raise AssertionError("lost 'iter' operation")
-        vlength = Variable('maxlength')
         vlist2 = Variable(vlist)
         chint = Constant({'maxlength': True})
         iterblock.operations += [
@@ -1018,5 +1017,4 @@ def cleanup_graph(graph):
     eliminate_empty_blocks(graph)
     join_blocks(graph)
     remove_identical_vars(graph)
-    checkgraph(graph)    
-    
+    checkgraph(graph)
