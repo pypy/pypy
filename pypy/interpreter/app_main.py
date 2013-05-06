@@ -120,8 +120,7 @@ def print_info(*args):
     except AttributeError:
         print >> sys.stderr, 'no translation information found'
     else:
-        optitems = options.items()
-        optitems.sort()
+        optitems = sorted(options.items())
         current = []
         for key, value in optitems:
             group = key.split('.')
@@ -151,8 +150,7 @@ def _print_jit_help():
     except ImportError:
         print >> sys.stderr, "No jit support in %s" % (sys.executable,)
         return
-    items = pypyjit.defaults.items()
-    items.sort()
+    items = sorted(pypyjit.defaults.items())
     print 'Advanced JIT options: a comma-separated list of OPTION=VALUE:'
     for key, value in items:
         print
@@ -218,10 +216,7 @@ def we_are_translated():
     # app-level, very different from rpython.rlib.objectmodel.we_are_translated
     return hasattr(sys, 'pypy_translation_info')
 
-if 'nt' in sys.builtin_module_names:
-    IS_WINDOWS = True
-else:
-    IS_WINDOWS = False
+IS_WINDOWS = 'nt' in sys.builtin_module_names
 
 def setup_and_fix_paths(ignore_environment=False, **extra):
     import os
@@ -475,7 +470,7 @@ def run_command_line(interactive,
                      unbuffered,
                      ignore_environment,
                      **ignored):
-    # with PyPy in top of CPython we can only have around 100 
+    # with PyPy in top of CPython we can only have around 100
     # but we need more in the translated PyPy for the compiler package
     if '__pypy__' not in sys.builtin_module_names:
         sys.setrecursionlimit(5000)
@@ -564,7 +559,7 @@ def run_command_line(interactive,
             if interactive or sys.stdin.isatty():
                 # If stdin is a tty or if "-i" is specified, we print
                 # a banner and run $PYTHONSTARTUP.
-                print_banner()
+                print_banner(not no_site)
                 python_startup = readenv and os.getenv('PYTHONSTARTUP')
                 if python_startup:
                     try:
@@ -645,10 +640,11 @@ def run_command_line(interactive,
 
     return status
 
-def print_banner():
+def print_banner(copyright):
     print 'Python %s on %s' % (sys.version, sys.platform)
-    print ('Type "help", "copyright", "credits" or '
-           '"license" for more information.')
+    if copyright:
+        print ('Type "help", "copyright", "credits" or '
+               '"license" for more information.')
 
 STDLIB_WARNING = """\
 debug: WARNING: Library path not found, using compiled-in sys.path.
@@ -710,7 +706,7 @@ if __name__ == '__main__':
         from os.path import abspath, join, dirname as dn
         thisfile = abspath(__file__)
         root = dn(dn(dn(thisfile)))
-        return [join(root, 'lib-python', '2.7'),
+        return [join(root, 'lib-python', '2'),
                 join(root, 'lib_pypy')]
 
     def pypy_resolvedirof(s):

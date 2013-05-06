@@ -162,7 +162,7 @@ class RPythonTyper(object):
     def makekey(self, s_obj):
         return pair(self.type_system, s_obj).rtyper_makekey(self)
 
-    def makerepr(self, s_obj):
+    def _makerepr(self, s_obj):
         return pair(self.type_system, s_obj).rtyper_makerepr(self)
 
     def getrepr(self, s_obj):
@@ -173,7 +173,7 @@ class RPythonTyper(object):
             result = self.reprs[key]
         except KeyError:
             self.reprs[key] = None
-            result = self.makerepr(s_obj)
+            result = self._makerepr(s_obj)
             assert not isinstance(result.lowleveltype, ContainerType), (
                 "missing a Ptr in the type specification "
                 "of %s:\n%r" % (s_obj, result.lowleveltype))

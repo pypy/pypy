@@ -1,7 +1,14 @@
-import os, sys
+import cStringIO
+import os
+import sys
+import traceback
+from errno import EINTR
+
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import we_are_translated
-from errno import EINTR
+
+from pypy.interpreter import debug
+
 
 AUTO_DEBUG = os.getenv('PYPY_DEBUG')
 RECORD_INTERPLEVEL_TRACEBACK = True
@@ -61,7 +68,7 @@ class OperationError(Exception):
         if space is None:
             # this part NOT_RPYTHON
             exc_typename = str(self.w_type)
-            exc_value    = str(w_value)
+            exc_value = str(w_value)
         else:
             w = space.wrap
             if space.is_w(space.type(self.w_type), space.w_str):
@@ -95,7 +102,8 @@ class OperationError(Exception):
 
     def print_application_traceback(self, space, file=None):
         "NOT_RPYTHON: Dump a standard application-level traceback."
-        if file is None: file = sys.stderr
+        if file is None:
+            file = sys.stderr
         self.print_app_tb_only(file)
         print >> file, self.errorstr(space)
 
@@ -130,8 +138,8 @@ class OperationError(Exception):
     def print_detailed_traceback(self, space=None, file=None):
         """NOT_RPYTHON: Dump a nice detailed interpreter- and
         application-level traceback, useful to debug the interpreter."""
-        import traceback, cStringIO
-        if file is None: file = sys.stderr
+        if file is None:
+            file = sys.stderr
         f = cStringIO.StringIO()
         for i in range(len(self.debug_excs)-1, -1, -1):
             print >> f, "Traceback (interpreter-level):"
@@ -144,7 +152,6 @@ class OperationError(Exception):
         self.print_app_tb_only(file)
         print >> file, '(application-level)', self.errorstr(space)
         if AUTO_DEBUG:
-            import debug
             debug.fire(self)
 
     @jit.unroll_safe
@@ -174,7 +181,7 @@ class OperationError(Exception):
         #  ("string", ...)            ("string", ...)              deprecated
         #  (inst, None)               (inst.__class__, inst)          no
         #
-        w_type  = self.w_type
+        w_type = self.w_type
         w_value = self.get_w_value(space)
         while space.is_true(space.isinstance(w_type, space.w_tuple)):
             w_type = space.getitem(w_type, space.wrap(0))
@@ -211,7 +218,7 @@ class OperationError(Exception):
             w_value = w_inst
             w_type = w_instclass
 
-        self.w_type   = w_type
+        self.w_type = w_type
         self._w_value = w_value
 
     def _exception_getclass(self, space, w_inst):
@@ -327,7 +334,7 @@ def get_operrcls2(valuefmt):
         from rpython.rlib.unroll import unrolling_iterable
         attrs = ['x%d' % i for i in range(len(formats))]
         entries = unrolling_iterable(enumerate(attrs))
-        #
+
         class OpErrFmt(OperationError):
             def __init__(self, w_type, strings, *args):
                 self.setup(w_type)
@@ -336,6 +343,7 @@ def get_operrcls2(valuefmt):
                 for i, attr in entries:
                     setattr(self, attr, args[i])
                 assert w_type is not None
+
             def _compute_value(self):
                 lst = [None] * (len(formats) + len(formats) + 1)
                 for i, attr in entries:

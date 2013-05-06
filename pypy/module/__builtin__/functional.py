@@ -134,9 +134,9 @@ def range_with_longs(space, w_start, w_stop, w_step):
     return space.newlist(res_w)
 
 min_jitdriver = jit.JitDriver(name='min',
-        greens=['w_type'], reds='auto')
+        greens=['has_key', 'has_item', 'w_type'], reds='auto')
 max_jitdriver = jit.JitDriver(name='max',
-        greens=['w_type'], reds='auto')
+        greens=['has_key', 'has_item', 'w_type'], reds='auto')
 
 def make_min_max(unroll):
     @specialize.arg(2)
@@ -166,23 +166,26 @@ def make_min_max(unroll):
 
         w_iter = space.iter(w_sequence)
         w_type = space.type(w_iter)
+        has_key = w_key is not None
+        has_item = False
         w_max_item = None
         w_max_val = None
         while True:
             if not unroll:
-                jitdriver.jit_merge_point(w_type=w_type)
+                jitdriver.jit_merge_point(has_key=has_key, has_item=has_item, w_type=w_type)
             try:
                 w_item = space.next(w_iter)
             except OperationError, e:
                 if not e.match(space, space.w_StopIteration):
                     raise
                 break
-            if w_key is not None:
+            if has_key:
                 w_compare_with = space.call_function(w_key, w_item)
             else:
                 w_compare_with = w_item
-            if w_max_item is None or \
+            if not has_item or \
                     space.is_true(compare(w_compare_with, w_max_val)):
+                has_item = True
                 w_max_item = w_item
                 w_max_val = w_compare_with
         if w_max_item is None:

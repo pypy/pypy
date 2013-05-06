@@ -13,7 +13,7 @@ from rpython.flowspace.model import *
 from rpython.rlib.rarithmetic import r_uint, base_int, r_longlong, r_ulonglong
 from rpython.rlib.rarithmetic import r_singlefloat
 from rpython.rlib import objectmodel
-from rpython.flowspace.objspace import FlowObjSpace, FlowingError
+from rpython.flowspace.objspace import build_flow, FlowingError
 
 from rpython.translator.test import snippet
 
@@ -40,9 +40,6 @@ def somedict(s_key, s_value):
 
 
 class TestAnnotateTestCase:
-    def setup_class(cls):
-        cls.space = FlowObjSpace()
-
     def teardown_method(self, meth):
         assert annmodel.s_Bool == annmodel.SomeBool()
 
@@ -60,7 +57,7 @@ class TestAnnotateTestCase:
         except AttributeError:
             pass
         name = func.func_name
-        funcgraph = self.space.build_flow(func)
+        funcgraph = build_flow(func)
         funcgraph.source = inspect.getsource(func)
         return funcgraph
 
@@ -449,6 +446,25 @@ class TestAnnotateTestCase:
         s_item = s.listdef.listitem.s_value
         assert s_item.no_nul
 
+    def test_str_split_nul(self):
+        def f(n):
+            return n.split('\0')[0]
+        a = self.RPythonAnnotator()
+        a.translator.config.translation.check_str_without_nul = True
+        s = a.build_types(f, [annmodel.SomeString(no_nul=False, can_be_None=False)])
+        assert isinstance(s, annmodel.SomeString)
+        assert not s.can_be_None
+        assert s.no_nul
+
+        def g(n):
+            return n.split('\0', 1)[0]
+        a = self.RPythonAnnotator()
+        a.translator.config.translation.check_str_without_nul = True
+        s = a.build_types(g, [annmodel.SomeString(no_nul=False, can_be_None=False)])
+        assert isinstance(s, annmodel.SomeString)
+        assert not s.can_be_None
+        assert not s.no_nul
+
     def test_str_splitlines(self):
         a = self.RPythonAnnotator()
         def f(a_str):
@@ -775,7 +791,7 @@ class TestAnnotateTestCase:
         assert isinstance(s, annmodel.SomePBC)
         assert s.const == myobj
 
-    def test_cleanup_protocol(self): 
+    def test_cleanup_protocol(self):
         class Stuff:
             def __init__(self):
                 self.called = False
@@ -3754,7 +3770,7 @@ class TestAnnotateTestCase:
 
     def test_join_none_and_nonnull(self):
         from rpython.rlib.rstring import assert_str0
-        
+
         def f(i):
             a = str(i)
             a = assert_str0(a)
@@ -3764,6 +3780,19 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [int])
         assert isinstance(s, annmodel.SomeString)
         assert not s.can_be_None
+
+    def test_contains_no_nul(self):
+        def f(i):
+            if "\0" in i:
+                return None
+            else:
+                return i
+        a = self.RPythonAnnotator()
+        a.translator.config.translation.check_str_without_nul = True
+        s = a.build_types(f, [annmodel.SomeString(no_nul=False)])
+        assert isinstance(s, annmodel.SomeString)
+        assert s.can_be_None
+        assert s.no_nul
 
     def test_no___call__(self):
         class X(object):
@@ -3798,7 +3827,7 @@ class TestAnnotateTestCase:
         class A(object):
             def __iter__(self):
                 return self
-        
+
         def fn():
             return iter(A())
 
@@ -3857,7 +3886,7 @@ class TestAnnotateTestCase:
                 return True
 
         x = X()
-        
+
         def f(i):
             if i:
                 x1 = x

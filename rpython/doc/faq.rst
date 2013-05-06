@@ -195,13 +195,14 @@ No, you have to rebuild the entire interpreter.  This means two things:
 * Second, and perhaps most important: do you have a really good reason
   for writing the module in RPython in the first place?  Nowadays you
   should really look at alternatives, like writing it in pure Python,
-  using ctypes if it needs to call C code.  Other alternatives are being
-  developed too (as of summer 2011), like a Cython binding.
+  using cffi_ if it needs to call C code.
 
 In this context it is not that important to be able to translate
 RPython modules independently of translating the complete interpreter.
 (It could be done given enough efforts, but it's a really serious
 undertaking.  Consider it as quite unlikely for now.)
+
+.. _cffi: http://cffi.readthedocs.org/
 
 --------------------------------------------------------------------
 Why does the translator draw a Mandelbrot fractal while translating?

@@ -95,7 +95,7 @@ class SomeWeakValueDict(annmodel.SomeObject):
     def rtyper_makerepr(self, rtyper):
         from rpython.rlib import _rweakvaldict
         return _rweakvaldict.WeakValueDictRepr(rtyper,
-                                               rtyper.makerepr(self.s_key))
+                                               rtyper.getrepr(self.s_key))
 
     def rtyper_makekey_ex(self, rtyper):
         return self.__class__,

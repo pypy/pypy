@@ -4,7 +4,7 @@
 import py
 import sys, os, signal, thread, time, codecs
 from dotviewer.conftest import option
-from dotviewer.drawgraph import RAW_ENCODING
+from dotviewer.strunicode import RAW_ENCODING
 
 SOURCE1 = u"""digraph G{
 λ -> b

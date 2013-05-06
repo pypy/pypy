@@ -14,7 +14,8 @@ from pypy.module.micronumpy.interp_support import unwrap_axis_arg
 from pypy.module.micronumpy.appbridge import get_appbridge_cache
 from pypy.module.micronumpy import loop
 from pypy.module.micronumpy.dot import match_dot_shapes
-from pypy.module.micronumpy.interp_arrayops import repeat
+from pypy.module.micronumpy.interp_arrayops import repeat, choose
+from pypy.module.micronumpy.arrayimpl import scalar
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rlib import jit
 from rpython.rlib.rstring import StringBuilder
@@ -79,7 +80,11 @@ class __extend__(W_NDimArray):
             raise OperationError(space.w_ValueError,
                                  space.wrap("index out of range for array"))
         size = loop.count_all_true(arr)
-        res = W_NDimArray.from_shape([size], self.get_dtype())
+        if len(arr.get_shape()) == 1:
+            res_shape = [size] + self.get_shape()[1:]
+        else:
+            res_shape = [size]
+        res = W_NDimArray.from_shape(res_shape, self.get_dtype())
         return loop.getitem_filter(res, self, arr)
 
     def setitem_filter(self, space, idx, val):
@@ -136,6 +141,10 @@ class __extend__(W_NDimArray):
     def getitem_array_int(self, space, w_index):
         prefix, res_shape, iter_shape, indexes = \
                 self._prepare_array_index(space, w_index)
+        if iter_shape is None:
+            # w_index is a list of slices, return a view
+            chunks = self.implementation._prepare_slice_args(space, w_index)
+            return chunks.apply(self)
         shape = res_shape + self.get_shape()[len(indexes):]
         res = W_NDimArray.from_shape(shape, self.get_dtype(), self.get_order())
         if not res.get_size():
@@ -147,8 +156,15 @@ class __extend__(W_NDimArray):
         val_arr = convert_to_array(space, w_value)
         prefix, _, iter_shape, indexes = \
                 self._prepare_array_index(space, w_index)
-        return loop.setitem_array_int(space, self, iter_shape, indexes, val_arr,
-                                      prefix)
+        if iter_shape is None:
+            # w_index is a list of slices
+            w_value = convert_to_array(space, w_value)
+            chunks = self.implementation._prepare_slice_args(space, w_index)
+            view = chunks.apply(self)
+            view.implementation.setslice(space, w_value)
+            return
+        loop.setitem_array_int(space, self, iter_shape, indexes, val_arr,
+                               prefix)
 
     def descr_getitem(self, space, w_idx):
         if (isinstance(w_idx, W_NDimArray) and
@@ -169,9 +185,9 @@ class __extend__(W_NDimArray):
 
     def descr_setitem(self, space, w_idx, w_value):
         if (isinstance(w_idx, W_NDimArray) and
-            w_idx.get_dtype().is_bool_type()):
-            return self.setitem_filter(space, w_idx,
-                                       convert_to_array(space, w_value))
+                w_idx.get_dtype().is_bool_type()):
+            self.setitem_filter(space, w_idx, convert_to_array(space, w_value))
+            return
         try:
             self.implementation.descr_setitem(space, self, w_idx, w_value)
         except ArrayArgumentException:
@@ -212,9 +228,10 @@ class __extend__(W_NDimArray):
         s.append('])')
         return s.build()
 
-    def create_iter(self, shape=None):
+    def create_iter(self, shape=None, backward_broadcast=False):
         assert isinstance(self.implementation, BaseArrayImplementation)
-        return self.implementation.create_iter(shape)
+        return self.implementation.create_iter(shape=shape,
+                                   backward_broadcast=backward_broadcast)
 
     def create_axis_iter(self, shape, dim, cum):
         return self.implementation.create_axis_iter(shape, dim, cum)
@@ -351,8 +368,11 @@ class __extend__(W_NDimArray):
         if not space.is_none(w_axis):
             raise OperationError(space.w_NotImplementedError,
                                  space.wrap("axis unsupported for compress"))
+            arr = self
+        else:
+            arr = self.descr_reshape(space, [space.wrap(-1)])
         index = convert_to_array(space, w_obj)
-        return self.getitem_filter(space, index)
+        return arr.getitem_filter(space, index)
 
     def descr_flatten(self, space, w_order=None):
         if self.is_scalar():
@@ -452,13 +472,8 @@ class __extend__(W_NDimArray):
             return res
 
     @unwrap_spec(mode=str)
-    def descr_choose(self, space, w_choices, mode='raise', w_out=None):
-        if space.is_none(w_out):
-            w_out = None
-        elif not isinstance(w_out, W_NDimArray):
-            raise OperationError(space.w_TypeError, space.wrap(
-                "return arrays must be of ArrayType"))
-        return interp_arrayops.choose(space, self, w_choices, w_out, mode)
+    def descr_choose(self, space, w_choices, w_out=None, mode='raise'):
+        return choose(space, self, w_choices, w_out, mode)
 
     def descr_clip(self, space, w_min, w_max, w_out=None):
         if space.is_none(w_out):
@@ -753,6 +768,15 @@ class __extend__(W_NDimArray):
     descr_argmax = _reduce_argmax_argmin_impl("max")
     descr_argmin = _reduce_argmax_argmin_impl("min")
 
+    def descr_int(self, space):
+        shape = self.get_shape()
+        if len(shape) == 0:
+            assert isinstance(self.implementation, scalar.Scalar)
+            return space.int(space.wrap(self.implementation.get_scalar_value()))
+        if shape == [1]:
+            return space.int(self.descr_getitem(space, space.wrap(0)))
+        raise OperationError(space.w_TypeError, space.wrap("only length-1 arrays can be converted to Python scalars"))
+
 
 @unwrap_spec(offset=int)
 def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
@@ -793,6 +817,7 @@ W_NDimArray.typedef = TypeDef(
 
     __repr__ = interp2app(W_NDimArray.descr_repr),
     __str__ = interp2app(W_NDimArray.descr_str),
+    __int__ = interp2app(W_NDimArray.descr_int),
 
     __pos__ = interp2app(W_NDimArray.descr_pos),
     __neg__ = interp2app(W_NDimArray.descr_neg),
@@ -932,7 +957,8 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
         return w_object
 
     shape, elems_w = find_shape_and_elems(space, w_object, dtype)
-    if dtype is None:
+    if dtype is None or (
+                 dtype.is_str_or_unicode() and dtype.itemtype.get_size() < 1):
         for w_elem in elems_w:
             dtype = interp_ufuncs.find_dtype_for_scalar(space, w_elem,
                                                         dtype)
@@ -941,6 +967,9 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
 
         if dtype is None:
             dtype = interp_dtype.get_dtype_cache(space).w_float64dtype
+    if dtype.is_str_or_unicode() and dtype.itemtype.get_size() < 1:
+        # promote S0 -> S1, U0 -> U1
+        dtype = interp_dtype.variable_dtype(space, dtype.char + '1')
     if ndmin > len(shape):
         shape = [1] * (ndmin - len(shape)) + shape
     arr = W_NDimArray.from_shape(shape, dtype, order=order)

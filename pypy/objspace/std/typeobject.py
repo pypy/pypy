@@ -161,7 +161,7 @@ class W_TypeObject(W_Object):
         generic mutation.
         """
         space = w_self.space
-        assert w_self.is_heaptype()
+        assert w_self.is_heaptype() or w_self.is_cpytype()
         if (not space.config.objspace.std.withtypeversion and
             not space.config.objspace.std.getattributeshortcut and
             not space.config.objspace.std.withidentitydict and

@@ -19,11 +19,6 @@ class W_Continulet(Wrappable):
         #  - normal:      self.sthread != None, not is_empty_handle(self.h)
         #  - finished:    self.sthread != None, is_empty_handle(self.h)
 
-    def __del__(self):
-        sthread = self.sthread
-        if sthread is not None and not sthread.is_empty_handle(self.h):
-            sthread.destroy(self.h)
-
     def check_sthread(self):
         ec = self.space.getexecutioncontext()
         if ec.stacklet_thread is not self.sthread:
@@ -34,7 +29,6 @@ class W_Continulet(Wrappable):
         if self.sthread is not None:
             raise geterror(self.space, "continulet already __init__ialized")
         sthread = build_sthread(self.space)
-        workaround_disable_jit(sthread)
         #
         # hackish: build the frame "by hand", passing it the correct arguments
         space = self.space
@@ -77,8 +71,7 @@ class W_Continulet(Wrappable):
                 global_state.clear()
                 raise geterror(self.space, "continulet already finished")
         self.check_sthread()
-        workaround_disable_jit(self.sthread)
-        #
+
         global_state.origin = self
         if to is None:
             # simple switch: going to self.h
@@ -270,16 +263,6 @@ def build_sthread(space):
     if not sthread:
         sthread = ec.stacklet_thread = SThread(space, ec)
     return sthread
-
-def workaround_disable_jit(sthread):
-    # A bad workaround to kill the JIT anywhere in this thread.
-    # This forces all the frames.  It's a bad workaround because
-    # it takes O(depth) time, and it will cause some "abort:
-    # vable escape" in the JIT.  The goal is to prevent any frame
-    # from being still virtuals, because the JIT generates code
-    # to un-virtualizable them "on demand" by loading values based
-    # on FORCE_TOKEN, which is an address in the stack.
-    sthread.ec.force_all_frames()
 
 # ____________________________________________________________
 

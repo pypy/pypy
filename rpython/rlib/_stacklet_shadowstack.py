@@ -79,24 +79,17 @@ class StackletGcRootFinder:
         return get_result_suspstack(h)
     new._dont_inline_ = True
 
-    def switch(thrd, suspstack):
+    def switch(suspstack):
         # suspstack has a handle to target, i.e. where to switch to
         ll_assert(suspstack != gcrootfinder.oldsuspstack,
                   "stacklet: invalid use")
         gcrootfinder.newsuspstack = suspstack
-        thread_handle = thrd._thrd
         h = llop.gc_shadowstackref_context(llmemory.Address, suspstack)
         h = llmemory.cast_adr_to_ptr(h, _c.handle)
         prepare_old_suspstack()
-        h = _c.switch(thread_handle, h)
+        h = _c.switch(h)
         return get_result_suspstack(h)
     switch._dont_inline_ = True
-
-    def destroy(thrd, suspstack):
-        h = llop.gc_shadowstackref_context(llmemory.Address, suspstack)
-        h = llmemory.cast_adr_to_ptr(h, _c.handle)
-        llop.gc_shadowstackref_destroy(lltype.Void, suspstack)
-        _c.destroy(thrd._thrd, h)
 
     def is_empty_handle(suspstack):
         return not suspstack

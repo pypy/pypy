@@ -1,19 +1,15 @@
-import sys, os
-from rpython.jit.metainterp.history import Box, Const, ConstInt, getkind
-from rpython.jit.metainterp.history import BoxInt, BoxPtr, BoxFloat
-from rpython.jit.metainterp.history import INT, REF, FLOAT, HOLE
-from rpython.jit.metainterp.history import AbstractDescr
-from rpython.jit.metainterp.resoperation import rop
-from rpython.jit.metainterp import jitprof
 from rpython.jit.codewriter.effectinfo import EffectInfo
-from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rstr
-from rpython.rtyper import annlowlevel
+from rpython.jit.metainterp import jitprof
+from rpython.jit.metainterp.history import (Box, Const, ConstInt, getkind,
+    BoxInt, BoxPtr, BoxFloat, INT, REF, FLOAT, AbstractDescr)
+from rpython.jit.metainterp.resoperation import rop
 from rpython.rlib import rarithmetic, rstack
-from rpython.rlib.objectmodel import we_are_translated, specialize
-from rpython.rlib.objectmodel import compute_unique_id
-from rpython.rlib.debug import have_debug_prints, ll_assert
-from rpython.rlib.debug import debug_start, debug_stop, debug_print
-from rpython.jit.metainterp.optimize import InvalidLoop
+from rpython.rlib.objectmodel import we_are_translated, specialize, compute_unique_id
+from rpython.rlib.debug import (have_debug_prints, ll_assert, debug_start,
+    debug_stop, debug_print)
+from rpython.rtyper import annlowlevel
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rstr
+
 
 # Logic to encode the chain of frames and the state of the boxes at a
 # guard operation, and to decode it again.  This is a bit advanced,
@@ -39,11 +35,11 @@ def _ensure_parent_resumedata(framestack, n):
     target = framestack[n]
     if n == 0:
         return
-    back = framestack[n-1]
+    back = framestack[n - 1]
     if target.parent_resumedata_frame_info_list is not None:
         assert target.parent_resumedata_frame_info_list.pc == back.pc
         return
-    _ensure_parent_resumedata(framestack, n-1)
+    _ensure_parent_resumedata(framestack, n - 1)
     target.parent_resumedata_frame_info_list = FrameInfo(
                                          back.parent_resumedata_frame_info_list,
                                          back.jitcode,
@@ -106,8 +102,8 @@ def tag(value, tagbits):
 
 def untag(value):
     value = rarithmetic.widen(value)
-    tagbits = value&TAGMASK
-    return value>>2, tagbits
+    tagbits = value & TAGMASK
+    return value >> 2, tagbits
 
 def tagged_eq(x, y):
     # please rpython :(
@@ -126,8 +122,8 @@ TAGINT      = 1
 TAGBOX      = 2
 TAGVIRTUAL  = 3
 
-UNASSIGNED = tag(-1<<13, TAGBOX)
-UNASSIGNEDVIRTUAL = tag(-1<<13, TAGVIRTUAL)
+UNASSIGNED = tag(-1 << 13, TAGBOX)
+UNASSIGNEDVIRTUAL = tag(-1 << 13, TAGVIRTUAL)
 NULLREF = tag(-1, TAGCONST)
 UNINITIALIZED = tag(-2, TAGCONST)   # used for uninitialized string characters
 
@@ -191,7 +187,7 @@ class ResumeDataLoopMemo(object):
              return numb, liveboxes.copy(), v
 
         numb1, liveboxes, v = self.number(optimizer, snapshot.prev)
-        n = len(liveboxes)-v
+        n = len(liveboxes) - v
         boxes = snapshot.boxes
         length = len(boxes)
         numb = lltype.malloc(NUMBERING, length)
@@ -232,7 +228,7 @@ class ResumeDataLoopMemo(object):
         # returns a negative number
         if box in self.cached_boxes:
             num = self.cached_boxes[box]
-            boxes[-num-1] = box
+            boxes[-num - 1] = box
         else:
             boxes.append(box)
             num = -len(boxes)
@@ -261,8 +257,8 @@ class ResumeDataLoopMemo(object):
 
 _frame_info_placeholder = (None, 0, 0)
 
-class ResumeDataVirtualAdder(object):
 
+class ResumeDataVirtualAdder(object):
     def __init__(self, storage, memo):
         self.storage = storage
         self.memo = memo
@@ -333,7 +329,7 @@ class ResumeDataVirtualAdder(object):
 
         # collect liveboxes and virtuals
         n = len(liveboxes_from_env) - v
-        liveboxes = [None]*n
+        liveboxes = [None] * n
         self.vfieldboxes = {}
         for box, tagged in liveboxes_from_env.iteritems():
             i, tagbits = untag(tagged)
@@ -415,7 +411,7 @@ class ResumeDataVirtualAdder(object):
         # xxx heuristic a bit out of thin air
         failargs_limit = memo.metainterp_sd.options.failargs_limit
         if nliveboxes > (failargs_limit // 2):
-            if nholes > nliveboxes//3:
+            if nholes > nliveboxes // 3:
                 return True
         return False
 
@@ -434,10 +430,10 @@ class ResumeDataVirtualAdder(object):
                     raise TagOverflow
                 itemindex = rffi.cast(rffi.INT, itemindex)
                 #
-                rd_pendingfields[i].lldescr  = lldescr
-                rd_pendingfields[i].num      = num
+                rd_pendingfields[i].lldescr = lldescr
+                rd_pendingfields[i].num = num
                 rd_pendingfields[i].fieldnum = fieldnum
-                rd_pendingfields[i].itemindex= itemindex
+                rd_pendingfields[i].itemindex = itemindex
         self.storage.rd_pendingfields = rd_pendingfields
 
     def _gettagged(self, box):
@@ -694,6 +690,7 @@ class AbstractResumeDataReader(object):
     def _init(self, cpu, storage):
         self.cpu = cpu
         self.cur_numb = storage.rd_numb
+        self.count = storage.rd_count
         self.consts = storage.rd_consts
 
     def _prepare(self, storage):
@@ -729,10 +726,10 @@ class AbstractResumeDataReader(object):
     def _prepare_pendingfields(self, pendingfields):
         if pendingfields:
             for i in range(len(pendingfields)):
-                lldescr  = pendingfields[i].lldescr
-                num      = pendingfields[i].num
+                lldescr = pendingfields[i].lldescr
+                num = pendingfields[i].num
                 fieldnum = pendingfields[i].fieldnum
-                itemindex= pendingfields[i].itemindex
+                itemindex = pendingfields[i].itemindex
                 descr = annlowlevel.cast_base_ptr_to_instance(AbstractDescr,
                                                               lldescr)
                 struct = self.decode_ref(num)
@@ -791,6 +788,7 @@ def rebuild_from_resumedata(metainterp, storage, deadframe,
     metainterp.framestack.reverse()
     return resumereader.liveboxes, virtualizable_boxes, virtualref_boxes
 
+
 class ResumeDataBoxReader(AbstractResumeDataReader):
     unique_id = lambda: None
 
@@ -798,8 +796,7 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
         self._init(metainterp.cpu, storage)
         self.deadframe = deadframe
         self.metainterp = metainterp
-        count = metainterp.cpu.get_latest_value_count(deadframe)
-        self.liveboxes = [None] * count
+        self.liveboxes = [None] * storage.rd_count
         self._prepare(storage)
 
     def consume_boxes(self, info, boxes_i, boxes_r, boxes_f):
@@ -946,8 +943,10 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
 
     def decode_int(self, tagged):
         return self.decode_box(tagged, INT)
+
     def decode_ref(self, tagged):
         return self.decode_box(tagged, REF)
+
     def decode_float(self, tagged):
         return self.decode_box(tagged, FLOAT)
 
@@ -975,11 +974,11 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
             num += len(self.liveboxes)
             assert num >= 0
         if kind == INT:
-            box = BoxInt(self.cpu.get_latest_value_int(self.deadframe, num))
+            box = BoxInt(self.cpu.get_int_value(self.deadframe, num))
         elif kind == REF:
-            box = BoxPtr(self.cpu.get_latest_value_ref(self.deadframe, num))
+            box = BoxPtr(self.cpu.get_ref_value(self.deadframe, num))
         elif kind == FLOAT:
-            box = BoxFloat(self.cpu.get_latest_value_float(self.deadframe,num))
+            box = BoxFloat(self.cpu.get_float_value(self.deadframe, num))
         else:
             assert 0, "bad kind: %d" % ord(kind)
         self.liveboxes[num] = box
@@ -987,17 +986,23 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
 
     def decode_box_of_type(self, TYPE, tagged):
         kind = getkind(TYPE)
-        if kind == 'int':     kind = INT
-        elif kind == 'ref':   kind = REF
-        elif kind == 'float': kind = FLOAT
-        else: raise AssertionError(kind)
+        if kind == 'int':
+            kind = INT
+        elif kind == 'ref':
+            kind = REF
+        elif kind == 'float':
+            kind = FLOAT
+        else:
+            raise AssertionError(kind)
         return self.decode_box(tagged, kind)
     decode_box_of_type._annspecialcase_ = 'specialize:arg(1)'
 
     def write_an_int(self, index, box):
         self.boxes_i[index] = box
+
     def write_a_ref(self, index, box):
         self.boxes_r[index] = box
+
     def write_a_float(self, index, box):
         self.boxes_f[index] = box
 
@@ -1052,6 +1057,7 @@ def force_from_resumedata(metainterp_sd, storage, deadframe, vinfo, ginfo):
     resumereader.consume_vref_and_vable(vrefinfo, vinfo, ginfo)
     return resumereader.force_all_virtuals()
 
+
 class ResumeDataDirectReader(AbstractResumeDataReader):
     unique_id = lambda: None
     virtual_default = lltype.nullptr(llmemory.GCREF.TO)
@@ -1091,7 +1097,7 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
         assert (end & 1) == 0
         for i in range(0, end, 2):
             virtual = self.decode_ref(numb.nums[i])
-            vref = self.decode_ref(numb.nums[i+1])
+            vref = self.decode_ref(numb.nums[i + 1])
             # For each pair, we store the virtual inside the vref.
             vrefinfo.continue_tracing(vref, virtual)
 
@@ -1110,7 +1116,7 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
         else:
             # just jumped away from assembler (case 4 in the comment in
             # virtualizable.py) into tracing (case 2); check that vable_token
-            # is and stays 0.  Note the call to reset_vable_token() in
+            # is and stays NULL.  Note the call to reset_vable_token() in
             # warmstate.py.
             assert not vinfo.is_token_nonnull_gcref(virtualizable)
         return vinfo.write_from_resume_data_partial(virtualizable, self, numb)
@@ -1134,7 +1140,8 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
         self.cur_numb = numb.prev
         if self.resume_after_guard_not_forced != 2:
             end_vref = self.consume_vable_info(vinfo, numb)
-            if ginfo is not None: end_vref -= 1
+            if ginfo is not None:
+                end_vref -= 1
             self.consume_virtualref_info(vrefinfo, numb, end_vref)
 
     def allocate_with_vtable(self, known_class):
@@ -1244,8 +1251,8 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
         else:
             assert tag == TAGBOX
             if num < 0:
-                num += self.cpu.get_latest_value_count(self.deadframe)
-            return self.cpu.get_latest_value_int(self.deadframe, num)
+                num += self.count
+            return self.cpu.get_int_value(self.deadframe, num)
 
     def decode_ref(self, tagged):
         num, tag = untag(tagged)
@@ -1258,8 +1265,8 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
         else:
             assert tag == TAGBOX
             if num < 0:
-                num += self.cpu.get_latest_value_count(self.deadframe)
-            return self.cpu.get_latest_value_ref(self.deadframe, num)
+                num += self.count
+            return self.cpu.get_ref_value(self.deadframe, num)
 
     def decode_float(self, tagged):
         num, tag = untag(tagged)
@@ -1268,8 +1275,8 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
         else:
             assert tag == TAGBOX
             if num < 0:
-                num += self.cpu.get_latest_value_count(self.deadframe)
-            return self.cpu.get_latest_value_float(self.deadframe, num)
+                num += self.count
+            return self.cpu.get_float_value(self.deadframe, num)
 
     def write_an_int(self, index, int):
         self.blackholeinterp.setarg_i(index, int)
@@ -1319,10 +1326,10 @@ def dump_storage(storage, liveboxes):
         if storage.rd_pendingfields:
             debug_print('\tpending setfields')
             for i in range(len(storage.rd_pendingfields)):
-                lldescr  = storage.rd_pendingfields[i].lldescr
-                num      = storage.rd_pendingfields[i].num
+                lldescr = storage.rd_pendingfields[i].lldescr
+                num = storage.rd_pendingfields[i].num
                 fieldnum = storage.rd_pendingfields[i].fieldnum
-                itemindex= storage.rd_pendingfields[i].itemindex
+                itemindex = storage.rd_pendingfields[i].itemindex
                 debug_print("\t\t", str(lldescr), str(untag(num)), str(untag(fieldnum)), itemindex)
 
     debug_stop("jit-resume")

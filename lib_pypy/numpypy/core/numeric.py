@@ -1,16 +1,41 @@
-__all__ = ['asanyarray', 'base_repr',
+__all__ = [
+           'newaxis', 'ufunc',
+           'asarray', 'asanyarray', 'base_repr',
            'array_repr', 'array_str', 'set_string_function',
-           'array_equal', 'asarray', 'outer', 'identity']
+           'array_equal', 'outer', 'vdot', 'identity', 'little_endian',
+           'Inf', 'inf', 'infty', 'Infinity', 'nan', 'NaN', 'False_', 'True_',
+           'seterr',
+          ]
 
-from _numpypy import array, ndarray, int_, float_, bool_, flexible #, complex_# , longlong
-from _numpypy import concatenate
-from .fromnumeric import any
-import math
 import sys
 import multiarray
-from numpypy.core.arrayprint import array2string
+from multiarray import *
+del set_string_function
+del typeinfo
+import umath
+from umath import *
+import numerictypes
+from numerictypes import *
+
+def extend_all(module):
+    adict = {}
+    for a in __all__:
+        adict[a] = 1
+    try:
+        mall = getattr(module, '__all__')
+    except AttributeError:
+        mall = [k for k in module.__dict__.keys() if not k.startswith('_')]
+    for a in mall:
+        if a not in adict:
+            __all__.append(a)
+
+extend_all(multiarray)
+__all__.remove('typeinfo')
+extend_all(umath)
+extend_all(numerictypes)
 
 newaxis = None
+ufunc = type(sin)
 
 # XXX this file to be reviewed
 def seterr(**args):
@@ -120,6 +145,10 @@ def base_repr(number, base=2, padding=0):
     if number < 0:
         res.append('-')
     return ''.join(reversed(res or '0'))
+
+
+#Use numarray's printing function
+from arrayprint import array2string
 
 _typelessdata = [int_, float_]#, complex_]
 # XXX
@@ -306,6 +335,11 @@ def set_string_function(f, repr=True):
     else:
         return multiarray.set_string_function(f, repr)
 
+set_string_function(array_str, 0)
+set_string_function(array_repr, 1)
+
+little_endian = (sys.byteorder == 'little')
+
 def array_equal(a1, a2):
     """
     True if two arrays have the same shape and elements, False otherwise.
@@ -417,21 +451,6 @@ def asarray(a, dtype=None, order=None):
     """
     return array(a, dtype, copy=False, order=order)
 
-set_string_function(array_str, 0)
-set_string_function(array_repr, 1)
-
-little_endian = (sys.byteorder == 'little')
-
-Inf = inf = infty = Infinity = PINF = float('inf')
-NINF = float('-inf')
-PZERO = 0.0
-NZERO = -0.0
-nan = NaN = NAN = float('nan')
-False_ = bool_(False)
-True_ = bool_(True)
-e = math.e
-pi = math.pi
-
 def outer(a,b):
     """
     Compute the outer product of two vectors.
@@ -505,6 +524,60 @@ def outer(a,b):
     b = asarray(b)
     return a.ravel()[:,newaxis]*b.ravel()[newaxis,:]
 
+def vdot(a, b):
+    """
+    Return the dot product of two vectors.
+
+    The vdot(`a`, `b`) function handles complex numbers differently than
+    dot(`a`, `b`).  If the first argument is complex the complex conjugate
+    of the first argument is used for the calculation of the dot product.
+
+    Note that `vdot` handles multidimensional arrays differently than `dot`:
+    it does *not* perform a matrix product, but flattens input arguments
+    to 1-D vectors first. Consequently, it should only be used for vectors.
+
+    Parameters
+    ----------
+    a : array_like
+        If `a` is complex the complex conjugate is taken before calculation
+        of the dot product.
+    b : array_like
+        Second argument to the dot product.
+
+    Returns
+    -------
+    output : ndarray
+        Dot product of `a` and `b`.  Can be an int, float, or
+        complex depending on the types of `a` and `b`.
+
+    See Also
+    --------
+    dot : Return the dot product without using the complex conjugate of the
+          first argument.
+
+    Examples
+    --------
+    >>> a = np.array([1+2j,3+4j])
+    >>> b = np.array([5+6j,7+8j])
+    >>> np.vdot(a, b)
+    (70-8j)
+    >>> np.vdot(b, a)
+    (70+8j)
+
+    Note that higher-dimensional arrays are flattened!
+
+    >>> a = np.array([[1, 4], [5, 6]])
+    >>> b = np.array([[4, 1], [2, 2]])
+    >>> np.vdot(a, b)
+    30
+    >>> np.vdot(b, a)
+    30
+    >>> 1*4 + 4*1 + 5*2 + 6*2
+    30
+
+    """
+    return dot(asarray(a).ravel().conj(), asarray(b).ravel())
+
 def identity(n, dtype=None):
     """
     Return the identity array.
@@ -535,3 +608,12 @@ def identity(n, dtype=None):
     """
     from numpy import eye
     return eye(n, dtype=dtype)
+
+Inf = inf = infty = Infinity = PINF
+nan = NaN = NAN
+False_ = bool_(False)
+True_ = bool_(True)
+
+import fromnumeric
+from fromnumeric import *
+extend_all(fromnumeric)

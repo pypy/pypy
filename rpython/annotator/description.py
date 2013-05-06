@@ -3,7 +3,7 @@ import types, py
 from rpython.annotator.signature import enforce_signature_args, enforce_signature_return
 from rpython.flowspace.model import Constant, FunctionGraph
 from rpython.flowspace.bytecode import cpython_code_signature
-from rpython.flowspace.argument import rawshape, ArgErr
+from rpython.annotator.argument import rawshape, ArgErr
 from rpython.tool.sourcetools import valid_identifier, func_with_new_name
 from rpython.tool.pairtype import extendabletype
 
@@ -306,8 +306,10 @@ class FunctionDesc(Desc):
             result = schedule(graph, inputcells)
             signature = getattr(self.pyobj, '_signature_', None)
             if signature:
-                result = enforce_signature_return(self, signature[1], result)
-                self.bookkeeper.annotator.addpendingblock(graph, graph.returnblock, [result])
+                sigresult = enforce_signature_return(self, signature[1], result)
+                if sigresult is not None:
+                    self.bookkeeper.annotator.addpendingblock(graph, graph.returnblock, [sigresult])
+                    result = sigresult
         # Some specializations may break the invariant of returning
         # annotations that are always more general than the previous time.
         # We restore it here:
@@ -351,6 +353,7 @@ class FunctionDesc(Desc):
                 row[desc.rowkey()] = graph
                 return s_ImpossibleValue   # meaningless
             desc.pycall(enlist, args, s_ImpossibleValue, op)
+            assert row
         return row
     row_to_consider = staticmethod(row_to_consider)
 

@@ -143,13 +143,9 @@ class __extend__(pairtype(SomeObject, SomeObject)):
         # XXX HACK HACK HACK
         bk = getbookkeeper()
         if bk is not None: # for testing
+            op = bk._find_current_op("is_", 2)
             knowntypedata = {}
-            fn, block, i = bk.position_key
-
             annotator = bk.annotator
-            op = block.operations[i]
-            assert op.opname == "is_" 
-            assert len(op.args) == 2                
 
             def bind(src_obj, tgt_obj, tgt_arg):
                 if hasattr(tgt_obj, 'is_type_of') and src_obj.is_constant():
@@ -319,11 +315,7 @@ class __extend__(pairtype(SomeInteger, SomeInteger)):
                 rarithmetic.signedtype(int2.knowntype)):
             return r
         knowntypedata = {}
-        # XXX HACK HACK HACK
-        fn, block, i = getbookkeeper().position_key
-        op = block.operations[i]
-        assert op.opname == opname
-        assert len(op.args) == 2
+        op = getbookkeeper()._find_current_op(opname=opname, arity=2)
         def tointtype(int0):
             if int0.knowntype is bool:
                 return int

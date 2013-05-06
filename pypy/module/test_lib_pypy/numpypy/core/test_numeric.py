@@ -145,8 +145,7 @@ class AppTestRepr(BaseNumpyAppTest):
         assert str(b) == "[]"
 
     def test_equal(self):
-        from _numpypy import array
-        from numpypy import array_equal
+        from numpypy import array, array_equal
 
         a = [1, 2, 3]
         b = [1, 2, 3]
@@ -157,8 +156,7 @@ class AppTestRepr(BaseNumpyAppTest):
         assert array_equal(array(a), array(b))
 
     def test_not_equal(self):
-        from _numpypy import array
-        from numpypy import array_equal
+        from numpypy import array, array_equal
 
         a = [1, 2, 3]
         b = [1, 2, 4]
@@ -169,8 +167,7 @@ class AppTestRepr(BaseNumpyAppTest):
         assert not array_equal(array(a), array(b))
 
     def test_mismatched_shape(self):
-        from _numpypy import array
-        from numpypy import array_equal
+        from numpypy import array, array_equal
 
         a = [1, 2, 3]
         b = [[1, 2, 3], [1, 2, 3]]
@@ -183,8 +180,7 @@ class AppTestRepr(BaseNumpyAppTest):
 
 class AppTestNumeric(BaseNumpyAppTest):
     def test_outer(self):
-        from _numpypy import array
-        from numpypy import outer
+        from numpypy import array, outer
         a = [1, 2, 3]
         b = [4, 5, 6]
         res = outer(a, b)
@@ -193,9 +189,24 @@ class AppTestNumeric(BaseNumpyAppTest):
                           [12, 15, 18]])
         assert (res == expected).all()
 
+    def test_vdot(self):
+        import numpypy as np
+        a = np.array([1+2j,3+4j])
+        b = np.array([5+6j,7+8j])
+        c = np.vdot(a, b)
+        assert c == (70-8j)
+        c = np.vdot(b, a)
+        assert c == (70+8j)
+
+        a = np.array([[1, 4], [5, 6]])
+        b = np.array([[4, 1], [2, 2]])
+        c = np.vdot(a, b)
+        assert c == 30
+        c = np.vdot(b, a)
+        assert c == 30
+
     def test_identity(self):
-        from _numpypy import array, int32, float64, dtype
-        from numpypy import identity
+        from numpypy import array, int32, float64, dtype, identity
         a = identity(0)
         assert len(a) == 0
         assert a.dtype == dtype('float64')

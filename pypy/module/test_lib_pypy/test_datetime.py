@@ -10,16 +10,12 @@ def test_repr():
     assert repr(datetime.datetime(1,2,3)) == expected
 
 def test_attributes():
-    a = datetime.date.today()
-    raises(AttributeError, 'a.abc = 1')
-    a = datetime.time()
-    raises(AttributeError, 'a.abc = 1')
-    a = datetime.tzinfo()
-    raises(AttributeError, 'a.abc = 1')
-    a = datetime.datetime.utcnow()
-    raises(AttributeError, 'a.abc = 1')
-    a = datetime.timedelta()
-    raises(AttributeError, 'a.abc = 1')
+    for x in [datetime.date.today(),
+              datetime.time(),
+              datetime.datetime.utcnow(),
+              datetime.timedelta(),
+              datetime.tzinfo()]:
+        raises(AttributeError, 'x.abc = 1')
 
 def test_unpickle():
     e = raises(TypeError, datetime.date, '123')
@@ -28,6 +24,16 @@ def test_unpickle():
     assert e.value.args[0] == 'an integer is required'
     e = raises(TypeError, datetime.datetime, '123')
     assert e.value.args[0] == 'an integer is required'
+
+    datetime.time('\x01' * 6, None)
+    with raises(TypeError) as e:
+        datetime.time('\x01' * 6, 123)
+    assert str(e.value) == "bad tzinfo state arg"
+
+    datetime.datetime('\x01' * 10, None)
+    with raises(TypeError) as e:
+        datetime.datetime('\x01' * 10, 123)
+    assert str(e.value) == "bad tzinfo state arg"
 
 def test_strptime():
     import time, sys
@@ -124,31 +130,30 @@ def test_check_arg_types():
             self.value = value
         def __int__(self):
             return self.value
-    i10 = 10
-    l10 = 10L
-    d10 = decimal.Decimal(10)
-    d11 = decimal.Decimal('10.9')
-    c10 = Number(10)
-    o10 = Number(10L)
-    assert datetime.datetime(i10, i10, i10, i10, i10, i10, i10) == \
-           datetime.datetime(l10, l10, l10, l10, l10, l10, l10) == \
-           datetime.datetime(d10, d10, d10, d10, d10, d10, d10) == \
-           datetime.datetime(d11, d11, d11, d11, d11, d11, d11) == \
-           datetime.datetime(c10, c10, c10, c10, c10, c10, c10) == \
-           datetime.datetime(o10, o10, o10, o10, o10, o10, o10)
 
-    with py.test.raises(TypeError):
+    for xx in [10L,
+               decimal.Decimal(10),
+               decimal.Decimal('10.9'),
+               Number(10),
+               Number(10L)]:
+        assert datetime.datetime(10, 10, 10, 10, 10, 10, 10) == \
+               datetime.datetime(xx, xx, xx, xx, xx, xx, xx)
+
+    with py.test.raises(TypeError) as e:
         datetime.datetime(10, 10, '10')
+    assert str(e.value) == 'an integer is required'
 
     f10 = Number(10.9)
-    with py.test.raises(TypeError):
+    with py.test.raises(TypeError) as e:
         datetime.datetime(10, 10, f10)
+    assert str(e.value) == '__int__ method should return an integer'
 
     class Float(float):
         pass
     s10 = Float(10.9)
-    with py.test.raises(TypeError):
+    with py.test.raises(TypeError) as e:
         datetime.datetime(10, 10, s10)
+    assert str(e.value) == 'integer argument expected, got float'
 
     with py.test.raises(TypeError):
         datetime.datetime(10., 10, 10)

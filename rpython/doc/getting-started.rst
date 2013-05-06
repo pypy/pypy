@@ -11,11 +11,10 @@ Trying out the translator
 The translator is a tool based on the PyPy interpreter which can translate
 sufficiently static RPython programs into low-level code (in particular it can
 be used to translate the `full Python interpreter`_). To be able to experiment with it
-you need to:
+you need to download and install the usual (CPython) version of:
 
-  * Download and install Pygame_.
-
-  * Download and install `Dot Graphviz`_ 
+  * Pygame_
+  * `Dot Graphviz`_
 
 To start the interactive translator shell do::
 
