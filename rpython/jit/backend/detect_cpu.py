@@ -96,7 +96,7 @@ def autodetect():
 def getcpuclassname(backend_name="auto"):
     if backend_name == "auto":
         backend_name = autodetect()
-    if backend_name == 'x86':
+    if backend_name == 'x86' or backend_name == 'x86_32':
         return "rpython.jit.backend.x86.runner", "CPU"
     elif backend_name == 'x86-without-sse2':
         return "rpython.jit.backend.x86.runner", "CPU386_NO_SSE2"
