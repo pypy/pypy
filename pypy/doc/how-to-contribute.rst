@@ -25,6 +25,8 @@ not one of those. You may consider familiarizing yourself with `pytest`_,
 since this is a tool we use for tests.
 This leads to the next issue:
 
+.. _`pytest`: http://pytest.org/
+
 Layers
 ------
 
