@@ -4,20 +4,21 @@ Getting Started with PyPy's Development Process
 
 .. contents::
 
-.. _`start reading sources`: 
+.. _`start reading sources`:
+
 Where to start reading the sources
----------------------------------- 
+----------------------------------
 
 PyPy is made from parts that are relatively independent of each other.
 You should start looking at the part that attracts you most (all paths are
-relative to the PyPy top level directory).  You may look at our `directory reference`_ 
+relative to the PyPy top level directory).  You may look at our `directory reference`_
 or start off at one of the following points:
 
 *  `pypy/interpreter`_ contains the bytecode interpreter: bytecode dispatcher
    in `pypy/interpreter/pyopcode.py`_, frame and code objects in `pypy/interpreter/eval.py`_ and `pypy/interpreter/pyframe.py`_,
    function objects and argument passing in `pypy/interpreter/function.py`_ and `pypy/interpreter/argument.py`_,
    the object space interface definition in `pypy/interpreter/baseobjspace.py`_, modules in
-   `pypy/interpreter/module.py`_ and `pypy/interpreter/mixedmodule.py`_.  Core types supporting the bytecode 
+   `pypy/interpreter/module.py`_ and `pypy/interpreter/mixedmodule.py`_.  Core types supporting the bytecode
    interpreter are defined in `pypy/interpreter/typedef.py`_.
 
 *  `pypy/interpreter/pyparser`_ contains a recursive descent parser,
@@ -34,7 +35,7 @@ or start off at one of the following points:
    ``xxxobject.py`` contain respectively the definition of the type and its
    (default) implementation.
 
-.. _optionaltool: 
+.. _optionaltool:
 
 
 Running PyPy's unit tests
@@ -65,7 +66,7 @@ and you can use shell completion to point at directories or files::
     # or for running tests of a whole subdirectory
     py.test pypy/interpreter/
 
-See `py.test usage and invocations`_ for some more generic info 
+See `py.test usage and invocations`_ for some more generic info
 on how you can run tests.
 
 Beware trying to run "all" pypy tests by pointing to the root
@@ -133,14 +134,14 @@ You may be interested in reading more about the distinction between
 
 .. _`interpreter-level and app-level`: coding-guide.html#interpreter-level
 
-.. _`trace example`: 
+.. _`trace example`:
 
 Tracing bytecode and operations on objects
-++++++++++++++++++++++++++++++++++++++++++ 
+++++++++++++++++++++++++++++++++++++++++++
 
 You can use the trace object space to monitor the interpretation
-of bytecodes in connection with object space operations.  To enable 
-it, set ``__pytrace__=1`` on the interactive PyPy console:: 
+of bytecodes in connection with object space operations.  To enable
+it, set ``__pytrace__=1`` on the interactive PyPy console::
 
     >>>> __pytrace__ = 1
     Tracing enabled
@@ -165,25 +166,25 @@ written using the RPython translation toolchain.
 
 .. _`example-interpreter`: https://bitbucket.org/pypy/example-interpreter
 
-Additional Tools for running (and hacking) PyPy 
+Additional Tools for running (and hacking) PyPy
 -----------------------------------------------
 
-We use some optional tools for developing PyPy. They are not required to run 
+We use some optional tools for developing PyPy. They are not required to run
 the basic tests or to get an interactive PyPy prompt but they help to
-understand  and debug PyPy especially for the translation process.  
+understand  and debug PyPy especially for the translation process.
 
 graphviz & pygame for flow graph viewing (highly recommended)
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 graphviz and pygame are both necessary if you
-want to look at generated flow graphs: 
+want to look at generated flow graphs:
 
-	graphviz: http://www.graphviz.org/Download.php 
+	graphviz: http://www.graphviz.org/Download.php
 
 	pygame: http://www.pygame.org/download.shtml
 
-py.test and the py lib 
-+++++++++++++++++++++++
+py.test and the py lib
+++++++++++++++++++++++
 
 The `py.test testing tool`_ drives all our testing needs.
 
@@ -193,8 +194,8 @@ writing, logging and some other support  functionality.
 You don't necessarily need to install these two libraries because
 we also ship them inlined in the PyPy source tree.
 
-Getting involved 
------------------
+Getting involved
+----------------
 
 PyPy employs an open development process.  You are invited to join our
 `pypy-dev mailing list`_ or look at the other `contact
