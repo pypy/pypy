@@ -56,10 +56,15 @@ def read_raw_ulong_data(target, size):
             return rffi.cast(lltype.Unsigned, rffi.cast(TPP, target)[0])
     raise NotImplementedError("bad integer size")
 
+@specialize.arg(0)
+def _read_raw_float_data_tp(TPP, target):
+    # in its own function: FLOAT may make the whole function jit-opaque
+    return rffi.cast(lltype.Float, rffi.cast(TPP, target)[0])
+
 def read_raw_float_data(target, size):
     for TP, TPP in _prim_float_types:
         if size == rffi.sizeof(TP):
-            return rffi.cast(lltype.Float, rffi.cast(TPP, target)[0])
+            return _read_raw_float_data_tp(TPP, target)
     raise NotImplementedError("bad float size")
 
 def read_raw_longdouble_data(target):
@@ -82,10 +87,15 @@ def write_raw_signed_data(target, source, size):
     raise NotImplementedError("bad integer size")
 
 
+@specialize.arg(0, 1)
+def _write_raw_float_data_tp(TP, TPP, target, source):
+    # in its own function: FLOAT may make the whole function jit-opaque
+    rffi.cast(TPP, target)[0] = rffi.cast(TP, source)
+
 def write_raw_float_data(target, source, size):
     for TP, TPP in _prim_float_types:
         if size == rffi.sizeof(TP):
-            rffi.cast(TPP, target)[0] = rffi.cast(TP, source)
+            _write_raw_float_data_tp(TP, TPP, target, source)
             return
     raise NotImplementedError("bad float size")
 
@@ -263,13 +273,18 @@ def object_as_bool(space, w_ob):
 
 # ____________________________________________________________
 
+@specialize.arg(0)
+def _raw_memcopy_tp(TPP, source, dest):
+    # in its own function: LONGLONG may make the whole function jit-opaque
+    rffi.cast(TPP, dest)[0] = rffi.cast(TPP, source)[0]
+
 def _raw_memcopy(source, dest, size):
     if jit.isconstant(size):
         # for the JIT: first handle the case where 'size' is known to be
         # a constant equal to 1, 2, 4, 8
         for TP, TPP in _prim_unsigned_types:
             if size == rffi.sizeof(TP):
-                rffi.cast(TPP, dest)[0] = rffi.cast(TPP, source)[0]
+                _raw_memcopy_tp(TPP, source, dest)
                 return
     _raw_memcopy_opaque(source, dest, size)
 
@@ -283,10 +298,15 @@ def _raw_memcopy_opaque(source, dest, size):
         llmemory.cast_ptr_to_adr(dest) + zero,
         size * llmemory.sizeof(lltype.Char))
 
+@specialize.arg(0, 1)
+def _raw_memclear_tp(TP, TPP, dest):
+    # in its own function: LONGLONG may make the whole function jit-opaque
+    rffi.cast(TPP, dest)[0] = rffi.cast(TP, 0)
+
 def _raw_memclear(dest, size):
     # for now, only supports the cases of size = 1, 2, 4, 8
     for TP, TPP in _prim_unsigned_types:
         if size == rffi.sizeof(TP):
-            rffi.cast(TPP, dest)[0] = rffi.cast(TP, 0)
+            _raw_memclear_tp(TP, TPP, dest)
             return
     raise NotImplementedError("bad clear size")
