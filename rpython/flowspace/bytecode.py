@@ -301,6 +301,13 @@ def POP_JUMP_IF_FALSE(self, block, graph):
     block.operations[-1] = SWITCH_BOOL(on_False, on_True, offset=self.offset)
     block.set_exits([on_False, on_True])
 
+@flow_opcode
+def POP_JUMP_IF_TRUE(self, block, graph):
+    on_True, _ = graph.pos_index[self.arg]
+    on_False, _ = graph.pos_index[graph.next_pos(self)]
+    block.operations[-1] = SWITCH_BOOL(on_False, on_True, offset=self.offset)
+    block.set_exits([on_False, on_True])
+
 class SWITCH_BOOL(BCInstruction):
     def __init__(self, on_False, on_True, offset=-1):
         self.on_False = on_False
