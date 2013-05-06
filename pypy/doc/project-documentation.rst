@@ -138,16 +138,6 @@ from our Python interpreter.
    interpreter-optimizations.rst
    configuration.rst
    parser.rst
-   rlib.rst
-   rtyper.rst
-   rffi.rst
-   
-   translation.rst
-   jit/index.rst
-   jit/overview.rst
-   jit/pyjitpl5.rst
-
-   index-of-release-notes.rst
 
    ctypes-implementation.rst
 
@@ -159,8 +149,6 @@ from our Python interpreter.
    sandbox.rst
 
    discussions.rst
-
-   cleanup.rst
 
    sprint-reports.rst
 
