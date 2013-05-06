@@ -407,8 +407,6 @@ def make_impure_op(oper):
 
 def make_op(oper):
     """Add function operation to the flow space."""
-    op = None
-    skip = False
     arithmetic = False
     name = oper.name
 
