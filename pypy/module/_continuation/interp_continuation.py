@@ -2,14 +2,14 @@ from rpython.rlib.rstacklet import StackletThread
 from rpython.rlib import jit
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.executioncontext import ExecutionContext
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.pyframe import PyFrame
 
 
-class W_Continulet(Wrappable):
+class W_Continulet(W_Root):
     sthread = None
 
     def __init__(self, space):
@@ -221,7 +221,6 @@ def new_stacklet_callback(h, arg):
     self = global_state.origin
     self.h = h
     global_state.clear()
-    space = self.space
     try:
         frame = self.bottomframe
         w_result = frame.execute_frame()

@@ -1,11 +1,11 @@
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from rpython.rlib.rStringIO import RStringIO
 
 
-class W_InputOutputType(Wrappable):
+class W_InputOutputType(W_Root):
     softspace = 0    # part of the file object API
 
     def descr___iter__(self):
@@ -146,24 +146,8 @@ class W_InputType(W_InputOutputType):
 
 class W_OutputType(RStringIO, W_InputOutputType):
     def __init__(self, space):
-        RStringIO.__init__(self)
+        self.init()
         self.space = space
-
-    def readline(self, size=-1):
-        p = self.tell()
-        bigbuffer = self.copy_into_bigbuffer()
-        end = len(bigbuffer)
-        if size >= 0 and size < end - p:
-            end = p + size
-        assert p >= 0
-        i = p
-        while i < end:
-            finished = bigbuffer[i] == '\n'
-            i += 1
-            if finished:
-                break
-        self.seek(i)
-        return ''.join(bigbuffer[p:i])
 
     def descr_truncate(self, w_size=None):
         self.check_closed()
@@ -175,6 +159,7 @@ class W_OutputType(RStringIO, W_InputOutputType):
         if size < 0:
             raise OperationError(space.w_IOError, space.wrap("negative size"))
         self.truncate(size)
+        self.seek(0, 2)
 
     @unwrap_spec(buffer='bufferstr')
     def descr_write(self, buffer):

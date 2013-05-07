@@ -6,7 +6,8 @@ from rpython.conftest import option
 from rpython.annotator import model as annmodel
 from rpython.annotator.annrpython import RPythonAnnotator as _RPythonAnnotator
 from rpython.translator.translator import graphof as tgraphof
-from rpython.annotator import policy
+from rpython.annotator.policy import AnnotatorPolicy
+from rpython.annotator.signature import Sig
 from rpython.annotator.listdef import ListDef, ListChangeUnallowed
 from rpython.annotator.dictdef import DictDef
 from rpython.flowspace.model import *
@@ -686,17 +687,17 @@ class TestAnnotateTestCase:
         assert s == a.bookkeeper.immutablevalue(42)
 
     def test_call_star_args(self):
-        a = self.RPythonAnnotator(policy=policy.AnnotatorPolicy())
+        a = self.RPythonAnnotator(policy=AnnotatorPolicy())
         s = a.build_types(snippet.call_star_args, [int])
         assert s.knowntype == int
 
     def test_call_star_args_multiple(self):
-        a = self.RPythonAnnotator(policy=policy.AnnotatorPolicy())
+        a = self.RPythonAnnotator(policy=AnnotatorPolicy())
         s = a.build_types(snippet.call_star_args_multiple, [int])
         assert s.knowntype == int
 
     def test_class_spec(self):
-        a = self.RPythonAnnotator(policy=policy.AnnotatorPolicy())
+        a = self.RPythonAnnotator(policy=AnnotatorPolicy())
         s = a.build_types(snippet.class_spec, [])
         assert s.items[0].knowntype == int
         assert s.items[1].knowntype == str
@@ -705,7 +706,7 @@ class TestAnnotateTestCase:
         x = snippet.PolyStk()
         def f():
             return x
-        a = self.RPythonAnnotator(policy=policy.AnnotatorPolicy())
+        a = self.RPythonAnnotator(policy=AnnotatorPolicy())
         py.test.raises(Exception, a.build_types, f, [])
 
     def test_exception_deduction_with_raise1(self):
@@ -2789,7 +2790,7 @@ class TestAnnotateTestCase:
         def fun(x, y):
             return x+y
         s_nonneg = annmodel.SomeInteger(nonneg=True)
-        fun._annenforceargs_ = policy.Sig(int, s_nonneg)
+        fun._annenforceargs_ = Sig(int, s_nonneg)
 
         a = self.RPythonAnnotator()
         s = a.build_types(fun, [s_nonneg, s_nonneg])
@@ -2813,7 +2814,7 @@ class TestAnnotateTestCase:
         def fun(x, y):
             return y
         s_nonneg = annmodel.SomeInteger(nonneg=True)
-        fun._annenforceargs_ = policy.Sig(lambda s1,s2: s1, lambda s1,s2: s1)
+        fun._annenforceargs_ = Sig(lambda s1,s2: s1, lambda s1,s2: s1)
         # means: the 2nd argument's annotation becomes the 1st argument's
         #        input annotation
 
@@ -3016,7 +3017,7 @@ class TestAnnotateTestCase:
                     x > y,
                     x >= y)
 
-        a = self.RPythonAnnotator(policy=policy.AnnotatorPolicy())
+        a = self.RPythonAnnotator(policy=AnnotatorPolicy())
         s = a.build_types(fun, [float, float])
         assert [s_item.knowntype for s_item in s.items] == [bool] * 6
 
@@ -3029,41 +3030,14 @@ class TestAnnotateTestCase:
         def fun():
             return g([])
 
-        a = self.RPythonAnnotator(policy=policy.AnnotatorPolicy())
+        a = self.RPythonAnnotator(policy=AnnotatorPolicy())
         s = a.build_types(fun, [])
         assert s.const == 0
-
-    def test_some_generic_function_call(self):
-        def h(x):
-            return int(x)
-
-        def c(x):
-            return int(x)
-
-        def g(a, x):
-            if x == -1:
-                a = None
-            if x < 0:
-                if x == -1:
-                    a = h
-                else:
-                    a = c
-                x = x + .01
-            return a(x)
-
-        #def fun(x):
-
-        a = self.RPythonAnnotator(policy=policy.AnnotatorPolicy())
-        s = a.build_types(g, [annmodel.SomeGenericCallable(
-            args=[annmodel.SomeFloat()], result=annmodel.SomeInteger()),
-                              annmodel.SomeFloat()])
-        assert isinstance(s, annmodel.SomeInteger)
-        assert not hasattr(s, 'const')
 
     def test_compare_int_bool(self):
         def fun(x):
             return 50 < x
-        a = self.RPythonAnnotator(policy=policy.AnnotatorPolicy())
+        a = self.RPythonAnnotator(policy=AnnotatorPolicy())
         s = a.build_types(fun, [bool])
         assert isinstance(s, annmodel.SomeBool)
 
@@ -3076,7 +3050,7 @@ class TestAnnotateTestCase:
             else:
                 v = -maxint
             return intmask(v * 10)
-        P = policy.AnnotatorPolicy()
+        P = AnnotatorPolicy()
         a = self.RPythonAnnotator(policy=P)
         s = a.build_types(fun, [bool])
         assert isinstance(s, annmodel.SomeInteger)
@@ -3180,8 +3154,6 @@ class TestAnnotateTestCase:
         py.test.raises(AssertionError, a.build_types, f, [])
 
     def test_ctr_location(self):
-        from rpython.rlib.jit import hint
-
         class A:
             _annspecialcase_ = 'specialize:ctr_location'
             def __init__(self, x):
@@ -3865,6 +3837,16 @@ class TestAnnotateTestCase:
         s = a.build_types(fn, [int])
         assert isinstance(s, annmodel.SomeInteger)
 
+    def test_reversed(self):
+        def fn(n):
+            for elem in reversed([1, 2, 3, 4, 5]):
+                return elem
+            return n
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(fn, [int])
+        assert isinstance(s, annmodel.SomeInteger)
+
     def test_no_attr_on_common_exception_classes(self):
         for cls in [ValueError, Exception]:
             def fn():
@@ -3950,6 +3932,28 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         assert a.build_types(f, []).const is True
 
+    def test_specific_attributes(self):
+        class A(object):
+            pass
+
+        class B(A):
+            def __init__(self, x):
+                assert x >= 0
+                self.x = x
+
+        def fn(i):
+            if i % 2:
+                a = A()
+            else:
+                a = B(3)
+            if i % 3:
+                a.x = -3
+            if isinstance(a, B):
+                return a.x
+            return 0
+
+        a = self.RPythonAnnotator()
+        assert not a.build_types(fn, [int]).nonneg
 
 def g(n):
     return [0, 1, 2, n]

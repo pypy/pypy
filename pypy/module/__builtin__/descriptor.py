@@ -1,4 +1,4 @@
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.function import StaticMethod, ClassMethod
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
@@ -6,7 +6,8 @@ from pypy.interpreter.typedef import (TypeDef, interp_attrproperty_w,
     generic_new_descr)
 from pypy.objspace.descroperation import object_getattribute
 
-class W_Super(Wrappable):
+
+class W_Super(W_Root):
     def __init__(self, space, w_starttype, w_objtype, w_self):
         self.w_starttype = w_starttype
         self.w_objtype = w_objtype
@@ -91,7 +92,8 @@ class C(B):
         super(C, self).meth(arg)"""
 )
 
-class W_Property(Wrappable):
+
+class W_Property(W_Root):
     _immutable_fields_ = ["w_fget", "w_fset", "w_fdel"]
 
     def __init__(self, space):
@@ -192,4 +194,3 @@ class C(object):
 # descriptor for the instances.
 W_Property.typedef.rawdict['__doc__'] = interp_attrproperty_w('w_doc',
                                                               W_Property)
-

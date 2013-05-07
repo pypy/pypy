@@ -412,7 +412,6 @@ def make_array(mytype):
         return space.wrap(cnt)
 
     def array_index__Array_ANY(space, self, w_val):
-        cnt = 0
         for i in range(self.len):
             w_item = self.w_getitem(space, i)
             if space.is_true(space.eq(w_item, w_val)):

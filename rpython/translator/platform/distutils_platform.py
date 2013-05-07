@@ -89,7 +89,7 @@ class DistutilsPlatform(Platform):
         data = ''
         try:
             saved_environ = os.environ.copy()
-            c = stdoutcapture.Capture(mixed_out_err = True)
+            c = stdoutcapture.Capture(mixed_out_err=True)
             try:
                 self._build()
             finally:

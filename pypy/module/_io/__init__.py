@@ -1,10 +1,9 @@
 from pypy.interpreter.mixedmodule import MixedModule
-import sys
 
 class Module(MixedModule):
 
     appleveldefs = {
-        }
+    }
 
     interpleveldefs = {
         'DEFAULT_BUFFER_SIZE': 'space.wrap(interp_iobase.DEFAULT_BUFFER_SIZE)',
@@ -25,7 +24,7 @@ class Module(MixedModule):
 
         'open': 'interp_io.open',
         'IncrementalNewlineDecoder': 'interp_textio.W_IncrementalNewlineDecoder',
-        }
+    }
 
     def init(self, space):
         MixedModule.init(self, space)
@@ -39,6 +38,5 @@ class Module(MixedModule):
 
     def shutdown(self, space):
         # at shutdown, flush all open streams.  Ignore I/O errors.
-        from pypy.module._io.interp_iobase import get_autoflushher
-        get_autoflushher(space).flush_all(space)
-
+        from pypy.module._io.interp_iobase import get_autoflusher
+        get_autoflusher(space).flush_all(space)

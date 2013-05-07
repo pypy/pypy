@@ -1,5 +1,5 @@
 from pypy.interpreter.typedef import TypeDef
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError, wrap_oserror
 from rpython.rlib import rpoll
@@ -16,7 +16,7 @@ def poll(space):
 unregistering file descriptors, and then polling them for I/O events."""
     return Poll()
 
-class Poll(Wrappable):
+class Poll(W_Root):
     def __init__(self):
         self.fddict = {}
 

@@ -1,4 +1,4 @@
-from rpython.annotator.model import SomeObject, s_ImpossibleValue
+from rpython.annotator.model import s_ImpossibleValue
 from rpython.annotator.model import SomeList, SomeString
 from rpython.annotator.model import unionof, TLS, UnionError
 

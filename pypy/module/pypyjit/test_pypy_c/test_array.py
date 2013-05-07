@@ -119,6 +119,12 @@ class TestArray(BaseTestPyPyC):
         """)
 
     def test_array_of_floats(self):
+        try:
+            from __pypy__ import jit_backend_features
+            if 'singlefloats' not in jit_backend_features:
+                py.test.skip("test requres singlefloats support from the JIT backend")
+        except ImportError:
+            pass
         def main():
             from array import array
             img = array('f', [21.5]*1000)

@@ -7,8 +7,6 @@ of input types is empty, it is meant to be a list of strings,
 actually implementing argv of the executable.
 """
 
-import os, sys
-
 # __________  Entry point  __________
 
 class A(object):

@@ -876,7 +876,6 @@ def str_decode_utf_7(s, size, errors, final=False,
             else: # begin base64-encoded section
                 inShift = 1
                 shiftOutStartPos = pos - 1
-                bitsleft = 0
 
         elif _utf7_DECODE_DIRECT(oc): # character decodes at itself
             result.append(unichr(oc))
@@ -894,7 +893,6 @@ def str_decode_utf_7(s, size, errors, final=False,
         if (surrogate or
             base64bits >= 6 or
             (base64bits > 0 and base64buffer != 0)):
-            endinpos = size
             msg = "unterminated shift sequence"
             res, pos = errorhandler(errors, 'utf-7', msg, s, shiftOutStartPos, pos)
             result.append(res)
@@ -1118,7 +1116,6 @@ hexdigits = "0123456789ABCDEFabcdef"
 
 def hexescape(builder, s, pos, digits,
               encoding, errorhandler, message, errors):
-    import sys
     chr = 0
     if pos + digits > len(s):
         message = "end of string in escape sequence"
@@ -1569,6 +1566,7 @@ if sys.platform == 'win32':
     from rpython.rtyper.lltypesystem import lltype, rffi
     from rpython.rlib import rwin32
     CP_ACP = 0
+    BOOLP = lltype.Ptr(lltype.Array(rwin32.BOOL, hints={'nolength': True}))
 
     MultiByteToWideChar = rffi.llexternal('MultiByteToWideChar',
                                           [rffi.UINT, rwin32.DWORD,
@@ -1581,7 +1579,7 @@ if sys.platform == 'win32':
                                           [rffi.UINT, rwin32.DWORD,
                                            rffi.CWCHARP, rffi.INT,
                                            rwin32.LPCSTR, rffi.INT,
-                                           rwin32.LPCSTR, rffi.VOIDP],
+                                           rwin32.LPCSTR, BOOLP],
                                           rffi.INT,
                                           calling_conv='win')
 
@@ -1589,66 +1587,100 @@ if sys.platform == 'win32':
         # XXX don't know how to test this
         return False
 
-    def str_decode_mbcs(s, size, errors, final=False,
-                        errorhandler=None):
+    def _decode_mbcs_error(s, errorhandler):
+        if rwin32.GetLastError() == rwin32.ERROR_NO_UNICODE_TRANSLATION:
+            msg = ("No mapping for the Unicode character exists in the target "
+                   "multi-byte code page.")
+            errorhandler('strict', 'mbcs', msg, s, 0, 0)
+        else:
+            raise rwin32.lastWindowsError()
+
+    def str_decode_mbcs(s, size, errors, final=False, errorhandler=None,
+                        force_ignore=True):
+        if errorhandler is None:
+            errorhandler = default_unicode_error_decode
+
+        if not force_ignore and errors not in ('strict', 'ignore'):
+            msg = "mbcs encoding does not support errors='%s'" % errors
+            errorhandler('strict', 'mbcs', msg, s, 0, 0)
+
         if size == 0:
             return u"", 0
 
-        if errorhandler is None:
-            errorhandler = default_unicode_error_decode
+        if force_ignore or errors == 'ignore':
+            flags = 0
+        else:
+            # strict
+            flags = rwin32.MB_ERR_INVALID_CHARS
 
         # Skip trailing lead-byte unless 'final' is set
         if not final and is_dbcs_lead_byte(s[size-1]):
             size -= 1
 
-        dataptr = rffi.get_nonmovingbuffer(s)
-        try:
+        with rffi.scoped_nonmovingbuffer(s) as dataptr:
             # first get the size of the result
-            usize = MultiByteToWideChar(CP_ACP, 0,
+            usize = MultiByteToWideChar(CP_ACP, flags,
                                         dataptr, size,
                                         lltype.nullptr(rffi.CWCHARP.TO), 0)
             if usize == 0:
-                raise rwin32.lastWindowsError()
+                _decode_mbcs_error(s, errorhandler)
 
-            raw_buf, gc_buf = rffi.alloc_unicodebuffer(usize)
-            try:
+            with rffi.scoped_alloc_unicodebuffer(usize) as buf:
                 # do the conversion
-                if MultiByteToWideChar(CP_ACP, 0,
-                                       dataptr, size, raw_buf, usize) == 0:
-                    raise rwin32.lastWindowsError()
+                if MultiByteToWideChar(CP_ACP, flags,
+                                       dataptr, size, buf.raw, usize) == 0:
+                    _decode_mbcs_error(s, errorhandler)
+                return buf.str(usize), size
 
-                return (rffi.unicode_from_buffer(raw_buf, gc_buf, usize, usize),
-                        size)
-            finally:
-                rffi.keep_unicodebuffer_alive_until_here(raw_buf, gc_buf)
-        finally:
-            rffi.free_nonmovingbuffer(s, dataptr)
+    def unicode_encode_mbcs(s, size, errors, errorhandler=None,
+                            force_replace=True):
+        if errorhandler is None:
+            errorhandler = default_unicode_error_encode
 
-    def unicode_encode_mbcs(p, size, errors, errorhandler=None):
+        if not force_replace and errors not in ('strict', 'replace'):
+            msg = "mbcs encoding does not support errors='%s'" % errors
+            errorhandler('strict', 'mbcs', msg, s, 0, 0)
+
         if size == 0:
             return ''
-        dataptr = rffi.get_nonmoving_unicodebuffer(p)
+
+        if force_replace or errors == 'replace':
+            flags = 0
+            used_default_p = lltype.nullptr(BOOLP.TO)
+        else:
+            # strict
+            flags = rwin32.WC_NO_BEST_FIT_CHARS
+            used_default_p = lltype.malloc(BOOLP.TO, 1, flavor='raw')
+            used_default_p[0] = rffi.cast(rwin32.BOOL, False)
+
         try:
-            # first get the size of the result
-            mbcssize = WideCharToMultiByte(CP_ACP, 0,
-                                           dataptr, size, None, 0,
-                                           None, None)
-            if mbcssize == 0:
-                raise rwin32.lastWindowsError()
-
-            raw_buf, gc_buf = rffi.alloc_buffer(mbcssize)
-            try:
-                # do the conversion
-                if WideCharToMultiByte(CP_ACP, 0,
-                                       dataptr, size, raw_buf, mbcssize,
-                                       None, None) == 0:
+            with rffi.scoped_nonmoving_unicodebuffer(s) as dataptr:
+                # first get the size of the result
+                mbcssize = WideCharToMultiByte(CP_ACP, flags,
+                                               dataptr, size, None, 0,
+                                               None, used_default_p)
+                if mbcssize == 0:
                     raise rwin32.lastWindowsError()
+                # If we used a default char, then we failed!
+                if (used_default_p and
+                    rffi.cast(lltype.Bool, used_default_p[0])):
+                    errorhandler('strict', 'mbcs', "invalid character",
+                                 s, 0, 0)
 
-                return rffi.str_from_buffer(raw_buf, gc_buf, mbcssize, mbcssize)
-            finally:
-                rffi.keep_buffer_alive_until_here(raw_buf, gc_buf)
+                with rffi.scoped_alloc_buffer(mbcssize) as buf:
+                    # do the conversion
+                    if WideCharToMultiByte(CP_ACP, flags,
+                                           dataptr, size, buf.raw, mbcssize,
+                                           None, used_default_p) == 0:
+                        raise rwin32.lastWindowsError()
+                    if (used_default_p and
+                        rffi.cast(lltype.Bool, used_default_p[0])):
+                        errorhandler('strict', 'mbcs', "invalid character",
+                                     s, 0, 0)
+                    return buf.str(mbcssize)
         finally:
-            rffi.free_nonmoving_unicodebuffer(p, dataptr)
+            if used_default_p:
+                lltype.free(used_default_p, flavor='raw')
 
 # ____________________________________________________________
 # Decimal Encoder

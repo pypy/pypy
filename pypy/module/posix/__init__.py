@@ -1,8 +1,7 @@
-# Package initialisation
 from pypy.interpreter.mixedmodule import MixedModule
 from rpython.rtyper.module.ll_os import RegisterOs
 
-import os, sys
+import os
 exec 'import %s as posix' % os.name
 
 # this is the list of function which is *not* present in the posix module of

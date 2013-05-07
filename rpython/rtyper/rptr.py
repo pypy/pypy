@@ -234,6 +234,7 @@ class __extend__(pairtype(PtrRepr, LLADTMethRepr)):
 class InteriorPtrRepr(Repr):
     def __init__(self, ptrtype):
         assert isinstance(ptrtype, lltype.InteriorPtr)
+        self._ptrtype = ptrtype     # for debugging
         self.v_offsets = []
         numitemoffsets = 0
         for i, offset in enumerate(ptrtype.offsets):

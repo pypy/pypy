@@ -14,7 +14,7 @@ def apply(function, args=(), kwds={}):
 
 # ____________________________________________________________
 
-def sorted(lst, cmp=None, key=None, reverse=None):
+def sorted(lst, cmp=None, key=None, reverse=False):
     "sorted(iterable, cmp=None, key=None, reverse=False) --> new sorted list"
     sorted_lst = list(lst)
     sorted_lst.sort(cmp, key, reverse)
@@ -203,7 +203,29 @@ def zip(*sequences):
 Return a list of tuples, where each tuple contains the i-th element
 from each of the argument sequences.  The returned list is truncated
 in length to the length of the shortest argument sequence."""
-    if not sequences:
+    l = len(sequences)
+    if l == 2:
+        # This is functionally the same as the code below, but more
+        # efficient because it unrolls the loops over 'sequences'.
+        # Only for two arguments, which is the most common case.
+        seq0 = sequences[0]
+        seq1 = sequences[1]
+        iter0 = iter(seq0)
+        iter1 = iter(seq1)
+        hint = min(100000000,   # max 100M
+                   operator._length_hint(seq0, 0),
+                   operator._length_hint(seq1, 0))
+
+        with _ManagedNewlistHint(hint) as result:
+            while True:
+                try:
+                    item0 = next(iter0)
+                    item1 = next(iter1)
+                except StopIteration:
+                    return result
+                result.append((item0, item1))
+
+    if l == 0:
         return []
 
     # Gather the iterators and guess the result length (the min of the

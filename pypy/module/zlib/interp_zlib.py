@@ -1,6 +1,6 @@
 import sys
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.interpreter.error import OperationError
 from rpython.rlib.rarithmetic import intmask, r_uint
@@ -109,7 +109,7 @@ def decompress(space, string, wbits=rzlib.MAX_WBITS, bufsize=0):
     return space.wrap(result)
 
 
-class ZLibObject(Wrappable):
+class ZLibObject(W_Root):
     """
     Common base class for Compress and Decompress.
     """

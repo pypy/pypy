@@ -17,11 +17,8 @@ def registerimplementation(implcls):
 option_to_typename = {
     "withspecialisedtuple" : ["specialisedtupleobject.W_SpecialisedTupleObject"],
     "withsmalltuple" : ["smalltupleobject.W_SmallTupleObject"],
-    "withsmallint"   : ["smallintobject.W_SmallIntObject"],
     "withsmalllong"  : ["smalllongobject.W_SmallLongObject"],
     "withstrbuf"     : ["strbufobject.W_StringBufferObject"],
-    "withtproxy" : ["proxyobject.W_TransparentList",
-                    "proxyobject.W_TransparentDict"],
 }
 
 IDTAG_INT     = 1
@@ -44,12 +41,12 @@ class StdTypeModel:
             from pypy.objspace.std.settype import set_typedef
             from pypy.objspace.std.frozensettype import frozenset_typedef
             from pypy.objspace.std.tupletype  import tuple_typedef
-            from pypy.objspace.std.listtype   import list_typedef
+            from pypy.objspace.std.listobject   import list_typedef
             from pypy.objspace.std.dicttype   import dict_typedef
             from pypy.objspace.std.basestringtype import basestring_typedef
             from pypy.objspace.std.stringtype import str_typedef
             from pypy.objspace.std.bytearraytype import bytearray_typedef
-            from pypy.objspace.std.typetype   import type_typedef
+            from pypy.objspace.std.typeobject   import type_typedef
             from pypy.objspace.std.slicetype  import slice_typedef
             from pypy.objspace.std.longtype   import long_typedef
             from pypy.objspace.std.unicodetype import unicode_typedef
@@ -159,18 +156,6 @@ class StdTypeModel:
         # register the order in which types are converted into each others
         # when trying to dispatch multimethods.
         # XXX build these lists a bit more automatically later
-
-        if config.objspace.std.withsmallint:
-            from pypy.objspace.std import smallintobject
-            self.typeorder[boolobject.W_BoolObject] += [
-                (smallintobject.W_SmallIntObject, boolobject.delegate_Bool2SmallInt),
-                ]
-            self.typeorder[smallintobject.W_SmallIntObject] += [
-                (intobject.W_IntObject, smallintobject.delegate_SmallInt2Int),
-                (floatobject.W_FloatObject, smallintobject.delegate_SmallInt2Float),
-                (longobject.W_LongObject, smallintobject.delegate_SmallInt2Long),
-                (complexobject.W_ComplexObject, smallintobject.delegate_SmallInt2Complex),
-                ]
 
         if config.objspace.usemodules.micronumpy:
             from pypy.module.micronumpy.stdobjspace import register_delegates
@@ -426,7 +411,7 @@ NOT_MULTIMETHODS = dict.fromkeys(
     ['delattr', 'delete', 'get', 'id', 'inplace_div', 'inplace_floordiv',
      'inplace_lshift', 'inplace_mod', 'inplace_pow', 'inplace_rshift',
      'inplace_truediv', 'is_', 'set', 'setattr', 'type', 'userdel',
-     'isinstance', 'issubtype'])
+     'isinstance', 'issubtype', 'int'])
 # XXX should we just remove those from the method table or we're happy
 #     with just not having multimethods?
 
@@ -438,17 +423,15 @@ class MM:
     init    = StdObjSpaceMultiMethod('__init__', 1, general__args__=True)
     getnewargs = StdObjSpaceMultiMethod('__getnewargs__', 1)
     # special visible multimethods
-    float_w = StdObjSpaceMultiMethod('float_w', 1, [])   # returns an unwrapped float
     # NOTE: when adding more sometype_w() methods, you need to write a
     # stub in default.py to raise a space.w_TypeError
     marshal_w = StdObjSpaceMultiMethod('marshal_w', 1, [], extra_args=['marshaller'])
 
     # add all regular multimethods here
     for _name, _symbol, _arity, _specialnames in ObjSpace.MethodTable:
-        if _name not in locals() or _name in NOT_MULTIMETHODS:
+        if _name not in locals() and _name not in NOT_MULTIMETHODS:
             mm = StdObjSpaceMultiMethod(_symbol, _arity, _specialnames)
             locals()[_name] = mm
             del mm
 
     pow.extras['defaults'] = (None,)
-

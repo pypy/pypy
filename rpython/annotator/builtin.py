@@ -1,10 +1,10 @@
 """
 Built-in functions.
 """
-
 import sys
+
 from rpython.annotator.model import SomeInteger, SomeObject, SomeChar, SomeBool
-from rpython.annotator.model import SomeString, SomeTuple, s_Bool, SomeBuiltin
+from rpython.annotator.model import SomeString, SomeTuple, s_Bool
 from rpython.annotator.model import SomeUnicodeCodePoint, SomeAddress
 from rpython.annotator.model import SomeFloat, unionof, SomeUnicodeString
 from rpython.annotator.model import SomePBC, SomeInstance, SomeDict, SomeList
@@ -89,8 +89,14 @@ def builtin_range(*args):
 
 builtin_xrange = builtin_range # xxx for now allow it
 
+
 def builtin_enumerate(s_obj):
     return SomeIterator(s_obj, "enumerate")
+
+
+def builtin_reversed(s_obj):
+    return SomeIterator(s_obj, "reversed")
+
 
 def builtin_bool(s_obj):
     return s_obj.is_true()

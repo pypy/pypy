@@ -423,6 +423,18 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a[4] == 5.0
         raises(IndexError, "a[5] = 0.0")
         raises(IndexError, "a[-6] = 3.0")
+        a[1] = array(100)
+        a[2] = array([100])
+        assert a[1] == 100
+        assert a[2] == 100
+        a = array(range(5), dtype=float)
+        a[0] = 0.005
+        assert a[0] == 0.005
+        a[1] = array(-0.005)
+        a[2] = array([-0.005])
+        assert a[1] == -0.005
+        assert a[2] == -0.005
+
 
     def test_setitem_tuple(self):
         from numpypy import array
@@ -1481,6 +1493,32 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = (a + a)[::2]
         b = concatenate((a[:3], a[-3:]))
         assert (b == [2, 6, 10, 2, 6, 10]).all()
+        a = concatenate((array([1]), array(['abc'])))
+        assert str(a.dtype) == '|S3'
+        a = concatenate((array([]), array(['abc'])))
+        assert a[0] == 'abc'
+        a = concatenate((['abcdef'], ['abc']))
+        assert a[0] == 'abcdef'
+        assert str(a.dtype) == '|S6'
+
+    def test_record_concatenate(self):
+        # only an exact match can succeed
+        from numpypy import zeros, concatenate
+        a = concatenate((zeros((2,),dtype=[('x', int), ('y', float)]),
+                         zeros((2,),dtype=[('x', int), ('y', float)])))
+        assert a.shape == (4,)
+        exc = raises(TypeError, concatenate,
+                            (zeros((2,), dtype=[('x', int), ('y', float)]),
+                            (zeros((2,), dtype=[('x', float), ('y', float)]))))
+        assert str(exc.value).startswith('record type mismatch')
+        exc = raises(TypeError, concatenate, ([1], zeros((2,),
+                                            dtype=[('x', int), ('y', float)])))
+        assert str(exc.value).startswith('invalid type promotion')
+        exc = raises(TypeError, concatenate, (['abc'], zeros((2,),
+                                            dtype=[('x', int), ('y', float)])))
+        assert str(exc.value).startswith('invalid type promotion')
+
+
 
     def test_std(self):
         from numpypy import array
@@ -1651,6 +1689,16 @@ class AppTestNumArray(BaseNumpyAppTest):
 
         a = array('x').astype('S3').dtype
         assert a.itemsize == 3
+        # scalar vs. array
+        a = array([1, 2, 3.14156]).astype('S3').dtype
+        assert a.itemsize == 3
+        a = array(3.1415).astype('S3').dtype
+        assert a.itemsize == 3
+        try:
+            a = array(['1', '2','3']).astype(float)
+            assert a[2] == 3.0
+        except NotImplementedError:
+            skip('astype("float") not implemented for str arrays')
 
     def test_base(self):
         from numpypy import array
@@ -1967,7 +2015,7 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert (a.transpose() == b).all()
 
     def test_flatiter(self):
-        from numpypy import array, flatiter, arange
+        from numpypy import array, flatiter, arange, zeros
         a = array([[10, 30], [40, 60]])
         f_iter = a.flat
         assert f_iter.next() == 10
@@ -1983,6 +2031,9 @@ class AppTestMultiDim(BaseNumpyAppTest):
         a = arange(10).reshape(5, 2)
         raises(IndexError, 'a.flat[(1, 2)]')
         assert a.flat.base is a
+        m = zeros((2,2), dtype='S3')
+        m.flat[1] = 1
+        assert m[0,1] == '1'
 
     def test_flatiter_array_conv(self):
         from numpypy import array, dot

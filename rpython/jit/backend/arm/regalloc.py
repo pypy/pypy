@@ -2,7 +2,8 @@ from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.rlib import rgc
 from rpython.rlib.debug import debug_print, debug_start, debug_stop
 from rpython.jit.backend.llsupport.regalloc import FrameManager, \
-        RegisterManager, TempBox, compute_vars_longevity, BaseRegalloc
+        RegisterManager, TempBox, compute_vars_longevity, BaseRegalloc, \
+        get_scale
 from rpython.jit.backend.arm import registers as r
 from rpython.jit.backend.arm import locations
 from rpython.jit.backend.arm.locations import imm, get_fp_offset
@@ -166,6 +167,13 @@ class CoreRegisterManager(ARMRegisterManager):
                                                     selected_reg=selected_reg)
         return reg
 
+    def get_free_reg(self):
+        free_regs = self.free_regs
+        for i in range(len(free_regs) - 1, -1, -1):
+            if free_regs[i] in self.save_around_call_regs:
+                continue
+            return free_regs[i]
+
 
 class Regalloc(BaseRegalloc):
 
@@ -251,6 +259,9 @@ class Regalloc(BaseRegalloc):
         else:
             return self.rm.get_scratch_reg(type, forbidden_vars, selected_reg)
 
+    def get_free_reg(self):
+        return self.rm.get_free_reg()
+
     def free_temp_vars(self):
         self.rm.free_temp_vars()
         self.vfprm.free_temp_vars()
@@ -278,8 +289,7 @@ class Regalloc(BaseRegalloc):
         operations = cpu.gc_ll_descr.rewrite_assembler(cpu, operations,
                                                        allgcrefs)
         # compute longevity of variables
-        longevity, last_real_usage = compute_vars_longevity(
-                                                    inputargs, operations)
+        longevity, last_real_usage = compute_vars_longevity(inputargs, operations)
         self.longevity = longevity
         self.last_real_usage = last_real_usage
         fm = self.frame_manager
@@ -356,7 +366,7 @@ class Regalloc(BaseRegalloc):
     # ------------------------------------------------------------
     def perform_llong(self, op, args, fcond):
         return self.assembler.regalloc_emit_llong(op, args, fcond, self)
-    
+
     def perform_math(self, op, args, fcond):
         return self.assembler.regalloc_emit_math(op, args, self, fcond)
 
@@ -433,7 +443,7 @@ class Regalloc(BaseRegalloc):
         res = self.force_allocate_reg(op.result)
         self.possibly_free_var(op.result)
         return [reg1, reg2, res]
-    
+
     def prepare_op_int_force_ge_zero(self, op, fcond):
         argloc = self.make_sure_var_in_reg(op.getarg(0))
         resloc = self.force_allocate_reg(op.result, [op.getarg(0)])
@@ -545,10 +555,9 @@ class Regalloc(BaseRegalloc):
         return self._prepare_call(op)
 
     def _prepare_call(self, op, force_store=[], save_all_regs=False):
-        args = []
-        args.append(None)
+        args = [None] * (op.numargs() + 1)
         for i in range(op.numargs()):
-            args.append(self.loc(op.getarg(i)))
+            args[i + 1] = self.loc(op.getarg(i))
         # spill variables that need to be saved around calls
         self.vfprm.before_call(save_all_regs=save_all_regs)
         if not save_all_regs:
@@ -578,7 +587,6 @@ class Regalloc(BaseRegalloc):
         loc0 = self.make_sure_var_in_reg(op.getarg(1))
         res = self.force_allocate_reg(op.result)
         return [loc0, res]
-
 
     def _prepare_guard(self, op, args=None):
         if args is None:
@@ -655,8 +663,7 @@ class Regalloc(BaseRegalloc):
         return arglocs
 
     def prepare_op_guard_no_exception(self, op, fcond):
-        loc = self.make_sure_var_in_reg(
-                    ConstInt(self.cpu.pos_exception()))
+        loc = self.make_sure_var_in_reg(ConstInt(self.cpu.pos_exception()))
         arglocs = self._prepare_guard(op, [loc])
         return arglocs
 
@@ -745,6 +752,7 @@ class Regalloc(BaseRegalloc):
         #            self.frame_manager.hint_frame_locations[box] = loc
 
     def prepare_op_jump(self, op, fcond):
+        assert self.jump_target_descr is None
         descr = op.getdescr()
         assert isinstance(descr, TargetToken)
         self.jump_target_descr = descr
@@ -1004,21 +1012,72 @@ class Regalloc(BaseRegalloc):
         self.rm.force_allocate_reg(op.result, selected_reg=r.r0)
         t = TempInt()
         self.rm.force_allocate_reg(t, selected_reg=r.r1)
+
+        sizeloc = size_box.getint()
+        gc_ll_descr = self.cpu.gc_ll_descr
+        gcmap = self.get_gcmap([r.r0, r.r1])
         self.possibly_free_var(t)
-        return [imm(size)]
+        self.assembler.malloc_cond(
+            gc_ll_descr.get_nursery_free_addr(),
+            gc_ll_descr.get_nursery_top_addr(),
+            sizeloc,
+            gcmap
+            )
+        self.assembler._alignment_check()
 
-    def prepare_op_call_malloc_nursery_varsize_small(self, op, fcond):
+    def prepare_op_call_malloc_nursery_varsize_frame(self, op, fcond):
         size_box = op.getarg(0)
-        assert isinstance(size_box, BoxInt)
-        size = size_box.getint()
-
+        assert isinstance(size_box, BoxInt) # we cannot have a const here!
+        # sizeloc must be in a register, but we can free it now
+        # (we take care explicitly of conflicts with r0 or r1)
+        sizeloc = self.rm.make_sure_var_in_reg(size_box)
+        self.rm.possibly_free_var(size_box)
+        #
         self.rm.force_allocate_reg(op.result, selected_reg=r.r0)
+        #
         t = TempInt()
         self.rm.force_allocate_reg(t, selected_reg=r.r1)
-        argloc = self.make_sure_var_in_reg(size_box,
-                                            forbidden_vars=[op.result, t])
+        #
+        gcmap = self.get_gcmap([r.r0, r.r1])
         self.possibly_free_var(t)
-        return [argloc]
+        #
+        gc_ll_descr = self.assembler.cpu.gc_ll_descr
+        self.assembler.malloc_cond_varsize_frame(
+            gc_ll_descr.get_nursery_free_addr(),
+            gc_ll_descr.get_nursery_top_addr(),
+            sizeloc,
+            gcmap
+            )
+        self.assembler._alignment_check()
+
+    def prepare_op_call_malloc_nursery_varsize(self, op, fcond):
+        gc_ll_descr = self.assembler.cpu.gc_ll_descr
+        if not hasattr(gc_ll_descr, 'max_size_of_young_obj'):
+            raise Exception("unreachable code")
+            # for boehm, this function should never be called
+        arraydescr = op.getdescr()
+        length_box = op.getarg(2)
+        assert isinstance(length_box, BoxInt) # we cannot have a const here!
+        # the result will be in r0
+        self.rm.force_allocate_reg(op.result, selected_reg=r.r0)
+        # we need r1 as a temporary
+        tmp_box = TempBox()
+        self.rm.force_allocate_reg(tmp_box, selected_reg=r.r1)
+        gcmap = self.get_gcmap([r.r0, r.r1]) # allocate the gcmap *before*
+        self.rm.possibly_free_var(tmp_box)
+        # length_box always survives: it's typically also present in the
+        # next operation that will copy it inside the new array.  It's
+        # fine to load it from the stack too, as long as it's != r0, r1.
+        lengthloc = self.rm.loc(length_box)
+        self.rm.possibly_free_var(length_box)
+        #
+        itemsize = op.getarg(1).getint()
+        maxlength = (gc_ll_descr.max_size_of_young_obj - WORD * 2) / itemsize
+        self.assembler.malloc_cond_varsize(
+            op.getarg(0).getint(),
+            gc_ll_descr.get_nursery_free_addr(),
+            gc_ll_descr.get_nursery_top_addr(),
+            lengthloc, itemsize, maxlength, gcmap, arraydescr)
 
     prepare_op_debug_merge_point = void
     prepare_op_jit_debug = void
@@ -1084,6 +1143,7 @@ class Regalloc(BaseRegalloc):
         #jump_op = self.final_jump_op
         #if jump_op is not None and jump_op.getdescr() is descr:
         #    self._compute_hint_frame_locations_from_descr(descr)
+        return []
 
     def prepare_guard_call_may_force(self, op, guard_op, fcond):
         args = self._prepare_call(op, save_all_regs=True)
@@ -1112,8 +1172,7 @@ class Regalloc(BaseRegalloc):
     prepare_op_float_add = prepare_float_op(name='prepare_op_float_add')
     prepare_op_float_sub = prepare_float_op(name='prepare_op_float_sub')
     prepare_op_float_mul = prepare_float_op(name='prepare_op_float_mul')
-    prepare_op_float_truediv = prepare_float_op(
-                                            name='prepare_op_float_truediv')
+    prepare_op_float_truediv = prepare_float_op(name='prepare_op_float_truediv')
     prepare_op_float_lt = prepare_float_op(float_result=False,
                                             name='prepare_op_float_lt')
     prepare_op_float_le = prepare_float_op(float_result=False,
@@ -1204,13 +1263,6 @@ def notimplemented_with_guard(self, op, guard_op, fcond):
 operations = [notimplemented] * (rop._LAST + 1)
 operations_with_guard = [notimplemented_with_guard] * (rop._LAST + 1)
 
-
-def get_scale(size):
-    scale = 0
-    while (1 << scale) < size:
-        scale += 1
-    assert (1 << scale) == size
-    return scale
 
 for key, value in rop.__dict__.items():
     key = key.lower()

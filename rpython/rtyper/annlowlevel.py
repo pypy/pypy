@@ -4,7 +4,8 @@ The code needed to flow and annotate low-level helpers -- the ll_*() functions
 
 from rpython.tool.sourcetools import valid_identifier
 from rpython.annotator import model as annmodel
-from rpython.annotator.policy import AnnotatorPolicy, Sig
+from rpython.annotator.policy import AnnotatorPolicy
+from rpython.annotator.signature import Sig
 from rpython.annotator.specialize import flatten_star_args
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.flowspace.model import Constant
@@ -300,7 +301,8 @@ class MixLevelHelperAnnotator(object):
         from rpython.translator.backendopt.all import backend_optimizations
         translator = self.rtyper.annotator.translator
         newgraphs = self.newgraphs.keys()
-        backend_optimizations(translator, newgraphs, secondary=True, **flags)
+        backend_optimizations(translator, newgraphs, secondary=True,
+                              inline_graph_from_anywhere=True, **flags)
         self.newgraphs.clear()
 
 # ____________________________________________________________

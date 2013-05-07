@@ -1,6 +1,6 @@
-from rpython.rlib import rgc, jit
+from rpython.rlib import rgc, jit, types
 from rpython.rlib.debug import ll_assert
-from rpython.rlib.objectmodel import enforceargs
+from rpython.rlib.signature import signature
 from rpython.rtyper.lltypesystem import rstr
 from rpython.rtyper.lltypesystem.lltype import (GcForwardReference, Ptr, GcArray,
      GcStruct, Void, Signed, malloc, typeOf, nullptr, typeMethod)
@@ -52,8 +52,13 @@ class BaseListRepr(AbstractBaseListRepr):
     def get_eqfunc(self):
         return inputconst(Void, self.item_repr.get_ll_eq_function())
 
-    def make_iterator_repr(self):
-        return ListIteratorRepr(self)
+    def make_iterator_repr(self, *variant):
+        if not variant:
+            return ListIteratorRepr(self)
+        elif variant == ("reversed",):
+            return ReversedListIteratorRepr(self)
+        else:
+            raise NotImplementedError(variant)
 
     def get_itemarray_lowleveltype(self):
         ITEM = self.item_repr.lowleveltype
@@ -171,7 +176,7 @@ class FixedSizeListRepr(AbstractFixedSizeListRepr, BaseListRepr):
 
 # adapted C code
 
-@enforceargs(None, int, None)
+@signature(types.any(), types.int(), types.bool(), returns=types.none())
 def _ll_list_resize_hint_really(l, newsize, overallocate):
     """
     Ensure l.items has room for at least newsize elements.  Note that
@@ -227,7 +232,8 @@ def _ll_list_resize_hint(l, newsize):
     if allocated < newsize or newsize < (allocated >> 1) - 5:
         _ll_list_resize_hint_really(l, newsize, False)
 
-@enforceargs(None, int, None)
+
+@signature(types.any(), types.int(), types.bool(), returns=types.none())
 def _ll_list_resize_really(l, newsize, overallocate):
     """
     Ensure l.items has room for at least newsize elements, and set
@@ -431,6 +437,7 @@ class ListIteratorRepr(AbstractListIteratorRepr):
             self.ll_listnext = ll_listnext
         self.ll_getnextindex = ll_getnextindex
 
+
 def ll_listiter(ITERPTR, lst):
     iter = malloc(ITERPTR.TO)
     iter.list = lst
@@ -456,3 +463,30 @@ def ll_listnext_foldable(iter):
 
 def ll_getnextindex(iter):
     return iter.index
+
+
+class ReversedListIteratorRepr(AbstractListIteratorRepr):
+    def __init__(self, r_list):
+        self.r_list = r_list
+        self.lowleveltype = Ptr(GcStruct('revlistiter',
+            ('list', r_list.lowleveltype),
+            ('index', Signed),
+        ))
+        self.ll_listnext = ll_revlistnext
+        self.ll_listiter = ll_revlistiter
+
+
+def ll_revlistiter(ITERPTR, lst):
+    iter = malloc(ITERPTR.TO)
+    iter.list = lst
+    iter.index = lst.ll_length() - 1
+    return iter
+
+
+def ll_revlistnext(iter):
+    l = iter.list
+    index = iter.index
+    if index < 0:
+        raise StopIteration
+    iter.index -= 1
+    return l.ll_getitem_fast(index)
