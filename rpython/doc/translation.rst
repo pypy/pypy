@@ -6,10 +6,8 @@ The RPython Toolchain
 
 
 This document describes the toolchain that we have developed to analyze
-and "compile" RPython_ programs (like PyPy itself) to various target
+and "compile" RPython programs (like PyPy itself) to various target
 platforms.
-
-.. _RPython: coding-guide.html#restricted-python
 
 It consists of three broad sections: a slightly simplified overview, a
 brief introduction to each of the major components of our toolchain and
@@ -21,21 +19,18 @@ then the `How It Fits Together`_ is probably what you want.
 Overview
 ========
 
-The job of the translation toolchain is to translate RPython_ programs into an
+The job of the translation toolchain is to translate RPython programs into an
 efficient version of that program for one of various target platforms,
 generally one that is considerably lower-level than Python.  It divides
 this task into several steps, and the purpose of this document is to
 introduce them.
 
-As of the 1.2 release, RPython_ programs can be translated into the following
+As of the 1.2 release, RPython programs can be translated into the following
 languages/platforms: C/POSIX, CLI/.NET
 and Java/JVM.
 
-.. _`application-level`: coding-guide.html#application-level
-.. _`interpreter-level`: coding-guide.html#interpreter-level
-
 The choice of the target platform affects the process somewhat, but to
-start with we describe the process of translating an RPython_ program into
+start with we describe the process of translating an RPython program into
 C (which is the default and original target).
 
 .. _`initialization time`:
@@ -56,7 +51,7 @@ steps (see also the figure below):
 1. The complete program is imported, at which time arbitrary run-time
    initialization can be performed.  Once this is done, the program must
    be present in memory as a form that is "static enough" in the sense of
-   RPython_.
+   :doc:`RPython <rpython>`.
 
 2. The Annotator_ performs a global analysis starting from an specified
    entry point to deduce type and other information about what each
@@ -90,7 +85,7 @@ steps (see also the figure below):
 (although these steps are not quite as distinct as you might think from
 this presentation).
 
-There is an `interactive interface`_ called :source:`rpython/bin/translatorshell.py` to the
+There is an :ref:`interactive interface <try out the translator>` called :source:`rpython/bin/translatorshell.py` to the
 translation process which allows you to interactively work through these
 stages.
 

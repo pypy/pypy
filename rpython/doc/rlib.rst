@@ -96,9 +96,7 @@ rarithmetic
 
 The :source:`rpython/rlib/rarithmetic.py` module contains functionality to handle the small differences
 in the behaviour of arithmetic code in regular Python and RPython code. Most of
-them are already described in the `coding guide`_
-
-.. _`coding guide`: coding-guide.html
+them are already described in the :doc:`RPython description <rpython>`.
 
 
 rbigint

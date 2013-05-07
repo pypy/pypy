@@ -56,9 +56,7 @@ You cannot use most existing standard library modules from RPython.  The
 exceptions are
 some functions in ``os``, ``math`` and ``time`` that have native support.
 
-To read more about the RPython limitations read the `RPython description`_.
-
-.. _`RPython description`: coding-guide.html#restricted-python
+To read more about the RPython limitations read the :doc:`RPython description <rpython>`.
 
 ---------------------------------------------------------------
 Does RPython have anything to do with Zope's Restricted Python?
