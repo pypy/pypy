@@ -1048,7 +1048,6 @@ def ones(space, w_shape, w_dtype=None, order='C'):
     return space.wrap(arr)
 
 def _reconstruct(space, w_subtype, w_shape, w_dtype):
-    assert isinstance(w_dtype, interp_dtype.W_Dtype)
     return descr_new_array(space, w_subtype, w_shape, w_dtype)
 
 W_FlatIterator.typedef = TypeDef(
