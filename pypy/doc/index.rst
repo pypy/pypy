@@ -62,7 +62,6 @@ Translation Framework:
   * `Differences between PyPy and CPython`_
   * `What PyPy can do for your objects`_ - transparent proxy documentation
   * `Continulets and greenlets`_ - documentation about stackless features
-  * `JIT Generation in PyPy`_
   * `JIT hooks`_
   * `Sandboxing Python code`_
   * `Garbage collection environment variables`_
@@ -70,7 +69,6 @@ Translation Framework:
 .. _`Differences between PyPy and CPython`: cpython_differences.html
 .. _`What PyPy can do for your objects`: objspace-proxies.html
 .. _`Continulets and greenlets`: stackless.html
-.. _`JIT Generation in PyPy`: jit/index.html
 .. _`JIT hooks`: jit-hooks.html
 .. _`Sandboxing Python code`: sandbox.html
 .. _`Garbage collection environment variables`: gc_info.html
