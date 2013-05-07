@@ -1,6 +1,5 @@
-
 Foreign Function Interface for RPython
-=======================================
+======================================
 
 Purpose
 -------
@@ -47,19 +46,19 @@ See cbuild_ for more info on ExternalCompilationInfo.
 
 
 Types
-------
+-----
 
 In rffi_ there are various declared types for C-structures, like CCHARP
-(char*), SIZE_T (size_t) and others. refer to file for details. 
-Instances of non-primitive types must be alloced by hand, with call 
-to lltype.malloc, and freed by lltype.free both with keyword argument 
+(char*), SIZE_T (size_t) and others. refer to file for details.
+Instances of non-primitive types must be alloced by hand, with call
+to lltype.malloc, and freed by lltype.free both with keyword argument
 flavor='raw'. There are several helpers like string -> char*
 converter, refer to the source for details.
 
 .. _rffi: https://bitbucket.org/pypy/pypy/src/tip/pypy/rpython/lltypesystem/rffi.py
 
 Registering function as external
----------------------------------
+--------------------------------
 
 Once we provided low-level implementation of an external function,
 would be nice to wrap call to some library function (like os.open)

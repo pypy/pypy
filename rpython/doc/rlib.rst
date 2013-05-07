@@ -1,6 +1,6 @@
-=================================================
-Generally Useful RPython Modules 
-=================================================
+================================
+Generally Useful RPython Modules
+================================
 
 .. _Python: http://www.python.org/dev/doc/maint24/ref/ref.html
 
@@ -158,7 +158,7 @@ The :source:`rpython/rlib/parsing/` module is a still in-development module to g
 parsers in RPython. It is still highly experimental and only really used by the
 `Prolog interpreter`_ (although in slightly non-standard ways). The easiest way
 to specify a tokenizer/grammar is to write it down using regular expressions and
-simple EBNF format. 
+simple EBNF format.
 
 The regular expressions are implemented using finite automatons. The parsing
 engine uses `packrat parsing`_, which has O(n) parsing time but is more
@@ -231,7 +231,7 @@ passed on to the parser and can thus be used to match comments or
 non-significant whitespace.
 
 Grammar rules have the form::
-    
+
     name: expansion_1 | expansion_2 | ... | expansion_n;
 
 Where ``expansion_i`` is a sequence of nonterminal or token names::
@@ -244,7 +244,7 @@ can consist of a sequence of token names, nonterminal names or literals, which
 are strings in quotes that are matched literally.
 
 An example to make this clearer::
-    
+
     IGNORE: " ";
     DECIMAL: "0|[1-9][0-9]*";
     additive: multitive "+" additive |

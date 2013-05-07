@@ -33,7 +33,7 @@ high level approach has two main advantages:
   - the code generation part could be easier because the target
     language supports high level control structures such as
     structured loops;
-  
+
   - the generated executables take advantage of compiler's
     optimizations.
 
@@ -59,7 +59,7 @@ flexibility in how to get an executable starting from the IL code we
 generate:
 
   - write IL code to a file, then call the ilasm assembler;
-  
+
   - directly generate code on the fly by accessing the facilities
     exposed by the System.Reflection.Emit API.
 
@@ -104,14 +104,14 @@ to do for completing the backend:
 
   - map ootypesystem's types to CLI Common Type System's
     types;
-  
+
   - map ootypesystem's low level operation to CLI instructions;
-  
+
   - map Python exceptions to CLI exceptions;
-  
+
   - write a code generator that translates a flow graph
     into a list of CLI instructions;
-  
+
   - write a class generator that translates ootypesystem
     classes into CLI classes.
 
@@ -137,7 +137,7 @@ least two ways to map plain Char to CTS:
     one-to-one translation, but has the disadvantage that RPython
     strings will not be recognized as .NET strings, since they only
     would be sequences of bytes;
-  
+
   - map both char, so that Python strings will be treated as strings
     also by .NET: in this case there could be problems with existing
     Python modules that use strings as sequences of byte, such as the
@@ -245,19 +245,19 @@ overflow. For implementing it we can use the built-in add.ovf CLI
 instruction that raises System.OverflowException when the result
 overflows, catch that exception and throw a new one::
 
-    .try 
-    { 
+    .try
+    {
         ldarg 'x_0'
         ldarg 'y_0'
-        add.ovf 
+        add.ovf
         stloc 'v1'
-        leave __check_block_2 
-    } 
-    catch [mscorlib]System.OverflowException 
-    { 
-        newobj instance void class OverflowError::.ctor() 
-        throw 
-    } 
+        leave __check_block_2
+    }
+    catch [mscorlib]System.OverflowException
+    {
+        newobj instance void class OverflowError::.ctor()
+        throw
+    }
 
 
 Translating flow graphs
@@ -308,7 +308,7 @@ sub-block then branches to the appropriate block::
       ...
 
   // IL
-  block0: 
+  block0:
     .try {
         ...
         leave block3

@@ -14,7 +14,7 @@ toolchain can accept" :)
 
 
 Flow restrictions
--------------------------
+-----------------
 
 **variables**
 
@@ -63,7 +63,7 @@ Flow restrictions
 
 
 Object restrictions
--------------------------
+-------------------
 
 We are using
 
@@ -104,12 +104,12 @@ We are using
   - *indexing*:
     positive and negative indexes are allowed. Indexes are checked when requested
     by an IndexError exception clause.
-  
+
   - *slicing*:
     the slice start must be within bounds. The stop doesn't need to, but it must
     not be smaller than the start.  All negative indexes are disallowed, except for
     the [:-1] special case.  No step.  Slice deletion follows the same rules.
-    
+
   - *slice assignment*:
     only supports ``lst[x:y] = sublist``, if ``len(sublist) == y - x``.
     In other words, slice assignment cannot change the total length of the list,
@@ -176,7 +176,7 @@ This layout makes the number of types to take care about quite limited.
 
 
 Integer Types
--------------------------
+-------------
 
 While implementing the integer type, we stumbled over the problem that
 integers are quite in flux in CPython right now. Starting with Python 2.4,
@@ -229,7 +229,7 @@ helpers (which live in :source:`rpython/rlib/rarithmetic.py`):
 
 
 Exception rules
----------------------
+---------------
 
 Exceptions are by default not generated for simple cases.::
 

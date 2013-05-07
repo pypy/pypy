@@ -29,16 +29,16 @@ If you want a fast Python program, please use the PyPy JIT_ instead.
            Localized Type Inference of Atomic Types in Python,
            http://citeseer.ist.psu.edu/viewdoc/summary?doi=10.1.1.90.3231
 
-.. _`PyPy's RPython`: 
+.. _`PyPy's RPython`:
 
 ------------------------------
 What is this RPython language?
 ------------------------------
 
-RPython is a restricted subset of the Python language.   It is used for 
+RPython is a restricted subset of the Python language.   It is used for
 implementing dynamic language interpreters within the PyPy toolchain.  The
 restrictions ensure that type inference (and so, ultimately, translation
-to other languages) of RPython programs is possible. 
+to other languages) of RPython programs is possible.
 
 The property of "being RPython" always applies to a full program, not to single
 functions or modules (the translation toolchain does a full program analysis).
@@ -64,10 +64,10 @@ To read more about the RPython limitations read the `RPython description`_.
 Does RPython have anything to do with Zope's Restricted Python?
 ---------------------------------------------------------------
 
-No.  `Zope's RestrictedPython`_ aims to provide a sandboxed 
+No.  `Zope's RestrictedPython`_ aims to provide a sandboxed
 execution environment for CPython.   `PyPy's RPython`_ is the implementation
-language for dynamic language interpreters.  However, PyPy also provides 
-a robust `sandboxed Python Interpreter`_. 
+language for dynamic language interpreters.  However, PyPy also provides
+a robust `sandboxed Python Interpreter`_.
 
 .. _`sandboxed Python Interpreter`: sandbox.html
 .. _`Zope's RestrictedPython`: http://pypi.python.org/pypi/RestrictedPython

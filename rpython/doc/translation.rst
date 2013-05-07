@@ -106,7 +106,7 @@ The following figure gives a simplified overview (`PDF color version`_):
 .. _`interactive interface`: getting-started-dev.html#try-out-the-translator
 
 .. _`flow model`:
-.. _`control flow graphs`: 
+.. _`control flow graphs`:
 
 The Flow Model
 ==============
@@ -200,7 +200,7 @@ the types and their attributes in some detail:
     A link from one basic block to another.
 
     :prevblock:  the Block that this Link is an exit of.
-    
+
     :target:     the target Block to which this Link points to.
 
     :args:       a list of Variables and Constants, of the same size as the
@@ -335,7 +335,7 @@ reflown through the relevant parts of the flow graphs.
   the same ``SomeXxx`` annotation, and so have all values).
 
 User-defined Classes and Instances
------------------------------------
+----------------------------------
 
 ``SomeInstance`` stands for an instance of the given class or any
 subclass of it.  For each user-defined class seen by the annotator, we
@@ -450,7 +450,7 @@ Between RTyping and C source generation there are two optional transforms:
 the "backend optimizations" and the "stackless transform". See also
 `D07.1 Massive Parallelism and Translation Aspects`_ for further details.
 
-.. _`Technical report`: 
+.. _`Technical report`:
 .. _`D07.1 Massive Parallelism and Translation Aspects`: https://bitbucket.org/pypy/extradoc/raw/ee3059291497/eu-report/D07.1_Massive_Parallelism_and_Translation_Aspects-2007-02-28.pdf
 
 Backend Optimizations

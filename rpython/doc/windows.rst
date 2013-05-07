@@ -13,12 +13,12 @@ Microsoft Visual Studio is preferred, but can also use the mingw32 port of gcc.
 Translating PyPy with Visual Studio
 -----------------------------------
 
-We routinely test the `RPython translation toolchain`_ using 
+We routinely test the `RPython translation toolchain`_ using
 Visual Studio 2008, Express
 Edition.  Other configurations may work as well.
 
 The translation scripts will set up the appropriate environment variables
-for the compiler, so you do not need to run vcvars before translation.  
+for the compiler, so you do not need to run vcvars before translation.
 They will attempt to locate the same compiler version that
 was used to build the Python interpreter doing the
 translation.  Failing that, they will pick the most recent Visual Studio
@@ -65,7 +65,7 @@ INCLUDE, LIB and PATH (for DLLs) environment variables appropriately.
 Abridged method (for -Ojit builds using Visual Studio 2008)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Download the versions of all the external packages
-from 
+from
 https://bitbucket.org/pypy/pypy/downloads/local.zip
 Then expand it into the base directory (base_dir) and modify your environment to reflect this::
 
@@ -110,15 +110,16 @@ the base directory.  Then compile::
 
     cd bzip2-1.0.5
     nmake -f makefile.msc
-    
+
 The sqlite3 database library
-~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Download http://www.sqlite.org/2013/sqlite-amalgamation-3071601.zip and extract
-it into a directory under the base directory. Also get 
+it into a directory under the base directory. Also get
 http://www.sqlite.org/2013/sqlite-dll-win32-x86-3071601.zip and extract the dll
 into the bin directory, and the sqlite3.def into the sources directory.
 Now build the import library so cffi can use the header and dll::
+
     lib /DEF:sqlite3.def" /OUT:sqlite3.lib"
     copy sqlite3.lib path\to\libs
 
@@ -128,11 +129,11 @@ The expat XML parser
 
 Download the source code of expat on sourceforge:
 http://sourceforge.net/projects/expat/ and extract it in the base
-directory.  Version 2.1.0 is known to pass tests. Then open the project 
+directory.  Version 2.1.0 is known to pass tests. Then open the project
 file ``expat.dsw`` with Visual
 Studio; follow the instruction for converting the project files,
-switch to the "Release" configuration, reconfigure the runtime for 
-Multi-threaded DLL (/MD) and build the solution (the ``expat`` project 
+switch to the "Release" configuration, reconfigure the runtime for
+Multi-threaded DLL (/MD) and build the solution (the ``expat`` project
 is actually enough for PyPy).
 
 Then, copy the file ``win32\bin\release\libexpat.dll`` somewhere in
@@ -162,24 +163,24 @@ i.e. x86_64-w64-mingw32-gcc for the 64 bit compiler creating a 64 bit target.
 
 You probably want to set the CPATH, LIBRARY_PATH, and PATH environment
 variables to the header files, lib or dlls, and dlls respectively of the
-locally installed packages if they are not in the mingw directory heirarchy. 
+locally installed packages if they are not in the mingw directory heirarchy.
 
 libffi for the mingw compiler
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 To enable the _rawffi (and ctypes) module, you need to compile a mingw
 version of libffi.  Here is one way to do this, wich should allow you to try
 to build for win64 or win32:
 
 #. Download and unzip a `mingw32 build`_ or `mingw64 build`_, say into c:\mingw
-#. If you do not use cygwin, you will need msys to provide make, 
+#. If you do not use cygwin, you will need msys to provide make,
    autoconf tools and other goodies.
 
     #. Download and unzip a `msys for mingw`_, say into c:\msys
     #. Edit the c:\msys\etc\fstab file to mount c:\mingw
 
 #. Download and unzip the `libffi source files`_, and extract
-   them in the base directory.  
+   them in the base directory.
 #. Run c:\msys\msys.bat or a cygwin shell which should make you
    feel better since it is a shell prompt with shell tools.
 #. From inside the shell, cd to the libffi directory and do::
@@ -188,7 +189,7 @@ to build for win64 or win32:
     make
     cp .libs/libffi-5.dll <somewhere on the PATH>
 
-If you can't find the dll, and the libtool issued a warning about 
+If you can't find the dll, and the libtool issued a warning about
 "undefined symbols not allowed", you will need to edit the libffi
 Makefile in the toplevel directory. Add the flag -no-undefined to
 the definition of libffi_la_LDFLAGS
@@ -208,6 +209,6 @@ environment variable CC to the compliter exe, testing will use it.
 
 .. _`mingw32 build`: http://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win32/Automated%20Builds
 .. _`mingw64 build`: http://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win64/Automated%20Builds
-.. _`msys for mingw`: http://sourceforge.net/projects/mingw-w64/files/External%20binary%20packages%20%28Win64%20hosted%29/MSYS%20%2832-bit%29   
+.. _`msys for mingw`: http://sourceforge.net/projects/mingw-w64/files/External%20binary%20packages%20%28Win64%20hosted%29/MSYS%20%2832-bit%29
 .. _`libffi source files`: http://sourceware.org/libffi/
 .. _`RPython translation toolchain`: translation.html

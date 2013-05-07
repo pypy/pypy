@@ -205,22 +205,12 @@ coding Sprints which are
 separately announced and often happen around Python conferences such
 as EuroPython or Pycon. Upcoming events are usually announced on `the blog`_.
 
-.. _`full Python interpreter`: getting-started-python.html
 .. _`the blog`: http://morepypy.blogspot.com
 .. _`pypy-dev mailing list`: http://python.org/mailman/listinfo/pypy-dev
 .. _`contact possibilities`: index.html
 
 .. _`py library`: http://pylib.org
 
-.. _`Spidermonkey`: http://www.mozilla.org/js/spidermonkey/
-
-.. _`.NET Framework SDK`: http://msdn.microsoft.com/netframework/
-.. _Mono: http://www.mono-project.com/Main_Page
-.. _`CLI backend`: cli-backend.html
-.. _clr: clr-module.html
-
-.. _`Dot Graphviz`:           http://www.graphviz.org/
-.. _Pygame:                 http://www.pygame.org/
 .. _Standard object space:  objspace.html#the-standard-object-space
 .. _mailing lists:          index.html
 .. _documentation:          index.html#project-documentation

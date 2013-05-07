@@ -11,7 +11,7 @@ is that Python is a meta-programming language for RPython, that is,
 RPython is considered from live objects **after** the imports are done.
 This might require more explanation. You start writing RPython from
 ``entry_point``, a good starting point is
-``rpython/translator/goal/targetnopstandalone.py``. This does not do all that
+:source:`rpython/translator/goal/targetnopstandalone.py`. This does not do all that
 much, but is a start. Now if code analyzed (in this case ``entry_point``)
 calls some functions, those calls will be followed. Those followed calls
 have to be RPython themselves (and everything they call etc.), however not
@@ -50,6 +50,7 @@ A good introductory level articles are available:
 .. _`part 2`: http://morepypy.blogspot.com/2011/04/tutorial-part-2-adding-jit.html
 
 .. _`try out the translator`:
+
 Trying out the translator
 -------------------------
 
@@ -61,13 +62,16 @@ you need to download and install the usual (CPython) version of:
   * Pygame_
   * `Dot Graphviz`_
 
+.. _Pygame:                 http://www.pygame.org/
+.. _`Dot Graphviz`:           http://www.graphviz.org/
+
 To start the interactive translator shell do::
 
     cd rpython
     python bin/translatorshell.py
 
 Test snippets of translatable code are provided in the file
-``rpython/translator/test/snippet.py``, which is imported under the name
+:source:`rpython/translator/test/snippet.py`, which is imported under the name
 ``snippet``.  For example::
 
     >>> t = Translation(snippet.is_perfect_number, [int])
@@ -117,7 +121,7 @@ interpreter.  You can try out the CLI and JVM backends
 from the interactive translator shells as follows::
 
     >>> def myfunc(a, b): return a+b
-    ... 
+    ...
     >>> t = Translation(myfunc, [int, int])
     >>> t.annotate()
     >>> f = t.compile_cli() # or compile_jvm()
@@ -143,8 +147,12 @@ executable in one of the ``/tmp/usession-*`` directories::
 
 To translate and run for the CLI you must have the SDK installed: Windows
 users need the `.NET Framework SDK`_, while Linux and Mac users
-can use Mono_.  To translate and run for the JVM you must have a JDK 
+can use Mono_.  To translate and run for the JVM you must have a JDK
 installed (at least version 6) and ``java``/``javac`` on your path.
+
+.. _`CLI backend`: cli-backend.html
+.. _`.NET Framework SDK`: http://msdn.microsoft.com/netframework/
+.. _Mono: http://www.mono-project.com/Main_Page
 
 A slightly larger example
 +++++++++++++++++++++++++
@@ -169,7 +177,7 @@ Translating Full Programs
 +++++++++++++++++++++++++
 
 To translate full RPython programs, there is the script ``translate.py`` in
-``rpython/translator/goal``. Examples for this are a slightly changed version of
+:source:`rpython/translator/goal`. Examples for this are a slightly changed version of
 Pystone::
 
     python bin/rpython translator/goal/targetrpystonedalone
@@ -196,23 +204,25 @@ There are several environment variables you can find useful while playing with t
 Sources
 -------
 
-*  `rpython/translator`_ contains the code analysis and generation stuff.
+*  :source:`rpython/translator` contains the code analysis and generation stuff.
    Start reading from translator.py, from which it should be easy to follow
    the pieces of code involved in the various translation phases.
 
-*  `rpython/annotator`_ contains the data model for the type annotation that
+*  :source:`rpython/annotator` contains the data model for the type annotation that
    can be inferred about a graph.  The graph "walker" that uses this is in
-   `rpython/annotator/annrpython.py`_.
+   :source:`rpython/annotator/annrpython.py`.
 
-*  `rpython/rtyper`_ contains the code of the RPython typer. The typer transforms
+*  :source:`rpython/rtyper` contains the code of the RPython typer. The typer transforms
    annotated flow graphs in a way that makes them very similar to C code so
    that they can be easy translated. The graph transformations are controlled
-   by the code in `rpython/rtyper/rtyper.py`_. The object model that is used can
-   be found in `rpython/rtyper/lltypesystem/lltype.py`_. For each RPython type
+   by the code in :source:`rpython/rtyper/rtyper.py`. The object model that is used can
+   be found in :source:`rpython/rtyper/lltypesystem/lltype.py`. For each RPython type
    there is a file rxxxx.py that contains the low level functions needed for
    this type.
 
-*  `rpython/rlib`_ contains the `RPython standard library`_, things that you can
+*  :source:`rpython/rlib` contains the `RPython standard library`_, things that you can
    use from rpython.
 
+
+.. _`full Python interpreter`: http://pypy.readthedocs.org/en/latest/getting-started-python.html
 .. _`RPython standard library`: rlib.html

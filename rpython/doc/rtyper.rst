@@ -105,7 +105,7 @@ implementations for the same high-level operations.  This is the reason for
 turning representations into explicit objects.
 
 The base Repr class is defined in :source:`rpython/rtyper/rmodel.py`.  Most of the
-``rpython/r*.py`` files define one or a few subclasses of Repr.  The method
+:source:`rpython/`\ ``r*.py`` files define one or a few subclasses of Repr.  The method
 getrepr() of the RTyper will build and cache a single Repr instance per
 SomeXxx() instance; moreover, two SomeXxx() instances that are equal get the
 same Repr instance.
@@ -244,7 +244,7 @@ Void
 Structure Types
 +++++++++++++++
 
-Structure types are built as instances of 
+Structure types are built as instances of
 ``rpython.rtyper.lltypesystem.lltype.Struct``::
 
     MyStructType = Struct('somename',  ('field1', Type1), ('field2', Type2)...)
@@ -276,7 +276,7 @@ GcStruct: the parent structure uses the same GC header as the substructure.
 Array Types
 +++++++++++
 
-An array type is built as an instance of 
+An array type is built as an instance of
 ``rpython.rtyper.lltypesystem.lltype.Array``::
 
     MyIntArray = Array(Signed)
@@ -714,7 +714,7 @@ Manipulation of HighLevelOp instances (this is used e.g. to insert a
 Exception handling:
 
     ``hop.has_implicit_exception(cls)``
-        Checks if hop is in the scope of a branch catching the exception 
+        Checks if hop is in the scope of a branch catching the exception
         'cls'.  This is useful for high-level operations like 'getitem'
         that have several low-level equivalents depending on whether they
         should check for an IndexError or not.  Calling
