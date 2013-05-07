@@ -2,7 +2,7 @@
 Python control flow graph generation and bytecode assembly.
 """
 
-from pypy.interpreter.astcompiler import ast, symtable
+from pypy.interpreter.astcompiler import ast, consts, symtable
 from pypy.interpreter import pycode
 from pypy.tool import stdlib_opcode as ops
 
@@ -425,7 +425,8 @@ class PythonCodeMaker(ast.ASTVisitor):
                 if instr.lineno:
                     # compute deltas
                     line = instr.lineno - current_line
-                    assert line >= 0
+                    if line < 0:
+                        continue
                     addr = offset - current_off
                     # Python assumes that lineno always increases with
                     # increasing bytecode address (lnotab is unsigned char).
@@ -477,7 +478,9 @@ class PythonCodeMaker(ast.ASTVisitor):
         var_names = _list_from_dict(self.var_names)
         cell_names = _list_from_dict(self.cell_vars)
         free_names = _list_from_dict(self.free_vars, len(cell_names))
-        flags = self._get_code_flags() | self.compile_info.flags
+        flags = self._get_code_flags()
+        # (Only) inherit compilerflags in PyCF_MASK
+        flags |= (self.compile_info.flags & consts.PyCF_MASK)
         bytecode = ''.join([block.get_code() for block in blocks])
         return pycode.PyCode(self.space,
                              self.argcount,

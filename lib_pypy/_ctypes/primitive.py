@@ -230,8 +230,8 @@ class SimpleType(_CDataMeta):
                     return _rawffi.wcharp2rawunicode(addr, size)
 
             def _setvalue(self, value):
-                if isinstance(value, basestring):
-                    if isinstance(value, str):
+                if isinstance(value, (str, bytes)):
+                    if isinstance(value, bytes):
                         value = value.decode(ConvMode.encoding,
                                              ConvMode.errors)
                     array = _rawffi.Array('u')(len(value)+1, value)

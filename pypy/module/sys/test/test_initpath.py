@@ -5,7 +5,7 @@ from pypy.module.sys.initpath import (compute_stdlib_path, find_executable, find
 from pypy.module.sys.version import PYPY_VERSION, CPYTHON_VERSION
 
 def build_hierarchy(prefix):
-    dirname = '%d.%d' % CPYTHON_VERSION[:2]
+    dirname = '%d' % CPYTHON_VERSION[0]
     a = prefix.join('lib_pypy').ensure(dir=1)
     b = prefix.join('lib-python', dirname).ensure(dir=1)
     return a, b

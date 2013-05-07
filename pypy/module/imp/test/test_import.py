@@ -1,8 +1,10 @@
+# coding: utf-8
 import py
 from pypy.interpreter.module import Module
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.pycode import PyCode
+from pypy.module.imp.test.support import BaseImportTest
 from rpython.tool.udir import udir
 from rpython.rlib import streamio
 from pypy.tool.option import make_config
@@ -31,7 +33,8 @@ def setuppkg(pkgname, **entries):
         f.close()
     return p
 
-def setup_directory_structure(space):
+def setup_directory_structure(cls):
+    space = cls.space
     root = setuppkg("",
                     a = "imamodule = 1\ninpackage = 0",
                     ambig = "imamodule = 1",
@@ -90,10 +93,39 @@ def setup_directory_structure(space):
         'a=5\nb=6\rc="""hello\r\nworld"""\r', mode='wb')
     p.join('mod.py').write(
         'a=15\nb=16\rc="""foo\r\nbar"""\r', mode='wb')
-    setuppkg("encoded",
+    p = setuppkg("encoded",
              # actually a line 2, setuppkg() sets up a line1
              line2 = "# encoding: iso-8859-1\n",
              bad = "# encoding: uft-8\n")
+
+    fsenc = sys.getfilesystemencoding()
+    # covers utf-8 and Windows ANSI code pages one non-space symbol from
+    # every page (http://en.wikipedia.org/wiki/Code_page)
+    known_locales = {
+        'utf-8' : b'\xc3\xa4',
+        'cp1250' : b'\x8C',
+        'cp1251' : b'\xc0',
+        'cp1252' : b'\xc0',
+        'cp1253' : b'\xc1',
+        'cp1254' : b'\xc0',
+        'cp1255' : b'\xe0',
+        'cp1256' : b'\xe0',
+        'cp1257' : b'\xc0',
+        'cp1258' : b'\xc0',
+        }
+
+    if sys.platform == 'darwin':
+        # Mac OS X uses the Normal Form D decomposition
+        # http://developer.apple.com/mac/library/qa/qa2001/qa1173.html
+        special_char = b'a\xcc\x88'
+    else:
+        special_char = known_locales.get(fsenc)
+
+    if special_char:
+        p.join(special_char + '.py').write('pass')
+        cls.w_special_char = space.wrap(special_char.decode(fsenc))
+    else:
+        cls.w_special_char = space.w_None
 
     # create compiled/x.py and a corresponding pyc file
     p = setuppkg("compiled", x = "x = 84")
@@ -132,9 +164,13 @@ def setup_directory_structure(space):
     return str(root)
 
 
-def _setup(space):
-    dn = setup_directory_structure(space)
-    return space.appexec([space.wrap(dn)], """
+def _setup(cls):
+    space = cls.space
+    dn = setup_directory_structure(cls)
+    return _setup_path(space, dn)
+
+def _setup_path(space, path):
+    return space.appexec([space.wrap(path)], """
         (dn): 
             import sys
             path = list(sys.path)
@@ -153,14 +189,15 @@ def _teardown(space, w_saved_modules):
     """)
 
 
-class AppTestImport:
+class AppTestImport(BaseImportTest):
     spaceconfig = {
         "usemodules": ['rctime'],
     }
 
     def setup_class(cls):
+        BaseImportTest.setup_class.im_func(cls)
         cls.w_runappdirect = cls.space.wrap(conftest.option.runappdirect)
-        cls.w_saved_modules = _setup(cls.space)
+        cls.w_saved_modules = _setup(cls)
         #XXX Compile class
 
     def teardown_class(cls):
@@ -539,9 +576,8 @@ class AppTestImport:
         import time
         time.sleep(1)
 
-        f = open(test_reload.__file__, "w")
-        f.write("def test():\n    raise NotImplementedError\n")
-        f.close()
+        with open(test_reload.__file__, "w") as f:
+            f.write("def test():\n    raise NotImplementedError\n")
         imp.reload(test_reload)
         try:
             test_reload.test()
@@ -552,6 +588,10 @@ class AppTestImport:
         # (on windows at least)
         import os
         os.unlink(test_reload.__file__)
+
+        # restore it for later tests
+        with open(test_reload.__file__, "w") as f:
+            f.write("def test():\n    raise ValueError\n")
 
     def test_reload_failing(self):
         import test_reload
@@ -681,6 +721,30 @@ class AppTestImport:
         import encoded
         raises(SyntaxError, imp.find_module, 'bad', encoded.__path__)
 
+    def test_find_module_fsdecode(self):
+        import sys
+        name = self.special_char
+        if not name:
+            skip("can't run this test with %s as filesystem encoding"
+                 % sys.getfilesystemencoding())
+        import imp
+        import encoded
+        f, filename, _ = imp.find_module(name, encoded.__path__)
+        assert f is not None
+        assert filename[:-3].endswith(name)
+
+    def test_unencodable(self):
+        if not self.testfn_unencodable:
+            skip("need an unencodable filename")
+        import imp
+        import os
+        name = self.testfn_unencodable
+        os.mkdir(name)
+        try:
+            raises(ImportError, imp.NullImporter, name)
+        finally:
+            os.rmdir(name)
+
 
 class TestAbi:
     def test_abi_tag(self):
@@ -771,7 +835,7 @@ class TestPycStuff:
             stream.seek(8, 0)
             w_code = importing.read_compiled_module(
                     space, cpathname, stream.readall())
-            pycode = space.interpclass_w(w_code)
+            pycode = w_code
         finally:
             stream.close()
         assert type(pycode) is PyCode
@@ -839,7 +903,7 @@ class TestPycStuff:
                                                   stream.readall())
         finally:
             stream.close()
-        pycode = space.interpclass_w(w_ret)
+        pycode = w_ret
         assert type(pycode) is PyCode
         w_dic = space.newdict()
         pycode.exec_code(space, w_dic, w_dic)
@@ -978,7 +1042,7 @@ class TestPycStuff:
                                                   stream.readall())
         finally:
             stream.close()
-        pycode = space.interpclass_w(w_ret)
+        pycode = w_ret
         assert type(pycode) is PyCode
 
         cpathname = str(udir.join('cpathname.pyc'))
@@ -1006,7 +1070,7 @@ class TestPycStuff:
             stream.seek(8, 0)
             w_code = importing.read_compiled_module(space, cpathname,
                                                     stream.readall())
-            pycode = space.interpclass_w(w_code)
+            pycode = w_code
         finally:
             stream.close()
 
@@ -1091,18 +1155,19 @@ class AppTestImportHooks(object):
     def setup_class(cls):
         mydir = os.path.dirname(__file__)
         cls.w_hooktest = cls.space.wrap(os.path.join(mydir, 'hooktest'))
-        cls.space.appexec([cls.space.wrap(mydir)], """
-            (mydir):
-                import sys
-                sys.path.append(mydir)
+        cls.w_saved_modules = _setup_path(cls.space, mydir)
+        cls.space.appexec([], """
+            ():
+                # Obscure: manually bootstrap the utf-8/latin1 codecs
+                # for TextIOs opened by imp.find_module. It's not
+                # otherwise loaded by the test infrastructure but would
+                # have been by app_main
+                import encodings.utf_8
+                import encodings.latin_1
         """)
 
     def teardown_class(cls):
-        cls.space.appexec([], """
-            ():
-                import sys
-                sys.path.pop()
-        """)
+        _teardown(cls.space, cls.w_saved_modules)
 
     def test_meta_path(self):
         tried_imports = []
@@ -1309,7 +1374,7 @@ class AppTestNoPycFile(object):
     def setup_class(cls):
         usepycfiles = cls.spaceconfig['objspace.usepycfiles']
         cls.w_usepycfiles = cls.space.wrap(usepycfiles)
-        cls.saved_modules = _setup(cls.space)
+        cls.saved_modules = _setup(cls)
 
     def teardown_class(cls):
         _teardown(cls.space, cls.saved_modules)

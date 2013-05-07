@@ -18,6 +18,13 @@ from rpython.tool.udir import udir
 from pypy.conftest import PyPyClassCollector
 from inspect import getmro
 
+RENAMED_USEMODULES = dict(
+    _winreg='winreg',
+    exceptions='builtins',
+    rctime='time',
+    struct='_struct',
+    thread='_thread',
+    )
 
 class AppError(Exception):
     def __init__(self, excinfo):
@@ -53,7 +60,7 @@ def py3k_repr(value):
         return repr(value)
 
 
-def run_with_python(python_, target_, **definitions):
+def run_with_python(python_, target_, usemodules, **definitions):
     if python_ is None:
         py.test.skip("Cannot find the default python3 interpreter to run with -A")
     # we assume that the source of target_ is in utf-8. Unfortunately, we don't
@@ -62,6 +69,7 @@ def run_with_python(python_, target_, **definitions):
     helpers = r"""# -*- encoding: utf-8 -*-
 if 1:
     import sys
+%s
     def skip(message):
         print(message)
         raise SystemExit(0)
@@ -70,9 +78,10 @@ if 1:
     class ExceptionWrapper:
         pass
     def raises(exc, func, *args, **kwargs):
+        import os
         try:
             if isinstance(func, str):
-                if func.startswith(" ") or func.startswith("\n"):
+                if func.startswith((' ', os.linesep)):
                     # it's probably an indented block, so we prefix if True:
                     # to avoid SyntaxError
                     func = "if True:\n" + func
@@ -114,9 +123,37 @@ if 1:
         elif isinstance(value, types.ModuleType):
             name = value.__name__
             defs.append("import %s; self.%s = %s\n" % (name, symbol, name))
-        elif isinstance(value, (str, unicode, int, float, list, dict)):
+        elif isinstance(value, (str, unicode, int, long, float, list, tuple,
+                                dict)) or value is None:
             defs.append("self.%s = %s\n" % (symbol, py3k_repr(value)))
-    source = py.code.Source(target_)[1:]
+
+    check_usemodules = ''
+    if usemodules:
+        usemodules = [str(RENAMED_USEMODULES.get(name, name))
+                      for name in usemodules]
+        check_usemodules = """\
+    missing = set(%r).difference(sys.builtin_module_names)
+    if missing:
+        if not hasattr(sys, 'pypy_version_info'):
+            # They may be extension modules on CPython
+            name = None
+            for name in missing.copy():
+                try:
+                    __import__(name)
+                except ImportError:
+                    pass
+                else:
+                    missing.remove(name)
+            del name
+        if missing:
+            sys.exit(81)
+    del missing""" % usemodules
+
+    source = list(py.code.Source(target_))
+    while source[0].startswith(('@py.test.mark.', '@pytest.mark.')):
+        source.pop(0)
+    source = source[1:]
+
     pyfile = udir.join('src.py')
     if isinstance(target_, str):
         # Special case of a docstring; the function name is the first word.
@@ -124,17 +161,20 @@ if 1:
     else:
         target_name = target_.__name__
     with pyfile.open('w') as f:
-        f.write(helpers)
+        f.write(helpers % check_usemodules)
         f.write('\n'.join(defs))
         f.write('def %s():\n' % target_name)
-        f.write(str(source))
+        f.write('\n'.join(source))
         f.write("\n%s()\n" % target_name)
     res, stdout, stderr = runsubprocess.run_subprocess(
         python_, [str(pyfile)])
     print pyfile.read()
     print >> sys.stdout, stdout
     print >> sys.stderr, stderr
-    if res > 0:
+    if res == 81:
+        py.test.skip('%r was not compiled w/ required usemodules: %r' %
+                     (python_, usemodules))
+    elif res > 0:
         raise AssertionError("Subprocess failed:\n" + stderr)
 
 
@@ -177,7 +217,7 @@ class AppTestFunction(py.test.collect.Function):
         target = self.obj
         src = extract_docstring_if_empty_function(target)
         if self.config.option.runappdirect:
-            return run_with_python(self.config.option.python, src)
+            return run_with_python(self.config.option.python, src, None)
         space = gettestobjspace()
         filename = self._getdynfilename(target)
         func = app2interp_temp(src, filename=filename)
@@ -224,7 +264,9 @@ class AppTestMethod(AppTestFunction):
         space = target.im_self.space
         if self.config.option.runappdirect:
             appexec_definitions = self.parent.obj.__dict__
-            return run_with_python(self.config.option.python, src,
+            spaceconfig = getattr(self.parent.obj, 'spaceconfig', None)
+            usemodules = spaceconfig.get('usemodules') if spaceconfig else None
+            return run_with_python(self.config.option.python, src, usemodules,
                                    **appexec_definitions)
         filename = self._getdynfilename(target)
         func = app2interp_temp(src, filename=filename)

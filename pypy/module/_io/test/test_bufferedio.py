@@ -240,12 +240,10 @@ class AppTestBufferedWriter:
     def setup_class(cls):
         tmpfile = udir.join('tmpfile')
         cls.w_tmpfile = cls.space.wrap(str(tmpfile))
-        if cls.runappdirect:
-            cls.w_readfile = tmpfile.read
-        else:
-            def readfile(space):
-                return space.wrapbytes(tmpfile.read())
-            cls.w_readfile = cls.space.wrap(interp2app(readfile))
+
+    def w_readfile(self):
+        with open(self.tmpfile, 'rb') as f:
+            return f.read()
 
     def test_write(self):
         import _io
@@ -635,6 +633,18 @@ class AppTestBufferedRandom:
                 assert f.readline() == b'\n'
                 f.flush()
                 assert raw.getvalue() == b'1b\n2def\n3\n'
+
+    def test_readline(self):
+        import _io as io
+        with io.BytesIO(b"abc\ndef\nxyzzy\nfoo\x00bar\nanother line") as raw:
+            with io.BufferedRandom(raw, buffer_size=10) as f:
+                assert f.readline() == b"abc\n"
+                assert f.readline(10) == b"def\n"
+                assert f.readline(2) == b"xy"
+                assert f.readline(4) == b"zzy\n"
+                assert f.readline() == b"foo\x00bar\n"
+                assert f.readline(None) == b"another line"
+                raises(TypeError, f.readline, 5.3)
 
 
 class AppTestDeprecation:

@@ -1,4 +1,4 @@
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import (
     TypeDef, GetSetProperty, generic_new_descr, descr_get_dict, descr_set_dict,
     make_weakref_descr)
@@ -36,7 +36,7 @@ def check_seekable_w(space, w_obj):
     if not space.is_true(space.call_method(w_obj, 'seekable')):
         raise unsupported(space, "File or stream is not seekable")
 
-class W_IOBase(Wrappable):
+class W_IOBase(W_Root):
     cffi_fileobj = None    # pypy/module/_cffi_backend
 
     def __init__(self, space):
@@ -47,7 +47,7 @@ class W_IOBase(Wrappable):
         self.w_dict = space.newdict()
         self.__IOBase_closed = False
         self.streamholder = None # needed by AutoFlusher
-        get_autoflushher(space).add(self)
+        get_autoflusher(space).add(self)
 
     def getdict(self, space):
         return self.w_dict
@@ -118,7 +118,7 @@ class W_IOBase(Wrappable):
             space.call_method(self, "flush")
         finally:
             self.__IOBase_closed = True
-            get_autoflushher(space).remove(self)
+            get_autoflusher(space).remove(self)
 
     def _dealloc_warn_w(self, space, w_source):
         """Called when the io is implicitly closed via the deconstructor"""
@@ -182,8 +182,6 @@ class W_IOBase(Wrappable):
     def readline_w(self, space, w_limit=None):
         # For backwards compatibility, a (slowish) readline().
         limit = convert_size(space, w_limit)
-
-        old_size = -1
 
         has_peek = space.findattr(self, space.wrap("peek"))
 
@@ -356,7 +354,6 @@ W_RawIOBase.typedef = TypeDef(
 # ------------------------------------------------------------
 
 class StreamHolder(object):
-
     def __init__(self, w_iobase):
         self.w_iobase_ref = rweakref.ref(w_iobase)
         w_iobase.autoflusher = self
@@ -366,7 +363,7 @@ class StreamHolder(object):
         if w_iobase is not None:
             try:
                 space.call_method(w_iobase, 'flush')
-            except OperationError, e:
+            except OperationError:
                 # Silencing all errors is bad, but getting randomly
                 # interrupted here is equally as bad, and potentially
                 # more frequent (because of shutdown issues).
@@ -374,7 +371,6 @@ class StreamHolder(object):
 
 
 class AutoFlusher(object):
-    
     def __init__(self, space):
         self.streams = {}
 
@@ -391,7 +387,11 @@ class AutoFlusher(object):
     def remove(self, w_iobase):
         holder = w_iobase.streamholder
         if holder is not None:
-            del self.streams[holder]
+            try:
+                del self.streams[holder]
+            except KeyError:
+                # this can happen in daemon threads
+                pass
 
     def flush_all(self, space):
         while self.streams:
@@ -403,8 +403,5 @@ class AutoFlusher(object):
                 else:
                     streamholder.autoflush(space)
 
-
-def get_autoflushher(space):
+def get_autoflusher(space):
     return space.fromcache(AutoFlusher)
-
-

@@ -1,12 +1,14 @@
-from pypy.interpreter.error import OperationError
-from pypy.interpreter import function, pycode, pyframe
-from pypy.interpreter.baseobjspace import Wrappable
-from pypy.interpreter.mixedmodule import MixedModule
-from pypy.interpreter.astcompiler import consts
 from rpython.rlib import jit
 from rpython.tool.uid import uid
 
-class Cell(Wrappable):
+from pypy.interpreter import function, pycode, pyframe
+from pypy.interpreter.astcompiler import consts
+from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.error import OperationError
+from pypy.interpreter.mixedmodule import MixedModule
+
+
+class Cell(W_Root):
     "A simple container for a wrapped value."
 
     def __init__(self, w_value=None):
@@ -20,7 +22,7 @@ class Cell(Wrappable):
 
     def get(self):
         if self.w_value is None:
-            raise ValueError, "get() from an empty cell"
+            raise ValueError("get() from an empty cell")
         return self.w_value
 
     def set(self, w_value):
@@ -28,35 +30,33 @@ class Cell(Wrappable):
 
     def delete(self):
         if self.w_value is None:
-            raise ValueError, "delete() on an empty cell"
+            raise ValueError("delete() on an empty cell")
         self.w_value = None
 
     def descr__lt__(self, space, w_other):
-        other = space.interpclass_w(w_other)
-        if not isinstance(other, Cell):
+        if not isinstance(w_other, Cell):
             return space.w_NotImplemented
         if self.w_value is None:
             # an empty cell is alway less than a non-empty one
-            if other.w_value is None:
+            if w_other.w_value is None:
                 return space.w_False
             return space.w_True
-        elif other.w_value is None:
+        elif w_other.w_value is None:
             return space.w_False
-        return space.lt(self.w_value, other.w_value)
+        return space.lt(self.w_value, w_other.w_value)
 
     def descr__eq__(self, space, w_other):
-        other = space.interpclass_w(w_other)
-        if not isinstance(other, Cell):
+        if not isinstance(w_other, Cell):
             return space.w_NotImplemented
-        if self.w_value is None or other.w_value is None:
-            return space.wrap(self.w_value == other.w_value)
-        return space.eq(self.w_value, other.w_value)
+        if self.w_value is None or w_other.w_value is None:
+            return space.wrap(self.w_value == w_other.w_value)
+        return space.eq(self.w_value, w_other.w_value)
 
     def descr__reduce__(self, space):
-        w_mod    = space.getbuiltinmodule('_pickle_support')
-        mod      = space.interp_w(MixedModule, w_mod)
+        w_mod = space.getbuiltinmodule('_pickle_support')
+        mod = space.interp_w(MixedModule, w_mod)
         new_inst = mod.get('cell_new')
-        if self.w_value is None:    #when would this happen?
+        if self.w_value is None:    # when would this happen?
             return space.newtuple([new_inst, space.newtuple([])])
         tup = [self.w_value]
         return space.newtuple([new_inst, space.newtuple([]),
@@ -64,7 +64,7 @@ class Cell(Wrappable):
 
     def descr__setstate__(self, space, w_state):
         self.w_value = space.getitem(w_state, space.wrap(0))
-        
+
     def __repr__(self):
         """ representation for debugging purposes """
         if self.w_value is None:
@@ -81,10 +81,9 @@ class Cell(Wrappable):
             raise OperationError(space.w_ValueError, space.wrap("Cell is empty"))
 
 
-
 super_initialize_frame_scopes = pyframe.PyFrame.initialize_frame_scopes
-super_fast2locals             = pyframe.PyFrame.fast2locals
-super_locals2fast             = pyframe.PyFrame.locals2fast
+super_fast2locals = pyframe.PyFrame.fast2locals
+super_locals2fast = pyframe.PyFrame.locals2fast
 
 
 class __extend__(pyframe.PyFrame):
@@ -139,7 +138,7 @@ class __extend__(pyframe.PyFrame):
     def fast2locals(self):
         super_fast2locals(self)
         # cellvars are values exported to inner scopes
-        # freevars are values coming from outer scopes 
+        # freevars are values coming from outer scopes
         freevarnames = list(self.pycode.co_cellvars)
         if self.pycode.co_flags & consts.CO_OPTIMIZED:
             freevarnames.extend(self.pycode.co_freevars)

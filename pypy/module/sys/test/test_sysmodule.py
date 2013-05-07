@@ -10,6 +10,33 @@ def test_stdout_exists(space):
     space.sys.get('stdout')
     space.sys.get('__stdout__')
 
+def test_stdout_flush_at_shutdown(space):
+    w_sys = space.sys
+    w_read = space.appexec([], """():
+        import sys
+        from io import BytesIO, TextIOWrapper
+        class BadWrite(BytesIO):
+            def write(self, data):
+                raise IOError
+        buf = BytesIO()
+        def read():
+            buf.seek(0)
+            return buf.read()
+        sys.stdout = TextIOWrapper(BadWrite())
+        sys.stderr = TextIOWrapper(buf)
+        return read""")
+
+    try:
+        space.call_method(w_sys.get('stdout'), 'write', space.wrap('x'))
+        # called at shtudown
+        w_sys.flush_std_files(space)
+
+        msg = space.bytes_w(space.call_function(w_read))
+        assert 'Exception IOError' in msg
+    finally:
+        space.setattr(w_sys, space.wrap('stdout'), w_sys.get('__stdout__'))
+        space.setattr(w_sys, space.wrap('stderr'), w_sys.get('__stderr__'))
+
 class AppTestAppSysTests:
 
     def setup_class(cls):
@@ -170,6 +197,18 @@ class AppTestSysModulePortedFromCPython:
 
         sys.stdout = savestdout
 
+    def test_original_displayhook_unencodable(self):
+        import sys, _io
+        out = _io.BytesIO()
+        savestdout = sys.stdout
+        sys.stdout = _io.TextIOWrapper(out, encoding='ascii')
+
+        sys.__displayhook__("a=\xe9 b=\uDC80 c=\U00010000 d=\U0010FFFF")
+        assert (out.getvalue() ==
+                b"'a=\\xe9 b=\\udc80 c=\\U00010000 d=\\U0010ffff'")
+
+        sys.stdout = savestdout
+
     def test_lost_displayhook(self):
         import sys
         olddisplayhook = sys.displayhook
@@ -201,9 +240,14 @@ class AppTestSysModulePortedFromCPython:
             raise ValueError(42)
         except ValueError as exc:
             eh(*sys.exc_info())
+        assert err.getvalue().endswith("ValueError: 42\n")
+
+        eh(1, '1', 1)
+        expected = ("TypeError: print_exception(): Exception expected for "
+                    "value, str found")
+        assert expected in err.getvalue()
 
         sys.stderr = savestderr
-        assert err.getvalue().endswith("ValueError: 42\n")
 
     def test_excepthook_failsafe_path(self):
         import traceback

@@ -2,16 +2,17 @@
 The code needed to flow and annotate low-level helpers -- the ll_*() functions
 """
 
+from rpython.tool.sourcetools import valid_identifier
 from rpython.annotator import model as annmodel
-from rpython.annotator.policy import AnnotatorPolicy, Sig
+from rpython.annotator.policy import AnnotatorPolicy
+from rpython.annotator.signature import Sig
 from rpython.annotator.specialize import flatten_star_args
+from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.flowspace.model import Constant
 from rpython.rlib.objectmodel import specialize
 from rpython.rtyper import extregistry
-from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.ootypesystem import ootype
 from rpython.rtyper.rmodel import warning
-from rpython.tool.sourcetools import valid_identifier
 from rpython.translator.simplify import get_functype
 
 
@@ -300,7 +301,8 @@ class MixLevelHelperAnnotator(object):
         from rpython.translator.backendopt.all import backend_optimizations
         translator = self.rtyper.annotator.translator
         newgraphs = self.newgraphs.keys()
-        backend_optimizations(translator, newgraphs, secondary=True, **flags)
+        backend_optimizations(translator, newgraphs, secondary=True,
+                              inline_graph_from_anywhere=True, **flags)
         self.newgraphs.clear()
 
 # ____________________________________________________________
@@ -366,6 +368,8 @@ def llhelper(F, f):
     else:
         return lltype.functionptr(F.TO, f.func_name, _callable=f)
 
+def llhelper_args(f, ARGS, RESULT):
+    return llhelper(lltype.Ptr(lltype.FuncType(ARGS, RESULT)), f)
 
 class LLHelperEntry(extregistry.ExtRegistryEntry):
     _about_ = llhelper
@@ -512,6 +516,11 @@ def cast_instance_to_base_ptr(instance):
 @specialize.argtype(0)
 def cast_instance_to_base_obj(instance):
     return cast_object_to_ptr(base_obj_ootype(), instance)
+
+@specialize.argtype(0)
+def cast_instance_to_gcref(instance):
+    return lltype.cast_opaque_ptr(llmemory.GCREF,
+                                  cast_instance_to_base_ptr(instance))
 
 def base_ptr_lltype():
     from rpython.rtyper.lltypesystem.rclass import OBJECTPTR

@@ -6,7 +6,6 @@ from rpython.rtyper.annlowlevel import llhelper, MixLevelHelperAnnotator,\
 from rpython.annotator import model as annmodel
 from rpython.rtyper.llinterp import LLException
 from rpython.rtyper.test.test_llinterp import get_interpreter, clear_tcache
-from rpython.rtyper.annlowlevel import cast_instance_to_base_ptr
 from rpython.flowspace.model import SpaceOperation, Variable, Constant
 from rpython.flowspace.model import checkgraph, Link, copygraph
 from rpython.rlib.objectmodel import we_are_translated
@@ -828,8 +827,11 @@ class WarmRunnerDesc(object):
         ts = self.cpu.ts
         state = jd.warmstate
         maybe_compile_and_run = jd._maybe_compile_and_run_fn
+        cpu = jd.warmstate.cpu
 
         def ll_portal_runner(*args):
+            hook_for_tests(cpu) # usually it's empty, but tests can monkeypatch
+                                # it to fix the annotator
             start = True
             while 1:
                 try:
@@ -921,11 +923,8 @@ class WarmRunnerDesc(object):
             EffectInfo.MOST_GENERAL)
 
         vinfo = jd.virtualizable_info
-        gc_set_extra_threshold = getattr(self.cpu, 'gc_set_extra_threshold',
-                                         lambda: None)
 
         def assembler_call_helper(deadframe, virtualizableref):
-            gc_set_extra_threshold()    # XXX temporary hack
             fail_descr = self.cpu.get_latest_descr(deadframe)
             if vinfo is not None:
                 virtualizable = lltype.cast_opaque_ptr(
@@ -1069,3 +1068,10 @@ class WarmRunnerDesc(object):
         graphs = self.translator.graphs
         for graph, block, i in find_force_quasi_immutable(graphs):
             self.replace_force_quasiimmut_with_direct_call(block.operations[i])
+
+def hook_for_tests(cpu):
+    """
+    This function is empty and does nothing. Its only role is to be
+    monkey-patched by tests to "fix" the annotator if needed (see
+    e.g. x86/test/test_ztranslation::test_external_exception_handling_translates
+    """

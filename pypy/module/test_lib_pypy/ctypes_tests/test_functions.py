@@ -510,13 +510,14 @@ class TestFunctions(BaseCTypesTestChecker):
         assert seen == ["yadda"]
 
     def test_warnings(self):
+        py.test.skip("warnings are disabled")
         import warnings
         warnings.simplefilter("always")
         with warnings.catch_warnings(record=True) as w:
             dll.get_an_integer()
             assert len(w) == 1
             assert issubclass(w[0].category, RuntimeWarning)
-            assert "C function without declared arguments called" in str(w[0].message)
+            assert "C function without declared arguments called" in str(w[0])
 
     def test_errcheck(self):
         py.test.skip('fixme')
@@ -539,7 +540,7 @@ class TestFunctions(BaseCTypesTestChecker):
             dll.get_an_integer()
             assert len(w) == 1
             assert issubclass(w[0].category, RuntimeWarning)
-            assert "C function without declared return type called" in str(w[0].message)
+            assert "C function without declared return type called" in str(w[0])
             
         with warnings.catch_warnings(record=True) as w:
             dll.get_an_integer.restype = None

@@ -163,6 +163,26 @@ class AppTestGenerator:
         raises(StopIteration, next, g)
         raises(NameError, g.throw, NameError)
 
+    def test_throw_tb(self):
+        def f():
+            try:
+                yield
+            except:
+                raise
+        g = f()
+        try:
+            1/0
+        except ZeroDivisionError as v:
+            try:
+                g.throw(v)
+            except Exception as w:
+                tb = w.__traceback__
+        levels = 0
+        while tb:
+            levels += 1
+            tb = tb.tb_next
+        assert levels == 3
+
     def test_close(self):
         def f():
             yield 1

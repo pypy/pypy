@@ -1,24 +1,25 @@
-from pypy.objspace.std.model import registerimplementation, W_Object
-from pypy.objspace.std.register_all import register_all
-from pypy.objspace.std.multimethod import FailedToImplement
-from pypy.interpreter import gateway
+"""The builtin str implementation"""
+
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.objspace.std.stringobject import W_StringObject, make_rsplit_with_delim
+from pypy.module.unicodedata import unicodedb
+from pypy.objspace.std import newformat, slicetype
+from pypy.objspace.std.formatting import mod_format
+from pypy.objspace.std.model import W_Object, registerimplementation
+from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.objspace.std.noneobject import W_NoneObject
-from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
-from pypy.objspace.std import slicetype, newformat
+from pypy.objspace.std.sliceobject import W_SliceObject
+from pypy.objspace.std.stringobject import make_rsplit_with_delim
+from pypy.objspace.std.stringtype import stringendswith, stringstartswith
+from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.tupleobject import W_TupleObject
-from rpython.rlib.rarithmetic import intmask, ovfcheck
-from rpython.rlib.objectmodel import compute_hash, specialize
-from rpython.rlib.objectmodel import compute_unique_id
+from rpython.rlib import jit
+from rpython.rlib.rarithmetic import ovfcheck
+from rpython.rlib.objectmodel import (
+    compute_hash, compute_unique_id, specialize)
 from rpython.rlib.rstring import UnicodeBuilder
 from rpython.rlib.runicode import make_unicode_escape_function
-from pypy.module.unicodedata import unicodedb
 from rpython.tool.sourcetools import func_with_new_name
-from rpython.rlib import jit
 
-from pypy.objspace.std.formatting import mod_format
-from pypy.objspace.std.stringtype import stringstartswith, stringendswith
 
 class W_AbstractUnicodeObject(W_Object):
     __slots__ = ()
@@ -302,9 +303,11 @@ def unicode_istitle__Unicode(space, w_unicode):
     return space.newbool(cased)
 
 def unicode_isidentifier__Unicode(space, w_unicode):
-    v = w_unicode._value
-    if len(v) == 0:
-        return space.w_False
+    return space.newbool(_isidentifier(w_unicode._value))
+
+def _isidentifier(u):
+    if not u:
+        return False
 
     # PEP 3131 says that the first character must be in XID_Start and
     # subsequent characters in XID_Continue, and for the ASCII range,
@@ -313,14 +316,14 @@ def unicode_isidentifier__Unicode(space, w_unicode):
     # current definition of XID_Start and XID_Continue, it is
     # sufficient to check just for these, except that _ must be
     # allowed as starting an identifier.
-    first = v[0]
+    first = u[0]
     if not (unicodedb.isxidstart(ord(first)) or first == u'_'):
-        return space.w_False
+        return False
 
-    for i in range(1, len(v)):
-        if not unicodedb.isxidcontinue(ord(v[i])):
-            return space.w_False
-    return space.w_True
+    for i in range(1, len(u)):
+        if not unicodedb.isxidcontinue(ord(u[i])):
+            return False
+    return True
 
 def unicode_isprintable__Unicode(space, w_unicode):
     for uchar in w_unicode._value:
@@ -451,10 +454,21 @@ def _convert_idx_params(space, w_self, w_start, w_end, upper_bound=False):
             space, len(self), w_start, w_end, upper_bound)
     return (self, start, end)
 
+def unicode_endswith__Unicode_ANY_ANY_ANY(space, w_self, w_substr, w_start, w_end):
+    typename = space.type(w_substr).getname(space)
+    msg = "endswith first arg must be str or a tuple of str, not %s" % typename
+    raise OperationError(space.w_TypeError, space.wrap(msg))
+
 def unicode_endswith__Unicode_Unicode_ANY_ANY(space, w_self, w_substr, w_start, w_end):
     self, start, end = _convert_idx_params(space, w_self,
                                                    w_start, w_end, True)
     return space.newbool(stringendswith(self, w_substr._value, start, end))
+
+def unicode_startswith__Unicode_ANY_ANY_ANY(space, w_self, w_substr, w_start, w_end):
+    typename = space.type(w_substr).getname(space)
+    msg = ("startswith first arg must be str or a tuple of str, not %s" %
+           typename)
+    raise OperationError(space.w_TypeError, space.wrap(msg))
 
 def unicode_startswith__Unicode_Unicode_ANY_ANY(space, w_self, w_substr, w_start, w_end):
     self, start, end = _convert_idx_params(space, w_self, w_start, w_end, True)
@@ -867,10 +881,22 @@ def mod__Unicode_ANY(space, w_format, w_values):
     return mod_format(space, w_format, w_values, do_unicode=True)
 
 def unicode_format__Unicode(space, w_unicode, __args__):
-    return newformat.format_method(space, w_unicode, __args__, True)
+    w_kwds = space.newdict()
+    if __args__.keywords:
+        for i in range(len(__args__.keywords)):
+            space.setitem(w_kwds, space.wrap(__args__.keywords[i]),
+                          __args__.keywords_w[i])
+    return newformat.format_method(space, w_unicode, __args__.arguments_w,
+                                   w_kwds, True)
+
+def unicode_format_map__Unicode_ANY(space, w_unicode, w_mapping):
+    return newformat.format_method(space, w_unicode, None, w_mapping, True)
 
 def format__Unicode_ANY(space, w_unicode, w_spec):
     return newformat.run_formatter(space, w_spec, "format_string", w_unicode)
+
+def iter__Unicode(space, w_unicode):
+    return space.newseqiter(w_unicode)
 
 
 from pypy.objspace.std import unicodetype

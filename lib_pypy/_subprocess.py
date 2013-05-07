@@ -77,9 +77,9 @@ class _PROCESS_INFORMATION(ctypes.Structure):
                 ("dwProcessID", ctypes.c_int),
                 ("dwThreadID", ctypes.c_int)]
 
-_CreateProcess = _kernel32.CreateProcessA
-_CreateProcess.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_void_p, ctypes.c_void_p,
-                           ctypes.c_int, ctypes.c_int, ctypes.c_char_p, ctypes.c_char_p,
+_CreateProcess = _kernel32.CreateProcessW
+_CreateProcess.argtypes = [ctypes.c_wchar_p, ctypes.c_wchar_p, ctypes.c_void_p, ctypes.c_void_p,
+                           ctypes.c_int, ctypes.c_int, ctypes.c_wchar_p, ctypes.c_wchar_p,
                            ctypes.POINTER(_STARTUPINFO), ctypes.POINTER(_PROCESS_INFORMATION)]
 _CreateProcess.restype = ctypes.c_int
 
@@ -152,6 +152,7 @@ def CreateProcess(name, command_line, process_attr, thread_attr,
             si.hStdError = int(startup_info.hStdError)
 
     pi = _PROCESS_INFORMATION()
+    flags |= CREATE_UNICODE_ENVIRONMENT
 
     if env is not None:
         envbuf = ""
@@ -170,9 +171,10 @@ def CreateProcess(name, command_line, process_attr, thread_attr,
     return _handle(pi.hProcess), _handle(pi.hThread), pi.dwProcessID, pi.dwThreadID
 STARTF_USESHOWWINDOW = 0x001
 STARTF_USESTDHANDLES = 0x100
-SW_HIDE              = 0
-CREATE_NEW_CONSOLE       = 0x010
+SW_HIDE = 0
+CREATE_NEW_CONSOLE = 0x010
 CREATE_NEW_PROCESS_GROUP = 0x200
+CREATE_UNICODE_ENVIRONMENT = 0x400
 
 def WaitForSingleObject(handle, milliseconds):
     res = _WaitForSingleObject(int(handle), milliseconds)

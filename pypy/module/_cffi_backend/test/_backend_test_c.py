@@ -387,6 +387,8 @@ def test_cmp_none():
     assert (x != None) is True
     assert (x == ["hello"]) is False
     assert (x != ["hello"]) is True
+    y = cast(p, 0)
+    assert (y == None) is False
 
 def test_invalid_indexing():
     p = new_primitive_type("int")
@@ -766,6 +768,7 @@ def test_struct_init_list():
     assert s.a2 == 456
     assert s.a3 == 0
     assert s.p4 == cast(BVoidP, 0)
+    assert s.p4 != 0
     #
     s = newp(BStructPtr, {'a2': 41122, 'a3': -123})
     assert s.a1 == 0
@@ -778,9 +781,11 @@ def test_struct_init_list():
     p = newp(BIntPtr, 14141)
     s = newp(BStructPtr, [12, 34, 56, p])
     assert s.p4 == p
+    assert s.p4
     #
     s = newp(BStructPtr, [12, 34, 56, cast(BVoidP, 0)])
     assert s.p4 == cast(BVoidP, 0)
+    assert not s.p4
     #
     py.test.raises(TypeError, newp, BStructPtr, [12, 34, 56, None])
 
@@ -998,8 +1003,11 @@ def test_call_function_23():
     f = cast(BFunc23, _testfunc(23))
     res = f(b"foo")
     assert res == 1000 * ord(b'f')
-    res = f(None)
+    res = f(cast(BVoidP, 0))        # NULL
     assert res == -42
+    py.test.raises(TypeError, f, None)
+    py.test.raises(TypeError, f, 0)
+    py.test.raises(TypeError, f, 0.0)
 
 def test_call_function_23_bis():
     # declaring the function as int(unsigned char*)
@@ -2096,6 +2104,9 @@ def test_buffer():
     py.test.raises(ValueError, 'buf[:] = b"this is much too long!"')
     buf[4:2] = b""   # no effect, but should work
     assert buf[:] == b"hi there\x00"
+    buf[:2] = b"HI"
+    assert buf[:] == b"HI there\x00"
+    buf[:2] = b"hi"
     expected = list(map(bitem2bchr, b"hi there\x00"))
     x = 0
     for i in range(-12, 12):
@@ -2128,6 +2139,7 @@ def test_errno():
 def test_errno_callback():
     if globals().get('PY_DOT_PY') == '2.5':
         py.test.skip("cannot run this test on py.py with Python 2.5")
+    set_errno(95)
     def cb():
         e = get_errno()
         set_errno(e - 6)
@@ -2254,6 +2266,7 @@ def test_autocast_float():
 
 def test_longdouble():
     py_py = 'PY_DOT_PY' in globals()
+    BInt = new_primitive_type("int")
     BLongDouble = new_primitive_type("long double")
     BLongDoublePtr = new_pointer_type(BLongDouble)
     BLongDoubleArray = new_array_type(BLongDoublePtr, None)
@@ -2271,21 +2284,23 @@ def test_longdouble():
     assert float(x) == 1.23
     assert int(x) == 1
     #
-    BFunc19 = new_function_type((BLongDouble,), BLongDouble)
+    BFunc19 = new_function_type((BLongDouble, BInt), BLongDouble)
     f = cast(BFunc19, _testfunc(19))
-    start = 8
+    start = lstart = 1.5
     for i in range(107):
-        start = f(start)
-    if sizeof(BLongDouble) > sizeof(new_primitive_type("double")):
-        if not py_py:
-            assert repr(start).startswith("<cdata 'long double' 6.15")
-            assert repr(start).endswith("E+902>")
-        #
-        c = newp(BLongDoubleArray, [start])
-        x = c[0]
-        if not py_py:
-            assert repr(x).endswith("E+902>")
-            assert float(x) == float("inf")
+        start = 4 * start - start * start
+        lstart = f(lstart, 1)
+    lother = f(1.5, 107)
+    if not py_py:
+        assert float(lstart) == float(lother)
+        assert repr(lstart) == repr(lother)
+        if sizeof(BLongDouble) > sizeof(new_primitive_type("double")):
+            assert float(lstart) != start
+            assert repr(lstart).startswith("<cdata 'long double' ")
+    #
+    c = newp(BLongDoubleArray, [lstart])
+    x = c[0]
+    assert float(f(lstart, 107)) == float(f(x, 107))
 
 def test_get_array_of_length_zero():
     for length in [0, 5, 10]:
@@ -2480,13 +2495,13 @@ def test_newp_from_bytearray_doesnt_work():
     assert len(p) == 4
     assert list(p) == [b"f", b"o", b"o", b"\x00"]
 
-import io
-fdopen_funcs = [io.open]
-try:
-    import posix
-    fdopen_funcs.append(posix.fdopen)
-except (ImportError, AttributeError):  # win32, or py3k
-    pass
+# XXX hack
+if sys.version_info >= (3,):
+    try:
+        import posix, io
+        posix.fdopen = io.open
+    except ImportError:
+        pass   # win32
 
 def test_FILE():
     if sys.platform == "win32":
@@ -2503,22 +2518,22 @@ def test_FILE():
     fputs = ll.load_function(BFunc, "fputs")
     fscanf = ll.load_function(BFunc2, "fscanf")
     #
-    for fdopen in fdopen_funcs:
-        fdr, fdw = posix.pipe()
-        fr1 = fdopen(fdr, 'rb', 256)
-        fw1 = fdopen(fdw, 'wb', 256)
-        #
-        fw1.write(b"X")
-        res = fputs(b"hello world\n", fw1)
-        assert res >= 0
-        fw1.flush()     # should not be needed
-        #
-        p = newp(new_array_type(BCharP, 100), None)
-        res = fscanf(fr1, b"%s\n", p)
-        assert res == 1
-        assert string(p) == b"Xhello"
-        fr1.close()
-        fw1.close()
+    import posix
+    fdr, fdw = posix.pipe()
+    fr1 = posix.fdopen(fdr, 'rb', 256)
+    fw1 = posix.fdopen(fdw, 'wb', 256)
+    #
+    fw1.write(b"X")
+    res = fputs(b"hello world\n", fw1)
+    assert res >= 0
+    fw1.flush()     # should not be needed
+    #
+    p = newp(new_array_type(BCharP, 100), None)
+    res = fscanf(fr1, b"%s\n", p)
+    assert res == 1
+    assert string(p) == b"Xhello"
+    fr1.close()
+    fw1.close()
 
 def test_FILE_only_for_FILE_arg():
     if sys.platform == "win32":
@@ -2533,15 +2548,15 @@ def test_FILE_only_for_FILE_arg():
     ll = find_and_load_library('c')
     fputs = ll.load_function(BFunc, "fputs")
     #
-    for fdopen in fdopen_funcs:
-        fdr, fdw = posix.pipe()
-        fr1 = fdopen(fdr, 'r')
-        fw1 = fdopen(fdw, 'w')
-        #
-        e = py.test.raises(TypeError, fputs, b"hello world\n", fw1)
-        assert str(e.value).startswith(
-            "initializer for ctype 'struct NOT_FILE *' must "
-            "be a cdata pointer, not ")
+    import posix
+    fdr, fdw = posix.pipe()
+    fr1 = posix.fdopen(fdr, 'r')
+    fw1 = posix.fdopen(fdw, 'w')
+    #
+    e = py.test.raises(TypeError, fputs, b"hello world\n", fw1)
+    assert str(e.value).startswith(
+        "initializer for ctype 'struct NOT_FILE *' must "
+        "be a cdata pointer, not ")
 
 def test_FILE_object():
     if sys.platform == "win32":
@@ -2558,23 +2573,22 @@ def test_FILE_object():
     fputs = ll.load_function(BFunc, "fputs")
     fileno = ll.load_function(BFunc2, "fileno")
     #
-    for fdopen in fdopen_funcs:
-        fdr, fdw = posix.pipe()
-        fw1 = fdopen(fdw, 'wb', 256)
-        #
-        fw1p = cast(BFILEP, fw1)
-        fw1.write(b"X")
-        fw1.flush()
-        res = fputs(b"hello\n", fw1p)
-        assert res >= 0
-        res = fileno(fw1p)
-        if fdopen is not io.open and 'PY_DOT_PY' not in globals():
-            assert res == fdw
-        fw1.close()
-        #
-        data = posix.read(fdr, 256)
-        assert data == b"Xhello\n"
-        posix.close(fdr)
+    import posix
+    fdr, fdw = posix.pipe()
+    fw1 = posix.fdopen(fdw, 'wb', 256)
+    #
+    fw1p = cast(BFILEP, fw1)
+    fw1.write(b"X")
+    fw1.flush()
+    res = fputs(b"hello\n", fw1p)
+    assert res >= 0
+    res = fileno(fw1p)
+    assert (res == fdw) == (sys.version_info < (3,))
+    fw1.close()
+    #
+    data = posix.read(fdr, 256)
+    assert data == b"Xhello\n"
+    posix.close(fdr)
 
 def test_GetLastError():
     if sys.platform != "win32":
@@ -2701,6 +2715,13 @@ def test_setslice_array():
     d = newp(BShortArray, [40, 50])
     c[1:3] = d
     assert list(c) == [0, 40, 50, 30, 0]
+
+def test_cdata_name_module_doc():
+    p = new_primitive_type("signed char")
+    x = cast(p, 17)
+    assert x.__module__ == '_cffi_backend'
+    assert x.__name__ == '<cdata>'
+    assert hasattr(x, '__doc__')
 
 def test_version():
     # this test is here mostly for PyPy

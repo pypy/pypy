@@ -79,7 +79,7 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
             ("test_unicode_format_v", "METH_VARARGS",
              '''
                  return helper("bla %d ble %s\\n",
-                        PyInt_AsLong(PyTuple_GetItem(args, 0)),
+                        PyLong_AsLong(PyTuple_GetItem(args, 0)),
                         _PyUnicode_AsString(PyTuple_GetItem(args, 1)));
              '''
              )
@@ -102,7 +102,7 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
             ("test_unicode_format", "METH_VARARGS",
              '''
                  return PyUnicode_FromFormat("bla %d ble %s\\n",
-                        PyInt_AsLong(PyTuple_GetItem(args, 0)),
+                        PyLong_AsLong(PyTuple_GetItem(args, 0)),
                         _PyUnicode_AsString(PyTuple_GetItem(args, 1)));
              '''
              )
@@ -299,6 +299,9 @@ class TestUnicode(BaseApiTest):
     def test_encode_fsdefault(self, space, api):
         w_u = space.wrap(u'späm')
         w_s = api.PyUnicode_EncodeFSDefault(w_u)
+        if w_s is None:
+            api.PyErr_Clear()
+            py.test.skip("Requires a unicode-aware fsencoding")
         with rffi.scoped_str2charp(space.str_w(w_s)) as encoded:
             w_decoded = api.PyUnicode_DecodeFSDefaultAndSize(encoded, space.len_w(w_s))
             assert space.eq_w(w_decoded, w_u)
@@ -420,7 +423,7 @@ class TestUnicode(BaseApiTest):
             api.PyUnicode_Decode(b_text, 4, b_encoding, None)) == u'caf\xe9'
 
         w_text = api.PyUnicode_FromEncodedObject(space.wrapbytes("test"), b_encoding, None)
-        assert space.is_true(space.isinstance(w_text, space.w_unicode))
+        assert space.isinstance_w(w_text, space.w_unicode)
         assert space.unwrap(w_text) == "test"
 
         assert api.PyUnicode_FromEncodedObject(space.wrap(u"test"), b_encoding, None) is None

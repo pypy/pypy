@@ -100,13 +100,13 @@ class Profiler(BaseProfiler):
 
     def get_counter(self, num):
         if num == Counters.TOTAL_COMPILED_LOOPS:
-            return self.cpu.total_compiled_loops
+            return self.cpu.tracker.total_compiled_loops
         elif num == Counters.TOTAL_COMPILED_BRIDGES:
-            return self.cpu.total_compiled_bridges
+            return self.cpu.tracker.total_compiled_bridges
         elif num == Counters.TOTAL_FREED_LOOPS:
-            return self.cpu.total_freed_loops
+            return self.cpu.tracker.total_freed_loops
         elif num == Counters.TOTAL_FREED_BRIDGES:
-            return self.cpu.total_freed_bridges
+            return self.cpu.tracker.total_freed_bridges
         return self.counters[num]
 
     def count_ops(self, opnum, kind=Counters.OPS):
@@ -151,13 +151,13 @@ class Profiler(BaseProfiler):
         cpu = self.cpu
         if cpu is not None:   # for some tests
             self._print_intline("Total # of loops",
-                                cpu.total_compiled_loops)
+                                cpu.tracker.total_compiled_loops)
             self._print_intline("Total # of bridges",
-                                cpu.total_compiled_bridges)
+                                cpu.tracker.total_compiled_bridges)
             self._print_intline("Freed # of loops",
-                                cpu.total_freed_loops)
+                                cpu.tracker.total_freed_loops)
             self._print_intline("Freed # of bridges",
-                                cpu.total_freed_bridges)
+                                cpu.tracker.total_freed_bridges)
 
     def _print_line_time(self, string, i, tim):
         final = "%s:%s\t%d\t%f" % (string, " " * max(0, 13-len(string)), i, tim)

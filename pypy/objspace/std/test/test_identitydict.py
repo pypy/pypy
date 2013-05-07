@@ -1,6 +1,8 @@
 import py
 from pypy.interpreter.gateway import interp2app
 
+py.test.py3k_skip("XXX: strategies are currently broken")
+
 class AppTestComparesByIdentity:
     spaceconfig = {"objspace.std.withidentitydict": True}
 

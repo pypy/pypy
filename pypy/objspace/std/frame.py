@@ -6,7 +6,7 @@ from rpython.rlib.unroll import unrolling_iterable
 from pypy.interpreter import pyopcode
 from pypy.interpreter.pyframe import PyFrame
 from pypy.interpreter.error import OperationError
-from pypy.objspace.std import intobject, smallintobject
+from pypy.objspace.std import intobject
 from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.objspace.std.listobject import W_ListObject
 
@@ -21,20 +21,6 @@ class BaseFrame(PyFrame):
             v.append(w)
         else:
             raise AssertionError
-
-
-def small_int_BINARY_ADD(f, oparg, next_instr):
-    w_2 = f.popvalue()
-    w_1 = f.popvalue()
-    if (type(w_1) is smallintobject.W_SmallIntObject and
-        type(w_2) is smallintobject.W_SmallIntObject):
-        try:
-            w_result = smallintobject.add__SmallInt_SmallInt(f.space, w_1, w_2)
-        except FailedToImplement:
-            w_result = f.space.add(w_1, w_2)
-    else:
-        w_result = f.space.add(w_1, w_2)
-    f.pushvalue(w_result)
 
 
 def int_BINARY_ADD(f, oparg, next_instr):
@@ -102,10 +88,7 @@ def build_frame(space):
     class StdObjSpaceFrame(BaseFrame):
         pass
     if space.config.objspace.std.optimized_int_add:
-        if space.config.objspace.std.withsmallint:
-            StdObjSpaceFrame.BINARY_ADD = small_int_BINARY_ADD
-        else:
-            StdObjSpaceFrame.BINARY_ADD = int_BINARY_ADD
+        StdObjSpaceFrame.BINARY_ADD = int_BINARY_ADD
     if space.config.objspace.std.optimized_list_getitem:
         StdObjSpaceFrame.BINARY_SUBSCR = list_BINARY_SUBSCR
     if space.config.objspace.opcodes.CALL_METHOD:

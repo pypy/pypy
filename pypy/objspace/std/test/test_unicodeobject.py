@@ -355,6 +355,14 @@ class AppTestUnicodeString:
         assert 'ab'.startswith('b', 1) is True
         assert 'abc'.startswith('bc', 1, 2) is False
         assert 'abc'.startswith('c', -1, 4) is True
+        try:
+            'hello'.startswith(['o'])
+        except TypeError as e:
+            msg = str(e)
+            assert 'str' in msg
+            assert 'tuple' in msg
+        else:
+            assert False, 'Expected TypeError'
 
     def test_startswith_tuples(self):
         assert 'hello'.startswith(('he', 'ha'))
@@ -393,6 +401,14 @@ class AppTestUnicodeString:
         assert 'abc'.endswith('bc', 1) is True
         assert 'abc'.endswith('bc', 2) is False
         assert 'abc'.endswith('b', -3, -1) is True
+        try:
+            'hello'.endswith(['o'])
+        except TypeError as e:
+            msg = str(e)
+            assert 'str' in msg
+            assert 'tuple' in msg
+        else:
+            assert False, 'Expected TypeError'
 
     def test_endswith_tuple(self):
         assert not 'hello'.endswith(('he', 'ha'))
@@ -741,6 +757,13 @@ class AppTestUnicodeString:
         assert s[1:-1] == "b"
         assert s[-2:-1] == "b"
 
+    def test_iter(self):
+        foo = "\u1111\u2222\u3333"
+        assert hasattr(foo, '__iter__')
+        iter = foo.__iter__()
+        assert next(iter) == '\u1111'
+        assert next(iter) == '\u2222'
+
     def test_no_len_on_str_iter(self):
         iterable = "hello"
         raises(TypeError, len, iter(iterable))
@@ -872,3 +895,12 @@ class AppTestUnicodeString:
         assert b == 'hello \u1234'
 
         assert '%s' % S('mar\xe7') == 'mar\xe7'
+
+    def test_format_new(self):
+        assert '0{0}1{b}2'.format('A', b='B') == '0A1B2'
+
+    def test_format_map(self):
+        assert '0{a}1'.format_map({'a': 'A'}) == '0A1'
+
+    def test_format_map_positional(self):
+        raises(ValueError, '{}'.format_map, {})

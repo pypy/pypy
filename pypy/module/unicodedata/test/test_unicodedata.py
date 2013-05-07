@@ -71,7 +71,7 @@ class AppTestUnicodeData:
                 try:
                     unicodedata.name(char)
                 except ValueError as e:
-                    assert e.message == 'no such name'
+                    assert str(e) == 'no such name'
                 raises(KeyError, unicodedata.lookup, charname)
 
     def test_bug_1704793(self): # from CPython
@@ -85,7 +85,7 @@ class AppTestUnicodeData:
     @py.test.mark.skipif("sys.maxunicode < 0x10ffff")
     def test_normalize_wide(self):
         import unicodedata
-        assert unicodedata.normalize('NFC', '\U000110a5\U000110ba') == u'\U000110ab'
+        assert unicodedata.normalize('NFC', '\U000110a5\U000110ba') == '\U000110ab'
 
     def test_linebreaks(self):
         linebreaks = (0x0a, 0x0b, 0x0c, 0x0d, 0x85,

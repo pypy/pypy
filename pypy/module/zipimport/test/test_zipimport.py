@@ -1,14 +1,13 @@
-import py, os
+import inspect
+import os
 import time
-import struct
-from pypy.module.imp.importing import get_pyc_magic, _w_long
-from StringIO import StringIO
+from zipfile import ZIP_STORED
 
+from pypy.module.imp.test.support import BaseImportTest
 from rpython.tool.udir import udir
-from zipfile import ZIP_STORED, ZIP_DEFLATED
 
 
-class AppTestZipimport:
+class AppTestZipimport(BaseImportTest):
     """ A bit structurized tests stolen and adapted from
     cpy's regression tests
     """
@@ -19,49 +18,25 @@ class AppTestZipimport:
     pathsep = os.path.sep
 
     @classmethod
-    def make_pyc(cls, space, w_co, mtime):
-        w_data = space.call_method(space.getbuiltinmodule('marshal'),
-                                   'dumps', w_co)
-        data = space.bytes_w(w_data)
-        if type(mtime) is type(0.0):
-            # Mac mtimes need a bit of special casing
-            if mtime < 0x7fffffff:
-                mtime = int(mtime)
-            else:
-                mtime = int(-0x100000000L + long(mtime))
-        s = StringIO()
-        try:
-            _w_long(s, get_pyc_magic(space))
-        except AttributeError:
-            import imp
-            s.write(imp.get_magic())
-        pyc = s.getvalue() + struct.pack("<i", int(mtime)) + data
-        return pyc
-
-    @classmethod
     def make_class(cls):
-        source = """\
-def get_name():
-    return __name__
-def get_file():
-    return __file__
-        """
+        BaseImportTest.setup_class.im_func(cls)
         space = cls.space
         w = space.wrap
-        w_co = space.call_method(space.builtin, 'compile',
-                                 w(source), w('uuu.py'), w('exec'))
 
-        tmpdir = udir.ensure('zipimport_%s' % cls.__name__, dir=1)
-        now = time.time()
-        cls.w_now = w(now)
-        test_pyc = cls.make_pyc(space, w_co, now)
-        cls.w_test_pyc = space.wrapbytes(test_pyc)
+        cls.w_appdirect = w(cls.runappdirect)
+        cls.w_now = w(time.time())
         cls.w_compression = w(cls.compression)
         cls.w_pathsep = w(cls.pathsep)
-        #ziptestmodule = tmpdir.ensure('ziptestmodule.zip').write(
-        ziptestmodule = tmpdir.join("somezip.zip")
+        cls.tmpdir = udir.ensure('zipimport_%s_%s' % (__name__, cls.__name__),
+                                 dir=1)
+        ziptestmodule = cls.tmpdir.join("somezip.zip")
         cls.w_tmpzip = w(str(ziptestmodule))
-        cls.tmpdir = tmpdir
+
+        # Cache get_pyc()
+        get_pyc_source = inspect.getsource(
+            cls.w__get_pyc.im_func).splitlines()[1:]
+        get_pyc_source.insert(0, '    (mtime):')
+        cls.w__test_pyc = space.appexec([cls.w_now], '\n'.join(get_pyc_source))
 
     def setup_class(cls):
         cls.make_class()
@@ -93,6 +68,32 @@ def get_file():
                 del sys.modules[module]
         """)
         self.w_modules = []
+
+    def w_get_pyc(self):
+        # always create the pyc on the host under appdirect, otherwise
+        # the pre-made copy is fine
+        return self._get_pyc(self.now) if self.appdirect else self._test_pyc
+
+    def w__get_pyc(self, mtime):
+        import imp
+        import marshal
+
+        if type(mtime) is float:
+            # Mac mtimes need a bit of special casing
+            if mtime < 0x7fffffff:
+                mtime = int(mtime)
+            else:
+                mtime = int(-0x100000000 + int(mtime))
+        mtimeb = int(mtime).to_bytes(4, 'little', signed=True)
+
+        source = """\
+def get_name():
+    return __name__
+def get_file():
+    return __file__"""
+        data = marshal.dumps(compile(source, 'uuu.py', 'exec'))
+
+        return imp.get_magic() + mtimeb + data
 
     def w_now_in_the_future(self, delta):
         self.now += delta
@@ -168,7 +169,7 @@ def get_file():
 
     def test_pyc(self):
         import sys, os
-        self.writefile("uuu.pyc", self.test_pyc)
+        self.writefile("uuu.pyc", self.get_pyc())
         self.writefile("uuu.py", "def f(x): return x")
         mod = __import__('uuu', globals(), locals(), [])
         expected = {
@@ -191,27 +192,27 @@ def get_file():
     def test_bad_pyc(self):
         import zipimport
         import sys
-        m0 = self.test_pyc[0]
+        m0 = self.get_pyc()[0]
         m0 ^= 0x04
-        test_pyc = bytes([m0]) + self.test_pyc[1:]
+        test_pyc = bytes([m0]) + self.get_pyc()[1:]
         self.writefile("uu.pyc", test_pyc)
         raises(ImportError, "__import__('uu', globals(), locals(), [])")
         assert 'uu' not in sys.modules
 
     def test_force_py(self):
         import sys
-        m0 = self.test_pyc[0]
+        m0 = self.get_pyc()[0]
         m0 ^= 0x04
-        test_pyc = bytes([m0]) + self.test_pyc[1:]
+        test_pyc = bytes([m0]) + self.get_pyc()[1:]
         self.writefile("uu.pyc", test_pyc)
         self.writefile("uu.py", "def f(x): return x")
         mod = __import__("uu", globals(), locals(), [])
         assert mod.f(3) == 3
 
     def test_sys_modules(self):
-        m0 = self.test_pyc[0]
+        m0 = self.get_pyc()[0]
         m0 ^= 0x04
-        test_pyc = bytes([m0]) + self.test_pyc[1:]
+        test_pyc = bytes([m0]) + self.get_pyc()[1:]
         self.writefile("uuu.pyc", test_pyc)
         import sys
         import zipimport
@@ -254,7 +255,7 @@ def get_file():
         sys.modules['xxuuw'] = mod
         #
         self.writefile("xxuuw/__init__.py", "")
-        self.writefile("xxuuw/zz.pyc", self.test_pyc)
+        self.writefile("xxuuw/zz.pyc", self.get_pyc())
         mod = __import__("xxuuw.zz", globals(), locals(), ['__doc__'])
         assert mod.__file__ == (self.zipfile + os.path.sep
                                 + "xxuuw" + os.path.sep
@@ -266,7 +267,7 @@ def get_file():
         import os
         import zipimport
         data = b"saddsadsa"
-        pyc_data = self.test_pyc
+        pyc_data = self.get_pyc()
         self.now_in_the_future(+5)   # write the zipfile 5 secs after the .pyc
         self.writefile("xxx", data)
         self.writefile("xx/__init__.py", "5")
@@ -358,19 +359,23 @@ def get_co_filename():
         co_filename = code.co_filename
         assert co_filename == expected
 
-
-class AppTestZipimportDeflated(AppTestZipimport):
-    compression = ZIP_DEFLATED
-    spaceconfig = {
-        "usemodules": ['zipimport', 'zlib', 'rctime', 'struct', 'binascii'],
-    }
-
-    def setup_class(cls):
+    def test_unencodable(self):
+        if not self.testfn_unencodable:
+            skip("need an unencodable filename")
+        import os
+        import time
+        import zipimport
+        from zipfile import ZipFile, ZipInfo
+        filename = self.testfn_unencodable + ".zip"
+        z = ZipFile(filename, "w")
+        zinfo = ZipInfo("uu.py", time.localtime(self.now))
+        zinfo.compress_type = self.compression
+        z.writestr(zinfo, '')
+        z.close()
         try:
-            import rpython.rlib.rzlib
-        except ImportError:
-            py.test.skip("zlib not available, cannot test compressed zipfiles")
-        cls.make_class()
+            zipimport.zipimporter(filename)
+        finally:
+            os.remove(filename)
 
 
 if os.sep != '/':

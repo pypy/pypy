@@ -3,7 +3,6 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError, wrap_oserror, wrap_oserror2
 from rpython.rlib.rarithmetic import r_longlong
 from rpython.rlib.rstring import StringBuilder
-from rpython.rlib.rposix import validate_fd
 from os import O_RDONLY, O_WRONLY, O_RDWR, O_CREAT, O_TRUNC
 import sys, os, stat, errno
 from pypy.module._io.interp_iobase import W_RawIOBase, convert_size
@@ -154,7 +153,6 @@ class W_FileIO(W_RawIOBase):
         fd_is_own = False
         try:
             if fd >= 0:
-                validate_fd(fd)
                 try:
                     os.fstat(fd)
                 except OSError, e:
@@ -231,7 +229,6 @@ class W_FileIO(W_RawIOBase):
         self.fd = -1
 
         try:
-            validate_fd(fd)
             os.close(fd)
         except OSError, e:
             raise wrap_oserror(space, e,
@@ -300,7 +297,7 @@ class W_FileIO(W_RawIOBase):
         self._check_closed(space)
         if self.seekable < 0:
             try:
-                pos = os.lseek(self.fd, 0, os.SEEK_CUR)
+                os.lseek(self.fd, 0, os.SEEK_CUR)
             except OSError:
                 self.seekable = 0
             else:

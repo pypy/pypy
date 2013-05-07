@@ -557,7 +557,6 @@ class AppTestFfi:
         raises(ValueError, "_rawffi.Array('xx')")
 
     def test_longs_ulongs(self):
-        py3k_skip('fails on 32bit')
         import _rawffi
         lib = _rawffi.CDLL(self.lib_name)
         some_huge_value = lib.ptr('some_huge_value', [], 'q')
@@ -610,7 +609,6 @@ class AppTestFfi:
         cb.free()
 
     def test_another_callback(self):
-        py3k_skip('fails on 32bit')
         import _rawffi
         lib = _rawffi.CDLL(self.lib_name)
         runcallback = lib.ptr('runcallback', ['P'], 'q')
@@ -776,7 +774,6 @@ class AppTestFfi:
         a.free()
 
     def test_truncate(self):
-        py3k_skip('int vs long')
         import _rawffi, struct
         a = _rawffi.Array('b')(1)
         a[0] = -5
@@ -886,7 +883,7 @@ class AppTestFfi:
         try:
             f()
         except ValueError as e:
-            assert "Procedure called with not enough arguments" in e.message
+            assert "Procedure called with not enough arguments" in str(e)
         else:
             assert 0, "Did not raise"
 
@@ -897,7 +894,7 @@ class AppTestFfi:
         try:
             f(arg)
         except ValueError as e:
-            assert "Procedure called with too many arguments" in e.message
+            assert "Procedure called with too many arguments" in str(e)
         else:
             assert 0, "Did not raise"
         arg.free()

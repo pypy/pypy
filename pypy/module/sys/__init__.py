@@ -84,17 +84,18 @@ class Module(MixedModule):
     if sys.platform == 'win32':
         interpleveldefs['winver'] = 'version.get_winver(space)'
         interpleveldefs['getwindowsversion'] = 'vm.getwindowsversion'
-    
+
     appleveldefs = {
-        'excepthook'            : 'app.excepthook', 
-        '__excepthook__'        : 'app.excepthook', 
-        'exit'                  : 'app.exit', 
+        'excepthook'            : 'app.excepthook',
+        '__excepthook__'        : 'app.excepthook',
+        'exit'                  : 'app.exit',
         'callstats'             : 'app.callstats',
         'copyright'             : 'app.copyright_str',
         'flags'                 : 'app.null_sysflags',
+        '_xoptions'             : 'app.null__xoptions',
     }
 
-    def setbuiltinmodule(self, w_module, name): 
+    def setbuiltinmodule(self, w_module, name):
         w_name = self.space.wrap(name)
         w_modules = self.get('modules')
         self.space.setitem(w_modules, w_name, w_module)
@@ -111,25 +112,48 @@ class Module(MixedModule):
                 space.setitem(self.w_dict, space.wrap("dllhandle"), w_handle)
 
         if not space.config.translating:
-            # Install standard streams for tests that don't call app_main
+            # Install standard streams for tests that don't call app_main.
+            # Always use line buffering, even for tests that capture
+            # standard descriptors.
             space.appexec([], """():
                 import sys, io
                 sys.stdin = sys.__stdin__ = io.open(0, "r", encoding="ascii",
                                                     closefd=False)
                 sys.stdin.buffer.raw.name = "<stdin>"
                 sys.stdout = sys.__stdout__ = io.open(1, "w", encoding="ascii",
+                                                      buffering=1,
                                                       closefd=False)
                 sys.stdout.buffer.raw.name = "<stdout>"
                 sys.stderr = sys.__stderr__ = io.open(2, "w", encoding="ascii",
                                                       errors="backslashreplace",
+                                                      buffering=1,
                                                       closefd=False)
                 sys.stderr.buffer.raw.name = "<stderr>"
                """)
 
+    def flush_std_files(self, space):
+        w_stdout = space.sys.get('stdout')
+        w_stderr = space.sys.get('stderr')
+        for w_file in [w_stdout, w_stderr]:
+            if not (space.is_none(w_file) or
+                    self._file_is_closed(space, w_file)):
+                try:
+                    space.call_method(w_file, 'flush')
+                except OperationError as e:
+                    if w_file is w_stdout:
+                        e.write_unraisable(space, '', w_file)
+
+    def _file_is_closed(self, space, w_file):
+        try:
+            w_closed = space.getattr(w_file, space.wrap('closed'))
+        except OperationError:
+            return False
+        return space.bool_w(w_closed)
+
     def getmodule(self, name):
         space = self.space
-        w_modules = self.get('modules') 
-        try: 
+        w_modules = self.get('modules')
+        try:
             return space.getitem(w_modules, space.wrap(name))
         except OperationError, e: 
             if not e.match(space, space.w_KeyError): 

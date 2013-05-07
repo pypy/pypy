@@ -73,8 +73,7 @@ class TestInterpreter:
                 raise 1
             ''', 'f', [])
         assert "TypeError:" in x
-        assert ("exceptions must be classes or instances deriving from "
-                "BaseException, not ") in x
+        assert "exceptions must derive from BaseException" in x
 
     def test_except2(self):
         x = self.codetest('''
@@ -347,3 +346,17 @@ class AppTestInterpreter:
         assert l(1, 2) == 1 + 2 + 20
         assert l(1, 2, k=10) == 1 + 2 + 10
         """
+
+    def test_extended_unpacking_short(self):
+        """
+        class Seq:
+            def __getitem__(self, i):
+                if i >= 0 and i < 3: return i
+                raise IndexError
+        try:
+            a, *b, c, d, e = Seq()
+        except ValueError as e:
+            assert str(e) == "need more than 3 values to unpack"
+        else:
+            assert False, "Expected ValueError"
+            """

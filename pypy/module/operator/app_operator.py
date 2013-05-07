@@ -14,16 +14,6 @@ def countOf(a,b):
             count += 1
     return count
 
-def indexOf(a, b):
-    'indexOf(a, b) -- Return the first index of b in a.'
-    index = 0
-    for x in a:
-        if x == b:
-            return index
-        index += 1
-    raise ValueError('sequence.index(x): x not in sequence')
-
-
 def attrgetter(attr, *attrs):
     if attrs:
         getters = [single_attr_getter(a) for a in (attr,) + attrs]

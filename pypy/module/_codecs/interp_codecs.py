@@ -1,9 +1,18 @@
+from rpython.rlib import jit
+from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.rstring import UnicodeBuilder
+
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
-from rpython.rlib.rstring import UnicodeBuilder
-from rpython.rlib.objectmodel import we_are_translated
+
+
+class VersionTag(object):
+    pass
+
 
 class CodecState(object):
+    _immutable_fields_ = ["version?"]
+
     def __init__(self, space):
         self.codec_search_path = []
         self.codec_search_cache = {}
@@ -13,6 +22,7 @@ class CodecState(object):
         self.encode_error_handler = self.make_encode_errorhandler(space)
 
         self.unicodedata_handler = None
+        self.modified()
 
     def _make_errorhandler(self, space, decode):
         def call_errorhandler(errors, encoding, reason, input, startpos,
@@ -102,8 +112,19 @@ class CodecState(object):
             self.unicodedata_handler = UnicodeData_Handler(space, w_getcode)
             return self.unicodedata_handler
 
+    def modified(self):
+        self.version = VersionTag()
+
+    def get_codec_from_cache(self, key):
+        return self._get_codec_with_version(key, self.version)
+
+    @jit.elidable
+    def _get_codec_with_version(self, key, version):
+        return self.codec_search_cache.get(key, None)
+
     def _cleanup_(self):
         assert not self.codec_search_path
+
 
 def register_codec(space, w_search_function):
     """register(search_function)
@@ -131,10 +152,11 @@ def lookup_codec(space, encoding):
         "lookup_codec() should not be called during translation"
     state = space.fromcache(CodecState)
     normalized_encoding = encoding.replace(" ", "-").lower()
-    w_result = state.codec_search_cache.get(normalized_encoding, None)
+    w_result = state.get_codec_from_cache(normalized_encoding)
     if w_result is not None:
         return w_result
     return _lookup_codec_loop(space, encoding, normalized_encoding)
+
 
 def _lookup_codec_loop(space, encoding, normalized_encoding):
     state = space.fromcache(CodecState)
@@ -152,14 +174,14 @@ def _lookup_codec_loop(space, encoding, normalized_encoding):
         w_result = space.call_function(w_search,
                                        space.wrap(normalized_encoding))
         if not space.is_w(w_result, space.w_None):
-            if not (space.is_true(space.isinstance(w_result,
-                                            space.w_tuple)) and
+            if not (space.isinstance_w(w_result, space.w_tuple) and
                     space.len_w(w_result) == 4):
                 raise OperationError(
                     space.w_TypeError,
                     space.wrap("codec search functions must return 4-tuples"))
             else:
                 state.codec_search_cache[normalized_encoding] = w_result
+                state.modified()
                 return w_result
     raise operationerrfmt(
         space.w_LookupError,
@@ -288,7 +310,7 @@ def surrogatepass_errors(space, w_exc):
                 raise OperationError(space.type(w_exc), w_exc)
             res += chr(0xe0 | (ch >> 12))
             res += chr(0x80 | ((ch >> 6) & 0x3f))
-            res += chr(0x80 | (ch >> 0x3f))
+            res += chr(0x80 | (ch & 0x3f))
         return space.newtuple([space.wrapbytes(res), w_end])
     elif space.isinstance_w(w_exc, space.w_UnicodeDecodeError):
         start = space.int_w(space.getattr(w_exc, space.wrap('start')))
@@ -424,8 +446,7 @@ def decode(space, w_obj, w_encoding=None, errors='strict'):
     w_decoder = space.getitem(lookup_codec(space, encoding), space.wrap(1))
     if space.is_true(w_decoder):
         w_res = space.call_function(w_decoder, w_obj, space.wrap(errors))
-        if (not space.is_true(space.isinstance(w_res, space.w_tuple))
-            or space.len_w(w_res) != 2):
+        if (not space.isinstance_w(w_res, space.w_tuple) or space.len_w(w_res) != 2):
             raise OperationError(
                 space.w_TypeError,
                 space.wrap("encoder must return a tuple (object, integer)"))
@@ -517,8 +538,30 @@ for decoders in [
     make_decoder_wrapper(decoders)
 
 if hasattr(runicode, 'str_decode_mbcs'):
-    make_encoder_wrapper('mbcs_encode')
-    make_decoder_wrapper('mbcs_decode')
+    # mbcs functions are not regular, because we have to pass
+    # "force_ignore/replace=False"
+    @unwrap_spec(uni=unicode, errors='str_or_None')
+    def mbcs_encode(space, uni, errors="strict"):
+        if errors is None:
+            errors = 'strict'
+        state = space.fromcache(CodecState)
+        result = runicode.unicode_encode_mbcs(
+            uni, len(uni), errors, state.encode_error_handler,
+            force_replace=False)
+        return space.newtuple([space.wrapbytes(result), space.wrap(len(uni))])
+
+    @unwrap_spec(string='bufferstr', errors='str_or_None',
+                 w_final=WrappedDefault(False))
+    def mbcs_decode(space, string, errors="strict", w_final=None):
+        if errors is None:
+            errors = 'strict'
+        final = space.is_true(w_final)
+        state = space.fromcache(CodecState)
+        result, consumed = runicode.str_decode_mbcs(
+            string, len(string), errors,
+            final, state.decode_error_handler,
+            force_ignore=False)
+        return space.newtuple([space.wrap(result), space.wrap(consumed)])
 
 # utf-8 functions are not regular, because we have to pass
 # "allow_surrogates=False"
@@ -594,7 +637,7 @@ class Charmap_Decode:
         self.w_mapping = w_mapping
 
         # fast path for all the stuff in the encodings module
-        if space.is_true(space.isinstance(w_mapping, space.w_tuple)):
+        if space.isinstance_w(w_mapping, space.w_tuple):
             self.mapping_w = space.fixedview(w_mapping)
         else:
             self.mapping_w = None

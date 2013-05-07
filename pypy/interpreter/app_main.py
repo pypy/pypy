@@ -1,24 +1,48 @@
 #! /usr/bin/env python
 # App-level version of py.py.
 # See test/test_app_main.
-"""
-options:
-  -i             inspect interactively after running script
-  -O             dummy optimization flag for compatibility with C Python
-  -c cmd         program passed in as CMD (terminates option list)
-  -S             do not 'import site' on initialization
-  -u             unbuffered binary stdout and stderr
-  -h, --help     show this help message and exit
-  -m mod         library module to be run as a script (terminates option list)
-  -W arg         warning control (arg is action:message:category:module:lineno)
-  -E             ignore environment variables (such as PYTHONPATH)
-  -R             ignored (see http://bugs.python.org/issue14621)
-  --version      print the PyPy version
-  --info         print translation information about this PyPy executable
-"""
 
+# Missing vs CPython: -b, -d, -OO, -v, -x, -3
+"""\
+Options and arguments (and corresponding environment variables):
+-B     : don't write .py[co] files on import; also PYTHONDONTWRITEBYTECODE=x
+-c cmd : program passed in as string (terminates option list)
+-E     : ignore PYTHON* environment variables (such as PYTHONPATH)
+-h     : print this help message and exit (also --help)
+-i     : inspect interactively after running script; forces a prompt even
+         if stdin does not appear to be a terminal; also PYTHONINSPECT=x
+-m mod : run library module as a script (terminates option list)
+-O     : dummy optimization flag for compatibility with CPython
+-q     : don't print version and copyright messages on interactive startup
+-R     : ignored (see http://bugs.python.org/issue14621)
+-s     : don't add user site directory to sys.path; also PYTHONNOUSERSITE
+-S     : don't imply 'import site' on initialization
+-u     : unbuffered binary stdout and stderr; also PYTHONUNBUFFERED=x
+-V     : print the Python version number and exit (also --version)
+-W arg : warning control; arg is action:message:category:module:lineno
+         also PYTHONWARNINGS=arg
+-X opt : set implementation-specific option
+file   : program read from script file
+-      : program read from stdin (default; interactive mode if a tty)
+arg ...: arguments passed to program in sys.argv[1:]
+PyPy options and arguments:
+--info : print translation information about this PyPy executable
+"""
 from __future__ import print_function, unicode_literals
+USAGE1 = __doc__
+# Missing vs CPython: PYTHONHOME, PYTHONCASEOK
+USAGE2 = """
+Other environment variables:
+PYTHONSTARTUP: file executed on interactive startup (no default)
+PYTHONPATH   : %r-separated list of directories prefixed to the
+               default module search path.  The result is sys.path.
+PYTHONIOENCODING: Encoding[:errors] used for stdin/stdout/stderr.
+"""
 
+try:
+    from __pypy__ import hidden_applevel
+except ImportError:
+    hidden_applevel = lambda f: f
 import errno
 import sys
 
@@ -43,6 +67,7 @@ def handle_sys_exit(e):
             exitcode = 1
     raise SystemExit(exitcode)
 
+@hidden_applevel
 def run_toplevel(f, *fargs, **fkwds):
     """Calls f() and handles all OperationErrors.
     Intended use is to run the main program or one interactive statement.
@@ -54,13 +79,13 @@ def run_toplevel(f, *fargs, **fkwds):
         f(*fargs, **fkwds)
     except SystemExit as e:
         handle_sys_exit(e)
-    except:
-        display_exception()
+    except BaseException as e:
+        display_exception(e)
         return False
     return True   # success
 
-def display_exception():
-    etype, evalue, etraceback = sys.exc_info()
+def display_exception(e):
+    etype, evalue, etraceback = type(e), e, e.__traceback__
     try:
         # extra debugging info in case the code below goes very wrong
         if DEBUG and hasattr(sys, 'stderr'):
@@ -86,14 +111,14 @@ def display_exception():
         hook(etype, evalue, etraceback)
         return # done
 
-    except:
+    except BaseException as e:
         try:
             stderr = sys.stderr
         except AttributeError:
             pass   # too bad
         else:
             print('Error calling sys.excepthook:', file=stderr)
-            originalexcepthook(*sys.exc_info())
+            originalexcepthook(type(e), e, e.__traceback__)
             print(file=stderr)
             print('Original exception was:', file=stderr)
 
@@ -111,8 +136,7 @@ def print_info(*args):
     except AttributeError:
         print('no translation information found', file=sys.stderr)
     else:
-        optitems = list(options.items())
-        optitems.sort()
+        optitems = sorted(options.items())
         current = []
         for key, value in optitems:
             group = key.split('.')
@@ -128,13 +152,14 @@ def print_info(*args):
     raise SystemExit
 
 def print_help(*args):
+    import os
     initstdio()
-    print('usage: %s [options] [-c cmd|-m mod|file.py|-] [arg...]' % (
+    print('usage: %s [option] ... [-c cmd | -m mod | file | -] [arg] ...' % (
         sys.executable,))
-    print(__doc__.rstrip())
+    print(USAGE1, end='')
     if 'pypyjit' in sys.builtin_module_names:
-        print("  --jit OPTIONS  advanced JIT options: try 'off' or 'help'")
-    print()
+        print("--jit options: advanced JIT options: try 'off' or 'help'")
+    print(USAGE2 % (os.pathsep,), end='')
     raise SystemExit
 
 def _print_jit_help():
@@ -203,10 +228,7 @@ def we_are_translated():
     # app-level, very different from rpython.rlib.objectmodel.we_are_translated
     return hasattr(sys, 'pypy_translation_info')
 
-if 'nt' in sys.builtin_module_names:
-    IS_WINDOWS = True
-else:
-    IS_WINDOWS = False
+IS_WINDOWS = 'nt' in sys.builtin_module_names
 
 def setup_and_fix_paths(ignore_environment=False, **extra):
     import os
@@ -227,65 +249,55 @@ def setup_and_fix_paths(ignore_environment=False, **extra):
 def initstdio(encoding=None, unbuffered=False):
     if hasattr(sys, 'stdin'):
         return # already initialized
-    if not encoding:
-        encoding = sys.getfilesystemencoding()
-    if ':' in encoding:
-        encoding, errors = encoding.split(':', 1)
-    else:
-        errors = None
 
-    sys.stdin = sys.__stdin__ = create_stdio(
-        0, False, "<stdin>", encoding, errors, unbuffered)
-    sys.stdout = sys.__stdout__ = create_stdio(
-        1, True, "<stdout>", encoding, errors, unbuffered)
-    sys.stderr = sys.__stderr__ = create_stdio(
-        2, True, "<stderr>", encoding, 'backslashreplace', unbuffered)
+    # Hack to avoid recursion issues during bootstrapping: pre-import
+    # the utf-8 and latin-1 codecs
+    encerr = None
+    try:
+        import encodings.utf_8
+        import encodings.latin_1
+    except ImportError as e:
+        encerr = e
 
+    try:
+        if encoding and ':' in encoding:
+            encoding, errors = encoding.split(':', 1)
+        else:
+            errors = None
+
+        sys.stdin = sys.__stdin__ = create_stdio(
+            0, False, "<stdin>", encoding, errors, unbuffered)
+        sys.stdout = sys.__stdout__ = create_stdio(
+            1, True, "<stdout>", encoding, errors, unbuffered)
+        sys.stderr = sys.__stderr__ = create_stdio(
+            2, True, "<stderr>", encoding, 'backslashreplace', unbuffered)
+    finally:
+        if encerr:
+            display_exception(encerr)
+            del encerr
 
 def create_stdio(fd, writing, name, encoding, errors, unbuffered):
     import io
-
-    if writing:
-        mode = "wb"
-    else:
-        mode= "rb"
     # stdin is always opened in buffered mode, first because it
     # shouldn't make a difference in common use cases, second because
     # TextIOWrapper depends on the presence of a read1() method which
     # only exists on buffered streams.
-    if writing:
-        buffering = 0
-    else:
-        buffering = -1
-    if sys.platform == 'win32' and not writing:
-        # translate \r\n to \n for sys.stdin on Windows
-        newline = None
-    else:
-        newline = '\n'
+    buffering = 0 if unbuffered and writing else -1
+    mode = 'w' if writing else 'r'
     try:
-        buf = io.open(fd, mode, buffering, closefd=False)
+        buf = io.open(fd, mode + 'b', buffering, closefd=False)
     except OSError as e:
         if e.errno != errno.EBADF:
             raise
         return None
 
-    if buffering:
-        raw = buf.raw
-    else:
-        raw = buf
+    raw = buf.raw if buffering else buf
     raw.name = name
-    if unbuffered or raw.isatty():
-        line_buffering = True
-    else:
-        line_buffering = False
-
-    stream = io.TextIOWrapper(buf, encoding, errors,
-                              newline=newline,
-                              line_buffering=line_buffering)
-    if writing:
-        stream.mode = 'w'
-    else:
-        stream.mode = 'r'
+    # translate \r\n to \n for sys.stdin on Windows
+    newline = None if sys.platform == 'win32' and not writing else '\n'
+    stream = io.TextIOWrapper(buf, encoding, errors, newline=newline,
+                              line_buffering=unbuffered or raw.isatty())
+    stream.mode = mode
     return stream
 
 
@@ -322,8 +334,11 @@ def c_option(options, runcmd, iterargv):
     return ['-c'] + list(iterargv)
 
 def m_option(options, runmodule, iterargv):
-    options["run_module"] = True
-    return [runmodule] + list(iterargv)
+    options["run_module"] = runmodule
+    return ['-m'] + list(iterargv)
+
+def X_option(options, xoption, iterargv):
+    options["_xoptions"].append(xoption)
 
 def W_option(options, warnoption, iterargv):
     options["warnoptions"].append(warnoption)
@@ -343,7 +358,6 @@ cmdline_options = {
     's': (simple_option, 'no_user_site'),
     'S': (simple_option, 'no_site'),
     'u': (simple_option, 'unbuffered'),
-    'b': (simple_option, 'bytes_warning'),
     'v': (simple_option, 'verbose'),
     'q': (simple_option, 'quiet'),
     # more complex options
@@ -353,6 +367,7 @@ cmdline_options = {
     '--help':    (print_help,      None),
     'm':         (m_option,        Ellipsis),
     'W':         (W_option,        Ellipsis),
+    'X':         (X_option,        Ellipsis),
     'V':         (print_version,   None),
     '--version': (print_version,   None),
     '--info':    (print_info,      None),
@@ -382,6 +397,7 @@ def parse_command_line(argv):
     import os
     options = default_options.copy()
     options['warnoptions'] = []
+    options['_xoptions'] = []
 
     iterargv = iter(argv)
     argv = None
@@ -445,6 +461,9 @@ def parse_command_line(argv):
         sys.flags = type(sys.flags)(flags)
         sys.dont_write_bytecode = bool(sys.flags.dont_write_bytecode)
 
+    sys._xoptions = dict(x.split('=', 1) if '=' in x else (x, True)
+                         for x in options['_xoptions'])
+
 ##    if not we_are_translated():
 ##        for key in sorted(options):
 ##            print '%40s: %s' % (key, options[key])
@@ -454,6 +473,7 @@ def parse_command_line(argv):
 
 # this indirection is needed to be able to import this module on python2, else
 # we have a SyntaxError: unqualified exec in a nested function
+@hidden_applevel
 def exec_(src, dic):
     exec(src, dic)
 
@@ -475,7 +495,7 @@ def run_command_line(interactive,
     import os
 
     readenv = not ignore_environment
-    io_encoding = readenv and os.getenv("PYTHONIOENCODING")
+    io_encoding = os.getenv("PYTHONIOENCODING") if readenv else None
     initstdio(io_encoding, unbuffered)
 
     mainmodule = type(sys)('__main__')
@@ -529,17 +549,22 @@ def run_command_line(interactive,
         if run_command != 0:
             # handle the "-c" command
             # Put '' on sys.path
-            sys.path.insert(0, '')
-
-            def run_it():
-                exec_(run_command, mainmodule.__dict__)
-            success = run_toplevel(run_it)
-        elif run_module:
+            try:
+                bytes = run_command.encode()
+            except BaseException as e:
+                print("Unable to decode the command from the command line:",
+                      file=sys.stderr)
+                display_exception(e)
+                success = False
+            else:
+                sys.path.insert(0, '')
+                success = run_toplevel(exec_, bytes, mainmodule.__dict__)
+        elif run_module != 0:
             # handle the "-m" command
             # '' on sys.path is required also here
             sys.path.insert(0, '')
             import runpy
-            success = run_toplevel(runpy._run_module_as_main, sys.argv[0])
+            success = run_toplevel(runpy._run_module_as_main, run_module)
         elif run_stdin:
             # handle the case where no command/filename/module is specified
             # on the command-line.
@@ -555,7 +580,7 @@ def run_command_line(interactive,
                 # banner (unless "-q" was specified) and run
                 # $PYTHONSTARTUP.
                 if not quiet:
-                    print_banner()
+                    print_banner(not no_site)
                 python_startup = readenv and os.getenv('PYTHONSTARTUP')
                 if python_startup:
                     try:
@@ -565,6 +590,7 @@ def run_command_line(interactive,
                         print("Could not open PYTHONSTARTUP", file=sys.stderr)
                         print("IOError:", e, file=sys.stderr)
                     else:
+                        @hidden_applevel
                         def run_it():
                             co_python_startup = compile(startup,
                                                         python_startup,
@@ -581,6 +607,7 @@ def run_command_line(interactive,
                 inspect = True
             else:
                 # If not interactive, just read and execute stdin normally.
+                @hidden_applevel
                 def run_it():
                     co_stdin = compile(sys.stdin.read(), '<stdin>', 'exec')
                     exec_(co_stdin, mainmodule.__dict__)
@@ -615,6 +642,7 @@ def run_command_line(interactive,
                     args = (runpy._run_module_as_main, '__main__', False)
                 else:
                     # no.  That's the normal path, "pypy stuff.py".
+                    @hidden_applevel
                     def execfile(filename, namespace):
                         with open(filename, 'rb') as f:
                             code = f.read()
@@ -625,13 +653,12 @@ def run_command_line(interactive,
     except SystemExit as e:
         status = e.code
         if inspect_requested():
-            display_exception()
+            display_exception(e)
     else:
         status = not success
 
     # start a prompt if requested
     if inspect_requested():
-        inteactive = False
         try:
             from _pypy_interact import interactive_console
             success = run_toplevel(interactive_console, mainmodule, quiet)
@@ -642,10 +669,11 @@ def run_command_line(interactive,
 
     return status
 
-def print_banner():
+def print_banner(copyright):
     print('Python %s on %s' % (sys.version, sys.platform))
-    print('Type "help", "copyright", "credits" or '
-          '"license" for more information.')
+    if copyright:
+        print('Type "help", "copyright", "credits" or '
+              '"license" for more information.')
 
 STDLIB_WARNING = """\
 debug: WARNING: Library path not found, using compiled-in sys.path.
@@ -736,7 +764,7 @@ if __name__ == '__main__':
         from os.path import abspath, join, dirname as dn
         thisfile = abspath(__file__)
         root = dn(dn(dn(thisfile)))
-        return [join(root, 'lib-python', '3.2'),
+        return [join(root, 'lib-python', '3'),
                 join(root, 'lib_pypy')]
 
     def pypy_resolvedirof(s):

@@ -25,8 +25,12 @@ class TestBuiltinCode:
         assert code.signature() == Signature(['x', 'y'], 'hello', None)
         def d(self, w_boo):
             pass
+
+        class W_X(W_Root):
+            pass
+
         code = gateway.BuiltinCode(d, unwrap_spec= ['self',
-                                                   gateway.W_Root], self_type=gateway.Wrappable)
+                                                   gateway.W_Root], self_type=W_X)
         assert code.signature() == Signature(['self', 'boo'], None, None)
         def e(space, w_x, w_y, __args__):
             pass
@@ -130,6 +134,36 @@ class TestGateway:
             space.call_function(w_app_g3, w('foo'), w('bar')),
             w('foobar'))
 
+    def test_interpindirect2app(self):
+        space = self.space
+        class BaseA(W_Root):
+            def method(self, space, x):
+                pass
+
+        class A(BaseA):
+            def method(self, space, x):
+                return space.wrap(x + 2)
+
+        class B(BaseA):
+            def method(self, space, x):
+                return space.wrap(x + 1)
+
+        class FakeTypeDef(object):
+            rawdict = {}
+            bases = {}
+            applevel_subclasses_base = None
+            name = 'foo'
+            hasdict = False
+            weakrefable = False
+            doc = 'xyz'
+
+        meth = gateway.interpindirect2app(BaseA.method, {'x': int})
+        w_c = space.wrap(meth)
+        w_a = A()
+        w_b = B()
+        assert space.int_w(space.call_function(w_c, w_a, space.wrap(1))) == 1 + 2
+        assert space.int_w(space.call_function(w_c, w_b, space.wrap(-10))) == -10 + 1
+
     def test_interp2app_unwrap_spec(self):
         space = self.space
         w = space.wrap
@@ -168,7 +202,7 @@ class TestGateway:
                                space.wrap(True))
 
     def test_caching_methods(self):
-        class Base(gateway.Wrappable):
+        class Base(gateway.W_Root):
             def f(self):
                 return 1
 
@@ -384,6 +418,17 @@ class TestGateway:
                        space.call_function,
                        w_app_g3_idx,
                        space.mul(space.wrap(sys.maxint), space.wrap(-7)))
+
+    def test_interp2app_unwrap_spec_fsencode(self):
+        space = self.space
+        w = space.wrap
+        def f(filename):
+            return space.wrapbytes(filename)
+        app_f = gateway.interp2app_temp(f, unwrap_spec=['fsencode'])
+        w_app_f = space.wrap(app_f)
+        assert space.eq_w(
+            space.call_function(w_app_f, w(u'\udc80')),
+            space.wrapbytes('\x80'))
 
     def test_interp2app_unwrap_spec_typechecks(self):
         space = self.space

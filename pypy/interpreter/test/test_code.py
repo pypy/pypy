@@ -9,7 +9,7 @@ class AppTestCodeIntrospection:
             filename = filename[:-1]
 
         cls.w_file = cls.space.wrap(filename)
-        cls.w_CO_CONTAINSGLOBALS = cls.space.wrap(consts.CO_CONTAINSGLOBALS)
+        cls.w_CO_NOFREE = cls.space.wrap(consts.CO_NOFREE)
 
     def test_attributes(self):
         def f(): pass
@@ -164,13 +164,13 @@ class AppTestCodeIntrospection:
         def f():
             xxx
         res = repr(f.__code__)
-        expected = ["<code object f",
-                    self.file,
-                    'line']
-        for i in expected:
-            assert i in res
+        assert res.startswith("<code object f at 0x")
+        assert ', file "%s", line ' % f.__code__.co_filename in res
+        assert res.endswith('>')
 
     def test_code_extra(self):
+        assert compile("x = x + 1", 'baz', 'exec').co_flags & self.CO_NOFREE
+
         d = {}
         exec("""if 1:
         def f():
@@ -180,7 +180,7 @@ class AppTestCodeIntrospection:
 """, d)
 
         # check for new flag, CO_NOFREE
-        assert d['f'].__code__.co_flags & 0x40
+        assert d['f'].__code__.co_flags & self.CO_NOFREE
 
         exec("""if 1:
         def f(x):
@@ -192,27 +192,3 @@ class AppTestCodeIntrospection:
         # CO_NESTED
         assert d['f'](4).__code__.co_flags & 0x10
         assert d['f'].__code__.co_flags & 0x10 == 0
-        # check for CO_CONTAINSGLOBALS
-        assert not d['f'].__code__.co_flags & self.CO_CONTAINSGLOBALS
-
-
-        exec("""if 1:
-        r = range
-        def f():
-            return [l for l in r(100)]
-        def g():
-            return [l for l in [1, 2, 3, 4]]
-""", d)
-
-        # check for CO_CONTAINSGLOBALS
-        assert d['f'].__code__.co_flags & self.CO_CONTAINSGLOBALS
-        assert not d['g'].__code__.co_flags & self.CO_CONTAINSGLOBALS
-
-        exec("""if 1:
-        b = 2
-        def f(x):
-            exec("a = 1")
-            return a + b + x
-""", d)
-        # check for CO_CONTAINSGLOBALS
-        assert d['f'].__code__.co_flags & self.CO_CONTAINSGLOBALS

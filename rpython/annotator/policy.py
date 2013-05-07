@@ -2,11 +2,6 @@
 from rpython.annotator.specialize import default_specialize as default
 from rpython.annotator.specialize import specialize_argvalue, specialize_argtype, specialize_arglistitemtype, specialize_arg_or_var
 from rpython.annotator.specialize import memo, specialize_call_location
-# for some reason, model must be imported first,
-# or we create a cycle.
-from rpython.annotator import model as annmodel
-from rpython.annotator.bookkeeper import getbookkeeper
-from rpython.annotator.signature import Sig
 
 
 class BasicAnnotatorPolicy(object):

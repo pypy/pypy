@@ -56,11 +56,6 @@ class AppTestThreads(AppTestCpythonExtensionBase):
                          return PyLong_FromLong(0);
                      }
 
-                     new_tstate = PyThreadState_Get();
-                     if (new_tstate != NULL) {
-                         return PyLong_FromLong(1);
-                     }
-
                      new_tstate = PyThreadState_Swap(old_tstate);
                      if (new_tstate != NULL) {
                          return PyLong_FromLong(2);

@@ -8,6 +8,10 @@ import sys
 
 def excepthook(exctype, value, traceback):
     """Handle an exception by displaying it with a traceback on sys.stderr."""
+    if not isinstance(value, BaseException):
+        sys.stderr.write("TypeError: print_exception(): Exception expected for "
+                         "value, {} found\n".format(type(value).__name__))
+        return
 
     # Flush stdout as well, both files may refer to the same file
     try:
@@ -104,3 +108,4 @@ class sysflags(metaclass=structseqtype):
     hash_randomization = structseqfield(12)
 
 null_sysflags = sysflags((0,)*13)
+null__xoptions = {}

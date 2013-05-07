@@ -74,13 +74,12 @@ class AppTestKqueue(object):
         assert ev == ev
         assert ev != other
 
-        bignum = (sys.maxsize * 2 + 1) & 0xffffffff
-        fd = sys.maxsize
-        ev = select.kevent(fd, 1, 2, bignum, sys.maxsize, bignum)
-        assert ev.ident == fd
+        bignum = sys.maxsize * 2 + 1
+        ev = select.kevent(bignum, 1, 2, 3, sys.maxsize, bignum)
+        assert ev.ident == bignum
         assert ev.filter == 1
         assert ev.flags == 2
-        assert ev.fflags == bignum
+        assert ev.fflags == 3
         assert ev.data == sys.maxsize
         assert ev.udata == bignum
         assert ev == ev
@@ -101,10 +100,9 @@ class AppTestKqueue(object):
         try:
             client.connect(("127.0.0.1", server_socket.getsockname()[1]))
         except socket.error as e:
-            if 'bsd' in sys.platform:
-                assert e.args[0] == errno.ENOENT
-            else:
-                assert e.args[0] == errno.EINPROGRESS
+            assert e.args[0] == errno.EINPROGRESS
+        else:
+            assert False, "EINPROGRESS not raised"
         server, addr = server_socket.accept()
 
         if sys.platform.startswith("darwin"):

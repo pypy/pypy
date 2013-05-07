@@ -1,17 +1,19 @@
 import operator
+
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.baseobjspace import Wrappable
-from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
-from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rlib.objectmodel import keepalive_until_here, specialize
+
 from rpython.rlib import objectmodel, rgc
+from rpython.rlib.objectmodel import keepalive_until_here, specialize
+from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.tool.sourcetools import func_with_new_name
 
 from pypy.module._cffi_backend import misc
 
 
-class W_CData(Wrappable):
+class W_CData(W_Root):
     _attrs_ = ['space', '_cdata', 'ctype', '_lifeline_']
     _immutable_fields_ = ['_cdata', 'ctype']
     _cdata = lltype.nullptr(rffi.CCHARP.TO)
@@ -40,27 +42,27 @@ class W_CData(Wrappable):
 
     def repr(self):
         extra2 = self._repr_extra()
-        extra1 = ''
+        extra1 = u''
         if not isinstance(self, W_CDataNewOwning):
             # it's slightly confusing to get "<cdata 'struct foo' 0x...>"
             # because the struct foo is not owned.  Trying to make it
             # clearer, write in this case "<cdata 'struct foo &' 0x...>".
             from pypy.module._cffi_backend import ctypestruct
             if isinstance(self.ctype, ctypestruct.W_CTypeStructOrUnion):
-                extra1 = ' &'
-        return self.space.wrap("<cdata '%s%s' %s>" % (
-            self.ctype.name, extra1, extra2))
+                extra1 = u' &'
+        return self.space.wrap(u"<cdata '%s%s' %s>" % (
+            self.ctype.name.decode('utf-8'), extra1, extra2.decode('utf-8')))
 
     def bool(self):
         return self.space.wrap(bool(self._cdata))
 
-    def int(self):
-        w_result = self.ctype.int(self._cdata)
+    def int(self, space):
+        w_result = self.ctype.cast_to_int(self._cdata)
         keepalive_until_here(self)
         return w_result
 
-    def long(self):
-        w_result = self.int()
+    def long(self, space):
+        w_result = self.int(space)
         space = self.space
         if space.is_w(space.type(w_result), space.w_int):
             w_result = space.newlong(space.int_w(w_result))
@@ -88,17 +90,16 @@ class W_CData(Wrappable):
             from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitive
             space = self.space
             cdata1 = self._cdata
-            other = space.interpclass_w(w_other)
-            if isinstance(other, W_CData):
-                cdata2 = other._cdata
+            if isinstance(w_other, W_CData):
+                cdata2 = w_other._cdata
             else:
                 return space.w_NotImplemented
 
             if requires_ordering:
                 if (isinstance(self.ctype, W_CTypePrimitive) or
-                    isinstance(other.ctype, W_CTypePrimitive)):
+                    isinstance(w_other.ctype, W_CTypePrimitive)):
                     raise OperationError(space.w_TypeError,
-                        space.wrap("cannot do comparison on a primitive cdata"))
+                       space.wrap("cannot do comparison on a primitive cdata"))
                 cdata1 = rffi.cast(lltype.Unsigned, cdata1)
                 cdata2 = rffi.cast(lltype.Unsigned, cdata2)
             return space.newbool(op(cdata1, cdata2))
@@ -239,10 +240,9 @@ class W_CData(Wrappable):
 
     def sub(self, w_other):
         space = self.space
-        ob = space.interpclass_w(w_other)
-        if isinstance(ob, W_CData):
+        if isinstance(w_other, W_CData):
             from pypy.module._cffi_backend import ctypeptr, ctypearray
-            ct = ob.ctype
+            ct = w_other.ctype
             if isinstance(ct, ctypearray.W_CTypeArray):
                 ct = ct.ctptr
             #
@@ -254,7 +254,7 @@ class W_CData(Wrappable):
                     self.ctype.name, ct.name)
             #
             diff = (rffi.cast(lltype.Signed, self._cdata) -
-                    rffi.cast(lltype.Signed, ob._cdata)) // ct.ctitem.size
+                    rffi.cast(lltype.Signed, w_other._cdata)) // ct.ctitem.size
             return space.wrap(diff)
         #
         return self._add_or_sub(w_other, -1)
@@ -280,8 +280,13 @@ class W_CData(Wrappable):
         return self.ctype.iter(self)
 
     @specialize.argtype(1)
-    def write_raw_integer_data(self, source):
-        misc.write_raw_integer_data(self._cdata, source, self.ctype.size)
+    def write_raw_signed_data(self, source):
+        misc.write_raw_signed_data(self._cdata, source, self.ctype.size)
+        keepalive_until_here(self)
+
+    @specialize.argtype(1)
+    def write_raw_unsigned_data(self, source):
+        misc.write_raw_unsigned_data(self._cdata, source, self.ctype.size)
         keepalive_until_here(self)
 
     def write_raw_float_data(self, source):
@@ -389,6 +394,7 @@ class W_CDataSliced(W_CData):
 W_CData.typedef = TypeDef(
     'CData',
     __module__ = '_cffi_backend',
+    __name__ = '<cdata>',
     __repr__ = interp2app(W_CData.repr),
     __bool__ = interp2app(W_CData.bool),
     __int__ = interp2app(W_CData.int),

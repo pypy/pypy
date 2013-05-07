@@ -282,13 +282,13 @@ def _make_wrapper_for(TP, callable, callbackholder=None, aroundstate=None):
     args = ', '.join(['a%d' % i for i in range(len(TP.TO.ARGS))])
     source = py.code.Source(r"""
         def wrapper(%(args)s):    # no *args - no GIL for mallocing the tuple
-            llop.gc_stack_bottom(lltype.Void)   # marker for trackgcroot.py
             if aroundstate is not None:
                 after = aroundstate.after
                 if after:
                     after()
             # from now on we hold the GIL
             stackcounter.stacks_counter += 1
+            llop.gc_stack_bottom(lltype.Void)   # marker for trackgcroot.py
             try:
                 result = callable(%(args)s)
             except Exception, e:
@@ -934,10 +934,8 @@ def sizeof(tp):
     if tp is lltype.SingleFloat:
         return 4
     if tp is lltype.LongFloat:
-        if globals()['r_void*'].BITS == 32:
-            return 12
-        else:
-            return 16
+        # :-/
+        return sizeof_c_type("long double")
     assert isinstance(tp, lltype.Number)
     if tp is lltype.Signed:
         return LONG_BIT/8
@@ -1061,6 +1059,7 @@ class scoped_str2charp:
             self.buf = str2charp(value)
         else:
             self.buf = lltype.nullptr(CCHARP.TO)
+    __init__._annenforceargs_ = [None, annmodel.SomeString(can_be_None=True)]
     def __enter__(self):
         return self.buf
     def __exit__(self, *args):
@@ -1074,6 +1073,8 @@ class scoped_unicode2wcharp:
             self.buf = unicode2wcharp(value)
         else:
             self.buf = lltype.nullptr(CWCHARP.TO)
+    __init__._annenforceargs_ = [None,
+                                 annmodel.SomeUnicodeString(can_be_None=True)]
     def __enter__(self):
         return self.buf
     def __exit__(self, *args):

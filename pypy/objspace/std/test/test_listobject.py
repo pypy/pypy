@@ -1,4 +1,5 @@
 # coding: iso-8859-15
+import py
 import random
 from pypy.objspace.std.listobject import W_ListObject, SizeListStrategy,\
      IntegerListStrategy, ObjectListStrategy
@@ -200,6 +201,15 @@ class TestW_ListObject(object):
         w_res = self.space.mul(w(n), w_lis)
         assert self.space.eq_w(w_lis3, w_res)
 
+    def test_mul_does_not_clone(self):
+        # only testing right mul at the moment
+        w = self.space.wrap
+        arg = w(2)
+        w_lis = W_ListObject(self.space, [arg])
+        w_lis.clone = None
+        # does not crash
+        self.space.mul(w_lis, w(5))
+
     def test_setitem(self):
         w = self.space.wrap
         w_list = W_ListObject(self.space, [w(5), w(3)])
@@ -391,6 +401,7 @@ class TestW_ListObject(object):
                            self.space.w_True)
 
     def test_sizehint(self):
+        py.test.py3k_skip("XXX: strategies are currently broken")
         space = self.space
         w_l = space.newlist([], sizehint=10)
         assert isinstance(w_l.strategy, SizeListStrategy)
@@ -405,6 +416,20 @@ class TestW_ListObject(object):
         w_lst = space.newlist_hint(13)
         assert isinstance(w_lst.strategy, SizeListStrategy)
         assert w_lst.strategy.sizehint == 13
+
+    def test_find_fast_on_intlist(self, monkeypatch):
+        py.test.py3k_skip("XXX: strategies are currently broken")
+        monkeypatch.setattr(self.space, "eq_w", None)
+        w = self.space.wrap
+        intlist = W_ListObject(self.space, [w(1),w(2),w(3),w(4),w(5),w(6),w(7)])
+        res = intlist.find(w(4), 0, 7)
+        assert res == 3
+        res = intlist.find(w(4), 0, 100)
+        assert res == 3
+        with py.test.raises(ValueError):
+            intlist.find(w(4), 4, 7)
+        with py.test.raises(ValueError):
+            intlist.find(w(4), 0, 2)
 
 class AppTestW_ListObject(object):
     def setup_class(cls):
@@ -901,6 +926,9 @@ class AppTestW_ListObject(object):
     def test_setitem_slice_performance(self):
         # because of a complexity bug, this used to take forever on a
         # translated pypy.  On CPython2.6 -A, it takes around 5 seconds.
+        import platform
+        if platform.machine().startswith('arm'):
+            skip("consumes too much memory for most ARM machines")
         if self.runappdirect:
             count = 16*1024*1024
         else:
@@ -1062,7 +1090,7 @@ class AppTestW_ListObject(object):
                 self.i = i
             def __eq__(self, other):
                 if self.i == 9:
-                    del l[i - 1]
+                    del l[self.i - 1]
                     return True
                 else:
                     return False
@@ -1149,10 +1177,10 @@ class AppTestW_ListObject(object):
         # strategies, to avoid surprizes depending on the strategy.
         class X: pass
         for base, arg in [
-                (list, []), (list, [5]), (list, ['x']), (list, [X]), (list, [u'x']),
-                (set, []),  (set,  [5]), (set,  ['x']), (set, [X]), (set, [u'x']),
+                (list, []), (list, [5]), (list, ['x']), (list, [X]), (list, ['x']),
+                (set, []),  (set,  [5]), (set,  ['x']), (set, [X]), (set, ['x']),
                 (dict, []), (dict, [(5,6)]), (dict, [('x',7)]), (dict, [(X,8)]),
-                (dict, [(u'x', 7)]),
+                (dict, [('x', 7)]),
                 ]:
             print(base, arg)
             class SubClass(base):
@@ -1234,15 +1262,18 @@ class AppTestW_ListObject(object):
         l1[:] = l2
         assert len(l1) == 0
 
+    def test_use_method_for_wrong_object(self):
+        raises(TypeError, list.append, 1, 2)
+
 
     def test_issue1266(self):
-        l = range(1)
+        l = list(range(1))
         l.pop()
         # would previously crash
         l.append(1)
         assert l == [1]
 
-        l = range(1)
+        l = list(range(1))
         l.pop()
         # would previously crash
         l.reverse()
@@ -1251,17 +1282,17 @@ class AppTestW_ListObject(object):
     def test_issue1266_ovf(self):
         import sys
 
-        l = range(0, sys.maxint, sys.maxint)
-        l.append(sys.maxint)
+        l = list(range(0, sys.maxsize, sys.maxsize))
+        l.append(sys.maxsize)
         # -2 would be next in the range sequence if overflow were
         # allowed
         l.append(-2)
-        assert l == [0, sys.maxint, -2]
+        assert l == [0, sys.maxsize, -2]
         assert -2 in l
 
-        l = range(-sys.maxint, sys.maxint, sys.maxint // 10)
+        l = list(range(-sys.maxsize, sys.maxsize, sys.maxsize // 10))
         item11 = l[11]
-        assert l[::11] == [-sys.maxint, item11]
+        assert l[::11] == [-sys.maxsize, item11]
         assert item11 in l[::11]
 
 

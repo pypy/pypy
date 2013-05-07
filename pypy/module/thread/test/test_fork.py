@@ -94,6 +94,9 @@ class AppTestFork(GenericTestThread):
         import os
         import time
 
+        if not hasattr(os, 'fork'):
+            skip("No fork on this platform")
+
         def fork_with_import_lock(level):
             release = 0
             in_child = False

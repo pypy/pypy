@@ -4,7 +4,7 @@ from pypy.interpreter.buffer import RWBuffer
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import GetSetProperty, make_weakref_descr, TypeDef
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.objspace.std.model import W_Object
 from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.objspace.std.stdtypedef import SMM, StdTypeDef
@@ -177,7 +177,7 @@ class ArrayBuffer(RWBuffer):
         return self.array._charbuf_start()
 
 
-class ArrayIterator(Wrappable):
+class ArrayIterator(W_Root):
     def __init__(self, array):
         self.index = 0
         self.array = array
@@ -433,7 +433,6 @@ def make_array(mytype):
         return space.wrap(cnt)
 
     def array_index__Array_ANY(space, self, w_val):
-        cnt = 0
         for i in range(self.len):
             w_item = self.w_getitem(space, i)
             if space.is_true(space.eq(w_item, w_val)):

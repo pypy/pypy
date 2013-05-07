@@ -1,17 +1,16 @@
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.gateway import interp2app
-from pypy.interpreter.typedef import TypeDef
-from pypy.interpreter.typedef import make_weakref_descr
-from pypy.interpreter.typedef import GetSetProperty, interp_attrproperty
+from pypy.interpreter.typedef import TypeDef, make_weakref_descr, GetSetProperty
+
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rlib.objectmodel import we_are_translated
 
 from pypy.module._cffi_backend import cdataobj
 
 
-class W_CType(Wrappable):
-    _attrs_   = ['space', 'size',  'name', 'name_position', '_lifeline_']
+class W_CType(W_Root):
+    _attrs_ = ['space', 'size',  'name', 'name_position', '_lifeline_']
     _immutable_fields_ = ['size?', 'name', 'name_position']
     # note that 'size' is not strictly immutable, because it can change
     # from -1 to the real value in the W_CTypeStruct subclass.
@@ -55,7 +54,7 @@ class W_CType(Wrappable):
         raise operationerrfmt(space.w_TypeError,
                               "cannot cast to '%s'", self.name)
 
-    def int(self, cdata):
+    def cast_to_int(self, cdata):
         space = self.space
         raise operationerrfmt(space.w_TypeError,
                               "int() not supported on cdata '%s'", self.name)
@@ -81,12 +80,11 @@ class W_CType(Wrappable):
 
     def _convert_error(self, expected, w_got):
         space = self.space
-        ob = space.interpclass_w(w_got)
-        if isinstance(ob, cdataobj.W_CData):
+        if isinstance(w_got, cdataobj.W_CData):
             return operationerrfmt(space.w_TypeError,
                                    "initializer for ctype '%s' must be a %s, "
                                    "not cdata '%s'", self.name, expected,
-                                   ob.ctype.name)
+                                   w_got.ctype.name)
         else:
             return operationerrfmt(space.w_TypeError,
                                    "initializer for ctype '%s' must be a %s, "

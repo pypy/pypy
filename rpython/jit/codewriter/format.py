@@ -10,8 +10,7 @@ from rpython.jit.metainterp.history import AbstractDescr
 def format_assembler(ssarepr):
     """For testing: format a SSARepr as a multiline string."""
     from cStringIO import StringIO
-    seen = {}
-    #
+
     def repr(x):
         if isinstance(x, Register):
             return '%%%s%d' % (x.kind[0], x.index)    # e.g. %i1 or %r2 or %f3
@@ -32,7 +31,7 @@ def format_assembler(ssarepr):
             return '%r' % (x,)
         else:
             return '<unknown object: %r>' % (x,)
-    #
+
     seenlabels = {}
     for asm in ssarepr.insns:
         for x in asm:
@@ -47,7 +46,7 @@ def format_assembler(ssarepr):
             labelcount[0] += 1
             seenlabels[lbl.name] = labelcount[0]
         return 'L%d' % seenlabels[lbl.name]
-    #
+
     output = StringIO()
     insns = ssarepr.insns
     if insns and insns[-1] == ('---',):

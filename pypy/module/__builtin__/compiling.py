@@ -9,7 +9,7 @@ from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.nestedscope import Cell
 
-@unwrap_spec(filename='str0', mode=str, flags=int, dont_inherit=int,
+@unwrap_spec(filename='fsencode', mode=str, flags=int, dont_inherit=int,
              optimize=int)
 def compile(space, w_source, filename, mode, flags=0, dont_inherit=0,
             optimize=0):
@@ -116,7 +116,7 @@ def build_class(space, w_func, w_name, __args__):
     if isclass:
         # w_meta is really a class, so check for a more derived
         # metaclass, or possible metaclass conflicts
-        from pypy.objspace.std.typetype import _calculate_metaclass
+        from pypy.objspace.std.typeobject import _calculate_metaclass
         w_meta = _calculate_metaclass(space, w_meta, bases_w)
 
     try:

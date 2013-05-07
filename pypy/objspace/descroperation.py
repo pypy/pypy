@@ -131,17 +131,15 @@ class DescrOperation(object):
         return space.lookup(w_obj, '__set__') is not None
 
     def get_and_call_args(space, w_descr, w_obj, args):
-        descr = space.interpclass_w(w_descr)
         # a special case for performance and to avoid infinite recursion
-        if isinstance(descr, Function):
-            return descr.call_obj_args(w_obj, args)
+        if isinstance(w_descr, Function):
+            return w_descr.call_obj_args(w_obj, args)
         else:
             w_impl = space.get(w_descr, w_obj)
             return space.call_args(w_impl, args)
 
     def get_and_call_function(space, w_descr, w_obj, *args_w):
-        descr = space.interpclass_w(w_descr)
-        typ = type(descr)
+        typ = type(w_descr)
         # a special case for performance and to avoid infinite recursion
         if typ is Function or typ is FunctionWithFixedCode:
             # isinstance(typ, Function) would not be correct here:
@@ -152,7 +150,7 @@ class DescrOperation(object):
 
             # the fastcall paths are purely for performance, but the resulting
             # increase of speed is huge
-            return descr.funccall(w_obj, *args_w)
+            return w_descr.funccall(w_obj, *args_w)
         else:
             args = Arguments(space, list(args_w))
             w_impl = space.get(w_descr, w_obj)
@@ -334,18 +332,6 @@ class DescrOperation(object):
                                   typename)
         return space.get_and_call_function(w_descr, w_obj, w_key)
 
-    def getslice(space, w_obj, w_start, w_stop):
-        w_slice = space.newslice(w_start, w_stop, space.w_None)
-        return space.getitem(w_obj, w_slice)
-
-    def setslice(space, w_obj, w_start, w_stop, w_sequence):
-        w_slice = space.newslice(w_start, w_stop, space.w_None)
-        return space.setitem(w_obj, w_slice, w_sequence)
-
-    def delslice(space, w_obj, w_start, w_stop):
-        w_slice = space.newslice(w_start, w_stop, space.w_None)
-        return space.delitem(w_obj, w_slice)
-
     def format(space, w_obj, w_format_spec):
         w_descr = space.lookup(w_obj, '__format__')
         if w_descr is None:
@@ -354,7 +340,7 @@ class DescrOperation(object):
                                   "'%s' object does not define __format__",
                                   typename)
         w_res = space.get_and_call_function(w_descr, w_obj, w_format_spec)
-        if not space.is_true(space.isinstance(w_res, space.w_unicode)):
+        if not space.isinstance_w(w_res, space.w_unicode):
             typename = space.type(w_obj).getname(space)
             restypename = space.type(w_res).getname(space)
             raise operationerrfmt(space.w_TypeError,
@@ -439,6 +425,21 @@ class DescrOperation(object):
             if space.eq_w(w_next, w_item):
                 count += 1
 
+    def sequence_index(space, w_container, w_item):
+        w_iter = space.iter(w_container)
+        index = 0
+        while 1:
+            try:
+                w_next = space.next(w_iter)
+            except OperationError, e:
+                if not e.match(space, space.w_StopIteration):
+                    raise
+                msg = "sequence.index(x): x not in sequence"
+                raise OperationError(space.w_ValueError, space.wrap(msg))
+            if space.eq_w(w_next, w_item):
+                return space.wrap(index)
+            index += 1
+
     def hash(space, w_obj):
         w_hash = space.lookup(w_obj, '__hash__')
         if w_hash is None:
@@ -455,7 +456,7 @@ class DescrOperation(object):
         w_resulttype = space.type(w_result)
         if space.is_w(w_resulttype, space.w_int):
             return w_result
-        elif space.is_true(space.isinstance(w_result, space.w_int)):
+        elif space.isinstance_w(w_result, space.w_int):
             # be careful about subclasses of 'int'...
             return space.wrap(space.int_w(w_result))
         else:
@@ -471,8 +472,12 @@ class DescrOperation(object):
         return space._type_issubtype(w_sub, w_type)
 
     @specialize.arg_or_var(2)
+    def isinstance_w(space, w_inst, w_type):
+        return space._type_isinstance(w_inst, w_type)
+
+    @specialize.arg_or_var(2)
     def isinstance(space, w_inst, w_type):
-        return space.wrap(space._type_isinstance(w_inst, w_type))
+        return space.wrap(space.isinstance_w(w_inst, w_type))
 
     def issubtype_allow_override(space, w_sub, w_type):
         w_check = space.lookup(w_type, "__subclasscheck__")
@@ -560,10 +565,9 @@ def _invoke_comparison(space, w_descr, w_obj1, w_obj2):
         # also avoids binding via __get__ when unnecessary; in
         # particular when w_obj1 is None, __get__(None, type(None))
         # won't actually bind =]
-        descr = space.interpclass_w(w_descr)
-        typ = type(descr)
+        typ = type(w_descr)
         if typ is Function or typ is FunctionWithFixedCode:
-            w_res = descr.funccall(w_obj1, w_obj2)
+            w_res = w_descr.funccall(w_obj1, w_obj2)
         else:
             try:
                 w_impl = space.get(w_descr, w_obj1)
@@ -658,11 +662,10 @@ def _make_unaryop_impl(symbol, specialnames):
 # more of the above manually-coded operations as well)
 
 for targetname, specialname, checkerspec in [
-    ('int', '__int__', ("space.w_int",)),
     ('index', '__index__', ("space.w_int",)),
     ('float', '__float__', ("space.w_float",))]:
 
-    l = ["space.is_true(space.isinstance(w_result, %s))" % x
+    l = ["space.isinstance_w(w_result, %s)" % x
                 for x in checkerspec]
     checker = " or ".join(l)
     source = """if 1:

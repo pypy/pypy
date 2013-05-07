@@ -151,14 +151,14 @@ class TestParseCommandLine:
                    no_site=1)
         self.check(['-Scpass'], {}, sys_argv=['-c'], run_command='pass', no_site=1)
         self.check(['-c', '', ''], {}, sys_argv=['-c', ''], run_command='')
-        self.check(['-mfoo', 'bar', 'baz'], {}, sys_argv=['foo', 'bar', 'baz'],
-                   run_module=True)
-        self.check(['-m', 'foo', 'bar', 'baz'], {}, sys_argv=['foo', 'bar', 'baz'],
-                   run_module=True)
-        self.check(['-Smfoo', 'bar', 'baz'], {}, sys_argv=['foo', 'bar', 'baz'],
-                   run_module=True, no_site=1)
-        self.check(['-Sm', 'foo', 'bar', 'baz'], {}, sys_argv=['foo', 'bar', 'baz'],
-                   run_module=True, no_site=1)
+        self.check(['-mfoo', 'bar', 'baz'], {}, sys_argv=['-m', 'bar', 'baz'],
+                   run_module='foo')
+        self.check(['-m', 'foo', 'bar', 'baz'], {}, sys_argv=['-m', 'bar', 'baz'],
+                   run_module='foo')
+        self.check(['-Smfoo', 'bar', 'baz'], {}, sys_argv=['-m', 'bar', 'baz'],
+                   run_module='foo', no_site=1)
+        self.check(['-Sm', 'foo', 'bar', 'baz'], {}, sys_argv=['-m', 'bar', 'baz'],
+                   run_module='foo', no_site=1)
         self.check(['-', 'foo', 'bar'], {}, sys_argv=['-', 'foo', 'bar'],
                    run_stdin=True)
         self.check(['foo', 'bar'], {}, sys_argv=['foo', 'bar'])
@@ -170,6 +170,10 @@ class TestParseCommandLine:
         self.check(['-Wbog'], {}, sys_argv=[''], warnoptions=['bog'], run_stdin=True)
         self.check(['-W', 'ab', '-SWc'], {}, sys_argv=[''], warnoptions=['ab', 'c'],
                    run_stdin=True, no_site=1)
+        self.check(['-X', 'foo'], {}, sys_argv=[''], _xoptions=['foo'],
+                   run_stdin=True)
+        self.check(['-X', 'foo=bar', '-Xbaz'], {}, sys_argv=[''],
+                   _xoptions=['foo=bar', 'baz'], run_stdin=True)
 
         self.check([], {'PYTHONDEBUG': '1'}, sys_argv=[''], run_stdin=True, debug=1)
         self.check([], {'PYTHONDONTWRITEBYTECODE': '1'}, sys_argv=[''], run_stdin=True, dont_write_bytecode=1)
@@ -269,7 +273,8 @@ class TestInteraction:
         # test that -h prints the usage, including the name of the executable
         # which should be /full/path/to/app_main.py in this case
         child = self.spawn(['-h'])
-        child.expect(r'usage: .*app_main.py \[options\]')
+        child.expect(r'usage: .*app_main.py \[option\]')
+        child.expect('PyPy options and arguments:')
 
     def test_run_script(self, demo_script):
         child = self.spawn([demo_script])
@@ -346,6 +351,11 @@ class TestInteraction:
         child.expect(re.escape("['-c']"))
         child.sendline('sys.last_type.__name__')
         child.expect(re.escape(repr('NameError')))
+
+    def test_options_i_c_sysexit(self):
+        child = self.spawn(['-i', '-c', 'import sys; sys.exit(1)'])
+        child.expect('SystemExit: 1')
+        child.expect('>>>')
 
     def test_atexit(self):
         skip("Python3 atexit is a builtin module")
@@ -450,6 +460,11 @@ class TestInteraction:
             assert index == 1      # no foobarbaz
         finally:
             os.environ['PYTHONPATH'] = old
+
+    def test_buffered(self):
+        line = 'import sys;print(type(sys.stdout.buffer).__name__)'
+        child = self.spawn(['-c', line])
+        child.expect('BufferedWriter')
 
     def test_unbuffered(self):
         # In Python3, -u affects the "binary layer" of sys.stdout.
@@ -664,6 +679,15 @@ class TestNonInteractive:
         data = self.run('-c "print(6**5)"')
         assert '7776' in data
 
+    def test_option_c_unencodable(self):
+        data, status = self.run_with_status_code(b"""-c 'print(b"\xff")'""",
+                                                 env={'LC_ALL': 'C'})
+        assert status in (0, 1)
+        pattern = ("Unable to decode the command from the command line:"
+                   if status else
+                   "'\\xff' ")
+        assert data.startswith(pattern)
+
     def test_no_pythonstartup(self, monkeypatch, demo_script, crashing_demo_script):
         monkeypatch.setenv('PYTHONSTARTUP', crashing_demo_script)
         data = self.run('"%s"' % (demo_script,))
@@ -694,6 +718,24 @@ class TestNonInteractive:
         assert ('File: ' + p) in data
         assert ('Argv: ' + repr([p, 'extra'])) in data
 
+    def test_option_m_package(self, monkeypatch):
+        if not hasattr(runpy, '_run_module_as_main'):
+            skip("requires CPython >= 2.6")
+        p = os.path.join(os.path.realpath(os.path.dirname(__file__)),
+                         'mypackage', '__main__.py')
+        p = os.path.abspath(p)
+        monkeypatch.chdir(os.path.dirname(app_main))
+        data = self.run('-m test2.mypackage extra')
+        assert "__init__ argv: ['-m', 'extra']" in data
+        assert "__main__ argv: [%r, 'extra']" % p in data
+
+    def test_xoptions(self):
+        data = self.run('-Xfoo -Xbar=baz -Xquux=cdrom.com=FreeBSD -Xx=X,d=e '
+                        '-c "import sys;print(sorted(sys._xoptions.items()))"')
+        expected = ("[('bar', 'baz'), ('foo', True), "
+                    "('quux', 'cdrom.com=FreeBSD'), ('x', 'X,d=e')]")
+        assert expected in data
+
     def test_pythoninspect_doesnt_override_isatty(self):
         os.environ['PYTHONINSPECT_'] = '1'
         try:
@@ -720,6 +762,10 @@ class TestNonInteractive:
         data = self.run('-iq', senddata='6*7\nraise SystemExit\n',
                         expect_prompt=True, expect_banner=False)
         assert '42\n' in data
+
+    def test_option_S_copyright(self):
+        data = self.run('-S -i', expect_prompt=True, expect_banner=True)
+        assert 'copyright' not in data
 
     def test_non_interactive_stdout_fully_buffered(self):
         path = getscript(r"""
@@ -963,7 +1009,7 @@ class AppTestAppMain:
         # setup code for test_setup_bootstrap_path
         # ----------------------------------------
         from pypy.module.sys.version import CPYTHON_VERSION, PYPY_VERSION
-        cpy_ver = '%d.%d' % CPYTHON_VERSION[:2]
+        cpy_ver = '%d' % CPYTHON_VERSION[0]
 
         goal_dir = os.path.dirname(app_main)
         # build a directory hierarchy like which contains both bin/pypy-c and

@@ -340,6 +340,7 @@ class AppTestOpen:
 
         f = open(*args, **kwargs)
         r = repr(f)
+        gc.collect()
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter('always')
             f = None

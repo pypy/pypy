@@ -118,6 +118,9 @@ class ASTBuilder(object):
         except misc.ForbiddenNameAssignment, e:
             self.error("cannot assign to %s" % (e.name,), node)
 
+    def new_identifier(self, name):
+        return misc.new_identifier(self.space, name)
+
     def set_context(self, expr, ctx):
         """Set the context of an expression to Store or Del if possible."""
         try:
@@ -163,9 +166,10 @@ class ASTBuilder(object):
         while True:
             import_name_type = import_name.type
             if import_name_type == syms.import_as_name:
-                name = import_name.children[0].value
+                name = self.new_identifier(import_name.children[0].value)
                 if len(import_name.children) == 3:
-                    as_name = import_name.children[2].value
+                    as_name = self.new_identifier(
+                        import_name.children[2].value)
                     self.check_forbidden_name(as_name, import_name.children[2])
                 else:
                     as_name = None
@@ -178,12 +182,12 @@ class ASTBuilder(object):
                 alias = self.alias_for_import_name(import_name.children[0],
                                                    store=False)
                 asname_node = import_name.children[2]
-                alias.asname = asname_node.value
+                alias.asname = self.new_identifier(asname_node.value)
                 self.check_forbidden_name(alias.asname, asname_node)
                 return alias
             elif import_name_type == syms.dotted_name:
                 if len(import_name.children) == 1:
-                    name = import_name.children[0].value
+                    name = self.new_identifier(import_name.children[0].value)
                     if store:
                         self.check_forbidden_name(name, import_name.children[0])
                     return ast.alias(name, None)
@@ -251,12 +255,12 @@ class ASTBuilder(object):
             raise AssertionError("unknown import node")
 
     def handle_global_stmt(self, global_node):
-        names = [global_node.children[i].value
+        names = [self.new_identifier(global_node.children[i].value)
                  for i in range(1, len(global_node.children), 2)]
         return ast.Global(names, global_node.lineno, global_node.column)
 
     def handle_nonlocal_stmt(self, nonlocal_node):
-        names = [nonlocal_node.children[i].value
+        names = [self.new_identifier(nonlocal_node.children[i].value)
                  for i in range(1, len(nonlocal_node.children), 2)]
         return ast.Nonlocal(names, nonlocal_node.lineno, nonlocal_node.column)
 
@@ -375,7 +379,7 @@ class ASTBuilder(object):
             test = self.handle_expr(exc.children[1])
         if child_count == 4:
             name_node = exc.children[3]
-            name = name_node.value
+            name = self.new_identifier(name_node.value)
             self.check_forbidden_name(name, name_node)
         return ast.ExceptHandler(test, name, suite, exc.lineno, exc.column)
 
@@ -433,7 +437,7 @@ class ASTBuilder(object):
 
     def handle_classdef(self, classdef_node, decorators=None):
         name_node = classdef_node.children[1]
-        name = name_node.value
+        name = self.new_identifier(name_node.value)
         self.check_forbidden_name(name, name_node)
         if len(classdef_node.children) == 4:
             # class NAME ':' suite
@@ -463,7 +467,7 @@ class ASTBuilder(object):
 
     def handle_funcdef(self, funcdef_node, decorators=None):
         name_node = funcdef_node.children[1]
-        name = name_node.value
+        name = self.new_identifier(name_node.value)
         self.check_forbidden_name(name, name_node)
         args = self.handle_arguments(funcdef_node.children[2])
         suite = 4
@@ -503,11 +507,12 @@ class ASTBuilder(object):
         return dec
 
     def handle_dotted_name(self, dotted_name_node):
-        base_value = dotted_name_node.children[0].value
+        base_value = self.new_identifier(dotted_name_node.children[0].value)
         name = ast.Name(base_value, ast.Load, dotted_name_node.lineno,
                         dotted_name_node.column)
         for i in range(2, len(dotted_name_node.children), 2):
             attr = dotted_name_node.children[i].value
+            attr = self.new_identifier(attr)
             name = ast.Attribute(name, attr, ast.Load, dotted_name_node.lineno,
                                  dotted_name_node.column)
         return name
@@ -590,6 +595,7 @@ class ASTBuilder(object):
                                                      kwdefaults)
                 else:
                     vararg = name_node.children[0].value
+                    vararg = self.new_identifier(vararg)
                     self.check_forbidden_name(vararg, name_node)
                     if len(name_node.children) > 1:
                         varargann = self.handle_expr(name_node.children[2])
@@ -603,6 +609,7 @@ class ASTBuilder(object):
             elif arg_type == tokens.DOUBLESTAR:
                 name_node = arguments_node.children[i + 1]
                 kwarg = name_node.children[0].value
+                kwarg = self.new_identifier(kwarg)
                 self.check_forbidden_name(kwarg, name_node)
                 if len(name_node.children) > 1:
                     kwargann = self.handle_expr(name_node.children[2])
@@ -633,6 +640,7 @@ class ASTBuilder(object):
                     ann = self.handle_expr(arg.children[2])
                 name_node = arg.children[0]
                 argname = name_node.value
+                argname = self.new_identifier(argname)
                 self.check_forbidden_name(argname, name_node)
                 kwonly.append(ast.arg(argname, ann))
                 i += 2
@@ -642,11 +650,12 @@ class ASTBuilder(object):
 
     def handle_arg(self, arg_node):
         name_node = arg_node.children[0]
-        self.check_forbidden_name(name_node.value, arg_node)
+        name = self.new_identifier(name_node.value)
+        self.check_forbidden_name(name, arg_node)
         ann = None
         if len(arg_node.children) == 3:
             ann = self.handle_expr(arg_node.children[2])
-        return ast.arg(name_node.value, ann)
+        return ast.arg(name, ann)
 
     def handle_stmt(self, stmt):
         stmt_type = stmt.type
@@ -893,19 +902,6 @@ class ASTBuilder(object):
         return result
 
     def handle_factor(self, factor_node):
-        # Fold '-' on constant numbers.
-        if factor_node.children[0].type == tokens.MINUS and \
-                len(factor_node.children) == 2:
-            factor = factor_node.children[1]
-            if factor.type == syms.factor and len(factor.children) == 1:
-                power = factor.children[0]
-                if power.type == syms.power and len(power.children) == 1:
-                    atom = power.children[0]
-                    if atom.type == syms.atom and \
-                            atom.children[0].type == tokens.NUMBER:
-                        num = atom.children[0]
-                        num.value = "-" + num.value
-                        return self.handle_atom(atom)
         expr = self.handle_expr(factor_node.children[1])
         op_type = factor_node.children[0].type
         if op_type == tokens.PLUS:
@@ -972,7 +968,7 @@ class ASTBuilder(object):
             else:
                 return self.handle_call(trailer_node.children[1], left_expr)
         elif first_child.type == tokens.DOT:
-            attr = trailer_node.children[1].value
+            attr = self.new_identifier(trailer_node.children[1].value)
             return ast.Attribute(left_expr, attr, ast.Load,
                                  trailer_node.lineno, trailer_node.column)
         else:
@@ -1119,8 +1115,9 @@ class ASTBuilder(object):
         first_child = atom_node.children[0]
         first_child_type = first_child.type
         if first_child_type == tokens.NAME:
-            return ast.Name(first_child.value, ast.Load,
-                            first_child.lineno, first_child.column)
+            name = self.new_identifier(first_child.value)
+            return ast.Name(name, ast.Load, first_child.lineno,
+                            first_child.column)
         elif first_child_type == tokens.STRING:
             space = self.space
             encoding = self.compile_info.encoding

@@ -5,21 +5,19 @@ transformation is based on annotations; it runs after the annotator
 completed.
 """
 
-import types
 from rpython.flowspace.model import SpaceOperation
 from rpython.flowspace.model import Variable, Constant, Link
 from rpython.flowspace.model import c_last_exception, checkgraph
 from rpython.annotator import model as annmodel
-from rpython.rlib.rstack import stack_check
 from rpython.rtyper.lltypesystem import lltype
 
 def checkgraphs(self, blocks):
-    seen = {}
+    seen = set()
     for block in blocks:
         graph = self.annotated[block]
         if graph not in seen:
             checkgraph(graph)
-            seen[graph] = True
+            seen.add(graph)
 
 def fully_annotated_blocks(self):
     """Ignore blocked blocks."""

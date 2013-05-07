@@ -1,8 +1,8 @@
 import py
 
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.function import Method, Function
+from pypy.interpreter.function import BuiltinFunction, Method, Function
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
                                       interp_attrproperty)
@@ -35,7 +35,7 @@ if _is_64_bit:
 else:
     timer_size_int = r_longlong
 
-class W_StatsEntry(Wrappable):
+class W_StatsEntry(W_Root):
     def __init__(self, space, frame, callcount, reccallcount, tt, it,
                  w_sublist):
         self.frame = frame
@@ -72,7 +72,7 @@ W_StatsEntry.typedef = TypeDef(
     __repr__ = interp2app(W_StatsEntry.repr),
 )
 
-class W_StatsSubEntry(Wrappable):
+class W_StatsSubEntry(W_Root):
     def __init__(self, space, frame, callcount, reccallcount, tt, it):
         self.frame = frame
         self.callcount = callcount
@@ -214,7 +214,8 @@ def create_spec_for_function(space, w_func):
             module = ''
         else:
             module += '.'
-    return '{%s%s}' % (module, w_func.name)
+    pre = 'built-in function ' if isinstance(w_func, BuiltinFunction) else ''
+    return '{%s%s%s}' % (pre, module, w_func.name)
 
 
 @jit.elidable_promote()
@@ -253,8 +254,8 @@ def lsprof_call(space, w_self, frame, event, w_arg):
         # ignore or raise an exception???
         pass
 
-class W_Profiler(Wrappable):
 
+class W_Profiler(W_Root):
     def __init__(self, space, w_callable, time_unit, subcalls, builtins):
         self.subcalls = subcalls
         self.builtins = builtins

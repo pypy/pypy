@@ -1,6 +1,5 @@
 import py
-
-from rpython.rtyper.lltypesystem import lltype, lloperation
+from rpython.rtyper.lltypesystem import lltype, llmemory, lloperation, rffi
 from rpython.rtyper.exceptiondata import UnknownException
 from rpython.rlib.jit import JitDriver, dont_look_inside, vref_None
 from rpython.rlib.jit import virtual_ref, virtual_ref_finish, InvalidVirtualRef
@@ -110,15 +109,16 @@ class VRefTests(object):
                   if str(box._getrepr_()).endswith('JitVirtualRef')]
         assert len(bxs2) == 1
         JIT_VIRTUAL_REF = self.vrefinfo.JIT_VIRTUAL_REF
-        bxs2[0].getref(lltype.Ptr(JIT_VIRTUAL_REF)).virtual_token = 1234567
+        FOO = lltype.GcStruct('FOO')
+        foo = lltype.malloc(FOO)
+        tok = lltype.cast_opaque_ptr(llmemory.GCREF, foo)
+        bxs2[0].getref(lltype.Ptr(JIT_VIRTUAL_REF)).virtual_token = tok
         #
         # try reloading from blackhole.py's point of view
         from rpython.jit.metainterp.resume import ResumeDataDirectReader
         cpu = self.metainterp.cpu
-        cpu.get_latest_value_count = lambda df: len(guard_op.getfailargs())
-        cpu.get_latest_value_int = lambda df, i: guard_op.getfailargs()[i].getint()
-        cpu.get_latest_value_ref = lambda df, i: guard_op.getfailargs()[i].getref_base()
-        cpu.clear_latest_values = lambda count: None
+        cpu.get_int_value = lambda df,i:guard_op.getfailargs()[i].getint()
+        cpu.get_ref_value = lambda df,i:guard_op.getfailargs()[i].getref_base()
         class FakeMetaInterpSd:
             callinfocollection = None
         FakeMetaInterpSd.cpu = cpu
@@ -310,14 +310,21 @@ class VRefTests(object):
                 xy.next1 = lltype.malloc(A, 0)
                 xy.next2 = lltype.malloc(A, 0)
                 xy.next3 = lltype.malloc(A, 0)
+                buf = lltype.malloc(rffi.CCHARP.TO, 1, flavor='raw')
+                buf[0] = chr(n)
+                # this is a raw virtual
+                xy.next4 = lltype.malloc(rffi.CCHARP.TO, 1, flavor='raw')
                 xy.n = n
                 exctx.topframeref = vref = virtual_ref(xy)
                 n -= externalfn(n)
                 xy.next1 = lltype.nullptr(A)
                 xy.next2 = lltype.nullptr(A)
                 xy.next3 = lltype.nullptr(A)
+                lltype.free(xy.next4, flavor='raw')
+                xy.next4 = lltype.nullptr(rffi.CCHARP.TO)
                 virtual_ref_finish(vref, xy)
                 exctx.topframeref = vref_None
+                lltype.free(buf, flavor='raw')
             return exctx.m
         #
         res = self.meta_interp(f, [30])

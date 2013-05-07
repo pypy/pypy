@@ -178,7 +178,7 @@ def PyErr_GivenExceptionMatches(space, w_given, w_exc):
     exc is a class object, this also returns true when given is an instance
     of a subclass.  If exc is a tuple, all exceptions in the tuple (and
     recursively in subtuples) are searched for a match."""
-    if space.is_true(space.isinstance(w_given, space.w_BaseException)):
+    if space.isinstance_w(w_given, space.w_BaseException):
         w_given_type = space.type(w_given)
     else:
         w_given_type = w_given
@@ -262,9 +262,9 @@ def PyErr_PrintEx(space, set_sys_last_vars):
     type, value and traceback of the printed exception, respectively."""
     if not PyErr_Occurred(space):
         PyErr_BadInternalCall(space)
-    state = space.fromcache(State)
-    operror = state.clear_exception()
 
+    operror = space.fromcache(State).clear_exception()
+    operror.normalize_exception(space)
     w_type = operror.w_type
     w_value = operror.get_w_value(space)
     w_tb = space.wrap(operror.get_traceback())

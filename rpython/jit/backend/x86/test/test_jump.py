@@ -5,7 +5,8 @@ from rpython.jit.backend.x86.jump import remap_frame_layout
 from rpython.jit.backend.x86.jump import remap_frame_layout_mixed
 from rpython.jit.metainterp.history import INT
 
-frame_pos = X86FrameManager.frame_pos
+fm = X86FrameManager(0)
+frame_pos = fm.frame_pos
 
 class MockAssembler:
     def __init__(self):
@@ -22,7 +23,7 @@ class MockAssembler:
 
     def regalloc_immedmem2mem(self, from_loc, to_loc):
         assert isinstance(from_loc, ConstFloatLoc)
-        assert isinstance(to_loc,   StackLoc)
+        assert isinstance(to_loc,   FrameLoc)
         self.ops.append(('immedmem2mem', from_loc, to_loc))
 
     def got(self, expected):
@@ -33,7 +34,7 @@ class MockAssembler:
                 continue
             assert len(op1) == len(op2)
             for x, y in zip(op1, op2):
-                if isinstance(x, StackLoc) and isinstance(y, MODRM):
+                if isinstance(x, FrameLoc) and isinstance(y, MODRM):
                     assert x.byte == y.byte
                     assert x.extradata == y.extradata
                 else:
@@ -261,7 +262,7 @@ def test_random_mixed():
         while len(result) < count:
             x = fn()
             keys = [x._getregkey()]
-            if isinstance(x, StackLoc) and x.get_width() > WORD:
+            if isinstance(x, FrameLoc) and x.get_width() > WORD:
                 keys.append(keys[0] + WORD)
             for key in keys:
                 if key in seen:
@@ -287,7 +288,7 @@ def test_random_mixed():
                     regs2[loc.value] = newvalue
                 else:
                     regs1[loc.value] = 'value-int-%d' % i
-            elif isinstance(loc, StackLoc):
+            elif isinstance(loc, FrameLoc):
                 stack[loc.value] = 'value-width%d-%d' % (loc.get_width(), i)
                 if loc.get_width() > WORD:
                     stack[loc.value+WORD] = 'value-hiword-%d' % i
@@ -317,7 +318,7 @@ def test_random_mixed():
                     return regs2[loc.value]
                 else:
                     return regs1[loc.value]
-            if isinstance(loc, StackLoc):
+            if isinstance(loc, FrameLoc):
                 got = stack[loc.value]
                 if loc.get_width() > WORD:
                     got = (got, stack[loc.value+WORD])
@@ -338,7 +339,7 @@ def test_random_mixed():
                     regs2[loc.value] = newvalue
                 else:
                     regs1[loc.value] = newvalue
-            elif isinstance(loc, StackLoc):
+            elif isinstance(loc, FrameLoc):
                 if loc.get_width() > WORD:
                     newval1, newval2 = newvalue
                     stack[loc.value] = newval1
@@ -359,23 +360,23 @@ def test_random_mixed():
                     assert isinstance(dst, RegLoc)
                     assert dst.is_xmm
                 else:
-                    assert isinstance(src, (RegLoc, StackLoc, ImmedLoc))
-                    assert isinstance(dst, (RegLoc, StackLoc))
-                    assert not (isinstance(src, StackLoc) and
-                                isinstance(dst, StackLoc))
+                    assert isinstance(src, (RegLoc, FrameLoc, ImmedLoc))
+                    assert isinstance(dst, (RegLoc, FrameLoc))
+                    assert not (isinstance(src, FrameLoc) and
+                                isinstance(dst, FrameLoc))
                 write(dst, read(src))
             elif op[0] == 'push':
                 src, = op[1:]
-                assert isinstance(src, (RegLoc, StackLoc))
+                assert isinstance(src, (RegLoc, FrameLoc))
                 extrapushes.append(read(src))
             elif op[0] == 'pop':
                 dst, = op[1:]
-                assert isinstance(dst, (RegLoc, StackLoc))
+                assert isinstance(dst, (RegLoc, FrameLoc))
                 write(dst, extrapushes.pop())
             elif op[0] == 'immedmem2mem':
                 src, dst = op[1:]
                 assert isinstance(src, ConstFloatLoc)
-                assert isinstance(dst, StackLoc)
+                assert isinstance(dst, FrameLoc)
                 write(dst, read(src, 8))
             else:
                 assert 0, "unknown op: %r" % (op,)
@@ -389,11 +390,11 @@ def test_random_mixed():
 
 def test_overflow_bug():
     CASE = [
-        (-144, -248),   # \ cycle
-        (-248, -144),   # /
-        (-488, -416),   # \ two usages of -488
-        (-488, -480),   # /
-        (-488, -488),   # - one self-application of -488
+        (144, 248),   # \ cycle
+        (248, 144),   # /
+        (488, 416),   # \ two usages of -488
+        (488, 480),   # /
+        (488, 488),   # - one self-application of -488
         ]
     class FakeAssembler:
         def regalloc_mov(self, src, dst):
@@ -405,8 +406,8 @@ def test_overflow_bug():
         def regalloc_immedmem2mem(self, x, y):
             print "?????????????????????????"
     def main():
-        srclocs = [StackLoc(9999, x, 'i') for x,y in CASE]
-        dstlocs = [StackLoc(9999, y, 'i') for x,y in CASE]
+        srclocs = [FrameLoc(9999, x, 'i') for x,y in CASE]
+        dstlocs = [FrameLoc(9999, y, 'i') for x,y in CASE]
         remap_frame_layout(FakeAssembler(), srclocs, dstlocs, eax)
     # it works when run directly
     main()

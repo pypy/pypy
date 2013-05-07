@@ -1,6 +1,12 @@
-from rpython.rtyper.lltypesystem import lltype
-from rpython.rtyper.ootypesystem import ootype
 import os
+import sys
+
+from rpython.annotator import model as annmodel
+from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rtyper.ootypesystem import ootype
+
+_WIN32 = sys.platform.startswith('win')
+underscore_on_windows = '_' if _WIN32 else ''
 
 # utility conversion functions
 class LLSupport:
@@ -64,6 +70,45 @@ class OOSupport:
     from_rstr_nonnull = staticmethod(from_rstr_nonnull)
 
 
+class StringTraits:
+    str = str
+    str0 = annmodel.s_Str0
+    CHAR = rffi.CHAR
+    CCHARP = rffi.CCHARP
+    charp2str = staticmethod(rffi.charp2str)
+    scoped_str2charp = staticmethod(rffi.scoped_str2charp)
+    str2charp = staticmethod(rffi.str2charp)
+    free_charp = staticmethod(rffi.free_charp)
+    scoped_alloc_buffer = staticmethod(rffi.scoped_alloc_buffer)
+
+    @staticmethod
+    def posix_function_name(name):
+        return underscore_on_windows + name
+
+    @staticmethod
+    def ll_os_name(name):
+        return 'll_os.ll_os_' + name
+
+class UnicodeTraits:
+    str = unicode
+    str0 = annmodel.s_Unicode0
+    CHAR = rffi.WCHAR_T
+    CCHARP = rffi.CWCHARP
+    charp2str = staticmethod(rffi.wcharp2unicode)
+    str2charp = staticmethod(rffi.unicode2wcharp)
+    scoped_str2charp = staticmethod(rffi.scoped_unicode2wcharp)
+    free_charp = staticmethod(rffi.free_wcharp)
+    scoped_alloc_buffer = staticmethod(rffi.scoped_alloc_unicodebuffer)
+
+    @staticmethod
+    def posix_function_name(name):
+        return underscore_on_windows + 'w' + name
+
+    @staticmethod
+    def ll_os_name(name):
+        return 'll_os.ll_os_w' + name
+
+
 def ll_strcpy(dst_s, src_s, n):
     dstchars = dst_s.chars
     srcchars = src_s.chars
@@ -78,5 +123,3 @@ def _ll_strfill(dst_s, srcchars, n):
     while i < n:
         dstchars[i] = srcchars[i]
         i += 1
-
-

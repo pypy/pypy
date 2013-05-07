@@ -24,17 +24,28 @@ eci = ExternalCompilationInfo(
 class CConfig:
     _compilation_info_ = eci
     NCCS = rffi_platform.DefinedConstantInteger('NCCS')
+    _HAVE_STRUCT_TERMIOS_C_ISPEED = rffi_platform.Defined(
+            '_HAVE_STRUCT_TERMIOS_C_ISPEED')
+    _HAVE_STRUCT_TERMIOS_C_OSPEED = rffi_platform.Defined(
+            '_HAVE_STRUCT_TERMIOS_C_OSPEED')
 
-NCCS = rffi_platform.configure(CConfig)['NCCS']
+c_config = rffi_platform.configure(CConfig)
+NCCS = c_config['NCCS']
 
 TCFLAG_T = rffi.UINT
 CC_T = rffi.UCHAR
 SPEED_T = rffi.UINT
 INT = rffi.INT
 
+_add = []
+if c_config['_HAVE_STRUCT_TERMIOS_C_ISPEED']:
+    _add.append(('c_ispeed', SPEED_T))
+if c_config['_HAVE_STRUCT_TERMIOS_C_OSPEED']:
+    _add.append(('c_ospeed', SPEED_T))
 TERMIOSP = rffi.CStructPtr('termios', ('c_iflag', TCFLAG_T), ('c_oflag', TCFLAG_T),
                            ('c_cflag', TCFLAG_T), ('c_lflag', TCFLAG_T),
-                           ('c_cc', lltype.FixedSizeArray(CC_T, NCCS)))
+                           ('c_line', CC_T),
+                           ('c_cc', lltype.FixedSizeArray(CC_T, NCCS)), *_add)
 
 def c_external(name, args, result):
     return rffi.llexternal(name, args, result, compilation_info=eci)

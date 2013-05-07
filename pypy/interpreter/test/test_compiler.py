@@ -1,3 +1,4 @@
+# encoding: utf-8
 import __future__
 import py, sys
 from pypy.interpreter.pycompiler import PythonAstCompiler
@@ -716,6 +717,9 @@ with somtehing as stuff:
 
 class AppTestCompiler:
 
+    def setup_class(cls):
+        cls.w_runappdirect = cls.space.wrap(cls.runappdirect)
+
     def test_bom_with_future(self):
         s = b'\xef\xbb\xbffrom __future__ import division\nx = 1/2'
         ns = {}
@@ -737,12 +741,15 @@ class AppTestCompiler:
         assert type(ns['d'][0][0]) is complex
 
     def test_zeros_not_mixed(self):
-        import math
+        import math, sys
         code = compile("x = -0.0; y = 0.0", "<test>", "exec")
         consts = code.co_consts
-        x, y, z = consts
-        assert isinstance(x, float) and isinstance(y, float)
-        assert math.copysign(1, x) != math.copysign(1, y)
+        if not self.runappdirect or sys.version_info[:2] != (3, 2):
+            # Only CPython 3.2 does not store -0.0.
+            # PyPy implements 3.3 here.
+            x, y, z = consts
+            assert isinstance(x, float) and isinstance(y, float)
+            assert math.copysign(1, x) != math.copysign(1, y)
         ns = {}
         exec("z1, z2 = 0j, -0j", ns)
         assert math.atan2(ns["z1"].imag, -1.) == math.atan2(0., -1.)
@@ -794,8 +801,74 @@ class AppTestCompiler:
         raises(SyntaxError, compile, code.format('<>'),
                '<FLUFL test>', 'exec')
 
+    def test_surrogate(self):
+        s = '\udcff'
+        raises(UnicodeEncodeError, compile, s, 'foo', 'exec')
+
+    def test_pep3131(self):
+        r"""
+        # XXX: the 4th name is currently mishandled by narrow builds
+        class T:
+            ä = 1
+            µ = 2 # this is a compatibility character
+            蟒 = 3
+            #x󠄀 = 4
+        assert getattr(T, '\xe4') == 1
+        assert getattr(T, '\u03bc') == 2
+        assert getattr(T, '\u87d2') == 3
+        #assert getattr(T, 'x\U000E0100') == 4
+        expected = ("['__dict__', '__doc__', '__module__', '__weakref__', "
+        #            "x󠄀", "'ä', 'μ', '蟒']")
+                    "'ä', 'μ', '蟒']")
+        assert expected in str(sorted(T.__dict__.keys()))
+        """
+
+    def test_unicode_identifier(self):
+        c = compile("# coding=latin-1\n\u00c6 = '\u00c6'", "dummy", "exec")
+        d = {}
+        exec(c, d)
+        assert d['\xc6'] == '\xc6'
+        c = compile("日本 = 8; 日本2 = 日本 + 1; del 日本;", "dummy", "exec")
+        exec(c, d)
+        assert '日本2' in d
+        assert d['日本2'] == 9
+        assert '日本' not in d
+
+        raises(SyntaxError, eval, b'\xff\x20')
+        raises(SyntaxError, eval, b'\xef\xbb\x20')
+
+    def test_cpython_issue2301(self):
+        skip('XXX')
+        try:
+            compile(b"# coding: utf7\nprint '+XnQ-'", "dummy", "exec")
+        except SyntaxError as v:
+            assert v.text ==  "print '\u5e74'\n"
+        else:
+            assert False, "Expected SyntaxError"
+
+    def test_ast_equality(self):
+        import _ast
+        sample_code = [
+            ['<assign>', 'x = 5'],
+            ['<ifblock>', """if True:\n    pass\n"""],
+            ['<forblock>', """for n in [1, 2, 3]:\n    print(n)\n"""],
+            ['<deffunc>', """def foo():\n    pass\nfoo()\n"""],
+        ]
+
+        for fname, code in sample_code:
+            co1 = compile(code, '%s1' % fname, 'exec')
+            ast = compile(code, '%s2' % fname, 'exec', _ast.PyCF_ONLY_AST)
+            assert type(ast) == _ast.Module
+            co2 = compile(ast, '%s3' % fname, 'exec')
+            assert co1 == co2
+            # the code object's filename comes from the second compilation step
+            assert co2.co_filename == '%s3' % fname
+
 
 class AppTestOptimizer:
+
+    def setup_class(cls):
+        cls.w_runappdirect = cls.space.wrap(cls.runappdirect)
 
     def test_remove_ending(self):
         source = """def f():
@@ -821,7 +894,8 @@ class AppTestOptimizer:
         for name in "None", "True", "False":
             snip = "def f(): return " + name
             co = compile(snip, "<test>", "exec").co_consts[0]
-            assert name not in co.co_names
+            if not self.runappdirect:  # This is a pypy optimization
+                assert name not in co.co_names
             co = co.co_code
             op = co[0]
             assert op == opcode.opmap["LOAD_CONST"]
@@ -840,27 +914,46 @@ class AppTestOptimizer:
         def code(source):
             return compile(source, "<test>", "exec")
         co = code("x = 10//4")
-        assert len(co.co_consts) == 2
-        assert co.co_consts[0] == 2
+        if self.runappdirect:
+            assert 2 in co.co_consts
+        else:
+            # PyPy is more precise
+            assert len(co.co_consts) == 2
+            assert co.co_consts[0] == 2
         co = code("x = 10/4")
-        assert len(co.co_consts) == 2
-        assert co.co_consts[0] == 2.5
+        if self.runappdirect:
+            assert 2.5 in co.co_consts
+        else:
+            assert len(co.co_consts) == 2
+            assert co.co_consts[0] == 2.5
 
     def test_tuple_folding(self):
         co = compile("x = (1, 2, 3)", "<test>", "exec")
-        assert co.co_consts == ((1, 2, 3), None)
+        if not self.runappdirect:
+            # PyPy is more precise
+            assert co.co_consts == ((1, 2, 3), None)
+        else:
+            assert (1, 2, 3) in co.co_consts
+            assert None in co.co_consts
         co = compile("x = ()", "<test>", "exec")
-        assert co.co_consts == ((), None)
+        assert set(co.co_consts) == set(((), None))
 
     def test_unary_folding(self):
+        def check_const(co, value):
+            assert value in co.co_consts
+            if not self.runappdirect:
+                # This is a pypy optimization
+                assert co.co_consts[0] == value
         co = compile("x = -(3)", "<test>", "exec")
-        assert co.co_consts[0] == -3
+        check_const(co, -3)
         co = compile("x = ~3", "<test>", "exec")
-        assert co.co_consts[0] == ~3
+        check_const(co, ~3)
         co = compile("x = +(-3)", "<test>", "exec")
-        assert co.co_consts[0] == -3
+        check_const(co, -3)
         co = compile("x = not None", "<test>", "exec")
-        assert co.co_consts[0] is True
+        if not self.runappdirect:
+            # CPython does not have this optimization
+            assert co.co_consts == (True, None)
 
     def test_folding_of_binops_on_constants(self):
         def disassemble(func):
@@ -1038,3 +1131,14 @@ class AppTestExceptions:
         err3 = eval(repr(err1))
         assert str(err3) == str(err1)
         assert repr(err3) == repr(err1)
+
+    def test_surrogate_filename(self):
+        fname = '\udcff'
+        co = compile("'dr cannon'", fname, 'exec')
+        assert co.co_filename == fname
+        try:
+            compile("'dr", fname, 'exec')
+        except SyntaxError as e:
+            assert e.filename == fname
+        else:
+            assert False, 'SyntaxError expected'

@@ -72,7 +72,7 @@ BaseException
            +-- ResourceWarning
 """
 
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import (TypeDef, GetSetProperty, descr_get_dict,
     descr_set_dict, descr_del_dict)
 from pypy.interpreter.gateway import interp2app
@@ -80,19 +80,18 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.pytraceback import check_traceback
 from rpython.rlib import rwin32
 
+
 def readwrite_attrproperty_w(name, cls):
     def fget(space, obj):
         return getattr(obj, name)
+
     def fset(space, obj, w_val):
         setattr(obj, name, w_val)
     return GetSetProperty(fget, fset, cls=cls)
 
-class W_BaseException(Wrappable):
-    """Superclass representing the base of the exception hierarchy.
 
-    The __getitem__ method is provided for backwards-compatibility
-    and will be deprecated at some point.
-    """
+class W_BaseException(W_Root):
+    """Superclass representing the base of the exception hierarchy."""
     w_dict = None
     args_w = []
     w_cause = None
@@ -100,14 +99,10 @@ class W_BaseException(Wrappable):
     w_traceback = None
 
     def __init__(self, space):
-        self.w_message = space.w_None
+        pass
 
     def descr_init(self, space, args_w):
         self.args_w = args_w
-        if len(args_w) == 1:
-            self.w_message = args_w[0]
-        else:
-            self.w_message = space.wrap("")
 
     def descr_str(self, space):
         lgt = len(self.args_w)
@@ -171,7 +166,12 @@ class W_BaseException(Wrappable):
         self.w_context = w_newcontext
 
     def descr_gettraceback(self, space):
-        return self.w_traceback
+        from pypy.interpreter.pytraceback import PyTraceback
+        tb = self.w_traceback
+        if tb is not None and isinstance(tb, PyTraceback):
+            # tb escapes to app level (see OperationError.get_traceback)
+            tb.frame.mark_as_escaped()
+        return tb
 
     def descr_settraceback(self, space, w_newtraceback):
         msg = '__traceback__ must be a traceback or None'
@@ -179,17 +179,14 @@ class W_BaseException(Wrappable):
             w_newtraceback = check_traceback(space, w_newtraceback, msg)
         self.w_traceback = w_newtraceback
 
-    def descr_getitem(self, space, w_index):
-        return space.getitem(space.newtuple(self.args_w), w_index)
-
     def getdict(self, space):
         if self.w_dict is None:
             self.w_dict = space.newdict(instance=True)
         return self.w_dict
 
     def setdict(self, space, w_dict):
-        if not space.is_true(space.isinstance( w_dict, space.w_dict )):
-            raise OperationError( space.w_TypeError, space.wrap("setting exceptions's dictionary to a non-dict") )
+        if not space.isinstance_w(w_dict, space.w_dict):
+            raise OperationError(space.w_TypeError, space.wrap("setting exceptions's dictionary to a non-dict"))
         self.w_dict = w_dict
 
     def descr_reduce(self, space):
@@ -205,32 +202,6 @@ class W_BaseException(Wrappable):
     def descr_with_traceback(self, space, w_traceback):
         self.descr_settraceback(space, w_traceback)
         return space.wrap(self)
-
-    def descr_message_get(self, space):
-        w_dict = self.w_dict
-        if w_dict is not None:
-            w_msg = space.finditem(w_dict, space.wrap("message"))
-            if w_msg is not None:
-                return w_msg
-        if self.w_message is None:
-            raise OperationError(space.w_AttributeError,
-                                 space.wrap("message was deleted"))
-        msg = "BaseException.message has been deprecated as of Python 2.6"
-        space.warn(space.wrap(msg), space.w_DeprecationWarning)
-        return self.w_message
-
-    def descr_message_set(self, space, w_new):
-        space.setitem(self.getdict(space), space.wrap("message"), w_new)
-
-    def descr_message_del(self, space):
-        w_dict = self.w_dict
-        if w_dict is not None:
-            try:
-                space.delitem(w_dict, space.wrap("message"))
-            except OperationError, e:
-                if not e.match(space, space.w_KeyError):
-                    raise
-        self.w_message = None
 
 def _new(cls, basecls=None):
     if basecls is None:
@@ -253,13 +224,9 @@ W_BaseException.typedef = TypeDef(
     __repr__ = interp2app(W_BaseException.descr_repr),
     __dict__ = GetSetProperty(descr_get_dict, descr_set_dict, descr_del_dict,
                               cls=W_BaseException),
-    __getitem__ = interp2app(W_BaseException.descr_getitem),
     __reduce__ = interp2app(W_BaseException.descr_reduce),
     __setstate__ = interp2app(W_BaseException.descr_setstate),
     with_traceback = interp2app(W_BaseException.descr_with_traceback),
-    message = GetSetProperty(W_BaseException.descr_message_get,
-                            W_BaseException.descr_message_set,
-                            W_BaseException.descr_message_del),
     args = GetSetProperty(W_BaseException.descr_getargs,
                           W_BaseException.descr_setargs),
     __cause__ = GetSetProperty(W_BaseException.descr_getcause,
@@ -539,7 +506,6 @@ class W_SyntaxError(W_Exception):
         W_BaseException.__init__(self, space)
 
     def descr_init(self, space, args_w):
-        # that's not a self.w_message!!!
         if len(args_w) > 0:
             self.w_msg = args_w[0]
         if len(args_w) == 2:

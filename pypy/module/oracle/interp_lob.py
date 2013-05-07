@@ -1,11 +1,12 @@
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError
 
 from pypy.module.oracle.interp_error import get
 
-class W_ExternalLob(Wrappable):
+
+class W_ExternalLob(W_Root):
     def __init__(self, var, pos):
         self.lobVar = var
         self.pos = pos

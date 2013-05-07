@@ -4,7 +4,6 @@ from pypy.module.cpyext.api import (
     CONST_STRING, ADDR, CANNOT_FAIL)
 from pypy.objspace.std.longobject import W_LongObject
 from pypy.interpreter.error import OperationError
-from pypy.module.cpyext.intobject import PyInt_AsUnsignedLongMask
 from rpython.rlib.rbigint import rbigint
 from rpython.rlib.rarithmetic import intmask
 
@@ -22,6 +21,13 @@ def PyLong_FromSsize_t(space, val):
     NULL on failure.
     """
     return space.newlong(val)
+
+@cpython_api([rffi.SIZE_T], PyObject)
+def PyLong_FromSize_t(space, val):
+    """Return a new PyLongObject object from a C size_t, or NULL on
+    failure.
+    """
+    return space.wrap(val)
 
 @cpython_api([rffi.LONGLONG], PyObject)
 def PyLong_FromLongLong(space, val):
@@ -59,7 +65,8 @@ def PyLong_AsUnsignedLongMask(space, w_long):
     """Return a C unsigned long from a Python long integer, without checking
     for overflow.
     """
-    return PyInt_AsUnsignedLongMask(space, w_long)
+    num = space.bigint_w(w_long)
+    return num.uintmask()
 
 @cpython_api([PyObject], lltype.Signed, error=-1)
 def PyLong_AsLong(space, w_long):

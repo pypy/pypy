@@ -1,5 +1,5 @@
 from __future__ import with_statement
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import wrap_oserror, OperationError
@@ -416,7 +416,7 @@ else:
             return semlock_getvalue(self, space) == 0
 
 
-class W_SemLock(Wrappable):
+class W_SemLock(W_Root):
     def __init__(self, handle, kind, maxvalue):
         self.handle = handle
         self.kind = kind

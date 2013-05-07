@@ -269,7 +269,7 @@ class AppTestDelNotBlocked:
 import gc
 class X(object):
     def __del__(self):
-        print "Called", self.num
+        print("Called", self.num)
 def f():
     x1 = X(); x1.num = 1
     x2 = X(); x2.num = 2
@@ -285,7 +285,7 @@ gc.collect()
         # test the behavior fixed in r71420: before, only one __del__
         # would be called
         import os, sys
-        print sys.executable, self.tmpfile
+        print(sys.executable, self.tmpfile)
         if sys.platform == "win32":
             cmdformat = '"%s" "%s"'
         else:

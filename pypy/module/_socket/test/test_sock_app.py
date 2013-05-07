@@ -21,31 +21,34 @@ def test_gethostname():
     assert space.unwrap(host) == socket.gethostname()
 
 def test_gethostbyname():
-    host = "localhost"
-    ip = space.appexec([w_socket, space.wrap(host)],
-                       "(_socket, host): return _socket.gethostbyname(host)")
-    assert space.unwrap(ip) == socket.gethostbyname(host)
+    for host in ["localhost", "127.0.0.1"]:
+        ip = space.appexec([w_socket, space.wrap(host)],
+                           "(_socket, host): return _socket.gethostbyname(host)")
+        assert space.unwrap(ip) == socket.gethostbyname(host)
 
 def test_gethostbyname_ex():
-    host = "localhost"
-    ip = space.appexec([w_socket, space.wrap(host)],
-                       "(_socket, host): return _socket.gethostbyname_ex(host)")
-    assert isinstance(space.unwrap(ip), tuple)
-    assert space.unwrap(ip) == socket.gethostbyname_ex(host)
+    for host in ["localhost", "127.0.0.1"]:
+        ip = space.appexec([w_socket, space.wrap(host)],
+                           "(_socket, host): return _socket.gethostbyname_ex(host)")
+        assert space.unwrap(ip) == socket.gethostbyname_ex(host)
 
 def test_gethostbyaddr():
-    host = "localhost"
-    expected = socket.gethostbyaddr(host)
-    expecteds = (expected, expected[:2]+(['0.0.0.0'],))
-    ip = space.appexec([w_socket, space.wrap(host)],
-                       "(_socket, host): return _socket.gethostbyaddr(host)")
-    assert space.unwrap(ip) in expecteds
-    host = "127.0.0.1"
-    expected = socket.gethostbyaddr(host)
-    expecteds = (expected, expected[:2]+(['0.0.0.0'],))
-    ip = space.appexec([w_socket, space.wrap(host)],
-                       "(_socket, host): return _socket.gethostbyaddr(host)")
-    assert space.unwrap(ip) in expecteds
+    try:
+        socket.gethostbyaddr("::1")
+    except socket.herror:
+        ipv6 = False
+    else:
+        ipv6 = True
+    for host in ["localhost", "127.0.0.1", "::1"]:
+        if host == "::1" and not ipv6:
+            from pypy.interpreter.error import OperationError
+            with py.test.raises(OperationError):
+                space.appexec([w_socket, space.wrap(host)],
+                              "(_socket, host): return _socket.gethostbyaddr(host)")
+            continue
+        ip = space.appexec([w_socket, space.wrap(host)],
+                           "(_socket, host): return _socket.gethostbyaddr(host)")
+        assert space.unwrap(ip) == socket.gethostbyaddr(host)
 
 def test_getservbyname():
     name = "smtp"
@@ -212,16 +215,16 @@ def test_getaddrinfo():
                         "(_socket, host, port): return _socket.getaddrinfo(host, port)")
     assert space.unwrap(w_l) == socket.getaddrinfo(host, 'smtp')
 
-def test_unknown_addr_as_object():    
+def test_unknown_addr_as_object():
     from pypy.module._socket.interp_socket import addr_as_object
-    c_addr = lltype.malloc(rsocket._c.sockaddr, flavor='raw')
+    c_addr = lltype.malloc(rsocket._c.sockaddr, flavor='raw', track_allocation=False)
     c_addr.c_sa_data[0] = 'c'
     rffi.setintfield(c_addr, 'c_sa_family', 15)
     # XXX what size to pass here? for the purpose of this test it has
     #     to be short enough so we have some data, 1 sounds good enough
     #     + sizeof USHORT
     w_obj = addr_as_object(rsocket.Address(c_addr, 1 + 2), -1, space)
-    assert space.is_true(space.isinstance(w_obj, space.w_tuple))
+    assert space.isinstance_w(w_obj, space.w_tuple)
     assert space.int_w(space.getitem(w_obj, space.wrap(0))) == 15
     assert space.str_w(space.getitem(w_obj, space.wrap(1))) == 'c'
 
@@ -572,11 +575,12 @@ class AppTestSocket:
 
         s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
         r = repr(s)
+        gc.collect()
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter('always')
             s = None
             gc.collect()
-        assert len(w) == 1
+        assert len(w) == 1, [str(warning) for warning in w]
         assert r in str(w[0])
 
 
@@ -588,8 +592,9 @@ class AppTestSocketTCP:
         
     def setup_method(self, method):
         w_HOST = space.wrap(self.HOST)
-        self.w_serv = space.appexec([w_socket, w_HOST],
-            '''(_socket, HOST):
+        self.w_serv = space.appexec([w_HOST],
+            '''(HOST):
+            import _socket
             serv = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
             serv.bind((HOST, 0))
             serv.listen(1)
@@ -704,4 +709,4 @@ class AppTestErrno:
         assert isinstance(exc.value, IOError)
         # error is EINVAL, or WSAEINVAL on Windows
         assert exc.value.errno == getattr(errno, 'WSAEINVAL', errno.EINVAL)
-        assert isinstance(exc.value.message, str)
+        assert isinstance(exc.value.strerror, str)

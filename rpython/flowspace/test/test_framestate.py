@@ -6,9 +6,6 @@ from rpython.flowspace.bytecode import HostCode
 from rpython.flowspace.pygraph import PyGraph
 
 class TestFrameState:
-    def setup_class(cls):
-        cls.space = FlowObjSpace()
-
     def getframe(self, func):
         try:
             func = func.im_func
@@ -16,7 +13,7 @@ class TestFrameState:
             pass
         code = HostCode._from_code(func.func_code)
         graph = PyGraph(func, code)
-        frame = FlowSpaceFrame(self.space, graph, code)
+        frame = FlowSpaceFrame(FlowObjSpace(), graph, code)
         # hack the frame
         frame.setstate(graph.startblock.framestate)
         frame.locals_stack_w[frame.pycode.co_nlocals-1] = Constant(None)

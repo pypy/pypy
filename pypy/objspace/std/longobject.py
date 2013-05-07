@@ -4,15 +4,17 @@ from pypy.objspace.std import model, newformat
 from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.multimethod import FailedToImplementArgs
-from pypy.objspace.std.intobject import W_IntObject, W_AbstractIntObject
+from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.noneobject import W_NoneObject
-from rpython.rlib.rbigint import rbigint, SHIFT
+from rpython.rlib.rbigint import rbigint
+from pypy.objspace.std.longtype import long_typedef, W_AbstractLongObject
 
 
-class W_LongObject(W_AbstractIntObject):
+class W_LongObject(W_AbstractLongObject):
     """This is a wrapper of rbigint."""
-    from pypy.objspace.std.longtype import long_typedef as typedef
     _immutable_fields_ = ['num']
+
+    typedef = long_typedef
 
     def __init__(w_self, l):
         w_self.num = l # instance of rbigint
@@ -66,6 +68,15 @@ class W_LongObject(W_AbstractIntObject):
     def bigint_w(w_self, space):
         return w_self.num
 
+    def float_w(self, space):
+        return self.num.tofloat()
+
+    def int(self, space):
+        if (type(self) is not W_LongObject and
+            space.is_overloaded(self, space.w_int, '__int__')):
+            return W_Object.int(self, space)
+        return long_long(space, self)
+
     def __repr__(self):
         return '<W_LongObject(%d)>' % self.num.tolong()
 
@@ -110,18 +121,17 @@ def delegate_Int2Long(space, w_intobj):
     return W_LongObject.fromint(space, w_intobj.intval)
 
 
-# int__Long is supposed to do nothing, unless it has
-# a derived long object, where it should return
-# an exact one.
-def int__Long(space, w_long1):
+# long_long is supposed to do nothing, unless it has a derived long
+# object, where it should return an exact one.
+def long_long(space, w_long1):
     if space.is_w(space.type(w_long1), space.w_int):
         return w_long1
     l = w_long1.num
     return W_LongObject(l)
-trunc__Long = int__Long
+trunc__Long = long_long
 
 def index__Long(space, w_value):
-    return int__Long(space, w_value)
+    return long_long(space, w_value)
 
 def float__Long(space, w_longobj):
     try:
@@ -258,7 +268,7 @@ def neg__Long(space, w_long1):
     return W_LongObject(w_long1.num.neg())
 
 def pos__Long(space, w_long):
-    return int__Long(space, w_long)
+    return long_long(space, w_long)
 
 def abs__Long(space, w_long):
     return W_LongObject(w_long.num.abs())

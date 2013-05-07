@@ -1,5 +1,6 @@
 from pypy.interpreter import typedef
-from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
+from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault,\
+     interpindirect2app
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.buffer import Buffer
 from pypy.objspace.std.register_all import register_all
@@ -7,8 +8,10 @@ from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
 from pypy.objspace.std.strutil import (string_to_int, string_to_bigint,
                                        ParseStringError,
                                        ParseStringOverflowError)
+from pypy.objspace.std.model import W_Object
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rlib.objectmodel import instantiate
+from rpython.rlib.rbigint import rbigint
 
 # ____________________________________________________________
 
@@ -43,14 +46,7 @@ def wrapint(space, x):
     return space.newlong(x)
 
 ## def wrapint(space, x):
-##     if space.config.objspace.std.withsmallint:
-##         from pypy.objspace.std.smallintobject import W_SmallIntObject
-##         try:
-##             return W_SmallIntObject(x)
-##         except OverflowError:
-##             from pypy.objspace.std.intobject import W_IntObject
-##             return W_IntObject(x)
-##     elif space.config.objspace.std.withprebuiltint:
+##     if space.config.objspace.std.withprebuiltint:
 ##         from pypy.objspace.std.intobject import W_IntObject
 ##         lower = space.config.objspace.std.prebuiltintfrom
 ##         upper =  space.config.objspace.std.prebuiltintto
@@ -192,6 +188,27 @@ def wrapint(space, x):
 
 # ____________________________________________________________
 
+class W_AbstractIntObject(W_Object):
+    __slots__ = ()
+
+    def is_w(self, space, w_other):
+        if not isinstance(w_other, W_AbstractIntObject):
+            return False
+        if self.user_overridden_class or w_other.user_overridden_class:
+            return self is w_other
+        return space.bigint_w(self).eq(space.bigint_w(w_other))
+
+    def immutable_unique_id(self, space):
+        if self.user_overridden_class:
+            return None
+        from pypy.objspace.std.model import IDTAG_INT as tag
+        b = space.bigint_w(self)
+        b = b.lshift(3).or_(rbigint.fromint(tag))
+        return space.newlong_from_rbigint(b)
+
+    def int(self, space):
+        raise NotImplementedError
+
 ## int_typedef = StdTypeDef("int",
 ##     __doc__ = '''int(x[, base]) -> integer
 
@@ -208,5 +225,6 @@ def wrapint(space, x):
 ##     denominator = typedef.GetSetProperty(descr_get_denominator),
 ##     real = typedef.GetSetProperty(descr_get_real),
 ##     imag = typedef.GetSetProperty(descr_get_imag),
+##     __int__ = interpindirect2app(W_AbstractIntObject.int),
 ## )
 ## int_typedef.registermethods(globals())

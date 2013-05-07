@@ -4,6 +4,15 @@ class AppTestBytesIO:
     def test_init(self):
         import _io
         raises(TypeError, _io.BytesIO, "12345")
+        buf = b"1234567890"
+        b = _io.BytesIO(buf)
+        assert b.getvalue() == buf
+        b = _io.BytesIO(None)
+        assert b.getvalue() == b""
+        b.__init__(buf * 2)
+        assert b.getvalue() == buf * 2
+        b.__init__(buf)
+        assert b.getvalue() == buf
 
     def test_init_kwargs(self):
         import _io
@@ -12,6 +21,11 @@ class AppTestBytesIO:
         b = _io.BytesIO(initial_bytes=buf)
         assert b.read() == buf
         raises(TypeError, _io.BytesIO, buf, foo=None)
+
+    def test_new(self):
+        import _io
+        f = _io.BytesIO.__new__(_io.BytesIO)
+        assert not f.closed
 
     def test_capabilities(self):
         import _io
@@ -24,6 +38,7 @@ class AppTestBytesIO:
     def test_write(self):
         import _io
         f = _io.BytesIO()
+        assert f.write(b"") == 0
         assert f.write(b"hello") == 5
         import gc; gc.collect()
         assert f.getvalue() == b"hello"
@@ -47,10 +62,17 @@ class AppTestBytesIO:
 
     def test_truncate(self):
         import _io
-        f = _io.BytesIO(b"hello")
+        f = _io.BytesIO()
+        f.write(b"hello")
+        assert f.truncate(0) == 0
+        assert f.tell() == 5
+        f.seek(0)
+        f.write(b"hello")
         f.seek(3)
         assert f.truncate() == 3
         assert f.getvalue() == b"hel"
+        assert f.truncate(2) == 2
+        assert f.tell() == 3
 
     def test_setstate(self):
         # state is (content, position, __dict__)
@@ -73,7 +95,13 @@ class AppTestBytesIO:
         import _io
 
         b = _io.BytesIO(b"hello")
+        a1 = bytearray(b't')
+        a2 = bytearray(b'testing')
+        assert b.readinto(a1) == 1
+        assert b.readinto(a2) == 4
         b.close()
+        assert a1 == b"h"
+        assert a2 == b"elloing"
         raises(ValueError, b.readinto, bytearray(b"hello"))
 
     def test_getbuffer(self):
@@ -84,6 +112,7 @@ class AppTestBytesIO:
         memio.seek(5)
         buf = memio.getbuffer()
         assert bytes(buf) == b"1234567890"
+        assert buf[5] == b"6"
         # Mutating the buffer updates the BytesIO
         buf[3:6] = b"abc"
         assert bytes(buf) == b"123abc7890"

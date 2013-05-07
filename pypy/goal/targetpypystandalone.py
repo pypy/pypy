@@ -5,8 +5,9 @@ import os, sys
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
 from pypy.tool.ann_override import PyPyAnnotatorPolicy
-from rpython.config.config import Config, to_optparse, make_dict, SUPPRESS_USAGE
+from rpython.config.config import to_optparse, make_dict, SUPPRESS_USAGE
 from rpython.config.config import ConflictConfigError
+from rpython.rlib import rlocale
 from pypy.tool.option import make_objspace
 from pypy.conftest import pypydir
 
@@ -49,8 +50,11 @@ def create_entry_point(space, w_dict):
         try:
             try:
                 space.call_function(w_run_toplevel, w_call_startup_gateway)
-                w_executable = space.wrap(argv[0])
-                w_argv = space.newlist([space.wrap(s) for s in argv[1:]])
+                if rlocale.HAVE_LANGINFO:
+                    rlocale.setlocale(rlocale.LC_ALL, '')
+                w_executable = space.fsdecode(space.wrapbytes(argv[0]))
+                w_argv = space.newlist([space.fsdecode(space.wrapbytes(s))
+                                        for s in argv[1:]])
                 w_exitcode = space.call_function(w_entry_point, w_executable, w_argv)
                 exitcode = space.int_w(w_exitcode)
                 # try to pull it all in

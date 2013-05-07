@@ -1,7 +1,7 @@
 from __future__ import with_statement
 from rpython.jit.backend.arm import conditions as c
 from rpython.jit.backend.arm import registers as r
-from rpython.jit.backend.arm.codebuilder import AbstractARMv7Builder
+from rpython.jit.backend.arm.codebuilder import InstrBuilder
 from rpython.jit.metainterp.history import ConstInt, BoxInt, FLOAT
 from rpython.rlib.rarithmetic import r_uint, r_longlong, intmask
 from rpython.jit.metainterp.resoperation import rop
@@ -34,8 +34,8 @@ def gen_emit_guard_unary_cmp(name, true_cond):
     return f
 
 def gen_emit_op_ri(name, opname):
-    ri_op = getattr(AbstractARMv7Builder, '%s_ri' % opname)
-    rr_op = getattr(AbstractARMv7Builder, '%s_rr' % opname)
+    ri_op = getattr(InstrBuilder, '%s_ri' % opname)
+    rr_op = getattr(InstrBuilder, '%s_rr' % opname)
     def f(self, op, arglocs, regalloc, fcond):
         assert fcond is not None
         l0, l1, res = arglocs
@@ -48,7 +48,7 @@ def gen_emit_op_ri(name, opname):
     return f
 
 def gen_emit_op_by_helper_call(name, opname):
-    helper = getattr(AbstractARMv7Builder, opname)
+    helper = getattr(InstrBuilder, opname)
     def f(self, op, arglocs, regalloc, fcond):
         assert fcond is not None
         if op.result:
@@ -97,7 +97,7 @@ def gen_emit_cmp_op_guard(name, true_cond):
     return f
 
 def gen_emit_float_op(name, opname):
-    op_rr = getattr(AbstractARMv7Builder, opname)
+    op_rr = getattr(InstrBuilder, opname)
     def f(self, op, arglocs, regalloc, fcond):
         arg1, arg2, result = arglocs
         op_rr(self.mc, result.value, arg1.value, arg2.value)
@@ -105,7 +105,7 @@ def gen_emit_float_op(name, opname):
     f.__name__ = 'emit_op_%s' % name
     return f
 def gen_emit_unary_float_op(name, opname):
-    op_rr = getattr(AbstractARMv7Builder, opname)
+    op_rr = getattr(InstrBuilder, opname)
     def f(self, op, arglocs, regalloc, fcond):
         arg1, result = arglocs
         op_rr(self.mc, result.value, arg1.value)

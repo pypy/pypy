@@ -16,6 +16,9 @@ class TestW_LongObject:
         w_obj = space.wrap(123.456)
         space.raises_w(space.w_TypeError, space.bigint_w, w_obj)
 
+        w_obj = fromlong(42)
+        assert space.unwrap(w_obj) == 42
+
     def test_rint_variants(self):
         py.test.skip("XXX broken!")
         from rpython.rtyper.tool.rfficache import platform
@@ -229,13 +232,13 @@ class AppTestLong:
 
     def test_math_log(self):
         import math
-        raises(ValueError, math.log, 0) 
-        raises(ValueError, math.log, -1) 
-        raises(ValueError, math.log, -2) 
+        raises(ValueError, math.log, 0)
+        raises(ValueError, math.log, -1)
+        raises(ValueError, math.log, -2)
         raises(ValueError, math.log, -(1 << 10000))
-        #raises(ValueError, math.log, 0) 
-        raises(ValueError, math.log, -1) 
-        raises(ValueError, math.log, -2) 
+        #raises(ValueError, math.log, 0)
+        raises(ValueError, math.log, -1)
+        raises(ValueError, math.log, -2)
 
     def test_long(self):
         import sys
@@ -337,9 +340,28 @@ class AppTestLong:
         try:
             int('hello àèìò')
         except ValueError as e:
-            assert 'hello àèìò' in e.message
+            assert 'hello àèìò' in str(e)
         else:
             assert False, 'did not raise'
 
     def test_base_overflow(self):
         raises(ValueError, int, '42', 2**63)
+
+    def test_long_real(self):
+        class A(int): pass
+        b = A(5).real
+        assert type(b) is int
+
+    def test__int__(self):
+        class A(int):
+            def __int__(self):
+                return 42
+
+        assert int(int(3)) == int(3)
+        assert int(A(13)) == 42
+
+    def test_large_identity(self):
+        import sys
+        a = sys.maxsize + 1
+        b = sys.maxsize + 2
+        assert a is not b

@@ -190,7 +190,6 @@ def normalize_module(space, w_filename):
         return space.wrap("<unknown>")
 
     filename = space.str_w(w_filename)
-    length = len(filename)
     if filename.endswith(".py"):
         n = len(filename) - 3
         assert n >= 0

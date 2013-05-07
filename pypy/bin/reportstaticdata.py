@@ -61,7 +61,6 @@ def parse_options(argv):
 
 
 def main():
-    import sys
     try:
         kwds = parse_options(sys.argv[1:])
     except AssertionError:

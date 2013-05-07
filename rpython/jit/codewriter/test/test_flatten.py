@@ -47,6 +47,9 @@ class FakeDict(object):
         return c_func, lltype.Signed
 
 class FakeCPU:
+    class tracker:
+        pass
+    
     def __init__(self, rtyper):
         rtyper._builtin_func_for_spec_cache = FakeDict()
         self.rtyper = rtyper
@@ -137,7 +140,8 @@ class TestFlatten:
         if liveness:
             from rpython.jit.codewriter.liveness import compute_liveness
             compute_liveness(ssarepr)
-        assert_format(ssarepr, expected)
+        if expected is not None:
+            assert_format(ssarepr, expected)
 
     def test_simple(self):
         def f(n):
@@ -321,6 +325,15 @@ class TestFlatten:
             L6:
             int_return $54
         """)
+
+    def test_switch_longlong(self):
+        def f(n):
+            n = r_longlong(n)
+            if n == r_longlong(-5):  return 12
+            elif n == r_longlong(2): return 51
+            elif n == r_longlong(7): return 1212
+            else:                    return 42
+        self.encoding_test(f, [65], None)
 
     def test_exc_exitswitch(self):
         def g(i):
@@ -676,6 +689,7 @@ class TestFlatten:
         self.encoding_test(f, [], """
             new_with_vtable <Descr> -> %r0
             virtual_ref %r0 -> %r1
+            -live-
             residual_call_r_r $<* fn jit_force_virtual>, R[%r1], <Descr> -> %r2
             ref_return %r2
         """, transform=True, cc=FakeCallControlWithVRefInfo())

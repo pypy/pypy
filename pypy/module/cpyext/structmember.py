@@ -3,7 +3,7 @@ from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.structmemberdefs import *
 from pypy.module.cpyext.api import ADDR, PyObjectP, cpython_api
-from pypy.module.cpyext.intobject import PyInt_AsLong, PyInt_AsUnsignedLong
+from pypy.module.cpyext.longobject import PyLong_AsLong, PyLong_AsUnsignedLong
 from pypy.module.cpyext.pyerrors import PyErr_Occurred
 from pypy.module.cpyext.pyobject import PyObject, Py_DecRef, from_ref, make_ref
 from pypy.module.cpyext.unicodeobject import PyUnicode_FromString
@@ -14,15 +14,15 @@ from pypy.module.cpyext.typeobjectdefs import PyMemberDef
 from rpython.rlib.unroll import unrolling_iterable
 
 integer_converters = unrolling_iterable([
-    (T_SHORT,  rffi.SHORT,  PyInt_AsLong),
-    (T_INT,    rffi.INT,    PyInt_AsLong),
-    (T_LONG,   rffi.LONG,   PyInt_AsLong),
-    (T_USHORT, rffi.USHORT, PyInt_AsUnsignedLong),
-    (T_UINT,   rffi.UINT,   PyInt_AsUnsignedLong),
-    (T_ULONG,  rffi.ULONG,  PyInt_AsUnsignedLong),
-    (T_BYTE,   rffi.SIGNEDCHAR, PyInt_AsLong),
-    (T_UBYTE,  rffi.UCHAR,  PyInt_AsUnsignedLong),
-    (T_BOOL,   rffi.UCHAR,  PyInt_AsLong),
+    (T_SHORT,  rffi.SHORT,  PyLong_AsLong),
+    (T_INT,    rffi.INT,    PyLong_AsLong),
+    (T_LONG,   rffi.LONG,   PyLong_AsLong),
+    (T_USHORT, rffi.USHORT, PyLong_AsUnsignedLong),
+    (T_UINT,   rffi.UINT,   PyLong_AsUnsignedLong),
+    (T_ULONG,  rffi.ULONG,  PyLong_AsUnsignedLong),
+    (T_BYTE,   rffi.SIGNEDCHAR, PyLong_AsLong),
+    (T_UBYTE,  rffi.UCHAR,  PyLong_AsUnsignedLong),
+    (T_BOOL,   rffi.UCHAR,  PyLong_AsLong),
     (T_FLOAT,  rffi.FLOAT,  PyFloat_AsDouble),
     (T_DOUBLE, rffi.DOUBLE, PyFloat_AsDouble),
     (T_LONGLONG,  rffi.LONGLONG,  PyLong_AsLongLong),

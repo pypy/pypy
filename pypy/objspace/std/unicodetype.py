@@ -64,6 +64,8 @@ unicode_expandtabs = SMM('expandtabs', 2, defaults=(8,),
                              ' size of 8 characters is assumed.')
 unicode_format     = SMM('format', 1, general__args__=True,
                          doc='S.format() -> new style formating')
+unicode_format_map = SMM('format_map', 2,
+                         doc='S.format_map(mapping) -> str')
 unicode_isalnum    = SMM('isalnum', 1,
                          doc='S.isalnum() -> bool\n\nReturn True if all'
                              ' characters in S are alphanumeric\nand there is'

@@ -1,6 +1,5 @@
-
 from rpython.rtyper.tool import rffi_platform
-from rpython.rtyper.lltypesystem import rffi, lltype, llmemory
+from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib import rposix
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rlib.nonconst import NonConstant
@@ -12,10 +11,7 @@ import stat
 
 _POSIX = os.name == "posix"
 _MS_WINDOWS = os.name == "nt"
-_LINUX = "linux" in sys.platform
 _64BIT = "64bit" in platform.architecture()[0]
-_ARM = platform.machine().startswith('arm')
-_PPC = platform.machine().startswith('ppc')
 _CYGWIN = "cygwin" == sys.platform
 
 class RValueError(Exception):
@@ -30,7 +26,7 @@ includes = ["sys/types.h"]
 if _POSIX:
     includes += ['unistd.h', 'sys/mman.h']
 elif _MS_WINDOWS:
-    includes += ['winsock2.h','windows.h']
+    includes += ['winsock2.h', 'windows.h']
 
 class CConfig:
     _compilation_info_ = ExternalCompilationInfo(
@@ -78,7 +74,7 @@ elif _MS_WINDOWS:
     from rpython.rlib.rwin32 import NULL_HANDLE, INVALID_HANDLE_VALUE
     from rpython.rlib.rwin32 import DWORD, WORD, DWORD_PTR, LPDWORD
     from rpython.rlib.rwin32 import BOOL, LPVOID, LPCSTR, SIZE_T
-    from rpython.rlib.rwin32 import INT, LONG, PLONG
+    from rpython.rlib.rwin32 import LONG, PLONG
 
 # export the constants inside and outside. see __init__.py
 cConfig = rffi_platform.configure(CConfig)
@@ -128,7 +124,7 @@ c_memmove, _ = external('memmove', [PTR, PTR, size_t], lltype.Void)
 if _POSIX:
     has_mremap = cConfig['has_mremap']
     c_mmap, c_mmap_safe = external('mmap', [PTR, size_t, rffi.INT, rffi.INT,
-                               rffi.INT, off_t], PTR, macro=True)
+                                   rffi.INT, off_t], PTR, macro=True)
     # 'mmap' on linux32 is a macro that calls 'mmap64'
     _, c_munmap_safe = external('munmap', [PTR, size_t], rffi.INT)
     c_msync, _ = external('msync', [PTR, size_t, rffi.INT], rffi.INT)
@@ -138,7 +134,7 @@ if _POSIX:
 
     # this one is always safe
     _pagesize = rffi_platform.getintegerfunctionresult('getpagesize',
-                                                includes=includes)
+                                                       includes=includes)
     _get_allocation_granularity = _get_page_size = lambda: _pagesize
 
 elif _MS_WINDOWS:
@@ -150,13 +146,13 @@ elif _MS_WINDOWS:
             'SYSINFO_STRUCT',
                 ("wProcessorArchitecture", WORD),
                 ("wReserved", WORD),
-            )
+        )
 
         SYSINFO_UNION = rffi.CStruct(
             'union SYSINFO_UNION',
                 ("dwOemId", DWORD),
                 ("_struct_", SYSINFO_STRUCT),
-            )
+        )
         # sorry, I can't find a way to insert the above
         # because the union field has no name
         SYSTEM_INFO = rffi_platform.Struct(
@@ -208,7 +204,6 @@ elif _MS_WINDOWS:
     VirtualProtect._annspecialcase_ = 'specialize:ll'
     VirtualFree = winexternal('VirtualFree',
                               [rffi.VOIDP, rffi.SIZE_T, DWORD], BOOL)
-
 
     def _get_page_size():
         try:
@@ -292,10 +287,25 @@ class MMap(object):
         self.data = data
         self.size = size
 
+    def unmap(self):
+        if _MS_WINDOWS:
+            UnmapViewOfFile(self.getptr(0))
+        elif _POSIX:
+            self.unmap_range(0, self.size)
+
+    if _POSIX:
+        def unmap_range(self, offset, size):
+            """Unmap (a portion of) the mapped range.
+
+            Per munmap(1), the offset must be a multiple of the page size,
+            and the size will be rounded up to a multiple of the page size.
+            """
+            c_munmap_safe(self.getptr(offset), size)
+
     def close(self):
         if _MS_WINDOWS:
             if self.size > 0:
-                self.unmapview()
+                self.unmap()
                 self.setdata(NODATA, 0)
             if self.map_handle != INVALID_HANDLE:
                 rwin32.CloseHandle(self.map_handle)
@@ -312,14 +322,11 @@ class MMap(object):
                 os.close(self.fd)
                 self.fd = -1
             if self.size > 0:
-                c_munmap_safe(self.getptr(0), self.size)
+                self.unmap()
                 self.setdata(NODATA, 0)
 
     def __del__(self):
         self.close()
-
-    def unmapview(self):
-        UnmapViewOfFile(self.getptr(0))
 
     def read_byte(self):
         self.check_valid()
@@ -493,14 +500,6 @@ class MMap(object):
                 # this is not checked
                 return res
             elif _POSIX:
-##                XXX why is this code here?  There is no equivalent in CPython
-##                if _LINUX:
-##                    # alignment of the address
-##                    value = cast(self.data, c_void_p).value
-##                    aligned_value = value & ~(PAGESIZE - 1)
-##                    # the size should be increased too. otherwise the final
-##                    # part is not "msynced"
-##                    new_size = size + value & (PAGESIZE - 1)
                 res = c_msync(start, size, MS_SYNC)
                 if res == -1:
                     errno = rposix.get_errno()
@@ -515,7 +514,7 @@ class MMap(object):
 
         # check boundings
         if (src < 0 or dest < 0 or count < 0 or
-            src + count > self.size or dest + count > self.size):
+                src + count > self.size or dest + count > self.size):
             raise RValueError("source or destination out of range")
 
         datasrc = self.getptr(src)
@@ -540,7 +539,7 @@ class MMap(object):
             self.setdata(newdata, newsize)
         elif _MS_WINDOWS:
             # disconnect the mapping
-            self.unmapview()
+            self.unmap()
             rwin32.CloseHandle(self.map_handle)
 
             # move to the desired EOF position
@@ -567,10 +566,9 @@ class MMap(object):
             SetEndOfFile(self.file_handle)
             # create another mapping object and remap the file view
             res = CreateFileMapping(self.file_handle, NULL, PAGE_READWRITE,
-                                 newsize_high, newsize_low, self.tagname)
+                                    newsize_high, newsize_low, self.tagname)
             self.map_handle = res
 
-            dwErrCode = 0
             if self.map_handle:
                 data = MapViewOfFile(self.map_handle, FILE_MAP_WRITE,
                                      offset_high, offset_low, newsize)
@@ -603,7 +601,7 @@ class MMap(object):
 
         if len(value) != 1:
             raise RValueError("mmap assignment must be "
-                             "single-character string")
+                              "single-character string")
         if index < 0:
             index += self.size
         self.data[index] = value[0]
@@ -614,12 +612,12 @@ def _check_map_size(size):
 
 if _POSIX:
     def mmap(fileno, length, flags=MAP_SHARED,
-        prot=PROT_WRITE | PROT_READ, access=_ACCESS_DEFAULT, offset=0):
+             prot=PROT_WRITE | PROT_READ, access=_ACCESS_DEFAULT, offset=0):
 
         fd = fileno
 
         # check access is not there when flags and prot are there
-        if access != _ACCESS_DEFAULT and ((flags != MAP_SHARED) or\
+        if access != _ACCESS_DEFAULT and ((flags != MAP_SHARED) or
                                           (prot != (PROT_WRITE | PROT_READ))):
             raise RValueError("mmap can't specify both access and flags, prot.")
 
@@ -691,6 +689,11 @@ if _POSIX:
         m.setdata(res, map_size)
         return m
 
+    def alloc_hinted(hintp, map_size):
+        flags = MAP_PRIVATE | MAP_ANONYMOUS
+        prot = PROT_EXEC | PROT_READ | PROT_WRITE
+        return c_mmap_safe(hintp, map_size, prot, flags, -1, 0)
+
     # XXX is this really necessary?
     class Hint:
         pos = -0x4fff0000   # for reproducible results
@@ -709,15 +712,11 @@ if _POSIX:
             if res == rffi.cast(PTR, 0):
                 raise MemoryError
             return res
-        flags = MAP_PRIVATE | MAP_ANONYMOUS
-        prot = PROT_EXEC | PROT_READ | PROT_WRITE
-        hintp = rffi.cast(PTR, hint.pos)
-        res = c_mmap_safe(hintp, map_size, prot, flags, -1, 0)
+        res = alloc_hinted(rffi.cast(PTR, hint.pos), map_size)
         if res == rffi.cast(PTR, -1):
             # some systems (some versions of OS/X?) complain if they
             # are passed a non-zero address.  Try again.
-            hintp = rffi.cast(PTR, 0)
-            res = c_mmap_safe(hintp, map_size, prot, flags, -1, 0)
+            res = alloc_hinted(rffi.cast(PTR, 0), map_size)
             if res == rffi.cast(PTR, -1):
                 raise MemoryError
         else:
@@ -771,8 +770,8 @@ elif _MS_WINDOWS:
                 pass     # ignore non-seeking files and errors and trust map_size
             else:
                 if not high and low <= sys.maxint:
-                   size = low
-                else:   
+                    size = low
+                else:
                     # not so sure if the signed/unsigned strictness is a good idea:
                     high = rffi.cast(lltype.Unsigned, high)
                     low = rffi.cast(lltype.Unsigned, low)
@@ -866,7 +865,7 @@ elif _MS_WINDOWS:
         case of a sandboxed process
         """
         null = lltype.nullptr(rffi.VOIDP.TO)
-        res = VirtualAlloc(null, map_size, MEM_COMMIT|MEM_RESERVE,
+        res = VirtualAlloc(null, map_size, MEM_COMMIT | MEM_RESERVE,
                            PAGE_EXECUTE_READWRITE)
         if not res:
             raise MemoryError

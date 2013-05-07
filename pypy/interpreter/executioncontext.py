@@ -1,6 +1,5 @@
 import sys
 from pypy.interpreter.error import OperationError
-from rpython.rlib.rarithmetic import LONG_BIT
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib import jit
 
@@ -447,10 +446,14 @@ class UserDelAction(AsyncAction):
         self.dying_objects = []
         self.finalizers_lock_count = 0
         self.enabled_at_app_level = True
+        self._invoke_immediately = False
 
     def register_callback(self, w_obj, callback, descrname):
         self.dying_objects.append((w_obj, callback, descrname))
-        self.fire()
+        if not self._invoke_immediately:
+            self.fire()
+        else:
+            self.perform(None, None)
 
     def perform(self, executioncontext, frame):
         if self.finalizers_lock_count > 0:

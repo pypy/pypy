@@ -1,24 +1,24 @@
-from pypy.objspace.std.model import registerimplementation, W_Object
-from pypy.objspace.std.register_all import register_all
-from pypy.objspace.std.multimethod import FailedToImplement
-from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter import gateway
-from rpython.rlib.rarithmetic import ovfcheck
-from rpython.rlib.objectmodel import we_are_translated, compute_hash, specialize
-from rpython.rlib.objectmodel import compute_unique_id
-from pypy.objspace.std.inttype import wrapint
-from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
-from pypy.objspace.std import slicetype, newformat
-from pypy.objspace.std.longobject import W_LongObject
-from pypy.objspace.std.listobject import W_ListObject
-from pypy.objspace.std.noneobject import W_NoneObject
-from pypy.objspace.std.tupleobject import W_TupleObject
-from rpython.rlib.rstring import StringBuilder, split
-from pypy.interpreter.buffer import StringBuffer
-from rpython.rlib import jit
+"""The builtin bytes implementation"""
 
-from pypy.objspace.std.stringtype import sliced, wrapstr, wrapchar, \
-     stringendswith, stringstartswith, joined2
+from pypy.interpreter.buffer import StringBuffer
+from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.objspace.std import slicetype
+from pypy.objspace.std.inttype import wrapint
+from pypy.objspace.std.longobject import W_LongObject
+from pypy.objspace.std.model import W_Object, registerimplementation
+from pypy.objspace.std.multimethod import FailedToImplement
+from pypy.objspace.std.noneobject import W_NoneObject
+from pypy.objspace.std.register_all import register_all
+from pypy.objspace.std.sliceobject import W_SliceObject
+from pypy.objspace.std.stringtype import (
+    joined2, sliced, stringendswith, stringstartswith, wrapstr)
+from pypy.objspace.std.tupleobject import W_TupleObject
+from rpython.rlib import jit
+from rpython.rlib.objectmodel import (
+    compute_hash, compute_unique_id, specialize)
+from rpython.rlib.rarithmetic import ovfcheck
+from rpython.rlib.rstring import StringBuilder
+
 
 class W_AbstractStringObject(W_Object):
     __slots__ = ()
@@ -223,7 +223,7 @@ def str_capitalize__String(space, w_self):
 def str_title__String(space, w_self):
     input = w_self._value
     builder = StringBuilder(len(input))
-    prev_letter=' '
+    prev_letter = ' '
 
     for pos in range(len(input)):
         ch = input[pos]
@@ -427,7 +427,7 @@ def str_rjust__String_ANY_ANY(space, w_self, w_arg, w_fillchar):
             space.wrap("rjust() argument 2 must be a single character"))
 
     d = u_arg - len(u_self)
-    if d>0:
+    if d > 0:
         fillchar = fillchar[0]    # annotator hint: it's a single character
         u_self = d * fillchar + u_self
 
@@ -443,7 +443,7 @@ def str_ljust__String_ANY_ANY(space, w_self, w_arg, w_fillchar):
             space.wrap("ljust() argument 2 must be a single character"))
 
     d = u_arg - len(u_self)
-    if d>0:
+    if d > 0:
         fillchar = fillchar[0]    # annotator hint: it's a single character
         u_self += d * fillchar
 
@@ -535,7 +535,7 @@ def str_rpartition__String_String(space, w_self, w_sub):
 
 
 def str_index__String_String_ANY_ANY(space, w_self, w_sub, w_start, w_end):
-    (self, start, end) =  _convert_idx_params(space, w_self, w_start, w_end)
+    (self, start, end) = _convert_idx_params(space, w_self, w_start, w_end)
     res = self.find(w_sub._value, start, end)
     if res < 0:
         raise OperationError(space.w_ValueError,
@@ -545,7 +545,7 @@ def str_index__String_String_ANY_ANY(space, w_self, w_sub, w_start, w_end):
 
 
 def str_rindex__String_String_ANY_ANY(space, w_self, w_sub, w_start, w_end):
-    (self, start, end) =  _convert_idx_params(space, w_self, w_start, w_end)
+    (self, start, end) = _convert_idx_params(space, w_self, w_start, w_end)
     res = self.rfind(w_sub._value, start, end)
     if res < 0:
         raise OperationError(space.w_ValueError,
@@ -769,7 +769,7 @@ def _tabindent(u_token, u_tabsize):
         while 1:
             #no sophisticated linebreak support now, '\r' just for passing adapted CPython test
             if u_token[offset-1] == "\n" or u_token[offset-1] == "\r":
-                break;
+                break
             distance += 1
             offset -= 1
             if offset == 0:
@@ -779,7 +779,7 @@ def _tabindent(u_token, u_tabsize):
         #print '<offset:%d distance:%d tabsize:%d token:%s>' % (offset, distance, u_tabsize, u_token)
         distance = (u_tabsize-distance) % u_tabsize
         if distance == 0:
-            distance=u_tabsize
+            distance = u_tabsize
 
     return distance
 
@@ -801,14 +801,14 @@ def str_expandtabs__String_ANY(space, w_self, w_tabsize):
 
         for token in split:
             #print  "%d#%d -%s-" % (_tabindent(oldtoken,u_tabsize), u_tabsize, token)
-            u_expanded += " " * _tabindent(oldtoken,u_tabsize) + token
+            u_expanded += " " * _tabindent(oldtoken, u_tabsize) + token
             oldtoken = token
 
     return wrapstr(space, u_expanded)
 
 
 def str_splitlines__String_ANY(space, w_self, w_keepends):
-    u_keepends  = space.int_w(w_keepends)  # truth value, but type checked
+    u_keepends = space.int_w(w_keepends)  # truth value, but type checked
     data = w_self._value
     selflen = len(data)
     strs_w = []
@@ -917,7 +917,6 @@ def getitem__String_ANY(space, w_str, w_index):
     return space.wrap(ord(str[ival]))
 
 def getitem__String_Slice(space, w_str, w_slice):
-    w = space.wrap
     s = w_str._value
     length = len(s)
     start, stop, step, sl = w_slice.indices4(space, length)

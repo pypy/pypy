@@ -6,7 +6,7 @@ The rest, dealing with variables in optimized ways, is in nestedscope.py.
 
 import sys
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter import gateway, function, eval, pyframe, pytraceback
 from pypy.interpreter.pycode import PyCode, BytecodeCorruption
 from rpython.tool.sourcetools import func_with_new_name
@@ -259,19 +259,7 @@ class __extend__(pyframe.PyFrame):
                                              "code=%d, name=%s" %
                                              (self.last_instr, opcode,
                                               methodname))
-                try:
-                    res = meth(oparg, next_instr)
-                except Exception:
-                    if 0:
-                        import dis, sys
-                        print "*** %s at offset %d (%s)" % (sys.exc_info()[0],
-                                                            self.last_instr,
-                                                            methodname)
-                        try:
-                            dis.dis(co_code)
-                        except:
-                            pass
-                    raise
+                res = meth(oparg, next_instr)
                 if res is not None:
                     next_instr = res
 
@@ -480,11 +468,12 @@ class __extend__(pyframe.PyFrame):
             # re-raise, no new traceback obj will be attached
             self.last_exception = operror
             raise RaiseWithExplicitTraceback(operror)
-        w_value = w_cause = space.w_None
         if nbargs == 2:
             w_cause = self.popvalue()
             if space.exception_is_valid_obj_as_class_w(w_cause):
                 w_cause = space.call_function(w_cause)
+        else:
+            w_cause = None
         w_value = self.popvalue()
         if space.exception_is_valid_obj_as_class_w(w_value):
             w_type = w_value
@@ -533,7 +522,6 @@ class __extend__(pyframe.PyFrame):
             self.setdictscope(w_locals)
 
     def POP_EXCEPT(self, oparg, next_instr):
-        assert self.space.py3k
         block = self.pop_block()
         block.cleanup(self)
         return
@@ -553,18 +541,18 @@ class __extend__(pyframe.PyFrame):
         # item (unlike CPython which can have 1, 2 or 3 items):
         #   [wrapped subclass of SuspendedUnroller]
         w_top = self.popvalue()
-        # the following logic is a mess for the flow objspace,
-        # so we hide it specially in the space :-/
-        if self.space._check_constant_interp_w_or_w_None(SuspendedUnroller, w_top):
-            # case of a finally: block
-            unroller = self.space.interpclass_w(w_top)
-            return unroller
+        if self.space.is_w(w_top, self.space.w_None):
+            # case of a finally: block with no exception
+            return None
+        if isinstance(w_top, SuspendedUnroller):
+            # case of a finally: block with a suspended unroller
+            return w_top
         else:
             # case of an except: block.  We popped the exception type
             self.popvalue()        #     Now we pop the exception value
-            unroller = self.space.interpclass_w(self.popvalue())
-            assert unroller is not None
-            return unroller
+            w_unroller = self.popvalue()
+            assert w_unroller is not None
+            return w_unroller
 
     def LOAD_BUILD_CLASS(self, oparg, next_instr):
         w_build_class = self.get_builtin().getdictvalue(
@@ -575,9 +563,9 @@ class __extend__(pyframe.PyFrame):
         self.pushvalue(w_build_class)
 
     def STORE_NAME(self, varindex, next_instr):
-        varname = self.getname_u(varindex)
+        w_varname = self.getname_w(varindex)
         w_newvalue = self.popvalue()
-        self.space.setitem_str(self.w_locals, varname, w_newvalue)
+        self.space.setitem(self.w_locals, w_varname, w_newvalue)
 
     def DELETE_NAME(self, varindex, next_instr):
         w_varname = self.getname_w(varindex)
@@ -604,15 +592,15 @@ class __extend__(pyframe.PyFrame):
         w_iterable = self.popvalue()
         items = self.space.fixedview(w_iterable)
         itemcount = len(items)
-        if right > itemcount:
-            count = left + right
+        count = left + right
+        if count > itemcount:
             if count == 1:
                 plural = ''
             else:
                 plural = 's'
             raise operationerrfmt(self.space.w_ValueError,
                                   "need more than %d value%s to unpack",
-                                  left + right, plural)
+                                  itemcount, plural)
         right = itemcount - right
         assert right >= 0
         # push values in reverse order
@@ -656,31 +644,33 @@ class __extend__(pyframe.PyFrame):
                 self.pushvalue(w_value)
                 return
         # fall-back
-        varname = self.space.str_w(w_varname)
-        w_value = self._load_global(varname)
+        w_value = self._load_global(w_varname)
         if w_value is None:
-            message = "name '%s' is not defined"
-            raise operationerrfmt(self.space.w_NameError, message, varname)
+            message = "name '%8' is not defined"
+            raise operationerrfmt(self.space.w_NameError, message,
+                                  self.space.identifier_w(w_varname))
         self.pushvalue(w_value)
 
-    def _load_global(self, varname):
-        w_value = self.space.finditem_str(self.w_globals, varname)
+    def _load_global(self, w_varname):
+        w_value = self.space.finditem(self.w_globals, w_varname)
         if w_value is None:
             # not in the globals, now look in the built-ins
-            w_value = self.get_builtin().getdictvalue(self.space, varname)
+            w_value = self.get_builtin().getdictvalue(
+                self.space, self.space.identifier_w(w_varname))
         return w_value
     _load_global._always_inline_ = True
 
-    def _load_global_failed(self, varname):
-        message = "global name '%s' is not defined"
-        raise operationerrfmt(self.space.w_NameError, message, varname)
+    def _load_global_failed(self, w_varname):
+        message = "global name '%8' is not defined"
+        raise operationerrfmt(self.space.w_NameError, message,
+                              self.space.identifier_w(w_varname))
     _load_global_failed._dont_inline_ = True
 
     def LOAD_GLOBAL(self, nameindex, next_instr):
-        varname = self.getname_u(nameindex)
-        w_value = self._load_global(varname)
+        w_varname = self.getname_w(nameindex)
+        w_value = self._load_global(w_varname)
         if w_value is None:
-            self._load_global_failed(varname)
+            self._load_global_failed(w_varname)
         self.pushvalue(w_value)
     LOAD_GLOBAL._always_inline_ = True
 
@@ -780,7 +770,7 @@ class __extend__(pyframe.PyFrame):
                 w_result = getattr(self, attr)(w_1, w_2)
                 break
         else:
-            raise BytecodeCorruption, "bad COMPARE_OP oparg"
+            raise BytecodeCorruption("bad COMPARE_OP oparg")
         self.pushvalue(w_result)
 
     def IMPORT_NAME(self, nameindex, next_instr):
@@ -929,11 +919,9 @@ class __extend__(pyframe.PyFrame):
         w_unroller = self.popvalue()
         w_exitfunc = self.popvalue()
         self.pushvalue(w_unroller)
-        unroller = self.space.interpclass_w(w_unroller)
-        is_app_exc = (unroller is not None and
-                      isinstance(unroller, SApplicationException))
-        if is_app_exc:
-            operr = unroller.operr
+        if isinstance(w_unroller, SApplicationException):
+            # app-level exception
+            operr = w_unroller.operr
             old_last_exception = self.last_exception
             self.last_exception = operr
             w_traceback = self.space.wrap(operr.get_traceback())
@@ -1155,10 +1143,14 @@ class __extend__(pyframe.CPythonFrame):
 class ExitFrame(Exception):
     pass
 
+
 class Return(ExitFrame):
     """Raised when exiting a frame via a 'return' statement."""
+
+
 class Yield(ExitFrame):
     """Raised when exiting a frame via a 'yield' statement."""
+
 
 class RaiseWithExplicitTraceback(Exception):
     """Raised at interp-level by a 0-argument 'raise' statement."""
@@ -1168,7 +1160,7 @@ class RaiseWithExplicitTraceback(Exception):
 
 ### Frame Blocks ###
 
-class SuspendedUnroller(Wrappable):
+class SuspendedUnroller(W_Root):
     """Abstract base class for interpreter-level objects that
     instruct the interpreter to change the control flow and the
     block stack.
@@ -1326,14 +1318,12 @@ class ExceptBlock(FrameBlock):
         # the stack setup is slightly different than in CPython:
         # instead of the traceback, we store the unroller object,
         # wrapped.
-        if frame.space.py3k:
-            # this is popped by POP_EXCEPT, which is present only in py3k
-            w_last_exception = W_OperationError(frame.last_exception)
-            w_last_exception = frame.space.wrap(w_last_exception)
-            frame.pushvalue(w_last_exception)
-            block = ExceptHandlerBlock(self.valuestackdepth,
-                                       0, frame.lastblock)
-            frame.lastblock = block
+        # this is popped by POP_EXCEPT, which is present only in py3k
+        w_last_exception = W_OperationError(frame.last_exception)
+        w_last_exception = frame.space.wrap(w_last_exception)
+        frame.pushvalue(w_last_exception)
+        block = ExceptHandlerBlock(self.valuestackdepth, 0, frame.lastblock)
+        frame.lastblock = block
         frame.pushvalue(frame.space.wrap(unroller))
         frame.pushvalue(operationerr.get_w_value(frame.space))
         frame.pushvalue(operationerr.w_type)
@@ -1382,7 +1372,7 @@ block_classes = {'SETUP_LOOP': LoopBlock,
                  }
 
 
-class W_OperationError(Wrappable):
+class W_OperationError(W_Root):
     """
     Tiny applevel wrapper around an OperationError.
     """
@@ -1399,7 +1389,9 @@ def source_as_str(space, w_source, funcname, what, flags):
     from pypy.interpreter.astcompiler import consts
 
     if space.isinstance_w(w_source, space.w_unicode):
-        source = space.unicode0_w(w_source).encode('utf-8')
+        from pypy.interpreter.unicodehelper import encode
+        w_source = encode(space, w_source)
+        source = space.bytes0_w(w_source)
         flags |= consts.PyCF_IGNORE_COOKIE
     elif space.isinstance_w(w_source, space.w_bytes):
         source = space.bytes0_w(w_source)
@@ -1476,7 +1468,20 @@ app = gateway.applevel(r'''
         # (and let it deals itself with unicode handling)
         if not isinstance(x, str):
             x = str(x)
-        stream.write(x)
+        try:
+            stream.write(x)
+        except UnicodeEncodeError:
+            print_unencodable_to(x, stream)
+
+    def print_unencodable_to(x, stream):
+        encoding = stream.encoding
+        encoded = x.encode(encoding, 'backslashreplace')
+        buffer = getattr(stream, 'buffer', None)
+        if buffer is not None:
+             buffer.write(encoded)
+        else:
+            escaped = encoded.decode(encoding, 'strict')
+            stream.write(escaped)
 
     def print_item(x):
         print_item_to(x, sys_stdout())

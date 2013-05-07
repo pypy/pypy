@@ -80,3 +80,31 @@ class AppTestMemoryView:
     def test_suboffsets(self):
         v = memoryview(b"a"*100)
         assert v.suboffsets == None
+
+    def test_release(self):
+        v = memoryview(b"a"*100)
+        v.release()
+        raises(ValueError, len, v)
+        raises(ValueError, v.tolist)
+        raises(ValueError, v.tobytes)
+        raises(ValueError, "v[0]")
+        raises(ValueError, "v[0] = b'a'")
+        raises(ValueError, "v.format")
+        raises(ValueError, "v.itemsize")
+        raises(ValueError, "v.ndim")
+        raises(ValueError, "v.readonly")
+        raises(ValueError, "v.shape")
+        raises(ValueError, "v.strides")
+        raises(ValueError, "v.suboffsets")
+        raises(ValueError, "with v as cm: pass")
+        raises(ValueError, "memoryview(v)")
+        assert v == v
+        assert v != memoryview(b"a"*100)
+        assert v != b"a"*100
+        assert "released memory" in repr(v)
+
+    def test_context_manager(self):
+        v = memoryview(b"a"*100)
+        with v as cm:
+            assert cm is v
+        assert "released memory" in repr(v)

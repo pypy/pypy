@@ -595,7 +595,8 @@ class AppTestStacklet(BaseAppTest):
         assert tb.tb_next.tb_frame.f_code.co_name == 'f1'
         assert tb.tb_next.tb_next.tb_frame.f_code.co_name == 'main'
         assert tb.tb_next.tb_next.tb_next.tb_frame.f_code.co_name == 'do_raise'
-        assert tb.tb_next.tb_next.tb_next.tb_next is None
+        assert tb.tb_next.tb_next.tb_next.tb_next.tb_frame.f_code.co_name == 'f1'
+        assert tb.tb_next.tb_next.tb_next.tb_next.tb_next is None
 
     def test_throw_to_starting(self):
         from _continuation import continulet

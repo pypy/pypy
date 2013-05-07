@@ -49,6 +49,10 @@ def test_tell():
         assert f.tell() == i
     assert f.getvalue() == '01XXXXXXXXXXXXXXXXX'
 
+    f.seek(1)
+    f.close()
+    assert f.tell() == 0
+
 def test_read():
     f = RStringIO()
     assert f.read() == ''
@@ -76,6 +80,16 @@ def test_read():
     f.seek(15)
     assert f.read(2) == ''
     assert f.tell() == 15
+
+def test_readline():
+    f = RStringIO()
+    f.write('foo\nbar\nbaz')
+    f.seek(0)
+    assert f.readline() == 'foo\n'
+    assert f.readline(2) == 'ba'
+    assert f.readline() == 'r\n'
+    assert f.readline() == 'baz'
+    assert f.readline() == ''
 
 def test_truncate():
     f = RStringIO()

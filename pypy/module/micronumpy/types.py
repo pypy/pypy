@@ -360,6 +360,14 @@ class Bool(BaseType, Primitive):
         return self.box(True)
 
     @simple_binary_op
+    def lshift(self, v1, v2):
+        return v1 << v2
+
+    @simple_binary_op
+    def rshift(self, v1, v2):
+        return v1 >> v2
+
+    @simple_binary_op
     def bitwise_and(self, v1, v2):
         return v1 & v2
 
@@ -374,6 +382,20 @@ class Bool(BaseType, Primitive):
     @simple_unary_op
     def invert(self, v):
         return ~v
+
+    @raw_unary_op
+    def isfinite(self, v):
+        return True
+
+    @raw_unary_op
+    def signbit(self, v):
+        return False
+
+    @simple_unary_op
+    def reciprocal(self, v):
+        if v:
+            return 1
+        return 0
 
 NonNativeBool = Bool
 
@@ -478,6 +500,23 @@ class Integer(Primitive):
     @simple_unary_op
     def invert(self, v):
         return ~v
+
+    @simple_unary_op
+    def reciprocal(self, v):
+        if v == 0:
+            # XXX good place to warn
+            # XXX can't do the following, func is specialized only on argtype(v)
+            # (which is the same for all int classes)
+            #if self.T in (rffi.INT, rffi.LONG):
+            #    return most_neg_value_of(self.T)
+            return 0
+        if abs(v) == 1:
+            return v
+        return 0
+
+    @raw_unary_op
+    def signbit(self, v):
+        return v < 0
 
 class NonNativeInteger(NonNativePrimitive, Integer):
     _mixin_ = True
@@ -1110,6 +1149,14 @@ class ComplexFloating(object):
                 return rfloat.NAN, rfloat.NAN
             return rfloat.INFINITY, rfloat.INFINITY
 
+    @specialize.argtype(1)
+    def composite(self, v1, v2):
+        assert isinstance(v1, self.ComponentBoxType)
+        assert isinstance(v2, self.ComponentBoxType)
+        real = v1.value
+        imag = v2.value
+        return self.box_complex(real, imag)
+
     @complex_unary_op
     def pos(self, v):
         return v
@@ -1515,7 +1562,7 @@ class Complex128(ComplexFloating, BaseType):
 
 NonNativeComplex128 = Complex128
 
-if interp_boxes.long_double_size == 12:
+if interp_boxes.ENABLED_LONG_DOUBLE and interp_boxes.long_double_size == 12:
     class Float96(BaseType, Float):
         _attrs_ = ()
 
@@ -1545,7 +1592,7 @@ if interp_boxes.long_double_size == 12:
 
     NonNativeComplex192 = Complex192
 
-elif interp_boxes.long_double_size == 16:
+elif interp_boxes.ENABLED_LONG_DOUBLE and interp_boxes.long_double_size == 16:
     class Float128(BaseType, Float):
         _attrs_ = ()
 
@@ -1587,6 +1634,7 @@ class BaseStringType(object):
     def get_size(self):
         return self.size
 
+
 class StringType(BaseType, BaseStringType):
     T = lltype.Char
 
@@ -1594,7 +1642,7 @@ class StringType(BaseType, BaseStringType):
     def coerce(self, space, dtype, w_item):
         from pypy.module.micronumpy.interp_dtype import new_string_dtype
         arg = space.str_w(space.str(w_item))
-        arr = interp_boxes.VoidBoxStorage(len(arg), new_string_dtype(space, len(arg)))
+        arr = VoidBoxStorage(len(arg), new_string_dtype(space, len(arg)))
         for i in range(len(arg)):
             arr.storage[i] = arg[i]
         return interp_boxes.W_StringBox(arr,  0, arr.dtype)
@@ -1635,6 +1683,20 @@ class StringType(BaseType, BaseStringType):
     def to_builtin_type(self, space, box):
         return space.wrap(self.to_str(box))
 
+    def build_and_convert(self, space, mydtype, box):
+        if box.get_dtype(space).is_str_or_unicode():
+            arg = box.get_dtype(space).itemtype.to_str(box)
+        else:
+            w_arg = box.descr_str(space)
+            arg = space.str_w(space.str(w_arg))
+        arr = VoidBoxStorage(self.size, mydtype)
+        i = 0
+        for i in range(min(len(arg), self.size)):
+            arr.storage[i] = arg[i]
+        for j in range(i + 1, self.size):
+            arr.storage[j] = '\x00'
+        return interp_boxes.W_StringBox(arr,  0, arr.dtype)
+        
 class VoidType(BaseType, BaseStringType):
     T = lltype.Char
 
@@ -1718,15 +1780,6 @@ all_float_types = []
 all_int_types = []
 all_complex_types = []
 
-def for_int_computation(v):
-    return widen(v)
-
-def for_float_computation(v):
-    return float(v)
-
-def for_complex_computation(v):
-    return float(v[0]), float(v[1])
-
 def _setup():
     # compute alignment
     for tp in globals().values():
@@ -1776,7 +1829,7 @@ class Float16(BaseType, BaseFloat16):
     def _write(self, storage, i, offset, value):
         hbits = float_pack(value,2)
         raw_storage_setitem(storage, i + offset,
-                rffi.cast(self._STORAGE_T, hbits))    
+                rffi.cast(self._STORAGE_T, hbits))
 
 class NonNativeFloat16(BaseType, BaseFloat16):
     def _read(self, storage, i, offset):
@@ -1787,5 +1840,3 @@ class NonNativeFloat16(BaseType, BaseFloat16):
         hbits = float_pack(value,2)
         raw_storage_setitem(storage, i + offset,
                 byteswap(rffi.cast(self._STORAGE_T, hbits)))
-
-

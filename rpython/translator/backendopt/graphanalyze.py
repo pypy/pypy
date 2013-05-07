@@ -80,21 +80,21 @@ class GraphAnalyzer(object):
             if graph is None:
                 x = self.analyze_external_call(op, seen)
                 if self.verbose and x:
-                    print '\tanalyze_external_call %s: %r' % (op, x)
+                    self.dump_info('analyze_external_call %s: %r' % (op, x))
                 return x
             x = self.analyze_direct_call(graph, seen)
             if self.verbose and x:
-                print '\tanalyze_direct_call(%s): %r' % (graph, x)
+                self.dump_info('analyze_direct_call(%s): %r' % (graph, x))
             return x
         elif op.opname == "indirect_call":
             graphs = op.args[-1].value
             if graphs is None:
                 if self.verbose:
-                    print '\t%s to unknown' % (op,)
+                    self.dump_info('%s to unknown' % (op,))
                 return self.top_result()
             x = self.analyze_indirect_call(graphs, seen)
             if self.verbose and x:
-                print '\tanalyze_indirect_call(%s): %r' % (graphs, x)
+                self.dump_info('analyze_indirect_call(%s): %r' % (graphs, x))
             return x
         elif op.opname == "oosend":
             name = op.args[0].value
@@ -106,8 +106,11 @@ class GraphAnalyzer(object):
             return self.analyze_oosend(TYPE, name, seen)
         x = self.analyze_simple_operation(op, graphinfo)
         if self.verbose and x:
-            print '\t%s: %r' % (op, x)
+            self.dump_info('%s: %r' % (op, x))
         return x
+
+    def dump_info(self, info):
+        print '[%s] %s' % (self.__class__.__name__, info)
 
     def analyze_direct_call(self, graph, seen=None):
         if seen is None:

@@ -76,32 +76,32 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
         if self.position in renum:
             if renum[self.position] == other.position:
                 return True
-            bad[self] = True
-            bad[other] = True
+            bad[self] = None
+            bad[other] = None
             return False
         renum[self.position] = other.position
         if not self._generalization_of(other):
-            bad[self] = True
-            bad[other] = True
+            bad[self] = None
+            bad[other] = None
             return False
 
         assert isinstance(other, AbstractVirtualStructStateInfo)
         assert len(self.fielddescrs) == len(self.fieldstate)
         assert len(other.fielddescrs) == len(other.fieldstate)
         if len(self.fielddescrs) != len(other.fielddescrs):
-            bad[self] = True
-            bad[other] = True
+            bad[self] = None
+            bad[other] = None
             return False
 
         for i in range(len(self.fielddescrs)):
             if other.fielddescrs[i] is not self.fielddescrs[i]:
-                bad[self] = True
-                bad[other] = True
+                bad[self] = None
+                bad[other] = None
                 return False
             if not self.fieldstate[i].generalization_of(other.fieldstate[i],
                                                         renum, bad):
-                bad[self] = True
-                bad[other] = True
+                bad[self] = None
+                bad[other] = None
                 return False
 
         return True
@@ -158,38 +158,40 @@ class VStructStateInfo(AbstractVirtualStructStateInfo):
     def debug_header(self, indent):
         debug_print(indent + 'VStructStateInfo(%d):' % self.position)
 
+
 class VArrayStateInfo(AbstractVirtualStateInfo):
+
     def __init__(self, arraydescr):
         self.arraydescr = arraydescr
+
+    def _generalization_of(self, other):
+        return (isinstance(other, VArrayStateInfo) and
+            self.arraydescr is other.arraydescr)
 
     def generalization_of(self, other, renum, bad):
         assert self.position != -1
         if self.position in renum:
             if renum[self.position] == other.position:
                 return True
-            bad[self] = True
-            bad[other] = True
+            bad[self] = None
+            bad[other] = None
             return False
         renum[self.position] = other.position
         if not self._generalization_of(other):
-            bad[self] = True
-            bad[other] = True
+            bad[self] = None
+            bad[other] = None
             return False
         if len(self.fieldstate) != len(other.fieldstate):
-            bad[self] = True
-            bad[other] = True
+            bad[self] = None
+            bad[other] = None
             return False
         for i in range(len(self.fieldstate)):
             if not self.fieldstate[i].generalization_of(other.fieldstate[i],
                                                         renum, bad):
-                bad[self] = True
-                bad[other] = True
+                bad[self] = None
+                bad[other] = None
                 return False
         return True
-
-    def _generalization_of(self, other):
-        return (isinstance(other, VArrayStateInfo) and
-            self.arraydescr is other.arraydescr)
 
     def enum_forced_boxes(self, boxes, value, optimizer):
         if not isinstance(value, virtualize.VArrayValue):
@@ -198,7 +200,7 @@ class VArrayStateInfo(AbstractVirtualStateInfo):
             raise BadVirtualState
         for i in range(len(self.fieldstate)):
             try:
-                v = value._items[i]
+                v = value.get_item_value(i)
             except IndexError:
                 raise BadVirtualState
             s = self.fieldstate[i]
@@ -212,6 +214,8 @@ class VArrayStateInfo(AbstractVirtualStateInfo):
     def debug_header(self, indent):
         debug_print(indent + 'VArrayStateInfo(%d):' % self.position)
 
+
+
 class VArrayStructStateInfo(AbstractVirtualStateInfo):
     def __init__(self, arraydescr, fielddescrs):
         self.arraydescr = arraydescr
@@ -222,36 +226,36 @@ class VArrayStructStateInfo(AbstractVirtualStateInfo):
         if self.position in renum:
             if renum[self.position] == other.position:
                 return True
-            bad[self] = True
-            bad[other] = True
+            bad[self] = None
+            bad[other] = None
             return False
         renum[self.position] = other.position
         if not self._generalization_of(other):
-            bad[self] = True
-            bad[other] = True
+            bad[self] = None
+            bad[other] = None
             return False
 
         assert isinstance(other, VArrayStructStateInfo)
         if len(self.fielddescrs) != len(other.fielddescrs):
-            bad[self] = True
-            bad[other] = True
+            bad[self] = None
+            bad[other] = None
             return False
 
         p = 0
         for i in range(len(self.fielddescrs)):
             if len(self.fielddescrs[i]) != len(other.fielddescrs[i]):
-                bad[self] = True
-                bad[other] = True
+                bad[self] = None
+                bad[other] = None
                 return False
             for j in range(len(self.fielddescrs[i])):
                 if self.fielddescrs[i][j] is not other.fielddescrs[i][j]:
-                    bad[self] = True
-                    bad[other] = True
+                    bad[self] = None
+                    bad[other] = None
                     return False
                 if not self.fieldstate[p].generalization_of(other.fieldstate[p],
                                                             renum, bad):
-                    bad[self] = True
-                    bad[other] = True
+                    bad[self] = None
+                    bad[other] = None
                     return False
                 p += 1
         return True
@@ -287,6 +291,7 @@ class VArrayStructStateInfo(AbstractVirtualStateInfo):
         debug_print(indent + 'VArrayStructStateInfo(%d):' % self.position)
 
 
+
 class NotVirtualStateInfo(AbstractVirtualStateInfo):
     def __init__(self, value, is_opaque=False):
         self.is_opaque = is_opaque
@@ -310,42 +315,42 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
         if self.position in renum:
             if renum[self.position] == other.position:
                 return True
-            bad[self] = True
-            bad[other] = True
+            bad[self] = None
+            bad[other] = None
             return False
         renum[self.position] = other.position
         if not isinstance(other, NotVirtualStateInfo):
-            bad[self] = True
-            bad[other] = True
+            bad[self] = None
+            bad[other] = None
             return False
         if other.level < self.level:
-            bad[self] = True
-            bad[other] = True
+            bad[self] = None
+            bad[other] = None
             return False
         if self.level == LEVEL_CONSTANT:
             if not self.constbox.same_constant(other.constbox):
-                bad[self] = True
-                bad[other] = True
+                bad[self] = None
+                bad[other] = None
                 return False
         elif self.level == LEVEL_KNOWNCLASS:
             if not self.known_class.same_constant(other.known_class):
-                bad[self] = True
-                bad[other] = True
+                bad[self] = None
+                bad[other] = None
                 return False
         if not self.intbound.contains_bound(other.intbound):
-            bad[self] = True
-            bad[other] = True
+            bad[self] = None
+            bad[other] = None
             return False
         if self.lenbound and other.lenbound:
             if self.lenbound.mode != other.lenbound.mode or \
                self.lenbound.descr != other.lenbound.descr or \
                not self.lenbound.bound.contains_bound(other.lenbound.bound):
-                bad[self] = True
-                bad[other] = True
+                bad[self] = None
+                bad[other] = None
                 return False
         elif self.lenbound:
-            bad[self] = True
-            bad[other] = True
+            bad[self] = None
+            bad[other] = None
             return False
         return True
 
@@ -579,6 +584,9 @@ class VirtualStateAdder(resume.ResumeDataVirtualAdder):
     def make_varraystruct(self, arraydescr, fielddescrs):
         return VArrayStructStateInfo(arraydescr, fielddescrs)
 
+    def make_vrawbuffer(self, size, offsets, descrs):
+        raise NotImplementedError
+
 class BoxNotProducable(Exception):
     pass
 
@@ -663,7 +671,7 @@ class ShortBoxes(object):
             raise BoxNotProducable
         if self.availible_boxes is not None and box not in self.availible_boxes:
             raise BoxNotProducable
-        self.short_boxes_in_production[box] = True
+        self.short_boxes_in_production[box] = None
         
         if box in self.potential_ops:
             ops = self.prioritized_alternatives(box)

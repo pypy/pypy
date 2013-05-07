@@ -8,7 +8,6 @@ class AppTestMemory:
         raises(TypeError, _multiprocessing.address_of_buffer, "a")
 
     def test_mmap_address(self):
-        py3k_skip('ctypes not working yet')
         import mmap
         import _multiprocessing
 
@@ -19,7 +18,7 @@ class AppTestMemory:
         sizeof_double = _ctypes.sizeof(c_double)
 
         buf = mmap.mmap(-1, 300)
-        buf[0:300] = '\0' * 300
+        buf[0:300] = b'\0' * 300
 
         # Get the address of shared memory
         address, length = _multiprocessing.address_of_buffer(buf)
@@ -27,11 +26,11 @@ class AppTestMemory:
 
         # build a ctypes object from it
         var = c_double.from_address(address)
-        assert buf[0:sizeof_double] == '\0' * sizeof_double
+        assert buf[0:sizeof_double] == b'\0' * sizeof_double
         assert var.value == 0
 
         # check that both objects share the same memory
         var.value = 123.456
-        assert buf[0:sizeof_double] != '\0' * sizeof_double
-        buf[0:sizeof_double] = '\0' * sizeof_double
+        assert buf[0:sizeof_double] != b'\0' * sizeof_double
+        buf[0:sizeof_double] = b'\0' * sizeof_double
         assert var.value == 0

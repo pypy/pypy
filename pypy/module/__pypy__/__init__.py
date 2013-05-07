@@ -49,6 +49,7 @@ class Module(MixedModule):
         'debug_stop'                : 'interp_debug.debug_stop',
         'debug_print_once'          : 'interp_debug.debug_print_once',
         'builtinify'                : 'interp_magic.builtinify',
+        'hidden_applevel'           : 'interp_magic.hidden_applevel',
         'lookup_special'            : 'interp_magic.lookup_special',
         'do_what_I_mean'            : 'interp_magic.do_what_I_mean',
         'list_strategy'             : 'interp_magic.list_strategy',
@@ -82,6 +83,17 @@ class Module(MixedModule):
         PYC_MAGIC = get_pyc_magic(self.space)
         self.extra_interpdef('PYC_MAGIC', 'space.wrap(%d)' % PYC_MAGIC)
         #
-        from rpython.jit.backend import detect_cpu
-        model = detect_cpu.autodetect_main_model_and_size()
-        self.extra_interpdef('cpumodel', 'space.wrap(%r)' % model)
+        try:
+            from rpython.jit.backend import detect_cpu
+            model = detect_cpu.autodetect()
+            self.extra_interpdef('cpumodel', 'space.wrap(%r)' % model)
+        except Exception:
+            if self.space.config.translation.jit:
+                raise
+            else:
+                pass   # ok fine to ignore in this case
+        #
+        if self.space.config.translation.jit:
+            features = detect_cpu.getcpufeatures(model)
+            self.extra_interpdef('jit_backend_features',
+                                    'space.wrap(%r)' % features)

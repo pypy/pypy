@@ -193,28 +193,11 @@ class _AppTestSelect:
         readend, writeend = self.getpair()
         readend.close()
         try:
-            iwtd, owtd, ewtd = select.select([], [writeend], [])
-            assert owtd == [writeend]
-            assert iwtd == ewtd == []
+            iwtd, owtd, ewtd = select.select([writeend], [writeend], [writeend])
+            assert iwtd == owtd == [writeend]
+            assert ewtd == []
         finally:
             writeend.close()
-
-    def test_select_bug(self):
-        import select, os
-        if not hasattr(os, 'fork'):
-            skip("no fork() on this platform")
-        read, write = os.pipe()
-        pid = os.fork()
-        if pid == 0:
-            os._exit(0)
-        else:
-            os.close(read)
-        os.waitpid(pid, 0)
-        res = select.select([write], [write], [write])
-        assert len(res[0]) == 1
-        assert len(res[1]) == 1
-        assert len(res[2]) == 0
-        assert res[0][0] == res[1][0]
 
     def test_poll(self):
         import select

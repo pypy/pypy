@@ -26,6 +26,39 @@ class AppTest(object):
         assert A.a is A.__dict__['a']
         assert A.b is A.__dict__['b']
 
+    def test_hidden_applevel(self):
+        import __pypy__
+        import sys
+
+        @__pypy__.hidden_applevel
+        def sneak(): (lambda: 1/0)()
+        try:
+            sneak()
+        except ZeroDivisionError as e:
+            tb = e.__traceback__
+            assert tb.tb_frame == sys._getframe()
+            assert tb.tb_next.tb_frame.f_code.co_name == '<lambda>'
+        else:
+            assert False, 'Expected ZeroDivisionError'
+
+    def test_hidden_applevel_frames(self):
+        import __pypy__
+        import sys
+
+        @__pypy__.hidden_applevel
+        def test_hidden():
+            assert sys._getframe().f_code.co_name != 'test_hidden'
+            def e(): 1/0
+            try: e()
+            except ZeroDivisionError as e:
+                assert sys.exc_info() == (None, None, None)
+                frame = e.__traceback__.tb_frame
+                assert frame != sys._getframe()
+                assert frame.f_code.co_name == 'e'
+            else: assert False
+            return 2
+        assert test_hidden() == 2
+
     def test_lookup_special(self):
         from __pypy__ import lookup_special
         class X(object):
@@ -42,6 +75,7 @@ class AppTest(object):
         assert x == 42
 
     def test_list_strategy(self):
+        py3k_skip("XXX: strategies are currently broken")
         from __pypy__ import list_strategy
 
         l = [1, 2, 3]
@@ -58,3 +92,14 @@ class AppTest(object):
         assert list_strategy(l) == "empty"
         o = 5
         raises(TypeError, list_strategy, 5)
+
+
+class AppTestJitFeatures(object):
+    spaceconfig = {"translation.jit": True}
+
+    def test_jit_backend_features(self):
+        from __pypy__ import jit_backend_features
+        supported_types = jit_backend_features
+        assert isinstance(supported_types, list)
+        for x in supported_types:
+            assert x in ['floats', 'singlefloats', 'longlong']

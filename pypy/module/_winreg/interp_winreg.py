@@ -1,5 +1,5 @@
 from __future__ import with_statement
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.error import OperationError, wrap_windowserror
@@ -13,7 +13,7 @@ def raiseWindowsError(space, errcode, context):
                          space.newtuple([space.wrap(errcode),
                                          space.wrap(message)]))
 
-class W_HKEY(Wrappable):
+class W_HKEY(W_Root):
     def __init__(self, hkey):
         self.hkey = hkey
 
@@ -108,15 +108,10 @@ def hkey_w(w_hkey, space):
         raise OperationError(space.w_TypeError, errstring)
     elif isinstance(w_hkey, W_HKEY):
         return w_hkey.hkey
-    elif space.is_true(space.isinstance(w_hkey, space.w_int)):
-        try:
-            value = space.int_w(w_hkey)
-        except OperationError, e:
-            if not e.match(space, space.w_TypeError):
-                raise
-            return rffi.cast(rwinreg.HKEY, space.uint_w(w_hkey))
-        else:
+    elif space.isinstance_w(w_hkey, space.w_int):
+        if space.is_true(space.lt(w_hkey, space.wrap(0))):
             return rffi.cast(rwinreg.HKEY, space.int_w(w_hkey))
+        return rffi.cast(rwinreg.HKEY, space.uint_w(w_hkey))
     else:
         errstring = space.wrap("The object is not a PyHKEY object")
         raise OperationError(space.w_TypeError, errstring)
@@ -193,7 +188,6 @@ file_name is relative to the remote computer.
 The caller of this method must possess the SeBackupPrivilege security privilege.
 This function passes NULL for security_attributes to the API."""
     hkey = hkey_w(w_hkey, space)
-    pSA = 0
     ret = rwinreg.RegSaveKey(hkey, filename, None)
     if ret != 0:
         raiseWindowsError(space, ret, 'RegSaveKey')
@@ -272,7 +266,7 @@ def convert_to_regdata(space, w_value, typ):
     buf = None
 
     if typ == rwinreg.REG_DWORD:
-        if space.is_true(space.isinstance(w_value, space.w_int)):
+        if space.isinstance_w(w_value, space.w_int):
             buflen = rffi.sizeof(rwin32.DWORD)
             buf1 = lltype.malloc(rffi.CArray(rwin32.DWORD), 1, flavor='raw')
             buf1[0] = space.uint_w(w_value)
@@ -284,7 +278,7 @@ def convert_to_regdata(space, w_value, typ):
             buf = lltype.malloc(rffi.CCHARP.TO, buflen, flavor='raw')
             buf[0] = '\0'
         else:
-            if space.is_true(space.isinstance(w_value, space.w_unicode)):
+            if space.isinstance_w(w_value, space.w_unicode):
                 w_value = space.call_method(w_value, 'encode',
                                             space.wrap('mbcs'))
             buf = rffi.str2charp(space.str_w(w_value))
@@ -295,7 +289,7 @@ def convert_to_regdata(space, w_value, typ):
             buflen = 1
             buf = lltype.malloc(rffi.CCHARP.TO, buflen, flavor='raw')
             buf[0] = '\0'
-        elif space.is_true(space.isinstance(w_value, space.w_list)):
+        elif space.isinstance_w(w_value, space.w_list):
             strings = []
             buflen = 0
 
@@ -304,7 +298,7 @@ def convert_to_regdata(space, w_value, typ):
             while True:
                 try:
                     w_item = space.next(w_iter)
-                    if space.is_true(space.isinstance(w_item, space.w_unicode)):
+                    if space.isinstance_w(w_item, space.w_unicode):
                         w_item = space.call_method(w_item, 'encode',
                                                    space.wrap('mbcs'))
                     item = space.str_w(w_item)
@@ -374,7 +368,7 @@ def convert_from_regdata(space, buf, buflen, typ):
         return space.newlist(l)
 
     else: # REG_BINARY and all other types
-        return space.wrap(rffi.charpsize2str(buf, buflen))
+        return space.wrapbytes(rffi.charpsize2str(buf, buflen))
 
 @unwrap_spec(value_name=str, typ=int)
 def SetValueEx(space, w_hkey, value_name, w_reserved, typ, w_value):
@@ -477,8 +471,8 @@ If the function fails, an exception is raised."""
             raiseWindowsError(space, ret, 'CreateKey')
         return space.wrap(W_HKEY(rethkey[0]))
 
-@unwrap_spec(subkey=str, res=int, sam=rffi.r_uint)
-def CreateKeyEx(space, w_hkey, subkey, res=0, sam=rwinreg.KEY_WRITE):
+@unwrap_spec(sub_key=str, reserved=int, access=rffi.r_uint)
+def CreateKeyEx(space, w_key, sub_key, reserved=0, access=rwinreg.KEY_WRITE):
     """key = CreateKey(key, sub_key) - Creates or opens the specified key.
 
 key is an already open key, or one of the predefined HKEY_* constants
@@ -490,10 +484,10 @@ If the key already exists, this function opens the existing key
 
 The return value is the handle of the opened key.
 If the function fails, an exception is raised."""
-    hkey = hkey_w(w_hkey, space)
+    hkey = hkey_w(w_key, space)
     with lltype.scoped_alloc(rwinreg.PHKEY.TO, 1) as rethkey:
-        ret = rwinreg.RegCreateKeyEx(hkey, subkey, res, None, 0,
-                                     sam, None, rethkey,
+        ret = rwinreg.RegCreateKeyEx(hkey, sub_key, reserved, None, 0,
+                                     access, None, rethkey,
                                      lltype.nullptr(rwin32.LPDWORD.TO))
         if ret != 0:
             raiseWindowsError(space, ret, 'CreateKeyEx')
@@ -527,8 +521,8 @@ value is a string that identifies the value to remove."""
     if ret != 0:
         raiseWindowsError(space, ret, 'RegDeleteValue')
 
-@unwrap_spec(subkey=str, res=int, sam=rffi.r_uint)
-def OpenKey(space, w_hkey, subkey, res=0, sam=rwinreg.KEY_READ):
+@unwrap_spec(sub_key=str, reserved=int, access=rffi.r_uint)
+def OpenKey(space, w_key, sub_key, reserved=0, access=rwinreg.KEY_READ):
     """key = OpenKey(key, sub_key, res = 0, sam = KEY_READ) - Opens the specified key.
 
 key is an already open key, or any one of the predefined HKEY_* constants.
@@ -539,9 +533,9 @@ sam is an integer that specifies an access mask that describes the desired
 
 The result is a new handle to the specified key
 If the function fails, an EnvironmentError exception is raised."""
-    hkey = hkey_w(w_hkey, space)
+    hkey = hkey_w(w_key, space)
     with lltype.scoped_alloc(rwinreg.PHKEY.TO, 1) as rethkey:
-        ret = rwinreg.RegOpenKeyEx(hkey, subkey, res, sam, rethkey)
+        ret = rwinreg.RegOpenKeyEx(hkey, sub_key, reserved, access, rethkey)
         if ret != 0:
             raiseWindowsError(space, ret, 'RegOpenKeyEx')
         return space.wrap(W_HKEY(rethkey[0]))
@@ -720,8 +714,8 @@ def QueryReflectionKey(space, w_key):
     raise OperationError(space.w_NotImplementedError, space.wrap(
         "not implemented on this platform"))
 
-@unwrap_spec(subkey=str)
-def DeleteKeyEx(space, w_key, subkey):
+@unwrap_spec(sub_key=str, reserved=int, access=rffi.r_uint)
+def DeleteKeyEx(space, w_key, sub_key, reserved=0, access=rwinreg.KEY_WOW64_64KEY):
     """DeleteKeyEx(key, sub_key, sam, res) - Deletes the specified key.
 
     key is an already open key, or any one of the predefined HKEY_* constants.

@@ -9,11 +9,11 @@ import zipfile
 
 TESTFN = '@test'
 
-created_paths = dict.fromkeys(['_top_level',
-                     os.path.join('_pkg', '__init__'),
-                     os.path.join('_pkg', 'submodule'),
-                     os.path.join('_pkg', '_subpkg', '__init__'),
-                     os.path.join('_pkg', '_subpkg', 'submodule')
+created_paths = dict.fromkeys([u'_top_level',
+                     os.path.join(u'_pkg', '__init__'),
+                     os.path.join(u'_pkg', 'submodule'),
+                     os.path.join(u'_pkg', '_subpkg', '__init__'),
+                     os.path.join(u'_pkg', '_subpkg', 'submodule')
                                ])
 
 

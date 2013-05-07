@@ -3,16 +3,14 @@ import py, os, sys
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.lltypesystem import rffi
 from rpython.rlib import libffi, rdynload
 
-from pypy.module.itertools import interp_itertools
 
-
-__all__ = ['identify', 'eci', 'c_load_dictionary']
+__all__ = ['identify', 'std_string_name', 'eci', 'c_load_dictionary']
 
 pkgpath = py.path.local(__file__).dirpath().join(os.pardir)
 srcpath = pkgpath.join("src")
@@ -36,8 +34,10 @@ def identify():
 
 ts_reflect = False
 ts_call    = False
-ts_memory  = 'auto'
-ts_helper  = 'auto'
+ts_memory  = False
+ts_helper  = False
+
+std_string_name = 'string'
 
 # force loading in global mode of core libraries, rather than linking with
 # them as PyPy uses various version of dlopen in various places; note that
@@ -120,7 +120,7 @@ def ttree_Branch(space, w_self, args_w):
             classname = space.str_w(args_w[1])
             addr_idx  = 2
             w_address = args_w[addr_idx]
-        except OperationError:
+        except (OperationError, TypeError):
             addr_idx  = 1
             w_address = args_w[addr_idx]
 
@@ -138,14 +138,14 @@ def ttree_Branch(space, w_self, args_w):
         # call the helper stub to by-pass CINT
         vbranch = _ttree_Branch(vtree, branchname, klassname, address, bufsize, splitlevel)
         branch_class = interp_cppyy.scope_byname(space, "TBranch")
-        w_branch = interp_cppyy.wrap_cppobject(
-            space, space.w_None, branch_class, vbranch, isref=False, python_owns=False)
+        w_branch = interp_cppyy.wrap_cppobject(space, vbranch, branch_class)
         return w_branch
-    except (OperationError, TypeError, IndexError), e:
+    except (OperationError, TypeError, IndexError):
         pass
 
     # return control back to the original, unpythonized overload
-    return tree_class.get_overload("Branch").call(w_self, args_w)
+    ol = tree_class.get_overload("Branch")
+    return ol.call(w_self, args_w)
 
 def activate_branch(space, w_branch):
     w_branches = space.call_method(w_branch, "GetListOfBranches")
@@ -155,6 +155,12 @@ def activate_branch(space, w_branch):
     space.call_method(w_branch, "SetStatus", space.wrap(1))
     space.call_method(w_branch, "ResetReadEntry")
 
+c_ttree_GetEntry = rffi.llexternal(
+    "cppyy_ttree_GetEntry",
+    [rffi.VOIDP, rffi.LONGLONG], rffi.LONGLONG,
+    threadsafe=False,
+    compilation_info=eci)
+
 @unwrap_spec(args_w='args_w')
 def ttree_getattr(space, w_self, args_w):
     """Specialized __getattr__ for TTree's that allows switching on/off the
@@ -163,28 +169,75 @@ def ttree_getattr(space, w_self, args_w):
     from pypy.module.cppyy import interp_cppyy
     tree = space.interp_w(interp_cppyy.W_CPPInstance, w_self)
 
-    # setup branch as a data member and enable it for reading
     space = tree.space            # holds the class cache in State
+
+    # prevent recursion
+    attr = space.str_w(args_w[0])
+    if attr and attr[0] == '_':
+        raise OperationError(space.w_AttributeError, args_w[0])
+
+    # try the saved cdata (for builtin types)
+    try:
+        w_cdata = space.getattr(w_self, space.wrap('_'+attr))
+        from pypy.module._cffi_backend import cdataobj
+        cdata = space.interp_w(cdataobj.W_CData, w_cdata, can_be_None=False)
+        return cdata.convert_to_object()
+    except OperationError:
+        pass
+
+    # setup branch as a data member and enable it for reading
     w_branch = space.call_method(w_self, "GetBranch", args_w[0])
-    w_klassname = space.call_method(w_branch, "GetClassName")
-    klass = interp_cppyy.scope_byname(space, space.str_w(w_klassname))
-    w_obj = klass.construct()
-    #space.call_method(w_branch, "SetStatus", space.wrap(1)) 
+    if not space.is_true(w_branch):
+        raise OperationError(space.w_AttributeError, args_w[0])
     activate_branch(space, w_branch)
-    space.call_method(w_branch, "SetObject", w_obj)
-    space.call_method(w_branch, "GetEntry", space.wrap(0))
-    space.setattr(w_self, args_w[0], w_obj)
-    return w_obj
 
-class W_TTreeIter(Wrappable):
+    # figure out from where we're reading
+    entry = space.int_w(space.call_method(w_self, "GetReadEntry"))
+    if entry == -1:
+        entry = 0
+
+    # setup cache structure
+    w_klassname = space.call_method(w_branch, "GetClassName")
+    if space.is_true(w_klassname):
+        # some instance
+        klass = interp_cppyy.scope_byname(space, space.str_w(w_klassname))
+        w_obj = klass.construct()
+        space.call_method(w_branch, "SetObject", w_obj)
+        space.call_method(w_branch, "GetEntry", space.wrap(entry))
+        space.setattr(w_self, args_w[0], w_obj)
+        return w_obj
+    else:
+        # builtin data
+        w_leaf = space.call_method(w_self, "GetLeaf", args_w[0])
+        space.call_method(w_branch, "GetEntry", space.wrap(entry))
+
+        # location
+        w_address = space.call_method(w_leaf, "GetValuePointer")
+        buf = space.buffer_w(w_address)
+        from pypy.module._rawffi import buffer
+        assert isinstance(buf, buffer.RawFFIBuffer)
+        address = rffi.cast(rffi.CCHARP, buf.datainstance.ll_buffer)
+
+        # placeholder
+        w_typename = space.call_method(w_leaf, "GetTypeName" )
+        from pypy.module.cppyy import capi
+        typename = capi.c_resolve_name(space, space.str_w(w_typename))
+        if typename == 'bool': typename = '_Bool'
+        w_address = space.call_method(w_leaf, "GetValuePointer")
+        from pypy.module._cffi_backend import cdataobj, newtype
+        cdata = cdataobj.W_CData(space, address, newtype.new_primitive_type(space, typename))
+
+        # cache result
+        space.setattr(w_self, space.wrap('_'+attr), space.wrap(cdata))
+        return space.getattr(w_self, args_w[0])
+
+class W_TTreeIter(W_Root):
     def __init__(self, space, w_tree):
-
         from pypy.module.cppyy import interp_cppyy
         tree = space.interp_w(interp_cppyy.W_CPPInstance, w_tree)
-        self.tree = tree.get_cppthis(tree.cppclass)
+        self.vtree = rffi.cast(rffi.VOIDP, tree.get_cppthis(tree.cppclass))
         self.w_tree = w_tree
 
-        self.getentry = tree.cppclass.get_overload("GetEntry").functions[0]
         self.current  = 0
         self.maxentry = space.int_w(space.call_method(w_tree, "GetEntriesFast"))
 
@@ -198,7 +251,7 @@ class W_TTreeIter(Wrappable):
         if self.current == self.maxentry:
             raise OperationError(self.space.w_StopIteration, self.space.w_None)
         # TODO: check bytes read?
-        self.getentry.call(self.tree, [self.space.wrap(self.current)])
+        c_ttree_GetEntry(self.vtree, self.current)
         self.current += 1 
         return self.w_tree
 

@@ -1,3 +1,4 @@
+from pypy.interpreter.error import OperationError
 from pypy.module.cpyext.api import cpython_api, Py_buffer
 from pypy.module.cpyext.pyobject import PyObject, from_ref
 from pypy.module.cpyext.buffer import CBuffer
@@ -14,6 +15,9 @@ def PyMemoryView_FromBuffer(space, view):
     The memoryview object then owns the buffer represented by view, which
     means you shouldn't try to call PyBuffer_Release() yourself: it
     will be done on deallocation of the memoryview object."""
+    if not view.c_buf:
+        msg = "cannot make memory view from a buffer with a NULL data pointer"
+        raise OperationError(space.w_ValueError, space.wrap(msg))
     w_obj = from_ref(space, view.c_obj)
     buf = CBuffer(space, view.c_buf, view.c_len, w_obj)
     return space.wrap(W_MemoryView(space.wrap(buf)))

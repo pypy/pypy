@@ -43,6 +43,15 @@ class AppTestRCTime:
         assert isinstance(res, str)
         rctime.ctime(rctime.time())
         raises(ValueError, rctime.ctime, 1E200)
+        for year in [-100, 100, 1000, 2000, 10000]:
+            try:
+                testval = rctime.mktime((year, 1, 10) + (0,)*6)
+            except (ValueError, OverflowError):
+                # If mktime fails, ctime will fail too.  This may happen
+                # on some platforms.
+                pass
+            else:
+                assert rctime.ctime(testval)[20:] == str(year)
 
     def test_gmtime(self):
         import time as rctime
@@ -129,6 +138,7 @@ class AppTestRCTime:
         raises(TypeError, rctime.asctime, (1, 2))
         raises(TypeError, rctime.asctime, (1, 2, 3, 4, 5, 6, 'f', 8, 9))
         raises(TypeError, rctime.asctime, "foo")
+        raises(ValueError, rctime.asctime, (1900, -1, 1, 0, 0, 0, 0, 1, -1))
         res = rctime.asctime()
         assert isinstance(res, str)
         rctime.asctime(rctime.localtime())
@@ -138,6 +148,39 @@ class AppTestRCTime:
             assert rctime.ctime(t) != rctime.asctime(rctime.gmtime(t))
         ltime = rctime.localtime()
         assert rctime.asctime(tuple(ltime)) == rctime.asctime(ltime)
+
+    def test_asctime_large_year(self):
+        import time as rctime
+        assert rctime.asctime((12345,) +
+                              (0,) * 8) == 'Mon Jan  1 00:00:00 12345'
+        assert rctime.asctime((123456789,) +
+                              (0,) * 8) == 'Mon Jan  1 00:00:00 123456789'
+        sizeof_int = 4
+        bigyear = (1 << 8 * sizeof_int - 1) - 1
+        asc = rctime.asctime((bigyear, 6, 1) + (0,)*6)
+        assert asc[-len(str(bigyear)):] == str(bigyear)
+        raises(OverflowError, rctime.asctime, (bigyear + 1,) + (0,)*8)
+
+    def test_accept2dyear_access(self):
+        import time as rctime
+
+        accept2dyear = rctime.accept2dyear
+        del rctime.accept2dyear
+        try:
+            assert rctime.asctime((12345,) + (0,) * 8).split()[-1] == '12345'
+        finally:
+            rctime.accept2dyear = accept2dyear
+
+    def test_accept2dyear_bad(self):
+        import time as rctime
+        class X:
+            def __bool__(self):
+                raise RuntimeError('boo')
+        orig, rctime.accept2dyear = rctime.accept2dyear, X()
+        try:
+            raises(RuntimeError, rctime.asctime, (200,)  + (0,) * 8)
+        finally:
+            rctime.accept2dyear = orig
 
     def test_struct_time(self):
         import time as rctime

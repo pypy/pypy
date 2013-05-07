@@ -4,11 +4,14 @@
 class AppTestExc(object):
     spaceconfig = dict(usemodules=('exceptions',))
 
+    def setup_class(cls):
+        cls.w_file = cls.space.wrap(__file__)
+
     def test_baseexc(self):
         assert str(BaseException()) == ''
         assert repr(BaseException()) == 'BaseException()'
-        assert BaseException().message == ''
-        assert BaseException(3).message == 3
+        raises(AttributeError, getattr, BaseException(), 'message')
+        raises(AttributeError, getattr, BaseException(3), 'message')
         assert repr(BaseException(3)) == 'BaseException(3,)'
         assert str(BaseException(3)) == '3'
         assert BaseException().args == ()
@@ -16,16 +19,14 @@ class AppTestExc(object):
         assert BaseException(3, "x").args == (3, "x")
         assert repr(BaseException(3, "x")) == "BaseException(3, 'x')"
         assert str(BaseException(3, "x")) == "(3, 'x')"
-        assert BaseException(3, "x").message == ''
+        raises(AttributeError, getattr, BaseException(3, "x"), 'message')
         x = BaseException()
         x.xyz = 3
         assert x.xyz == 3
         x.args = [42]
         assert x.args == (42,)
         assert str(x) == '42'
-        assert x[0] == 42
-        x.args = (1, 2, 3)
-        assert x[1:2] == (2,)
+        raises(TypeError, 'x[0] == 42')
         x.message = "xyz"
         assert x.message == "xyz"
         del x.message
@@ -68,7 +69,6 @@ class AppTestExc(object):
         assert ut.end == 5
         assert ut.reason == 'bah'
         assert ut.args == ('x', 1, 5, 'bah')
-        assert ut.message == ''
         ut.object = 'y'
         assert ut.object == 'y'
         assert str(ut) == "can't translate characters in position 1-4: bah"
@@ -148,7 +148,6 @@ class AppTestExc(object):
         assert ue.end == 5
         assert ue.reason == 'bah'
         assert ue.args == ('x', 'y', 1, 5, 'bah')
-        assert ue.message == ''
         ue.object = 'z9'
         assert ue.object == 'z9'
         assert str(ue) == "'x' codec can't encode characters in position 1-4: bah"
@@ -193,8 +192,8 @@ class AppTestExc(object):
         assert not isinstance(c, KeyError)
 
     def test_doc_and_module(self):
-        import __exceptions__
-        for name, e in __exceptions__.__dict__.items():
+        import builtins
+        for name, e in builtins.__dict__.items():
             if isinstance(e, type) and issubclass(e, BaseException):
                 assert e.__doc__, e
                 assert e.__module__ == 'builtins', e
@@ -224,7 +223,7 @@ class AppTestExc(object):
         assert e1.__cause__ is e2
         e1.__cause__ = None
         raises(TypeError, setattr, e1, '__cause__', 1)
-        raises(AttributeError, delattr, e1, '__cause__')
+        raises((AttributeError, TypeError), delattr, e1, '__cause__')
 
     def test_context(self):
         e1 = TypeError()
@@ -234,7 +233,7 @@ class AppTestExc(object):
         assert e1.__context__ is e2
         e1.__context__ = None
         raises(TypeError, setattr, e1, '__context__', 1)
-        raises(AttributeError, delattr, e1, '__context__')
+        raises((AttributeError, TypeError), delattr, e1, '__context__')
 
     def test_traceback(self):
         assert ValueError().with_traceback(None).__traceback__ is None
@@ -250,3 +249,15 @@ class AppTestExc(object):
     def test_set_traceback(self):
         e = Exception()
         raises(TypeError, "e.__traceback__ = 42")
+
+    def test_errno_ENOTDIR(self):
+        # CPython issue #12802: "not a directory" errors are ENOTDIR
+        # even on Windows
+        import os
+        import errno
+        try:
+            os.listdir(self.file)
+        except OSError as e:
+            assert e.errno == errno.ENOTDIR
+        else:
+            assert False, "Expected OSError"
