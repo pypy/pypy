@@ -42,13 +42,14 @@ class AppTestRandom:
         rnd1.setstate((-1, ) * 624 + (0, ))
 
     def test_seed(self):
-        import _random
+        import _random, sys
         rnd = _random.Random()
         rnd.seed()
         different_nums = []
+        mask = sys.maxint * 2 + 1
         for obj in ["spam and eggs", 3.14, 1+2j, 'a', tuple('abc')]:
             nums = []
-            for o in [obj, hash(obj), -hash(obj)]:
+            for o in [obj, hash(obj) & mask, -(hash(obj) & mask)]:
                 rnd.seed(o)
                 nums.append([rnd.random() for i in range(100)])
             n1 = nums[0]

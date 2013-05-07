@@ -10,31 +10,31 @@ class ProcessorAutodetectError(Exception):
     pass
 
 
-def detect_main_model_and_size_from_platform():
+MODEL_X86         = 'x86'
+MODEL_X86_NO_SSE2 = 'x86-without-sse2'
+MODEL_X86_64      = 'x86-64'
+MODEL_ARM         = 'arm'
+MODEL_PPC_64      = 'ppc-64'
+# don't use '_' in the model strings; they are replaced by '-'
+
+
+def detect_model_from_c_compiler():
     # based on http://sourceforge.net/p/predef/wiki/Architectures/
     mapping = {
-            ('x86', '64'): [
-                '__amd64__', '__amd64', '__x86_64__', '__x86_64',  # AMD64
-                ],
-            ('arm', '32'): ['__arm__', '__thumb__'],
-            ('x86', '32'): ['i386', '__i386', '__i386__', '__i686__',],
-            ('ppc', '64'): ['__powerpc64__'],
+        MODEL_X86_64: ['__amd64__', '__amd64', '__x86_64__', '__x86_64'],
+        MODEL_ARM:    ['__arm__', '__thumb__'],
+        MODEL_X86:    ['i386', '__i386', '__i386__', '__i686__'],
+        MODEL_PPC_64: ['__powerpc64__'],
     }
     for k, v in mapping.iteritems():
         for macro in v:
             if not getdefined(macro, ''):
                 continue
-            return '_'.join(k)
+            return k
     raise ProcessorAutodetectError, "Cannot detect processor using compiler macros"
 
 
-def detect_main_model_from_platform():
-    return detect_main_model_and_size_from_platform()[0]
-
-
-def autodetect_main_model():
-    if not is_host_build():
-        return detect_main_model_from_platform()
+def detect_model_from_host_platform():
     mach = None
     try:
         import platform
@@ -44,67 +44,64 @@ def autodetect_main_model():
     if not mach:
         platform = sys.platform.lower()
         if platform.startswith('win'):   # assume an Intel Windows
-            return 'x86'
+            return MODEL_X86
         # assume we have 'uname'
         mach = os.popen('uname -m', 'r').read().strip()
         if not mach:
             raise ProcessorAutodetectError, "cannot run 'uname -m'"
-    try:
-        return {'i386': 'x86',
-                'i486': 'x86',
-                'i586': 'x86',
-                'i686': 'x86',
-                'i86pc': 'x86',    # Solaris/Intel
-                'x86':   'x86',    # Apple
-                'Power Macintosh': 'ppc',
-                'x86_64': 'x86',
-                'amd64': 'x86',    # freebsd
-                'AMD64': 'x86',    # win64
-                'armv7l': 'arm',
-                'armv6l': 'arm',
-                }[mach]
-    except KeyError:
-        return mach
+    #
+    result ={'i386': MODEL_X86,
+            'i486': MODEL_X86,
+            'i586': MODEL_X86,
+            'i686': MODEL_X86,
+            'i86pc': MODEL_X86,    # Solaris/Intel
+            'x86': MODEL_X86,      # Apple
+            'Power Macintosh': MODEL_PPC_64,
+            'x86_64': MODEL_X86,
+            'amd64': MODEL_X86,    # freebsd
+            'AMD64': MODEL_X86,    # win64
+            'armv7l': MODEL_ARM,
+            'armv6l': MODEL_ARM,
+            }[mach]
+    #
+    if result.startswith('x86'):
+        if sys.maxint == 2**63-1:
+            result = MODEL_X86_64
+        else:
+            assert sys.maxint == 2**31-1
+            from rpython.jit.backend.x86.detect_sse2 import detect_sse2
+            if detect_sse2():
+                result = MODEL_X86
+            else:
+                result = MODEL_X86_NO_SSE2
+    #
+    if result.startswith('arm'):
+        from rpython.jit.backend.arm.detect import detect_float
+        assert detect_float(), 'the JIT-compiler requires a vfp unit'
+    #
+    return result
 
-def autodetect_main_model_and_size():
-    if not is_host_build():
-        return detect_main_model_and_size_from_platform()
-    model = autodetect_main_model()
-    if sys.maxint == 2**31-1:
-        model += '_32'
-    elif sys.maxint == 2**63-1:
-        model += '_64'
-    else:
-        raise AssertionError, "bad value for sys.maxint"
-    return model
 
 def autodetect():
-    model = autodetect_main_model()
-    if sys.maxint == 2**63-1:
-        model += '_64'
+    if not is_host_build():
+        return detect_model_from_c_compiler()
     else:
-        assert sys.maxint == 2**31-1
-        if model == 'x86':
-            from rpython.jit.backend.x86.detect_sse2 import detect_sse2
-            if not detect_sse2():
-                model = 'x86-without-sse2'
-    if model.startswith('arm'):
-        from rpython.jit.backend.arm.detect import detect_hardfloat, detect_float
-        assert detect_float(), 'the JIT-compiler requires a vfp unit'
-    return model
+        return detect_model_from_host_platform()
+
 
 def getcpuclassname(backend_name="auto"):
     if backend_name == "auto":
         backend_name = autodetect()
-    if backend_name == 'x86':
+    backend_name = backend_name.replace('_', '-')
+    if backend_name == MODEL_X86:
         return "rpython.jit.backend.x86.runner", "CPU"
-    elif backend_name == 'x86-without-sse2':
+    elif backend_name == MODEL_X86_NO_SSE2:
         return "rpython.jit.backend.x86.runner", "CPU386_NO_SSE2"
-    elif backend_name == 'x86_64':
+    elif backend_name == MODEL_X86_64:
         return "rpython.jit.backend.x86.runner", "CPU_X86_64"
-    elif backend_name == 'cli':
-        return "rpython.jit.backend.cli.runner", "CliCPU"
-    elif backend_name.startswith('arm'):
+    #elif backend_name == 'cli':
+    #    return "rpython.jit.backend.cli.runner", "CliCPU"
+    elif backend_name == MODEL_ARM:
         return "rpython.jit.backend.arm.runner", "CPU_ARM"
     else:
         raise ProcessorAutodetectError, (
@@ -115,6 +112,22 @@ def getcpuclass(backend_name="auto"):
     mod = __import__(modname, {}, {}, clsname)
     return getattr(mod, clsname)
 
+
+def getcpufeatures(backend_name="auto"):
+    """NOT_RPYTHON"""
+    cpucls = getcpuclass(backend_name)
+    return [attr[len('supports_'):] for attr in dir(cpucls)
+                            if attr.startswith('supports_')
+                                and getattr(cpucls, attr)]
+
 if __name__ == '__main__':
-    print autodetect()
-    print getcpuclassname()
+    if len(sys.argv) > 1:
+        name = sys.argv[1]
+        x = name
+    else:
+        name = 'auto'
+        x = autodetect()
+    x = (x, getcpuclassname(name), getcpufeatures(name))
+    print 'autodetect:     ', x[0]
+    print 'getcpuclassname:', x[1]
+    print 'getcpufeatures: ', x[2]

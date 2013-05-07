@@ -147,6 +147,10 @@ def parse_options_and_load_target():
     else:
         show_help(translateconfig, opt_parser, None, config)
 
+    # print the version of the host
+    # (if it's PyPy, it includes the hg checksum)
+    log.info(sys.version)
+
     # apply the platform settings
     set_platform(config)
 

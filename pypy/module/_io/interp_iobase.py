@@ -47,7 +47,7 @@ class W_IOBase(W_Root):
         self.w_dict = space.newdict()
         self.__IOBase_closed = False
         self.streamholder = None # needed by AutoFlusher
-        get_autoflushher(space).add(self)
+        get_autoflusher(space).add(self)
 
     def getdict(self, space):
         return self.w_dict
@@ -118,7 +118,7 @@ class W_IOBase(W_Root):
             space.call_method(self, "flush")
         finally:
             self.__IOBase_closed = True
-            get_autoflushher(space).remove(self)
+            get_autoflusher(space).remove(self)
 
     def _dealloc_warn_w(self, space, w_source):
         """Called when the io is implicitly closed via the deconstructor"""
@@ -403,5 +403,5 @@ class AutoFlusher(object):
                 else:
                     streamholder.autoflush(space)
 
-def get_autoflushher(space):
+def get_autoflusher(space):
     return space.fromcache(AutoFlusher)
