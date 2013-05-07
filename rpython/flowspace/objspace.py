@@ -416,13 +416,6 @@ def make_op(oper):
         return make_impure_op(oper)
     elif name in ('id', 'hash', 'iter', 'userdel'):
         return make_impure_op(oper)
-    elif name in ('repr', 'str'):
-        rep = getattr(__builtin__, name)
-        def func(obj):
-            s = rep(obj)
-            if "at 0x" in s:
-                print >>sys.stderr, "Warning: captured address may be awkward"
-            return s
     else:
         func = oper.pyfunc
         arithmetic = hasattr(operation.op, name + '_ovf')
