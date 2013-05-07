@@ -42,7 +42,7 @@ Index of various topics:
 
 * `Release 2.0 beta 2`_: the latest official release
 
-* `PyPy Blog`_: news and status info about PyPy 
+* `PyPy Blog`_: news and status info about PyPy
 
 * `Papers`_: Academic papers, talks, and related projects
 
@@ -51,18 +51,18 @@ Index of various topics:
 * `potential project ideas`_: In case you want to get your feet wet...
 
 * `more stuff`_: this is a collection of documentation that's there, but not
-  particularly organized 
+  particularly organized
 
 Documentation for the PyPy Python Interpreter
 =============================================
 
-New features of PyPy's Python Interpreter and 
-Translation Framework: 
+New features of PyPy's Python Interpreter and
+Translation Framework:
 
   * `Differences between PyPy and CPython`_
   * `What PyPy can do for your objects`_ - transparent proxy documentation
   * `Continulets and greenlets`_ - documentation about stackless features
-  * `JIT Generation in PyPy`_ 
+  * `JIT Generation in PyPy`_
   * `JIT hooks`_
   * `Sandboxing Python code`_
   * `Garbage collection environment variables`_
@@ -79,14 +79,14 @@ Mailing lists, bug tracker, IRC channel
 =============================================
 
 * `Development mailing list`_: development and conceptual
-  discussions. 
+  discussions.
 
 * `Mercurial commit mailing list`_: updates to code and
-  documentation. 
+  documentation.
 
-* `Development bug/feature tracker`_: filing bugs and feature requests. 
+* `Development bug/feature tracker`_: filing bugs and feature requests.
 
-* **IRC channel #pypy on freenode**: Many of the core developers are hanging out 
+* **IRC channel #pypy on freenode**: Many of the core developers are hanging out
   at #pypy on irc.freenode.net.  You are welcome to join and ask questions
   (if they are not already developed in the FAQ_).
   You can find logs of the channel here_.
@@ -100,7 +100,7 @@ anyone interested in the project.  Watch out for sprint announcements
 on the `development mailing list`_.
 
 .. _Python: http://docs.python.org/index.html
-.. _`more...`: architecture.html#mission-statement 
+.. _`more...`: architecture.html#mission-statement
 .. _`PyPy blog`: http://morepypy.blogspot.com/
 .. _`development bug/feature tracker`: https://bugs.pypy.org
 .. _here: http://tismerysoft.de/pypy/irc-logs/pypy
