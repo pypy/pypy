@@ -83,6 +83,7 @@ if not _WIN32:
         # platforms, just disable it when we've passed --shared
         if config.translation.shared:
             eci.link_files = ()
+            eci.libraries = ('ffi',)
 
     def find_libffi_a():
         dirlist = platform.library_dirs_for_libffi_a()

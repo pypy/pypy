@@ -2,7 +2,9 @@ import contextlib
 import py
 import sys, os
 from rpython.rlib import exports
+from rpython.rlib.entrypoint import entrypoint
 from rpython.rtyper.typesystem import getfunctionptr
+from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.tool import runsubprocess
 from rpython.tool.nullpath import NullPyPathLocal
 from rpython.tool.udir import udir
@@ -257,8 +259,7 @@ class CBuilder(object):
             if self.config.translation.shared:
                 defines['PYPY_MAIN_FUNCTION'] = "pypy_main_startup"
                 self.eci = self.eci.merge(ExternalCompilationInfo(
-                    export_symbols=["pypy_main_startup",
-                                    'RPython_StartupCode']))
+                    export_symbols=["pypy_main_startup"]))
         self.eci, cfile, extra = gen_source(db, modulename, targetdir,
                                             self.eci, defines=defines,
                                             split=self.split)
@@ -725,6 +726,15 @@ def gen_preimpl(f, database):
         database, database.translator.rtyper)
     for line in preimplementationlines:
         print >> f, line
+
+# the point of dance below is so the call to rpython_startup_code actually
+# does call asm_stack_bottom
+
+RPython_StartupCode = rffi.llexternal([], lltype.Void)
+
+@entrypoint('main', [], c_name='rpython_startup_code')
+def rpython_startup_code():
+    return RPython_StartupCode()
 
 def gen_startupcode(f, database):
     # generate the start-up code and put it into a function
