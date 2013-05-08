@@ -22,6 +22,13 @@ def debug(msg):
 
 # __________  Entry point  __________
 
+
+# register the minimal equivalent of running a small piece of code. This
+# should be used as sparsely as possible, just to register callbacks
+
+def pypy_execute_source(source):
+    pass
+
 def create_entry_point(space, w_dict):
     w_entry_point = space.getitem(w_dict, space.wrap('entry_point'))
     w_run_toplevel = space.getitem(w_dict, space.wrap('run_toplevel'))
@@ -34,8 +41,8 @@ def create_entry_point(space, w_dict):
             from rpython.jit.backend.hlinfo import highleveljitinfo
             highleveljitinfo.sys_executable = argv[0]
 
-        #debug("entry point starting") 
-        #for arg in argv: 
+        #debug("entry point starting")
+        #for arg in argv:
         #    debug(" argv -> " + arg)
         if len(argv) > 2 and argv[1] == '--heapsize':
             # Undocumented option, handled at interp-level.
@@ -71,6 +78,7 @@ def create_entry_point(space, w_dict):
                 debug(" operror-value: " + space.str_w(space.str(e.get_w_value(space))))
                 return 1
         return exitcode
+
     return entry_point
 
 def call_finish(space):
@@ -219,7 +227,7 @@ class PyPyTarget(object):
     def jitpolicy(self, driver):
         from pypy.module.pypyjit.policy import PyPyJitPolicy, pypy_hooks
         return PyPyJitPolicy(pypy_hooks)
-    
+
     def get_entry_point(self, config):
         from pypy.tool.lib_pypy import import_from_lib_pypy
         rebuild = import_from_lib_pypy('ctypes_config_cache/rebuild')
