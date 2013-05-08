@@ -171,8 +171,8 @@ implementations`_.
 .. _`document about the RPython toolchain`: translation.html
 .. _`garbage collector`: garbage_collection.html
 .. _`RPython toolchain`: translation.html
-.. _`standard interpreter`:
-.. _`python interpreter`:
+
+.. _python-interpreter:
 
 PyPy Python Interpreter
 -----------------------

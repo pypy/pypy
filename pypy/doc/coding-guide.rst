@@ -44,8 +44,8 @@ interpreter and create a C source, again. There are many other ways,
 but let's stick with this somewhat canonical approach.
 
 
-.. _`application-level`:
-.. _`interpreter-level`:
+.. _application-level:
+.. _interpreter-level:
 
 Application-level and interpreter-level execution and objects
 -------------------------------------------------------------

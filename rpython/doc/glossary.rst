@@ -9,13 +9,12 @@ Glossary
 
    annotator
       The component of the :term:`RPython toolchain` that performs a form
-      of :term:`type inference` on the flow graph. See the `annotator pass`_
+      of :term:`type inference` on the flow graph. See :ref:`annotator`
       in the documentation.
 
    backend
-      Code generator that converts an `RPython
-      <coding-guide.html#restricted-python>`__ program to a `target
-      language`_ using the :term:`RPython toolchain`. A backend uses either the
+      Code generator that converts an :doc:`rpython` program to a :ref:`target
+      language <try-out-the-translator>` using the :term:`RPython toolchain`. A backend uses either the
       :term:`lltypesystem` or the :term:`ootypesystem`.
 
    compile-time
@@ -28,11 +27,11 @@ Glossary
       implementation will be provided by the backend.
 
    garbage collection framework
-      Code that makes it possible to write `PyPy's garbage collectors`_
+      Code that makes it possible to write :doc:`RPython's garbage collectors <garbage_collection>`
       in Python itself.
 
-   jit
-      `just in time compiler`_.
+   JIT
+      :doc:`just in time compiler <jit/index>`.
 
    llinterpreter
       Piece of code that is able to interpret flow graphs.  This is very
@@ -63,20 +62,19 @@ Glossary
    promotion
       :term:`JIT` terminology.  *promotion* is a way of "using" a :term:`run-time`
       value at :term:`compile-time`, essentially by deferring compilation
-      until the run-time value is known. See if `the jit docs`_ help.
+      until the run-time value is known. See if :doc:`the jit docs <jit/index>` help.
 
    RPython
-      `Restricted Python`_, a limited subset of the Python_ language.
+      :ref:`rpython`, a limited subset of the Python_ language.
       The limitations make :term:`type inference` possible.
       It is also the language that the PyPy interpreter itself is written
       in.
 
    RPython toolchain
-      The `annotator pass`_, `The RPython Typer`_, and various
-      :term:`backend`\ s.
+      :ref:`annotator`, :doc:`rtyper`, and various :term:`backend`\ s.
 
    rtyper
-      Based on the type annotations, the `RPython Typer`_ turns the flow
+      Based on the type annotations, :doc:`rtyper` turns the flow
       graph into one that fits the model of the target platform/:term:`backend`
       using either the :term:`lltypesystem` or the :term:`ootypesystem`.
 
@@ -98,7 +96,7 @@ Glossary
       source is being analyzed and the JIT itself is being created.
 
    translator
-     Tool_ based on the PyPy interpreter which can translate
+     :ref:`Tool <try-out-the-translator>` based on the PyPy interpreter which can translate
      sufficiently static Python programs into low-level code.
 
    type system
@@ -108,16 +106,7 @@ Glossary
       Deduces either partially or fully the type of expressions as
       described in this `type inference article on Wikipedia`_.
       The :term:`RPython toolchain`'s flavour of type inference is described
-      in the `annotator pass`_ section.
+      in :ref:`annotator` section.
 
-.. _`just in time compiler`: jit/index.html
-.. _`the jit docs`: jit/index.html
-.. _`type inference article on Wikipedia`: http://en.wikipedia.org/wiki/Type_inference
-.. _`annotator pass`: translation.html#the-annotation-pass
-.. _`The RPython Typer`: translation.html#the-rpython-typer
-.. _`backends`: getting-started-dev.html#trying-out-the-translator
-.. _Tool: getting-started-dev.html#trying-out-the-translator
-.. _`PyPy's garbage collectors`: garbage_collection.html
-.. _`Restricted Python`: coding-guide.html#restricted-python
+.. _type inference article on Wikipedia: http://en.wikipedia.org/wiki/Type_inference
 .. _Python: http://www.python.org
-.. _`RPython Typer`: rtyper.html

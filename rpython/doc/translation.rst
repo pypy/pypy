@@ -267,7 +267,7 @@ the types and their attributes in some detail:
 .. _`document describing object spaces`: objspace.html
 
 
-.. _Annotator:
+.. _annotator:
 
 The Annotation Pass
 ===================

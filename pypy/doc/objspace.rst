@@ -1,6 +1,6 @@
-======================
-Object Spaces
-======================
+================
+The Object Space
+================
 
 .. contents::
 
@@ -9,7 +9,7 @@ Object Spaces
 .. _`Object Space`:
 
 Introduction
-================
+============
 
 The object space creates all objects and knows how to perform operations
 on the objects. You may think of an object space as being a library

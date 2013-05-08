@@ -8,7 +8,7 @@ Glossary
 .. glossary::
 
    application level
-      applevel_ code is normal Python code running on top of the PyPy or
+      :ref:`applevel<application-level>` code is normal Python code running on top of the PyPy or
       :term:`CPython` interpreter (see :term:`interpreter level`)
 
    CPython
@@ -27,7 +27,7 @@ Glossary
       :term:`application level` and :term:`interpreter level` code.
 
    object space
-      The `object space <objspace.html>`__ (often abbreviated to
+      :doc:`objspace` (often abbreviated to
       "objspace") creates all objects and knows how to perform operations
       on the objects. You may think of an object space as being a library
       offering a fixed API, a set of operations, with implementations
@@ -41,9 +41,7 @@ Glossary
       Christian Tismer's `Stackless Python <http://www.stackless.com>`__.
 
    standard interpreter
-      It is the `subsystem implementing the Python language`_, composed
+      It is the :ref:`subsystem implementing the Python language <python-interpreter>`, composed
       of the bytecode interpreter and of the standard objectspace.
 
-.. _applevel: coding-guide.html#application-level
 .. _PSF: http://www.python.org/psf/
-.. _`subsystem implementing the Python language`: architecture.html#standard-interpreter

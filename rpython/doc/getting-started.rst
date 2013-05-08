@@ -49,7 +49,7 @@ A good introductory level articles are available:
 
 .. _`part 2`: http://morepypy.blogspot.com/2011/04/tutorial-part-2-adding-jit.html
 
-.. _`try out the translator`:
+.. _try-out-the-translator:
 
 Trying out the translator
 -------------------------
