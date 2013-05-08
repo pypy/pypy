@@ -1,53 +1,52 @@
 .. _glossary:
 
-********
 Glossary
-********
+========
 
 PyPy, like any large project, has developed a jargon of its own.  This
 document gives brief definition of some of these terms and provides
 links to more information.
 
-.. if you add new entries, keep the alphabetical sorting!
+.. if you add new entries, keep the alphabetical sorting and formatting!
 
 .. glossary::
 
-    application level
-        applevel_ code is normal Python code running on top of the PyPy or
-        :term:`CPython` interpreter (see :term:`interpreter level`)
+   application level
+      applevel_ code is normal Python code running on top of the PyPy or
+      :term:`CPython` interpreter (see :term:`interpreter level`)
 
-    CPython
-        The "default" implementation of Python, written in C and
-        distributed by the PSF_ on http://www.python.org.
+   CPython
+      The "default" implementation of Python, written in C and
+      distributed by the PSF_ on http://www.python.org.
 
-    interpreter level
-        Code running at this level is part of the implementation of the
-        PyPy interpreter and cannot interact normally with :term:`application
-        level` code; it typically provides implementation for an object
-        space and its builtins.
+   interpreter level
+      Code running at this level is part of the implementation of the
+      PyPy interpreter and cannot interact normally with :term:`application
+      level` code; it typically provides implementation for an object
+      space and its builtins.
 
-    mixed module
+   mixed module
       a module that accesses PyPy's :term:`interpreter level`.  The name comes
       from the fact that the module's implementation can be a mixture of
       :term:`application level` and :term:`interpreter level` code.
 
-    object space
-       The `object space <objspace.html>`__ (often abbreviated to
-       "objspace") creates all objects and knows how to perform operations
-       on the objects. You may think of an object space as being a library
-       offering a fixed API, a set of operations, with implementations
-       that a) correspond to the known semantics of Python objects, b)
-       extend or twist these semantics, or c) serve whole-program analysis
-       purposes.
+   object space
+      The `object space <objspace.html>`__ (often abbreviated to
+      "objspace") creates all objects and knows how to perform operations
+      on the objects. You may think of an object space as being a library
+      offering a fixed API, a set of operations, with implementations
+      that a) correspond to the known semantics of Python objects, b)
+      extend or twist these semantics, or c) serve whole-program analysis
+      purposes.
 
-    stackless
-        Technology that enables various forms of non conventional control
-        flow, such as coroutines, greenlets and tasklets.  Inspired by
-        Christian Tismer's `Stackless Python <http://www.stackless.com>`__.
+   stackless
+      Technology that enables various forms of non conventional control
+      flow, such as coroutines, greenlets and tasklets.  Inspired by
+      Christian Tismer's `Stackless Python <http://www.stackless.com>`__.
 
-    standard interpreter
-       It is the `subsystem implementing the Python language`_, composed
-       of the bytecode interpreter and of the standard objectspace.
+   standard interpreter
+      It is the `subsystem implementing the Python language`_, composed
+      of the bytecode interpreter and of the standard objectspace.
 
 .. _applevel: coding-guide.html#application-level
 .. _PSF: http://www.python.org/psf/
