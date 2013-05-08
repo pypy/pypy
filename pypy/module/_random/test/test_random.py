@@ -46,7 +46,7 @@ class AppTestRandom:
         rnd = _random.Random()
         rnd.seed()
         different_nums = []
-        mask = sys.maxint * 2 + 1
+        mask = sys.maxsize * 2 + 1
         for obj in ["spam and eggs", 3.14, 1+2j, 'a', tuple('abc')]:
             nums = []
             for o in [obj, hash(obj) & mask, -(hash(obj) & mask)]:
