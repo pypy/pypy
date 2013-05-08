@@ -727,15 +727,6 @@ def gen_preimpl(f, database):
     for line in preimplementationlines:
         print >> f, line
 
-# the point of dance below is so the call to rpython_startup_code actually
-# does call asm_stack_bottom
-
-RPython_StartupCode = rffi.llexternal('RPython_StartupCode', [], lltype.Void)
-
-@entrypoint('main', [], c_name='rpython_startup_code')
-def rpython_startup_code():
-    return RPython_StartupCode()
-
 def gen_startupcode(f, database):
     # generate the start-up code and put it into a function
     print >> f, 'char *RPython_StartupCode(void) {'
