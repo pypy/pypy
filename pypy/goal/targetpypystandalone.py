@@ -23,18 +23,13 @@ def debug(msg):
 # __________  Entry point  __________
 
 
-# register the minimal equivalent of running a small piece of code. This
-# should be used as sparsely as possible, just to register callbacks
-
-def pypy_execute_source(source):
-    pass
-
 def create_entry_point(space, w_dict):
-    w_entry_point = space.getitem(w_dict, space.wrap('entry_point'))
-    w_run_toplevel = space.getitem(w_dict, space.wrap('run_toplevel'))
-    w_call_finish_gateway = space.wrap(gateway.interp2app(call_finish))
-    w_call_startup_gateway = space.wrap(gateway.interp2app(call_startup))
-    withjit = space.config.objspace.usemodules.pypyjit
+    if w_dict is not None: # for tests
+        w_entry_point = space.getitem(w_dict, space.wrap('entry_point'))
+        w_run_toplevel = space.getitem(w_dict, space.wrap('run_toplevel'))
+        w_call_finish_gateway = space.wrap(gateway.interp2app(call_finish))
+        w_call_startup_gateway = space.wrap(gateway.interp2app(call_startup))
+        withjit = space.config.objspace.usemodules.pypyjit
 
     def entry_point(argv):
         if withjit:
@@ -79,7 +74,29 @@ def create_entry_point(space, w_dict):
                 return 1
         return exitcode
 
-    return entry_point
+    # register the minimal equivalent of running a small piece of code. This
+    # should be used as sparsely as possible, just to register callbacks
+
+    from rpython.rlib.entrypoint import entrypoint
+    from rpython.rtyper.lltypesystem import rffi
+
+    @entrypoint('main', [rffi.CCHARP], c_name='pypy_execute_source')
+    def pypy_execute_source(ll_source):
+        source = rffi.charp2str(ll_source)
+        return _pypy_execute_source(source)
+
+    w_globals = space.newdict()
+
+    def _pypy_execute_source(source):
+        try:
+            space.exec_(source, w_globals, w_globals, filename='c callback')
+        except OperationError, e:
+            debug("OperationError:")
+            debug(" operror-type: " + e.w_type.getname(space))
+            debug(" operror-value: " + space.str_w(space.str(e.get_w_value(space))))
+            return 1
+
+    return entry_point, _pypy_execute_source # for tests
 
 def call_finish(space):
     space.finish()
@@ -240,7 +257,7 @@ class PyPyTarget(object):
         app = gateway.applevel(open(filename).read(), 'app_main.py', 'app_main')
         app.hidden_applevel = False
         w_dict = app.getwdict(space)
-        entry_point = create_entry_point(space, w_dict)
+        entry_point, _ = create_entry_point(space, w_dict)
 
         return entry_point, None, PyPyAnnotatorPolicy(single_space = space)
 

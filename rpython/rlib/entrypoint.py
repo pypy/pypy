@@ -4,6 +4,8 @@ secondary_entrypoints = {}
 def entrypoint(key, argtypes, c_name=None, relax=False):
     """ Note: entrypoint should call llop.gc_stack_bottom on it's own.
     That's necessary for making it work with asmgcc and hence JIT
+
+    if key == 'main' than it's included by default
     """
     def deco(func):
         secondary_entrypoints.setdefault(key, []).append((func, argtypes))
