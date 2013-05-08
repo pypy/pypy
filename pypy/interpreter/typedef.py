@@ -913,6 +913,7 @@ PyTraceback.typedef.acceptable_as_base_class = False
 GeneratorIterator.typedef = TypeDef("generator",
     __repr__   = interp2app(GeneratorIterator.descr__repr__),
     __reduce__   = interp2app(GeneratorIterator.descr__reduce__),
+    __setstate__ = interp2app(GeneratorIterator.descr__setstate__),
     next       = interp2app(GeneratorIterator.descr_next,
                             descrmismatch='next'),
     send       = interp2app(GeneratorIterator.descr_send,
