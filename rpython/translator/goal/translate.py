@@ -183,6 +183,13 @@ def parse_options_and_load_target():
     # perform checks (if any) on the final config
     final_check_config(config)
 
+    try:
+        from rpython.rlib import clibffi
+    except ImportError:
+        pass # too bad
+    else:
+        clibffi.setup_after_config(config)
+
     return targetspec_dic, translateconfig, config, args
 
 def show_help(translateconfig, opt_parser, targetspec_dic, config):

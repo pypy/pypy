@@ -64,6 +64,9 @@ if _WIN32:
 else:
     separate_module_sources = []
 
+def setup_after_config(config):
+    pass
+
 if not _WIN32:
     # On some platforms, we try to link statically libffi, which is small
     # anyway and avoids endless troubles for installing.  On other platforms
@@ -72,8 +75,12 @@ if not _WIN32:
 
     if _MAC_OS:
         pre_include_bits = ['#define MACOSX']
-    else: 
+    else:
         pre_include_bits = []
+
+    def setup_after_config(config):
+        if config.translation.shared:
+            eci.link_files = []
 
     def find_libffi_a():
         dirlist = platform.library_dirs_for_libffi_a()
@@ -357,7 +364,7 @@ CALLBACK_TP = rffi.CCallback([FFI_CIFP, rffi.VOIDP, rffi.VOIDPP, rffi.VOIDP],
                              lltype.Void)
 c_ffi_prep_closure = external('ffi_prep_closure', [FFI_CLOSUREP, FFI_CIFP,
                                                    CALLBACK_TP, rffi.VOIDP],
-                              rffi.INT)            
+                              rffi.INT)
 
 FFI_STRUCT_P = lltype.Ptr(lltype.Struct('FFI_STRUCT',
                                         ('ffistruct', FFI_TYPE_P.TO),
