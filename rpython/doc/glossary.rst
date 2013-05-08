@@ -65,7 +65,7 @@ Glossary
       until the run-time value is known. See if :doc:`the jit docs <jit/index>` help.
 
    RPython
-      :ref:`rpython`, a limited subset of the Python_ language.
+      :doc:`rpython`, a limited subset of the Python_ language.
       The limitations make :term:`type inference` possible.
       It is also the language that the PyPy interpreter itself is written
       in.

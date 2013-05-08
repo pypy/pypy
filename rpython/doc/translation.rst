@@ -85,7 +85,7 @@ steps (see also the figure below):
 (although these steps are not quite as distinct as you might think from
 this presentation).
 
-There is an :ref:`interactive interface <try out the translator>` called :source:`rpython/bin/translatorshell.py` to the
+There is an :ref:`interactive interface <try-out-the-translator>` called :source:`rpython/bin/translatorshell.py` to the
 translation process which allows you to interactively work through these
 stages.
 
