@@ -112,7 +112,7 @@ class CCompilerDriver(object):
             str(exename), args))
         profdrv.probe(exename, args)
         return profdrv.after()
-    
+
 class CBuilder(object):
     c_source_filename = None
     _compiled = False
@@ -149,7 +149,7 @@ class CBuilder(object):
                               thread_enabled=self.config.translation.thread,
                               sandbox=self.config.translation.sandbox)
         self.db = db
-        
+
         # give the gc a chance to register interest in the start-up functions it
         # need (we call this for its side-effects of db.get())
         list(db.gcpolicy.gc_startup_code())
@@ -257,7 +257,8 @@ class CBuilder(object):
             if self.config.translation.shared:
                 defines['PYPY_MAIN_FUNCTION'] = "pypy_main_startup"
                 self.eci = self.eci.merge(ExternalCompilationInfo(
-                    export_symbols=["pypy_main_startup"]))
+                    export_symbols=["pypy_main_startup",
+                                    'RPython_StartupCode']))
         self.eci, cfile, extra = gen_source(db, modulename, targetdir,
                                             self.eci, defines=defines,
                                             split=self.split)
@@ -622,7 +623,7 @@ class SourceGenerator:
             if self.database.gcpolicy.need_no_typeptr():
                 pass    # XXX gcc uses toooooons of memory???
             else:
-                split_criteria_big = SPLIT_CRITERIA * 4 
+                split_criteria_big = SPLIT_CRITERIA * 4
 
         #
         # All declarations
