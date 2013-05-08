@@ -82,7 +82,7 @@ if not _WIN32:
         # a crude hack - libffi.a might be compiled without -fPIC on certain
         # platforms, just disable it when we've passed --shared
         if config.translation.shared:
-            eci.link_files = []
+            eci.link_files = ()
 
     def find_libffi_a():
         dirlist = platform.library_dirs_for_libffi_a()
