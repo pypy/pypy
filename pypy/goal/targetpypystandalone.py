@@ -86,15 +86,20 @@ def create_entry_point(space, w_dict):
         return _pypy_execute_source(source)
 
     w_globals = space.newdict()
+    space.setitem(w_globals, space.wrap('__builtins__'),
+                  space.builtin_modules['__builtin__'])
 
     def _pypy_execute_source(source):
         try:
-            space.exec_(source, w_globals, w_globals, filename='c callback')
+            compiler = space.createcompiler()
+            stmt = compiler.compile(source, 'c callback', 'exec', 0)
+            stmt.exec_code(space, w_globals, w_globals)
         except OperationError, e:
             debug("OperationError:")
             debug(" operror-type: " + e.w_type.getname(space))
             debug(" operror-value: " + space.str_w(space.str(e.get_w_value(space))))
             return 1
+        return 0
 
     return entry_point, _pypy_execute_source # for tests
 
