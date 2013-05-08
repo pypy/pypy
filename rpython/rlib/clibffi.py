@@ -79,6 +79,8 @@ if not _WIN32:
         pre_include_bits = []
 
     def setup_after_config(config):
+        # a crude hack - libffi.a might be compiled without -fPIC on certain
+        # platforms, just disable it when we've passed --shared
         if config.translation.shared:
             eci.link_files = []
 
