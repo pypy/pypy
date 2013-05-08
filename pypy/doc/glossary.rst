@@ -3,10 +3,6 @@
 Glossary
 ========
 
-PyPy, like any large project, has developed a jargon of its own.  This
-document gives brief definition of some of these terms and provides
-links to more information.
-
 .. if you add new entries, keep the alphabetical sorting and formatting!
 
 .. glossary::
