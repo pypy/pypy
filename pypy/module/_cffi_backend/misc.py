@@ -235,10 +235,16 @@ def _standard_object_as_bool(space, w_ob):
 eci = ExternalCompilationInfo(post_include_bits=["""
 #define pypy__is_nonnull_longdouble(x)  ((x) != 0.0)
 """])
-is_nonnull_longdouble = rffi.llexternal(
+_is_nonnull_longdouble = rffi.llexternal(
     "pypy__is_nonnull_longdouble", [rffi.LONGDOUBLE], lltype.Bool,
     compilation_info=eci, _nowrapper=True, elidable_function=True,
     sandboxsafe=True)
+
+# split here for JIT backends that don't support floats/longlongs/etc.
+def is_nonnull_longdouble(cdata):
+    return _is_nonnull_longdouble(read_raw_longdouble_data(cdata))
+def is_nonnull_float(cdata, size):
+    return read_raw_float_data(cdata, size) != 0.0
 
 def object_as_bool(space, w_ob):
     # convert and cast a Python object to a boolean.  Accept an integer
@@ -254,10 +260,9 @@ def object_as_bool(space, w_ob):
     is_cdata = isinstance(w_ob, W_CData)
     if is_cdata and isinstance(w_ob.ctype, W_CTypePrimitiveFloat):
         if isinstance(w_ob.ctype, W_CTypePrimitiveLongDouble):
-            result = is_nonnull_longdouble(
-                read_raw_longdouble_data(w_ob._cdata))
+            result = is_nonnull_longdouble(w_ob._cdata)
         else:
-            result = read_raw_float_data(w_ob._cdata, w_ob.ctype.size) != 0.0
+            result = is_nonnull_float(w_ob._cdata, w_ob.ctype.size)
         keepalive_until_here(w_ob)
         return result
     #
