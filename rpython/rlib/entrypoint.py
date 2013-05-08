@@ -7,7 +7,7 @@ def entrypoint(key, argtypes, c_name=None, relax=False):
 
     if key == 'main' than it's included by default
     """
-    from rpython.translator.cbuild import ExternalCompilationInfo
+    from rpython.translator.tool.cbuild import ExternalCompilationInfo
     
     def deco(func):
         secondary_entrypoints.setdefault(key, []).append((func, argtypes))
