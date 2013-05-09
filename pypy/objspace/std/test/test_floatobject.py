@@ -95,8 +95,6 @@ class AppTestAppFloatTest:
         assert 42.0 == float(42)
 
     def test_float_hash(self):
-        # these are taken from standard Python, which produces
-        # the same but for -1.
         import math
         import sys
 

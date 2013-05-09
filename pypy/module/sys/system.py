@@ -3,6 +3,7 @@ from pypy.interpreter import gateway
 from rpython.rlib import rfloat, rbigint
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.objspace.std.floatobject import HASH_INF, HASH_MODULUS, HASH_NAN
+from pypy.objspace.std.longobject import HASH_MODULUS
 from pypy.objspace.std.complexobject import HASH_IMAG
 
 
