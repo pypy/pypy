@@ -78,34 +78,8 @@ if not _WIN32:
     else:
         pre_include_bits = []
 
-    def setup_after_config(config):
-        # a crude hack - libffi.a might be compiled without -fPIC on certain
-        # platforms, just disable it when we've passed --shared
-        if config.translation.shared:
-            eci.link_files = ()
-            eci.libraries = ('ffi',)
-
-    def find_libffi_a():
-        dirlist = platform.library_dirs_for_libffi_a()
-        for dir in dirlist:
-            result = os.path.join(dir, 'libffi.a')
-            if os.path.exists(result):
-                return result
-        log.WARNING("'libffi.a' not found in %s" % (dirlist,))
-        log.WARNING("trying to use the dynamic library instead...")
-        return None
-
-    path_libffi_a = None
-    if hasattr(platform, 'library_dirs_for_libffi_a'):
-        path_libffi_a = find_libffi_a()
-    if path_libffi_a is not None:
-        # platforms on which we want static linking
-        libraries = []
-        link_files = [path_libffi_a]
-    else:
-        # platforms on which we want dynamic linking
-        libraries = ['ffi']
-        link_files = []
+    libraries = ['ffi']
+    link_files = []
 
     eci = ExternalCompilationInfo(
         pre_include_bits = pre_include_bits,
