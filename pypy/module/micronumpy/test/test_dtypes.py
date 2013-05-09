@@ -281,9 +281,13 @@ class AppTestDtypes(BaseAppTestDtypes):
     def test_pickle_record(self):
         from numpypy import array, dtype
         from cPickle import loads, dumps
-        skip("TODO")
-        a = array(([0, 0], [0, 0]), dtype=[('x', '<i8', (2,)), ('y', '<i4', (2,))])
-        assert loads(dumps(a.dtype)) == a.dtype
+
+        d = dtype([("x", "int32"), ("y", "int32"), ("z", "int32"), ("value", float)])
+        assert d.__reduce__() == (dtype, ('V20', 0, 1), (3, '<', None, ('x', 'y', 'z', 'value'), {'y': (dtype('int32'), 4), 'x': (dtype('int32'), 0), 'z': (dtype('int32'), 8), 'value': (dtype('float64'), 12)}, 20, 1, 0))
+
+        new_d = loads(dumps(d))
+
+        assert new_d.__reduce__() == d.__reduce__()
 
 class AppTestTypes(BaseAppTestDtypes):
     def test_abstract_types(self):

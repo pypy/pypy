@@ -137,18 +137,22 @@ class W_Dtype(W_Root):
         if w_fields == space.w_None:
             self.fields = None
         else:
-            iter = space.iter(w_fields)
-            while True:
-                try:
-                    key = space.next(iter)
-                    value = space.getitem(w_fields, key)
-                    dtype = space.getitem(value, space.wrap(0))
-                    assert isinstance(dtype, W_Dtype)
-                    self.fields[space.str_w(space.next(iter))] = space.int_w(space.getitem(value, space.wrap(1))), dtype
-                except OperationError, e:
-                    if not e.match(space, space.w_StopIteration):
-                        raise
-                    break
+            ofs_and_items = []
+            size = 0
+            for key in space.listview(w_fields):
+                value = space.getitem(w_fields, key)
+
+                dtype = space.getitem(value, space.wrap(0))
+                assert isinstance(dtype, W_Dtype)
+
+                offset = space.int_w(space.getitem(value, space.wrap(1)))
+                self.fields[space.str_w(key)] = offset, dtype
+
+                ofs_and_items.append((offset, dtype.itemtype))
+                size += dtype.itemtype.get_element_size()
+
+            self.itemtype = types.RecordType(ofs_and_items, size)
+            self.name = "void" + str(8 * self.itemtype.get_element_size())
 
     def descr_get_names(self, space):
         if self.fieldnames is None:
@@ -249,11 +253,12 @@ class W_Dtype(W_Root):
 
         self.native = space.str_w(space.getitem(w_data, space.wrap(1))) == byteorder_prefix
 
-        fieldnames = space.getitem(w_data, space.wrap(2))
+        fieldnames = space.getitem(w_data, space.wrap(3))
         self.set_names(space, fieldnames)
 
-        fields = space.getitem(w_data, space.wrap(3))
+        fields = space.getitem(w_data, space.wrap(4))
         self.set_fields(space, fields)
+        print self.itemtype
 
 class W_ComplexDtype(W_Dtype):
     def __init__(self, itemtype, num, kind, name, char, w_box_type,
@@ -313,8 +318,7 @@ def variable_dtype(space, name):
         num = 20
         basename = 'void'
         w_box_type = space.gettypefor(interp_boxes.W_VoidBox)
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            "pure void dtype"))
+        return dtype_from_list(space, space.newlist([]))
     else:
         assert char == 'U'
         basename = 'unicode'
