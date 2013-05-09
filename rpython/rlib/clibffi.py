@@ -64,13 +64,8 @@ if _WIN32:
 else:
     separate_module_sources = []
 
-def setup_after_config(config):
-    pass
 
 if not _WIN32:
-    # On some platforms, we try to link statically libffi, which is small
-    # anyway and avoids endless troubles for installing.  On other platforms
-    # libffi.a is typically not there, so we link dynamically.
     includes = ['ffi.h']
 
     if _MAC_OS:
