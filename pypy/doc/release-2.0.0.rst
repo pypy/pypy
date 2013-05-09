@@ -21,7 +21,7 @@ The two biggest changes since PyPy 1.9 are:
 
 .. _`cffi`: http://cffi.readthedocs.org
 
-If you're using PyPy for anything, it would help us immensly if you fill
+If you're using PyPy for anything, it would help us immensely if you fill
 the following survey: http://bit.ly/pypysurvey This is for the developers
 eyes and we will not make any information public without your agreement.
 
