@@ -34,8 +34,8 @@ due to its integrated tracing JIT compiler.
 
 This release supports x86 machines running Linux 32/64, Mac OS X 64 or
 Windows 32.  Windows 64 work is still stalling, we would welcome a volunteer
-to handle that. ARM support is on the way and we're expecting to release
-an alpha ARM version shortly.
+to handle that. ARM support is on the way, as you can see from the recently
+released alpha for ARM.
 
 .. _`pypy 2.0 and cpython 2.7.3`: http://speed.pypy.org
 
