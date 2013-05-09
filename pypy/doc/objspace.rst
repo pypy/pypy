@@ -283,7 +283,7 @@ Data Members
    non-wrapped objects).
 
 
-.. _`standard object space`:
+.. _`standard-object-space`:
 
 The Standard Object Space
 =========================
@@ -483,7 +483,7 @@ Additionally, slicing ensures that ``5 .__add__(6L)`` correctly returns
 ``add__Long_Long`` and there is no ``add__Int_Long``), which leads to
 ``6L.__radd__(5)`` being called, as in CPython.
 
-.. _`Flow Object Space`:
+.. _flow-object-space:
 
 The Flow Object Space
 =====================

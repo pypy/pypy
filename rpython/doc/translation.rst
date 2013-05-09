@@ -100,7 +100,7 @@ The following figure gives a simplified overview (`PDF color version`_):
 .. _`Flow Object Space`: objspace.html#the-flow-object-space
 .. _`interactive interface`: getting-started-dev.html#try-out-the-translator
 
-.. _`flow model`:
+.. _`flow-model`:
 .. _`control flow graphs`:
 
 The Flow Model
@@ -436,7 +436,7 @@ course, the purpose of replacing the operation called ``add`` with
 ``int_add`` is that code generators no longer have to worry about what kind
 of addition (or concatenation maybe?) it means.
 
-.. _`optional transformations`:
+.. _`optional-transformations`:
 
 The Optional Transformations
 ============================

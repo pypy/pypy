@@ -99,6 +99,8 @@ See `Writing extension modules for PyPy`__.
 
 .. __: extending.html
 
+.. _how-fast-is-pypy:
+
 -----------------
 How fast is PyPy?
 -----------------
