@@ -4,6 +4,8 @@ PyPy 2.0 - Einstein Sandwich
 
 We're pleased to announce PyPy 2.0. This is a stable release that brings
 a swath of bugfixes, small performance improvements and compatibility fixes.
+PyPy 2.0 is a big step for us and we hope in the future we'll be able to
+provide stable releases more often.
 
 You can download the PyPy 2.0 release here:
 
@@ -18,6 +20,10 @@ The two biggest changes since PyPy 1.9 are:
   is preferred way of calling C from Python that works well on PyPy
 
 .. _`cffi`: http://cffi.readthedocs.org
+
+If you're using PyPy for anything, it would help us immensly if you fill
+the following survey: http://bit.ly/pypysurvey This is for the developers
+eyes and we will not make any information public without your agreement.
 
 What is PyPy?
 =============
