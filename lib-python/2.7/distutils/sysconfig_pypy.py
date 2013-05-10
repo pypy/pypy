@@ -122,10 +122,10 @@ def customize_compiler(compiler):
         compiler.compiler_so.extend(['-fPIC', '-Wimplicit'])
         compiler.shared_lib_extension = get_config_var('SO')
         if "CFLAGS" in os.environ:
-            cflags = os.environ["CFLAGS"]
-            compiler.compiler.append(cflags)
-            compiler.compiler_so.append(cflags)
-            compiler.linker_so.append(cflags)
+            cflags = os.environ["CFLAGS"].split()
+            compiler.compiler.extend(cflags)
+            compiler.compiler_so.extend(cflags)
+            compiler.linker_so.extend(cflags)
 
 
 from sysconfig_cpython import (
