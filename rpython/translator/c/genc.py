@@ -2,7 +2,9 @@ import contextlib
 import py
 import sys, os
 from rpython.rlib import exports
+from rpython.rlib.entrypoint import entrypoint
 from rpython.rtyper.typesystem import getfunctionptr
+from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.tool import runsubprocess
 from rpython.tool.nullpath import NullPyPathLocal
 from rpython.tool.udir import udir
@@ -112,7 +114,7 @@ class CCompilerDriver(object):
             str(exename), args))
         profdrv.probe(exename, args)
         return profdrv.after()
-    
+
 class CBuilder(object):
     c_source_filename = None
     _compiled = False
@@ -149,7 +151,7 @@ class CBuilder(object):
                               thread_enabled=self.config.translation.thread,
                               sandbox=self.config.translation.sandbox)
         self.db = db
-        
+
         # give the gc a chance to register interest in the start-up functions it
         # need (we call this for its side-effects of db.get())
         list(db.gcpolicy.gc_startup_code())
@@ -622,7 +624,7 @@ class SourceGenerator:
             if self.database.gcpolicy.need_no_typeptr():
                 pass    # XXX gcc uses toooooons of memory???
             else:
-                split_criteria_big = SPLIT_CRITERIA * 4 
+                split_criteria_big = SPLIT_CRITERIA * 4
 
         #
         # All declarations
