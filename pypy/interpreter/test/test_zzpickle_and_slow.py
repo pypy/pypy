@@ -508,16 +508,16 @@ class AppTestGeneratorCloning:
                 yield 42 + i
         g = f(4)
         g2 = copy.deepcopy(g)
-        res = g.next()
+        res = next(g)
         assert res == 42
-        res = g2.next()
+        res = next(g2)
         assert res == 42
         g3 = copy.deepcopy(g)
-        res = g.next()
+        res = next(g)
         assert res == 43
-        res = g2.next()
+        res = next(g2)
         assert res == 43
-        res = g3.next()
+        res = next(g3)
         assert res == 43
 
     def test_shallowcopy_generator(self):
@@ -533,20 +533,20 @@ class AppTestGeneratorCloning:
                 n -= 1
         g = f(2)
         g2 = copy.copy(g)
-        res = g.next()
+        res = next(g)
         assert res == 44
-        res = g2.next()
+        res = next(g2)
         assert res == 44
         g3 = copy.copy(g)
-        res = g.next()
+        res = next(g)
         assert res == 43
-        res = g2.next()
+        res = next(g2)
         assert res == 43
-        res = g3.next()
+        res = next(g3)
         assert res == 43
         g4 = copy.copy(g2)
         for i in range(2):
-            raises(StopIteration, g.next)
-            raises(StopIteration, g2.next)
-            raises(StopIteration, g3.next)
-            raises(StopIteration, g4.next)
+            raises(StopIteration, next, g)
+            raises(StopIteration, next, g2)
+            raises(StopIteration, next, g3)
+            raises(StopIteration, next, g4)
