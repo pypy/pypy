@@ -461,7 +461,7 @@ class TestInteraction:
         p = os.path.abspath(p)
         monkeypatch.chdir(os.path.dirname(app_main))
         child = self.spawn(['-i',
-                            '-m', 'test2.mymodule',
+                            '-m', 'test.mymodule',
                             'extra'])
         child.expect('mymodule running')
         child.expect('Name: __main__')
@@ -472,9 +472,9 @@ class TestInteraction:
         child.expect(re.escape(repr("foobar")))
         child.expect('>>> ')
         child.sendline('import sys')
-        child.sendline('"test2" in sys.modules')
+        child.sendline('"test" in sys.modules')
         child.expect('True')
-        child.sendline('"test2.mymodule" in sys.modules')
+        child.sendline('"test.mymodule" in sys.modules')
         child.expect('False')
         child.sendline('sys.path[0]')
         child.expect("''")
@@ -566,7 +566,7 @@ class TestInteraction:
         child.expect('hello')
 
         monkeypatch.chdir(os.path.dirname(app_main))
-        child = self.spawn(['-mtest2.mymodule'])
+        child = self.spawn(['-mtest.mymodule'])
         child.expect('mymodule running')
 
     def test_ps1_only_if_interactive(self):
@@ -671,7 +671,7 @@ class TestNonInteractive:
         p = os.path.join(os.path.realpath(os.path.dirname(__file__)), 'mymodule.py')
         p = os.path.abspath(p)
         monkeypatch.chdir(os.path.dirname(app_main))
-        data = self.run('-m test2.mymodule extra')
+        data = self.run('-m test.mymodule extra')
         assert 'mymodule running' in data
         assert 'Name: __main__' in data
         # ignoring case for windows. abspath behaves different from autopath
