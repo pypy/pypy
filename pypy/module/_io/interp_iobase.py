@@ -49,6 +49,11 @@ class W_IOBase(W_Root):
         self.streamholder = None # needed by AutoFlusher
         get_autoflusher(space).add(self)
 
+    def _unsupportedoperation(self, space, message):
+        w_exc = space.getattr(space.getbuiltinmodule('_io'),
+                              space.wrap('UnsupportedOperation'))
+        raise OperationError(w_exc, space.wrap(message))
+
     def getdict(self, space):
         return self.w_dict
 
@@ -143,6 +148,15 @@ class W_IOBase(W_Root):
 
     def seekable_w(self, space):
         return space.w_False
+
+    def seek_w(self, space, w_offset, w_whence=None):
+        self._unsupportedoperation(space, "seek")
+
+    def truncate_w(self, space, w_size=None):
+        self._unsupportedoperation(space, "truncate")
+
+    def fileno_w(self, space):
+        self._unsupportedoperation(space, "fileno")
 
     # ______________________________________________________________
 
@@ -253,6 +267,11 @@ W_IOBase.typedef = TypeDef(
     readable = interp2app(W_IOBase.readable_w),
     writable = interp2app(W_IOBase.writable_w),
     seekable = interp2app(W_IOBase.seekable_w),
+
+    seek = interp2app(W_IOBase.seek_w),
+    truncate = interp2app(W_IOBase.truncate_w),
+    fileno = interp2app(W_IOBase.fileno_w),
+
     _checkReadable = interp2app(check_readable_w),
     _checkWritable = interp2app(check_writable_w),
     _checkSeekable = interp2app(check_seekable_w),
