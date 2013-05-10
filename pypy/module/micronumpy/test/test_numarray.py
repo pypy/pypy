@@ -2546,6 +2546,8 @@ class AppTestRepr(BaseNumpyAppTest):
 
 
 class AppTestRecordDtype(BaseNumpyAppTest):
+    spaceconfig = dict(usemodules=["micronumpy", "struct", "binascii"])
+
     def test_zeros(self):
         from numpypy import zeros, integer
         a = zeros(2, dtype=[('x', int), ('y', float)])
@@ -2677,6 +2679,25 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         s = repr(a)
         assert s.replace('\n', '') == \
                       "array(['abc', 'defg', 'ab'],       dtype='|S4')"
+
+    def test_pickle(self):
+        from numpypy import dtype, array
+        from cPickle import loads, dumps
+
+        d = dtype([('x', str), ('y', 'int32')])
+        a = array([('a', 2), ('cde', 1)], dtype=d)
+
+        a = loads(dumps(a))
+        d = a.dtype
+
+        assert str(d.fields['x'][0]) == '|S0'
+        assert d.fields['x'][1] == 0
+        assert str(d.fields['y'][0]) == 'int32'
+        assert d.fields['y'][1] == 0
+        assert d.name == 'void32'
+
+        assert a[0]['y'] == 2
+        assert a[1]['y'] == 1
 
 
 class AppTestPyPy(BaseNumpyAppTest):
