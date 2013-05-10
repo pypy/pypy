@@ -1,9 +1,8 @@
-============================
 PyPy's ctypes implementation
 ============================
 
 Summary
-========
+--------
 
 Terminology:
 
@@ -28,10 +27,11 @@ We reused the ``ctypes`` package version 1.0.2 as-is from CPython. We
 implemented ``_ctypes`` which is a C module in CPython mostly in pure
 Python based on a lower-level layer extension module ``_rawffi``.
 
-.. _`libffi`: http://sources.redhat.com/libffi/
+.. _libffi: http://sources.redhat.com/libffi/
+
 
 Low-level part: ``_rawffi``
-============================
+---------------------------
 
 This PyPy extension module (:source:`pypy/module/_rawffi`) exposes a simple interface
 to create C objects (arrays and structures) and calling functions
@@ -44,15 +44,17 @@ We tried to keep this module as small as possible. It is conceivable
 that other implementations (e.g. Jython) could use our ctypes
 implementation by writing their version of ``_rawffi``.
 
+
 High-level parts
-=================
+-----------------
 
 The reused ``ctypes`` package lives in ``lib_pypy/ctypes``. ``_ctypes``
 implementing the same interface as ``_ctypes`` in CPython is in
 ``lib_pypy/_ctypes``.
 
+
 Discussion and limitations
-=============================
+-----------------------------
 
 Reimplementing ctypes features was in general possible. PyPy supports
 pluggable garbage collectors, some of them are moving collectors, this
@@ -90,13 +92,15 @@ current implementation:
     between its primitive types and user subclasses
     of its primitive types
 
+
 Running application examples
-==============================
+------------------------------
 
 `pyglet`_ is known to run. We also had some success with pygame-ctypes (which is no longer maintained) and with a snapshot of the experimental pysqlite-ctypes. We will only describe how to run the pyglet examples.
 
+
 pyglet
--------
+~~~~~~
 
 We tried pyglet checking it out from its repository at revision 1984.
 
@@ -131,17 +135,17 @@ We did not try the following examples:
   - video.py needs avbin
   - soundscape needs avbin
 
-.. _`pyglet`: http://pyglet.org/
+.. _pyglet: http://pyglet.org/
 
 
 ctypes configure
-=================
+-----------------
 
 We also released ``ctypes-configure``, which is an experimental package
 trying to approach the portability issues of ctypes-based code.
 
 idea
-----
+~~~~
 
 One of ctypes problems is that ctypes programs are usually not very
 platform-independent. We created ctypes_configure, which invokes c
@@ -150,11 +154,11 @@ exact sizes of types (for example size_t), ``#defines``, exact outline of
 structures etc. It replaces in this regard code generator (h2py).
 
 installation
-------------
+~~~~~~~~~~~~
 
 ``easy_install ctypes_configure``
 
 usage
------
+~~~~~
 
 :source:`ctypes_configure/doc/sample.py` explains in details how to use it.

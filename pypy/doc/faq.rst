@@ -1,10 +1,8 @@
-==========================
 Frequently Asked Questions
 ==========================
 
 .. contents::
 
--------------
 What is PyPy?
 -------------
 
@@ -13,14 +11,9 @@ toolchain.
 
 PyPy tries to find new answers about ease of creation, flexibility,
 maintainability and speed trade-offs for language implementations.
-For further details see our `goal and architecture document`_ .
-
-.. _`goal and architecture document`: architecture.html
+For further details see our :doc:`goal and architecture document <architecture>`.
 
 
-.. _`drop in replacement`:
-
-------------------------------------------
 Is PyPy a drop in replacement for CPython?
 ------------------------------------------
 
@@ -37,7 +30,7 @@ extension modules there is a good chance that it will work with PyPy.
 
 We list the differences we know about in `cpython differences`_.
 
---------------------------------------------
+
 Do CPython Extension modules work with PyPy?
 --------------------------------------------
 
@@ -52,17 +45,15 @@ JIT can see.
 We fully support ctypes-based extensions. But for best performance, we
 recommend that you use the cffi_ module to interface with C code.
 
-For information on which third party extensions work (or do not work) 
+For information on which third party extensions work (or do not work)
 with PyPy see the `compatibility wiki`_.
 
-
-.. _`extension modules`: cpython_differences.html#extension-modules
-.. _`cpython differences`: cpython_differences.html
-.. _`compatibility wiki`:
-.. https://bitbucket.org/pypy/compatibility/wiki/Home
+.. _extension modules: cpython_differences.html#extension-modules
+.. _cpython differences: cpython_differences.html
+.. _compatibility wiki: https://bitbucket.org/pypy/compatibility/wiki/Home
 .. _cffi: http://cffi.readthedocs.org/
 
----------------------------------
+
 On which platforms does PyPy run?
 ---------------------------------
 
@@ -74,41 +65,39 @@ At the moment you need CPython 2.5 - 2.7
 for the translation process. PyPy's JIT requires an x86 or x86_64 CPU.
 (There has also been good progress on getting the JIT working for ARMv7.)
 
-------------------------------------------------
+
 Which Python version (2.x?) does PyPy implement?
 ------------------------------------------------
 
 PyPy currently aims to be fully compatible with Python 2.7. That means that
 it contains the standard library of Python 2.7 and that it supports 2.7
-features (such as set comprehensions).  
+features (such as set comprehensions).
+
 
 .. _threading:
 
--------------------------------------------------
 Does PyPy have a GIL?  Why?
 -------------------------------------------------
 
 Yes, PyPy has a GIL.  Removing the GIL is very hard.  The first problem
 is that our garbage collectors are not re-entrant.
 
-------------------------------------------
+
 How do I write extension modules for PyPy?
 ------------------------------------------
 
-See `Writing extension modules for PyPy`__.
+See :doc:`extending`.
 
-.. __: extending.html
 
 .. _how-fast-is-pypy:
 
------------------
 How fast is PyPy?
 -----------------
 This really depends on your code.
 For pure Python algorithmic code, it is very fast.  For more typical
 Python programs we generally are 3 times the speed of Cpython 2.6 .
-You might be interested in our `benchmarking site`_ and our 
-`jit documentation`_.
+You might be interested in our `benchmarking site`_ and our
+:doc:`jit documentation <rpython:jit/index>`.
 
 Note that the JIT has a very high warm-up cost, meaning that the
 programs are slow at the beginning.  If you want to compare the timings
@@ -116,11 +105,9 @@ with CPython, even relatively simple programs need to run *at least* one
 second, preferrably at least a few seconds.  Large, complicated programs
 need even more time to warm-up the JIT.
 
-.. _`benchmarking site`: http://speed.pypy.org
+.. _benchmarking site: http://speed.pypy.org
 
-.. _`jit documentation`: jit/index.html
 
----------------------------------------------------------------
 Couldn't the JIT dump and reload already-compiled machine code?
 ---------------------------------------------------------------
 
@@ -136,7 +123,7 @@ mapping addresses in the old (now-dead) process to addresses in the new
 process, including checking that all the previous assumptions about the
 (now-dead) object are still true about the new object.
 
------------------------------------------------------------
+
 How do I get into PyPy development?  Can I come to sprints?
 -----------------------------------------------------------
 
@@ -147,15 +134,14 @@ developers. Newcomers should have some Python experience and read some
 of the PyPy documentation before coming to a sprint.
 
 Coming to a sprint is usually the best way to get into PyPy development.
-If you get stuck or need advice, `contact us`_. IRC is
+If you get stuck or need advice, :doc:`contact us <index>`. IRC is
 the most immediate way to get feedback (at least during some parts of the day;
 most PyPy developers are in Europe) and the `mailing list`_ is better for long
 discussions.
 
-.. _`contact us`: index.html
-.. _`mailing list`: http://python.org/mailman/listinfo/pypy-dev
+.. _mailing list: http://python.org/mailman/listinfo/pypy-dev
 
--------------------------------------------------------------
+
 OSError: ... cannot restore segment prot after reloc... Help?
 -------------------------------------------------------------
 

@@ -6,6 +6,7 @@ Goals and Architecture Overview
 This document gives an overview of the goals and architecture of PyPy.
 See :doc:`getting started <getting-started>` for a practical introduction and starting points.
 
+
 Mission statement
 -----------------
 

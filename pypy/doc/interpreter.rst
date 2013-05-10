@@ -1,13 +1,11 @@
-===================================
 Bytecode Interpreter
-===================================
+====================
 
 .. contents::
 
 
-
 Introduction and Overview
-===============================
+-------------------------
 
 This document describes the implementation of PyPy's
 Bytecode Interpreter and related Virtual Machine functionalities.
@@ -17,8 +15,8 @@ Virtual Machine: It processes code objects parsed and compiled from
 Python source code.  It is implemented in the :source:`pypy/interpreter/` directory.
 People familiar with the CPython implementation will easily recognize
 similar concepts there.  The major differences are the overall usage of
-the `object space`_ indirection to perform operations on objects, and
-the organization of the built-in modules (described `here`_).
+the :doc:`object space <objspace>` indirection to perform operations on objects, and
+the organization of the built-in modules (described :ref:`here <modules>`).
 
 Code objects are a nicely preprocessed, structured representation of
 source code, and their main content is *bytecode*.  We use the same
@@ -56,22 +54,22 @@ from a stack.  The bytecode interpreter is only responsible
 for implementing control flow and pushing and pulling black
 box objects to and from this value stack.  The bytecode interpreter
 does not know how to perform operations on those black box
-(`wrapped`_) objects for which it delegates to the `object
-space`_.  In order to implement a conditional branch in a program's
+(:ref:`wrapped <wrapped>`) objects for which it delegates to the :doc:`object
+space <objspace>`.  In order to implement a conditional branch in a program's
 execution, however, it needs to gain minimal knowledge about a
 wrapped object.  Thus, each object space has to offer a
 ``is_true(w_obj)`` operation which returns an
 interpreter-level boolean value.
 
 For the understanding of the interpreter's inner workings it
-is crucial to recognize the concepts of `interpreter-level and
-application-level`_ code.  In short, interpreter-level is executed
+is crucial to recognize the concepts of :ref:`interpreter-level and
+application-level <interpreter-level>` code.  In short, interpreter-level is executed
 directly on the machine and invoking application-level functions
 leads to an bytecode interpretation indirection. However,
 special care must be taken regarding exceptions because
 application level exceptions are wrapped into ``OperationErrors``
 which are thus distinguished from plain interpreter-level exceptions.
-See `application level exceptions`_ for some more information
+See :ref:`application level exceptions <applevel-exceptions>` for some more information
 on ``OperationErrors``.
 
 The interpreter implementation offers mechanisms to allow a
@@ -92,36 +90,29 @@ implemented via `interpreter descriptors`_ (also see Raymond Hettingers
 A significant complexity lies in `function argument parsing`_.  Python as a
 language offers flexible ways of providing and receiving arguments
 for a particular function invocation.  Not only does it take special care
-to get this right, it also presents difficulties for the `annotation
-pass`_ which performs a whole-program analysis on the
+to get this right, it also presents difficulties for the :ref:`annotation
+pass <rpython:annotator>` which performs a whole-program analysis on the
 bytecode interpreter, argument parsing and gatewaying code
 in order to infer the types of all values flowing across function
 calls.
 
 It is for this reason that PyPy resorts to generate
-specialized frame classes and functions at `initialization
-time`_ in order to let the annotator only see rather static
+specialized frame classes and functions at :ref:`initialization
+time <rpython:initialization-time>` in order to let the annotator only see rather static
 program flows with homogeneous name-value assignments on
 function invocations.
 
-.. _`how-to guide for descriptors`: http://users.rcn.com/python/download/Descriptor.htm
-.. _`annotation pass`: translation.html#the-annotation-pass
-.. _`initialization time`: translation.html#initialization-time
-.. _`interpreter-level and application-level`: coding-guide.html#interpreter-level
-.. _`wrapped`: coding-guide.html#wrapping-rules
-.. _`object space`: objspace.html
-.. _`application level exceptions`: coding-guide.html#applevel-exceptions
-.. _`here`: coding-guide.html#modules
+.. _how-to guide for descriptors: http://users.rcn.com/python/download/Descriptor.htm
 
 
 Bytecode Interpreter Implementation Classes
-================================================
+-------------------------------------------
 
-.. _`Frame class`:
-.. _`Frame`:
+.. _Frame class:
+.. _Frame:
 
 Frame classes
------------------
+~~~~~~~~~~~~~
 
 The concept of Frames is pervasive in executing programs and
 on virtual machines in particular. They are sometimes called
@@ -156,10 +147,11 @@ class are added in various files:
 - nested scope support is added to the ``PyFrame`` class in
   :source:`pypy/interpreter/nestedscope.py`.
 
+
 .. _Code:
 
 Code Class
-------------
+~~~~~~~~~~
 
 PyPy's code objects contain the same information found in CPython's code objects.
 They differ from Function_ objects in that they are only immutable representations
@@ -190,10 +182,11 @@ allow to create custom Frame objects extending the execution of functions
 in various ways.  The several Frame_ classes already utilize this flexibility
 in order to implement Generators and Nested Scopes.
 
+
 .. _Function:
 
 Function and Method classes
-----------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The PyPy ``Function`` class (in :source:`pypy/interpreter/function.py`)
 represents a Python function.  A ``Function`` carries the following
@@ -212,11 +205,13 @@ object holding a binding to an instance or a class.  Finally, ``Functions``
 and ``Methods`` both offer a ``call_args()`` method which executes
 the function given an `Arguments`_ class instance.
 
+
 .. _Arguments:
-.. _`function argument parsing`:
+
+.. _function argument parsing:
 
 Arguments Class
---------------------
+~~~~~~~~~~~~~~~
 
 The Argument class (in :source:`pypy/interpreter/argument.py`) is
 responsible for parsing arguments passed to functions.
@@ -241,10 +236,10 @@ the bound object.  The ``Arguments`` provides means to allow all
 this argument parsing and also cares for error reporting.
 
 
-.. _`Module`:
+.. _Module:
 
 Module Class
--------------------
+~~~~~~~~~~~~
 
 A ``Module`` instance represents execution state usually constructed
 from executing the module's source file.  In addition to such a module's
@@ -261,30 +256,25 @@ application-level files there is a more refined
 which allows to define name-value bindings both at application
 level and at interpreter level.  See the ``__builtin__``
 module's :source:`pypy/module/__builtin__/__init__.py` file for an
-example and the higher level `chapter on Modules in the coding
-guide`_.
+example and the higher level :ref:`chapter on Modules in the coding
+guide <modules>`.
 
-.. _`__builtin__ module`: https://bitbucket.org/pypy/pypy/src/tip/pypy/module/__builtin__/
-.. _`chapter on Modules in the coding guide`: coding-guide.html#modules
-
-.. _`Gateway classes`:
 
 Gateway classes
-----------------------
+~~~~~~~~~~~~~~~
 
 A unique PyPy property is the ability to easily cross the barrier
 between interpreted and machine-level code (often referred to as
-the difference between `interpreter-level and application-level`_).
+the difference between :ref:`interpreter-level and application-level <interpreter-level>`).
 Be aware that the according code (in :source:`pypy/interpreter/gateway.py`)
 for crossing the barrier in both directions is somewhat
 involved, mostly due to the fact that the type-inferring
 annotator needs to keep track of the types of objects flowing
 across those barriers.
 
-.. _typedefs:
 
 Making interpreter-level functions available at application-level
-+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 In order to make an interpreter-level function available at
 application level, one invokes ``pypy.interpreter.gateway.interp2app(func)``.
@@ -322,9 +312,9 @@ and hints to keep the type-inferring annotator happy.
 
 
 Calling into application level code from interpreter-level
-+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-Application level code is `often preferable`_. Therefore,
+Application level code is :ref:`often preferable <app-preferable>`. Therefore,
 we often like to invoke application level code from interpreter-level.
 This is done via the Gateway's ``app2interp`` mechanism
 which we usually invoke at definition time in a module.
@@ -378,11 +368,11 @@ Note that at a later point we can rewrite the ``find_metaclass``
 implementation at interpreter-level and we would not have
 to modify the calling side at all.
 
-.. _`often preferable`: coding-guide.html#app-preferable
-.. _`interpreter descriptors`:
+
+.. _interpreter descriptors:
 
 Introspection and Descriptors
-------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Python traditionally has a very far-reaching introspection model
 for bytecode interpreter related objects. In PyPy and in CPython read

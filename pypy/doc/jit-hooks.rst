@@ -1,5 +1,5 @@
-JIT hooks in PyPy
-=================
+JIT hooks
+=========
 
 There are several hooks in the `pypyjit` module that may help you with
 understanding what's pypy's JIT doing while running your program. There

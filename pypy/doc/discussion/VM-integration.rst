@@ -1,4 +1,3 @@
-==============================================
 Integration of PyPy with host Virtual Machines
 ==============================================
 
@@ -10,8 +9,9 @@ Terminology disclaimer: both PyPy and .NET have the concept of
 "wrapped" or "boxed" objects. To avoid confusion I will use "wrapping"
 on the PyPy side and "boxing" on the .NET side.
 
+
 General idea
-============
+------------
 
 The goal is to find a way to efficiently integrate the PyPy
 interpreter with the hosting environment such as .NET. What we would
@@ -29,8 +29,9 @@ like to do includes but it's not limited to:
 One possible solution is the "proxy" approach, in which we manually
 (un)wrap/(un)box all the objects when they cross the border.
 
+
 Example
--------
+~~~~~~~
 
   ::
 
@@ -43,8 +44,9 @@ In this case we need to take the intval field of W_IntObject, box it
 to .NET System.Int32, call foo using reflection, then unbox the return
 value and reconstruct a new (or reuse an existing one) W_IntObject.
 
+
 The other approach
-------------------
+~~~~~~~~~~~~~~~~~~
 
 The general idea to solve handle this problem is to split the
 "stateful" and "behavioral" parts of wrapped objects, and use already
@@ -57,7 +59,7 @@ reconstruct the pair.
 
 
 Split state and behaviour in the flowgraphs
-===========================================
+-------------------------------------------
 
 The idea is to write a graph transformation that takes an usual
 ootyped flowgraph and split the classes and objects we want into a
@@ -83,15 +85,16 @@ of its first member.
   identity (in which the two objects will have a different identity,
   of course).
 
+
 Step 1: RPython source code
----------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
   ::
 
     class W_IntObject:
         def __init__(self, intval):
             self.intval = intval
-    
+
         def foo(self, x):
             return self.intval + x
 
@@ -101,7 +104,7 @@ Step 1: RPython source code
 
 
 Step 2: RTyping
----------------
+~~~~~~~~~~~~~~~
 
 Sometimes the following examples are not 100% accurate for the sake of
 simplicity (e.g: we directly list the type of methods instead of the
@@ -149,8 +152,9 @@ Flowgraphs
       3.    return result
     }
 
+
 Step 3: Transformation
-----------------------
+~~~~~~~~~~~~~~~~~~~~~~
 
 This step is done before the backend plays any role, but it's still
 driven by its need, because at this time we want a mapping that tell
@@ -225,7 +229,7 @@ Flowgraphs
 
 
 Inheritance
------------
+~~~~~~~~~~~
 
 Apply the transformation to a whole class (sub)hierarchy is a bit more
 complex. Basically we want to mimic the same hierarchy also on the
@@ -259,5 +263,3 @@ This means that the low level type of all the ``W_Object`` subclasses
 will be ``W_Object_pair``, but it also means that we will need to
 insert the appropriate downcasts every time we want to access its
 fields. I'm not sure how much this can impact performances.
-
-

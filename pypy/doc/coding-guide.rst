@@ -1,21 +1,17 @@
-====================================
 Coding Guide
-====================================
+============
 
 .. contents::
 
 This document describes coding requirements and conventions for
 working with the PyPy code base.  Please read it carefully and
 ask back any questions you might have. The document does not talk
-very much about coding style issues. We mostly follow `PEP 8`_ though.
+very much about coding style issues. We mostly follow :pep:`8` though.
 If in doubt, follow the style that is already present in the code base.
 
-.. _`PEP 8`: http://www.python.org/dev/peps/pep-0008/
-
-.. _`RPython`:
 
 Overview and motivation
-========================
+------------------------
 
 We are writing a Python interpreter in Python, using Python's well known
 ability to step behind the algorithmic problems as a language. At first glance,
@@ -25,7 +21,7 @@ larger goals.
 
 
 CPython vs. PyPy
--------------------
+~~~~~~~~~~~~~~~~
 
 Compared to the CPython implementation, Python takes the role of the C
 Code. We rewrite the CPython interpreter in Python itself.  We could
@@ -48,16 +44,16 @@ but let's stick with this somewhat canonical approach.
 .. _interpreter-level:
 
 Application-level and interpreter-level execution and objects
--------------------------------------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Since Python is used for implementing all of our code base, there is a
-crucial distinction to be aware of: that between *interpreter-level* objects and 
+crucial distinction to be aware of: that between *interpreter-level* objects and
 *application-level* objects.  The latter are the ones that you deal with
 when you write normal python programs.  Interpreter-level code, however,
 cannot invoke operations nor access attributes from application-level
 objects.  You will immediately recognize any interpreter level code in
 PyPy, because half the variable and object names start with a ``w_``, which
-indicates that they are `wrapped`_ application-level values. 
+indicates that they are `wrapped`_ application-level values.
 
 Let's show the difference with a simple example.  To sum the contents of
 two variables ``a`` and ``b``, one would write the simple application-level
@@ -80,10 +76,10 @@ from failures appearing in a python application level program that we are
 interpreting.
 
 
-.. _`app-preferable`: 
+.. _app-preferable:
 
-Application level is often preferable 
--------------------------------------
+Application level is often preferable
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Application-level code is substantially higher-level, and therefore
 correspondingly easier to write and debug.  For example, suppose we want
@@ -113,11 +109,11 @@ something much lower-level and involved, say something like::
             space.setitem(w_self, w_key, w_value)
 
 This interpreter-level implementation looks much more similar to the C
-source code.  It is still more readable than its C counterpart because 
-it doesn't contain memory management details and can use Python's native 
-exception mechanism. 
+source code.  It is still more readable than its C counterpart because
+it doesn't contain memory management details and can use Python's native
+exception mechanism.
 
-In any case, it should be obvious that the application-level implementation 
+In any case, it should be obvious that the application-level implementation
 is definitely more readable, more elegant and more maintainable than the
 interpreter-level one (and indeed, dict.update is really implemented at
 applevel in PyPy).
@@ -129,10 +125,11 @@ level of the object space before they can be executed), application
 level code is usually preferable.  We have an abstraction (called the
 'Gateway') which allows the caller of a function to remain ignorant of
 whether a particular function is implemented at application or
-interpreter level. 
+interpreter level.
+
 
 Our runtime interpreter is "RPython"
-----------------------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 In order to make a C code generator feasible all code on interpreter level has
 to restrict itself to a subset of the Python language, and we adhere to some
@@ -173,14 +170,13 @@ enables the code generator to emit efficient machine level replacements
 for pure integer objects, for instance.
 
 
-.. _`wrapping rules`:
-.. _`wrapped`:
+.. _wrapped:
 
 Wrapping rules
-==============
+--------------
 
 Wrapping
---------- 
+~~~~~~~~
 
 PyPy is made of Python source code at two levels: there is on the one hand
 *application-level code* that looks like normal Python code, and that
@@ -207,7 +203,7 @@ with suitable interpreter-level classes with some amount of internal
 structure.
 
 For example, an application-level Python ``list``
-is implemented by the `standard object space`_ as an
+is implemented by the :ref:`standard object space <standard-object-space>` as an
 instance of ``W_ListObject``, which has an instance attribute
 ``wrappeditems`` (an interpreter-level list which contains the
 application-level list's items as wrapped objects).
@@ -216,7 +212,7 @@ The rules are described in more details below.
 
 
 Naming conventions
-------------------
+~~~~~~~~~~~~~~~~~~
 
 * ``space``: the object space is only visible at
   interpreter-level code, where it is by convention passed around by the name
@@ -236,14 +232,14 @@ Naming conventions
 
 
 Operations on ``w_xxx``
------------------------
+~~~~~~~~~~~~~~~~~~~~~~~
 
 The core bytecode interpreter considers wrapped objects as black boxes.
 It is not allowed to inspect them directly.  The allowed
 operations are all implemented on the object space: they are
 called ``space.xxx()``, where ``xxx`` is a standard operation
 name (``add``, ``getattr``, ``call``, ``eq``...). They are documented in the
-`object space document`_.
+:ref:`object space document <objspace-interface>`.
 
 A short warning: **don't do** ``w_x == w_y`` or ``w_x is w_y``!
 rationale for this rule is that there is no reason that two
@@ -255,12 +251,11 @@ directly a interpreter-level bool.  To check for identity,
 use ``space.is_true(space.is_(w_x, w_y))`` or better
 ``space.is_w(w_x, w_y)``.
 
-.. _`object space document`: objspace.html#interface
 
-.. _`applevel-exceptions`: 
+.. _applevel-exceptions:
 
 Application-level exceptions
-----------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Interpreter-level code can use exceptions freely.  However,
 all application-level exceptions are represented as an
@@ -292,10 +287,10 @@ match an exception, as this will miss exceptions that are
 instances of subclasses.
 
 
-.. _`modules`:
+.. _modules:
 
 Modules in PyPy
-===============
+---------------
 
 Modules visible from application programs are imported from
 interpreter or application level files.  PyPy reuses almost all python
@@ -314,8 +309,9 @@ for the implementation.  Note that there is no extra facility for
 pure-interpreter level modules, you just write a mixed module and leave the
 application-level part empty.
 
+
 Determining the location of a module implementation
----------------------------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 You can interactively find out where a module comes from, when running py.py.
 here are examples for the possible locations::
@@ -333,8 +329,9 @@ here are examples for the possible locations::
     '/home/hpk/pypy-dist/lib-python/2.7/os.py'
     >>>>
 
+
 Module directories / Import order
----------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Here is the order in which PyPy looks up Python modules:
 
@@ -357,10 +354,11 @@ Here is the order in which PyPy looks up Python modules:
 
     The modified CPython library.
 
-.. _`modify modules`:
+
+.. _modify modules:
 
 Modifying a CPython library module or regression test
--------------------------------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Although PyPy is very compatible with CPython we sometimes need
 to change modules contained in our copy of the standard library,
@@ -369,14 +367,15 @@ by default and CPython has a number of places where it relies
 on some classes being old-style.
 
 We just maintain those changes in place,
-to see what is changed we have a branch called `vendot/stdlib`
+to see what is changed we have a branch called `vendor/stdlib`
 wich contains the unmodified cpython stdlib
 
-.. _`mixed module mechanism`:
-.. _`mixed modules`:
+
+.. _mixed module mechanism:
+.. _mixed-modules:
 
 Implementing a mixed interpreter/application level Module
----------------------------------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 If a module needs to access PyPy's interpreter level
 then it is implemented as a mixed module.
@@ -387,15 +386,13 @@ Only specified names will be exported to a Mixed Module's applevel
 namespace.
 
 Sometimes it is necessary to really write some functions in C (or
-whatever target language). See `rffi`_ and `external functions
-documentation`_ for details. The latter approach is cumbersome and
+whatever target language). See :doc:`rffi <rpython:rffi>` and :ref:`external functions
+documentation <rpython:extfunccalls>` for details. The latter approach is cumbersome and
 being phased out and former has currently quite a few rough edges.
 
-.. _`rffi`: rffi.html
-.. _`external functions documentation`: translation.html#extfunccalls
 
 application level definitions
-.............................
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Application level specifications are found in the `appleveldefs`
 dictionary found in ``__init__.py`` files of directories in ``pypy/module``.
@@ -410,8 +407,9 @@ The ``app_`` prefix indicates that the submodule ``app_inspect`` is
 interpreted at application level and the wrapped function value for ``locals``
 will be extracted accordingly.
 
+
 interpreter level definitions
-.............................
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Interpreter level specifications are found in the ``interpleveldefs``
 dictionary found in ``__init__.py`` files of directories in ``pypy/module``.
@@ -431,7 +429,7 @@ the definition for ``operation.len()``::
         return space.len(w_obj)
 
 Exposed interpreter level functions usually take a ``space`` argument
-and some wrapped values (see `wrapping rules`_) .
+and some wrapped values (see `Wrapping rules`_) .
 
 You can also use a convenient shortcut in ``interpleveldefs`` dictionaries:
 namely an expression in parentheses to specify an interpreter level
@@ -450,8 +448,9 @@ creation of a new config option (such as --withmod-mymodule and
 --withoutmod-mymodule (the later being the default)) for py.py and
 translate.py.
 
+
 Testing modules in ``lib_pypy/``
---------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 You can go to the :source:`lib_pypy/pypy_test/` directory and invoke the testing tool
 ("py.test" or "python ../../pypy/test_all.py") to run tests against the
@@ -461,26 +460,28 @@ and encouraged to let their tests run at interpreter level although
 This allows us to quickly test our python-coded reimplementations
 against CPython.
 
+
 Testing modules in ``pypy/module``
-----------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Simply change to ``pypy/module`` or to a subdirectory and `run the
 tests as usual`_.
 
 
 Testing modules in ``lib-python``
------------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 In order to let CPython's regression tests run against PyPy
 you can switch to the :source:`lib-python/` directory and run
 the testing tool in order to start compliance tests.
 (XXX check windows compatibility for producing test reports).
 
+
 Naming conventions and directory layout
-===========================================
+---------------------------------------
 
 Directory and File Naming
--------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - directories/modules/namespaces are always **lowercase**
 
@@ -493,8 +494,9 @@ Directory and File Naming
 
 - keep filenames concise and completion-friendly.
 
+
 Naming of python objects
-------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 - class names are **CamelCase**
 
@@ -510,8 +512,9 @@ Naming of python objects
   includes w_self.  Don't use ``w_`` in application level
   python only code.
 
+
 Committing & Branching to the repository
------------------------------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - write good log messages because several people
   are reading the diffs.
@@ -522,22 +525,21 @@ Committing & Branching to the repository
   ``try1`` doesn't already exists) you should do::
 
     hg branch try1
-    
+
   The branch will be recorded in the repository only after a commit. To switch
   back to the default branch::
-  
+
     hg update default
-    
+
   For further details use the help or refer to the `official wiki`_::
-  
+
     hg help branch
 
-.. _`official wiki`: http://mercurial.selenic.com/wiki/Branch
+.. _official wiki: http://mercurial.selenic.com/wiki/Branch
 
-.. _`using development tracker`:
 
 Using the development bug/feature tracker
-=========================================
+-----------------------------------------
 
 We have a `development tracker`_, based on Richard Jones'
 `roundup`_ application.  You can file bugs,
@@ -545,24 +547,23 @@ feature requests or see what's going on
 for the next milestone, both from an E-Mail and from a
 web interface.
 
-.. _`development tracker`: https://bugs.pypy.org/
+.. _development tracker: https://bugs.pypy.org/
+.. _roundup: http://roundup.sourceforge.net/
+
 
 use your codespeak login or register
-------------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 If you have an existing codespeak account, you can use it to login within the
 tracker. Else, you can `register with the tracker`_ easily.
 
-
-.. _`register with the tracker`: https://bugs.pypy.org/user?@template=register
-.. _`roundup`: http://roundup.sourceforge.net/
+.. _register with the tracker: https://bugs.pypy.org/user?@template=register
 
 
-.. _`testing in PyPy`:
-.. _`test-design`: 
+.. _testing:
 
 Testing in PyPy
-===============
+---------------
 
 Our tests are based on the `py.test`_ tool which lets you write
 unittests without boilerplate.  All tests of modules
@@ -575,12 +576,11 @@ basically two types of unit tests:
 - **Application Level tests**. They run at application level which means
   that they look like straight python code but they are interpreted by PyPy.
 
-.. _`standard object space`: objspace.html#standard-object-space
-.. _`objectspace`: objspace.html
-.. _`py.test`: http://pytest.org/
+.. _py.test: http://pytest.org/
+
 
 Interpreter level tests
------------------------
+~~~~~~~~~~~~~~~~~~~~~~~
 
 You can write test functions and methods like this::
 
@@ -596,8 +596,9 @@ classes is mandatory.  In both cases you can import Python modules at
 module global level and use plain 'assert' statements thanks to the
 usage of the `py.test`_ tool.
 
+
 Application Level tests
------------------------
+~~~~~~~~~~~~~~~~~~~~~~~
 
 For testing the conformance and well-behavedness of PyPy it
 is often sufficient to write "normal" application-level
@@ -632,10 +633,11 @@ via self (but without the ``w_``) in the actual test method. An example::
             assert self.d["a"] == 1
             assert self.d["b"] == 2
 
-.. _`run the tests as usual`:
+
+.. _run the tests as usual:
 
 Command line tool test_all
---------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 You can run almost all of PyPy's tests by invoking::
 
@@ -645,8 +647,9 @@ which is a synonym for the general `py.test`_ utility
 located in the ``py/bin/`` directory.  For switches to
 modify test execution pass the ``-h`` option.
 
+
 Coverage reports
-----------------
+~~~~~~~~~~~~~~~~
 
 In order to get coverage reports the `pytest-cov`_ plugin is included.
 it adds some extra requirements ( coverage_ and `cov-core`_ )
@@ -654,12 +657,13 @@ and can once they are installed coverage testing can be invoked via::
 
   python test_all.py --cov file_or_direcory_to_cover file_or_directory
 
-.. _`pytest-cov`: http://pypi.python.org/pypi/pytest-cov
-.. _`coverage`: http://pypi.python.org/pypi/coverage
-.. _`cov-core`: http://pypi.python.org/pypi/cov-core
+.. _pytest-cov: http://pypi.python.org/pypi/pytest-cov
+.. _coverage: http://pypi.python.org/pypi/coverage
+.. _cov-core: http://pypi.python.org/pypi/cov-core
+
 
 Test conventions
-----------------
+~~~~~~~~~~~~~~~~
 
 - adding features requires adding appropriate tests.  (It often even
   makes sense to first write the tests so that you are sure that they
@@ -669,29 +673,28 @@ Test conventions
   which contain unit tests.  Such scripts can usually be executed
   directly or are collectively run by pypy/test_all.py
 
-.. _`change documentation and website`:
+
+.. _change documentation and website:
 
 Changing documentation and website
-==================================
+----------------------------------
 
 documentation/website files in your local checkout
----------------------------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Most of the PyPy's documentation is kept in `pypy/doc`.
 You can simply edit or add '.rst' files which contain ReST-markuped
 files.  Here is a `ReST quickstart`_ but you can also just look
 at the existing documentation and see how things work.
 
-.. _`ReST quickstart`: http://docutils.sourceforge.net/docs/user/rst/quickref.html
-
 Note that the web site of http://pypy.org/ is maintained separately.
 For now it is in the repository https://bitbucket.org/pypy/pypy.org
 
-Automatically test documentation/website changes
-------------------------------------------------
+.. _ReST quickstart: http://docutils.sourceforge.net/docs/user/rst/quickref.html
 
-.. _`sphinx home page`:
-.. _`sphinx`: http://sphinx.pocoo.org/
+
+Automatically test documentation/website changes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 We automatically check referential integrity and ReST-conformance.  In order to
 run the tests you need sphinx_ installed.  Then go to the local checkout
@@ -710,3 +713,5 @@ the documentation issue::
     make linkcheck
 
 which will check that remote URLs are reachable.
+
+.. _sphinx: http://sphinx.pocoo.org/

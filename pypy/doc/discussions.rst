@@ -7,7 +7,7 @@ Help from domain experts would be welcome, since some of these documents probabl
 
 
 .. toctree::
-	
+
 	discussion/finalizer-order.rst
 	discussion/howtoimplementpickling.rst
 	discussion/improve-rpython.rst

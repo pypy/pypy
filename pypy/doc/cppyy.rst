@@ -1,4 +1,3 @@
-============================
 cppyy: C++ bindings for PyPy
 ============================
 
@@ -13,11 +12,11 @@ of C++11.
 The work on the cling backend has so far been done only for CPython, but
 bringing it to PyPy is a lot less work than developing it in the first place.
 
-.. _`Reflex`: http://root.cern.ch/drupal/content/reflex
-.. _`CINT`: http://root.cern.ch/drupal/content/cint
-.. _`cling`: http://root.cern.ch/drupal/content/cling
-.. _`llvm`: http://llvm.org/
-.. _`clang`: http://clang.llvm.org/
+.. _Reflex: http://root.cern.ch/drupal/content/reflex
+.. _CINT: http://root.cern.ch/drupal/content/cint
+.. _cling: http://root.cern.ch/drupal/content/cling
+.. _llvm: http://llvm.org/
+.. _clang: http://clang.llvm.org/
 
 This document describes the version of cppyy that lives in the main branch of
 PyPy.
@@ -25,7 +24,7 @@ The development of cppyy happens in the "reflex-support" branch.
 
 
 Motivation
-==========
+----------
 
 To provide bindings to another language in CPython, you program to a
 generic C-API that exposes many of the interpreter features.
@@ -57,11 +56,11 @@ As another example, cling allows automatic instantiations of templates.
 
 See this description of the `cppyy architecture`_ for further details.
 
-.. _`cppyy architecture`: http://morepypy.blogspot.com/2012/06/architecture-of-cppyy.html
+.. _cppyy architecture: http://morepypy.blogspot.com/2012/06/architecture-of-cppyy.html
 
 
 Installation
-============
+------------
 
 There are two ways of using cppyy, and the choice depends on how pypy-c was
 built: the backend can be builtin, or dynamically loadable.
@@ -72,9 +71,7 @@ That advantage will disappear over time, however, with improvements in the
 JIT.
 Therefore, this document assumes that the dynamically loadable backend is
 chosen (it is, by default).
-See the `backend documentation`_.
-
-.. _`backend documentation`: cppyy_backend.html
+See the :doc:`backend documentation <cppyy_backend>`.
 
 A standalone version of Reflex that also provides the dynamically loadable
 backend is available for `download`_.
@@ -83,8 +80,8 @@ comes with `ROOT`_, which may be part of your Linux distribution as part of
 the selection of scientific software) will also work for a build with the
 builtin backend.
 
-.. _`download`: http://cern.ch/wlav/reflex-2013-04-23.tar.bz2
-.. _`ROOT`: http://root.cern.ch/
+.. _download: http://cern.ch/wlav/reflex-2013-04-23.tar.bz2
+.. _ROOT: http://root.cern.ch/
 
 Besides Reflex, you probably need a version of `gccxml`_ installed, which is
 most easily provided by the packager of your system.
@@ -94,7 +91,7 @@ That's why the medium term plan is to move to cling.
 Note that gccxml is only needed to generate reflection libraries.
 It is not needed to use them.
 
-.. _`gccxml`: http://www.gccxml.org
+.. _gccxml: http://www.gccxml.org
 
 To install the standalone version of Reflex, after download::
 
@@ -112,8 +109,8 @@ If you downloaded or built the whole of ROOT, ``REFLEXHOME`` should be equal
 to ``ROOTSYS``.
 
 The following is optional, and is only to show how pypy-c can be build
-`from source`_, for example to get at the main development branch of cppyy.
-The `backend documentation`_ has more details on the backend-specific
+:ref:`from source <translate-pypy>`, for example to get at the main development branch of cppyy.
+The :doc:`backend documentation <cppyy_backend>` has more details on the backend-specific
 prerequisites.
 
 Then run the translation to build ``pypy-c``::
@@ -121,7 +118,7 @@ Then run the translation to build ``pypy-c``::
     $ hg clone https://bitbucket.org/pypy/pypy
     $ cd pypy
     $ hg up reflex-support         # optional
-    
+
     # This example shows python, but using pypy-c is faster and uses less memory
     $ python rpython/translator/goal/translate.py --opt=jit pypy/goal/targetpypystandalone --withmod-cppyy
 
@@ -129,15 +126,12 @@ This will build a ``pypy-c`` that includes the cppyy module, and through that,
 Reflex support.
 Of course, if you already have a pre-built version of the ``pypy`` interpreter,
 you can use that for the translation rather than ``python``.
-If not, you may want `to obtain a binary distribution`_ to speed up the
+If not, you may want :ref:`to obtain a binary distribution <prebuilt-pypy>` to speed up the
 translation step.
-
-.. _`from source`: https://bitbucket.org/pypy/pypy/overview
-.. _`to obtain a binary distribution`: http://doc.pypy.org/en/latest/getting-started.html#download-a-pre-built-pypy
 
 
 Basic bindings example
-======================
+----------------------
 
 Now test with a trivial example whether all packages are properly installed
 and functional.
@@ -186,7 +180,7 @@ That's all there is to it!
 
 
 Automatic class loader
-======================
+----------------------
 
 There is one big problem in the code above, that prevents its use in a (large
 scale) production setting: the explicit loading of the reflection library.
@@ -234,7 +228,7 @@ As a caveat, note that the class loader is currently limited to classes only.
 
 
 Advanced example
-================
+----------------
 
 The following snippet of C++ is very contrived, to allow showing that such
 pathological code can be handled and to show how certain features play out in
@@ -306,7 +300,7 @@ For our purposes, the following rather straightforward selection will do
         <function name="BaseFactory" />
     </lcgdict>
 
-.. _`selection file`: http://root.cern.ch/drupal/content/generating-reflex-dictionaries
+.. _selection file: http://root.cern.ch/drupal/content/generating-reflex-dictionaries
 
 Now the reflection info can be generated and compiled::
 
@@ -366,13 +360,11 @@ It is not always possible to provide exact mapping between python and C++
 (active memory management is one such case), but by and large, if the use of a
 feature does not strike you as obvious, it is more likely to simply be a bug.
 That is a strong statement to make, but also a worthy goal.
-For the C++ side of the examples, refer to this `example code`_, which was
+For the C++ side of the examples, refer to this :doc:`example code <cppyy_example>`, which was
 bound using::
 
     $ genreflex example.h --deep --rootmap=libexampleDict.rootmap --rootmap-lib=libexampleDict.so
     $ g++ -fPIC -rdynamic -O2 -shared -I$REFLEXHOME/include example_rflx.cpp -o libexampleDict.so -L$REFLEXHOME/lib -lReflex
-
-.. _`example code`: cppyy_example.html
 
 * **abstract classes**: Are represented as python classes, since they are
   needed to complete the inheritance hierarchies, but will raise an exception
@@ -402,7 +394,7 @@ bound using::
     >>>> c = ConcreteClass()
     >>>> c.array_method(array('d', [1., 2., 3., 4.]), 4)
     1 2 3 4
-    >>>> 
+    >>>>
 
 * **builtin data types**: Map onto the expected equivalent python types, with
   the caveat that there may be size differences, and thus it is possible that
@@ -446,7 +438,7 @@ bound using::
     >>>> n = Namespace.ConcreteClass.NestedClass()
     >>>> type(n)
     <class '__main__.Namespace::ConcreteClass::NestedClass'>
-    >>>> 
+    >>>>
 
 * **data members**: Public data members are represented as python properties
   and provide read and write access on instances as expected.
@@ -483,7 +475,7 @@ bound using::
     >>>> print ConcreteClass.array_method.__doc__
     void ConcreteClass::array_method(int*, int)
     void ConcreteClass::array_method(double*, int)
-    >>>> 
+    >>>>
 
 * **enums**: Are translated as ints with no further checking.
 
@@ -511,9 +503,9 @@ bound using::
      |      cppyy.CPPObject
      |      __builtin__.CPPInstance
      |      __builtin__.object
-     |  
+     |
      |  Methods defined here:
-     |  
+     |
      |  ConcreteClass(self, *args)
      |      ConcreteClass::ConcreteClass(const ConcreteClass&)
      |      ConcreteClass::ConcreteClass(int)
@@ -531,7 +523,7 @@ bound using::
     >>>> c = ConcreteClass()
     >>>> c._python_owns            # True: object created in Python
     True
-    >>>> 
+    >>>>
 
 * **methods**: Are represented as python methods and work as expected.
   They are first class objects and can be bound to an instance.
@@ -566,7 +558,7 @@ bound using::
     >>>> from cppyy.gbl import ConcreteClass
     >>>> print ConcreteClass()
     Hello operator const char*!
-    >>>> 
+    >>>>
 
 * **operator overloads**: If defined in the C++ class and if a python
   equivalent is available (not always the case, think e.g. of ``operator||``),
@@ -618,7 +610,7 @@ bound using::
     <class '__main__.std::vector<int>'>
     >>>> cppyy.gbl.std.vector(int)()         # instantiates class -> object
     <__main__.std::vector<int> object at 0x00007fe480ba4bc0>
-    >>>> 
+    >>>>
 
   Note that templates can be build up by handing actual types to the class
   instantiation (as done in this vector example), or by passing in the list of
@@ -795,8 +787,8 @@ The rest works the same way: the fast path will be used transparently (which
 also means that you can't actually find out whether it is in use, other than
 by running a micro-benchmark or a JIT test).
 
-.. _`provided`: http://cern.ch/wlav/reflex-2013-04-23.tar.bz2
-.. _`genreflex-methptrgetter.patch`: https://bitbucket.org/pypy/pypy/src/default/pypy/module/cppyy/genreflex-methptrgetter.patch
+.. _provided: http://cern.ch/wlav/reflex-2013-04-23.tar.bz2
+.. _genreflex-methptrgetter.patch: https://bitbucket.org/pypy/pypy/src/default/pypy/module/cppyy/genreflex-methptrgetter.patch
 
 CPython
 =======
@@ -808,7 +800,7 @@ If you installed ROOT, rather than just Reflex, PyCintex should be available
 immediately if you add ``$ROOTSYS/lib`` to the ``PYTHONPATH`` environment
 variable.
 
-.. _`PyROOT`: http://root.cern.ch/drupal/content/pyroot
+.. _PyROOT: http://root.cern.ch/drupal/content/pyroot
 
 There are a couple of minor differences between PyCintex and cppyy, most to do
 with naming.
@@ -861,4 +853,4 @@ the bindings module, be it ``cppyy`` or ``libPyROOT.so`` (in PyCintex).
 Although ``genreflex`` is indeed a Python tool, the generated reflection
 information is completely independent of Python.
 
-.. _`Py3k`: https://bitbucket.org/pypy/pypy/src/py3k
+.. _Py3k: https://bitbucket.org/pypy/pypy/src/py3k

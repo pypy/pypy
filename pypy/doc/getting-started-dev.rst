@@ -1,17 +1,16 @@
-===============================================
 Getting Started with PyPy's Development Process
 ===============================================
 
 .. contents::
 
-.. _`start reading sources`:
+.. _start-reading-sources:
 
 Where to start reading the sources
 ----------------------------------
 
 PyPy is made from parts that are relatively independent of each other.
 You should start looking at the part that attracts you most (all paths are
-relative to the PyPy top level directory).  You may look at our `directory reference`_
+relative to the PyPy top level directory).  You may look at our :doc:`directory reference <dir-reference>`
 or start off at one of the following points:
 
 *  :source:`pypy/interpreter` contains the bytecode interpreter: bytecode dispatcher
@@ -30,12 +29,10 @@ or start off at one of the following points:
    contains a modified version of the compiler package from CPython
    that fixes some bugs and is translatable.
 
-*  :source:`pypy/objspace/std` contains the `Standard object space`_.  The main file
+*  :source:`pypy/objspace/std` contains the :ref:`Standard object space <standard-object-space>`.  The main file
    is :source:`pypy/objspace/std/objspace.py`.  For each type, the files ``xxxtype.py`` and
    ``xxxobject.py`` contain respectively the definition of the type and its
    (default) implementation.
-
-.. _optionaltool:
 
 
 Running PyPy's unit tests
@@ -84,8 +81,9 @@ side, it's usually still faster than doing a full translation
 and running the regression test with the translated PyPy Python
 interpreter.
 
-.. _`py.test testing tool`: http://pytest.org
-.. _`py.test usage and invocations`: http://pytest.org/usage.html#usage
+.. _py.test testing tool: http://pytest.org
+.. _py.test usage and invocations: http://pytest.org/usage.html#usage
+
 
 Special Introspection Features of the Untranslated Python Interpreter
 ---------------------------------------------------------------------
@@ -94,8 +92,9 @@ If you are interested in the inner workings of the PyPy Python interpreter,
 there are some features of the untranslated Python interpreter that allow you
 to introspect its internals.
 
+
 Interpreter-level console
-+++++++++++++++++++++++++
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
 If you start an untranslated Python interpreter via::
 
@@ -104,7 +103,7 @@ If you start an untranslated Python interpreter via::
 If you press
 <Ctrl-C> on the console you enter the interpreter-level console, a
 usual CPython console.  You can then access internal objects of PyPy
-(e.g. the `object space`_) and any variables you have created on the PyPy
+(e.g. the :ref:`object space <objspace>`) and any variables you have created on the PyPy
 prompt with the prefix ``w_``::
 
     >>>> a = 123
@@ -123,21 +122,18 @@ The mechanism works in both directions. If you define a variable with the ``w_``
     >>>> l
     [1, 'abc']
 
-.. _`object space`: objspace.html
-
 Note that the prompt of the interpreter-level console is only '>>>' since
 it runs on CPython level. If you want to return to PyPy, press <Ctrl-D> (under
 Linux) or <Ctrl-Z>, <Enter> (under Windows).
 
 You may be interested in reading more about the distinction between
-`interpreter-level and app-level`_.
+:ref:`interpreter-level and app-level <interpreter-level>`.
 
-.. _`interpreter-level and app-level`: coding-guide.html#interpreter-level
 
-.. _`trace example`:
+.. _trace example:
 
 Tracing bytecode and operations on objects
-++++++++++++++++++++++++++++++++++++++++++
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 You can use the trace object space to monitor the interpretation
 of bytecodes in connection with object space operations.  To enable
@@ -158,13 +154,15 @@ it, set ``__pytrace__=1`` on the interactive PyPy console::
     |-13    RETURN_VALUE
     |- <<<< leave <inline>a = 1 + 2 @ 1 >>>>
 
+
 Demos
--------
+-----
 
 The `example-interpreter`_ repository contains an example interpreter
 written using the RPython translation toolchain.
 
-.. _`example-interpreter`: https://bitbucket.org/pypy/example-interpreter
+.. _example-interpreter: https://bitbucket.org/pypy/example-interpreter
+
 
 Additional Tools for running (and hacking) PyPy
 -----------------------------------------------
@@ -173,8 +171,9 @@ We use some optional tools for developing PyPy. They are not required to run
 the basic tests or to get an interactive PyPy prompt but they help to
 understand  and debug PyPy especially for the translation process.
 
+
 graphviz & pygame for flow graph viewing (highly recommended)
-+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 graphviz and pygame are both necessary if you
 want to look at generated flow graphs:
@@ -183,8 +182,9 @@ want to look at generated flow graphs:
 
 	pygame: http://www.pygame.org/download.shtml
 
+
 py.test and the py lib
-++++++++++++++++++++++
+~~~~~~~~~~~~~~~~~~~~~~
 
 The `py.test testing tool`_ drives all our testing needs.
 
@@ -194,26 +194,19 @@ writing, logging and some other support  functionality.
 You don't necessarily need to install these two libraries because
 we also ship them inlined in the PyPy source tree.
 
+
 Getting involved
 ----------------
 
 PyPy employs an open development process.  You are invited to join our
-`pypy-dev mailing list`_ or look at the other `contact
-possibilities`_.  Usually we give out commit rights fairly liberally, so if you
+`pypy-dev mailing list`_ or look at the other :ref:`contact
+possibilities <contact>`.  Usually we give out commit rights fairly liberally, so if you
 want to do something with PyPy, you can become a committer. We are also doing
 coding Sprints which are
 separately announced and often happen around Python conferences such
 as EuroPython or Pycon. Upcoming events are usually announced on `the blog`_.
 
-.. _`the blog`: http://morepypy.blogspot.com
-.. _`pypy-dev mailing list`: http://python.org/mailman/listinfo/pypy-dev
-.. _`contact possibilities`: index.html
+.. _the blog: http://morepypy.blogspot.com
+.. _pypy-dev mailing list: http://python.org/mailman/listinfo/pypy-dev
 
-.. _`py library`: http://pylib.org
-
-.. _Standard object space:  objspace.html#the-standard-object-space
-.. _mailing lists:          index.html
-.. _documentation:          index.html#project-documentation
-.. _unit tests:             coding-guide.html#test-design
-
-.. _`directory reference`: index.html#pypy-directory-reference
+.. _py library: http://pylib.org

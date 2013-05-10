@@ -1,3 +1,6 @@
+.. TODO cleanup after merge of gc-del
+
+
 =============================
 Garbage Collection in RPython
 =============================
@@ -14,7 +17,7 @@ to that file for an old, but still more or less accurate, description.
 The present document describes the specific garbage collectors that we
 wrote in our framework.
 
-.. _`EU-report on this topic`: https://bitbucket.org/pypy/extradoc/src/extradoc/eu-report/D07.1_Massive_Parallelism_and_Translation_Aspects-2007-02-28.pdf
+.. _EU-report on this topic: https://bitbucket.org/pypy/extradoc/src/extradoc/eu-report/D07.1_Massive_Parallelism_and_Translation_Aspects-2007-02-28.pdf
 
 
 Garbage collectors currently written for the GC framework
@@ -28,7 +31,7 @@ translation`_.
 The following overview is written in chronological order, so the "best"
 GC (which is the default when translating) is the last one below.
 
-.. _`overview of command line options for translation`: config/commandline.html#translation
+.. _overview of command line options for translation: config/commandline.html#translation
 
 Mark and Sweep
 --------------

@@ -17,7 +17,7 @@ The two biggest changes since PyPy 1.9 are:
 * PyPy now contains release 0.6 of `cffi`_ as a builtin module, which
   is preferred way of calling C from Python that works well on PyPy
 
-.. _`cffi`: http://cffi.readthedocs.org
+.. _cffi: http://cffi.readthedocs.org
 
 What is PyPy?
 =============
@@ -31,7 +31,7 @@ Windows 32.  Windows 64 work is still stalling, we would welcome a volunteer
 to handle that. ARM support is on the way and we're expecting to release
 an alpha ARM version shortly.
 
-.. _`pypy 2.0 and cpython 2.7.3`: http://speed.pypy.org
+.. _pypy 2.0 and cpython 2.7.3: http://speed.pypy.org
 
 Highlights
 ==========
@@ -54,8 +54,8 @@ Highlights
 
 * A lot of stability issues fixed.
 
-.. _`pypycore`: https://github.com/gevent-on-pypy/pypycore/
-.. _`pypy-hacks`: https://github.com/schmir/gevent/tree/pypy-hacks
+.. _pypycore: https://github.com/gevent-on-pypy/pypycore/
+.. _pypy-hacks: https://github.com/schmir/gevent/tree/pypy-hacks
 
 Cheers,
 fijal, arigo and the PyPy team

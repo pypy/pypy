@@ -1,11 +1,8 @@
-==========================================================
-         Application-level Stackless features
-==========================================================
-
-
+Application-level Stackless features
+====================================
 
 Introduction
-================
+------------
 
 PyPy can expose to its user language features similar to the ones
 present in `Stackless Python`_: the ability to write code in a
@@ -31,9 +28,11 @@ only available (so far) on x86 and x86-64 CPUs; for other CPUs you need
 to add a short page of custom assembler to
 :source:`rpython/translator/c/src/stacklet/`.
 
+.. _Stackless Python: http://www.stackless.com
+
 
 Theory
-======
+------
 
 The fundamental idea is that, at any point in time, the program happens
 to run one stack of frames (or one per thread, in case of
@@ -75,13 +74,12 @@ tracebacks too).
 
 
 Application level interface
-=============================
-
+---------------------------
 
 .. _continulet:
 
 Continulets
-+++++++++++
+~~~~~~~~~~~
 
 A translated PyPy contains by default a module called ``_continuation``
 exporting the type ``continulet``.  A ``continulet`` object from this
@@ -156,7 +154,7 @@ In more details:
 
 
 Genlets
-+++++++
+~~~~~~~
 
 The ``_continuation`` module also exposes the ``generator`` decorator::
 
@@ -183,7 +181,7 @@ The ``generator`` decorator can also be applied to methods::
 
 
 Greenlets
-+++++++++
+~~~~~~~~~
 
 Greenlets are implemented on top of continulets in :source:`lib_pypy/greenlet.py`.
 See the official `documentation of the greenlets`_.
@@ -192,9 +190,11 @@ Note that unlike the CPython greenlets, this version does not suffer
 from GC issues: if the program "forgets" an unfinished greenlet, it will
 always be collected at the next garbage collection.
 
+.. _documentation of the greenlets: http://packages.python.org/greenlet/
+
 
 Unimplemented features
-++++++++++++++++++++++
+~~~~~~~~~~~~~~~~~~~~~~
 
 The following features (present in some past Stackless version of PyPy)
 are for the time being not supported any more:
@@ -213,7 +213,7 @@ are for the time being not supported any more:
 
 
 Recursion depth limit
-+++++++++++++++++++++
+~~~~~~~~~~~~~~~~~~~~~
 
 You can use continulets to emulate the infinite recursion depth present
 in Stackless Python and in stackless-enabled older versions of PyPy.
@@ -266,7 +266,7 @@ to use other interfaces like genlets and greenlets.)
 
 
 Stacklets
-+++++++++
+~~~~~~~~~
 
 Continulets are internally implemented using stacklets, which is the
 generic RPython-level building block for "one-shot continuations".  For
@@ -284,7 +284,7 @@ wrapper like PyPy's '_continuation' module.
 
 
 Theory of composability
-+++++++++++++++++++++++
+~~~~~~~~~~~~~~~~~~~~~~~
 
 Although the concept of coroutines is far from new, they have not been
 generally integrated into mainstream languages, or only in limited form
@@ -407,7 +407,3 @@ that switched to it) belong to the same class or module; so from that
 point of view the continulet is a purely local link between two local
 frames.  It doesn't make sense to have a concept that allows this link
 to be manipulated from outside.
-
-
-.. _`Stackless Python`: http://www.stackless.com
-.. _`documentation of the greenlets`: http://packages.python.org/greenlet/

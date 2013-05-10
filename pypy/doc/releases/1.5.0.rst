@@ -59,15 +59,15 @@ Carl Friedrich Bolz, Laura Creighton, Antonio Cuni, Maciej Fijalkowski,
 Amaury Forgeot d'Arc, Alex Gaynor, Armin Rigo and the PyPy team
 
 
-.. _`CPython 2.6`: http://docs.python.org/dev/whatsnew/2.6.html
-.. _`CPython 2.7`: http://docs.python.org/dev/whatsnew/2.7.html
+.. _CPython 2.6: http://docs.python.org/dev/whatsnew/2.6.html
+.. _CPython 2.7: http://docs.python.org/dev/whatsnew/2.7.html
 
-.. _`our blog`: http://morepypy.blogspot.com
-.. _`pypy 1.5 and pypy 1.4`: http://bit.ly/joPhHo
-.. _`pypy 1.5 and cpython 2.6.2`: http://bit.ly/mbVWwJ
+.. _our blog: http://morepypy.blogspot.com
+.. _pypy 1.5 and pypy 1.4: http://bit.ly/joPhHo
+.. _pypy 1.5 and cpython 2.6.2: http://bit.ly/mbVWwJ
 
-.. _`loop invariant code motion`: http://morepypy.blogspot.com/2011/01/loop-invariant-code-motion.html
-.. _`compatibility wiki`: https://bitbucket.org/pypy/compatibility/wiki/Home
-.. _`Tkinter and IDLE`: http://morepypy.blogspot.com/2011/04/using-tkinter-and-idle-with-pypy.html
-.. _`cProfile`: http://docs.python.org/library/profile.html
-.. _`external fork`: https://bitbucket.org/alex_gaynor/pypy-postgresql
+.. _loop invariant code motion: http://morepypy.blogspot.com/2011/01/loop-invariant-code-motion.html
+.. _compatibility wiki: https://bitbucket.org/pypy/compatibility/wiki/Home
+.. _Tkinter and IDLE: http://morepypy.blogspot.com/2011/04/using-tkinter-and-idle-with-pypy.html
+.. _cProfile: http://docs.python.org/library/profile.html
+.. _external fork: https://bitbucket.org/alex_gaynor/pypy-postgresql

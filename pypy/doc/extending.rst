@@ -1,6 +1,5 @@
-===================================
 Writing extension modules for pypy
-===================================
+==================================
 
 This document tries to explain how to interface the PyPy python interpreter
 with any external library.
@@ -9,28 +8,25 @@ Note: We try to describe state-of-the art, but it
 might fade out of date as this is the front on which things are changing
 in pypy rapidly.
 
+
 Possibilities
-=============
+-------------
 
 Right now, there are three possibilities of providing third-party modules
 for the PyPy python interpreter (in order of usefulness):
 
-* Write them in pure python and use ctypes, see ctypes_
-  section
+* Write them in pure python and use ctypes, see CTypes_ section
 
 * Write them in pure python and use direct libffi low-level bindings, See
-  \_ffi_ module description.
+  `\_ffi <LibFFI>`_ module description.
 
-* Write them in RPython as mixedmodule_, using *rffi* as bindings.
+* Write them in RPython as `mixedmodule <Mixed Modules>`_, using *rffi* as bindings.
 
 * Write them in C++ and bind them through Reflex_
 
-.. _ctypes: #CTypes
-.. _\_ffi: #LibFFI
-.. _mixedmodule: #Mixed Modules
 
 CTypes
-======
+------
 
 The ctypes module in PyPy is ready to use.
 It's goal is to be as-compatible-as-possible with the
@@ -51,16 +47,18 @@ check/convert the types of the parameters.  Moreover, even if most calls are
 optimized, some cannot and thus need to follow the slow path, not optimized by
 the JIT.
 
-.. _`ctypes-configure`: ctypes-implementation.html#ctypes-configure
-.. _`CPython ctypes`: http://docs.python.org/library/ctypes.html
+.. _ctypes-configure: ctypes-implementation.html#ctypes-configure
+.. _CPython ctypes: http://docs.python.org/library/ctypes.html
+
 
 Pros
-----
+~~~~
 
 Stable, CPython-compatible API.  Most calls are fast, optimized by JIT.
 
+
 Cons
-----
+~~~~
 
 Problems with platform-dependency (although we partially solve
 those). Although the JIT optimizes ctypes calls, some overhead is still
@@ -68,7 +66,7 @@ present.  The slow-path is very slow.
 
 
 LibFFI
-======
+------
 
 Mostly in order to be able to write a ctypes module, we developed a very
 low-level libffi bindings called ``_ffi``. (libffi is a C-level library for dynamic calling,
@@ -76,21 +74,24 @@ which is used by CPython ctypes). This library provides stable and usable API,
 although it's API is a very low-level one. It does not contain any
 magic.  It is also optimized by the JIT, but has much less overhead than ctypes.
 
+
 Pros
-----
+~~~~
 
 It Works. Probably more suitable for a delicate code where ctypes magic goes
 in a way.  All calls are optimized by the JIT, there is no slow path as in
 ctypes.
 
+
 Cons
-----
+~~~~
 
 It combines disadvantages of using ctypes with disadvantages of using mixed
 modules. CPython-incompatible API, very rough and low-level.
 
+
 Mixed Modules
-=============
+-------------
 
 This is the most advanced and powerful way of writing extension modules.
 It has some serious disadvantages:
@@ -106,18 +107,14 @@ It has some serious disadvantages:
   C and RPython needs to be managed by hand (each object that goes into the
   C level must be explicitly freed).
 
-Some documentation is available `here`_
+Some documentation is available :doc:`here <rpython:rffi>`
 
-.. _`here`: rffi.html
-
-XXX we should provide detailed docs about lltype and rffi, especially if we
-    want people to follow that way.
 
 Reflex
-======
+------
 
 This method is still experimental and is being exercised on a branch,
-`reflex-support`_, which adds the `cppyy`_ module.
+reflex-support, which adds the :doc:`cppyy <cppyy>` module.
 The method works by using the `Reflex package`_ to provide reflection
 information of the C++ code, which is then used to automatically generate
 bindings at runtime.
@@ -128,15 +125,13 @@ runtime structures, created when a script or module loads.
 However, if the backend itself is capable of dynamic behavior, it is a much
 better functional match to python, allowing tighter integration and more
 natural language mappings.
-Full details are `available here`_.
+Full details are available :doc:`here <cppyy>`.
 
-.. _`cppyy`: cppyy.html
-.. _`reflex-support`: cppyy.html
-.. _`Reflex package`: http://root.cern.ch/drupal/content/reflex
-.. _`available here`: cppyy.html
+.. _Reflex package: http://root.cern.ch/drupal/content/reflex
+
 
 Pros
-----
+~~~~
 
 The cppyy module is written in RPython, which makes it possible to keep the
 code execution visible to the JIT all the way to the actual point of call into
@@ -153,11 +148,12 @@ This will affect the backend only; the python-side interface is expected to
 remain the same, except that cling adds a lot of dynamic behavior to C++,
 enabling further language integration.
 
-.. _`cling`: http://root.cern.ch/drupal/content/cling
-.. _`llvm`: http://llvm.org/
+.. _cling: http://root.cern.ch/drupal/content/cling
+.. _llvm: http://llvm.org/
+
 
 Cons
-----
+~~~~
 
 C++ is a large language, and cppyy is not yet feature-complete.
 Still, the experience gained in developing the equivalent bindings for CPython

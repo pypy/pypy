@@ -1,4 +1,3 @@
-==============================================
 Getting Started with PyPy's Python Interpreter
 ==============================================
 
@@ -7,35 +6,33 @@ Getting Started with PyPy's Python Interpreter
 
 PyPy's Python interpreter is a very compliant Python
 interpreter implemented in RPython.  When compiled, it passes most of
-`CPythons core language regression tests`_ and comes with many of the extension
+`CPython's core language regression tests`_ and comes with many of the extension
 modules included in the standard library including ``ctypes``. It can run large
 libraries such as Django_ and Twisted_. There are some small behavioral
-differences with CPython and some missing extensions, for details see `CPython
-differences`_.
-
-.. _Django: http://djangoproject.com
-.. _Twisted: http://twistedmatrix.com
-
-.. _`CPython differences`: cpython_differences.html
+differences with CPython and some missing extensions, for details see :doc:`cpython_differences`
 
 To actually use PyPy's Python interpreter, the first thing to do is to
 `download a pre-built PyPy`_ for your architecture.
 
-.. _`download a pre-built PyPy`:  http://pypy.org/download.html
+.. _CPython's core language regression tests: http://buildbot.pypy.org/summary?category=applevel&branch=%3Ctrunk%3E
+.. _Django: http://djangoproject.com
+.. _Twisted: http://twistedmatrix.com
+.. _download a pre-built PyPy:  http://pypy.org/download.html
+
+
+.. _translate-pypy:
 
 Translating the PyPy Python interpreter
 ---------------------------------------
 
-(**Note**: for some hints on how to translate the Python interpreter under
-Windows, see the `windows document`_)
-
-.. _`windows document`: windows.html
+.. note:: For some hints on how to translate the Python interpreter under
+          Windows, see the :doc:`windows document <rpython:windows>`.
 
 You can translate the whole of PyPy's Python interpreter to low level C code,
 or `CLI code`_.  If you intend to build using gcc, check to make sure that
 the version you have is not 4.2 or you will run into `this bug`_.
 
-.. _`this bug`: https://bugs.launchpad.net/ubuntu/+source/gcc-4.2/+bug/187391
+.. _this bug: https://bugs.launchpad.net/ubuntu/+source/gcc-4.2/+bug/187391
 
 1. First `download a pre-built PyPy`_ for your architecture which you will
    use to translate your Python interpreter.  It is, of course, possible to
@@ -75,7 +72,7 @@ the version you have is not 4.2 or you will run into `this bug`_.
    memory on a
    32-bit machine and 4GB on a 64-bit machine.  If your memory resources
    are constrained, or your machine is slow you might want to pick the
-   `optimization level`_ `1` in the next step.  A level of
+   :doc:`optimization level <config/opt>` `1` in the next step.  A level of
    `2` or `3` or `jit` gives much better results, though.  But if all
    you want to do is to test that some new feature that you just wrote
    translates, level 1 is enough.
@@ -90,11 +87,9 @@ the version you have is not 4.2 or you will run into `this bug`_.
      cd pypy/goal
      python ../../rpython/bin/rpython --opt=jit targetpypystandalone.py
 
-   possibly replacing ``--opt=jit`` with another `optimization level`_
+   possibly replacing ``--opt=jit`` with another :doc:`optimization level <config/opt>`
    of your choice like ``--opt=2`` if you do not want to include the JIT
    compiler, which makes the Python interpreter much slower.
-
-.. _`optimization level`: config/opt.html
 
 If everything works correctly this will create an executable
 ``pypy-c`` in the current directory.  Type ``pypy-c --help``
@@ -128,28 +123,26 @@ Installation_ below.
 The ``translate.py`` script takes a very large number of options controlling
 what to translate and how.  See ``translate.py -h``. The default options
 should be suitable for mostly everybody by now.
-Find a more detailed description of the various options in our `configuration
-sections`_.
+Find a more detailed description of the various options in our :doc:`configuration
+sections <config/index>`.
 
-.. _`configuration sections`: config/index.html
 
 Translating with non-standard options
-+++++++++++++++++++++++++++++++++++++
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 It is possible to have non-standard features enabled for translation,
 but they are not really tested any more.  Look, for example, at the
-`objspace proxies`_ document.
+:doc:`objspace proxies <objspace-proxies>` document.
 
-.. _`objspace proxies`: objspace-proxies.html
 
-.. _`CLI code`:
+.. _CLI code:
 
 Translating using the CLI backend
-+++++++++++++++++++++++++++++++++
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-**Note: the CLI backend is no longer maintained**
+.. note:: The CLI backend is no longer maintained.
 
-To create a standalone .NET executable using the `CLI backend`_::
+To create a standalone .NET executable using the :doc:`CLI backend <rpython:cli-backend>`::
 
     ./translate.py --backend=cli targetpypystandalone.py
 
@@ -178,36 +171,40 @@ will automatically use its ``ilasm2`` tool to assemble the
 executables.
 
 To try out the experimental .NET integration, check the documentation of the
-clr_ module.
+:doc:`clr <clr-module>` module.
 
-..  not working now:
+.. _Mono: http://www.mono-project.com/Main_Page
 
-    .. _`JVM code`:
 
-    Translating using the JVM backend
-    +++++++++++++++++++++++++++++++++
+.. _JVM code:
 
-    To create a standalone JVM executable::
+Translating using the JVM backend
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-        ./translate.py --backend=jvm targetpypystandalone.py
+.. note:: The JVM backend is no longer maintained.
 
-    This will create a jar file ``pypy-jvm.jar`` as well as a convenience
-    script ``pypy-jvm`` for executing it.  To try it out, simply run
-    ``./pypy-jvm``::
+To create a standalone JVM executable::
 
-        $ ./pypy-jvm
-        Python 2.7.0 (61ef2a11b56a, Mar 02 2011, 03:00:11)
-        [PyPy 1.6.0] on linux2
-        Type "help", "copyright", "credits" or "license" for more information.
-        And now for something completely different: ``# assert did not crash''
-        >>>>
+    ./translate.py --backend=jvm targetpypystandalone.py
 
-    Alternatively, you can run it using ``java -jar pypy-jvm.jar``. At the moment
-    the executable does not provide any interesting features, like integration with
-    Java.
+This will create a jar file ``pypy-jvm.jar`` as well as a convenience
+script ``pypy-jvm`` for executing it.  To try it out, simply run
+``./pypy-jvm``::
+
+    $ ./pypy-jvm
+    Python 2.7.0 (61ef2a11b56a, Mar 02 2011, 03:00:11)
+    [PyPy 1.6.0] on linux2
+    Type "help", "copyright", "credits" or "license" for more information.
+    And now for something completely different: ``# assert did not crash''
+    >>>>
+
+Alternatively, you can run it using ``java -jar pypy-jvm.jar``. At the moment
+the executable does not provide any interesting features, like integration with
+Java.
+
 
 Installation
-++++++++++++
+~~~~~~~~~~~~
 
 A prebuilt ``pypy-c`` can be installed in a standard location like
 ``/usr/local/bin``, although some details of this process are still in
@@ -244,13 +241,14 @@ and then attempt to continue normally.  If the default path is usable,
 most code will be fine.  However, the ``sys.prefix`` will be unset
 and some existing libraries assume that this is never the case.
 
-.. _`pyinteractive.py interpreter`:
+
+.. _pyinteractive.py interpreter:
 
 Running the Python Interpreter Without Translation
 --------------------------------------------------
 
 The pyinteractive.py interpreter
-++++++++++++++++++++++++++++++++
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 To start interpreting Python with PyPy, install a C compiler that is
 supported by distutils and use Python 2.5 or greater to run PyPy::
@@ -276,8 +274,9 @@ default is 50000, which is far too many to run in a non-translated
 PyPy version (i.e. when PyPy's interpreter itself is being interpreted
 by CPython).
 
+
 pyinteractive.py options
-++++++++++++++++++++++++
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 To list the PyPy interpreter command line options, type::
 
@@ -295,12 +294,5 @@ script name on the command line::
 
     python pyinteractive.py ../../lib-python/2.7/test/pystone.py 10
 
-See our  `configuration sections`_ for details about what all the commandline
+See our :doc:`configuration sections <config/index>` for details about what all the commandline
 options do.
-
-
-.. _Mono: http://www.mono-project.com/Main_Page
-.. _`CLI backend`: cli-backend.html
-.. _`Boehm-Demers-Weiser garbage collector`: http://www.hpl.hp.com/personal/Hans_Boehm/gc/
-.. _clr: clr-module.html
-.. _`CPythons core language regression tests`: http://buildbot.pypy.org/summary?category=applevel&branch=%3Ctrunk%3E

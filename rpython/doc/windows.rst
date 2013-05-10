@@ -1,6 +1,5 @@
-==================
-RPython on Windows
-==================
+Translating on Windows
+======================
 
 RPython is supported on Windows platforms, starting with Windows 2000.
 The following text gives some hints about how to translate a interpreter
@@ -13,8 +12,7 @@ Microsoft Visual Studio is preferred, but can also use the mingw32 port of gcc.
 Translating PyPy with Visual Studio
 -----------------------------------
 
-We routinely test the `RPython translation toolchain`_ using
-Visual Studio 2008, Express
+We routinely test :doc:`translation` using Visual Studio 2008, Express
 Edition.  Other configurations may work as well.
 
 The translation scripts will set up the appropriate environment variables
@@ -34,6 +32,7 @@ The compiler is all you need to build pypy-c, but it will miss some
 modules that relies on third-party libraries.  See below how to get
 and build them.
 
+
 Preparing Windows for the large build
 -------------------------------------
 
@@ -52,6 +51,7 @@ Then you need to execute::
 
 on the pypy.exe file you compiled.
 
+
 Installing external packages
 ----------------------------
 
@@ -62,8 +62,10 @@ directory of the pypy checkout.  For example, if you installed pypy in
 directory is ``d:\pypy``. You must then set the
 INCLUDE, LIB and PATH (for DLLs) environment variables appropriately.
 
+
 Abridged method (for -Ojit builds using Visual Studio 2008)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 Download the versions of all the external packages
 from
 https://bitbucket.org/pypy/pypy/downloads/local.zip
@@ -74,6 +76,7 @@ Then expand it into the base directory (base_dir) and modify your environment to
     set LIB=<base_dir>\lib;%LIB%
 
 Now you should be good to go. Read on for more information.
+
 
 The Boehm garbage collector
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -92,6 +95,7 @@ prompt::
     nmake -f NT_THREADS_MAKEFILE
     copy Release\gc.dll <somewhere in the PATH>
 
+
 The zlib compression library
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -102,6 +106,7 @@ the base directory.  Then compile::
     nmake -f win32\Makefile.msc
     copy zlib1.dll <somewhere in the PATH>\zlib.dll
 
+
 The bz2 compression library
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -110,6 +115,7 @@ the base directory.  Then compile::
 
     cd bzip2-1.0.5
     nmake -f makefile.msc
+
 
 The sqlite3 database library
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -139,6 +145,7 @@ is actually enough for PyPy).
 Then, copy the file ``win32\bin\release\libexpat.dll`` somewhere in
 your PATH.
 
+
 The OpenSSL library
 ~~~~~~~~~~~~~~~~~~~
 
@@ -153,6 +160,7 @@ in the base directory. Then compile::
     ms\do_ms.bat
     nmake -f ms\nt.mak install
 
+
 Using the mingw compiler
 ------------------------
 
@@ -164,6 +172,7 @@ i.e. x86_64-w64-mingw32-gcc for the 64 bit compiler creating a 64 bit target.
 You probably want to set the CPATH, LIBRARY_PATH, and PATH environment
 variables to the header files, lib or dlls, and dlls respectively of the
 locally installed packages if they are not in the mingw directory heirarchy.
+
 
 libffi for the mingw compiler
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -200,6 +209,7 @@ If you wish to experiment with win64, you must run configure with flags::
 
 or such, depending on your mingw64 download.
 
+
 hacking on Pypy with the mingw compiler
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Since hacking on Pypy means running tests, you will need a way to specify
@@ -207,8 +217,7 @@ the mingw compiler when hacking (as opposed to translating). As of
 March 2012, --cc is not a valid option for pytest.py. However if you set an
 environment variable CC to the compliter exe, testing will use it.
 
-.. _`mingw32 build`: http://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win32/Automated%20Builds
-.. _`mingw64 build`: http://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win64/Automated%20Builds
-.. _`msys for mingw`: http://sourceforge.net/projects/mingw-w64/files/External%20binary%20packages%20%28Win64%20hosted%29/MSYS%20%2832-bit%29
-.. _`libffi source files`: http://sourceware.org/libffi/
-.. _`RPython translation toolchain`: translation.html
+.. _mingw32 build: http://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win32/Automated%20Builds
+.. _mingw64 build: http://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win64/Automated%20Builds
+.. _msys for mingw: http://sourceforge.net/projects/mingw-w64/files/External%20binary%20packages%20%28Win64%20hosted%29/MSYS%20%2832-bit%29
+.. _libffi source files: http://sourceware.org/libffi/

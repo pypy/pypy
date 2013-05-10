@@ -25,7 +25,7 @@ import sys, os
 
 # Add any Sphinx extension module names here, as strings. They can be extensions
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
-extensions = ['sphinx.ext.extlinks', 'sphinx.ext.graphviz']
+extensions = ['sphinx.ext.extlinks', 'sphinx.ext.intersphinx', 'sphinx.ext.graphviz']
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -206,6 +206,10 @@ latex_documents = [
 
 # If false, no module index is generated.
 #latex_domain_indices = True
+
+
+intersphinx_mapping = {'python': ('http://docs.python.org/2.7', None),
+                       'pypy': ('http://pypy.readthedocs.org/en/improve-docs/', None)}
 
 
 # -- Options for manual page output --------------------------------------------

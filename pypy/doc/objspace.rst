@@ -1,15 +1,14 @@
-================
 The Object Space
 ================
 
 .. contents::
 
 
-.. _`objectspace`:
-.. _`Object Space`:
+.. _objectspace:
+.. _Object Space:
 
 Introduction
-============
+------------
 
 The object space creates all objects and knows how to perform operations
 on the objects. You may think of an object space as being a library
@@ -19,7 +18,7 @@ operation is *add*: add's implementations are, for example, responsible
 for performing numeric addition when add works on numbers, concatenation
 when add works on built-in sequences.
 
-All object-space operations take and return `application-level`_ objects.
+All object-space operations take and return :ref:`application-level <application-level>` objects.
 There are only a few, very simple, object-space operations which allow the
 bytecode interpreter to gain some knowledge about the value of an
 application-level object.
@@ -34,8 +33,8 @@ the bytecode interpreter:
 - The *Standard Object Space* is a complete implementation
   of the various built-in types and objects of Python.  The Standard Object
   Space, together with the bytecode interpreter, is the foundation of our Python
-  implementation.  Internally, it is a set of `interpreter-level`_ classes
-  implementing the various `application-level`_ objects -- integers, strings,
+  implementation.  Internally, it is a set of :ref:`interpreter-level <interpreter-level>` classes
+  implementing the various :ref:`application-level <application-level>` objects -- integers, strings,
   lists, types, etc.  To draw a comparison with CPython, the Standard Object
   Space provides the equivalent of the C structures ``PyIntObject``,
   ``PyListObject``, etc.
@@ -48,26 +47,23 @@ the bytecode interpreter:
 - the *Flow Object Space* transforms a Python program into a
   flow-graph representation, by recording all operations that the bytecode
   interpreter would like to perform when it is shown the given Python
-  program.  This technique is explained `in another document`_.
+  program.  This technique is explained :doc:`in another document <rpython:translation>`.
 
 The present document gives a description of the above object spaces.
 The sources of PyPy contain the various object spaces in the directory
 :source:`pypy/objspace/`.
 
-.. _`application-level`: coding-guide.html#application-level
-.. _`interpreter-level`: coding-guide.html#interpreter-level
-.. _`in another document`: translation.html
 
-.. _interface:
+.. _objspace-interface:
 
 Object Space Interface
-======================
+----------------------
 
 This is the public API that all Object Spaces implement.
 
 
 Administrative Functions
-----------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 ``getexecutioncontext():``
   Return current active execution context
@@ -77,8 +73,9 @@ Administrative Functions
   Return a Module object for the built-in module given by name
   (:source:`pypy/interpreter/module.py`).
 
+
 Operations on Objects in the Object Space
------------------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These functions both take and return "wrapped" objects.
 
@@ -118,8 +115,9 @@ semantic - they directly correspond to language-level constructs:
 ``exception_match(w_exc_type, w_check_class):``
   Checks if the given exception type matches 'w_check_class'. Used in matching the actual exception raised with the list of those to catch in an except clause. (Returns a wrapped result too!)
 
+
 Convenience Functions
----------------------
+~~~~~~~~~~~~~~~~~~~~~
 
 The following functions are part of the object space interface but would not be
 strictly necessary because they can be expressed using several other object
@@ -170,7 +168,7 @@ introduce them as shortcuts.
 
 
 Creation of Application Level objects
----------------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ``wrap(x):``
   Returns a wrapped object that is a reference to the interpreter-level object
@@ -204,8 +202,9 @@ Creation of Application Level objects
 ``newunicode(codelist):``
   Creates a unicode string from a list of integers.
 
+
 Conversions from Application Level to Interpreter Level
-----------------------------------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ``unwrap(w_x):``
   Return the Interpreter Level equivalent of w_x.  DO NOT USE!
@@ -251,7 +250,7 @@ Conversions from Application Level to Interpreter Level
 
 
 Data Members
------------------
+~~~~~~~~~~~~
 
 + space.builtin: The Module containing the builtins
 + space.sys: The 'sys' Module
@@ -283,13 +282,13 @@ Data Members
    non-wrapped objects).
 
 
-.. _`standard-object-space`:
+.. _standard-object-space:
 
 The Standard Object Space
-=========================
+-------------------------
 
 Introduction
-------------
+~~~~~~~~~~~~
 
 The Standard Object Space (:source:`pypy/objspace/std/`) is the direct equivalent of CPython's
 object library (the "Objects/" subdirectory in the distribution). It is an
@@ -329,7 +328,7 @@ an integer (after all, integers are directly available in C too). You could
 represent small integers as odd-valuated pointers. But it puts extra burden on
 the whole C code, so the CPython team avoided it.  (In our case it is an
 optimization that we eventually made, but not hard-coded at this level -
-see `Standard Interpreter Optimizations`_.)
+see :doc:`interpreter-optimizations`.)
 
 So in summary: wrapping integers as instances is the simple path, while
 using plain integers instead is the complex path, not the other way
@@ -337,7 +336,7 @@ around.
 
 
 Object types
-------------
+~~~~~~~~~~~~
 
 The larger part of the :source:`pypy/objspace/std/` package defines and implements the
 library of Python's standard built-in object types.  Each type (int, float,
@@ -379,13 +378,11 @@ other implementations of strings use the same ``typedef`` from
 :source:`pypy/objspace/std/stringtype.py`.
 
 For other examples of multiple implementations of the same Python type,
-see `Standard Interpreter Optimizations`_.
-
-.. _`Standard Interpreter Optimizations`: interpreter-optimizations.html
+see :doc:`interpreter-optimizations`.
 
 
 Multimethods
-------------
+~~~~~~~~~~~~
 
 The Standard Object Space allows multiple object implementations per
 Python type - this is based on multimethods_.  For a description of the
@@ -444,7 +441,7 @@ overloading resolution mechanism (but occurs at runtime).
 
 
 Multimethod slicing
--------------------
+~~~~~~~~~~~~~~~~~~~
 
 The complete picture is more complicated because the Python object model
 is based on *descriptors*: the types ``int``, ``str``, etc. must have
@@ -483,13 +480,14 @@ Additionally, slicing ensures that ``5 .__add__(6L)`` correctly returns
 ``add__Long_Long`` and there is no ``add__Int_Long``), which leads to
 ``6L.__radd__(5)`` being called, as in CPython.
 
+
 .. _flow-object-space:
 
 The Flow Object Space
-=====================
+---------------------
 
 Introduction
-------------
+~~~~~~~~~~~~
 
 The task of the FlowObjSpace (the source is at :source:`pypy/objspace/flow/`) is to generate a control-flow graph from a
 function.  This graph will also contain a trace of the individual operations, so
@@ -511,7 +509,7 @@ placeholder "wrapped objects" and give them to the interpreter, so that they
 appear in some next operation.  This technique is an example of `Abstract
 Interpretation`_.
 
-.. _`Abstract Interpretation`: http://en.wikipedia.org/wiki/Abstract_interpretation
+.. _Abstract Interpretation: http://en.wikipedia.org/wiki/Abstract_interpretation
 
 For example, if the placeholder ``v1`` is given as the argument to the above
 function, the bytecode interpreter will call ``v2 = space.mul(space.wrap(3),
@@ -523,18 +521,15 @@ result.  During these calls the FlowObjSpace will record a basic block::
     v3 = add(v2, Constant(2))
 
 
-
 The Flow model
---------------
+~~~~~~~~~~~~~~
 
 The data structures built up by the flow object space are described in the
-`translation document`_.
-
-.. _`translation document`: translation.html#flow-model
+:ref:`translation document <rpython:flow-model>`.
 
 
 How the FlowObjSpace works
---------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The FlowObjSpace works by recording all operations issued by the bytecode
 interpreter into basic blocks.  A basic block ends in one of two cases: when
@@ -562,11 +557,9 @@ the bytecode interpreters calls ``is_true()``, or when a joinpoint is reached.
 
 
 Object Space proxies
-====================
+--------------------
 
 We have implemented several *proxy object spaces* which wrap another
 space (typically the standard one) and add some capability to all
-objects.  These object spaces are documented in a separate page: `What
-PyPy can do for your objects`_.
-
-.. _`What PyPy can do for your objects`: objspace-proxies.html
+objects.  These object spaces are documented in a separate page:
+:doc:`objspace-proxies`

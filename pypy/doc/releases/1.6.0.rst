@@ -30,7 +30,7 @@ layers which compose PyPy.  In particular, we improved: the Garbage Collector,
 the JIT warmup time, the optimizations performed by the JIT, the quality of
 the generated machine code and the implementation of our Python interpreter.
 
-.. _`pypy 1.5 and cpython 2.6.2`: http://speed.pypy.org
+.. _pypy 1.5 and cpython 2.6.2: http://speed.pypy.org
 
 
 Highlights
@@ -89,7 +89,7 @@ Hakan Ardo, Carl Friedrich Bolz, Laura Creighton, Antonio Cuni,
 Maciej Fijalkowski, Amaury Forgeot d'Arc, Alex Gaynor,
 Armin Rigo and the PyPy team
 
-.. _`jitviewer`: http://morepypy.blogspot.com/2011/08/visualization-of-jitted-code.html
-.. _`bug tracker`: https://bugs.pypy.org
-.. _`compatibility wiki`: https://bitbucket.org/pypy/compatibility/wiki/Home
+.. _jitviewer: http://morepypy.blogspot.com/2011/08/visualization-of-jitted-code.html
+.. _bug tracker: https://bugs.pypy.org
+.. _compatibility wiki: https://bitbucket.org/pypy/compatibility/wiki/Home
 

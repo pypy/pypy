@@ -2,8 +2,8 @@
 PyPy 1.0: JIT compilers for free and more
 ==========================================
 
-Welcome to the PyPy 1.0 release - a milestone integrating the results 
-of four years of research, engineering, management and sprinting 
+Welcome to the PyPy 1.0 release - a milestone integrating the results
+of four years of research, engineering, management and sprinting
 efforts, concluding the 28 months phase of EU co-funding!
 
 Although still not mature enough for general use, PyPy 1.0 materializes

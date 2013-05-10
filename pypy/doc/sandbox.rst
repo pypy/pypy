@@ -26,11 +26,11 @@ this case we also generate systematic run-time checks against buffer
 overflows.
 
 .. warning::
-  
-  The hard work from the PyPy side is done --- you get a fully secure
-  version.  What is only experimental and unpolished is the library to
-  use this sandboxed PyPy from a regular Python interpreter (CPython, or
-  an unsandboxed PyPy).  Contributions welcome.
+
+   The hard work from the PyPy side is done --- you get a fully secure
+   version.  What is only experimental and unpolished is the library to
+   use this sandboxed PyPy from a regular Python interpreter (CPython, or
+   an unsandboxed PyPy).  Contributions welcome.
 
 
 Overview
@@ -39,7 +39,7 @@ Overview
 One of PyPy's translation aspects is a sandboxing feature. It's "sandboxing" as
 in "full virtualization", but done in normal C with no OS support at all.  It's
 a two-processes model: we can translate PyPy to a special "pypy-c-sandbox"
-executable, which is safe in the sense that it doesn't do any library or 
+executable, which is safe in the sense that it doesn't do any library or
 system calls - instead, whenever it would like to perform such an operation, it
 marshals the operation name and the arguments to its stdout and it waits for
 the marshalled result on its stdin.  This pypy-c-sandbox process is meant to be
@@ -83,9 +83,9 @@ virtual directories like /bin/lib/pypy1.2/lib-python and
 /bin/lib/pypy1.2/lib_pypy and it
 pretends that the executable is /bin/pypy-c.
 
+
 Howto
 -----
-
 
 In pypy/goal::
 

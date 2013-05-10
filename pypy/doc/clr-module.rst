@@ -1,4 +1,3 @@
-===============================
 The ``clr`` module for PyPy.NET
 ===============================
 
@@ -8,8 +7,7 @@ still missing and its interface might change in next versions, but
 it's still useful to experiment a bit with PyPy.NET.
 
 PyPy.NET provides an import hook that lets you to import .NET namespaces
-seamlessly as they were normal Python modules.  Then, 
-
+seamlessly as they were normal Python modules.  Then,
 PyPY.NET native classes try to behave as much as possible in the
 "expected" way both for the developers used to .NET and for the ones
 used to Python.
@@ -34,8 +32,9 @@ they exist in both worlds:
 Moreover, all the usual Python features such as bound and unbound
 methods are available as well.
 
+
 Example of usage
-================
+----------------
 
 Here is an example of interactive session using the ``clr`` module::
 
@@ -52,8 +51,9 @@ Here is an example of interactive session using the ``clr`` module::
     >>>> print obj.Count
     3
 
+
 Conversion of parameters
-========================
+------------------------
 
 When calling a .NET method Python objects are converted to .NET
 objects.  Lots of effort have been taken to make the conversion as
@@ -68,11 +68,12 @@ some sort of collection.
 
 The opposite .NET to Python conversions happens for the values returned
 by the methods. Again, primitive types are converted in a
-straightforward way; non-primitive types are wrapped in a Python object, 
+straightforward way; non-primitive types are wrapped in a Python object,
 so that they can be treated as usual.
 
+
 Overload resolution
-===================
+-------------------
 
 When calling an overloaded method, PyPy.NET tries to find the best
 overload for the given arguments; for example, consider the
@@ -94,7 +95,7 @@ TypeError exception is raised.
 
 
 Generic classes
-================
+----------------
 
 Generic classes are fully supported.  To instantiate a generic class, you need
 to use the ``[]`` notation::
@@ -115,7 +116,7 @@ to use the ``[]`` notation::
 
 
 External assemblies and Windows Forms
-=====================================
+-------------------------------------
 
 By default, you can only import .NET namespaces that belongs to already loaded
 assemblies.  To load additional .NET assemblies, you can use

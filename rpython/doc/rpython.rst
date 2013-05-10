@@ -1,4 +1,3 @@
-=======
 RPython
 =======
 
@@ -58,8 +57,8 @@ Flow restrictions
 
 **exceptions**
 
-+ fully supported
-+ see below `Exception rules`_ for restrictions on exceptions raised by built-in operations
+  fully supported
+  see below `Exception rules`_ for restrictions on exceptions raised by built-in operations
 
 
 Object restrictions

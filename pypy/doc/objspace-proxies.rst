@@ -1,11 +1,10 @@
-=================================
 What PyPy can do for your objects
 =================================
 
 .. contents::
 
 
-Thanks to the `Object Space`_ architecture, any feature that is
+Thanks to the :doc:`Object Space <objspace>` architecture, any feature that is
 based on proxying, extending, changing or otherwise controlling the
 behavior of all objects in a running program is easy to implement on
 top of PyPy.
@@ -20,11 +19,11 @@ Here is what we have implemented so far, in historical order:
   control operations on application and builtin objects,
   e.g lists, dictionaries, tracebacks.
 
-.. _`Object Space`: objspace.html
+
 .. _tproxy:
 
 Transparent Proxies
-================================
+-------------------
 
 PyPy's Transparent Proxies allow routing of operations on objects
 to a callable.  Application level code can customize objects without
@@ -35,8 +34,9 @@ giving you full control on all operations that are performed on the
 
 See [D12.1]_ for more context, motivation and usage of transparent proxies.
 
+
 Example of the core mechanism
--------------------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The following example proxies a list and will
 return ``42`` on any add operation to the list::
@@ -54,11 +54,9 @@ return ``42`` on any add operation to the list::
    >>>> i + 3
    42
 
-.. _`alternative object implementations`: interpreter-optimizations.html
-
 
 Example of recording all operations on builtins
-----------------------------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Suppose we want to have a list which stores all operations performed on
 it for later analysis.  We can use the small :source:`lib_pypy/tputil.py` module to help
@@ -88,10 +86,11 @@ Note that ``append`` shows up as ``__getattribute__`` and that ``type(lst)``
 does not show up at all - the type is the only aspect of the instance which
 the controller cannot change.
 
-.. _`transparent proxy builtins`:
+
+.. _transparent proxy builtins:
 
 Transparent Proxy PyPy builtins and support
------------------------------------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 If you are using the `--objspace-std-withtproxy`_ option
 the `__pypy__`_ module provides the following builtins:
@@ -106,12 +105,13 @@ the `__pypy__`_ module provides the following builtins:
   ``None`` is returned.
 
 .. _`__pypy__`:  __pypy__-module.html
-.. _`--objspace-std-withtproxy`: config/objspace.std.withtproxy.html
+.. _--objspace-std-withtproxy: config/objspace.std.withtproxy.html
+
 
 .. _tputil:
 
 tputil helper module
-----------------------------
+~~~~~~~~~~~~~~~~~~~~
 
 The :source:`lib_pypy/tputil.py` module provides:
 
@@ -142,8 +142,9 @@ The :source:`lib_pypy/tputil.py` module provides:
   ``proxyoperation.delegate()`` to delegate the operation
   to this object instance.
 
+
 Further points of interest
----------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 A lot of tasks could be performed using transparent proxies, including,
 but not limited to:
@@ -158,20 +159,21 @@ but not limited to:
   objects (of course some operations could raise exceptions, but
   since they are purely done on application level, that is not real problem)
 
+
 Implementation Notes
------------------------------
+~~~~~~~~~~~~~~~~~~~~
 
 PyPy's standard object space allows to internally have multiple
 implementations of a type and change the implementation at run
 time while application level code consistently sees the exact
 same type and object.  Multiple performance optimizations using
 this features are already implemented: see the document
-about `alternative object implementations`_. Transparent
+about :doc:`alternative object implementations <interpreter-optimizations>`. Transparent
 Proxies use the architecture to provide control back
 to application level code.
 
-Transparent proxies are implemented on top of the `standard object
-space`_, in :source:`pypy/objspace/std/proxy_helpers.py`, :source:`pypy/objspace/std/proxyobject.py` and
+Transparent proxies are implemented on top of the :ref:`standard object
+space <standard-object-space>`, in :source:`pypy/objspace/std/proxy_helpers.py`, :source:`pypy/objspace/std/proxyobject.py` and
 :source:`pypy/objspace/std/transparent.py`.  To use them you will need to pass a
 `--objspace-std-withtproxy`_ option to ``py.py`` or
 ``translate.py``.  This registers implementations named
@@ -181,8 +183,6 @@ for objects that are too close to the interpreter to be
 implemented in the std objspace. The types of objects that can
 be proxied this way are user created classes & functions,
 lists, dicts, exceptions, tracebacks and frames.
-
-.. _`standard object space`: objspace.html#the-standard-object-space
 
 .. [D12.1] `High-Level Backends and Interpreter Feature Prototypes`, PyPy
            EU-Report, 2007, http://codespeak.net/pypy/extradoc/eu-report/D12.1_H-L-Backends_and_Feature_Prototypes-2007-03-22.pdf

@@ -1,10 +1,11 @@
 How to contribute to PyPy
--------------------------
+=========================
 
 This page describes how to contribute to the PyPy project. The first thing
 to remember is that PyPy project is very different than most projects out there.
 It's also different from a classic compiler project, so academic courses
 about compilers often don't apply or lead in the wrong direction.
+
 
 Don't just hack
 ---------------
@@ -13,6 +14,7 @@ The first and most important rule how not to contribute to PyPy is
 "just hacking". This won't work. There are two major reasons why not
 -- build times are large and PyPy has very thick layer separation which
 make it harder to "just hack a feature".
+
 
 Test driven development
 -----------------------
@@ -25,7 +27,8 @@ not one of those. You may consider familiarizing yourself with `pytest`_,
 since this is a tool we use for tests.
 This leads to the next issue:
 
-.. _`pytest`: http://pytest.org/
+.. _pytest: http://pytest.org/
+
 
 Layers
 ------
@@ -63,7 +66,7 @@ with a JIT compiler, use ``--viewloops`` option.
   **module** directory contains extension modules written in RPython
 
 * **rpython compiler** that resides in ``rpython/annotator`` and
-  ``rpython/rtyper`` directories. Consult `introduction to RPython`_ for
+  ``rpython/rtyper`` directories. Consult :doc:`introduction to RPython <getting-started-dev>` for
   further reading
 
 * **JIT generator** lives in ``rpython/jit`` directory. optimizations live
@@ -76,5 +79,3 @@ with a JIT compiler, use ``--viewloops`` option.
 
 The rest of directories serve specific niche goal and are unlikely a good
 entry point.
-
-.. _`introduction to RPython`: getting-started-dev.rst

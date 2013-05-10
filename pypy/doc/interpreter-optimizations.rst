@@ -1,11 +1,10 @@
-==================================
 Standard Interpreter Optimizations
 ==================================
 
-.. contents:: Contents
+.. contents::
 
 Introduction
-============
+------------
 
 One of the advantages -- indeed, one of the motivating goals -- of the PyPy
 standard interpreter (compared to CPython) is that of increased flexibility and
@@ -28,11 +27,12 @@ them. And they are fun too!
 
 .. describe other optimizations!
 
+
 Object Optimizations
-====================
+--------------------
 
 Integer Optimizations
----------------------
+~~~~~~~~~~~~~~~~~~~~~
 
 Caching Small Integers
 ++++++++++++++++++++++
@@ -44,6 +44,7 @@ be retrieved from the cache.
 
 This option is disabled by default, you can enable this feature with the
 :config:`objspace.std.withprebuiltint` option.
+
 
 Integers as Tagged Pointers
 +++++++++++++++++++++++++++
@@ -57,8 +58,9 @@ time and memory.
 
 You can enable this feature with the :config:`objspace.std.withsmalllong` option.
 
+
 Dictionary Optimizations
-------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 Multi-Dicts
 +++++++++++
@@ -74,6 +76,7 @@ for string-keyed dictionaries. In addition there are more specialized dictionary
 implementations for various purposes (see below).
 
 This is now the default implementation of dictionaries in the Python interpreter.
+
 
 Sharing Dicts
 +++++++++++++
@@ -97,7 +100,7 @@ with the :config:`objspace.std.withmapdict` option.
 
 
 List Optimizations
-------------------
+~~~~~~~~~~~~~~~~~~
 
 Range-Lists
 +++++++++++
@@ -116,8 +119,7 @@ option.
 
 
 User Class Optimizations
-------------------------
-
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 Method Caching
 ++++++++++++++
@@ -134,13 +136,14 @@ as long as the instance did not shadow any of its classes attributes.
 You can enable this feature with the :config:`objspace.std.withmethodcache`
 option.
 
+
 Interpreter Optimizations
-=========================
+-------------------------
 
 Special Bytecodes
------------------
+~~~~~~~~~~~~~~~~~
 
-.. _`lookup method call method`:
+.. _lookup method call method:
 
 LOOKUP_METHOD & CALL_METHOD
 +++++++++++++++++++++++++++
@@ -203,8 +206,9 @@ option.
 
 .. more here?
 
+
 Overall Effects
-===============
+---------------
 
 The impact these various optimizations have on performance unsurprisingly
 depends on the program being run.  Using the default multi-dict implementation that

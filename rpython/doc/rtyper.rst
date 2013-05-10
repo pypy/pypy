@@ -10,8 +10,8 @@ The RPython Typer lives in the directory :source:`rpython/rtyper/`.
 Overview
 --------
 
-The RPython Typer is the bridge between the Annotator_ and the low-level code
-generators.  The annotations of the Annotator_ are high-level, in the sense
+The RPython Typer is the bridge between the :ref:`Annotator <annotator>` and the low-level code
+generators.  The annotations of the :ref:`Annotator <annotator>` are high-level, in the sense
 that they describe RPython types like lists or instances of user-defined
 classes.  In general, though, to emit code we need to represent these
 high-level annotations in the low-level model of the target language; for C,
@@ -61,7 +61,7 @@ of addition (or concatenation maybe?) it means.
 The process in more details
 ---------------------------
 
-The RPython Typer has a structure similar to that of the Annotator_: both
+The RPython Typer has a structure similar to that of the :ref:`Annotator <annotator>` both
 consider each block of the flow graphs in turn, and perform some analysis on
 each operation.  In both cases the analysis of an operation depends on the
 annotations of its input arguments.  This is reflected in the usage of the same
@@ -79,7 +79,7 @@ flow graph, by replacing each operation with some low-level operations.
 In addition to replacing operations, the RTyper creates a ``concretetype``
 attribute on all Variables and Constants in the flow graphs, which tells code
 generators which type to use for each of them.  This attribute is a
-`low-level type`_, as described below.
+:ref:`low-level type <low-level-types>`, as described below.
 
 
 Representations
@@ -123,7 +123,7 @@ called ``rtype_op_xxx()`` which define how each high-level operation ``op_xxx``
 is turned into low-level operations.
 
 
-.. _`low-level type`:
+.. _low-level-types:
 
 Low-Level Types
 ---------------
@@ -219,7 +219,7 @@ though.  The next pages are a reference guide.
 
 
 Primitive Types
-+++++++++++++++
+~~~~~~~~~~~~~~~
 
 Signed
     a signed integer in one machine word (a ``long``, in C)
@@ -242,7 +242,7 @@ Void
 
 
 Structure Types
-+++++++++++++++
+~~~~~~~~~~~~~~~
 
 Structure types are built as instances of
 ``rpython.rtyper.lltypesystem.lltype.Struct``::
@@ -274,7 +274,7 @@ GcStruct: the parent structure uses the same GC header as the substructure.
 
 
 Array Types
-+++++++++++
+~~~~~~~~~~~
 
 An array type is built as an instance of
 ``rpython.rtyper.lltypesystem.lltype.Array``::
@@ -300,7 +300,7 @@ and the length of the array is specified at this time.
 
 
 Pointer Types
-+++++++++++++
+~~~~~~~~~~~~~
 
 As in C, pointers provide the indirection needed to make a reference modifiable
 or sharable.  Pointers can only point to a structure, an array, a function
@@ -332,7 +332,7 @@ turn into static immortal non-GC'ed data.
 
 
 Function Types
-++++++++++++++
+~~~~~~~~~~~~~~
 
 The declaration::
 
@@ -354,7 +354,7 @@ function in a way that isn't fully specified now, but the following attributes
 
 
 The PyObject Type
-+++++++++++++++++
+~~~~~~~~~~~~~~~~~
 
 This is a special type, for compatibility with CPython: it stands for a
 structure compatible with PyObject.  This is also a "container" type (thinking
@@ -370,7 +370,7 @@ The testing implementation allows you to "create" PyObjects by calling
 
 
 Opaque Types
-++++++++++++
+~~~~~~~~~~~~
 
 Opaque types represent data implemented in a back-end specific way.  This
 data cannot be inspected or manipulated.
@@ -432,7 +432,7 @@ very-low-level snippets of code.
 See for example :source:`rpython/rtyper/rlist.py`.
 
 
-.. _`oo type`:
+.. _oo-type:
 
 Object Oriented Types
 ---------------------
@@ -449,7 +449,7 @@ these types, for testing purposes.
 
 
 The target platform
-+++++++++++++++++++
+~~~~~~~~~~~~~~~~~~~
 
 There are plenty of object oriented languages and platforms around,
 each one with its own native features: they could be statically or
@@ -464,7 +464,7 @@ aren't.
 
 
 Types and classes
-+++++++++++++++++
+~~~~~~~~~~~~~~~~~
 
 Most of the primitive types defined in *ootypesystem* are the very
 same of those found in *lltypesystem*: ``Bool``, ``Signed``,
@@ -491,7 +491,7 @@ as Java, may need to use some sort of placeholder instead.
 
 
 Static vs. dynamic typing
-+++++++++++++++++++++++++
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The target platform is assumed to be **statically typed**, i.e.  the
 type of each object is known at compile time.
@@ -515,8 +515,9 @@ simply ignore some of the operation such as ``ooupcast`` and
 ``oodowncast``. Backends that supports implicit upcasting, such as CLI
 and Java, can simply ignore only ``ooupcast``.
 
+
 Object model
-++++++++++++
+~~~~~~~~~~~~
 
 The object model implemented by ootype is quite Java-like. The
 following is a list of key features of the ootype object model which
@@ -545,10 +546,11 @@ have a direct correspondence in the Java or .NET object model:
     can be easily simulated by backends for platforms on which it is not
     a native feature;
 
-  - there is a set of `built-in types`_ offering standard features.
+  - there is a set of :ref:`built-in-types` offering standard features.
+
 
 Exception handling
-++++++++++++++++++
+~~~~~~~~~~~~~~~~~~
 
 Since flow graphs are meant to be used also for very low level
 backends such as C, they are quite unstructured: this means that the
@@ -562,10 +564,11 @@ it. In particular the exception instances are typed with the
 ``Instance`` type, so the usual inheritance exception hierarchy is
 preserved and the native way to catch exception should just work.
 
-.. `built-in types`_
+
+.. _built-in-types:
 
 Built-in types
-++++++++++++++
+~~~~~~~~~~~~~~
 
 It seems reasonable to assume high level platforms to provide built-in
 facilities for common types such as *lists* or *hashtables*.
@@ -588,7 +591,6 @@ built-in types:
   - **DictItemsIterator**: a helper class for iterating over the
     elements of a ``Dict``
 
-
 Each of these types is a subtype of ``BuiltinADTType`` and has set of
 ADT (Abstract Data Type) methods (hence the name of the base class)
 for being manipulated. Examples of ADT methods are ``ll_length`` for
@@ -604,8 +606,9 @@ As an alternative, backends can special-case the ADT types to map them
 directly to the native equivalent, translating the method names
 on-the-fly at compile time.
 
+
 Generics
-++++++++
+~~~~~~~~
 
 Some target platforms offer native support for **generics**, i.e.
 classes that can be parametrized on types, not only values. For
@@ -743,7 +746,7 @@ Exception handling:
         is called.)
 
 
-.. _LLInterpreter:
+.. _llinterpreter:
 
 The LLInterpreter
 -----------------
@@ -789,5 +792,3 @@ you have to set the ``type_system`` parameter to the string
             return ~x
         res = interpret(f, [3], type_system='ootype')
         assert res == ~3
-
-.. _annotator: translation.html#the-annotation-pass

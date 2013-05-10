@@ -195,7 +195,8 @@ latex_use_modindex = False
 
 
 # Example configuration for intersphinx: refer to the Python standard library.
-intersphinx_mapping = {'http://docs.python.org/': None}
+intersphinx_mapping = {'python': ('http://docs.python.org/2.7', None),
+                       'rpython': ('http://rpython.readthedocs.org/en/improve-docs/', None)}
 
 # -- Options for manpage output-------------------------------------------------
 

@@ -1,4 +1,3 @@
-============================
 Getting Started with RPython
 ============================
 
@@ -43,11 +42,12 @@ A good introductory level articles are available:
 
 * `How to write interpreters in RPython`_ and `part 2`_ by Andrew Brown.
 
-.. _`Fast Enough VMs in Fast Enough Time`: http://tratt.net/laurie/tech_articles/articles/fast_enough_vms_in_fast_enough_time
+.. _Fast Enough VMs in Fast Enough Time: http://tratt.net/laurie/tech_articles/articles/fast_enough_vms_in_fast_enough_time
 
-.. _`How to write interpreters in RPython`: http://morepypy.blogspot.com/2011/04/tutorial-writing-interpreter-with-pypy.html
+.. _How to write interpreters in RPython: http://morepypy.blogspot.com/2011/04/tutorial-writing-interpreter-with-pypy.html
 
-.. _`part 2`: http://morepypy.blogspot.com/2011/04/tutorial-part-2-adding-jit.html
+.. _part 2: http://morepypy.blogspot.com/2011/04/tutorial-part-2-adding-jit.html
+
 
 .. _try-out-the-translator:
 
@@ -63,7 +63,7 @@ you need to download and install the usual (CPython) version of:
   * `Dot Graphviz`_
 
 .. _Pygame:                 http://www.pygame.org/
-.. _`Dot Graphviz`:           http://www.graphviz.org/
+.. _Dot Graphviz:           http://www.graphviz.org/
 
 To start the interactive translator shell do::
 
@@ -81,8 +81,9 @@ After that, the graph viewer pops up, that lets you interactively inspect the
 flow graph. To move around, click on something that you want to inspect.
 To get help about how to use it, press 'H'. To close it again, press 'Q'.
 
+
 Trying out the type annotator
-+++++++++++++++++++++++++++++
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 We have a type annotator that can completely infer types for functions like
 ``is_perfect_number`` (as well as for much larger examples)::
@@ -94,7 +95,7 @@ Move the mouse over variable names (in red) to see their inferred types.
 
 
 Translating the flow graph to C code
-++++++++++++++++++++++++++++++++++++
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The graph can be turned into C code::
 
@@ -111,8 +112,9 @@ version is now in a ``.so`` library. You can run it say using ctypes:
    >>> f(6)
    1
 
+
 Translating the flow graph to CLI or JVM code
-+++++++++++++++++++++++++++++++++++++++++++++
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 PyPy also contains a `CLI backend`_ and JVM backend which
 can translate flow graphs into .NET executables or a JVM jar
@@ -150,12 +152,13 @@ users need the `.NET Framework SDK`_, while Linux and Mac users
 can use Mono_.  To translate and run for the JVM you must have a JDK
 installed (at least version 6) and ``java``/``javac`` on your path.
 
-.. _`CLI backend`: cli-backend.html
-.. _`.NET Framework SDK`: http://msdn.microsoft.com/netframework/
+.. _CLI backend: cli-backend.html
+.. _.NET Framework SDK: http://msdn.microsoft.com/netframework/
 .. _Mono: http://www.mono-project.com/Main_Page
 
+
 A slightly larger example
-+++++++++++++++++++++++++
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
 There is a small-to-medium demo showing the translator and the annotator::
 
@@ -174,7 +177,7 @@ type simply::
 
 
 Translating Full Programs
-+++++++++++++++++++++++++
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
 To translate full RPython programs, there is the script ``translate.py`` in
 :source:`rpython/translator/goal`. Examples for this are a slightly changed version of
@@ -185,8 +188,8 @@ Pystone::
 This will produce the executable "targetrpystonedalone-c".
 
 The largest example of this process is to translate the `full Python
-interpreter`_. There is also an FAQ about how to set up this process for `your
-own interpreters`_.
+interpreter`_. There is also an FAQ about how to set up this process for :ref:`your
+own interpreters <compile-own-interpreters>`.
 
 There are several environment variables you can find useful while playing with the RPython:
 
@@ -199,7 +202,6 @@ There are several environment variables you can find useful while playing with t
     By default RPython keeps only the last ``PYPY_USESSION_KEEP`` (defaults to 3) session dirs inside ``PYPY_USESSION_DIR``.
     Increase this value if you want to preserve C files longer (useful when producing lots of lldebug builds).
 
-.. _`your own interpreters`: faq.html#how-do-i-compile-my-own-interpreters
 
 Sources
 -------
@@ -224,5 +226,5 @@ Sources
    use from rpython.
 
 
-.. _`full Python interpreter`: http://pypy.readthedocs.org/en/latest/getting-started-python.html
-.. _`RPython standard library`: rlib.html
+.. _full Python interpreter: http://pypy.readthedocs.org/en/latest/getting-started-python.html
+.. _RPython standard library: rlib.html

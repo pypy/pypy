@@ -1,29 +1,25 @@
-==========
- PyJitPl5
-==========
+PyJitPl5
+========
 
 This document describes the fifth generation of the RPython JIT generator.
 
 
 Implementation of the JIT
-=========================
+-------------------------
 
-The JIT's `theory`_ is great in principle, but the actual code is a different
+The JIT's :doc:`theory <overview>` is great in principle, but the actual code is a different
 story. This section tries to give a high level overview of how RPython's JIT is
-implemented.  It's helpful to have an understanding of how the `RPython translation
-toolchain`_ works before digging into the sources.
+implemented.  It's helpful to have an understanding of how the :doc:`RPython translation
+toolchain <../translation>` works before digging into the sources.
 
 Almost all JIT specific code is found in rpython/jit subdirectories.  Translation
 time code is in the codewriter directory.  The metainterp directory holds
 platform independent code including the the tracer and the optimizer.  Code in
 the backend directory is responsible for generating machine code.
 
-.. _`theory`: overview.html
-.. _`RPython translation toolchain`: ../translation.html
-
 
 JIT hints
----------
+~~~~~~~~~
 
 To add a JIT to an interpreter, RPython only requires two hints to be added to
 the target interpreter.  These are jit_merge_point and can_enter_jit.
@@ -44,7 +40,7 @@ the location of the JIT hints.
 
 
 JIT Generation
---------------
+~~~~~~~~~~~~~~
 
 After the RTyping phase of translation, where high level Python operations are
 turned into low-level ones for the backend, the translation driver calls
@@ -69,7 +65,7 @@ final binary, and interpreter is ready to use the runtime component of the JIT.
 
 
 Tracing
--------
+~~~~~~~
 
 Application code running on the JIT-enabled interpreter starts normally; it is
 interpreted on top of the usual evaluation loop.  When an application loop is
@@ -139,13 +135,13 @@ the optimized assembly can be run instead of the normal interpreter.
 
 
 Optimizations
--------------
+~~~~~~~~~~~~~
 
 The JIT employs several techniques, old and new, to make machine code run
 faster.
 
 Virtuals and Virtualizables
-***************************
+"""""""""""""""""""""""""""
 
 A *virtual* value is an array, struct, or RPython level instance that is created
 during the loop and does not escape from it via calls or longevity past the
@@ -161,14 +157,14 @@ in the machine code.  Virtualizables, however, can escape from JIT controlled
 code.
 
 Other optimizations
-*******************
+"""""""""""""""""""
 
 Most of the JIT's optimizer is contained in the subdirectory
 ``metainterp/optimizeopt/``.  Refer to it for more details.
 
 
 More resources
-==============
+--------------
 
 More documentation about the current JIT is available as a first published
 article:

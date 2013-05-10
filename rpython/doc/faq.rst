@@ -1,17 +1,15 @@
-==========================
 Frequently Asked Questions
 ==========================
 
 .. contents::
 
-----------------
 What is RPython?
 ----------------
 
 RPython is a framework for implementing interpreters and virtual machines for
 programming languages, especially dynamic languages.
 
-------------------------------------------------
+
 Can RPython compile normal Python programs to C?
 ------------------------------------------------
 
@@ -29,9 +27,9 @@ If you want a fast Python program, please use the PyPy JIT_ instead.
            Localized Type Inference of Atomic Types in Python,
            http://citeseer.ist.psu.edu/viewdoc/summary?doi=10.1.1.90.3231
 
-.. _`PyPy's RPython`:
 
-------------------------------
+.. _PyPy's RPython:
+
 What is this RPython language?
 ------------------------------
 
@@ -58,7 +56,7 @@ some functions in ``os``, ``math`` and ``time`` that have native support.
 
 To read more about the RPython limitations read the :doc:`RPython description <rpython>`.
 
----------------------------------------------------------------
+
 Does RPython have anything to do with Zope's Restricted Python?
 ---------------------------------------------------------------
 
@@ -67,10 +65,10 @@ execution environment for CPython.   `PyPy's RPython`_ is the implementation
 language for dynamic language interpreters.  However, PyPy also provides
 a robust `sandboxed Python Interpreter`_.
 
-.. _`sandboxed Python Interpreter`: sandbox.html
-.. _`Zope's RestrictedPython`: http://pypi.python.org/pypi/RestrictedPython
+.. _sandboxed Python Interpreter: sandbox.html
+.. _Zope's RestrictedPython: http://pypi.python.org/pypi/RestrictedPython
 
-------------------------------------------------------
+
 What's the ``"NOT_RPYTHON"`` I see in some docstrings?
 ------------------------------------------------------
 
@@ -80,7 +78,6 @@ stops and reports this as an error. You can therefore mark functions as
 "NOT_RPYTHON" to make sure that they are never analyzed.
 
 
--------------------------------------------------------------------
 Couldn't we simply take a Python syntax tree and turn it into Lisp?
 -------------------------------------------------------------------
 
@@ -100,7 +97,7 @@ You could make ``#'py:add`` a generic function and see if a given CLOS
 implementation is fast enough to give a useful speed (but I think the
 coercion rules would probably drive you insane first).  -- mwh
 
---------------------------------------------
+
 Do I have to rewrite my programs in RPython?
 --------------------------------------------
 
@@ -111,7 +108,7 @@ things", like use *any* part of the standard Python library or *any*
 3rd-party library, then it is not RPython to start with.  You should
 only look at RPython if you try to `write your own interpreter`__.
 
-.. __: `how do I compile my own interpreters`_
+.. __: `How do I compile my own interpreters?`_
 
 If your goal is to speed up Python code, then look at the regular PyPy,
 which is a full and compliant Python 2.7 interpreter (which happens to
@@ -125,7 +122,7 @@ this case is not interesting for us.  If you needed to rewrite the code
 in RPython, you could as well have rewritten it in C for example.  The
 latter is a much more supported, much more documented language `:-)`
 
----------------------------------------------------
+
 Which backends are there for the RPython toolchain?
 ---------------------------------------------------
 
@@ -136,9 +133,9 @@ To learn more about backends take a look at the `translation document`_.
 .. _C: translation.html#the-c-back-end
 .. _CLI: cli-backend.html
 .. _JVM: translation.html#genjvm
-.. _`translation document`: translation.html
+.. _translation document: translation.html
 
-------------------
+
 Could we use LLVM?
 ------------------
 
@@ -162,24 +159,17 @@ make an N+1'th attempt with LLVM, he is welcome, and he will receive a
 bit of help on the IRC channel, but he is left with the burden of proof
 that it works.
 
-----------------------
-How do I compile PyPy?
-----------------------
 
-See the `getting-started`_ guide.
+.. _compile-own-interpreters:
 
-.. _`getting-started`: getting-started-python.html
-
-.. _`how do I compile my own interpreters`:
-
--------------------------------------
 How do I compile my own interpreters?
 -------------------------------------
+
 Begin by reading `Andrew Brown's tutorial`_ .
 
-.. _`Andrew Brown's tutorial`: http://morepypy.blogspot.com/2011/04/tutorial-writing-interpreter-with-pypy.html
+.. _Andrew Brown's tutorial: http://morepypy.blogspot.com/2011/04/tutorial-writing-interpreter-with-pypy.html
 
----------------------------------------------------------
+
 Can RPython modules for PyPy be translated independently?
 ---------------------------------------------------------
 
@@ -202,7 +192,7 @@ undertaking.  Consider it as quite unlikely for now.)
 
 .. _cffi: http://cffi.readthedocs.org/
 
---------------------------------------------------------------------
+
 Why does the translator draw a Mandelbrot fractal while translating?
 --------------------------------------------------------------------
 

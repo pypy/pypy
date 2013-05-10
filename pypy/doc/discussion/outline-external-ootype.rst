@@ -54,7 +54,7 @@ PythonNet; for JVM, there are JPype_ and JTool_, to be investigated:
 How to represent types
 ----------------------
 
-First, some definitions: 
+First, some definitions:
 
   - high-level types are the types used by the annotator
     (SomeInteger() & co.)

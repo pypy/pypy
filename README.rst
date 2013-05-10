@@ -1,5 +1,5 @@
 =====================================
-PyPy: Python in Python Implementation 
+PyPy: Python in Python Implementation
 =====================================
 
 Welcome to PyPy!
@@ -22,6 +22,7 @@ from files in the pypy/doc directory within the source repositories. Enjoy
 and send us feedback!
 
     the pypy-dev team <pypy-dev@python.org>
+
 
 Building
 ========

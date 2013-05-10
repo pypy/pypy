@@ -1,4 +1,3 @@
-=====================
 The RPython Toolchain
 =====================
 
@@ -16,8 +15,9 @@ If you are reading this document for the first time, the Overview_ is
 likely to be most useful, if you are trying to refresh your PyPy memory
 then the `How It Fits Together`_ is probably what you want.
 
+
 Overview
-========
+--------
 
 The job of the translation toolchain is to translate RPython programs into an
 efficient version of that program for one of various target platforms,
@@ -33,12 +33,14 @@ The choice of the target platform affects the process somewhat, but to
 start with we describe the process of translating an RPython program into
 C (which is the default and original target).
 
-.. _`initialization time`:
+.. _initialization-time:
+
+.. TODO edit information about flow object space
 
 The RPython translation toolchain never sees Python source code or syntax
 trees, but rather starts with the *code objects* that define the
 behaviour of the function objects one gives it as input.  The
-`bytecode evaluator`_ and the `Flow Object Space`_ work through these
+`bytecode evaluator`_ and the :ref:`Flow Object Space <flow-object-space>` work through these
 code objects using `abstract interpretation`_ to produce a control
 flow graph (one per function): yet another representation of the
 source program, but one which is suitable for applying type inference
@@ -55,15 +57,15 @@ steps (see also the figure below):
 
 2. The Annotator_ performs a global analysis starting from an specified
    entry point to deduce type and other information about what each
-   variable can contain at run-time, building flow graphs using the `Flow
-   Object Space`_ as it encounters them.
+   variable can contain at run-time, building flow graphs using the
+   :ref:`Flow Object Space <flow-object-space>` as it encounters them.
 
-3. The `RPython Typer`_ (or RTyper) uses the high-level information
+3. :ref:`rpython-typer` (or RTyper) uses the high-level information
    inferred by the Annotator to turn the operations in the control flow
    graphs into low-level operations.
 
 4. After RTyping there are two, rather different, `optional
-   transformations`_ which can be applied -- the "backend
+   transformations <optional-transformations>` which can be applied -- the "backend
    optimizations" which are intended to make the resulting program go
    faster, and the "stackless transform" which transforms the program
    into a form of continuation passing style which allows the
@@ -94,19 +96,17 @@ The following figure gives a simplified overview (`PDF color version`_):
     .. image:: _static/translation-greyscale-small.png
 
 
-.. _`PDF color version`: _static/translation.pdf
-.. _`bytecode evaluator`: interpreter.html
-.. _`abstract interpretation`: http://en.wikipedia.org/wiki/Abstract_interpretation
-.. _`Flow Object Space`: objspace.html#the-flow-object-space
-.. _`interactive interface`: getting-started-dev.html#try-out-the-translator
+.. _PDF color version: _static/translation.pdf
+.. _bytecode evaluator: interpreter.html
+.. _abstract interpretation: http://en.wikipedia.org/wiki/Abstract_interpretation
 
-.. _`flow-model`:
-.. _`control flow graphs`:
+
+.. _flow-model:
 
 The Flow Model
-==============
+--------------
 
-The `Flow Object Space`_ is described in the `document
+The :ref:`Flow Object Space <flow-object-space>` is described in the `document
 describing object spaces`_. Here we describe the data structures produced by it,
 which are the basic data structures of the translation
 process.
@@ -264,13 +264,13 @@ the types and their attributes in some detail:
     static, pre-initialized, read-only version of that object.  The flow graph
     should not attempt to actually mutate such Constants.
 
-.. _`document describing object spaces`: objspace.html
+.. _document describing object spaces: objspace.html
 
 
 .. _annotator:
 
 The Annotation Pass
-===================
+-------------------
 
 We describe briefly below how a control flow graph can be "annotated" to
 discover the types of the objects.  This annotation pass is a form of type
@@ -313,9 +313,11 @@ All the ``SomeXxx`` instances are immutable.  If the annotator needs to
 revise its belief about what a Variable can contain, it does so creating a
 new annotation, not mutating the existing one.
 
+.. _EU report about translation: https://bitbucket.org/pypy/extradoc/raw/tip/eu-report/D05.1_Publish_on_translating_a_very-high-level_description.pdf
+
 
 Mutable Values and Containers
-------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Mutable objects need special treatment during annotation, because
 the annotation of contained values needs to be possibly updated to account
@@ -329,8 +331,9 @@ reflown through the relevant parts of the flow graphs.
 * ``SomeDict`` stands for a homogeneous dictionary (i.e. all keys have
   the same ``SomeXxx`` annotation, and so have all values).
 
+
 User-defined Classes and Instances
-----------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ``SomeInstance`` stands for an instance of the given class or any
 subclass of it.  For each user-defined class seen by the annotator, we
@@ -375,12 +378,12 @@ unrelated annotations if they are not used in a general way through the
 parent class.
 
 
-.. _`RPython typer`:
+.. _rpython-typer:
 
 The RPython Typer
-=================
+-----------------
 
-https://bitbucket.org/pypy/pypy/src/default/pypy/rpython/
+:source:`rpython/rtyper/`
 
 The RTyper is the first place where the choice of backend makes a
 difference; as outlined above we are assuming that ANSI C is the target.
@@ -406,12 +409,13 @@ for making this step explicit and isolated in a single place.  After RTyping,
 the graphs only contain operations that already live on the level of the
 target language, which makes the job of the code generators much simpler.
 
-For more detailed information, see the `documentation for the RTyper`_.
+For more detailed information, see the :doc:`documentation for the RTyper <rtyper>`.
 
-.. _`documentation for the RTyper`: rtyper.html
+.. _documentation for the RTyper: rtyper.html
+
 
 Example: Integer operations
----------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Integer operations are make an easy example.  Assume a graph containing the
 following operation::
@@ -436,25 +440,28 @@ course, the purpose of replacing the operation called ``add`` with
 ``int_add`` is that code generators no longer have to worry about what kind
 of addition (or concatenation maybe?) it means.
 
-.. _`optional-transformations`:
+
+.. _optional-transformations:
 
 The Optional Transformations
-============================
+----------------------------
 
 Between RTyping and C source generation there are two optional transforms:
 the "backend optimizations" and the "stackless transform". See also
 `D07.1 Massive Parallelism and Translation Aspects`_ for further details.
 
-.. _`Technical report`:
-.. _`D07.1 Massive Parallelism and Translation Aspects`: https://bitbucket.org/pypy/extradoc/raw/ee3059291497/eu-report/D07.1_Massive_Parallelism_and_Translation_Aspects-2007-02-28.pdf
+.. _Technical report:
+.. _D07.1 Massive Parallelism and Translation Aspects: https://bitbucket.org/pypy/extradoc/raw/ee3059291497/eu-report/D07.1_Massive_Parallelism_and_Translation_Aspects-2007-02-28.pdf
+
 
 Backend Optimizations
----------------------
+~~~~~~~~~~~~~~~~~~~~~
 
 The point of the backend optimizations are to make the compiled program run
 faster.  Compared to many parts of the PyPy translator, which are very unlike
 a traditional compiler, most of these will be fairly familiar to people who
 know how compilers work.
+
 
 Function Inlining
 +++++++++++++++++
@@ -492,6 +499,7 @@ being inlined into their callsites, starting from the smallest functions. Every
 time a function is being inlined into another function, the size of the outer
 function is recalculated. This is done until the remaining functions all have a
 size greater than a predefined limit.
+
 
 Malloc Removal
 ++++++++++++++
@@ -542,25 +550,10 @@ frame they have been allocated in.  This proved not to really gain us any
 speed, so over time it was removed again.
 
 
-The Stackless Transform
------------------------
-
-The stackless transform converts functions into a form that knows how
-to save the execution point and active variables into a heap structure
-and resume execution at that point.  This was used to implement
-coroutines as an RPython-level feature, which in turn are used to
-implement coroutines, greenlets and tasklets as an application
-level feature for the Standard Interpreter.
-
-The stackless transformation has been deprecated and is no longer
-available in trunk.  It has been replaced with continulets_.
-
-.. _continulets: stackless.html
-
-.. _`preparing the graphs for source generation`:
+.. _preparing the graphs for source generation:
 
 Preparation for Source Generation
-=================================
+---------------------------------
 
 This, perhaps slightly vaguely named, stage is the most recent to appear as a
 separate step.  Its job is to make the final implementation decisions before
@@ -576,8 +569,9 @@ the C backend, this step does three things:
    source (this mapping of objects to names is sometimes referred to as
    the "low-level database").
 
+
 Making Exception Handling Explicit
-----------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 RPython code is free to use exceptions in much the same way as unrestricted
 Python, but the final result is a C program, and C has no concept of
@@ -586,13 +580,12 @@ similar way to CPython: exceptions are indicated by special return values and
 the current exception is stored in a global data structure.
 
 In a sense the input to the exception transformer is a program in terms of the
-lltypesystem_ with exceptions and the output is a program in terms of the bare
+:term:`lltypesystem` with exceptions and the output is a program in terms of the bare
 lltypesystem.
 
-.. _lltypesystem: glossary.html#lltypesystem
 
 Memory Management Details
--------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
 As well as featuring exceptions, RPython is a garbage collected language;
 again, C is not.  To square this circle, decisions about memory management
@@ -601,10 +594,9 @@ freedom to change how to do it.  There are three approaches implemented today:
 
  - reference counting (deprecated, too slow)
  - using the `Boehm-Demers-Weiser conservative garbage collector`_
- - using one of our custom `exact GCs implemented in RPython`_
+ - using one of our custom :doc:`exact GCs implemented in RPython <garbage_collection>`
 
-.. _`Boehm-Demers-Weiser conservative garbage collector`: http://www.hpl.hp.com/personal/Hans_Boehm/gc/
-.. _`exact GCs implemented in RPython`: garbage_collection.html
+.. _Boehm-Demers-Weiser conservative garbage collector: http://www.hpl.hp.com/personal/Hans_Boehm/gc/
 
 Almost all application-level Python code allocates objects at a very fast
 rate; this means that the memory management implementation is critical to the
@@ -616,22 +608,20 @@ You can choose which garbage collection strategy to use with
 
 .. _C:
 .. _GenC:
-.. _`c backend`:
+.. _c backend:
 
 The C Back-End
-==============
+--------------
 
-https://bitbucket.org/pypy/pypy/src/default/pypy/translator/c/
+:source:`rpython/translator/c/`
 
 GenC is usually the most actively maintained backend -- everyone working on
 PyPy has a C compiler, for one thing -- and is usually where new features are
 implemented first.
 
-.. _`EU report about translation`: https://bitbucket.org/pypy/extradoc/raw/tip/eu-report/D05.1_Publish_on_translating_a_very-high-level_description.pdf
-
 
 A Historical Note
-=================
+-----------------
 
 As this document has shown, the translation step is divided into more
 steps than one might at first expect.  It is certainly divided into more
@@ -644,28 +634,26 @@ separately has become clear.
 
 
 Other backends
-==============
+--------------
 
 Use the :config:`translation.backend` option to choose which backend to use.
 
 
-
 The Object-Oriented Backends
-----------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The Object-Oriented backends target platforms that are less C-like and support
-classes, instance etc. If such a platform is targeted, the `OO type system` is
+classes, instance etc. If such a platform is targeted, the :ref:`OO type system <oo-type>` is
 used while rtyping. Of the OO backends, both gencli and genjava can translate
 the full Python interpreter.
 
-.. _`oo type system`: rtyper.html#oo-type
-
 .. mention that pretty much all these backends are done by volunteers?
+
 
 GenCLI
 ++++++
 
-GenCLI_ targets the `Common Language Infrastructure`_, the most famous
+:doc:`GenCLI <cli-backend>` targets the `Common Language Infrastructure`_, the most famous
 implementations of which are Microsoft's `.NET`_ and Mono_.
 
 It is the most advanced of the object oriented backends -- it can
@@ -677,11 +665,11 @@ It is almost entirely the work of Antonio Cuni, who started this
 backend as part of his `Master's thesis`_, the Google's Summer of Code
 2006 program and the Summer of PyPy program.
 
-.. _`Common Language Infrastructure`: http://www.ecma-international.org/publications/standards/Ecma-335.htm
-.. _`.NET`: http://www.microsoft.com/net/
+.. _Common Language Infrastructure: http://www.ecma-international.org/publications/standards/Ecma-335.htm
+.. _.NET: http://www.microsoft.com/net/
 .. _Mono: http://www.mono-project.com/
-.. _`Master's thesis`: http://buildbot.pypy.org/misc/Implementing%20Python%20in%20.NET.pdf
-.. _GenCLI: cli-backend.html
+.. _Master's thesis: http://buildbot.pypy.org/misc/Implementing%20Python%20in%20.NET.pdf
+
 
 GenJVM
 ++++++
@@ -697,17 +685,17 @@ richards benchmarks.
 GenJVM is almost entirely the work of Niko Matsakis, who worked on it
 also as part of the Summer of PyPy program.
 
+
 .. _extfunccalls:
 
 External Function Calls
-=======================
+-----------------------
 
-The external function call approach is described in `rffi`_ documentation.
+The external function call approach is described in :doc:`rffi <rffi>` documentation.
 
-.. _`rffi`: rffi.html
 
 How It Fits Together
-====================
+--------------------
 
 As should be clear by now, the translation toolchain of PyPy is a flexible
 and complicated beast, formed from many separate components.
@@ -723,7 +711,7 @@ various components.  It makes for a nice presentation to say that
 after the annotator has finished the RTyper processes the graphs and
 then the exception handling is made explicit and so on, but it's not
 entirely true.  For example, the RTyper inserts calls to many
-`low-level helpers`_ which must first be annotated, and the GC
+:term:`low-level helper`\ s which must first be annotated, and the GC
 transformer can use inlining (one of the `backend optimizations`_) of
 some of its small helper functions to improve performance.  The
 following picture attempts to summarize the components involved in
@@ -731,8 +719,6 @@ performing each step of the default translation process:
 
 .. image:: _static/translation-detail-0.9.png
    :align: center
-
-.. _`low-level helpers`: glossary.html#low-level-helper
 
 A component not mentioned before is the "MixLevelAnnotator"; it
 provides a convenient interface for a "late" (after RTyping)

@@ -1,8 +1,5 @@
-================================
 Generally Useful RPython Modules
 ================================
-
-.. _Python: http://www.python.org/dev/doc/maint24/ref/ref.html
 
 .. contents::
 
@@ -16,7 +13,7 @@ to change at some point.  Usually it is useful to look at the tests in
 
 
 listsort
-========
+--------
 
 The :source:`rpython/rlib/listsort.py` module contains an implementation of the timsort sorting algorithm
 (the sort method of lists is not RPython). To use it, subclass from the
@@ -27,22 +24,20 @@ argument, which will be sorted in place when the ``sort`` method of the
 be sorted using the ``listsort`` module in one program, otherwise the annotator
 will be confused.
 
-nonconst
-========
 
-The :source:`rpython/rlib/nonconst.py` module is useful mostly for tests. The `flow object space`_ and
-the `annotator`_ do quite some constant folding, which is sometimes not desired
+nonconst
+--------
+
+The :source:`rpython/rlib/nonconst.py` module is useful mostly for tests. The :ref:`flow object space <flow-object-space>` and
+the :ref:`annotator <annotator>` do quite some constant folding, which is sometimes not desired
 in a test. To prevent constant folding on a certain value, use the ``NonConst``
 class. The constructor of ``NonConst`` takes an arbitrary value. The instance of
 ``NonConst`` will behave during annotation like that value, but no constant
 folding will happen.
 
-.. _`flow object space`: objspace.html#the-flow-object-space
-.. _`annotator`: translation.html#the-annotation-pass
-
 
 objectmodel
-===========
+-----------
 
 The :source:`rpython/rlib/objectmodel.py` module is a mixed bag of various functionality. Some of the
 more useful ones are:
@@ -92,7 +87,7 @@ more useful ones are:
 
 
 rarithmetic
-===========
+-----------
 
 The :source:`rpython/rlib/rarithmetic.py` module contains functionality to handle the small differences
 in the behaviour of arithmetic code in regular Python and RPython code. Most of
@@ -100,7 +95,7 @@ them are already described in the :doc:`RPython description <rpython>`.
 
 
 rbigint
-=======
+-------
 
 The :source:`rpython/rlib/rbigint.py` module contains a full RPython implementation of the Python ``long``
 type (which itself is not supported in RPython). The ``rbigint`` class contains
@@ -114,15 +109,16 @@ to add two rbigint instances).
 
 
 rrandom
-=======
+-------
 
 The :source:`rpython/rlib/rrandom.py` module contains an implementation of the mersenne twister random
 number generator. It contains one class ``Random`` which most importantly has a
 ``random`` method which returns a pseudo-random floating point number between
 0.0 and 1.0.
 
+
 rsocket
-=======
+-------
 
 The :source:`rpython/rlib/rsocket.py` module contains an RPython implementation of the functionality of
 the socket standard library with a slightly different interface.  The
@@ -133,16 +129,17 @@ a hierarchy of Address classes, in a typical static-OO-programming style.
 
 
 streamio
-========
+--------
 
 The :source:`rpython/rlib/streamio.py` contains an RPython stream I/O implementation (which was started
 by Guido van Rossum as `sio.py`_ in the CPython sandbox as a prototype for the
 upcoming new file implementation in Python 3000).
 
-.. _`sio.py`: http://svn.python.org/view/sandbox/trunk/sio/sio.py
+.. _sio.py: http://svn.python.org/view/sandbox/trunk/sio/sio.py
+
 
 unroll
-======
+------
 
 The :source:`rpython/rlib/unroll.py` module most importantly contains the function ``unrolling_iterable``
 which wraps an iterator. Looping over the iterator in RPython code will not
@@ -150,7 +147,7 @@ produce a loop in the resulting flow graph but will unroll the loop instead.
 
 
 parsing
-=======
+-------
 
 The :source:`rpython/rlib/parsing/` module is a still in-development module to generate tokenizers and
 parsers in RPython. It is still highly experimental and only really used by the
@@ -162,7 +159,8 @@ The regular expressions are implemented using finite automatons. The parsing
 engine uses `packrat parsing`_, which has O(n) parsing time but is more
 powerful than LL(n) and LR(n) grammars.
 
-.. _`packrat parsing`: http://pdos.csail.mit.edu/~baford/packrat/
+.. _packrat parsing: http://pdos.csail.mit.edu/~baford/packrat/
+
 
 Regular Expressions
 -------------------
@@ -206,7 +204,8 @@ function ``make_runner(s)`` in the ``rpython.rlib.parsing.regexparse`` module.  
 returns a object with a ``recognize(input)`` method that returns True or False
 depending on whether ``input`` matches the string or not.
 
-.. _`re`: http://docs.python.org/library/re.html
+.. _re: http://docs.python.org/library/re.html
+
 
 EBNF
 ----
@@ -288,6 +287,7 @@ the expression ``12 + 4 * 5`` is parsed into the following tree:
     "-1213950420" [shape=box,label="DECIMAL\l'5'"];
     }
 
+
 Parse Trees
 -----------
 
@@ -305,7 +305,7 @@ of the nonterminal and ``children`` which is a list of the children attributes.
 
 
 Visitors
-++++++++
+~~~~~~~~
 
 To write tree visitors for the parse trees that are RPython, there is a special
 baseclass ``RPythonVisitor`` in :source:`rpython/rlib/parsing/tree.py` to use. If your
@@ -330,8 +330,9 @@ more complex ones.
 The syntax for these transformations is to enclose symbols in expansions of a
 nonterminal by [...], <...> or >...<.
 
+
 [symbol_1 symbol_2 ... symbol_n]
-++++++++++++++++++++++++++++++++
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 This will produce a transformer that completely removes the enclosed symbols
 from the tree.
@@ -381,8 +382,9 @@ After transformation the tree has the "," nodes removed:
     "-1219325492" [shape=box,label="__0_A\n'A'"];
     }
 
+
 <symbol>
-++++++++
+~~~~~~~~
 
 This will replace the parent with symbol. Every expansion can contain at most
 one symbol that is enclosed by <...>, because the parent can only be replaced
@@ -452,8 +454,9 @@ After transformation the tree looks like this:
     "-1214414868" [shape=box,label="__5_d\n'd'"];
     }
 
+
 >nonterminal_1 nonterminal_2 ... nonterminal_n<
-+++++++++++++++++++++++++++++++++++++++++++++++
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 This replaces the nodes nonterminal_1 to nonterminal_n by their children.
 
@@ -535,6 +538,7 @@ children:
     "-1219430228" -> "-1213442100";
     "-1213442100" [shape=box,label="DECIMAL\n'5'"];
     }
+
 
 Extensions to the EBNF grammar format
 -------------------------------------
@@ -644,5 +648,5 @@ looks like this:
     }
 
 
-.. _`Prolog interpreter`: https://bitbucket.org/cfbolz/pyrolog/
-.. _`json format`: http://www.json.org
+.. _Prolog interpreter: https://bitbucket.org/cfbolz/pyrolog/
+.. _json format: http://www.json.org

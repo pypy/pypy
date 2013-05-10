@@ -1,4 +1,3 @@
-====================================
 Differences between PyPy and CPython
 ====================================
 
@@ -19,21 +18,21 @@ List of extension modules that we support:
 * Supported as built-in modules (in :source:`pypy/module/`):
 
     __builtin__
-    `__pypy__`_
+    :doc:`__pypy__ <__pypy__-module>`
     _ast
     _codecs
     _collections
-    `_continuation`_
-    `_ffi`_
+    :doc:`_continuation <stackless>`
+    :doc:`_ffi <ctypes-implementation>`
     _hashlib
     _io
     _locale
     _lsprof
     _md5
-    `_minimal_curses`_
+    :doc:`_minimal_curses <config/objspace.usemodules._minimal_curses>`
     _multiprocessing
     _random
-    `_rawffi`_
+    :doc:`_rawffi <ctypes-implementation>`
     _sha
     _socket
     _sre
@@ -95,13 +94,7 @@ The extension modules (i.e. modules written in C, in the standard CPython)
 that are neither mentioned above nor in :source:`lib_pypy/` are not available in PyPy.
 (You may have a chance to use them anyway with `cpyext`_.)
 
-.. the nonstandard modules are listed below...
-.. _`__pypy__`: __pypy__-module.html
-.. _`_continuation`: stackless.html
-.. _`_ffi`: ctypes-implementation.html
-.. _`_rawffi`: ctypes-implementation.html
-.. _`_minimal_curses`: config/objspace.usemodules._minimal_curses.html
-.. _`cpyext`: http://morepypy.blogspot.com/2010/04/using-cpython-extension-modules-with.html
+.. _cpyext: http://morepypy.blogspot.com/2010/04/using-cpython-extension-modules-with.html
 
 
 Differences related to garbage collection strategies
@@ -213,6 +206,7 @@ but ``foo`` on CPython::
     >>>> print d1['a']
     42
 
+
 Mutating classes of objects which are already used as dictionary keys
 ---------------------------------------------------------------------
 
@@ -259,6 +253,7 @@ isinstance().
 Unless this behavior is clearly present by design and
 documented as such (as e.g. for hasattr()), in most cases PyPy
 lets the exception propagate instead.
+
 
 Object Identity of Primitive Values, ``is`` and ``id``
 -------------------------------------------------------

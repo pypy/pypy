@@ -1,4 +1,3 @@
-===============
 The CLI backend
 ===============
 
@@ -7,7 +6,7 @@ machine.
 
 
 Target environment and language
-===============================
+-------------------------------
 
 The target of GenCLI is the Common Language Infrastructure environment
 as defined by the `Standard Ecma 335`_.
@@ -38,7 +37,7 @@ high level approach has two main advantages:
     optimizations.
 
 In reality the first point is not an advantage in the PyPy context,
-because the `flow graph`_ we start from is quite low level and Python
+because the :ref:`flow graph <flow-model>` we start from is quite low level and Python
 loops are already expressed in terms of branches (i.e., gotos).
 
 About the compiler optimizations we must remember that the flow graph
@@ -63,9 +62,11 @@ generate:
   - directly generate code on the fly by accessing the facilities
     exposed by the System.Reflection.Emit API.
 
+.. _Standard Ecma 335: http://www.ecma-international.org/publications/standards/Ecma-335.htm
+
 
 Handling platform differences
-=============================
+-----------------------------
 
 Since our goal is to support both Microsoft CLR we have to handle the
 differences between the twos; in particular the main differences are
@@ -92,7 +93,7 @@ everything except the assembling phase, for which we use Mono's
 
 
 Targeting the CLI Virtual Machine
-=================================
+---------------------------------
 
 In order to write a CLI backend we have to take a number of decisions.
 First, we have to choose the typesystem to use: given that CLI
@@ -117,9 +118,9 @@ to do for completing the backend:
 
 
 Mapping primitive types
------------------------
+~~~~~~~~~~~~~~~~~~~~~~~
 
-The `rtyper`_ give us a flow graph annotated with types belonging to
+:doc:`rtyper` give us a flow graph annotated with types belonging to
 ootypesystem: in order to produce CLI code we need to translate these
 types into their Common Type System equivalents.
 
@@ -146,8 +147,9 @@ least two ways to map plain Char to CTS:
 We think that mapping Python strings to .NET strings is
 fundamental, so we chose the second option.
 
+
 Mapping built-in types
-----------------------
+~~~~~~~~~~~~~~~~~~~~~~
 
 As we saw in section ootypesystem defines a set of types that take
 advantage of built-in types offered by the platform.
@@ -180,7 +182,7 @@ by explicitly passing the string object in the argument list.
 
 
 Mapping instructions
---------------------
+~~~~~~~~~~~~~~~~~~~~
 
 PyPy's low level operations are expressed in Static Single Information
 (SSI) form, such as this::
@@ -220,8 +222,9 @@ C#.
 
 The code that implements the mapping is in the modules opcodes.py.
 
+
 Mapping exceptions
-------------------
+~~~~~~~~~~~~~~~~~~
 
 Both RPython and CLI have their own set of exception classes: some of
 these are pretty similar; e.g., we have OverflowError,
@@ -261,7 +264,7 @@ overflows, catch that exception and throw a new one::
 
 
 Translating flow graphs
------------------------
+~~~~~~~~~~~~~~~~~~~~~~~
 
 As we saw previously in PyPy function and method bodies are
 represented by flow graphs that we need to translate CLI IL code. Flow
@@ -337,7 +340,7 @@ exception handling machinery.
 
 
 Translating classes
--------------------
+~~~~~~~~~~~~~~~~~~~
 
 As we saw previously, the semantic of ootypesystem classes
 is very similar to the .NET one, so the translation is mostly
@@ -363,8 +366,9 @@ Inheritance is straightforward too, as it is natively supported by
 CLI. The only noticeable thing is that we map ootypesystem's ROOT
 class to the CLI equivalent System.Object.
 
+
 The Runtime Environment
------------------------
+~~~~~~~~~~~~~~~~~~~~~~~
 
 The runtime environment is a collection of helper classes and
 functions used and referenced by many of the GenCLI submodules. It is
@@ -386,7 +390,7 @@ the third is in the pypy.test one.
 
 
 Testing GenCLI
-==============
+--------------
 
 As the rest of PyPy, GenCLI is a test-driven project: there is at
 least one unit test for almost each single feature of the
@@ -425,8 +429,9 @@ r_longlong, r_ulonglong, bool, float and one-length strings (i.e.,
 chars). By contrast, most types are fine for being returned: these
 include all primitive types, list, tuples and instances.
 
+
 Installing Python for .NET on Linux
-===================================
+-----------------------------------
 
 With the CLI backend, you can access .NET libraries from RPython;
 programs using .NET libraries will always run when translated, but you
@@ -448,8 +453,4 @@ following lines inside the file (assuming you are using Python 2.7)::
 The installation should be complete now. To run Python for .NET,
 simply type ``mono python.exe``.
 
-
-.. _`Standard Ecma 335`: http://www.ecma-international.org/publications/standards/Ecma-335.htm
-.. _`flow graph`: translation.html#the-flow-model
-.. _`rtyper`: rtyper.html
-.. _`Python for .NET`: http://pythonnet.sourceforge.net/
+.. _Python for .NET: http://pythonnet.sourceforge.net/

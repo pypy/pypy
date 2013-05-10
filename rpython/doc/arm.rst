@@ -1,7 +1,5 @@
-=========================
 Cross-translating for ARM
 =========================
-
 
 Here we describe the setup required and the steps needed to follow to translate
 an interpreter using the RPython translator to target ARM using a cross
@@ -29,7 +27,7 @@ The tools required to cross translate from a Linux based host to an ARM based Li
 - A 32-bit PyPy or Python.
 - And the following (or corresponding) packages need to be installed to create an ARM based chroot:
 
-  * ``debootstrap`` 
+  * ``debootstrap``
   * ``schroot``
   * ``binfmt-support``
   * ``qemu-system``
@@ -52,7 +50,7 @@ Create the rootfs by calling:
 
 Next, copy the qemu-arm-static binary to the rootfs.
 
-:: 
+::
 
   cp /usr/bin/qemu-arm-static /srv/chroot/precise_arm/usr/bin/qemu-arm-static
 
@@ -74,12 +72,11 @@ schroot configuration file in /etc/schroot/schroot.conf.
 
 To verify that everything is working in the chroot, running ``schroot -c
 precise_arm`` should start a shell running in the schroot environment using
-qemu-arm to execute the ARM binaries. Running ``uname -m`` in the chroot should 
-yeild a result like ``armv7l``. Showing that we are emulating an ARM system.
+qemu-arm to execute the ARM binaries. Running ``uname -m`` in the chroot should
+yield a result like ``armv7l``. Showing that we are emulating an ARM system.
 
 Start the schroot as the user root in order to configure the apt sources and
 to install the following packages:
-
 
 ::
 
@@ -124,13 +121,12 @@ contain the command line options for the sb2 command. If our rootfs is in the
 folder /srv/chroot/precise_arm and the scratchbox environment is called "ARM",
 the variables would be defined as follows.
 
-
 ::
 
   export SB2=/srv/chroot/precise_arm
   export SB2OPT='-t ARM'
 
-Once this is set, you can call the translator. For example save this file 
+Once this is set, you can call the translator. For example save this file
 
 ::
 
@@ -149,7 +145,7 @@ and call the translator
 
 If everything worked correctly this should yield an ARM binary. Running this binary in the ARM chroot or on an ARM device should produce the output ``"Hello World"``.
 
-To translate the full python pypy interpreter with a jit, you can cd into pypy/goal and call      
+To translate the full python pypy interpreter with a jit, you can cd into pypy/goal and call
 
 ::
 
@@ -157,5 +153,5 @@ To translate the full python pypy interpreter with a jit, you can cd into pypy/g
 
 The gcrootfinder option is needed to work around `issue 1377`_ and the jit-backend works around `issue 1376`_
 
-.. _`issue 1377`: https://bugs.pypy.org/issue1377
-.. _`issue 1376`: https://bugs.pypy.org/issue1376
+.. _issue 1377: https://bugs.pypy.org/issue1377
+.. _issue 1376: https://bugs.pypy.org/issue1376

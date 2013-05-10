@@ -1,4 +1,3 @@
-
 Contributors to PyPy
 ====================
 

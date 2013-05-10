@@ -8,7 +8,7 @@ compatible with CPython (currently CPython 2.5) and on making the
 interpreter more stable and bug-free.
 
 Download page:
-    
+
    http://codespeak.net/pypy/dist/pypy/doc/download.html
 
 PyPy's Getting Started lives at:
@@ -19,7 +19,7 @@ Highlights of This Release
 ==========================
 
   - More of CPython's standard library extension modules are supported,
-    among them ctypes, sqlite3, csv, and many more. Most of these extension 
+    among them ctypes, sqlite3, csv, and many more. Most of these extension
     modules are fully supported under Windows as well.
 
     http://codespeak.net/pypy/dist/pypy/doc/cpython_differences.html
@@ -51,7 +51,7 @@ Highlights of This Release
 
   - Sandboxing support: It is possible to translate the Python
     interpreter in a special way so that the result is fully sandboxed.
-    
+
     http://codespeak.net/pypy/dist/pypy/doc/sandbox.html
     http://blog.sandbox.lt/en/WSGI%20and%20PyPy%20sandbox
 
@@ -137,7 +137,7 @@ general support from numerous people.
 Have fun,
 
     the PyPy release team, [in alphabetical order]
-    
+
     Amaury Forgeot d'Arc, Anders Hammerquist, Antonio Cuni, Armin Rigo,
     Carl Friedrich Bolz, Christian Tismer, Holger Krekel,
     Maciek Fijalkowski, Samuele Pedroni
