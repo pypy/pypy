@@ -8,7 +8,7 @@ What is PyPy ?
 --------------
 
 In common parlance, PyPy has been used to mean two things.  The first is the
-`RPython translation toolchain`_, which is a framework for generating
+:doc:`RPython translation toolchain <rpython:translation>`, which is a framework for generating
 dynamic programming language implementations.  And the second is one
 particular implementation that is so generated --
 an implementation of the Python_ programming language written in
@@ -17,7 +17,7 @@ Python itself.  It is designed to be flexible and easy to experiment with.
 This double usage has proven to be confusing, and we are trying to move
 away from using the word PyPy to mean both things.  From now on we will
 try to use PyPy to only mean the Python implementation, and say the
-`RPython translation toolchain`_ when we mean the framework.  Some older
+:doc:`RPython translation toolchain <rpython:translation>` when we mean the framework.  Some older
 documents, presentations, papers and videos will still have the old
 usage.  You are hereby warned.
 
@@ -28,8 +28,6 @@ translation process - as opposed to encoding low level details into the
 language implementation itself. :doc:`more... <architecture>`
 
 .. _Python: http://docs.python.org/reference/
-.. _RPython translation toolchain: translation.html
-.. _more...: architecture.html
 
 
 Just the facts
@@ -110,7 +108,7 @@ Note that bin/python is now a symlink to bin/pypy.
 Clone the repository
 ~~~~~~~~~~~~~~~~~~~~
 
-If you prefer to `compile PyPy by yourself`_, or if you want to modify it, you
+If you prefer to :doc:`compile PyPy by yourself <getting-started-python>`, or if you want to modify it, you
 will need to obtain a copy of the sources.  This can be done either by
 `downloading them from the download page`_ or by checking them out from the
 repository using mercurial.  We suggest using mercurial if one wants to access
@@ -138,7 +136,6 @@ using::
 
 where XXXXX is the revision id.
 
-.. _compile PyPy by yourself: getting-started-python.html
 .. _our nightly tests: http://buildbot.pypy.org/summary?branch=<trunk>
 
 
@@ -170,8 +167,7 @@ Filing bugs or feature requests
 
 You may file `bug reports`_ on our issue tracker which is
 also accessible through the 'issues' top menu of
-the PyPy website.  `Using the development tracker`_ has
+the PyPy website.  :ref:`Using the development tracker <using-development-tracker>` has
 more detailed information on specific features of the tracker.
 
-.. _Using the development tracker: coding-guide.html#using-development-tracker
 .. _bug reports: https://bugs.pypy.org/

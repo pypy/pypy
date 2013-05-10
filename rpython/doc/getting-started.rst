@@ -116,7 +116,7 @@ version is now in a ``.so`` library. You can run it say using ctypes:
 Translating the flow graph to CLI or JVM code
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-PyPy also contains a `CLI backend`_ and JVM backend which
+PyPy also contains a :ref:`CLI backend <gencli>` and :ref:`JVM backend <genjvm>` which
 can translate flow graphs into .NET executables or a JVM jar
 file respectively.  Both are able to translate the entire
 interpreter.  You can try out the CLI and JVM backends
@@ -222,9 +222,8 @@ Sources
    there is a file rxxxx.py that contains the low level functions needed for
    this type.
 
-*  :source:`rpython/rlib` contains the `RPython standard library`_, things that you can
+*  :source:`rpython/rlib` contains the :doc:`RPython standard library <rlib>`, things that you can
    use from rpython.
 
 
 .. _full Python interpreter: http://pypy.readthedocs.org/en/latest/getting-started-python.html
-.. _RPython standard library: rlib.html

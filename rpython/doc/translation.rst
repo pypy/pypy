@@ -78,7 +78,7 @@ steps (see also the figure below):
    which insert explicit exception handling and memory management
    operations.
 
-6. The `C backend`_ (colloquially known as "GenC") produces a number of C
+6. `The C backend`_ (colloquially known as "GenC") produces a number of C
    source files (as noted above, we are ignoring the other backends for
    now).
 
@@ -606,11 +606,9 @@ You can choose which garbage collection strategy to use with
 :config:`translation.gc`.
 
 
-.. _C:
-.. _GenC:
-.. _c backend:
+.. _genc:
 
-The C Back-End
+The C Backend
 --------------
 
 :source:`rpython/translator/c/`
@@ -670,6 +668,8 @@ backend as part of his `Master's thesis`_, the Google's Summer of Code
 .. _Mono: http://www.mono-project.com/
 .. _Master's thesis: http://buildbot.pypy.org/misc/Implementing%20Python%20in%20.NET.pdf
 
+
+.. _genjvm:
 
 GenJVM
 ++++++

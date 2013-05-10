@@ -41,7 +41,7 @@ Papers
 * `Automatic generation of JIT compilers for dynamic languages in .NET`_,
   D. Ancona, C.F. Bolz, A. Cuni and A. Rigo
 
-* `EU Reports`_: a list of all the reports we produced until 2007 for the
+* :doc:`EU Reports <index-report>`: a list of all the reports we produced until 2007 for the
   European Union sponsored part of PyPy.  Notably, it includes:
 
 * `Core Object Optimization Results`_, PyPy Team
@@ -78,7 +78,6 @@ Papers
 .. _Faster than C#\: Efficient Implementation of Dynamic Languages on .NET: https://bitbucket.org/pypy/extradoc/raw/tip/talk/icooolps2009-dotnet/cli-jit.pdf
 .. _Automatic JIT Compiler Generation with Runtime Partial Evaluation:  http://www.stups.uni-duesseldorf.de/thesis/final-master.pdf
 .. _RPython\: A Step towards Reconciling Dynamically and Statically Typed OO Languages: http://www.disi.unige.it/person/AnconaD/papers/Recent_abstracts.html#AACM-DLS07
-.. _EU Reports: index-report.html
 .. _Hardware Transactional Memory Support for Lightweight Dynamic Language Evolution: http://sabi.net/nriley/pubs/dls6-riley.pdf
 .. _PyGirl\: Generating Whole-System VMs from High-Level Prototypes using PyPy: http://scg.unibe.ch/archive/papers/Brun09cPyGirl.pdf
 .. _Representation-Based Just-in-Time Specialization and the Psyco Prototype for Python: http://psyco.sourceforge.net/psyco-pepm-a.ps.gz

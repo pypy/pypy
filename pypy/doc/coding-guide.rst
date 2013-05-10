@@ -538,6 +538,8 @@ Committing & Branching to the repository
 .. _official wiki: http://mercurial.selenic.com/wiki/Branch
 
 
+.. _using-development-tracker:
+
 Using the development bug/feature tracker
 -----------------------------------------
 

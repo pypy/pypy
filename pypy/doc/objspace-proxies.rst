@@ -93,7 +93,7 @@ Transparent Proxy PyPy builtins and support
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 If you are using the `--objspace-std-withtproxy`_ option
-the `__pypy__`_ module provides the following builtins:
+the :doc:`__pypy__ <__pypy__-module>` module provides the following builtins:
 
 * ``tproxy(type, controller)``: returns a proxy object
   representing the given type and forwarding all operations
@@ -104,7 +104,6 @@ the `__pypy__`_ module provides the following builtins:
   controller for a given object.  For non-proxied objects
   ``None`` is returned.
 
-.. _`__pypy__`:  __pypy__-module.html
 .. _--objspace-std-withtproxy: config/objspace.std.withtproxy.html
 
 

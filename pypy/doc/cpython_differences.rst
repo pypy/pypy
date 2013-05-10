@@ -10,6 +10,8 @@ Differences that are not listed here should be considered bugs of
 PyPy.
 
 
+.. _extension-modules:
+
 Extension modules
 -----------------
 

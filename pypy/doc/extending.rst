@@ -18,9 +18,9 @@ for the PyPy python interpreter (in order of usefulness):
 * Write them in pure python and use ctypes, see CTypes_ section
 
 * Write them in pure python and use direct libffi low-level bindings, See
-  `\_ffi <LibFFI>`_ module description.
+  `\_ffi`_ module description.
 
-* Write them in RPython as `mixedmodule <Mixed Modules>`_, using *rffi* as bindings.
+* Write them in RPython as `mixedmodule <#Mixed Modules>`_, using *rffi* as bindings.
 
 * Write them in C++ and bind them through Reflex_
 
@@ -65,8 +65,8 @@ those). Although the JIT optimizes ctypes calls, some overhead is still
 present.  The slow-path is very slow.
 
 
-LibFFI
-------
+_ffi
+----
 
 Mostly in order to be able to write a ctypes module, we developed a very
 low-level libffi bindings called ``_ffi``. (libffi is a C-level library for dynamic calling,

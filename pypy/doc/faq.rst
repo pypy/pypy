@@ -20,7 +20,7 @@ Is PyPy a drop in replacement for CPython?
 Almost!
 
 The mostly likely stumbling block for any given project is support for
-`extension modules`_.  PyPy supports a continually growing
+:ref:`extension modules <extension-modules>`.  PyPy supports a continually growing
 number of extension modules, but so far mostly only those found in the
 standard library.
 
@@ -28,7 +28,7 @@ The language features (including builtin types and functions) are very
 complete and well tested, so if your project does not use many
 extension modules there is a good chance that it will work with PyPy.
 
-We list the differences we know about in `cpython differences`_.
+We list the differences we know about in :doc:`cpython differences <cpython_differences>`.
 
 
 Do CPython Extension modules work with PyPy?
@@ -48,8 +48,6 @@ recommend that you use the cffi_ module to interface with C code.
 For information on which third party extensions work (or do not work)
 with PyPy see the `compatibility wiki`_.
 
-.. _extension modules: cpython_differences.html#extension-modules
-.. _cpython differences: cpython_differences.html
 .. _compatibility wiki: https://bitbucket.org/pypy/compatibility/wiki/Home
 .. _cffi: http://cffi.readthedocs.org/
 

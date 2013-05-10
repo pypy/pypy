@@ -1,3 +1,5 @@
+.. _gencli:
+
 The CLI backend
 ===============
 

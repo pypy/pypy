@@ -39,7 +39,7 @@ Glossary
       Typer.
 
    lltypesystem
-      A `C-like type model <rtyper.html#low-level-types>`__ that contains
+      A :ref:`C-like type model <low-level-types>` that contains
       structs and pointers.  A :term:`backend` that uses this type system is also
       called a low-level backend.  The C backend uses this
       typesystem.
@@ -49,7 +49,7 @@ Glossary
       some operation in terms of the target :term:`type system`.
 
    ootypesystem
-      An `object oriented type model <rtyper.html#object-oriented-types>`__
+      An :ref:`object oriented type model <oo-type>`
       containing classes and instances.  A :term:`backend` that uses this type system
       is also called a high-level backend.  The JVM and CLI backends
       all use this typesystem.

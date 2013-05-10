@@ -19,9 +19,7 @@ In Python, it is mostly impossible to *prove* anything about the types
 that a program will manipulate by doing a static analysis.  It should be
 clear if you are familiar with Python, but if in doubt see [BRETT]_.
 
-If you want a fast Python program, please use the PyPy JIT_ instead.
-
-.. _JIT: jit/index.html
+If you want a fast Python program, please use the PyPy :doc:`JIT <jit/index>` instead.
 
 .. [BRETT] Brett Cannon,
            Localized Type Inference of Atomic Types in Python,
@@ -63,9 +61,8 @@ Does RPython have anything to do with Zope's Restricted Python?
 No.  `Zope's RestrictedPython`_ aims to provide a sandboxed
 execution environment for CPython.   `PyPy's RPython`_ is the implementation
 language for dynamic language interpreters.  However, PyPy also provides
-a robust `sandboxed Python Interpreter`_.
+a robust :doc:`sandboxed Python Interpreter <pypy:sandbox>`.
 
-.. _sandboxed Python Interpreter: sandbox.html
 .. _Zope's RestrictedPython: http://pypi.python.org/pypi/RestrictedPython
 
 
@@ -126,14 +123,9 @@ latter is a much more supported, much more documented language `:-)`
 Which backends are there for the RPython toolchain?
 ---------------------------------------------------
 
-Currently, there are backends for C_, the CLI_, and the JVM_.
+Currently, there are backends for :ref:`C <genc>`, the :ref:`CLI <gencli>`, and the :ref:`JVM <genjvm>`.
 All of these can translate the entire PyPy interpreter.
-To learn more about backends take a look at the `translation document`_.
-
-.. _C: translation.html#the-c-back-end
-.. _CLI: cli-backend.html
-.. _JVM: translation.html#genjvm
-.. _translation document: translation.html
+To learn more about backends take a look at the :doc:`translation document <translation>`.
 
 
 Could we use LLVM?
