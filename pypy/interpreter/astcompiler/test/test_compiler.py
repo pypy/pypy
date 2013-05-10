@@ -819,6 +819,9 @@ class TestCompiler:
         def f2():
             'docstring'
             return 'docstring'
+        def f3():
+            'foo'
+            return 'bar'
         class C1():
             'docstring'
         class C2():
@@ -836,6 +839,9 @@ class TestCompiler:
 
         yield self.check, dict_w, "f1.__doc__", None
         yield self.check, dict_w, "f2.__doc__", 'docstring'
+        yield self.check, dict_w, "f2()", 'docstring'
+        yield self.check, dict_w, "f3.__doc__", None
+        yield self.check, dict_w, "f3()", 'bar'
         yield self.check, dict_w, "C1.__doc__", None
         yield self.check, dict_w, "C2.__doc__", 'docstring'
         yield self.check, dict_w, "C3.field", 'not docstring'
