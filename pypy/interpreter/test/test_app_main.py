@@ -725,7 +725,7 @@ class TestNonInteractive:
                          'mypackage', '__main__.py')
         p = os.path.abspath(p)
         monkeypatch.chdir(os.path.dirname(app_main))
-        data = self.run('-m test2.mypackage extra')
+        data = self.run('-m test.mypackage extra')
         assert "__init__ argv: ['-m', 'extra']" in data
         assert "__main__ argv: [%r, 'extra']" % p in data
 
