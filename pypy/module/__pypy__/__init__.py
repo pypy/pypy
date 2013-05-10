@@ -59,8 +59,6 @@ class Module(MixedModule):
         'newdict'                   : 'interp_dict.newdict',
         'dictstrategy'              : 'interp_dict.dictstrategy',
     }
-    if sys.platform == 'win32':
-        interpleveldefs['get_console_cp'] = 'interp_magic.get_console_cp'
 
     submodules = {
         "builders": BuildersModule,
