@@ -221,14 +221,23 @@ class AppTestLong:
         assert x ^ 0x555555555 == 0x5FFFFFFFF
 
     def test_hash(self):
-        # ints have the same hash as equal longs
-        for i in range(-4, 14):
-            assert hash(i) == hash(int(i))
-        # might check too much -- it's ok to change the hashing algorithm
-        assert hash(123456789) == 123456789
-        assert hash(1234567890123456789) in (
-            -1895067127,            # with 32-bit platforms
-            1234567890123456789)    # with 64-bit platforms
+        import sys
+        modulus = sys.hash_info.modulus
+        for x in (list(range(200)) +
+                  [1234567890123456789, 18446743523953737727,
+                   987685321987685321987685321987685321987685321]):
+            y = x % modulus
+            assert hash(x) == hash(y)
+            assert hash(-x) == hash(-y)
+        assert hash(modulus - 1) == modulus - 1
+        assert hash(modulus) == 0
+        assert hash(modulus + 1) == 1
+
+        assert hash(-1) == -2
+        value = -(modulus + 1)
+        assert hash(value) == -2
+        assert hash(value * 2 + 1) == -2
+        assert hash(value * 4 + 3) == -2
 
     def test_math_log(self):
         import math

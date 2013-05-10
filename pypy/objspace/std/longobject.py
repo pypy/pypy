@@ -6,9 +6,12 @@ from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.multimethod import FailedToImplementArgs
 from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.noneobject import W_NoneObject
-from rpython.rlib.rbigint import rbigint
+from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.rbigint import SHIFT, _widen_digit, rbigint
 from pypy.objspace.std.longtype import long_typedef, W_AbstractLongObject
 
+HASH_BITS = 61 if sys.maxsize > 2 ** 31 - 1 else 31
+HASH_MODULUS = 2 ** HASH_BITS - 1
 
 class W_LongObject(W_AbstractLongObject):
     """This is a wrapper of rbigint."""
@@ -192,7 +195,26 @@ def ge__Int_Long(space, w_int1, w_long2):
 
 
 def hash__Long(space, w_value):
-    return space.wrap(w_value.num.hash())
+    return space.wrap(_hash_long(space, w_value.num))
+
+def _hash_long(space, v):
+    i = v.numdigits() - 1
+    if i == -1:
+        return 0
+
+    # compute v % HASH_MODULUS
+    x = _widen_digit(0)
+    while i >= 0:
+        x = (x << SHIFT) + v.widedigit(i)
+        # efficient x % HASH_MODULUS: as HASH_MODULUS is a Mersenne
+        # prime
+        x = (x & HASH_MODULUS) + (x >> HASH_BITS)
+        while x >= HASH_MODULUS:
+            x -= HASH_MODULUS
+        i -= 1
+    x = intmask(intmask(x) * v.sign)
+    return -2 if x == -1 else x
+
 
 def add__Long_Long(space, w_long1, w_long2):
     return W_LongObject(w_long1.num.add(w_long2.num))
