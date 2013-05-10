@@ -91,7 +91,7 @@ def create_entry_point(space, w_dict):
 
     w_globals = space.newdict()
     space.setitem(w_globals, space.wrap('__builtins__'),
-                  space.builtin_modules['__builtin__'])
+                  space.builtin_modules['builtins'])
 
     def _pypy_execute_source(source):
         try:
