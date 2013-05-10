@@ -130,7 +130,7 @@ class W_IOBase(W_Root):
                 space.w_ValueError,
                 space.wrap("I/O operation on closed file"))
 
-    def seek_w(self, space):
+    def seek_w(self, space, w_offset, w_whence=None):
         self._unsupportedoperation(space, "seek")
 
     def tell_w(self, space):
