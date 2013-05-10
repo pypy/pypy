@@ -230,6 +230,17 @@ class TestStructure(BaseCTypesTestChecker):
         pt = POINT(y=2, x=1)
         assert (pt.x, pt.y) == (1, 2)
 
+    def test_subclass_initializer(self):
+        class POINT(Structure):
+            _fields_ = [("x", c_int), ("y", c_int)]
+
+        class POSITION(POINT):
+            # A subclass without _fields_
+            pass
+        pos = POSITION(1, 2)
+        assert (pos.x, pos.y) == (1, 2)
+        
+
     def test_invalid_field_types(self):
         class POINT(Structure):
             pass
@@ -537,6 +548,7 @@ class TestRecursiveStructure(BaseCTypesTestChecker):
             pass
         raises(AttributeError, setattr, X, "_fields_", [])
         Y.__fields__ = []
+
 
 class TestPatologicalCases(BaseCTypesTestChecker):
     def test_structure_overloading_getattr(self):

@@ -7,6 +7,10 @@ def none():
     return model.s_None
 
 
+def impossible():
+    return model.s_ImpossibleValue
+
+
 def float():
     return model.SomeFloat()
 

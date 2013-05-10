@@ -18,7 +18,7 @@ from rpython.rtyper.llinterp import LLException
 from rpython.jit.codewriter import heaptracker, longlong
 from rpython.rlib import longlong2float
 from rpython.rlib.rarithmetic import intmask, is_valid_int
-from rpython.jit.backend.detect_cpu import autodetect_main_model_and_size
+from rpython.jit.backend.detect_cpu import autodetect
 from rpython.jit.backend.llsupport import jitframe
 
 
@@ -3539,7 +3539,7 @@ class LLtypeBackendTest(BaseBackendTest):
                                               looptoken)
         self.cpu.assembler.set_debug(True) # always on untranslated
         assert info.asmlen != 0
-        cpuname = autodetect_main_model_and_size()
+        cpuname = autodetect()
         # XXX we have to check the precise assembler, otherwise
         # we don't quite know if borders are correct
 

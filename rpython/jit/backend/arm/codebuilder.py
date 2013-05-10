@@ -49,6 +49,70 @@ class AbstractARMBuilder(object):
             instr = self._encode_reg_list(cond << 28 | 0x92D << 16, regs)
         self.write32(instr)
 
+    def STM(self, base, regs, write_back=False, cond=cond.AL):
+        assert len(regs) > 0
+        instr = (cond << 28
+                | 0x11 << 23
+                | (1 if write_back else 0) << 21
+                | (base & 0xF) << 16)
+        instr = self._encode_reg_list(instr, regs)
+        self.write32(instr)
+
+    def LDM(self, base, regs, write_back=False, cond=cond.AL):
+        assert len(regs) > 0
+        instr = (cond << 28
+                | 0x11 << 23
+                | (1 if write_back else 0) << 21
+                | 1 << 20
+                | (base & 0xF) << 16)
+        instr = self._encode_reg_list(instr, regs)
+        self.write32(instr)
+
+    def VSTM(self, base, regs, write_back=False, cond=cond.AL):
+        # encoding T1
+        P = 0
+        U = 1
+        nregs = len(regs)
+        assert nregs > 0 and nregs <= 16
+        freg = regs[0]
+        D = (freg & 0x10) >> 4
+        Dd = (freg & 0xF)
+        nregs *= 2
+        instr = (cond << 28
+                | 3 << 26
+                | P << 24
+                | U << 23
+                | D << 22
+                | (1 if write_back else 0) << 21
+                | (base & 0xF) << 16
+                | Dd << 12
+                | 0xB << 8
+                | nregs)
+        self.write32(instr)
+
+    def VLDM(self, base, regs, write_back=False, cond=cond.AL):
+        # encoding T1
+        P = 0
+        U = 1
+        nregs = len(regs)
+        assert nregs > 0 and nregs <= 16
+        freg = regs[0]
+        D = (freg & 0x10) >> 4
+        Dd = (freg & 0xF)
+        nregs *= 2
+        instr = (cond << 28
+                | 3 << 26
+                | P << 24
+                | U << 23
+                | D << 22
+                | (1 if write_back else 0) << 21
+                | 1 << 20
+                | (base & 0xF) << 16
+                | Dd << 12
+                | 0xB << 8
+                | nregs)
+        self.write32(instr)
+
     def VPUSH(self, regs, cond=cond.AL):
         nregs = len(regs)
         assert nregs > 0 and nregs <= 16

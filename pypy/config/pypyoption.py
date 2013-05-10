@@ -84,13 +84,14 @@ module_dependencies = {
     '_multiprocessing': [('objspace.usemodules.rctime', True),
                          ('objspace.usemodules.thread', True)],
     'cpyext': [('objspace.usemodules.array', True)],
+    'cppyy': [('objspace.usemodules.cpyext', True)],
     }
 module_suggests = {
     # the reason you want _rawffi is for ctypes, which
     # itself needs the interp-level struct module
     # because 'P' is missing from the app-level one
     "_rawffi": [("objspace.usemodules.struct", True)],
-    "cpyext": [("translation.secondaryentrypoints", "cpyext"),
+    "cpyext": [("translation.secondaryentrypoints", "cpyext,main"),
                ("translation.shared", sys.platform == "win32")],
 }
 

@@ -1751,7 +1751,7 @@ class Transformer(object):
 
     def rewrite_op_jit_ffi_save_result(self, op):
         kind = op.args[0].value
-        assert kind in ('int', 'float')
+        assert kind in ('int', 'float', 'longlong', 'singlefloat')
         return SpaceOperation('libffi_save_result_%s' % kind, op.args[1:], None)
 
     def rewrite_op_jit_force_virtual(self, op):

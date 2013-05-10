@@ -2104,6 +2104,9 @@ def test_buffer():
     py.test.raises(ValueError, 'buf[:] = b"this is much too long!"')
     buf[4:2] = b""   # no effect, but should work
     assert buf[:] == b"hi there\x00"
+    buf[:2] = b"HI"
+    assert buf[:] == b"HI there\x00"
+    buf[:2] = b"hi"
     expected = list(map(bitem2bchr, b"hi there\x00"))
     x = 0
     for i in range(-12, 12):
@@ -2136,6 +2139,7 @@ def test_errno():
 def test_errno_callback():
     if globals().get('PY_DOT_PY') == '2.5':
         py.test.skip("cannot run this test on py.py with Python 2.5")
+    set_errno(95)
     def cb():
         e = get_errno()
         set_errno(e - 6)

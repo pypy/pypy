@@ -1,21 +1,41 @@
 #! /usr/bin/env python
 # App-level version of py.py.
 # See test/test_app_main.
+
+# Missing vs CPython: -d, -OO, -t, -v, -x, -3
+"""\
+Options and arguments (and corresponding environment variables):
+-B     : don't write .py[co] files on import; also PYTHONDONTWRITEBYTECODE=x
+-c cmd : program passed in as string (terminates option list)
+-E     : ignore PYTHON* environment variables (such as PYTHONPATH)
+-h     : print this help message and exit (also --help)
+-i     : inspect interactively after running script; forces a prompt even
+         if stdin does not appear to be a terminal; also PYTHONINSPECT=x
+-m mod : run library module as a script (terminates option list)
+-O     : skip assert statements
+-OO    : remove docstrings when importing modules in addition to -O
+-R     : ignored (see http://bugs.python.org/issue14621)
+-Q arg : division options: -Qold (default), -Qwarn, -Qwarnall, -Qnew
+-s     : don't add user site directory to sys.path; also PYTHONNOUSERSITE
+-S     : don't imply 'import site' on initialization
+-u     : unbuffered binary stdout and stderr; also PYTHONUNBUFFERED=x
+-V     : print the Python version number and exit (also --version)
+-W arg : warning control; arg is action:message:category:module:lineno
+         also PYTHONWARNINGS=arg
+file   : program read from script file
+-      : program read from stdin (default; interactive mode if a tty)
+arg ...: arguments passed to program in sys.argv[1:]
+PyPy options and arguments:
+--info : print translation information about this PyPy executable
 """
-options:
-  -i             inspect interactively after running script
-  -O             skip assert statements
-  -OO            remove docstrings when importing modules in addition to -O
-  -c cmd         program passed in as CMD (terminates option list)
-  -S             do not 'import site' on initialization
-  -u             unbuffered binary stdout and stderr
-  -h, --help     show this help message and exit
-  -m mod         library module to be run as a script (terminates option list)
-  -W arg         warning control (arg is action:message:category:module:lineno)
-  -E             ignore environment variables (such as PYTHONPATH)
-  -R             ignored (see http://bugs.python.org/issue14621)
-  --version      print the PyPy version
-  --info         print translation information about this PyPy executable
+USAGE1 = __doc__
+# Missing vs CPython: PYTHONHOME, PYTHONCASEOK
+USAGE2 = """
+Other environment variables:
+PYTHONSTARTUP: file executed on interactive startup (no default)
+PYTHONPATH   : %r-separated list of directories prefixed to the
+               default module search path.  The result is sys.path.
+PYTHONIOENCODING: Encoding[:errors] used for stdin/stdout/stderr.
 """
 
 import sys
