@@ -163,6 +163,7 @@ def print_help(*args):
     raise SystemExit
 
 def _print_jit_help():
+    initstdio()
     try:
         import pypyjit
     except ImportError:
