@@ -5,55 +5,45 @@
 
 .. _flow-object-space:
 
-The Flow Object Space
----------------------
+Building Flow Graphs
+--------------------
 
 Introduction
 ~~~~~~~~~~~~
 
-The task of the FlowObjSpace (the source is at :source:`pypy/objspace/flow/`) is to generate a control-flow graph from a
-function.  This graph will also contain a trace of the individual operations, so
-that it is actually just an alternate representation for the function.
+The task of the flow graph builder (the source is at :source:`rpython/flowspace/`)
+is to generate a control-flow graph from a function.  This graph will also
+contain a trace of the individual operations, so that it is actually just an
+alternate representation for the function.
 
-The FlowObjSpace is an object space, which means that it exports the standard
-object space interface and it is driven by the bytecode interpreter.
-
-The basic idea is that if the bytecode interpreter is given a function, e.g.::
+The basic idea is that if an interpreter is given a function, e.g.::
 
   def f(n):
     return 3*n+2
 
-it will do whatever bytecode dispatching and stack-shuffling needed, during
-which it issues a sequence of calls to the object space.  The FlowObjSpace
-merely records these calls (corresponding to "operations") in a structure called
-a basic block.  To track which value goes where, the FlowObjSpace invents
-placeholder "wrapped objects" and give them to the interpreter, so that they
-appear in some next operation.  This technique is an example of `Abstract
-Interpretation`_.
+it will compile it to bytecode and then execute it on its VM.
+Instead, the flow graph builder contains an `abstract interpreter`_ which takes the bytecode 
+and performs whatever stack-shuffling and variable juggling is needed, but 
+merely records any actual operation performed on a Python object into
+a structure called a basic block. The result of the operation is represented by a
+placeholder value that can appear in further operations.
 
-.. _Abstract Interpretation: http://en.wikipedia.org/wiki/Abstract_interpretation
+.. _abstract interpreter: http://en.wikipedia.org/wiki/Abstract_interpretation
 
 For example, if the placeholder ``v1`` is given as the argument to the above
 function, the bytecode interpreter will call ``v2 = space.mul(space.wrap(3),
 v1)`` and then ``v3 = space.add(v2, space.wrap(2))`` and return ``v3`` as the
-result.  During these calls the FlowObjSpace will record a basic block::
+result.  During these calls, the following block is recorded::
 
   Block(v1):     # input argument
     v2 = mul(Constant(3), v1)
     v3 = add(v2, Constant(2))
 
 
-The Flow model
-~~~~~~~~~~~~~~
+Abstract interpretation
+~~~~~~~~~~~~~~~~~~~~~~~
 
-The data structures built up by the flow object space are described in the
-:ref:`translation document <rpython:flow-model>`.
-
-
-How the FlowObjSpace works
-~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The FlowObjSpace works by recording all operations issued by the bytecode
+``build_flow()`` works by recording all operations issued by the bytecode
 interpreter into basic blocks.  A basic block ends in one of two cases: when
 the bytecode interpreters calls ``is_true()``, or when a joinpoint is reached.
 
@@ -66,7 +56,7 @@ the bytecode interpreters calls ``is_true()``, or when a joinpoint is reached.
   in the flow graph as well.  (Note that this occurs only when an operation is
   about to be recorded, which allows some amount of constant-folding.)
 
-* If the bytecode interpreter calls ``is_true()``, the FlowObjSpace doesn't
+* If the bytecode interpreter calls ``is_true()``, the abstract interpreter doesn't
   generally know if the answer should be True or False, so it puts a
   conditional jump and generates two successor blocks for the current basic
   block.  There is some trickery involved so that the bytecode interpreter is
@@ -84,13 +74,11 @@ the bytecode interpreters calls ``is_true()``, or when a joinpoint is reached.
 The Flow Model
 --------------
 
-The :ref:`Flow Object Space <flow-object-space>` is described in the `document
-describing object spaces`_. Here we describe the data structures produced by it,
-which are the basic data structures of the translation
-process.
+Here we describe the data structures produced by ``build_flow()``, which are
+the basic data structures of the translation process.
 
-All these types are defined in :source:`rpython/flowspace/model.py` (which is a rather
-important module in the PyPy source base, to reinforce the point).
+All these types are defined in :source:`rpython/flowspace/model.py` (which is a
+rather important module in the PyPy source base, to reinforce the point).
 
 The flow graph of a function is represented by the class ``FunctionGraph``.
 It contains a reference to a collection of ``Block``\ s connected by ``Link``\ s.
@@ -203,8 +191,8 @@ the types and their attributes in some detail:
 ``SpaceOperation``
     A recorded (or otherwise generated) basic operation.
 
-    :opname:  the name of the operation. The Flow Space produces only operations
-              from the list in ``pypy.interpreter.baseobjspace``, but later the
+    :opname:  the name of the operation. ``build_flow()`` produces only operations
+              from the list in ``rpython.flowspace.operation``, but later the
               names can be changed arbitrarily.
 
     :args:    list of arguments.  Each one is a Constant or a Variable seen
@@ -241,5 +229,3 @@ the types and their attributes in some detail:
     A Constant can occasionally store a mutable Python object.  It represents a
     static, pre-initialized, read-only version of that object.  The flow graph
     should not attempt to actually mutate such Constants.
-
-.. _document describing object spaces: objspace.html
