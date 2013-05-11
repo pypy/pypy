@@ -30,7 +30,7 @@ def entrypoint(key, argtypes, c_name=None, relax=True):
                 else:
                     print str(e)
                     pypy_debug_catch_fatal_exception()
-                    llop.debug_fatalerror(lltype.Void)
+                    llop.debug_fatalerror(lltype.Void, "error in c callback")
                     assert 0 # dead code
             rffi.stackcounter.stacks_counter -= 1
             return res
