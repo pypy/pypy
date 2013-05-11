@@ -723,7 +723,7 @@ class AppTestTypes(BaseAppTestDtypes):
         x = int8(42).ravel()
         assert x.dtype == int8
         assert (x == array(42)).all()
-        
+
 
 
 class AppTestStrUnicodeDtypes(BaseNumpyAppTest):
@@ -789,6 +789,15 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
         from numpypy import dtype
         d = dtype({'names': ['a', 'b', 'c'],
                    })
+
+    def test_create_subarrays(self):
+        from numpypy import dtype
+        d = dtype([("x", "float", (2,)), ("y", "int", (2,))])
+        assert d.itemsize == 32
+        keys = d.fields.keys()
+        assert "x" in keys
+        assert "y" in keys
+        assert d["x"].shape == (2,)
 
 class AppTestNotDirect(BaseNumpyAppTest):
     def setup_class(cls):
