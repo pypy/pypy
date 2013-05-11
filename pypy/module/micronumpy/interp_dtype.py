@@ -114,7 +114,7 @@ class W_Dtype(W_Root):
         return space.wrap(self.itemtype.alignment)
 
     def descr_get_subdtype(self, space):
-        return space.newtuple([space.wrap(self.subdtype), space.newtuple(shape)])
+        return space.newtuple([space.wrap(self.subdtype), space.newtuple(self.shape)])
 
     def descr_get_shape(self, space):
         return space.newtuple(self.shape)
@@ -350,6 +350,7 @@ def descr__new__(space, w_subtype, w_dtype, w_align=None, w_copy=None, w_shape=N
 
     if w_shape is not None and space.len_w(w_shape) > 0:
         subdtype = descr__new__(space, w_subtype, w_dtype, w_align, w_copy)
+        assert isinstance(subdtype, W_Dtype)
         size = 1
         shape = space.listview(w_shape)
         for dim in shape:
