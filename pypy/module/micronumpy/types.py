@@ -1076,7 +1076,7 @@ class ComplexFloating(object):
 
     def to_builtin_type(self, space, box):
         real,imag = self.for_computation(self.unbox(box))
-        return space.newcomplex(real, imag) 
+        return space.newcomplex(real, imag)
 
     def read_bool(self, arr, i, offset):
         v = self.for_computation(self._read(arr.storage, i, offset))
@@ -1217,7 +1217,7 @@ class ComplexFloating(object):
 
     @raw_binary_op
     def le(self, v1, v2):
-        return self._lt(v1, v2) or self._eq(v1, v2) 
+        return self._lt(v1, v2) or self._eq(v1, v2)
 
     @raw_binary_op
     def gt(self, v1, v2):
@@ -1225,7 +1225,7 @@ class ComplexFloating(object):
 
     @raw_binary_op
     def ge(self, v1, v2):
-        return self._lt(v2, v1) or self._eq(v2, v1) 
+        return self._lt(v2, v1) or self._eq(v2, v1)
 
     def _bool(self, v):
         return bool(v[0]) or bool(v[1])
@@ -1341,7 +1341,7 @@ class ComplexFloating(object):
             return rcomplex.c_div((v[0], -v[1]), (a2, 0.))
         except ZeroDivisionError:
             return rfloat.NAN, rfloat.NAN
- 
+
     # No floor, ceil, trunc in numpy for complex
     #@simple_unary_op
     #def floor(self, v):
@@ -1696,7 +1696,7 @@ class StringType(BaseType, BaseStringType):
         for j in range(i + 1, self.size):
             arr.storage[j] = '\x00'
         return interp_boxes.W_StringBox(arr,  0, arr.dtype)
-        
+
 class VoidType(BaseType, BaseStringType):
     T = lltype.Char
 

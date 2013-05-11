@@ -50,7 +50,7 @@ class W_Dtype(W_Root):
 
     def __init__(self, itemtype, num, kind, name, char, w_box_type,
                  alternate_constructors=[], aliases=[],
-                 fields=None, fieldnames=None, native=True):
+                 fields=None, fieldnames=None, native=True, shape=[], subdtype=None):
         self.itemtype = itemtype
         self.num = num
         self.kind = kind
@@ -63,6 +63,8 @@ class W_Dtype(W_Root):
         self.fieldnames = fieldnames
         self.native = native
         self.float_type = None
+        self.shape = shape
+        self.subdtype = subdtype
 
     @specialize.argtype(1)
     def box(self, value):
@@ -111,8 +113,11 @@ class W_Dtype(W_Root):
     def descr_get_alignment(self, space):
         return space.wrap(self.itemtype.alignment)
 
+    def descr_get_subdtype(self, space):
+        return space.newtuple([space.wrap(self.subdtype), space.newtuple(shape)])
+
     def descr_get_shape(self, space):
-        return space.newtuple([])
+        return space.newtuple(self.shape)
 
     def eq(self, space, w_other):
         w_other = space.call_function(space.gettypefor(W_Dtype), w_other)
@@ -279,17 +284,23 @@ def dtype_from_list(space, w_lst):
     ofs_and_items = []
     fieldnames = []
     for w_elem in lst_w:
-        w_fldname, w_flddesc = space.fixedview(w_elem, 2)
-        subdtype = descr__new__(space, space.gettypefor(W_Dtype), w_flddesc)
+        size = 1
+        shape = space.newtuple([])
+        if space.len_w(w_elem) == 3:
+            w_shape = space.getitem(w_elem, space.wrap(2))
+        w_fldname = space.getitem(w_elem, space.wrap(0))
+        w_flddesc = space.getitem(w_elem, space.wrap(1))
+        subdtype = descr__new__(space, space.gettypefor(W_Dtype), w_flddesc, w_shape=w_shape)
         fldname = space.str_w(w_fldname)
         if fldname in fields:
             raise OperationError(space.w_ValueError, space.wrap("two fields with the same name"))
         assert isinstance(subdtype, W_Dtype)
         fields[fldname] = (offset, subdtype)
         ofs_and_items.append((offset, subdtype.itemtype))
-        offset += subdtype.itemtype.get_element_size()
+        offset += subdtype.itemtype.get_element_size() * size
         fieldnames.append(fldname)
     itemtype = types.RecordType(ofs_and_items, offset)
+    import pdb; pdb.set_trace()
     return W_Dtype(itemtype, 20, VOIDLTR, "void" + str(8 * itemtype.get_element_size()),
                    "V", space.gettypefor(interp_boxes.W_VoidBox), fields=fields,
                    fieldnames=fieldnames)
@@ -333,9 +344,18 @@ def dtype_from_spec(space, name):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "dtype from spec"))
 
-def descr__new__(space, w_subtype, w_dtype, w_align=None, w_copy=None):
+def descr__new__(space, w_subtype, w_dtype, w_align=None, w_copy=None, w_shape=None):
     # w_align and w_copy are necessary for pickling
     cache = get_dtype_cache(space)
+
+    if w_shape is not None and space.len_w(w_shape) > 0:
+        subdtype = descr__new__(space, w_subtype, w_dtype, w_align, w_copy)
+        size = 1
+        shape = space.listview(w_shape)
+        for dim in shape:
+            size *= space.int_w(dim)
+        return W_Dtype(types.VoidType(subdtype.itemtype.get_element_size() * size), 20, VOIDLTR, "void" + str(8 * subdtype.itemtype.get_element_size() * size),
+                    "V", space.gettypefor(interp_boxes.W_VoidBox), shape=shape, subdtype=subdtype)
 
     if space.is_none(w_dtype):
         return cache.w_float64dtype
@@ -391,6 +411,7 @@ W_Dtype.typedef = TypeDef("dtype",
     name = interp_attrproperty('name', cls=W_Dtype),
     fields = GetSetProperty(W_Dtype.descr_get_fields),
     names = GetSetProperty(W_Dtype.descr_get_names),
+    subdtype = GetSetProperty(W_Dtype.descr_get_subdtype),
 )
 W_Dtype.typedef.acceptable_as_base_class = False
 
