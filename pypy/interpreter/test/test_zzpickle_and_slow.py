@@ -207,6 +207,29 @@ class AppTestInterpObjectPickling:
 
         assert read_exc_type(f2) is ValueError
 
+    def test_pickle_frame_with_exc_nested(self):
+        # avoid creating a closure for now
+        self = None
+        def f():
+            try:
+                1/0
+            except:
+                try:
+                    raise ValueError
+                except:
+                    import sys, pickle
+                    f = sys._getframe()
+                    saved = hide_top_frame(f)
+                    pckl = pickle.dumps(f)
+                    restore_top_frame(f, saved)
+                    return pckl
+
+        import pickle
+        pckl   = f()
+        f2     = pickle.loads(pckl)
+
+        assert read_exc_type(f2) is ValueError
+
     def test_pickle_frame_clos(self):
         # similar to above, therefore skipping the asserts.
         # we just want to see that the closure works

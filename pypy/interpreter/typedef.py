@@ -968,4 +968,8 @@ NotImplemented.typedef.acceptable_as_base_class = False
 SuspendedUnroller.typedef = TypeDef("SuspendedUnroller")
 SuspendedUnroller.typedef.acceptable_as_base_class = False
 
-W_OperationError.typedef = TypeDef("OperationError")
+W_OperationError.typedef = TypeDef("OperationError",
+    __reduce__ = interp2app(W_OperationError.descr_reduce),
+    __setstate__ = interp2app(W_OperationError.descr_setstate),
+)
+W_OperationError.typedef.acceptable_as_base_class = False

@@ -1365,7 +1365,8 @@ class WithBlock(FinallyBlock):
             unroller.operr.normalize_exception(frame.space)
         return FinallyBlock.handle(self, frame, unroller)
 
-block_classes = {'SETUP_LOOP': LoopBlock,
+block_classes = {'EXCEPT_HANDLER_BLOCK': ExceptHandlerBlock,
+                 'SETUP_LOOP': LoopBlock,
                  'SETUP_EXCEPT': ExceptBlock,
                  'SETUP_FINALLY': FinallyBlock,
                  'SETUP_WITH': WithBlock,
@@ -1380,6 +1381,21 @@ class W_OperationError(W_Root):
     def __init__(self, operr):
         self.operr = operr
 
+    def descr_reduce(self, space):
+        from pypy.interpreter.mixedmodule import MixedModule
+        w_mod = space.getbuiltinmodule('_pickle_support')
+        mod = space.interp_w(MixedModule, w_mod)
+        w_new_inst = mod.get('operationerror_new')
+        w_args = space.newtuple([])
+        operr = self.operr
+        if operr is None:
+            return space.newtuple([w_new_inst, w_args])
+        w_state = space.newtuple([operr.w_type, operr.get_w_value(space),
+                                  operr.get_traceback()])
+        return space.newtuple([w_new_inst, w_args, w_state])
+
+    def descr_setstate(self, space, w_state):
+        self.operr = OperationError(*space.fixedview(w_state, 3))
 
 def source_as_str(space, w_source, funcname, what, flags):
     """Return source code as str0 with adjusted compiler flags
