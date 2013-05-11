@@ -794,10 +794,13 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
         from numpypy import dtype
         d = dtype([("x", "float", (2,)), ("y", "int", (2,))])
         assert d.itemsize == 32
+        assert d.name == "void256"
         keys = d.fields.keys()
         assert "x" in keys
         assert "y" in keys
         assert d["x"].shape == (2,)
+        assert d["x"].itemsize == 16
+
 
 class AppTestNotDirect(BaseNumpyAppTest):
     def setup_class(cls):
