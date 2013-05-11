@@ -27,7 +27,7 @@ interpreter-level value.  This is necessary to implement, for example,
 if-statements (or rather, to be pedantic, to implement the
 conditional-branching bytecodes into which if-statements get compiled).
 
-We have many working object spaces which can be plugged into
+We have some working object spaces which can be plugged into
 the bytecode interpreter:
 
 - The *Standard Object Space* is a complete implementation
@@ -43,11 +43,6 @@ the bytecode interpreter:
   one) and adds new capabilities, like lazily computed objects (computed only
   when an operation is performed on them), security-checking objects,
   distributed objects living on several machines, etc.
-
-- the *Flow Object Space* transforms a Python program into a
-  flow-graph representation, by recording all operations that the bytecode
-  interpreter would like to perform when it is shown the given Python
-  program.  This technique is explained :doc:`in another document <rpython:translation>`.
 
 The present document gives a description of the above object spaces.
 The sources of PyPy contain the various object spaces in the directory
@@ -479,81 +474,6 @@ Additionally, slicing ensures that ``5 .__add__(6L)`` correctly returns
 ``NotImplemented`` (because this particular slice does not include
 ``add__Long_Long`` and there is no ``add__Int_Long``), which leads to
 ``6L.__radd__(5)`` being called, as in CPython.
-
-
-.. _flow-object-space:
-
-The Flow Object Space
----------------------
-
-Introduction
-~~~~~~~~~~~~
-
-The task of the FlowObjSpace (the source is at :source:`pypy/objspace/flow/`) is to generate a control-flow graph from a
-function.  This graph will also contain a trace of the individual operations, so
-that it is actually just an alternate representation for the function.
-
-The FlowObjSpace is an object space, which means that it exports the standard
-object space interface and it is driven by the bytecode interpreter.
-
-The basic idea is that if the bytecode interpreter is given a function, e.g.::
-
-  def f(n):
-    return 3*n+2
-
-it will do whatever bytecode dispatching and stack-shuffling needed, during
-which it issues a sequence of calls to the object space.  The FlowObjSpace
-merely records these calls (corresponding to "operations") in a structure called
-a basic block.  To track which value goes where, the FlowObjSpace invents
-placeholder "wrapped objects" and give them to the interpreter, so that they
-appear in some next operation.  This technique is an example of `Abstract
-Interpretation`_.
-
-.. _Abstract Interpretation: http://en.wikipedia.org/wiki/Abstract_interpretation
-
-For example, if the placeholder ``v1`` is given as the argument to the above
-function, the bytecode interpreter will call ``v2 = space.mul(space.wrap(3),
-v1)`` and then ``v3 = space.add(v2, space.wrap(2))`` and return ``v3`` as the
-result.  During these calls the FlowObjSpace will record a basic block::
-
-  Block(v1):     # input argument
-    v2 = mul(Constant(3), v1)
-    v3 = add(v2, Constant(2))
-
-
-The Flow model
-~~~~~~~~~~~~~~
-
-The data structures built up by the flow object space are described in the
-:ref:`translation document <rpython:flow-model>`.
-
-
-How the FlowObjSpace works
-~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The FlowObjSpace works by recording all operations issued by the bytecode
-interpreter into basic blocks.  A basic block ends in one of two cases: when
-the bytecode interpreters calls ``is_true()``, or when a joinpoint is reached.
-
-* A joinpoint occurs when the next operation is about to be recorded into the
-  current block, but there is already another block that records an operation
-  for the same bytecode position.  This means that the bytecode interpreter
-  has closed a loop and is interpreting already-seen code again.  In this
-  situation, we interrupt the bytecode interpreter and we make a link from the
-  end of the current block back to the previous block, thus closing the loop
-  in the flow graph as well.  (Note that this occurs only when an operation is
-  about to be recorded, which allows some amount of constant-folding.)
-
-* If the bytecode interpreter calls ``is_true()``, the FlowObjSpace doesn't
-  generally know if the answer should be True or False, so it puts a
-  conditional jump and generates two successor blocks for the current basic
-  block.  There is some trickery involved so that the bytecode interpreter is
-  fooled into thinking that ``is_true()`` first returns False (and the
-  subsequent operations are recorded in the first successor block), and later
-  the *same* call to ``is_true()`` also returns True (and the subsequent
-  operations go this time to the other successor block).
-
-(This section to be extended...)
 
 
 Object Space proxies
