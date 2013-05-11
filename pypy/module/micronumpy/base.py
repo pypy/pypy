@@ -35,12 +35,17 @@ class W_NDimArray(W_Root):
         return W_NDimArray(impl)
 
     @staticmethod
-    def from_shape_and_storage(shape, storage, dtype, order='C'):
+    def from_shape_and_storage(shape, storage, dtype, order='C', owning=False):
         from pypy.module.micronumpy.arrayimpl import concrete
         assert shape
         strides, backstrides = calc_strides(shape, dtype, order)
-        impl = concrete.ConcreteArrayNotOwning(shape, dtype, order, strides,
-                                               backstrides, storage)
+        if owning:
+            # Will free storage when GCd
+            impl = concrete.ConcreteArray(shape, dtype, order, strides,
+                                                backstrides, storage=storage)
+        else:
+            impl = concrete.ConcreteArrayNotOwning(shape, dtype, order, strides,
+                                                backstrides, storage)
         return W_NDimArray(impl)
 
     @staticmethod

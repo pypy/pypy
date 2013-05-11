@@ -55,6 +55,9 @@ class BaseConcreteArray(base.BaseArrayImplementation):
     def get_size(self):
         return self.size // self.dtype.itemtype.get_element_size()
 
+    def get_storage_size(self):
+        return self.size
+
     def reshape(self, space, orig_array, new_shape):
         # Since we got to here, prod(new_shape) == self.size
         new_strides = None
@@ -328,13 +331,14 @@ class ConcreteArrayNotOwning(BaseConcreteArray):
 
 
 class ConcreteArray(ConcreteArrayNotOwning):
-    def __init__(self, shape, dtype, order, strides, backstrides):
-        # we allocate the actual storage later because we need to compute
-        # self.size first
+    def __init__(self, shape, dtype, order, strides, backstrides, storage=lltype.nullptr(RAW_STORAGE)):
         null_storage = lltype.nullptr(RAW_STORAGE)
         ConcreteArrayNotOwning.__init__(self, shape, dtype, order, strides, backstrides,
                                         null_storage)
-        self.storage = dtype.itemtype.malloc(self.size)
+        if storage == lltype.nullptr(RAW_STORAGE):
+            self.storage = dtype.itemtype.malloc(self.size)
+        else:
+            self.storage = storage
 
     def __del__(self):
         free_raw_storage(self.storage, track_allocation=False)
