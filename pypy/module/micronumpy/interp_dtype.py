@@ -285,7 +285,7 @@ def dtype_from_list(space, w_lst):
     fieldnames = []
     for w_elem in lst_w:
         size = 1
-        shape = space.newtuple([])
+        w_shape = space.newtuple([])
         if space.len_w(w_elem) == 3:
             w_shape = space.getitem(w_elem, space.wrap(2))
         w_fldname = space.getitem(w_elem, space.wrap(0))
@@ -300,7 +300,6 @@ def dtype_from_list(space, w_lst):
         offset += subdtype.itemtype.get_element_size() * size
         fieldnames.append(fldname)
     itemtype = types.RecordType(ofs_and_items, offset)
-    import pdb; pdb.set_trace()
     return W_Dtype(itemtype, 20, VOIDLTR, "void" + str(8 * itemtype.get_element_size()),
                    "V", space.gettypefor(interp_boxes.W_VoidBox), fields=fields,
                    fieldnames=fieldnames)
