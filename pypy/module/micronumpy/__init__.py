@@ -12,6 +12,7 @@ class MultiArrayModule(MixedModule):
         'zeros': 'interp_numarray.zeros',
         'empty': 'interp_numarray.zeros',
         'ones': 'interp_numarray.ones',
+        '_reconstruct' : 'interp_numarray._reconstruct',
         'dot': 'interp_arrayops.dot',
         'fromstring': 'interp_support.fromstring',
         'flatiter': 'interp_flatiter.W_FlatIterator',

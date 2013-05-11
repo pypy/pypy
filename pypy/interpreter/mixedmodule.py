@@ -13,6 +13,7 @@ class MixedModule(Module):
     # imported yet, and when it has been, it is mod.__dict__.items() just
     # after startup().
     w_initialdict = None
+    lazy = False
 
     def __init__(self, space, w_name):
         """ NOT_RPYTHON """

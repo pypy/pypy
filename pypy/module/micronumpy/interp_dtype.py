@@ -133,10 +133,45 @@ class W_Dtype(W_Root):
                                                                  space.wrap(offset)]))
         return w_d
 
+    def set_fields(self, space, w_fields):
+        if w_fields == space.w_None:
+            self.fields = None
+        else:
+            ofs_and_items = []
+            size = 0
+            for key in space.listview(w_fields):
+                value = space.getitem(w_fields, key)
+
+                dtype = space.getitem(value, space.wrap(0))
+                assert isinstance(dtype, W_Dtype)
+
+                offset = space.int_w(space.getitem(value, space.wrap(1)))
+                self.fields[space.str_w(key)] = offset, dtype
+
+                ofs_and_items.append((offset, dtype.itemtype))
+                size += dtype.itemtype.get_element_size()
+
+            self.itemtype = types.RecordType(ofs_and_items, size)
+            self.name = "void" + str(8 * self.itemtype.get_element_size())
+
     def descr_get_names(self, space):
         if self.fieldnames is None:
             return space.w_None
         return space.newtuple([space.wrap(name) for name in self.fieldnames])
+
+    def set_names(self, space, w_names):
+        if w_names == space.w_None:
+            self.fieldnames = None
+        else:
+            self.fieldnames = []
+            iter = space.iter(w_names)
+            while True:
+                try:
+                    self.fieldnames.append(space.str_w(space.next(iter)))
+                except OperationError, e:
+                    if not e.match(space, space.w_StopIteration):
+                        raise
+                    break
 
     @unwrap_spec(item=str)
     def descr_getitem(self, space, item):
@@ -179,6 +214,51 @@ class W_Dtype(W_Root):
 
     def get_size(self):
         return self.itemtype.get_element_size()
+
+    def descr_reduce(self, space):
+        w_class = space.type(self)
+
+        kind = self.kind
+        elemsize = self.itemtype.get_element_size()
+        builder_args = space.newtuple([space.wrap("%s%d" % (kind, elemsize)), space.wrap(0), space.wrap(1)])
+
+        version = space.wrap(3)
+        order = space.wrap(byteorder_prefix if self.native else nonnative_byteorder_prefix)
+        names = self.descr_get_names(space)
+        values = self.descr_get_fields(space)
+        if self.fields:
+            #TODO: Implement this when subarrays are implemented
+            subdescr = space.w_None
+            #TODO: Change this when alignment is implemented :
+            size = 0
+            for key in self.fields:
+                dtype = self.fields[key][1]
+                assert isinstance(dtype, W_Dtype)
+                size += dtype.get_size()
+            w_size = space.wrap(size)
+            alignment = space.wrap(1)
+        else:
+            subdescr = space.w_None
+            w_size = space.wrap(-1)
+            alignment = space.wrap(-1)
+        flags = space.wrap(0)
+
+        data = space.newtuple([version, order, subdescr, names, values, w_size, alignment, flags])
+
+        return space.newtuple([w_class, builder_args, data])
+
+    def descr_setstate(self, space, w_data):
+        if space.int_w(space.getitem(w_data, space.wrap(0))) != 3:
+            raise OperationError(space.w_NotImplementedError, space.wrap("Pickling protocol version not supported"))
+
+        self.native = space.str_w(space.getitem(w_data, space.wrap(1))) == byteorder_prefix
+
+        fieldnames = space.getitem(w_data, space.wrap(3))
+        self.set_names(space, fieldnames)
+
+        fields = space.getitem(w_data, space.wrap(4))
+        self.set_fields(space, fields)
+        print self.itemtype
 
 class W_ComplexDtype(W_Dtype):
     def __init__(self, itemtype, num, kind, name, char, w_box_type,
@@ -238,8 +318,7 @@ def variable_dtype(space, name):
         num = 20
         basename = 'void'
         w_box_type = space.gettypefor(interp_boxes.W_VoidBox)
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            "pure void dtype"))
+        return dtype_from_list(space, space.newlist([]))
     else:
         assert char == 'U'
         basename = 'unicode'
@@ -252,9 +331,10 @@ def variable_dtype(space, name):
 
 def dtype_from_spec(space, name):
         raise OperationError(space.w_NotImplementedError, space.wrap(
-            "dtype from spec"))    
+            "dtype from spec"))
 
-def descr__new__(space, w_subtype, w_dtype):
+def descr__new__(space, w_subtype, w_dtype, w_align=None, w_copy=None):
+    # w_align and w_copy are necessary for pickling
     cache = get_dtype_cache(space)
 
     if space.is_none(w_dtype):
@@ -296,6 +376,9 @@ W_Dtype.typedef = TypeDef("dtype",
     __eq__ = interp2app(W_Dtype.descr_eq),
     __ne__ = interp2app(W_Dtype.descr_ne),
     __getitem__ = interp2app(W_Dtype.descr_getitem),
+
+    __reduce__ = interp2app(W_Dtype.descr_reduce),
+    __setstate__ = interp2app(W_Dtype.descr_setstate),
 
     num = interp_attrproperty("num", cls=W_Dtype),
     kind = interp_attrproperty("kind", cls=W_Dtype),
