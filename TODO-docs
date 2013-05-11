@@ -1,0 +1,29 @@
+Documentation TODO
+==================
+
+General
+-------
+
+* make inter-documentation links work
+* work on configuration/options documentation
+* structure documentation and add appropriate toctrees
+* integrate numerous getting started documents into something more useful
+  (eg. "Installing PyPy", "Building PyPy from source", "Playing with the
+  RPython Toolchain", "Write your own interpreter in RPython")
+* remove documentation for removed features
+* architecture documents don't really show the separation between PyPy and RPython
+* where should the documentation about coding style etc. be put?
+* update / remove dead links
+
+
+RPython
+-------
+
+* remove duplication between translation.rst and rtyper.rst.
+* rename / move rpython.rst?
+
+
+PyPy
+----
+
+* divide user documentation, developer documentation, and academical stuff
