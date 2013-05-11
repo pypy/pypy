@@ -286,8 +286,10 @@ def dtype_from_list(space, w_lst):
     for w_elem in lst_w:
         size = 1
         w_shape = space.newtuple([])
-        if space.len_w(w_elem) == 3:
+        if space.len_w(w_elem) >2:
             w_shape = space.getitem(w_elem, space.wrap(2))
+            if not base.issequence_w(space, w_shape):
+                w_shape = space.newtuple([w_shape,])
         w_fldname = space.getitem(w_elem, space.wrap(0))
         w_flddesc = space.getitem(w_elem, space.wrap(1))
         subdtype = descr__new__(space, space.gettypefor(W_Dtype), w_flddesc, w_shape=w_shape)

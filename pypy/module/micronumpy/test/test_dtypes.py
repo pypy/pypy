@@ -800,6 +800,9 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
         assert "y" in keys
         assert d["x"].shape == (2,)
         assert d["x"].itemsize == 16
+        e = dtype([("x", "float", 2), ("y", "int", 2)])
+        assert e.fields.keys() == keys
+        assert e['x'].shape == (2,)
 
 
 class AppTestNotDirect(BaseNumpyAppTest):
