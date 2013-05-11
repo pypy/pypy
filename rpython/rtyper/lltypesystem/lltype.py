@@ -1891,8 +1891,8 @@ class _func(_container):
         attrs.setdefault('_name', '?')
         attrs.setdefault('_callable', None)
         self.__dict__.update(attrs)
-        if '_callable' in attrs:
-            self.__dict__['compilation_info'] = getattr(attrs['_callable'], '_compilation_info', None)
+        if '_callable' in attrs and hasattr(attrs['_callable'], '_compilation_info'):
+            self.__dict__['compilation_info'] = attrs['_callable']._compilation_info
 
     def __repr__(self):
         return '<%s>' % (self,)
