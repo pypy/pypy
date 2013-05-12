@@ -2,11 +2,30 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, make_weakref_descr
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError
+from pypy.module.micronumpy.interp_numarray import array
 #from pypy.module.micronumpy.iter import W_NDIter
+
+
+def handle_sequence_args(space, cls, w_seq, w_op_flags, w_op_types, w_op_axes):
+    '''
+    Make sure that len(args) == 1 or len(w_seq)
+    and set attribs on cls appropriately
+    '''
+    raise OperationError(space.w_NotImplementedError, space.wrap(
+        'not implemented yet'))
+
 
 class W_NDIter(W_Root):
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, space, w_seq, w_flags, w_op_flags, w_op_dtypes, w_casting,
+            w_op_axes, w_itershape, w_buffersize, order):
+        self.order = order
+        if space.isinstance_w(w_seq, space.w_tuple) or space.isinstance_w(w_seq, space.w_list):
+            handle_sequence_args(space, self, w_seq, w_op_flags, w_op_dtypes, w_op_axes)
+        else:
+            self.seq =array(space, w_seq, copy=False)
+            # XXX handle args
+            self.iters = [self.seq.implementation.create_iter()]
         pass
 
     def descr_iter(self, space):
@@ -25,8 +44,18 @@ class W_NDIter(W_Root):
             'not implemented yet'))
 
     def descr_next(self, space):
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            'not implemented yet'))
+        for it in self.iters:
+            if not it.done():
+                break
+        else:
+            raise OperationError(space.w_StopIteration, space.w_None)
+        res = []
+        for it in self.iters:
+            res.append(space.wrap(it.getitem()))
+            it.next()
+        if len(res) <2:
+            return res[0]
+        return space.newtuple(res)
 
     def descr_iternext(self, space):
         raise OperationError(space.w_NotImplementedError, space.wrap(
@@ -57,7 +86,7 @@ class W_NDIter(W_Root):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             'not implemented yet'))
 
-    def descr_get_operands(self, space, w_indx):
+    def descr_get_operands(self, space):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             'not implemented yet'))
 
@@ -128,7 +157,8 @@ class W_NDIter(W_Root):
              w_itershape=WrappedDefault(None), w_buffersize=WrappedDefault(None))
 def nditer(space, w_seq, w_flags, w_op_flags, w_op_dtypes, w_casting, w_op_axes,
              w_itershape, w_buffersize, order='K'):
-    return W_NDIter()
+    return W_NDIter(space, w_seq, w_flags, w_op_flags, w_op_dtypes, w_casting, w_op_axes,
+            w_itershape, w_buffersize, order)
 
 W_NDIter.typedef = TypeDef(
     'nditer',
