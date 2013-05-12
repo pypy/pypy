@@ -305,14 +305,99 @@ class W_ArrayBase(W_Object):
                 bytes[stop - i] = tmp[i]
         self._charbuf_stop()
 
+    def descr_len(self, space):
+        return space.wrap(self.len)
+
+    def descr_eq(self, space, w_arr2):
+        "x.__eq__(y) <==> x==y"
+        return compare_arrays(space, self, w_arr2, space.eq)
+
+    def descr_ne(self, space, w_arr2):
+        "x.__ne__(y) <==> x!=y"
+        return compare_arrays(space, self, w_arr2, space.ne)
+
+    def descr_lt(self, space, w_arr2):
+        "x.__lt__(y) <==> x<y"
+        return compare_arrays(space, self, w_arr2, space.lt)
+
+    def descr_le(self, space, w_arr2):
+        "x.__le__(y) <==> x<=y"
+        return compare_arrays(space, self, w_arr2, space.le)
+
+    def descr_gt(self, space, w_arr2):
+        "x.__gt__(y) <==> x>y"
+        return compare_arrays(space, self, w_arr2, space.gt)
+
+    def descr_ge(self, space, w_arr2):
+        "x.__ge__(y) <==> x>=y"
+        return compare_arrays(space, self, w_arr2, space.ge)
+
     @staticmethod
     def register(typeorder):
         typeorder[W_ArrayBase] = []
+
+arr_eq_driver = jit.JitDriver(greens = ['comp_func'], reds = 'auto')
+
+def compare_arrays(space, arr1, arr2, comp_func):
+    if (not isinstance(arr1, W_ArrayBase) or
+        not isinstance(arr2, W_ArrayBase)):
+        return space.w_NotImplemented
+    if comp_func == space.eq and arr1.len != arr2.len:
+        return space.w_False
+    if comp_func == space.ne and arr1.len != arr2.len:
+        return space.w_True
+    lgt = min(arr1.len, arr2.len)
+    for i in range(lgt):
+        arr_eq_driver.jit_merge_point(comp_func=comp_func)
+        w_elem1 = arr1.w_getitem(space, i)
+        w_elem2 = arr2.w_getitem(space, i)
+        res = space.is_true(comp_func(w_elem1, w_elem2))
+        if comp_func == space.eq:
+            if not res:
+                return space.w_False
+        elif comp_func == space.ne:
+            if res:
+                return space.w_True
+        elif comp_func == space.lt or comp_func == space.gt:
+            if res:
+                return space.w_True
+            elif not space.is_true(space.eq(w_elem1, w_elem2)):
+                return space.w_False
+        else:
+            if not res:
+                return space.w_False
+            elif not space.is_true(space.eq(w_elem1, w_elem2)):
+                return space.w_True
+    # we have some leftovers
+    if comp_func == space.eq:
+        return space.w_True
+    elif comp_func == space.ne:
+        return space.w_False
+    if arr1.len == arr2.len:
+        if comp_func == space.lt or comp_func == space.gt:
+            return space.w_False
+        return space.w_True
+    if comp_func == space.lt or comp_func == space.le:
+        if arr1.len < arr2.len:
+            return space.w_False
+        return space.w_True
+    if arr1.len > arr2.len:
+        return space.w_False
+    return space.w_True
 
 W_ArrayBase.typedef = StdTypeDef(
     'array',
     __new__ = interp2app(w_array),
     __module__   = 'array',
+
+    __len__ = interp2app(W_ArrayBase.descr_len),
+    __eq__ = interp2app(W_ArrayBase.descr_eq),
+    __ne__ = interp2app(W_ArrayBase.descr_ne),
+    __lt__ = interp2app(W_ArrayBase.descr_lt),
+    __le__ = interp2app(W_ArrayBase.descr_le),
+    __gt__ = interp2app(W_ArrayBase.descr_gt),
+    __ge__ = interp2app(W_ArrayBase.descr_ge),
+
     itemsize = GetSetProperty(descr_itemsize),
     typecode = GetSetProperty(descr_typecode),
     __weakref__ = make_weakref_descr(W_ArrayBase),
@@ -629,9 +714,6 @@ def make_array(mytype):
 
     # Basic get/set/append/extend methods
 
-    def len__Array(space, self):
-        return space.wrap(self.len)
-
     def getitem__Array_ANY(space, self, w_idx):
         idx, stop, step = space.decode_index(w_idx, self.len)
         assert step == 0
@@ -795,32 +877,6 @@ def make_array(mytype):
             for i in range(oldlen):
                 a.buffer[r * oldlen + i] = self.buffer[i]
         return a
-
-    # Compare methods
-    @specialize.arg(3)
-    def _cmp_impl(space, self, other, space_fn):
-        # XXX this is a giant slow hack
-        w_lst1 = self.descr_tolist(space)
-        w_lst2 = space.call_method(other, 'tolist')
-        return space_fn(w_lst1, w_lst2)
-
-    def eq__Array_ArrayBase(space, self, other):
-        return _cmp_impl(space, self, other, space.eq)
-
-    def ne__Array_ArrayBase(space, self, other):
-        return _cmp_impl(space, self, other, space.ne)
-
-    def lt__Array_ArrayBase(space, self, other):
-        return _cmp_impl(space, self, other, space.lt)
-
-    def le__Array_ArrayBase(space, self, other):
-        return _cmp_impl(space, self, other, space.le)
-
-    def gt__Array_ArrayBase(space, self, other):
-        return _cmp_impl(space, self, other, space.gt)
-
-    def ge__Array_ArrayBase(space, self, other):
-        return _cmp_impl(space, self, other, space.ge)
 
     # Misc methods
 
