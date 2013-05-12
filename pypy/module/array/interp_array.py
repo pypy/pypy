@@ -6,13 +6,11 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec, interpindirect2app
 from pypy.interpreter.typedef import GetSetProperty, make_weakref_descr
 from pypy.module._file.interp_file import W_File
 from pypy.objspace.std.model import W_Object
-from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.objspace.std.stdtypedef import StdTypeDef
-from pypy.objspace.std.register_all import register_all
 from rpython.rlib import jit
 from rpython.rlib.rarithmetic import ovfcheck, widen
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rlib.objectmodel import specialize, keepalive_until_here
+from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rtyper.lltypesystem import lltype, rffi
 
 
@@ -422,6 +420,45 @@ class W_ArrayBase(W_Object):
     def descr_delslice(self, space, w_start, w_stop):
         self.descr_delitem(space, space.newslice(w_start, w_stop, space.w_None))
 
+    def descr_add(self, space, w_other):
+        raise NotImplementedError
+
+    def descr_inplace_add(self, space, w_other):
+        raise NotImplementedError
+
+    def descr_mul(self, space, w_repeat):
+        raise NotImplementedError
+
+    def descr_inplace_mul(self, space, w_repeat):
+        raise NotImplementedError
+
+    def descr_radd(self, space, w_other):
+        return self.descr_add(space, w_other)
+
+    def descr_rmul(self, space, w_repeat):
+        return self.descr_mul(space, w_repeat)
+
+    # Misc methods
+
+    def descr_buffer(self, space):
+        return space.wrap(ArrayBuffer(self))
+
+    def descr_repr(self, space):
+        if self.len == 0:
+            return space.wrap("array('%s')" % self.typecode)
+        elif self.typecode == "c":
+            r = space.repr(self.descr_tostring(space))
+            s = "array('%s', %s)" % (self.typecode, space.str_w(r))
+            return space.wrap(s)
+        elif self.typecode == "u":
+            r = space.repr(self.descr_tounicode(space))
+            s = "array('%s', %s)" % (self.typecode, space.str_w(r))
+            return space.wrap(s)
+        else:
+            r = space.repr(self.descr_tolist(space))
+            s = "array('%s', %s)" % (self.typecode, space.str_w(r))
+            return space.wrap(s)
+
     @staticmethod
     def register(typeorder):
         typeorder[W_ArrayBase] = []
@@ -445,6 +482,16 @@ W_ArrayBase.typedef = StdTypeDef(
     __setslice__ = interp2app(W_ArrayBase.descr_setslice),
     __delitem__ = interp2app(W_ArrayBase.descr_delitem),
     __delslice__ = interp2app(W_ArrayBase.descr_delslice),
+
+    __add__ = interpindirect2app(W_ArrayBase.descr_add),
+    __iadd__ = interpindirect2app(W_ArrayBase.descr_inplace_add),
+    __mul__ = interpindirect2app(W_ArrayBase.descr_mul),
+    __imul__ = interpindirect2app(W_ArrayBase.descr_inplace_mul),
+    __radd__ = interp2app(W_ArrayBase.descr_radd),
+    __rmul__ = interp2app(W_ArrayBase.descr_rmul),
+
+    __buffer__ = interp2app(W_ArrayBase.descr_buffer),
+    __repr__ = interp2app(W_ArrayBase.descr_repr),
 
     itemsize = GetSetProperty(descr_itemsize),
     typecode = GetSetProperty(descr_typecode),
@@ -836,40 +883,41 @@ def make_array(mytype):
             if oldbuffer:
                 lltype.free(oldbuffer, flavor='raw')
 
-    # Add and mul methods
+        # Add and mul methods
 
-    def add__Array_Array(space, self, other):
-        a = mytype.w_class(space)
-        a.setlen(self.len + other.len, overallocate=False)
-        for i in range(self.len):
-            a.buffer[i] = self.buffer[i]
-        for i in range(other.len):
-            a.buffer[i + self.len] = other.buffer[i]
-        return a
+        def descr_add(self, space, w_other):
+            if not isinstance(w_other, W_Array):
+                return space.w_NotImplemented
+            a = mytype.w_class(space)
+            a.setlen(self.len + w_other.len, overallocate=False)
+            for i in range(self.len):
+                a.buffer[i] = self.buffer[i]
+            for i in range(w_other.len):
+                a.buffer[i + self.len] = w_other.buffer[i]
+            return a
 
-    def inplace_add__Array_Array(space, self, other):
-        oldlen = self.len
-        otherlen = other.len
-        self.setlen(oldlen + otherlen)
-        for i in range(otherlen):
-            self.buffer[oldlen + i] = other.buffer[i]
-        return self
+        def descr_inplace_add(self, space, w_other):
+            if not isinstance(w_other, W_Array):
+                return space.w_NotImplemented
+            oldlen = self.len
+            otherlen = w_other.len
+            self.setlen(oldlen + otherlen)
+            for i in range(otherlen):
+                self.buffer[oldlen + i] = w_other.buffer[i]
+            return self
 
-    def mul__Array_ANY(space, self, w_repeat):
-        return _mul_helper(space, self, w_repeat, False)
+        def descr_mul(self, space, w_repeat):
+            return _mul_helper(space, self, w_repeat, False)
 
-    def mul__ANY_Array(space, w_repeat, self):
-        return _mul_helper(space, self, w_repeat, False)
-
-    def inplace_mul__Array_ANY(space, self, w_repeat):
-        return _mul_helper(space, self, w_repeat, True)
+        def descr_inplace_mul(self, space, w_repeat):
+            return _mul_helper(space, self, w_repeat, True)
 
     def _mul_helper(space, self, w_repeat, is_inplace):
         try:
             repeat = space.getindex_w(w_repeat, space.w_OverflowError)
         except OperationError, e:
             if e.match(space, space.w_TypeError):
-                raise FailedToImplement
+                return space.w_NotImplemented
             raise
         repeat = max(repeat, 0)
         try:
@@ -908,47 +956,11 @@ def make_array(mytype):
                 a.buffer[r * oldlen + i] = self.buffer[i]
         return a
 
-    # Misc methods
-
-    def buffer__Array(space, self):
-        return space.wrap(ArrayBuffer(self))
-
-    def repr__Array(space, self):
-        if self.len == 0:
-            return space.wrap("array('%s')" % self.typecode)
-        elif self.typecode == "c":
-            r = space.repr(self.descr_tostring(space))
-            s = "array('%s', %s)" % (self.typecode, space.str_w(r))
-            return space.wrap(s)
-        elif self.typecode == "u":
-            r = space.repr(self.descr_tounicode(space))
-            s = "array('%s', %s)" % (self.typecode, space.str_w(r))
-            return space.wrap(s)
-        else:
-            r = space.repr(self.descr_tolist(space))
-            s = "array('%s', %s)" % (self.typecode, space.str_w(r))
-            return space.wrap(s)
-
     mytype.w_class = W_Array
     W_Array.constructor = W_Array
-
-    # Annotator seems to mess up if the names are not unique
     name = 'ArrayType' + mytype.typecode
     W_Array.__name__ = 'W_' + name
-    import re
-    for n, f in locals().items():
-        new, n = re.subn('_Array_', '_%s_' % name, n)
-        if n > 0:
-            f.__name__ = new
-
-    from pypy.objspace.std.sliceobject import W_SliceObject
-    from pypy.objspace.std.listobject import W_ListObject
-    from pypy.objspace.std.unicodeobject import W_UnicodeObject
-    register_all(locals(), globals())
-
 
 for mytype in types.values():
     make_array(mytype)
 del mytype
-
-register_all(locals(), globals())
