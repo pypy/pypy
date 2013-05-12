@@ -2,8 +2,10 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, make_weakref_descr
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError
-from pypy.module.micronumpy.interp_numarray import array
-#from pypy.module.micronumpy.iter import W_NDIter
+from pypy.module.micronumpy.base import convert_to_array
+from pypy.module.micronumpy.strides import calculate_broadcast_strides
+from pypy.module.micronumpy.iter import MultiDimViewIterator
+from pypy.module.micronumpy import support
 
 
 def handle_sequence_args(space, cls, w_seq, w_op_flags, w_op_types, w_op_axes):
@@ -23,10 +25,30 @@ class W_NDIter(W_Root):
         if space.isinstance_w(w_seq, space.w_tuple) or space.isinstance_w(w_seq, space.w_list):
             handle_sequence_args(space, self, w_seq, w_op_flags, w_op_dtypes, w_op_axes)
         else:
-            self.seq =array(space, w_seq, copy=False)
-            # XXX handle args
-            self.iters = [self.seq.implementation.create_iter()]
-        pass
+            self.seq =[convert_to_array(space, w_seq)]
+            if order == 'K' or (order == 'C' and self.seq[0].get_order() == 'C'):
+                backward = False
+            elif order =='F' and self.seq[0].get_order() == 'C':
+                backward = True
+            else:
+                raise OperationError(space.w_NotImplementedError, space.wrap(
+                        'not implemented yet'))
+            imp = self.seq[0].implementation
+            if (imp.strides[0] < imp.strides[-1] and not backward) or \
+               (imp.strides[0] > imp.strides[-1] and backward):
+                # flip the strides. Is this always true for multidimension?
+                strides = [s for s in imp.strides[::-1]]
+                backstrides = [s for s in imp.backstrides[::-1]]
+                shape = [s for s in imp.shape[::-1]]
+            else:
+                strides = imp.strides
+                backstrides = imp.backstrides
+                shape = imp.shape
+            shape1d = [support.product(imp.shape),]
+            r = calculate_broadcast_strides(strides, backstrides, shape,
+                                            shape1d, backward)
+            self.iters = [MultiDimViewIterator(imp, imp.dtype, imp.start, r[0], r[1],
+                            shape)]
 
     def descr_iter(self, space):
         return space.wrap(self)
