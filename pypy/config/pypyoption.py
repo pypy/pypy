@@ -91,7 +91,7 @@ module_suggests = {
     # itself needs the interp-level struct module
     # because 'P' is missing from the app-level one
     "_rawffi": [("objspace.usemodules.struct", True)],
-    "cpyext": [("translation.secondaryentrypoints", "cpyext"),
+    "cpyext": [("translation.secondaryentrypoints", "cpyext,main"),
                ("translation.shared", sys.platform == "win32")],
 }
 

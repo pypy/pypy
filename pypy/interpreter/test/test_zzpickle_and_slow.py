@@ -485,3 +485,68 @@ class AppTestInterpObjectPickling:
         pckl   = pickle.dumps(pack.mod)
         result = pickle.loads(pckl)
         assert pack.mod is result
+
+
+class AppTestGeneratorCloning:
+
+    def setup_class(cls):
+        try:
+            cls.space.appexec([], """():
+                def f(): yield 42
+                f().__reduce__()
+            """)
+        except TypeError, e:
+            if 'pickle generator' not in str(e):
+                raise
+            py.test.skip("Frames can't be __reduce__()-ed")
+
+    def test_deepcopy_generator(self):
+        import copy
+
+        def f(n):
+            for i in range(n):
+                yield 42 + i
+        g = f(4)
+        g2 = copy.deepcopy(g)
+        res = g.next()
+        assert res == 42
+        res = g2.next()
+        assert res == 42
+        g3 = copy.deepcopy(g)
+        res = g.next()
+        assert res == 43
+        res = g2.next()
+        assert res == 43
+        res = g3.next()
+        assert res == 43
+
+    def test_shallowcopy_generator(self):
+        """Note: shallow copies of generators are often confusing.
+        To start with, 'for' loops have an iterator that will not
+        be copied, and so create tons of confusion.
+        """
+        import copy
+
+        def f(n):
+            while n > 0:
+                yield 42 + n
+                n -= 1
+        g = f(2)
+        g2 = copy.copy(g)
+        res = g.next()
+        assert res == 44
+        res = g2.next()
+        assert res == 44
+        g3 = copy.copy(g)
+        res = g.next()
+        assert res == 43
+        res = g2.next()
+        assert res == 43
+        res = g3.next()
+        assert res == 43
+        g4 = copy.copy(g2)
+        for i in range(2):
+            raises(StopIteration, g.next)
+            raises(StopIteration, g2.next)
+            raises(StopIteration, g3.next)
+            raises(StopIteration, g4.next)
