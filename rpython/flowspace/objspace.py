@@ -305,14 +305,6 @@ class FlowObjSpace(object):
         frame.handle_implicit_exceptions([StopIteration, RuntimeError])
         return w_item
 
-    def setitem(self, w_obj, w_key, w_val):
-        # protect us from globals write access
-        if w_obj is self.frame.w_globals:
-            raise FlowingError(self.frame,
-                    "Attempting to modify global variable  %r." % (w_key))
-        return self.frame.do_operation_with_implicit_exceptions('setitem',
-                w_obj, w_key, w_val)
-
     def setitem_str(self, w_obj, key, w_value):
         return self.setitem(w_obj, self.wrap(key), w_value)
 
