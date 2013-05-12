@@ -8,10 +8,12 @@ addition to checking for instances and subtypes in the normal way.
 """
 
 from rpython.rlib import jit
+
+from pypy.interpreter.baseobjspace import ObjSpace as BaseObjSpace
 from pypy.interpreter.error import OperationError
 from pypy.module.__builtin__.interp_classobj import W_ClassObject
 from pypy.module.__builtin__.interp_classobj import W_InstanceObject
-from pypy.interpreter.baseobjspace import ObjSpace as BaseObjSpace
+
 
 def _get_bases(space, w_cls):
     """Returns 'cls.__bases__'.  Returns None if there is
@@ -23,7 +25,7 @@ def _get_bases(space, w_cls):
         if not e.match(space, space.w_AttributeError):
             raise       # propagate other errors
         return None
-    if space.is_true(space.isinstance(w_bases, space.w_tuple)):
+    if space.isinstance_w(w_bases, space.w_tuple):
         return w_bases
     else:
         return None
@@ -47,10 +49,9 @@ def abstract_getclass(space, w_obj):
 @jit.unroll_safe
 def abstract_isinstance_w(space, w_obj, w_klass_or_tuple, allow_override=False):
     """Implementation for the full 'isinstance(obj, klass_or_tuple)'."""
-
     # -- case (anything, tuple)
     # XXX it might be risky that the JIT sees this
-    if space.is_true(space.isinstance(w_klass_or_tuple, space.w_tuple)):
+    if space.isinstance_w(w_klass_or_tuple, space.w_tuple):
         for w_klass in space.fixedview(w_klass_or_tuple):
             if abstract_isinstance_w(space, w_obj, w_klass, allow_override):
                 return True
@@ -93,9 +94,8 @@ def abstract_isinstance_w(space, w_obj, w_klass_or_tuple, allow_override=False):
             return w_obj.w_class.is_subclass_of(w_klass_or_tuple)
     return _abstract_isinstance_w_helper(space, w_obj, w_klass_or_tuple)
 
-@jit.dont_look_inside
-def _abstract_isinstance_w_helper(space, w_obj, w_klass_or_tuple):
 
+def _abstract_isinstance_w_helper(space, w_obj, w_klass_or_tuple):
     # -- case (anything, abstract-class)
     check_class(space, w_klass_or_tuple,
                 "isinstance() arg 2 must be a class, type,"
@@ -110,7 +110,7 @@ def _abstract_isinstance_w_helper(space, w_obj, w_klass_or_tuple):
         return _issubclass_recurse(space, w_abstractclass, w_klass_or_tuple)
 
 
-@jit.dont_look_inside
+@jit.unroll_safe
 def _issubclass_recurse(space, w_derived, w_top):
     """Internal helper for abstract cases.  Here, w_top cannot be a tuple."""
     if space.is_w(w_derived, w_top):
@@ -129,8 +129,7 @@ def abstract_issubclass_w(space, w_derived, w_klass_or_tuple,
     """Implementation for the full 'issubclass(derived, klass_or_tuple)'."""
 
     # -- case (class-like-object, tuple-of-classes)
-    # XXX it might be risky that the JIT sees this
-    if space.is_true(space.isinstance(w_klass_or_tuple, space.w_tuple)):
+    if space.isinstance_w(w_klass_or_tuple, space.w_tuple):
         for w_klass in space.fixedview(w_klass_or_tuple):
             if abstract_issubclass_w(space, w_derived, w_klass, allow_override):
                 return True

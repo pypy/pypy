@@ -114,7 +114,7 @@ class Module(MixedModule):
        else:
            if w_builtin is space.builtin:   # common case
                return space.builtin
-           if space.is_true(space.isinstance(w_builtin, space.w_dict)):
+           if space.isinstance_w(w_builtin, space.w_dict):
                 return module.Module(space, None, w_builtin)
            if isinstance(w_builtin, module.Module):
                return w_builtin

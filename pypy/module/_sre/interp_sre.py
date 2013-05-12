@@ -101,18 +101,24 @@ class W_SRE_Pattern(W_Root):
         """Make a StrMatchContext or a UnicodeMatchContext for searching
         in the given w_string object."""
         space = self.space
-        if pos < 0: pos = 0
-        if endpos < pos: endpos = pos
-        if space.is_true(space.isinstance(w_string, space.w_unicode)):
+        if pos < 0:
+            pos = 0
+        if endpos < pos:
+            endpos = pos
+        if space.isinstance_w(w_string, space.w_unicode):
             unicodestr = space.unicode_w(w_string)
-            if pos > len(unicodestr): pos = len(unicodestr)
-            if endpos > len(unicodestr): endpos = len(unicodestr)
+            if pos > len(unicodestr):
+                pos = len(unicodestr)
+            if endpos > len(unicodestr):
+                endpos = len(unicodestr)
             return rsre_core.UnicodeMatchContext(self.code, unicodestr,
                                                  pos, endpos, self.flags)
         else:
             str = space.bufferstr_w(w_string)
-            if pos > len(str): pos = len(str)
-            if endpos > len(str): endpos = len(str)
+            if pos > len(str):
+                pos = len(str)
+            if endpos > len(str):
+                endpos = len(str)
             return rsre_core.StrMatchContext(self.code, str,
                                              pos, endpos, self.flags)
 
@@ -212,7 +218,7 @@ class W_SRE_Pattern(W_Root):
             w_filter = w_ptemplate
             filter_is_callable = True
         else:
-            if space.is_true(space.isinstance(w_ptemplate, space.w_unicode)):
+            if space.isinstance_w(w_ptemplate, space.w_unicode):
                 filter_as_unicode = space.unicode_w(w_ptemplate)
                 literal = u'\\' not in filter_as_unicode
             else:
@@ -267,7 +273,7 @@ class W_SRE_Pattern(W_Root):
             sublist_w.append(slice_w(space, ctx, last_pos, ctx.end,
                                      space.w_None))
 
-        if space.is_true(space.isinstance(w_string, space.w_unicode)):
+        if space.isinstance_w(w_string, space.w_unicode):
             w_emptystr = space.wrap(u'')
         else:
             w_emptystr = space.wrap('')
@@ -315,6 +321,7 @@ W_SRE_Pattern.typedef = TypeDef(
     groups       = interp_attrproperty('num_groups', W_SRE_Pattern),
     pattern      = interp_attrproperty_w('w_pattern', W_SRE_Pattern),
 )
+W_SRE_Pattern.typedef.acceptable_as_base_class = False
 
 # ____________________________________________________________
 #
@@ -381,15 +388,15 @@ class W_SRE_Match(W_Root):
         return space.call_method(w_re, '_expand', space.wrap(self.srepat),
                                  space.wrap(self), w_template)
 
-    @unwrap_spec(w_groupnum = WrappedDefault(0))
+    @unwrap_spec(w_groupnum=WrappedDefault(0))
     def start_w(self, w_groupnum):
         return self.space.wrap(self.do_span(w_groupnum)[0])
 
-    @unwrap_spec(w_groupnum = WrappedDefault(0))
+    @unwrap_spec(w_groupnum=WrappedDefault(0))
     def end_w(self, w_groupnum):
         return self.space.wrap(self.do_span(w_groupnum)[1])
 
-    @unwrap_spec(w_groupnum = WrappedDefault(0))
+    @unwrap_spec(w_groupnum=WrappedDefault(0))
     def span_w(self, w_groupnum):
         start, end = self.do_span(w_groupnum)
         return self.space.newtuple([self.space.wrap(start),
@@ -492,7 +499,7 @@ W_SRE_Match.typedef = TypeDef(
     lastindex    = GetSetProperty(W_SRE_Match.fget_lastindex),
     regs         = GetSetProperty(W_SRE_Match.fget_regs),
 )
-
+W_SRE_Match.typedef.acceptable_as_base_class = False
 
 # ____________________________________________________________
 #
@@ -548,3 +555,4 @@ W_SRE_Scanner.typedef = TypeDef(
     search   = interp2app(W_SRE_Scanner.search_w),
     pattern  = interp_attrproperty('srepat', W_SRE_Scanner),
 )
+W_SRE_Scanner.typedef.acceptable_as_base_class = False

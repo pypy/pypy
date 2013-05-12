@@ -1,3 +1,4 @@
+# encoding: utf-8
 import os, py
 if os.name != 'nt':
     py.test.skip('tests for win32 only')
@@ -47,3 +48,13 @@ def test_terminate_process():
     rwin32.CloseHandle(handle)
     assert proc.wait() == signal.SIGTERM
  
+@py.test.mark.dont_track_allocations('putenv intentionally keeps strings alive')
+def test_wenviron():
+    name, value = u'PYPY_TEST_日本', u'foobar日本'
+    rwin32._wputenv(name, value)
+    assert rwin32._wgetenv(name) == value
+    env = dict(rwin32._wenviron_items())
+    assert env[name] == value
+    for key, value in env.iteritems():
+        assert type(key) is unicode
+        assert type(value) is unicode

@@ -68,7 +68,17 @@ def test_gethostbyname_ex():
                          % (address_list,))
 
 def test_gethostbyaddr():
+    try:
+        cpy_socket.gethostbyaddr("::1")
+    except cpy_socket.herror:
+        ipv6 = False
+    else:
+        ipv6 = True
     for host in ["localhost", "127.0.0.1", "::1"]:
+        if host == "::1" and not ipv6:
+            with py.test.raises(HSocketError):
+                gethostbyaddr(host)
+            continue
         name, aliases, address_list = gethostbyaddr(host)
         allnames = [name] + aliases
         for n in allnames:
@@ -365,6 +375,8 @@ def test_dup():
     s2 = s.dup()
     assert s.fd != s2.fd
     assert s.getsockname().eq(s2.getsockname())
+    s.close()
+    s2.close()
 
 def test_c_dup():
     # rsocket.dup() duplicates fd, it also works on Windows
@@ -374,6 +386,8 @@ def test_c_dup():
     s2 = RSocket(fd=dup(s.fd))
     assert s.fd != s2.fd
     assert s.getsockname().eq(s2.getsockname())
+    s.close()
+    s2.close()
 
 def test_inet_aton():
     assert inet_aton('1.2.3.4') == '\x01\x02\x03\x04'

@@ -422,6 +422,18 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a[4] == 5.0
         raises(IndexError, "a[5] = 0.0")
         raises(IndexError, "a[-6] = 3.0")
+        a[1] = array(100)
+        a[2] = array([100])
+        assert a[1] == 100
+        assert a[2] == 100
+        a = array(range(5), dtype=float)
+        a[0] = 0.005
+        assert a[0] == 0.005
+        a[1] = array(-0.005)
+        a[2] = array([-0.005])
+        assert a[1] == -0.005
+        assert a[2] == -0.005
+
 
     def test_setitem_tuple(self):
         from numpypy import array
@@ -1487,14 +1499,14 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = concatenate((['abcdef'], ['abc']))
         assert a[0] == 'abcdef'
         assert str(a.dtype) == '|S6'
-    
+
     def test_record_concatenate(self):
         # only an exact match can succeed
         from numpypy import zeros, concatenate
         a = concatenate((zeros((2,),dtype=[('x', int), ('y', float)]),
                          zeros((2,),dtype=[('x', int), ('y', float)])))
         assert a.shape == (4,)
-        exc = raises(TypeError, concatenate, 
+        exc = raises(TypeError, concatenate,
                             (zeros((2,), dtype=[('x', int), ('y', float)]),
                             (zeros((2,), dtype=[('x', float), ('y', float)]))))
         assert str(exc.value).startswith('record type mismatch')
@@ -1677,11 +1689,15 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = array('x').astype('S3').dtype
         assert a.itemsize == 3
         # scalar vs. array
+        a = array([1, 2, 3.14156]).astype('S3').dtype
+        assert a.itemsize == 3
+        a = array(3.1415).astype('S3').dtype
+        assert a.itemsize == 3
         try:
-            a = array([1, 2, 3.14156]).astype('S3').dtype
-            assert a.itemsize == 3
+            a = array(['1', '2','3']).astype(float)
+            assert a[2] == 3.0
         except NotImplementedError:
-            skip('astype("S3") not implemented for numeric arrays')
+            skip('astype("float") not implemented for str arrays')
 
     def test_base(self):
         from numpypy import array

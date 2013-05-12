@@ -129,10 +129,10 @@ class AppTestThread(GenericTestThread):
             sys.stderr = StringIO.StringIO()
             thread.start_new_thread(fn3, ())
             self.waitfor(lambda: "ValueError" in sys.stderr.getvalue())
-            result = sys.stderr.getvalue()
-            assert "ValueError" in result
-            assert "hello world" in result
-            assert len(result.splitlines()) == 1
+            result = sys.stderr.getvalue().splitlines()
+            #assert result[0].startswith("Unhandled exception in thread ")
+            assert result[1].startswith("Traceback ")
+            assert result[-1] == "ValueError: hello world"
         finally:
             sys.stderr = prev
 

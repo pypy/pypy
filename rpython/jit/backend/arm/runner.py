@@ -1,14 +1,19 @@
 from rpython.jit.backend.arm.arch import JITFRAME_FIXED_SIZE
 from rpython.jit.backend.arm.assembler import AssemblerARM
-from rpython.jit.backend.arm.regalloc import CoreRegisterManager,\
-     VFPRegisterManager
+from rpython.jit.backend.arm.regalloc import VFPRegisterManager
 from rpython.jit.backend.arm.registers import fp, all_regs
 from rpython.jit.backend.llsupport import jitframe
 from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
 from rpython.rlib.jit_hooks import LOOP_RUN_CONTAINER
 from rpython.rtyper.lltypesystem import lltype, llmemory
+from rpython.jit.backend.arm.detect import detect_hardfloat
+from rpython.jit.backend.arm.detect import detect_arch_version
 
 jitframe.STATICSIZE = JITFRAME_FIXED_SIZE
+
+class CPUInfo(object):
+    hf_abi = False
+    arch_version = 6
 
 class AbstractARMCPU(AbstractLLCPU):
 
@@ -17,7 +22,8 @@ class AbstractARMCPU(AbstractLLCPU):
     supports_floats = True
     supports_longlong = False # XXX requires an implementation of
                               # read_timestamp that works in user mode
-    supports_singlefloats = True
+    supports_singlefloats = not detect_hardfloat()
+    can_inline_varsize_malloc = True
 
     from rpython.jit.backend.arm.arch import JITFRAME_FIXED_SIZE
     all_reg_indexes = range(len(all_regs))
@@ -25,13 +31,11 @@ class AbstractARMCPU(AbstractLLCPU):
     float_regs = VFPRegisterManager.all_regs
     frame_reg = fp
 
-    use_hf_abi = False        # use hard float abi flag
-
     def __init__(self, rtyper, stats, opts=None, translate_support_code=False,
                  gcdescr=None):
         AbstractLLCPU.__init__(self, rtyper, stats, opts,
                                translate_support_code, gcdescr)
-
+        self.cpuinfo = CPUInfo()
 
     def set_debug(self, flag):
         return self.assembler.set_debug(flag)
@@ -46,6 +50,8 @@ class AbstractARMCPU(AbstractLLCPU):
         self.assembler = AssemblerARM(self, self.translate_support_code)
 
     def setup_once(self):
+        self.cpuinfo.arch_version = detect_arch_version()
+        self.cpuinfo.hf_abi = detect_hardfloat()
         self.assembler.setup_once()
 
     def finish_once(self):
@@ -71,7 +77,7 @@ class AbstractARMCPU(AbstractLLCPU):
 
     def cast_ptr_to_int(x):
         adr = llmemory.cast_ptr_to_adr(x)
-        return ArmCPU.cast_adr_to_int(adr)
+        return CPU_ARM.cast_adr_to_int(adr)
     cast_ptr_to_int._annspecialcase_ = 'specialize:arglltype(0)'
     cast_ptr_to_int = staticmethod(cast_ptr_to_int)
 
@@ -86,10 +92,10 @@ class AbstractARMCPU(AbstractLLCPU):
         possible then to re-call invalidate_loop() on the same looptoken,
         which must invalidate all newer GUARD_NOT_INVALIDATED, but not the
         old one that already has a bridge attached to it."""
-        from rpython.jit.backend.arm.codebuilder import ARMv7Builder
+        from rpython.jit.backend.arm.codebuilder import InstrBuilder
 
-        for jmp, tgt  in looptoken.compiled_loop_token.invalidate_positions:
-            mc = ARMv7Builder()
+        for jmp, tgt in looptoken.compiled_loop_token.invalidate_positions:
+            mc = InstrBuilder(self.cpuinfo.arch_version)
             mc.B_offs(tgt)
             mc.copy_to_raw_memory(jmp)
         # positions invalidated
@@ -105,14 +111,13 @@ class AbstractARMCPU(AbstractLLCPU):
             l[i].counter = ll_s.i
         return l
 
-class CPU_ARM(AbstractARMCPU):
-    """ARM v7 uses softfp ABI, requires vfp"""
-    backend_name = "arm"
-ArmCPU = CPU_ARM
+    def build_regalloc(self):
+        ''' for tests'''
+        from rpython.jit.backend.arm.regalloc import Regalloc
+        assert self.assembler is not None
+        return Regalloc(self.assembler)
 
-class CPU_ARMHF(AbstractARMCPU):
-    """ARM v7 uses hardfp ABI, requires vfp"""
-    use_hf_abi = True
-    backend_name = "armhf"
-    supports_floats = False
-    supports_singlefloats = False
+
+class CPU_ARM(AbstractARMCPU):
+    """ARM"""
+    backend_name = "arm"

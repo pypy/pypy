@@ -37,13 +37,13 @@ def run_multiline_interactive_console(mainmodule=None):
     import code
     if mainmodule is None:
         import __main__ as mainmodule
-    console = code.InteractiveConsole(mainmodule.__dict__)
+    console = code.InteractiveConsole(mainmodule.__dict__, filename='<stdin>')
 
     def more_lines(unicodetext):
         # ooh, look at the hack:
         src = "#coding:utf-8\n"+unicodetext.encode('utf-8')
         try:
-            code = console.compile(src, '<input>', 'single')
+            code = console.compile(src, '<stdin>', 'single')
         except (OverflowError, SyntaxError, ValueError):
             return False
         else:

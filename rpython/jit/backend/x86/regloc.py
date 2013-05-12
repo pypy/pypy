@@ -521,17 +521,6 @@ class LocationCodeBuilder(object):
 
         return func_with_new_name(INSN, "INSN_" + name)
 
-    def _16_bit_binaryop(name):
-        def INSN(self, loc1, loc2):
-            # Select 16-bit operand mode
-            self.writechar('\x66')
-            # XXX: Hack to let immediate() in rx86 know to do a 16-bit encoding
-            self._use_16_bit_immediate = True
-            getattr(self, name)(loc1, loc2)
-            self._use_16_bit_immediate = False
-
-        return INSN
-
     def _addr_as_reg_offset(self, addr):
         # Encodes a (64-bit) address as an offset from the scratch register.
         # If we are within a "reuse_scratch_register" block, we remember the
@@ -616,10 +605,10 @@ class LocationCodeBuilder(object):
     NEG = _unaryop('NEG')
 
     CMP = _binaryop('CMP')
-    CMP16 = _16_bit_binaryop('CMP')
+    CMP16 = _binaryop('CMP16')
     MOV = _binaryop('MOV')
     MOV8 = _binaryop('MOV8')
-    MOV16 = _16_bit_binaryop('MOV')
+    MOV16 = _binaryop('MOV16')
     MOVZX8 = _binaryop('MOVZX8')
     MOVSX8 = _binaryop('MOVSX8')
     MOVZX16 = _binaryop('MOVZX16')

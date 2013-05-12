@@ -11,19 +11,24 @@ class TestW_BoolObject:
     def test_repr(self):
         assert self.space.eq_w(self.space.repr(self.true), self.wrap("True"))
         assert self.space.eq_w(self.space.repr(self.false), self.wrap("False"))
-    
+
     def test_true(self):
         assert self.space.is_true(self.true)
-        
+
     def test_false(self):
         assert not self.space.is_true(self.false)
 
+    def test_int_w(self):
+        assert self.space.int_w(self.true) is 1
+        assert self.space.int_w(self.false) is 0
+
     def test_uint_w(self):
         assert self.space.uint_w(self.true) == 1
+        assert self.space.uint_w(self.false) == 0
 
     def test_rbigint_w(self):
         assert self.space.bigint_w(self.true)._digits == [1]
-        
+
 class AppTestAppBoolTest:
     def test_bool_callable(self):
         assert True == bool(1)
@@ -35,6 +40,10 @@ class AppTestAppBoolTest:
         assert "False" == str(False)
         assert "True" == repr(True)
         assert "False" == repr(False)
+
+    def test_bool_int(self):
+        assert int(True) is 1
+        assert int(False) is 0
 
     def test_bool_ops(self):
         assert True + True == 2

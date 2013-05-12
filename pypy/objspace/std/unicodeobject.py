@@ -1,24 +1,26 @@
-from pypy.objspace.std.model import registerimplementation, W_Object
-from pypy.objspace.std.register_all import register_all
-from pypy.objspace.std.multimethod import FailedToImplement
-from pypy.interpreter import gateway
+"""The builtin unicode implementation"""
+
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.objspace.std.stringobject import W_StringObject, make_rsplit_with_delim
+from pypy.module.unicodedata import unicodedb
+from pypy.objspace.std import newformat, slicetype
+from pypy.objspace.std.formatting import mod_format
+from pypy.objspace.std.model import W_Object, registerimplementation
+from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
-from pypy.objspace.std import slicetype, newformat
+from pypy.objspace.std.stringobject import (
+    W_StringObject, make_rsplit_with_delim)
+from pypy.objspace.std.stringtype import stringendswith, stringstartswith
+from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.tupleobject import W_TupleObject
-from rpython.rlib.rarithmetic import intmask, ovfcheck
-from rpython.rlib.objectmodel import compute_hash, specialize
-from rpython.rlib.objectmodel import compute_unique_id
+from rpython.rlib import jit
+from rpython.rlib.rarithmetic import ovfcheck
+from rpython.rlib.objectmodel import (
+    compute_hash, compute_unique_id, specialize)
 from rpython.rlib.rstring import UnicodeBuilder
 from rpython.rlib.runicode import make_unicode_escape_function
-from pypy.module.unicodedata import unicodedb
 from rpython.tool.sourcetools import func_with_new_name
-from rpython.rlib import jit
 
-from pypy.objspace.std.formatting import mod_format
-from pypy.objspace.std.stringtype import stringstartswith, stringendswith
 
 class W_AbstractUnicodeObject(W_Object):
     __slots__ = ()

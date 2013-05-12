@@ -1,25 +1,27 @@
-import py, sys
-from rpython.rtyper.lltypesystem import lltype, rclass
-from rpython.rlib.objectmodel import we_are_translated
-from rpython.rlib.unroll import unrolling_iterable
-from rpython.rlib.debug import debug_start, debug_stop, debug_print
-from rpython.rlib.debug import make_sure_not_resized
-from rpython.rlib import nonconst, rstack
+import sys
 
-from rpython.jit.metainterp import history, compile, resume
-from rpython.jit.metainterp.history import Const, ConstInt, ConstPtr, ConstFloat
-from rpython.jit.metainterp.history import Box, TargetToken
-from rpython.jit.metainterp.resoperation import rop
-from rpython.jit.metainterp import executor
-from rpython.jit.metainterp.logger import Logger
-from rpython.jit.metainterp.jitprof import EmptyProfiler
-from rpython.rlib.jit import Counters
-from rpython.jit.metainterp.jitexc import JitException, get_llexception
-from rpython.jit.metainterp.heapcache import HeapCache
-from rpython.rlib.objectmodel import specialize
-from rpython.jit.codewriter.jitcode import JitCode, SwitchDictDescr
+import py
+
 from rpython.jit.codewriter import heaptracker
+from rpython.jit.codewriter.effectinfo import EffectInfo
+from rpython.jit.codewriter.jitcode import JitCode, SwitchDictDescr
+from rpython.jit.metainterp import history, compile, resume, executor
+from rpython.jit.metainterp.heapcache import HeapCache
+from rpython.jit.metainterp.history import (Const, ConstInt, ConstPtr,
+    ConstFloat, Box, TargetToken)
+from rpython.jit.metainterp.jitexc import JitException, get_llexception
+from rpython.jit.metainterp.jitprof import EmptyProfiler
+from rpython.jit.metainterp.logger import Logger
 from rpython.jit.metainterp.optimizeopt.util import args_dict_box
+from rpython.jit.metainterp.resoperation import rop
+from rpython.rlib import nonconst, rstack
+from rpython.rlib.debug import debug_start, debug_stop, debug_print, make_sure_not_resized
+from rpython.rlib.jit import Counters
+from rpython.rlib.objectmodel import we_are_translated, specialize
+from rpython.rlib.unroll import unrolling_iterable
+from rpython.rtyper.lltypesystem import lltype, rclass
+
+
 
 # ____________________________________________________________
 
@@ -831,15 +833,17 @@ class MIFrame(object):
     opimpl_inline_call_irf_f = _opimpl_inline_call3
     opimpl_inline_call_irf_v = _opimpl_inline_call3
 
-    @arguments("box", "boxes", "descr")
-    def _opimpl_residual_call1(self, funcbox, argboxes, calldescr):
-        return self.do_residual_or_indirect_call(funcbox, argboxes, calldescr)
-    @arguments("box", "boxes2", "descr")
-    def _opimpl_residual_call2(self, funcbox, argboxes, calldescr):
-        return self.do_residual_or_indirect_call(funcbox, argboxes, calldescr)
-    @arguments("box", "boxes3", "descr")
-    def _opimpl_residual_call3(self, funcbox, argboxes, calldescr):
-        return self.do_residual_or_indirect_call(funcbox, argboxes, calldescr)
+    @arguments("box", "boxes", "descr", "orgpc")
+    def _opimpl_residual_call1(self, funcbox, argboxes, calldescr, pc):
+        return self.do_residual_or_indirect_call(funcbox, argboxes, calldescr, pc)
+
+    @arguments("box", "boxes2", "descr", "orgpc")
+    def _opimpl_residual_call2(self, funcbox, argboxes, calldescr, pc):
+        return self.do_residual_or_indirect_call(funcbox, argboxes, calldescr, pc)
+
+    @arguments("box", "boxes3", "descr", "orgpc")
+    def _opimpl_residual_call3(self, funcbox, argboxes, calldescr, pc):
+        return self.do_residual_or_indirect_call(funcbox, argboxes, calldescr, pc)
 
     opimpl_residual_call_r_i = _opimpl_residual_call1
     opimpl_residual_call_r_r = _opimpl_residual_call1
@@ -852,8 +856,8 @@ class MIFrame(object):
     opimpl_residual_call_irf_f = _opimpl_residual_call3
     opimpl_residual_call_irf_v = _opimpl_residual_call3
 
-    @arguments("int", "boxes3", "boxes3")
-    def _opimpl_recursive_call(self, jdindex, greenboxes, redboxes):
+    @arguments("int", "boxes3", "boxes3", "orgpc")
+    def _opimpl_recursive_call(self, jdindex, greenboxes, redboxes, pc):
         targetjitdriver_sd = self.metainterp.staticdata.jitdrivers_sd[jdindex]
         allboxes = greenboxes + redboxes
         warmrunnerstate = targetjitdriver_sd.warmstate
@@ -868,15 +872,15 @@ class MIFrame(object):
             # that assembler that we call is still correct
             self.verify_green_args(targetjitdriver_sd, greenboxes)
         #
-        return self.do_recursive_call(targetjitdriver_sd, allboxes,
+        return self.do_recursive_call(targetjitdriver_sd, allboxes, pc,
                                       assembler_call)
 
-    def do_recursive_call(self, targetjitdriver_sd, allboxes,
+    def do_recursive_call(self, targetjitdriver_sd, allboxes, pc,
                           assembler_call=False):
         portal_code = targetjitdriver_sd.mainjitcode
         k = targetjitdriver_sd.portal_runner_adr
         funcbox = ConstInt(heaptracker.adr2int(k))
-        return self.do_residual_call(funcbox, allboxes, portal_code.calldescr,
+        return self.do_residual_call(funcbox, allboxes, portal_code.calldescr, pc,
                                      assembler_call=assembler_call,
                                      assembler_call_jd=targetjitdriver_sd)
 
@@ -935,7 +939,7 @@ class MIFrame(object):
             return box     # no promotion needed, already a Const
         else:
             constbox = box.constbox()
-            resbox = self.do_residual_call(funcbox, [box, constbox], descr)
+            resbox = self.do_residual_call(funcbox, [box, constbox], descr, orgpc)
             promoted_box = resbox.constbox()
             # This is GUARD_VALUE because GUARD_TRUE assumes the existance
             # of a label when computing resumepc
@@ -1027,7 +1031,7 @@ class MIFrame(object):
             except ChangeFrame:
                 pass
             frame = self.metainterp.framestack[-1]
-            frame.do_recursive_call(jitdriver_sd, greenboxes + redboxes,
+            frame.do_recursive_call(jitdriver_sd, greenboxes + redboxes, orgpc,
                                     assembler_call=True)
             raise ChangeFrame
 
@@ -1185,6 +1189,34 @@ class MIFrame(object):
     def opimpl_ll_read_timestamp(self):
         return self.metainterp.execute_and_record(rop.READ_TIMESTAMP, None)
 
+    @arguments("box", "box", "box")
+    def _opimpl_libffi_save_result(self, box_cif_description,
+                                   box_exchange_buffer, box_result):
+        from rpython.rtyper.lltypesystem import llmemory
+        from rpython.rlib.jit_libffi import CIF_DESCRIPTION_P
+        from rpython.jit.backend.llsupport.ffisupport import get_arg_descr
+
+        cif_description = box_cif_description.getint()
+        cif_description = llmemory.cast_int_to_adr(cif_description)
+        cif_description = llmemory.cast_adr_to_ptr(cif_description,
+                                                   CIF_DESCRIPTION_P)
+
+        kind, descr, itemsize = get_arg_descr(self.metainterp.cpu, cif_description.rtype)
+        
+        if kind != 'v':
+            ofs = cif_description.exchange_result
+            assert ofs % itemsize == 0     # alignment check (result)
+            self.metainterp.history.record(rop.SETARRAYITEM_RAW,
+                                           [box_exchange_buffer,
+                                            ConstInt(ofs // itemsize),
+                                            box_result],
+                                           None, descr)
+
+    opimpl_libffi_save_result_int         = _opimpl_libffi_save_result
+    opimpl_libffi_save_result_float       = _opimpl_libffi_save_result
+    opimpl_libffi_save_result_longlong    = _opimpl_libffi_save_result
+    opimpl_libffi_save_result_singlefloat = _opimpl_libffi_save_result
+
     # ------------------------------
 
     def setup_call(self, argboxes):
@@ -1305,7 +1337,7 @@ class MIFrame(object):
             self.metainterp.assert_no_exception()
         return resbox
 
-    def do_residual_call(self, funcbox, argboxes, descr,
+    def do_residual_call(self, funcbox, argboxes, descr, pc,
                          assembler_call=False,
                          assembler_call_jd=None):
         # First build allboxes: it may need some reordering from the
@@ -1345,6 +1377,10 @@ class MIFrame(object):
                 effectinfo.check_forces_virtual_or_virtualizable()):
             # residual calls require attention to keep virtualizables in-sync
             self.metainterp.clear_exception()
+            if effectinfo.oopspecindex == EffectInfo.OS_JIT_FORCE_VIRTUAL:
+                resbox = self._do_jit_force_virtual(allboxes, descr, pc)
+                if resbox is not None:
+                    return resbox
             self.metainterp.vable_and_vrefs_before_residual_call()
             resbox = self.metainterp.execute_and_record_varargs(
                 rop.CALL_MAY_FORCE, allboxes, descr=descr)
@@ -1375,7 +1411,27 @@ class MIFrame(object):
             pure = effectinfo.check_is_elidable()
             return self.execute_varargs(rop.CALL, allboxes, descr, exc, pure)
 
-    def do_residual_or_indirect_call(self, funcbox, argboxes, calldescr):
+    def _do_jit_force_virtual(self, allboxes, descr, pc):
+        assert len(allboxes) == 2
+        if (self.metainterp.jitdriver_sd.virtualizable_info is None and
+            self.metainterp.jitdriver_sd.greenfield_info is None):
+            # can occur in case of multiple JITs
+            return None
+        vref_box = allboxes[1]
+        standard_box = self.metainterp.virtualizable_boxes[-1]
+        if standard_box is vref_box:
+            return vref_box
+        if self.metainterp.heapcache.is_nonstandard_virtualizable(vref_box):
+            return None
+        eqbox = self.metainterp.execute_and_record(rop.PTR_EQ, None, vref_box, standard_box)
+        eqbox = self.implement_guard_value(eqbox, pc)
+        isstandard = eqbox.getint()
+        if isstandard:
+            return standard_box
+        else:
+            return None
+
+    def do_residual_or_indirect_call(self, funcbox, argboxes, calldescr, pc):
         """The 'residual_call' operation is emitted in two cases:
         when we have to generate a residual CALL operation, but also
         to handle an indirect_call that may need to be inlined."""
@@ -1387,7 +1443,7 @@ class MIFrame(object):
                 # we should follow calls to this graph
                 return self.metainterp.perform_call(jitcode, argboxes)
         # but we should not follow calls to that graph
-        return self.do_residual_call(funcbox, argboxes, calldescr)
+        return self.do_residual_call(funcbox, argboxes, calldescr, pc)
 
 # ____________________________________________________________
 
@@ -2571,6 +2627,7 @@ class MetaInterp(object):
         box_exchange_buffer = op.getarg(3)
         self.history.operations.pop()
         arg_boxes = []
+
         for i in range(cif_description.nargs):
             kind, descr, itemsize = get_arg_descr(self.cpu,
                                                   cif_description.atypes[i])
@@ -2589,27 +2646,15 @@ class MetaInterp(object):
                                 box_arg, descr)
             arg_boxes.append(box_arg)
         #
-        kind, descr, itemsize = get_arg_descr(self.cpu, cif_description.rtype)
-        if kind == 'i':
-            box_result = history.BoxInt()
-        elif kind == 'f':
-            box_result = history.BoxFloat()
-        else:
-            assert kind == 'v'
-            box_result = None
+        box_result = op.result
         self.history.record(rop.CALL_RELEASE_GIL,
                             [op.getarg(2)] + arg_boxes,
                             box_result, calldescr)
         #
         self.history.operations.extend(extra_guards)
         #
-        if box_result is not None:
-            ofs = cif_description.exchange_result
-            assert ofs % itemsize == 0     # alignment check (result)
-            self.history.record(rop.SETARRAYITEM_RAW,
-                                [box_exchange_buffer,
-                                 ConstInt(ofs // itemsize), box_result],
-                                None, descr)
+        # note that the result is written back to the exchange_buffer by the
+        # special op libffi_save_result_{int,float}
 
     def direct_call_release_gil(self):
         op = self.history.operations.pop()

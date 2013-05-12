@@ -3,13 +3,14 @@ from rpython.jit.codewriter.jitcode import JitCode, SwitchDictDescr
 from rpython.jit.metainterp.compile import ResumeAtPositionDescr
 from rpython.jit.metainterp.jitexc import JitException, get_llexception, reraise
 from rpython.rlib import longlong2float
-from rpython.rlib.debug import debug_start, debug_stop, ll_assert, make_sure_not_resized
+from rpython.rlib.debug import ll_assert, make_sure_not_resized
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import intmask, LONG_BIT, r_uint, ovfcheck
 from rpython.rlib.rtimer import read_timestamp
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rtyper.lltypesystem import lltype, llmemory, rclass
+from rpython.rtyper.lltypesystem import lltype, llmemory, rclass, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
+from rpython.rlib.jit_libffi import CIF_DESCRIPTION_P
 
 
 def arguments(*argtypes, **kwds):
@@ -857,6 +858,8 @@ class BlackholeInterpreter(object):
 
     @arguments("r")
     def bhimpl_debug_fatalerror(msg):
+        from rpython.rtyper.lltypesystem import rstr
+        msg = lltype.cast_opaque_ptr(lltype.Ptr(rstr.STR), msg)
         llop.debug_fatalerror(lltype.Void, msg)
 
     @arguments("r", "i", "i", "i", "i")
@@ -1347,6 +1350,41 @@ class BlackholeInterpreter(object):
     @arguments(returns=LONGLONG_TYPECODE)
     def bhimpl_ll_read_timestamp():
         return read_timestamp()
+
+    def _libffi_save_result(self, cif_description, exchange_buffer, result):
+        ARRAY = lltype.Ptr(rffi.CArray(lltype.typeOf(result)))
+        cast_int_to_ptr = self.cpu.cast_int_to_ptr
+        cif_description = cast_int_to_ptr(cif_description, CIF_DESCRIPTION_P)
+        exchange_buffer = cast_int_to_ptr(exchange_buffer, rffi.CCHARP)
+        #
+        data_out = rffi.ptradd(exchange_buffer, cif_description.exchange_result)
+        rffi.cast(ARRAY, data_out)[0] = result
+    _libffi_save_result._annspecialcase_ = 'specialize:argtype(3)'
+
+    @arguments("self", "i", "i", "i")
+    def bhimpl_libffi_save_result_int(self, cif_description,
+                                      exchange_buffer, result):
+        self._libffi_save_result(cif_description, exchange_buffer, result)
+
+    @arguments("self", "i", "i", "f")
+    def bhimpl_libffi_save_result_float(self, cif_description,
+                                        exchange_buffer, result):
+        result = longlong.getrealfloat(result)
+        self._libffi_save_result(cif_description, exchange_buffer, result)
+
+    @arguments("self", "i", "i", "f")
+    def bhimpl_libffi_save_result_longlong(self, cif_description,
+                                           exchange_buffer, result):
+        # 32-bit only: 'result' is here a LongLong
+        assert longlong.is_longlong(lltype.typeOf(result))
+        self._libffi_save_result(cif_description, exchange_buffer, result)
+
+    @arguments("self", "i", "i", "i")
+    def bhimpl_libffi_save_result_singlefloat(self, cif_description,
+                                              exchange_buffer, result):
+        result = longlong.int2singlefloat(result)
+        self._libffi_save_result(cif_description, exchange_buffer, result)
+
 
     # ----------
     # helpers to resume running in blackhole mode when a guard failed

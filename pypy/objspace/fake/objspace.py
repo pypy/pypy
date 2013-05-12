@@ -58,6 +58,10 @@ class W_MyObject(W_Root):
 class W_MyType(W_MyObject):
     def __init__(self):
         self.mro_w = [w_some_obj(), w_some_obj()]
+        self.dict_w = {'__str__': w_some_obj()}
+
+    def get_module(self):
+        return w_some_obj()
 
 def w_some_obj():
     if NonConstant(False):
@@ -99,7 +103,6 @@ class Entry(ExtRegistryEntry):
 
 
 class FakeObjSpace(ObjSpace):
-
     def __init__(self, config=None):
         self._seen_extras = []
         ObjSpace.__init__(self, config=config)
@@ -242,6 +245,11 @@ class FakeObjSpace(ObjSpace):
     def type(self, w_obj):
         return w_some_type()
 
+    def isinstance_w(self, w_inst, w_type):
+        is_root(w_inst)
+        is_root(w_type)
+        return NonConstant(True)
+
     def unpackiterable(self, w_iterable, expected_length=-1):
         is_root(w_iterable)
         if expected_length < 0:
@@ -314,7 +322,7 @@ def setup():
                  ObjSpace.ExceptionTable +
                  ['int', 'str', 'float', 'long', 'tuple', 'list',
                   'dict', 'unicode', 'complex', 'slice', 'bool',
-                  'basestring', 'object']):
+                  'basestring', 'object', 'bytearray']):
         setattr(FakeObjSpace, 'w_' + name, w_some_obj())
     FakeObjSpace.w_type = w_some_type()
     #

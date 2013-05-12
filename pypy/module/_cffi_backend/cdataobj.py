@@ -56,13 +56,13 @@ class W_CData(W_Root):
     def nonzero(self):
         return self.space.wrap(bool(self._cdata))
 
-    def int(self):
-        w_result = self.ctype.int(self._cdata)
+    def int(self, space):
+        w_result = self.ctype.cast_to_int(self._cdata)
         keepalive_until_here(self)
         return w_result
 
-    def long(self):
-        w_result = self.int()
+    def long(self, space):
+        w_result = self.int(space)
         space = self.space
         if space.is_w(space.type(w_result), space.w_int):
             w_result = space.newlong(space.int_w(w_result))
@@ -91,20 +91,15 @@ class W_CData(W_Root):
             space = self.space
             cdata1 = self._cdata
             if isinstance(w_other, W_CData):
-                if requires_ordering:
-                    if (isinstance(self.ctype, W_CTypePrimitive) or
-                        isinstance(w_other.ctype, W_CTypePrimitive)):
-                        raise OperationError(space.w_TypeError,
-                            space.wrap("cannot do comparison on a "
-                                       "primitive cdata"))
                 cdata2 = w_other._cdata
-            elif (misc.is_zero(space, w_other) and
-                     not isinstance(self.ctype, W_CTypePrimitive)):
-                cdata2 = lltype.nullptr(rffi.CCHARP.TO)
             else:
                 return space.w_NotImplemented
 
             if requires_ordering:
+                if (isinstance(self.ctype, W_CTypePrimitive) or
+                    isinstance(w_other.ctype, W_CTypePrimitive)):
+                    raise OperationError(space.w_TypeError,
+                       space.wrap("cannot do comparison on a primitive cdata"))
                 cdata1 = rffi.cast(lltype.Unsigned, cdata1)
                 cdata2 = rffi.cast(lltype.Unsigned, cdata2)
             return space.newbool(op(cdata1, cdata2))
@@ -285,8 +280,13 @@ class W_CData(W_Root):
         return self.ctype.iter(self)
 
     @specialize.argtype(1)
-    def write_raw_integer_data(self, source):
-        misc.write_raw_integer_data(self._cdata, source, self.ctype.size)
+    def write_raw_signed_data(self, source):
+        misc.write_raw_signed_data(self._cdata, source, self.ctype.size)
+        keepalive_until_here(self)
+
+    @specialize.argtype(1)
+    def write_raw_unsigned_data(self, source):
+        misc.write_raw_unsigned_data(self._cdata, source, self.ctype.size)
         keepalive_until_here(self)
 
     def write_raw_float_data(self, source):
@@ -394,6 +394,7 @@ class W_CDataSliced(W_CData):
 W_CData.typedef = TypeDef(
     'CData',
     __module__ = '_cffi_backend',
+    __name__ = '<cdata>',
     __repr__ = interp2app(W_CData.repr),
     __nonzero__ = interp2app(W_CData.nonzero),
     __int__ = interp2app(W_CData.int),

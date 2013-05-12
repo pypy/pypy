@@ -1,13 +1,58 @@
-===============================================================================
-Getting Started with the Translation Toolchain and Development Process
-===============================================================================
+============================
+Getting Started with RPython
+============================
 
 .. contents::
+
+RPython is a subset of Python that can be statically compiled. The PyPy
+interpreter is written mostly in RPython (with pieces in Python), while
+the RPython compiler is written in Python. The hard to understand part
+is that Python is a meta-programming language for RPython, that is,
+RPython is considered from live objects **after** the imports are done.
+This might require more explanation. You start writing RPython from
+``entry_point``, a good starting point is
+``rpython/translator/goal/targetnopstandalone.py``. This does not do all that
+much, but is a start. Now if code analyzed (in this case ``entry_point``)
+calls some functions, those calls will be followed. Those followed calls
+have to be RPython themselves (and everything they call etc.), however not
+entire module files. To show how you can use metaprogramming, we can do
+a silly example (note that closures are not RPython)::
+
+  def generator(operation):
+      if operation == 'add':
+         def f(a, b):
+             return a + b
+      else:
+         def f(a, b):
+             return a - b
+      return f
+
+  add = generator('add')
+  sub = generator('sub')
+
+  def entry_point(argv):
+      print add(sub(int(argv[1]), 3) 4)
+      return 0
+
+In this example ``entry_point`` is RPython,  ``add`` and ``sub`` are RPython,
+however, ``generator`` is not.
+
+A good introductory level articles are available:
+
+* Laurence Tratt -- `Fast Enough VMs in Fast Enough Time`_.
+
+* `How to write interpreters in RPython`_ and `part 2`_ by Andrew Brown.
+
+.. _`Fast Enough VMs in Fast Enough Time`: http://tratt.net/laurie/tech_articles/articles/fast_enough_vms_in_fast_enough_time
+
+.. _`How to write interpreters in RPython`: http://morepypy.blogspot.com/2011/04/tutorial-writing-interpreter-with-pypy.html
+
+.. _`part 2`: http://morepypy.blogspot.com/2011/04/tutorial-part-2-adding-jit.html
 
 .. _`try out the translator`:
 
 Trying out the translator
-------------------------- 
+-------------------------
 
 The translator is a tool based on the PyPy interpreter which can translate
 sufficiently static RPython programs into low-level code (in particular it can
@@ -28,7 +73,7 @@ Test snippets of translatable code are provided in the file
 
     >>> t = Translation(snippet.is_perfect_number, [int])
     >>> t.view()
-        
+
 After that, the graph viewer pops up, that lets you interactively inspect the
 flow graph. To move around, click on something that you want to inspect.
 To get help about how to use it, press 'H'. To close it again, press 'Q'.
@@ -83,10 +128,10 @@ from the interactive translator shells as follows::
 The object returned by ``compile_cli`` or ``compile_jvm``
 is a wrapper around the real
 executable: the parameters are passed as command line arguments, and
-the returned value is read from the standard output.  
+the returned value is read from the standard output.
 
 Once you have compiled the snippet, you can also try to launch the
-executable directly from the shell. You will find the 
+executable directly from the shell. You will find the
 executable in one of the ``/tmp/usession-*`` directories::
 
     # For CLI:

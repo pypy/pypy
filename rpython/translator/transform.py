@@ -12,12 +12,12 @@ from rpython.annotator import model as annmodel
 from rpython.rtyper.lltypesystem import lltype
 
 def checkgraphs(self, blocks):
-    seen = {}
+    seen = set()
     for block in blocks:
         graph = self.annotated[block]
         if graph not in seen:
             checkgraph(graph)
-            seen[graph] = True
+            seen.add(graph)
 
 def fully_annotated_blocks(self):
     """Ignore blocked blocks."""

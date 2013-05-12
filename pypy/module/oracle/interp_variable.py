@@ -425,7 +425,7 @@ class W_Variable(W_Root):
 
     def setArrayValue(self, space, w_value):
         # ensure we have an array to set
-        if not space.is_true(space.isinstance(w_value, space.w_list)):
+        if not space.isinstance_w(w_value, space.w_list):
             raise OperationError(
                 space.w_TypeError,
                 space.wrap("expecting array data"))
@@ -514,7 +514,7 @@ class VT_String(W_Variable):
             wantBytes = self.charsetForm == roci.SQLCS_IMPLICIT
 
         if wantBytes:
-            if space.is_true(space.isinstance(w_value, space.w_str)):
+            if space.isinstance_w(w_value, space.w_str):
                 buf = config.StringBuffer()
                 buf.fill(space, w_value)
                 size = buf.size
@@ -523,7 +523,7 @@ class VT_String(W_Variable):
                     space.w_TypeError,
                     space.wrap("expecting string or buffer data"))
         else:
-            if space.is_true(space.isinstance(w_value, space.w_unicode)):
+            if space.isinstance_w(w_value, space.w_unicode):
                 buf = config.StringBuffer()
                 buf.fill_with_unicode(space, w_value)
                 size = buf.size
@@ -760,7 +760,7 @@ class VT_Float(W_Variable):
             rffi.cast(roci.Ptr(roci.OCINumber), self.data),
             pos)
 
-        if space.is_true(space.isinstance(w_value, space.w_int)):
+        if space.isinstance_w(w_value, space.w_int):
             integerValuePtr = lltype.malloc(roci.Ptr(lltype.Signed).TO, 1,
                                             flavor='raw')
             try:
@@ -776,7 +776,7 @@ class VT_Float(W_Variable):
             finally:
                 lltype.free(integerValuePtr, flavor='raw')
             return
-        elif space.is_true(space.isinstance(w_value, space.w_long)):
+        elif space.isinstance_w(w_value, space.w_long):
             text_buf = config.StringBuffer()
             text_buf.fill(space, space.str(w_value))
             format_buf = config.StringBuffer()
@@ -793,7 +793,7 @@ class VT_Float(W_Variable):
                 status, "NumberVar_SetValue(): from long")
             return
         # XXX The bool case was already processed above
-        elif space.is_true(space.isinstance(w_value, space.w_float)):
+        elif space.isinstance_w(w_value, space.w_float):
             doubleValuePtr = lltype.malloc(roci.Ptr(lltype.Float).TO, 1,
                                            flavor='raw')
             try:
@@ -808,7 +808,7 @@ class VT_Float(W_Variable):
             finally:
                 lltype.free(doubleValuePtr, flavor='raw')
             return
-        elif space.is_true(space.isinstance(w_value, get(space).w_DecimalType)):
+        elif space.isinstance_w(w_value, get(space).w_DecimalType):
             w_text, w_format = transform.DecimalToFormatAndText(self.environment, w_value)
             text_buf = config.StringBuffer()
             text_buf.fill(space, w_text)
@@ -856,14 +856,14 @@ class VT_DateTime(W_Variable):
         dataptr = rffi.ptradd(
             rffi.cast(roci.Ptr(roci.OCIDate), self.data),
             pos)
-        if space.is_true(space.isinstance(w_value, get(space).w_DateTimeType)):
+        if space.isinstance_w(w_value, get(space).w_DateTimeType):
             year = space.int_w(space.getattr(w_value, space.wrap('year')))
             month = space.int_w(space.getattr(w_value, space.wrap('month')))
             day = space.int_w(space.getattr(w_value, space.wrap('day')))
             hour = space.int_w(space.getattr(w_value, space.wrap('hour')))
             minute = space.int_w(space.getattr(w_value, space.wrap('minute')))
             second = space.int_w(space.getattr(w_value, space.wrap('second')))
-        elif space.is_true(space.isinstance(w_value, get(space).w_DateType)):
+        elif space.isinstance_w(w_value, get(space).w_DateType):
             year = space.int_w(space.getattr(w_value, space.wrap('year')))
             month = space.int_w(space.getattr(w_value, space.wrap('month')))
             day = space.int_w(space.getattr(w_value, space.wrap('day')))
@@ -933,7 +933,7 @@ class VT_Timestamp(W_VariableWithDescriptor):
 
     def setValueProc(self, space, pos, w_value):
         # make sure a timestamp is being bound
-        if not space.is_true(space.isinstance(w_value, get(space).w_DateTimeType)):
+        if not space.isinstance_w(w_value, get(space).w_DateTimeType):
             raise OperationError(
                 space.w_TypeError,
                 space.wrap("expecting timestamp data"))
@@ -985,8 +985,7 @@ class VT_Interval(W_VariableWithDescriptor):
             self.environment, self.getDataptr(pos))
 
     def setValueProc(self, space, pos, w_value):
-        if not space.is_true(space.isinstance(w_value,
-                                              get(space).w_TimedeltaType)):
+        if not space.isinstance_w(w_value, get(space).w_TimedeltaType):
             raise OperationError(
                 space.w_TypeError,
                 space.wrap("expecting timedelta data"))
@@ -1208,7 +1207,7 @@ class VT_Cursor(W_Variable):
     def setValueProc(self, space, pos, w_value):
         from pypy.module.oracle import interp_cursor
         w_CursorType = space.gettypeobject(interp_cursor.W_Cursor.typedef)
-        if not space.is_true(space.isinstance(w_value, w_CursorType)):
+        if not space.isinstance_w(w_value, w_CursorType):
             raise OperationError(
                 space.w_TypeError,
                 space.wrap("expecting cursor"))
@@ -1414,7 +1413,7 @@ def typeByPythonType(space, cursor, w_type):
     from pypy.objspace.std.typeobject import W_TypeObject
 
     moduledict = get(space)
-    if not space.is_true(space.isinstance(w_type, space.w_type)):
+    if not space.isinstance_w(w_type, space.w_type):
         raise OperationError(
             space.w_TypeError,
             space.wrap("Variable_TypeByPythonType(): type expected"))
@@ -1435,49 +1434,49 @@ def typeByValue(space, w_value, numElements):
     if space.is_w(w_value, space.w_None):
         return VT_String, 1, numElements
 
-    if space.is_true(space.isinstance(w_value, space.w_str)):
+    if space.isinstance_w(w_value, space.w_str):
         size = space.len_w(w_value)
         if size > config.MAX_STRING_CHARS:
             return VT_LongString, size, numElements
         else:
             return VT_String, size, numElements
 
-    if space.is_true(space.isinstance(w_value, space.w_unicode)):
+    if space.isinstance_w(w_value, space.w_unicode):
         size = space.len_w(w_value)
         return VT_NationalCharString, size, numElements
 
-    if space.is_true(space.isinstance(w_value, space.w_int)):
+    if space.isinstance_w(w_value, space.w_int):
         return VT_Integer, 0, numElements
 
-    if space.is_true(space.isinstance(w_value, space.w_long)):
+    if space.isinstance_w(w_value, space.w_long):
         return VT_LongInteger, 0, numElements
 
-    if space.is_true(space.isinstance(w_value, space.w_float)):
+    if space.isinstance_w(w_value, space.w_float):
         return VT_Float, 0, numElements
 
     # XXX cxBinary
 
     # XXX bool
 
-    if space.is_true(space.isinstance(w_value, get(space).w_DateTimeType)):
+    if space.isinstance_w(w_value, get(space).w_DateTimeType):
         return VT_DateTime, 0, numElements
 
-    if space.is_true(space.isinstance(w_value, get(space).w_DateType)):
+    if space.isinstance_w(w_value, get(space).w_DateType):
         return VT_Date, 0, numElements
 
     # XXX Delta
 
     from pypy.module.oracle import interp_cursor
-    if space.is_true(space.isinstance( # XXX is there an easier way?
+    if space.isinstance_w( # XXX is there an easier way?
         w_value,
-        space.gettypeobject(interp_cursor.W_Cursor.typedef))):
+        space.gettypeobject(interp_cursor.W_Cursor.typedef)):
         return VT_Cursor, 0, numElements
 
-    if space.is_true(space.isinstance(w_value, get(space).w_DecimalType)):
+    if space.isinstance_w(w_value, get(space).w_DecimalType):
         return VT_NumberAsString, 0, numElements
 
     # handle arrays
-    if space.is_true(space.isinstance(w_value, space.w_list)):
+    if space.isinstance_w(w_value, space.w_list):
         elements_w = space.listview(w_value)
         for w_element in elements_w:
             if not space.is_w(w_element, space.w_None):
@@ -1497,8 +1496,7 @@ def newByInputTypeHandler(space, cursor, w_inputTypeHandler, w_value, numElement
                        space.wrap(cursor),
                        w_value,
                        space.wrap(numElements))
-    if not space.is_true(space.isinstance(w_var,
-                                          get(space).w_Variable)):
+    if not space.isinstance_w(w_var, get(space).w_Variable):
         raise OperationError(
             space.w_TypeError,
             space.wrap("expecting variable from input type handler"))
@@ -1519,7 +1517,7 @@ def newVariableByValue(space, cursor, w_value, numElements):
     if space.is_w(var, space.w_None):
         varType, size, numElements = typeByValue(space, w_value, numElements)
         var = varType(cursor, numElements, size)
-        if space.is_true(space.isinstance(w_value, space.w_list)):
+        if space.isinstance_w(w_value, space.w_list):
             var.makeArray(space)
 
     assert isinstance(var, W_Variable)
@@ -1539,7 +1537,7 @@ def newArrayVariableByType(space, cursor, w_value):
 
 def newVariableByType(space, cursor, w_value, numElements):
     # passing an integer is assumed to be a string
-    if space.is_true(space.isinstance(w_value, space.w_int)):
+    if space.isinstance_w(w_value, space.w_int):
         size = space.int_w(w_value)
         if size > config.MAX_STRING_CHARS:
             varType = VT_LongString
@@ -1548,12 +1546,11 @@ def newVariableByType(space, cursor, w_value, numElements):
         return varType(cursor, numElements, size)
 
     # passing an array of two elements define an array
-    if space.is_true(space.isinstance(w_value, space.w_list)):
+    if space.isinstance_w(w_value, space.w_list):
         return newArrayVariableByType(space, cursor, w_value)
 
     # handle directly bound variables
-    if space.is_true(space.isinstance(w_value,
-                                      get(space).w_Variable)):
+    if space.isinstance_w(w_value, get(space).w_Variable):
         return space.interp_w(W_Variable, w_value)
 
     # everything else ought to be a Python type

@@ -91,7 +91,8 @@ def compute_stdlib_path(state, prefix):
     ``lib_pypy``. If they cannot be found, it raises OSError.
     """
     from pypy.module.sys.version import CPYTHON_VERSION
-    dirname = '%d' % CPYTHON_VERSION[0]
+    dirname = '%d.%d' % (CPYTHON_VERSION[0],
+                         CPYTHON_VERSION[1])
     lib_python = os.path.join(prefix, 'lib-python')
     python_std_lib = os.path.join(lib_python, dirname)
     _checkdir(python_std_lib)

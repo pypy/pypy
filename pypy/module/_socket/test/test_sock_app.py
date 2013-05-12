@@ -32,7 +32,19 @@ def test_gethostbyname_ex():
         assert space.unwrap(ip) == socket.gethostbyname_ex(host)
 
 def test_gethostbyaddr():
+    try:
+        socket.gethostbyaddr("::1")
+    except socket.herror:
+        ipv6 = False
+    else:
+        ipv6 = True
     for host in ["localhost", "127.0.0.1", "::1"]:
+        if host == "::1" and not ipv6:
+            from pypy.interpreter.error import OperationError
+            with py.test.raises(OperationError):
+                space.appexec([w_socket, space.wrap(host)],
+                              "(_socket, host): return _socket.gethostbyaddr(host)")
+            continue
         ip = space.appexec([w_socket, space.wrap(host)],
                            "(_socket, host): return _socket.gethostbyaddr(host)")
         assert space.unwrap(ip) == socket.gethostbyaddr(host)
@@ -219,16 +231,16 @@ def test_getaddrinfo():
                         "(_socket, host, port): return _socket.getaddrinfo(host, port)")
     assert space.unwrap(w_l) == info
 
-def test_unknown_addr_as_object():    
+def test_unknown_addr_as_object():
     from pypy.module._socket.interp_socket import addr_as_object
-    c_addr = lltype.malloc(rsocket._c.sockaddr, flavor='raw')
+    c_addr = lltype.malloc(rsocket._c.sockaddr, flavor='raw', track_allocation=False)
     c_addr.c_sa_data[0] = 'c'
     rffi.setintfield(c_addr, 'c_sa_family', 15)
     # XXX what size to pass here? for the purpose of this test it has
     #     to be short enough so we have some data, 1 sounds good enough
     #     + sizeof USHORT
     w_obj = addr_as_object(rsocket.Address(c_addr, 1 + 2), -1, space)
-    assert space.is_true(space.isinstance(w_obj, space.w_tuple))
+    assert space.isinstance_w(w_obj, space.w_tuple)
     assert space.int_w(space.getitem(w_obj, space.wrap(0))) == 15
     assert space.str_w(space.getitem(w_obj, space.wrap(1))) == 'c'
 

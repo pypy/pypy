@@ -23,6 +23,8 @@ class AbstractX86CPU(AbstractLLCPU):
     with_threads = False
     frame_reg = regloc.ebp
 
+    can_inline_varsize_malloc = True
+
     from rpython.jit.backend.x86.arch import JITFRAME_FIXED_SIZE
     all_reg_indexes = gpr_reg_mgr_cls.all_reg_indexes
     gen_regs = gpr_reg_mgr_cls.all_regs
@@ -58,10 +60,10 @@ class AbstractX86CPU(AbstractLLCPU):
         self.assembler = Assembler386(self, self.translate_support_code)
 
     def build_regalloc(self):
-	''' for tests'''
-	from rpython.jit.backend.x86.regalloc import RegAlloc
-	assert self.assembler is not None
-	return RegAlloc(self.assembler, False)
+        ''' for tests'''
+        from rpython.jit.backend.x86.regalloc import RegAlloc
+        assert self.assembler is not None
+        return RegAlloc(self.assembler, False)
 
     def setup_once(self):
         self.profile_agent.startup()

@@ -5,7 +5,7 @@ from rpython.translator.interactive import Translation
 from pypy.module.sys.version import CPYTHON_VERSION
 from pypy.tool.lib_pypy import LIB_PYTHON
 
-VERSION = '%d' % CPYTHON_VERSION[0]
+VERSION = '%d.%d' % CPYTHON_VERSION[:2]
 SITE_PY_CONTENT = LIB_PYTHON.join('site.py').read()
 ERROR_TEXT = os.strerror(errno.ENOENT)
 

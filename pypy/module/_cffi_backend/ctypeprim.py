@@ -63,7 +63,7 @@ class W_CTypePrimitive(W_CType):
         else:
             value = self._cast_generic(w_ob)
         w_cdata = cdataobj.W_CDataMem(space, self.size, self)
-        w_cdata.write_raw_integer_data(value)
+        self.write_raw_integer_data(w_cdata, value)
         return w_cdata
 
     def _cast_result(self, intvalue):
@@ -94,12 +94,15 @@ class W_CTypePrimitiveCharOrUniChar(W_CTypePrimitive):
         from pypy.module._cffi_backend import newtype
         return newtype.new_primitive_type(self.space, "int")
 
+    def write_raw_integer_data(self, w_cdata, value):
+        w_cdata.write_raw_unsigned_data(value)
+
 
 class W_CTypePrimitiveChar(W_CTypePrimitiveCharOrUniChar):
     _attrs_ = []
     cast_anything = True
 
-    def int(self, cdata):
+    def cast_to_int(self, cdata):
         return self.space.wrap(ord(cdata[0]))
 
     def convert_to_object(self, cdata):
@@ -124,7 +127,7 @@ class W_CTypePrimitiveChar(W_CTypePrimitiveCharOrUniChar):
 class W_CTypePrimitiveUniChar(W_CTypePrimitiveCharOrUniChar):
     _attrs_ = []
 
-    def int(self, cdata):
+    def cast_to_int(self, cdata):
         unichardata = rffi.cast(rffi.CWCHARP, cdata)
         return self.space.wrap(ord(unichardata[0]))
 
@@ -162,13 +165,13 @@ class W_CTypePrimitiveSigned(W_CTypePrimitive):
     def __init__(self, *args):
         W_CTypePrimitive.__init__(self, *args)
         self.value_fits_long = self.size <= rffi.sizeof(lltype.Signed)
-        if self.size < rffi.sizeof(lltype.SignedLongLong):
+        if self.size < rffi.sizeof(lltype.Signed):
             assert self.value_fits_long
             sh = self.size * 8
             self.vmin = r_uint(-1) << (sh - 1)
             self.vrangemax = (r_uint(1) << sh) - 1
 
-    def int(self, cdata):
+    def cast_to_int(self, cdata):
         return self.convert_to_object(cdata)
 
     def convert_to_object(self, cdata):
@@ -185,16 +188,19 @@ class W_CTypePrimitiveSigned(W_CTypePrimitive):
             if self.size < rffi.sizeof(lltype.Signed):
                 if r_uint(value) - self.vmin > self.vrangemax:
                     self._overflow(w_ob)
-            misc.write_raw_integer_data(cdata, value, self.size)
+            misc.write_raw_signed_data(cdata, value, self.size)
         else:
             value = misc.as_long_long(self.space, w_ob)
-            misc.write_raw_integer_data(cdata, value, self.size)
+            misc.write_raw_signed_data(cdata, value, self.size)
 
     def get_vararg_type(self):
         if self.size < rffi.sizeof(rffi.INT):
             from pypy.module._cffi_backend import newtype
             return newtype.new_primitive_type(self.space, "int")
         return self
+
+    def write_raw_integer_data(self, w_cdata, value):
+        w_cdata.write_raw_signed_data(value)
 
 
 class W_CTypePrimitiveUnsigned(W_CTypePrimitive):
@@ -213,7 +219,7 @@ class W_CTypePrimitiveUnsigned(W_CTypePrimitive):
         sh = self.size * 8
         return (r_uint(1) << sh) - 1
 
-    def int(self, cdata):
+    def cast_to_int(self, cdata):
         return self.convert_to_object(cdata)
 
     def convert_from_object(self, cdata, w_ob):
@@ -222,10 +228,10 @@ class W_CTypePrimitiveUnsigned(W_CTypePrimitive):
             if self.value_fits_long:
                 if value > self.vrangemax:
                     self._overflow(w_ob)
-            misc.write_raw_integer_data(cdata, value, self.size)
+            misc.write_raw_unsigned_data(cdata, value, self.size)
         else:
             value = misc.as_unsigned_long_long(self.space, w_ob, strict=True)
-            misc.write_raw_integer_data(cdata, value, self.size)
+            misc.write_raw_unsigned_data(cdata, value, self.size)
 
     def convert_to_object(self, cdata):
         if self.value_fits_ulong:
@@ -243,6 +249,9 @@ class W_CTypePrimitiveUnsigned(W_CTypePrimitive):
             from pypy.module._cffi_backend import newtype
             return newtype.new_primitive_type(self.space, "int")
         return self
+
+    def write_raw_integer_data(self, w_cdata, value):
+        w_cdata.write_raw_unsigned_data(value)
 
 
 class W_CTypePrimitiveBool(W_CTypePrimitiveUnsigned):
@@ -288,7 +297,7 @@ class W_CTypePrimitiveFloat(W_CTypePrimitive):
             keepalive_until_here(w_cdata)
         return w_cdata
 
-    def int(self, cdata):
+    def cast_to_int(self, cdata):
         w_value = self.float(cdata)
         return self.space.int(w_value)
 

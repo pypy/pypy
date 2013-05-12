@@ -129,8 +129,6 @@ class BaseFrameworkGCTransformer(GCTransformer):
 
     def __init__(self, translator):
         from rpython.memory.gc.base import choose_gc_from_config
-        from rpython.memory.gc.base import ARRAY_TYPEID_MAP
-        from rpython.memory.gc import inspector
 
         super(BaseFrameworkGCTransformer, self).__init__(translator,
                                                          inline=True)
@@ -232,7 +230,51 @@ class BaseFrameworkGCTransformer(GCTransformer):
 
         classdef = bk.getuniqueclassdef(GCClass)
         s_gc = annmodel.SomeInstance(classdef)
+
+        self._declare_functions(GCClass, getfn, s_gc, s_typeid16)
+
+        # thread support
+        if translator.config.translation.continuation:
+            root_walker.stacklet_support = True
+            root_walker.need_stacklet_support(self, getfn)
+        if translator.config.translation.thread:
+            root_walker.need_thread_support(self, getfn)
+
+        self.layoutbuilder.encode_type_shapes_now()
+
+        annhelper.finish()   # at this point, annotate all mix-level helpers
+        annhelper.backend_optimize()
+
+        self.collect_analyzer = CollectAnalyzer(self.translator)
+        self.collect_analyzer.analyze_all()
+
+        s_gc = self.translator.annotator.bookkeeper.valueoftype(GCClass)
+        r_gc = self.translator.rtyper.getrepr(s_gc)
+        self.c_const_gc = rmodel.inputconst(r_gc, self.gcdata.gc)
+        s_gc_data = self.translator.annotator.bookkeeper.valueoftype(
+            gctypelayout.GCData)
+        r_gc_data = self.translator.rtyper.getrepr(s_gc_data)
+        self.c_const_gcdata = rmodel.inputconst(r_gc_data, self.gcdata)
+        self.malloc_zero_filled = GCClass.malloc_zero_filled
+
+        HDR = self.HDR = self.gcdata.gc.gcheaderbuilder.HDR
+
+        size_gc_header = self.gcdata.gc.gcheaderbuilder.size_gc_header
+        vtableinfo = (HDR, size_gc_header, self.gcdata.gc.typeid_is_in_field)
+        self.c_vtableinfo = rmodel.inputconst(lltype.Void, vtableinfo)
+        tig = self.layoutbuilder.type_info_group._as_ptr()
+        self.c_type_info_group = rmodel.inputconst(lltype.typeOf(tig), tig)
+        sko = llmemory.sizeof(gcdata.TYPE_INFO)
+        self.c_vtinfo_skip_offset = rmodel.inputconst(lltype.typeOf(sko), sko)
+
+
+    def _declare_functions(self, GCClass, getfn, s_gc, s_typeid16):
+        from rpython.memory.gc.base import ARRAY_TYPEID_MAP
+        from rpython.memory.gc import inspector
+
         s_gcref = annmodel.SomePtr(llmemory.GCREF)
+        gcdata = self.gcdata
+        translator = self.translator
 
         malloc_fixedsize_clear_meth = GCClass.malloc_fixedsize_clear.im_func
         self.malloc_fixedsize_clear_ptr = getfn(
@@ -466,38 +508,6 @@ class BaseFrameworkGCTransformer(GCTransformer):
                                                    [annmodel.SomeAddress()],
                                                    annmodel.s_None)
 
-        # thread support
-        if translator.config.translation.continuation:
-            root_walker.need_stacklet_support(self, getfn)
-        if translator.config.translation.thread:
-            root_walker.need_thread_support(self, getfn)
-
-        self.layoutbuilder.encode_type_shapes_now()
-
-        annhelper.finish()   # at this point, annotate all mix-level helpers
-        annhelper.backend_optimize()
-
-        self.collect_analyzer = CollectAnalyzer(self.translator)
-        self.collect_analyzer.analyze_all()
-
-        s_gc = self.translator.annotator.bookkeeper.valueoftype(GCClass)
-        r_gc = self.translator.rtyper.getrepr(s_gc)
-        self.c_const_gc = rmodel.inputconst(r_gc, self.gcdata.gc)
-        s_gc_data = self.translator.annotator.bookkeeper.valueoftype(
-            gctypelayout.GCData)
-        r_gc_data = self.translator.rtyper.getrepr(s_gc_data)
-        self.c_const_gcdata = rmodel.inputconst(r_gc_data, self.gcdata)
-        self.malloc_zero_filled = GCClass.malloc_zero_filled
-
-        HDR = self.HDR = self.gcdata.gc.gcheaderbuilder.HDR
-
-        size_gc_header = self.gcdata.gc.gcheaderbuilder.size_gc_header
-        vtableinfo = (HDR, size_gc_header, self.gcdata.gc.typeid_is_in_field)
-        self.c_vtableinfo = rmodel.inputconst(lltype.Void, vtableinfo)
-        tig = self.layoutbuilder.type_info_group._as_ptr()
-        self.c_type_info_group = rmodel.inputconst(lltype.typeOf(tig), tig)
-        sko = llmemory.sizeof(gcdata.TYPE_INFO)
-        self.c_vtinfo_skip_offset = rmodel.inputconst(lltype.typeOf(sko), sko)
 
     def consider_constant(self, TYPE, value):
         self.layoutbuilder.consider_constant(TYPE, value, self.gcdata.gc)
@@ -609,6 +619,12 @@ class BaseFrameworkGCTransformer(GCTransformer):
         func = getattr(graph, 'func', None)
         if func and getattr(func, '_gc_no_collect_', False):
             if self.collect_analyzer.analyze_direct_call(graph):
+                print '!'*79
+                ca = CollectAnalyzer(self.translator)
+                ca.verbose = True
+                ca.analyze_direct_call(graph)
+                # ^^^ for the dump of which operation in which graph actually
+                # causes it to return True
                 raise Exception("'no_collect' function can trigger collection:"
                                 " %s" % func)
 
@@ -1275,6 +1291,7 @@ class BaseRootWalker(object):
     def __init__(self, gctransformer):
         self.gcdata = gctransformer.gcdata
         self.gc = self.gcdata.gc
+        self.stacklet_support = False
 
     def _freeze_(self):
         return True

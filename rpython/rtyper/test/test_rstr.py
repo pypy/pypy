@@ -156,6 +156,15 @@ class AbstractTestRstr(BaseRtypingTest):
         for i in xrange(3):
             assert self.interpret(fn, [i]) == fn(i)
 
+    def test_str_isalnum(self):
+        const = self.const
+
+        def fn(i):
+            consts = [const(''), const('abc'), const('abc123'), const('abc123!')]
+            return consts[i].isalnum()
+        for i in xrange(3):
+            assert self.interpret(fn, [i]) == fn(i)
+
     def test_char_compare(self):
         const = self.const
         res = self.interpret(lambda c1, c2: c1 == c2,  [const('a'),

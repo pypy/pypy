@@ -156,7 +156,7 @@ class W_BaseException(W_Root):
         return self.w_dict
 
     def setdict(self, space, w_dict):
-        if not space.is_true(space.isinstance(w_dict, space.w_dict)):
+        if not space.isinstance_w(w_dict, space.w_dict):
             raise OperationError(space.w_TypeError, space.wrap("setting exceptions's dictionary to a non-dict"))
         self.w_dict = w_dict
 
