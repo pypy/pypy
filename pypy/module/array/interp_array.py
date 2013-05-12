@@ -59,6 +59,55 @@ def descr_itemsize(space, self):
 def descr_typecode(space, self):
     return space.wrap(self.typecode)
 
+arr_eq_driver = jit.JitDriver(greens = ['comp_func'], reds = 'auto')
+
+def compare_arrays(space, arr1, arr2, comp_func):
+    if (not isinstance(arr1, W_ArrayBase) or
+        not isinstance(arr2, W_ArrayBase)):
+        return space.w_NotImplemented
+    if comp_func == space.eq and arr1.len != arr2.len:
+        return space.w_False
+    if comp_func == space.ne and arr1.len != arr2.len:
+        return space.w_True
+    lgt = min(arr1.len, arr2.len)
+    for i in range(lgt):
+        arr_eq_driver.jit_merge_point(comp_func=comp_func)
+        w_elem1 = arr1.w_getitem(space, i)
+        w_elem2 = arr2.w_getitem(space, i)
+        res = space.is_true(comp_func(w_elem1, w_elem2))
+        if comp_func == space.eq:
+            if not res:
+                return space.w_False
+        elif comp_func == space.ne:
+            if res:
+                return space.w_True
+        elif comp_func == space.lt or comp_func == space.gt:
+            if res:
+                return space.w_True
+            elif not space.is_true(space.eq(w_elem1, w_elem2)):
+                return space.w_False
+        else:
+            if not res:
+                return space.w_False
+            elif not space.is_true(space.eq(w_elem1, w_elem2)):
+                return space.w_True
+    # we have some leftovers
+    if comp_func == space.eq:
+        return space.w_True
+    elif comp_func == space.ne:
+        return space.w_False
+    if arr1.len == arr2.len:
+        if comp_func == space.lt or comp_func == space.gt:
+            return space.w_False
+        return space.w_True
+    if comp_func == space.lt or comp_func == space.le:
+        if arr1.len < arr2.len:
+            return space.w_False
+        return space.w_True
+    if arr1.len > arr2.len:
+        return space.w_False
+    return space.w_True
+
 
 class W_ArrayBase(W_Object):
     def __init__(self, space):
@@ -332,58 +381,50 @@ class W_ArrayBase(W_Object):
         "x.__ge__(y) <==> x>=y"
         return compare_arrays(space, self, w_arr2, space.ge)
 
+    # Basic get/set/append/extend methods
+
+    def descr_getitem(self, space, w_idx):
+        "x.__getitem__(y) <==> x[y]"
+        if not space.isinstance_w(w_idx, space.w_slice):
+            idx, stop, step = space.decode_index(w_idx, self.len)
+            assert step == 0
+            return self.w_getitem(space, idx)
+        else:
+            return self.getitem_slice(space, w_idx)
+
+    def descr_getslice(self, space, w_i, w_j):
+        return space.getitem(self, space.newslice(w_i, w_j, space.w_None))
+
+
+    def descr_setitem(self, space, w_idx, w_item):
+        "x.__setitem__(i, y) <==> x[i]=y"
+        if space.isinstance_w(w_idx, space.w_slice):
+            self.setitem_slice(space, w_idx, w_item)
+        else:
+            self.setitem(space, w_idx, w_item)
+
+    def descr_setslice(self, space, w_start, w_stop, w_item):
+        self.setitem_slice(space,
+                           space.newslice(w_start, w_stop, space.w_None),
+                           w_item)
+
+    def descr_delitem(self, space, w_idx):
+        start, stop, step, size = self.space.decode_index4(w_idx, self.len)
+        if step != 1:
+            # I don't care about efficiency of that so far
+            w_lst = self.descr_tolist(space)
+            space.delitem(w_lst, w_idx)
+            self.setlen(0)
+            self.fromsequence(w_lst)
+            return
+        return self.delitem(space, start, stop)
+
+    def descr_delslice(self, space, w_start, w_stop):
+        self.descr_delitem(space, space.newslice(w_start, w_stop, space.w_None))
+
     @staticmethod
     def register(typeorder):
         typeorder[W_ArrayBase] = []
-
-arr_eq_driver = jit.JitDriver(greens = ['comp_func'], reds = 'auto')
-
-def compare_arrays(space, arr1, arr2, comp_func):
-    if (not isinstance(arr1, W_ArrayBase) or
-        not isinstance(arr2, W_ArrayBase)):
-        return space.w_NotImplemented
-    if comp_func == space.eq and arr1.len != arr2.len:
-        return space.w_False
-    if comp_func == space.ne and arr1.len != arr2.len:
-        return space.w_True
-    lgt = min(arr1.len, arr2.len)
-    for i in range(lgt):
-        arr_eq_driver.jit_merge_point(comp_func=comp_func)
-        w_elem1 = arr1.w_getitem(space, i)
-        w_elem2 = arr2.w_getitem(space, i)
-        res = space.is_true(comp_func(w_elem1, w_elem2))
-        if comp_func == space.eq:
-            if not res:
-                return space.w_False
-        elif comp_func == space.ne:
-            if res:
-                return space.w_True
-        elif comp_func == space.lt or comp_func == space.gt:
-            if res:
-                return space.w_True
-            elif not space.is_true(space.eq(w_elem1, w_elem2)):
-                return space.w_False
-        else:
-            if not res:
-                return space.w_False
-            elif not space.is_true(space.eq(w_elem1, w_elem2)):
-                return space.w_True
-    # we have some leftovers
-    if comp_func == space.eq:
-        return space.w_True
-    elif comp_func == space.ne:
-        return space.w_False
-    if arr1.len == arr2.len:
-        if comp_func == space.lt or comp_func == space.gt:
-            return space.w_False
-        return space.w_True
-    if comp_func == space.lt or comp_func == space.le:
-        if arr1.len < arr2.len:
-            return space.w_False
-        return space.w_True
-    if arr1.len > arr2.len:
-        return space.w_False
-    return space.w_True
 
 W_ArrayBase.typedef = StdTypeDef(
     'array',
@@ -397,6 +438,13 @@ W_ArrayBase.typedef = StdTypeDef(
     __le__ = interp2app(W_ArrayBase.descr_le),
     __gt__ = interp2app(W_ArrayBase.descr_gt),
     __ge__ = interp2app(W_ArrayBase.descr_ge),
+
+    __getitem__ = interp2app(W_ArrayBase.descr_getitem),
+    __getslice__ = interp2app(W_ArrayBase.descr_getslice),
+    __setitem__ = interp2app(W_ArrayBase.descr_setitem),
+    __setslice__ = interp2app(W_ArrayBase.descr_setslice),
+    __delitem__ = interp2app(W_ArrayBase.descr_delitem),
+    __delslice__ = interp2app(W_ArrayBase.descr_delslice),
 
     itemsize = GetSetProperty(descr_itemsize),
     typecode = GetSetProperty(descr_typecode),
@@ -712,99 +760,81 @@ def make_array(mytype):
                 i -= 1
             self.buffer[i] = val
 
-    # Basic get/set/append/extend methods
-
-    def getitem__Array_ANY(space, self, w_idx):
-        idx, stop, step = space.decode_index(w_idx, self.len)
-        assert step == 0
-        return self.w_getitem(space, idx)
-
-    def getitem__Array_Slice(space, self, w_slice):
-        start, stop, step, size = space.decode_index4(w_slice, self.len)
-        w_a = mytype.w_class(self.space)
-        w_a.setlen(size, overallocate=False)
-        assert step != 0
-        j = 0
-        for i in range(start, stop, step):
-            w_a.buffer[j] = self.buffer[i]
-            j += 1
-        return w_a
-
-    def getslice__Array_ANY_ANY(space, self, w_i, w_j):
-        return space.getitem(self, space.newslice(w_i, w_j, space.w_None))
-
-    def setitem__Array_ANY_ANY(space, self, w_idx, w_item):
-        idx, stop, step = space.decode_index(w_idx, self.len)
-        if step != 0:
-            msg = 'can only assign array to array slice'
-            raise OperationError(self.space.w_TypeError, self.space.wrap(msg))
-        item = self.item_w(w_item)
-        self.buffer[idx] = item
-
-    def setitem__Array_Slice_Array(space, self, w_idx, w_item):
-        start, stop, step, size = self.space.decode_index4(w_idx, self.len)
-        assert step != 0
-        if w_item.len != size or self is w_item:
-            # XXX this is a giant slow hack
-            w_lst = self.descr_tolist(space)
-            w_item = space.call_method(w_item, 'tolist')
-            space.setitem(w_lst, w_idx, w_item)
-            self.setlen(0)
-            self.fromsequence(w_lst)
-        else:
+        def getitem_slice(self, space, w_idx):
+            start, stop, step, size = space.decode_index4(w_idx, self.len)
+            w_a = self.constructor(self.space)
+            w_a.setlen(size, overallocate=False)
+            assert step != 0
             j = 0
             for i in range(start, stop, step):
-                self.buffer[i] = w_item.buffer[j]
+                w_a.buffer[j] = self.buffer[i]
                 j += 1
+            return w_a
 
-    def setslice__Array_ANY_ANY_ANY(space, self, w_i, w_j, w_x):
-        space.setitem(self, space.newslice(w_i, w_j, space.w_None), w_x)
+        def setitem(self, space, w_idx, w_item):
+            idx, stop, step = space.decode_index(w_idx, self.len)
+            if step != 0:
+                msg = 'can only assign array to array slice'
+                raise OperationError(self.space.w_TypeError,
+                                     self.space.wrap(msg))
+            item = self.item_w(w_item)
+            self.buffer[idx] = item
 
-    def delitem__Array_ANY(space, self, w_idx):
-        # XXX this is a giant slow hack
-        w_lst = self.descr_tolist(space)
-        space.delitem(w_lst, w_idx)
-        self.setlen(0)
-        self.fromsequence(w_lst)
+        def setitem_slice(self, space, w_idx, w_item):
+            if not isinstance(w_item, W_Array):
+                raise OperationError(space.w_TypeError, space.wrap(
+                    "can only assign to a slice array"))
+            start, stop, step, size = self.space.decode_index4(w_idx, self.len)
+            assert step != 0
+            if w_item.len != size or self is w_item:
+                # XXX this is a giant slow hack
+                w_lst = self.descr_tolist(space)
+                w_item = space.call_method(w_item, 'tolist')
+                space.setitem(w_lst, w_idx, w_item)
+                self.setlen(0)
+                self.fromsequence(w_lst)
+            else:
+                j = 0
+                for i in range(start, stop, step):
+                    self.buffer[i] = w_item.buffer[j]
+                    j += 1
 
-    # We can't look into this function until ptradd works with things (in the
-    # JIT) other than rffi.CCHARP
-    @jit.dont_look_inside
-    def delslice__Array_ANY_ANY(space, self, w_i, w_j):
-        i = space.int_w(w_i)
-        if i < 0:
-            i += self.len
-        if i < 0:
-            i = 0
-        j = space.int_w(w_j)
-        if j < 0:
-            j += self.len
-        if j < 0:
-            j = 0
-        if j > self.len:
-            j = self.len
-        if i >= j:
-            return None
-        oldbuffer = self.buffer
-        self.buffer = lltype.malloc(mytype.arraytype,
-                      max(self.len - (j - i), 0), flavor='raw',
-                      add_memory_pressure=True)
-        if i:
-            rffi.c_memcpy(
-                rffi.cast(rffi.VOIDP, self.buffer),
-                rffi.cast(rffi.VOIDP, oldbuffer),
-                i * mytype.bytes
-            )
-        if j < self.len:
-            rffi.c_memcpy(
-                rffi.cast(rffi.VOIDP, rffi.ptradd(self.buffer, i)),
-                rffi.cast(rffi.VOIDP, rffi.ptradd(oldbuffer, j)),
-                (self.len - j) * mytype.bytes
-            )
-        self.len -= j - i
-        self.allocated = self.len
-        if oldbuffer:
-            lltype.free(oldbuffer, flavor='raw')
+        # We can't look into this function until ptradd works with things (in the
+        # JIT) other than rffi.CCHARP
+        @jit.dont_look_inside
+        def delitem(self, space, i, j):
+            if i < 0:
+                i += self.len
+            if i < 0:
+                i = 0
+            if j < 0:
+                j += self.len
+            if j < 0:
+                j = 0
+            if j > self.len:
+                j = self.len
+            if i >= j:
+                return None
+            oldbuffer = self.buffer
+            self.buffer = lltype.malloc(mytype.arraytype,
+                          max(self.len - (j - i), 0), flavor='raw',
+                          add_memory_pressure=True)
+            if i:
+                rffi.c_memcpy(
+                    rffi.cast(rffi.VOIDP, self.buffer),
+                    rffi.cast(rffi.VOIDP, oldbuffer),
+                    i * mytype.bytes
+                )
+            if j < self.len:
+                rffi.c_memcpy(
+                    rffi.cast(rffi.VOIDP, rffi.ptradd(self.buffer, i)),
+                    rffi.cast(rffi.VOIDP, rffi.ptradd(oldbuffer, j)),
+                    (self.len - j) * mytype.bytes
+                )
+            self.len -= j - i
+            self.allocated = self.len
+            if oldbuffer:
+                lltype.free(oldbuffer, flavor='raw')
 
     # Add and mul methods
 
