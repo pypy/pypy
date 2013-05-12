@@ -51,11 +51,6 @@ def w_array(space, w_cls, typecode, __args__):
 
     return a
 
-array_reverse = SMM('reverse', 1)
-array_remove = SMM('remove', 2)
-array_pop = SMM('pop', 2, defaults=(-1,))
-array_insert = SMM('insert', 3)
-
 array_tolist = SMM('tolist', 1)
 array_fromlist = SMM('fromlist', 2)
 array_tostring = SMM('tostring', 1)
@@ -108,6 +103,36 @@ class W_ArrayBase(W_Object):
         """
         raise NotImplementedError
 
+    def descr_reverse(self, space):
+        """ reverse()
+
+        Reverse the order of the items in the array.
+        """
+        raise NotImplementedError
+
+    def descr_remove(self, space, w_val):
+        """ remove(x)
+
+        Remove the first occurrence of x in the array.
+        """
+        raise NotImplementedError
+
+    @unwrap_spec(i=int)
+    def descr_pop(self, space, i=-1):
+        """ pop([i])
+
+        Return the i-th element and delete it from the array. i defaults to -1.
+        """
+        raise NotImplementedError
+
+    @unwrap_spec(idx=int)
+    def descr_insert(self, space, idx, w_val):
+        """ insert(i,x)
+
+        Insert a new item x into the array before position i.
+        """
+        raise NotImplementedError
+
     @staticmethod
     def register(typeorder):
         typeorder[W_ArrayBase] = []
@@ -123,6 +148,10 @@ W_ArrayBase.typedef = StdTypeDef(
     extend = interp2app(W_ArrayBase.descr_extend),
     count = interpindirect2app(W_ArrayBase.descr_count),
     index = interpindirect2app(W_ArrayBase.descr_index),
+    reverse = interpindirect2app(W_ArrayBase.descr_reverse),
+    remove = interpindirect2app(W_ArrayBase.descr_remove),
+    pop = interpindirect2app(W_ArrayBase.descr_pop),
+    insert = interpindirect2app(W_ArrayBase.descr_insert),
 )
 W_ArrayBase.typedef.registermethods(globals())
 
@@ -394,6 +423,44 @@ def make_array(mytype):
             msg = 'array.index(x): x not in list'
             raise OperationError(space.w_ValueError, space.wrap(msg))
 
+        def descr_reverse(self, space):
+            b = self.buffer
+            for i in range(self.len / 2):
+                b[i], b[self.len - i - 1] = b[self.len - i - 1], b[i]
+
+        def descr_pop(self, space, i):
+            if i < 0:
+                i += self.len
+            if i < 0 or i >= self.len:
+                msg = 'pop index out of range'
+                raise OperationError(space.w_IndexError, space.wrap(msg))
+            w_val = self.w_getitem(space, i)
+            while i < self.len - 1:
+                self.buffer[i] = self.buffer[i + 1]
+                i += 1
+            self.setlen(self.len - 1)
+            return w_val
+
+        def descr_remove(self, space, w_val):
+            w_idx = self.descr_index(space, w_val)
+            self.descr_pop(space, space.int_w(w_idx))
+
+        def descr_insert(self, space, idx, w_val):
+            if idx < 0:
+                idx += self.len
+            if idx < 0:
+                idx = 0
+            if idx > self.len:
+                idx = self.len
+
+            val = self.item_w(w_val)
+            self.setlen(self.len + 1)
+            i = self.len - 1
+            while i > idx:
+                self.buffer[i] = self.buffer[i - 1]
+                i -= 1
+            self.buffer[i] = val
+
     # Basic get/set/append/extend methods
 
     def len__Array(space, self):
@@ -444,46 +511,6 @@ def make_array(mytype):
 
     def setslice__Array_ANY_ANY_ANY(space, self, w_i, w_j, w_x):
         space.setitem(self, space.newslice(w_i, w_j, space.w_None), w_x)
-
-    def array_reverse__Array(space, self):
-        b = self.buffer
-        for i in range(self.len / 2):
-            b[i], b[self.len - i - 1] = b[self.len - i - 1], b[i]
-
-    def array_pop__Array_ANY(space, self, w_idx):
-        i = space.int_w(w_idx)
-        if i < 0:
-            i += self.len
-        if i < 0 or i >= self.len:
-            msg = 'pop index out of range'
-            raise OperationError(space.w_IndexError, space.wrap(msg))
-        w_val = self.w_getitem(space, i)
-        while i < self.len - 1:
-            self.buffer[i] = self.buffer[i + 1]
-            i += 1
-        self.setlen(self.len - 1)
-        return w_val
-
-    def array_remove__Array_ANY(space, self, w_val):
-        w_idx = self.descr_index(space, w_val)
-        array_pop__Array_ANY(space, self, w_idx)
-
-    def array_insert__Array_ANY_ANY(space, self, w_idx, w_val):
-        idx = space.int_w(w_idx)
-        if idx < 0:
-            idx += self.len
-        if idx < 0:
-            idx = 0
-        if idx > self.len:
-            idx = self.len
-
-        val = self.item_w(w_val)
-        self.setlen(self.len + 1)
-        i = self.len - 1
-        while i > idx:
-            self.buffer[i] = self.buffer[i - 1]
-            i -= 1
-        self.buffer[i] = val
 
     def delitem__Array_ANY(space, self, w_idx):
         # XXX this is a giant slow hack
