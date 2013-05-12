@@ -409,7 +409,6 @@ def make_op(oper):
     """Add function operation to the flow space."""
     name = oper.name
     func = oper.pyfunc
-    arithmetic = hasattr(operation.op, name + '_ovf')
 
     def generic_operator(self, *args_w):
         assert len(args_w) == oper.arity, name + " got the wrong number of arguments"
@@ -429,7 +428,7 @@ def make_op(oper):
                 # result.  The result is probably meant to be sent to
                 # an intmask(), but the 'long' constant confuses the
                 # annotator a lot.
-                if arithmetic and type(result) is long:
+                if oper.can_overflow and type(result) is long:
                     pass
                 # don't constant-fold getslice on lists, either
                 elif name == 'getslice' and type(result) is list:

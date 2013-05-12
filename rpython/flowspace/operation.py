@@ -15,16 +15,18 @@ op = _OpHolder()
 func2op = {}
 
 class SpaceOperator(object):
-    def __init__(self, name, arity, symbol, pyfunc, pure=False):
+    def __init__(self, name, arity, symbol, pyfunc, pure=False,
+            can_overflow=False):
         self.name = name
         self.arity = arity
         self.symbol = symbol
         self.pyfunc = pyfunc
         self.pure = pure
+        self.can_overflow = can_overflow
 
-def add_operator(name, arity, symbol, pyfunc=None, pure=False):
+def add_operator(name, arity, symbol, pyfunc=None, pure=False, ovf=False):
     operator_func = getattr(operator, name, None)
-    oper = SpaceOperator(name, arity, symbol, pyfunc, pure)
+    oper = SpaceOperator(name, arity, symbol, pyfunc, pure, can_overflow=ovf)
     setattr(op, name, oper)
     if pyfunc is not None:
         func2op[pyfunc] = oper
@@ -32,6 +34,9 @@ def add_operator(name, arity, symbol, pyfunc=None, pure=False):
         func2op[operator_func] = oper
         if pyfunc is None:
             oper.pyfunc = operator_func
+    if ovf:
+        ovf_func = lambda *args: ovfcheck(oper.pyfunc(*args))
+        add_operator(name + '_ovf', arity, symbol, pyfunc=ovf_func)
 
 # ____________________________________________________________
 
@@ -123,33 +128,6 @@ def delete(x, y):
 def userdel(x):
     x.__del__()
 
-def neg_ovf(x):
-    return ovfcheck(-x)
-
-def abs_ovf(x):
-    return ovfcheck(abs(x))
-
-def add_ovf(x, y):
-    return ovfcheck(x + y)
-
-def sub_ovf(x, y):
-    return ovfcheck(x - y)
-
-def mul_ovf(x, y):
-    return ovfcheck(x * y)
-
-def floordiv_ovf(x, y):
-    return ovfcheck(operator.floordiv(x, y))
-
-def div_ovf(x, y):
-    return ovfcheck(operator.div(x, y))
-
-def mod_ovf(x, y):
-    return ovfcheck(x % y)
-
-def lshift_ovf(x, y):
-    return ovfcheck(x << y)
-
 # slicing: operator.{get,set,del}slice() don't support b=None or c=None
 def do_getslice(a, b, c):
     return a[b:c]
@@ -185,24 +163,24 @@ add_operator('setslice', 4, 'setslice', pyfunc=do_setslice)
 add_operator('delslice', 3, 'delslice', pyfunc=do_delslice)
 add_operator('trunc', 1, 'trunc', pyfunc=unsupported)
 add_operator('pos', 1, 'pos', pure=True)
-add_operator('neg', 1, 'neg', pure=True)
+add_operator('neg', 1, 'neg', pure=True, ovf=True)
 add_operator('nonzero', 1, 'truth', pyfunc=bool, pure=True)
 op.is_true = op.nonzero
-add_operator('abs' , 1, 'abs', pyfunc=abs, pure=True)
+add_operator('abs' , 1, 'abs', pyfunc=abs, pure=True, ovf=True)
 add_operator('hex', 1, 'hex', pyfunc=hex, pure=True)
 add_operator('oct', 1, 'oct', pyfunc=oct, pure=True)
 add_operator('ord', 1, 'ord', pyfunc=ord, pure=True)
 add_operator('invert', 1, '~', pure=True)
-add_operator('add', 2, '+', pure=True)
-add_operator('sub', 2, '-', pure=True)
-add_operator('mul', 2, '*', pure=True)
+add_operator('add', 2, '+', pure=True, ovf=True)
+add_operator('sub', 2, '-', pure=True, ovf=True)
+add_operator('mul', 2, '*', pure=True, ovf=True)
 add_operator('truediv', 2, '/', pure=True)
-add_operator('floordiv', 2, '//', pure=True)
-add_operator('div', 2, 'div', pure=True)
-add_operator('mod', 2, '%', pure=True)
+add_operator('floordiv', 2, '//', pure=True, ovf=True)
+add_operator('div', 2, 'div', pure=True, ovf=True)
+add_operator('mod', 2, '%', pure=True, ovf=True)
 add_operator('divmod', 2, 'divmod', pyfunc=divmod, pure=True)
 add_operator('pow', 3, '**', pyfunc=pow, pure=True)
-add_operator('lshift', 2, '<<', pure=True)
+add_operator('lshift', 2, '<<', pure=True, ovf=True)
 add_operator('rshift', 2, '>>', pure=True)
 add_operator('and_', 2, '&', pure=True)
 add_operator('or_', 2, '|', pure=True)
@@ -241,12 +219,6 @@ add_operator('set', 3, 'set', pyfunc=set)
 add_operator('delete', 2, 'delete', pyfunc=delete)
 add_operator('userdel', 1, 'del', pyfunc=userdel)
 add_operator('buffer', 1, 'buffer', pyfunc=buffer, pure=True)   # see buffer.py
-
-# --- operations added by graph transformations ---
-for oper in [op.neg, op.abs, op.add, op.sub, op.mul, op.floordiv, op.div,
-        op.mod, op.lshift]:
-    ovf_func = lambda *args: ovfcheck(oper.pyfunc(*args))
-    add_operator(oper.name + '_ovf', oper.arity, oper.symbol, pyfunc=ovf_func)
 
 # Other functions that get directly translated to SpaceOperators
 func2op[type] = op.type
