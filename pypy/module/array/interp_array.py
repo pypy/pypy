@@ -3,10 +3,9 @@ from __future__ import with_statement
 from pypy.interpreter.buffer import RWBuffer
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import interp2app, unwrap_spec, interpindirect2app
-from pypy.interpreter.typedef import GetSetProperty, make_weakref_descr
+from pypy.interpreter.typedef import GetSetProperty, make_weakref_descr, TypeDef
 from pypy.module._file.interp_file import W_File
 from pypy.objspace.std.model import W_Object
-from pypy.objspace.std.stdtypedef import StdTypeDef
 from rpython.rlib import jit
 from rpython.rlib.rarithmetic import ovfcheck, widen
 from rpython.rlib.unroll import unrolling_iterable
@@ -108,6 +107,8 @@ def compare_arrays(space, arr1, arr2, comp_func):
 
 
 class W_ArrayBase(W_Object):
+    _attrs_ = ('space', 'len', 'allocated', '_lifeline_') # no buffer
+    
     def __init__(self, space):
         self.space = space
         self.len = 0
@@ -463,7 +464,7 @@ class W_ArrayBase(W_Object):
     def register(typeorder):
         typeorder[W_ArrayBase] = []
 
-W_ArrayBase.typedef = StdTypeDef(
+W_ArrayBase.typedef = TypeDef(
     'array',
     __new__ = interp2app(w_array),
     __module__   = 'array',
@@ -519,7 +520,6 @@ W_ArrayBase.typedef = StdTypeDef(
     __reduce__ = interp2app(W_ArrayBase.descr_reduce),
     byteswap = interp2app(W_ArrayBase.descr_byteswap),
 )
-W_ArrayBase.typedef.registermethods(globals())
 
 
 class TypeCode(object):
@@ -595,9 +595,7 @@ def make_array(mytype):
         itemsize = mytype.bytes
         typecode = mytype.typecode
 
-        @staticmethod
-        def register(typeorder):
-            typeorder[W_Array] = [(W_ArrayBase, None)]
+        _attrs_ = ('space', 'len', 'allocated', '_lifeline_', 'buffer')
 
         def __init__(self, space):
             W_ArrayBase.__init__(self, space)
