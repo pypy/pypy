@@ -1,5 +1,6 @@
 secondary_entrypoints = {}
 
+import py
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib.objectmodel import we_are_translated
@@ -15,14 +16,15 @@ def entrypoint(key, argtypes, c_name=None, relax=True):
     from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
     def deco(func):
-        def wrapper(*args):
+        source = py.code.Source("""
+        def wrapper(%(args)s):
             # the tuple has to be killed, but it's fine because this is
             # called from C
             rffi.stackcounter.stacks_counter += 1
             llop.gc_stack_bottom(lltype.Void)   # marker for trackgcroot.py
             # this should not raise
             try:
-                res = func(*args)
+                res = func(%(args)s)
             except Exception, e:
                 if not we_are_translated():
                     import traceback
@@ -34,7 +36,12 @@ def entrypoint(key, argtypes, c_name=None, relax=True):
                     assert 0 # dead code
             rffi.stackcounter.stacks_counter -= 1
             return res
-
+        """ % {'args': ', '.join(['arg%d' % i for i in range(len(argtypes))])})
+        d = {'rffi': rffi, 'lltype': lltype,
+         'pypy_debug_catch_fatal_exception': pypy_debug_catch_fatal_exception,
+         'llop': llop, 'func': func, 'we_are_translated': we_are_translated}
+        exec source.compile() in d
+        wrapper = d['wrapper']
         secondary_entrypoints.setdefault(key, []).append((wrapper, argtypes))
         wrapper.func_name = func.func_name
         if c_name is not None:

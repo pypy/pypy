@@ -552,8 +552,6 @@ def make_wrapper(space, callable):
     def wrapper(*args):
         from pypy.module.cpyext.pyobject import make_ref, from_ref
         from pypy.module.cpyext.pyobject import Reference
-        # we hope that malloc removal removes the newtuple() that is
-        # inserted exactly here by the varargs specializer
         retval = fatal_value
         boxed_args = ()
         try:
