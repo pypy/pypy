@@ -39,9 +39,9 @@ def w_array(space, w_cls, typecode, __args__):
             if len(__args__.arguments_w) > 0:
                 w_initializer = __args__.arguments_w[0]
                 if space.type(w_initializer) is space.w_str:
-                    a.fromstring(space.str_w(w_initializer))
+                    a.descr_fromstring(space, space.str_w(w_initializer))
                 elif space.type(w_initializer) is space.w_list:
-                    a.fromlist(w_initializer)
+                    a.descr_fromlist(space, w_initializer)
                 else:
                     a.extend(w_initializer, True)
             break
@@ -51,14 +51,8 @@ def w_array(space, w_cls, typecode, __args__):
 
     return a
 
-array_tolist = SMM('tolist', 1)
-array_fromlist = SMM('fromlist', 2)
-array_tostring = SMM('tostring', 1)
-array_fromstring = SMM('fromstring', 2)
 array_tounicode = SMM('tounicode', 1)
 array_fromunicode = SMM('fromunicode', 2)
-array_tofile = SMM('tofile', 2)
-array_fromfile = SMM('fromfile', 3)
 
 array_buffer_info = SMM('buffer_info', 1)
 array_reduce = SMM('__reduce__', 1)
@@ -75,6 +69,11 @@ def descr_typecode(space, self):
 
 
 class W_ArrayBase(W_Object):
+    def __init__(self, space):
+        self.space = space
+        self.len = 0
+        self.allocated = 0
+
     def descr_append(self, space, w_x):
         """ append(x)
 
@@ -133,6 +132,83 @@ class W_ArrayBase(W_Object):
         """
         raise NotImplementedError
 
+    def descr_tolist(self, space):
+        """ tolist() -> list
+
+        Convert array to an ordinary list with the same items.
+        """
+        w_l = space.newlist([])
+        for i in range(self.len):
+            w_l.append(self.w_getitem(space, i))
+        return w_l
+
+    def descr_fromlist(self, space, w_lst):
+        """ fromlist(list)
+
+        Append items to array from list.
+        """
+        if not space.isinstance_w(w_lst, space.w_list):
+            raise OperationError(space.w_TypeError,
+                                 space.wrap("arg must be list"))
+        s = self.len
+        try:
+            self.fromsequence(w_lst)
+        except OperationError:
+            self.setlen(s)
+            raise
+
+    def descr_tostring(self, space):
+        """ tostring() -> string
+
+        Convert the array to an array of machine values and return the string
+        representation.
+        """
+        cbuf = self._charbuf_start()
+        s = rffi.charpsize2str(cbuf, self.len * self.itemsize)
+        self._charbuf_stop()
+        return self.space.wrap(s)
+
+    @unwrap_spec(s=str)
+    def descr_fromstring(self, space, s):
+        """ fromstring(string)
+
+        Appends items from the string, interpreting it as an array of machine
+        values,as if it had been read from a file using the fromfile() method).
+        """
+        if len(s) % self.itemsize != 0:
+            msg = 'string length not a multiple of item size'
+            raise OperationError(self.space.w_ValueError, self.space.wrap(msg))
+        oldlen = self.len
+        new = len(s) / self.itemsize
+        self.setlen(oldlen + new)
+        cbuf = self._charbuf_start()
+        for i in range(len(s)):
+            cbuf[oldlen * self.itemsize + i] = s[i]
+        self._charbuf_stop()
+
+    @unwrap_spec(w_f=W_File, n=int)
+    def descr_fromfile(self, space, w_f, n):
+        try:
+            size = ovfcheck(self.itemsize * n)
+        except OverflowError:
+            raise MemoryError
+        w_item = space.call_method(w_f, 'read', space.wrap(size))
+        item = space.str_w(w_item)
+        if len(item) < size:
+            n = len(item) % self.itemsize
+            elems = max(0, len(item) - (len(item) % self.itemsize))
+            if n != 0:
+                item = item[0:elems]
+            self.descr_fromstring(space, item)
+            msg = "not enough items in file"
+            raise OperationError(space.w_EOFError, space.wrap(msg))
+        self.descr_fromstring(space, item)
+
+    @unwrap_spec(w_f=W_File)
+    def descr_tofile(self, space, w_f):
+        w_s = self.descr_tostring(space)
+        space.call_method(w_f, 'write', w_s)
+
     @staticmethod
     def register(typeorder):
         typeorder[W_ArrayBase] = []
@@ -152,6 +228,12 @@ W_ArrayBase.typedef = StdTypeDef(
     remove = interpindirect2app(W_ArrayBase.descr_remove),
     pop = interpindirect2app(W_ArrayBase.descr_pop),
     insert = interpindirect2app(W_ArrayBase.descr_insert),
+    tolist = interp2app(W_ArrayBase.descr_tolist),
+    fromlist = interp2app(W_ArrayBase.descr_fromlist),
+    tostring = interp2app(W_ArrayBase.descr_tostring),
+    fromstring = interp2app(W_ArrayBase.descr_fromstring),
+    tofile = interp2app(W_ArrayBase.descr_tofile),
+    fromfile = interp2app(W_ArrayBase.descr_fromfile),
 )
 W_ArrayBase.typedef.registermethods(globals())
 
@@ -235,9 +317,7 @@ def make_array(mytype):
             typeorder[W_Array] = [(W_ArrayBase, None)]
 
         def __init__(self, space):
-            self.space = space
-            self.len = 0
-            self.allocated = 0
+            W_ArrayBase.__init__(self, space)
             self.buffer = lltype.nullptr(mytype.arraytype)
 
         def item_w(self, w_item):
@@ -343,26 +423,6 @@ def make_array(mytype):
                 self.setlen(oldlen + i)
                 raise
             self.setlen(oldlen + i)
-
-        def fromstring(self, s):
-            if len(s) % self.itemsize != 0:
-                msg = 'string length not a multiple of item size'
-                raise OperationError(self.space.w_ValueError, self.space.wrap(msg))
-            oldlen = self.len
-            new = len(s) / mytype.bytes
-            self.setlen(oldlen + new)
-            cbuf = self._charbuf_start()
-            for i in range(len(s)):
-                cbuf[oldlen * mytype.bytes + i] = s[i]
-            self._charbuf_stop()
-
-        def fromlist(self, w_lst):
-            s = self.len
-            try:
-                self.fromsequence(w_lst)
-            except OperationError:
-                self.setlen(s)
-                raise
 
         def extend(self, w_iterable, accept_different_array=False):
             space = self.space
@@ -498,7 +558,7 @@ def make_array(mytype):
         assert step != 0
         if w_item.len != size or self is w_item:
             # XXX this is a giant slow hack
-            w_lst = array_tolist__Array(space, self)
+            w_lst = self.descr_tolist(space)
             w_item = space.call_method(w_item, 'tolist')
             space.setitem(w_lst, w_idx, w_item)
             self.setlen(0)
@@ -514,7 +574,7 @@ def make_array(mytype):
 
     def delitem__Array_ANY(space, self, w_idx):
         # XXX this is a giant slow hack
-        w_lst = array_tolist__Array(space, self)
+        w_lst = self.descr_tolist(space)
         space.delitem(w_lst, w_idx)
         self.setlen(0)
         self.fromsequence(w_lst)
@@ -632,54 +692,6 @@ def make_array(mytype):
 
     # Convertions
 
-    def array_tolist__Array(space, self):
-        w_l = space.newlist([])
-        for i in range(self.len):
-            w_l.append(self.w_getitem(space, i))
-        return w_l
-
-    def array_fromlist__Array_List(space, self, w_lst):
-        self.fromlist(w_lst)
-
-    def array_fromstring__Array_ANY(space, self, w_s):
-        self.fromstring(space.str_w(w_s))
-
-    def array_tostring__Array(space, self):
-        cbuf = self._charbuf_start()
-        s = rffi.charpsize2str(cbuf, self.len * mytype.bytes)
-        self._charbuf_stop()
-        return self.space.wrap(s)
-
-    def array_fromfile__Array_ANY_ANY(space, self, w_f, w_n):
-        if not isinstance(w_f, W_File):
-            msg = "arg1 must be open file"
-            raise OperationError(space.w_TypeError, space.wrap(msg))
-        n = space.int_w(w_n)
-
-        try:
-            size = ovfcheck(self.itemsize * n)
-        except OverflowError:
-            raise MemoryError
-        w_item = space.call_method(w_f, 'read', space.wrap(size))
-        item = space.str_w(w_item)
-        if len(item) < size:
-            n = len(item) % self.itemsize
-            elems = max(0, len(item) - (len(item) % self.itemsize))
-            if n != 0:
-                item = item[0:elems]
-            w_item = space.wrap(item)
-            array_fromstring__Array_ANY(space, self, w_item)
-            msg = "not enough items in file"
-            raise OperationError(space.w_EOFError, space.wrap(msg))
-        array_fromstring__Array_ANY(space, self, w_item)
-
-    def array_tofile__Array_ANY(space, self, w_f):
-        if not isinstance(w_f, W_File):
-            msg = "arg1 must be open file"
-            raise OperationError(space.w_TypeError, space.wrap(msg))
-        w_s = array_tostring__Array(space, self)
-        space.call_method(w_f, 'write', w_s)
-
     if mytype.typecode == 'u':
 
         def array_fromunicode__Array_Unicode(space, self, w_ustr):
@@ -706,7 +718,7 @@ def make_array(mytype):
     @specialize.arg(3)
     def _cmp_impl(space, self, other, space_fn):
         # XXX this is a giant slow hack
-        w_lst1 = array_tolist__Array(space, self)
+        w_lst1 = self.descr_tolist(space)
         w_lst2 = space.call_method(other, 'tolist')
         return space_fn(w_lst1, w_lst2)
 
@@ -740,7 +752,7 @@ def make_array(mytype):
 
     def array_reduce__Array(space, self):
         if self.len > 0:
-            w_s = array_tostring__Array(space, self)
+            w_s = self.descr_tostring(space)
             args = [space.wrap(mytype.typecode), w_s]
         else:
             args = [space.wrap(mytype.typecode)]
@@ -780,7 +792,7 @@ def make_array(mytype):
         if self.len == 0:
             return space.wrap("array('%s')" % self.typecode)
         elif self.typecode == "c":
-            r = space.repr(array_tostring__Array(space, self))
+            r = space.repr(self.descr_tostring(space))
             s = "array('%s', %s)" % (self.typecode, space.str_w(r))
             return space.wrap(s)
         elif self.typecode == "u":
@@ -788,7 +800,7 @@ def make_array(mytype):
             s = "array('%s', %s)" % (self.typecode, space.str_w(r))
             return space.wrap(s)
         else:
-            r = space.repr(array_tolist__Array(space, self))
+            r = space.repr(self.descr_tolist(space))
             s = "array('%s', %s)" % (self.typecode, space.str_w(r))
             return space.wrap(s)
 
@@ -811,5 +823,6 @@ def make_array(mytype):
 
 for mytype in types.values():
     make_array(mytype)
+del mytype
 
 register_all(locals(), globals())
