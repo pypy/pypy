@@ -7,7 +7,7 @@ from pypy.interpreter.typedef import GetSetProperty, make_weakref_descr
 from pypy.module._file.interp_file import W_File
 from pypy.objspace.std.model import W_Object
 from pypy.objspace.std.multimethod import FailedToImplement
-from pypy.objspace.std.stdtypedef import SMM, StdTypeDef
+from pypy.objspace.std.stdtypedef import StdTypeDef
 from pypy.objspace.std.register_all import register_all
 from rpython.rlib import jit
 from rpython.rlib.rarithmetic import ovfcheck, widen
@@ -50,14 +50,6 @@ def w_array(space, w_cls, typecode, __args__):
         raise OperationError(space.w_ValueError, space.wrap(msg))
 
     return a
-
-array_tounicode = SMM('tounicode', 1)
-array_fromunicode = SMM('fromunicode', 2)
-
-array_buffer_info = SMM('buffer_info', 1)
-array_reduce = SMM('__reduce__', 1)
-array_copy = SMM('__copy__', 1)
-array_byteswap = SMM('byteswap', 1)
 
 
 def descr_itemsize(space, self):
@@ -188,6 +180,11 @@ class W_ArrayBase(W_Object):
 
     @unwrap_spec(w_f=W_File, n=int)
     def descr_fromfile(self, space, w_f, n):
+        """ fromfile(f, n)
+
+        Read n objects from the file object f and append them to the end of the
+        array.  Also called as read.
+        """
         try:
             size = ovfcheck(self.itemsize * n)
         except OverflowError:
@@ -206,8 +203,107 @@ class W_ArrayBase(W_Object):
 
     @unwrap_spec(w_f=W_File)
     def descr_tofile(self, space, w_f):
+        """ tofile(f)
+
+        Write all items (as machine values) to the file object f.  Also called as
+        write.
+        """
         w_s = self.descr_tostring(space)
         space.call_method(w_f, 'write', w_s)
+
+    def descr_fromunicode(self, space, w_ustr):
+        """ fromunicode(ustr)
+
+        Extends this array with data from the unicode string ustr.
+        The array must be a type 'u' array; otherwise a ValueError
+        is raised.  Use array.fromstring(ustr.decode(...)) to
+        append Unicode data to an array of some other type.
+        """
+        # XXX the following probable bug is not emulated:
+        # CPython accepts a non-unicode string or a buffer, and then
+        # behaves just like fromstring(), except that it strangely truncate
+        # string arguments at multiples of the unicode byte size.
+        # Let's only accept unicode arguments for now.
+        if self.typecode == 'u':
+            self.fromsequence(w_ustr)
+        else:
+            msg = "fromunicode() may only be called on type 'u' arrays"
+            raise OperationError(space.w_ValueError, space.wrap(msg))
+
+    def descr_tounicode(self, space):
+        """ tounicode() -> unicode
+
+        Convert the array to a unicode string.  The array must be
+        a type 'u' array; otherwise a ValueError is raised.  Use
+        array.tostring().decode() to obtain a unicode string from
+        an array of some other type.
+        """
+        if self.typecode == 'u':
+            return space.wrap(rffi.wcharpsize2unicode(self.buffer, self.len))
+        else:
+            msg = "tounicode() may only be called on type 'u' arrays"
+            raise OperationError(space.w_ValueError, space.wrap(msg))
+
+    def descr_buffer_info(self, space):
+        """ buffer_info() -> (address, length)
+
+        Return a tuple (address, length) giving the current memory address and
+        the length in items of the buffer used to hold array's contents
+        The length should be multiplied by the itemsize attribute to calculate
+        the buffer length in bytes.
+        """
+        w_ptr = space.wrap(self._buffer_as_unsigned())
+        w_len = space.wrap(self.len)
+        return space.newtuple([w_ptr, w_len])
+
+    def descr_reduce(self, space):
+        """ Return state information for pickling.
+        """
+        if self.len > 0:
+            w_s = self.descr_tostring(space)
+            args = [space.wrap(self.typecode), w_s]
+        else:
+            args = [space.wrap(self.typecode)]
+        try:
+            dct = space.getattr(self, space.wrap('__dict__'))
+        except OperationError:
+            dct = space.w_None
+        return space.newtuple([space.type(self), space.newtuple(args), dct])
+
+    def descr_copy(self, space):
+        """ copy(array)
+
+        Return a copy of the array.
+        """
+        w_a = self.constructor(self.space)
+        w_a.setlen(self.len, overallocate=False)
+        rffi.c_memcpy(
+            rffi.cast(rffi.VOIDP, w_a._buffer_as_unsigned()),
+            rffi.cast(rffi.VOIDP, self._buffer_as_unsigned()),
+            self.len * self.itemsize
+        )
+        return w_a
+
+    def descr_byteswap(self, space):
+        """ byteswap()
+
+        Byteswap all items of the array.  If the items in the array are not 1, 2,
+        4, or 8 bytes in size, RuntimeError is raised.
+        """
+        if self.itemsize not in [1, 2, 4, 8]:
+            msg = "byteswap not supported for this array"
+            raise OperationError(space.w_RuntimeError, space.wrap(msg))
+        if self.len == 0:
+            return
+        bytes = self._charbuf_start()
+        tmp = [bytes[0]] * self.itemsize
+        for start in range(0, self.len * self.itemsize, self.itemsize):
+            stop = start + self.itemsize - 1
+            for i in range(self.itemsize):
+                tmp[i] = bytes[start + i]
+            for i in range(self.itemsize):
+                bytes[stop - i] = tmp[i]
+        self._charbuf_stop()
 
     @staticmethod
     def register(typeorder):
@@ -228,12 +324,20 @@ W_ArrayBase.typedef = StdTypeDef(
     remove = interpindirect2app(W_ArrayBase.descr_remove),
     pop = interpindirect2app(W_ArrayBase.descr_pop),
     insert = interpindirect2app(W_ArrayBase.descr_insert),
+
     tolist = interp2app(W_ArrayBase.descr_tolist),
     fromlist = interp2app(W_ArrayBase.descr_fromlist),
     tostring = interp2app(W_ArrayBase.descr_tostring),
     fromstring = interp2app(W_ArrayBase.descr_fromstring),
     tofile = interp2app(W_ArrayBase.descr_tofile),
     fromfile = interp2app(W_ArrayBase.descr_fromfile),
+    fromunicode = interp2app(W_ArrayBase.descr_fromunicode),
+    tounicode = interp2app(W_ArrayBase.descr_tounicode),
+
+    buffer_info = interp2app(W_ArrayBase.descr_buffer_info),
+    __copy__ = interp2app(W_ArrayBase.descr_copy),
+    __reduce__ = interp2app(W_ArrayBase.descr_reduce),
+    byteswap = interp2app(W_ArrayBase.descr_byteswap),
 )
 W_ArrayBase.typedef.registermethods(globals())
 
@@ -242,7 +346,6 @@ class TypeCode(object):
     def __init__(self, itemtype, unwrap, canoverflow=False, signed=False):
         self.itemtype = itemtype
         self.bytes = rffi.sizeof(itemtype)
-        #self.arraytype = lltype.GcArray(itemtype)
         self.arraytype = lltype.Array(itemtype, hints={'nolength': True})
         self.unwrap = unwrap
         self.signed = signed
@@ -446,6 +549,9 @@ def make_array(mytype):
 
         def _charbuf_start(self):
             return rffi.cast(rffi.CCHARP, self.buffer)
+
+        def _buffer_as_unsigned(self):
+            return rffi.cast(lltype.Unsigned, self.buffer)
 
         def _charbuf_stop(self):
             keepalive_until_here(self)
@@ -690,30 +796,6 @@ def make_array(mytype):
                 a.buffer[r * oldlen + i] = self.buffer[i]
         return a
 
-    # Convertions
-
-    if mytype.typecode == 'u':
-
-        def array_fromunicode__Array_Unicode(space, self, w_ustr):
-            # XXX the following probable bug is not emulated:
-            # CPython accepts a non-unicode string or a buffer, and then
-            # behaves just like fromstring(), except that it strangely truncate
-            # string arguments at multiples of the unicode byte size.
-            # Let's only accept unicode arguments for now.
-            self.fromsequence(w_ustr)
-
-        def array_tounicode__Array(space, self):
-            return space.wrap(rffi.wcharpsize2unicode(self.buffer, self.len))
-    else:
-
-        def array_fromunicode__Array_Unicode(space, self, w_ustr):
-            msg = "fromunicode() may only be called on type 'u' arrays"
-            raise OperationError(space.w_ValueError, space.wrap(msg))
-
-        def array_tounicode__Array(space, self):
-            msg = "tounicode() may only be called on type 'u' arrays"
-            raise OperationError(space.w_ValueError, space.wrap(msg))
-
     # Compare methods
     @specialize.arg(3)
     def _cmp_impl(space, self, other, space_fn):
@@ -745,49 +827,6 @@ def make_array(mytype):
     def buffer__Array(space, self):
         return space.wrap(ArrayBuffer(self))
 
-    def array_buffer_info__Array(space, self):
-        w_ptr = space.wrap(rffi.cast(lltype.Unsigned, self.buffer))
-        w_len = space.wrap(self.len)
-        return space.newtuple([w_ptr, w_len])
-
-    def array_reduce__Array(space, self):
-        if self.len > 0:
-            w_s = self.descr_tostring(space)
-            args = [space.wrap(mytype.typecode), w_s]
-        else:
-            args = [space.wrap(mytype.typecode)]
-        try:
-            dct = space.getattr(self, space.wrap('__dict__'))
-        except OperationError:
-            dct = space.w_None
-        return space.newtuple([space.type(self), space.newtuple(args), dct])
-
-    def array_copy__Array(space, self):
-        w_a = mytype.w_class(self.space)
-        w_a.setlen(self.len, overallocate=False)
-        rffi.c_memcpy(
-            rffi.cast(rffi.VOIDP, w_a.buffer),
-            rffi.cast(rffi.VOIDP, self.buffer),
-            self.len * mytype.bytes
-        )
-        return w_a
-
-    def array_byteswap__Array(space, self):
-        if mytype.bytes not in [1, 2, 4, 8]:
-            msg = "byteswap not supported for this array"
-            raise OperationError(space.w_RuntimeError, space.wrap(msg))
-        if self.len == 0:
-            return
-        bytes = self._charbuf_start()
-        tmp = [bytes[0]] * mytype.bytes
-        for start in range(0, self.len * mytype.bytes, mytype.bytes):
-            stop = start + mytype.bytes - 1
-            for i in range(mytype.bytes):
-                tmp[i] = bytes[start + i]
-            for i in range(mytype.bytes):
-                bytes[stop - i] = tmp[i]
-        self._charbuf_stop()
-
     def repr__Array(space, self):
         if self.len == 0:
             return space.wrap("array('%s')" % self.typecode)
@@ -796,7 +835,7 @@ def make_array(mytype):
             s = "array('%s', %s)" % (self.typecode, space.str_w(r))
             return space.wrap(s)
         elif self.typecode == "u":
-            r = space.repr(array_tounicode__Array(space, self))
+            r = space.repr(self.descr_tounicode(space))
             s = "array('%s', %s)" % (self.typecode, space.str_w(r))
             return space.wrap(s)
         else:
@@ -805,6 +844,7 @@ def make_array(mytype):
             return space.wrap(s)
 
     mytype.w_class = W_Array
+    W_Array.constructor = W_Array
 
     # Annotator seems to mess up if the names are not unique
     name = 'ArrayType' + mytype.typecode
