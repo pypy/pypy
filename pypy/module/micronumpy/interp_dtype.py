@@ -46,7 +46,7 @@ def dtype_agreement(space, w_arr_list, shape, out=None):
 
 
 class W_Dtype(W_Root):
-    _immutable_fields_ = ["itemtype", "num", "kind"]
+    _immutable_fields_ = ["itemtype", "num", "kind", "shape"]
 
     def __init__(self, itemtype, num, kind, name, char, w_box_type,
                  alternate_constructors=[], aliases=[],
@@ -63,7 +63,7 @@ class W_Dtype(W_Root):
         self.fieldnames = fieldnames
         self.native = native
         self.float_type = None
-        self.shape = shape
+        self.shape = list(shape)
         self.subdtype = subdtype
 
     @specialize.argtype(1)
