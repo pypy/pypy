@@ -803,7 +803,6 @@ def interpindirect2app(unbound_meth, unwrap_spec=None):
     args = inspect.getargs(func.func_code)
     if args.varargs or args.keywords:
         raise TypeError("Varargs and keywords not supported in unwrap_spec")
-    assert not func.func_defaults
     argspec = ', '.join([arg for arg in args.args[1:]])
     func_code = py.code.Source("""
     def f(w_obj, %(args)s):
@@ -812,11 +811,13 @@ def interpindirect2app(unbound_meth, unwrap_spec=None):
     d = {}
     exec func_code.compile() in d
     f = d['f']
+    f.func_defaults = unbound_meth.func_defaults
+    f.func_doc = unbound_meth.func_doc
     f.__module__ = func.__module__
     # necessary for unique identifiers for pickling
     f.func_name = func.func_name
     if unwrap_spec is None:
-        unwrap_spec = getattr(func, 'unwrap_spec', {})
+        unwrap_spec = getattr(unbound_meth, 'unwrap_spec', {})
     else:
         assert isinstance(unwrap_spec, dict)
         unwrap_spec = unwrap_spec.copy()
