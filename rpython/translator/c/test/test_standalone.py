@@ -25,7 +25,7 @@ class StandaloneTests(object):
         t = TranslationContext(self.config)
         ann = t.buildannotator()
         ann.build_types(entry_point, [s_list_of_strings])
-        if secondary_entrypoints is not None:
+        if entrypoints is not None:
             anns = {}
             for func, annotation in secondary_entrypoints['test']:
                 anns[func] = annotation
@@ -39,8 +39,11 @@ class StandaloneTests(object):
 
         t.config.translation.shared = shared
 
-        cbuilder = CStandaloneBuilder(t, entry_point, t.config,
-               secondary_entrypoints=[(i, None) for i in entrypoints])
+        if entrypoints is not None:
+            kwds = {'secondary_entrypoints': [(i, None) for i in entrypoints]}
+        else:
+            kwds = {}
+        cbuilder = CStandaloneBuilder(t, entry_point, t.config, **kwds)
         if debug:
             cbuilder.generate_source(defines=cbuilder.DEBUG_DEFINES)
         else:

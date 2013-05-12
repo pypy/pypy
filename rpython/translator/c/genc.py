@@ -427,7 +427,10 @@ class CStandaloneBuilder(CBuilder):
             if sys.platform == 'win32':
                 mk.definition('DEBUGFLAGS', '/MD /Zi')
             else:
-                mk.definition('DEBUGFLAGS', '-O2 -fomit-frame-pointer -g')
+                if self.config.translation.shared:
+                    mk.definition('DEBUGFLAGS', '-O2 -fomit-frame-pointer -g -fPIC')
+                else:
+                    mk.definition('DEBUGFLAGS', '-O2 -fomit-frame-pointer -g')
 
             if self.config.translation.shared:
                 mk.definition('PYPY_MAIN_FUNCTION', "pypy_main_startup")
