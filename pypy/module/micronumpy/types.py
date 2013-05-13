@@ -1733,7 +1733,7 @@ class RecordType(BaseType):
         if not space.issequence_w(w_item):
             raise OperationError(space.w_TypeError, space.wrap(
                 "expected sequence"))
-        if len(self.offsets_and_fields) != space.int_w(space.len(w_item)):
+        if len(self.offsets_and_fields) != space.len_w(w_item):
             raise OperationError(space.w_ValueError, space.wrap(
                 "wrong length"))
         items_w = space.fixedview(w_item)
