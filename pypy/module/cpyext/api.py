@@ -548,7 +548,6 @@ def make_wrapper(space, callable):
         [name.startswith("w_") for name in names])))
     fatal_value = callable.api_func.restype._defl()
 
-    @specialize.ll()
     def wrapper(*args):
         from pypy.module.cpyext.pyobject import make_ref, from_ref
         from pypy.module.cpyext.pyobject import Reference
