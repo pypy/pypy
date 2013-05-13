@@ -79,16 +79,19 @@ def create_entry_point(space, w_dict):
     # should be used as sparsely as possible, just to register callbacks
 
     from rpython.rlib.entrypoint import entrypoint
-    from rpython.rtyper.lltypesystem import rffi
+    from rpython.rtyper.lltypesystem import rffi, lltype
 
-    @entrypoint('main', [rffi.CCHARP], c_name='pypy_setup_home')
-    def pypy_setup_home(ll_home):
+    @entrypoint('main', [rffi.CCHARP, lltype.Signed], c_name='pypy_setup_home')
+    def pypy_setup_home(ll_home, verbose):
         from pypy.module.sys.initpath import pypy_find_stdlib
         if ll_home:
             home = rffi.charp2str(ll_home)
         else:
             home = pypydir
-        pypy_find_stdlib(space, home)
+        if space.is_none(pypy_find_stdlib(space, home)):
+            if verbose:
+                debug("Failed to find library based on pypy_find_stdlib")
+            return 1
         space.startup()
         # import site
         try:
@@ -96,7 +99,11 @@ def create_entry_point(space, w_dict):
                                     space.wrap('__import__'))
             space.call_function(import_, space.wrap('site'))
             return 0
-        except OperationError:
+        except OperationError, e:
+            if verbose:
+                debug("OperationError:")
+                debug(" operror-type: " + e.w_type.getname(space))
+                debug(" operror-value: " + space.str_w(space.str(e.get_w_value(space))))
             return 1
 
     @entrypoint('main', [rffi.CCHARP], c_name='pypy_execute_source')
