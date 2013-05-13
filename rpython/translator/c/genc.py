@@ -703,6 +703,8 @@ def gen_structdef(f, database):
     print >> f, '/***********************************************************/'
     print >> f, '/***  Structure definitions                              ***/'
     print >> f
+    print >> f, "#ifndef _PYPY_STRUCTDEF_H"
+    print >> f, "#define _PYPY_STRUCTDEF_H"
     for node in structdeflist:
         if hasattr(node, 'forward_decl'):
             if node.forward_decl:
@@ -713,14 +715,18 @@ def gen_structdef(f, database):
     for node in structdeflist:
         for line in node.definition():
             print >> f, line
+    print >> f, "#endif"
 
 def gen_forwarddecl(f, database):
     print >> f, '/***********************************************************/'
     print >> f, '/***  Forward declarations                               ***/'
     print >> f
+    print >> f, "#ifndef _PYPY_FORWARDDECL_H"
+    print >> f, "#define _PYPY_FORWARDDECL_H"
     for node in database.globalcontainers():
         for line in node.forward_declaration():
             print >> f, line
+    print >> f, "#endif"
 
 def gen_preimpl(f, database):
     if database.translator is None or database.translator.rtyper is None:
