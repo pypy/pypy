@@ -39,6 +39,7 @@ class AppTestNDIter(BaseNumpyAppTest):
         from numpypy import arange, nditer
         a = arange(6).reshape(2,3)
         for x in nditer(a, op_flags=['readwrite']):
+            print x,x.shape
             x[...] = 2 * x
         assert (a == [[0, 2, 4], [6, 8, 10]]).all()
 
