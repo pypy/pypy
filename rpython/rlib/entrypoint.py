@@ -29,6 +29,7 @@ def entrypoint(key, argtypes, c_name=None, relax=False):
                 if not we_are_translated():
                     import traceback
                     traceback.print_exc()
+                    raise
                 else:
                     print str(e)
                     pypy_debug_catch_fatal_exception()

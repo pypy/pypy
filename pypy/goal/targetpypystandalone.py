@@ -2,6 +2,7 @@ import py
 
 import os, sys
 
+import pypy
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
 from pypy.tool.ann_override import PyPyAnnotatorPolicy
@@ -80,6 +81,24 @@ def create_entry_point(space, w_dict):
     from rpython.rlib.entrypoint import entrypoint
     from rpython.rtyper.lltypesystem import rffi
 
+    @entrypoint('main', [rffi.CCHARP], c_name='pypy_setup_home')
+    def pypy_setup_home(ll_home):
+        from pypy.module.sys.initpath import pypy_find_stdlib
+        if ll_home:
+            home = rffi.charp2str(ll_home)
+        else:
+            home = pypydir
+        pypy_find_stdlib(space, home)
+        space.startup()
+        # import site
+        try:
+            import_ = space.getattr(space.getbuiltinmodule('__builtin__'),
+                                    space.wrap('__import__'))
+            space.call_function(import_, space.wrap('site'))
+            return 0
+        except OperationError:
+            return 1
+
     @entrypoint('main', [rffi.CCHARP], c_name='pypy_execute_source')
     def pypy_execute_source(ll_source):
         source = rffi.charp2str(ll_source)
@@ -101,7 +120,8 @@ def create_entry_point(space, w_dict):
             return 1
         return 0
 
-    return entry_point, _pypy_execute_source # for tests
+    return entry_point, {'pypy_execute_source': pypy_execute_source,
+                         'pypy_setup_home': pypy_setup_home}
 
 def call_finish(space):
     space.finish()
