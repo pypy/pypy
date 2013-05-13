@@ -329,8 +329,9 @@ aroundstate._cleanup_()
 
 class StackCounter:
     def _cleanup_(self):
-        self.stacks_counter = 1     # number of "stack pieces": callbacks
+        self.stacks_counter = 0     # number of "stack pieces": callbacks
                                     # and threads increase it by one
+
 stackcounter = StackCounter()
 stackcounter._cleanup_()
 

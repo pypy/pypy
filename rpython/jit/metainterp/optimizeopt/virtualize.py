@@ -332,6 +332,9 @@ class VArrayStructValue(AbstractVirtualValue):
         self.arraydescr = arraydescr
         self._items = [{} for _ in xrange(size)]
 
+    def getlength(self):
+        return len(self._items)
+
     def getinteriorfield(self, index, ofs, default):
         return self._items[index].get(ofs, default)
 

@@ -119,7 +119,7 @@ def customize_compiler(compiler):
     optional C speedup components.
     """
     if compiler.compiler_type == "unix":
-        compiler.compiler_so.extend(['-fPIC', '-Wimplicit'])
+        compiler.compiler_so.extend(['-O2', '-fPIC', '-Wimplicit'])
         compiler.shared_lib_extension = get_config_var('SO')
         if "CFLAGS" in os.environ:
             cflags = os.environ["CFLAGS"].split()
