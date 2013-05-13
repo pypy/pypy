@@ -30,14 +30,14 @@ class CollectAnalyzer(graphanalyze.BoolGraphAnalyzer):
                 return False
             if getattr(func, '_gctransformer_hint_close_stack_', False):
                 return True
-        return graphanalyze.GraphAnalyzer.analyze_direct_call(self, graph,
-                                                              seen)
+        return graphanalyze.BoolGraphAnalyzer.analyze_direct_call(self, graph,
+                                                                  seen)
     def analyze_external_call(self, op, seen=None):
         funcobj = op.args[0].value._obj
         if getattr(funcobj, 'random_effects_on_gcobjs', False):
             return True
-        return graphanalyze.GraphAnalyzer.analyze_external_call(self, op,
-                                                                seen)
+        return graphanalyze.BoolGraphAnalyzer.analyze_external_call(self, op,
+                                                                    seen)
     def analyze_simple_operation(self, op, graphinfo):
         if op.opname in ('malloc', 'malloc_varsize'):
             flags = op.args[1].value

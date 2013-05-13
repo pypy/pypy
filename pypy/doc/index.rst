@@ -43,7 +43,7 @@ Index of various topics:
 
 * :doc:`FAQ <faq>`: some frequently asked questions.
 
-* `Release 2.0 beta 2`_: the latest official release
+* `Release 2.0`_: the latest official release
 
 * `PyPy Blog`_: news and status info about PyPy
 
@@ -57,7 +57,7 @@ Index of various topics:
   particularly organized
 
 .. _PyPy blog: http://morepypy.blogspot.com/
-.. _Release 2.0 beta 2: http://pypy.org/download.html
+.. _Release 2.0: http://pypy.org/download.html
 .. _speed.pypy.org: http://speed.pypy.org
 
 .. toctree::

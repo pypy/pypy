@@ -39,14 +39,6 @@ class BaseCygwin(BasePosix):
         return self._pkg_config("libffi", "--libs-only-L",
                                 ['/usr/lib/libffi'])
 
-    def library_dirs_for_libffi_a(self):
-        # places where we need to look for libffi.a
-        # XXX obscuuure!  only look for libffi.a if run with translate.py
-        if 'translate' in sys.modules:
-            return self.library_dirs_for_libffi() + ['/usr/lib']
-        else:
-            return []
-
 
 class Cygwin(BaseCygwin):
     shared_only = ()    # it seems that on 32-bit linux, compiling with -fPIC
