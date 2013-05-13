@@ -13,6 +13,7 @@ from rpython.rlib.rawstorage import free_raw_storage, raw_storage_getitem,\
      raw_storage_setitem, RAW_STORAGE
 from pypy.module.micronumpy.arrayimpl.sort import argsort_array
 from rpython.rlib.debug import make_sure_not_resized
+from pypy.interpreter.special import Ellipsis
 
 
 class BaseConcreteArray(base.BaseArrayImplementation):
@@ -157,6 +158,7 @@ class BaseConcreteArray(base.BaseArrayImplementation):
         """
         if (space.isinstance_w(w_idx, space.w_str) or
             space.isinstance_w(w_idx, space.w_slice) or
+            isinstance(w_idx, Ellipsis) or
             space.is_w(w_idx, space.w_None)):
             raise IndexError
         if isinstance(w_idx, W_NDimArray) and not isinstance(w_idx.implementation, scalar.Scalar):
