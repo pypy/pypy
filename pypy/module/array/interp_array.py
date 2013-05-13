@@ -4,8 +4,8 @@ from pypy.interpreter.buffer import RWBuffer
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import interp2app, unwrap_spec, interpindirect2app
 from pypy.interpreter.typedef import GetSetProperty, make_weakref_descr, TypeDef
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.module._file.interp_file import W_File
-from pypy.objspace.std.model import W_Object
 from rpython.rlib import jit
 from rpython.rlib.rarithmetic import ovfcheck, widen
 from rpython.rlib.unroll import unrolling_iterable
@@ -105,10 +105,12 @@ def compare_arrays(space, arr1, arr2, comp_func):
         return space.w_False
     return space.w_True
 
+UNICODE_ARRAY = lltype.Ptr(lltype.Array(lltype.UniChar,
+                                        hints={'nolength': True}))
 
-class W_ArrayBase(W_Object):
+class W_ArrayBase(W_Root):
     _attrs_ = ('space', 'len', 'allocated', '_lifeline_') # no buffer
-    
+
     def __init__(self, space):
         self.space = space
         self.len = 0
@@ -287,7 +289,8 @@ class W_ArrayBase(W_Object):
         an array of some other type.
         """
         if self.typecode == 'u':
-            return space.wrap(rffi.wcharpsize2unicode(self.buffer, self.len))
+            buf = rffi.cast(UNICODE_ARRAY, self._buffer_as_unsigned())
+            return space.wrap(rffi.wcharpsize2unicode(buf, self.len))
         else:
             msg = "tounicode() may only be called on type 'u' arrays"
             raise OperationError(space.w_ValueError, space.wrap(msg))
@@ -459,10 +462,6 @@ class W_ArrayBase(W_Object):
             r = space.repr(self.descr_tolist(space))
             s = "array('%s', %s)" % (self.typecode, space.str_w(r))
             return space.wrap(s)
-
-    @staticmethod
-    def register(typeorder):
-        typeorder[W_ArrayBase] = []
 
 W_ArrayBase.typedef = TypeDef(
     'array',
@@ -807,7 +806,7 @@ def make_array(mytype):
 
         def getitem_slice(self, space, w_idx):
             start, stop, step, size = space.decode_index4(w_idx, self.len)
-            w_a = self.constructor(self.space)
+            w_a = mytype.w_class(self.space)
             w_a.setlen(size, overallocate=False)
             assert step != 0
             j = 0
