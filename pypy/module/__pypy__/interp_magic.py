@@ -1,4 +1,3 @@
-from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.interpreter.error import OperationError, wrap_oserror
 from pypy.interpreter.gateway import unwrap_spec
 from rpython.rlib.objectmodel import we_are_translated
@@ -56,7 +55,7 @@ def builtinify(space, w_func):
     bltn = BuiltinFunction(func)
     return space.wrap(bltn)
 
-@unwrap_spec(ObjSpace, W_Root, str)
+@unwrap_spec(meth=str)
 def lookup_special(space, w_obj, meth):
     """Lookup up a special method on an object."""
     if space.is_oldstyle_instance(w_obj):
