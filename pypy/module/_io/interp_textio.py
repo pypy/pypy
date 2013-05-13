@@ -1,16 +1,16 @@
-from pypy.module._io.interp_iobase import W_IOBase
-from pypy.interpreter.typedef import (
-    TypeDef, GetSetProperty, interp_attrproperty_w, interp_attrproperty,
-    generic_new_descr)
-from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
-from pypy.interpreter.baseobjspace import Wrappable
+import sys
+
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError
-from rpython.rlib.rarithmetic import intmask, r_ulonglong, r_uint
+from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
+from pypy.interpreter.typedef import (
+    GetSetProperty, TypeDef, generic_new_descr, interp_attrproperty,
+    interp_attrproperty_w)
+from pypy.module._codecs import interp_codecs
+from pypy.module._io.interp_iobase import W_IOBase, convert_size
+from rpython.rlib.rarithmetic import intmask, r_uint, r_ulonglong
 from rpython.rlib.rbigint import rbigint
 from rpython.rlib.rstring import UnicodeBuilder
-from pypy.module._codecs import interp_codecs
-from pypy.module._io.interp_iobase import convert_size
-import sys
 
 
 STATE_ZERO, STATE_OK, STATE_DETACHED = range(3)
@@ -22,7 +22,7 @@ SEEN_ALL  = SEEN_CR | SEEN_LF | SEEN_CRLF
 
 _WINDOWS = sys.platform == 'win32'
 
-class W_IncrementalNewlineDecoder(Wrappable):
+class W_IncrementalNewlineDecoder(W_Root):
     seennl = 0
     pendingcr = False
     w_decoder = None
@@ -267,6 +267,41 @@ W_TextIOBase.typedef = TypeDef(
     errors = GetSetProperty(W_TextIOBase.errors_get_w),
 )
 
+
+def _determine_encoding(space, encoding, w_buffer):
+    if encoding is not None:
+        return space.wrap(encoding)
+
+    # Try os.device_encoding(fileno)
+    try:
+        w_fileno = space.call_method(w_buffer, 'fileno')
+    except OperationError as e:
+        from pypy.module._io.interp_io import Cache
+        if not (e.match(space, space.w_AttributeError) or
+                e.match(space, space.fromcache(Cache).w_unsupportedoperation)):
+            raise
+    else:
+        w_os = space.call_method(space.builtin, '__import__', space.wrap('os'))
+        w_encoding = space.call_method(w_os, 'device_encoding', w_fileno)
+        if space.isinstance_w(w_encoding, space.w_unicode):
+            return w_encoding
+
+    try:
+        w_locale = space.call_method(space.builtin, '__import__',
+                                     space.wrap('locale'))
+        w_encoding = space.call_method(w_locale, 'getpreferredencoding')
+    except OperationError as e:
+        # getpreferredencoding() may also raise ImportError
+        if not e.match(space, space.w_ImportError):
+            raise
+        return space.wrap('ascii')
+    else:
+        if space.isinstance_w(w_encoding, space.w_unicode):
+            return w_encoding
+
+    raise OperationError(space.w_IOError, space.wrap(
+            "could not determine default encoding"))
+
 class PositionCookie(object):
     def __init__(self, bigint):
         self.start_pos = bigint.ulonglongmask()
@@ -335,32 +370,8 @@ class W_TextIOWrapper(W_TextIOBase):
                    w_errors=None, w_newline=None, line_buffering=0,
                    write_through=0):
         self.state = STATE_ZERO
-
         self.w_buffer = w_buffer
-
-        # Set encoding
-        self.w_encoding = None
-        if encoding is None:
-            try:
-                w_locale = space.call_method(space.builtin, '__import__',
-                                             space.wrap("locale"))
-                self.w_encoding = space.call_method(w_locale,
-                                                    "getpreferredencoding")
-            except OperationError, e:
-                # getpreferredencoding() may also raise ImportError
-                if not e.match(space, space.w_ImportError):
-                    raise
-                self.w_encoding = space.wrap("ascii")
-            else:
-                if not space.isinstance_w(self.w_encoding, space.w_unicode):
-                    self.w_encoding = None
-        if self.w_encoding:
-            pass
-        elif encoding is not None:
-            self.w_encoding = space.wrap(encoding)
-        else:
-            raise OperationError(space.w_IOError, space.wrap(
-                "could not determine default encoding"))
+        self.w_encoding = _determine_encoding(space, encoding, w_buffer)
 
         if space.is_none(w_errors):
             w_errors = space.wrap("strict")

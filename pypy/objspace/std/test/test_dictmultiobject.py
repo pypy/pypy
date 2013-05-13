@@ -1,14 +1,14 @@
-import py
+# encoding: utf-8
 import sys
-from pypy.interpreter.error import OperationError
-from pypy.objspace.std.dictmultiobject import \
-     W_DictMultiObject, setitem__DictMulti_ANY_ANY, getitem__DictMulti_ANY, \
-     StringDictStrategy, ObjectDictStrategy
+import py
 
-class TestW_DictObject:
+from pypy.objspace.std.dictmultiobject import (W_DictMultiObject,
+    setitem__DictMulti_ANY_ANY, getitem__DictMulti_ANY, StringDictStrategy,
+    ObjectDictStrategy)
 
+
+class TestW_DictObject(object):
     def test_empty(self):
-        space = self.space
         d = self.space.newdict()
         assert not self.space.is_true(d)
         assert type(d.strategy) is not ObjectDictStrategy
@@ -126,6 +126,7 @@ class TestW_DictObject:
         assert self.space.eq_w(space.call_function(get, w("33"), w(44)), w(44))
 
     def test_fromkeys_fastpath(self):
+        py.test.py3k_skip("XXX: strategies are currently broken")
         space = self.space
         w = space.wrap
         wb = space.wrapbytes
@@ -138,6 +139,7 @@ class TestW_DictObject:
         assert space.eq_w(w_d.getitem_str("b"), space.w_None)
 
     def test_listview_str_dict(self):
+        py.test.py3k_skip("XXX: strategies are currently broken")
         w = self.space.wrap
         wb = self.space.wrapbytes
         w_d = self.space.newdict()
@@ -158,6 +160,7 @@ class TestW_DictObject:
         assert self.space.listview_int(w_d) == [1, 2]
 
     def test_keys_on_string_unicode_int_dict(self, monkeypatch):
+        py.test.py3k_skip("XXX: strategies are currently broken")
         w = self.space.wrap
         wb = self.space.wrapbytes
         
@@ -719,6 +722,8 @@ class AppTestDictViews:
         assert isinstance(r, str)
         assert (r == "dict_values(['ABC', 10])" or
                 r == "dict_values([10, 'ABC'])")
+        d = {'日本': '日本国'}
+        assert repr(d.items()) == "dict_items([('日本', '日本国')])"
 
     def test_keys_set_operations(self):
         d1 = {'a': 1, 'b': 2}
@@ -1044,6 +1049,7 @@ class FakeSpace:
             return str
         return type(w_obj)
     w_str = str
+
     def str_w(self, string):
         assert isinstance(string, str)
         return string
@@ -1055,8 +1061,9 @@ class FakeSpace:
     def wrap(self, obj):
         return obj
 
-    def isinstance(self, obj, klass):
+    def isinstance_w(self, obj, klass):
         return isinstance(obj, klass)
+    isinstance = isinstance_w
 
     def newtuple(self, l):
         return tuple(l)
@@ -1288,6 +1295,7 @@ class TestStrDictImplementation(BaseTestRDictImplementation):
         assert s.unwrapped
 
     def test_view_as_kwargs(self):
+        py.test.py3k_skip("XXX: strategies are currently broken")
         self.fill_impl()
         assert self.fakespace.view_as_kwargs(self.impl) == (["fish", "fish2"], [1000, 2000])
 
@@ -1308,6 +1316,7 @@ class TestDevolvedStrDictImplementation(BaseTestDevolvedDictImplementation):
 
 
 def test_module_uses_strdict():
+    py.test.py3k_skip("XXX: strategies are currently broken")
     fakespace = FakeSpace()
     d = fakespace.newdict(module=True)
     assert type(d.strategy) is StringDictStrategy

@@ -1,8 +1,7 @@
-# Package initialisation
 from pypy.interpreter.mixedmodule import MixedModule
 from rpython.rtyper.module.ll_os import RegisterOs
 
-import os, sys
+import os
 exec 'import %s as posix' % os.name
 
 # this is the list of function which is *not* present in the posix module of
@@ -89,6 +88,7 @@ corresponding Unix manual entries for more information on calls."""
     'kill'      : 'interp_posix.kill',
     'abort'     : 'interp_posix.abort',
     'urandom'   : 'interp_posix.urandom',
+    'device_encoding' : 'interp_posix.device_encoding',
     }
 
     if hasattr(os, 'chown'):

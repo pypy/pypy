@@ -2,7 +2,7 @@
 import py
 from pypy.module._codecs import interp_codecs
 from pypy.module._codecs.locale import (
-    unicode_decode_locale_surrogateescape,
+    str_decode_locale_surrogateescape,
     unicode_encode_locale_surrogateescape)
 from rpython.rlib import rlocale, runicode
 
@@ -54,7 +54,7 @@ class TestLocaleCodec(object):
 
     def test_decode_locale(self):
         self.setlocale("en_US.UTF-8")
-        locale_decoder = unicode_decode_locale_surrogateescape
+        locale_decoder = str_decode_locale_surrogateescape
         utf8_decoder = self.getdecoder('utf-8')
         for val in 'foo', ' \xe6\x97\xa5\xe6\x9c\xac', '\xf0\x93\x88\x8c':
             assert (locale_decoder(val) ==
@@ -62,7 +62,7 @@ class TestLocaleCodec(object):
 
     def test_decode_locale_errorhandler(self):
         self.setlocale("en_US.UTF-8")
-        locale_decoder = unicode_decode_locale_surrogateescape
+        locale_decoder = str_decode_locale_surrogateescape
         utf8_decoder = self.getdecoder('utf-8')
         decode_error_handler = self.getstate().decode_error_handler
         val = 'foo\xe3bar'

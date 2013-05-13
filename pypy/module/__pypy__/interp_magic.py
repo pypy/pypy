@@ -88,13 +88,6 @@ def validate_fd(space, fd):
     except OSError, e:
         raise wrap_oserror(space, e)
 
-def get_console_cp(space):
-    from rpython.rlib import rwin32    # Windows only
-    return space.newtuple([
-        space.wrap('cp%d' % rwin32.GetConsoleCP()),
-        space.wrap('cp%d' % rwin32.GetConsoleOutputCP()),
-        ])
-
 @unwrap_spec(sizehint=int)
 def resizelist_hint(space, w_iterable, sizehint):
     if not isinstance(w_iterable, W_ListObject):

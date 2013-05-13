@@ -50,7 +50,7 @@ def goal_options():
     return result
 
 translate_optiondescr = OptionDescription("translate", "XXX", [
-    StrOption("targetspec", "XXX", default='../../../pypy/goal/targetpypystandalone',
+    StrOption("targetspec", "XXX", default='targetpypystandalone',
               cmdline=None),
     ChoiceOption("opt",
                  "optimization level", OPT_LEVELS, default=DEFAULT_OPT_LEVEL,
@@ -146,6 +146,10 @@ def parse_options_and_load_target():
             sys.exit(1)
     else:
         show_help(translateconfig, opt_parser, None, config)
+
+    # print the version of the host
+    # (if it's PyPy, it includes the hg checksum)
+    log.info(sys.version)
 
     # apply the platform settings
     set_platform(config)

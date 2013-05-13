@@ -53,26 +53,25 @@ class AppTestCodecs:
     def test_unicodedecodeerror(self):
         assert str(UnicodeDecodeError(
             "ascii", b"g\xfcrk", 1, 2, "ouch")) == "'ascii' codec can't decode byte 0xfc in position 1: ouch"
-        
+
         assert str(UnicodeDecodeError(
             "ascii", b"g\xfcrk", 1, 3, "ouch")) == "'ascii' codec can't decode bytes in position 1-2: ouch"
-        
 
     def test_unicodetranslateerror(self):
         import sys
         assert str(UnicodeTranslateError(
             "g\xfcrk", 1, 2, "ouch"))== "can't translate character '\\xfc' in position 1: ouch"
-        
+
         assert str(UnicodeTranslateError(
             "g\u0100rk", 1, 2, "ouch"))== "can't translate character '\\u0100' in position 1: ouch"
-        
+
         assert str(UnicodeTranslateError(
             "g\uffffrk", 1, 2, "ouch"))== "can't translate character '\\uffff' in position 1: ouch"
-        
+
         if sys.maxunicode > 0xffff and len(chr(0x10000)) == 1:
             assert str(UnicodeTranslateError(
                 "g\U00010000rk", 1, 2, "ouch"))== "can't translate character '\\U00010000' in position 1: ouch"
-            
+
         assert str(UnicodeTranslateError(
             "g\xfcrk", 1, 3, "ouch"))=="can't translate characters in position 1-2: ouch"
 
@@ -80,22 +79,22 @@ class AppTestCodecs:
         import sys
         assert str(UnicodeEncodeError(
             "ascii", "g\xfcrk", 1, 2, "ouch"))=="'ascii' codec can't encode character '\\xfc' in position 1: ouch"
-            
+
         assert str(UnicodeEncodeError(
             "ascii", "g\xfcrk", 1, 4, "ouch"))== "'ascii' codec can't encode characters in position 1-3: ouch"
-            
+
         assert str(UnicodeEncodeError(
             "ascii", "\xfcx", 0, 1, "ouch"))=="'ascii' codec can't encode character '\\xfc' in position 0: ouch"
 
         assert str(UnicodeEncodeError(
             "ascii", "\u0100x", 0, 1, "ouch"))=="'ascii' codec can't encode character '\\u0100' in position 0: ouch"
-       
+
         assert str(UnicodeEncodeError(
             "ascii", "\uffffx", 0, 1, "ouch"))=="'ascii' codec can't encode character '\\uffff' in position 0: ouch"
         if sys.maxunicode > 0xffff and len(chr(0x10000)) == 1:
             assert str(UnicodeEncodeError(
                 "ascii", "\U00010000x", 0, 1, "ouch")) =="'ascii' codec can't encode character '\\U00010000' in position 0: ouch"
-    
+
     def test_indexerror(self):
         import _codecs
         test =   b"\\"     # trailing backslash
@@ -137,7 +136,7 @@ class AppTestPartialEvaluation:
                 "\x00\xff\u07ff\u0800",
                 "\x00\xff\u07ff\u0800\uffff",
             ]
-            
+
         buffer = b''
         result = ""
         for (c, partialresult) in zip("\x00\xff\u07ff\u0800\uffff".encode(encoding), check_partial):
@@ -174,13 +173,12 @@ class AppTestPartialEvaluation:
             assert result == partialresult
 
     def test_bug1098990_a(self):
-
         import codecs, io
         self.encoding = 'utf-8'
         s1 = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\r\n"
         s2 = "offending line: ladfj askldfj klasdj fskla dfzaskdj fasklfj laskd fjasklfzzzzaa%whereisthis!!!\r\n"
         s3 = "next line.\r\n"
-       
+
         s = (s1+s2+s3).encode(self.encoding)
         stream = io.BytesIO(s)
         reader = codecs.getreader(self.encoding)(stream)
@@ -206,8 +204,8 @@ class AppTestPartialEvaluation:
         assert reader.readline() == s3
         assert reader.readline() == s4
         assert reader.readline() == s5
-        assert reader.readline() == ""    
-    
+        assert reader.readline() == ""
+
     def test_seek_utf16le(self):
         # all codecs should be able to encode these
         import codecs, io
@@ -219,7 +217,6 @@ class AppTestPartialEvaluation:
             reader.seek(0, 0)
             line = reader.readline()
             assert s[:len(line)] == line
-
 
     def test_unicode_internal_encode(self):
         import sys
@@ -289,6 +286,13 @@ class AppTestPartialEvaluation:
         assert _codecs.escape_decode(b'\\01')[0] == b'\x01'
         assert _codecs.escape_decode(b'\\0f')[0] == b'\0' + b'f'
         assert _codecs.escape_decode(b'\\08')[0] == b'\0' + b'8'
+
+    def test_escape_decode_errors(self):
+        import _codecs
+        raises(ValueError, _codecs.escape_decode, br"\x")
+        raises(ValueError, _codecs.escape_decode, br"[\x]")
+        raises(ValueError, _codecs.escape_decode, br"\x0")
+        raises(ValueError, _codecs.escape_decode, br"[\x0]")
 
     def test_escape_encode(self):
         import _codecs
@@ -515,6 +519,10 @@ class AppTestPartialEvaluation:
                 b"abc\xed\xa0\x80def")
         assert (b"abc\xed\xa0\x80def".decode("utf-8", "surrogatepass") ==
                 "abc\ud800def")
+        assert ('surrogate:\udcff'.encode("utf-8", "surrogatepass") ==
+                b'surrogate:\xed\xb3\xbf')
+        assert (b'surrogate:\xed\xb3\xbf'.decode("utf-8", "surrogatepass") ==
+                'surrogate:\udcff')
         raises(UnicodeDecodeError, b"abc\xed\xa0".decode, "utf-8",
                "surrogatepass")
         raises(UnicodeDecodeError, b"abc\xed\xa0z".decode, "utf-8",
@@ -660,5 +668,7 @@ class AppTestPartialEvaluation:
             return
         assert 'test'.encode('mbcs') == b'test'
         assert 'caf\xe9'.encode('mbcs') == b'caf\xe9'
-        assert '\u040a'.encode('mbcs') == b'?' # some cyrillic letter
-        assert 'cafx\e9'.decode('mbcs') == b'cafx\e9'
+        raises(UnicodeEncodeError, '\u040a'.encode, 'mbcs')
+        raises(UnicodeEncodeError,
+               "-\u5171\u0141\u2661\u0363\uDC80".encode, 'mbcs')
+        assert b'cafx\e9'.decode('mbcs') == 'cafx\e9'

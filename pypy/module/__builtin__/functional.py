@@ -3,14 +3,13 @@ Interp-level definition of frequently used functionals.
 
 """
 
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.typedef import TypeDef
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import r_uint, intmask
-from rpython.rlib.rbigint import rbigint
 
 
 def get_len_of_range(lo, hi, step):
@@ -104,9 +103,9 @@ def compute_slice_indices3(space, w_slice, w_length):
     return w_start, w_stop, w_step
     
 min_jitdriver = jit.JitDriver(name='min',
-        greens=['w_type'], reds='auto')
+        greens=['has_key', 'has_item', 'w_type'], reds='auto')
 max_jitdriver = jit.JitDriver(name='max',
-        greens=['w_type'], reds='auto')
+        greens=['has_key', 'has_item', 'w_type'], reds='auto')
 
 def make_min_max(unroll):
     @specialize.arg(2)
@@ -136,23 +135,26 @@ def make_min_max(unroll):
 
         w_iter = space.iter(w_sequence)
         w_type = space.type(w_iter)
+        has_key = w_key is not None
+        has_item = False
         w_max_item = None
         w_max_val = None
         while True:
             if not unroll:
-                jitdriver.jit_merge_point(w_type=w_type)
+                jitdriver.jit_merge_point(has_key=has_key, has_item=has_item, w_type=w_type)
             try:
                 w_item = space.next(w_iter)
             except OperationError, e:
                 if not e.match(space, space.w_StopIteration):
                     raise
                 break
-            if w_key is not None:
+            if has_key:
                 w_compare_with = space.call_function(w_key, w_item)
             else:
                 w_compare_with = w_item
-            if w_max_item is None or \
+            if not has_item or \
                     space.is_true(compare(w_compare_with, w_max_val)):
+                has_item = True
                 w_max_item = w_item
                 w_max_val = w_compare_with
         if w_max_item is None:
@@ -168,8 +170,8 @@ min_max_normal = make_min_max(False)
 
 @specialize.arg(2)
 def min_max(space, args, implementation_of):
-    if not jit.we_are_jitted() or (jit.isconstant(len(args.arguments_w)) and
-            len(args.arguments_w) == 2):
+    if not jit.we_are_jitted() or len(args.arguments_w) != 1 and \
+            jit.loop_unrolling_heuristic(args.arguments_w, len(args.arguments_w)):
         return min_max_unroll(space, args, implementation_of)
     else:
         return min_max_normal(space, args, implementation_of)
@@ -193,8 +195,8 @@ def min(space, __args__):
     """
     return min_max(space, __args__, "min")
 
-class W_Enumerate(Wrappable):
 
+class W_Enumerate(W_Root):
     def __init__(self, w_iter, w_start):
         self.w_iter = w_iter
         self.w_index = w_start
@@ -245,8 +247,8 @@ def reversed(space, w_sequence):
         return space.call_function(w_reversed)
     return space.wrap(W_ReversedIterator(space, w_sequence))
 
-class W_ReversedIterator(Wrappable):
 
+class W_ReversedIterator(W_Root):
     def __init__(self, space, w_sequence):
         self.remaining = space.len_w(w_sequence) - 1
         if space.lookup(w_sequence, "__getitem__") is None:
@@ -291,6 +293,7 @@ W_ReversedIterator.typedef = TypeDef("reversed",
     __next__        = interp2app(W_ReversedIterator.descr_next),
     __reduce__      = interp2app(W_ReversedIterator.descr___reduce__),
 )
+W_ReversedIterator.typedef.acceptable_as_base_class = False
 
 # exported through _pickle_support
 def _make_reversed(space, w_seq, w_remaining):
@@ -302,7 +305,7 @@ def _make_reversed(space, w_seq, w_remaining):
 
 
 
-class W_Range(Wrappable):
+class W_Range(W_Root):
     def __init__(self, w_start, w_stop, w_step, w_length):
         self.w_start = w_start
         self.w_stop  = w_stop
@@ -419,24 +422,31 @@ class W_Range(Wrappable):
         return True
 
     def descr_contains(self, space, w_item):
-        try:
-            int_value = space.int_w(w_item)
-        except OperationError, e:
-            if not e.match(space, space.w_TypeError):
-                raise
-            return space.sequence_contains(self, w_item)
-        else:
+        w_type = space.type(w_item)
+        if space.is_w(w_type, space.w_int) or space.is_w(w_type, space.w_bool):
             return space.newbool(self._contains_long(space, w_item))
+        else:
+            return space.sequence_contains(self, w_item)
 
     def descr_count(self, space, w_item):
-        try:
-            int_value = space.int_w(w_item)
-        except OperationError, e:
-            if not e.match(space, space.w_TypeError):
-                raise
-            return space.sequence_count(self, w_item)
-        else:
+        w_type = space.type(w_item)
+        if space.is_w(w_type, space.w_int) or space.is_w(w_type, space.w_bool):
             return space.newint(self._contains_long(space, w_item))
+        else:
+            return space.sequence_count(self, w_item)
+
+    def descr_index(self, space, w_item):
+        w_type = space.type(w_item)
+        if not (space.is_w(w_type, space.w_int) or
+                space.is_w(w_type, space.w_bool)):
+            return space.sequence_index(self, w_item)
+
+        if not self._contains_long(space, w_item):
+            item_repr = space.unicode_w(space.repr(w_item))
+            msg = u"%s is not in range" % item_repr
+            raise OperationError(space.w_ValueError, space.wrap(msg))
+        w_index = space.sub(w_item, self.w_start)
+        return space.floordiv(w_index, self.w_step)
 
 
 W_Range.typedef = TypeDef("range",
@@ -449,9 +459,11 @@ W_Range.typedef = TypeDef("range",
     __reduce__       = interp2app(W_Range.descr_reduce),
     __contains__     = interp2app(W_Range.descr_contains),
     count            = interp2app(W_Range.descr_count),
+    index            = interp2app(W_Range.descr_index),
 )
+W_Range.typedef.acceptable_as_base_class = False
 
-class W_RangeIterator(Wrappable):
+class W_RangeIterator(W_Root):
     def __init__(self, space, w_start, w_step, w_len, w_index=None):
         self.w_start = w_start
         self.w_step = w_step
@@ -493,9 +505,10 @@ W_RangeIterator.typedef = TypeDef("rangeiterator",
     __next__        = interp2app(W_RangeIterator.descr_next),
     __reduce__      = interp2app(W_RangeIterator.descr_reduce),
 )
+W_RangeIterator.typedef.acceptable_as_base_class = False
 
 
-class W_Map(Wrappable):
+class W_Map(W_Root):
     _error_name = "map"
     _immutable_fields_ = ["w_fun", "iterators_w"]
 
@@ -562,7 +575,7 @@ W_Map.typedef = TypeDef(
 Make an iterator that computes the function using arguments from
 each of the iterables.  Stops when the shortest iterable is exhausted.""")
 
-class W_Filter(Wrappable):
+class W_Filter(W_Root):
     reverse = False
 
     def __init__(self, space, w_predicate, w_iterable):

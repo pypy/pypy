@@ -52,10 +52,9 @@ class W_CTypePtrOrArray(W_CType):
         if self.size < 0:
             return W_CType.cast(self, w_ob)
         space = self.space
-        ob = space.interpclass_w(w_ob)
-        if (isinstance(ob, cdataobj.W_CData) and
-                isinstance(ob.ctype, W_CTypePtrOrArray)):
-            value = ob._cdata
+        if (isinstance(w_ob, cdataobj.W_CData) and
+                isinstance(w_ob.ctype, W_CTypePtrOrArray)):
+            value = w_ob._cdata
         else:
             value = misc.as_unsigned_long(space, w_ob, strict=False)
             value = rffi.cast(rffi.CCHARP, value)
@@ -154,14 +153,9 @@ class W_CTypePtrBase(W_CTypePtrOrArray):
 
     def convert_from_object(self, cdata, w_ob):
         space = self.space
-        ob = space.interpclass_w(w_ob)
-        if not isinstance(ob, cdataobj.W_CData):
-            if misc.is_zero(space, w_ob):
-                NULL = lltype.nullptr(rffi.CCHARP.TO)
-                rffi.cast(rffi.CCHARPP, cdata)[0] = NULL
-                return
+        if not isinstance(w_ob, cdataobj.W_CData):
             raise self._convert_error("cdata pointer", w_ob)
-        other = ob.ctype
+        other = w_ob.ctype
         if not isinstance(other, W_CTypePtrBase):
             from pypy.module._cffi_backend import ctypearray
             if isinstance(other, ctypearray.W_CTypeArray):
@@ -172,7 +166,7 @@ class W_CTypePtrBase(W_CTypePtrOrArray):
             if not (self.can_cast_anything or other.can_cast_anything):
                 raise self._convert_error("compatible pointer", w_ob)
 
-        rffi.cast(rffi.CCHARPP, cdata)[0] = ob._cdata
+        rffi.cast(rffi.CCHARPP, cdata)[0] = w_ob._cdata
 
     def _alignof(self):
         from pypy.module._cffi_backend import newtype
@@ -254,23 +248,14 @@ class W_CTypePointer(W_CTypePtrBase):
 
     def prepare_file(self, w_ob):
         from pypy.module._io.interp_iobase import W_IOBase
-        ob = self.space.interpclass_w(w_ob)
-        if isinstance(ob, W_IOBase):
-            return prepare_iofile_argument(self.space, w_ob)
+        if isinstance(w_ob, W_IOBase):
+            return prepare_file_argument(self.space, w_ob)
         else:
             return lltype.nullptr(rffi.CCHARP.TO)
 
     def _prepare_pointer_call_argument(self, w_init, cdata):
         space = self.space
-        if misc.is_zero(space, w_init):
-            # Convert 0 to NULL.  Note that passing 0 is not ambigous,
-            # despite the potential confusion: as a 'T*' argument, 0 means
-            # NULL, but as a 'T[]' argument it would mean "array of size 0"
-            # --- except that we specifically refuse to interpret numbers
-            # as the array size when passing arguments.
-            rffi.cast(rffi.CCHARPP, cdata)[0] = lltype.nullptr(rffi.CCHARP.TO)
-            return 3
-        elif (space.isinstance_w(w_init, space.w_list) or
+        if (space.isinstance_w(w_init, space.w_list) or
             space.isinstance_w(w_init, space.w_tuple)):
             length = space.int_w(space.len(w_init))
         elif (space.isinstance_w(w_init, space.w_unicode) or
@@ -309,8 +294,7 @@ class W_CTypePointer(W_CTypePtrBase):
     def convert_argument_from_object(self, cdata, w_ob):
         from pypy.module._cffi_backend.ctypefunc import set_mustfree_flag
         space = self.space
-        ob = space.interpclass_w(w_ob)
-        result = (not isinstance(ob, cdataobj.W_CData) and
+        result = (not isinstance(w_ob, cdataobj.W_CData) and
                   self._prepare_pointer_call_argument(w_ob, cdata))
         if result == 0:
             self.convert_from_object(cdata, w_ob)
@@ -363,12 +347,11 @@ class CffiFileObj(object):
         rffi_fclose(self.llf)
 
 
-def prepare_iofile_argument(space, w_fileobj):
-    fileobj = space.interpclass_w(w_fileobj)
+def prepare_file_argument(space, w_fileobj):
     from pypy.module._io.interp_iobase import W_IOBase
-    assert isinstance(fileobj, W_IOBase)
+    assert isinstance(w_fileobj, W_IOBase)
     space.call_method(w_fileobj, "flush")
-    if fileobj.cffi_fileobj is None:
+    if w_fileobj.cffi_fileobj is None:
         fd = space.int_w(space.call_method(w_fileobj, "fileno"))
         if fd < 0:
             raise OperationError(space.w_ValueError,
@@ -376,8 +359,7 @@ def prepare_iofile_argument(space, w_fileobj):
         fd = os.dup(fd)
         mode = space.str_w(space.getattr(w_fileobj, space.wrap("mode")))
         try:
-            fileobj.cffi_fileobj = CffiFileObj(fd, mode)
+            w_fileobj.cffi_fileobj = CffiFileObj(fd, mode)
         except OSError, e:
             raise wrap_oserror(space, e)
-    return fileobj.cffi_fileobj.llf
-
+    return w_fileobj.cffi_fileobj.llf

@@ -553,10 +553,6 @@ def make_wrapper(space, callable):
     def wrapper(*args):
         from pypy.module.cpyext.pyobject import make_ref, from_ref
         from pypy.module.cpyext.pyobject import Reference
-        # we hope that malloc removal removes the newtuple() that is
-        # inserted exactly here by the varargs specializer
-        llop.gc_stack_bottom(lltype.Void)   # marker for trackgcroot.py
-        rffi.stackcounter.stacks_counter += 1
         retval = fatal_value
         boxed_args = ()
         try:
@@ -625,7 +621,6 @@ def make_wrapper(space, callable):
             else:
                 print str(e)
                 pypy_debug_catch_fatal_exception()
-        rffi.stackcounter.stacks_counter -= 1
         return retval
     callable._always_inline_ = 'try'
     wrapper.__name__ = "wrapper for %r" % (callable, )
@@ -651,12 +646,13 @@ def setup_init_functions(eci, translating):
         lambda space: init_capsule(),
     ])
     from pypy.module.posix.interp_posix import add_fork_hook
-    if translating:
-        reinit_tls = rffi.llexternal('PyThread_ReInitTLS', [], lltype.Void,
-                                     compilation_info=eci)
-    else:
-        reinit_tls = rffi.llexternal('PyPyThread_ReInitTLS', [], lltype.Void,
-                                     compilation_info=eci)
+    prefix = 'Py' if translating else 'PyPy'
+    reinit_tls = rffi.llexternal(prefix + 'Thread_ReInitTLS', [], lltype.Void,
+                                 compilation_info=eci)
+    global py_fatalerror
+    py_fatalerror = rffi.llexternal(prefix + '_FatalError',
+                                    [CONST_STRING], lltype.Void,
+                                    compilation_info=eci)
     add_fork_hook('child', reinit_tls)
 
 def init_function(func):

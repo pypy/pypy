@@ -59,17 +59,18 @@ def traceback_new(space):
     tb = instantiate(PyTraceback)
     return space.wrap(tb)
 
-@unwrap_spec(running=int)
-def generator_new(space, w_frame, running):
-    frame = space.interp_w(PyFrame, w_frame, can_be_None=True)
-    new_generator = GeneratorIterator(frame)
-    new_generator.running = running
+def generator_new(space):
+    new_generator = instantiate(GeneratorIterator)
     return space.wrap(new_generator)
 
 def rangeiter_new(space, w_start, w_step, w_len, w_index):
     from pypy.module.__builtin__.functional import W_RangeIterator
     new_iter = W_RangeIterator(space, w_start, w_step, w_len, w_index)
     return space.wrap(new_iter)
+
+def operationerror_new(space):
+    from pypy.interpreter.pyopcode import W_OperationError
+    return W_OperationError(None)
 
 @unwrap_spec(identifier=str)
 def builtin_code(space, identifier):

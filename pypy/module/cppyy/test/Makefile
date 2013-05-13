@@ -3,11 +3,15 @@ overloadsDict.so stltypesDict.so operatorsDict.so fragileDict.so crossingDict.so
 std_streamsDict.so iotypesDict.so
 all : $(dicts)
 
-ROOTSYS := ${ROOTSYS}
+ifneq (${REFLEXHOME},)
+  ROOTSYS := ${REFLEXHOME}
+else
+  ROOTSYS := ${ROOTSYS}
+endif
 
 ifeq ($(ROOTSYS),)
   genreflex=genreflex
-  cppflags=
+  cppflags=-I$(shell root-config --incdir) -L$(shell root-config --libdir)
 else
   genreflex=$(ROOTSYS)/bin/genreflex
   ifeq ($(wildcard $(ROOTSYS)/include),)     # standard locations used?
@@ -19,7 +23,7 @@ endif
 
 PLATFORM := $(shell uname -s)
 ifeq ($(PLATFORM),Darwin)
-  cppflags+=-dynamiclib -single_module -arch x86_64
+  cppflags+=-dynamiclib -single_module -arch x86_64 -undefined dynamic_lookup
 endif
 
 ifeq ($(CINT),)

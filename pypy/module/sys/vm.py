@@ -1,8 +1,6 @@
 """
 Implementation of interpreter-level 'sys' routines.
 """
-import sys
-
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
@@ -10,15 +8,6 @@ from rpython.rlib import jit
 from rpython.rlib.runicode import MAXUNICODE
 
 # ____________________________________________________________
-
-def setbuiltinmodule(w_module, name):
-    """ put a module into the modules builtin_modules dicts """
-    if builtin_modules[name] is None:
-        builtin_modules[name] = space.unwrap(w_module)
-    else:
-        assert builtin_modules[name] is space.unwrap(w_module), (
-            "trying to change the builtin-in module %r" % (name,))
-    space.setitem(w_modules, space.wrap(name), w_module)
 
 @unwrap_spec(w_depth = WrappedDefault(0))
 def _getframe(space, w_depth):

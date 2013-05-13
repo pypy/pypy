@@ -2,6 +2,10 @@
 Common types, functions from core win32 libraries, such as kernel32
 """
 
+import os
+import errno
+
+from rpython.rtyper.module.ll_os_environ import make_env_impls
 from rpython.rtyper.tool import rffi_platform
 from rpython.tool.udir import udir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
@@ -9,7 +13,6 @@ from rpython.translator.platform import CompilationError
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib import jit
-import os, sys, errno
 
 # This module can be imported on any platform,
 # but most symbols are not usable...
@@ -88,6 +91,8 @@ class CConfig:
                        PROCESS_VM_OPERATION PROCESS_VM_READ
                        PROCESS_VM_WRITE
                        CTRL_C_EVENT CTRL_BREAK_EVENT
+                       MB_ERR_INVALID_CHARS ERROR_NO_UNICODE_TRANSLATION
+                       WC_NO_BEST_FIT_CHARS
                     """
         from rpython.translator.platform import host_factory
         static_platform = host_factory()
@@ -173,8 +178,13 @@ if WIN32:
                     int i;
                     for(i=1; i < 65000; i++) {
                         _dosmaperr(i);
-                        if (errno == EINVAL)
-                            continue;
+                        if (errno == EINVAL) {
+                            /* CPython issue #12802 */
+                            if (i == ERROR_DIRECTORY)
+                                errno = ENOTDIR;
+                            else
+                                continue;
+                        }
                         printf("%d\t%d\n", i, errno);
                     }
                     return 0;
@@ -196,7 +206,7 @@ if WIN32:
                 132: 13, 145: 41, 158: 13, 161: 2, 164: 11, 167: 13, 183: 17,
                 188: 8, 189: 8, 190: 8, 191: 8, 192: 8, 193: 8, 194: 8,
                 195: 8, 196: 8, 197: 8, 198: 8, 199: 8, 200: 8, 201: 8,
-                202: 8, 206: 2, 215: 11, 1816: 12,
+                202: 8, 206: 2, 215: 11, 267: 20, 1816: 12,
                 }
         else:
             output = os.popen(str(exename))
@@ -388,3 +398,5 @@ if WIN32:
                 raise lastWindowsError('os_kill failed to terminate process')
         finally:
             CloseHandle(handle)
+
+    _wenviron_items, _wgetenv, _wputenv = make_env_impls(win32=True)

@@ -157,8 +157,8 @@ def PyDict_Next(space, w_dict, ppos, pkey, pvalue):
     Py_ssize_t pos = 0;
 
     while (PyDict_Next(self->dict, &pos, &key, &value)) {
-        int i = PyInt_AS_LONG(value) + 1;
-        PyObject *o = PyInt_FromLong(i);
+        int i = PyLong_AS_LONG(value) + 1;
+        PyObject *o = PyLong_FromLong(i);
         if (o == NULL)
             return -1;
         if (PyDict_SetItem(self->dict, key, o) < 0) {

@@ -1,5 +1,5 @@
-from rpython.rlib.rarithmetic import LONG_BIT, intmask, longlongmask, r_uint, r_ulonglong, r_longlonglong
-from rpython.rlib.rarithmetic import ovfcheck, r_longlong, widen, is_valid_int
+from rpython.rlib.rarithmetic import LONG_BIT, intmask, longlongmask, r_uint, r_ulonglong
+from rpython.rlib.rarithmetic import ovfcheck, r_longlong, widen
 from rpython.rlib.rarithmetic import most_neg_value_of_same_type
 from rpython.rlib.rfloat import isinf, isnan
 from rpython.rlib.rstring import StringBuilder
@@ -1314,7 +1314,8 @@ def _k_mul(a, b):
 
     assert t1.sign >= 0
     assert 2*shift + t1.numdigits() <= ret.numdigits()
-    ret._digits[2*shift : 2*shift + t1.numdigits()] = t1._digits
+    for i in range(t1.numdigits()):
+        ret._digits[2*shift + i] = t1._digits[i]
 
     # Zero-out the digits higher than the ah*bh copy. */
     ## ignored, assuming that we initialize to zero
@@ -1327,7 +1328,8 @@ def _k_mul(a, b):
     t2 = al.mul(bl)
     assert t2.sign >= 0
     assert t2.numdigits() <= 2*shift # no overlap with high digits
-    ret._digits[:t2.numdigits()] = t2._digits
+    for i in range(t2.numdigits()):
+        ret._digits[i] = t2._digits[i]
 
     # Zero out remaining digits.
     ## ignored, assuming that we initialize to zero

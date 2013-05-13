@@ -18,7 +18,7 @@ def register_all(module_dict, *alt_ns):
     for name, obj in module_dict.items():
         if name.startswith('app_'):
             print "%s: direct app definitions deprecated" % name
-        if name.find('__')<1 or name.startswith('app_'):
+        if name.find('__')<1 or name.startswith('app_') or name.startswith('descr_'):
             continue
         funcname, sig = name.split('__')
         l = []

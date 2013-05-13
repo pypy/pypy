@@ -871,7 +871,7 @@ class Popen(object):
             elif stderr == PIPE:
                 errread, errwrite = _subprocess.CreatePipe(None, 0)
             elif stderr == STDOUT:
-                errwrite = c2pwrite
+                errwrite = c2pwrite.handle # pass id to not close it
             elif isinstance(stderr, int):
                 errwrite = msvcrt.get_osfhandle(stderr)
             else:
@@ -886,10 +886,14 @@ class Popen(object):
 
         def _make_inheritable(self, handle):
             """Return a duplicate of handle, which is inheritable"""
-            return _subprocess.DuplicateHandle(_subprocess.GetCurrentProcess(),
+            dupl = _subprocess.DuplicateHandle(_subprocess.GetCurrentProcess(),
                                 handle, _subprocess.GetCurrentProcess(), 0, 1,
                                 _subprocess.DUPLICATE_SAME_ACCESS)
-
+            # If the initial handle was obtained with CreatePipe, close
+            # it
+            if not isinstance(handle, int):
+                handle.Close()
+            return dupl
 
         def _find_w9xpopen(self):
             """Find and return absolut path to w9xpopen.exe"""

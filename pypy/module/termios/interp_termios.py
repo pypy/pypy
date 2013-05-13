@@ -4,10 +4,7 @@ little use of termios module on RPython level by itself
 """
 
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.interpreter.error import OperationError, wrap_oserror
-from rpython.rtyper.module import ll_termios
-from rpython.rlib.objectmodel import we_are_translated
-import os
+from pypy.interpreter.error import wrap_oserror
 from rpython.rlib import rtermios
 import termios
 
@@ -26,7 +23,7 @@ def tcsetattr(space, w_fd, when, w_attributes):
              space.unpackiterable(w_attributes, expected_length=7)
     cc = []
     for w_c in space.unpackiterable(w_cc):
-        if space.is_true(space.isinstance(w_c, space.w_int)):
+        if space.isinstance_w(w_c, space.w_int):
             w_c = space.call_function(space.w_bytes, space.newlist([w_c]))
         cc.append(space.bytes_w(w_c))
     tup = (space.int_w(w_iflag), space.int_w(w_oflag),

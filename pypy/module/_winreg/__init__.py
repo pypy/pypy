@@ -1,5 +1,4 @@
 from pypy.interpreter.mixedmodule import MixedModule
-from pypy.module._winreg import interp_winreg
 from rpython.rlib.rwinreg import constants
 
 class Module(MixedModule):
@@ -38,6 +37,8 @@ error -- exception raised for Win32 errors
 Integer constants:
 Many constants are defined - see the documentation for each function
 to see what constants are used, and where."""
+
+    applevel_name = 'winreg'
 
     appleveldefs = {
     }

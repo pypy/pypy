@@ -158,6 +158,7 @@ class AppTestPosix:
         assert st.st_atime == 41
         assert st.st_mtime == 42.1
         assert st.st_ctime == 43
+        assert repr(st).startswith(self.posix.__name__ + '.stat_result')
 
     def test_stat_lstat(self):
         import stat
@@ -301,8 +302,14 @@ class AppTestPosix:
         assert expected in result
 
     def test_undecodable_filename(self):
+        import sys
         posix = self.posix
-        assert posix.access('caf\xe9', posix.R_OK) is False
+        try:
+            'caf\xe9'.encode(sys.getfilesystemencoding(), 'surrogateescape')
+        except UnicodeEncodeError:
+            pass # probably ascii
+        else:
+            assert posix.access('caf\xe9', posix.R_OK) is False
         assert posix.access(b'caf\xe9', posix.R_OK) is False
         assert posix.access('caf\udcc0', posix.R_OK) is False
         assert posix.access(b'caf\xc3', posix.R_OK) is False
@@ -442,16 +449,19 @@ class AppTestPosix:
             if not hasattr(os, "fork"):
                 skip("Need fork() to test execve()")
             try:
-                output = "caf\xe9 \u1234\n".encode(sys.getfilesystemencoding())
+                output = "caf\xe9 \u1234".encode(sys.getfilesystemencoding())
             except UnicodeEncodeError:
                 skip("encoding not good enough")
+            t = ' abc\uDCFF'
+            output += t.encode(sys.getfilesystemencoding(),
+                               'surrogateescape')
             pid = os.fork()
             if pid == 0:
                 os.execve("/bin/sh", ["sh", "-c",
-                                      "echo caf\xe9 \u1234 > onefile"],
-                          {'ddd': 'xxx'})
+                                      "echo caf\xe9 \u1234 $t > onefile"],
+                          {'ddd': 'xxx', 't': t})
             os.waitpid(pid, 0)
-            assert open("onefile", "rb").read() == output
+            assert open("onefile", "rb").read() == output + b'\n'
             os.unlink("onefile")
         pass # <- please, inspect.getsource(), don't crash
 
@@ -498,6 +508,7 @@ class AppTestPosix:
             # just see if it does anything
             path = sysdrv + 'hubber'
             assert os.sep in posix._getfullpathname(path)
+            assert type(posix._getfullpathname(b'C:')) is bytes
 
     def test_utime(self):
         os = self.posix
@@ -882,8 +893,8 @@ class AppTestPosix:
             bytes_dir = self.bytes_dir
             if bytes_dir is None:
                 skip("encoding not good enough")
-            dest = bytes_dir + b"%s/file.txt"
-            posix.symlink(bytes_dir + b"%s/somefile", dest)
+            dest = bytes_dir + b"/file.txt"
+            posix.symlink(bytes_dir + b"/somefile", dest)
             with open(dest) as f:
                 data = f.read()
                 assert data == "who cares?"
@@ -926,6 +937,12 @@ class AppTestPosix:
             assert False, "urandom() always returns the same string"
             # Or very unlucky
 
+    def test_device_encoding(self):
+        import sys
+        encoding = self.posix.device_encoding(sys.stdout.fileno())
+        # just ensure it returns something reasonable
+        assert encoding is None or type(encoding) is str
+
 
 class AppTestEnvironment(object):
     def setup_class(cls):
@@ -935,12 +952,37 @@ class AppTestEnvironment(object):
         cls.w_path = space.wrap(str(path))
 
     def test_environ(self):
-        posix = self.posix
+        import sys
+        environ = self.posix.environ
+        item_type = str if sys.platform.startswith('win') else bytes
+        for k, v in environ.items():
+            assert type(k) is item_type
+            assert type(v) is item_type
+        name = next(iter(environ))
+        assert environ[name] is not None
+        del environ[name]
+        raises(KeyError, lambda: environ[name])
+
+    @py.test.mark.dont_track_allocations('putenv intentionally keeps strings alive')
+    def test_environ_nonascii(self):
+        import sys
+        name, value = 'PYPY_TEST_日本', 'foobar日本'
+        if not sys.platform == 'win32':
+            fsencoding = sys.getfilesystemencoding()
+            for s in name, value:
+                try:
+                    s.encode(fsencoding, 'surrogateescape')
+                except UnicodeEncodeError:
+                    skip("Requires %s.encode(sys.getfilesystemencoding(), "
+                         "'surogateescape') to succeed (or win32)" % ascii(s))
+
         os = self.os
-        assert posix.environ[b'PATH']
-        del posix.environ[b'PATH']
-        def fn(): posix.environ[b'PATH']
-        raises(KeyError, fn)
+        os.environ[name] = value
+        assert os.environ[name] == value
+        assert os.getenv(name) == value
+        del os.environ[name]
+        assert os.environ.get(name) is None
+        assert os.getenv(name) is None
 
     if hasattr(__import__(os.name), "unsetenv"):
         def test_unsetenv_nonexisting(self):

@@ -1,16 +1,18 @@
 import operator
-from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std import model, newformat
+from pypy.objspace.std.floattype import float_typedef, W_AbstractFloatObject
 from pypy.objspace.std.multimethod import FailedToImplementArgs
 from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.noneobject import W_NoneObject
-from pypy.objspace.std.longobject import W_LongObject
-from rpython.rlib.rarithmetic import ovfcheck_float_to_int, intmask, LONG_BIT
+from pypy.objspace.std.longobject import (
+    HASH_BITS, HASH_MODULUS, W_LongObject, newlong_from_float)
+from rpython.rlib.rarithmetic import (
+    LONG_BIT, intmask, ovfcheck_float_to_int, r_uint)
 from rpython.rlib.rfloat import (
     isinf, isnan, isfinite, INFINITY, NAN, copysign, formatd,
-    DTSF_ADD_DOT_0, DTSF_STR_PRECISION, float_as_rbigint_ratio)
+    DTSF_ADD_DOT_0, float_as_rbigint_ratio)
 from rpython.rlib.rbigint import rbigint
 from rpython.rlib import rfloat
 from rpython.tool.sourcetools import func_with_new_name
@@ -22,41 +24,32 @@ from pypy.objspace.std.intobject import W_IntObject
 HASH_INF  = 314159
 HASH_NAN  = 0
 
-class W_AbstractFloatObject(W_Object):
-    __slots__ = ()
-
-    def is_w(self, space, w_other):
-        from rpython.rlib.longlong2float import float2longlong
-        if not isinstance(w_other, W_AbstractFloatObject):
-            return False
-        if self.user_overridden_class or w_other.user_overridden_class:
-            return self is w_other
-        one = float2longlong(space.float_w(self))
-        two = float2longlong(space.float_w(w_other))
-        return one == two
-
-    def immutable_unique_id(self, space):
-        if self.user_overridden_class:
-            return None
-        from rpython.rlib.longlong2float import float2longlong
-        from pypy.objspace.std.model import IDTAG_FLOAT as tag
-        val = float2longlong(space.float_w(self))
-        b = rbigint.fromrarith_int(val)
-        b = b.lshift(3).or_(rbigint.fromint(tag))
-        return space.newlong_from_rbigint(b)
-
-
 class W_FloatObject(W_AbstractFloatObject):
     """This is a implementation of the app-level 'float' type.
     The constructor takes an RPython float as an argument."""
-    from pypy.objspace.std.floattype import float_typedef as typedef
     _immutable_fields_ = ['floatval']
+
+    typedef = float_typedef
 
     def __init__(w_self, floatval):
         w_self.floatval = floatval
 
     def unwrap(w_self, space):
         return w_self.floatval
+
+    def float_w(self, space):
+        return self.floatval
+
+    def int(self, space):
+        if (type(self) is not W_FloatObject and
+            space.is_overloaded(self, space.w_float, '__int__')):
+            return W_Object.int(self, space)
+        try:
+            value = ovfcheck_float_to_int(self.floatval)
+        except OverflowError:
+            return newlong_from_float(space, self.floatval)
+        else:
+            return space.newint(value)
 
     def __repr__(self):
         return "<W_FloatObject(%f)>" % self.floatval
@@ -89,27 +82,14 @@ def float__Float(space, w_float1):
     a = w_float1.floatval
     return W_FloatObject(a)
 
-def int__Float(space, w_value):
-    from pypy.objspace.std.longobject import newlong_from_float
-    try:
-        value = ovfcheck_float_to_int(w_value.floatval)
-    except OverflowError:
-        pass
-    else:
-        return space.newint(value)
-    return newlong_from_float(space, w_value.floatval)
-
 def trunc__Float(space, w_floatobj):
     whole = math.modf(w_floatobj.floatval)[1]
     try:
         value = ovfcheck_float_to_int(whole)
     except OverflowError:
-        return int__Float(space, w_floatobj)
+        return newlong_from_float(space, whole)
     else:
         return space.newint(value)
-
-def float_w__Float(space, w_float):
-    return w_float.floatval
 
 def _char_from_hex(number):
     return "0123456789abcdef"[number]
@@ -284,51 +264,37 @@ def hash__Float(space, w_value):
     return space.wrap(_hash_float(space, w_value.floatval))
 
 def _hash_float(space, v):
-    if isnan(v):
+    if not isfinite(v):
+        if isinf(v):
+            return HASH_INF if v > 0 else -HASH_INF
         return HASH_NAN
 
-    # This is designed so that Python numbers of different types
-    # that compare equal hash to the same value; otherwise comparisons
-    # of mapping keys will turn out weird.
-    fractpart, intpart = math.modf(v)
+    m, e = math.frexp(v)
 
-    if fractpart == 0.0:
-        # This must return the same hash as an equal int or long.
-        try:
-            x = ovfcheck_float_to_int(intpart)
-            # Fits in a C long == a Python int, so is its own hash.
-            return x
-        except OverflowError:
-            # Convert to long and use its hash.
-            try:
-                w_lval = W_LongObject.fromfloat(space, v)
-            except (OverflowError, ValueError):
-                # can't convert to long int -- arbitrary
-                if v < 0:
-                    return -HASH_INF
-                else:
-                    return HASH_INF
-            return space.int_w(space.hash(w_lval))
+    sign = 1
+    if m < 0:
+        sign = -1
+        m = -m
 
-    # The fractional part is non-zero, so we don't have to worry about
-    # making this match the hash of some other type.
-    # Use frexp to get at the bits in the double.
-    # Since the VAX D double format has 56 mantissa bits, which is the
-    # most of any double format in use, each of these parts may have as
-    # many as (but no more than) 56 significant bits.
-    # So, assuming sizeof(long) >= 4, each part can be broken into two
-    # longs; frexp and multiplication are used to do that.
-    # Also, since the Cray double format has 15 exponent bits, which is
-    # the most of any double format in use, shifting the exponent field
-    # left by 15 won't overflow a long (again assuming sizeof(long) >= 4).
+    # process 28 bits at a time;  this should work well both for binary
+    # and hexadecimal floating point.
+    x = r_uint(0)
+    while m:
+        x = ((x << 28) & HASH_MODULUS) | x >> (HASH_BITS - 28)
+        m *= 268435456.0  # 2**28
+        e -= 28
+        y = r_uint(m)  # pull out integer part
+        m -= y
+        x += y
+        if x >= HASH_MODULUS:
+            x -= HASH_MODULUS
 
-    v, expo = math.frexp(v)
-    v *= 2147483648.0  # 2**31
-    hipart = int(v)    # take the top 32 bits
-    v = (v - hipart) * 2147483648.0 # get the next 32 bits
-    x = intmask(hipart + int(v) + (expo << 15))
-    return x
+    # adjust for the exponent;  first reduce it modulo HASH_BITS
+    e = e % HASH_BITS if e >= 0 else HASH_BITS - 1 - ((-1 - e) % HASH_BITS)
+    x = ((x << e) & HASH_MODULUS) | x >> (HASH_BITS - e)
 
+    x = intmask(intmask(x) * sign)
+    return -2 if x == -1 else x
 
 
 def add__Float_Float(space, w_float1, w_float2):

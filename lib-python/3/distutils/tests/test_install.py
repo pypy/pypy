@@ -6,7 +6,7 @@ import sys
 import unittest
 import site
 
-from test.support import captured_stdout, check_impl_detail, run_unittest
+from test.support import captured_stdout, run_unittest
 
 from distutils import sysconfig
 from distutils.command.install import install
@@ -58,15 +58,14 @@ class InstallTestCase(support.TempdirManager,
             expected = os.path.normpath(expected)
             self.assertEqual(got, expected)
 
-        if check_impl_detail():
-            libdir = os.path.join(destination, "lib", "python")
-            check_path(cmd.install_lib, libdir)
-            check_path(cmd.install_platlib, libdir)
-            check_path(cmd.install_purelib, libdir)
-            check_path(cmd.install_headers,
-                       os.path.join(destination, "include", "python", "foopkg"))
-            check_path(cmd.install_scripts, os.path.join(destination, "bin"))
-            check_path(cmd.install_data, destination)
+        libdir = os.path.join(destination, "lib", "python")
+        check_path(cmd.install_lib, libdir)
+        check_path(cmd.install_platlib, libdir)
+        check_path(cmd.install_purelib, libdir)
+        check_path(cmd.install_headers,
+                   os.path.join(destination, "include", "python", "foopkg"))
+        check_path(cmd.install_scripts, os.path.join(destination, "bin"))
+        check_path(cmd.install_data, destination)
 
     def test_user_site(self):
         # test install with --user

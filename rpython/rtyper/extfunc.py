@@ -1,7 +1,6 @@
 from rpython.rtyper import extregistry
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.lltypesystem.lltype import typeOf
-from rpython.flowspace.model import Constant
 from rpython.annotator import model as annmodel
 from rpython.annotator.signature import annotation
 
@@ -29,14 +28,9 @@ def lazy_register(func_or_list, register_func):
             register_external(funcs[0], *val.def_args, **val.def_kwds)
             return
         return val
-    except (SystemExit, MemoryError, KeyboardInterrupt), e:
+    except (SystemExit, MemoryError, KeyboardInterrupt):
         raise
     except:
-        if 0:
-            import traceback
-            print >> sys.stderr, 'WARNING: cannot register', func_or_list, ':'
-            traceback.print_exc()
-            import pdb; pdb.set_trace()
         exc, exc_inst, tb = sys.exc_info()
         for func in funcs:
             # if the function has already been registered and we got
@@ -124,23 +118,6 @@ class BaseLazyRegistering(object):
 
     def _freeze_(self):
         return True
-
-class genericcallable(object):
-    """ A way to specify the callable annotation, but deferred until
-    we have bookkeeper
-    """
-    def __init__(self, args, result=None):
-        self.args = args
-        self.result = result
-
-class _ext_callable(ExtRegistryEntry):
-    _type_ = genericcallable
-    # we defer a bit annotation here
-
-    def compute_result_annotation(self):
-        return annmodel.SomeGenericCallable([annotation(i, self.bookkeeper)
-                                             for i in self.instance.args],
-                           annotation(self.instance.result, self.bookkeeper))
 
 class ExtFuncEntry(ExtRegistryEntry):
     safe_not_sandboxed = False
@@ -249,7 +226,7 @@ def register_external(function, args, result=None, export_name=None,
     llfakeimpl, oofakeimpl: optional; if provided, they are called by the llinterpreter
     sandboxsafe: use True if the function performs no I/O (safe for --sandbox)
     """
-    
+
     if export_name is None:
         export_name = function.__name__
 
@@ -267,7 +244,7 @@ def register_external(function, args, result=None, export_name=None,
             signature_args = args
 
         signature_result = annotation(result, None)
-        name=export_name
+        name = export_name
         if llimpl:
             lltypeimpl = staticmethod(llimpl)
         if ooimpl:

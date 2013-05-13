@@ -133,11 +133,12 @@ static int _testfunc18(struct _testfunc17_s *ptr)
     return ptr->a1 + (int)ptr->a2;
 }
 
-static long double _testfunc19(long double x)
+static long double _testfunc19(long double x, int count)
 {
     int i;
-    for (i=0; i<28; i++)
-        x += x;
+    for (i=0; i<count; i++) {
+        x = 4*x - x*x;
+    }
     return x;
 }
 

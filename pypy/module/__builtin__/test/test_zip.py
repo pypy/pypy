@@ -1,39 +1,45 @@
 class AppTestZip:
 
-   def test_zip_no_arguments(self):
-      import sys
-      if sys.version_info < (2,4):
-          # Test 2.3 behaviour
-          raises(TypeError, zip)
-      else:
-         # Test 2.4 behaviour
-         assert list(zip()) ==  []
-         assert list(zip(*[])) == []
-   
-   def test_one_list(self):
-      assert list(zip([1, 2, 3])) == [(1,), (2,), (3,)]
+    def test_zip_no_arguments(self):
+        import sys
+        if sys.version_info < (2,4):
+            # Test 2.3 behaviour
+            raises(TypeError, zip)
+        else:
+            # Test 2.4 behaviour
+            assert list(zip()) ==  []
+            assert list(zip(*[])) == []
 
-   def test_three_lists_same_size(self):
-      assert list(zip([1, 2, 3], [3, 4, 5], [6, 7, 8])) == (
-                        [(1, 3, 6), (2, 4, 7), (3, 5, 8)])
+    def test_one_list(self):
+        assert list(zip([1, 2, 3])) == [(1,), (2,), (3,)]
 
-   def test_three_lists_different_sizes(self):
-      assert list(zip([1, 2], [3, 4, 5, 6], [6, 7, 8])) == (
-                        [(1, 3, 6), (2, 4, 7)])
+    def test_two_lists(self):
+        # uses a different code path
+        assert list(zip([1, 2, 3], [3, 4, 5])) == [(1, 3), (2, 4), (3, 5)]
+        assert list(zip([1, 2, 3], [3, 4])) == [(1, 3), (2, 4)]
+        assert list(zip([1, 2], [3, 4, 5])) == [(1, 3), (2, 4)]
 
-   def test_tuples(self):
-      assert list(zip((1, 2, 3))) == [(1,), (2,), (3,)]
+    def test_three_lists_same_size(self):
+        assert list(zip([1, 2, 3], [3, 4, 5], [6, 7, 8])) == (
+                          [(1, 3, 6), (2, 4, 7), (3, 5, 8)])
 
-   def test_string(self):
-      assert list(zip('hello')) == [('h',), ('e',), ('l',), ('l',), ('o',)]
+    def test_three_lists_different_sizes(self):
+        assert list(zip([1, 2], [3, 4, 5, 6], [6, 7, 8])) == (
+                          [(1, 3, 6), (2, 4, 7)])
 
-   def test_strings(self):
-      assert list(zip('hello', 'bye')) == (
-                       [('h', 'b'), ('e', 'y'), ('l', 'e')])
+    def test_tuples(self):
+        assert list(zip((1, 2, 3))) == [(1,), (2,), (3,)]
 
-   def test_mixed_types(self):
-      assert list(zip('hello', [1,2,3,4], (7,8,9,10))) == (
-                       [('h', 1, 7), ('e', 2, 8), ('l', 3, 9), ('l', 4, 10)])
+    def test_string(self):
+        assert list(zip('hello')) == [('h',), ('e',), ('l',), ('l',), ('o',)]
+
+    def test_strings(self):
+        assert list(zip('hello', 'bye')) == (
+                         [('h', 'b'), ('e', 'y'), ('l', 'e')])
+
+    def test_mixed_types(self):
+        assert list(zip('hello', [1,2,3,4], (7,8,9,10))) == (
+                         [('h', 1, 7), ('e', 2, 8), ('l', 3, 9), ('l', 4, 10)])
 
 class AppTestZip2:
     def test_zip(self):
@@ -45,11 +51,11 @@ class AppTestZip2:
         for x in obj_list:
             assert next(it) == (x, )
         raises(StopIteration, next, it)
-        
+
         it = zip([1, 2, 3], [4], [5, 6])
         assert next(it) == (1, 4, 5)
         raises(StopIteration, next, it)
-        
+
         it = zip([], [], [1], [])
         raises(StopIteration, next, it)
 
@@ -78,4 +84,3 @@ class AppTestZip2:
                 assert str(e).find("#" + str(x + 1) + " ") >= 0
             else:
                 fail("TypeError expected")
-

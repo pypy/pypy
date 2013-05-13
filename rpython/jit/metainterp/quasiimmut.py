@@ -1,4 +1,3 @@
-import weakref
 from rpython.rtyper.lltypesystem import lltype, rclass
 from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance
 from rpython.jit.metainterp.history import AbstractDescr

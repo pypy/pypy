@@ -50,11 +50,11 @@ class TestLongObject(BaseApiTest):
         assert api.PyLong_CheckExact(w_l)
 
         w_i = space.wrap(sys.maxint)
-        assert not api.PyLong_Check(w_i)
-        assert not api.PyLong_CheckExact(w_i)
+        assert api.PyLong_Check(w_i)
+        assert api.PyLong_CheckExact(w_i)
 
         L = space.appexec([], """():
-            class L(long):
+            class L(int):
                 pass
             return L
         """)
@@ -123,6 +123,12 @@ class TestLongObject(BaseApiTest):
         assert api._PyLong_NumBits(space.wrap(3)) == 2
         assert api._PyLong_NumBits(space.wrap(-3)) == 2
 
+    def test_as_ulongmask(self, space, api):
+        assert api.PyLong_AsUnsignedLongMask(
+            space.wrap(sys.maxsize * 2 + 1)) == sys.maxsize * 2 + 1
+        assert api.PyLong_AsUnsignedLongMask(
+            space.wrap(sys.maxsize * 2 + 2)) == 0
+
 class AppTestLongObject(AppTestCpythonExtensionBase):
     def test_fromunsignedlong(self):
         module = self.import_extension('foo', [
@@ -145,6 +151,15 @@ class AppTestLongObject(AppTestCpythonExtensionBase):
              """)])
         assert module.from_longlong() == -1
         assert module.from_unsignedlonglong() == (1<<64) - 1
+
+    def test_from_size_t(self):
+        module = self.import_extension('foo', [
+            ("from_unsignedlong", "METH_NOARGS",
+             """
+                 return PyLong_FromSize_t((size_t)-1);
+             """)])
+        import sys
+        assert module.from_unsignedlong() == 2 * sys.maxsize + 1
 
     def test_fromstring(self):
         module = self.import_extension('foo', [

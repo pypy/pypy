@@ -36,6 +36,10 @@ class TestPythonParserWithoutSpace:
         tree = self.parse("""foo = '日本'""", info=info)
         assert info.encoding == 'utf-8'
 
+    def test_unicode_identifier(self):
+        tree = self.parse("a日本 = 32")
+        tree = self.parse("日本 = 32")
+
     def test_syntax_error(self):
         parse = self.parse
         exc = py.test.raises(SyntaxError, parse, "name another for").value

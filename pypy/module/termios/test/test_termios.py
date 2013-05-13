@@ -42,7 +42,8 @@ class TestTermios(object):
         child.expect('attr= (\[.*?\[.*?\]\])')
         lst = eval(child.match.group(1))
         assert len(lst) == 7
-        assert len(lst[-1]) == 32 # XXX is this portable???
+         # Length of the last element is 32 on Linux, 20 on MacOSX.
+        assert len(lst[-1]) in (20, 32)
 
     def test_tcall(self):
         """ Again - a test that doesnt really test anything
@@ -63,10 +64,16 @@ class TestTermios(object):
         child.expect('ok!')
 
     def test_tcsetattr(self):
+        # The last element of the third parameter for termios.tcsetattr()
+        # can't be a constant, because it varies from one OS to another.
+        # (Its length must be 32 on Linux, 20 on MacOSX, for example.)
+        # Use termios.tcgetattr() to get a value that will hopefully be
+        # valid for whatever OS we are running on right now.
         source = py.code.Source("""
         import sys
         import termios
-        termios.tcsetattr(sys.stdin, 1, [16640, 4, 191, 2608, 15, 15, [b'\x03', b'\x1c', b'\x7f', b'\x15', b'\x04', 0, 1, b'\x00', b'\x11', b'\x13', b'\x1a', b'\x00', b'\x12', b'\x0f', b'\x17', b'\x16', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00']])
+        cc = termios.tcgetattr(sys.stdin)[-1]
+        termios.tcsetattr(sys.stdin, 1, [16640, 4, 191, 2608, 15, 15, cc])
         print('ok!')
         """)
         f = udir.join("test_tcsetattr.py")
@@ -75,7 +82,7 @@ class TestTermios(object):
         child.expect('ok!')
 
     def test_ioctl_termios(self):
-        source = py.code.Source("""
+        source = py.code.Source(r"""
         import termios
         import fcntl
         lgt = len(fcntl.ioctl(2, termios.TIOCGWINSZ, b'\000'*8))

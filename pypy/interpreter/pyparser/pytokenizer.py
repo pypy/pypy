@@ -44,6 +44,20 @@ def match_encoding_declaration(comment):
     return None
 
 
+def verify_identifier(token):
+    for c in token:
+        if ord(c) > 0x80:
+            break
+    else:
+        return True
+    try:
+        u = token.decode('utf-8')
+    except UnicodeDecodeError:
+        return False
+    from pypy.objspace.std.unicodeobject import _isidentifier
+    return _isidentifier(u)
+
+
 def generate_tokens(lines, flags):
     """
     This is a rewrite of pypy.module.parser.pytokenize.generate_tokens since
@@ -231,7 +245,11 @@ def generate_tokens(lines, flags):
                         tok = (tokens.STRING, token, lnum, start, line)
                         token_list.append(tok)
                         last_comment = ''
-                elif initial in namechars:                 # ordinary name
+                elif (initial in namechars or              # ordinary name
+                      ord(initial) >= 0x80):               # unicode identifier
+                    if not verify_identifier(token):
+                        raise TokenError("invalid character in identifier",
+                                         line, lnum, start + 1, token_list)
                     token_list.append((tokens.NAME, token, lnum, start, line))
                     last_comment = ''
                 elif initial == '\\':                      # continued stmt

@@ -6,6 +6,9 @@ currpath = py.path.local(__file__).dirpath()
 test_dct = str(currpath.join("example01Dict.so"))
 
 def setup_module(mod):
+    # force removal of ROOTSYS for this one test, which serves as a test itself
+    if os.getenv("ROOTSYS"):
+        os.unsetenv("ROOTSYS")
     if sys.platform == 'win32':
         py.test.skip("win32 not supported so far")
     err = os.system("cd '%s' && make example01Dict.so" % currpath)
@@ -365,8 +368,8 @@ class AppTestPYTHONIFY_UI:
         oldval = cppyy.gbl.ns_example01.gMyGlobalInt
         assert oldval == 99
 
-        proxy = cppyy.gbl.ns_example01.__class__.gMyGlobalInt
+        proxy = cppyy.gbl.ns_example01.__class__.__dict__['gMyGlobalInt']
         cppyy.gbl.ns_example01.gMyGlobalInt = 3
-        assert proxy.__get__(proxy) == 3
+        assert proxy.__get__(proxy, None) == 3
 
         cppyy.gbl.ns_example01.gMyGlobalInt = oldval

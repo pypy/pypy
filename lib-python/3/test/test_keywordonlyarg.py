@@ -78,7 +78,7 @@ class KeywordOnlyArgTestCase(unittest.TestCase):
             pass
         with self.assertRaises(TypeError) as exc:
             f(1, 2, 3)
-        expected = "f() takes at most 2 positional arguments (3 given)"
+        expected = "f() takes at most 2 arguments (3 given)"
         self.assertEqual(str(exc.exception), expected)
 
     def testSyntaxErrorForFunctionCall(self):

@@ -65,6 +65,8 @@ class TinyObjSpace(object):
                 continue
             if info is None:
                 py.test.skip("cannot runappdirect this test on top of CPython")
+            if ('translation.' + key) in info:
+                key = 'translation.' + key
             has = info.get(key, None)
             if has != value:
                 #print sys.pypy_translation_info
@@ -86,6 +88,13 @@ class TinyObjSpace(object):
     def wrap(self, obj):
         if isinstance(obj, str):
             return obj.decode('utf-8')
+        if isinstance(obj, dict):
+            return dict((self.wrap(k), self.wrap(v))
+                        for k, v in obj.iteritems())
+        if isinstance(obj, tuple):
+            return tuple(self.wrap(item) for item in obj)
+        if isinstance(obj, list):
+            return list(self.wrap(item) for item in obj)
         return obj
 
     def wrapbytes(self, obj):

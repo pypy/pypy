@@ -128,10 +128,10 @@ class ListTests:
         res = self.interp_operations(f, [], listops=True)
         assert res == 10
 
-    def test_arraycopy_bug(self): 
+    def test_arraycopy_bug(self):
         def f():
             l = [1, 2, 3, 4]
-            l2 = [1, 2, 3, 4]
+            l2 = [1, 2, 3, 5]
             l[2] = 13
             l2[0:len(l2)] = l[:]
             return l2[0] + l2[1] + l2[2] + l2[3]

@@ -44,7 +44,7 @@ class TestW_ComplexObject:
         test_cparse('(1-6j)', '1', '-6')
         test_cparse(' ( +3.14-6J )', '+3.14', '-6')
         test_cparse(' +J', '0.0', '1.0')
-        test_cparse(' -J', '-0.0', '-1.0')
+        test_cparse(' -J', '0.0', '-1.0')
 
     def test_unpackcomplex(self):
         space = self.space
@@ -134,6 +134,23 @@ class AppTestAppComplexTest:
                 return a - b.real < eps and b.imag < eps
             else:
                 return a - b < eps
+
+    def w_floats_identical(self, x, y):
+        from math import isnan, copysign
+        msg = 'floats {!r} and {!r} are not identical'
+
+        if isnan(x) or isnan(y):
+            if isnan(x) and isnan(y):
+                return
+        elif x == y:
+            if x != 0.0:
+                return
+            # both zero; check that signs match
+            elif copysign(1.0, x) == copysign(1.0, y):
+                return
+            else:
+                msg += ': zeros have different signs'
+        assert False, msg.format(x, y)
 
     def test_div(self):
         from random import random
@@ -419,6 +436,36 @@ class AppTestAppComplexTest:
         assert repr(complex(1e45)) == "(" + repr(1e45) + "+0j)"
         assert repr(complex(1e200*1e200)) == '(inf+0j)'
         assert repr(complex(1,-float("nan"))) == '(1+nanj)'
+
+    def test_repr_roundtrip(self):
+        # Copied from CPython
+        INF = float("inf")
+        NAN = float("nan")
+        vals = [0.0, 1e-500, 1e-315, 1e-200, 0.0123, 3.1415, 1e50, INF, NAN]
+        vals += [-v for v in vals]
+
+        # complex(repr(z)) should recover z exactly, even for complex
+        # numbers involving an infinity, nan, or negative zero
+        for x in vals:
+            for y in vals:
+                z = complex(x, y)
+                roundtrip = complex(repr(z))
+                self.floats_identical(z.real, roundtrip.real)
+                self.floats_identical(z.imag, roundtrip.imag)
+
+        # if we predefine some constants, then eval(repr(z)) should
+        # also work, except that it might change the sign of zeros
+        inf, nan = float('inf'), float('nan')
+        infj, nanj = complex(0.0, inf), complex(0.0, nan)
+        for x in vals:
+            for y in vals:
+                z = complex(x, y)
+                roundtrip = eval(repr(z))
+                # adding 0.0 has no effect beside changing -0.0 to 0.0
+                self.floats_identical(0.0 + z.real,
+                                      0.0 + roundtrip.real)
+                self.floats_identical(0.0 + z.imag,
+                                      0.0 + roundtrip.imag)
 
     def test_neg(self):
         assert -(1+6j) == -1-6j

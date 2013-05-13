@@ -161,7 +161,11 @@ class InterpreterState(object):
 @cpython_api([], PyThreadState, error=CANNOT_FAIL)
 def PyThreadState_Get(space):
     state = space.fromcache(InterpreterState)
-    return state.get_thread_state(space)
+    ts = state.get_thread_state(space)
+    if not ts:
+        from pypy.module.cpyext.api import py_fatalerror
+        py_fatalerror("PyThreadState_Get: no current thread")
+    return ts
 
 @cpython_api([], PyObject, error=CANNOT_FAIL)
 def PyThreadState_GetDict(space):

@@ -6,15 +6,15 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.module._cffi_backend import misc
 
 def test_checkmodule():
-    # W_CTypePointer.prepare_file() is not working without translating
-    # the _io module too
-    def dummy_prepare_file(self, w_ob):
+    # prepare_file_argument() is not working without translating the _file
+    # module too
+    def dummy_prepare_file_argument(space, fileobj):
         return lltype.nullptr(rffi.CCHARP.TO)
-    old = ctypeptr.W_CTypePointer.prepare_file
+    old = ctypeptr.prepare_file_argument
     try:
-        ctypeptr.W_CTypePointer.prepare_file = dummy_prepare_file
+        ctypeptr.prepare_file_argument = dummy_prepare_file_argument
         #
         checkmodule('_cffi_backend')
         #
     finally:
-        ctypeptr.W_CTypePointer.prepare_file = old
+        ctypeptr.prepare_file_argument = old

@@ -44,10 +44,11 @@ class DictProxyStrategy(DictStrategy):
                 raise
             if not w_type.is_cpytype():
                 raise
-            # xxx obscure workaround: allow cpyext to write to type->tp_dict
-            # xxx even in the case of a builtin type.
-            # xxx like CPython, we assume that this is only done early after
-            # xxx the type is created, and we don't invalidate any cache.
+            # Allow cpyext to write to type->tp_dict even in the case
+            # of a builtin type.
+            # Like CPython, we assume that this is only done early
+            # after the type is created, and we don't invalidate any
+            # cache.  User code shoud call PyType_Modified().
             w_type.dict_w[key] = w_value
 
     def setdefault(self, w_dict, w_key, w_default):
@@ -71,17 +72,21 @@ class DictProxyStrategy(DictStrategy):
     def length(self, w_dict):
         return len(self.unerase(w_dict.dstorage).dict_w)
 
-    def keys(self, w_dict):
+    def w_keys(self, w_dict):
         space = self.space
-        return space.newlist_str(self.unerase(w_dict.dstorage).dict_w.keys())
+        w_type = self.unerase(w_dict.dstorage)
+        return space.newlist([_wrapkey(space, key)
+                              for key in w_type.dict_w.iterkeys()])
 
     def values(self, w_dict):
         return [unwrap_cell(self.space, w_value) for w_value in self.unerase(w_dict.dstorage).dict_w.itervalues()]
 
     def items(self, w_dict):
         space = self.space
-        return [space.newtuple([space.wrap(key), unwrap_cell(self.space, w_value)])
-                    for (key, w_value) in self.unerase(w_dict.dstorage).dict_w.iteritems()]
+        w_type = self.unerase(w_dict.dstorage)
+        return [space.newtuple([_wrapkey(space, key),
+                                unwrap_cell(space, w_value)])
+                for (key, w_value) in w_type.dict_w.iteritems()]
 
     def clear(self, w_dict):
         space = self.space
@@ -99,8 +104,12 @@ class DictProxyStrategy(DictStrategy):
     def getiteritems(self, w_dict):
         return self.unerase(w_dict.dstorage).dict_w.iteritems()
     def wrapkey(space, key):
-        return space.wrap(key)
+        return _wrapkey(space, key)
     def wrapvalue(space, value):
         return unwrap_cell(space, value)
+
+def _wrapkey(space, key):
+    # keys are utf-8 encoded identifiers from type's dict_w
+    return space.wrap(key.decode('utf-8'))
 
 create_iterator_classes(DictProxyStrategy)

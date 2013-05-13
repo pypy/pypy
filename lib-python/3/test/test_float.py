@@ -42,7 +42,7 @@ class GeneralFloatCases(unittest.TestCase):
         self.assertRaises(ValueError, float, b"-")
         self.assertRaises(TypeError, float, {})
         # Lone surrogate
-        self.assertRaises(UnicodeEncodeError, float, '\uD8F0')
+        self.assertRaises((UnicodeEncodeError, ValueError), float, '\uD8F0')
         # check that we don't accept alternate exponent markers
         self.assertRaises(ValueError, float, "-1.7d29")
         self.assertRaises(ValueError, float, "3D-14")

@@ -9,6 +9,39 @@ struct cppyy_test_pod {
 
 
 //===========================================================================
+enum fruit { kApple=78, kBanana=29, kCitrus=34 };
+
+
+//===========================================================================
+class four_vector {
+public:
+    four_vector(double x, double y, double z, double t) :
+        m_x(x), m_y(y), m_z(z), m_t(t), m_cc_called(false) {}
+    four_vector(const four_vector& s) :
+        m_x(s.m_x), m_y(s.m_y), m_z(s.m_z), m_t(s.m_t), m_cc_called(true) {}
+
+    double operator[](int i) {
+       if (i == 0) return m_x;
+       if (i == 1) return m_y;
+       if (i == 2) return m_z;
+       if (i == 3) return m_t;
+       return -1;
+    }
+
+    bool operator==(const four_vector& o) {
+       return (m_x == o.m_x && m_y == o.m_y &&
+               m_z == o.m_z && m_t == o.m_t);
+    }
+
+public:
+    bool m_cc_called;
+
+private:
+    double m_x, m_y, m_z, m_t;
+};
+
+
+//===========================================================================
 class cppyy_test_data {
 public:
     cppyy_test_data();
@@ -115,6 +148,10 @@ public:
     float*          pass_void_array_f(void* a) { return pass_array((float*)a); }
     double*         pass_void_array_d(void* a) { return pass_array((double*)a); }
 
+// strings
+    const char* get_valid_string(const char* in);
+    const char* get_invalid_string();
+
 public:
 // basic types
     bool                 m_bool;
@@ -192,3 +229,4 @@ extern cppyy_test_pod* g_pod;
 bool is_global_pod(cppyy_test_pod* t);
 void set_global_pod(cppyy_test_pod* t);
 cppyy_test_pod* get_global_pod();
+cppyy_test_pod* get_null_pod();

@@ -1,5 +1,6 @@
 "Test the functionality of Python classes implementing operators."
 
+import sys
 import unittest
 
 from test import support
@@ -467,6 +468,9 @@ class ClassTests(unittest.TestCase):
         self.assertRaises(TypeError, hash, C2())
 
 
+    @unittest.skipIf(support.check_impl_detail(pypy=True) and
+                     sys.platform == 'win32',
+                     "XXX: https://bugs.pypy.org/issue1461")
     def testSFBug532646(self):
         # Test for SF bug 532646
 

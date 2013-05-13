@@ -1,10 +1,16 @@
-from rpython.jit.backend.llsupport.descr import *
-from rpython.jit.backend.llsupport.gc import *
+from rpython.jit.backend.llsupport.descr import get_size_descr,\
+     get_field_descr, get_array_descr, ArrayDescr, FieldDescr,\
+     SizeDescrWithVTable, get_interiorfield_descr
+from rpython.jit.backend.llsupport.gc import GcLLDescr_boehm,\
+     GcLLDescr_framework
+from rpython.jit.backend.llsupport import jitframe
 from rpython.jit.metainterp.gc import get_description
 from rpython.jit.tool.oparser import parse
 from rpython.jit.metainterp.optimizeopt.util import equaloplists
 from rpython.jit.codewriter.heaptracker import register_known_gctype
-
+from rpython.jit.metainterp.history import JitCellToken, FLOAT
+from rpython.rtyper.lltypesystem import lltype, rclass, rffi
+from rpython.jit.backend.x86.arch import WORD
 
 class Evaluator(object):
     def __init__(self, scope):
@@ -12,6 +18,9 @@ class Evaluator(object):
     def __getitem__(self, key):
         return eval(key, self.scope)
 
+
+class FakeLoopToken(object):
+    pass
 
 class RewriteTests(object):
     def check_rewrite(self, frm_operations, to_operations, **namespace):
@@ -60,6 +69,23 @@ class RewriteTests(object):
         unicodedescr = self.gc_ll_descr.unicode_descr
         strlendescr     = strdescr.lendescr
         unicodelendescr = unicodedescr.lendescr
+
+        casmdescr = JitCellToken()
+        clt = FakeLoopToken()
+        clt._ll_initial_locs = [0, 8]
+        frame_info = lltype.malloc(jitframe.JITFRAMEINFO, flavor='raw')
+        clt.frame_info = frame_info
+        frame_info.jfi_frame_depth = 13
+        frame_info.jfi_frame_size = 255
+        framedescrs = self.gc_ll_descr.getframedescrs(self.cpu)
+        framelendescr = framedescrs.arraydescr.lendescr
+        jfi_frame_depth = framedescrs.jfi_frame_depth
+        jfi_frame_size = framedescrs.jfi_frame_size
+        jf_frame_info = framedescrs.jf_frame_info
+        signedframedescr = self.cpu.signedframedescr
+        floatframedescr = self.cpu.floatframedescr
+        casmdescr.compiled_loop_token = clt
+        tzdescr = None # noone cares
         #
         namespace.update(locals())
         #
@@ -75,11 +101,50 @@ class RewriteTests(object):
                                                         ops.operations,
                                                         [])
         equaloplists(operations, expected.operations)
+        lltype.free(frame_info, flavor='raw')
 
+class FakeTracker(object):
+    pass
+
+class BaseFakeCPU(object):
+    JITFRAME_FIXED_SIZE = 0
+
+    can_inline_varsize_malloc = True
+
+    def __init__(self):
+        self.tracker = FakeTracker()
+        self._cache = {}
+        self.signedframedescr = ArrayDescr(3, 8, FieldDescr('len', 0, 0, 0), 0)
+        self.floatframedescr = ArrayDescr(5, 8, FieldDescr('len', 0, 0, 0), 0)
+
+    def getarraydescr_for_frame(self, tp):
+        if tp == FLOAT:
+            return self.floatframedescr
+        return self.signedframedescr
+
+    def unpack_arraydescr_size(self, d):
+        return 0, d.itemsize, 0
+
+    def arraydescrof(self, ARRAY):
+        try:
+            return self._cache[ARRAY]
+        except KeyError:
+            r = ArrayDescr(1, 2, FieldDescr('len', 0, 0, 0), 0)
+            self._cache[ARRAY] = r
+            return r
+
+    def fielddescrof(self, STRUCT, fname):
+        key = (STRUCT, fname)
+        try:
+            return self._cache[key]
+        except KeyError:
+            r = FieldDescr(fname, 1, 1, 1)
+            self._cache[key] = r
+            return r
 
 class TestBoehm(RewriteTests):
     def setup_method(self, meth):
-        class FakeCPU(object):
+        class FakeCPU(BaseFakeCPU):
             def sizeof(self, STRUCT):
                 return SizeDescrWithVTable(102)
         self.cpu = FakeCPU()
@@ -215,7 +280,7 @@ class TestFramework(RewriteTests):
         self.gc_ll_descr.write_barrier_descr.has_write_barrier_from_array = (
             lambda cpu: True)
         #
-        class FakeCPU(object):
+        class FakeCPU(BaseFakeCPU):
             def sizeof(self, STRUCT):
                 descr = SizeDescrWithVTable(104)
                 descr.tid = 9315
@@ -345,10 +410,21 @@ class TestFramework(RewriteTests):
             jump(i0)
         """, """
             [i0]
-            p0 = call_malloc_gc(ConstClass(malloc_array), 1,  \
-                                %(bdescr.tid)d, i0,           \
-                                descr=malloc_array_descr)
+            p0 = call_malloc_nursery_varsize(0, 1, i0, descr=bdescr)
+            setfield_gc(p0, i0, descr=blendescr)
             jump(i0)
+        """)
+
+    def test_rewrite_new_string(self):
+        self.check_rewrite("""
+        [i0]
+        p0 = newstr(i0)
+        jump(i0)
+        """, """
+        [i0]
+        p0 = call_malloc_nursery_varsize(1, 1, i0, descr=strdescr)
+        setfield_gc(p0, i0, descr=strlendescr)
+        jump(i0)
         """)
 
     def test_rewrite_assembler_nonstandard_array(self):
@@ -471,10 +547,12 @@ class TestFramework(RewriteTests):
             p1 = int_add(p0, %(strdescr.basesize + 16 * strdescr.itemsize)d)
             setfield_gc(p1, %(unicodedescr.tid)d, descr=tiddescr)
             setfield_gc(p1, 10, descr=unicodelendescr)
-            p2 = call_malloc_gc(ConstClass(malloc_unicode), i2, \
-                                descr=malloc_unicode_descr)
-            p3 = call_malloc_gc(ConstClass(malloc_str), i2, \
-                                descr=malloc_str_descr)
+            p2 = call_malloc_nursery_varsize(2, 4, i2, \
+                                descr=unicodedescr)
+            setfield_gc(p2, i2, descr=unicodelendescr)
+            p3 = call_malloc_nursery_varsize(1, 1, i2, \
+                                descr=strdescr)
+            setfield_gc(p3, i2, descr=strlendescr)
             jump()
         """)
 
@@ -654,8 +732,9 @@ class TestFramework(RewriteTests):
             [i0]
             p0 = call_malloc_nursery(%(tdescr.size)d)
             setfield_gc(p0, 5678, descr=tiddescr)
-            p1 = call_malloc_gc(ConstClass(malloc_str), i0, \
-                                descr=malloc_str_descr)
+            p1 = call_malloc_nursery_varsize(1, 1, i0, \
+                                descr=strdescr)
+            setfield_gc(p1, i0, descr=strlendescr)
             cond_call_gc_wb(p0, p1, descr=wbdescr)
             setfield_raw(p0, p1, descr=tzdescr)
             jump()
@@ -676,4 +755,21 @@ class TestFramework(RewriteTests):
             cond_call_gc_wb(p0, p1, descr=wbdescr)
             setfield_raw(p0, p1, descr=tzdescr)
             jump()
+        """)
+
+    def test_rewrite_call_assembler(self):
+        self.check_rewrite("""
+        [i0, f0]
+        i2 = call_assembler(i0, f0, descr=casmdescr)
+        """, """
+        [i0, f0]
+        i1 = getfield_gc(ConstClass(frame_info), descr=jfi_frame_size)
+        p1 = call_malloc_nursery_varsize_frame(i1)
+        setfield_gc(p1, 0, descr=tiddescr)
+        i2 = getfield_gc(ConstClass(frame_info), descr=jfi_frame_depth)
+        setfield_gc(p1, i2, descr=framelendescr)
+        setfield_gc(p1, ConstClass(frame_info), descr=jf_frame_info)
+        setarrayitem_gc(p1, 0, i0, descr=signedframedescr)
+        setarrayitem_gc(p1, 1, f0, descr=floatframedescr)
+        i3 = call_assembler(p1, descr=casmdescr)
         """)

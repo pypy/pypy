@@ -4,19 +4,16 @@ from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import r_longlong
 from rpython.rlib.unroll import unrolling_iterable
 from pypy.interpreter.error import OperationError, wrap_oserror, wrap_oserror2
-from pypy.interpreter.error import operationerrfmt
 from rpython.rtyper.module.ll_os import RegisterOs
 from rpython.rtyper.module import ll_os_stat
-from rpython.rtyper.lltypesystem import rffi, lltype
-from rpython.rtyper.tool import rffi_platform
-from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
-import os, sys
+import os
+import sys
 
 _WIN32 = sys.platform == 'win32'
 if _WIN32:
-    from rpython.rlib.rwin32 import _MAX_ENV
-    
+    from rpython.rlib import rwin32
+
 c_int = "c_int"
 
 # CPython 2.7 semantics are too messy to follow exactly,
@@ -55,9 +52,7 @@ class FileDecoder(object):
         return self.space.bytes0_w(self.w_obj)
 
     def as_unicode(self):
-        space = self.space
-        w_unicode = space.fsdecode(self.w_obj)
-        return space.unicode0_w(w_unicode)
+        return self.space.fsdecode_w(self.w_obj)
 
 @specialize.memo()
 def dispatch_filename(func, tag=0):
@@ -364,7 +359,7 @@ def times(space):
                                space.wrap(times[3]),
                                space.wrap(times[4])])
 
-@unwrap_spec(cmd='str0')
+@unwrap_spec(cmd='fsencode')
 def system(space, cmd):
     """Execute the command (a string) in a subshell."""
     try:
@@ -398,7 +393,7 @@ def _getfullpathname(space, w_path):
         else:
             path = space.str0_w(w_path)
             fullpath = rposix._getfullpathname(path)
-            w_fullpath = space.wrap(fullpath)
+            w_fullpath = space.wrapbytes(fullpath)
     except OSError, e:
         raise wrap_oserror2(space, e, w_path)
     else:
@@ -486,6 +481,7 @@ class State:
         self.w_environ = space.newdict()
         self.random_context = rurandom.init_urandom()
     def startup(self, space):
+        space.call_method(self.w_environ, 'clear')
         _convertenviron(space, self.w_environ)
     def _freeze_(self):
         # don't capture the environment in the translated pypy
@@ -498,29 +494,46 @@ class State:
 def get(space):
     return space.fromcache(State)
 
-def _convertenviron(space, w_env):
-    space.call_method(w_env, 'clear')
-    for key, value in os.environ.items():
-        space.setitem(w_env, space.wrapbytes(key), space.wrapbytes(value))
+if _WIN32:
+    def _convertenviron(space, w_env):
+        # _wenviron must be initialized in this way if the program is
+        # started through main() instead of wmain()
+        rwin32._wgetenv(u"")
+        for key, value in rwin32._wenviron_items():
+            space.setitem(w_env, space.wrap(key), space.wrap(value))
 
-def putenv(space, w_name, w_value):
-    """Change or add an environment variable."""
-    if _WIN32 and len(name) > _MAX_ENV:
-        raise OperationError(space.w_ValueError, space.wrap(
-                "the environment variable is longer than %d bytes" % _MAX_ENV))
-    try:
-        dispatch_filename_2(rposix.putenv)(space, w_name, w_value)
-    except OSError, e:
-        raise wrap_oserror(space, e)
+    @unwrap_spec(name=unicode, value=unicode)
+    def putenv(space, name, value):
+        """Change or add an environment variable."""
+        # len includes space for '=' and a trailing NUL
+        if len(name) + len(value) + 2 > rwin32._MAX_ENV:
+            msg = ("the environment variable is longer than %d characters" %
+                   rwin32._MAX_ENV)
+            raise OperationError(space.w_ValueError, space.wrap(msg))
+        try:
+            rwin32._wputenv(name, value)
+        except OSError, e:
+            raise wrap_oserror(space, e)
+else:
+    def _convertenviron(space, w_env):
+        for key, value in os.environ.items():
+            space.setitem(w_env, space.wrapbytes(key), space.wrapbytes(value))
 
-def unsetenv(space, w_name):
-    """Delete an environment variable."""
-    try:
-        dispatch_filename(rposix.unsetenv)(space, w_name)
-    except KeyError:
-        pass
-    except OSError, e:
-        raise wrap_oserror(space, e)
+    def putenv(space, w_name, w_value):
+        """Change or add an environment variable."""
+        try:
+            dispatch_filename_2(rposix.putenv)(space, w_name, w_value)
+        except OSError, e:
+            raise wrap_oserror(space, e)
+
+    def unsetenv(space, w_name):
+        """Delete an environment variable."""
+        try:
+            dispatch_filename(rposix.unsetenv)(space, w_name)
+        except KeyError:
+            pass
+        except OSError, e:
+            raise wrap_oserror(space, e)
 
 
 @unwrap_spec(w_dirname=WrappedDefault(u"."))
@@ -538,8 +551,11 @@ entries '.' and '..' even if they are present in the directory."""
             len_result = len(result)
             result_w = [None] * len_result
             for i in range(len_result):
-                w_bytes = space.wrapbytes(result[i])
-                result_w[i] = space.fsdecode(w_bytes)
+                if _WIN32:
+                    result_w[i] = space.wrap(result[i])
+                else:
+                    w_bytes = space.wrapbytes(result[i])
+                    result_w[i] = space.fsdecode(w_bytes)
         else:
             dirname = space.str0_w(w_dirname)
             result = rposix.listdir(dirname)
@@ -638,7 +654,7 @@ in the hardest way possible on the hosting operating system."""
     import signal
     rposix.os_kill(os.getpid(), signal.SIGABRT)
 
-@unwrap_spec(src='str0', dst='str0')
+@unwrap_spec(src='fsencode', dst='fsencode')
 def link(space, src, dst):
     "Create a hard link to a file."
     try:
@@ -653,7 +669,7 @@ def symlink(space, w_src, w_dst):
     except OSError, e:
         raise wrap_oserror(space, e)
 
-@unwrap_spec(path='str0')
+@unwrap_spec(path='fsencode')
 def readlink(space, path):
     "Return a string representing the path to which the symbolic link points."
     try:
@@ -753,7 +769,7 @@ def _env2interp(space, w_env):
     w_keys = space.call_method(w_env, 'keys')
     for w_key in space.unpackiterable(w_keys):
         w_value = space.getitem(w_env, w_key)
-        env[space.str0_w(w_key)] = space.str0_w(w_value)
+        env[space.fsencode_w(w_key)] = space.fsencode_w(w_value)
     return env
 
 def execve(space, w_command, w_args, w_env):
@@ -790,18 +806,18 @@ Execute a path with arguments and environment, replacing current process.
         except OSError, e:
             raise wrap_oserror(space, e)
 
-@unwrap_spec(mode=int, path='str0')
+@unwrap_spec(mode=int, path='fsencode')
 def spawnv(space, mode, path, w_args):
-    args = [space.str0_w(w_arg) for w_arg in space.unpackiterable(w_args)]
+    args = [space.fsencode_w(w_arg) for w_arg in space.unpackiterable(w_args)]
     try:
         ret = os.spawnv(mode, path, args)
     except OSError, e:
         raise wrap_oserror(space, e)
     return space.wrap(ret)
 
-@unwrap_spec(mode=int, path='str0')
+@unwrap_spec(mode=int, path='fsencode')
 def spawnve(space, mode, path, w_args, w_env):
-    args = [space.str0_w(w_arg) for w_arg in space.unpackiterable(w_args)]
+    args = [space.fsencode_w(w_arg) for w_arg in space.unpackiterable(w_args)]
     env = _env2interp(space, w_env)
     try:
         ret = os.spawnve(mode, path, args, env)
@@ -836,17 +852,6 @@ second form is used, set the access and modified times to the current time.
         if not e.match(space, space.w_TypeError):
             raise
         raise OperationError(space.w_TypeError, space.wrap(msg))
-
-def setsid(space):
-    """setsid() -> pid
-
-    Creates a new session with this process as the leader.
-    """
-    try:
-        result = os.setsid()
-    except OSError, e:
-        raise wrap_oserror(space, e)
-    return space.wrap(result)
 
 def uname(space):
     """ uname() -> (sysname, nodename, release, version, machine)
@@ -919,7 +924,7 @@ def setegid(space, arg):
         raise wrap_oserror(space, e)
     return space.w_None
 
-@unwrap_spec(path='str0')
+@unwrap_spec(path='fsencode')
 def chroot(space, path):
     """ chroot(path)
 
@@ -1077,6 +1082,7 @@ for name in RegisterOs.w_star:
         func = declare_new_w_star(name)
         globals()[name] = func
 
+
 @unwrap_spec(fd=c_int)
 def ttyname(space, fd):
     try:
@@ -1084,9 +1090,10 @@ def ttyname(space, fd):
     except OSError, e:
         raise wrap_oserror(space, e)
 
+
 def confname_w(space, w_name, namespace):
     # XXX slightly non-nice, reuses the sysconf of the underlying os module
-    if space.is_true(space.isinstance(w_name, space.w_unicode)):
+    if space.isinstance_w(w_name, space.w_unicode):
         try:
             num = namespace[space.str_w(w_name)]
         except KeyError:
@@ -1108,7 +1115,7 @@ def fpathconf(space, fd, w_name):
     except OSError, e:
         raise wrap_oserror(space, e)
 
-@unwrap_spec(path='str0', uid=c_uid_t, gid=c_gid_t)
+@unwrap_spec(path='fsencode', uid=c_uid_t, gid=c_gid_t)
 def chown(space, path, uid, gid):
     """Change the owner and group id of path to the numeric uid and gid."""
     check_uid_range(space, uid)
@@ -1118,7 +1125,7 @@ def chown(space, path, uid, gid):
     except OSError, e:
         raise wrap_oserror(space, e, path)
 
-@unwrap_spec(path='str0', uid=c_uid_t, gid=c_gid_t)
+@unwrap_spec(path='fsencode', uid=c_uid_t, gid=c_gid_t)
 def lchown(space, path, uid, gid):
     """Change the owner and group id of path to the numeric uid and gid.
 This function will not follow symbolic links."""
@@ -1144,7 +1151,7 @@ fd to the numeric uid and gid."""
 def getloadavg(space):
     try:
         load = os.getloadavg()
-    except OSError, e:
+    except OSError:
         raise OperationError(space.w_OSError,
                              space.wrap("Load averages are unobtainable"))
     return space.newtuple([space.wrap(load[0]),
@@ -1183,6 +1190,27 @@ def urandom(space, n):
     """
     context = get(space).random_context
     try:
-        return space.wrap(rurandom.urandom(context, n))
+        return space.wrapbytes(rurandom.urandom(context, n))
     except OSError, e:
         raise wrap_oserror(space, e)
+
+@unwrap_spec(fd=int)
+def device_encoding(space, fd):
+    """device_encoding(fd) -> str
+
+    Return a string describing the encoding of the device if the output
+    is a terminal; else return None.
+    """
+    if not (rposix.is_valid_fd(fd) and os.isatty(fd)):
+        return space.w_None
+    if _WIN32:
+        if fd == 0:
+            return space.wrap('cp%d' % rwin32.GetConsoleCP())
+        if fd in (1, 2):
+            return space.wrap('cp%d' % rwin32.GetConsoleOutputCP())
+    from rpython.rlib import rlocale
+    if rlocale.HAVE_LANGINFO:
+        codeset = rlocale.nl_langinfo(rlocale.CODESET)
+        if codeset:
+            return space.wrap(codeset)
+    return space.w_None

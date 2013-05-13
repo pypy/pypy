@@ -167,10 +167,8 @@ if cConfig.has_gettimeofday:
 TM_P = lltype.Ptr(tm)
 c_clock = external('clock', [rffi.TIME_TP], clock_t)
 c_time = external('time', [rffi.TIME_TP], rffi.TIME_T)
-c_ctime = external('ctime', [rffi.TIME_TP], rffi.CCHARP)
 c_gmtime = external('gmtime', [rffi.TIME_TP], TM_P)
 c_mktime = external('mktime', [TM_P], rffi.TIME_T)
-c_asctime = external('asctime', [TM_P], rffi.CCHARP)
 c_localtime = external('localtime', [rffi.TIME_TP], TM_P)
 if _POSIX:
     c_tzset = external('tzset', [], lltype.Void)
@@ -406,24 +404,24 @@ def _gettmarg(space, w_tup, allowNone=True):
                               "argument must be sequence of "
                               "length 9, not %d", len(tup_w))
 
-    y = space.int_w(tup_w[0])
-    tm_mon = space.int_w(tup_w[1])
+    y = space.c_int_w(tup_w[0])
+    tm_mon = space.c_int_w(tup_w[1])
     if tm_mon == 0:
         tm_mon = 1
-    tm_mday = space.int_w(tup_w[2])
+    tm_mday = space.c_int_w(tup_w[2])
     if tm_mday == 0:
         tm_mday = 1
-    tm_yday = space.int_w(tup_w[7])
+    tm_yday = space.c_int_w(tup_w[7])
     if tm_yday == 0:
         tm_yday = 1
     rffi.setintfield(glob_buf, 'c_tm_mon', tm_mon)
     rffi.setintfield(glob_buf, 'c_tm_mday', tm_mday)
-    rffi.setintfield(glob_buf, 'c_tm_hour', space.int_w(tup_w[3]))
-    rffi.setintfield(glob_buf, 'c_tm_min', space.int_w(tup_w[4]))
-    rffi.setintfield(glob_buf, 'c_tm_sec', space.int_w(tup_w[5]))
-    rffi.setintfield(glob_buf, 'c_tm_wday', space.int_w(tup_w[6]))
+    rffi.setintfield(glob_buf, 'c_tm_hour', space.c_int_w(tup_w[3]))
+    rffi.setintfield(glob_buf, 'c_tm_min', space.c_int_w(tup_w[4]))
+    rffi.setintfield(glob_buf, 'c_tm_sec', space.c_int_w(tup_w[5]))
+    rffi.setintfield(glob_buf, 'c_tm_wday', space.c_int_w(tup_w[6]))
     rffi.setintfield(glob_buf, 'c_tm_yday', tm_yday)
-    rffi.setintfield(glob_buf, 'c_tm_isdst', space.int_w(tup_w[8]))
+    rffi.setintfield(glob_buf, 'c_tm_isdst', space.c_int_w(tup_w[8]))
     if _POSIX:
         if _CYGWIN:
             pass
@@ -432,10 +430,10 @@ def _gettmarg(space, w_tup, allowNone=True):
             glob_buf.c_tm_zone = lltype.nullptr(rffi.CCHARP.TO)
             rffi.setintfield(glob_buf, 'c_tm_gmtoff', 0)
 
-    w_accept2dyear = _get_module_object(space, "accept2dyear")
-    accept2dyear = space.int_w(w_accept2dyear)
-
     if y < 1000:
+        w_accept2dyear = _get_module_object(space, "accept2dyear")
+        accept2dyear = space.is_true(w_accept2dyear)
+
         if accept2dyear:
             if 69 <= y <= 99:
                 y += 1900
@@ -448,7 +446,7 @@ def _gettmarg(space, w_tup, allowNone=True):
                        space.w_DeprecationWarning)
 
     # tm_wday does not need checking of its upper-bound since taking "%
-    #  7" in gettmarg() automatically restricts the range.
+    #  7" in _gettmarg() automatically restricts the range.
     if rffi.getintfield(glob_buf, 'c_tm_wday') < -1:
         raise OperationError(space.w_ValueError,
                              space.wrap("day of week out of range"))
@@ -462,6 +460,32 @@ def _gettmarg(space, w_tup, allowNone=True):
                      rffi.getintfield(glob_buf, 'c_tm_yday') - 1)
 
     return glob_buf
+
+def _checktm(space, t_ref):
+    """Checks added to make sure strftime() and asctime() do not crash
+    Python by indexing blindly into some array for a textual
+    representation by some bad index (fixes bug #897625).  No check for
+    year or wday since handled in _gettmarg()."""
+    if not 0 <= rffi.getintfield(t_ref, 'c_tm_mon') <= 11:
+        raise OperationError(space.w_ValueError,
+                             space.wrap("month out of range"))
+    if not 1 <= rffi.getintfield(t_ref, 'c_tm_mday') <= 31:
+        raise OperationError(space.w_ValueError,
+                             space.wrap("day of month out of range"))
+    if not 0 <= rffi.getintfield(t_ref, 'c_tm_hour') <= 23:
+        raise OperationError(space.w_ValueError,
+                             space.wrap("hour out of range"))
+    if not 0 <= rffi.getintfield(t_ref, 'c_tm_min') <= 59:
+        raise OperationError(space.w_ValueError,
+                             space.wrap("minute out of range"))
+    if not 0 <= rffi.getintfield(t_ref, 'c_tm_sec') <= 61:
+        raise OperationError(space.w_ValueError,
+                             space.wrap("seconds out of range"))
+    # tm_wday does not need checking: "% 7" in _gettmarg() automatically
+    # restricts the range
+    if not 0 <= rffi.getintfield(t_ref, 'c_tm_yday') <= 365:
+        raise OperationError(space.w_ValueError,
+                             space.wrap("day of year out of range"))
 
 def time(space):
     """time() -> floating point number
@@ -496,16 +520,13 @@ def ctime(space, w_seconds=None):
     not present, current time as returned by localtime() is used."""
 
     seconds = _get_inttime(space, w_seconds)
-
-    t_ref = lltype.malloc(rffi.TIME_TP.TO, 1, flavor='raw')
-    t_ref[0] = seconds
-    p = c_ctime(t_ref)
-    lltype.free(t_ref, flavor='raw')
+    with lltype.scoped_alloc(rffi.TIME_TP.TO, 1) as t_ref:
+        t_ref[0] = seconds
+        p = c_localtime(t_ref)
     if not p:
         raise OperationError(space.w_ValueError,
-            space.wrap("unconvertible time"))
-
-    return space.wrap(rffi.charp2str(p)[:-1]) # get rid of new line
+                             space.wrap("unconvertible time"))
+    return _asctime(space, p)
 
 # by now w_tup is an optional argument (and not *args)
 # because of the ext. compiler bugs in handling such arguments (*args, **kwds)
@@ -516,12 +537,26 @@ def asctime(space, w_tup=None):
     When the time tuple is not present, current time as returned by localtime()
     is used."""
     buf_value = _gettmarg(space, w_tup)
-    p = c_asctime(buf_value)
-    if not p:
-        raise OperationError(space.w_ValueError,
-            space.wrap("unconvertible time"))
+    _checktm(space, buf_value)
+    return _asctime(space, buf_value)
 
-    return space.wrap(rffi.charp2str(p)[:-1]) # get rid of new line
+_wday_names = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+_mon_names = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep",
+              "Oct", "Nov", "Dec"]
+
+def _asctime(space, t_ref):
+    # Inspired by Open Group reference implementation available at
+    # http://pubs.opengroup.org/onlinepubs/009695399/functions/asctime.html
+    w, getif = space.wrap, rffi.getintfield
+    args = [w(_wday_names[getif(t_ref, 'c_tm_wday')]),
+            w(_mon_names[getif(t_ref, 'c_tm_mon')]),
+            w(getif(t_ref, 'c_tm_mday')),
+            w(getif(t_ref, 'c_tm_hour')),
+            w(getif(t_ref, 'c_tm_min')),
+            w(getif(t_ref, 'c_tm_sec')),
+            w(getif(t_ref, 'c_tm_year') + 1900)]
+    return space.mod(w("%.3s %.3s%3d %.2d:%.2d:%.2d %d"),
+                     space.newtuple(args))
 
 def gmtime(space, w_seconds=None):
     """gmtime([seconds]) -> (tm_year, tm_mon, tm_day, tm_hour, tm_min,
@@ -603,29 +638,8 @@ def strftime(space, format, w_tup=None):
     See the library reference manual for formatting codes. When the time tuple
     is not present, current time as returned by localtime() is used."""
     buf_value = _gettmarg(space, w_tup)
+    _checktm(space, buf_value)
 
-    # Checks added to make sure strftime() does not crash Python by
-    # indexing blindly into some array for a textual representation
-    # by some bad index (fixes bug #897625).
-    # No check for year since handled in gettmarg().
-    if rffi.getintfield(buf_value, 'c_tm_mon') < 0 or rffi.getintfield(buf_value, 'c_tm_mon') > 11:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("month out of range"))
-    if rffi.getintfield(buf_value, 'c_tm_mday') < 1 or rffi.getintfield(buf_value, 'c_tm_mday') > 31:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("day of month out of range"))
-    if rffi.getintfield(buf_value, 'c_tm_hour') < 0 or rffi.getintfield(buf_value, 'c_tm_hour') > 23:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("hour out of range"))
-    if rffi.getintfield(buf_value, 'c_tm_min') < 0 or rffi.getintfield(buf_value, 'c_tm_min') > 59:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("minute out of range"))
-    if rffi.getintfield(buf_value, 'c_tm_sec') < 0 or rffi.getintfield(buf_value, 'c_tm_sec') > 61:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("seconds out of range"))
-    if rffi.getintfield(buf_value, 'c_tm_yday') < 0 or rffi.getintfield(buf_value, 'c_tm_yday') > 365:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("day of year out of range"))
     # Normalize tm_isdst just in case someone foolishly implements %Z
     # based on the assumption that tm_isdst falls within the range of
     # [-1, 1]

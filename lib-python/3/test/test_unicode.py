@@ -1354,12 +1354,12 @@ class UnicodeTest(string_tests.CommonTest,
         self.assertRaises(TypeError, "hello".encode, 42, 42, 42)
 
         # Error handling (lone surrogate in PyUnicode_TransformDecimalToASCII())
-        self.assertRaises(UnicodeError, int, "\ud800")
-        self.assertRaises(UnicodeError, int, "\udf00")
-        self.assertRaises(UnicodeError, float, "\ud800")
-        self.assertRaises(UnicodeError, float, "\udf00")
-        self.assertRaises(UnicodeError, complex, "\ud800")
-        self.assertRaises(UnicodeError, complex, "\udf00")
+        self.assertRaises((UnicodeError, ValueError), int, "\ud800")
+        self.assertRaises((UnicodeError, ValueError), int, "\udf00")
+        self.assertRaises((UnicodeError, ValueError), float, "\ud800")
+        self.assertRaises((UnicodeError, ValueError), float, "\udf00")
+        self.assertRaises((UnicodeError, ValueError), complex, "\ud800")
+        self.assertRaises((UnicodeError, ValueError), complex, "\udf00")
 
     def test_codecs(self):
         # Encoding
@@ -1609,14 +1609,16 @@ class UnicodeTest(string_tests.CommonTest,
         self.assertEqual("{}".format(s), '__str__ overridden')
 
     # Test PyUnicode_FromFormat()
+    @unittest.skipIf(support.check_impl_detail(pypy=True),
+                     "https://bugs.pypy.org/issue1233")
     def test_from_format(self):
         support.import_module('ctypes')
         from ctypes import pythonapi, py_object, c_int
-        if sys.maxunicode == 65535:
-            name = "PyUnicodeUCS2_FromFormat"
-        else:
-            name = "PyUnicodeUCS4_FromFormat"
-        _PyUnicode_FromFormat = getattr(pythonapi, name)
+        #if sys.maxunicode == 65535:
+        #    name = "PyUnicodeUCS2_FromFormat"
+        #else:
+        #    name = "PyUnicodeUCS4_FromFormat"
+        _PyUnicode_FromFormat = getattr(pythonapi, 'PyUnicode_FromFormat')
         _PyUnicode_FromFormat.restype = py_object
 
         def PyUnicode_FromFormat(format, *args):

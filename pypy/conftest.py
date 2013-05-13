@@ -178,7 +178,25 @@ def pytest_runtest_setup(__multicall__, item):
     __multicall__.execute()
 
 def pytest_runtest_teardown(__multicall__, item):
-    __multicall__.execute()
+    user_del_action = None
+    if isinstance(item, py.test.collect.Function):
+        appclass = item.getparent(PyPyClassCollector)
+        if (appclass is not None and
+            not getattr(appclass.obj, 'runappdirect', False) and
+            hasattr(appclass.obj, 'space')):
+            user_del_action = appclass.obj.space.user_del_action
+
+    if user_del_action:
+        # if leakfinder triggers leftover __del__s, ensure their
+        # enqueue_for_destruction callbacks are invoked immediately
+        # instead of scheduled for later (potentially never)
+        user_del_action._invoke_immediately = True
+    try:
+        # leakfinder
+        __multicall__.execute()
+    finally:
+        if user_del_action:
+            user_del_action._invoke_immediately = False
 
     if 'pygame' in sys.modules:
         assert option.view, ("should not invoke Pygame "

@@ -63,7 +63,7 @@ varnames: ('obj',)
 cellvars: ()
 freevars: ()
 nlocals: 1
-flags: 524355
+flags: 67
 consts: ('None',)
 
 >>> def optimize_away():

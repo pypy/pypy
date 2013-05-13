@@ -43,7 +43,7 @@ class BaseStringFormatter(object):
                space.wrap('not all arguments converted '
                             'during string formatting'))
 
-    def std_wp_int(self, r, prefix='', keep_zero=False):
+    def std_wp_int(self, r, prefix=''):
         # use self.prec to add some '0' on the left of the number
         if self.prec >= 0:
             if self.prec > 1000:
@@ -57,8 +57,6 @@ class BaseStringFormatter(object):
                     r = '-' + '0'*padding + r[1:]
                 else:
                     r = '0'*padding + r
-            elif self.prec == 0 and r == '0' and not keep_zero:
-                r = ''
         self.std_wp_number(r, prefix)
 
     def fmt_d(self, w_value):
@@ -91,7 +89,7 @@ class BaseStringFormatter(object):
             prefix = '0o'
         else:
             prefix = ''
-        self.std_wp_int(r, prefix, keep_zero=True)
+        self.std_wp_int(r, prefix)
 
     fmt_i = fmt_d
     fmt_u = fmt_d

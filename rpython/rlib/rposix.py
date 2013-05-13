@@ -103,10 +103,10 @@ def set_errno(errno):
     _set_errno(rffi.cast(INT, errno))
 
 if os.name == 'nt':
-    is_valid_fd = rffi.llexternal(
+    is_valid_fd = jit.dont_look_inside(rffi.llexternal(
         "_PyVerify_fd", [rffi.INT], rffi.INT,
         compilation_info=errno_eci,
-        )
+        ))
     @jit.dont_look_inside
     def validate_fd(fd):
         if not is_valid_fd(fd):
@@ -266,4 +266,3 @@ if os.name == 'nt':
     os_kill = rwin32.os_kill
 else:
     os_kill = os.kill
-    

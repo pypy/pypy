@@ -155,7 +155,7 @@ class TestAsmMemoryManager:
     def test_insert_gcroot_marker(self):
         puts = []
         class FakeGcRootMap:
-            def put(self, retaddr, mark):
+            def register_asm_addr(self, retaddr, mark):
                 puts.append((retaddr, mark))
         #
         mc = BlockBuilderMixin()

@@ -1,5 +1,9 @@
+from rpython.rtyper.annlowlevel import cast_instance_to_gcref
+from rpython.rlib import rgc
+from rpython.rlib.debug import debug_print, debug_start, debug_stop
 from rpython.jit.backend.llsupport.regalloc import FrameManager, \
-        RegisterManager, TempBox, compute_vars_longevity
+        RegisterManager, TempBox, compute_vars_longevity, BaseRegalloc, \
+        get_scale
 from rpython.jit.backend.arm import registers as r
 from rpython.jit.backend.arm import locations
 from rpython.jit.backend.arm.locations import imm, get_fp_offset
@@ -12,15 +16,16 @@ from rpython.jit.backend.arm.helper.regalloc import (prepare_op_by_helper_call,
                                                     check_imm_box
                                                     )
 from rpython.jit.backend.arm.jump import remap_frame_layout_mixed
-from rpython.jit.backend.arm.arch import MY_COPY_OF_REGS
-from rpython.jit.backend.arm.arch import WORD
+from rpython.jit.backend.arm.arch import WORD, JITFRAME_FIXED_SIZE
 from rpython.jit.codewriter import longlong
-from rpython.jit.metainterp.history import (Const, ConstInt, ConstFloat, ConstPtr,
-                                        Box, BoxPtr,
-                                        INT, REF, FLOAT)
-from rpython.jit.metainterp.history import JitCellToken, TargetToken
+from rpython.jit.metainterp.history import (Const, ConstInt, ConstFloat,
+                                            ConstPtr, BoxInt,
+                                            Box, BoxPtr,
+                                            INT, REF, FLOAT)
+from rpython.jit.metainterp.history import TargetToken
 from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.backend.llsupport.descr import ArrayDescr
+from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 from rpython.jit.backend.llsupport import symbolic
 from rpython.rtyper.lltypesystem import lltype, rffi, rstr, llmemory
 from rpython.rtyper.lltypesystem.lloperation import llop
@@ -28,12 +33,12 @@ from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.backend.llsupport.descr import unpack_arraydescr
 from rpython.jit.backend.llsupport.descr import unpack_fielddescr
 from rpython.jit.backend.llsupport.descr import unpack_interiorfielddescr
-from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.rarithmetic import r_uint
 
 
-# xxx hack: set a default value for TargetToken._arm_loop_code.  If 0, we know
+# xxx hack: set a default value for TargetToken._ll_loop_code.  If 0, we know
 # that it is a LABEL that was not compiled yet.
-TargetToken._arm_loop_code = 0
+TargetToken._ll_loop_code = 0
 
 class TempInt(TempBox):
     type = INT
@@ -59,15 +64,12 @@ class TempFloat(TempBox):
 
 class ARMFrameManager(FrameManager):
 
-    def __init__(self):
+    def __init__(self, base_ofs):
         FrameManager.__init__(self)
+        self.base_ofs = base_ofs
 
-    @staticmethod
-    def frame_pos(i, box_type):
-        if box_type == FLOAT:
-            return locations.StackLocation(i, get_fp_offset(i + 1), box_type)
-        else:
-            return locations.StackLocation(i, get_fp_offset(i), box_type)
+    def frame_pos(self, i, box_type):
+        return locations.StackLocation(i, get_fp_offset(self.base_ofs, i), box_type)
 
     @staticmethod
     def frame_size(type):
@@ -142,18 +144,6 @@ class CoreRegisterManager(ARMRegisterManager):
     no_lower_byte_regs = all_regs
     save_around_call_regs = r.caller_resp
 
-    REGLOC_TO_COPY_AREA_OFS = {
-        r.r2: MY_COPY_OF_REGS + 0 * WORD,
-        r.r3: MY_COPY_OF_REGS + 1 * WORD,
-        r.r4: MY_COPY_OF_REGS + 2 * WORD,
-        r.r5: MY_COPY_OF_REGS + 3 * WORD,
-        r.r6: MY_COPY_OF_REGS + 4 * WORD,
-        r.r7: MY_COPY_OF_REGS + 5 * WORD,
-        r.r8: MY_COPY_OF_REGS + 6 * WORD,
-        r.r9: MY_COPY_OF_REGS + 7 * WORD,
-        r.r10: MY_COPY_OF_REGS + 8 * WORD,
-    }
-
     def __init__(self, longevity, frame_manager=None, assembler=None):
         RegisterManager.__init__(self, longevity, frame_manager, assembler)
 
@@ -177,13 +167,20 @@ class CoreRegisterManager(ARMRegisterManager):
                                                     selected_reg=selected_reg)
         return reg
 
+    def get_free_reg(self):
+        free_regs = self.free_regs
+        for i in range(len(free_regs) - 1, -1, -1):
+            if free_regs[i] in self.save_around_call_regs:
+                continue
+            return free_regs[i]
 
-class Regalloc(object):
 
-    def __init__(self, frame_manager=None, assembler=None):
+class Regalloc(BaseRegalloc):
+
+    def __init__(self, assembler=None):
         self.cpu = assembler.cpu
         self.assembler = assembler
-        self.frame_manager = frame_manager
+        self.frame_manager = None
         self.jump_target_descr = None
         self.final_jump_op = None
 
@@ -262,6 +259,9 @@ class Regalloc(object):
         else:
             return self.rm.get_scratch_reg(type, forbidden_vars, selected_reg)
 
+    def get_free_reg(self):
+        return self.rm.get_free_reg()
+
     def free_temp_vars(self):
         self.rm.free_temp_vars()
         self.vfprm.free_temp_vars()
@@ -282,116 +282,54 @@ class Regalloc(object):
             assert isinstance(value, ConstFloat)
             return self.vfprm.convert_to_imm(value)
 
-    def _prepare(self,  inputargs, operations):
-        longevity, last_real_usage = compute_vars_longevity(
-                                                    inputargs, operations)
+    def _prepare(self, inputargs, operations, allgcrefs):
+        cpu = self.assembler.cpu
+        self.fm = ARMFrameManager(cpu.get_baseofs_of_frame_field())
+        self.frame_manager = self.fm
+        operations = cpu.gc_ll_descr.rewrite_assembler(cpu, operations,
+                                                       allgcrefs)
+        # compute longevity of variables
+        longevity, last_real_usage = compute_vars_longevity(inputargs, operations)
         self.longevity = longevity
         self.last_real_usage = last_real_usage
         fm = self.frame_manager
         asm = self.assembler
         self.vfprm = VFPRegisterManager(longevity, fm, asm)
         self.rm = CoreRegisterManager(longevity, fm, asm)
+        return operations
 
-    def prepare_loop(self, inputargs, operations):
-        self._prepare(inputargs, operations)
-        self._set_initial_bindings(inputargs)
-        self.possibly_free_vars(inputargs)
+    def prepare_loop(self, inputargs, operations, looptoken, allgcrefs):
+        operations = self._prepare(inputargs, operations, allgcrefs)
+        self._set_initial_bindings(inputargs, looptoken)
+        self.possibly_free_vars(list(inputargs))
+        return operations
 
-    def prepare_bridge(self, inputargs, arglocs, ops):
-        self._prepare(inputargs, ops)
+    def prepare_bridge(self, inputargs, arglocs, operations, allgcrefs,
+                       frame_info):
+        operations = self._prepare(inputargs, operations, allgcrefs)
         self._update_bindings(arglocs, inputargs)
+        return operations
 
-    def _set_initial_bindings(self, inputargs):
-        # The first inputargs are passed in registers r0-r3
-        # we relly on the soft-float calling convention so we need to move
-        # float params to the coprocessor.
-        if self.cpu.use_hf_abi:
-            self._set_initial_bindings_hf(inputargs)
-        else:
-            self._set_initial_bindings_sf(inputargs)
-
-    def _set_initial_bindings_sf(self, inputargs):
-
-        arg_index = 0
-        count = 0
-        n_register_args = len(r.argument_regs)
-        cur_frame_pos = 1 - (self.assembler.STACK_FIXED_AREA // WORD)
-        for box in inputargs:
-            assert isinstance(box, Box)
-            # handle inputargs in argument registers
-            if box.type == FLOAT and arg_index % 2 != 0:
-                arg_index += 1  # align argument index for float passed
-                                # in register
-            if arg_index < n_register_args:
-                if box.type == FLOAT:
-                    loc = r.argument_regs[arg_index]
-                    loc2 = r.argument_regs[arg_index + 1]
-                    vfpreg = self.try_allocate_reg(box)
-                    # move soft-float argument to vfp
-                    self.assembler.mov_to_vfp_loc(loc, loc2, vfpreg)
-                    arg_index += 2  # this argument used two argument registers
-                else:
-                    loc = r.argument_regs[arg_index]
-                    self.try_allocate_reg(box, selected_reg=loc)
-                    arg_index += 1
-            else:
-                # treat stack args as stack locations with a negative offset
-                if box.type == FLOAT:
-                    cur_frame_pos -= 2
-                    if count % 2 != 0: # Stack argument alignment
-                        cur_frame_pos -= 1
-                        count = 0
-                else:
-                    cur_frame_pos -= 1
-                    count += 1
-                loc = self.frame_manager.frame_pos(cur_frame_pos, box.type)
-                self.frame_manager.set_binding(box, loc)
-
-    def _set_initial_bindings_hf(self, inputargs):
-
-        arg_index = vfp_arg_index = 0
-        count = 0
-        n_reg_args = len(r.argument_regs)
-        n_vfp_reg_args = len(r.vfp_argument_regs)
-        cur_frame_pos = 1 - (self.assembler.STACK_FIXED_AREA // WORD)
-        for box in inputargs:
-            assert isinstance(box, Box)
-            # handle inputargs in argument registers
-            if box.type != FLOAT and arg_index < n_reg_args:
-                reg = r.argument_regs[arg_index]
-                self.try_allocate_reg(box, selected_reg=reg)
-                arg_index += 1
-            elif box.type == FLOAT and vfp_arg_index < n_vfp_reg_args:
-                reg = r.vfp_argument_regs[vfp_arg_index]
-                self.try_allocate_reg(box, selected_reg=reg)
-                vfp_arg_index += 1
-            else:
-                # treat stack args as stack locations with a negative offset
-                if box.type == FLOAT:
-                    cur_frame_pos -= 2
-                    if count % 2 != 0: # Stack argument alignment
-                        cur_frame_pos -= 1
-                        count = 0
-                else:
-                    cur_frame_pos -= 1
-                    count += 1
-                loc = self.frame_manager.frame_pos(cur_frame_pos, box.type)
-                self.frame_manager.set_binding(box, loc)
+    def get_final_frame_depth(self):
+        return self.frame_manager.get_frame_depth()
 
     def _update_bindings(self, locs, inputargs):
         used = {}
         i = 0
         for loc in locs:
+            if loc is None:
+                loc = r.fp
             arg = inputargs[i]
             i += 1
             if loc.is_reg():
                 self.rm.reg_bindings[arg] = loc
+                used[loc] = None
             elif loc.is_vfp_reg():
                 self.vfprm.reg_bindings[arg] = loc
+                used[loc] = None
             else:
                 assert loc.is_stack()
-                self.frame_manager.set_binding(arg, loc)
-            used[loc] = None
+                self.frame_manager.bind(arg, loc)
 
         # XXX combine with x86 code and move to llsupport
         self.rm.free_regs = []
@@ -406,9 +344,29 @@ class Regalloc(object):
         # is also used on op args, which is a non-resizable list
         self.possibly_free_vars(list(inputargs))
 
+    def get_gcmap(self, forbidden_regs=[], noregs=False):
+        frame_depth = self.fm.get_frame_depth()
+        gcmap = allocate_gcmap(self.assembler,
+                        frame_depth, JITFRAME_FIXED_SIZE)
+        for box, loc in self.rm.reg_bindings.iteritems():
+            if loc in forbidden_regs:
+                continue
+            if box.type == REF and self.rm.is_still_alive(box):
+                assert not noregs
+                assert loc.is_reg()
+                val = loc.value
+                gcmap[val // WORD // 8] |= r_uint(1) << (val % (WORD * 8))
+        for box, loc in self.fm.bindings.iteritems():
+            if box.type == REF and self.rm.is_still_alive(box):
+                assert loc.is_stack()
+                val = loc.position + JITFRAME_FIXED_SIZE
+                gcmap[val // WORD // 8] |= r_uint(1) << (val % (WORD * 8))
+        return gcmap
+
+    # ------------------------------------------------------------
     def perform_llong(self, op, args, fcond):
         return self.assembler.regalloc_emit_llong(op, args, fcond, self)
-    
+
     def perform_math(self, op, args, fcond):
         return self.assembler.regalloc_emit_math(op, args, self, fcond)
 
@@ -485,7 +443,7 @@ class Regalloc(object):
         res = self.force_allocate_reg(op.result)
         self.possibly_free_var(op.result)
         return [reg1, reg2, res]
-    
+
     def prepare_op_int_force_ge_zero(self, op, fcond):
         argloc = self.make_sure_var_in_reg(op.getarg(0))
         resloc = self.force_allocate_reg(op.result, [op.getarg(0)])
@@ -597,10 +555,9 @@ class Regalloc(object):
         return self._prepare_call(op)
 
     def _prepare_call(self, op, force_store=[], save_all_regs=False):
-        args = []
-        args.append(None)
+        args = [None] * (op.numargs() + 1)
         for i in range(op.numargs()):
-            args.append(self.loc(op.getarg(i)))
+            args[i + 1] = self.loc(op.getarg(i))
         # spill variables that need to be saved around calls
         self.vfprm.before_call(save_all_regs=save_all_regs)
         if not save_all_regs:
@@ -631,7 +588,6 @@ class Regalloc(object):
         res = self.force_allocate_reg(op.result)
         return [loc0, res]
 
-
     def _prepare_guard(self, op, args=None):
         if args is None:
             args = []
@@ -644,9 +600,19 @@ class Regalloc(object):
         return args
 
     def prepare_op_finish(self, op, fcond):
-        loc = self.loc(op.getarg(0))
-        self.possibly_free_var(op.getarg(0))
-        return [loc]
+        # the frame is in fp, but we have to point where in the frame is
+        # the potential argument to FINISH
+        descr = op.getdescr()
+        fail_descr = cast_instance_to_gcref(descr)
+        # we know it does not move, but well
+        rgc._make_sure_does_not_move(fail_descr)
+        fail_descr = rffi.cast(lltype.Signed, fail_descr)
+        if op.numargs() == 1:
+            loc = self.make_sure_var_in_reg(op.getarg(0))
+            locs = [loc, imm(fail_descr)]
+        else:
+            locs = [imm(fail_descr)]
+        return locs
 
     def prepare_op_guard_true(self, op, fcond):
         l0 = self.make_sure_var_in_reg(op.getarg(0))
@@ -697,8 +663,7 @@ class Regalloc(object):
         return arglocs
 
     def prepare_op_guard_no_exception(self, op, fcond):
-        loc = self.make_sure_var_in_reg(
-                    ConstInt(self.cpu.pos_exception()))
+        loc = self.make_sure_var_in_reg(ConstInt(self.cpu.pos_exception()))
         arglocs = self._prepare_guard(op, [loc])
         return arglocs
 
@@ -757,13 +722,14 @@ class Regalloc(object):
         # optimization only: fill in the 'hint_frame_locations' dictionary
         # of rm and xrm based on the JUMP at the end of the loop, by looking
         # at where we would like the boxes to be after the jump.
+        return # XXX disabled for now
         op = operations[-1]
         if op.getopnum() != rop.JUMP:
             return
         self.final_jump_op = op
         descr = op.getdescr()
         assert isinstance(descr, TargetToken)
-        if descr._arm_loop_code != 0:
+        if descr._ll_loop_code != 0:
             # if the target LABEL was already compiled, i.e. if it belongs
             # to some already-compiled piece of code
             self._compute_hint_frame_locations_from_descr(descr)
@@ -774,17 +740,19 @@ class Regalloc(object):
         #   we would like the boxes to be after the jump.
 
     def _compute_hint_frame_locations_from_descr(self, descr):
-        arglocs = self.assembler.target_arglocs(descr)
-        jump_op = self.final_jump_op
-        assert len(arglocs) == jump_op.numargs()
-        for i in range(jump_op.numargs()):
-            box = jump_op.getarg(i)
-            if isinstance(box, Box):
-                loc = arglocs[i]
-                if loc is not None and loc.is_stack():
-                    self.frame_manager.hint_frame_locations[box] = loc
+        return
+        #arglocs = self.assembler.target_arglocs(descr)
+        #jump_op = self.final_jump_op
+        #assert len(arglocs) == jump_op.numargs()
+        #for i in range(jump_op.numargs()):
+        #    box = jump_op.getarg(i)
+        #    if isinstance(box, Box):
+        #        loc = arglocs[i]
+        #        if loc is not None and loc.is_stack():
+        #            self.frame_manager.hint_frame_locations[box] = loc
 
     def prepare_op_jump(self, op, fcond):
+        assert self.jump_target_descr is None
         descr = op.getdescr()
         assert isinstance(descr, TargetToken)
         self.jump_target_descr = descr
@@ -812,6 +780,7 @@ class Regalloc(object):
             else:
                 src_locations2.append(src_loc)
                 dst_locations2.append(dst_loc)
+        self.assembler.check_frame_before_jump(self.jump_target_descr)
         remap_frame_layout_mixed(self.assembler,
                                  src_locations1, dst_locations1, tmploc,
                                  src_locations2, dst_locations2, vfptmploc)
@@ -1043,28 +1012,72 @@ class Regalloc(object):
         self.rm.force_allocate_reg(op.result, selected_reg=r.r0)
         t = TempInt()
         self.rm.force_allocate_reg(t, selected_reg=r.r1)
-        self.possibly_free_var(op.result)
-        self.possibly_free_var(t)
-        return [imm(size)]
 
-    def get_mark_gc_roots(self, gcrootmap, use_copy_area=False):
-        shape = gcrootmap.get_basic_shape()
-        for v, val in self.frame_manager.bindings.items():
-            if (isinstance(v, BoxPtr) and self.rm.stays_alive(v)):
-                assert val.is_stack()
-                gcrootmap.add_frame_offset(shape, -val.value)
-        for v, reg in self.rm.reg_bindings.items():
-            if reg is r.r0:
-                continue
-            if (isinstance(v, BoxPtr) and self.rm.stays_alive(v)):
-                if use_copy_area:
-                    assert reg in self.rm.REGLOC_TO_COPY_AREA_OFS
-                    area_offset = self.rm.REGLOC_TO_COPY_AREA_OFS[reg]
-                    gcrootmap.add_frame_offset(shape, area_offset)
-                else:
-                    assert 0, 'sure??'
-        return gcrootmap.compress_callshape(shape,
-                                            self.assembler.datablockwrapper)
+        sizeloc = size_box.getint()
+        gc_ll_descr = self.cpu.gc_ll_descr
+        gcmap = self.get_gcmap([r.r0, r.r1])
+        self.possibly_free_var(t)
+        self.assembler.malloc_cond(
+            gc_ll_descr.get_nursery_free_addr(),
+            gc_ll_descr.get_nursery_top_addr(),
+            sizeloc,
+            gcmap
+            )
+        self.assembler._alignment_check()
+
+    def prepare_op_call_malloc_nursery_varsize_frame(self, op, fcond):
+        size_box = op.getarg(0)
+        assert isinstance(size_box, BoxInt) # we cannot have a const here!
+        # sizeloc must be in a register, but we can free it now
+        # (we take care explicitly of conflicts with r0 or r1)
+        sizeloc = self.rm.make_sure_var_in_reg(size_box)
+        self.rm.possibly_free_var(size_box)
+        #
+        self.rm.force_allocate_reg(op.result, selected_reg=r.r0)
+        #
+        t = TempInt()
+        self.rm.force_allocate_reg(t, selected_reg=r.r1)
+        #
+        gcmap = self.get_gcmap([r.r0, r.r1])
+        self.possibly_free_var(t)
+        #
+        gc_ll_descr = self.assembler.cpu.gc_ll_descr
+        self.assembler.malloc_cond_varsize_frame(
+            gc_ll_descr.get_nursery_free_addr(),
+            gc_ll_descr.get_nursery_top_addr(),
+            sizeloc,
+            gcmap
+            )
+        self.assembler._alignment_check()
+
+    def prepare_op_call_malloc_nursery_varsize(self, op, fcond):
+        gc_ll_descr = self.assembler.cpu.gc_ll_descr
+        if not hasattr(gc_ll_descr, 'max_size_of_young_obj'):
+            raise Exception("unreachable code")
+            # for boehm, this function should never be called
+        arraydescr = op.getdescr()
+        length_box = op.getarg(2)
+        assert isinstance(length_box, BoxInt) # we cannot have a const here!
+        # the result will be in r0
+        self.rm.force_allocate_reg(op.result, selected_reg=r.r0)
+        # we need r1 as a temporary
+        tmp_box = TempBox()
+        self.rm.force_allocate_reg(tmp_box, selected_reg=r.r1)
+        gcmap = self.get_gcmap([r.r0, r.r1]) # allocate the gcmap *before*
+        self.rm.possibly_free_var(tmp_box)
+        # length_box always survives: it's typically also present in the
+        # next operation that will copy it inside the new array.  It's
+        # fine to load it from the stack too, as long as it's != r0, r1.
+        lengthloc = self.rm.loc(length_box)
+        self.rm.possibly_free_var(length_box)
+        #
+        itemsize = op.getarg(1).getint()
+        maxlength = (gc_ll_descr.max_size_of_young_obj - WORD * 2) / itemsize
+        self.assembler.malloc_cond_varsize(
+            op.getarg(0).getint(),
+            gc_ll_descr.get_nursery_free_addr(),
+            gc_ll_descr.get_nursery_top_addr(),
+            lengthloc, itemsize, maxlength, gcmap, arraydescr)
 
     prepare_op_debug_merge_point = void
     prepare_op_jit_debug = void
@@ -1087,6 +1100,7 @@ class Regalloc(object):
     prepare_op_cond_call_gc_wb_array = prepare_op_cond_call_gc_wb
 
     def prepare_op_force_token(self, op, fcond):
+        # XXX for now we return a regular reg
         res_loc = self.force_allocate_reg(op.result)
         self.possibly_free_var(op.result)
         return [res_loc]
@@ -1117,7 +1131,7 @@ class Regalloc(object):
                 self.frame_manager.mark_as_free(arg)
         #
         descr._arm_arglocs = arglocs
-        descr._arm_loop_code = self.assembler.mc.currpos()
+        descr._ll_loop_code = self.assembler.mc.currpos()
         descr._arm_clt = self.assembler.current_clt
         self.assembler.target_tokens_currently_compiling[descr] = None
         self.possibly_free_vars_for_op(op)
@@ -1126,9 +1140,10 @@ class Regalloc(object):
         # end of the same loop, i.e. if what we are compiling is a single
         # loop that ends up jumping to this LABEL, then we can now provide
         # the hints about the expected position of the spilled variables.
-        jump_op = self.final_jump_op
-        if jump_op is not None and jump_op.getdescr() is descr:
-            self._compute_hint_frame_locations_from_descr(descr)
+        #jump_op = self.final_jump_op
+        #if jump_op is not None and jump_op.getdescr() is descr:
+        #    self._compute_hint_frame_locations_from_descr(descr)
+        return []
 
     def prepare_guard_call_may_force(self, op, guard_op, fcond):
         args = self._prepare_call(op, save_all_regs=True)
@@ -1136,20 +1151,11 @@ class Regalloc(object):
     prepare_guard_call_release_gil = prepare_guard_call_may_force
 
     def prepare_guard_call_assembler(self, op, guard_op, fcond):
-        descr = op.getdescr()
-        assert isinstance(descr, JitCellToken)
-        jd = descr.outermost_jitdriver_sd
-        assert jd is not None
-        vable_index = jd.index_of_virtualizable
-        if vable_index >= 0:
-            self._sync_var(op.getarg(vable_index))
-            vable = self.frame_manager.loc(op.getarg(vable_index))
-        else:
-            vable = imm(0)
-        # make sure the call result location is free
+        locs = self.locs_for_call_assembler(op, guard_op)
         tmploc = self.get_scratch_reg(INT, selected_reg=r.r0)
+        call_locs = self._prepare_call(op, save_all_regs=True)
         self.possibly_free_vars(guard_op.getfailargs())
-        return [vable, tmploc] + self._prepare_call(op, save_all_regs=True)
+        return locs + [call_locs[0], tmploc]
 
     def _prepare_args_for_new_op(self, new_args):
         gc_ll_descr = self.cpu.gc_ll_descr
@@ -1166,8 +1172,7 @@ class Regalloc(object):
     prepare_op_float_add = prepare_float_op(name='prepare_op_float_add')
     prepare_op_float_sub = prepare_float_op(name='prepare_op_float_sub')
     prepare_op_float_mul = prepare_float_op(name='prepare_op_float_mul')
-    prepare_op_float_truediv = prepare_float_op(
-                                            name='prepare_op_float_truediv')
+    prepare_op_float_truediv = prepare_float_op(name='prepare_op_float_truediv')
     prepare_op_float_lt = prepare_float_op(float_result=False,
                                             name='prepare_op_float_lt')
     prepare_op_float_le = prepare_float_op(float_result=False,
@@ -1258,13 +1263,6 @@ def notimplemented_with_guard(self, op, guard_op, fcond):
 operations = [notimplemented] * (rop._LAST + 1)
 operations_with_guard = [notimplemented_with_guard] * (rop._LAST + 1)
 
-
-def get_scale(size):
-    scale = 0
-    while (1 << scale) < size:
-        scale += 1
-    assert (1 << scale) == size
-    return scale
 
 for key, value in rop.__dict__.items():
     key = key.lower()

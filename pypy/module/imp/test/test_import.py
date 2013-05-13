@@ -167,7 +167,10 @@ def setup_directory_structure(cls):
 def _setup(cls):
     space = cls.space
     dn = setup_directory_structure(cls)
-    return space.appexec([space.wrap(dn)], """
+    return _setup_path(space, dn)
+
+def _setup_path(space, path):
+    return space.appexec([space.wrap(path)], """
         (dn): 
             import sys
             path = list(sys.path)
@@ -573,9 +576,8 @@ class AppTestImport(BaseImportTest):
         import time
         time.sleep(1)
 
-        f = open(test_reload.__file__, "w")
-        f.write("def test():\n    raise NotImplementedError\n")
-        f.close()
+        with open(test_reload.__file__, "w") as f:
+            f.write("def test():\n    raise NotImplementedError\n")
         imp.reload(test_reload)
         try:
             test_reload.test()
@@ -586,6 +588,10 @@ class AppTestImport(BaseImportTest):
         # (on windows at least)
         import os
         os.unlink(test_reload.__file__)
+
+        # restore it for later tests
+        with open(test_reload.__file__, "w") as f:
+            f.write("def test():\n    raise ValueError\n")
 
     def test_reload_failing(self):
         import test_reload
@@ -829,7 +835,7 @@ class TestPycStuff:
             stream.seek(8, 0)
             w_code = importing.read_compiled_module(
                     space, cpathname, stream.readall())
-            pycode = space.interpclass_w(w_code)
+            pycode = w_code
         finally:
             stream.close()
         assert type(pycode) is PyCode
@@ -897,7 +903,7 @@ class TestPycStuff:
                                                   stream.readall())
         finally:
             stream.close()
-        pycode = space.interpclass_w(w_ret)
+        pycode = w_ret
         assert type(pycode) is PyCode
         w_dic = space.newdict()
         pycode.exec_code(space, w_dic, w_dic)
@@ -1036,7 +1042,7 @@ class TestPycStuff:
                                                   stream.readall())
         finally:
             stream.close()
-        pycode = space.interpclass_w(w_ret)
+        pycode = w_ret
         assert type(pycode) is PyCode
 
         cpathname = str(udir.join('cpathname.pyc'))
@@ -1064,7 +1070,7 @@ class TestPycStuff:
             stream.seek(8, 0)
             w_code = importing.read_compiled_module(space, cpathname,
                                                     stream.readall())
-            pycode = space.interpclass_w(w_code)
+            pycode = w_code
         finally:
             stream.close()
 
@@ -1149,11 +1155,9 @@ class AppTestImportHooks(object):
     def setup_class(cls):
         mydir = os.path.dirname(__file__)
         cls.w_hooktest = cls.space.wrap(os.path.join(mydir, 'hooktest'))
-        cls.space.appexec([cls.space.wrap(mydir)], """
-            (mydir):
-                import sys
-                sys.path.append(mydir)
-
+        cls.w_saved_modules = _setup_path(cls.space, mydir)
+        cls.space.appexec([], """
+            ():
                 # Obscure: manually bootstrap the utf-8/latin1 codecs
                 # for TextIOs opened by imp.find_module. It's not
                 # otherwise loaded by the test infrastructure but would
@@ -1163,11 +1167,7 @@ class AppTestImportHooks(object):
         """)
 
     def teardown_class(cls):
-        cls.space.appexec([], """
-            ():
-                import sys
-                sys.path.pop()
-        """)
+        _teardown(cls.space, cls.w_saved_modules)
 
     def test_meta_path(self):
         tried_imports = []

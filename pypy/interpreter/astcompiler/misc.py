@@ -1,5 +1,4 @@
 from pypy.interpreter import gateway
-from pypy.interpreter.astcompiler import ast
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.unroll import unrolling_iterable
 
@@ -28,6 +27,7 @@ def syntax_warning(space, msg, fn, lineno, offset):
 
 
 def parse_future(tree, feature_flags):
+    from pypy.interpreter.astcompiler import ast
     future_lineno = 0
     future_column = 0
     flags = 0
@@ -91,12 +91,8 @@ def dict_to_switch(d):
     return lookup
 
 
-MANGLE_LEN = 256 # magic constant from compile.c
-
 def mangle(name, klass):
     if not name.startswith('__'):
-        return name
-    if len(name) + 2 >= MANGLE_LEN:
         return name
     # Don't mangle __id__ or names with dots. The only time a name with a dot
     # can occur is when we are compiling an import statement that has a package
@@ -109,14 +105,19 @@ def mangle(name, klass):
             i = i + 1
     except IndexError:
         return name
-    klass = klass[i:]
+    return "_%s%s" % (klass[i:], name)
 
-    tlen = len(klass) + len(name)
-    if tlen > MANGLE_LEN:
-        end = len(klass) + MANGLE_LEN-tlen
-        if end < 0:
-            klass = ''     # slices of negative length are invalid in RPython
-        else:
-            klass = klass[:end]
 
-    return "_%s%s" % (klass, name)
+def new_identifier(space, name):
+    # Check whether there are non-ASCII characters in the identifier; if
+    # so, normalize to NFKC
+    for c in name:
+        if ord(c) > 0x80:
+            break
+    else:
+        return name
+
+    from pypy.module.unicodedata.interp_ucd import ucd
+    w_name = space.wrap(name.decode('utf-8'))
+    w_id = space.call_method(ucd, 'normalize', space.wrap('NFKC'), w_name)
+    return space.unicode_w(w_id).encode('utf-8')

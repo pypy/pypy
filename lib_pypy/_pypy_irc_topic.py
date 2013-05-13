@@ -168,7 +168,7 @@ N cvax tyvggrel ebgngvat ynzoqn
 """
 
 from string import ascii_uppercase, ascii_lowercase
- 
+
 def rot13(data):
     """ A simple rot-13 encoder since `str.encode('rot13')` was removed from
         Python as of version 3.0.  It rotates both uppercase and lowercase letters individually.
@@ -184,7 +184,7 @@ def rot13(data):
         else:
             total.append(char)
     return "".join(total)
- 
+
 def some_topic():
     import time
     lines = __doc__.splitlines()

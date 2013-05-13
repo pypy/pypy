@@ -1,6 +1,9 @@
+import py.test
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 import sys
+
+py.test.skip("PyInt_ APIs were removed from py3k")
 
 class TestIntObject(BaseApiTest):
     def test_intobject(self, space, api):

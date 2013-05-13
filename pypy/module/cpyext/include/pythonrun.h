@@ -6,7 +6,7 @@
 extern "C" {
 #endif
 
-  void Py_FatalError(const char *msg);
+PyAPI_FUNC(void) Py_FatalError(const char *message);
 
 /* the -3 option will probably not be implemented */
 #define Py_Py3kWarningFlag 0

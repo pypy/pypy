@@ -12,12 +12,11 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.astcompiler.consts import (
     CO_OPTIMIZED, CO_NEWLOCALS, CO_VARARGS, CO_VARKEYWORDS, CO_NESTED,
-    CO_GENERATOR, CO_CONTAINSGLOBALS)
+    CO_GENERATOR)
 from pypy.tool.stdlib_opcode import opcodedesc, HAVE_ARGUMENT
 from rpython.rlib.rarithmetic import intmask
-from rpython.rlib.debug import make_sure_not_resized
-from rpython.rlib import jit, rstring
 from rpython.rlib.objectmodel import compute_hash, we_are_translated
+from rpython.rlib import jit, rstring
 
 
 class BytecodeCorruption(Exception):
@@ -90,7 +89,9 @@ class PyCode(eval.Code):
         self.co_flags = flags
         self.co_code = code
         self.co_consts_w = consts
-        self.co_names_w = [space.new_interned_str(aname) for aname in names]
+        self.co_names_w = [
+            space.new_interned_w_str(space.wrap(aname.decode('utf-8')))
+            for aname in names]
         self.co_varnames = varnames
         self.co_freevars = freevars
         self.co_cellvars = cellvars
@@ -105,8 +106,6 @@ class PyCode(eval.Code):
         self._initialize()
 
     def _initialize(self):
-        self._init_flags()
-
         if self.co_cellvars:
             argcount = self.co_argcount
             argcount += self.co_kwonlyargcount
@@ -151,22 +150,6 @@ class PyCode(eval.Code):
         if (self.magic == cpython_magic and
             '__pypy__' not in sys.builtin_module_names):
             raise Exception("CPython host codes should not be rendered")
-
-    def _init_flags(self):
-        co_code = self.co_code
-        next_instr = 0
-        while next_instr < len(co_code):
-            opcode = ord(co_code[next_instr])
-            next_instr += 1
-            if opcode >= HAVE_ARGUMENT:
-                next_instr += 2
-            while opcode == opcodedesc.EXTENDED_ARG.index:
-                opcode = ord(co_code[next_instr])
-                next_instr += 3
-            if opcode == opcodedesc.LOAD_GLOBAL.index:
-                self.co_flags |= CO_CONTAINSGLOBALS
-            elif opcode == opcodedesc.LOAD_NAME.index:
-                self.co_flags |= CO_CONTAINSGLOBALS
 
     co_names = property(lambda self: [self.space.str_w(w_name) for w_name in self.co_names_w]) # for trace
 
@@ -253,7 +236,7 @@ class PyCode(eval.Code):
     def getdocstring(self, space):
         if self.co_consts_w:   # it is probably never empty
             w_first = self.co_consts_w[0]
-            if space.is_true(space.isinstance(w_first, space.w_unicode)):
+            if space.isinstance_w(w_first, space.w_unicode):
                 return w_first
         return space.w_None
 
@@ -268,21 +251,21 @@ class PyCode(eval.Code):
                 consts[num] = self.space.unwrap(w)
             num += 1
         assert self.co_kwonlyargcount == 0, 'kwonlyargcount is py3k only, cannot turn this code object into a Python2 one'
-        return new.code( self.co_argcount,
-                         #self.co_kwonlyargcount, # this does not exists in python2
-                         self.co_nlocals,
-                         self.co_stacksize,
-                         self.co_flags,
-                         self.co_code,
-                         tuple(consts),
-                         tuple(self.co_names),
-                         tuple(self.co_varnames),
-                         self.co_filename,
-                         self.co_name,
-                         self.co_firstlineno,
-                         self.co_lnotab,
-                         tuple(self.co_freevars),
-                         tuple(self.co_cellvars))
+        return new.code(self.co_argcount,
+                        #self.co_kwonlyargcount, # this does not exists in python2
+                        self.co_nlocals,
+                        self.co_stacksize,
+                        self.co_flags,
+                        self.co_code,
+                        tuple(consts),
+                        tuple(self.co_names),
+                        tuple(self.co_varnames),
+                        self.co_filename,
+                        self.co_name,
+                        self.co_firstlineno,
+                        self.co_lnotab,
+                        tuple(self.co_freevars),
+                        tuple(self.co_cellvars))
 
     def exec_host_bytecode(self, w_globals, w_locals):
         from pypy.interpreter.pyframe import CPythonFrame
@@ -314,30 +297,29 @@ class PyCode(eval.Code):
 
     def descr_code__eq__(self, w_other):
         space = self.space
-        other = space.interpclass_w(w_other)
-        if not isinstance(other, PyCode):
+        if not isinstance(w_other, PyCode):
             return space.w_False
-        areEqual = (self.co_name == other.co_name and
-                    self.co_argcount == other.co_argcount and
-                    self.co_kwonlyargcount == other.co_kwonlyargcount and
-                    self.co_nlocals == other.co_nlocals and
-                    self.co_flags == other.co_flags and
-                    self.co_firstlineno == other.co_firstlineno and
-                    self.co_code == other.co_code and
-                    len(self.co_consts_w) == len(other.co_consts_w) and
-                    len(self.co_names_w) == len(other.co_names_w) and
-                    self.co_varnames == other.co_varnames and
-                    self.co_freevars == other.co_freevars and
-                    self.co_cellvars == other.co_cellvars)
+        areEqual = (self.co_name == w_other.co_name and
+                    self.co_argcount == w_other.co_argcount and
+                    self.co_kwonlyargcount == w_other.co_kwonlyargcount and
+                    self.co_nlocals == w_other.co_nlocals and
+                    self.co_flags == w_other.co_flags and
+                    self.co_firstlineno == w_other.co_firstlineno and
+                    self.co_code == w_other.co_code and
+                    len(self.co_consts_w) == len(w_other.co_consts_w) and
+                    len(self.co_names_w) == len(w_other.co_names_w) and
+                    self.co_varnames == w_other.co_varnames and
+                    self.co_freevars == w_other.co_freevars and
+                    self.co_cellvars == w_other.co_cellvars)
         if not areEqual:
             return space.w_False
 
         for i in range(len(self.co_names_w)):
-            if not space.eq_w(self.co_names_w[i], other.co_names_w[i]):
+            if not space.eq_w(self.co_names_w[i], w_other.co_names_w[i]):
                 return space.w_False
 
         for i in range(len(self.co_consts_w)):
-            if not space.eq_w(self.co_consts_w[i], other.co_consts_w[i]):
+            if not space.eq_w(self.co_consts_w[i], w_other.co_consts_w[i]):
                 return space.w_False
 
         return space.w_True
@@ -380,12 +362,12 @@ class PyCode(eval.Code):
         if nlocals < 0:
             raise OperationError(space.w_ValueError,
                                  space.wrap("code: nlocals must not be negative"))
-        if not space.is_true(space.isinstance(w_constants, space.w_tuple)):
+        if not space.isinstance_w(w_constants, space.w_tuple):
             raise OperationError(space.w_TypeError,
                                  space.wrap("Expected tuple for constants"))
-        consts_w   = space.fixedview(w_constants)
-        names      = unpack_str_tuple(space, w_names)
-        varnames   = unpack_str_tuple(space, w_varnames)
+        consts_w = space.fixedview(w_constants)
+        names = unpack_str_tuple(space, w_names)
+        varnames = unpack_str_tuple(space, w_varnames)
         if w_freevars is not None:
             freevars = unpack_str_tuple(space, w_freevars)
         else:
@@ -426,8 +408,13 @@ class PyCode(eval.Code):
         return space.newtuple([new_inst, space.newtuple(tup)])
 
     def get_repr(self):
-        return "<code object %s, file '%s', line %d>" % (
-            self.co_name, self.co_filename, self.co_firstlineno)
+        space = self.space
+        # co_name should be an identifier
+        name = self.co_name.decode('utf-8')
+        fn = space.fsdecode_w(space.wrapbytes(self.co_filename))
+        return u'<code object %s at 0x%s, file "%s", line %d>' % (
+            name, unicode(self.getaddrstring(space)), fn,
+            -1 if self.co_firstlineno == 0 else self.co_firstlineno)
 
     def repr(self, space):
         return space.wrap(self.get_repr())

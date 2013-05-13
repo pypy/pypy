@@ -31,13 +31,13 @@ def compile_shared():
         library = os.path.join(thisdir, '..', 'include', 'libpypy-c')
         if not os.path.exists(library + '.lib'):
             #For a nightly build
-            library = os.path.join(thisdir, '..', 'include', 'python27')
+            library = os.path.join(thisdir, '..', 'include', 'python3')
         if not os.path.exists(library + '.lib'):
             # For a local translation
             library = os.path.join(thisdir, '..', 'pypy', 'goal', 'libpypy-c')
         libraries = [library, 'oleaut32']
         extra_ldargs = ['/MANIFEST',  # needed for VC10
-                        '/EXPORT:init_ctypes_test']
+                        '/EXPORT:PyInit__ctypes_test']
     else:
         libraries = []
         extra_ldargs = []

@@ -195,8 +195,8 @@ class TestAsmGCRootWithSemiSpaceGC(AbstractTestAsmGCRoot,
         
         @entrypoint("x42", [lltype.Signed, lltype.Signed], c_name='callback')
         def mycallback(a, b):
-            llop.gc_stack_bottom(lltype.Void)
             rffi.stackcounter.stacks_counter += 1
+            llop.gc_stack_bottom(lltype.Void)
             gc.collect()
             rffi.stackcounter.stacks_counter -= 1
             return a + b

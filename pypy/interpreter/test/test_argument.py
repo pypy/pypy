@@ -669,23 +669,23 @@ class TestErrorHandling(object):
 class AppTestArgument:
     def test_error_message(self):
         exc = raises(TypeError, (lambda a, b=2: 0), b=3)
-        assert exc.value.message == "<lambda>() takes at least 1 non-keyword argument (0 given)"
+        assert str(exc.value) == "<lambda>() takes at least 1 non-keyword argument (0 given)"
         exc = raises(TypeError, (lambda: 0), b=3)
-        assert exc.value.message == "<lambda>() takes no arguments (1 given)"
+        assert str(exc.value) == "<lambda>() takes no arguments (1 given)"
         exc = raises(TypeError, (lambda a, b: 0), 1, 2, 3, a=1)
-        assert exc.value.message == "<lambda>() takes exactly 2 arguments (4 given)"
+        assert str(exc.value) == "<lambda>() takes exactly 2 arguments (4 given)"
         exc = raises(TypeError, (lambda a, b=1: 0), 1, 2, 3, a=1)
-        assert exc.value.message == "<lambda>() takes at most 2 non-keyword arguments (3 given)"
+        assert str(exc.value) == "<lambda>() takes at most 2 non-keyword arguments (3 given)"
         exc = raises(TypeError, (lambda a, b=1, **kw: 0), 1, 2, 3)
-        assert exc.value.message == "<lambda>() takes at most 2 non-keyword arguments (3 given)"
+        assert str(exc.value) == "<lambda>() takes at most 2 non-keyword arguments (3 given)"
         exc = raises(TypeError, (lambda a, b, c=3, **kw: 0), 1)
-        assert exc.value.message == "<lambda>() takes at least 2 arguments (1 given)"
+        assert str(exc.value) == "<lambda>() takes at least 2 arguments (1 given)"
         exc = raises(TypeError, (lambda a, b, **kw: 0), 1)
-        assert exc.value.message == "<lambda>() takes exactly 2 non-keyword arguments (1 given)"
+        assert str(exc.value) == "<lambda>() takes exactly 2 non-keyword arguments (1 given)"
         exc = raises(TypeError, (lambda a, b, c=3, **kw: 0), a=1)
-        assert exc.value.message == "<lambda>() takes at least 2 non-keyword arguments (0 given)"
+        assert str(exc.value) == "<lambda>() takes at least 2 non-keyword arguments (0 given)"
         exc = raises(TypeError, (lambda a, b, **kw: 0), a=1)
-        assert exc.value.message == "<lambda>() takes exactly 2 non-keyword arguments (0 given)"
+        assert str(exc.value) == "<lambda>() takes exactly 2 non-keyword arguments (0 given)"
 
     def test_unicode_keywords(self):
         """

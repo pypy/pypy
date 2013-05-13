@@ -294,12 +294,14 @@ class AggregateTests(unittest.TestCase):
             pass
 
     def CheckAggrNoStep(self):
+        # XXX it's better to raise OperationalError in order to stop
+        # the query earlier.
         cur = self.con.cursor()
         try:
             cur.execute("select nostep(t) from test")
-            self.fail("should have raised an AttributeError")
-        except AttributeError as e:
-            self.assertEqual(e.args[0], "'AggrNoStep' object has no attribute 'step'")
+            self.fail("should have raised an OperationalError")
+        except sqlite.OperationalError as e:
+            self.assertEqual(e.args[0], "user-defined aggregate's 'step' method raised error")
 
     def CheckAggrNoFinalize(self):
         cur = self.con.cursor()

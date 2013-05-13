@@ -17,6 +17,8 @@ $Id: genPytokenize.py,v 1.1 2003/10/02 17:37:17 jriehl Exp $
 from pypy.interpreter.pyparser.pylexer import *
 from pypy.interpreter.pyparser.automata import NonGreedyDFA, DFA, DEFAULT
 
+NON_ASCII = "\x80"
+
 def makePyPseudoDFA ():
     import string
     states = []
@@ -50,9 +52,10 @@ def makePyPseudoDFA ():
     # ____________________________________________________________
     # Names
     name = chain(states,
-                 groupStr(states, string.letters + "_"),
+                 groupStr(states, string.letters + "_" + NON_ASCII),
                  any(states, groupStr(states,
-                                      string.letters + string.digits + "_")))
+                                      string.letters + string.digits + "_" +
+                                      NON_ASCII)))
     # ____________________________________________________________
     # Digits
     def makeDigits ():

@@ -23,8 +23,8 @@ class AbstractVirtualizable2InstanceRepr(AbstractInstanceRepr):
     def _setup_repr_llfields(self):
         raise NotImplementedError
 
-    def set_vable(self, llops, vinst, force_cast=False):
-        raise NotImplementedError
+##    def set_vable(self, llops, vinst, force_cast=False):
+##        raise NotImplementedError
 
     def _setup_repr(self):
         if self.top_of_virtualizable_hierarchy:
@@ -43,10 +43,10 @@ class AbstractVirtualizable2InstanceRepr(AbstractInstanceRepr):
             # not need it, but it doesn't hurt to have it anyway
             self.my_redirected_fields = self.rbase.my_redirected_fields
 
-    def new_instance(self, llops, classcallhop=None):
-        vptr = self._super().new_instance(llops, classcallhop)
-        self.set_vable(llops, vptr)
-        return vptr
+##    def new_instance(self, llops, classcallhop=None):
+##        vptr = self._super().new_instance(llops, classcallhop)
+##        self.set_vable(llops, vptr)
+##        return vptr
 
     def hook_access_field(self, vinst, cname, llops, flags):
         #if not flags.get('access_directly'):

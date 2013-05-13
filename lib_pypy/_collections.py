@@ -5,9 +5,11 @@
 #   (nondist/sandbox/collections/pydeque.py rev 1.1, Raymond Hettinger)
 #
 
-import operator
+# Note that PyPy also contains a built-in module '_collections' which will hide
+# this one if compiled in.
+
 try:
-    from _thread import get_ident as _thread_ident
+    from _thread import _get_ident as _thread_ident
 except ImportError:
     def _thread_ident():
         return -1
@@ -429,5 +431,5 @@ class defaultdict(dict):
 
            This API is used by pickle.py and copy.py.
         """
-        return (type(self), (self.default_factory,), None, None, iter(self.items()))
+        return (type(self), (self.default_factory,), None, None, self.items())
 

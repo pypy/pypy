@@ -127,7 +127,7 @@ class AppTestDATATYPES:
         c.m_bool = 0;      assert c.get_bool() == False
         c.set_bool(0);     assert c.m_bool     == False
 
-        raises(TypeError, 'c.set_bool(10)')
+        raises(ValueError, 'c.set_bool(10)')
 
         # char types through functions
         c.set_char('c');   assert c.get_char()  == 'c'
@@ -143,10 +143,10 @@ class AppTestDATATYPES:
         c.set_uchar('e');  assert c.m_uchar     ==     'e'
         c.set_uchar(43);   assert c.m_uchar     == chr(43)
 
-        raises(TypeError, 'c.set_char("string")')
-        raises(TypeError, 'c.set_char(500)')
-        raises(TypeError, 'c.set_uchar("string")')
-# TODO: raises(TypeError, 'c.set_uchar(-1)')
+        raises(ValueError, 'c.set_char("string")')
+        raises(ValueError, 'c.set_char(500)')
+        raises(ValueError, 'c.set_uchar("string")')
+        raises(ValueError, 'c.set_uchar(-1)')
 
         # integer types
         names = ['short', 'ushort', 'int', 'uint', 'long', 'ulong', 'llong', 'ullong']
@@ -454,7 +454,38 @@ class AppTestDATATYPES:
         assert c.s_enum == cppyy_test_data.kSomething
         assert cppyy_test_data.s_enum == cppyy_test_data.kSomething
 
-    def test12_object_returns(self):
+        # global enums
+        assert gbl.kApple  == 78
+        assert gbl.kBanana == 29
+        assert gbl.kCitrus == 34
+
+    def test12_string_passing(self):
+        """Test passing/returning of a const char*"""
+
+        import cppyy
+        cppyy_test_data = cppyy.gbl.cppyy_test_data
+
+        c = cppyy_test_data()
+        assert c.get_valid_string('aap') == 'aap'
+        assert c.get_invalid_string() == ''
+
+    def test13_copy_contructor(self):
+        """Test copy constructor"""
+
+        import cppyy
+        four_vector = cppyy.gbl.four_vector
+        
+        t1 = four_vector(1., 2., 3., -4.)
+        t2 = four_vector(0., 0., 0.,  0.)
+        t3 = four_vector(t1)
+  
+        assert t1 == t3
+        assert t1 != t2
+        
+        for i in range(4):
+            assert t1[i] == t3[i]
+
+    def test14_object_returns(self):
         """Test access to and return of PODs"""
 
         import cppyy
@@ -481,7 +512,7 @@ class AppTestDATATYPES:
         assert c.get_pod_ptrref().m_int == 666
         assert c.get_pod_ptrref().m_double == 3.14
 
-    def test13_object_arguments(self):
+    def test15_object_arguments(self):
         """Test setting and returning of a POD through arguments"""
 
         import cppyy
@@ -549,7 +580,7 @@ class AppTestDATATYPES:
         assert p.m_int == 888
         assert p.m_double == 3.14
 
-    def test14_respect_privacy(self):
+    def test16_respect_privacy(self):
         """Test that privacy settings are respected"""
 
         import cppyy
@@ -562,7 +593,58 @@ class AppTestDATATYPES:
 
         c.destruct()
 
-    def test15_buffer_reshaping(self):
+    def test17_object_and_pointer_comparisons(self):
+        """Verify object and pointer comparisons"""
+    
+        import cppyy 
+        gbl = cppyy.gbl
+
+        c1 = cppyy.bind_object(0, gbl.cppyy_test_data)
+        assert c1 == None
+        assert None == c1
+
+        c2 = cppyy.bind_object(0, gbl.cppyy_test_data)
+        assert c1 == c2
+        assert c2 == c1
+
+        # four_vector overrides operator==
+        l1 = cppyy.bind_object(0, gbl.four_vector)
+        assert l1 == None
+        assert None == l1
+
+        assert c1 != l1
+        assert l1 != c1
+
+        l2 = cppyy.bind_object(0, gbl.four_vector)
+        assert l1 == l2
+        assert l2 == l1
+
+        l3 = gbl.four_vector(1, 2, 3, 4)
+        l4 = gbl.four_vector(1, 2, 3, 4)
+        l5 = gbl.four_vector(4, 3, 2, 1)
+        assert l3 == l4
+        assert l4 == l3
+
+        assert l3 != None                 # like this to ensure __ne__ is called
+        assert None != l3                 # id.
+        assert l3 != l5
+        assert l5 != l3
+
+    def test18_object_validity(self):
+        """Test object validity checking"""
+        
+        from cppyy import gbl
+
+        d = gbl.cppyy_test_pod()
+                     
+        assert d
+        assert not not d
+
+        d2 = gbl.get_null_pod()
+
+        assert not d2
+
+    def test19_buffer_reshaping(self):
         """Test usage of buffer sizing"""
 
         import cppyy
@@ -582,4 +664,3 @@ class AppTestDATATYPES:
             l = list(arr)
             for i in range(self.N):
                 assert arr[i] == l[i]
-

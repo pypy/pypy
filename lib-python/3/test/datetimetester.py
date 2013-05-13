@@ -49,6 +49,17 @@ class TestModule(unittest.TestCase):
         self.assertEqual(datetime.MINYEAR, 1)
         self.assertEqual(datetime.MAXYEAR, 9999)
 
+    def test_name_cleanup(self):
+        if not '_Fast' in str(type(self)):
+            return
+        datetime = datetime_module
+        names = set(name for name in dir(datetime)
+                    if not name.startswith('__') and not name.endswith('__'))
+        allowed = set(['MAXYEAR', 'MINYEAR', 'date', 'datetime',
+                       'datetime_CAPI', 'time', 'timedelta', 'timezone',
+                       'tzinfo'])
+        self.assertEqual(names - allowed, set([]))
+
 #############################################################################
 # tzinfo tests
 
@@ -603,6 +614,8 @@ class TestTimeDelta(HarmlessMixedComparison, unittest.TestCase):
         # Single-field rounding.
         eq(td(milliseconds=0.4/1000), td(0))    # rounds to 0
         eq(td(milliseconds=-0.4/1000), td(0))    # rounds to 0
+        eq(td(milliseconds=0.5/1000), td(microseconds=1))
+        eq(td(milliseconds=-0.5/1000), td(microseconds=-1))
         eq(td(milliseconds=0.6/1000), td(microseconds=1))
         eq(td(milliseconds=-0.6/1000), td(microseconds=-1))
 
@@ -1367,9 +1380,10 @@ class TestDate(HarmlessMixedComparison, unittest.TestCase):
         for month_byte in b'9', b'\0', b'\r', b'\xff':
             self.assertRaises(TypeError, self.theclass,
                                          base[:2] + month_byte + base[3:])
-        # Good bytes, but bad tzinfo:
-        self.assertRaises(TypeError, self.theclass,
-                          bytes([1] * len(base)), 'EST')
+        if issubclass(self.theclass, datetime):
+            # Good bytes, but bad tzinfo:
+            with self.assertRaisesRegex(TypeError, '^bad tzinfo state arg$'):
+                self.theclass(bytes([1] * len(base)), 'EST')
 
         for ord_byte in range(1, 13):
             # This shouldn't blow up because of the month byte alone.  If
@@ -1736,6 +1750,8 @@ class TestDateTime(TestDate):
                     self.theclass.utcfromtimestamp]:
             self.assertEqual(fts(0.9999999), fts(1))
             self.assertEqual(fts(0.99999949).microsecond, 999999)
+            self.assertEqual(fts(0.0000005).microsecond, 1)
+            self.assertEqual(fts(0.0000015).microsecond, 2)
 
     def test_insane_fromtimestamp(self):
         # It's possible that some platform maps time_t to double,
@@ -2260,6 +2276,9 @@ class TestTime(HarmlessMixedComparison, unittest.TestCase):
         for hour_byte in ' ', '9', chr(24), '\xff':
             self.assertRaises(TypeError, self.theclass,
                                          hour_byte + base[1:])
+        # Good bytes, but bad tzinfo:
+        with self.assertRaisesRegex(TypeError, '^bad tzinfo state arg$'):
+            self.theclass(bytes([1] * len(base)), 'EST')
 
 # A mixin for classes with a tzinfo= argument.  Subclasses must define
 # theclass as a class atribute, and theclass(1, 1, 1, tzinfo=whatever)
@@ -3675,6 +3694,58 @@ class Oddballs(unittest.TestCase):
                                        as_date.day, 0, 0, 0)
         self.assertEqual(as_datetime, datetime_sc)
         self.assertEqual(datetime_sc, as_datetime)
+
+    def test_extra_attributes(self):
+        for x in [date.today(),
+                  time(),
+                  datetime.utcnow(),
+                  timedelta(),
+                  tzinfo(),
+                  timezone(timedelta())]:
+            with self.assertRaises(AttributeError):
+                x.abc = 1
+
+    def test_check_arg_types(self):
+        import decimal
+        class Number:
+            def __init__(self, value):
+                self.value = value
+            def __int__(self):
+                return self.value
+
+        for xx in [decimal.Decimal(10),
+                   decimal.Decimal('10.9'),
+                   Number(10)]:
+            self.assertEqual(datetime(10, 10, 10, 10, 10, 10, 10),
+                             datetime(xx, xx, xx, xx, xx, xx, xx))
+
+        with self.assertRaisesRegex(TypeError, '^an integer is required$'):
+            datetime(10, 10, '10')
+
+        f10 = Number(10.9)
+        with self.assertRaisesRegex(TypeError, '^nb_int should return int object$'):
+            datetime(10, 10, f10)
+
+        class Float(float):
+            pass
+        s10 = Float(10.9)
+        with self.assertRaisesRegex(TypeError, '^integer argument expected, got float$'):
+            datetime(10, 10, s10)
+
+        with self.assertRaises(TypeError):
+            datetime(10., 10, 10)
+        with self.assertRaises(TypeError):
+            datetime(10, 10., 10)
+        with self.assertRaises(TypeError):
+            datetime(10, 10, 10.)
+        with self.assertRaises(TypeError):
+            datetime(10, 10, 10, 10.)
+        with self.assertRaises(TypeError):
+            datetime(10, 10, 10, 10, 10.)
+        with self.assertRaises(TypeError):
+            datetime(10, 10, 10, 10, 10, 10.)
+        with self.assertRaises(TypeError):
+            datetime(10, 10, 10, 10, 10, 10, 10.)
 
 def test_main():
     support.run_unittest(__name__)

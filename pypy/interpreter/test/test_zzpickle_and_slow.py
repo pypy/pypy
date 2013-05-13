@@ -125,7 +125,6 @@ class AppTestInterpObjectPickling:
         assert map is result
     
     def test_pickle_non_top_reachable_func(self):
-        py3k_skip("not supported yet")
         def func():
             return 42
         global a
@@ -157,7 +156,6 @@ class AppTestInterpObjectPickling:
         assert not (cell != result)
 
     def test_pickle_frame(self):
-        py3k_skip("not supported yet")
         #import sys
         # avoid creating a closure for now
         def f():
@@ -189,7 +187,6 @@ class AppTestInterpObjectPickling:
         assert f1.f_trace is f2.f_trace
 
     def test_pickle_frame_with_exc(self):
-        py3k_skip("not supported yet")
         #import sys
         # avoid creating a closure for now
         self = None
@@ -210,8 +207,30 @@ class AppTestInterpObjectPickling:
 
         assert read_exc_type(f2) is ValueError
 
+    def test_pickle_frame_with_exc_nested(self):
+        # avoid creating a closure for now
+        self = None
+        def f():
+            try:
+                1/0
+            except:
+                try:
+                    raise ValueError
+                except:
+                    import sys, pickle
+                    f = sys._getframe()
+                    saved = hide_top_frame(f)
+                    pckl = pickle.dumps(f)
+                    restore_top_frame(f, saved)
+                    return pckl
+
+        import pickle
+        pckl   = f()
+        f2     = pickle.loads(pckl)
+
+        assert read_exc_type(f2) is ValueError
+
     def test_pickle_frame_clos(self):
-        py3k_skip("not supported yet")
         # similar to above, therefore skipping the asserts.
         # we just want to see that the closure works
         import sys # this is the difference!
@@ -229,7 +248,6 @@ class AppTestInterpObjectPickling:
         f2     = pickle.loads(pckl)
 
     def test_pickle_traceback(self):
-        py3k_skip("not supported yet")
         def f():
             try:
                 raise Exception()
@@ -258,7 +276,6 @@ class AppTestInterpObjectPickling:
         assert mod is result
     
     def test_pickle_moduledict(self):
-        py3k_skip("not supported yet")
         import pickle
         moddict  = pickle.__dict__
         pckl     = pickle.dumps(moddict)
@@ -289,7 +306,6 @@ class AppTestInterpObjectPickling:
         assert a == result
     
     def test_pickle_method(self):
-        py3k_skip("not supported yet")
         class myclass(object):
             def f(self):
                 return 42
@@ -311,7 +327,6 @@ class AppTestInterpObjectPickling:
             del sys.modules['mod']
     
     def test_pickle_staticmethod(self):
-        py3k_skip("not supported yet")
         class myclass(object):
             def f():
                 return 42
@@ -323,7 +338,6 @@ class AppTestInterpObjectPickling:
         assert method() == result()
     
     def test_pickle_classmethod(self):
-        py3k_skip("not supported yet")
         class myclass(object):
             def f(cls):
                 return cls
@@ -404,9 +418,8 @@ class AppTestInterpObjectPickling:
         assert list(e) == list(result)
 
     def test_pickle_xrangeiter(self):
-        py3k_skip("not supported yet")
         import pickle
-        riter  = iter(xrange(5))
+        riter  = iter(range(5))
         next(riter)
         next(riter)
         pckl   = pickle.dumps(riter)
@@ -415,7 +428,6 @@ class AppTestInterpObjectPickling:
         assert list(result) == [2,3,4]
 
     def test_pickle_generator(self):
-        py3k_skip("not supported yet")
         import types
         mod = types.ModuleType('mod')
         import sys
@@ -439,7 +451,6 @@ class AppTestInterpObjectPickling:
             del sys.modules['mod']
 
     def test_pickle_generator_blk(self):
-        py3k_skip("not supported yet")
         # same as above but with the generator inside a block
         import types
         mod = types.ModuleType('mod')
@@ -497,3 +508,68 @@ class AppTestInterpObjectPickling:
         pckl   = pickle.dumps(pack.mod)
         result = pickle.loads(pckl)
         assert pack.mod is result
+
+
+class AppTestGeneratorCloning:
+
+    def setup_class(cls):
+        try:
+            cls.space.appexec([], """():
+                def f(): yield 42
+                f().__reduce__()
+            """)
+        except TypeError, e:
+            if 'pickle generator' not in str(e):
+                raise
+            py.test.skip("Frames can't be __reduce__()-ed")
+
+    def test_deepcopy_generator(self):
+        import copy
+
+        def f(n):
+            for i in range(n):
+                yield 42 + i
+        g = f(4)
+        g2 = copy.deepcopy(g)
+        res = next(g)
+        assert res == 42
+        res = next(g2)
+        assert res == 42
+        g3 = copy.deepcopy(g)
+        res = next(g)
+        assert res == 43
+        res = next(g2)
+        assert res == 43
+        res = next(g3)
+        assert res == 43
+
+    def test_shallowcopy_generator(self):
+        """Note: shallow copies of generators are often confusing.
+        To start with, 'for' loops have an iterator that will not
+        be copied, and so create tons of confusion.
+        """
+        import copy
+
+        def f(n):
+            while n > 0:
+                yield 42 + n
+                n -= 1
+        g = f(2)
+        g2 = copy.copy(g)
+        res = next(g)
+        assert res == 44
+        res = next(g2)
+        assert res == 44
+        g3 = copy.copy(g)
+        res = next(g)
+        assert res == 43
+        res = next(g2)
+        assert res == 43
+        res = next(g3)
+        assert res == 43
+        g4 = copy.copy(g2)
+        for i in range(2):
+            raises(StopIteration, next, g)
+            raises(StopIteration, next, g2)
+            raises(StopIteration, next, g3)
+            raises(StopIteration, next, g4)
