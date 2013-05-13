@@ -21,7 +21,6 @@ py.log.setconsumer("flowgraph", ansi_log)
 class TranslationContext(object):
     FLOWING_FLAGS = {
         'verbose': False,
-        'simplifying': True,
         'list_comprehension_operations': False,   # True, - not super-tested
         }
 
@@ -30,8 +29,7 @@ class TranslationContext(object):
             from rpython.config.translationoption import get_combined_translation_config
             config = get_combined_translation_config(translating=True)
         # ZZZ should go away in the end
-        for attr in ['verbose', 'simplifying',
-                     'list_comprehension_operations']:
+        for attr in ['verbose', 'list_comprehension_operations']:
             if attr in flowing_flags:
                 setattr(config.translation, attr, flowing_flags[attr])
         self.config = config
@@ -54,8 +52,7 @@ class TranslationContext(object):
             if self.config.translation.verbose:
                 log.start(nice_repr_for_func(func))
             graph = build_flow(func)
-            if self.config.translation.simplifying:
-                simplify.simplify_graph(graph)
+            simplify.simplify_graph(graph)
             if self.config.translation.list_comprehension_operations:
                 simplify.detect_list_comprehension(graph)
             if self.config.translation.verbose:
