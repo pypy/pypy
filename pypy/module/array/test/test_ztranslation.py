@@ -2,5 +2,5 @@
 from pypy.objspace.fake.checkmodule import checkmodule
 
 def test_checkmodule():
-    checkmodule('struct')
+    checkmodule('array')
 
