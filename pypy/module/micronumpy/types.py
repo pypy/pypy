@@ -1700,6 +1700,24 @@ class StringType(BaseType, BaseStringType):
 class VoidType(BaseType, BaseStringType):
     T = lltype.Char
 
+    def coerce(self, space, dtype, w_items):
+        items_w = space.fixedview(w_items)
+        arr = VoidBoxStorage(self.size, dtype)
+        ofs = 0
+        for i in range(len(items_w)):
+            subdtype = dtype.subdtype
+            itemtype = subdtype.itemtype
+            w_box = itemtype.coerce(space, dtype.subdtype, items_w[i])
+            itemtype.store(arr, 0, ofs, w_box)
+            ofs += itemtype.get_element_size()
+        return interp_boxes.W_VoidBox(arr, 0, dtype)
+
+    @jit.unroll_safe
+    def store(self, arr, i, ofs, box):
+        assert isinstance(box, interp_boxes.W_VoidBox)
+        for k in range(self.get_element_size()):
+            arr.storage[k + ofs] = box.arr.storage[k + box.ofs]
+
 NonNativeVoidType = VoidType
 NonNativeStringType = StringType
 
