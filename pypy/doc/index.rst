@@ -10,6 +10,9 @@ User documentation
 .. toctree::
    :maxdepth: 2
 
+   install
+   build
+
 
 Development documentation
 -------------------------
