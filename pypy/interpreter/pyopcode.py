@@ -1395,7 +1395,8 @@ class W_OperationError(W_Root):
         return space.newtuple([w_new_inst, w_args, w_state])
 
     def descr_setstate(self, space, w_state):
-        self.operr = OperationError(*space.fixedview(w_state, 3))
+        w_type, w_value, w_tb = space.fixedview(w_state, 3)
+        self.operr = OperationError(w_type, w_value, w_tb)
 
 def source_as_str(space, w_source, funcname, what, flags):
     """Return source code as str0 with adjusted compiler flags
