@@ -1,14 +1,26 @@
 Welcome to PyPy's documentation!
 ================================
 
-.. TODO write introduction
+Welcome to the documentation for PyPy, a fast_, compliant alternative
+implementation of the Python_ language. If you don't know what PyPy is,
+consult the `PyPy website`_.
+
+PyPy is written using the RPython toolchain. RPython enables writing dynamic
+language interpreters in a subset of Python which can be translated to C code
+including an automatically generated JIT for the implemented language. If you
+want to learn more about RPython, see the `RPython website`_.
+
+.. _fast: http://speed.pypy.org
+.. _Python: http://python.org/
+.. _PyPy website: http://pypy.org/
+.. _RPython website: http://rpython.readthedocs.org/
 
 
 User documentation
 ------------------
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    install
    build
