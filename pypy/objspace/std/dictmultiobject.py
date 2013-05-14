@@ -1065,17 +1065,17 @@ class W_DictViewObject(W_Object):
         w_self.w_dict = w_dict
 
 class W_DictViewItemsObject(W_DictViewObject):
-    def descr__iter__(self, space):
+    def descr_iter(self, space):
         return W_DictMultiIterItemsObject(space, self.w_dict.iteritems())
 registerimplementation(W_DictViewItemsObject)
 
 class W_DictViewKeysObject(W_DictViewObject):
-    def descr__iter__(self, space):
+    def descr_iter(self, space):
         return W_DictMultiIterKeysObject(space, self.w_dict.iterkeys())
 registerimplementation(W_DictViewKeysObject)
 
 class W_DictViewValuesObject(W_DictViewObject):
-    def descr__iter__(self, space):
+    def descr_iter(self, space):
         return W_DictMultiIterValuesObject(space, self.w_dict.itervalues())
 registerimplementation(W_DictViewValuesObject)
 
@@ -1335,15 +1335,15 @@ W_BaseDictMultiIterObject.typedef = StdTypeDef("dictionaryiterator",
 
 W_DictViewItemsObject.typedef = StdTypeDef(
     "dict_items",
-    __iter__ = gateway.interp2app(W_DictViewItemsObject.descr__iter__)
+    __iter__ = gateway.interp2app(W_DictViewItemsObject.descr_iter)
     )
 
 W_DictViewKeysObject.typedef = StdTypeDef(
     "dict_keys",
-    __iter__ = gateway.interp2app(W_DictViewKeysObject.descr__iter__)
+    __iter__ = gateway.interp2app(W_DictViewKeysObject.descr_iter)
     )
 
 W_DictViewValuesObject.typedef = StdTypeDef(
     "dict_values",
-    __iter__ = gateway.interp2app(W_DictViewValuesObject.descr__iter__)
+    __iter__ = gateway.interp2app(W_DictViewValuesObject.descr_iter)
     )
