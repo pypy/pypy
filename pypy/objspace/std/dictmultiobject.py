@@ -1245,6 +1245,9 @@ class W_DictViewObject(W_Object):
     def __init__(w_self, space, w_dict):
         w_self.w_dict = w_dict
 
+    def descr_len(self, space):
+        return space.len(self.w_dict)
+
 class W_DictViewItemsObject(W_DictViewObject):
     def descr_iter(self, space):
         return W_DictMultiIterItemsObject(space, self.w_dict.iteritems())
@@ -1262,22 +1265,21 @@ registerimplementation(W_DictViewValuesObject)
 
 W_DictViewItemsObject.typedef = StdTypeDef(
     "dict_items",
+    __len__ = gateway.interp2app(W_DictViewItemsObject.descr_len),
     __iter__ = gateway.interp2app(W_DictViewItemsObject.descr_iter)
     )
 
 W_DictViewKeysObject.typedef = StdTypeDef(
     "dict_keys",
+    __len__ = gateway.interp2app(W_DictViewKeysObject.descr_len),
     __iter__ = gateway.interp2app(W_DictViewKeysObject.descr_iter)
     )
 
 W_DictViewValuesObject.typedef = StdTypeDef(
     "dict_values",
+    __len__ = gateway.interp2app(W_DictViewValuesObject.descr_len),
     __iter__ = gateway.interp2app(W_DictViewValuesObject.descr_iter)
     )
-
-def len__DictViewKeys(space, w_dictview):
-    return space.len(w_dictview.w_dict)
-len__DictViewItems = len__DictViewValues = len__DictViewKeys
 
 def all_contained_in(space, w_dictview, w_otherview):
     w_iter = space.iter(w_dictview)
