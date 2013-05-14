@@ -1634,7 +1634,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (zeros(1)[[]] == []).all()
 
     def test_int_array_index_setitem(self):
-        from numpypy import arange, zeros
+        from numpypy import arange, zeros, array
         a = arange(10)
         a[[3, 2, 1, 5]] = zeros(4, dtype=int)
         assert (a == [0, 0, 0, 0, 4, 0, 6, 7, 8, 9]).all()
@@ -1662,7 +1662,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         raises(ValueError, "array([1, 2])[array([True, False, True])] = [1, 2, 3]")
 
     def test_ellipse_index(self):
-        from numpypy import arange
+        from numpypy import arange, array
         b = arange(24).reshape(2,3,4)
         b[...] = 100
         assert (b == 100).all()
@@ -1672,6 +1672,11 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (b[0,0,:] == [10, 20, 30, 40]).all()
         assert b.shape == b[...].shape
         assert (b == b[...]).all()
+
+        a = array(1)
+        a[...] = 100
+        assert (a == 100).all()
+        assert a == a[...]
 
     def test_weakref(self):
         import _weakref
