@@ -1254,6 +1254,21 @@ class W_DictViewObject(W_Object):
     def descr_len(self, space):
         return space.len(self.w_dict)
 
+    def descr_and(self, space, w_otherview):
+        w_set = space.call_function(space.w_set, self)
+        space.call_method(w_set, "intersection_update", w_otherview)
+        return w_set
+
+    def descr_or(self, space, w_otherview):
+        w_set = space.call_function(space.w_set, self)
+        space.call_method(w_set, "update", w_otherview)
+        return w_set
+
+    def descr_xor(self, space, w_otherview):
+        w_set = space.call_function(space.w_set, self)
+        space.call_method(w_set, "symmetric_difference_update", w_otherview)
+        return w_set
+
 class W_DictViewItemsObject(W_DictViewObject):
     def descr_iter(self, space):
         return W_DictMultiIterItemsObject(space, self.w_dict.iteritems())
@@ -1273,21 +1288,30 @@ W_DictViewItemsObject.typedef = StdTypeDef(
     "dict_items",
     __repr__ = gateway.interp2app(W_DictViewItemsObject.descr_repr),
     __len__ = gateway.interp2app(W_DictViewItemsObject.descr_len),
-    __iter__ = gateway.interp2app(W_DictViewItemsObject.descr_iter)
+    __iter__ = gateway.interp2app(W_DictViewItemsObject.descr_iter),
+    __and__ = gateway.interp2app(W_DictViewItemsObject.descr_and),
+    __or__ = gateway.interp2app(W_DictViewItemsObject.descr_or),
+    __xor__ = gateway.interp2app(W_DictViewItemsObject.descr_xor)
     )
 
 W_DictViewKeysObject.typedef = StdTypeDef(
     "dict_keys",
     __repr__ = gateway.interp2app(W_DictViewKeysObject.descr_repr),
     __len__ = gateway.interp2app(W_DictViewKeysObject.descr_len),
-    __iter__ = gateway.interp2app(W_DictViewKeysObject.descr_iter)
+    __iter__ = gateway.interp2app(W_DictViewKeysObject.descr_iter),
+    __and__ = gateway.interp2app(W_DictViewKeysObject.descr_and),
+    __or__ = gateway.interp2app(W_DictViewKeysObject.descr_or),
+    __xor__ = gateway.interp2app(W_DictViewKeysObject.descr_xor)
     )
 
 W_DictViewValuesObject.typedef = StdTypeDef(
     "dict_values",
     __repr__ = gateway.interp2app(W_DictViewValuesObject.descr_repr),
     __len__ = gateway.interp2app(W_DictViewValuesObject.descr_len),
-    __iter__ = gateway.interp2app(W_DictViewValuesObject.descr_iter)
+    __iter__ = gateway.interp2app(W_DictViewValuesObject.descr_iter),
+    __and__ = gateway.interp2app(W_DictViewValuesObject.descr_and),
+    __or__ = gateway.interp2app(W_DictViewValuesObject.descr_or),
+    __xor__ = gateway.interp2app(W_DictViewValuesObject.descr_xor)
     )
 
 def all_contained_in(space, w_dictview, w_otherview):
@@ -1316,30 +1340,6 @@ eq__DictViewKeys_DictViewItems = eq__DictViewKeys_DictViewKeys
 eq__DictViewItems_DictViewItems = eq__DictViewKeys_DictViewKeys
 eq__DictViewItems_settypedef = eq__DictViewItems_DictViewItems
 eq__DictViewItems_frozensettypedef = eq__DictViewItems_DictViewItems
-
-def and__DictViewKeys_DictViewKeys(space, w_dictview, w_otherview):
-    w_set = space.call_function(space.w_set, w_dictview)
-    space.call_method(w_set, "intersection_update", w_otherview)
-    return w_set
-and__DictViewKeys_settypedef = and__DictViewKeys_DictViewKeys
-and__DictViewItems_DictViewItems = and__DictViewKeys_DictViewKeys
-and__DictViewItems_settypedef = and__DictViewKeys_DictViewKeys
-
-def or__DictViewKeys_DictViewKeys(space, w_dictview, w_otherview):
-    w_set = space.call_function(space.w_set, w_dictview)
-    space.call_method(w_set, "update", w_otherview)
-    return w_set
-or__DictViewKeys_settypedef = or__DictViewKeys_DictViewKeys
-or__DictViewItems_DictViewItems = or__DictViewKeys_DictViewKeys
-or__DictViewItems_settypedef = or__DictViewKeys_DictViewKeys
-
-def xor__DictViewKeys_DictViewKeys(space, w_dictview, w_otherview):
-    w_set = space.call_function(space.w_set, w_dictview)
-    space.call_method(w_set, "symmetric_difference_update", w_otherview)
-    return w_set
-xor__DictViewKeys_settypedef = xor__DictViewKeys_DictViewKeys
-xor__DictViewItems_DictViewItems = xor__DictViewKeys_DictViewKeys
-xor__DictViewItems_settypedef = xor__DictViewKeys_DictViewKeys
 
 # ____________________________________________________________
 
