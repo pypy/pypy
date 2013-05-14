@@ -123,8 +123,9 @@ class W_DictMultiObject(W_Object):
         """D.keys() -> list of D's keys"""
         return self.w_keys()
 
-#    def descr_values(self, space):
-#        """"""
+    def descr_values(self, space):
+        """D.values() -> list of D's values"""
+        return space.newlist(self.values())
 
 #    def descr_has_key(self, space):
 #        """"""
@@ -956,9 +957,6 @@ def lt__DictMulti_DictMulti(space, w_left, w_right):
         w_res = space.lt(w_leftval, w_rightval)
     return w_res
 
-def dict_values__DictMulti(space, w_self):
-    return space.newlist(w_self.values())
-
 def dict_iteritems__DictMulti(space, w_self):
     return W_DictMultiIterItemsObject(space, w_self.iteritems())
 
@@ -1167,7 +1165,7 @@ xor__DictViewItems_settypedef = xor__DictViewKeys_DictViewKeys
 dict_keys       = SMM('keys',          1,
                       doc="")
 dict_values     = SMM('values',        1,
-                      doc="D.values() -> list of D's values")
+                      doc="")
 dict_has_key    = SMM('has_key',       2,
                       doc='D.has_key(k) -> True if D has a key k, else False')
 dict_clear      = SMM('clear',         1,
@@ -1292,7 +1290,7 @@ dict(**kwargs) -> new dictionary initialized with the name=value pairs
     copy = gateway.interp2app(W_DictMultiObject.descr_copy),
     items = gateway.interp2app(W_DictMultiObject.descr_items),
     keys = gateway.interp2app(W_DictMultiObject.descr_keys),
-    #values = gateway.interp2app(W_DictMultiObject.descr_values),
+    values = gateway.interp2app(W_DictMultiObject.descr_values),
     #has_key = gateway.interp2app(W_DictMultiObject.descr_has_key),
     #clear = gateway.interp2app(W_DictMultiObject.descr_clear),
     #get = gateway.interp2app(W_DictMultiObject.descr_get),
