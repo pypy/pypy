@@ -132,8 +132,9 @@ class W_DictMultiObject(W_Object):
         # XXX duplication with contains
         return space.newbool(self.getitem(w_key) is not None)
 
-#    def descr_clear(self, space):
-#        """"""
+    def descr_clear(self, space):
+        """D.clear() -> None.  Remove all items from D."""
+        self.clear()
 
 #    def descr_get(self, space):
 #        """"""
@@ -975,9 +976,6 @@ def dict_viewkeys__DictMulti(space, w_self):
 def dict_viewvalues__DictMulti(space, w_self):
     return W_DictViewValuesObject(space, w_self)
 
-def dict_clear__DictMulti(space, w_self):
-    w_self.clear()
-
 def dict_get__DictMulti_ANY_ANY(space, w_dict, w_key, w_default):
     w_value = w_dict.getitem(w_key)
     if w_value is not None:
@@ -1169,7 +1167,7 @@ dict_values     = SMM('values',        1,
 dict_has_key    = SMM('has_key',       2,
                       doc='')
 dict_clear      = SMM('clear',         1,
-                      doc='D.clear() -> None.  Remove all items from D.')
+                      doc='')
 dict_get        = SMM('get',           3, defaults=(None,),
                       doc='D.get(k[,d]) -> D[k] if k in D, else d.  d defaults'
                           ' to None.')
@@ -1292,7 +1290,7 @@ dict(**kwargs) -> new dictionary initialized with the name=value pairs
     keys = gateway.interp2app(W_DictMultiObject.descr_keys),
     values = gateway.interp2app(W_DictMultiObject.descr_values),
     has_key = gateway.interp2app(W_DictMultiObject.descr_has_key),
-    #clear = gateway.interp2app(W_DictMultiObject.descr_clear),
+    clear = gateway.interp2app(W_DictMultiObject.descr_clear),
     #get = gateway.interp2app(W_DictMultiObject.descr_get),
     #pop = gateway.interp2app(W_DictMultiObject.descr_pop),
     #popitem = gateway.interp2app(W_DictMultiObject.descr_popitem),
