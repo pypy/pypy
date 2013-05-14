@@ -211,8 +211,8 @@ class W_DictMultiObject(W_Object):
         F: D[k] = F[k]"""
         init_or_update(space, self, __args__, 'dict.update')
 
-#    def descr_reversed(self, space):
-#        """"""
+    def descr_reversed(self, space):
+        raise OperationError(space.w_TypeError, space.wrap('argument to reversed() must be a sequence'))
 
 
 def _add_indirections():
@@ -1142,12 +1142,6 @@ xor__DictViewItems_settypedef = xor__DictViewKeys_DictViewKeys
 # ____________________________________________________________
 
 
-
-dict_reversed   = SMM('__reversed__',      1)
-
-def dict_reversed__ANY(space, w_dict):
-    raise OperationError(space.w_TypeError, space.wrap('argument to reversed() must be a sequence'))
-
 register_all(vars(), globals())
 
 def descr_fromkeys(space, w_type, w_keys, w_fill=None):
@@ -1245,7 +1239,7 @@ dict(**kwargs) -> new dictionary initialized with the name=value pairs
     popitem = gateway.interp2app(W_DictMultiObject.descr_popitem),
     setdefault = gateway.interp2app(W_DictMultiObject.descr_setdefault),
     update = gateway.interp2app(W_DictMultiObject.descr_update),
-    #reversed = gateway.interp2app(W_DictMultiObject.descr_reversed),
+    __reversed__ = gateway.interp2app(W_DictMultiObject.descr_reversed),
     )
 W_DictMultiObject.typedef.registermethods(globals())
 dict_typedef = W_DictMultiObject.typedef
