@@ -32,10 +32,11 @@ working_modules.update(dict.fromkeys(
      "rctime" , "select", "zipimport", "_lsprof",
      "crypt", "signal", "_rawffi", "termios", "zlib", "bz2",
      "struct", "_hashlib", "_md5", "_sha", "_minimal_curses", "cStringIO",
-     "thread", "itertools", "pyexpat", "_ssl", "cpyext", "array",
+     "thread", "itertools", "pyexpat", "_ssl", "array",
      "binascii", "_multiprocessing", '_warnings',
      "_collections", "_multibytecodec", "micronumpy", "_ffi",
-     "_continuation", "_cffi_backend", "_csv", "cppyy"]
+     "_continuation", "_cffi_backend", "_csv"] # "cpyext", "cppyy"]
+# disabled until problems are fixed
 ))
 
 translation_modules = default_modules.copy()
