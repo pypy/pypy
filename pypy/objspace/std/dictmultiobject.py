@@ -127,6 +127,30 @@ class W_DictMultiObject(W_Object):
         """D.values() -> list of D's values"""
         return space.newlist(self.values())
 
+    def descr_iteritems(self, space):
+        """D.iteritems() -> an iterator over the (key, value) items of D"""
+        return W_DictMultiIterItemsObject(space, self.iteritems())
+
+    def descr_iterkeys(self, space):
+        """D.iterkeys() -> an iterator over the keys of D"""
+        return W_DictMultiIterKeysObject(space, self.iterkeys())
+
+    def descr_itervalues(self, space):
+        """D.itervalues() -> an iterator over the values of D"""
+        return W_DictMultiIterValuesObject(space, self.itervalues())
+
+    def descr_viewitems(self, space):
+        """D.viewitems() -> a set-like object providing a view on D's items"""
+        return W_DictViewItemsObject(space, self)
+
+    def descr_viewkeys(self, space):
+        """D.viewkeys() -> a set-like object providing a view on D's keys"""
+        return W_DictViewKeysObject(space, self)
+
+    def descr_viewvalues(self, space):
+        """D.viewvalues() -> an object providing a view on D's values"""
+        return W_DictViewValuesObject(space, self)
+
     def descr_has_key(self, space, w_key):
         """D.has_key(k) -> True if D has a key k, else False"""
         # XXX duplication with contains
@@ -149,24 +173,6 @@ class W_DictMultiObject(W_Object):
 #        """"""
 
 #    def descr_update(self, space):
-#        """"""
-
-#    def descr_iteritems(self, space):
-#        """"""
-
-#    def descr_iterkeys(self, space):
-#        """"""
-
-#    def descr_itervalues(self, space):
-#        """"""
-
-#    def descr_viewkeys(self, space):
-#        """"""
-
-#    def descr_viewitems(self, space):
-#        """"""
-
-#    def descr_viewvalues(self, space):
 #        """"""
 
 #    def descr_reversed(self, space):
@@ -958,24 +964,6 @@ def lt__DictMulti_DictMulti(space, w_left, w_right):
         w_res = space.lt(w_leftval, w_rightval)
     return w_res
 
-def dict_iteritems__DictMulti(space, w_self):
-    return W_DictMultiIterItemsObject(space, w_self.iteritems())
-
-def dict_iterkeys__DictMulti(space, w_self):
-    return W_DictMultiIterKeysObject(space, w_self.iterkeys())
-
-def dict_itervalues__DictMulti(space, w_self):
-    return W_DictMultiIterValuesObject(space, w_self.itervalues())
-
-def dict_viewitems__DictMulti(space, w_self):
-    return W_DictViewItemsObject(space, w_self)
-
-def dict_viewkeys__DictMulti(space, w_self):
-    return W_DictViewKeysObject(space, w_self)
-
-def dict_viewvalues__DictMulti(space, w_self):
-    return W_DictViewValuesObject(space, w_self)
-
 def dict_get__DictMulti_ANY_ANY(space, w_dict, w_key, w_default):
     w_value = w_dict.getitem(w_key)
     if w_value is not None:
@@ -1074,28 +1062,24 @@ class W_DictViewObject(W_Object):
     def __init__(w_self, space, w_dict):
         w_self.w_dict = w_dict
 
-class W_DictViewKeysObject(W_DictViewObject):
-    pass
-registerimplementation(W_DictViewKeysObject)
-
 class W_DictViewItemsObject(W_DictViewObject):
-    pass
+    def descr__iter__(self, space):
+        return W_DictMultiIterItemsObject(space, self.w_dict.iteritems())
 registerimplementation(W_DictViewItemsObject)
 
+class W_DictViewKeysObject(W_DictViewObject):
+    def descr__iter__(self, space):
+        return W_DictMultiIterKeysObject(space, self.w_dict.iterkeys())
+registerimplementation(W_DictViewKeysObject)
+
 class W_DictViewValuesObject(W_DictViewObject):
-    pass
+    def descr__iter__(self, space):
+        return W_DictMultiIterValuesObject(space, self.w_dict.itervalues())
 registerimplementation(W_DictViewValuesObject)
 
 def len__DictViewKeys(space, w_dictview):
     return space.len(w_dictview.w_dict)
 len__DictViewItems = len__DictViewValues = len__DictViewKeys
-
-def iter__DictViewKeys(space, w_dictview):
-    return dict_iterkeys__DictMulti(space, w_dictview.w_dict)
-def iter__DictViewItems(space, w_dictview):
-    return dict_iteritems__DictMulti(space, w_dictview.w_dict)
-def iter__DictViewValues(space, w_dictview):
-    return dict_itervalues__DictMulti(space, w_dictview.w_dict)
 
 def all_contained_in(space, w_dictview, w_otherview):
     w_iter = space.iter(w_dictview)
@@ -1187,19 +1171,6 @@ dict_update     = SMM('update',        1, general__args__=True,
                           ' for k in E: D[k] = E[k]\n(if E has keys else: for'
                           ' (k, v) in E: D[k] = v) then: for k in F: D[k] ='
                           ' F[k]')
-dict_iteritems  = SMM('iteritems',     1,
-                      doc='D.iteritems() -> an iterator over the (key, value)'
-                          ' items of D')
-dict_iterkeys   = SMM('iterkeys',      1,
-                      doc='D.iterkeys() -> an iterator over the keys of D')
-dict_itervalues = SMM('itervalues',    1,
-                      doc='D.itervalues() -> an iterator over the values of D')
-dict_viewkeys   = SMM('viewkeys',      1,
-                      doc="D.viewkeys() -> a set-like object providing a view on D's keys")
-dict_viewitems  = SMM('viewitems',     1,
-                      doc="D.viewitems() -> a set-like object providing a view on D's items")
-dict_viewvalues = SMM('viewvalues',    1,
-                      doc="D.viewvalues() -> an object providing a view on D's values")
 dict_reversed   = SMM('__reversed__',      1)
 
 def dict_reversed__ANY(space, w_dict):
@@ -1289,6 +1260,12 @@ dict(**kwargs) -> new dictionary initialized with the name=value pairs
     items = gateway.interp2app(W_DictMultiObject.descr_items),
     keys = gateway.interp2app(W_DictMultiObject.descr_keys),
     values = gateway.interp2app(W_DictMultiObject.descr_values),
+    iteritems = gateway.interp2app(W_DictMultiObject.descr_iteritems),
+    iterkeys = gateway.interp2app(W_DictMultiObject.descr_iterkeys),
+    itervalues = gateway.interp2app(W_DictMultiObject.descr_itervalues),
+    viewkeys = gateway.interp2app(W_DictMultiObject.descr_viewkeys),
+    viewitems = gateway.interp2app(W_DictMultiObject.descr_viewitems),
+    viewvalues = gateway.interp2app(W_DictMultiObject.descr_viewvalues),
     has_key = gateway.interp2app(W_DictMultiObject.descr_has_key),
     clear = gateway.interp2app(W_DictMultiObject.descr_clear),
     #get = gateway.interp2app(W_DictMultiObject.descr_get),
@@ -1296,12 +1273,6 @@ dict(**kwargs) -> new dictionary initialized with the name=value pairs
     #popitem = gateway.interp2app(W_DictMultiObject.descr_popitem),
     #setdefault = gateway.interp2app(W_DictMultiObject.descr_setdefault),
     #update = gateway.interp2app(W_DictMultiObject.descr_update),
-    #iteritems = gateway.interp2app(W_DictMultiObject.descr_iteritems),
-    #iterkeys = gateway.interp2app(W_DictMultiObject.descr_iterkeys),
-    #itervalues = gateway.interp2app(W_DictMultiObject.descr_itervalues),
-    #viewkeys = gateway.interp2app(W_DictMultiObject.descr_viewkeys),
-    #viewitems = gateway.interp2app(W_DictMultiObject.descr_viewitems),
-    #viewvalues = gateway.interp2app(W_DictMultiObject.descr_viewvalues),
     #reversed = gateway.interp2app(W_DictMultiObject.descr_reversed),
     )
 W_DictMultiObject.typedef.registermethods(globals())
@@ -1378,14 +1349,17 @@ W_BaseDictMultiIterObject.typedef = StdTypeDef("dictionaryiterator",
 # ____________________________________________________________
 # Dict views
 
-W_DictViewKeysObject.typedef = StdTypeDef(
-    "dict_keys",
-    )
-
 W_DictViewItemsObject.typedef = StdTypeDef(
     "dict_items",
+    __iter__ = gateway.interp2app(W_DictViewItemsObject.descr__iter__)
+    )
+
+W_DictViewKeysObject.typedef = StdTypeDef(
+    "dict_keys",
+    __iter__ = gateway.interp2app(W_DictViewKeysObject.descr__iter__)
     )
 
 W_DictViewValuesObject.typedef = StdTypeDef(
     "dict_values",
+    __iter__ = gateway.interp2app(W_DictViewValuesObject.descr__iter__)
     )
