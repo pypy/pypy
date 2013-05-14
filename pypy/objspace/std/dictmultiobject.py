@@ -111,6 +111,10 @@ class W_DictMultiObject(W_Object):
     def descr_eq(self, space, w_other):
         if space.is_w(self, w_other):
             return space.w_True
+        if not isinstance(w_other, W_DictMultiObject):
+            raise operationerrfmt(space.w_TypeError,
+                                  "Expected dict object, got %s",
+                                  space.str_w(space.str(space.type(w_other))))
 
         if self.length() != w_other.length():
             return space.w_False
@@ -131,6 +135,11 @@ class W_DictMultiObject(W_Object):
         return space.not_(self.descr_eq(space, w_other))
 
     def descr_lt(self, space, w_other):
+        if not isinstance(w_other, W_DictMultiObject):
+            raise operationerrfmt(space.w_TypeError,
+                                  "Expected dict object, got %s",
+                                  space.str_w(space.str(space.type(w_other))))
+
         # Different sizes, no problem
         if self.length() < w_other.length():
             return space.w_True
@@ -1148,7 +1157,7 @@ class W_BaseDictMultiIterObject(W_Object):
         w_mod    = space.getbuiltinmodule('_pickle_support')
         mod      = space.interp_w(MixedModule, w_mod)
         new_inst = mod.get('dictiter_surrogate_new')
-        w_typeobj = space.gettypeobject(dictiter_typedef)
+        w_typeobj = space.gettypeobject(W_BaseDictMultiIterObject.typedef)
 
         raise OperationError(
             space.w_TypeError,
