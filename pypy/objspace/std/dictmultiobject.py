@@ -114,7 +114,7 @@ class W_DictMultiObject(W_Object):
         if not isinstance(w_other, W_DictMultiObject):
             raise operationerrfmt(space.w_TypeError,
                                   "Expected dict object, got %s",
-                                  space.str_w(space.str(space.type(w_other))))
+                                  space.type(w_other).getname(space))
 
         if self.length() != w_other.length():
             return space.w_False
@@ -138,7 +138,7 @@ class W_DictMultiObject(W_Object):
         if not isinstance(w_other, W_DictMultiObject):
             raise operationerrfmt(space.w_TypeError,
                                   "Expected dict object, got %s",
-                                  space.str_w(space.str(space.type(w_other))))
+                                  space.type(w_other).getname(space))
 
         # Different sizes, no problem
         if self.length() < w_other.length():
