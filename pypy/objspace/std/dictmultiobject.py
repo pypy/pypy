@@ -108,6 +108,9 @@ class W_DictMultiObject(W_Object):
     def setitem_str(self, key, w_value):
         self.strategy.setitem_str(self, key, w_value)
 
+    def descr_reversed(self, space):
+        raise OperationError(space.w_TypeError, space.wrap('argument to reversed() must be a sequence'))
+
     def descr_copy(self, space):
         """D.copy() -> a shallow copy of D"""
         w_new = W_DictMultiObject.allocate_and_init_instance(space)
@@ -209,9 +212,6 @@ class W_DictMultiObject(W_Object):
         = E[k]\n(if E has keys else: for (k, v) in E: D[k] = v) then: for k in
         F: D[k] = F[k]"""
         init_or_update(space, self, __args__, 'dict.update')
-
-    def descr_reversed(self, space):
-        raise OperationError(space.w_TypeError, space.wrap('argument to reversed() must be a sequence'))
 
 
 def _add_indirections():
@@ -1220,6 +1220,7 @@ dict(**kwargs) -> new dictionary initialized with the name=value pairs
     __new__ = gateway.interp2app(descr__new__),
     __hash__ = None,
     __repr__ = gateway.interp2app(descr_repr),
+    __reversed__ = gateway.interp2app(W_DictMultiObject.descr_reversed),
     fromkeys = gateway.interp2app(descr_fromkeys, as_classmethod=True),
     copy = gateway.interp2app(W_DictMultiObject.descr_copy),
     items = gateway.interp2app(W_DictMultiObject.descr_items),
@@ -1238,7 +1239,6 @@ dict(**kwargs) -> new dictionary initialized with the name=value pairs
     popitem = gateway.interp2app(W_DictMultiObject.descr_popitem),
     setdefault = gateway.interp2app(W_DictMultiObject.descr_setdefault),
     update = gateway.interp2app(W_DictMultiObject.descr_update),
-    __reversed__ = gateway.interp2app(W_DictMultiObject.descr_reversed),
     )
 W_DictMultiObject.typedef.registermethods(globals())
 dict_typedef = W_DictMultiObject.typedef
