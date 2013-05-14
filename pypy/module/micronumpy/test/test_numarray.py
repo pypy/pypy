@@ -214,6 +214,7 @@ class TestNumArrayDirect(object):
         assert get(1, 1) == 3
 
 class AppTestNumArray(BaseNumpyAppTest):
+    spaceconfig = dict(usemodules=["micronumpy", "struct", "binascii"])
     def w_CustomIndexObject(self, index):
         class CustomIndexObject(object):
             def __init__(self, index):
@@ -1660,6 +1661,23 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (b == [20, 1, 21, 3, 4]).all()
         raises(ValueError, "array([1, 2])[array([True, False, True])] = [1, 2, 3]")
 
+    def test_ellipse_index(self):
+        from numpypy import arange, array
+        b = arange(24).reshape(2,3,4)
+        b[...] = 100
+        assert (b == 100).all()
+        assert b.shape == (2, 3, 4)
+        b[...] = [10, 20, 30, 40]
+        assert (b[:,:,0] == 10).all()
+        assert (b[0,0,:] == [10, 20, 30, 40]).all()
+        assert b.shape == b[...].shape
+        assert (b == b[...]).all()
+
+        a = array(1)
+        a[...] = 100
+        assert (a == 100).all()
+        assert a == a[...]
+
     def test_weakref(self):
         import _weakref
         from numpypy import array
@@ -1786,6 +1804,17 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert raises(TypeError, "int(array([1, 2]))")
         assert int(array([1.5])) == 1
 
+    def test__reduce__(self):
+        from numpypy import array, dtype
+        from cPickle import loads, dumps
+
+        a = array([1, 2], dtype="int64")
+        data = a.__reduce__()
+
+        assert data[2][4] == '\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00'
+
+        pickled_data = dumps(a)
+        assert (loads(pickled_data) == a).all()
 
 class AppTestMultiDim(BaseNumpyAppTest):
     def test_init(self):
@@ -2534,6 +2563,8 @@ class AppTestRepr(BaseNumpyAppTest):
 
 
 class AppTestRecordDtype(BaseNumpyAppTest):
+    spaceconfig = dict(usemodules=["micronumpy", "struct", "binascii"])
+
     def test_zeros(self):
         from numpypy import zeros, integer
         a = zeros(2, dtype=[('x', int), ('y', float)])
@@ -2665,6 +2696,25 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         s = repr(a)
         assert s.replace('\n', '') == \
                       "array(['abc', 'defg', 'ab'],       dtype='|S4')"
+
+    def test_pickle(self):
+        from numpypy import dtype, array
+        from cPickle import loads, dumps
+
+        d = dtype([('x', str), ('y', 'int32')])
+        a = array([('a', 2), ('cde', 1)], dtype=d)
+
+        a = loads(dumps(a))
+        d = a.dtype
+
+        assert str(d.fields['x'][0]) == '|S0'
+        assert d.fields['x'][1] == 0
+        assert str(d.fields['y'][0]) == 'int32'
+        assert d.fields['y'][1] == 0
+        assert d.name == 'void32'
+
+        assert a[0]['y'] == 2
+        assert a[1]['y'] == 1
 
 
 class AppTestPyPy(BaseNumpyAppTest):

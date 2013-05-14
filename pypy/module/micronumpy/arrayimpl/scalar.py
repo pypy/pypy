@@ -3,6 +3,7 @@ from pypy.module.micronumpy.arrayimpl import base
 from pypy.module.micronumpy.base import W_NDimArray, convert_to_array
 from pypy.module.micronumpy import support
 from pypy.interpreter.error import OperationError
+from pypy.interpreter.special import Ellipsis
 
 class ScalarIterator(base.BaseArrayIterator):
     def __init__(self, v):
@@ -73,7 +74,7 @@ class Scalar(base.BaseArrayImplementation):
         dtype = self.dtype.float_type or self.dtype
         if len(w_arr.get_shape()) > 0:
             raise OperationError(space.w_ValueError, space.wrap(
-                "could not broadcast input array from shape " + 
+                "could not broadcast input array from shape " +
                 "(%s) into shape ()" % (
                     ','.join([str(x) for x in w_arr.get_shape()],))))
         if self.dtype.is_complex_type():
@@ -102,7 +103,7 @@ class Scalar(base.BaseArrayImplementation):
         dtype = self.dtype.float_type
         if len(w_arr.get_shape()) > 0:
             raise OperationError(space.w_ValueError, space.wrap(
-                "could not broadcast input array from shape " + 
+                "could not broadcast input array from shape " +
                 "(%s) into shape ()" % (
                     ','.join([str(x) for x in w_arr.get_shape()],))))
         self.value = self.dtype.itemtype.composite(
@@ -119,7 +120,10 @@ class Scalar(base.BaseArrayImplementation):
                              space.wrap("scalars cannot be indexed"))
 
     def descr_setitem(self, space, _, w_idx, w_val):
-        raise OperationError(space.w_IndexError,
+        if isinstance(w_idx, Ellipsis):
+            self.value = self.dtype.coerce(space, w_val)
+        else:
+            raise OperationError(space.w_IndexError,
                              space.wrap("scalars cannot be indexed"))
 
     def setitem_index(self, space, idx, w_val):

@@ -20,6 +20,7 @@ from rpython.tool.sourcetools import func_with_new_name
 from rpython.rlib import jit
 from rpython.rlib.rstring import StringBuilder
 from pypy.module.micronumpy.arrayimpl.base import BaseArrayImplementation
+from pypy.interpreter.special import Ellipsis
 
 def _find_shape(space, w_size):
     if space.is_none(w_size):
@@ -167,6 +168,8 @@ class __extend__(W_NDimArray):
                                prefix)
 
     def descr_getitem(self, space, w_idx):
+        if isinstance(w_idx, Ellipsis):
+            return self
         if (isinstance(w_idx, W_NDimArray) and
             w_idx.get_dtype().is_bool_type()):
             return self.getitem_filter(space, w_idx)
@@ -781,6 +784,42 @@ class __extend__(W_NDimArray):
             return space.float(self.descr_getitem(space, space.wrap(0)))
         raise OperationError(space.w_TypeError, space.wrap("only length-1 arrays can be converted to Python scalars"))
 
+    def descr_reduce(self, space):
+        from rpython.rtyper.lltypesystem import rffi
+        from rpython.rlib.rstring import StringBuilder
+        from pypy.interpreter.mixedmodule import MixedModule
+
+        numpypy = space.getbuiltinmodule("_numpypy")
+        assert isinstance(numpypy, MixedModule)
+        multiarray = numpypy.get("multiarray")
+        assert isinstance(multiarray, MixedModule)
+        reconstruct = multiarray.get("_reconstruct")
+
+        parameters = space.newtuple([space.gettypefor(W_NDimArray), space.newtuple([space.wrap(0)]), space.wrap("b")])
+
+        builder = StringBuilder()
+        builder.append_charpsize(self.implementation.get_storage(), self.implementation.get_storage_size())
+
+        state = space.newtuple([
+                space.wrap(1),      # version
+                self.descr_get_shape(space),
+                self.get_dtype(),
+                space.wrap(False),  # is_fortran
+                space.wrap(builder.build()),
+            ])
+
+        return space.newtuple([reconstruct, parameters, state])
+
+    def descr_setstate(self, space, w_state):
+        from rpython.rtyper.lltypesystem import rffi
+
+        shape = space.getitem(w_state, space.wrap(1))
+        dtype = space.getitem(w_state, space.wrap(2))
+        assert isinstance(dtype, interp_dtype.W_Dtype)
+        isfortran = space.getitem(w_state, space.wrap(3))
+        storage = space.getitem(w_state, space.wrap(4))
+
+        self.implementation = W_NDimArray.from_shape_and_storage([space.int_w(i) for i in space.listview(shape)], rffi.str2charp(space.str_w(storage), track_allocation=False), dtype, owning=True).implementation
 
 
 @unwrap_spec(offset=int)
@@ -814,6 +853,7 @@ def descr__from_shape_and_storage(space, w_cls, w_shape, addr, w_dtype):
 
 W_NDimArray.typedef = TypeDef(
     "ndarray",
+    __module__ = "numpypy",
     __new__ = interp2app(descr_new_array),
 
     __len__ = interp2app(W_NDimArray.descr_len),
@@ -932,6 +972,8 @@ W_NDimArray.typedef = TypeDef(
     __pypy_data__ = GetSetProperty(W_NDimArray.fget___pypy_data__,
                                    W_NDimArray.fset___pypy_data__,
                                    W_NDimArray.fdel___pypy_data__),
+    __reduce__ = interp2app(W_NDimArray.descr_reduce),
+    __setstate__ = interp2app(W_NDimArray.descr_setstate),
 )
 
 @unwrap_spec(ndmin=int, copy=bool, subok=bool)
@@ -1007,6 +1049,9 @@ def ones(space, w_shape, w_dtype=None, order='C'):
     one = dtype.box(1)
     arr.fill(one)
     return space.wrap(arr)
+
+def _reconstruct(space, w_subtype, w_shape, w_dtype):
+    return descr_new_array(space, w_subtype, w_shape, w_dtype)
 
 W_FlatIterator.typedef = TypeDef(
     'flatiter',

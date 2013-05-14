@@ -58,7 +58,8 @@ class FakeSpace(object):
     w_str = "str"
     w_unicode = "unicode"
     w_complex = "complex"
-    
+    w_dict = "dict"
+
     def __init__(self):
         """NOT_RPYTHON"""
         self.fromcache = InternalSpaceCache(self).getorbuild
@@ -115,9 +116,13 @@ class FakeSpace(object):
     def newcomplex(self, r, i):
         return ComplexObject(r, i)
 
-    def listview(self, obj):
+    def listview(self, obj, number=-1):
         assert isinstance(obj, ListObject)
+        if number != -1:
+            assert number == 2
+            return [obj.items[0], obj.items[1]]
         return obj.items
+
     fixedview = listview
 
     def float(self, w_obj):
@@ -480,7 +485,7 @@ class FunctionCall(Node):
                 w_res = neg.call(interp.space, [arr])
             elif self.name == "cos":
                 cos = interp_ufuncs.get(interp.space).cos
-                w_res = cos.call(interp.space, [arr])                
+                w_res = cos.call(interp.space, [arr])
             elif self.name == "flat":
                 w_res = arr.descr_get_flatiter(interp.space)
             elif self.name == "argsort":
