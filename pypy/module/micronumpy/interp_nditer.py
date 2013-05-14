@@ -6,6 +6,7 @@ from pypy.module.micronumpy.base import W_NDimArray, convert_to_array
 from pypy.module.micronumpy.strides import calculate_broadcast_strides
 from pypy.module.micronumpy.iter import MultiDimViewIterator
 from pypy.module.micronumpy import support
+from pypy.module.micronumpy.arrayimpl.concrete import SliceArray
 
 def parse_op_arg(space, name, w_op_flags, n, parse_one_arg):
     ret = []
@@ -42,13 +43,14 @@ class OpFlag(object):
         self.allocate = False
         self.get_it_item = get_readonly_item
 
-def get_readonly_item(space, it):
+def get_readonly_item(space, array, it):
     return space.wrap(it.getitem())
 
-def get_readwrite_item(space, it):
-    res = W_NDimArray.from_shape([1], it.dtype, it.array.order)
-    it.dtype.setitem(res.implementation, 0, it.getitem())
-    return res
+def get_readwrite_item(space, array, it):
+    #create a single-value view (since scalars are not views)
+    res = SliceArray(it.array.start + it.offset, [0], [0], [1,], it.array, array)
+    #it.dtype.setitem(res, 0, it.getitem())
+    return W_NDimArray(res)
 
 def parse_op_flag(space, lst):
     op_flag = OpFlag()
@@ -157,7 +159,8 @@ class W_NDIter(W_Root):
             raise OperationError(space.w_StopIteration, space.w_None)
         res = []
         for i in range(len(self.iters)):
-            res.append(self.op_flags[i].get_it_item(space, self.iters[i]))
+            res.append(self.op_flags[i].get_it_item(space, self.seq[i],
+                                                    self.iters[i]))
             self.iters[i].next()
         if len(res) <2:
             return res[0]

@@ -39,7 +39,6 @@ class AppTestNDIter(BaseNumpyAppTest):
         from numpypy import arange, nditer
         a = arange(6).reshape(2,3)
         for x in nditer(a, op_flags=['readwrite']):
-            print x,x.shape
             x[...] = 2 * x
         assert (a == [[0, 2, 4], [6, 8, 10]]).all()
 
@@ -53,6 +52,7 @@ class AppTestNDIter(BaseNumpyAppTest):
         r = []
         for x in nditer(a, flags=['external_loop'], order='F'):
             r.append(x)
+        print r
         assert (array(r) == [[0, 3], [1, 4], [2, 5]]).all()
 
     def test_interface(self):
