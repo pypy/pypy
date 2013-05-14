@@ -1,4 +1,3 @@
-from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.interpreter.error import OperationError, wrap_oserror
 from pypy.interpreter.gateway import unwrap_spec
 from rpython.rlib.objectmodel import we_are_translated
@@ -63,7 +62,7 @@ def hidden_applevel(space, w_func):
     func.getcode().hidden_applevel = True
     return w_func
 
-@unwrap_spec(ObjSpace, W_Root, str)
+@unwrap_spec(meth=str)
 def lookup_special(space, w_obj, meth):
     """Lookup up a special method on an object."""
     w_descr = space.lookup(w_obj, meth)

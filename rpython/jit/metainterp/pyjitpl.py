@@ -5,11 +5,10 @@ import py
 from rpython.jit.codewriter import heaptracker
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.codewriter.jitcode import JitCode, SwitchDictDescr
-from rpython.jit.metainterp import history, compile, resume, executor
+from rpython.jit.metainterp import history, compile, resume, executor, jitexc
 from rpython.jit.metainterp.heapcache import HeapCache
 from rpython.jit.metainterp.history import (Const, ConstInt, ConstPtr,
     ConstFloat, Box, TargetToken)
-from rpython.jit.metainterp.jitexc import JitException, get_llexception
 from rpython.jit.metainterp.jitprof import EmptyProfiler
 from rpython.jit.metainterp.logger import Logger
 from rpython.jit.metainterp.optimizeopt.util import args_dict_box
@@ -1705,13 +1704,13 @@ class MetaInterp(object):
             result_type = self.jitdriver_sd.result_type
             if result_type == history.VOID:
                 assert resultbox is None
-                raise sd.DoneWithThisFrameVoid()
+                raise jitexc.DoneWithThisFrameVoid()
             elif result_type == history.INT:
-                raise sd.DoneWithThisFrameInt(resultbox.getint())
+                raise jitexc.DoneWithThisFrameInt(resultbox.getint())
             elif result_type == history.REF:
-                raise sd.DoneWithThisFrameRef(self.cpu, resultbox.getref_base())
+                raise jitexc.DoneWithThisFrameRef(self.cpu, resultbox.getref_base())
             elif result_type == history.FLOAT:
-                raise sd.DoneWithThisFrameFloat(resultbox.getfloatstorage())
+                raise jitexc.DoneWithThisFrameFloat(resultbox.getfloatstorage())
             else:
                 assert False
 
@@ -1734,7 +1733,7 @@ class MetaInterp(object):
             self.compile_exit_frame_with_exception(excvaluebox)
         except SwitchToBlackhole, stb:
             self.aborted_tracing(stb.reason)
-        raise self.staticdata.ExitFrameWithExceptionRef(self.cpu, excvaluebox.getref_base())
+        raise jitexc.ExitFrameWithExceptionRef(self.cpu, excvaluebox.getref_base())
 
     def check_recursion_invariant(self):
         portal_call_depth = -1
@@ -1842,9 +1841,9 @@ class MetaInterp(object):
             op.name = self.framestack[-1].jitcode.name
 
     def execute_raised(self, exception, constant=False):
-        if isinstance(exception, JitException):
-            raise JitException, exception      # go through
-        llexception = get_llexception(self.cpu, exception)
+        if isinstance(exception, jitexc.JitException):
+            raise jitexc.JitException, exception      # go through
+        llexception = jitexc.get_llexception(self.cpu, exception)
         self.execute_ll_raised(llexception, constant)
 
     def execute_ll_raised(self, llexception, constant=False):
@@ -2089,7 +2088,7 @@ class MetaInterp(object):
             gi, gr, gf = self._unpack_boxes(live_arg_boxes, 0, num_green_args)
             ri, rr, rf = self._unpack_boxes(live_arg_boxes, num_green_args,
                                             len(live_arg_boxes))
-            CRN = self.staticdata.ContinueRunningNormally
+            CRN = jitexc.ContinueRunningNormally
             raise CRN(gi, gr, gf, ri, rr, rf)
         else:
             # However, in order to keep the existing tests working
@@ -2671,11 +2670,11 @@ class MetaInterp(object):
 
 # ____________________________________________________________
 
-class ChangeFrame(JitException):
+class ChangeFrame(jitexc.JitException):
     """Raised after we mutated metainterp.framestack, in order to force
     it to reload the current top-of-stack frame that gets interpreted."""
 
-class SwitchToBlackhole(JitException):
+class SwitchToBlackhole(jitexc.JitException):
     def __init__(self, reason, raising_exception=False):
         self.reason = reason
         self.raising_exception = raising_exception

@@ -24,5 +24,5 @@ def test_exeucte_source(space):
     # did not crash - the same globals
     pypy_setup_home = d['pypy_setup_home']
     lls = rffi.str2charp(__file__)
-    pypy_setup_home(lls)
+    pypy_setup_home(lls, 1)
     lltype.free(lls, flavor='raw')
