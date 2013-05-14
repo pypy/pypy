@@ -108,6 +108,9 @@ class W_DictMultiObject(W_Object):
     def setitem_str(self, key, w_value):
         self.strategy.setitem_str(self, key, w_value)
 
+    def descr_init(self, space, __args__):
+        init_or_update(space, self, __args__, 'dict')
+
     def descr_eq(self, space, w_other):
         if space.is_w(self, w_other):
             return space.w_True
@@ -151,6 +154,35 @@ class W_DictMultiObject(W_Object):
             w_rightval is not None):
             w_res = space.lt(w_leftval, w_rightval)
         return w_res
+
+    def descr_len(self, space):
+        return space.wrap(self.length())
+
+    def descr_iter(self, space):
+        return W_DictMultiIterKeysObject(space, self.iterkeys())
+
+    def descr_contains(self, space, w_key):
+        return space.newbool(self.getitem(w_key) is not None)
+
+    def descr_getitem(self, space, w_key):
+        w_value = self.getitem(w_key)
+        if w_value is not None:
+            return w_value
+
+        w_missing_item = self.missing_method(space, w_key)
+        if w_missing_item is not None:
+            return w_missing_item
+
+        space.raise_key_error(w_key)
+
+    def descr_setitem(self, space, w_newkey, w_newvalue):
+        self.setitem(w_newkey, w_newvalue)
+
+    def descr_delitem(self, space, w_key):
+        try:
+            self.delitem(w_key)
+        except KeyError:
+            space.raise_key_error(w_key)
 
     def descr_reversed(self, space):
         raise OperationError(space.w_TypeError, space.wrap('argument to reversed() must be a sequence'))
@@ -947,38 +979,6 @@ def init_or_update(space, w_dict, __args__, funcname):
     if space.is_true(w_kwds):
         update1(space, w_dict, w_kwds)
 
-def init__DictMulti(space, w_dict, __args__):
-    init_or_update(space, w_dict, __args__, 'dict')
-
-def getitem__DictMulti_ANY(space, w_dict, w_key):
-    w_value = w_dict.getitem(w_key)
-    if w_value is not None:
-        return w_value
-
-    w_missing_item = w_dict.missing_method(space, w_key)
-    if w_missing_item is not None:
-        return w_missing_item
-
-    space.raise_key_error(w_key)
-
-def setitem__DictMulti_ANY_ANY(space, w_dict, w_newkey, w_newvalue):
-    w_dict.setitem(w_newkey, w_newvalue)
-
-def delitem__DictMulti_ANY(space, w_dict, w_key):
-    try:
-        w_dict.delitem(w_key)
-    except KeyError:
-        space.raise_key_error(w_key)
-
-def len__DictMulti(space, w_dict):
-    return space.wrap(w_dict.length())
-
-def contains__DictMulti_ANY(space, w_dict, w_key):
-    return space.newbool(w_dict.getitem(w_key) is not None)
-
-def iter__DictMulti(space, w_dict):
-    return W_DictMultiIterKeysObject(space, w_dict.iterkeys())
-
 def characterize(space, w_a, w_b):
     """ (similar to CPython)
     returns the smallest key in acontent for which b's value is different or absent and this value """
@@ -1224,11 +1224,20 @@ dict(**kwargs) -> new dictionary initialized with the name=value pairs
     __new__ = gateway.interp2app(descr__new__),
     __hash__ = None,
     __repr__ = gateway.interp2app(descr_repr),
+    __init__ = gateway.interp2app(W_DictMultiObject.descr_init),
 
     __eq__ = gateway.interp2app(W_DictMultiObject.descr_eq),
     __ne__ = gateway.interp2app(W_DictMultiObject.descr_ne),
     __lt__ = gateway.interp2app(W_DictMultiObject.descr_lt),
     # XXX other comparison methods?
+
+    __len__ = gateway.interp2app(W_DictMultiObject.descr_len),
+    __iter__ = gateway.interp2app(W_DictMultiObject.descr_iter),
+    __contains__ = gateway.interp2app(W_DictMultiObject.descr_contains),
+
+    __getitem__ = gateway.interp2app(W_DictMultiObject.descr_getitem),
+    __setitem__ = gateway.interp2app(W_DictMultiObject.descr_setitem),
+    __delitem__ = gateway.interp2app(W_DictMultiObject.descr_delitem),
 
     __reversed__ = gateway.interp2app(W_DictMultiObject.descr_reversed),
     fromkeys = gateway.interp2app(descr_fromkeys, as_classmethod=True),

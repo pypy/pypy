@@ -2,8 +2,7 @@ import sys
 import py
 
 from pypy.objspace.std.dictmultiobject import (W_DictMultiObject,
-    setitem__DictMulti_ANY_ANY, getitem__DictMulti_ANY, StringDictStrategy,
-    ObjectDictStrategy)
+    StringDictStrategy, ObjectDictStrategy)
 
 
 class TestW_DictObject(object):
@@ -971,10 +970,10 @@ class TestDictImplementation:
         pydict = {}
         for i in range(N):
             x = randint(-N, N)
-            setitem__DictMulti_ANY_ANY(self.space, d, x, i)
+            d.descr_setitem(self.space, x, i)
             pydict[x] = i
         for key, value in pydict.iteritems():
-            assert value == getitem__DictMulti_ANY(self.space, d, key)
+            assert value == d.descr_getitem(self.space, key)
 
 class BaseTestRDictImplementation:
 
