@@ -309,6 +309,120 @@ def _add_indirections():
 
 _add_indirections()
 
+def descr_fromkeys(space, w_type, w_keys, w_fill=None):
+    if w_fill is None:
+        w_fill = space.w_None
+    if space.is_w(w_type, space.w_dict):
+        w_dict = W_DictMultiObject.allocate_and_init_instance(space, w_type)
+
+        strlist = space.listview_str(w_keys)
+        if strlist is not None:
+            for key in strlist:
+                w_dict.setitem_str(key, w_fill)
+        else:
+            for w_key in space.listview(w_keys):
+                w_dict.setitem(w_key, w_fill)
+    else:
+        w_dict = space.call_function(w_type)
+        for w_key in space.listview(w_keys):
+            space.setitem(w_dict, w_key, w_fill)
+    return w_dict
+
+
+app = gateway.applevel('''
+    def dictrepr(currently_in_repr, d):
+        if len(d) == 0:
+            return "{}"
+        dict_id = id(d)
+        if dict_id in currently_in_repr:
+            return '{...}'
+        currently_in_repr[dict_id] = 1
+        try:
+            items = []
+            # XXX for now, we cannot use iteritems() at app-level because
+            #     we want a reasonable result instead of a RuntimeError
+            #     even if the dict is mutated by the repr() in the loop.
+            for k, v in dict.items(d):
+                items.append(repr(k) + ": " + repr(v))
+            return "{" +  ', '.join(items) + "}"
+        finally:
+            try:
+                del currently_in_repr[dict_id]
+            except:
+                pass
+''', filename=__file__)
+
+dictrepr = app.interphook("dictrepr")
+
+
+def descr_repr(space, w_dict):
+    ec = space.getexecutioncontext()
+    w_currently_in_repr = ec._py_repr
+    if w_currently_in_repr is None:
+        w_currently_in_repr = ec._py_repr = space.newdict()
+    return dictrepr(space, w_currently_in_repr, w_dict)
+
+
+# ____________________________________________________________
+
+def descr__new__(space, w_dicttype, __args__):
+    w_obj = W_DictMultiObject.allocate_and_init_instance(space, w_dicttype)
+    return w_obj
+
+# ____________________________________________________________
+
+W_DictMultiObject.typedef = StdTypeDef("dict",
+    __doc__ = '''dict() -> new empty dictionary.
+dict(mapping) -> new dictionary initialized from a mapping object\'s
+    (key, value) pairs.
+dict(seq) -> new dictionary initialized as if via:
+    d = {}
+    for k, v in seq:
+        d[k] = v
+dict(**kwargs) -> new dictionary initialized with the name=value pairs
+    in the keyword argument list.  For example:  dict(one=1, two=2)''',
+    __new__ = gateway.interp2app(descr__new__),
+    __hash__ = None,
+    __repr__ = gateway.interp2app(descr_repr),
+    __init__ = gateway.interp2app(W_DictMultiObject.descr_init),
+
+    __eq__ = gateway.interp2app(W_DictMultiObject.descr_eq),
+    __ne__ = gateway.interp2app(W_DictMultiObject.descr_ne),
+    __lt__ = gateway.interp2app(W_DictMultiObject.descr_lt),
+    # XXX other comparison methods?
+
+    __len__ = gateway.interp2app(W_DictMultiObject.descr_len),
+    __iter__ = gateway.interp2app(W_DictMultiObject.descr_iter),
+    __contains__ = gateway.interp2app(W_DictMultiObject.descr_contains),
+
+    __getitem__ = gateway.interp2app(W_DictMultiObject.descr_getitem),
+    __setitem__ = gateway.interp2app(W_DictMultiObject.descr_setitem),
+    __delitem__ = gateway.interp2app(W_DictMultiObject.descr_delitem),
+
+    __reversed__ = gateway.interp2app(W_DictMultiObject.descr_reversed),
+    fromkeys = gateway.interp2app(descr_fromkeys, as_classmethod=True),
+    copy = gateway.interp2app(W_DictMultiObject.descr_copy),
+    items = gateway.interp2app(W_DictMultiObject.descr_items),
+    keys = gateway.interp2app(W_DictMultiObject.descr_keys),
+    values = gateway.interp2app(W_DictMultiObject.descr_values),
+    iteritems = gateway.interp2app(W_DictMultiObject.descr_iteritems),
+    iterkeys = gateway.interp2app(W_DictMultiObject.descr_iterkeys),
+    itervalues = gateway.interp2app(W_DictMultiObject.descr_itervalues),
+    viewkeys = gateway.interp2app(W_DictMultiObject.descr_viewkeys),
+    viewitems = gateway.interp2app(W_DictMultiObject.descr_viewitems),
+    viewvalues = gateway.interp2app(W_DictMultiObject.descr_viewvalues),
+    has_key = gateway.interp2app(W_DictMultiObject.descr_has_key),
+    clear = gateway.interp2app(W_DictMultiObject.descr_clear),
+    get = gateway.interp2app(W_DictMultiObject.descr_get),
+    pop = gateway.interp2app(W_DictMultiObject.descr_pop),
+    popitem = gateway.interp2app(W_DictMultiObject.descr_popitem),
+    setdefault = gateway.interp2app(W_DictMultiObject.descr_setdefault),
+    update = gateway.interp2app(W_DictMultiObject.descr_update),
+    )
+W_DictMultiObject.typedef.registermethods(globals())
+dict_typedef = W_DictMultiObject.typedef
+
+
 class DictStrategy(object):
 
     def __init__(self, space):
@@ -1069,6 +1183,12 @@ class W_BaseDictMultiIterObject(W_Object):
         w_ret = space.newtuple([new_inst, space.newtuple(tup)])
         return w_ret
 
+
+W_BaseDictMultiIterObject.typedef = StdTypeDef("dictionaryiterator",
+    __length_hint__ = gateway.interp2app(W_BaseDictMultiIterObject.descr_length_hint),
+    __reduce__      = gateway.interp2app(W_BaseDictMultiIterObject.descr_reduce),
+    )
+
 class W_DictMultiIterKeysObject(W_BaseDictMultiIterObject):
     pass
 
@@ -1133,6 +1253,21 @@ class W_DictViewValuesObject(W_DictViewObject):
     def descr_iter(self, space):
         return W_DictMultiIterValuesObject(space, self.w_dict.itervalues())
 registerimplementation(W_DictViewValuesObject)
+
+W_DictViewItemsObject.typedef = StdTypeDef(
+    "dict_items",
+    __iter__ = gateway.interp2app(W_DictViewItemsObject.descr_iter)
+    )
+
+W_DictViewKeysObject.typedef = StdTypeDef(
+    "dict_keys",
+    __iter__ = gateway.interp2app(W_DictViewKeysObject.descr_iter)
+    )
+
+W_DictViewValuesObject.typedef = StdTypeDef(
+    "dict_values",
+    __iter__ = gateway.interp2app(W_DictViewValuesObject.descr_iter)
+    )
 
 def len__DictViewKeys(space, w_dictview):
     return space.len(w_dictview.w_dict)
@@ -1201,142 +1336,3 @@ xor__DictViewItems_settypedef = xor__DictViewKeys_DictViewKeys
 
 
 register_all(vars(), globals())
-
-def descr_fromkeys(space, w_type, w_keys, w_fill=None):
-    if w_fill is None:
-        w_fill = space.w_None
-    if space.is_w(w_type, space.w_dict):
-        w_dict = W_DictMultiObject.allocate_and_init_instance(space, w_type)
-
-        strlist = space.listview_str(w_keys)
-        if strlist is not None:
-            for key in strlist:
-                w_dict.setitem_str(key, w_fill)
-        else:
-            for w_key in space.listview(w_keys):
-                w_dict.setitem(w_key, w_fill)
-    else:
-        w_dict = space.call_function(w_type)
-        for w_key in space.listview(w_keys):
-            space.setitem(w_dict, w_key, w_fill)
-    return w_dict
-
-
-app = gateway.applevel('''
-    def dictrepr(currently_in_repr, d):
-        if len(d) == 0:
-            return "{}"
-        dict_id = id(d)
-        if dict_id in currently_in_repr:
-            return '{...}'
-        currently_in_repr[dict_id] = 1
-        try:
-            items = []
-            # XXX for now, we cannot use iteritems() at app-level because
-            #     we want a reasonable result instead of a RuntimeError
-            #     even if the dict is mutated by the repr() in the loop.
-            for k, v in dict.items(d):
-                items.append(repr(k) + ": " + repr(v))
-            return "{" +  ', '.join(items) + "}"
-        finally:
-            try:
-                del currently_in_repr[dict_id]
-            except:
-                pass
-''', filename=__file__)
-
-dictrepr = app.interphook("dictrepr")
-
-
-def descr_repr(space, w_dict):
-    ec = space.getexecutioncontext()
-    w_currently_in_repr = ec._py_repr
-    if w_currently_in_repr is None:
-        w_currently_in_repr = ec._py_repr = space.newdict()
-    return dictrepr(space, w_currently_in_repr, w_dict)
-
-
-# ____________________________________________________________
-
-def descr__new__(space, w_dicttype, __args__):
-    w_obj = W_DictMultiObject.allocate_and_init_instance(space, w_dicttype)
-    return w_obj
-
-# ____________________________________________________________
-
-W_DictMultiObject.typedef = StdTypeDef("dict",
-    __doc__ = '''dict() -> new empty dictionary.
-dict(mapping) -> new dictionary initialized from a mapping object\'s
-    (key, value) pairs.
-dict(seq) -> new dictionary initialized as if via:
-    d = {}
-    for k, v in seq:
-        d[k] = v
-dict(**kwargs) -> new dictionary initialized with the name=value pairs
-    in the keyword argument list.  For example:  dict(one=1, two=2)''',
-    __new__ = gateway.interp2app(descr__new__),
-    __hash__ = None,
-    __repr__ = gateway.interp2app(descr_repr),
-    __init__ = gateway.interp2app(W_DictMultiObject.descr_init),
-
-    __eq__ = gateway.interp2app(W_DictMultiObject.descr_eq),
-    __ne__ = gateway.interp2app(W_DictMultiObject.descr_ne),
-    __lt__ = gateway.interp2app(W_DictMultiObject.descr_lt),
-    # XXX other comparison methods?
-
-    __len__ = gateway.interp2app(W_DictMultiObject.descr_len),
-    __iter__ = gateway.interp2app(W_DictMultiObject.descr_iter),
-    __contains__ = gateway.interp2app(W_DictMultiObject.descr_contains),
-
-    __getitem__ = gateway.interp2app(W_DictMultiObject.descr_getitem),
-    __setitem__ = gateway.interp2app(W_DictMultiObject.descr_setitem),
-    __delitem__ = gateway.interp2app(W_DictMultiObject.descr_delitem),
-
-    __reversed__ = gateway.interp2app(W_DictMultiObject.descr_reversed),
-    fromkeys = gateway.interp2app(descr_fromkeys, as_classmethod=True),
-    copy = gateway.interp2app(W_DictMultiObject.descr_copy),
-    items = gateway.interp2app(W_DictMultiObject.descr_items),
-    keys = gateway.interp2app(W_DictMultiObject.descr_keys),
-    values = gateway.interp2app(W_DictMultiObject.descr_values),
-    iteritems = gateway.interp2app(W_DictMultiObject.descr_iteritems),
-    iterkeys = gateway.interp2app(W_DictMultiObject.descr_iterkeys),
-    itervalues = gateway.interp2app(W_DictMultiObject.descr_itervalues),
-    viewkeys = gateway.interp2app(W_DictMultiObject.descr_viewkeys),
-    viewitems = gateway.interp2app(W_DictMultiObject.descr_viewitems),
-    viewvalues = gateway.interp2app(W_DictMultiObject.descr_viewvalues),
-    has_key = gateway.interp2app(W_DictMultiObject.descr_has_key),
-    clear = gateway.interp2app(W_DictMultiObject.descr_clear),
-    get = gateway.interp2app(W_DictMultiObject.descr_get),
-    pop = gateway.interp2app(W_DictMultiObject.descr_pop),
-    popitem = gateway.interp2app(W_DictMultiObject.descr_popitem),
-    setdefault = gateway.interp2app(W_DictMultiObject.descr_setdefault),
-    update = gateway.interp2app(W_DictMultiObject.descr_update),
-    )
-W_DictMultiObject.typedef.registermethods(globals())
-dict_typedef = W_DictMultiObject.typedef
-
-# ____________________________________________________________
-
-
-W_BaseDictMultiIterObject.typedef = StdTypeDef("dictionaryiterator",
-    __length_hint__ = gateway.interp2app(W_BaseDictMultiIterObject.descr_length_hint),
-    __reduce__      = gateway.interp2app(W_BaseDictMultiIterObject.descr_reduce),
-    )
-
-# ____________________________________________________________
-# Dict views
-
-W_DictViewItemsObject.typedef = StdTypeDef(
-    "dict_items",
-    __iter__ = gateway.interp2app(W_DictViewItemsObject.descr_iter)
-    )
-
-W_DictViewKeysObject.typedef = StdTypeDef(
-    "dict_keys",
-    __iter__ = gateway.interp2app(W_DictViewKeysObject.descr_iter)
-    )
-
-W_DictViewValuesObject.typedef = StdTypeDef(
-    "dict_values",
-    __iter__ = gateway.interp2app(W_DictViewValuesObject.descr_iter)
-    )
