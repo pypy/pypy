@@ -130,6 +130,28 @@ class W_DictMultiObject(W_Object):
         # XXX automatize this
         return space.not_(self.descr_eq(space, w_other))
 
+    def descr_lt(self, space, w_other):
+        # Different sizes, no problem
+        if self.length() < w_other.length():
+            return space.w_True
+        if self.length() > w_other.length():
+            return space.w_False
+
+        # Same size
+        w_leftdiff, w_leftval = characterize(space, self, w_other)
+        if w_leftdiff is None:
+            return space.w_False
+        w_rightdiff, w_rightval = characterize(space, w_other, self)
+        if w_rightdiff is None:
+            # w_leftdiff is not None, w_rightdiff is None
+            return space.w_True
+        w_res = space.lt(w_leftdiff, w_rightdiff)
+        if (not space.is_true(w_res) and
+            space.eq_w(w_leftdiff, w_rightdiff) and
+            w_rightval is not None):
+            w_res = space.lt(w_leftval, w_rightval)
+        return w_res
+
     def descr_reversed(self, space):
         raise OperationError(space.w_TypeError, space.wrap('argument to reversed() must be a sequence'))
 
@@ -978,28 +1000,6 @@ def characterize(space, w_a, w_b):
                     w_smallest_diff_a_key = w_key
     return w_smallest_diff_a_key, w_its_value
 
-def lt__DictMulti_DictMulti(space, w_left, w_right):
-    # Different sizes, no problem
-    if w_left.length() < w_right.length():
-        return space.w_True
-    if w_left.length() > w_right.length():
-        return space.w_False
-
-    # Same size
-    w_leftdiff, w_leftval = characterize(space, w_left, w_right)
-    if w_leftdiff is None:
-        return space.w_False
-    w_rightdiff, w_rightval = characterize(space, w_right, w_left)
-    if w_rightdiff is None:
-        # w_leftdiff is not None, w_rightdiff is None
-        return space.w_True
-    w_res = space.lt(w_leftdiff, w_rightdiff)
-    if (not space.is_true(w_res) and
-        space.eq_w(w_leftdiff, w_rightdiff) and
-        w_rightval is not None):
-        w_res = space.lt(w_leftval, w_rightval)
-    return w_res
-
 
 # ____________________________________________________________
 # Iteration
@@ -1227,6 +1227,8 @@ dict(**kwargs) -> new dictionary initialized with the name=value pairs
 
     __eq__ = gateway.interp2app(W_DictMultiObject.descr_eq),
     __ne__ = gateway.interp2app(W_DictMultiObject.descr_ne),
+    __lt__ = gateway.interp2app(W_DictMultiObject.descr_lt),
+    # XXX other comparison methods?
 
     __reversed__ = gateway.interp2app(W_DictMultiObject.descr_reversed),
     fromkeys = gateway.interp2app(descr_fromkeys, as_classmethod=True),
