@@ -1245,6 +1245,12 @@ class W_DictViewObject(W_Object):
     def __init__(w_self, space, w_dict):
         w_self.w_dict = w_dict
 
+    def descr_repr(self, space):
+        w_seq = space.call_function(space.w_list, self)
+        w_repr = space.repr(w_seq)
+        return space.wrap("%s(%s)" % (space.type(self).getname(space),
+                                      space.str_w(w_repr)))
+
     def descr_len(self, space):
         return space.len(self.w_dict)
 
@@ -1265,18 +1271,21 @@ registerimplementation(W_DictViewValuesObject)
 
 W_DictViewItemsObject.typedef = StdTypeDef(
     "dict_items",
+    __repr__ = gateway.interp2app(W_DictViewItemsObject.descr_repr),
     __len__ = gateway.interp2app(W_DictViewItemsObject.descr_len),
     __iter__ = gateway.interp2app(W_DictViewItemsObject.descr_iter)
     )
 
 W_DictViewKeysObject.typedef = StdTypeDef(
     "dict_keys",
+    __repr__ = gateway.interp2app(W_DictViewKeysObject.descr_repr),
     __len__ = gateway.interp2app(W_DictViewKeysObject.descr_len),
     __iter__ = gateway.interp2app(W_DictViewKeysObject.descr_iter)
     )
 
 W_DictViewValuesObject.typedef = StdTypeDef(
     "dict_values",
+    __repr__ = gateway.interp2app(W_DictViewValuesObject.descr_repr),
     __len__ = gateway.interp2app(W_DictViewValuesObject.descr_len),
     __iter__ = gateway.interp2app(W_DictViewValuesObject.descr_iter)
     )
@@ -1307,14 +1316,6 @@ eq__DictViewKeys_DictViewItems = eq__DictViewKeys_DictViewKeys
 eq__DictViewItems_DictViewItems = eq__DictViewKeys_DictViewKeys
 eq__DictViewItems_settypedef = eq__DictViewItems_DictViewItems
 eq__DictViewItems_frozensettypedef = eq__DictViewItems_DictViewItems
-
-def repr__DictViewKeys(space, w_dictview):
-    w_seq = space.call_function(space.w_list, w_dictview)
-    w_repr = space.repr(w_seq)
-    return space.wrap("%s(%s)" % (space.type(w_dictview).getname(space),
-                                  space.str_w(w_repr)))
-repr__DictViewItems  = repr__DictViewKeys
-repr__DictViewValues = repr__DictViewKeys
 
 def and__DictViewKeys_DictViewKeys(space, w_dictview, w_otherview):
     w_set = space.call_function(space.w_set, w_dictview)
