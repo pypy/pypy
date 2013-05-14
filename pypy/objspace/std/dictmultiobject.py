@@ -1148,7 +1148,6 @@ xor__DictViewItems_settypedef = xor__DictViewKeys_DictViewKeys
 register_all(vars(), globals())
 
 def descr_fromkeys(space, w_type, w_keys, w_fill=None):
-    from pypy.objspace.std.dictmultiobject import W_DictMultiObject
     if w_fill is None:
         w_fill = space.w_None
     if space.is_w(w_type, space.w_dict):
@@ -1205,7 +1204,6 @@ def descr_repr(space, w_dict):
 # ____________________________________________________________
 
 def descr__new__(space, w_dicttype, __args__):
-    from pypy.objspace.std.dictmultiobject import W_DictMultiObject
     w_obj = W_DictMultiObject.allocate_and_init_instance(space, w_dicttype)
     return w_obj
 
@@ -1265,7 +1263,6 @@ dict_typedef = W_DictMultiObject.typedef
 # ____________________________________________________________
 
 def descr_dictiter__length_hint__(space, w_self):
-    from pypy.objspace.std.dictmultiobject import W_BaseDictMultiIterObject
     assert isinstance(w_self, W_BaseDictMultiIterObject)
     return space.wrap(w_self.iteratorimplementation.length())
 
