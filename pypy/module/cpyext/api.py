@@ -544,11 +544,27 @@ pypy_debug_catch_fatal_exception = rffi.llexternal('pypy_debug_catch_fatal_excep
 def make_wrapper(space, callable):
     "NOT_RPYTHON"
     names = callable.api_func.argnames
-    argtypes_enum_ui = unrolling_iterable(enumerate(zip(callable.api_func.argtypes,
-        [name.startswith("w_") for name in names])))
+    argtypes = callable.api_func.argtypes
+    is_wrapped_list = [name.startswith("w_") for name in names]
     fatal_value = callable.api_func.restype._defl()
 
-    def wrapper(*args):
+    lines = []
+    for i, (argtype, is_wrapped) in enumerate(zip(argtypes, is_wrapped_list)):
+        if is_PyObject(argtype) and is_wrapped:
+            new_lines = [
+                'if %(arg)s:',
+                '    %(arg)s = from_ref(space, rffi.cast(PyObject, %(arg)s))',
+                'else:',
+                '    %(arg)s = None',
+            ]
+            for j in range(len(new_lines)):
+                new_lines[j] = new_lines[j] % {'arg': 'arg%d' % i}
+            lines += new_lines
+    middle = '\n            '.join(lines)
+    arg_spec = ", ".join(["arg%d" % i for i in range(len(argtypes))])
+
+    source = py.code.Source("""
+    def wrapper(%(args)s):
         from pypy.module.cpyext.pyobject import make_ref, from_ref
         from pypy.module.cpyext.pyobject import Reference
         retval = fatal_value
@@ -556,20 +572,10 @@ def make_wrapper(space, callable):
         try:
             if not we_are_translated() and DEBUG_WRAPPER:
                 print >>sys.stderr, callable,
-            assert len(args) == len(callable.api_func.argtypes)
-            for i, (typ, is_wrapped) in argtypes_enum_ui:
-                arg = args[i]
-                if is_PyObject(typ) and is_wrapped:
-                    if arg:
-                        arg_conv = from_ref(space, rffi.cast(PyObject, arg))
-                    else:
-                        arg_conv = None
-                else:
-                    arg_conv = arg
-                boxed_args += (arg_conv, )
             state = space.fromcache(State)
+            %(middle)s
             try:
-                result = callable(space, *boxed_args)
+                result = callable(space, %(args)s)
                 if not we_are_translated() and DEBUG_WRAPPER:
                     print >>sys.stderr, " DONE"
             except OperationError, e:
@@ -591,8 +597,8 @@ def make_wrapper(space, callable):
             if failed:
                 error_value = callable.api_func.error_value
                 if error_value is CANNOT_FAIL:
-                    raise SystemError("The function '%s' was not supposed to fail"
-                                      % (callable.__name__,))
+                    raise SystemError("The function '%%s' was not supposed to fail"
+                                      %% (callable.__name__,))
                 retval = error_value
 
             elif is_PyObject(callable.api_func.restype):
@@ -620,6 +626,12 @@ def make_wrapper(space, callable):
                 print str(e)
                 pypy_debug_catch_fatal_exception()
         return retval
+    """ % {"middle": middle, "args": arg_spec})
+    d = {}
+    d.update(locals())
+    d.update(globals())
+    exec source.compile() in d
+    wrapper = d['wrapper']
     callable._always_inline_ = 'try'
     wrapper.__name__ = "wrapper for %r" % (callable, )
     return wrapper
@@ -1017,7 +1029,7 @@ def setup_library(space):
         export_struct(name, struct)
 
     for name, func in FUNCTIONS.iteritems():
-        deco = entrypoint("cpyext", func.argtypes, name, relax=True)
+        deco = entrypoint("cpyext", func.argtypes, name)
         deco(func.get_wrapper(space))
 
     setup_init_functions(eci, translating=True)
