@@ -7,7 +7,7 @@ from rpython.rlib.objectmodel import we_are_translated
 
 pypy_debug_catch_fatal_exception = rffi.llexternal('pypy_debug_catch_fatal_exception', [], lltype.Void)
 
-def entrypoint(key, argtypes, c_name=None, relax=False):
+def entrypoint(key, argtypes, c_name=None):
     """ Note: entrypoint should call llop.gc_stack_bottom on it's own.
     That's necessary for making it work with asmgcc and hence JIT
 
@@ -47,8 +47,6 @@ def entrypoint(key, argtypes, c_name=None, relax=False):
         wrapper.func_name = func.func_name
         if c_name is not None:
             wrapper.c_name = c_name
-        if relax:
-            wrapper.relax_sig_check = True
         wrapper._compilation_info = ExternalCompilationInfo(
             export_symbols=[c_name or func.func_name])
         return wrapper

@@ -81,6 +81,13 @@ def create_entry_point(space, w_dict):
     from rpython.rlib.entrypoint import entrypoint
     from rpython.rtyper.lltypesystem import rffi, lltype
 
+    w_pathsetter = space.appexec([], """():
+    def f(path):
+        import sys
+        sys.path[:] = path
+    return f
+    """)
+
     @entrypoint('main', [rffi.CCHARP, lltype.Signed], c_name='pypy_setup_home')
     def pypy_setup_home(ll_home, verbose):
         from pypy.module.sys.initpath import pypy_find_stdlib
@@ -88,11 +95,13 @@ def create_entry_point(space, w_dict):
             home = rffi.charp2str(ll_home)
         else:
             home = pypydir
-        if space.is_none(pypy_find_stdlib(space, home)):
+        w_path = pypy_find_stdlib(space, home)
+        if space.is_none(w_path):
             if verbose:
                 debug("Failed to find library based on pypy_find_stdlib")
             return 1
         space.startup()
+        space.call_function(w_pathsetter, w_path)
         # import site
         try:
             import_ = space.getattr(space.getbuiltinmodule('__builtin__'),
