@@ -109,6 +109,12 @@ class W_DictMultiObject(W_Object):
     def setitem_str(self, key, w_value):
         self.strategy.setitem_str(self, key, w_value)
 
+    def descr_copy(self, space):
+        """D.copy() -> a shallow copy of D"""
+        w_new = W_DictMultiObject.allocate_and_init_instance(space)
+        update1_dict_dict(space, w_new, self)
+        return w_new
+
 
 def _add_indirections():
     dict_methods = "getitem getitem_str setitem setdefault \
@@ -897,11 +903,6 @@ def lt__DictMulti_DictMulti(space, w_left, w_right):
         w_res = space.lt(w_leftval, w_rightval)
     return w_res
 
-def dict_copy__DictMulti(space, w_self):
-    w_new = W_DictMultiObject.allocate_and_init_instance(space)
-    update1_dict_dict(space, w_new, w_self)
-    return w_new
-
 def dict_items__DictMulti(space, w_self):
     return space.newlist(w_self.items())
 
@@ -1116,8 +1117,6 @@ xor__DictViewItems_settypedef = xor__DictViewKeys_DictViewKeys
 
 
 
-dict_copy       = SMM('copy',          1,
-                      doc='D.copy() -> a shallow copy of D')
 dict_items      = SMM('items',         1,
                       doc="D.items() -> list of D's (key, value) pairs, as"
                           ' 2-tuples')
@@ -1246,6 +1245,7 @@ dict(**kwargs) -> new dictionary initialized with the name=value pairs
     __hash__ = None,
     __repr__ = gateway.interp2app(descr_repr),
     fromkeys = gateway.interp2app(descr_fromkeys, as_classmethod=True),
+    copy = gateway.interp2app(W_DictMultiObject.descr_copy),
     )
 W_DictMultiObject.typedef.registermethods(globals())
 dict_typedef = W_DictMultiObject.typedef
