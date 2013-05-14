@@ -94,6 +94,53 @@ def parse_op_flag(space, lst):
             op_flag.get_it_item = get_readwrite_item
     return op_flag
 
+def parse_func_flags(space, nditer, w_flags):
+    if space.is_w(w_flags, space.w_None):
+        return
+    elif not space.isinstance_w(w_flags, space.w_tuple) and not \
+             space.isinstance_w(w_flags, space.w_list):
+        raise OperationError(space.w_ValueError, space.wrap(
+                'Iter global flags must be a list or tuple of strings'))
+    lst = space.listview(w_flags)
+    for w_item in lst:
+        if not space.isinstance_w(w_item, space.w_str) and not \
+               space.isinstance_w(w_item, space.w_unicode):
+            typename = space.type(w_item).getname(space)
+            raise OperationError(space.w_TypeError, space.wrap(
+                    'expected string or Unicode object, %s found' % typename))
+        item = space.str_w(w_item)
+        if item == 'external_loop':
+            nditer.external_loop = True
+        elif item == 'buffered':
+            nditer.buffered = True
+        elif item == 'c_index':
+            nditer.tracked_index = 'C'
+        elif item == 'f_index':
+            nditer.tracked_index = 'F'
+        elif item == 'multi_index':
+            nditer.tracked_index = 'multi'
+        elif item == 'common_dtype':
+            nditer.common_dtype = True
+        elif item == 'delay_bufalloc':
+            nditer.delay_bufalloc = True
+        elif item == 'grow_inner':
+            nditer.grow_inner = True
+        elif item == 'ranged':
+            nditer.ranged = True
+        elif item == 'refs_ok':
+            nditer.refs_ok = True
+        elif item == 'reduce_ok':
+            nditer.reduce_ok = True
+        elif item == 'zerosize_ok':
+            nditer.zerosize_ok = True
+        else:
+            raise OperationError(space.w_ValueError, space.wrap(
+                    'Unexpected iterator global flag "%s"', item))
+    if nditer.tracked_index and nditer.external_loop:
+            raise OperationError(space.w_ValueError, space.wrap(
+                'Iterator flag EXTERNAL_LOOP cannot be used if an index or '
+                'multi-index is being tracked'))
+
 def get_iter(space, order, imp, backward):
     if order == 'K' or (order == 'C' and imp.order == 'C'):
         backward = False
@@ -123,16 +170,28 @@ class W_NDIter(W_Root):
     def __init__(self, space, w_seq, w_flags, w_op_flags, w_op_dtypes, w_casting,
             w_op_axes, w_itershape, w_buffersize, order):
         self.order = order
+        self.external_loop = False
+        self.buffered = False
+        self.tracked_index = ''
+        self.common_dtype = False
+        self.delay_bufalloc = False
+        self.grow_inner = False
+        self.ranged = False
+        self.refs_ok = False
+        self.reduce_ok = False
+        self.zerosize_ok = False
         if space.isinstance_w(w_seq, space.w_tuple) or \
            space.isinstance_w(w_seq, space.w_list):
             w_seq_as_list = space.listview(w_seq)
             self.seq = [convert_to_array(space, w_elem) for w_elem in w_seq_as_list]
         else:
             self.seq =[convert_to_array(space, w_seq)]
+        parse_func_flags(space, self, w_flags)
         self.op_flags = parse_op_arg(space, 'op_flags', w_op_flags,
                                      len(self.seq), parse_op_flag)
         self.iters=[]
         for i in range(len(self.seq)):
+            # XXX the shape of the iter depends on all the seq.shapes together
             self.iters.append(get_iter(space, self.order,
                             self.seq[i].implementation, self.op_flags[i]))
 

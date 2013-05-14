@@ -46,13 +46,18 @@ class AppTestNDIter(BaseNumpyAppTest):
         from numpypy import arange, nditer, array
         a = arange(6).reshape(2,3)
         r = []
+        n = 0
         for x in nditer(a, flags=['external_loop']):
             r.append(x)
+            n += 1
+        assert n == 1
         assert (array(r) == [0, 1, 2, 3, 4, 5]).all()
         r = []
+        n = 0
         for x in nditer(a, flags=['external_loop'], order='F'):
             r.append(x)
-        print r
+            n += 1
+        assert n == 3
         assert (array(r) == [[0, 3], [1, 4], [2, 5]]).all()
 
     def test_interface(self):
