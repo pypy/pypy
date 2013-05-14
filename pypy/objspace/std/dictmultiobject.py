@@ -1128,6 +1128,9 @@ class W_BaseDictMultiIterObject(W_Object):
         w_self.space = space
         w_self.iteratorimplementation = iteratorimplementation
 
+    def descr_iter(self, space):
+        return self
+
     def descr_length_hint(self, space):
         return space.wrap(self.iteratorimplementation.length())
 
@@ -1190,47 +1193,50 @@ W_BaseDictMultiIterObject.typedef = StdTypeDef("dictionaryiterator",
     )
 
 class W_DictMultiIterKeysObject(W_BaseDictMultiIterObject):
-    pass
+    def descr_next(self, space):
+        iteratorimplementation = self.iteratorimplementation
+        w_key = iteratorimplementation.next_key()
+        if w_key is not None:
+            return w_key
+        raise OperationError(space.w_StopIteration, space.w_None)
 
 class W_DictMultiIterValuesObject(W_BaseDictMultiIterObject):
-    pass
+    def descr_next(self, space):
+        iteratorimplementation = self.iteratorimplementation
+        w_value = iteratorimplementation.next_value()
+        if w_value is not None:
+            return w_value
+        raise OperationError(space.w_StopIteration, space.w_None)
 
 class W_DictMultiIterItemsObject(W_BaseDictMultiIterObject):
-    pass
+    def descr_next(self, space):
+        iteratorimplementation = self.iteratorimplementation
+        w_key, w_value = iteratorimplementation.next_item()
+        if w_key is not None:
+            return space.newtuple([w_key, w_value])
+        raise OperationError(space.w_StopIteration, space.w_None)
 
 registerimplementation(W_DictMultiIterKeysObject)
 registerimplementation(W_DictMultiIterValuesObject)
 registerimplementation(W_DictMultiIterItemsObject)
 
-def iter__DictMultiIterKeysObject(space, w_dictiter):
-    return w_dictiter
+W_DictMultiIterItemsObject.typedef = StdTypeDef(
+    "dict_iteritems",
+    __iter__ = gateway.interp2app(W_DictMultiIterItemsObject.descr_iter),
+    next = gateway.interp2app(W_DictMultiIterItemsObject.descr_next)
+    )
 
-def next__DictMultiIterKeysObject(space, w_dictiter):
-    iteratorimplementation = w_dictiter.iteratorimplementation
-    w_key = iteratorimplementation.next_key()
-    if w_key is not None:
-        return w_key
-    raise OperationError(space.w_StopIteration, space.w_None)
+W_DictMultiIterKeysObject.typedef = StdTypeDef(
+    "dict_iterkeys",
+    __iter__ = gateway.interp2app(W_DictMultiIterKeysObject.descr_iter),
+    next = gateway.interp2app(W_DictMultiIterKeysObject.descr_next)
+    )
 
-def iter__DictMultiIterValuesObject(space, w_dictiter):
-    return w_dictiter
-
-def next__DictMultiIterValuesObject(space, w_dictiter):
-    iteratorimplementation = w_dictiter.iteratorimplementation
-    w_value = iteratorimplementation.next_value()
-    if w_value is not None:
-        return w_value
-    raise OperationError(space.w_StopIteration, space.w_None)
-
-def iter__DictMultiIterItemsObject(space, w_dictiter):
-    return w_dictiter
-
-def next__DictMultiIterItemsObject(space, w_dictiter):
-    iteratorimplementation = w_dictiter.iteratorimplementation
-    w_key, w_value = iteratorimplementation.next_item()
-    if w_key is not None:
-        return space.newtuple([w_key, w_value])
-    raise OperationError(space.w_StopIteration, space.w_None)
+W_DictMultiIterValuesObject.typedef = StdTypeDef(
+    "dict_itervalues",
+    __iter__ = gateway.interp2app(W_DictMultiIterValuesObject.descr_iter),
+    next = gateway.interp2app(W_DictMultiIterValuesObject.descr_next)
+    )
 
 # ____________________________________________________________
 # Views
