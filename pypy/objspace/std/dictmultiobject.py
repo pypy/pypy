@@ -1143,16 +1143,6 @@ xor__DictViewItems_settypedef = xor__DictViewKeys_DictViewKeys
 
 
 
-dict_keys       = SMM('keys',          1,
-                      doc="")
-dict_values     = SMM('values',        1,
-                      doc="")
-dict_has_key    = SMM('has_key',       2,
-                      doc='')
-dict_clear      = SMM('clear',         1,
-                      doc='')
-dict_get        = SMM('get',           3, defaults=(None,),
-                      doc='')
 dict_pop        = SMM('pop',           2, varargs_w=True,
                       doc='D.pop(k[,d]) -> v, remove specified key and return'
                           ' the corresponding value\nIf key is not found, d is'
