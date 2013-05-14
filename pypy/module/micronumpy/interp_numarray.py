@@ -20,6 +20,7 @@ from rpython.tool.sourcetools import func_with_new_name
 from rpython.rlib import jit
 from rpython.rlib.rstring import StringBuilder
 from pypy.module.micronumpy.arrayimpl.base import BaseArrayImplementation
+from pypy.interpreter.special import Ellipsis
 
 def _find_shape(space, w_size):
     if space.is_none(w_size):
@@ -167,6 +168,8 @@ class __extend__(W_NDimArray):
                                prefix)
 
     def descr_getitem(self, space, w_idx):
+        if isinstance(w_idx, Ellipsis):
+            return self
         if (isinstance(w_idx, W_NDimArray) and
             w_idx.get_dtype().is_bool_type()):
             return self.getitem_filter(space, w_idx)

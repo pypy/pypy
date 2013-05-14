@@ -1661,11 +1661,17 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (b == [20, 1, 21, 3, 4]).all()
         raises(ValueError, "array([1, 2])[array([True, False, True])] = [1, 2, 3]")
 
-    def test_ellipse_index_setitem(self):
+    def test_ellipse_index(self):
         from numpypy import arange
-        b = arange(5)
+        b = arange(24).reshape(2,3,4)
         b[...] = 100
         assert (b == 100).all()
+        assert b.shape == (2, 3, 4)
+        b[...] = [10, 20, 30, 40]
+        assert (b[:,:,0] == 10).all()
+        assert (b[0,0,:] == [10, 20, 30, 40]).all()
+        assert b.shape == b[...].shape
+        assert (b == b[...]).all()
 
     def test_weakref(self):
         import _weakref

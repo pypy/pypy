@@ -205,7 +205,7 @@ class BaseConcreteArray(base.BaseArrayImplementation):
         if (space.isinstance_w(w_idx, space.w_int) or
             space.isinstance_w(w_idx, space.w_slice)):
             return Chunks([Chunk(*space.decode_index4(w_idx, self.get_shape()[0]))])
-        elif space.is_w(w_idx, space.w_None):
+        elif space.is_w(w_idx, space.w_None) or isinstance(w_idx, Ellipsis):
             return Chunks([NewAxisChunk()])
         result = []
         i = 0
