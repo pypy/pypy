@@ -205,8 +205,11 @@ class W_DictMultiObject(W_Object):
         """D.setdefault(k[,d]) -> D.get(k,d), also set D[k]=d if k not in D"""
         return self.setdefault(w_key, w_default)
 
-#    def descr_update(self, space):
-#        """"""
+    def descr_update(self, space, __args__):
+        """D.update(E, **F) -> None.  Update D from E and F: for k in E: D[k]
+        = E[k]\n(if E has keys else: for (k, v) in E: D[k] = v) then: for k in
+        F: D[k] = F[k]"""
+        init_or_update(space, self, __args__, 'dict.update')
 
 #    def descr_reversed(self, space):
 #        """"""
@@ -904,9 +907,6 @@ def init_or_update(space, w_dict, __args__, funcname):
 def init__DictMulti(space, w_dict, __args__):
     init_or_update(space, w_dict, __args__, 'dict')
 
-def dict_update__DictMulti(space, w_dict, __args__):
-    init_or_update(space, w_dict, __args__, 'dict.update')
-
 def getitem__DictMulti_ANY(space, w_dict, w_key):
     w_value = w_dict.getitem(w_key)
     if w_value is not None:
@@ -1143,11 +1143,6 @@ xor__DictViewItems_settypedef = xor__DictViewKeys_DictViewKeys
 
 
 
-dict_update     = SMM('update',        1, general__args__=True,
-                      doc='D.update(E, **F) -> None.  Update D from E and F:'
-                          ' for k in E: D[k] = E[k]\n(if E has keys else: for'
-                          ' (k, v) in E: D[k] = v) then: for k in F: D[k] ='
-                          ' F[k]')
 dict_reversed   = SMM('__reversed__',      1)
 
 def dict_reversed__ANY(space, w_dict):
@@ -1249,7 +1244,7 @@ dict(**kwargs) -> new dictionary initialized with the name=value pairs
     pop = gateway.interp2app(W_DictMultiObject.descr_pop),
     popitem = gateway.interp2app(W_DictMultiObject.descr_popitem),
     setdefault = gateway.interp2app(W_DictMultiObject.descr_setdefault),
-    #update = gateway.interp2app(W_DictMultiObject.descr_update),
+    update = gateway.interp2app(W_DictMultiObject.descr_update),
     #reversed = gateway.interp2app(W_DictMultiObject.descr_reversed),
     )
 W_DictMultiObject.typedef.registermethods(globals())
