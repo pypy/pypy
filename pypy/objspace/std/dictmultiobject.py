@@ -1,8 +1,5 @@
 from pypy.objspace.std.model import registerimplementation, W_Object
-from pypy.objspace.std.register_all import register_all
-from pypy.objspace.std.settype import set_typedef as settypedef
 from pypy.objspace.std.stdtypedef import StdTypeDef
-from pypy.objspace.std.frozensettype import frozenset_typedef as frozensettypedef
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.mixedmodule import MixedModule
@@ -466,7 +463,6 @@ class DictStrategy(object):
         # it ends up taking n**2 time, because the next() calls below
         # will take longer and longer.  But all interesting strategies
         # provide a better one.
-        space = self.space
         iterator = self.iteritems(w_dict)
         w_key, w_value = iterator.next_item()
         self.delitem(w_dict, w_key)
