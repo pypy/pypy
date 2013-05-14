@@ -115,6 +115,57 @@ class W_DictMultiObject(W_Object):
         update1_dict_dict(space, w_new, self)
         return w_new
 
+#    def descr_items(self, space):
+#        """"""
+
+#    def descr_keys(self, space):
+#        """"""
+
+#    def descr_values(self, space):
+#        """"""
+
+#    def descr_has_key(self, space):
+#        """"""
+
+#    def descr_clear(self, space):
+#        """"""
+
+#    def descr_get(self, space):
+#        """"""
+
+#    def descr_pop(self, space):
+#        """"""
+
+#    def descr_popitem(self, space):
+#        """"""
+
+#    def descr_setdefault(self, space):
+#        """"""
+
+#    def descr_update(self, space):
+#        """"""
+
+#    def descr_iteritems(self, space):
+#        """"""
+
+#    def descr_iterkeys(self, space):
+#        """"""
+
+#    def descr_itervalues(self, space):
+#        """"""
+
+#    def descr_viewkeys(self, space):
+#        """"""
+
+#    def descr_viewitems(self, space):
+#        """"""
+
+#    def descr_viewvalues(self, space):
+#        """"""
+
+#    def descr_reversed(self, space):
+#        """"""
+
 
 def _add_indirections():
     dict_methods = "getitem getitem_str setitem setdefault \
@@ -1246,6 +1297,23 @@ dict(**kwargs) -> new dictionary initialized with the name=value pairs
     __repr__ = gateway.interp2app(descr_repr),
     fromkeys = gateway.interp2app(descr_fromkeys, as_classmethod=True),
     copy = gateway.interp2app(W_DictMultiObject.descr_copy),
+    #items = gateway.interp2app(W_DictMultiObject.descr_items),
+    #keys = gateway.interp2app(W_DictMultiObject.descr_keys),
+    #values = gateway.interp2app(W_DictMultiObject.descr_values),
+    #has_key = gateway.interp2app(W_DictMultiObject.descr_has_key),
+    #clear = gateway.interp2app(W_DictMultiObject.descr_clear),
+    #get = gateway.interp2app(W_DictMultiObject.descr_get),
+    #pop = gateway.interp2app(W_DictMultiObject.descr_pop),
+    #popitem = gateway.interp2app(W_DictMultiObject.descr_popitem),
+    #setdefault = gateway.interp2app(W_DictMultiObject.descr_setdefault),
+    #update = gateway.interp2app(W_DictMultiObject.descr_update),
+    #iteritems = gateway.interp2app(W_DictMultiObject.descr_iteritems),
+    #iterkeys = gateway.interp2app(W_DictMultiObject.descr_iterkeys),
+    #itervalues = gateway.interp2app(W_DictMultiObject.descr_itervalues),
+    #viewkeys = gateway.interp2app(W_DictMultiObject.descr_viewkeys),
+    #viewitems = gateway.interp2app(W_DictMultiObject.descr_viewitems),
+    #viewvalues = gateway.interp2app(W_DictMultiObject.descr_viewvalues),
+    #reversed = gateway.interp2app(W_DictMultiObject.descr_reversed),
     )
 W_DictMultiObject.typedef.registermethods(globals())
 dict_typedef = W_DictMultiObject.typedef
