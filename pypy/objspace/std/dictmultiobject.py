@@ -1,8 +1,7 @@
-import py, sys
 from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.settype import set_typedef as settypedef
-from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
+from pypy.objspace.std.stdtypedef import StdTypeDef
 from pypy.objspace.std.frozensettype import frozenset_typedef as frozensettypedef
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError, operationerrfmt
