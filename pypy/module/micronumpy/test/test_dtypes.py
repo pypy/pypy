@@ -804,6 +804,11 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
         assert e.fields.keys() == keys
         assert e['x'].shape == (2,)
 
+        dt = dtype((float, 10))
+        assert dt.shape == (10,)
+        assert dt.kind == 'V'
+        assert dt.fields == None
+        assert dt.subdtype == (dtype("float64"), (10,))
 
 class AppTestNotDirect(BaseNumpyAppTest):
     def setup_class(cls):

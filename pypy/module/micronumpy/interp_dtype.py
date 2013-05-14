@@ -349,10 +349,12 @@ def descr__new__(space, w_subtype, w_dtype, w_align=None, w_copy=None, w_shape=N
     # w_align and w_copy are necessary for pickling
     cache = get_dtype_cache(space)
 
-    if w_shape is not None and space.len_w(w_shape) > 0:
+    if w_shape is not None and (space.isinstance_w(w_shape, space.w_int) or space.len_w(w_shape) > 0):
         subdtype = descr__new__(space, w_subtype, w_dtype, w_align, w_copy)
         assert isinstance(subdtype, W_Dtype)
         size = 1
+        if space.isinstance_w(w_shape, space.w_int):
+            w_shape = space.newtuple([w_shape])
         shape = space.listview(w_shape)
         for dim in shape:
             size *= space.int_w(dim)
@@ -377,6 +379,8 @@ def descr__new__(space, w_subtype, w_dtype, w_align=None, w_copy=None, w_shape=N
                        "data type %s not understood" % name))
     elif space.isinstance_w(w_dtype, space.w_list):
         return dtype_from_list(space, w_dtype)
+    elif space.isinstance_w(w_dtype, space.w_tuple):
+        return descr__new__(space, w_subtype, space.getitem(w_dtype, space.wrap(0)), w_align, w_copy, w_shape=space.getitem(w_dtype, space.wrap(1)))
     elif space.isinstance_w(w_dtype, space.w_dict):
         return dtype_from_dict(space, w_dtype)
     for dtype in cache.builtin_dtypes:
