@@ -1143,9 +1143,6 @@ xor__DictViewItems_settypedef = xor__DictViewKeys_DictViewKeys
 
 
 
-dict_setdefault = SMM('setdefault',    3, defaults=(None,),
-                      doc='D.setdefault(k[,d]) -> D.get(k,d), also set D[k]=d'
-                          ' if k not in D')
 dict_update     = SMM('update',        1, general__args__=True,
                       doc='D.update(E, **F) -> None.  Update D from E and F:'
                           ' for k in E: D[k] = E[k]\n(if E has keys else: for'
