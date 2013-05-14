@@ -160,8 +160,14 @@ class W_DictMultiObject(W_Object):
         """D.clear() -> None.  Remove all items from D."""
         self.clear()
 
-#    def descr_get(self, space):
-#        """"""
+    @gateway.unwrap_spec(w_default=gateway.WrappedDefault(None))
+    def descr_get(self, space, w_key, w_default):
+        """D.get(k[,d]) -> D[k] if k in D, else d.  d defaults to None."""
+        w_value = self.getitem(w_key)
+        if w_value is not None:
+            return w_value
+        else:
+            return w_default
 
 #    def descr_pop(self, space):
 #        """"""
@@ -964,13 +970,6 @@ def lt__DictMulti_DictMulti(space, w_left, w_right):
         w_res = space.lt(w_leftval, w_rightval)
     return w_res
 
-def dict_get__DictMulti_ANY_ANY(space, w_dict, w_key, w_default):
-    w_value = w_dict.getitem(w_key)
-    if w_value is not None:
-        return w_value
-    else:
-        return w_default
-
 def dict_setdefault__DictMulti_ANY_ANY(space, w_dict, w_key, w_default):
     return w_dict.setdefault(w_key, w_default)
 
@@ -1153,8 +1152,7 @@ dict_has_key    = SMM('has_key',       2,
 dict_clear      = SMM('clear',         1,
                       doc='')
 dict_get        = SMM('get',           3, defaults=(None,),
-                      doc='D.get(k[,d]) -> D[k] if k in D, else d.  d defaults'
-                          ' to None.')
+                      doc='')
 dict_pop        = SMM('pop',           2, varargs_w=True,
                       doc='D.pop(k[,d]) -> v, remove specified key and return'
                           ' the corresponding value\nIf key is not found, d is'
@@ -1268,7 +1266,7 @@ dict(**kwargs) -> new dictionary initialized with the name=value pairs
     viewvalues = gateway.interp2app(W_DictMultiObject.descr_viewvalues),
     has_key = gateway.interp2app(W_DictMultiObject.descr_has_key),
     clear = gateway.interp2app(W_DictMultiObject.descr_clear),
-    #get = gateway.interp2app(W_DictMultiObject.descr_get),
+    get = gateway.interp2app(W_DictMultiObject.descr_get),
     #pop = gateway.interp2app(W_DictMultiObject.descr_pop),
     #popitem = gateway.interp2app(W_DictMultiObject.descr_popitem),
     #setdefault = gateway.interp2app(W_DictMultiObject.descr_setdefault),
