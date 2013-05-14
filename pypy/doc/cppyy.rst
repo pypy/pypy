@@ -349,7 +349,7 @@ unknown to the system.
 
 
 Features
-========
+--------
 
 The following is not meant to be an exhaustive list, since cppyy is still
 under active development.
@@ -652,7 +652,7 @@ Only that one specific method can not be used.
 
 
 Templates
-=========
+---------
 
 A bit of special care needs to be taken for the use of templates.
 For a templated class to be completely available, it must be guaranteed that
@@ -761,7 +761,7 @@ instantiation are themselves templates.
 
 
 The fast lane
-=============
+-------------
 
 The following is an experimental feature of cppyy.
 It mostly works, but there are some known issues (e.g. with return-by-value).
@@ -791,7 +791,7 @@ by running a micro-benchmark or a JIT test).
 .. _genreflex-methptrgetter.patch: https://bitbucket.org/pypy/pypy/src/default/pypy/module/cppyy/genreflex-methptrgetter.patch
 
 CPython
-=======
+-------
 
 Most of the ideas in cppyy come originally from the `PyROOT`_ project.
 Although PyROOT does not support Reflex directly, it has an alter ego called
@@ -845,7 +845,7 @@ In the cling world, all these differences will be resolved.
 
 
 Python3
-=======
+-------
 
 To change versions of CPython (to Python3, another version of Python, or later
 to the `Py3k`_ version of PyPy), the only part that requires recompilation is

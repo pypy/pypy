@@ -12,6 +12,14 @@ User documentation
 
    install
    build
+   cpython_differences
+   gc_info
+   jit-hooks
+   stackless
+   cppyy
+   objspace-proxies
+   sandbox
+   clr-module
 
 
 Development documentation
