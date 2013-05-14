@@ -200,8 +200,10 @@ class W_DictMultiObject(W_Object):
                                  space.wrap("popitem(): dictionary is empty"))
         return space.newtuple([w_key, w_value])
 
-#    def descr_setdefault(self, space):
-#        """"""
+    @gateway.unwrap_spec(w_default=gateway.WrappedDefault(None))
+    def descr_setdefault(self, space, w_key, w_default):
+        """D.setdefault(k[,d]) -> D.get(k,d), also set D[k]=d if k not in D"""
+        return self.setdefault(w_key, w_default)
 
 #    def descr_update(self, space):
 #        """"""
@@ -995,9 +997,6 @@ def lt__DictMulti_DictMulti(space, w_left, w_right):
         w_res = space.lt(w_leftval, w_rightval)
     return w_res
 
-def dict_setdefault__DictMulti_ANY_ANY(space, w_dict, w_key, w_default):
-    return w_dict.setdefault(w_key, w_default)
-
 
 # ____________________________________________________________
 # Iteration
@@ -1252,7 +1251,7 @@ dict(**kwargs) -> new dictionary initialized with the name=value pairs
     get = gateway.interp2app(W_DictMultiObject.descr_get),
     pop = gateway.interp2app(W_DictMultiObject.descr_pop),
     popitem = gateway.interp2app(W_DictMultiObject.descr_popitem),
-    #setdefault = gateway.interp2app(W_DictMultiObject.descr_setdefault),
+    setdefault = gateway.interp2app(W_DictMultiObject.descr_setdefault),
     #update = gateway.interp2app(W_DictMultiObject.descr_update),
     #reversed = gateway.interp2app(W_DictMultiObject.descr_reversed),
     )
