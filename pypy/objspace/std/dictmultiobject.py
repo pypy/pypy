@@ -1251,6 +1251,23 @@ class W_DictViewObject(W_Object):
         return space.wrap("%s(%s)" % (space.type(self).getname(space),
                                       space.str_w(w_repr)))
 
+
+    def descr_eq(self, space, w_otherview):
+        if not space.eq_w(space.len(self), space.len(w_otherview)):
+            return space.w_False
+
+        w_iter = space.iter(self)
+        while True:
+            try:
+                w_item = space.next(w_iter)
+            except OperationError, e:
+                if not e.match(space, space.w_StopIteration):
+                    raise
+                break
+            if not space.is_true(space.contains(w_otherview, w_item)):
+                return space.w_False
+        return space.w_True
+
     def descr_len(self, space):
         return space.len(self.w_dict)
 
@@ -1287,6 +1304,7 @@ registerimplementation(W_DictViewValuesObject)
 W_DictViewItemsObject.typedef = StdTypeDef(
     "dict_items",
     __repr__ = gateway.interp2app(W_DictViewItemsObject.descr_repr),
+    __eq__ = gateway.interp2app(W_DictViewItemsObject.descr_eq),
     __len__ = gateway.interp2app(W_DictViewItemsObject.descr_len),
     __iter__ = gateway.interp2app(W_DictViewItemsObject.descr_iter),
     __and__ = gateway.interp2app(W_DictViewItemsObject.descr_and),
@@ -1297,6 +1315,7 @@ W_DictViewItemsObject.typedef = StdTypeDef(
 W_DictViewKeysObject.typedef = StdTypeDef(
     "dict_keys",
     __repr__ = gateway.interp2app(W_DictViewKeysObject.descr_repr),
+    __eq__ = gateway.interp2app(W_DictViewKeysObject.descr_eq),
     __len__ = gateway.interp2app(W_DictViewKeysObject.descr_len),
     __iter__ = gateway.interp2app(W_DictViewKeysObject.descr_iter),
     __and__ = gateway.interp2app(W_DictViewKeysObject.descr_and),
@@ -1307,41 +1326,10 @@ W_DictViewKeysObject.typedef = StdTypeDef(
 W_DictViewValuesObject.typedef = StdTypeDef(
     "dict_values",
     __repr__ = gateway.interp2app(W_DictViewValuesObject.descr_repr),
+    __eq__ = gateway.interp2app(W_DictViewValuesObject.descr_eq),
     __len__ = gateway.interp2app(W_DictViewValuesObject.descr_len),
     __iter__ = gateway.interp2app(W_DictViewValuesObject.descr_iter),
     __and__ = gateway.interp2app(W_DictViewValuesObject.descr_and),
     __or__ = gateway.interp2app(W_DictViewValuesObject.descr_or),
     __xor__ = gateway.interp2app(W_DictViewValuesObject.descr_xor)
     )
-
-def all_contained_in(space, w_dictview, w_otherview):
-    w_iter = space.iter(w_dictview)
-
-    while True:
-        try:
-            w_item = space.next(w_iter)
-        except OperationError, e:
-            if not e.match(space, space.w_StopIteration):
-                raise
-            break
-        if not space.is_true(space.contains(w_otherview, w_item)):
-            return space.w_False
-
-    return space.w_True
-
-def eq__DictViewKeys_DictViewKeys(space, w_dictview, w_otherview):
-    if space.eq_w(space.len(w_dictview), space.len(w_otherview)):
-        return all_contained_in(space, w_dictview, w_otherview)
-    return space.w_False
-eq__DictViewKeys_settypedef = eq__DictViewKeys_DictViewKeys
-eq__DictViewKeys_frozensettypedef = eq__DictViewKeys_DictViewKeys
-
-eq__DictViewKeys_DictViewItems = eq__DictViewKeys_DictViewKeys
-eq__DictViewItems_DictViewItems = eq__DictViewKeys_DictViewKeys
-eq__DictViewItems_settypedef = eq__DictViewItems_DictViewItems
-eq__DictViewItems_frozensettypedef = eq__DictViewItems_DictViewItems
-
-# ____________________________________________________________
-
-
-register_all(vars(), globals())
