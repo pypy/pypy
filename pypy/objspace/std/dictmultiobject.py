@@ -169,11 +169,36 @@ class W_DictMultiObject(W_Object):
         else:
             return w_default
 
-#    def descr_pop(self, space):
-#        """"""
+    @gateway.unwrap_spec(defaults_w='args_w')
+    def descr_pop(self, space, w_key, defaults_w):
+        """D.pop(k[,d]) -> v, remove specified key and return the
+        corresponding value\nIf key is not found, d is returned if given,
+        otherwise KeyError is raised
+        """
+        len_defaults = len(defaults_w)
+        if len_defaults > 1:
+            raise operationerrfmt(space.w_TypeError,
+                                  "pop expected at most 2 arguments, got %d",
+                                  1 + len_defaults)
+        w_item = self.getitem(w_key)
+        if w_item is None:
+            if len_defaults > 0:
+                return defaults_w[0]
+            else:
+                space.raise_key_error(w_key)
+        else:
+            self.delitem(w_key)
+            return w_item
 
-#    def descr_popitem(self, space):
-#        """"""
+    def descr_popitem(self, space):
+        """D.popitem() -> (k, v), remove and return some (key, value) pair as
+        a\n2-tuple; but raise KeyError if D is empty"""
+        try:
+            w_key, w_value = self.popitem()
+        except KeyError:
+            raise OperationError(space.w_KeyError,
+                                 space.wrap("popitem(): dictionary is empty"))
+        return space.newtuple([w_key, w_value])
 
 #    def descr_setdefault(self, space):
 #        """"""
@@ -973,30 +998,6 @@ def lt__DictMulti_DictMulti(space, w_left, w_right):
 def dict_setdefault__DictMulti_ANY_ANY(space, w_dict, w_key, w_default):
     return w_dict.setdefault(w_key, w_default)
 
-def dict_pop__DictMulti_ANY(space, w_dict, w_key, defaults_w):
-    len_defaults = len(defaults_w)
-    if len_defaults > 1:
-        raise operationerrfmt(space.w_TypeError,
-                              "pop expected at most 2 arguments, got %d",
-                              1 + len_defaults)
-    w_item = w_dict.getitem(w_key)
-    if w_item is None:
-        if len_defaults > 0:
-            return defaults_w[0]
-        else:
-            space.raise_key_error(w_key)
-    else:
-        w_dict.delitem(w_key)
-        return w_item
-
-def dict_popitem__DictMulti(space, w_dict):
-    try:
-        w_key, w_value = w_dict.popitem()
-    except KeyError:
-        raise OperationError(space.w_KeyError,
-                             space.wrap("popitem(): dictionary is empty"))
-    return space.newtuple([w_key, w_value])
-
 
 # ____________________________________________________________
 # Iteration
@@ -1143,14 +1144,6 @@ xor__DictViewItems_settypedef = xor__DictViewKeys_DictViewKeys
 
 
 
-dict_pop        = SMM('pop',           2, varargs_w=True,
-                      doc='D.pop(k[,d]) -> v, remove specified key and return'
-                          ' the corresponding value\nIf key is not found, d is'
-                          ' returned if given, otherwise KeyError is raised')
-dict_popitem    = SMM('popitem',       1,
-                      doc='D.popitem() -> (k, v), remove and return some (key,'
-                          ' value) pair as a\n2-tuple; but raise KeyError if D'
-                          ' is empty')
 dict_setdefault = SMM('setdefault',    3, defaults=(None,),
                       doc='D.setdefault(k[,d]) -> D.get(k,d), also set D[k]=d'
                           ' if k not in D')
@@ -1257,8 +1250,8 @@ dict(**kwargs) -> new dictionary initialized with the name=value pairs
     has_key = gateway.interp2app(W_DictMultiObject.descr_has_key),
     clear = gateway.interp2app(W_DictMultiObject.descr_clear),
     get = gateway.interp2app(W_DictMultiObject.descr_get),
-    #pop = gateway.interp2app(W_DictMultiObject.descr_pop),
-    #popitem = gateway.interp2app(W_DictMultiObject.descr_popitem),
+    pop = gateway.interp2app(W_DictMultiObject.descr_pop),
+    popitem = gateway.interp2app(W_DictMultiObject.descr_popitem),
     #setdefault = gateway.interp2app(W_DictMultiObject.descr_setdefault),
     #update = gateway.interp2app(W_DictMultiObject.descr_update),
     #reversed = gateway.interp2app(W_DictMultiObject.descr_reversed),
