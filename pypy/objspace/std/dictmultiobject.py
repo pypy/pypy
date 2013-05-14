@@ -108,6 +108,28 @@ class W_DictMultiObject(W_Object):
     def setitem_str(self, key, w_value):
         self.strategy.setitem_str(self, key, w_value)
 
+    def descr_eq(self, space, w_other):
+        if space.is_w(self, w_other):
+            return space.w_True
+
+        if self.length() != w_other.length():
+            return space.w_False
+        iteratorimplementation = self.iteritems()
+        while 1:
+            w_key, w_val = iteratorimplementation.next_item()
+            if w_key is None:
+                break
+            w_rightval = w_other.getitem(w_key)
+            if w_rightval is None:
+                return space.w_False
+            if not space.eq_w(w_val, w_rightval):
+                return space.w_False
+        return space.w_True
+
+    def descr_ne(self, space, w_other):
+        # XXX automatize this
+        return space.not_(self.descr_eq(space, w_other))
+
     def descr_reversed(self, space):
         raise OperationError(space.w_TypeError, space.wrap('argument to reversed() must be a sequence'))
 
@@ -935,24 +957,6 @@ def contains__DictMulti_ANY(space, w_dict, w_key):
 def iter__DictMulti(space, w_dict):
     return W_DictMultiIterKeysObject(space, w_dict.iterkeys())
 
-def eq__DictMulti_DictMulti(space, w_left, w_right):
-    if space.is_w(w_left, w_right):
-        return space.w_True
-
-    if w_left.length() != w_right.length():
-        return space.w_False
-    iteratorimplementation = w_left.iteritems()
-    while 1:
-        w_key, w_val = iteratorimplementation.next_item()
-        if w_key is None:
-            break
-        w_rightval = w_right.getitem(w_key)
-        if w_rightval is None:
-            return space.w_False
-        if not space.eq_w(w_val, w_rightval):
-            return space.w_False
-    return space.w_True
-
 def characterize(space, w_a, w_b):
     """ (similar to CPython)
     returns the smallest key in acontent for which b's value is different or absent and this value """
@@ -1220,6 +1224,10 @@ dict(**kwargs) -> new dictionary initialized with the name=value pairs
     __new__ = gateway.interp2app(descr__new__),
     __hash__ = None,
     __repr__ = gateway.interp2app(descr_repr),
+
+    __eq__ = gateway.interp2app(W_DictMultiObject.descr_eq),
+    __ne__ = gateway.interp2app(W_DictMultiObject.descr_ne),
+
     __reversed__ = gateway.interp2app(W_DictMultiObject.descr_reversed),
     fromkeys = gateway.interp2app(descr_fromkeys, as_classmethod=True),
     copy = gateway.interp2app(W_DictMultiObject.descr_copy),
