@@ -1014,6 +1014,61 @@ class W_BaseDictMultiIterObject(W_Object):
         w_self.space = space
         w_self.iteratorimplementation = iteratorimplementation
 
+    def descr_length_hint(self, space):
+        return space.wrap(self.iteratorimplementation.length())
+
+    def descr_reduce(self, space):
+        """
+        This is a slightly special case of pickling.
+        Since iteration over a dict is a bit hairy,
+        we do the following:
+        - create a clone of the dict iterator
+        - run it to the original position
+        - collect all remaining elements into a list
+        At unpickling time, we just use that list
+        and create an iterator on it.
+        This is of course not the standard way.
+
+        XXX to do: remove this __reduce__ method and do
+        a registration with copy_reg, instead.
+        """
+        w_mod    = space.getbuiltinmodule('_pickle_support')
+        mod      = space.interp_w(MixedModule, w_mod)
+        new_inst = mod.get('dictiter_surrogate_new')
+        w_typeobj = space.gettypeobject(dictiter_typedef)
+
+        raise OperationError(
+            space.w_TypeError,
+            space.wrap("can't pickle dictionary-keyiterator objects"))
+        # XXXXXX get that working again
+
+        # we cannot call __init__ since we don't have the original dict
+        if isinstance(self, W_DictIter_Keys):
+            w_clone = space.allocate_instance(W_DictIter_Keys, w_typeobj)
+        elif isinstance(self, W_DictIter_Values):
+            w_clone = space.allocate_instance(W_DictIter_Values, w_typeobj)
+        elif isinstance(self, W_DictIter_Items):
+            w_clone = space.allocate_instance(W_DictIter_Items, w_typeobj)
+        else:
+            msg = "unsupported dictiter type '%s' during pickling" % (self,)
+            raise OperationError(space.w_TypeError, space.wrap(msg))
+        w_clone.space = space
+        w_clone.content = self.content
+        w_clone.len = self.len
+        w_clone.pos = 0
+        w_clone.setup_iterator()
+        # spool until we have the same pos
+        while w_clone.pos < self.pos:
+            w_obj = w_clone.next_entry()
+            w_clone.pos += 1
+        stuff = [w_clone.next_entry() for i in range(w_clone.pos, w_clone.len)]
+        w_res = space.newlist(stuff)
+        tup      = [
+            w_res
+        ]
+        w_ret = space.newtuple([new_inst, space.newtuple(tup)])
+        return w_ret
+
 class W_DictMultiIterKeysObject(W_BaseDictMultiIterObject):
     pass
 
@@ -1262,69 +1317,10 @@ dict_typedef = W_DictMultiObject.typedef
 
 # ____________________________________________________________
 
-def descr_dictiter__length_hint__(space, w_self):
-    assert isinstance(w_self, W_BaseDictMultiIterObject)
-    return space.wrap(w_self.iteratorimplementation.length())
-
-
-def descr_dictiter__reduce__(w_self, space):
-    """
-    This is a slightly special case of pickling.
-    Since iteration over a dict is a bit hairy,
-    we do the following:
-    - create a clone of the dict iterator
-    - run it to the original position
-    - collect all remaining elements into a list
-    At unpickling time, we just use that list
-    and create an iterator on it.
-    This is of course not the standard way.
-
-    XXX to do: remove this __reduce__ method and do
-    a registration with copy_reg, instead.
-    """
-    w_mod    = space.getbuiltinmodule('_pickle_support')
-    mod      = space.interp_w(MixedModule, w_mod)
-    new_inst = mod.get('dictiter_surrogate_new')
-    w_typeobj = space.gettypeobject(dictiter_typedef)
-
-    raise OperationError(
-        space.w_TypeError,
-        space.wrap("can't pickle dictionary-keyiterator objects"))
-    # XXXXXX get that working again
-
-    # we cannot call __init__ since we don't have the original dict
-    if isinstance(w_self, W_DictIter_Keys):
-        w_clone = space.allocate_instance(W_DictIter_Keys, w_typeobj)
-    elif isinstance(w_self, W_DictIter_Values):
-        w_clone = space.allocate_instance(W_DictIter_Values, w_typeobj)
-    elif isinstance(w_self, W_DictIter_Items):
-        w_clone = space.allocate_instance(W_DictIter_Items, w_typeobj)
-    else:
-        msg = "unsupported dictiter type '%s' during pickling" % (w_self, )
-        raise OperationError(space.w_TypeError, space.wrap(msg))
-    w_clone.space = space
-    w_clone.content = w_self.content
-    w_clone.len = w_self.len
-    w_clone.pos = 0
-    w_clone.setup_iterator()
-    # spool until we have the same pos
-    while w_clone.pos < w_self.pos:
-        w_obj = w_clone.next_entry()
-        w_clone.pos += 1
-    stuff = [w_clone.next_entry() for i in range(w_clone.pos, w_clone.len)]
-    w_res = space.newlist(stuff)
-    tup      = [
-        w_res
-    ]
-    w_ret = space.newtuple([new_inst, space.newtuple(tup)])
-    return w_ret
-
-# ____________________________________________________________
-
 
 W_BaseDictMultiIterObject.typedef = StdTypeDef("dictionaryiterator",
-    __length_hint__ = gateway.interp2app(descr_dictiter__length_hint__),
-    __reduce__      = gateway.interp2app(descr_dictiter__reduce__),
+    __length_hint__ = gateway.interp2app(W_BaseDictMultiIterObject.descr_length_hint),
+    __reduce__      = gateway.interp2app(W_BaseDictMultiIterObject.descr_reduce),
     )
 
 # ____________________________________________________________
