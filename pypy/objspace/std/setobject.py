@@ -257,6 +257,9 @@ class W_BaseSetObject(W_Object):
         w_copy.update(w_other)
         return w_copy
 
+    def descr_xor(self, space, w_other):
+        return self.symmetric_difference(w_other)
+
     def descr_copy(self, space):
         """Return a shallow copy of a set."""
         if type(self) is W_FrozensetObject:
@@ -469,7 +472,7 @@ Build an unordered collection.""",
     __contains__ = gateway.interp2app(W_BaseSetObject.descr_contains),
     __and__ = gateway.interp2app(W_BaseSetObject.descr_and),
     __or__ = gateway.interp2app(W_BaseSetObject.descr_or),
-    #__xor__ = gateway.interp2app(W_BaseSetObject.descr_symmetric_difference),
+    __xor__ = gateway.interp2app(W_BaseSetObject.descr_xor),
 
     # non-mutating methods
     __reduce__ = gateway.interp2app(W_BaseSetObject.descr_reduce),
@@ -563,7 +566,7 @@ Build an immutable unordered collection.""",
     __contains__ = gateway.interp2app(W_BaseSetObject.descr_contains),
     __and__ = gateway.interp2app(W_BaseSetObject.descr_and),
     __or__ = gateway.interp2app(W_BaseSetObject.descr_or),
-    #__xor__ = gateway.interp2app(W_BaseSetObject.descr_symmetric_difference),
+    __xor__ = gateway.interp2app(W_BaseSetObject.descr_xor),
 
     # non-mutating methods
     __reduce__ = gateway.interp2app(W_BaseSetObject.descr_reduce),
@@ -1534,14 +1537,6 @@ def inplace_xor__Set_Set(space, self, w_other):
     return self
 
 inplace_xor__Set_Frozenset = inplace_xor__Set_Set
-
-def xor__Set_Set(space, self, w_other):
-    w_result = self.symmetric_difference(w_other)
-    return w_result
-
-xor__Set_Frozenset = xor__Set_Set
-xor__Frozenset_Set = xor__Set_Set
-xor__Frozenset_Frozenset = xor__Set_Set
 
 def cmp__Set_settypedef(space, self, w_other):
     # hack hack until we get the expected result
