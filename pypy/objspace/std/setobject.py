@@ -1,7 +1,7 @@
-from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.signature import Signature
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.stdtypedef import StdTypeDef
 from pypy.objspace.std.stringobject import W_StringObject
@@ -15,7 +15,7 @@ from rpython.rlib import rerased, jit
 UNROLL_CUTOFF = 5
 
 
-class W_BaseSetObject(W_Object):
+class W_BaseSetObject(W_Root):
     typedef = None
 
     def __init__(w_self, space, w_iterable=None):
@@ -656,10 +656,6 @@ Build an immutable unordered collection.""",
     )
 frozenset_typedef = W_FrozensetObject.typedef
 
-
-registerimplementation(W_BaseSetObject)
-registerimplementation(W_SetObject)
-registerimplementation(W_FrozensetObject)
 
 
 class SetStrategy(object):
@@ -1441,9 +1437,7 @@ class RDictIteratorImplementation(IteratorImplementation):
             return None
 
 
-class W_SetIterObject(W_Object):
-    # XXX this class should be killed, and the various
-    # iterimplementations should be W_Objects directly.
+class W_SetIterObject(W_Root):
 
     def __init__(w_self, space, iterimplementation):
         w_self.space = space
@@ -1469,7 +1463,6 @@ W_SetIterObject.typedef = StdTypeDef("setiterator",
     )
 setiter_typedef = W_SetIterObject.typedef
 
-registerimplementation(W_SetIterObject)
 
 
 # some helper functions

@@ -38,8 +38,6 @@ class StdTypeModel:
             from pypy.objspace.std.inttype    import int_typedef
             from pypy.objspace.std.floattype  import float_typedef
             from pypy.objspace.std.complextype  import complex_typedef
-            from pypy.objspace.std.setobject import set_typedef
-            from pypy.objspace.std.setobject import frozenset_typedef
             from pypy.objspace.std.tupletype  import tuple_typedef
             from pypy.objspace.std.listobject   import list_typedef
             from pypy.objspace.std.dicttype   import dict_typedef
@@ -63,10 +61,10 @@ class StdTypeModel:
         from pypy.objspace.std import intobject
         from pypy.objspace.std import floatobject
         from pypy.objspace.std import complexobject
-        from pypy.objspace.std import setobject
         from pypy.objspace.std import tupleobject
         from pypy.objspace.std import listobject
         from pypy.objspace.std import dictmultiobject
+        from pypy.objspace.std import setobject
         from pypy.objspace.std import stringobject
         from pypy.objspace.std import bytearrayobject
         from pypy.objspace.std import typeobject
@@ -80,6 +78,11 @@ class StdTypeModel:
         import pypy.objspace.std.default # register a few catch-all multimethods
 
         import pypy.objspace.std.marshal_impl # install marshal multimethods
+
+        # not-multimethod based types
+
+        self.pythontypes.append(setobject.W_SetObject.typedef)
+        self.pythontypes.append(setobject.W_FrozensetObject.typedef)
 
         # the set of implementation types
         self.typeorder = {
@@ -100,10 +103,6 @@ class StdTypeModel:
             longobject.W_LongObject: [],
             noneobject.W_NoneObject: [],
             complexobject.W_ComplexObject: [],
-            setobject.W_BaseSetObject: [],
-            setobject.W_SetObject: [],
-            setobject.W_FrozensetObject: [],
-            setobject.W_SetIterObject: [],
             iterobject.W_SeqIterObject: [],
             iterobject.W_FastListIterObject: [],
             iterobject.W_FastTupleIterObject: [],
@@ -192,12 +191,7 @@ class StdTypeModel:
             (complexobject.W_ComplexObject,
                     complexobject.delegate_Float2Complex),
             ]
-        self.typeorder[setobject.W_SetObject] += [
-            (setobject.W_BaseSetObject, None)
-            ]
-        self.typeorder[setobject.W_FrozensetObject] += [
-            (setobject.W_BaseSetObject, None)
-            ]
+
         self.typeorder[stringobject.W_StringObject] += [
             (unicodeobject.W_UnicodeObject, unicodeobject.delegate_String2Unicode),
             ]
