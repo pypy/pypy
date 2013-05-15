@@ -1,17 +1,18 @@
-from pypy.objspace.std.model import registerimplementation, W_Object
-from pypy.objspace.std.stdtypedef import StdTypeDef
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.mixedmodule import MixedModule
 from pypy.interpreter.signature import Signature
-
-from rpython.rlib.objectmodel import r_dict, specialize, newlist_hint
-from rpython.rlib.debug import mark_dict_non_null
-from rpython.tool.sourcetools import func_with_new_name
+from pypy.objspace.std.model import registerimplementation, W_Object
+from pypy.objspace.std.stdtypedef import StdTypeDef
 
 from rpython.rlib import rerased, jit
+from rpython.rlib.debug import mark_dict_non_null
+from rpython.rlib.objectmodel import r_dict, specialize, newlist_hint
+from rpython.tool.sourcetools import func_with_new_name
+
 
 UNROLL_CUTOFF = 5
+
 
 def _is_str(space, w_key):
     return space.is_w(space.type(w_key), space.w_str)
@@ -261,7 +262,6 @@ class W_DictMultiObject(W_Object):
 
     def descr_has_key(self, space, w_key):
         """D.has_key(k) -> True if D has a key k, else False"""
-        # XXX duplication with contains
         return space.newbool(self.getitem(w_key) is not None)
 
     def descr_clear(self, space):
@@ -416,9 +416,10 @@ dict(**kwargs) -> new dictionary initialized with the name=value pairs
     )
 dict_typedef = W_DictMultiObject.typedef
 
+registerimplementation(W_DictMultiObject)
+
 
 class DictStrategy(object):
-
     def __init__(self, space):
         self.space = space
 
@@ -483,8 +484,8 @@ class DictStrategy(object):
     def view_as_kwargs(self, w_dict):
         return (None, None)
 
-class EmptyDictStrategy(DictStrategy):
 
+class EmptyDictStrategy(DictStrategy):
     erase, unerase = rerased.new_erasing_pair("empty")
     erase = staticmethod(erase)
     unerase = staticmethod(unerase)
@@ -589,6 +590,7 @@ class EmptyDictStrategy(DictStrategy):
     def getiteritems(self, w_dict):
         return iter([(None, None)])
 
+
 # Iterator Implementation base classes
 
 def _new_next(TP):
@@ -596,7 +598,7 @@ def _new_next(TP):
         EMPTY = None
     else:
         EMPTY = None, None
-    
+
     def next(self):
         if self.dictimplementation is None:
             return EMPTY
@@ -660,7 +662,7 @@ def create_iterator_classes(dictimpl, override_next_item=None):
         wrapvalue = lambda space, key : key
     else:
         wrapvalue = dictimpl.wrapvalue.im_func
-    
+
     class IterClassKeys(BaseKeyIterator):
         def __init__(self, space, strategy, impl):
             self.iterator = strategy.getiterkeys(impl)
@@ -711,11 +713,6 @@ def create_iterator_classes(dictimpl, override_next_item=None):
     dictimpl.iteritems = iteritems
 
 create_iterator_classes(EmptyDictStrategy)
-
-registerimplementation(W_DictMultiObject)
-
-# DictImplementation lattice
-# XXX fix me
 
 
 # concrete subclasses of the above
@@ -831,7 +828,6 @@ class AbstractTypedStrategy(object):
 
 
 class ObjectDictStrategy(AbstractTypedStrategy, DictStrategy):
-
     erase, unerase = rerased.new_erasing_pair("object")
     erase = staticmethod(erase)
     unerase = staticmethod(unerase)
@@ -864,8 +860,8 @@ class ObjectDictStrategy(AbstractTypedStrategy, DictStrategy):
 
 create_iterator_classes(ObjectDictStrategy)
 
-class StringDictStrategy(AbstractTypedStrategy, DictStrategy):
 
+class StringDictStrategy(AbstractTypedStrategy, DictStrategy):
     erase, unerase = rerased.new_erasing_pair("string")
     erase = staticmethod(erase)
     unerase = staticmethod(unerase)
@@ -930,7 +926,6 @@ create_iterator_classes(StringDictStrategy)
 
 
 class UnicodeDictStrategy(AbstractTypedStrategy, DictStrategy):
-
     erase, unerase = rerased.new_erasing_pair("unicode")
     erase = staticmethod(erase)
     unerase = staticmethod(unerase)
@@ -1032,9 +1027,6 @@ class IntDictStrategy(AbstractTypedStrategy, DictStrategy):
 
 create_iterator_classes(IntDictStrategy)
 
-init_signature = Signature(['seq_or_map'], None, 'kwargs')
-init_defaults = [None]
-
 
 def update1(space, w_dict, w_data):
     if space.findattr(w_data, space.wrap("keys")) is None:
@@ -1076,6 +1068,9 @@ def update1_keys(space, w_dict, w_data):
         w_dict.setitem(w_key, w_value)
 
 
+init_signature = Signature(['seq_or_map'], None, 'kwargs')
+init_defaults = [None]
+
 def init_or_update(space, w_dict, __args__, funcname):
     w_src, w_kwds = __args__.parse_obj(
             None, funcname,
@@ -1110,7 +1105,6 @@ def characterize(space, w_a, w_b):
 
 # ____________________________________________________________
 # Iteration
-
 
 class W_BaseDictMultiIterObject(W_Object):
     _immutable_fields_ = ["iteratorimplementation"]
@@ -1179,11 +1173,11 @@ class W_BaseDictMultiIterObject(W_Object):
         w_ret = space.newtuple([new_inst, space.newtuple(tup)])
         return w_ret
 
-
 W_BaseDictMultiIterObject.typedef = StdTypeDef("dictionaryiterator",
     __length_hint__ = gateway.interp2app(W_BaseDictMultiIterObject.descr_length_hint),
     __reduce__      = gateway.interp2app(W_BaseDictMultiIterObject.descr_reduce),
     )
+
 
 class W_DictMultiIterKeysObject(W_BaseDictMultiIterObject):
     def descr_next(self, space):
@@ -1231,6 +1225,7 @@ W_DictMultiIterValuesObject.typedef = StdTypeDef(
     next = gateway.interp2app(W_DictMultiIterValuesObject.descr_next)
     )
 
+
 # ____________________________________________________________
 # Views
 
@@ -1243,7 +1238,6 @@ class W_DictViewObject(W_Object):
         w_repr = space.repr(w_seq)
         return space.wrap("%s(%s)" % (space.type(self).getname(space),
                                       space.str_w(w_repr)))
-
 
     def descr_eq(self, space, w_otherview):
         if not space.eq_w(space.len(self), space.len(w_otherview)):
