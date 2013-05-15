@@ -339,8 +339,9 @@ class W_Object(W_Root):
             s += ' instance of %s' % self.w__class__
         return '<%s>' % s
 
-    def unwrap(w_self, space):
-        raise UnwrapError, 'cannot unwrap %r' % (w_self,)
+    def unwrap(self, space):
+        raise UnwrapError('cannot unwrap %r' % self)
+
 
 class UnwrapError(Exception):
     pass
@@ -405,7 +406,7 @@ class StdObjSpaceMultiMethod(MultiMethodTable):
         mm.dispatch_tree = merge(self.dispatch_tree, other.dispatch_tree)
         return mm
 
-NOT_MULTIMETHODS = dict.fromkeys(
+NOT_MULTIMETHODS = set(
     ['delattr', 'delete', 'get', 'id', 'inplace_div', 'inplace_floordiv',
      'inplace_lshift', 'inplace_mod', 'inplace_pow', 'inplace_rshift',
      'inplace_truediv', 'is_', 'set', 'setattr', 'type', 'userdel',
