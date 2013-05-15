@@ -114,10 +114,11 @@ class W_Dtype(W_Root):
         return space.wrap(self.itemtype.alignment)
 
     def descr_get_subdtype(self, space):
-        return space.newtuple([space.wrap(self.subdtype), space.newtuple(self.shape)])
+        return space.newtuple([space.wrap(self.subdtype), self.descr_get_shape(space)])
 
     def descr_get_shape(self, space):
-        return space.newtuple(self.shape)
+        w_shape = [space.wrap(dim) for dim in self.shape]
+        return space.newtuple(w_shape)
 
     def eq(self, space, w_other):
         w_other = space.call_function(space.gettypefor(W_Dtype), w_other)
