@@ -2713,6 +2713,8 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         a[0]["x"][0] = 200
         assert a[0]["x"][0] == 200
 
+        assert len(list(a[0])) == 2
+
 
 class AppTestPyPy(BaseNumpyAppTest):
     def setup_class(cls):
