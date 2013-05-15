@@ -342,6 +342,15 @@ class W_ListObject(W_AbstractListObject):
         if w_iterable is not None:
             self.extend(w_iterable)
 
+    def descr_repr(self, space):
+        if self.length() == 0:
+            return space.wrap('[]')
+        ec = space.getexecutioncontext()
+        w_currently_in_repr = ec._py_repr
+        if w_currently_in_repr is None:
+            w_currently_in_repr = ec._py_repr = space.newdict()
+        return listrepr(space, w_currently_in_repr, self)
+
     @jit.look_inside_iff(list_unroll_condition)
     def descr_eq(self, space, w_other):
         if not isinstance(w_other, W_ListObject):
@@ -1579,15 +1588,6 @@ app = applevel("""
 
 listrepr = app.interphook("listrepr")
 
-def repr__List(space, w_list):
-    if w_list.length() == 0:
-        return space.wrap('[]')
-    ec = space.getexecutioncontext()
-    w_currently_in_repr = ec._py_repr
-    if w_currently_in_repr is None:
-        w_currently_in_repr = ec._py_repr = space.newdict()
-    return listrepr(space, w_currently_in_repr, w_list)
-
 def get_positive_index(where, length):
     if where < 0:
         where += length
@@ -1688,6 +1688,7 @@ W_ListObject.typedef = StdTypeDef("list",
 list(sequence) -> new list initialized from sequence's items""",
     __new__ = interp2app(descr_new),
     __init__ = interp2app(W_ListObject.descr_init),
+    __repr__ = interp2app(W_ListObject.descr_repr),
     __hash__ = None,
 
     __eq__ = interp2app(W_ListObject.descr_eq),
