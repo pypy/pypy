@@ -236,9 +236,10 @@ class BaseFrameworkGCTransformer(GCTransformer):
         # thread support
         if translator.config.translation.continuation:
             root_walker.stacklet_support = True
-            root_walker.need_stacklet_support(self, getfn)
         if translator.config.translation.thread:
             root_walker.need_thread_support(self, getfn)
+        if root_walker.stacklet_support:
+            root_walker.need_stacklet_support(self, getfn)
 
         self.layoutbuilder.encode_type_shapes_now()
 
