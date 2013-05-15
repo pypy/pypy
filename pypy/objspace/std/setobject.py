@@ -1410,27 +1410,28 @@ class W_SetIterObject(W_Object):
         w_self.space = space
         w_self.iterimplementation = iterimplementation
 
-def descr_setiterator__length_hint__(space, w_self):
-    assert isinstance(w_self, W_SetIterObject)
-    return space.wrap(w_self.iterimplementation.length())
+    def descr_length_hint(self, space):
+        return space.wrap(self.iterimplementation.length())
+
+    def descr_iter(self, space):
+        return self
+
+    def descr_next(self, space):
+        iterimplementation = self.iterimplementation
+        w_key = iterimplementation.next()
+        if w_key is not None:
+            return w_key
+        raise OperationError(space.w_StopIteration, space.w_None)
 
 W_SetIterObject.typedef = StdTypeDef("setiterator",
-    __length_hint__ = gateway.interp2app(descr_setiterator__length_hint__),
+    __length_hint__ = gateway.interp2app(W_SetIterObject.descr_length_hint),
+    __iter__ = gateway.interp2app(W_SetIterObject.descr_iter),
+    next = gateway.interp2app(W_SetIterObject.descr_next)
     )
 setiter_typedef = W_SetIterObject.typedef
 
 registerimplementation(W_SetIterObject)
 
-
-def iter__SetIterObject(space, w_setiter):
-    return w_setiter
-
-def next__SetIterObject(space, w_setiter):
-    iterimplementation = w_setiter.iterimplementation
-    w_key = iterimplementation.next()
-    if w_key is not None:
-        return w_key
-    raise OperationError(space.w_StopIteration, space.w_None)
 
 # some helper functions
 
