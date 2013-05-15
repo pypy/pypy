@@ -46,11 +46,11 @@ def dtype_agreement(space, w_arr_list, shape, out=None):
 
 
 class W_Dtype(W_Root):
-    _immutable_fields_ = ["itemtype", "num", "kind", "shape"]
+    _immutable_fields_ = ["itemtype", "num", "kind"]
 
     def __init__(self, itemtype, num, kind, name, char, w_box_type,
                  alternate_constructors=[], aliases=[],
-                 fields=None, fieldnames=None, native=True, shape=[], subdtype=None):
+                 fields=None, fieldnames=None, native=True):
         self.itemtype = itemtype
         self.num = num
         self.kind = kind
@@ -63,8 +63,6 @@ class W_Dtype(W_Root):
         self.fieldnames = fieldnames
         self.native = native
         self.float_type = None
-        self.shape = list(shape)
-        self.subdtype = subdtype
 
     @specialize.argtype(1)
     def box(self, value):
@@ -113,12 +111,8 @@ class W_Dtype(W_Root):
     def descr_get_alignment(self, space):
         return space.wrap(self.itemtype.alignment)
 
-    def descr_get_subdtype(self, space):
-        return space.newtuple([space.wrap(self.subdtype), self.descr_get_shape(space)])
-
     def descr_get_shape(self, space):
-        w_shape = [space.wrap(dim) for dim in self.shape]
-        return space.newtuple(w_shape)
+        return space.newtuple([])
 
     def eq(self, space, w_other):
         w_other = space.call_function(space.gettypefor(W_Dtype), w_other)
@@ -285,22 +279,15 @@ def dtype_from_list(space, w_lst):
     ofs_and_items = []
     fieldnames = []
     for w_elem in lst_w:
-        size = 1
-        w_shape = space.newtuple([])
-        if space.len_w(w_elem) == 3:
-            w_fldname, w_flddesc, w_shape = space.fixedview(w_elem)
-            if not base.issequence_w(space, w_shape):
-                w_shape = space.newtuple([w_shape,])
-        else:
-            w_fldname, w_flddesc = space.fixedview(w_elem)
-        subdtype = descr__new__(space, space.gettypefor(W_Dtype), w_flddesc, w_shape=w_shape)
+        w_fldname, w_flddesc = space.fixedview(w_elem, 2)
+        subdtype = descr__new__(space, space.gettypefor(W_Dtype), w_flddesc)
         fldname = space.str_w(w_fldname)
         if fldname in fields:
             raise OperationError(space.w_ValueError, space.wrap("two fields with the same name"))
         assert isinstance(subdtype, W_Dtype)
         fields[fldname] = (offset, subdtype)
         ofs_and_items.append((offset, subdtype.itemtype))
-        offset += subdtype.itemtype.get_element_size() * size
+        offset += subdtype.itemtype.get_element_size()
         fieldnames.append(fldname)
     itemtype = types.RecordType(ofs_and_items, offset)
     return W_Dtype(itemtype, 20, VOIDLTR, "void" + str(8 * itemtype.get_element_size()),
@@ -346,23 +333,9 @@ def dtype_from_spec(space, name):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "dtype from spec"))
 
-def descr__new__(space, w_subtype, w_dtype, w_align=None, w_copy=None, w_shape=None):
+def descr__new__(space, w_subtype, w_dtype, w_align=None, w_copy=None):
     # w_align and w_copy are necessary for pickling
     cache = get_dtype_cache(space)
-
-    if w_shape is not None and (space.isinstance_w(w_shape, space.w_int) or space.len_w(w_shape) > 0):
-        subdtype = descr__new__(space, w_subtype, w_dtype, w_align, w_copy)
-        assert isinstance(subdtype, W_Dtype)
-        size = 1
-        if space.isinstance_w(w_shape, space.w_int):
-            w_shape = space.newtuple([w_shape])
-        shape = []
-        for w_dim in space.fixedview(w_shape):
-            dim = space.int_w(w_dim)
-            shape.append(dim)
-            size *= dim
-        return W_Dtype(types.VoidType(subdtype.itemtype.get_element_size() * size), 20, VOIDLTR, "void" + str(8 * subdtype.itemtype.get_element_size() * size),
-                    "V", space.gettypefor(interp_boxes.W_VoidBox), shape=shape, subdtype=subdtype)
 
     if space.is_none(w_dtype):
         return cache.w_float64dtype
@@ -382,8 +355,6 @@ def descr__new__(space, w_subtype, w_dtype, w_align=None, w_copy=None, w_shape=N
                        "data type %s not understood" % name))
     elif space.isinstance_w(w_dtype, space.w_list):
         return dtype_from_list(space, w_dtype)
-    elif space.isinstance_w(w_dtype, space.w_tuple):
-        return descr__new__(space, w_subtype, space.getitem(w_dtype, space.wrap(0)), w_align, w_copy, w_shape=space.getitem(w_dtype, space.wrap(1)))
     elif space.isinstance_w(w_dtype, space.w_dict):
         return dtype_from_dict(space, w_dtype)
     for dtype in cache.builtin_dtypes:
@@ -420,7 +391,6 @@ W_Dtype.typedef = TypeDef("dtype",
     name = interp_attrproperty('name', cls=W_Dtype),
     fields = GetSetProperty(W_Dtype.descr_get_fields),
     names = GetSetProperty(W_Dtype.descr_get_names),
-    subdtype = GetSetProperty(W_Dtype.descr_get_subdtype),
 )
 W_Dtype.typedef.acceptable_as_base_class = False
 
