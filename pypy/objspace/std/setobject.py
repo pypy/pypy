@@ -263,6 +263,22 @@ class W_BaseSetObject(W_Object):
     def descr_xor(self, space, w_other):
         return self.symmetric_difference(w_other)
 
+    def descr_inplace_sub(self, space, w_other):
+        self.difference_update(w_other)
+        return self
+
+    def descr_inplace_and(self, space, w_other):
+        self.intersect_update(w_other)
+        return self
+
+    def descr_inplace_or(self, space, w_other):
+        self.update(w_other)
+        return self
+
+    def descr_inplace_xor(self, space, w_other):
+        self.descr_symmetric_difference_update(space, w_other)
+        return self
+
     def descr_copy(self, space):
         """Return a shallow copy of a set."""
         if type(self) is W_FrozensetObject:
@@ -477,6 +493,12 @@ Build an unordered collection.""",
     __and__ = gateway.interp2app(W_BaseSetObject.descr_and),
     __or__ = gateway.interp2app(W_BaseSetObject.descr_or),
     __xor__ = gateway.interp2app(W_BaseSetObject.descr_xor),
+
+    # mutating operators
+    __isub__ = gateway.interp2app(W_BaseSetObject.descr_inplace_sub),
+    __iand__ = gateway.interp2app(W_BaseSetObject.descr_inplace_and),
+    __ior__ = gateway.interp2app(W_BaseSetObject.descr_inplace_or),
+    __ixor__ = gateway.interp2app(W_BaseSetObject.descr_inplace_xor),
 
     # non-mutating methods
     __reduce__ = gateway.interp2app(W_BaseSetObject.descr_reduce),
@@ -1491,18 +1513,6 @@ def _convert_set_to_frozenset(space, w_obj):
     else:
         return None
 
-def inplace_or__Set_Set(space, self, w_other):
-    self.update(w_other)
-    return self
-
-inplace_or__Set_Frozenset = inplace_or__Set_Set
-
-def inplace_sub__Set_Set(space, self, w_other):
-    self.difference_update(w_other)
-    return self
-
-inplace_sub__Set_Frozenset = inplace_sub__Set_Set
-
 def _discard_from_set(space, w_left, w_item):
     """
     Discard an element from a set, with automatic conversion to
@@ -1523,18 +1533,6 @@ def _discard_from_set(space, w_left, w_item):
     if w_left.length() == 0:
         w_left.switch_to_empty_strategy()
     return deleted
-
-def inplace_and__Set_Set(space, self, w_other):
-    self.intersect_update(w_other)
-    return self
-
-inplace_and__Set_Frozenset = inplace_and__Set_Set
-
-def inplace_xor__Set_Set(space, self, w_other):
-    self.descr_symmetric_difference_update(space, w_other)
-    return self
-
-inplace_xor__Set_Frozenset = inplace_xor__Set_Set
 
 def cmp__Set_settypedef(space, self, w_other):
     # hack hack until we get the expected result
