@@ -323,38 +323,36 @@ class FakeObjSpace(ObjSpace):
         t.buildrtyper().specialize()
         t.checkgraphs()
 
+    def setup(space):
+        for name in (ObjSpace.ConstantTable +
+                     ObjSpace.ExceptionTable +
+                     ['int', 'str', 'float', 'long', 'tuple', 'list',
+                      'dict', 'unicode', 'complex', 'slice', 'bool',
+                      'basestring', 'object', 'bytearray']):
+            setattr(space, 'w_' + name, w_some_obj())
+        space.w_type = w_some_type()
+        #
+        for (name, _, arity, _) in ObjSpace.MethodTable:
+            if name == 'type':
+                continue
+            args = ['w_%d' % i for i in range(arity)]
+            params = args[:]
+            d = {'is_root': is_root,
+                 'w_some_obj': w_some_obj}
+            if name in ('get',):
+                params[-1] += '=None'
+            exec compile2("""\
+                def meth(%s):
+                    %s
+                    return w_some_obj()
+            """ % (', '.join(params),
+                   '; '.join(['is_root(%s)' % arg for arg in args]))) in d
+            meth = func_with_new_name(d['meth'], name)
+            setattr(space, name, meth)
+        #
+        for name in ObjSpace.IrregularOpTable:
+            assert hasattr(space, name)    # missing?
 
-def setup():
-    for name in (ObjSpace.ConstantTable +
-                 ObjSpace.ExceptionTable +
-                 ['int', 'str', 'float', 'long', 'tuple', 'list',
-                  'dict', 'unicode', 'complex', 'slice', 'bool',
-                  'basestring', 'object', 'bytearray']):
-        setattr(FakeObjSpace, 'w_' + name, w_some_obj())
-    FakeObjSpace.w_type = w_some_type()
-    #
-    for (name, _, arity, _) in ObjSpace.MethodTable:
-        if name == 'type':
-            continue
-        args = ['w_%d' % i for i in range(arity)]
-        params = args[:]
-        d = {'is_root': is_root,
-             'w_some_obj': w_some_obj}
-        if name in ('get',):
-            params[-1] += '=None'
-        exec compile2("""\
-            def meth(self, %s):
-                %s
-                return w_some_obj()
-        """ % (', '.join(params),
-               '; '.join(['is_root(%s)' % arg for arg in args]))) in d
-        meth = func_with_new_name(d['meth'], name)
-        setattr(FakeObjSpace, name, meth)
-    #
-    for name in ObjSpace.IrregularOpTable:
-        assert hasattr(FakeObjSpace, name)    # missing?
-
-setup()
 
 # ____________________________________________________________
 
