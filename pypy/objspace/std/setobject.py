@@ -249,6 +249,9 @@ class W_BaseSetObject(W_Object):
             w_currently_in_repr = ec._py_repr = space.newdict()
         return setrepr(space, w_currently_in_repr, self)
 
+    def descr_and(self, space, w_other):
+        return self.intersect(w_other)
+
     def descr_copy(self, space):
         """Return a shallow copy of a set."""
         if type(self) is W_FrozensetObject:
@@ -461,7 +464,7 @@ Build an unordered collection.""",
     __len__ = gateway.interp2app(W_BaseSetObject.descr_len),
     __iter__ = gateway.interp2app(W_BaseSetObject.descr_iter),
     __contains__ = gateway.interp2app(W_BaseSetObject.descr_contains),
-    #__and__ = gateway.interp2app(W_BaseSetObject.descr_intersection),
+    __and__ = gateway.interp2app(W_BaseSetObject.descr_and),
     #__or__ = gateway.interp2app(W_BaseSetObject.descr_union),
     #__xor__ = gateway.interp2app(W_BaseSetObject.descr_symmetric_difference),
 
@@ -555,7 +558,7 @@ Build an immutable unordered collection.""",
     __len__ = gateway.interp2app(W_BaseSetObject.descr_len),
     __iter__ = gateway.interp2app(W_BaseSetObject.descr_iter),
     __contains__ = gateway.interp2app(W_BaseSetObject.descr_contains),
-    #__and__ = gateway.interp2app(W_BaseSetObject.descr_intersection),
+    __and__ = gateway.interp2app(W_BaseSetObject.descr_and),
     #__or__ = gateway.interp2app(W_BaseSetObject.descr_union),
     #__xor__ = gateway.interp2app(W_BaseSetObject.descr_symmetric_difference),
 
@@ -1516,15 +1519,6 @@ def _discard_from_set(space, w_left, w_item):
     if w_left.length() == 0:
         w_left.switch_to_empty_strategy()
     return deleted
-
-
-def and__Set_Set(space, self, w_other):
-    new_set = self.intersect(w_other)
-    return new_set
-
-and__Set_Frozenset = and__Set_Set
-and__Frozenset_Set = and__Set_Set
-and__Frozenset_Frozenset = and__Set_Set
 
 def inplace_and__Set_Set(space, self, w_other):
     self.intersect_update(w_other)
