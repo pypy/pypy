@@ -163,6 +163,13 @@ class W_BaseSetObject(W_Object):
 
     # app-level operations
 
+    def descr_init(self, space, __args__):
+        w_iterable, = __args__.parse_obj(
+                None, 'set',
+                init_signature,
+                init_defaults)
+        _initialize_set(space, self, w_iterable)
+
     def descr_repr(self, space):
         ec = space.getexecutioncontext()
         w_currently_in_repr = ec._py_repr
@@ -479,6 +486,7 @@ W_SetObject.typedef = StdTypeDef("set",
 
 Build an unordered collection.""",
     __new__ = gateway.interp2app(W_SetObject.descr_new),
+    __init__ = gateway.interp2app(W_BaseSetObject.descr_init),
     __repr__ = gateway.interp2app(W_BaseSetObject.descr_repr),
     __hash__ = None,
     __cmp__ = gateway.interp2app(W_BaseSetObject.descr_cmp),
@@ -1503,6 +1511,8 @@ def _pick_correct_strategy(space, w_set, iterable_w):
     w_set.strategy = space.fromcache(ObjectSetStrategy)
     w_set.sstorage = w_set.strategy.get_storage_from_list(iterable_w)
 
+init_signature = Signature(['some_iterable'], None, None)
+init_defaults = [None]
 def _initialize_set(space, w_obj, w_iterable=None):
     w_obj.clear()
     set_strategy_and_setdata(space, w_obj, w_iterable)
@@ -1540,15 +1550,6 @@ def _discard_from_set(space, w_left, w_item):
     if w_left.length() == 0:
         w_left.switch_to_empty_strategy()
     return deleted
-
-init_signature = Signature(['some_iterable'], None, None)
-init_defaults = [None]
-def init__Set(space, w_set, __args__):
-    w_iterable, = __args__.parse_obj(
-            None, 'set',
-            init_signature,
-            init_defaults)
-    _initialize_set(space, w_set, w_iterable)
 
 app = gateway.applevel("""
     def setrepr(currently_in_repr, s):
