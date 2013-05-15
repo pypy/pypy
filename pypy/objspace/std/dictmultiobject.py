@@ -416,7 +416,6 @@ dict(**kwargs) -> new dictionary initialized with the name=value pairs
     setdefault = gateway.interp2app(W_DictMultiObject.descr_setdefault),
     update = gateway.interp2app(W_DictMultiObject.descr_update),
     )
-W_DictMultiObject.typedef.registermethods(globals())
 dict_typedef = W_DictMultiObject.typedef
 
 
