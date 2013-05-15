@@ -1186,7 +1186,7 @@ class TestShared(StandaloneTests):
         config = get_combined_translation_config(translating=True)
         self.config = config
 
-        @entrypoint('test', [lltype.Signed], relax=True, c_name='foo')
+        @entrypoint('test', [lltype.Signed], c_name='foo')
         def f(a):
             return a + 3
 
