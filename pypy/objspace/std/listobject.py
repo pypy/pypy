@@ -126,6 +126,10 @@ def is_W_FloatObject(w_object):
     from pypy.objspace.std.floatobject import W_FloatObject
     return type(w_object) is W_FloatObject
 
+def list_unroll_condition(space, w_list1, w_list2):
+    return jit.loop_unrolling_heuristic(w_list1, w_list1.length(), UNROLL_CUTOFF) or \
+           jit.loop_unrolling_heuristic(w_list2, w_list2.length(), UNROLL_CUTOFF)
+
 class W_ListObject(W_AbstractListObject):
     def __init__(w_self, space, wrappeditems, sizehint=-1):
         assert isinstance(wrappeditems, list)
@@ -337,6 +341,49 @@ class W_ListObject(W_AbstractListObject):
         self.clear(space)
         if w_iterable is not None:
             self.extend(w_iterable)
+
+    @jit.look_inside_iff(list_unroll_condition)
+    def descr_eq(self, space, w_other):
+        if not isinstance(w_other, W_ListObject):
+            return space.w_NotImplemented
+
+        # needs to be safe against eq_w() mutating the w_lists behind our back
+        if self.length() != w_other.length():
+            return space.w_False
+
+        # XXX in theory, this can be implemented more efficiently as well. let's
+        # not care for now
+        i = 0
+        while i < self.length() and i < w_other.length():
+            if not space.eq_w(self.getitem(i), w_other.getitem(i)):
+                return space.w_False
+            i += 1
+        return space.w_True
+
+    def descr_ne(self, space, w_other):
+        return space.not_(self.descr_eq(space, w_other))
+
+    @staticmethod
+    def _make_list_comparison(name):
+        import operator
+        op = getattr(operator, name)
+
+        @jit.look_inside_iff(list_unroll_condition)
+        def compare_unwrappeditems(space, w_list1, w_list2):
+            # needs to be safe against eq_w() mutating the w_lists behind our back
+            # Search for the first index where items are different
+            i = 0
+            # XXX in theory, this can be implemented more efficiently as well.
+            # let's not care for now
+            while i < w_list1.length() and i < w_list2.length():
+                w_item1 = w_list1.getitem(i)
+                w_item2 = w_list2.getitem(i)
+                if not space.eq_w(w_item1, w_item2):
+                    return getattr(space, name)(w_item1, w_item2)
+                i += 1
+            # No more items to compare -- compare sizes
+            return space.newbool(op(w_list1.length(), w_list2.length()))
+        return func_with_new_name(compare_unwrappeditems, name + '__List_List')
 
     def descr_len(self, space):
         result = self.length()
@@ -1514,51 +1561,6 @@ class UnicodeListStrategy(AbstractUnwrappedStrategy, ListStrategy):
 init_signature = Signature(['sequence'], None, None)
 init_defaults = [None]
 
-def list_unroll_condition(space, w_list1, w_list2):
-    return jit.loop_unrolling_heuristic(w_list1, w_list1.length(), UNROLL_CUTOFF) or \
-           jit.loop_unrolling_heuristic(w_list2, w_list2.length(), UNROLL_CUTOFF)
-
-@jit.look_inside_iff(list_unroll_condition)
-def eq__List_List(space, w_list1, w_list2):
-    # needs to be safe against eq_w() mutating the w_lists behind our back
-    if w_list1.length() != w_list2.length():
-        return space.w_False
-
-    # XXX in theory, this can be implemented more efficiently as well. let's
-    # not care for now
-    i = 0
-    while i < w_list1.length() and i < w_list2.length():
-        if not space.eq_w(w_list1.getitem(i), w_list2.getitem(i)):
-            return space.w_False
-        i += 1
-    return space.w_True
-
-def _make_list_comparison(name):
-    import operator
-    op = getattr(operator, name)
-
-    @jit.look_inside_iff(list_unroll_condition)
-    def compare_unwrappeditems(space, w_list1, w_list2):
-        # needs to be safe against eq_w() mutating the w_lists behind our back
-        # Search for the first index where items are different
-        i = 0
-        # XXX in theory, this can be implemented more efficiently as well.
-        # let's not care for now
-        while i < w_list1.length() and i < w_list2.length():
-            w_item1 = w_list1.getitem(i)
-            w_item2 = w_list2.getitem(i)
-            if not space.eq_w(w_item1, w_item2):
-                return getattr(space, name)(w_item1, w_item2)
-            i += 1
-        # No more items to compare -- compare sizes
-        return space.newbool(op(w_list1.length(), w_list2.length()))
-    return func_with_new_name(compare_unwrappeditems, name + '__List_List')
-
-lt__List_List = _make_list_comparison('lt')
-le__List_List = _make_list_comparison('le')
-gt__List_List = _make_list_comparison('gt')
-ge__List_List = _make_list_comparison('ge')
-
 app = applevel("""
     def listrepr(currently_in_repr, l):
         'The app-level part of repr().'
@@ -1687,6 +1689,13 @@ list(sequence) -> new list initialized from sequence's items""",
     __new__ = interp2app(descr_new),
     __init__ = interp2app(W_ListObject.descr_init),
     __hash__ = None,
+
+    __eq__ = interp2app(W_ListObject.descr_eq),
+    __ne__ = interp2app(W_ListObject.descr_ne),
+    __lt__ = interp2app(W_ListObject._make_list_comparison('lt')),
+    __le__ = interp2app(W_ListObject._make_list_comparison('le')),
+    __gt__ = interp2app(W_ListObject._make_list_comparison('gt')),
+    __ge__ = interp2app(W_ListObject._make_list_comparison('ge')),
 
     __len__ = interp2app(W_ListObject.descr_len),
     __iter__ = interp2app(W_ListObject.descr_iter),
