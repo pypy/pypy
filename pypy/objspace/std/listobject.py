@@ -371,6 +371,31 @@ class W_ListObject(W_AbstractListObject):
             raise
         return self
 
+    def mul_list_times(self, space, w_times):
+        try:
+            times = space.getindex_w(w_times, space.w_OverflowError)
+        except OperationError, e:
+            if e.match(space, space.w_TypeError):
+                return space.w_NotImplemented
+            raise
+        return self.mul(times)
+
+    def descr_mul(self, space, w_times):
+        return self.mul_list_times(space, w_times)
+
+    def descr_rmul(self, space, w_times):
+        return self.mul_list_times(self.space, w_times)
+
+    def descr_inplace_mul(self, space, w_times):
+        try:
+            times = space.getindex_w(w_times, space.w_OverflowError)
+        except OperationError, e:
+            if e.match(space, space.w_TypeError):
+                raise FailedToImplement
+            raise
+        self.inplace_mul(times)
+        return self
+
     def descr_getitem(self, space, w_index):
         if isinstance(w_index, W_SliceObject):
             # XXX consider to extend rlist's functionality?
@@ -1489,31 +1514,6 @@ class UnicodeListStrategy(AbstractUnwrappedStrategy, ListStrategy):
 init_signature = Signature(['sequence'], None, None)
 init_defaults = [None]
 
-def mul_list_times(space, w_list, w_times):
-    try:
-        times = space.getindex_w(w_times, space.w_OverflowError)
-    except OperationError, e:
-        if e.match(space, space.w_TypeError):
-            raise FailedToImplement
-        raise
-    return w_list.mul(times)
-
-def mul__List_ANY(space, w_list, w_times):
-    return mul_list_times(space, w_list, w_times)
-
-def mul__ANY_List(space, w_times, w_list):
-    return mul_list_times(space, w_list, w_times)
-
-def inplace_mul__List_ANY(space, w_list, w_times):
-    try:
-        times = space.getindex_w(w_times, space.w_OverflowError)
-    except OperationError, e:
-        if e.match(space, space.w_TypeError):
-            raise FailedToImplement
-        raise
-    w_list.inplace_mul(times)
-    return w_list
-
 def list_unroll_condition(space, w_list1, w_list2):
     return jit.loop_unrolling_heuristic(w_list1, w_list1.length(), UNROLL_CUTOFF) or \
            jit.loop_unrolling_heuristic(w_list2, w_list2.length(), UNROLL_CUTOFF)
@@ -1694,6 +1694,9 @@ list(sequence) -> new list initialized from sequence's items""",
 
     __add__ = interp2app(W_ListObject.descr_add),
     __iadd__ = interp2app(W_ListObject.descr_inplace_add),
+    __mul__ = interp2app(W_ListObject.descr_mul),
+    __rmul__ = interp2app(W_ListObject.descr_rmul),
+    __imul__ = interp2app(W_ListObject.descr_inplace_mul),
 
     __getitem__ = interp2app(W_ListObject.descr_getitem),
     __getslice__ = interp2app(W_ListObject.descr_getslice),
