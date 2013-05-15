@@ -168,17 +168,12 @@ class W_BaseSetObject(W_Root):
             w_currently_in_repr = ec._py_repr = space.newdict()
         return setrepr(space, w_currently_in_repr, self)
 
-    def descr_cmp(self, space, w_other):
-        # hack hack until we get the expected result
-        raise OperationError(space.w_TypeError,
-                space.wrap('cannot compare sets using cmp()'))
-
     def descr_eq(self, space, w_other):
         if isinstance(w_other, W_BaseSetObject):
             return space.wrap(self.equals(w_other))
 
         if not space.isinstance_w(w_other, space.w_set):
-            return space.w_False
+            return space.w_NotImplemented
 
         # XXX there is no test_buildinshortcut.py
         # tested in test_buildinshortcut.py
@@ -191,7 +186,7 @@ class W_BaseSetObject(W_Root):
             return space.wrap(not self.equals(w_other))
 
         if not space.isinstance_w(w_other, space.w_set):
-            return space.w_True
+            return space.w_NotImplemented
 
         # XXX this is not tested
         w_other_as_set = self._newobj(space, w_other)
@@ -519,7 +514,6 @@ Build an unordered collection.""",
     __init__ = gateway.interp2app(W_BaseSetObject.descr_init),
     __repr__ = gateway.interp2app(W_BaseSetObject.descr_repr),
     __hash__ = None,
-    __cmp__ = gateway.interp2app(W_BaseSetObject.descr_cmp),
 
     # comparison operators
     __eq__ = gateway.interp2app(W_BaseSetObject.descr_eq),
@@ -614,7 +608,6 @@ Build an immutable unordered collection.""",
     __new__ = gateway.interp2app(W_FrozensetObject.descr_new2),
     __repr__ = gateway.interp2app(W_BaseSetObject.descr_repr),
     __hash__ = gateway.interp2app(W_FrozensetObject.descr_hash),
-    __cmp__ = gateway.interp2app(W_BaseSetObject.descr_cmp),
 
     # comparison operators
     __eq__ = gateway.interp2app(W_BaseSetObject.descr_eq),
@@ -1449,7 +1442,7 @@ class W_SetIterObject(W_Root):
 W_SetIterObject.typedef = StdTypeDef("setiterator",
     __length_hint__ = gateway.interp2app(W_SetIterObject.descr_length_hint),
     __iter__ = gateway.interp2app(W_SetIterObject.descr_iter),
-    next = gateway.interp2app(W_SetIterObject.descr_next)
+    __next__ = gateway.interp2app(W_SetIterObject.descr_next)
     )
 setiter_typedef = W_SetIterObject.typedef
 
