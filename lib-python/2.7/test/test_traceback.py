@@ -180,7 +180,7 @@ class TracebackFormatTests(unittest.TestCase):
 
     def test_traceback_format(self):
         if traceback_print is None:
-            return
+            raise unittest.SkipTest('Requires _testcapi')
         try:
             raise KeyError('blah')
         except KeyError:
