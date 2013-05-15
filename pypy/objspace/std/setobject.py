@@ -1,6 +1,6 @@
 from pypy.objspace.std.model import registerimplementation, W_Object
-from pypy.interpreter.error import OperationError
 from pypy.interpreter import gateway
+from pypy.interpreter.error import OperationError
 from pypy.interpreter.signature import Signature
 from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.stdtypedef import StdTypeDef
@@ -11,19 +11,12 @@ from rpython.rlib.objectmodel import r_dict
 from rpython.rlib.rarithmetic import intmask, r_uint
 from rpython.rlib import rerased, jit
 
+
 UNROLL_CUTOFF = 5
+
 
 class W_BaseSetObject(W_Object):
     typedef = None
-
-    # make sure that Base is used for Set and Frozenset in multimethod
-    # declarations
-    @classmethod
-    def is_implementation_for(cls, typedef):
-        if typedef is W_FrozensetObject.typedef or typedef is settypedef:
-            assert cls is W_BaseSetObject
-            return True
-        return False
 
     def __init__(w_self, space, w_iterable=None):
         """Initialize the set by taking ownership of 'setdata'."""
@@ -61,7 +54,6 @@ class W_BaseSetObject(W_Object):
         self.sstorage = strategy.get_empty_storage()
 
     # _____________ strategy methods ________________
-
 
     def clear(self):
         """ Removes all elements from the set. """
@@ -188,8 +180,9 @@ class W_BaseSetObject(W_Object):
         if not space.isinstance_w(w_other, space.w_set):
             return space.w_False
 
+        # XXX there is no test_buildinshortcut.py
         # tested in test_buildinshortcut.py
-        #XXX do not make new setobject here
+        # XXX do not make new setobject here
         w_other_as_set = self._newobj(space, w_other)
         return space.wrap(self.equals(w_other_as_set))
 
@@ -200,7 +193,7 @@ class W_BaseSetObject(W_Object):
         if not space.isinstance_w(w_other, space.w_set):
             return space.w_True
 
-        #XXX this is not tested
+        # XXX this is not tested
         w_other_as_set = self._newobj(space, w_other)
         return space.wrap(not self.equals(w_other_as_set))
 
@@ -314,7 +307,8 @@ class W_BaseSetObject(W_Object):
 
     @gateway.unwrap_spec(others_w='args_w')
     def descr_difference(self, space, others_w):
-        """Return a new set with elements in the set that are not in the others."""
+        """Return a new set with elements in the set that are not in the
+        others."""
         result = self.copy_real()
         result.descr_difference_update(space, others_w)
         return result
@@ -384,16 +378,15 @@ class W_BaseSetObject(W_Object):
         return space.wrap(w_other_as_set.issubset(self))
 
     def descr_symmetric_difference(self, space, w_other):
-        """Return the symmetric difference of two sets as a new set.\n\n(i.e.
-        all elements that are in exactly one of the sets.)"""
+        """Return the symmetric difference of two sets as a new set.
+
+        (i.e. all elements that are in exactly one of the sets.)"""
 
         if isinstance(w_other, W_BaseSetObject):
-            w_result = self.symmetric_difference(w_other)
-            return w_result
+            return self.symmetric_difference(w_other)
 
         w_other_as_set = self._newobj(space, w_other)
-        w_result = self.symmetric_difference(w_other_as_set)
-        return w_result
+        return self.symmetric_difference(w_other_as_set)
 
     @gateway.unwrap_spec(others_w='args_w')
     def descr_union(self, space, others_w):
@@ -424,7 +417,9 @@ class W_BaseSetObject(W_Object):
         return space.w_True
 
     def descr_add(self, space, w_other):
-        """Add an element to a set.\n\nThis has no effect if the element is already present."""
+        """Add an element to a set.
+
+        This has no effect if the element is already present."""
         self.add(w_other)
 
     def descr_clear(self, space):
@@ -441,9 +436,32 @@ class W_BaseSetObject(W_Object):
                 w_other_as_set = self._newobj(space, w_other)
                 self.difference_update(w_other_as_set)
 
+    def _discard_from_set(self, space, w_item):
+        """
+        Discard an element from a set, with automatic conversion to
+        frozenset if the argument is a set.
+        Returns True if successfully removed.
+        """
+        try:
+            deleted = self.remove(w_item)
+        except OperationError, e:
+            if not e.match(space, space.w_TypeError):
+                raise
+            else:
+                w_f = _convert_set_to_frozenset(space, w_item)
+                if w_f is None:
+                    raise
+                deleted = self.remove(w_f)
+
+        if self.length() == 0:
+            self.switch_to_empty_strategy()
+        return deleted
+
     def descr_discard(self, space, w_item):
-        """Remove an element from a set if it is a member.\n\nIf the element is not a member, do nothing."""
-        _discard_from_set(space, self, w_item)
+        """Remove an element from a set if it is a member.
+
+        If the element is not a member, do nothing."""
+        self._discard_from_set(space, w_item)
 
     @gateway.unwrap_spec(others_w='args_w')
     def descr_intersection_update(self, space, others_w):
@@ -457,8 +475,10 @@ class W_BaseSetObject(W_Object):
         return self.popitem()
 
     def descr_remove(self, space, w_item):
-        """Remove an element from a set; it must be a member.\n\nIf the element is not a member, raise a KeyError."""
-        if not _discard_from_set(space, self, w_item):
+        """Remove an element from a set; it must be a member.
+
+        If the element is not a member, raise a KeyError."""
+        if not self._discard_from_set(space, w_item):
             space.raise_key_error(w_item)
 
     def descr_symmetric_difference_update(self, space, w_other):
@@ -551,9 +571,7 @@ Build an unordered collection.""",
     symmetric_difference_update = gateway.interp2app(W_BaseSetObject.descr_symmetric_difference_update),
     update = gateway.interp2app(W_BaseSetObject.descr_update)
     )
-W_SetObject.typedef.registermethods(globals())
 set_typedef = W_SetObject.typedef
-settypedef = W_SetObject.typedef
 
 
 class W_FrozensetObject(W_BaseSetObject):
@@ -636,15 +654,13 @@ Build an immutable unordered collection.""",
     union = gateway.interp2app(W_BaseSetObject.descr_union),
     isdisjoint = gateway.interp2app(W_BaseSetObject.descr_isdisjoint)
     )
-
-W_FrozensetObject.typedef.registermethods(globals())
 frozenset_typedef = W_FrozensetObject.typedef
-frozensettypedef = W_FrozensetObject.typedef
 
 
 registerimplementation(W_BaseSetObject)
 registerimplementation(W_SetObject)
 registerimplementation(W_FrozensetObject)
+
 
 class SetStrategy(object):
     def __init__(self, space):
@@ -738,8 +754,8 @@ class SetStrategy(object):
     def popitem(self, w_set):
         raise NotImplementedError
 
-class EmptySetStrategy(SetStrategy):
 
+class EmptySetStrategy(SetStrategy):
     erase, unerase = rerased.new_erasing_pair("empty")
     erase = staticmethod(erase)
     unerase = staticmethod(unerase)
@@ -829,6 +845,7 @@ class EmptySetStrategy(SetStrategy):
     def popitem(self, w_set):
         raise OperationError(self.space.w_KeyError,
                                 self.space.wrap('pop from an empty set'))
+
 
 class AbstractUnwrappedSetStrategy(object):
     _mixin_ = True
@@ -1169,6 +1186,7 @@ class AbstractUnwrappedSetStrategy(object):
                             self.space.wrap('pop from an empty set'))
         return self.wrap(result[0])
 
+
 class StringSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
     erase, unerase = rerased.new_erasing_pair("string")
     erase = staticmethod(erase)
@@ -1272,6 +1290,7 @@ class IntegerSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
     def iter(self, w_set):
         return IntegerIteratorImplementation(self.space, self, w_set)
 
+
 class ObjectSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
     erase, unerase = rerased.new_erasing_pair("object")
     erase = staticmethod(erase)
@@ -1315,6 +1334,7 @@ class ObjectSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
             if w_item is None:
                 break
             d_obj[w_item] = None
+
 
 class IteratorImplementation(object):
     def __init__(self, space, strategy, implementation):
@@ -1360,6 +1380,7 @@ class IteratorImplementation(object):
             return self.len - self.pos
         return 0
 
+
 class EmptyIteratorImplementation(IteratorImplementation):
     def next_entry(self):
         return None
@@ -1377,6 +1398,7 @@ class StringIteratorImplementation(IteratorImplementation):
         else:
             return None
 
+
 class UnicodeIteratorImplementation(IteratorImplementation):
     def __init__(self, space, strategy, w_set):
         IteratorImplementation.__init__(self, space, strategy, w_set)
@@ -1388,6 +1410,7 @@ class UnicodeIteratorImplementation(IteratorImplementation):
             return self.space.wrap(key)
         else:
             return None
+
 
 class IntegerIteratorImplementation(IteratorImplementation):
     #XXX same implementation in dictmultiobject on dictstrategy-branch
@@ -1402,6 +1425,7 @@ class IntegerIteratorImplementation(IteratorImplementation):
             return self.space.wrap(key)
         else:
             return None
+
 
 class RDictIteratorImplementation(IteratorImplementation):
     def __init__(self, space, strategy, w_set):
@@ -1546,26 +1570,6 @@ def _convert_set_to_frozenset(space, w_obj):
     else:
         return None
 
-def _discard_from_set(space, w_left, w_item):
-    """
-    Discard an element from a set, with automatic conversion to
-    frozenset if the argument is a set.
-    Returns True if successfully removed.
-    """
-    try:
-        deleted = w_left.remove(w_item)
-    except OperationError, e:
-        if not e.match(space, space.w_TypeError):
-            raise
-        else:
-            w_f = _convert_set_to_frozenset(space, w_item)
-            if w_f is None:
-                raise
-            deleted = w_left.remove(w_f)
-
-    if w_left.length() == 0:
-        w_left.switch_to_empty_strategy()
-    return deleted
 
 app = gateway.applevel("""
     def setrepr(currently_in_repr, s):
