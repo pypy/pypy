@@ -1686,6 +1686,7 @@ class StringType(BaseType, BaseStringType):
         return space.wrap(self.to_str(box))
 
     def build_and_convert(self, space, mydtype, box):
+        assert isinstance(box, interp_boxes.W_GenericBox)
         if box.get_dtype(space).is_str_or_unicode():
             arg = box.get_dtype(space).itemtype.to_str(box)
         else:
@@ -1725,7 +1726,8 @@ class VoidType(BaseType, BaseStringType):
         if dtype is None:
             dtype = arr.dtype
         strides, backstrides = support.calc_strides(dtype.shape, dtype.subdtype, arr.order)
-        implementation = SliceArray(i + offset, strides, backstrides, dtype.shape, arr, arr, dtype.subdtype)
+        implementation = SliceArray(i + offset, strides, backstrides,
+                             dtype.shape, arr, W_NDimArray(arr), dtype.subdtype)
         return W_NDimArray(implementation)
 
 NonNativeVoidType = VoidType
