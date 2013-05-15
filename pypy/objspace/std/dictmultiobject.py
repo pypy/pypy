@@ -112,9 +112,7 @@ class W_DictMultiObject(W_Object):
         if space.is_w(self, w_other):
             return space.w_True
         if not isinstance(w_other, W_DictMultiObject):
-            raise operationerrfmt(space.w_TypeError,
-                                  "Expected dict object, got %s",
-                                  space.type(w_other).getname(space))
+            return space.w_NotImplemented
 
         if self.length() != w_other.length():
             return space.w_False
@@ -132,9 +130,7 @@ class W_DictMultiObject(W_Object):
 
     def descr_lt(self, space, w_other):
         if not isinstance(w_other, W_DictMultiObject):
-            raise operationerrfmt(space.w_TypeError,
-                                  "Expected dict object, got %s",
-                                  space.type(w_other).getname(space))
+            return space.w_NotImplemented
 
         # Different sizes, no problem
         if self.length() < w_other.length():
