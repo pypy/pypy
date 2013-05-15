@@ -342,6 +342,17 @@ class W_ListObject(W_AbstractListObject):
         result = self.length()
         return wrapint(space, result)
 
+    def descr_iter(self, space):
+        from pypy.objspace.std import iterobject
+        return iterobject.W_FastListIterObject(self)
+
+    def descr_contains(self, space, w_obj):
+        try:
+            self.find(w_obj)
+            return space.w_True
+        except ValueError:
+            return space.w_False
+
     def descr_getitem(self, space, w_index):
         if isinstance(w_index, W_SliceObject):
             # XXX consider to extend rlist's functionality?
@@ -1460,17 +1471,6 @@ class UnicodeListStrategy(AbstractUnwrappedStrategy, ListStrategy):
 init_signature = Signature(['sequence'], None, None)
 init_defaults = [None]
 
-def contains__List_ANY(space, w_list, w_obj):
-    try:
-        w_list.find(w_obj)
-        return space.w_True
-    except ValueError:
-        return space.w_False
-
-def iter__List(space, w_list):
-    from pypy.objspace.std import iterobject
-    return iterobject.W_FastListIterObject(w_list)
-
 def add__List_List(space, w_list1, w_list2):
     w_clone = w_list1.clone()
     w_clone.extend(w_list2)
@@ -1689,6 +1689,8 @@ list(sequence) -> new list initialized from sequence's items""",
     __hash__ = None,
 
     __len__ = interp2app(W_ListObject.descr_len),
+    __iter__ = interp2app(W_ListObject.descr_iter),
+    __contains__ = interp2app(W_ListObject.descr_contains),
 
     __getitem__ = interp2app(W_ListObject.descr_getitem),
     __getslice__ = interp2app(W_ListObject.descr_getslice),
