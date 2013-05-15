@@ -229,6 +229,9 @@ class W_BaseSetObject(W_Object):
     def descr_len(self, space):
         return space.newint(self.length())
 
+    def descr_iter(self, space):
+        return W_SetIterObject(space, self.iter())
+
     def descr_copy(self, space):
         """Return a shallow copy of a set."""
         if type(self) is W_FrozensetObject:
@@ -438,6 +441,7 @@ Build an unordered collection.""",
 
     # non-mutating operators
     __len__ = gateway.interp2app(W_BaseSetObject.descr_len),
+    __iter__ = gateway.interp2app(W_BaseSetObject.descr_iter),
     #__and__ = gateway.interp2app(W_BaseSetObject.descr_intersection),
     #__or__ = gateway.interp2app(W_BaseSetObject.descr_union),
     #__xor__ = gateway.interp2app(W_BaseSetObject.descr_symmetric_difference),
@@ -529,6 +533,7 @@ Build an immutable unordered collection.""",
 
     # non-mutating operators
     __len__ = gateway.interp2app(W_BaseSetObject.descr_len),
+    __iter__ = gateway.interp2app(W_BaseSetObject.descr_iter),
     #__and__ = gateway.interp2app(W_BaseSetObject.descr_intersection),
     #__or__ = gateway.interp2app(W_BaseSetObject.descr_union),
     #__xor__ = gateway.interp2app(W_BaseSetObject.descr_symmetric_difference),
@@ -1540,11 +1545,6 @@ def xor__Set_Set(space, self, w_other):
 xor__Set_Frozenset = xor__Set_Set
 xor__Frozenset_Set = xor__Set_Set
 xor__Frozenset_Frozenset = xor__Set_Set
-
-def iter__Set(space, self):
-    return W_SetIterObject(space, self.iter())
-
-iter__Frozenset = iter__Set
 
 def cmp__Set_settypedef(space, self, w_other):
     # hack hack until we get the expected result
