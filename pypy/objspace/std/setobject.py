@@ -261,32 +261,48 @@ class W_BaseSetObject(W_Object):
             raise
 
     def descr_sub(self, space, w_other):
+        if not isinstance(w_other, W_BaseSetObject):
+            return space.w_NotImplemented
         return self.difference(w_other)
 
     def descr_and(self, space, w_other):
+        if not isinstance(w_other, W_BaseSetObject):
+            return space.w_NotImplemented
         return self.intersect(w_other)
 
     def descr_or(self, space, w_other):
+        if not isinstance(w_other, W_BaseSetObject):
+            return space.w_NotImplemented
         w_copy = self.copy_real()
         w_copy.update(w_other)
         return w_copy
 
     def descr_xor(self, space, w_other):
+        if not isinstance(w_other, W_BaseSetObject):
+            return space.w_NotImplemented
         return self.symmetric_difference(w_other)
 
     def descr_inplace_sub(self, space, w_other):
+        if not isinstance(w_other, W_BaseSetObject):
+            return space.w_NotImplemented
         self.difference_update(w_other)
         return self
 
     def descr_inplace_and(self, space, w_other):
+        if not isinstance(w_other, W_BaseSetObject):
+            return space.w_NotImplemented
         self.intersect_update(w_other)
         return self
 
     def descr_inplace_or(self, space, w_other):
+        if not isinstance(w_other, W_BaseSetObject):
+            return space.w_NotImplemented
         self.update(w_other)
         return self
 
     def descr_inplace_xor(self, space, w_other):
+        if not isinstance(w_other, W_BaseSetObject):
+            return space.w_NotImplemented
         self.descr_symmetric_difference_update(space, w_other)
         return self
 
