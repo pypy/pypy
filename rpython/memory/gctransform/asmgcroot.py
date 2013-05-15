@@ -189,16 +189,26 @@ class AsmStackRootWalker(BaseRootWalker):
             initialframedata.address[0] = llmemory.NULL
             anchor.address[0] = anchor
             anchor.address[1] = anchor
+            #
+            c = initialframedata
+            while c:
+                rffi.stackcounter.stacks_counter -= 1
+                c = c.address[1]
+            ll_assert(rffi.stackcounter.stacks_counter == 1,
+                      "detach_callback_pieces: hum")
             return initialframedata
         #
         def gc_reattach_callback_pieces(pieces):
-            ll_assert(pieces != llmemory.NULL, "should not be called if NULL")
+            if pieces == llmemory.NULL:
+                return
             ll_assert(pieces.address[0] == llmemory.NULL,
                       "not a correctly detached stack piece")
             anchor = llmemory.cast_ptr_to_adr(gcrootanchor)
             lastpiece = pieces
+            rffi.stackcounter.stacks_counter += 1
             while lastpiece.address[1]:
                 lastpiece = lastpiece.address[1]
+                rffi.stackcounter.stacks_counter += 1
             anchor_next = anchor.address[1]
             lastpiece.address[1] = anchor_next
             pieces.address[0] = anchor

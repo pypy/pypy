@@ -59,7 +59,9 @@ def get_stackletrootwalker():
                 return False
             else:
                 anchor = self.next_callback_piece
-                self.next_callback_piece = anchor.address[1]  # next
+                nextaddr = anchor + sizeofaddr
+                nextaddr = self.translateptr(nextaddr)
+                self.next_callback_piece = nextaddr.address[0]
                 self.fill_initial_frame(self.curframe, anchor)
                 return True
 
@@ -196,6 +198,7 @@ def _new_callback():
     # stacklet with stacklet_new().  If this call fails, then we
     # are just returning NULL.
     _stack_just_closed()
+    #
     return _c.new(gcrootfinder.newthrd, llhelper(_c.run_fn, _new_runfn),
                   llmemory.NULL)
 
@@ -208,8 +211,6 @@ def _stack_just_closed():
     gcrootfinder.suspstack.anchor = stackanchor
     alternateanchor.prev = alternateanchor
     alternateanchor.next = alternateanchor
-    gcrootfinder.suspstack.callback_pieces = (
-        llop.gc_detach_callback_pieces(llmemory.Address))
 
 def _new_runfn(h, _):
     # Here, we are in a fresh new stacklet.
@@ -263,17 +264,38 @@ class StackletGcRootFinder(object):
         # make a fresh new clean SUSPSTACK
         newsuspstack = lltype.malloc(SUSPSTACK)
         newsuspstack.handle = _c.null_handle
-        newsuspstack.callback_pieces = llmemory.NULL
         self.suspstack = newsuspstack
         # Invoke '_new_callback' by closing the stack
+        #
+        callback_pieces = llop.gc_detach_callback_pieces(llmemory.Address)
+        newsuspstack.callback_pieces = callback_pieces
+        #
         h = pypy_asm_stackwalk2(llhelper(FUNCNOARG_P, _new_callback),
                                 alternateanchor)
+        #
+        llop.gc_reattach_callback_pieces(lltype.Void, callback_pieces)
         return self.get_result_suspstack(h)
 
     def switch(self, suspstack):
+        # Immediately before the switch, 'suspstack' describes the suspended
+        # state of the *target* of the switch.  Then it is theoretically
+        # freed.  In fact what occurs is that we reuse the same 'suspstack'
+        # object in the target, just after the switch, to store the
+        # description of where we came from.  Then that "other" 'suspstack'
+        # object is returned.
         self.suspstack = suspstack
+        #
+        callback_pieces = llop.gc_detach_callback_pieces(llmemory.Address)
+        old_callback_pieces = suspstack.callback_pieces
+        suspstack.callback_pieces = callback_pieces
+        #
         h = pypy_asm_stackwalk2(llhelper(FUNCNOARG_P, _switch_callback),
                                 alternateanchor)
+        #
+        llop.gc_reattach_callback_pieces(lltype.Void, callback_pieces)
+        if not h:
+            self.suspstack.callback_pieces = old_callback_pieces
+        #
         return self.get_result_suspstack(h)
 
     def attach_handle_on_suspstack(self, handle):
@@ -288,10 +310,6 @@ class StackletGcRootFinder(object):
         #
         # Return from a new() or a switch(): 'h' is a handle, possibly
         # an empty one, that says from where we switched to.
-        if self.suspstack and self.suspstack.callback_pieces:
-            llop.gc_reattach_callback_pieces(lltype.Void,
-                                             self.suspstack.callback_pieces)
-            self.suspstack.callback_pieces = llmemory.NULL
         if not h:
             raise MemoryError
         elif _c.is_empty_handle(h):
