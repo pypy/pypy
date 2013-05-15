@@ -24,7 +24,6 @@ from pypy.objspace.std.intobject     import W_IntObject
 from pypy.objspace.std.floatobject   import W_FloatObject
 from pypy.objspace.std.tupleobject   import W_TupleObject
 from pypy.objspace.std.listobject    import W_ListObject
-from pypy.objspace.std.dictmultiobject    import W_DictMultiObject
 from pypy.objspace.std.stringobject  import W_StringObject
 from pypy.objspace.std.typeobject    import W_TypeObject
 from pypy.objspace.std.longobject    import W_LongObject, newlong
@@ -309,15 +308,16 @@ def finish_List(space, items_w, typecode):
     return space.newlist(items_w)
 register(TYPE_LIST, unmarshal_List)
 
-def marshal_w__DictMulti(space, w_dict, m):
+def marshal_w_dict(space, w_dict, m):
     m.start(TYPE_DICT)
     for w_tuple in w_dict.items():
         w_key, w_value = space.fixedview(w_tuple, 2)
         m.put_w_obj(w_key)
         m.put_w_obj(w_value)
     m.atom(TYPE_NULL)
+handled_by_any.append(('dict', marshal_w_dict))
 
-def unmarshal_DictMulti(space, u, tc):
+def unmarshal_dict(space, u, tc):
     # since primitive lists are not optimized and we don't know
     # the dict size in advance, use the dict's setitem instead
     # of building a list of tuples.
@@ -329,7 +329,7 @@ def unmarshal_DictMulti(space, u, tc):
         w_value = u.get_w_obj()
         space.setitem(w_dic, w_key, w_value)
     return w_dic
-register(TYPE_DICT, unmarshal_DictMulti)
+register(TYPE_DICT, unmarshal_dict)
 
 def unmarshal_NULL(self, u, tc):
     return None
