@@ -1,8 +1,8 @@
 from pypy.interpreter import gateway
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.mixedmodule import MixedModule
 from pypy.interpreter.signature import Signature
-from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.stdtypedef import StdTypeDef
 
 from rpython.rlib import rerased, jit
@@ -40,7 +40,7 @@ def w_dict_unrolling_heuristic(w_dct):
                                     w_dct.length() <= UNROLL_CUTOFF)
 
 
-class W_DictMultiObject(W_Object):
+class W_DictMultiObject(W_Root):
     @staticmethod
     def allocate_and_init_instance(space, w_type=None, module=False,
                                    instance=False, strdict=False, kwargs=False):
@@ -414,9 +414,6 @@ dict(**kwargs) -> new dictionary initialized with the name=value pairs
     setdefault = gateway.interp2app(W_DictMultiObject.descr_setdefault),
     update = gateway.interp2app(W_DictMultiObject.descr_update),
     )
-dict_typedef = W_DictMultiObject.typedef
-
-registerimplementation(W_DictMultiObject)
 
 
 class DictStrategy(object):
@@ -1106,7 +1103,7 @@ def characterize(space, w_a, w_b):
 # ____________________________________________________________
 # Iteration
 
-class W_BaseDictMultiIterObject(W_Object):
+class W_BaseDictMultiIterObject(W_Root):
     _immutable_fields_ = ["iteratorimplementation"]
 
     ignore_for_isinstance_cache = True
@@ -1203,10 +1200,6 @@ class W_DictMultiIterItemsObject(W_BaseDictMultiIterObject):
             return space.newtuple([w_key, w_value])
         raise OperationError(space.w_StopIteration, space.w_None)
 
-registerimplementation(W_DictMultiIterKeysObject)
-registerimplementation(W_DictMultiIterValuesObject)
-registerimplementation(W_DictMultiIterItemsObject)
-
 W_DictMultiIterItemsObject.typedef = StdTypeDef(
     "dict_iteritems",
     __iter__ = gateway.interp2app(W_DictMultiIterItemsObject.descr_iter),
@@ -1229,7 +1222,7 @@ W_DictMultiIterValuesObject.typedef = StdTypeDef(
 # ____________________________________________________________
 # Views
 
-class W_DictViewObject(W_Object):
+class W_DictViewObject(W_Root):
     def __init__(w_self, space, w_dict):
         w_self.w_dict = w_dict
 
@@ -1276,17 +1269,14 @@ class W_DictViewObject(W_Object):
 class W_DictViewItemsObject(W_DictViewObject):
     def descr_iter(self, space):
         return W_DictMultiIterItemsObject(space, self.w_dict.iteritems())
-registerimplementation(W_DictViewItemsObject)
 
 class W_DictViewKeysObject(W_DictViewObject):
     def descr_iter(self, space):
         return W_DictMultiIterKeysObject(space, self.w_dict.iterkeys())
-registerimplementation(W_DictViewKeysObject)
 
 class W_DictViewValuesObject(W_DictViewObject):
     def descr_iter(self, space):
         return W_DictMultiIterValuesObject(space, self.w_dict.itervalues())
-registerimplementation(W_DictViewValuesObject)
 
 W_DictViewItemsObject.typedef = StdTypeDef(
     "dict_items",
