@@ -170,6 +170,9 @@ class AsmStackRootWalker(BaseRootWalker):
             jit2gc = gctransformer.translator._jit2gc
             self.frame_tid = jit2gc['frame_tid']
         self.gctransformer = gctransformer
+        #
+        # unless overridden in need_thread_support():
+        self.belongs_to_current_thread = lambda framedata: True
 
     def need_stacklet_support(self, gctransformer, getfn):
         from rpython.annotator import model as annmodel
@@ -179,41 +182,38 @@ class AsmStackRootWalker(BaseRootWalker):
         _stacklet_asmgcc.complete_destrptr(gctransformer)
         #
         def gc_detach_callback_pieces():
-            # XXX use belongs_to_current_thread() below
             anchor = llmemory.cast_ptr_to_adr(gcrootanchor)
-            initialframedata = anchor.address[1]
-            if initialframedata == anchor:
-                return llmemory.NULL            # empty
-            lastframedata = anchor.address[0]
-            lastframedata.address[1] = llmemory.NULL
-            initialframedata.address[0] = llmemory.NULL
-            anchor.address[0] = anchor
-            anchor.address[1] = anchor
-            #
-            c = initialframedata
-            while c:
-                rffi.stackcounter.stacks_counter -= 1
-                c = c.address[1]
-            ll_assert(rffi.stackcounter.stacks_counter == 1,
-                      "detach_callback_pieces: hum")
-            return initialframedata
+            result = llmemory.NULL
+            framedata = anchor.address[1]
+            while framedata != anchor:
+                next = framedata.address[1]
+                if self.belongs_to_current_thread(framedata):
+                    # detach it
+                    prev = framedata.address[0]
+                    prev.address[1] = next
+                    next.address[0] = prev
+                    # update the global stack counter
+                    rffi.stackcounter.stacks_counter -= 1
+                    # reattach framedata into the singly-linked list 'result'
+                    framedata.address[0] = rffi.cast(llmemory.Address, -1)
+                    framedata.address[1] = result
+                    result = framedata
+                framedata = next
+            return result
         #
         def gc_reattach_callback_pieces(pieces):
-            if pieces == llmemory.NULL:
-                return
-            ll_assert(pieces.address[0] == llmemory.NULL,
-                      "not a correctly detached stack piece")
             anchor = llmemory.cast_ptr_to_adr(gcrootanchor)
-            lastpiece = pieces
-            rffi.stackcounter.stacks_counter += 1
-            while lastpiece.address[1]:
-                lastpiece = lastpiece.address[1]
+            while pieces != llmemory.NULL:
+                framedata = pieces
+                pieces = pieces.address[1]
+                # attach 'framedata' into the normal doubly-linked list
+                following = anchor.address[1]
+                following.address[0] = framedata
+                framedata.address[1] = following
+                anchor.address[1] = framedata
+                framedata.address[0] = anchor
+                # update the global stack counter
                 rffi.stackcounter.stacks_counter += 1
-            anchor_next = anchor.address[1]
-            lastpiece.address[1] = anchor_next
-            pieces.address[0] = anchor
-            anchor.address[1] = pieces
-            anchor_next.address[0] = lastpiece
         #
         s_addr = annmodel.SomeAddress()
         s_None = annmodel.s_None
@@ -272,6 +272,7 @@ class AsmStackRootWalker(BaseRootWalker):
             stack_stop  = llop.stack_current(llmemory.Address)
             return (stack_start <= framedata <= stack_stop or
                     stack_start >= framedata >= stack_stop)
+        self.belongs_to_current_thread = belongs_to_current_thread
 
         def thread_before_fork():
             # before fork(): collect all ASM_FRAMEDATA structures that do
