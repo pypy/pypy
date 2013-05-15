@@ -412,16 +412,17 @@ class W_SetObject(W_BaseSetObject):
         W_SetObject.__init__(w_obj, space, w_iterable)
         return w_obj
 
-def descr__new__(space, w_settype, __args__):
-    w_obj = space.allocate_instance(W_SetObject, w_settype)
-    W_SetObject.__init__(w_obj, space)
-    return w_obj
+    @staticmethod
+    def descr_new(space, w_settype, __args__):
+        w_obj = space.allocate_instance(W_SetObject, w_settype)
+        W_SetObject.__init__(w_obj, space)
+        return w_obj
 
 W_SetObject.typedef = StdTypeDef("set",
     __doc__ = """set(iterable) --> set object
 
 Build an unordered collection.""",
-    __new__ = gateway.interp2app(descr__new__),
+    __new__ = gateway.interp2app(W_SetObject.descr_new),
     __hash__ = None,
 
     # comparison operators
@@ -476,6 +477,15 @@ class W_FrozensetObject(W_BaseSetObject):
         W_FrozensetObject.__init__(w_obj, space, w_iterable)
         return w_obj
 
+    @staticmethod
+    def descr_new(space, w_frozensettype, w_iterable=None):
+        if (space.is_w(w_frozensettype, space.w_frozenset) and
+            w_iterable is not None and type(w_iterable) is W_FrozensetObject):
+            return w_iterable
+        w_obj = space.allocate_instance(W_FrozensetObject, w_frozensettype)
+        W_FrozensetObject.__init__(w_obj, space, w_iterable)
+        return w_obj
+
     def descr_hash(self, space):
         multi = r_uint(1822399083) + r_uint(1822399083) + 1
         if self.hash != 0:
@@ -498,19 +508,11 @@ class W_FrozensetObject(W_BaseSetObject):
 
         return space.wrap(hash)
 
-def descr__frozenset__new__(space, w_frozensettype, w_iterable=None):
-    if (space.is_w(w_frozensettype, space.w_frozenset) and
-        w_iterable is not None and type(w_iterable) is W_FrozensetObject):
-        return w_iterable
-    w_obj = space.allocate_instance(W_FrozensetObject, w_frozensettype)
-    W_FrozensetObject.__init__(w_obj, space, w_iterable)
-    return w_obj
-
 W_FrozensetObject.typedef = StdTypeDef("frozenset",
     __doc__ = """frozenset(iterable) --> frozenset object
 
 Build an immutable unordered collection.""",
-    __new__ = gateway.interp2app(descr__frozenset__new__),
+    __new__ = gateway.interp2app(W_FrozensetObject.descr_new),
     __hash__ = gateway.interp2app(W_FrozensetObject.descr_hash),
 
     # comparison operators
