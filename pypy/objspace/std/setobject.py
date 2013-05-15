@@ -232,6 +232,16 @@ class W_BaseSetObject(W_Object):
     def descr_iter(self, space):
         return W_SetIterObject(space, self.iter())
 
+    def descr_contains(self, space, w_other):
+        try:
+            return space.newbool(self.has_key(w_other))
+        except OperationError, e:
+            if e.match(space, space.w_TypeError):
+                w_f = _convert_set_to_frozenset(space, w_other)
+                if w_f is not None:
+                    return space.newbool(self.has_key(w_f))
+            raise
+
     def descr_copy(self, space):
         """Return a shallow copy of a set."""
         if type(self) is W_FrozensetObject:
@@ -442,6 +452,7 @@ Build an unordered collection.""",
     # non-mutating operators
     __len__ = gateway.interp2app(W_BaseSetObject.descr_len),
     __iter__ = gateway.interp2app(W_BaseSetObject.descr_iter),
+    __contains__ = gateway.interp2app(W_BaseSetObject.descr_contains),
     #__and__ = gateway.interp2app(W_BaseSetObject.descr_intersection),
     #__or__ = gateway.interp2app(W_BaseSetObject.descr_union),
     #__xor__ = gateway.interp2app(W_BaseSetObject.descr_symmetric_difference),
@@ -534,6 +545,7 @@ Build an immutable unordered collection.""",
     # non-mutating operators
     __len__ = gateway.interp2app(W_BaseSetObject.descr_len),
     __iter__ = gateway.interp2app(W_BaseSetObject.descr_iter),
+    __contains__ = gateway.interp2app(W_BaseSetObject.descr_contains),
     #__and__ = gateway.interp2app(W_BaseSetObject.descr_intersection),
     #__or__ = gateway.interp2app(W_BaseSetObject.descr_union),
     #__xor__ = gateway.interp2app(W_BaseSetObject.descr_symmetric_difference),
@@ -1474,18 +1486,6 @@ def inplace_sub__Set_Set(space, self, w_other):
     return self
 
 inplace_sub__Set_Frozenset = inplace_sub__Set_Set
-
-def contains__Set_ANY(space, self, w_other):
-    try:
-        return space.newbool(self.has_key(w_other))
-    except OperationError, e:
-        if e.match(space, space.w_TypeError):
-            w_f = _convert_set_to_frozenset(space, w_other)
-            if w_f is not None:
-                return space.newbool(self.has_key(w_f))
-        raise
-
-contains__Frozenset_ANY = contains__Set_ANY
 
 def _discard_from_set(space, w_left, w_item):
     """
