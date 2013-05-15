@@ -15,10 +15,12 @@ from rpython.rlib.objectmodel import (instantiate, newlist_hint, specialize,
 from rpython.rlib.listsort import make_timsort_class
 from rpython.rlib import rerased, jit, debug
 from rpython.tool.sourcetools import func_with_new_name
-from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
+from pypy.objspace.std.stdtypedef import StdTypeDef
 from sys import maxint
 
+
 UNROLL_CUTOFF = 5
+
 
 class W_AbstractListObject(W_Object):
     __slots__ = ()
@@ -325,6 +327,20 @@ class W_ListObject(W_AbstractListObject):
         """Sorts the list ascending or descending depending on
         argument reverse. Argument must be unwrapped."""
         self.strategy.sort(self, reverse)
+
+    # exposed to app-level
+
+    def descr_init(self, space, __args__):
+        # this is on the silly side
+        w_iterable, = __args__.parse_obj(
+                None, 'list', init_signature, init_defaults)
+        self.clear(space)
+        if w_iterable is not None:
+            self.extend(w_iterable)
+
+    def descr_len(self, space):
+        result = self.length()
+        return wrapint(space, result)
 
     def descr_reversed(self, space):
         'L.__reversed__() -- return a reverse iterator over the list'
@@ -1368,18 +1384,6 @@ class UnicodeListStrategy(AbstractUnwrappedStrategy, ListStrategy):
 init_signature = Signature(['sequence'], None, None)
 init_defaults = [None]
 
-def init__List(space, w_list, __args__):
-    # this is on the silly side
-    w_iterable, = __args__.parse_obj(
-            None, 'list', init_signature, init_defaults)
-    w_list.clear(space)
-    if w_iterable is not None:
-        w_list.extend(w_iterable)
-
-def len__List(space, w_list):
-    result = w_list.length()
-    return wrapint(space, result)
-
 def getitem__List_ANY(space, w_list, w_index):
     try:
         return w_list.getitem(get_list_index(space, w_index))
@@ -1684,7 +1688,11 @@ W_ListObject.typedef = StdTypeDef("list",
     __doc__ = """list() -> new list
 list(sequence) -> new list initialized from sequence's items""",
     __new__ = interp2app(descr_new),
+    __init__ = interp2app(W_ListObject.descr_init),
     __hash__ = None,
+
+    __len__ = interp2app(W_ListObject.descr_len),
+
     sort = interp2app(W_ListObject.descr_sort),
     index = interp2app(W_ListObject.descr_index),
     append = interp2app(W_ListObject.append),
