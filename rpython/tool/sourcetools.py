@@ -169,14 +169,14 @@ def compile2(source, filename='', mode='exec', flags=
     try:
         co = compile2_cache[key]
         #print "***** duplicate code ******* "
-        #print source 
-    except KeyError: 
-        #if DEBUG: 
-        co = py.code.compile(source, filename, mode, flags) 
-        #else: 
-        #    co = compile(source, filename, mode, flags) 
-        compile2_cache[key] = co 
-    return co 
+        #print source
+    except KeyError:
+        #if DEBUG:
+        co = py.code.compile(source, filename, mode, flags)
+        #else:
+        #    co = compile(source, filename, mode, flags)
+        compile2_cache[key] = co
+    return co
 
 compile2_cache = {}
 
@@ -203,7 +203,7 @@ def compile_template(source, resultname):
         localnames = locals.keys()
         localnames.sort()
     values = [locals[key] for key in localnames]
-    
+
     source = source.putaround(
         before = "def container(%s):" % (', '.join(localnames),),
         after  = "# no unindent\n    return %s" % resultname)
@@ -305,7 +305,7 @@ def _convert_const_maybe(x, encoding):
         items = [_convert_const_maybe(item, encoding) for item in x]
         return tuple(items)
     return x
-    
+
 def with_unicode_literals(fn=None, **kwds):
     """Decorator that replace all string literals with unicode literals.
     Similar to 'from __future__ import string literals' at function level.

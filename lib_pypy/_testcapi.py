@@ -54,4 +54,9 @@ def compile_shared():
     fp, filename, description = imp.find_module('_testcapi', path=[output_dir])
     imp.load_module('_testcapi', fp, filename, description)
 
-compile_shared()
+try:
+    import cpyext
+except ImportError:
+    pass
+else:
+    compile_shared()
