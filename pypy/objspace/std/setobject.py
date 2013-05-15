@@ -226,6 +226,9 @@ class W_BaseSetObject(W_Object):
             return space.w_False
         return space.wrap(w_other.issubset(self))
 
+    def descr_len(self, space):
+        return space.newint(self.length())
+
     def descr_copy(self, space):
         """Return a shallow copy of a set."""
         if type(self) is W_FrozensetObject:
@@ -434,6 +437,7 @@ Build an unordered collection.""",
     __ge__ = gateway.interp2app(W_BaseSetObject.descr_ge),
 
     # non-mutating operators
+    __len__ = gateway.interp2app(W_BaseSetObject.descr_len),
     #__and__ = gateway.interp2app(W_BaseSetObject.descr_intersection),
     #__or__ = gateway.interp2app(W_BaseSetObject.descr_union),
     #__xor__ = gateway.interp2app(W_BaseSetObject.descr_symmetric_difference),
@@ -524,6 +528,7 @@ Build an immutable unordered collection.""",
     __ge__ = gateway.interp2app(W_BaseSetObject.descr_ge),
 
     # non-mutating operators
+    __len__ = gateway.interp2app(W_BaseSetObject.descr_len),
     #__and__ = gateway.interp2app(W_BaseSetObject.descr_intersection),
     #__or__ = gateway.interp2app(W_BaseSetObject.descr_union),
     #__xor__ = gateway.interp2app(W_BaseSetObject.descr_symmetric_difference),
@@ -1535,11 +1540,6 @@ def xor__Set_Set(space, self, w_other):
 xor__Set_Frozenset = xor__Set_Set
 xor__Frozenset_Set = xor__Set_Set
 xor__Frozenset_Frozenset = xor__Set_Set
-
-def len__Set(space, self):
-    return space.newint(self.length())
-
-len__Frozenset = len__Set
 
 def iter__Set(space, self):
     return W_SetIterObject(space, self.iter())
