@@ -342,6 +342,31 @@ class W_ListObject(W_AbstractListObject):
         result = self.length()
         return wrapint(space, result)
 
+    def descr_getitem(self, space, w_index):
+        if isinstance(w_index, W_SliceObject):
+            # XXX consider to extend rlist's functionality?
+            length = self.length()
+            start, stop, step, slicelength = w_index.indices4(space, length)
+            assert slicelength >= 0
+            if slicelength == 0:
+                return make_empty_list(space)
+            return self.getslice(start, stop, step, slicelength)
+
+        try:
+            return self.getitem(get_list_index(space, w_index))
+        except IndexError:
+            raise OperationError(space.w_IndexError,
+                                 space.wrap("list index out of range"))
+
+    def descr_getslice(self, space, w_start, w_stop):
+        length = self.length()
+        start, stop = normalize_simple_slice(space, length, w_start, w_stop)
+
+        slicelength = stop - start
+        if slicelength == 0:
+            return make_empty_list(space)
+        return self.getslice(start, stop, 1, stop - start)
+
     def descr_reversed(self, space):
         'L.__reversed__() -- return a reverse iterator over the list'
         from pypy.objspace.std.iterobject import W_ReverseSeqIterObject
@@ -1384,31 +1409,6 @@ class UnicodeListStrategy(AbstractUnwrappedStrategy, ListStrategy):
 init_signature = Signature(['sequence'], None, None)
 init_defaults = [None]
 
-def getitem__List_ANY(space, w_list, w_index):
-    try:
-        return w_list.getitem(get_list_index(space, w_index))
-    except IndexError:
-        raise OperationError(space.w_IndexError,
-                             space.wrap("list index out of range"))
-
-def getitem__List_Slice(space, w_list, w_slice):
-    # XXX consider to extend rlist's functionality?
-    length = w_list.length()
-    start, stop, step, slicelength = w_slice.indices4(space, length)
-    assert slicelength >= 0
-    if slicelength == 0:
-        return make_empty_list(space)
-    return w_list.getslice(start, stop, step, slicelength)
-
-def getslice__List_ANY_ANY(space, w_list, w_start, w_stop):
-    length = w_list.length()
-    start, stop = normalize_simple_slice(space, length, w_start, w_stop)
-
-    slicelength = stop - start
-    if slicelength == 0:
-        return make_empty_list(space)
-    return w_list.getslice(start, stop, 1, stop - start)
-
 def setslice__List_ANY_ANY_List(space, w_list, w_start, w_stop, w_other):
     length = w_list.length()
     start, stop = normalize_simple_slice(space, length, w_start, w_stop)
@@ -1692,6 +1692,9 @@ list(sequence) -> new list initialized from sequence's items""",
     __hash__ = None,
 
     __len__ = interp2app(W_ListObject.descr_len),
+
+    __getitem__ = interp2app(W_ListObject.descr_getitem),
+    __getslice__ = interp2app(W_ListObject.descr_getslice),
 
     sort = interp2app(W_ListObject.descr_sort),
     index = interp2app(W_ListObject.descr_index),
