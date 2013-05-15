@@ -11,7 +11,6 @@ from rpython.rlib import jit
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib.rawstorage import free_raw_storage, raw_storage_getitem,\
      raw_storage_setitem, RAW_STORAGE
-from pypy.module.micronumpy.arrayimpl.sort import argsort_array
 from rpython.rlib.debug import make_sure_not_resized
 
 
@@ -324,6 +323,7 @@ class ConcreteArrayNotOwning(BaseConcreteArray):
                           orig_array)
 
     def argsort(self, space, w_axis):
+        from pypy.module.micronumpy.arrayimpl.sort import argsort_array
         return argsort_array(self, space, w_axis)
 
     def base(self):
