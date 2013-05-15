@@ -105,8 +105,40 @@ class W_DictMultiObject(W_Object):
     def setitem_str(self, key, w_value):
         self.strategy.setitem_str(self, key, w_value)
 
+    @staticmethod
+    def descr_new(space, w_dicttype, __args__):
+        w_obj = W_DictMultiObject.allocate_and_init_instance(space, w_dicttype)
+        return w_obj
+
+    @staticmethod
+    def descr_fromkeys(space, w_type, w_keys, w_fill=None):
+        if w_fill is None:
+            w_fill = space.w_None
+        if space.is_w(w_type, space.w_dict):
+            w_dict = W_DictMultiObject.allocate_and_init_instance(space, w_type)
+
+            strlist = space.listview_str(w_keys)
+            if strlist is not None:
+                for key in strlist:
+                    w_dict.setitem_str(key, w_fill)
+            else:
+                for w_key in space.listview(w_keys):
+                    w_dict.setitem(w_key, w_fill)
+        else:
+            w_dict = space.call_function(w_type)
+            for w_key in space.listview(w_keys):
+                space.setitem(w_dict, w_key, w_fill)
+        return w_dict
+
     def descr_init(self, space, __args__):
         init_or_update(space, self, __args__, 'dict')
+
+    def descr_repr(self, space):
+        ec = space.getexecutioncontext()
+        w_currently_in_repr = ec._py_repr
+        if w_currently_in_repr is None:
+            w_currently_in_repr = ec._py_repr = space.newdict()
+        return dictrepr(space, w_currently_in_repr, self)
 
     def descr_eq(self, space, w_other):
         if space.is_w(self, w_other):
@@ -307,25 +339,6 @@ def _add_indirections():
 
 _add_indirections()
 
-def descr_fromkeys(space, w_type, w_keys, w_fill=None):
-    if w_fill is None:
-        w_fill = space.w_None
-    if space.is_w(w_type, space.w_dict):
-        w_dict = W_DictMultiObject.allocate_and_init_instance(space, w_type)
-
-        strlist = space.listview_str(w_keys)
-        if strlist is not None:
-            for key in strlist:
-                w_dict.setitem_str(key, w_fill)
-        else:
-            for w_key in space.listview(w_keys):
-                w_dict.setitem(w_key, w_fill)
-    else:
-        w_dict = space.call_function(w_type)
-        for w_key in space.listview(w_keys):
-            space.setitem(w_dict, w_key, w_fill)
-    return w_dict
-
 
 app = gateway.applevel('''
     def dictrepr(currently_in_repr, d):
@@ -353,22 +366,6 @@ app = gateway.applevel('''
 dictrepr = app.interphook("dictrepr")
 
 
-def descr_repr(space, w_dict):
-    ec = space.getexecutioncontext()
-    w_currently_in_repr = ec._py_repr
-    if w_currently_in_repr is None:
-        w_currently_in_repr = ec._py_repr = space.newdict()
-    return dictrepr(space, w_currently_in_repr, w_dict)
-
-
-# ____________________________________________________________
-
-def descr__new__(space, w_dicttype, __args__):
-    w_obj = W_DictMultiObject.allocate_and_init_instance(space, w_dicttype)
-    return w_obj
-
-# ____________________________________________________________
-
 W_DictMultiObject.typedef = StdTypeDef("dict",
     __doc__ = '''dict() -> new empty dictionary.
 dict(mapping) -> new dictionary initialized from a mapping object\'s
@@ -379,9 +376,11 @@ dict(seq) -> new dictionary initialized as if via:
         d[k] = v
 dict(**kwargs) -> new dictionary initialized with the name=value pairs
     in the keyword argument list.  For example:  dict(one=1, two=2)''',
-    __new__ = gateway.interp2app(descr__new__),
+    __new__ = gateway.interp2app(W_DictMultiObject.descr_new),
+    fromkeys = gateway.interp2app(W_DictMultiObject.descr_fromkeys,
+                                  as_classmethod=True),
     __hash__ = None,
-    __repr__ = gateway.interp2app(descr_repr),
+    __repr__ = gateway.interp2app(W_DictMultiObject.descr_repr),
     __init__ = gateway.interp2app(W_DictMultiObject.descr_init),
 
     __eq__ = gateway.interp2app(W_DictMultiObject.descr_eq),
@@ -397,7 +396,6 @@ dict(**kwargs) -> new dictionary initialized with the name=value pairs
     __delitem__ = gateway.interp2app(W_DictMultiObject.descr_delitem),
 
     __reversed__ = gateway.interp2app(W_DictMultiObject.descr_reversed),
-    fromkeys = gateway.interp2app(descr_fromkeys, as_classmethod=True),
     copy = gateway.interp2app(W_DictMultiObject.descr_copy),
     items = gateway.interp2app(W_DictMultiObject.descr_items),
     keys = gateway.interp2app(W_DictMultiObject.descr_keys),
