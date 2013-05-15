@@ -172,10 +172,45 @@ class AsmStackRootWalker(BaseRootWalker):
         self.gctransformer = gctransformer
 
     def need_stacklet_support(self, gctransformer, getfn):
-        # stacklet support: BIG HACK for rlib.rstacklet
+        from rpython.annotator import model as annmodel
         from rpython.rlib import _stacklet_asmgcc
+        # stacklet support: BIG HACK for rlib.rstacklet
         _stacklet_asmgcc._asmstackrootwalker = self     # as a global! argh
         _stacklet_asmgcc.complete_destrptr(gctransformer)
+        #
+        def gc_detach_callback_pieces():
+            # XXX use belongs_to_current_thread() below
+            anchor = llmemory.cast_ptr_to_adr(gcrootanchor)
+            initialframedata = anchor.address[1]
+            if initialframedata == anchor:
+                return llmemory.NULL            # empty
+            lastframedata = anchor.address[0]
+            lastframedata.address[1] = llmemory.NULL
+            initialframedata.address[0] = llmemory.NULL
+            anchor.address[0] = anchor
+            anchor.address[1] = anchor
+            return initialframedata
+        #
+        def gc_reattach_callback_pieces(pieces):
+            ll_assert(pieces != llmemory.NULL, "should not be called if NULL")
+            ll_assert(pieces.address[0] == llmemory.NULL,
+                      "not a correctly detached stack piece")
+            anchor = llmemory.cast_ptr_to_adr(gcrootanchor)
+            lastpiece = pieces
+            while lastpiece.address[1]:
+                lastpiece = lastpiece.address[1]
+            anchor_next = anchor.address[1]
+            lastpiece.address[1] = anchor_next
+            pieces.address[0] = anchor
+            anchor.address[1] = pieces
+            anchor_next.address[0] = lastpiece
+        #
+        s_addr = annmodel.SomeAddress()
+        s_None = annmodel.s_None
+        self.gc_detach_callback_pieces_ptr = getfn(gc_detach_callback_pieces,
+                                                   [], s_addr)
+        self.gc_reattach_callback_pieces_ptr=getfn(gc_reattach_callback_pieces,
+                                                   [s_addr], s_None)
 
     def need_thread_support(self, gctransformer, getfn):
         # Threads supported "out of the box" by the rest of the code.

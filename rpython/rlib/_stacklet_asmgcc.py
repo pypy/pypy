@@ -32,6 +32,7 @@ def get_stackletrootwalker():
             if not p.handle:
                 return False
             self.context = llmemory.cast_ptr_to_adr(p.handle)
+            self.next_callback_piece = p.callback_pieces
             anchor = p.anchor
             del p
             self.curframe = lltype.malloc(WALKFRAME, flavor='raw')
@@ -50,11 +51,17 @@ def get_stackletrootwalker():
             retaddraddr = self.translateptr(retaddraddr)
             curframe.frame_address = retaddraddr.address[0]
 
-        def teardown(self):
-            lltype.free(self.curframe, flavor='raw')
-            lltype.free(self.otherframe, flavor='raw')
-            self.context = llmemory.NULL
-            return llmemory.NULL
+        def fetch_next_stack_piece(self):
+            if self.next_callback_piece == llmemory.NULL:
+                lltype.free(self.curframe, flavor='raw')
+                lltype.free(self.otherframe, flavor='raw')
+                self.context = llmemory.NULL
+                return False
+            else:
+                anchor = self.next_callback_piece
+                self.next_callback_piece = anchor.address[1]  # next
+                self.fill_initial_frame(self.curframe, anchor)
+                return True
 
         def next(self, obj, prev):
             #
@@ -117,7 +124,10 @@ def get_stackletrootwalker():
                                                               location)
                 # ^^^ non-translated
                 if caller.frame_address == llmemory.NULL:
-                    return self.teardown()    # completely done with this stack
+                    # completely done with this piece of stack
+                    if not self.fetch_next_stack_piece():
+                        return llmemory.NULL
+                    continue
                 #
                 self.otherframe = callee
                 self.curframe = caller
@@ -154,6 +164,7 @@ def suspstack_destructor(suspstack):
 SUSPSTACK = lltype.GcStruct('SuspStack',
                             ('handle', _c.handle),
                             ('anchor', llmemory.Address),
+                            ('callback_pieces', llmemory.Address),
                             rtti=True)
 NULL_SUSPSTACK = lltype.nullptr(SUSPSTACK)
 CUSTOMTRACEFUNC = lltype.FuncType([llmemory.Address, llmemory.Address],
@@ -197,6 +208,8 @@ def _stack_just_closed():
     gcrootfinder.suspstack.anchor = stackanchor
     alternateanchor.prev = alternateanchor
     alternateanchor.next = alternateanchor
+    gcrootfinder.suspstack.callback_pieces = (
+        llop.gc_detach_callback_pieces(llmemory.Address))
 
 def _new_runfn(h, _):
     # Here, we are in a fresh new stacklet.
@@ -250,6 +263,7 @@ class StackletGcRootFinder(object):
         # make a fresh new clean SUSPSTACK
         newsuspstack = lltype.malloc(SUSPSTACK)
         newsuspstack.handle = _c.null_handle
+        newsuspstack.callback_pieces = llmemory.NULL
         self.suspstack = newsuspstack
         # Invoke '_new_callback' by closing the stack
         h = pypy_asm_stackwalk2(llhelper(FUNCNOARG_P, _new_callback),
@@ -274,6 +288,10 @@ class StackletGcRootFinder(object):
         #
         # Return from a new() or a switch(): 'h' is a handle, possibly
         # an empty one, that says from where we switched to.
+        if self.suspstack and self.suspstack.callback_pieces:
+            llop.gc_reattach_callback_pieces(lltype.Void,
+                                             self.suspstack.callback_pieces)
+            self.suspstack.callback_pieces = llmemory.NULL
         if not h:
             raise MemoryError
         elif _c.is_empty_handle(h):
