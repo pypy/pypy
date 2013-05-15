@@ -249,6 +249,9 @@ class W_BaseSetObject(W_Object):
                     return space.newbool(self.has_key(w_f))
             raise
 
+    def descr_sub(self, space, w_other):
+        return self.difference(w_other)
+
     def descr_and(self, space, w_other):
         return self.intersect(w_other)
 
@@ -470,6 +473,7 @@ Build an unordered collection.""",
     __len__ = gateway.interp2app(W_BaseSetObject.descr_len),
     __iter__ = gateway.interp2app(W_BaseSetObject.descr_iter),
     __contains__ = gateway.interp2app(W_BaseSetObject.descr_contains),
+    __sub__ = gateway.interp2app(W_BaseSetObject.descr_sub),
     __and__ = gateway.interp2app(W_BaseSetObject.descr_and),
     __or__ = gateway.interp2app(W_BaseSetObject.descr_or),
     __xor__ = gateway.interp2app(W_BaseSetObject.descr_xor),
@@ -564,6 +568,7 @@ Build an immutable unordered collection.""",
     __len__ = gateway.interp2app(W_BaseSetObject.descr_len),
     __iter__ = gateway.interp2app(W_BaseSetObject.descr_iter),
     __contains__ = gateway.interp2app(W_BaseSetObject.descr_contains),
+    __sub__ = gateway.interp2app(W_BaseSetObject.descr_sub),
     __and__ = gateway.interp2app(W_BaseSetObject.descr_and),
     __or__ = gateway.interp2app(W_BaseSetObject.descr_or),
     __xor__ = gateway.interp2app(W_BaseSetObject.descr_xor),
@@ -1491,13 +1496,6 @@ def inplace_or__Set_Set(space, self, w_other):
     return self
 
 inplace_or__Set_Frozenset = inplace_or__Set_Set
-
-def sub__Set_Set(space, self, w_other):
-    return self.difference(w_other)
-
-sub__Set_Frozenset = sub__Set_Set
-sub__Frozenset_Set = sub__Set_Set
-sub__Frozenset_Frozenset = sub__Set_Set
 
 def inplace_sub__Set_Set(space, self, w_other):
     self.difference_update(w_other)
