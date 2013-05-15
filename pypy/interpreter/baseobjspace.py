@@ -666,7 +666,8 @@ class ObjSpace(object):
     def id(self, w_obj):
         w_result = w_obj.immutable_unique_id(self)
         if w_result is None:
-            w_result = self.wrap(compute_unique_id(w_obj))
+            # in the common case, returns an unsigned value
+            w_result = self.wrap(r_uint(compute_unique_id(w_obj)))
         return w_result
 
     def hash_w(self, w_obj):
