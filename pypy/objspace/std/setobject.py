@@ -161,7 +161,14 @@ class W_BaseSetObject(W_Object):
         """ Removes an arbitrary element from the set. May raise KeyError if set is empty."""
         return self.strategy.popitem(self)
 
-    # app-level operations (non-mutating)
+    # app-level operations
+
+    def descr_repr(self, space):
+        ec = space.getexecutioncontext()
+        w_currently_in_repr = ec._py_repr
+        if w_currently_in_repr is None:
+            w_currently_in_repr = ec._py_repr = space.newdict()
+        return setrepr(space, w_currently_in_repr, self)
 
     def descr_eq(self, space, w_other):
         if isinstance(w_other, W_BaseSetObject):
@@ -241,13 +248,6 @@ class W_BaseSetObject(W_Object):
                 if w_f is not None:
                     return space.newbool(self.has_key(w_f))
             raise
-
-    def descr_repr(self, space):
-        ec = space.getexecutioncontext()
-        w_currently_in_repr = ec._py_repr
-        if w_currently_in_repr is None:
-            w_currently_in_repr = ec._py_repr = space.newdict()
-        return setrepr(space, w_currently_in_repr, self)
 
     def descr_and(self, space, w_other):
         return self.intersect(w_other)
@@ -368,8 +368,6 @@ class W_BaseSetObject(W_Object):
             if self.has_key(w_key):
                 return space.w_False
         return space.w_True
-
-    # app-level operations (mutating)
 
     def descr_add(self, space, w_other):
         """Add an element to a set.\n\nThis has no effect if the element is already present."""
