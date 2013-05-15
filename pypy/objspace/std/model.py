@@ -38,8 +38,8 @@ class StdTypeModel:
             from pypy.objspace.std.inttype    import int_typedef
             from pypy.objspace.std.floattype  import float_typedef
             from pypy.objspace.std.complextype  import complex_typedef
-            from pypy.objspace.std.settype import set_typedef
-            from pypy.objspace.std.frozensettype import frozenset_typedef
+            from pypy.objspace.std.setobject import set_typedef
+            from pypy.objspace.std.setobject import frozenset_typedef
             from pypy.objspace.std.tupletype  import tuple_typedef
             from pypy.objspace.std.listobject   import list_typedef
             from pypy.objspace.std.dicttype   import dict_typedef

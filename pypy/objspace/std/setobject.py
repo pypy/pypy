@@ -2,12 +2,9 @@ from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
 from pypy.interpreter.error import OperationError
 from pypy.interpreter import gateway
-from pypy.objspace.std.settype import set_typedef as settypedef
-from pypy.objspace.std.frozensettype import frozenset_typedef as frozensettypedef
 from pypy.interpreter.signature import Signature
-from pypy.interpreter.generator import GeneratorIterator
-from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.intobject import W_IntObject
+from pypy.objspace.std.stdtypedef import StdTypeDef
 from pypy.objspace.std.stringobject import W_StringObject
 from pypy.objspace.std.unicodeobject import W_UnicodeObject
 
@@ -24,7 +21,7 @@ class W_BaseSetObject(W_Object):
     # declarations
     @classmethod
     def is_implementation_for(cls, typedef):
-        if typedef is frozensettypedef or typedef is settypedef:
+        if typedef is W_FrozensetObject.typedef or typedef is settypedef:
             assert cls is W_BaseSetObject
             return True
         return False
@@ -164,9 +161,248 @@ class W_BaseSetObject(W_Object):
         """ Removes an arbitrary element from the set. May raise KeyError if set is empty."""
         return self.strategy.popitem(self)
 
-class W_SetObject(W_BaseSetObject):
-    from pypy.objspace.std.settype import set_typedef as typedef
+    # app-level operations (non-mutating)
 
+    def descr_eq(self, space, w_other):
+        if isinstance(w_other, W_BaseSetObject):
+            return space.wrap(self.equals(w_other))
+
+        if not space.isinstance_w(w_other, space.w_set):
+            return space.w_False
+
+        # tested in test_buildinshortcut.py
+        #XXX do not make new setobject here
+        w_other_as_set = self._newobj(space, w_other)
+        return space.wrap(self.equals(w_other_as_set))
+
+    def descr_ne(self, space, w_other):
+        if isinstance(w_other, W_BaseSetObject):
+            return space.wrap(not self.equals(w_other))
+
+        if not space.isinstance_w(w_other, space.w_set):
+            return space.w_True
+
+        #XXX this is not tested
+        w_other_as_set = self._newobj(space, w_other)
+        return space.wrap(not self.equals(w_other_as_set))
+
+    # automatic registration of "lt(x, y)" as "not ge(y, x)" would not give the
+    # correct answer here!
+    def descr_lt(self, space, w_other):
+        if not isinstance(w_other, W_BaseSetObject):
+            raise OperationError(self.space.w_TypeError,
+                                 self.space.wrap('can only compare to a set'))
+
+        if self.length() >= w_other.length():
+            return space.w_False
+        else:
+            return self.descr_issubset(space, w_other)
+
+    def descr_le(self, space, w_other):
+        if not isinstance(w_other, W_BaseSetObject):
+            raise OperationError(self.space.w_TypeError,
+                                 self.space.wrap('can only compare to a set'))
+
+        if self.length() > w_other.length():
+            return space.w_False
+        return space.wrap(self.issubset(w_other))
+
+    def descr_gt(self, space, w_other):
+        if not isinstance(w_other, W_BaseSetObject):
+            raise OperationError(self.space.w_TypeError,
+                                 self.space.wrap('can only compare to a set'))
+
+        if self.length() <= w_other.length():
+            return space.w_False
+        else:
+            return self.descr_issuperset(space, w_other)
+
+    def descr_ge(self, space, w_other):
+        if not isinstance(w_other, W_BaseSetObject):
+            raise OperationError(self.space.w_TypeError,
+                                 self.space.wrap('can only compare to a set'))
+
+        if self.length() < w_other.length():
+            return space.w_False
+        return space.wrap(w_other.issubset(self))
+
+    def descr_copy(self, space):
+        """Return a shallow copy of a set."""
+        if type(self) is W_FrozensetObject:
+            return self
+        return self.copy_real()
+
+    @gateway.unwrap_spec(others_w='args_w')
+    def descr_difference(self, space, others_w):
+        """Return a new set with elements in the set that are not in the others."""
+        result = self.copy_real()
+        result.descr_difference_update(space, others_w)
+        return result
+
+    @gateway.unwrap_spec(others_w='args_w')
+    def descr_intersection(self, space, others_w):
+        """Return a new set with elements common to the set and all others."""
+        #XXX find smarter implementations
+        others_w = [self] + others_w
+
+        # find smallest set in others_w to reduce comparisons
+        startindex, startlength = 0, -1
+        for i in range(len(others_w)):
+            w_other = others_w[i]
+            try:
+                length = space.int_w(space.len(w_other))
+            except OperationError, e:
+                if (e.match(space, space.w_TypeError) or
+                    e.match(space, space.w_AttributeError)):
+                    continue
+                raise
+
+            if startlength == -1 or length < startlength:
+                startindex = i
+                startlength = length
+
+        others_w[startindex], others_w[0] = others_w[0], others_w[startindex]
+
+        result = self._newobj(space, others_w[0])
+        for i in range(1,len(others_w)):
+            w_other = others_w[i]
+            if isinstance(w_other, W_BaseSetObject):
+                result.intersect_update(w_other)
+            else:
+                w_other_as_set = self._newobj(space, w_other)
+                result.intersect_update(w_other_as_set)
+        return result
+
+    def descr_issubset(self, space, w_other):
+        """Report whether another set contains this set."""
+        if space.is_w(self, w_other):
+            return space.w_True
+
+        if isinstance(w_other, W_BaseSetObject):
+            if self.length() > w_other.length():
+                return space.w_False
+            return space.wrap(self.issubset(w_other))
+
+        w_other_as_set = self._newobj(space, w_other)
+        if self.length() > w_other_as_set.length():
+            return space.w_False
+        return space.wrap(self.issubset(w_other_as_set))
+
+    def descr_issuperset(self, space, w_other):
+        """Report whether this set contains another set."""
+        if space.is_w(self, w_other):
+            return space.w_True
+
+        if isinstance(w_other, W_BaseSetObject):
+            if self.length() < w_other.length():
+                return space.w_False
+            return space.wrap(w_other.issubset(self))
+
+        w_other_as_set = self._newobj(space, w_other)
+        if self.length() < w_other_as_set.length():
+            return space.w_False
+        return space.wrap(w_other_as_set.issubset(self))
+
+    def descr_symmetric_difference(self, space, w_other):
+        """Return the symmetric difference of two sets as a new set.\n\n(i.e.
+        all elements that are in exactly one of the sets.)"""
+
+        if isinstance(w_other, W_BaseSetObject):
+            w_result = self.symmetric_difference(w_other)
+            return w_result
+
+        w_other_as_set = self._newobj(space, w_other)
+        w_result = self.symmetric_difference(w_other_as_set)
+        return w_result
+
+    @gateway.unwrap_spec(others_w='args_w')
+    def descr_union(self, space, others_w):
+        """Return a new set with elements from the set and all others."""
+        result = self.copy_real()
+        for w_other in others_w:
+            if isinstance(w_other, W_BaseSetObject):
+                result.update(w_other)
+            else:
+                for w_key in space.listview(w_other):
+                    result.add(w_key)
+        return result
+
+    def descr_reduce(self, space):
+        """Return state information for pickling."""
+        return setreduce(space, self)
+
+    def descr_isdisjoint(self, space, w_other):
+        """Return True if two sets have a null intersection."""
+
+        if isinstance(w_other, W_BaseSetObject):
+            return space.newbool(self.isdisjoint(w_other))
+
+        #XXX may be optimized when other strategies are added
+        for w_key in space.listview(w_other):
+            if self.has_key(w_key):
+                return space.w_False
+        return space.w_True
+
+    # app-level operations (mutating)
+
+    def descr_add(self, space, w_other):
+        """Add an element to a set.\n\nThis has no effect if the element is already present."""
+        self.add(w_other)
+
+    def descr_clear(self, space):
+        """Remove all elements from this set."""
+        self.clear()
+
+    @gateway.unwrap_spec(others_w='args_w')
+    def descr_difference_update(self, space, others_w):
+        """Update the set, removing elements found in others."""
+        for w_other in others_w:
+            if isinstance(w_other, W_BaseSetObject):
+                self.difference_update(w_other)
+            else:
+                w_other_as_set = self._newobj(space, w_other)
+                self.difference_update(w_other_as_set)
+
+    def descr_discard(self, space, w_item):
+        """Remove an element from a set if it is a member.\n\nIf the element is not a member, do nothing."""
+        _discard_from_set(space, self, w_item)
+
+    @gateway.unwrap_spec(others_w='args_w')
+    def descr_intersection_update(self, space, others_w):
+        """Update the set, keeping only elements found in it and all others."""
+        result = self.descr_intersection(space, others_w)
+        self.strategy = result.strategy
+        self.sstorage = result.sstorage
+
+    def descr_pop(self, space):
+        """Remove and return an arbitrary set element."""
+        return self.popitem()
+
+    def descr_remove(self, space, w_item):
+        """Remove an element from a set; it must be a member.\n\nIf the element is not a member, raise a KeyError."""
+        if not _discard_from_set(space, self, w_item):
+            space.raise_key_error(w_item)
+
+    def descr_symmetric_difference_update(self, space, w_other):
+        """Update a set with the symmetric difference of itself and another."""
+        if isinstance(w_other, W_BaseSetObject):
+            self.symmetric_difference_update(w_other)
+            return
+        w_other_as_set = self._newobj(space, w_other)
+        self.symmetric_difference_update(w_other_as_set)
+
+    @gateway.unwrap_spec(others_w='args_w')
+    def descr_update(self, space, others_w):
+        """Update a set with the union of itself and another."""
+        for w_other in others_w:
+            if isinstance(w_other, W_BaseSetObject):
+                self.update(w_other)
+            else:
+                for w_key in space.listview(w_other):
+                    self.add(w_key)
+
+
+class W_SetObject(W_BaseSetObject):
     def _newobj(w_self, space, w_iterable):
         """Make a new set by taking ownership of 'w_iterable'."""
         if type(w_self) is W_SetObject:
@@ -176,8 +412,59 @@ class W_SetObject(W_BaseSetObject):
         W_SetObject.__init__(w_obj, space, w_iterable)
         return w_obj
 
+def descr__new__(space, w_settype, __args__):
+    w_obj = space.allocate_instance(W_SetObject, w_settype)
+    W_SetObject.__init__(w_obj, space)
+    return w_obj
+
+W_SetObject.typedef = StdTypeDef("set",
+    __doc__ = """set(iterable) --> set object
+
+Build an unordered collection.""",
+    __new__ = gateway.interp2app(descr__new__),
+    __hash__ = None,
+
+    # comparison operators
+    __eq__ = gateway.interp2app(W_BaseSetObject.descr_eq),
+    __ne__ = gateway.interp2app(W_BaseSetObject.descr_ne),
+    __lt__ = gateway.interp2app(W_BaseSetObject.descr_lt),
+    __le__ = gateway.interp2app(W_BaseSetObject.descr_le),
+    __gt__ = gateway.interp2app(W_BaseSetObject.descr_gt),
+    __ge__ = gateway.interp2app(W_BaseSetObject.descr_ge),
+
+    # non-mutating operators
+    #__and__ = gateway.interp2app(W_BaseSetObject.descr_intersection),
+    #__or__ = gateway.interp2app(W_BaseSetObject.descr_union),
+    #__xor__ = gateway.interp2app(W_BaseSetObject.descr_symmetric_difference),
+
+    # non-mutating methods
+    __reduce__ = gateway.interp2app(W_BaseSetObject.descr_reduce),
+    copy = gateway.interp2app(W_BaseSetObject.descr_copy),
+    difference = gateway.interp2app(W_BaseSetObject.descr_difference),
+    intersection = gateway.interp2app(W_BaseSetObject.descr_intersection),
+    issubset = gateway.interp2app(W_BaseSetObject.descr_issubset),
+    issuperset = gateway.interp2app(W_BaseSetObject.descr_issuperset),
+    symmetric_difference = gateway.interp2app(W_BaseSetObject.descr_symmetric_difference),
+    union = gateway.interp2app(W_BaseSetObject.descr_union),
+    isdisjoint = gateway.interp2app(W_BaseSetObject.descr_isdisjoint),
+
+    # mutating methods
+    add = gateway.interp2app(W_BaseSetObject.descr_add),
+    clear = gateway.interp2app(W_BaseSetObject.descr_clear),
+    difference_update = gateway.interp2app(W_BaseSetObject.descr_difference_update),
+    discard = gateway.interp2app(W_BaseSetObject.descr_discard),
+    intersection_update = gateway.interp2app(W_BaseSetObject.descr_intersection_update),
+    pop = gateway.interp2app(W_BaseSetObject.descr_pop),
+    remove = gateway.interp2app(W_BaseSetObject.descr_remove),
+    symmetric_difference_update = gateway.interp2app(W_BaseSetObject.descr_symmetric_difference_update),
+    update = gateway.interp2app(W_BaseSetObject.descr_update)
+    )
+W_SetObject.typedef.registermethods(globals())
+set_typedef = W_SetObject.typedef
+settypedef = W_SetObject.typedef
+
+
 class W_FrozensetObject(W_BaseSetObject):
-    from pypy.objspace.std.frozensettype import frozenset_typedef as typedef
     hash = 0
 
     def _newobj(w_self, space, w_iterable):
@@ -188,6 +475,50 @@ class W_FrozensetObject(W_BaseSetObject):
         w_obj = space.allocate_instance(W_FrozensetObject, w_type)
         W_FrozensetObject.__init__(w_obj, space, w_iterable)
         return w_obj
+
+def descr__frozenset__new__(space, w_frozensettype, w_iterable=None):
+    if (space.is_w(w_frozensettype, space.w_frozenset) and
+        w_iterable is not None and type(w_iterable) is W_FrozensetObject):
+        return w_iterable
+    w_obj = space.allocate_instance(W_FrozensetObject, w_frozensettype)
+    W_FrozensetObject.__init__(w_obj, space, w_iterable)
+    return w_obj
+
+W_FrozensetObject.typedef = StdTypeDef("frozenset",
+    __doc__ = """frozenset(iterable) --> frozenset object
+
+Build an immutable unordered collection.""",
+    __new__ = gateway.interp2app(descr__frozenset__new__),
+
+    # comparison operators
+    __eq__ = gateway.interp2app(W_BaseSetObject.descr_eq),
+    __ne__ = gateway.interp2app(W_BaseSetObject.descr_ne),
+    __lt__ = gateway.interp2app(W_BaseSetObject.descr_lt),
+    __le__ = gateway.interp2app(W_BaseSetObject.descr_le),
+    __gt__ = gateway.interp2app(W_BaseSetObject.descr_gt),
+    __ge__ = gateway.interp2app(W_BaseSetObject.descr_ge),
+
+    # non-mutating operators
+    #__and__ = gateway.interp2app(W_BaseSetObject.descr_intersection),
+    #__or__ = gateway.interp2app(W_BaseSetObject.descr_union),
+    #__xor__ = gateway.interp2app(W_BaseSetObject.descr_symmetric_difference),
+
+    # non-mutating methods
+    __reduce__ = gateway.interp2app(W_BaseSetObject.descr_reduce),
+    copy = gateway.interp2app(W_BaseSetObject.descr_copy),
+    difference = gateway.interp2app(W_BaseSetObject.descr_difference),
+    intersection = gateway.interp2app(W_BaseSetObject.descr_intersection),
+    issubset = gateway.interp2app(W_BaseSetObject.descr_issubset),
+    issuperset = gateway.interp2app(W_BaseSetObject.descr_issuperset),
+    symmetric_difference = gateway.interp2app(W_BaseSetObject.descr_symmetric_difference),
+    union = gateway.interp2app(W_BaseSetObject.descr_union),
+    isdisjoint = gateway.interp2app(W_BaseSetObject.descr_isdisjoint)
+    )
+
+W_FrozensetObject.typedef.registermethods(globals())
+frozenset_typedef = W_FrozensetObject.typedef
+frozensettypedef = W_FrozensetObject.typedef
+
 
 registerimplementation(W_BaseSetObject)
 registerimplementation(W_SetObject)
@@ -432,7 +763,6 @@ class AbstractUnwrappedSetStrategy(object):
             w_set.add(w_key)
 
     def remove(self, w_set, w_item):
-        from pypy.objspace.std.dictmultiobject import _never_equal_to_string
         d = self.unerase(w_set.sstorage)
         if not self.is_correct_type(w_item):
             #XXX check type of w_item and immediately return False in some cases
@@ -464,7 +794,6 @@ class AbstractUnwrappedSetStrategy(object):
         return keys_w
 
     def has_key(self, w_set, w_key):
-        from pypy.objspace.std.dictmultiobject import _never_equal_to_string
         if not self.is_correct_type(w_key):
             #XXX check type of w_item and immediately return False in some cases
             w_set.switch_to_object_strategy(self.space)
@@ -801,7 +1130,6 @@ class IntegerSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
         return self.unerase(w_set.sstorage).keys()
 
     def is_correct_type(self, w_key):
-        from pypy.objspace.std.intobject import W_IntObject
         return type(w_key) is W_IntObject
 
     def may_contain_equal_elements(self, strategy):
@@ -966,8 +1294,8 @@ class RDictIteratorImplementation(IteratorImplementation):
         else:
             return None
 
+
 class W_SetIterObject(W_Object):
-    from pypy.objspace.std.settype import setiter_typedef as typedef
     # XXX this class should be killed, and the various
     # iterimplementations should be W_Objects directly.
 
@@ -975,7 +1303,17 @@ class W_SetIterObject(W_Object):
         w_self.space = space
         w_self.iterimplementation = iterimplementation
 
+def descr_setiterator__length_hint__(space, w_self):
+    assert isinstance(w_self, W_SetIterObject)
+    return space.wrap(w_self.iterimplementation.length())
+
+W_SetIterObject.typedef = StdTypeDef("setiterator",
+    __length_hint__ = gateway.interp2app(descr_setiterator__length_hint__),
+    )
+setiter_typedef = W_SetIterObject.typedef
+
 registerimplementation(W_SetIterObject)
+
 
 def iter__SetIterObject(space, w_setiter):
     return w_setiter
@@ -993,7 +1331,6 @@ def newset(space):
     return r_dict(space.eq_w, space.hash_w, force_non_null=True)
 
 def set_strategy_and_setdata(space, w_set, w_iterable):
-    from pypy.objspace.std.intobject import W_IntObject
     if w_iterable is None :
         w_set.strategy = strategy = space.fromcache(EmptySetStrategy)
         w_set.sstorage = strategy.get_empty_storage()
@@ -1084,209 +1421,36 @@ def _convert_set_to_frozenset(space, w_obj):
     else:
         return None
 
-def set_update__Set(space, w_left, others_w):
-    """Update a set with the union of itself and another."""
-    for w_other in others_w:
-        if isinstance(w_other, W_BaseSetObject):
-            w_left.update(w_other)     # optimization only
-        else:
-            for w_key in space.listview(w_other):
-                w_left.add(w_key)
-
-def inplace_or__Set_Set(space, w_left, w_other):
-    w_left.update(w_other)
-    return w_left
+def inplace_or__Set_Set(space, self, w_other):
+    self.update(w_other)
+    return self
 
 inplace_or__Set_Frozenset = inplace_or__Set_Set
 
-def set_add__Set_ANY(space, w_left, w_other):
-    """Add an element to a set.
-
-    This has no effect if the element is already present.
-    """
-    w_left.add(w_other)
-
-def set_copy__Set(space, w_set):
-    return w_set.copy_real()
-
-def frozenset_copy__Frozenset(space, w_left):
-    if type(w_left) is W_FrozensetObject:
-        return w_left
-    else:
-        return set_copy__Set(space, w_left)
-
-def set_clear__Set(space, w_left):
-    w_left.clear()
-
-def sub__Set_Set(space, w_left, w_other):
-    return w_left.difference(w_other)
+def sub__Set_Set(space, self, w_other):
+    return self.difference(w_other)
 
 sub__Set_Frozenset = sub__Set_Set
 sub__Frozenset_Set = sub__Set_Set
 sub__Frozenset_Frozenset = sub__Set_Set
 
-def set_difference__Set(space, w_left, others_w):
-    result = w_left.copy_real()
-    set_difference_update__Set(space, result, others_w)
-    return result
-
-frozenset_difference__Frozenset = set_difference__Set
-
-
-def set_difference_update__Set(space, w_left, others_w):
-    for w_other in others_w:
-        if isinstance(w_other, W_BaseSetObject):
-            # optimization only
-            w_left.difference_update(w_other)
-        else:
-            w_other_as_set = w_left._newobj(space, w_other)
-            w_left.difference_update(w_other_as_set)
-
-def inplace_sub__Set_Set(space, w_left, w_other):
-    w_left.difference_update(w_other)
-    return w_left
+def inplace_sub__Set_Set(space, self, w_other):
+    self.difference_update(w_other)
+    return self
 
 inplace_sub__Set_Frozenset = inplace_sub__Set_Set
 
-def eq__Set_Set(space, w_left, w_other):
-    # optimization only (the general case is eq__Set_settypedef)
-    return space.wrap(w_left.equals(w_other))
-
-eq__Set_Frozenset = eq__Set_Set
-eq__Frozenset_Frozenset = eq__Set_Set
-eq__Frozenset_Set = eq__Set_Set
-
-def eq__Set_settypedef(space, w_left, w_other):
-    # tested in test_buildinshortcut.py
-    #XXX do not make new setobject here
-    w_other_as_set = w_left._newobj(space, w_other)
-    return space.wrap(w_left.equals(w_other_as_set))
-
-eq__Set_frozensettypedef = eq__Set_settypedef
-eq__Frozenset_settypedef = eq__Set_settypedef
-eq__Frozenset_frozensettypedef = eq__Set_settypedef
-
-def eq__Set_ANY(space, w_left, w_other):
-    # workaround to have "set() == 42" return False instead of falling
-    # back to cmp(set(), 42) because the latter raises a TypeError
-    return space.w_False
-
-eq__Frozenset_ANY = eq__Set_ANY
-
-def ne__Set_Set(space, w_left, w_other):
-    return space.wrap(not w_left.equals(w_other))
-
-ne__Set_Frozenset = ne__Set_Set
-ne__Frozenset_Frozenset = ne__Set_Set
-ne__Frozenset_Set = ne__Set_Set
-
-def ne__Set_settypedef(space, w_left, w_other):
-    #XXX this is not tested
-    w_other_as_set = w_left._newobj(space, w_other)
-    return space.wrap(not w_left.equals(w_other_as_set))
-
-ne__Set_frozensettypedef = ne__Set_settypedef
-ne__Frozenset_settypedef = ne__Set_settypedef
-ne__Frozenset_frozensettypedef = ne__Set_settypedef
-
-
-def ne__Set_ANY(space, w_left, w_other):
-    # more workarounds
-    return space.w_True
-
-ne__Frozenset_ANY = ne__Set_ANY
-
-def contains__Set_ANY(space, w_left, w_other):
+def contains__Set_ANY(space, self, w_other):
     try:
-        return space.newbool(w_left.has_key(w_other))
+        return space.newbool(self.has_key(w_other))
     except OperationError, e:
         if e.match(space, space.w_TypeError):
             w_f = _convert_set_to_frozenset(space, w_other)
             if w_f is not None:
-                return space.newbool(w_left.has_key(w_f))
+                return space.newbool(self.has_key(w_f))
         raise
 
 contains__Frozenset_ANY = contains__Set_ANY
-
-def set_issubset__Set_Set(space, w_left, w_other):
-    # optimization only (the general case works too)
-    if space.is_w(w_left, w_other):
-        return space.w_True
-    if w_left.length() > w_other.length():
-        return space.w_False
-    return space.wrap(w_left.issubset(w_other))
-
-set_issubset__Set_Frozenset = set_issubset__Set_Set
-frozenset_issubset__Frozenset_Set = set_issubset__Set_Set
-frozenset_issubset__Frozenset_Frozenset = set_issubset__Set_Set
-
-def set_issubset__Set_ANY(space, w_left, w_other):
-    # not checking whether w_left is w_other here, because if that were the
-    # case the more precise multimethod would have applied.
-
-    w_other_as_set = w_left._newobj(space, w_other)
-
-    if w_left.length() > w_other_as_set.length():
-        return space.w_False
-    return space.wrap(w_left.issubset(w_other_as_set))
-
-frozenset_issubset__Frozenset_ANY = set_issubset__Set_ANY
-
-le__Set_Set = set_issubset__Set_Set
-le__Set_Frozenset = set_issubset__Set_Set
-le__Frozenset_Set = set_issubset__Set_Set
-le__Frozenset_Frozenset = set_issubset__Set_Set
-
-def set_issuperset__Set_Set(space, w_left, w_other):
-    # optimization only (the general case works too)
-    if space.is_w(w_left, w_other):
-        return space.w_True
-    if w_left.length() < w_other.length():
-        return space.w_False
-    return space.wrap(w_other.issubset(w_left))
-
-set_issuperset__Set_Frozenset = set_issuperset__Set_Set
-set_issuperset__Frozenset_Set = set_issuperset__Set_Set
-set_issuperset__Frozenset_Frozenset = set_issuperset__Set_Set
-
-def set_issuperset__Set_ANY(space, w_left, w_other):
-    if space.is_w(w_left, w_other):
-        return space.w_True
-
-    w_other_as_set = w_left._newobj(space, w_other)
-
-    if w_left.length() < w_other_as_set.length():
-        return space.w_False
-    return space.wrap(w_other_as_set.issubset(w_left))
-
-frozenset_issuperset__Frozenset_ANY = set_issuperset__Set_ANY
-
-ge__Set_Set = set_issuperset__Set_Set
-ge__Set_Frozenset = set_issuperset__Set_Set
-ge__Frozenset_Set = set_issuperset__Set_Set
-ge__Frozenset_Frozenset = set_issuperset__Set_Set
-
-# automatic registration of "lt(x, y)" as "not ge(y, x)" would not give the
-# correct answer here!
-def lt__Set_Set(space, w_left, w_other):
-    if w_left.length() >= w_other.length():
-        return space.w_False
-    else:
-        return le__Set_Set(space, w_left, w_other)
-
-lt__Set_Frozenset = lt__Set_Set
-lt__Frozenset_Set = lt__Set_Set
-lt__Frozenset_Frozenset = lt__Set_Set
-
-def gt__Set_Set(space, w_left, w_other):
-    if w_left.length() <= w_other.length():
-        return space.w_False
-    else:
-        return ge__Set_Set(space, w_left, w_other)
-
-gt__Set_Frozenset = gt__Set_Set
-gt__Frozenset_Set = gt__Set_Set
-gt__Frozenset_Frozenset = gt__Set_Set
 
 def _discard_from_set(space, w_left, w_item):
     """
@@ -1308,13 +1472,6 @@ def _discard_from_set(space, w_left, w_item):
     if w_left.length() == 0:
         w_left.switch_to_empty_strategy()
     return deleted
-
-def set_discard__Set_ANY(space, w_left, w_item):
-    _discard_from_set(space, w_left, w_item)
-
-def set_remove__Set_ANY(space, w_left, w_item):
-    if not _discard_from_set(space, w_left, w_item):
-        space.raise_key_error(w_item)
 
 def hash__Frozenset(space, w_set):
     multi = r_uint(1822399083) + r_uint(1822399083) + 1
@@ -1338,124 +1495,29 @@ def hash__Frozenset(space, w_set):
 
     return space.wrap(hash)
 
-def set_pop__Set(space, w_left):
-    return w_left.popitem()
 
-def and__Set_Set(space, w_left, w_other):
-    new_set = w_left.intersect(w_other)
+def and__Set_Set(space, self, w_other):
+    new_set = self.intersect(w_other)
     return new_set
 
 and__Set_Frozenset = and__Set_Set
 and__Frozenset_Set = and__Set_Set
 and__Frozenset_Frozenset = and__Set_Set
 
-def set_intersection__Set(space, w_left, others_w):
-    #XXX find smarter implementations
-    others_w = [w_left] + others_w
-
-    # find smallest set in others_w to reduce comparisons
-    startindex, startlength = 0, -1
-    for i in range(len(others_w)):
-        w_other = others_w[i]
-        try:
-            length = space.int_w(space.len(w_other))
-        except OperationError, e:
-            if (e.match(space, space.w_TypeError) or
-                e.match(space, space.w_AttributeError)):
-                continue
-            raise
-
-        if startlength == -1 or length < startlength:
-            startindex = i
-            startlength = length
-
-    others_w[startindex], others_w[0] = others_w[0], others_w[startindex]
-
-    result = w_left._newobj(space, others_w[0])
-    for i in range(1,len(others_w)):
-        w_other = others_w[i]
-        if isinstance(w_other, W_BaseSetObject):
-            # optimization only
-            result.intersect_update(w_other)
-        else:
-            w_other_as_set = w_left._newobj(space, w_other)
-            result.intersect_update(w_other_as_set)
-    return result
-
-frozenset_intersection__Frozenset = set_intersection__Set
-
-def set_intersection_update__Set(space, w_left, others_w):
-    result = set_intersection__Set(space, w_left, others_w)
-    w_left.strategy = result.strategy
-    w_left.sstorage = result.sstorage
-    return
-
-def inplace_and__Set_Set(space, w_left, w_other):
-    w_left.intersect_update(w_other)
-    return w_left
+def inplace_and__Set_Set(space, self, w_other):
+    self.intersect_update(w_other)
+    return self
 
 inplace_and__Set_Frozenset = inplace_and__Set_Set
 
-def set_isdisjoint__Set_Set(space, w_left, w_other):
-    # optimization only (the general case works too)
-    return space.newbool(w_left.isdisjoint(w_other))
-
-set_isdisjoint__Set_Frozenset = set_isdisjoint__Set_Set
-set_isdisjoint__Frozenset_Frozenset = set_isdisjoint__Set_Set
-set_isdisjoint__Frozenset_Set = set_isdisjoint__Set_Set
-
-def set_isdisjoint__Set_ANY(space, w_left, w_other):
-    #XXX may be optimized when other strategies are added
-    for w_key in space.listview(w_other):
-        if w_left.has_key(w_key):
-            return space.w_False
-    return space.w_True
-
-frozenset_isdisjoint__Frozenset_ANY = set_isdisjoint__Set_ANY
-
-def set_symmetric_difference__Set_Set(space, w_left, w_other):
-    # optimization only (the general case works too)
-    w_result = w_left.symmetric_difference(w_other)
-    return w_result
-
-set_symmetric_difference__Set_Frozenset = set_symmetric_difference__Set_Set
-set_symmetric_difference__Frozenset_Set = set_symmetric_difference__Set_Set
-set_symmetric_difference__Frozenset_Frozenset = \
-                                        set_symmetric_difference__Set_Set
-
-xor__Set_Set = set_symmetric_difference__Set_Set
-xor__Set_Frozenset = set_symmetric_difference__Set_Set
-xor__Frozenset_Set = set_symmetric_difference__Set_Set
-xor__Frozenset_Frozenset = set_symmetric_difference__Set_Set
-
-
-def set_symmetric_difference__Set_ANY(space, w_left, w_other):
-    w_other_as_set = w_left._newobj(space, w_other)
-    w_result = w_left.symmetric_difference(w_other_as_set)
-    return w_result
-
-frozenset_symmetric_difference__Frozenset_ANY = \
-        set_symmetric_difference__Set_ANY
-
-def set_symmetric_difference_update__Set_Set(space, w_left, w_other):
-    # optimization only (the general case works too)
-    w_left.symmetric_difference_update(w_other)
-
-set_symmetric_difference_update__Set_Frozenset = \
-                                    set_symmetric_difference_update__Set_Set
-
-def set_symmetric_difference_update__Set_ANY(space, w_left, w_other):
-    w_other_as_set = w_left._newobj(space, w_other)
-    w_left.symmetric_difference_update(w_other_as_set)
-
-def inplace_xor__Set_Set(space, w_left, w_other):
-    set_symmetric_difference_update__Set_Set(space, w_left, w_other)
-    return w_left
+def inplace_xor__Set_Set(space, self, w_other):
+    self.descr_symmetric_difference_update(space, w_other)
+    return self
 
 inplace_xor__Set_Frozenset = inplace_xor__Set_Set
 
-def or__Set_Set(space, w_left, w_other):
-    w_copy = w_left.copy_real()
+def or__Set_Set(space, self, w_other):
+    w_copy = self.copy_real()
     w_copy.update(w_other)
     return w_copy
 
@@ -1463,29 +1525,25 @@ or__Set_Frozenset = or__Set_Set
 or__Frozenset_Set = or__Set_Set
 or__Frozenset_Frozenset = or__Set_Set
 
-def set_union__Set(space, w_left, others_w):
-    result = w_left.copy_real()
-    for w_other in others_w:
-        if isinstance(w_other, W_BaseSetObject):
-            result.update(w_other)     # optimization only
-        else:
-            for w_key in space.listview(w_other):
-                result.add(w_key)
-    return result
+def xor__Set_Set(space, self, w_other):
+    w_result = self.symmetric_difference(w_other)
+    return w_result
 
-frozenset_union__Frozenset = set_union__Set
+xor__Set_Frozenset = xor__Set_Set
+xor__Frozenset_Set = xor__Set_Set
+xor__Frozenset_Frozenset = xor__Set_Set
 
-def len__Set(space, w_left):
-    return space.newint(w_left.length())
+def len__Set(space, self):
+    return space.newint(self.length())
 
 len__Frozenset = len__Set
 
-def iter__Set(space, w_left):
-    return W_SetIterObject(space, w_left.iter())
+def iter__Set(space, self):
+    return W_SetIterObject(space, self.iter())
 
 iter__Frozenset = iter__Set
 
-def cmp__Set_settypedef(space, w_left, w_other):
+def cmp__Set_settypedef(space, self, w_other):
     # hack hack until we get the expected result
     raise OperationError(space.w_TypeError,
             space.wrap('cannot compare sets using cmp()'))
@@ -1531,16 +1589,12 @@ def repr__Set(space, w_set):
 repr__Frozenset = repr__Set
 
 app = gateway.applevel("""
-    def reduce__Set(s):
+    def setreduce(s):
         dict = getattr(s,'__dict__', None)
         return (s.__class__, (tuple(s),), dict)
 
 """, filename=__file__)
 
-set_reduce__Set = app.interphook('reduce__Set')
-frozenset_reduce__Frozenset = app.interphook('reduce__Set')
+setreduce = app.interphook('setreduce')
 
-from pypy.objspace.std import frozensettype
-from pypy.objspace.std import settype
-
-register_all(vars(), settype, frozensettype)
+register_all(vars())

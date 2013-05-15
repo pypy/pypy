@@ -12,10 +12,17 @@ import py.test
 from pypy.objspace.std.setobject import W_SetObject, W_FrozensetObject, IntegerSetStrategy
 from pypy.objspace.std.setobject import _initialize_set
 from pypy.objspace.std.setobject import newset
-from pypy.objspace.std.setobject import and__Set_Set
-from pypy.objspace.std.setobject import set_intersection__Set
-from pypy.objspace.std.setobject import eq__Set_Set
 from pypy.objspace.std.listobject import W_ListObject
+
+def and__Set_Set(space, w_left, w_right):
+    return w_left.descr_intersection(space, [w_right])
+
+def set_intersection__Set(space, w_left, w_right):
+    return w_left.descr_intersection(space, w_right)
+
+def eq__Set_Set(space, w_left, w_right):
+    return w_left.descr_eq(space, w_right)
+
 
 letters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
 
