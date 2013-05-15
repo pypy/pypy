@@ -569,7 +569,7 @@ class W_FrozensetObject(W_BaseSetObject):
         return w_obj
 
     @staticmethod
-    def descr_new(space, w_frozensettype, w_iterable=None):
+    def descr_new2(space, w_frozensettype, w_iterable=None):
         if (space.is_w(w_frozensettype, space.w_frozenset) and
             w_iterable is not None and type(w_iterable) is W_FrozensetObject):
             return w_iterable
@@ -603,7 +603,7 @@ W_FrozensetObject.typedef = StdTypeDef("frozenset",
     __doc__ = """frozenset(iterable) --> frozenset object
 
 Build an immutable unordered collection.""",
-    __new__ = gateway.interp2app(W_FrozensetObject.descr_new),
+    __new__ = gateway.interp2app(W_FrozensetObject.descr_new2),
     __repr__ = gateway.interp2app(W_BaseSetObject.descr_repr),
     __hash__ = gateway.interp2app(W_FrozensetObject.descr_hash),
     __cmp__ = gateway.interp2app(W_BaseSetObject.descr_cmp),
