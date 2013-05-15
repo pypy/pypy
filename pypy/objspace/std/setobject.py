@@ -252,6 +252,11 @@ class W_BaseSetObject(W_Object):
     def descr_and(self, space, w_other):
         return self.intersect(w_other)
 
+    def descr_or(self, space, w_other):
+        w_copy = self.copy_real()
+        w_copy.update(w_other)
+        return w_copy
+
     def descr_copy(self, space):
         """Return a shallow copy of a set."""
         if type(self) is W_FrozensetObject:
@@ -463,7 +468,7 @@ Build an unordered collection.""",
     __iter__ = gateway.interp2app(W_BaseSetObject.descr_iter),
     __contains__ = gateway.interp2app(W_BaseSetObject.descr_contains),
     __and__ = gateway.interp2app(W_BaseSetObject.descr_and),
-    #__or__ = gateway.interp2app(W_BaseSetObject.descr_union),
+    __or__ = gateway.interp2app(W_BaseSetObject.descr_or),
     #__xor__ = gateway.interp2app(W_BaseSetObject.descr_symmetric_difference),
 
     # non-mutating methods
@@ -557,7 +562,7 @@ Build an immutable unordered collection.""",
     __iter__ = gateway.interp2app(W_BaseSetObject.descr_iter),
     __contains__ = gateway.interp2app(W_BaseSetObject.descr_contains),
     __and__ = gateway.interp2app(W_BaseSetObject.descr_and),
-    #__or__ = gateway.interp2app(W_BaseSetObject.descr_union),
+    __or__ = gateway.interp2app(W_BaseSetObject.descr_or),
     #__xor__ = gateway.interp2app(W_BaseSetObject.descr_symmetric_difference),
 
     # non-mutating methods
@@ -1529,15 +1534,6 @@ def inplace_xor__Set_Set(space, self, w_other):
     return self
 
 inplace_xor__Set_Frozenset = inplace_xor__Set_Set
-
-def or__Set_Set(space, self, w_other):
-    w_copy = self.copy_real()
-    w_copy.update(w_other)
-    return w_copy
-
-or__Set_Frozenset = or__Set_Set
-or__Frozenset_Set = or__Set_Set
-or__Frozenset_Frozenset = or__Set_Set
 
 def xor__Set_Set(space, self, w_other):
     w_result = self.symmetric_difference(w_other)
