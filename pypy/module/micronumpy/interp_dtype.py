@@ -143,6 +143,7 @@ class W_Dtype(W_Root):
         if w_fields == space.w_None:
             self.fields = None
         else:
+            self.fields = {}
             ofs_and_items = []
             size = 0
             for key in space.listview(w_fields):
@@ -330,8 +331,9 @@ def variable_dtype(space, name):
     elif char == 'V':
         num = 20
         basename = 'void'
-        w_box_type = space.gettypefor(interp_boxes.W_VoidBox)
-        return dtype_from_list(space, space.newlist([]))
+        itemtype = types.VoidType(size)
+        return W_Dtype(itemtype, 20, VOIDLTR, "void" + str(size),
+                    "V", space.gettypefor(interp_boxes.W_VoidBox))
     else:
         assert char == 'U'
         basename = 'unicode'
