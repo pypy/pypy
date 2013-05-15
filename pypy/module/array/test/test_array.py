@@ -552,6 +552,15 @@ class BaseArrayTests:
                 assert (a >= c) is False
                 assert (c >= a) is True
 
+        a = self.array('i', [-1, 0, 1, 42, 0x7f])
+        assert not a == 2*a
+        assert a != 2*a
+        assert a < 2*a
+        assert a <= 2*a
+        assert not a > 2*a
+        assert not a >= 2*a
+
+
     def test_reduce(self):
         import pickle
         a = self.array('i', [1, 2, 3])

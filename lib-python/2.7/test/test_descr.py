@@ -2080,8 +2080,9 @@ order (MRO) for bases """
         except ImportError:
             pass
         else:
-            class X(object):
-                p = property(_testcapi.test_with_docstring)
+            if hasattr(_testcapi, 'test_with_docstring'):
+                class X(object):
+                    p = property(_testcapi.test_with_docstring)
 
     def test_properties_plus(self):
         class C(object):
