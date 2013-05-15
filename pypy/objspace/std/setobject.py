@@ -476,6 +476,28 @@ class W_FrozensetObject(W_BaseSetObject):
         W_FrozensetObject.__init__(w_obj, space, w_iterable)
         return w_obj
 
+    def descr_hash(self, space):
+        multi = r_uint(1822399083) + r_uint(1822399083) + 1
+        if self.hash != 0:
+            return space.wrap(self.hash)
+        hash = r_uint(1927868237)
+        hash *= r_uint(self.length() + 1)
+        w_iterator = self.iter()
+        while True:
+            w_item = w_iterator.next_entry()
+            if w_item is None:
+                break
+            h = space.hash_w(w_item)
+            value = (r_uint(h ^ (h << 16) ^ 89869747)  * multi)
+            hash = hash ^ value
+        hash = hash * 69069 + 907133923
+        if hash == 0:
+            hash = 590923713
+        hash = intmask(hash)
+        self.hash = hash
+
+        return space.wrap(hash)
+
 def descr__frozenset__new__(space, w_frozensettype, w_iterable=None):
     if (space.is_w(w_frozensettype, space.w_frozenset) and
         w_iterable is not None and type(w_iterable) is W_FrozensetObject):
@@ -489,6 +511,7 @@ W_FrozensetObject.typedef = StdTypeDef("frozenset",
 
 Build an immutable unordered collection.""",
     __new__ = gateway.interp2app(descr__frozenset__new__),
+    __hash__ = gateway.interp2app(W_FrozensetObject.descr_hash),
 
     # comparison operators
     __eq__ = gateway.interp2app(W_BaseSetObject.descr_eq),
@@ -1472,28 +1495,6 @@ def _discard_from_set(space, w_left, w_item):
     if w_left.length() == 0:
         w_left.switch_to_empty_strategy()
     return deleted
-
-def hash__Frozenset(space, w_set):
-    multi = r_uint(1822399083) + r_uint(1822399083) + 1
-    if w_set.hash != 0:
-        return space.wrap(w_set.hash)
-    hash = r_uint(1927868237)
-    hash *= r_uint(w_set.length() + 1)
-    w_iterator = w_set.iter()
-    while True:
-        w_item = w_iterator.next_entry()
-        if w_item is None:
-            break
-        h = space.hash_w(w_item)
-        value = (r_uint(h ^ (h << 16) ^ 89869747)  * multi)
-        hash = hash ^ value
-    hash = hash * 69069 + 907133923
-    if hash == 0:
-        hash = 590923713
-    hash = intmask(hash)
-    w_set.hash = hash
-
-    return space.wrap(hash)
 
 
 def and__Set_Set(space, self, w_other):
