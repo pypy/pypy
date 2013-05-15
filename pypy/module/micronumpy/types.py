@@ -3,7 +3,9 @@ import math
 
 from pypy.interpreter.error import OperationError
 from pypy.module.micronumpy import interp_boxes
+from pypy.module.micronumpy import support
 from pypy.module.micronumpy.arrayimpl.voidbox import VoidBoxStorage
+from pypy.module.micronumpy.arrayimpl.concrete import SliceArray
 from pypy.objspace.std.floatobject import float2string
 from pypy.objspace.std.complexobject import str_format
 from rpython.rlib import rfloat, clibffi, rcomplex
@@ -1717,6 +1719,14 @@ class VoidType(BaseType, BaseStringType):
         assert isinstance(box, interp_boxes.W_VoidBox)
         for k in range(self.get_element_size()):
             arr.storage[k + ofs] = box.arr.storage[k + box.ofs]
+
+    def read(self, arr, i, offset, dtype=None):
+        from pypy.module.micronumpy.base import W_NDimArray
+        if dtype is None:
+            dtype = arr.dtype
+        strides, backstrides = support.calc_strides(dtype.shape, dtype.subdtype, arr.order)
+        implementation = SliceArray(i + offset, strides, backstrides, dtype.shape, arr, arr, dtype.subdtype)
+        return W_NDimArray(implementation)
 
 NonNativeVoidType = VoidType
 NonNativeStringType = StringType

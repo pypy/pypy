@@ -2703,10 +2703,12 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         from numpypy import dtype, array
 
         d = dtype([("x", "int", 3), ("y", "float", 5)])
-        a = array([([1, 2, 3], [0.5, 1.5, 2.5, 3.5, 4.5])], dtype=d)
+        a = array([([1, 2, 3], [0.5, 1.5, 2.5, 3.5, 4.5]), ([4, 5, 6], [5.5, 6.5, 7.5, 8.5, 9.5])], dtype=d)
 
         assert (a[0]["x"] == [1, 2, 3]).all()
-        assert (a[1]["y"] == [0.5, 1.5, 2.5, 3.5, 4.5]).all()
+        assert (a[0]["y"] == [0.5, 1.5, 2.5, 3.5, 4.5]).all()
+        assert (a[1]["x"] == [4, 5, 6]).all()
+        assert (a[1]["y"] == [5.5, 6.5, 7.5, 8.5, 9.5]).all()
 
 
 class AppTestPyPy(BaseNumpyAppTest):

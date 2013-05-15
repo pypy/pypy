@@ -355,9 +355,11 @@ def descr__new__(space, w_subtype, w_dtype, w_align=None, w_copy=None, w_shape=N
         size = 1
         if space.isinstance_w(w_shape, space.w_int):
             w_shape = space.newtuple([w_shape])
-        shape = space.listview(w_shape)
-        for dim in shape:
-            size *= space.int_w(dim)
+        shape = []
+        for w_dim in space.fixedview(w_shape):
+            dim = space.int_w(w_dim)
+            shape.append(dim)
+            size *= dim
         return W_Dtype(types.VoidType(subdtype.itemtype.get_element_size() * size), 20, VOIDLTR, "void" + str(8 * subdtype.itemtype.get_element_size() * size),
                     "V", space.gettypefor(interp_boxes.W_VoidBox), shape=shape, subdtype=subdtype)
 
