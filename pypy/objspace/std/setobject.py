@@ -1,5 +1,4 @@
 from pypy.objspace.std.model import registerimplementation, W_Object
-from pypy.objspace.std.register_all import register_all
 from pypy.interpreter.error import OperationError
 from pypy.interpreter import gateway
 from pypy.interpreter.signature import Signature
@@ -1578,5 +1577,3 @@ app = gateway.applevel("""
 """, filename=__file__)
 
 setreduce = app.interphook('setreduce')
-
-register_all(vars())
