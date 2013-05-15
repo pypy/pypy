@@ -38,8 +38,8 @@ def w_array(space, w_cls, typecode, __args__):
                     if isinstance(w_initializer, W_ArrayBase):
                         a.extend(w_initializer, True)
                     else:
-                        a.descr_fromstring(space,
-                                           space.bufferstr_w(w_initializer))
+                        a.descr_frombytes(space,
+                                          space.bufferstr_w(w_initializer))
                 elif space.type(w_initializer) is space.w_list:
                     a.descr_fromlist(space, w_initializer)
                 else:
