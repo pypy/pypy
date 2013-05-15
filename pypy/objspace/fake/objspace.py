@@ -55,6 +55,10 @@ class W_MyObject(W_Root):
         from rpython.rlib.rbigint import rbigint
         return rbigint.fromint(NonConstant(42))
 
+class W_MyListObj(W_MyObject):
+    def append(self, w_other):
+        pass
+
 class W_MyType(W_MyObject):
     def __init__(self):
         self.mro_w = [w_some_obj(), w_some_obj()]
@@ -107,6 +111,9 @@ class FakeObjSpace(ObjSpace):
         self._seen_extras = []
         ObjSpace.__init__(self, config=config)
 
+    def _freeze_(self):
+        return True
+
     def float_w(self, w_obj):
         is_root(w_obj)
         return NonConstant(42.5)
@@ -131,7 +138,7 @@ class FakeObjSpace(ObjSpace):
     def newlist(self, list_w):
         for w_x in list_w:
             is_root(w_x)
-        return w_some_obj()
+        return W_MyListObj()
 
     def newslice(self, w_start, w_end, w_step):
         is_root(w_start)
