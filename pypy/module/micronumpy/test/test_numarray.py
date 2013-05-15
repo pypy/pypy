@@ -2710,6 +2710,9 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         assert (a[1]["x"] == [4, 5, 6]).all()
         assert (a[1]["y"] == [5.5, 6.5, 7.5, 8.5, 9.5]).all()
 
+        a[0]["x"][0] = 200
+        assert a[0]["x"][0] == 200
+
 
 class AppTestPyPy(BaseNumpyAppTest):
     def setup_class(cls):
