@@ -100,11 +100,11 @@ def compare_arrays(space, arr1, arr2, comp_op, comp_func):
         return space.w_True
     if comp_op == LT or comp_op == LE:
         if arr1.len < arr2.len:
-            return space.w_False
-        return space.w_True
-    if arr1.len > arr2.len:
+            return space.w_True
         return space.w_False
-    return space.w_True
+    if arr1.len > arr2.len:
+        return space.w_True
+    return space.w_False
 
 UNICODE_ARRAY = lltype.Ptr(lltype.Array(lltype.UniChar,
                                         hints={'nolength': True}))

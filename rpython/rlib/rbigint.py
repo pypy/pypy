@@ -458,10 +458,6 @@ class rbigint(object):
         if (self.sign != other.sign or
             self.numdigits() != other.numdigits()):
             return False
-        
-        # Fast path.
-        if len(self._digits) == len(other._digits):
-            return self._digits == other._digits
 
         i = 0
         ld = self.numdigits()

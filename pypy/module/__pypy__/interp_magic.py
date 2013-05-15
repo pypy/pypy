@@ -4,7 +4,7 @@ from rpython.rlib.objectmodel import we_are_translated
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.typeobject import MethodCache
 from pypy.objspace.std.mapdict import IndexCache
-from rpython.rlib import rposix
+from rpython.rlib import rposix, rgc
 
 
 def internal_repr(space, w_object):
@@ -100,3 +100,7 @@ def resizelist_hint(space, w_iterable, sizehint):
 @unwrap_spec(sizehint=int)
 def newlist_hint(space, sizehint):
     return space.newlist_hint(sizehint)
+
+@unwrap_spec(estimate=int)
+def add_memory_pressure(estimate):
+    rgc.add_memory_pressure(estimate)
