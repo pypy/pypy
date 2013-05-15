@@ -367,6 +367,36 @@ class W_ListObject(W_AbstractListObject):
             return make_empty_list(space)
         return self.getslice(start, stop, 1, stop - start)
 
+    def descr_setitem(self, space, w_index, w_any):
+        if isinstance(w_index, W_SliceObject):
+            oldsize = self.length()
+            start, stop, step, slicelength = w_index.indices4(space, oldsize)
+            if isinstance(w_any, W_ListObject):
+                self.setslice(start, step, slicelength, w_any)
+            else:
+                sequence_w = space.listview(w_any)
+                w_other = W_ListObject(space, sequence_w)
+                self.setslice(start, step, slicelength, w_other)
+            return
+
+        idx = get_list_index(space, w_index)
+        try:
+            self.setitem(idx, w_any)
+        except IndexError:
+            raise OperationError(space.w_IndexError,
+                                 space.wrap("list index out of range"))
+
+    def descr_setslice(self, space, w_start, w_stop, w_iterable):
+        length = self.length()
+        start, stop = normalize_simple_slice(space, length, w_start, w_stop)
+
+        if isinstance(w_iterable, W_ListObject):
+            self.setslice(start, 1, stop-start, w_iterable)
+        else:
+            sequence_w = space.listview(w_iterable)
+            w_other = W_ListObject(space, sequence_w)
+            self.setslice(start, 1, stop-start, w_other)
+
     def descr_reversed(self, space):
         'L.__reversed__() -- return a reverse iterator over the list'
         from pypy.objspace.std.iterobject import W_ReverseSeqIterObject
@@ -1409,18 +1439,6 @@ class UnicodeListStrategy(AbstractUnwrappedStrategy, ListStrategy):
 init_signature = Signature(['sequence'], None, None)
 init_defaults = [None]
 
-def setslice__List_ANY_ANY_List(space, w_list, w_start, w_stop, w_other):
-    length = w_list.length()
-    start, stop = normalize_simple_slice(space, length, w_start, w_stop)
-    w_list.setslice(start, 1, stop-start, w_other)
-
-def setslice__List_ANY_ANY_ANY(space, w_list, w_start, w_stop, w_iterable):
-    length = w_list.length()
-    start, stop = normalize_simple_slice(space, length, w_start, w_stop)
-    sequence_w = space.listview(w_iterable)
-    w_other = W_ListObject(space, sequence_w)
-    w_list.setslice(start, 1, stop-start, w_other)
-
 def delslice__List_ANY_ANY(space, w_list, w_start, w_stop):
     length = w_list.length()
     start, stop = normalize_simple_slice(space, length, w_start, w_stop)
@@ -1540,27 +1558,6 @@ def delitem__List_ANY(space, w_list, w_idx):
 def delitem__List_Slice(space, w_list, w_slice):
     start, stop, step, slicelength = w_slice.indices4(space, w_list.length())
     w_list.deleteslice(start, step, slicelength)
-
-def setitem__List_ANY_ANY(space, w_list, w_index, w_any):
-    idx = get_list_index(space, w_index)
-    try:
-        w_list.setitem(idx, w_any)
-    except IndexError:
-        raise OperationError(space.w_IndexError,
-                             space.wrap("list index out of range"))
-    return space.w_None
-
-def setitem__List_Slice_List(space, w_list, w_slice, w_other):
-    oldsize = w_list.length()
-    start, stop, step, slicelength = w_slice.indices4(space, oldsize)
-    w_list.setslice(start, step, slicelength, w_other)
-
-def setitem__List_Slice_ANY(space, w_list, w_slice, w_iterable):
-    oldsize = w_list.length()
-    start, stop, step, slicelength = w_slice.indices4(space, oldsize)
-    sequence_w = space.listview(w_iterable)
-    w_other = W_ListObject(space, sequence_w)
-    w_list.setslice(start, step, slicelength, w_other)
 
 app = applevel("""
     def listrepr(currently_in_repr, l):
@@ -1695,6 +1692,8 @@ list(sequence) -> new list initialized from sequence's items""",
 
     __getitem__ = interp2app(W_ListObject.descr_getitem),
     __getslice__ = interp2app(W_ListObject.descr_getslice),
+    __setitem__ = interp2app(W_ListObject.descr_setitem),
+    __setslice__ = interp2app(W_ListObject.descr_setslice),
 
     sort = interp2app(W_ListObject.descr_sort),
     index = interp2app(W_ListObject.descr_index),
