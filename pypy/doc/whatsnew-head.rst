@@ -13,3 +13,6 @@ Remove multimethods in the arraymodule
 
 .. branch: callback-stacklet
 Fixed bug when switching stacklets from a C callback
+
+.. branch: remove-set-smm
+Remove multi-methods on sets
