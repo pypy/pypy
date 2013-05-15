@@ -408,6 +408,24 @@ class AppTest_DictObject:
         assert {'a': 1 } < { 'b': 1}
         assert {'a': 1, 'x': 2 } < { 'b': 1, 'x': 2}
 
+    def test_other_rich_cmp(self):
+        d1 = {1: 2, 3: 4}
+        d2 = {1: 2, 3: 4}
+        d3 = {1: 2, 3: 5}
+        d4 = {1: 2}
+
+        assert d1 <= d2
+        assert d1 <= d3
+        assert not d1 <= d4
+
+        assert not d1 > d2
+        assert not d1 > d3
+        assert d1 > d4
+
+        assert d1 >= d2
+        assert not d1 >= d3
+        assert d1 >= d4
+
     def test_str_repr(self):
         assert '{}' == str({})
         assert '{1: 2}' == str({1: 2})

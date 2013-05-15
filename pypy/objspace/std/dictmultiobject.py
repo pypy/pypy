@@ -130,10 +130,6 @@ class W_DictMultiObject(W_Object):
                 return space.w_False
         return space.w_True
 
-    def descr_ne(self, space, w_other):
-        # XXX automatize this
-        return space.not_(self.descr_eq(space, w_other))
-
     def descr_lt(self, space, w_other):
         if not isinstance(w_other, W_DictMultiObject):
             raise operationerrfmt(space.w_TypeError,
@@ -393,9 +389,8 @@ dict(**kwargs) -> new dictionary initialized with the name=value pairs
     __init__ = gateway.interp2app(W_DictMultiObject.descr_init),
 
     __eq__ = gateway.interp2app(W_DictMultiObject.descr_eq),
-    __ne__ = gateway.interp2app(W_DictMultiObject.descr_ne),
     __lt__ = gateway.interp2app(W_DictMultiObject.descr_lt),
-    # XXX other comparison methods?
+    __total_ordering__ = 'auto',
 
     __len__ = gateway.interp2app(W_DictMultiObject.descr_len),
     __iter__ = gateway.interp2app(W_DictMultiObject.descr_iter),
