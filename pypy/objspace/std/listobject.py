@@ -397,6 +397,27 @@ class W_ListObject(W_AbstractListObject):
             w_other = W_ListObject(space, sequence_w)
             self.setslice(start, 1, stop-start, w_other)
 
+    def descr_delitem(self, space, w_idx):
+        if isinstance(w_idx, W_SliceObject):
+            start, stop, step, slicelength = w_idx.indices4(space, self.length())
+            self.deleteslice(start, step, slicelength)
+            return
+
+        idx = get_list_index(space, w_idx)
+        if idx < 0:
+            idx += self.length()
+        try:
+            self.pop(idx)
+        except IndexError:
+            raise OperationError(space.w_IndexError,
+                                 space.wrap("list index out of range"))
+
+
+    def descr_delslice(self, space, w_start, w_stop):
+        length = self.length()
+        start, stop = normalize_simple_slice(space, length, w_start, w_stop)
+        self.deleteslice(start, 1, stop-start)
+
     def descr_reversed(self, space):
         'L.__reversed__() -- return a reverse iterator over the list'
         from pypy.objspace.std.iterobject import W_ReverseSeqIterObject
@@ -1439,11 +1460,6 @@ class UnicodeListStrategy(AbstractUnwrappedStrategy, ListStrategy):
 init_signature = Signature(['sequence'], None, None)
 init_defaults = [None]
 
-def delslice__List_ANY_ANY(space, w_list, w_start, w_stop):
-    length = w_list.length()
-    start, stop = normalize_simple_slice(space, length, w_start, w_stop)
-    w_list.deleteslice(start, 1, stop-start)
-
 def contains__List_ANY(space, w_list, w_obj):
     try:
         w_list.find(w_obj)
@@ -1542,22 +1558,6 @@ lt__List_List = _make_list_comparison('lt')
 le__List_List = _make_list_comparison('le')
 gt__List_List = _make_list_comparison('gt')
 ge__List_List = _make_list_comparison('ge')
-
-def delitem__List_ANY(space, w_list, w_idx):
-    idx = get_list_index(space, w_idx)
-    if idx < 0:
-        idx += w_list.length()
-    try:
-        w_list.pop(idx)
-    except IndexError:
-        raise OperationError(space.w_IndexError,
-                             space.wrap("list deletion index out of range"))
-    return space.w_None
-
-
-def delitem__List_Slice(space, w_list, w_slice):
-    start, stop, step, slicelength = w_slice.indices4(space, w_list.length())
-    w_list.deleteslice(start, step, slicelength)
 
 app = applevel("""
     def listrepr(currently_in_repr, l):
@@ -1694,6 +1694,8 @@ list(sequence) -> new list initialized from sequence's items""",
     __getslice__ = interp2app(W_ListObject.descr_getslice),
     __setitem__ = interp2app(W_ListObject.descr_setitem),
     __setslice__ = interp2app(W_ListObject.descr_setslice),
+    __delitem__ = interp2app(W_ListObject.descr_delitem),
+    __delslice__ = interp2app(W_ListObject.descr_delslice),
 
     sort = interp2app(W_ListObject.descr_sort),
     index = interp2app(W_ListObject.descr_index),
