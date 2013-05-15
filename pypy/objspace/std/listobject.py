@@ -353,6 +353,24 @@ class W_ListObject(W_AbstractListObject):
         except ValueError:
             return space.w_False
 
+    def descr_add(self, space, w_list2):
+        w_clone = self.clone()
+        w_clone.extend(w_list2)
+        return w_clone
+
+    def descr_inplace_add(self, space, w_iterable):
+        if isinstance(w_iterable, W_ListObject):
+            self.extend(w_iterable)
+            return self
+
+        try:
+            self.extend(w_iterable)
+        except OperationError, e:
+            if e.match(space, space.w_TypeError):
+                return space.w_NotImplemented
+            raise
+        return self
+
     def descr_getitem(self, space, w_index):
         if isinstance(w_index, W_SliceObject):
             # XXX consider to extend rlist's functionality?
@@ -1471,24 +1489,6 @@ class UnicodeListStrategy(AbstractUnwrappedStrategy, ListStrategy):
 init_signature = Signature(['sequence'], None, None)
 init_defaults = [None]
 
-def add__List_List(space, w_list1, w_list2):
-    w_clone = w_list1.clone()
-    w_clone.extend(w_list2)
-    return w_clone
-
-def inplace_add__List_ANY(space, w_list1, w_iterable2):
-    try:
-        w_list1.extend(w_iterable2)
-    except OperationError, e:
-        if e.match(space, space.w_TypeError):
-            raise FailedToImplement
-        raise
-    return w_list1
-
-def inplace_add__List_List(space, w_list1, w_list2):
-    w_list1.extend(w_list2)
-    return w_list1
-
 def mul_list_times(space, w_list, w_times):
     try:
         times = space.getindex_w(w_times, space.w_OverflowError)
@@ -1691,6 +1691,9 @@ list(sequence) -> new list initialized from sequence's items""",
     __len__ = interp2app(W_ListObject.descr_len),
     __iter__ = interp2app(W_ListObject.descr_iter),
     __contains__ = interp2app(W_ListObject.descr_contains),
+
+    __add__ = interp2app(W_ListObject.descr_add),
+    __iadd__ = interp2app(W_ListObject.descr_inplace_add),
 
     __getitem__ = interp2app(W_ListObject.descr_getitem),
     __getslice__ = interp2app(W_ListObject.descr_getslice),
