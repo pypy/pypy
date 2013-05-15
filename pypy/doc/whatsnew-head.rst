@@ -7,3 +7,6 @@ What's new in PyPy 2.1
 
 .. branch: numpy-pickle
 Pickling of numpy arrays and dtypes (including record dtypes)
+
+
+.. branch: remove-set-smm
