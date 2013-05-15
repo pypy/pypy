@@ -57,6 +57,6 @@ def compile_shared():
 try:
     import cpyext
 except ImportError:
-    pass
+    raise ImportError("No module named '_testcapi'")
 else:
     compile_shared()
