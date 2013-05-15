@@ -242,6 +242,13 @@ class W_BaseSetObject(W_Object):
                     return space.newbool(self.has_key(w_f))
             raise
 
+    def descr_repr(self, space):
+        ec = space.getexecutioncontext()
+        w_currently_in_repr = ec._py_repr
+        if w_currently_in_repr is None:
+            w_currently_in_repr = ec._py_repr = space.newdict()
+        return setrepr(space, w_currently_in_repr, self)
+
     def descr_copy(self, space):
         """Return a shallow copy of a set."""
         if type(self) is W_FrozensetObject:
@@ -439,6 +446,7 @@ W_SetObject.typedef = StdTypeDef("set",
 
 Build an unordered collection.""",
     __new__ = gateway.interp2app(W_SetObject.descr_new),
+    __repr__ = gateway.interp2app(W_BaseSetObject.descr_repr),
     __hash__ = None,
 
     # comparison operators
@@ -532,6 +540,7 @@ W_FrozensetObject.typedef = StdTypeDef("frozenset",
 
 Build an immutable unordered collection.""",
     __new__ = gateway.interp2app(W_FrozensetObject.descr_new),
+    __repr__ = gateway.interp2app(W_BaseSetObject.descr_repr),
     __hash__ = gateway.interp2app(W_FrozensetObject.descr_hash),
 
     # comparison operators
@@ -1581,15 +1590,6 @@ app = gateway.applevel("""
 """, filename=__file__)
 
 setrepr = app.interphook("setrepr")
-
-def repr__Set(space, w_set):
-    ec = space.getexecutioncontext()
-    w_currently_in_repr = ec._py_repr
-    if w_currently_in_repr is None:
-        w_currently_in_repr = ec._py_repr = space.newdict()
-    return setrepr(space, w_currently_in_repr, w_set)
-
-repr__Frozenset = repr__Set
 
 app = gateway.applevel("""
     def setreduce(s):
