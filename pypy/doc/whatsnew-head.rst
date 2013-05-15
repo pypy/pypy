@@ -7,3 +7,6 @@ What's new in PyPy 2.1
 
 .. branch: numpy-pickle
 Pickling of numpy arrays and dtypes (including record dtypes)
+
+.. branch: numpy-subarrays
+It is now possible to create arrays and dtypes that use subarrays
