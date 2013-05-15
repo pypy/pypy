@@ -149,7 +149,7 @@ translation_optiondescription = OptionDescription(
     StrOption("output", "Output file name", cmdline="--output"),
     StrOption("secondaryentrypoints",
             "Comma separated list of keys choosing secondary entrypoints",
-            cmdline="--entrypoints", default=""),
+            cmdline="--entrypoints", default="main"),
 
     BoolOption("dump_static_data_info", "Dump static data info",
                cmdline="--dump_static_data_info",

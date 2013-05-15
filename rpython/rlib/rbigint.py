@@ -458,10 +458,6 @@ class rbigint(object):
         if (self.sign != other.sign or
             self.numdigits() != other.numdigits()):
             return False
-        
-        # Fast path.
-        if len(self._digits) == len(other._digits):
-            return self._digits == other._digits
 
         i = 0
         ld = self.numdigits()
@@ -1314,7 +1310,8 @@ def _k_mul(a, b):
 
     assert t1.sign >= 0
     assert 2*shift + t1.numdigits() <= ret.numdigits()
-    ret._digits[2*shift : 2*shift + t1.numdigits()] = t1._digits
+    for i in range(t1.numdigits()):
+        ret._digits[2*shift + i] = t1._digits[i]
 
     # Zero-out the digits higher than the ah*bh copy. */
     ## ignored, assuming that we initialize to zero
@@ -1327,7 +1324,8 @@ def _k_mul(a, b):
     t2 = al.mul(bl)
     assert t2.sign >= 0
     assert t2.numdigits() <= 2*shift # no overlap with high digits
-    ret._digits[:t2.numdigits()] = t2._digits
+    for i in range(t2.numdigits()):
+        ret._digits[i] = t2._digits[i]
 
     # Zero out remaining digits.
     ## ignored, assuming that we initialize to zero

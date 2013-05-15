@@ -30,14 +30,14 @@ class CollectAnalyzer(graphanalyze.BoolGraphAnalyzer):
                 return False
             if getattr(func, '_gctransformer_hint_close_stack_', False):
                 return True
-        return graphanalyze.GraphAnalyzer.analyze_direct_call(self, graph,
-                                                              seen)
+        return graphanalyze.BoolGraphAnalyzer.analyze_direct_call(self, graph,
+                                                                  seen)
     def analyze_external_call(self, op, seen=None):
         funcobj = op.args[0].value._obj
         if getattr(funcobj, 'random_effects_on_gcobjs', False):
             return True
-        return graphanalyze.GraphAnalyzer.analyze_external_call(self, op,
-                                                                seen)
+        return graphanalyze.BoolGraphAnalyzer.analyze_external_call(self, op,
+                                                                    seen)
     def analyze_simple_operation(self, op, graphinfo):
         if op.opname in ('malloc', 'malloc_varsize'):
             flags = op.args[1].value
@@ -799,6 +799,21 @@ class BaseFrameworkGCTransformer(GCTransformer):
         self._gc_adr_of_gcdata_attr(hop, 'root_stack_base')
     def gct_gc_adr_of_root_stack_top(self, hop):
         self._gc_adr_of_gcdata_attr(hop, 'root_stack_top')
+
+    def gct_gc_detach_callback_pieces(self, hop):
+        op = hop.spaceop
+        assert len(op.args) == 0
+        hop.genop("direct_call",
+                  [self.root_walker.gc_detach_callback_pieces_ptr],
+                  resultvar=op.result)
+
+    def gct_gc_reattach_callback_pieces(self, hop):
+        op = hop.spaceop
+        assert len(op.args) == 1
+        hop.genop("direct_call",
+                  [self.root_walker.gc_reattach_callback_pieces_ptr,
+                   op.args[0]],
+                  resultvar=op.result)
 
     def gct_gc_shadowstackref_new(self, hop):
         op = hop.spaceop
