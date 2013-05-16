@@ -57,7 +57,8 @@ def entrypoint(key, argtypes, c_name=None):
 # This thing is imported by any target which has any API, so it'll get
 # registered
 
-RPython_StartupCode = rffi.llexternal('RPython_StartupCode', [], lltype.Void)
+RPython_StartupCode = rffi.llexternal('RPython_StartupCode', [], lltype.Void,
+                                      _no_wrapper=True)
 
 @entrypoint('main', [], c_name='rpython_startup_code')
 def rpython_startup_code():
