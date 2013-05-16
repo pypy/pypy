@@ -1,8 +1,8 @@
 import py, sys
 from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
-from pypy.objspace.std.settype import set_typedef as settypedef
-from pypy.objspace.std.frozensettype import frozenset_typedef as frozensettypedef
+from pypy.objspace.std.setobject import set_typedef as settypedef
+from pypy.objspace.std.setobject import frozenset_typedef as frozensettypedef
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.signature import Signature
 

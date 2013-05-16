@@ -12,9 +12,6 @@ import py.test
 from pypy.objspace.std.setobject import W_SetObject, W_FrozensetObject, IntegerSetStrategy
 from pypy.objspace.std.setobject import _initialize_set
 from pypy.objspace.std.setobject import newset
-from pypy.objspace.std.setobject import and__Set_Set
-from pypy.objspace.std.setobject import set_intersection__Set
-from pypy.objspace.std.setobject import eq__Set_Set
 from pypy.objspace.std.listobject import W_ListObject
 
 letters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
@@ -36,11 +33,11 @@ class TestW_SetObject:
         t0 = W_SetObject(self.space)
         _initialize_set(self.space, t0, self.otherword)
         t1 = W_FrozensetObject(self.space, self.otherword)
-        r0 = and__Set_Set(self.space, s, t0)
-        r1 = and__Set_Set(self.space, s, t1)
-        assert eq__Set_Set(self.space, r0, r1) == self.true
-        sr = set_intersection__Set(self.space, s, [self.otherword])
-        assert eq__Set_Set(self.space, r0, sr) == self.true
+        r0 = s.descr_and(self.space, t0)
+        r1 = s.descr_and(self.space, t1)
+        assert r0.descr_eq(self.space, r1) == self.true
+        sr = s.descr_intersection(self.space, [self.otherword])
+        assert r0.descr_eq(self.space, sr) == self.true
 
     def test_compare(self):
         s = W_SetObject(self.space)
@@ -66,7 +63,7 @@ class TestW_SetObject:
         b = W_SetObject(self.space)
         _initialize_set(self.space, b, self.space.wrap("abc"))
 
-        result = set_intersection__Set(space, a, [b])
+        result = a.descr_intersection(space, [b])
         assert space.is_true(self.space.eq(result, W_SetObject(space, self.space.wrap("abc"))))
 
         c = W_SetObject(self.space)
@@ -80,7 +77,7 @@ class TestW_SetObject:
         b.get_storage_copy = None
         d.get_storage_copy = None
 
-        result = set_intersection__Set(space, a, [d,c,b])
+        result = a.descr_intersection(space, [d,c,b])
         assert space.is_true(self.space.eq(result, W_SetObject(space, self.space.wrap(""))))
 
     def test_create_set_from_list(self):
