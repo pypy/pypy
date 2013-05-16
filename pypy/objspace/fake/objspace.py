@@ -110,6 +110,7 @@ class FakeObjSpace(ObjSpace):
     def __init__(self, config=None):
         self._seen_extras = []
         ObjSpace.__init__(self, config=config)
+        self.setup()
 
     def _freeze_(self):
         return True
