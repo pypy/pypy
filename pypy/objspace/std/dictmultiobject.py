@@ -383,6 +383,7 @@ def negate(f):
             return space.w_True
         else:
             return space.w_False
+    _negator.func_name = 'negate-%s' % f
     return _negator
 
 W_DictMultiObject.typedef = StdTypeDef("dict",
