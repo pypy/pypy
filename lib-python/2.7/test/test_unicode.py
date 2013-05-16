@@ -1612,7 +1612,7 @@ class UnicodeTest(
         try:
             from _testcapi import unicode_encodedecimal
         except ImportError:
-            return
+            raise unittest.SkipTest('Requires _testcapi')
         self.assertEqual(unicode_encodedecimal(u'123'),
                          b'123')
         self.assertEqual(unicode_encodedecimal(u'\u0663.\u0661\u0664'),
