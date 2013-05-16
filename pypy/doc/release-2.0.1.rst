@@ -28,7 +28,7 @@ Highlights
 - fix an occasional crash in the JIT that ends in `RPython Fatal error:
   NotImplementedError`__.
 
-- `id(x)` is now always a positive number (expect on int/float/long/complex).
+- `id(x)` is now always a positive number (except on int/float/long/complex).
   This fixes an issue in ``_sqlite.py`` (mostly for 32-bit Linux).
 
 - fix crashes of callback-from-C-functions (with cffi) when used together
