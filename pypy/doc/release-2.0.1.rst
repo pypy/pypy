@@ -3,7 +3,7 @@ PyPy 2.0.1 - Bohr Smørrebrød
 ==============================
 
 We're pleased to announce PyPy 2.0.1.  This is a stable bugfix release
-over 2.0.  You can download it here:
+over `2.0`_.  You can download it here:
   
     http://pypy.org/download.html
 
@@ -40,6 +40,7 @@ Highlights
 .. __: https://bugs.pypy.org/issue1482
 .. __: http://mail.python.org/pipermail/pypy-dev/2013-May/011362.html
 .. __: https://bugs.pypy.org/issue1468
+.. _2.0: release-2.0.0.html
 
 Cheers,
 arigo et. al. for the PyPy team
