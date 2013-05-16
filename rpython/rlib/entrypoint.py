@@ -58,7 +58,7 @@ def entrypoint(key, argtypes, c_name=None):
 # registered
 
 RPython_StartupCode = rffi.llexternal('RPython_StartupCode', [], lltype.Void,
-                                      _no_wrapper=True)
+                                      _nowrapper=True)
 
 @entrypoint('main', [], c_name='rpython_startup_code')
 def rpython_startup_code():
