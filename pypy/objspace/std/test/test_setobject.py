@@ -385,6 +385,42 @@ class AppTestAppSetTest:
         assert set() != set('abc')
         assert set('abc') != set('abd')
 
+    def test_compare_other(self):
+        class TestRichSetCompare:
+            def __gt__(self, some_set):
+                self.gt_called = True
+                return False
+            def __lt__(self, some_set):
+                self.lt_called = True
+                return False
+            def __ge__(self, some_set):
+                self.ge_called = True
+                return False
+            def __le__(self, some_set):
+                self.le_called = True
+                return False
+
+        # This first tries the builtin rich set comparison, which doesn't know
+        # how to handle the custom object. Upon returning NotImplemented, the
+        # corresponding comparison on the right object is invoked.
+        myset = set(range(3))
+
+        myobj = TestRichSetCompare()
+        myset < myobj
+        assert myobj.gt_called
+
+        myobj = TestRichSetCompare()
+        myset > myobj
+        assert myobj.lt_called
+
+        myobj = TestRichSetCompare()
+        myset <= myobj
+        assert myobj.ge_called
+
+        myobj = TestRichSetCompare()
+        myset >= myobj
+        assert myobj.le_called
+
     def test_libpython_equality(self):
         for thetype in [frozenset, set]:
             word = "aaaaaaaaawfpasrtarspawparst"
