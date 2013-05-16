@@ -114,8 +114,11 @@ class W_CData(W_Root):
     ge = _make_comparison('ge')
 
     def hash(self):
-        h = (objectmodel.compute_identity_hash(self.ctype) ^
-             rffi.cast(lltype.Signed, self._cdata))
+        h = rffi.cast(lltype.Signed, self._cdata)
+        # To hash pointers in dictionaries.  Assumes that h shows some
+        # alignment (to 4, 8, maybe 16 bytes), so we use the following
+        # formula to avoid the trailing bits being always 0.
+        h = h ^ (h >> 4)
         return self.space.wrap(h)
 
     def getitem(self, w_index):

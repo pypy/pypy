@@ -111,6 +111,7 @@ class FakeObjSpace(ObjSpace):
     def __init__(self, config=None):
         self._seen_extras = []
         ObjSpace.__init__(self, config=config)
+        self.setup()
 
         # Be sure to annotate W_SliceObject constructor.
         # In Python2, this is triggered by W_InstanceObject.__getslice__.

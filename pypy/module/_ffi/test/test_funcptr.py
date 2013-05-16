@@ -74,9 +74,9 @@ class AppTestFFI(BaseAppTestFFI):
         from _ffi import CDLL, types
         # this should return *all* loaded libs, dlopen(NULL)
         dll = CDLL(None)
-        # Assume CPython, or PyPy compiled with cpyext
-        res = dll.getfunc('Py_IsInitialized', [], types.slong)()
-        assert res == 1
+        # libm should be loaded
+        res = dll.getfunc('sqrt', [types.double], types.double)(1.0)
+        assert res == 1.0
 
     def test_callfunc(self):
         from _ffi import CDLL, types
@@ -139,7 +139,7 @@ class AppTestFFI(BaseAppTestFFI):
 
     def test_pointer_args(self):
         """
-            extern int dummy; // defined in test_void_result 
+            extern int dummy; // defined in test_void_result
             DLLEXPORT int* get_dummy_ptr() { return &dummy; }
             DLLEXPORT void set_val_to_ptr(int* ptr, int val) { *ptr = val; }
         """
@@ -158,7 +158,7 @@ class AppTestFFI(BaseAppTestFFI):
 
     def test_convert_pointer_args(self):
         """
-            extern int dummy; // defined in test_void_result 
+            extern int dummy; // defined in test_void_result
             DLLEXPORT int* get_dummy_ptr(); // defined in test_pointer_args
             DLLEXPORT void set_val_to_ptr(int* ptr, int val); // ditto
         """
@@ -170,7 +170,7 @@ class AppTestFFI(BaseAppTestFFI):
             def _as_ffi_pointer_(self, ffitype):
                 assert ffitype is types.void_p
                 return self.value
-        
+
         libfoo = CDLL(self.libfoo_name)
         get_dummy = libfoo.getfunc('get_dummy', [], types.sint)
         get_dummy_ptr = libfoo.getfunc('get_dummy_ptr', [], types.void_p)
@@ -259,7 +259,7 @@ class AppTestFFI(BaseAppTestFFI):
 
     def test_typed_pointer_args(self):
         """
-            extern int dummy; // defined in test_void_result 
+            extern int dummy; // defined in test_void_result
             DLLEXPORT int* get_dummy_ptr(); // defined in test_pointer_args
             DLLEXPORT void set_val_to_ptr(int* ptr, int val); // ditto
         """
@@ -551,7 +551,7 @@ class AppTestFFI(BaseAppTestFFI):
         from _ffi import CDLL, types
         libfoo = CDLL(self.libfoo_name)
         raises(TypeError, "libfoo.getfunc('sum_xy', [types.void], types.sint)")
-        
+
     def test_OSError_loading(self):
         from _ffi import CDLL, types
         raises(OSError, "CDLL('I do not exist')")
@@ -606,7 +606,7 @@ class AppTestFFI(BaseAppTestFFI):
         from _rawffi import FUNCFLAG_STDCALL
         libm = CDLL(self.libm_name)
         pow_addr = libm.getaddressindll('pow')
-        wrong_pow = FuncPtr.fromaddr(pow_addr, 'pow', 
+        wrong_pow = FuncPtr.fromaddr(pow_addr, 'pow',
                 [types.double, types.double], types.double, FUNCFLAG_STDCALL)
         try:
             wrong_pow(2, 3) == 8
@@ -622,7 +622,7 @@ class AppTestFFI(BaseAppTestFFI):
         from _rawffi import FUNCFLAG_STDCALL
         kernel = WinDLL('Kernel32.dll')
         sleep_addr = kernel.getaddressindll('Sleep')
-        sleep = FuncPtr.fromaddr(sleep_addr, 'sleep', [types.uint], 
+        sleep = FuncPtr.fromaddr(sleep_addr, 'sleep', [types.uint],
                             types.void, FUNCFLAG_STDCALL)
         sleep(10)
 

@@ -5,7 +5,6 @@ from pypy.config.pypyoption import get_pypy_config
 def checkmodule(*modnames):
     config = get_pypy_config(translating=True)
     space = FakeObjSpace(config)
-    space.setup()
     seeobj_w = []
     for modname in modnames:
         mod = __import__('pypy.module.%s' % modname, None, None, ['__doc__'])
