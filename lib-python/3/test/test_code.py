@@ -104,7 +104,10 @@ consts: ('None',)
 
 import unittest
 import weakref
-import _testcapi
+try:
+    import _testcapi
+except ImportError:
+    _testcapi = None
 from test import support
 
 
@@ -127,6 +130,7 @@ def dump(co):
 
 class CodeTest(unittest.TestCase):
 
+    @unittest.skipUnless(_testcapi, 'Requires _testcapi')
     def test_newempty(self):
         co = _testcapi.code_newempty("filename", "funcname", 15)
         self.assertEqual(co.co_filename, "filename")

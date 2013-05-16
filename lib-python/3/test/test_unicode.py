@@ -12,6 +12,10 @@ import unittest
 import warnings
 from test import support, string_tests
 import _string
+try:
+    import _testcapi
+except ImportError:
+    _testcapi = None
 
 # decorator to skip tests on narrow builds
 requires_wide_build = unittest.skipIf(sys.maxunicode == 65535,
@@ -1659,6 +1663,7 @@ class UnicodeTest(string_tests.CommonTest,
         self.assertEqual(text, 'repr=abc\ufffd')
 
     # Test PyUnicode_AsWideChar()
+    @unittest.skipUnless(_testcapi, 'Requires _testcapi')
     def test_aswidechar(self):
         from _testcapi import unicode_aswidechar
         support.import_module('ctypes')
@@ -1696,6 +1701,7 @@ class UnicodeTest(string_tests.CommonTest,
         self.assertEqual(wchar, nonbmp + '\0')
 
     # Test PyUnicode_AsWideCharString()
+    @unittest.skipUnless(_testcapi, 'Requires _testcapi')
     def test_aswidecharstring(self):
         from _testcapi import unicode_aswidecharstring
         support.import_module('ctypes')
@@ -1769,6 +1775,7 @@ class StringModuleTest(unittest.TestCase):
             ]])
         self.assertRaises(TypeError, _string.formatter_field_name_split, 1)
 
+    @unittest.skipUnless(_testcapi, 'Requires _testcapi')
     def test_encode_decimal(self):
         from _testcapi import unicode_encodedecimal
         self.assertEqual(unicode_encodedecimal('123'),
@@ -1794,6 +1801,7 @@ class StringModuleTest(unittest.TestCase):
         self.assertEqual(unicode_encodedecimal("123\u20ac\u0660", "replace"),
                          b'123?0')
 
+    @unittest.skipUnless(_testcapi, 'Requires _testcapi')
     def test_transform_decimal(self):
         from _testcapi import unicode_transformdecimaltoascii as transform_decimal
         self.assertEqual(transform_decimal('123'),

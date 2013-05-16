@@ -2,7 +2,11 @@ from test import support
 import unittest
 import codecs
 import locale
-import sys, _testcapi, io
+import sys, io
+try:
+    import _testcapi
+except ImportError:
+    _testcapi = None
 
 class Queue(object):
     """
@@ -1417,7 +1421,7 @@ class BasicUnicodeTest(unittest.TestCase, MixInCheckStateHandling):
                     decodedresult += reader.read()
                 self.assertEqual(decodedresult, s, "%r != %r (encoding=%r)" % (decodedresult, s, encoding))
 
-            if encoding not in broken_incremental_coders:
+            if encoding not in broken_incremental_coders and _testcapi:
                 # check incremental decoder/encoder (fetched via the Python
                 # and C API) and iterencode()/iterdecode()
                 try:

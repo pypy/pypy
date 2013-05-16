@@ -1,6 +1,9 @@
 """Test cases for traceback module"""
 
-from _testcapi import traceback_print, exception_print
+try:
+    import _testcapi
+except ImportError:
+    _testcapi = None
 from io import StringIO
 import sys
 import unittest
@@ -154,6 +157,7 @@ class SyntaxTracebackCases(unittest.TestCase):
 
 class TracebackFormatTests(unittest.TestCase):
 
+    @unittest.skipUnless(_testcapi, 'Requires _testcapi')
     def test_traceback_format(self):
         try:
             raise KeyError('blah')
@@ -162,7 +166,7 @@ class TracebackFormatTests(unittest.TestCase):
             traceback_fmt = 'Traceback (most recent call last):\n' + \
                             ''.join(traceback.format_tb(tb))
             file_ = StringIO()
-            traceback_print(tb, file_)
+            _testcapi.traceback_print(tb, file_)
             python_fmt  = file_.getvalue()
         else:
             raise Error("unable to create test traceback string")
@@ -326,10 +330,11 @@ class CExcReportingTests(BaseExceptionReportingTests, unittest.TestCase):
     # This checks built-in reporting by the interpreter.
     #
 
+    @unittest.skipUnless(_testcapi, 'Requires _testcapi')
     def get_report(self, e):
         e = self.get_exception(e)
         with captured_output("stderr") as s:
-            exception_print(e)
+            _testcapi.exception_print(e)
         return s.getvalue()
 
 
