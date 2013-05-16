@@ -621,6 +621,9 @@ class AppTest_DictObject:
         assert d.values() == []
         assert d.keys() == []
 
+    def test_cmp_with_noncmp(self):
+        assert not {} > object()
+
 class AppTest_DictMultiObject(AppTest_DictObject):
 
     def test_emptydict_unhashable(self):
