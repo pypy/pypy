@@ -164,7 +164,14 @@ class W_DictMultiObject(W_Root):
     def descr_lt(self, space, w_other):
         if not isinstance(w_other, W_DictMultiObject):
             return space.w_NotImplemented
+        return self._compare_lt(space, w_other)
 
+    def descr_gt(self, space, w_other):
+        if not isinstance(w_other, W_DictMultiObject):
+            return space.w_NotImplemented
+        return w_other._compare_lt(space, self)
+
+    def _compare_lt(self, space, w_other):
         # Different sizes, no problem
         if self.length() < w_other.length():
             return space.w_True
@@ -366,6 +373,18 @@ app = gateway.applevel('''
 dictrepr = app.interphook("dictrepr")
 
 
+def negate(f):
+    def _negator(space, w_self, w_other):
+        # no need to use space.is_ / space.not_
+        tmp = f(w_self, space, w_other)
+        if tmp == space.w_NotImplemented:
+            return space.w_NotImplemented
+        elif tmp == space.w_False:
+            return space.w_True
+        else:
+            return space.w_False
+    return _negator
+
 W_DictMultiObject.typedef = StdTypeDef("dict",
     __doc__ = '''dict() -> new empty dictionary.
 dict(mapping) -> new dictionary initialized from a mapping object\'s
@@ -384,8 +403,11 @@ dict(**kwargs) -> new dictionary initialized with the name=value pairs
     __init__ = gateway.interp2app(W_DictMultiObject.descr_init),
 
     __eq__ = gateway.interp2app(W_DictMultiObject.descr_eq),
+    __ne__ = gateway.interp2app(negate(W_DictMultiObject.descr_eq)),
     __lt__ = gateway.interp2app(W_DictMultiObject.descr_lt),
-    __total_ordering__ = 'auto',
+    __le__ = gateway.interp2app(negate(W_DictMultiObject.descr_gt)),
+    __gt__ = gateway.interp2app(W_DictMultiObject.descr_gt),
+    __ge__ = gateway.interp2app(negate(W_DictMultiObject.descr_lt)),
 
     __len__ = gateway.interp2app(W_DictMultiObject.descr_len),
     __iter__ = gateway.interp2app(W_DictMultiObject.descr_iter),
