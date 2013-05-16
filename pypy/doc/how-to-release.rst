@@ -22,7 +22,7 @@ Release Steps
   will capture the revision number of this change for the release;
   some of the next updates may be done before or after branching; make
   sure things are ported back to the trunk and to the branch as
-  necessary
+  necessary; also update the version number in pypy/doc/conf.py
 * update pypy/doc/contributor.rst (and possibly LICENSE)
 * rename pypy/doc/whatsnew_head.rst to whatsnew_VERSION.rst
   and create a fresh whatsnew_head.rst after the release
