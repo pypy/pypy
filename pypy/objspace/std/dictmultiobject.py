@@ -40,6 +40,19 @@ def w_dict_unrolling_heuristic(w_dct):
                                     w_dct.length() <= UNROLL_CUTOFF)
 
 
+def negate(f):
+    def _negator(self, space, w_other):
+        # no need to use space.is_ / space.not_
+        tmp = f(self, space, w_other)
+        if tmp is space.w_NotImplemented:
+            return space.w_NotImplemented
+        elif tmp is space.w_False:
+            return space.w_True
+        else:
+            return space.w_False
+    _negator.func_name = 'negate-%s' % f.func_name
+    return _negator
+
 class W_DictMultiObject(W_Root):
     @staticmethod
     def allocate_and_init_instance(space, w_type=None, module=False,
@@ -192,6 +205,10 @@ class W_DictMultiObject(W_Root):
             w_rightval is not None):
             w_res = space.lt(w_leftval, w_rightval)
         return w_res
+
+    descr_ne = negate(descr_eq)
+    descr_le = negate(descr_gt)
+    descr_ge = negate(descr_lt)
 
     def descr_len(self, space):
         return space.wrap(self.length())
@@ -373,19 +390,6 @@ app = gateway.applevel('''
 dictrepr = app.interphook("dictrepr")
 
 
-def negate(f):
-    def _negator(space, w_self, w_other):
-        # no need to use space.is_ / space.not_
-        tmp = f(w_self, space, w_other)
-        if tmp == space.w_NotImplemented:
-            return space.w_NotImplemented
-        elif tmp == space.w_False:
-            return space.w_True
-        else:
-            return space.w_False
-    _negator.func_name = 'negate-%s' % f
-    return _negator
-
 W_DictMultiObject.typedef = StdTypeDef("dict",
     __doc__ = '''dict() -> new empty dictionary.
 dict(mapping) -> new dictionary initialized from a mapping object\'s
@@ -404,11 +408,11 @@ dict(**kwargs) -> new dictionary initialized with the name=value pairs
     __init__ = gateway.interp2app(W_DictMultiObject.descr_init),
 
     __eq__ = gateway.interp2app(W_DictMultiObject.descr_eq),
-    __ne__ = gateway.interp2app(negate(W_DictMultiObject.descr_eq)),
+    __ne__ = gateway.interp2app(W_DictMultiObject.descr_ne),
     __lt__ = gateway.interp2app(W_DictMultiObject.descr_lt),
-    __le__ = gateway.interp2app(negate(W_DictMultiObject.descr_gt)),
+    __le__ = gateway.interp2app(W_DictMultiObject.descr_le),
     __gt__ = gateway.interp2app(W_DictMultiObject.descr_gt),
-    __ge__ = gateway.interp2app(negate(W_DictMultiObject.descr_lt)),
+    __ge__ = gateway.interp2app(W_DictMultiObject.descr_ge),
 
     __len__ = gateway.interp2app(W_DictMultiObject.descr_len),
     __iter__ = gateway.interp2app(W_DictMultiObject.descr_iter),
