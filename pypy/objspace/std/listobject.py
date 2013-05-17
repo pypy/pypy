@@ -1,6 +1,3 @@
-from pypy.objspace.std.model import registerimplementation, W_Object
-from pypy.objspace.std.register_all import register_all
-from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.generator import GeneratorIterator
 from pypy.objspace.std.inttype import wrapint
@@ -9,6 +6,7 @@ from pypy.objspace.std import slicetype
 from pypy.interpreter.gateway import WrappedDefault, unwrap_spec, applevel,\
      interp2app
 from pypy.interpreter import baseobjspace
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.signature import Signature
 from rpython.rlib.objectmodel import (instantiate, newlist_hint, specialize,
                                    resizelist_hint)
@@ -22,7 +20,7 @@ from sys import maxint
 UNROLL_CUTOFF = 5
 
 
-class W_AbstractListObject(W_Object):
+class W_AbstractListObject(W_Root):
     __slots__ = ()
 
 def make_range_list(space, start, step, length):
@@ -677,8 +675,6 @@ class W_ListObject(W_AbstractListObject):
                                  space.wrap("list modified during sort"))
 
         return space.w_None
-
-registerimplementation(W_ListObject)
 
 
 class ListStrategy(object):
@@ -1676,12 +1672,9 @@ def descr_new(space, w_listtype, __args__):
 
 # ____________________________________________________________
 
-# ____________________________________________________________
-
 def get_list_index(space, w_index):
     return space.getindex_w(w_index, space.w_IndexError, "list index")
 
-register_all(vars(), globals())
 
 W_ListObject.typedef = StdTypeDef("list",
     __doc__ = """list() -> new list
@@ -1726,6 +1719,3 @@ list(sequence) -> new list initialized from sequence's items""",
     insert = interp2app(W_ListObject.descr_insert),
     remove = interp2app(W_ListObject.descr_remove),
     )
-W_ListObject.typedef.registermethods(globals())
-
-list_typedef = W_ListObject.typedef
