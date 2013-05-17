@@ -80,7 +80,9 @@ class W_Dtype(W_Root):
         return self.itemtype.coerce(space, self, w_item)
 
     def getitem(self, arr, i):
-        return self.itemtype.read(arr, i, 0)
+        item = self.itemtype.read(arr, i, 0)
+        assert isinstance(item, interp_boxes.W_GenericBox)
+        return item
 
     def getitem_bool(self, arr, i):
         return self.itemtype.read_bool(arr, i, 0)
