@@ -3,8 +3,7 @@ import sys
 import py
 
 from pypy.objspace.std.dictmultiobject import (W_DictMultiObject,
-    setitem__DictMulti_ANY_ANY, getitem__DictMulti_ANY, StringDictStrategy,
-    ObjectDictStrategy)
+    StringDictStrategy, ObjectDictStrategy)
 
 
 class TestW_DictObject(object):
@@ -398,6 +397,24 @@ class AppTest_DictObject:
             f = getattr(operator, op)
             raises(TypeError, f, d1, d2)
 
+    def test_other_rich_cmp(self):
+        d1 = {1: 2, 3: 4}
+        d2 = {1: 2, 3: 4}
+        d3 = {1: 2, 3: 5}
+        d4 = {1: 2}
+
+        assert d1 <= d2
+        assert d1 <= d3
+        assert not d1 <= d4
+
+        assert not d1 > d2
+        assert not d1 > d3
+        assert d1 > d4
+
+        assert d1 >= d2
+        assert not d1 >= d3
+        assert d1 >= d4
+
     def test_str_repr(self):
         assert '{}' == str({})
         assert '{1: 2}' == str({1: 2})
@@ -596,6 +613,9 @@ class AppTest_DictObject:
     def test_bytes_keys(self):
         assert isinstance(list({b'a': 1})[0], bytes)
 
+
+    def test_cmp_with_noncmp(self):
+        assert not {} > object()
 
 class AppTest_DictMultiObject(AppTest_DictObject):
 
@@ -1127,10 +1147,10 @@ class TestDictImplementation:
         pydict = {}
         for i in range(N):
             x = randint(-N, N)
-            setitem__DictMulti_ANY_ANY(self.space, d, x, i)
+            d.descr_setitem(self.space, x, i)
             pydict[x] = i
         for key, value in pydict.iteritems():
-            assert value == getitem__DictMulti_ANY(self.space, d, key)
+            assert value == d.descr_getitem(self.space, key)
 
 class BaseTestRDictImplementation:
 
