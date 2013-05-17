@@ -1703,16 +1703,48 @@ class StringType(BaseType, BaseStringType):
 class VoidType(BaseType, BaseStringType):
     T = lltype.Char
 
-    def coerce(self, space, dtype, w_items):
+    def _coerce(self, space, arr, ofs, dtype, w_items, shape):
         items_w = space.fixedview(w_items)
-        arr = VoidBoxStorage(self.size, dtype)
-        ofs = 0
         for i in range(len(items_w)):
             subdtype = dtype.subdtype
             itemtype = subdtype.itemtype
-            w_box = itemtype.coerce(space, dtype.subdtype, items_w[i])
-            itemtype.store(arr, 0, ofs, w_box)
-            ofs += itemtype.get_element_size()
+            if space.len_w(shape) <= 1:
+                w_box = itemtype.coerce(space, dtype.subdtype, items_w[i])
+                itemtype.store(arr, 0, ofs, w_box)
+                ofs += itemtype.get_element_size()
+            else:
+                size = 1
+                for dimension in shape[1:]:
+                    size *= dimension
+                size *= itemtype.get_element_size()
+                for w_item in items_w:
+                    self._coerce(space, arr, ofs, dtype, w_items, shape[1:])
+                    ofs += size
+        return arr
+
+    def _coerce(self, space, arr, ofs, dtype, w_items, shape):
+        # TODO: Make sure the shape and the array match
+        items_w = space.fixedview(w_items)
+        subdtype = dtype.subdtype
+        itemtype = subdtype.itemtype
+        if len(shape) <= 1:
+            for i in range(len(items_w)):
+                w_box = itemtype.coerce(space, dtype.subdtype, items_w[i])
+                itemtype.store(arr, 0, ofs, w_box)
+                ofs += itemtype.get_element_size()
+        else:
+            for i in range(len(items_w)):
+                size = 1
+                for dimension in shape[1:]:
+                    size *= dimension
+                size *= itemtype.get_element_size()
+                for w_item in items_w:
+                    self._coerce(space, arr, ofs, dtype, w_item, shape[1:])
+                ofs += size
+
+    def coerce(self, space, dtype, w_items):
+        arr = VoidBoxStorage(self.size, dtype)
+        self._coerce(space, arr, 0, dtype, w_items, dtype.shape)
         return interp_boxes.W_VoidBox(arr, 0, dtype)
 
     @jit.unroll_safe
