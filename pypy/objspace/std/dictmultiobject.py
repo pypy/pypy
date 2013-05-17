@@ -1197,11 +1197,6 @@ class W_BaseDictMultiIterObject(W_Root):
         w_ret = space.newtuple([new_inst, space.newtuple(tup)])
         return w_ret
 
-W_BaseDictMultiIterObject.typedef = StdTypeDef("dictionaryiterator",
-    __length_hint__ = gateway.interp2app(W_BaseDictMultiIterObject.descr_length_hint),
-    __reduce__      = gateway.interp2app(W_BaseDictMultiIterObject.descr_reduce),
-    )
-
 
 class W_DictMultiIterKeysObject(W_BaseDictMultiIterObject):
     def descr_next(self, space):
