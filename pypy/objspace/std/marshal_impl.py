@@ -12,6 +12,7 @@ from pypy.interpreter.error import OperationError
 from pypy.objspace.std.register_all import register_all
 from rpython.rlib.rarithmetic import LONG_BIT, r_longlong, r_uint, intmask
 from pypy.objspace.std import model
+from pypy.objspace.std.dictmultiobject import W_DictMultiObject
 from pypy.interpreter.special import Ellipsis
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter import gateway, unicodehelper
@@ -309,6 +310,8 @@ def finish_List(space, items_w, typecode):
 register(TYPE_LIST, unmarshal_List)
 
 def marshal_w_dict(space, w_dict, m):
+    if not isinstance(w_dict, W_DictMultiObject):
+        raise_exception(space, "unmarshallable object")
     m.start(TYPE_DICT)
     for w_tuple in w_dict.items():
         w_key, w_value = space.fixedview(w_tuple, 2)
