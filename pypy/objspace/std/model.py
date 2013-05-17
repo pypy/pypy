@@ -326,9 +326,6 @@ class W_Object(W_Root):
             s += ' instance of %s' % self.w__class__
         return '<%s>' % s
 
-    def unwrap(self, space):
-        raise UnwrapError('cannot unwrap %r' % self)
-
 
 class UnwrapError(Exception):
     pass
