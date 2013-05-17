@@ -1721,7 +1721,7 @@ class VoidType(BaseType, BaseStringType):
         for k in range(self.get_element_size()):
             arr.storage[k + ofs] = box.arr.storage[k + box.ofs]
 
-    def read(self, arr, i, offset, dtype=None):
+    def readarray(self, arr, i, offset, dtype=None):
         from pypy.module.micronumpy.base import W_NDimArray
         if dtype is None:
             dtype = arr.dtype

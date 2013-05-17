@@ -85,7 +85,6 @@ class W_Dtype(W_Root):
 
     def getitem(self, arr, i):
         item = self.itemtype.read(arr, i, 0)
-        assert isinstance(item, interp_boxes.W_GenericBox)
         return item
 
     def getitem_bool(self, arr, i):

@@ -18,9 +18,11 @@ class MockDtype(object):
         def get_element_size():
             return 1
 
+    def __init__(self):
+        self.base = self
+
     def get_size(self):
         return 1
-
 
 def create_slice(a, chunks):
     return Chunks(chunks).apply(W_NDimArray(a)).implementation
@@ -2700,7 +2702,7 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         assert a[1]['y'] == 1
 
     def test_subarrays(self):
-        from numpypy import dtype, array
+        from numpypy import dtype, array, zeros
 
         d = dtype([("x", "int", 3), ("y", "float", 5)])
         a = array([([1, 2, 3], [0.5, 1.5, 2.5, 3.5, 4.5]), ([4, 5, 6], [5.5, 6.5, 7.5, 8.5, 9.5])], dtype=d)
@@ -2715,6 +2717,13 @@ class AppTestRecordDtype(BaseNumpyAppTest):
 
         assert len(list(a[0])) == 2
 
+        d = dtype((float, (10, 10)))
+        a = zeros((3,3), dtype=d)
+        assert a[0, 0].shape == (10, 10)
+        assert a.shape == (3, 3, 10, 10)
+        a[0, 0] = 500
+        assert (a[0, 0, 0] == 500).all()
+        assert a[0, 0, 0].shape == (10,)
 
 class AppTestPyPy(BaseNumpyAppTest):
     def setup_class(cls):
