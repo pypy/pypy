@@ -1273,6 +1273,14 @@ class W_DictViewObject(W_Root):
     def descr_len(self, space):
         return space.len(self.w_dict)
 
+class SetLikeDictView(object):
+    _mixin_ = True
+
+    def descr_sub(self, space, w_otherview):
+        w_set = space.call_function(space.w_set, self)
+        space.call_method(w_set, "difference_update", w_otherview)
+        return w_set
+
     def descr_and(self, space, w_otherview):
         w_set = space.call_function(space.w_set, self)
         space.call_method(w_set, "intersection_update", w_otherview)
@@ -1288,11 +1296,11 @@ class W_DictViewObject(W_Root):
         space.call_method(w_set, "symmetric_difference_update", w_otherview)
         return w_set
 
-class W_DictViewItemsObject(W_DictViewObject):
+class W_DictViewItemsObject(W_DictViewObject, SetLikeDictView):
     def descr_iter(self, space):
         return W_DictMultiIterItemsObject(space, self.w_dict.iteritems())
 
-class W_DictViewKeysObject(W_DictViewObject):
+class W_DictViewKeysObject(W_DictViewObject, SetLikeDictView):
     def descr_iter(self, space):
         return W_DictMultiIterKeysObject(space, self.w_dict.iterkeys())
 
@@ -1306,6 +1314,7 @@ W_DictViewItemsObject.typedef = StdTypeDef(
     __eq__ = interp2app(W_DictViewItemsObject.descr_eq),
     __len__ = interp2app(W_DictViewItemsObject.descr_len),
     __iter__ = interp2app(W_DictViewItemsObject.descr_iter),
+    __sub__ = interp2app(W_DictViewItemsObject.descr_sub),
     __and__ = interp2app(W_DictViewItemsObject.descr_and),
     __or__ = interp2app(W_DictViewItemsObject.descr_or),
     __xor__ = interp2app(W_DictViewItemsObject.descr_xor)
@@ -1317,6 +1326,7 @@ W_DictViewKeysObject.typedef = StdTypeDef(
     __eq__ = interp2app(W_DictViewKeysObject.descr_eq),
     __len__ = interp2app(W_DictViewKeysObject.descr_len),
     __iter__ = interp2app(W_DictViewKeysObject.descr_iter),
+    __sub__ = interp2app(W_DictViewKeysObject.descr_sub),
     __and__ = interp2app(W_DictViewKeysObject.descr_and),
     __or__ = interp2app(W_DictViewKeysObject.descr_or),
     __xor__ = interp2app(W_DictViewKeysObject.descr_xor)
@@ -1328,7 +1338,4 @@ W_DictViewValuesObject.typedef = StdTypeDef(
     __eq__ = interp2app(W_DictViewValuesObject.descr_eq),
     __len__ = interp2app(W_DictViewValuesObject.descr_len),
     __iter__ = interp2app(W_DictViewValuesObject.descr_iter),
-    __and__ = interp2app(W_DictViewValuesObject.descr_and),
-    __or__ = interp2app(W_DictViewValuesObject.descr_or),
-    __xor__ = interp2app(W_DictViewValuesObject.descr_xor)
     )
