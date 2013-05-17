@@ -19,3 +19,6 @@ Remove multi-methods on sets
 
 .. branch: numpy-subarrays
 Implement subarrays for numpy
+
+.. branch: remove-set-smm
+Remove multi-methods on dict
