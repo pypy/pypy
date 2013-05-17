@@ -242,6 +242,11 @@ class W_Root(object):
     def __spacebind__(self, space):
         return self
 
+    def unwrap(self, space):
+        """NOT_RPYTHON"""
+        # _____ this code is here to support testing only _____
+        return self
+
 
 class W_InterpIterable(W_Root):
     def __init__(self, space, w_iterable):

@@ -16,3 +16,9 @@ Fixed bug when switching stacklets from a C callback
 
 .. branch: remove-set-smm
 Remove multi-methods on sets
+
+.. branch: numpy-subarrays
+Implement subarrays for numpy
+
+.. branch: remove-dict-smm
+Remove multi-methods on dict

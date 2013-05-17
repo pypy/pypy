@@ -253,10 +253,9 @@ class StdObjSpace(ObjSpace, DescrOperation):
 
     def unwrap(self, w_obj):
         """NOT_RPYTHON"""
-        if isinstance(w_obj, model.W_Object):
-            return w_obj.unwrap(self)
+        # _____ this code is here to support testing only _____
         if isinstance(w_obj, W_Root):
-            return w_obj
+            return w_obj.unwrap(self)
         raise model.UnwrapError("cannot unwrap: %r" % w_obj)
 
     def newint(self, intval):

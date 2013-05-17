@@ -331,6 +331,11 @@ class AsmStackRootWalker(BaseRootWalker):
                                            [annmodel.SomeInteger(),
                                             annmodel.SomeAddress()],
                                            annmodel.s_None)
+        #
+        # check that the order of the need_*() is correct for us: if we
+        # need both threads and stacklets, need_thread_support() must be
+        # called first, to initialize self.belongs_to_current_thread.
+        assert not hasattr(self, 'gc_detach_callback_pieces_ptr')
 
     def walk_stack_roots(self, collect_stack_root):
         gcdata = self.gcdata
