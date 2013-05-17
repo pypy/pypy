@@ -124,7 +124,7 @@ def is_W_FloatObject(w_object):
     from pypy.objspace.std.floatobject import W_FloatObject
     return type(w_object) is W_FloatObject
 
-def list_unroll_condition(space, w_list1, w_list2):
+def list_unroll_condition(w_list1, space, w_list2):
     return jit.loop_unrolling_heuristic(w_list1, w_list1.length(), UNROLL_CUTOFF) or \
            jit.loop_unrolling_heuristic(w_list2, w_list2.length(), UNROLL_CUTOFF)
 
@@ -376,27 +376,34 @@ class W_ListObject(W_AbstractListObject):
     def descr_ne(self, space, w_other):
         return space.not_(self.descr_eq(space, w_other))
 
-    @staticmethod
     def _make_list_comparison(name):
         import operator
         op = getattr(operator, name)
 
         @jit.look_inside_iff(list_unroll_condition)
-        def compare_unwrappeditems(space, w_list1, w_list2):
+        def compare_unwrappeditems(self, space, w_list2):
+            if not isinstance(w_list2, W_ListObject):
+                return space.w_NotImplemented
+
             # needs to be safe against eq_w() mutating the w_lists behind our back
             # Search for the first index where items are different
             i = 0
             # XXX in theory, this can be implemented more efficiently as well.
             # let's not care for now
-            while i < w_list1.length() and i < w_list2.length():
-                w_item1 = w_list1.getitem(i)
+            while i < self.length() and i < w_list2.length():
+                w_item1 = self.getitem(i)
                 w_item2 = w_list2.getitem(i)
                 if not space.eq_w(w_item1, w_item2):
                     return getattr(space, name)(w_item1, w_item2)
                 i += 1
             # No more items to compare -- compare sizes
-            return space.newbool(op(w_list1.length(), w_list2.length()))
+            return space.newbool(op(self.length(), w_list2.length()))
         return func_with_new_name(compare_unwrappeditems, name + '__List_List')
+
+    descr_lt = _make_list_comparison('lt')
+    descr_le = _make_list_comparison('le')
+    descr_gt = _make_list_comparison('gt')
+    descr_ge = _make_list_comparison('ge')
 
     def descr_len(self, space):
         result = self.length()
@@ -451,7 +458,7 @@ class W_ListObject(W_AbstractListObject):
             times = space.getindex_w(w_times, space.w_OverflowError)
         except OperationError, e:
             if e.match(space, space.w_TypeError):
-                raise FailedToImplement
+                return space.w_NotImplemented
             raise
         self.inplace_mul(times)
         return self
@@ -1685,10 +1692,10 @@ list(sequence) -> new list initialized from sequence's items""",
 
     __eq__ = interp2app(W_ListObject.descr_eq),
     __ne__ = interp2app(W_ListObject.descr_ne),
-    __lt__ = interp2app(W_ListObject._make_list_comparison('lt')),
-    __le__ = interp2app(W_ListObject._make_list_comparison('le')),
-    __gt__ = interp2app(W_ListObject._make_list_comparison('gt')),
-    __ge__ = interp2app(W_ListObject._make_list_comparison('ge')),
+    __lt__ = interp2app(W_ListObject.descr_lt),
+    __le__ = interp2app(W_ListObject.descr_le),
+    __gt__ = interp2app(W_ListObject.descr_gt),
+    __ge__ = interp2app(W_ListObject.descr_ge),
 
     __len__ = interp2app(W_ListObject.descr_len),
     __iter__ = interp2app(W_ListObject.descr_iter),
