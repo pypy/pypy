@@ -355,11 +355,13 @@ class W_ListObject(W_AbstractListObject):
             w_currently_in_repr = ec._py_repr = space.newdict()
         return listrepr(space, w_currently_in_repr, self)
 
-    @jit.look_inside_iff(list_unroll_condition)
     def descr_eq(self, space, w_other):
         if not isinstance(w_other, W_ListObject):
             return space.w_NotImplemented
+        return self._descr_eq(space, w_other)
 
+    @jit.look_inside_iff(list_unroll_condition)
+    def _descr_eq(self, space, w_other):
         # needs to be safe against eq_w() mutating the w_lists behind our back
         if self.length() != w_other.length():
             return space.w_False
@@ -380,11 +382,13 @@ class W_ListObject(W_AbstractListObject):
         import operator
         op = getattr(operator, name)
 
-        @jit.look_inside_iff(list_unroll_condition)
         def compare_unwrappeditems(self, space, w_list2):
             if not isinstance(w_list2, W_ListObject):
                 return space.w_NotImplemented
+            return _compare_unwrappeditems(self, space, w_list2)
 
+        @jit.look_inside_iff(list_unroll_condition)
+        def _compare_unwrappeditems(self, space, w_list2):
             # needs to be safe against eq_w() mutating the w_lists behind our back
             # Search for the first index where items are different
             i = 0
@@ -398,6 +402,7 @@ class W_ListObject(W_AbstractListObject):
                 i += 1
             # No more items to compare -- compare sizes
             return space.newbool(op(self.length(), w_list2.length()))
+
         return func_with_new_name(compare_unwrappeditems, name + '__List_List')
 
     descr_lt = _make_list_comparison('lt')
