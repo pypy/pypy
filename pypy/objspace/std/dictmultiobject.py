@@ -1230,19 +1230,22 @@ class W_DictMultiIterItemsObject(W_BaseDictMultiIterObject):
 W_DictMultiIterItemsObject.typedef = StdTypeDef(
     "dict_iteritems",
     __iter__ = gateway.interp2app(W_DictMultiIterItemsObject.descr_iter),
-    next = gateway.interp2app(W_DictMultiIterItemsObject.descr_next)
+    next = gateway.interp2app(W_DictMultiIterItemsObject.descr_next),
+    __length_hint__ = gateway.interp2app(W_BaseDictMultiIterObject.descr_length_hint)
     )
 
 W_DictMultiIterKeysObject.typedef = StdTypeDef(
     "dict_iterkeys",
     __iter__ = gateway.interp2app(W_DictMultiIterKeysObject.descr_iter),
-    next = gateway.interp2app(W_DictMultiIterKeysObject.descr_next)
+    next = gateway.interp2app(W_DictMultiIterKeysObject.descr_next),
+    __length_hint__ = gateway.interp2app(W_BaseDictMultiIterObject.descr_length_hint)
     )
 
 W_DictMultiIterValuesObject.typedef = StdTypeDef(
     "dict_itervalues",
     __iter__ = gateway.interp2app(W_DictMultiIterValuesObject.descr_iter),
-    next = gateway.interp2app(W_DictMultiIterValuesObject.descr_next)
+    next = gateway.interp2app(W_DictMultiIterValuesObject.descr_next),
+    __length_hint__ = gateway.interp2app(W_BaseDictMultiIterObject.descr_length_hint)
     )
 
 
