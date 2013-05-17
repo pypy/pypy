@@ -2715,7 +2715,11 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         a[0]["x"][0] = 200
         assert a[0]["x"][0] == 200
 
-        assert len(list(a[0])) == 2
+        d = dtype([("x", "int", (2, 3))])
+        a = array([([[1, 2, 3], [4, 5, 6]],)], dtype=d)
+
+        assert (a[0]["x"] == [[1, 2, 3], [4, 5, 6]]).all()
+        assert (a[0]["x"][0] == [1, 2, 3]).all()
 
         d = dtype((float, (10, 10)))
         a = zeros((3,3), dtype=d)
@@ -2724,6 +2728,14 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         a[0, 0] = 500
         assert (a[0, 0, 0] == 500).all()
         assert a[0, 0, 0].shape == (10,)
+
+    def test_list_record(self):
+        from numpypy import dtype, array
+
+        d = dtype([("x", "int", 3), ("y", "float", 5)])
+        a = array([([1, 2, 3], [0.5, 1.5, 2.5, 3.5, 4.5]), ([4, 5, 6], [5.5, 6.5, 7.5, 8.5, 9.5])], dtype=d)
+
+        assert len(list(a[0])) == 2
 
 class AppTestPyPy(BaseNumpyAppTest):
     def setup_class(cls):
