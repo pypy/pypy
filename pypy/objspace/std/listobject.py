@@ -332,6 +332,12 @@ class W_ListObject(W_AbstractListObject):
 
     # exposed to app-level
 
+    @staticmethod
+    def descr_new(space, w_listtype, __args__):
+        w_obj = space.allocate_instance(W_ListObject, w_listtype)
+        w_obj.clear(space)
+        return w_obj
+
     def descr_init(self, space, __args__):
         # this is on the silly side
         w_iterable, = __args__.parse_obj(
@@ -1665,13 +1671,6 @@ class CustomKeyCompareSort(CustomCompareSort):
 
 # ____________________________________________________________
 
-def descr_new(space, w_listtype, __args__):
-    w_obj = space.allocate_instance(W_ListObject, w_listtype)
-    w_obj.clear(space)
-    return w_obj
-
-# ____________________________________________________________
-
 def get_list_index(space, w_index):
     return space.getindex_w(w_index, space.w_IndexError, "list index")
 
@@ -1679,7 +1678,7 @@ def get_list_index(space, w_index):
 W_ListObject.typedef = StdTypeDef("list",
     __doc__ = """list() -> new list
 list(sequence) -> new list initialized from sequence's items""",
-    __new__ = interp2app(descr_new),
+    __new__ = interp2app(W_ListObject.descr_new),
     __init__ = interp2app(W_ListObject.descr_init),
     __repr__ = interp2app(W_ListObject.descr_repr),
     __hash__ = None,
