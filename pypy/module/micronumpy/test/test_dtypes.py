@@ -778,6 +778,7 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
         assert d.num == 20
         assert d.itemsize == 20
         assert d.kind == 'V'
+        assert d.base == d
         assert d.type is void
         assert d.char == 'V'
         assert d.names == ("x", "y", "z", "value")
@@ -808,7 +809,8 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
         assert dt.shape == (10,)
         assert dt.kind == 'V'
         assert dt.fields == None
-        assert dt.subdtype == (dtype("float64"), (10,))
+        assert dt.subdtype == (dtype(float), (10,))
+        assert dt.base == dtype(float)
 
 class AppTestNotDirect(BaseNumpyAppTest):
     def setup_class(cls):
