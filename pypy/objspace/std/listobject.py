@@ -17,6 +17,8 @@ from rpython.rlib.objectmodel import (instantiate, newlist_hint, specialize,
     resizelist_hint)
 from rpython.tool.sourcetools import func_with_new_name
 
+__all__ = ['W_ListObject', 'make_range_list', 'make_empty_list_with_size']
+
 
 UNROLL_CUTOFF = 5
 
