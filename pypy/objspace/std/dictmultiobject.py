@@ -171,41 +171,7 @@ class W_DictMultiObject(W_Root):
                 return space.w_False
         return space.w_True
 
-    def descr_lt(self, space, w_other):
-        if not isinstance(w_other, W_DictMultiObject):
-            return space.w_NotImplemented
-        return self._compare_lt(space, w_other)
-
-    def descr_gt(self, space, w_other):
-        if not isinstance(w_other, W_DictMultiObject):
-            return space.w_NotImplemented
-        return w_other._compare_lt(space, self)
-
-    def _compare_lt(self, space, w_other):
-        # Different sizes, no problem
-        if self.length() < w_other.length():
-            return space.w_True
-        if self.length() > w_other.length():
-            return space.w_False
-
-        # Same size
-        w_leftdiff, w_leftval = characterize(space, self, w_other)
-        if w_leftdiff is None:
-            return space.w_False
-        w_rightdiff, w_rightval = characterize(space, w_other, self)
-        if w_rightdiff is None:
-            # w_leftdiff is not None, w_rightdiff is None
-            return space.w_True
-        w_res = space.lt(w_leftdiff, w_rightdiff)
-        if (not space.is_true(w_res) and
-            space.eq_w(w_leftdiff, w_rightdiff) and
-            w_rightval is not None):
-            w_res = space.lt(w_leftval, w_rightval)
-        return w_res
-
     descr_ne = negate(descr_eq)
-    descr_le = negate(descr_gt)
-    descr_ge = negate(descr_lt)
 
     def descr_len(self, space):
         return space.wrap(self.length())
@@ -247,16 +213,16 @@ class W_DictMultiObject(W_Root):
         return w_new
 
     def descr_items(self, space):
-        """D.items() -> list of D's (key, value) pairs, as 2-tuples"""
-        return space.newlist(self.items())
+        """D.items() -> a set-like object providing a view on D's items"""
+        return W_DictViewItemsObject(space, self)
 
     def descr_keys(self, space):
-        """D.keys() -> list of D's keys"""
-        return self.w_keys()
+        """D.keys() -> a set-like object providing a view on D's keys"""
+        return W_DictViewKeysObject(space, self)
 
     def descr_values(self, space):
-        """D.values() -> list of D's values"""
-        return space.newlist(self.values())
+        """D.values() -> an object providing a view on D's values"""
+        return W_DictViewValuesObject(space, self)
 
     def descr_iteritems(self, space):
         """D.iteritems() -> an iterator over the (key, value) items of D"""
@@ -269,22 +235,6 @@ class W_DictMultiObject(W_Root):
     def descr_itervalues(self, space):
         """D.itervalues() -> an iterator over the values of D"""
         return W_DictMultiIterValuesObject(space, self.itervalues())
-
-    def descr_viewitems(self, space):
-        """D.viewitems() -> a set-like object providing a view on D's items"""
-        return W_DictViewItemsObject(space, self)
-
-    def descr_viewkeys(self, space):
-        """D.viewkeys() -> a set-like object providing a view on D's keys"""
-        return W_DictViewKeysObject(space, self)
-
-    def descr_viewvalues(self, space):
-        """D.viewvalues() -> an object providing a view on D's values"""
-        return W_DictViewValuesObject(space, self)
-
-    def descr_has_key(self, space, w_key):
-        """D.has_key(k) -> True if D has a key k, else False"""
-        return space.newbool(self.getitem(w_key) is not None)
 
     def descr_clear(self, space):
         """D.clear() -> None.  Remove all items from D."""
@@ -369,10 +319,11 @@ app = applevel('''
         currently_in_repr[dict_id] = 1
         try:
             items = []
-            # XXX for now, we cannot use iteritems() at app-level because
-            #     we want a reasonable result instead of a RuntimeError
-            #     even if the dict is mutated by the repr() in the loop.
-            for k, v in dict.items(d):
+            # XXX for now, we cannot use items() without list at
+            #     app-level because we want a reasonable result instead
+            #     of a RuntimeError even if the dict is mutated by the
+            #     repr() in the loop.
+            for k, v in list(dict.items(d)):
                 items.append(repr(k) + ": " + repr(v))
             return "{" +  ', '.join(items) + "}"
         finally:
@@ -404,10 +355,6 @@ dict(**kwargs) -> new dictionary initialized with the name=value pairs
 
     __eq__ = interp2app(W_DictMultiObject.descr_eq),
     __ne__ = interp2app(W_DictMultiObject.descr_ne),
-    __lt__ = interp2app(W_DictMultiObject.descr_lt),
-    __le__ = interp2app(W_DictMultiObject.descr_le),
-    __gt__ = interp2app(W_DictMultiObject.descr_gt),
-    __ge__ = interp2app(W_DictMultiObject.descr_ge),
 
     __len__ = interp2app(W_DictMultiObject.descr_len),
     __iter__ = interp2app(W_DictMultiObject.descr_iter),
@@ -422,13 +369,10 @@ dict(**kwargs) -> new dictionary initialized with the name=value pairs
     items = interp2app(W_DictMultiObject.descr_items),
     keys = interp2app(W_DictMultiObject.descr_keys),
     values = interp2app(W_DictMultiObject.descr_values),
+    # XXX:
     iteritems = interp2app(W_DictMultiObject.descr_iteritems),
     iterkeys = interp2app(W_DictMultiObject.descr_iterkeys),
     itervalues = interp2app(W_DictMultiObject.descr_itervalues),
-    viewkeys = interp2app(W_DictMultiObject.descr_viewkeys),
-    viewitems = interp2app(W_DictMultiObject.descr_viewitems),
-    viewvalues = interp2app(W_DictMultiObject.descr_viewvalues),
-    has_key = interp2app(W_DictMultiObject.descr_has_key),
     clear = interp2app(W_DictMultiObject.descr_clear),
     get = interp2app(W_DictMultiObject.descr_get),
     pop = interp2app(W_DictMultiObject.descr_pop),
@@ -1106,29 +1050,6 @@ def init_or_update(space, w_dict, __args__, funcname):
     if space.is_true(w_kwds):
         update1(space, w_dict, w_kwds)
 
-def characterize(space, w_a, w_b):
-    """(similar to CPython)
-    returns the smallest key in acontent for which b's value is
-    different or absent and this value"""
-    w_smallest_diff_a_key = None
-    w_its_value = None
-    iteratorimplementation = w_a.iteritems()
-    while True:
-        w_key, w_val = iteratorimplementation.next_item()
-        if w_key is None:
-            break
-        if w_smallest_diff_a_key is None or space.is_true(space.lt(
-                w_key, w_smallest_diff_a_key)):
-            w_bvalue = w_b.getitem(w_key)
-            if w_bvalue is None:
-                w_its_value = w_val
-                w_smallest_diff_a_key = w_key
-            else:
-                if not space.eq_w(w_val, w_bvalue):
-                    w_its_value = w_val
-                    w_smallest_diff_a_key = w_key
-    return w_smallest_diff_a_key, w_its_value
-
 
 # ____________________________________________________________
 # Iteration
@@ -1161,7 +1082,7 @@ class W_BaseDictMultiIterObject(W_Root):
         This is of course not the standard way.
 
         XXX to do: remove this __reduce__ method and do
-        a registration with copy_reg, instead.
+        a registration with copyreg, instead.
         """
         w_mod    = space.getbuiltinmodule('_pickle_support')
         mod      = space.interp_w(MixedModule, w_mod)
@@ -1225,21 +1146,21 @@ class W_DictMultiIterItemsObject(W_BaseDictMultiIterObject):
 W_DictMultiIterItemsObject.typedef = StdTypeDef(
     "dict_iteritems",
     __iter__ = interp2app(W_DictMultiIterItemsObject.descr_iter),
-    next = interp2app(W_DictMultiIterItemsObject.descr_next),
+    __next__ = interp2app(W_DictMultiIterItemsObject.descr_next),
     __length_hint__ = interp2app(W_BaseDictMultiIterObject.descr_length_hint)
     )
 
 W_DictMultiIterKeysObject.typedef = StdTypeDef(
     "dict_iterkeys",
     __iter__ = interp2app(W_DictMultiIterKeysObject.descr_iter),
-    next = interp2app(W_DictMultiIterKeysObject.descr_next),
+    __next__ = interp2app(W_DictMultiIterKeysObject.descr_next),
     __length_hint__ = interp2app(W_BaseDictMultiIterObject.descr_length_hint)
     )
 
 W_DictMultiIterValuesObject.typedef = StdTypeDef(
     "dict_itervalues",
     __iter__ = interp2app(W_DictMultiIterValuesObject.descr_iter),
-    next = interp2app(W_DictMultiIterValuesObject.descr_next),
+    __next__ = interp2app(W_DictMultiIterValuesObject.descr_next),
     __length_hint__ = interp2app(W_BaseDictMultiIterObject.descr_length_hint)
     )
 
@@ -1252,10 +1173,10 @@ class W_DictViewObject(W_Root):
         w_self.w_dict = w_dict
 
     def descr_repr(self, space):
+        typename = space.type(self).getname(space).decode('utf-8')
         w_seq = space.call_function(space.w_list, self)
-        w_repr = space.repr(w_seq)
-        return space.wrap("%s(%s)" % (space.type(self).getname(space),
-                                      space.str_w(w_repr)))
+        seq_repr = space.unicode_w(space.repr(w_seq))
+        return space.wrap(u"%s(%s)" % (typename, seq_repr))
 
     def descr_len(self, space):
         return space.len(self.w_dict)
@@ -1321,6 +1242,27 @@ class SetLikeDictView(object):
             return _all_contained_in(space, w_other, self)
         return space.w_False
 
+    def descr_isdisjoint(self, space, w_other):
+        """"Return True if the view and the given iterable have a null
+        intersection.
+        """
+        if self is w_other:
+            return space.newbool(space.len_w(self) == 0)
+
+        if _is_set_like(w_other):
+            # if w_other is set-like and it's longer, we iterate over
+            # self instead
+            len_self = space.len_w(self)
+            len_other = space.len_w(w_other)
+            if len_other > len_self:
+                self, w_other = w_other, self
+
+        w_iter = space.iter(w_other)
+        for w_item in space.iteriterable(w_iter):
+            if space.is_true(space.contains(self, w_item)):
+                return space.w_False
+        return space.w_True
+
     def _as_set_op(name, methname):
         @func_renamer('descr_' + name)
         def op(self, space, w_other):
@@ -1372,6 +1314,7 @@ W_DictViewItemsObject.typedef = StdTypeDef(
     __ror__ = interp2app(W_DictViewItemsObject.descr_ror),
     __xor__ = interp2app(W_DictViewItemsObject.descr_xor),
     __rxor__ = interp2app(W_DictViewItemsObject.descr_rxor),
+    isdisjoint = interp2app(W_DictViewItemsObject.descr_isdisjoint),
     )
 
 W_DictViewKeysObject.typedef = StdTypeDef(
@@ -1395,6 +1338,7 @@ W_DictViewKeysObject.typedef = StdTypeDef(
     __ror__ = interp2app(W_DictViewKeysObject.descr_ror),
     __xor__ = interp2app(W_DictViewKeysObject.descr_xor),
     __rxor__ = interp2app(W_DictViewKeysObject.descr_rxor),
+    isdisjoint = interp2app(W_DictViewKeysObject.descr_isdisjoint),
     )
 
 W_DictViewValuesObject.typedef = StdTypeDef(
