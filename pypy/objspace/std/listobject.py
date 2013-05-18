@@ -426,6 +426,8 @@ class W_ListObject(W_AbstractListObject):
             return space.w_False
 
     def descr_add(self, space, w_list2):
+        if not isinstance(w_list2, W_ListObject):
+            return space.w_NotImplemented
         w_clone = self.clone()
         w_clone.extend(w_list2)
         return w_clone
