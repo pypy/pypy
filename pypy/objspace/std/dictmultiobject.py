@@ -1267,7 +1267,8 @@ def _all_contained_in(space, w_dictview, w_other):
 def _is_set_like(w_other):
     from pypy.objspace.std.setobject import W_BaseSetObject
     return (isinstance(w_other, W_BaseSetObject) or
-            isinstance(w_other, SetLikeDictView))
+            isinstance(w_other, W_DictViewKeysObject) or
+            isinstance(w_other, W_DictViewItemsObject))
 
 class SetLikeDictView(object):
     _mixin_ = True
