@@ -407,18 +407,9 @@ def make_impure_op(oper):
 
 def make_op(oper):
     """Add function operation to the flow space."""
-    arithmetic = False
     name = oper.name
-
-    if (name.startswith('del') or
-        name.startswith('set') or
-        name.startswith('inplace_')):
-        return make_impure_op(oper)
-    elif name in ('id', 'hash', 'iter', 'userdel'):
-        return make_impure_op(oper)
-    else:
-        func = oper.pyfunc
-        arithmetic = hasattr(operation.op, name + '_ovf')
+    func = oper.pyfunc
+    arithmetic = hasattr(operation.op, name + '_ovf')
 
     def generic_operator(self, *args_w):
         assert len(args_w) == oper.arity, name + " got the wrong number of arguments"
@@ -457,7 +448,11 @@ def make_op(oper):
 
 for oper in operation.op.__dict__.values():
     if getattr(FlowObjSpace, oper.name, None) is None:
-        setattr(FlowObjSpace, oper.name, make_op(oper))
+        if oper.pure:
+            op_method = make_op(oper)
+        else:
+            op_method = make_impure_op(oper)
+        setattr(FlowObjSpace, oper.name, op_method)
 
 
 def build_flow(func, space=FlowObjSpace()):

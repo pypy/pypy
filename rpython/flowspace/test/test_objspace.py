@@ -1169,6 +1169,14 @@ class TestFlowObjSpace(Base):
                                               'iter': 1, 'newlist': 1,
                                               'next': 1, 'simple_call': 1}
 
+    def test_mutate_const_list(self):
+        lst = list('abcdef')
+        def f():
+            lst[0] = 'x'
+            return lst
+        graph = self.codetest(f)
+        assert 'setitem' in self.all_operations(graph)
+
 DATA = {'x': 5,
         'y': 6}
 
