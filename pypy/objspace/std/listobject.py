@@ -1,21 +1,21 @@
+from sys import maxint
+
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.gateway import (WrappedDefault, unwrap_spec, applevel,
+    interp2app)
 from pypy.interpreter.generator import GeneratorIterator
+from pypy.interpreter.signature import Signature
+from pypy.objspace.std import slicetype
 from pypy.objspace.std.inttype import wrapint
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
-from pypy.objspace.std import slicetype
-from pypy.objspace.std.util import negate
-from pypy.interpreter.gateway import WrappedDefault, unwrap_spec, applevel,\
-     interp2app
-from pypy.interpreter import baseobjspace
-from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.signature import Signature
-from rpython.rlib.objectmodel import (instantiate, newlist_hint, specialize,
-                                   resizelist_hint)
-from rpython.rlib.listsort import make_timsort_class
-from rpython.rlib import rerased, jit, debug
-from rpython.tool.sourcetools import func_with_new_name
 from pypy.objspace.std.stdtypedef import StdTypeDef
-from sys import maxint
+from pypy.objspace.std.util import negate
+from rpython.rlib import rerased, jit, debug
+from rpython.rlib.listsort import make_timsort_class
+from rpython.rlib.objectmodel import (instantiate, newlist_hint, specialize,
+    resizelist_hint)
+from rpython.tool.sourcetools import func_with_new_name
 
 
 UNROLL_CUTOFF = 5
@@ -1626,7 +1626,7 @@ FloatBaseTimSort = make_timsort_class()
 StringBaseTimSort = make_timsort_class()
 UnicodeBaseTimSort = make_timsort_class()
 
-class KeyContainer(baseobjspace.W_Root):
+class KeyContainer(W_Root):
     def __init__(self, w_key, w_item):
         self.w_key = w_key
         self.w_item = w_item
