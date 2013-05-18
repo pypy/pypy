@@ -681,6 +681,7 @@ class AppTestDictViews:
         assert keys != set([1, "b"])
         assert keys != set([1])
         assert keys != 42
+        assert not keys == 42
         assert 1 in keys
         assert "a" in keys
         assert 10 not in keys
@@ -702,6 +703,7 @@ class AppTestDictViews:
         assert items != set([(1, 10), ("a", "def")])
         assert items != set([(1, 10)])
         assert items != 42
+        assert not items == 42
         assert (1, 10) in items
         assert ("a", "ABC") in items
         assert (1, 11) not in items
@@ -726,6 +728,7 @@ class AppTestDictViews:
         values = d.values()
         assert set(values) == set([10, "ABC"])
         assert len(values) == 2
+        assert not values == 42
 
     def test_dict_repr(self):
         d = {1: 10, "a": "ABC"}
@@ -892,7 +895,7 @@ class AppTestDictViews:
         assert not frozenset({(1, 'a'), (2, 'b'), (3, 'c')}) != d.items()
         """
 
-    def test_dictviewset_unshasable_values(self):
+    def test_dictviewset_unhashable_values(self):
         class C:
             def __eq__(self, other):
                 return True
