@@ -853,9 +853,10 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.emit_jump(ops.JUMP_IF_FALSE_OR_POP, cleanup, True)
             if i < (ops_count - 1):
                 comp.comparators[i].walkabout(self)
-        comp.comparators[-1].walkabout(self)
-        last_kind = compare_operations(comp.ops[-1])
-        self.emit_op_arg(ops.COMPARE_OP, last_kind)
+        last_op, last_comparator = comp.ops[-1], comp.comparators[-1]
+        if not self._optimize_comparator(last_op, last_comparator):
+            last_comparator.walkabout(self)
+        self.emit_op_arg(ops.COMPARE_OP, compare_operations(last_op))
         if ops_count > 1:
             end = self.new_block()
             self.emit_jump(ops.JUMP_FORWARD, end)
@@ -863,6 +864,30 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.emit_op(ops.ROT_TWO)
             self.emit_op(ops.POP_TOP)
             self.use_next_block(end)
+
+    def _optimize_comparator(self, op, node):
+        """Fold lists of constants in the context of "in"/"not in".
+
+        lists are folded into tuples, otherwise returns False
+        """
+        if op in (ast.In, ast.NotIn) and isinstance(node, ast.List):
+            w_const = self._tuple_of_consts(node.elts)
+            if w_const is not None:
+                self.load_const(w_const)
+                return True
+        return False
+
+    def _tuple_of_consts(self, elts):
+        """Return a tuple of consts from elts if possible, or None"""
+        count = len(elts) if elts is not None else 0
+        consts_w = [None] * count
+        for i in range(count):
+            w_value = elts[i].as_constant()
+            if w_value is None:
+                # Not all constants
+                return None
+            consts_w[i] = w_value
+        return self.space.newtuple(consts_w)
 
     def visit_IfExp(self, ifexp):
         self.update_position(ifexp.lineno)
