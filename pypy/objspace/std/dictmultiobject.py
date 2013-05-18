@@ -9,7 +9,7 @@ from pypy.objspace.std.stdtypedef import StdTypeDef
 from rpython.rlib import jit, rerased
 from rpython.rlib.debug import mark_dict_non_null
 from rpython.rlib.objectmodel import newlist_hint, r_dict, specialize
-from rpython.tool.sourcetools import func_with_new_name
+from rpython.tool.sourcetools import func_renamer, func_with_new_name
 
 
 UNROLL_CUTOFF = 5
@@ -1254,47 +1254,87 @@ class W_DictViewObject(W_Root):
         return space.wrap("%s(%s)" % (space.type(self).getname(space),
                                       space.str_w(w_repr)))
 
-    def descr_eq(self, space, w_otherview):
-        if not space.eq_w(space.len(self), space.len(w_otherview)):
-            return space.w_False
-
-        w_iter = space.iter(self)
-        while True:
-            try:
-                w_item = space.next(w_iter)
-            except OperationError, e:
-                if not e.match(space, space.w_StopIteration):
-                    raise
-                break
-            if not space.is_true(space.contains(w_otherview, w_item)):
-                return space.w_False
-        return space.w_True
-
     def descr_len(self, space):
         return space.len(self.w_dict)
+
+def _all_contained_in(space, w_dictview, w_other):
+    w_iter = space.iter(w_dictview)
+    while True:
+        try:
+            w_item = space.next(w_iter)
+        except OperationError, e:
+            if not e.match(space, space.w_StopIteration):
+                raise
+            break
+        if not space.is_true(space.contains(w_other, w_item)):
+            return space.w_False
+    return space.w_True
+
+def _is_set_like(w_other):
+    from pypy.objspace.std.setobject import W_BaseSetObject
+    return (isinstance(w_other, W_BaseSetObject) or
+            isinstance(w_other, SetLikeDictView))
 
 class SetLikeDictView(object):
     _mixin_ = True
 
-    def descr_sub(self, space, w_otherview):
-        w_set = space.call_function(space.w_set, self)
-        space.call_method(w_set, "difference_update", w_otherview)
-        return w_set
+    def descr_eq(self, space, w_other):
+        if not _is_set_like(w_other):
+            return space.w_NotImplemented
+        if space.len_w(self) == space.len_w(w_other):
+            return _all_contained_in(space, self, w_other)
+        return space.w_False
 
-    def descr_and(self, space, w_otherview):
-        w_set = space.call_function(space.w_set, self)
-        space.call_method(w_set, "intersection_update", w_otherview)
-        return w_set
+    def descr_ne(self, space, w_other):
+        if not _is_set_like(w_other):
+            return space.w_NotImplemented
+        return space.not_(space.eq(self, w_other))
 
-    def descr_or(self, space, w_otherview):
-        w_set = space.call_function(space.w_set, self)
-        space.call_method(w_set, "update", w_otherview)
-        return w_set
+    def descr_lt(self, space, w_other):
+        if not _is_set_like(w_other):
+            return space.w_NotImplemented
+        if space.len_w(self) < space.len_w(w_other):
+            return _all_contained_in(space, self, w_other)
+        return space.w_False
 
-    def descr_xor(self, space, w_otherview):
-        w_set = space.call_function(space.w_set, self)
-        space.call_method(w_set, "symmetric_difference_update", w_otherview)
-        return w_set
+    def descr_le(self, space, w_other):
+        if not _is_set_like(w_other):
+            return space.w_NotImplemented
+        if space.len_w(self) <= space.len_w(w_other):
+            return _all_contained_in(space, self, w_other)
+        return space.w_False
+
+    def descr_gt(self, space, w_other):
+        if not _is_set_like(w_other):
+            return space.w_NotImplemented
+        if space.len_w(self) > space.len_w(w_other):
+            return _all_contained_in(space, w_other, self)
+        return space.w_False
+
+    def descr_ge(self, space, w_other):
+        if not _is_set_like(w_other):
+            return space.w_NotImplemented
+        if space.len_w(self) >= space.len_w(w_other):
+            return _all_contained_in(space, w_other, self)
+        return space.w_False
+
+    def _as_set_op(name, methname):
+        @func_renamer('descr_' + name)
+        def op(self, space, w_other):
+            w_set = space.call_function(space.w_set, self)
+            space.call_method(w_set, methname, w_other)
+            return w_set
+        @func_renamer('descr_r' + name)
+        def rop(self, space, w_other):
+            w_set = space.call_function(space.w_set, w_other)
+            space.call_method(w_set, methname, self)
+            return w_set
+        return op, rop
+
+    descr_sub, descr_rsub = _as_set_op('sub', 'difference_update')
+    descr_and, descr_rand = _as_set_op('and', 'intersection_update')
+    descr_or, descr_ror = _as_set_op('or', 'update')
+    descr_xor, descr_rxor = _as_set_op('xor', 'symmetric_difference_update')
 
 class W_DictViewItemsObject(W_DictViewObject, SetLikeDictView):
     def descr_iter(self, space):
@@ -1311,31 +1351,52 @@ class W_DictViewValuesObject(W_DictViewObject):
 W_DictViewItemsObject.typedef = StdTypeDef(
     "dict_items",
     __repr__ = interp2app(W_DictViewItemsObject.descr_repr),
-    __eq__ = interp2app(W_DictViewItemsObject.descr_eq),
     __len__ = interp2app(W_DictViewItemsObject.descr_len),
     __iter__ = interp2app(W_DictViewItemsObject.descr_iter),
+
+    __eq__ = interp2app(W_DictViewItemsObject.descr_eq),
+    __ne__ = interp2app(W_DictViewItemsObject.descr_ne),
+    __lt__ = interp2app(W_DictViewItemsObject.descr_lt),
+    __le__ = interp2app(W_DictViewItemsObject.descr_le),
+    __gt__ = interp2app(W_DictViewItemsObject.descr_gt),
+    __ge__ = interp2app(W_DictViewItemsObject.descr_ge),
+
     __sub__ = interp2app(W_DictViewItemsObject.descr_sub),
+    __rsub__ = interp2app(W_DictViewItemsObject.descr_rsub),
     __and__ = interp2app(W_DictViewItemsObject.descr_and),
+    __rand__ = interp2app(W_DictViewItemsObject.descr_rand),
     __or__ = interp2app(W_DictViewItemsObject.descr_or),
-    __xor__ = interp2app(W_DictViewItemsObject.descr_xor)
+    __ror__ = interp2app(W_DictViewItemsObject.descr_ror),
+    __xor__ = interp2app(W_DictViewItemsObject.descr_xor),
+    __rxor__ = interp2app(W_DictViewItemsObject.descr_rxor),
     )
 
 W_DictViewKeysObject.typedef = StdTypeDef(
     "dict_keys",
     __repr__ = interp2app(W_DictViewKeysObject.descr_repr),
-    __eq__ = interp2app(W_DictViewKeysObject.descr_eq),
     __len__ = interp2app(W_DictViewKeysObject.descr_len),
     __iter__ = interp2app(W_DictViewKeysObject.descr_iter),
+
+    __eq__ = interp2app(W_DictViewKeysObject.descr_eq),
+    __ne__ = interp2app(W_DictViewKeysObject.descr_ne),
+    __lt__ = interp2app(W_DictViewKeysObject.descr_lt),
+    __le__ = interp2app(W_DictViewKeysObject.descr_le),
+    __gt__ = interp2app(W_DictViewKeysObject.descr_gt),
+    __ge__ = interp2app(W_DictViewKeysObject.descr_ge),
+
     __sub__ = interp2app(W_DictViewKeysObject.descr_sub),
+    __rsub__ = interp2app(W_DictViewKeysObject.descr_rsub),
     __and__ = interp2app(W_DictViewKeysObject.descr_and),
+    __rand__ = interp2app(W_DictViewKeysObject.descr_rand),
     __or__ = interp2app(W_DictViewKeysObject.descr_or),
-    __xor__ = interp2app(W_DictViewKeysObject.descr_xor)
+    __ror__ = interp2app(W_DictViewKeysObject.descr_ror),
+    __xor__ = interp2app(W_DictViewKeysObject.descr_xor),
+    __rxor__ = interp2app(W_DictViewKeysObject.descr_rxor),
     )
 
 W_DictViewValuesObject.typedef = StdTypeDef(
     "dict_values",
     __repr__ = interp2app(W_DictViewValuesObject.descr_repr),
-    __eq__ = interp2app(W_DictViewValuesObject.descr_eq),
     __len__ = interp2app(W_DictViewValuesObject.descr_len),
     __iter__ = interp2app(W_DictViewValuesObject.descr_iter),
     )
