@@ -5,7 +5,6 @@ from rpython.rlib.rfloat import isinf, isnan
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.debug import make_sure_not_resized, check_regular_int
 from rpython.rlib.objectmodel import we_are_translated, specialize
-from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib import jit
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper import extregistry
@@ -2109,24 +2108,21 @@ DECIMAL_BASE = 10 ** DECIMAL_SHIFT
 
 # an RPython trick: this creates a nested sequence of calls that are
 # all inlined into each other, making an unrolled loop.  Moreover the
-# calls are done in the "wrong" order to write it as a regular loop:
+# calls are done in the "wrong" order to be written as a regular loop:
 # the first digit that is append-ed to the builder is the most
 # significant one (corresponding to the innermost call).
-@specialize.memo()
-def _minus_1(x):
-    return x - 1
-@specialize.arg(2)
-def _add_decimal_digits(builder, value, ndigits):
+_succ = specialize.memo()(lambda n: n + 1)
+@specialize.arg(3)
+def _add_decimal_digits(builder, value, ndigits, digit_index=1):
     assert value >= 0
-    if ndigits > 1:
-        _add_decimal_digits(builder, value // 10, _minus_1(ndigits))
+    if digit_index < ndigits:
+        assert digit_index < DECIMAL_SHIFT
+        _add_decimal_digits(builder, value // 10, ndigits, _succ(digit_index))
         builder.append(chr(ord('0') + value % 10))
     else:
         assert value < 10
         builder.append(chr(ord('0') + value))
 _add_decimal_digits._always_inline_ = True
-
-count_decimal_shift_from_1 = unrolling_iterable(range(1, DECIMAL_SHIFT))
 
 
 def _format_decimal(a, addL=False):
@@ -2171,15 +2167,12 @@ def _format_decimal(a, addL=False):
     assert sizem1 >= 0
 
     # calculate exact length of output string, and allocate
+    decimal_digits_in_last_part = 1
     rem = pout[sizem1]
     tenpow = 10
-    for i in count_decimal_shift_from_1:
-        if rem < tenpow:
-            decimal_digits_in_last_part = i
-            break
+    while rem >= tenpow:
         tenpow *= 10
-    else:
-        decimal_digits_in_last_part = DECIMAL_SHIFT
+        decimal_digits_in_last_part += 1
     strlen = (addL + negative +
               decimal_digits_in_last_part + (sizem1) * DECIMAL_SHIFT)
 
@@ -2189,18 +2182,13 @@ def _format_decimal(a, addL=False):
     if negative:
         builder.append('-')
 
-    # pout[size-1]: always produce at least one decimal digit
-    for i in count_decimal_shift_from_1:
-        if i == decimal_digits_in_last_part:
-            _add_decimal_digits(builder, pout[sizem1], i)
-            break
-    else:
-        _add_decimal_digits(builder, pout[sizem1], DECIMAL_SHIFT)
-
-    # pout[0] through pout[size-2] contribute exactly
-    # DECIMAL_SHIFT digits each
-    for i in range(sizem1-1, -1, -1):
-        _add_decimal_digits(builder, pout[i], DECIMAL_SHIFT)
+    # pout[size-1] produces 'decimal_digits_in_last_part' digits.
+    # Then the remaining pout[size-2] through pout[0] contribute exactly
+    # DECIMAL_SHIFT digits each.
+    decimal_digits = decimal_digits_in_last_part
+    for i in range(sizem1, -1, -1):
+        _add_decimal_digits(builder, pout[i], decimal_digits)
+        decimal_digits = DECIMAL_SHIFT
 
     # done
     if addL:
