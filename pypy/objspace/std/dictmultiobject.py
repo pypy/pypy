@@ -1,13 +1,14 @@
-from pypy.interpreter import gateway
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.gateway import (
+    WrappedDefault, applevel, interp2app, unwrap_spec)
 from pypy.interpreter.mixedmodule import MixedModule
 from pypy.interpreter.signature import Signature
 from pypy.objspace.std.stdtypedef import StdTypeDef
 
-from rpython.rlib import rerased, jit
+from rpython.rlib import jit, rerased
 from rpython.rlib.debug import mark_dict_non_null
-from rpython.rlib.objectmodel import r_dict, specialize, newlist_hint
+from rpython.rlib.objectmodel import newlist_hint, r_dict, specialize
 from rpython.tool.sourcetools import func_with_new_name
 
 
@@ -18,7 +19,7 @@ def _is_str(space, w_key):
     return space.is_w(space.type(w_key), space.w_str)
 
 def _never_equal_to_string(space, w_lookup_type):
-    """ Handles the case of a non string key lookup.
+    """Handles the case of a non string key lookup.
     Types that have a sane hash/eq function should allow us to return True
     directly to signal that the key is not in the dict in any case.
     XXX The types should provide such a flag. """
@@ -32,7 +33,7 @@ def _never_equal_to_string(space, w_lookup_type):
 
 @specialize.call_location()
 def w_dict_unrolling_heuristic(w_dct):
-    """ In which cases iterating over dict items can be unrolled.
+    """In which cases iterating over dict items can be unrolled.
     Note that w_dct is an instance of W_DictMultiObject, not necesarilly
     an actual dict
     """
@@ -56,8 +57,8 @@ def negate(f):
 class W_DictMultiObject(W_Root):
     @staticmethod
     def allocate_and_init_instance(space, w_type=None, module=False,
-                                   instance=False, strdict=False, kwargs=False):
-
+                                   instance=False, strdict=False,
+                                   kwargs=False):
         if space.config.objspace.std.withcelldict and module:
             from pypy.objspace.std.celldict import ModuleDictStrategy
             assert w_type is None
@@ -67,11 +68,9 @@ class W_DictMultiObject(W_Root):
         elif space.config.objspace.std.withmapdict and instance:
             from pypy.objspace.std.mapdict import MapDictStrategy
             strategy = space.fromcache(MapDictStrategy)
-
         elif instance or strdict or module:
             assert w_type is None
             strategy = space.fromcache(StringDictStrategy)
-
         elif kwargs:
             assert w_type is None
             from pypy.objspace.std.kwargsdict import EmptyKwargsDictStrategy
@@ -92,7 +91,7 @@ class W_DictMultiObject(W_Root):
         self.dstorage = storage
 
     def __repr__(w_self):
-        """ representation for debugging purposes """
+        """representation for debugging purposes"""
         return "%s(%s)" % (w_self.__class__.__name__, w_self.strategy)
 
     def unwrap(w_dict, space):
@@ -105,12 +104,10 @@ class W_DictMultiObject(W_Root):
 
     def missing_method(w_dict, space, w_key):
         if not space.is_w(space.type(w_dict), space.w_dict):
-            w_missing = space.lookup(w_dict, "__missing__")
-            if w_missing is None:
-                return None
-            return space.get_and_call_function(w_missing, w_dict, w_key)
-        else:
-            return None
+            w_missing = space.lookup(w_dict, '__missing__')
+            if w_missing is not None:
+                return space.get_and_call_function(w_missing, w_dict, w_key)
+        return None
 
     def initialize_content(w_self, list_pairs_w):
         for w_k, w_v in list_pairs_w:
@@ -163,7 +160,7 @@ class W_DictMultiObject(W_Root):
         if self.length() != w_other.length():
             return space.w_False
         iteratorimplementation = self.iteritems()
-        while 1:
+        while True:
             w_key, w_val = iteratorimplementation.next_item()
             if w_key is None:
                 break
@@ -240,7 +237,8 @@ class W_DictMultiObject(W_Root):
             space.raise_key_error(w_key)
 
     def descr_reversed(self, space):
-        raise OperationError(space.w_TypeError, space.wrap('argument to reversed() must be a sequence'))
+        raise OperationError(space.w_TypeError, space.wrap(
+                'argument to reversed() must be a sequence'))
 
     def descr_copy(self, space):
         """D.copy() -> a shallow copy of D"""
@@ -292,16 +290,13 @@ class W_DictMultiObject(W_Root):
         """D.clear() -> None.  Remove all items from D."""
         self.clear()
 
-    @gateway.unwrap_spec(w_default=gateway.WrappedDefault(None))
+    @unwrap_spec(w_default=WrappedDefault(None))
     def descr_get(self, space, w_key, w_default):
         """D.get(k[,d]) -> D[k] if k in D, else d.  d defaults to None."""
         w_value = self.getitem(w_key)
-        if w_value is not None:
-            return w_value
-        else:
-            return w_default
+        return w_value if w_value is not None else w_default
 
-    @gateway.unwrap_spec(defaults_w='args_w')
+    @unwrap_spec(defaults_w='args_w')
     def descr_pop(self, space, w_key, defaults_w):
         """D.pop(k[,d]) -> v, remove specified key and return the
         corresponding value\nIf key is not found, d is returned if given,
@@ -332,7 +327,7 @@ class W_DictMultiObject(W_Root):
                                  space.wrap("popitem(): dictionary is empty"))
         return space.newtuple([w_key, w_value])
 
-    @gateway.unwrap_spec(w_default=gateway.WrappedDefault(None))
+    @unwrap_spec(w_default=WrappedDefault(None))
     def descr_setdefault(self, space, w_key, w_default):
         """D.setdefault(k[,d]) -> D.get(k,d), also set D[k]=d if k not in D"""
         return self.setdefault(w_key, w_default)
@@ -364,7 +359,7 @@ def _add_indirections():
 _add_indirections()
 
 
-app = gateway.applevel('''
+app = applevel('''
     def dictrepr(currently_in_repr, d):
         if len(d) == 0:
             return "{}"
@@ -400,46 +395,46 @@ dict(seq) -> new dictionary initialized as if via:
         d[k] = v
 dict(**kwargs) -> new dictionary initialized with the name=value pairs
     in the keyword argument list.  For example:  dict(one=1, two=2)''',
-    __new__ = gateway.interp2app(W_DictMultiObject.descr_new),
-    fromkeys = gateway.interp2app(W_DictMultiObject.descr_fromkeys,
-                                  as_classmethod=True),
+    __new__ = interp2app(W_DictMultiObject.descr_new),
+    fromkeys = interp2app(W_DictMultiObject.descr_fromkeys,
+                          as_classmethod=True),
     __hash__ = None,
-    __repr__ = gateway.interp2app(W_DictMultiObject.descr_repr),
-    __init__ = gateway.interp2app(W_DictMultiObject.descr_init),
+    __repr__ = interp2app(W_DictMultiObject.descr_repr),
+    __init__ = interp2app(W_DictMultiObject.descr_init),
 
-    __eq__ = gateway.interp2app(W_DictMultiObject.descr_eq),
-    __ne__ = gateway.interp2app(W_DictMultiObject.descr_ne),
-    __lt__ = gateway.interp2app(W_DictMultiObject.descr_lt),
-    __le__ = gateway.interp2app(W_DictMultiObject.descr_le),
-    __gt__ = gateway.interp2app(W_DictMultiObject.descr_gt),
-    __ge__ = gateway.interp2app(W_DictMultiObject.descr_ge),
+    __eq__ = interp2app(W_DictMultiObject.descr_eq),
+    __ne__ = interp2app(W_DictMultiObject.descr_ne),
+    __lt__ = interp2app(W_DictMultiObject.descr_lt),
+    __le__ = interp2app(W_DictMultiObject.descr_le),
+    __gt__ = interp2app(W_DictMultiObject.descr_gt),
+    __ge__ = interp2app(W_DictMultiObject.descr_ge),
 
-    __len__ = gateway.interp2app(W_DictMultiObject.descr_len),
-    __iter__ = gateway.interp2app(W_DictMultiObject.descr_iter),
-    __contains__ = gateway.interp2app(W_DictMultiObject.descr_contains),
+    __len__ = interp2app(W_DictMultiObject.descr_len),
+    __iter__ = interp2app(W_DictMultiObject.descr_iter),
+    __contains__ = interp2app(W_DictMultiObject.descr_contains),
 
-    __getitem__ = gateway.interp2app(W_DictMultiObject.descr_getitem),
-    __setitem__ = gateway.interp2app(W_DictMultiObject.descr_setitem),
-    __delitem__ = gateway.interp2app(W_DictMultiObject.descr_delitem),
+    __getitem__ = interp2app(W_DictMultiObject.descr_getitem),
+    __setitem__ = interp2app(W_DictMultiObject.descr_setitem),
+    __delitem__ = interp2app(W_DictMultiObject.descr_delitem),
 
-    __reversed__ = gateway.interp2app(W_DictMultiObject.descr_reversed),
-    copy = gateway.interp2app(W_DictMultiObject.descr_copy),
-    items = gateway.interp2app(W_DictMultiObject.descr_items),
-    keys = gateway.interp2app(W_DictMultiObject.descr_keys),
-    values = gateway.interp2app(W_DictMultiObject.descr_values),
-    iteritems = gateway.interp2app(W_DictMultiObject.descr_iteritems),
-    iterkeys = gateway.interp2app(W_DictMultiObject.descr_iterkeys),
-    itervalues = gateway.interp2app(W_DictMultiObject.descr_itervalues),
-    viewkeys = gateway.interp2app(W_DictMultiObject.descr_viewkeys),
-    viewitems = gateway.interp2app(W_DictMultiObject.descr_viewitems),
-    viewvalues = gateway.interp2app(W_DictMultiObject.descr_viewvalues),
-    has_key = gateway.interp2app(W_DictMultiObject.descr_has_key),
-    clear = gateway.interp2app(W_DictMultiObject.descr_clear),
-    get = gateway.interp2app(W_DictMultiObject.descr_get),
-    pop = gateway.interp2app(W_DictMultiObject.descr_pop),
-    popitem = gateway.interp2app(W_DictMultiObject.descr_popitem),
-    setdefault = gateway.interp2app(W_DictMultiObject.descr_setdefault),
-    update = gateway.interp2app(W_DictMultiObject.descr_update),
+    __reversed__ = interp2app(W_DictMultiObject.descr_reversed),
+    copy = interp2app(W_DictMultiObject.descr_copy),
+    items = interp2app(W_DictMultiObject.descr_items),
+    keys = interp2app(W_DictMultiObject.descr_keys),
+    values = interp2app(W_DictMultiObject.descr_values),
+    iteritems = interp2app(W_DictMultiObject.descr_iteritems),
+    iterkeys = interp2app(W_DictMultiObject.descr_iterkeys),
+    itervalues = interp2app(W_DictMultiObject.descr_itervalues),
+    viewkeys = interp2app(W_DictMultiObject.descr_viewkeys),
+    viewitems = interp2app(W_DictMultiObject.descr_viewitems),
+    viewvalues = interp2app(W_DictMultiObject.descr_viewvalues),
+    has_key = interp2app(W_DictMultiObject.descr_has_key),
+    clear = interp2app(W_DictMultiObject.descr_clear),
+    get = interp2app(W_DictMultiObject.descr_get),
+    pop = interp2app(W_DictMultiObject.descr_pop),
+    popitem = interp2app(W_DictMultiObject.descr_popitem),
+    setdefault = interp2app(W_DictMultiObject.descr_setdefault),
+    update = interp2app(W_DictMultiObject.descr_update),
     )
 
 
@@ -453,7 +448,7 @@ class DictStrategy(object):
     def w_keys(self, w_dict):
         iterator = self.iterkeys(w_dict)
         result = newlist_hint(self.length(w_dict))
-        while 1:
+        while True:
             w_key = iterator.next_key()
             if w_key is not None:
                 result.append(w_key)
@@ -463,7 +458,7 @@ class DictStrategy(object):
     def values(self, w_dict):
         iterator = self.itervalues(w_dict)
         result = newlist_hint(self.length(w_dict))
-        while 1:
+        while True:
             w_value = iterator.next_value()
             if w_value is not None:
                 result.append(w_value)
@@ -473,7 +468,7 @@ class DictStrategy(object):
     def items(self, w_dict):
         iterator = self.iteritems(w_dict)
         result = newlist_hint(self.length(w_dict))
-        while 1:
+        while True:
             w_key, w_value = iterator.next_item()
             if w_key is not None:
                 result.append(self.space.newtuple([w_key, w_value]))
@@ -515,7 +510,7 @@ class EmptyDictStrategy(DictStrategy):
     unerase = staticmethod(unerase)
 
     def get_empty_storage(self):
-       return self.erase(None)
+        return self.erase(None)
 
     def switch_to_correct_strategy(self, w_dict, w_key):
         withidentitydict = self.space.config.objspace.std.withidentitydict
@@ -618,7 +613,7 @@ class EmptyDictStrategy(DictStrategy):
 # Iterator Implementation base classes
 
 def _new_next(TP):
-    if TP == 'key' or TP == 'value':
+    if TP in ('key', 'value'):
         EMPTY = None
     else:
         EMPTY = None, None
@@ -626,10 +621,12 @@ def _new_next(TP):
     def next(self):
         if self.dictimplementation is None:
             return EMPTY
+        space = self.space
         if self.len != self.dictimplementation.length():
             self.len = -1   # Make this error state sticky
-            raise OperationError(self.space.w_RuntimeError,
-                     self.space.wrap("dictionary changed size during iteration"))
+            msg = "dictionary changed size during iteration"
+            raise OperationError(space.w_RuntimeError, space.wrap(msg))
+
         # look for the next entry
         if self.pos < self.len:
             result = getattr(self, 'next_' + TP + '_entry')()
@@ -647,8 +644,8 @@ def _new_next(TP):
                 w_value = self.dictimplementation.getitem(w_key)
                 if w_value is None:
                     self.len = -1   # Make this error state sticky
-                    raise OperationError(self.space.w_RuntimeError,
-                        self.space.wrap("dictionary changed during iteration"))
+                    msg = "dictionary changed during iteration"
+                    raise OperationError(space.w_RuntimeError, space.wrap(msg))
                 return (w_key, w_value)
         # no more entries
         self.dictimplementation = None
@@ -781,7 +778,8 @@ class AbstractTypedStrategy(object):
 
     def setdefault(self, w_dict, w_key, w_default):
         if self.is_correct_type(w_key):
-            return self.unerase(w_dict.dstorage).setdefault(self.unwrap(w_key), w_default)
+            return self.unerase(w_dict.dstorage).setdefault(self.unwrap(w_key),
+                                                            w_default)
         else:
             self.switch_to_object_strategy(w_dict)
             return w_dict.setdefault(w_key, w_default)
@@ -821,7 +819,7 @@ class AbstractTypedStrategy(object):
         space = self.space
         dict_w = self.unerase(w_dict.dstorage)
         return [space.newtuple([self.wrap(key), w_value])
-                    for (key, w_value) in dict_w.iteritems()]
+                for (key, w_value) in dict_w.iteritems()]
 
     def popitem(self, w_dict):
         key, value = self.unerase(w_dict.dstorage).popitem()
@@ -866,9 +864,9 @@ class ObjectDictStrategy(AbstractTypedStrategy, DictStrategy):
         return True
 
     def get_empty_storage(self):
-       new_dict = r_dict(self.space.eq_w, self.space.hash_w,
-                         force_non_null=True)
-       return self.erase(new_dict)
+        new_dict = r_dict(self.space.eq_w, self.space.hash_w,
+                          force_non_null=True)
+        return self.erase(new_dict)
 
     def _never_equal_to(self, w_lookup_type):
         return False
@@ -1068,7 +1066,7 @@ def update1(space, w_dict, w_data):
                      w_dict_unrolling_heuristic(w_data))
 def update1_dict_dict(space, w_dict, w_data):
     iterator = w_data.iteritems()
-    while 1:
+    while True:
         w_key, w_value = iterator.next_item()
         if w_key is None:
             break
@@ -1106,16 +1104,18 @@ def init_or_update(space, w_dict, __args__, funcname):
         update1(space, w_dict, w_kwds)
 
 def characterize(space, w_a, w_b):
-    """ (similar to CPython)
-    returns the smallest key in acontent for which b's value is different or absent and this value """
+    """(similar to CPython)
+    returns the smallest key in acontent for which b's value is
+    different or absent and this value"""
     w_smallest_diff_a_key = None
     w_its_value = None
     iteratorimplementation = w_a.iteritems()
-    while 1:
+    while True:
         w_key, w_val = iteratorimplementation.next_item()
         if w_key is None:
             break
-        if w_smallest_diff_a_key is None or space.is_true(space.lt(w_key, w_smallest_diff_a_key)):
+        if w_smallest_diff_a_key is None or space.is_true(space.lt(
+                w_key, w_smallest_diff_a_key)):
             w_bvalue = w_b.getitem(w_key)
             if w_bvalue is None:
                 w_its_value = w_val
@@ -1191,10 +1191,7 @@ class W_BaseDictMultiIterObject(W_Root):
             w_clone.pos += 1
         stuff = [w_clone.next_entry() for i in range(w_clone.pos, w_clone.len)]
         w_res = space.newlist(stuff)
-        tup      = [
-            w_res
-        ]
-        w_ret = space.newtuple([new_inst, space.newtuple(tup)])
+        w_ret = space.newtuple([new_inst, space.newtuple([w_res])])
         return w_ret
 
 
@@ -1224,23 +1221,23 @@ class W_DictMultiIterItemsObject(W_BaseDictMultiIterObject):
 
 W_DictMultiIterItemsObject.typedef = StdTypeDef(
     "dict_iteritems",
-    __iter__ = gateway.interp2app(W_DictMultiIterItemsObject.descr_iter),
-    next = gateway.interp2app(W_DictMultiIterItemsObject.descr_next),
-    __length_hint__ = gateway.interp2app(W_BaseDictMultiIterObject.descr_length_hint)
+    __iter__ = interp2app(W_DictMultiIterItemsObject.descr_iter),
+    next = interp2app(W_DictMultiIterItemsObject.descr_next),
+    __length_hint__ = interp2app(W_BaseDictMultiIterObject.descr_length_hint)
     )
 
 W_DictMultiIterKeysObject.typedef = StdTypeDef(
     "dict_iterkeys",
-    __iter__ = gateway.interp2app(W_DictMultiIterKeysObject.descr_iter),
-    next = gateway.interp2app(W_DictMultiIterKeysObject.descr_next),
-    __length_hint__ = gateway.interp2app(W_BaseDictMultiIterObject.descr_length_hint)
+    __iter__ = interp2app(W_DictMultiIterKeysObject.descr_iter),
+    next = interp2app(W_DictMultiIterKeysObject.descr_next),
+    __length_hint__ = interp2app(W_BaseDictMultiIterObject.descr_length_hint)
     )
 
 W_DictMultiIterValuesObject.typedef = StdTypeDef(
     "dict_itervalues",
-    __iter__ = gateway.interp2app(W_DictMultiIterValuesObject.descr_iter),
-    next = gateway.interp2app(W_DictMultiIterValuesObject.descr_next),
-    __length_hint__ = gateway.interp2app(W_BaseDictMultiIterObject.descr_length_hint)
+    __iter__ = interp2app(W_DictMultiIterValuesObject.descr_iter),
+    next = interp2app(W_DictMultiIterValuesObject.descr_next),
+    __length_hint__ = interp2app(W_BaseDictMultiIterObject.descr_length_hint)
     )
 
 
@@ -1276,6 +1273,14 @@ class W_DictViewObject(W_Root):
     def descr_len(self, space):
         return space.len(self.w_dict)
 
+class SetLikeDictView(object):
+    _mixin_ = True
+
+    def descr_sub(self, space, w_otherview):
+        w_set = space.call_function(space.w_set, self)
+        space.call_method(w_set, "difference_update", w_otherview)
+        return w_set
+
     def descr_and(self, space, w_otherview):
         w_set = space.call_function(space.w_set, self)
         space.call_method(w_set, "intersection_update", w_otherview)
@@ -1291,11 +1296,11 @@ class W_DictViewObject(W_Root):
         space.call_method(w_set, "symmetric_difference_update", w_otherview)
         return w_set
 
-class W_DictViewItemsObject(W_DictViewObject):
+class W_DictViewItemsObject(W_DictViewObject, SetLikeDictView):
     def descr_iter(self, space):
         return W_DictMultiIterItemsObject(space, self.w_dict.iteritems())
 
-class W_DictViewKeysObject(W_DictViewObject):
+class W_DictViewKeysObject(W_DictViewObject, SetLikeDictView):
     def descr_iter(self, space):
         return W_DictMultiIterKeysObject(space, self.w_dict.iterkeys())
 
@@ -1305,33 +1310,32 @@ class W_DictViewValuesObject(W_DictViewObject):
 
 W_DictViewItemsObject.typedef = StdTypeDef(
     "dict_items",
-    __repr__ = gateway.interp2app(W_DictViewItemsObject.descr_repr),
-    __eq__ = gateway.interp2app(W_DictViewItemsObject.descr_eq),
-    __len__ = gateway.interp2app(W_DictViewItemsObject.descr_len),
-    __iter__ = gateway.interp2app(W_DictViewItemsObject.descr_iter),
-    __and__ = gateway.interp2app(W_DictViewItemsObject.descr_and),
-    __or__ = gateway.interp2app(W_DictViewItemsObject.descr_or),
-    __xor__ = gateway.interp2app(W_DictViewItemsObject.descr_xor)
+    __repr__ = interp2app(W_DictViewItemsObject.descr_repr),
+    __eq__ = interp2app(W_DictViewItemsObject.descr_eq),
+    __len__ = interp2app(W_DictViewItemsObject.descr_len),
+    __iter__ = interp2app(W_DictViewItemsObject.descr_iter),
+    __sub__ = interp2app(W_DictViewItemsObject.descr_sub),
+    __and__ = interp2app(W_DictViewItemsObject.descr_and),
+    __or__ = interp2app(W_DictViewItemsObject.descr_or),
+    __xor__ = interp2app(W_DictViewItemsObject.descr_xor)
     )
 
 W_DictViewKeysObject.typedef = StdTypeDef(
     "dict_keys",
-    __repr__ = gateway.interp2app(W_DictViewKeysObject.descr_repr),
-    __eq__ = gateway.interp2app(W_DictViewKeysObject.descr_eq),
-    __len__ = gateway.interp2app(W_DictViewKeysObject.descr_len),
-    __iter__ = gateway.interp2app(W_DictViewKeysObject.descr_iter),
-    __and__ = gateway.interp2app(W_DictViewKeysObject.descr_and),
-    __or__ = gateway.interp2app(W_DictViewKeysObject.descr_or),
-    __xor__ = gateway.interp2app(W_DictViewKeysObject.descr_xor)
+    __repr__ = interp2app(W_DictViewKeysObject.descr_repr),
+    __eq__ = interp2app(W_DictViewKeysObject.descr_eq),
+    __len__ = interp2app(W_DictViewKeysObject.descr_len),
+    __iter__ = interp2app(W_DictViewKeysObject.descr_iter),
+    __sub__ = interp2app(W_DictViewKeysObject.descr_sub),
+    __and__ = interp2app(W_DictViewKeysObject.descr_and),
+    __or__ = interp2app(W_DictViewKeysObject.descr_or),
+    __xor__ = interp2app(W_DictViewKeysObject.descr_xor)
     )
 
 W_DictViewValuesObject.typedef = StdTypeDef(
     "dict_values",
-    __repr__ = gateway.interp2app(W_DictViewValuesObject.descr_repr),
-    __eq__ = gateway.interp2app(W_DictViewValuesObject.descr_eq),
-    __len__ = gateway.interp2app(W_DictViewValuesObject.descr_len),
-    __iter__ = gateway.interp2app(W_DictViewValuesObject.descr_iter),
-    __and__ = gateway.interp2app(W_DictViewValuesObject.descr_and),
-    __or__ = gateway.interp2app(W_DictViewValuesObject.descr_or),
-    __xor__ = gateway.interp2app(W_DictViewValuesObject.descr_xor)
+    __repr__ = interp2app(W_DictViewValuesObject.descr_repr),
+    __eq__ = interp2app(W_DictViewValuesObject.descr_eq),
+    __len__ = interp2app(W_DictViewValuesObject.descr_len),
+    __iter__ = interp2app(W_DictViewValuesObject.descr_iter),
     )

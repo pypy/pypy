@@ -774,6 +774,13 @@ class AppTestDictViews:
         assert d1.viewkeys() ^ set(d2.viewkeys()) == set('ac')
         assert d1.viewkeys() ^ set(d3.viewkeys()) == set('abde')
 
+        assert d1.viewkeys() - d1.viewkeys() == set()
+        assert d1.viewkeys() - d2.viewkeys() == set('a')
+        assert d1.viewkeys() - d3.viewkeys() == set('ab')
+        assert d1.viewkeys() - set(d1.viewkeys()) == set()
+        assert d1.viewkeys() - set(d2.viewkeys()) == set('a')
+        assert d1.viewkeys() - set(d3.viewkeys()) == set('ab')
+
     def test_items_set_operations(self):
         d1 = {'a': 1, 'b': 2}
         d2 = {'a': 2, 'b': 2}
@@ -801,6 +808,10 @@ class AppTestDictViews:
         assert d1.viewitems() ^ d2.viewitems() == set([('a', 1), ('a', 2)])
         assert (d1.viewitems() ^ d3.viewitems() ==
                 set([('a', 1), ('b', 2), ('d', 4), ('e', 5)]))
+
+        assert d1.viewitems() - d1.viewitems() == set()
+        assert d1.viewitems() - d2.viewitems() == set([('a', 1)])
+        assert d1.viewitems() - d3.viewitems() == set([('a', 1), ('b', 2)])
 
 
 class AppTestStrategies(object):
