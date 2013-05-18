@@ -480,7 +480,8 @@ class W_ListObject(W_Root):
             return self.getslice(start, stop, step, slicelength)
 
         try:
-            return self.getitem(get_list_index(space, w_index))
+            index = space.getindex_w(w_index, space.w_IndexError, "list index")
+            return self.getitem(index)
         except IndexError:
             raise OperationError(space.w_IndexError,
                                  space.wrap("list index out of range"))
@@ -506,7 +507,7 @@ class W_ListObject(W_Root):
                 self.setslice(start, step, slicelength, w_other)
             return
 
-        idx = get_list_index(space, w_index)
+        idx = space.getindex_w(w_index, space.w_IndexError, "list index")
         try:
             self.setitem(idx, w_any)
         except IndexError:
@@ -530,7 +531,7 @@ class W_ListObject(W_Root):
             self.deleteslice(start, step, slicelength)
             return
 
-        idx = get_list_index(space, w_idx)
+        idx = space.getindex_w(w_idx, space.w_IndexError, "list index")
         if idx < 0:
             idx += self.length()
         try:
@@ -1681,11 +1682,6 @@ class CustomKeyCompareSort(CustomCompareSort):
         assert isinstance(a, KeyContainer)
         assert isinstance(b, KeyContainer)
         return CustomCompareSort.lt(self, a.w_key, b.w_key)
-
-# ____________________________________________________________
-
-def get_list_index(space, w_index):
-    return space.getindex_w(w_index, space.w_IndexError, "list index")
 
 
 W_ListObject.typedef = StdTypeDef("list",
