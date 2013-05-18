@@ -60,28 +60,28 @@ def get_strategy_from_list_objects(space, list_w, sizehint):
 
     # check for ints
     for w_obj in list_w:
-        if not is_W_IntObject(w_obj):
+        if not type(w_obj) is W_IntObject:
             break
     else:
         return space.fromcache(IntegerListStrategy)
 
     # check for strings
     for w_obj in list_w:
-        if not is_W_StringObject(w_obj):
+        if not type(w_obj) is W_StringObject:
             break
     else:
         return space.fromcache(StringListStrategy)
 
     # check for unicode
     for w_obj in list_w:
-        if not is_W_UnicodeObject(w_obj):
+        if not type(w_obj) is W_UnicodeObject:
             break
     else:
         return space.fromcache(UnicodeListStrategy)
 
     # check for floats
     for w_obj in list_w:
-        if not is_W_FloatObject(w_obj):
+        if not type(w_obj) is W_FloatObject:
             break
     else:
         return space.fromcache(FloatListStrategy)
@@ -115,18 +115,6 @@ def _do_extend_from_iterable(space, w_list, w_iterable):
             break
         i += 1
     return i
-
-def is_W_IntObject(w_object):
-    return type(w_object) is W_IntObject
-
-def is_W_StringObject(w_object):
-    return type(w_object) is W_StringObject
-
-def is_W_UnicodeObject(w_object):
-    return type(w_object) is W_UnicodeObject
-
-def is_W_FloatObject(w_object):
-    return type(w_object) is W_FloatObject
 
 def list_unroll_condition(w_list1, space, w_list2):
     return jit.loop_unrolling_heuristic(w_list1, w_list1.length(), UNROLL_CUTOFF) or \
@@ -876,13 +864,13 @@ class EmptyListStrategy(ListStrategy):
         return self.erase(None)
 
     def switch_to_correct_strategy(self, w_list, w_item):
-        if is_W_IntObject(w_item):
+        if type(w_item) is W_IntObject:
             strategy = self.space.fromcache(IntegerListStrategy)
-        elif is_W_StringObject(w_item):
+        elif type(w_item) is W_StringObject:
             strategy = self.space.fromcache(StringListStrategy)
-        elif is_W_UnicodeObject(w_item):
+        elif type(w_item) is W_UnicodeObject:
             strategy = self.space.fromcache(UnicodeListStrategy)
-        elif is_W_FloatObject(w_item):
+        elif type(w_item) is W_FloatObject:
             strategy = self.space.fromcache(FloatListStrategy)
         else:
             strategy = self.space.fromcache(ObjectListStrategy)
@@ -1012,7 +1000,7 @@ class RangeListStrategy(ListStrategy):
         w_other.lstorage = w_list.lstorage
 
     def find(self, w_list, w_obj, startindex, stopindex):
-        if is_W_IntObject(w_obj):
+        if type(w_obj) is W_IntObject:
             obj = self.unwrap(w_obj)
             start, step, length = self.unerase(w_list.lstorage)
             if ((step > 0 and start <= obj <= start + (length - 1) * step and (start - obj) % step == 0) or
@@ -1088,7 +1076,7 @@ class RangeListStrategy(ListStrategy):
         return w_list.getslice(start, stop, step, length)
 
     def append(self, w_list, w_item):
-        if is_W_IntObject(w_item):
+        if type(w_item) is W_IntObject:
             self.switch_to_integer_strategy(w_list)
         else:
             w_list.switch_to_object_strategy()
@@ -1478,7 +1466,7 @@ class IntegerListStrategy(AbstractUnwrappedStrategy, ListStrategy):
     unerase = staticmethod(unerase)
 
     def is_correct_type(self, w_obj):
-        return is_W_IntObject(w_obj)
+        return type(w_obj) is W_IntObject
 
     def list_is_correct_type(self, w_list):
         return w_list.strategy is self.space.fromcache(IntegerListStrategy)
@@ -1508,7 +1496,7 @@ class FloatListStrategy(AbstractUnwrappedStrategy, ListStrategy):
     unerase = staticmethod(unerase)
 
     def is_correct_type(self, w_obj):
-        return is_W_FloatObject(w_obj)
+        return type(w_obj) is W_FloatObject
 
     def list_is_correct_type(self, w_list):
         return w_list.strategy is self.space.fromcache(FloatListStrategy)
@@ -1535,7 +1523,7 @@ class StringListStrategy(AbstractUnwrappedStrategy, ListStrategy):
     unerase = staticmethod(unerase)
 
     def is_correct_type(self, w_obj):
-        return is_W_StringObject(w_obj)
+        return type(w_obj) is W_StringObject
 
     def list_is_correct_type(self, w_list):
         return w_list.strategy is self.space.fromcache(StringListStrategy)
@@ -1566,7 +1554,7 @@ class UnicodeListStrategy(AbstractUnwrappedStrategy, ListStrategy):
     unerase = staticmethod(unerase)
 
     def is_correct_type(self, w_obj):
-        return is_W_UnicodeObject(w_obj)
+        return type(w_obj) is W_UnicodeObject
 
     def list_is_correct_type(self, w_list):
         return w_list.strategy is self.space.fromcache(UnicodeListStrategy)
