@@ -16,3 +16,12 @@ def negate(f):
     _negator.func_name = 'negate-%s' % f.func_name
     return _negator
 
+def get_positive_index(where, length):
+    if where < 0:
+        where += length
+        if where < 0:
+            where = 0
+    elif where > length:
+        where = length
+    assert where >= 0
+    return where

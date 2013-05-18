@@ -10,7 +10,7 @@ from pypy.objspace.std import slicetype
 from pypy.objspace.std.inttype import wrapint
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std.stdtypedef import StdTypeDef
-from pypy.objspace.std.util import negate
+from pypy.objspace.std.util import negate, get_positive_index
 from rpython.rlib import rerased, jit, debug
 from rpython.rlib.listsort import make_timsort_class
 from rpython.rlib.objectmodel import (instantiate, newlist_hint, specialize,
@@ -1603,16 +1603,6 @@ app = applevel("""
 """, filename=__file__)
 
 listrepr = app.interphook("listrepr")
-
-def get_positive_index(where, length):
-    if where < 0:
-        where += length
-        if where < 0:
-            where = 0
-    elif where > length:
-        where = length
-    assert where >= 0
-    return where
 
 # ____________________________________________________________
 # Sorting
