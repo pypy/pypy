@@ -3,7 +3,8 @@ from pypy.interpreter.typedef import TypeDef, GetSetProperty, make_weakref_descr
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError
 from pypy.module.micronumpy.base import W_NDimArray, convert_to_array
-from pypy.module.micronumpy.strides import calculate_broadcast_strides
+from pypy.module.micronumpy.strides import (calculate_broadcast_strides,
+                                             shape_agreement_multiple)
 from pypy.module.micronumpy.iter import MultiDimViewIterator
 from pypy.module.micronumpy import support
 from pypy.module.micronumpy.arrayimpl.concrete import SliceArray
@@ -141,7 +142,7 @@ def parse_func_flags(space, nditer, w_flags):
                 'Iterator flag EXTERNAL_LOOP cannot be used if an index or '
                 'multi-index is being tracked'))
 
-def get_iter(space, order, imp, backward):
+def get_iter(space, order, imp, shape):
     if order == 'K' or (order == 'C' and imp.order == 'C'):
         backward = False
     elif order =='F' and imp.order == 'C':
@@ -154,14 +155,12 @@ def get_iter(space, order, imp, backward):
         # flip the strides. Is this always true for multidimension?
         strides = [s for s in imp.strides[::-1]]
         backstrides = [s for s in imp.backstrides[::-1]]
-        shape = [s for s in imp.shape[::-1]]
+        shape = [s for s in shape[::-1]]
     else:
         strides = imp.strides
         backstrides = imp.backstrides
-        shape = imp.shape
-    shape1d = [support.product(imp.shape),]
-    r = calculate_broadcast_strides(strides, backstrides, shape,
-                                    shape1d, backward)
+    r = calculate_broadcast_strides(strides, backstrides, imp.shape,
+                                    shape, backward)
     return MultiDimViewIterator(imp, imp.dtype, imp.start, r[0], r[1], shape)
 
 
@@ -190,10 +189,13 @@ class W_NDIter(W_Root):
         self.op_flags = parse_op_arg(space, 'op_flags', w_op_flags,
                                      len(self.seq), parse_op_flag)
         self.iters=[]
+        self.shape = iter_shape = shape_agreement_multiple(space, self.seq)
+        if self.external_loop:
+            xxx find longest contiguous shape
+            iter_shape = iter_shape[1:]
         for i in range(len(self.seq)):
-            # XXX the shape of the iter depends on all the seq.shapes together
             self.iters.append(get_iter(space, self.order,
-                            self.seq[i].implementation, self.op_flags[i]))
+                            self.seq[i].implementation, iter_shape))
 
     def descr_iter(self, space):
         return space.wrap(self)
