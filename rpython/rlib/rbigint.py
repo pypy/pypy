@@ -447,11 +447,11 @@ class rbigint(object):
 
     @jit.elidable
     def repr(self):
-        return _format(self, BASE10, '', 'L')
+        return _format_decimal(self, addL=True)
 
     @jit.elidable
     def str(self):
-        return _format(self, BASE10)
+        return _format_decimal(self)
 
     @jit.elidable
     def eq(self, other):
@@ -2099,6 +2099,98 @@ def _format(a, digits, prefix='', suffix=''):
     assert p >= 0    # otherwise, buffer overflow (this is also a
                      # hint for the annotator for the slice below)
     return ''.join(s[p:])
+
+
+DECIMAL_SHIFT = 0      # computed as max(E such that 10**E fits in a digit)
+while 10 ** (DECIMAL_SHIFT + 1) <= 2 ** SHIFT:
+    DECIMAL_SHIFT += 1
+DECIMAL_BASE = 10 ** DECIMAL_SHIFT
+
+def _format_decimal(a, addL=False):
+    """ Optimized version of _format(a, BASE10, '', addL*'L'). """
+    if a.sign == 0:
+        if addL:
+            return "0L"
+        else:
+            return "0"
+
+    size_a = a.numdigits()
+    negative = a.sign < 0
+
+    # quick and dirty upper bound for the number of digits
+    # required to express a in base DECIMAL_BASE:
+    #
+    #    #digits = 1 + floor(log2(a) / log2(DECIMAL_BASE))
+    #
+    # But log2(a) < size_a * PyLong_SHIFT, and
+    # log2(DECIMAL_BASE) = log2(10) * DECIMAL_SHIFT
+    #                    > 3 * DECIMAL_SHIFT
+
+    size = 1 + size_a * SHIFT // (3 * DECIMAL_SHIFT)
+    pout = [NULLDIGIT] * size
+
+    # convert array of base _PyLong_BASE digits in pin to an array of
+    # base _PyLong_DECIMAL_BASE digits in pout, following Knuth (TAOCP,
+    # Volume 2 (3rd edn), section 4.4, Method 1b).
+    size = 0
+    for i in range(size_a-1, -1, -1):
+        hi = a.digit(i)
+        for j in range(size):
+            z = (_widen_digit(pout[j]) << SHIFT) | hi
+            hi = _store_digit(z // DECIMAL_BASE)
+            pout[j] = _store_digit(z - _widen_digit(hi) * DECIMAL_BASE)
+        assert hi >= 0
+        while hi:
+            pout[size] = hi % DECIMAL_BASE
+            hi //= DECIMAL_BASE
+            size += 1
+    sizem1 = size - 1
+    assert sizem1 >= 0
+
+    # calculate exact length of output string, and allocate
+    strlen = (addL + negative +
+              1 + (sizem1) * DECIMAL_SHIFT)
+    tenpow = 10
+    rem = pout[sizem1]
+    while rem >= tenpow:
+        tenpow *= 10
+        strlen += 1
+
+    l = ['\x00'] * strlen
+
+    p = strlen
+    if addL:
+        p -= 1; assert p >= 0
+        l[p] = 'L'
+
+    # pout[0] through pout[size-2] contribute exactly
+    # DECIMAL_SHIFT digits each
+    for i in range(sizem1):
+        rem = pout[i]
+        assert rem >= 0
+        for j in range(DECIMAL_SHIFT):
+            p -= 1; assert p >= 0
+            l[p] = chr(ord('0') + rem % 10)
+            rem //= 10
+
+    # pout[size-1]: always produce at least one decimal digit
+    rem = pout[sizem1]
+    assert rem >= 0
+    while True:
+        p -= 1; assert p >= 0
+        l[p] = chr(ord('0') + rem % 10)
+        if rem < 10:
+            break
+        rem //= 10
+
+    # and sign
+    if negative:
+        p -= 1; assert p >= 0
+        l[p] = '-'
+
+    # check we've counted correctly
+    assert p == 0
+    return ''.join(l)
 
 
 def _bitwise(a, op, b): # '&', '|', '^'
