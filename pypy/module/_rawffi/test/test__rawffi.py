@@ -679,7 +679,7 @@ class AppTestFfi:
 
     def test_sizes_and_alignments(self):
         import _rawffi
-        for k, (s, a) in self.sizes_and_alignments.iteritems():
+        for k, (s, a) in self.sizes_and_alignments.items():
             assert _rawffi.sizeof(k) == s
             assert _rawffi.alignment(k) == a
 

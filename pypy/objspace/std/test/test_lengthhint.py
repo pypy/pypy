@@ -41,7 +41,7 @@ class TestLengthHint:
         space = self.space
         w_iterkeys, w_mutate = space.fixedview(space.appexec([], """():
             d = dict.fromkeys(%r)
-            return d.iterkeys(), d.popitem
+            return d.keys(), d.popitem
         """ % self.ITEMS), 2)
         self._test_length_hint(w_iterkeys, w_mutate)
 
@@ -49,7 +49,7 @@ class TestLengthHint:
         space = self.space
         w_itervalues, w_mutate = space.fixedview(space.appexec([], """():
             d = dict.fromkeys(%r)
-            return d.itervalues(), d.popitem
+            return d.values(), d.popitem
         """ % self.ITEMS), 2)
         self._test_length_hint(w_itervalues, w_mutate)
 

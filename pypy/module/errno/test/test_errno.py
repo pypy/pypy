@@ -11,7 +11,7 @@ class AppTestErrno:
         assert self.errno.__file__
 
     def test_constants(self):
-        for code, name in self.errorcode.iteritems():
+        for code, name in self.errorcode.items():
             assert getattr(self.errno, name) == code
 
     def test_errorcode(self):

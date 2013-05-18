@@ -175,7 +175,7 @@ def PyDict_Next(space, w_dict, ppos, pkey, pvalue):
     # not complete.
 
     try:
-        w_iter = space.call_method(w_dict, "iteritems")
+        w_iter = space.call_method(w_dict, "items")
         pos = ppos[0]
         while pos:
             space.next(w_iter)
