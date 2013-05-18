@@ -161,7 +161,3 @@ etc.
 """)
     result = env.get_L2cache_linux2_cpuinfo(str(filepath))
     assert result == 3072 * 1024
-
-def test_estimate_best_nursery_size_linux2_arm():
-    result = env.get_L2cache_linux2()
-    assert result == -1

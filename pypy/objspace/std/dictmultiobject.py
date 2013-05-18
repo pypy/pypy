@@ -1167,13 +1167,7 @@ class W_DictViewObject(W_Root):
 
 def _all_contained_in(space, w_dictview, w_other):
     w_iter = space.iter(w_dictview)
-    while True:
-        try:
-            w_item = space.next(w_iter)
-        except OperationError, e:
-            if not e.match(space, space.w_StopIteration):
-                raise
-            break
+    for w_item in space.iteriterable(w_iter):
         if not space.is_true(space.contains(w_other, w_item)):
             return space.w_False
     return space.w_True
@@ -1181,7 +1175,8 @@ def _all_contained_in(space, w_dictview, w_other):
 def _is_set_like(w_other):
     from pypy.objspace.std.setobject import W_BaseSetObject
     return (isinstance(w_other, W_BaseSetObject) or
-            isinstance(w_other, SetLikeDictView))
+            isinstance(w_other, W_DictViewKeysObject) or
+            isinstance(w_other, W_DictViewItemsObject))
 
 class SetLikeDictView(object):
     _mixin_ = True
