@@ -866,15 +866,22 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.use_next_block(end)
 
     def _optimize_comparator(self, op, node):
-        """Fold lists of constants in the context of "in"/"not in".
+        """Fold lists/sets of constants in the context of "in"/"not in".
 
-        lists are folded into tuples, otherwise returns False
+        lists are folded into tuples, sets into frozensets, otherwise
+        returns False
         """
-        if op in (ast.In, ast.NotIn) and isinstance(node, ast.List):
-            w_const = self._tuple_of_consts(node.elts)
-            if w_const is not None:
-                self.load_const(w_const)
-                return True
+        if op in (ast.In, ast.NotIn):
+            is_list = isinstance(node, ast.List)
+            if is_list or isinstance(node, ast.Set):
+                w_const = self._tuple_of_consts(node.elts)
+                if w_const is not None:
+                    if not is_list:
+                        from pypy.objspace.std.setobject import (
+                            W_FrozensetObject)
+                        w_const = W_FrozensetObject(self.space, w_const)
+                    self.load_const(w_const)
+                    return True
         return False
 
     def _tuple_of_consts(self, elts):
