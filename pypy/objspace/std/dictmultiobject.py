@@ -224,18 +224,6 @@ class W_DictMultiObject(W_Root):
         """D.values() -> an object providing a view on D's values"""
         return W_DictViewValuesObject(space, self)
 
-    def descr_iteritems(self, space):
-        """D.iteritems() -> an iterator over the (key, value) items of D"""
-        return W_DictMultiIterItemsObject(space, self.iteritems())
-
-    def descr_iterkeys(self, space):
-        """D.iterkeys() -> an iterator over the keys of D"""
-        return W_DictMultiIterKeysObject(space, self.iterkeys())
-
-    def descr_itervalues(self, space):
-        """D.itervalues() -> an iterator over the values of D"""
-        return W_DictMultiIterValuesObject(space, self.itervalues())
-
     def descr_clear(self, space):
         """D.clear() -> None.  Remove all items from D."""
         self.clear()
@@ -369,10 +357,6 @@ dict(**kwargs) -> new dictionary initialized with the name=value pairs
     items = interp2app(W_DictMultiObject.descr_items),
     keys = interp2app(W_DictMultiObject.descr_keys),
     values = interp2app(W_DictMultiObject.descr_values),
-    # XXX:
-    iteritems = interp2app(W_DictMultiObject.descr_iteritems),
-    iterkeys = interp2app(W_DictMultiObject.descr_iterkeys),
-    itervalues = interp2app(W_DictMultiObject.descr_itervalues),
     clear = interp2app(W_DictMultiObject.descr_clear),
     get = interp2app(W_DictMultiObject.descr_get),
     pop = interp2app(W_DictMultiObject.descr_pop),
@@ -1144,21 +1128,21 @@ class W_DictMultiIterItemsObject(W_BaseDictMultiIterObject):
         raise OperationError(space.w_StopIteration, space.w_None)
 
 W_DictMultiIterItemsObject.typedef = StdTypeDef(
-    "dict_iteritems",
+    "dict_itemiterator",
     __iter__ = interp2app(W_DictMultiIterItemsObject.descr_iter),
     __next__ = interp2app(W_DictMultiIterItemsObject.descr_next),
     __length_hint__ = interp2app(W_BaseDictMultiIterObject.descr_length_hint)
     )
 
 W_DictMultiIterKeysObject.typedef = StdTypeDef(
-    "dict_iterkeys",
+    "dict_keyiterator",
     __iter__ = interp2app(W_DictMultiIterKeysObject.descr_iter),
     __next__ = interp2app(W_DictMultiIterKeysObject.descr_next),
     __length_hint__ = interp2app(W_BaseDictMultiIterObject.descr_length_hint)
     )
 
 W_DictMultiIterValuesObject.typedef = StdTypeDef(
-    "dict_itervalues",
+    "dict_valueiterator",
     __iter__ = interp2app(W_DictMultiIterValuesObject.descr_iter),
     __next__ = interp2app(W_DictMultiIterValuesObject.descr_next),
     __length_hint__ = interp2app(W_BaseDictMultiIterObject.descr_length_hint)

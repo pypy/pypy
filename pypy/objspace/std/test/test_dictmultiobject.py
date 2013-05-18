@@ -238,7 +238,7 @@ class AppTest_DictObject:
     def test_iteritems(self):
         d = {1: 2, 3: 4}
         dd = d.copy()
-        for k, v in d.iteritems():
+        for k, v in d.items():
             assert v == dd[k]
             del dd[k]
         assert not dd
@@ -246,14 +246,14 @@ class AppTest_DictObject:
     def test_iterkeys(self):
         d = {1: 2, 3: 4}
         dd = d.copy()
-        for k in d.iterkeys():
+        for k in d.keys():
             del dd[k]
         assert not dd
 
     def test_itervalues(self):
         d = {1: 2, 3: 4}
         values = []
-        for k in d.itervalues():
+        for k in d.values():
             values.append(k)
         assert values == list(d.values())
 
@@ -396,24 +396,6 @@ class AppTest_DictObject:
         for op in 'lt', 'le', 'gt', 'ge':
             f = getattr(operator, op)
             raises(TypeError, f, d1, d2)
-
-    def test_other_rich_cmp(self):
-        d1 = {1: 2, 3: 4}
-        d2 = {1: 2, 3: 4}
-        d3 = {1: 2, 3: 5}
-        d4 = {1: 2}
-
-        assert d1 <= d2
-        assert d1 <= d3
-        assert not d1 <= d4
-
-        assert not d1 > d2
-        assert not d1 > d3
-        assert d1 > d4
-
-        assert d1 >= d2
-        assert not d1 >= d3
-        assert d1 >= d4
 
     def test_str_repr(self):
         assert '{}' == str({})
@@ -612,10 +594,6 @@ class AppTest_DictObject:
 
     def test_bytes_keys(self):
         assert isinstance(list({b'a': 1})[0], bytes)
-
-
-    def test_cmp_with_noncmp(self):
-        assert not {} > object()
 
 class AppTest_DictMultiObject(AppTest_DictObject):
 
@@ -997,14 +975,14 @@ class AppTestStrategies(object):
 
     def test_iter_dict_length_change(self):
         d = {1: 2, 3: 4, 5: 6}
-        it = d.iteritems()
+        it = iter(d.items())
         d[7] = 8
         # 'd' is now length 4
-        raises(RuntimeError, it.__next__)
+        raises(RuntimeError, next, it)
 
     def test_iter_dict_strategy_only_change_1(self):
         d = {1: 2, 3: 4, 5: 6}
-        it = d.iteritems()
+        it = d.items()
         class Foo(object):
             def __eq__(self, other):
                 return False
@@ -1016,7 +994,7 @@ class AppTestStrategies(object):
 
     def test_iter_dict_strategy_only_change_2(self):
         d = {1: 2, 3: 4, 5: 6}
-        it = d.iteritems()
+        it = d.items()
         d['foo'] = 'bar'
         del d[1]
         # on default the strategy changes and thus we get the RuntimeError

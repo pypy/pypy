@@ -60,7 +60,7 @@ class partial(object):
         return "{}({})".format(name, ', '.join(tmp))
 
     def __reduce__(self):
-        d = dict((k, v) for k, v in self.__dict__.iteritems() if k not in
+        d = dict((k, v) for k, v in self.__dict__.items() if k not in
                 ('func', 'args', 'keywords'))
         if len(d) == 0:
             d = None

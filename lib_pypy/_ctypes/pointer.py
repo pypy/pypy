@@ -28,7 +28,7 @@ class PointerType(_CDataMeta):
         # XXX check if typedict['_type_'] is any sane
         # XXX remember about paramfunc
         obj = type.__new__(self, name, cls, typedict)
-        for k, v in d.iteritems():
+        for k, v in d.items():
             setattr(obj, k, v)
         if '_type_' in typedict:
             self.set_type(obj, typedict['_type_'])
