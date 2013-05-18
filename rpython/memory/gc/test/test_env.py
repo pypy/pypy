@@ -165,12 +165,3 @@ etc.
 def test_estimate_best_nursery_size_linux2_arm():
     result = env.get_L2cache_linux2()
     assert result == -1
-
-def test__detect_arm():
-    assert env._detect_arm_cpu("Processor       : ARMv6-compatible processor rev 7 (v6l)")
-    assert not env._detect_arm_cpu("""\
-processor   : 0
-vendor_id   : GenuineIntel
-cpu family  : 6
-model       : 37
-""")

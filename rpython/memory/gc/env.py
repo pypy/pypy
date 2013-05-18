@@ -165,10 +165,6 @@ def get_L2cache_linux2_cpuinfo(filename="/proc/cpuinfo", label='cache size'):
     else:
         data = ''.join(data)
         linepos = 0
-        # Currently on ARM-linux we won't find any information about caches in
-        # cpuinfo
-        if _detect_arm_cpu(data):
-            return -1
         while True:
             start = _findend(data, '\n' + label, linepos)
             if start < 0:
@@ -318,11 +314,6 @@ def _skipspace(data, pos):
     while data[pos] in (' ', '\t'):
         pos += 1
     return pos
-
-def _detect_arm_cpu(data):
-    # check for the presence of a 'Processor' entry
-    p = _findend(data, 'Processor', 0)
-    return p >= 0 and _findend(data, 'ARMv', p) > 0
 
 # ---------- Darwin ----------
 
