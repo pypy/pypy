@@ -5,6 +5,7 @@ from rpython.rlib.rfloat import isinf, isnan
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.debug import make_sure_not_resized, check_regular_int
 from rpython.rlib.objectmodel import we_are_translated, specialize
+from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib import jit
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper import extregistry
@@ -2106,8 +2107,30 @@ while 10 ** (DECIMAL_SHIFT + 1) <= 2 ** SHIFT:
     DECIMAL_SHIFT += 1
 DECIMAL_BASE = 10 ** DECIMAL_SHIFT
 
+# an RPython trick: this creates a nested sequence of calls that are
+# all inlined into each other, making an unrolled loop.  Moreover the
+# calls are done in the "wrong" order to write it as a regular loop:
+# the first digit that is append-ed to the builder is the most
+# significant one (corresponding to the innermost call).
+@specialize.memo()
+def _minus_1(x):
+    return x - 1
+@specialize.arg(2)
+def _add_decimal_digits(builder, value, ndigits):
+    assert value >= 0
+    if ndigits > 1:
+        _add_decimal_digits(builder, value // 10, _minus_1(ndigits))
+        builder.append(chr(ord('0') + value % 10))
+    else:
+        assert value < 10
+        builder.append(chr(ord('0') + value))
+_add_decimal_digits._always_inline_ = True
+
+count_decimal_shift_from_1 = unrolling_iterable(range(1, DECIMAL_SHIFT))
+
+
 def _format_decimal(a, addL=False):
-    """ Optimized version of _format(a, BASE10, '', addL*'L'). """
+    """ Optimized version of _format(a, BASE10, '', 'L' if addL else ''). """
     if a.sign == 0:
         if addL:
             return "0L"
@@ -2148,49 +2171,41 @@ def _format_decimal(a, addL=False):
     assert sizem1 >= 0
 
     # calculate exact length of output string, and allocate
-    strlen = (addL + negative +
-              1 + (sizem1) * DECIMAL_SHIFT)
-    tenpow = 10
     rem = pout[sizem1]
-    while rem >= tenpow:
+    tenpow = 10
+    for i in count_decimal_shift_from_1:
+        if rem < tenpow:
+            decimal_digits_in_last_part = i
+            break
         tenpow *= 10
-        strlen += 1
+    else:
+        decimal_digits_in_last_part = DECIMAL_SHIFT
+    strlen = (addL + negative +
+              decimal_digits_in_last_part + (sizem1) * DECIMAL_SHIFT)
 
-    l = ['\x00'] * strlen
+    builder = StringBuilder(strlen)
 
-    p = strlen
-    if addL:
-        p -= 1; assert p >= 0
-        l[p] = 'L'
+    # start with the negative sign, if needed
+    if negative:
+        builder.append('-')
+
+    # pout[size-1]: always produce at least one decimal digit
+    for i in count_decimal_shift_from_1:
+        if i == decimal_digits_in_last_part:
+            _add_decimal_digits(builder, pout[sizem1], i)
+            break
+    else:
+        _add_decimal_digits(builder, pout[sizem1], DECIMAL_SHIFT)
 
     # pout[0] through pout[size-2] contribute exactly
     # DECIMAL_SHIFT digits each
-    for i in range(sizem1):
-        rem = pout[i]
-        assert rem >= 0
-        for j in range(DECIMAL_SHIFT):
-            p -= 1; assert p >= 0
-            l[p] = chr(ord('0') + rem % 10)
-            rem //= 10
+    for i in range(sizem1-1, -1, -1):
+        _add_decimal_digits(builder, pout[i], DECIMAL_SHIFT)
 
-    # pout[size-1]: always produce at least one decimal digit
-    rem = pout[sizem1]
-    assert rem >= 0
-    while True:
-        p -= 1; assert p >= 0
-        l[p] = chr(ord('0') + rem % 10)
-        if rem < 10:
-            break
-        rem //= 10
-
-    # and sign
-    if negative:
-        p -= 1; assert p >= 0
-        l[p] = '-'
-
-    # check we've counted correctly
-    assert p == 0
-    return ''.join(l)
+    # done
+    if addL:
+        builder.append('L')
+    return builder.build()
 
 
 def _bitwise(a, op, b): # '&', '|', '^'
