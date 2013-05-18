@@ -1,3 +1,4 @@
+import operator
 from sys import maxint
 
 from pypy.interpreter.baseobjspace import W_Root
@@ -7,9 +8,16 @@ from pypy.interpreter.gateway import (WrappedDefault, unwrap_spec, applevel,
 from pypy.interpreter.generator import GeneratorIterator
 from pypy.interpreter.signature import Signature
 from pypy.objspace.std import slicetype
+from pypy.objspace.std.floatobject import W_FloatObject
+from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.inttype import wrapint
+from pypy.objspace.std.iterobject import (W_FastListIterObject,
+    W_ReverseSeqIterObject)
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std.stdtypedef import StdTypeDef
+from pypy.objspace.std.stringobject import W_StringObject
+from pypy.objspace.std.tupleobject import W_AbstractTupleObject
+from pypy.objspace.std.unicodeobject import W_UnicodeObject
 from pypy.objspace.std.util import negate, get_positive_index
 from rpython.rlib import rerased, jit, debug
 from rpython.rlib.listsort import make_timsort_class
@@ -109,19 +117,15 @@ def _do_extend_from_iterable(space, w_list, w_iterable):
     return i
 
 def is_W_IntObject(w_object):
-    from pypy.objspace.std.intobject import W_IntObject
     return type(w_object) is W_IntObject
 
 def is_W_StringObject(w_object):
-    from pypy.objspace.std.stringobject import W_StringObject
     return type(w_object) is W_StringObject
 
 def is_W_UnicodeObject(w_object):
-    from pypy.objspace.std.unicodeobject import W_UnicodeObject
     return type(w_object) is W_UnicodeObject
 
 def is_W_FloatObject(w_object):
-    from pypy.objspace.std.floatobject import W_FloatObject
     return type(w_object) is W_FloatObject
 
 def list_unroll_condition(w_list1, space, w_list2):
@@ -378,7 +382,6 @@ class W_ListObject(W_Root):
     descr_ne = negate(descr_eq)
 
     def _make_list_comparison(name):
-        import operator
         op = getattr(operator, name)
 
         def compare_unwrappeditems(self, space, w_list2):
@@ -414,8 +417,7 @@ class W_ListObject(W_Root):
         return wrapint(space, result)
 
     def descr_iter(self, space):
-        from pypy.objspace.std import iterobject
-        return iterobject.W_FastListIterObject(self)
+        return W_FastListIterObject(self)
 
     def descr_contains(self, space, w_obj):
         try:
@@ -548,7 +550,6 @@ class W_ListObject(W_Root):
 
     def descr_reversed(self, space):
         'L.__reversed__() -- return a reverse iterator over the list'
-        from pypy.objspace.std.iterobject import W_ReverseSeqIterObject
         return W_ReverseSeqIterObject(space, self, -1)
 
     def descr_reverse(self, space):
@@ -925,7 +926,6 @@ class EmptyListStrategy(ListStrategy):
         w_other.copy_into(w_list)
 
     def _extend_from_iterable(self, w_list, w_iterable):
-        from pypy.objspace.std.tupleobject import W_AbstractTupleObject
         space = self.space
         if isinstance(w_iterable, W_AbstractTupleObject):
             w_list.__init__(space, w_iterable.getitems_copy())
