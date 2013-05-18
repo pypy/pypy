@@ -21,9 +21,6 @@ from rpython.tool.sourcetools import func_with_new_name
 UNROLL_CUTOFF = 5
 
 
-class W_AbstractListObject(W_Root):
-    __slots__ = ()
-
 def make_range_list(space, start, step, length):
     if length <= 0:
         strategy = space.fromcache(EmptyListStrategy)
@@ -129,7 +126,7 @@ def list_unroll_condition(w_list1, space, w_list2):
     return jit.loop_unrolling_heuristic(w_list1, w_list1.length(), UNROLL_CUTOFF) or \
            jit.loop_unrolling_heuristic(w_list2, w_list2.length(), UNROLL_CUTOFF)
 
-class W_ListObject(W_AbstractListObject):
+class W_ListObject(W_Root):
     def __init__(w_self, space, wrappeditems, sizehint=-1):
         assert isinstance(wrappeditems, list)
         w_self.space = space
