@@ -3,6 +3,7 @@ from pypy.interpreter.generator import GeneratorIterator
 from pypy.objspace.std.inttype import wrapint
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std import slicetype
+from pypy.objspace.std.util import negate
 from pypy.interpreter.gateway import WrappedDefault, unwrap_spec, applevel,\
      interp2app
 from pypy.interpreter import baseobjspace
@@ -375,8 +376,7 @@ class W_ListObject(W_AbstractListObject):
             i += 1
         return space.w_True
 
-    def descr_ne(self, space, w_other):
-        return space.not_(self.descr_eq(space, w_other))
+    descr_ne = negate(descr_eq)
 
     def _make_list_comparison(name):
         import operator

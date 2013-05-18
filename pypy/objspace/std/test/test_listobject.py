@@ -1308,6 +1308,12 @@ class AppTestW_ListObject(object):
     def test_use_method_for_wrong_object(self):
         raises(TypeError, list.append.im_func, 1, 2)
 
+    def test_ne_NotImplemented(self):
+        class NonList(object):
+            pass
+        non_list = NonList()
+        assert [] != non_list
+
 
 class AppTestForRangeLists(AppTestW_ListObject):
     spaceconfig = {"objspace.std.withrangelist": True}
