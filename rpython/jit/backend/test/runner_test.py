@@ -2645,7 +2645,7 @@ class LLtypeBackendTest(BaseBackendTest):
                 (types.float,  rffi.FLOAT),
                 ] * 4
 
-        for k in range(1000):
+        for k in range(100):
             #
             def pseudo_c_function(*args):
                 seen.append(list(args))
