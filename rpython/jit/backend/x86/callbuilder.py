@@ -6,7 +6,7 @@ from rpython.jit.backend.x86.arch import (WORD, IS_X86_64, IS_X86_32,
 from rpython.jit.backend.x86.regloc import (eax, ecx, edx, ebx, esp, ebp, esi,
     xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7, r8, r9, r10, r11, edi,
     r12, r13, r14, r15, X86_64_SCRATCH_REG, X86_64_XMM_SCRATCH_REG,
-    RegLoc, RawEspLoc, imm)
+    RegLoc, RawEspLoc, imm, ImmedLoc)
 from rpython.jit.backend.x86.jump import remap_frame_layout
 
 
@@ -43,10 +43,16 @@ class AbstractCallBuilder(object):
 
 
     def __init__(self, assembler, fnloc, arglocs, resloc=eax):
+        # Avoid tons of issues with a non-immediate fnloc by sticking it
+        # as an extra argument if needed
+        self.fnloc_is_immediate = isinstance(fnloc, ImmedLoc)
+        if self.fnloc_is_immediate:
+            self.fnloc = fnloc
+            self.arglocs = arglocs
+        else:
+            self.arglocs = arglocs + [fnloc]
         self.asm = assembler
         self.mc = assembler.mc
-        self.fnloc = fnloc
-        self.arglocs = arglocs
         self.resloc = resloc
         self.current_esp = 0
 
@@ -256,14 +262,13 @@ class CallBuilder32(AbstractCallBuilder):
                     self.mc.MOVSD(xmm0, loc)
                     self.mc.MOVSD_sx(p, xmm0.value)
                 else:
-                    if self.fnloc is eax:
-                        tmp = ecx
-                    else:
-                        tmp = eax
-                    self.mc.MOV(tmp, loc)
-                    self.mc.MOV_sr(p, tmp.value)
+                    self.mc.MOV(eax, loc)
+                    self.mc.MOV_sr(p, eax.value)
             p += loc.get_width()
         self.total_stack_used_by_arguments = p
+        #
+        if not self.fnloc_is_immediate:    # the last "argument" pushed above
+            self.fnloc = RawEspLoc(p - WORD, INT)
 
 
     def _fix_stdcall(self, callconv):
@@ -374,19 +379,27 @@ class CallBuilder64(AbstractCallBuilder):
         # them in precisely the final registers.  Here we look around for
         # unused registers that may be more likely usable.
         from rpython.jit.backend.x86.regalloc import X86_64_RegisterManager
+        from rpython.jit.backend.x86.regalloc import X86_64_XMMRegisterManager
         self.already_used = {}
         for loc in self.arglocs:
             self.already_used[loc] = None
         #
         lst = X86_64_RegisterManager.save_around_call_regs[:]
         self._permute_to_prefer_unused_registers(lst)
+        # <optimization>
+        extra = []
+        for reg in self.asm._regalloc.rm.free_regs:
+            if (reg not in self.already_used and
+                    reg in self._ALL_CALLEE_SAVE_GPR):
+                extra.append(reg)
+        lst = extra + lst
+        # </optimization>
         self.ARGUMENTS_GPR = lst[:len(self.ARGUMENTS_GPR)]
         self.DONT_MOVE_GPR = self._ALL_CALLEE_SAVE_GPR
         #
-        lst = [xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7]
+        lst = X86_64_XMMRegisterManager.save_around_call_regs[:]
         self._permute_to_prefer_unused_registers(lst)
-        assert len(lst) == len(self.ARGUMENTS_XMM)
-        self.ARGUMENTS_XMM = lst
+        self.ARGUMENTS_XMM = lst[:len(self.ARGUMENTS_XMM)]
 
     def prepare_arguments(self):
         src_locs = []
@@ -425,6 +438,9 @@ class CallBuilder64(AbstractCallBuilder):
                 src_locs.append(loc)
                 dst_locs.append(tgt)
 
+        if not self.fnloc_is_immediate:
+            self.fnloc = dst_locs[-1]     # the last "argument" prepared above
+
         if not we_are_translated():  # assert that we got the right stack depth
             floats = 0
             for i in range(len(arglocs)):
@@ -457,12 +473,6 @@ class CallBuilder64(AbstractCallBuilder):
                     src = X86_64_SCRATCH_REG
                 self.mc.MOVD(dst, src)
         # Finally remap the arguments in the main regs
-        # If x is a register and is in dst_locs, then oups, it needs to
-        # be moved away:
-        if self.fnloc in dst_locs:
-            src_locs.append(self.fnloc)
-            dst_locs.append(r10)
-            self.fnloc = r10
         remap_frame_layout(self.asm, src_locs, dst_locs, X86_64_SCRATCH_REG)
 
 
@@ -535,6 +545,9 @@ class CallBuilder64(AbstractCallBuilder):
             self.mc.MOVSD_xs(CallBuilder64.ARGUMENTS_XMM[i].value, n * WORD)
             n += 1
         assert n == self.n_saved_regs
+        #
+        if isinstance(self.fnloc, RegLoc):    # fix this register
+            self.fnloc = CallBuilder64.ARGUMENTS_GPR[n_gpr - 1]
 
 
 if IS_X86_32:
