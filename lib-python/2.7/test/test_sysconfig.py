@@ -7,7 +7,8 @@ import shutil
 import subprocess
 from copy import copy, deepcopy
 
-from test.test_support import run_unittest, TESTFN, unlink, get_attribute
+from test.test_support import (run_unittest, TESTFN, unlink, get_attribute,
+                               check_impl_detail)
 
 import sysconfig
 from sysconfig import (get_paths, get_platform, get_config_vars,
@@ -235,6 +236,11 @@ class TestSysConfig(unittest.TestCase):
         # XXX more platforms to tests here
 
     def test_get_config_h_filename(self):
+        if check_impl_detail(pypy=True):
+            try:
+                import cpyext
+            except ImportError:
+                self.skipTest("This test depends on cpyext.")
         config_h = sysconfig.get_config_h_filename()
         self.assertTrue(os.path.isfile(config_h), config_h)
 
