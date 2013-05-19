@@ -1003,8 +1003,8 @@ class Assembler386(BaseAssembler):
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         return bool(gcrootmap) and not gcrootmap.is_shadow_stack
 
-    def simple_call(self, fnloc, arglocs):
-        cb = callbuilder.CallBuilder(self, fnloc, arglocs)
+    def simple_call(self, fnloc, arglocs, result_loc=eax):
+        cb = callbuilder.CallBuilder(self, fnloc, arglocs, result_loc)
         cb.emit()
 
     def _reload_frame_if_necessary(self, mc, align_stack=False):
@@ -1913,8 +1913,8 @@ class Assembler386(BaseAssembler):
     def _call_assembler_emit_call(self, addr, argloc, _):
         self.simple_call(addr, [argloc])
 
-    def _call_assembler_emit_helper_call(self, addr, arglocs, _):
-        self.simple_call(addr, arglocs)
+    def _call_assembler_emit_helper_call(self, addr, arglocs, result_loc):
+        self.simple_call(addr, arglocs, result_loc)
 
     def _call_assembler_check_descr(self, value, tmploc):
         ofs = self.cpu.get_ofs_of_frame_field('jf_descr')

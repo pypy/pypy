@@ -279,10 +279,8 @@ class CallBuilder32(AbstractCallBuilder):
         return self.total_stack_used_by_arguments
 
     def load_result(self):
-        if self.ressize == 0:
-            return      # void result
         resloc = self.resloc
-        if resloc.is_float():
+        if resloc is not None and resloc.is_float():
             # a float or a long long return
             if self.tmpresloc is None:
                 if self.restype == 'L':     # long long
