@@ -2533,7 +2533,7 @@ class LLtypeBackendTest(BaseBackendTest):
         lltype.free(buffer, flavor='raw')
 
     def test_call_release_gil_return_types(self):
-        from rpython.rlib.libffi import CDLL, types
+        from rpython.rlib.libffi import types
         from rpython.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
         from rpython.rlib.rarithmetic import r_singlefloat
         cpu = self.cpu
@@ -2612,6 +2612,130 @@ class LLtypeBackendTest(BaseBackendTest):
                 else:
                     r = rffi.cast(TP, r)
                 assert r == result
+
+    def test_call_release_gil_variable_function_and_arguments(self):
+        from rpython.rlib.libffi import types
+        from rpython.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
+        from rpython.rlib.rarithmetic import r_singlefloat
+
+        cpu = self.cpu
+        rnd = random.Random(525)
+
+        ALL_TYPES = [
+            (types.ulong,  lltype.Unsigned),
+            (types.slong,  lltype.Signed),
+            (types.uint8,  rffi.UCHAR),
+            (types.sint8,  rffi.SIGNEDCHAR),
+            (types.uint16, rffi.USHORT),
+            (types.sint16, rffi.SHORT),
+            (types.uint32, rffi.UINT),
+            (types.sint32, rffi.INT),
+            ]
+        if sys.maxint < 2**32 and cpu.supports_longlong:
+            ALL_TYPES += [
+                (types.uint64, lltype.UnsignedLongLong),
+                (types.sint64, lltype.SignedLongLong),
+                ] * 2
+        if cpu.supports_floats:
+            ALL_TYPES += [
+                (types.double, rffi.DOUBLE),
+                ] * 4
+        if cpu.supports_singlefloats:
+            ALL_TYPES += [
+                (types.float,  rffi.FLOAT),
+                ] * 4
+
+        for k in range(1000):
+            #
+            def pseudo_c_function(*args):
+                seen.append(list(args))
+            #
+            ffitypes = []
+            ARGTYPES = []
+            for i in range(rnd.randrange(4, 20)):
+                ffitype, TP = rnd.choice(ALL_TYPES)
+                ffitypes.append(ffitype)
+                ARGTYPES.append(TP)
+            #
+            FPTR = self.Ptr(self.FuncType(ARGTYPES, lltype.Void))
+            func_ptr = llhelper(FPTR, pseudo_c_function)
+            funcbox = self.get_funcbox(cpu, func_ptr)
+            calldescr = cpu._calldescr_dynamic_for_tests(ffitypes, types.void)
+            faildescr = BasicFailDescr(1)
+            #
+            argboxes = [BoxInt()]   # for the function to call
+            codes = ['X']
+            for ffitype in ffitypes:
+                kind = types.getkind(ffitype)
+                codes.append(kind)
+                if kind in 'uis':
+                    b1 = BoxInt()
+                elif kind in 'fUI':
+                    b1 = BoxFloat()
+                else:
+                    assert 0, kind
+                argboxes.append(b1)
+            codes = ''.join(codes)     # useful for pdb
+            print
+            print codes
+            #
+            argvalues = [funcbox.getint()]
+            for TP in ARGTYPES:
+                r = (rnd.random() - 0.5) * 999999999999.9
+                r = rffi.cast(TP, r)
+                argvalues.append(r)
+            #
+            argvalues_normal = argvalues[:1]
+            for ffitype, r in zip(ffitypes, argvalues[1:]):
+                kind = types.getkind(ffitype)
+                if kind in 'ui':
+                    r = rffi.cast(lltype.Signed, r)
+                elif kind in 's':
+                    r, = struct.unpack("i", struct.pack("f", float(r)))
+                elif kind in 'f':
+                    r = longlong.getfloatstorage(r)
+                elif kind in 'UI':   # 32-bit only
+                    r = rffi.cast(lltype.SignedLongLong, r)
+                else:
+                    assert 0
+                argvalues_normal.append(r)
+            #
+            ops = []
+            loadcodes = []
+            insideboxes = []
+            for b1 in argboxes:
+                load = rnd.random() < 0.75
+                loadcodes.append(' ^'[load])
+                if load:
+                    b2 = b1.clonebox()
+                    ops += [
+                        ResOperation(rop.SAME_AS, [b1], b2)
+                        ]
+                    b1 = b2
+                insideboxes.append(b1)
+            loadcodes = ''.join(loadcodes)
+            print loadcodes
+            ops += [
+                ResOperation(rop.CALL_RELEASE_GIL, insideboxes, None,
+                             descr=calldescr),
+                ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
+                ResOperation(rop.FINISH, [], None, descr=BasicFinalDescr(0))
+                ]
+            ops[-2].setfailargs([])
+            looptoken = JitCellToken()
+            self.cpu.compile_loop(argboxes, ops, looptoken)
+            #
+            seen = []
+            deadframe = self.cpu.execute_token(looptoken, *argvalues_normal)
+            fail = self.cpu.get_latest_descr(deadframe)
+            assert fail.identifier == 0
+            expected = argvalues[1:]
+            [got] = seen
+            different_values = ['%r != %r' % (a, b)
+                                    for a, b in zip(got, expected)
+                                        if a != b]
+            assert got == expected, ', '.join(different_values)
+
 
     def test_guard_not_invalidated(self):
         cpu = self.cpu
