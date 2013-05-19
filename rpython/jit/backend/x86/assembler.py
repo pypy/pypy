@@ -25,26 +25,16 @@ from rpython.jit.backend.x86.regloc import (eax, ecx, edx, ebx, esp, ebp, esi,
     RegLoc, FrameLoc, ConstFloatLoc, ImmedLoc, AddressLoc, imm,
     imm0, imm1, FloatImmedLoc, RawEbpLoc, RawEspLoc)
 from rpython.rlib.objectmodel import we_are_translated
-from rpython.jit.backend.x86 import rx86, codebuf
+from rpython.jit.backend.x86 import rx86, codebuf, callbuilder
 from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.backend.x86 import support
 from rpython.rlib.debug import debug_print, debug_start, debug_stop
 from rpython.rlib import rgc
-from rpython.rlib.clibffi import FFI_DEFAULT_ABI
 from rpython.jit.backend.x86.jump import remap_frame_layout
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.codewriter import longlong
 from rpython.rlib.rarithmetic import intmask, r_uint
 from rpython.rlib.objectmodel import compute_unique_id
-
-
-# darwin requires the stack to be 16 bytes aligned on calls. Same for gcc 4.5.0,
-# better safe than sorry
-CALL_ALIGN = 16 // WORD
-
-
-def align_stack_words(words):
-    return (words + CALL_ALIGN - 1) & ~(CALL_ALIGN-1)
 
 
 class Assembler386(BaseAssembler):
@@ -131,10 +121,10 @@ class Assembler386(BaseAssembler):
             mc.MOV_rs(esi.value, WORD*2)
             # push first arg
             mc.MOV_rr(edi.value, ebp.value)
-            align = align_stack_words(1)
+            align = callbuilder.align_stack_words(1)
             mc.SUB_ri(esp.value, (align - 1) * WORD)
         else:
-            align = align_stack_words(3)
+            align = callbuilder.align_stack_words(3)
             mc.MOV_rs(eax.value, WORD * 2)
             mc.SUB_ri(esp.value, (align - 1) * WORD)
             mc.MOV_sr(WORD, eax.value)
@@ -1014,175 +1004,9 @@ class Assembler386(BaseAssembler):
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         return bool(gcrootmap) and not gcrootmap.is_shadow_stack
 
-    def _emit_call(self, x, arglocs, start=0, tmp=eax,
-                   argtypes=None, callconv=FFI_DEFAULT_ABI,
-                   # whether to worry about a CALL that can collect; this
-                   # is always true except in call_release_gil
-                   can_collect=True,
-                   # max number of arguments we can pass on esp; if more,
-                   # we need to decrease esp temporarily
-                   stack_max=PASS_ON_MY_FRAME):
-        #
-        if IS_X86_64:
-            return self._emit_call_64(x, arglocs, start, argtypes,
-                                      can_collect, stack_max)
-        stack_depth = 0
-        n = len(arglocs)
-        for i in range(start, n):
-            loc = arglocs[i]
-            stack_depth += loc.get_width() // WORD
-        if stack_depth > stack_max:
-            align = align_stack_words(stack_depth - stack_max)
-            self.mc.SUB_ri(esp.value, align * WORD)
-            if can_collect:
-                self.set_extra_stack_depth(self.mc, align * WORD)
-        else:
-            align = 0
-        p = 0
-        for i in range(start, n):
-            loc = arglocs[i]
-            if isinstance(loc, RegLoc):
-                if loc.is_xmm:
-                    self.mc.MOVSD_sx(p, loc.value)
-                else:
-                    self.mc.MOV_sr(p, loc.value)
-            p += loc.get_width()
-        p = 0
-        for i in range(start, n):
-            loc = arglocs[i]
-            if not isinstance(loc, RegLoc):
-                if loc.get_width() == 8:
-                    self.mc.MOVSD(xmm0, loc)
-                    self.mc.MOVSD_sx(p, xmm0.value)
-                else:
-                    self.mc.MOV(tmp, loc)
-                    self.mc.MOV_sr(p, tmp.value)
-            p += loc.get_width()
-        # x is a location
-        if can_collect:
-            # we push *now* the gcmap, describing the status of GC registers
-            # after the rearrangements done just above, ignoring the return
-            # value eax, if necessary
-            noregs = self.cpu.gc_ll_descr.is_shadow_stack()
-            gcmap = self._regalloc.get_gcmap([eax], noregs=noregs)
-            self.push_gcmap(self.mc, gcmap, store=True)
-        #
-        self.mc.CALL(x)
-        if callconv != FFI_DEFAULT_ABI:
-            self._fix_stdcall(callconv, p - align * WORD)
-        elif align:
-            self.mc.ADD_ri(esp.value, align * WORD)
-        #
-        if can_collect:
-            self._reload_frame_if_necessary(self.mc)
-            if align:
-                self.set_extra_stack_depth(self.mc, 0)
-            self.pop_gcmap(self.mc)
-
-    def _fix_stdcall(self, callconv, p):
-        from rpython.rlib.clibffi import FFI_STDCALL
-        assert callconv == FFI_STDCALL
-        # it's a bit stupid, but we're just going to cancel the fact that
-        # the called function just added 'p' to ESP, by subtracting it again.
-        self.mc.SUB_ri(esp.value, p)
-
-    def _emit_call_64(self, x, arglocs, start, argtypes,
-                      can_collect, stack_max):
-        src_locs = []
-        dst_locs = []
-        xmm_src_locs = []
-        xmm_dst_locs = []
-        singlefloats = None
-
-        # In reverse order for use with pop()
-        unused_gpr = [r9, r8, ecx, edx, esi, edi]
-        unused_xmm = [xmm7, xmm6, xmm5, xmm4, xmm3, xmm2, xmm1, xmm0]
-
-        on_stack = 0
-        # count the stack depth
-        floats = 0
-        for i in range(start, len(arglocs)):
-            arg = arglocs[i]
-            if arg.is_float() or argtypes and argtypes[i - start] == 'S':
-                floats += 1
-        all_args = len(arglocs) - start
-        stack_depth = (max(all_args - floats - len(unused_gpr), 0) +
-                       max(floats - len(unused_xmm), 0))
-        align = 0
-        if stack_depth > stack_max:
-            align = align_stack_words(stack_depth - stack_max)
-            if can_collect:
-                self.set_extra_stack_depth(self.mc, align * WORD)
-            self.mc.SUB_ri(esp.value, align * WORD)
-        for i in range(start, len(arglocs)):
-            loc = arglocs[i]
-            if loc.is_float():
-                xmm_src_locs.append(loc)
-                if len(unused_xmm) > 0:
-                    xmm_dst_locs.append(unused_xmm.pop())
-                else:
-                    xmm_dst_locs.append(RawEspLoc(on_stack * WORD, FLOAT))
-                    on_stack += 1
-            elif argtypes is not None and argtypes[i-start] == 'S':
-                # Singlefloat argument
-                if singlefloats is None:
-                    singlefloats = []
-                if len(unused_xmm) > 0:
-                    singlefloats.append((loc, unused_xmm.pop()))
-                else:
-                    singlefloats.append((loc, RawEspLoc(on_stack * WORD, INT)))
-                    on_stack += 1
-            else:
-                src_locs.append(loc)
-                if len(unused_gpr) > 0:
-                    dst_locs.append(unused_gpr.pop())
-                else:
-                    dst_locs.append(RawEspLoc(on_stack * WORD, INT))
-                    on_stack += 1
-
-        # Handle register arguments: first remap the xmm arguments
-        remap_frame_layout(self, xmm_src_locs, xmm_dst_locs,
-                           X86_64_XMM_SCRATCH_REG)
-        # Load the singlefloat arguments from main regs or stack to xmm regs
-        if singlefloats is not None:
-            for src, dst in singlefloats:
-                if isinstance(dst, RawEspLoc):
-                    # XXX too much special logic
-                    if isinstance(src, RawEbpLoc):
-                        self.mc.MOV32(X86_64_SCRATCH_REG, src)
-                        self.mc.MOV32(dst, X86_64_SCRATCH_REG)
-                    else:
-                        self.mc.MOV32(dst, src)
-                    continue
-                if isinstance(src, ImmedLoc):
-                    self.mc.MOV(X86_64_SCRATCH_REG, src)
-                    src = X86_64_SCRATCH_REG
-                self.mc.MOVD(dst, src)
-        # Finally remap the arguments in the main regs
-        # If x is a register and is in dst_locs, then oups, it needs to
-        # be moved away:
-        if x in dst_locs:
-            src_locs.append(x)
-            dst_locs.append(r10)
-            x = r10
-        remap_frame_layout(self, src_locs, dst_locs, X86_64_SCRATCH_REG)
-        if can_collect:
-            # we push *now* the gcmap, describing the status of GC registers
-            # after the rearrangements done just above, ignoring the return
-            # value eax, if necessary
-            noregs = self.cpu.gc_ll_descr.is_shadow_stack()
-            gcmap = self._regalloc.get_gcmap([eax], noregs=noregs)
-            self.push_gcmap(self.mc, gcmap, store=True)
-        #
-        self.mc.CALL(x)
-        if align:
-            self.mc.ADD_ri(esp.value, align * WORD)
-        #
-        if can_collect:
-            self._reload_frame_if_necessary(self.mc)
-            if align:
-                self.set_extra_stack_depth(self.mc, 0)
-            self.pop_gcmap(self.mc)
+    def simple_call(self, fnaddr, arglocs):
+        cb = callbuilder.CallBuilder(self, imm(fnaddr), arglocs)
+        cb.emit()
 
     def _reload_frame_if_necessary(self, mc, align_stack=False):
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
@@ -1197,10 +1021,6 @@ class Assembler386(BaseAssembler):
             # an array
             self._write_barrier_fastpath(mc, wbdescr, [ebp], array=False,
                                          is_frame=True, align_stack=align_stack)
-
-    def call(self, addr, args, res):
-        self._emit_call(imm(addr), args)
-        assert res is eax
 
     genop_int_neg = _unaryop("NEG")
     genop_int_invert = _unaryop("NOT")
@@ -2003,29 +1823,20 @@ class Assembler386(BaseAssembler):
         size = sizeloc.value
         signloc = arglocs[1]
 
-        x = arglocs[2]     # the function address
-        if x is eax:
-            tmp = ecx
-        else:
-            tmp = eax
+        cb = callbuilder.CallBuilder(self, arglocs[2], arglocs[3:])
 
         descr = op.getdescr()
         assert isinstance(descr, CallDescr)
+        cb.argtypes = descr.get_arg_types()
+        cb.callconv = descr.get_call_conv()
 
-        stack_max = PASS_ON_MY_FRAME
         if is_call_release_gil:
             if self._is_asmgcc():
                 from rpython.memory.gctransform import asmgcroot
                 stack_max -= asmgcroot.JIT_USE_WORDS
-            can_collect = False
-        else:
-            can_collect = True
+            XXXXXX
 
-        self._emit_call(x, arglocs, 3, tmp=tmp,
-                        argtypes=descr.get_arg_types(),
-                        callconv=descr.get_call_conv(),
-                        can_collect=can_collect,
-                        stack_max=stack_max)
+        cb.emit()
 
         if IS_X86_32 and isinstance(resloc, FrameLoc) and resloc.type == FLOAT:
             # a float or a long long return
