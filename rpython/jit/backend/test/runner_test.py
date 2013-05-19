@@ -2598,7 +2598,12 @@ class LLtypeBackendTest(BaseBackendTest):
             assert fail.identifier == 0
             if isinstance(b3, BoxInt):
                 r = self.cpu.get_int_value(deadframe, 0)
-                assert rffi.cast(TP, r) == result
+                if isinstance(result, r_singlefloat):
+                    r, = struct.unpack("f", struct.pack("i", r))
+                    result = float(result)
+                else:
+                    r = rffi.cast(TP, r)
+                assert r == result
             elif isinstance(b3, BoxFloat):
                 r = self.cpu.get_float_value(deadframe, 0)
                 if isinstance(result, float):
