@@ -348,12 +348,13 @@ class CallBuilder64(AbstractCallBuilder):
     def _unused_gpr(self, hint):
         i = self.next_arg_gpr
         self.next_arg_gpr = i + 1
-        if hint in self.DONT_MOVE_GPR:
-            return hint
         try:
-            return self.ARGUMENTS_GPR[i]
+            res = self.ARGUMENTS_GPR[i]
         except IndexError:
             return None
+        if hint in self.DONT_MOVE_GPR:
+            res = hint
+        return res
 
     def _unused_xmm(self):
         i = self.next_arg_xmm
