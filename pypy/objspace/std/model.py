@@ -40,7 +40,6 @@ class StdTypeModel:
             from pypy.objspace.std.complextype  import complex_typedef
             from pypy.objspace.std.tupletype  import tuple_typedef
             from pypy.objspace.std.listobject   import list_typedef
-            from pypy.objspace.std.dicttype   import dict_typedef
             from pypy.objspace.std.basestringtype import basestring_typedef
             from pypy.objspace.std.stringtype import str_typedef
             from pypy.objspace.std.bytearraytype import bytearray_typedef
@@ -81,6 +80,7 @@ class StdTypeModel:
 
         # not-multimethod based types
 
+        self.pythontypes.append(dictmultiobject.W_DictMultiObject.typedef)
         self.pythontypes.append(setobject.W_SetObject.typedef)
         self.pythontypes.append(setobject.W_FrozensetObject.typedef)
 
@@ -92,10 +92,6 @@ class StdTypeModel:
             floatobject.W_FloatObject: [],
             tupleobject.W_TupleObject: [],
             listobject.W_ListObject: [],
-            dictmultiobject.W_DictMultiObject: [],
-            dictmultiobject.W_DictMultiIterKeysObject: [],
-            dictmultiobject.W_DictMultiIterValuesObject: [],
-            dictmultiobject.W_DictMultiIterItemsObject: [],
             stringobject.W_StringObject: [],
             bytearrayobject.W_BytearrayObject: [],
             typeobject.W_TypeObject: [],
@@ -108,9 +104,6 @@ class StdTypeModel:
             iterobject.W_FastTupleIterObject: [],
             iterobject.W_ReverseSeqIterObject: [],
             unicodeobject.W_UnicodeObject: [],
-            dictmultiobject.W_DictViewKeysObject: [],
-            dictmultiobject.W_DictViewItemsObject: [],
-            dictmultiobject.W_DictViewValuesObject: [],
             pypy.interpreter.pycode.PyCode: [],
             pypy.interpreter.special.Ellipsis: [],
             }
@@ -332,9 +325,6 @@ class W_Object(W_Root):
         if w_cls is not None and w_cls is not self:
             s += ' instance of %s' % self.w__class__
         return '<%s>' % s
-
-    def unwrap(self, space):
-        raise UnwrapError('cannot unwrap %r' % self)
 
 
 class UnwrapError(Exception):

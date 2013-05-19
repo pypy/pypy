@@ -447,11 +447,11 @@ class rbigint(object):
 
     @jit.elidable
     def repr(self):
-        return _format(self, BASE10, '', 'L')
+        return _format_decimal(self, addL=True)
 
     @jit.elidable
     def str(self):
-        return _format(self, BASE10)
+        return _format_decimal(self)
 
     @jit.elidable
     def eq(self, other):
@@ -2099,6 +2099,101 @@ def _format(a, digits, prefix='', suffix=''):
     assert p >= 0    # otherwise, buffer overflow (this is also a
                      # hint for the annotator for the slice below)
     return ''.join(s[p:])
+
+
+DECIMAL_SHIFT = 0      # computed as max(E such that 10**E fits in a digit)
+while 10 ** (DECIMAL_SHIFT + 1) <= 2 ** SHIFT:
+    DECIMAL_SHIFT += 1
+DECIMAL_BASE = 10 ** DECIMAL_SHIFT
+
+# an RPython trick: this creates a nested sequence of calls that are
+# all inlined into each other, making an unrolled loop.  Moreover the
+# calls are done in the "wrong" order to be written as a regular loop:
+# the first digit that is append-ed to the builder is the most
+# significant one (corresponding to the innermost call).
+_succ = specialize.memo()(lambda n: n + 1)
+@specialize.arg(3)
+def _add_decimal_digits(builder, value, ndigits, digit_index=1):
+    assert value >= 0
+    if digit_index < ndigits:
+        assert digit_index < DECIMAL_SHIFT
+        _add_decimal_digits(builder, value // 10, ndigits, _succ(digit_index))
+        builder.append(chr(ord('0') + value % 10))
+    else:
+        assert value < 10
+        builder.append(chr(ord('0') + value))
+_add_decimal_digits._always_inline_ = True
+
+
+def _format_decimal(a, addL=False):
+    """ Optimized version of _format(a, BASE10, '', 'L' if addL else ''). """
+    if a.sign == 0:
+        if addL:
+            return "0L"
+        else:
+            return "0"
+
+    size_a = a.numdigits()
+    negative = a.sign < 0
+
+    # quick and dirty upper bound for the number of digits
+    # required to express a in base DECIMAL_BASE:
+    #
+    #    #digits = 1 + floor(log2(a) / log2(DECIMAL_BASE))
+    #
+    # But log2(a) < size_a * PyLong_SHIFT, and
+    # log2(DECIMAL_BASE) = log2(10) * DECIMAL_SHIFT
+    #                    > 3 * DECIMAL_SHIFT
+
+    size = 1 + size_a * SHIFT // (3 * DECIMAL_SHIFT)
+    pout = [NULLDIGIT] * size
+
+    # convert array of base _PyLong_BASE digits in pin to an array of
+    # base _PyLong_DECIMAL_BASE digits in pout, following Knuth (TAOCP,
+    # Volume 2 (3rd edn), section 4.4, Method 1b).
+    size = 0
+    for i in range(size_a-1, -1, -1):
+        hi = a.digit(i)
+        for j in range(size):
+            z = (_widen_digit(pout[j]) << SHIFT) | hi
+            hi = _store_digit(z // DECIMAL_BASE)
+            pout[j] = _store_digit(z - _widen_digit(hi) * DECIMAL_BASE)
+        assert hi >= 0
+        while hi:
+            pout[size] = hi % DECIMAL_BASE
+            hi //= DECIMAL_BASE
+            size += 1
+    sizem1 = size - 1
+    assert sizem1 >= 0
+
+    # calculate exact length of output string, and allocate
+    decimal_digits_in_last_part = 1
+    rem = pout[sizem1]
+    tenpow = 10
+    while rem >= tenpow:
+        tenpow *= 10
+        decimal_digits_in_last_part += 1
+    strlen = (addL + negative +
+              decimal_digits_in_last_part + (sizem1) * DECIMAL_SHIFT)
+
+    builder = StringBuilder(strlen)
+
+    # start with the negative sign, if needed
+    if negative:
+        builder.append('-')
+
+    # pout[size-1] produces 'decimal_digits_in_last_part' digits.
+    # Then the remaining pout[size-2] through pout[0] contribute exactly
+    # DECIMAL_SHIFT digits each.
+    decimal_digits = decimal_digits_in_last_part
+    for i in range(sizem1, -1, -1):
+        _add_decimal_digits(builder, pout[i], decimal_digits)
+        decimal_digits = DECIMAL_SHIFT
+
+    # done
+    if addL:
+        builder.append('L')
+    return builder.build()
 
 
 def _bitwise(a, op, b): # '&', '|', '^'

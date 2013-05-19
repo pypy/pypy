@@ -936,6 +936,21 @@ class AppTestOptimizer:
         output = s.getvalue()
         assert "LOAD_GLOBAL" not in output
 
+    def test_folding_of_list_constants(self):
+        source = 'a in [1, 2, 3]'
+        co = compile(source, '', 'exec')
+        i = co.co_consts.index((1, 2, 3))
+        assert i > -1
+        assert isinstance(co.co_consts[i], tuple)
+
+    def test_folding_of_set_constants(self):
+        source = 'a in {1, 2, 3}'
+        co = compile(source, '', 'exec')
+        i = co.co_consts.index(set([1, 2, 3]))
+        assert i > -1
+        assert isinstance(co.co_consts[i], frozenset)
+
+
 class AppTestCallMethod(object):
     spaceconfig = {'objspace.opcodes.CALL_METHOD': True}
         

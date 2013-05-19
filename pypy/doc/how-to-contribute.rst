@@ -28,7 +28,8 @@ This leads to the next issue:
 Layers
 ------
 
-PyPy has layers. Those layers help us keep the respective parts separated enough
+PyPy has layers. Just like Ogres or onions.
+Those layers help us keep the respective parts separated enough
 to be worked on independently and make the complexity manageable. This is,
 again, just a sanity requirement for such a complex project. For example writing
 a new optimization for the JIT usually does **not** involve touching a Python
