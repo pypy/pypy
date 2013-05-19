@@ -86,9 +86,10 @@ class AbstractCallBuilder(object):
             self.current_esp += self._fix_stdcall(self.callconv)
 
     def subtract_esp_aligned(self, count):
-        align = align_stack_words(count)
-        self.current_esp -= align * WORD
-        self.mc.SUB_ri(esp.value, align * WORD)
+        if count > 0:
+            align = align_stack_words(count)
+            self.current_esp -= align * WORD
+            self.mc.SUB_ri(esp.value, align * WORD)
 
     def restore_esp(self, target_esp=0):
         if self.current_esp != target_esp:
@@ -143,12 +144,8 @@ class AbstractCallBuilder(object):
         self.asm.pop_gcmap(self.mc)
 
     def call_releasegil_addr_and_move_real_arguments(self):
-        if IS_X86_32 and self.asm._is_asmgcc():
-            needs_extra_esp = 1      # only for asmgcc on x86_32
-        else:
-            needs_extra_esp = 0
         initial_esp = self.current_esp
-        self.save_register_arguments(needs_extra_esp)
+        self.save_register_arguments()
         #
         if not self.asm._is_asmgcc():
             # the helper takes no argument
@@ -182,6 +179,7 @@ class AbstractCallBuilder(object):
             # Call the closestack() function (also releasing the GIL)
             # with 'reg' as argument
             if IS_X86_32:
+                self.subtract_esp_aligned(1)
                 self.mc.MOV_sr(0, reg.value)
             #else:
             #   on x86_64, reg is edi so that it is already correct
@@ -191,10 +189,8 @@ class AbstractCallBuilder(object):
         self.restore_register_arguments()
         self.restore_esp(initial_esp)
 
-    def save_register_arguments(self, needs_extra_esp):
+    def save_register_arguments(self):
         """Overridden in CallBuilder64"""
-        if needs_extra_esp:
-            self.subtract_esp_aligned(needs_extra_esp)
 
     def restore_register_arguments(self):
         """Overridden in CallBuilder64"""
@@ -241,8 +237,7 @@ class CallBuilder32(AbstractCallBuilder):
         for i in range(n):
             loc = arglocs[i]
             stack_depth += loc.get_width() // WORD
-        if stack_depth > self.stack_max:
-            self.subtract_esp_aligned(stack_depth - self.stack_max)
+        self.subtract_esp_aligned(stack_depth - self.stack_max)
         #
         p = 0
         for i in range(n):
@@ -333,13 +328,17 @@ class CallBuilder64(AbstractCallBuilder):
 
     ARGUMENTS_GPR = [edi, esi, edx, ecx, r8, r9]
     ARGUMENTS_XMM = [xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7]
+    DONT_MOVE_GPR = []
+    _ALL_CALLEE_SAVE_GPR = [ebx, r12, r13, r14, r15]
 
     next_arg_gpr = 0
     next_arg_xmm = 0
 
-    def _unused_gpr(self):
+    def _unused_gpr(self, hint):
         i = self.next_arg_gpr
         self.next_arg_gpr = i + 1
+        if hint in self.DONT_MOVE_GPR:
+            return hint
         try:
             return self.ARGUMENTS_GPR[i]
         except IndexError:
@@ -354,13 +353,19 @@ class CallBuilder64(AbstractCallBuilder):
             return None
 
     def _permute_to_prefer_unused_registers(self, lst):
+        # permute 'lst' so that it starts with registers that are not
+        # in 'self.already_used', and ends with registers that are.
         N = len(lst)
-        for i in range(N - 1):
+        i = 0
+        while i < N:
             reg = lst[i]
             if reg in self.already_used:
-                for j in range(i, N - 1):        # move reg to the end
-                    lst[j] = lst[j + 1]
-                lst[N - 1] = reg
+                # move this reg to the end, and decrement N
+                N -= 1
+                assert N >= i
+                lst[N], lst[i] = lst[i], lst[N]
+            else:
+                i += 1
 
     def select_call_release_gil_mode(self):
         AbstractCallBuilder.select_call_release_gil_mode(self)
@@ -376,9 +381,11 @@ class CallBuilder64(AbstractCallBuilder):
         lst = X86_64_RegisterManager.save_around_call_regs[:]
         self._permute_to_prefer_unused_registers(lst)
         self.ARGUMENTS_GPR = lst[:len(self.ARGUMENTS_GPR)]
+        self.DONT_MOVE_GPR = self._ALL_CALLEE_SAVE_GPR
         #
         lst = [xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7]
         self._permute_to_prefer_unused_registers(lst)
+        assert len(lst) == len(self.ARGUMENTS_XMM)
         self.ARGUMENTS_XMM = lst
 
     def prepare_arguments(self):
@@ -411,7 +418,7 @@ class CallBuilder64(AbstractCallBuilder):
                     on_stack += 1
                 singlefloats.append((loc, tgt))
             else:
-                tgt = self._unused_gpr()
+                tgt = self._unused_gpr(hint=loc)
                 if tgt is None:
                     tgt = RawEspLoc(on_stack * WORD, INT)
                     on_stack += 1
@@ -429,8 +436,7 @@ class CallBuilder64(AbstractCallBuilder):
                            + max(floats - len(self.ARGUMENTS_XMM), 0))
             assert stack_depth == on_stack
 
-        if on_stack > self.stack_max:
-            self.subtract_esp_aligned(on_stack - self.stack_max)
+        self.subtract_esp_aligned(on_stack - self.stack_max)
 
         # Handle register arguments: first remap the xmm arguments
         remap_frame_layout(self.asm, xmm_src_locs, xmm_dst_locs,
@@ -490,11 +496,45 @@ class CallBuilder64(AbstractCallBuilder):
             type = INT
         self.tmpresloc = RawEspLoc(0, type)
 
-    def save_register_arguments(self, needs_extra_esp):
-        xxx
+    def save_register_arguments(self):
+        # Save the argument registers, which are given by self.ARGUMENTS_xxx.
+        n_gpr = min(self.next_arg_gpr, len(self.ARGUMENTS_GPR))
+        n_xmm = min(self.next_arg_xmm, len(self.ARGUMENTS_XMM))
+        n_saved_regs = n_gpr + n_xmm
+        for i in range(n_gpr):
+            if self.ARGUMENTS_GPR[i] in self._ALL_CALLEE_SAVE_GPR:
+                n_saved_regs -= 1     # don't need to save it
+        self.subtract_esp_aligned(n_saved_regs)
+        #
+        n = 0
+        for i in range(n_gpr):
+            if self.ARGUMENTS_GPR[i] not in self._ALL_CALLEE_SAVE_GPR:
+                self.mc.MOV_sr(n * WORD, self.ARGUMENTS_GPR[i].value)
+                n += 1
+        for i in range(n_xmm):
+            self.mc.MOVSD_sx(n * WORD, self.ARGUMENTS_XMM[i].value)
+            n += 1
+        assert n == n_saved_regs
+        self.n_saved_regs = n_saved_regs
 
     def restore_register_arguments(self):
-        xxx
+        # Restore the saved values into the *real* registers used for calls
+        # --- which are not self.ARGUMENTS_xxx!
+        n_gpr = min(self.next_arg_gpr, len(self.ARGUMENTS_GPR))
+        n_xmm = min(self.next_arg_xmm, len(self.ARGUMENTS_XMM))
+        #
+        n = 0
+        for i in range(n_gpr):
+            tgtvalue = CallBuilder64.ARGUMENTS_GPR[i].value
+            if self.ARGUMENTS_GPR[i] not in self._ALL_CALLEE_SAVE_GPR:
+                self.mc.MOV_rs(tgtvalue, n * WORD)
+                n += 1
+            else:
+                self.mc.MOV_rr(tgtvalue, self.ARGUMENTS_GPR[i].value)
+        for i in range(n_xmm):
+            self.mc.MOVSD_xs(CallBuilder64.ARGUMENTS_XMM[i].value, n * WORD)
+            n += 1
+        assert n == self.n_saved_regs
 
 
 if IS_X86_32:
