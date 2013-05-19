@@ -547,7 +547,6 @@ class W_ListObject(W_Root):
     def descr_reverse(self, space):
         'L.reverse() -- reverse *IN PLACE*'
         self.reverse()
-        return space.w_None
 
     def descr_count(self, space, w_value):
         '''L.count(value) -> integer -- return number of
@@ -567,7 +566,6 @@ class W_ListObject(W_Root):
         length = self.length()
         index = get_positive_index(index, length)
         self.insert(index, w_value)
-        return space.w_None
 
     @unwrap_spec(index=int)
     def descr_pop(self, space, index=-1):
@@ -598,7 +596,6 @@ class W_ListObject(W_Root):
                                  space.wrap("list.remove(x): x not in list"))
         if i < self.length():  # otherwise list was mutated
             self.pop(i)
-        return space.w_None
 
     @unwrap_spec(w_start=WrappedDefault(0), w_stop=WrappedDefault(maxint))
     def descr_index(self, space, w_value, w_start, w_stop):
@@ -637,7 +634,7 @@ class W_ListObject(W_Root):
                     sorterclass = SimpleSort
                 else:
                     self.sort(reverse)
-                    return space.w_None
+                    return
 
         sorter = sorterclass(self.getitems(), self.length())
         sorter.space = space
@@ -686,8 +683,6 @@ class W_ListObject(W_Root):
         if mucked:
             raise OperationError(space.w_ValueError,
                                  space.wrap("list modified during sort"))
-
-        return space.w_None
 
 
 class ListStrategy(object):
