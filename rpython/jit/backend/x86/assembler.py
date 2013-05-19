@@ -6,7 +6,7 @@ from rpython.jit.backend.llsupport.assembler import (GuardToken, BaseAssembler,
                                                 DEBUG_COUNTER, debug_bridge)
 from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
-from rpython.jit.metainterp.history import Const, Box
+from rpython.jit.metainterp.history import Const, Box, VOID
 from rpython.jit.metainterp.history import AbstractFailDescr, INT, REF, FLOAT
 from rpython.rtyper.lltypesystem import lltype, rffi, rstr, llmemory
 from rpython.rtyper.lltypesystem.lloperation import llop
@@ -1006,10 +1006,16 @@ class Assembler386(BaseAssembler):
     def simple_call(self, fnloc, arglocs, result_loc=eax):
         if result_loc is xmm0:
             result_type = FLOAT
+            result_size = 8
+        elif result_loc is None:
+            result_type = VOID
+            result_size = 0
         else:
             result_type = INT
+            result_size = WORD
         cb = callbuilder.CallBuilder(self, fnloc, arglocs,
-                                     result_loc, result_type)
+                                     result_loc, result_type,
+                                     result_size)
         cb.emit()
 
     def simple_call_no_collect(self, fnloc, arglocs):

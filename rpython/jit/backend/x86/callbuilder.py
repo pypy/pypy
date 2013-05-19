@@ -28,7 +28,6 @@ class AbstractCallBuilder(object):
     # this can be set to guide more complex calls: gives the detailed
     # type of the arguments
     argtypes = []
-    ressize = WORD
     ressign = False
 
     # this is the calling convention (can be FFI_STDCALL on Windows)
@@ -41,7 +40,8 @@ class AbstractCallBuilder(object):
     tmpresloc = None
 
 
-    def __init__(self, assembler, fnloc, arglocs, resloc=eax, restype=INT):
+    def __init__(self, assembler, fnloc, arglocs,
+                 resloc=eax, restype=INT, ressize=WORD):
         # Avoid tons of issues with a non-immediate fnloc by sticking it
         # as an extra argument if needed
         self.fnloc_is_immediate = isinstance(fnloc, ImmedLoc)
@@ -54,6 +54,7 @@ class AbstractCallBuilder(object):
         self.mc = assembler.mc
         self.resloc = resloc
         self.restype = restype
+        self.ressize = ressize
         self.current_esp = 0
 
     def emit_no_collect(self):
