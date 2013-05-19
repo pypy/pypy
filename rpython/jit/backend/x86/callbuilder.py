@@ -189,7 +189,7 @@ class AbstractCallBuilder(object):
             # (PASS_ON_MY_FRAME-JIT_USE_WORDS+1) words
             delta = PASS_ON_MY_FRAME - asmgcroot.JIT_USE_WORDS + 1
             self.change_extra_stack_depth = True
-            self.set_extra_stack_depth(self.mc, -delta * WORD)
+            self.asm.set_extra_stack_depth(self.mc, -delta * WORD)
             # Call the closestack() function (also releasing the GIL)
             # with 'reg' as argument
             if IS_X86_32:
