@@ -232,9 +232,9 @@ class AppTestFfi:
         import _rawffi
         # this should return *all* loaded libs, dlopen(NULL)
         dll = _rawffi.CDLL(None)
-        # Assume CPython, or PyPy compiled with cpyext
-        res = dll.ptr('Py_IsInitialized', [], 'l')()
-        assert res[0] == 1
+        func = dll.ptr('rand', [], 'i')
+        res = func()
+        assert res[0] != 0
 
     def test_libc_load(self):
         import _rawffi
