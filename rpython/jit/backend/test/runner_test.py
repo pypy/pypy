@@ -2601,7 +2601,11 @@ class LLtypeBackendTest(BaseBackendTest):
                 assert rffi.cast(TP, r) == result
             elif isinstance(b3, BoxFloat):
                 r = self.cpu.get_float_value(deadframe, 0)
-                assert r == result    # xxx
+                if isinstance(result, float):
+                    r = longlong.getrealfloat(r)
+                else:
+                    r = rffi.cast(TP, r)
+                assert r == result
 
     def test_guard_not_invalidated(self):
         cpu = self.cpu
