@@ -6,7 +6,7 @@ from rpython.jit.backend.x86.arch import (WORD, IS_X86_64, IS_X86_32,
 from rpython.jit.backend.x86.regloc import (eax, ecx, edx, ebx, esp, ebp, esi,
     xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7, r8, r9, r10, r11, edi,
     r12, r13, r14, r15, X86_64_SCRATCH_REG, X86_64_XMM_SCRATCH_REG,
-    RegLoc, RawEspLoc, imm, ImmedLoc)
+    RegLoc, RawEspLoc, RawEbpLoc, imm, ImmedLoc)
 from rpython.jit.backend.x86.jump import remap_frame_layout
 
 
@@ -28,7 +28,6 @@ class AbstractCallBuilder(object):
     # this can be set to guide more complex calls: gives the detailed
     # type of the arguments
     argtypes = []
-    restype = INT
     ressize = WORD
     ressign = False
 
@@ -42,7 +41,7 @@ class AbstractCallBuilder(object):
     tmpresloc = None
 
 
-    def __init__(self, assembler, fnloc, arglocs, resloc=eax):
+    def __init__(self, assembler, fnloc, arglocs, resloc=eax, restype=INT):
         # Avoid tons of issues with a non-immediate fnloc by sticking it
         # as an extra argument if needed
         self.fnloc_is_immediate = isinstance(fnloc, ImmedLoc)
@@ -54,6 +53,7 @@ class AbstractCallBuilder(object):
         self.asm = assembler
         self.mc = assembler.mc
         self.resloc = resloc
+        self.restype = restype
         self.current_esp = 0
 
     def emit(self):
@@ -392,6 +392,7 @@ class CallBuilder64(AbstractCallBuilder):
             if (reg not in self.already_used and
                     reg in self._ALL_CALLEE_SAVE_GPR):
                 extra.append(reg)
+        self.free_callee_save_gprs = extra
         lst = extra + lst
         # </optimization>
         self.ARGUMENTS_GPR = lst[:len(self.ARGUMENTS_GPR)]
@@ -492,19 +493,23 @@ class CallBuilder64(AbstractCallBuilder):
         if self.ressize == 0:      # void return
             return
         #
+        if self.restype == FLOAT:    # and not 'S'
+            self.mc.MOVSD_sx(0, xmm0.value)
+            self.tmpresloc = RawEspLoc(0, FLOAT)
+            return
+        #
+        if len(self.free_callee_save_gprs) == 0:
+            self.tmpresloc = RawEspLoc(0, INT)
+        else:
+            self.tmpresloc = self.free_callee_save_gprs[0]
+        #
         if self.restype == 'S':
             # singlefloat return: use MOVD to store the lower 32 bits
-            # of XMM0 into [ESP]
-            self.mc.MOVD_sx(0, xmm0.value)
-            type = INT
-        elif self.restype == FLOAT:
-            self.mc.MOVSD_sx(0, xmm0.value)
-            type = FLOAT
+            # of XMM0 into the tmpresloc (register or [ESP])
+            self.mc.MOVD(self.tmpresloc, xmm0)
         else:
             assert self.restype == INT
-            self.mc.MOV_sr(0, eax.value)
-            type = INT
-        self.tmpresloc = RawEspLoc(0, type)
+            self.mc.MOV(self.tmpresloc, eax)
 
     def save_register_arguments(self):
         # Save the argument registers, which are given by self.ARGUMENTS_xxx.

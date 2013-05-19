@@ -1004,7 +1004,12 @@ class Assembler386(BaseAssembler):
         return bool(gcrootmap) and not gcrootmap.is_shadow_stack
 
     def simple_call(self, fnloc, arglocs, result_loc=eax):
-        cb = callbuilder.CallBuilder(self, fnloc, arglocs, result_loc)
+        if result_loc is xmm0:
+            result_type = FLOAT
+        else:
+            result_type = INT
+        cb = callbuilder.CallBuilder(self, fnloc, arglocs,
+                                     result_loc, result_type)
         cb.emit()
 
     def _reload_frame_if_necessary(self, mc, align_stack=False):
