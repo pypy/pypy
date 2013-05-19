@@ -573,7 +573,7 @@ class TestCompiler:
                     append = components.append
                     level += 1
                     saferepr = _safe_repr
-                    for k, v in object.iteritems():
+                    for k, v in object.items():
                         krepr, kreadable, krecur = saferepr(k, context, maxlevels, level)
                         vrepr, vreadable, vrecur = saferepr(v, context, maxlevels, level)
                         append("%s: %s" % (krepr, vrepr))
@@ -679,13 +679,13 @@ class TestCompiler:
                     self.assert_(hasattr(iter, '__iter__'))
                     x = list(iter)
                     self.assert_(set(x)==set(lst)==set(ref))
-                check_iterandlist(d.iterkeys(), d.keys(), self.reference.keys())
+                check_iterandlist(iter(d.keys()), d.keys(), self.reference.keys())
                 check_iterandlist(iter(d), d.keys(), self.reference.keys())
-                check_iterandlist(d.itervalues(), d.values(), self.reference.values())
-                check_iterandlist(d.iteritems(), d.items(), self.reference.items())
+                check_iterandlist(iter(d.values()), d.values(), self.reference.values())
+                check_iterandlist(iter(d.items()), d.items(), self.reference.items())
                 #get
-                key, value = next(d.iteritems())
-                knownkey, knownvalue = next(self.other.iteritems())
+                key, value = next(iter(d.items()))
+                knownkey, knownvalue = next(iter(self.other.items()))
                 self.assertEqual(d.get(key, knownvalue), value)
                 self.assertEqual(d.get(knownkey, knownvalue), knownvalue)
                 self.failIf(knownkey in d)
