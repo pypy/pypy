@@ -1003,8 +1003,8 @@ class Assembler386(BaseAssembler):
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         return bool(gcrootmap) and not gcrootmap.is_shadow_stack
 
-    def simple_call(self, fnaddr, arglocs):
-        cb = callbuilder.CallBuilder(self, imm(fnaddr), arglocs)
+    def simple_call(self, fnloc, arglocs):
+        cb = callbuilder.CallBuilder(self, fnloc, arglocs)
         cb.emit()
 
     def _reload_frame_if_necessary(self, mc, align_stack=False):
@@ -1814,64 +1814,24 @@ class Assembler386(BaseAssembler):
     def genop_call(self, op, arglocs, resloc):
         return self._genop_call(op, arglocs, resloc)
 
-    def _genop_call(self, op, arglocs, resloc, is_call_release_gil=False):
+    def _genop_call(self, op, arglocs, resloc):
         from rpython.jit.backend.llsupport.descr import CallDescr
 
-        sizeloc = arglocs[0]
-        assert isinstance(sizeloc, ImmedLoc)
-        size = sizeloc.value
-        signloc = arglocs[1]
-
-        cb = callbuilder.CallBuilder(self, arglocs[2], arglocs[3:])
+        cb = callbuilder.CallBuilder(self, arglocs[2], arglocs[3:], resloc)
 
         descr = op.getdescr()
         assert isinstance(descr, CallDescr)
-        cb.argtypes = descr.get_arg_types()
         cb.callconv = descr.get_call_conv()
-
-        if is_call_release_gil:
-            if self._is_asmgcc():
-                from rpython.memory.gctransform import asmgcroot
-                stack_max -= asmgcroot.JIT_USE_WORDS
-            XXXXXX
+        cb.argtypes = descr.get_arg_types()
+        cb.restype  = descr.get_result_type()
+        sizeloc = arglocs[0]
+        assert isinstance(sizeloc, ImmedLoc)
+        cb.ressize = sizeloc.value
+        signloc = arglocs[1]
+        assert isinstance(signloc, ImmedLoc)
+        cb.ressign = signloc.value
 
         cb.emit()
-
-        if IS_X86_32 and isinstance(resloc, FrameLoc) and resloc.type == FLOAT:
-            # a float or a long long return
-            if descr.get_result_type() == 'L':
-                self.mc.MOV_br(resloc.value, eax.value)      # long long
-                self.mc.MOV_br(resloc.value + 4, edx.value)
-                # XXX should ideally not move the result on the stack,
-                #     but it's a mess to load eax/edx into a xmm register
-                #     and this way is simpler also because the result loc
-                #     can just be always a stack location
-            else:
-                self.mc.FSTPL_b(resloc.value)   # float return
-        elif descr.get_result_type() == 'S':
-            # singlefloat return
-            assert resloc is eax
-            if IS_X86_32:
-                # must convert ST(0) to a 32-bit singlefloat and load it into EAX
-                # mess mess mess
-                self.mc.SUB_ri(esp.value, 4)
-                self.mc.FSTPS_s(0)
-                self.mc.POP_r(eax.value)
-            elif IS_X86_64:
-                # must copy from the lower 32 bits of XMM0 into eax
-                self.mc.MOVD_rx(eax.value, xmm0.value)
-        elif size == WORD:
-            assert resloc is eax or resloc is xmm0    # a full word
-        elif size == 0:
-            pass    # void return
-        else:
-            # use the code in load_from_mem to do the zero- or sign-extension
-            assert resloc is eax
-            if size == 1:
-                srcloc = eax.lowest8bits()
-            else:
-                srcloc = eax
-            self.load_from_mem(eax, srcloc, sizeloc, signloc)
 
     def _store_force_index(self, guard_op):
         faildescr = guard_op.getdescr()
@@ -1996,11 +1956,11 @@ class Assembler386(BaseAssembler):
         self.call_assembler(op, guard_op, argloc, vloc, result_loc, eax)
         self._emit_guard_not_forced(guard_token)
 
-    def _call_assembler_emit_call(self, addr, argloc, tmploc):
-        self._emit_call(addr, [argloc], 0, tmp=tmploc)
+    def _call_assembler_emit_call(self, addr, argloc, _):
+        self.simple_call(addr, [argloc])
 
     def _call_assembler_emit_helper_call(self, addr, arglocs, _):
-         self._emit_call(addr, arglocs, 0, tmp=self._second_tmp_reg)
+        self.simple_call(addr, arglocs)
 
     def _call_assembler_check_descr(self, value, tmploc):
         ofs = self.cpu.get_ofs_of_frame_field('jf_descr')

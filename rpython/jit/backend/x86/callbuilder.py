@@ -6,7 +6,7 @@ from rpython.jit.backend.x86.arch import (WORD, IS_X86_64, IS_X86_32,
 from rpython.jit.backend.x86.regloc import (eax, ecx, edx, ebx, esp, ebp, esi,
     xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7, r8, r9, r10, r11, edi,
     r12, r13, r14, r15, X86_64_SCRATCH_REG, X86_64_XMM_SCRATCH_REG,
-    RegLoc, RawEspLoc)
+    RegLoc, RawEspLoc, FrameLoc)
 from rpython.jit.backend.x86.jump import remap_frame_layout
 
 
@@ -28,6 +28,9 @@ class AbstractCallBuilder(object):
     # this can be set to guide more complex calls: gives the detailed
     # type of the arguments
     argtypes = None
+    restype = INT
+    ressize = WORD
+    ressign = False
 
     # this is the calling convention (can be FFI_STDCALL on Windows)
     callconv = FFI_DEFAULT_ABI
@@ -36,11 +39,12 @@ class AbstractCallBuilder(object):
     is_call_release_gil = False
 
 
-    def __init__(self, assembler, fnloc, arglocs):
+    def __init__(self, assembler, fnloc, arglocs, resloc=eax):
         self.asm = assembler
         self.mc = assembler.mc
         self.fnloc = fnloc
         self.arglocs = arglocs
+        self.resloc = resloc
         self.current_esp = 0
 
     def emit(self):
@@ -49,6 +53,7 @@ class AbstractCallBuilder(object):
         self.push_gcmap()
         self.emit_raw_call()
         self.pop_gcmap()
+        self.load_result()
         self.restore_esp()
 
     def emit_raw_call(self):
@@ -60,6 +65,22 @@ class AbstractCallBuilder(object):
         if self.current_esp != 0:
             self.mc.SUB_ri(esp.value, self.current_esp)
             self.current_esp = 0
+
+    def load_result(self):
+        """Overridden in CallBuilder32 and CallBuilder64"""
+        if self.ressize == 0:
+            return      # void result
+        # use the code in load_from_mem to do the zero- or sign-extension
+        if self.restype == FLOAT:
+            srcloc = xmm0
+        elif self.ressize == 1:
+            srcloc = eax.lowest8bits()
+        else:
+            srcloc = eax
+        if self.ressize >= WORD and self.resloc is srcloc:
+            return      # no need for any move
+        self.asm.load_from_mem(self.resloc, srcloc,
+                               imm(self.ressize), imm(self.ressign))
 
     def push_gcmap(self):
         # we push *now* the gcmap, describing the status of GC registers
@@ -127,6 +148,27 @@ class CallBuilder32(AbstractCallBuilder):
         assert callconv == FFI_STDCALL
         return self.total_stack_used_by_arguments
 
+    def load_result(self):
+        resloc = self.resloc
+        if isinstance(resloc, FrameLoc) and resloc.type == FLOAT:
+            # a float or a long long return
+            if self.restype == 'L':
+                self.mc.MOV_br(resloc.value, eax.value)      # long long
+                self.mc.MOV_br(resloc.value + 4, edx.value)
+                # XXX should ideally not move the result on the stack,
+                #     but it's a mess to load eax/edx into a xmm register
+                #     and this way is simpler also because the result loc
+                #     can just be always a stack location
+            else:
+                self.mc.FSTPL_b(resloc.value)   # float return
+        elif self.restype == 'S':
+            # singlefloat return: must convert ST(0) to a 32-bit singlefloat
+            # and load it into self.resloc.  mess mess mess
+            self.mc.SUB_ri(esp.value, 4)
+            self.mc.FSTPS_s(0)
+            self.mc.POP(self.resloc)
+        else:
+            AbstractCallBuilder.load_result(self)
 
 
 class CallBuilder64(AbstractCallBuilder):
@@ -221,6 +263,16 @@ class CallBuilder64(AbstractCallBuilder):
 
     def _fix_stdcall(self, callconv):
         assert 0     # should not occur on 64-bit
+
+    def load_result(self):
+        if self.restype == 'S':
+            # singlefloat return: use MOVD to load the target register
+            # with the lower 32 bits of XMM0
+            resloc = self.resloc
+            assert isinstance(resloc, RegLoc)
+            self.mc.MOVD_rx(resloc.value, xmm0.value)
+        else:
+            AbstractCallBuilder.load_result(self)
 
 
 if IS_X86_32:
