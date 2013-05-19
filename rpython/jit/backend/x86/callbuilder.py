@@ -353,6 +353,7 @@ class CallBuilder64(AbstractCallBuilder):
         except IndexError:
             return None
         if hint in self.DONT_MOVE_GPR:
+            self.ARGUMENTS_GPR[i] = hint
             res = hint
         return res
 
