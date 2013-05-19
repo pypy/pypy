@@ -192,6 +192,9 @@ class AbstractCallBuilder(object):
         #
         self.mc.CALL(imm(self.asm.releasegil_addr))
         #
+        if not we_are_translated():        # for testing: we should not access
+            self.mc.ADD(ebp, imm(1))       # ebp any more
+        #
         self.restore_register_arguments()
         self.restore_esp(initial_esp)
 
@@ -219,6 +222,9 @@ class AbstractCallBuilder(object):
                 self.mc.MOV_sr(0, reg.value)
         #
         self.mc.CALL(imm(self.asm.reacqgil_addr))
+        #
+        if not we_are_translated():        # for testing: now we can accesss
+            self.mc.SUB(ebp, imm(1))       # ebp again
         #
         # Now that we required the GIL, we can reload a possibly modified ebp
         if self.asm._is_asmgcc():
