@@ -1,10 +1,13 @@
 from rpython.rlib.clibffi import FFI_DEFAULT_ABI
+from rpython.rlib.objectmodel import we_are_translated
+from rpython.jit.metainterp.history import INT, FLOAT
 from rpython.jit.backend.x86.arch import (WORD, IS_X86_64, IS_X86_32,
                                           PASS_ON_MY_FRAME)
 from rpython.jit.backend.x86.regloc import (eax, ecx, edx, ebx, esp, ebp, esi,
     xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7, r8, r9, r10, r11, edi,
     r12, r13, r14, r15, X86_64_SCRATCH_REG, X86_64_XMM_SCRATCH_REG,
-    RegLoc)
+    RegLoc, RawEspLoc)
+from rpython.jit.backend.x86.jump import remap_frame_layout
 
 
 # darwin requires the stack to be 16 bytes aligned on calls.
@@ -29,7 +32,7 @@ class AbstractCallBuilder(object):
     # this is the calling convention (can be FFI_STDCALL on Windows)
     callconv = FFI_DEFAULT_ABI
 
-    # if False, we also push the gcmap
+    # is it for the main CALL of a call_release_gil?
     is_call_release_gil = False
 
 
@@ -139,7 +142,9 @@ class CallBuilder64(AbstractCallBuilder):
         xmm_dst_locs = []
         singlefloats = None
 
-        unused_grp = self.unused_grp[:]
+        arglocs = self.arglocs
+        argtypes = self.argtypes
+        unused_gpr = self.unused_gpr[:]
         unused_xmm = self.unused_xmm[:]
 
         on_stack = 0
@@ -176,18 +181,18 @@ class CallBuilder64(AbstractCallBuilder):
                 if arg.is_float() or argtypes and argtypes[i] == 'S':
                     floats += 1
             all_args = len(arglocs)
-            stack_depth = (max(all_args - floats - len(unused_gpr), 0) +
-                           max(floats - len(unused_xmm), 0))
+            stack_depth = (max(all_args - floats - 6, 0) +
+                           max(floats - 8, 0))
             assert stack_depth == on_stack
 
         align = 0
-        if on_stack > stack_max:
-            align = align_stack_words(on_stack - stack_max)
+        if on_stack > self.stack_max:
+            align = align_stack_words(on_stack - self.stack_max)
             self.current_esp -= align * WORD
             self.mc.SUB_ri(esp.value, align * WORD)
 
         # Handle register arguments: first remap the xmm arguments
-        remap_frame_layout(self, xmm_src_locs, xmm_dst_locs,
+        remap_frame_layout(self.asm, xmm_src_locs, xmm_dst_locs,
                            X86_64_XMM_SCRATCH_REG)
         # Load the singlefloat arguments from main regs or stack to xmm regs
         if singlefloats is not None:
@@ -211,7 +216,7 @@ class CallBuilder64(AbstractCallBuilder):
             src_locs.append(self.fnloc)
             dst_locs.append(r10)
             self.fnloc = r10
-        remap_frame_layout(self, src_locs, dst_locs, X86_64_SCRATCH_REG)
+        remap_frame_layout(self.asm, src_locs, dst_locs, X86_64_SCRATCH_REG)
 
 
     def _fix_stdcall(self, callconv):
