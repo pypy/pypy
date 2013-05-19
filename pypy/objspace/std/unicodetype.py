@@ -348,7 +348,7 @@ def descr_maketrans(space, w_type, w_x, w_y=None, w_z=None):
                     "if you give only one argument "
                     "to maketrans it must be a dict"))
         # copy entries into the new dict, converting string keys to int keys
-        w_iter = space.call_method(w_x, "items")
+        w_iter = space.iter(space.call_method(w_x, "items"))
         while True:
             try:
                 w_item = space.next(w_iter)
