@@ -27,7 +27,7 @@ class AbstractCallBuilder(object):
 
     # this can be set to guide more complex calls: gives the detailed
     # type of the arguments
-    argtypes = []
+    argtypes = ""
     ressign = False
 
     # this is the calling convention (can be FFI_STDCALL on Windows)
