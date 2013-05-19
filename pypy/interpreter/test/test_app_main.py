@@ -903,24 +903,35 @@ class AppTestAppMain:
         expected_path = [str(prefix.join(subdir).ensure(dir=1))
                          for subdir in ('lib_pypy',
                                         'lib-python/%s' % cpy_ver)]
+        # an empty directory from where we can't find the stdlib
+        tmp_dir = str(udir.join('tmp').ensure(dir=1))
 
         self.w_goal_dir = self.space.wrap(goal_dir)
         self.w_fake_exe = self.space.wrap(str(fake_exe))
         self.w_expected_path = self.space.wrap(expected_path)
         self.w_trunkdir = self.space.wrap(os.path.dirname(pypydir))
 
+        self.w_tmp_dir = self.space.wrap(tmp_dir)
+
         foo_py = prefix.join('foo.py').write("pass")
         self.w_foo_py = self.space.wrap(str(foo_py))
 
     def test_setup_bootstrap_path(self):
-        import sys
+        # Check how sys.path is handled depending on if we can find a copy of
+        # the stdlib in setup_bootstrap_path.
+        import sys, os
         old_sys_path = sys.path[:]
+        old_cwd = os.getcwd()
+
         sys.path.append(self.goal_dir)
+        # make sure cwd does not contain a stdlib
+        os.chdir(self.tmp_dir)
+        tmp_pypy_c = os.path.join(self.tmp_dir, 'pypy-c')
         try:
             import app_main
-            app_main.setup_bootstrap_path('/tmp/pypy-c') # stdlib not found
+            app_main.setup_bootstrap_path(tmp_pypy_c)  # stdlib not found
             assert sys.executable == ''
-            assert sys.path == old_sys_path
+            assert sys.path == old_sys_path + [self.goal_dir]
 
             app_main.setup_bootstrap_path(self.fake_exe)
             assert sys.executable == self.fake_exe
@@ -933,6 +944,7 @@ class AppTestAppMain:
             assert newpath[:len(self.expected_path)] == self.expected_path
         finally:
             sys.path[:] = old_sys_path
+            os.chdir(old_cwd)
 
     def test_trunk_can_be_prefix(self):
         import sys
