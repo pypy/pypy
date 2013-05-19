@@ -444,7 +444,7 @@ class W_ListObject(W_Root):
             raise
         return self
 
-    def mul_list_times(self, space, w_times):
+    def descr_mul(self, space, w_times):
         try:
             times = space.getindex_w(w_times, space.w_OverflowError)
         except OperationError, e:
@@ -452,12 +452,6 @@ class W_ListObject(W_Root):
                 return space.w_NotImplemented
             raise
         return self.mul(times)
-
-    def descr_mul(self, space, w_times):
-        return self.mul_list_times(space, w_times)
-
-    def descr_rmul(self, space, w_times):
-        return self.mul_list_times(self.space, w_times)
 
     def descr_inplace_mul(self, space, w_times):
         try:
@@ -1723,7 +1717,7 @@ list(sequence) -> new list initialized from sequence's items""",
     __add__ = interp2app(W_ListObject.descr_add),
     __iadd__ = interp2app(W_ListObject.descr_inplace_add),
     __mul__ = interp2app(W_ListObject.descr_mul),
-    __rmul__ = interp2app(W_ListObject.descr_rmul),
+    __rmul__ = interp2app(W_ListObject.descr_mul),
     __imul__ = interp2app(W_ListObject.descr_inplace_mul),
 
     __getitem__ = interp2app(W_ListObject.descr_getitem),
