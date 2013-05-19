@@ -583,6 +583,7 @@ class AbstractX86CodeBuilder(object):
 
     # x87 instructions
     FSTPL_b = insn('\xDD', orbyte(3<<3), stack_bp(1)) # rffi.DOUBLE ('as' wants L??)
+    FSTPL_s = insn('\xDD', orbyte(3<<3), stack_sp(1)) # rffi.DOUBLE ('as' wants L??)
     FSTPS_s = insn('\xD9', orbyte(3<<3), stack_sp(1)) # lltype.SingleFloat
 
     # ------------------------------ Random mess -----------------------

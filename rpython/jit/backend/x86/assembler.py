@@ -1265,7 +1265,7 @@ class Assembler386(BaseAssembler):
     # ----------
 
     def genop_call_malloc_gc(self, op, arglocs, result_loc):
-        self.genop_call(op, arglocs, result_loc)
+        self._genop_call(op, arglocs, result_loc)
         self.propagate_memoryerror_if_eax_is_null()
 
     def propagate_memoryerror_if_eax_is_null(self):
@@ -1812,9 +1812,9 @@ class Assembler386(BaseAssembler):
         self.pending_guard_tokens.append(guard_token)
 
     def genop_call(self, op, arglocs, resloc):
-        return self._genop_call(op, arglocs, resloc)
+        self._genop_call(op, arglocs, resloc)
 
-    def _genop_call(self, op, arglocs, resloc):
+    def _genop_call(self, op, arglocs, resloc, is_call_release_gil=False):
         from rpython.jit.backend.llsupport.descr import CallDescr
 
         cb = callbuilder.CallBuilder(self, arglocs[2], arglocs[3:], resloc)
@@ -1831,7 +1831,10 @@ class Assembler386(BaseAssembler):
         assert isinstance(signloc, ImmedLoc)
         cb.ressign = signloc.value
 
-        cb.emit()
+        if is_call_release_gil:
+            cb.emit_call_release_gil()
+        else:
+            cb.emit()
 
     def _store_force_index(self, guard_op):
         faildescr = guard_op.getdescr()
@@ -1847,63 +1850,14 @@ class Assembler386(BaseAssembler):
     def genop_guard_call_may_force(self, op, guard_op, guard_token,
                                    arglocs, result_loc):
         self._store_force_index(guard_op)
-        self.genop_call(op, arglocs, result_loc)
+        self._genop_call(op, arglocs, result_loc)
         self._emit_guard_not_forced(guard_token)
 
     def genop_guard_call_release_gil(self, op, guard_op, guard_token,
                                      arglocs, result_loc):
         self._store_force_index(guard_op)
-        # first, close the stack in the sense of the asmgcc GC root tracker
-        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
-        if gcrootmap:
-            # we put the gcmap now into the frame before releasing the GIL,
-            # and pop it below after reacquiring the GIL.  The assumption
-            # is that this gcmap describes correctly the situation at any
-            # point in-between: all values containing GC pointers should
-            # be safely saved out of registers by now, and will not be
-            # manipulated by any of the following CALLs.
-            gcmap = self._regalloc.get_gcmap(noregs=True)
-            self.push_gcmap(self.mc, gcmap, store=True)
-            self.call_release_gil(gcrootmap, arglocs)
-        # do the call
         self._genop_call(op, arglocs, result_loc, is_call_release_gil=True)
-        # then reopen the stack
-        if gcrootmap:
-            self.call_reacquire_gil(gcrootmap, result_loc)
-            self.pop_gcmap(self.mc)     # remove the gcmap saved above
-        # finally, the guard_not_forced
         self._emit_guard_not_forced(guard_token)
-
-    def call_release_gil(self, gcrootmap, save_registers):
-        if gcrootmap.is_shadow_stack:
-            args = []
-        else:
-            from rpython.memory.gctransform import asmgcroot
-            # build a 'css' structure on the stack: 2 words for the linkage,
-            # and 5/7 words as described for asmgcroot.ASM_FRAMEDATA, for a
-            # total size of JIT_USE_WORDS.  This structure is found at
-            # [ESP+css].
-            css = WORD * (PASS_ON_MY_FRAME - asmgcroot.JIT_USE_WORDS)
-            assert css >= 2
-            # Save ebp
-            index_of_ebp = css + WORD * (2+asmgcroot.INDEX_OF_EBP)
-            self.mc.MOV_sr(index_of_ebp, ebp.value)  # MOV [css.ebp], EBP
-            # Save the "return address": we pretend that it's css
-            if IS_X86_32:
-                reg = eax
-            elif IS_X86_64:
-                reg = edi
-            self.mc.LEA_rs(reg.value, css)           # LEA reg, [css]
-            frame_ptr = css + WORD * (2+asmgcroot.FRAME_PTR)
-            self.mc.MOV_sr(frame_ptr, reg.value)     # MOV [css.frame], reg
-            # Set up jf_extra_stack_depth to pretend that the return address
-            # was at css, and so our stack frame is supposedly shorter by
-            # (css+WORD) bytes
-            self.set_extra_stack_depth(self.mc, -css-WORD)
-            # Call the closestack() function (also releasing the GIL)
-            args = [reg]
-        #
-        self._emit_call(imm(self.releasegil_addr), args, can_collect=False)
 
     def call_reacquire_gil(self, gcrootmap, save_loc):
         # save the previous result (eax/xmm0) into the stack temporarily.

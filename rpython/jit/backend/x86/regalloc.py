@@ -79,25 +79,13 @@ class X86XMMRegisterManager(RegisterManager):
         rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), adr)[1] = y
         return ConstFloatLoc(adr)
 
-    def after_call(self, v):
-        # the result is stored in st0, but we don't have this around,
-        # so genop_call will move it to some frame location immediately
-        # after the call
-        return self.frame_manager.loc(v)
+    def call_result_location(self, v):
+        return xmm0
 
 class X86_64_XMMRegisterManager(X86XMMRegisterManager):
     # xmm15 reserved for scratch use
     all_regs = [xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14]
     save_around_call_regs = all_regs
-
-    def call_result_location(self, v):
-        return xmm0
-
-    def after_call(self, v):
-        # We use RegisterManager's implementation, since X86XMMRegisterManager
-        # places the result on the stack, which we don't need to do when the
-        # calling convention places the result in xmm0
-        return RegisterManager.after_call(self, v)
 
 class X86FrameManager(FrameManager):
     def __init__(self, base_ofs):
