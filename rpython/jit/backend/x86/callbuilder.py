@@ -111,12 +111,12 @@ class AbstractCallBuilder(object):
         if srcloc is None:
             if self.restype == FLOAT:
                 srcloc = xmm0
-            elif self.ressize == 1:
-                srcloc = eax.lowest8bits()
             else:
                 srcloc = eax
         if self.ressize >= WORD and self.resloc is srcloc:
             return      # no need for any MOV
+        if self.ressize == 1 and isinstance(srcloc, RegLoc):
+            srcloc = srcloc.lowest8bits()
         self.asm.load_from_mem(self.resloc, srcloc,
                                imm(self.ressize), imm(self.ressign))
 

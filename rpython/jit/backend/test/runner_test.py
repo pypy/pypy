@@ -2599,7 +2599,8 @@ class LLtypeBackendTest(BaseBackendTest):
             if isinstance(b3, BoxInt):
                 r = self.cpu.get_int_value(deadframe, 0)
                 if isinstance(result, r_singlefloat):
-                    r, = struct.unpack("f", struct.pack("i", r))
+                    assert -sys.maxint-1 <= r <= 0xFFFFFFFF
+                    r, = struct.unpack("f", struct.pack("I", r & 0xFFFFFFFF))
                     result = float(result)
                 else:
                     r = rffi.cast(TP, r)
