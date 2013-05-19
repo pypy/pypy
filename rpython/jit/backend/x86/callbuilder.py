@@ -27,7 +27,7 @@ class AbstractCallBuilder(object):
 
     # this can be set to guide more complex calls: gives the detailed
     # type of the arguments
-    argtypes = None
+    argtypes = []
     restype = INT
     ressize = WORD
     ressign = False
@@ -421,7 +421,7 @@ class CallBuilder64(AbstractCallBuilder):
                     on_stack += 1
                 xmm_src_locs.append(loc)
                 xmm_dst_locs.append(tgt)
-            elif argtypes is not None and argtypes[i] == 'S':
+            elif i < len(argtypes) and argtypes[i] == 'S':
                 # Singlefloat argument
                 if singlefloats is None:
                     singlefloats = []
@@ -445,7 +445,7 @@ class CallBuilder64(AbstractCallBuilder):
             floats = 0
             for i in range(len(arglocs)):
                 arg = arglocs[i]
-                if arg.is_float() or argtypes and argtypes[i] == 'S':
+                if arg.is_float() or (i < len(argtypes) and argtypes[i]=='S'):
                     floats += 1
             all_args = len(arglocs)
             stack_depth = (max(all_args - floats - len(self.ARGUMENTS_GPR), 0)

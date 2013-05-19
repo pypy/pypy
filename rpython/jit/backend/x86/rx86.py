@@ -553,6 +553,7 @@ class AbstractX86CodeBuilder(object):
     CALL_l = insn('\xE8', relative(1))
     CALL_r = insn(rex_nw, '\xFF', register(1), chr(0xC0 | (2<<3)))
     CALL_b = insn('\xFF', orbyte(2<<3), stack_bp(1))
+    CALL_s = insn('\xFF', orbyte(2<<3), stack_sp(1))
 
     # XXX: Only here for testing purposes..."as" happens the encode the
     # registers in the opposite order that we would otherwise do in a
