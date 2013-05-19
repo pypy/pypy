@@ -168,7 +168,7 @@ def reduce_2(obj):
         listitems = None
 
     if isinstance(obj, dict):
-        dictitems = obj.iteritems()
+        dictitems = iter(obj.items())
     else:
         dictitems = None
 
