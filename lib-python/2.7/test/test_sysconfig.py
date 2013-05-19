@@ -8,7 +8,7 @@ import subprocess
 from copy import copy, deepcopy
 
 from test.test_support import (run_unittest, TESTFN, unlink, get_attribute,
-                               check_impl_detail)
+                               import_module)
 
 import sysconfig
 from sysconfig import (get_paths, get_platform, get_config_vars,
@@ -236,13 +236,11 @@ class TestSysConfig(unittest.TestCase):
         # XXX more platforms to tests here
 
     def test_get_config_h_filename(self):
-        if check_impl_detail(pypy=True):
-            try:
-                import cpyext
-            except ImportError:
-                self.skipTest("This test depends on cpyext.")
         config_h = sysconfig.get_config_h_filename()
-        self.assertTrue(os.path.isfile(config_h), config_h)
+        # import_module skips the test when the CPython C Extension API
+        # appears to not be supported
+        self.assertTrue(os.path.isfile(config_h) or
+                        not import_module('_testcapi'), config_h)
 
     def test_get_scheme_names(self):
         wanted = ('nt', 'nt_user', 'os2', 'os2_home', 'osx_framework_user',
