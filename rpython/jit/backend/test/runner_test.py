@@ -2532,6 +2532,77 @@ class LLtypeBackendTest(BaseBackendTest):
         assert rffi.charp2strn(buffer, buflen) == cwd
         lltype.free(buffer, flavor='raw')
 
+    def test_call_release_gil_return_types(self):
+        from rpython.rlib.libffi import CDLL, types
+        from rpython.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
+        from rpython.rlib.rarithmetic import r_singlefloat
+        cpu = self.cpu
+
+        for ffitype, result, TP in [
+            (types.ulong,  r_uint(sys.maxint + 10), lltype.Unsigned),
+            (types.slong,  -4321, lltype.Signed),
+            (types.uint8,  200, rffi.UCHAR),
+            (types.sint8,  -42, rffi.SIGNEDCHAR),
+            (types.uint16, 50000, rffi.USHORT),
+            (types.sint16, -20000, rffi.SHORT),
+            (types.uint32, r_uint(3000000000), rffi.UINT),
+            (types.sint32, -2000000000, rffi.INT),
+            (types.uint64, r_ulonglong(9999999999999999999),
+                                                   lltype.UnsignedLongLong),
+            (types.sint64, r_longlong(-999999999999999999),
+                                                   lltype.SignedLongLong),
+            (types.double, 12.3475226, rffi.DOUBLE),
+            (types.float,  r_singlefloat(-592.75), rffi.FLOAT),
+            ]:
+            if sys.maxint < 2**32 and TP in (lltype.SignedLongLong,
+                                             lltype.UnsignedLongLong):
+                if not cpu.supports_longlong:
+                    continue
+            if TP == rffi.DOUBLE:
+                if not cpu.supports_floats:
+                    continue
+            if TP == rffi.FLOAT:
+                if not cpu.supports_singlefloats:
+                    continue
+            #
+            result = rffi.cast(TP, result)
+            #
+            def pseudo_c_function():
+                return result
+            #
+            FPTR = self.Ptr(self.FuncType([], TP))
+            func_ptr = llhelper(FPTR, pseudo_c_function)
+            funcbox = self.get_funcbox(cpu, func_ptr)
+            calldescr = cpu._calldescr_dynamic_for_tests([], ffitype)
+            faildescr = BasicFailDescr(1)
+            kind = types.getkind(ffitype)
+            if kind in 'uis':
+                b3 = BoxInt()
+            elif kind in 'fUI':
+                b3 = BoxFloat()
+            else:
+                assert 0, kind
+            #
+            ops = [
+                ResOperation(rop.CALL_RELEASE_GIL, [funcbox], b3,
+                             descr=calldescr),
+                ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
+                ResOperation(rop.FINISH, [b3], None, descr=BasicFinalDescr(0))
+                ]
+            ops[1].setfailargs([])
+            looptoken = JitCellToken()
+            self.cpu.compile_loop([], ops, looptoken)
+
+            deadframe = self.cpu.execute_token(looptoken)
+            fail = self.cpu.get_latest_descr(deadframe)
+            assert fail.identifier == 0
+            if isinstance(b3, BoxInt):
+                r = self.cpu.get_int_value(deadframe, 0)
+                assert rffi.cast(TP, r) == result
+            elif isinstance(b3, BoxFloat):
+                r = self.cpu.get_float_value(deadframe, 0)
+                assert r == result    # xxx
+
     def test_guard_not_invalidated(self):
         cpu = self.cpu
         i0 = BoxInt()
