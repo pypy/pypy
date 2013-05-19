@@ -1163,7 +1163,7 @@ class W_BaseDictMultiIterObject(W_Root):
         w_mod    = space.getbuiltinmodule('_pickle_support')
         mod      = space.interp_w(MixedModule, w_mod)
         new_inst = mod.get('dictiter_surrogate_new')
-        w_typeobj = space.gettypeobject(W_BaseDictMultiIterObject.typedef)
+        w_typeobj = space.type(self)
 
         raise OperationError(
             space.w_TypeError,
@@ -1171,12 +1171,15 @@ class W_BaseDictMultiIterObject(W_Root):
         # XXXXXX get that working again
 
         # we cannot call __init__ since we don't have the original dict
-        if isinstance(self, W_DictIter_Keys):
-            w_clone = space.allocate_instance(W_DictIter_Keys, w_typeobj)
-        elif isinstance(self, W_DictIter_Values):
-            w_clone = space.allocate_instance(W_DictIter_Values, w_typeobj)
-        elif isinstance(self, W_DictIter_Items):
-            w_clone = space.allocate_instance(W_DictIter_Items, w_typeobj)
+        if isinstance(self, W_DictMultiIterKeysObject):
+            w_clone = space.allocate_instance(W_DictMultiIterKeysObject,
+                                              w_typeobj)
+        elif isinstance(self, W_DictMultiIterValuesObject):
+            w_clone = space.allocate_instance(W_DictMultiIterValuesObject,
+                                              w_typeobj)
+        elif isinstance(self, W_DictMultiIterItemsObject):
+            w_clone = space.allocate_instance(W_DictMultiIterItemsObject,
+                                              w_typeobj)
         else:
             msg = "unsupported dictiter type '%s' during pickling" % (self,)
             raise OperationError(space.w_TypeError, space.wrap(msg))
@@ -1223,21 +1226,24 @@ W_DictMultiIterItemsObject.typedef = StdTypeDef(
     "dict_iteritems",
     __iter__ = interp2app(W_DictMultiIterItemsObject.descr_iter),
     next = interp2app(W_DictMultiIterItemsObject.descr_next),
-    __length_hint__ = interp2app(W_BaseDictMultiIterObject.descr_length_hint)
+    __length_hint__ = interp2app(W_BaseDictMultiIterObject.descr_length_hint),
+    __reduce__ = interp2app(W_BaseDictMultiIterObject.descr_reduce),
     )
 
 W_DictMultiIterKeysObject.typedef = StdTypeDef(
     "dict_iterkeys",
     __iter__ = interp2app(W_DictMultiIterKeysObject.descr_iter),
     next = interp2app(W_DictMultiIterKeysObject.descr_next),
-    __length_hint__ = interp2app(W_BaseDictMultiIterObject.descr_length_hint)
+    __length_hint__ = interp2app(W_BaseDictMultiIterObject.descr_length_hint),
+    __reduce__ = interp2app(W_BaseDictMultiIterObject.descr_reduce),
     )
 
 W_DictMultiIterValuesObject.typedef = StdTypeDef(
     "dict_itervalues",
     __iter__ = interp2app(W_DictMultiIterValuesObject.descr_iter),
     next = interp2app(W_DictMultiIterValuesObject.descr_next),
-    __length_hint__ = interp2app(W_BaseDictMultiIterObject.descr_length_hint)
+    __length_hint__ = interp2app(W_BaseDictMultiIterObject.descr_length_hint),
+    __reduce__ = interp2app(W_BaseDictMultiIterObject.descr_reduce),
     )
 
 
