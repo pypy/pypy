@@ -121,12 +121,10 @@ def get_module_validator(modname):
                     __import__(name)
             except (ImportError, CompilationError, py.test.skip.Exception), e:
                 errcls = e.__class__.__name__
-                config.add_warning(
+                raise Exception(
                     "The module %r is disabled\n" % (modname,) +
                     "because importing %s raised %s\n" % (name, errcls) +
                     str(e))
-                raise ConflictConfigError("--withmod-%s: %s" % (modname,
-                                                                errcls))
         return validator
     else:
         return None
