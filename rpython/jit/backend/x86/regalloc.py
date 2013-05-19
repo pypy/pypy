@@ -1131,9 +1131,8 @@ class RegAlloc(BaseRegalloc):
         # call memcpy()
         self.rm.before_call()
         self.xrm.before_call()
-        self.assembler._emit_call(imm(self.assembler.memcpy_addr),
-                                  [dstaddr_loc, srcaddr_loc, length_loc],
-                                  can_collect=False)
+        self.assembler.simple_call_no_collect(imm(self.assembler.memcpy_addr),
+                                        [dstaddr_loc, srcaddr_loc, length_loc])
         self.rm.possibly_free_var(length_box)
         self.rm.possibly_free_var(dstaddr_box)
         self.rm.possibly_free_var(srcaddr_box)

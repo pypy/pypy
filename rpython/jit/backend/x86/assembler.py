@@ -1012,6 +1012,10 @@ class Assembler386(BaseAssembler):
                                      result_loc, result_type)
         cb.emit()
 
+    def simple_call_no_collect(self, fnloc, arglocs):
+        cb = callbuilder.CallBuilder(self, fnloc, arglocs)
+        cb.emit_no_collect()
+
     def _reload_frame_if_necessary(self, mc, align_stack=False):
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap:

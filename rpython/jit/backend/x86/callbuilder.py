@@ -56,6 +56,13 @@ class AbstractCallBuilder(object):
         self.restype = restype
         self.current_esp = 0
 
+    def emit_no_collect(self):
+        """Emit a call that cannot collect."""
+        self.prepare_arguments()
+        self.emit_raw_call()
+        self.restore_esp()
+        self.load_result()
+
     def emit(self):
         """Emit a regular call; not for CALL_RELEASE_GIL."""
         self.prepare_arguments()
