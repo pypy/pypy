@@ -261,6 +261,8 @@ class CallBuilder32(AbstractCallBuilder):
                 if loc.get_width() == 8:
                     self.mc.MOVSD(xmm0, loc)
                     self.mc.MOVSD_sx(p, xmm0.value)
+                elif isinstance(loc, ImmedLoc):
+                    self.mc.MOV_si(p, loc.value)
                 else:
                     self.mc.MOV(eax, loc)
                     self.mc.MOV_sr(p, eax.value)
