@@ -2708,9 +2708,8 @@ class LLtypeBackendTest(BaseBackendTest):
                 loadcodes.append(' ^'[load])
                 if load:
                     b2 = b1.clonebox()
-                    ops += [
-                        ResOperation(rop.SAME_AS, [b1], b2)
-                        ]
+                    ops.insert(rnd.randrange(0, len(ops)+1),
+                               ResOperation(rop.SAME_AS, [b1], b2))
                     b1 = b2
                 insideboxes.append(b1)
             loadcodes = ''.join(loadcodes)
@@ -2722,6 +2721,11 @@ class LLtypeBackendTest(BaseBackendTest):
                 ResOperation(rop.FINISH, [], None, descr=BasicFinalDescr(0))
                 ]
             ops[-2].setfailargs([])
+            # keep alive a random subset of the insideboxes
+            for b1 in insideboxes:
+                if rnd.random() < 0.333:
+                    ops.insert(-1, ResOperation(rop.SAME_AS, [b1],
+                                                b1.clonebox()))
             looptoken = JitCellToken()
             self.cpu.compile_loop(argboxes, ops, looptoken)
             #
