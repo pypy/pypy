@@ -355,54 +355,63 @@ class AssemblerARM(ResOpAssembler):
 
     def _push_all_regs_to_jitframe(self, mc, ignored_regs, withfloats,
                                 callee_only=False):
+        # Push general purpose registers
         base_ofs = self.cpu.get_baseofs_of_frame_field()
         if callee_only:
             regs = CoreRegisterManager.save_around_call_regs
         else:
             regs = CoreRegisterManager.all_regs
-        # XXX use STMDB ops here
-        for i, gpr in enumerate(regs):
-            if gpr in ignored_regs:
-                continue
-            self.store_reg(mc, gpr, r.fp, base_ofs + i * WORD)
-        if withfloats:
-            if callee_only:
-                regs = VFPRegisterManager.save_around_call_regs
-            else:
-                regs = VFPRegisterManager.all_regs
-            for i, vfpr in enumerate(regs):
-                if vfpr in ignored_regs:
+        # XXX add special case if ignored_regs are a block at the start of regs
+        if not ignored_regs:  # we want to push a contiguous block of regs
+            assert check_imm_arg(base_ofs)
+            mc.ADD_ri(r.ip.value, r.fp.value, base_ofs)
+            mc.STM(r.ip.value, [reg.value for reg in regs])
+        else:
+            for reg in ignored_regs:
+                assert not reg.is_vfp_reg()  # sanity check
+            # we can have holes in the list of regs
+            for i, gpr in enumerate(regs):
+                if gpr in ignored_regs:
                     continue
-                ofs = len(CoreRegisterManager.all_regs) * WORD
-                ofs += i * DOUBLE_WORD + base_ofs
-                self.store_reg(mc, vfpr, r.fp, ofs)
+                self.store_reg(mc, gpr, r.fp, base_ofs + i * WORD)
+
+        if withfloats:
+            # Push VFP regs
+            regs = VFPRegisterManager.all_regs
+            ofs = len(CoreRegisterManager.all_regs) * WORD
+            assert check_imm_arg(ofs+base_ofs)
+            mc.ADD_ri(r.ip.value, r.fp.value, imm=ofs+base_ofs)
+            mc.VSTM(r.ip.value, [vfpr.value for vfpr in regs])
 
     def _pop_all_regs_from_jitframe(self, mc, ignored_regs, withfloats,
                                  callee_only=False):
-        # Pop all general purpose registers
+        # Pop general purpose registers
         base_ofs = self.cpu.get_baseofs_of_frame_field()
         if callee_only:
             regs = CoreRegisterManager.save_around_call_regs
         else:
             regs = CoreRegisterManager.all_regs
-        # XXX use LDMDB ops here
-        for i, gpr in enumerate(regs):
-            if gpr in ignored_regs:
-                continue
-            ofs = i * WORD + base_ofs
-            self.load_reg(mc, gpr, r.fp, ofs)
-        if withfloats:
-            # Pop all XMM regs
-            if callee_only:
-                regs = VFPRegisterManager.save_around_call_regs
-            else:
-                regs = VFPRegisterManager.all_regs
-            for i, vfpr in enumerate(regs):
-                if vfpr in ignored_regs:
+        # XXX add special case if ignored_regs are a block at the start of regs
+        if not ignored_regs:  # we want to pop a contiguous block of regs
+            assert check_imm_arg(base_ofs)
+            mc.ADD_ri(r.ip.value, r.fp.value, base_ofs)
+            mc.LDM(r.ip.value, [reg.value for reg in regs])
+        else:
+            for reg in ignored_regs:
+                assert not reg.is_vfp_reg()  # sanity check
+            # we can have holes in the list of regs
+            for i, gpr in enumerate(regs):
+                if gpr in ignored_regs:
                     continue
-                ofs = len(CoreRegisterManager.all_regs) * WORD
-                ofs += i * DOUBLE_WORD + base_ofs
-                self.load_reg(mc, vfpr, r.fp, ofs)
+                ofs = i * WORD + base_ofs
+                self.load_reg(mc, gpr, r.fp, ofs)
+        if withfloats:
+            # Pop VFP regs
+            regs = VFPRegisterManager.all_regs
+            ofs = len(CoreRegisterManager.all_regs) * WORD
+            assert check_imm_arg(ofs+base_ofs)
+            mc.ADD_ri(r.ip.value, r.fp.value, imm=ofs+base_ofs)
+            mc.VLDM(r.ip.value, [vfpr.value for vfpr in regs])
 
     def _build_failure_recovery(self, exc, withfloats=False):
         mc = InstrBuilder(self.cpu.cpuinfo.arch_version)
