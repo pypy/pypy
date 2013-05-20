@@ -17,7 +17,7 @@ from rpython.rtyper.module.support import LLSupport
 from rpython.rtyper.test import (test_annlowlevel, test_exception,
      test_generator, test_rbool, test_rbuilder, test_rbuiltin, test_rclass,
      test_rconstantdict, test_rdict, test_remptydict, test_rfloat,
-     test_rgeneric, test_rint, test_rlist, test_rpbc, test_rrange, test_rstr,
+     test_rint, test_rlist, test_rpbc, test_rrange, test_rstr,
      test_rtuple, test_runicode, test_rvirtualizable2, test_rweakref)
 from rpython.rtyper.typesystem import getfunctionptr
 from rpython.translator.backendopt.all import backend_optimizations
@@ -784,9 +784,6 @@ class TestRemptydictLLVM(_LLVMMixin, test_remptydict.TestLLtype):
     pass
 
 class TestRfloatLLVM(_LLVMMixin, test_rfloat.TestLLtype):
-    pass
-
-class TestRGenericLLVM(_LLVMMixin, test_rgeneric.TestLLRgeneric):
     pass
 
 class TestRintLLVM(_LLVMMixin, test_rint.TestLLtype):
