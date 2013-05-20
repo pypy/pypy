@@ -170,9 +170,9 @@ class AbstractCallBuilder(object):
             # and 5/7 words as described for asmgcroot.ASM_FRAMEDATA, for a
             # total size of JIT_USE_WORDS.  This structure is found at
             # [ESP+css].
-            css = WORD * (-self.current_esp +
-                          PASS_ON_MY_FRAME - asmgcroot.JIT_USE_WORDS)
-            assert css >= 2
+            css = -self.current_esp + (
+                WORD * (PASS_ON_MY_FRAME - asmgcroot.JIT_USE_WORDS))
+            assert css >= 2 * WORD
             # Save ebp
             index_of_ebp = css + WORD * (2+asmgcroot.INDEX_OF_EBP)
             self.mc.MOV_sr(index_of_ebp, ebp.value)  # MOV [css.ebp], EBP
