@@ -2646,6 +2646,10 @@ class LLtypeBackendTest(BaseBackendTest):
                 ] * 4
 
         for k in range(100):
+            POSSIBLE_TYPES = [rnd.choice(ALL_TYPES)
+                              for i in range(random.randrange(2, 5))]
+            load_factor = rnd.random()
+            keepalive_factor = rnd.random()
             #
             def pseudo_c_function(*args):
                 seen.append(list(args))
@@ -2653,7 +2657,7 @@ class LLtypeBackendTest(BaseBackendTest):
             ffitypes = []
             ARGTYPES = []
             for i in range(rnd.randrange(4, 20)):
-                ffitype, TP = rnd.choice(ALL_TYPES)
+                ffitype, TP = rnd.choice(POSSIBLE_TYPES)
                 ffitypes.append(ffitype)
                 ARGTYPES.append(TP)
             #
@@ -2704,7 +2708,7 @@ class LLtypeBackendTest(BaseBackendTest):
             loadcodes = []
             insideboxes = []
             for b1 in argboxes:
-                load = rnd.random() < 0.75
+                load = rnd.random() < load_factor
                 loadcodes.append(' ^'[load])
                 if load:
                     b2 = b1.clonebox()
@@ -2723,7 +2727,7 @@ class LLtypeBackendTest(BaseBackendTest):
             ops[-2].setfailargs([])
             # keep alive a random subset of the insideboxes
             for b1 in insideboxes:
-                if rnd.random() < 0.333:
+                if rnd.random() < keepalive_factor:
                     ops.insert(-1, ResOperation(rop.SAME_AS, [b1],
                                                 b1.clonebox()))
             looptoken = JitCellToken()
