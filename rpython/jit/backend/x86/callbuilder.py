@@ -55,7 +55,7 @@ class AbstractCallBuilder(object):
         self.resloc = resloc
         self.restype = restype
         self.ressize = ressize
-        self.current_esp = 0
+        self.current_esp = 0     # 0 or (usually) negative, counted in bytes
 
     def emit_no_collect(self):
         """Emit a call that cannot collect."""
@@ -107,7 +107,7 @@ class AbstractCallBuilder(object):
 
     def restore_esp(self, target_esp=0):
         if self.current_esp != target_esp:
-            self.mc.SUB_ri(esp.value, self.current_esp - target_esp)
+            self.mc.ADD_ri(esp.value, target_esp - self.current_esp)
             self.current_esp = target_esp
 
     def load_result(self):
