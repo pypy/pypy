@@ -315,9 +315,12 @@ class RunParam(object):
     def collect_testdirs(self, testdirs, p=None):
         if p is None:
             p = self.root
-            
+
         reldir = self.reltoroot(p)
-        entries = [p1 for p1 in p.listdir() if p1.check(dotfile=0)]
+        if p.check():
+            entries = [p1 for p1 in p.listdir() if p1.check(dotfile=0)]
+        else:
+            entries = []
         entries.sort()
 
         if p != self.root:
@@ -326,7 +329,7 @@ class RunParam(object):
                     self.collect_one_testdir(testdirs, reldir,
                                    [self.reltoroot(t) for t in entries
                                     if self.is_test_py_file(t)])
-                    return
+                    break
 
         for p1 in entries:
             if p1.check(dir=1, link=0):

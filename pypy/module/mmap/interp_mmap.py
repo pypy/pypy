@@ -1,5 +1,5 @@
 from pypy.interpreter.error import OperationError, wrap_oserror
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from rpython.rlib import rmmap, rarithmetic
@@ -11,7 +11,7 @@ else:
     OFF_T = int
 
 
-class W_MMap(Wrappable):
+class W_MMap(W_Root):
     def __init__(self, space, mmap_obj):
         self.space = space
         self.mmap = mmap_obj

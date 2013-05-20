@@ -1,10 +1,10 @@
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.pyopcode import LoopBlock
 from rpython.rlib import jit
 
 
-class GeneratorIterator(Wrappable):
+class GeneratorIterator(W_Root):
     "An iterator created by a generator."
     _immutable_fields_ = ['pycode']
 
@@ -27,7 +27,7 @@ class GeneratorIterator(Wrappable):
         new_inst = mod.get('generator_new')
         w        = space.wrap
         if self.frame:
-            w_frame = w(self.frame)
+            w_frame = self.frame._reduce_state(space)
         else:
             w_frame = space.w_None
 
@@ -36,7 +36,20 @@ class GeneratorIterator(Wrappable):
             w(self.running),
             ]
 
-        return space.newtuple([new_inst, space.newtuple(tup)])
+        return space.newtuple([new_inst, space.newtuple([]),
+                               space.newtuple(tup)])
+
+    def descr__setstate__(self, space, w_args):
+        from rpython.rlib.objectmodel import instantiate
+        args_w = space.unpackiterable(w_args)
+        w_framestate, w_running = args_w
+        if space.is_w(w_framestate, space.w_None):
+            self.frame = None
+        else:
+            frame = instantiate(space.FrameClass)   # XXX fish
+            frame.descr__setstate__(space, w_framestate)
+            GeneratorIterator.__init__(self, frame)
+        self.running = self.space.is_true(w_running)
 
     def descr__iter__(self):
         """x.__iter__() <==> iter(x)"""
@@ -93,7 +106,6 @@ return next yielded value or raise StopIteration."""
         if w_val is None:
             w_val = self.space.w_None
         return self.throw(w_type, w_val, w_tb)
-
 
     def throw(self, w_type, w_val, w_tb):
         from pypy.interpreter.pytraceback import check_traceback
@@ -164,6 +176,7 @@ return next yielded value or raise StopIteration."""
         jitdriver = jit.JitDriver(greens=['pycode'],
                                   reds=['self', 'frame', 'results'],
                                   name='unpack_into')
+
         def unpack_into(self, results):
             """This is a hack for performance: runs the generator and collects
             all produced items in a list."""

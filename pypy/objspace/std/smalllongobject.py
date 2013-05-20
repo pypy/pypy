@@ -36,6 +36,9 @@ class W_SmallLongObject(W_AbstractLongObject):
     def asbigint(w_self):
         return rbigint.fromrarith_int(w_self.longlong)
 
+    def longval(self):
+        return self.longlong
+
     def __repr__(w_self):
         return '<W_SmallLongObject(%d)>' % w_self.longlong
 
@@ -63,6 +66,18 @@ class W_SmallLongObject(W_AbstractLongObject):
     def bigint_w(w_self, space):
         return w_self.asbigint()
 
+    def float_w(self, space):
+        return float(self.longlong)
+
+    def int(self, space):
+        a = self.longlong
+        b = intmask(a)
+        if b == a:
+            return space.newint(b)
+        else:
+            return self
+
+        
 registerimplementation(W_SmallLongObject)
 
 # ____________________________________________________________
@@ -111,14 +126,6 @@ def delegate_SmallLong2Complex(space, w_small):
 
 def long__SmallLong(space, w_value):
     return w_value
-
-def int__SmallLong(space, w_value):
-    a = w_value.longlong
-    b = intmask(a)
-    if b == a:
-        return space.newint(b)
-    else:
-        return w_value
 
 def index__SmallLong(space, w_value):
     return w_value

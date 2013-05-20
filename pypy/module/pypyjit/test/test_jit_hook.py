@@ -132,8 +132,9 @@ class AppTestJitHook(object):
         assert int_add.name == 'int_add'
         assert int_add.num == self.int_add_num
         self.on_compile_bridge()
-        code_repr = "(<code object function, file '?', line 2>, 0, False)"
-        assert repr(all[0]) == '<JitLoopInfo pypyjit, 4 operations, starting at <%s>>' % code_repr
+        expected = ('<JitLoopInfo pypyjit, 4 operations, starting at '
+                    '<(%s, 0, False)>>' % repr(self.f.func_code))
+        assert repr(all[0]) == expected
         assert len(all) == 2
         pypyjit.set_compile_hook(None)
         self.on_compile()

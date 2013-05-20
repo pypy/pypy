@@ -1,13 +1,13 @@
 from rpython.rlib import libffi, clibffi
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib import jit
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.error import OperationError
 
-class W_FFIType(Wrappable):
 
+class W_FFIType(W_Root):
     _immutable_fields_ = ['name', 'w_structdescr', 'w_pointer_to']
 
     def __init__(self, name, ffitype, w_structdescr=None, w_pointer_to=None):
@@ -157,6 +157,7 @@ class app_types:
     pass
 app_types.__dict__ = build_ffi_types()
 
+
 def descr_new_pointer(space, w_cls, w_pointer_to):
     try:
         return descr_new_pointer.cache[w_pointer_to]
@@ -168,12 +169,13 @@ def descr_new_pointer(space, w_cls, w_pointer_to):
         else:
             w_pointer_to = space.interp_w(W_FFIType, w_pointer_to)
             name = '(pointer to %s)' % w_pointer_to.name
-            w_result = W_FFIType(name, libffi.types.pointer, w_pointer_to = w_pointer_to)
+            w_result = W_FFIType(name, libffi.types.pointer, w_pointer_to=w_pointer_to)
         descr_new_pointer.cache[w_pointer_to] = w_result
         return w_result
 descr_new_pointer.cache = {}
 
-class W_types(Wrappable):
+
+class W_types(W_Root):
     pass
 W_types.typedef = TypeDef(
     'types',

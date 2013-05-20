@@ -1,5 +1,5 @@
 
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
@@ -30,7 +30,7 @@ class Cache:
 def get_error(space):
     return space.fromcache(Cache).w_error
 
-class W_ZipCache(Wrappable):
+class W_ZipCache(W_Root):
     def __init__(self):
         self.cache = {}
 
@@ -112,7 +112,7 @@ W_ZipCache.typedef = TypeDef(
 
 zip_cache = W_ZipCache()
 
-class W_ZipImporter(Wrappable):
+class W_ZipImporter(W_Root):
     def __init__(self, space, name, filename, zip_file, prefix):
         self.space = space
         self.name = name
@@ -123,7 +123,7 @@ class W_ZipImporter(Wrappable):
     def getprefix(self, space):
         if ZIPSEP == os.path.sep:
             return space.wrap(self.prefix)
-        return space.wrap(self.prefix.replace(ZIPSEP, os.path.sep))    
+        return space.wrap(self.prefix.replace(ZIPSEP, os.path.sep))
 
     def _find_relative_path(self, filename):
         if filename.startswith(self.filename):
@@ -403,4 +403,3 @@ W_ZipImporter.typedef = TypeDef(
     archive     = GetSetProperty(W_ZipImporter.getarchive),
     prefix      = GetSetProperty(W_ZipImporter.getprefix),
 )
-

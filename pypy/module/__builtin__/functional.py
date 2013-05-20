@@ -3,7 +3,7 @@ Interp-level definition of frequently used functionals.
 
 """
 
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.typedef import TypeDef
@@ -47,7 +47,8 @@ def get_len_of_range(space, lo, hi, step):
         n = 0
     return n
 
-@unwrap_spec(w_step = WrappedDefault(1))
+
+@unwrap_spec(w_step=WrappedDefault(1))
 def range_int(space, w_x, w_y=None, w_step=None):
     """Return a list of integers in arithmetic position from start (defaults
 to zero) to stop - 1 by step (defaults to 1).  Use a negative step to
@@ -60,24 +61,24 @@ get a list in decending order."""
         w_start = w_x
         w_stop = w_y
 
-    if space.is_true(space.isinstance(w_stop, space.w_float)):
+    if space.isinstance_w(w_stop, space.w_float):
         raise OperationError(space.w_TypeError,
             space.wrap("range() integer end argument expected, got float."))
-    if space.is_true(space.isinstance(w_start, space.w_float)):
+    if space.isinstance_w(w_start, space.w_float):
         raise OperationError(space.w_TypeError,
             space.wrap("range() integer start argument expected, got float."))
-    if space.is_true(space.isinstance(w_step, space.w_float)):
+    if space.isinstance_w(w_step, space.w_float):
         raise OperationError(space.w_TypeError,
             space.wrap("range() integer step argument expected, got float."))
 
     w_start = space.int(w_start)
-    w_stop  = space.int(w_stop)
-    w_step  = space.int(w_step)
+    w_stop = space.int(w_stop)
+    w_step = space.int(w_step)
 
     try:
         start = space.int_w(w_start)
-        stop  = space.int_w(w_stop)
-        step  = space.int_w(w_step)
+        stop = space.int_w(w_stop)
+        step = space.int_w(w_step)
     except OperationError, e:
         if not e.match(space, space.w_OverflowError):
             raise
@@ -107,7 +108,7 @@ def range_with_longs(space, w_start, w_stop, w_step):
 
     start = lo = space.bigint_w(w_start)
     hi = space.bigint_w(w_stop)
-    step  = st = space.bigint_w(w_step)
+    step = st = space.bigint_w(w_step)
 
     if not step.tobool():
         raise OperationError(space.w_ValueError,
@@ -201,8 +202,8 @@ min_max_normal = make_min_max(False)
 
 @specialize.arg(2)
 def min_max(space, args, implementation_of):
-    if not jit.we_are_jitted() or (jit.isconstant(len(args.arguments_w)) and
-            len(args.arguments_w) == 2):
+    if not jit.we_are_jitted() or len(args.arguments_w) != 1 and \
+            jit.loop_unrolling_heuristic(args.arguments_w, len(args.arguments_w)):
         return min_max_unroll(space, args, implementation_of)
     else:
         return min_max_normal(space, args, implementation_of)
@@ -226,8 +227,8 @@ def min(space, __args__):
     """
     return min_max(space, __args__, "min")
 
-class W_Enumerate(Wrappable):
 
+class W_Enumerate(W_Root):
     def __init__(self, w_iter, w_start):
         self.w_iter = w_iter
         self.w_index = w_start
@@ -283,8 +284,8 @@ def reversed(space, w_sequence):
         return space.call_function(w_reversed)
     return space.wrap(W_ReversedIterator(space, w_sequence))
 
-class W_ReversedIterator(Wrappable):
 
+class W_ReversedIterator(W_Root):
     def __init__(self, space, w_sequence):
         self.remaining = space.len_w(w_sequence) - 1
         if space.lookup(w_sequence, "__getitem__") is None:
@@ -329,6 +330,7 @@ W_ReversedIterator.typedef = TypeDef("reversed",
     next            = interp2app(W_ReversedIterator.descr_next),
     __reduce__      = interp2app(W_ReversedIterator.descr___reduce__),
 )
+W_ReversedIterator.typedef.acceptable_as_base_class = False
 
 # exported through _pickle_support
 def _make_reversed(space, w_seq, w_remaining):
@@ -339,8 +341,7 @@ def _make_reversed(space, w_seq, w_remaining):
     return space.wrap(iterator)
 
 
-
-class W_XRange(Wrappable):
+class W_XRange(W_Root):
     def __init__(self, space, start, len, step, promote_step=False):
         self.space = space
         self.start = start
@@ -428,8 +429,9 @@ W_XRange.typedef = TypeDef("xrange",
     __reversed__     = interp2app(W_XRange.descr_reversed),
     __reduce__       = interp2app(W_XRange.descr_reduce),
 )
+W_XRange.typedef.acceptable_as_base_class = False
 
-class W_XRangeIterator(Wrappable):
+class W_XRangeIterator(W_Root):
     def __init__(self, space, current, remaining, step):
         self.space = space
         self.current = current
@@ -441,7 +443,7 @@ class W_XRangeIterator(Wrappable):
 
     def descr_next(self):
         return self.next()
-    
+
     def next(self):
         if self.remaining > 0:
             item = self.current
@@ -474,6 +476,7 @@ W_XRangeIterator.typedef = TypeDef("rangeiterator",
     next            = interp2app(W_XRangeIterator.descr_next),
     __reduce__      = interp2app(W_XRangeIterator.descr_reduce),
 )
+W_XRangeIterator.typedef.acceptable_as_base_class = False
 
 class W_XRangeStepOneIterator(W_XRangeIterator):
     def __init__(self, space, start, stop):

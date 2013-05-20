@@ -1,4 +1,4 @@
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.interpreter.typedef import GetSetProperty
@@ -8,7 +8,7 @@ from pypy.interpreter.gateway import interp2app
 QUOTE_MINIMAL, QUOTE_ALL, QUOTE_NONNUMERIC, QUOTE_NONE = range(4)
 
 
-class W_Dialect(Wrappable):
+class W_Dialect(W_Root):
     _immutable_fields_ = [
         "dialect",
         "delimiter",
@@ -19,7 +19,7 @@ class W_Dialect(Wrappable):
         "quoting",
         "skipinitialspace",
         "strict",
-        ]
+    ]
 
 def _fetch(space, w_dialect, name):
     return space.findattr(w_dialect, space.wrap(name))
@@ -60,8 +60,7 @@ def _build_dialect(space, w_dialect, w_delimiter, w_doublequote,
             w_module = space.getbuiltinmodule('_csv')
             w_dialect = space.call_method(w_module, 'get_dialect', w_dialect)
 
-        dialect = space.interpclass_w(w_dialect)
-        if (isinstance(dialect, W_Dialect) and
+        if (isinstance(w_dialect, W_Dialect) and
             w_delimiter is None and
             w_doublequote is None and
             w_escapechar is None and
@@ -70,7 +69,7 @@ def _build_dialect(space, w_dialect, w_delimiter, w_doublequote,
             w_quoting is None and
             w_skipinitialspace is None and
             w_strict is None):
-            return dialect
+            return w_dialect
 
         if w_delimiter is None:
             w_delimiter = _fetch(space, w_dialect, 'delimiter')

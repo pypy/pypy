@@ -278,11 +278,11 @@ class RegisterManager(object):
     no_lower_byte_regs    = []
     save_around_call_regs = []
     frame_reg             = None
-    temp_boxes            = []
 
     def __init__(self, longevity, frame_manager=None, assembler=None):
         self.free_regs = self.all_regs[:]
         self.longevity = longevity
+        self.temp_boxes = []
         if not we_are_translated():
             self.reg_bindings = OrderedDict()
         else:
@@ -739,6 +739,16 @@ def is_comparison_or_ovf_op(opnum):
         pass
     op = Fake(None)
     return op.is_comparison() or op.is_ovf()
+
+def valid_addressing_size(size):
+    return size == 1 or size == 2 or size == 4 or size == 8
+
+def get_scale(size):
+    assert valid_addressing_size(size)
+    if size < 4:
+        return size - 1         # 1, 2 => 0, 1
+    else:
+        return (size >> 2) + 1  # 4, 8 => 2, 3
 
 
 def not_implemented(msg):

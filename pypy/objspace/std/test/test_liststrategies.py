@@ -566,7 +566,7 @@ class TestW_ListStrategies(TestW_ListObject):
         space = self.space
         w_l = W_ListObject(space, [space.wrap(1), space.wrap(2), space.wrap(3)])
         w_l.pop = None
-        w_res = listobject.list_pop__List_ANY(space, w_l, space.w_None) # does not crash
+        w_res = w_l.descr_pop(space)
         assert space.unwrap(w_res) == 3
 
     def test_create_list_from_set(self):

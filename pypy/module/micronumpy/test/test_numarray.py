@@ -214,6 +214,7 @@ class TestNumArrayDirect(object):
         assert get(1, 1) == 3
 
 class AppTestNumArray(BaseNumpyAppTest):
+    spaceconfig = dict(usemodules=["micronumpy", "struct", "binascii"])
     def w_CustomIndexObject(self, index):
         class CustomIndexObject(object):
             def __init__(self, index):
@@ -422,6 +423,18 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a[4] == 5.0
         raises(IndexError, "a[5] = 0.0")
         raises(IndexError, "a[-6] = 3.0")
+        a[1] = array(100)
+        a[2] = array([100])
+        assert a[1] == 100
+        assert a[2] == 100
+        a = array(range(5), dtype=float)
+        a[0] = 0.005
+        assert a[0] == 0.005
+        a[1] = array(-0.005)
+        a[2] = array([-0.005])
+        assert a[1] == -0.005
+        assert a[2] == -0.005
+
 
     def test_setitem_tuple(self):
         from numpypy import array
@@ -1487,14 +1500,14 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = concatenate((['abcdef'], ['abc']))
         assert a[0] == 'abcdef'
         assert str(a.dtype) == '|S6'
-    
+
     def test_record_concatenate(self):
         # only an exact match can succeed
         from numpypy import zeros, concatenate
         a = concatenate((zeros((2,),dtype=[('x', int), ('y', float)]),
                          zeros((2,),dtype=[('x', int), ('y', float)])))
         assert a.shape == (4,)
-        exc = raises(TypeError, concatenate, 
+        exc = raises(TypeError, concatenate,
                             (zeros((2,), dtype=[('x', int), ('y', float)]),
                             (zeros((2,), dtype=[('x', float), ('y', float)]))))
         assert str(exc.value).startswith('record type mismatch')
@@ -1677,11 +1690,15 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = array('x').astype('S3').dtype
         assert a.itemsize == 3
         # scalar vs. array
+        a = array([1, 2, 3.14156]).astype('S3').dtype
+        assert a.itemsize == 3
+        a = array(3.1415).astype('S3').dtype
+        assert a.itemsize == 3
         try:
-            a = array([1, 2, 3.14156]).astype('S3').dtype
-            assert a.itemsize == 3
+            a = array(['1', '2','3']).astype(float)
+            assert a[2] == 3.0
         except NotImplementedError:
-            skip('astype("S3") not implemented for numeric arrays')
+            skip('astype("float") not implemented for str arrays')
 
     def test_base(self):
         from numpypy import array
@@ -1770,6 +1787,17 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert raises(TypeError, "int(array([1, 2]))")
         assert int(array([1.5])) == 1
 
+    def test__reduce__(self):
+        from numpypy import array, dtype
+        from cPickle import loads, dumps
+
+        a = array([1, 2], dtype="int64")
+        data = a.__reduce__()
+
+        assert data[2][4] == '\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00'
+
+        pickled_data = dumps(a)
+        assert (loads(pickled_data) == a).all()
 
 class AppTestMultiDim(BaseNumpyAppTest):
     def test_init(self):
@@ -2518,6 +2546,8 @@ class AppTestRepr(BaseNumpyAppTest):
 
 
 class AppTestRecordDtype(BaseNumpyAppTest):
+    spaceconfig = dict(usemodules=["micronumpy", "struct", "binascii"])
+
     def test_zeros(self):
         from numpypy import zeros, integer
         a = zeros(2, dtype=[('x', int), ('y', float)])
@@ -2649,6 +2679,25 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         s = repr(a)
         assert s.replace('\n', '') == \
                       "array(['abc', 'defg', 'ab'],       dtype='|S4')"
+
+    def test_pickle(self):
+        from numpypy import dtype, array
+        from cPickle import loads, dumps
+
+        d = dtype([('x', str), ('y', 'int32')])
+        a = array([('a', 2), ('cde', 1)], dtype=d)
+
+        a = loads(dumps(a))
+        d = a.dtype
+
+        assert str(d.fields['x'][0]) == '|S0'
+        assert d.fields['x'][1] == 0
+        assert str(d.fields['y'][0]) == 'int32'
+        assert d.fields['y'][1] == 0
+        assert d.name == 'void32'
+
+        assert a[0]['y'] == 2
+        assert a[1]['y'] == 1
 
 
 class AppTestPyPy(BaseNumpyAppTest):

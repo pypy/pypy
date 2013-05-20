@@ -105,6 +105,7 @@ class TestArray(BaseTestPyPyC):
         assert loop.match("""
             i10 = int_lt(i6, 1000)
             guard_true(i10, descr=...)
+            guard_not_invalidated(descr=...)
             i11 = int_lt(i6, i7)
             guard_true(i11, descr=...)
             f13 = getarrayitem_raw(i8, i6, descr=<ArrayF 8>)
@@ -119,6 +120,12 @@ class TestArray(BaseTestPyPyC):
         """)
 
     def test_array_of_floats(self):
+        try:
+            from __pypy__ import jit_backend_features
+            if 'singlefloats' not in jit_backend_features:
+                py.test.skip("test requres singlefloats support from the JIT backend")
+        except ImportError:
+            pass
         def main():
             from array import array
             img = array('f', [21.5]*1000)
@@ -135,6 +142,7 @@ class TestArray(BaseTestPyPyC):
         assert loop.match("""
             i10 = int_lt(i6, 1000)
             guard_true(i10, descr=...)
+            guard_not_invalidated(descr=...)
             i11 = int_lt(i6, i7)
             guard_true(i11, descr=...)
             i13 = getarrayitem_raw(i8, i6, descr=<Array. 4>)

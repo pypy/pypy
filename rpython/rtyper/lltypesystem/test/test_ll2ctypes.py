@@ -742,13 +742,17 @@ class TestLL2Ctypes(object):
         assert not ALLOCATED     # detects memory leaks in the test
 
     def test_get_errno(self):
-        # win64: works with python 2.6.7, but not with 2.7.2
-        # XXX check what is different with ctypes!
         eci = ExternalCompilationInfo(includes=['string.h'])
         if sys.platform.startswith('win'):
             underscore_on_windows = '_'
-            if sys.version.startswith('2.7.2 '):
-                py.test.skip('ctypes is buggy. errno crashes with win64 and python 2.7.2')
+            # Note that cpython before 2.7 installs an _invalid_parameter_handler,
+            # which is why the test passes there, but this is no longer
+            # accepted practice.
+            import ctypes
+            SEM_NOGPFAULTERRORBOX = 0x0002 # From MSDN
+            old_err_mode = ctypes.windll.kernel32.GetErrorMode()
+            new_err_mode = old_err_mode | SEM_NOGPFAULTERRORBOX
+            ctypes.windll.kernel32.SetErrorMode(new_err_mode)
         else:
             underscore_on_windows = ''
         strlen = rffi.llexternal('strlen', [rffi.CCHARP], rffi.SIZE_T,
@@ -758,6 +762,8 @@ class TestLL2Ctypes(object):
                                    rffi.SIZE_T)
         buffer = lltype.malloc(rffi.CCHARP.TO, 5, flavor='raw')
         written = os_write(12312312, buffer, 5)
+        if sys.platform.startswith('win'):
+            ctypes.windll.kernel32.SetErrorMode(old_err_mode)
         lltype.free(buffer, flavor='raw')
         assert rffi.cast(rffi.LONG, written) < 0
         # the next line is a random external function call,

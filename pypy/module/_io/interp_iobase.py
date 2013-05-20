@@ -1,4 +1,4 @@
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import (
     TypeDef, GetSetProperty, generic_new_descr, descr_get_dict, descr_set_dict,
     make_weakref_descr)
@@ -37,7 +37,8 @@ def check_seekable_w(space, w_obj):
             space.w_IOError,
             space.wrap("file or stream is not seekable"))
 
-class W_IOBase(Wrappable):
+
+class W_IOBase(W_Root):
     def __init__(self, space):
         # XXX: IOBase thinks it has to maintain its own internal state in
         # `__IOBase_closed` and call flush() by itself, but it is redundant
@@ -46,7 +47,7 @@ class W_IOBase(Wrappable):
         self.w_dict = space.newdict()
         self.__IOBase_closed = False
         self.streamholder = None # needed by AutoFlusher
-        get_autoflushher(space).add(self)
+        get_autoflusher(space).add(self)
 
     def getdict(self, space):
         return self.w_dict
@@ -102,7 +103,7 @@ class W_IOBase(Wrappable):
             space.call_method(self, "flush")
         finally:
             self.__IOBase_closed = True
-            get_autoflushher(space).remove(self)
+            get_autoflusher(space).remove(self)
 
     def flush_w(self, space):
         if self._CLOSED():
@@ -362,5 +363,5 @@ class AutoFlusher(object):
                 else:
                     streamholder.autoflush(space)
 
-def get_autoflushher(space):
+def get_autoflusher(space):
     return space.fromcache(AutoFlusher)

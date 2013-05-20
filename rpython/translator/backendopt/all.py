@@ -31,7 +31,8 @@ def get_function(dottedname):
 
     return func
 
-def backend_optimizations(translator, graphs=None, secondary=False, **kwds):
+def backend_optimizations(translator, graphs=None, secondary=False,
+                          inline_graph_from_anywhere=False, **kwds):
     # sensible keywords are
     # raisingop2direct_call, inline_threshold, mallocs
     # merge_if_blocks, constfold, heap2stack
@@ -91,7 +92,8 @@ def backend_optimizations(translator, graphs=None, secondary=False, **kwds):
             threshold = 0
         inline_malloc_removal_phase(config, translator, graphs,
                                     threshold,
-                                    inline_heuristic=heuristic)
+                                    inline_heuristic=heuristic,
+                         inline_graph_from_anywhere=inline_graph_from_anywhere)
         constfold(config, graphs)
 
     if config.clever_malloc_removal:
@@ -152,7 +154,8 @@ def constfold(config, graphs):
 
 def inline_malloc_removal_phase(config, translator, graphs, inline_threshold,
                                 inline_heuristic,
-                                call_count_pred=None):
+                                call_count_pred=None,
+                                inline_graph_from_anywhere=False):
 
     type_system = translator.rtyper.type_system.name
     # inline functions in each other
@@ -163,7 +166,8 @@ def inline_malloc_removal_phase(config, translator, graphs, inline_threshold,
 
         inline.auto_inline_graphs(translator, graphs, inline_threshold,
                                   heuristic=inline_heuristic,
-                                  call_count_pred=call_count_pred)
+                                  call_count_pred=call_count_pred,
+                         inline_graph_from_anywhere=inline_graph_from_anywhere)
 
         if config.print_statistics:
             print "after inlining:"

@@ -75,6 +75,7 @@ class BaseTestPyPyC(object):
         rawtraces = logparser.extract_category(rawlog, 'jit-log-opt-')
         log = Log(rawtraces)
         log.result = eval(stdout)
+        log.logfile = str(logfile)
         #
         summaries  = logparser.extract_category(rawlog, 'jit-summary')
         if len(summaries) > 0:

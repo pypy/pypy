@@ -456,6 +456,7 @@ LL_OPERATIONS = {
     'jit_is_virtual':       LLOp(canrun=True),
     'jit_force_quasi_immutable': LLOp(canrun=True),
     'jit_record_known_class'  : LLOp(canrun=True),
+    'jit_ffi_save_result':  LLOp(canrun=True),
     'get_exception_addr':   LLOp(),
     'get_exc_value_addr':   LLOp(),
     'do_malloc_fixedsize_clear':LLOp(canmallocgc=True),
@@ -515,6 +516,10 @@ LL_OPERATIONS = {
     'gc_asmgcroot_static':  LLOp(sideeffects=False),
     'gc_stack_bottom':      LLOp(canrun=True),
 
+    # for stacklet+asmgcroot support
+    'gc_detach_callback_pieces': LLOp(),
+    'gc_reattach_callback_pieces': LLOp(),
+
     # for stacklet+shadowstack support
     'gc_shadowstackref_new':      LLOp(canmallocgc=True),
     'gc_shadowstackref_context':  LLOp(),
@@ -555,7 +560,7 @@ LL_OPERATIONS = {
     'debug_offset':         LLOp(canrun=True),
     'debug_flush':          LLOp(canrun=True),
     'debug_assert':         LLOp(tryfold=True),
-    'debug_fatalerror':     LLOp(),
+    'debug_fatalerror':     LLOp(canrun=True),
     'debug_llinterpcall':   LLOp(canraise=(Exception,)),
                                     # Python func call 'res=arg[0](*arg[1:])'
                                     # in backends, abort() or whatever is fine

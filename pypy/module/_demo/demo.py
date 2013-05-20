@@ -1,5 +1,5 @@
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from rpython.rtyper.lltypesystem import rffi, lltype
@@ -47,8 +47,8 @@ def sieve(space, n):
                 newlst.append(element)
         lst = newlst
         head += 1
- 
-class W_MyType(Wrappable):
+
+class W_MyType(W_Root):
     def __init__(self, space, x=1):
         self.space = space
         self.x = x

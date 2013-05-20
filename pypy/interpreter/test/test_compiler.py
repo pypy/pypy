@@ -765,6 +765,9 @@ class AppTestCompiler:
 
 class AppTestOptimizer:
 
+    def setup_class(cls):
+        cls.w_runappdirect = cls.space.wrap(cls.runappdirect)
+
     def test_remove_ending(self):
         source = """def f():
             return 3
@@ -785,7 +788,8 @@ class AppTestOptimizer:
     def test_none_constant(self):
         import opcode
         co = compile("def f(): return None", "<test>", "exec").co_consts[0]
-        assert "None" not in co.co_names
+        if not self.runappdirect:  # This is a pypy optimization
+            assert "None" not in co.co_names
         co = co.co_code
         op = ord(co[0]) + (ord(co[1]) << 8)
         assert op == opcode.opmap["LOAD_CONST"]
@@ -800,29 +804,48 @@ class AppTestOptimizer:
         def code(source):
             return compile(source, "<test>", "exec")
         co = code("x = 10//4")
-        assert len(co.co_consts) == 2
-        assert co.co_consts[0] == 2
+        if self.runappdirect:
+            assert 2 in co.co_consts
+        else:
+            # PyPy is more precise
+            assert len(co.co_consts) == 2
+            assert co.co_consts[0] == 2
         co = code("x = 10/4")
         assert len(co.co_consts) == 3
         assert co.co_consts[:2] == (10, 4)
         co = code("from __future__ import division\nx = 10/4")
-        assert co.co_consts[2] == 2.5
+        if self.runappdirect:
+            assert 2.5 in co.co_consts
+        else:
+            assert co.co_consts[2] == 2.5
 
     def test_tuple_folding(self):
         co = compile("x = (1, 2, 3)", "<test>", "exec")
-        assert co.co_consts == ((1, 2, 3), None)
+        if not self.runappdirect:
+            # PyPy is more precise
+            assert co.co_consts == ((1, 2, 3), None)
+        else:
+            assert (1, 2, 3) in co.co_consts
+            assert None in co.co_consts
         co = compile("x = ()", "<test>", "exec")
-        assert co.co_consts == ((), None)
+        assert set(co.co_consts) == set(((), None))
 
     def test_unary_folding(self):
+        def check_const(co, value):
+            assert value in co.co_consts
+            if not self.runappdirect:
+                # This is a pypy optimization
+                assert co.co_consts[0] == value
         co = compile("x = -(3)", "<test>", "exec")
-        assert co.co_consts[0] == -3
+        check_const(co, -3)
         co = compile("x = ~3", "<test>", "exec")
-        assert co.co_consts[0] == ~3
+        check_const(co, ~3)
         co = compile("x = +(-3)", "<test>", "exec")
-        assert co.co_consts[0] == -3
+        check_const(co, -3)
         co = compile("x = not None", "<test>", "exec")
-        assert co.co_consts[0] is True
+        if not self.runappdirect:
+            # CPython does not have this optimization
+            assert co.co_consts == (True, None)
 
     def test_folding_of_binops_on_constants(self):
         def disassemble(func):
@@ -912,6 +935,21 @@ class AppTestOptimizer:
             sys.stdout = out
         output = s.getvalue()
         assert "LOAD_GLOBAL" not in output
+
+    def test_folding_of_list_constants(self):
+        source = 'a in [1, 2, 3]'
+        co = compile(source, '', 'exec')
+        i = co.co_consts.index((1, 2, 3))
+        assert i > -1
+        assert isinstance(co.co_consts[i], tuple)
+
+    def test_folding_of_set_constants(self):
+        source = 'a in {1, 2, 3}'
+        co = compile(source, '', 'exec')
+        i = co.co_consts.index(set([1, 2, 3]))
+        assert i > -1
+        assert isinstance(co.co_consts[i], frozenset)
+
 
 class AppTestCallMethod(object):
     spaceconfig = {'objspace.opcodes.CALL_METHOD': True}

@@ -159,5 +159,5 @@ initial apicid  : 1
 fpu     : yes
 etc.
 """)
-    result = env.get_L2cache_linux2(str(filepath))
+    result = env.get_L2cache_linux2_cpuinfo(str(filepath))
     assert result == 3072 * 1024

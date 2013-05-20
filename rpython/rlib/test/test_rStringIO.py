@@ -49,6 +49,10 @@ def test_tell():
         assert f.tell() == i
     assert f.getvalue() == '01XXXXXXXXXXXXXXXXX'
 
+    f.seek(1)
+    f.close()
+    assert f.tell() == 0
+
 def test_read():
     f = RStringIO()
     assert f.read() == ''

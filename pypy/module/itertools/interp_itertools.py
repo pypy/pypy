@@ -1,10 +1,10 @@
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 
-class W_Count(Wrappable):
 
+class W_Count(W_Root):
     def __init__(self, space, w_firstval, w_step):
         self.space = space
         self.w_c = w_firstval
@@ -79,8 +79,7 @@ W_Count.typedef = TypeDef(
     """)
 
 
-class W_Repeat(Wrappable):
-
+class W_Repeat(W_Root):
     def __init__(self, space, w_obj, w_times):
         self.space = space
         self.w_obj = w_obj
@@ -145,8 +144,8 @@ W_Repeat.typedef = TypeDef(
                 yield object
     """)
 
-class W_TakeWhile(Wrappable):
 
+class W_TakeWhile(W_Root):
     def __init__(self, space, w_predicate, w_iterable):
         self.space = space
         self.w_predicate = w_predicate
@@ -193,8 +192,8 @@ W_TakeWhile.typedef = TypeDef(
                 break
     """)
 
-class W_DropWhile(Wrappable):
 
+class W_DropWhile(W_Root):
     def __init__(self, space, w_predicate, w_iterable):
         self.space = space
         self.w_predicate = w_predicate
@@ -246,8 +245,8 @@ W_DropWhile.typedef = TypeDef(
             yield x
     """)
 
-class _IFilterBase(Wrappable):
 
+class _IFilterBase(W_Root):
     def __init__(self, space, w_predicate, w_iterable):
         self.space = space
         if space.is_w(w_predicate, space.w_None):
@@ -328,7 +327,8 @@ W_IFilterFalse.typedef = TypeDef(
                 yield x
     """)
 
-class W_ISlice(Wrappable):
+
+class W_ISlice(W_Root):
     def __init__(self, space, w_iterable, w_startstop, args_w):
         self.iterable = space.iter(w_iterable)
         self.space = space
@@ -430,7 +430,7 @@ W_ISlice.typedef = TypeDef(
     """)
 
 
-class W_Chain(Wrappable):
+class W_Chain(W_Root):
     def __init__(self, space, w_iterables):
         self.space = space
         self.w_iterables = w_iterables
@@ -495,7 +495,8 @@ W_Chain.typedef = TypeDef(
                 yield element
     """)
 
-class W_IMap(Wrappable):
+
+class W_IMap(W_Root):
     _error_name = "imap"
     _immutable_fields_ = ["w_fun", "iterators_w"]
 
@@ -685,8 +686,7 @@ W_IZipLongest.typedef = TypeDef(
     """)
 
 
-class W_Cycle(Wrappable):
-
+class W_Cycle(W_Root):
     def __init__(self, space, w_iterable):
         self.space = space
         self.saved_w = []
@@ -752,8 +752,8 @@ W_Cycle.typedef = TypeDef(
                 yield element
     """)
 
-class W_StarMap(Wrappable):
 
+class W_StarMap(W_Root):
     def __init__(self, space, w_fun, w_iterable):
         self.space = space
         self.w_fun = w_fun
@@ -823,10 +823,9 @@ def tee(space, w_iterable, n=2):
     if n < 0:
         raise OperationError(space.w_ValueError, space.wrap("n must be >= 0"))
 
-    myiter = space.interpclass_w(w_iterable)
-    if isinstance(myiter, W_TeeIterable):     # optimization only
-        chained_list = myiter.chained_list
-        w_iterator = myiter.w_iterator
+    if isinstance(w_iterable, W_TeeIterable):     # optimization only
+        chained_list = w_iterable.chained_list
+        w_iterator = w_iterable.w_iterator
         iterators_w = [w_iterable] * n
         for i in range(1, n):
             iterators_w[i] = space.wrap(W_TeeIterable(space, w_iterator,
@@ -842,7 +841,8 @@ def tee(space, w_iterable, n=2):
 class TeeChainedListNode(object):
     w_obj = None
 
-class W_TeeIterable(Wrappable):
+
+class W_TeeIterable(W_Root):
     def __init__(self, space, w_iterator, chained_list):
         self.space = space
         self.w_iterator = w_iterator
@@ -883,8 +883,7 @@ W_TeeIterable.typedef = TypeDef(
 W_TeeIterable.typedef.acceptable_as_base_class = False
 
 
-class W_GroupBy(Wrappable):
-
+class W_GroupBy(W_Root):
     def __init__(self, space, w_iterable, w_fun):
         self.space = space
         self.w_iterable = self.space.iter(w_iterable)
@@ -1002,7 +1001,8 @@ W_GroupBy.typedef = TypeDef(
            uniquekeys.append(k)
     """)
 
-class W_GroupByIterator(Wrappable):
+
+class W_GroupByIterator(W_Root):
     def __init__(self, space, index, groupby):
         self.space = space
         self.index = index
@@ -1032,7 +1032,7 @@ W_GroupByIterator.typedef = TypeDef(
 W_GroupByIterator.typedef.acceptable_as_base_class = False
 
 
-class W_Compress(Wrappable):
+class W_Compress(W_Root):
     def __init__(self, space, w_data, w_selectors):
         self.space = space
         self.w_data = space.iter(w_data)
@@ -1074,7 +1074,7 @@ W_Compress.typedef = TypeDef(
 """)
 
 
-class W_Product(Wrappable):
+class W_Product(W_Root):
     def __init__(self, space, args_w, w_repeat):
         self.gears = [
             space.fixedview(arg_w) for arg_w in args_w
@@ -1182,7 +1182,7 @@ W_Product.typedef = TypeDef(
 """)
 
 
-class W_Combinations(Wrappable):
+class W_Combinations(W_Root):
     def __init__(self, space, pool_w, indices, r):
         self.pool_w = pool_w
         self.indices = indices
@@ -1300,7 +1300,7 @@ combinations_with_replacement('ABC', 2) --> AA AB AC BB BC CC""",
 )
 
 
-class W_Permutations(Wrappable):
+class W_Permutations(W_Root):
     def __init__(self, space, pool_w, r):
         self.pool_w = pool_w
         self.r = r

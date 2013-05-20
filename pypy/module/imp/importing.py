@@ -8,13 +8,15 @@ from pypy.interpreter.module import Module
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, generic_new_descr
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.eval import Code
 from pypy.interpreter.pycode import PyCode
 from rpython.rlib import streamio, jit
 from rpython.rlib.streamio import StreamErrors
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from pypy.module.sys.version import PYPY_VERSION
+
+_WIN32 = sys.platform == 'win32'
 
 SEARCH_ERROR = 0
 PY_SOURCE = 1
@@ -27,12 +29,8 @@ PY_FROZEN = 7
 # PY_CODERESOURCE = 8
 IMP_HOOK = 9
 
-if sys.platform == 'win32':
-    SO = ".pyd"
-else:
-    SO = ".so"
+SO = '.pyd' if _WIN32 else '.so'
 DEFAULT_SOABI = 'pypy-%d%d' % PYPY_VERSION[:2]
-CHECK_FOR_PYW = sys.platform == 'win32'
 
 @specialize.memo()
 def get_so_extension(space):
@@ -64,7 +62,7 @@ def find_modtype(space, filepart):
         return PY_SOURCE, ".py", "U"
 
     # on Windows, also check for a .pyw file
-    if CHECK_FOR_PYW:
+    if _WIN32:
         pyfile = filepart + ".pyw"
         if file_exists(pyfile):
             return PY_SOURCE, ".pyw", "U"
@@ -439,7 +437,7 @@ def find_in_path_hooks(space, w_modulename, w_pathitem):
             return w_loader
 
 
-class W_NullImporter(Wrappable):
+class W_NullImporter(W_Root):
     def __init__(self, space):
         pass
 
@@ -990,11 +988,10 @@ def read_compiled_module(space, cpathname, strbuf):
 
     w_marshal = space.getbuiltinmodule('marshal')
     w_code = space.call_method(w_marshal, 'loads', space.wrap(strbuf))
-    pycode = space.interpclass_w(w_code)
-    if pycode is None or not isinstance(pycode, Code):
+    if not isinstance(w_code, Code):
         raise operationerrfmt(space.w_ImportError,
                               "Non-code object in %s", cpathname)
-    return pycode
+    return w_code
 
 @jit.dont_look_inside
 def load_compiled_module(space, w_modulename, w_mod, cpathname, magic,

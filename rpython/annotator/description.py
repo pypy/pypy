@@ -215,9 +215,8 @@ class FunctionDesc(Desc):
         if len(self._cache) != 1:
             raise NoStandardGraph(self)
         [graph] = self._cache.values()
-        relax_sig_check = getattr(self.pyobj, "relax_sig_check", False)
         if (graph.signature != self.signature or
-            graph.defaults  != self.defaults) and not relax_sig_check:
+            graph.defaults  != self.defaults):
             raise NoStandardGraph(self)
         return graph
 

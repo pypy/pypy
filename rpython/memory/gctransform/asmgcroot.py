@@ -1,13 +1,15 @@
 from rpython.flowspace.model import (Constant, Variable, Block, Link,
-     copygraph, SpaceOperation)
+     copygraph, SpaceOperation, checkgraph)
 from rpython.rlib.debug import ll_assert
+from rpython.rlib.nonconst import NonConstant
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.memory.gctransform.framework import (
      BaseFrameworkGCTransformer, BaseRootWalker)
 from rpython.rtyper.rbuiltin import gen_cast
-from rpython.translator.unsimplify import copyvar
+from rpython.translator.unsimplify import copyvar, varoftype
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
 import sys
 
 
@@ -22,6 +24,7 @@ IS_64_BITS = sys.maxint > 2147483647
 
 class AsmGcRootFrameworkGCTransformer(BaseFrameworkGCTransformer):
     _asmgcc_save_restore_arguments = None
+    _seen_gctransformer_hint_close_stack = None
 
     def push_roots(self, hop, keep_current_args=False):
         livevars = self.get_livevars_for_roots(hop, keep_current_args)
@@ -57,10 +60,22 @@ class AsmGcRootFrameworkGCTransformer(BaseFrameworkGCTransformer):
 
     def handle_call_with_close_stack(self, hop):
         fnptr = hop.spaceop.args[0].value
+        if self._seen_gctransformer_hint_close_stack is None:
+            self._seen_gctransformer_hint_close_stack = {}
+        if fnptr._obj.graph not in self._seen_gctransformer_hint_close_stack:
+            self._transform_hint_close_stack(fnptr)
+            self._seen_gctransformer_hint_close_stack[fnptr._obj.graph] = True
+        #
+        livevars = self.push_roots(hop)
+        self.default(hop)
+        self.pop_roots(hop, livevars)
+
+    def _transform_hint_close_stack(self, fnptr):
         # We cannot easily pass variable amount of arguments of the call
         # across the call to the pypy_asm_stackwalk helper.  So we store
-        # them away and restore them.  We need to make a new graph
-        # that starts with restoring the arguments.
+        # them away and restore them.  More precisely, we need to
+        # replace 'graph' with code that saves the arguments, and make
+        # a new graph that starts with restoring the arguments.
         if self._asmgcc_save_restore_arguments is None:
             self._asmgcc_save_restore_arguments = {}
         sradict = self._asmgcc_save_restore_arguments
@@ -80,25 +95,52 @@ class AsmGcRootFrameworkGCTransformer(BaseFrameworkGCTransformer):
                 sradict[key] = Constant(p, lltype.Ptr(CONTAINER))
             sra.append(sradict[key])
         #
-        # store the value of the arguments
-        livevars = self.push_roots(hop)
-        c_item0 = Constant('item0', lltype.Void)
-        for v_arg, c_p in zip(hop.spaceop.args[1:], sra):
-            if isinstance(v_arg.concretetype, lltype.Ptr):
-                v_arg = hop.genop("cast_ptr_to_adr", [v_arg],
-                                  resulttype=llmemory.Address)
-            hop.genop("bare_setfield", [c_p, c_item0, v_arg])
-        #
         # make a copy of the graph that will reload the values
-        graph2 = copygraph(fnptr._obj.graph)
+        graph = fnptr._obj.graph
+        graph2 = copygraph(graph)
+        #
+        # edit the original graph to only store the value of the arguments
+        block = Block(graph.startblock.inputargs)
+        c_item0 = Constant('item0', lltype.Void)
+        assert len(block.inputargs) == len(sra)
+        for v_arg, c_p in zip(block.inputargs, sra):
+            if isinstance(v_arg.concretetype, lltype.Ptr):
+                v_adr = varoftype(llmemory.Address)
+                block.operations.append(
+                    SpaceOperation("cast_ptr_to_adr", [v_arg], v_adr))
+                v_arg = v_adr
+            v_void = varoftype(lltype.Void)
+            block.operations.append(
+                SpaceOperation("bare_setfield", [c_p, c_item0, v_arg], v_void))
+        #
+        # call asm_stackwalk(graph2)
+        FUNC2 = lltype.FuncType([], FUNC1.RESULT)
+        fnptr2 = lltype.functionptr(FUNC2,
+                                    fnptr._obj._name + '_reload',
+                                    graph=graph2)
+        c_fnptr2 = Constant(fnptr2, lltype.Ptr(FUNC2))
+        HELPERFUNC = lltype.FuncType([lltype.Ptr(FUNC2),
+                                      ASM_FRAMEDATA_HEAD_PTR], FUNC1.RESULT)
+        v_asm_stackwalk = varoftype(lltype.Ptr(HELPERFUNC), "asm_stackwalk")
+        block.operations.append(
+            SpaceOperation("cast_pointer", [c_asm_stackwalk], v_asm_stackwalk))
+        v_result = varoftype(FUNC1.RESULT)
+        block.operations.append(
+            SpaceOperation("indirect_call", [v_asm_stackwalk, c_fnptr2,
+                                             c_gcrootanchor,
+                                             Constant(None, lltype.Void)],
+                           v_result))
+        block.closeblock(Link([v_result], graph.returnblock))
+        graph.startblock = block
+        #
+        # edit the copy of the graph to reload the values
         block2 = graph2.startblock
         block1 = Block([])
         reloadedvars = []
         for v, c_p in zip(block2.inputargs, sra):
             v = copyvar(None, v)
             if isinstance(v.concretetype, lltype.Ptr):
-                w = Variable('tmp')
-                w.concretetype = llmemory.Address
+                w = varoftype(llmemory.Address)
             else:
                 w = v
             block1.operations.append(SpaceOperation('getfield',
@@ -109,21 +151,9 @@ class AsmGcRootFrameworkGCTransformer(BaseFrameworkGCTransformer):
             reloadedvars.append(v)
         block1.closeblock(Link(reloadedvars, block2))
         graph2.startblock = block1
-        FUNC2 = lltype.FuncType([], FUNC1.RESULT)
-        fnptr2 = lltype.functionptr(FUNC2,
-                                    fnptr._obj._name + '_reload',
-                                    graph=graph2)
-        c_fnptr2 = Constant(fnptr2, lltype.Ptr(FUNC2))
-        HELPERFUNC = lltype.FuncType([lltype.Ptr(FUNC2),
-                                      ASM_FRAMEDATA_HEAD_PTR], FUNC1.RESULT)
         #
-        v_asm_stackwalk = hop.genop("cast_pointer", [c_asm_stackwalk],
-                                    resulttype=lltype.Ptr(HELPERFUNC))
-        hop.genop("indirect_call",
-                  [v_asm_stackwalk, c_fnptr2, c_gcrootanchor,
-                   Constant(None, lltype.Void)],
-                  resultvar=hop.spaceop.result)
-        self.pop_roots(hop, livevars)
+        checkgraph(graph)
+        checkgraph(graph2)
 
 
 class AsmStackRootWalker(BaseRootWalker):
@@ -140,12 +170,57 @@ class AsmStackRootWalker(BaseRootWalker):
             jit2gc = gctransformer.translator._jit2gc
             self.frame_tid = jit2gc['frame_tid']
         self.gctransformer = gctransformer
+        #
+        # unless overridden in need_thread_support():
+        self.belongs_to_current_thread = lambda framedata: True
 
     def need_stacklet_support(self, gctransformer, getfn):
-        # stacklet support: BIG HACK for rlib.rstacklet
+        from rpython.annotator import model as annmodel
         from rpython.rlib import _stacklet_asmgcc
+        # stacklet support: BIG HACK for rlib.rstacklet
         _stacklet_asmgcc._asmstackrootwalker = self     # as a global! argh
         _stacklet_asmgcc.complete_destrptr(gctransformer)
+        #
+        def gc_detach_callback_pieces():
+            anchor = llmemory.cast_ptr_to_adr(gcrootanchor)
+            result = llmemory.NULL
+            framedata = anchor.address[1]
+            while framedata != anchor:
+                next = framedata.address[1]
+                if self.belongs_to_current_thread(framedata):
+                    # detach it
+                    prev = framedata.address[0]
+                    prev.address[1] = next
+                    next.address[0] = prev
+                    # update the global stack counter
+                    rffi.stackcounter.stacks_counter -= 1
+                    # reattach framedata into the singly-linked list 'result'
+                    framedata.address[0] = rffi.cast(llmemory.Address, -1)
+                    framedata.address[1] = result
+                    result = framedata
+                framedata = next
+            return result
+        #
+        def gc_reattach_callback_pieces(pieces):
+            anchor = llmemory.cast_ptr_to_adr(gcrootanchor)
+            while pieces != llmemory.NULL:
+                framedata = pieces
+                pieces = pieces.address[1]
+                # attach 'framedata' into the normal doubly-linked list
+                following = anchor.address[1]
+                following.address[0] = framedata
+                framedata.address[1] = following
+                anchor.address[1] = framedata
+                framedata.address[0] = anchor
+                # update the global stack counter
+                rffi.stackcounter.stacks_counter += 1
+        #
+        s_addr = annmodel.SomeAddress()
+        s_None = annmodel.s_None
+        self.gc_detach_callback_pieces_ptr = getfn(gc_detach_callback_pieces,
+                                                   [], s_addr)
+        self.gc_reattach_callback_pieces_ptr=getfn(gc_reattach_callback_pieces,
+                                                   [s_addr], s_None)
 
     def need_thread_support(self, gctransformer, getfn):
         # Threads supported "out of the box" by the rest of the code.
@@ -197,6 +272,7 @@ class AsmStackRootWalker(BaseRootWalker):
             stack_stop  = llop.stack_current(llmemory.Address)
             return (stack_start <= framedata <= stack_stop or
                     stack_start >= framedata >= stack_stop)
+        self.belongs_to_current_thread = belongs_to_current_thread
 
         def thread_before_fork():
             # before fork(): collect all ASM_FRAMEDATA structures that do
@@ -255,6 +331,11 @@ class AsmStackRootWalker(BaseRootWalker):
                                            [annmodel.SomeInteger(),
                                             annmodel.SomeAddress()],
                                            annmodel.s_None)
+        #
+        # check that the order of the need_*() is correct for us: if we
+        # need both threads and stacklets, need_thread_support() must be
+        # called first, to initialize self.belongs_to_current_thread.
+        assert not hasattr(self, 'gc_detach_callback_pieces_ptr')
 
     def walk_stack_roots(self, collect_stack_root):
         gcdata = self.gcdata
@@ -284,6 +365,8 @@ class AsmStackRootWalker(BaseRootWalker):
             stackscount += 1
         #
         expected = rffi.stackcounter.stacks_counter
+        if NonConstant(0):
+            rffi.stackcounter.stacks_counter += 42    # hack to force it
         ll_assert(not (stackscount < expected), "non-closed stacks around")
         ll_assert(not (stackscount > expected), "stacks counter corruption?")
         lltype.free(otherframe, flavor='raw')
@@ -681,13 +764,16 @@ gcrootanchor.prev = gcrootanchor
 gcrootanchor.next = gcrootanchor
 c_gcrootanchor = Constant(gcrootanchor, ASM_FRAMEDATA_HEAD_PTR)
 
+eci = ExternalCompilationInfo(pre_include_bits=['#define PYPY_USE_ASMGCC'])
+
 pypy_asm_stackwalk = rffi.llexternal('pypy_asm_stackwalk',
                                      [ASM_CALLBACK_PTR,
                                       ASM_FRAMEDATA_HEAD_PTR],
                                      lltype.Signed,
                                      sandboxsafe=True,
                                      _nowrapper=True,
-                                     random_effects_on_gcobjs=True)
+                                     random_effects_on_gcobjs=True,
+                                     compilation_info=eci)
 c_asm_stackwalk = Constant(pypy_asm_stackwalk,
                            lltype.typeOf(pypy_asm_stackwalk))
 

@@ -1,4 +1,3 @@
-
 from pypy.module.micronumpy.arrayimpl import base, scalar
 from pypy.module.micronumpy import support, loop, iter
 from pypy.module.micronumpy.base import convert_to_array, W_NDimArray,\
@@ -14,6 +13,7 @@ from rpython.rlib.rawstorage import free_raw_storage, raw_storage_getitem,\
      raw_storage_setitem, RAW_STORAGE
 from pypy.module.micronumpy.arrayimpl.sort import argsort_array
 from rpython.rlib.debug import make_sure_not_resized
+
 
 class BaseConcreteArray(base.BaseArrayImplementation):
     start = 0
@@ -55,6 +55,9 @@ class BaseConcreteArray(base.BaseArrayImplementation):
     def get_size(self):
         return self.size // self.dtype.itemtype.get_element_size()
 
+    def get_storage_size(self):
+        return self.size
+
     def reshape(self, space, orig_array, new_shape):
         # Since we got to here, prod(new_shape) == self.size
         new_strides = None
@@ -82,7 +85,7 @@ class BaseConcreteArray(base.BaseArrayImplementation):
         return SliceArray(self.start, strides, backstrides,
                           self.get_shape(), self, orig_array)
 
-    def set_real(self, space, orig_array, w_value):    
+    def set_real(self, space, orig_array, w_value):
         tmp = self.get_real(orig_array)
         tmp.setslice(space, convert_to_array(space, w_value))
 
@@ -102,7 +105,7 @@ class BaseConcreteArray(base.BaseArrayImplementation):
         impl.fill(self.dtype.box(0))
         return impl
 
-    def set_imag(self, space, orig_array, w_value):    
+    def set_imag(self, space, orig_array, w_value):
         tmp = self.get_imag(orig_array)
         tmp.setslice(space, convert_to_array(space, w_value))
 
@@ -281,12 +284,13 @@ class BaseConcreteArray(base.BaseArrayImplementation):
 
     def astype(self, space, dtype):
         new_arr = W_NDimArray.from_shape(self.get_shape(), dtype)
-        if dtype.is_str_or_unicode():
+        if self.dtype.is_str_or_unicode() and not dtype.is_str_or_unicode():
             raise OperationError(space.w_NotImplementedError, space.wrap(
                 "astype(%s) not implemented yet" % self.dtype))
-        else:    
+        else:
             loop.setslice(space, new_arr.get_shape(), new_arr.implementation, self)
         return new_arr
+
 
 class ConcreteArrayNotOwning(BaseConcreteArray):
     def __init__(self, shape, dtype, order, strides, backstrides, storage):
@@ -325,19 +329,19 @@ class ConcreteArrayNotOwning(BaseConcreteArray):
     def base(self):
         return None
 
+
 class ConcreteArray(ConcreteArrayNotOwning):
-    def __init__(self, shape, dtype, order, strides, backstrides):
-        # we allocate the actual storage later because we need to compute
-        # self.size first
+    def __init__(self, shape, dtype, order, strides, backstrides, storage=lltype.nullptr(RAW_STORAGE)):
         null_storage = lltype.nullptr(RAW_STORAGE)
         ConcreteArrayNotOwning.__init__(self, shape, dtype, order, strides, backstrides,
                                         null_storage)
-        self.storage = dtype.itemtype.malloc(self.size)
+        if storage == lltype.nullptr(RAW_STORAGE):
+            self.storage = dtype.itemtype.malloc(self.size)
+        else:
+            self.storage = storage
 
     def __del__(self):
         free_raw_storage(self.storage, track_allocation=False)
-
-
 
 
 class NonWritableArray(ConcreteArray):
@@ -416,6 +420,7 @@ class SliceArray(BaseConcreteArray):
             new_backstrides[nd] = (new_shape[nd] - 1) * new_strides[nd]
         return SliceArray(self.start, new_strides, new_backstrides, new_shape,
                           self, orig_array)
+
 
 class ArrayBuffer(RWBuffer):
     def __init__(self, impl):
