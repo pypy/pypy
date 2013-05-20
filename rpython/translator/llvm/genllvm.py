@@ -1684,7 +1684,12 @@ class GenLLVM(object):
             mixlevelannotator.finish()
             mixlevelannotator.backend_optimize()
             self.entrypoints.add(getfunctionptr(graph)._obj)
-        self.entrypoints.update(ep._obj for ep in secondary_entrypoints)
+        # rpython_startup_code doesn't work with GenLLVM yet
+        # needs upstream refactoring
+        self.entrypoints.update(
+                ep._obj for ep in secondary_entrypoints
+                if getattr(getattr(ep._obj, '_callable', None), 'c_name', None)
+                   != 'rpython_startup_code')
 
         for graph in self.translator.graphs:
             self.transform_graph(graph)
