@@ -487,6 +487,7 @@ class TestCall(BaseTestPyPyC):
         assert loop.match("""
             i2 = int_lt(i0, i1)
             guard_true(i2, descr=...)
+            guard_not_invalidated(descr=...)
             i3 = force_token()
             i4 = int_add(i0, 1)
             --TICK--
@@ -586,7 +587,6 @@ class TestCall(BaseTestPyPyC):
         """, [1000])
         loop, = log.loops_by_id('call')
         assert loop.match_by_id('call', '''
-        guard_not_invalidated(descr=<.*>)
         i1 = force_token()
         ''')
 
