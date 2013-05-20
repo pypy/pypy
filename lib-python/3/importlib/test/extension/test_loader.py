@@ -11,6 +11,7 @@ class LoaderTests(abc.LoaderTests):
 
     """Test load_module() for extension modules."""
 
+    @ext_util.skip_unless__testcapi
     def load_module(self, fullname):
         loader = _bootstrap._ExtensionFileLoader(ext_util.NAME,
                                                 ext_util.FILEPATH)

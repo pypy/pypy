@@ -8,6 +8,7 @@ class FinderTests(abc.FinderTests):
 
     """Test the finder for extension modules."""
 
+    @util.skip_unless__testcapi
     def find_module(self, fullname):
         importer = _bootstrap._FileFinder(util.PATH,
                                           _bootstrap._ExtensionFinderDetails())
