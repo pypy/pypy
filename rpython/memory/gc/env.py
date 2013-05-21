@@ -132,7 +132,7 @@ else:
 # ---------- Linux2 ----------
 
 def get_L2cache_linux2():
-    arch = platform.machine()
+    arch = os.uname()[4]  # machine
     if arch.endswith('86') or arch == 'x86_64':
         return get_L2cache_linux2_cpuinfo()
     if arch in ('alpha', 'ppc', 'ppc64'):
