@@ -1,13 +1,17 @@
 """
 Implementation of interpreter-level 'sys' routines.
 """
-from pypy.interpreter import gateway
-from pypy.interpreter.error import OperationError
-from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
+
 from rpython.rlib import jit
 from rpython.rlib.runicode import MAXUNICODE
 
+from pypy.interpreter import gateway
+from pypy.interpreter.error import OperationError
+from pypy.interpreter.gateway import unwrap_spec
+
+
 # ____________________________________________________________
+
 
 @unwrap_spec(depth=int)
 def _getframe(space, depth=0):
@@ -21,6 +25,11 @@ purposes only."""
     if depth < 0:
         raise OperationError(space.w_ValueError,
                              space.wrap("frame index must not be negative"))
+    return getframe(space, depth)
+
+
+@jit.look_inside_iff(lambda space, depth: jit.isconstant(depth))
+def getframe(space, depth):
     ec = space.getexecutioncontext()
     f = ec.gettopframe_nohidden()
     while True:
@@ -33,6 +42,7 @@ purposes only."""
         f = ec.getnextframe_nohidden(f)
     f.mark_as_escaped()
     return space.wrap(f)
+
 
 @unwrap_spec(new_limit="c_int")
 def setrecursionlimit(space, new_limit):
