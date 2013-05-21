@@ -1,9 +1,11 @@
 from rpython.jit.codewriter.policy import JitPolicy
-from rpython.rlib.jit import JitHookInterface, Counters
 from rpython.rlib import jit_hooks
+from rpython.rlib.jit import JitHookInterface, Counters
+
 from pypy.interpreter.error import OperationError
-from pypy.module.pypyjit.interp_resop import Cache, wrap_greenkey,\
-     WrappedOp, W_JitLoopInfo
+from pypy.module.pypyjit.interp_resop import (Cache, wrap_greenkey,
+    WrappedOp, W_JitLoopInfo)
+
 
 class PyPyJitIface(JitHookInterface):
     def on_abort(self, reason, jitdriver, greenkey, greenkey_repr):
