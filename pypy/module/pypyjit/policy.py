@@ -4,25 +4,26 @@ from rpython.rlib.jit import JitHookInterface, Counters
 
 from pypy.interpreter.error import OperationError
 from pypy.module.pypyjit.interp_resop import (Cache, wrap_greenkey,
-    WrappedOp, W_JitLoopInfo)
+    WrappedOp, W_JitLoopInfo, wrap_oplist)
 
 
 class PyPyJitIface(JitHookInterface):
-    def on_abort(self, reason, jitdriver, greenkey, greenkey_repr):
+    def on_abort(self, reason, jitdriver, greenkey, greenkey_repr, logops, operations):
         space = self.space
         cache = space.fromcache(Cache)
         if cache.in_recursion:
             return
         if space.is_true(cache.w_abort_hook):
             cache.in_recursion = True
+            oplist_w = wrap_oplist(space, logops, operations)
             try:
                 try:
                     space.call_function(cache.w_abort_hook,
-                                        space.wrap(jitdriver.name),
-                                        wrap_greenkey(space, jitdriver,
-                                                      greenkey, greenkey_repr),
-                                        space.wrap(
-                                            Counters.counter_names[reason]))
+                        space.wrap(jitdriver.name),
+                        wrap_greenkey(space, jitdriver, greenkey, greenkey_repr),
+                        space.wrap(Counters.counter_names[reason]),
+                        space.newlist(oplist_w)
+                    )
                 except OperationError, e:
                     e.write_unraisable(space, "jit hook ", cache.w_abort_hook)
             finally:
