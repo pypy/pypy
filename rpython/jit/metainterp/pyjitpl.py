@@ -1876,7 +1876,9 @@ class MetaInterp(object):
             self.staticdata.warmrunnerdesc.hooks.on_abort(reason,
                                                           jd_sd.jitdriver,
                                                           greenkey,
-                                                          jd_sd.warmstate.get_location_str(greenkey))
+                                                          jd_sd.warmstate.get_location_str(greenkey),
+                                                          self.staticdata.logger_ops._make_log_operations(),
+                                                          self.history.operations)
         self.staticdata.stats.aborted()
 
     def blackhole_if_trace_too_long(self):
