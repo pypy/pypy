@@ -1,15 +1,16 @@
 """Generic iterator implementations"""
+from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
+from pypy.objspace.std.stdtypedef import StdTypeDef
 
 
 class W_AbstractIterObject(W_Object):
     __slots__ = ()
 
-class W_AbstractSeqIterObject(W_AbstractIterObject):
-    from pypy.objspace.std.itertype import iter_typedef as typedef
 
+class W_AbstractSeqIterObject(W_AbstractIterObject):
     def __init__(w_self, w_seq, index=0):
         if index < 0:
             index = 0
@@ -26,12 +27,53 @@ class W_AbstractSeqIterObject(W_AbstractIterObject):
             w_len = space.wrap(0)
         return w_len
 
+    def descr_reduce(self, space):
+        """
+        XXX to do: remove this __reduce__ method and do
+        a registration with copy_reg, instead.
+        """
+
+        # cpython does not support pickling iterators but stackless python do
+        #msg = 'Pickling for iterators dissabled as cpython does not support it'
+        #raise OperationError(space.w_TypeError, space.wrap(msg))
+
+        from pypy.objspace.std.iterobject import W_AbstractSeqIterObject
+        assert isinstance(self, W_AbstractSeqIterObject)
+        from pypy.interpreter.mixedmodule import MixedModule
+        w_mod    = space.getbuiltinmodule('_pickle_support')
+        mod      = space.interp_w(MixedModule, w_mod)
+        new_inst = mod.get('seqiter_new')
+        tup      = [self.w_seq, space.wrap(self.index)]
+        return space.newtuple([new_inst, space.newtuple(tup)])
+
+    def descr_length_hint(self, space):
+        from pypy.objspace.std.iterobject import W_AbstractSeqIterObject
+        assert isinstance(self, W_AbstractSeqIterObject)
+        return self.getlength(space)
+
+W_AbstractSeqIterObject.typedef = StdTypeDef("sequenceiterator",
+    __doc__ = '''iter(collection) -> iterator
+iter(callable, sentinel) -> iterator
+
+Get an iterator from an object.  In the first form, the argument must
+supply its own iterator, or be a sequence.
+In the second form, the callable is called until it returns the sentinel.''',
+
+    __reduce__ = gateway.interp2app(W_AbstractSeqIterObject.descr_reduce),
+    __length_hint__ = gateway.interp2app(W_AbstractSeqIterObject.descr_length_hint),
+    )
+W_AbstractSeqIterObject.typedef.acceptable_as_base_class = False
+iter_typedef = W_AbstractSeqIterObject.typedef
+
+
 class W_SeqIterObject(W_AbstractSeqIterObject):
     """Sequence iterator implementation for general sequences."""
+
 
 class W_FastListIterObject(W_AbstractSeqIterObject): # XXX still needed
     """Sequence iterator specialized for lists.
     """
+
 
 class W_FastTupleIterObject(W_AbstractSeqIterObject):
     """Sequence iterator specialized for tuples, accessing directly
@@ -41,13 +83,50 @@ class W_FastTupleIterObject(W_AbstractSeqIterObject):
         W_AbstractSeqIterObject.__init__(w_self, w_seq)
         w_self.tupleitems = wrappeditems
 
-class W_ReverseSeqIterObject(W_Object):
-    from pypy.objspace.std.itertype import reverse_iter_typedef as typedef
 
+class W_ReverseSeqIterObject(W_Object):
     def __init__(w_self, space, w_seq, index=-1):
         w_self.w_seq = w_seq
         w_self.w_len = space.len(w_seq)
         w_self.index = space.int_w(w_self.w_len) + index
+
+    def descr_reduce(self, space):
+        """
+        XXX to do: remove this __reduce__ method and do
+        a registration with copy_reg, instead.
+        """
+        from pypy.objspace.std.iterobject import W_ReverseSeqIterObject
+        assert isinstance(self, W_ReverseSeqIterObject)
+        from pypy.interpreter.mixedmodule import MixedModule
+        w_mod    = space.getbuiltinmodule('_pickle_support')
+        mod      = space.interp_w(MixedModule, w_mod)
+        new_inst = mod.get('reverseseqiter_new')
+        tup      = [self.w_seq, space.wrap(self.index)]
+        return space.newtuple([new_inst, space.newtuple(tup)])
+
+    def descr_length_hint(self, space):
+        from pypy.objspace.std.iterobject import W_ReverseSeqIterObject
+        assert isinstance(self, W_ReverseSeqIterObject)
+        if self.w_seq is None:
+            return space.wrap(0)
+        index = self.index + 1
+        w_length = space.len(self.w_seq)
+        # if length of sequence is less than index :exhaust iterator
+        if space.is_true(space.gt(space.wrap(self.index), w_length)):
+            w_len = space.wrap(0)
+            self.w_seq = None
+        else:
+            w_len = space.wrap(index)
+        if space.is_true(space.lt(w_len, space.wrap(0))):
+            w_len = space.wrap(0)
+        return w_len
+
+W_ReverseSeqIterObject.typedef = StdTypeDef("reversesequenceiterator",
+    __reduce__ = gateway.interp2app(W_ReverseSeqIterObject.descr_reduce),
+    __length_hint__ = gateway.interp2app(W_ReverseSeqIterObject.descr_length_hint),
+)
+W_ReverseSeqIterObject.typedef.acceptable_as_base_class = False
+reverse_iter_typedef = W_ReverseSeqIterObject.typedef
 
 
 registerimplementation(W_SeqIterObject)
