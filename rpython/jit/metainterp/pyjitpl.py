@@ -1877,7 +1877,7 @@ class MetaInterp(object):
                                                           jd_sd.jitdriver,
                                                           greenkey,
                                                           jd_sd.warmstate.get_location_str(greenkey),
-                                                          self.staticdata.logger_ops,
+                                                          self.staticdata.logger_ops._make_log_operations(),
                                                           self.history.operations)
         self.staticdata.stats.aborted()
 
