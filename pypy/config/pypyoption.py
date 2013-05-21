@@ -365,7 +365,7 @@ def enable_allworkingmodules(config):
     modules = [name for name in modules if name not in essential_modules]
 
     if config.translation.platform == 'arm' and '_continuation' in modules:
-        del modules[modules.find('_continuation')]
+        modules.remove('_continuation')
     config.objspace.usemodules.suggest(**dict.fromkeys(modules, True))
 
 def enable_translationmodules(config):
