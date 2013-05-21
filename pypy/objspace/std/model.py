@@ -190,10 +190,6 @@ class StdTypeModel:
                 (unicodeobject.W_UnicodeObject,
                                        strbufobject.delegate_buf2unicode)
                 ]
-        if config.objspace.std.withsmalltuple:
-            from pypy.objspace.std import smalltupleobject
-            self.typeorder[smalltupleobject.W_SmallTupleObject] += [
-                (tupleobject.W_TupleObject, smalltupleobject.delegate_SmallTuple2Tuple)]
 
         if config.objspace.std.withspecialisedtuple:
             from pypy.objspace.std import specialisedtupleobject
