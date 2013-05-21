@@ -9,6 +9,12 @@ from pypy.objspace.std.stdtypedef import StdTypeDef
 class W_AbstractIterObject(W_Object):
     __slots__ = ()
 
+    def descr_iter(self, space):
+        return self
+
+    def descr_next(self, space):
+        raise NotImplementedError
+
 
 class W_AbstractSeqIterObject(W_AbstractIterObject):
     def __init__(w_self, w_seq, index=0):
@@ -59,6 +65,8 @@ Get an iterator from an object.  In the first form, the argument must
 supply its own iterator, or be a sequence.
 In the second form, the callable is called until it returns the sentinel.''',
 
+    __iter__ = gateway.interp2app(W_AbstractSeqIterObject.descr_iter),
+    next = gateway.interpindirect2app(W_AbstractSeqIterObject.descr_next),
     __reduce__ = gateway.interp2app(W_AbstractSeqIterObject.descr_reduce),
     __length_hint__ = gateway.interp2app(W_AbstractSeqIterObject.descr_length_hint),
     )
@@ -69,10 +77,37 @@ iter_typedef = W_AbstractSeqIterObject.typedef
 class W_SeqIterObject(W_AbstractSeqIterObject):
     """Sequence iterator implementation for general sequences."""
 
+    def descr_next(self, space):
+        if self.w_seq is None:
+            raise OperationError(space.w_StopIteration, space.w_None)
+        try:
+            w_item = space.getitem(self.w_seq, space.wrap(self.index))
+        except OperationError, e:
+            self.w_seq = None
+            if not e.match(space, space.w_IndexError):
+                raise
+            raise OperationError(space.w_StopIteration, space.w_None)
+        self.index += 1
+        return w_item
+
 
 class W_FastListIterObject(W_AbstractSeqIterObject): # XXX still needed
-    """Sequence iterator specialized for lists.
-    """
+    """Sequence iterator specialized for lists."""
+
+    def descr_next(self, space):
+        from pypy.objspace.std.listobject import W_ListObject
+        w_seq = self.w_seq
+        if w_seq is None:
+            raise OperationError(space.w_StopIteration, space.w_None)
+        assert isinstance(w_seq, W_ListObject)
+        index = self.index
+        try:
+            w_item = w_seq.getitem(index)
+        except IndexError:
+            self.w_seq = None
+            raise OperationError(space.w_StopIteration, space.w_None)
+        self.index = index + 1
+        return w_item
 
 
 class W_FastTupleIterObject(W_AbstractSeqIterObject):
@@ -82,6 +117,19 @@ class W_FastTupleIterObject(W_AbstractSeqIterObject):
     def __init__(w_self, w_seq, wrappeditems):
         W_AbstractSeqIterObject.__init__(w_self, w_seq)
         w_self.tupleitems = wrappeditems
+
+    def descr_next(self, space):
+        if self.tupleitems is None:
+            raise OperationError(space.w_StopIteration, space.w_None)
+        index = self.index
+        try:
+            w_item = self.tupleitems[index]
+        except IndexError:
+            self.tupleitems = None
+            self.w_seq = None
+            raise OperationError(space.w_StopIteration, space.w_None)
+        self.index = index + 1
+        return w_item
 
 
 class W_ReverseSeqIterObject(W_Object):
@@ -121,7 +169,25 @@ class W_ReverseSeqIterObject(W_Object):
             w_len = space.wrap(0)
         return w_len
 
+    def descr_iter(self, space):
+        return self
+
+    def descr_next(self, space):
+        if self.w_seq is None or self.index < 0:
+            raise OperationError(space.w_StopIteration, space.w_None)
+        try:
+            w_item = space.getitem(self.w_seq, space.wrap(self.index))
+            self.index -= 1
+        except OperationError, e:
+            self.w_seq = None
+            if not e.match(space, space.w_IndexError):
+                raise
+            raise OperationError(space.w_StopIteration, space.w_None)
+        return w_item
+
 W_ReverseSeqIterObject.typedef = StdTypeDef("reversesequenceiterator",
+    __iter__ = gateway.interp2app(W_ReverseSeqIterObject.descr_iter),
+    next = gateway.interp2app(W_ReverseSeqIterObject.descr_next),
     __reduce__ = gateway.interp2app(W_ReverseSeqIterObject.descr_reduce),
     __length_hint__ = gateway.interp2app(W_ReverseSeqIterObject.descr_length_hint),
 )
@@ -133,74 +199,3 @@ registerimplementation(W_SeqIterObject)
 registerimplementation(W_FastListIterObject)
 registerimplementation(W_FastTupleIterObject)
 registerimplementation(W_ReverseSeqIterObject)
-
-def iter__SeqIter(space, w_seqiter):
-    return w_seqiter
-
-def next__SeqIter(space, w_seqiter):
-    if w_seqiter.w_seq is None:
-        raise OperationError(space.w_StopIteration, space.w_None)
-    try:
-        w_item = space.getitem(w_seqiter.w_seq, space.wrap(w_seqiter.index))
-    except OperationError, e:
-        w_seqiter.w_seq = None
-        if not e.match(space, space.w_IndexError):
-            raise
-        raise OperationError(space.w_StopIteration, space.w_None)
-    w_seqiter.index += 1
-    return w_item
-
-
-def iter__FastTupleIter(space, w_seqiter):
-    return w_seqiter
-
-def next__FastTupleIter(space, w_seqiter):
-    if w_seqiter.tupleitems is None:
-        raise OperationError(space.w_StopIteration, space.w_None)
-    index = w_seqiter.index
-    try:
-        w_item = w_seqiter.tupleitems[index]
-    except IndexError:
-        w_seqiter.tupleitems = None
-        w_seqiter.w_seq = None
-        raise OperationError(space.w_StopIteration, space.w_None)
-    w_seqiter.index = index + 1
-    return w_item
-
-
-def iter__FastListIter(space, w_seqiter):
-    return w_seqiter
-
-def next__FastListIter(space, w_seqiter):
-    from pypy.objspace.std.listobject import W_ListObject
-    w_seq = w_seqiter.w_seq
-    if w_seq is None:
-        raise OperationError(space.w_StopIteration, space.w_None)
-    assert isinstance(w_seq, W_ListObject)
-    index = w_seqiter.index
-    try:
-        w_item = w_seq.getitem(index)
-    except IndexError:
-        w_seqiter.w_seq = None
-        raise OperationError(space.w_StopIteration, space.w_None)
-    w_seqiter.index = index + 1
-    return w_item
-
-
-def iter__ReverseSeqIter(space, w_seqiter):
-    return w_seqiter
-
-def next__ReverseSeqIter(space, w_seqiter):
-    if w_seqiter.w_seq is None or w_seqiter.index < 0:
-        raise OperationError(space.w_StopIteration, space.w_None)
-    try:
-        w_item = space.getitem(w_seqiter.w_seq, space.wrap(w_seqiter.index))
-        w_seqiter.index -= 1
-    except OperationError, e:
-        w_seqiter.w_seq = None
-        if not e.match(space, space.w_IndexError):
-            raise
-        raise OperationError(space.w_StopIteration, space.w_None)
-    return w_item
-
-register_all(vars())
