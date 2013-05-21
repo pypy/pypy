@@ -1,22 +1,11 @@
 """Generic iterator implementations"""
 from pypy.interpreter import gateway
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError
-from pypy.objspace.std.model import registerimplementation, W_Object
-from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.stdtypedef import StdTypeDef
 
 
-class W_AbstractIterObject(W_Object):
-    __slots__ = ()
-
-    def descr_iter(self, space):
-        return self
-
-    def descr_next(self, space):
-        raise NotImplementedError
-
-
-class W_AbstractSeqIterObject(W_AbstractIterObject):
+class W_AbstractSeqIterObject(W_Root):
     def __init__(w_self, w_seq, index=0):
         if index < 0:
             index = 0
@@ -32,6 +21,12 @@ class W_AbstractSeqIterObject(W_AbstractIterObject):
         if space.is_true(space.lt(w_len, space.wrap(0))):
             w_len = space.wrap(0)
         return w_len
+
+    def descr_iter(self, space):
+        return self
+
+    def descr_next(self, space):
+        raise NotImplementedError
 
     def descr_reduce(self, space):
         """
@@ -71,7 +66,6 @@ In the second form, the callable is called until it returns the sentinel.''',
     __length_hint__ = gateway.interp2app(W_AbstractSeqIterObject.descr_length_hint),
     )
 W_AbstractSeqIterObject.typedef.acceptable_as_base_class = False
-iter_typedef = W_AbstractSeqIterObject.typedef
 
 
 class W_SeqIterObject(W_AbstractSeqIterObject):
@@ -132,7 +126,7 @@ class W_FastTupleIterObject(W_AbstractSeqIterObject):
         return w_item
 
 
-class W_ReverseSeqIterObject(W_Object):
+class W_ReverseSeqIterObject(W_Root):
     def __init__(w_self, space, w_seq, index=-1):
         w_self.w_seq = w_seq
         w_self.w_len = space.len(w_seq)
@@ -192,10 +186,3 @@ W_ReverseSeqIterObject.typedef = StdTypeDef("reversesequenceiterator",
     __length_hint__ = gateway.interp2app(W_ReverseSeqIterObject.descr_length_hint),
 )
 W_ReverseSeqIterObject.typedef.acceptable_as_base_class = False
-reverse_iter_typedef = W_ReverseSeqIterObject.typedef
-
-
-registerimplementation(W_SeqIterObject)
-registerimplementation(W_FastListIterObject)
-registerimplementation(W_FastTupleIterObject)
-registerimplementation(W_ReverseSeqIterObject)
