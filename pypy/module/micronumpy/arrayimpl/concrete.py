@@ -357,13 +357,13 @@ class SliceArray(BaseConcreteArray):
         self.strides = strides
         self.backstrides = backstrides
         self.shape = shape
+        if dtype is None:
+            dtype = parent.dtype
         if isinstance(parent, SliceArray):
             parent = parent.parent # one level only
         self.parent = parent
         self.storage = parent.storage
         self.order = parent.order
-        if dtype is None:
-            dtype = parent.dtype
         self.dtype = dtype
         self.size = support.product(shape) * self.dtype.itemtype.get_element_size()
         self.start = start

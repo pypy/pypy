@@ -2718,8 +2718,11 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         d = dtype([("x", "int", (2, 3))])
         a = array([([[1, 2, 3], [4, 5, 6]],)], dtype=d)
 
-        assert (a[0]["x"] == [[1, 2, 3], [4, 5, 6]]).all()
+        assert a[0]["x"].dtype == dtype("int64")
+        assert a[0]["x"][0].dtype == dtype("int64")
+
         assert (a[0]["x"][0] == [1, 2, 3]).all()
+        assert (a[0]["x"] == [[1, 2, 3], [4, 5, 6]]).all()
 
         d = dtype((float, (10, 10)))
         a = zeros((3,3), dtype=d)
@@ -2728,6 +2731,18 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         a[0, 0] = 500
         assert (a[0, 0, 0] == 500).all()
         assert a[0, 0, 0].shape == (10,)
+
+    def test_multidim_subarray(self):
+        from numpypy import dtype, array, zeros
+
+        d = dtype([("x", "int", (2, 3))])
+        a = array([([[1, 2, 3], [4, 5, 6]],)], dtype=d)
+
+        assert a[0]["x"].dtype == dtype("int64")
+        assert a[0]["x"][0].dtype == dtype("int64")
+
+        assert (a[0]["x"][0] == [1, 2, 3]).all()
+        assert (a[0]["x"] == [[1, 2, 3], [4, 5, 6]]).all()
 
     def test_list_record(self):
         from numpypy import dtype, array

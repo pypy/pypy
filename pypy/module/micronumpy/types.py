@@ -1733,13 +1733,12 @@ class VoidType(BaseType, BaseStringType):
                 itemtype.store(arr, 0, ofs, w_box)
                 ofs += itemtype.get_element_size()
         else:
-            for i in range(len(items_w)):
+            for w_item in items_w:
                 size = 1
                 for dimension in shape[1:]:
                     size *= dimension
                 size *= itemtype.get_element_size()
-                for w_item in items_w:
-                    self._coerce(space, arr, ofs, dtype, w_item, shape[1:])
+                self._coerce(space, arr, ofs, dtype, w_item, shape[1:])
                 ofs += size
 
     def coerce(self, space, dtype, w_items):
