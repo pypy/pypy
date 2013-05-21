@@ -28,14 +28,19 @@ Windows 32.  Support for ARM is progressing but not bug-free yet.
 Highlights
 ==========
 
-This release contains only the fix described above.  A crash used to
-occur if all these conditions were true:
+This release contains only the fix described above.  A crash (or wrong
+results) used to occur if all these conditions were true:
 
 - your program is multithreaded;
 
 - it runs on a single-core machine or a heavily-loaded multi-core one;
 
 - it uses ctypes or cffi to issue external calls to C functions.
+
+This was fixed in the branch `emit-call-x86`__ (see the example file
+``bug1.py``).
+
+.. __: https://bitbucket.org/pypy/pypy/commits/7c80121abbf4
 
 Cheers,
 arigo et. al. for the PyPy team
