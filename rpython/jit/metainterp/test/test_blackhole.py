@@ -4,7 +4,7 @@ from rpython.jit.metainterp.test.support import LLJitMixin, OOJitMixin
 from rpython.jit.metainterp.blackhole import BlackholeInterpBuilder
 from rpython.jit.metainterp.blackhole import BlackholeInterpreter
 from rpython.jit.metainterp.blackhole import convert_and_run_from_pyjitpl
-from rpython.jit.metainterp import history, pyjitpl
+from rpython.jit.metainterp import history, pyjitpl, jitexc
 from rpython.jit.codewriter.assembler import JitCode
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.llinterp import LLException
@@ -119,6 +119,7 @@ def test_convert_and_run_from_pyjitpl():
                       "\x01\x02",          # int_return/i
                       [],
                       num_regs_i=3, num_regs_r=0, num_regs_f=0)
+        jitcode.is_portal = True
         pc = 1
         registers_i = [history.BoxInt(40), history.ConstInt(2), None]
     class MyMetaInterp:
@@ -129,8 +130,6 @@ def test_convert_and_run_from_pyjitpl():
                 def start_blackhole(): pass
                 @staticmethod
                 def end_blackhole(): pass
-            class DoneWithThisFrameInt(Exception):
-                pass
         last_exc_value_box = None
         framestack = [MyMIFrame()]
     MyMetaInterp.staticdata.blackholeinterpbuilder = getblackholeinterp(
@@ -138,9 +137,9 @@ def test_convert_and_run_from_pyjitpl():
     MyMetaInterp.staticdata.blackholeinterpbuilder.metainterp_sd = \
         MyMetaInterp.staticdata
     #
-    d = py.test.raises(MyMetaInterp.staticdata.DoneWithThisFrameInt,
+    d = py.test.raises(jitexc.DoneWithThisFrameInt,
                        convert_and_run_from_pyjitpl, MyMetaInterp())
-    assert d.value.args == (42,)
+    assert d.value.result == 42
 
 
 class TestBlackhole(LLJitMixin):

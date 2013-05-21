@@ -365,8 +365,9 @@ def test_hash_differences():
     BInt = new_primitive_type("int")
     BFloat = new_primitive_type("float")
     for i in range(1, 20):
-        if (hash(cast(BChar, chr(i))) !=
-            hash(cast(BInt, i))):
+        x1 = cast(BChar, chr(i))
+        x2 = cast(BInt, i)
+        if hash(x1) != hash(x2):
             break
     else:
         raise AssertionError("hashes are equal")
@@ -2104,6 +2105,9 @@ def test_buffer():
     py.test.raises(ValueError, 'buf[:] = b"this is much too long!"')
     buf[4:2] = b""   # no effect, but should work
     assert buf[:] == b"hi there\x00"
+    buf[:2] = b"HI"
+    assert buf[:] == b"HI there\x00"
+    buf[:2] = b"hi"
     expected = list(map(bitem2bchr, b"hi there\x00"))
     x = 0
     for i in range(-12, 12):
@@ -2136,6 +2140,7 @@ def test_errno():
 def test_errno_callback():
     if globals().get('PY_DOT_PY') == '2.5':
         py.test.skip("cannot run this test on py.py with Python 2.5")
+    set_errno(95)
     def cb():
         e = get_errno()
         set_errno(e - 6)
@@ -2718,6 +2723,14 @@ def test_cdata_name_module_doc():
     assert x.__module__ == '_cffi_backend'
     assert x.__name__ == '<cdata>'
     assert hasattr(x, '__doc__')
+
+def test_different_types_of_ptr_equality():
+    BVoidP = new_pointer_type(new_void_type())
+    BIntP = new_pointer_type(new_primitive_type("int"))
+    x = cast(BVoidP, 12345)
+    assert x == cast(BIntP, 12345)
+    assert x != cast(BIntP, 12344)
+    assert hash(x) == hash(cast(BIntP, 12345))
 
 def test_version():
     # this test is here mostly for PyPy

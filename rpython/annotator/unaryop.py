@@ -541,10 +541,13 @@ class __extend__(SomeUnicodeString):
 
 
 class __extend__(SomeString):
-    def method_isdigit(chr):
+    def method_isdigit(str):
         return s_Bool
 
-    def method_isalpha(chr):
+    def method_isalpha(str):
+        return s_Bool
+
+    def method_isalnum(str):
         return s_Bool
 
     def method_upper(str):
@@ -613,7 +616,10 @@ class __extend__(SomeIterator):
         if itr.variant == ("enumerate",):
             s_item = itr.s_container.getanyitem()
             return SomeTuple((SomeInteger(nonneg=True), s_item))
-        return itr.s_container.getanyitem(*itr.variant)
+        variant = itr.variant
+        if variant == ("reversed",):
+            variant = ()
+        return itr.s_container.getanyitem(*variant)
     next.can_only_throw = _can_only_throw
     method_next = next
 

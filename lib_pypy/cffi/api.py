@@ -370,7 +370,10 @@ def _make_ffi_library(ffi, libname, flags):
         if key in ffi._parser._declarations:
             tp = ffi._parser._declarations[key]
             BType = ffi._get_cached_btype(tp)
-            value = backendlib.load_function(BType, name)
+            try:
+                value = backendlib.load_function(BType, name)
+            except KeyError:
+                raise AttributeError(name)
             library.__dict__[name] = value
             return
         #

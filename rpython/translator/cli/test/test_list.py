@@ -13,6 +13,9 @@ class TestCliList(CliTest, BaseTestRlist):
     def test_getitem_exc_2(self):
         py.test.skip('fixme!')
 
+    def test_reversed(self):
+        py.test.skip("unsupported")
+
     def test_list_unsigned(self):
         def fn(x):
             lst = [r_uint(0), r_uint(1)]

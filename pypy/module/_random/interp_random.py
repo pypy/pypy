@@ -33,8 +33,8 @@ class W_Random(W_Root):
             elif space.isinstance_w(w_n, space.w_long):
                 w_n = space.abs(w_n)
             else:
-                # XXX not perfectly like CPython
-                w_n = space.abs(space.hash(w_n))
+                n = space.hash_w(w_n)
+                w_n = space.wrap(r_uint(n))
         key = []
         w_one = space.newint(1)
         w_two = space.newint(2)

@@ -50,9 +50,12 @@ def find_objdump():
 def machine_code_dump(data, originaddr, backend_name, label_list=None):
     objdump_backend_option = {
         'x86': 'i386',
+        'x86-without-sse2': 'i386',
         'x86_32': 'i386',
         'x86_64': 'x86-64',
+        'x86-64': 'x86-64',
         'i386': 'i386',
+        'arm': 'arm',
         'arm_32': 'arm',
     }
     cmd = find_objdump()

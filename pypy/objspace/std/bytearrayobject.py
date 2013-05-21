@@ -1,30 +1,23 @@
+"""The builtin bytearray implementation"""
+
+from pypy.interpreter.buffer import RWBuffer
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.objspace.std.model import registerimplementation, W_Object
-from pypy.objspace.std.register_all import register_all
+from pypy.interpreter.signature import Signature
+from pypy.objspace.std import stringobject
+from pypy.objspace.std.bytearraytype import (
+    getbytevalue, makebytearraydata_w, new_bytearray)
+from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.inttype import wrapint
+from pypy.objspace.std.model import W_Object, registerimplementation
 from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.objspace.std.noneobject import W_NoneObject
-from rpython.rlib.rarithmetic import intmask
-from rpython.rlib.rstring import StringBuilder
-from rpython.rlib.debug import check_annotation
-from pypy.objspace.std import stringobject
-from pypy.objspace.std.intobject import W_IntObject
-from pypy.objspace.std.listobject import get_positive_index, get_list_index
+from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std.stringobject import W_StringObject
-from pypy.objspace.std.strutil import ParseStringError
-from pypy.objspace.std.strutil import string_to_float
 from pypy.objspace.std.tupleobject import W_TupleObject
 from pypy.objspace.std.unicodeobject import W_UnicodeObject
-from pypy.objspace.std import slicetype
-from pypy.interpreter import gateway
-from pypy.interpreter.buffer import RWBuffer
-from pypy.interpreter.signature import Signature
-from pypy.objspace.std.bytearraytype import (
-    makebytearraydata_w, getbytevalue,
-    new_bytearray
-)
-from rpython.tool.sourcetools import func_with_new_name
+from pypy.objspace.std.util import get_positive_index
+from rpython.rlib.rstring import StringBuilder
 
 
 class W_BytearrayObject(W_Object):
@@ -594,7 +587,7 @@ def setitem__Bytearray_Slice_ANY(space, w_bytearray, w_slice, w_other):
     _setitem_slice_helper(space, w_bytearray.data, start, step, slicelength, sequence2, empty_elem='\x00')
 
 def delitem__Bytearray_ANY(space, w_bytearray, w_idx):
-    idx = get_list_index(space, w_idx)
+    idx = space.getindex_w(w_idx, space.w_IndexError, "bytearray index")
     try:
         del w_bytearray.data[idx]
     except IndexError:

@@ -1,7 +1,8 @@
 from rpython.jit.codewriter import heaptracker, longlong
 from rpython.jit.codewriter.jitcode import JitCode, SwitchDictDescr
 from rpython.jit.metainterp.compile import ResumeAtPositionDescr
-from rpython.jit.metainterp.jitexc import JitException, get_llexception, reraise
+from rpython.jit.metainterp.jitexc import get_llexception, reraise
+from rpython.jit.metainterp import jitexc
 from rpython.rlib import longlong2float
 from rpython.rlib.debug import ll_assert, make_sure_not_resized
 from rpython.rlib.objectmodel import we_are_translated
@@ -25,7 +26,7 @@ def arguments(*argtypes, **kwds):
 LONGLONG_TYPECODE = 'i' if longlong.is_64_bit else 'f'
 
 
-class LeaveFrame(JitException):
+class LeaveFrame(jitexc.JitException):
     pass
 
 class MissingValue(object):
@@ -306,7 +307,7 @@ class BlackholeInterpreter(object):
                 self.dispatch_loop(self, self.jitcode.code, self.position)
             except LeaveFrame:
                 break
-            except JitException:
+            except jitexc.JitException:
                 raise     # go through
             except Exception, e:
                 lle = get_llexception(self.cpu, e)
@@ -902,8 +903,7 @@ class BlackholeInterpreter(object):
     @arguments("self", "i", "I", "R", "F", "I", "R", "F")
     def bhimpl_jit_merge_point(self, jdindex, *args):
         if self.nextblackholeinterp is None:    # we are the last level
-            CRN = self.builder.metainterp_sd.ContinueRunningNormally
-            raise CRN(*args)
+            raise jitexc.ContinueRunningNormally(*args)
             # Note that the case above is an optimization: the case
             # below would work too.  But it keeps unnecessary stuff on
             # the stack; the solution above first gets rid of the blackhole
@@ -1355,24 +1355,39 @@ class BlackholeInterpreter(object):
     def bhimpl_ll_read_timestamp():
         return read_timestamp()
 
-    @arguments("cpu", "i", "i", "i")
-    def bhimpl_libffi_save_result_int(self, cif_description, exchange_buffer, result):
-        ARRAY = lltype.Ptr(rffi.CArray(lltype.Signed))
-        cif_description = self.cast_int_to_ptr(cif_description, CIF_DESCRIPTION_P)
-        exchange_buffer = self.cast_int_to_ptr(exchange_buffer, rffi.CCHARP)
+    def _libffi_save_result(self, cif_description, exchange_buffer, result):
+        ARRAY = lltype.Ptr(rffi.CArray(lltype.typeOf(result)))
+        cast_int_to_ptr = self.cpu.cast_int_to_ptr
+        cif_description = cast_int_to_ptr(cif_description, CIF_DESCRIPTION_P)
+        exchange_buffer = cast_int_to_ptr(exchange_buffer, rffi.CCHARP)
         #
         data_out = rffi.ptradd(exchange_buffer, cif_description.exchange_result)
         rffi.cast(ARRAY, data_out)[0] = result
+    _libffi_save_result._annspecialcase_ = 'specialize:argtype(3)'
 
-    @arguments("cpu", "i", "i", "f")
-    def bhimpl_libffi_save_result_float(self, cif_description, exchange_buffer, result):
+    @arguments("self", "i", "i", "i")
+    def bhimpl_libffi_save_result_int(self, cif_description,
+                                      exchange_buffer, result):
+        self._libffi_save_result(cif_description, exchange_buffer, result)
+
+    @arguments("self", "i", "i", "f")
+    def bhimpl_libffi_save_result_float(self, cif_description,
+                                        exchange_buffer, result):
         result = longlong.getrealfloat(result)
-        ARRAY = lltype.Ptr(rffi.CArray(lltype.Float))
-        cif_description = self.cast_int_to_ptr(cif_description, CIF_DESCRIPTION_P)
-        exchange_buffer = self.cast_int_to_ptr(exchange_buffer, rffi.CCHARP)
-        #
-        data_out = rffi.ptradd(exchange_buffer, cif_description.exchange_result)
-        rffi.cast(ARRAY, data_out)[0] = result
+        self._libffi_save_result(cif_description, exchange_buffer, result)
+
+    @arguments("self", "i", "i", "f")
+    def bhimpl_libffi_save_result_longlong(self, cif_description,
+                                           exchange_buffer, result):
+        # 32-bit only: 'result' is here a LongLong
+        assert longlong.is_longlong(lltype.typeOf(result))
+        self._libffi_save_result(cif_description, exchange_buffer, result)
+
+    @arguments("self", "i", "i", "i")
+    def bhimpl_libffi_save_result_singlefloat(self, cif_description,
+                                              exchange_buffer, result):
+        result = longlong.int2singlefloat(result)
+        self._libffi_save_result(cif_description, exchange_buffer, result)
 
 
     # ----------
@@ -1389,7 +1404,7 @@ class BlackholeInterpreter(object):
             # we now proceed to interpret the bytecode in this frame
             self.run()
         #
-        except JitException, e:
+        except jitexc.JitException, e:
             raise     # go through
         except Exception, e:
             # if we get an exception, return it to the caller frame
@@ -1484,20 +1499,20 @@ class BlackholeInterpreter(object):
         sd = self.builder.metainterp_sd
         kind = self._return_type
         if kind == 'v':
-            raise sd.DoneWithThisFrameVoid()
+            raise jitexc.DoneWithThisFrameVoid()
         elif kind == 'i':
-            raise sd.DoneWithThisFrameInt(self.get_tmpreg_i())
+            raise jitexc.DoneWithThisFrameInt(self.get_tmpreg_i())
         elif kind == 'r':
-            raise sd.DoneWithThisFrameRef(self.cpu, self.get_tmpreg_r())
+            raise jitexc.DoneWithThisFrameRef(self.cpu, self.get_tmpreg_r())
         elif kind == 'f':
-            raise sd.DoneWithThisFrameFloat(self.get_tmpreg_f())
+            raise jitexc.DoneWithThisFrameFloat(self.get_tmpreg_f())
         else:
             assert False
 
     def _exit_frame_with_exception(self, e):
         sd = self.builder.metainterp_sd
         e = lltype.cast_opaque_ptr(llmemory.GCREF, e)
-        raise sd.ExitFrameWithExceptionRef(self.cpu, e)
+        raise jitexc.ExitFrameWithExceptionRef(self.cpu, e)
 
     def _handle_jitexception_in_portal(self, e):
         # This case is really rare, but can occur if
@@ -1547,23 +1562,23 @@ def _run_forever(blackholeinterp, current_exc):
     while True:
         try:
             current_exc = blackholeinterp._resume_mainloop(current_exc)
-        except JitException, e:
+        except jitexc.JitException as e:
             blackholeinterp, current_exc = _handle_jitexception(
                 blackholeinterp, e)
         blackholeinterp.builder.release_interp(blackholeinterp)
         blackholeinterp = blackholeinterp.nextblackholeinterp
 
-def _handle_jitexception(blackholeinterp, jitexc):
+def _handle_jitexception(blackholeinterp, exc):
     # See comments in _handle_jitexception_in_portal().
     while not blackholeinterp.jitcode.is_portal:
         blackholeinterp.builder.release_interp(blackholeinterp)
         blackholeinterp = blackholeinterp.nextblackholeinterp
     if blackholeinterp.nextblackholeinterp is None:
         blackholeinterp.builder.release_interp(blackholeinterp)
-        raise jitexc     # bottommost entry: go through
+        raise exc     # bottommost entry: go through
     # We have reached a recursive portal level.
     try:
-        blackholeinterp._handle_jitexception_in_portal(jitexc)
+        blackholeinterp._handle_jitexception_in_portal(exc)
     except Exception, e:
         # It raised a general exception (it should not be a JitException here).
         lle = get_llexception(blackholeinterp.cpu, e)

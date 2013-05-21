@@ -516,6 +516,10 @@ LL_OPERATIONS = {
     'gc_asmgcroot_static':  LLOp(sideeffects=False),
     'gc_stack_bottom':      LLOp(canrun=True),
 
+    # for stacklet+asmgcroot support
+    'gc_detach_callback_pieces': LLOp(),
+    'gc_reattach_callback_pieces': LLOp(),
+
     # for stacklet+shadowstack support
     'gc_shadowstackref_new':      LLOp(canmallocgc=True),
     'gc_shadowstackref_context':  LLOp(),

@@ -2,6 +2,7 @@ import py
 
 import os, sys
 
+import pypy
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
 from pypy.tool.ann_override import PyPyAnnotatorPolicy
@@ -9,6 +10,8 @@ from rpython.config.config import to_optparse, make_dict, SUPPRESS_USAGE
 from rpython.config.config import ConflictConfigError
 from pypy.tool.option import make_objspace
 from pypy.conftest import pypydir
+from rpython.rlib import rthread
+from pypy.module.thread import os_thread
 
 thisdir = py.path.local(__file__).dirpath()
 
@@ -22,20 +25,22 @@ def debug(msg):
 
 # __________  Entry point  __________
 
+
 def create_entry_point(space, w_dict):
-    w_entry_point = space.getitem(w_dict, space.wrap('entry_point'))
-    w_run_toplevel = space.getitem(w_dict, space.wrap('run_toplevel'))
-    w_call_finish_gateway = space.wrap(gateway.interp2app(call_finish))
-    w_call_startup_gateway = space.wrap(gateway.interp2app(call_startup))
-    withjit = space.config.objspace.usemodules.pypyjit
+    if w_dict is not None: # for tests
+        w_entry_point = space.getitem(w_dict, space.wrap('entry_point'))
+        w_run_toplevel = space.getitem(w_dict, space.wrap('run_toplevel'))
+        w_call_finish_gateway = space.wrap(gateway.interp2app(call_finish))
+        w_call_startup_gateway = space.wrap(gateway.interp2app(call_startup))
+        withjit = space.config.objspace.usemodules.pypyjit
 
     def entry_point(argv):
         if withjit:
             from rpython.jit.backend.hlinfo import highleveljitinfo
             highleveljitinfo.sys_executable = argv[0]
 
-        #debug("entry point starting") 
-        #for arg in argv: 
+        #debug("entry point starting")
+        #for arg in argv:
         #    debug(" argv -> " + arg)
         if len(argv) > 2 and argv[1] == '--heapsize':
             # Undocumented option, handled at interp-level.
@@ -71,7 +76,81 @@ def create_entry_point(space, w_dict):
                 debug(" operror-value: " + space.str_w(space.str(e.get_w_value(space))))
                 return 1
         return exitcode
-    return entry_point
+
+    # register the minimal equivalent of running a small piece of code. This
+    # should be used as sparsely as possible, just to register callbacks
+
+    from rpython.rlib.entrypoint import entrypoint
+    from rpython.rtyper.lltypesystem import rffi, lltype
+
+    w_pathsetter = space.appexec([], """():
+    def f(path):
+        import sys
+        sys.path[:] = path
+    return f
+    """)
+
+    @entrypoint('main', [rffi.CCHARP, lltype.Signed], c_name='pypy_setup_home')
+    def pypy_setup_home(ll_home, verbose):
+        from pypy.module.sys.initpath import pypy_find_stdlib
+        if ll_home:
+            home = rffi.charp2str(ll_home)
+        else:
+            home = pypydir
+        w_path = pypy_find_stdlib(space, home)
+        if space.is_none(w_path):
+            if verbose:
+                debug("Failed to find library based on pypy_find_stdlib")
+            return 1
+        space.startup()
+        space.call_function(w_pathsetter, w_path)
+        # import site
+        try:
+            import_ = space.getattr(space.getbuiltinmodule('__builtin__'),
+                                    space.wrap('__import__'))
+            space.call_function(import_, space.wrap('site'))
+            return 0
+        except OperationError, e:
+            if verbose:
+                debug("OperationError:")
+                debug(" operror-type: " + e.w_type.getname(space))
+                debug(" operror-value: " + space.str_w(space.str(e.get_w_value(space))))
+            return 1
+
+    @entrypoint('main', [rffi.CCHARP], c_name='pypy_execute_source')
+    def pypy_execute_source(ll_source):
+        source = rffi.charp2str(ll_source)
+        return _pypy_execute_source(source)
+
+    @entrypoint('main', [], c_name='pypy_init_threads')
+    def pypy_init_threads():
+        os_thread.setup_threads(space)
+        rffi.aroundstate.before()
+
+    @entrypoint('main', [], c_name='pypy_thread_attach')
+    def pypy_thread_attach():
+        rthread.gc_thread_start()
+
+    w_globals = space.newdict()
+    space.setitem(w_globals, space.wrap('__builtins__'),
+                  space.builtin_modules['__builtin__'])
+
+    def _pypy_execute_source(source):
+        try:
+            compiler = space.createcompiler()
+            stmt = compiler.compile(source, 'c callback', 'exec', 0)
+            stmt.exec_code(space, w_globals, w_globals)
+        except OperationError, e:
+            debug("OperationError:")
+            debug(" operror-type: " + e.w_type.getname(space))
+            debug(" operror-value: " + space.str_w(space.str(e.get_w_value(space))))
+            return 1
+        return 0
+
+    return entry_point, {'pypy_execute_source': pypy_execute_source,
+                         'pypy_init_threads': pypy_init_threads,
+                         'pypy_thread_attach': pypy_thread_attach,
+                         'pypy_setup_home': pypy_setup_home}
 
 def call_finish(space):
     space.finish()
@@ -219,7 +298,7 @@ class PyPyTarget(object):
     def jitpolicy(self, driver):
         from pypy.module.pypyjit.policy import PyPyJitPolicy, pypy_hooks
         return PyPyJitPolicy(pypy_hooks)
-    
+
     def get_entry_point(self, config):
         from pypy.tool.lib_pypy import import_from_lib_pypy
         rebuild = import_from_lib_pypy('ctypes_config_cache/rebuild')
@@ -232,7 +311,7 @@ class PyPyTarget(object):
         app = gateway.applevel(open(filename).read(), 'app_main.py', 'app_main')
         app.hidden_applevel = False
         w_dict = app.getwdict(space)
-        entry_point = create_entry_point(space, w_dict)
+        entry_point, _ = create_entry_point(space, w_dict)
 
         return entry_point, None, PyPyAnnotatorPolicy(single_space = space)
 
