@@ -39,7 +39,6 @@ class StdTypeModel:
             from pypy.objspace.std.floattype  import float_typedef
             from pypy.objspace.std.complextype  import complex_typedef
             from pypy.objspace.std.tupletype  import tuple_typedef
-            from pypy.objspace.std.listobject   import list_typedef
             from pypy.objspace.std.basestringtype import basestring_typedef
             from pypy.objspace.std.stringtype import str_typedef
             from pypy.objspace.std.bytearraytype import bytearray_typedef
@@ -80,6 +79,7 @@ class StdTypeModel:
 
         # not-multimethod based types
 
+        self.pythontypes.append(listobject.W_ListObject.typedef)
         self.pythontypes.append(dictmultiobject.W_DictMultiObject.typedef)
         self.pythontypes.append(setobject.W_SetObject.typedef)
         self.pythontypes.append(setobject.W_FrozensetObject.typedef)
@@ -91,7 +91,6 @@ class StdTypeModel:
             intobject.W_IntObject: [],
             floatobject.W_FloatObject: [],
             tupleobject.W_TupleObject: [],
-            listobject.W_ListObject: [],
             stringobject.W_StringObject: [],
             bytearrayobject.W_BytearrayObject: [],
             typeobject.W_TypeObject: [],
@@ -109,11 +108,6 @@ class StdTypeModel:
             }
 
         self.imported_but_not_registered = {
-            dictmultiobject.W_DictMultiObject: True, # XXXXXX
-            dictmultiobject.W_DictMultiIterKeysObject: True,
-            dictmultiobject.W_DictMultiIterValuesObject: True,
-            dictmultiobject.W_DictMultiIterItemsObject: True,
-            listobject.W_ListObject: True,
             stringobject.W_StringObject: True,
             tupleobject.W_TupleObject: True,
         }
