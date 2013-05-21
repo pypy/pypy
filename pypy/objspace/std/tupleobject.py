@@ -171,13 +171,7 @@ class W_TupleObject(W_AbstractTupleObject):
                 start += step
             return space.newtuple(subitems)
 
-        # getindex_w should get a second argument space.w_IndexError,
-        # but that doesn't exist the first time this is called.
-        try:
-            w_IndexError = space.w_IndexError
-        except AttributeError:
-            w_IndexError = None
-        index = space.getindex_w(w_index, w_IndexError, "tuple index")
+        index = space.getindex_w(w_index, space.w_IndexError, "tuple index")
         try:
             return self.wrappeditems[index]
         except IndexError:
