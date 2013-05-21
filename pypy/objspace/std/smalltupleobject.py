@@ -1,26 +1,15 @@
 from pypy.interpreter.error import OperationError
-from pypy.objspace.std.model import registerimplementation, W_Object
-from pypy.objspace.std.register_all import register_all
-from pypy.objspace.std.inttype import wrapint
-from pypy.objspace.std.multimethod import FailedToImplement
-from rpython.rlib.rarithmetic import intmask
-from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
-from pypy.objspace.std import slicetype
+from pypy.objspace.std.sliceobject import W_SliceObject
+from pypy.objspace.std.tupleobject import W_AbstractTupleObject
 from pypy.objspace.std.util import negate
-from pypy.interpreter import gateway
-from rpython.rlib.debug import make_sure_not_resized
+from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.tool.sourcetools import func_with_new_name
-from pypy.objspace.std.tupleobject import W_AbstractTupleObject, W_TupleObject
-
-
-class W_SmallTupleObject(W_AbstractTupleObject):
-    from pypy.objspace.std.tupletype import tuple_typedef as typedef
 
 
 def make_specialized_class(n):
     iter_n = unrolling_iterable(range(n))
-    class cls(W_SmallTupleObject):
+    class cls(W_AbstractTupleObject):
 
         def __init__(self, values):
             assert len(values) == n
@@ -38,9 +27,6 @@ def make_specialized_class(n):
 
         def length(self):
             return n
-
-        def descr_len(self):
-            return space.wrap(n)
 
         def descr_getitem(self, space, w_index):
             if isinstance(w_index, W_SliceObject):
@@ -95,5 +81,3 @@ W_SmallTupleObject5 = make_specialized_class(5)
 W_SmallTupleObject6 = make_specialized_class(6)
 W_SmallTupleObject7 = make_specialized_class(7)
 W_SmallTupleObject8 = make_specialized_class(8)
-
-registerimplementation(W_SmallTupleObject)

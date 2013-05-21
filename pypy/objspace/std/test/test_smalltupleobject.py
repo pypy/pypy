@@ -1,5 +1,5 @@
 from pypy.objspace.std.tupleobject import W_TupleObject
-from pypy.objspace.std.smalltupleobject import W_SmallTupleObject
+from pypy.objspace.std.smalltupleobject import W_SmallTupleObject2
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std.test.test_tupleobject import AppTestW_TupleObject
 from pypy.tool.pytest.objspace import gettestobjspace
@@ -55,12 +55,16 @@ class AppTestW_SmallTupleObject(AppTestW_TupleObject):
         c = (1,3,2)
         assert hash(a) != hash(c)
 
+    def test_foo(self):
+        assert tuple([0]) + (1,) == (0, 1)
+        assert not tuple([0]) + (1,) == (0,)
+
 class TestW_SmallTupleObject():
     spaceconfig = {"objspace.std.withsmalltuple": True}
 
     def test_issmalltupleobject(self):
         w_tuple = self.space.newtuple([self.space.wrap(1), self.space.wrap(2)])
-        assert isinstance(w_tuple, W_SmallTupleObject)
+        assert isinstance(w_tuple, W_SmallTupleObject2)
 
     def test_hash_agains_normal_tuple(self):
         normalspace = gettestobjspace(**{"objspace.std.withsmalltuple": False})
@@ -69,7 +73,7 @@ class TestW_SmallTupleObject():
         smallspace = gettestobjspace(**{"objspace.std.withsmalltuple": True})
         w_smalltuple = smallspace.newtuple([self.space.wrap(1), self.space.wrap(2)])
 
-        assert isinstance(w_smalltuple, W_SmallTupleObject)
+        assert isinstance(w_smalltuple, W_SmallTupleObject2)
         assert isinstance(w_tuple, W_TupleObject)
         assert not normalspace.is_true(normalspace.eq(w_tuple, w_smalltuple))
         assert smallspace.is_true(smallspace.eq(w_tuple, w_smalltuple))

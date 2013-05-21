@@ -1,18 +1,17 @@
 import sys
-from pypy.interpreter.error import OperationError
-from pypy.objspace.std.model import registerimplementation, W_Object
-from pypy.objspace.std.register_all import register_all
-from pypy.objspace.std.inttype import wrapint
-from rpython.rlib.rarithmetic import intmask
-from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
-from pypy.objspace.std import slicetype
-from pypy.objspace.std.util import negate
-from pypy.objspace.std.stdtypedef import StdTypeDef
-from rpython.rlib.debug import make_sure_not_resized
-from rpython.rlib import jit
-from rpython.tool.sourcetools import func_with_new_name
 from pypy.interpreter import gateway
+from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import interp2app, interpindirect2app
+from pypy.objspace.std import slicetype
+from pypy.objspace.std.inttype import wrapint
+from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
+from pypy.objspace.std.stdtypedef import StdTypeDef
+from pypy.objspace.std.util import negate
+from rpython.rlib import jit
+from rpython.rlib.debug import make_sure_not_resized
+from rpython.rlib.rarithmetic import intmask
+from rpython.tool.sourcetools import func_with_new_name
 
 
 UNROLL_CUTOFF = 10
@@ -23,7 +22,7 @@ def tuple_unroll_condition(self, space, other):
             jit.loop_unrolling_heuristic(other, other.length(), UNROLL_CUTOFF))
 
 
-class W_AbstractTupleObject(W_Object):
+class W_AbstractTupleObject(W_Root):
     __slots__ = ()
 
     def __repr__(w_self):
@@ -281,8 +280,6 @@ class W_TupleObject(W_AbstractTupleObject):
         except IndexError:
             raise OperationError(space.w_IndexError,
                                  space.wrap("tuple index out of range"))
-
-registerimplementation(W_TupleObject)
 
 
 @jit.look_inside_iff(lambda space, wrappeditems:
