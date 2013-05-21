@@ -22,9 +22,6 @@ class W_SpecialisedTupleObject(W_AbstractTupleObject):
         reprlist = [repr(item) for item in self._to_unwrapped_list()]
         return "%s(%s)" % (self.__class__.__name__, ', '.join(reprlist))
 
-    #def tolist(self):   --- inherited from W_AbstractTupleObject
-    #    raise NotImplementedError
-
     def _to_unwrapped_list(self):
         "NOT_RPYTHON"
         raise NotImplementedError
@@ -53,10 +50,10 @@ class W_SpecialisedTupleObject(W_AbstractTupleObject):
 
 def make_specialised_class(typetuple):
     assert type(typetuple) == tuple
-    
+
     nValues = len(typetuple)
     iter_n = unrolling_iterable(range(nValues))
-    
+
     class cls(W_SpecialisedTupleObject):
         def __init__(self, space, *values_w):
             self.space = space
@@ -80,7 +77,7 @@ def make_specialised_class(typetuple):
             return nValues
 
         def tolist(self):
-            list_w = [None] * nValues            
+            list_w = [None] * nValues
             for i in iter_n:
                 value = getattr(self, 'value%s' % i)
                 if typetuple[i] != object:
@@ -145,20 +142,6 @@ def make_specialised_class(typetuple):
         def ne(self, space, w_other):
             return space.newbool(not self._eq(w_other))
 
-##        def _compare(self, compare_op, w_other):
-##            if not isinstance(w_other, cls):
-##                raise FailedToImplement
-##            ncmp = min(self.length(), w_other.length())
-##            for i in iter_n:
-##                if typetuple[i] == Any:#like space.eq on wrapped or two params?
-##                    raise FailedToImplement
-##                if ncmp > i:
-##                    l_val = getattr(self, 'value%s' % i)
-##                    r_val = getattr(w_other, 'value%s' % i)
-##                    if l_val != r_val:
-##                        return compare_op(l_val, r_val)
-##            return compare_op(self.length(), w_other.length())
-
         def getitem(self, index):
             for i in iter_n:
                 if index == i:
@@ -177,55 +160,22 @@ def make_specialised_class(typetuple):
 
 _specialisations = []
 Cls_ii = make_specialised_class((int, int))
-#Cls_is = make_specialised_class((int, str))
-#Cls_io = make_specialised_class((int, object))
-#Cls_si = make_specialised_class((str, int))
-#Cls_ss = make_specialised_class((str, str))
-#Cls_so = make_specialised_class((str, object))
-#Cls_oi = make_specialised_class((object, int))
-#Cls_os = make_specialised_class((object, str))
 Cls_oo = make_specialised_class((object, object))
 Cls_ff = make_specialised_class((float, float))
-#Cls_ooo = make_specialised_class((object, object, object))
 
 def makespecialisedtuple(space, list_w):
     if len(list_w) == 2:
         w_arg1, w_arg2 = list_w
         w_type1 = space.type(w_arg1)
-        #w_type2 = space.type(w_arg2)
-        #
         if w_type1 is space.w_int:
             w_type2 = space.type(w_arg2)
             if w_type2 is space.w_int:
                 return Cls_ii(space, w_arg1, w_arg2)
-            #elif w_type2 is space.w_str:
-            #    return Cls_is(space, w_arg1, w_arg2)
-            #else:
-            #    return Cls_io(space, w_arg1, w_arg2)
-        #
-        #elif w_type1 is space.w_str:
-        #    if w_type2 is space.w_int:
-        #        return Cls_si(space, w_arg1, w_arg2)
-        #    elif w_type2 is space.w_str:
-        #        return Cls_ss(space, w_arg1, w_arg2)
-        #    else:
-        #        return Cls_so(space, w_arg1, w_arg2)
-        #
         elif w_type1 is space.w_float:
             w_type2 = space.type(w_arg2)
             if w_type2 is space.w_float:
                 return Cls_ff(space, w_arg1, w_arg2)
-        #
-        #else:
-        #    if w_type2 is space.w_int:
-        #        return Cls_oi(space, w_arg1, w_arg2)
-        #    elif w_type2 is space.w_str:
-        #        return Cls_os(space, w_arg1, w_arg2)
-        #    else:
         return Cls_oo(space, w_arg1, w_arg2)
-        #
-    #elif len(list_w) == 3:
-    #    return Cls_ooo(space, list_w[0], list_w[1], list_w[2])
     else:
         raise NotSpecialised
 
@@ -283,20 +233,6 @@ def eq__SpecialisedTuple_SpecialisedTuple(space, w_tuple1, w_tuple2):
 
 def ne__SpecialisedTuple_SpecialisedTuple(space, w_tuple1, w_tuple2):
     return w_tuple1.ne(space, w_tuple2)
-
-##from operator import lt, le, ge, gt   
- 
-##def lt__SpecialisedTuple_SpecialisedTuple(space, w_tuple1, w_tuple2):
-##    return space.newbool(w_tuple1._compare(lt, w_tuple2))
-
-##def le__SpecialisedTuple_SpecialisedTuple(space, w_tuple1, w_tuple2):
-##    return space.newbool(w_tuple1._compare(le, w_tuple2))
-
-##def ge__SpecialisedTuple_SpecialisedTuple(space, w_tuple1, w_tuple2):
-##    return space.newbool(w_tuple1._compare(ge, w_tuple2))
-
-##def gt__SpecialisedTuple_SpecialisedTuple(space, w_tuple1, w_tuple2):
-##    return space.newbool(w_tuple1._compare(gt, w_tuple2))
 
 def hash__SpecialisedTuple(space, w_tuple):
     return w_tuple.hash(space)
