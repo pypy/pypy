@@ -297,17 +297,17 @@ def unmarshal_Tuple(space, u, tc):
     return space.newtuple(items_w)
 register(TYPE_TUPLE, unmarshal_Tuple)
 
-def marshal_w__List(space, w_list, m):
+def marshal_list(space, w_list, m):
+    if not isinstance(w_list, W_ListObject):
+        raise_exception(space, "unmarshallable object")
     items = w_list.getitems()[:]
     m.put_tuple_w(TYPE_LIST, items)
+handled_by_any.append(('list', marshal_list))
 
-def unmarshal_List(space, u, tc):
+def unmarshal_list(space, u, tc):
     items_w = u.get_list_w()
     return space.newlist(items_w)
-
-def finish_List(space, items_w, typecode):
-    return space.newlist(items_w)
-register(TYPE_LIST, unmarshal_List)
+register(TYPE_LIST, unmarshal_list)
 
 def marshal_w_dict(space, w_dict, m):
     if not isinstance(w_dict, W_DictMultiObject):
