@@ -264,7 +264,7 @@ def _suffix_to_str(space, w_suffix, funcname):
 def str_startswith__Bytearray_ANY_ANY_ANY(space, w_bytearray, w_prefix, w_start, w_stop):
     if space.isinstance_w(w_prefix, space.w_tuple):
         w_str = _to_bytes(space, w_bytearray)
-        w_prefix = space.newtuple([space.wrap(space.bufferstr_new_w(w_entry)) for w_entry in
+        w_prefix = space.newtuple([space.wrapbytes(space.bufferstr_new_w(w_entry)) for w_entry in
                                    space.fixedview(w_prefix)])
         return stringobject.str_startswith__String_ANY_ANY_ANY(space, w_str, w_prefix,
                                                                   w_start, w_stop)
@@ -277,7 +277,7 @@ def str_startswith__Bytearray_ANY_ANY_ANY(space, w_bytearray, w_prefix, w_start,
 def str_endswith__Bytearray_ANY_ANY_ANY(space, w_bytearray, w_suffix, w_start, w_stop):
     if space.isinstance_w(w_suffix, space.w_tuple):
         w_str = _to_bytes(space, w_bytearray)
-        w_suffix = space.newtuple([space.wrap(space.bufferstr_new_w(w_entry)) for w_entry in
+        w_suffix = space.newtuple([space.wrapbytes(space.bufferstr_new_w(w_entry)) for w_entry in
                                    space.fixedview(w_suffix)])
         return stringobject.str_endswith__String_ANY_ANY_ANY(space, w_str, w_suffix,
                                                                   w_start, w_stop)
