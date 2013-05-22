@@ -663,6 +663,15 @@ class StdObjSpace(ObjSpace, DescrOperation):
                 class2type[base] = w_type
                 self._interplevel_classes[w_type] = base
 
+        # register other things
+        from pypy.objspace.std.dictmultiobject import W_DictMultiObject
+        from pypy.objspace.std.listobject import W_ListObject
+        from pypy.objspace.std.setobject import W_SetObject
+
+        self._interplevel_classes[self.w_dict] = W_DictMultiObject
+        self._interplevel_classes[self.w_list] = W_ListObject
+        self._interplevel_classes[self.w_set] = W_SetObject
+
     @specialize.memo()
     def _get_interplevel_cls(self, w_type):
         if not hasattr(self, "_interplevel_classes"):
