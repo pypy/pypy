@@ -32,10 +32,11 @@ working_modules.update(dict.fromkeys(
      "rctime" , "select", "zipimport", "_lsprof",
      "crypt", "signal", "_rawffi", "termios", "zlib", "bz2",
      "struct", "_hashlib", "_md5", "_sha", "_minimal_curses", "cStringIO",
-     "thread", "itertools", "pyexpat", "_ssl", "cpyext", "array",
+     "thread", "itertools", "pyexpat", "_ssl", "array",
      "binascii", "_multiprocessing", '_warnings',
      "_collections", "_multibytecodec", "micronumpy", "_ffi",
-     "_continuation", "_cffi_backend", "_csv", "cppyy"]
+     "_continuation", "_cffi_backend", "_csv"] # "cpyext", "cppyy"]
+# disabled until problems are fixed
 ))
 
 translation_modules = default_modules.copy()
@@ -120,12 +121,10 @@ def get_module_validator(modname):
                     __import__(name)
             except (ImportError, CompilationError, py.test.skip.Exception), e:
                 errcls = e.__class__.__name__
-                config.add_warning(
+                raise Exception(
                     "The module %r is disabled\n" % (modname,) +
                     "because importing %s raised %s\n" % (name, errcls) +
                     str(e))
-                raise ConflictConfigError("--withmod-%s: %s" % (modname,
-                                                                errcls))
         return validator
     else:
         return None
@@ -214,10 +213,6 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
         BoolOption("sharesmallstr",
                    "always reuse the prebuilt string objects "
                    "(the empty string and potentially single-char strings)",
-                   default=False),
-
-        BoolOption("withsmalltuple",
-                   "use small tuples",
                    default=False),
 
         BoolOption("withspecialisedtuple",
@@ -364,6 +359,7 @@ def enable_allworkingmodules(config):
     # ignore names from 'essential_modules', notably 'exceptions', which
     # may not be present in config.objspace.usemodules at all
     modules = [name for name in modules if name not in essential_modules]
+
     config.objspace.usemodules.suggest(**dict.fromkeys(modules, True))
 
 def enable_translationmodules(config):

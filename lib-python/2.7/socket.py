@@ -324,7 +324,12 @@ class _fileobject(object):
                 if self._close:
                     self._sock.close()
                 else:
-                    self._sock._decref_socketios()
+                    try:
+                        self._sock._decref_socketios()
+                    except AttributeError:
+                        pass  # bah, someone built a _fileobject manually
+                              # with some unexpected replacement of the
+                              # _socketobject class
             self._sock = None
 
     def __del__(self):

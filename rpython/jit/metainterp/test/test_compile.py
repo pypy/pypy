@@ -1,10 +1,10 @@
 from rpython.config.translationoption import get_combined_translation_config
-from rpython.jit.metainterp.history import TargetToken, ConstInt, History, Stats
-from rpython.jit.metainterp.history import BoxInt, INT
+from rpython.jit.metainterp.history import ConstInt, History, Stats
+from rpython.jit.metainterp.history import INT
 from rpython.jit.metainterp.compile import compile_loop
-from rpython.jit.metainterp.compile import ResumeGuardDescr
 from rpython.jit.metainterp.compile import ResumeGuardCountersInt
 from rpython.jit.metainterp.compile import compile_tmp_callback
+from rpython.jit.metainterp import jitexc
 from rpython.jit.metainterp import jitprof, typesystem, compile
 from rpython.jit.metainterp.optimizeopt.test.test_util import LLtypeMixin
 from rpython.jit.tool.oparser import parse
@@ -13,7 +13,7 @@ from rpython.jit.metainterp.optimizeopt import ALL_OPTS_DICT
 class FakeCPU(object):
     class tracker:
         pass
-    
+
     ts = typesystem.llhelper
     def __init__(self):
         self.seen = []
@@ -41,7 +41,7 @@ class FakeGlobalData(object):
     loopnumbering = 0
 
 class FakeMetaInterpStaticData(object):
-    
+
     logger_noopt = FakeLogger()
     logger_ops = FakeLogger()
     config = get_combined_translation_config(translating=True)
@@ -192,14 +192,13 @@ def test_compile_tmp_callback():
     assert lltype.cast_opaque_ptr(lltype.Ptr(EXC), got) == llexc
     #
     class FakeMetaInterpSD:
-        class ExitFrameWithExceptionRef(Exception):
-            pass
+        pass
     FakeMetaInterpSD.cpu = cpu
     deadframe = cpu.execute_token(loop_token, -156, -178)
     fail_descr = cpu.get_latest_descr(deadframe)
     try:
         fail_descr.handle_fail(deadframe, FakeMetaInterpSD(), None)
-    except FakeMetaInterpSD.ExitFrameWithExceptionRef, e:
-        assert lltype.cast_opaque_ptr(lltype.Ptr(EXC), e.args[1]) == llexc
+    except jitexc.ExitFrameWithExceptionRef, e:
+        assert lltype.cast_opaque_ptr(lltype.Ptr(EXC), e.value) == llexc
     else:
         assert 0, "should have raised"

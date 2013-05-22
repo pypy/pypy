@@ -236,9 +236,10 @@ class BaseFrameworkGCTransformer(GCTransformer):
         # thread support
         if translator.config.translation.continuation:
             root_walker.stacklet_support = True
-            root_walker.need_stacklet_support(self, getfn)
         if translator.config.translation.thread:
             root_walker.need_thread_support(self, getfn)
+        if root_walker.stacklet_support:
+            root_walker.need_stacklet_support(self, getfn)
 
         self.layoutbuilder.encode_type_shapes_now()
 
@@ -799,6 +800,21 @@ class BaseFrameworkGCTransformer(GCTransformer):
         self._gc_adr_of_gcdata_attr(hop, 'root_stack_base')
     def gct_gc_adr_of_root_stack_top(self, hop):
         self._gc_adr_of_gcdata_attr(hop, 'root_stack_top')
+
+    def gct_gc_detach_callback_pieces(self, hop):
+        op = hop.spaceop
+        assert len(op.args) == 0
+        hop.genop("direct_call",
+                  [self.root_walker.gc_detach_callback_pieces_ptr],
+                  resultvar=op.result)
+
+    def gct_gc_reattach_callback_pieces(self, hop):
+        op = hop.spaceop
+        assert len(op.args) == 1
+        hop.genop("direct_call",
+                  [self.root_walker.gc_reattach_callback_pieces_ptr,
+                   op.args[0]],
+                  resultvar=op.result)
 
     def gct_gc_shadowstackref_new(self, hop):
         op = hop.spaceop

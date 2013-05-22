@@ -36,7 +36,7 @@ class TestMisc(BaseTestPyPyC):
         assert loop0.match(expected)
         # XXX: The retracing fails to form a loop since j
         # becomes constant 0 after the bridge and constant 1 at the end of the
-        # loop. A bridge back to the peramble is produced instead.        
+        # loop. A bridge back to the peramble is produced instead.
         #assert loop1.match(expected)
 
     def test_factorial(self):
@@ -242,6 +242,7 @@ class TestMisc(BaseTestPyPyC):
             i19 = int_add(i12, 1)
             setfield_gc(p9, i19, descr=<FieldS .*W_AbstractSeqIterObject.inst_index .*>)
             guard_nonnull_class(p17, ..., descr=...)
+            guard_not_invalidated(descr=...)
             i21 = getfield_gc(p17, descr=<FieldS .*W_Array.*.inst_len .*>)
             i23 = int_lt(0, i21)
             guard_true(i23, descr=...)

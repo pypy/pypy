@@ -8,7 +8,9 @@ if sys.platform.startswith('linux'):
     arch = 'linux'
     cmd = 'wget "%s"'
     tar = "tar -x -v --wildcards --strip-components=2 -f %s '*/bin/pypy'"
-if sys.platform.startswith('darwin'):
+    if os.uname()[-1].startswith('arm'):
+        arch += '-armhf-raspbian'
+elif sys.platform.startswith('darwin'):
     arch = 'osx'
     cmd = 'curl -O "%s"'
     tar = "tar -x -v --strip-components=2 -f %s '*/bin/pypy'"

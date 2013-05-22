@@ -242,6 +242,11 @@ class W_Root(object):
     def __spacebind__(self, space):
         return self
 
+    def unwrap(self, space):
+        """NOT_RPYTHON"""
+        # _____ this code is here to support testing only _____
+        return self
+
 
 class W_InterpIterable(W_Root):
     def __init__(self, space, w_iterable):
@@ -666,7 +671,8 @@ class ObjSpace(object):
     def id(self, w_obj):
         w_result = w_obj.immutable_unique_id(self)
         if w_result is None:
-            w_result = self.wrap(compute_unique_id(w_obj))
+            # in the common case, returns an unsigned value
+            w_result = self.wrap(r_uint(compute_unique_id(w_obj)))
         return w_result
 
     def hash_w(self, w_obj):

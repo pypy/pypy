@@ -12,6 +12,7 @@ from pypy.interpreter.error import OperationError
 from pypy.objspace.std.register_all import register_all
 from rpython.rlib.rarithmetic import LONG_BIT, r_longlong, r_uint, intmask
 from pypy.objspace.std import model
+from pypy.objspace.std.dictmultiobject import W_DictMultiObject
 from pypy.interpreter.special import Ellipsis
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter import gateway, unicodehelper
@@ -22,9 +23,8 @@ from pypy.objspace.std.boolobject    import W_BoolObject
 from pypy.objspace.std.complexobject import W_ComplexObject
 from pypy.objspace.std.intobject     import W_IntObject
 from pypy.objspace.std.floatobject   import W_FloatObject
-from pypy.objspace.std.tupleobject   import W_TupleObject
+from pypy.objspace.std.tupleobject   import W_AbstractTupleObject
 from pypy.objspace.std.listobject    import W_ListObject
-from pypy.objspace.std.dictmultiobject    import W_DictMultiObject
 from pypy.objspace.std.stringobject  import W_StringObject
 from pypy.objspace.std.typeobject    import W_TypeObject
 from pypy.objspace.std.longobject    import W_LongObject, newlong
@@ -288,36 +288,42 @@ def unmarshal_stringref(space, u, tc):
         raise_exception(space, 'bad marshal data')
 register(TYPE_STRINGREF, unmarshal_stringref)
 
-def marshal_w__Tuple(space, w_tuple, m):
-    items = w_tuple.wrappeditems
+def marshal_tuple(space, w_tuple, m):
+    if not isinstance(w_tuple, W_AbstractTupleObject):
+        raise_exception(space, "unmarshallable object")
+    items = w_tuple.tolist()
     m.put_tuple_w(TYPE_TUPLE, items)
+handled_by_any.append(('tuple', marshal_tuple))
 
-def unmarshal_Tuple(space, u, tc):
+def unmarshal_tuple(space, u, tc):
     items_w = u.get_tuple_w()
     return space.newtuple(items_w)
-register(TYPE_TUPLE, unmarshal_Tuple)
+register(TYPE_TUPLE, unmarshal_tuple)
 
-def marshal_w__List(space, w_list, m):
+def marshal_list(space, w_list, m):
+    if not isinstance(w_list, W_ListObject):
+        raise_exception(space, "unmarshallable object")
     items = w_list.getitems()[:]
     m.put_tuple_w(TYPE_LIST, items)
+handled_by_any.append(('list', marshal_list))
 
-def unmarshal_List(space, u, tc):
+def unmarshal_list(space, u, tc):
     items_w = u.get_list_w()
     return space.newlist(items_w)
+register(TYPE_LIST, unmarshal_list)
 
-def finish_List(space, items_w, typecode):
-    return space.newlist(items_w)
-register(TYPE_LIST, unmarshal_List)
-
-def marshal_w__DictMulti(space, w_dict, m):
+def marshal_w_dict(space, w_dict, m):
+    if not isinstance(w_dict, W_DictMultiObject):
+        raise_exception(space, "unmarshallable object")
     m.start(TYPE_DICT)
     for w_tuple in w_dict.items():
         w_key, w_value = space.fixedview(w_tuple, 2)
         m.put_w_obj(w_key)
         m.put_w_obj(w_value)
     m.atom(TYPE_NULL)
+handled_by_any.append(('dict', marshal_w_dict))
 
-def unmarshal_DictMulti(space, u, tc):
+def unmarshal_dict(space, u, tc):
     # since primitive lists are not optimized and we don't know
     # the dict size in advance, use the dict's setitem instead
     # of building a list of tuples.
@@ -329,7 +335,7 @@ def unmarshal_DictMulti(space, u, tc):
         w_value = u.get_w_obj()
         space.setitem(w_dic, w_key, w_value)
     return w_dic
-register(TYPE_DICT, unmarshal_DictMulti)
+register(TYPE_DICT, unmarshal_dict)
 
 def unmarshal_NULL(self, u, tc):
     return None

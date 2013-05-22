@@ -1,5 +1,14 @@
-"""PyPy's minimal configuration information.
+"""Provide access to Python's configuration information.
+This is actually PyPy's minimal configuration information.
+
+The specific configuration variables available depend heavily on the
+platform and configuration.  The values may be retrieved using
+get_config_var(name), and the list of variables is available via
+get_config_vars().keys().  Additional convenience functions are also
+available.
 """
+
+__revision__ = "$Id: sysconfig.py 85358 2010-10-10 09:54:59Z antoine.pitrou $"
 
 import sys
 import os
@@ -119,7 +128,7 @@ def customize_compiler(compiler):
     optional C speedup components.
     """
     if compiler.compiler_type == "unix":
-        compiler.compiler_so.extend(['-fPIC', '-Wimplicit'])
+        compiler.compiler_so.extend(['-O2', '-fPIC', '-Wimplicit'])
         compiler.shared_lib_extension = get_config_var('SO')
         if "CFLAGS" in os.environ:
             cflags = os.environ["CFLAGS"].split()

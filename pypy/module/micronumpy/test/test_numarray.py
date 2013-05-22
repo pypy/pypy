@@ -2733,7 +2733,7 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         assert a[0, 0, 0].shape == (10,)
 
     def test_multidim_subarray(self):
-        from numpypy import dtype, array, zeros
+        from numpypy import dtype, array
 
         d = dtype([("x", "int", (2, 3))])
         a = array([([[1, 2, 3], [4, 5, 6]],)], dtype=d)

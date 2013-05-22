@@ -1,11 +1,10 @@
-
-from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.annotator import model as annmodel
-from rpython.rtyper.lltypesystem import llmemory, lltype
-from rpython.rtyper.lltypesystem import rclass
-from rpython.rtyper.annlowlevel import cast_instance_to_base_ptr,\
-     cast_base_ptr_to_instance, llstr
 from rpython.rlib.objectmodel import specialize
+from rpython.rtyper.annlowlevel import (cast_instance_to_base_ptr,
+    cast_base_ptr_to_instance, llstr)
+from rpython.rtyper.extregistry import ExtRegistryEntry
+from rpython.rtyper.lltypesystem import llmemory, lltype, rclass
+
 
 def register_helper(s_result):
     def wrapper(helper):

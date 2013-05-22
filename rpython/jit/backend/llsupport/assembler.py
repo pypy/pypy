@@ -108,8 +108,7 @@ class BaseAssembler(object):
             self.malloc_slowpath_unicode = None
 
         self._build_stack_check_slowpath()
-        if gc_ll_descr.gcrootmap:
-            self._build_release_gil(gc_ll_descr.gcrootmap)
+        self._build_release_gil(gc_ll_descr.gcrootmap)
         if not self._debug:
             # if self._debug is already set it means that someone called
             # set_debug by hand before initializing the assembler. Leave it
@@ -348,12 +347,19 @@ class BaseAssembler(object):
         if after:
             after()
 
+    @staticmethod
+    def _no_op():
+        pass
+
     _NOARG_FUNC = lltype.Ptr(lltype.FuncType([], lltype.Void))
     _CLOSESTACK_FUNC = lltype.Ptr(lltype.FuncType([rffi.LONGP],
                                                   lltype.Void))
 
     def _build_release_gil(self, gcrootmap):
-        if gcrootmap.is_shadow_stack:
+        if gcrootmap is None:
+            releasegil_func = llhelper(self._NOARG_FUNC, self._no_op)
+            reacqgil_func = llhelper(self._NOARG_FUNC, self._no_op)
+        elif gcrootmap.is_shadow_stack:
             releasegil_func = llhelper(self._NOARG_FUNC,
                                        self._release_gil_shadowstack)
             reacqgil_func = llhelper(self._NOARG_FUNC,
