@@ -13,8 +13,7 @@ from rpython.jit.backend.arm.helper.assembler import (gen_emit_op_by_helper_call
                                                 gen_emit_float_cmp_op,
                                                 gen_emit_float_cmp_op_guard,
                                                 gen_emit_unary_float_op,
-                                                saved_registers,
-                                                count_reg_args)
+                                                saved_registers)
 from rpython.jit.backend.arm.helper.regalloc import check_imm_arg
 from rpython.jit.backend.arm.codebuilder import InstrBuilder, OverwritingBuilder
 from rpython.jit.backend.arm.jump import remap_frame_layout
@@ -31,8 +30,7 @@ from rpython.jit.metainterp.resoperation import rop
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rtyper.lltypesystem import rstr, rffi, lltype
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
-
-NO_FORCE_INDEX = -1
+from rpython.jit.backend.arm import callbuilder
 
 
 class ArmGuardToken(GuardToken):
@@ -339,213 +337,31 @@ class ResOpAssembler(BaseAssembler):
         return fcond
 
     def emit_op_call(self, op, arglocs, regalloc, fcond):
-        resloc = arglocs[0]
-        adr = arglocs[1]
-        arglist = arglocs[2:]
+        return self._emit_call(op, arglocs, fcond=fcond)
+
+    def _emit_call(self, op, arglocs, is_call_release_gil=False, fcond=c.AL):
+        # args = [resloc, size, sign, args...]
+        from rpython.jit.backend.llsupport.descr import CallDescr
+
+        cb = callbuilder.get_callbuilder(self.cpu, self, arglocs[3], arglocs[4:], arglocs[0])
+
         descr = op.getdescr()
-        size = descr.get_result_size()
-        signed = descr.is_result_signed()
-        cond = self._emit_call(adr, arglist,
-                                            fcond, resloc, (size, signed))
-        return cond
+        assert isinstance(descr, CallDescr)
+        cb.callconv = descr.get_call_conv()
+        cb.argtypes = descr.get_arg_types()
+        cb.restype  = descr.get_result_type()
+        sizeloc = arglocs[1]
+        assert sizeloc.is_imm()
+        cb.ressize = sizeloc.value
+        signloc = arglocs[2]
+        assert signloc.is_imm()
+        cb.ressign = signloc.value
 
-    def _emit_call(self, adr, arglocs, fcond=c.AL, resloc=None,
-                    result_info=(-1, -1),
-                    # whether to worry about a CALL that can collect; this
-                    # is always true except in call_release_gil
-                    can_collect=True):
-        if self.cpu.cpuinfo.hf_abi:
-            stack_args, adr = self._setup_call_hf(adr, arglocs, fcond,
-                                            resloc, result_info)
+        if is_call_release_gil:
+            cb.emit_call_release_gil()
         else:
-            stack_args, adr = self._setup_call_sf(adr, arglocs, fcond,
-                                            resloc, result_info)
-
-        if can_collect:
-            # we push *now* the gcmap, describing the status of GC registers
-            # after the rearrangements done just above, ignoring the return
-            # value eax, if necessary
-            noregs = self.cpu.gc_ll_descr.is_shadow_stack()
-            gcmap = self._regalloc.get_gcmap([r.r0], noregs=noregs)
-            self.push_gcmap(self.mc, gcmap, store=True)
-        #the actual call
-        if adr.is_imm():
-            self.mc.BL(adr.value)
-        elif adr.is_stack():
-            self.mov_loc_loc(adr, r.ip)
-            adr = r.ip
-        else:
-            assert adr.is_reg()
-        if adr.is_reg():
-            self.mc.BLX(adr.value)
-        self._restore_sp(stack_args, fcond)
-
-        # ensure the result is wellformed and stored in the correct location
-        if resloc is not None:
-            if resloc.is_vfp_reg() and not self.cpu.cpuinfo.hf_abi:
-                # move result to the allocated register
-                self.mov_to_vfp_loc(r.r0, r.r1, resloc)
-            elif resloc.is_reg() and result_info != (-1, -1):
-                self._ensure_result_bit_extension(resloc, result_info[0],
-                                                          result_info[1])
-        if can_collect:
-            self._reload_frame_if_necessary(self.mc)
-            self.pop_gcmap(self.mc)
+            cb.emit()
         return fcond
-
-    def _restore_sp(self, stack_args, fcond):
-        # readjust the sp in case we passed some args on the stack
-        if len(stack_args) > 0:
-            n = 0
-            for arg in stack_args:
-                if arg is None or arg.type != FLOAT:
-                    n += WORD
-                else:
-                    n += DOUBLE_WORD
-            self._adjust_sp(-n, fcond=fcond)
-            assert n % 8 == 0  # sanity check
-
-    def _adjust_sp(self, n, cb=None, fcond=c.AL, base_reg=r.sp):
-        if cb is None:
-            cb = self.mc
-        if n < 0:
-            n = -n
-            rev = True
-        else:
-            rev = False
-        if n <= 0xFF and fcond == c.AL:
-            if rev:
-                cb.ADD_ri(r.sp.value, base_reg.value, n)
-            else:
-                cb.SUB_ri(r.sp.value, base_reg.value, n)
-        else:
-            cb.gen_load_int(r.ip.value, n, cond=fcond)
-            if rev:
-                cb.ADD_rr(r.sp.value, base_reg.value, r.ip.value, cond=fcond)
-            else:
-                cb.SUB_rr(r.sp.value, base_reg.value, r.ip.value, cond=fcond)
-
-
-    def _collect_stack_args_sf(self, arglocs):
-        n_args = len(arglocs)
-        reg_args = count_reg_args(arglocs)
-        # all arguments past the 4th go on the stack
-        # first we need to prepare the list so it stays aligned
-        stack_args = []
-        count = 0
-        if n_args > reg_args:
-            for i in range(reg_args, n_args):
-                arg = arglocs[i]
-                if arg.type != FLOAT:
-                    count += 1
-                else:
-                    if count % 2 != 0:
-                        stack_args.append(None)
-                        count = 0
-                stack_args.append(arg)
-            if count % 2 != 0:
-                stack_args.append(None)
-        return stack_args
-
-    def _push_stack_args(self, stack_args):
-            #then we push every thing on the stack
-            for i in range(len(stack_args) - 1, -1, -1):
-                arg = stack_args[i]
-                if arg is None:
-                    self.mc.PUSH([r.ip.value])
-                else:
-                    self.regalloc_push(arg)
-
-    def _setup_call_sf(self, adr, arglocs, fcond=c.AL,
-                                         resloc=None, result_info=(-1, -1)):
-        reg_args = count_reg_args(arglocs)
-        stack_args = self._collect_stack_args_sf(arglocs)
-        self._push_stack_args(stack_args)
-        # collect variables that need to go in registers and the registers they
-        # will be stored in
-        num = 0
-        count = 0
-        non_float_locs = []
-        non_float_regs = []
-        float_locs = []
-        for i in range(reg_args):
-            arg = arglocs[i]
-            if arg.type == FLOAT and count % 2 != 0:
-                    num += 1
-                    count = 0
-            reg = r.caller_resp[num]
-
-            if arg.type == FLOAT:
-                float_locs.append((arg, reg))
-            else:
-                non_float_locs.append(arg)
-                non_float_regs.append(reg)
-
-            if arg.type == FLOAT:
-                num += 2
-            else:
-                num += 1
-                count += 1
-        # Check that the address of the function we want to call is not
-        # currently stored in one of the registers used to pass the arguments.
-        # If this happens to be the case we remap the register to r4 and use r4
-        # to call the function
-        if adr in non_float_regs:
-            non_float_locs.append(adr)
-            non_float_regs.append(r.r4)
-            adr = r.r4
-        # remap values stored in core registers
-        remap_frame_layout(self, non_float_locs, non_float_regs, r.ip)
-
-        for loc, reg in float_locs:
-            self.mov_from_vfp_loc(loc, reg, r.all_regs[reg.value + 1])
-        return stack_args, adr
-
-    def _setup_call_hf(self, adr, arglocs, fcond=c.AL,
-                                         resloc=None, result_info=(-1, -1)):
-        non_float_locs = []
-        non_float_regs = []
-        float_locs = []
-        float_regs = []
-        stack_args = []
-        count = 0                      # stack alignment counter
-        for arg in arglocs:
-            if arg.type != FLOAT:
-                if len(non_float_regs) < len(r.argument_regs):
-                    reg = r.argument_regs[len(non_float_regs)]
-                    non_float_locs.append(arg)
-                    non_float_regs.append(reg)
-                else:  # non-float argument that needs to go on the stack
-                    count += 1
-                    stack_args.append(arg)
-            else:
-                if len(float_regs) < len(r.vfp_argument_regs):
-                    reg = r.vfp_argument_regs[len(float_regs)]
-                    float_locs.append(arg)
-                    float_regs.append(reg)
-                else:  # float argument that needs to go on the stack
-                    if count % 2 != 0:
-                        stack_args.append(None)
-                        count = 0
-                    stack_args.append(arg)
-        # align the stack
-        if count % 2 != 0:
-            stack_args.append(None)
-        self._push_stack_args(stack_args)
-        # Check that the address of the function we want to call is not
-        # currently stored in one of the registers used to pass the arguments.
-        # If this happens to be the case we remap the register to r4 and use r4
-        # to call the function
-        if adr in non_float_regs:
-            non_float_locs.append(adr)
-            non_float_regs.append(r.r4)
-            adr = r.r4
-        # remap values stored in core registers
-        remap_frame_layout(self, non_float_locs, non_float_regs, r.ip)
-        # remap values stored in vfp registers
-        remap_frame_layout(self, float_locs, float_regs, r.vfp_ip)
-
-        return stack_args, adr
 
     def emit_op_same_as(self, op, arglocs, regalloc, fcond):
         argloc, resloc = arglocs
@@ -1037,9 +853,8 @@ class ResOpAssembler(BaseAssembler):
             length_loc = bytes_loc
         # call memcpy()
         regalloc.before_call()
-        self._emit_call(imm(self.memcpy_addr),
-                                  [dstaddr_loc, srcaddr_loc, length_loc],
-                                  can_collect=False)
+        self.simple_call_no_collect(imm(self.memcpy_addr),
+                                  [dstaddr_loc, srcaddr_loc, length_loc])
         regalloc.rm.possibly_free_var(length_box)
         regalloc.rm.possibly_free_var(dstaddr_box)
         regalloc.rm.possibly_free_var(srcaddr_box)
@@ -1131,10 +946,10 @@ class ResOpAssembler(BaseAssembler):
         return fcond
 
     def _call_assembler_emit_call(self, addr, argloc, resloc):
-        self._emit_call(addr, [argloc], resloc=resloc)
+        self.simple_call(addr, [argloc], resloc=resloc)
 
     def _call_assembler_emit_helper_call(self, addr, arglocs, resloc):
-        self._emit_call(addr, arglocs, resloc=resloc)
+        self.simple_call(addr, arglocs, resloc=resloc)
 
     def _call_assembler_check_descr(self, value, tmploc):
         ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
@@ -1213,16 +1028,10 @@ class ResOpAssembler(BaseAssembler):
                                                                     fcond):
         self._store_force_index(guard_op)
         numargs = op.numargs()
-        callargs = arglocs[2:numargs + 1]  # extract the arguments to the call
-        adr = arglocs[1]
-        resloc = arglocs[0]
+        callargs = arglocs[2:numargs + 3]  # extract the arguments to the call
+        assert 0, 'xxx revisit this'
         #
-        descr = op.getdescr()
-        size = descr.get_result_size()
-        signed = descr.is_result_signed()
-        #
-        self._emit_call(adr, callargs, fcond,
-                                    resloc, (size, signed))
+        self._emit_call(op, callargs, fcond)
         self._emit_guard_may_force(guard_op, arglocs[1 + numargs:], numargs)
         return fcond
 
@@ -1237,38 +1046,39 @@ class ResOpAssembler(BaseAssembler):
                                                                     fcond):
 
         self._store_force_index(guard_op)
-        # first, close the stack in the sense of the asmgcc GC root tracker
-        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
-        numargs = op.numargs()
-        callargs = arglocs[2:numargs + 1]  # extract the arguments to the call
-        adr = arglocs[1]
-        resloc = arglocs[0]
-
-        if gcrootmap:
-            # we put the gcmap now into the frame before releasing the GIL,
-            # and pop it below after reacquiring the GIL.  The assumption
-            # is that this gcmap describes correctly the situation at any
-            # point in-between: all values containing GC pointers should
-            # be safely saved out of registers by now, and will not be
-            # manipulated by any of the following CALLs.
-            gcmap = self._regalloc.get_gcmap(noregs=True)
-            self.push_gcmap(self.mc, gcmap, store=True)
-            self.call_release_gil(gcrootmap, arglocs, regalloc, fcond)
-        # do the call
-        descr = op.getdescr()
-        size = descr.get_result_size()
-        signed = descr.is_result_signed()
-        #
-        self._emit_call(adr, callargs, fcond,
-                                    resloc, (size, signed),
-                                    can_collect=False)
-        # then reopen the stack
-        if gcrootmap:
-            self.call_reacquire_gil(gcrootmap, resloc, regalloc, fcond)
-            self.pop_gcmap(self.mc)     # remove the gcmap saved above
-
+        self._emit_call(op, arglocs, result_loc, is_call_release_gil=True)
         self._emit_guard_may_force(guard_op, arglocs[numargs+1:], numargs)
         return fcond
+        # first, close the stack in the sense of the asmgcc GC root tracker
+        #gcrootmap = self.cpu.gc_ll_descr.gcrootmap
+        #numargs = op.numargs()
+        #callargs = arglocs[2:numargs + 1]  # extract the arguments to the call
+        #adr = arglocs[1]
+        #resloc = arglocs[0]
+
+        #if gcrootmap:
+        #    # we put the gcmap now into the frame before releasing the GIL,
+        #    # and pop it below after reacquiring the GIL.  The assumption
+        #    # is that this gcmap describes correctly the situation at any
+        #    # point in-between: all values containing GC pointers should
+        #    # be safely saved out of registers by now, and will not be
+        #    # manipulated by any of the following CALLs.
+        #    gcmap = self._regalloc.get_gcmap(noregs=True)
+        #    self.push_gcmap(self.mc, gcmap, store=True)
+        #    self.call_release_gil(gcrootmap, arglocs, regalloc, fcond)
+        ## do the call
+        #descr = op.getdescr()
+        #size = descr.get_result_size()
+        #signed = descr.is_result_signed()
+        ##
+        #self._emit_call(adr, callargs, fcond,
+        #                            resloc, (size, signed),
+        #                            is_call_release_gil=True)
+        ## then reopen the stack
+        #if gcrootmap:
+        #    self.call_reacquire_gil(gcrootmap, resloc, regalloc, fcond)
+        #    self.pop_gcmap(self.mc)     # remove the gcmap saved above
+
 
     def call_release_gil(self, gcrootmap, save_registers, regalloc, fcond):
         # Save caller saved registers and do the call
@@ -1276,7 +1086,7 @@ class ResOpAssembler(BaseAssembler):
         assert gcrootmap.is_shadow_stack
         with saved_registers(self.mc, regalloc.rm.save_around_call_regs):
             self._emit_call(imm(self.releasegil_addr), [],
-                                        fcond, can_collect=False)
+                                        fcond, is_call_release_gil=True)
 
     def call_reacquire_gil(self, gcrootmap, save_loc, regalloc, fcond):
         # save the previous result into the stack temporarily, in case it is in
@@ -1294,7 +1104,7 @@ class ResOpAssembler(BaseAssembler):
         # call the reopenstack() function (also reacquiring the GIL)
         with saved_registers(self.mc, regs_to_save, vfp_regs_to_save):
             self._emit_call(imm(self.reacqgil_addr), [], fcond,
-                    can_collect=False)
+                    is_call_release_gil=True)
         self._reload_frame_if_necessary(self.mc)
 
     def _store_force_index(self, guard_op):
