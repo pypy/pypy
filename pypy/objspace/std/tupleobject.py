@@ -74,8 +74,6 @@ class W_AbstractTupleObject(W_Root):
 
     def descr_repr(self, space):
         items = self.tolist()
-        # XXX this is quite innefficient, still better than calling
-        #     it via applevel
         if len(items) == 1:
             return space.wrap("(" + space.str_w(space.repr(items[0])) + ",)")
         tmp = ", ".join([space.str_w(space.repr(item)) for item in items])
@@ -248,7 +246,6 @@ class W_TupleObject(W_AbstractTupleObject):
 
     @jit.look_inside_iff(lambda self, _1: _unroll_condition(self))
     def descr_hash(self, space):
-        # this is the CPython 2.4 algorithm (changed from 2.3)
         mult = 1000003
         x = 0x345678
         z = len(self.wrappeditems)

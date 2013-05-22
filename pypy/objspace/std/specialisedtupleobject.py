@@ -52,7 +52,6 @@ def make_specialised_class(typetuple):
         getitems_copy = func_with_new_name(tolist, 'getitems_copy')
 
         def descr_hash(self, space):
-            # XXX duplicate logic from tupleobject.py
             mult = 1000003
             x = 0x345678
             z = nValues
