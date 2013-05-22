@@ -74,9 +74,23 @@ def make_specialised_class(typetuple):
             return space.wrap(intmask(x))
 
         def descr_eq(self, space, w_other):
+            if not isinstance(w_other, W_AbstractTupleObject):
+                return space.w_NotImplementedError
             if not isinstance(w_other, cls):
-                # if we are not comparing same types, give up
-                return space.w_NotImplemented
+                if nValues != w_other.length():
+                    return space.w_False
+                for i in iter_n:
+                    myval    = getattr(self,    'value%s' % i)
+                    otherval = w_other.getitem(space, i)
+                    if typetuple[i] == object:
+                        myval_wrapped = myval
+                    else:
+                        myval_wrapped = space.wrap(myval)
+                    if not space.eq_w(myval_wrapped, otherval):
+                        return space.w_False
+                else:
+                    return space.w_True
+
             for i in iter_n:
                 myval    = getattr(self,    'value%s' % i)
                 otherval = getattr(w_other, 'value%s' % i)
