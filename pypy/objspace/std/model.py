@@ -44,7 +44,6 @@ class StdTypeModel:
             from pypy.objspace.std.longtype   import long_typedef
             from pypy.objspace.std.unicodetype import unicode_typedef
             from pypy.objspace.std.nonetype import none_typedef
-            from pypy.objspace.std.itertype import iter_typedef
         self.pythontypes = [value for key, value in result.__dict__.items()
                             if not key.startswith('_')]   # don't look
 
@@ -81,6 +80,7 @@ class StdTypeModel:
         self.pythontypes.append(dictmultiobject.W_DictMultiObject.typedef)
         self.pythontypes.append(setobject.W_SetObject.typedef)
         self.pythontypes.append(setobject.W_FrozensetObject.typedef)
+        self.pythontypes.append(iterobject.W_AbstractSeqIterObject.typedef)
 
         # the set of implementation types
         self.typeorder = {
@@ -95,10 +95,6 @@ class StdTypeModel:
             longobject.W_LongObject: [],
             noneobject.W_NoneObject: [],
             complexobject.W_ComplexObject: [],
-            iterobject.W_SeqIterObject: [],
-            iterobject.W_FastListIterObject: [],
-            iterobject.W_FastTupleIterObject: [],
-            iterobject.W_ReverseSeqIterObject: [],
             unicodeobject.W_UnicodeObject: [],
             pypy.interpreter.pycode.PyCode: [],
             pypy.interpreter.special.Ellipsis: [],
