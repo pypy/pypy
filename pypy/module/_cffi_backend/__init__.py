@@ -30,6 +30,8 @@ class Module(MixedModule):
         'typeoffsetof': 'func.typeoffsetof',
         'rawaddressof': 'func.rawaddressof',
         'getcname': 'func.getcname',
+        'newp_handle': 'handle.newp_handle',
+        'from_handle': 'handle.from_handle',
         '_get_types': 'func._get_types',
 
         'string': 'func.string',
