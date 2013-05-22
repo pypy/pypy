@@ -137,6 +137,7 @@ class VStringPlainValue(VAbstractStringValue):
         self._chars = [None] * size
 
     def shrink(self, length):
+        assert length >= 0
         del self._chars[length:]
 
     def setup_slice(self, longerlist, start, stop):
