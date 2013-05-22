@@ -65,7 +65,7 @@ class Runner:
             self.tasks[0].withdepth(self.random.genrand32() % 50)
             assert len(self.tasks[0].lst) == 0
 
-    @here_is_a_test
+    #@here_is_a_test
     def test_destroy(self):
         # this used to give MemoryError in shadowstack tests
         for i in range(100000):
