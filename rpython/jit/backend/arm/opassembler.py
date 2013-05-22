@@ -1032,10 +1032,10 @@ class ResOpAssembler(BaseAssembler):
         assert 0, 'xxx revisit this'
         #
         self._emit_call(op, callargs, fcond)
-        self._emit_guard_may_force(guard_op, arglocs[1 + numargs:], numargs)
+        self._emit_guard_may_force(guard_op, arglocs[1 + numargs:])
         return fcond
 
-    def _emit_guard_may_force(self, guard_op, arglocs, numargs):
+    def _emit_guard_may_force(self, guard_op, arglocs):
         ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
         self.mc.LDR_ri(r.ip.value, r.fp.value, imm=ofs)
         self.mc.CMP_ri(r.ip.value, 0)
@@ -1044,68 +1044,13 @@ class ResOpAssembler(BaseAssembler):
 
     def emit_guard_call_release_gil(self, op, guard_op, arglocs, regalloc,
                                                                     fcond):
-
+        numargs = op.numargs()
+        callargs = arglocs[:numargs + 3]      # extract the arguments to the call
+        guardargs = arglocs[len(callargs):]  # extrat the arguments for the guard
         self._store_force_index(guard_op)
-        self._emit_call(op, arglocs, result_loc, is_call_release_gil=True)
-        self._emit_guard_may_force(guard_op, arglocs[numargs+1:], numargs)
+        self._emit_call(op, arglocs, is_call_release_gil=True)
+        self._emit_guard_may_force(guard_op, guardargs)
         return fcond
-        # first, close the stack in the sense of the asmgcc GC root tracker
-        #gcrootmap = self.cpu.gc_ll_descr.gcrootmap
-        #numargs = op.numargs()
-        #callargs = arglocs[2:numargs + 1]  # extract the arguments to the call
-        #adr = arglocs[1]
-        #resloc = arglocs[0]
-
-        #if gcrootmap:
-        #    # we put the gcmap now into the frame before releasing the GIL,
-        #    # and pop it below after reacquiring the GIL.  The assumption
-        #    # is that this gcmap describes correctly the situation at any
-        #    # point in-between: all values containing GC pointers should
-        #    # be safely saved out of registers by now, and will not be
-        #    # manipulated by any of the following CALLs.
-        #    gcmap = self._regalloc.get_gcmap(noregs=True)
-        #    self.push_gcmap(self.mc, gcmap, store=True)
-        #    self.call_release_gil(gcrootmap, arglocs, regalloc, fcond)
-        ## do the call
-        #descr = op.getdescr()
-        #size = descr.get_result_size()
-        #signed = descr.is_result_signed()
-        ##
-        #self._emit_call(adr, callargs, fcond,
-        #                            resloc, (size, signed),
-        #                            is_call_release_gil=True)
-        ## then reopen the stack
-        #if gcrootmap:
-        #    self.call_reacquire_gil(gcrootmap, resloc, regalloc, fcond)
-        #    self.pop_gcmap(self.mc)     # remove the gcmap saved above
-
-
-    def call_release_gil(self, gcrootmap, save_registers, regalloc, fcond):
-        # Save caller saved registers and do the call
-        # NOTE: We assume that  the floating point registers won't be modified.
-        assert gcrootmap.is_shadow_stack
-        with saved_registers(self.mc, regalloc.rm.save_around_call_regs):
-            self._emit_call(imm(self.releasegil_addr), [],
-                                        fcond, is_call_release_gil=True)
-
-    def call_reacquire_gil(self, gcrootmap, save_loc, regalloc, fcond):
-        # save the previous result into the stack temporarily, in case it is in
-        # a caller saved register.
-        # NOTE: like with call_release_gil(), we assume that we don't need to
-        # save vfp regs in this case. Besides the result location
-        regs_to_save = []
-        vfp_regs_to_save = []
-        if save_loc and save_loc in regalloc.rm.save_around_call_regs:
-            regs_to_save.append(save_loc)
-            regs_to_save.append(r.ip)  # for alingment
-        elif save_loc and save_loc in regalloc.vfprm.save_around_call_regs:
-            vfp_regs_to_save.append(save_loc)
-        assert gcrootmap.is_shadow_stack
-        # call the reopenstack() function (also reacquiring the GIL)
-        with saved_registers(self.mc, regs_to_save, vfp_regs_to_save):
-            self._emit_call(imm(self.reacqgil_addr), [], fcond,
-                    is_call_release_gil=True)
-        self._reload_frame_if_necessary(self.mc)
 
     def _store_force_index(self, guard_op):
         faildescr = guard_op.getdescr()

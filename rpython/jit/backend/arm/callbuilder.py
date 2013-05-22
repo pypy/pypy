@@ -6,6 +6,7 @@ from rpython.jit.backend.arm import registers as r
 from rpython.jit.backend.arm.jump import remap_frame_layout
 from rpython.jit.backend.llsupport.callbuilder import AbstractCallBuilder
 from rpython.jit.backend.arm.helper.assembler import count_reg_args
+from rpython.jit.backend.arm.helper.assembler import saved_registers
 from rpython.jit.backend.arm.helper.regalloc import check_imm_arg
 
 
@@ -26,7 +27,6 @@ class ARMCallbuilder(AbstractCallBuilder):
         self.asm.push_gcmap(self.mc, gcmap, store=True)
 
     def pop_gcmap(self):
-        assert not self.is_call_release_gil
         self.asm._reload_frame_if_necessary(self.mc)
         self.asm.pop_gcmap(self.mc)
 
@@ -69,19 +69,59 @@ class ARMCallbuilder(AbstractCallBuilder):
             self.mc.gen_load_int(r.ip.value, n, cond=fcond)
             self.mc.ADD_rr(r.sp.value, r.sp.value, r.ip.value, cond=fcond)
 
+    def select_call_release_gil_mode(self):
+        AbstractCallBuilder.select_call_release_gil_mode(self)
+
+    def call_releasegil_addr_and_move_real_arguments(self):
+        assert not self.asm._is_asmgcc()
+        from rpython.jit.backend.arm.regalloc import CoreRegisterManager
+        with saved_registers(self.mc, CoreRegisterManager.save_around_call_regs):
+            self.mc.BL(self.asm.releasegil_addr)
+        #
+        if not we_are_translated():                     # for testing: we should not access
+            self.mc.ADD_ri(r.fp.value, r.fp.value, 1)   # fp any more
+        #
+
+    def move_real_result_and_call_reacqgil_addr(self):
+        # save the result we just got
+        assert not self.asm._is_asmgcc()
+        gpr_to_save, vfp_to_save = self.get_result_locs()
+        with saved_registers(self.mc, gpr_to_save, vfp_to_save):
+            self.mc.BL(self.asm.reacqgil_addr)
+        #
+        if not we_are_translated():                    # for testing: now we can accesss
+            self.mc.SUB_ri(r.fp.value, r.fp.value, 1)  # fp again
+        #
+        #   for shadowstack, done for us by _reload_frame_if_necessary()
+
+    def get_result_locs(self):
+        raise NotImplementedError
+
 
 class SoftFloatCallBuilder(ARMCallbuilder):
 
+    def get_result_locs(self):
+        if self.resloc is None:
+            return [], []
+        if self.resloc.is_vfp_reg():
+            return [r.r0, r.r1], []
+        assert self.resloc.is_reg()
+        return [r.r0], []
+
     def load_result(self):
-        resloc = self.resloc
         # ensure the result is wellformed and stored in the correct location
-        if resloc is not None:
-            if resloc.is_vfp_reg():
-                # move result to the allocated register
-                self.asm.mov_to_vfp_loc(r.r0, r.r1, resloc)
-            elif resloc.is_reg():
-                self.asm._ensure_result_bit_extension(resloc,
-                                                  self.ressize, self.ressigned)
+        resloc = self.resloc
+        if resloc is None:
+            return
+        if resloc.is_vfp_reg():
+            # move result to the allocated register
+            self.asm.mov_to_vfp_loc(r.r0, r.r1, resloc)
+        elif resloc.is_reg():
+            # move result to the allocated register
+            if resloc is not r.r0:
+                self.asm.mov_loc_loc(r.r0, resloc)
+            self.asm._ensure_result_bit_extension(resloc,
+                                              self.ressize, self.ressign)
 
 
     def _collect_stack_args(self, arglocs):
@@ -140,10 +180,11 @@ class SoftFloatCallBuilder(ARMCallbuilder):
                 num += 1
                 count += 1
         # Check that the address of the function we want to call is not
-        # currently stored in one of the registers used to pass the arguments.
+        # currently stored in one of the registers used to pass the arguments
+        # or on the stack, which we can not access later
         # If this happens to be the case we remap the register to r4 and use r4
         # to call the function
-        if self.fnloc in non_float_regs:
+        if self.fnloc in non_float_regs or self.fnloc.is_stack():
             non_float_locs.append(self.fnloc)
             non_float_regs.append(r.r4)
             self.fnloc = r.r4
@@ -195,10 +236,11 @@ class HardFloatCallBuilder(ARMCallbuilder):
             on_stack += 1
         self._push_stack_args(stack_args, on_stack*WORD)
         # Check that the address of the function we want to call is not
-        # currently stored in one of the registers used to pass the arguments.
+        # currently stored in one of the registers used to pass the arguments
+        # or on the stack, which we can not access later
         # If this happens to be the case we remap the register to r4 and use r4
         # to call the function
-        if self.fnloc in non_float_regs:
+        if self.fnloc in non_float_regs or self.fnloc.is_stack():
             non_float_locs.append(self.fnloc)
             non_float_regs.append(r.r4)
             self.fnloc = r.r4
@@ -212,8 +254,15 @@ class HardFloatCallBuilder(ARMCallbuilder):
         # ensure the result is wellformed and stored in the correct location
         if resloc is not None and resloc.is_reg():
             self.asm._ensure_result_bit_extension(resloc,
-                                                  self.ressize, self.ressigned)
+                                                  self.ressize, self.ressign)
 
+    def get_result_locs(self):
+        if self.resloc is None:
+            return [], []
+        if self.resloc.is_vfp_reg():
+            return [], [r.d0]
+        assert self.resloc.is_reg()
+        return [r.r0], []
 
 
 def get_callbuilder(cpu, assembler, fnloc, arglocs,

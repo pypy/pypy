@@ -999,10 +999,6 @@ class Assembler386(BaseAssembler):
                     self.implement_guard(guard_token, checkfalsecond)
         return genop_cmp_guard_float
 
-    def _is_asmgcc(self):
-        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
-        return bool(gcrootmap) and not gcrootmap.is_shadow_stack
-
     def simple_call(self, fnloc, arglocs, result_loc=eax):
         if result_loc is xmm0:
             result_type = FLOAT

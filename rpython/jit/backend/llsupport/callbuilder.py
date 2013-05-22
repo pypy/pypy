@@ -8,12 +8,13 @@ class AbstractCallBuilder(object):
     # is it for the main CALL of a call_release_gil?
     is_call_release_gil = False
 
-    # set by save_result_value()
-    tmpresloc = None
+    # this can be set to guide more complex calls: gives the detailed
+    # type of the arguments
+    argtypes = ""
+    ressign = False
+
 
     def __init__(self, assembler, fnloc, arglocs, resloc, restype, ressize):
-        # Avoid tons of issues with a non-immediate fnloc by sticking it
-        # as an extra argument if needed
         self.fnloc = fnloc
         self.arglocs = arglocs
         self.asm = assembler
@@ -21,7 +22,6 @@ class AbstractCallBuilder(object):
         self.resloc = resloc
         self.restype = restype
         self.ressize = ressize
-        self.ressigned = False
 
     def emit_no_collect(self):
         """Emit a call that cannot collect."""
@@ -52,6 +52,12 @@ class AbstractCallBuilder(object):
         self.pop_gcmap()
         self.load_result()
 
+    def call_releasegil_addr_and_move_real_arguments(self):
+        raise NotImplementedError
+
+    def move_real_result_and_call_reacqgil_addr(self):
+        raise NotImplementedError
+
     def select_call_release_gil_mode(self):
         """Overridden in CallBuilder64"""
         self.is_call_release_gil = True
@@ -61,6 +67,17 @@ class AbstractCallBuilder(object):
 
     def push_gcmap(self):
         raise NotImplementedError
+
+    def push_gcmap_for_call_release_gil(self):
+        assert self.is_call_release_gil
+        # we put the gcmap now into the frame before releasing the GIL,
+        # and pop it after reacquiring the GIL.  The assumption
+        # is that this gcmap describes correctly the situation at any
+        # point in-between: all values containing GC pointers should
+        # be safely saved out of registers by now, and will not be
+        # manipulated by any of the following CALLs.
+        gcmap = self.asm._regalloc.get_gcmap(noregs=True)
+        self.asm.push_gcmap(self.mc, gcmap, store=True)
 
     def pop_gcmap(self):
         raise NotImplementedError

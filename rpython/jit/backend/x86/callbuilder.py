@@ -19,23 +19,21 @@ def align_stack_words(words):
     return (words + CALL_ALIGN - 1) & ~(CALL_ALIGN-1)
 
 
-
-
 class CallBuilderX86(AbstractCallBuilder):
 
     # max number of words we have room in esp; if we need more for
     # arguments, we need to decrease esp temporarily
     stack_max = PASS_ON_MY_FRAME
 
-    # this can be set to guide more complex calls: gives the detailed
-    # type of the arguments
-    argtypes = ""
-    ressign = False
+    # set by save_result_value()
+    tmpresloc = None
 
     def __init__(self, assembler, fnloc, arglocs,
                  resloc=eax, restype=INT, ressize=WORD):
         AbstractCallBuilder.__init__(self, assembler, fnloc, arglocs,
                                      resloc, restype, ressize)
+        # Avoid tons of issues with a non-immediate fnloc by sticking it
+        # as an extra argument if needed
         self.fnloc_is_immediate = isinstance(fnloc, ImmedLoc)
         if not self.fnloc_is_immediate:
             self.fnloc = None
@@ -94,17 +92,6 @@ class CallBuilderX86(AbstractCallBuilder):
             self.asm.set_extra_stack_depth(self.mc, -self.current_esp)
         noregs = self.asm.cpu.gc_ll_descr.is_shadow_stack()
         gcmap = self.asm._regalloc.get_gcmap([eax], noregs=noregs)
-        self.asm.push_gcmap(self.mc, gcmap, store=True)
-
-    def push_gcmap_for_call_release_gil(self):
-        assert self.is_call_release_gil
-        # we put the gcmap now into the frame before releasing the GIL,
-        # and pop it after reacquiring the GIL.  The assumption
-        # is that this gcmap describes correctly the situation at any
-        # point in-between: all values containing GC pointers should
-        # be safely saved out of registers by now, and will not be
-        # manipulated by any of the following CALLs.
-        gcmap = self.asm._regalloc.get_gcmap(noregs=True)
         self.asm.push_gcmap(self.mc, gcmap, store=True)
 
     def pop_gcmap(self):
