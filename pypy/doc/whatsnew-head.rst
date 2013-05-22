@@ -28,3 +28,6 @@ Remove remaining multi-methods on list
 
 .. branch: arm-stacklet
 Stacklet support for ARM, enables _continuation support
+
+.. branch: remove-tuple-smm
+Remove multi-methods on tuple
