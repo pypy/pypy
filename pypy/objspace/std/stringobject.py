@@ -725,35 +725,33 @@ def str_endswith__String_String_ANY_ANY(space, w_self, w_suffix, w_start, w_end)
                                                w_end, True)
     return space.newbool(stringendswith(u_self, w_suffix._value, start, end))
 
-def str_endswith__String_ANY_ANY_ANY(space, w_self, w_suffixes, w_start, w_end):
-    if not space.isinstance_w(w_suffixes, space.w_tuple):
-        raise FailedToImplement
-    (u_self, start, end) = _convert_idx_params(space, w_self, w_start,
-                                               w_end, True)
-    for w_suffix in space.fixedview(w_suffixes):
-        suffix = space.bufferstr_w(w_suffix)
+def str_endswith__String_ANY_ANY_ANY(space, w_self, w_suffix, w_start, w_end):
+    u_self, start, end = _convert_idx_params(space, w_self, w_start, w_end,
+                                             True)
+    if not space.isinstance_w(w_suffix, space.w_tuple):
+        suffix = _suffix_to_str(space, w_suffix, 'endswith')
+        return space.newbool(stringendswith(u_self, suffix, start, end))
+
+    for w_item in space.fixedview(w_suffix):
+        suffix = space.bufferstr_w(w_item)
         if stringendswith(u_self, suffix, start, end):
             return space.w_True
     return space.w_False
-
-def str_startswith__String_ANY_ANY_ANY(space, w_self, w_prefix, w_start, w_end):
-    (u_self, start, end) = _convert_idx_params(space, w_self, w_start,
-                                               w_end, True)
-    return space.newbool(stringstartswith(
-            u_self, _suffix_to_str(space, w_prefix, 'startswith'), start, end))
 
 def str_startswith__String_String_ANY_ANY(space, w_self, w_prefix, w_start, w_end):
     (u_self, start, end) = _convert_idx_params(space, w_self, w_start,
                                                w_end, True)
     return space.newbool(stringstartswith(u_self, w_prefix._value, start, end))
 
-def str_startswith__String_ANY_ANY_ANY(space, w_self, w_prefixes, w_start, w_end):
-    if not space.isinstance_w(w_prefixes, space.w_tuple):
-        raise FailedToImplement
-    (u_self, start, end) = _convert_idx_params(space, w_self,
-                                               w_start, w_end, True)
-    for w_prefix in space.fixedview(w_prefixes):
-        prefix = space.bufferstr_w(w_prefix)
+def str_startswith__String_ANY_ANY_ANY(space, w_self, w_prefix, w_start, w_end):
+    u_self, start, end = _convert_idx_params(space, w_self, w_start, w_end,
+                                             True)
+    if not space.isinstance_w(w_prefix, space.w_tuple):
+        prefix = _suffix_to_str(space, w_prefix, 'startswith')
+        return space.newbool(stringstartswith(u_self, prefix, start, end))
+
+    for w_item in space.fixedview(w_prefix):
+        prefix = space.bufferstr_w(w_item)
         if stringstartswith(u_self, prefix, start, end):
             return space.w_True
     return space.w_False
