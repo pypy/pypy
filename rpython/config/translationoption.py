@@ -3,6 +3,8 @@ from rpython.config.config import OptionDescription, BoolOption, IntOption, Arbi
 from rpython.config.config import ChoiceOption, StrOption, Config
 from rpython.config.config import ConfigError
 from rpython.config.support import detect_number_of_processors
+from rpython.jit.backend.detect_cpu import autodetect
+from rpython.jit.backend.detect_cpu import MODEL_X86, MODEL_X86_NO_SSE2, MODEL_X86_64
 
 DEFL_INLINE_THRESHOLD = 32.4    # just enough to inline add__Int_Int()
 # and just small enough to prevend inlining of some rlist functions.
@@ -12,10 +14,13 @@ DEFL_CLEVER_MALLOC_REMOVAL_INLINE_THRESHOLD = 32.4
 DEFL_LOW_INLINE_THRESHOLD = DEFL_INLINE_THRESHOLD / 2.0
 
 DEFL_GC = "minimark"
-if sys.platform.startswith("linux"):
-    DEFL_ROOTFINDER_WITHJIT = "asmgcc"
+
+_is_x86 = autodetect() in (MODEL_X86, MODEL_X86_64, MODEL_X86_NO_SSE2)
+
+if sys.platform.startswith("linux") and _is_x86:
+    DEFL_ROOTFINDER = "asmgcc"
 else:
-    DEFL_ROOTFINDER_WITHJIT = "shadowstack"
+    DEFL_ROOTFINDER = "shadowstack"
 
 IS_64_BITS = sys.maxint > 2147483647
 
@@ -89,7 +94,7 @@ translation_optiondescription = OptionDescription(
     ChoiceOption("gcrootfinder",
                  "Strategy for finding GC Roots (framework GCs only)",
                  ["n/a", "shadowstack", "asmgcc"],
-                 "shadowstack",
+                 DEFL_ROOTFINDER,
                  cmdline="--gcrootfinder",
                  requires={
                      "shadowstack": [("translation.gctransformer", "framework")],
@@ -112,7 +117,7 @@ translation_optiondescription = OptionDescription(
     BoolOption("jit", "generate a JIT",
                default=False,
                suggests=[("translation.gc", DEFL_GC),
-                         ("translation.gcrootfinder", DEFL_ROOTFINDER_WITHJIT),
+                         ("translation.gcrootfinder", DEFL_ROOTFINDER),
                          ("translation.list_comprehension_operations", True)]),
     ChoiceOption("jit_backend", "choose the backend for the JIT",
                  ["auto", "x86", "x86-without-sse2", 'arm'],
@@ -276,7 +281,9 @@ translation_optiondescription = OptionDescription(
     ]),
     ChoiceOption("platform",
                  "target platform", ['host'] + PLATFORMS, default='host',
-                 cmdline='--platform'),
+                 cmdline='--platform',
+                 requires={"arm": [("translation.gcrootfinder", "shadowstack")]},
+                 suggests={"arm": [("translation.jit_backend", "arm")]}),
 
 ])
 

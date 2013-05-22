@@ -22,3 +22,9 @@ Implement subarrays for numpy
 
 .. branch: remove-dict-smm
 Remove multi-methods on dict
+
+.. branch: remove-list-smm-2
+Remove remaining multi-methods on list
+
+.. branch: arm-stacklet
+Stacklet support for ARM, enables _continuation support
