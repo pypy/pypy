@@ -5,6 +5,7 @@ from pypy.interpreter.gateway import (
 from pypy.interpreter.mixedmodule import MixedModule
 from pypy.interpreter.signature import Signature
 from pypy.objspace.std.stdtypedef import StdTypeDef
+from pypy.objspace.std.util import negate
 
 from rpython.rlib import jit, rerased
 from rpython.rlib.debug import mark_dict_non_null
@@ -40,19 +41,6 @@ def w_dict_unrolling_heuristic(w_dct):
     return jit.isvirtual(w_dct) or (jit.isconstant(w_dct) and
                                     w_dct.length() <= UNROLL_CUTOFF)
 
-
-def negate(f):
-    def _negator(self, space, w_other):
-        # no need to use space.is_ / space.not_
-        tmp = f(self, space, w_other)
-        if tmp is space.w_NotImplemented:
-            return space.w_NotImplemented
-        elif tmp is space.w_False:
-            return space.w_True
-        else:
-            return space.w_False
-    _negator.func_name = 'negate-%s' % f.func_name
-    return _negator
 
 class W_DictMultiObject(W_Root):
     @staticmethod
