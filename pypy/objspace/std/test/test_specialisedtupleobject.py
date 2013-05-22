@@ -1,10 +1,7 @@
-import py, sys
-from pypy.objspace.std.tupleobject import W_TupleObject
 from pypy.objspace.std.specialisedtupleobject import _specialisations
-from pypy.interpreter.error import OperationError
-from pypy.tool.pytest.objspace import gettestobjspace
 from pypy.objspace.std.test import test_tupleobject
-from pypy.interpreter import gateway
+from pypy.objspace.std.tupleobject import W_TupleObject
+from pypy.tool.pytest.objspace import gettestobjspace
 
 
 for cls in _specialisations:
@@ -17,11 +14,11 @@ class TestW_SpecialisedTupleObject():
     def test_isspecialisedtupleobjectintint(self):
         w_tuple = self.space.newtuple([self.space.wrap(1), self.space.wrap(2)])
         assert isinstance(w_tuple, W_SpecialisedTupleObject_ii)
-        
+
     def test_isnotspecialisedtupleobject(self):
         w_tuple = self.space.newtuple([self.space.wrap({})])
         assert not 'W_SpecialisedTupleObject' in type(w_tuple).__name__
-        
+
     def test_specialisedtupleclassname(self):
         w_tuple = self.space.newtuple([self.space.wrap(1), self.space.wrap(2)])
         assert w_tuple.__class__.__name__ == 'W_SpecialisedTupleObject_ii'
@@ -29,7 +26,7 @@ class TestW_SpecialisedTupleObject():
     def test_hash_against_normal_tuple(self):
         N_space = gettestobjspace(**{"objspace.std.withspecialisedtuple": False})
         S_space = gettestobjspace(**{"objspace.std.withspecialisedtuple": True})
-        
+
         def hash_test(values, must_be_specialized=True):
             N_values_w = [N_space.wrap(value) for value in values]
             S_values_w = [S_space.wrap(value) for value in values]
@@ -42,15 +39,15 @@ class TestW_SpecialisedTupleObject():
             assert S_space.is_true(S_space.eq(N_w_tuple, S_w_tuple))
             assert S_space.is_true(S_space.eq(N_space.hash(N_w_tuple), S_space.hash(S_w_tuple)))
 
-        hash_test([1,2])
-        hash_test([1.5,2.8])
-        hash_test([1.0,2.0])
-        hash_test(['arbitrary','strings'])
-        hash_test([1,(1,2,3,4)])
-        hash_test([1,(1,2)])
-        hash_test([1,('a',2)])
-        hash_test([1,()])
-        hash_test([1,2,3], must_be_specialized=False)
+        hash_test([1, 2])
+        hash_test([1.5, 2.8])
+        hash_test([1.0, 2.0])
+        hash_test(['arbitrary', 'strings'])
+        hash_test([1, (1, 2, 3, 4)])
+        hash_test([1, (1, 2)])
+        hash_test([1, ('a', 2)])
+        hash_test([1, ()])
+        hash_test([1, 2, 3], must_be_specialized=False)
 
 
 class AppTestW_SpecialisedTupleObject:
@@ -88,7 +85,7 @@ class AppTestW_SpecialisedTupleObject:
         assert len(t) == 2
 
     def test_notspecialisedtuple(self):
-        assert not self.isspecialised((42,43,44,45))
+        assert not self.isspecialised((42, 43, 44, 45))
         assert not self.isspecialised((1.5,))
 
     def test_slicing_to_specialised(self):
@@ -118,66 +115,66 @@ class AppTestW_SpecialisedTupleObject:
         c = (2, 1)
         assert not a == c
 
-    def test_eq_can_delegate(self):        
-        a = (1,2)
-        b = (1,3,2)
+    def test_eq_can_delegate(self):
+        a = (1, 2)
+        b = (1, 3, 2)
         assert not a == b
 
         values = [2, 2L, 2.0, 1, 1L, 1.0]
         for x in values:
             for y in values:
-                assert ((1,2) == (x,y)) == (1 == x and 2 == y)
+                assert ((1, 2) == (x, y)) == (1 == x and 2 == y)
 
     def test_neq(self):
-        a = (1,2)
+        a = (1, 2)
         b = (1,)
-        b = b+(2,)
+        b = b + (2,)
         assert not a != b
-        
-        c = (1,3)
+
+        c = (1, 3)
         assert a != c
-        
+
     def test_ordering(self):
-        a = (1,2)
-        assert a <  (2,2)    
-        assert a <  (1,3)    
-        assert not a <  (1,2) 
+        a = (1, 2)
+        assert a < (2, 2)
+        assert a < (1, 3)
+        assert not a < (1, 2)
 
-        assert a <=  (2,2)    
-        assert a <=  (1,2) 
-        assert not a <=  (1,1) 
-           
-        assert a >= (0,2)    
-        assert a >= (1,2)    
-        assert not a >= (1,3)    
-        
-        assert a > (0,2)    
-        assert a > (1,1)    
-        assert not a > (1,3)    
+        assert a <= (2, 2)
+        assert a <= (1, 2)
+        assert not a <= (1, 1)
 
-        assert (2,2) > a
-        assert (1,3) > a
-        assert not (1,2) > a
-           
-        assert (2,2) >= a
-        assert (1,2) >= a
-        assert not (1,1) >= a
-           
-        assert (0,2) <= a
-        assert (1,2) <= a
-        assert not (1,3) <= a
-        
-        assert (0,2) < a
-        assert (1,1) < a
-        assert not (1,3) < a
+        assert a >= (0, 2)
+        assert a >= (1, 2)
+        assert not a >= (1, 3)
+
+        assert a > (0, 2)
+        assert a > (1, 1)
+        assert not a > (1, 3)
+
+        assert (2, 2) > a
+        assert (1, 3) > a
+        assert not (1, 2) > a
+
+        assert (2, 2) >= a
+        assert (1, 2) >= a
+        assert not (1, 1) >= a
+
+        assert (0, 2) <= a
+        assert (1, 2) <= a
+        assert not (1, 3) <= a
+
+        assert (0, 2) < a
+        assert (1, 1) < a
+        assert not (1, 3) < a
 
     def test_hash(self):
-        a = (1,2)
+        a = (1, 2)
         b = (1,)
-        b += (2,) # else a and b refer to same constant
+        b += (2,)  # else a and b refer to same constant
         assert hash(a) == hash(b)
 
-        c = (2,4)
+        c = (2, 4)
         assert hash(a) != hash(c)
 
         assert hash(a) == hash((1L, 2L)) == hash((1.0, 2.0)) == hash((1.0, 2L))

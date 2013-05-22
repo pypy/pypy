@@ -8,8 +8,8 @@ from rpython.tool.sourcetools import func_with_new_name
 
 def make_specialized_class(n):
     iter_n = unrolling_iterable(range(n))
-    class cls(W_AbstractTupleObject):
 
+    class cls(W_AbstractTupleObject):
         def __init__(self, values):
             assert len(values) == n
             for i in iter_n:
@@ -32,7 +32,7 @@ def make_specialized_class(n):
                 index += n
             for i in iter_n:
                 if index == i:
-                    return getattr(self,'w_value%s' % i)
+                    return getattr(self, 'w_value%s' % i)
             raise OperationError(space.w_IndexError,
                                  space.wrap("tuple index out of range"))
 
@@ -42,7 +42,7 @@ def make_specialized_class(n):
             if n != w_other.length():
                 return space.w_False
             for i in iter_n:
-                item1 = getattr(self,'w_value%s' % i)
+                item1 = getattr(self, 'w_value%s' % i)
                 item2 = w_other.getitem(space, i)
                 if not space.eq_w(item1, item2):
                     return space.w_False
