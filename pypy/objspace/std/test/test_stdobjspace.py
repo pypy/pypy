@@ -37,7 +37,6 @@ class TestW_StdObjSpace:
         assert space.sliceindices(w_obj, w(3)) == (1,2,3)
 
     def test_fastpath_isinstance(self):
-        py.test.skip("skipped until SMMs are removed")
         from pypy.objspace.std.stringobject import W_StringObject
         from pypy.objspace.std.intobject import W_IntObject
         from pypy.objspace.std.iterobject import W_AbstractSeqIterObject
