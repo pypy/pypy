@@ -399,3 +399,11 @@ class AppTestW_TupleObject:
         assert ((5,) != (N,)) is True
         assert ((5,) >  (N,)) is False
         assert ((5,) >= (N,)) is False
+
+    def test_eq_other_type(self):
+        assert (() == object()) is False
+        assert ((1,) == object()) is False
+        assert ((1, 2) == object()) is False
+        assert (() != object()) is True
+        assert ((1,) != object()) is True
+        assert ((1, 2) != object()) is True
