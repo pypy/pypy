@@ -19,7 +19,7 @@ from rpython.jit.backend.llsupport.regalloc import get_scale, valid_addressing_s
 from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from rpython.jit.backend.model import CompiledLoopToken
 from rpython.jit.codewriter.effectinfo import EffectInfo
-from rpython.jit.metainterp.history import AbstractFailDescr, FLOAT
+from rpython.jit.metainterp.history import AbstractFailDescr, FLOAT, INT
 from rpython.jit.metainterp.resoperation import rop
 from rpython.rlib.debug import debug_print, debug_start, debug_stop
 from rpython.rlib.jit import AsmInfo
@@ -27,6 +27,7 @@ from rpython.rlib.objectmodel import we_are_translated, specialize, compute_uniq
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_gcref
 from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.jit.backend.arm import callbuilder
 
 class AssemblerARM(ResOpAssembler):
 
@@ -1416,6 +1417,21 @@ class AssemblerARM(ResOpAssembler):
             mc.MUL(targetreg.value, sourcereg.value, targetreg.value)
         #
         return shiftsize
+
+    def simple_call(self, fnloc, arglocs, result_loc=r.r0):
+        if result_loc.is_vfp_reg():
+            result_type = FLOAT
+            result_size = DOUBLE_WORD
+        elif result_loc is None:
+            result_type = VOID
+            result_size = 0
+        else:
+            result_type = INT
+            result_size = WORD
+        cb = callbuilder.get_callbuilder(self.cpu, self, fnloc, arglocs,
+                                     result_loc, result_type,
+                                     result_size)
+        cb.emit()
 
 def not_implemented(msg):
     os.write(2, '[ARM/asm] %s\n' % msg)

@@ -942,14 +942,14 @@ class ResOpAssembler(BaseAssembler):
             vloc = imm(0)
         self.call_assembler(op, guard_op, argloc, vloc, result_loc, tmploc)
         self._emit_guard_may_force(guard_op,
-                        regalloc._prepare_guard(guard_op), guard_op.numargs())
+                        regalloc._prepare_guard(guard_op))
         return fcond
 
     def _call_assembler_emit_call(self, addr, argloc, resloc):
-        self.simple_call(addr, [argloc], resloc=resloc)
+        self.simple_call(addr, [argloc], result_loc=resloc)
 
     def _call_assembler_emit_helper_call(self, addr, arglocs, resloc):
-        self.simple_call(addr, arglocs, resloc=resloc)
+        self.simple_call(addr, arglocs, result_loc=resloc)
 
     def _call_assembler_check_descr(self, value, tmploc):
         ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
