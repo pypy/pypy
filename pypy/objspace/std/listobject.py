@@ -13,7 +13,7 @@ from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.inttype import wrapint
 from pypy.objspace.std.iterobject import (W_FastListIterObject,
     W_ReverseSeqIterObject)
-from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
+from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.objspace.std.stdtypedef import StdTypeDef
 from pypy.objspace.std.stringobject import W_StringObject
 from pypy.objspace.std.tupleobject import W_AbstractTupleObject
@@ -485,15 +485,6 @@ class W_ListObject(W_Root):
             raise OperationError(space.w_IndexError,
                                  space.wrap("list index out of range"))
 
-    def descr_getslice(self, space, w_start, w_stop):
-        length = self.length()
-        start, stop = normalize_simple_slice(space, length, w_start, w_stop)
-
-        slicelength = stop - start
-        if slicelength == 0:
-            return make_empty_list(space)
-        return self.getslice(start, stop, 1, stop - start)
-
     def descr_setitem(self, space, w_index, w_any):
         if isinstance(w_index, W_SliceObject):
             oldsize = self.length()
@@ -513,17 +504,6 @@ class W_ListObject(W_Root):
             raise OperationError(space.w_IndexError,
                                  space.wrap("list index out of range"))
 
-    def descr_setslice(self, space, w_start, w_stop, w_iterable):
-        length = self.length()
-        start, stop = normalize_simple_slice(space, length, w_start, w_stop)
-
-        if isinstance(w_iterable, W_ListObject):
-            self.setslice(start, 1, stop - start, w_iterable)
-        else:
-            sequence_w = space.listview(w_iterable)
-            w_other = W_ListObject(space, sequence_w)
-            self.setslice(start, 1, stop - start, w_other)
-
     def descr_delitem(self, space, w_idx):
         if isinstance(w_idx, W_SliceObject):
             start, stop, step, slicelength = w_idx.indices4(
@@ -539,11 +519,6 @@ class W_ListObject(W_Root):
         except IndexError:
             raise OperationError(space.w_IndexError,
                                  space.wrap("list index out of range"))
-
-    def descr_delslice(self, space, w_start, w_stop):
-        length = self.length()
-        start, stop = normalize_simple_slice(space, length, w_start, w_stop)
-        self.deleteslice(start, 1, stop - start)
 
     def descr_reversed(self, space):
         'L.__reversed__() -- return a reverse iterator over the list'
@@ -1713,11 +1688,8 @@ list(sequence) -> new list initialized from sequence's items""",
     __imul__ = interp2app(W_ListObject.descr_inplace_mul),
 
     __getitem__ = interp2app(W_ListObject.descr_getitem),
-    __getslice__ = interp2app(W_ListObject.descr_getslice),
     __setitem__ = interp2app(W_ListObject.descr_setitem),
-    __setslice__ = interp2app(W_ListObject.descr_setslice),
     __delitem__ = interp2app(W_ListObject.descr_delitem),
-    __delslice__ = interp2app(W_ListObject.descr_delslice),
 
     sort = interp2app(W_ListObject.descr_sort),
     index = interp2app(W_ListObject.descr_index),
