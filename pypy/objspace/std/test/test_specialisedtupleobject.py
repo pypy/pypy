@@ -216,4 +216,4 @@ class AppTestW_SpecialisedTupleObject:
 
 
 class AppTestAll(test_tupleobject.AppTestW_TupleObject):
-    pass
+    spaceconfig = {"objspace.std.withspecialisedtuple": True}
