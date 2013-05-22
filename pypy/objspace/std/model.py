@@ -15,8 +15,6 @@ def registerimplementation(implcls):
     _registered_implementations.add(implcls)
 
 option_to_typename = {
-    "withspecialisedtuple" : ["specialisedtupleobject.W_SpecialisedTupleObject"],
-    "withsmalltuple" : ["smalltupleobject.W_SmallTupleObject"],
     "withsmalllong"  : ["smalllongobject.W_SmallLongObject"],
     "withstrbuf"     : ["strbufobject.W_StringBufferObject"],
 }
@@ -38,7 +36,6 @@ class StdTypeModel:
             from pypy.objspace.std.inttype    import int_typedef
             from pypy.objspace.std.floattype  import float_typedef
             from pypy.objspace.std.complextype  import complex_typedef
-            from pypy.objspace.std.tupletype  import tuple_typedef
             from pypy.objspace.std.basestringtype import basestring_typedef
             from pypy.objspace.std.stringtype import str_typedef
             from pypy.objspace.std.bytearraytype import bytearray_typedef
@@ -79,6 +76,7 @@ class StdTypeModel:
 
         # not-multimethod based types
 
+        self.pythontypes.append(tupleobject.W_TupleObject.typedef)
         self.pythontypes.append(listobject.W_ListObject.typedef)
         self.pythontypes.append(dictmultiobject.W_DictMultiObject.typedef)
         self.pythontypes.append(setobject.W_SetObject.typedef)
@@ -90,7 +88,6 @@ class StdTypeModel:
             boolobject.W_BoolObject: [],
             intobject.W_IntObject: [],
             floatobject.W_FloatObject: [],
-            tupleobject.W_TupleObject: [],
             stringobject.W_StringObject: [],
             bytearrayobject.W_BytearrayObject: [],
             typeobject.W_TypeObject: [],
@@ -109,7 +106,6 @@ class StdTypeModel:
 
         self.imported_but_not_registered = {
             stringobject.W_StringObject: True,
-            tupleobject.W_TupleObject: True,
         }
         for option, value in config.objspace.std:
             if option.startswith("with") and option in option_to_typename:
@@ -190,15 +186,6 @@ class StdTypeModel:
                 (unicodeobject.W_UnicodeObject,
                                        strbufobject.delegate_buf2unicode)
                 ]
-        if config.objspace.std.withsmalltuple:
-            from pypy.objspace.std import smalltupleobject
-            self.typeorder[smalltupleobject.W_SmallTupleObject] += [
-                (tupleobject.W_TupleObject, smalltupleobject.delegate_SmallTuple2Tuple)]
-
-        if config.objspace.std.withspecialisedtuple:
-            from pypy.objspace.std import specialisedtupleobject
-            self.typeorder[specialisedtupleobject.W_SpecialisedTupleObject] += [
-                (tupleobject.W_TupleObject, specialisedtupleobject.delegate_SpecialisedTuple2Tuple)]
 
         # put W_Root everywhere
         self.typeorder[W_Root] = []

@@ -12,7 +12,6 @@ from pypy.objspace.std.stringobject import (
     W_StringObject, make_rsplit_with_delim)
 from pypy.objspace.std.stringtype import stringendswith, stringstartswith
 from pypy.objspace.std.register_all import register_all
-from pypy.objspace.std.tupleobject import W_TupleObject
 from rpython.rlib import jit
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rlib.objectmodel import (
@@ -501,8 +500,10 @@ def unicode_startswith__Unicode_Unicode_ANY_ANY(space, w_self, w_substr, w_start
     #     with additional parameters as rpython)
     return space.newbool(stringstartswith(self, w_substr._value, start, end))
 
-def unicode_startswith__Unicode_Tuple_ANY_ANY(space, w_unistr, w_prefixes,
+def unicode_startswith__Unicode_ANY_ANY_ANY(space, w_unistr, w_prefixes,
                                               w_start, w_end):
+    if not space.isinstance_w(w_prefixes, space.w_tuple):
+        raise FailedToImplement
     unistr, start, end = _convert_idx_params(space, w_unistr,
                                              w_start, w_end, True)
     for w_prefix in space.fixedview(w_prefixes):
@@ -511,8 +512,10 @@ def unicode_startswith__Unicode_Tuple_ANY_ANY(space, w_unistr, w_prefixes,
             return space.w_True
     return space.w_False
 
-def unicode_endswith__Unicode_Tuple_ANY_ANY(space, w_unistr, w_suffixes,
+def unicode_endswith__Unicode_ANY_ANY_ANY(space, w_unistr, w_suffixes,
                                             w_start, w_end):
+    if not space.isinstance_w(w_suffixes, space.w_tuple):
+        raise FailedToImplement
     unistr, start, end = _convert_idx_params(space, w_unistr,
                                              w_start, w_end, True)
     for w_suffix in space.fixedview(w_suffixes):

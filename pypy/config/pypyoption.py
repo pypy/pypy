@@ -215,10 +215,6 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                    "(the empty string and potentially single-char strings)",
                    default=False),
 
-        BoolOption("withsmalltuple",
-                   "use small tuples",
-                   default=False),
-
         BoolOption("withspecialisedtuple",
                    "use specialised tuples",
                    default=False),
