@@ -78,10 +78,6 @@ class AppTestW_SpecialisedTupleObject:
             obj = (1, 2, 3)
             assert self.isspecialised(obj, '_ooo')
 
-    def test_delegation(self):
-        t = self.forbid_delegation((42, 43))
-        raises(ReferenceError, t.__contains__, 0)
-
     def test_len(self):
         t = (42, 43)
         assert len(t) == 2
