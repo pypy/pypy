@@ -6,7 +6,7 @@ from rpython.jit.backend.llgraph import runner
 from rpython.jit.metainterp.warmspot import ll_meta_interp, get_stats
 from rpython.jit.metainterp.warmstate import unspecialize_value
 from rpython.jit.metainterp.optimizeopt import ALL_OPTS_DICT
-from rpython.jit.metainterp import pyjitpl, history
+from rpython.jit.metainterp import pyjitpl, history, jitexc
 from rpython.jit.codewriter.policy import JitPolicy
 from rpython.jit.codewriter import codewriter, longlong
 from rpython.rlib.rfloat import isnan
@@ -118,30 +118,19 @@ def _run_with_blackhole(testself, args):
     return blackholeinterp._final_result_anytype()
 
 def _run_with_pyjitpl(testself, args):
-
-    class DoneWithThisFrame(Exception):
-        pass
-
-    class DoneWithThisFrameRef(DoneWithThisFrame):
-        def __init__(self, cpu, *args):
-            DoneWithThisFrame.__init__(self, *args)
-
     cw = testself.cw
     opt = history.Options(listops=True)
     metainterp_sd = pyjitpl.MetaInterpStaticData(cw.cpu, opt)
     metainterp_sd.finish_setup(cw)
     [jitdriver_sd] = metainterp_sd.jitdrivers_sd
     metainterp = pyjitpl.MetaInterp(metainterp_sd, jitdriver_sd)
-    metainterp_sd.DoneWithThisFrameInt = DoneWithThisFrame
-    metainterp_sd.DoneWithThisFrameRef = DoneWithThisFrameRef
-    metainterp_sd.DoneWithThisFrameFloat = DoneWithThisFrame
     testself.metainterp = metainterp
     try:
         metainterp.compile_and_run_once(jitdriver_sd, *args)
-    except DoneWithThisFrame, e:
-        #if option.view:
-        #    metainterp.stats.view()
-        return e.args[0]
+    except (jitexc.DoneWithThisFrameInt,
+            jitexc.DoneWithThisFrameRef,
+            jitexc.DoneWithThisFrameFloat) as e:
+        return e.result
     else:
         raise Exception("FAILED")
 

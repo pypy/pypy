@@ -344,7 +344,7 @@ def build_slot_tp_function(space, typedef, name):
             return
 
         @cpython_api([PyObject, PyObject, PyObject], rffi.INT_real,
-                     error=-1, external=True) # XXX should not be exported
+                     error=-1, external=False)
         @func_renamer("cpyext_tp_setattro_%s" % (typedef.name,))
         def slot_tp_setattro(space, w_self, w_name, w_value):
             if w_value is not None:

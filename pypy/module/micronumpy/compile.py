@@ -14,6 +14,7 @@ from pypy.module.micronumpy.interp_numarray import array
 from pypy.module.micronumpy.interp_arrayops import where
 from pypy.module.micronumpy import interp_ufuncs
 from rpython.rlib.objectmodel import specialize, instantiate
+from rpython.rlib.nonconst import NonConstant
 
 
 class BogusBytecode(Exception):
@@ -40,6 +41,10 @@ SINGLE_ARG_FUNCTIONS = ["sum", "prod", "max", "min", "all", "any",
 TWO_ARG_FUNCTIONS = ["dot", 'take']
 THREE_ARG_FUNCTIONS = ['where']
 
+class W_TypeObject(W_Root):
+    def __init__(self, name):
+        self.name = name
+
 class FakeSpace(object):
     w_ValueError = "ValueError"
     w_TypeError = "TypeError"
@@ -48,17 +53,18 @@ class FakeSpace(object):
     w_NotImplementedError = "NotImplementedError"
     w_None = None
 
-    w_bool = "bool"
-    w_int = "int"
-    w_float = "float"
-    w_list = "list"
-    w_long = "long"
-    w_tuple = 'tuple'
-    w_slice = "slice"
-    w_str = "str"
-    w_unicode = "unicode"
-    w_complex = "complex"
-    
+    w_bool = W_TypeObject("bool")
+    w_int = W_TypeObject("int")
+    w_float = W_TypeObject("float")
+    w_list = W_TypeObject("list")
+    w_long = W_TypeObject("long")
+    w_tuple = W_TypeObject('tuple')
+    w_slice = W_TypeObject("slice")
+    w_str = W_TypeObject("str")
+    w_unicode = W_TypeObject("unicode")
+    w_complex = W_TypeObject("complex")
+    w_dict = W_TypeObject("dict")
+
     def __init__(self):
         """NOT_RPYTHON"""
         self.fromcache = InternalSpaceCache(self).getorbuild
@@ -71,6 +77,13 @@ class FakeSpace(object):
 
     def issequence_w(self, w_obj):
         return isinstance(w_obj, ListObject) or isinstance(w_obj, W_NDimArray)
+
+    def len(self, w_obj):
+        assert isinstance(w_obj, ListObject)
+        return self.wrap(len(w_obj.items))
+
+    def getattr(self, w_obj, w_attr):
+        return StringObject(NonConstant('foo'))
 
     def isinstance_w(self, w_obj, w_tp):
         return w_obj.tp == w_tp
@@ -115,9 +128,13 @@ class FakeSpace(object):
     def newcomplex(self, r, i):
         return ComplexObject(r, i)
 
-    def listview(self, obj):
+    def listview(self, obj, number=-1):
         assert isinstance(obj, ListObject)
+        if number != -1:
+            assert number == 2
+            return [obj.items[0], obj.items[1]]
         return obj.items
+
     fixedview = listview
 
     def float(self, w_obj):
@@ -480,7 +497,7 @@ class FunctionCall(Node):
                 w_res = neg.call(interp.space, [arr])
             elif self.name == "cos":
                 cos = interp_ufuncs.get(interp.space).cos
-                w_res = cos.call(interp.space, [arr])                
+                w_res = cos.call(interp.space, [arr])
             elif self.name == "flat":
                 w_res = arr.descr_get_flatiter(interp.space)
             elif self.name == "argsort":

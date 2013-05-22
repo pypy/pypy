@@ -44,6 +44,7 @@ class TestDicts(BaseTestPyPyC):
         # gc_id call is hoisted out of the loop, the id of a value obviously
         # can't change ;)
         assert loop.match_by_id("getitem", """
+            ...
             i26 = call(ConstClass(ll_dict_lookup), p18, p6, i25, descr=...)
             ...
             p33 = getinteriorfield_gc(p31, i26, descr=<InteriorFieldDescr <FieldP dictentry.value .*>>)

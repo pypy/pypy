@@ -365,8 +365,9 @@ def test_hash_differences():
     BInt = new_primitive_type("int")
     BFloat = new_primitive_type("float")
     for i in range(1, 20):
-        if (hash(cast(BChar, chr(i))) !=
-            hash(cast(BInt, i))):
+        x1 = cast(BChar, chr(i))
+        x2 = cast(BInt, i)
+        if hash(x1) != hash(x2):
             break
     else:
         raise AssertionError("hashes are equal")
@@ -2722,6 +2723,14 @@ def test_cdata_name_module_doc():
     assert x.__module__ == '_cffi_backend'
     assert x.__name__ == '<cdata>'
     assert hasattr(x, '__doc__')
+
+def test_different_types_of_ptr_equality():
+    BVoidP = new_pointer_type(new_void_type())
+    BIntP = new_pointer_type(new_primitive_type("int"))
+    x = cast(BVoidP, 12345)
+    assert x == cast(BIntP, 12345)
+    assert x != cast(BIntP, 12344)
+    assert hash(x) == hash(cast(BIntP, 12345))
 
 def test_version():
     # this test is here mostly for PyPy

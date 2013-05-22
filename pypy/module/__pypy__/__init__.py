@@ -55,6 +55,7 @@ class Module(MixedModule):
         'validate_fd'               : 'interp_magic.validate_fd',
         'resizelist_hint'           : 'interp_magic.resizelist_hint',
         'newlist_hint'              : 'interp_magic.newlist_hint',
+        'add_memory_pressure'       : 'interp_magic.add_memory_pressure',
         'newdict'                   : 'interp_dict.newdict',
         'dictstrategy'              : 'interp_dict.dictstrategy',
         'set_debug'                 : 'interp_magic.set_debug',

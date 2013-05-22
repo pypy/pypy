@@ -1,11 +1,10 @@
-from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.interpreter.error import OperationError, wrap_oserror
 from pypy.interpreter.gateway import unwrap_spec
 from rpython.rlib.objectmodel import we_are_translated
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.typeobject import MethodCache
 from pypy.objspace.std.mapdict import IndexCache
-from rpython.rlib import rposix
+from rpython.rlib import rposix, rgc
 
 
 def internal_repr(space, w_object):
@@ -56,7 +55,7 @@ def builtinify(space, w_func):
     bltn = BuiltinFunction(func)
     return space.wrap(bltn)
 
-@unwrap_spec(ObjSpace, W_Root, str)
+@unwrap_spec(meth=str)
 def lookup_special(space, w_obj, meth):
     """Lookup up a special method on an object."""
     if space.is_oldstyle_instance(w_obj):
@@ -108,3 +107,7 @@ def set_debug(space, debug):
     space.setitem(space.builtin.w_dict,
                   space.wrap('__debug__'),
                   space.wrap(debug))
+
+@unwrap_spec(estimate=int)
+def add_memory_pressure(estimate):
+    rgc.add_memory_pressure(estimate)

@@ -5,8 +5,6 @@ from rpython.rlib import jit
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rlib.rstring import StringBuilder
 
-import py
-
 
 class TestLLtype(LLJitMixin):
     def test_dont_record_repeated_guard_class(self):
@@ -628,3 +626,22 @@ class TestLLtype(LLJitMixin):
         res = self.interp_operations(fn, [0])
         assert res == 1
         self.check_operations_history(getarrayitem_gc=0, getarrayitem_gc_pure=0)
+
+    def test_raise_known_class_no_guard_class(self):
+        def raise_exc(cls):
+            raise cls
+
+        def fn(n):
+            if n:
+                cls = ValueError
+            else:
+                cls = TypeError
+            try:
+                raise_exc(cls)
+            except ValueError:
+                return -1
+            return n
+
+        res = self.interp_operations(fn, [1])
+        assert res == -1
+        self.check_operations_history(guard_class=0)

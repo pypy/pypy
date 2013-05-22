@@ -7,18 +7,20 @@ from rpython.jit.metainterp.resoperation import rop
 from rpython.rtyper.annlowlevel import hlstr
 from rpython.jit.metainterp.jitprof import Profiler
 
+
 class JitHookInterfaceTests(object):
     # !!!note!!! - don't subclass this from the backend. Subclass the LL
     # class later instead
     def test_abort_quasi_immut(self):
         reasons = []
-        
+
         class MyJitIface(JitHookInterface):
-            def on_abort(self, reason, jitdriver, greenkey, greenkey_repr):
+            def on_abort(self, reason, jitdriver, greenkey, greenkey_repr, logops, operations):
                 assert jitdriver is myjitdriver
                 assert len(greenkey) == 1
                 reasons.append(reason)
                 assert greenkey_repr == 'blah'
+                assert len(operations) > 1
 
         iface = MyJitIface()
 
@@ -27,8 +29,10 @@ class JitHookInterfaceTests(object):
 
         class Foo:
             _immutable_fields_ = ['a?']
+
             def __init__(self, a):
                 self.a = a
+
         def f(a, x):
             foo = Foo(a)
             total = 0
@@ -47,7 +51,7 @@ class JitHookInterfaceTests(object):
 
     def test_on_compile(self):
         called = []
-        
+
         class MyJitIface(JitHookInterface):
             def after_compile(self, di):
                 called.append(("compile", di.greenkey[1].getint(),

@@ -1025,3 +1025,30 @@ class TestOptimizations:
         counts = self.count_instructions(source3)
         assert counts[ops.BUILD_LIST] == 1
         assert ops.BUILD_LIST_FROM_ARG not in counts
+
+    def test_folding_of_list_constants(self):
+        for source in (
+            # in/not in constants with BUILD_LIST should be folded to a tuple:
+            'a in [1,2,3]',
+            'a not in ["a","b","c"]',
+            'a in [None, 1, None]',
+            'a not in [(1, 2), 3, 4]',
+            ):
+            source = 'def f(): %s' % source
+            counts = self.count_instructions(source)
+            assert ops.BUILD_LIST not in counts
+            assert ops.LOAD_CONST in counts
+
+    def test_folding_of_set_constants(self):
+        for source in (
+            # in/not in constants with BUILD_SET should be folded to a frozenset:
+            'a in {1,2,3}',
+            'a not in {"a","b","c"}',
+            'a in {None, 1, None}',
+            'a not in {(1, 2), 3, 4}',
+            'a in {1, 2, 3, 3, 2, 1}',
+            ):
+            source = 'def f(): %s' % source
+            counts = self.count_instructions(source)
+            assert ops.BUILD_SET not in counts
+            assert ops.LOAD_CONST in counts

@@ -82,6 +82,29 @@ class Runner:
                 return True
         return False
 
+    @here_is_a_test
+    def test_c_callback(self):
+        #
+        self.steps = [0]
+        self.main_h = self.sthread.new(cb_stacklet_callback, llmemory.NULL)
+        self.steps.append(2)
+        call_qsort_rec(10)
+        self.steps.append(9)
+        assert not self.sthread.is_empty_handle(self.main_h)
+        self.main_h = self.sthread.switch(self.main_h)
+        assert self.sthread.is_empty_handle(self.main_h)
+        #
+        # check that self.steps == [0,1,2, 3,4,5,6, 3,4,5,6, 3,4,5,6,..., 9]
+        print self.steps
+        expected = 0
+        assert self.steps[-1] == 9
+        for i in range(len(self.steps)-1):
+            if expected == 7:
+                expected = 3
+            assert self.steps[i] == expected
+            expected += 1
+        assert expected == 7
+
 
 class FooObj:
     def __init__(self, n, d, next=None):
@@ -210,6 +233,43 @@ def variousstackdepths_callback(h, arg):
     runner.nextstep = runner.status
     print "LEAVING %d to go to %d" % (self.n, n)
     return h
+
+QSORT_CALLBACK_PTR = lltype.Ptr(lltype.FuncType(
+    [llmemory.Address, llmemory.Address], rffi.INT))
+qsort = rffi.llexternal('qsort',
+                        [llmemory.Address, rffi.SIZE_T, rffi.SIZE_T,
+                         QSORT_CALLBACK_PTR],
+                        lltype.Void)
+def cb_compare_callback(a, b):
+    runner.steps.append(3)
+    assert not runner.sthread.is_empty_handle(runner.main_h)
+    runner.main_h = runner.sthread.switch(runner.main_h)
+    assert not runner.sthread.is_empty_handle(runner.main_h)
+    runner.steps.append(6)
+    return rffi.cast(rffi.INT, 1)
+def cb_stacklet_callback(h, arg):
+    runner.steps.append(1)
+    while True:
+        assert not runner.sthread.is_empty_handle(h)
+        h = runner.sthread.switch(h)
+        assert not runner.sthread.is_empty_handle(h)
+        if runner.steps[-1] == 9:
+            return h
+        runner.steps.append(4)
+        rgc.collect()
+        runner.steps.append(5)
+class GcObject(object):
+    num = 1234
+def call_qsort_rec(r):
+    if r > 0:
+        g = GcObject()
+        g.num += r
+        call_qsort_rec(r - 1)
+        assert g.num == 1234 + r
+    else:
+        raw = llmemory.raw_malloc(5)
+        qsort(raw, 5, 1, cb_compare_callback)
+        llmemory.raw_free(raw)
 
 
 def entry_point(argv):
