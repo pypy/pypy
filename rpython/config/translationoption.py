@@ -18,9 +18,9 @@ DEFL_GC = "minimark"
 _is_x86 = autodetect() in (MODEL_X86, MODEL_X86_64, MODEL_X86_NO_SSE2)
 
 if sys.platform.startswith("linux") and _is_x86:
-    DEFL_ROOTFINDER = "asmgcc"
+    DEFL_ROOTFINDER_WITHJIT = "asmgcc"
 else:
-    DEFL_ROOTFINDER = "shadowstack"
+    DEFL_ROOTFINDER_WITHJIT = "shadowstack"
 
 IS_64_BITS = sys.maxint > 2147483647
 
@@ -94,7 +94,7 @@ translation_optiondescription = OptionDescription(
     ChoiceOption("gcrootfinder",
                  "Strategy for finding GC Roots (framework GCs only)",
                  ["n/a", "shadowstack", "asmgcc"],
-                 DEFL_ROOTFINDER,
+                 "shadowstack",
                  cmdline="--gcrootfinder",
                  requires={
                      "shadowstack": [("translation.gctransformer", "framework")],
@@ -117,7 +117,7 @@ translation_optiondescription = OptionDescription(
     BoolOption("jit", "generate a JIT",
                default=False,
                suggests=[("translation.gc", DEFL_GC),
-                         ("translation.gcrootfinder", DEFL_ROOTFINDER),
+                         ("translation.gcrootfinder", DEFL_ROOTFINDER_WITHJIT),
                          ("translation.list_comprehension_operations", True)]),
     ChoiceOption("jit_backend", "choose the backend for the JIT",
                  ["auto", "x86", "x86-without-sse2", 'arm'],
