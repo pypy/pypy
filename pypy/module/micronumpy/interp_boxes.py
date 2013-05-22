@@ -268,14 +268,30 @@ def descr_index(space, self):
 
 
 class W_VoidBox(W_FlexibleBox):
-    @unwrap_spec(item=str)
-    def descr_getitem(self, space, item):
+    def descr_getitem(self, space, w_item):
+        from pypy.module.micronumpy.types import VoidType
+        if space.isinstance_w(w_item, space.w_str):
+            item = space.str_w(w_item)
+        elif space.isinstance_w(w_item, space.w_int):
+            #Called by iterator protocol
+            indx = space.int_w(w_item)
+            try:
+                item = self.dtype.fieldnames[indx]
+            except IndexError:
+                raise OperationError(space.w_IndexError,
+                     space.wrap("Iterated over too many fields %d" % indx))
+        else:
+            raise OperationError(space.w_IndexError, space.wrap(
+                    "Can only access fields of record with int or str"))
         try:
             ofs, dtype = self.dtype.fields[item]
         except KeyError:
             raise OperationError(space.w_IndexError,
                                  space.wrap("Field %s does not exist" % item))
-        read_val = dtype.itemtype.read(self.arr, self.ofs, ofs, dtype)
+        if isinstance(dtype.itemtype, VoidType):
+            read_val = dtype.itemtype.readarray(self.arr, self.ofs, ofs, dtype)
+        else:
+            read_val = dtype.itemtype.read(self.arr, self.ofs, ofs, dtype)
         if isinstance (read_val, W_StringBox):
             # StringType returns a str
             return space.wrap(dtype.itemtype.to_str(read_val))
@@ -373,7 +389,7 @@ elif ENABLED_LONG_DOUBLE:
     W_LongDoubleBox = W_Float64Box
     W_CLongDoubleBox = W_Complex64Box
 
-    
+
 W_GenericBox.typedef = TypeDef("generic",
     __module__ = "numpypy",
 
