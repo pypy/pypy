@@ -2734,4 +2734,4 @@ def test_different_types_of_ptr_equality():
 
 def test_version():
     # this test is here mostly for PyPy
-    assert __version__ == "0.6"
+    assert __version__ == "0.7"
