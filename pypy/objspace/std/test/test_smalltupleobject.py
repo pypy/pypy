@@ -67,14 +67,11 @@ class TestW_SmallTupleObject():
         assert isinstance(w_tuple, W_SmallTupleObject2)
 
     def test_hash_agains_normal_tuple(self):
-        normalspace = gettestobjspace(**{"objspace.std.withsmalltuple": False})
-        w_tuple = normalspace.newtuple([self.space.wrap(1), self.space.wrap(2)])
-
-        smallspace = gettestobjspace(**{"objspace.std.withsmalltuple": True})
-        w_smalltuple = smallspace.newtuple([self.space.wrap(1), self.space.wrap(2)])
-
+        w_tuple = W_TupleObject([self.space.wrap(1), self.space.wrap(2)])
+        w_smalltuple = self.space.newtuple([self.space.wrap(1),
+                                            self.space.wrap(2)])
         assert isinstance(w_smalltuple, W_SmallTupleObject2)
-        assert isinstance(w_tuple, W_TupleObject)
-        assert not normalspace.is_true(normalspace.eq(w_tuple, w_smalltuple))
-        assert smallspace.is_true(smallspace.eq(w_tuple, w_smalltuple))
-        assert smallspace.is_true(smallspace.eq(normalspace.hash(w_tuple), smallspace.hash(w_smalltuple)))
+
+        assert self.space.is_true(self.space.eq(w_tuple, w_smalltuple))
+        assert self.space.is_true(self.space.eq(self.space.hash(w_tuple),
+                                                self.space.hash(w_smalltuple)))
