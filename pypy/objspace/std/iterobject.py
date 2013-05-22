@@ -33,11 +33,6 @@ class W_AbstractSeqIterObject(W_Root):
         XXX to do: remove this __reduce__ method and do
         a registration with copy_reg, instead.
         """
-
-        # cpython does not support pickling iterators but stackless python do
-        #msg = 'Pickling for iterators dissabled as cpython does not support it'
-        #raise OperationError(space.w_TypeError, space.wrap(msg))
-
         from pypy.objspace.std.iterobject import W_AbstractSeqIterObject
         assert isinstance(self, W_AbstractSeqIterObject)
         from pypy.interpreter.mixedmodule import MixedModule
