@@ -74,7 +74,7 @@ def make_specialised_class(typetuple):
 
         def descr_eq(self, space, w_other):
             if not isinstance(w_other, W_AbstractTupleObject):
-                return space.w_NotImplementedError
+                return space.w_NotImplemented
             if not isinstance(w_other, cls):
                 if nValues != w_other.length():
                     return space.w_False
