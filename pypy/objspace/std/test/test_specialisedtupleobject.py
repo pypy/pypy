@@ -24,20 +24,18 @@ class TestW_SpecialisedTupleObject():
         assert w_tuple.__class__.__name__ == 'W_SpecialisedTupleObject_ii'
 
     def test_hash_against_normal_tuple(self):
-        N_space = gettestobjspace(**{"objspace.std.withspecialisedtuple": False})
-        S_space = gettestobjspace(**{"objspace.std.withspecialisedtuple": True})
-
         def hash_test(values, must_be_specialized=True):
-            N_values_w = [N_space.wrap(value) for value in values]
-            S_values_w = [S_space.wrap(value) for value in values]
-            N_w_tuple = N_space.newtuple(N_values_w)
-            S_w_tuple = S_space.newtuple(S_values_w)
+            N_values_w = [self.space.wrap(value) for value in values]
+            S_values_w = [self.space.wrap(value) for value in values]
+            N_w_tuple = W_TupleObject(N_values_w)
+            S_w_tuple = self.space.newtuple(S_values_w)
 
             if must_be_specialized:
                 assert 'W_SpecialisedTupleObject' in type(S_w_tuple).__name__
-            assert isinstance(N_w_tuple, W_TupleObject)
-            assert S_space.is_true(S_space.eq(N_w_tuple, S_w_tuple))
-            assert S_space.is_true(S_space.eq(N_space.hash(N_w_tuple), S_space.hash(S_w_tuple)))
+            assert self.space.is_true(self.space.eq(N_w_tuple, S_w_tuple))
+            assert self.space.is_true(
+                    self.space.eq(self.space.hash(N_w_tuple),
+                                  self.space.hash(S_w_tuple)))
 
         hash_test([1, 2])
         hash_test([1.5, 2.8])
