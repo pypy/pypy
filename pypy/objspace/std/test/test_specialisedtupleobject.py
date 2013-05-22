@@ -1,6 +1,5 @@
 import py, sys
 from pypy.objspace.std.tupleobject import W_TupleObject
-from pypy.objspace.std.specialisedtupleobject import W_SpecialisedTupleObject
 from pypy.objspace.std.specialisedtupleobject import _specialisations
 from pypy.interpreter.error import OperationError
 from pypy.tool.pytest.objspace import gettestobjspace
@@ -21,7 +20,7 @@ class TestW_SpecialisedTupleObject():
         
     def test_isnotspecialisedtupleobject(self):
         w_tuple = self.space.newtuple([self.space.wrap({})])
-        assert not isinstance(w_tuple, W_SpecialisedTupleObject)
+        assert not 'W_SpecialisedTupleObject' in type(w_tuple).__name__
         
     def test_specialisedtupleclassname(self):
         w_tuple = self.space.newtuple([self.space.wrap(1), self.space.wrap(2)])
@@ -38,7 +37,7 @@ class TestW_SpecialisedTupleObject():
             S_w_tuple = S_space.newtuple(S_values_w)
 
             if must_be_specialized:
-                assert isinstance(S_w_tuple, W_SpecialisedTupleObject)
+                assert 'W_SpecialisedTupleObject' in type(S_w_tuple).__name__
             assert isinstance(N_w_tuple, W_TupleObject)
             assert S_space.is_true(S_space.eq(N_w_tuple, S_w_tuple))
             assert S_space.is_true(S_space.eq(N_space.hash(N_w_tuple), S_space.hash(S_w_tuple)))
@@ -56,23 +55,6 @@ class TestW_SpecialisedTupleObject():
 
 class AppTestW_SpecialisedTupleObject:
     spaceconfig = {"objspace.std.withspecialisedtuple": True}
-
-    def setup_class(cls):
-        def forbid_delegation(space, w_tuple):
-            def delegation_forbidden():
-                # haaaack
-                co = sys._getframe(2).f_code
-                if co.co_name.startswith('_mm_repr_tuple'):
-                    return
-                raise OperationError(space.w_ReferenceError, w_tuple)
-            w_tuple.delegating = delegation_forbidden
-            return w_tuple
-        if cls.runappdirect:
-            cls.w_forbid_delegation = lambda self, x: x
-            cls.test_delegation = lambda self: skip("runappdirect")
-        else:
-            cls.w_forbid_delegation = cls.space.wrap(
-                gateway.interp2app(forbid_delegation))
 
     def w_isspecialised(self, obj, expected=''):
         import __pypy__
@@ -101,12 +83,8 @@ class AppTestW_SpecialisedTupleObject:
             obj = (1, 2, 3)
             assert self.isspecialised(obj, '_ooo')
 
-    def test_delegation(self):
-        t = self.forbid_delegation((42, 43))
-        raises(ReferenceError, t.__getslice__, 0, 1)
-
     def test_len(self):
-        t = self.forbid_delegation((42,43))
+        t = (42, 43)
         assert len(t) == 2
 
     def test_notspecialisedtuple(self):
@@ -133,7 +111,7 @@ class AppTestW_SpecialisedTupleObject:
 
     def test_eq_no_delegation(self):
         t = (1,)
-        a = self.forbid_delegation(t + (2,))
+        a = t + (2,)
         b = (1, 2)
         assert a == b
 
@@ -151,7 +129,7 @@ class AppTestW_SpecialisedTupleObject:
                 assert ((1,2) == (x,y)) == (1 == x and 2 == y)
 
     def test_neq(self):
-        a = self.forbid_delegation((1,2))
+        a = (1,2)
         b = (1,)
         b = b+(2,)
         assert not a != b
@@ -160,7 +138,7 @@ class AppTestW_SpecialisedTupleObject:
         assert a != c
         
     def test_ordering(self):
-        a = (1,2) #self.forbid_delegation((1,2)) --- code commented out
+        a = (1,2)
         assert a <  (2,2)    
         assert a <  (1,3)    
         assert not a <  (1,2) 
@@ -205,7 +183,7 @@ class AppTestW_SpecialisedTupleObject:
         assert hash(a) == hash((1L, 2L)) == hash((1.0, 2.0)) == hash((1.0, 2L))
 
     def test_getitem(self):
-        t = self.forbid_delegation((5,3))
+        t = (5, 3)
         assert (t)[0] == 5
         assert (t)[1] == 3
         assert (t)[-1] == 3
@@ -216,14 +194,14 @@ class AppTestW_SpecialisedTupleObject:
     def test_three_tuples(self):
         if not self.isspecialised((1, 2, 3)):
             skip("don't have specialization for 3-tuples")
-        b = self.forbid_delegation((1, 2, 3))
+        b = (1, 2, 3)
         c = (1,)
         d = c + (2, 3)
         assert self.isspecialised(d)
         assert b == d
 
     def test_mongrel(self):
-        a = self.forbid_delegation((2.2, '333'))
+        a = (2.2, '333')
         assert self.isspecialised(a)
         assert len(a) == 2
         assert a[0] == 2.2 and a[1] == '333'
@@ -233,7 +211,7 @@ class AppTestW_SpecialisedTupleObject:
         #
         if not self.isspecialised((1, 2, 3)):
             skip("don't have specialization for 3-tuples")
-        a = self.forbid_delegation((1, 2.2, '333'))
+        a = (1, 2.2, '333')
         assert self.isspecialised(a)
         assert len(a) == 3
         assert a[0] == 1 and a[1] == 2.2 and a[2] == '333'

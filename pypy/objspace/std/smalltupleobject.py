@@ -1,5 +1,4 @@
 from pypy.interpreter.error import OperationError
-from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.objspace.std.tupleobject import W_AbstractTupleObject
 from pypy.objspace.std.util import negate
 from rpython.rlib.rarithmetic import intmask
@@ -28,16 +27,9 @@ def make_specialized_class(n):
         def length(self):
             return n
 
-        def descr_getitem(self, space, w_index):
-            if isinstance(w_index, W_SliceObject):
-                return self._getslice(space, w_index)
-            index = space.getindex_w(w_index, space.w_IndexError,
-                                     "tuple index")
-            if index < 0:
-                index += self.length()
-            return self.getitem(space, index)
-
         def getitem(self, space, index):
+            if index < 0:
+                index += n
             for i in iter_n:
                 if index == i:
                     return getattr(self,'w_value%s' % i)

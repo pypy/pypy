@@ -142,8 +142,11 @@ class W_AbstractTupleObject(W_Root):
         items = self.tolist()
         return space.newtuple(items * times)
 
-    def descr_getitem(self, space, w_other):
-        raise NotImplementedError
+    def descr_getitem(self, space, w_index):
+        if isinstance(w_index, W_SliceObject):
+            return self._getslice(space, w_index)
+        index = space.getindex_w(w_index, space.w_IndexError, "tuple index")
+        return self.getitem(space, index)
 
     def _getslice(self, space, w_index):
         items = self.tolist()
@@ -213,7 +216,7 @@ If the argument is a tuple, the return value is the same object.''',
     __mul__ = interp2app(W_AbstractTupleObject.descr_mul),
     __rmul__ = interp2app(W_AbstractTupleObject.descr_mul),
 
-    __getitem__ = interpindirect2app(W_AbstractTupleObject.descr_getitem),
+    __getitem__ = interp2app(W_AbstractTupleObject.descr_getitem),
     __getslice__ = interp2app(W_AbstractTupleObject.descr_getslice),
 
     __getnewargs__ = interp2app(W_AbstractTupleObject.descr_getnewargs),
@@ -263,16 +266,6 @@ class W_TupleObject(W_AbstractTupleObject):
         return space.w_True
 
     descr_ne = negate(descr_eq)
-
-    def descr_getitem(self, space, w_index):
-        if isinstance(w_index, W_SliceObject):
-            return self._getslice(space, w_index)
-        index = space.getindex_w(w_index, space.w_IndexError, "tuple index")
-        try:
-            return self.wrappeditems[index]
-        except IndexError:
-            raise OperationError(space.w_IndexError,
-                                 space.wrap("tuple index out of range"))
 
     def getitem(self, space, index):
         try:

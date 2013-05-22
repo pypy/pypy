@@ -187,12 +187,6 @@ class StdTypeModel:
                                        strbufobject.delegate_buf2unicode)
                 ]
 
-        # XXX fix specialisedtuple
-        #if config.objspace.std.withspecialisedtuple:
-        #    from pypy.objspace.std import specialisedtupleobject
-        #    self.typeorder[specialisedtupleobject.W_SpecialisedTupleObject] += [
-        #        (tupleobject.W_TupleObject, specialisedtupleobject.delegate_SpecialisedTuple2Tuple)]
-
         # put W_Root everywhere
         self.typeorder[W_Root] = []
         for type in self.typeorder:
