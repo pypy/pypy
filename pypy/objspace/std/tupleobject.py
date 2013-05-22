@@ -253,7 +253,7 @@ class W_TupleObject(W_AbstractTupleObject):
             z -= 1
             mult += 82520 + z + z
         x += 97531
-        return intmask(x)
+        return space.wrap(intmask(x))
 
     def descr_eq(self, space, w_other):
         if not isinstance(w_other, W_AbstractTupleObject):
