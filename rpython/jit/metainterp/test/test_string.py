@@ -582,6 +582,26 @@ class StringTests:
         res = self.interp_operations(f, [13])
         assert res == 13
 
+    def test_shrink_array(self):
+        jitdriver = JitDriver(reds=['result', 'n'], greens=[])
+        _str, _StringBuilder = self._str, self._StringBuilder
+
+        def f(n):
+            result = 0
+            while n >= 0:
+                jitdriver.jit_merge_point(n=n, result=result)
+                b = _StringBuilder(20)
+                b.append(_str("Testing!"))
+                result += len(b.build())
+                n -= 1
+            return result
+
+        res = self.meta_interp(f, [9])
+        assert res == f(9)
+        self.check_resops({
+            'jump': 1, 'guard_true': 2, 'int_ge': 2, 'int_add': 2, 'int_sub': 2
+        })
+
 
 #class TestOOtype(StringTests, OOJitMixin):
 #    CALL = "oosend"
