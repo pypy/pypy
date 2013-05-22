@@ -75,9 +75,11 @@ class W_AbstractTupleObject(W_Root):
     def descr_repr(self, space):
         items = self.tolist()
         if len(items) == 1:
-            return space.wrap("(" + space.str_w(space.repr(items[0])) + ",)")
-        tmp = ", ".join([space.str_w(space.repr(item)) for item in items])
-        return space.wrap("(" + tmp + ")")
+            return space.wrap(u"(" + space.unicode_w(space.repr(items[0])) +
+                              u",)")
+        tmp = u", ".join([space.unicode_w(space.repr(item))
+                          for item in items])
+        return space.wrap(u"(" + tmp + u")")
 
     def descr_hash(self, space):
         raise NotImplementedError
@@ -160,11 +162,6 @@ class W_AbstractTupleObject(W_Root):
             start += step
         return space.newtuple(subitems)
 
-    def descr_getslice(self, space, w_start, w_stop):
-        length = self.length()
-        start, stop = normalize_simple_slice(space, length, w_start, w_stop)
-        return space.newtuple(self.tolist()[start:stop])
-
     def descr_getnewargs(self, space):
         return space.newtuple([space.newtuple(self.tolist())])
 
@@ -220,7 +217,6 @@ If the argument is a tuple, the return value is the same object.''',
     __rmul__ = interp2app(W_AbstractTupleObject.descr_mul),
 
     __getitem__ = interp2app(W_AbstractTupleObject.descr_getitem),
-    __getslice__ = interp2app(W_AbstractTupleObject.descr_getslice),
 
     __getnewargs__ = interp2app(W_AbstractTupleObject.descr_getnewargs),
     count = interp2app(W_AbstractTupleObject.descr_count),
