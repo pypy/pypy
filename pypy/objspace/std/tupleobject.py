@@ -233,13 +233,13 @@ class W_TupleObject(W_AbstractTupleObject):
 
     def __init__(self, wrappeditems):
         make_sure_not_resized(wrappeditems)
-        self.wrappeditems = wrappeditems   # a list of wrapped values
+        self.wrappeditems = wrappeditems
 
     def tolist(self):
         return self.wrappeditems
 
     def getitems_copy(self):
-        return self.wrappeditems[:]   # returns a resizable list
+        return self.wrappeditems[:]  # returns a resizable list
 
     def length(self):
         return len(self.wrappeditems)
