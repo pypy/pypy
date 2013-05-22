@@ -276,7 +276,9 @@ translation_optiondescription = OptionDescription(
     ]),
     ChoiceOption("platform",
                  "target platform", ['host'] + PLATFORMS, default='host',
-                 cmdline='--platform'),
+                 cmdline='--platform',
+		 requires={"arm": [("translation.gcrootfinder", "shadowstack")]},
+		 suggests={"arm": [("translation.jit_backend", "arm")]}),
 
 ])
 
