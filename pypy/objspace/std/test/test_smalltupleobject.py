@@ -78,11 +78,3 @@ class TestW_SmallTupleObject():
         assert not normalspace.is_true(normalspace.eq(w_tuple, w_smalltuple))
         assert smallspace.is_true(smallspace.eq(w_tuple, w_smalltuple))
         assert smallspace.is_true(smallspace.eq(normalspace.hash(w_tuple), smallspace.hash(w_smalltuple)))
-
-    def test_setitem(self):
-        w_smalltuple = self.space.newtuple([self.space.wrap(1), self.space.wrap(2)])
-        w_smalltuple.setitem(0, self.space.wrap(5))
-        list_w = w_smalltuple.tolist()
-        assert len(list_w) == 2
-        assert self.space.eq_w(list_w[0], self.space.wrap(5))
-        assert self.space.eq_w(list_w[1], self.space.wrap(2))
