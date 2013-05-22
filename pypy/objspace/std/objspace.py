@@ -281,7 +281,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         return newlong(self, val)
 
     def newtuple(self, list_w):
-        from pypy.objspace.std.tupletype import wraptuple
+        from pypy.objspace.std.tupleobject import wraptuple
         assert isinstance(list_w, list)
         make_sure_not_resized(list_w)
         return wraptuple(self, list_w)
@@ -662,6 +662,12 @@ class StdObjSpace(ObjSpace, DescrOperation):
                     raise AssertionError("%r: %s" % (w_type, msg))
                 class2type[base] = w_type
                 self._interplevel_classes[w_type] = base
+
+        # register other things
+        self._interplevel_classes[self.w_dict] = W_DictMultiObject
+        self._interplevel_classes[self.w_list] = W_ListObject
+        self._interplevel_classes[self.w_set] = W_SetObject
+        self._interplevel_classes[self.w_tuple] = W_AbstractTupleObject
 
     @specialize.memo()
     def _get_interplevel_cls(self, w_type):

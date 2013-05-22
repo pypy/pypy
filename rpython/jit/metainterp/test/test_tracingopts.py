@@ -645,3 +645,20 @@ class TestLLtype(LLJitMixin):
         res = self.interp_operations(fn, [1])
         assert res == -1
         self.check_operations_history(guard_class=0)
+
+    def test_dont_record_setfield_gc_zeros(self):
+        class A(object):
+            pass
+
+        def make_a():
+            return A()
+        make_a._dont_inline_ = True
+
+        def fn(n):
+            a = make_a()
+            a.x = jit.promote(n)
+            return a.x
+
+        res = self.interp_operations(fn, [0])
+        assert res == 0
+        self.check_operations_history(setfield_gc=0)
