@@ -17,7 +17,11 @@ from rpython.tool.sourcetools import func_with_new_name
 UNROLL_CUTOFF = 10
 
 
-def tuple_unroll_condition(self, space, other):
+def _unroll_condition(self):
+    return jit.loop_unrolling_heuristic(self, self.length(), UNROLL_CUTOFF)
+
+
+def _unroll_condition_cmp(self, space, other):
     return (jit.loop_unrolling_heuristic(self, self.length(), UNROLL_CUTOFF) or
             jit.loop_unrolling_heuristic(other, other.length(), UNROLL_CUTOFF))
 
@@ -96,7 +100,7 @@ class W_AbstractTupleObject(W_Root):
                 return space.w_NotImplemented
             return _compare_tuples(self, space, w_other)
 
-        @jit.look_inside_iff(tuple_unroll_condition)
+        @jit.look_inside_iff(_unroll_condition_cmp)
         def _compare_tuples(self, space, w_other):
             items1 = self.tolist()
             items2 = w_other.tolist()
@@ -115,8 +119,7 @@ class W_AbstractTupleObject(W_Root):
     descr_gt = _make_tuple_comparison('gt')
     descr_ge = _make_tuple_comparison('ge')
 
-    @jit.look_inside_iff(lambda self, space, w_obj:
-            jit.loop_unrolling_heuristic(self, self.length(), UNROLL_CUTOFF))
+    @jit.look_inside_iff(lambda self, _1, _2: _unroll_condition(self))
     def descr_contains(self, space, w_obj):
         for w_item in self.tolist():
             if space.eq_w(w_item, w_obj):
@@ -167,6 +170,7 @@ class W_AbstractTupleObject(W_Root):
     def descr_getnewargs(self, space):
         return space.newtuple([space.newtuple(self.tolist())])
 
+    @jit.look_inside_iff(lambda self, _1, _2: _unroll_condition(self))
     def descr_count(self, space, w_obj):
         """count(obj) -> number of times obj appears in the tuple"""
         count = 0
@@ -177,6 +181,7 @@ class W_AbstractTupleObject(W_Root):
 
     @gateway.unwrap_spec(w_start=gateway.WrappedDefault(0),
                          w_stop=gateway.WrappedDefault(sys.maxint))
+    @jit.look_inside_iff(lambda self, _1, _2, _3, _4: _unroll_condition(self))
     def descr_index(self, space, w_obj, w_start, w_stop):
         """index(obj, [start, [stop]]) -> first index that obj appears in the
         tuple
@@ -191,7 +196,8 @@ class W_AbstractTupleObject(W_Root):
         raise OperationError(space.w_ValueError,
                              space.wrap("tuple.index(x): x not in tuple"))
 
-W_AbstractTupleObject.typedef = StdTypeDef("tuple",
+W_AbstractTupleObject.typedef = StdTypeDef(
+    "tuple",
     __doc__ = '''tuple() -> an empty tuple
 tuple(sequence) -> tuple initialized from sequence's items
 
@@ -240,8 +246,7 @@ class W_TupleObject(W_AbstractTupleObject):
     def length(self):
         return len(self.wrappeditems)
 
-    @jit.look_inside_iff(lambda self, space: jit.loop_unrolling_heuristic(
-            self.wrappeditems, len(self.wrappeditems), UNROLL_CUTOFF))
+    @jit.look_inside_iff(lambda self, _1: _unroll_condition(self))
     def descr_hash(self, space):
         # this is the CPython 2.4 algorithm (changed from 2.3)
         mult = 1000003
@@ -260,7 +265,7 @@ class W_TupleObject(W_AbstractTupleObject):
             return space.w_NotImplemented
         return self._descr_eq(space, w_other)
 
-    @jit.look_inside_iff(tuple_unroll_condition)
+    @jit.look_inside_iff(_unroll_condition_cmp)
     def _descr_eq(self, space, w_other):
         items1 = self.wrappeditems
         items2 = w_other.tolist()
