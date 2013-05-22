@@ -82,11 +82,9 @@ def make_specialised_class(typetuple):
                 for i in iter_n:
                     myval = getattr(self, 'value%s' % i)
                     otherval = w_other.getitem(space, i)
-                    if typetuple[i] == object:
-                        myval_wrapped = myval
-                    else:
-                        myval_wrapped = space.wrap(myval)
-                    if not space.eq_w(myval_wrapped, otherval):
+                    if typetuple[i] != object:
+                        myval = space.wrap(myval)
+                    if not space.eq_w(myval, otherval):
                         return space.w_False
                 else:
                     return space.w_True
