@@ -36,10 +36,10 @@ class W_AbstractSeqIterObject(W_Root):
         from pypy.objspace.std.iterobject import W_AbstractSeqIterObject
         assert isinstance(self, W_AbstractSeqIterObject)
         from pypy.interpreter.mixedmodule import MixedModule
-        w_mod    = space.getbuiltinmodule('_pickle_support')
-        mod      = space.interp_w(MixedModule, w_mod)
+        w_mod = space.getbuiltinmodule('_pickle_support')
+        mod = space.interp_w(MixedModule, w_mod)
         new_inst = mod.get('seqiter_new')
-        tup      = [self.w_seq, space.wrap(self.index)]
+        tup = [self.w_seq, space.wrap(self.index)]
         return space.newtuple([new_inst, space.newtuple(tup)])
 
     def descr_length_hint(self, space):
@@ -47,7 +47,8 @@ class W_AbstractSeqIterObject(W_Root):
         assert isinstance(self, W_AbstractSeqIterObject)
         return self.getlength(space)
 
-W_AbstractSeqIterObject.typedef = StdTypeDef("sequenceiterator",
+W_AbstractSeqIterObject.typedef = StdTypeDef(
+    "sequenceiterator",
     __doc__ = '''iter(collection) -> iterator
 iter(callable, sentinel) -> iterator
 
@@ -58,8 +59,9 @@ In the second form, the callable is called until it returns the sentinel.''',
     __iter__ = gateway.interp2app(W_AbstractSeqIterObject.descr_iter),
     next = gateway.interpindirect2app(W_AbstractSeqIterObject.descr_next),
     __reduce__ = gateway.interp2app(W_AbstractSeqIterObject.descr_reduce),
-    __length_hint__ = gateway.interp2app(W_AbstractSeqIterObject.descr_length_hint),
-    )
+    __length_hint__ = gateway.interp2app(
+        W_AbstractSeqIterObject.descr_length_hint),
+)
 W_AbstractSeqIterObject.typedef.acceptable_as_base_class = False
 
 
@@ -80,7 +82,7 @@ class W_SeqIterObject(W_AbstractSeqIterObject):
         return w_item
 
 
-class W_FastListIterObject(W_AbstractSeqIterObject): # XXX still needed
+class W_FastListIterObject(W_AbstractSeqIterObject):
     """Sequence iterator specialized for lists."""
 
     def descr_next(self, space):
@@ -135,10 +137,10 @@ class W_ReverseSeqIterObject(W_Root):
         from pypy.objspace.std.iterobject import W_ReverseSeqIterObject
         assert isinstance(self, W_ReverseSeqIterObject)
         from pypy.interpreter.mixedmodule import MixedModule
-        w_mod    = space.getbuiltinmodule('_pickle_support')
-        mod      = space.interp_w(MixedModule, w_mod)
+        w_mod = space.getbuiltinmodule('_pickle_support')
+        mod = space.interp_w(MixedModule, w_mod)
         new_inst = mod.get('reverseseqiter_new')
-        tup      = [self.w_seq, space.wrap(self.index)]
+        tup = [self.w_seq, space.wrap(self.index)]
         return space.newtuple([new_inst, space.newtuple(tup)])
 
     def descr_length_hint(self, space):
@@ -174,10 +176,12 @@ class W_ReverseSeqIterObject(W_Root):
             raise OperationError(space.w_StopIteration, space.w_None)
         return w_item
 
-W_ReverseSeqIterObject.typedef = StdTypeDef("reversesequenceiterator",
+W_ReverseSeqIterObject.typedef = StdTypeDef(
+    "reversesequenceiterator",
     __iter__ = gateway.interp2app(W_ReverseSeqIterObject.descr_iter),
     next = gateway.interp2app(W_ReverseSeqIterObject.descr_next),
     __reduce__ = gateway.interp2app(W_ReverseSeqIterObject.descr_reduce),
-    __length_hint__ = gateway.interp2app(W_ReverseSeqIterObject.descr_length_hint),
+    __length_hint__ = gateway.interp2app(
+        W_ReverseSeqIterObject.descr_length_hint),
 )
 W_ReverseSeqIterObject.typedef.acceptable_as_base_class = False
