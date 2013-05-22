@@ -191,7 +191,6 @@ class W_AbstractTupleObject(W_Root):
         raise OperationError(space.w_ValueError,
                              space.wrap("tuple.index(x): x not in tuple"))
 
-
 W_AbstractTupleObject.typedef = StdTypeDef("tuple",
     __doc__ = '''tuple() -> an empty tuple
 tuple(sequence) -> tuple initialized from sequence's items
@@ -225,7 +224,6 @@ If the argument is a tuple, the return value is the same object.''',
 )
 
 
-
 class W_TupleObject(W_AbstractTupleObject):
     _immutable_fields_ = ['wrappeditems[*]']
 
@@ -242,8 +240,20 @@ class W_TupleObject(W_AbstractTupleObject):
     def length(self):
         return len(self.wrappeditems)
 
+    @jit.look_inside_iff(lambda self, space: jit.loop_unrolling_heuristic(
+            self.wrappeditems, len(self.wrappeditems), UNROLL_CUTOFF))
     def descr_hash(self, space):
-        return space.wrap(hash_tuple(space, self.wrappeditems))
+        # this is the CPython 2.4 algorithm (changed from 2.3)
+        mult = 1000003
+        x = 0x345678
+        z = len(self.wrappeditems)
+        for w_item in self.wrappeditems:
+            y = space.hash_w(w_item)
+            x = (x ^ y) * mult
+            z -= 1
+            mult += 82520 + z + z
+        x += 97531
+        return intmask(x)
 
     def descr_eq(self, space, w_other):
         if not isinstance(w_other, W_AbstractTupleObject):
@@ -273,22 +283,6 @@ class W_TupleObject(W_AbstractTupleObject):
         except IndexError:
             raise OperationError(space.w_IndexError,
                                  space.wrap("tuple index out of range"))
-
-
-@jit.look_inside_iff(lambda space, wrappeditems:
-        jit.loop_unrolling_heuristic(wrappeditems, len(wrappeditems), UNROLL_CUTOFF))
-def hash_tuple(space, wrappeditems):
-    # this is the CPython 2.4 algorithm (changed from 2.3)
-    mult = 1000003
-    x = 0x345678
-    z = len(wrappeditems)
-    for w_item in wrappeditems:
-        y = space.hash_w(w_item)
-        x = (x ^ y) * mult
-        z -= 1
-        mult += 82520 + z + z
-    x += 97531
-    return intmask(x)
 
 
 def wraptuple(space, list_w):
