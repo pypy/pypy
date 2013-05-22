@@ -86,8 +86,7 @@ def make_specialised_class(typetuple):
                         myval = space.wrap(myval)
                     if not space.eq_w(myval, otherval):
                         return space.w_False
-                else:
-                    return space.w_True
+                return space.w_True
 
             for i in iter_n:
                 myval = getattr(self, 'value%s' % i)
@@ -98,8 +97,7 @@ def make_specialised_class(typetuple):
                 else:
                     if myval != otherval:
                         return space.w_False
-            else:
-                return space.w_True
+            return space.w_True
 
         descr_ne = negate(descr_eq)
 

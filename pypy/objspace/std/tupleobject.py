@@ -11,7 +11,6 @@ from pypy.objspace.std.util import negate
 from rpython.rlib import jit
 from rpython.rlib.debug import make_sure_not_resized
 from rpython.rlib.rarithmetic import intmask
-from rpython.tool.sourcetools import func_with_new_name
 
 
 UNROLL_CUTOFF = 10
@@ -29,13 +28,13 @@ def _unroll_condition_cmp(self, space, other):
 class W_AbstractTupleObject(W_Root):
     __slots__ = ()
 
-    def __repr__(w_self):
+    def __repr__(self):
         """representation for debugging purposes"""
-        reprlist = [repr(w_item) for w_item in w_self.tolist()]
-        return "%s(%s)" % (w_self.__class__.__name__, ', '.join(reprlist))
+        reprlist = [repr(w_item) for w_item in self.tolist()]
+        return "%s(%s)" % (self.__class__.__name__, ', '.join(reprlist))
 
-    def unwrap(w_tuple, space):
-        items = [space.unwrap(w_item) for w_item in w_tuple.tolist()]
+    def unwrap(self, space):
+        items = [space.unwrap(w_item) for w_item in self.tolist()]
         return tuple(items)
 
     def tolist(self):
@@ -112,7 +111,8 @@ class W_AbstractTupleObject(W_Root):
             # No more items to compare -- compare sizes
             return space.newbool(op(len(items1), len(items2)))
 
-        return func_with_new_name(compare_tuples, name + '__Tuple_Tuple')
+        compare_tuples.__name__ = 'descr_' + name
+        return compare_tuples
 
     descr_lt = _make_tuple_comparison('lt')
     descr_le = _make_tuple_comparison('le')
@@ -233,9 +233,9 @@ If the argument is a tuple, the return value is the same object.''',
 class W_TupleObject(W_AbstractTupleObject):
     _immutable_fields_ = ['wrappeditems[*]']
 
-    def __init__(w_self, wrappeditems):
+    def __init__(self, wrappeditems):
         make_sure_not_resized(wrappeditems)
-        w_self.wrappeditems = wrappeditems   # a list of wrapped values
+        self.wrappeditems = wrappeditems   # a list of wrapped values
 
     def tolist(self):
         return self.wrappeditems
