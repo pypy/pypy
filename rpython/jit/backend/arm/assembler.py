@@ -1433,6 +1433,11 @@ class AssemblerARM(ResOpAssembler):
                                      result_size)
         cb.emit()
 
+    def simple_call_no_collect(self, fnloc, arglocs):
+        cb = callbuilder.get_callbuilder(self.cpu, self, fnloc, arglocs)
+        cb.emit_no_collect()
+
+
 def not_implemented(msg):
     os.write(2, '[ARM/asm] %s\n' % msg)
     raise NotImplementedError(msg)
