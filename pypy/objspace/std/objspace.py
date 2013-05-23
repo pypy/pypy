@@ -19,6 +19,7 @@ from pypy.objspace.std.complexobject import W_ComplexObject
 from pypy.objspace.std.dictmultiobject import W_DictMultiObject
 from pypy.objspace.std.floatobject import W_FloatObject
 from pypy.objspace.std.intobject import W_IntObject
+from pypy.objspace.std.iterobject import W_AbstractSeqIterObject
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.longobject import W_LongObject, newlong
 from pypy.objspace.std.noneobject import W_NoneObject
@@ -668,6 +669,8 @@ class StdObjSpace(ObjSpace, DescrOperation):
         self._interplevel_classes[self.w_list] = W_ListObject
         self._interplevel_classes[self.w_set] = W_SetObject
         self._interplevel_classes[self.w_tuple] = W_AbstractTupleObject
+        self._interplevel_classes[self.w_sequenceiterator] = \
+                W_AbstractSeqIterObject
 
     @specialize.memo()
     def _get_interplevel_cls(self, w_type):

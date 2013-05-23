@@ -18,18 +18,18 @@ UNROLL_CUTOFF = 5
 class W_BaseSetObject(W_Root):
     typedef = None
 
-    def __init__(w_self, space, w_iterable=None):
+    def __init__(self, space, w_iterable=None):
         """Initialize the set by taking ownership of 'setdata'."""
-        w_self.space = space
-        set_strategy_and_setdata(space, w_self, w_iterable)
+        self.space = space
+        set_strategy_and_setdata(space, self, w_iterable)
 
-    def __repr__(w_self):
+    def __repr__(self):
         """representation for debugging purposes"""
-        reprlist = [repr(w_item) for w_item in w_self.getkeys()]
-        return "<%s(%s)>" % (w_self.__class__.__name__, ', '.join(reprlist))
+        reprlist = [repr(w_item) for w_item in self.getkeys()]
+        return "<%s(%s)>" % (self.__class__.__name__, ', '.join(reprlist))
 
-    def from_storage_and_strategy(w_self, storage, strategy):
-        obj = w_self._newobj(w_self.space, None)
+    def from_storage_and_strategy(self, storage, strategy):
+        obj = self._newobj(self.space, None)
         assert isinstance(obj, W_BaseSetObject)
         obj.strategy = strategy
         obj.sstorage = storage
@@ -501,11 +501,11 @@ class W_BaseSetObject(W_Root):
 
 
 class W_SetObject(W_BaseSetObject):
-    def _newobj(w_self, space, w_iterable):
+    def _newobj(self, space, w_iterable):
         """Make a new set by taking ownership of 'w_iterable'."""
-        if type(w_self) is W_SetObject:
+        if type(self) is W_SetObject:
             return W_SetObject(space, w_iterable)
-        w_type = space.type(w_self)
+        w_type = space.type(self)
         w_obj = space.allocate_instance(W_SetObject, w_type)
         W_SetObject.__init__(w_obj, space, w_iterable)
         return w_obj
@@ -577,11 +577,11 @@ set_typedef = W_SetObject.typedef
 class W_FrozensetObject(W_BaseSetObject):
     hash = 0
 
-    def _newobj(w_self, space, w_iterable):
+    def _newobj(self, space, w_iterable):
         """Make a new frozenset by taking ownership of 'w_iterable'."""
-        if type(w_self) is W_FrozensetObject:
+        if type(self) is W_FrozensetObject:
             return W_FrozensetObject(space, w_iterable)
-        w_type = space.type(w_self)
+        w_type = space.type(self)
         w_obj = space.allocate_instance(W_FrozensetObject, w_type)
         W_FrozensetObject.__init__(w_obj, space, w_iterable)
         return w_obj
@@ -1439,9 +1439,9 @@ class RDictIteratorImplementation(IteratorImplementation):
 
 class W_SetIterObject(W_Root):
 
-    def __init__(w_self, space, iterimplementation):
-        w_self.space = space
-        w_self.iterimplementation = iterimplementation
+    def __init__(self, space, iterimplementation):
+        self.space = space
+        self.iterimplementation = iterimplementation
 
     def descr_length_hint(self, space):
         return space.wrap(self.iterimplementation.length())

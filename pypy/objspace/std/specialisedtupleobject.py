@@ -14,13 +14,13 @@ class NotSpecialised(Exception):
 def make_specialised_class(typetuple):
     assert type(typetuple) == tuple
 
-    nValues = len(typetuple)
-    iter_n = unrolling_iterable(range(nValues))
+    typelen = len(typetuple)
+    iter_n = unrolling_iterable(range(typelen))
 
     class cls(W_AbstractTupleObject):
         def __init__(self, space, *values_w):
             self.space = space
-            assert len(values_w) == nValues
+            assert len(values_w) == typelen
             for i in iter_n:
                 w_obj = values_w[i]
                 val_type = typetuple[i]
@@ -37,10 +37,10 @@ def make_specialised_class(typetuple):
                 setattr(self, 'value%s' % i, unwrapped)
 
         def length(self):
-            return nValues
+            return typelen
 
         def tolist(self):
-            list_w = [None] * nValues
+            list_w = [None] * typelen
             for i in iter_n:
                 value = getattr(self, 'value%s' % i)
                 if typetuple[i] != object:
@@ -54,7 +54,7 @@ def make_specialised_class(typetuple):
         def descr_hash(self, space):
             mult = 1000003
             x = 0x345678
-            z = nValues
+            z = typelen
             for i in iter_n:
                 value = getattr(self, 'value%s' % i)
                 if typetuple[i] == object:
@@ -76,7 +76,7 @@ def make_specialised_class(typetuple):
             if not isinstance(w_other, W_AbstractTupleObject):
                 return space.w_NotImplemented
             if not isinstance(w_other, cls):
-                if nValues != w_other.length():
+                if typelen != w_other.length():
                     return space.w_False
                 for i in iter_n:
                     myval = getattr(self, 'value%s' % i)
@@ -102,7 +102,7 @@ def make_specialised_class(typetuple):
 
         def getitem(self, space, index):
             if index < 0:
-                index += nValues
+                index += typelen
             for i in iter_n:
                 if index == i:
                     value = getattr(self, 'value%s' % i)
