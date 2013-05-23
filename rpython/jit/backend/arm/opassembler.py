@@ -1045,10 +1045,10 @@ class ResOpAssembler(BaseAssembler):
     def emit_guard_call_release_gil(self, op, guard_op, arglocs, regalloc,
                                                                     fcond):
         numargs = op.numargs()
-        callargs = arglocs[:numargs + 3]      # extract the arguments to the call
+        callargs = arglocs[:numargs + 3]     # extract the arguments to the call
         guardargs = arglocs[len(callargs):]  # extrat the arguments for the guard
         self._store_force_index(guard_op)
-        self._emit_call(op, arglocs, is_call_release_gil=True)
+        self._emit_call(op, callargs, is_call_release_gil=True)
         self._emit_guard_may_force(guard_op, guardargs)
         return fcond
 
