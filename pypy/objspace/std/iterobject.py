@@ -53,7 +53,7 @@ Get an iterator from an object.  In the first form, the argument must
 supply its own iterator, or be a sequence.
 In the second form, the callable is called until it returns the sentinel.''',
     __iter__ = interp2app(W_AbstractSeqIterObject.descr_iter),
-    next = interpindirect2app(W_AbstractSeqIterObject.descr_next),
+    __next__ = interpindirect2app(W_AbstractSeqIterObject.descr_next),
     __reduce__ = interp2app(W_AbstractSeqIterObject.descr_reduce),
     __length_hint__ = interp2app(W_AbstractSeqIterObject.descr_length_hint),
 )
@@ -170,7 +170,7 @@ class W_ReverseSeqIterObject(W_Root):
 W_ReverseSeqIterObject.typedef = StdTypeDef(
     "reversesequenceiterator",
     __iter__ = interp2app(W_ReverseSeqIterObject.descr_iter),
-    next = interp2app(W_ReverseSeqIterObject.descr_next),
+    __next__ = interp2app(W_ReverseSeqIterObject.descr_next),
     __reduce__ = interp2app(W_ReverseSeqIterObject.descr_reduce),
     __length_hint__ = interp2app(W_ReverseSeqIterObject.descr_length_hint),
 )
