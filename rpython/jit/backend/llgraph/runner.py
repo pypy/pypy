@@ -902,7 +902,6 @@ class LLFrame(object):
         #     res = CALL assembler_call_helper(pframe)
         #     jmp @done
         #   @fastpath:
-        #     RESET_VABLE
         #     res = GETFIELD(pframe, 'result')
         #   @done:
         #
@@ -922,24 +921,6 @@ class LLFrame(object):
             vable = lltype.nullptr(llmemory.GCREF.TO)
         #
         # Emulate the fast path
-        def reset_vable(jd, vable):
-            if jd.index_of_virtualizable != -1:
-                fielddescr = jd.vable_token_descr
-                NULL = lltype.nullptr(llmemory.GCREF.TO)
-                self.cpu.bh_setfield_gc(vable, NULL, fielddescr)
-        faildescr = self.cpu.get_latest_descr(pframe)
-        if faildescr == self.cpu.done_with_this_frame_descr_int:
-            reset_vable(jd, vable)
-            return self.cpu.get_int_value(pframe, 0)
-        elif faildescr == self.cpu.done_with_this_frame_descr_ref:
-            reset_vable(jd, vable)
-            return self.cpu.get_ref_value(pframe, 0)
-        elif faildescr == self.cpu.done_with_this_frame_descr_float:
-            reset_vable(jd, vable)
-            return self.cpu.get_float_value(pframe, 0)
-        elif faildescr == self.cpu.done_with_this_frame_descr_void:
-            reset_vable(jd, vable)
-            return None
         #
         assembler_helper_ptr = jd.assembler_helper_adr.ptr  # fish
         try:

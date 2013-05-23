@@ -1951,15 +1951,6 @@ class Assembler386(BaseAssembler):
         #
         return jmp_location
 
-    def _call_assembler_reset_vtoken(self, jd, vloc):
-        from rpython.jit.backend.llsupport.descr import FieldDescr
-        fielddescr = jd.vable_token_descr
-        assert isinstance(fielddescr, FieldDescr)
-        vtoken_ofs = fielddescr.offset
-        self.mc.MOV(edx, vloc) # we know vloc is on the current frame
-        self.mc.MOV_mi((edx.value, vtoken_ofs), 0)
-        # in the line above, TOKEN_NONE = 0
-
     def _call_assembler_load_result(self, op, result_loc):
         if op.result is not None:
             # load the return value from the dead frame's value index 0

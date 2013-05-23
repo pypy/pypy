@@ -1156,16 +1156,6 @@ class ResOpAssembler(BaseAssembler):
         pmc.B_offs(self.mc.currpos(), c.EQ)
         return pos
 
-    def _call_assembler_reset_vtoken(self, jd, vloc):
-        from rpython.jit.backend.llsupport.descr import FieldDescr
-        fielddescr = jd.vable_token_descr
-        assert isinstance(fielddescr, FieldDescr)
-        ofs = fielddescr.offset
-        tmploc = self._regalloc.get_scratch_reg(INT)
-        self.mov_loc_loc(vloc, r.ip)
-        self.mc.MOV_ri(tmploc.value, 0)
-        self.mc.STR_ri(tmploc.value, r.ip.value, ofs)
-
     def _call_assembler_load_result(self, op, result_loc):
         if op.result is not None:
             # load the return value from (tmploc, 0)

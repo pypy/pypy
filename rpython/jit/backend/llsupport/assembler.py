@@ -228,11 +228,8 @@ class BaseAssembler(object):
 
         jmp_location = self._call_assembler_patch_je(result_loc, je_location)
 
-        # Path B: fast path.  Must load the return value, and reset the token
+        # Path B: fast path.  Must load the return value
 
-        # Reset the vable token --- XXX really too much special logic here:-(
-        if jd.index_of_virtualizable >= 0:
-            self._call_assembler_reset_vtoken(jd, vloc)
         #
         self._call_assembler_load_result(op, result_loc)
         #
