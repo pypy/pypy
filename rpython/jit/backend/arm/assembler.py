@@ -1438,12 +1438,12 @@ class AssemblerARM(ResOpAssembler):
         return shiftsize
 
     def simple_call(self, fnloc, arglocs, result_loc=r.r0):
-        if result_loc.is_vfp_reg():
-            result_type = FLOAT
-            result_size = DOUBLE_WORD
-        elif result_loc is None:
+        if result_loc is None:
             result_type = VOID
             result_size = 0
+        elif result_loc.is_vfp_reg():
+            result_type = FLOAT
+            result_size = DOUBLE_WORD
         else:
             result_type = INT
             result_size = WORD
