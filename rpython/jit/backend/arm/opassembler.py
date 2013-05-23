@@ -1032,7 +1032,7 @@ class ResOpAssembler(BaseAssembler):
         callargs = arglocs[:numargs + 3]  # extract the arguments to the call
         guardargs = arglocs[len(callargs):]
         #
-        self._emit_call(op, callargs, fcond)
+        self._emit_call(op, callargs, fcond=fcond)
         self._emit_guard_may_force(guard_op, guardargs)
         return fcond
 
