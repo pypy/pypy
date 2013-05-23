@@ -3,6 +3,8 @@ from rpython.rlib.objectmodel import we_are_translated
 from rpython.jit.metainterp.history import INT, FLOAT, REF
 from rpython.jit.backend.arm.arch import WORD
 from rpython.jit.backend.arm import registers as r
+from rpython.jit.backend.arm import conditions as c
+from rpython.jit.backend.arm.locations import RawSPStackLocation
 from rpython.jit.backend.arm.jump import remap_frame_layout
 from rpython.jit.backend.llsupport.callbuilder import AbstractCallBuilder
 from rpython.jit.backend.arm.helper.assembler import count_reg_args
@@ -50,24 +52,32 @@ class ARMCallbuilder(AbstractCallBuilder):
 
     def _push_stack_args(self, stack_args, on_stack):
         assert on_stack % 8 == 0
-        #then we push every thing on the stack
-        for i in range(len(stack_args) - 1, -1, -1):
-            arg = stack_args[i]
-            if arg is None:
-                self.mc.PUSH([r.ip.value])
-            else:
-                self.asm.regalloc_push(arg)
-        self.current_sp -= on_stack
+        self._adjust_sp(-on_stack)
+        self.current_sp = on_stack
+        ofs = 0
+        for i, arg in enumerate(stack_args):
+            if arg is not None:
+                sp_loc = RawSPStackLocation(ofs, arg.type)
+                self.asm.regalloc_mov(arg, sp_loc)
+                ofs += sp_loc.width
+            else:  # alignment word
+                ofs += WORD
 
     def _adjust_sp(self, n):
-        assert n < 0
-        n = abs(n)
-
-        if check_imm_arg(n):
-            self.mc.ADD_ri(r.sp.value, r.sp.value, n)
+        # adjust the current stack pointer by n bytes
+        if n > 0:
+            if check_imm_arg(n):
+                self.mc.ADD_ri(r.sp.value, r.sp.value, n)
+            else:
+                self.mc.gen_load_int(r.ip.value, n)
+                self.mc.ADD_rr(r.sp.value, r.sp.value, r.ip.value)
         else:
-            self.mc.gen_load_int(r.ip.value, n, cond=fcond)
-            self.mc.ADD_rr(r.sp.value, r.sp.value, r.ip.value, cond=fcond)
+            n = abs(n)
+            if check_imm_arg(n):
+                self.mc.SUB_ri(r.sp.value, r.sp.value, n)
+            else:
+                self.mc.gen_load_int(r.ip.value, n)
+                self.mc.SUB_rr(r.sp.value, r.sp.value, r.ip.value)
 
     def select_call_release_gil_mode(self):
         AbstractCallBuilder.select_call_release_gil_mode(self)
@@ -75,12 +85,12 @@ class ARMCallbuilder(AbstractCallBuilder):
     def call_releasegil_addr_and_move_real_arguments(self):
         assert not self.asm._is_asmgcc()
         from rpython.jit.backend.arm.regalloc import CoreRegisterManager
-        with saved_registers(self.mc, CoreRegisterManager.save_around_call_regs):
+        with saved_registers(self.mc,
+                            CoreRegisterManager.save_around_call_regs):
             self.mc.BL(self.asm.releasegil_addr)
-        #
+
         if not we_are_translated():                     # for testing: we should not access
             self.mc.ADD_ri(r.fp.value, r.fp.value, 1)   # fp any more
-        #
 
     def move_real_result_and_call_reacqgil_addr(self):
         # save the result we just got
@@ -88,10 +98,10 @@ class ARMCallbuilder(AbstractCallBuilder):
         gpr_to_save, vfp_to_save = self.get_result_locs()
         with saved_registers(self.mc, gpr_to_save, vfp_to_save):
             self.mc.BL(self.asm.reacqgil_addr)
-        #
+
         if not we_are_translated():                    # for testing: now we can accesss
             self.mc.SUB_ri(r.fp.value, r.fp.value, 1)  # fp again
-        #
+
         #   for shadowstack, done for us by _reload_frame_if_necessary()
 
     def get_result_locs(self):
