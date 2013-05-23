@@ -365,7 +365,8 @@ class ResOpAssembler(BaseAssembler):
 
     def emit_op_same_as(self, op, arglocs, regalloc, fcond):
         argloc, resloc = arglocs
-        self.mov_loc_loc(argloc, resloc)
+        if argloc is not resloc:
+            self.mov_loc_loc(argloc, resloc)
         return fcond
 
     emit_op_cast_ptr_to_int = emit_op_same_as
