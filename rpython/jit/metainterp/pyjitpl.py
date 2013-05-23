@@ -1066,9 +1066,10 @@ class MIFrame(object):
     @arguments("box", "orgpc")
     def opimpl_raise(self, exc_value_box, orgpc):
         # xxx hack
-        clsbox = self.cls_of_box(exc_value_box)
-        self.metainterp.generate_guard(rop.GUARD_CLASS, exc_value_box, [clsbox],
-                                       resumepc=orgpc)
+        if not self.metainterp.heapcache.is_class_known(exc_value_box):
+            clsbox = self.cls_of_box(exc_value_box)
+            self.generate_guard(rop.GUARD_CLASS, exc_value_box, [clsbox],
+                                resumepc=orgpc)
         self.metainterp.class_of_last_exc_is_const = True
         self.metainterp.last_exc_value_box = exc_value_box
         self.metainterp.popframe()
@@ -1890,7 +1891,9 @@ class MetaInterp(object):
             self.staticdata.warmrunnerdesc.hooks.on_abort(reason,
                                                           jd_sd.jitdriver,
                                                           greenkey,
-                                                          jd_sd.warmstate.get_location_str(greenkey))
+                                                          jd_sd.warmstate.get_location_str(greenkey),
+                                                          self.staticdata.logger_ops._make_log_operations(),
+                                                          self.history.operations)
         self.staticdata.stats.aborted()
 
     def blackhole_if_trace_too_long(self):
