@@ -3,8 +3,6 @@ from rpython.config.config import OptionDescription, BoolOption, IntOption, Arbi
 from rpython.config.config import ChoiceOption, StrOption, Config
 from rpython.config.config import ConfigError
 from rpython.config.support import detect_number_of_processors
-from rpython.jit.backend.detect_cpu import autodetect
-from rpython.jit.backend.detect_cpu import MODEL_X86, MODEL_X86_NO_SSE2, MODEL_X86_64
 
 DEFL_INLINE_THRESHOLD = 32.4    # just enough to inline add__Int_Int()
 # and just small enough to prevend inlining of some rlist functions.
@@ -15,9 +13,7 @@ DEFL_LOW_INLINE_THRESHOLD = DEFL_INLINE_THRESHOLD / 2.0
 
 DEFL_GC = "minimark"
 
-_is_x86 = autodetect() in (MODEL_X86, MODEL_X86_64, MODEL_X86_NO_SSE2)
-
-if sys.platform.startswith("linux") and _is_x86:
+if sys.platform.startswith("linux"):
     DEFL_ROOTFINDER_WITHJIT = "asmgcc"
 else:
     DEFL_ROOTFINDER_WITHJIT = "shadowstack"
