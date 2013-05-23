@@ -9,6 +9,7 @@ from . import util as ext_util
 @util.case_insensitive_tests
 class ExtensionModuleCaseSensitivityTest(unittest.TestCase):
 
+    @ext_util.skip_unless__testcapi
     def find_module(self):
         good_name = ext_util.NAME
         bad_name = good_name.upper()
