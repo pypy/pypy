@@ -220,10 +220,6 @@ class VirtualizableInfo(object):
             return lltype.cast_opaque_ptr(VTYPEPTR, virtualizable)
         self.cast_gcref_to_vtype = cast_gcref_to_vtype
 
-        def reset_vable_token(virtualizable):
-            virtualizable.vable_token = TOKEN_NONE
-        self.reset_vable_token = reset_vable_token
-
         def clear_vable_token(virtualizable):
             virtualizable = cast_gcref_to_vtype(virtualizable)
             if virtualizable.vable_token:
