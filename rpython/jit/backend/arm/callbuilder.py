@@ -1,6 +1,6 @@
 from rpython.rlib.clibffi import FFI_DEFAULT_ABI
 from rpython.rlib.objectmodel import we_are_translated
-from rpython.jit.metainterp.history import INT, FLOAT
+from rpython.jit.metainterp.history import INT, FLOAT, REF
 from rpython.jit.backend.arm.arch import WORD
 from rpython.jit.backend.arm import registers as r
 from rpython.jit.backend.arm.jump import remap_frame_layout
@@ -97,6 +97,24 @@ class ARMCallbuilder(AbstractCallBuilder):
     def get_result_locs(self):
         raise NotImplementedError
 
+    def _ensure_result_bit_extension(self, resloc, size, signed):
+        if size == 4:
+            return
+        if size == 1:
+            if not signed:  # unsigned char
+                self.mc.AND_ri(resloc.value, resloc.value, 0xFF)
+            else:
+                self.mc.LSL_ri(resloc.value, resloc.value, 24)
+                self.mc.ASR_ri(resloc.value, resloc.value, 24)
+        elif size == 2:
+            if not signed:
+                self.mc.LSL_ri(resloc.value, resloc.value, 16)
+                self.mc.LSR_ri(resloc.value, resloc.value, 16)
+            else:
+                self.mc.LSL_ri(resloc.value, resloc.value, 16)
+                self.mc.ASR_ri(resloc.value, resloc.value, 16)
+
+
 
 class SoftFloatCallBuilder(ARMCallbuilder):
 
@@ -120,11 +138,11 @@ class SoftFloatCallBuilder(ARMCallbuilder):
             # move result to the allocated register
             if resloc is not r.r0:
                 self.asm.mov_loc_loc(r.r0, resloc)
-            self.asm._ensure_result_bit_extension(resloc,
+            self._ensure_result_bit_extension(resloc,
                                               self.ressize, self.ressign)
 
 
-    def _collect_stack_args(self, arglocs):
+    def _collect_and_push_stack_args(self, arglocs):
         n_args = len(arglocs)
         reg_args = count_reg_args(arglocs)
         # all arguments past the 4th go on the stack
@@ -152,6 +170,7 @@ class SoftFloatCallBuilder(ARMCallbuilder):
             self._push_stack_args(stack_args, on_stack*WORD)
 
     def prepare_arguments(self):
+        arglocs = self.arglocs
         reg_args = count_reg_args(arglocs)
         self._collect_and_push_stack_args(arglocs)
         # collect variables that need to go in registers and the registers they
@@ -253,7 +272,7 @@ class HardFloatCallBuilder(ARMCallbuilder):
         resloc = self.resloc
         # ensure the result is wellformed and stored in the correct location
         if resloc is not None and resloc.is_reg():
-            self.asm._ensure_result_bit_extension(resloc,
+            self._ensure_result_bit_extension(resloc,
                                                   self.ressize, self.ressign)
 
     def get_result_locs(self):

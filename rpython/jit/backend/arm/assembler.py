@@ -19,7 +19,7 @@ from rpython.jit.backend.llsupport.regalloc import get_scale, valid_addressing_s
 from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from rpython.jit.backend.model import CompiledLoopToken
 from rpython.jit.codewriter.effectinfo import EffectInfo
-from rpython.jit.metainterp.history import AbstractFailDescr, FLOAT, INT
+from rpython.jit.metainterp.history import AbstractFailDescr, FLOAT, INT, VOID
 from rpython.jit.metainterp.resoperation import rop
 from rpython.rlib.debug import debug_print, debug_start, debug_stop
 from rpython.rlib.jit import AsmInfo
@@ -935,23 +935,6 @@ class AssemblerARM(ResOpAssembler):
         asm_math_operations[oopspecindex](self, op, arglocs, regalloc, fcond)
         return fcond
 
-    def _ensure_result_bit_extension(self, resloc, size, signed):
-        if size == 4:
-            return
-        if size == 1:
-            if not signed:  # unsigned char
-                self.mc.AND_ri(resloc.value, resloc.value, 0xFF)
-            else:
-                self.mc.LSL_ri(resloc.value, resloc.value, 24)
-                self.mc.ASR_ri(resloc.value, resloc.value, 24)
-        elif size == 2:
-            if not signed:
-                self.mc.LSL_ri(resloc.value, resloc.value, 16)
-                self.mc.LSR_ri(resloc.value, resloc.value, 16)
-            else:
-                self.mc.LSL_ri(resloc.value, resloc.value, 16)
-                self.mc.ASR_ri(resloc.value, resloc.value, 16)
-
     def patch_trace(self, faildescr, looptoken, bridge_addr, regalloc):
         b = InstrBuilder(self.cpu.cpuinfo.arch_version)
         patch_addr = faildescr._arm_failure_recovery_block
@@ -1072,6 +1055,7 @@ class AssemblerARM(ResOpAssembler):
             save_helper = not is_imm and helper is r.ip
         else:
             assert 0, 'unsupported case'
+
         if save_helper:
             self.mc.PUSH([helper.value], cond=cond)
         self.load_reg(self.mc, loc, r.fp, offset, cond=cond, helper=helper)
