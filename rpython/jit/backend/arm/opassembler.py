@@ -1028,11 +1028,11 @@ class ResOpAssembler(BaseAssembler):
                                                                     fcond):
         self._store_force_index(guard_op)
         numargs = op.numargs()
-        callargs = arglocs[2:numargs + 3]  # extract the arguments to the call
-        assert 0, 'xxx revisit this'
+        callargs = arglocs[:numargs + 3]  # extract the arguments to the call
+        guardargs = arglocs[len(callargs):]
         #
         self._emit_call(op, callargs, fcond)
-        self._emit_guard_may_force(guard_op, arglocs[1 + numargs:])
+        self._emit_guard_may_force(guard_op, guardargs)
         return fcond
 
     def _emit_guard_may_force(self, guard_op, arglocs):
