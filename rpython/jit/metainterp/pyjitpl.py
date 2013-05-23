@@ -2274,10 +2274,10 @@ class MetaInterp(object):
         # in case the force_token has not been recorded, record it here
         # to make sure we know the virtualizable can be broken. However, the
         # contents of the virtualizable should be generally correct
-        self.generate_guard(rop.GUARD_NOT_FORCED, None)
         self.history.record(rop.FORCE_TOKEN, [], force_token_box)
         self.history.record(rop.SETFIELD_GC, [vbox, force_token_box],
                             None, descr=vinfo.vable_token_descr)
+        self.generate_guard(rop.GUARD_NOT_FORCED, None)
 
     def compile_exit_frame_with_exception(self, valuebox):
         self.store_token_in_vable()
