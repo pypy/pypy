@@ -188,7 +188,6 @@ You can get the information from the list type:
      '__mul__',
      '__ne__',
      '__new__',
-     '__radd__',
      '__reduce__',
      '__reduce_ex__',
      '__repr__',
