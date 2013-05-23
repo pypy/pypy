@@ -16,9 +16,12 @@ def test_find_stdlib(tmpdir, monkeypatch):
     build_hierarchy(tmpdir)
     path, prefix = find_stdlib(None, str(pypy))
     assert prefix == tmpdir
-    # shouldn't find stdlib if executable == '' even if parent dir has a stdlib
-    monkeypatch.chdir(tmpdir.join('bin'))
-    assert find_stdlib(None, '') == (None, None)
+    # in executable is None look for stdlib based on the working directory
+    # see lib-python/2.7/test/test_sys.py:test_executable
+    _, prefix = find_stdlib(None, '')
+    cwd = os.path.dirname(os.path.realpath(__file__))
+    assert prefix is not None
+    assert cwd.startswith(str(prefix))
 
 @py.test.mark.skipif('not hasattr(os, "symlink")')
 def test_find_stdlib_follow_symlink(tmpdir):

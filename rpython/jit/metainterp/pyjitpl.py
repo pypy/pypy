@@ -621,7 +621,8 @@ class MIFrame(object):
         tobox = self.metainterp.heapcache.getfield(box, fielddescr)
         if tobox is valuebox:
             return
-        self.execute_with_descr(rop.SETFIELD_GC, fielddescr, box, valuebox)
+        if tobox is not None or not self.metainterp.heapcache.is_unescaped(box) or not isinstance(valuebox, Const) or valuebox.nonnull():
+            self.execute_with_descr(rop.SETFIELD_GC, fielddescr, box, valuebox)
         self.metainterp.heapcache.setfield(box, valuebox, fielddescr)
     opimpl_setfield_gc_i = _opimpl_setfield_gc_any
     opimpl_setfield_gc_r = _opimpl_setfield_gc_any
@@ -1053,9 +1054,10 @@ class MIFrame(object):
     @arguments("box", "orgpc")
     def opimpl_raise(self, exc_value_box, orgpc):
         # xxx hack
-        clsbox = self.cls_of_box(exc_value_box)
-        self.generate_guard(rop.GUARD_CLASS, exc_value_box, [clsbox],
-                            resumepc=orgpc)
+        if not self.metainterp.heapcache.is_class_known(exc_value_box):
+            clsbox = self.cls_of_box(exc_value_box)
+            self.generate_guard(rop.GUARD_CLASS, exc_value_box, [clsbox],
+                                resumepc=orgpc)
         self.metainterp.class_of_last_exc_is_const = True
         self.metainterp.last_exc_value_box = exc_value_box
         self.metainterp.popframe()
@@ -1876,7 +1878,9 @@ class MetaInterp(object):
             self.staticdata.warmrunnerdesc.hooks.on_abort(reason,
                                                           jd_sd.jitdriver,
                                                           greenkey,
-                                                          jd_sd.warmstate.get_location_str(greenkey))
+                                                          jd_sd.warmstate.get_location_str(greenkey),
+                                                          self.staticdata.logger_ops._make_log_operations(),
+                                                          self.history.operations)
         self.staticdata.stats.aborted()
 
     def blackhole_if_trace_too_long(self):

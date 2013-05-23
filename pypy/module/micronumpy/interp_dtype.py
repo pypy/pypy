@@ -65,6 +65,10 @@ class W_Dtype(W_Root):
         self.float_type = None
         self.shape = list(shape)
         self.subdtype = subdtype
+        if not subdtype:
+            self.base = self
+        else:
+            self.base = subdtype.base
 
     @specialize.argtype(1)
     def box(self, value):
@@ -80,7 +84,8 @@ class W_Dtype(W_Root):
         return self.itemtype.coerce(space, self, w_item)
 
     def getitem(self, arr, i):
-        return self.itemtype.read(arr, i, 0)
+        item = self.itemtype.read(arr, i, 0)
+        return item
 
     def getitem_bool(self, arr, i):
         return self.itemtype.read_bool(arr, i, 0)
@@ -112,6 +117,9 @@ class W_Dtype(W_Root):
 
     def descr_get_alignment(self, space):
         return space.wrap(self.itemtype.alignment)
+
+    def descr_get_base(self, space):
+        return space.wrap(self.base)
 
     def descr_get_subdtype(self, space):
         return space.newtuple([space.wrap(self.subdtype), self.descr_get_shape(space)])
@@ -423,6 +431,7 @@ W_Dtype.typedef = TypeDef("dtype",
     fields = GetSetProperty(W_Dtype.descr_get_fields),
     names = GetSetProperty(W_Dtype.descr_get_names),
     subdtype = GetSetProperty(W_Dtype.descr_get_subdtype),
+    base = GetSetProperty(W_Dtype.descr_get_base),
 )
 W_Dtype.typedef.acceptable_as_base_class = False
 

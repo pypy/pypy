@@ -1,5 +1,14 @@
-"""PyPy's minimal configuration information.
+"""Provide access to Python's configuration information.
+This is actually PyPy's minimal configuration information.
+
+The specific configuration variables available depend heavily on the
+platform and configuration.  The values may be retrieved using
+get_config_var(name), and the list of variables is available via
+get_config_vars().keys().  Additional convenience functions are also
+available.
 """
+
+__revision__ = "$Id: sysconfig.py 85358 2010-10-10 09:54:59Z antoine.pitrou $"
 
 import sys
 import os

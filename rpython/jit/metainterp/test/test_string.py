@@ -1,16 +1,14 @@
 import py
 
-from rpython.jit.codewriter.policy import StopAtXPolicy
-from rpython.jit.metainterp.test.support import LLJitMixin, OOJitMixin
+from rpython.jit.metainterp.test.support import LLJitMixin
 from rpython.rlib.debug import debug_print
-from rpython.rlib.jit import JitDriver, dont_look_inside, we_are_jitted,\
-     promote_string
-from rpython.rlib.rstring import StringBuilder
-from rpython.rtyper.ootypesystem import ootype
+from rpython.rlib.jit import (JitDriver, dont_look_inside, we_are_jitted,
+    promote_string)
+from rpython.rlib.rstring import StringBuilder, UnicodeBuilder
 
 
 class StringTests:
-    _str, _chr = str, chr
+    _str, _chr, _StringBuilder = str, chr, StringBuilder
 
     def test_eq_residual(self):
         _str = self._str
@@ -358,7 +356,7 @@ class StringTests:
         s1 = self.meta_interp(f, [])
         s2 = f()
         for c1, c2 in zip(s1.chars, s2):
-            assert c1==c2
+            assert c1 == c2
 
     def test_virtual_strings_boxed(self):
         _str = self._str
@@ -516,6 +514,95 @@ class StringTests:
         self.meta_interp(f, [0])
         self.check_resops(call=7)
 
+    def test_join_chars(self):
+        jitdriver = JitDriver(reds=['a', 'b', 'c', 'i'], greens=[])
+        _str = self._str
+
+        def f(a, b, c):
+            i = 0
+            while i < 10:
+                jitdriver.jit_merge_point(a=a, b=b, c=c, i=i)
+                x = []
+                if a:
+                    x.append(_str("a"))
+                if b:
+                    x.append(_str("b"))
+                if c:
+                    x.append(_str("c"))
+                i += len(_str("").join(x))
+            return i
+        res = self.meta_interp(f, [1, 1, 1])
+        assert res == f(True, True, True)
+        # The "".join should be unrolled, since the length of x is known since
+        # it is virtual, ensure there are no calls to ll_join_chars, or
+        # allocations.
+        self.check_resops({'jump': 1, 'guard_true': 5, 'int_lt': 2,
+                           'int_add': 2, 'int_is_true': 3})
+
+    def test_virtual_copystringcontent(self):
+        jitdriver = JitDriver(reds=['n', 'result'], greens=[])
+        _str, _StringBuilder = self._str, self._StringBuilder
+
+        def main(n):
+            result = 0
+            while n >= 0:
+                jitdriver.jit_merge_point(n=n, result=result)
+                b = _StringBuilder(6)
+                b.append(_str("Hello!"))
+                result += ord(b.build()[0])
+                n -= 1
+            return result
+        res = self.meta_interp(main, [9])
+        assert res == main(9)
+
+    def test_virtual_copystringcontent2(self):
+        jitdriver = JitDriver(reds=['n', 'result'], greens=[])
+        _str, _StringBuilder = self._str, self._StringBuilder
+
+        def main(n):
+            result = 0
+            while n >= 0:
+                jitdriver.jit_merge_point(n=n, result=result)
+                b = _StringBuilder(6)
+                b.append(_str("Hello!"))
+                result += ord((b.build() + _str("xyz"))[0])
+                n -= 1
+            return result
+        res = self.meta_interp(main, [9])
+        assert res == main(9)
+
+    def test_bytearray(self):
+        py.test.skip("implement it")
+
+        def f(i):
+            b = bytearray("abc")
+            b[1] = i
+            return b[1]
+
+        res = self.interp_operations(f, [13])
+        assert res == 13
+
+    def test_shrink_array(self):
+        jitdriver = JitDriver(reds=['result', 'n'], greens=[])
+        _str, _StringBuilder = self._str, self._StringBuilder
+
+        def f(n):
+            result = 0
+            while n >= 0:
+                jitdriver.jit_merge_point(n=n, result=result)
+                b = _StringBuilder(20)
+                b.append(_str("Testing!"))
+                result += len(b.build())
+                n -= 1
+            return result
+
+        res = self.meta_interp(f, [9])
+        assert res == f(9)
+        self.check_resops({
+            'jump': 1, 'guard_true': 2, 'int_ge': 2, 'int_add': 2, 'int_sub': 2
+        })
+
+
 #class TestOOtype(StringTests, OOJitMixin):
 #    CALL = "oosend"
 #    CALL_PURE = "oosend_pure"
@@ -524,8 +611,9 @@ class TestLLtype(StringTests, LLJitMixin):
     CALL = "call"
     CALL_PURE = "call_pure"
 
+
 class TestLLtypeUnicode(TestLLtype):
-    _str, _chr = unicode, unichr
+    _str, _chr, _StringBuilder = unicode, unichr, UnicodeBuilder
 
     def test_str2unicode(self):
         _str = self._str
@@ -569,64 +657,3 @@ class TestLLtypeUnicode(TestLLtype):
         self.check_resops(call_pure=0, unicodesetitem=0, call=2,
                           newunicode=0, unicodegetitem=0,
                           copyunicodecontent=0)
-
-    def test_join_chars(self):
-        jitdriver = JitDriver(reds=['a', 'b', 'c', 'i'], greens=[])
-        def f(a, b, c):
-            i = 0
-            while i < 10:
-                jitdriver.jit_merge_point(a=a, b=b, c=c, i=i)
-                x = []
-                if a:
-                    x.append("a")
-                if b:
-                    x.append("b")
-                if c:
-                    x.append("c")
-                i += len("".join(x))
-            return i
-        res = self.meta_interp(f, [1, 1, 1])
-        assert res == f(True, True, True)
-        # The "".join should be unrolled, since the length of x is known since
-        # it is virtual, ensure there are no calls to ll_join_chars, or
-        # allocations.
-        self.check_resops({'jump': 1, 'guard_true': 5, 'int_lt': 2,
-                           'int_add': 2, 'int_is_true': 3})
-
-    def test_virtual_copystringcontent(self):
-        jitdriver = JitDriver(reds=['n', 'result'], greens=[])
-        def main(n):
-            result = 0
-            while n >= 0:
-                jitdriver.jit_merge_point(n=n, result=result)
-                b = StringBuilder(6)
-                b.append("Hello!")
-                result += ord(b.build()[0])
-                n -= 1
-            return result
-        res = self.meta_interp(main, [9])
-        assert res == main(9)
-
-    def test_virtual_copystringcontent2(self):
-        jitdriver = JitDriver(reds=['n', 'result'], greens=[])
-        def main(n):
-            result = 0
-            while n >= 0:
-                jitdriver.jit_merge_point(n=n, result=result)
-                b = StringBuilder(6)
-                b.append("Hello!")
-                result += ord((b.build() + "xyz")[0])
-                n -= 1
-            return result
-        res = self.meta_interp(main, [9])
-        assert res == main(9)
-
-    def test_bytearray(self):
-        py.test.skip("implement it")
-        def f(i):
-            b = bytearray("abc")
-            b[1] = i
-            return b[1]
-
-        res = self.interp_operations(f, [13])
-        assert res == 13

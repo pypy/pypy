@@ -275,7 +275,10 @@ class AppTestDtypes(BaseAppTestDtypes):
         from numpypy import array, dtype
         from cPickle import loads, dumps
         a = array([1,2,3])
-        assert a.dtype.__reduce__() == (dtype, ('i8', 0, 1), (3, '<', None, None, None, -1, -1, 0))
+         if self.ptr_size == 8:
+            assert a.dtype.__reduce__() == (dtype, ('i8', 0, 1), (3, '<', None, None, None, -1, -1, 0))
+        else:
+            assert a.dtype.__reduce__() == (dtype, ('i4', 0, 1), (3, '<', None, None, None, -1, -1, 0))
         assert loads(dumps(a.dtype)) == a.dtype
 
 class AppTestTypes(BaseAppTestDtypes):
@@ -768,6 +771,7 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
         assert d.num == 20
         assert d.itemsize == 20
         assert d.kind == 'V'
+        assert d.base == d
         assert d.type is void
         assert d.char == 'V'
         assert d.names == ("x", "y", "z", "value")
@@ -798,7 +802,8 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
         assert dt.shape == (10,)
         assert dt.kind == 'V'
         assert dt.fields == None
-        assert dt.subdtype == (dtype("float64"), (10,))
+        assert dt.subdtype == (dtype(float), (10,))
+        assert dt.base == dtype(float)
 
     def test_pickle_record(self):
         from numpypy import array, dtype

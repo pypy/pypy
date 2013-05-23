@@ -1686,6 +1686,7 @@ class StringType(BaseType, BaseStringType):
         return space.wrap(self.to_str(box))
 
     def build_and_convert(self, space, mydtype, box):
+        assert isinstance(box, interp_boxes.W_GenericBox)
         if box.get_dtype(space).is_str_or_unicode():
             arg = box.get_dtype(space).itemtype.to_str(box)
         else:
@@ -1702,16 +1703,47 @@ class StringType(BaseType, BaseStringType):
 class VoidType(BaseType, BaseStringType):
     T = lltype.Char
 
-    def coerce(self, space, dtype, w_items):
+    def _coerce(self, space, arr, ofs, dtype, w_items, shape):
         items_w = space.fixedview(w_items)
-        arr = VoidBoxStorage(self.size, dtype)
-        ofs = 0
         for i in range(len(items_w)):
             subdtype = dtype.subdtype
             itemtype = subdtype.itemtype
-            w_box = itemtype.coerce(space, dtype.subdtype, items_w[i])
-            itemtype.store(arr, 0, ofs, w_box)
-            ofs += itemtype.get_element_size()
+            if space.len_w(shape) <= 1:
+                w_box = itemtype.coerce(space, dtype.subdtype, items_w[i])
+                itemtype.store(arr, 0, ofs, w_box)
+                ofs += itemtype.get_element_size()
+            else:
+                size = 1
+                for dimension in shape[1:]:
+                    size *= dimension
+                size *= itemtype.get_element_size()
+                for w_item in items_w:
+                    self._coerce(space, arr, ofs, dtype, w_items, shape[1:])
+                    ofs += size
+        return arr
+
+    def _coerce(self, space, arr, ofs, dtype, w_items, shape):
+        # TODO: Make sure the shape and the array match
+        items_w = space.fixedview(w_items)
+        subdtype = dtype.subdtype
+        itemtype = subdtype.itemtype
+        if len(shape) <= 1:
+            for i in range(len(items_w)):
+                w_box = itemtype.coerce(space, dtype.subdtype, items_w[i])
+                itemtype.store(arr, 0, ofs, w_box)
+                ofs += itemtype.get_element_size()
+        else:
+            for w_item in items_w:
+                size = 1
+                for dimension in shape[1:]:
+                    size *= dimension
+                size *= itemtype.get_element_size()
+                self._coerce(space, arr, ofs, dtype, w_item, shape[1:])
+                ofs += size
+
+    def coerce(self, space, dtype, w_items):
+        arr = VoidBoxStorage(self.size, dtype)
+        self._coerce(space, arr, 0, dtype, w_items, dtype.shape)
         return interp_boxes.W_VoidBox(arr, 0, dtype)
 
     @jit.unroll_safe
@@ -1720,12 +1752,13 @@ class VoidType(BaseType, BaseStringType):
         for k in range(self.get_element_size()):
             arr.storage[k + ofs] = box.arr.storage[k + box.ofs]
 
-    def read(self, arr, i, offset, dtype=None):
+    def readarray(self, arr, i, offset, dtype=None):
         from pypy.module.micronumpy.base import W_NDimArray
         if dtype is None:
             dtype = arr.dtype
         strides, backstrides = support.calc_strides(dtype.shape, dtype.subdtype, arr.order)
-        implementation = SliceArray(i + offset, strides, backstrides, dtype.shape, arr, arr, dtype.subdtype)
+        implementation = SliceArray(i + offset, strides, backstrides,
+                             dtype.shape, arr, W_NDimArray(arr), dtype.subdtype)
         return W_NDimArray(implementation)
 
 NonNativeVoidType = VoidType

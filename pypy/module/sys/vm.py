@@ -9,8 +9,8 @@ from rpython.rlib.runicode import MAXUNICODE
 
 # ____________________________________________________________
 
-@unwrap_spec(w_depth = WrappedDefault(0))
-def _getframe(space, w_depth):
+@unwrap_spec(depth=int)
+def _getframe(space, depth=0):
     """Return a frame object from the call stack.  If optional integer depth is
 given, return the frame object that many calls below the top of the stack.
 If that is deeper than the call stack, ValueError is raised.  The default
@@ -18,7 +18,6 @@ for depth is zero, returning the frame at the top of the call stack.
 
 This function should be used for internal and specialized
 purposes only."""
-    depth = space.int_w(w_depth)
     if depth < 0:
         raise OperationError(space.w_ValueError,
                              space.wrap("frame index must not be negative"))

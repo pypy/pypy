@@ -69,6 +69,7 @@ class BaseConcreteArray(base.BaseArrayImplementation):
             new_backstrides = [0] * ndims
             for nd in range(ndims):
                 new_backstrides[nd] = (new_shape[nd] - 1) * new_strides[nd]
+            assert isinstance(orig_array, W_NDimArray) or orig_array is None
             return SliceArray(self.start, new_strides, new_backstrides,
                               new_shape, self, orig_array)
         else:
@@ -356,13 +357,13 @@ class SliceArray(BaseConcreteArray):
         self.strides = strides
         self.backstrides = backstrides
         self.shape = shape
+        if dtype is None:
+            dtype = parent.dtype
         if isinstance(parent, SliceArray):
             parent = parent.parent # one level only
         self.parent = parent
         self.storage = parent.storage
         self.order = parent.order
-        if dtype is None:
-            dtype = parent.dtype
         self.dtype = dtype
         self.size = support.product(shape) * self.dtype.itemtype.get_element_size()
         self.start = start

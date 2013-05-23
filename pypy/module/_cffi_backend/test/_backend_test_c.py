@@ -365,8 +365,9 @@ def test_hash_differences():
     BInt = new_primitive_type("int")
     BFloat = new_primitive_type("float")
     for i in range(1, 20):
-        if (hash(cast(BChar, chr(i))) !=
-            hash(cast(BInt, i))):
+        x1 = cast(BChar, chr(i))
+        x2 = cast(BInt, i)
+        if hash(x1) != hash(x2):
             break
     else:
         raise AssertionError("hashes are equal")
@@ -2723,6 +2724,40 @@ def test_cdata_name_module_doc():
     assert x.__name__ == '<cdata>'
     assert hasattr(x, '__doc__')
 
+def test_different_types_of_ptr_equality():
+    BVoidP = new_pointer_type(new_void_type())
+    BIntP = new_pointer_type(new_primitive_type("int"))
+    x = cast(BVoidP, 12345)
+    assert x == cast(BIntP, 12345)
+    assert x != cast(BIntP, 12344)
+    assert hash(x) == hash(cast(BIntP, 12345))
+
+def test_new_handle():
+    import _weakref
+    BVoidP = new_pointer_type(new_void_type())
+    BCharP = new_pointer_type(new_primitive_type("char"))
+    class mylist(list):
+        pass
+    o = mylist([2, 3, 4])
+    x = newp_handle(BVoidP, o)
+    assert repr(x) == "<cdata 'void *' handle to [2, 3, 4]>"
+    assert x
+    assert from_handle(x) is o
+    assert from_handle(cast(BCharP, x)) is o
+    wr = _weakref.ref(o)
+    del o
+    import gc; gc.collect()
+    assert wr() is not None
+    assert from_handle(x) == list((2, 3, 4))
+    assert from_handle(cast(BCharP, x)) == list((2, 3, 4))
+    del x
+    for i in range(3):
+        if wr() is not None:
+            import gc; gc.collect()
+    assert wr() is None
+    py.test.raises(RuntimeError, from_handle, cast(BCharP, 0))
+
+
 def test_version():
     # this test is here mostly for PyPy
-    assert __version__ == "0.6"
+    assert __version__ == "0.7"
