@@ -1218,8 +1218,7 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
         virtualizable = self.decode_ref(numb.nums[index])
         if self.resume_after_guard_not_forced == 1:
             # in the middle of handle_async_forcing()
-            if not vinfo.is_token_nonnull_gcref(virtualizable):
-                raise AlreadyForced
+            assert vinfo.is_token_nonnull_gcref(virtualizable)
             vinfo.reset_token_gcref(virtualizable)
         else:
             # just jumped away from assembler (case 4 in the comment in
