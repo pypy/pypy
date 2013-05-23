@@ -522,6 +522,18 @@ def test_struct_with_bitfield_exact():
     py.test.raises(OverflowError, "s.b = 4")
     assert s.b == 3
 
+def test_struct_with_bitfield_enum():
+    ffi = FFI()
+    code = """
+        typedef enum { AA, BB, CC } foo_e;
+        typedef struct { foo_e f:2; } foo_s;
+    """
+    ffi.cdef(code)
+    ffi.verify(code)
+    s = ffi.new("foo_s *")
+    s.f = 2
+    assert s.f == 2
+
 def test_unsupported_struct_with_bitfield_ellipsis():
     ffi = FFI()
     py.test.raises(NotImplementedError, ffi.cdef,
