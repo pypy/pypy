@@ -2,8 +2,8 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import operationerrfmt, OperationError
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
+from pypy.objspace.std.bytesobject import str_typedef
 from pypy.objspace.std.floattype import float_typedef
-from pypy.objspace.std.stringtype import str_typedef
 from pypy.objspace.std.unicodetype import unicode_typedef, unicode_from_object
 from pypy.objspace.std.inttype import int_typedef
 from pypy.objspace.std.complextype import complex_typedef

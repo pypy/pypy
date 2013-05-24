@@ -4,7 +4,7 @@ from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.floatobject import W_FloatObject
 from pypy.objspace.std.boolobject import W_BoolObject
 from pypy.objspace.std.noneobject import W_NoneObject
-from pypy.objspace.std.stringobject import W_StringObject
+from pypy.objspace.std.bytesobject import W_StringObject
 from rpython.translator.cli.dotnet import box
 
 class __extend__(W_Root):

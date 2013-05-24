@@ -37,15 +37,15 @@ class TestW_StdObjSpace:
         assert space.sliceindices(w_obj, w(3)) == (1,2,3)
 
     def test_fastpath_isinstance(self):
-        from pypy.objspace.std.stringobject import W_StringObject
+        from pypy.objspace.std.bytesobject import W_BytesObject
         from pypy.objspace.std.intobject import W_IntObject
         from pypy.objspace.std.iterobject import W_AbstractSeqIterObject
         from pypy.objspace.std.iterobject import W_SeqIterObject
 
         space = self.space
-        assert space._get_interplevel_cls(space.w_str) is W_StringObject
+        assert space._get_interplevel_cls(space.w_str) is W_BytesObject
         assert space._get_interplevel_cls(space.w_int) is W_IntObject
-        class X(W_StringObject):
+        class X(W_BytesObject):
             def __init__(self):
                 pass
 
@@ -58,11 +58,11 @@ class TestW_StdObjSpace:
         assert cls is W_AbstractSeqIterObject
 
     def test_withstrbuf_fastpath_isinstance(self):
-        from pypy.objspace.std.stringobject import W_AbstractStringObject
+        from pypy.objspace.std.bytesobject import W_AbstractBytesObject
 
         space = gettestobjspace(withstrbuf=True)
         cls = space._get_interplevel_cls(space.w_str)
-        assert cls is W_AbstractStringObject
+        assert cls is W_AbstractBytesObject
 
     def test_wrap_various_unsigned_types(self):
         import sys

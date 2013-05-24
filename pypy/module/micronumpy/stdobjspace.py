@@ -1,5 +1,5 @@
 
-from pypy.objspace.std import stringobject
+from pypy.objspace.std import bytesobject
 from pypy.module.micronumpy import interp_boxes
 
 def delegate_stringbox2stringobj(space, w_box):
@@ -7,5 +7,5 @@ def delegate_stringbox2stringobj(space, w_box):
 
 def register_delegates(typeorder):
     typeorder[interp_boxes.W_StringBox] = [
-        (stringobject.W_StringObject, delegate_stringbox2stringobj),
+        (bytesobject.W_StringObject, delegate_stringbox2stringobj),
     ]

@@ -3,14 +3,13 @@
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.module.unicodedata import unicodedb
 from pypy.objspace.std import newformat, slicetype
+from pypy.objspace.std.bytesobject import (W_StringObject,
+    make_rsplit_with_delim, stringendswith, stringstartswith)
 from pypy.objspace.std.formatting import mod_format
 from pypy.objspace.std.model import W_Object, registerimplementation
 from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
-from pypy.objspace.std.stringobject import (
-    W_StringObject, make_rsplit_with_delim)
-from pypy.objspace.std.stringtype import stringendswith, stringstartswith
 from pypy.objspace.std.register_all import register_all
 from rpython.rlib import jit
 from rpython.rlib.rarithmetic import ovfcheck
@@ -943,9 +942,9 @@ register_all(vars(), unicodetype)
 # methods?
 
 class str_methods:
-    from pypy.objspace.std import stringtype
+    from pypy.objspace.std import bytesobject
     W_UnicodeObject = W_UnicodeObject
-    from pypy.objspace.std.stringobject import W_StringObject
+    from pypy.objspace.std.bytesobject import W_BytesObject as W_StringObject
     def str_strip__String_Unicode(space, w_self, w_chars):
         from pypy.objspace.std.unicodetype import unicode_from_string
         return space.call_method(unicode_from_string(space, w_self),
@@ -990,4 +989,4 @@ class str_methods:
         from pypy.objspace.std.unicodetype import unicode_from_string
         return space.call_method(unicode_from_string(space, w_self),
                                  'rsplit', w_delim, w_maxsplit)
-    register_all(vars(), stringtype)
+    register_all(vars(), bytesobject)

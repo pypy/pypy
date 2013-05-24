@@ -163,24 +163,24 @@ def unicode_formatter_field_name_split__ANY(space, w_unicode):
     tformat = unicode_template_formatter(space, space.unicode_w(w_unicode))
     return tformat.formatter_field_name_split()
 
-# stuff imported from stringtype for interoperability
+# stuff imported from bytesobject for interoperability
 
-from pypy.objspace.std.stringtype import str_endswith as unicode_endswith
-from pypy.objspace.std.stringtype import str_startswith as unicode_startswith
-from pypy.objspace.std.stringtype import str_find as unicode_find
-from pypy.objspace.std.stringtype import str_index as unicode_index
-from pypy.objspace.std.stringtype import str_replace as unicode_replace
-from pypy.objspace.std.stringtype import str_rfind as unicode_rfind
-from pypy.objspace.std.stringtype import str_rindex as unicode_rindex
-from pypy.objspace.std.stringtype import str_split as unicode_split
-from pypy.objspace.std.stringtype import str_rsplit as unicode_rsplit
-from pypy.objspace.std.stringtype import str_partition as unicode_partition
-from pypy.objspace.std.stringtype import str_rpartition as unicode_rpartition
-from pypy.objspace.std.stringtype import str_splitlines as unicode_splitlines
-from pypy.objspace.std.stringtype import str_strip as unicode_strip
-from pypy.objspace.std.stringtype import str_rstrip as unicode_rstrip
-from pypy.objspace.std.stringtype import str_lstrip as unicode_lstrip
-from pypy.objspace.std.stringtype import str_decode as unicode_decode
+from pypy.objspace.std.bytesobject import str_endswith as unicode_endswith
+from pypy.objspace.std.bytesobject import str_startswith as unicode_startswith
+from pypy.objspace.std.bytesobject import str_find as unicode_find
+from pypy.objspace.std.bytesobject import str_index as unicode_index
+from pypy.objspace.std.bytesobject import str_replace as unicode_replace
+from pypy.objspace.std.bytesobject import str_rfind as unicode_rfind
+from pypy.objspace.std.bytesobject import str_rindex as unicode_rindex
+from pypy.objspace.std.bytesobject import str_split as unicode_split
+from pypy.objspace.std.bytesobject import str_rsplit as unicode_rsplit
+from pypy.objspace.std.bytesobject import str_partition as unicode_partition
+from pypy.objspace.std.bytesobject import str_rpartition as unicode_rpartition
+from pypy.objspace.std.bytesobject import str_splitlines as unicode_splitlines
+from pypy.objspace.std.bytesobject import str_strip as unicode_strip
+from pypy.objspace.std.bytesobject import str_rstrip as unicode_rstrip
+from pypy.objspace.std.bytesobject import str_lstrip as unicode_lstrip
+from pypy.objspace.std.bytesobject import str_decode as unicode_decode
 
 # ____________________________________________________________
 

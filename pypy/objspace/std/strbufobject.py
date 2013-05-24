@@ -1,13 +1,12 @@
 from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
-from pypy.objspace.std.stringobject import W_AbstractStringObject
-from pypy.objspace.std.stringobject import W_StringObject
+from pypy.objspace.std.bytesobject import W_AbstractBytesObject, W_StringObject
 from pypy.objspace.std.unicodeobject import delegate_String2Unicode
 from rpython.rlib.rstring import StringBuilder
 from pypy.interpreter.buffer import Buffer
 
-class W_StringBufferObject(W_AbstractStringObject):
-    from pypy.objspace.std.stringtype import str_typedef as typedef
+class W_StringBufferObject(W_AbstractBytesObject):
+    from pypy.objspace.std.bytesobject import str_typedef as typedef
 
     w_str = None
 
@@ -73,5 +72,5 @@ def str__StringBuffer(space, w_self):
     assert type(w_self) is W_StringBufferObject
     return w_self
 
-from pypy.objspace.std import stringtype
-register_all(vars(), stringtype)
+from pypy.objspace.std import bytesobject
+register_all(vars(), bytesobject)

@@ -15,6 +15,7 @@ from rpython.rlib import jit
 
 # Object imports
 from pypy.objspace.std.boolobject import W_BoolObject
+from pypy.objspace.std.bytesobject import W_BytesObject, wrapstr
 from pypy.objspace.std.complexobject import W_ComplexObject
 from pypy.objspace.std.dictmultiobject import W_DictMultiObject
 from pypy.objspace.std.floatobject import W_FloatObject
@@ -27,14 +28,12 @@ from pypy.objspace.std.objectobject import W_ObjectObject
 from pypy.objspace.std.iterobject import W_SeqIterObject
 from pypy.objspace.std.setobject import W_SetObject, W_FrozensetObject
 from pypy.objspace.std.sliceobject import W_SliceObject
-from pypy.objspace.std.stringobject import W_StringObject
 from pypy.objspace.std.unicodeobject import W_UnicodeObject
 from pypy.objspace.std.tupleobject import W_AbstractTupleObject
 from pypy.objspace.std.typeobject import W_TypeObject
 
 # types
 from pypy.objspace.std.inttype import wrapint
-from pypy.objspace.std.stringtype import wrapstr
 from pypy.objspace.std.unicodetype import wrapunicode
 
 class StdObjSpace(ObjSpace, DescrOperation):
@@ -47,7 +46,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         self.model = model.StdTypeModel(self.config)
 
         self.FrameClass = frame.build_frame(self)
-        self.StringObjectCls = W_StringObject
+        self.StringObjectCls = W_BytesObject
 
         self.UnicodeObjectCls = W_UnicodeObject
 
@@ -436,7 +435,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
             return w_obj.listview_str()
         if type(w_obj) is W_SetObject or type(w_obj) is W_FrozensetObject:
             return w_obj.listview_str()
-        if isinstance(w_obj, W_StringObject):
+        if isinstance(w_obj, W_BytesObject):
             return w_obj.listview_str()
         if isinstance(w_obj, W_ListObject) and self._uses_list_iter(w_obj):
             return w_obj.getitems_str()
@@ -551,7 +550,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         element or None on element not found.
 
         performance shortcut to avoid creating the OperationError(KeyError)
-        and allocating W_StringObject
+        and allocating W_BytesObject
         """
         if (isinstance(w_obj, W_DictMultiObject) and
                 not w_obj.user_overridden_class):

@@ -37,7 +37,7 @@ class StdTypeModel:
             from pypy.objspace.std.floattype  import float_typedef
             from pypy.objspace.std.complextype  import complex_typedef
             from pypy.objspace.std.basestringtype import basestring_typedef
-            from pypy.objspace.std.stringtype import str_typedef
+            from pypy.objspace.std.bytesobject import str_typedef
             from pypy.objspace.std.bytearraytype import bytearray_typedef
             from pypy.objspace.std.typeobject   import type_typedef
             from pypy.objspace.std.slicetype  import slice_typedef
@@ -59,7 +59,7 @@ class StdTypeModel:
         from pypy.objspace.std import listobject
         from pypy.objspace.std import dictmultiobject
         from pypy.objspace.std import setobject
-        from pypy.objspace.std import stringobject
+        from pypy.objspace.std import bytesobject
         from pypy.objspace.std import bytearrayobject
         from pypy.objspace.std import typeobject
         from pypy.objspace.std import sliceobject
@@ -88,7 +88,7 @@ class StdTypeModel:
             boolobject.W_BoolObject: [],
             intobject.W_IntObject: [],
             floatobject.W_FloatObject: [],
-            stringobject.W_StringObject: [],
+            bytesobject.W_BytesObject: [],
             bytearrayobject.W_BytearrayObject: [],
             typeobject.W_TypeObject: [],
             sliceobject.W_SliceObject: [],
@@ -101,7 +101,7 @@ class StdTypeModel:
             }
 
         self.imported_but_not_registered = {
-            stringobject.W_StringObject: True,
+            bytesobject.W_BytesObject: True,
         }
         for option, value in config.objspace.std:
             if option.startswith("with") and option in option_to_typename:
@@ -171,13 +171,13 @@ class StdTypeModel:
                     complexobject.delegate_Float2Complex),
             ]
 
-        self.typeorder[stringobject.W_StringObject] += [
+        self.typeorder[bytesobject.W_BytesObject] += [
             (unicodeobject.W_UnicodeObject, unicodeobject.delegate_String2Unicode),
             ]
         if config.objspace.std.withstrbuf:
             from pypy.objspace.std import strbufobject
             self.typeorder[strbufobject.W_StringBufferObject] += [
-                (stringobject.W_StringObject,
+                (bytesobject.W_BytesObject,
                                        strbufobject.delegate_buf2str),
                 (unicodeobject.W_UnicodeObject,
                                        strbufobject.delegate_buf2unicode)

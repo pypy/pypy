@@ -20,12 +20,12 @@ from rpython.rlib.rstruct import ieee
 from rpython.rlib.rstring import StringBuilder
 
 from pypy.objspace.std.boolobject    import W_BoolObject
+from pypy.objspace.std.bytesobject  import W_StringObject
 from pypy.objspace.std.complexobject import W_ComplexObject
 from pypy.objspace.std.intobject     import W_IntObject
 from pypy.objspace.std.floatobject   import W_FloatObject
 from pypy.objspace.std.tupleobject   import W_AbstractTupleObject
 from pypy.objspace.std.listobject    import W_ListObject
-from pypy.objspace.std.stringobject  import W_StringObject
 from pypy.objspace.std.typeobject    import W_TypeObject
 from pypy.objspace.std.longobject    import W_LongObject, newlong
 from pypy.objspace.std.noneobject    import W_NoneObject

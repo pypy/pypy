@@ -4,7 +4,7 @@ from pypy.interpreter.gateway import interp2app
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
 
-from pypy.objspace.std.stringtype import (
+from pypy.objspace.std.bytesobject import (
     str_decode,
     str_count, str_index, str_rindex, str_find, str_rfind, str_replace,
     str_startswith, str_endswith, str_islower, str_isupper, str_isalpha,
