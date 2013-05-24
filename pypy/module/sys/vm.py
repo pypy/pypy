@@ -25,23 +25,35 @@ purposes only."""
     if depth < 0:
         raise OperationError(space.w_ValueError,
                              space.wrap("frame index must not be negative"))
-    return getframe(space, depth)
+    return getframe_unroll(space, depth)
 
 
 @jit.look_inside_iff(lambda space, depth: jit.isconstant(depth))
-def getframe(space, depth):
+def getframe_unroll(space, depth):
     ec = space.getexecutioncontext()
     f = ec.gettopframe_nohidden()
+    while jit.isvirtual(f):
+        if f is None:
+            raise OperationError(space.w_ValueError,
+                                 space.wrap("call stack is not deep enough"))
+        if depth == 0:
+            f.mark_as_escaped()
+            return space.wrap(f)
+        depth -= 1
+        f = ec.getnextframe_nohidden(f)
+    return getframe_fallback(space, ec, depth, f)
+
+
+def getframe_fallback(space, ec, depth, f):
     while True:
         if f is None:
             raise OperationError(space.w_ValueError,
                                  space.wrap("call stack is not deep enough"))
         if depth == 0:
-            break
+            f.mark_as_escaped()
+            return space.wrap(f)
         depth -= 1
         f = ec.getnextframe_nohidden(f)
-    f.mark_as_escaped()
-    return space.wrap(f)
 
 
 @unwrap_spec(new_limit="c_int")
