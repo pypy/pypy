@@ -105,7 +105,6 @@ class TestArray(BaseTestPyPyC):
         assert loop.match("""
             i10 = int_lt(i6, 1000)
             guard_true(i10, descr=...)
-            guard_not_invalidated(descr=...)
             i11 = int_lt(i6, i7)
             guard_true(i11, descr=...)
             f13 = getarrayitem_raw(i8, i6, descr=<ArrayF 8>)
@@ -142,7 +141,6 @@ class TestArray(BaseTestPyPyC):
         assert loop.match("""
             i10 = int_lt(i6, 1000)
             guard_true(i10, descr=...)
-            guard_not_invalidated(descr=...)
             i11 = int_lt(i6, i7)
             guard_true(i11, descr=...)
             i13 = getarrayitem_raw(i8, i6, descr=<Array. 4>)
