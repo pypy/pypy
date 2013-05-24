@@ -1,6 +1,12 @@
 class StringMethods(object):
     _mixin_ = True
 
+    def _new(self, value):
+        raise NotImplementedError
+
+    def _self_value(self):
+        raise NotImplementedError
+
     def descr_eq(self, space):
         pass
 
@@ -38,8 +44,7 @@ class StringMethods(object):
             if e.match(space, space.w_TypeError):
                 return NotImplemented
             raise
-        data = self.get_value()
-        return self.new(data * times)
+        return self._new(self._self_value() * times)
 
     def descr_getitem(self, space):
         pass

@@ -38,10 +38,10 @@ class W_BytearrayObject(W_Object, StringMethods):
         """ representation for debugging purposes """
         return "%s(%s)" % (w_self.__class__.__name__, ''.join(w_self.data))
 
-    def new(self, value):
+    def _new(self, value):
         return W_BytearrayObject(value)
 
-    def get_value(self):
+    def _self_value(self):
         return self.data
 
 
