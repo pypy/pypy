@@ -16,6 +16,7 @@ from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
+from pypy.objspace.std.stringmethods import StringMethods
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import (compute_hash, compute_unique_id,
     specialize)
@@ -44,7 +45,7 @@ class W_AbstractUnicodeObject(W_Object):
         return space.wrap(compute_unique_id(space.unicode_w(self)))
 
 
-class W_UnicodeObject(W_AbstractUnicodeObject):
+class W_UnicodeObject(W_AbstractUnicodeObject, StringMethods):
     _immutable_fields_ = ['_value']
 
     def __init__(w_self, unistr):
@@ -72,6 +73,15 @@ class W_UnicodeObject(W_AbstractUnicodeObject):
 
     def listview_unicode(w_self):
         return _create_list_from_unicode(w_self._value)
+
+    def _new(self, value):
+        return W_UnicodeObject(value)
+
+    def _len(self):
+        return len(self._value)
+
+    def _val(self):
+        return self._value
 
 
 def wrapunicode(space, uni):
@@ -406,8 +416,65 @@ unicode_typedef = W_UnicodeObject.typedef = StdTypeDef(
 
 Create a new Unicode object from the given encoded string.
 encoding defaults to the current default string encoding.
-errors can be 'strict', 'replace' or 'ignore' and defaults to 'strict'.'''
-    )
+errors can be 'strict', 'replace' or 'ignore' and defaults to 'strict'.''',
+
+#    __repr__ = interp2app(W_UnicodeObject.descr_repr),
+#    __str__ = interp2app(W_UnicodeObject.descr_str),
+
+#    __eq__ = interp2app(W_UnicodeObject.descr_eq),
+#    __ne__ = interp2app(W_UnicodeObject.descr_ne),
+#    __lt__ = interp2app(W_UnicodeObject.descr_lt),
+#    __le__ = interp2app(W_UnicodeObject.descr_le),
+#    __gt__ = interp2app(W_UnicodeObject.descr_gt),
+#    __ge__ = interp2app(W_UnicodeObject.descr_ge),
+
+#    __len__ = interp2app(W_UnicodeObject.descr_len),
+#    __iter__ = interp2app(W_UnicodeObject.descr_iter),
+#    __contains__ = interp2app(W_UnicodeObject.descr_contains),
+
+#    __add__ = interp2app(W_UnicodeObject.descr_add),
+    __mul__ = interp2app(W_UnicodeObject.descr_mul),
+    __rmul__ = interp2app(W_UnicodeObject.descr_mul),
+
+#    __getitem__ = interp2app(W_UnicodeObject.descr_getitem),
+
+#    capitalize = interp2app(W_UnicodeObject.descr_capitalize),
+#    center = interp2app(W_UnicodeObject.descr_center),
+#    count = interp2app(W_UnicodeObject.descr_count),
+#    decode = interp2app(W_UnicodeObject.descr_decode),
+#    expandtabs = interp2app(W_UnicodeObject.descr_expandtabs),
+#    find = interp2app(W_UnicodeObject.descr_find),
+#    rfind = interp2app(W_UnicodeObject.descr_rfind),
+#    index = interp2app(W_UnicodeObject.descr_index),
+#    rindex = interp2app(W_UnicodeObject.descr_rindex),
+#    isalnum = interp2app(W_UnicodeObject.descr_isalnum),
+#    isalpha = interp2app(W_UnicodeObject.descr_isalpha),
+#    isdigit = interp2app(W_UnicodeObject.descr_isdigit),
+#    islower = interp2app(W_UnicodeObject.descr_islower),
+#    isspace = interp2app(W_UnicodeObject.descr_isspace),
+#    istitle = interp2app(W_UnicodeObject.descr_istitle),
+#    isupper = interp2app(W_UnicodeObject.descr_isupper),
+#    join = interp2app(W_UnicodeObject.descr_join),
+#    ljust = interp2app(W_UnicodeObject.descr_ljust),
+#    rjust = interp2app(W_UnicodeObject.descr_rjust),
+#    lower = interp2app(W_UnicodeObject.descr_lower),
+#    partition = interp2app(W_UnicodeObject.descr_partition),
+#    rpartition = interp2app(W_UnicodeObject.descr_rpartition),
+#    replace = interp2app(W_UnicodeObject.descr_replace),
+#    split = interp2app(W_UnicodeObject.descr_split),
+#    rsplit = interp2app(W_UnicodeObject.descr_rsplit),
+#    splitlines = interp2app(W_UnicodeObject.descr_splitlines),
+#    startswith = interp2app(W_UnicodeObject.descr_startswith),
+#    endswith = interp2app(W_UnicodeObject.descr_endswith),
+#    strip = interp2app(W_UnicodeObject.descr_strip),
+#    lstrip = interp2app(W_UnicodeObject.descr_lstrip),
+#    rstrip = interp2app(W_UnicodeObject.descr_rstrip),
+#    swapcase = interp2app(W_UnicodeObject.descr_swapcase),
+#    title = interp2app(W_UnicodeObject.descr_title),
+#    translate = interp2app(W_UnicodeObject.descr_translate),
+#    upper = interp2app(W_UnicodeObject.descr_upper),
+#    zfill = interp2app(W_UnicodeObject.descr_zfill),
+)
 
 unicode_typedef.registermethods(globals())
 
@@ -611,25 +678,6 @@ def getslice__Unicode_ANY_ANY(space, w_uni, w_start, w_stop):
     uni = w_uni._value
     start, stop = normalize_simple_slice(space, len(uni), w_start, w_stop)
     return W_UnicodeObject(uni[start:stop])
-
-def mul__Unicode_ANY(space, w_uni, w_times):
-    try:
-        times = space.getindex_w(w_times, space.w_OverflowError)
-    except OperationError, e:
-        if e.match(space, space.w_TypeError):
-            raise FailedToImplement
-        raise
-    if times <= 0:
-        return W_UnicodeObject.EMPTY
-    input = w_uni._value
-    if len(input) == 1:
-        result = input[0] * times
-    else:
-        result = input * times
-    return W_UnicodeObject(result)
-
-def mul__ANY_Unicode(space, w_times, w_uni):
-    return mul__Unicode_ANY(space, w_uni, w_times)
 
 def _isspace(uchar):
     return unicodedb.isspace(ord(uchar))
