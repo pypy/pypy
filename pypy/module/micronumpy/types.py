@@ -3,7 +3,9 @@ import math
 
 from pypy.interpreter.error import OperationError
 from pypy.module.micronumpy import interp_boxes
+from pypy.module.micronumpy import support
 from pypy.module.micronumpy.arrayimpl.voidbox import VoidBoxStorage
+from pypy.module.micronumpy.arrayimpl.concrete import SliceArray
 from pypy.objspace.std.floatobject import float2string
 from pypy.objspace.std.complexobject import str_format
 from rpython.rlib import rfloat, clibffi, rcomplex
@@ -1076,7 +1078,7 @@ class ComplexFloating(object):
 
     def to_builtin_type(self, space, box):
         real,imag = self.for_computation(self.unbox(box))
-        return space.newcomplex(real, imag) 
+        return space.newcomplex(real, imag)
 
     def read_bool(self, arr, i, offset):
         v = self.for_computation(self._read(arr.storage, i, offset))
@@ -1217,7 +1219,7 @@ class ComplexFloating(object):
 
     @raw_binary_op
     def le(self, v1, v2):
-        return self._lt(v1, v2) or self._eq(v1, v2) 
+        return self._lt(v1, v2) or self._eq(v1, v2)
 
     @raw_binary_op
     def gt(self, v1, v2):
@@ -1225,7 +1227,7 @@ class ComplexFloating(object):
 
     @raw_binary_op
     def ge(self, v1, v2):
-        return self._lt(v2, v1) or self._eq(v2, v1) 
+        return self._lt(v2, v1) or self._eq(v2, v1)
 
     def _bool(self, v):
         return bool(v[0]) or bool(v[1])
@@ -1341,7 +1343,7 @@ class ComplexFloating(object):
             return rcomplex.c_div((v[0], -v[1]), (a2, 0.))
         except ZeroDivisionError:
             return rfloat.NAN, rfloat.NAN
- 
+
     # No floor, ceil, trunc in numpy for complex
     #@simple_unary_op
     #def floor(self, v):
@@ -1684,6 +1686,7 @@ class StringType(BaseType, BaseStringType):
         return space.wrap(self.to_str(box))
 
     def build_and_convert(self, space, mydtype, box):
+        assert isinstance(box, interp_boxes.W_GenericBox)
         if box.get_dtype(space).is_str_or_unicode():
             arg = box.get_dtype(space).itemtype.to_str(box)
         else:
@@ -1696,9 +1699,67 @@ class StringType(BaseType, BaseStringType):
         for j in range(i + 1, self.size):
             arr.storage[j] = '\x00'
         return interp_boxes.W_StringBox(arr,  0, arr.dtype)
-        
+
 class VoidType(BaseType, BaseStringType):
     T = lltype.Char
+
+    def _coerce(self, space, arr, ofs, dtype, w_items, shape):
+        items_w = space.fixedview(w_items)
+        for i in range(len(items_w)):
+            subdtype = dtype.subdtype
+            itemtype = subdtype.itemtype
+            if space.len_w(shape) <= 1:
+                w_box = itemtype.coerce(space, dtype.subdtype, items_w[i])
+                itemtype.store(arr, 0, ofs, w_box)
+                ofs += itemtype.get_element_size()
+            else:
+                size = 1
+                for dimension in shape[1:]:
+                    size *= dimension
+                size *= itemtype.get_element_size()
+                for w_item in items_w:
+                    self._coerce(space, arr, ofs, dtype, w_items, shape[1:])
+                    ofs += size
+        return arr
+
+    def _coerce(self, space, arr, ofs, dtype, w_items, shape):
+        # TODO: Make sure the shape and the array match
+        items_w = space.fixedview(w_items)
+        subdtype = dtype.subdtype
+        itemtype = subdtype.itemtype
+        if len(shape) <= 1:
+            for i in range(len(items_w)):
+                w_box = itemtype.coerce(space, dtype.subdtype, items_w[i])
+                itemtype.store(arr, 0, ofs, w_box)
+                ofs += itemtype.get_element_size()
+        else:
+            for w_item in items_w:
+                size = 1
+                for dimension in shape[1:]:
+                    size *= dimension
+                size *= itemtype.get_element_size()
+                self._coerce(space, arr, ofs, dtype, w_item, shape[1:])
+                ofs += size
+
+    def coerce(self, space, dtype, w_items):
+        arr = VoidBoxStorage(self.size, dtype)
+        self._coerce(space, arr, 0, dtype, w_items, dtype.shape)
+        return interp_boxes.W_VoidBox(arr, 0, dtype)
+
+    @jit.unroll_safe
+    def store(self, arr, i, ofs, box):
+        assert isinstance(box, interp_boxes.W_VoidBox)
+        for k in range(self.get_element_size()):
+            arr.storage[k + ofs] = box.arr.storage[k + box.ofs]
+
+    def readarray(self, arr, i, offset, dtype=None):
+        from pypy.module.micronumpy.base import W_NDimArray
+        if dtype is None:
+            dtype = arr.dtype
+        strides, backstrides = support.calc_strides(dtype.shape, dtype.subdtype, arr.order)
+        implementation = SliceArray(i + offset, strides, backstrides,
+                             dtype.shape, arr, W_NDimArray(arr), dtype.subdtype)
+        return W_NDimArray(implementation)
 
 NonNativeVoidType = VoidType
 NonNativeStringType = StringType
@@ -1733,7 +1794,7 @@ class RecordType(BaseType):
         if not space.issequence_w(w_item):
             raise OperationError(space.w_TypeError, space.wrap(
                 "expected sequence"))
-        if len(self.offsets_and_fields) != space.int_w(space.len(w_item)):
+        if len(self.offsets_and_fields) != space.len_w(w_item):
             raise OperationError(space.w_ValueError, space.wrap(
                 "wrong length"))
         items_w = space.fixedview(w_item)

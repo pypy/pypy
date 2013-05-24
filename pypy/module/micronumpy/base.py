@@ -27,10 +27,10 @@ class W_NDimArray(W_Root):
         from pypy.module.micronumpy.arrayimpl import concrete, scalar
 
         if not shape:
-            impl = scalar.Scalar(dtype)
+            impl = scalar.Scalar(dtype.base)
         else:
-            strides, backstrides = calc_strides(shape, dtype, order)
-            impl = concrete.ConcreteArray(shape, dtype, order, strides,
+            strides, backstrides = calc_strides(shape, dtype.base, order)
+            impl = concrete.ConcreteArray(shape, dtype.base, order, strides,
                                       backstrides)
         return W_NDimArray(impl)
 

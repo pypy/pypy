@@ -15,6 +15,20 @@ class VCPythonEngine(object):
     def patch_extension_kwds(self, kwds):
         pass
 
+    def find_module(self, module_name, path, so_suffix):
+        try:
+            f, filename, descr = imp.find_module(module_name, path)
+        except ImportError:
+            return None
+        if f is not None:
+            f.close()
+        # Note that after a setuptools installation, there are both .py
+        # and .so files with the same basename.  The code here relies on
+        # imp.find_module() locating the .so in priority.
+        if descr[0] != so_suffix:
+            return None
+        return filename
+
     def collect_types(self):
         self._typesdict = {}
         self._generate("collecttype")
@@ -427,9 +441,9 @@ class VCPythonEngine(object):
         prnt('static void %s(%s *p)' % (checkfuncname, cname))
         prnt('{')
         prnt('  /* only to generate compile-time warnings or errors */')
-        for fname, ftype, _ in tp.enumfields():
+        for fname, ftype, fbitsize in tp.enumfields():
             if (isinstance(ftype, model.PrimitiveType)
-                and ftype.is_integer_type()):
+                and ftype.is_integer_type()) or fbitsize >= 0:
                 # accept all integers, but complain on float or double
                 prnt('  (void)((p->%s) << 1);' % fname)
             else:

@@ -12,7 +12,6 @@ from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std.stringtype import (
     joined2, sliced, stringendswith, stringstartswith, wrapchar, wrapstr)
-from pypy.objspace.std.tupleobject import W_TupleObject
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import (
     compute_hash, compute_unique_id, specialize)
@@ -684,7 +683,9 @@ def str_endswith__String_String_ANY_ANY(space, w_self, w_suffix, w_start, w_end)
                                                w_end, True)
     return space.newbool(stringendswith(u_self, w_suffix._value, start, end))
 
-def str_endswith__String_Tuple_ANY_ANY(space, w_self, w_suffixes, w_start, w_end):
+def str_endswith__String_ANY_ANY_ANY(space, w_self, w_suffixes, w_start, w_end):
+    if not space.isinstance_w(w_suffixes, space.w_tuple):
+        raise FailedToImplement
     (u_self, start, end) = _convert_idx_params(space, w_self, w_start,
                                                w_end, True)
     for w_suffix in space.fixedview(w_suffixes):
@@ -702,7 +703,9 @@ def str_startswith__String_String_ANY_ANY(space, w_self, w_prefix, w_start, w_en
                                                w_end, True)
     return space.newbool(stringstartswith(u_self, w_prefix._value, start, end))
 
-def str_startswith__String_Tuple_ANY_ANY(space, w_self, w_prefixes, w_start, w_end):
+def str_startswith__String_ANY_ANY_ANY(space, w_self, w_prefixes, w_start, w_end):
+    if not space.isinstance_w(w_prefixes, space.w_tuple):
+        raise FailedToImplement
     (u_self, start, end) = _convert_idx_params(space, w_self,
                                                w_start, w_end, True)
     for w_prefix in space.fixedview(w_prefixes):

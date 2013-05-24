@@ -28,3 +28,12 @@ class TestFFI(backend_tests.BackendTests,
         assert ffi.typeof("long(*)(long, long**, ...)").cname == (
             "long(*)(long, long * *, ...)")
         assert ffi.typeof("long(*)(long, long**, ...)").ellipsis is True
+
+    def test_new_handle(self):
+        ffi = FFI(backend=self.Backend())
+        o = [2, 3, 4]
+        p = ffi.new_handle(o)
+        assert ffi.typeof(p) == ffi.typeof("void *")
+        assert ffi.from_handle(p) is o
+        assert ffi.from_handle(ffi.cast("char *", p)) is o
+        py.test.raises(RuntimeError, ffi.from_handle, ffi.NULL)

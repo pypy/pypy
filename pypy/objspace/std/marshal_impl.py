@@ -23,7 +23,7 @@ from pypy.objspace.std.boolobject    import W_BoolObject
 from pypy.objspace.std.complexobject import W_ComplexObject
 from pypy.objspace.std.intobject     import W_IntObject
 from pypy.objspace.std.floatobject   import W_FloatObject
-from pypy.objspace.std.tupleobject   import W_TupleObject
+from pypy.objspace.std.tupleobject   import W_AbstractTupleObject
 from pypy.objspace.std.listobject    import W_ListObject
 from pypy.objspace.std.stringobject  import W_StringObject
 from pypy.objspace.std.typeobject    import W_TypeObject
@@ -288,14 +288,17 @@ def unmarshal_stringref(space, u, tc):
         raise_exception(space, 'bad marshal data')
 register(TYPE_STRINGREF, unmarshal_stringref)
 
-def marshal_w__Tuple(space, w_tuple, m):
-    items = w_tuple.wrappeditems
+def marshal_tuple(space, w_tuple, m):
+    if not isinstance(w_tuple, W_AbstractTupleObject):
+        raise_exception(space, "unmarshallable object")
+    items = w_tuple.tolist()
     m.put_tuple_w(TYPE_TUPLE, items)
+handled_by_any.append(('tuple', marshal_tuple))
 
-def unmarshal_Tuple(space, u, tc):
+def unmarshal_tuple(space, u, tc):
     items_w = u.get_tuple_w()
     return space.newtuple(items_w)
-register(TYPE_TUPLE, unmarshal_Tuple)
+register(TYPE_TUPLE, unmarshal_tuple)
 
 def marshal_list(space, w_list, m):
     if not isinstance(w_list, W_ListObject):

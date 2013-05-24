@@ -65,7 +65,8 @@ if sys.platform == "win32":
     del working_modules["termios"]
     del working_modules["_minimal_curses"]
 
-    del working_modules["cppyy"]  # not tested on win32
+    if "cppyy" in working_modules:
+        del working_modules["cppyy"]  # not tested on win32
 
     # The _locale module is needed by site.py on Windows
     default_modules["_locale"] = None
@@ -78,7 +79,8 @@ if sys.platform == "sunos5":
     del working_modules["_minimal_curses"]
     del working_modules["termios"]
     del working_modules["_multiprocessing"]   # depends on rctime
-    del working_modules["cppyy"]  # depends on ctypes
+    if "cppyy" in working_modules:
+        del working_modules["cppyy"]  # depends on ctypes
 
 
 module_dependencies = {
@@ -213,10 +215,6 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
         BoolOption("sharesmallstr",
                    "always reuse the prebuilt string objects "
                    "(the empty string and potentially single-char strings)",
-                   default=False),
-
-        BoolOption("withsmalltuple",
-                   "use small tuples",
                    default=False),
 
         BoolOption("withspecialisedtuple",

@@ -275,22 +275,11 @@ class AppTestDtypes(BaseAppTestDtypes):
         from numpypy import array, dtype
         from cPickle import loads, dumps
         a = array([1,2,3])
-        if self.ptr_size == 8:
+         if self.ptr_size == 8:
             assert a.dtype.__reduce__() == (dtype, ('i8', 0, 1), (3, '<', None, None, None, -1, -1, 0))
         else:
             assert a.dtype.__reduce__() == (dtype, ('i4', 0, 1), (3, '<', None, None, None, -1, -1, 0))
         assert loads(dumps(a.dtype)) == a.dtype
-
-    def test_pickle_record(self):
-        from numpypy import array, dtype
-        from cPickle import loads, dumps
-
-        d = dtype([("x", "int32"), ("y", "int32"), ("z", "int32"), ("value", float)])
-        assert d.__reduce__() == (dtype, ('V20', 0, 1), (3, '<', None, ('x', 'y', 'z', 'value'), {'y': (dtype('int32'), 4), 'x': (dtype('int32'), 0), 'z': (dtype('int32'), 8), 'value': (dtype('float64'), 12)}, 20, 1, 0))
-
-        new_d = loads(dumps(d))
-
-        assert new_d.__reduce__() == d.__reduce__()
 
 class AppTestTypes(BaseAppTestDtypes):
     def test_abstract_types(self):
@@ -726,7 +715,7 @@ class AppTestTypes(BaseAppTestDtypes):
         x = int8(42).ravel()
         assert x.dtype == int8
         assert (x == array(42)).all()
-        
+
 
 
 class AppTestStrUnicodeDtypes(BaseNumpyAppTest):
@@ -769,6 +758,7 @@ class AppTestStrUnicodeDtypes(BaseNumpyAppTest):
         assert isinstance(unicode_(3), unicode)
 
 class AppTestRecordDtypes(BaseNumpyAppTest):
+    spaceconfig = dict(usemodules=["micronumpy", "struct", "binascii"])
     def test_create(self):
         from numpypy import dtype, void
 
@@ -781,6 +771,7 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
         assert d.num == 20
         assert d.itemsize == 20
         assert d.kind == 'V'
+        assert d.base == d
         assert d.type is void
         assert d.char == 'V'
         assert d.names == ("x", "y", "z", "value")
@@ -792,6 +783,51 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
         from numpypy import dtype
         d = dtype({'names': ['a', 'b', 'c'],
                    })
+
+    def test_create_subarrays(self):
+        from numpypy import dtype
+        d = dtype([("x", "float", (2,)), ("y", "int", (2,))])
+        assert d.itemsize == 32
+        assert d.name == "void256"
+        keys = d.fields.keys()
+        assert "x" in keys
+        assert "y" in keys
+        assert d["x"].shape == (2,)
+        assert d["x"].itemsize == 16
+        e = dtype([("x", "float", 2), ("y", "int", 2)])
+        assert e.fields.keys() == keys
+        assert e['x'].shape == (2,)
+
+        dt = dtype((float, 10))
+        assert dt.shape == (10,)
+        assert dt.kind == 'V'
+        assert dt.fields == None
+        assert dt.subdtype == (dtype(float), (10,))
+        assert dt.base == dtype(float)
+
+    def test_pickle_record(self):
+        from numpypy import array, dtype
+        from cPickle import loads, dumps
+
+        d = dtype([("x", "int32"), ("y", "int32"), ("z", "int32"), ("value", float)])
+        assert d.__reduce__() == (dtype, ('V20', 0, 1), (3, '<', None, ('x', 'y', 'z', 'value'), {'y': (dtype('int32'), 4), 'x': (dtype('int32'), 0), 'z': (dtype('int32'), 8), 'value': (dtype('float64'), 12)}, 20, 1, 0))
+
+        new_d = loads(dumps(d))
+
+        assert new_d.__reduce__() == d.__reduce__()
+
+    def test_pickle_record_subarrays(self):
+        from numpypy import array, dtype
+        from cPickle import loads, dumps
+
+        d = dtype([("x", "int32", (3,)), ("y", "int32", (2,)), ("z", "int32", (4,)), ("value", float, (5,))])
+        new_d = loads(dumps(d))
+
+        keys = d.fields.keys()
+        keys.sort()
+        assert keys == ["value", "x", "y", "z"]
+
+        assert new_d.itemsize == d.itemsize == 76
 
 class AppTestNotDirect(BaseNumpyAppTest):
     def setup_class(cls):
