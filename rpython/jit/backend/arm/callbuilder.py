@@ -213,7 +213,7 @@ class SoftFloatCallBuilder(ARMCallbuilder):
         # or on the stack, which we can not access later
         # If this happens to be the case we remap the register to r4 and use r4
         # to call the function
-        if self.fnloc in non_float_regs or self.fnloc.is_stack():
+        if self.fnloc in r.argument_regs or self.fnloc.is_stack():
             non_float_locs.append(self.fnloc)
             non_float_regs.append(r.r4)
             self.fnloc = r.r4
