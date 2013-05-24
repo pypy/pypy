@@ -41,8 +41,13 @@ class W_BytearrayObject(W_Object, StringMethods):
     def _new(self, value):
         return W_BytearrayObject(value)
 
-    def _self_value(self):
+    def _len(self):
+        return len(self.data)
+
+    def _val(self):
         return self.data
+
+W_BytearrayObject.EMPTY = W_BytearrayObject([])
 
 
 bytearray_append  = SMM('append', 2)

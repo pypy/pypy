@@ -4,7 +4,10 @@ class StringMethods(object):
     def _new(self, value):
         raise NotImplementedError
 
-    def _self_value(self):
+    def _len(self):
+        raise NotImplementedError
+
+    def _val(self):
         raise NotImplementedError
 
     def descr_eq(self, space):
@@ -44,7 +47,11 @@ class StringMethods(object):
             if e.match(space, space.w_TypeError):
                 return NotImplemented
             raise
-        return self._new(self._self_value() * times)
+        if times <= 0:
+            return self.EMPTY
+        if self._len() == 1:
+            return self._new(self._val()[0] * times)
+        return self._new(self._val() * times)
 
     def descr_getitem(self, space):
         pass

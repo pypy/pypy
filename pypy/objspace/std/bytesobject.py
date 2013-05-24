@@ -14,6 +14,7 @@ from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
+from pypy.objspace.std.stringmethods import StringMethods
 from rpython.rlib import jit
 from rpython.rlib.jit import we_are_jitted
 from rpython.rlib.objectmodel import (compute_hash, compute_unique_id,
@@ -52,7 +53,7 @@ class W_AbstractBytesObject(W_Object):
         return space.unicode_w(decode_object(space, w_self, encoding, errors))
 
 
-class W_BytesObject(W_AbstractBytesObject):
+class W_BytesObject(W_AbstractBytesObject, StringMethods):
     _immutable_fields_ = ['_value']
 
     def __init__(w_self, str):
@@ -70,6 +71,16 @@ class W_BytesObject(W_AbstractBytesObject):
 
     def listview_str(w_self):
         return _create_list_from_string(w_self._value)
+
+    def _new(self, value):
+        return W_BytesObject(value)
+
+    def _len(self):
+        return len(self._value)
+
+    def _val(self):
+        return self._value
+
 
 W_StringObject = W_BytesObject
 
@@ -361,8 +372,65 @@ str_typedef = W_BytesObject.typedef = StdTypeDef(
     __doc__ = '''str(object) -> string
 
 Return a nice string representation of the object.
-If the argument is a string, the return value is the same object.'''
-    )
+If the argument is a string, the return value is the same object.''',
+
+#    __repr__ = interp2app(W_BytesObject.descr_repr),
+#    __str__ = interp2app(W_BytesObject.descr_str),
+
+#    __eq__ = interp2app(W_BytesObject.descr_eq),
+#    __ne__ = interp2app(W_BytesObject.descr_ne),
+#    __lt__ = interp2app(W_BytesObject.descr_lt),
+#    __le__ = interp2app(W_BytesObject.descr_le),
+#    __gt__ = interp2app(W_BytesObject.descr_gt),
+#    __ge__ = interp2app(W_BytesObject.descr_ge),
+
+#    __len__ = interp2app(W_BytesObject.descr_len),
+#    __iter__ = interp2app(W_BytesObject.descr_iter),
+#    __contains__ = interp2app(W_BytesObject.descr_contains),
+
+#    __add__ = interp2app(W_BytesObject.descr_add),
+    __mul__ = interp2app(W_BytesObject.descr_mul),
+    __rmul__ = interp2app(W_BytesObject.descr_mul),
+
+#    __getitem__ = interp2app(W_BytesObject.descr_getitem),
+
+#    capitalize = interp2app(W_BytesObject.descr_capitalize),
+#    center = interp2app(W_BytesObject.descr_center),
+#    count = interp2app(W_BytesObject.descr_count),
+#    decode = interp2app(W_BytesObject.descr_decode),
+#    expandtabs = interp2app(W_BytesObject.descr_expandtabs),
+#    find = interp2app(W_BytesObject.descr_find),
+#    rfind = interp2app(W_BytesObject.descr_rfind),
+#    index = interp2app(W_BytesObject.descr_index),
+#    rindex = interp2app(W_BytesObject.descr_rindex),
+#    isalnum = interp2app(W_BytesObject.descr_isalnum),
+#    isalpha = interp2app(W_BytesObject.descr_isalpha),
+#    isdigit = interp2app(W_BytesObject.descr_isdigit),
+#    islower = interp2app(W_BytesObject.descr_islower),
+#    isspace = interp2app(W_BytesObject.descr_isspace),
+#    istitle = interp2app(W_BytesObject.descr_istitle),
+#    isupper = interp2app(W_BytesObject.descr_isupper),
+#    join = interp2app(W_BytesObject.descr_join),
+#    ljust = interp2app(W_BytesObject.descr_ljust),
+#    rjust = interp2app(W_BytesObject.descr_rjust),
+#    lower = interp2app(W_BytesObject.descr_lower),
+#    partition = interp2app(W_BytesObject.descr_partition),
+#    rpartition = interp2app(W_BytesObject.descr_rpartition),
+#    replace = interp2app(W_BytesObject.descr_replace),
+#    split = interp2app(W_BytesObject.descr_split),
+#    rsplit = interp2app(W_BytesObject.descr_rsplit),
+#    splitlines = interp2app(W_BytesObject.descr_splitlines),
+#    startswith = interp2app(W_BytesObject.descr_startswith),
+#    endswith = interp2app(W_BytesObject.descr_endswith),
+#    strip = interp2app(W_BytesObject.descr_strip),
+#    lstrip = interp2app(W_BytesObject.descr_lstrip),
+#    rstrip = interp2app(W_BytesObject.descr_rstrip),
+#    swapcase = interp2app(W_BytesObject.descr_swapcase),
+#    title = interp2app(W_BytesObject.descr_title),
+#    translate = interp2app(W_BytesObject.descr_translate),
+#    upper = interp2app(W_BytesObject.descr_upper),
+#    zfill = interp2app(W_BytesObject.descr_zfill),
+)
 
 str_typedef.registermethods(globals())
 
@@ -1207,28 +1275,6 @@ def getslice__String_ANY_ANY(space, w_str, w_start, w_stop):
         return W_BytesObject.EMPTY
     else:
         return sliced(space, s, start, stop, w_str)
-
-def mul_string_times(space, w_str, w_times):
-    try:
-        mul = space.getindex_w(w_times, space.w_OverflowError)
-    except OperationError, e:
-        if e.match(space, space.w_TypeError):
-            raise FailedToImplement
-        raise
-    if mul <= 0:
-        return W_BytesObject.EMPTY
-    input = w_str._value
-    if len(input) == 1:
-        s = input[0] * mul
-    else:
-        s = input * mul
-    return W_BytesObject(s)
-
-def mul__String_ANY(space, w_str, w_times):
-    return mul_string_times(space, w_str, w_times)
-
-def mul__ANY_String(space, w_times, w_str):
-    return mul_string_times(space, w_str, w_times)
 
 def add__String_String(space, w_left, w_right):
     right = w_right._value
