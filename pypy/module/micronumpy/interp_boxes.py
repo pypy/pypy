@@ -48,6 +48,15 @@ class PrimitiveBox(object):
     def __repr__(self):
         return '%s(%s)' % (self.__class__.__name__, self.value)
 
+    def descr_reduce(self, space):
+        numpypy = space.getbuiltinmodule("_numpypy")
+        assert isinstance(numpypy, MixedModule)
+        multiarray = numpypy.get("multiarray")
+        assert isinstance(multiarray, MixedModule)
+        scalar = multiarray.get("scalar")
+
+        return space.newtuple([scalar, space.wrap(self._get_dtype())])
+
 class ComplexBox(object):
     _mixin_ = True
 
