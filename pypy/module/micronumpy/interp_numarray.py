@@ -1051,6 +1051,9 @@ def ones(space, w_shape, w_dtype=None, order='C'):
 def _reconstruct(space, w_subtype, w_shape, w_dtype):
     return descr_new_array(space, w_subtype, w_shape, w_dtype)
 
+def scalar(space, w_dtype):
+    pass
+
 W_FlatIterator.typedef = TypeDef(
     'flatiter',
     __iter__ = interp2app(W_FlatIterator.descr_iter),
