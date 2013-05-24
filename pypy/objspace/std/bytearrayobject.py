@@ -23,19 +23,26 @@ from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
+from pypy.objspace.std.stringmethods import StringMethods
 from pypy.objspace.std.unicodeobject import W_UnicodeObject
 from pypy.objspace.std.util import get_positive_index
 from rpython.rlib.objectmodel import newlist_hint, resizelist_hint
 from rpython.rlib.rstring import StringBuilder
 
 
-class W_BytearrayObject(W_Object):
+class W_BytearrayObject(W_Object, StringMethods):
     def __init__(w_self, data):
         w_self.data = data
 
     def __repr__(w_self):
         """ representation for debugging purposes """
         return "%s(%s)" % (w_self.__class__.__name__, ''.join(w_self.data))
+
+    def new(self, value):
+        return W_BytearrayObject(value)
+
+    def get_value(self):
+        return self.data
 
 
 bytearray_append  = SMM('append', 2)
@@ -128,7 +135,6 @@ def makebytearraydata_w(space, w_source):
     return data
 
 def descr_bytearray__reduce__(space, w_self):
-    from pypy.objspace.std.bytearrayobject import W_BytearrayObject
     assert isinstance(w_self, W_BytearrayObject)
     w_dict = w_self.getdict(space)
     if w_dict is None:
@@ -193,8 +199,65 @@ If the argument is a bytearray, the return value is the same object.''',
     __new__ = interp2app(descr__new__),
     __hash__ = None,
     __reduce__ = interp2app(descr_bytearray__reduce__),
-    fromhex = interp2app(descr_fromhex, as_classmethod=True)
-    )
+    fromhex = interp2app(descr_fromhex, as_classmethod=True),
+
+#    __repr__ = interp2app(W_BytearrayObject.descr_repr),
+#    __str__ = interp2app(W_BytearrayObject.descr_str),
+
+#    __eq__ = interp2app(W_BytearrayObject.descr_eq),
+#    __ne__ = interp2app(W_BytearrayObject.descr_ne),
+#    __lt__ = interp2app(W_BytearrayObject.descr_lt),
+#    __le__ = interp2app(W_BytearrayObject.descr_le),
+#    __gt__ = interp2app(W_BytearrayObject.descr_gt),
+#    __ge__ = interp2app(W_BytearrayObject.descr_ge),
+
+#    __len__ = interp2app(W_BytearrayObject.descr_len),
+#    __iter__ = interp2app(W_BytearrayObject.descr_iter),
+#    __contains__ = interp2app(W_BytearrayObject.descr_contains),
+
+#    __add__ = interp2app(W_BytearrayObject.descr_add),
+    __mul__ = interp2app(W_BytearrayObject.descr_mul),
+    __rmul__ = interp2app(W_BytearrayObject.descr_mul),
+
+#    __getitem__ = interp2app(W_BytearrayObject.descr_getitem),
+
+#    capitalize = interp2app(W_BytearrayObject.descr_capitalize),
+#    center = interp2app(W_BytearrayObject.descr_center),
+#    count = interp2app(W_BytearrayObject.descr_count),
+#    decode = interp2app(W_BytearrayObject.descr_decode),
+#    expandtabs = interp2app(W_BytearrayObject.descr_expandtabs),
+#    find = interp2app(W_BytearrayObject.descr_find),
+#    rfind = interp2app(W_BytearrayObject.descr_rfind),
+#    index = interp2app(W_BytearrayObject.descr_index),
+#    rindex = interp2app(W_BytearrayObject.descr_rindex),
+#    isalnum = interp2app(W_BytearrayObject.descr_isalnum),
+#    isalpha = interp2app(W_BytearrayObject.descr_isalpha),
+#    isdigit = interp2app(W_BytearrayObject.descr_isdigit),
+#    islower = interp2app(W_BytearrayObject.descr_islower),
+#    isspace = interp2app(W_BytearrayObject.descr_isspace),
+#    istitle = interp2app(W_BytearrayObject.descr_istitle),
+#    isupper = interp2app(W_BytearrayObject.descr_isupper),
+#    join = interp2app(W_BytearrayObject.descr_join),
+#    ljust = interp2app(W_BytearrayObject.descr_ljust),
+#    rjust = interp2app(W_BytearrayObject.descr_rjust),
+#    lower = interp2app(W_BytearrayObject.descr_lower),
+#    partition = interp2app(W_BytearrayObject.descr_partition),
+#    rpartition = interp2app(W_BytearrayObject.descr_rpartition),
+#    replace = interp2app(W_BytearrayObject.descr_replace),
+#    split = interp2app(W_BytearrayObject.descr_split),
+#    rsplit = interp2app(W_BytearrayObject.descr_rsplit),
+#    splitlines = interp2app(W_BytearrayObject.descr_splitlines),
+#    startswith = interp2app(W_BytearrayObject.descr_startswith),
+#    endswith = interp2app(W_BytearrayObject.descr_endswith),
+#    strip = interp2app(W_BytearrayObject.descr_strip),
+#    lstrip = interp2app(W_BytearrayObject.descr_lstrip),
+#    rstrip = interp2app(W_BytearrayObject.descr_rstrip),
+#    swapcase = interp2app(W_BytearrayObject.descr_swapcase),
+#    title = interp2app(W_BytearrayObject.descr_title),
+#    translate = interp2app(W_BytearrayObject.descr_translate),
+#    upper = interp2app(W_BytearrayObject.descr_upper),
+#    zfill = interp2app(W_BytearrayObject.descr_zfill),
+)
 bytearray_typedef.registermethods(globals())
 
 registerimplementation(W_BytearrayObject)
@@ -316,22 +379,6 @@ def add__String_Bytearray(space, w_str, w_bytearray):
     data2 = w_bytearray.data
     data1 = [c for c in space.str_w(w_str)]
     return W_BytearrayObject(data1 + data2)
-
-def mul_bytearray_times(space, w_bytearray, w_times):
-    try:
-        times = space.getindex_w(w_times, space.w_OverflowError)
-    except OperationError, e:
-        if e.match(space, space.w_TypeError):
-            raise FailedToImplement
-        raise
-    data = w_bytearray.data
-    return W_BytearrayObject(data * times)
-
-def mul__Bytearray_ANY(space, w_bytearray, w_times):
-    return mul_bytearray_times(space, w_bytearray, w_times)
-
-def mul__ANY_Bytearray(space, w_times, w_bytearray):
-    return mul_bytearray_times(space, w_bytearray, w_times)
 
 def inplace_mul__Bytearray_ANY(space, w_bytearray, w_times):
     try:
