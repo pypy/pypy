@@ -42,7 +42,7 @@ class W_AbstractBytesObject(W_Object):
 
     def unicode_w(w_self, space):
         # Use the default encoding.
-        from pypy.objspace.std.unicodetype import (unicode_from_string,
+        from pypy.objspace.std.unicodeobject import (unicode_from_string,
             decode_object, _get_encoding_and_errors)
         w_defaultencoding = space.call_function(space.sys.get(
                                                 'getdefaultencoding'))
@@ -1393,7 +1393,7 @@ def str_translate__String_ANY_ANY(space, w_string, w_table, w_deletechars=''):
     return W_BytesObject(buf.build())
 
 def str_decode__String_ANY_ANY(space, w_string, w_encoding=None, w_errors=None):
-    from pypy.objspace.std.unicodetype import _get_encoding_and_errors, \
+    from pypy.objspace.std.unicodeobject import _get_encoding_and_errors, \
         unicode_from_string, decode_object
     encoding, errors = _get_encoding_and_errors(space, w_encoding, w_errors)
     if encoding is None and errors is None:
@@ -1401,7 +1401,7 @@ def str_decode__String_ANY_ANY(space, w_string, w_encoding=None, w_errors=None):
     return decode_object(space, w_string, encoding, errors)
 
 def str_encode__String_ANY_ANY(space, w_string, w_encoding=None, w_errors=None):
-    from pypy.objspace.std.unicodetype import _get_encoding_and_errors, \
+    from pypy.objspace.std.unicodeobject import _get_encoding_and_errors, \
         encode_object
     encoding, errors = _get_encoding_and_errors(space, w_encoding, w_errors)
     return encode_object(space, w_string, encoding, errors)

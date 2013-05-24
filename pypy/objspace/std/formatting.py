@@ -352,7 +352,7 @@ def make_formatter_subclass(do_unicode):
             length = len(r)
             if do_unicode and isinstance(r, str):
                 # convert string to unicode explicitely here
-                from pypy.objspace.std.unicodetype import plain_str2unicode
+                from pypy.objspace.std.unicodeobject import plain_str2unicode
                 r = plain_str2unicode(self.space, r)
             prec = self.prec
             if prec == -1 and self.width == 0:
@@ -441,7 +441,7 @@ def make_formatter_subclass(do_unicode):
                 if not got_unicode:
                     w_value = space.call_function(space.w_unicode, w_value)
                 else:
-                    from pypy.objspace.std.unicodetype import unicode_from_object
+                    from pypy.objspace.std.unicodeobject import unicode_from_object
                     w_value = unicode_from_object(space, w_value)
                 s = space.unicode_w(w_value)
             self.std_wp(s)
@@ -509,7 +509,7 @@ def format(space, w_fmt, values_w, w_valuedict, do_unicode):
             result = formatter.format()
         except NeedUnicodeFormattingError:
             # fall through to the unicode case
-            from pypy.objspace.std.unicodetype import plain_str2unicode
+            from pypy.objspace.std.unicodeobject import plain_str2unicode
             fmt = plain_str2unicode(space, fmt)
         else:
             return space.wrap(result)

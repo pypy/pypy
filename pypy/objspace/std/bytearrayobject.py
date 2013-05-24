@@ -284,7 +284,7 @@ def init__Bytearray(space, w_bytearray, __args__):
 
     # Unicode argument
     if not space.is_w(w_encoding, space.w_None):
-        from pypy.objspace.std.unicodetype import (
+        from pypy.objspace.std.unicodeobject import (
             _get_encoding_and_errors, encode_object
         )
         encoding, errors = _get_encoding_and_errors(space, w_encoding, w_errors)

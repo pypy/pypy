@@ -42,7 +42,7 @@ class StdTypeModel:
             from pypy.objspace.std.typeobject   import type_typedef
             from pypy.objspace.std.slicetype  import slice_typedef
             from pypy.objspace.std.longtype   import long_typedef
-            from pypy.objspace.std.unicodetype import unicode_typedef
+            from pypy.objspace.std.unicodeobject import unicode_typedef
             from pypy.objspace.std.nonetype import none_typedef
         self.pythontypes = [value for key, value in result.__dict__.items()
                             if not key.startswith('_')]   # don't look

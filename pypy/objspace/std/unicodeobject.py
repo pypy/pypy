@@ -1,22 +1,28 @@
 """The builtin unicode implementation"""
 
+from sys import maxint
+from pypy.interpreter import unicodehelper
 from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.module.unicodedata import unicodedb
 from pypy.objspace.std import newformat, slicetype
+from pypy.objspace.std.basestringtype import basestring_typedef
 from pypy.objspace.std.bytesobject import (W_StringObject,
     make_rsplit_with_delim, stringendswith, stringstartswith)
 from pypy.objspace.std.formatting import mod_format
 from pypy.objspace.std.model import W_Object, registerimplementation
 from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.objspace.std.noneobject import W_NoneObject
-from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std.register_all import register_all
+from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
+from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
 from rpython.rlib import jit
+from rpython.rlib.objectmodel import (compute_hash, compute_unique_id,
+    specialize)
 from rpython.rlib.rarithmetic import ovfcheck
-from rpython.rlib.objectmodel import (
-    compute_hash, compute_unique_id, specialize)
 from rpython.rlib.rstring import UnicodeBuilder
-from rpython.rlib.runicode import make_unicode_escape_function
+from rpython.rlib.runicode import (str_decode_utf_8, str_decode_ascii,
+    unicode_encode_utf_8, unicode_encode_ascii, make_unicode_escape_function)
 from rpython.tool.sourcetools import func_with_new_name
 
 
@@ -39,7 +45,6 @@ class W_AbstractUnicodeObject(W_Object):
 
 
 class W_UnicodeObject(W_AbstractUnicodeObject):
-    from pypy.objspace.std.unicodetype import unicode_typedef as typedef
     _immutable_fields_ = ['_value']
 
     def __init__(w_self, unistr):
@@ -67,6 +72,347 @@ class W_UnicodeObject(W_AbstractUnicodeObject):
 
     def listview_unicode(w_self):
         return _create_list_from_unicode(w_self._value)
+
+
+def wrapunicode(space, uni):
+    return W_UnicodeObject(uni)
+
+def plain_str2unicode(space, s):
+    try:
+        return unicode(s)
+    except UnicodeDecodeError:
+        for i in range(len(s)):
+            if ord(s[i]) > 127:
+                raise OperationError(
+                    space.w_UnicodeDecodeError,
+                    space.newtuple([
+                    space.wrap('ascii'),
+                    space.wrap(s),
+                    space.wrap(i),
+                    space.wrap(i+1),
+                    space.wrap("ordinal not in range(128)")]))
+        assert False, "unreachable"
+
+
+unicode_capitalize = SMM('capitalize', 1,
+                         doc='S.capitalize() -> unicode\n\nReturn a'
+                             ' capitalized version of S, i.e. make the first'
+                             ' character\nhave upper case.')
+unicode_center     = SMM('center', 3, defaults=(' ',),
+                         doc='S.center(width[, fillchar]) -> unicode\n\nReturn'
+                             ' S centered in a Unicode string of length width.'
+                             ' Padding is\ndone using the specified fill'
+                             ' character (default is a space)')
+unicode_count      = SMM('count', 4, defaults=(0, maxint),
+                         doc='S.count(sub[, start[, end]]) -> int\n\nReturn'
+                             ' the number of occurrences of substring sub in'
+                             ' Unicode string\nS[start:end].  Optional'
+                             ' arguments start and end are\ninterpreted as in'
+                             ' slice notation.')
+unicode_encode     = SMM('encode', 3, defaults=(None, None),
+                         argnames=['encoding', 'errors'],
+                         doc='S.encode([encoding[,errors]]) -> string or'
+                             ' unicode\n\nEncodes S using the codec registered'
+                             ' for encoding. encoding defaults\nto the default'
+                             ' encoding. errors may be given to set a'
+                             ' different error\nhandling scheme. Default is'
+                             " 'strict' meaning that encoding errors raise\na"
+                             ' UnicodeEncodeError. Other possible values are'
+                             " 'ignore', 'replace' and\n'xmlcharrefreplace' as"
+                             ' well as any other name registered'
+                             ' with\ncodecs.register_error that can handle'
+                             ' UnicodeEncodeErrors.')
+unicode_expandtabs = SMM('expandtabs', 2, defaults=(8,),
+                         doc='S.expandtabs([tabsize]) -> unicode\n\nReturn a'
+                             ' copy of S where all tab characters are expanded'
+                             ' using spaces.\nIf tabsize is not given, a tab'
+                             ' size of 8 characters is assumed.')
+unicode_format     = SMM('format', 1, general__args__=True,
+                         doc='S.format() -> new style formating')
+unicode_isalnum    = SMM('isalnum', 1,
+                         doc='S.isalnum() -> bool\n\nReturn True if all'
+                             ' characters in S are alphanumeric\nand there is'
+                             ' at least one character in S, False otherwise.')
+unicode_isalpha    = SMM('isalpha', 1,
+                         doc='S.isalpha() -> bool\n\nReturn True if all'
+                             ' characters in S are alphabetic\nand there is at'
+                             ' least one character in S, False otherwise.')
+unicode_isdecimal  = SMM('isdecimal', 1,
+                         doc='S.isdecimal() -> bool\n\nReturn True if there'
+                             ' are only decimal characters in S,\nFalse'
+                             ' otherwise.')
+unicode_isdigit    = SMM('isdigit', 1,
+                         doc='S.isdigit() -> bool\n\nReturn True if all'
+                             ' characters in S are digits\nand there is at'
+                             ' least one character in S, False otherwise.')
+unicode_islower    = SMM('islower', 1,
+                         doc='S.islower() -> bool\n\nReturn True if all cased'
+                             ' characters in S are lowercase and there is\nat'
+                             ' least one cased character in S, False'
+                             ' otherwise.')
+unicode_isnumeric  = SMM('isnumeric', 1,
+                         doc='S.isnumeric() -> bool\n\nReturn True if there'
+                             ' are only numeric characters in S,\nFalse'
+                             ' otherwise.')
+unicode_isspace    = SMM('isspace', 1,
+                         doc='S.isspace() -> bool\n\nReturn True if all'
+                             ' characters in S are whitespace\nand there is at'
+                             ' least one character in S, False otherwise.')
+unicode_istitle    = SMM('istitle', 1,
+                         doc='S.istitle() -> bool\n\nReturn True if S is a'
+                             ' titlecased string and there is at least'
+                             ' one\ncharacter in S, i.e. upper- and titlecase'
+                             ' characters may only\nfollow uncased characters'
+                             ' and lowercase characters only cased'
+                             ' ones.\nReturn False otherwise.')
+unicode_isupper    = SMM('isupper', 1,
+                         doc='S.isupper() -> bool\n\nReturn True if all cased'
+                             ' characters in S are uppercase and there is\nat'
+                             ' least one cased character in S, False'
+                             ' otherwise.')
+unicode_join       = SMM('join', 2,
+                         doc='S.join(sequence) -> unicode\n\nReturn a string'
+                             ' which is the concatenation of the strings in'
+                             ' the\nsequence.  The separator between elements'
+                             ' is S.')
+unicode_ljust      = SMM('ljust', 3, defaults=(' ',),
+                         doc='S.ljust(width[, fillchar]) -> int\n\nReturn S'
+                             ' left justified in a Unicode string of length'
+                             ' width. Padding is\ndone using the specified'
+                             ' fill character (default is a space).')
+unicode_lower      = SMM('lower', 1,
+                         doc='S.lower() -> unicode\n\nReturn a copy of the'
+                             ' string S converted to lowercase.')
+unicode_rjust      = SMM('rjust', 3, defaults=(' ',),
+                         doc='S.rjust(width[, fillchar]) -> unicode\n\nReturn'
+                             ' S right justified in a Unicode string of length'
+                             ' width. Padding is\ndone using the specified'
+                             ' fill character (default is a space).')
+unicode_swapcase   = SMM('swapcase', 1,
+                         doc='S.swapcase() -> unicode\n\nReturn a copy of S'
+                             ' with uppercase characters converted to'
+                             ' lowercase\nand vice versa.')
+unicode_title      = SMM('title', 1,
+                         doc='S.title() -> unicode\n\nReturn a titlecased'
+                             ' version of S, i.e. words start with title'
+                             ' case\ncharacters, all remaining cased'
+                             ' characters have lower case.')
+unicode_translate  = SMM('translate', 2,
+                         doc='S.translate(table) -> unicode\n\nReturn a copy'
+                             ' of the string S, where all characters have been'
+                             ' mapped\nthrough the given translation table,'
+                             ' which must be a mapping of\nUnicode ordinals to'
+                             ' Unicode ordinals, Unicode strings or'
+                             ' None.\nUnmapped characters are left untouched.'
+                             ' Characters mapped to None\nare deleted.')
+unicode_upper      = SMM('upper', 1,
+                         doc='S.upper() -> unicode\n\nReturn a copy of S'
+                             ' converted to uppercase.')
+unicode_zfill      = SMM('zfill', 2,
+                         doc='S.zfill(width) -> unicode\n\nPad a numeric'
+                             ' string x with zeros on the left, to fill a'
+                             ' field\nof the specified width. The string x is'
+                             ' never truncated.')
+
+unicode_formatter_parser           = SMM('_formatter_parser', 1)
+unicode_formatter_field_name_split = SMM('_formatter_field_name_split', 1)
+
+def unicode_formatter_parser__ANY(space, w_unicode):
+    from pypy.objspace.std.newformat import unicode_template_formatter
+    tformat = unicode_template_formatter(space, space.unicode_w(w_unicode))
+    return tformat.formatter_parser()
+
+def unicode_formatter_field_name_split__ANY(space, w_unicode):
+    from pypy.objspace.std.newformat import unicode_template_formatter
+    tformat = unicode_template_formatter(space, space.unicode_w(w_unicode))
+    return tformat.formatter_field_name_split()
+
+# stuff imported from bytesobject for interoperability
+
+from pypy.objspace.std.bytesobject import str_endswith as unicode_endswith
+from pypy.objspace.std.bytesobject import str_startswith as unicode_startswith
+from pypy.objspace.std.bytesobject import str_find as unicode_find
+from pypy.objspace.std.bytesobject import str_index as unicode_index
+from pypy.objspace.std.bytesobject import str_replace as unicode_replace
+from pypy.objspace.std.bytesobject import str_rfind as unicode_rfind
+from pypy.objspace.std.bytesobject import str_rindex as unicode_rindex
+from pypy.objspace.std.bytesobject import str_split as unicode_split
+from pypy.objspace.std.bytesobject import str_rsplit as unicode_rsplit
+from pypy.objspace.std.bytesobject import str_partition as unicode_partition
+from pypy.objspace.std.bytesobject import str_rpartition as unicode_rpartition
+from pypy.objspace.std.bytesobject import str_splitlines as unicode_splitlines
+from pypy.objspace.std.bytesobject import str_strip as unicode_strip
+from pypy.objspace.std.bytesobject import str_rstrip as unicode_rstrip
+from pypy.objspace.std.bytesobject import str_lstrip as unicode_lstrip
+from pypy.objspace.std.bytesobject import str_decode as unicode_decode
+
+# ____________________________________________________________
+
+def getdefaultencoding(space):
+    return space.sys.defaultencoding
+
+def _get_encoding_and_errors(space, w_encoding, w_errors):
+    if space.is_none(w_encoding):
+        encoding = None
+    else:
+        encoding = space.str_w(w_encoding)
+    if space.is_none(w_errors):
+        errors = None
+    else:
+        errors = space.str_w(w_errors)
+    return encoding, errors
+
+def encode_object(space, w_object, encoding, errors):
+    if encoding is None:
+        # Get the encoder functions as a wrapped object.
+        # This lookup is cached.
+        w_encoder = space.sys.get_w_default_encoder()
+    else:
+        if errors is None or errors == 'strict':
+            if encoding == 'ascii':
+                u = space.unicode_w(w_object)
+                eh = unicodehelper.encode_error_handler(space)
+                return space.wrap(unicode_encode_ascii(
+                        u, len(u), None, errorhandler=eh))
+            if encoding == 'utf-8':
+                u = space.unicode_w(w_object)
+                eh = unicodehelper.encode_error_handler(space)
+                return space.wrap(unicode_encode_utf_8(
+                        u, len(u), None, errorhandler=eh,
+                        allow_surrogates=True))
+        from pypy.module._codecs.interp_codecs import lookup_codec
+        w_encoder = space.getitem(lookup_codec(space, encoding), space.wrap(0))
+    if errors is None:
+        w_errors = space.wrap('strict')
+    else:
+        w_errors = space.wrap(errors)
+    w_restuple = space.call_function(w_encoder, w_object, w_errors)
+    w_retval = space.getitem(w_restuple, space.wrap(0))
+    if not space.isinstance_w(w_retval, space.w_str):
+        raise operationerrfmt(space.w_TypeError,
+            "encoder did not return an string object (type '%s')",
+            space.type(w_retval).getname(space))
+    return w_retval
+
+def decode_object(space, w_obj, encoding, errors):
+    if encoding is None:
+        encoding = getdefaultencoding(space)
+    if errors is None or errors == 'strict':
+        if encoding == 'ascii':
+            # XXX error handling
+            s = space.bufferstr_w(w_obj)
+            eh = unicodehelper.decode_error_handler(space)
+            return space.wrap(str_decode_ascii(
+                    s, len(s), None, final=True, errorhandler=eh)[0])
+        if encoding == 'utf-8':
+            s = space.bufferstr_w(w_obj)
+            eh = unicodehelper.decode_error_handler(space)
+            return space.wrap(str_decode_utf_8(
+                    s, len(s), None, final=True, errorhandler=eh,
+                    allow_surrogates=True)[0])
+    w_codecs = space.getbuiltinmodule("_codecs")
+    w_decode = space.getattr(w_codecs, space.wrap("decode"))
+    if errors is None:
+        w_retval = space.call_function(w_decode, w_obj, space.wrap(encoding))
+    else:
+        w_retval = space.call_function(w_decode, w_obj, space.wrap(encoding),
+                                       space.wrap(errors))
+    return w_retval
+
+
+def unicode_from_encoded_object(space, w_obj, encoding, errors):
+    w_retval = decode_object(space, w_obj, encoding, errors)
+    if not space.isinstance_w(w_retval, space.w_unicode):
+        raise operationerrfmt(space.w_TypeError,
+            "decoder did not return an unicode object (type '%s')",
+            space.type(w_retval).getname(space))
+    return w_retval
+
+def unicode_from_object(space, w_obj):
+    if space.is_w(space.type(w_obj), space.w_unicode):
+        return w_obj
+    elif space.is_w(space.type(w_obj), space.w_str):
+        w_res = w_obj
+    else:
+        w_unicode_method = space.lookup(w_obj, "__unicode__")
+        # obscure workaround: for the next two lines see
+        # test_unicode_conversion_with__str__
+        if w_unicode_method is None:
+            if space.isinstance_w(w_obj, space.w_unicode):
+                return space.wrap(space.unicode_w(w_obj))
+            w_unicode_method = space.lookup(w_obj, "__str__")
+        if w_unicode_method is not None:
+            w_res = space.get_and_call_function(w_unicode_method, w_obj)
+        else:
+            w_res = space.str(w_obj)
+        if space.isinstance_w(w_res, space.w_unicode):
+            return w_res
+    return unicode_from_encoded_object(space, w_res, None, "strict")
+
+def unicode_from_string(space, w_str):
+    # this is a performance and bootstrapping hack
+    encoding = getdefaultencoding(space)
+    if encoding != 'ascii':
+        return unicode_from_encoded_object(space, w_str, encoding, "strict")
+    s = space.str_w(w_str)
+    try:
+        return W_UnicodeObject(s.decode("ascii"))
+    except UnicodeDecodeError:
+        # raising UnicodeDecodeError is messy, "please crash for me"
+        return unicode_from_encoded_object(space, w_str, "ascii", "strict")
+
+def unicode_decode__unitypedef_ANY_ANY(space, w_unicode, w_encoding=None,
+                                       w_errors=None):
+    return space.call_method(space.str(w_unicode), 'decode',
+                             w_encoding, w_errors)
+
+
+@unwrap_spec(w_string = WrappedDefault(""))
+def descr_new_(space, w_unicodetype, w_string, w_encoding=None, w_errors=None):
+    # NB. the default value of w_obj is really a *wrapped* empty string:
+    #     there is gateway magic at work
+    w_obj = w_string
+
+    encoding, errors = _get_encoding_and_errors(space, w_encoding, w_errors)
+    # convoluted logic for the case when unicode subclass has a __unicode__
+    # method, we need to call this method
+    if (space.is_w(space.type(w_obj), space.w_unicode) or
+        (space.isinstance_w(w_obj, space.w_unicode) and
+         space.findattr(w_obj, space.wrap('__unicode__')) is None)):
+        if encoding is not None or errors is not None:
+            raise OperationError(space.w_TypeError,
+                                 space.wrap('decoding Unicode is not supported'))
+        w_value = w_obj
+    else:
+        if encoding is None and errors is None:
+            w_value = unicode_from_object(space, w_obj)
+        else:
+            w_value = unicode_from_encoded_object(space, w_obj,
+                                                  encoding, errors)
+        if space.is_w(w_unicodetype, space.w_unicode):
+            return w_value
+
+    assert isinstance(w_value, W_UnicodeObject)
+    w_newobj = space.allocate_instance(W_UnicodeObject, w_unicodetype)
+    W_UnicodeObject.__init__(w_newobj, w_value._value)
+    return w_newobj
+
+# ____________________________________________________________
+
+unicode_typedef = W_UnicodeObject.typedef = StdTypeDef(
+    "unicode", basestring_typedef,
+    __new__ = interp2app(descr_new_),
+    __doc__ = '''unicode(string [, encoding[, errors]]) -> object
+
+Create a new Unicode object from the given encoded string.
+encoding defaults to the current default string encoding.
+errors can be 'strict', 'replace' or 'ignore' and defaults to 'strict'.'''
+    )
+
+unicode_typedef.registermethods(globals())
+
+unitypedef = unicode_typedef
+
 
 def _create_list_from_unicode(value):
     # need this helper function to allow the jit to look inside and inline
@@ -108,7 +454,6 @@ def unicode_to_decimal_w(space, w_unistr):
 
 # string-to-unicode delegation
 def delegate_String2Unicode(space, w_str):
-    from pypy.objspace.std.unicodetype import unicode_from_string
     w_uni = unicode_from_string(space, w_str)
     assert isinstance(w_uni, W_UnicodeObject) # help the annotator!
     return w_uni
@@ -131,19 +476,16 @@ def _unicode_string_comparison(space, w_uni, w_str, inverse, uni_from_str):
     return result
 
 def str__Unicode(space, w_uni):
-    from pypy.objspace.std.unicodetype import encode_object
     return encode_object(space, w_uni, None, None)
 
 def eq__Unicode_Unicode(space, w_left, w_right):
     return space.newbool(w_left._value == w_right._value)
 
 def eq__Unicode_String(space, w_uni, w_str):
-    from pypy.objspace.std.unicodetype import unicode_from_string
     return _unicode_string_comparison(space, w_uni, w_str,
                     False, unicode_from_string)
 
 def ne__Unicode_String(space, w_uni, w_str):
-    from pypy.objspace.std.unicodetype import unicode_from_string
     return _unicode_string_comparison(space, w_uni, w_str,
                     True, unicode_from_string)
 
@@ -169,7 +511,6 @@ def add__String_Unicode(space, w_left, w_right):
     # this function is needed to make 'abc'.__add__(u'def') return
     # u'abcdef' instead of NotImplemented.  This is what occurs on
     # top of CPython.
-    from pypy.objspace.std.unicodetype import unicode_from_string
     # XXX fragile implementation detail: for "string + unicode subclass",
     # if the unicode subclass overrides __radd__(), then it will be
     # called (see test_str_unicode_concat_overrides).  This occurs as a
@@ -182,13 +523,11 @@ def add__Unicode_String(space, w_left, w_right):
     # this function is needed to make 'abc'.__radd__(u'def') return
     # u'defabc', although it's completely unclear if that's necessary
     # given that CPython doesn't even have a method str.__radd__().
-    from pypy.objspace.std.unicodetype import unicode_from_string
     return space.add(w_left, unicode_from_string(space, w_right))
     # Note about "unicode + string subclass": look for
     # "cpython bug compatibility" in descroperation.py
 
 def contains__String_Unicode(space, w_container, w_item):
-    from pypy.objspace.std.unicodetype import unicode_from_string
     return space.contains(unicode_from_string(space, w_container), w_item )
 
 
@@ -394,7 +733,6 @@ def unicode_strip__Unicode_None(space, w_self, w_chars):
 def unicode_strip__Unicode_Unicode(space, w_self, w_chars):
     return _strip(space, w_self, w_chars, 1, 1)
 def unicode_strip__Unicode_String(space, w_self, w_chars):
-    from pypy.objspace.std.unicodetype import unicode_from_string
     return space.call_method(w_self, 'strip',
                              unicode_from_string(space, w_chars))
 
@@ -403,7 +741,6 @@ def unicode_lstrip__Unicode_None(space, w_self, w_chars):
 def unicode_lstrip__Unicode_Unicode(space, w_self, w_chars):
     return _strip(space, w_self, w_chars, 1, 0)
 def unicode_lstrip__Unicode_String(space, w_self, w_chars):
-    from pypy.objspace.std.unicodetype import unicode_from_string
     return space.call_method(w_self, 'lstrip',
                              unicode_from_string(space, w_chars))
 
@@ -413,7 +750,6 @@ def unicode_rstrip__Unicode_None(space, w_self, w_chars):
 def unicode_rstrip__Unicode_Unicode(space, w_self, w_chars):
     return _strip(space, w_self, w_chars, 0, 1)
 def unicode_rstrip__Unicode_String(space, w_self, w_chars):
-    from pypy.objspace.std.unicodetype import unicode_from_string
     return space.call_method(w_self, 'rstrip',
                              unicode_from_string(space, w_chars))
 
@@ -808,8 +1144,6 @@ def unicode_encode__Unicode_ANY_ANY(space, w_unistr,
                                     w_encoding=None,
                                     w_errors=None):
 
-    from pypy.objspace.std.unicodetype import _get_encoding_and_errors
-    from pypy.objspace.std.unicodetype import encode_object
     encoding, errors = _get_encoding_and_errors(space, w_encoding, w_errors)
     w_retval = encode_object(space, w_unistr, encoding, errors)
     return w_retval
@@ -924,15 +1258,13 @@ def unicode_format__Unicode(space, w_unicode, __args__):
 def format__Unicode_ANY(space, w_unicode, w_format_spec):
     if not space.isinstance_w(w_format_spec, space.w_unicode):
         w_format_spec = space.call_function(space.w_unicode, w_format_spec)
-    from pypy.objspace.std.unicodetype import unicode_from_object
     w_unicode = unicode_from_object(space, w_unicode)
     spec = space.unicode_w(w_format_spec)
     formatter = newformat.unicode_formatter(space, spec)
     return formatter.format_string(space.unicode_w(w_unicode))
 
 
-from pypy.objspace.std import unicodetype
-register_all(vars(), unicodetype)
+register_all(vars(), globals())
 
 # str.strip(unicode) needs to convert self to unicode and call unicode.strip we
 # use the following magic to register strip_string_unicode as a String
@@ -946,47 +1278,36 @@ class str_methods:
     W_UnicodeObject = W_UnicodeObject
     from pypy.objspace.std.bytesobject import W_BytesObject as W_StringObject
     def str_strip__String_Unicode(space, w_self, w_chars):
-        from pypy.objspace.std.unicodetype import unicode_from_string
         return space.call_method(unicode_from_string(space, w_self),
                                  'strip', w_chars)
     def str_lstrip__String_Unicode(space, w_self, w_chars):
-        from pypy.objspace.std.unicodetype import unicode_from_string
         return space.call_method(unicode_from_string(space, w_self),
                                  'lstrip', w_chars)
     def str_rstrip__String_Unicode(space, w_self, w_chars):
-        from pypy.objspace.std.unicodetype import unicode_from_string
         return space.call_method(unicode_from_string(space, w_self),
                                  'rstrip', w_chars)
     def str_count__String_Unicode_ANY_ANY(space, w_self, w_substr, w_start, w_end):
-        from pypy.objspace.std.unicodetype import unicode_from_string
         return space.call_method(unicode_from_string(space, w_self),
                                  'count', w_substr, w_start, w_end)
     def str_find__String_Unicode_ANY_ANY(space, w_self, w_substr, w_start, w_end):
-        from pypy.objspace.std.unicodetype import unicode_from_string
         return space.call_method(unicode_from_string(space, w_self),
                                  'find', w_substr, w_start, w_end)
     def str_rfind__String_Unicode_ANY_ANY(space, w_self, w_substr, w_start, w_end):
-        from pypy.objspace.std.unicodetype import unicode_from_string
         return space.call_method(unicode_from_string(space, w_self),
                                  'rfind', w_substr, w_start, w_end)
     def str_index__String_Unicode_ANY_ANY(space, w_self, w_substr, w_start, w_end):
-        from pypy.objspace.std.unicodetype import unicode_from_string
         return space.call_method(unicode_from_string(space, w_self),
                                  'index', w_substr, w_start, w_end)
     def str_rindex__String_Unicode_ANY_ANY(space, w_self, w_substr, w_start, w_end):
-        from pypy.objspace.std.unicodetype import unicode_from_string
         return space.call_method(unicode_from_string(space, w_self),
                                  'rindex', w_substr, w_start, w_end)
     def str_replace__String_Unicode_Unicode_ANY(space, w_self, w_old, w_new, w_maxsplit):
-        from pypy.objspace.std.unicodetype import unicode_from_string
         return space.call_method(unicode_from_string(space, w_self),
                                  'replace', w_old, w_new, w_maxsplit)
     def str_split__String_Unicode_ANY(space, w_self, w_delim, w_maxsplit):
-        from pypy.objspace.std.unicodetype import unicode_from_string
         return space.call_method(unicode_from_string(space, w_self),
                                  'split', w_delim, w_maxsplit)
     def str_rsplit__String_Unicode_ANY(space, w_self, w_delim, w_maxsplit):
-        from pypy.objspace.std.unicodetype import unicode_from_string
         return space.call_method(unicode_from_string(space, w_self),
                                  'rsplit', w_delim, w_maxsplit)
     register_all(vars(), bytesobject)

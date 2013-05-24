@@ -34,7 +34,7 @@ from pypy.objspace.std.typeobject import W_TypeObject
 
 # types
 from pypy.objspace.std.inttype import wrapint
-from pypy.objspace.std.unicodetype import wrapunicode
+from pypy.objspace.std.unicodeobject import wrapunicode
 
 class StdObjSpace(ObjSpace, DescrOperation):
     """The standard object space, implementing a general-purpose object
