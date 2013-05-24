@@ -306,7 +306,7 @@ class OperationError(Exception):
 
 _fmtcache = {}
 _fmtcache2 = {}
-_FMTS = tuple('sdT')
+_FMTS = tuple('sdNT')
 
 def decompose_valuefmt(valuefmt):
     """Returns a tuple of string parts extracted from valuefmt,
@@ -363,9 +363,11 @@ def get_operrcls2(valuefmt):
                     string = self.xstrings[i]
                     value = getattr(self, attr)
                     lst[i+i] = string
-                    if fmt == 'T':
+                    if fmt in 'NT':
                         space = self.w_type.space
-                        lst[i+i+1] = space.type(value).getname(space)
+                        if fmt == 'T':
+                            value = space.type(value)
+                        lst[i+i+1] = value.getname(space)
                     else:
                         lst[i+i+1] = str(value)
                 lst[-1] = self.xstrings[-1]
@@ -385,7 +387,14 @@ get_operationerr_class._annspecialcase_ = 'specialize:memo'
 def operationerrfmt(w_type, valuefmt, *args):
     """Equivalent to OperationError(w_type, space.wrap(valuefmt % args)).
     More efficient in the (common) case where the value is not actually
-    needed."""
+    needed.
+
+    Also supports the following extra format characters:
+
+    %N - The result of arg.getname(space)
+    %T - The result of space.type(arg).getname(space)
+
+    """
     OpErrFmt, strings = get_operationerr_class(valuefmt)
     return OpErrFmt(w_type, strings, *args)
 operationerrfmt._annspecialcase_ = 'specialize:arg(1)'
