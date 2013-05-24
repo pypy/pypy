@@ -1,4 +1,5 @@
 import cStringIO
+import itertools
 import os
 import sys
 import traceback
@@ -305,6 +306,7 @@ class OperationError(Exception):
 
 _fmtcache = {}
 _fmtcache2 = {}
+_FMTS = tuple('sdT')
 
 def decompose_valuefmt(valuefmt):
     """Returns a tuple of string parts extracted from valuefmt,
@@ -313,7 +315,7 @@ def decompose_valuefmt(valuefmt):
     parts = valuefmt.split('%')
     i = 1
     while i < len(parts):
-        if parts[i].startswith('s') or parts[i].startswith('d'):
+        if parts[i].startswith(_FMTS):
             formats.append(parts[i][0])
             parts[i] = parts[i][1:]
             i += 1
@@ -321,9 +323,20 @@ def decompose_valuefmt(valuefmt):
             parts[i-1] += '%' + parts[i+1]
             del parts[i:i+2]
         else:
-            raise ValueError("invalid format string (only %s or %d supported)")
+            fmts = '%%%s or %%%s' % (', %'.join(_FMTS[:-1]), _FMTS[-1])
+            raise ValueError("invalid format string (only %s supported)" %
+                             fmts)
     assert len(formats) > 0, "unsupported: no % command found"
     return tuple(parts), tuple(formats)
+
+def _is_type(w_obj):
+    from pypy.objspace.std.typeobject import W_TypeObject
+    # HACK: isinstance(w_obj, W_TypeObject) won't translate under the
+    # fake objspace, but w_obj.__class__ is W_TypeObject does and short
+    # circuits to a False constant there, causing the isinstance to be
+    # ignored =[
+    return (w_obj is not None and w_obj.__class__ is W_TypeObject and
+            isinstance(w_obj, W_TypeObject))
 
 def get_operrcls2(valuefmt):
     strings, formats = decompose_valuefmt(valuefmt)
@@ -333,24 +346,28 @@ def get_operrcls2(valuefmt):
     except KeyError:
         from rpython.rlib.unroll import unrolling_iterable
         attrs = ['x%d' % i for i in range(len(formats))]
-        entries = unrolling_iterable(enumerate(attrs))
+        entries = unrolling_iterable(zip(itertools.count(), formats, attrs))
 
         class OpErrFmt(OperationError):
             def __init__(self, w_type, strings, *args):
                 self.setup(w_type)
                 assert len(args) == len(strings) - 1
                 self.xstrings = strings
-                for i, attr in entries:
+                for i, _, attr in entries:
                     setattr(self, attr, args[i])
-                assert w_type is not None
+                assert _is_type(w_type)
 
             def _compute_value(self):
                 lst = [None] * (len(formats) + len(formats) + 1)
-                for i, attr in entries:
+                for i, fmt, attr in entries:
                     string = self.xstrings[i]
                     value = getattr(self, attr)
                     lst[i+i] = string
-                    lst[i+i+1] = str(value)
+                    if fmt == 'T':
+                        space = self.w_type.space
+                        lst[i+i+1] = space.type(value).getname(space)
+                    else:
+                        lst[i+i+1] = str(value)
                 lst[-1] = self.xstrings[-1]
                 return ''.join(lst)
         #
