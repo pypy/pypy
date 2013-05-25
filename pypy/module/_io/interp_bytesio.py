@@ -138,10 +138,8 @@ class W_BytesIO(RStringIO, W_BufferedIOBase):
 
         if space.len_w(w_state) != 3:
             raise operationerrfmt(space.w_TypeError,
-                "%s.__setstate__ argument should be 3-tuple, got %s",
-                space.type(self).getname(space),
-                space.type(w_state).getname(space)
-            )
+                "%T.__setstate__ argument should be 3-tuple, got %T",
+                self, w_state)
         w_content, w_pos, w_dict = space.unpackiterable(w_state, 3)
         self.truncate(0)
         self.write_w(space, w_content)

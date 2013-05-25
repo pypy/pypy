@@ -163,8 +163,8 @@ class W_IOBase(W_Root):
                 if not space.isinstance_w(w_readahead, space.w_str):
                     raise operationerrfmt(
                         space.w_IOError,
-                        "peek() should have returned a bytes object, "
-                        "not '%s'", space.type(w_readahead).getname(space))
+                        "peek() should have returned a bytes object, not '%T'",
+                        w_readahead)
                 length = space.len_w(w_readahead)
                 if length > 0:
                     n = 0
@@ -189,8 +189,8 @@ class W_IOBase(W_Root):
             if not space.isinstance_w(w_read, space.w_str):
                 raise operationerrfmt(
                     space.w_IOError,
-                    "peek() should have returned a bytes object, "
-                    "not '%s'", space.type(w_read).getname(space))
+                    "peek() should have returned a bytes object, not '%T'",
+                    w_read)
             read = space.str_w(w_read)
             if not read:
                 break

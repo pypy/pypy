@@ -71,10 +71,8 @@ class W_StringIO(W_TextIOBase):
         # backwards-compatibility
         if not space.isinstance_w(w_state, space.w_tuple) or space.len_w(w_state) < 4:
             raise operationerrfmt(space.w_TypeError,
-                "%s.__setstate__ argument should be a 4-tuple, got %s",
-                space.type(self).getname(space),
-                space.type(w_state).getname(space)
-            )
+                "%T.__setstate__ argument should be a 4-tuple, got %T",
+                self, w_state)
         w_initval, w_readnl, w_pos, w_dict = space.unpackiterable(w_state, 4)
         # Initialize state
         self.descr_init(space, w_initval, w_readnl)
@@ -98,9 +96,8 @@ class W_StringIO(W_TextIOBase):
         if not space.is_w(w_dict, space.w_None):
             if not space.isinstance_w(w_dict, space.w_dict):
                 raise operationerrfmt(space.w_TypeError,
-                    "fourth item of state should be a dict, got a %s",
-                    space.type(w_dict).getname(space)
-                )
+                    "fourth item of state should be a dict, got a %T",
+                    w_dict)
             # Alternatively, we could replace the internal dictionary
             # completely. However, it seems more practical to just update it.
             space.call_method(self.w_dict, "update", w_dict)
@@ -129,8 +126,8 @@ class W_StringIO(W_TextIOBase):
     def write_w(self, space, w_obj):
         if not space.isinstance_w(w_obj, space.w_unicode):
             raise operationerrfmt(space.w_TypeError,
-                                  "unicode argument expected, got '%s'",
-                                  space.type(w_obj).getname(space))
+                                  "unicode argument expected, got '%T'",
+                                  w_obj)
         self._check_closed(space)
 
         orig_size = space.len_w(w_obj)

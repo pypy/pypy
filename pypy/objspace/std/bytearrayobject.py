@@ -343,10 +343,8 @@ def str_join__Bytearray_ANY(space, w_self, w_list):
         w_s = list_w[i]
         if not (space.isinstance_w(w_s, space.w_str) or
                 space.isinstance_w(w_s, space.w_bytearray)):
-            raise operationerrfmt(
-                space.w_TypeError,
-                "sequence item %d: expected string, %s "
-                "found", i, space.type(w_s).getname(space))
+            msg = "sequence item %d: expected string, %T found"
+            raise operationerrfmt(space.w_TypeError, msg, i, w_s)
 
         if data and i != 0:
             newdata.extend(data)

@@ -218,9 +218,8 @@ def replace_errors(space, w_exc):
         text = u'\ufffd' * size
         return space.newtuple([space.wrap(text), w_end])
     else:
-        typename = space.type(w_exc).getname(space)
         raise operationerrfmt(space.w_TypeError,
-            "don't know how to handle %s in error callback", typename)
+            "don't know how to handle %T in error callback", w_exc)
 
 def xmlcharrefreplace_errors(space, w_exc):
     check_exception(space, w_exc)
@@ -239,9 +238,8 @@ def xmlcharrefreplace_errors(space, w_exc):
             pos += 1
         return space.newtuple([space.wrap(builder.build()), w_end])
     else:
-        typename = space.type(w_exc).getname(space)
         raise operationerrfmt(space.w_TypeError,
-            "don't know how to handle %s in error callback", typename)
+            "don't know how to handle %T in error callback", w_exc)
 
 def backslashreplace_errors(space, w_exc):
     check_exception(space, w_exc)
@@ -272,9 +270,8 @@ def backslashreplace_errors(space, w_exc):
             pos += 1
         return space.newtuple([space.wrap(builder.build()), w_end])
     else:
-        typename = space.type(w_exc).getname(space)
         raise operationerrfmt(space.w_TypeError,
-            "don't know how to handle %s in error callback", typename)
+            "don't know how to handle %T in error callback", w_exc)
 
 def register_builtin_error_handlers(space):
     "NOT_RPYTHON"

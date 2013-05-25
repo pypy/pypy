@@ -274,11 +274,9 @@ def wrap_cmpfunc(space, w_self, w_args, func):
 
     if not space.is_true(space.issubtype(space.type(w_self),
                                          space.type(w_other))):
-        raise OperationError(space.w_TypeError, space.wrap(
-            "%s.__cmp__(x,y) requires y to be a '%s', not a '%s'" %
-            (space.type(w_self).getname(space),
-             space.type(w_self).getname(space),
-             space.type(w_other).getname(space))))
+        raise operationerrfmt(space.w_TypeError,
+            "%T.__cmp__(x,y) requires y to be a '%T', not a '%T'",
+            w_self, w_self, w_other)
 
     return space.wrap(generic_cpy_call(space, func_target, w_self, w_other))
 
