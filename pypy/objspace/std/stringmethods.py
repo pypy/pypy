@@ -1,3 +1,6 @@
+from pypy.interpreter.error import OperationError
+
+
 class StringMethods(object):
     _mixin_ = True
 
@@ -45,7 +48,7 @@ class StringMethods(object):
             times = space.getindex_w(w_times, space.w_OverflowError)
         except OperationError, e:
             if e.match(space, space.w_TypeError):
-                return NotImplemented
+                return space.w_NotImplemented
             raise
         if times <= 0:
             return self.EMPTY
