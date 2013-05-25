@@ -136,7 +136,7 @@ class W_IOBase(W_Root):
     def tell_w(self, space):
         return space.call_method(self, "seek", space.wrap(0), space.wrap(1))
 
-    def truncate_w(self, space):
+    def truncate_w(self, space, w_size=None):
         self._unsupportedoperation(space, "truncate")
 
     def fileno_w(self, space):
@@ -290,6 +290,7 @@ W_IOBase.typedef = TypeDef(
     readable = interp2app(W_IOBase.readable_w),
     writable = interp2app(W_IOBase.writable_w),
     seekable = interp2app(W_IOBase.seekable_w),
+
     _checkReadable = interp2app(check_readable_w),
     _checkWritable = interp2app(check_writable_w),
     _checkSeekable = interp2app(check_seekable_w),
