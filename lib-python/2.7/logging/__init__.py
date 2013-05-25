@@ -134,20 +134,22 @@ INFO = 20
 DEBUG = 10
 NOTSET = 0
 
-_levelNames = {
-    CRITICAL : 'CRITICAL',
-    ERROR : 'ERROR',
-    WARNING : 'WARNING',
-    INFO : 'INFO',
-    DEBUG : 'DEBUG',
-    NOTSET : 'NOTSET',
-    'CRITICAL' : CRITICAL,
-    'ERROR' : ERROR,
-    'WARN' : WARNING,
-    'WARNING' : WARNING,
-    'INFO' : INFO,
-    'DEBUG' : DEBUG,
-    'NOTSET' : NOTSET,
+_levelToName = {
+    CRITICAL: 'CRITICAL',
+    ERROR: 'ERROR',
+    WARNING: 'WARNING',
+    INFO: 'INFO',
+    DEBUG: 'DEBUG',
+    NOTSET: 'NOTSET',
+}
+_nameToLevel = {
+    'CRITICAL': CRITICAL,
+    'ERROR': ERROR,
+    'WARN': WARNING,
+    'WARNING': WARNING,
+    'INFO': INFO,
+    'DEBUG': DEBUG,
+    'NOTSET': NOTSET,
 }
 
 def getLevelName(level):
@@ -164,7 +166,7 @@ def getLevelName(level):
 
     Otherwise, the string "Level %s" % level is returned.
     """
-    return _levelNames.get(level, ("Level %s" % level))
+    return _levelToName.get(level, ("Level %s" % level))
 
 def addLevelName(level, levelName):
     """
@@ -174,8 +176,8 @@ def addLevelName(level, levelName):
     """
     _acquireLock()
     try:    #unlikely to cause an exception, but you never know...
-        _levelNames[level] = levelName
-        _levelNames[levelName] = level
+        _levelToName[level] = levelName
+        _nameToLevel[levelName] = level
     finally:
         _releaseLock()
 
@@ -183,9 +185,9 @@ def _checkLevel(level):
     if isinstance(level, int):
         rv = level
     elif str(level) == level:
-        if level not in _levelNames:
+        if level not in _nameToLevel:
             raise ValueError("Unknown level: %r" % level)
-        rv = _levelNames[level]
+        rv = _nameToLevel[level]
     else:
         raise TypeError("Level not an integer or a valid string: %r" % level)
     return rv
