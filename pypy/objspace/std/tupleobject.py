@@ -1,8 +1,11 @@
+"""The builtin tuple implementation"""
+
 import sys
-from pypy.interpreter import gateway
+
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.gateway import interp2app, interpindirect2app
+from pypy.interpreter.gateway import (
+    WrappedDefault, interp2app, interpindirect2app, unwrap_spec)
 from pypy.objspace.std import slicetype
 from pypy.objspace.std.inttype import wrapint
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
@@ -177,8 +180,7 @@ class W_AbstractTupleObject(W_Root):
                 count += 1
         return space.wrap(count)
 
-    @gateway.unwrap_spec(w_start=gateway.WrappedDefault(0),
-                         w_stop=gateway.WrappedDefault(sys.maxint))
+    @unwrap_spec(w_start=WrappedDefault(0), w_stop=WrappedDefault(sys.maxint))
     @jit.look_inside_iff(lambda self, _1, _2, _3, _4: _unroll_condition(self))
     def descr_index(self, space, w_obj, w_start, w_stop):
         """index(obj, [start, [stop]]) -> first index that obj appears in the

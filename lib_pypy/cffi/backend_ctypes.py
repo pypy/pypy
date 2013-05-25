@@ -16,6 +16,7 @@ class CTypesType(type):
 class CTypesData(object):
     __metaclass__ = CTypesType
     __slots__ = ['__weakref__']
+    __name__ = '<cdata>'
 
     def __init__(self, *args):
         raise TypeError("cannot instantiate %r" % (self.__class__,))
@@ -491,6 +492,8 @@ class CTypesBackend(object):
         elif BItem in (getbtype(model.PrimitiveType('signed char')),
                        getbtype(model.PrimitiveType('unsigned char'))):
             kind = 'bytep'
+        elif BItem is getbtype(model.void_type):
+            kind = 'voidp'
         else:
             kind = 'generic'
         #
@@ -546,13 +549,13 @@ class CTypesBackend(object):
             def __setitem__(self, index, value):
                 self._as_ctype_ptr[index] = BItem._to_ctypes(value)
 
-            if kind == 'charp':
+            if kind == 'charp' or kind == 'voidp':
                 @classmethod
-                def _arg_to_ctypes(cls, value):
-                    if isinstance(value, bytes):
-                        return ctypes.c_char_p(value)
+                def _arg_to_ctypes(cls, *value):
+                    if value and isinstance(value[0], bytes):
+                        return ctypes.c_char_p(value[0])
                     else:
-                        return super(CTypesPtr, cls)._arg_to_ctypes(value)
+                        return super(CTypesPtr, cls)._arg_to_ctypes(*value)
 
             if kind == 'charp' or kind == 'bytep':
                 def _to_string(self, maxlen):

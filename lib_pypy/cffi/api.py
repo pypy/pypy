@@ -73,15 +73,15 @@ class FFI(object):
             if name.startswith('RTLD_'):
                 setattr(self, name, getattr(backend, name))
         #
-        BVoidP = self._get_cached_btype(model.voidp_type)
+        self.BVoidP = self._get_cached_btype(model.voidp_type)
         if isinstance(backend, types.ModuleType):
             # _cffi_backend: attach these constants to the class
             if not hasattr(FFI, 'NULL'):
-                FFI.NULL = self.cast(BVoidP, 0)
+                FFI.NULL = self.cast(self.BVoidP, 0)
                 FFI.CData, FFI.CType = backend._get_types()
         else:
             # ctypes backend: attach these constants to the instance
-            self.NULL = self.cast(BVoidP, 0)
+            self.NULL = self.cast(self.BVoidP, 0)
             self.CData, self.CType = backend._get_types()
 
     def cdef(self, csource, override=False):
@@ -346,6 +346,12 @@ class FFI(object):
         self._cdefsources.extend(ffi_to_include._cdefsources)
         self._cdefsources.append(']')
 
+    def new_handle(self, x):
+        return self._backend.newp_handle(self.BVoidP, x)
+
+    def from_handle(self, x):
+        return self._backend.from_handle(x)
+
 
 def _make_ffi_library(ffi, libname, flags):
     import os
@@ -372,8 +378,8 @@ def _make_ffi_library(ffi, libname, flags):
             BType = ffi._get_cached_btype(tp)
             try:
                 value = backendlib.load_function(BType, name)
-            except KeyError:
-                raise AttributeError(name)
+            except KeyError as e:
+                raise AttributeError('%s: %s' % (name, e))
             library.__dict__[name] = value
             return
         #
