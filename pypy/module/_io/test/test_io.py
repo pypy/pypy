@@ -16,7 +16,7 @@ class AppTestIoModule:
         class MyFile(io.BufferedIOBase):
             def __init__(self, filename):
                 pass
-        f = MyFile("file")
+        MyFile("file")
 
     def test_openclose(self):
         import io
@@ -44,14 +44,11 @@ class AppTestIoModule:
         e = _io.UnsupportedOperation("seek")
 
     def test_default_implementations(self):
-        import io
-        class MyFile(io.BufferedIOBase):
-            def __init__(self, filename):
-                pass
-        f = MyFile("file")
-        raises(io.UnsupportedOperation, f.seek, 0)
-        raises(io.UnsupportedOperation, f.fileno)
-        raises(io.UnsupportedOperation, f.truncate)
+        import _io
+        file = _io._IOBase()
+        raises(_io.UnsupportedOperation, file.seek, 0, 1)
+        raises(_io.UnsupportedOperation, file.fileno)
+        raises(_io.UnsupportedOperation, file.truncate)
 
     def test_blockingerror(self):
         import _io
