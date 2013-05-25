@@ -355,18 +355,21 @@ def get_operrcls2(valuefmt):
                 self.xstrings = strings
                 for i, _, attr in entries:
                     setattr(self, attr, args[i])
-                assert _is_type(w_type)
+                assert w_type is not None
+                # space may be None during tests
+                self.space = w_type.space if _is_type(w_type) else None
 
             def _compute_value(self):
+                space = self.space
                 lst = [None] * (len(formats) + len(formats) + 1)
                 for i, fmt, attr in entries:
                     string = self.xstrings[i]
                     value = getattr(self, attr)
                     lst[i+i] = string
-                    if fmt in 'NT':
-                        space = self.w_type.space
-                        if fmt == 'T':
-                            value = space.type(value)
+                    if fmt == 'T':
+                        type_ = type if space is None else space.type
+                        value = type_(value)
+                    if fmt in 'NT' and space is not None:
                         lst[i+i+1] = value.getname(space)
                     else:
                         lst[i+i+1] = str(value)
