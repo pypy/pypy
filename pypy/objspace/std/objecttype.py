@@ -44,8 +44,8 @@ def descr_set___class__(space, w_obj, w_newcls):
         w_obj.setclass(space, w_newcls)
     else:
         raise operationerrfmt(space.w_TypeError,
-                              "__class__ assignment: '%s' object layout differs from '%s'",
-                              w_oldcls.getname(space), w_newcls.getname(space))
+                              "__class__ assignment: '%N' object layout differs from '%N'",
+                              w_oldcls, w_newcls)
 
 
 app = gateway.applevel("""

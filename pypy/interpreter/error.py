@@ -225,10 +225,9 @@ class OperationError(Exception):
     def _exception_getclass(self, space, w_inst):
         w_type = space.exception_getclass(w_inst)
         if not space.exception_is_valid_class_w(w_type):
-            typename = w_type.getname(space)
             msg = ("exceptions must be old-style classes or derived "
-                   "from BaseException, not %s")
-            raise operationerrfmt(space.w_TypeError, msg, typename)
+                   "from BaseException, not %N")
+            raise operationerrfmt(space.w_TypeError, msg, w_type)
         return w_type
 
     def write_unraisable(self, space, where, w_object=None,

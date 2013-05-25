@@ -686,11 +686,9 @@ def descr_set__bases__(space, w_type, w_value):
     newlayout = w_newbestbase.get_full_instance_layout()
 
     if oldlayout != newlayout:
-        raise operationerrfmt(space.w_TypeError,
-                           "__bases__ assignment: '%s' object layout"
-                           " differs from '%s'",
-                           w_newbestbase.getname(space),
-                           w_oldbestbase.getname(space))
+        msg = "__bases__ assignment: '%N' object layout differs from '%N'"
+        raise operationerrfmt(space.w_TypeError, msg,
+                              w_newbestbase, w_oldbestbase)
 
     # invalidate the version_tag of all the current subclasses
     w_type.mutated(None)
@@ -1202,9 +1200,8 @@ def mro_error(space, orderlists):
     candidate = orderlists[-1][0]
     if candidate in orderlists[-1][1:]:
         # explicit error message for this specific case
-        raise operationerrfmt(space.w_TypeError,
-                              "duplicate base class '%s'",
-                              candidate.getname(space))
+        raise operationerrfmt(space.w_TypeError, "duplicate base class '%N'",
+                              candidate)
     while candidate not in cycle:
         cycle.append(candidate)
         nextblockinglist = mro_blockinglist(candidate, orderlists)
