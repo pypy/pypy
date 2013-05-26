@@ -2473,7 +2473,7 @@ class MetaInterp(object):
             virtualizable_box = self.virtualizable_boxes[-1]
             virtualizable = vinfo.unwrap_virtualizable_box(virtualizable_box)
             if vinfo.is_token_nonnull_gcref(virtualizable):
-                vinfo.clear_vable_token(virtualizable)
+                vinfo.reset_token_gcref(virtualizable)
             # fill the virtualizable with the local boxes
             self.synchronize_virtualizable()
         #

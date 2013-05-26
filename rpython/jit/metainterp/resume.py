@@ -1216,17 +1216,8 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
             return len(numb.nums)
         index = len(numb.nums) - 1
         virtualizable = self.decode_ref(numb.nums[index])
-        if self.resume_after_guard_not_forced == 1:
-            # in the middle of handle_async_forcing()
-            assert vinfo.is_token_nonnull_gcref(virtualizable)
-            vinfo.reset_token_gcref(virtualizable)
-        else:
-            # just jumped away from assembler (case 4 in the comment in
-            # virtualizable.py) into tracing (case 2); we might have non-forced
-            # virtualizable here, in case it comes from somewhere strange, just
-            # force it
-            if vinfo.is_token_nonnull_gcref(virtualizable):
-                vinfo.clear_vable_token(virtualizable)
+        # just reset the token, we'll force it later
+        vinfo.reset_token_gcref(virtualizable)
         return vinfo.write_from_resume_data_partial(virtualizable, self, numb)
 
     def load_value_of_type(self, TYPE, tagged):
