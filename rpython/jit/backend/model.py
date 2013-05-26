@@ -305,7 +305,8 @@ class AbstractCPU(object):
 
     def bh_force_virtualizable(self, v, descr):
         vinfo = descr.get_vinfo()
-        vinfo.clear_vable_token(v)
+        if vinfo is not None:
+            vinfo.clear_vable_token(v)
 
 class CompiledLoopToken(object):
     asmmemmgr_blocks = None
