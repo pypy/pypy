@@ -1761,6 +1761,7 @@ class MetaInterp(object):
         if (self.jitdriver_sd.virtualizable_info is not None or
             self.jitdriver_sd.greenfield_info is not None):
             virtualizable_boxes = self.virtualizable_boxes
+        saved_pc = 0
         if self.framestack:
             frame = self.framestack[-1]
             saved_pc = frame.pc
