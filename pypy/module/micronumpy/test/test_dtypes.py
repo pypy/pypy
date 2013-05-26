@@ -786,7 +786,7 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
 
     def test_create_subarrays(self):
         from numpypy import dtype
-        d = dtype([("x", "float", (2,)), ("y", "int", (2,))])
+        d = dtype([("x", "float", (2,)), ("y", "int64", (2,))])
         assert d.itemsize == 32
         assert d.name == "void256"
         keys = d.fields.keys()
