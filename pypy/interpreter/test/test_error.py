@@ -38,13 +38,25 @@ def test_operationerrfmt_T(space):
                             "'%T' object has no attribute '%s'",
                             space.wrap('foo'), 'foo')
     assert operr._compute_value() == "'str' object has no attribute 'foo'"
+    operr = operationerrfmt("w_type",
+                            "'%T' object has no attribute '%s'",
+                            space.wrap('foo'), 'foo')
+    assert operr._compute_value() == "'str' object has no attribute 'foo'"
 
 def test_operationerrfmt_N(space):
     operr = operationerrfmt(space.w_AttributeError,
                             "'%N' object has no attribute '%s'",
                             space.type(space.wrap('foo')), 'foo')
     assert operr._compute_value() == "'str' object has no attribute 'foo'"
+    operr = operationerrfmt("w_type",
+                            "'%N' object has no attribute '%s'",
+                            space.type(space.wrap('foo')), 'foo')
+    assert operr._compute_value() == "'str' object has no attribute 'foo'"
     operr = operationerrfmt(space.w_AttributeError,
+                            "'%N' object has no attribute '%s'",
+                            space.wrap('foo'), 'foo')
+    assert operr._compute_value() == "'?' object has no attribute 'foo'"
+    operr = operationerrfmt("w_type",
                             "'%N' object has no attribute '%s'",
                             space.wrap('foo'), 'foo')
     assert operr._compute_value() == "'?' object has no attribute 'foo'"

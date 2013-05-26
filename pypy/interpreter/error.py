@@ -298,6 +298,17 @@ class OperationError(Exception):
         """
         self._application_traceback = traceback
 
+def _space_from_type(w_type):
+    """Grab a space if a W_TypeObject, or None"""
+    from pypy.objspace.std.typeobject import W_TypeObject
+    # HACK: isinstance(w_type, W_TypeObject) won't translate under the
+    # fake objspace, but w_type.__class__ is W_TypeObject does and short
+    # circuits to a False constant there, causing the isinstance to be
+    # ignored =[
+    if (w_type is not None and w_type.__class__ is W_TypeObject and
+        isinstance(w_type, W_TypeObject)):
+        return w_type.space
+
 # ____________________________________________________________
 # optimization only: avoid the slowest operation -- the string
 # formatting with '%' -- in the common case were we don't
@@ -305,7 +316,7 @@ class OperationError(Exception):
 
 _fmtcache = {}
 _fmtcache2 = {}
-_FMTS = tuple('sdNT')
+_FMTS = tuple('dsNT')
 
 def decompose_valuefmt(valuefmt):
     """Returns a tuple of string parts extracted from valuefmt,
@@ -328,14 +339,24 @@ def decompose_valuefmt(valuefmt):
     assert len(formats) > 0, "unsupported: no % command found"
     return tuple(parts), tuple(formats)
 
-def _is_type(w_obj):
-    from pypy.objspace.std.typeobject import W_TypeObject
-    # HACK: isinstance(w_obj, W_TypeObject) won't translate under the
-    # fake objspace, but w_obj.__class__ is W_TypeObject does and short
-    # circuits to a False constant there, causing the isinstance to be
-    # ignored =[
-    return (w_obj is not None and w_obj.__class__ is W_TypeObject and
-            isinstance(w_obj, W_TypeObject))
+def _format_NT(space, fmt, w_value):
+    """Process operationerrfmt's %N/T formats"""
+    if space is not None:
+        if fmt == 'T':
+            w_value = space.type(w_value)
+        return w_value.getname(space)
+    elif not we_are_translated():
+        # may not be able to grab space due to testing environments,
+        # fallback
+        if fmt == 'T':
+            tp = type(w_value)
+            typedef = getattr(tp, 'typedef', None)
+            return tp.__name__ if typedef is None else typedef.name
+        for attr in 'name', '__name__':
+            name = getattr(w_value, attr, None)
+            if name is not None:
+                return name
+    return '?'
 
 def get_operrcls2(valuefmt):
     strings, formats = decompose_valuefmt(valuefmt)
@@ -355,21 +376,16 @@ def get_operrcls2(valuefmt):
                 for i, _, attr in entries:
                     setattr(self, attr, args[i])
                 assert w_type is not None
-                # space may be None during tests
-                self.space = w_type.space if _is_type(w_type) else None
 
             def _compute_value(self):
-                space = self.space
                 lst = [None] * (len(formats) + len(formats) + 1)
                 for i, fmt, attr in entries:
                     string = self.xstrings[i]
                     value = getattr(self, attr)
                     lst[i+i] = string
-                    if fmt == 'T':
-                        type_ = type if space is None else space.type
-                        value = type_(value)
-                    if fmt in 'NT' and space is not None:
-                        lst[i+i+1] = value.getname(space)
+                    if fmt in 'NT':
+                        lst[i+i+1] = _format_NT(_space_from_type(self.w_type),
+                                                fmt, value)
                     else:
                         lst[i+i+1] = str(value)
                 lst[-1] = self.xstrings[-1]
@@ -391,10 +407,10 @@ def operationerrfmt(w_type, valuefmt, *args):
     More efficient in the (common) case where the value is not actually
     needed.
 
-    Also supports the following extra format characters:
+    Supports the standard %s and %d formats, plus the following:
 
-    %N - The result of arg.getname(space)
-    %T - The result of space.type(arg).getname(space)
+    %N - The result of w_arg.getname(space)
+    %T - The result of space.type(w_arg).getname(space)
 
     """
     OpErrFmt, strings = get_operationerr_class(valuefmt)
