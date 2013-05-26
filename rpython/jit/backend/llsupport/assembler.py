@@ -2,7 +2,7 @@ from rpython.jit.backend.llsupport import jitframe
 from rpython.jit.backend.llsupport.memcpy import memcpy_fn
 from rpython.jit.backend.llsupport.symbolic import WORD
 from rpython.jit.metainterp.history import (INT, REF, FLOAT, JitCellToken,
-    ConstInt, BoxInt)
+    ConstInt, BoxInt, AbstractFailDescr)
 from rpython.jit.metainterp.resoperation import ResOperation, rop
 from rpython.rlib import rgc
 from rpython.rlib.debug import (debug_start, debug_stop, have_debug_prints,
@@ -24,6 +24,7 @@ DEBUG_COUNTER = lltype.Struct('DEBUG_COUNTER',
 class GuardToken(object):
     def __init__(self, cpu, gcmap, faildescr, failargs, fail_locs, exc,
                  frame_depth, is_guard_not_invalidated, is_guard_not_forced):
+        assert isinstance(faildescr, AbstractFailDescr)
         self.cpu = cpu
         self.faildescr = faildescr
         self.failargs = failargs
