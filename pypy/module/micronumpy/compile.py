@@ -46,11 +46,11 @@ class W_TypeObject(W_Root):
         self.name = name
 
 class FakeSpace(object):
-    w_ValueError = "ValueError"
-    w_TypeError = "TypeError"
-    w_IndexError = "IndexError"
-    w_OverflowError = "OverflowError"
-    w_NotImplementedError = "NotImplementedError"
+    w_ValueError = W_TypeObject("ValueError")
+    w_TypeError = W_TypeObject("TypeError")
+    w_IndexError = W_TypeObject("IndexError")
+    w_OverflowError = W_TypeObject("OverflowError")
+    w_NotImplementedError = W_TypeObject("NotImplementedError")
     w_None = None
 
     w_bool = W_TypeObject("bool")

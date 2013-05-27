@@ -254,6 +254,8 @@ class W_Float64Box(W_FloatingBox, PrimitiveBox):
     descr__new__, _get_dtype = new_dtype_getter("float64")
 
 class W_FlexibleBox(W_GenericBox):
+    _attrs_ = ['ofs', 'dtype', 'arr']
+    _immutable_fields_ = ['ofs']
     def __init__(self, arr, ofs, dtype):
         self.arr = arr # we have to keep array alive
         self.ofs = ofs
