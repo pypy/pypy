@@ -64,15 +64,14 @@ class Jump(Exception):
         self.args = args
 
 class CallDescr(AbstractDescr):
-    def __init__(self, RESULT, ARGS, extrainfo, abi):
+    def __init__(self, RESULT, ARGS, extrainfo):
         self.RESULT = RESULT
         self.ARGS = ARGS
         self.extrainfo = extrainfo
-        self.abi = abi
 
     def __repr__(self):
-        return 'CallDescr(%r, %r, %r %r)' % (self.RESULT, self.ARGS,
-                                          self.extrainfo, self.abi)
+        return 'CallDescr(%r, %r, %r)' % (self.RESULT, self.ARGS,
+                                          self.extrainfo)
 
     def get_extra_info(self):
         return self.extrainfo
@@ -291,14 +290,13 @@ class LLGraphCPU(model.AbstractCPU):
     # ------------------------------------------------------------
 
     def calldescrof(self, FUNC, ARGS, RESULT, effect_info):
-        abi = 0
         key = ('call', getkind(RESULT),
                tuple([getkind(A) for A in ARGS]),
-               effect_info, abi)
+               effect_info)
         try:
             return self.descrs[key]
         except KeyError:
-            descr = CallDescr(RESULT, ARGS, effect_info, abi)
+            descr = CallDescr(RESULT, ARGS, effect_info)
             self.descrs[key] = descr
             return descr
 
@@ -364,7 +362,7 @@ class LLGraphCPU(model.AbstractCPU):
         try:
             return self.descrs[key]
         except KeyError:
-            descr = CallDescr(RESULT, ARGS, extrainfo, cif_description.abi)
+            descr = CallDescr(RESULT, ARGS, extrainfo)
             self.descrs[key] = descr
             return descr
 
@@ -867,7 +865,7 @@ class LLFrame(object):
             # graph, not to directly execute the python function
             result = self.cpu.maybe_on_top_of_llinterp(func, call_args, descr.RESULT)
         else:
-            FUNC = lltype.FuncType(descr.ARGS, descr.RESULT, descr.abi)
+            FUNC = lltype.FuncType(descr.ARGS, descr.RESULT)
             func_to_call = rffi.cast(lltype.Ptr(FUNC), func)
             result = func_to_call(*call_args)
         del self.force_guard_op
