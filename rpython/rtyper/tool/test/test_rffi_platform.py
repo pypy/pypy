@@ -126,6 +126,13 @@ def test_defined_constant_float():
     value = rffi_platform.getdefineddouble('BLAH', '#define BLAH (double)0/0')
     assert isnan(value)
 
+def test_defined_constant_string():
+    value = rffi_platform.getdefinedstring('MCDONC', '')
+    assert value is None
+    value = rffi_platform.getdefinedstring('RAYDEO',
+                                           '#define RAYDEO "Michael Merickel"')
+    assert value == 'Michael Merickel'
+
 def test_getintegerfunctionresult():
     func = 'int sum(int a, int b) {return a + b;}'
     value = rffi_platform.getintegerfunctionresult('sum', [6, 7], func)

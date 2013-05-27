@@ -24,6 +24,12 @@ def create_venv(name):
             modules = ('cffi', '_cffi_backend')
         except ImportError:
             modules = ('cffi', '_cffi_backend', 'pycparser')
+            try:
+                import ply
+            except ImportError:
+                pass
+            else:
+                modules += ('ply',)   # needed for older versions of pycparser
         for module in modules:
             target = imp.find_module(module)[1]
             os.symlink(target, os.path.join(site_packages,

@@ -339,7 +339,6 @@ class TestCall(BaseTestPyPyC):
         loop, = log.loops_by_filename(self.filepath)
         # the int strategy is used here
         assert loop.match_by_id('append', """
-            guard_not_invalidated(descr=...)
             i13 = getfield_gc(p8, descr=<FieldS list.length .*>)
             i15 = int_add(i13, 1)
             # Will be killed by the backend
@@ -586,7 +585,7 @@ class TestCall(BaseTestPyPyC):
         """, [1000])
         loop, = log.loops_by_id('call')
         assert loop.match_by_id('call', '''
-        guard_not_invalidated(descr=<.*>)
+        guard_not_invalidated(descr=...)
         i1 = force_token()
         ''')
 

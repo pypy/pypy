@@ -5,11 +5,10 @@ import py
 from rpython.jit.codewriter import heaptracker
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.codewriter.jitcode import JitCode, SwitchDictDescr
-from rpython.jit.metainterp import history, compile, resume, executor
+from rpython.jit.metainterp import history, compile, resume, executor, jitexc
 from rpython.jit.metainterp.heapcache import HeapCache
 from rpython.jit.metainterp.history import (Const, ConstInt, ConstPtr,
     ConstFloat, Box, TargetToken)
-from rpython.jit.metainterp.jitexc import JitException, get_llexception
 from rpython.jit.metainterp.jitprof import EmptyProfiler
 from rpython.jit.metainterp.logger import Logger
 from rpython.jit.metainterp.optimizeopt.util import args_dict_box
@@ -622,7 +621,8 @@ class MIFrame(object):
         tobox = self.metainterp.heapcache.getfield(box, fielddescr)
         if tobox is valuebox:
             return
-        self.execute_with_descr(rop.SETFIELD_GC, fielddescr, box, valuebox)
+        if tobox is not None or not self.metainterp.heapcache.is_unescaped(box) or not isinstance(valuebox, Const) or valuebox.nonnull():
+            self.execute_with_descr(rop.SETFIELD_GC, fielddescr, box, valuebox)
         self.metainterp.heapcache.setfield(box, valuebox, fielddescr)
     opimpl_setfield_gc_i = _opimpl_setfield_gc_any
     opimpl_setfield_gc_r = _opimpl_setfield_gc_any
@@ -1054,9 +1054,10 @@ class MIFrame(object):
     @arguments("box", "orgpc")
     def opimpl_raise(self, exc_value_box, orgpc):
         # xxx hack
-        clsbox = self.cls_of_box(exc_value_box)
-        self.generate_guard(rop.GUARD_CLASS, exc_value_box, [clsbox],
-                            resumepc=orgpc)
+        if not self.metainterp.heapcache.is_class_known(exc_value_box):
+            clsbox = self.cls_of_box(exc_value_box)
+            self.generate_guard(rop.GUARD_CLASS, exc_value_box, [clsbox],
+                                resumepc=orgpc)
         self.metainterp.class_of_last_exc_is_const = True
         self.metainterp.last_exc_value_box = exc_value_box
         self.metainterp.popframe()
@@ -1190,8 +1191,8 @@ class MIFrame(object):
         return self.metainterp.execute_and_record(rop.READ_TIMESTAMP, None)
 
     @arguments("box", "box", "box")
-    def opimpl_libffi_save_result_int(self, box_cif_description, box_exchange_buffer,
-                                      box_result):
+    def _opimpl_libffi_save_result(self, box_cif_description,
+                                   box_exchange_buffer, box_result):
         from rpython.rtyper.lltypesystem import llmemory
         from rpython.rlib.jit_libffi import CIF_DESCRIPTION_P
         from rpython.jit.backend.llsupport.ffisupport import get_arg_descr
@@ -1208,10 +1209,14 @@ class MIFrame(object):
             assert ofs % itemsize == 0     # alignment check (result)
             self.metainterp.history.record(rop.SETARRAYITEM_RAW,
                                            [box_exchange_buffer,
-                                            ConstInt(ofs // itemsize), box_result],
+                                            ConstInt(ofs // itemsize),
+                                            box_result],
                                            None, descr)
 
-    opimpl_libffi_save_result_float = opimpl_libffi_save_result_int
+    opimpl_libffi_save_result_int         = _opimpl_libffi_save_result
+    opimpl_libffi_save_result_float       = _opimpl_libffi_save_result
+    opimpl_libffi_save_result_longlong    = _opimpl_libffi_save_result
+    opimpl_libffi_save_result_singlefloat = _opimpl_libffi_save_result
 
     # ------------------------------
 
@@ -1701,13 +1706,13 @@ class MetaInterp(object):
             result_type = self.jitdriver_sd.result_type
             if result_type == history.VOID:
                 assert resultbox is None
-                raise sd.DoneWithThisFrameVoid()
+                raise jitexc.DoneWithThisFrameVoid()
             elif result_type == history.INT:
-                raise sd.DoneWithThisFrameInt(resultbox.getint())
+                raise jitexc.DoneWithThisFrameInt(resultbox.getint())
             elif result_type == history.REF:
-                raise sd.DoneWithThisFrameRef(self.cpu, resultbox.getref_base())
+                raise jitexc.DoneWithThisFrameRef(self.cpu, resultbox.getref_base())
             elif result_type == history.FLOAT:
-                raise sd.DoneWithThisFrameFloat(resultbox.getfloatstorage())
+                raise jitexc.DoneWithThisFrameFloat(resultbox.getfloatstorage())
             else:
                 assert False
 
@@ -1730,7 +1735,7 @@ class MetaInterp(object):
             self.compile_exit_frame_with_exception(excvaluebox)
         except SwitchToBlackhole, stb:
             self.aborted_tracing(stb.reason)
-        raise self.staticdata.ExitFrameWithExceptionRef(self.cpu, excvaluebox.getref_base())
+        raise jitexc.ExitFrameWithExceptionRef(self.cpu, excvaluebox.getref_base())
 
     def check_recursion_invariant(self):
         portal_call_depth = -1
@@ -1838,9 +1843,9 @@ class MetaInterp(object):
             op.name = self.framestack[-1].jitcode.name
 
     def execute_raised(self, exception, constant=False):
-        if isinstance(exception, JitException):
-            raise JitException, exception      # go through
-        llexception = get_llexception(self.cpu, exception)
+        if isinstance(exception, jitexc.JitException):
+            raise jitexc.JitException, exception      # go through
+        llexception = jitexc.get_llexception(self.cpu, exception)
         self.execute_ll_raised(llexception, constant)
 
     def execute_ll_raised(self, llexception, constant=False):
@@ -1873,7 +1878,9 @@ class MetaInterp(object):
             self.staticdata.warmrunnerdesc.hooks.on_abort(reason,
                                                           jd_sd.jitdriver,
                                                           greenkey,
-                                                          jd_sd.warmstate.get_location_str(greenkey))
+                                                          jd_sd.warmstate.get_location_str(greenkey),
+                                                          self.staticdata.logger_ops._make_log_operations(),
+                                                          self.history.operations)
         self.staticdata.stats.aborted()
 
     def blackhole_if_trace_too_long(self):
@@ -2085,7 +2092,7 @@ class MetaInterp(object):
             gi, gr, gf = self._unpack_boxes(live_arg_boxes, 0, num_green_args)
             ri, rr, rf = self._unpack_boxes(live_arg_boxes, num_green_args,
                                             len(live_arg_boxes))
-            CRN = self.staticdata.ContinueRunningNormally
+            CRN = jitexc.ContinueRunningNormally
             raise CRN(gi, gr, gf, ri, rr, rf)
         else:
             # However, in order to keep the existing tests working
@@ -2667,11 +2674,11 @@ class MetaInterp(object):
 
 # ____________________________________________________________
 
-class ChangeFrame(JitException):
+class ChangeFrame(jitexc.JitException):
     """Raised after we mutated metainterp.framestack, in order to force
     it to reload the current top-of-stack frame that gets interpreted."""
 
-class SwitchToBlackhole(JitException):
+class SwitchToBlackhole(jitexc.JitException):
     def __init__(self, reason, raising_exception=False):
         self.reason = reason
         self.raising_exception = raising_exception

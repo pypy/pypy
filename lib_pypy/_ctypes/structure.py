@@ -166,9 +166,7 @@ class StructOrUnionMeta(_CDataMeta):
         if self is StructOrUnion:
             return
         if '_fields_' not in self.__dict__:
-            self._fields_ = []
-            self._names = []
-            _set_shape(self, [], self._is_union)
+            self._fields_ = []  # As a side-effet, this also sets the ffishape.
 
     __setattr__ = struct_setattr
 

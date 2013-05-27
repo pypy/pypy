@@ -492,7 +492,7 @@ class ExtTypeOpaqueDefNode(NodeWithDependencies):
 
 class ContainerNode(Node):
     if USESLOTS:      # keep the number of slots down!
-        __slots__ = """db obj 
+        __slots__ = """db obj
                        typename implementationtypename
                         name
                         _funccodegen_owner

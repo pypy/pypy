@@ -12,6 +12,7 @@ DEFL_CLEVER_MALLOC_REMOVAL_INLINE_THRESHOLD = 32.4
 DEFL_LOW_INLINE_THRESHOLD = DEFL_INLINE_THRESHOLD / 2.0
 
 DEFL_GC = "minimark"
+
 if sys.platform.startswith("linux"):
     DEFL_ROOTFINDER_WITHJIT = "asmgcc"
 else:
@@ -149,7 +150,7 @@ translation_optiondescription = OptionDescription(
     StrOption("output", "Output file name", cmdline="--output"),
     StrOption("secondaryentrypoints",
             "Comma separated list of keys choosing secondary entrypoints",
-            cmdline="--entrypoints", default=""),
+            cmdline="--entrypoints", default="main"),
 
     BoolOption("dump_static_data_info", "Dump static data info",
                cmdline="--dump_static_data_info",
@@ -276,7 +277,9 @@ translation_optiondescription = OptionDescription(
     ]),
     ChoiceOption("platform",
                  "target platform", ['host'] + PLATFORMS, default='host',
-                 cmdline='--platform'),
+                 cmdline='--platform',
+                 requires={"arm": [("translation.gcrootfinder", "shadowstack")]},
+                 suggests={"arm": [("translation.jit_backend", "arm")]}),
 
 ])
 

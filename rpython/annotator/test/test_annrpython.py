@@ -3542,16 +3542,6 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [int])
         assert s.knowntype is int
 
-    def test_relax(self):
-        def f(*args):
-            return args[0] + args[1]
-        f.relax_sig_check = True
-        def g(x):
-            return f(x, x - x)
-        a = self.RPythonAnnotator()
-        s = a.build_types(g, [int])
-        assert a.bookkeeper.getdesc(f).getuniquegraph()
-
     def test_cannot_raise_ll_exception(self):
         from rpython.rtyper.annlowlevel import cast_instance_to_base_ptr
         #
@@ -3832,6 +3822,16 @@ class TestAnnotateTestCase:
             x = [0, 1, n]
             i = iter(x)
             return next(i) + next(i)
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(fn, [int])
+        assert isinstance(s, annmodel.SomeInteger)
+
+    def test_reversed(self):
+        def fn(n):
+            for elem in reversed([1, 2, 3, 4, 5]):
+                return elem
+            return n
 
         a = self.RPythonAnnotator()
         s = a.build_types(fn, [int])

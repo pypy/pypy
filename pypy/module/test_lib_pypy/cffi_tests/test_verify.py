@@ -8,7 +8,7 @@ from pypy.module.test_lib_pypy.cffi_tests.support import *
 if sys.platform == 'win32':
     pass      # no obvious -Werror equivalent on MSVC
 elif (sys.platform == 'darwin' and
-      map(int, os.uname()[2].split('.')) >= [11, 0, 0]):
+      [int(x) for x in os.uname()[2].split('.')] >= [11, 0, 0]):
     pass      # recent MacOSX come with clang by default, and passing some
               # flags from the interpreter (-mno-fused-madd) generates a
               # warning --- which is interpreted as an error with -Werror
@@ -521,6 +521,18 @@ def test_struct_with_bitfield_exact():
     s.b = 3
     py.test.raises(OverflowError, "s.b = 4")
     assert s.b == 3
+
+def test_struct_with_bitfield_enum():
+    ffi = FFI()
+    code = """
+        typedef enum { AA, BB, CC } foo_e;
+        typedef struct { foo_e f:2; } foo_s;
+    """
+    ffi.cdef(code)
+    ffi.verify(code)
+    s = ffi.new("foo_s *")
+    s.f = 2
+    assert s.f == 2
 
 def test_unsupported_struct_with_bitfield_ellipsis():
     ffi = FFI()

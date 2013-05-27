@@ -40,4 +40,4 @@ else:
     PASS_ON_MY_FRAME = 12
     JITFRAME_FIXED_SIZE = 28 # 13 GPR + 15 XMM
 
-assert PASS_ON_MY_FRAME >= 11       # asmgcc needs at least JIT_USE_WORDS + 2
+assert PASS_ON_MY_FRAME >= 12       # asmgcc needs at least JIT_USE_WORDS + 3

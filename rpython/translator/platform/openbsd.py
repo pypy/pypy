@@ -2,9 +2,10 @@
 
 import os
 
-from pypy.translator.platform.bsd import BSD
+from rpython.translator.platform.bsd import BSD
 
 class OpenBSD(BSD):
+    DEFAULT_CC = "cc"
     name = "openbsd"
 
     link_flags = os.environ.get("LDFLAGS", '-pthread').split()

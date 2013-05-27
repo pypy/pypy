@@ -6,8 +6,16 @@ import py
 
 if sys.platform.startswith('linux'):
     arch = 'linux'
+    cmd = 'wget "%s"'
+    tar = "tar -x -v --wildcards --strip-components=2 -f %s '*/bin/pypy'"
+    if os.uname()[-1].startswith('arm'):
+        arch += '-armhf-raspbian'
+elif sys.platform.startswith('darwin'):
+    arch = 'osx'
+    cmd = 'curl -O "%s"'
+    tar = "tar -x -v --strip-components=2 -f %s '*/bin/pypy'"
 else:
-    print 'Cannot determine the platform, please update this scrip'
+    print 'Cannot determine the platform, please update this script'
     sys.exit(1)
 
 if sys.maxint == 2**63 - 1:
@@ -23,10 +31,9 @@ url = 'http://buildbot.pypy.org/nightly/%s/%s' % (branch, filename)
 tmp = py.path.local.mkdtemp()
 mydir = tmp.chdir()
 print 'Downloading pypy to', tmp
-if os.system('wget "%s"' % url) != 0:
+if os.system(cmd % url) != 0:
     sys.exit(1)
 
 print 'Extracting pypy binary'
 mydir.chdir()
-os.system("tar -x -v --wildcards --strip-components=2 -f %s '*/bin/pypy'" % tmp.join(filename))
-
+os.system(tar % tmp.join(filename))
