@@ -145,6 +145,11 @@ class Primitive(object):
         #XXX this is the place to display a warning
         return self.box(real)
 
+    def box_raw_data(self, data):
+        # For pickle
+        array = rffi.cast(rffi.CArrayPtr(self.T), data)
+        return self.box(array[0])
+
     @specialize.argtype(1)
     def unbox(self, box):
         assert isinstance(box, self.BoxType)
@@ -1107,6 +1112,11 @@ class ComplexFloating(object):
         return self.BoxType(
             rffi.cast(self.T, real),
             rffi.cast(self.T, imag))
+
+    def box_raw_data(self, data):
+        # For pickle
+        array = rffi.cast(rffi.CArrayPtr(self.T), data)
+        return self.box_complex(array[0], array[1])
 
     def unbox(self, box):
         assert isinstance(box, self.BoxType)

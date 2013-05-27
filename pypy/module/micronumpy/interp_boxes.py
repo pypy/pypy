@@ -11,6 +11,7 @@ from rpython.rlib.rarithmetic import LONG_BIT
 from rpython.rtyper.lltypesystem import rffi
 from rpython.tool.sourcetools import func_with_new_name
 from pypy.module.micronumpy.arrayimpl.voidbox import VoidBoxStorage
+from rpython.rlib.objectmodel import specialize
 from pypy.interpreter.mixedmodule import MixedModule
 
 MIXIN_32 = (int_typedef,) if LONG_BIT == 32 else ()
@@ -50,13 +51,24 @@ class PrimitiveBox(object):
         return '%s(%s)' % (self.__class__.__name__, self.value)
 
     def descr_reduce(self, space):
+        from rpython.rlib.rstring import StringBuilder
+        from rpython.rtyper.lltypesystem import rffi, lltype
+
         numpypy = space.getbuiltinmodule("_numpypy")
         assert isinstance(numpypy, MixedModule)
         multiarray = numpypy.get("multiarray")
         assert isinstance(multiarray, MixedModule)
         scalar = multiarray.get("scalar")
 
-        return space.newtuple([scalar, space.newtuple([space.wrap(self._get_dtype(space))])])
+        value = lltype.malloc(rffi.CArray(lltype.typeOf(self.value)), 1, "raw")
+        value[0] = self.value
+
+        builder = StringBuilder()
+        builder.append_charpsize(rffi.cast(rffi.CCHARP, value), rffi.sizeof(lltype.typeOf(self.value)))
+
+        ret = space.newtuple([scalar, space.newtuple([space.wrap(self._get_dtype(space)), space.wrap(builder.build())])])
+        lltype.free(value, "raw")
+        return ret
 
 class ComplexBox(object):
     _mixin_ = True
@@ -75,13 +87,25 @@ class ComplexBox(object):
         return dtype.box(self.imag)
 
     def descr_reduce(self, space):
+        from rpython.rlib.rstring import StringBuilder
+        from rpython.rtyper.lltypesystem import rffi, lltype
+
         numpypy = space.getbuiltinmodule("_numpypy")
         assert isinstance(numpypy, MixedModule)
         multiarray = numpypy.get("multiarray")
         assert isinstance(multiarray, MixedModule)
         scalar = multiarray.get("scalar")
 
-        return space.newtuple([scalar, space.newtuple([space.wrap(self._get_dtype(space))])])
+        value = lltype.malloc(rffi.CArray(lltype.typeOf(self.real)), 2, "raw")
+        value[0] = self.real
+        value[1] = self.imag
+
+        builder = StringBuilder()
+        builder.append_charpsize(rffi.cast(rffi.CCHARP, value), rffi.sizeof(lltype.typeOf(self.real)) * 2)
+
+        ret = space.newtuple([scalar, space.newtuple([space.wrap(self._get_dtype(space)), space.wrap(builder.build())])])
+        lltype.free(value, "raw")
+        return ret
 
 class W_GenericBox(W_Root):
     _attrs_ = ()

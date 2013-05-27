@@ -4,7 +4,7 @@ class AppTestScalar(BaseNumpyAppTest):
     spaceconfig = dict(usemodules=["micronumpy", "binascii", "struct"])
 
     def test_pickle(self):
-        from numpypy import dtype, int32, float64, complex128
+        from numpypy import dtype, int32, float64, complex128, zeros, sum
         from numpypy.core.multiarray import scalar
         from cPickle import loads, dumps
         i = int32(1337)
@@ -18,3 +18,6 @@ class AppTestScalar(BaseNumpyAppTest):
         assert loads(dumps(i)) == i
         assert loads(dumps(f)) == f
         assert loads(dumps(c)) == c
+
+        a = zeros(3)
+        assert loads(dumps(sum(a))) == sum(a)
