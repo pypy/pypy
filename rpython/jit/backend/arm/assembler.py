@@ -1038,7 +1038,7 @@ class AssemblerARM(ResOpAssembler):
             self.store_reg(self.mc, prev_loc, r.fp, offset, helper=temp, cond=cond)
             if not is_imm and save:
                 self.mc.POP([temp.value], cond=cond)
-        elif loc.is_raw_sp():
+        elif loc.is_raw_sp() and loc.type != FLOAT:
             temp, save = self.get_tmp_reg([prev_loc])
             assert not save
             self.store_reg(self.mc, prev_loc, r.sp, loc.value, cond=cond, helper=temp)
@@ -1064,6 +1064,8 @@ class AssemblerARM(ResOpAssembler):
             helper, save = self.get_tmp_reg()
             save_helper = not is_imm and save
         elif loc.is_raw_sp():
+            assert (loc.type == prev_loc.type == FLOAT
+                    or (loc.type != FLOAT and prev_loc.type != FLOAT))
             tmp = loc
             if loc.is_float():
                 loc = r.vfp_ip
@@ -1093,10 +1095,10 @@ class AssemblerARM(ResOpAssembler):
             self.load_reg(self.mc, loc, helper, 0, cond=cond)
             if save_helper:
                 self.mc.POP([helper.value], cond=cond)
-        elif loc.is_stack():
+        elif loc.is_stack() and loc.type == FLOAT:
             self.regalloc_mov(prev_loc, r.vfp_ip, cond)
             self.regalloc_mov(r.vfp_ip, loc, cond)
-        elif loc.is_raw_sp():
+        elif loc.is_raw_sp() and loc.type == FLOAT:
             self.regalloc_mov(prev_loc, r.vfp_ip, cond)
             self.regalloc_mov(r.vfp_ip, loc, cond)
         else:
@@ -1113,6 +1115,8 @@ class AssemblerARM(ResOpAssembler):
             is_imm = check_imm_arg(offset)
             self.store_reg(self.mc, prev_loc, r.fp, offset, cond=cond, helper=r.ip)
         elif loc.is_raw_sp():
+            assert loc.type == FLOAT, 'trying to store to an \
+                incompatible location from a float register'
             self.store_reg(self.mc, prev_loc, r.sp, loc.value, cond=cond)
         else:
             assert 0, 'unsupported case'
