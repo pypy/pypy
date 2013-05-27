@@ -12,6 +12,9 @@ class AssemblerLocation(object):
     def is_stack(self):
         return False
 
+    def is_raw_sp(self):
+        return False
+
     def is_reg(self):
         return False
 
@@ -145,7 +148,27 @@ class StackLocation(AssemblerLocation):
         return self.position + 10000
 
     def is_float(self):
-        return type == FLOAT
+        return self.type == FLOAT
+
+class RawSPStackLocation(AssemblerLocation):
+    _immutable_ = True
+
+    def __init__(self, sp_offset, type=INT):
+        if type == FLOAT:
+            self.width = DOUBLE_WORD
+        else:
+            self.width = WORD
+        self.value = sp_offset
+        self.type = type
+
+    def __repr__(self):
+        return 'SP(%s)+%d' % (self.type, self.value,)
+
+    def is_raw_sp(self):
+        return True
+
+    def is_float(self):
+        return self.type == FLOAT
 
 
 def imm(i):
