@@ -1058,7 +1058,7 @@ def build_scalar(space, w_dtype, w_state):
 
     state = rffi.str2charp(space.str_w(w_state))
     box = w_dtype.itemtype.box_raw_data(state)
-    lltype.free(state, "raw")
+    lltype.free(state, flavor="raw")
     return box
 
 W_FlatIterator.typedef = TypeDef(
