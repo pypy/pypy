@@ -787,6 +787,7 @@ class LLFrame(object):
             saved_data = self.forced_deadframe._saved_data
             self.fail_guard(descr, saved_data)
         self.force_guard_op = self.current_op
+    execute_guard_not_forced_2 = execute_guard_not_forced
 
     def execute_guard_not_invalidated(self, descr):
         if self.lltrace.invalid:
@@ -922,6 +923,16 @@ class LLFrame(object):
         #
         # Emulate the fast path
         #
+        faildescr = self.cpu.get_latest_descr(pframe)
+        if faildescr == self.cpu.done_with_this_frame_descr_int:
+            return self.cpu.get_int_value(pframe, 0)
+        elif faildescr == self.cpu.done_with_this_frame_descr_ref:
+            return self.cpu.get_ref_value(pframe, 0)
+        elif faildescr == self.cpu.done_with_this_frame_descr_float:
+            return self.cpu.get_float_value(pframe, 0)
+        elif faildescr == self.cpu.done_with_this_frame_descr_void:
+            return None
+
         assembler_helper_ptr = jd.assembler_helper_adr.ptr  # fish
         try:
             result = assembler_helper_ptr(pframe, vable)

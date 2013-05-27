@@ -1741,7 +1741,7 @@ class MetaInterp(object):
         else:
             moreargs = list(extraargs)
         metainterp_sd = self.staticdata
-        if opnum == rop.GUARD_NOT_FORCED:
+        if opnum == rop.GUARD_NOT_FORCED or opnum == rop.GUARD_NOT_FORCED_2:
             resumedescr = compile.ResumeGuardForcedDescr(metainterp_sd,
                                                          self.jitdriver_sd)
         elif opnum == rop.GUARD_NOT_INVALIDATED:
@@ -2281,7 +2281,7 @@ class MetaInterp(object):
         self.history.record(rop.FORCE_TOKEN, [], force_token_box)
         self.history.record(rop.SETFIELD_GC, [vbox, force_token_box],
                             None, descr=vinfo.vable_token_descr)
-        self.generate_guard(rop.GUARD_NOT_FORCED, None)
+        self.generate_guard(rop.GUARD_NOT_FORCED_2, None)
 
     def compile_exit_frame_with_exception(self, valuebox):
         self.store_token_in_vable()

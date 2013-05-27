@@ -481,6 +481,8 @@ class VRawSliceValue(AbstractVirtualValue):
 class OptVirtualize(optimizer.Optimization):
     "Virtualize objects until they escape."
 
+    _last_guard_not_forced = None
+
     def new(self):
         return OptVirtualize()
 
@@ -523,6 +525,18 @@ class OptVirtualize(optimizer.Optimization):
         if self.last_emitted_operation is REMOVED:
             return
         self.emit_operation(op)
+
+    def optimize_GUARD_NOT_FORCED_2(self, op):
+        self._last_guard_not_forced = op
+
+    def optimize_FINISH(self, op):
+        if self._last_guard_not_forced is not None:
+            guard_op = self._last_guard_not_forced
+            self.emit_operation(op)
+            guard_op = self.optimizer.store_final_boxes_in_guard(guard_op)
+            self.optimizer._newoperations.insert(-1, guard_op)
+        else:
+            self.emit_operation(op)
 
     def optimize_FORCE_VIRTUALIZABLE(self, op):
         val = self.getvalue(op.getarg(0))
