@@ -189,7 +189,7 @@ class rbigint(object):
             carry = ival >> SHIFT
             if carry:
                 return rbigint([_store_digit(ival & MASK),
-                    _store_digit(carry & MASK)], sign, 2)
+                    _store_digit(carry)], sign, 2)
             else:
                 return rbigint([_store_digit(ival & MASK)], sign, 1)
             
@@ -566,7 +566,7 @@ class rbigint(object):
                 res = b.widedigit(0) * a.widedigit(0)
                 carry = res >> SHIFT
                 if carry:
-                    return rbigint([_store_digit(res & MASK), _store_digit(carry & MASK)], a.sign * b.sign, 2)
+                    return rbigint([_store_digit(res & MASK), _store_digit(carry)], a.sign * b.sign, 2)
                 else:
                     return rbigint([_store_digit(res & MASK)], a.sign * b.sign, 1)
                 
