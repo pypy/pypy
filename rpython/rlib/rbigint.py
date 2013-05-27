@@ -180,34 +180,15 @@ class rbigint(object):
             ival = r_uint(intval)
         else:
             return NULLRBIGINT
-        # Count the number of Python digits.
-        # We used to pick 5 ("big enough for anything"), but that's a
-        # waste of time and space given that 5*15 = 75 bits are rarely
-        # needed.
-        # XXX: Even better!
-        if SHIFT >= 63:
-            carry = ival >> SHIFT
-            if carry:
-                return rbigint([_store_digit(ival & MASK),
-                    _store_digit(carry)], sign, 2)
-            else:
-                return rbigint([_store_digit(ival & MASK)], sign, 1)
+        
+        carry = ival >> SHIFT
+        if carry:
+            return rbigint([_store_digit(ival & MASK),
+                _store_digit(carry)], sign, 2)
+        else:
+            return rbigint([_store_digit(ival & MASK)], sign, 1)
             
-        t = ival
-        ndigits = 0
-        while t:
-            ndigits += 1
-            t >>= SHIFT
-        v = rbigint([NULLDIGIT] * ndigits, sign, ndigits)
-        t = ival
-        p = 0
-        while t:
-            v.setdigit(p, t)
-            t >>= SHIFT
-            p += 1
-
-        return v
-
+        
     @staticmethod
     def frombool(b):
         # This function is marked as pure, so you must not call it and
@@ -1107,10 +1088,6 @@ def _x_add(a, b):
 def _x_sub(a, b):
     """ Subtract the absolute values of two integers. """
     
-    # Special casing.
-    if a is b:
-        return NULLRBIGINT
-    
     size_a = a.numdigits()
     size_b = b.numdigits()
     sign = 1
@@ -1141,13 +1118,13 @@ def _x_sub(a, b):
         borrow = a.udigit(i) - b.udigit(i) - borrow
         z.setdigit(i, borrow)
         borrow >>= SHIFT
-        borrow &= 1 # Keep only one sign bit
+        #borrow &= 1 # Keep only one sign bit
         i += 1
     while i < size_a:
         borrow = a.udigit(i) - borrow
         z.setdigit(i, borrow)
         borrow >>= SHIFT
-        borrow &= 1
+        #borrow &= 1
         i += 1
         
     assert borrow == 0
