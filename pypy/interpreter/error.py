@@ -60,7 +60,9 @@ class OperationError(Exception):
         "NOT_RPYTHON: Convenience for tracebacks."
         s = self._w_value
         if self.__class__ is not OperationError and s is None:
-            s = self._compute_value()
+            space = getattr(self.w_type, 'space')
+            if space is not None:
+                s = self._compute_value(space)
         return '[%s: %s]' % (self.w_type, s)
 
     def errorstr(self, space, use_repr=False):
@@ -267,11 +269,11 @@ class OperationError(Exception):
     def get_w_value(self, space):
         w_value = self._w_value
         if w_value is None:
-            value = self._compute_value()
+            value = self._compute_value(space)
             self._w_value = w_value = space.wrap(value)
         return w_value
 
-    def _compute_value(self):
+    def _compute_value(self, space):
         raise NotImplementedError
 
     def get_traceback(self):
@@ -297,17 +299,6 @@ class OperationError(Exception):
         executioncontext.leave() being called with got_exception=True.
         """
         self._application_traceback = traceback
-
-def _space_from_type(w_type):
-    """Grab a space if a W_TypeObject, or None"""
-    from pypy.objspace.std.typeobject import W_TypeObject
-    # HACK: isinstance(w_type, W_TypeObject) won't translate under the
-    # fake objspace, but w_type.__class__ is W_TypeObject does and short
-    # circuits to a False constant there, causing the isinstance to be
-    # ignored =[
-    if (w_type is not None and w_type.__class__ is W_TypeObject and
-        isinstance(w_type, W_TypeObject)):
-        return w_type.space
 
 # ____________________________________________________________
 # optimization only: avoid the slowest operation -- the string
@@ -339,25 +330,6 @@ def decompose_valuefmt(valuefmt):
     assert len(formats) > 0, "unsupported: no % command found"
     return tuple(parts), tuple(formats)
 
-def _format_NT(space, fmt, w_value):
-    """Process operationerrfmt's %N/T formats"""
-    if space is not None:
-        if fmt == 'T':
-            w_value = space.type(w_value)
-        return w_value.getname(space)
-    elif not we_are_translated():
-        # may not be able to grab space due to testing environments,
-        # fallback
-        if fmt == 'T':
-            tp = type(w_value)
-            typedef = getattr(tp, 'typedef', None)
-            return tp.__name__ if typedef is None else typedef.name
-        for attr in 'name', '__name__':
-            name = getattr(w_value, attr, None)
-            if name is not None:
-                return name
-    return '?'
-
 def get_operrcls2(valuefmt):
     strings, formats = decompose_valuefmt(valuefmt)
     assert len(strings) == len(formats) + 1
@@ -377,17 +349,18 @@ def get_operrcls2(valuefmt):
                     setattr(self, attr, args[i])
                 assert w_type is not None
 
-            def _compute_value(self):
+            def _compute_value(self, space):
                 lst = [None] * (len(formats) + len(formats) + 1)
                 for i, fmt, attr in entries:
-                    string = self.xstrings[i]
+                    lst[i + i] = self.xstrings[i]
                     value = getattr(self, attr)
-                    lst[i+i] = string
                     if fmt in 'NT':
-                        lst[i+i+1] = _format_NT(_space_from_type(self.w_type),
-                                                fmt, value)
+                        if fmt == 'T':
+                            value = space.type(value)
+                        result = value.getname(space)
                     else:
-                        lst[i+i+1] = str(value)
+                        result = str(value)
+                    lst[i + i + 1] = result
                 lst[-1] = self.xstrings[-1]
                 return ''.join(lst)
         #
