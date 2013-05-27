@@ -34,6 +34,7 @@ from rpython.jit.backend.llsupport.descr import unpack_arraydescr
 from rpython.jit.backend.llsupport.descr import unpack_fielddescr
 from rpython.jit.backend.llsupport.descr import unpack_interiorfielddescr
 from rpython.rlib.rarithmetic import r_uint
+from rpython.jit.backend.llsupport.descr import CallDescr
 
 
 # xxx hack: set a default value for TargetToken._ll_loop_code.  If 0, we know
@@ -555,9 +556,27 @@ class Regalloc(BaseRegalloc):
         return self._prepare_call(op)
 
     def _prepare_call(self, op, force_store=[], save_all_regs=False):
-        args = [None] * (op.numargs() + 1)
+        args = [None] * (op.numargs() + 3)
+        calldescr = op.getdescr()
+        assert isinstance(calldescr, CallDescr)
+        assert len(calldescr.arg_classes) == op.numargs() - 1
+
         for i in range(op.numargs()):
-            args[i + 1] = self.loc(op.getarg(i))
+            args[i + 3] = self.loc(op.getarg(i))
+
+        size = calldescr.get_result_size()
+        sign = calldescr.is_result_signed()
+        if sign:
+            sign_loc = imm(1)
+        else:
+            sign_loc = imm(0)
+        args[1] = imm(size)
+        args[2] = sign_loc
+
+        args[0] = self._call(op, args, force_store, save_all_regs)
+        return args
+
+    def _call(self, op, arglocs, force_store=[], save_all_regs=False):
         # spill variables that need to be saved around calls
         self.vfprm.before_call(save_all_regs=save_all_regs)
         if not save_all_regs:
@@ -565,11 +584,11 @@ class Regalloc(BaseRegalloc):
             if gcrootmap and gcrootmap.is_shadow_stack:
                 save_all_regs = 2
         self.rm.before_call(save_all_regs=save_all_regs)
+        self.before_call_called = True
+        resloc = None
         if op.result:
             resloc = self.after_call(op.result)
-            args[0] = resloc
-        self.before_call_called = True
-        return args
+        return resloc
 
     def prepare_op_call_malloc_gc(self, op, fcond):
         return self._prepare_call(op)
@@ -1153,9 +1172,9 @@ class Regalloc(BaseRegalloc):
     def prepare_guard_call_assembler(self, op, guard_op, fcond):
         locs = self.locs_for_call_assembler(op, guard_op)
         tmploc = self.get_scratch_reg(INT, selected_reg=r.r0)
-        call_locs = self._prepare_call(op, save_all_regs=True)
+        resloc = self._call(op, locs + [tmploc], save_all_regs=True)
         self.possibly_free_vars(guard_op.getfailargs())
-        return locs + [call_locs[0], tmploc]
+        return locs + [resloc, tmploc]
 
     def _prepare_args_for_new_op(self, new_args):
         gc_ll_descr = self.cpu.gc_ll_descr
