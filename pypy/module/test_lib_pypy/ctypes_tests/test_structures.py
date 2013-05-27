@@ -239,6 +239,9 @@ class TestStructure(BaseCTypesTestChecker):
             pass
         pos = POSITION(1, 2)
         assert (pos.x, pos.y) == (1, 2)
+        # Try a second time, result may be different (cf. issue1498)
+        pos = POSITION(1, 2)
+        assert (pos.x, pos.y) == (1, 2)
         
 
     def test_invalid_field_types(self):

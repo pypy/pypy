@@ -124,14 +124,21 @@ def create_entry_point(space, w_dict):
 
     @entrypoint('main', [], c_name='pypy_init_threads')
     def pypy_init_threads():
-        if space.config.objspace.usemodules.thread:
-            os_thread.setup_threads(space)
-            rffi.aroundstate.before()
+        if not space.config.objspace.usemodules.thread:
+            return
+        os_thread.setup_threads(space)
+        rffi.aroundstate.before()
 
     @entrypoint('main', [], c_name='pypy_thread_attach')
     def pypy_thread_attach():
-        if space.config.objspace.usemodules.thread:
-            rthread.gc_thread_start()
+        if not space.config.objspace.usemodules.thread:
+            return
+        os_thread.setup_threads(space)
+        os_thread.bootstrapper.acquire(space, None, None)
+        rthread.gc_thread_start()
+        os_thread.bootstrapper.nbthreads += 1
+        os_thread.bootstrapper.release()
+        rffi.aroundstate.before()
 
     w_globals = space.newdict()
     space.setitem(w_globals, space.wrap('__builtins__'),

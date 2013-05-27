@@ -2715,7 +2715,7 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         a[0]["x"][0] = 200
         assert a[0]["x"][0] == 200
 
-        d = dtype([("x", "int", (2, 3))])
+        d = dtype([("x", "int64", (2, 3))])
         a = array([([[1, 2, 3], [4, 5, 6]],)], dtype=d)
 
         assert a[0]["x"].dtype == dtype("int64")
@@ -2735,7 +2735,7 @@ class AppTestRecordDtype(BaseNumpyAppTest):
     def test_multidim_subarray(self):
         from numpypy import dtype, array
 
-        d = dtype([("x", "int", (2, 3))])
+        d = dtype([("x", "int64", (2, 3))])
         a = array([([[1, 2, 3], [4, 5, 6]],)], dtype=d)
 
         assert a[0]["x"].dtype == dtype("int64")

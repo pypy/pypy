@@ -1704,28 +1704,11 @@ class VoidType(BaseType, BaseStringType):
     T = lltype.Char
 
     def _coerce(self, space, arr, ofs, dtype, w_items, shape):
-        items_w = space.fixedview(w_items)
-        for i in range(len(items_w)):
-            subdtype = dtype.subdtype
-            itemtype = subdtype.itemtype
-            if space.len_w(shape) <= 1:
-                w_box = itemtype.coerce(space, dtype.subdtype, items_w[i])
-                itemtype.store(arr, 0, ofs, w_box)
-                ofs += itemtype.get_element_size()
-            else:
-                size = 1
-                for dimension in shape[1:]:
-                    size *= dimension
-                size *= itemtype.get_element_size()
-                for w_item in items_w:
-                    self._coerce(space, arr, ofs, dtype, w_items, shape[1:])
-                    ofs += size
-        return arr
-
-    def _coerce(self, space, arr, ofs, dtype, w_items, shape):
         # TODO: Make sure the shape and the array match
+        from interp_dtype import W_Dtype
         items_w = space.fixedview(w_items)
         subdtype = dtype.subdtype
+        assert isinstance(subdtype, W_Dtype)
         itemtype = subdtype.itemtype
         if len(shape) <= 1:
             for i in range(len(items_w)):

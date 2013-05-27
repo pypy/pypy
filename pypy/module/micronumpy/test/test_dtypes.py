@@ -275,7 +275,7 @@ class AppTestDtypes(BaseAppTestDtypes):
         from numpypy import array, dtype
         from cPickle import loads, dumps
         a = array([1,2,3])
-         if self.ptr_size == 8:
+        if self.ptr_size == 8:
             assert a.dtype.__reduce__() == (dtype, ('i8', 0, 1), (3, '<', None, None, None, -1, -1, 0))
         else:
             assert a.dtype.__reduce__() == (dtype, ('i4', 0, 1), (3, '<', None, None, None, -1, -1, 0))
@@ -786,7 +786,7 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
 
     def test_create_subarrays(self):
         from numpypy import dtype
-        d = dtype([("x", "float", (2,)), ("y", "int", (2,))])
+        d = dtype([("x", "float", (2,)), ("y", "int64", (2,))])
         assert d.itemsize == 32
         assert d.name == "void256"
         keys = d.fields.keys()
