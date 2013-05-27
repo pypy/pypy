@@ -24,7 +24,7 @@ class TestARM(LLtypeBackendTest):
     # for the individual tests see
     # ====> ../../test/runner_test.py
 
-    add_loop_instructions = ['ldr', 'mov', 'adds', 'cmp', 'beq', 'b']
+    add_loop_instructions = ['ldr', 'adds', 'cmp', 'beq', 'b']
     bridge_loop_instructions = ['ldr', 'mov', 'nop', 'cmp', 'bge',
                                 'push', 'mov', 'mov', 'push', 'mov', 'mov',
                                 'blx', 'mov', 'mov', 'bx']

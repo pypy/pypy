@@ -16,6 +16,11 @@ def convert_size(space, w_size):
     else:
         return space.int_w(w_size)
 
+def unsupported(space, message):
+    w_exc = space.getattr(space.getbuiltinmodule('_io'),
+                          space.wrap('UnsupportedOperation'))
+    return OperationError(w_exc, space.wrap(message))
+
 # May be called with any object
 def check_readable_w(space, w_obj):
     if not space.is_true(space.call_method(w_obj, 'readable')):
@@ -86,6 +91,9 @@ class W_IOBase(W_Root):
         # attribute as returned by whatever subclass.
         return self.__IOBase_closed
 
+    def _unsupportedoperation(self, space, message):
+        raise unsupported(space, message)
+
     def _check_closed(self, space, message=None):
         if message is None:
             message = "I/O operation on closed file"
@@ -111,8 +119,17 @@ class W_IOBase(W_Root):
                 space.w_ValueError,
                 space.wrap("I/O operation on closed file"))
 
+    def seek_w(self, space, w_offset, w_whence=None):
+        self._unsupportedoperation(space, "seek")
+
     def tell_w(self, space):
         return space.call_method(self, "seek", space.wrap(0), space.wrap(1))
+
+    def truncate_w(self, space, w_size=None):
+        self._unsupportedoperation(space, "truncate")
+
+    def fileno_w(self, space):
+        self._unsupportedoperation(space, "fileno")
 
     def enter_w(self, space):
         self._check_closed(space)
@@ -248,11 +265,15 @@ W_IOBase.typedef = TypeDef(
     next = interp2app(W_IOBase.next_w),
     close = interp2app(W_IOBase.close_w),
     flush = interp2app(W_IOBase.flush_w),
+    seek = interp2app(W_IOBase.seek_w),
     tell = interp2app(W_IOBase.tell_w),
+    truncate = interp2app(W_IOBase.truncate_w),
+    fileno = interp2app(W_IOBase.fileno_w),
     isatty = interp2app(W_IOBase.isatty_w),
     readable = interp2app(W_IOBase.readable_w),
     writable = interp2app(W_IOBase.writable_w),
     seekable = interp2app(W_IOBase.seekable_w),
+
     _checkReadable = interp2app(check_readable_w),
     _checkWritable = interp2app(check_writable_w),
     _checkSeekable = interp2app(check_seekable_w),
