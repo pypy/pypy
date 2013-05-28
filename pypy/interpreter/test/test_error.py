@@ -61,8 +61,14 @@ def test_operationerrfmt_N(space):
                             space.wrap('foo'), 'foo')
     assert operr._compute_value(space) == "'?' object has no attribute 'foo'"
 
-def test_operationerrfmt_empty():
-    py.test.raises(AssertionError, operationerrfmt, "w_type", "foobar")
+def test_operationerrfmt_R(space):
+    operr = operationerrfmt(space.w_ValueError, "illegal newline value: %R",
+                            space.wrap('foo'))
+    assert operr._compute_value(space) == "illegal newline value: 'foo'"
+    operr = operationerrfmt(space.w_ValueError, "illegal newline value: %R",
+                            space.wrap("'PyLadies'"))
+    expected = "illegal newline value: \"'PyLadies'\""
+    assert operr._compute_value(space) == expected
 
 def test_errorstr(space):
     operr = OperationError(space.w_ValueError, space.wrap("message"))
