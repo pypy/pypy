@@ -372,7 +372,7 @@ def surrogateescape_errors(space, w_exc):
                                space.wrap(start + consumed)])
     else:
         raise operationerrfmt(space.w_TypeError,
-                              "don't know how to handle %s in error callback",
+                              "don't know how to handle %T in error callback",
                               w_exc)
 
 def register_builtin_error_handlers(space):
