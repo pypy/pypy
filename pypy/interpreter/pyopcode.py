@@ -877,7 +877,12 @@ class __extend__(pyframe.PyFrame):
         return next_instr
 
     def GET_ITER(self, oparg, next_instr):
+        from pypy.module.__pypy__.interp_unroll import W_LoopUnroller
         w_iterable = self.popvalue()
+        if isinstance(w_iterable, W_LoopUnroller):
+            lastblock = self.lastblock
+            assert isinstance(lastblock, LoopBlock)
+            lastblock.should_unroll = True
         w_iterator = self.space.iter(w_iterable)
         self.pushvalue(w_iterator)
 
@@ -1240,12 +1245,17 @@ class FrameBlock(object):
         """
         raise NotImplementedError
 
+
 class LoopBlock(FrameBlock):
     """A loop block.  Stores the end-of-loop pointer in case of 'break'."""
 
     _immutable_ = True
     _opname = 'SETUP_LOOP'
     handling_mask = SBreakLoop.kind | SContinueLoop.kind
+
+    def __init__(self, frame, handlerposition, previous):
+        FrameBlock.__init__(self, frame, handlerposition, previous)
+        self.should_unroll = False
 
     def handle(self, frame, unroller):
         if isinstance(unroller, SContinueLoop):

@@ -77,6 +77,8 @@ class __extend__(PyFrame):
             return self.popvalue()
 
     def jump_absolute(self, jumpto, ec):
+        from pypy.interpreter.pyopcode import LoopBlock
+
         if we_are_jitted():
             #
             # assume that only threads are using the bytecode counter
@@ -89,9 +91,11 @@ class __extend__(PyFrame):
             ec.bytecode_trace(self, decr_by)
             jumpto = r_uint(self.last_instr)
         #
-        pypyjitdriver.can_enter_jit(frame=self, ec=ec, next_instr=jumpto,
-                                    pycode=self.getcode(),
-                                    is_being_profiled=self.is_being_profiled)
+        lastblock = self.lastblock
+        if not (isinstance(lastblock, LoopBlock) and lastblock.should_unroll and we_are_jitted()):
+            pypyjitdriver.can_enter_jit(frame=self, ec=ec, next_instr=jumpto,
+                                        pycode=self.getcode(),
+                                        is_being_profiled=self.is_being_profiled)
         return jumpto
 
 def _get_adapted_tick_counter():
