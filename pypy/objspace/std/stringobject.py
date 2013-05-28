@@ -404,10 +404,8 @@ def _str_join_many_items(space, w_self, list_w, size):
         except OperationError, e:
             if not e.match(space, space.w_TypeError):
                 raise
-            raise operationerrfmt(
-                space.w_TypeError,
-                "sequence item %d: expected bytes, %s "
-                "found", i, space.type(w_s).getname(space))
+            msg = "sequence item %d: expected bytes, %T found"
+            raise operationerrfmt(space.w_TypeError, msg, i, w_s)
         reslen += len(item)
 
     sb = StringBuilder(reslen)

@@ -54,8 +54,8 @@ class W_CTypeFunc(W_CTypePtrBase):
             else:
                 raise operationerrfmt(space.w_TypeError,
                              "argument %d passed in the variadic part "
-                             "needs to be a cdata object (got %s)",
-                             i + 1, space.type(w_obj).getname(space))
+                             "needs to be a cdata object (got %T)",
+                             i + 1, w_obj)
             fvarargs[i] = ct
         ctypefunc = instantiate(W_CTypeFunc)
         ctypefunc.space = space

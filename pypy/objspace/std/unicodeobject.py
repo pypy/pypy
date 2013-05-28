@@ -100,9 +100,8 @@ registerimplementation(W_UnicodeObject)
 # Note that, differently than default, we return an *unicode* RPython string
 def unicode_to_decimal_w(space, w_unistr):
     if not isinstance(w_unistr, W_UnicodeObject):
-        raise operationerrfmt(space.w_TypeError,
-                              "expected unicode, got '%s'",
-                              space.type(w_unistr).getname(space))
+        raise operationerrfmt(space.w_TypeError, "expected unicode, got '%T'",
+                              w_unistr)
     unistr = w_unistr._value
     result = [u'\0'] * len(unistr)
     for i in xrange(len(unistr)):

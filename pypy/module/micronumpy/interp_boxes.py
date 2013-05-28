@@ -115,9 +115,9 @@ class W_GenericBox(W_Root):
     _attrs_ = ()
 
     def descr__new__(space, w_subtype, __args__):
-        raise operationerrfmt(space.w_TypeError, "cannot create '%s' instances",
-            w_subtype.getname(space, '?')
-        )
+        raise operationerrfmt(space.w_TypeError,
+                              "cannot create '%N' instances",
+                              w_subtype)
 
     def get_dtype(self, space):
         return self._get_dtype(space)
