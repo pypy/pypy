@@ -708,9 +708,8 @@ def _suffix_to_str(space, w_suffix, funcname):
     except OperationError as e:
         if e.match(space, space.w_TypeError):
             msg = ("%s first arg must be bytes or a tuple of bytes, "
-                   "not %s")
-            typename = space.type(w_suffix).getname(space)
-            raise operationerrfmt(space.w_TypeError, msg, funcname, typename)
+                   "not %T")
+            raise operationerrfmt(space.w_TypeError, msg, funcname, w_suffix)
 
 def str_endswith__String_ANY_ANY_ANY(space, w_self, w_suffix, w_start, w_end):
     (u_self, start, end) = _convert_idx_params(space, w_self, w_start,

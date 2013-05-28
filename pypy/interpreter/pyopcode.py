@@ -1428,13 +1428,13 @@ def ensure_ns(space, w_globals, w_locals, funcname, caller=None):
     if (not space.is_none(w_globals) and
         not space.isinstance_w(w_globals, space.w_dict)):
         raise operationerrfmt(space.w_TypeError,
-                              '%s() arg 2 must be a dict, not %s',
-                              funcname, space.type(w_globals).getname(space))
+                              '%s() arg 2 must be a dict, not %T',
+                              funcname, w_globals)
     if (not space.is_none(w_locals) and
         space.lookup(w_locals, '__getitem__') is None):
         raise operationerrfmt(space.w_TypeError,
-                              '%s() arg 3 must be a mapping or None, not %s',
-                              funcname, space.type(w_locals).getname(space))
+                              '%s() arg 3 must be a mapping or None, not %T',
+                              funcname, w_locals)
 
     if space.is_none(w_globals):
         if caller is None:

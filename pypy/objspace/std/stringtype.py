@@ -287,9 +287,8 @@ def makebytesdata_w(space, w_source):
     if w_bytes_method is not None:
         w_bytes = space.get_and_call_function(w_bytes_method, w_source)
         if not space.isinstance_w(w_bytes, space.w_bytes):
-            msg = "__bytes__ returned non-bytes (type '%s')"
-            raise operationerrfmt(space.w_TypeError, msg,
-                                  space.type(w_bytes).getname(space))
+            msg = "__bytes__ returned non-bytes (type '%T')"
+            raise operationerrfmt(space.w_TypeError, msg, w_bytes)
         return [c for c in space.bytes_w(w_bytes)]
 
     # String-like argument

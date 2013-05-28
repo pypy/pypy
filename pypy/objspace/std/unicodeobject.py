@@ -181,9 +181,8 @@ def _unicode_join_many_items(space, w_self, list_w, size):
         except OperationError, e:
             if not e.match(space, space.w_TypeError):
                 raise
-            raise operationerrfmt(space.w_TypeError,
-                                  "sequence item %d: expected string, %s "
-                                  "found", i, space.type(w_s).getname(space))
+            msg = "sequence item %d: expected string, %T found"
+            raise operationerrfmt(space.w_TypeError, msg, i, w_s)
     sb = UnicodeBuilder(prealloc_size)
     for i in range(size):
         if self and i != 0:
@@ -467,10 +466,8 @@ def unicode_startswith__Unicode_Unicode_ANY_ANY(space, w_self, w_substr, w_start
 def unicode_startswith__Unicode_ANY_ANY_ANY(space, w_unistr, w_prefixes,
                                               w_start, w_end):
     if not space.isinstance_w(w_prefixes, space.w_tuple):
-        typename = space.type(w_prefixes).getname(space)
-        msg = ("startswith first arg must be str or a tuple of str, not %s" %
-               typename)
-        raise OperationError(space.w_TypeError, space.wrap(msg))
+        msg = "startswith first arg must be str or a tuple of str, not %T"
+        raise operationerrfmt(space.w_TypeError, msg, w_prefixes)
 
     unistr, start, end = _convert_idx_params(space, w_unistr,
                                              w_start, w_end, True)
@@ -483,9 +480,8 @@ def unicode_startswith__Unicode_ANY_ANY_ANY(space, w_unistr, w_prefixes,
 def unicode_endswith__Unicode_ANY_ANY_ANY(space, w_unistr, w_suffixes,
                                             w_start, w_end):
     if not space.isinstance_w(w_suffixes, space.w_tuple):
-        typename = space.type(w_suffixes).getname(space)
-        msg = "endswith first arg must be str or a tuple of str, not %s" % typename
-        raise OperationError(space.w_TypeError, space.wrap(msg))
+        msg = "endswith first arg must be str or a tuple of str, not %T"
+        raise operationerrfmt(space.w_TypeError, msg, w_suffixes)
 
     unistr, start, end = _convert_idx_params(space, w_unistr,
                                              w_start, w_end, True)

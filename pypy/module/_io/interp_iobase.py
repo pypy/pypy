@@ -174,8 +174,7 @@ class W_IOBase(W_Root):
 
     def getstate_w(self, space):
         raise operationerrfmt(space.w_TypeError,
-                              "cannot serialize '%s' object",
-                              space.type(self).getname(space))
+                              "cannot serialize '%T' object", self)
 
     # ______________________________________________________________
 
