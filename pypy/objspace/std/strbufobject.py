@@ -1,7 +1,6 @@
 from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
-from pypy.objspace.std.bytesobject import W_AbstractBytesObject, W_StringObject
-from pypy.objspace.std.unicodeobject import delegate_String2Unicode
+from pypy.objspace.std.bytesobject import W_AbstractBytesObject, W_BytesObject
 from rpython.rlib.rstring import StringBuilder
 from pypy.interpreter.buffer import Buffer
 
@@ -19,7 +18,7 @@ class W_StringBufferObject(W_AbstractBytesObject):
             s = self.builder.build()
             if self.length < len(s):
                 s = s[:self.length]
-            self.w_str = W_StringObject(s)
+            self.w_str = W_BytesObject(s)
             return s
         else:
             return self.w_str._value
@@ -47,18 +46,10 @@ def joined2(str1, str2):
 
 # ____________________________________________________________
 
-def delegate_buf2str(space, w_strbuf):
-    w_strbuf.force()
-    return w_strbuf.w_str
-
-def delegate_buf2unicode(space, w_strbuf):
-    w_strbuf.force()
-    return delegate_String2Unicode(space, w_strbuf.w_str)
-
 def len__StringBuffer(space, w_self):
     return space.wrap(w_self.length)
 
-def add__StringBuffer_String(space, w_self, w_other):
+def add__StringBuffer_Bytes(space, w_self, w_other):
     if w_self.builder.getlength() != w_self.length:
         builder = StringBuilder()
         builder.append(w_self.force())

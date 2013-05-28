@@ -239,6 +239,11 @@ class W_Root(object):
         msg = "__int__ returned non-int (type '%s')"
         raise operationerrfmt(space.w_TypeError, msg, typename)
 
+    def ord(self, space):
+        typename = space.type(self).getname(space)
+        msg = "ord() expected string of length 1, but %s found"
+        raise operationerrfmt(space.w_TypeError, msg, typename)
+
     def __spacebind__(self, space):
         return self
 
@@ -1365,6 +1370,9 @@ class ObjSpace(object):
         # Unwraps a bool, also accepting an int for compatibility.
         # This is here mostly just for gateway.int_unwrapping_space_method().
         return bool(self.int_w(w_obj))
+
+    def ord(self, w_obj):
+        return w_obj.ord(self)
 
     # This is all interface for gateway.py.
     def gateway_int_w(self, w_obj):

@@ -5,15 +5,6 @@ from pypy.interpreter.buffer import RWBuffer
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.signature import Signature
-from pypy.objspace.std.bytesobject import (
-    W_StringObject, str_decode,
-    str_count, str_index, str_rindex, str_find, str_rfind, str_replace,
-    str_startswith, str_endswith, str_islower, str_isupper, str_isalpha,
-    str_isalnum, str_isdigit, str_isspace, str_istitle,
-    str_upper, str_lower, str_title, str_swapcase, str_capitalize,
-    str_expandtabs, str_ljust, str_rjust, str_center, str_zfill,
-    str_join, str_split, str_rsplit, str_partition, str_rpartition,
-    str_splitlines, str_translate)
 from pypy.objspace.std import bytesobject
 from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.inttype import wrapint
@@ -46,6 +37,9 @@ class W_BytearrayObject(W_Object, StringMethods):
 
     def _val(self):
         return self.data
+
+    def _op_val(self, w_other):
+        return w_other.data
 
 W_BytearrayObject.EMPTY = W_BytearrayObject([])
 
@@ -405,10 +399,6 @@ def eq__Bytearray_Bytearray(space, w_bytearray1, w_bytearray2):
             return space.w_False
     return space.w_True
 
-def String2Bytearray(space, w_str):
-    data = [c for c in space.str_w(w_str)]
-    return W_BytearrayObject(data)
-
 def eq__Bytearray_String(space, w_bytearray, w_other):
     return space.eq(str__Bytearray(space, w_bytearray), w_other)
 
@@ -453,13 +443,6 @@ def gt__Bytearray_Bytearray(space, w_bytearray1, w_bytearray2):
             return space.newbool(data1[p] > data2[p])
     # No more items to compare -- compare sizes
     return space.newbool(len(data1) > len(data2))
-
-def str_translate__Bytearray_ANY_ANY(space, w_bytearray1, w_table, w_deletechars):
-    # XXX slow, copies *twice* needs proper implementation
-    w_str_copy = str__Bytearray(space, w_bytearray1)
-    w_res = bytesobject.str_translate__String_ANY_ANY(space, w_str_copy,
-                                                       w_table, w_deletechars)
-    return String2Bytearray(space, w_res)
 
 # Mostly copied from repr__String, but without the "smart quote"
 # functionality.
@@ -657,117 +640,6 @@ def bytearray_rstrip__Bytearray_None(space, w_bytearray, w_chars):
 def bytearray_rstrip__Bytearray_ANY(space, w_bytearray, w_chars):
     return _strip(space, w_bytearray, space.bufferstr_new_w(w_chars), 0, 1)
 
-# These methods could just delegate to the string implementation,
-# but they have to return a bytearray.
-def str_replace__Bytearray_ANY_ANY_ANY(space, w_bytearray, w_str1, w_str2, w_max):
-    w_str = str__Bytearray(space, w_bytearray)
-    w_res = bytesobject.str_replace__String_ANY_ANY_ANY(space, w_str, w_str1,
-                                                         w_str2, w_max)
-    return String2Bytearray(space, w_res)
-
-def str_upper__Bytearray(space, w_bytearray):
-    w_str = str__Bytearray(space, w_bytearray)
-    w_res = bytesobject.str_upper__String(space, w_str)
-    return String2Bytearray(space, w_res)
-
-def str_lower__Bytearray(space, w_bytearray):
-    w_str = str__Bytearray(space, w_bytearray)
-    w_res = bytesobject.str_lower__String(space, w_str)
-    return String2Bytearray(space, w_res)
-
-def str_title__Bytearray(space, w_bytearray):
-    w_str = str__Bytearray(space, w_bytearray)
-    w_res = bytesobject.str_title__String(space, w_str)
-    return String2Bytearray(space, w_res)
-
-def str_swapcase__Bytearray(space, w_bytearray):
-    w_str = str__Bytearray(space, w_bytearray)
-    w_res = bytesobject.str_swapcase__String(space, w_str)
-    return String2Bytearray(space, w_res)
-
-def str_capitalize__Bytearray(space, w_bytearray):
-    w_str = str__Bytearray(space, w_bytearray)
-    w_res = bytesobject.str_capitalize__String(space, w_str)
-    return String2Bytearray(space, w_res)
-
-def str_ljust__Bytearray_ANY_ANY(space, w_bytearray, w_width, w_fillchar):
-    w_str = str__Bytearray(space, w_bytearray)
-    w_res = bytesobject.str_ljust__String_ANY_ANY(space, w_str, w_width,
-                                                   w_fillchar)
-    return String2Bytearray(space, w_res)
-
-def str_rjust__Bytearray_ANY_ANY(space, w_bytearray, w_width, w_fillchar):
-    w_str = str__Bytearray(space, w_bytearray)
-    w_res = bytesobject.str_rjust__String_ANY_ANY(space, w_str, w_width,
-                                                   w_fillchar)
-    return String2Bytearray(space, w_res)
-
-def str_center__Bytearray_ANY_ANY(space, w_bytearray, w_width, w_fillchar):
-    w_str = str__Bytearray(space, w_bytearray)
-    w_res = bytesobject.str_center__String_ANY_ANY(space, w_str, w_width,
-                                                    w_fillchar)
-    return String2Bytearray(space, w_res)
-
-def str_zfill__Bytearray_ANY(space, w_bytearray, w_width):
-    w_str = str__Bytearray(space, w_bytearray)
-    w_res = bytesobject.str_zfill__String_ANY(space, w_str, w_width)
-    return String2Bytearray(space, w_res)
-
-def str_expandtabs__Bytearray_ANY(space, w_bytearray, w_tabsize):
-    w_str = str__Bytearray(space, w_bytearray)
-    w_res = bytesobject.str_expandtabs__String_ANY(space, w_str, w_tabsize)
-    return String2Bytearray(space, w_res)
-
-def str_splitlines__Bytearray_ANY(space, w_bytearray, w_keepends):
-    w_str = str__Bytearray(space, w_bytearray)
-    w_result = bytesobject.str_splitlines__String_ANY(space, w_str, w_keepends)
-    return space.newlist([
-        new_bytearray(space, space.w_bytearray, makebytearraydata_w(space, w_entry))
-                        for w_entry in space.unpackiterable(w_result)
-    ])
-
-def str_split__Bytearray_ANY_ANY(space, w_bytearray, w_by, w_maxsplit=-1):
-    w_str = str__Bytearray(space, w_bytearray)
-    if not space.is_w(w_by, space.w_None):
-        w_by = space.wrap(space.bufferstr_new_w(w_by))
-    w_list = space.call_method(w_str, "split", w_by, w_maxsplit)
-    length = space.int_w(space.len(w_list))
-    for i in range(length):
-        w_i = space.wrap(i)
-        space.setitem(w_list, w_i, String2Bytearray(space, space.getitem(w_list, w_i)))
-    return w_list
-
-def str_rsplit__Bytearray_ANY_ANY(space, w_bytearray, w_by, w_maxsplit=-1):
-    w_str = str__Bytearray(space, w_bytearray)
-    if not space.is_w(w_by, space.w_None):
-        w_by = space.wrap(space.bufferstr_new_w(w_by))
-    w_list = space.call_method(w_str, "rsplit", w_by, w_maxsplit)
-    length = space.int_w(space.len(w_list))
-    for i in range(length):
-        w_i = space.wrap(i)
-        space.setitem(w_list, w_i, String2Bytearray(space, space.getitem(w_list, w_i)))
-    return w_list
-
-def str_partition__Bytearray_ANY(space, w_bytearray, w_sub):
-    w_str = str__Bytearray(space, w_bytearray)
-    w_sub = space.wrap(space.bufferstr_new_w(w_sub))
-    w_tuple = bytesobject.str_partition__String_String(space, w_str, w_sub)
-    w_a, w_b, w_c = space.fixedview(w_tuple, 3)
-    return space.newtuple([
-        String2Bytearray(space, w_a),
-        String2Bytearray(space, w_b),
-        String2Bytearray(space, w_c)])
-
-def str_rpartition__Bytearray_ANY(space, w_bytearray, w_sub):
-    w_str = str__Bytearray(space, w_bytearray)
-    w_sub = space.wrap(space.bufferstr_new_w(w_sub))
-    w_tuple = bytesobject.str_rpartition__String_String(space, w_str, w_sub)
-    w_a, w_b, w_c = space.fixedview(w_tuple, 3)
-    return space.newtuple([
-        String2Bytearray(space, w_a),
-        String2Bytearray(space, w_b),
-        String2Bytearray(space, w_c)])
-
 # __________________________________________________________
 # Mutability methods
 
@@ -933,4 +805,4 @@ def buffer__Bytearray(space, self):
     b = BytearrayBuffer(self.data)
     return space.wrap(b)
 
-register_all(vars(), globals())
+#register_all(vars(), globals())

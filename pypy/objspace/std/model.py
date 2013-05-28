@@ -171,17 +171,8 @@ class StdTypeModel:
                     complexobject.delegate_Float2Complex),
             ]
 
-        self.typeorder[bytesobject.W_BytesObject] += [
-            (unicodeobject.W_UnicodeObject, unicodeobject.delegate_String2Unicode),
-            ]
         if config.objspace.std.withstrbuf:
             from pypy.objspace.std import strbufobject
-            self.typeorder[strbufobject.W_StringBufferObject] += [
-                (bytesobject.W_BytesObject,
-                                       strbufobject.delegate_buf2str),
-                (unicodeobject.W_UnicodeObject,
-                                       strbufobject.delegate_buf2unicode)
-                ]
 
         # put W_Root everywhere
         self.typeorder[W_Root] = []
@@ -371,7 +362,7 @@ NOT_MULTIMETHODS = set(
     ['delattr', 'delete', 'get', 'id', 'inplace_div', 'inplace_floordiv',
      'inplace_lshift', 'inplace_mod', 'inplace_pow', 'inplace_rshift',
      'inplace_truediv', 'is_', 'set', 'setattr', 'type', 'userdel',
-     'isinstance', 'issubtype', 'int'])
+     'isinstance', 'issubtype', 'int', 'ord'])
 # XXX should we just remove those from the method table or we're happy
 #     with just not having multimethods?
 

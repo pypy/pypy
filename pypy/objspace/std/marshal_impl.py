@@ -20,7 +20,7 @@ from rpython.rlib.rstruct import ieee
 from rpython.rlib.rstring import StringBuilder
 
 from pypy.objspace.std.boolobject    import W_BoolObject
-from pypy.objspace.std.bytesobject  import W_StringObject
+from pypy.objspace.std.bytesobject  import W_BytesObject
 from pypy.objspace.std.complexobject import W_ComplexObject
 from pypy.objspace.std.intobject     import W_IntObject
 from pypy.objspace.std.floatobject   import W_FloatObject
@@ -251,7 +251,7 @@ register(TYPE_LONG, unmarshal_Long)
 def PySTRING_CHECK_INTERNED(w_str):
     return False
 
-def marshal_w__String(space, w_str, m):
+def marshal_w__Bytes(space, w_str, m):
     # using the fastest possible access method here
     # that does not touch the internal representation,
     # which might change (array of bytes?)
