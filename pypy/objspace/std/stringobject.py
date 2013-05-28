@@ -409,10 +409,8 @@ def _str_join_many_items(space, w_self, list_w, size):
                 w_list = space.newlist(list_w)
                 w_u = space.call_function(space.w_unicode, w_self)
                 return space.call_method(w_u, "join", w_list)
-            raise operationerrfmt(
-                space.w_TypeError,
-                "sequence item %d: expected string, %s "
-                "found", i, space.type(w_s).getname(space))
+            msg = "sequence item %d: expected string, %T found"
+            raise operationerrfmt(space.w_TypeError, msg, i, w_s)
         reslen += len(space.str_w(w_s))
 
     sb = StringBuilder(reslen)

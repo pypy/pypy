@@ -915,10 +915,9 @@ class __extend__(pyframe.PyFrame):
         w_enter = self.space.lookup(w_manager, "__enter__")
         w_descr = self.space.lookup(w_manager, "__exit__")
         if w_enter is None or w_descr is None:
-            typename = self.space.type(w_manager).getname(self.space)
             raise operationerrfmt(self.space.w_AttributeError,
-                "'%s' object is not a context manager"
-                " (no __enter__/__exit__ method)", typename)
+                "'%T' object is not a context manager"
+                " (no __enter__/__exit__ method)", w_manager)
         w_exit = self.space.get(w_descr, w_manager)
         self.settopvalue(w_exit)
         w_result = self.space.get_and_call_function(w_enter, w_manager)

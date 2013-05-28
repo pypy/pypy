@@ -413,8 +413,8 @@ class W_TypeObject(W_Object):
         space = w_self.space
         if not isinstance(w_subtype, W_TypeObject):
             raise operationerrfmt(space.w_TypeError,
-                "X is not a type object ('%s')",
-                space.type(w_subtype).getname(space))
+                "X is not a type object ('%T')",
+                w_subtype)
         if not w_subtype.issubtype(w_self):
             raise operationerrfmt(space.w_TypeError,
                 "%s.__new__(%s): %s is not a subtype of %s",
@@ -607,9 +607,8 @@ def _create_new_type(space, w_typetype, w_name, w_bases, w_dict):
 def _precheck_for_new(space, w_type):
     from pypy.objspace.std.typeobject import W_TypeObject
     if not isinstance(w_type, W_TypeObject):
-        raise operationerrfmt(space.w_TypeError,
-                              "X is not a type object (%s)",
-                              space.type(w_type).getname(space))
+        raise operationerrfmt(space.w_TypeError, "X is not a type object (%T)",
+                              w_type)
     return w_type
 
 # ____________________________________________________________
@@ -666,9 +665,8 @@ def descr_set__bases__(space, w_type, w_value):
                               "can't set %s.__bases__", w_type.name)
     if not space.isinstance_w(w_value, space.w_tuple):
         raise operationerrfmt(space.w_TypeError,
-                              "can only assign tuple to %s.__bases__, not %s",
-                              w_type.name,
-                              space.type(w_value).getname(space))
+                              "can only assign tuple to %s.__bases__, not %T",
+                              w_type.name, w_value)
     newbases_w = space.fixedview(w_value)
     if len(newbases_w) == 0:
         raise operationerrfmt(space.w_TypeError,
@@ -688,11 +686,9 @@ def descr_set__bases__(space, w_type, w_value):
     newlayout = w_newbestbase.get_full_instance_layout()
 
     if oldlayout != newlayout:
-        raise operationerrfmt(space.w_TypeError,
-                           "__bases__ assignment: '%s' object layout"
-                           " differs from '%s'",
-                           w_newbestbase.getname(space),
-                           w_oldbestbase.getname(space))
+        msg = "__bases__ assignment: '%N' object layout differs from '%N'"
+        raise operationerrfmt(space.w_TypeError, msg,
+                              w_newbestbase, w_oldbestbase)
 
     # invalidate the version_tag of all the current subclasses
     w_type.mutated(None)
@@ -1204,9 +1200,8 @@ def mro_error(space, orderlists):
     candidate = orderlists[-1][0]
     if candidate in orderlists[-1][1:]:
         # explicit error message for this specific case
-        raise operationerrfmt(space.w_TypeError,
-                              "duplicate base class '%s'",
-                              candidate.getname(space))
+        raise operationerrfmt(space.w_TypeError, "duplicate base class '%N'",
+                              candidate)
     while candidate not in cycle:
         cycle.append(candidate)
         nextblockinglist = mro_blockinglist(candidate, orderlists)

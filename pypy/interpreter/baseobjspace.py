@@ -12,7 +12,7 @@ from rpython.rlib.rarithmetic import r_uint
 from pypy.interpreter.executioncontext import (ExecutionContext, ActionFlag,
     UserDelAction, FrameTraceAction)
 from pypy.interpreter.error import (OperationError, operationerrfmt,
-    new_exception_class, typed_unwrap_error_msg)
+    new_exception_class)
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.miscutils import ThreadLocals
 
@@ -61,10 +61,9 @@ class W_Root(object):
         return False
 
     def setdict(self, space, w_dict):
-        typename = space.type(self).getname(space)
         raise operationerrfmt(space.w_TypeError,
-                              "attribute '__dict__' of %s objects "
-                              "is not writable", typename)
+                              "attribute '__dict__' of %T objects "
+                              "is not writable", self)
 
     # to be used directly only by space.type implementations
     def getclass(self, space):
@@ -124,9 +123,8 @@ class W_Root(object):
             classname = '?'
         else:
             classname = wrappable_class_name(RequiredClass)
-        msg = "'%s' object expected, got '%s' instead"
-        raise operationerrfmt(space.w_TypeError, msg,
-            classname, self.getclass(space).getname(space))
+        msg = "'%s' object expected, got '%T' instead"
+        raise operationerrfmt(space.w_TypeError, msg, classname, self)
 
     # used by _weakref implemenation
 
@@ -134,9 +132,8 @@ class W_Root(object):
         return None
 
     def setweakref(self, space, weakreflifeline):
-        typename = space.type(self).getname(space)
         raise operationerrfmt(space.w_TypeError,
-            "cannot create weak reference to '%s' object", typename)
+            "cannot create weak reference to '%T' object", self)
 
     def delweakref(self):
         pass
@@ -200,44 +197,39 @@ class W_Root(object):
         return None
 
     def str_w(self, space):
-        w_msg = typed_unwrap_error_msg(space, "string", self)
-        raise OperationError(space.w_TypeError, w_msg)
+        self._typed_unwrap_error(space, "string")
 
     def unicode_w(self, space):
-        raise OperationError(space.w_TypeError,
-                             typed_unwrap_error_msg(space, "unicode", self))
+        self._typed_unwrap_error(space, "unicode")
 
     def int_w(self, space):
-        raise OperationError(space.w_TypeError,
-                             typed_unwrap_error_msg(space, "integer", self))
+        self._typed_unwrap_error(space, "integer")
 
     def float_w(self, space):
-        raise OperationError(space.w_TypeError,
-                             typed_unwrap_error_msg(space, "float", self))
+        self._typed_unwrap_error(space, "float")
 
     def uint_w(self, space):
-        raise OperationError(space.w_TypeError,
-                             typed_unwrap_error_msg(space, "integer", self))
+        self._typed_unwrap_error(space, "integer")
 
     def bigint_w(self, space):
-        raise OperationError(space.w_TypeError,
-                             typed_unwrap_error_msg(space, "integer", self))
+        self._typed_unwrap_error(space, "integer")
+
+    def _typed_unwrap_error(self, space, expected):
+        raise operationerrfmt(space.w_TypeError, "expected %s, got %T object",
+                              expected, self)
 
     def int(self, space):
         w_impl = space.lookup(self, '__int__')
         if w_impl is None:
-            typename = space.type(self).getname(space)
             raise operationerrfmt(space.w_TypeError,
-                  "unsupported operand type for int(): '%s'",
-                                  typename)
+                  "unsupported operand type for int(): '%T'", self)
         w_result = space.get_and_call_function(w_impl, self)
 
         if (space.isinstance_w(w_result, space.w_int) or
             space.isinstance_w(w_result, space.w_long)):
             return w_result
-        typename = space.type(w_result).getname(space)
-        msg = "__int__ returned non-int (type '%s')"
-        raise operationerrfmt(space.w_TypeError, msg, typename)
+        msg = "__int__ returned non-int (type '%T')"
+        raise operationerrfmt(space.w_TypeError, msg, w_result)
 
     def __spacebind__(self, space):
         return self
@@ -749,10 +741,9 @@ class ObjSpace(object):
         if can_be_None and self.is_none(w_obj):
             return None
         if not isinstance(w_obj, RequiredClass):   # or obj is None
-            msg = "'%s' object expected, got '%s' instead"
+            msg = "'%s' object expected, got '%N' instead"
             raise operationerrfmt(self.w_TypeError, msg,
-                wrappable_class_name(RequiredClass),
-                w_obj.getclass(self).getname(self))
+                wrappable_class_name(RequiredClass), w_obj.getclass(self))
         return w_obj
     interp_w._annspecialcase_ = 'specialize:arg(1)'
 
@@ -1221,9 +1212,8 @@ class ObjSpace(object):
         except OperationError, err:
             if objdescr is None or not err.match(self, self.w_TypeError):
                 raise
-            msg = "%s must be an integer, not %s"
-            raise operationerrfmt(self.w_TypeError, msg,
-                objdescr, self.type(w_obj).getname(self))
+            msg = "%s must be an integer, not %T"
+            raise operationerrfmt(self.w_TypeError, msg, objdescr, w_obj)
         try:
             index = self.int_w(w_index)
         except OperationError, err:
@@ -1237,9 +1227,8 @@ class ObjSpace(object):
                     return sys.maxint
             else:
                 raise operationerrfmt(
-                    w_exception,
-                    "cannot fit '%s' into an index-sized "
-                    "integer", self.type(w_obj).getname(self))
+                    w_exception, "cannot fit '%T' into an index-sized integer",
+                    w_obj)
         else:
             return index
 
