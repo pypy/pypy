@@ -40,3 +40,9 @@ Remove multi-methods on iterators
 
 .. branch: on-abort-resops
 Added list of resops to the pypyjit on_abort hook.
+
+.. branch: logging-perf
+Speeds up the stdlib logging module
+
+.. branch: operrfmt-NT
+Adds a couple convenient format specifiers to operationerrfmt

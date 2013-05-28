@@ -355,7 +355,7 @@ class OperationError(Exception):
 
 _fmtcache = {}
 _fmtcache2 = {}
-_FMTS = tuple('8dsNT')
+_FMTS = tuple('8NRTds')
 
 def decompose_valuefmt(valuefmt):
     """Returns a tuple of string parts extracted from valuefmt,
@@ -409,6 +409,8 @@ def get_operrcls2(valuefmt):
                     elif fmt == '8':
                         result, _ = str_decode_utf_8(value, len(value),
                                                      'strict')
+                    elif fmt == 'R':
+                        result = space.unicode_w(space.repr(value))
                     elif fmt in 'NT':
                         if fmt == 'T':
                             value = space.type(value)
@@ -448,6 +450,7 @@ def operationerrfmt(w_type, valuefmt, *args):
 
     %8 - The result of arg.decode('utf-8', 'strict')
     %N - The result of w_arg.getname(space)
+    %R - The result of space.str_w(space.repr(w_arg))
     %T - The result of space.type(w_arg).getname(space)
 
     """
