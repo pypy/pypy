@@ -3,6 +3,7 @@ import sys
 from pypy.interpreter.mixedmodule import MixedModule
 from pypy.module.imp.importing import get_pyc_magic
 
+
 class BuildersModule(MixedModule):
     appleveldefs = {}
 
@@ -10,6 +11,7 @@ class BuildersModule(MixedModule):
         "StringBuilder": "interp_builders.W_StringBuilder",
         "UnicodeBuilder": "interp_builders.W_UnicodeBuilder",
     }
+
 
 class TimeModule(MixedModule):
     appleveldefs = {}
@@ -41,23 +43,30 @@ class Module(MixedModule):
     }
 
     interpleveldefs = {
-        'internal_repr'             : 'interp_magic.internal_repr',
-        'bytebuffer'                : 'bytebuffer.bytebuffer',
-        'identity_dict'             : 'interp_identitydict.W_IdentityDict',
-        'debug_start'               : 'interp_debug.debug_start',
-        'debug_print'               : 'interp_debug.debug_print',
-        'debug_stop'                : 'interp_debug.debug_stop',
-        'debug_print_once'          : 'interp_debug.debug_print_once',
-        'builtinify'                : 'interp_magic.builtinify',
-        'lookup_special'            : 'interp_magic.lookup_special',
-        'do_what_I_mean'            : 'interp_magic.do_what_I_mean',
-        'list_strategy'             : 'interp_magic.list_strategy',
-        'validate_fd'               : 'interp_magic.validate_fd',
-        'resizelist_hint'           : 'interp_magic.resizelist_hint',
-        'newlist_hint'              : 'interp_magic.newlist_hint',
-        'add_memory_pressure'       : 'interp_magic.add_memory_pressure',
-        'newdict'                   : 'interp_dict.newdict',
-        'dictstrategy'              : 'interp_dict.dictstrategy',
+        'lookup_special': 'interp_magic.lookup_special',
+        'builtinify': 'interp_magic.builtinify',
+        'internal_repr': 'interp_magic.internal_repr',
+
+        'bytebuffer': 'bytebuffer.bytebuffer',
+        'identity_dict': 'interp_identitydict.W_IdentityDict',
+
+        'debug_start': 'interp_debug.debug_start',
+        'debug_print': 'interp_debug.debug_print',
+        'debug_stop': 'interp_debug.debug_stop',
+        'debug_print_once': 'interp_debug.debug_print_once',
+
+        'add_memory_pressure': 'interp_magic.add_memory_pressure',
+        'validate_fd': 'interp_magic.validate_fd',
+
+        'newlist_hint': 'interp_magic.newlist_hint',
+        'resizelist_hint': 'interp_magic.resizelist_hint',
+        'list_strategy': 'interp_magic.list_strategy',
+        'newdict': 'interp_dict.newdict',
+        'dictstrategy': 'interp_dict.dictstrategy',
+
+        'unroll_loop': 'interp_unroll.W_LoopUnroller',
+
+        'do_what_I_mean': 'interp_magic.do_what_I_mean',
     }
     if sys.platform == 'win32':
         interpleveldefs['get_console_cp'] = 'interp_magic.get_console_cp'
