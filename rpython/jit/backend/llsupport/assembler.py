@@ -372,6 +372,9 @@ class BaseAssembler(object):
         self.releasegil_addr  = self.cpu.cast_ptr_to_int(releasegil_func)
         self.reacqgil_addr = self.cpu.cast_ptr_to_int(reacqgil_func)
 
+    def _is_asmgcc(self):
+        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
+        return bool(gcrootmap) and not gcrootmap.is_shadow_stack
 
 
 def debug_bridge(descr_number, rawstart, codeendpos):

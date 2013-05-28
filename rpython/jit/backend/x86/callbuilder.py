@@ -8,6 +8,7 @@ from rpython.jit.backend.x86.regloc import (eax, ecx, edx, ebx, esp, ebp, esi,
     r12, r13, r14, r15, X86_64_SCRATCH_REG, X86_64_XMM_SCRATCH_REG,
     RegLoc, RawEspLoc, RawEbpLoc, imm, ImmedLoc)
 from rpython.jit.backend.x86.jump import remap_frame_layout
+from rpython.jit.backend.llsupport.callbuilder import AbstractCallBuilder
 
 
 # darwin requires the stack to be 16 bytes aligned on calls.
@@ -18,77 +19,30 @@ def align_stack_words(words):
     return (words + CALL_ALIGN - 1) & ~(CALL_ALIGN-1)
 
 
-
-class AbstractCallBuilder(object):
+class CallBuilderX86(AbstractCallBuilder):
 
     # max number of words we have room in esp; if we need more for
     # arguments, we need to decrease esp temporarily
     stack_max = PASS_ON_MY_FRAME
 
-    # this can be set to guide more complex calls: gives the detailed
-    # type of the arguments
-    argtypes = ""
-    ressign = False
-
-    # this is the calling convention (can be FFI_STDCALL on Windows)
-    callconv = FFI_DEFAULT_ABI
-
-    # is it for the main CALL of a call_release_gil?
-    is_call_release_gil = False
-
     # set by save_result_value()
     tmpresloc = None
 
-
     def __init__(self, assembler, fnloc, arglocs,
                  resloc=eax, restype=INT, ressize=WORD):
+        AbstractCallBuilder.__init__(self, assembler, fnloc, arglocs,
+                                     resloc, restype, ressize)
         # Avoid tons of issues with a non-immediate fnloc by sticking it
         # as an extra argument if needed
         self.fnloc_is_immediate = isinstance(fnloc, ImmedLoc)
-        if self.fnloc_is_immediate:
-            self.fnloc = fnloc
-            self.arglocs = arglocs
-        else:
+        if not self.fnloc_is_immediate:
+            self.fnloc = None
             self.arglocs = arglocs + [fnloc]
-        self.asm = assembler
-        self.mc = assembler.mc
-        self.resloc = resloc
-        self.restype = restype
-        self.ressize = ressize
         self.current_esp = 0     # 0 or (usually) negative, counted in bytes
-
-    def emit_no_collect(self):
-        """Emit a call that cannot collect."""
-        self.prepare_arguments()
-        self.emit_raw_call()
-        self.restore_esp()
-        self.load_result()
-
-    def emit(self):
-        """Emit a regular call; not for CALL_RELEASE_GIL."""
-        self.prepare_arguments()
-        self.push_gcmap()
-        self.emit_raw_call()
-        self.restore_esp()
-        self.pop_gcmap()
-        self.load_result()
-
-    def emit_call_release_gil(self):
-        """Emit a CALL_RELEASE_GIL, including calls to releasegil_addr
-        and reacqgil_addr."""
-        self.select_call_release_gil_mode()
-        self.prepare_arguments()
-        self.push_gcmap_for_call_release_gil()
-        self.call_releasegil_addr_and_move_real_arguments()
-        self.emit_raw_call()
-        self.restore_esp()
-        self.move_real_result_and_call_reacqgil_addr()
-        self.pop_gcmap()
-        self.load_result()
 
     def select_call_release_gil_mode(self):
         """Overridden in CallBuilder64"""
-        self.is_call_release_gil = True
+        AbstractCallBuilder.select_call_release_gil_mode(self)
         if self.asm._is_asmgcc():
             from rpython.memory.gctransform import asmgcroot
             self.stack_max = PASS_ON_MY_FRAME - asmgcroot.JIT_USE_WORDS
@@ -105,7 +59,7 @@ class AbstractCallBuilder(object):
             self.current_esp -= align * WORD
             self.mc.SUB_ri(esp.value, align * WORD)
 
-    def restore_esp(self, target_esp=0):
+    def restore_stack_pointer(self, target_esp=0):
         if self.current_esp != target_esp:
             self.mc.ADD_ri(esp.value, target_esp - self.current_esp)
             self.current_esp = target_esp
@@ -138,17 +92,6 @@ class AbstractCallBuilder(object):
             self.asm.set_extra_stack_depth(self.mc, -self.current_esp)
         noregs = self.asm.cpu.gc_ll_descr.is_shadow_stack()
         gcmap = self.asm._regalloc.get_gcmap([eax], noregs=noregs)
-        self.asm.push_gcmap(self.mc, gcmap, store=True)
-
-    def push_gcmap_for_call_release_gil(self):
-        assert self.is_call_release_gil
-        # we put the gcmap now into the frame before releasing the GIL,
-        # and pop it after reacquiring the GIL.  The assumption
-        # is that this gcmap describes correctly the situation at any
-        # point in-between: all values containing GC pointers should
-        # be safely saved out of registers by now, and will not be
-        # manipulated by any of the following CALLs.
-        gcmap = self.asm._regalloc.get_gcmap(noregs=True)
         self.asm.push_gcmap(self.mc, gcmap, store=True)
 
     def pop_gcmap(self):
@@ -204,7 +147,7 @@ class AbstractCallBuilder(object):
             self.mc.ADD(ebp, imm(1))       # ebp any more
         #
         self.restore_register_arguments()
-        self.restore_esp(initial_esp)
+        self.restore_stack_pointer(initial_esp)
 
     def save_register_arguments(self):
         """Overridden in CallBuilder64"""
@@ -248,7 +191,7 @@ class AbstractCallBuilder(object):
         raise NotImplementedError
 
 
-class CallBuilder32(AbstractCallBuilder):
+class CallBuilder32(CallBuilderX86):
 
     def prepare_arguments(self):
         arglocs = self.arglocs
@@ -318,7 +261,7 @@ class CallBuilder32(AbstractCallBuilder):
             else:
                 self.mc.MOV(resloc, self.tmpresloc)
         else:
-            AbstractCallBuilder.load_result(self)
+            CallBuilderX86.load_result(self)
 
     def save_result_value(self):
         # Temporarily save the result value into [ESP+4].  We use "+4"
@@ -343,7 +286,7 @@ class CallBuilder32(AbstractCallBuilder):
                 self.mc.MOV_sr(4, eax.value)
 
 
-class CallBuilder64(AbstractCallBuilder):
+class CallBuilder64(CallBuilderX86):
 
     ARGUMENTS_GPR = [edi, esi, edx, ecx, r8, r9]
     ARGUMENTS_XMM = [xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7]
@@ -389,7 +332,7 @@ class CallBuilder64(AbstractCallBuilder):
                 i += 1
 
     def select_call_release_gil_mode(self):
-        AbstractCallBuilder.select_call_release_gil_mode(self)
+        CallBuilderX86.select_call_release_gil_mode(self)
         # We have to copy the arguments around a bit more in this mode,
         # but on the other hand we don't need prepare_arguments() moving
         # them in precisely the final registers.  Here we look around for
@@ -502,7 +445,7 @@ class CallBuilder64(AbstractCallBuilder):
             # from the lower 32 bits of XMM0
             self.mc.MOVD(self.resloc, xmm0)
         else:
-            AbstractCallBuilder.load_result(self)
+            CallBuilderX86.load_result(self)
 
     def save_result_value(self):
         # Temporarily save the result value into [ESP].

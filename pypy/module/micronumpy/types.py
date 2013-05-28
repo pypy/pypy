@@ -145,6 +145,11 @@ class Primitive(object):
         #XXX this is the place to display a warning
         return self.box(real)
 
+    def box_raw_data(self, data):
+        # For pickle
+        array = rffi.cast(rffi.CArrayPtr(self.T), data)
+        return self.box(array[0])
+
     @specialize.argtype(1)
     def unbox(self, box):
         assert isinstance(box, self.BoxType)
@@ -1108,6 +1113,11 @@ class ComplexFloating(object):
             rffi.cast(self.T, real),
             rffi.cast(self.T, imag))
 
+    def box_raw_data(self, data):
+        # For pickle
+        array = rffi.cast(rffi.CArrayPtr(self.T), data)
+        return self.box_complex(array[0], array[1])
+
     def unbox(self, box):
         assert isinstance(box, self.BoxType)
         # do this in two stages since real, imag are read only
@@ -1705,8 +1715,10 @@ class VoidType(BaseType, BaseStringType):
 
     def _coerce(self, space, arr, ofs, dtype, w_items, shape):
         # TODO: Make sure the shape and the array match
+        from interp_dtype import W_Dtype
         items_w = space.fixedview(w_items)
         subdtype = dtype.subdtype
+        assert isinstance(subdtype, W_Dtype)
         itemtype = subdtype.itemtype
         if len(shape) <= 1:
             for i in range(len(items_w)):
