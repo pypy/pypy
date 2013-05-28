@@ -412,7 +412,7 @@ class W_ListObject(W_Root):
             # No more items to compare -- compare sizes
             return space.newbool(op(self.length(), w_list2.length()))
 
-        return func_with_new_name(compare_unwrappeditems, name)
+        return func_with_new_name(compare_unwrappeditems, 'descr_' + name)
 
     descr_lt = _make_list_comparison('lt')
     descr_le = _make_list_comparison('le')
