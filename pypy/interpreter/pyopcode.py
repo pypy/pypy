@@ -881,8 +881,10 @@ class __extend__(pyframe.PyFrame):
         w_iterable = self.popvalue()
         if isinstance(w_iterable, W_LoopUnroller):
             lastblock = self.lastblock
-            assert isinstance(lastblock, LoopBlock)
-            lastblock.should_unroll = True
+            # This is the case for comprehensions, which don't add a frame
+            # block, annoying (for now ignore the problem).
+            if isinstance(lastblock, LoopBlock):
+                lastblock.should_unroll = True
         w_iterator = self.space.iter(w_iterable)
         self.pushvalue(w_iterator)
 
@@ -1209,7 +1211,7 @@ class FrameBlock(object):
     """Abstract base class for frame blocks from the blockstack,
     used by the SETUP_XXX and POP_BLOCK opcodes."""
 
-    _immutable_ = True
+    _immutable_fields_ = ["handlerposition", "valuestackdepth", "previous"]
 
     def __init__(self, frame, handlerposition, previous):
         self.handlerposition = handlerposition
@@ -1249,7 +1251,6 @@ class FrameBlock(object):
 class LoopBlock(FrameBlock):
     """A loop block.  Stores the end-of-loop pointer in case of 'break'."""
 
-    _immutable_fields_ = ["handlerposition", "valuestackdepth", "previous"]
     _opname = 'SETUP_LOOP'
     handling_mask = SBreakLoop.kind | SContinueLoop.kind
 
@@ -1275,7 +1276,6 @@ class LoopBlock(FrameBlock):
 class ExceptBlock(FrameBlock):
     """An try:except: block.  Stores the position of the exception handler."""
 
-    _immutable_ = True
     _opname = 'SETUP_EXCEPT'
     handling_mask = SApplicationException.kind
 
@@ -1299,7 +1299,6 @@ class ExceptBlock(FrameBlock):
 class FinallyBlock(FrameBlock):
     """A try:finally: block.  Stores the position of the exception handler."""
 
-    _immutable_ = True
     _opname = 'SETUP_FINALLY'
     handling_mask = -1     # handles every kind of SuspendedUnroller
 
@@ -1313,8 +1312,6 @@ class FinallyBlock(FrameBlock):
 
 
 class WithBlock(FinallyBlock):
-
-    _immutable_ = True
 
     def handle(self, frame, unroller):
         if isinstance(unroller, SApplicationException):
