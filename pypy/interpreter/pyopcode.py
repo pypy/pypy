@@ -880,7 +880,7 @@ class __extend__(pyframe.PyFrame):
         from pypy.module.__pypy__.interp_unroll import W_LoopUnroller
         w_iterable = self.popvalue()
         length_hint = self.space.length_hint(w_iterable, sys.maxint)
-        if isinstance(w_iterable, W_LoopUnroller) or jit.isconstant(length_hint) and length_hint < 20:
+        if (jit.isconstant(length_hint) and length_hint < 20) or isinstance(w_iterable, W_LoopUnroller):
             lastblock = self.lastblock
             # This is the case for comprehensions, which don't add a frame
             # block, annoying (for now ignore the problem).
