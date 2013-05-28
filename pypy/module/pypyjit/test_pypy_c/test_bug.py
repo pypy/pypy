@@ -9,6 +9,7 @@ def test_bug1():
 
     cmdline = ['taskset', '-c', '0',
                sys.executable, os.path.join(localdir, 'bug1.py')]
-    popen = subprocess.Popen(cmdline)
+    popen = subprocess.Popen(cmdline, stderr=subprocess.PIPE)
+    errmsg = popen.stderr.read()
     err = popen.wait()
-    assert err == 0
+    assert err == 0, "err = %r, errmsg:\n%s" % (err, errmsg)
