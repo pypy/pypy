@@ -1158,6 +1158,7 @@ class MIFrame(object):
         obj = box.getref_base()
         vref = vrefinfo.virtual_ref_during_tracing(obj)
         resbox = history.BoxPtr(vref)
+        self.metainterp.heapcache.new(resbox)
         cindex = history.ConstInt(len(metainterp.virtualref_boxes) // 2)
         metainterp.history.record(rop.VIRTUAL_REF, [box, cindex], resbox)
         # Note: we allocate a JIT_VIRTUAL_REF here

@@ -1,11 +1,12 @@
+from sys import maxint
+
+from rpython.rlib import jit
+from rpython.rlib.objectmodel import newlist_hint, resizelist_hint, specialize
+
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
 from pypy.objspace.std.register_all import register_all
-
-from sys import maxint
-from rpython.rlib.objectmodel import newlist_hint, resizelist_hint, specialize
-from rpython.rlib.jit import we_are_jitted
 
 def wrapstr(space, s):
     from pypy.objspace.std.stringobject import W_StringObject
@@ -26,7 +27,7 @@ def wrapstr(space, s):
 
 def wrapchar(space, c):
     from pypy.objspace.std.stringobject import W_StringObject
-    if space.config.objspace.std.withprebuiltchar and not we_are_jitted():
+    if space.config.objspace.std.withprebuiltchar and not jit.we_are_jitted():
         return W_StringObject.PREBUILT[ord(c)]
     else:
         return W_StringObject(c)
@@ -394,11 +395,13 @@ str_typedef = StdTypeDef("bytes",
 
 str_typedef.registermethods(globals())
 
+
 # ____________________________________________________________
 
 # Helpers for several string implementations
 
 @specialize.argtype(0)
+@jit.elidable
 def stringendswith(u_self, suffix, start, end):
     begin = end - len(suffix)
     if begin < start:
@@ -409,6 +412,7 @@ def stringendswith(u_self, suffix, start, end):
     return True
 
 @specialize.argtype(0)
+@jit.elidable
 def stringstartswith(u_self, prefix, start, end):
     stop = start + len(prefix)
     if stop > end:
