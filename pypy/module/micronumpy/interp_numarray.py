@@ -1051,7 +1051,7 @@ def ones(space, w_shape, w_dtype=None, order='C'):
 def _reconstruct(space, w_subtype, w_shape, w_dtype):
     return descr_new_array(space, w_subtype, w_shape, w_dtype)
 
- def build_scalar(space, w_dtype, w_state):
+def build_scalar(space, w_dtype, w_state):
     from rpython.rtyper.lltypesystem import rffi, lltype
 
     assert isinstance(w_dtype, interp_dtype.W_Dtype)
