@@ -1051,6 +1051,17 @@ def ones(space, w_shape, w_dtype=None, order='C'):
 def _reconstruct(space, w_subtype, w_shape, w_dtype):
     return descr_new_array(space, w_subtype, w_shape, w_dtype)
 
+ def build_scalar(space, w_dtype, w_state):
+    from rpython.rtyper.lltypesystem import rffi, lltype
+
+    assert isinstance(w_dtype, interp_dtype.W_Dtype)
+
+    state = rffi.str2charp(space.str_w(w_state))
+    box = w_dtype.itemtype.box_raw_data(state)
+    lltype.free(state, flavor="raw")
+    return box
+
+
 W_FlatIterator.typedef = TypeDef(
     'flatiter',
     __iter__ = interp2app(W_FlatIterator.descr_iter),
