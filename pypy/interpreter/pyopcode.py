@@ -1249,7 +1249,7 @@ class FrameBlock(object):
 class LoopBlock(FrameBlock):
     """A loop block.  Stores the end-of-loop pointer in case of 'break'."""
 
-    _immutable_ = True
+    _immutable_fields_ = ["handlerposition", "valuestackdepth", "previous"]
     _opname = 'SETUP_LOOP'
     handling_mask = SBreakLoop.kind | SContinueLoop.kind
 
