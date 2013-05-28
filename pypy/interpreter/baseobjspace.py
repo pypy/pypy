@@ -12,7 +12,7 @@ from rpython.rlib.rarithmetic import r_uint
 from pypy.interpreter.executioncontext import (ExecutionContext, ActionFlag,
     UserDelAction, FrameTraceAction)
 from pypy.interpreter.error import (OperationError, operationerrfmt,
-    new_exception_class, typed_unwrap_error_msg)
+    new_exception_class)
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.miscutils import ThreadLocals
 
@@ -197,28 +197,26 @@ class W_Root(object):
         return None
 
     def str_w(self, space):
-        w_msg = typed_unwrap_error_msg(space, "string", self)
-        raise OperationError(space.w_TypeError, w_msg)
+        self._typed_unwrap_error(space, "string")
 
     def unicode_w(self, space):
-        raise OperationError(space.w_TypeError,
-                             typed_unwrap_error_msg(space, "unicode", self))
+        self._typed_unwrap_error(space, "unicode")
 
     def int_w(self, space):
-        raise OperationError(space.w_TypeError,
-                             typed_unwrap_error_msg(space, "integer", self))
+        self._typed_unwrap_error(space, "integer")
 
     def float_w(self, space):
-        raise OperationError(space.w_TypeError,
-                             typed_unwrap_error_msg(space, "float", self))
+        self._typed_unwrap_error(space, "float")
 
     def uint_w(self, space):
-        raise OperationError(space.w_TypeError,
-                             typed_unwrap_error_msg(space, "integer", self))
+        self._typed_unwrap_error(space, "integer")
 
     def bigint_w(self, space):
-        raise OperationError(space.w_TypeError,
-                             typed_unwrap_error_msg(space, "integer", self))
+        self._typed_unwrap_error(space, "integer")
+
+    def _typed_unwrap_error(self, space, expected):
+        raise operationerrfmt(space.w_TypeError, "expected %s, got %T object",
+                              expected, self)
 
     def int(self, space):
         w_impl = space.lookup(self, '__int__')
