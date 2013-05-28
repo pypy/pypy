@@ -52,15 +52,14 @@ list_iter._annspecialcase_ = 'specialize:memo'
 
 def raiseattrerror(space, w_obj, w_name, w_descr=None):
     # space.repr always returns an encodable string.
-    name = space.str_w(space.repr(w_name))
     if w_descr is None:
         raise operationerrfmt(space.w_AttributeError,
-                              "'%T' object has no attribute %8",
-                              w_obj, name)
+                              "'%T' object has no attribute %R",
+                              w_obj, w_name)
     else:
         raise operationerrfmt(space.w_AttributeError,
-                              "'%T' object attribute %8 is read-only",
-                              w_obj, name)
+                              "'%T' object attribute %R is read-only",
+                              w_obj, w_name)
 
 def get_attribute_name(space, w_obj, w_name):
     try:

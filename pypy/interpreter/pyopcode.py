@@ -646,9 +646,8 @@ class __extend__(pyframe.PyFrame):
         # fall-back
         w_value = self._load_global(w_varname)
         if w_value is None:
-            message = "name '%8' is not defined"
-            raise operationerrfmt(self.space.w_NameError, message,
-                                  self.space.identifier_w(w_varname))
+            message = "name %R is not defined"
+            raise operationerrfmt(self.space.w_NameError, message, w_varname)
         self.pushvalue(w_value)
 
     def _load_global(self, w_varname):
@@ -661,9 +660,8 @@ class __extend__(pyframe.PyFrame):
     _load_global._always_inline_ = True
 
     def _load_global_failed(self, w_varname):
-        message = "global name '%8' is not defined"
-        raise operationerrfmt(self.space.w_NameError, message,
-                              self.space.identifier_w(w_varname))
+        message = "global name %R is not defined"
+        raise operationerrfmt(self.space.w_NameError, message, w_varname)
     _load_global_failed._dont_inline_ = True
 
     def LOAD_GLOBAL(self, nameindex, next_instr):
