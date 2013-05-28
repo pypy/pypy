@@ -258,9 +258,6 @@ class LLGraphCPU(model.AbstractCPU):
     def get_latest_descr(self, deadframe):
         return deadframe._latest_descr
 
-    def get_force_descr(self, deadframe):
-        xxx
-
     def grab_exc_value(self, deadframe):
         if deadframe._last_exception is not None:
             result = deadframe._last_exception.args[1]

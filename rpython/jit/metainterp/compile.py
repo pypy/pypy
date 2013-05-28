@@ -703,11 +703,9 @@ class ResumeGuardForcedDescr(ResumeGuardDescr):
         rstack._stack_criticalcode_start()
         try:
             deadframe = cpu.force(token)
+            # this should set descr to ResumeGuardForceDescr, if it
+            # was not that already
             faildescr = cpu.get_latest_descr(deadframe)
-            if not isinstance(faildescr, ResumeGuardForcedDescr):
-                assert faildescr.final_descr # we have to fish from
-                # guard_exc_descr instead
-                faildescr = cpu.get_force_descr(deadframe)
             assert isinstance(faildescr, ResumeGuardForcedDescr)
             faildescr.handle_async_forcing(deadframe)
         finally:
