@@ -743,9 +743,9 @@ class ObjSpace(object):
         if can_be_None and self.is_none(w_obj):
             return None
         if not isinstance(w_obj, RequiredClass):   # or obj is None
-            msg = "'%s' object expected, got '%T' instead"
+            msg = "'%s' object expected, got '%N' instead"
             raise operationerrfmt(self.w_TypeError, msg,
-                wrappable_class_name(RequiredClass), w_obj)
+                wrappable_class_name(RequiredClass), w_obj.getclass(self))
         return w_obj
     interp_w._annspecialcase_ = 'specialize:arg(1)'
 
