@@ -59,7 +59,7 @@ def descr_typecode(space, self):
 arr_eq_driver = jit.JitDriver(greens = ['comp_func'], reds = 'auto')
 EQ, NE, LT, LE, GT, GE = range(6)
 
-def compare_arrays(space, arr1, arr2, comp_op, comp_func):
+def compare_arrays(space, arr1, arr2, comp_op):
     if (not isinstance(arr1, W_ArrayBase) or
         not isinstance(arr2, W_ArrayBase)):
         return space.w_NotImplemented
@@ -69,22 +69,31 @@ def compare_arrays(space, arr1, arr2, comp_op, comp_func):
         return space.w_True
     lgt = min(arr1.len, arr2.len)
     for i in range(lgt):
-        arr_eq_driver.jit_merge_point(comp_func=comp_func)
+        arr_eq_driver.jit_merge_point(comp_func=comp_op)
         w_elem1 = arr1.w_getitem(space, i)
         w_elem2 = arr2.w_getitem(space, i)
-        res = space.is_true(comp_func(w_elem1, w_elem2))
         if comp_op == EQ:
+            res = space.is_true(space.eq(w_elem1, w_elem2))
             if not res:
                 return space.w_False
         elif comp_op == NE:
+            res = space.is_true(space.ne(w_elem1, w_elem2))
             if res:
                 return space.w_True
         elif comp_op == LT or comp_op == GT:
+            if comp_op == LT:
+                res = space.is_true(space.lt(w_elem1, w_elem2))
+            else:
+                res = space.is_true(space.gt(w_elem1, w_elem2))
             if res:
                 return space.w_True
             elif not space.is_true(space.eq(w_elem1, w_elem2)):
                 return space.w_False
         else:
+            if comp_op == LE:
+                res = space.is_true(space.le(w_elem1, w_elem2))
+            else:
+                res = space.is_true(space.ge(w_elem1, w_elem2))
             if not res:
                 return space.w_False
             elif not space.is_true(space.eq(w_elem1, w_elem2)):
@@ -362,27 +371,27 @@ class W_ArrayBase(W_Root):
 
     def descr_eq(self, space, w_arr2):
         "x.__eq__(y) <==> x==y"
-        return compare_arrays(space, self, w_arr2, EQ, space.eq)
+        return compare_arrays(space, self, w_arr2, EQ)
 
     def descr_ne(self, space, w_arr2):
         "x.__ne__(y) <==> x!=y"
-        return compare_arrays(space, self, w_arr2, NE, space.ne)
+        return compare_arrays(space, self, w_arr2, NE)
 
     def descr_lt(self, space, w_arr2):
         "x.__lt__(y) <==> x<y"
-        return compare_arrays(space, self, w_arr2, LT, space.lt)
+        return compare_arrays(space, self, w_arr2, LT)
 
     def descr_le(self, space, w_arr2):
         "x.__le__(y) <==> x<=y"
-        return compare_arrays(space, self, w_arr2, LE, space.le)
+        return compare_arrays(space, self, w_arr2, LE)
 
     def descr_gt(self, space, w_arr2):
         "x.__gt__(y) <==> x>y"
-        return compare_arrays(space, self, w_arr2, GT, space.gt)
+        return compare_arrays(space, self, w_arr2, GT)
 
     def descr_ge(self, space, w_arr2):
         "x.__ge__(y) <==> x>=y"
-        return compare_arrays(space, self, w_arr2, GE, space.ge)
+        return compare_arrays(space, self, w_arr2, GE)
 
     # Basic get/set/append/extend methods
 
