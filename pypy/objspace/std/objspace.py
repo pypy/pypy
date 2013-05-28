@@ -364,8 +364,8 @@ class StdObjSpace(ObjSpace, DescrOperation):
             instance.user_setup(self, w_subtype)
         else:
             raise operationerrfmt(self.w_TypeError,
-                "%s.__new__(%s): only for the type %s",
-                w_type.name, w_subtype.getname(self), w_type.name)
+                                  "%N.__new__(%N): only for the type %N",
+                                  w_type, w_subtype, w_type)
         return instance
     allocate_instance._annspecialcase_ = "specialize:arg(1)"
 
