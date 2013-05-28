@@ -412,8 +412,15 @@ def get_operrcls2(valuefmt):
                     elif fmt in 'NT':
                         if fmt == 'T':
                             value = space.type(value)
-                        # XXX:
-                        result = value.getname(space).decode('utf-8')
+                        try:
+                            w_name = space.getattr(value, space.wrap('__name__'))
+                        except OperationError as e:
+                            if not (e.match(space, space.w_TypeError) or
+                                    e.match(space, space.w_AttributeError)):
+                                raise
+                            result = u'?'
+                        else:
+                            result = space.unicode_w(w_name)
                     else:
                         result = unicode(value)
                     lst[i + i + 1] = result
