@@ -127,6 +127,18 @@ class TestEci:
                        ExternalCompilationInfo.from_config_tool,
                        'dxowqbncpqympqhe-config')
 
+    def test_from_pkg_config(self):
+        try:
+            cmd = ['pkg-config', 'ncurses', '--exists']
+            popen = Popen(cmd)
+            result = popen.wait()
+        except OSError:
+            result = -1
+        if result != 0:
+            py.test.skip("failed: %r" % (' '.join(cmd),))
+        eci = ExternalCompilationInfo.from_pkg_config('ncurses')
+        assert 'ncurses' in eci.libraries
+
     def test_platforms(self):
         from rpython.translator.platform import Platform
 

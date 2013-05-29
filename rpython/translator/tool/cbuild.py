@@ -164,8 +164,11 @@ class ExternalCompilationInfo(object):
         """Returns a new ExternalCompilationInfo instance by executing
         'pkg-config <pkgname>' with --cflags and --libs arguments."""
         assert isinstance(pkgname, str)
-        popen = subprocess.Popen(['pkg-config', pkgname, '--exists'])
-        result = popen.wait()
+        try:
+            popen = subprocess.Popen(['pkg-config', pkgname, '--exists'])
+            result = popen.wait()
+        except OSError:
+            result = -1
         if result != 0:
             raise ImportError("failed: 'pkg-config %s --exists'" % pkgname)
         return cls._run_config_tool('pkg-config "%s"' % pkgname)
