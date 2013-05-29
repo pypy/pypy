@@ -1,23 +1,26 @@
-from __future__ import with_statement
-from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.typedef import TypeDef, GetSetProperty
-from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.interpreter.error import wrap_oserror, OperationError
-from rpython.rtyper.lltypesystem import rffi, lltype
-from rpython.rlib import rgc
+import errno
+import os
+import sys
+import time
+
+from rpython.rlib import rgc, rthread
 from rpython.rlib.rarithmetic import r_uint
-from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.tool import rffi_platform as platform
-from rpython.rlib import rthread
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
+
+from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.error import OperationError, wrap_oserror
+from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.typedef import GetSetProperty, TypeDef
 from pypy.module._multiprocessing.interp_connection import w_handle
-import sys, os, time, errno
 
 RECURSIVE_MUTEX, SEMAPHORE = range(2)
 
 if sys.platform == 'win32':
     from rpython.rlib import rwin32
     from pypy.module._multiprocessing.interp_win32 import (
-        handle_w, _GetTickCount)
+        _GetTickCount, handle_w)
 
     SEM_VALUE_MAX = sys.maxint
 
@@ -62,7 +65,8 @@ else:
     TIMEVALP       = rffi.CArrayPtr(TIMEVAL)
     TIMESPECP      = rffi.CArrayPtr(TIMESPEC)
     SEM_T          = rffi.COpaquePtr('sem_t', compilation_info=eci)
-    SEM_FAILED     = config['SEM_FAILED'] # rffi.cast(SEM_T, config['SEM_FAILED'])
+    #                rffi.cast(SEM_T, config['SEM_FAILED'])
+    SEM_FAILED     = config['SEM_FAILED']
     SEM_VALUE_MAX  = config['SEM_VALUE_MAX']
     SEM_TIMED_WAIT = config['SEM_TIMED_WAIT']
     SEM_T_SIZE = config['SEM_T_SIZE']
@@ -160,7 +164,8 @@ else:
                     return -1
 
     if SEM_TIMED_WAIT:
-        _sem_timedwait = external('sem_timedwait', [SEM_T, TIMESPECP], rffi.INT)
+        _sem_timedwait = external('sem_timedwait', [SEM_T, TIMESPECP],
+                                  rffi.INT)
     else:
         _sem_timedwait = _sem_timedwait_save
 
@@ -185,7 +190,8 @@ else:
             res = _gettimeofday(now, None)
             if res < 0:
                 raise OSError(rposix.get_errno(), "gettimeofday failed")
-            return rffi.getintfield(now[0], 'c_tv_sec'), rffi.getintfield(now[0], 'c_tv_usec')
+            return (rffi.getintfield(now[0], 'c_tv_sec'),
+                    rffi.getintfield(now[0], 'c_tv_usec'))
         finally:
             lltype.free(now, flavor='raw')
 
@@ -330,8 +336,8 @@ else:
             deadline = lltype.malloc(TIMESPECP.TO, 1, flavor='raw')
             rffi.setintfield(deadline[0], 'c_tv_sec', now_sec + sec)
             rffi.setintfield(deadline[0], 'c_tv_nsec', now_usec * 1000 + nsec)
-            val = rffi.getintfield(deadline[0], 'c_tv_sec') + \
-                                rffi.getintfield(deadline[0], 'c_tv_nsec') / 1000000000
+            val = (rffi.getintfield(deadline[0], 'c_tv_sec') +
+                   rffi.getintfield(deadline[0], 'c_tv_nsec') / 1000000000)
             rffi.setintfield(deadline[0], 'c_tv_sec', val)
             val = rffi.getintfield(deadline[0], 'c_tv_nsec') % 1000000000
             rffi.setintfield(deadline[0], 'c_tv_nsec', val)
