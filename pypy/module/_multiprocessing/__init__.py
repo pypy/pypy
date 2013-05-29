@@ -1,5 +1,6 @@
-from pypy.interpreter.mixedmodule import MixedModule
 import sys
+
+from pypy.interpreter.mixedmodule import MixedModule
 
 class Module(MixedModule):
 
