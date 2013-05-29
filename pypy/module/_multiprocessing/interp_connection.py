@@ -7,7 +7,8 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import (
     OperationError, operationerrfmt, wrap_oserror)
-from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
+from pypy.interpreter.gateway import (
+    WrappedDefault, interp2app, interpindirect2app, unwrap_spec)
 from pypy.interpreter.typedef import GetSetProperty, TypeDef
 
 READABLE, WRITABLE = range(1, 3)
@@ -61,6 +62,14 @@ class W_BaseConnection(W_Root):
         return space.newbool(bool(self.flags & READABLE))
     def writable_get(self, space):
         return space.newbool(bool(self.flags & WRITABLE))
+
+    def _repr(self, space, handle):
+        conn_type = ["read-only", "write-only", "read-write"][self.flags - 1]
+        return space.wrap("<%s %s, handle %d>" % (
+                conn_type, space.type(self).getname(space), handle))
+
+    def descr_repr(self, space):
+        raise NotImplementedError
 
     def _check_readable(self, space):
         if not self.flags & READABLE:
@@ -178,6 +187,7 @@ class W_BaseConnection(W_Root):
 
 W_BaseConnection.typedef = TypeDef(
     'BaseConnection',
+    __repr__ = interpindirect2app(W_BaseConnection.descr_repr),
     closed = GetSetProperty(W_BaseConnection.closed_get),
     readable = GetSetProperty(W_BaseConnection.readable_get),
     writable = GetSetProperty(W_BaseConnection.writable_get),
@@ -239,6 +249,9 @@ class W_FileConnection(W_BaseConnection):
         self = space.allocate_instance(W_FileConnection, w_subtype)
         W_FileConnection.__init__(self, space, fd, flags)
         return space.wrap(self)
+
+    def descr_repr(self, space):
+        return self._repr(space, self.fd)
 
     def fileno(self, space):
         return space.wrap(self.fd)
@@ -361,10 +374,7 @@ class W_PipeConnection(W_BaseConnection):
         return space.wrap(self)
 
     def descr_repr(self, space):
-        conn_type = ["read-only", "write-only", "read-write"][self.flags]
-
-        return space.wrap("<%s %s, handle %zd>" % (
-            conn_type, space.type(self).getname(space), self.do_fileno()))
+        return self._repr(space, self.handle)
 
     def is_valid(self):
         return self.handle != self.INVALID_HANDLE_VALUE

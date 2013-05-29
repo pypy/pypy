@@ -173,3 +173,11 @@ class AppTestSocketConnection(BaseConnectionTest):
         assert data1 == '\x00\x00\x00\x03abc'
         data2 = sock.recv(8)
         assert data2 == '\x00\x00\x00\x04defg'
+
+    def test_repr(self):
+        import _multiprocessing
+        c = _multiprocessing.Connection(1)
+        assert repr(c) == '<read-write Connection, handle 1>'
+        if hasattr(_multiprocessing, 'PipeConnection'):
+            c = _multiprocessing.PipeConnection(1)
+            assert repr(c) == '<read-write Connection, handle 1>'
