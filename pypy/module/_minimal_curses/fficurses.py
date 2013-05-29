@@ -27,12 +27,18 @@ def try_ldflags():
     yield ExternalCompilationInfo(libraries=['curses'])
     yield ExternalCompilationInfo(libraries=['curses', 'tinfo'])
 
-def try_eci():
+def try_tools():
     try:
-        eci = ExternalCompilationInfo.from_config_tool("ncurses5-configx")
+        yield ExternalCompilationInfo.from_pkg_config("ncurses")
     except Exception:
         pass
-    else:
+    try:
+        yield ExternalCompilationInfo.from_config_tool("ncurses5-config")
+    except Exception:
+        pass
+
+def try_eci():
+    for eci in try_tools():
         yield eci.merge(ExternalCompilationInfo(includes=['curses.h',
                                                           'term.h']))
     for eci1 in try_cflags():
