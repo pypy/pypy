@@ -92,7 +92,7 @@ class __extend__(PyFrame):
             jumpto = r_uint(self.last_instr)
         #
         lastblock = self.lastblock
-        if not (isinstance(lastblock, LoopBlock) and lastblock.should_unroll and we_are_jitted()):
+        if not (we_are_jitted() and isinstance(lastblock, LoopBlock) and lastblock.should_unroll):
             pypyjitdriver.can_enter_jit(frame=self, ec=ec, next_instr=jumpto,
                                         pycode=self.getcode(),
                                         is_being_profiled=self.is_being_profiled)
