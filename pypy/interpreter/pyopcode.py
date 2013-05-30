@@ -290,9 +290,6 @@ class __extend__(pyframe.PyFrame):
     def getconstant_w(self, index):
         return self.getcode().co_consts_w[index]
 
-    def getname_u(self, index):
-        return self.space.str_w(self.getcode().co_names_w[index])
-
     def getname_w(self, index):
         return self.getcode().co_names_w[index]
 
@@ -628,7 +625,7 @@ class __extend__(pyframe.PyFrame):
         self.space.delattr(w_obj, w_attributename)
 
     def STORE_GLOBAL(self, nameindex, next_instr):
-        varname = self.getname_u(nameindex)
+        varname = self.space.str_w(self.getname_w(nameindex))
         w_newvalue = self.popvalue()
         self.space.setitem_str(self.w_globals, varname, w_newvalue)
 
