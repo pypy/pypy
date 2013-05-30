@@ -156,6 +156,9 @@ class VCPythonEngine(object):
         class FFILibrary(object):
             _cffi_python_module = module
             _cffi_ffi = self.ffi
+            _cffi_dir = []
+            def __dir__(self):
+                return FFILibrary._cffi_dir + list(self.__dict__)
         library = FFILibrary()
         module._cffi_setup(lst, ffiplatform.VerificationError, library)
         #
@@ -701,7 +704,8 @@ class VCPythonEngine(object):
             return ptr[0]
         def setter(library, value):
             ptr[0] = value
-        setattr(library.__class__, name, property(getter, setter))
+        setattr(type(library), name, property(getter, setter))
+        type(library)._cffi_dir.append(name)
 
     # ----------
 

@@ -2757,6 +2757,35 @@ def test_new_handle():
     assert wr() is None
     py.test.raises(RuntimeError, from_handle, cast(BCharP, 0))
 
+def test_bitfield_as_gcc():
+    BChar = new_primitive_type("char")
+    BShort = new_primitive_type("short")
+    BInt = new_primitive_type("int")
+    BStruct = new_struct_type("foo1")
+    complete_struct_or_union(BStruct, [('a', BChar, -1),
+                                       ('b', BInt, 9),
+                                       ('c', BChar, -1)])
+    assert typeoffsetof(BStruct, 'c') == (BChar, 3)
+    assert sizeof(BStruct) == 4
+    assert alignof(BStruct) == 4
+    #
+    BStruct = new_struct_type("foo2")
+    complete_struct_or_union(BStruct, [('a', BChar, -1),
+                                       ('',  BShort, 9),
+                                       ('c', BChar, -1)])
+    assert typeoffsetof(BStruct, 'c') == (BChar, 4)
+    assert sizeof(BStruct) == 5
+    assert alignof(BStruct) == 1
+    #
+    BStruct = new_struct_type("foo2")
+    complete_struct_or_union(BStruct, [('a', BChar, -1),
+                                       ('',  BInt, 0),
+                                       ('',  BInt, 0),
+                                       ('c', BChar, -1)])
+    assert typeoffsetof(BStruct, 'c') == (BChar, 4)
+    assert sizeof(BStruct) == 5
+    assert alignof(BStruct) == 1
+
 
 def test_version():
     # this test is here mostly for PyPy
