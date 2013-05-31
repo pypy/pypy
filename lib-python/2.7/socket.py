@@ -188,23 +188,23 @@ class _socketobject(object):
         self._sock = _sock
 
     def send(self, data, flags=0):
-        return self._sock.send(data, flags=flags)
+        return self._sock.send(data, flags)
     send.__doc__ = _realsocket.send.__doc__
 
     def recv(self, buffersize, flags=0):
-        return self._sock.recv(buffersize, flags=flags)
+        return self._sock.recv(buffersize, flags)
     recv.__doc__ = _realsocket.recv.__doc__
 
     def recv_into(self, buffer, nbytes=0, flags=0):
-        return self._sock.recv_into(buffer, nbytes=nbytes, flags=flags)
+        return self._sock.recv_into(buffer, nbytes, flags)
     recv_into.__doc__ = _realsocket.recv_into.__doc__
 
     def recvfrom(self, buffersize, flags=0):
-        return self._sock.recvfrom(buffersize, flags=flags)
+        return self._sock.recvfrom(buffersize, flags)
     recvfrom.__doc__ = _realsocket.recvfrom.__doc__
 
     def recvfrom_into(self, buffer, nbytes=0, flags=0):
-        return self._sock.recvfrom_into(buffer, nbytes=nbytes, flags=flags)
+        return self._sock.recvfrom_into(buffer, nbytes, flags)
     recvfrom_into.__doc__ = _realsocket.recvfrom_into.__doc__
 
     def sendto(self, data, param2, param3=None):
