@@ -1119,11 +1119,12 @@ def repr__Type(space, w_obj):
     if not space.isinstance_w(w_mod, space.w_unicode):
         mod = None
     else:
-        mod = space.str_w(w_mod)
-    if mod is not None and mod != 'builtins':
-        return space.wrap("<class '%s.%s'>" % (mod, w_obj.name))
+        mod = space.unicode_w(w_mod)
+    name = w_obj.name.decode('utf-8')
+    if mod is not None and mod != u'builtins':
+        return space.wrap(u"<class '%s.%s'>" % (mod, name))
     else:
-        return space.wrap("<class '%s'>" % (w_obj.name))
+        return space.wrap(u"<class '%s'>" % (name))
 
 def getattr__Type_ANY(space, w_type, w_name):
     name = space.str_w(w_name)

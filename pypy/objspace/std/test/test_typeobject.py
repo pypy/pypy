@@ -1,3 +1,4 @@
+# encoding: utf-8
 from pypy.objspace.std.model import W_Object
 from pypy.objspace.std.stdtypedef import StdTypeDef
 
@@ -681,6 +682,9 @@ class AppTestTypeObject:
         exec("class A(object): pass\n", d)
         assert d['A'].__module__ == 'builtins'    # obscure, follows CPython
         assert repr(d['A']) == "<class 'A'>"
+
+    def test_repr_unicode(self):
+        assert repr(type('日本', (), {})) == "<class '%s.日本'>" % __name__
 
     def test_invalid_mro(self):
         class A(object):
