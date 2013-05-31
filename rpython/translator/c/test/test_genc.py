@@ -522,8 +522,9 @@ def test_recursive_llhelper():
             f = getattr(self, "_f", None)
             if f is not None:
                 return f
-            f = lambda arg: self.func(arg)
+            f = lambda *args: self.func(*args)
             f.c_name = self.name
+            f.relax_sig_check = True
             f.__name__ = "WRAP%s" % (self.name, )
             self._f = f
             return f
