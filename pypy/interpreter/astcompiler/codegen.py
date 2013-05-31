@@ -305,7 +305,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         for i, default in enumerate(args.kw_defaults):
             if default:
                 kwonly = args.kwonlyargs[i]
-                self.load_const(self.space.wrap(kwonly.arg))
+                self.load_const(self.space.wrap(kwonly.arg.decode('utf-8')))
                 default.walkabout(self)
                 defaults += 1
         return defaults
@@ -336,7 +336,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         if l:
             if l > 65534:
                 self.error("too many annotations", func)
-            w_tup = space.newtuple([space.wrap(name) for name in names])
+            w_tup = space.newtuple([space.wrap(name.decode('utf-8'))
+                                    for name in names])
             self.load_const(w_tup)
             l += 1
         return l
@@ -389,7 +390,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         # 3. load a function (or closure) made from the code object
         self._make_function(code, 0)
         # 4. load class name
-        self.load_const(self.space.wrap(cls.name))
+        self.load_const(self.space.wrap(cls.name.decode('utf-8')))
         # 5. generate the rest of the code for the call
         self._make_call(2,
                         cls.bases, cls.keywords,
@@ -723,7 +724,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         for i in range(len(imp.names)):
             alias = imp.names[i]
             assert isinstance(alias, ast.alias)
-            names_w[i] = space.wrap(alias.name)
+            names_w[i] = space.wrap(alias.name.decode('utf-8'))
         self.load_const(space.newtuple(names_w))
         if imp.module:
             mod_name = imp.module
@@ -1024,7 +1025,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.name_op(name.id, name.ctx)
 
     def visit_keyword(self, keyword):
-        self.load_const(self.space.wrap(keyword.arg))
+        self.load_const(self.space.wrap(keyword.arg.decode('utf-8')))
         keyword.value.walkabout(self)
 
     def _make_call(self, n, # args already pushed

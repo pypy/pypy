@@ -840,6 +840,10 @@ class AppTestCompiler:
         raises(SyntaxError, eval, b'\xff\x20')
         raises(SyntaxError, eval, b'\xef\xbb\x20')
 
+    def test_import_nonascii(self):
+        c = compile('from os import 日本', '', 'exec')
+        assert ('日本',) in c.co_consts
+
     def test_cpython_issue2301(self):
         skip('XXX')
         try:

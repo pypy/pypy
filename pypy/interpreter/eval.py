@@ -108,7 +108,7 @@ class Frame(W_Root):
             name = varnames[i]
             w_value = fastscope_w[i]
             if w_value is not None:
-                w_name = self.space.wrap(name)
+                w_name = self.space.wrap(name.decode('utf-8'))
                 self.space.setitem(self.w_locals, w_name, w_value)
 
     def locals2fast(self):
@@ -120,7 +120,7 @@ class Frame(W_Root):
         new_fastlocals_w = [None] * numlocals
 
         for i in range(min(len(varnames), numlocals)):
-            w_name = self.space.wrap(varnames[i])
+            w_name = self.space.wrap(varnames[i].decode('utf-8'))
             try:
                 w_value = self.space.getitem(self.w_locals, w_name)
             except OperationError, e:
