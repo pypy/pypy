@@ -98,10 +98,10 @@ class TestBitfield:
         s = ffi.new("struct s1 *")
         setattr(s, name, value)
         assert getattr(s, name) == value
-        raw1 = bytes(ffi.buffer(s))
+        raw1 = ffi.buffer(s)[:]
         if lib is not None:
             t = lib.try_with_value(fnames.index(name), value)
-            raw2 = bytes(ffi.buffer(t, len(raw1)))
+            raw2 = ffi.buffer(t, len(raw1))[:]
             assert raw1 == raw2
 
     def test_bitfield_basic(self):

@@ -184,7 +184,7 @@ class TraceWithIds(Function):
 
     def match_by_id(self, id, expected_src, **kwds):
         ops = list(self.ops_by_id(id, **kwds))
-        matcher = OpMatcher(ops)
+        matcher = OpMatcher(ops, id)
         return matcher.match(expected_src)
 
 class PartialTraceWithIds(TraceWithIds):
@@ -260,8 +260,9 @@ class InvalidMatch(Exception):
 
 class OpMatcher(object):
 
-    def __init__(self, ops):
+    def __init__(self, ops, id=None):
         self.ops = ops
+        self.id = id
         self.src = '\n'.join(map(str, ops))
         self.alpha_map = {}
 
@@ -495,6 +496,7 @@ class OpMatcher(object):
             print '@' * 40
             print "Loops don't match"
             print "================="
+            print 'loop id = %r' % (self.id,)
             print e.args
             print e.msg
             print

@@ -157,7 +157,7 @@ class TestString(BaseTestPyPyC):
             copystrcontent(p9, p21, 0, i25, i10)
             i33 = int_lt(i30, 23)
             guard_true(i33, descr=...)
-            p35 = call(ConstClass(ll_shrink_array__rpy_stringPtr_Signed), p21, i30, descr=<Callr . ri EF=4>)
+            p35 = call(ConstClass(ll_shrink_array__rpy_stringPtr_Signed), p21, i30, descr=<Callr . ri EF=4 OS=3>)
             guard_no_exception(descr=...)
             i37 = strlen(p35)
             i38 = int_add_ovf(i5, i37)
@@ -190,7 +190,7 @@ class TestString(BaseTestPyPyC):
         assert len(loops) == 1
         for loop in loops:
             loop.match_by_id('getattr','''
-            guard_not_invalidated(descr=...)
+            guard_not_invalidated?
             i32 = strlen(p31)
             i34 = int_add(5, i32)
             p35 = newstr(i34)

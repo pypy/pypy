@@ -46,6 +46,7 @@ class BaseAppTestFFI(object):
         libm = CDLL(libm_name)
         pow = libm.getpointer('pow', [], types.void)
         pow_addr = rffi.cast(rffi.LONG, pow.funcsym)
+        cls._libm = libm     # otherwise it gets unloaded - argh!
         cls.w_pow_addr = space.wrap(pow_addr)
 
 class AppTestFFI(BaseAppTestFFI):
