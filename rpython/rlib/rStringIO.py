@@ -163,6 +163,10 @@ class RStringIO(object):
         return ''.join(self.__bigbuffer[p:i])
 
     def truncate(self, size):
+        """Warning, this gets us slightly strange behavior from the
+        point of view of a traditional Unix file, but consistent with
+        Python 2.7's cStringIO module: it will not enlarge the file,
+        and it will always seek to the (new) end of the file."""
         assert size >= 0
         if self.__bigbuffer is None or size > len(self.__bigbuffer):
             self.__copy_into_bigbuffer()
@@ -174,3 +178,5 @@ class RStringIO(object):
             del self.__bigbuffer[size:]
         if len(self.__bigbuffer) == 0:
             self.__bigbuffer = None
+        # it always has the effect of seeking at the new end
+        self.__pos = AT_END
