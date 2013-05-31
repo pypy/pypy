@@ -117,6 +117,13 @@ def test_truncate():
     assert f.getvalue() == '\x00' * 3
     assert f.tell() == 3
 
+def test_truncate_end():
+    f = RStringIO()
+    f.write("abc")
+    f.seek(0)
+    f.truncate(0)
+    assert f.getvalue() == ""
+
 def test_bug():
     f = RStringIO()
     f.write('0')
