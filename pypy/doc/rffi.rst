@@ -5,7 +5,7 @@ Foreign Function Interface for RPython
 Purpose
 -------
 
-This document describes an FFI for RPython language, concentrating
+This document describes an FFI for the RPython language, concentrating
 on low-level backends like C. It describes
 how to declare and call low-level (C) functions from RPython level.
 
