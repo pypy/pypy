@@ -223,7 +223,9 @@ class _socketobject(object):
 
     def accept(self):
         sock, addr = self._sock.accept()
-        return _socketobject(_sock=sock), addr
+        sockobj = _socketobject(_sock=sock)
+        sock._drop()    # already a copy in the _socketobject()
+        return sockobj, addr
     accept.__doc__ = _realsocket.accept.__doc__
 
     def dup(self):
