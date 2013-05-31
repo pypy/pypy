@@ -3,10 +3,6 @@ from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 class AppTestScalar(BaseNumpyAppTest):
     spaceconfig = dict(usemodules=["micronumpy", "binascii", "struct"])
 
-    def setup_class(cls):
-        import py
-        py.test.xfail("FIXME: dtype('int32') == dtype('int32') fails")
-
     def test_pickle(self):
         from numpypy import dtype, int32, float64, complex128, zeros, sum
         from numpypy.core.multiarray import scalar
@@ -25,3 +21,7 @@ class AppTestScalar(BaseNumpyAppTest):
 
         a = zeros(3)
         assert loads(dumps(sum(a))) == sum(a)
+
+    def setup_class(cls):
+        import py
+        py.test.xfail("FIXME: dtype('int32') == dtype('int32') fails")
