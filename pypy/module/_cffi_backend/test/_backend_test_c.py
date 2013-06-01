@@ -2757,34 +2757,55 @@ def test_new_handle():
     assert wr() is None
     py.test.raises(RuntimeError, from_handle, cast(BCharP, 0))
 
-def test_bitfield_as_gcc():
+def _test_bitfield_details(flag):
     BChar = new_primitive_type("char")
     BShort = new_primitive_type("short")
     BInt = new_primitive_type("int")
+    BUInt = new_primitive_type("unsigned int")
     BStruct = new_struct_type("foo1")
     complete_struct_or_union(BStruct, [('a', BChar, -1),
-                                       ('b', BInt, 9),
-                                       ('c', BChar, -1)])
-    assert typeoffsetof(BStruct, 'c') == (BChar, 3)
-    assert sizeof(BStruct) == 4
+                                       ('b1', BInt, 9),
+                                       ('b2', BUInt, 7),
+                                       ('c', BChar, -1)], -1, -1, -1, flag)
+    if flag == 0:   # gcc
+        assert typeoffsetof(BStruct, 'c') == (BChar, 3)
+        assert sizeof(BStruct) == 4
+    else:           # msvc
+        assert typeoffsetof(BStruct, 'c') == (BChar, 8)
+        assert sizeof(BStruct) == 12
     assert alignof(BStruct) == 4
     #
     BStruct = new_struct_type("foo2")
     complete_struct_or_union(BStruct, [('a', BChar, -1),
                                        ('',  BShort, 9),
-                                       ('c', BChar, -1)])
+                                       ('c', BChar, -1)], -1, -1, -1, flag)
     assert typeoffsetof(BStruct, 'c') == (BChar, 4)
-    assert sizeof(BStruct) == 5
-    assert alignof(BStruct) == 1
+    if flag == 0:   # gcc
+        assert sizeof(BStruct) == 5
+        assert alignof(BStruct) == 1
+    else:           # msvc
+        assert sizeof(BStruct) == 6
+        assert alignof(BStruct) == 2
     #
     BStruct = new_struct_type("foo2")
     complete_struct_or_union(BStruct, [('a', BChar, -1),
                                        ('',  BInt, 0),
                                        ('',  BInt, 0),
-                                       ('c', BChar, -1)])
-    assert typeoffsetof(BStruct, 'c') == (BChar, 4)
-    assert sizeof(BStruct) == 5
+                                       ('c', BChar, -1)], -1, -1, -1, flag)
+    if flag == 0:   # gcc
+        assert typeoffsetof(BStruct, 'c') == (BChar, 4)
+        assert sizeof(BStruct) == 5
+    else:           # msvc
+        assert typeoffsetof(BStruct, 'c') == (BChar, 1)
+        assert sizeof(BStruct) == 2
     assert alignof(BStruct) == 1
+
+
+def test_bitfield_as_gcc():
+    _test_bitfield_details(flag=0)
+
+def test_bitfield_as_msvc():
+    _test_bitfield_details(flag=1)
 
 
 def test_version():
