@@ -225,9 +225,8 @@ def encode_object(space, w_object, encoding, errors):
     w_restuple = space.call_function(w_encoder, w_object, w_errors)
     w_retval = space.getitem(w_restuple, space.wrap(0))
     if not space.isinstance_w(w_retval, space.w_str):
-        raise operationerrfmt(space.w_TypeError,
-            "encoder did not return an string object (type '%s')",
-            space.type(w_retval).getname(space))
+        msg = "encoder did not return an string object (type '%T')"
+        raise operationerrfmt(space.w_TypeError, msg, w_retval)
     return w_retval
 
 def decode_object(space, w_obj, encoding, errors):
@@ -259,9 +258,8 @@ def decode_object(space, w_obj, encoding, errors):
 def unicode_from_encoded_object(space, w_obj, encoding, errors):
     w_retval = decode_object(space, w_obj, encoding, errors)
     if not space.isinstance_w(w_retval, space.w_unicode):
-        raise operationerrfmt(space.w_TypeError,
-            "decoder did not return an unicode object (type '%s')",
-            space.type(w_retval).getname(space))
+        msg = "decoder did not return an unicode object (type '%T')"
+        raise operationerrfmt(space.w_TypeError, msg, w_retval)
     return w_retval
 
 def unicode_from_object(space, w_obj):

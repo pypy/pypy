@@ -1620,3 +1620,18 @@ def test_call_with_voidstar_arg():
     ffi.cdef("int f(void *);")
     lib = ffi.verify("int f(void *x) { return ((char*)x)[0]; }")
     assert lib.f(b"foobar") == ord(b"f")
+
+def test_dir():
+    ffi = FFI()
+    ffi.cdef("""void somefunc(void);
+                extern int somevar, somearray[2];
+                static char *const sv2;
+                enum my_e { AA, BB, ... };
+                #define FOO ...""")
+    lib = ffi.verify("""void somefunc(void) { }
+                        int somevar, somearray[2];
+                        #define sv2 "text"
+                        enum my_e { AA, BB };
+                        #define FOO 42""")
+    assert dir(lib) == ['AA', 'BB', 'FOO', 'somearray',
+                        'somefunc', 'somevar', 'sv2']

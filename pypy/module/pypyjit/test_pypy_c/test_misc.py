@@ -177,6 +177,7 @@ class TestMisc(BaseTestPyPyC):
         assert log.result == 1000 * 999 / 2
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
+            guard_not_invalidated?
             i16 = int_ge(i11, i12)
             guard_false(i16, descr=...)
             i17 = int_mul(i11, i14)
@@ -184,7 +185,7 @@ class TestMisc(BaseTestPyPyC):
             i20 = int_add(i11, 1)
             i21 = force_token()
             setfield_gc(p4, i20, descr=<.* .*W_AbstractSeqIterObject.inst_index .*>)
-            guard_not_invalidated(descr=...)
+            guard_not_invalidated?
             i23 = int_lt(i18, 0)
             guard_false(i23, descr=...)
             i25 = int_ge(i18, i9)
@@ -234,6 +235,7 @@ class TestMisc(BaseTestPyPyC):
         assert log.result == 1000000
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
+            guard_not_invalidated?
             i14 = getfield_gc(p12, descr=<FieldS list.length .*>)
             i16 = uint_ge(i12, i14)
             guard_false(i16, descr=...)
@@ -242,7 +244,7 @@ class TestMisc(BaseTestPyPyC):
             i19 = int_add(i12, 1)
             setfield_gc(p9, i19, descr=<FieldS .*W_AbstractSeqIterObject.inst_index .*>)
             guard_nonnull_class(p17, ..., descr=...)
-            guard_not_invalidated(descr=...)
+            guard_not_invalidated?
             i21 = getfield_gc(p17, descr=<FieldS .*W_Array.*.inst_len .*>)
             i23 = int_lt(0, i21)
             guard_true(i23, descr=...)
