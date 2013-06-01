@@ -24,4 +24,4 @@ class AppTestScalar(BaseNumpyAppTest):
 
     def setup_class(cls):
         import py
-        py.test.xfail("FIXME: dtype('int32') == dtype('int32') fails")
+        py.test.xfail("FIXME: dtype('int32') == dtype('int32') fails (but only on 32-bit?)")
