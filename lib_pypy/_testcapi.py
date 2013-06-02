@@ -1,67 +1,7 @@
-import os, sys, imp
-import tempfile
-
-def _get_c_extension_suffix():
-    for ext, mod, typ in imp.get_suffixes():
-        if typ == imp.C_EXTENSION:
-            return ext
-
-
-def compile_shared():
-    """Compile '_testcapi.c' into an extension module, and import it
-    """
-    thisdir = os.path.dirname(__file__)
-    output_dir = tempfile.mkdtemp()
-
-    from distutils.ccompiler import new_compiler
-
-    compiler = new_compiler()
-    compiler.output_dir = output_dir
-
-    # Compile .c file
-    include_dir = os.path.join(thisdir, '..', 'include')
-    if sys.platform == 'win32':
-        ccflags = ['-D_CRT_SECURE_NO_WARNINGS']
-    else:
-        ccflags = ['-fPIC', '-Wimplicit-function-declaration']
-    res = compiler.compile([os.path.join(thisdir, '_testcapimodule.c')],
-                           include_dirs=[include_dir],
-                           extra_preargs=ccflags)
-    object_filename = res[0]
-
-    # set link options
-    output_filename = '_testcapi' + _get_c_extension_suffix()
-    if sys.platform == 'win32':
-        # XXX libpypy-c.lib is currently not installed automatically
-        library = os.path.join(thisdir, '..', 'include', 'libpypy-c')
-        if not os.path.exists(library + '.lib'):
-            #For a nightly build
-            library = os.path.join(thisdir, '..', 'include', 'python27')
-        if not os.path.exists(library + '.lib'):
-            # For a local translation
-            library = os.path.join(thisdir, '..', 'pypy', 'goal', 'libpypy-c')
-        libraries = [library, 'oleaut32']
-        extra_ldargs = ['/MANIFEST',  # needed for VC10
-                        '/EXPORT:init_testcapi']
-    else:
-        libraries = []
-        extra_ldargs = []
-
-    # link the dynamic library
-    compiler.link_shared_object(
-        [object_filename],
-        output_filename,
-        libraries=libraries,
-        extra_preargs=extra_ldargs)
-
-    # Now import the newly created library, it will replace our module in sys.modules
-    import imp
-    fp, filename, description = imp.find_module('_testcapi', path=[output_dir])
-    imp.load_module('_testcapi', fp, filename, description)
-
 try:
     import cpyext
 except ImportError:
     raise ImportError("No module named '_testcapi'")
 else:
-    compile_shared()
+    import _pypy_testcapi
+    _pypy_testcapi.compile_shared('_testcapimodule.c', '_testcapi')
