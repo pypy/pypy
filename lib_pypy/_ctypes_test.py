@@ -1,5 +1,11 @@
-import os, sys
+import os, sys, imp
 import tempfile
+
+def _get_c_extension_suffix():
+    for ext, mod, typ in imp.get_suffixes():
+        if typ == imp.C_EXTENSION:
+            return ext
+
 
 def compile_shared():
     """Compile '_ctypes_test.c' into an extension module, and import it
@@ -8,7 +14,6 @@ def compile_shared():
     output_dir = tempfile.mkdtemp()
 
     from distutils.ccompiler import new_compiler
-    from distutils import sysconfig
 
     compiler = new_compiler()
     compiler.output_dir = output_dir
@@ -25,7 +30,7 @@ def compile_shared():
     object_filename = res[0]
 
     # set link options
-    output_filename = '_ctypes_test' + sysconfig.get_config_var('SO')
+    output_filename = '_ctypes_test' + _get_c_extension_suffix()
     if sys.platform == 'win32':
         # XXX libpypy-c.lib is currently not installed automatically
         library = os.path.join(thisdir, '..', 'include', 'libpypy-c')
