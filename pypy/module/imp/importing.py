@@ -791,6 +791,10 @@ class ImportRLock:
     def release_lock(self):
         me = self.space.getexecutioncontext()   # used as thread ident
         if self.lockowner is not me:
+            if self.lockowner is None:
+                # Too bad.  This situation can occur if a fork() occurred
+                # with the import lock held, and we're the child.
+                return
             if not self._can_have_lock():
                 return
             space = self.space
