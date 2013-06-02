@@ -303,7 +303,7 @@ def absolute_import_with_lock(space, modulename, baselevel,
         return _absolute_import(space, modulename, baselevel,
                                 fromlist_w, tentative)
     finally:
-        lock.release_lock()
+        lock.release_lock(silent_after_fork=True)
 
 @jit.unroll_safe
 def absolute_import_try(space, modulename, baselevel, fromlist_w):
@@ -788,10 +788,10 @@ class ImportRLock:
             self.lockowner = me
         self.lockcounter += 1
 
-    def release_lock(self):
+    def release_lock(self, silent_after_fork):
         me = self.space.getexecutioncontext()   # used as thread ident
         if self.lockowner is not me:
-            if self.lockowner is None:
+            if self.lockowner is None and silent_after_fork:
                 # Too bad.  This situation can occur if a fork() occurred
                 # with the import lock held, and we're the child.
                 return
