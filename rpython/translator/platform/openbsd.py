@@ -5,11 +5,7 @@ import os
 from rpython.translator.platform.bsd import BSD
 
 class OpenBSD(BSD):
-    if os.environ.get("CC") is None:
-        DEFAULT_CC = "cc"
-    else:
-        DEFAULT_CC = os.environ.get("CC")
-
+    DEFAULT_CC = "cc"
     name = "openbsd"
 
     link_flags = os.environ.get("LDFLAGS", "").split() + ['-pthread']

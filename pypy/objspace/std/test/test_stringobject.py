@@ -530,6 +530,12 @@ class AppTestStringObject:
                 del sys.modules[module_name]
             temp_sys.setdefaultencoding('utf-8')
             assert u''.join(['\xc3\xa1']) == u'\xe1'
+            #
+            assert ('\xc3\xa1:%s' % u'\xe2') == u'\xe1:\xe2'
+            class Foo(object):
+                def __repr__(self):
+                    return '\xc3\xa2'
+            assert u'\xe1:%r' % Foo() == u'\xe1:\xe2'
         finally:
             temp_sys.setdefaultencoding(old_encoding)
             sys.modules.update(self.original_modules)
