@@ -1,3 +1,6 @@
+
+.. comment: this document is very incomplete, should we generate it automatically?
+
 =======================
 The ``__pypy__`` module
 =======================
