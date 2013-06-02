@@ -13,22 +13,6 @@ def wrapunicode(space, uni):
     from pypy.objspace.std.unicodeobject import W_UnicodeObject
     return W_UnicodeObject(uni)
 
-def plain_str2unicode(space, s):
-    try:
-        return unicode(s)
-    except UnicodeDecodeError:
-        for i in range(len(s)):
-            if ord(s[i]) > 127:
-                raise OperationError(
-                    space.w_UnicodeDecodeError,
-                    space.newtuple([
-                    space.wrap('ascii'),
-                    space.wrap(s),
-                    space.wrap(i),
-                    space.wrap(i+1),
-                    space.wrap("ordinal not in range(128)")]))
-        assert False, "unreachable"
-
 
 unicode_capitalize = SMM('capitalize', 1,
                          doc='S.capitalize() -> unicode\n\nReturn a'
