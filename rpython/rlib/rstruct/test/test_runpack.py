@@ -26,6 +26,12 @@ class BaseTestRStruct(BaseRtypingTest):
         assert fn() == 123
         assert self.interpret(fn, []) == 123
 
+    def test_unpack_double_big_endian(self):
+        def fn():
+            return runpack(">d", "testtest")
+        assert fn() == struct.unpack(">d", "testtest")[0]
+        assert self.interpret(fn, []) == struct.unpack(">d", "testtest")[0]
+
 class TestLLType(BaseTestRStruct, LLRtypeMixin):
     pass
 
