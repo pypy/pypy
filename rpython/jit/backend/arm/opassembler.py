@@ -583,7 +583,7 @@ class ResOpAssembler(BaseAssembler):
 
     def emit_op_arraylen_gc(self, op, arglocs, regalloc, fcond):
         res, base_loc, ofs = arglocs
-        self.mc.LDR_ri(res.value, base_loc.value, ofs.value)
+        self.load_reg(self.mc, res, base_loc, ofs.value)
         return fcond
 
     def emit_op_setarrayitem_gc(self, op, arglocs, regalloc, fcond):
