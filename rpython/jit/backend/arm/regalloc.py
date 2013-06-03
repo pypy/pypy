@@ -850,7 +850,7 @@ class Regalloc(BaseRegalloc):
         base_loc = self.make_sure_var_in_reg(op.getarg(0), args)
         index_loc = self.make_sure_var_in_reg(op.getarg(1), args)
         immofs = imm(ofs)
-        ofs_size = default_imm_size if size < 8 else VMEM_imm_size
+        ofs_size = default_imm_size if fieldsize < 8 else VMEM_imm_size
         if check_imm_arg(ofs, size=ofs_size):
             ofs_loc = immofs
         else:
