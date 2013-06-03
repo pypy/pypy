@@ -525,35 +525,9 @@ class ResOpAssembler(BaseAssembler):
 
     def emit_op_setfield_gc(self, op, arglocs, regalloc, fcond):
         value_loc, base_loc, ofs, size = arglocs
-        if size.value == 8:
-            assert value_loc.is_vfp_reg()
-            # vstr only supports imm offsets
-            # so if the ofset is too large we add it to the base and use an
-            # offset of 0
-            if ofs.is_reg():
-                self.mc.ADD_rr(r.ip.value, base_loc.value, ofs.value)
-                base_loc = r.ip
-                ofs = imm(0)
-            else:
-                assert ofs.value % 4 == 0
-            self.mc.VSTR(value_loc.value, base_loc.value, ofs.value)
-        elif size.value == 4:
-            if ofs.is_imm():
-                self.mc.STR_ri(value_loc.value, base_loc.value, ofs.value)
-            else:
-                self.mc.STR_rr(value_loc.value, base_loc.value, ofs.value)
-        elif size.value == 2:
-            if ofs.is_imm():
-                self.mc.STRH_ri(value_loc.value, base_loc.value, ofs.value)
-            else:
-                self.mc.STRH_rr(value_loc.value, base_loc.value, ofs.value)
-        elif size.value == 1:
-            if ofs.is_imm():
-                self.mc.STRB_ri(value_loc.value, base_loc.value, ofs.value)
-            else:
-                self.mc.STRB_rr(value_loc.value, base_loc.value, ofs.value)
-        else:
-            assert 0
+        scale = get_scale(size.value)
+        self._write_to_mem(value_loc, base_loc,
+                                ofs, imm(scale), fcond)
         return fcond
 
     emit_op_setfield_raw = emit_op_setfield_gc
@@ -640,18 +614,50 @@ class ResOpAssembler(BaseAssembler):
     def _write_to_mem(self, value_loc, base_loc, ofs_loc, scale, fcond=c.AL):
         if scale.value == 3:
             assert value_loc.is_vfp_reg()
-            assert ofs_loc.is_reg()
-            self.mc.ADD_rr(r.ip.value, base_loc.value, ofs_loc.value)
-            self.mc.VSTR(value_loc.value, r.ip.value, cond=fcond)
+            # vstr only supports imm offsets
+            # so if the ofset is too large we add it to the base and use an
+            # offset of 0
+            if ofs_loc.is_reg():
+                tmploc, save = self.get_tmp_reg([base_loc, ofs_loc])
+                assert not save
+                self.mc.ADD_rr(tmploc.value, base_loc.value, ofs_loc.value)
+                base_loc = tmploc
+                ofs_loc = imm(0)
+            else:
+                assert ofs_loc.is_imm()
+                # if the ofset is too large for an imm we add it to the base and use an
+                # offset of 0
+                if not check_imm_arg(ofs_loc.value, VMEM_imm_size):
+                    tmploc, save = self.get_tmp_reg([base_loc, ofs_loc])
+                    assert not save
+                    self.mc.gen_load_int(tmploc.value, ofs_loc.value)
+                    self.mc.ADD_rr(tmploc.value, base_loc.value, tmploc.value)
+                    base_loc = tmploc
+                    ofs_loc = imm(0)
+                else:  # sanity check
+                    assert ofs_loc.value % 4 == 0
+            self.mc.VSTR(value_loc.value, base_loc.value, ofs_loc.value)
         elif scale.value == 2:
-            self.mc.STR_rr(value_loc.value, base_loc.value, ofs_loc.value,
-                                                                    cond=fcond)
+            if ofs_loc.is_imm():
+                self.mc.STR_ri(value_loc.value, base_loc.value,
+                                ofs_loc.value, cond=fcond)
+            else:
+                self.mc.STR_rr(value_loc.value, base_loc.value,
+                                ofs_loc.value, cond=fcond)
         elif scale.value == 1:
-            self.mc.STRH_rr(value_loc.value, base_loc.value, ofs_loc.value,
-                                                                    cond=fcond)
+            if ofs_loc.is_imm():
+                self.mc.STRH_ri(value_loc.value, base_loc.value,
+                                ofs_loc.value, cond=fcond)
+            else:
+                self.mc.STRH_rr(value_loc.value, base_loc.value,
+                                ofs_loc.value, cond=fcond)
         elif scale.value == 0:
-            self.mc.STRB_rr(value_loc.value, base_loc.value, ofs_loc.value,
-                                                                    cond=fcond)
+            if ofs_loc.is_imm():
+                self.mc.STRB_ri(value_loc.value, base_loc.value,
+                                ofs_loc.value, cond=fcond)
+            else:
+                self.mc.STRB_rr(value_loc.value, base_loc.value,
+                                ofs_loc.value, cond=fcond)
         else:
             assert 0
 
@@ -697,7 +703,7 @@ class ResOpAssembler(BaseAssembler):
                 assert ofs_loc.is_imm()
                 # if the ofset is too large for an imm we add it to the base and use an
                 # offset of 0
-                if check_imm_arg(ofs_loc.value, VMEM_imm_size):
+                if not check_imm_arg(ofs_loc.value, VMEM_imm_size):
                     tmploc, save = self.get_tmp_reg([base_loc, ofs_loc])
                     assert not save
                     self.mc.gen_load_int(tmploc.value, ofs_loc.value)
