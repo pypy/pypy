@@ -151,6 +151,8 @@ _nameToLevel = {
     'DEBUG': DEBUG,
     'NOTSET': NOTSET,
 }
+_levelNames = dict(_levelToName)
+_levelNames.update(_nameToLevel)   # backward compatibility
 
 def getLevelName(level):
     """

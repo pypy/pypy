@@ -273,7 +273,6 @@ class W_Dtype(W_Root):
 
         fields = space.getitem(w_data, space.wrap(4))
         self.set_fields(space, fields)
-        print self.itemtype
 
 class W_ComplexDtype(W_Dtype):
     def __init__(self, itemtype, num, kind, name, char, w_box_type,

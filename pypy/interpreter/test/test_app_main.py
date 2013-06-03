@@ -607,6 +607,11 @@ class TestInteraction:
 class TestNonInteractive:
     def run_with_status_code(self, cmdline, senddata='', expect_prompt=False,
             expect_banner=False, python_flags='', env=None):
+        if os.name == 'nt':
+            try:
+                import __pypy__
+            except:
+                py.test.skip('app_main cannot run on non-pypy for windows')
         cmdline = '%s %s "%s" %s' % (python3, python_flags,
                                      app_main, cmdline)
         print 'POPEN:', cmdline
@@ -768,6 +773,11 @@ class TestNonInteractive:
         assert 'copyright' not in data
 
     def test_non_interactive_stdout_fully_buffered(self):
+        if os.name == 'nt':
+            try:
+                import __pypy__
+            except:
+                py.test.skip('app_main cannot run on non-pypy for windows')
         path = getscript(r"""
             import sys, time
             sys.stdout.write('\x00(STDOUT)\n\x00')   # stays in buffers
@@ -789,6 +799,11 @@ class TestNonInteractive:
 
     def test_non_interactive_stdout_unbuffered(self, monkeypatch):
         monkeypatch.setenv('PYTHONUNBUFFERED', '1')
+        if os.name == 'nt':
+            try:
+                import __pypy__
+            except:
+                py.test.skip('app_main cannot run on non-pypy for windows')
         path = getscript(r"""
             import sys, time
             sys.stdout.write('\x00(STDOUT)\n\x00')

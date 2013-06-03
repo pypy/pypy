@@ -30,7 +30,7 @@ if long_double_size == 8 and os.name == 'nt':
 def new_dtype_getter(name):
     def _get_dtype(space):
         from pypy.module.micronumpy.interp_dtype import get_dtype_cache
-        return getattr(get_dtype_cache(space), "w_%sdtype" % name)
+        return get_dtype_cache(space).dtypes_by_name[name]
 
     def new(space, w_subtype, w_value):
         dtype = _get_dtype(space)
