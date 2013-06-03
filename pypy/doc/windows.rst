@@ -2,7 +2,7 @@
 PyPy on Windows
 ===============
 
-Pypy is supported on Windows platforms, starting with Windows 2000.
+PyPy is supported on Windows platforms, starting with Windows 2000.
 The following text gives some hints about how to translate the PyPy
 interpreter.
 
