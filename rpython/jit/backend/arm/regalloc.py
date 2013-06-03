@@ -13,7 +13,9 @@ from rpython.jit.backend.arm.helper.regalloc import (prepare_op_by_helper_call,
                                                     prepare_cmp_op,
                                                     prepare_float_op,
                                                     check_imm_arg,
-                                                    check_imm_box
+                                                    check_imm_box,
+                                                    VMEM_imm_size,
+                                                    default_imm_size,
                                                     )
 from rpython.jit.backend.arm.jump import remap_frame_layout_mixed
 from rpython.jit.backend.arm.arch import WORD, JITFRAME_FIXED_SIZE
@@ -811,7 +813,8 @@ class Regalloc(BaseRegalloc):
         ofs, size, sign = unpack_fielddescr(op.getdescr())
         base_loc = self.make_sure_var_in_reg(a0, boxes)
         value_loc = self.make_sure_var_in_reg(a1, boxes)
-        if check_imm_arg(ofs):
+        ofs_size = default_imm_size if size < 8 else VMEM_imm_size
+        if check_imm_arg(ofs, size=ofs_size):
             ofs_loc = imm(ofs)
         else:
             ofs_loc = self.get_scratch_reg(INT, boxes)
@@ -825,7 +828,8 @@ class Regalloc(BaseRegalloc):
         ofs, size, sign = unpack_fielddescr(op.getdescr())
         base_loc = self.make_sure_var_in_reg(a0)
         immofs = imm(ofs)
-        if check_imm_arg(ofs):
+        ofs_size = default_imm_size if size < 8 else VMEM_imm_size
+        if check_imm_arg(ofs, size=ofs_size):
             ofs_loc = immofs
         else:
             ofs_loc = self.get_scratch_reg(INT, [a0])
@@ -846,7 +850,8 @@ class Regalloc(BaseRegalloc):
         base_loc = self.make_sure_var_in_reg(op.getarg(0), args)
         index_loc = self.make_sure_var_in_reg(op.getarg(1), args)
         immofs = imm(ofs)
-        if check_imm_arg(ofs):
+        ofs_size = default_imm_size if size < 8 else VMEM_imm_size
+        if check_imm_arg(ofs, size=ofs_size):
             ofs_loc = immofs
         else:
             ofs_loc = self.get_scratch_reg(INT, args)
@@ -865,7 +870,8 @@ class Regalloc(BaseRegalloc):
         index_loc = self.make_sure_var_in_reg(op.getarg(1), args)
         value_loc = self.make_sure_var_in_reg(op.getarg(2), args)
         immofs = imm(ofs)
-        if check_imm_arg(ofs):
+        ofs_size = default_imm_size if fieldsize < 8 else VMEM_imm_size
+        if check_imm_arg(ofs, size=ofs_size):
             ofs_loc = immofs
         else:
             ofs_loc = self.get_scratch_reg(INT, args)
@@ -890,8 +896,8 @@ class Regalloc(BaseRegalloc):
         scale = get_scale(size)
         args = op.getarglist()
         base_loc = self.make_sure_var_in_reg(args[0], args)
-        ofs_loc = self.make_sure_var_in_reg(args[1], args)
         value_loc = self.make_sure_var_in_reg(args[2], args)
+        ofs_loc = self.make_sure_var_in_reg(args[1], args)
         assert check_imm_arg(ofs)
         return [value_loc, base_loc, ofs_loc, imm(scale), imm(ofs)]
     prepare_op_setarrayitem_raw = prepare_op_setarrayitem_gc

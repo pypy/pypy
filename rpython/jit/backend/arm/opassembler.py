@@ -567,28 +567,17 @@ class ResOpAssembler(BaseAssembler):
     def emit_op_setinteriorfield_gc(self, op, arglocs, regalloc, fcond):
         (base_loc, index_loc, value_loc,
             ofs_loc, ofs, itemsize, fieldsize) = arglocs
-        self.mc.gen_load_int(r.ip.value, itemsize.value)
-        self.mc.MUL(r.ip.value, index_loc.value, r.ip.value)
+        scale = get_scale(fieldsize.value)
+        tmploc, save = self.get_tmp_reg([base_loc, index_loc, value_loc, ofs_loc])
+        assert not save
+        self.mc.gen_load_int(tmploc.value, itemsize.value)
+        self.mc.MUL(tmploc.value, index_loc.value, tmploc.value)
         if ofs.value > 0:
             if ofs_loc.is_imm():
-                self.mc.ADD_ri(r.ip.value, r.ip.value, ofs_loc.value)
+                self.mc.ADD_ri(tmploc.value, tmploc.value, ofs_loc.value)
             else:
-                self.mc.ADD_rr(r.ip.value, r.ip.value, ofs_loc.value)
-        if fieldsize.value == 8:
-            # vstr only supports imm offsets
-            # so if the ofset is too large we add it to the base and use an
-            # offset of 0
-            assert value_loc.is_vfp_reg()
-            self.mc.ADD_rr(r.ip.value, base_loc.value, r.ip.value)
-            self.mc.VSTR(value_loc.value, r.ip.value, 0)
-        elif fieldsize.value == 4:
-            self.mc.STR_rr(value_loc.value, base_loc.value, r.ip.value)
-        elif fieldsize.value == 2:
-            self.mc.STRH_rr(value_loc.value, base_loc.value, r.ip.value)
-        elif fieldsize.value == 1:
-            self.mc.STRB_rr(value_loc.value, base_loc.value, r.ip.value)
-        else:
-            assert 0
+                self.mc.ADD_rr(tmploc.value, tmploc.value, ofs_loc.value)
+        self._write_to_mem(value_loc, base_loc, tmploc, imm(scale), fcond)
         return fcond
     emit_op_setinteriorfield_raw = emit_op_setinteriorfield_gc
 
@@ -618,24 +607,14 @@ class ResOpAssembler(BaseAssembler):
             # so if the ofset is too large we add it to the base and use an
             # offset of 0
             if ofs_loc.is_reg():
-                tmploc, save = self.get_tmp_reg([base_loc, ofs_loc])
+                tmploc, save = self.get_tmp_reg([value_loc, base_loc, ofs_loc])
                 assert not save
                 self.mc.ADD_rr(tmploc.value, base_loc.value, ofs_loc.value)
                 base_loc = tmploc
                 ofs_loc = imm(0)
             else:
                 assert ofs_loc.is_imm()
-                # if the ofset is too large for an imm we add it to the base and use an
-                # offset of 0
-                if not check_imm_arg(ofs_loc.value, VMEM_imm_size):
-                    tmploc, save = self.get_tmp_reg([base_loc, ofs_loc])
-                    assert not save
-                    self.mc.gen_load_int(tmploc.value, ofs_loc.value)
-                    self.mc.ADD_rr(tmploc.value, base_loc.value, tmploc.value)
-                    base_loc = tmploc
-                    ofs_loc = imm(0)
-                else:  # sanity check
-                    assert ofs_loc.value % 4 == 0
+                assert ofs_loc.value % 4 == 0
             self.mc.VSTR(value_loc.value, base_loc.value, ofs_loc.value)
         elif scale.value == 2:
             if ofs_loc.is_imm():
@@ -701,17 +680,7 @@ class ResOpAssembler(BaseAssembler):
                 ofs_loc = imm(0)
             else:
                 assert ofs_loc.is_imm()
-                # if the ofset is too large for an imm we add it to the base and use an
-                # offset of 0
-                if not check_imm_arg(ofs_loc.value, VMEM_imm_size):
-                    tmploc, save = self.get_tmp_reg([base_loc, ofs_loc])
-                    assert not save
-                    self.mc.gen_load_int(tmploc.value, ofs_loc.value)
-                    self.mc.ADD_rr(tmploc.value, base_loc.value, tmploc.value)
-                    base_loc = tmploc
-                    ofs_loc = imm(0)
-                else:  # sanity check
-                    assert ofs_loc.value % 4 == 0
+                assert ofs_loc.value % 4 == 0
             self.mc.VLDR(res_loc.value, base_loc.value, ofs_loc.value, cond=fcond)
         elif scale.value == 2:
             if ofs_loc.is_imm():
