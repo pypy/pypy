@@ -434,8 +434,11 @@ class StringMethods(object):
         return space.wrap(value)
 
     def descr_lower(self, space):
-        self = self._value
-        return space.wrap(self.lower())
+        value = self._val()
+        builder = self._builder(len(value))
+        for i in range(len(value)):
+            builder.append(self._lower(value[i]))
+        return self._new(builder.build())
 
     def descr_partition(self, space, w_sub):
         value = self._val()
@@ -822,8 +825,11 @@ class StringMethods(object):
         return self._new(buf.build())
 
     def descr_upper(self, space):
-        self = self._value
-        return space.wrap(self.upper())
+        value = self._val()
+        builder = self._builder(len(value))
+        for i in range(len(value)):
+            builder.append(self._upper(value[i]))
+        return self._new(builder.build())
 
     @unwrap_spec(width=int)
     def descr_zfill(self, space, width):

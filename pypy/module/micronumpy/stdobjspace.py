@@ -7,5 +7,5 @@ def delegate_stringbox2stringobj(space, w_box):
 
 def register_delegates(typeorder):
     typeorder[interp_boxes.W_StringBox] = [
-        (bytesobject.W_StringObject, delegate_stringbox2stringobj),
+        (bytesobject.W_BytesObject, delegate_stringbox2stringobj),
     ]
