@@ -1,4 +1,5 @@
 from rpython.rlib.rstring import StringBuilder
+from rpython.rlib.objectmodel import specialize
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter import unicodehelper
@@ -43,7 +44,8 @@ class JSONDecoder(object):
                 self.next()
             else:
                 break
-            
+
+    @specialize.arg(1)
     def _raise(self, msg, *args):
         raise operationerrfmt(self.space.w_ValueError, msg, *args)
 
