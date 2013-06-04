@@ -89,6 +89,27 @@ class W_UnicodeObject(W_Object, StringMethods):
 
     _builder = UnicodeBuilder
 
+    def _isupper(self, ch):
+        return ch.isupper()
+
+    def _islower(self, ch):
+        return ch.islower()
+
+    def _istitle(self, ch):
+        return ch.istitle()
+
+    def _isspace(self, ch):
+        return ch.isspace()
+
+    def _isalpha(self, ch):
+        return ch.isalpha()
+
+    def _isalnum(self, ch):
+        return ch.isalnum()
+
+    def _isdigit(self, ch):
+        return ch.isdigit()
+
     def _upper(self, ch):
         return unichr(unicodedb.toupper(ord(ch)))
 

@@ -9,12 +9,6 @@ from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rlib.rstring import split
 
 
-_isspace = lambda c: c.isspace()
-_isdigit = lambda c: c.isdigit()
-_isalpha = lambda c: c.isalpha()
-_isalnum = lambda c: c.isalnum()
-
-
 class StringMethods(object):
     _mixin_ = True
 
@@ -296,13 +290,13 @@ class StringMethods(object):
         return space.w_True
 
     def descr_isalnum(self, space):
-        return self._is_generic(space, _isalnum)
+        return self._is_generic(space, self._isalnum)
 
     def descr_isalpha(self, space):
-        return self._is_generic(space, _isalpha)
+        return self._is_generic(space, self._isalpha)
 
     def descr_isdigit(self, space):
-        return self._is_generic(space, _isdigit)
+        return self._is_generic(space, self._isdigit)
 
     def descr_islower(self, space):
         v = self._value
@@ -318,7 +312,7 @@ class StringMethods(object):
         return space.newbool(cased)
 
     def descr_isspace(self, space):
-        return self._is_generic(space, _isspace)
+        return self._is_generic(space, self._isspace)
 
     def descr_istitle(self, space):
         input = self._value
@@ -769,19 +763,14 @@ class StringMethods(object):
         return self._strip(space, w_chars, left=0, right=1)
 
     def descr_swapcase(self, space):
-        # XXX just to pass the test
-        return space.wrap(self._val().swapcase())
-
-        selfvalue = self._value
+        selfvalue = self._val()
         builder = self._builder(len(selfvalue))
         for i in range(len(selfvalue)):
             ch = selfvalue[i]
-            if ch.isupper():
-                o = ord(ch) + 32
-                builder.append(chr(o))
-            elif ch.islower():
-                o = ord(ch) - 32
-                builder.append(chr(o))
+            if self._isupper(ch):
+                builder.append(self._lower(ch))
+            elif self._islower(ch):
+                builder.append(self._upper(ch))
             else:
                 builder.append(ch)
         return space.wrap(builder.build())
