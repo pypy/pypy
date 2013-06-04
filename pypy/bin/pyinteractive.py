@@ -27,7 +27,8 @@ cmdline_optiondescr = OptionDescription("interactive", "the options of pyinterac
     BoolOption("completer", "use readline commandline completer",
                default=False, cmdline="-C"),
     BoolOption("optimize",
-               "skip assert statements and remove docstrings when importing modules",
+               "skip assert statements and remove docstrings when importing modules"
+               " (this is -OO in regular CPython)",
                default=False, cmdline="-O"),
     BoolOption("no_site_import", "do not 'import site' on initialization",
                default=False, cmdline="-S"),
