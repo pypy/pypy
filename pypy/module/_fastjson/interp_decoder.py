@@ -72,7 +72,7 @@ class JSONDecoder(object):
             self.last_type = TYPE_UNKNOWN
             w_name = self.decode_any()
             if self.last_type != TYPE_STRING:
-                self._raise("Key name must be string")
+                self._raise("Key name must be string for object starting at char %d", start)
             self.skip_whitespace()
             ch = self.next()
             if ch != ':':
