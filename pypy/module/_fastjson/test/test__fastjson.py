@@ -68,3 +68,15 @@ class AppTest(object):
         import _fastjson
         s = r'"\u1234"'
         assert _fastjson.loads(s) == u'\u1234'
+
+    def test_decode_object(self):
+        import _fastjson
+        assert _fastjson.loads('{}') == {}
+        #
+        s = '{"hello": "world", "aaa": "bbb"}'
+        assert _fastjson.loads(s) == {'hello': 'world',
+                                      'aaa': 'bbb'}
+
+    def test_decode_object_nonstring_key(self):
+        pass # write me when we have numbers
+    
