@@ -3,7 +3,7 @@
 # See test/test_app_main.
 
 # Missing vs CPython: -d, -t, -v, -x, -3
-"""\
+USAGE1 = __doc__ = """\
 Options and arguments (and corresponding environment variables):
 -B     : don't write .py[co] files on import; also PYTHONDONTWRITEBYTECODE=x
 -c cmd : program passed in as string (terminates option list)
@@ -28,7 +28,6 @@ arg ...: arguments passed to program in sys.argv[1:]
 PyPy options and arguments:
 --info : print translation information about this PyPy executable
 """
-USAGE1 = __doc__
 # Missing vs CPython: PYTHONHOME, PYTHONCASEOK
 USAGE2 = """
 Other environment variables:
@@ -157,12 +156,13 @@ def print_info(*args):
     raise SystemExit
 
 def print_help(*args):
-    print 'usage: %s [options] [-c cmd|-m mod|file.py|-] [arg...]' % (
+    import os
+    print 'usage: %s [option] ... [-c cmd | -m mod | file | -] [arg] ...' % (
         sys.executable,)
-    print __doc__.rstrip()
+    print USAGE1,
     if 'pypyjit' in sys.builtin_module_names:
-        print "  --jit OPTIONS  advanced JIT options: try 'off' or 'help'"
-    print
+        print "--jit options: advanced JIT options: try 'off' or 'help'"
+    print (USAGE2 % (os.pathsep,)),
     raise SystemExit
 
 def _print_jit_help():
