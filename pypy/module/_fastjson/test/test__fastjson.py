@@ -64,3 +64,7 @@ class AppTest(object):
         s = r'"hello\nworld' # missing the trailing "
         raises(ValueError, "_fastjson.loads(s)")
         
+    def test_escape_sequence_unicode(self):
+        import _fastjson
+        s = r'"\u1234"'
+        assert _fastjson.loads(s) == u'\u1234'

@@ -81,29 +81,44 @@ class JSONDecoder(object):
                 self.last_type = TYPE_STRING
                 return self.space.wrap(content_unicode)
             elif ch == '\\':
-                ch = self.decode_escape_sequence()
-                builder.append_multiple_char(ch, 1) # we should implement append_char
+                self.decode_escape_sequence(builder)
             else:
-                builder.append_multiple_char(ch, 1)
+                builder.append_multiple_char(ch, 1) # we should implement append_char
             
         raise operationerrfmt(self.space.w_ValueError,
                               "Unterminated string starting at char %d", start)
 
-    def decode_escape_sequence(self):
+    def decode_escape_sequence(self, builder):
+        put = builder.append_multiple_char
         ch = self.next()
-        if ch == '\\':  return '\\'
-        elif ch == '"': return '"'
-        elif ch == '/': return '/'
-        elif ch == 'b': return '\b'
-        elif ch == 'f': return '\f'
-        elif ch == 'n': return '\n'
-        elif ch == 'r': return '\r'
-        elif ch == 't': return '\t'
+        if ch == '\\':  put('\\', 1)
+        elif ch == '"': put('"' , 1)
+        elif ch == '/': put('/' , 1)
+        elif ch == 'b': put('\b', 1)
+        elif ch == 'f': put('\f', 1)
+        elif ch == 'n': put('\n', 1)
+        elif ch == 'r': put('\r', 1)
+        elif ch == 't': put('\t', 1)
         elif ch == 'u':
-            assert False, 'not implemented yet'
+            return self.decode_escape_sequence_unicode(builder)
         else:
             raise operationerrfmt(self.space.w_ValueError,
                                   "Invalid \\escape: %s (char %d)", ch, self.i-1)
+
+    def decode_escape_sequence_unicode(self, builder):
+        # at this point we are just after the 'u' of the \u1234 sequence.
+        hexdigits = self.getslice(self.i, self.i+4)
+        self.i += 4
+        try:
+            uchr = unichr(int(hexdigits, 16))
+        except ValueError:
+            raise operationerrfmt(self.space.w_ValueError,
+                                  "Invalid \uXXXX escape (char %d)", self.i-1)
+        #
+        utf8_ch = unicodehelper.encode_utf8(self.space, uchr)
+        builder.append(utf8_ch)
+
+
 
 @unwrap_spec(s=str)
 def loads(space, s):
