@@ -28,7 +28,9 @@ class JSONDecoder(object):
         return ch
 
     def unget(self):
-        self.i -= 1
+        i2 = self.i - 1
+        assert i2 > 0 # so that we can use self.i as slice start
+        self.i = i2
 
     def getslice(self, start, end):
         assert end > 0
@@ -43,7 +45,7 @@ class JSONDecoder(object):
                 break
             
     def _raise(self, msg, *args):
-        raise operationerrfmt(self.w_ValueError, msg, *args)
+        raise operationerrfmt(self.space.w_ValueError, msg, *args)
 
     def decode_any(self):
         self.skip_whitespace()
