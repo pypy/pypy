@@ -19,14 +19,21 @@ def test_skip_whitespace():
 class AppTest(object):
     spaceconfig = {"objspace.usemodules._fastjson": True}
 
-    def test_load_string(self):
+    def test_decode_string(self):
         import _fastjson
         res = _fastjson.loads('"hello"')
         assert res == u'hello'
         assert type(res) is unicode
 
-    def test_load_string_utf8(self):
+    def test_decode_string_utf8(self):
         import _fastjson
         s = u'àèìòù'
         res = _fastjson.loads('"%s"' % s.encode('utf-8'))
         assert res == s
+
+    def test_skip_whitespace(self):
+        import _fastjson
+        s = '   "hello"   '
+        assert _fastjson.loads(s) == u'hello'
+        s = '   "hello"   extra'
+        raises(ValueError, "_fastjson.loads(s)")

@@ -1,4 +1,4 @@
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter import unicodehelper
 
@@ -60,6 +60,10 @@ class JSONDecoder(object):
 @unwrap_spec(s=str)
 def loads(space, s):
     decoder = JSONDecoder(space, s)
-    return decoder.decode_any()
-
-
+    w_res = decoder.decode_any()
+    decoder.skip_whitespace()
+    if not decoder.eof():
+        start = decoder.i
+        end = len(decoder.s)
+        raise operationerrfmt(space.w_ValueError, "Extra data: char %d - %d", start, end)
+    return w_res
