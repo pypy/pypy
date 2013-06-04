@@ -29,7 +29,7 @@ class InstanceMethod(W_Root):
 
     def descr_repr(self, space):
         return self.getrepr(space, u'<instancemethod %s>' %
-                            (space.getname(self.w_function),))
+                            (self.w_function.getname(space),))
 
 InstanceMethod.typedef = TypeDef("instancemethod",
     __new__ = interp2app(InstanceMethod.descr_new),
