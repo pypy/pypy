@@ -81,10 +81,10 @@ class JSONDecoder(object):
                 self.last_type = TYPE_STRING
                 return self.space.wrap(content_unicode)
             elif ch == '\\':
-                newchar = self.decode_escape_sequence()
-                builder.append_multiple_char(newchar, 1) # we should implement append_char
+                ch = self.decode_escape_sequence()
+                builder.append_multiple_char(ch, 1) # we should implement append_char
             else:
-                builder.append_multiple_char(newchar, 1)
+                builder.append_multiple_char(ch, 1)
             
         raise operationerrfmt(self.space.w_ValueError,
                               "Unterminated string starting at char %d", start)

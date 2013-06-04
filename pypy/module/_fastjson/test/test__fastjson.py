@@ -53,3 +53,8 @@ class AppTest(object):
         assert _fastjson.loads(r'"\n"') == u'\n'
         assert _fastjson.loads(r'"\r"') == u'\r'
         assert _fastjson.loads(r'"\t"') == u'\t'
+
+    def test_escape_sequence_in_the_middle(self):
+        import _fastjson
+        s = r'"hello\nworld"'
+        assert _fastjson.loads(s) == "hello\nworld"
