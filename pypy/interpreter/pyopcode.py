@@ -876,9 +876,9 @@ class __extend__(pyframe.PyFrame):
         self.popvalue()
         return next_instr
 
-    def JUMP_IF_NOT_DEBUG(self, target, next_instr):
+    def JUMP_IF_NOT_DEBUG(self, jumpby, next_instr):
         if not self.space.sys.debug:
-            return target
+            next_instr += jumpby
         return next_instr
 
     def GET_ITER(self, oparg, next_instr):
