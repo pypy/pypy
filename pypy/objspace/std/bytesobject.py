@@ -96,6 +96,20 @@ class W_BytesObject(W_AbstractBytesObject, StringMethods):
 
     _builder = StringBuilder
 
+    def _upper(self, ch):
+        if ch.islower():
+            o = ord(ch) - 32
+            return chr(o)
+        else:
+            return ch
+
+    def _lower(self, ch):
+        if ch.isupper():
+            o = ord(ch) + 32
+            return chr(o)
+        else:
+            return ch
+
     @staticmethod
     @unwrap_spec(w_object = WrappedDefault(""))
     def descr_new(space, w_stringtype, w_object):

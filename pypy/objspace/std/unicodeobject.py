@@ -89,6 +89,12 @@ class W_UnicodeObject(W_Object, StringMethods):
 
     _builder = UnicodeBuilder
 
+    def _upper(self, ch):
+        return unichr(unicodedb.toupper(ord(ch)))
+
+    def _lower(self, ch):
+        return unichr(unicodedb.tolower(ord(ch)))
+
     def descr_repr(self, space):
         chars = self._value
         size = len(chars)

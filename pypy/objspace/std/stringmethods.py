@@ -27,20 +27,6 @@ class StringMethods(object):
     def _val(self):
         raise NotImplementedError
 
-    def _upper(self, ch):
-        if ch.islower():
-            o = ord(ch) - 32
-            return chr(o)
-        else:
-            return ch
-
-    def _lower(self, ch):
-        if ch.isupper():
-            o = ord(ch) + 32
-            return chr(o)
-        else:
-            return ch
-
     def _sliced(self, space, s, start, stop, orig_obj):
         assert start >= 0
         assert stop >= 0
@@ -174,27 +160,14 @@ class StringMethods(object):
             return self._sliced(space, selfvalue, start, stop, self)
 
     def descr_capitalize(self, space):
-        # XXX just to pass the test
-        return self._new(self._val().capitalize())
+        value = self._val()
+        if len(value) == 0:
+            return self.EMPTY
 
-        input = self._value
-        builder = self._builder(len(input))
-        if len(input) > 0:
-            ch = input[0]
-            if ch.islower():
-                o = ord(ch) - 32
-                builder.append(chr(o))
-            else:
-                builder.append(ch)
-
-            for i in range(1, len(input)):
-                ch = input[i]
-                if ch.isupper():
-                    o = ord(ch) + 32
-                    builder.append(chr(o))
-                else:
-                    builder.append(ch)
-
+        builder = self._builder(len(value))
+        builder.append(self._upper(value[0]))
+        for i in range(1, len(value)):
+            builder.append(self._lower(value[i]))
         return space.wrap(builder.build())
 
     @unwrap_spec(width=int, w_fillchar=WrappedDefault(' '))
