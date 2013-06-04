@@ -10,13 +10,13 @@ def descr__repr__(space, w_obj):
     w_module = w_type.lookup("__module__")
     if w_module is not None:
         try:
-            modulename = space.str_w(w_module)
+            modulename = space.unicode_w(w_module)
         except OperationError, e:
             if not e.match(space, space.w_TypeError):
                 raise
         else:
-            classname = '%s.%s' % (modulename, classname)
-    return w_obj.getrepr(space, '%s object' % (classname,))
+            classname = u'%s.%s' % (modulename, classname)
+    return w_obj.getrepr(space, u'%s object' % (classname,))
 
 def descr__str__(space, w_obj):
     w_type = space.type(w_obj)

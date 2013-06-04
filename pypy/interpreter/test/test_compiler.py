@@ -844,6 +844,14 @@ class AppTestCompiler:
         c = compile('from os import 日本', '', 'exec')
         assert ('日本',) in c.co_consts
 
+    def test_class_nonascii(self):
+        """
+        class 日本:
+            pass
+        assert 日本.__name__ == '日本'
+        assert '日本' in repr(日本)
+        """
+
     def test_cpython_issue2301(self):
         skip('XXX')
         try:

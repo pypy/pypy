@@ -126,7 +126,7 @@ def test_wrap_oserror():
 
 def test_new_exception(space):
     w_error = new_exception_class(space, '_socket.error')
-    assert w_error.getname(space) == 'error'
+    assert w_error.getname(space) == u'error'
     assert space.str_w(space.repr(w_error)) == "<class '_socket.error'>"
     operr = OperationError(w_error, space.wrap("message"))
     assert operr.match(space, w_error)

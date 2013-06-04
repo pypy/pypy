@@ -201,27 +201,28 @@ def create_spec_for_method(space, w_function, w_type):
         w_realclass, _ = space.lookup_in_type_where(w_type, name)
         if isinstance(w_realclass, W_TypeObject):
             class_name = w_realclass.get_module_type_name()
-    return "{method '%s' of '%s' objects}" % (name, class_name)
+    return u"{method '%s' of '%s' objects}" % (name.decode('utf-8'),
+                                               class_name)
 
 
 @jit.elidable_promote()
 def create_spec_for_function(space, w_func):
     if w_func.w_module is None:
-        module = ''
+        module = u''
     else:
-        module = space.str_w(w_func.w_module)
-        if module == 'builtins':
-            module = ''
+        module = space.unicode_w(w_func.w_module)
+        if module == u'builtins':
+            module = u''
         else:
-            module += '.'
-    pre = 'built-in function ' if isinstance(w_func, BuiltinFunction) else ''
-    return '{%s%s%s}' % (pre, module, w_func.name)
+            module += u'.'
+    pre = u'built-in function ' if isinstance(w_func, BuiltinFunction) else u''
+    return u'{%s%s%s}' % (pre, module, w_func.getname(space))
 
 
 @jit.elidable_promote()
 def create_spec_for_object(space, w_obj):
     class_name = space.type(w_obj).getname(space)
-    return "{'%s' object}" % (class_name,)
+    return u"{'%s' object}" % (class_name,)
 
 
 def create_spec(space, w_arg):

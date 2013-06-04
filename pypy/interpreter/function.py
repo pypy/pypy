@@ -245,7 +245,8 @@ class Function(W_Root):
         return self.call_args(__args__)
 
     def descr_function_repr(self):
-        return self.getrepr(self.space, 'function %s' % (self.name,))
+        return self.getrepr(self.space, u'function %s' %
+                            (self.name.decode('utf-8'),))
 
     # delicate
     _all = {'': None}
@@ -390,7 +391,7 @@ class Function(W_Root):
         self.w_doc = w_doc
 
     def fget_func_name(self, space):
-        return space.wrap(self.name)
+        return space.wrap(self.name.decode('utf-8'))
 
     def fset_func_name(self, space, w_name):
         try:
@@ -492,7 +493,7 @@ class Method(W_Root):
         return space.wrap(method)
 
     def __repr__(self):
-        return "bound method %s" % (self.w_function.getname(self.space),)
+        return u"bound method %s" % (self.w_function.getname(self.space),)
 
     def call_args(self, args):
         space = self.space
@@ -509,8 +510,8 @@ class Method(W_Root):
         name = self.w_function.getname(self.space)
         w_class = space.type(self.w_instance)
         typename = w_class.getname(self.space)
-        objrepr = space.str_w(space.repr(self.w_instance))
-        s = '<bound method %s.%s of %s>' % (typename, name, objrepr)
+        objrepr = space.unicode_w(space.repr(self.w_instance))
+        s = u'<bound method %s.%s of %s>' % (typename, name, objrepr)
         return space.wrap(s)
 
     def descr_method_getattribute(self, w_attr):

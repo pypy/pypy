@@ -483,14 +483,14 @@ class W_TypeObject(W_Object):
     def get_module_type_name(w_self):
         space = w_self.space
         w_mod = w_self.get_module()
-        if not space.isinstance_w(w_mod, space.w_str):
-            mod = 'builtins'
+        if not space.isinstance_w(w_mod, space.w_unicode):
+            mod = u'builtins'
         else:
-            mod = space.str_w(w_mod)
-        if mod != 'builtins':
-            return '%s.%s' % (mod, w_self.name)
+            mod = space.unicode_w(w_mod)
+        if mod != u'builtins':
+            return u'%s.%s' % (mod, w_self.name.decode('utf-8'))
         else:
-            return w_self.name
+            return w_self.name.decode('utf-8')
 
     def add_subclass(w_self, w_subclass):
         space = w_self.space
@@ -622,7 +622,7 @@ def _check(space, w_type, w_msg=None):
 
 def descr_get__name__(space, w_type):
     w_type = _check(space, w_type)
-    return space.wrap(w_type.name)
+    return space.wrap(w_type.name.decode('utf-8'))
 
 def descr_set__name__(space, w_type, w_value):
     w_type = _check(space, w_type)
@@ -1217,7 +1217,7 @@ def mro_error(space, orderlists):
     cycle.reverse()
     names = [cls.getname(space) for cls in cycle]
     raise OperationError(space.w_TypeError,
-        space.wrap("cycle among base classes: " + ' < '.join(names)))
+        space.wrap(u"cycle among base classes: " + u' < '.join(names)))
 
 # ____________________________________________________________
 

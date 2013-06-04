@@ -138,6 +138,14 @@ class AppTestFunctionIntrospection:
             __name__ = "bar"
             assert f.__module__ == "foo"''')
 
+    def test_func_nonascii(self):
+        """
+        def 日本():
+            pass
+        assert repr(日本).startswith('<function 日本 at ')
+        assert 日本.__name__ == '日本'
+        """
+
 
 class AppTestFunction:
     def test_simple_call(self):

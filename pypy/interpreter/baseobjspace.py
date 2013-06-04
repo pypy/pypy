@@ -77,11 +77,12 @@ class W_Root(object):
         raise NotImplementedError("only for interp-level user subclasses "
                                   "from typedef.py")
 
-    def getname(self, space, default='?'):
+    def getname(self, space, default=u'?'):
         try:
-            return space.str_w(space.getattr(self, space.wrap('__name__')))
+            return space.unicode_w(space.getattr(self, space.wrap('__name__')))
         except OperationError, e:
-            if e.match(space, space.w_TypeError) or e.match(space, space.w_AttributeError):
+            if (e.match(space, space.w_TypeError) or
+                e.match(space, space.w_AttributeError)):
                 return default
             raise
 
@@ -104,10 +105,9 @@ class W_Root(object):
             w_id = space.rshift(w_id, w_4)
         return ''.join(addrstring)
 
-    def getrepr(self, space, info, moreinfo=''):
-        addrstring = self.getaddrstring(space)
-        return space.wrap("<%s at 0x%s%s>" % (info, addrstring,
-                                              moreinfo))
+    def getrepr(self, space, info, moreinfo=u''):
+        addrstring = unicode(self.getaddrstring(space))
+        return space.wrap(u"<%s at 0x%s%s>" % (info, addrstring, moreinfo))
 
     def getslotvalue(self, index):
         raise NotImplementedError

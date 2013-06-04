@@ -64,8 +64,9 @@ class W_BaseConnection(W_Root):
         return space.newbool(bool(self.flags & WRITABLE))
 
     def _repr(self, space, handle):
-        conn_type = ["read-only", "write-only", "read-write"][self.flags - 1]
-        return space.wrap("<%s %s, handle %d>" % (
+        index = self.flags - 1
+        conn_type = [u"read-only", u"write-only", u"read-write"][index]
+        return space.wrap(u"<%s %s, handle %d>" % (
                 conn_type, space.type(self).getname(space), handle))
 
     def descr_repr(self, space):

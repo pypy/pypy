@@ -106,7 +106,7 @@ def get_strategy_from_list_objects(space, list_w, sizehint):
 
 def _get_printable_location(w_type):
     return ('list__do_extend_from_iterable [w_type=%s]' %
-            w_type.getname(w_type.space))
+            w_type.getname(w_type.space).encode('utf-8'))
 
 
 _do_extend_jitdriver = jit.JitDriver(

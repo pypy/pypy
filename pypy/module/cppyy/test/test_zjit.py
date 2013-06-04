@@ -61,7 +61,7 @@ class FakeType(FakeBase):
         self.name = name
         self.__name__ = name
     def getname(self, space, name):
-        return self.name
+        return unicode(self.name)
 class FakeBuffer(FakeBase):
     typedname = "buffer"
     def __init__(self, val):
