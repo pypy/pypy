@@ -436,7 +436,7 @@ class TestRegallocPush(BaseMovTest):
         self.push(sf, e)
 
     def test_push_large_stackfloat(self):
-        sf = stack_float(100)
+        sf = stack_float(1000)
         e = [
             mi('gen_load_int', ip.value, sf.value, cond=AL),
             mi('ADD_rr', ip.value, fp.value, ip.value, cond=AL),
