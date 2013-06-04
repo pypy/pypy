@@ -1805,7 +1805,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         from cPickle import loads, dumps
         import numpypy as numpy
 
-        a = numpy.arange(10.)[::2]
+        a = numpy.arange(10.).reshape((5, 2))[::2]
         assert (loads(dumps(a)) == a).all()
 
 class AppTestMultiDim(BaseNumpyAppTest):
