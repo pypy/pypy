@@ -117,6 +117,8 @@ class W_BytesObject(W_AbstractBytesObject, StringMethods):
     def _isdigit(self, ch):
         return ch.isdigit()
 
+    _iscased = _isalpha
+
     def _upper(self, ch):
         if ch.islower():
             o = ord(ch) - 32

@@ -776,22 +776,19 @@ class StringMethods(object):
         return space.wrap(builder.build())
 
     def descr_title(self, space):
-        # XXX just to pass the test
-        return space.wrap(self._val().title())
-
         selfval = self._val()
         if len(selfval) == 0:
             return self
 
         builder = self._builder(len(selfval))
-        prev_letter = ' '
-        for pos in range(len(input)):
-            ch = input[pos]
-            if not prev_letter.isalpha():
+        previous_is_cased = False
+        for pos in range(len(selfval)):
+            ch = selfval[pos]
+            if not previous_is_cased:
                 builder.append(self._upper(ch))
             else:
                 builder.append(self._lower(ch))
-            prev_letter = ch
+            previous_is_cased = self._iscased(ch)
         return space.wrap(builder.build())
 
     DEFAULT_NOOP_TABLE = ''.join([chr(i) for i in range(256)])

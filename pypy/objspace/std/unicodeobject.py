@@ -110,6 +110,9 @@ class W_UnicodeObject(W_Object, StringMethods):
     def _isdigit(self, ch):
         return ch.isdigit()
 
+    def _iscased(self, ch):
+        return unicodedb.iscased(ord(ch))
+
     def _upper(self, ch):
         return unichr(unicodedb.toupper(ord(ch)))
 
