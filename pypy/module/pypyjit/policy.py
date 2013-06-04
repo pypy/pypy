@@ -118,7 +118,7 @@ class PyPyJitPolicy(JitPolicy):
     def look_inside_function(self, func):
         mod = func.__module__ or '?'
 
-        if mod == 'rpython.rlib.rbigint' or mod == 'rpython.rlib.rlocale' or mod == 'rpython.rlib.rsocket':
+        if mod == 'rpython.rlib.rlocale' or mod == 'rpython.rlib.rsocket':
             return False
         if mod.startswith('pypy.interpreter.astcompiler.'):
             return False

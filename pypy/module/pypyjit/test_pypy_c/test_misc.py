@@ -74,7 +74,6 @@ class TestMisc(BaseTestPyPyC):
             jump(..., descr=...)
         """)
 
-
     def test_mixed_type_loop(self):
         def main(n):
             i = 0.0
@@ -93,7 +92,6 @@ class TestMisc(BaseTestPyPyC):
             --TICK--
             jump(..., descr=...)
         """)
-
 
     def test_cached_pure_func_of_equal_fields(self):
         def main(n):
@@ -196,7 +194,6 @@ class TestMisc(BaseTestPyPyC):
             jump(..., descr=...)
         """)
 
-
     def test_chain_of_guards(self):
         src = """
         class A(object):
@@ -219,7 +216,6 @@ class TestMisc(BaseTestPyPyC):
         assert log.result == 500*3
         loops = log.loops_by_filename(self.filepath)
         assert len(loops) == 1
-
 
     def test_unpack_iterable_non_list_tuple(self):
         def main(n):
@@ -258,7 +254,6 @@ class TestMisc(BaseTestPyPyC):
             jump(..., descr=...)
         """)
 
-
     def test_dont_trace_every_iteration(self):
         def main(a, b):
             i = sa = 0
@@ -289,7 +284,6 @@ class TestMisc(BaseTestPyPyC):
         assert log.result == 300 * (-10 % -20)
         assert log.jit_summary.tracing_no == 1
 
-
     def test_overflow_checking(self):
         """
         This test only checks that we get the expected result, not that any
@@ -298,7 +292,8 @@ class TestMisc(BaseTestPyPyC):
         def main():
             import sys
             def f(a,b):
-                if a < 0: return -1
+                if a < 0:
+                    return -1
                 return a-b
             #
             total = sys.maxint - 2147483647
@@ -308,7 +303,6 @@ class TestMisc(BaseTestPyPyC):
             return total
         #
         self.run_and_check(main, [])
-
 
     def test_global(self):
         log = self.run("""
@@ -404,3 +398,14 @@ class TestMisc(BaseTestPyPyC):
         # the following assertion fails if the loop was cancelled due
         # to "abort: vable escape"
         assert len(log.loops_by_id("exc_info")) == 1
+
+    def test_long_comparison(self):
+        def main(n):
+            while n:
+                12345L > 123L  # ID: long_op
+                n -= 1
+
+        log = self.run(main, [300])
+        loop, = log.loops_by_id("long_op")
+        assert log.match("""
+        """)
