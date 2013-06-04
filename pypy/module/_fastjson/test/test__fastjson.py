@@ -58,3 +58,9 @@ class AppTest(object):
         import _fastjson
         s = r'"hello\nworld"'
         assert _fastjson.loads(s) == "hello\nworld"
+
+    def test_unterminated_string_after_escape_sequence(self):
+        import _fastjson
+        s = r'"hello\nworld' # missing the trailing "
+        raises(ValueError, "_fastjson.loads(s)")
+        
