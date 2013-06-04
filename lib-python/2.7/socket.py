@@ -96,6 +96,7 @@ __all__.extend(os._get_exports_list(_socket))
 
 
 _realsocket = socket
+_type = type
 
 # WSA error codes
 if sys.platform.lower().startswith("win"):
@@ -173,31 +174,37 @@ class _socketobject(object):
 
     __doc__ = _realsocket.__doc__
 
+    __slots__ = ["_sock", "__weakref__"]
+
     def __init__(self, family=AF_INET, type=SOCK_STREAM, proto=0, _sock=None):
         if _sock is None:
             _sock = _realsocket(family, type, proto)
+        elif _type(_sock) is _realsocket:
+            _sock._reuse()
+        # PyPy note about refcounting: implemented with _reuse()/_drop()
+        # on the class '_socket.socket'.  Python 3 did it differently
+        # with a reference counter on this class 'socket._socketobject'
+        # instead, but it is a less compatible change (breaks eventlet).
         self._sock = _sock
-        self._io_refs = 0
-        self._closed = False
 
     def send(self, data, flags=0):
-        return self._sock.send(data, flags=flags)
+        return self._sock.send(data, flags)
     send.__doc__ = _realsocket.send.__doc__
 
     def recv(self, buffersize, flags=0):
-        return self._sock.recv(buffersize, flags=flags)
+        return self._sock.recv(buffersize, flags)
     recv.__doc__ = _realsocket.recv.__doc__
 
     def recv_into(self, buffer, nbytes=0, flags=0):
-        return self._sock.recv_into(buffer, nbytes=nbytes, flags=flags)
+        return self._sock.recv_into(buffer, nbytes, flags)
     recv_into.__doc__ = _realsocket.recv_into.__doc__
 
     def recvfrom(self, buffersize, flags=0):
-        return self._sock.recvfrom(buffersize, flags=flags)
+        return self._sock.recvfrom(buffersize, flags)
     recvfrom.__doc__ = _realsocket.recvfrom.__doc__
 
     def recvfrom_into(self, buffer, nbytes=0, flags=0):
-        return self._sock.recvfrom_into(buffer, nbytes=nbytes, flags=flags)
+        return self._sock.recvfrom_into(buffer, nbytes, flags)
     recvfrom_into.__doc__ = _realsocket.recvfrom_into.__doc__
 
     def sendto(self, data, param2, param3=None):
@@ -208,13 +215,17 @@ class _socketobject(object):
     sendto.__doc__ = _realsocket.sendto.__doc__
 
     def close(self):
-        # This function should not reference any globals. See issue #808164.
+        s = self._sock
+        if type(s) is _realsocket:
+            s._drop()
         self._sock = _closedsocket()
     close.__doc__ = _realsocket.close.__doc__
 
     def accept(self):
         sock, addr = self._sock.accept()
-        return _socketobject(_sock=sock), addr
+        sockobj = _socketobject(_sock=sock)
+        sock._drop()    # already a copy in the _socketobject()
+        return sockobj, addr
     accept.__doc__ = _realsocket.accept.__doc__
 
     def dup(self):
@@ -228,24 +239,7 @@ class _socketobject(object):
 
         Return a regular file object corresponding to the socket.  The mode
         and bufsize arguments are as for the built-in open() function."""
-        self._io_refs += 1
-        return _fileobject(self, mode, bufsize)
-
-    def _decref_socketios(self):
-        if self._io_refs > 0:
-            self._io_refs -= 1
-        if self._closed:
-            self.close()
-
-    def _real_close(self):
-        # This function should not reference any globals. See issue #808164.
-        self._sock.close()
-
-    def close(self):
-        # This function should not reference any globals. See issue #808164.
-        self._closed = True
-        if self._io_refs <= 0:
-            self._real_close()
+        return _fileobject(self._sock, mode, bufsize)
 
     family = property(lambda self: self._sock.family, doc="the socket family")
     type = property(lambda self: self._sock.type, doc="the socket type")
@@ -286,6 +280,8 @@ class _fileobject(object):
                  "_close"]
 
     def __init__(self, sock, mode='rb', bufsize=-1, close=False):
+        if type(sock) is _realsocket:
+            sock._reuse()
         self._sock = sock
         self.mode = mode # Not actually used in this version
         if bufsize < 0:
@@ -320,16 +316,11 @@ class _fileobject(object):
             if self._sock:
                 self.flush()
         finally:
-            if self._sock:
-                if self._close:
-                    self._sock.close()
-                else:
-                    try:
-                        self._sock._decref_socketios()
-                    except AttributeError:
-                        pass  # bah, someone built a _fileobject manually
-                              # with some unexpected replacement of the
-                              # _socketobject class
+            s = self._sock
+            if type(s) is _realsocket:
+                s._drop()
+            if self._close:
+                self._sock.close()
             self._sock = None
 
     def __del__(self):

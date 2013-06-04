@@ -274,11 +274,9 @@ def wrap_cmpfunc(space, w_self, w_args, func):
 
     if not space.is_true(space.issubtype(space.type(w_self),
                                          space.type(w_other))):
-        raise OperationError(space.w_TypeError, space.wrap(
-            "%s.__cmp__(x,y) requires y to be a '%s', not a '%s'" %
-            (space.type(w_self).getname(space),
-             space.type(w_self).getname(space),
-             space.type(w_other).getname(space))))
+        raise operationerrfmt(space.w_TypeError,
+            "%T.__cmp__(x,y) requires y to be a '%T', not a '%T'",
+            w_self, w_self, w_other)
 
     return space.wrap(generic_cpy_call(space, func_target, w_self, w_other))
 
@@ -344,7 +342,7 @@ def build_slot_tp_function(space, typedef, name):
             return
 
         @cpython_api([PyObject, PyObject, PyObject], rffi.INT_real,
-                     error=-1, external=False)
+                     error=-1, external=True) # XXX should not be exported
         @func_renamer("cpyext_tp_setattro_%s" % (typedef.name,))
         def slot_tp_setattro(space, w_self, w_name, w_value):
             if w_value is not None:

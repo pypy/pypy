@@ -8,7 +8,7 @@ def test_id_any():
 
 def test_bigint():
     from rpython.rlib.rbigint import rbigint
-    assert not pypypolicy.look_inside_function(rbigint.lt.im_func)
+    assert pypypolicy.look_inside_function(rbigint.lt.im_func)
 
 def test_rlocale():
     from rpython.rlib.rlocale import setlocale
@@ -35,6 +35,10 @@ def test_thread_local():
 def test_time():
     from pypy.module.rctime.interp_time import time
     assert pypypolicy.look_inside_function(time)
+
+def test_io():
+    from pypy.module._io.interp_bytesio import W_BytesIO
+    assert pypypolicy.look_inside_function(W_BytesIO.seek_w.im_func)
 
 def test_pypy_module():
     from pypy.module._collections.interp_deque import W_Deque

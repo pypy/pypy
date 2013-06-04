@@ -30,7 +30,7 @@ if long_double_size == 8 and os.name == 'nt':
 def new_dtype_getter(name):
     def _get_dtype(space):
         from pypy.module.micronumpy.interp_dtype import get_dtype_cache
-        return getattr(get_dtype_cache(space), "w_%sdtype" % name)
+        return get_dtype_cache(space).dtypes_by_name[name]
 
     def new(space, w_subtype, w_value):
         dtype = _get_dtype(space)
@@ -115,9 +115,9 @@ class W_GenericBox(W_Root):
     _attrs_ = ()
 
     def descr__new__(space, w_subtype, __args__):
-        raise operationerrfmt(space.w_TypeError, "cannot create '%s' instances",
-            w_subtype.getname(space, '?')
-        )
+        raise operationerrfmt(space.w_TypeError,
+                              "cannot create '%N' instances",
+                              w_subtype)
 
     def get_dtype(self, space):
         return self._get_dtype(space)

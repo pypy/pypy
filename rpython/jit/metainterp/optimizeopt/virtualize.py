@@ -156,7 +156,7 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
             iteritems = self._fields.iteritems()
             if not we_are_translated(): #random order is fine, except for tests
                 iteritems = list(iteritems)
-                iteritems.sort(key = lambda (x,y): x.sort_key())
+                iteritems.sort(key=lambda (x, y): x.sort_key())
             for ofs, value in iteritems:
                 if value.is_null():
                     continue

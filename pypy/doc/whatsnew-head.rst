@@ -34,3 +34,19 @@ Remove multi-methods on tuple
 
 .. branch: remove-iter-smm
 Remove multi-methods on iterators
+
+.. branch: emit-call-x86
+.. branch: emit-call-arm
+
+.. branch: on-abort-resops
+Added list of resops to the pypyjit on_abort hook.
+
+.. branch: logging-perf
+Speeds up the stdlib logging module
+
+.. branch: operrfmt-NT
+Adds a couple convenient format specifiers to operationerrfmt
+
+.. branch: win32-fixes3
+Skip and fix some non-translated (own) tests for win32 builds
+

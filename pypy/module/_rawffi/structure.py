@@ -31,9 +31,8 @@ def unpack_fields(space, w_fields):
         try:
             name = space.str_w(l_w[0])
         except OperationError:
-            raise OperationError(space.w_TypeError, space.wrap(
-               "structure field name must be string not %s" %
-               space.type(l_w[0]).getname(space)))
+            raise operationerrfmt(space.w_TypeError,
+                "structure field name must be string not %T", l_w[0])
         tp = unpack_shape_with_length(space, l_w[1])
 
         if len_l == 3:

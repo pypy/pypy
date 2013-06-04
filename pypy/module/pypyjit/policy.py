@@ -109,7 +109,7 @@ class PyPyJitPolicy(JitPolicy):
                        'posix', '_socket', '_sre', '_lsprof', '_weakref',
                        '__pypy__', 'cStringIO', '_collections', 'struct',
                        'mmap', 'marshal', '_codecs', 'rctime', 'cppyy',
-                       '_cffi_backend', 'pyexpat', '_continuation']:
+                       '_cffi_backend', 'pyexpat', '_continuation', '_io']:
             if modname == 'pypyjit' and 'interp_resop' in rest:
                 return False
             return True
@@ -118,7 +118,7 @@ class PyPyJitPolicy(JitPolicy):
     def look_inside_function(self, func):
         mod = func.__module__ or '?'
 
-        if mod == 'rpython.rlib.rbigint' or mod == 'rpython.rlib.rlocale' or mod == 'rpython.rlib.rsocket':
+        if mod == 'rpython.rlib.rlocale' or mod == 'rpython.rlib.rsocket':
             return False
         if mod.startswith('pypy.interpreter.astcompiler.'):
             return False

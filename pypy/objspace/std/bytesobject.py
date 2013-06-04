@@ -292,7 +292,6 @@ If the argument is a string, the return value is the same object.''',
 
 str_typedef.registermethods(globals())
 
-# ____________________________________________________________
 
 def string_escape_encode(s, quote):
 
