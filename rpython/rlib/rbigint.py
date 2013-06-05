@@ -448,6 +448,7 @@ class rbigint(object):
             i += 1
         return True
 
+    @jit.elidable
     def ne(self, other):
         return not self.eq(other)
 
@@ -486,12 +487,15 @@ class rbigint(object):
             i -= 1
         return False
 
+    @jit.elidable
     def le(self, other):
         return not other.lt(self)
 
+    @jit.elidable
     def gt(self, other):
         return other.lt(self)
 
+    @jit.elidable
     def ge(self, other):
         return not self.lt(other)
 
