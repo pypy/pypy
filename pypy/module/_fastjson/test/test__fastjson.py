@@ -106,5 +106,6 @@ class AppTest(object):
                                       'aaa': 'bbb'}
 
     def test_decode_object_nonstring_key(self):
-        pass # write me when we have numbers
-    
+        import _fastjson
+        raises(ValueError, "_fastjson.loads('{42: 43}')")
+        
