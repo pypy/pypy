@@ -218,7 +218,7 @@ Argument count:    1
 Kw-only arguments: 0
 Number of locals:  1
 Stack size:        4
-Flags:             OPTIMIZED, NEWLOCALS, NOFREE
+Flags:             OPTIMIZED, NEWLOCALS, NOFREE, 0x100000
 Constants:
    0: %r
    1: '__func__'
