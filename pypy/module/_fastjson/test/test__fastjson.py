@@ -69,6 +69,12 @@ class AppTest(object):
         s = r'"\u1234"'
         assert _fastjson.loads(s) == u'\u1234'
 
+    def test_decode_numeric(self):
+        import _fastjson
+        assert _fastjson.loads('42') == 42
+        assert _fastjson.loads('-42') == -42
+        raises(ValueError, "_fastjson.loads('42 abc')")
+
     def test_decode_object(self):
         import _fastjson
         assert _fastjson.loads('{}') == {}

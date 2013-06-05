@@ -51,13 +51,35 @@ class JSONDecoder(object):
 
     def decode_any(self):
         self.skip_whitespace()
-        ch = self.next()
+        ch = self.peek()
         if ch == '"':
+            self.next()
             return self.decode_string()
+        elif ch.isdigit() or ch == '-':
+            return self.decode_numeric(ch)
         elif ch == '{':
+            self.next()
             return self.decode_object()
         else:
             assert False, 'Unkown char: %s' % ch
+
+    def decode_numeric(self, ch):
+        intval = 0
+        sign = 1
+        if ch == '-':
+            sign = -1
+            self.next()
+
+        while not self.eof():
+            ch = self.peek()
+            if ch.isdigit():
+                intval = intval*10 + ord(ch)-ord('0')
+                self.next()
+            else:
+                break
+        #
+        intval = intval*sign
+        return self.space.wrap(intval)
 
     def decode_object(self):
         start = self.i
