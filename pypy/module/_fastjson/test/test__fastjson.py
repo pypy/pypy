@@ -104,6 +104,8 @@ class AppTest(object):
         s = '{"hello": "world", "aaa": "bbb"}'
         assert _fastjson.loads(s) == {'hello': 'world',
                                       'aaa': 'bbb'}
+        raises(ValueError, _fastjson.loads, '{"key"')
+        raises(ValueError, _fastjson.loads, '{"key": 42')
 
     def test_decode_object_nonstring_key(self):
         import _fastjson

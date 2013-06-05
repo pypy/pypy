@@ -177,7 +177,9 @@ class JSONDecoder(object):
             if self.last_type != TYPE_STRING:
                 self._raise("Key name must be string for object starting at char %d", start)
             self.skip_whitespace()
-            ch = self.next() # XXX
+            if self.eof():
+                break
+            ch = self.next()
             if ch != ':':
                 self._raise("No ':' found at char %d", self.i)
             self.skip_whitespace()
@@ -185,6 +187,8 @@ class JSONDecoder(object):
             w_value = self.decode_any()
             self.space.setitem(w_dict, w_name, w_value)
             self.skip_whitespace()
+            if self.eof():
+                break
             ch = self.next()
             if ch == '}':
                 return w_dict
