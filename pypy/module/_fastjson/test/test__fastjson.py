@@ -69,6 +69,12 @@ class AppTest(object):
         s = r'"\u1234"'
         assert _fastjson.loads(s) == u'\u1234'
 
+    def test_invalid_utf_8(self):
+        import _fastjson
+        s = '"\xe0"' # this is an invalid UTF8 sequence inside a string
+        raises(UnicodeDecodeError, "_fastjson.loads(s)")
+
+
     def test_decode_numeric(self):
         import _fastjson
         def check(s, val):

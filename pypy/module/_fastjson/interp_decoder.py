@@ -213,7 +213,7 @@ class JSONDecoder(object):
                 content_utf8 = self.getslice(start, self.i-1)
                 if bits & 0x80:
                     # the 8th bit is set, it's an utf8 strnig
-                    content_unicode = content_utf8.decode('utf-8')
+                    content_unicode = unicodehelper.decode_utf8(self.space, content_utf8)
                 else:
                     # ascii only, faster to decode
                     content_unicode = content_utf8.decode('ascii')
