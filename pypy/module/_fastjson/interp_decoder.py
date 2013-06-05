@@ -96,13 +96,20 @@ class JSONDecoder(object):
 
     def decode_string(self):
         start = self.i
+        bits = 0
         while not self.eof():
             # this loop is a fast path for strings which do not contain escape
             # characters
             ch = self.next()
+            bits |= ord(ch)
             if ch == '"':
                 content_utf8 = self.getslice(start, self.i-1)
-                content_unicode = unicodehelper.decode_utf8(self.space, content_utf8)
+                if bits & 0x80:
+                    # the 8th bit is set, it's an utf8 strnig
+                    content_unicode = content_utf8.decode('utf-8')
+                else:
+                    # ascii only, faster to decode
+                    content_unicode = content_utf8.decode('ascii')
                 self.last_type = TYPE_STRING
                 return self.space.wrap(content_unicode)
             elif ch == '\\':
