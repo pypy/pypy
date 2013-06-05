@@ -853,7 +853,6 @@ class AppTestCompiler:
         """
 
     def test_cpython_issue2301(self):
-        skip('XXX')
         try:
             compile(b"# coding: utf7\nprint '+XnQ-'", "dummy", "exec")
         except SyntaxError as v:
