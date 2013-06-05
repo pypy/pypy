@@ -72,6 +72,9 @@ class JSONDecoder(object):
             return self.decode_string()
         elif ch.isdigit() or ch == '-':
             return self.decode_numeric()
+        elif ch == '[':
+            self.next()
+            return self.decode_array()
         elif ch == '{':
             self.next()
             return self.decode_object()
@@ -134,6 +137,30 @@ class JSONDecoder(object):
             self._raise("Expected digit at char %d", self.i)
         return intval, count
         
+    def decode_array(self):
+        start = self.i
+        w_list = self.space.newlist([])
+        self.skip_whitespace()
+        while not self.eof():
+            ch = self.peek()
+            if ch == ']':
+                self.next()
+                return w_list
+            w_item = self.decode_any()
+            self.space.call_method(w_list, 'append', w_item)
+            self.skip_whitespace()
+            if self.eof():
+                break
+            ch = self.next()
+            if ch == ']':
+                return w_list
+            elif ch == ',':
+                pass
+            else:
+                self._raise("Unexpected '%s' when decoding array (char %d)",
+                            ch, self.i)
+        self._raise("Unterminated array starting at char %d", start)
+
 
     def decode_object(self):
         start = self.i
@@ -150,7 +177,7 @@ class JSONDecoder(object):
             if self.last_type != TYPE_STRING:
                 self._raise("Key name must be string for object starting at char %d", start)
             self.skip_whitespace()
-            ch = self.next()
+            ch = self.next() # XXX
             if ch != ':':
                 self._raise("No ':' found at char %d", self.i)
             self.skip_whitespace()

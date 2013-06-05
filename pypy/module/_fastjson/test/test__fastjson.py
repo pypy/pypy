@@ -109,3 +109,11 @@ class AppTest(object):
         import _fastjson
         raises(ValueError, "_fastjson.loads('{42: 43}')")
         
+    def test_decode_array(self):
+        import _fastjson
+        assert _fastjson.loads('[]') == []
+        assert _fastjson.loads('[  ]') == []
+        assert _fastjson.loads('[1]') == [1]
+        assert _fastjson.loads('[1, 2]') == [1, 2]
+        raises(ValueError, "_fastjson.loads('[1: 2]')")
+        raises(ValueError, "_fastjson.loads('[1, 2')")
