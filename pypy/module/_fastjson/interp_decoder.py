@@ -7,6 +7,15 @@ from pypy.interpreter import unicodehelper
 def is_whitespace(ch):
     return ch == ' ' or ch == '\t' or ch == '\r' or ch == '\n'
 
+# precomputing negative powers of 10 is MUCH faster than using e.g. math.pow
+# at runtime
+NEG_POW_10 = [10**-i for i in range(16)]
+def neg_pow_10(x, exp):
+    if exp >= len(NEG_POW_10):
+        return 0.0
+    return x * NEG_POW_10[exp]
+
+
 TYPE_UNKNOWN = 0
 TYPE_STRING = 1
 
@@ -22,6 +31,12 @@ class JSONDecoder(object):
 
     def peek(self):
         return self.s[self.i]
+
+    def peek_maybe(self):
+        if self.eof():
+            return '\0'
+        else:
+            return self.peek()
 
     def next(self):
         ch = self.peek()
@@ -56,30 +71,69 @@ class JSONDecoder(object):
             self.next()
             return self.decode_string()
         elif ch.isdigit() or ch == '-':
-            return self.decode_numeric(ch)
+            return self.decode_numeric()
         elif ch == '{':
             self.next()
             return self.decode_object()
         else:
-            assert False, 'Unkown char: %s' % ch
+            self._raise("No JSON object could be decoded: unexpected '%s' at char %d",
+                        ch, self.i)
 
-    def decode_numeric(self, ch):
-        intval = 0
+    def decode_numeric(self):
+        intval = self.parse_integer()
+        #
+        is_float = False
+        exp = 0
+        frcval = 0.0
+        frccount = 0
+        #
+        # check for the optional fractional part
+        ch = self.peek_maybe()
+        if ch == '.':
+            is_float = True
+            self.next()
+            frcval, frccount = self.parse_digits()
+            frcval = neg_pow_10(frcval, frccount)
+            ch = self.peek_maybe()
+        # check for the optional exponent part
+        if ch == 'E' or ch == 'e':
+            is_float = True
+            self.next()
+            exp = self.parse_integer()
+        #
+        if is_float:
+            # build the float
+            floatval = intval + frcval
+            floatval = floatval * 10**exp
+            return self.space.wrap(floatval)
+        else:
+            return self.space.wrap(intval)
+
+    def parse_integer(self):
+        "Parse a decimal number with an optional minus sign"
         sign = 1
-        if ch == '-':
+        if self.peek_maybe() == '-':
             sign = -1
             self.next()
+        intval, _ = self.parse_digits()
+        return sign * intval
 
+    def parse_digits(self):
+        "Parse a sequence of digits as a decimal number. No sign allowed"
+        intval = 0
+        count = 0
         while not self.eof():
             ch = self.peek()
             if ch.isdigit():
                 intval = intval*10 + ord(ch)-ord('0')
+                count += 1
                 self.next()
             else:
                 break
-        #
-        intval = intval*sign
-        return self.space.wrap(intval)
+        if count == 0:
+            self._raise("Expected digit at char %d", self.i)
+        return intval, count
+        
 
     def decode_object(self):
         start = self.i

@@ -71,9 +71,31 @@ class AppTest(object):
 
     def test_decode_numeric(self):
         import _fastjson
-        assert _fastjson.loads('42') == 42
-        assert _fastjson.loads('-42') == -42
-        raises(ValueError, "_fastjson.loads('42 abc')")
+        def check(s, val):
+            res = _fastjson.loads(s)
+            assert type(res) is type(val)
+            assert res == val
+        #
+        check('42', 42)
+        check('-42', -42)
+        check('42.123', 42.123)
+        check('42E0', 42.0)
+        check('42E3', 42000.0)
+        check('42E-1', 4.2)
+        check('42.123E3', 42123.0)
+
+    def test_decode_numeric_invalid(self):
+        import _fastjson
+        def error(s):
+            raises(ValueError, _fastjson.loads, s)
+        #
+        error('  42   abc')
+        error('.123')
+        error('12.')
+        error('12.-3')
+        error('12E')
+        error('12E-')
+
 
     def test_decode_object(self):
         import _fastjson
