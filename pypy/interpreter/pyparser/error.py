@@ -24,7 +24,7 @@ class SyntaxError(Exception):
                                space.newtuple([w_filename,
                                                space.wrap(self.lineno),
                                                space.wrap(self.offset),
-                                               space.wrap(w_text),
+                                               w_text,
                                                space.wrap(self.lastlineno)])])
 
     def __str__(self):
