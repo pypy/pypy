@@ -75,7 +75,7 @@ varnames: ()
 cellvars: ()
 freevars: ()
 nlocals: 0
-flags: 67
+flags: 1048643
 consts: ("'doc string'", 'None')
 
 """
