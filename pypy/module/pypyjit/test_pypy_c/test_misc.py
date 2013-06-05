@@ -407,5 +407,5 @@ class TestMisc(BaseTestPyPyC):
 
         log = self.run(main, [300])
         loop, = log.loops_by_id("long_op")
-        assert log.match("""
+        assert loop.match("""
         """)

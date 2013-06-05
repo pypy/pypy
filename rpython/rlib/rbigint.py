@@ -190,9 +190,9 @@ class rbigint(object):
             
         
     @staticmethod
+    @jit.elidable
     def frombool(b):
-        # This function is marked as pure, so you must not call it and
-        # then modify the result.
+        # You must not call this function and then modify the result.
         if b:
             return ONERBIGINT
         return NULLRBIGINT
@@ -251,6 +251,7 @@ class rbigint(object):
         return _decimalstr_to_bigint(s)
 
     @staticmethod
+    @jit.elidable
     def frombytes(s, byteorder, signed):
         if byteorder not in ('big', 'little'):
             raise InvalidEndiannessError()
@@ -383,9 +384,11 @@ class rbigint(object):
     def tolonglong(self):
         return _AsLongLong(self)
 
+    @jit.look_inside
     def tobool(self):
         return self.sign != 0
 
+    @jit.elidable
     def touint(self):
         if self.sign == -1:
             raise ValueError("cannot convert negative integer to unsigned int")
@@ -410,13 +413,16 @@ class rbigint(object):
             raise ValueError("cannot convert negative integer to unsigned int")
         return _AsULonglong_ignore_sign(self)
 
+    @jit.elidable
     def uintmask(self):
         return _AsUInt_mask(self)
 
+    @jit.elidable
     def ulonglongmask(self):
         """Return r_ulonglong(self), truncating."""
         return _AsULonglong_mask(self)
 
+    @jit.elidable
     def tofloat(self):
         return _AsDouble(self)
 
@@ -448,7 +454,7 @@ class rbigint(object):
             i += 1
         return True
 
-    @jit.elidable
+    @jit.look_inside
     def ne(self, other):
         return not self.eq(other)
 
@@ -487,15 +493,15 @@ class rbigint(object):
             i -= 1
         return False
 
-    @jit.elidable
+    @jit.look_inside
     def le(self, other):
         return not other.lt(self)
 
-    @jit.elidable
+    @jit.look_inside
     def gt(self, other):
         return other.lt(self)
 
-    @jit.elidable
+    @jit.look_inside
     def ge(self, other):
         return not self.lt(other)
 
@@ -596,6 +602,7 @@ class rbigint(object):
             
         return div
 
+    @jit.look_inside
     def div(self, other):
         return self.floordiv(other)
 
@@ -796,14 +803,17 @@ class rbigint(object):
             z = z.sub(c)
         return z
 
+    @jit.elidable
     def neg(self):
         return rbigint(self._digits, -self.sign, self.size)
 
+    @jit.elidable
     def abs(self):
         if self.sign != -1:
             return self
         return rbigint(self._digits, 1, self.size)
 
+    @jit.elidable
     def invert(self): #Implement ~x as -(x + 1)
         if self.sign == 0:
             return ONENEGATIVERBIGINT
@@ -913,12 +923,14 @@ class rbigint(object):
     def or_(self, other):
         return _bitwise(self, '|', other)
 
+    @jit.elidable
     def oct(self):
         if self.sign == 0:
             return '0L'
         else:
             return _format(self, BASE8, '0', 'L')
 
+    @jit.elidable
     def hex(self):
         return _format(self, BASE16, '0x', 'L')
 
