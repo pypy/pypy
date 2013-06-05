@@ -50,3 +50,5 @@ Adds a couple convenient format specifiers to operationerrfmt
 .. branch: win32-fixes3
 Skip and fix some non-translated (own) tests for win32 builds
 
+.. branch: ctypes-byref
+Add the '_obj' attribute on ctypes pointer() and byref() objects
