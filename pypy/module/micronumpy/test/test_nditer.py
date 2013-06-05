@@ -44,21 +44,21 @@ class AppTestNDIter(BaseNumpyAppTest):
 
     def test_external_loop(self):
         from numpypy import arange, nditer, array
-        a = arange(6).reshape(2,3)
+        a = arange(12).reshape(2,3,2)
         r = []
         n = 0
         for x in nditer(a, flags=['external_loop']):
             r.append(x)
             n += 1
         assert n == 1
-        assert (array(r) == [0, 1, 2, 3, 4, 5]).all()
+        assert (array(r) == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]).all()
         r = []
         n = 0
         for x in nditer(a, flags=['external_loop'], order='F'):
             r.append(x)
             n += 1
         assert n == 3
-        assert (array(r) == [[0, 3], [1, 4], [2, 5]]).all()
+        assert (array(r) == [[0, 6], [2, 8], [4, 10], [1, 7], [3, 9], [5, 11]]).all()
 
     def test_interface(self):
         from numpypy import arange, nditer, zeros
