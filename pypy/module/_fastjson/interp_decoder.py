@@ -1,3 +1,4 @@
+import math
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.objectmodel import specialize
 from pypy.interpreter.error import OperationError, operationerrfmt
@@ -9,12 +10,11 @@ def is_whitespace(ch):
 
 # precomputing negative powers of 10 is MUCH faster than using e.g. math.pow
 # at runtime
-NEG_POW_10 = [10**-i for i in range(16)]
+NEG_POW_10 = [10.0**-i for i in range(16)]
 def neg_pow_10(x, exp):
     if exp >= len(NEG_POW_10):
         return 0.0
     return x * NEG_POW_10[exp]
-
 
 TYPE_UNKNOWN = 0
 TYPE_STRING = 1
@@ -104,7 +104,7 @@ class JSONDecoder(object):
         if is_float:
             # build the float
             floatval = intval + frcval
-            floatval = floatval * 10**exp
+            floatval = floatval * math.pow(10, exp)
             return self.space.wrap(floatval)
         else:
             return self.space.wrap(intval)
@@ -236,6 +236,8 @@ class JSONDecoder(object):
             uchr = unichr(int(hexdigits, 16))
         except ValueError:
             self._raise("Invalid \uXXXX escape (char %d)", self.i-1)
+            return # help the annotator to know that we'll never go beyond
+                   # this point
         #
         utf8_ch = unicodehelper.encode_utf8(self.space, uchr)
         builder.append(utf8_ch)
