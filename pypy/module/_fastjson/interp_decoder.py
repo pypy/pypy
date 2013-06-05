@@ -78,9 +78,46 @@ class JSONDecoder(object):
         elif ch == '{':
             self.next()
             return self.decode_object()
+        elif ch == 'n':
+            self.next()
+            return self.decode_null()
+        elif ch == 't':
+            self.next()
+            return self.decode_true()
+        elif ch == 'f':
+            self.next()
+            return self.decode_false()
         else:
             self._raise("No JSON object could be decoded: unexpected '%s' at char %d",
                         ch, self.i)
+
+    def decode_null(self):
+        N = len('ull')
+        if (self.i+N <= len(self.s) and
+            self.next() == 'u' and
+            self.next() == 'l' and
+            self.next() == 'l'):
+            return self.space.w_None
+        self._raise("Error when decoding null at char %d", self.i)
+
+    def decode_true(self):
+        N = len('rue')
+        if (self.i+N <= len(self.s) and
+            self.next() == 'r' and
+            self.next() == 'u' and
+            self.next() == 'e'):
+            return self.space.w_True
+        self._raise("Error when decoding true at char %d", self.i)
+
+    def decode_false(self):
+        N = len('alse')
+        if (self.i+N <= len(self.s) and
+            self.next() == 'a' and
+            self.next() == 'l' and
+            self.next() == 's' and
+            self.next() == 'e'):
+            return self.space.w_False
+        self._raise("Error when decoding false at char %d", self.i)
 
     def decode_numeric(self):
         intval = self.parse_integer()

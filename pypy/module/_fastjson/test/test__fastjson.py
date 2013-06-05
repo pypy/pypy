@@ -19,6 +19,28 @@ def test_skip_whitespace():
 class AppTest(object):
     spaceconfig = {"objspace.usemodules._fastjson": True}
 
+    def test_decode_constants(self):
+        import _fastjson
+        assert _fastjson.loads('null') is None
+        raises(ValueError, _fastjson.loads, 'nul')
+        raises(ValueError, _fastjson.loads, 'nu')
+        raises(ValueError, _fastjson.loads, 'n')
+        raises(ValueError, _fastjson.loads, 'nuXX')
+        #
+        assert _fastjson.loads('true') is True
+        raises(ValueError, _fastjson.loads, 'tru')
+        raises(ValueError, _fastjson.loads, 'tr')
+        raises(ValueError, _fastjson.loads, 't')
+        raises(ValueError, _fastjson.loads, 'trXX')
+        #
+        assert _fastjson.loads('false') is False
+        raises(ValueError, _fastjson.loads, 'fals')
+        raises(ValueError, _fastjson.loads, 'fal')
+        raises(ValueError, _fastjson.loads, 'fa')
+        raises(ValueError, _fastjson.loads, 'f')
+        raises(ValueError, _fastjson.loads, 'falXX')
+        
+
     def test_decode_string(self):
         import _fastjson
         res = _fastjson.loads('"hello"')
