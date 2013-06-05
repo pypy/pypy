@@ -2,12 +2,14 @@ from rpython.rlib.rarithmetic import ovfcheck, LONG_BIT, maxint, is_valid_int
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.jit.metainterp.history import BoxInt, ConstInt
+
 MAXINT = maxint
 MININT = -maxint - 1
 
+
 class IntBound(object):
     _attrs_ = ('has_upper', 'has_lower', 'upper', 'lower')
-    
+
     def __init__(self, lower, upper):
         self.has_upper = True
         self.has_lower = True
@@ -29,7 +31,7 @@ class IntBound(object):
 
     def make_lt(self, other):
         return self.make_le(other.add(-1))
- 
+
     def make_ge(self, other):
         if other.has_lower:
             if not self.has_lower or other.lower > self.lower:
@@ -86,7 +88,7 @@ class IntBound(object):
                 r = True
 
         return r
-    
+
     def add(self, offset):
         res = self.clone()
         try:
@@ -101,7 +103,7 @@ class IntBound(object):
 
     def mul(self, value):
         return self.mul_bound(IntBound(value, value))
-    
+
     def add_bound(self, other):
         res = self.clone()
         if other.has_upper:
@@ -115,7 +117,7 @@ class IntBound(object):
             try:
                 res.lower = ovfcheck(res.lower + other.lower)
             except OverflowError:
-                res.has_lower = False            
+                res.has_lower = False
         else:
             res.has_lower = False
         return res
@@ -133,7 +135,7 @@ class IntBound(object):
             try:
                 res.lower = ovfcheck(res.lower - other.upper)
             except OverflowError:
-                res.has_lower = False            
+                res.has_lower = False
         else:
             res.has_lower = False
         return res
@@ -196,7 +198,6 @@ class IntBound(object):
         else:
             return IntUnbounded()
 
-
     def contains(self, val):
         if self.has_lower and val < self.lower:
             return False
@@ -216,7 +217,7 @@ class IntBound(object):
         elif self.has_upper:
             return False
         return True
-        
+
     def __repr__(self):
         if self.has_lower:
             l = '%d' % self.lower
@@ -249,7 +250,7 @@ class IntBound(object):
             guards.append(op)
             op = ResOperation(rop.GUARD_TRUE, [res], None)
             guards.append(op)
-    
+
 
 class IntUpperBound(IntBound):
     def __init__(self, upper):
@@ -285,7 +286,7 @@ class ImmutableIntUnbounded(IntUnbounded):
         self._raise()
     def make_constant(self, value):
         self._raise()
-    def intersect(self, other):        
+    def intersect(self, other):
         self._raise()
 
 def min4(t):

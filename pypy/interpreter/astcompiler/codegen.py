@@ -263,6 +263,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 start = 1
                 doc_expr.walkabout(self)
                 self.name_op("__doc__", ast.Store)
+                self.scope.doc_removable = True
             for i in range(start, len(body)):
                 body[i].walkabout(self)
             return True
@@ -435,6 +436,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
     def visit_Assert(self, asrt):
         self.update_position(asrt.lineno)
         end = self.new_block()
+        self.emit_jump(ops.JUMP_IF_NOT_DEBUG, end)
         asrt.test.accept_jump_if(self, True, end)
         self.emit_op_name(ops.LOAD_GLOBAL, self.names, "AssertionError")
         if asrt.msg:
@@ -1225,6 +1227,8 @@ class TopLevelCodeGenerator(PythonCodeGenerator):
         flags = 0
         if not self.cell_vars and not self.free_vars:
             flags |= consts.CO_NOFREE
+        if self.scope.doc_removable:
+            flags |= consts.CO_KILL_DOCSTRING
         return flags
 
 
@@ -1244,6 +1248,8 @@ class AbstractFunctionCodeGenerator(PythonCodeGenerator):
             flags |= consts.CO_VARARGS
         if scope.has_keywords_arg:
             flags |= consts.CO_VARKEYWORDS
+        if scope.doc_removable:
+            flags |= consts.CO_KILL_DOCSTRING
         if not self.cell_vars and not self.free_vars:
             flags |= consts.CO_NOFREE
         return PythonCodeGenerator._get_code_flags(self) | flags
@@ -1260,6 +1266,7 @@ class FunctionCodeGenerator(AbstractFunctionCodeGenerator):
             doc_expr = None
         if doc_expr is not None:
             self.add_const(doc_expr.s)
+            self.scope.doc_removable = True
             start = 1
         else:
             self.add_const(self.space.w_None)
@@ -1339,3 +1346,9 @@ class ClassCodeGenerator(PythonCodeGenerator):
             # This happens when nobody references the cell
             self.load_const(self.space.w_None)
         self.emit_op(ops.RETURN_VALUE)
+
+    def _get_code_flags(self):
+        flags = 0
+        if self.scope.doc_removable:
+            flags |= consts.CO_KILL_DOCSTRING
+        return PythonCodeGenerator._get_code_flags(self) | flags

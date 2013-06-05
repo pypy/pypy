@@ -2,8 +2,9 @@
 # App-level version of py.py.
 # See test/test_app_main.
 
-# Missing vs CPython: -b, -d, -OO, -v, -x, -3
-"""\
+# Missing vs CPython: -b, -d, -v, -x, -3
+from __future__ import print_function, unicode_literals
+USAGE1 = __doc__ = """\
 Options and arguments (and corresponding environment variables):
 -B     : don't write .py[co] files on import; also PYTHONDONTWRITEBYTECODE=x
 -c cmd : program passed in as string (terminates option list)
@@ -12,7 +13,8 @@ Options and arguments (and corresponding environment variables):
 -i     : inspect interactively after running script; forces a prompt even
          if stdin does not appear to be a terminal; also PYTHONINSPECT=x
 -m mod : run library module as a script (terminates option list)
--O     : dummy optimization flag for compatibility with CPython
+-O     : skip assert statements
+-OO    : remove docstrings when importing modules in addition to -O
 -q     : don't print version and copyright messages on interactive startup
 -R     : ignored (see http://bugs.python.org/issue14621)
 -s     : don't add user site directory to sys.path; also PYTHONNOUSERSITE
@@ -28,8 +30,6 @@ arg ...: arguments passed to program in sys.argv[1:]
 PyPy options and arguments:
 --info : print translation information about this PyPy executable
 """
-from __future__ import print_function, unicode_literals
-USAGE1 = __doc__
 # Missing vs CPython: PYTHONHOME, PYTHONCASEOK
 USAGE2 = """
 Other environment variables:
@@ -464,6 +464,10 @@ def parse_command_line(argv):
 
     sys._xoptions = dict(x.split('=', 1) if '=' in x else (x, True)
                          for x in options['_xoptions'])
+
+        if sys.flags.optimize >= 1:
+            import __pypy__
+            __pypy__.set_debug(False)
 
 ##    if not we_are_translated():
 ##        for key in sorted(options):

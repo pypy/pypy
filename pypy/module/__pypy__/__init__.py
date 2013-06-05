@@ -59,6 +59,7 @@ class Module(MixedModule):
         'add_memory_pressure'       : 'interp_magic.add_memory_pressure',
         'newdict'                   : 'interp_dict.newdict',
         'dictstrategy'              : 'interp_dict.dictstrategy',
+        'set_debug'                 : 'interp_magic.set_debug',
     }
 
     submodules = {

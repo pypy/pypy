@@ -7,6 +7,7 @@ _WIN = sys.platform == 'win32'
 
 class Module(MixedModule):
     """Sys Builtin Module. """
+    _immutable_fields_ = ["defaultencoding?", "debug?"]
 
     def __init__(self, space, w_name):
         """NOT_RPYTHON""" # because parent __init__ isn't
@@ -17,6 +18,7 @@ class Module(MixedModule):
         self.w_default_encoder = None
         self.defaultencoding = "utf-8"
         self.filesystemencoding = None
+        self.debug = True
 
     interpleveldefs = {
         '__name__'              : '(space.wrap("sys"))', 

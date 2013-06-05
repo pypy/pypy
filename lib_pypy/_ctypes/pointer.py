@@ -119,6 +119,7 @@ class _Pointer(_CData, metaclass=PointerType):
         return self._buffer[0] != 0
 
     contents = property(getcontents, setcontents)
+    _obj = property(getcontents) # byref interface
 
     def _as_ffi_pointer_(self, ffitype):
         return as_ffi_pointer(self, ffitype)
