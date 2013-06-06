@@ -3,16 +3,12 @@ import py
 from pypy.module._fastjson.interp_decoder import JSONDecoder
 
 def test_skip_whitespace():
-    dec = JSONDecoder('fake space', '   hello   ')
+    s = '   hello   '
+    dec = JSONDecoder('fake space', s)
     assert dec.pos == 0
-    dec.skip_whitespace()
-    assert dec.next() == 'h'
-    assert dec.next() == 'e'
-    assert dec.next() == 'l'
-    assert dec.next() == 'l'
-    assert dec.next() == 'o'
-    dec.skip_whitespace()
-    assert dec.eof()
+    assert dec.skip_whitespace(0) == 3
+    assert dec.skip_whitespace(3) == 3
+    assert dec.skip_whitespace(8) == len(s)
 
     
 

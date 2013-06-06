@@ -75,22 +75,21 @@ class JSONDecoder(object):
         assert end > 0
         return self.s[start:end]
 
-    def skip_whitespace(self):
-        i = self.pos
+    def skip_whitespace(self, i):
         while i < len(self.s):
             ch = self.s[i]
             if is_whitespace(ch):
                 i+=1
             else:
                 break
-        self.pos = i
+        return i
 
     @specialize.arg(1)
     def _raise(self, msg, *args):
         raise operationerrfmt(self.space.w_ValueError, msg, *args)
 
     def decode_any(self):
-        self.skip_whitespace()
+        self.pos = self.skip_whitespace(self.pos)
         ch = self.peek()
         if ch == '"':
             self.next()
@@ -203,21 +202,25 @@ class JSONDecoder(object):
         return intval, count
         
     def decode_array(self):
-        start = self.pos
         w_list = self.space.newlist([])
-        self.skip_whitespace()
-        while not self.eof():
-            ch = self.peek()
+        start = self.pos
+        i = self.skip_whitespace(start)
+        while i < len(self.s):
+            ch = self.s[i]
             if ch == ']':
-                self.next()
+                self.pos = i+1
                 return w_list
+            self.pos = i
             w_item = self.decode_any()
+            i = self.pos
             self.space.call_method(w_list, 'append', w_item)
-            self.skip_whitespace()
-            if self.eof():
+            i = self.skip_whitespace(i)
+            if i == len(self.s):
                 break
-            ch = self.next()
+            ch = self.s[i]
+            i += 1
             if ch == ']':
+                self.pos = i
                 return w_list
             elif ch == ',':
                 pass
@@ -241,17 +244,17 @@ class JSONDecoder(object):
             w_name = self.decode_any()
             if self.last_type != TYPE_STRING:
                 self._raise("Key name must be string for object starting at char %d", start)
-            self.skip_whitespace()
+            self.pos = self.skip_whitespace(self.pos)
             if self.eof():
                 break
             ch = self.next()
             if ch != ':':
                 self._raise("No ':' found at char %d", self.pos)
-            self.skip_whitespace()
+            self.pos = self.skip_whitespace(self.pos)
             #
             w_value = self.decode_any()
             self.space.setitem(w_dict, w_name, w_value)
-            self.skip_whitespace()
+            self.pos = self.skip_whitespace(self.pos)
             if self.eof():
                 break
             ch = self.next()
@@ -347,7 +350,7 @@ class JSONDecoder(object):
 def loads(space, s):
     decoder = JSONDecoder(space, s)
     w_res = decoder.decode_any()
-    decoder.skip_whitespace()
+    decoder.pos = decoder.skip_whitespace(decoder.pos)
     if not decoder.eof():
         start = decoder.pos
         end = len(decoder.s)
