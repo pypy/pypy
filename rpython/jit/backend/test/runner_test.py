@@ -1918,9 +1918,10 @@ class LLtypeBackendTest(BaseBackendTest):
             res = self.execute_operation(rop.CAST_INT_TO_FLOAT,
                                          [BoxInt(x)],  'float').value
             assert longlong.getrealfloat(res) == float(x)
-            res = self.execute_operation(rop.CAST_INT_TO_FLOAT,
-                                         [ConstInt(x)],  'float').value
-            assert longlong.getrealfloat(res) == float(x)
+            # --- the front-end never generates CAST_INT_TO_FLOAT(Const)
+            #res = self.execute_operation(rop.CAST_INT_TO_FLOAT,
+            #                             [ConstInt(x)],  'float').value
+            #assert longlong.getrealfloat(res) == float(x)
 
     def test_cast_float_to_int(self):
         if not self.cpu.supports_floats:
@@ -1930,9 +1931,10 @@ class LLtypeBackendTest(BaseBackendTest):
             res = self.execute_operation(rop.CAST_FLOAT_TO_INT,
                                          [BoxFloat(v)],  'int').value
             assert res == int(x)
-            res = self.execute_operation(rop.CAST_FLOAT_TO_INT,
-                                         [ConstFloat(v)],  'int').value
-            assert res == int(x)
+            # --- the front-end never generates CAST_FLOAT_TO_INT(Const)
+            #res = self.execute_operation(rop.CAST_FLOAT_TO_INT,
+            #                             [ConstFloat(v)],  'int').value
+            #assert res == int(x)
 
     def test_convert_float_bytes(self):
         if not self.cpu.supports_floats:
