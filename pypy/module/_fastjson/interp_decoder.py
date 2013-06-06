@@ -19,6 +19,19 @@ def neg_pow_10(x, exp):
 TYPE_UNKNOWN = 0
 TYPE_STRING = 1
 
+def strslice2unicode_ascii(s, start, end):
+    from rpython.rtyper.annlowlevel import llstr, hlunicode
+    from rpython.rtyper.lltypesystem.rstr import malloc, UNICODE
+    from rpython.rtyper.lltypesystem.lltype import cast_primitive, UniChar
+    length = end-start
+    ll_s = llstr(s)
+    ll_res = malloc(UNICODE, length)
+    ll_res.hash = 0
+    for i in range(length):
+        ch = ll_s.chars[start+i]
+        ll_res.chars[i] = cast_primitive(UniChar, ch)
+    return hlunicode(ll_res)
+
 class JSONDecoder(object):
     def __init__(self, space, s):
         self.space = space
@@ -252,13 +265,13 @@ class JSONDecoder(object):
             i += 1
             bits |= ord(ch)
             if ch == '"':
-                content_utf8 = self.getslice(start, i-1)
                 if bits & 0x80:
                     # the 8th bit is set, it's an utf8 strnig
+                    content_utf8 = self.getslice(start, i-1)
                     content_unicode = unicodehelper.decode_utf8(self.space, content_utf8)
                 else:
-                    # ascii only, faster to decode
-                    content_unicode = content_utf8.decode('ascii')
+                    # ascii only, fast path
+                    content_unicode = strslice2unicode_ascii(self.s, start, i-1)
                 self.last_type = TYPE_STRING
                 self.i = i
                 return self.space.wrap(content_unicode)
