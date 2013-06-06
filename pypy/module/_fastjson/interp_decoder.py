@@ -178,16 +178,18 @@ class JSONDecoder(object):
         "Parse a sequence of digits as a decimal number. No sign allowed"
         intval = 0
         count = 0
-        while not self.eof():
-            ch = self.peek()
+        i = self.i
+        while i < len(self.s):
+            ch = self.s[i]
             if ch.isdigit():
                 intval = intval*10 + ord(ch)-ord('0')
                 count += 1
-                self.next()
+                i += 1
             else:
                 break
         if count == 0:
-            self._raise("Expected digit at char %d", self.i)
+            self._raise("Expected digit at char %d", i)
+        self.i = i
         return intval, count
         
     def decode_array(self):
@@ -251,8 +253,6 @@ class JSONDecoder(object):
                 self._raise("Unexpected '%s' when decoding object (char %d)",
                             ch, self.i)
         self._raise("Unterminated object starting at char %d", start)
-
-
 
     def decode_string(self):
         start = self.i
