@@ -49,16 +49,19 @@ class JSONDecoder(object):
         self.i = i2
 
     def getslice(self, start, end):
+        assert start > 0
         assert end > 0
         return self.s[start:end]
 
     def skip_whitespace(self):
-        while not self.eof():
-            ch = self.peek()
+        i = self.i
+        while i < len(self.s):
+            ch = self.s[i]
             if is_whitespace(ch):
-                self.next()
+                i+=1
             else:
                 break
+        self.i = i
 
     @specialize.arg(1)
     def _raise(self, msg, *args):
@@ -240,14 +243,16 @@ class JSONDecoder(object):
 
     def decode_string(self):
         start = self.i
+        i = self.i
         bits = 0
-        while not self.eof():
+        while i < len(self.s):
             # this loop is a fast path for strings which do not contain escape
             # characters
-            ch = self.next()
+            ch = self.s[i]
+            i += 1
             bits |= ord(ch)
             if ch == '"':
-                content_utf8 = self.getslice(start, self.i-1)
+                content_utf8 = self.getslice(start, i-1)
                 if bits & 0x80:
                     # the 8th bit is set, it's an utf8 strnig
                     content_unicode = unicodehelper.decode_utf8(self.space, content_utf8)
@@ -255,10 +260,11 @@ class JSONDecoder(object):
                     # ascii only, faster to decode
                     content_unicode = content_utf8.decode('ascii')
                 self.last_type = TYPE_STRING
+                self.i = i
                 return self.space.wrap(content_unicode)
             elif ch == '\\':
-                content_so_far = self.getslice(start, self.i-1)
-                self.unget()
+                content_so_far = self.getslice(start, i-1)
+                self.i = i-1
                 return self.decode_string_escaped(start, content_so_far)
         self._raise("Unterminated string starting at char %d", start)
 
