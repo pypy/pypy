@@ -160,7 +160,8 @@ class JSONDecoder(object):
         if is_float:
             # build the float
             floatval = intval + frcval
-            floatval = floatval * math.pow(10, exp)
+            if exp != 0:
+                floatval = floatval * math.pow(10, exp)
             return self.space.wrap(floatval)
         else:
             return self.space.wrap(intval)
