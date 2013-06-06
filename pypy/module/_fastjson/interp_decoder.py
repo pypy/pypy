@@ -16,10 +16,17 @@ def neg_pow_10(x, exp):
         return 0.0
     return x * NEG_POW_10[exp]
 
-TYPE_UNKNOWN = 0
-TYPE_STRING = 1
+def strslice2unicode_latin1(s, start, end):
+    """
+    Convert s[start:end] to unicode. s is supposed to be an RPython string
+    encoded in latin-1, which means that the numeric value of each char is the
+    same as the corresponding unicode code point.
 
-def strslice2unicode_ascii(s, start, end):
+    Internally it's implemented at the level of low-level helpers, to avoid
+    the extra copy we would need if we take the actual slice first.
+    
+    No bound checking is done, use carefully.
+    """
     from rpython.rtyper.annlowlevel import llstr, hlunicode
     from rpython.rtyper.lltypesystem.rstr import malloc, UNICODE
     from rpython.rtyper.lltypesystem.lltype import cast_primitive, UniChar
@@ -32,6 +39,8 @@ def strslice2unicode_ascii(s, start, end):
         ll_res.chars[i] = cast_primitive(UniChar, ch)
     return hlunicode(ll_res)
 
+TYPE_UNKNOWN = 0
+TYPE_STRING = 1
 class JSONDecoder(object):
     def __init__(self, space, s):
         self.space = space
@@ -271,8 +280,10 @@ class JSONDecoder(object):
                     content_utf8 = self.getslice(start, i-1)
                     content_unicode = unicodehelper.decode_utf8(self.space, content_utf8)
                 else:
-                    # ascii only, fast path
-                    content_unicode = strslice2unicode_ascii(self.s, start, i-1)
+                    # ascii only, fast path (ascii is a strict subset of
+                    # latin1, and we already checked that all the chars are <
+                    # 128)
+                    content_unicode = strslice2unicode_latin1(self.s, start, i-1)
                 self.last_type = TYPE_STRING
                 self.pos = i
                 return self.space.wrap(content_unicode)
