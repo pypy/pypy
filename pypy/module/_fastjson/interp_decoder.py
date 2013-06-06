@@ -4,6 +4,7 @@ from rpython.rlib.objectmodel import specialize
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter import unicodehelper
+from rpython.rtyper.annlowlevel import llstr, hlunicode
 
 def is_whitespace(ch):
     return ch == ' ' or ch == '\t' or ch == '\r' or ch == '\n'
@@ -88,62 +89,54 @@ class JSONDecoder(object):
     def _raise(self, msg, *args):
         raise operationerrfmt(self.space.w_ValueError, msg, *args)
 
-    def decode_any(self):
-        self.pos = self.skip_whitespace(self.pos)
-        ch = self.peek()
+    def decode_any(self, i):
+        i = self.skip_whitespace(i)
+        ch = self.s[i]
         if ch == '"':
-            self.next()
-            return self.decode_string()
+            return self.decode_string(i+1)
         elif ch.isdigit() or ch == '-':
-            return self.decode_numeric()
+            return self.decode_numeric(i)
         elif ch == '[':
-            self.next()
-            return self.decode_array()
+            return self.decode_array(i+1)
         elif ch == '{':
-            self.next()
-            return self.decode_object()
+            return self.decode_object(i+1)
         elif ch == 'n':
-            self.next()
-            return self.decode_null()
+            return self.decode_null(i+1)
         elif ch == 't':
-            self.next()
-            return self.decode_true()
+            return self.decode_true(i+1)
         elif ch == 'f':
-            self.next()
-            return self.decode_false()
+            return self.decode_false(i+1)
         else:
             self._raise("No JSON object could be decoded: unexpected '%s' at char %d",
                         ch, self.pos)
 
-    def decode_null(self):
-        N = len('ull')
-        if (self.pos+N <= len(self.s) and
-            self.next() == 'u' and
-            self.next() == 'l' and
-            self.next() == 'l'):
+    def decode_null(self, i):
+        if (self.s[i]   == 'u' and
+            self.s[i+1] == 'l' and
+            self.s[i+2] == 'l'):
+            self.pos = i+3
             return self.space.w_None
-        self._raise("Error when decoding null at char %d", self.pos)
+        self._raise("Error when decoding null at char %d", i)
 
-    def decode_true(self):
-        N = len('rue')
-        if (self.pos+N <= len(self.s) and
-            self.next() == 'r' and
-            self.next() == 'u' and
-            self.next() == 'e'):
+    def decode_true(self, i):
+        if (self.s[i]   == 'r' and
+            self.s[i+1] == 'u' and
+            self.s[i+2] == 'e'):
+            self.pos = i+3
             return self.space.w_True
-        self._raise("Error when decoding true at char %d", self.pos)
+        self._raise("Error when decoding true at char %d", i)
 
-    def decode_false(self):
-        N = len('alse')
-        if (self.pos+N <= len(self.s) and
-            self.next() == 'a' and
-            self.next() == 'l' and
-            self.next() == 's' and
-            self.next() == 'e'):
+    def decode_false(self, i):
+        if (self.s[i]   == 'a' and
+            self.s[i+1] == 'l' and
+            self.s[i+2] == 's' and
+            self.s[i+3] == 'e'):
+            self.pos = i+4
             return self.space.w_False
-        self._raise("Error when decoding false at char %d", self.pos)
+        self._raise("Error when decoding false at char %d", i)
 
-    def decode_numeric(self):
+    def decode_numeric(self, i):
+        self.pos = i
         intval = self.parse_integer()
         #
         is_float = False
@@ -201,22 +194,20 @@ class JSONDecoder(object):
         self.pos = i
         return intval, count
         
-    def decode_array(self):
+    def decode_array(self, i):
         w_list = self.space.newlist([])
-        start = self.pos
+        start = i
+        count = 0
         i = self.skip_whitespace(start)
         while i < len(self.s):
             ch = self.s[i]
             if ch == ']':
                 self.pos = i+1
                 return w_list
-            self.pos = i
-            w_item = self.decode_any()
+            w_item = self.decode_any(i)
             i = self.pos
             self.space.call_method(w_list, 'append', w_item)
             i = self.skip_whitespace(i)
-            if i == len(self.s):
-                break
             ch = self.s[i]
             i += 1
             if ch == ']':
@@ -230,35 +221,34 @@ class JSONDecoder(object):
         self._raise("Unterminated array starting at char %d", start)
 
 
-    def decode_object(self):
-        start = self.pos
+    def decode_object(self, i):
+        start = i
         w_dict = self.space.newdict()
-        while not self.eof():
-            ch = self.peek()
+        while i < len(self.s):
+            ch = self.s[i]
             if ch == '}':
-                self.next()
+                self.pos = i+1
                 return w_dict
             #
             # parse a key: value
             self.last_type = TYPE_UNKNOWN
-            w_name = self.decode_any()
+            w_name = self.decode_any(i)
             if self.last_type != TYPE_STRING:
                 self._raise("Key name must be string for object starting at char %d", start)
-            self.pos = self.skip_whitespace(self.pos)
-            if self.eof():
-                break
-            ch = self.next()
+            i = self.skip_whitespace(self.pos)
+            ch = self.s[i]
             if ch != ':':
-                self._raise("No ':' found at char %d", self.pos)
-            self.pos = self.skip_whitespace(self.pos)
+                self._raise("No ':' found at char %d", i)
+            i += 1
+            i = self.skip_whitespace(i)
             #
-            w_value = self.decode_any()
+            w_value = self.decode_any(i)
             self.space.setitem(w_dict, w_name, w_value)
-            self.pos = self.skip_whitespace(self.pos)
-            if self.eof():
-                break
-            ch = self.next()
+            i = self.skip_whitespace(self.pos)
+            ch = self.s[i]
+            i += 1
             if ch == '}':
+                self.pos = i
                 return w_dict
             elif ch == ',':
                 pass
@@ -267,9 +257,8 @@ class JSONDecoder(object):
                             ch, self.pos)
         self._raise("Unterminated object starting at char %d", start)
 
-    def decode_string(self):
-        start = self.pos
-        i = self.pos
+    def decode_string(self, i):
+        start = i
         bits = 0
         while i < len(self.s):
             # this loop is a fast path for strings which do not contain escape
@@ -348,11 +337,13 @@ class JSONDecoder(object):
 
 @unwrap_spec(s=str)
 def loads(space, s):
+    # the '\0' serves as a sentinel, so that we can avoid the bound check
+    s = s + '\0'
     decoder = JSONDecoder(space, s)
-    w_res = decoder.decode_any()
-    decoder.pos = decoder.skip_whitespace(decoder.pos)
-    if not decoder.eof():
-        start = decoder.pos
-        end = len(decoder.s)
+    w_res = decoder.decode_any(0)
+    i = decoder.skip_whitespace(decoder.pos)
+    if s[i] != '\0':
+        start = i
+        end = len(s) - 1
         raise operationerrfmt(space.w_ValueError, "Extra data: char %d - %d", start, end)
     return w_res
