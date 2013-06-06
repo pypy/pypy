@@ -5,9 +5,40 @@ from pypy.interpreter.error import OperationError
 from pypy.module.micronumpy.base import W_NDimArray, convert_to_array
 from pypy.module.micronumpy.strides import (calculate_broadcast_strides,
                                              shape_agreement_multiple)
-from pypy.module.micronumpy.iter import MultiDimViewIterator
+from pypy.module.micronumpy.iter import MultiDimViewIterator, SliceIterator
 from pypy.module.micronumpy import support
 from pypy.module.micronumpy.arrayimpl.concrete import SliceArray
+
+class AbstractIterator(object):
+    def done(self):
+        raise NotImplementedError("Abstract Class")
+
+    def next(self):
+        raise NotImplementedError("Abstract Class")
+
+    def getitem(self, array):
+        raise NotImplementedError("Abstract Class")
+
+class IteratorMixin(object):
+    _mixin_ = True
+    def __init__(self, it, op_flags):
+        self.it = it
+        self.op_flags = op_flags
+
+    def done(self):
+        return self.it.done()
+
+    def next(self):
+        self.it.next()
+
+    def getitem(self, space, array):
+        return self.op_flags.get_it_item(space, array, self.it)
+
+class BoxIterator(IteratorMixin):
+    pass
+
+class SliceIterator(IteratorMixin):
+    pass
 
 def parse_op_arg(space, name, w_op_flags, n, parse_one_arg):
     ret = []
@@ -52,6 +83,13 @@ def get_readwrite_item(space, array, it):
     res = SliceArray(it.array.start + it.offset, [0], [0], [1,], it.array, array)
     #it.dtype.setitem(res, 0, it.getitem())
     return W_NDimArray(res)
+
+def get_readonly_slice(space, array, it):
+    #XXX Not readonly
+    return W_NDimArray(it.getslice())
+
+def get_readwrite_slice(space, array, it):
+    return W_NDimArray(it.getslice())
 
 def parse_op_flag(space, lst):
     op_flag = OpFlag()
@@ -191,11 +229,11 @@ class W_NDIter(W_Root):
         self.iters=[]
         self.shape = iter_shape = shape_agreement_multiple(space, self.seq)
         if self.external_loop:
-            xxx find longest contiguous shape
+            #XXX find longest contiguous shape
             iter_shape = iter_shape[1:]
         for i in range(len(self.seq)):
-            self.iters.append(get_iter(space, self.order,
-                            self.seq[i].implementation, iter_shape))
+            self.iters.append(BoxIterator(get_iter(space, self.order,
+                            self.seq[i].implementation, iter_shape), self.op_flags[i]))
 
     def descr_iter(self, space):
         return space.wrap(self)
@@ -220,8 +258,7 @@ class W_NDIter(W_Root):
             raise OperationError(space.w_StopIteration, space.w_None)
         res = []
         for i in range(len(self.iters)):
-            res.append(self.op_flags[i].get_it_item(space, self.seq[i],
-                                                    self.iters[i]))
+            res.append(self.iters[i].getitem(space, self.seq[i]))
             self.iters[i].next()
         if len(res) <2:
             return res[0]

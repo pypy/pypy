@@ -32,13 +32,13 @@ Note that in 'C' order we stepped BACKWARDS 24 while 'overflowing' a
 shape dimension
   which is back 25 and forward 1,
   which is x.strides[1] * (x.shape[1] - 1) + x.strides[0]
-so if we precalculate the overflow backstride as 
+so if we precalculate the overflow backstride as
 [x.strides[i] * (x.shape[i] - 1) for i in range(len(x.shape))]
 we can go faster.
 All the calculations happen in next()
 
 next_skip_x() tries to do the iteration for a number of steps at once,
-but then we cannot gaurentee that we only overflow one single shape 
+but then we cannot gaurentee that we only overflow one single shape
 dimension, perhaps we could overflow times in one big step.
 """
 
@@ -266,6 +266,30 @@ class MultiDimViewIterator(ConcreteArrayIterator):
     def reset(self):
         self.offset %= self.size
 
+class SliceIterator(object):
+    def __init__(self, arr, stride, backstride, shape, dtype=None):
+        self.step = 0
+        self.arr = arr
+        self.stride = stride
+        self.backstride = backstride
+        self.shape = shape
+        if dtype is None:
+            dtype = arr.implementation.dtype
+        self.dtype = dtype
+        self._done = False
+
+    def done():
+        return self._done
+
+    def next():
+        self.step += self.arr.implementation.dtype.get_size()
+        if self.step == self.backstride - self.implementation.dtype.get_size():
+            self._done = True
+
+    def getslice(self):
+        from pypy.module.micronumpy.arrayimpl.concrete import SliceArray
+        return SliceArray(self.step, [self.stride], [self.backstride], self.shape, self.arr.implementation, self.arr, self.dtype)
+
 class AxisIterator(base.BaseArrayIterator):
     def __init__(self, array, shape, dim, cumultative):
         self.shape = shape
@@ -288,7 +312,7 @@ class AxisIterator(base.BaseArrayIterator):
         self.dim = dim
         self.array = array
         self.dtype = array.dtype
-        
+
     def setitem(self, elem):
         self.dtype.setitem(self.array, self.offset, elem)
 
