@@ -4,7 +4,7 @@ from pypy.module._fastjson.interp_decoder import JSONDecoder
 
 def test_skip_whitespace():
     dec = JSONDecoder('fake space', '   hello   ')
-    assert dec.i == 0
+    assert dec.pos == 0
     dec.skip_whitespace()
     assert dec.next() == 'h'
     assert dec.next() == 'e'

@@ -36,14 +36,14 @@ class JSONDecoder(object):
     def __init__(self, space, s):
         self.space = space
         self.s = s
-        self.i = 0
+        self.pos = 0
         self.last_type = TYPE_UNKNOWN
 
     def eof(self):
-        return self.i == len(self.s)
+        return self.pos == len(self.s)
 
     def peek(self):
-        return self.s[self.i]
+        return self.s[self.pos]
 
     def peek_maybe(self):
         if self.eof():
@@ -53,13 +53,13 @@ class JSONDecoder(object):
 
     def next(self):
         ch = self.peek()
-        self.i += 1
+        self.pos += 1
         return ch
 
     def unget(self):
-        i2 = self.i - 1
-        assert i2 > 0 # so that we can use self.i as slice start
-        self.i = i2
+        i2 = self.pos - 1
+        assert i2 > 0 # so that we can use self.pos as slice start
+        self.pos = i2
 
     def getslice(self, start, end):
         assert start > 0
@@ -67,14 +67,14 @@ class JSONDecoder(object):
         return self.s[start:end]
 
     def skip_whitespace(self):
-        i = self.i
+        i = self.pos
         while i < len(self.s):
             ch = self.s[i]
             if is_whitespace(ch):
                 i+=1
             else:
                 break
-        self.i = i
+        self.pos = i
 
     @specialize.arg(1)
     def _raise(self, msg, *args):
@@ -105,35 +105,35 @@ class JSONDecoder(object):
             return self.decode_false()
         else:
             self._raise("No JSON object could be decoded: unexpected '%s' at char %d",
-                        ch, self.i)
+                        ch, self.pos)
 
     def decode_null(self):
         N = len('ull')
-        if (self.i+N <= len(self.s) and
+        if (self.pos+N <= len(self.s) and
             self.next() == 'u' and
             self.next() == 'l' and
             self.next() == 'l'):
             return self.space.w_None
-        self._raise("Error when decoding null at char %d", self.i)
+        self._raise("Error when decoding null at char %d", self.pos)
 
     def decode_true(self):
         N = len('rue')
-        if (self.i+N <= len(self.s) and
+        if (self.pos+N <= len(self.s) and
             self.next() == 'r' and
             self.next() == 'u' and
             self.next() == 'e'):
             return self.space.w_True
-        self._raise("Error when decoding true at char %d", self.i)
+        self._raise("Error when decoding true at char %d", self.pos)
 
     def decode_false(self):
         N = len('alse')
-        if (self.i+N <= len(self.s) and
+        if (self.pos+N <= len(self.s) and
             self.next() == 'a' and
             self.next() == 'l' and
             self.next() == 's' and
             self.next() == 'e'):
             return self.space.w_False
-        self._raise("Error when decoding false at char %d", self.i)
+        self._raise("Error when decoding false at char %d", self.pos)
 
     def decode_numeric(self):
         intval = self.parse_integer()
@@ -179,7 +179,7 @@ class JSONDecoder(object):
         "Parse a sequence of digits as a decimal number. No sign allowed"
         intval = 0
         count = 0
-        i = self.i
+        i = self.pos
         while i < len(self.s):
             ch = self.s[i]
             if ch.isdigit():
@@ -190,11 +190,11 @@ class JSONDecoder(object):
                 break
         if count == 0:
             self._raise("Expected digit at char %d", i)
-        self.i = i
+        self.pos = i
         return intval, count
         
     def decode_array(self):
-        start = self.i
+        start = self.pos
         w_list = self.space.newlist([])
         self.skip_whitespace()
         while not self.eof():
@@ -214,12 +214,12 @@ class JSONDecoder(object):
                 pass
             else:
                 self._raise("Unexpected '%s' when decoding array (char %d)",
-                            ch, self.i)
+                            ch, self.pos)
         self._raise("Unterminated array starting at char %d", start)
 
 
     def decode_object(self):
-        start = self.i
+        start = self.pos
         w_dict = self.space.newdict()
         while not self.eof():
             ch = self.peek()
@@ -237,7 +237,7 @@ class JSONDecoder(object):
                 break
             ch = self.next()
             if ch != ':':
-                self._raise("No ':' found at char %d", self.i)
+                self._raise("No ':' found at char %d", self.pos)
             self.skip_whitespace()
             #
             w_value = self.decode_any()
@@ -252,12 +252,12 @@ class JSONDecoder(object):
                 pass
             else:
                 self._raise("Unexpected '%s' when decoding object (char %d)",
-                            ch, self.i)
+                            ch, self.pos)
         self._raise("Unterminated object starting at char %d", start)
 
     def decode_string(self):
-        start = self.i
-        i = self.i
+        start = self.pos
+        i = self.pos
         bits = 0
         while i < len(self.s):
             # this loop is a fast path for strings which do not contain escape
@@ -274,11 +274,11 @@ class JSONDecoder(object):
                     # ascii only, fast path
                     content_unicode = strslice2unicode_ascii(self.s, start, i-1)
                 self.last_type = TYPE_STRING
-                self.i = i
+                self.pos = i
                 return self.space.wrap(content_unicode)
             elif ch == '\\':
                 content_so_far = self.getslice(start, i-1)
-                self.i = i-1
+                self.pos = i-1
                 return self.decode_string_escaped(start, content_so_far)
         self._raise("Unterminated string starting at char %d", start)
 
@@ -314,16 +314,16 @@ class JSONDecoder(object):
         elif ch == 'u':
             return self.decode_escape_sequence_unicode(builder)
         else:
-            self._raise("Invalid \\escape: %s (char %d)", ch, self.i-1)
+            self._raise("Invalid \\escape: %s (char %d)", ch, self.pos-1)
 
     def decode_escape_sequence_unicode(self, builder):
         # at this point we are just after the 'u' of the \u1234 sequence.
-        hexdigits = self.getslice(self.i, self.i+4)
-        self.i += 4
+        hexdigits = self.getslice(self.pos, self.pos+4)
+        self.pos += 4
         try:
             uchr = unichr(int(hexdigits, 16))
         except ValueError:
-            self._raise("Invalid \uXXXX escape (char %d)", self.i-1)
+            self._raise("Invalid \uXXXX escape (char %d)", self.pos-1)
             return # help the annotator to know that we'll never go beyond
                    # this point
         #
@@ -338,7 +338,7 @@ def loads(space, s):
     w_res = decoder.decode_any()
     decoder.skip_whitespace()
     if not decoder.eof():
-        start = decoder.i
+        start = decoder.pos
         end = len(decoder.s)
         raise operationerrfmt(space.w_ValueError, "Extra data: char %d - %d", start, end)
     return w_res
