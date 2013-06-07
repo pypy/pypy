@@ -177,7 +177,7 @@ class JSONDecoder(object):
         start = i
         count = 0
         i = self.skip_whitespace(start)
-        while i < self.length:
+        while True:
             ch = self.ll_chars[i]
             if ch == ']':
                 self.pos = i+1
@@ -193,10 +193,11 @@ class JSONDecoder(object):
                 return w_list
             elif ch == ',':
                 pass
+            elif ch == '\0':
+                self._raise("Unterminated array starting at char %d", start)
             else:
                 self._raise("Unexpected '%s' when decoding array (char %d)",
                             ch, self.pos)
-        self._raise("Unterminated array starting at char %d", start)
 
 
     def decode_object(self, i):
