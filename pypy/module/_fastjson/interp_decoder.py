@@ -138,8 +138,7 @@ class JSONDecoder(object):
         self._raise("Error when decoding false at char %d", i)
 
     def decode_numeric(self, i):
-        self.pos = i
-        intval = self.parse_integer()
+        i, intval = self.parse_integer(i)
         #
         is_float = False
         exp = 0
@@ -147,19 +146,18 @@ class JSONDecoder(object):
         frccount = 0
         #
         # check for the optional fractional part
-        ch = self.peek_maybe()
+        ch = self.ll_chars[i]
         if ch == '.':
             is_float = True
-            self.next()
-            frcval, frccount = self.parse_digits()
+            i, frcval, frccount = self.parse_digits(i+1)
             frcval = neg_pow_10(frcval, frccount)
-            ch = self.peek_maybe()
+            ch = self.ll_chars[i]
         # check for the optional exponent part
         if ch == 'E' or ch == 'e':
             is_float = True
-            self.next()
-            exp = self.parse_integer()
+            i, exp = self.parse_integer(i+1)
         #
+        self.pos = i
         if is_float:
             # build the float
             floatval = intval + frcval
@@ -169,20 +167,19 @@ class JSONDecoder(object):
         else:
             return self.space.wrap(intval)
 
-    def parse_integer(self):
+    def parse_integer(self, i):
         "Parse a decimal number with an optional minus sign"
         sign = 1
-        if self.peek_maybe() == '-':
+        if self.ll_chars[i] == '-':
             sign = -1
-            self.next()
-        intval, _ = self.parse_digits()
-        return sign * intval
+            i += 1
+        i, intval, _ = self.parse_digits(i)
+        return i, sign * intval
 
-    def parse_digits(self):
+    def parse_digits(self, i):
         "Parse a sequence of digits as a decimal number. No sign allowed"
         intval = 0
-        count = 0
-        start = i = self.pos
+        start = i 
         while True:
             ch = self.ll_chars[i]
             if ch.isdigit():
@@ -193,8 +190,7 @@ class JSONDecoder(object):
         count = i - start
         if count == 0:
             self._raise("Expected digit at char %d", i)
-        self.pos = i
-        return intval, count
+        return i, intval, count
         
     def decode_array(self, i):
         w_list = self.space.newlist([])
