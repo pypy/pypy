@@ -182,15 +182,15 @@ class JSONDecoder(object):
         "Parse a sequence of digits as a decimal number. No sign allowed"
         intval = 0
         count = 0
-        i = self.pos
-        while i < self.length:
+        start = i = self.pos
+        while True:
             ch = self.ll_chars[i]
             if ch.isdigit():
                 intval = intval*10 + ord(ch)-ord('0')
-                count += 1
                 i += 1
             else:
                 break
+        count = i - start
         if count == 0:
             self._raise("Expected digit at char %d", i)
         self.pos = i
