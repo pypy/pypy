@@ -20,7 +20,7 @@ INT_SIZE = rffi.sizeof(lltype.Signed)
 def make_sort_function(space, itemtype, comp_type, count=1):
     TP = itemtype.T
     step = rffi.sizeof(TP)
-    
+
     class Repr(object):
         def __init__(self, index_stride_size, stride_size, size, values,
                      indexes, index_start, start):
@@ -32,7 +32,12 @@ def make_sort_function(space, itemtype, comp_type, count=1):
             self.values = values
             self.indexes = indexes
 
+        def __del__(self):
+            print 'Repr.del',self.values
+
         def getitem(self, item):
+            #print 'getting',item,'of',self.size,self.values
+            #print 'from',item*self.stride_size + self.start,'to',item*(self.stride_size+1) + self.start
             if count < 2:
                 v = raw_storage_getitem(TP, self.values, item * self.stride_size
                                     + self.start)
@@ -71,11 +76,11 @@ def make_sort_function(space, itemtype, comp_type, count=1):
         def __init__(self, index_stride_size, stride_size, size):
             start = 0
             dtype = interp_dtype.get_dtype_cache(space).w_longdtype
-            self.indexes = dtype.itemtype.malloc(size*dtype.get_size())
-            self.values = alloc_raw_storage(size * stride_size, 
+            indexes = dtype.itemtype.malloc(size*dtype.get_size())
+            values = alloc_raw_storage(size * stride_size,
                                             track_allocation=False)
-            Repr.__init__(self, index_stride_size, stride_size, 
-                          size, self.values, self.indexes, start, start)
+            Repr.__init__(self, index_stride_size, stride_size,
+                          size, values, indexes, start, start)
 
         def __del__(self):
             free_raw_storage(self.indexes, track_allocation=False)
@@ -91,12 +96,14 @@ def make_sort_function(space, itemtype, comp_type, count=1):
         return lst.size
 
     def arg_getitem_slice(lst, start, stop):
+        print 'arg_getitem_slice',lst.values
         retval = ArgArrayRepWithStorage(lst.index_stride_size, lst.stride_size,
                 stop-start)
         for i in range(stop-start):
             retval.setitem(i, lst.getitem(i+start))
+        print 'arg_getitem_slice done',lst
         return retval
-    
+
     if count < 2:
         def arg_lt(a, b):
             # Does numpy do <= ?
@@ -108,7 +115,7 @@ def make_sort_function(space, itemtype, comp_type, count=1):
                     return True
                 elif a[0][i] > b[0][i]:
                     return False
-            # Does numpy do True?    
+            # Does numpy do True?
             return False
 
     ArgSort = make_timsort_class(arg_getitem, arg_setitem, arg_length,
@@ -148,13 +155,16 @@ def make_sort_function(space, itemtype, comp_type, count=1):
             stride_size = arr.strides[axis]
             index_stride_size = index_impl.strides[axis]
             axis_size = arr.shape[axis]
+            print '5'
             while not iter.done():
                 for i in range(axis_size):
                     raw_storage_setitem(storage, i * index_stride_size +
                                         index_iter.offset, i)
                 r = Repr(index_stride_size, stride_size, axis_size,
                          arr.get_storage(), storage, index_iter.offset, iter.offset)
+                print '6'
                 ArgSort(r).sort()
+                print '7'
                 iter.next()
                 index_iter.next()
         return index_arr
@@ -180,7 +190,7 @@ all_types = unrolling_iterable(all_types)
 
 class SortCache(object):
     built = False
-    
+
     def __init__(self, space):
         if self.built:
             return
