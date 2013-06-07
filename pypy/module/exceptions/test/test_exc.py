@@ -261,3 +261,13 @@ class AppTestExc(object):
             assert e.errno == errno.ENOTDIR
         else:
             assert False, "Expected OSError"
+
+    def test_nonascii_name(self):
+        """
+        class 日本(Exception):
+            pass
+        assert '日本' in repr(日本)
+        class 日本2(SyntaxError):
+            pass
+        assert '日本2' in repr(日本2)
+        """

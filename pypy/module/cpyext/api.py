@@ -25,7 +25,7 @@ from pypy.interpreter.function import StaticMethod
 from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.module.__builtin__.descriptor import W_Property
 from pypy.module.__builtin__.interp_memoryview import W_MemoryView
-from rpython.rlib.entrypoint import entrypoint
+from rpython.rlib.entrypoint import entrypoint_lowlevel
 from rpython.rlib.rposix import is_valid_fd, validate_fd
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import specialize
@@ -553,6 +553,10 @@ def make_wrapper(space, callable):
     def wrapper(*args):
         from pypy.module.cpyext.pyobject import make_ref, from_ref
         from pypy.module.cpyext.pyobject import Reference
+        # we hope that malloc removal removes the newtuple() that is
+        # inserted exactly here by the varargs specializer
+        rffi.stackcounter.stacks_counter += 1
+        llop.gc_stack_bottom(lltype.Void)   # marker for trackgcroot.py
         retval = fatal_value
         boxed_args = ()
         try:
@@ -621,6 +625,7 @@ def make_wrapper(space, callable):
             else:
                 print str(e)
                 pypy_debug_catch_fatal_exception()
+        rffi.stackcounter.stacks_counter -= 1
         return retval
     callable._always_inline_ = 'try'
     wrapper.__name__ = "wrapper for %r" % (callable, )
@@ -1016,7 +1021,7 @@ def setup_library(space):
         export_struct(name, struct)
 
     for name, func in FUNCTIONS.iteritems():
-        deco = entrypoint("cpyext", func.argtypes, name, relax=True)
+        deco = entrypoint_lowlevel("cpyext", func.argtypes, name, relax=True)
         deco(func.get_wrapper(space))
 
     setup_init_functions(eci, translating=True)

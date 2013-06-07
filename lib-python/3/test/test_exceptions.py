@@ -6,6 +6,10 @@ import unittest
 import pickle
 import weakref
 import errno
+try:
+    import _testcapi
+except ImportError:
+    _testcapi = None
 
 from test.support import (TESTFN, unlink, run_unittest, captured_output,
                           gc_collect, cpython_only)
@@ -762,6 +766,7 @@ class ExceptionTests(unittest.TestCase):
         self.assertIn("maximum recursion depth exceeded", str(v))
 
 
+    @unittest.skipUnless(_testcapi, 'Requires _testcapi')
     def test_MemoryError(self):
         # PyErr_NoMemory always raises the same exception instance.
         # Check that the traceback is not doubled.
@@ -820,6 +825,7 @@ class ExceptionTests(unittest.TestCase):
         self.assertEqual(error5.a, 1)
         self.assertEqual(error5.__doc__, "")
 
+    @unittest.skipUnless(_testcapi, 'Requires _testcapi')
     def test_memory_error_cleanup(self):
         # Issue #5437: preallocated MemoryError instances should not keep
         # traceback objects alive.

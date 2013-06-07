@@ -112,14 +112,14 @@ class Module(W_Root):
     def descr_module__repr__(self, space):
         from pypy.interpreter.mixedmodule import MixedModule
         if self.w_name is not None:
-            name = space.str_w(space.repr(self.w_name))
+            name = space.unicode_w(space.repr(self.w_name))
         else:
-            name = "'?'"
+            name = u"'?'"
         if isinstance(self, MixedModule):
-            return space.wrap("<module %s (built-in)>" % name)
+            return space.wrap(u"<module %s (built-in)>" % name)
         try:
             w___file__ = space.getattr(self, space.wrap('__file__'))
-            __file__ = space.str_w(space.repr(w___file__))
+            __file__ = space.unicode_w(space.repr(w___file__))
         except OperationError:
-            __file__ = '?'
-        return space.wrap("<module %s from %s>" % (name, __file__))
+            __file__ = u'?'
+        return space.wrap(u"<module %s from %s>" % (name, __file__))

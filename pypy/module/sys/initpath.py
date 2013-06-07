@@ -68,7 +68,7 @@ def find_stdlib(state, executable):
     If it cannot be found, return (None, None).
     """
     if executable == '':
-        return None, None
+        executable = 'pypy-c'
     search = executable
     while True:
         dirname = resolvedirof(search)

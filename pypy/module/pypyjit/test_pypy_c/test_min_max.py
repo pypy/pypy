@@ -49,17 +49,20 @@ class TestMinMax(BaseTestPyPyC):
         label(..., descr=...)
         ...
         label(..., descr=...)
+        guard_not_invalidated?
         i17 = int_ge(i11, i7)
         guard_false(i17, descr=...)
         p18 = getarrayitem_gc(p5, i11, descr=...)
         i19 = int_add(i11, 1)
         setfield_gc(p2, i19, descr=...)
-        guard_class(p18, ConstClass(W_IntObject), descr=...)
+        guard_nonnull_class(p18, ConstClass(W_IntObject), descr=...)
         i20 = getfield_gc_pure(p18, descr=...)
         i21 = int_gt(i20, i14)
         guard_true(i21, descr=...)
         jump(..., descr=...)
         ''')
+        # XXX could be "guard_class(p18)" instead; we lost somewhere
+        # the information that it cannot be null.
 
     def test_iter_max(self):
         def main():

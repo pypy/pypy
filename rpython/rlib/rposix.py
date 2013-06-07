@@ -107,7 +107,6 @@ if os.name == 'nt':
         "_PyVerify_fd", [rffi.INT], rffi.INT,
         compilation_info=errno_eci,
         ))
-    @jit.dont_look_inside
     def validate_fd(fd):
         if not is_valid_fd(fd):
             raise OSError(get_errno(), 'Bad file descriptor')

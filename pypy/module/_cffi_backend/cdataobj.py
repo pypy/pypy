@@ -114,8 +114,11 @@ class W_CData(W_Root):
     ge = _make_comparison('ge')
 
     def hash(self):
-        h = (objectmodel.compute_identity_hash(self.ctype) ^
-             rffi.cast(lltype.Signed, self._cdata))
+        h = rffi.cast(lltype.Signed, self._cdata)
+        # To hash pointers in dictionaries.  Assumes that h shows some
+        # alignment (to 4, 8, maybe 16 bytes), so we use the following
+        # formula to avoid the trailing bits being always 0.
+        h = h ^ (h >> 4)
         return self.space.wrap(h)
 
     def getitem(self, w_index):
@@ -389,6 +392,19 @@ class W_CDataSliced(W_CData):
 
     def get_array_length(self):
         return self.length
+
+
+class W_CDataHandle(W_CData):
+    _attrs_ = ['w_keepalive']
+    _immutable_fields_ = ['w_keepalive']
+
+    def __init__(self, space, cdata, ctype, w_keepalive):
+        W_CData.__init__(self, space, cdata, ctype)
+        self.w_keepalive = w_keepalive
+
+    def _repr_extra(self):
+        w_repr = self.space.repr(self.w_keepalive)
+        return "handle to %s" % (self.space.str_w(w_repr),)
 
 
 W_CData.typedef = TypeDef(

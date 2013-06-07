@@ -682,7 +682,7 @@ class RegisterOs(BaseLazyRegistering):
 
     @registering_if(os, 'getpid')
     def register_os_getpid(self):
-        return self.extdef_for_os_function_returning_int('getpid')
+        return self.extdef_for_os_function_returning_int('getpid', threadsafe=False)
 
     @registering_if(os, 'getgid')
     def register_os_getgid(self):

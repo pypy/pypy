@@ -411,8 +411,8 @@ class W_TypeObject(W_Object):
         space = w_self.space
         if not isinstance(w_subtype, W_TypeObject):
             raise operationerrfmt(space.w_TypeError,
-                "X is not a type object ('%s')",
-                space.type(w_subtype).getname(space))
+                "X is not a type object ('%T')",
+                w_subtype)
         if not w_subtype.issubtype(w_self):
             raise operationerrfmt(space.w_TypeError,
                 "%s.__new__(%s): %s is not a subtype of %s",
@@ -483,14 +483,14 @@ class W_TypeObject(W_Object):
     def get_module_type_name(w_self):
         space = w_self.space
         w_mod = w_self.get_module()
-        if not space.isinstance_w(w_mod, space.w_str):
-            mod = 'builtins'
+        if not space.isinstance_w(w_mod, space.w_unicode):
+            mod = u'builtins'
         else:
-            mod = space.str_w(w_mod)
-        if mod != 'builtins':
-            return '%s.%s' % (mod, w_self.name)
+            mod = space.unicode_w(w_mod)
+        if mod != u'builtins':
+            return u'%s.%s' % (mod, w_self.name.decode('utf-8'))
         else:
-            return w_self.name
+            return w_self.name.decode('utf-8')
 
     def add_subclass(w_self, w_subclass):
         space = w_self.space
@@ -605,9 +605,8 @@ def _calculate_metaclass(space, w_metaclass, bases_w):
 def _precheck_for_new(space, w_type):
     from pypy.objspace.std.typeobject import W_TypeObject
     if not isinstance(w_type, W_TypeObject):
-        raise operationerrfmt(space.w_TypeError,
-                              "X is not a type object (%s)",
-                              space.type(w_type).getname(space))
+        raise operationerrfmt(space.w_TypeError, "X is not a type object (%T)",
+                              w_type)
     return w_type
 
 # ____________________________________________________________
@@ -623,7 +622,7 @@ def _check(space, w_type, w_msg=None):
 
 def descr_get__name__(space, w_type):
     w_type = _check(space, w_type)
-    return space.wrap(w_type.name)
+    return space.wrap(w_type.name.decode('utf-8'))
 
 def descr_set__name__(space, w_type, w_value):
     w_type = _check(space, w_type)
@@ -664,9 +663,8 @@ def descr_set__bases__(space, w_type, w_value):
                               "can't set %s.__bases__", w_type.name)
     if not space.isinstance_w(w_value, space.w_tuple):
         raise operationerrfmt(space.w_TypeError,
-                              "can only assign tuple to %s.__bases__, not %s",
-                              w_type.name,
-                              space.type(w_value).getname(space))
+                              "can only assign tuple to %s.__bases__, not %T",
+                              w_type.name, w_value)
     newbases_w = space.fixedview(w_value)
     if len(newbases_w) == 0:
         raise operationerrfmt(space.w_TypeError,
@@ -686,11 +684,9 @@ def descr_set__bases__(space, w_type, w_value):
     newlayout = w_newbestbase.get_full_instance_layout()
 
     if oldlayout != newlayout:
-        raise operationerrfmt(space.w_TypeError,
-                           "__bases__ assignment: '%s' object layout"
-                           " differs from '%s'",
-                           w_newbestbase.getname(space),
-                           w_oldbestbase.getname(space))
+        msg = "__bases__ assignment: '%N' object layout differs from '%N'"
+        raise operationerrfmt(space.w_TypeError, msg,
+                              w_newbestbase, w_oldbestbase)
 
     # invalidate the version_tag of all the current subclasses
     w_type.mutated(None)
@@ -1123,11 +1119,12 @@ def repr__Type(space, w_obj):
     if not space.isinstance_w(w_mod, space.w_unicode):
         mod = None
     else:
-        mod = space.str_w(w_mod)
-    if mod is not None and mod != 'builtins':
-        return space.wrap("<class '%s.%s'>" % (mod, w_obj.name))
+        mod = space.unicode_w(w_mod)
+    name = w_obj.name.decode('utf-8')
+    if mod is not None and mod != u'builtins':
+        return space.wrap(u"<class '%s.%s'>" % (mod, name))
     else:
-        return space.wrap("<class '%s'>" % (w_obj.name))
+        return space.wrap(u"<class '%s'>" % (name))
 
 def getattr__Type_ANY(space, w_type, w_name):
     name = space.str_w(w_name)
@@ -1209,9 +1206,8 @@ def mro_error(space, orderlists):
     candidate = orderlists[-1][0]
     if candidate in orderlists[-1][1:]:
         # explicit error message for this specific case
-        raise operationerrfmt(space.w_TypeError,
-                              "duplicate base class '%s'",
-                              candidate.getname(space))
+        raise operationerrfmt(space.w_TypeError, "duplicate base class '%N'",
+                              candidate)
     while candidate not in cycle:
         cycle.append(candidate)
         nextblockinglist = mro_blockinglist(candidate, orderlists)
@@ -1221,7 +1217,7 @@ def mro_error(space, orderlists):
     cycle.reverse()
     names = [cls.getname(space) for cls in cycle]
     raise OperationError(space.w_TypeError,
-        space.wrap("cycle among base classes: " + ' < '.join(names)))
+        space.wrap(u"cycle among base classes: " + u' < '.join(names)))
 
 # ____________________________________________________________
 

@@ -8,11 +8,12 @@ def get_hacked_sre_compile(my_compile):
     module is a custom module that has _sre.compile == my_compile
     and CODESIZE == rsre_char.CODESIZE.
     """
-    import sre_compile, __builtin__, new
+    import sre_compile, sre_constants, __builtin__, new
     sre_hacked = new.module("_sre_hacked")
     sre_hacked.compile = my_compile
     sre_hacked.MAGIC = sre_compile.MAGIC
     sre_hacked.CODESIZE = rsre_char.CODESIZE
+    sre_hacked.MAXREPEAT = sre_constants.MAX_REPEAT
     sre_hacked.getlower = rsre_char.getlower
     def my_import(name, *args):
         if name == '_sre':

@@ -19,23 +19,28 @@ def parse_doc(s):
     branches.discard('default')
     return startrev, branches
 
-def get_merged_branches(path, startrev, endrev):
-    if getstatusoutput('hg root')[0]:
+def get_merged_branches(path, startrev, endrev, current_branch=None):
+    errcode, wc_branch = getstatusoutput('hg branch')
+    if errcode != 0:
         py.test.skip('no Mercurial repo')
+    if current_branch is None:
+        current_branch = wc_branch
 
     # X = take all the merges which are descendants of startrev and are on default
     # revset = all the parents of X which are not on default
     # ===>
     # revset contains all the branches which have been merged to default since
     # startrev
-    revset = 'parents(%s::%s and \
+    revset = "parents(%s::%s and \
                       merge() and \
-                      branch(default)) and \
-              not branch(default)' % (startrev, endrev)
+                      branch('%s')) and \
+              not branch('%s')" % (startrev, endrev,
+                                   current_branch, current_branch)
     cmd = r'hg log -R "%s" -r "%s" --template "{branches}\n"' % (path, revset)
     out = getoutput(cmd)
     branches = set(map(str.strip, out.splitlines()))
-    return branches
+    branches.discard("default")
+    return branches, current_branch
 
 
 def test_parse_doc():
@@ -65,7 +70,8 @@ qqq www ttt
     assert branches == set(['foobar', 'hello'])
 
 def test_get_merged_branches():
-    branches = get_merged_branches(ROOT, 'f34f0c11299f', '79770e0c2f93')
+    branches, _ = get_merged_branches(ROOT, 'f34f0c11299f', '79770e0c2f93',
+                                      'default')
     assert branches == set(['numpy-indexing-by-arrays-bool',
                             'better-jit-hooks-2',
                             'numpypy-ufuncs'])
@@ -76,7 +82,9 @@ def test_whatsnew():
     whatsnew_list.sort()
     last_whatsnew = whatsnew_list[-1].read()
     startrev, documented = parse_doc(last_whatsnew)
-    merged = get_merged_branches(ROOT, startrev, '')
+    merged, branch = get_merged_branches(ROOT, startrev, '')
+    merged.discard('default')
+    merged.discard('')
     not_documented = merged.difference(documented)
     not_merged = documented.difference(merged)
     print 'Branches merged but not documented:'
@@ -85,4 +93,6 @@ def test_whatsnew():
     print 'Branches documented but not merged:'
     print '\n'.join(not_merged)
     print
-    assert not not_documented and not not_merged
+    assert not not_documented
+    if branch == 'default':
+        assert not not_merged

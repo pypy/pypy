@@ -32,13 +32,13 @@ Note that in 'C' order we stepped BACKWARDS 24 while 'overflowing' a
 shape dimension
   which is back 25 and forward 1,
   which is x.strides[1] * (x.shape[1] - 1) + x.strides[0]
-so if we precalculate the overflow backstride as 
+so if we precalculate the overflow backstride as
 [x.strides[i] * (x.shape[i] - 1) for i in range(len(x.shape))]
 we can go faster.
 All the calculations happen in next()
 
 next_skip_x() tries to do the iteration for a number of steps at once,
-but then we cannot gaurentee that we only overflow one single shape 
+but then we cannot gaurentee that we only overflow one single shape
 dimension, perhaps we could overflow times in one big step.
 """
 
@@ -170,7 +170,8 @@ class ConcreteArrayIterator(base.BaseArrayIterator):
         self.dtype.setitem(self.array, self.offset, elem)
 
     def getitem(self):
-        return self.dtype.getitem(self.array, self.offset)
+        item = self.dtype.getitem(self.array, self.offset)
+        return item
 
     def getitem_bool(self):
         return self.dtype.getitem_bool(self.array, self.offset)
@@ -288,12 +289,13 @@ class AxisIterator(base.BaseArrayIterator):
         self.dim = dim
         self.array = array
         self.dtype = array.dtype
-        
+
     def setitem(self, elem):
         self.dtype.setitem(self.array, self.offset, elem)
 
     def getitem(self):
-        return self.dtype.getitem(self.array, self.offset)
+        item = self.dtype.getitem(self.array, self.offset)
+        return item
 
     @jit.unroll_safe
     def next(self):

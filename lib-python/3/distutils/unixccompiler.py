@@ -134,7 +134,7 @@ class UnixCCompiler(CCompiler):
         executables['ranlib'] = ["ranlib"]
         executables['linker_so'] += ['-undefined', 'dynamic_lookup']
 
-        for k, v in executables.iteritems():
+        for k, v in executables.items():
             if v and v[0] == 'cc':
                 v += ['-arch', arch]
 

@@ -56,6 +56,10 @@ class W_MyObject(W_Root):
         from rpython.rlib.rbigint import rbigint
         return rbigint.fromint(NonConstant(42))
 
+class W_MyListObj(W_MyObject):
+    def append(self, w_other):
+        pass
+
 class W_MyType(W_MyObject):
     def __init__(self):
         self.mro_w = [w_some_obj(), w_some_obj()]
@@ -107,12 +111,16 @@ class FakeObjSpace(ObjSpace):
     def __init__(self, config=None):
         self._seen_extras = []
         ObjSpace.__init__(self, config=config)
+        self.setup()
 
         # Be sure to annotate W_SliceObject constructor.
         # In Python2, this is triggered by W_InstanceObject.__getslice__.
         def build_slice():
             self.newslice(self.w_None, self.w_None, self.w_None)
         self._seen_extras.append(build_slice)
+
+    def _freeze_(self):
+        return True
 
     def float_w(self, w_obj):
         is_root(w_obj)
@@ -138,7 +146,7 @@ class FakeObjSpace(ObjSpace):
     def newlist(self, list_w):
         for w_x in list_w:
             is_root(w_x)
-        return w_some_obj()
+        return W_MyListObj()
 
     def newslice(self, w_start, w_end, w_step):
         is_root(w_start)
@@ -326,38 +334,36 @@ class FakeObjSpace(ObjSpace):
         t.buildrtyper().specialize()
         t.checkgraphs()
 
+    def setup(space):
+        for name in (ObjSpace.ConstantTable +
+                     ObjSpace.ExceptionTable +
+                     ['int', 'str', 'float', 'tuple', 'list',
+                      'dict', 'bytes', 'complex', 'slice', 'bool',
+                      'text', 'object', 'unicode', 'bytearray']):
+            setattr(space, 'w_' + name, w_some_obj())
+        space.w_type = w_some_type()
+        #
+        for (name, _, arity, _) in ObjSpace.MethodTable:
+            if name == 'type':
+                continue
+            args = ['w_%d' % i for i in range(arity)]
+            params = args[:]
+            d = {'is_root': is_root,
+                 'w_some_obj': w_some_obj}
+            if name in ('get',):
+                params[-1] += '=None'
+            exec compile2("""\
+                def meth(%s):
+                    %s
+                    return w_some_obj()
+            """ % (', '.join(params),
+                   '; '.join(['is_root(%s)' % arg for arg in args]))) in d
+            meth = func_with_new_name(d['meth'], name)
+            setattr(space, name, meth)
+        #
+        for name in ObjSpace.IrregularOpTable:
+            assert hasattr(space, name)    # missing?
 
-def setup():
-    for name in (ObjSpace.ConstantTable +
-                 ObjSpace.ExceptionTable +
-                 ['int', 'str', 'float', 'tuple', 'list',
-                  'dict', 'bytes', 'complex', 'slice', 'bool',
-                  'text', 'object', 'unicode', 'bytearray']):
-        setattr(FakeObjSpace, 'w_' + name, w_some_obj())
-    FakeObjSpace.w_type = w_some_type()
-    #
-    for (name, _, arity, _) in ObjSpace.MethodTable:
-        if name == 'type':
-            continue
-        args = ['w_%d' % i for i in range(arity)]
-        params = args[:]
-        d = {'is_root': is_root,
-             'w_some_obj': w_some_obj}
-        if name in ('get',):
-            params[-1] += '=None'
-        exec compile2("""\
-            def meth(self, %s):
-                %s
-                return w_some_obj()
-        """ % (', '.join(params),
-               '; '.join(['is_root(%s)' % arg for arg in args]))) in d
-        meth = func_with_new_name(d['meth'], name)
-        setattr(FakeObjSpace, name, meth)
-    #
-    for name in ObjSpace.IrregularOpTable:
-        assert hasattr(FakeObjSpace, name)    # missing?
-
-setup()
 
 # ____________________________________________________________
 

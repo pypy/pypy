@@ -304,6 +304,9 @@ class TestPythonAstCompiler:
             'from __future__ import nested_scopes, generators',
             'from __future__ import (nested_scopes,\ngenerators)',
             'from __future__ import (nested_scopes,\ngenerators,)',
+            'from __future__ import (\nnested_scopes,\ngenerators)',
+            'from __future__ import(\n\tnested_scopes,\n\tgenerators)',
+            'from __future__ import(\n\t\nnested_scopes)',
             'from sys import stdin, stderr, stdout',
             'from sys import (stdin, stderr,\nstdout)',
             'from sys import (stdin, stderr,\nstdout,)',
@@ -837,8 +840,19 @@ class AppTestCompiler:
         raises(SyntaxError, eval, b'\xff\x20')
         raises(SyntaxError, eval, b'\xef\xbb\x20')
 
+    def test_import_nonascii(self):
+        c = compile('from os import 日本', '', 'exec')
+        assert ('日本',) in c.co_consts
+
+    def test_class_nonascii(self):
+        """
+        class 日本:
+            pass
+        assert 日本.__name__ == '日本'
+        assert '日本' in repr(日本)
+        """
+
     def test_cpython_issue2301(self):
-        skip('XXX')
         try:
             compile(b"# coding: utf7\nprint '+XnQ-'", "dummy", "exec")
         except SyntaxError as v:
@@ -1046,6 +1060,21 @@ class AppTestOptimizer:
             sys.stdout = out
         output = s.getvalue()
         assert "LOAD_GLOBAL" not in output
+
+    def test_folding_of_list_constants(self):
+        source = 'a in [1, 2, 3]'
+        co = compile(source, '', 'exec')
+        i = co.co_consts.index((1, 2, 3))
+        assert i > -1
+        assert isinstance(co.co_consts[i], tuple)
+
+    def test_folding_of_set_constants(self):
+        source = 'a in {1, 2, 3}'
+        co = compile(source, '', 'exec')
+        i = co.co_consts.index(set([1, 2, 3]))
+        assert i > -1
+        assert isinstance(co.co_consts[i], frozenset)
+
 
 class AppTestCallMethod(object):
     spaceconfig = {'objspace.opcodes.CALL_METHOD': True}

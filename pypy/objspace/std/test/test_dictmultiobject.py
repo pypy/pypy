@@ -3,8 +3,7 @@ import sys
 import py
 
 from pypy.objspace.std.dictmultiobject import (W_DictMultiObject,
-    setitem__DictMulti_ANY_ANY, getitem__DictMulti_ANY, StringDictStrategy,
-    ObjectDictStrategy)
+    StringDictStrategy, ObjectDictStrategy)
 
 
 class TestW_DictObject(object):
@@ -239,7 +238,7 @@ class AppTest_DictObject:
     def test_iteritems(self):
         d = {1: 2, 3: 4}
         dd = d.copy()
-        for k, v in d.iteritems():
+        for k, v in d.items():
             assert v == dd[k]
             del dd[k]
         assert not dd
@@ -247,14 +246,14 @@ class AppTest_DictObject:
     def test_iterkeys(self):
         d = {1: 2, 3: 4}
         dd = d.copy()
-        for k in d.iterkeys():
+        for k in d.keys():
             del dd[k]
         assert not dd
 
     def test_itervalues(self):
         d = {1: 2, 3: 4}
         values = []
-        for k in d.itervalues():
+        for k in d.values():
             values.append(k)
         assert values == list(d.values())
 
@@ -596,7 +595,6 @@ class AppTest_DictObject:
     def test_bytes_keys(self):
         assert isinstance(list({b'a': 1})[0], bytes)
 
-
 class AppTest_DictMultiObject(AppTest_DictObject):
 
     def test_emptydict_unhashable(self):
@@ -661,6 +659,7 @@ class AppTestDictViews:
         assert keys != set([1, "b"])
         assert keys != set([1])
         assert keys != 42
+        assert not keys == 42
         assert 1 in keys
         assert "a" in keys
         assert 10 not in keys
@@ -682,6 +681,7 @@ class AppTestDictViews:
         assert items != set([(1, 10), ("a", "def")])
         assert items != set([(1, 10)])
         assert items != 42
+        assert not items == 42
         assert (1, 10) in items
         assert ("a", "ABC") in items
         assert (1, 11) not in items
@@ -706,6 +706,7 @@ class AppTestDictViews:
         values = d.values()
         assert set(values) == set([10, "ABC"])
         assert len(values) == 2
+        assert not values == 42
 
     def test_dict_repr(self):
         d = {1: 10, "a": "ABC"}
@@ -872,7 +873,7 @@ class AppTestDictViews:
         assert not frozenset({(1, 'a'), (2, 'b'), (3, 'c')}) != d.items()
         """
 
-    def test_dictviewset_unshasable_values(self):
+    def test_dictviewset_unhashable_values(self):
         class C:
             def __eq__(self, other):
                 return True
@@ -974,14 +975,14 @@ class AppTestStrategies(object):
 
     def test_iter_dict_length_change(self):
         d = {1: 2, 3: 4, 5: 6}
-        it = d.iteritems()
+        it = iter(d.items())
         d[7] = 8
         # 'd' is now length 4
-        raises(RuntimeError, it.__next__)
+        raises(RuntimeError, next, it)
 
     def test_iter_dict_strategy_only_change_1(self):
         d = {1: 2, 3: 4, 5: 6}
-        it = d.iteritems()
+        it = d.items()
         class Foo(object):
             def __eq__(self, other):
                 return False
@@ -993,7 +994,7 @@ class AppTestStrategies(object):
 
     def test_iter_dict_strategy_only_change_2(self):
         d = {1: 2, 3: 4, 5: 6}
-        it = d.iteritems()
+        it = d.items()
         d['foo'] = 'bar'
         del d[1]
         # on default the strategy changes and thus we get the RuntimeError
@@ -1127,10 +1128,10 @@ class TestDictImplementation:
         pydict = {}
         for i in range(N):
             x = randint(-N, N)
-            setitem__DictMulti_ANY_ANY(self.space, d, x, i)
+            d.descr_setitem(self.space, x, i)
             pydict[x] = i
         for key, value in pydict.iteritems():
-            assert value == getitem__DictMulti_ANY(self.space, d, key)
+            assert value == d.descr_getitem(self.space, key)
 
 class BaseTestRDictImplementation:
 

@@ -11,7 +11,6 @@ from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.objspace.std.stringobject import make_rsplit_with_delim
 from pypy.objspace.std.stringtype import stringendswith, stringstartswith
 from pypy.objspace.std.register_all import register_all
-from pypy.objspace.std.tupleobject import W_TupleObject
 from rpython.rlib import jit
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rlib.objectmodel import (
@@ -101,9 +100,8 @@ registerimplementation(W_UnicodeObject)
 # Note that, differently than default, we return an *unicode* RPython string
 def unicode_to_decimal_w(space, w_unistr):
     if not isinstance(w_unistr, W_UnicodeObject):
-        raise operationerrfmt(space.w_TypeError,
-                              "expected unicode, got '%s'",
-                              space.type(w_unistr).getname(space))
+        raise operationerrfmt(space.w_TypeError, "expected unicode, got '%T'",
+                              w_unistr)
     unistr = w_unistr._value
     result = [u'\0'] * len(unistr)
     for i in xrange(len(unistr)):
@@ -183,9 +181,8 @@ def _unicode_join_many_items(space, w_self, list_w, size):
         except OperationError, e:
             if not e.match(space, space.w_TypeError):
                 raise
-            raise operationerrfmt(space.w_TypeError,
-                                  "sequence item %d: expected string, %s "
-                                  "found", i, space.type(w_s).getname(space))
+            msg = "sequence item %d: expected string, %T found"
+            raise operationerrfmt(space.w_TypeError, msg, i, w_s)
     sb = UnicodeBuilder(prealloc_size)
     for i in range(size):
         if self and i != 0:
@@ -454,21 +451,10 @@ def _convert_idx_params(space, w_self, w_start, w_end, upper_bound=False):
             space, len(self), w_start, w_end, upper_bound)
     return (self, start, end)
 
-def unicode_endswith__Unicode_ANY_ANY_ANY(space, w_self, w_substr, w_start, w_end):
-    typename = space.type(w_substr).getname(space)
-    msg = "endswith first arg must be str or a tuple of str, not %s" % typename
-    raise OperationError(space.w_TypeError, space.wrap(msg))
-
 def unicode_endswith__Unicode_Unicode_ANY_ANY(space, w_self, w_substr, w_start, w_end):
     self, start, end = _convert_idx_params(space, w_self,
                                                    w_start, w_end, True)
     return space.newbool(stringendswith(self, w_substr._value, start, end))
-
-def unicode_startswith__Unicode_ANY_ANY_ANY(space, w_self, w_substr, w_start, w_end):
-    typename = space.type(w_substr).getname(space)
-    msg = ("startswith first arg must be str or a tuple of str, not %s" %
-           typename)
-    raise OperationError(space.w_TypeError, space.wrap(msg))
 
 def unicode_startswith__Unicode_Unicode_ANY_ANY(space, w_self, w_substr, w_start, w_end):
     self, start, end = _convert_idx_params(space, w_self, w_start, w_end, True)
@@ -477,8 +463,12 @@ def unicode_startswith__Unicode_Unicode_ANY_ANY(space, w_self, w_substr, w_start
     #     with additional parameters as rpython)
     return space.newbool(stringstartswith(self, w_substr._value, start, end))
 
-def unicode_startswith__Unicode_Tuple_ANY_ANY(space, w_unistr, w_prefixes,
+def unicode_startswith__Unicode_ANY_ANY_ANY(space, w_unistr, w_prefixes,
                                               w_start, w_end):
+    if not space.isinstance_w(w_prefixes, space.w_tuple):
+        msg = "startswith first arg must be str or a tuple of str, not %T"
+        raise operationerrfmt(space.w_TypeError, msg, w_prefixes)
+
     unistr, start, end = _convert_idx_params(space, w_unistr,
                                              w_start, w_end, True)
     for w_prefix in space.fixedview(w_prefixes):
@@ -487,8 +477,12 @@ def unicode_startswith__Unicode_Tuple_ANY_ANY(space, w_unistr, w_prefixes,
             return space.w_True
     return space.w_False
 
-def unicode_endswith__Unicode_Tuple_ANY_ANY(space, w_unistr, w_suffixes,
+def unicode_endswith__Unicode_ANY_ANY_ANY(space, w_unistr, w_suffixes,
                                             w_start, w_end):
+    if not space.isinstance_w(w_suffixes, space.w_tuple):
+        msg = "endswith first arg must be str or a tuple of str, not %T"
+        raise operationerrfmt(space.w_TypeError, msg, w_suffixes)
+
     unistr, start, end = _convert_idx_params(space, w_unistr,
                                              w_start, w_end, True)
     for w_suffix in space.fixedview(w_suffixes):

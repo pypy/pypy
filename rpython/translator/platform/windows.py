@@ -28,6 +28,8 @@ def Windows(cc=None):
     return _get_compiler_type(cc, False)
 
 def Windows_x64(cc=None):
+    raise Exception("Win64 is not supported.  You must either build for Win32"
+                    " or contribute the missing support in PyPy.")
     return _get_compiler_type(cc, True)
     
 def _get_msvc_env(vsver, x64flag):

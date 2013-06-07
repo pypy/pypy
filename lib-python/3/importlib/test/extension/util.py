@@ -1,6 +1,7 @@
 import imp
 import os
 import sys
+import unittest
 
 PATH = None
 EXT = None
@@ -27,3 +28,8 @@ try:
 except StopIteration:
     pass
 del _file_exts
+
+
+def skip_unless__testcapi(func):
+    msg = "Requires the CPython C Extension API ({!r} module)".format(NAME)
+    return unittest.skipUnless(PATH, msg)(func)

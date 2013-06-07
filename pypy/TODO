@@ -1,18 +1,5 @@
 TODO for the python3 test suite:
 
-* test_decimal:
-   In py3k, hash(-1) is now -2 (probably as an optimisation, because
-   PyObject_Hash() return -1 on exception).
-   It's important to be compatible, since other classes like Decimal
-   and Fractions have to return the same hashes for equivalent values.
-   IOW: int.__hash__ is part of the Python language specification.
-   The py3k-newhash branch has an updated float hash, int's hash is
-   still pending
-
-* test_fractions
-* test_numeric_tower
-   float.__hash__ has changed as well (fixed on py3k-newhash)
-
 * test_float
    nan = float('nan');  assert nan in [nan]
    This has always been true in CPython, it is now guaranteed that the
@@ -24,11 +11,6 @@ TODO for the python3 test suite:
 * test_memoryview
    Needs bytes/str changes. Probably easy. Work for this has begun on
    py3k-memoryview (by mjacob)
-
-* test_peepholer
-   'a in [1,2,3]' is rewritten as 'a in (1, 2, 3)'
-   and the tuple is a prebuilt constant.
-   Likewise, a set becomes a frozenset.
 
 * test_pep263
    Tracebacks should be able to print unicode source code. This is
@@ -45,16 +27,8 @@ TODO for the python3 test suite:
 own-tests:
 
 * module/test_lib_pypy
-  These crash the buildbots (via SyntaxErrors): some were really made
-  to run under Python 2.x
-
-* interpreter.test.test_zzpickle_and_slow test_pickle_frame_with_exc
-  Due to W_OperationError not being pickleable. Probably be best for
-  the ExceptionHandlerBlock to push *sys.exc_info() instead of it,
-  like CPython does
-
-* module.bz2.test.test_bz2_file test_open_non_existent
-  Some really obscure GC stuff
+  These crash the buildbots (via SyntaxErrors): others were really
+  made to run under Python 2.x and so simply fail
 
 * module.cpyext.test.test_structseq test_StructSeq
   structseq now subclasses tuple on py3, which breaks how

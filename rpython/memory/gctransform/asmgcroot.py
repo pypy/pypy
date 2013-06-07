@@ -170,12 +170,57 @@ class AsmStackRootWalker(BaseRootWalker):
             jit2gc = gctransformer.translator._jit2gc
             self.frame_tid = jit2gc['frame_tid']
         self.gctransformer = gctransformer
+        #
+        # unless overridden in need_thread_support():
+        self.belongs_to_current_thread = lambda framedata: True
 
     def need_stacklet_support(self, gctransformer, getfn):
-        # stacklet support: BIG HACK for rlib.rstacklet
+        from rpython.annotator import model as annmodel
         from rpython.rlib import _stacklet_asmgcc
+        # stacklet support: BIG HACK for rlib.rstacklet
         _stacklet_asmgcc._asmstackrootwalker = self     # as a global! argh
         _stacklet_asmgcc.complete_destrptr(gctransformer)
+        #
+        def gc_detach_callback_pieces():
+            anchor = llmemory.cast_ptr_to_adr(gcrootanchor)
+            result = llmemory.NULL
+            framedata = anchor.address[1]
+            while framedata != anchor:
+                next = framedata.address[1]
+                if self.belongs_to_current_thread(framedata):
+                    # detach it
+                    prev = framedata.address[0]
+                    prev.address[1] = next
+                    next.address[0] = prev
+                    # update the global stack counter
+                    rffi.stackcounter.stacks_counter -= 1
+                    # reattach framedata into the singly-linked list 'result'
+                    framedata.address[0] = rffi.cast(llmemory.Address, -1)
+                    framedata.address[1] = result
+                    result = framedata
+                framedata = next
+            return result
+        #
+        def gc_reattach_callback_pieces(pieces):
+            anchor = llmemory.cast_ptr_to_adr(gcrootanchor)
+            while pieces != llmemory.NULL:
+                framedata = pieces
+                pieces = pieces.address[1]
+                # attach 'framedata' into the normal doubly-linked list
+                following = anchor.address[1]
+                following.address[0] = framedata
+                framedata.address[1] = following
+                anchor.address[1] = framedata
+                framedata.address[0] = anchor
+                # update the global stack counter
+                rffi.stackcounter.stacks_counter += 1
+        #
+        s_addr = annmodel.SomeAddress()
+        s_None = annmodel.s_None
+        self.gc_detach_callback_pieces_ptr = getfn(gc_detach_callback_pieces,
+                                                   [], s_addr)
+        self.gc_reattach_callback_pieces_ptr=getfn(gc_reattach_callback_pieces,
+                                                   [s_addr], s_None)
 
     def need_thread_support(self, gctransformer, getfn):
         # Threads supported "out of the box" by the rest of the code.
@@ -227,6 +272,7 @@ class AsmStackRootWalker(BaseRootWalker):
             stack_stop  = llop.stack_current(llmemory.Address)
             return (stack_start <= framedata <= stack_stop or
                     stack_start >= framedata >= stack_stop)
+        self.belongs_to_current_thread = belongs_to_current_thread
 
         def thread_before_fork():
             # before fork(): collect all ASM_FRAMEDATA structures that do
@@ -285,6 +331,11 @@ class AsmStackRootWalker(BaseRootWalker):
                                            [annmodel.SomeInteger(),
                                             annmodel.SomeAddress()],
                                            annmodel.s_None)
+        #
+        # check that the order of the need_*() is correct for us: if we
+        # need both threads and stacklets, need_thread_support() must be
+        # called first, to initialize self.belongs_to_current_thread.
+        assert not hasattr(self, 'gc_detach_callback_pieces_ptr')
 
     def walk_stack_roots(self, collect_stack_root):
         gcdata = self.gcdata

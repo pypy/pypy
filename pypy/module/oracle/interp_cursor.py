@@ -591,7 +591,7 @@ class W_Cursor(W_Root):
         if self.bindDict is None:
             self.bindDict = space.newdict()
 
-        items = space.fixedview(space.call_method(w_vars, "iteritems"))
+        items = space.fixedview(space.call_method(w_vars, "items"))
         for item in items:
             w_key, w_value = space.fixedview(item, 2)
             origVar = space.finditem(self.bindDict, w_key)
@@ -670,7 +670,7 @@ class W_Cursor(W_Root):
                 var.bind(space, self, None, i + 1)
         if self.bindDict:
             items_w = space.fixedview(
-                space.call_method(self.bindDict, "iteritems"))
+                space.call_method(self.bindDict, "items"))
             for w_item in items_w:
                 w_key, var = space.fixedview(w_item, 2)
                 assert isinstance(var, interp_variable.W_Variable)

@@ -1,3 +1,4 @@
+# encoding: utf-8
 from pypy.objspace.std.model import W_Object
 from pypy.objspace.std.stdtypedef import StdTypeDef
 
@@ -681,6 +682,24 @@ class AppTestTypeObject:
         exec("class A(object): pass\n", d)
         assert d['A'].__module__ == 'builtins'    # obscure, follows CPython
         assert repr(d['A']) == "<class 'A'>"
+
+    def test_repr_nonascii(self):
+        assert repr(type('日本', (), {})) == "<class '%s.日本'>" % __name__
+
+    def test_name_nonascii(self):
+        assert type('日本', (), {}).__name__ == '日本'
+
+    def test_errors_nonascii(self):
+        # Check some arbitrary error messages
+        Japan = type('日本', (), {})
+        obj = Japan()
+        for f in hex, int, len, next, open, set, 'foo'.startswith:
+            try:
+                f(obj)
+            except TypeError as e:
+                assert '日本' in str(e)
+            else:
+                assert False, 'Expected TypeError'
 
     def test_invalid_mro(self):
         class A(object):

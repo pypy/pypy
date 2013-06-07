@@ -4,7 +4,7 @@ Implements the Distutils 'build_ext' command, for building extension
 modules (currently limited to C extensions, should accommodate C++
 extensions ASAP)."""
 
-import sys, os, re
+import sys, os, re, imp
 from distutils.core import Command
 from distutils.errors import *
 from distutils.sysconfig import customize_compiler, get_python_version
@@ -34,6 +34,11 @@ extension_name_re = re.compile \
 def show_compilers ():
     from distutils.ccompiler import show_compilers
     show_compilers()
+
+def _get_c_extension_suffix():
+    for ext, mod, typ in imp.get_suffixes():
+        if typ == imp.C_EXTENSION:
+            return ext
 
 
 class build_ext(Command):
@@ -671,10 +676,18 @@ class build_ext(Command):
         # OS/2 has an 8 character module (extension) limit :-(
         if os.name == "os2":
             ext_path[len(ext_path) - 1] = ext_path[len(ext_path) - 1][:8]
+        # PyPy tweak: first try to get the C extension suffix from
+        # 'imp'.  If it fails we fall back to the 'SO' config var, like
+        # the previous version of this code did.  This should work for
+        # CPython too.  The point is that on PyPy with cpyext, the
+        # config var 'SO' is just ".so" but we want to return
+        # ".pypy-VERSION.so" instead.
+        so_ext = _get_c_extension_suffix()
+        if so_ext is None:
+            so_ext = get_config_var('SO')     # fall-back
         # extensions in debug_mode are named 'module_d.pyd' under windows
-        so_ext = get_config_var('SO')
         if os.name == 'nt' and self.debug:
-            return os.path.join(*ext_path) + '_d' + so_ext
+            so_ext = '_d.pyd'
         return os.path.join(*ext_path) + so_ext
 
     def get_export_symbols(self, ext):

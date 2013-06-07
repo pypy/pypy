@@ -509,6 +509,22 @@ class AppTestInterpObjectPickling:
         result = pickle.loads(pckl)
         assert pack.mod is result
 
+    def test_dict_subclass(self):
+        import pickle
+        import sys
+        import types
+        sys.modules['mod'] = mod = types.ModuleType('mod')
+        try:
+            class MyDict(dict):
+                __module__ = 'mod'
+            mod.MyDict = MyDict
+            obj = MyDict()
+            pckl = pickle.dumps(obj)
+            result = pickle.loads(pckl)
+            assert obj == result
+        finally:
+            del sys.modules['mod']
+
 
 class AppTestGeneratorCloning:
 

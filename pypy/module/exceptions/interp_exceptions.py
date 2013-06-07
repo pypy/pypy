@@ -131,9 +131,10 @@ class W_BaseException(W_Root):
 
     def descr_repr(self, space):
         if self.args_w:
-            args_repr = space.str_w(space.repr(space.newtuple(self.args_w)))
+            args_repr = space.unicode_w(
+                space.repr(space.newtuple(self.args_w)))
         else:
-            args_repr = "()"
+            args_repr = u"()"
         clsname = self.getclass(space).getname(space)
         return space.wrap(clsname + args_repr)
 
@@ -556,7 +557,7 @@ class W_SyntaxError(W_Exception):
             values_w = space.fixedview(self.args_w[1])
             w_tuple = space.newtuple(values_w + [self.w_lastlineno])
             args_w = [self.args_w[0], w_tuple]
-            args_repr = space.str_w(space.repr(space.newtuple(args_w)))
+            args_repr = space.unicode_w(space.repr(space.newtuple(args_w)))
             clsname = self.getclass(space).getname(space)
             return space.wrap(clsname + args_repr)
         else:

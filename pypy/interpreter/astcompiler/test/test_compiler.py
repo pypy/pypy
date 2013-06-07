@@ -573,7 +573,7 @@ class TestCompiler:
                     append = components.append
                     level += 1
                     saferepr = _safe_repr
-                    for k, v in object.iteritems():
+                    for k, v in object.items():
                         krepr, kreadable, krecur = saferepr(k, context, maxlevels, level)
                         vrepr, vreadable, vrecur = saferepr(v, context, maxlevels, level)
                         append("%s: %s" % (krepr, vrepr))
@@ -679,13 +679,13 @@ class TestCompiler:
                     self.assert_(hasattr(iter, '__iter__'))
                     x = list(iter)
                     self.assert_(set(x)==set(lst)==set(ref))
-                check_iterandlist(d.iterkeys(), d.keys(), self.reference.keys())
+                check_iterandlist(iter(d.keys()), d.keys(), self.reference.keys())
                 check_iterandlist(iter(d), d.keys(), self.reference.keys())
-                check_iterandlist(d.itervalues(), d.values(), self.reference.values())
-                check_iterandlist(d.iteritems(), d.items(), self.reference.items())
+                check_iterandlist(iter(d.values()), d.values(), self.reference.values())
+                check_iterandlist(iter(d.items()), d.items(), self.reference.items())
                 #get
-                key, value = next(d.iteritems())
-                knownkey, knownvalue = next(self.other.iteritems())
+                key, value = next(iter(d.items()))
+                knownkey, knownvalue = next(iter(self.other.items()))
                 self.assertEqual(d.get(key, knownvalue), value)
                 self.assertEqual(d.get(knownkey, knownvalue), knownvalue)
                 self.failIf(knownkey in d)
@@ -841,6 +841,58 @@ class TestCompiler:
         ok = 1
         """
         self.simple_test(source, 'ok', 1)
+
+    def test_remove_docstring(self):
+        source = '"module_docstring"\n' + """if 1:
+        def f1():
+            'docstring'
+        def f2():
+            'docstring'
+            return 'docstring'
+        def f3():
+            'foo'
+            return 'bar'
+        class C1():
+            'docstring'
+        class C2():
+            __doc__ = 'docstring'
+        class C3():
+            field = 'not docstring'
+        class C4():
+            'docstring'
+            field = 'docstring'
+        """
+        code_w = compile_with_astcompiler(source, 'exec', self.space)
+        code_w.remove_docstrings(self.space)
+        dict_w = self.space.newdict();
+        code_w.exec_code(self.space, dict_w, dict_w)
+
+        yield self.check, dict_w, "f1.__doc__", None
+        yield self.check, dict_w, "f2.__doc__", 'docstring'
+        yield self.check, dict_w, "f2()", 'docstring'
+        yield self.check, dict_w, "f3.__doc__", None
+        yield self.check, dict_w, "f3()", 'bar'
+        yield self.check, dict_w, "C1.__doc__", None
+        yield self.check, dict_w, "C2.__doc__", 'docstring'
+        yield self.check, dict_w, "C3.field", 'not docstring'
+        yield self.check, dict_w, "C4.field", 'docstring'
+        yield self.check, dict_w, "C4.__doc__", 'docstring'
+        yield self.check, dict_w, "C4.__doc__", 'docstring'
+        yield self.check, dict_w, "__doc__", None
+
+    def test_assert_skipping(self):
+        space = self.space
+        mod = space.getbuiltinmodule('__pypy__')
+        w_set_debug = space.getattr(mod, space.wrap('set_debug'))
+        space.call_function(w_set_debug, space.w_False)
+
+        source = """if 1:
+        assert False
+        """
+        try:
+            self.run(source)
+        finally:
+            space.call_function(w_set_debug, space.w_True)
 
     def test_raise_from(self):
         test = """if 1:
@@ -1046,3 +1098,29 @@ class TestOptimizations:
         """)
         assert 'generator' in space.str_w(space.repr(w_generator))
 
+    def test_folding_of_list_constants(self):
+        for source in (
+            # in/not in constants with BUILD_LIST should be folded to a tuple:
+            'a in [1,2,3]',
+            'a not in ["a","b","c"]',
+            'a in [None, 1, None]',
+            'a not in [(1, 2), 3, 4]',
+            ):
+            source = 'def f(): %s' % source
+            counts = self.count_instructions(source)
+            assert ops.BUILD_LIST not in counts
+            assert ops.LOAD_CONST in counts
+
+    def test_folding_of_set_constants(self):
+        for source in (
+            # in/not in constants with BUILD_SET should be folded to a frozenset:
+            'a in {1,2,3}',
+            'a not in {"a","b","c"}',
+            'a in {None, 1, None}',
+            'a not in {(1, 2), 3, 4}',
+            'a in {1, 2, 3, 3, 2, 1}',
+            ):
+            source = 'def f(): %s' % source
+            counts = self.count_instructions(source)
+            assert ops.BUILD_SET not in counts
+            assert ops.LOAD_CONST in counts

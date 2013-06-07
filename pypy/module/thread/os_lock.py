@@ -172,7 +172,7 @@ class W_RLock(W_Root):
 
     def descr__repr__(self):
         typename = space.type(self).getname(space)
-        return space.wrap("<%s owner=%d count=%d>" % (
+        return space.wrap(u"<%s owner=%d count=%d>" % (
                 typename, self.rlock_owner, self.rlock_count))
 
     @unwrap_spec(blocking=bool, timeout=float)

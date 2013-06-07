@@ -106,8 +106,8 @@ same type as the number. ndigits may be negative."""
     round = space.lookup(w_number, '__round__')
     if round is None:
         raise operationerrfmt(space.w_TypeError,
-                              "type %s doesn't define __round__ method",
-                              space.type(w_number).getname(space))
+                              "type %T doesn't define __round__ method",
+                              w_number)
     if w_ndigits is None:
         return space.get_and_call_function(round, w_number)
     else:

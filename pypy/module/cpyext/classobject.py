@@ -28,9 +28,8 @@ class InstanceMethod(W_Root):
         return space.call_args(self.w_function, __args__)
 
     def descr_repr(self, space):
-        name = space.str_w(
-            space.getattr(self.w_function, space.wrap('__name__')))
-        return self.getrepr(space, '<instancemethod %s>' % (name,))
+        return self.getrepr(space, u'<instancemethod %s>' %
+                            (self.w_function.getname(space),))
 
 InstanceMethod.typedef = TypeDef("instancemethod",
     __new__ = interp2app(InstanceMethod.descr_new),

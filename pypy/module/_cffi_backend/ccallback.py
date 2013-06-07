@@ -27,8 +27,8 @@ class W_CDataCallback(W_CData):
         #
         if not space.is_true(space.callable(w_callable)):
             raise operationerrfmt(space.w_TypeError,
-                                  "expected a callable object, not %s",
-                                  space.type(w_callable).getname(space))
+                                  "expected a callable object, not %T",
+                                  w_callable)
         self.w_callable = w_callable
         #
         fresult = self.getfunctype().ctitem

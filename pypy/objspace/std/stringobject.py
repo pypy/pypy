@@ -12,7 +12,6 @@ from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.objspace.std.stringtype import (
     joined2, sliced, stringendswith, stringstartswith, wrapstr)
-from pypy.objspace.std.tupleobject import W_TupleObject
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import (
     compute_hash, compute_unique_id, specialize)
@@ -405,10 +404,8 @@ def _str_join_many_items(space, w_self, list_w, size):
         except OperationError, e:
             if not e.match(space, space.w_TypeError):
                 raise
-            raise operationerrfmt(
-                space.w_TypeError,
-                "sequence item %d: expected bytes, %s "
-                "found", i, space.type(w_s).getname(space))
+            msg = "sequence item %d: expected bytes, %T found"
+            raise operationerrfmt(space.w_TypeError, msg, i, w_s)
         reslen += len(item)
 
     sb = StringBuilder(reslen)
@@ -711,9 +708,8 @@ def _suffix_to_str(space, w_suffix, funcname):
     except OperationError as e:
         if e.match(space, space.w_TypeError):
             msg = ("%s first arg must be bytes or a tuple of bytes, "
-                   "not %s")
-            typename = space.type(w_suffix).getname(space)
-            raise operationerrfmt(space.w_TypeError, msg, funcname, typename)
+                   "not %T")
+            raise operationerrfmt(space.w_TypeError, msg, funcname, w_suffix)
 
 def str_endswith__String_ANY_ANY_ANY(space, w_self, w_suffix, w_start, w_end):
     (u_self, start, end) = _convert_idx_params(space, w_self, w_start,
@@ -726,31 +722,33 @@ def str_endswith__String_String_ANY_ANY(space, w_self, w_suffix, w_start, w_end)
                                                w_end, True)
     return space.newbool(stringendswith(u_self, w_suffix._value, start, end))
 
-def str_endswith__String_Tuple_ANY_ANY(space, w_self, w_suffixes, w_start, w_end):
-    (u_self, start, end) = _convert_idx_params(space, w_self, w_start,
-                                               w_end, True)
-    for w_suffix in space.fixedview(w_suffixes):
-        suffix = space.bufferstr_w(w_suffix)
+def str_endswith__String_ANY_ANY_ANY(space, w_self, w_suffix, w_start, w_end):
+    u_self, start, end = _convert_idx_params(space, w_self, w_start, w_end,
+                                             True)
+    if not space.isinstance_w(w_suffix, space.w_tuple):
+        suffix = _suffix_to_str(space, w_suffix, 'endswith')
+        return space.newbool(stringendswith(u_self, suffix, start, end))
+
+    for w_item in space.fixedview(w_suffix):
+        suffix = space.bufferstr_w(w_item)
         if stringendswith(u_self, suffix, start, end):
             return space.w_True
     return space.w_False
-
-def str_startswith__String_ANY_ANY_ANY(space, w_self, w_prefix, w_start, w_end):
-    (u_self, start, end) = _convert_idx_params(space, w_self, w_start,
-                                               w_end, True)
-    return space.newbool(stringstartswith(
-            u_self, _suffix_to_str(space, w_prefix, 'startswith'), start, end))
 
 def str_startswith__String_String_ANY_ANY(space, w_self, w_prefix, w_start, w_end):
     (u_self, start, end) = _convert_idx_params(space, w_self, w_start,
                                                w_end, True)
     return space.newbool(stringstartswith(u_self, w_prefix._value, start, end))
 
-def str_startswith__String_Tuple_ANY_ANY(space, w_self, w_prefixes, w_start, w_end):
-    (u_self, start, end) = _convert_idx_params(space, w_self,
-                                               w_start, w_end, True)
-    for w_prefix in space.fixedview(w_prefixes):
-        prefix = space.bufferstr_w(w_prefix)
+def str_startswith__String_ANY_ANY_ANY(space, w_self, w_prefix, w_start, w_end):
+    u_self, start, end = _convert_idx_params(space, w_self, w_start, w_end,
+                                             True)
+    if not space.isinstance_w(w_prefix, space.w_tuple):
+        prefix = _suffix_to_str(space, w_prefix, 'startswith')
+        return space.newbool(stringstartswith(u_self, prefix, start, end))
+
+    for w_item in space.fixedview(w_prefix):
+        prefix = space.bufferstr_w(w_item)
         if stringstartswith(u_self, prefix, start, end):
             return space.w_True
     return space.w_False

@@ -136,7 +136,7 @@ class W_IOBase(W_Root):
     def tell_w(self, space):
         return space.call_method(self, "seek", space.wrap(0), space.wrap(1))
 
-    def truncate_w(self, space):
+    def truncate_w(self, space, w_size=None):
         self._unsupportedoperation(space, "truncate")
 
     def fileno_w(self, space):
@@ -174,8 +174,7 @@ class W_IOBase(W_Root):
 
     def getstate_w(self, space):
         raise operationerrfmt(space.w_TypeError,
-                              "cannot serialize '%s' object",
-                              space.type(self).getname(space))
+                              "cannot serialize '%T' object", self)
 
     # ______________________________________________________________
 
@@ -196,8 +195,8 @@ class W_IOBase(W_Root):
                 if not space.isinstance_w(w_readahead, space.w_str):
                     raise operationerrfmt(
                         space.w_IOError,
-                        "peek() should have returned a bytes object, "
-                        "not '%s'", space.type(w_readahead).getname(space))
+                        "peek() should have returned a bytes object, not '%T'",
+                        w_readahead)
                 length = space.len_w(w_readahead)
                 if length > 0:
                     n = 0
@@ -222,8 +221,8 @@ class W_IOBase(W_Root):
             if not space.isinstance_w(w_read, space.w_str):
                 raise operationerrfmt(
                     space.w_IOError,
-                    "peek() should have returned a bytes object, "
-                    "not '%s'", space.type(w_read).getname(space))
+                    "peek() should have returned a bytes object, not '%T'",
+                    w_read)
             read = space.bytes_w(w_read)
             if not read:
                 break
@@ -290,6 +289,7 @@ W_IOBase.typedef = TypeDef(
     readable = interp2app(W_IOBase.readable_w),
     writable = interp2app(W_IOBase.writable_w),
     seekable = interp2app(W_IOBase.seekable_w),
+
     _checkReadable = interp2app(check_readable_w),
     _checkWritable = interp2app(check_writable_w),
     _checkSeekable = interp2app(check_seekable_w),

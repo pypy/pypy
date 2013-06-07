@@ -553,6 +553,7 @@ class AbstractX86CodeBuilder(object):
     CALL_l = insn('\xE8', relative(1))
     CALL_r = insn(rex_nw, '\xFF', register(1), chr(0xC0 | (2<<3)))
     CALL_b = insn('\xFF', orbyte(2<<3), stack_bp(1))
+    CALL_s = insn('\xFF', orbyte(2<<3), stack_sp(1))
 
     # XXX: Only here for testing purposes..."as" happens the encode the
     # registers in the opposite order that we would otherwise do in a
@@ -583,6 +584,7 @@ class AbstractX86CodeBuilder(object):
 
     # x87 instructions
     FSTPL_b = insn('\xDD', orbyte(3<<3), stack_bp(1)) # rffi.DOUBLE ('as' wants L??)
+    FSTPL_s = insn('\xDD', orbyte(3<<3), stack_sp(1)) # rffi.DOUBLE ('as' wants L??)
     FSTPS_s = insn('\xD9', orbyte(3<<3), stack_sp(1)) # lltype.SingleFloat
 
     # ------------------------------ Random mess -----------------------

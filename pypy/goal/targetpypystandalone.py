@@ -11,6 +11,8 @@ from rpython.config.config import ConflictConfigError
 from rpython.rlib import rlocale
 from pypy.tool.option import make_objspace
 from pypy.conftest import pypydir
+from rpython.rlib import rthread
+from pypy.module.thread import os_thread
 
 thisdir = py.path.local(__file__).dirpath()
 
@@ -66,7 +68,7 @@ def create_entry_point(space, w_dict):
             ##    con.interact()
             except OperationError, e:
                 debug("OperationError:")
-                debug(" operror-type: " + e.w_type.getname(space))
+                debug(" operror-type: " + e.w_type.getname(space).encode('utf-8'))
                 debug(" operror-value: " + space.str_w(space.str(e.get_w_value(space))))
                 return 1
         finally:
@@ -74,7 +76,7 @@ def create_entry_point(space, w_dict):
                 space.call_function(w_run_toplevel, w_call_finish_gateway)
             except OperationError, e:
                 debug("OperationError:")
-                debug(" operror-type: " + e.w_type.getname(space))
+                debug(" operror-type: " + e.w_type.getname(space).encode('utf-8'))
                 debug(" operror-value: " + space.str_w(space.str(e.get_w_value(space))))
                 return 1
         return exitcode
@@ -83,30 +85,64 @@ def create_entry_point(space, w_dict):
     # should be used as sparsely as possible, just to register callbacks
 
     from rpython.rlib.entrypoint import entrypoint
-    from rpython.rtyper.lltypesystem import rffi
+    from rpython.rtyper.lltypesystem import rffi, lltype
 
-    @entrypoint('main', [rffi.CCHARP], c_name='pypy_setup_home')
-    def pypy_setup_home(ll_home):
+    w_pathsetter = space.appexec([], """():
+    def f(path):
+        import sys
+        sys.path[:] = path
+    return f
+    """)
+
+    @entrypoint('main', [rffi.CCHARP, lltype.Signed], c_name='pypy_setup_home')
+    def pypy_setup_home(ll_home, verbose):
         from pypy.module.sys.initpath import pypy_find_stdlib
         if ll_home:
             home = rffi.charp2str(ll_home)
         else:
             home = pypydir
-        pypy_find_stdlib(space, home)
+        w_path = pypy_find_stdlib(space, home)
+        if space.is_none(w_path):
+            if verbose:
+                debug("Failed to find library based on pypy_find_stdlib")
+            return 1
         space.startup()
+        space.call_function(w_pathsetter, w_path)
         # import site
         try:
             import_ = space.getattr(space.getbuiltinmodule('__builtin__'),
                                     space.wrap('__import__'))
             space.call_function(import_, space.wrap('site'))
             return 0
-        except OperationError:
+        except OperationError, e:
+            if verbose:
+                debug("OperationError:")
+                debug(" operror-type: " + e.w_type.getname(space).encode('utf-8'))
+                debug(" operror-value: " + space.str_w(space.str(e.get_w_value(space))))
             return 1
 
     @entrypoint('main', [rffi.CCHARP], c_name='pypy_execute_source')
     def pypy_execute_source(ll_source):
         source = rffi.charp2str(ll_source)
         return _pypy_execute_source(source)
+
+    @entrypoint('main', [], c_name='pypy_init_threads')
+    def pypy_init_threads():
+        if not space.config.objspace.usemodules.thread:
+            return
+        os_thread.setup_threads(space)
+        rffi.aroundstate.before()
+
+    @entrypoint('main', [], c_name='pypy_thread_attach')
+    def pypy_thread_attach():
+        if not space.config.objspace.usemodules.thread:
+            return
+        os_thread.setup_threads(space)
+        os_thread.bootstrapper.acquire(space, None, None)
+        rthread.gc_thread_start()
+        os_thread.bootstrapper.nbthreads += 1
+        os_thread.bootstrapper.release()
+        rffi.aroundstate.before()
 
     w_globals = space.newdict()
     space.setitem(w_globals, space.wrap('__builtins__'),
@@ -119,12 +155,14 @@ def create_entry_point(space, w_dict):
             stmt.exec_code(space, w_globals, w_globals)
         except OperationError, e:
             debug("OperationError:")
-            debug(" operror-type: " + e.w_type.getname(space))
+            debug(" operror-type: " + e.w_type.getname(space).encode('utf-8'))
             debug(" operror-value: " + space.str_w(space.str(e.get_w_value(space))))
             return 1
         return 0
 
     return entry_point, {'pypy_execute_source': pypy_execute_source,
+                         'pypy_init_threads': pypy_init_threads,
+                         'pypy_thread_attach': pypy_thread_attach,
                          'pypy_setup_home': pypy_setup_home}
 
 def call_finish(space):

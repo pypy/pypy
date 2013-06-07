@@ -290,9 +290,6 @@ class __extend__(pyframe.PyFrame):
     def getconstant_w(self, index):
         return self.getcode().co_consts_w[index]
 
-    def getname_u(self, index):
-        return self.space.str_w(self.getcode().co_names_w[index])
-
     def getname_w(self, index):
         return self.getcode().co_names_w[index]
 
@@ -628,7 +625,7 @@ class __extend__(pyframe.PyFrame):
         self.space.delattr(w_obj, w_attributename)
 
     def STORE_GLOBAL(self, nameindex, next_instr):
-        varname = self.getname_u(nameindex)
+        varname = self.space.str_w(self.getname_w(nameindex))
         w_newvalue = self.popvalue()
         self.space.setitem_str(self.w_globals, varname, w_newvalue)
 
@@ -646,9 +643,8 @@ class __extend__(pyframe.PyFrame):
         # fall-back
         w_value = self._load_global(w_varname)
         if w_value is None:
-            message = "name '%8' is not defined"
-            raise operationerrfmt(self.space.w_NameError, message,
-                                  self.space.identifier_w(w_varname))
+            message = "name %R is not defined"
+            raise operationerrfmt(self.space.w_NameError, message, w_varname)
         self.pushvalue(w_value)
 
     def _load_global(self, w_varname):
@@ -661,9 +657,8 @@ class __extend__(pyframe.PyFrame):
     _load_global._always_inline_ = True
 
     def _load_global_failed(self, w_varname):
-        message = "global name '%8' is not defined"
-        raise operationerrfmt(self.space.w_NameError, message,
-                              self.space.identifier_w(w_varname))
+        message = "global name %R is not defined"
+        raise operationerrfmt(self.space.w_NameError, message, w_varname)
     _load_global_failed._dont_inline_ = True
 
     def LOAD_GLOBAL(self, nameindex, next_instr):
@@ -860,6 +855,11 @@ class __extend__(pyframe.PyFrame):
         self.popvalue()
         return next_instr
 
+    def JUMP_IF_NOT_DEBUG(self, jumpby, next_instr):
+        if not self.space.sys.debug:
+            next_instr += jumpby
+        return next_instr
+
     def GET_ITER(self, oparg, next_instr):
         w_iterable = self.popvalue()
         w_iterator = self.space.iter(w_iterable)
@@ -902,10 +902,9 @@ class __extend__(pyframe.PyFrame):
         w_enter = self.space.lookup(w_manager, "__enter__")
         w_descr = self.space.lookup(w_manager, "__exit__")
         if w_enter is None or w_descr is None:
-            typename = self.space.type(w_manager).getname(self.space)
             raise operationerrfmt(self.space.w_AttributeError,
-                "'%s' object is not a context manager"
-                " (no __enter__/__exit__ method)", typename)
+                "'%T' object is not a context manager"
+                " (no __enter__/__exit__ method)", w_manager)
         w_exit = self.space.get(w_descr, w_manager)
         self.settopvalue(w_exit)
         w_result = self.space.get_and_call_function(w_enter, w_manager)
@@ -1395,7 +1394,8 @@ class W_OperationError(W_Root):
         return space.newtuple([w_new_inst, w_args, w_state])
 
     def descr_setstate(self, space, w_state):
-        self.operr = OperationError(*space.fixedview(w_state, 3))
+        w_type, w_value, w_tb = space.fixedview(w_state, 3)
+        self.operr = OperationError(w_type, w_value, w_tb)
 
 def source_as_str(space, w_source, funcname, what, flags):
     """Return source code as str0 with adjusted compiler flags
@@ -1428,13 +1428,13 @@ def ensure_ns(space, w_globals, w_locals, funcname, caller=None):
     if (not space.is_none(w_globals) and
         not space.isinstance_w(w_globals, space.w_dict)):
         raise operationerrfmt(space.w_TypeError,
-                              '%s() arg 2 must be a dict, not %s',
-                              funcname, space.type(w_globals).getname(space))
+                              '%s() arg 2 must be a dict, not %T',
+                              funcname, w_globals)
     if (not space.is_none(w_locals) and
         space.lookup(w_locals, '__getitem__') is None):
         raise operationerrfmt(space.w_TypeError,
-                              '%s() arg 3 must be a mapping or None, not %s',
-                              funcname, space.type(w_locals).getname(space))
+                              '%s() arg 3 must be a mapping or None, not %T',
+                              funcname, w_locals)
 
     if space.is_none(w_globals):
         if caller is None:

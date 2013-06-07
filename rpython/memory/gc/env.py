@@ -1,9 +1,10 @@
 """
 Utilities to get environ variables and platform-specific memory-related values.
 """
-import os, sys
+import os, sys, platform
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rlib.debug import debug_print, debug_start, debug_stop
+from rpython.rlib.rstring import assert_str0
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
 
@@ -130,7 +131,22 @@ else:
 
 # ---------- Linux2 ----------
 
-def get_L2cache_linux2(filename="/proc/cpuinfo"):
+def get_L2cache_linux2():
+    arch = os.uname()[4]  # machine
+    if arch.endswith('86') or arch == 'x86_64':
+        return get_L2cache_linux2_cpuinfo()
+    if arch in ('alpha', 'ppc', 'ppc64'):
+        return get_L2cache_linux2_cpuinfo(label='L2 cache')
+    if arch == 'ia64':
+        return get_L2cache_linux2_ia64()
+    if arch in ('parisc', 'parisc64'):
+        return get_L2cache_linux2_cpuinfo(label='D-cache')
+    if arch in ('sparc', 'sparc64'):
+        return get_L2cache_linux2_sparc()
+    return -1
+
+
+def get_L2cache_linux2_cpuinfo(filename="/proc/cpuinfo", label='cache size'):
     debug_start("gc-hardware")
     L2cache = sys.maxint
     try:
@@ -149,12 +165,8 @@ def get_L2cache_linux2(filename="/proc/cpuinfo"):
     else:
         data = ''.join(data)
         linepos = 0
-        # Currently on ARM-linux we won't find any information about caches in
-        # cpuinfo
-        if _detect_arm_cpu(data):
-            return -1
         while True:
-            start = _findend(data, '\ncache size', linepos)
+            start = _findend(data, '\n' + label, linepos)
             if start < 0:
                 break    # done
             linepos = _findend(data, '\n', start)
@@ -194,6 +206,104 @@ def get_L2cache_linux2(filename="/proc/cpuinfo"):
             "Warning: cannot find your CPU L2 cache size in /proc/cpuinfo")
         return -1
 
+def get_L2cache_linux2_sparc():
+    debug_start("gc-hardware")
+    cpu = 0
+    L2cache = sys.maxint
+    while True:
+        try:
+            fd = os.open('/sys/devices/system/cpu/cpu' + assert_str0(str(cpu))
+                         + '/l2_cache_size', os.O_RDONLY, 0644)
+            try:
+                number = int(os.read(fd, 4096))
+            finally:
+                os.close(fd)
+        except OSError:
+            break
+        if number < L2cache:
+            L2cache = number
+        cpu += 1
+
+    debug_print("L2cache =", L2cache)
+    debug_stop("gc-hardware")
+    if L2cache < sys.maxint:
+        return L2cache
+    else:
+        # Print a top-level warning even in non-debug builds
+        llop.debug_print(lltype.Void,
+            "Warning: cannot find your CPU L2 cache size in "
+            "/sys/devices/system/cpu/cpuX/l2_cache_size")
+        return -1
+
+def get_L2cache_linux2_ia64():
+    debug_start("gc-hardware")
+    cpu = 0
+    L2cache = sys.maxint
+    L3cache = sys.maxint
+    while True:
+        cpudir = '/sys/devices/system/cpu/cpu' + assert_str0(str(cpu))
+        index = 0
+        while True:
+            cachedir = cpudir + '/cache/index' + assert_str0(str(index))
+            try:
+                fd = os.open(cachedir + '/level', os.O_RDONLY, 0644)
+                try:
+                    level = int(os.read(fd, 4096)[:-1])
+                finally:
+                    os.close(fd)
+            except OSError:
+                break
+            if level not in (2, 3):
+                index += 1
+                continue
+            try:
+                fd = os.open(cachedir + '/size', os.O_RDONLY, 0644)
+                try:
+                    data = os.read(fd, 4096)
+                finally:
+                    os.close(fd)
+            except OSError:
+                break
+
+            end = 0
+            while '0' <= data[end] <= '9':
+                end += 1
+            if end == 0:
+                index += 1
+                continue
+            if data[end] not in ('K', 'k'):    # assume kilobytes for now
+                index += 1
+                continue
+
+            number = int(data[:end])
+            number *= 1024
+
+            if level == 2:
+                if number < L2cache:
+                    L2cache = number
+            if level == 3:
+                if number < L3cache:
+                    L3cache = number
+
+            index += 1
+
+        if index == 0:
+            break
+        cpu += 1
+
+    mangled = L2cache + L3cache
+    debug_print("L2cache =", mangled)
+    debug_stop("gc-hardware")
+    if mangled > 0:
+        return mangled
+    else:
+        # Print a top-level warning even in non-debug builds
+        llop.debug_print(lltype.Void,
+            "Warning: cannot find your CPU L2 & L3 cache size in "
+            "/sys/devices/system/cpu/cpuX/cache")
+        return -1
+
+
 def _findend(data, pattern, pos):
     pos = data.find(pattern, pos)
     if pos < 0:
@@ -204,11 +314,6 @@ def _skipspace(data, pos):
     while data[pos] in (' ', '\t'):
         pos += 1
     return pos
-
-def _detect_arm_cpu(data):
-    # check for the presence of a 'Processor' entry
-    p = _findend(data, 'Processor', 0)
-    return p >= 0 and _findend(data, 'ARMv', p) > 0
 
 # ---------- Darwin ----------
 

@@ -143,9 +143,9 @@ class W_MemoryView(W_Root):
 
     def descr_repr(self, space):
         if self.buf is None:
-            return self.getrepr(space, 'released memory')
+            return self.getrepr(space, u'released memory')
         else:
-            return self.getrepr(space, 'memory')
+            return self.getrepr(space, u'memory')
 
     def descr_release(self, space):
         self.buf = None

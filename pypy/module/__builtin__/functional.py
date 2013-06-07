@@ -4,7 +4,7 @@ Interp-level definition of frequently used functionals.
 """
 
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.typedef import TypeDef
 from rpython.rlib import jit
@@ -442,9 +442,8 @@ class W_Range(W_Root):
             return space.sequence_index(self, w_item)
 
         if not self._contains_long(space, w_item):
-            item_repr = space.unicode_w(space.repr(w_item))
-            msg = u"%s is not in range" % item_repr
-            raise OperationError(space.w_ValueError, space.wrap(msg))
+            raise operationerrfmt(space.w_ValueError, "%R is not in range",
+                                  w_item)
         w_index = space.sub(w_item, self.w_start)
         return space.floordiv(w_index, self.w_step)
 
