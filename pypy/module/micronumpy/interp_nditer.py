@@ -16,7 +16,7 @@ class AbstractIterator(object):
     def next(self):
         raise NotImplementedError("Abstract Class")
 
-    def getitem(self, array):
+    def getitem(self, space, array):
         raise NotImplementedError("Abstract Class")
 
 class IteratorMixin(object):
@@ -56,8 +56,8 @@ def parse_op_arg(space, name, w_op_flags, n, parse_one_arg):
             if len(w_lst) != n:
                 raise OperationError(space.w_ValueError, space.wrap(
                    '%s must be a tuple or array of per-op flag-tuples' % name))
-            for item in space.listview(w_lst):
-                ret.append(parse_one_arg(space, item))
+            for item in w_lst:
+                ret.append(parse_one_arg(space, space.listview(item)))
         else:
             op_flag = parse_one_arg(space, w_lst)
             for i in range(n):
@@ -174,7 +174,7 @@ def parse_func_flags(space, nditer, w_flags):
             nditer.zerosize_ok = True
         else:
             raise OperationError(space.w_ValueError, space.wrap(
-                    'Unexpected iterator global flag "%s"', item))
+                    'Unexpected iterator global flag "%s"' % item))
     if nditer.tracked_index and nditer.external_loop:
             raise OperationError(space.w_ValueError, space.wrap(
                 'Iterator flag EXTERNAL_LOOP cannot be used if an index or '
@@ -192,9 +192,9 @@ def get_iter(space, order, arr, shape):
     if (imp.strides[0] < imp.strides[-1] and not backward) or \
        (imp.strides[0] > imp.strides[-1] and backward):
         # flip the strides. Is this always true for multidimension?
-        strides = [s for s in imp.strides[::-1]]
-        backstrides = [s for s in imp.backstrides[::-1]]
-        shape = [s for s in shape[::-1]]
+        strides = [imp.strides[i] for i in range(len(imp.strides) - 1, -1, -1)]
+        backstrides = [imp.backstrides[i] for i in range(len(imp.backstrides) - 1, -1, -1)]
+        shape = [imp.shape[i] for i in range(len(imp.shape) - 1, -1, -1)]
     else:
         strides = imp.strides
         backstrides = imp.backstrides

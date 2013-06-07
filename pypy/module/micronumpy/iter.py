@@ -277,9 +277,12 @@ class SliceIterator(object):
         if backward:
             self.slicesize = shape[0]
             self.gap = [support.product(shape[1:]) * dtype.get_size()]
-            self.strides = strides[1:][::-1]
-            self.backstrides = backstrides[1:][::-1]
-            self.shape = shape[1:][::-1]
+            self.strides = strides[1:]
+            self.backstrides = backstrides[1:]
+            self.shape = shape[1:]
+            self.strides.reverse()
+            self.backstrides.reverse()
+            self.shape.reverse()
             self.shapelen = len(self.shape)
         else:
             shape = [support.product(shape)]
