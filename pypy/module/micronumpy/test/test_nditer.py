@@ -57,7 +57,7 @@ class AppTestNDIter(BaseNumpyAppTest):
         for x in nditer(a, flags=['external_loop'], order='F'):
             r.append(x)
             n += 1
-        assert n == 3
+        assert n == 6
         assert (array(r) == [[0, 6], [2, 8], [4, 10], [1, 7], [3, 9], [5, 11]]).all()
 
     def test_interface(self):
