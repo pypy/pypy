@@ -32,13 +32,13 @@ class IteratorMixin(object):
         self.it.next()
 
     def getitem(self, space, array):
-        return self.op_flags.get_it_item(space, array, self.it)
+        return self.op_flags.get_it_item[self.index](space, array, self.it)
 
-class BoxIterator(IteratorMixin):
-    pass
+class BoxIterator(IteratorMixin, AbstractIterator):
+    index = 0
 
-class SliceIterator(IteratorMixin):
-    pass
+class ExternalLoopIterator(IteratorMixin, AbstractIterator):
+    index = 1
 
 def parse_op_arg(space, name, w_op_flags, n, parse_one_arg):
     ret = []
@@ -73,7 +73,7 @@ class OpFlag(object):
         self.native_byte_order = False
         self.tmp_copy = ''
         self.allocate = False
-        self.get_it_item = get_readonly_item
+        self.get_it_item = (get_readonly_item, get_readonly_slice)
 
 def get_readonly_item(space, array, it):
     return space.wrap(it.getitem())
@@ -128,9 +128,9 @@ def parse_op_flag(space, lst):
             raise OperationError(space.w_ValueError, space.wrap(
                     'op_flags must be a tuple or array of per-op flag-tuples'))
         if op_flag.rw == 'r':
-            op_flag.get_it_item = get_readonly_item
+            op_flag.get_it_item = (get_readonly_item, get_readonly_slice)
         elif op_flag.rw == 'rw':
-            op_flag.get_it_item = get_readwrite_item
+            op_flag.get_it_item = (get_readwrite_item, get_readwrite_slice)
     return op_flag
 
 def parse_func_flags(space, nditer, w_flags):
@@ -180,7 +180,8 @@ def parse_func_flags(space, nditer, w_flags):
                 'Iterator flag EXTERNAL_LOOP cannot be used if an index or '
                 'multi-index is being tracked'))
 
-def get_iter(space, order, imp, shape):
+def get_iter(space, order, arr, shape):
+    imp = arr.implementation
     if order == 'K' or (order == 'C' and imp.order == 'C'):
         backward = False
     elif order =='F' and imp.order == 'C':
@@ -200,6 +201,18 @@ def get_iter(space, order, imp, shape):
     r = calculate_broadcast_strides(strides, backstrides, imp.shape,
                                     shape, backward)
     return MultiDimViewIterator(imp, imp.dtype, imp.start, r[0], r[1], shape)
+
+def get_external_loop_iter(space, order, arr, shape):
+    imp = arr.implementation
+    if order == 'K' or (order == 'C' and imp.order == 'C'):
+        backward = False
+    elif order =='F' and imp.order == 'C':
+        backward = True
+    else:
+        raise OperationError(space.w_NotImplementedError, space.wrap(
+                'not implemented yet'))
+
+    return SliceIterator(arr, imp.strides, imp.backstrides, shape, order=order, backward=backward)
 
 
 class W_NDIter(W_Root):
@@ -229,11 +242,13 @@ class W_NDIter(W_Root):
         self.iters=[]
         self.shape = iter_shape = shape_agreement_multiple(space, self.seq)
         if self.external_loop:
-            #XXX find longest contiguous shape
-            iter_shape = iter_shape[1:]
-        for i in range(len(self.seq)):
-            self.iters.append(BoxIterator(get_iter(space, self.order,
-                            self.seq[i].implementation, iter_shape), self.op_flags[i]))
+            for i in range(len(self.seq)):
+                self.iters.append(ExternalLoopIterator(get_external_loop_iter(space, self.order,
+                                self.seq[i], iter_shape), self.op_flags[i]))
+        else:
+            for i in range(len(self.seq)):
+                self.iters.append(BoxIterator(get_iter(space, self.order,
+                                self.seq[i], iter_shape), self.op_flags[i]))
 
     def descr_iter(self, space):
         return space.wrap(self)
