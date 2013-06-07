@@ -94,8 +94,6 @@ class JSONDecoder(object):
         ch = self.s[i]
         if ch == '"':
             return self.decode_string(i+1)
-        elif ch.isdigit() or ch == '-':
-            return self.decode_numeric(i)
         elif ch == '[':
             return self.decode_array(i+1)
         elif ch == '{':
@@ -106,6 +104,8 @@ class JSONDecoder(object):
             return self.decode_true(i+1)
         elif ch == 'f':
             return self.decode_false(i+1)
+        elif ch.isdigit() or ch == '-':
+            return self.decode_numeric(i)
         else:
             self._raise("No JSON object could be decoded: unexpected '%s' at char %d",
                         ch, self.pos)
