@@ -51,28 +51,6 @@ class JSONDecoder(object):
         self.pos = 0
         self.last_type = TYPE_UNKNOWN
 
-    def eof(self):
-        return self.pos == self.length
-
-    def peek(self):
-        return self.ll_chars[self.pos]
-
-    def peek_maybe(self):
-        if self.eof():
-            return '\0'
-        else:
-            return self.peek()
-
-    def next(self):
-        ch = self.peek()
-        self.pos += 1
-        return ch
-
-    def unget(self):
-        i2 = self.pos - 1
-        assert i2 > 0 # so that we can use self.pos as slice start
-        self.pos = i2
-
     def getslice(self, start, end):
         assert start > 0
         assert end > 0
@@ -287,23 +265,27 @@ class JSONDecoder(object):
     def decode_string_escaped(self, start, content_so_far):
         builder = StringBuilder(len(content_so_far)*2) # just an estimate
         builder.append(content_so_far)
-        while not self.eof():
-            ch = self.next()
+        i = self.pos
+        while True:
+            ch = self.ll_chars[i]
+            i += 1
             if ch == '"':
                 content_utf8 = builder.build()
                 content_unicode = unicodehelper.decode_utf8(self.space, content_utf8)
                 self.last_type = TYPE_STRING
+                self.pos = i
                 return self.space.wrap(content_unicode)
             elif ch == '\\':
-                self.decode_escape_sequence(builder)
+                i = self.decode_escape_sequence(i, builder)
+            elif ch == '\0':
+                self._raise("Unterminated string starting at char %d", start)
             else:
                 builder.append_multiple_char(ch, 1) # we should implement append_char
-        #
-        self._raise("Unterminated string starting at char %d", start)
 
-    def decode_escape_sequence(self, builder):
+    def decode_escape_sequence(self, i, builder):
+        ch = self.ll_chars[i]
+        i += 1
         put = builder.append_multiple_char
-        ch = self.next()
         if ch == '\\':  put('\\', 1)
         elif ch == '"': put('"' , 1)
         elif ch == '/': put('/' , 1)
@@ -313,24 +295,26 @@ class JSONDecoder(object):
         elif ch == 'r': put('\r', 1)
         elif ch == 't': put('\t', 1)
         elif ch == 'u':
-            return self.decode_escape_sequence_unicode(builder)
+            return self.decode_escape_sequence_unicode(i, builder)
         else:
             self._raise("Invalid \\escape: %s (char %d)", ch, self.pos-1)
+        return i
 
-    def decode_escape_sequence_unicode(self, builder):
+    def decode_escape_sequence_unicode(self, i, builder):
         # at this point we are just after the 'u' of the \u1234 sequence.
-        hexdigits = self.getslice(self.pos, self.pos+4)
-        self.pos += 4
+        start = i
+        i += 4
+        hexdigits = self.getslice(start, i)
         try:
             uchr = unichr(int(hexdigits, 16))
         except ValueError:
-            self._raise("Invalid \uXXXX escape (char %d)", self.pos-1)
+            self._raise("Invalid \uXXXX escape (char %d)", i-1)
             return # help the annotator to know that we'll never go beyond
                    # this point
         #
         utf8_ch = unicodehelper.encode_utf8(self.space, uchr)
         builder.append(utf8_ch)
-
+        return i
 
 
 @unwrap_spec(s=str)
