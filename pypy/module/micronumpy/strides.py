@@ -51,8 +51,8 @@ def calculate_broadcast_strides(strides, backstrides, orig_shape, res_shape, bac
             rstrides.append(strides[i])
             rbackstrides.append(backstrides[i])
     if backwards:
-        rstrides = rstrides + [0] * (len(res_shape) - len(orig_shape))  
-        rbackstrides = rbackstrides + [0] * (len(res_shape) - len(orig_shape)) 
+        rstrides = rstrides + [0] * (len(res_shape) - len(orig_shape))
+        rbackstrides = rbackstrides + [0] * (len(res_shape) - len(orig_shape))
     else:
         rstrides = [0] * (len(res_shape) - len(orig_shape)) + rstrides
         rbackstrides = [0] * (len(res_shape) - len(orig_shape)) + rbackstrides
@@ -62,7 +62,7 @@ def is_single_elem(space, w_elem, is_rec_type):
     if (is_rec_type and space.isinstance_w(w_elem, space.w_tuple)):
         return True
     if (space.isinstance_w(w_elem, space.w_tuple) or
-        isinstance(w_elem, W_NDimArray) or    
+        isinstance(w_elem, W_NDimArray) or
         space.isinstance_w(w_elem, space.w_list)):
         return False
     return True
@@ -293,3 +293,27 @@ def calculate_dot_strides(strides, backstrides, res_shape, skip_dims):
             rbackstrides[i] = backstrides[j]
             j += 1
     return rstrides, rbackstrides
+
+@jit.unroll_safe
+def calc_steps(shape, strides, order='C'):
+    steps = []
+    if order == 'K':
+        if strides[0] < strides[-1]:
+            order = 'F'
+        else:
+            order = 'C'
+    if order == 'F' or order == 'A':
+        last_step = strides[0]
+        for i in range(len(shape)):
+            steps.append(strides[i] / last_step)
+            last_step *= shape[i]
+        if order == 'A':
+            pass
+            #XXX test for all(steps==steps[0])
+    elif order == 'C':
+        last_step = strides[-1]
+        for i in range(len(shape) - 1, -1, -1):
+            steps.insert(0, strides[i] / last_step)
+            last_step *= shape[i]
+    return steps
+

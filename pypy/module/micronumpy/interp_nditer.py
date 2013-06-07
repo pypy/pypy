@@ -4,7 +4,7 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError
 from pypy.module.micronumpy.base import W_NDimArray, convert_to_array
 from pypy.module.micronumpy.strides import (calculate_broadcast_strides,
-                                             shape_agreement_multiple)
+                                          shape_agreement_multiple, calc_steps)
 from pypy.module.micronumpy.iter import MultiDimViewIterator, SliceIterator
 from pypy.module.micronumpy import support
 from pypy.module.micronumpy.arrayimpl.concrete import SliceArray
@@ -229,11 +229,17 @@ class W_NDIter(W_Root):
         self.iters=[]
         self.shape = iter_shape = shape_agreement_multiple(space, self.seq)
         if self.external_loop:
-            #XXX find longest contiguous shape
-            iter_shape = iter_shape[1:]
+            steps = []
+            for seq in self.seq:
+                impl = seq.implementation
+                steps.append(calc_steps(impl.shape, impl.strides, self.order))
+            #XXX #find longest contiguous shape
+            print 'steps',steps,'tier_shape',iter_shape
+            iter_shape = [1]
         for i in range(len(self.seq)):
             self.iters.append(BoxIterator(get_iter(space, self.order,
-                            self.seq[i].implementation, iter_shape), self.op_flags[i]))
+                            self.seq[i].implementation, iter_shape),
+                            self.op_flags[i]))
 
     def descr_iter(self, space):
         return space.wrap(self)
