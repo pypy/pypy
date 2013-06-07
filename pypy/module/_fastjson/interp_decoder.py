@@ -46,8 +46,10 @@ class JSONDecoder(object):
     def __init__(self, space, s):
         self.space = space
         self.s = s
-        self.ll_chars = llstr(s).chars
-        self.length = len(self.s)
+        # we put a sentinel at the end so that we never have to check for the
+        # "end of string" condition
+        self.ll_chars = llstr(s+'\0').chars
+        self.length = len(s)
         self.pos = 0
         self.last_type = TYPE_UNKNOWN
 
@@ -57,7 +59,7 @@ class JSONDecoder(object):
         return self.s[start:end]
 
     def skip_whitespace(self, i):
-        while i < self.length:
+        while True:
             ch = self.ll_chars[i]
             if is_whitespace(ch):
                 i+=1
@@ -319,12 +321,10 @@ class JSONDecoder(object):
 
 @unwrap_spec(s=str)
 def loads(space, s):
-    # the '\0' serves as a sentinel, so that we can avoid the bound check
-    s = s + '\0'
     decoder = JSONDecoder(space, s)
     w_res = decoder.decode_any(0)
     i = decoder.skip_whitespace(decoder.pos)
-    if s[i] != '\0':
+    if i < len(s):
         start = i
         end = len(s) - 1
         raise operationerrfmt(space.w_ValueError, "Extra data: char %d - %d", start, end)
