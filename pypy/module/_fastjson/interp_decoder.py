@@ -49,7 +49,6 @@ class JSONDecoder(object):
         # we put a sentinel at the end so that we never have to check for the
         # "end of string" condition
         self.ll_chars = llstr(s+'\0').chars
-        self.length = len(s)
         self.pos = 0
         self.last_type = TYPE_UNKNOWN
 
@@ -241,7 +240,7 @@ class JSONDecoder(object):
     def decode_string(self, i):
         start = i
         bits = 0
-        while i < self.length:
+        while True:
             # this loop is a fast path for strings which do not contain escape
             # characters
             ch = self.ll_chars[i]
@@ -264,7 +263,8 @@ class JSONDecoder(object):
                 content_so_far = self.getslice(start, i-1)
                 self.pos = i-1
                 return self.decode_string_escaped(start, content_so_far)
-        self._raise("Unterminated string starting at char %d", start)
+            elif ch == '\0':
+                self._raise("Unterminated string starting at char %d", start)
 
 
     def decode_string_escaped(self, start, content_so_far):
