@@ -203,7 +203,7 @@ class JSONDecoder(object):
     def decode_object(self, i):
         start = i
         w_dict = self.space.newdict()
-        while i < self.length:
+        while True:
             ch = self.ll_chars[i]
             if ch == '}':
                 self.pos = i+1
@@ -231,10 +231,12 @@ class JSONDecoder(object):
                 return w_dict
             elif ch == ',':
                 pass
+            elif ch == '\0':
+                self._raise("Unterminated object starting at char %d", start)
             else:
                 self._raise("Unexpected '%s' when decoding object (char %d)",
                             ch, self.pos)
-        self._raise("Unterminated object starting at char %d", start)
+
 
     def decode_string(self, i):
         start = i
