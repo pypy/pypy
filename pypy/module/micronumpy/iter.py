@@ -46,6 +46,7 @@ from pypy.module.micronumpy.strides import enumerate_chunks,\
      calculate_slice_strides
 from pypy.module.micronumpy.base import W_NDimArray
 from pypy.module.micronumpy.arrayimpl import base
+from pypy.module.micronumpy import support
 from rpython.rlib import jit
 
 # structures to describe slicing
@@ -267,28 +268,49 @@ class MultiDimViewIterator(ConcreteArrayIterator):
         self.offset %= self.size
 
 class SliceIterator(object):
-    def __init__(self, arr, stride, backstride, shape, dtype=None):
-        self.step = 0
+    def __init__(self, arr, strides, backstrides, shape, order="C", backward=False, dtype=None):
+        self.indexes = [0] * (len(shape) - 1)
+        self.offset = 0
         self.arr = arr
-        self.stride = stride
-        self.backstride = backstride
-        self.shape = shape
         if dtype is None:
             dtype = arr.implementation.dtype
+        if backward:
+            self.slicesize = shape[0]
+            self.gap = [support.product(shape[1:]) * dtype.get_size()]
+            self.strides = strides[1:][::-1]
+            self.backstrides = backstrides[1:][::-1]
+            self.shape = shape[1:][::-1]
+            self.shapelen = len(self.shape)
+        else:
+            shape = [support.product(shape)]
+            self.strides, self.backstrides = support.calc_strides(shape, dtype, order)
+            self.slicesize = support.product(shape)
+            self.shapelen = 0
+            self.gap = self.strides
         self.dtype = dtype
         self._done = False
 
-    def done():
+    def done(self):
         return self._done
 
-    def next():
-        self.step += self.arr.implementation.dtype.get_size()
-        if self.step == self.backstride - self.implementation.dtype.get_size():
+    @jit.unroll_safe
+    def next(self):
+        offset = self.offset
+        for i in range(self.shapelen - 1, -1, -1):
+            if self.indexes[i] < self.shape[i] - 1:
+                self.indexes[i] += 1
+                offset += self.strides[i]
+                break
+            else:
+                self.indexes[i] = 0
+                offset -= self.backstrides[i]
+        else:
             self._done = True
+        self.offset = offset
 
     def getslice(self):
         from pypy.module.micronumpy.arrayimpl.concrete import SliceArray
-        return SliceArray(self.step, [self.stride], [self.backstride], self.shape, self.arr.implementation, self.arr, self.dtype)
+        return SliceArray(self.offset, self.gap, self.backstrides, [self.slicesize], self.arr.implementation, self.arr, self.dtype)
 
 class AxisIterator(base.BaseArrayIterator):
     def __init__(self, array, shape, dim, cumultative):
