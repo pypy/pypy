@@ -566,20 +566,19 @@ class AppTestImport:
         assert 'setdefaultencoding' in dir(sys)
 
     def test_reimport_builtin(self):
-        # ...but not reload()!
-        import sys
+        import sys, time
         oldpath = sys.path
-        sys.setdefaultencoding = "<test_reimport_builtin removed this>"
+        time.tzset = "<test_reimport_builtin removed this>"
 
-        del sys.modules['sys']
-        import sys as sys1
-        assert sys.modules['sys'] is sys1 is sys
+        del sys.modules['time']
+        import time as time1
+        assert sys.modules['time'] is time1
 
-        assert sys.path is oldpath
-        assert sys.setdefaultencoding == "<test_reimport_builtin removed this>"
+        assert time.tzset == "<test_reimport_builtin removed this>"
 
-        reload(sys)   # fix it for people that want 'setdefaultencoding'
-        assert sys.setdefaultencoding != "<test_reimport_builtin removed this>"
+        reload(time1)   # don't leave a broken time.tzset behind
+        import time
+        assert time.tzset != "<test_reimport_builtin removed this>"
 
     def test_reload_infinite(self):
         import infinite_reload
