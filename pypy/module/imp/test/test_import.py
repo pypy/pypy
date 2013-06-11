@@ -565,6 +565,22 @@ class AppTestImport:
         assert sys.path is oldpath
         assert 'setdefaultencoding' in dir(sys)
 
+    def test_reimport_builtin(self):
+        # ...but not reload()!
+        import sys
+        oldpath = sys.path
+        sys.setdefaultencoding = "<test_reimport_builtin removed this>"
+
+        del sys.modules['sys']
+        import sys as sys1
+        assert sys.modules['sys'] is sys1 is sys
+
+        assert sys.path is oldpath
+        assert sys.setdefaultencoding == "<test_reimport_builtin removed this>"
+
+        reload(sys)   # fix it for people that want 'setdefaultencoding'
+        assert sys.setdefaultencoding != "<test_reimport_builtin removed this>"
+
     def test_reload_infinite(self):
         import infinite_reload
 
