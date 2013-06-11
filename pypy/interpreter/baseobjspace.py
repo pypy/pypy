@@ -381,10 +381,8 @@ class ObjSpace(object):
         except AttributeError:
             return self.__class__.__name__
 
-    def _prepare_mixedmodule(self, importname):
-        """NOT_RPYTHON.  Load the RPython code of a lazy pypy/module and put
-        it into 'self.builtin_modules', without any further initialization.
-        """
+    def setbuiltinmodule(self, importname):
+        """NOT_RPYTHON. load a lazy pypy/module and put it into sys.modules"""
         if '.' in importname:
             fullname = importname
             importname = fullname.rsplit('.', 1)[1]
@@ -403,22 +401,20 @@ class ObjSpace(object):
 
         return name
 
-    @jit.elidable
-    def getbuiltinmodule(self, name):
-        """Return the built-in module 'name'.  The first time it is seen,
-        it is initialized and stored in 'sys.modules'.  This function is
-        elidable by the JIT because its effect is idempotent (if you call
-        it twice with the same name, you're getting the same effect as if
-        it was only called once).
-        """
-        return self.loadbuiltinmodule(name, force_in_sys_modules=False,
-                                      force_init=False)
+    def getbuiltinmodule(self, name, force_init=False):
+        w_name = self.wrap(name)
+        w_modules = self.sys.get('modules')
+        try:
+            w_mod = self.getitem(w_modules, w_name)
+        except OperationError, e:
+            if not e.match(self, self.w_KeyError):
+                raise
+        else:
+            if not force_init:
+                return w_mod
 
-    def loadbuiltinmodule(self, name, force_in_sys_modules, force_init):
-        """For the importing logic.  Get the built-in module, stick it
-        into 'sys.modules' if not initialized or if force_in_sys_modules,
-        and initialize it if it was not already or if force_init.
-        """
+        # If the module is a builtin but not yet imported,
+        # retrieve it and initialize it
         try:
             w_mod = self.builtin_modules[name]
         except KeyError:
@@ -426,20 +422,15 @@ class ObjSpace(object):
                 self.w_SystemError,
                 "getbuiltinmodule() called "
                 "with non-builtin module %s", name)
+        else:
+            # Add the module to sys.modules
+            self.setitem(w_modules, w_name, w_mod)
 
-        from pypy.interpreter.module import Module
-        if isinstance(w_mod, Module) and not w_mod.startup_called:
-            force_in_sys_modules = True          # not initialized so far:
-            force_init = True                    # force initialization
-
-        if force_in_sys_modules:
-            w_sys_modules = self.sys.get('modules')
-            self.setitem(w_sys_modules, self.wrap(name), w_mod)
-
-        if force_init and isinstance(w_mod, Module):
-            w_mod.init(self)
-
-        return w_mod
+            # And initialize it
+            from pypy.interpreter.module import Module
+            if isinstance(w_mod, Module):
+                w_mod.init(self)
+            return w_mod
 
     def get_builtinmodule_to_install(self):
         """NOT_RPYTHON"""
@@ -556,12 +547,12 @@ class ObjSpace(object):
 
     def install_mixedmodule(self, mixedname, installed_builtin_modules):
         """NOT_RPYTHON"""
-        modname = self._prepare_mixedmodule(mixedname)
-        assert modname
-        assert modname not in installed_builtin_modules, (
-            "duplicate interp-level module enabled for the "
-            "app-level module %r" % (modname,))
-        installed_builtin_modules.append(modname)
+        modname = self.setbuiltinmodule(mixedname)
+        if modname:
+            assert modname not in installed_builtin_modules, (
+                "duplicate interp-level module enabled for the "
+                "app-level module %r" % (modname,))
+            installed_builtin_modules.append(modname)
 
     def setup_builtin_modules(self):
         "NOT_RPYTHON: only for initializing the space."

@@ -573,16 +573,14 @@ def load_c_extension(space, filename, modulename):
     load_extension_module(space, filename, modulename)
 
 @jit.dont_look_inside
-def load_module(space, w_modulename, find_info, reuse=False, force_init=False):
+def load_module(space, w_modulename, find_info, reuse=False):
     if find_info is None:
         return
     if find_info.w_loader:
         return space.call_method(find_info.w_loader, "load_module", w_modulename)
 
     if find_info.modtype == C_BUILTIN:
-        return space.loadbuiltinmodule(find_info.filename,
-                                       force_in_sys_modules=True,
-                                       force_init=force_init)
+        return space.getbuiltinmodule(find_info.filename, force_init=True)
 
     if find_info.modtype in (PY_SOURCE, PY_COMPILED, C_EXTENSION, PKG_DIRECTORY):
         w_mod = None
@@ -723,8 +721,7 @@ def reload(space, w_module):
 
         try:
             try:
-                return load_module(space, w_modulename, find_info, reuse=True,
-                                   force_init=True)
+                return load_module(space, w_modulename, find_info, reuse=True)
             finally:
                 if find_info.stream:
                     find_info.stream.close()
