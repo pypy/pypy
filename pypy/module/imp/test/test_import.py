@@ -565,6 +565,13 @@ class AppTestImport:
         assert sys.path is oldpath
         assert 'setdefaultencoding' in dir(sys)
 
+    def test_reimport_builtin_simple_case(self):
+        import sys, time
+        time.foo = "bar"
+        del sys.modules['time']
+        import time
+        assert not hasattr(time, 'foo')
+
     def test_reimport_builtin(self):
         import sys, time
         oldpath = sys.path
