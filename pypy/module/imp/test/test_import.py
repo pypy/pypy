@@ -573,7 +573,6 @@ class AppTestImport:
         assert hasattr(time, 'tzset')
 
     def test_reimport_builtin_simple_case_2(self):
-        skip("fix me")
         import sys, time
         time.foo = "bar"
         del sys.modules['time']
