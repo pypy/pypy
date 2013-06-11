@@ -43,7 +43,6 @@ class MixedModule(Module):
             # the module was already imported.  Refresh its content with
             # the saved dict, as done with built-in and extension modules
             # on CPython.
-            space.call_method(self.w_dict, 'clear')
             space.call_method(self.w_dict, 'update', self.w_initialdict)
 
         for w_submodule in self.submodules_w:
