@@ -17,6 +17,7 @@ class AbstractVirtualValue(optimizer.OptValue):
     _attrs_ = ('keybox', 'source_op', '_cached_vinfo')
     box = None
     level = optimizer.LEVEL_NONNULL
+    is_about_raw = False
     _cached_vinfo = None
 
     def __init__(self, keybox, source_op=None):
@@ -156,7 +157,7 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
             iteritems = self._fields.iteritems()
             if not we_are_translated(): #random order is fine, except for tests
                 iteritems = list(iteritems)
-                iteritems.sort(key = lambda (x,y): x.sort_key())
+                iteritems.sort(key=lambda (x, y): x.sort_key())
             for ofs, value in iteritems:
                 if value.is_null():
                     continue
@@ -353,7 +354,7 @@ class VArrayStructValue(AbstractVirtualValue):
             # random order is fine, except for tests
             if not we_are_translated():
                 iteritems = list(iteritems)
-                iteritems.sort(key = lambda (x, y): x.sort_key())
+                iteritems.sort(key=lambda (x, y): x.sort_key())
             for descr, value in iteritems:
                 subbox = value.force_box(optforce)
                 op = ResOperation(rop.SETINTERIORFIELD_GC,
@@ -395,6 +396,7 @@ class VArrayStructValue(AbstractVirtualValue):
 
 
 class VRawBufferValue(AbstractVArrayValue):
+    is_about_raw = True
 
     def __init__(self, cpu, logops, size, keybox, source_op):
         AbstractVirtualValue.__init__(self, keybox, source_op)
@@ -426,7 +428,7 @@ class VRawBufferValue(AbstractVArrayValue):
         if not we_are_translated():
             op.name = 'FORCE ' + self.source_op.name
         optforce.emit_operation(self.source_op)
-        self.box = box = self.source_op.result
+        self.box = self.source_op.result
         for i in range(len(self.buffer.offsets)):
             # get a pointer to self.box+offset
             offset = self.buffer.offsets[i]
@@ -457,6 +459,7 @@ class VRawBufferValue(AbstractVArrayValue):
 
 
 class VRawSliceValue(AbstractVirtualValue):
+    is_about_raw = True
 
     def __init__(self, rawbuffer_value, offset, keybox, source_op):
         AbstractVirtualValue.__init__(self, keybox, source_op)
@@ -533,8 +536,6 @@ class OptVirtualize(optimizer.Optimization):
         self.emit_operation(op)
 
     def optimize_VIRTUAL_REF(self, op):
-        indexbox = op.getarg(1)
-        #
         # get some constants
         vrefinfo = self.optimizer.metainterp_sd.virtualref_info
         c_cls = vrefinfo.jit_virtual_ref_const_class
@@ -570,7 +571,7 @@ class OptVirtualize(optimizer.Optimization):
         objbox = op.getarg(1)
         if not CONST_NULL.same_constant(objbox):
             seo(ResOperation(rop.SETFIELD_GC, op.getarglist(), None,
-                             descr = vrefinfo.descr_forced))
+                             descr=vrefinfo.descr_forced))
 
         # - set 'virtual_token' to TOKEN_NONE (== NULL)
         args = [op.getarg(0), CONST_NULL]
@@ -678,13 +679,17 @@ class OptVirtualize(optimizer.Optimization):
         offsetbox = self.get_constant_box(op.getarg(1))
         if value.is_virtual() and offsetbox is not None:
             offset = offsetbox.getint()
-            if isinstance(value, VRawBufferValue):
-                self.make_virtual_raw_slice(value, offset, op.result, op)
-                return
-            elif isinstance(value, VRawSliceValue):
-                offset = offset + value.offset
-                self.make_virtual_raw_slice(value.rawbuffer_value, offset, op.result, op)
-                return
+            # the following check is constant-folded to False if the
+            # translation occurs without any VRawXxxValue instance around
+            if value.is_about_raw:
+                if isinstance(value, VRawBufferValue):
+                    self.make_virtual_raw_slice(value, offset, op.result, op)
+                    return
+                elif isinstance(value, VRawSliceValue):
+                    offset = offset + value.offset
+                    self.make_virtual_raw_slice(value.rawbuffer_value, offset,
+                                                op.result, op)
+                    return
         self.emit_operation(op)
 
     def optimize_ARRAYLEN_GC(self, op):

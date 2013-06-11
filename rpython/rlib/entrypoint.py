@@ -5,13 +5,33 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib.objectmodel import we_are_translated
 
-pypy_debug_catch_fatal_exception = rffi.llexternal('pypy_debug_catch_fatal_exception', [], lltype.Void)
 
-def entrypoint(key, argtypes, c_name=None, relax=False):
+def entrypoint_lowlevel(key, argtypes, c_name=None, relax=False):
     """ Note: entrypoint should call llop.gc_stack_bottom on it's own.
     That's necessary for making it work with asmgcc and hence JIT
 
+    If in doubt, use entrypoint().
+
     if key == 'main' than it's included by default
+    """
+    from rpython.translator.tool.cbuild import ExternalCompilationInfo
+
+    def deco(func):
+        secondary_entrypoints.setdefault(key, []).append((func, argtypes))
+        if c_name is not None:
+            func.c_name = c_name
+        if relax:
+            func.relax_sig_check = True
+        func._compilation_info = ExternalCompilationInfo(
+            export_symbols=[c_name or func.func_name])
+        return func
+    return deco
+
+
+pypy_debug_catch_fatal_exception = rffi.llexternal('pypy_debug_catch_fatal_exception', [], lltype.Void)
+
+def entrypoint(key, argtypes, c_name=None):
+    """if key == 'main' than it's included by default
     """
     from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
@@ -29,6 +49,7 @@ def entrypoint(key, argtypes, c_name=None, relax=False):
                 if not we_are_translated():
                     import traceback
                     traceback.print_exc()
+                    raise
                 else:
                     print str(e)
                     pypy_debug_catch_fatal_exception()
@@ -46,8 +67,6 @@ def entrypoint(key, argtypes, c_name=None, relax=False):
         wrapper.func_name = func.func_name
         if c_name is not None:
             wrapper.c_name = c_name
-        if relax:
-            wrapper.relax_sig_check = True
         wrapper._compilation_info = ExternalCompilationInfo(
             export_symbols=[c_name or func.func_name])
         return wrapper
@@ -58,7 +77,8 @@ def entrypoint(key, argtypes, c_name=None, relax=False):
 # This thing is imported by any target which has any API, so it'll get
 # registered
 
-RPython_StartupCode = rffi.llexternal('RPython_StartupCode', [], lltype.Void)
+RPython_StartupCode = rffi.llexternal('RPython_StartupCode', [], lltype.Void,
+                                      _nowrapper=True)
 
 @entrypoint('main', [], c_name='rpython_startup_code')
 def rpython_startup_code():

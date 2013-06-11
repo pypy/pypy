@@ -1,7 +1,7 @@
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, operationerrfmt
 from rpython.rlib import rgc, jit
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.tool import rffi_platform
@@ -801,11 +801,10 @@ Return a new XML parser object."""
     elif space.isinstance_w(w_encoding, space.w_str):
         encoding = space.str_w(w_encoding)
     else:
-        type_name = space.type(w_encoding).getname(space)
-        raise OperationError(
+        raise operationerrfmt(
             space.w_TypeError,
-            space.wrap('ParserCreate() argument 1 must be string or None,'
-                       ' not %s' % (type_name,)))
+            'ParserCreate() argument 1 must be string or None, not %T',
+            w_encoding)
 
     if space.is_none(w_namespace_separator):
         namespace_separator = 0
@@ -821,11 +820,10 @@ Return a new XML parser object."""
                 space.wrap('namespace_separator must be at most one character,'
                            ' omitted, or None'))
     else:
-        type_name = space.type(w_namespace_separator).getname(space)
-        raise OperationError(
+        raise operationerrfmt(
             space.w_TypeError,
-            space.wrap('ParserCreate() argument 2 must be string or None,'
-                       ' not %s' % (type_name,)))
+            'ParserCreate() argument 2 must be string or None, not %T',
+            w_namespace_separator)
 
     # Explicitly passing None means no interning is desired.
     # Not passing anything means that a new dictionary is used.

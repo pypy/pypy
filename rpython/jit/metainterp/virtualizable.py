@@ -231,6 +231,10 @@ class VirtualizableInfo(object):
         self.tracing_before_residual_call = tracing_before_residual_call
 
         def tracing_after_residual_call(virtualizable):
+            """
+            Returns whether or not the virtualizable was forced during a
+            CALL_MAY_FORCE.
+            """
             virtualizable = cast_gcref_to_vtype(virtualizable)
             if virtualizable.vable_token:
                 # not modified by the residual call; assert that it is still

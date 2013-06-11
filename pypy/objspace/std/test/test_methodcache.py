@@ -4,7 +4,28 @@ from pypy.objspace.std.test import test_typeobject
 class AppTestMethodCaching(test_typeobject.AppTestTypeObject):
     spaceconfig = {"objspace.std.withmethodcachecounter": True}
 
+    def setup_class(cls):
+        # This is for the following tests, which are a bit fragile and
+        # historically have been failing once in a while.  With this hack,
+        # they are run up to 5 times in a row, saving the frame of the
+        # failed attempt.  This means occasional collisions should work
+        # differently during the retry.
+        cls.w_retry = cls.space.appexec([], """():
+            def retry(run):
+                keepalive = []
+                for i in range(4):
+                    try:
+                        return run()
+                    except AssertionError:
+                        import sys
+                        keepalive.append(sys.exc_info())
+                return run()
+            return retry
+        """)
+
     def test_mix_classes(self):
+      @self.retry
+      def run():
         import __pypy__
         class A(object):
             def f(self):
@@ -25,6 +46,8 @@ class AppTestMethodCaching(test_typeobject.AppTestTypeObject):
         assert sum(cache_counter) == 30
 
     def test_class_that_cannot_be_cached(self):
+      @self.retry
+      def run():
         import __pypy__
         class X:
             pass
@@ -50,6 +73,8 @@ class AppTestMethodCaching(test_typeobject.AppTestTypeObject):
         assert sum(cache_counter) == 20
  
     def test_change_methods(self):
+      @self.retry
+      def run():
         import __pypy__
         class A(object):
             def f(self):
@@ -88,6 +113,8 @@ class AppTestMethodCaching(test_typeobject.AppTestTypeObject):
         assert cache_counter == (17, 3)
 
     def test_subclasses(self):
+      @self.retry
+      def run():
         import __pypy__
         class A(object):
             def f(self):
@@ -107,6 +134,8 @@ class AppTestMethodCaching(test_typeobject.AppTestTypeObject):
         assert sum(cache_counter) == 30
   
     def test_many_names(self):
+      @self.retry
+      def run():
         import __pypy__
         for j in range(20):
             class A(object):
@@ -160,6 +189,8 @@ class AppTestMethodCaching(test_typeobject.AppTestTypeObject):
         assert e.foo == 3
 
     def test_custom_metaclass(self):
+      @self.retry
+      def run():
         import __pypy__
         for j in range(20):
             class MetaA(type):
@@ -181,6 +212,8 @@ class AppTestMethodCaching(test_typeobject.AppTestTypeObject):
             raise AssertionError("cache_counter = %r" % (cache_counter,))
 
     def test_mutate_class(self):
+      @self.retry
+      def run():
         import __pypy__
         class A(object):
             x = 1

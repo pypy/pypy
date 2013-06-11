@@ -1,307 +1,3 @@
-"""
-This automaton is designed to be invoked on a Python source string
-before the real parser starts working, in order to find all legal
-'from __future__ import blah'. As soon as something is encountered that
-would prevent more future imports, the analysis is aborted.
-The resulting legal futures are avaliable in self.flags after the
-pass has ended.
-
-Invocation is through get_futures(src), which returns a field of flags, one per
-found correct future import.
-
-The flags can then be used to set up the parser.
-All error detection is left to the parser.
-
-The reason we are not using the regular lexer/parser toolchain is that
-we do not want the overhead of generating tokens for entire files just
-to find information that resides in the first few lines of the file.
-Neither do we require sane error messages, as this job is handled by
-the parser.
-
-To make the parsing fast, especially when the module is translated to C,
-the code has been written in a very serial fashion, using an almost
-assembler like style. A further speedup could be achieved by replacing
-the "in" comparisons with explicit numeric comparisons.
-"""
-
-from pypy.interpreter.astcompiler.consts import CO_GENERATOR_ALLOWED, \
-    CO_FUTURE_DIVISION, CO_FUTURE_WITH_STATEMENT, CO_FUTURE_ABSOLUTE_IMPORT
-
-def get_futures(future_flags, source):
-    futures = FutureAutomaton(future_flags, source)
-    try:
-        futures.start()
-    except DoneException, e:
-        pass
-    return futures.flags, (futures.lineno, futures.col_offset)
-
-class DoneException(Exception):
-    pass
-
-whitespace = ' \t\f'
-whitespace_or_newline = whitespace + '\n\r'
-letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYabcdefghijklmnopqrstuvwxyz_'
-alphanumerics = letters + '1234567890'
-
-class FutureAutomaton(object):
-    """
-    A future statement must appear near the top of the module.
-    The only lines that can appear before a future statement are:
-
-        * the module docstring (if any),
-        * comments,
-        * blank lines, and
-        * other future statements.
-
-    The features recognized by Python 2.5 are "generators",
-    "division", "nested_scopes" and "with_statement", "absolute_import".
-    "generators", "division" and "nested_scopes" are redundant
-    in 2.5 because they are always enabled.
-
-    This module parses the input until it encounters something that is
-    not recognized as a valid future statement or something that may
-    precede a future statement.
-    """
-
-    def __init__(self, future_flags, string):
-        self.future_flags = future_flags
-        self.s = string
-        self.pos = 0
-        self.current_lineno = 1
-        self.lineno = -1
-        self.line_start_pos = 0
-        self.col_offset = 0
-        self.docstring_consumed = False
-        self.flags = 0
-        self.got_features = 0
-
-    def getc(self, offset=0):
-        try:
-            return self.s[self.pos + offset]
-        except IndexError:
-            raise DoneException
-
-    def start(self):
-        c = self.getc()
-        if c in ("'", '"', "r", "u") and not self.docstring_consumed:
-            self.consume_docstring()
-        elif c == '\\' or c in whitespace_or_newline:
-            self.consume_empty_line()
-        elif c == '#':
-            self.consume_comment()
-        elif c == 'f':
-            self.consume_from()
-        else:
-            return
-
-    def atbol(self):
-        self.current_lineno += 1
-        self.line_start_pos = self.pos
-
-    def consume_docstring(self):
-        self.docstring_consumed = True
-        if self.getc() == "r":
-            self.pos += 1
-        if self.getc() == "u":
-            self.pos += 1
-        endchar = self.getc()
-        if (self.getc() == self.getc(+1) and
-            self.getc() == self.getc(+2)):
-            self.pos += 3
-            while 1: # Deal with a triple quoted docstring
-                c = self.getc()
-                if c == '\\':
-                    self.pos += 1
-                    self._skip_next_char_from_docstring()
-                elif c != endchar:
-                    self._skip_next_char_from_docstring()
-                else:
-                    self.pos += 1
-                    if (self.getc() == endchar and
-                        self.getc(+1) == endchar):
-                        self.pos += 2
-                        self.consume_empty_line()
-                        break
-
-        else: # Deal with a single quoted docstring
-            self.pos += 1
-            while 1:
-                c = self.getc()
-                self.pos += 1
-                if c == endchar:
-                    self.consume_empty_line()
-                    return
-                elif c == '\\':
-                    self._skip_next_char_from_docstring()
-                elif c in '\r\n':
-                    # Syntax error
-                    return
-
-    def _skip_next_char_from_docstring(self):
-        c = self.getc()
-        self.pos += 1
-        if c == '\n':
-            self.atbol()
-        elif c == '\r':
-            if self.getc() == '\n':
-                self.pos += 1
-            self.atbol()
-
-    def consume_continuation(self):
-        c = self.getc()
-        if c in '\n\r':
-            self.pos += 1
-            self.atbol()
-
-    def consume_empty_line(self):
-        """
-        Called when the remainder of the line can only contain whitespace
-        and comments.
-        """
-        while self.getc() in whitespace:
-            self.pos += 1
-        if self.getc() == '#':
-            self.consume_comment()
-        elif self.getc() == ';':
-            self.pos += 1
-            self.consume_whitespace()
-            self.start()
-        elif self.getc() in '\\':
-            self.pos += 1
-            self.consume_continuation()
-            self.start()
-        elif self.getc() in '\r\n':
-            c = self.getc()
-            self.pos += 1
-            if c == '\r':
-                if self.getc() == '\n':
-                    self.pos += 1
-                self.atbol()
-            else:
-                self.atbol()
-            self.start()
-
-    def consume_comment(self):
-        self.pos += 1
-        while self.getc() not in '\r\n':
-            self.pos += 1
-        self.consume_empty_line()
-
-    def consume_from(self):
-        col_offset = self.pos - self.line_start_pos
-        line = self.current_lineno
-        self.pos += 1
-        if self.getc() == 'r' and self.getc(+1) == 'o' and self.getc(+2) == 'm':
-            self.docstring_consumed = True
-            self.pos += 3
-            self.consume_mandatory_whitespace()
-            if self.s[self.pos:self.pos+10] != '__future__':
-                raise DoneException
-            self.pos += 10
-            self.consume_mandatory_whitespace()
-            if self.s[self.pos:self.pos+6] != 'import':
-                raise DoneException
-            self.pos += 6
-            self.consume_whitespace()
-            old_got = self.got_features
-            try:
-                if self.getc() == '(':
-                    self.pos += 1
-                    self.consume_whitespace()
-                    self.set_flag(self.get_name())
-                    # Set flag corresponding to name
-                    self.get_more(paren_list=True)
-                else:
-                    self.set_flag(self.get_name())
-                    self.get_more()
-            finally:
-                if self.got_features > old_got:
-                    self.col_offset = col_offset
-                    self.lineno = line
-            self.consume_empty_line()
-
-    def consume_mandatory_whitespace(self):
-        if self.getc() not in whitespace + '\\':
-            raise DoneException
-        self.consume_whitespace()
-
-    def consume_whitespace(self, newline_ok=False):
-        while 1:
-            c = self.getc()
-            if c in whitespace:
-                self.pos += 1
-                continue
-            elif c == '\\' or newline_ok:
-                slash = c == '\\'
-                if slash:
-                    self.pos += 1
-                c = self.getc()
-                if c == '\n':
-                    self.pos += 1
-                    self.atbol()
-                    continue
-                elif c == '\r':
-                    self.pos += 1
-                    if self.getc() == '\n':
-                        self.pos += 1
-                        self.atbol()
-                elif slash:
-                    raise DoneException
-                else:
-                    return
-            else:
-                return
-
-    def get_name(self):
-        if self.getc() not in letters:
-            raise DoneException
-        p = self.pos
-        try:
-            while self.getc() in alphanumerics:
-                self.pos += 1
-        except DoneException:
-            # If there's any name at all, we want to call self.set_flag().
-            # Something else while get the DoneException again.
-            if self.pos == p:
-                raise
-            end = self.pos
-        else:
-            end = self.pos
-            self.consume_whitespace()
-        return self.s[p:end]
-
-    def get_more(self, paren_list=False):
-        if paren_list and self.getc() == ')':
-            self.pos += 1
-            return
-        if (self.getc() == 'a' and
-            self.getc(+1) == 's' and
-            self.getc(+2) in whitespace):
-            self.get_name()
-            self.get_name()
-            self.get_more(paren_list=paren_list)
-            return
-        elif self.getc() != ',':
-            return
-        else:
-            self.pos += 1
-            self.consume_whitespace(paren_list)
-            if paren_list and self.getc() == ')':
-                self.pos += 1
-                return # Handles trailing comma inside parenthesis
-            self.set_flag(self.get_name())
-            self.get_more(paren_list=paren_list)
-
-    def set_flag(self, feature):
-        self.got_features += 1
-        try:
-            self.flags |= self.future_flags.compiler_features[feature]
-        except KeyError:
-            pass
-
-from codeop import PyCF_DONT_IMPLY_DEDENT
-from pypy.interpreter.error import OperationError
-
 from pypy.tool import stdlib___future__ as future
 
 class FutureFlags(object):
@@ -327,6 +23,81 @@ class FutureFlags(object):
                 flag_names.append(name)
         return flag_names
 
+    def get_compiler_feature(self, name):
+        return self.compiler_features.get(name, 0)
+
 futureFlags_2_4 = FutureFlags((2, 4, 4, 'final', 0))
 futureFlags_2_5 = FutureFlags((2, 5, 0, 'final', 0))
 futureFlags_2_7 = FutureFlags((2, 7, 0, 'final', 0))
+
+
+class TokenIterator:
+    def __init__(self, tokens):
+        self.tokens = tokens
+        self.index = 0
+        self.next()
+
+    def next(self):
+        index = self.index
+        self.index = index + 1
+        self.tok = self.tokens[index]
+
+    def skip(self, n):
+        if self.tok[0] == n:
+            self.next()
+            return True
+        else:
+            return False
+
+    def skip_name(self, name):
+        from pypy.interpreter.pyparser import pygram
+        if self.tok[0] == pygram.tokens.NAME and self.tok[1] == name:
+            self.next()
+            return True
+        else:
+            return False
+
+    def next_feature_name(self):
+        from pypy.interpreter.pyparser import pygram
+        if self.tok[0] == pygram.tokens.NAME:
+            name = self.tok[1]
+            self.next()
+            if self.skip_name("as"):
+                self.skip(pygram.tokens.NAME)
+            return name
+        else:
+            return ''
+
+    def skip_newlines(self):
+        from pypy.interpreter.pyparser import pygram
+        while self.skip(pygram.tokens.NEWLINE):
+            pass
+
+
+def add_future_flags(future_flags, tokens):
+    from pypy.interpreter.pyparser import pygram
+    it = TokenIterator(tokens)
+    result = 0
+    #
+    # The only things that can precede a future statement are another
+    # future statement and a doc string (only one).  This is a very
+    # permissive parsing of the given list of tokens; it relies on
+    # the real parsing done afterwards to give errors.
+    it.skip_newlines()
+    it.skip_name("r") or it.skip_name("u") or it.skip_name("ru")
+    if it.skip(pygram.tokens.STRING):
+        it.skip_newlines()
+
+    while (it.skip_name("from") and
+           it.skip_name("__future__") and
+           it.skip_name("import")):
+        it.skip(pygram.tokens.LPAR)    # optionally
+        result |= future_flags.get_compiler_feature(it.next_feature_name())
+        while it.skip(pygram.tokens.COMMA):
+            result |= future_flags.get_compiler_feature(it.next_feature_name())
+        it.skip(pygram.tokens.RPAR)    # optionally
+        it.skip(pygram.tokens.SEMI)    # optionally
+        it.skip_newlines()
+
+    position = (it.tok[2], it.tok[3])
+    return result, position

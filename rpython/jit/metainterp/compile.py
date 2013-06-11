@@ -12,7 +12,7 @@ from rpython.jit.metainterp.resoperation import ResOperation, rop, get_deep_immu
 from rpython.jit.metainterp.history import TreeLoop, Box, JitCellToken, TargetToken
 from rpython.jit.metainterp.history import AbstractFailDescr, BoxInt
 from rpython.jit.metainterp.history import BoxPtr, BoxFloat, ConstInt
-from rpython.jit.metainterp import history, resume
+from rpython.jit.metainterp import history, resume, jitexc
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.inliner import Inliner
 from rpython.jit.metainterp.resume import NUMBERING, PENDINGFIELDSP, ResumeDataDirectReader
@@ -85,7 +85,7 @@ def record_loop_or_bridge(metainterp_sd, loop):
             # exported_state is clear by optimizeopt when the short preamble is
             # constrcucted. if that did not happen the label should not show up
             # in a trace that will be used
-            assert descr.exported_state is None 
+            assert descr.exported_state is None
             if not we_are_translated():
                 op._descr_wref = weakref.ref(op._descr)
             op.cleardescr()    # clear reference to prevent the history.Stats
@@ -415,32 +415,32 @@ class _DoneWithThisFrameDescr(AbstractFailDescr):
 class DoneWithThisFrameDescrVoid(_DoneWithThisFrameDescr):
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         assert jitdriver_sd.result_type == history.VOID
-        raise metainterp_sd.DoneWithThisFrameVoid()
+        raise jitexc.DoneWithThisFrameVoid()
 
 class DoneWithThisFrameDescrInt(_DoneWithThisFrameDescr):
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         assert jitdriver_sd.result_type == history.INT
         result = metainterp_sd.cpu.get_int_value(deadframe, 0)
-        raise metainterp_sd.DoneWithThisFrameInt(result)
+        raise jitexc.DoneWithThisFrameInt(result)
 
 class DoneWithThisFrameDescrRef(_DoneWithThisFrameDescr):
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         assert jitdriver_sd.result_type == history.REF
         cpu = metainterp_sd.cpu
         result = cpu.get_ref_value(deadframe, 0)
-        raise metainterp_sd.DoneWithThisFrameRef(cpu, result)
+        raise jitexc.DoneWithThisFrameRef(cpu, result)
 
 class DoneWithThisFrameDescrFloat(_DoneWithThisFrameDescr):
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         assert jitdriver_sd.result_type == history.FLOAT
         result = metainterp_sd.cpu.get_float_value(deadframe, 0)
-        raise metainterp_sd.DoneWithThisFrameFloat(result)
+        raise jitexc.DoneWithThisFrameFloat(result)
 
 class ExitFrameWithExceptionDescrRef(_DoneWithThisFrameDescr):
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         cpu = metainterp_sd.cpu
         value = cpu.get_ref_value(deadframe, 0)
-        raise metainterp_sd.ExitFrameWithExceptionRef(cpu, value)
+        raise jitexc.ExitFrameWithExceptionRef(cpu, value)
 
 
 class TerminatingLoopToken(JitCellToken): # FIXME: kill?
@@ -819,7 +819,7 @@ def compile_trace(metainterp, resumekey, resume_at_jump_descr=None):
 
     # The history contains new operations to attach as the code for the
     # failure of 'resumekey.guard_op'.
-    # 
+    #
     # Attempt to use optimize_bridge().  This may return None in case
     # it does not work -- i.e. none of the existing old_loop_tokens match.
     new_trace = create_empty_loop(metainterp)
@@ -865,7 +865,7 @@ class PropagateExceptionDescr(AbstractFailDescr):
         if not exception:
             exception = cast_instance_to_gcref(memory_error)
         assert exception, "PropagateExceptionDescr: no exception??"
-        raise metainterp_sd.ExitFrameWithExceptionRef(cpu, exception)
+        raise jitexc.ExitFrameWithExceptionRef(cpu, exception)
 
 def compile_tmp_callback(cpu, jitdriver_sd, greenboxes, redargtypes,
                          memory_manager=None):

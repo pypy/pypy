@@ -20,8 +20,8 @@ class TestLocale(object):
 
     def test_setlocale_worked(self):
         assert u"Ą".isupper()
-        raises(LocaleError, setlocale, LC_ALL, "bla bla bla")
-        raises(LocaleError, setlocale, 1234455, None)
+        py.test.raises(LocaleError, setlocale, LC_ALL, "bla bla bla")
+        py.test.raises(LocaleError, setlocale, 1234455, None)
 
     def test_lower_upper(self):
         assert isupper(ord("A"))

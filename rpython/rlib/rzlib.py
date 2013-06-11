@@ -10,7 +10,7 @@ from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 
 if compiler.name == "msvc":
-    libname = 'zlib'
+    libname = 'zlib1' # since version 1.1.4 and later, see http://www.zlib.net/DLL_FAQ.txt
 else:
     libname = 'z'
 eci = ExternalCompilationInfo(

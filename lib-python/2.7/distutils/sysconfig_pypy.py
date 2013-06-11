@@ -1,9 +1,17 @@
-"""PyPy's minimal configuration information.
+"""Provide access to Python's configuration information.
+This is actually PyPy's minimal configuration information.
+
+The specific configuration variables available depend heavily on the
+platform and configuration.  The values may be retrieved using
+get_config_var(name), and the list of variables is available via
+get_config_vars().keys().  Additional convenience functions are also
+available.
 """
+
+__revision__ = "$Id: sysconfig.py 85358 2010-10-10 09:54:59Z antoine.pitrou $"
 
 import sys
 import os
-import imp
 
 from distutils.errors import DistutilsPlatformError
 
@@ -49,16 +57,11 @@ def get_python_lib(plat_specific=0, standard_lib=0, prefix=None):
 
 _config_vars = None
 
-def _get_so_extension():
-    for ext, mod, typ in imp.get_suffixes():
-        if typ == imp.C_EXTENSION:
-            return ext
-
 def _init_posix():
     """Initialize the module as appropriate for POSIX systems."""
     g = {}
     g['EXE'] = ""
-    g['SO'] = _get_so_extension() or ".so"
+    g['SO'] = ".so"
     g['SOABI'] = g['SO'].rsplit('.')[0]
     g['LIBDIR'] = os.path.join(sys.prefix, 'lib')
     g['CC'] = "gcc -pthread" # -pthread might not be valid on OS/X, check
@@ -71,7 +74,7 @@ def _init_nt():
     """Initialize the module as appropriate for NT"""
     g = {}
     g['EXE'] = ".exe"
-    g['SO'] = _get_so_extension() or ".pyd"
+    g['SO'] = ".pyd"
     g['SOABI'] = g['SO'].rsplit('.')[0]
 
     global _config_vars

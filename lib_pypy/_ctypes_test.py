@@ -1,60 +1,7 @@
-import os, sys
-import tempfile
-
-def compile_shared():
-    """Compile '_ctypes_test.c' into an extension module, and import it
-    """
-    thisdir = os.path.dirname(__file__)
-    output_dir = tempfile.mkdtemp()
-
-    from distutils.ccompiler import new_compiler
-    from distutils import sysconfig
-
-    compiler = new_compiler()
-    compiler.output_dir = output_dir
-
-    # Compile .c file
-    include_dir = os.path.join(thisdir, '..', 'include')
-    if sys.platform == 'win32':
-        ccflags = ['-D_CRT_SECURE_NO_WARNINGS']
-    else:
-        ccflags = ['-fPIC', '-Wimplicit-function-declaration']
-    res = compiler.compile([os.path.join(thisdir, '_ctypes_test.c')],
-                           include_dirs=[include_dir],
-                           extra_preargs=ccflags)
-    object_filename = res[0]
-
-    # set link options
-    output_filename = '_ctypes_test' + sysconfig.get_config_var('SO')
-    if sys.platform == 'win32':
-        # XXX libpypy-c.lib is currently not installed automatically
-        library = os.path.join(thisdir, '..', 'include', 'libpypy-c')
-        if not os.path.exists(library + '.lib'):
-            #For a nightly build
-            library = os.path.join(thisdir, '..', 'include', 'python27')
-        if not os.path.exists(library + '.lib'):
-            # For a local translation
-            library = os.path.join(thisdir, '..', 'pypy', 'goal', 'libpypy-c')
-        libraries = [library, 'oleaut32']
-        extra_ldargs = ['/MANIFEST',  # needed for VC10
-                        '/EXPORT:init_ctypes_test']
-    else:
-        libraries = []
-        extra_ldargs = []
-
-    # link the dynamic library
-    compiler.link_shared_object(
-        [object_filename],
-        output_filename,
-        libraries=libraries,
-        extra_preargs=extra_ldargs)
-
-    # Now import the newly created library, it will replace our module in sys.modules
-    import imp
-    fp, filename, description = imp.find_module('_ctypes_test', path=[output_dir])
-    imp.load_module('_ctypes_test', fp, filename, description)
-
-
+try:
+    import cpyext
+except ImportError:
+    raise ImportError("No module named '_ctypes_test'")
 try:
     import _ctypes
     _ctypes.PyObj_FromPtr = None
@@ -62,4 +9,5 @@ try:
 except ImportError:
     pass    # obscure condition of _ctypes_test.py being imported by py.test
 else:
-    compile_shared()
+    import _pypy_testcapi
+    _pypy_testcapi.compile_shared('_ctypes_test.c', '_ctypes_test')
