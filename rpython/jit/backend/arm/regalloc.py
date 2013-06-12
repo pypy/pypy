@@ -1154,7 +1154,7 @@ class Regalloc(BaseRegalloc):
             assert isinstance(arg, Box)
             loc = self.loc(arg)
             arglocs[i] = loc
-            if loc.is_core_reg():
+            if loc.is_core_reg() or loc.is_vfp_reg():
                 self.frame_manager.mark_as_free(arg)
         #
         descr._arm_arglocs = arglocs
