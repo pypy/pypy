@@ -1,0 +1,9 @@
+/* file ',' (conjunction) */
+
+[','(X=1, var(X)), failure].
+[','(var(X), X=1), [[X <-- 1]]].
+[','(fail, call(3)), failure].
+[','(nofoo(X), call(X)), existence_error(procedure, nofoo/1)].
+[','(X = true, call(X)), [[X <-- true]]].
+ 
+/* end of file ',' (conjunction) */

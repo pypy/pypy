@@ -1,0 +1,10 @@
+/* file if-then (-> operator) */
+
+['->'(true, true), success].
+['->'(true, fail), failure].
+['->'(fail, true), failure].
+['->'(true, X=1), [[X <-- 1]]].
+['->'(';'(X=1, X=2), true), [[X <-- 1]]]. 
+['->'(true, ';'(X=1, X=2)), [[X <-- 1], [X <-- 2]]].
+
+/* end of file if-then (-> operator) */

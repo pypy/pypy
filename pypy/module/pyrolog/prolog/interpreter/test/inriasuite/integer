@@ -1,0 +1,10 @@
+/* file integer */
+
+[integer(3), success].
+[integer(-3), success].
+[integer(3.3), failure].
+[integer(X), failure].
+[integer(atom), failure].
+
+/* end of integer */
+

@@ -1,0 +1,22 @@
+/* file findall */
+
+[findall(X,(X=1 ; X=2),S),[[S <-- [1,2]]]].
+
+[findall(X+Y,(X=1),S),[[S <-- [1+_]]]].
+
+[findall(X,fail,L),[[L <-- []]]].
+
+[findall(X,(X=1 ; X=1),S),[[S <-- [1,1]]]].
+
+[findall(X,(X=2 ; X=1),[1,2]), failure].
+
+[findall(X,(X=1 ; X=2),[X,Y]), [[X <-- 1, Y <-- 2]]].
+
+[findall(X,Goal,S),instantiation_error]. % Culprit Goal
+
+[findall(X,4,S),type_error(callable, 4)].
+
+[findall(X,call(1),S),type_error(callable, 1)].
+
+/* end of findall */
+

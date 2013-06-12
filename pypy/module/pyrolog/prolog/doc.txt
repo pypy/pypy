@@ -1,0 +1,171 @@
+==================================
+Pyrolog: PyPy's Prolog interpreter
+==================================
+
+.. contents::
+
+Pyrolog, PyPy's Prolog interpreter was written by Carl Friedrich Bolz as part of
+his bachelor thesis. It aims at fully implementing the `Prolog ISO
+specification`_. Currently it implements the core Prolog semantics and many, but
+not all, ISO builtins (it is especially lacking when it comes to I/O and module
+support). Its speed is still quite a bit below that of highly optimized Prologs,
+roughly 10-100 times slower than `Sicstus Prolog`_. In addition, it currently is
+not very polished in many respects.
+
+This page probably won't make too much sense to you if you don't know some
+Prolog. `Learn Prolog Now!`_ is a rather nice book (available online) to learn
+some Prolog with (but it's probably not a good idea to use Pyrolog while
+learning since it is too rough for that).
+
+For a more detailed description of the implementation of the Prolog interpreter
+see Carl Friedrich's bachelor thesis `A Prolog interpreter in Python`_ paper.
+
+.. _`Prolog ISO specification`: http://pauillac.inria.fr/~deransar/prolog/docs.html
+.. _`Sicstus Prolog`: http://www.sics.se/sicstus/
+.. _`Learn Prolog Now!`: http://www.coli.uni-saarland.de/~kris/learn-prolog-now/
+.. _`A Prolog interpreter in Python`: http://codespeak.net/pypy/extradoc/paper/prolog-in-python.pdf
+
+Example usage
+==============
+
+First some simple examples that show simple unification::
+
+    pypy/bin$ ./pyrolog.py
+    PyPy Prolog Console
+    >?- X = f(Y, a, b), Y = [1, 2, 3].
+    yes
+    X = f([1, 2, 3], a, b)
+    Y = [1, 2, ...]
+
+
+    yes
+    >?- X = f(Y, a, b), Y = [1, 2].
+    yes
+    X = f([1, 2], a, b)
+    Y = [1, 2]
+
+
+    yes
+    >?- f(A, B, c) = f(a, b(1, 2), C).
+    yes
+    A = a
+    B = b(1, 2)
+    C = c
+ 
+
+A more complicated example with an actual function: First define the function
+using ``assertz``::
+
+    pypy/bin$ ./pyrolog.py
+    PyPy Prolog Console
+    >?- assertz(takeout(A, [A|B], B)).
+    yes
+    A = _G0
+    B = _G1
+
+
+    yes
+    >?-
+    >?- assertz(takeout(A, [B|C], [B|D]) :- takeout(A, C, D)).
+    yes
+    A = _G0
+    B = _G1
+    C = _G2
+    D = _G3
+
+
+    yes
+
+Then use it::
+
+    >?- takeout(3, [1, 2, 3, 4], R).
+    yes
+    R = [1, 2, 4]
+
+
+    yes
+    >?- takeout(X, [a, b, c], Rest).
+    yes
+    Rest = [b, c]
+    X = a
+    ;
+    yes
+    Rest = [a, c]
+    X = b
+    ;
+    yes
+    Rest = [a, b]
+    X = c
+    ;
+    no
+    >?- takeout(3, X, [a, b]).
+    yes
+    X = [3, a, b]
+    ;
+    yes
+    X = [a, 3, b]
+    ;
+    yes
+    X = [a, b, 3]
+    ;
+    no
+
+And of course the typical "family tree" example can't be left out (who can find
+the most boring names), this time using an actual file instead of asserting
+everything.)::
+
+    pypy/bin$ cat > family.pl
+    parent(john, mary).
+    parent(anne, mary).
+    parent(john, paul).
+    parent(anne, paul).
+    parent(john, jack).
+    parent(anne, jack).
+    parent(jack, sophie).
+
+    descendant(X, Y) :- parent(X, Y).
+    descendant(X, Y) :- parent(X, Z), descendant(Z, Y).
+
+Now we can query this database in the following way::
+
+    pypy/bin$ ./pyrolog.py family.pl
+    PyPy Prolog Console
+    >?- descendant(john, X).
+    yes
+    X = mary
+    ;
+    yes
+    X = paul
+    ;
+    yes
+    X = jack
+    ;
+    yes
+    X = sophie
+    ;
+    no
+    >?- findall(X, descendant(anne, X), Result).
+    yes
+    Result = [mary, paul, jack, sophie]
+    X = _G0
+
+Translating the interpreter to C
+================================
+
+Just as you can translate PyPy's Python interpreter, you can also translate the
+Prolog interpreter to C::
+
+    pypy$ cd translator/goal
+    pypy/translator/goal$ python translate.py targetprologstandalone.py
+
+
+Some implementation notes
+=========================
+
+The main Prolog data structures including the unification algorithm are defined
+in `pypy/lang/prolog/interpreter/term.py`_. The Prolog resolution engine in
+`pypy/lang/prolog/interpreter/engine.py`_. All the builtins are defined in the
+`pypy/lang/prolog/builtin/`_ directory, the most important ones being in
+`pypy/lang/prolog/builtin/control.py`_.
+
+.. include:: _ref.txt

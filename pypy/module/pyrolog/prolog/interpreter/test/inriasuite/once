@@ -1,0 +1,11 @@
+/* file once */
+
+[once(!), success].
+[(once(!), (X=1; X=2)), [[X <-- 1], [X <-- 2]]].
+[once(repeat), success].
+[once(fail), failure].
+[once(3), type_error(callable, 3)].
+[once(X), instantiation_error]. % Culprit X
+
+/* end of once */
+

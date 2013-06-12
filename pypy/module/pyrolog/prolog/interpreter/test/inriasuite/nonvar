@@ -1,0 +1,11 @@
+/* file nonvar */
+
+[nonvar(33.3), success].
+[nonvar(foo), success].
+[nonvar(Foo), failure].
+[(foo=Foo,nonvar(Foo)),[[Foo <-- foo]]].
+[nonvar(_), failure].
+[nonvar(a(b)), success].
+
+/* end of nonvar */
+

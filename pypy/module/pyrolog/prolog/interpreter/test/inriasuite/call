@@ -1,0 +1,19 @@
+
+/* file call */
+% To see the side effect of these goals, use the goal : 
+% display_io(on), run_bip('bips-ex/call'), dispaly_io(off).
+
+[call(!),success].
+[call(fail), failure].
+[call((fail, X)), failure].
+[call((fail, call(1))), failure].
+[call((write(3), X)), instantiation_error].
+[call((write(3), call(1))), type_error(callable,1)].
+[call(X), instantiation_error].
+[call(1), type_error(callable,1)].
+[call((fail, 1)), type_error(callable,(fail,1))].
+[call((write(3), 1)), type_error(callable,(write(3), 1))].
+[call((1; true)), type_error(callable,(1; true))].
+
+/* end of call */
+

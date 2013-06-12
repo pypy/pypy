@@ -1,0 +1,8 @@
+/* file file_manip (group together: seek,at and get_char) */
+/* For these BIPs and put_char and write, see the search tree */
+/* by 'run_forest' predicate */
+[(seek(my_file,3),at(my_file,X)),in(my_file),[[X <-- 3]]].	 %%SKIP%%
+[(seek(my_file,eof),at(my_file,X)),in(my_file),[[X <-- eof]]].	 %%SKIP%%
+[(seek(my_file,3),get_char(X,my_file)),in(my_file),[[X <-- e]]]. %%SKIP%%
+/* end of file_manip */
+

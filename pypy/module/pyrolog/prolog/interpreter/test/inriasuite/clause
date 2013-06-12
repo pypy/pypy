@@ -1,0 +1,16 @@
+/* file clause */
+
+
+[clause(x,Body), failure].
+
+[clause(_,B), instantiation_error].
+
+[clause(4,B), type_error(callable,4)].
+
+[clause(f(_),5), type_error(callable,5)].
+
+[clause(atom(_),Body), permission_error(access,private_procedure,atom/1)]. 
+
+
+/* end of clause */
+

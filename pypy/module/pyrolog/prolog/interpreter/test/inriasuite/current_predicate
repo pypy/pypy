@@ -1,0 +1,16 @@
+/* file current_predicate */
+
+
+[current_predicate(current_predicate/1), failure]. 
+
+/* depends on the test harness */
+[current_predicate(run_tests/1), success].     
+
+[current_predicate(4), type_error(predicate_indicator, 4)].
+
+[current_predicate(dog), type_error(predicate_indicator, dog)].
+
+[current_predicate(0/dog), type_error(predicate_indicator, 0/dog)].
+
+/* end of current_predicate */
+

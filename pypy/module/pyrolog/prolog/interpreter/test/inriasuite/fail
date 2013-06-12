@@ -1,0 +1,15 @@
+
+/* file fail */
+
+[fail, failure].
+
+[undef_pred, existence_error(procedure, undef_pred/0)]. % the value of flag 'unknown' is 'error'.
+
+[(set_prolog_flag(unknown, fail), undef_pred), failure].
+
+[(set_prolog_flag(unknown, warning), undef_pred), failure]. % A warning message
+	 % appears in the outputfile (see forest by: run_forest or bip_forest).
+
+
+/* end of fail */
+

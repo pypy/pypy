@@ -1,0 +1,17 @@
+/* file abolish */
+
+
+[abolish(abolish/1), permission_error(modify,static_procedure,abolish/1)].
+
+
+[abolish(foo/a), type_error(integer,a)].
+
+[abolish(foo/(-1)), domain_error(not_less_than_zero,-1)].
+
+[(current_prolog_flag(max_arity,A), X is A + 1, abolish(foo/X)), representation_error(max_arity)]. 
+
+[abolish(5/2), type_error(atom,5)].
+
+
+/* end of abolish */
+

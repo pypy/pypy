@@ -1,0 +1,18 @@
+/* file sub_atom */
+
+[sub_atom(abracadabra, 0, 5, _, S2), [[S2 <-- 'abrac']]].
+[sub_atom(abracadabra, _, 5, 0, S2), [[S2 <-- 'dabra']]].
+[sub_atom(abracadabra, 3, Length, 3, S2), [[Length <-- 5, S2 <-- 'acada']]].
+[sub_atom(abracadabra, Before, 2, After, ab), [[Before <-- 0, After <-- 9], [Before <-- 7, After <-- 2]]].
+[sub_atom('Banana', 3, 2, _, S2), [[S2 <-- 'an']]].
+[sub_atom('charity', _, 3, _, S2), [[S2 <-- 'cha'], [S2 <-- 'har'], [S2 <-- 'ari'], [S2 <-- 'rit'], [S2 <-- 'ity']]].
+[sub_atom('ab', Before, Length, After, Sub_atom), [[Before <-- 1, Length <-- 0, Sub_atom <-- ''], [Before <-- 1, Length <-- 1, Sub_atom <-- 'a'], [Before <-- 1, Length <-- 2, Sub_atom <-- 'ab'], [Before <-- 2, Length <-- 0, Sub_atom <-- ''], [Before <-- 2, Length <-- 1, Sub_atom <-- 'b'], [Before <-- 3, Length <-- 0, Sub_atom <-- '']]].
+
+[sub_atom(Banana, 3, 2, _, S2), instantiation_error].
+[sub_atom(f(a), 2, 2, _, S2), type_error(atom,f(a))].
+[sub_atom('Banana', 4, 2, _, 2), type_error(atom,2)].
+[sub_atom('Banana', a, 2, _, S2), type_error(integer,a)].
+[sub_atom('Banana', 4, n, _, S2), type_error(integer,n)].
+[sub_atom('Banana', 4, _, m, S2), type_error(integer,m)].
+
+/* end of sub_atom */

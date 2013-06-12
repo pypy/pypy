@@ -1,0 +1,19 @@
+/* file number_codes */
+/* Some goals fails because the parser is not yet implemented */
+
+[number_codes(33,L), [[L <-- [0'3,0'3]]]].
+[number_codes(33,[0'3,0'3]), success].
+[number_codes(33.0,L), [[L <-- [51,51,46,48]]]].
+[number_codes(33.0,[0'3,0'.,0'3,0'E,0'+,0'0,0'1]), success].
+[number_codes(A,[0'-,0'2,0'5]), [[A <-- (-25)]]].
+[number_codes(A,[0' ,0'3]), [[A <-- 3]]].
+[number_codes(A,[0'0,0'x,0'f]), [[A <-- 15]]].
+[number_codes(A,[0'0,39,0'a]), [[A <-- 97]]].
+[number_codes(A,[0'4,0'.,0'2]), [[A <-- 4.2]]].
+[number_codes(A,[0'4,0'2,0'.,0'0,0'e,0'-,0'1]), [[A <-- 4.2]]].
+
+[number_codes(A,L), instantiation_error].
+[number_codes(a,L), type_error(number,a)].
+[number_codes(A,4), type_error(list,4)].
+[number_codes(A,[ 0'1, 0'2, 1000]), representation_error(character_code)]. % 1000 not a code
+/* end of file number_codes */

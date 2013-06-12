@@ -1,0 +1,40 @@
+/* file functor */
+
+[functor(foo(a,b,c),foo,3), success].
+
+[functor(foo(a,b,c),X,Y), [[X <-- foo, Y <-- 3]]].
+
+[functor(X,foo,3), [[X <-- foo(A,B,C)]]].  % A, B and C are 3 new variables
+
+[functor(X,foo,0), [[X <-- foo]]].
+
+[functor(mats(A,B),A,B), [[A <-- mats,B <-- 2]]].
+
+[functor(foo(a),foo,2), failure].
+
+[functor(foo(a),fo,1), failure].
+
+[functor(1,X,Y), [[X <-- 1,Y <-- 0]]].
+
+[functor(X,1.1,0), [[X <-- 1.1]]].
+
+[functor([_|_],'.',2), success].
+
+[functor([],[],0), success].
+
+[functor(X, Y, 3), instantiation_error].
+
+[functor(X, foo, N), instantiation_error].
+
+[functor(X, foo, a), type_error(integer,a)].
+
+[functor(F, 1.5, 1), type_error(atom,1.5)].
+
+[functor(F,foo(a),1), type_error(atomic,foo(a))].
+
+[(current_prolog_flag(max_arity,A), X is A + 1, functor(T, foo, X)), representation_error(max_arity)]. 
+
+[functor(T, foo, -1), domain_error(not_less_than_zero,-1)].
+
+/* end of functor */
+

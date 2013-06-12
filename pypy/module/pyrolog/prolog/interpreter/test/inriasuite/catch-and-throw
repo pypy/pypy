@@ -1,0 +1,16 @@
+/* file catch-and-throw */
+/* give the goal: display_io(on), 
+		  run_bip('bips-ex/catch-and-throw'), 
+		  display_io(off). 
+*/
+
+
+[(catch(true, C, write('something')), throw(blabla)), system_error]. 
+						% The system catchs 'blabla'
+
+[catch(number_chars(A,L), error(instantiation_error, _), fail), failure].
+
+
+/* end of file catch-and-throw */
+
+

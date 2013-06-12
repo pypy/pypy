@@ -1,0 +1,10 @@
+/* file > */
+
+['>'(0,1), failure].
+['>'(1.0,1), failure].
+['>'(3*2,7-1), failure].
+['>'(X,5), instantiation_error].
+['>'(2 + floot(1),5), type_error(evaluable, floot/1)].
+
+/* end of > */
+

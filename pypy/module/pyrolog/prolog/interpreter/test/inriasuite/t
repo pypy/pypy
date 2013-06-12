@@ -1,0 +1,1 @@
+[bagof([X,Y], t_foo(X,Y), S) , t_foo, success].

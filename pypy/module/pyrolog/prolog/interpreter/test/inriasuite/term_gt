@@ -1,0 +1,12 @@
+/* file @> */
+
+['@>'(1.0,1), failure].
+['@>'(aardvark,zebra), failure].
+['@>'(short,short), failure].
+['@>'(short,shorter), failure].
+['@>'(foo(b),foo(a)), success].
+['@>'(X,X), failure].
+['@>'(foo(a,X),foo(b,Y)), failure].
+
+/* end of @> */
+

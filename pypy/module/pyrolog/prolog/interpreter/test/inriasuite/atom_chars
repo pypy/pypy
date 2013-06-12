@@ -1,0 +1,19 @@
+/* file atom_chars */
+
+[atom_chars('',L), [[L <-- []]]].
+[atom_chars([],L), [[L <-- ['[',']']]]].
+[atom_chars('''',L), [[L <-- ['''']]]].
+[atom_chars('iso',L), [[L <-- ['i','s','o']]]].
+[atom_chars(A,['p','r','o','l','o','g']), [[A <-- 'prolog']]].
+[atom_chars('North',['N'|X]), [[X <-- ['o','r','t','h']]]].
+[atom_chars('iso',['i','s']), failure].
+[atom_chars(A,L), instantiation_error].
+
+[atom_chars(A,[a,E,c]), instantiation_error].
+[atom_chars(A,[a,b|L]), instantiation_error].
+[atom_chars(f(a),L), type_error(atom,f(a))].
+[atom_chars(A,iso), type_error(list,iso)].
+[atom_chars(A,[a,f(b)]), type_error(character,f(b))].
+[(atom_chars(X,['1','2']), Y is X + 1), type_error(evaluable, '12'/0)].
+
+/* end of file atom_chars */

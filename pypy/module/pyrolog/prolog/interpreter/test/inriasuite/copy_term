@@ -1,0 +1,25 @@
+/* file copy_term */
+
+[copy_term(X,Y), success].
+
+[copy_term(X,3), success].
+
+[copy_term(_,a), success].
+
+[copy_term(a+X,X+b),[[X <-- a]]].
+
+[copy_term(_,_), success].
+
+[copy_term(X+X+Y,A+B+B),[[B <-- A]]].
+
+[copy_term(a,a), success].
+
+[copy_term(a,b), failure].
+
+[copy_term(f(a),f(X)),[[X <-- a]]].
+
+[(copy_term(a+X,X+b),copy_term(a+X,X+b)), failure].
+
+
+/* end of copy_term */
+

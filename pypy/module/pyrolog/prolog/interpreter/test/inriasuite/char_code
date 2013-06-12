@@ -1,0 +1,13 @@
+/* file char_code */
+[char_code(a,Code),[[Code <-- 0'a]]].
+[char_code(Char,99),[[Char <-- c]]].
+[char_code(Char,0'c),[[Char <-- c]]].
+[char_code(Char,163),[[Char <-- '\xa3\']]].
+[char_code(b,98),success].
+[char_code(b,4),failure].
+[char_code('ab',Code),type_error(character, 'ab')].
+[char_code(a,x),type_error(integer, x)].
+[char_code(Char,Code),instantiation_error].
+[char_code(Char,-2),representation_error(character_code)].
+/* end of char_code */
+

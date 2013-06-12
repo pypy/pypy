@@ -1,0 +1,15 @@
+/* file assertz (see the search tree by 'run_forest' predicate) */
+
+
+[assertz((foo(X) :- X -> call(X))), success].
+
+[assertz(_), instantiation_error].
+
+[assertz(4), type_error(callable, 4)].
+
+[assertz((foo :- 4)), type_error(callable, 4)].
+
+[assertz((atom(_) :- true)), permission_error(modify,static_procedure,atom/1)].
+
+
+/* end of assertz */

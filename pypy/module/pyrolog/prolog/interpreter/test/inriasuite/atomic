@@ -1,0 +1,11 @@
+/* file atomic */
+
+[atomic(atom), success].
+[atomic(a(b)), failure].
+[atomic(Var), failure].
+[atomic([]), success].
+[atomic(6), success].
+[atomic(3.3), success].
+
+/* end of atomic */
+

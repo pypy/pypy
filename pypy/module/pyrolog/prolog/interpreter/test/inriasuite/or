@@ -1,0 +1,9 @@
+/* file ';' (or = disjunction) */
+
+[';'(true, fail), success].
+[';'((!, fail), true), failure].
+[';'(!, call(3)), success].
+[';'((X=1, !), X=2), [[X <-- 1]]].
+[';'(X=1, X=2), [[X <-- 1], [X <-- 2]]].
+
+/* end of file ';' (or = disjunction) */

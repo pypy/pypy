@@ -1,0 +1,32 @@
+/* file arg */
+
+[arg(1,foo(a,b),a), success].
+
+[arg(1,foo(a,b),X), [[X <-- a]]].
+
+[arg(1,foo(X,b),a), [[X <-- a]]].
+
+[arg(2,foo(a, f(X,b), c), f(a, Y)), [[X <-- a, Y <-- b]]].
+
+[arg(1,foo(X,b),Y), [[Y <-- X]]].
+
+[arg(1,foo(a,b),b), failure].
+
+[arg(0,foo(a,b),foo), failure].
+
+[arg(3,foo(3,4),N), failure].
+
+[arg(X,foo(a,b),a), instantiation_error]. % does not throw an error in SWI %%SKIP%%
+
+[arg(1,X,a), instantiation_error].
+
+[arg(0,atom,A), type_error(compound, atom)]. % does not throw an error in SWI %%SKIP%%
+
+[arg(0,3,A), type_error(compound, 3)]. 
+
+
+[arg(-3,foo(a,b),A), domain_error(not_less_than_zero,-3)]. 
+
+[arg(a,foo(a,b),X), type_error(integer, a)].
+
+/* end of arg */

@@ -1,0 +1,15 @@
+/* file = */
+['='(1,1), success].
+['='(X,1),[[X <-- 1]]].
+['='(X,Y),[[Y <-- X]]].
+[('='(X,Y),'='(X,abc)),[[X <-- abc, Y <-- abc]]].
+['='(f(X,def),f(def,Y)), [[X <-- def, Y <-- def]]].
+['='(1,2), failure].
+['='(1,1.0), failure].
+['='(g(X),f(f(X))), failure].
+['='(f(X,1),f(a(X))), failure].
+['='(f(X,Y,X),f(a(X),a(Y),Y,2)), failure].
+['='(f(A,B,C),f(g(B,B),g(C,C),g(D,D))), [[A <-- g(g(g(D,D),g(D,D)),g(g(D,D),g(D,D))), B <-- g(g(D,D),g(D,D)), C <-- g(D,D)]]].
+
+/* end of = */
+

@@ -1,0 +1,15 @@
+/* file \= */
+
+['\\='(1,1), failure].
+['\\='(X,1), failure].
+['\\='(X,Y), failure].
+[('\\='(X,Y),'\\='(X,abc)), failure].
+['\\='(f(X,def),f(def,Y)), failure].
+['\\='(1,2), success].
+['\\='(1,1.0), success].
+['\\='(g(X),f(f(X))), success].
+['\\='(f(X,1),f(a(X))), success].
+['\\='(f(X,Y,X),f(a(X),a(Y),Y,2)), success].
+
+/* end of \= */
+

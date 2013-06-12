@@ -1,0 +1,15 @@
+/* file atom_codes */
+
+[atom_codes('',L), [[L <-- []]]].
+[atom_codes([],L), [[L <-- [ 0'[, 0'] ]]]].
+[atom_codes('''',L), [[L <-- [ 39 ]]]].
+[atom_codes('iso',L), [[L <-- [ 0'i, 0's, 0'o ]]]].
+[atom_codes(A,[ 0'p, 0'r, 0'o, 0'l, 0'o, 0'g]), [[A <-- 'prolog']]].
+[atom_codes('North',[0'N | L]), [[L <-- [0'o, 0'r, 0't, 0'h]]]].
+[atom_codes('iso',[0'i, 0's]), failure].
+[atom_codes(A,L), instantiation_error].
+[atom_codes(f(a),L), type_error(atom,f(a))].
+[atom_codes(A, 0'x), type_error(list,0'x)].
+[atom_codes(A,[ 0'i, 0's, 1000]), representation_error(character_code)]. % 1000 not a code
+
+/* end of file atom_codes */

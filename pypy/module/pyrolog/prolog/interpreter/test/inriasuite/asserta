@@ -1,0 +1,18 @@
+/* file asserta */
+/* use run_forest('bips-ex/progs/asserta_program') to see the program changes */
+
+
+
+
+[(asserta((bar(X) :- X)), clause(bar(X), B)), [[B <-- call(X)]]].
+
+[asserta(_), instantiation_error].
+
+[asserta(4), type_error(callable, 4)]. 
+
+[asserta((foo :- 4)), type_error(callable, 4)]. 
+
+[asserta((atom(_) :- true)), permission_error(modify,static_procedure,atom/1)].
+
+
+/* end of asserta */

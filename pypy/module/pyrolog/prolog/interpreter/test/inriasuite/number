@@ -1,0 +1,10 @@
+/* file number */
+
+[number(3), success].
+[number(3.3), success].
+[number(-3), success].
+[number(a), failure].
+[number(X), failure].
+
+/* end of number */
+

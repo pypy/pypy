@@ -1,0 +1,12 @@
+/* file compound */
+
+[compound(33.3), failure].
+[compound(-33.3), failure].
+[compound(-a), success].
+[compound(_), failure].
+[compound(a), failure].
+[compound(a(b)), success].
+[compound([a]),success].
+
+/* end of compound */
+

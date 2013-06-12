@@ -1,0 +1,12 @@
+/* file @=< */
+
+['@=<'(1.0,1), success].
+['@=<'(aardvark,zebra), success].
+['@=<'(short,short), success].
+['@=<'(short,shorter), success].
+['@=<'(foo(b),foo(a)), failure].
+['@=<'(X,X), success].
+['@=<'(foo(a,X),foo(b,Y)), success].
+
+/* end of @=< */
+

@@ -1,0 +1,29 @@
+/* file of bagof */
+
+[bagof(X,(X=1;X=2),L), [[L <-- [1, 2]]]].
+
+[bagof(X,(X=1;X=2),X), [[X <-- [1, 2]]]].
+
+[bagof(X,(X=Y;X=Z),L), [[L <-- [Y, Z]]]].
+
+[bagof(X,fail,L), failure].
+
+[bagof(1,(Y=1;Y=2),L), [[L <-- [1], Y <-- 1], [L <-- [1], Y <-- 2]]].
+
+[bagof(f(X,Y),(X=a;Y=b),L), [[L <-- [f(a, _), f(_, b)]]]].
+
+[bagof(X,Y^((X=1,Y=1);(X=2,Y=2)),S), [[S <-- [1, 2]]]].
+
+[bagof(X,Y^((X=1;Y=1);(X=2,Y=2)),S), [[S <-- [1, _, 2]]]].
+
+[(set_prolog_flag(unknown, warning), bagof(X,(Y^(X=1;Y=1);X=3),S)), [[S <-- [3]]]].
+
+[bagof(X,(X=Y;X=Z;Y=1),L), [[L <-- [Y, Z]], [L <-- [_], Y <-- 1]]].
+
+[bagof(X,Y^Z,L), instantiation_error].
+
+[bagof(X,1,L), type_error(callable, 1)].
+
+[findall(X,call(4),S),type_error(callable, 4)].
+
+/* end of bagof */

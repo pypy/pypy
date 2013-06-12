@@ -1,0 +1,5 @@
+/* file current_output */
+
+[exists(current_output/1), success]. 
+
+/* end of file current_output */

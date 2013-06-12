@@ -1,0 +1,12 @@
+/* file atom */
+
+[atom(atom), success].
+[atom('string'), success].
+[atom(a(b)), failure].
+[atom(Var), failure].
+[atom([]), success].
+[atom(6), failure].
+[atom(3.3), failure].
+
+/* end of atom */
+

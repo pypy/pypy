@@ -1,0 +1,12 @@
+/* file if-then-else (Cond -> Then ; Else) */
+
+[';'('->'(true, true), fail), success].
+[';'('->'(fail, true), true), success].
+[';'('->'(true, fail), fail), failure].
+[';'('->'(fail, true), fail), failure].
+[';'('->'(true, X=1), X=2), [[X <-- 1]]].
+[';'('->'(fail, X=1), X=2), [[X <-- 2]]].
+[';'('->'(true, ';'(X=1, X=2)), true), [[X <-- 1], [X <-- 2]]].
+[';'('->'(';'(X=1, X=2), true), true), [[X <-- 1]]].
+
+/* end of file if (-> operator) */

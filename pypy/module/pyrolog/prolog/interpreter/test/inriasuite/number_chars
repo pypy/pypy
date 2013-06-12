@@ -1,0 +1,22 @@
+/* file number_chars */
+/* Some goals fails because the parser is not yet implemented */
+
+[number_chars(33,L), [[L <-- ['3','3']]]].
+[number_chars(33,['3','3']), success].
+[number_chars(33.0,L), [[L <-- ['3','3','.','0']]]].
+[number_chars(X,['3','.','3','E','+','0']), [[X <-- 3.3]]].
+[number_chars(3.3,['3','.','3','E','+','0']), success].
+[number_chars(A,['-','2','5']), [[A <-- (-25)]]].
+[number_chars(A,['\n',' ','3']), [[A <-- 3]]]. 
+[number_chars(A,['3',' ']), syntax_error(_)].
+[number_chars(A,['0',x,f]), [[A <-- 15]]].
+[number_chars(A,['0','''','A']), [[A <-- 65]]].
+[number_chars(A,['4','.','2']), [[A <-- 4.2]]].
+[number_chars(A,['4','2','.','0','e','-','1']), [[A <-- 4.2]]].
+
+[number_chars(A,L), instantiation_error].
+[number_chars(a,L), type_error(number, a)].
+[number_chars(A,4), type_error(list, 4)].
+[number_chars(A,['4',2]), type_error(character, 2)].
+
+/* end of file number_chars */

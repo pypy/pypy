@@ -1,0 +1,10 @@
+/* file current_prolog_flag */
+
+[current_prolog_flag(debug, off), success].
+[(set_prolog_flag(unknown, warning), current_prolog_flag(unknown, warning)), success].
+[(set_prolog_flag(unknown, warning), current_prolog_flag(unknown, error)), failure].
+[current_prolog_flag(debug, V), [[V <-- off]]].
+[current_prolog_flag(5, V), type_error(atom,5)].
+[current_prolog_flag(warning, V), domain_error(prolog_flag,warning)].
+
+/* end of current_prolog_flag */

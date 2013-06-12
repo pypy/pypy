@@ -1,0 +1,11 @@
+/* file is */
+
+['is'(Result,3 + 11.0),[[Result <-- 14.0]]].
+[(X = 1 + 2, 'is'(Y, X * 3)),[[X <-- (1 + 2), Y <-- 9]]]. % error? 1+2
+['is'(foo,77), failure]. % error? foo
+['is'(77, N), instantiation_error].
+['is'(77, foo), type_error(evaluable, foo/0)].
+
+['is'(X,float(3)),[[X <-- 3.0]]].
+
+/* end of is */

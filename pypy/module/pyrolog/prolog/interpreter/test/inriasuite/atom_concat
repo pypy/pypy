@@ -1,0 +1,13 @@
+/* file atom_concat */
+
+[atom_concat('hello',' world',A), [[A <-- 'hello world']]].
+[atom_concat(T,' world','small world'), [[T <-- 'small']]].
+[atom_concat('hello',' world','small world'), failure].
+[atom_concat(T1,T2,'hello'), [[T1 <-- '',T2 <-- 'hello'], [T1 <-- 'h',T2 <-- 'ello'], [T1 <-- 'he',T2 <-- 'llo'], [T1 <-- 'hel',T2 <-- 'lo'], [T1 <-- 'hell',T2 <-- 'o'], [T1 <-- 'hello',T2 <-- '']]]. 
+[atom_concat(A1,'iso',A3), instantiation_error].
+[atom_concat('iso',A2,A3), instantiation_error].
+[atom_concat(f(a),'iso',A3), type_error(atom,f(a))].
+[atom_concat('iso',f(a),A3), type_error(atom,f(a))].
+[atom_concat(A1,A2,f(a)), type_error(atom,f(a))].
+
+/* end of file atom_concat */

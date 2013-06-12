@@ -1,0 +1,9 @@
+/* file retract */
+
+
+[retract((4 :- X)), type_error(callable, 4)]. 
+
+[retract(atom(_) :- X == '[]'), permission_error(modify,static_procedure,atom/1)].
+
+/* end of retract */
+

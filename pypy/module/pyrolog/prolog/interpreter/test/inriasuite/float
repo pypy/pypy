@@ -1,0 +1,10 @@
+/* file float */
+
+[float(3.3), success].
+[float(-3.3), success].
+[float(3), failure].
+[float(atom), failure].
+[float(X), failure].
+
+/* end of float */
+

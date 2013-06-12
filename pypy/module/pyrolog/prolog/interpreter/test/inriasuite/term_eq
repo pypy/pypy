@@ -1,0 +1,12 @@
+/* file == */
+
+['=='(1,1), success].
+['=='(X,X), success].
+['=='(1,2), failure].
+['=='(X,1), failure].
+['=='(X,Y), failure].
+['=='(_,_), failure].
+['=='(X,a(X)), failure].
+['=='(f(a),f(a)), success].
+
+/* end of == */

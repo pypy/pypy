@@ -1,0 +1,12 @@
+/* file \+ */
+
+[\+(true), failure].
+[\+(!), failure].
+[\+((!,fail)), success].
+[((X=1;X=2), \+((!,fail))), [[X <-- 1],[X <-- 2]]].
+[\+(4 = 5), success].
+[\+(3), type_error(callable, 3)].
+[\+(X), instantiation_error]. % Culprit X
+
+/* end of \+ */
+

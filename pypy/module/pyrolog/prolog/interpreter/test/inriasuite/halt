@@ -1,0 +1,7 @@
+/* file halt */
+
+[halt, impl_defined].
+[halt(1), impl_defined].
+[halt(a), type_error(integer, a)].
+
+/* end of file halt */

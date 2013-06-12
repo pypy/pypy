@@ -1,0 +1,13 @@
+/* file \== */
+
+['\\=='(1,1), failure].
+['\\=='(X,X), failure].
+['\\=='(1,2), success].
+['\\=='(X,1), success].
+['\\=='(X,Y), success].
+['\\=='(_,_), success].
+['\\=='(X,a(X)), success].
+['\\=='(f(a),f(a)), failure].
+
+/* end of \== */
+
