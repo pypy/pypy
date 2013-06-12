@@ -344,6 +344,8 @@ class Regalloc(BaseRegalloc):
         # note: we need to make a copy of inputargs because possibly_free_vars
         # is also used on op args, which is a non-resizable list
         self.possibly_free_vars(list(inputargs))
+        self.fm.finish_binding()
+        self._check_invariants()
 
     def get_gcmap(self, forbidden_regs=[], noregs=False):
         frame_depth = self.fm.get_frame_depth()
