@@ -17,6 +17,7 @@ class AbstractVirtualValue(optimizer.OptValue):
     _attrs_ = ('keybox', 'source_op', '_cached_vinfo')
     box = None
     level = optimizer.LEVEL_NONNULL
+    is_about_raw = False
     _cached_vinfo = None
 
     def __init__(self, keybox, source_op=None):
@@ -395,6 +396,7 @@ class VArrayStructValue(AbstractVirtualValue):
 
 
 class VRawBufferValue(AbstractVArrayValue):
+    is_about_raw = True
 
     def __init__(self, cpu, logops, size, keybox, source_op):
         AbstractVirtualValue.__init__(self, keybox, source_op)
@@ -457,6 +459,7 @@ class VRawBufferValue(AbstractVArrayValue):
 
 
 class VRawSliceValue(AbstractVirtualValue):
+    is_about_raw = True
 
     def __init__(self, rawbuffer_value, offset, keybox, source_op):
         AbstractVirtualValue.__init__(self, keybox, source_op)
@@ -676,13 +679,17 @@ class OptVirtualize(optimizer.Optimization):
         offsetbox = self.get_constant_box(op.getarg(1))
         if value.is_virtual() and offsetbox is not None:
             offset = offsetbox.getint()
-            if isinstance(value, VRawBufferValue):
-                self.make_virtual_raw_slice(value, offset, op.result, op)
-                return
-            elif isinstance(value, VRawSliceValue):
-                offset = offset + value.offset
-                self.make_virtual_raw_slice(value.rawbuffer_value, offset, op.result, op)
-                return
+            # the following check is constant-folded to False if the
+            # translation occurs without any VRawXxxValue instance around
+            if value.is_about_raw:
+                if isinstance(value, VRawBufferValue):
+                    self.make_virtual_raw_slice(value, offset, op.result, op)
+                    return
+                elif isinstance(value, VRawSliceValue):
+                    offset = offset + value.offset
+                    self.make_virtual_raw_slice(value.rawbuffer_value, offset,
+                                                op.result, op)
+                    return
         self.emit_operation(op)
 
     def optimize_ARRAYLEN_GC(self, op):

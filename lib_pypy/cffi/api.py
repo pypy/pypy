@@ -361,13 +361,13 @@ def _make_ffi_library(ffi, libname, flags):
     backend = ffi._backend
     try:
         if '.' not in name and '/' not in name:
-            raise OSError
+            raise OSError("library not found: %r" % (name,))
         backendlib = backend.load_library(name, flags)
     except OSError:
         import ctypes.util
         path = ctypes.util.find_library(name)
         if path is None:
-            raise OSError("library not found: %r" % (name,))
+            raise     # propagate the original OSError
         backendlib = backend.load_library(path, flags)
     copied_enums = []
     #
