@@ -5,6 +5,9 @@ from pypy.objspace.std.floatobject import W_FloatObject
 from pypy.objspace.std.longobject import W_LongObject
 from pypy.objspace.std.stringobject import W_StringObject
 
+# XXX use correct naming convention w_xxx not xxx_w
+# XXX use space.isinstance instead of isinstance
+
 def int_p_of_int_w(space, int_w):
     if not isinstance(int_w, W_IntObject):
         raise TypeError("int_p_of_int_w: expects a pypy int")
