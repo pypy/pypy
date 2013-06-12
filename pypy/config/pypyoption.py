@@ -64,7 +64,8 @@ if sys.platform == "win32":
     del working_modules["termios"]
     del working_modules["_minimal_curses"]
 
-    del working_modules["cppyy"]  # not tested on win32
+    if "cppyy" in working_modules:
+        del working_modules["cppyy"]  # not tested on win32
 
     # The _locale module is needed by site.py on Windows
     default_modules["_locale"] = None
@@ -77,7 +78,8 @@ if sys.platform == "sunos5":
     del working_modules["_minimal_curses"]
     del working_modules["termios"]
     del working_modules["_multiprocessing"]   # depends on rctime
-    del working_modules["cppyy"]  # depends on ctypes
+    if "cppyy" in working_modules:
+        del working_modules["cppyy"]  # depends on ctypes
 
 
 module_dependencies = {
@@ -120,12 +122,10 @@ def get_module_validator(modname):
                     __import__(name)
             except (ImportError, CompilationError, py.test.skip.Exception), e:
                 errcls = e.__class__.__name__
-                config.add_warning(
+                raise Exception(
                     "The module %r is disabled\n" % (modname,) +
                     "because importing %s raised %s\n" % (name, errcls) +
                     str(e))
-                raise ConflictConfigError("--withmod-%s: %s" % (modname,
-                                                                errcls))
         return validator
     else:
         return None
@@ -214,10 +214,6 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
         BoolOption("sharesmallstr",
                    "always reuse the prebuilt string objects "
                    "(the empty string and potentially single-char strings)",
-                   default=False),
-
-        BoolOption("withsmalltuple",
-                   "use small tuples",
                    default=False),
 
         BoolOption("withspecialisedtuple",
@@ -364,6 +360,7 @@ def enable_allworkingmodules(config):
     # ignore names from 'essential_modules', notably 'exceptions', which
     # may not be present in config.objspace.usemodules at all
     modules = [name for name in modules if name not in essential_modules]
+
     config.objspace.usemodules.suggest(**dict.fromkeys(modules, True))
 
 def enable_translationmodules(config):

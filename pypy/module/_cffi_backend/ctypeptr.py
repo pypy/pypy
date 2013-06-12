@@ -172,8 +172,8 @@ class W_CTypePtrBase(W_CTypePtrOrArray):
 
 
 class W_CTypePointer(W_CTypePtrBase):
-    _attrs_ = ['is_file', 'cache_array_type']
-    _immutable_fields_ = ['is_file', 'cache_array_type?']
+    _attrs_ = ['is_file', 'cache_array_type', 'is_void_ptr']
+    _immutable_fields_ = ['is_file', 'cache_array_type?', 'is_void_ptr']
     kind = "pointer"
     cache_array_type = None
 
@@ -186,6 +186,7 @@ class W_CTypePointer(W_CTypePtrBase):
             extra = " *"
         self.is_file = (ctitem.name == "struct _IO_FILE" or
                         ctitem.name == "struct $FILE")
+        self.is_void_ptr = isinstance(ctitem, ctypevoid.W_CTypeVoid)
         W_CTypePtrBase.__init__(self, space, size, extra, 2, ctitem)
 
     def newp(self, w_init):

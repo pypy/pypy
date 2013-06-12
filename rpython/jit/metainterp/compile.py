@@ -85,7 +85,7 @@ def record_loop_or_bridge(metainterp_sd, loop):
             # exported_state is clear by optimizeopt when the short preamble is
             # constrcucted. if that did not happen the label should not show up
             # in a trace that will be used
-            assert descr.exported_state is None 
+            assert descr.exported_state is None
             if not we_are_translated():
                 op._descr_wref = weakref.ref(op._descr)
             op.cleardescr()    # clear reference to prevent the history.Stats
@@ -819,7 +819,7 @@ def compile_trace(metainterp, resumekey, resume_at_jump_descr=None):
 
     # The history contains new operations to attach as the code for the
     # failure of 'resumekey.guard_op'.
-    # 
+    #
     # Attempt to use optimize_bridge().  This may return None in case
     # it does not work -- i.e. none of the existing old_loop_tokens match.
     new_trace = create_empty_loop(metainterp)

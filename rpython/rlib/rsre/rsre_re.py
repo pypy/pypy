@@ -4,7 +4,7 @@ It exports the same interface as the Python 're' module.
 """
 import re, sys
 from rpython.rlib.rsre import rsre_core, rsre_char
-from rpython.rlib.rsre.test.test_match import get_code as _get_code
+from rpython.rlib.rsre.rpy import get_code as _get_code
 from rpython.rlib.unicodedata import unicodedb
 from rpython.rlib.objectmodel import specialize
 rsre_char.set_unicode_db(unicodedb)
@@ -176,7 +176,7 @@ class RSREMatch(object):
     def span(self, groupnum=0):
 #        if not isinstance(groupnum, (int, long)):
 #            groupnum = self.re.groupindex[groupnum]
- 
+
         return self._ctx.span(groupnum)
 
     def start(self, groupnum=0):

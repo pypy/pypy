@@ -971,6 +971,16 @@ class BackendTests:
         s.c = -4
         assert s.c == -4
 
+    def test_bitfield_enum(self):
+        ffi = FFI(backend=self.Backend())
+        ffi.cdef("""
+            typedef enum { AA, BB, CC } foo_e;
+            typedef struct { foo_e f:2; } foo_s;
+        """)
+        s = ffi.new("foo_s *")
+        s.f = 2
+        assert s.f == 2
+
     def test_anonymous_struct(self):
         ffi = FFI(backend=self.Backend())
         ffi.cdef("typedef struct { int a; } foo_t;")

@@ -10,6 +10,8 @@ from rpython.config.config import to_optparse, make_dict, SUPPRESS_USAGE
 from rpython.config.config import ConflictConfigError
 from pypy.tool.option import make_objspace
 from pypy.conftest import pypydir
+from rpython.rlib import rthread
+from pypy.module.thread import os_thread
 
 thisdir = py.path.local(__file__).dirpath()
 
@@ -120,6 +122,24 @@ def create_entry_point(space, w_dict):
         source = rffi.charp2str(ll_source)
         return _pypy_execute_source(source)
 
+    @entrypoint('main', [], c_name='pypy_init_threads')
+    def pypy_init_threads():
+        if not space.config.objspace.usemodules.thread:
+            return
+        os_thread.setup_threads(space)
+        rffi.aroundstate.before()
+
+    @entrypoint('main', [], c_name='pypy_thread_attach')
+    def pypy_thread_attach():
+        if not space.config.objspace.usemodules.thread:
+            return
+        os_thread.setup_threads(space)
+        os_thread.bootstrapper.acquire(space, None, None)
+        rthread.gc_thread_start()
+        os_thread.bootstrapper.nbthreads += 1
+        os_thread.bootstrapper.release()
+        rffi.aroundstate.before()
+
     w_globals = space.newdict()
     space.setitem(w_globals, space.wrap('__builtins__'),
                   space.builtin_modules['__builtin__'])
@@ -137,6 +157,8 @@ def create_entry_point(space, w_dict):
         return 0
 
     return entry_point, {'pypy_execute_source': pypy_execute_source,
+                         'pypy_init_threads': pypy_init_threads,
+                         'pypy_thread_attach': pypy_thread_attach,
                          'pypy_setup_home': pypy_setup_home}
 
 def call_finish(space):

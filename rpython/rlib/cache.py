@@ -44,8 +44,8 @@ class Cache(object):
                 return self.content[key]
             except KeyError:
                 if key in self._building:
-                    raise Exception, "%s recursive building of %r" % (
-                        self, key)
+                    raise RuntimeError("%s recursive building of %r" %
+                                       (self, key))
                 self._building[key] = True
                 try:
                     result = self._build(key)

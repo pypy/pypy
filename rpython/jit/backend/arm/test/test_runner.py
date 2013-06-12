@@ -11,6 +11,7 @@ from rpython.rtyper.annlowlevel import llhelper
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.history import JitCellToken, TargetToken
 from rpython.jit.backend.arm.detect import detect_arch_version
+from rpython.jit.codewriter import longlong
 
 
 CPU = getcpuclass()
@@ -24,7 +25,7 @@ class TestARM(LLtypeBackendTest):
     # for the individual tests see
     # ====> ../../test/runner_test.py
 
-    add_loop_instructions = ['ldr', 'mov', 'adds', 'cmp', 'beq', 'b']
+    add_loop_instructions = ['ldr', 'adds', 'cmp', 'beq', 'b']
     bridge_loop_instructions = ['ldr', 'mov', 'nop', 'cmp', 'bge',
                                 'push', 'mov', 'mov', 'push', 'mov', 'mov',
                                 'blx', 'mov', 'mov', 'bx']
@@ -261,3 +262,43 @@ class TestARM(LLtypeBackendTest):
         l1 = ('debug_print', preambletoken.repr_of_descr() + ':1')
         l2 = ('debug_print', targettoken.repr_of_descr() + ':9')
         assert ('jit-backend-counts', [l0, l1, l2]) in dlog
+
+
+    def test_label_float_in_reg_and_on_stack(self):
+        targettoken = TargetToken()
+        ops = """
+        [i0, f3]
+        i2 = same_as(i0)    # but forced to be in a register
+        force_spill(i2)
+        force_spill(f3)
+        f4 = float_add(f3, 5.0)
+        label(f3, f4, descr=targettoken)
+        force_spill(f3)
+        f5 = same_as(f3)    # but forced to be in a register
+        finish(f5)
+        """
+        faildescr = BasicFailDescr(2)
+        loop = parse(ops, self.cpu, namespace=locals())
+        looptoken = JitCellToken()
+        info = self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+        ops2 = """
+        [i0, f1]
+        i1 = same_as(i0)
+        f2 = same_as(f1)
+        f3 = float_add(f1, 10.0)
+        force_spill(f3)
+        force_spill(i1)
+        f4 = float_add(f3, f1)
+        jump(f3, f4, descr=targettoken)
+        """
+        loop2 = parse(ops2, self.cpu, namespace=locals())
+        looptoken2 = JitCellToken()
+        info = self.cpu.compile_loop(loop2.inputargs, loop2.operations, looptoken2)
+
+        deadframe = self.cpu.execute_token(looptoken, -9, longlong.getfloatstorage(-13.5))
+        res = longlong.getrealfloat(self.cpu.get_float_value(deadframe, 0))
+        assert res == -13.5
+        #
+        deadframe = self.cpu.execute_token(looptoken2, -9, longlong.getfloatstorage(-13.5))
+        res = longlong.getrealfloat(self.cpu.get_float_value(deadframe, 0))
+        assert res == -3.5

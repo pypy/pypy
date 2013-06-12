@@ -18,9 +18,11 @@ class MockDtype(object):
         def get_element_size():
             return 1
 
+    def __init__(self):
+        self.base = self
+
     def get_size(self):
         return 1
-
 
 def create_slice(a, chunks):
     return Chunks(chunks).apply(W_NDimArray(a)).implementation
@@ -1816,6 +1818,13 @@ class AppTestNumArray(BaseNumpyAppTest):
         pickled_data = dumps(a)
         assert (loads(pickled_data) == a).all()
 
+    def test_pickle_slice(self):
+        from cPickle import loads, dumps
+        import numpypy as numpy
+
+        a = numpy.arange(10.).reshape((5, 2))[::2]
+        assert (loads(dumps(a)) == a).all()
+
 class AppTestMultiDim(BaseNumpyAppTest):
     def test_init(self):
         import numpypy
@@ -2716,6 +2725,56 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         assert a[0]['y'] == 2
         assert a[1]['y'] == 1
 
+    def test_subarrays(self):
+        from numpypy import dtype, array, zeros
+
+        d = dtype([("x", "int", 3), ("y", "float", 5)])
+        a = array([([1, 2, 3], [0.5, 1.5, 2.5, 3.5, 4.5]), ([4, 5, 6], [5.5, 6.5, 7.5, 8.5, 9.5])], dtype=d)
+
+        assert (a[0]["x"] == [1, 2, 3]).all()
+        assert (a[0]["y"] == [0.5, 1.5, 2.5, 3.5, 4.5]).all()
+        assert (a[1]["x"] == [4, 5, 6]).all()
+        assert (a[1]["y"] == [5.5, 6.5, 7.5, 8.5, 9.5]).all()
+
+        a[0]["x"][0] = 200
+        assert a[0]["x"][0] == 200
+
+        d = dtype([("x", "int64", (2, 3))])
+        a = array([([[1, 2, 3], [4, 5, 6]],)], dtype=d)
+
+        assert a[0]["x"].dtype == dtype("int64")
+        assert a[0]["x"][0].dtype == dtype("int64")
+
+        assert (a[0]["x"][0] == [1, 2, 3]).all()
+        assert (a[0]["x"] == [[1, 2, 3], [4, 5, 6]]).all()
+
+        d = dtype((float, (10, 10)))
+        a = zeros((3,3), dtype=d)
+        assert a[0, 0].shape == (10, 10)
+        assert a.shape == (3, 3, 10, 10)
+        a[0, 0] = 500
+        assert (a[0, 0, 0] == 500).all()
+        assert a[0, 0, 0].shape == (10,)
+
+    def test_multidim_subarray(self):
+        from numpypy import dtype, array
+
+        d = dtype([("x", "int64", (2, 3))])
+        a = array([([[1, 2, 3], [4, 5, 6]],)], dtype=d)
+
+        assert a[0]["x"].dtype == dtype("int64")
+        assert a[0]["x"][0].dtype == dtype("int64")
+
+        assert (a[0]["x"][0] == [1, 2, 3]).all()
+        assert (a[0]["x"] == [[1, 2, 3], [4, 5, 6]]).all()
+
+    def test_list_record(self):
+        from numpypy import dtype, array
+
+        d = dtype([("x", "int", 3), ("y", "float", 5)])
+        a = array([([1, 2, 3], [0.5, 1.5, 2.5, 3.5, 4.5]), ([4, 5, 6], [5.5, 6.5, 7.5, 8.5, 9.5])], dtype=d)
+
+        assert len(list(a[0])) == 2
 
 class AppTestPyPy(BaseNumpyAppTest):
     def setup_class(cls):

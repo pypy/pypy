@@ -254,17 +254,22 @@ class TestCall(BaseTestPyPyC):
                 return c
             #
             s = 0
-            for i in range(x):
+            i = 0
+            while i < x:
                 l = [i, x, 2]
                 s += g(*l)       # ID: g1
                 s += h(*l)       # ID: h1
                 s += g(i, x, 2)  # ID: g2
                 a = 0
-            for i in range(x):
+                i += 1
+            i = 0
+            while i < x:
                 l = [x, 2]
+                g(*l)
                 s += g(i, *l)    # ID: g3
                 s += h(i, *l)    # ID: h2
                 a = 0
+                i += 1
             return s
         #
         log = self.run(main, [1000])
@@ -339,7 +344,7 @@ class TestCall(BaseTestPyPyC):
         loop, = log.loops_by_filename(self.filepath)
         # the int strategy is used here
         assert loop.match_by_id('append', """
-            guard_not_invalidated(descr=...)
+            guard_not_invalidated?
             i13 = getfield_gc(p8, descr=<FieldS list.length .*>)
             i15 = int_add(i13, 1)
             # Will be killed by the backend
@@ -487,6 +492,7 @@ class TestCall(BaseTestPyPyC):
         assert loop.match("""
             i2 = int_lt(i0, i1)
             guard_true(i2, descr=...)
+            guard_not_invalidated?
             i3 = force_token()
             i4 = int_add(i0, 1)
             --TICK--
@@ -586,7 +592,7 @@ class TestCall(BaseTestPyPyC):
         """, [1000])
         loop, = log.loops_by_id('call')
         assert loop.match_by_id('call', '''
-        guard_not_invalidated(descr=<.*>)
+        guard_not_invalidated?
         i1 = force_token()
         ''')
 

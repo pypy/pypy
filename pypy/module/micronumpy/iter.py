@@ -171,7 +171,8 @@ class ConcreteArrayIterator(base.BaseArrayIterator):
         self.dtype.setitem(self.array, self.offset, elem)
 
     def getitem(self):
-        return self.dtype.getitem(self.array, self.offset)
+        item = self.dtype.getitem(self.array, self.offset)
+        return item
 
     def getitem_bool(self):
         return self.dtype.getitem_bool(self.array, self.offset)
@@ -342,7 +343,8 @@ class AxisIterator(base.BaseArrayIterator):
         self.dtype.setitem(self.array, self.offset, elem)
 
     def getitem(self):
-        return self.dtype.getitem(self.array, self.offset)
+        item = self.dtype.getitem(self.array, self.offset)
+        return item
 
     @jit.unroll_safe
     def next(self):

@@ -2,6 +2,7 @@
 from pypy.module.micronumpy.arrayimpl import base
 from pypy.module.micronumpy.base import W_NDimArray, convert_to_array
 from pypy.module.micronumpy import support
+from pypy.module.micronumpy.interp_boxes import W_GenericBox
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.special import Ellipsis
 
@@ -49,6 +50,7 @@ class Scalar(base.BaseArrayImplementation):
         return self.value
 
     def set_scalar_value(self, w_val):
+        assert isinstance(w_val, W_GenericBox)
         self.value = w_val.convert_to(self.dtype)
 
     def copy(self, space):

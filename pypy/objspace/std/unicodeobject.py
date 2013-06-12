@@ -12,7 +12,6 @@ from pypy.objspace.std.stringobject import (
     W_StringObject, make_rsplit_with_delim)
 from pypy.objspace.std.stringtype import stringendswith, stringstartswith
 from pypy.objspace.std.register_all import register_all
-from pypy.objspace.std.tupleobject import W_TupleObject
 from rpython.rlib import jit
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rlib.objectmodel import (
@@ -83,9 +82,8 @@ registerimplementation(W_UnicodeObject)
 # Helper for converting int/long
 def unicode_to_decimal_w(space, w_unistr):
     if not isinstance(w_unistr, W_UnicodeObject):
-        raise operationerrfmt(space.w_TypeError,
-                              "expected unicode, got '%s'",
-                              space.type(w_unistr).getname(space))
+        raise operationerrfmt(space.w_TypeError, "expected unicode, got '%T'",
+                              w_unistr)
     unistr = w_unistr._value
     result = ['\0'] * len(unistr)
     digits = [ '0', '1', '2', '3', '4',
@@ -501,8 +499,10 @@ def unicode_startswith__Unicode_Unicode_ANY_ANY(space, w_self, w_substr, w_start
     #     with additional parameters as rpython)
     return space.newbool(stringstartswith(self, w_substr._value, start, end))
 
-def unicode_startswith__Unicode_Tuple_ANY_ANY(space, w_unistr, w_prefixes,
+def unicode_startswith__Unicode_ANY_ANY_ANY(space, w_unistr, w_prefixes,
                                               w_start, w_end):
+    if not space.isinstance_w(w_prefixes, space.w_tuple):
+        raise FailedToImplement
     unistr, start, end = _convert_idx_params(space, w_unistr,
                                              w_start, w_end, True)
     for w_prefix in space.fixedview(w_prefixes):
@@ -511,8 +511,10 @@ def unicode_startswith__Unicode_Tuple_ANY_ANY(space, w_unistr, w_prefixes,
             return space.w_True
     return space.w_False
 
-def unicode_endswith__Unicode_Tuple_ANY_ANY(space, w_unistr, w_suffixes,
+def unicode_endswith__Unicode_ANY_ANY_ANY(space, w_unistr, w_suffixes,
                                             w_start, w_end):
+    if not space.isinstance_w(w_suffixes, space.w_tuple):
+        raise FailedToImplement
     unistr, start, end = _convert_idx_params(space, w_unistr,
                                              w_start, w_end, True)
     for w_suffix in space.fixedview(w_suffixes):

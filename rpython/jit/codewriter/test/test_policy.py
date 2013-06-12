@@ -65,6 +65,20 @@ def test_dont_look_inside():
     graph = support.getgraph(h, [5])
     assert not JitPolicy().look_inside_graph(graph)
 
+def test_look_inside():
+    def h1(x):
+        return x + 1
+    @jit.look_inside    # force True, even if look_inside_function() thinks not
+    def h2(x):
+        return x + 2
+    class MyPolicy(JitPolicy):
+        def look_inside_function(self, func):
+            return False
+    graph1 = support.getgraph(h1, [5])
+    graph2 = support.getgraph(h2, [5])
+    assert not MyPolicy().look_inside_graph(graph1)
+    assert MyPolicy().look_inside_graph(graph2)
+
 def test_loops():
     def g(x):
         i = 0
