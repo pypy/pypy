@@ -42,9 +42,7 @@ def open(space, w_file, mode="r", buffering=-1, encoding=None, errors=None,
     if not (space.isinstance_w(w_file, space.w_basestring) or
         space.isinstance_w(w_file, space.w_int) or
         space.isinstance_w(w_file, space.w_long)):
-        raise operationerrfmt(space.w_TypeError,
-            "invalid file: %s", space.str_w(space.repr(w_file))
-        )
+        raise operationerrfmt(space.w_TypeError, "invalid file: %R", w_file)
 
     reading = writing = appending = updating = text = binary = universal = False
 

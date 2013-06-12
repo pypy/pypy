@@ -13,6 +13,9 @@ from rpython.tool.sourcetools import func_with_new_name
 from pypy.module.micronumpy.arrayimpl.voidbox import VoidBoxStorage
 from rpython.rlib.objectmodel import specialize
 from pypy.interpreter.mixedmodule import MixedModule
+from rpython.rtyper.lltypesystem import lltype
+from rpython.rlib.rstring import StringBuilder
+
 
 MIXIN_32 = (int_typedef,) if LONG_BIT == 32 else ()
 MIXIN_64 = (int_typedef,) if LONG_BIT == 64 else ()
@@ -30,7 +33,7 @@ if long_double_size == 8 and os.name == 'nt':
 def new_dtype_getter(name):
     def _get_dtype(space):
         from pypy.module.micronumpy.interp_dtype import get_dtype_cache
-        return getattr(get_dtype_cache(space), "w_%sdtype" % name)
+        return get_dtype_cache(space).dtypes_by_name[name]
 
     def new(space, w_subtype, w_value):
         dtype = _get_dtype(space)
@@ -42,17 +45,8 @@ def new_dtype_getter(name):
     return func_with_new_name(new, name + "_box_new"), staticmethod(_get_dtype), func_with_new_name(descr_reduce, "descr_reduce")
 
 
-class PrimitiveBox(object):
+class Box(object):
     _mixin_ = True
-
-    def __init__(self, value):
-        self.value = value
-
-    def convert_to(self, dtype):
-        return dtype.box(self.value)
-
-    def __repr__(self):
-        return '%s(%s)' % (self.__class__.__name__, self.value)
 
     def reduce(self, space):
         from rpython.rlib.rstring import StringBuilder
@@ -64,17 +58,34 @@ class PrimitiveBox(object):
         assert isinstance(multiarray, MixedModule)
         scalar = multiarray.get("scalar")
 
+        ret = space.newtuple([scalar, space.newtuple([space.wrap(self._get_dtype(space)), space.wrap(self.raw_str())])])
+        return ret
+
+class PrimitiveBox(Box):
+    _mixin_ = True
+
+    def __init__(self, value):
+        self.value = value
+
+    def convert_to(self, dtype):
+        return dtype.box(self.value)
+
+    def __repr__(self):
+        return '%s(%s)' % (self.__class__.__name__, self.value)
+
+    def raw_str(self):
         value = lltype.malloc(rffi.CArray(lltype.typeOf(self.value)), 1, flavor="raw")
         value[0] = self.value
 
         builder = StringBuilder()
         builder.append_charpsize(rffi.cast(rffi.CCHARP, value), rffi.sizeof(lltype.typeOf(self.value)))
+        ret = builder.build()
 
-        ret = space.newtuple([scalar, space.newtuple([space.wrap(self._get_dtype(space)), space.wrap(builder.build())])])
         lltype.free(value, flavor="raw")
+
         return ret
 
-class ComplexBox(object):
+class ComplexBox(Box):
     _mixin_ = True
 
     def __init__(self, real, imag=0.):
@@ -90,34 +101,26 @@ class ComplexBox(object):
     def convert_imag_to(self, dtype):
         return dtype.box(self.imag)
 
-    def reduce(self, space):
-        from rpython.rlib.rstring import StringBuilder
-        from rpython.rtyper.lltypesystem import rffi, lltype
-
-        numpypy = space.getbuiltinmodule("_numpypy")
-        assert isinstance(numpypy, MixedModule)
-        multiarray = numpypy.get("multiarray")
-        assert isinstance(multiarray, MixedModule)
-        scalar = multiarray.get("scalar")
-
+    def raw_str(self):
         value = lltype.malloc(rffi.CArray(lltype.typeOf(self.real)), 2, flavor="raw")
         value[0] = self.real
         value[1] = self.imag
 
         builder = StringBuilder()
         builder.append_charpsize(rffi.cast(rffi.CCHARP, value), rffi.sizeof(lltype.typeOf(self.real)) * 2)
+        ret = builder.build()
 
-        ret = space.newtuple([scalar, space.newtuple([space.wrap(self._get_dtype(space)), space.wrap(builder.build())])])
         lltype.free(value, flavor="raw")
+
         return ret
 
 class W_GenericBox(W_Root):
     _attrs_ = ()
 
     def descr__new__(space, w_subtype, __args__):
-        raise operationerrfmt(space.w_TypeError, "cannot create '%s' instances",
-            w_subtype.getname(space, '?')
-        )
+        raise operationerrfmt(space.w_TypeError,
+                              "cannot create '%N' instances",
+                              w_subtype)
 
     def get_dtype(self, space):
         return self._get_dtype(space)

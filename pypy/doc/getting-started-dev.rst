@@ -8,7 +8,8 @@ RPython is a subset of Python that can be statically compiled. The PyPy
 interpreter is written mostly in RPython (with pieces in Python), while
 the RPython compiler is written in Python. The hard to understand part
 is that Python is a meta-programming language for RPython, that is,
-RPython is considered from live objects **after** the imports are done.
+"being valid RPython" is a question that only makes sense on the
+live objects **after** the imports are done.
 This might require more explanation. You start writing RPython from
 ``entry_point``, a good starting point is
 ``rpython/translator/goal/targetnopstandalone.py``. This does not do all that
@@ -37,7 +38,7 @@ a silly example (note that closures are not RPython)::
 In this example ``entry_point`` is RPython,  ``add`` and ``sub`` are RPython,
 however, ``generator`` is not.
 
-A good introductory level articles are available:
+The following introductory level articles are available:
 
 * Laurence Tratt -- `Fast Enough VMs in Fast Enough Time`_.
 

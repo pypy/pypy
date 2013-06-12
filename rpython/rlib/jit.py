@@ -83,6 +83,13 @@ def dont_look_inside(func):
     func._jit_look_inside_ = False
     return func
 
+def look_inside(func):
+    """ Make sure the JIT traces inside decorated function, even
+    if the rest of the module is not visible to the JIT
+    """
+    func._jit_look_inside_ = True
+    return func
+
 def unroll_safe(func):
     """ JIT can safely unroll loops in this function and this will
     not lead to code explosion

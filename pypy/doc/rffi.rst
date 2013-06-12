@@ -5,7 +5,7 @@ Foreign Function Interface for RPython
 Purpose
 -------
 
-This document describes an FFI for RPython language, concentrating
+This document describes an FFI for the RPython language, concentrating
 on low-level backends like C. It describes
 how to declare and call low-level (C) functions from RPython level.
 
@@ -50,7 +50,7 @@ Types
 ------
 
 In rffi_ there are various declared types for C-structures, like CCHARP
-(char*), SIZE_T (size_t) and others. refer to file for details. 
+(char*), SIZE_T (size_t) and others. Refer to file for details. 
 Instances of non-primitive types must be alloced by hand, with call 
 to lltype.malloc, and freed by lltype.free both with keyword argument 
 flavor='raw'. There are several helpers like string -> char*

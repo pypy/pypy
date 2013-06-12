@@ -2,7 +2,7 @@
 PyPy on Windows
 ===============
 
-Pypy is supported on Windows platforms, starting with Windows 2000.
+PyPy is supported on Windows platforms, starting with Windows 2000.
 The following text gives some hints about how to translate the PyPy
 interpreter.
 
@@ -199,9 +199,9 @@ If you wish to experiment with win64, you must run configure with flags::
 
 or such, depending on your mingw64 download.
 
-hacking on Pypy with the mingw compiler
+hacking on PyPy with the mingw compiler
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Since hacking on Pypy means running tests, you will need a way to specify
+Since hacking on PyPy means running tests, you will need a way to specify
 the mingw compiler when hacking (as opposed to translating). As of
 March 2012, --cc is not a valid option for pytest.py. However if you set an
 environment variable CC to the compliter exe, testing will use it.

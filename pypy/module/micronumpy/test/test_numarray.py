@@ -1801,6 +1801,13 @@ class AppTestNumArray(BaseNumpyAppTest):
         pickled_data = dumps(a)
         assert (loads(pickled_data) == a).all()
 
+    def test_pickle_slice(self):
+        from cPickle import loads, dumps
+        import numpypy as numpy
+
+        a = numpy.arange(10.).reshape((5, 2))[::2]
+        assert (loads(dumps(a)) == a).all()
+
 class AppTestMultiDim(BaseNumpyAppTest):
     def test_init(self):
         import numpypy

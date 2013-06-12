@@ -52,6 +52,8 @@ class ARMCallbuilder(AbstractCallBuilder):
 
     def _push_stack_args(self, stack_args, on_stack):
         assert on_stack % 8 == 0
+        if on_stack == 0:
+            return
         self._adjust_sp(-on_stack)
         self.current_sp = on_stack
         ofs = 0
@@ -71,7 +73,7 @@ class ARMCallbuilder(AbstractCallBuilder):
             else:
                 self.mc.gen_load_int(r.ip.value, n)
                 self.mc.ADD_rr(r.sp.value, r.sp.value, r.ip.value)
-        else:
+        elif n < 0:
             n = abs(n)
             if check_imm_arg(n):
                 self.mc.SUB_ri(r.sp.value, r.sp.value, n)
