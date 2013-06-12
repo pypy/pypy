@@ -1,5 +1,0 @@
-/* file current_input */
-
-[exists(current_input/1), success].
-
-/* end of file current_input */

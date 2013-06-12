@@ -1,9 +1,0 @@
-/* file cut */
-
-[!, success].
-[(!,fail;true), failure].
-[(call(!),fail;true), success].
-
-
-/* end of cut */
-
