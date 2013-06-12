@@ -59,6 +59,12 @@ class AppTestNDIter(BaseNumpyAppTest):
             n += 1
         assert n == 12
         assert (array(r) == [[ 0, 12], [ 4, 16], [ 8, 20], [ 1, 13], [ 5, 17], [ 9, 21], [ 2, 14], [ 6, 18], [10, 22], [ 3, 15], [ 7, 19], [11, 23]]).all()
+        e = None
+        try:
+            r[0][0] = 0
+        except ValueError, ex:
+            e = ex
+        assert e
 
     def test_interface(self):
         from numpypy import arange, nditer, zeros
@@ -206,4 +212,5 @@ class AppTestNDIter(BaseNumpyAppTest):
 
         assert (it.operands[1] == [[6, 22, 38], [54, 70, 86]]).all()
         assert (it.operands[1] == a.sum(axis=2)).all()
+
 

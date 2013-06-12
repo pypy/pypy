@@ -424,6 +424,13 @@ class SliceArray(BaseConcreteArray):
         return SliceArray(self.start, new_strides, new_backstrides, new_shape,
                           self, orig_array)
 
+    def readonly(self):
+        return NonWritableSlice(self.start, self.strides, self.backstrides, self.shape, self.parent, self.orig_arr, self.dtype)
+
+class NonWritableSlice(SliceArray):
+    def descr_setitem(self, space, orig_array, w_index, w_value):
+        raise OperationError(space.w_ValueError, space.wrap(
+            "Assignment destination is read-only"))
 
 class ArrayBuffer(RWBuffer):
     def __init__(self, impl):

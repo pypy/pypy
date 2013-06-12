@@ -85,8 +85,7 @@ def get_readwrite_item(space, array, it):
     return W_NDimArray(res)
 
 def get_readonly_slice(space, array, it):
-    #XXX Not readonly
-    return W_NDimArray(it.getslice())
+    return W_NDimArray(it.getslice().readonly())
 
 def get_readwrite_slice(space, array, it):
     return W_NDimArray(it.getslice())
