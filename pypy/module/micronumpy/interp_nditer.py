@@ -201,18 +201,52 @@ def get_iter(space, order, arr, shape):
                                     shape, backward)
     return MultiDimViewIterator(imp, imp.dtype, imp.start, r[0], r[1], shape)
 
+def is_backward(imp, order):
+    if order == 'K' or (order == 'C' and imp.order == 'C'):
+        return False
+    elif order =='F' and imp.order == 'C':
+        return True
+    else:
+        raise NotImplementedError('not implemented yet')
+
 def get_external_loop_iter(space, order, arr, shape):
     imp = arr.implementation
-    if order == 'K' or (order == 'C' and imp.order == 'C'):
-        backward = False
-    elif order =='F' and imp.order == 'C':
-        backward = True
-    else:
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-                'not implemented yet'))
+
+    backward = is_backward(imp, order)
 
     return SliceIterator(arr, imp.strides, imp.backstrides, shape, order=order, backward=backward)
 
+class IndexIterator(object):
+    def __init__(self, shape, backward=False):
+        self.shape = shape
+        self.index = [0] * len(shape)
+        self.backward = backward
+        self.called = False
+
+    def next(self):
+        # TODO It's probably possible to refactor all the "next" method from each iterator
+        if not self.called:
+            self.called = True
+            return
+        for i in range(len(self.shape) - 1, -1, -1):
+            if self.index[i] < self.shape[i] - 1:
+                self.index[i] += 1
+                break
+            else:
+                self.index[i] = 0
+
+    def getvalue(self):
+        if not self.called:
+            return 0
+        if not self.backward:
+            ret = self.index[-1]
+            for i in range(len(self.shape) - 2, -1, -1):
+                ret += self.index[i] * self.shape[i - 1]
+        else:
+            ret = self.index[0]
+            for i in range(1, len(self.shape)):
+                ret += self.index[i] * self.shape[i - 1]
+        return ret
 
 class W_NDIter(W_Root):
 
@@ -229,6 +263,7 @@ class W_NDIter(W_Root):
         self.refs_ok = False
         self.reduce_ok = False
         self.zerosize_ok = False
+        self.index_iter = None
         if space.isinstance_w(w_seq, space.w_tuple) or \
            space.isinstance_w(w_seq, space.w_list):
             w_seq_as_list = space.listview(w_seq)
@@ -240,6 +275,10 @@ class W_NDIter(W_Root):
                                      len(self.seq), parse_op_flag)
         self.iters=[]
         self.shape = iter_shape = shape_agreement_multiple(space, self.seq)
+        if self.tracked_index != "":
+            if self.order == "K":
+                self.order = self.seq[0].implementation.order
+            self.index_iter = IndexIterator(iter_shape, backward=self.order != self.tracked_index)
         if self.external_loop:
             for i in range(len(self.seq)):
                 self.iters.append(ExternalLoopIterator(get_external_loop_iter(space, self.order,
@@ -271,6 +310,8 @@ class W_NDIter(W_Root):
         else:
             raise OperationError(space.w_StopIteration, space.w_None)
         res = []
+        if self.index_iter:
+            self.index_iter.next()
         for i in range(len(self.iters)):
             res.append(self.iters[i].getitem(space, self.seq[i]))
             self.iters[i].next()
@@ -324,12 +365,12 @@ class W_NDIter(W_Root):
             'not implemented yet'))
 
     def descr_get_has_index(self, space):
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            'not implemented yet'))
+        return space.wrap(not self.tracked_index == "")
 
     def descr_get_index(self, space):
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            'not implemented yet'))
+        if self.tracked_index == "":
+            raise OperationError(space.w_ValueError, "Iterator does not have an index")
+        return space.wrap(self.index_iter.getvalue())
 
     def descr_get_has_multi_index(self, space):
         raise OperationError(space.w_NotImplementedError, space.wrap(

@@ -66,6 +66,24 @@ class AppTestNDIter(BaseNumpyAppTest):
             e = ex
         assert e
 
+    def test_index(self):
+        from numpypy import arange, nditer, zeros
+        a = arange(6).reshape(2,3)
+
+        r = []
+        it = nditer(a, flags=['c_index'])
+        assert it.has_index
+        for value in it:
+            r.append((value, it.index))
+        assert r == [(0, 0), (1, 1), (2, 2), (3, 3), (4, 4), (5, 5)]
+
+        r = []
+        it = nditer(a, flags=['f_index'])
+        assert it.has_index
+        for value in it:
+            r.append((value, it.index))
+        assert r == [(0, 0), (1, 2), (2, 4), (3, 1), (4, 3), (5, 5)]
+
     def test_interface(self):
         from numpypy import arange, nditer, zeros
         a = arange(6).reshape(2,3)
