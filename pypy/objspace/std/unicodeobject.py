@@ -646,7 +646,7 @@ def unicode_split__Unicode_None_ANY(space, w_self, w_none, w_maxsplit):
         # continue to look from the character following the space after the word
         i = j + 1
 
-    return space.newlist_str(res)
+    return space.newlist_unicode(res)
 
 def unicode_split__Unicode_Unicode_ANY(space, w_self, w_delim, w_maxsplit):
     self = w_self._value
@@ -657,12 +657,12 @@ def unicode_split__Unicode_Unicode_ANY(space, w_self, w_delim, w_maxsplit):
         raise OperationError(space.w_ValueError,
                              space.wrap('empty separator'))
     parts = _split_with(self, delim, maxsplit)
-    return space.newlist_str(parts)
+    return space.newlist_unicode(parts)
 
 
 def unicode_rsplit__Unicode_None_ANY(space, w_self, w_none, w_maxsplit):
     maxsplit = space.int_w(w_maxsplit)
-    res_w = []
+    res = []
     value = w_self._value
     i = len(value)-1
     while True:
@@ -687,13 +687,13 @@ def unicode_rsplit__Unicode_None_ANY(space, w_self, w_none, w_maxsplit):
         # the word is value[j+1:i+1]
         j1 = j + 1
         assert j1 >= 0
-        res_w.append(W_UnicodeObject(value[j1:i+1]))
+        res.append(value[j1:i+1])
 
         # continue to look from the character before the space before the word
         i = j - 1
 
-    res_w.reverse()
-    return space.newlist(res_w)
+    res.reverse()
+    return space.newlist_unicode(res)
 
 def sliced(space, s, start, stop, orig_obj):
     assert start >= 0
