@@ -582,7 +582,7 @@ class DtypeCache(object):
             alternate_constructors=[space.w_float,
                                     space.gettypefor(interp_boxes.W_NumberBox),
                                    ],
-            aliases=["float"],
+            aliases=["float", "double"],
         )
         self.w_complex64dtype = W_ComplexDtype(
             types.Complex64(),
@@ -663,6 +663,7 @@ class DtypeCache(object):
             char='S',
             w_box_type = space.gettypefor(interp_boxes.W_StringBox),
             alternate_constructors=[space.w_str],
+            aliases=["str"],
         )
         self.w_unicodedtype = W_Dtype(
             types.UnicodeType(1),
