@@ -3,14 +3,17 @@
 
 from rpython.annotator.model import (SomeObject, SomeString, s_None, SomeChar,
     SomeInteger, SomeUnicodeCodePoint, SomeUnicodeString, SomePtr, SomePBC)
-from rpython.rlib.objectmodel import newlist_hint
+from rpython.rlib.objectmodel import newlist_hint, specialize
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.tool.pairtype import pairtype
 
 
 # -------------- public API for string functions -----------------------
+
+@specialize.argtype(0)
 def split(value, by, maxsplit=-1):
+    assert type(value) == type(by)
     bylen = len(by)
     if bylen == 0:
         raise ValueError("empty separator")
@@ -32,7 +35,9 @@ def split(value, by, maxsplit=-1):
     return res
 
 
+@specialize.argtype(0)
 def rsplit(value, by, maxsplit=-1):
+    assert type(value) == type(by)
     if maxsplit > 0:
         res = newlist_hint(min(maxsplit + 1, len(value)))
     else:

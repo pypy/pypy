@@ -13,6 +13,17 @@ def test_split():
     assert split('endcase test', 'test') == ['endcase ', '']
     py.test.raises(ValueError, split, 'abc', '')
 
+def test_split_unicode():
+    assert split(u"", u'x') == [u'']
+    assert split(u"a", u"a", 1) == [u'', u'']
+    assert split(u" ", u" ", 1) == [u'', u'']
+    assert split(u"aa", u"a", 2) == [u'', u'', u'']
+    assert split(u'a|b|c|d', u'|') == [u'a', u'b', u'c', u'd']
+    assert split(u'a|b|c|d', u'|', 2) == [u'a', u'b', u'c|d']
+    assert split(u'a//b//c//d', u'//') == [u'a', u'b', u'c', u'd']
+    assert split(u'endcase test', u'test') == [u'endcase ', u'']
+    py.test.raises(ValueError, split, u'abc', u'')
+
 def test_rsplit():
     assert rsplit("a", "a", 1) == ['', '']
     assert rsplit(" ", " ", 1) == ['', '']
@@ -22,6 +33,16 @@ def test_rsplit():
     assert rsplit('a//b//c//d', '//') == ['a', 'b', 'c', 'd']
     assert rsplit('endcase test', 'test') == ['endcase ', '']
     py.test.raises(ValueError, rsplit, "abc", '')
+
+def test_rsplit_unicode():
+    assert rsplit(u"a", u"a", 1) == [u'', u'']
+    assert rsplit(u" ", u" ", 1) == [u'', u'']
+    assert rsplit(u"aa", u"a", 2) == [u'', u'', u'']
+    assert rsplit(u'a|b|c|d', u'|') == [u'a', u'b', u'c', u'd']
+    assert rsplit(u'a|b|c|d', u'|', 2) == [u'a|b', u'c', u'd']
+    assert rsplit(u'a//b//c//d', u'//') == [u'a', u'b', u'c', u'd']
+    assert rsplit(u'endcase test', u'test') == [u'endcase ', u'']
+    py.test.raises(ValueError, rsplit, u"abc", u'')
 
 def test_string_builder():
     s = StringBuilder()
