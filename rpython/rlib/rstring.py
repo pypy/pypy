@@ -18,11 +18,27 @@ def split(value, by, maxsplit=-1):
     if bylen == 0:
         raise ValueError("empty separator")
 
+    start = 0
+    if bylen == 1:
+        # fast path: uses str.rfind(character) and str.count(character)
+        by = by[0]    # annotator hack: string -> char
+        count = value.count(by)
+        if 0 <= maxsplit < count:
+            count = maxsplit
+        res = newlist_hint(count + 1)
+        while count > 0:
+            next = value.find(by, start)
+            res.append(value[start:next])
+            start = next + bylen
+            count -= 1
+        res.append(value[start:len(value)])
+        return res
+
     if maxsplit > 0:
         res = newlist_hint(min(maxsplit + 1, len(value)))
     else:
         res = []
-    start = 0
+
     while maxsplit != 0:
         next = value.find(by, start)
         if next < 0:

@@ -555,10 +555,14 @@ class TestW_ListStrategies(TestW_ListObject):
         try:
             w_l = space.call_method(w_s, "split")
             w_l2 = space.call_method(w_s, "split", space.wrap(" "))
+            w_l3 = space.call_method(w_s, "rsplit")
+            w_l4 = space.call_method(w_s, "rsplit", space.wrap(" "))
         finally:
             del space.newlist
         assert space.listview_str(w_l) == ["a", "b", "c"]
         assert space.listview_str(w_l2) == ["a", "b", "c"]
+        assert space.listview_str(w_l3) == ["a", "b", "c"]
+        assert space.listview_str(w_l4) == ["a", "b", "c"]
 
     def test_unicode_uses_newlist_unicode(self):
         space = self.space
@@ -567,10 +571,14 @@ class TestW_ListStrategies(TestW_ListObject):
         try:
             w_l = space.call_method(w_u, "split")
             w_l2 = space.call_method(w_u, "split", space.wrap(" "))
+            w_l3 = space.call_method(w_u, "rsplit")
+            w_l4 = space.call_method(w_u, "rsplit", space.wrap(" "))
         finally:
             del space.newlist
         assert space.listview_unicode(w_l) == [u"a", u"b", u"c"]
         assert space.listview_unicode(w_l2) == [u"a", u"b", u"c"]
+        assert space.listview_unicode(w_l3) == [u"a", u"b", u"c"]
+        assert space.listview_unicode(w_l4) == [u"a", u"b", u"c"]
 
     def test_pop_without_argument_is_fast(self):
         space = self.space

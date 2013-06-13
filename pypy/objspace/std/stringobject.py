@@ -16,7 +16,7 @@ from rpython.rlib import jit
 from rpython.rlib.objectmodel import (
     compute_hash, compute_unique_id, specialize)
 from rpython.rlib.rarithmetic import ovfcheck
-from rpython.rlib.rstring import StringBuilder, split
+from rpython.rlib.rstring import StringBuilder, split, rsplit
 
 
 class W_AbstractStringObject(W_Object):
@@ -287,31 +287,12 @@ def str_split__String_String_ANY(space, w_self, w_by, w_maxsplit=-1):
     bylen = len(by)
     if bylen == 0:
         raise OperationError(space.w_ValueError, space.wrap("empty separator"))
-
-    if bylen == 1 and maxsplit < 0:
-        res = []
-        start = 0
-        # fast path: uses str.rfind(character) and str.count(character)
-        by = by[0]    # annotator hack: string -> char
-        count = value.count(by)
-        res = [None] * (count + 1)
-        end = len(value)
-        while count >= 0:
-            assert end >= 0
-            prev = value.rfind(by, 0, end)
-            start = prev + 1
-            assert start >= 0
-            res[count] = value[start:end]
-            count -= 1
-            end = prev
-    else:
-        res = split(value, by, maxsplit)
-
+    res = split(value, by, maxsplit)
     return space.newlist_str(res)
 
 def str_rsplit__String_None_ANY(space, w_self, w_none, w_maxsplit=-1):
     maxsplit = space.int_w(w_maxsplit)
-    res_w = []
+    res = []
     value = w_self._value
     i = len(value)-1
     while True:
@@ -336,20 +317,19 @@ def str_rsplit__String_None_ANY(space, w_self, w_none, w_maxsplit=-1):
         # the word is value[j+1:i+1]
         j1 = j + 1
         assert j1 >= 0
-        res_w.append(sliced(space, value, j1, i+1, w_self))
+        res.append(value[j1:i+1])
 
         # continue to look from the character before the space before the word
         i = j - 1
 
-    res_w.reverse()
-    return space.newlist(res_w)
+    res.reverse()
+    return space.newlist_str(res)
 
 def make_rsplit_with_delim(funcname, sliced):
     from rpython.tool.sourcetools import func_with_new_name
 
     def fn(space, w_self, w_by, w_maxsplit=-1):
         maxsplit = space.int_w(w_maxsplit)
-        res_w = []
         value = w_self._value
         end = len(value)
         by = w_by._value
@@ -357,6 +337,7 @@ def make_rsplit_with_delim(funcname, sliced):
         if bylen == 0:
             raise OperationError(space.w_ValueError, space.wrap("empty separator"))
 
+        res_w = []
         while maxsplit != 0:
             next = value.rfind(by, 0, end)
             if next < 0:
@@ -371,8 +352,13 @@ def make_rsplit_with_delim(funcname, sliced):
 
     return func_with_new_name(fn, funcname)
 
-str_rsplit__String_String_ANY = make_rsplit_with_delim('str_rsplit__String_String_ANY',
-                                                       sliced)
+def str_rsplit__String_String_ANY(space, w_self, w_by, w_maxsplit=-1):
+    maxsplit = space.int_w(w_maxsplit)
+    value = w_self._value
+    by = w_by._value
+    if not by:
+        raise OperationError(space.w_ValueError, space.wrap("empty separator"))
+    return space.newlist_str(rsplit(value, by, maxsplit))
 
 def str_join__String_ANY(space, w_self, w_list):
     l = space.listview_str(w_list)

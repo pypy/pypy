@@ -10,6 +10,7 @@ def test_split():
     assert split('a|b|c|d', '|') == ['a', 'b', 'c', 'd']
     assert split('a|b|c|d', '|', 2) == ['a', 'b', 'c|d']
     assert split('a//b//c//d', '//') == ['a', 'b', 'c', 'd']
+    assert split('a//b//c//d', '//', 2) == ['a', 'b', 'c//d']
     assert split('endcase test', 'test') == ['endcase ', '']
     py.test.raises(ValueError, split, 'abc', '')
 
