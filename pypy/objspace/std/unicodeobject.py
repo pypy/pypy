@@ -16,7 +16,7 @@ from rpython.rlib import jit
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rlib.objectmodel import (
     compute_hash, compute_unique_id, specialize)
-from rpython.rlib.rstring import UnicodeBuilder
+from rpython.rlib.rstring import UnicodeBuilder, split, rsplit
 from rpython.rlib.runicode import make_unicode_escape_function
 from rpython.tool.sourcetools import func_with_new_name
 
@@ -688,7 +688,7 @@ def unicode_split__Unicode_Unicode_ANY(space, w_self, w_delim, w_maxsplit):
     if delim_len == 0:
         raise OperationError(space.w_ValueError,
                              space.wrap('empty separator'))
-    parts = _split_with(self, delim, maxsplit)
+    parts = split(self, delim, maxsplit)
     return space.newlist_unicode(parts)
 
 
@@ -727,15 +727,13 @@ def unicode_rsplit__Unicode_None_ANY(space, w_self, w_none, w_maxsplit):
     res.reverse()
     return space.newlist_unicode(res)
 
-def sliced(space, s, start, stop, orig_obj):
-    assert start >= 0
-    assert stop >= 0
-    if start == 0 and stop == len(s) and space.is_w(space.type(orig_obj), space.w_unicode):
-        return orig_obj
-    return space.wrap( s[start:stop])
-
-unicode_rsplit__Unicode_Unicode_ANY = make_rsplit_with_delim('unicode_rsplit__Unicode_Unicode_ANY',
-                                                             sliced)
+def unicode_rsplit__Unicode_Unicode_ANY(space, w_self, w_by, w_maxsplit=-1):
+    maxsplit = space.int_w(w_maxsplit)
+    value = w_self._value
+    by = w_by._value
+    if not by:
+        raise OperationError(space.w_ValueError, space.wrap("empty separator"))
+    return space.newlist_unicode(rsplit(value, by, maxsplit))
 
 def _split_into_chars(self, maxsplit):
     if maxsplit == 0:
@@ -751,21 +749,6 @@ def _split_into_chars(self, maxsplit):
         index += 1
         maxsplit -= 1
     parts.append(self[index:])
-    return parts
-
-def _split_with(self, with_, maxsplit=-1):
-    parts = []
-    start = 0
-    end = len(self)
-    length = len(with_)
-    while maxsplit != 0:
-        index = self.find(with_, start, end)
-        if index < 0:
-            break
-        parts.append(self[start:index])
-        start = index + length
-        maxsplit -= 1
-    parts.append(self[start:])
     return parts
 
 def unicode_replace__Unicode_Unicode_Unicode_ANY(space, w_self, w_old,
@@ -787,7 +770,7 @@ def unicode_replace__Unicode_ANY_ANY_ANY(space, w_self, w_old, w_new,
 
 def _unicode_replace(space, w_self, old, new, w_maxsplit):
     if len(old):
-        parts = _split_with(w_self._value, old, space.int_w(w_maxsplit))
+        parts = split(w_self._value, old, space.int_w(w_maxsplit))
     else:
         self = w_self._value
         maxsplit = space.int_w(w_maxsplit)
@@ -848,7 +831,7 @@ def unicode_rpartition__Unicode_Unicode(space, w_unistr, w_unisub):
 def unicode_expandtabs__Unicode_ANY(space, w_self, w_tabsize):
     self = w_self._value
     tabsize  = space.int_w(w_tabsize)
-    parts = _split_with(self, u'\t')
+    parts = self.split(self, u'\t')
     result = [parts[0]]
     prevsize = 0
     for ch in parts[0]:
