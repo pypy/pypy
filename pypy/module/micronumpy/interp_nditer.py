@@ -369,7 +369,7 @@ class W_NDIter(W_Root):
 
     def descr_get_index(self, space):
         if self.tracked_index == "":
-            raise OperationError(space.w_ValueError, "Iterator does not have an index")
+            raise OperationError(space.w_ValueError, space.wrap("Iterator does not have an index"))
         return space.wrap(self.index_iter.getvalue())
 
     def descr_get_has_multi_index(self, space):
