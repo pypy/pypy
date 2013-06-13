@@ -325,33 +325,6 @@ def str_rsplit__String_None_ANY(space, w_self, w_none, w_maxsplit=-1):
     res.reverse()
     return space.newlist_str(res)
 
-def make_rsplit_with_delim(funcname, sliced):
-    from rpython.tool.sourcetools import func_with_new_name
-
-    def fn(space, w_self, w_by, w_maxsplit=-1):
-        maxsplit = space.int_w(w_maxsplit)
-        value = w_self._value
-        end = len(value)
-        by = w_by._value
-        bylen = len(by)
-        if bylen == 0:
-            raise OperationError(space.w_ValueError, space.wrap("empty separator"))
-
-        res_w = []
-        while maxsplit != 0:
-            next = value.rfind(by, 0, end)
-            if next < 0:
-                break
-            res_w.append(sliced(space, value, next+bylen, end, w_self))
-            end = next
-            maxsplit -= 1   # NB. if it's already < 0, it stays < 0
-
-        res_w.append(sliced(space, value, 0, end, w_self))
-        res_w.reverse()
-        return space.newlist(res_w)
-
-    return func_with_new_name(fn, funcname)
-
 def str_rsplit__String_String_ANY(space, w_self, w_by, w_maxsplit=-1):
     maxsplit = space.int_w(w_maxsplit)
     value = w_self._value
@@ -755,7 +728,7 @@ def str_splitlines__String_ANY(space, w_self, w_keepends):
     u_keepends = space.int_w(w_keepends)  # truth value, but type checked
     data = w_self._value
     selflen = len(data)
-    strs_w = []
+    strs = []
     i = j = 0
     while i < selflen:
         # Find a line and append it
@@ -768,12 +741,12 @@ def str_splitlines__String_ANY(space, w_self, w_keepends):
             i += 1
         if u_keepends:
             eol = i
-        strs_w.append(sliced(space, data, j, eol, w_self))
+        strs.append(data[j:eol])
         j = i
 
     if j < selflen:
-        strs_w.append(sliced(space, data, j, len(data), w_self))
-    return space.newlist(strs_w)
+        strs.append(data[j:])
+    return space.newlist_str(strs)
 
 def str_zfill__String_ANY(space, w_self, w_width):
     input = w_self._value

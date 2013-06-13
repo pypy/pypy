@@ -8,8 +8,7 @@ from pypy.objspace.std.model import W_Object, registerimplementation
 from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
-from pypy.objspace.std.stringobject import (
-    W_StringObject, make_rsplit_with_delim)
+from pypy.objspace.std.stringobject import W_StringObject
 from pypy.objspace.std.stringtype import stringendswith, stringstartswith
 from pypy.objspace.std.register_all import register_all
 from rpython.rlib import jit
@@ -608,17 +607,17 @@ def unicode_splitlines__Unicode_ANY(space, w_self, w_keepends):
             if (self[pos] == u'\r' and pos + 1 < end and
                 self[pos + 1] == u'\n'):
                 # Count CRLF as one linebreak
-                lines.append(W_UnicodeObject(self[start:pos + keepends * 2]))
+                lines.append(self[start:pos + keepends * 2])
                 pos += 1
             else:
-                lines.append(W_UnicodeObject(self[start:pos + keepends]))
+                lines.append(self[start:pos + keepends])
             pos += 1
             start = pos
         else:
             pos += 1
     if not unicodedb.islinebreak(ord(self[end - 1])):
-        lines.append(W_UnicodeObject(self[start:]))
-    return space.newlist(lines)
+        lines.append(self[start:])
+    return space.newlist_unicode(lines)
 
 def unicode_find__Unicode_Unicode_ANY_ANY(space, w_self, w_substr, w_start, w_end):
     self, start, end = _convert_idx_params(space, w_self, w_start, w_end)
@@ -831,7 +830,7 @@ def unicode_rpartition__Unicode_Unicode(space, w_unistr, w_unisub):
 def unicode_expandtabs__Unicode_ANY(space, w_self, w_tabsize):
     self = w_self._value
     tabsize  = space.int_w(w_tabsize)
-    parts = self.split(self, u'\t')
+    parts = self.split(u'\t')
     result = [parts[0]]
     prevsize = 0
     for ch in parts[0]:
