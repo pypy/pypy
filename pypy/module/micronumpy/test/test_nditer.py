@@ -84,6 +84,17 @@ class AppTestNDIter(BaseNumpyAppTest):
             r.append((value, it.index))
         assert r == [(0, 0), (1, 2), (2, 4), (3, 1), (4, 3), (5, 5)]
 
+    @py.test.mark.xfail(reason="Fortran order not implemented")
+    def test_iters_with_different_order(self):
+        from numpypy import nditer, array
+
+        a = array([[1, 2], [3, 4]], order="C")
+        b = array([[1, 2], [3, 4]], order="F")
+
+        it = nditer([a, b])
+
+        assert list(it) == zip(range(1, 5), range(1, 5))
+
     def test_interface(self):
         from numpypy import arange, nditer, zeros
         a = arange(6).reshape(2,3)
