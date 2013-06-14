@@ -1,6 +1,7 @@
 import sys, py
 
 from rpython.rlib.rstring import StringBuilder, UnicodeBuilder, split, rsplit
+from rpython.rtyper.test.tool import BaseRtypingTest, LLRtypeMixin
 
 def test_split():
     assert split("", 'x') == ['']
@@ -64,4 +65,22 @@ def test_unicode_builder():
     s.append_multiple_char(u'd', 4)
     assert s.build() == 'aabcbdddd'
     assert isinstance(s.build(), unicode)
-        
+
+
+class TestTranslates(LLRtypeMixin, BaseRtypingTest):
+    def test_split_rsplit_translate(self):
+        def fn():
+            res = True
+            res = res and split('a//b//c//d', '//') == ['a', 'b', 'c', 'd']
+            res = res and split('a//b//c//d', '//', 2) == ['a', 'b', 'c//d']
+            res = res and split(u'a//b//c//d', u'//') == [u'a', u'b', u'c', u'd']
+            res = res and split(u'endcase test', u'test') == [u'endcase ', u'']
+            res = res and rsplit('a|b|c|d', '|', 2) == ['a|b', 'c', 'd']
+            res = res and rsplit('a//b//c//d', '//') == ['a', 'b', 'c', 'd']
+            res = res and rsplit(u'a|b|c|d', u'|') == [u'a', u'b', u'c', u'd']
+            res = res and rsplit(u'a|b|c|d', u'|', 2) == [u'a|b', u'c', u'd']
+            res = res and rsplit(u'a//b//c//d', u'//') == [u'a', u'b', u'c', u'd']
+            return res
+        res = self.interpret(fn, [])
+        assert res
+

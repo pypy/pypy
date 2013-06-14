@@ -13,7 +13,10 @@ from rpython.tool.pairtype import pairtype
 
 @specialize.argtype(0)
 def split(value, by, maxsplit=-1):
-    assert type(value) == type(by)
+    if isinstance(value, str):
+        assert isinstance(by, str)
+    else:
+        assert isinstance(by, unicode)
     bylen = len(by)
     if bylen == 0:
         raise ValueError("empty separator")
@@ -28,6 +31,7 @@ def split(value, by, maxsplit=-1):
         res = newlist_hint(count + 1)
         while count > 0:
             next = value.find(by, start)
+            assert next >= 0 # cannot fail due to the value.count above
             res.append(value[start:next])
             start = next + bylen
             count -= 1
@@ -53,7 +57,10 @@ def split(value, by, maxsplit=-1):
 
 @specialize.argtype(0)
 def rsplit(value, by, maxsplit=-1):
-    assert type(value) == type(by)
+    if isinstance(value, str):
+        assert isinstance(by, str)
+    else:
+        assert isinstance(by, unicode)
     if maxsplit > 0:
         res = newlist_hint(min(maxsplit + 1, len(value)))
     else:
