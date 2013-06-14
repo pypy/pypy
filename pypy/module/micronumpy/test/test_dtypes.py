@@ -706,6 +706,11 @@ class AppTestTypes(BaseAppTestDtypes):
         from numpypy import dtype
         assert dtype('i4').alignment == 4
 
+    def test_isnative(self):
+        from numpypy import dtype
+        assert dtype('i4').isnative == True
+        assert dtype('>i8').isnative == False
+
     def test_any_all(self):
         import numpypy as numpy
         x = numpy.bool_(True)
