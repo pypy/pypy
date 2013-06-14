@@ -13,27 +13,23 @@ def int_p_of_int_w(space, w_int):
     _type_check(space, w_int, space.w_int)
 
     val = space.int_w(w_int)
-    p_int = pterm.Number(val)
-    return p_int
+    return pterm.Number(val)
 
 def float_p_of_float_w(space, w_float):
     _type_check(space, w_float, space.w_float)
 
     val = space.float_w(w_float)
-    p_float = pterm.Float(val)
-    return p_float
+    return pterm.Float(val)
 
 def bigint_p_of_long_w(space, w_long):
     _type_check(space, w_long, space.w_long)
 
     val = space.bigint_w(w_long)
-    p_bigint = pterm.BigInt(val)
-    return p_bigint
+    return pterm.BigInt(val)
 
 def atom_p_of_str_w(space, w_str):
     _type_check(space, w_str, space.w_str)
 
     val = space.str_w(w_str)
-    p_atom = pterm.Atom(val)
-    return p_atom
+    return pterm.Atom(val)
 
