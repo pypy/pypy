@@ -1,7 +1,7 @@
 import sys, py
 
 from rpython.rlib.rstring import StringBuilder, UnicodeBuilder, split, rsplit
-from rpython.rlib.rstring import string_replace
+from rpython.rlib.rstring import replace
 from rpython.rtyper.test.tool import BaseRtypingTest, LLRtypeMixin
 
 def test_split():
@@ -48,37 +48,68 @@ def test_rsplit_unicode():
     py.test.raises(ValueError, rsplit, u"abc", u'')
 
 def test_string_replace():
-    assert string_replace('one!two!three!', '!', '@', 1) == 'one@two!three!'
-    assert string_replace('one!two!three!', '!', '') == 'onetwothree'
-    assert string_replace('one!two!three!', '!', '@', 2) == 'one@two@three!'
-    assert string_replace('one!two!three!', '!', '@', 3) == 'one@two@three@'
-    assert string_replace('one!two!three!', '!', '@', 4) == 'one@two@three@'
-    assert string_replace('one!two!three!', '!', '@', 0) == 'one!two!three!'
-    assert string_replace('one!two!three!', '!', '@') == 'one@two@three@'
-    assert string_replace('one!two!three!', 'x', '@') == 'one!two!three!'
-    assert string_replace('one!two!three!', 'x', '@', 2) == 'one!two!three!'
-    assert string_replace('abc', '', '-') == '-a-b-c-'
-    assert string_replace('abc', '', '-', 3) == '-a-b-c'
-    assert string_replace('abc', '', '-', 0) == 'abc'
-    assert string_replace('', '', '') == ''
-    assert string_replace('', '', 'a') == 'a'
-    assert string_replace('abc', 'ab', '--', 0) == 'abc'
-    assert string_replace('abc', 'xy', '--') == 'abc'
-    assert string_replace('123', '123', '') == ''
-    assert string_replace('123123', '123', '') == ''
-    assert string_replace('123x123', '123', '') == 'x'
+    assert replace('one!two!three!', '!', '@', 1) == 'one@two!three!'
+    assert replace('one!two!three!', '!', '') == 'onetwothree'
+    assert replace('one!two!three!', '!', '@', 2) == 'one@two@three!'
+    assert replace('one!two!three!', '!', '@', 3) == 'one@two@three@'
+    assert replace('one!two!three!', '!', '@', 4) == 'one@two@three@'
+    assert replace('one!two!three!', '!', '@', 0) == 'one!two!three!'
+    assert replace('one!two!three!', '!', '@') == 'one@two@three@'
+    assert replace('one!two!three!', 'x', '@') == 'one!two!three!'
+    assert replace('one!two!three!', 'x', '@', 2) == 'one!two!three!'
+    assert replace('abc', '', '-') == '-a-b-c-'
+    assert replace('abc', '', '-', 3) == '-a-b-c'
+    assert replace('abc', '', '-', 0) == 'abc'
+    assert replace('', '', '') == ''
+    assert replace('', '', 'a') == 'a'
+    assert replace('abc', 'ab', '--', 0) == 'abc'
+    assert replace('abc', 'xy', '--') == 'abc'
+    assert replace('123', '123', '') == ''
+    assert replace('123123', '123', '') == ''
+    assert replace('123x123', '123', '') == 'x'
 
 def test_string_replace_overflow():
     if sys.maxint > 2**31-1:
         py.test.skip("Wrong platform")
     s = "a" * (2**16)
     with py.test.raises(OverflowError):
-        string_replace(s, "", s)
+        replace(s, "", s)
     with py.test.raises(OverflowError):
-        string_replace(s, "a", s)
+        replace(s, "a", s)
     with py.test.raises(OverflowError):
-        string_replace(s, "a", s, len(s) - 10)
+        replace(s, "a", s, len(s) - 10)
 
+def test_unicode_replace():
+    assert replace(u'one!two!three!', u'!', u'@', 1) == u'one@two!three!'
+    assert replace(u'one!two!three!', u'!', u'') == u'onetwothree'
+    assert replace(u'one!two!three!', u'!', u'@', 2) == u'one@two@three!'
+    assert replace(u'one!two!three!', u'!', u'@', 3) == u'one@two@three@'
+    assert replace(u'one!two!three!', u'!', u'@', 4) == u'one@two@three@'
+    assert replace(u'one!two!three!', u'!', u'@', 0) == u'one!two!three!'
+    assert replace(u'one!two!three!', u'!', u'@') == u'one@two@three@'
+    assert replace(u'one!two!three!', u'x', u'@') == u'one!two!three!'
+    assert replace(u'one!two!three!', u'x', u'@', 2) == u'one!two!three!'
+    assert replace(u'abc', u'', u'-') == u'-a-b-c-'
+    assert replace(u'abc', u'', u'-', 3) == u'-a-b-c'
+    assert replace(u'abc', u'', u'-', 0) == u'abc'
+    assert replace(u'', u'', u'') == u''
+    assert replace(u'', u'', u'a') == u'a'
+    assert replace(u'abc', u'ab', u'--', 0) == u'abc'
+    assert replace(u'abc', u'xy', u'--') == u'abc'
+    assert replace(u'123', u'123', u'') == u''
+    assert replace(u'123123', u'123', u'') == u''
+    assert replace(u'123x123', u'123', u'') == u'x'
+
+def test_unicode_replace_overflow():
+    if sys.maxint > 2**31-1:
+        py.test.skip("Wrong platform")
+    s = u"a" * (2**16)
+    with py.test.raises(OverflowError):
+        replace(s, u"", s)
+    with py.test.raises(OverflowError):
+        replace(s, u"a", s)
+    with py.test.raises(OverflowError):
+        replace(s, u"a", s, len(s) - 10)
 
 def test_string_builder():
     s = StringBuilder()
@@ -102,7 +133,7 @@ def test_unicode_builder():
 
 
 class TestTranslates(LLRtypeMixin, BaseRtypingTest):
-    def test_split_rsplit_translate(self):
+    def test_split_rsplit(self):
         def fn():
             res = True
             res = res and split('a//b//c//d', '//') == ['a', 'b', 'c', 'd']
@@ -118,3 +149,13 @@ class TestTranslates(LLRtypeMixin, BaseRtypingTest):
         res = self.interpret(fn, [])
         assert res
 
+    def test_replace(self):
+        def fn():
+            res = True
+            res = res and replace('abc', 'ab', '--', 0) == 'abc'
+            res = res and replace('abc', 'xy', '--') == 'abc'
+            res = res and replace('abc', 'ab', '--', 0) == 'abc'
+            res = res and replace('abc', 'xy', '--') == 'abc'
+            return res
+        res = self.interpret(fn, [])
+        assert res
