@@ -83,6 +83,67 @@ def rsplit(value, by, maxsplit=-1):
     return res
 
 
+@specialize.argtype(0)
+def replace(input, sub, by, maxsplit=-1):
+    if isinstance(input, str):
+        assert isinstance(sub, str)
+        assert isinstance(by, str)
+        Builder = StringBuilder
+    else:
+        assert isinstance(sub, unicode)
+        assert isinstance(by, unicode)
+        Builder = UnicodeBuilder
+    if maxsplit == 0:
+        return input
+
+    if not sub:
+        upper = len(input)
+        if maxsplit > 0 and maxsplit < upper + 2:
+            upper = maxsplit - 1
+            assert upper >= 0
+
+        try:
+            result_size = ovfcheck(upper * len(by))
+            result_size = ovfcheck(result_size + upper)
+            result_size = ovfcheck(result_size + len(by))
+            remaining_size = len(input) - upper
+            result_size = ovfcheck(result_size + remaining_size)
+        except OverflowError:
+            raise
+        builder = Builder(result_size)
+        for i in range(upper):
+            builder.append(by)
+            builder.append(input[i])
+        builder.append(by)
+        builder.append_slice(input, upper, len(input))
+    else:
+        # First compute the exact result size
+        count = input.count(sub)
+        if count > maxsplit and maxsplit > 0:
+            count = maxsplit
+        diff_len = len(by) - len(sub)
+        try:
+            result_size = ovfcheck(diff_len * count)
+            result_size = ovfcheck(result_size + len(input))
+        except OverflowError:
+            raise
+
+        builder = Builder(result_size)
+        start = 0
+        sublen = len(sub)
+
+        while maxsplit != 0:
+            next = input.find(sub, start)
+            if next < 0:
+                break
+            builder.append_slice(input, start, next)
+            builder.append(by)
+            start = next + sublen
+            maxsplit -= 1   # NB. if it's already < 0, it stays < 0
+
+        builder.append_slice(input, start, len(input))
+
+    return builder.build()
 
 
 # -------------- public API ---------------------------------
@@ -304,73 +365,3 @@ class Entry(ExtRegistryEntry):
         hop.exception_cannot_occur()
 
 
-
-def make_replace(func_name, Builder):
-    def replace(input, sub, by, maxsplit=-1):
-        if maxsplit == 0:
-            return input
-
-        if not sub:
-            upper = len(input)
-            if maxsplit > 0 and maxsplit < upper + 2:
-                upper = maxsplit - 1
-                assert upper >= 0
-
-            try:
-                result_size = ovfcheck(upper * len(by))
-                result_size = ovfcheck(result_size + upper)
-                result_size = ovfcheck(result_size + len(by))
-                remaining_size = len(input) - upper
-                result_size = ovfcheck(result_size + remaining_size)
-            except OverflowError:
-                raise
-            builder = Builder(result_size)
-            for i in range(upper):
-                builder.append(by)
-                builder.append(input[i])
-            builder.append(by)
-            builder.append_slice(input, upper, len(input))
-        else:
-            # First compute the exact result size
-            count = input.count(sub)
-            if count > maxsplit and maxsplit > 0:
-                count = maxsplit
-            diff_len = len(by) - len(sub)
-            try:
-                result_size = ovfcheck(diff_len * count)
-                result_size = ovfcheck(result_size + len(input))
-            except OverflowError:
-                raise
-
-            builder = Builder(result_size)
-            start = 0
-            sublen = len(sub)
-
-            while maxsplit != 0:
-                next = input.find(sub, start)
-                if next < 0:
-                    break
-                builder.append_slice(input, start, next)
-                builder.append(by)
-                start = next + sublen
-                maxsplit -= 1   # NB. if it's already < 0, it stays < 0
-
-            builder.append_slice(input, start, len(input))
-
-        return builder.build()
-    replace.func_name = func_name
-    return replace
-
-_string_replace = make_replace("_string_replace", StringBuilder)
-_unicode_replace = make_replace("_unicode_replace", UnicodeBuilder)
-
-@specialize.argtype(0)
-def replace(input, sub, by, maxsplit=-1):
-    if isinstance(input, str):
-        assert isinstance(sub, str)
-        assert isinstance(by, str)
-        return _string_replace(input, sub, by, maxsplit)
-    else:
-        assert isinstance(sub, unicode)
-        assert isinstance(by, unicode)
-        return _unicode_replace(input, sub, by, maxsplit)
