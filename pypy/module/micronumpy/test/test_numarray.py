@@ -2138,6 +2138,9 @@ class AppTestMultiDim(BaseNumpyAppTest):
         a = array([1, 2, 3])
         i = a.__array_interface__
         assert isinstance(i['data'][0], int)
+        assert i['shape'] == (3,)
+        assert i['strides'] == None  # Because array is in C order
+        assert i['typestr'] == a.dtype.str
         a = a[::2]
         i = a.__array_interface__
         assert isinstance(i['data'][0], int)

@@ -324,7 +324,7 @@ class Regalloc(BaseRegalloc):
                 loc = r.fp
             arg = inputargs[i]
             i += 1
-            if loc.is_reg():
+            if loc.is_core_reg():
                 self.rm.reg_bindings[arg] = loc
                 used[loc] = None
             elif loc.is_vfp_reg():
@@ -346,6 +346,8 @@ class Regalloc(BaseRegalloc):
         # note: we need to make a copy of inputargs because possibly_free_vars
         # is also used on op args, which is a non-resizable list
         self.possibly_free_vars(list(inputargs))
+        self.fm.finish_binding()
+        self._check_invariants()
 
     def get_gcmap(self, forbidden_regs=[], noregs=False):
         frame_depth = self.fm.get_frame_depth()
@@ -356,7 +358,7 @@ class Regalloc(BaseRegalloc):
                 continue
             if box.type == REF and self.rm.is_still_alive(box):
                 assert not noregs
-                assert loc.is_reg()
+                assert loc.is_core_reg()
                 val = loc.value
                 gcmap[val // WORD // 8] |= r_uint(1) << (val % (WORD * 8))
         for box, loc in self.fm.bindings.iteritems():
@@ -1152,7 +1154,7 @@ class Regalloc(BaseRegalloc):
             assert isinstance(arg, Box)
             loc = self.loc(arg)
             arglocs[i] = loc
-            if loc.is_reg():
+            if loc.is_core_reg() or loc.is_vfp_reg():
                 self.frame_manager.mark_as_free(arg)
         #
         descr._arm_arglocs = arglocs

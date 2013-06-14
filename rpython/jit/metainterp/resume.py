@@ -451,6 +451,7 @@ class ResumeDataVirtualAdder(object):
 
 class AbstractVirtualInfo(object):
     kind = REF
+    is_about_raw = False
     #def allocate(self, decoder, index):
     #    raise NotImplementedError
     def equals(self, fieldnums):
@@ -461,7 +462,7 @@ class AbstractVirtualInfo(object):
 
     def debug_prints(self):
         raise NotImplementedError
-        
+
 
 class AbstractVirtualStructInfo(AbstractVirtualInfo):
     def __init__(self, fielddescrs):
@@ -547,6 +548,7 @@ class VArrayInfo(AbstractVirtualInfo):
 
 class VRawBufferStateInfo(AbstractVirtualInfo):
     kind = INT
+    is_about_raw = True
     
     def __init__(self, size, offsets, descrs):
         self.size = size
@@ -772,7 +774,9 @@ class AbstractResumeDataReader(object):
         assert self.virtuals_cache is not None
         v = self.virtuals_cache.get_int(index)
         if not v:
-            v = self.rd_virtuals[index].allocate_int(self, index)
+            v = self.rd_virtuals[index]
+            assert v.is_about_raw and isinstance(v, VRawBufferStateInfo)
+            v = v.allocate_int(self, index)
             ll_assert(v == self.virtuals_cache.get_int(index), "resume.py: bad cache")
         return v
 

@@ -418,8 +418,16 @@ class __extend__(W_NDimArray):
         addr = self.implementation.get_storage_as_int(space)
         # will explode if it can't
         w_d = space.newdict()
-        space.setitem_str(w_d, 'data', space.newtuple([space.wrap(addr),
-                                                       space.w_False]))
+        space.setitem_str(w_d, 'data',
+                          space.newtuple([space.wrap(addr), space.w_False]))
+        space.setitem_str(w_d, 'shape', self.descr_get_shape(space))
+        space.setitem_str(w_d, 'typestr', self.get_dtype().descr_get_str(space))
+        if self.implementation.order == 'C':
+            # Array is contiguous, no strides in the interface.
+            strides = space.w_None
+        else:
+            strides = self.descr_get_strides(space)
+        space.setitem_str(w_d, 'strides', strides)
         return w_d
 
     w_pypy_data = None

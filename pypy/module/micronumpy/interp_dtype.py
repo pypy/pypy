@@ -115,6 +115,21 @@ class W_Dtype(W_Root):
             return space.wrap('=')
         return space.wrap(nonnative_byteorder_prefix)
 
+    def descr_get_str(self, space):
+        size = self.get_size()
+        basic = self.kind
+        if basic == UNICODELTR:
+            size >>= 2
+            endian = byteorder_prefix
+        elif size <= 1:
+            endian = '|'  # ignore
+        elif self.native:
+            endian = byteorder_prefix
+        else:
+            endian = nonnative_byteorder_prefix
+
+        return space.wrap("%s%s%s" % (endian, basic, size))
+
     def descr_get_alignment(self, space):
         return space.wrap(self.itemtype.alignment)
 
@@ -421,6 +436,7 @@ W_Dtype.typedef = TypeDef("dtype",
     char = interp_attrproperty("char", cls=W_Dtype),
     type = interp_attrproperty_w("w_box_type", cls=W_Dtype),
     byteorder = GetSetProperty(W_Dtype.descr_get_byteorder),
+    str = GetSetProperty(W_Dtype.descr_get_str),
     itemsize = GetSetProperty(W_Dtype.descr_get_itemsize),
     alignment = GetSetProperty(W_Dtype.descr_get_alignment),
     shape = GetSetProperty(W_Dtype.descr_get_shape),
@@ -582,7 +598,7 @@ class DtypeCache(object):
             alternate_constructors=[space.w_float,
                                     space.gettypefor(interp_boxes.W_NumberBox),
                                    ],
-            aliases=["float"],
+            aliases=["float", "double"],
         )
         self.w_complex64dtype = W_ComplexDtype(
             types.Complex64(),
@@ -663,9 +679,10 @@ class DtypeCache(object):
             char='S',
             w_box_type = space.gettypefor(interp_boxes.W_StringBox),
             alternate_constructors=[space.w_str],
+            aliases=["str"],
         )
         self.w_unicodedtype = W_Dtype(
-            types.UnicodeType(1),
+            types.UnicodeType(0),
             num=19,
             kind=UNICODELTR,
             name='unicode',
