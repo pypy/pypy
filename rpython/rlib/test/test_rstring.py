@@ -1,6 +1,7 @@
 import sys, py
 
 from rpython.rlib.rstring import StringBuilder, UnicodeBuilder, split, rsplit
+from rpython.rlib.rstring import string_replace
 from rpython.rtyper.test.tool import BaseRtypingTest, LLRtypeMixin
 
 def test_split():
@@ -45,6 +46,39 @@ def test_rsplit_unicode():
     assert rsplit(u'a//b//c//d', u'//') == [u'a', u'b', u'c', u'd']
     assert rsplit(u'endcase test', u'test') == [u'endcase ', u'']
     py.test.raises(ValueError, rsplit, u"abc", u'')
+
+def test_string_replace():
+    assert string_replace('one!two!three!', '!', '@', 1) == 'one@two!three!'
+    assert string_replace('one!two!three!', '!', '') == 'onetwothree'
+    assert string_replace('one!two!three!', '!', '@', 2) == 'one@two@three!'
+    assert string_replace('one!two!three!', '!', '@', 3) == 'one@two@three@'
+    assert string_replace('one!two!three!', '!', '@', 4) == 'one@two@three@'
+    assert string_replace('one!two!three!', '!', '@', 0) == 'one!two!three!'
+    assert string_replace('one!two!three!', '!', '@') == 'one@two@three@'
+    assert string_replace('one!two!three!', 'x', '@') == 'one!two!three!'
+    assert string_replace('one!two!three!', 'x', '@', 2) == 'one!two!three!'
+    assert string_replace('abc', '', '-') == '-a-b-c-'
+    assert string_replace('abc', '', '-', 3) == '-a-b-c'
+    assert string_replace('abc', '', '-', 0) == 'abc'
+    assert string_replace('', '', '') == ''
+    assert string_replace('', '', 'a') == 'a'
+    assert string_replace('abc', 'ab', '--', 0) == 'abc'
+    assert string_replace('abc', 'xy', '--') == 'abc'
+    assert string_replace('123', '123', '') == ''
+    assert string_replace('123123', '123', '') == ''
+    assert string_replace('123x123', '123', '') == 'x'
+
+def test_string_replace_overflow():
+    if sys.maxint > 2**31-1:
+        py.test.skip("Wrong platform")
+    s = "a" * (2**16)
+    with py.test.raises(OverflowError):
+        string_replace(s, "", s)
+    with py.test.raises(OverflowError):
+        string_replace(s, "a", s)
+    with py.test.raises(OverflowError):
+        string_replace(s, "a", s, len(s) - 10)
+
 
 def test_string_builder():
     s = StringBuilder()
