@@ -727,26 +727,7 @@ def str_expandtabs__String_ANY(space, w_self, w_tabsize):
 def str_splitlines__String_ANY(space, w_self, w_keepends):
     u_keepends = space.int_w(w_keepends)  # truth value, but type checked
     data = w_self._value
-    selflen = len(data)
-    strs = []
-    i = j = 0
-    while i < selflen:
-        # Find a line and append it
-        while i < selflen and data[i] != '\n' and data[i] != '\r':
-            i += 1
-        # Skip the line break reading CRLF as one line break
-        eol = i
-        i += 1
-        if i < selflen and data[i-1] == '\r' and data[i] == '\n':
-            i += 1
-        if u_keepends:
-            eol = i
-        strs.append(data[j:eol])
-        j = i
-
-    if j < selflen:
-        strs.append(data[j:])
-    return space.newlist_str(strs)
+    return space.newlist_str(data.splitlines(u_keepends))
 
 def str_zfill__String_ANY(space, w_self, w_width):
     input = w_self._value
