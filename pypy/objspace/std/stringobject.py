@@ -16,7 +16,7 @@ from rpython.rlib import jit
 from rpython.rlib.objectmodel import (
     compute_hash, compute_unique_id, specialize)
 from rpython.rlib.rarithmetic import ovfcheck
-from rpython.rlib.rstring import StringBuilder, split, rsplit
+from rpython.rlib.rstring import StringBuilder, split, rsplit, replace
 
 
 class W_AbstractStringObject(W_Object):
@@ -483,75 +483,30 @@ def str_rindex__String_String_ANY_ANY(space, w_self, w_sub, w_start, w_end):
 
     return space.wrap(res)
 
-def _string_replace(space, input, sub, by, maxsplit):
-    if maxsplit == 0:
-        return space.wrap(input)
-
-    if not sub:
-        upper = len(input)
-        if maxsplit > 0 and maxsplit < upper + 2:
-            upper = maxsplit - 1
-            assert upper >= 0
-
-        try:
-            result_size = ovfcheck(upper * len(by))
-            result_size = ovfcheck(result_size + upper)
-            result_size = ovfcheck(result_size + len(by))
-            remaining_size = len(input) - upper
-            result_size = ovfcheck(result_size + remaining_size)
-        except OverflowError:
-            raise OperationError(space.w_OverflowError,
-                space.wrap("replace string is too long")
-            )
-        builder = StringBuilder(result_size)
-        for i in range(upper):
-            builder.append(by)
-            builder.append(input[i])
-        builder.append(by)
-        builder.append_slice(input, upper, len(input))
-    else:
-        # First compute the exact result size
-        count = input.count(sub)
-        if count > maxsplit and maxsplit > 0:
-            count = maxsplit
-        diff_len = len(by) - len(sub)
-        try:
-            result_size = ovfcheck(diff_len * count)
-            result_size = ovfcheck(result_size + len(input))
-        except OverflowError:
-            raise OperationError(space.w_OverflowError,
-                space.wrap("replace string is too long")
-            )
-
-        builder = StringBuilder(result_size)
-        start = 0
-        sublen = len(sub)
-
-        while maxsplit != 0:
-            next = input.find(sub, start)
-            if next < 0:
-                break
-            builder.append_slice(input, start, next)
-            builder.append(by)
-            start = next + sublen
-            maxsplit -= 1   # NB. if it's already < 0, it stays < 0
-
-        builder.append_slice(input, start, len(input))
-
-    return space.wrap(builder.build())
-
 
 def str_replace__String_ANY_ANY_ANY(space, w_self, w_sub, w_by, w_maxsplit):
-    return _string_replace(space, w_self._value, space.buffer_w(w_sub).as_str(),
-                           space.buffer_w(w_by).as_str(),
-                           space.int_w(w_maxsplit))
+    sub = space.buffer_w(w_sub).as_str()
+    by = space.buffer_w(w_by).as_str()
+    maxsplit = space.int_w(w_maxsplit)
+    try:
+        res = replace(w_self._value, sub, by, maxsplit)
+    except OverflowError:
+        raise OperationError(space.w_OverflowError,
+            space.wrap("replace string is too long")
+        )
+    return space.wrap(res)
 
 def str_replace__String_String_String_ANY(space, w_self, w_sub, w_by, w_maxsplit=-1):
-    input = w_self._value
     sub = w_sub._value
     by = w_by._value
     maxsplit = space.int_w(w_maxsplit)
-    return _string_replace(space, input, sub, by, maxsplit)
+    try:
+        res = replace(w_self._value, sub, by, maxsplit)
+    except OverflowError:
+        raise OperationError(space.w_OverflowError,
+            space.wrap("replace string is too long")
+        )
+    return space.wrap(res)
 
 def _strip(space, w_self, w_chars, left, right):
     "internal function called by str_xstrip methods"

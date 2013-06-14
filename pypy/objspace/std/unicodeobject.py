@@ -15,7 +15,7 @@ from rpython.rlib import jit
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rlib.objectmodel import (
     compute_hash, compute_unique_id, specialize)
-from rpython.rlib.rstring import UnicodeBuilder, split, rsplit
+from rpython.rlib.rstring import UnicodeBuilder, split, rsplit, replace
 from rpython.rlib.runicode import make_unicode_escape_function
 from rpython.tool.sourcetools import func_with_new_name
 
@@ -734,26 +734,16 @@ def unicode_rsplit__Unicode_Unicode_ANY(space, w_self, w_by, w_maxsplit=-1):
         raise OperationError(space.w_ValueError, space.wrap("empty separator"))
     return space.newlist_unicode(rsplit(value, by, maxsplit))
 
-def _split_into_chars(self, maxsplit):
-    if maxsplit == 0:
-        return [self]
-    index = 0
-    end = len(self)
-    parts = [u'']
-    maxsplit -= 1
-    while maxsplit != 0:
-        if index >= end:
-            break
-        parts.append(self[index])
-        index += 1
-        maxsplit -= 1
-    parts.append(self[index:])
-    return parts
-
 def unicode_replace__Unicode_Unicode_Unicode_ANY(space, w_self, w_old,
                                                  w_new, w_maxsplit):
-    return _unicode_replace(space, w_self, w_old._value, w_new._value,
-                            w_maxsplit)
+    maxsplit = space.int_w(w_maxsplit)
+    try:
+        return W_UnicodeObject(
+                replace(w_self._value, w_old._value, w_new._value, maxsplit))
+    except OverflowError:
+        raise OperationError(
+            space.w_OverflowError,
+            space.wrap("replace string is too long"))
 
 def unicode_replace__Unicode_ANY_ANY_ANY(space, w_self, w_old, w_new,
                                          w_maxsplit):
@@ -765,26 +755,13 @@ def unicode_replace__Unicode_ANY_ANY_ANY(space, w_self, w_old, w_new,
         new = unicode(space.bufferstr_w(w_new))
     else:
         new = space.unicode_w(w_new)
-    return _unicode_replace(space, w_self, old, new, w_maxsplit)
-
-def _unicode_replace(space, w_self, old, new, w_maxsplit):
-    if len(old):
-        parts = split(w_self._value, old, space.int_w(w_maxsplit))
-    else:
-        self = w_self._value
-        maxsplit = space.int_w(w_maxsplit)
-        parts = _split_into_chars(self, maxsplit)
-
+    maxsplit = space.int_w(w_maxsplit)
     try:
-        one = ovfcheck(len(parts) * len(new))
-        ovfcheck(one + len(w_self._value))
+        return W_UnicodeObject(replace(w_self._value, old, new, maxsplit))
     except OverflowError:
         raise OperationError(
             space.w_OverflowError,
             space.wrap("replace string is too long"))
-
-    return W_UnicodeObject(new.join(parts))
-
 
 def unicode_encode__Unicode_ANY_ANY(space, w_unistr,
                                     w_encoding=None,
