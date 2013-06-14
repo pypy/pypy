@@ -5,35 +5,33 @@ from pypy.objspace.std.floatobject import W_FloatObject
 from pypy.objspace.std.longobject import W_LongObject
 from pypy.objspace.std.stringobject import W_StringObject
 
-# XXX use space.isinstance instead of isinstance
+def _type_check(space, inst, typ):
+    if not space.is_true(space.isinstance(inst, typ)):
+        raise TypeError("%s is not of type %s" % (inst, typ))
 
 def int_p_of_int_w(space, w_int):
-    if not isinstance(w_int, W_IntObject):
-        raise TypeError("int_p_of_int_w: expects a pypy int")
+    _type_check(space, w_int, space.w_int)
 
     val = space.int_w(w_int)
     p_int = pterm.Number(val)
     return p_int
 
 def float_p_of_float_w(space, w_float):
-    if not isinstance(w_float, W_FloatObject):
-        raise TypeError("float_p_of_float_w: expects a pypy float")
+    _type_check(space, w_float, space.w_float)
 
     val = space.float_w(w_float)
     p_float = pterm.Float(val)
     return p_float
 
 def bigint_p_of_long_w(space, w_long):
-    if not isinstance(w_long, W_LongObject):
-        raise TypeError("bigint_p_of_long_w: expects a pypy long")
+    _type_check(space, w_long, space.w_long)
 
     val = space.bigint_w(w_long)
     p_bigint = pterm.BigInt(val)
     return p_bigint
 
 def atom_p_of_str_w(space, w_str):
-    if not isinstance(w_str, W_StringObject):
-        raise TypeError("atom_p_of_str_w: expects a pypy string")
+    _type_check(space, w_str, space.w_str)
 
     val = space.str_w(w_str)
     p_atom = pterm.Atom(val)
