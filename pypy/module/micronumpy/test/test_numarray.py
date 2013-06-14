@@ -2499,6 +2499,13 @@ class AppTestSupport(BaseNumpyAppTest):
         b = a.argsort()
         assert (b[:3] == [0, 100, 200]).all()
 
+    def test_argsort_random(self):
+        from numpypy import array
+        from _random import Random
+        rnd = Random(1)
+        a = array([rnd.random() for i in range(512*2)]).reshape(512,2)
+        a.argsort()
+
     def test_argsort_axis(self):
         from numpypy import array
         a = array([[4, 2], [1, 3]])

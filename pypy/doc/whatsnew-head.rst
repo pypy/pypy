@@ -52,3 +52,7 @@ Skip and fix some non-translated (own) tests for win32 builds
 
 .. branch: ctypes-byref
 Add the '_obj' attribute on ctypes pointer() and byref() objects
+
+.. branch: argsort-segfault
+Fix a segfault in argsort when sorting by chunks on multidim numpypy arrays (mikefc)
+
