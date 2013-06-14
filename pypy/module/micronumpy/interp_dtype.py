@@ -133,6 +133,9 @@ class W_Dtype(W_Root):
     def descr_get_alignment(self, space):
         return space.wrap(self.itemtype.alignment)
 
+    def descr_get_isnative(self, space):
+        return space.wrap(self.native)
+
     def descr_get_base(self, space):
         return space.wrap(self.base)
 
@@ -439,6 +442,7 @@ W_Dtype.typedef = TypeDef("dtype",
     str = GetSetProperty(W_Dtype.descr_get_str),
     itemsize = GetSetProperty(W_Dtype.descr_get_itemsize),
     alignment = GetSetProperty(W_Dtype.descr_get_alignment),
+    isnative = GetSetProperty(W_Dtype.descr_get_isnative),
     shape = GetSetProperty(W_Dtype.descr_get_shape),
     name = interp_attrproperty('name', cls=W_Dtype),
     fields = GetSetProperty(W_Dtype.descr_get_fields),
