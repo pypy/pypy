@@ -32,8 +32,6 @@ def make_sort_function(space, itemtype, comp_type, count=1):
             self.values = values
             self.indexes = indexes
 
-        def __del__(self):
-
         def getitem(self, item):
             if count < 2:
                 v = raw_storage_getitem(TP, self.values, item * self.stride_size
