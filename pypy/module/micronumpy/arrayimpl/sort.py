@@ -33,11 +33,8 @@ def make_sort_function(space, itemtype, comp_type, count=1):
             self.indexes = indexes
 
         def __del__(self):
-            print 'Repr.del',self.values
 
         def getitem(self, item):
-            #print 'getting',item,'of',self.size,self.values
-            #print 'from',item*self.stride_size + self.start,'to',item*(self.stride_size+1) + self.start
             if count < 2:
                 v = raw_storage_getitem(TP, self.values, item * self.stride_size
                                     + self.start)
@@ -79,7 +76,7 @@ def make_sort_function(space, itemtype, comp_type, count=1):
             indexes = dtype.itemtype.malloc(size*dtype.get_size())
             values = alloc_raw_storage(size * stride_size,
                                             track_allocation=False)
-            Repr.__init__(self, index_stride_size, stride_size,
+            Repr.__init__(self, dtype.get_size(), stride_size,
                           size, values, indexes, start, start)
 
         def __del__(self):
@@ -96,12 +93,10 @@ def make_sort_function(space, itemtype, comp_type, count=1):
         return lst.size
 
     def arg_getitem_slice(lst, start, stop):
-        print 'arg_getitem_slice',lst.values
         retval = ArgArrayRepWithStorage(lst.index_stride_size, lst.stride_size,
                 stop-start)
         for i in range(stop-start):
             retval.setitem(i, lst.getitem(i+start))
-        print 'arg_getitem_slice done',lst
         return retval
 
     if count < 2:
@@ -155,16 +150,13 @@ def make_sort_function(space, itemtype, comp_type, count=1):
             stride_size = arr.strides[axis]
             index_stride_size = index_impl.strides[axis]
             axis_size = arr.shape[axis]
-            print '5'
             while not iter.done():
                 for i in range(axis_size):
                     raw_storage_setitem(storage, i * index_stride_size +
                                         index_iter.offset, i)
                 r = Repr(index_stride_size, stride_size, axis_size,
                          arr.get_storage(), storage, index_iter.offset, iter.offset)
-                print '6'
                 ArgSort(r).sort()
-                print '7'
                 iter.next()
                 index_iter.next()
         return index_arr
