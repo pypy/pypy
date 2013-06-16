@@ -116,13 +116,14 @@ def new_array_type(space, w_ctptr, w_length):
 # ____________________________________________________________
 
 SF_MSVC_BITFIELDS = 1
+SF_GCC_ARM_BITFIELDS = 2
 
 if sys.platform == 'win32':
     DEFAULT_SFLAGS = SF_MSVC_BITFIELDS
+elif rffi_platform.getdefined('__arm__', ''):
+    DEFAULT_SFLAGS = SF_GCC_ARM_BITFIELDS
 else:
     DEFAULT_SFLAGS = 0
-
-_ARM = rffi_platform.getdefined('__arm__', '')
 
 @unwrap_spec(name=str)
 def new_struct_type(space, name):
@@ -182,7 +183,7 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
         # field is an anonymous bitfield
         falign = ftype.alignof()
         do_align = True
-        if fbitsize >= 0 and not _ARM:
+        if (sflags & SF_GCC_ARM_BITFIELDS) == 0 and fbitsize >= 0:
             if (sflags & SF_MSVC_BITFIELDS) == 0:
                 # GCC: anonymous bitfields (of any size) don't cause alignment
                 do_align = (fname != '')
