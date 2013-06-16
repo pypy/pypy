@@ -9,13 +9,13 @@ from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std.stringobject import W_StringObject
-from pypy.objspace.std.stringtype import stringendswith, stringstartswith
 from pypy.objspace.std.register_all import register_all
 from rpython.rlib import jit
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rlib.objectmodel import (
     compute_hash, compute_unique_id, specialize)
-from rpython.rlib.rstring import UnicodeBuilder, split, rsplit, replace
+from rpython.rlib.rstring import (UnicodeBuilder, split, rsplit, replace,
+    startswith, endswith)
 from rpython.rlib.runicode import make_unicode_escape_function
 from rpython.tool.sourcetools import func_with_new_name
 
@@ -489,14 +489,14 @@ def _convert_idx_params(space, w_self, w_start, w_end, upper_bound=False):
 def unicode_endswith__Unicode_Unicode_ANY_ANY(space, w_self, w_substr, w_start, w_end):
     self, start, end = _convert_idx_params(space, w_self,
                                                    w_start, w_end, True)
-    return space.newbool(stringendswith(self, w_substr._value, start, end))
+    return space.newbool(endswith(self, w_substr._value, start, end))
 
 def unicode_startswith__Unicode_Unicode_ANY_ANY(space, w_self, w_substr, w_start, w_end):
     self, start, end = _convert_idx_params(space, w_self, w_start, w_end, True)
     # XXX this stuff can be waaay better for ootypebased backends if
     #     we re-use more of our rpython machinery (ie implement startswith
     #     with additional parameters as rpython)
-    return space.newbool(stringstartswith(self, w_substr._value, start, end))
+    return space.newbool(startswith(self, w_substr._value, start, end))
 
 def unicode_startswith__Unicode_ANY_ANY_ANY(space, w_unistr, w_prefixes,
                                               w_start, w_end):
@@ -506,7 +506,7 @@ def unicode_startswith__Unicode_ANY_ANY_ANY(space, w_unistr, w_prefixes,
                                              w_start, w_end, True)
     for w_prefix in space.fixedview(w_prefixes):
         prefix = space.unicode_w(w_prefix)
-        if stringstartswith(unistr, prefix, start, end):
+        if startswith(unistr, prefix, start, end):
             return space.w_True
     return space.w_False
 
@@ -518,7 +518,7 @@ def unicode_endswith__Unicode_ANY_ANY_ANY(space, w_unistr, w_suffixes,
                                              w_start, w_end, True)
     for w_suffix in space.fixedview(w_suffixes):
         suffix = space.unicode_w(w_suffix)
-        if stringendswith(unistr, suffix, start, end):
+        if endswith(unistr, suffix, start, end):
             return space.w_True
     return space.w_False
 

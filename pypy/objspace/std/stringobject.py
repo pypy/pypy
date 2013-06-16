@@ -11,12 +11,13 @@ from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std.stringtype import (
-    joined2, sliced, stringendswith, stringstartswith, wrapchar, wrapstr)
+    joined2, sliced, wrapchar, wrapstr)
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import (
     compute_hash, compute_unique_id, specialize)
 from rpython.rlib.rarithmetic import ovfcheck
-from rpython.rlib.rstring import StringBuilder, split, rsplit, replace
+from rpython.rlib.rstring import (StringBuilder, split, rsplit, replace,
+    endswith, startswith)
 
 
 class W_AbstractStringObject(W_Object):
@@ -593,7 +594,7 @@ def str_count__String_String_ANY_ANY(space, w_self, w_arg, w_start, w_end):
 def str_endswith__String_String_ANY_ANY(space, w_self, w_suffix, w_start, w_end):
     (u_self, start, end) = _convert_idx_params(space, w_self, w_start,
                                                w_end, True)
-    return space.newbool(stringendswith(u_self, w_suffix._value, start, end))
+    return space.newbool(endswith(u_self, w_suffix._value, start, end))
 
 def str_endswith__String_ANY_ANY_ANY(space, w_self, w_suffixes, w_start, w_end):
     if not space.isinstance_w(w_suffixes, space.w_tuple):
@@ -606,14 +607,14 @@ def str_endswith__String_ANY_ANY_ANY(space, w_self, w_suffixes, w_start, w_end):
             return space.call_method(w_u, "endswith", w_suffixes, w_start,
                                      w_end)
         suffix = space.str_w(w_suffix)
-        if stringendswith(u_self, suffix, start, end):
+        if endswith(u_self, suffix, start, end):
             return space.w_True
     return space.w_False
 
 def str_startswith__String_String_ANY_ANY(space, w_self, w_prefix, w_start, w_end):
     (u_self, start, end) = _convert_idx_params(space, w_self, w_start,
                                                w_end, True)
-    return space.newbool(stringstartswith(u_self, w_prefix._value, start, end))
+    return space.newbool(startswith(u_self, w_prefix._value, start, end))
 
 def str_startswith__String_ANY_ANY_ANY(space, w_self, w_prefixes, w_start, w_end):
     if not space.isinstance_w(w_prefixes, space.w_tuple):
@@ -626,7 +627,7 @@ def str_startswith__String_ANY_ANY_ANY(space, w_self, w_prefixes, w_start, w_end
             return space.call_method(w_u, "startswith", w_prefixes, w_start,
                                      w_end)
         prefix = space.str_w(w_prefix)
-        if stringstartswith(u_self, prefix, start, end):
+        if startswith(u_self, prefix, start, end):
             return space.w_True
     return space.w_False
 
