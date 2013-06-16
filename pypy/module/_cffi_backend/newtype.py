@@ -5,6 +5,7 @@ from pypy.interpreter.gateway import unwrap_spec
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rtyper.tool import rffi_platform
 
 from pypy.module._cffi_backend import (ctypeobj, ctypeprim, ctypeptr,
     ctypearray, ctypestruct, ctypevoid, ctypeenum)
@@ -121,6 +122,7 @@ if sys.platform == 'win32':
 else:
     DEFAULT_SFLAGS = 0
 
+_ARM = rffi_platform.getdefined('__arm__', '')
 
 @unwrap_spec(name=str)
 def new_struct_type(space, name):
@@ -180,7 +182,7 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
         # field is an anonymous bitfield
         falign = ftype.alignof()
         do_align = True
-        if fbitsize >= 0:
+        if fbitsize >= 0 and not _ARM:
             if (sflags & SF_MSVC_BITFIELDS) == 0:
                 # GCC: anonymous bitfields (of any size) don't cause alignment
                 do_align = (fname != '')
