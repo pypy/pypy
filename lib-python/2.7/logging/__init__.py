@@ -134,6 +134,11 @@ INFO = 20
 DEBUG = 10
 NOTSET = 0
 
+# NOTE(flaper87): This is different from
+# python's stdlib module since pypy's
+# dicts are much faster when their
+# keys are all of the same type.
+# Introduced in commit 9de7b40c586f
 _levelToName = {
     CRITICAL: 'CRITICAL',
     ERROR: 'ERROR',
@@ -168,7 +173,11 @@ def getLevelName(level):
 
     Otherwise, the string "Level %s" % level is returned.
     """
-    return _levelToName.get(level, ("Level %s" % level))
+
+    # NOTE(flaper87): Check also in _nameToLevel
+    # if value is None.
+    return (_levelToName.get(level) or
+            _nameToLevel.get(level, ("Level %s" % level)))
 
 def addLevelName(level, levelName):
     """
