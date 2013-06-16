@@ -1,3 +1,5 @@
+raise ImportError("please fix the buildbot tests, at least by raising ImportError if tcl.h/tk.h are not there")
+
 # _tkinter package -- low-level interface to libtk and libtcl.
 #
 # This is an internal module, applications should "import Tkinter" instead.
