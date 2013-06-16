@@ -1,5 +1,3 @@
-raise ImportError("please fix the buildbot tests, at least by raising ImportError if tcl.h/tk.h are not there")
-
 # _tkinter package -- low-level interface to libtk and libtcl.
 #
 # This is an internal module, applications should "import Tkinter" instead.
@@ -10,7 +8,12 @@ raise ImportError("please fix the buildbot tests, at least by raising ImportErro
 class TclError(Exception):
     pass
 
-from .tklib import tklib, tkffi
+import cffi
+try:
+    from .tklib import tklib, tkffi
+except cffi.VerificationError:
+    raise ImportError("Tk headers and development libraries are required")
+
 from .app import TkApp
 
 TK_VERSION = tkffi.string(tklib.get_tk_version())
