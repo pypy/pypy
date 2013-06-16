@@ -1,5 +1,6 @@
 """ String builder interface and string functions
 """
+import sys
 
 from rpython.annotator.model import (SomeObject, SomeString, s_None, SomeChar,
     SomeInteger, SomeUnicodeCodePoint, SomeUnicodeString, SomePtr, SomePBC)
@@ -7,6 +8,7 @@ from rpython.rlib.objectmodel import newlist_hint, specialize
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.tool.pairtype import pairtype
+from rpython.rlib import jit
 
 
 # -------------- public API for string functions -----------------------
@@ -144,6 +146,45 @@ def replace(input, sub, by, maxsplit=-1):
         builder.append_slice(input, start, len(input))
 
     return builder.build()
+
+def _normalize_start_end(length, start, end):
+    if start < 0:
+        start += length
+        if start < 0:
+            start = 0
+    if end < 0:
+        end += length
+        if end < 0:
+            end = 0
+    elif end > length:
+        end = length
+    return start, end
+
+@specialize.argtype(0)
+@jit.elidable
+def startswith(u_self, prefix, start=0, end=sys.maxint):
+    length = len(u_self)
+    start, end = _normalize_start_end(length, start, end)
+    stop = start + len(prefix)
+    if stop > end:
+        return False
+    for i in range(len(prefix)):
+        if u_self[start+i] != prefix[i]:
+            return False
+    return True
+
+@specialize.argtype(0)
+@jit.elidable
+def endswith(u_self, suffix, start=0, end=sys.maxint):
+    length = len(u_self)
+    start, end = _normalize_start_end(length, start, end)
+    begin = end - len(suffix)
+    if begin < start:
+        return False
+    for i in range(len(suffix)):
+        if u_self[begin+i] != suffix[i]:
+            return False
+    return True
 
 
 # -------------- public API ---------------------------------

@@ -1,7 +1,7 @@
 import sys, py
 
 from rpython.rlib.rstring import StringBuilder, UnicodeBuilder, split, rsplit
-from rpython.rlib.rstring import replace
+from rpython.rlib.rstring import replace, startswith, endswith
 from rpython.rtyper.test.tool import BaseRtypingTest, LLRtypeMixin
 
 def test_split():
@@ -110,6 +110,37 @@ def test_unicode_replace_overflow():
         replace(s, u"a", s)
     with py.test.raises(OverflowError):
         replace(s, u"a", s, len(s) - 10)
+
+def test_startswith():
+    assert startswith('ab', 'ab') is True
+    assert startswith('ab', 'a') is True
+    assert startswith('ab', '') is True
+    assert startswith('x', 'a') is False
+    assert startswith('x', 'x') is True
+    assert startswith('', '') is True
+    assert startswith('', 'a') is False
+    assert startswith('x', 'xx') is False
+    assert startswith('y', 'xx') is False
+    assert startswith('ab', 'a', 0) is True
+    assert startswith('ab', 'a', 1) is False
+    assert startswith('ab', 'b', 1) is True
+    assert startswith('abc', 'bc', 1, 2) is False
+    assert startswith('abc', 'c', -1, 4) is True
+
+def test_endswith():
+    assert endswith('ab', 'ab') is True
+    assert endswith('ab', 'b') is True
+    assert endswith('ab', '') is True
+    assert endswith('x', 'a') is False
+    assert endswith('x', 'x') is True
+    assert endswith('', '') is True
+    assert endswith('', 'a') is False
+    assert endswith('x', 'xx') is False
+    assert endswith('y', 'xx') is False
+    assert endswith('abc', 'ab', 0, 2) is True
+    assert endswith('abc', 'bc', 1) is True
+    assert endswith('abc', 'bc', 2) is False
+    assert endswith('abc', 'b', -3, -1) is True
 
 def test_string_builder():
     s = StringBuilder()
