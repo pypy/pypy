@@ -1,6 +1,7 @@
 import prolog.interpreter.term as pterm
 
 def _type_check(space, inst, typ):
+    # XXX do the right thing with the exception
     if not space.is_true(space.isinstance(inst, typ)):
         raise TypeError("%s is not of type %s" % (inst, typ))
 
