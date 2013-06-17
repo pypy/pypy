@@ -395,28 +395,3 @@ str_typedef = StdTypeDef("bytes",
 str_typedef.registermethods(globals())
 
 
-# ____________________________________________________________
-
-# Helpers for several string implementations
-
-@specialize.argtype(0)
-@jit.elidable
-def stringendswith(u_self, suffix, start, end):
-    begin = end - len(suffix)
-    if begin < start:
-        return False
-    for i in range(len(suffix)):
-        if u_self[begin+i] != suffix[i]:
-            return False
-    return True
-
-@specialize.argtype(0)
-@jit.elidable
-def stringstartswith(u_self, prefix, start, end):
-    stop = start + len(prefix)
-    if stop > end:
-        return False
-    for i in range(len(prefix)):
-        if u_self[start+i] != prefix[i]:
-            return False
-    return True
