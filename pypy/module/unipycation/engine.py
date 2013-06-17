@@ -10,6 +10,10 @@ def engine_new__(space, w_subtype, __args__):
     e = W_Engine(space, w_anything)
     return space.wrap(e)
 
+def printmessage(x):
+    print(type(x))
+    print(x)
+
 class W_Engine(W_Root):
     def __init__(self, space, w_anything):
         self.space = space                      # Stash space
@@ -19,7 +23,10 @@ class W_Engine(W_Root):
     def query(self, w_anything):
         query_raw = self.space.str_w(w_anything)
         goals, var_to_pos = self.engine.parse(query_raw)
-        for g in goals: pmain.run(g, var_to_pos, self.engine)
+
+        cont = pmain.ContinueContinuation(self.engine, var_to_pos, printmessage)
+        for g in goals:
+            self.engine.run(g, self.engine.modulewrapper.current_module, cont)
 
 W_Engine.typedef = TypeDef("Engine",
     __new__ = interp2app(engine_new__),
