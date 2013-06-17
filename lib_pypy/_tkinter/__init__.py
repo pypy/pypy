@@ -8,7 +8,12 @@
 class TclError(Exception):
     pass
 
-from .tklib import tklib, tkffi
+import cffi
+try:
+    from .tklib import tklib, tkffi
+except cffi.VerificationError:
+    raise ImportError("Tk headers and development libraries are required")
+
 from .app import TkApp
 
 TK_VERSION = tkffi.string(tklib.get_tk_version())

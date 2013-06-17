@@ -2767,10 +2767,10 @@ def _test_bitfield_details(flag):
                                        ('b1', BInt, 9),
                                        ('b2', BUInt, 7),
                                        ('c', BChar, -1)], -1, -1, -1, flag)
-    if flag == 0:   # gcc
+    if flag % 2 == 0:   # gcc and gcc ARM
         assert typeoffsetof(BStruct, 'c') == (BChar, 3)
         assert sizeof(BStruct) == 4
-    else:           # msvc
+    else:               # msvc
         assert typeoffsetof(BStruct, 'c') == (BChar, 8)
         assert sizeof(BStruct) == 12
     assert alignof(BStruct) == 4
@@ -2783,7 +2783,10 @@ def _test_bitfield_details(flag):
     if flag == 0:   # gcc
         assert sizeof(BStruct) == 5
         assert alignof(BStruct) == 1
-    else:           # msvc
+    elif flag == 1: # msvc
+        assert sizeof(BStruct) == 6
+        assert alignof(BStruct) == 2
+    else:           # gcc ARM
         assert sizeof(BStruct) == 6
         assert alignof(BStruct) == 2
     #
@@ -2795,10 +2798,15 @@ def _test_bitfield_details(flag):
     if flag == 0:   # gcc
         assert typeoffsetof(BStruct, 'c') == (BChar, 4)
         assert sizeof(BStruct) == 5
-    else:           # msvc
+        assert alignof(BStruct) == 1
+    elif flag == 1:  # msvc
         assert typeoffsetof(BStruct, 'c') == (BChar, 1)
         assert sizeof(BStruct) == 2
-    assert alignof(BStruct) == 1
+        assert alignof(BStruct) == 1
+    else:            # gcc ARM
+        assert typeoffsetof(BStruct, 'c') == (BChar, 4)
+        assert sizeof(BStruct) == 8
+        assert alignof(BStruct) == 4
 
 
 def test_bitfield_as_gcc():
@@ -2806,6 +2814,9 @@ def test_bitfield_as_gcc():
 
 def test_bitfield_as_msvc():
     _test_bitfield_details(flag=1)
+
+def test_bitfield_as_arm_gcc():
+    _test_bitfield_details(flag=2)
 
 
 def test_version():

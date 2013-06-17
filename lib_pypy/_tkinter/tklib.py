@@ -31,13 +31,13 @@ typedef struct Tcl_Obj {
     char *bytes;
     int length;
     Tcl_ObjType *typePtr;
-    union {			/* The internal representation: */
-	long longValue;		/*   - an long integer value. */
-	double doubleValue;	/*   - a double-precision floating value. */
-	struct {		/*   - internal rep as two pointers. */
-	    void *ptr1;
-	    void *ptr2;
-	} twoPtrValue;
+    union {                     /* The internal representation: */
+        long longValue;         /*   - an long integer value. */
+        double doubleValue;     /*   - a double-precision floating value. */
+        struct {                /*   - internal rep as two pointers. */
+            void *ptr1;
+            void *ptr2;
+        } twoPtrValue;
     } internalRep;
     ...;
 } Tcl_Obj;
