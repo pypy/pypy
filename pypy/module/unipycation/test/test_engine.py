@@ -8,4 +8,3 @@ class AppTestEngine(object):
         import unipycation
         e = unipycation.Engine("likes(bob, jazz). likes(jim, funk).")
         assert isinstance(e, unipycation.Engine)
-        
