@@ -626,9 +626,10 @@ class AppTestImport(BaseImportTest):
         assert 'settrace' in dir(sys)
 
     def test_reload_builtin_doesnt_clear(self):
+        import imp
         import sys
         sys.foobar = "baz"
-        reload(sys)
+        imp.reload(sys)
         assert sys.foobar == "baz"
 
     def test_reimport_builtin_simple_case_1(self):
@@ -648,7 +649,7 @@ class AppTestImport(BaseImportTest):
 
     def test_reimport_builtin(self):
         skip("fix me")
-        import sys, time
+        import imp, sys, time
         oldpath = sys.path
         time.tzset = "<test_reimport_builtin removed this>"
 
@@ -658,7 +659,7 @@ class AppTestImport(BaseImportTest):
 
         assert time.tzset == "<test_reimport_builtin removed this>"
 
-        reload(time1)   # don't leave a broken time.tzset behind
+        imp.reload(time1)   # don't leave a broken time.tzset behind
         import time
         assert time.tzset != "<test_reimport_builtin removed this>"
 
