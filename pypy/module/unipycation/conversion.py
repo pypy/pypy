@@ -1,10 +1,5 @@
 import prolog.interpreter.term as pterm
 
-from pypy.objspace.std.intobject import W_IntObject
-from pypy.objspace.std.floatobject import W_FloatObject
-from pypy.objspace.std.longobject import W_LongObject
-from pypy.objspace.std.stringobject import W_StringObject
-
 def _type_check(space, inst, typ):
     if not space.is_true(space.isinstance(inst, typ)):
         raise TypeError("%s is not of type %s" % (inst, typ))
