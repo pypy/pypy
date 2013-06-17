@@ -221,13 +221,9 @@ class IndexIterator(object):
         self.shape = shape
         self.index = [0] * len(shape)
         self.backward = backward
-        self.called = False
 
     def next(self):
         # TODO It's probably possible to refactor all the "next" method from each iterator
-        if not self.called:
-            self.called = True
-            return
         for i in range(len(self.shape) - 1, -1, -1):
             if self.index[i] < self.shape[i] - 1:
                 self.index[i] += 1
@@ -236,8 +232,6 @@ class IndexIterator(object):
                 self.index[i] = 0
 
     def getvalue(self):
-        if not self.called:
-            return 0
         if not self.backward:
             ret = self.index[-1]
             for i in range(len(self.shape) - 2, -1, -1):
@@ -265,6 +259,7 @@ class W_NDIter(W_Root):
         self.zerosize_ok = False
         self.index_iter = None
         self.done = False
+        self.first_next = True
         if space.isinstance_w(w_seq, space.w_tuple) or \
            space.isinstance_w(w_seq, space.w_list):
             w_seq_as_list = space.listview(w_seq)
@@ -293,8 +288,12 @@ class W_NDIter(W_Root):
         return space.wrap(self)
 
     def descr_getitem(self, space, w_idx):
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            'not implemented yet'))
+        idx = space.int_w(w_idx)
+        try:
+            ret = space.wrap(self.iters[idx].getitem(space, self.seq[idx]))
+        except IndexError:
+            raise OperationError(space.w_IndexError, space.wrap("Iterator operand index %d is out of bounds" % idx))
+        return ret
 
     def descr_setitem(self, space, w_idx, w_value):
         raise OperationError(space.w_NotImplementedError, space.wrap(
@@ -313,7 +312,10 @@ class W_NDIter(W_Root):
             raise OperationError(space.w_StopIteration, space.w_None)
         res = []
         if self.index_iter:
-            self.index_iter.next()
+            if not self.first_next:
+                self.index_iter.next()
+            else:
+                self.first_next = False
         for i in range(len(self.iters)):
             res.append(self.iters[i].getitem(space, self.seq[i]))
             self.iters[i].next()
@@ -321,9 +323,21 @@ class W_NDIter(W_Root):
             return res[0]
         return space.newtuple(res)
 
+    def iternext(self):
+        if self.index_iter:
+            self.index_iter.next()
+        for i in range(len(self.iters)):
+            self.iters[i].next()
+        for it in self.iters:
+            if not it.done():
+                break
+        else:
+            self.done = True
+            return self.done
+        return self.done
+
     def descr_iternext(self, space):
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            'not implemented yet'))
+        return space.wrap(self.iternext())
 
     def descr_copy(self, space):
         raise OperationError(space.w_NotImplementedError, space.wrap(
@@ -359,8 +373,7 @@ class W_NDIter(W_Root):
             'not implemented yet'))
 
     def descr_get_finished(self, space):
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            'not implemented yet'))
+        return space.wrap(self.done)
 
     def descr_get_has_delayed_bufalloc(self, space):
         raise OperationError(space.w_NotImplementedError, space.wrap(
