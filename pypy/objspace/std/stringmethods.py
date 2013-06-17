@@ -524,7 +524,6 @@ class StringMethods(object):
     def descr_rsplit(self, space, w_sep=None, maxsplit=-1):
         res = []
         value = self._val()
-        length = len(value)
         if space.is_none(w_sep):
             i = len(value)-1
             while True:

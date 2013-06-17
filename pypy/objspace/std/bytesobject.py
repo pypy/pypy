@@ -1,29 +1,19 @@
 """The builtin str implementation"""
 
-from sys import maxint
 from pypy.interpreter.buffer import StringBuffer
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import operationerrfmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
-from pypy.objspace.std import newformat, slicetype
+from pypy.objspace.std import newformat
 from pypy.objspace.std.basestringtype import basestring_typedef
 from pypy.objspace.std.formatting import mod_format
-from pypy.objspace.std.inttype import wrapint
 from pypy.objspace.std.model import W_Object, registerimplementation
-from pypy.objspace.std.multimethod import FailedToImplement
-from pypy.objspace.std.noneobject import W_NoneObject
-from pypy.objspace.std.register_all import register_all
-from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
-from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
+from pypy.objspace.std.stdtypedef import StdTypeDef
 from pypy.objspace.std.stringmethods import StringMethods
 from pypy.objspace.std.unicodeobject import (unicode_from_string,
     decode_object, _get_encoding_and_errors)
-from rpython.rlib import jit
 from rpython.rlib.jit import we_are_jitted
-from rpython.rlib.objectmodel import (compute_hash, compute_unique_id,
-        specialize)
-from rpython.rlib.rarithmetic import ovfcheck
-from rpython.rlib.rstring import (StringBuilder, split, rsplit, replace,
-    endswith, startswith)
+from rpython.rlib.objectmodel import compute_hash, compute_unique_id
+from rpython.rlib.rstring import StringBuilder
 
 
 class W_AbstractBytesObject(W_Object):
@@ -330,8 +320,6 @@ If the argument is a string, the return value is the same object.''',
     __buffer__ = interp2app(W_BytesObject.descr_buffer),
     __getnewargs__ = interp2app(W_BytesObject.descr_getnewargs),
 )
-
-str_typedef.registermethods(globals())
 
 
 def string_escape_encode(s, quote):
