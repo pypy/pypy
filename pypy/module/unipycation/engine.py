@@ -4,10 +4,8 @@ from pypy.interpreter.baseobjspace import W_Root
 
 def engine_new__(space, w_subtype, __args__):
     w_anything = __args__.firstarg()                                            
-    x = space.allocate_instance(W_Engine, w_subtype)                            
-    x = space.interp_w(W_Engine, x)                                             
-    W_Engine.__init__(x, space, w_anything)                                     
-    return space.wrap(x)
+    e = W_Engine(space, w_anything)
+    return space.wrap(e)
 
 class W_Engine(W_Root):
     def __init__(self, space, w_anything):
@@ -16,3 +14,5 @@ class W_Engine(W_Root):
 W_Engine.typedef = TypeDef("Engine",
     __new__ = interp2app(engine_new__)
 )
+
+W_Engine.typedef.acceptable_as_base_class = False
