@@ -134,6 +134,9 @@ class W_BytesObject(W_AbstractBytesObject, StringMethods):
         else:
             return ch
 
+    def _newlist_unwrapped(self, space, lst):
+        return space.newlist_str(lst)
+
     @staticmethod
     @unwrap_spec(w_object = WrappedDefault(""))
     def descr_new(space, w_stringtype, w_object):

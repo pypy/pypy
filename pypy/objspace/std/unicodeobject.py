@@ -119,6 +119,9 @@ class W_UnicodeObject(W_Object, StringMethods):
     def _lower(self, ch):
         return unichr(unicodedb.tolower(ord(ch)))
 
+    def _newlist_unwrapped(self, space, lst):
+        return space.newlist_unicode(lst)
+
     def descr_repr(self, space):
         chars = self._value
         size = len(chars)
@@ -863,6 +866,7 @@ def _split_into_chars(self, maxsplit):
     return parts
 
 def _split_with(self, with_, maxsplit=-1):
+    xxx # remove
     parts = []
     start = 0
     end = len(self)
@@ -910,6 +914,7 @@ def unicode_replace__Unicode_ANY_ANY_ANY(space, w_self, w_old, w_new,
 
 
 def unicode_expandtabs__Unicode_ANY(space, w_self, tabsize):
+    xxx # remove
     self = w_self._value
     parts = _split_with(self, u'\t')
     result = [parts[0]]

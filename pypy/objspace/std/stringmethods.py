@@ -6,7 +6,7 @@ from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import ovfcheck
-from rpython.rlib.rstring import split
+from rpython.rlib.rstring import split, rsplit, replace, startswith, endswith
 
 
 class StringMethods(object):
@@ -473,62 +473,12 @@ class StringMethods(object):
         input = self._val()
         sub = self._op_val(space, w_old)
         by = self._op_val(space, w_new)
-
-        if count == 0:
-            return space.wrap(input)
-
-        if not sub:
-            upper = len(input)
-            if count > 0 and count < upper + 2:
-                upper = count - 1
-                assert upper >= 0
-
-            try:
-                result_size = ovfcheck(upper * len(by))
-                result_size = ovfcheck(result_size + upper)
-                result_size = ovfcheck(result_size + len(by))
-                remaining_size = len(input) - upper
-                result_size = ovfcheck(result_size + remaining_size)
-            except OverflowError:
-                raise OperationError(space.w_OverflowError,
-                    space.wrap("replace string is too long")
-                )
-            builder = self._builder(result_size)
-            for i in range(upper):
-                builder.append(by)
-                builder.append(input[i])
-            builder.append(by)
-            builder.append_slice(input, upper, len(input))
-        else:
-            # First compute the exact result size
-            count2 = input.count(sub)
-            if count2 > count and count > 0:
-                count2 = count
-            diff_len = len(by) - len(sub)
-            try:
-                result_size = ovfcheck(diff_len * count2)
-                result_size = ovfcheck(result_size + len(input))
-            except OverflowError:
-                raise OperationError(space.w_OverflowError,
-                    space.wrap("replace string is too long")
-                )
-
-            builder = self._builder(result_size)
-            start = 0
-            sublen = len(sub)
-
-            while count != 0:
-                next = input.find(sub, start)
-                if next < 0:
-                    break
-                builder.append_slice(input, start, next)
-                builder.append(by)
-                start = next + sublen
-                count -= 1   # NB. if it's already < 0, it stays < 0
-
-            builder.append_slice(input, start, len(input))
-
-        return space.wrap(builder.build())
+        try:
+            res = replace(input, sub, by, count)
+        except OverflowError:
+            raise OperationError(space.w_OverflowError,
+                                 space.wrap("replace string is too long"))
+        return space.wrap(res)
 
     @unwrap_spec(maxsplit=int)
     def descr_split(self, space, w_sep=None, maxsplit=-1):
@@ -561,35 +511,18 @@ class StringMethods(object):
                 # continue to look from the character following the space after the word
                 i = j + 1
 
-            return space.newlist_str(res)
+            return self._newlist_unwrapped(space, res)
 
         by = self._op_val(space, w_sep)
         bylen = len(by)
         if bylen == 0:
             raise OperationError(space.w_ValueError, space.wrap("empty separator"))
-        if bylen == 1 and maxsplit < 0:
-            res = []
-            start = 0
-            # fast path: uses str.rfind(character) and str.count(character)
-            by = by[0]    # annotator hack: string -> char
-            count = value.count(by)
-            res = [None] * (count + 1)
-            end = len(value)
-            while count >= 0:
-                assert end >= 0
-                prev = value.rfind(by, 0, end)
-                start = prev + 1
-                assert start >= 0
-                res[count] = value[start:end]
-                count -= 1
-                end = prev
-        else:
-            res = split(value, by, maxsplit)
-        return space.newlist_str(res)
+        res = split(value, by, maxsplit)
+        return self._newlist_unwrapped(space, res)
 
     @unwrap_spec(maxsplit=int)
     def descr_rsplit(self, space, w_sep=None, maxsplit=-1):
-        res_w = []
+        res = []
         value = self._val()
         length = len(value)
         if space.is_none(w_sep):
@@ -616,41 +549,26 @@ class StringMethods(object):
                 # the word is value[j+1:i+1]
                 j1 = j + 1
                 assert j1 >= 0
-                res_w.append(self._sliced(space, value, j1, i+1, self))
+                res.append(value[j1:i+1])
 
                 # continue to look from the character before the space before the word
                 i = j - 1
 
-            res_w.reverse()
-            return space.newlist(res_w)
+            res.reverse()
+            return self._newlist_unwrapped(space, res)
 
         by = self._op_val(space, w_sep)
         bylen = len(by)
-
-        value = self._value
-        end = len(value)
-        by = w_sep._value
-        bylen = len(by)
         if bylen == 0:
             raise OperationError(space.w_ValueError, space.wrap("empty separator"))
-
-        while maxsplit != 0:
-            next = value.rfind(by, 0, end)
-            if next < 0:
-                break
-            res_w.append(self._sliced(space, value, next+bylen, end, self))
-            end = next
-            maxsplit -= 1   # NB. if it's already < 0, it stays < 0
-
-        res_w.append(self._sliced(space, value, 0, end, self))
-        res_w.reverse()
-        return space.newlist(res_w)
+        res = rsplit(value, by, maxsplit)
+        return self._newlist_unwrapped(space, res)
 
     @unwrap_spec(keepends=bool)
     def descr_splitlines(self, space, keepends=False):
         data = self._value
         selflen = len(data)
-        strs_w = []
+        strs = []
         i = j = 0
         while i < selflen:
             # Find a line and append it
@@ -663,12 +581,12 @@ class StringMethods(object):
                 i += 1
             if keepends:
                 eol = i
-            strs_w.append(self._sliced(space, data, j, eol, self))
+            strs.append(data[j:eol])
             j = i
 
         if j < selflen:
-            strs_w.append(self._sliced(space, data, j, len(data), self))
-        return space.newlist(strs_w)
+            strs.append(data[j:len(data)])
+        return self._newlist_unwrapped(space, strs)
 
     def descr_startswith(self, space, w_prefix, w_start=None, w_end=None):
         (value, start, end) = self._convert_idx_params(space, w_start, w_end,
@@ -681,14 +599,7 @@ class StringMethods(object):
         return space.newbool(self._startswith(space, value, w_prefix, start, end))
 
     def _startswith(self, space, value, w_prefix, start, end):
-        prefix = self._op_val(space, w_prefix)
-        stop = start + len(prefix)
-        if stop > end:
-            return False
-        for i in range(len(prefix)):
-            if value[start+i] != prefix[i]:
-                return False
-        return True
+        return startswith(value, self._op_val(space, w_prefix), start, end)
 
     def descr_endswith(self, space, w_suffix, w_start=None, w_end=None):
         (value, start, end) = self._convert_idx_params(space, w_start,
@@ -701,15 +612,8 @@ class StringMethods(object):
             return space.w_False
         return space.newbool(self._endswith(space, value, w_suffix, start, end))
 
-    def _endswith(self, space, value, w_suffix, start, end):
-        suffix = self._op_val(space, w_suffix)
-        begin = end - len(suffix)
-        if begin < start:
-            return False
-        for i in range(len(suffix)):
-            if value[begin+i] != suffix[i]:
-                return False
-        return True
+    def _endswith(self, space, value, w_prefix, start, end):
+        return endswith(value, self._op_val(space, w_prefix), start, end)
 
     def _strip(self, space, w_chars, left, right):
         "internal function called by str_xstrip methods"
