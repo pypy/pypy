@@ -6,7 +6,10 @@ class AppTestEngine(object):
 
     def test_basic(self):
         import unipycation
+
         e = unipycation.Engine("likes(mac, jazz). likes(bob, jazz). likes(jim, funk).")
         assert isinstance(e, unipycation.Engine)
 
         e.query("likes(X, jazz).")
+
+        e.print_last_result()
