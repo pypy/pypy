@@ -63,4 +63,5 @@ class defaultdict(dict):
 
            This API is used by pickle.py and copy.py.
         """
-        return (type(self), (self._default_factory,), None, None, self.items())
+        return (type(self), (self._default_factory,), None, None,
+                iter(self.items()))
