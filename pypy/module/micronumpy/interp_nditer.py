@@ -264,6 +264,7 @@ class W_NDIter(W_Root):
         self.reduce_ok = False
         self.zerosize_ok = False
         self.index_iter = None
+        self.done = False
         if space.isinstance_w(w_seq, space.w_tuple) or \
            space.isinstance_w(w_seq, space.w_list):
             w_seq_as_list = space.listview(w_seq)
@@ -308,6 +309,7 @@ class W_NDIter(W_Root):
             if not it.done():
                 break
         else:
+            self.done = True
             raise OperationError(space.w_StopIteration, space.w_None)
         res = []
         if self.index_iter:
@@ -370,6 +372,8 @@ class W_NDIter(W_Root):
     def descr_get_index(self, space):
         if self.tracked_index == "":
             raise OperationError(space.w_ValueError, space.wrap("Iterator does not have an index"))
+        if self.done:
+            raise OperationError(space.w_ValueError, space.wrap("Iterator is past the end"))
         return space.wrap(self.index_iter.getvalue())
 
     def descr_get_has_multi_index(self, space):

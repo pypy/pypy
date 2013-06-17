@@ -76,6 +76,12 @@ class AppTestNDIter(BaseNumpyAppTest):
         for value in it:
             r.append((value, it.index))
         assert r == [(0, 0), (1, 1), (2, 2), (3, 3), (4, 4), (5, 5)]
+        exc = None
+        try:
+            it.index
+        except ValueError, e:
+            exc = e
+        assert exc
 
         r = []
         it = nditer(a, flags=['f_index'])
