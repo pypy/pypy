@@ -745,21 +745,21 @@ def unicode_splitlines__Unicode_ANY(space, w_self, w_keepends):
             if (self[pos] == u'\r' and pos + 1 < end and
                 self[pos + 1] == u'\n'):
                 # Count CRLF as one linebreak
-                lines.append(W_UnicodeObject(self[start:pos + keepends * 2]))
+                lines.append(self[start:pos + keepends * 2])
                 pos += 1
             else:
-                lines.append(W_UnicodeObject(self[start:pos + keepends]))
+                lines.append(self[start:pos + keepends])
             pos += 1
             start = pos
         else:
             pos += 1
     if not unicodedb.islinebreak(ord(self[end - 1])):
-        lines.append(W_UnicodeObject(self[start:]))
-    return space.newlist(lines)
+        lines.append(self[start:])
+    return space.newlist_unicode(lines)
 
 def unicode_split__Unicode_None_ANY(space, w_self, w_none, w_maxsplit):
     maxsplit = space.int_w(w_maxsplit)
-    res_w = []
+    res = []
     value = w_self._value
     length = len(value)
     i = 0
@@ -782,12 +782,12 @@ def unicode_split__Unicode_None_ANY(space, w_self, w_none, w_maxsplit):
             maxsplit -= 1   # NB. if it's already < 0, it stays < 0
 
         # the word is value[i:j]
-        res_w.append(W_UnicodeObject(value[i:j]))
+        res.append(value[i:j])
 
         # continue to look from the character following the space after the word
         i = j + 1
 
-    return space.newlist(res_w)
+    return space.newlist_unicode(res)
 
 def unicode_split__Unicode_Unicode_ANY(space, w_self, w_delim, w_maxsplit):
     self = w_self._value
@@ -797,13 +797,13 @@ def unicode_split__Unicode_Unicode_ANY(space, w_self, w_delim, w_maxsplit):
     if delim_len == 0:
         raise OperationError(space.w_ValueError,
                              space.wrap('empty separator'))
-    parts = _split_with(self, delim, maxsplit)
-    return space.newlist([W_UnicodeObject(part) for part in parts])
+    parts = split(self, delim, maxsplit)
+    return space.newlist_unicode(parts)
 
 
 def unicode_rsplit__Unicode_None_ANY(space, w_self, w_none, w_maxsplit):
     maxsplit = space.int_w(w_maxsplit)
-    res_w = []
+    res = []
     value = w_self._value
     i = len(value)-1
     while True:
@@ -828,13 +828,13 @@ def unicode_rsplit__Unicode_None_ANY(space, w_self, w_none, w_maxsplit):
         # the word is value[j+1:i+1]
         j1 = j + 1
         assert j1 >= 0
-        res_w.append(W_UnicodeObject(value[j1:i+1]))
+        res.append(value[j1:i+1])
 
         # continue to look from the character before the space before the word
         i = j - 1
 
-    res_w.reverse()
-    return space.newlist(res_w)
+    res.reverse()
+    return space.newlist_unicode(res)
 
 def sliced(space, s, start, stop, orig_obj):
     assert start >= 0
@@ -879,8 +879,14 @@ def _split_with(self, with_, maxsplit=-1):
 
 def unicode_replace__Unicode_Unicode_Unicode_ANY(space, w_self, w_old,
                                                  w_new, w_maxsplit):
-    return _unicode_replace(space, w_self, w_old._value, w_new._value,
-                            w_maxsplit)
+    maxsplit = space.int_w(w_maxsplit)
+    try:
+        return W_UnicodeObject(
+                replace(w_self._value, w_old._value, w_new._value, maxsplit))
+    except OverflowError:
+        raise OperationError(
+            space.w_OverflowError,
+            space.wrap("replace string is too long"))
 
 def unicode_replace__Unicode_ANY_ANY_ANY(space, w_self, w_old, w_new,
                                          w_maxsplit):
@@ -892,19 +898,9 @@ def unicode_replace__Unicode_ANY_ANY_ANY(space, w_self, w_old, w_new,
         new = unicode(space.bufferstr_w(w_new))
     else:
         new = space.unicode_w(w_new)
-    return _unicode_replace(space, w_self, old, new, w_maxsplit)
-
-def _unicode_replace(space, w_self, old, new, w_maxsplit):
-    if len(old):
-        parts = _split_with(w_self._value, old, space.int_w(w_maxsplit))
-    else:
-        self = w_self._value
-        maxsplit = space.int_w(w_maxsplit)
-        parts = _split_into_chars(self, maxsplit)
-
+    maxsplit = space.int_w(w_maxsplit)
     try:
-        one = ovfcheck(len(parts) * len(new))
-        ovfcheck(one + len(w_self._value))
+        return W_UnicodeObject(replace(w_self._value, old, new, maxsplit))
     except OverflowError:
         raise OperationError(
             space.w_OverflowError,

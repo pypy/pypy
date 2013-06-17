@@ -22,7 +22,8 @@ from rpython.rlib.jit import we_are_jitted
 from rpython.rlib.objectmodel import (compute_hash, compute_unique_id,
         specialize)
 from rpython.rlib.rarithmetic import ovfcheck
-from rpython.rlib.rstring import StringBuilder, split
+from rpython.rlib.rstring import (StringBuilder, split, rsplit, replace,
+    endswith, startswith)
 
 
 class W_AbstractBytesObject(W_Object):
