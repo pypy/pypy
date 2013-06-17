@@ -7,5 +7,5 @@ class AppTestEngine(object):
     def test_basic(self):
         import unipycation
         e = unipycation.Engine("likes(bob, jazz). likes(jim, funk).")
-        assert True
+        assert isinstance(e, unipycation.Engine)
         
