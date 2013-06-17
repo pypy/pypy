@@ -9,23 +9,10 @@ from rpython.jit.backend.test.support import CCompiledMixin
 from rpython.jit.codewriter.policy import StopAtXPolicy
 
 
-def fix_annotator_for_vrawbuffer(monkeypatch):
-    from rpython.rlib.nonconst import NonConstant
-    from rpython.jit.metainterp.optimizeopt.virtualize import VRawBufferValue
-    from rpython.jit.metainterp import warmspot
-
-    def my_hook_for_tests(cpu):
-        # this is needed so that the annotator can see it
-        if NonConstant(False):
-            v = VRawBufferValue(cpu, None, -1, None, None)
-    monkeypatch.setattr(warmspot, 'hook_for_tests', my_hook_for_tests)
-
-
 class TranslationTest(CCompiledMixin):
     CPUClass = getcpuclass()
 
-    def test_stuff_translates(self, monkeypatch):
-        fix_annotator_for_vrawbuffer(monkeypatch)
+    def test_stuff_translates(self):
         # this is a basic test that tries to hit a number of features and their
         # translation:
         # - jitting of loops and bridges
@@ -102,10 +89,9 @@ class TranslationTest(CCompiledMixin):
 class TranslationTestCallAssembler(CCompiledMixin):
     CPUClass = getcpuclass()
 
-    def test_direct_assembler_call_translates(self, monkeypatch):
+    def test_direct_assembler_call_translates(self):
         """Test CALL_ASSEMBLER and the recursion limit"""
         from rpython.rlib.rstackovf import StackOverflow
-        fix_annotator_for_vrawbuffer(monkeypatch)
 
         class Thing(object):
             def __init__(self, val):
@@ -183,8 +169,7 @@ class TranslationTestCallAssembler(CCompiledMixin):
 class TranslationTestJITStats(CCompiledMixin):
     CPUClass = getcpuclass()
 
-    def test_jit_get_stats(self, monkeypatch):
-        fix_annotator_for_vrawbuffer(monkeypatch)
+    def test_jit_get_stats(self):
         driver = JitDriver(greens = [], reds = ['i'])
 
         def f():
@@ -207,8 +192,7 @@ class TranslationTestJITStats(CCompiledMixin):
 class TranslationRemoveTypePtrTest(CCompiledMixin):
     CPUClass = getcpuclass()
 
-    def test_external_exception_handling_translates(self, monkeypatch):
-        fix_annotator_for_vrawbuffer(monkeypatch)
+    def test_external_exception_handling_translates(self):
         jitdriver = JitDriver(greens = [], reds = ['n', 'total'])
 
         class ImDone(Exception):

@@ -227,18 +227,6 @@ class RegAlloc(BaseRegalloc):
         else:
             return self.xrm.make_sure_var_in_reg(var, forbidden_vars)
 
-    def _frame_bindings(self, locs, inputargs):
-        bindings = {}
-        i = 0
-        for loc in locs:
-            if loc is None:
-                continue
-            arg = inputargs[i]
-            i += 1
-            if not isinstance(loc, RegLoc):
-                bindings[arg] = loc
-        return bindings
-
     def _update_bindings(self, locs, inputargs):
         # XXX this should probably go to llsupport/regalloc.py
         used = {}

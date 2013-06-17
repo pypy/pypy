@@ -278,6 +278,24 @@ class BuiltinLevelsTest(BaseTest):
     def test_invalid_name(self):
         self.assertRaises(TypeError, logging.getLogger, any)
 
+    def test_get_level_name(self):
+        """Test getLevelName returns level constant."""
+        # NOTE(flaper87): Bug #1517
+        self.assertEqual(logging.getLevelName('NOTSET'), 0)
+        self.assertEqual(logging.getLevelName('DEBUG'), 10)
+        self.assertEqual(logging.getLevelName('INFO'), 20)
+        self.assertEqual(logging.getLevelName('WARN'), 30)
+        self.assertEqual(logging.getLevelName('WARNING'), 30)
+        self.assertEqual(logging.getLevelName('ERROR'), 40)
+        self.assertEqual(logging.getLevelName('CRITICAL'), 50)
+
+        self.assertEqual(logging.getLevelName(0), 'NOTSET')
+        self.assertEqual(logging.getLevelName(10), 'DEBUG')
+        self.assertEqual(logging.getLevelName(20), 'INFO')
+        self.assertEqual(logging.getLevelName(30), 'WARNING')
+        self.assertEqual(logging.getLevelName(40), 'ERROR')
+        self.assertEqual(logging.getLevelName(50), 'CRITICAL')
+
 class BasicFilterTest(BaseTest):
 
     """Test the bundled Filter class."""

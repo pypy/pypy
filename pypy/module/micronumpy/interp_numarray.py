@@ -418,8 +418,16 @@ class __extend__(W_NDimArray):
         addr = self.implementation.get_storage_as_int(space)
         # will explode if it can't
         w_d = space.newdict()
-        space.setitem_str(w_d, 'data', space.newtuple([space.wrap(addr),
-                                                       space.w_False]))
+        space.setitem_str(w_d, 'data',
+                          space.newtuple([space.wrap(addr), space.w_False]))
+        space.setitem_str(w_d, 'shape', self.descr_get_shape(space))
+        space.setitem_str(w_d, 'typestr', self.get_dtype().descr_get_str(space))
+        if self.implementation.order == 'C':
+            # Array is contiguous, no strides in the interface.
+            strides = space.w_None
+        else:
+            strides = self.descr_get_strides(space)
+        space.setitem_str(w_d, 'strides', strides)
         return w_d
 
     w_pypy_data = None
@@ -786,6 +794,7 @@ class __extend__(W_NDimArray):
         from rpython.rtyper.lltypesystem import rffi
         from rpython.rlib.rstring import StringBuilder
         from pypy.interpreter.mixedmodule import MixedModule
+        from pypy.module.micronumpy.arrayimpl.concrete import SliceArray
 
         numpypy = space.getbuiltinmodule("_numpypy")
         assert isinstance(numpypy, MixedModule)
@@ -796,7 +805,14 @@ class __extend__(W_NDimArray):
         parameters = space.newtuple([space.gettypefor(W_NDimArray), space.newtuple([space.wrap(0)]), space.wrap("b")])
 
         builder = StringBuilder()
-        builder.append_charpsize(self.implementation.get_storage(), self.implementation.get_storage_size())
+        if isinstance(self.implementation, SliceArray):
+            iter = self.implementation.create_iter()
+            while not iter.done():
+                box = iter.getitem()
+                builder.append(box.raw_str())
+                iter.next()
+        else:
+            builder.append_charpsize(self.implementation.get_storage(), self.implementation.get_storage_size())
 
         state = space.newtuple([
                 space.wrap(1),      # version

@@ -1911,6 +1911,31 @@ class LLtypeBackendTest(BaseBackendTest):
                                      [BoxPtr(x)], 'int').value
         assert res == -19
 
+    def test_cast_int_to_float(self):
+        if not self.cpu.supports_floats:
+            py.test.skip("requires floats")
+        for x in [-10, -1, 0, 3, 42, sys.maxint-1]:
+            res = self.execute_operation(rop.CAST_INT_TO_FLOAT,
+                                         [BoxInt(x)],  'float').value
+            assert longlong.getrealfloat(res) == float(x)
+            # --- the front-end never generates CAST_INT_TO_FLOAT(Const)
+            #res = self.execute_operation(rop.CAST_INT_TO_FLOAT,
+            #                             [ConstInt(x)],  'float').value
+            #assert longlong.getrealfloat(res) == float(x)
+
+    def test_cast_float_to_int(self):
+        if not self.cpu.supports_floats:
+            py.test.skip("requires floats")
+        for x in [-24.23, -5.3, 0.0, 3.1234, 11.1, 0.1]:
+            v = longlong.getfloatstorage(x)
+            res = self.execute_operation(rop.CAST_FLOAT_TO_INT,
+                                         [BoxFloat(v)],  'int').value
+            assert res == int(x)
+            # --- the front-end never generates CAST_FLOAT_TO_INT(Const)
+            #res = self.execute_operation(rop.CAST_FLOAT_TO_INT,
+            #                             [ConstFloat(v)],  'int').value
+            #assert res == int(x)
+
     def test_convert_float_bytes(self):
         if not self.cpu.supports_floats:
             py.test.skip("requires floats")
