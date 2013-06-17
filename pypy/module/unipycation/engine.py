@@ -3,7 +3,16 @@ from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.baseobjspace import W_Root
 
 import prolog.interpreter.continuation as pcont
-import prolog.interpreter.translatedmain as pmain
+
+class UnipycationContinuation(pcont.Continuation):                                       
+    def __init__(self, engine, var_to_pos, write):                              
+        pcont.Continuation.__init__(self, engine, pcont.DoneSuccessContinuation(engine))    
+        self.var_to_pos = var_to_pos                                            
+        self.write = write                  
+
+    def activate(self, fcont, heap):
+        print(fcont)    # XXX unpack this and expose to Python
+        return pcont.DoneSuccessContinuation(self.engine), fcont, heap
 
 def engine_new__(space, w_subtype, __args__):
     w_anything = __args__.firstarg()                                            
@@ -24,7 +33,7 @@ class W_Engine(W_Root):
         query_raw = self.space.str_w(w_anything)
         goals, var_to_pos = self.engine.parse(query_raw)
 
-        cont = pmain.ContinueContinuation(self.engine, var_to_pos, printmessage)
+        cont =UnipycationContinuation(self.engine, var_to_pos, printmessage)
         for g in goals:
             self.engine.run(g, self.engine.modulewrapper.current_module, cont)
 
