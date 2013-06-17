@@ -163,13 +163,12 @@ class W_ListObject(W_Root):
             self.switch_to_object_strategy()
         return self
 
-    @staticmethod
-    def newlist_str(space, list_s):
-        # XXX: StringListStrategy is currently broken
-        #strategy = space.fromcache(StringListStrategy)
-        strategy = space.fromcache(UnicodeListStrategy)
-        storage = strategy.erase(list_s)
-        return W_ListObject.from_storage_and_strategy(space, storage, strategy)
+    # XXX: StringListStrategy is currently broken
+    #@staticmethod
+    #def newlist_str(space, list_s):
+    #    strategy = space.fromcache(StringListStrategy)
+    #    storage = strategy.erase(list_s)
+    #    return W_ListObject.from_storage_and_strategy(space, storage, strategy)
 
     @staticmethod
     def newlist_unicode(space, list_u):
