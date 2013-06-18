@@ -1,5 +1,6 @@
 import pypy.module.unipycation.conversion as conv
 import prolog.interpreter.term as pterm
+import pytest
 
 class TestTypeConversion(object):
     spaceconfig = dict(usemodules=('unipycation',))
@@ -103,5 +104,10 @@ class TestTypeConversion(object):
         w_str = conv.w_of_p(self.space, p_atom)
 
         assert self.space.str_w(w_str) == "Wibble"
+
+    @pytest.mark.xfail
+    def test_w_of_p_fails(self):
+        p_val = 666            # clearly not a prolog type
+        w_boom = conv.w_of_p(self.space, p_val)
 
 
