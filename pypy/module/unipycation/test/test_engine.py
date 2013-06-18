@@ -10,7 +10,7 @@ class AppTestEngine(object):
         e = unipycation.Engine("likes(mac, jazz). likes(bob, jazz). likes(jim, funk).")
         assert isinstance(e, unipycation.Engine)
 
-        e.query("likes(X, jazz).")
+        res = e.query("likes(X, jazz).")
 
-        #e.print_last_result()
-        assert e.result["X"] == "mac"
+        print(res)
+        assert res["X"] == "mac"

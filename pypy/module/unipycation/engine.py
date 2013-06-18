@@ -24,7 +24,7 @@ class W_Engine(W_Root):
     def __init__(self, space, w_anything):
         self.space = space                      # Stash space
         self.engine = e = pcont.Engine()        # We embed an instance of prolog
-        self.result = None                      # When we have a result, we will stash it here
+        self.d_result = None                    # When we have a result, we will stash it here
         e.runstring(space.str_w(w_anything))    # Load the database with the first arg
 
     def query(self, w_anything):
@@ -35,11 +35,13 @@ class W_Engine(W_Root):
         for g in goals:
             self.engine.run(g, self.engine.modulewrapper.current_module, cont)
 
+        return self.d_result
+
     def populate_result(self, var_to_pos, heap):
         from prolog.builtin import formatting
 
         f = formatting.TermFormatter(self.engine, quoted=True, max_depth=20)
-        self.result = dict()
+        self.d_result = self.space.newdict()
         for var, real_var in var_to_pos.iteritems():
             if var.startswith("_"):
                 continue
@@ -48,7 +50,7 @@ class W_Engine(W_Root):
             if isinstance(value, pterm.AttVar):
                 raise TypeError("XXX: What is an AttVar?")
             else:
-                self.result[var] = val
+                self.space.setitem(self.d_result, self.space.wrap(var), self.space.wrap(val))
 
     #def descr_getitem(self, space, w_key):
     #    print(type(w_key))
