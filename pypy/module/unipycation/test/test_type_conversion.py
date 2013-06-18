@@ -93,3 +93,15 @@ class TestTypeConversion(object):
         unwrap2 = self.space.str_w(w_str)
 
         assert unwrap1 == unwrap2
+
+    # --------------------------
+    # Test high level converions
+    # --------------------------
+
+    def test_w_of_p(self):
+        p_atom = pterm.Atom("Wibble")
+        w_str = conv.w_of_p(self.space, p_atom)
+
+        assert self.space.str_w(w_str) == "Wibble"
+
+

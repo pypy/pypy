@@ -1,4 +1,5 @@
 import prolog.interpreter.term as pterm
+from pypy.interpreter.error import OperationError
 
 def _type_check(space, inst, typ):
     # XXX do the right thing with the exception
@@ -52,3 +53,18 @@ def w_long_of_p_bigint(space, p_bigint):
 def w_str_of_p_atom(space, p_atom):
     # XXX type check
     return space.wrap(p_atom._signature.name)
+
+w_of_p_map = {
+        pterm.Number : w_int_of_p_int,    
+        pterm.Float : w_float_of_p_float,
+        pterm.BigInt : w_long_of_p_bigint,
+        pterm.Atom : w_str_of_p_atom,
+}
+
+def w_of_p(space, p_anything):
+    try:
+        func = w_of_p_map[type(p_anything)]
+    except KeyError:
+        raise OperationError(space.TypeError, "Don't know how to convert that")
+    return func(space, p_anything)
+
