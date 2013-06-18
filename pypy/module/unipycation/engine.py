@@ -39,36 +39,20 @@ class W_Engine(W_Root):
         return self.d_result
 
     def populate_result(self, var_to_pos, heap):
-        from prolog.builtin import formatting
 
-        #f = formatting.TermFormatter(self.engine, quoted=True, max_depth=20)
         self.d_result = self.space.newdict()
         for var, real_var in var_to_pos.iteritems():
-            if var.startswith("_"):
-                continue
+            if var.startswith("_"): continue
 
             w_var = self.space.wrap(var)
             w_val = conv.w_str_of_p_atom(self.space, real_var.dereference(heap))
-            #val = f.format(value)
-            #if isinstance(value, pterm.AttVar):
-            #    raise TypeError("XXX: What is an AttVar?")
-            #else:
             self.space.setitem(self.d_result, w_var, w_val)
-
-    #def descr_getitem(self, space, w_key):
-    #    print(type(w_key))
-    #    print(type(space.str_w(w_key)))
-    #    print("XXX::::")
-    #    print(type(self.result["X"]))
-    #    return self.result[w_key]
-    #    return None
 
     def print_last_result(self):
         print(self.result)
 
 W_Engine.typedef = TypeDef("Engine",
     __new__ = interp2app(engine_new__),
-    #__getitem__ = interp2app(W_Engine.descr_getitem),
     query = interp2app(W_Engine.query),
     print_last_result = interp2app(W_Engine.print_last_result),
 )
