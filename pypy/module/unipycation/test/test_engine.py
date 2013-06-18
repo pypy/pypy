@@ -12,4 +12,5 @@ class AppTestEngine(object):
 
         e.query("likes(X, jazz).")
 
-        e.print_last_result()
+        #e.print_last_result()
+        assert e.result["X"] == "mac"
