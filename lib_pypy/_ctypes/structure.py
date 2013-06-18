@@ -20,7 +20,7 @@ def names_and_fields(self, _fields_, superclass, anonymous_fields=None):
                 or tp._type_ not in "iIhHbBlLqQ"):
                 #XXX: are those all types?
                 #     we just dont get the type name
-                #     in the interp levle thrown TypeError
+                #     in the interp level thrown TypeError
                 #     from rawffi if there are more
                 raise TypeError('bit fields not allowed for type ' + tp.__name__)
 
