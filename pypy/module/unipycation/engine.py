@@ -45,7 +45,7 @@ class W_Engine(W_Root):
             if var.startswith("_"): continue
 
             w_var = self.space.wrap(var)
-            w_val = conv.w_str_of_p_atom(self.space, real_var.dereference(heap))
+            w_val = conv.w_of_p(self.space, real_var.dereference(heap))
             self.space.setitem(self.d_result, w_var, w_val)
 
     def print_last_result(self):
