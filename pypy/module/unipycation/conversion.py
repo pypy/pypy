@@ -66,3 +66,5 @@ def w_of_p(space, p_anything):
     else:
         OperationError(space.TypeError, "Don't know how to convert that")
 
+
+# XXX p_of_w
