@@ -4,6 +4,7 @@ from pypy.interpreter.baseobjspace import W_Root
 
 import prolog.interpreter.continuation as pcont
 import prolog.interpreter.term as pterm
+import pypy.module.unipycation.conversion as conv
 
 class UnipycationContinuation(pcont.Continuation):
     def __init__(self, engine, var_to_pos, w_engine):
@@ -40,17 +41,19 @@ class W_Engine(W_Root):
     def populate_result(self, var_to_pos, heap):
         from prolog.builtin import formatting
 
-        f = formatting.TermFormatter(self.engine, quoted=True, max_depth=20)
+        #f = formatting.TermFormatter(self.engine, quoted=True, max_depth=20)
         self.d_result = self.space.newdict()
         for var, real_var in var_to_pos.iteritems():
             if var.startswith("_"):
                 continue
-            value = real_var.dereference(heap)
-            val = f.format(value)
-            if isinstance(value, pterm.AttVar):
-                raise TypeError("XXX: What is an AttVar?")
-            else:
-                self.space.setitem(self.d_result, self.space.wrap(var), self.space.wrap(val))
+
+            w_var = self.space.wrap(var)
+            w_val = conv.w_str_of_p_atom(self.space, real_var.dereference(heap))
+            #val = f.format(value)
+            #if isinstance(value, pterm.AttVar):
+            #    raise TypeError("XXX: What is an AttVar?")
+            #else:
+            self.space.setitem(self.d_result, w_var, w_val)
 
     #def descr_getitem(self, space, w_key):
     #    print(type(w_key))
