@@ -4,6 +4,7 @@ from pypy.interpreter.baseobjspace import W_Root
 
 import prolog.interpreter.continuation as pcont
 import prolog.interpreter.term as pterm
+import prolog.interpreter.error as perr
 import pypy.module.unipycation.conversion as conv
 
 class UnipycationContinuation(pcont.Continuation):
@@ -13,7 +14,6 @@ class UnipycationContinuation(pcont.Continuation):
         self.w_engine = w_engine
 
     def activate(self, fcont, heap):
-        print("activate")
         self.w_engine.populate_result(self.var_to_pos, heap)
         return pcont.DoneSuccessContinuation(self.engine), fcont, heap
 
@@ -36,8 +36,11 @@ class W_Engine(W_Root):
         cont = UnipycationContinuation(self.engine, var_to_pos, self)
         self.d_result = self.space.newdict()
         for g in goals:
-            print("A goal")
-            self.engine.run(g, self.engine.modulewrapper.current_module, cont)
+            try:
+                self.engine.run(g, self.engine.modulewrapper.current_module, cont)
+            except perr.UnificationFailed:
+                self.d_result = None
+                break
 
         return self.d_result
 
