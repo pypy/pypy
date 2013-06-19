@@ -1268,6 +1268,16 @@ class AppTestW_ListObject(object):
     def test_use_method_for_wrong_object(self):
         raises(TypeError, list.append, 1, 2)
 
+    def test_ne_NotImplemented(self):
+        class NonList(object):
+            pass
+        non_list = NonList()
+        assert [] != non_list
+
+    def test_nan_containment(self):
+        nan = float('nan')
+        assert nan in [nan]
+
     def test_issue1266(self):
         l = list(range(1))
         l.pop()
