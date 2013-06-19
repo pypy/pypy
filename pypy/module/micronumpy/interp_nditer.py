@@ -274,7 +274,11 @@ class W_NDIter(W_Root):
         if self.tracked_index != "":
             if self.order == "K":
                 self.order = self.seq[0].implementation.order
-            self.index_iter = IndexIterator(iter_shape, backward=self.order != self.tracked_index)
+            if self.tracked_index == "multi":
+                backward = False
+            else:
+                backward = self.order != self.tracked_index
+            self.index_iter = IndexIterator(iter_shape, backward=backward)
         if self.external_loop:
             for i in range(len(self.seq)):
                 self.iters.append(ExternalLoopIterator(get_external_loop_iter(space, self.order,
@@ -300,8 +304,7 @@ class W_NDIter(W_Root):
             'not implemented yet'))
 
     def descr_len(self, space):
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            'not implemented yet'))
+        space.wrap(len(self.iters))
 
     def descr_next(self, space):
         for it in self.iters:
@@ -369,8 +372,10 @@ class W_NDIter(W_Root):
             'not implemented yet'))
 
     def descr_get_dtypes(self, space):
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            'not implemented yet'))
+        res = [None] * len(self.seq)
+        for i in range(len(self.seq)):
+            res[i] = self.seq[i].descr_get_dtype(space)
+        return space.newtuple(res)
 
     def descr_get_finished(self, space):
         return space.wrap(self.done)
@@ -380,22 +385,24 @@ class W_NDIter(W_Root):
             'not implemented yet'))
 
     def descr_get_has_index(self, space):
-        return space.wrap(not self.tracked_index == "")
+        return space.wrap(self.tracked_index in ["C", "F"])
 
     def descr_get_index(self, space):
-        if self.tracked_index == "":
+        if not self.tracked_index in ["C", "F"]:
             raise OperationError(space.w_ValueError, space.wrap("Iterator does not have an index"))
         if self.done:
             raise OperationError(space.w_ValueError, space.wrap("Iterator is past the end"))
         return space.wrap(self.index_iter.getvalue())
 
     def descr_get_has_multi_index(self, space):
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            'not implemented yet'))
+        return space.wrap(self.tracked_index == "multi")
 
     def descr_get_multi_index(self, space):
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            'not implemented yet'))
+        if not self.tracked_index == "multi":
+            raise OperationError(space.w_ValueError, space.wrap("Iterator is not tracking a multi-index"))
+        if self.done:
+            raise OperationError(space.w_ValueError, space.wrap("Iterator is past the end"))
+        return space.newtuple([space.wrap(x) for x in self.index_iter.index])
 
     def descr_get_iterationneedsapi(self, space):
         raise OperationError(space.w_NotImplementedError, space.wrap(
