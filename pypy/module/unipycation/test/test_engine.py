@@ -21,6 +21,18 @@ class AppTestEngine(object):
         res = e.query("f(X, Y).")
         assert res["X"] == 1
 
+    def test_basic_3(self):
+        import unipycation
+
+        e = unipycation.Engine("f(1.23456)")
+        assert isinstance(e, unipycation.Engine)
+
+        print(72 * "-")
+        res = e.query("f(X)")
+        print(res)
+        print(72 * "-")
+        assert res["X"] == 1.23456
+
     def test_anonymous(self):
         import unipycation
 
