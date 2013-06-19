@@ -15,7 +15,8 @@ from pypy.module._rawffi.interp_rawffi import unpack_shape_with_length
 from pypy.module._rawffi.interp_rawffi import size_alignment, LL_TYPEMAP
 from pypy.module._rawffi.interp_rawffi import unroll_letters_for_numbers
 from rpython.rlib import clibffi
-from rpython.rlib.rarithmetic import intmask, r_uint, signedtype, widen
+from rpython.rlib.rarithmetic import intmask, signedtype, widen
+from rpython.rlib.rarithmetic import r_uint, r_ulonglong, r_longlong
 
 def unpack_fields(space, w_fields):
     fields_w = space.unpackiterable(w_fields)
@@ -260,10 +261,17 @@ W_Structure.typedef.acceptable_as_base_class = False
 
 def LOW_BIT(x):
     return x & 0xFFFF
+
 def NUM_BITS(x):
     return x >> 16
-def BIT_MASK(x):
-    return (1 << x) - 1
+
+def BIT_MASK(x, ll_t):
+    if ll_t is lltype.SignedLongLong:
+        return (r_longlong(1) << x) - 1
+    elif ll_t is lltype.UnsignedLongLong:
+        return (r_ulonglong(1) << x) - 1
+    return (1  << x) -1
+BIT_MASK._annspecialcase_ = 'specialize:arg(1)'
 
 def push_field(self, num, value):
     ptr = rffi.ptradd(self.ll_buffer, self.shape.ll_positions[num])
@@ -279,8 +287,9 @@ def push_field(self, num, value):
             lowbit = LOW_BIT(bitsize)
             if numbits:
                 value = widen(value)
+                bitmask = BIT_MASK(numbits, TP)
+                #
                 current = widen(rffi.cast(T, ptr)[0])
-                bitmask = BIT_MASK(numbits)
                 current &= ~ (bitmask << lowbit)
                 current |= (value & bitmask) << lowbit
                 value = rffi.cast(TP, current)
@@ -301,13 +310,16 @@ def cast_pos(self, i, ll_t):
             numbits = NUM_BITS(bitsize)
             lowbit = LOW_BIT(bitsize)
             if numbits:
-                value = widen(value)
+                value = widen(rffi.cast(ll_t, value))
+                bitmask = BIT_MASK(numbits, ll_t)
+                #
                 value >>= lowbit
-                value &= BIT_MASK(numbits)
+                value &= bitmask
                 if ll_t is lltype.Bool or signedtype(ll_t._type):
                     sign = (value >> (numbits - 1)) & 1
                     if sign:
-                        value = value - (1 << numbits)
+                        one = r_longlong(1) if ll_t is lltype.SignedLongLong else 1
+                        value = value - (one << numbits)
                 value = rffi.cast(ll_t, value)
             break
 
