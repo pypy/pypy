@@ -1,5 +1,8 @@
 import prolog.interpreter.term as pterm
+
 from pypy.interpreter.error import OperationError
+from pypy.interpreter.baseobjspace import W_Root
+
 import pypy.module.unipycation.util as util
 
 def _w_type_check(space, inst, typ):
@@ -41,6 +44,13 @@ def p_atom_of_w_str(space, w_str):
     return pterm.Atom(val)
 
 def p_of_w(space, w_anything):
+    w_ConversionError = util.get_from_module(space, "unipycation", "ConversionError")
+
+    # we have to check this first or space.isinstance will throw AttributeError
+    # if w_anything is not a pypy object
+    if not isinstance(w_anything, W_Root):
+        raise OperationError(w_ConversionError, "%s is not a pypy type, can't convert")
+
     if space.is_true(space.isinstance(w_anything, space.w_int)):
         return p_number_of_w_int(space, w_anything)
     elif space.is_true(space.isinstance(w_anything, space.w_float)):
@@ -50,10 +60,8 @@ def p_of_w(space, w_anything):
     elif space.is_true(space.isinstance(w_anything, space.w_str)):
         return p_atom_of_w_str(space, w_anything)
     else:
-        w_ConversionError = util.get_from_module(space, "unipycation", "ConversionError")
         raise OperationError(w_ConversionError,
-                "Don't know how to convert %s to prolog type" % p_anything)
-
+                "Don't know how to convert wrapped %s to prolog type" % p_anything)
 
 # -----------------------------
 # Convert from Prolog to Python
