@@ -7,6 +7,11 @@ def _w_type_check(space, inst, typ):
         w_ConversionError = util.get_from_module(space, "unipycation", "ConversionError")
         raise OperationError(w_ConversionError, "%s is not of type %s" % (inst, typ))
 
+def _p_type_check(inst, typ):
+    if not isinstance(inst, typ):
+        w_ConversionError = util.get_from_module(space, "unipycation", "ConversionError")
+        raise OperationError(w_ConversionError, "%s is not of type %s" % (inst, typ))
+
 # -----------------------------
 # Convert from Python to Prolog
 # -----------------------------
@@ -40,19 +45,19 @@ def p_atom_of_w_str(space, w_str):
 # -----------------------------
 
 def w_int_of_p_int(space, p_int):
-    # XXX type check
+    _p_type_check(p_int, pterm.Number)
     return space.newint(p_int.num)
 
 def w_float_of_p_float(space, p_float):
-    # XXX type check
+    _p_type_check(p_float, pterm.Float)
     return space.newfloat(p_float.floatval)
 
 def w_long_of_p_bigint(space, p_bigint):
-    # XXX type check
+    _p_type_check(p_bigint, pterm.BigInt)
     return space.newlong_from_rbigint(p_bigint.value)
 
 def w_str_of_p_atom(space, p_atom):
-    # XXX type check
+    _p_type_check(p_atom, pterm.Atom)
     return space.wrap(p_atom._signature.name)
 
 def w_of_p(space, p_anything):
