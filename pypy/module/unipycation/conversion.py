@@ -2,35 +2,35 @@ import prolog.interpreter.term as pterm
 from pypy.interpreter.error import OperationError
 import pypy.module.unipycation.util as util
 
-def _type_check(space, inst, typ):
-    # XXX do the right thing with the exception
+def _w_type_check(space, inst, typ):
     if not space.is_true(space.isinstance(inst, typ)):
-        raise TypeError("%s is not of type %s" % (inst, typ))
+        w_ConversionError = util.get_from_module(space, "unipycation", "ConversionError")
+        raise OperationError(w_ConversionError, "%s is not of type %s" % (inst, typ))
 
 # -----------------------------
 # Convert from Python to Prolog
 # -----------------------------
 
 def p_int_of_w_int(space, w_int):
-    _type_check(space, w_int, space.w_int)
+    _w_type_check(space, w_int, space.w_int)
 
     val = space.int_w(w_int)
     return pterm.Number(val)
 
 def p_float_of_w_float(space, w_float):
-    _type_check(space, w_float, space.w_float)
+    _w_type_check(space, w_float, space.w_float)
 
     val = space.float_w(w_float)
     return pterm.Float(val)
 
 def p_bigint_of_w_long(space, w_long):
-    _type_check(space, w_long, space.w_long)
+    _w_type_check(space, w_long, space.w_long)
 
     val = space.bigint_w(w_long)
     return pterm.BigInt(val)
 
 def p_atom_of_w_str(space, w_str):
-    _type_check(space, w_str, space.w_str)
+    _w_type_check(space, w_str, space.w_str)
 
     val = space.str_w(w_str)
     return pterm.Atom(val)
