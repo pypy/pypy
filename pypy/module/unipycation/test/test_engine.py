@@ -1,5 +1,4 @@
 import pypy.module.unipycation.engine as eng
-#from prolog.interpreter.continuation import Engine
 
 class AppTestEngine(object):
     spaceconfig = dict(usemodules=('unipycation',))
@@ -11,9 +10,7 @@ class AppTestEngine(object):
         assert isinstance(e, unipycation.Engine)
 
         res = e.query("likes(X, jazz).")
-
-        print(res)
-        assert res["X"] in ["mac", "bob"]
+        assert res["X"] == "mac"
 
     def test_basic_2(self):
         import unipycation
@@ -22,9 +19,7 @@ class AppTestEngine(object):
         assert isinstance(e, unipycation.Engine)
 
         res = e.query("f(X, Y).")
-
-        print(res)
-        assert res["X"] in [1, 2, 3]
+        assert res["X"] == 1
 
     def test_anonymous(self):
         import unipycation
@@ -33,31 +28,22 @@ class AppTestEngine(object):
         assert isinstance(e, unipycation.Engine)
 
         res = e.query("f(_, Y).")
-
-        print(res)
-        assert res["Y"] in ["a", "b", "c"]
+        assert res["Y"] == "a"
 
     def test_tautology(self):
         import unipycation
 
-        print(72 * "-")
         e = unipycation.Engine("f(1).")
         assert isinstance(e, unipycation.Engine)
 
         res = e.query("f(_)")
-
-        print(res)
         assert res == {}
-
 
     def test_false(self):
         import unipycation
 
-        print(72 * "-")
         e = unipycation.Engine("f(1).")
         assert isinstance(e, unipycation.Engine)
 
-        res = e.query("f(2)")
-
-        print(res)
+        res = e.query("f(2).")
         assert res == None
