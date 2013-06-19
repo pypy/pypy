@@ -1,10 +1,12 @@
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.error import OperationError
 
 import prolog.interpreter.continuation as pcont
 import prolog.interpreter.term as pterm
 import prolog.interpreter.error as perr
+import prolog.interpreter.parsing as ppars
 import pypy.module.unipycation.conversion as conv
 
 class UnipycationContinuation(pcont.Continuation):
@@ -14,9 +16,12 @@ class UnipycationContinuation(pcont.Continuation):
         self.w_engine = w_engine
 
     def activate(self, fcont, heap):
-        print("ACTIVATE")
         self.w_engine.populate_result(self.var_to_pos, heap)
         return pcont.DoneSuccessContinuation(self.engine), fcont, heap
+
+def get(space, name):
+    w_module = space.getbuiltinmodule('unipycation')
+    return space.getattr(w_module, space.wrap(name))
 
 def engine_new__(space, w_subtype, __args__):
     w_anything = __args__.firstarg()
@@ -28,11 +33,21 @@ class W_Engine(W_Root):
         self.space = space                      # Stash space
         self.engine = e = pcont.Engine()        # We embed an instance of prolog
         self.d_result = None                    # When we have a result, we will stash it here
-        e.runstring(space.str_w(w_anything))    # Load the database with the first arg
+
+        try:
+            e.runstring(space.str_w(w_anything))    # Load the database with the first arg
+        except ppars.ParseError:
+            w_ParseError = get(self.space, "ParseError")
+            OperationError(space.ParseError, self.space.wrap("XXX"))
 
     def query(self, w_anything):
         query_raw = self.space.str_w(w_anything)
-        goals, var_to_pos = self.engine.parse(query_raw)
+
+        try:
+            goals, var_to_pos = self.engine.parse(query_raw)
+        except ppars.ParseError:
+            w_ParseError = get(self.space, "ParseError")
+            OperationError(space.ParseError, self.space.wrap("XXX"))
 
         cont = UnipycationContinuation(self.engine, var_to_pos, self)
         self.d_result = self.space.newdict()

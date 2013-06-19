@@ -1,7 +1,8 @@
 import pypy.module.unipycation.engine as eng
+import pytest
 
 class AppTestEngine(object):
-    spaceconfig = dict(usemodules=('unipycation',))
+    spaceconfig = dict(usemodules=('unipycation', ))
 
     def test_basic(self):
         import unipycation
@@ -57,13 +58,13 @@ class AppTestEngine(object):
         res = e.query("f(2).")
         assert res == None
 
-    #def test_parse_incomplete(self):
-    #    import unipycation
-    #
-    #    e = unipycation.Engine("f(1).")
-    #    assert isinstance(e, unipycation.Engine)
-    #
-    #    res = e.query("f(X)") # note missing .
-    #    assert False # XXX
+    def test_parse_incomplete(self):
+        import unipycation
+        e = unipycation.Engine("f(1).")
 
+        try:
+            res = e.query("f(X)") # note missing .
+        except unipycation.ParseError:
+            return # expected outcome
 
+        assert False # Should be unreachable
