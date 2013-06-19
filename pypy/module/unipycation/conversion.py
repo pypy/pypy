@@ -40,6 +40,21 @@ def p_atom_of_w_str(space, w_str):
     val = space.str_w(w_str)
     return pterm.Atom(val)
 
+def p_of_w(space, w_anything):
+    if space.is_true(space.isinstance(w_anything, space.w_int)):
+        return p_number_of_w_int(space, w_anything)
+    elif space.is_true(space.isinstance(w_anything, space.w_float)):
+        return p_float_of_w_float(space, w_anything)
+    elif space.is_true(space.isinstance(w_anything, space.w_long)):
+        return p_bigint_of_w_long(space, w_anything)
+    elif space.is_true(space.isinstance(w_anything, space.w_str)):
+        return p_atom_of_w_str(space, w_anything)
+    else:
+        w_ConversionError = util.get_from_module(space, "unipycation", "ConversionError")
+        raise OperationError(w_ConversionError,
+                "Don't know how to convert %s to prolog type" % p_anything)
+
+
 # -----------------------------
 # Convert from Prolog to Python
 # -----------------------------
@@ -73,6 +88,3 @@ def w_of_p(space, p_anything):
         w_ConversionError = util.get_from_module(space, "unipycation", "ConversionError")
         raise OperationError(w_ConversionError,
                 "Don't know how to convert %s to wrapped" % p_anything)
-
-
-# XXX p_of_w

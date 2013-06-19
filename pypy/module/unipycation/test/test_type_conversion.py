@@ -119,3 +119,21 @@ class TestTypeConversion(object):
             return
 
         assert False
+
+    def test_p_of_w(self):
+        w_str = self.space.wrap("Flibble")
+        p_atom = conv.p_of_w(self.space, w_str)
+
+        assert p_atom._signature.name == "Flibble"
+
+    def test_p_of_w_fails(self):
+        w_str = pterm.Atom("Ohno!") # not a pypy type, should fail
+
+        try:
+            p_boom = conv.p_of_w(self.space, w_str)
+        except OperationError as e:
+            w_ConversionError = util.get_from_module(self.space, "unipycation", "ConversionError")
+            assert e.w_type == w_ConversionError
+            return
+
+        assert False
