@@ -56,3 +56,14 @@ class AppTestEngine(object):
 
         res = e.query("f(2).")
         assert res == None
+
+    #def test_parse_incomplete(self):
+    #    import unipycation
+    #
+    #    e = unipycation.Engine("f(1).")
+    #    assert isinstance(e, unipycation.Engine)
+    #
+    #    res = e.query("f(X)") # note missing .
+    #    assert False # XXX
+
+
