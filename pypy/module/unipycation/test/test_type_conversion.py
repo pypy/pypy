@@ -12,12 +12,12 @@ class TestTypeConversion(object):
     # Test conversion from Python to Prolog
     # -------------------------------------
 
-    def test_p_int_of_w_int(self):
+    def test_p_number_of_w_int(self):
         w_int = self.space.newint(666)
-        p_int = conv.p_int_of_w_int(self.space, w_int)
+        p_number = conv.p_number_of_w_int(self.space, w_int)
 
         unwrap1 = self.space.int_w(w_int)
-        unwrap2 = p_int.num
+        unwrap2 = p_number.num
 
         assert unwrap1 == unwrap2
 
@@ -62,11 +62,11 @@ class TestTypeConversion(object):
     # Test conversion from Prolog to Python
     # -------------------------------------
 
-    def test_w_int_of_p_int(self):
-        p_int = pterm.Number(666)
-        w_int = conv.w_int_of_p_int(self.space, p_int)
+    def test_w_int_of_p_number(self):
+        p_number = pterm.Number(666)
+        w_int = conv.w_int_of_p_number(self.space, p_number)
 
-        unwrap1 = p_int.num
+        unwrap1 = p_number.num
         unwrap2 = self.space.int_w(w_int)
 
         assert unwrap1 == unwrap2

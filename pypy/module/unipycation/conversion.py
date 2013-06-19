@@ -16,7 +16,7 @@ def _p_type_check(inst, typ):
 # Convert from Python to Prolog
 # -----------------------------
 
-def p_int_of_w_int(space, w_int):
+def p_number_of_w_int(space, w_int):
     _w_type_check(space, w_int, space.w_int)
 
     val = space.int_w(w_int)
@@ -44,9 +44,9 @@ def p_atom_of_w_str(space, w_str):
 # Convert from Prolog to Python
 # -----------------------------
 
-def w_int_of_p_int(space, p_int):
-    _p_type_check(p_int, pterm.Number)
-    return space.newint(p_int.num)
+def w_int_of_p_number(space, p_number):
+    _p_type_check(p_number, pterm.Number)
+    return space.newint(p_number.num)
 
 def w_float_of_p_float(space, p_float):
     _p_type_check(p_float, pterm.Float)
@@ -62,7 +62,7 @@ def w_str_of_p_atom(space, p_atom):
 
 def w_of_p(space, p_anything):
     if isinstance(p_anything, pterm.Number):
-        return w_int_of_p_int(space, p_anything)
+        return w_int_of_p_number(space, p_anything)
     elif isinstance(p_anything, pterm.Float):
         return w_float_of_p_float(space, p_anything)
     elif isinstance(p_anything, pterm.Float):
