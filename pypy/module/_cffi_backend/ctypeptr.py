@@ -185,7 +185,7 @@ class W_CTypePointer(W_CTypePtrBase):
         else:
             extra = " *"
         self.is_file = (ctitem.name == "struct _IO_FILE" or
-                        ctitem.name == "struct $FILE")
+                        ctitem.name == "FILE")
         self.is_void_ptr = isinstance(ctitem, ctypevoid.W_CTypeVoid)
         W_CTypePtrBase.__init__(self, space, size, extra, 2, ctitem)
 

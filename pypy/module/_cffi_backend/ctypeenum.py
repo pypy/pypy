@@ -13,7 +13,6 @@ class _Mixin_Enum(object):
     _mixin_ = True
 
     def __init__(self, space, name, size, align, enumerators, enumvalues):
-        name = "enum " + name
         self._super.__init__(self, space, size, name, len(name), align)
         self.enumerators2values = {}   # str -> int
         self.enumvalues2erators = {}   # int -> str
