@@ -37,13 +37,27 @@ class AppTestEngine(object):
         print(res)
         assert res["Y"] in ["a", "b", "c"]
 
-    def test_anonymous_tautology(self):
+    def test_tautology(self):
         import unipycation
 
+        print(72 * "-")
         e = unipycation.Engine("f(1).")
         assert isinstance(e, unipycation.Engine)
 
         res = e.query("f(_)")
 
         print(res)
-        assert False # We have no way of detecting trivially true/false XXX
+        assert res == {}
+
+
+    def test_false(self):
+        import unipycation
+
+        print(72 * "-")
+        e = unipycation.Engine("f(1).")
+        assert isinstance(e, unipycation.Engine)
+
+        res = e.query("f(2)")
+
+        print(res)
+        assert res == None

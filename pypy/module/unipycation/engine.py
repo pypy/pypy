@@ -13,6 +13,7 @@ class UnipycationContinuation(pcont.Continuation):
         self.w_engine = w_engine
 
     def activate(self, fcont, heap):
+        print("activate")
         self.w_engine.populate_result(self.var_to_pos, heap)
         return pcont.DoneSuccessContinuation(self.engine), fcont, heap
 
@@ -33,14 +34,15 @@ class W_Engine(W_Root):
         goals, var_to_pos = self.engine.parse(query_raw)
 
         cont = UnipycationContinuation(self.engine, var_to_pos, self)
+        self.d_result = self.space.newdict()
         for g in goals:
+            print("A goal")
             self.engine.run(g, self.engine.modulewrapper.current_module, cont)
 
         return self.d_result
 
     def populate_result(self, var_to_pos, heap):
 
-        self.d_result = self.space.newdict()
         for var, real_var in var_to_pos.iteritems():
             if var.startswith("_"): continue
 
