@@ -46,10 +46,7 @@ def p_atom_of_w_str(space, w_str):
 def p_of_w(space, w_anything):
     w_ConversionError = util.get_from_module(space, "unipycation", "ConversionError")
 
-    # we have to check this first or space.isinstance will throw AttributeError
-    # if w_anything is not a pypy object
-    if not isinstance(w_anything, W_Root):
-        raise OperationError(w_ConversionError, "%s is not a pypy type, can't convert")
+    assert(isinstance(w_anything, W_Root))
 
     if space.is_true(space.isinstance(w_anything, space.w_int)):
         return p_number_of_w_int(space, w_anything)
