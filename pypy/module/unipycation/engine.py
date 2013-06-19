@@ -36,18 +36,18 @@ class W_Engine(W_Root):
 
         try:
             e.runstring(space.str_w(w_anything))    # Load the database with the first arg
-        except ppars.ParseError:
+        except ppars.ParseError as e:
             w_ParseError = get(self.space, "ParseError")
-            OperationError(space.ParseError, self.space.wrap("XXX"))
+            raise OperationError(w_ParseError, self.space.wrap(e.nice_error_message()))
 
     def query(self, w_anything):
         query_raw = self.space.str_w(w_anything)
 
         try:
             goals, var_to_pos = self.engine.parse(query_raw)
-        except ppars.ParseError:
+        except ppars.ParseError as e:
             w_ParseError = get(self.space, "ParseError")
-            OperationError(space.ParseError, self.space.wrap("XXX"))
+            raise OperationError(w_ParseError, self.space.wrap(e.nice_error_message()))
 
         cont = UnipycationContinuation(self.engine, var_to_pos, self)
         self.d_result = self.space.newdict()

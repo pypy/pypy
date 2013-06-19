@@ -46,7 +46,7 @@ class AppTestEngine(object):
         e = unipycation.Engine("f(1).")
         assert isinstance(e, unipycation.Engine)
 
-        res = e.query("f(_)")
+        res = e.query("f(_).")
         assert res == {}
 
     def test_false(self):
@@ -58,12 +58,22 @@ class AppTestEngine(object):
         res = e.query("f(2).")
         assert res == None
 
-    def test_parse_incomplete(self):
+    def test_parse_query_incomplete(self):
         import unipycation
         e = unipycation.Engine("f(1).")
 
         try:
             res = e.query("f(X)") # note missing .
+        except unipycation.ParseError:
+            return # expected outcome
+
+        assert False # Should be unreachable
+
+    def test_parse_db_incomplete(self):
+        import unipycation
+
+        try:
+            e = unipycation.Engine("f(1)") # missing dot
         except unipycation.ParseError:
             return # expected outcome
 
