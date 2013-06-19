@@ -248,4 +248,22 @@ class AppTestNDIter(BaseNumpyAppTest):
         assert (it.operands[1] == [[6, 22, 38], [54, 70, 86]]).all()
         assert (it.operands[1] == a.sum(axis=2)).all()
 
+    def test_get_dtypes(self):
+        from numpypy import array, dtype, nditer
+        x = array([1, 2])
+        y = array([1.0, 2.0])
+        assert nditer([x, y]).dtypes == (dtype("int64"), dtype("float64"))
 
+    def test_multi_index(self):
+        import numpypy as np
+
+        a = np.arange(6).reshape(2, 3)
+
+        it = np.nditer(a, flags=['multi_index'])
+
+        res = []
+        while not it.finished:
+            res.append((it[0], it.multi_index))
+            it.iternext()
+
+        assert res == [(0, (0, 0)), (1, (0, 1)), (2, (0, 2)), (3, (1, 0)), (4, (1, 1)), (5, (1, 2))]
