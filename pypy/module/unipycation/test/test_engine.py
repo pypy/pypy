@@ -24,13 +24,10 @@ class AppTestEngine(object):
     def test_basic_3(self):
         import unipycation
 
-        e = unipycation.Engine("f(1.23456)")
+        e = unipycation.Engine("f(1.23456).")
         assert isinstance(e, unipycation.Engine)
 
-        print(72 * "-")
-        res = e.query("f(X)")
-        print(res)
-        print(72 * "-")
+        res = e.query("f(X).")
         assert res["X"] == 1.23456
 
     def test_anonymous(self):
