@@ -1,5 +1,6 @@
 import prolog.interpreter.term as pterm
 from pypy.interpreter.error import OperationError
+import pypy.module.unipycation.util as util
 
 def _type_check(space, inst, typ):
     # XXX do the right thing with the exception
@@ -64,7 +65,9 @@ def w_of_p(space, p_anything):
     elif isinstance(p_anything, pterm.Atom):
         return w_str_of_p_atom(space, p_anything)
     else:
-        OperationError(space.TypeError, "Don't know how to convert that")
+        w_ConversionError = util.get_from_module(space, "unipycation", "ConversionError")
+        raise OperationError(w_ConversionError,
+                "Don't know how to convert %s to wrapped" % p_anything)
 
 
 # XXX p_of_w

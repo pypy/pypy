@@ -1,4 +1,7 @@
 import pypy.module.unipycation.conversion as conv
+import pypy.module.unipycation.util as util
+from pypy.interpreter.error import OperationError
+
 import prolog.interpreter.term as pterm
 import pytest
 
@@ -105,9 +108,14 @@ class TestTypeConversion(object):
 
         assert self.space.str_w(w_str) == "Wibble"
 
-    @pytest.mark.xfail
     def test_w_of_p_fails(self):
         p_val = 666            # clearly not a prolog type
-        w_boom = conv.w_of_p(self.space, p_val)
 
+        try:
+            w_boom = conv.w_of_p(self.space, p_val)
+        except OperationError as e:
+            w_ConversionError = util.get_from_module(self.space, "unipycation", "ConversionError")
+            assert e.w_type == w_ConversionError
+            return
 
+        assert False

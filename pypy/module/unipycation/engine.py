@@ -8,6 +8,7 @@ import prolog.interpreter.term as pterm
 import prolog.interpreter.error as perr
 import prolog.interpreter.parsing as ppars
 import pypy.module.unipycation.conversion as conv
+import pypy.module.unipycation.util as util
 
 class UnipycationContinuation(pcont.Continuation):
     def __init__(self, engine, var_to_pos, w_engine):
@@ -18,10 +19,6 @@ class UnipycationContinuation(pcont.Continuation):
     def activate(self, fcont, heap):
         self.w_engine.populate_result(self.var_to_pos, heap)
         return pcont.DoneSuccessContinuation(self.engine), fcont, heap
-
-def get(space, name):
-    w_module = space.getbuiltinmodule('unipycation')
-    return space.getattr(w_module, space.wrap(name))
 
 def engine_new__(space, w_subtype, __args__):
     w_anything = __args__.firstarg()
@@ -37,7 +34,7 @@ class W_Engine(W_Root):
         try:
             e.runstring(space.str_w(w_anything))    # Load the database with the first arg
         except ppars.ParseError as e:
-            w_ParseError = get(self.space, "ParseError")
+            w_ParseError = util.get_from_module(self.space, "unipycation", "ParseError")
             raise OperationError(w_ParseError, self.space.wrap(e.nice_error_message()))
 
     def query(self, w_anything):
@@ -46,7 +43,7 @@ class W_Engine(W_Root):
         try:
             goals, var_to_pos = self.engine.parse(query_raw)
         except ppars.ParseError as e:
-            w_ParseError = get(self.space, "ParseError")
+            w_ParseError = util.get_from_module(self.space, "unipycation", "ParseError")
             raise OperationError(w_ParseError, self.space.wrap(e.nice_error_message()))
 
         cont = UnipycationContinuation(self.engine, var_to_pos, self)
