@@ -2,6 +2,7 @@ from pypy.interpreter.error import OperationError, wrap_oserror
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.buffer import RWBuffer
 from rpython.rlib import rmmap, rarithmetic
 from rpython.rlib.rmmap import RValueError, RTypeError
 
@@ -133,6 +134,8 @@ class W_MMap(W_Root):
         return self.space.wrap(self.mmap.size)
 
     def check_valid(self):
+        # XXX the check_xxx() are inconsistent in this file.  Please review!
+        # For example readline() might raise an interp-level RValueError.
         try:
             self.mmap.check_valid()
         except RValueError, v:
@@ -166,6 +169,8 @@ class W_MMap(W_Root):
         start, stop, step = space.decode_index(w_index, self.mmap.size)
         if step == 0:  # index only
             return space.wrap(self.mmap.getitem(start))
+        elif step == 1:
+            return space.wrap(self.mmap.getslice(start, stop - start))
         else:
             res = "".join([self.mmap.getitem(i)
                            for i in range(start, stop, step)])
@@ -189,15 +194,16 @@ class W_MMap(W_Root):
             if len(value) != length:
                 raise OperationError(space.w_ValueError,
                           space.wrap("mmap slice assignment is wrong size"))
-            for i in range(length):
-                self.mmap.setitem(start, value[i])
-                start += step
+            if step == 1:
+                self.mmap.setslice(start, value)
+            else:
+                for i in range(length):
+                    self.mmap.setitem(start, value[i])
+                    start += step
 
     def descr_buffer(self):
-        # XXX improve to work directly on the low-level address
-        from pypy.interpreter.buffer import StringLikeBuffer
-        space = self.space
-        return space.wrap(StringLikeBuffer(space, space.wrap(self)))
+        self.check_valid()
+        return self.space.wrap(MMapBuffer(self.space, self.mmap))
 
 if rmmap._POSIX:
 
@@ -277,3 +283,45 @@ class Cache:
 def mmap_error(space, e):
     w_error = space.fromcache(Cache).w_error
     return wrap_oserror(space, e, w_exception_class=w_error)
+
+
+class MMapBuffer(RWBuffer):
+    def __init__(self, space, mmap):
+        self.space = space
+        self.mmap = mmap
+
+    def get_raw_address(self):
+        return self.mmap.data
+
+    def getlength(self):
+        return self.mmap.size
+
+    def getitem(self, index):
+        return self.mmap.data[index]
+
+    def getslice(self, start, stop, step, size):
+        if step == 1:
+            return self.mmap._getslice(start, size)
+        else:
+            return RWBuffer.getslice(self, start, stop, step, size)
+
+    def check_writeable(self):
+        try:
+            self.mmap.check_valid()
+            self.mmap.check_writeable()
+        except RValueError, v:
+            raise OperationError(self.space.w_ValueError,
+                                 self.space.wrap(v.message))
+        except RTypeError, v:
+            raise OperationError(self.space.w_TypeError,
+                                 self.space.wrap(v.message))
+
+    def setitem(self, index, char):
+        self.mmap.check_writeable()
+        self.mmap.data[index] = char
+
+    def setslice(self, start, string):
+        self.mmap.setslice(start, string)
+
+    def get_raw_address(self):
+        return self.mmap.data

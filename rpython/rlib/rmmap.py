@@ -3,6 +3,7 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib import rposix
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rlib.nonconst import NonConstant
+from rpython.rlib.rarithmetic import intmask
 
 import sys
 import os
@@ -349,13 +350,12 @@ class MMap(object):
         else: # no '\n' found
             eol = self.size
 
-        res = "".join([data[i] for i in range(self.pos, eol)])
+        res = self._getslice(self.pos, eol - self.pos)
         self.pos += len(res)
         return res
 
     def read(self, num=-1):
         self.check_valid()
-
         if num < 0:
             # read all
             eol = self.size
@@ -365,8 +365,7 @@ class MMap(object):
             if eol > self.size:
                 eol = self.size
 
-        res = [self.data[i] for i in range(self.pos, eol)]
-        res = "".join(res)
+        res = self._getslice(self.pos, eol - self.pos)
         self.pos += len(res)
         return res
 
@@ -430,7 +429,7 @@ class MMap(object):
         if not (0 <= where <= self.size):
             raise RValueError("seek out of range")
 
-        self.pos = where
+        self.pos = intmask(where)
 
     def tell(self):
         self.check_valid()
@@ -458,15 +457,12 @@ class MMap(object):
     def write(self, data):
         self.check_valid()
         self.check_writeable()
-
         data_len = len(data)
-        if self.pos + data_len > self.size:
+        start = self.pos
+        if start + data_len > self.size:
             raise RValueError("data out of range")
 
-        internaldata = self.data
-        start = self.pos
-        for i in range(data_len):
-            internaldata[start+i] = data[i]
+        self._setslice(start, data)
         self.pos = start + data_len
 
     def write_byte(self, byte):
@@ -484,6 +480,23 @@ class MMap(object):
 
     def getptr(self, offset):
         return rffi.ptradd(self.data, offset)
+
+    def getslice(self, start, length):
+        self.check_valid()
+        return self._getslice(start, length)
+
+    def setslice(self, start, data):
+        self.check_valid()
+        self.check_writeable()
+        self._setslice(start, data)
+
+    def _getslice(self, start, length):
+        return rffi.charpsize2str(self.getptr(start), length)
+
+    def _setslice(self, start, newdata):
+        internaldata = self.data
+        for i in range(len(newdata)):
+            internaldata[start+i] = newdata[i]
 
     def flush(self, offset=0, size=0):
         self.check_valid()
