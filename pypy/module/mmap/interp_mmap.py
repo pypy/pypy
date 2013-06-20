@@ -281,7 +281,7 @@ def mmap_error(space, e):
         return wrap_oserror(space, e, w_exception_class=w_error)
     else:
         # bogus 'e'?
-        return OperationError(space.w_SystemError, space.wrap(repr(e)))
+        return OperationError(space.w_SystemError, space.wrap('%s' % e))
 mmap_error._dont_inline_ = True
 
 
