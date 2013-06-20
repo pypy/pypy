@@ -1,8 +1,17 @@
+"""Interp-level mmap-like object.
+
+Note that all the methods assume that the mmap is valid (or writable, for
+writing methods).  You have to call check_valid() from the higher-level API,
+as well as maybe check_writeable().  In the case of PyPy, this is done from
+pypy/module/mmap/.
+"""
+
 from rpython.rtyper.tool import rffi_platform
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib import rposix
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rlib.nonconst import NonConstant
+from rpython.rlib.rarithmetic import intmask
 
 import sys
 import os
@@ -14,13 +23,15 @@ _MS_WINDOWS = os.name == "nt"
 _64BIT = "64bit" in platform.architecture()[0]
 _CYGWIN = "cygwin" == sys.platform
 
-class RValueError(Exception):
+class RMMapError(Exception):
     def __init__(self, message):
         self.message = message
 
-class RTypeError(Exception):
-    def __init__(self, message):
-        self.message = message
+class RValueError(RMMapError):
+    pass
+
+class RTypeError(RMMapError):
+    pass
 
 includes = ["sys/types.h"]
 if _POSIX:
@@ -329,8 +340,6 @@ class MMap(object):
         self.close()
 
     def read_byte(self):
-        self.check_valid()
-
         if self.pos < self.size:
             value = self.data[self.pos]
             self.pos += 1
@@ -339,8 +348,6 @@ class MMap(object):
             raise RValueError("read byte out of range")
 
     def readline(self):
-        self.check_valid()
-
         data = self.data
         for pos in xrange(self.pos, self.size):
             if data[pos] == '\n':
@@ -349,13 +356,11 @@ class MMap(object):
         else: # no '\n' found
             eol = self.size
 
-        res = "".join([data[i] for i in range(self.pos, eol)])
+        res = self.getslice(self.pos, eol - self.pos)
         self.pos += len(res)
         return res
 
     def read(self, num=-1):
-        self.check_valid()
-
         if num < 0:
             # read all
             eol = self.size
@@ -365,14 +370,11 @@ class MMap(object):
             if eol > self.size:
                 eol = self.size
 
-        res = [self.data[i] for i in range(self.pos, eol)]
-        res = "".join(res)
+        res = self.getslice(self.pos, eol - self.pos)
         self.pos += len(res)
         return res
 
     def find(self, tofind, start, end, reverse=False):
-        self.check_valid()
-
         # XXX naive! how can we reuse the rstr algorithm?
         if start < 0:
             start += self.size
@@ -413,8 +415,6 @@ class MMap(object):
             p += step
 
     def seek(self, pos, whence=0):
-        self.check_valid()
-
         dist = pos
         how = whence
 
@@ -430,15 +430,12 @@ class MMap(object):
         if not (0 <= where <= self.size):
             raise RValueError("seek out of range")
 
-        self.pos = where
+        self.pos = intmask(where)
 
     def tell(self):
-        self.check_valid()
         return self.pos
 
     def file_size(self):
-        self.check_valid()
-
         size = self.size
         if _MS_WINDOWS:
             if self.file_handle != INVALID_HANDLE:
@@ -456,26 +453,18 @@ class MMap(object):
         return size
 
     def write(self, data):
-        self.check_valid()
-        self.check_writeable()
-
         data_len = len(data)
-        if self.pos + data_len > self.size:
+        start = self.pos
+        if start + data_len > self.size:
             raise RValueError("data out of range")
 
-        internaldata = self.data
-        start = self.pos
-        for i in range(data_len):
-            internaldata[start+i] = data[i]
+        self.setslice(start, data)
         self.pos = start + data_len
 
     def write_byte(self, byte):
-        self.check_valid()
-
         if len(byte) != 1:
             raise RTypeError("write_byte() argument must be char")
 
-        self.check_writeable()
         if self.pos >= self.size:
             raise RValueError("write byte out of range")
 
@@ -485,9 +474,15 @@ class MMap(object):
     def getptr(self, offset):
         return rffi.ptradd(self.data, offset)
 
-    def flush(self, offset=0, size=0):
-        self.check_valid()
+    def getslice(self, start, length):
+        return rffi.charpsize2str(self.getptr(start), length)
 
+    def setslice(self, start, newdata):
+        internaldata = self.data
+        for i in range(len(newdata)):
+            internaldata[start+i] = newdata[i]
+
+    def flush(self, offset=0, size=0):
         if size == 0:
             size = self.size
         if offset < 0 or size < 0 or offset + size > self.size:
@@ -508,10 +503,6 @@ class MMap(object):
         return 0
 
     def move(self, dest, src, count):
-        self.check_valid()
-
-        self.check_writeable()
-
         # check boundings
         if (src < 0 or dest < 0 or count < 0 or
                 src + count > self.size or dest + count > self.size):
@@ -522,10 +513,6 @@ class MMap(object):
         c_memmove(datadest, datasrc, count)
 
     def resize(self, newsize):
-        self.check_valid()
-
-        self.check_resizeable()
-
         if _POSIX:
             if not has_mremap:
                 raise RValueError("mmap: resizing not available--no mremap()")
@@ -584,21 +571,15 @@ class MMap(object):
             raise winerror
 
     def len(self):
-        self.check_valid()
-
         return self.size
 
     def getitem(self, index):
-        self.check_valid()
         # simplified version, for rpython
         if index < 0:
             index += self.size
         return self.data[index]
 
     def setitem(self, index, value):
-        self.check_valid()
-        self.check_writeable()
-
         if len(value) != 1:
             raise RValueError("mmap assignment must be "
                               "single-character string")

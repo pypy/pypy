@@ -43,6 +43,13 @@ class AppTestIoModule:
         import _io
         e = _io.UnsupportedOperation("seek")
 
+    def test_default_implementations(self):
+        import _io
+        file = _io._IOBase()
+        raises(_io.UnsupportedOperation, file.seek, 0, 1)
+        raises(_io.UnsupportedOperation, file.fileno)
+        raises(_io.UnsupportedOperation, file.truncate)
+
     def test_blockingerror(self):
         import _io
         try:

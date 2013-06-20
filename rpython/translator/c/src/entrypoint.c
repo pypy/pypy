@@ -20,12 +20,20 @@
 int pypy_main_function(int argc, char *argv[]) __attribute__((__noinline__));
 #endif
 
+# ifdef PYPY_USE_ASMGCC
+#  include "structdef.h"
+#  include "forwarddecl.h"
+# endif
+
 int pypy_main_function(int argc, char *argv[])
 {
     char *errmsg;
     int i, exitcode;
     RPyListOfString *list;
 
+#ifdef PYPY_USE_ASMGCC
+    pypy_g_rpython_rtyper_lltypesystem_rffi_StackCounter.sc_inst_stacks_counter++;
+#endif
     pypy_asm_stack_bottom();
 #ifdef PYPY_X86_CHECK_SSE2_DEFINED
     pypy_x86_check_sse2();

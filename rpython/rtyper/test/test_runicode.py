@@ -274,6 +274,7 @@ class BaseTestRUnicode(AbstractTestRstr):
     test_char_isxxx = unsupported
     test_isdigit = unsupported
     test_str_isalpha = unsupported
+    test_str_isalnum = unsupported
     test_upper = unsupported
     test_lower = unsupported
     test_splitlines = unsupported

@@ -21,6 +21,8 @@ from rpython.rlib.unroll import unrolling_iterable
 class AbstractLLCPU(AbstractCPU):
     from rpython.jit.metainterp.typesystem import llhelper as ts
 
+    can_inline_varsize_malloc = False
+
     def __init__(self, rtyper, stats, opts, translate_support_code=False,
                  gcdescr=None):
         assert type(opts) is not bool
@@ -171,9 +173,9 @@ class AbstractLLCPU(AbstractCPU):
         def pos_exc_value():
             addr = llop.get_exc_value_addr(llmemory.Address)
             return heaptracker.adr2int(addr)
-        
+
         from rpython.rlib import rstack
-        
+
         STACK_CHECK_SLOWPATH = lltype.Ptr(lltype.FuncType([lltype.Signed],
                                                           lltype.Void))
         def insert_stack_check():
@@ -741,6 +743,9 @@ class AbstractLLCPU(AbstractCPU):
             as_array = rffi.cast(rffi.CArrayPtr(lltype.Signed), res)
             as_array[self.vtable_offset/WORD] = vtable
         return res
+
+    def bh_new_raw_buffer(self, size):
+        return lltype.malloc(rffi.CCHARP.TO, size, flavor='raw')
 
     def bh_classof(self, struct):
         struct = lltype.cast_opaque_ptr(rclass.OBJECTPTR, struct)

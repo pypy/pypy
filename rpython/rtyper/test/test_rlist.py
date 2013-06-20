@@ -510,6 +510,17 @@ class BaseTestRlist(BaseRtypingTest):
         res = self.interpret(dummyfn, ())
         assert res == 235
 
+    def test_reversed(self):
+        klist = [1, 2, 3]
+
+        def fn():
+            res = []
+            for elem in reversed(klist):
+                res.append(elem)
+            return res[0] * 100 + res[1] * 10 + res[2]
+        res = self.interpret(fn, [])
+        assert res == fn()
+
     def test_prebuilt_list(self):
         klist = [6, 7, 8, 9]
         def dummyfn(n):
@@ -1604,3 +1615,6 @@ class TestLLtype(BaseTestRlist, LLRtypeMixin):
 class TestOOtype(BaseTestRlist, OORtypeMixin):
     rlist = oo_rlist
     type_system = 'ootype'
+
+    def test_reversed(self):
+        py.test.skip("unsupported")

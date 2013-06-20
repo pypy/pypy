@@ -49,6 +49,7 @@ class TestDecode(object):
         self.assertEqual(self.loads('{"empty": {}}',
                                     object_pairs_hook=OrderedDict),
                          OrderedDict([('empty', OrderedDict())]))
+        self.assertEqual(self.loads("{}", object_pairs_hook=list), [])
 
     def test_extra_data(self):
         s = '[1, 2, 3]5'

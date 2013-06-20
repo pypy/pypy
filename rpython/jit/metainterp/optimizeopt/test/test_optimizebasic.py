@@ -1005,6 +1005,19 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_virtual_array_of_struct_len(self):
+        ops = """
+        []
+        p0 = new_array(2, descr=complexarraydescr)
+        i0 = arraylen_gc(p0)
+        finish(i0)
+        """
+        expected = """
+        []
+        finish(2)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_nonvirtual_1(self):
         ops = """
         [i]

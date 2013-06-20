@@ -29,11 +29,11 @@ def getmap(frame):
     return r[r.find('1'):]
 
 class TestRegallocGcIntegration(BaseTestRegalloc):
-    
+
     cpu = CPU(None, None)
     cpu.gc_ll_descr = GcLLDescr_boehm(None, None, None)
     cpu.setup_once()
-    
+
     S = lltype.GcForwardReference()
     S.become(lltype.GcStruct('S', ('field', lltype.Ptr(S)),
                              ('int', lltype.Signed)))
@@ -145,6 +145,7 @@ class GCDescrFastpathMalloc(GcLLDescription):
     gcrootmap = None
     passes_frame = True
     write_barrier_descr = None
+    max_size_of_young_obj = 50
 
     def __init__(self, callback):
         GcLLDescription.__init__(self, None)
@@ -172,6 +173,20 @@ class GCDescrFastpathMalloc(GcLLDescription):
                                [lltype.Signed, jitframe.JITFRAMEPTR],
                                lltype.Signed)
 
+        def malloc_array(itemsize, tid, num_elem):
+            self.calls.append((itemsize, tid, num_elem))
+            return 13
+
+        self.malloc_slowpath_array_fnptr = llhelper_args(malloc_array,
+                                                         [lltype.Signed] * 3,
+                                                         lltype.Signed)
+
+        def malloc_str(size):
+            self.calls.append(('str', size))
+            return 13
+        self.generate_function('malloc_str', malloc_str, [lltype.Signed],
+                               lltype.Signed)
+
     def get_nursery_free_addr(self):
         return rffi.cast(lltype.Signed, self.addrs)
 
@@ -180,6 +195,9 @@ class GCDescrFastpathMalloc(GcLLDescription):
 
     def get_malloc_slowpath_addr(self):
         return self.get_malloc_fn_addr('malloc_nursery')
+
+    def get_malloc_slowpath_array_addr(self):
+        return self.malloc_slowpath_array_fnptr
 
     def check_nothing_in_nursery(self):
         # CALL_MALLOC_NURSERY should not write anything in the nursery
@@ -221,15 +239,15 @@ class TestMallocFastpath(BaseTestRegalloc):
         # slowpath never called
         assert gc_ll_descr.calls == []
 
-    def test_malloc_nursery_varsize_small(self):
+    def test_malloc_nursery_varsize_frame(self):
         self.cpu = self.getcpu(None)
         ops = '''
         [i0, i1, i2]
-        p0 = call_malloc_nursery_varsize_small(i0)
-        p1 = call_malloc_nursery_varsize_small(i1)
-        p2 = call_malloc_nursery_varsize_small(i2)
+        p0 = call_malloc_nursery_varsize_frame(i0)
+        p1 = call_malloc_nursery_varsize_frame(i1)
+        p2 = call_malloc_nursery_varsize_frame(i2)
         guard_true(i0) [p0, p1, p2]
-        ''' 
+        '''
         self.interpret(ops, [16, 32, 16])
         # check the returned pointers
         gc_ll_descr = self.cpu.gc_ll_descr
@@ -243,6 +261,56 @@ class TestMallocFastpath(BaseTestRegalloc):
         assert gc_ll_descr.addrs[0] == nurs_adr + 64
         # slowpath never called
         assert gc_ll_descr.calls == []
+
+    def test_malloc_nursery_varsize(self):
+        self.cpu = self.getcpu(None)
+        A = lltype.GcArray(lltype.Signed)
+        arraydescr = self.cpu.arraydescrof(A)
+        arraydescr.tid = 15
+        ops = '''
+        [i0, i1, i2]
+        p0 = call_malloc_nursery_varsize(0, 8, i0, descr=arraydescr)
+        p1 = call_malloc_nursery_varsize(0, 5, i1, descr=arraydescr)
+        guard_false(i0) [p0, p1]
+        '''
+        self.interpret(ops, [1, 2, 3],
+                       namespace={'arraydescr': arraydescr})
+        # check the returned pointers
+        gc_ll_descr = self.cpu.gc_ll_descr
+        nurs_adr = rffi.cast(lltype.Signed, gc_ll_descr.nursery)
+        ref = lambda n: self.cpu.get_ref_value(self.deadframe, n)
+        assert rffi.cast(lltype.Signed, ref(0)) == nurs_adr + 0
+        assert rffi.cast(lltype.Signed, ref(1)) == nurs_adr + 2*WORD + 8*1
+        # check the nursery content and state
+        assert gc_ll_descr.nursery[0] == chr(15)
+        assert gc_ll_descr.nursery[2 * WORD + 8] == chr(15)
+        assert gc_ll_descr.addrs[0] == nurs_adr + (((4 * WORD + 8*1 + 5*2) + (WORD - 1)) & ~(WORD - 1))
+        # slowpath never called
+        assert gc_ll_descr.calls == []
+
+    def test_malloc_nursery_varsize_slowpath(self):
+        self.cpu = self.getcpu(None)
+        ops = """
+        [i0, i1, i2]
+        p0 = call_malloc_nursery_varsize(0, 8, i0, descr=arraydescr)
+        p1 = call_malloc_nursery_varsize(0, 5, i1, descr=arraydescr)
+        p3 = call_malloc_nursery_varsize(0, 5, i2, descr=arraydescr)
+        # overflow
+        p4 = call_malloc_nursery_varsize(0, 5, i2, descr=arraydescr)
+        # we didn't collect, so still overflow
+        p5 = call_malloc_nursery_varsize(1, 5, i2, descr=strdescr)
+        guard_false(i0) [p0, p1, p3, p4]
+        """
+        A = lltype.GcArray(lltype.Signed)
+        arraydescr = self.cpu.arraydescrof(A)
+        arraydescr.tid = 15
+        self.interpret(ops, [10, 3, 3],
+                       namespace={'arraydescr': arraydescr,
+                                  'strdescr': arraydescr})
+        # check the returned pointers
+        gc_ll_descr = self.cpu.gc_ll_descr
+        assert gc_ll_descr.calls == [(8, 15, 10), (5, 15, 3), ('str', 3)]
+        # one fit, one was too large, one was not fitting
 
     def test_malloc_slowpath(self):
         def check(frame):
@@ -294,7 +362,7 @@ class TestMallocFastpath(BaseTestRegalloc):
                 s = bin(x[0]).count('1') + bin(x[1]).count('1')
                 assert s == 16
             # all but two registers + some stuff on stack
-        
+
         self.cpu = self.getcpu(check)
         S1 = lltype.GcStruct('S1')
         S2 = lltype.GcStruct('S2', ('s0', lltype.Ptr(S1)),
@@ -360,7 +428,7 @@ class TestMallocFastpath(BaseTestRegalloc):
 
 class MockShadowStackRootMap(object):
     is_shadow_stack = True
-    
+
     def __init__(self):
         TP = rffi.CArray(lltype.Signed)
         self.stack = lltype.malloc(TP, 10, flavor='raw')
@@ -369,7 +437,7 @@ class MockShadowStackRootMap(object):
         self.stack_addr[0] = rffi.cast(lltype.Signed, self.stack)
 
     def __del__(self):
-        lltype.free(self.stack_addr, flavor='raw')        
+        lltype.free(self.stack_addr, flavor='raw')
         lltype.free(self.stack, flavor='raw')
 
     def register_asm_addr(self, start, mark):
@@ -381,7 +449,7 @@ class MockShadowStackRootMap(object):
 class WriteBarrierDescr(AbstractDescr):
     jit_wb_cards_set = 0
     jit_wb_if_flag_singlebyte = 1
-    
+
     def __init__(self, gc_ll_descr):
         def write_barrier(frame):
             gc_ll_descr.write_barrier_on_frame_called = frame
@@ -442,6 +510,15 @@ class GCDescrShadowstackDirect(GcLLDescr_framework):
         self.malloc_slowpath_fnptr = llhelper_args(malloc_slowpath,
                                                    [lltype.Signed],
                                                    lltype.Signed)
+
+        def malloc_array(itemsize, tid, num_elem):
+            import pdb
+            pdb.set_trace()
+
+        self.malloc_slowpath_array_fnptr = llhelper_args(malloc_array,
+                                                         [lltype.Signed] * 3,
+                                                         lltype.Signed)
+
         self.all_nurseries = []
 
     def init_nursery(self, nursery_size=None):
@@ -497,6 +574,9 @@ class GCDescrShadowstackDirect(GcLLDescr_framework):
     def get_malloc_slowpath_addr(self):
         return self.malloc_slowpath_fnptr
 
+    def get_malloc_slowpath_array_addr(self):
+        return self.malloc_slowpath_array_fnptr
+
     def get_nursery_free_addr(self):
         return self.nursery_addr
 
@@ -507,7 +587,7 @@ class GCDescrShadowstackDirect(GcLLDescr_framework):
         for nursery in self.all_nurseries:
             lltype.free(nursery, flavor='raw', track_allocation=False)
         lltype.free(self.nursery_ptrs, flavor='raw')
-    
+
 def unpack_gcmap(frame):
     res = []
     val = 0
@@ -537,13 +617,16 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         self.S = S
         self.cpu = cpu
 
+    def teardown_method(self, meth):
+        rffi.aroundstate._cleanup_()
+
     def test_shadowstack_call(self):
         cpu = self.cpu
         cpu.gc_ll_descr.init_nursery(100)
-        cpu.setup_once() 
+        cpu.setup_once()
         S = self.S
         frames = []
-        
+
         def check(i):
             assert cpu.gc_ll_descr.gcrootmap.stack[0] == i
             frame = rffi.cast(JITFRAMEPTR, i)
@@ -671,25 +754,31 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         # people actually wreck xmm registers
         cpu = self.cpu
         l = []
+        copied_stack = [None]
 
         def before():
+            # put nonsense on the top of shadowstack
+            frame = rffi.cast(JITFRAMEPTR, cpu.gc_ll_descr.gcrootmap.stack[0])
+            assert getmap(frame).count('1') == 7 #
+            copied_stack[0] = cpu.gc_ll_descr.gcrootmap.stack[0]
+            cpu.gc_ll_descr.gcrootmap.stack[0] = -42
             l.append("before")
 
         def after():
+            cpu.gc_ll_descr.gcrootmap.stack[0] = copied_stack[0]
             l.append("after")
 
         invoke_around_extcall(before, after)
 
         def f(frame, x):
             # all the gc pointers are alive p1 -> p7 (but not p0)
-            assert getmap(frame).count('1') == 7 #
             assert x == 1
             return 2
-        
+
         FUNC = lltype.FuncType([JITFRAMEPTR, lltype.Signed], lltype.Signed)
         fptr = llhelper(lltype.Ptr(FUNC), f)
         calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-                                    EffectInfo.MOST_GENERAL)        
+                                    EffectInfo.MOST_GENERAL)
         loop = self.parse("""
         [i0, p1, p2, p3, p4, p5, p6, p7]
         p0 = force_token()
@@ -711,7 +800,7 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
 
     def test_call_may_force_gcmap(self):
         cpu = self.cpu
-        
+
         def f(frame, arg, x):
             assert not arg
             assert frame.jf_gcmap[0] & 31 == 0
@@ -739,7 +828,7 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         pdying = getarrayitem_gc(p0, 0, descr=arraydescr)
         px = call_may_force(ConstClass(fptr), pf, pdying, i0, descr=calldescr)
         guard_not_forced(descr=faildescr) [p1, p2, p3, px]
-        finish(px, descr=finishdescr)
+        finish(px, descr=finaldescr)
         """, namespace={'fptr': fptr, 'calldescr': calldescr,
                         'arraydescr': cpu.arraydescrof(A),
                         'faildescr': BasicFailDescr(1),
@@ -751,12 +840,12 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         cpu.compile_loop(loop.inputargs, loop.operations, token)
         frame = lltype.cast_opaque_ptr(JITFRAMEPTR,
                                        cpu.execute_token(token, 1, a))
-        
+
         assert getmap(frame).count('1') == 4
 
     def test_call_gcmap_no_guard(self):
         cpu = self.cpu
-        
+
         def f(frame, arg, x):
             assert not arg
             assert frame.jf_gcmap[0] & 31 == 0
@@ -783,7 +872,7 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         pdying = getarrayitem_gc(p0, 0, descr=arraydescr)
         px = call(ConstClass(fptr), pf, pdying, i0, descr=calldescr)
         guard_false(i0, descr=faildescr) [p1, p2, p3, px]
-        finish(px, descr=finishdescr)
+        finish(px, descr=finaldescr)
         """, namespace={'fptr': fptr, 'calldescr': calldescr,
                         'arraydescr': cpu.arraydescrof(A),
                         'faildescr': BasicFailDescr(1),

@@ -19,6 +19,10 @@
 #pragma link C++ class fragile::H;
 #pragma link C++ class fragile::I;
 #pragma link C++ class fragile::J;
+#pragma link C++ class fragile::K;
+#pragma link C++ class fragile::L;
+#pragma link C++ class fragile::M;
+#pragma link C++ class fragile::N;
 #pragma link C++ class fragile::nested1::A;
 #pragma link C++ class fragile::nested1::nested2::A;
 #pragma link C++ class fragile::nested1::nested2::nested3::A;

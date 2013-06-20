@@ -93,8 +93,8 @@ class BaseTestRegalloc(object):
                      type_system=self.type_system,
                      boxkinds=boxkinds)
 
-    def interpret(self, ops, args, run=True):
-        loop = self.parse(ops)
+    def interpret(self, ops, args, run=True, namespace=None):
+        loop = self.parse(ops, namespace=namespace)
         self.loop = loop
         looptoken = JitCellToken()
         self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)

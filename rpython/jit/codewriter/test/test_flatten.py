@@ -689,6 +689,7 @@ class TestFlatten:
         self.encoding_test(f, [], """
             new_with_vtable <Descr> -> %r0
             virtual_ref %r0 -> %r1
+            -live-
             residual_call_r_r $<* fn jit_force_virtual>, R[%r1], <Descr> -> %r2
             ref_return %r2
         """, transform=True, cc=FakeCallControlWithVRefInfo())

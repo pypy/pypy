@@ -2,7 +2,8 @@ from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.rlib import rgc
 from rpython.rlib.debug import debug_print, debug_start, debug_stop
 from rpython.jit.backend.llsupport.regalloc import FrameManager, \
-        RegisterManager, TempBox, compute_vars_longevity, BaseRegalloc
+        RegisterManager, TempBox, compute_vars_longevity, BaseRegalloc, \
+        get_scale
 from rpython.jit.backend.arm import registers as r
 from rpython.jit.backend.arm import locations
 from rpython.jit.backend.arm.locations import imm, get_fp_offset
@@ -12,7 +13,9 @@ from rpython.jit.backend.arm.helper.regalloc import (prepare_op_by_helper_call,
                                                     prepare_cmp_op,
                                                     prepare_float_op,
                                                     check_imm_arg,
-                                                    check_imm_box
+                                                    check_imm_box,
+                                                    VMEM_imm_size,
+                                                    default_imm_size,
                                                     )
 from rpython.jit.backend.arm.jump import remap_frame_layout_mixed
 from rpython.jit.backend.arm.arch import WORD, JITFRAME_FIXED_SIZE
@@ -33,6 +36,7 @@ from rpython.jit.backend.llsupport.descr import unpack_arraydescr
 from rpython.jit.backend.llsupport.descr import unpack_fielddescr
 from rpython.jit.backend.llsupport.descr import unpack_interiorfielddescr
 from rpython.rlib.rarithmetic import r_uint
+from rpython.jit.backend.llsupport.descr import CallDescr
 
 
 # xxx hack: set a default value for TargetToken._ll_loop_code.  If 0, we know
@@ -320,7 +324,7 @@ class Regalloc(BaseRegalloc):
                 loc = r.fp
             arg = inputargs[i]
             i += 1
-            if loc.is_reg():
+            if loc.is_core_reg():
                 self.rm.reg_bindings[arg] = loc
                 used[loc] = None
             elif loc.is_vfp_reg():
@@ -342,6 +346,8 @@ class Regalloc(BaseRegalloc):
         # note: we need to make a copy of inputargs because possibly_free_vars
         # is also used on op args, which is a non-resizable list
         self.possibly_free_vars(list(inputargs))
+        self.fm.finish_binding()
+        self._check_invariants()
 
     def get_gcmap(self, forbidden_regs=[], noregs=False):
         frame_depth = self.fm.get_frame_depth()
@@ -352,7 +358,7 @@ class Regalloc(BaseRegalloc):
                 continue
             if box.type == REF and self.rm.is_still_alive(box):
                 assert not noregs
-                assert loc.is_reg()
+                assert loc.is_core_reg()
                 val = loc.value
                 gcmap[val // WORD // 8] |= r_uint(1) << (val % (WORD * 8))
         for box, loc in self.fm.bindings.iteritems():
@@ -554,9 +560,27 @@ class Regalloc(BaseRegalloc):
         return self._prepare_call(op)
 
     def _prepare_call(self, op, force_store=[], save_all_regs=False):
-        args = [None] * (op.numargs() + 1)
+        args = [None] * (op.numargs() + 3)
+        calldescr = op.getdescr()
+        assert isinstance(calldescr, CallDescr)
+        assert len(calldescr.arg_classes) == op.numargs() - 1
+
         for i in range(op.numargs()):
-            args[i + 1] = self.loc(op.getarg(i))
+            args[i + 3] = self.loc(op.getarg(i))
+
+        size = calldescr.get_result_size()
+        sign = calldescr.is_result_signed()
+        if sign:
+            sign_loc = imm(1)
+        else:
+            sign_loc = imm(0)
+        args[1] = imm(size)
+        args[2] = sign_loc
+
+        args[0] = self._call(op, args, force_store, save_all_regs)
+        return args
+
+    def _call(self, op, arglocs, force_store=[], save_all_regs=False):
         # spill variables that need to be saved around calls
         self.vfprm.before_call(save_all_regs=save_all_regs)
         if not save_all_regs:
@@ -564,11 +588,11 @@ class Regalloc(BaseRegalloc):
             if gcrootmap and gcrootmap.is_shadow_stack:
                 save_all_regs = 2
         self.rm.before_call(save_all_regs=save_all_regs)
+        self.before_call_called = True
+        resloc = None
         if op.result:
             resloc = self.after_call(op.result)
-            args[0] = resloc
-        self.before_call_called = True
-        return args
+        return resloc
 
     def prepare_op_call_malloc_gc(self, op, fcond):
         return self._prepare_call(op)
@@ -791,7 +815,8 @@ class Regalloc(BaseRegalloc):
         ofs, size, sign = unpack_fielddescr(op.getdescr())
         base_loc = self.make_sure_var_in_reg(a0, boxes)
         value_loc = self.make_sure_var_in_reg(a1, boxes)
-        if check_imm_arg(ofs):
+        ofs_size = default_imm_size if size < 8 else VMEM_imm_size
+        if check_imm_arg(ofs, size=ofs_size):
             ofs_loc = imm(ofs)
         else:
             ofs_loc = self.get_scratch_reg(INT, boxes)
@@ -805,7 +830,8 @@ class Regalloc(BaseRegalloc):
         ofs, size, sign = unpack_fielddescr(op.getdescr())
         base_loc = self.make_sure_var_in_reg(a0)
         immofs = imm(ofs)
-        if check_imm_arg(ofs):
+        ofs_size = default_imm_size if size < 8 else VMEM_imm_size
+        if check_imm_arg(ofs, size=ofs_size):
             ofs_loc = immofs
         else:
             ofs_loc = self.get_scratch_reg(INT, [a0])
@@ -826,7 +852,8 @@ class Regalloc(BaseRegalloc):
         base_loc = self.make_sure_var_in_reg(op.getarg(0), args)
         index_loc = self.make_sure_var_in_reg(op.getarg(1), args)
         immofs = imm(ofs)
-        if check_imm_arg(ofs):
+        ofs_size = default_imm_size if fieldsize < 8 else VMEM_imm_size
+        if check_imm_arg(ofs, size=ofs_size):
             ofs_loc = immofs
         else:
             ofs_loc = self.get_scratch_reg(INT, args)
@@ -845,7 +872,8 @@ class Regalloc(BaseRegalloc):
         index_loc = self.make_sure_var_in_reg(op.getarg(1), args)
         value_loc = self.make_sure_var_in_reg(op.getarg(2), args)
         immofs = imm(ofs)
-        if check_imm_arg(ofs):
+        ofs_size = default_imm_size if fieldsize < 8 else VMEM_imm_size
+        if check_imm_arg(ofs, size=ofs_size):
             ofs_loc = immofs
         else:
             ofs_loc = self.get_scratch_reg(INT, args)
@@ -870,8 +898,8 @@ class Regalloc(BaseRegalloc):
         scale = get_scale(size)
         args = op.getarglist()
         base_loc = self.make_sure_var_in_reg(args[0], args)
-        ofs_loc = self.make_sure_var_in_reg(args[1], args)
         value_loc = self.make_sure_var_in_reg(args[2], args)
+        ofs_loc = self.make_sure_var_in_reg(args[1], args)
         assert check_imm_arg(ofs)
         return [value_loc, base_loc, ofs_loc, imm(scale), imm(ofs)]
     prepare_op_setarrayitem_raw = prepare_op_setarrayitem_gc
@@ -1011,20 +1039,72 @@ class Regalloc(BaseRegalloc):
         self.rm.force_allocate_reg(op.result, selected_reg=r.r0)
         t = TempInt()
         self.rm.force_allocate_reg(t, selected_reg=r.r1)
+
+        sizeloc = size_box.getint()
+        gc_ll_descr = self.cpu.gc_ll_descr
+        gcmap = self.get_gcmap([r.r0, r.r1])
         self.possibly_free_var(t)
-        return [imm(size)]
+        self.assembler.malloc_cond(
+            gc_ll_descr.get_nursery_free_addr(),
+            gc_ll_descr.get_nursery_top_addr(),
+            sizeloc,
+            gcmap
+            )
+        self.assembler._alignment_check()
 
-    def prepare_op_call_malloc_nursery_varsize_small(self, op, fcond):
+    def prepare_op_call_malloc_nursery_varsize_frame(self, op, fcond):
         size_box = op.getarg(0)
-        assert isinstance(size_box, BoxInt)
-
+        assert isinstance(size_box, BoxInt) # we cannot have a const here!
+        # sizeloc must be in a register, but we can free it now
+        # (we take care explicitly of conflicts with r0 or r1)
+        sizeloc = self.rm.make_sure_var_in_reg(size_box)
+        self.rm.possibly_free_var(size_box)
+        #
         self.rm.force_allocate_reg(op.result, selected_reg=r.r0)
+        #
         t = TempInt()
         self.rm.force_allocate_reg(t, selected_reg=r.r1)
-        argloc = self.make_sure_var_in_reg(size_box,
-                                            forbidden_vars=[op.result, t])
+        #
+        gcmap = self.get_gcmap([r.r0, r.r1])
         self.possibly_free_var(t)
-        return [argloc]
+        #
+        gc_ll_descr = self.assembler.cpu.gc_ll_descr
+        self.assembler.malloc_cond_varsize_frame(
+            gc_ll_descr.get_nursery_free_addr(),
+            gc_ll_descr.get_nursery_top_addr(),
+            sizeloc,
+            gcmap
+            )
+        self.assembler._alignment_check()
+
+    def prepare_op_call_malloc_nursery_varsize(self, op, fcond):
+        gc_ll_descr = self.assembler.cpu.gc_ll_descr
+        if not hasattr(gc_ll_descr, 'max_size_of_young_obj'):
+            raise Exception("unreachable code")
+            # for boehm, this function should never be called
+        arraydescr = op.getdescr()
+        length_box = op.getarg(2)
+        assert isinstance(length_box, BoxInt) # we cannot have a const here!
+        # the result will be in r0
+        self.rm.force_allocate_reg(op.result, selected_reg=r.r0)
+        # we need r1 as a temporary
+        tmp_box = TempBox()
+        self.rm.force_allocate_reg(tmp_box, selected_reg=r.r1)
+        gcmap = self.get_gcmap([r.r0, r.r1]) # allocate the gcmap *before*
+        self.rm.possibly_free_var(tmp_box)
+        # length_box always survives: it's typically also present in the
+        # next operation that will copy it inside the new array.  It's
+        # fine to load it from the stack too, as long as it's != r0, r1.
+        lengthloc = self.rm.loc(length_box)
+        self.rm.possibly_free_var(length_box)
+        #
+        itemsize = op.getarg(1).getint()
+        maxlength = (gc_ll_descr.max_size_of_young_obj - WORD * 2) / itemsize
+        self.assembler.malloc_cond_varsize(
+            op.getarg(0).getint(),
+            gc_ll_descr.get_nursery_free_addr(),
+            gc_ll_descr.get_nursery_top_addr(),
+            lengthloc, itemsize, maxlength, gcmap, arraydescr)
 
     prepare_op_debug_merge_point = void
     prepare_op_jit_debug = void
@@ -1074,7 +1154,7 @@ class Regalloc(BaseRegalloc):
             assert isinstance(arg, Box)
             loc = self.loc(arg)
             arglocs[i] = loc
-            if loc.is_reg():
+            if loc.is_core_reg() or loc.is_vfp_reg():
                 self.frame_manager.mark_as_free(arg)
         #
         descr._arm_arglocs = arglocs
@@ -1100,9 +1180,9 @@ class Regalloc(BaseRegalloc):
     def prepare_guard_call_assembler(self, op, guard_op, fcond):
         locs = self.locs_for_call_assembler(op, guard_op)
         tmploc = self.get_scratch_reg(INT, selected_reg=r.r0)
-        call_locs = self._prepare_call(op, save_all_regs=True)
+        resloc = self._call(op, locs + [tmploc], save_all_regs=True)
         self.possibly_free_vars(guard_op.getfailargs())
-        return locs + [call_locs[0], tmploc]
+        return locs + [resloc, tmploc]
 
     def _prepare_args_for_new_op(self, new_args):
         gc_ll_descr = self.cpu.gc_ll_descr
@@ -1210,13 +1290,6 @@ def notimplemented_with_guard(self, op, guard_op, fcond):
 operations = [notimplemented] * (rop._LAST + 1)
 operations_with_guard = [notimplemented_with_guard] * (rop._LAST + 1)
 
-
-def get_scale(size):
-    scale = 0
-    while (1 << scale) < size:
-        scale += 1
-    assert (1 << scale) == size
-    return scale
 
 for key, value in rop.__dict__.items():
     key = key.lower()

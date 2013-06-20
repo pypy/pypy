@@ -1,6 +1,6 @@
 """Information about the current system."""
 from pypy.interpreter import gateway
-from rpython.rlib import rfloat, rbigint
+from rpython.rlib import rbigint, rfloat
 from rpython.rtyper.lltypesystem import rffi
 
 
@@ -47,7 +47,6 @@ def get_float_info(space):
     return space.call_function(w_float_info, space.newtuple(info_w))
 
 def get_long_info(space):
-    #assert rbigint.SHIFT == 31
     bits_per_digit = rbigint.SHIFT
     sizeof_digit = rffi.sizeof(rbigint.STORE_TYPE)
     info_w = [
@@ -58,7 +57,4 @@ def get_long_info(space):
     return space.call_function(w_long_info, space.newtuple(info_w))
 
 def get_float_repr_style(space):
-    if rfloat.USE_SHORT_FLOAT_REPR:
-        return space.wrap("short")
-    else:
-        return space.wrap("legacy")
+    return space.wrap("short" if rfloat.USE_SHORT_FLOAT_REPR else "legacy")

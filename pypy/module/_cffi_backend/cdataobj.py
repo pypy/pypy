@@ -114,8 +114,11 @@ class W_CData(W_Root):
     ge = _make_comparison('ge')
 
     def hash(self):
-        h = (objectmodel.compute_identity_hash(self.ctype) ^
-             rffi.cast(lltype.Signed, self._cdata))
+        h = rffi.cast(lltype.Signed, self._cdata)
+        # To hash pointers in dictionaries.  Assumes that h shows some
+        # alignment (to 4, 8, maybe 16 bytes), so we use the following
+        # formula to avoid the trailing bits being always 0.
+        h = h ^ (h >> 4)
         return self.space.wrap(h)
 
     def getitem(self, w_index):
@@ -280,8 +283,13 @@ class W_CData(W_Root):
         return self.ctype.iter(self)
 
     @specialize.argtype(1)
-    def write_raw_integer_data(self, source):
-        misc.write_raw_integer_data(self._cdata, source, self.ctype.size)
+    def write_raw_signed_data(self, source):
+        misc.write_raw_signed_data(self._cdata, source, self.ctype.size)
+        keepalive_until_here(self)
+
+    @specialize.argtype(1)
+    def write_raw_unsigned_data(self, source):
+        misc.write_raw_unsigned_data(self._cdata, source, self.ctype.size)
         keepalive_until_here(self)
 
     def write_raw_float_data(self, source):
@@ -386,9 +394,23 @@ class W_CDataSliced(W_CData):
         return self.length
 
 
+class W_CDataHandle(W_CData):
+    _attrs_ = ['w_keepalive']
+    _immutable_fields_ = ['w_keepalive']
+
+    def __init__(self, space, cdata, ctype, w_keepalive):
+        W_CData.__init__(self, space, cdata, ctype)
+        self.w_keepalive = w_keepalive
+
+    def _repr_extra(self):
+        w_repr = self.space.repr(self.w_keepalive)
+        return "handle to %s" % (self.space.str_w(w_repr),)
+
+
 W_CData.typedef = TypeDef(
     'CData',
     __module__ = '_cffi_backend',
+    __name__ = '<cdata>',
     __repr__ = interp2app(W_CData.repr),
     __nonzero__ = interp2app(W_CData.nonzero),
     __int__ = interp2app(W_CData.int),

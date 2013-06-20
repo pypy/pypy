@@ -886,6 +886,11 @@ class LLFrame(object):
     def op_gc_stack_bottom(self):
         pass       # marker for trackgcroot.py
 
+    def op_gc_detach_callback_pieces(self):
+        raise NotImplementedError("gc_detach_callback_pieces")
+    def op_gc_reattach_callback_pieces(self):
+        raise NotImplementedError("gc_reattach_callback_pieces")
+
     def op_gc_shadowstackref_new(self):   # stacklet+shadowstack
         raise NotImplementedError("gc_shadowstackref_new")
     def op_gc_shadowstackref_context(self):

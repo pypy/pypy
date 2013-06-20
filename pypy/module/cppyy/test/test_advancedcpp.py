@@ -202,27 +202,44 @@ class AppTestADVANCEDCPP:
         assert gbl.a_ns.T4('a_ns::T4<T3<int,double> >')\
                is gbl.a_ns.T4(gbl.a_ns.T4(gbl.T3(int, 'double')))
 
+        #----- mix in some of the alternative syntax
+        assert gbl.T1['int'] is gbl.T1('int')
+        assert gbl.T1[int]   is gbl.T1('int')
+        assert gbl.T2['T1<int>']     is gbl.T2('T1<int>')
+        assert gbl.T2[gbl.T1('int')] is gbl.T2('T1<int>')
+        assert gbl.T2[gbl.T1(int)] is gbl.T2('T1<int>')
+        assert gbl.T3['int,double']    is gbl.T3('int,double')
+        assert gbl.T3['int', 'double'] is gbl.T3('int,double')
+        assert gbl.T3[int, 'double']   is gbl.T3('int,double')
+        assert gbl.T3['T1<int>,T2<T1<int> >'] is gbl.T3('T1<int>,T2<T1<int> >')
+        assert gbl.T3['T1<int>', gbl.T2[gbl.T1[int]]] is gbl.T3('T1<int>,T2<T1<int> >')
+
+        assert gbl.a_ns.T4[int] is gbl.a_ns.T4('int')
+        assert gbl.a_ns.T4['a_ns::T4<T3<int,double> >']\
+               is gbl.a_ns.T4(gbl.a_ns.T4(gbl.T3(int, 'double')))
+
         #-----
         t1 = gbl.T1(int)()
-        assert t1.m_t1    == 1
-        assert t1.value() == 1
+        assert t1.m_t1        == 1
+        assert t1.get_value() == 1
         t1.destruct()
 
         #-----
         t1 = gbl.T1(int)(11)
-        assert t1.m_t1    == 11
-        assert t1.value() == 11
+        assert t1.m_t1        == 11
+        assert t1.get_value() == 11
         t1.m_t1 = 111
-        assert t1.value() == 111
-        assert t1.m_t1    == 111
+        assert t1.get_value() == 111
+        assert t1.m_t1        == 111
         t1.destruct()
 
         #-----
         t2 = gbl.T2(gbl.T1(int))(gbl.T1(int)(32))
         t2.m_t2.m_t1 = 32
-        assert t2.m_t2.value() == 32
-        assert t2.m_t2.m_t1    == 32
+        assert t2.m_t2.get_value() == 32
+        assert t2.m_t2.m_t1        == 32
         t2.destruct()
+
 
     def test05_abstract_classes(self):
         """Test non-instatiatability of abstract classes"""
@@ -402,6 +419,9 @@ class AppTestADVANCEDCPP:
 
         o = some_concrete_class()
 
+        # TODO: figure out the PyPy equivalent of CObject (may have to do this
+        # through the C-API from C++)
+
         #cobj = cppyy.as_cobject(o)
         addr = cppyy.addressof(o)
 
@@ -413,7 +433,9 @@ class AppTestADVANCEDCPP:
         assert o == cppyy.bind_object(addr, some_concrete_class)
         assert o == cppyy.bind_object(addr, type(o))
         assert o == cppyy.bind_object(addr, o.__class__)
-        #assert o == cppyy.bind_object(addr, "some_concrete_class")
+        assert o == cppyy.bind_object(addr, "some_concrete_class")
+        raises(TypeError, cppyy.bind_object, addr, "does_not_exist")
+        raises(TypeError, cppyy.bind_object, addr, 1)
 
     def test10_object_identity(self):
         """Test object identity"""
@@ -509,3 +531,127 @@ class AppTestADVANCEDCPP:
         assert type(c2) == cppyy.gbl.c_class_2
         assert c2.m_c == 3
         c2.destruct()
+
+    def test14_new_overloader(self):
+        """Verify that class-level overloaded new/delete are called"""
+
+        # TODO: operator new appears to be respected by CINT, but operator
+        # delete is not called through root/meta. Anyway, Reflex gets it all
+        # wrong (clear from the generated code). Keep this test as it should
+        # be all better in the cling/llvm world ...
+
+        # TODO: get the capi-identify test selection right ...
+        if self.capi_identity != 'CINT':     # don't test anything for Reflex
+             return
+
+        import cppyy
+
+        assert cppyy.gbl.new_overloader.s_instances == 0
+        nl = cppyy.gbl.new_overloader()
+        assert cppyy.gbl.new_overloader.s_instances == 1
+        nl.destruct()
+
+        if self.capi_identity == 'CINT':     # do not test delete
+            return
+
+        import gc
+        gc.collect()
+        assert cppyy.gbl.new_overloader.s_instances == 0
+
+    def test15_template_instantiation_with_vector_of_float(self):
+        """Test template instantiation with a std::vector<float>"""
+
+        import cppyy
+
+        # the following will simply fail if there is a naming problem (e.g.
+        # std::, allocator<int>, etc., etc.); note the parsing required ...
+        b = cppyy.gbl.my_templated_class(cppyy.gbl.std.vector(float))()
+
+        for i in range(5):
+            b.m_b.push_back(i)
+            assert round(b.m_b[i], 5) == float(i)
+
+    def test16_template_member_functions(self):
+        """Test template member functions lookup and calls"""
+
+        import cppyy
+
+        m = cppyy.gbl.my_templated_method_class()
+
+        assert m.get_size('char')()   == m.get_char_size()
+        assert m.get_size(int)()      == m.get_int_size()
+        assert m.get_size(long)()     == m.get_long_size()
+        assert m.get_size(float)()    == m.get_float_size()
+        assert m.get_size('double')() == m.get_double_size()
+        assert m.get_size('my_templated_method_class')() == m.get_self_size()
+        assert m.get_size('my_typedef_t')() == m.get_self_size()
+
+    def test17_template_global_functions(self):
+        """Test template global function lookup and calls"""
+
+        import cppyy
+
+        f = cppyy.gbl.my_templated_function
+
+        assert f('c') == 'c'
+        assert type(f('c')) == type('c')
+        assert f(3.) == 3.
+        assert type(f(4.)) == type(4.)
+
+    def test18_assign_to_return_byref( self ):
+        """Test assignment to an instance returned by reference"""
+
+        from cppyy import gbl
+
+        a = gbl.std.vector(gbl.ref_tester)()
+        a.push_back(gbl.ref_tester(42))
+
+        assert len(a) == 1
+        assert a[0].m_i == 42
+
+        # TODO:
+        # a[0] = gbl.ref_tester(33)
+        # assert len(a) == 1
+        # assert a[0].m_i == 33
+
+    def test19_math_converters(self):
+        """Test operator int/long/double incl. typedef"""
+
+        from cppyy import gbl
+
+        a = gbl.some_convertible()
+        a.m_i = 1234
+        a.m_d = 4321.
+
+        assert int(a)  == 1234
+        assert int(a)  == a.m_i
+        assert long(a) == a.m_i
+
+        assert float(a) == 4321.
+        assert float(a) == a.m_d
+
+    def test20_comparator(self):
+        """Check that the global operator!=/== is picked up"""
+
+        from cppyy import gbl
+
+        a, b = gbl.some_comparable(), gbl.some_comparable()
+
+        assert a == b
+        assert b == a
+        assert a.__eq__(b)
+        assert b.__eq__(a)
+        assert a.__ne__(a)
+        assert b.__ne__(b)
+        assert a.__eq__(b) == True
+        assert b.__eq__(a) == True
+        assert a.__eq__(a) == False
+        assert b.__eq__(b) == False
+
+    def test21_overload_order_with_proper_return(self):
+        """Test return type against proper overload w/ const and covariance"""
+
+        import cppyy
+
+        assert cppyy.gbl.overload_one_way().gime() == 1
+        assert cppyy.gbl.overload_the_other_way().gime() == "aap"

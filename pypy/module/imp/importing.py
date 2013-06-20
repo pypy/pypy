@@ -16,6 +16,8 @@ from rpython.rlib.streamio import StreamErrors
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from pypy.module.sys.version import PYPY_VERSION
 
+_WIN32 = sys.platform == 'win32'
+
 SEARCH_ERROR = 0
 PY_SOURCE = 1
 PY_COMPILED = 2
@@ -27,12 +29,8 @@ PY_FROZEN = 7
 # PY_CODERESOURCE = 8
 IMP_HOOK = 9
 
-if sys.platform == 'win32':
-    SO = ".pyd"
-else:
-    SO = ".so"
+SO = '.pyd' if _WIN32 else '.so'
 DEFAULT_SOABI = 'pypy-%d%d' % PYPY_VERSION[:2]
-CHECK_FOR_PYW = sys.platform == 'win32'
 
 @specialize.memo()
 def get_so_extension(space):
@@ -64,7 +62,7 @@ def find_modtype(space, filepart):
         return PY_SOURCE, ".py", "U"
 
     # on Windows, also check for a .pyw file
-    if CHECK_FOR_PYW:
+    if _WIN32:
         pyfile = filepart + ".pyw"
         if file_exists(pyfile):
             return PY_SOURCE, ".pyw", "U"
@@ -305,7 +303,7 @@ def absolute_import_with_lock(space, modulename, baselevel,
         return _absolute_import(space, modulename, baselevel,
                                 fromlist_w, tentative)
     finally:
-        lock.release_lock()
+        lock.release_lock(silent_after_fork=True)
 
 @jit.unroll_safe
 def absolute_import_try(space, modulename, baselevel, fromlist_w):
@@ -790,9 +788,13 @@ class ImportRLock:
             self.lockowner = me
         self.lockcounter += 1
 
-    def release_lock(self):
+    def release_lock(self, silent_after_fork):
         me = self.space.getexecutioncontext()   # used as thread ident
         if self.lockowner is not me:
+            if self.lockowner is None and silent_after_fork:
+                # Too bad.  This situation can occur if a fork() occurred
+                # with the import lock held, and we're the child.
+                return
             if not self._can_have_lock():
                 return
             space = self.space
@@ -913,6 +915,14 @@ def load_source_module(space, w_modulename, w_mod, pathname, source, fd,
             if not space.is_true(space.sys.get('dont_write_bytecode')):
                 write_compiled_module(space, code_w, cpathname, mode, mtime)
 
+    try:
+        optimize = space.sys.get_flag('optimize')
+    except RuntimeError:
+        # during bootstrapping
+        optimize = 0
+    if optimize >= 2:
+        code_w.remove_docstrings(space)
+
     update_code_filenames(space, code_w, pathname)
     exec_code_module(space, w_mod, code_w)
 
@@ -1007,6 +1017,14 @@ def load_compiled_module(space, w_modulename, w_mod, cpathname, magic,
                               "Bad magic number in %s", cpathname)
     #print "loading pyc file:", cpathname
     code_w = read_compiled_module(space, cpathname, source)
+    try:
+        optimize = space.sys.get_flag('optimize')
+    except RuntimeError:
+        # during bootstrapping
+        optimize = 0
+    if optimize >= 2:
+        code_w.remove_docstrings(space)
+
     exec_code_module(space, w_mod, code_w)
 
     return w_mod

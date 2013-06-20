@@ -14,6 +14,10 @@ def setup_module(mod):
 class AppTestACLASSLOADER:
     spaceconfig = dict(usemodules=['cppyy'])
 
+    def setup_class(cls):
+        cls.space.appexec([], """():
+            import cppyy""")
+
     def test01_class_autoloading(self):
         """Test whether a class can be found through .rootmap."""
         import cppyy

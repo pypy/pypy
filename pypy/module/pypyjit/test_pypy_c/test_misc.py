@@ -36,7 +36,7 @@ class TestMisc(BaseTestPyPyC):
         assert loop0.match(expected)
         # XXX: The retracing fails to form a loop since j
         # becomes constant 0 after the bridge and constant 1 at the end of the
-        # loop. A bridge back to the peramble is produced instead.        
+        # loop. A bridge back to the peramble is produced instead.
         #assert loop1.match(expected)
 
     def test_factorial(self):
@@ -74,7 +74,6 @@ class TestMisc(BaseTestPyPyC):
             jump(..., descr=...)
         """)
 
-
     def test_mixed_type_loop(self):
         def main(n):
             i = 0.0
@@ -93,7 +92,6 @@ class TestMisc(BaseTestPyPyC):
             --TICK--
             jump(..., descr=...)
         """)
-
 
     def test_cached_pure_func_of_equal_fields(self):
         def main(n):
@@ -177,6 +175,7 @@ class TestMisc(BaseTestPyPyC):
         assert log.result == 1000 * 999 / 2
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
+            guard_not_invalidated?
             i16 = int_ge(i11, i12)
             guard_false(i16, descr=...)
             i17 = int_mul(i11, i14)
@@ -184,7 +183,7 @@ class TestMisc(BaseTestPyPyC):
             i20 = int_add(i11, 1)
             i21 = force_token()
             setfield_gc(p4, i20, descr=<.* .*W_AbstractSeqIterObject.inst_index .*>)
-            guard_not_invalidated(descr=...)
+            guard_not_invalidated?
             i23 = int_lt(i18, 0)
             guard_false(i23, descr=...)
             i25 = int_ge(i18, i9)
@@ -194,7 +193,6 @@ class TestMisc(BaseTestPyPyC):
             --TICK--
             jump(..., descr=...)
         """)
-
 
     def test_chain_of_guards(self):
         src = """
@@ -219,7 +217,6 @@ class TestMisc(BaseTestPyPyC):
         loops = log.loops_by_filename(self.filepath)
         assert len(loops) == 1
 
-
     def test_unpack_iterable_non_list_tuple(self):
         def main(n):
             import array
@@ -234,6 +231,7 @@ class TestMisc(BaseTestPyPyC):
         assert log.result == 1000000
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
+            guard_not_invalidated?
             i14 = getfield_gc(p12, descr=<FieldS list.length .*>)
             i16 = uint_ge(i12, i14)
             guard_false(i16, descr=...)
@@ -242,6 +240,7 @@ class TestMisc(BaseTestPyPyC):
             i19 = int_add(i12, 1)
             setfield_gc(p9, i19, descr=<FieldS .*W_AbstractSeqIterObject.inst_index .*>)
             guard_nonnull_class(p17, ..., descr=...)
+            guard_not_invalidated?
             i21 = getfield_gc(p17, descr=<FieldS .*W_Array.*.inst_len .*>)
             i23 = int_lt(0, i21)
             guard_true(i23, descr=...)
@@ -254,7 +253,6 @@ class TestMisc(BaseTestPyPyC):
             --TICK--
             jump(..., descr=...)
         """)
-
 
     def test_dont_trace_every_iteration(self):
         def main(a, b):
@@ -286,7 +284,6 @@ class TestMisc(BaseTestPyPyC):
         assert log.result == 300 * (-10 % -20)
         assert log.jit_summary.tracing_no == 1
 
-
     def test_overflow_checking(self):
         """
         This test only checks that we get the expected result, not that any
@@ -295,7 +292,8 @@ class TestMisc(BaseTestPyPyC):
         def main():
             import sys
             def f(a,b):
-                if a < 0: return -1
+                if a < 0:
+                    return -1
                 return a-b
             #
             total = sys.maxint - 2147483647
@@ -305,7 +303,6 @@ class TestMisc(BaseTestPyPyC):
             return total
         #
         self.run_and_check(main, [])
-
 
     def test_global(self):
         log = self.run("""
@@ -401,3 +398,13 @@ class TestMisc(BaseTestPyPyC):
         # the following assertion fails if the loop was cancelled due
         # to "abort: vable escape"
         assert len(log.loops_by_id("exc_info")) == 1
+
+    def test_long_comparison(self):
+        def main(n):
+            while n:
+                12345L > 123L  # ID: long_op
+                n -= 1
+
+        log = self.run(main, [300])
+        loop, = log.loops_by_id("long_op")
+        assert len(loop.ops_by_id("long_op")) == 0

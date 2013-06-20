@@ -62,3 +62,14 @@ class AppTest(object):
         assert list_strategy(l) == "empty"
         o = 5
         raises(TypeError, list_strategy, 5)
+
+
+class AppTestJitFeatures(object):
+    spaceconfig = {"translation.jit": True}
+
+    def test_jit_backend_features(self):
+        from __pypy__ import jit_backend_features
+        supported_types = jit_backend_features
+        assert isinstance(supported_types, list)
+        for x in supported_types:
+            assert x in ['floats', 'singlefloats', 'longlong']

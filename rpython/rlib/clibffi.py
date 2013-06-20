@@ -4,6 +4,7 @@ from __future__ import with_statement
 
 from rpython.rtyper.tool import rffi_platform
 from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rtyper.tool import rffi_platform
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.rarithmetic import intmask, is_emulated_long
 from rpython.rlib.objectmodel import we_are_translated
@@ -15,6 +16,7 @@ from rpython.rlib.objectmodel import specialize
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.platform import platform
 from rpython.conftest import cdir
+from platform import machine
 import py
 import os
 import sys
@@ -34,6 +36,8 @@ _FREEBSD_7 = platform.name == "freebsd7"
 
 _LITTLE_ENDIAN = sys.byteorder == 'little'
 _BIG_ENDIAN = sys.byteorder == 'big'
+
+_ARM = rffi_platform.getdefined('__arm__', '')
 
 if _WIN32:
     from rpython.rlib import rwin32
@@ -60,38 +64,17 @@ if _WIN32:
 else:
     separate_module_sources = []
 
+
 if not _WIN32:
-    # On some platforms, we try to link statically libffi, which is small
-    # anyway and avoids endless troubles for installing.  On other platforms
-    # libffi.a is typically not there, so we link dynamically.
     includes = ['ffi.h']
 
     if _MAC_OS:
         pre_include_bits = ['#define MACOSX']
-    else: 
+    else:
         pre_include_bits = []
 
-    def find_libffi_a():
-        dirlist = platform.library_dirs_for_libffi_a()
-        for dir in dirlist:
-            result = os.path.join(dir, 'libffi.a')
-            if os.path.exists(result):
-                return result
-        log.WARNING("'libffi.a' not found in %s" % (dirlist,))
-        log.WARNING("trying to use the dynamic library instead...")
-        return None
-
-    path_libffi_a = None
-    if hasattr(platform, 'library_dirs_for_libffi_a'):
-        path_libffi_a = find_libffi_a()
-    if path_libffi_a is not None:
-        # platforms on which we want static linking
-        libraries = []
-        link_files = [path_libffi_a]
-    else:
-        # platforms on which we want dynamic linking
-        libraries = ['ffi']
-        link_files = []
+    libraries = ['ffi']
+    link_files = []
 
     eci = ExternalCompilationInfo(
         pre_include_bits = pre_include_bits,
@@ -153,6 +136,10 @@ class CConfig:
     FFI_DEFAULT_ABI = rffi_platform.ConstantInteger('FFI_DEFAULT_ABI')
     if _WIN32 and not _WIN64:
         FFI_STDCALL = rffi_platform.ConstantInteger('FFI_STDCALL')
+
+    if _ARM:
+        FFI_SYSV = rffi_platform.ConstantInteger('FFI_SYSV')
+        FFI_VFP = rffi_platform.ConstantInteger('FFI_VFP')
 
     FFI_TYPE_STRUCT = rffi_platform.ConstantInteger('FFI_TYPE_STRUCT')
 
@@ -327,6 +314,9 @@ FFI_BAD_TYPEDEF = cConfig.FFI_BAD_TYPEDEF
 FFI_DEFAULT_ABI = cConfig.FFI_DEFAULT_ABI
 if _WIN32 and not _WIN64:
     FFI_STDCALL = cConfig.FFI_STDCALL
+if _ARM:
+    FFI_SYSV = cConfig.FFI_SYSV
+    FFI_VFP = cConfig.FFI_VFP
 FFI_TYPE_STRUCT = cConfig.FFI_TYPE_STRUCT
 FFI_CIFP = lltype.Ptr(cConfig.ffi_cif)
 
@@ -346,7 +336,7 @@ CALLBACK_TP = rffi.CCallback([FFI_CIFP, rffi.VOIDP, rffi.VOIDPP, rffi.VOIDP],
                              lltype.Void)
 c_ffi_prep_closure = external('ffi_prep_closure', [FFI_CLOSUREP, FFI_CIFP,
                                                    CALLBACK_TP, rffi.VOIDP],
-                              rffi.INT)            
+                              rffi.INT)
 
 FFI_STRUCT_P = lltype.Ptr(lltype.Struct('FFI_STRUCT',
                                         ('ffistruct', FFI_TYPE_P.TO),

@@ -16,4 +16,7 @@
 #pragma link C++ struct operator_unsigned_long;
 #pragma link C++ struct operator_float;
 
+#pragma link C++ class v_opeq_base;
+#pragma link C++ class v_opeq_derived;
+
 #endif

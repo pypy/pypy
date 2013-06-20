@@ -172,3 +172,13 @@ def test_equality():
     assert X() == X()
     assert Y(3) == Y(3)
     assert Y(2) != Y(3)
+
+
+def test_is_host_build():
+    from rpython.translator import platform
+    assert platform.host == platform.platform
+
+    assert platform.is_host_build()
+    platform.set_platform('maemo', None)
+    assert platform.host != platform.platform
+    assert not platform.is_host_build()

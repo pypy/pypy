@@ -398,6 +398,8 @@ class Transformer(object):
             prepare = self._handle_libffi_call
         elif oopspec_name.startswith('math.sqrt'):
             prepare = self._handle_math_sqrt_call
+        elif oopspec_name.startswith('rgc.'):
+            prepare = self._handle_rgc_call
         else:
             prepare = self.prepare_builtin_call
         try:
@@ -539,9 +541,11 @@ class Transformer(object):
             name += '_no_track_allocation'
         op1 = self.prepare_builtin_call(op, name, args, (TYPE,), TYPE)
         if name == 'raw_malloc_varsize':
-            return self._handle_oopspec_call(op1, args,
-                                             EffectInfo.OS_RAW_MALLOC_VARSIZE,
-                                             EffectInfo.EF_CAN_RAISE)
+            ITEMTYPE = op.args[0].value.OF
+            if ITEMTYPE == lltype.Char:
+                return self._handle_oopspec_call(op1, args,
+                                                 EffectInfo.OS_RAW_MALLOC_VARSIZE_CHAR,
+                                                 EffectInfo.EF_CAN_RAISE)
         return self.rewrite_op_direct_call(op1)
 
     def rewrite_op_malloc_varsize(self, op):
@@ -1749,15 +1753,19 @@ class Transformer(object):
 
     def rewrite_op_jit_ffi_save_result(self, op):
         kind = op.args[0].value
-        assert kind in ('int', 'float')
+        assert kind in ('int', 'float', 'longlong', 'singlefloat')
         return SpaceOperation('libffi_save_result_%s' % kind, op.args[1:], None)
 
     def rewrite_op_jit_force_virtual(self, op):
-        return self._do_builtin_call(op)
+        op0 = SpaceOperation('-live-', [], None)
+        op1 = self._do_builtin_call(op)
+        if isinstance(op1, list):
+            return [op0] + op1
+        else:
+            return [op0, op1]
 
     def rewrite_op_jit_is_virtual(self, op):
-        raise Exception, (
-            "'vref.virtual' should not be used from jit-visible code")
+        raise Exception("'vref.virtual' should not be used from jit-visible code")
 
     def rewrite_op_jit_force_virtualizable(self, op):
         # this one is for virtualizables
@@ -1772,6 +1780,12 @@ class Transformer(object):
     def _handle_math_sqrt_call(self, op, oopspec_name, args):
         return self._handle_oopspec_call(op, args, EffectInfo.OS_MATH_SQRT,
                                          EffectInfo.EF_ELIDABLE_CANNOT_RAISE)
+
+    def _handle_rgc_call(self, op, oopspec_name, args):
+        if oopspec_name == 'rgc.ll_shrink_array':
+            return self._handle_oopspec_call(op, args, EffectInfo.OS_SHRINK_ARRAY, EffectInfo.EF_CAN_RAISE)
+        else:
+            raise NotImplementedError(oopspec_name)
 
     def rewrite_op_jit_force_quasi_immutable(self, op):
         v_inst, c_fieldname = op.args

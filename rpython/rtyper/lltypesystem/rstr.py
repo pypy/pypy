@@ -332,7 +332,7 @@ class LLHelpers(AbstractLLHelpers):
             newstr = s2.malloc(len1 + len2)
             newstr.copy_contents_from_str(s1, newstr, 0, 0, len1)
         else:
-            newstr = s1.malloc(len1 + len2)            
+            newstr = s1.malloc(len1 + len2)
             newstr.copy_contents(s1, newstr, 0, 0, len1)
         if typeOf(s2) == Ptr(STR):
             newstr.copy_contents_from_str(s2, newstr, 0, len1, len2)

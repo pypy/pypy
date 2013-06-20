@@ -1,4 +1,4 @@
-import sys
+import sys, os
 import types
 
 from . import model, ffiplatform
@@ -19,6 +19,16 @@ class VGenericEngine(object):
         # list before filling it.  When we fill it, it will thus also show
         # up in kwds['export_symbols'].
         kwds.setdefault('export_symbols', self.export_symbols)
+
+    def find_module(self, module_name, path, so_suffix):
+        basename = module_name + so_suffix
+        if path is None:
+            path = sys.path
+        for dirname in path:
+            filename = os.path.join(dirname, basename)
+            if os.path.isfile(filename):
+                return filename
+        return None
 
     def collect_types(self):
         pass      # not needed in the generic engine
@@ -64,6 +74,9 @@ class VGenericEngine(object):
         class FFILibrary(types.ModuleType):
             _cffi_generic_module = module
             _cffi_ffi = self.ffi
+            _cffi_dir = []
+            def __dir__(self):
+                return FFILibrary._cffi_dir
         library = FFILibrary("")
         #
         # finally, call the loaded_gen_xxx() functions.  This will set
@@ -158,21 +171,22 @@ class VGenericEngine(object):
             newfunction = self._load_constant(False, tp, name, module)
         else:
             indirections = []
-            if any(isinstance(type, model.StructOrUnion) for type in tp.args):
+            if any(isinstance(typ, model.StructOrUnion) for typ in tp.args):
                 indirect_args = []
-                for i, type in enumerate(tp.args):
-                    if isinstance(type, model.StructOrUnion):
-                        type = model.PointerType(type)
-                        indirections.append((i, type))
-                    indirect_args.append(type)
+                for i, typ in enumerate(tp.args):
+                    if isinstance(typ, model.StructOrUnion):
+                        typ = model.PointerType(typ)
+                        indirections.append((i, typ))
+                    indirect_args.append(typ)
                 tp = model.FunctionPtrType(tuple(indirect_args),
                                            tp.result, tp.ellipsis)
             BFunc = self.ffi._get_cached_btype(tp)
             wrappername = '_cffi_f_%s' % name
             newfunction = module.load_function(BFunc, wrappername)
-            for i, type in indirections:
-                newfunction = self._make_struct_wrapper(newfunction, i, type)
+            for i, typ in indirections:
+                newfunction = self._make_struct_wrapper(newfunction, i, typ)
         setattr(library, name, newfunction)
+        type(library)._cffi_dir.append(name)
 
     def _make_struct_wrapper(self, oldfunc, i, tp):
         backend = self.ffi._backend
@@ -216,9 +230,9 @@ class VGenericEngine(object):
         prnt('static void %s(%s *p)' % (checkfuncname, cname))
         prnt('{')
         prnt('  /* only to generate compile-time warnings or errors */')
-        for fname, ftype, _ in tp.enumfields():
+        for fname, ftype, fbitsize in tp.enumfields():
             if (isinstance(ftype, model.PrimitiveType)
-                and ftype.is_integer_type()):
+                and ftype.is_integer_type()) or fbitsize >= 0:
                 # accept all integers, but complain on float or double
                 prnt('  (void)((p->%s) << 1);' % fname)
             else:
@@ -380,6 +394,7 @@ class VGenericEngine(object):
         is_int = isinstance(tp, model.PrimitiveType) and tp.is_integer_type()
         value = self._load_constant(is_int, tp, name, module)
         setattr(library, name, value)
+        type(library)._cffi_dir.append(name)
 
     # ----------
     # enums
@@ -427,6 +442,7 @@ class VGenericEngine(object):
     def _loaded_gen_enum(self, tp, name, module, library):
         for enumerator, enumvalue in zip(tp.enumerators, tp.enumvalues):
             setattr(library, enumerator, enumvalue)
+            type(library)._cffi_dir.append(enumerator)
 
     # ----------
     # macros: for now only for integers
@@ -440,6 +456,7 @@ class VGenericEngine(object):
     def _loaded_gen_macro(self, tp, name, module, library):
         value = self._load_constant(True, tp, name, module)
         setattr(library, name, value)
+        type(library)._cffi_dir.append(name)
 
     # ----------
     # global variables
@@ -465,6 +482,7 @@ class VGenericEngine(object):
                 BArray = self.ffi._get_cached_btype(tp)
                 value = self.ffi.cast(BArray, value)
             setattr(library, name, value)
+            type(library)._cffi_dir.append(name)
             return
         # remove ptr=<cdata 'int *'> from the library instance, and replace
         # it by a property on the class, which reads/writes into ptr[0].
@@ -476,7 +494,8 @@ class VGenericEngine(object):
             return ptr[0]
         def setter(library, value):
             ptr[0] = value
-        setattr(library.__class__, name, property(getter, setter))
+        setattr(type(library), name, property(getter, setter))
+        type(library)._cffi_dir.append(name)
 
 cffimod_header = r'''
 #include <stdio.h>

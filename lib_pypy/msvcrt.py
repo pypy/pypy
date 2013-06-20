@@ -8,25 +8,37 @@ still useful routines.
 # PAC: 2010/08 added MS locking for Whoosh
 
 import ctypes
+import errno
 from ctypes_support import standard_c_lib as _c
 from ctypes_support import get_errno
-import errno
 
 try:
     open_osfhandle = _c._open_osfhandle
 except AttributeError: # we are not on windows
     raise ImportError
 
-try: from __pypy__ import builtinify
-except ImportError: builtinify = lambda f: f
+try: from __pypy__ import builtinify, validate_fd
+except ImportError: builtinify = validate_fd = lambda f: f
 
 
 open_osfhandle.argtypes = [ctypes.c_int, ctypes.c_int]
 open_osfhandle.restype = ctypes.c_int
 
-get_osfhandle = _c._get_osfhandle
-get_osfhandle.argtypes = [ctypes.c_int]
-get_osfhandle.restype = ctypes.c_int
+_get_osfhandle = _c._get_osfhandle
+_get_osfhandle.argtypes = [ctypes.c_int]
+_get_osfhandle.restype = ctypes.c_int
+
+@builtinify
+def get_osfhandle(fd):
+    """"get_osfhandle(fd) -> file handle
+
+    Return the file handle for the file descriptor fd. Raises IOError if
+    fd is not recognized."""
+    try:
+        validate_fd(fd)
+    except OSError as e:
+        raise IOError(*e.args)
+    return _get_osfhandle(fd)
 
 setmode = _c._setmode
 setmode.argtypes = [ctypes.c_int, ctypes.c_int]

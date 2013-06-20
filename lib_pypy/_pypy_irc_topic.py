@@ -1,4 +1,4 @@
-"""eclguba: flagnk naq frznagvpf bs clguba, fcrrq bs p, erfgevpgvbaf bs wnin naq pbzcvyre reebe zrffntrf nf crargenoyr nf ZHZCF
+__doc__ = """eclguba: flagnk naq frznagvpf bs clguba, fcrrq bs p, erfgevpgvbaf bs wnin naq pbzcvyre reebe zrffntrf nf crargenoyr nf ZHZCF
 pglcrf unf n fcva bs 1/3
 ' ' vf n fcnpr gbb
 Clguba 2.k rfg cerfdhr zbeg, ivir Clguba!

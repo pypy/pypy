@@ -70,7 +70,11 @@ def parse_log(lines, verbose=False):
         time = int(int(match.group(1), 16))
         time_decrase = time_decrase or time < lasttime
         lasttime = time
-        record(match.group(2), time=int(match.group(1), 16))
+        try:
+            record(match.group(2), time=int(match.group(1), 16))
+        except:
+            print "Line", i
+            raise
     if verbose:
         sys.stderr.write('loaded\n')
     if performance_log and time_decrase:

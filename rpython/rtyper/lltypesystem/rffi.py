@@ -329,8 +329,9 @@ aroundstate._cleanup_()
 
 class StackCounter:
     def _cleanup_(self):
-        self.stacks_counter = 1     # number of "stack pieces": callbacks
+        self.stacks_counter = 0     # number of "stack pieces": callbacks
                                     # and threads increase it by one
+
 stackcounter = StackCounter()
 stackcounter._cleanup_()
 
@@ -693,10 +694,13 @@ def make_string_mappings(strtype):
         builder_class = UnicodeBuilder
 
     # str -> char*
-    def str2charp(s):
+    def str2charp(s, track_allocation=True):
         """ str -> char*
         """
-        array = lltype.malloc(TYPEP.TO, len(s) + 1, flavor='raw')
+        if track_allocation:
+            array = lltype.malloc(TYPEP.TO, len(s) + 1, flavor='raw', track_allocation=True)
+        else:
+            array = lltype.malloc(TYPEP.TO, len(s) + 1, flavor='raw', track_allocation=False)
         i = len(s)
         array[i] = lastchar
         i -= 1
@@ -704,10 +708,13 @@ def make_string_mappings(strtype):
             array[i] = s[i]
             i -= 1
         return array
-    str2charp._annenforceargs_ = [strtype]
+    str2charp._annenforceargs_ = [strtype, bool]
 
-    def free_charp(cp):
-        lltype.free(cp, flavor='raw')
+    def free_charp(cp, track_allocation=True):
+        if track_allocation:
+            lltype.free(cp, flavor='raw', track_allocation=True)
+        else:
+            lltype.free(cp, flavor='raw', track_allocation=False)
 
     # char* -> str
     # doesn't free char*
@@ -934,8 +941,8 @@ def sizeof(tp):
     if tp is lltype.SingleFloat:
         return 4
     if tp is lltype.LongFloat:
-        import ctypes    # :-/
-        return ctypes.sizeof(ctypes.c_longdouble)
+        # :-/
+        return sizeof_c_type("long double")
     assert isinstance(tp, lltype.Number)
     if tp is lltype.Signed:
         return LONG_BIT/8
@@ -1059,6 +1066,7 @@ class scoped_str2charp:
             self.buf = str2charp(value)
         else:
             self.buf = lltype.nullptr(CCHARP.TO)
+    __init__._annenforceargs_ = [None, annmodel.SomeString(can_be_None=True)]
     def __enter__(self):
         return self.buf
     def __exit__(self, *args):
@@ -1072,6 +1080,8 @@ class scoped_unicode2wcharp:
             self.buf = unicode2wcharp(value)
         else:
             self.buf = lltype.nullptr(CWCHARP.TO)
+    __init__._annenforceargs_ = [None,
+                                 annmodel.SomeUnicodeString(can_be_None=True)]
     def __enter__(self):
         return self.buf
     def __exit__(self, *args):

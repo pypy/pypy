@@ -550,6 +550,24 @@ class AppTestMMap:
         m.close()
         f.close()
 
+    def test_buffer_write(self):
+        from mmap import mmap
+        f = open(self.tmpname + "y", "w+")
+        f.write("foobar")
+        f.flush()
+        m = mmap(f.fileno(), 6)
+        m[5] = '?'
+        b = buffer(m)
+        try:
+            b[:3] = "FOO"
+        except TypeError:     # on CPython: "buffer is read-only" :-/
+            skip("on CPython: buffer is read-only")
+        m.close()
+        f.seek(0)
+        got = f.read()
+        assert got == "FOOba?"
+        f.close()
+
     def test_offset(self):
         from mmap import mmap, ALLOCATIONGRANULARITY
         f = open(self.tmpname + "y", "w+")

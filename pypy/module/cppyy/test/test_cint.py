@@ -41,9 +41,9 @@ class AppTestCINT:
         oldval = cppyy.gbl.gDebug
         assert oldval != 3
 
-        proxy = cppyy.gbl.__class__.gDebug
+        proxy = cppyy.gbl.__class__.__dict__['gDebug']
         cppyy.gbl.gDebug = 3
-        assert proxy.__get__(proxy) == 3
+        assert proxy.__get__(proxy, None) == 3
 
         # this is where this test differs from test03_write_access_to_globals
         # in test_pythonify.py
@@ -60,8 +60,8 @@ class AppTestCINT:
         cppyy.gbl.gROOT.ProcessLine('double gMyOwnGlobal = 3.1415')
         assert cppyy.gbl.gMyOwnGlobal == 3.1415
 
-        proxy = cppyy.gbl.__class__.gMyOwnGlobal
-        assert proxy.__get__(proxy) == 3.1415
+        proxy = cppyy.gbl.__class__.__dict__['gMyOwnGlobal']
+        assert proxy.__get__(proxy, None) == 3.1415
 
     def test04_auto_loading(self):
         """Test auto-loading by retrieving a non-preloaded class"""
@@ -95,7 +95,7 @@ class AppTestCINT:
         assert c.get_data() == 13
 
 
-class AppTestCINTPythonizations:
+class AppTestCINTPYTHONIZATIONS:
     spaceconfig = dict(usemodules=['cppyy'])
 
     def test01_strings(self):
@@ -138,8 +138,8 @@ class AppTestCINTPythonizations:
              assert round(v[int(math.sqrt(j)+0.5)]-j, 5) == 0.
 
 
-class AppTestCINTTTree:
-    spaceconfig = dict(usemodules=['cppyy'])
+class AppTestCINTTTREE:
+    spaceconfig = dict(usemodules=['cppyy', 'array', '_rawffi', '_cffi_backend'])
 
     def setup_class(cls):
         cls.w_N = cls.space.wrap(5)
@@ -148,7 +148,8 @@ class AppTestCINTTTree:
         cls.w_tname = cls.space.wrap("test")
         cls.w_title = cls.space.wrap("test tree")
         cls.w_iotypes = cls.space.appexec([], """():
-            import cppyy
+            import cppyy, _cffi_backend
+            _cffi_backend.new_primitive_type      # prevents leak-checking complaints on _cffi_backend
             return cppyy.load_reflection_info(%r)""" % (iotypes_dct,))
 
     def test01_write_stdvector(self):
@@ -176,7 +177,17 @@ class AppTestCINTTTree:
         f.Write()
         f.Close()
 
-    def test02_read_stdvector(self):
+    def test02_file_open(self):
+
+        from cppyy import gbl
+
+        f = gbl.TFile.Open(self.fname)
+        s = str(f)            # should not raise
+        r = repr(f)
+
+        f.Close()
+
+    def test03_read_stdvector(self):
         """Test reading of a single branched TTree with an std::vector<double>"""
 
         from cppyy import gbl
@@ -195,7 +206,7 @@ class AppTestCINTTTree:
 
         f.Close()
 
-    def test03_write_some_data_object(self):
+    def test04_write_some_data_object(self):
         """Test writing of a complex data object"""
 
         from cppyy import gbl
@@ -220,7 +231,7 @@ class AppTestCINTTTree:
         f.Write()
         f.Close()
 
-    def test04_read_some_data_object(self):
+    def test05_read_some_data_object(self):
         """Test reading of a complex data object"""
 
         from cppyy import gbl
@@ -251,10 +262,10 @@ class AppTestCINTTTree:
         #
         f.Close()
 
-    def test05_branch_activation(self):
+    def test06_branch_activation(self):
         """Test of automatic branch activation"""
 
-        from cppyy import gbl               # bootstraps, only needed for tests
+        from cppyy import gbl
         from cppyy.gbl import TFile, TTree
         from cppyy.gbl.std import vector
 
@@ -306,3 +317,262 @@ class AppTestCINTTTree:
             i += 1
         assert i == self.N
 
+    def test07_write_builtin(self):
+        """Test writing of builtins"""
+
+        from cppyy import gbl               # bootstraps, only needed for tests
+        from cppyy.gbl import TFile, TTree
+        from cppyy.gbl.std import vector
+
+        f = TFile(self.fname, "RECREATE")
+        mytree = TTree(self.tname, self.title)
+        mytree._python_owns = False
+
+        import array
+        mytree.ba = array.array('c', [chr(0)])
+        mytree.ia = array.array('i', [0])
+        mytree.da = array.array('d', [0.])
+
+        mytree.Branch("my_bool",   mytree.ba, "my_bool/O")
+        mytree.Branch("my_int",    mytree.ia, "my_int/I")
+        mytree.Branch("my_int2",   mytree.ia, "my_int2/I")
+        mytree.Branch("my_double", mytree.da, "my_double/D")
+
+        for i in range(self.N):
+            # make sure value is different from default (0)
+            mytree.ba[0] = i%2 and chr(0) or chr(1)
+            mytree.ia[0] = i+1
+            mytree.da[0] = (i+1)/2.
+            mytree.Fill()
+        f.Write()
+        f.Close()
+
+    def test08_read_builtin(self):
+        """Test reading of builtins"""
+
+        from cppyy import gbl
+        from cppyy.gbl import TFile
+
+        f = TFile(self.fname)
+        mytree = f.Get(self.tname)
+
+        raises(AttributeError, getattr, mytree, "does_not_exist")
+
+        i = 1
+        for event in mytree:
+            assert event.my_bool   == (i-1)%2 and 0 or 1
+            assert event.my_int    == i
+            assert event.my_double == i/2.
+            i += 1
+        assert (i-1) == self.N
+
+        f.Close()
+
+    def test09_user_read_builtin(self):
+        """Test user-directed reading of builtins"""
+
+        from cppyy import gbl
+        from cppyy.gbl import TFile
+
+        f = TFile(self.fname)
+        mytree = f.Get(self.tname)
+
+        # note, this is an old, annoted tree from test08
+        for i in range(3, mytree.GetEntriesFast()):
+            mytree.GetEntry(i)
+            assert mytree.my_int  == i+1
+            assert mytree.my_int2 == i+1
+
+
+class AppTestCINTREGRESSION:
+    spaceconfig = dict(usemodules=['cppyy'])
+
+    # these are tests that at some point in the past resulted in failures on
+    # PyROOT; kept here to confirm no regression from PyROOT
+
+    def test01_regression(self):
+        """TPaveText::AddText() used to result in KeyError"""
+
+        # This is where the original problem was discovered, and the test is
+        # left in. However, the detailed underlying problem, as well as the
+        # solution to it, is tested in test_fragile.py
+
+        from cppyy import gbl
+        from cppyy.gbl import TPaveText
+
+        hello = TPaveText( .1, .8, .9, .97 )
+        hello.AddText( 'Hello, World!' )
+
+
+class AppTestSURPLUS:
+    spaceconfig = dict(usemodules=['cppyy'])
+
+    # these are tests that were historically exercised on ROOT classes and
+    # have twins on custom classes; kept here just in case differences crop
+    # up between the ROOT classes and the custom ones
+
+    def test01_class_enum(self):
+        """Test class enum access and values"""
+
+        import cppyy
+        TObject = cppyy.gbl.TObject
+        gROOT = cppyy.gbl.gROOT
+
+        assert TObject.kBitMask    == gROOT.ProcessLine("return TObject::kBitMask;")
+        assert TObject.kIsOnHeap   == gROOT.ProcessLine("return TObject::kIsOnHeap;")
+        assert TObject.kNotDeleted == gROOT.ProcessLine("return TObject::kNotDeleted;")
+        assert TObject.kZombie     == gROOT.ProcessLine("return TObject::kZombie;")
+
+        t = TObject()
+
+        assert TObject.kBitMask    == t.kBitMask
+        assert TObject.kIsOnHeap   == t.kIsOnHeap
+        assert TObject.kNotDeleted == t.kNotDeleted
+        assert TObject.kZombie     == t.kZombie
+
+    def test02_global_enum(self):
+        """Test global enums access and values"""
+
+        import cppyy
+        from cppyy import gbl
+
+        assert gbl.kRed   == gbl.gROOT.ProcessLine("return kRed;")
+        assert gbl.kGreen == gbl.gROOT.ProcessLine("return kGreen;")
+        assert gbl.kBlue  == gbl.gROOT.ProcessLine("return kBlue;")
+
+    def test03_copy_contructor(self):
+        """Test copy constructor"""
+
+        import cppyy
+        TLorentzVector = cppyy.gbl.TLorentzVector
+
+        t1 = TLorentzVector(1., 2., 3., -4.)
+        t2 = TLorentzVector(0., 0., 0.,  0.)
+        t3 = TLorentzVector(t1)
+
+        assert t1 == t3
+        assert t1 != t2
+
+        for i in range(4):
+            assert t1[i] == t3[i]
+
+    def test04_object_validity(self):
+        """Test object validity checking"""
+
+        import cppyy
+
+        t1 = cppyy.gbl.TObject()
+
+        assert t1
+        assert not not t1
+
+        t2 = cppyy.gbl.gROOT.FindObject("Nah, I don't exist")
+
+        assert not t2
+
+    def test05_element_access(self):
+        """Test access to elements in matrix and array objects."""
+
+        from cppyy import gbl
+
+        N = 3
+        v = gbl.TVectorF(N)
+        m = gbl.TMatrixD(N, N)
+
+        for i in range(N):
+            assert v[i] == 0.0
+
+            for j in range(N):
+                assert m[i][j] == 0.0
+
+    def test06_static_function_call( self ):
+        """Test call to static function."""
+
+        import cppyy
+        TROOT, gROOT = cppyy.gbl.TROOT, cppyy.gbl.gROOT
+
+        c1 = TROOT.Class()
+        assert not not c1
+
+        c2 = gROOT.Class()
+
+        assert c1 == c2
+
+        old = gROOT.GetDirLevel()
+        TROOT.SetDirLevel(2)
+        assert 2 == gROOT.GetDirLevel()
+        gROOT.SetDirLevel(old)
+
+        old = TROOT.GetDirLevel()
+        gROOT.SetDirLevel(3)
+        assert 3 == TROOT.GetDirLevel()
+        TROOT.SetDirLevel(old)
+
+    def test07_macro(self):
+        """Test access to cpp macro's"""
+
+        from cppyy import gbl
+
+        assert gbl.NULL == 0
+
+        gbl.gROOT.ProcessLine('#define aap "aap"')
+        gbl.gROOT.ProcessLine('#define noot 1')
+        gbl.gROOT.ProcessLine('#define mies 2.0')
+
+        # TODO: macro's assumed to always be of long type ...
+        #assert gbl.aap  == "aap"
+        assert gbl.noot == 1
+        #assert gbl.mies == 2.0
+
+    def test08_opaque_pointer_passing(self):
+        """Test passing around of opaque pointers"""
+
+        import cppyy
+
+        # TODO: figure out CObject (see also test_advanced.py)
+
+        s = cppyy.gbl.TString("Hello World!")
+        #cobj = cppyy.as_cobject(s)
+        addr = cppyy.addressof(s)
+
+        #assert s == cppyy.bind_object(cobj, s.__class__)
+        #assert s == cppyy.bind_object(cobj, "TString")
+        assert s == cppyy.bind_object(addr, s.__class__)
+        assert s == cppyy.bind_object(addr, "TString")
+
+    def test09_object_and_pointer_comparisons(self):
+        """Verify object and pointer comparisons"""
+
+        import cppyy
+        gbl = cppyy.gbl
+
+        c1 = cppyy.bind_object(0, gbl.TCanvas)
+        assert c1 == None
+        assert None == c1
+
+        c2 = cppyy.bind_object(0, gbl.TCanvas)
+        assert c1 == c2
+        assert c2 == c1
+
+        # TLorentzVector overrides operator==
+        l1 = cppyy.bind_object(0, gbl.TLorentzVector)
+        assert l1 == None
+        assert None == l1
+
+        assert c1 != l1
+        assert l1 != c1
+
+        l2 = cppyy.bind_object(0, gbl.TLorentzVector)
+        assert l1 == l2
+        assert l2 == l1 
+
+        l3 = gbl.TLorentzVector(1, 2, 3, 4)
+        l4 = gbl.TLorentzVector(1, 2, 3, 4)
+        l5 = gbl.TLorentzVector(4, 3, 2, 1)
+        assert l3 == l4
+        assert l4 == l3
+
+        assert l3 != None                 # like this to ensure __ne__ is called
+        assert None != l3                 # id.
+        assert l3 != l5
+        assert l5 != l3

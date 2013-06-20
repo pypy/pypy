@@ -1,4 +1,4 @@
-# Generates the resource cache
+# Generates the resource cache (it might be there already, but maybe not)
 from __future__ import absolute_import
 from lib_pypy.ctypes_config_cache import rebuild
 rebuild.rebuild_one('resource.ctc.py')

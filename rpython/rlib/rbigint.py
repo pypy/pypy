@@ -180,38 +180,19 @@ class rbigint(object):
             ival = r_uint(intval)
         else:
             return NULLRBIGINT
-        # Count the number of Python digits.
-        # We used to pick 5 ("big enough for anything"), but that's a
-        # waste of time and space given that 5*15 = 75 bits are rarely
-        # needed.
-        # XXX: Even better!
-        if SHIFT >= 63:
-            carry = ival >> SHIFT
-            if carry:
-                return rbigint([_store_digit(ival & MASK),
-                    _store_digit(carry & MASK)], sign, 2)
-            else:
-                return rbigint([_store_digit(ival & MASK)], sign, 1)
+        
+        carry = ival >> SHIFT
+        if carry:
+            return rbigint([_store_digit(ival & MASK),
+                _store_digit(carry)], sign, 2)
+        else:
+            return rbigint([_store_digit(ival & MASK)], sign, 1)
             
-        t = ival
-        ndigits = 0
-        while t:
-            ndigits += 1
-            t >>= SHIFT
-        v = rbigint([NULLDIGIT] * ndigits, sign, ndigits)
-        t = ival
-        p = 0
-        while t:
-            v.setdigit(p, t)
-            t >>= SHIFT
-            p += 1
-
-        return v
-
+        
     @staticmethod
+    @jit.elidable
     def frombool(b):
-        # This function is marked as pure, so you must not call it and
-        # then modify the result.
+        # You must not call this function and then modify the result.
         if b:
             return ONERBIGINT
         return NULLRBIGINT
@@ -270,6 +251,7 @@ class rbigint(object):
         return _decimalstr_to_bigint(s)
 
     @staticmethod
+    @jit.elidable
     def frombytes(s, byteorder, signed):
         if byteorder not in ('big', 'little'):
             raise InvalidEndiannessError()
@@ -402,9 +384,11 @@ class rbigint(object):
     def tolonglong(self):
         return _AsLongLong(self)
 
+    @jit.look_inside
     def tobool(self):
         return self.sign != 0
 
+    @jit.elidable
     def touint(self):
         if self.sign == -1:
             raise ValueError("cannot convert negative integer to unsigned int")
@@ -429,13 +413,16 @@ class rbigint(object):
             raise ValueError("cannot convert negative integer to unsigned int")
         return _AsULonglong_ignore_sign(self)
 
+    @jit.elidable
     def uintmask(self):
         return _AsUInt_mask(self)
 
+    @jit.elidable
     def ulonglongmask(self):
         """Return r_ulonglong(self), truncating."""
         return _AsULonglong_mask(self)
 
+    @jit.elidable
     def tofloat(self):
         return _AsDouble(self)
 
@@ -447,21 +434,17 @@ class rbigint(object):
 
     @jit.elidable
     def repr(self):
-        return _format(self, BASE10, '', 'L')
+        return _format_decimal(self, addL=True)
 
     @jit.elidable
     def str(self):
-        return _format(self, BASE10)
+        return _format_decimal(self)
 
     @jit.elidable
     def eq(self, other):
         if (self.sign != other.sign or
             self.numdigits() != other.numdigits()):
             return False
-        
-        # Fast path.
-        if len(self._digits) == len(other._digits):
-            return self._digits == other._digits
 
         i = 0
         ld = self.numdigits()
@@ -471,6 +454,7 @@ class rbigint(object):
             i += 1
         return True
 
+    @jit.look_inside
     def ne(self, other):
         return not self.eq(other)
 
@@ -509,12 +493,15 @@ class rbigint(object):
             i -= 1
         return False
 
+    @jit.look_inside
     def le(self, other):
         return not other.lt(self)
 
+    @jit.look_inside
     def gt(self, other):
         return other.lt(self)
 
+    @jit.look_inside
     def ge(self, other):
         return not self.lt(other)
 
@@ -570,7 +557,7 @@ class rbigint(object):
                 res = b.widedigit(0) * a.widedigit(0)
                 carry = res >> SHIFT
                 if carry:
-                    return rbigint([_store_digit(res & MASK), _store_digit(carry & MASK)], a.sign * b.sign, 2)
+                    return rbigint([_store_digit(res & MASK), _store_digit(carry)], a.sign * b.sign, 2)
                 else:
                     return rbigint([_store_digit(res & MASK)], a.sign * b.sign, 1)
                 
@@ -615,6 +602,7 @@ class rbigint(object):
             
         return div
 
+    @jit.look_inside
     def div(self, other):
         return self.floordiv(other)
 
@@ -815,14 +803,17 @@ class rbigint(object):
             z = z.sub(c)
         return z
 
+    @jit.elidable
     def neg(self):
         return rbigint(self._digits, -self.sign, self.size)
 
+    @jit.elidable
     def abs(self):
         if self.sign != -1:
             return self
         return rbigint(self._digits, 1, self.size)
 
+    @jit.elidable
     def invert(self): #Implement ~x as -(x + 1)
         if self.sign == 0:
             return ONENEGATIVERBIGINT
@@ -932,12 +923,14 @@ class rbigint(object):
     def or_(self, other):
         return _bitwise(self, '|', other)
 
+    @jit.elidable
     def oct(self):
         if self.sign == 0:
             return '0L'
         else:
             return _format(self, BASE8, '0', 'L')
 
+    @jit.elidable
     def hex(self):
         return _format(self, BASE16, '0x', 'L')
 
@@ -1111,10 +1104,6 @@ def _x_add(a, b):
 def _x_sub(a, b):
     """ Subtract the absolute values of two integers. """
     
-    # Special casing.
-    if a is b:
-        return NULLRBIGINT
-    
     size_a = a.numdigits()
     size_b = b.numdigits()
     sign = 1
@@ -1145,13 +1134,13 @@ def _x_sub(a, b):
         borrow = a.udigit(i) - b.udigit(i) - borrow
         z.setdigit(i, borrow)
         borrow >>= SHIFT
-        borrow &= 1 # Keep only one sign bit
+        #borrow &= 1 # Keep only one sign bit
         i += 1
     while i < size_a:
         borrow = a.udigit(i) - borrow
         z.setdigit(i, borrow)
         borrow >>= SHIFT
-        borrow &= 1
+        #borrow &= 1
         i += 1
         
     assert borrow == 0
@@ -1314,7 +1303,8 @@ def _k_mul(a, b):
 
     assert t1.sign >= 0
     assert 2*shift + t1.numdigits() <= ret.numdigits()
-    ret._digits[2*shift : 2*shift + t1.numdigits()] = t1._digits
+    for i in range(t1.numdigits()):
+        ret._digits[2*shift + i] = t1._digits[i]
 
     # Zero-out the digits higher than the ah*bh copy. */
     ## ignored, assuming that we initialize to zero
@@ -1327,7 +1317,8 @@ def _k_mul(a, b):
     t2 = al.mul(bl)
     assert t2.sign >= 0
     assert t2.numdigits() <= 2*shift # no overlap with high digits
-    ret._digits[:t2.numdigits()] = t2._digits
+    for i in range(t2.numdigits()):
+        ret._digits[i] = t2._digits[i]
 
     # Zero out remaining digits.
     ## ignored, assuming that we initialize to zero
@@ -2101,6 +2092,101 @@ def _format(a, digits, prefix='', suffix=''):
     assert p >= 0    # otherwise, buffer overflow (this is also a
                      # hint for the annotator for the slice below)
     return ''.join(s[p:])
+
+
+DECIMAL_SHIFT = 0      # computed as max(E such that 10**E fits in a digit)
+while 10 ** (DECIMAL_SHIFT + 1) <= 2 ** SHIFT:
+    DECIMAL_SHIFT += 1
+DECIMAL_BASE = 10 ** DECIMAL_SHIFT
+
+# an RPython trick: this creates a nested sequence of calls that are
+# all inlined into each other, making an unrolled loop.  Moreover the
+# calls are done in the "wrong" order to be written as a regular loop:
+# the first digit that is append-ed to the builder is the most
+# significant one (corresponding to the innermost call).
+_succ = specialize.memo()(lambda n: n + 1)
+@specialize.arg(3)
+def _add_decimal_digits(builder, value, ndigits, digit_index=1):
+    assert value >= 0
+    if digit_index < ndigits:
+        assert digit_index < DECIMAL_SHIFT
+        _add_decimal_digits(builder, value // 10, ndigits, _succ(digit_index))
+        builder.append(chr(ord('0') + value % 10))
+    else:
+        assert value < 10
+        builder.append(chr(ord('0') + value))
+_add_decimal_digits._always_inline_ = True
+
+
+def _format_decimal(a, addL=False):
+    """ Optimized version of _format(a, BASE10, '', 'L' if addL else ''). """
+    if a.sign == 0:
+        if addL:
+            return "0L"
+        else:
+            return "0"
+
+    size_a = a.numdigits()
+    negative = a.sign < 0
+
+    # quick and dirty upper bound for the number of digits
+    # required to express a in base DECIMAL_BASE:
+    #
+    #    #digits = 1 + floor(log2(a) / log2(DECIMAL_BASE))
+    #
+    # But log2(a) < size_a * PyLong_SHIFT, and
+    # log2(DECIMAL_BASE) = log2(10) * DECIMAL_SHIFT
+    #                    > 3 * DECIMAL_SHIFT
+
+    size = 1 + size_a * SHIFT // (3 * DECIMAL_SHIFT)
+    pout = [NULLDIGIT] * size
+
+    # convert array of base _PyLong_BASE digits in pin to an array of
+    # base _PyLong_DECIMAL_BASE digits in pout, following Knuth (TAOCP,
+    # Volume 2 (3rd edn), section 4.4, Method 1b).
+    size = 0
+    for i in range(size_a-1, -1, -1):
+        hi = a.digit(i)
+        for j in range(size):
+            z = (_widen_digit(pout[j]) << SHIFT) | hi
+            hi = _store_digit(z // DECIMAL_BASE)
+            pout[j] = _store_digit(z - _widen_digit(hi) * DECIMAL_BASE)
+        assert hi >= 0
+        while hi:
+            pout[size] = hi % DECIMAL_BASE
+            hi //= DECIMAL_BASE
+            size += 1
+    sizem1 = size - 1
+    assert sizem1 >= 0
+
+    # calculate exact length of output string, and allocate
+    decimal_digits_in_last_part = 1
+    rem = pout[sizem1]
+    tenpow = 10
+    while rem >= tenpow:
+        tenpow *= 10
+        decimal_digits_in_last_part += 1
+    strlen = (addL + negative +
+              decimal_digits_in_last_part + (sizem1) * DECIMAL_SHIFT)
+
+    builder = StringBuilder(strlen)
+
+    # start with the negative sign, if needed
+    if negative:
+        builder.append('-')
+
+    # pout[size-1] produces 'decimal_digits_in_last_part' digits.
+    # Then the remaining pout[size-2] through pout[0] contribute exactly
+    # DECIMAL_SHIFT digits each.
+    decimal_digits = decimal_digits_in_last_part
+    for i in range(sizem1, -1, -1):
+        _add_decimal_digits(builder, pout[i], decimal_digits)
+        decimal_digits = DECIMAL_SHIFT
+
+    # done
+    if addL:
+        builder.append('L')
+    return builder.build()
 
 
 def _bitwise(a, op, b): # '&', '|', '^'

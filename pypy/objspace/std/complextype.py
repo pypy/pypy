@@ -220,8 +220,8 @@ def unpackcomplex(space, w_complex, strict_typing=True):
     if (space.isinstance_w(w_complex, space.w_str) or
         space.isinstance_w(w_complex, space.w_unicode)):
         raise operationerrfmt(space.w_TypeError,
-                              "complex number expected, got '%s'",
-                              space.type(w_complex).getname(space))
+                              "complex number expected, got '%T'",
+                              w_complex)
     #
     return (space.float_w(space.float(w_complex)), 0.0)
 

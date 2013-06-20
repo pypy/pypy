@@ -54,7 +54,7 @@ class X86RegisterManager(RegisterManager):
 class X86_64_RegisterManager(X86RegisterManager):
     # r11 omitted because it's used as scratch
     all_regs = [ecx, eax, edx, ebx, esi, edi, r8, r9, r10, r12, r13, r14, r15]
-    
+
     no_lower_byte_regs = []
     save_around_call_regs = [eax, ecx, edx, esi, edi, r8, r9, r10]
 
@@ -79,31 +79,19 @@ class X86XMMRegisterManager(RegisterManager):
         rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), adr)[1] = y
         return ConstFloatLoc(adr)
 
-    def after_call(self, v):
-        # the result is stored in st0, but we don't have this around,
-        # so genop_call will move it to some frame location immediately
-        # after the call
-        return self.frame_manager.loc(v)
+    def call_result_location(self, v):
+        return xmm0
 
 class X86_64_XMMRegisterManager(X86XMMRegisterManager):
     # xmm15 reserved for scratch use
     all_regs = [xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14]
     save_around_call_regs = all_regs
 
-    def call_result_location(self, v):
-        return xmm0
-
-    def after_call(self, v):
-        # We use RegisterManager's implementation, since X86XMMRegisterManager
-        # places the result on the stack, which we don't need to do when the
-        # calling convention places the result in xmm0
-        return RegisterManager.after_call(self, v)
-
 class X86FrameManager(FrameManager):
     def __init__(self, base_ofs):
         FrameManager.__init__(self)
         self.base_ofs = base_ofs
-    
+
     def frame_pos(self, i, box_type):
         return FrameLoc(i, get_ebp_ofs(self.base_ofs, i), box_type)
 
@@ -238,18 +226,6 @@ class RegAlloc(BaseRegalloc):
             return self.xrm.convert_to_imm_16bytes_align(var)
         else:
             return self.xrm.make_sure_var_in_reg(var, forbidden_vars)
-
-    def _frame_bindings(self, locs, inputargs):
-        bindings = {}
-        i = 0
-        for loc in locs:
-            if loc is None:
-                continue
-            arg = inputargs[i]
-            i += 1
-            if not isinstance(loc, RegLoc):
-                bindings[arg] = loc
-        return bindings
 
     def _update_bindings(self, locs, inputargs):
         # XXX this should probably go to llsupport/regalloc.py
@@ -799,14 +775,6 @@ class RegAlloc(BaseRegalloc):
         self._consider_call(op, guard_op)
 
     def consider_call_release_gil(self, op, guard_op):
-        # We spill the arguments to the stack, because we need to do 3 calls:
-        # call_release_gil(), the_real_c_function(), and call_reacquire_gil().
-        # The arguments are used on the second call only.  XXX we assume
-        # that the XMM arguments won't be modified by call_release_gil().
-        for i in range(op.numargs()):
-            loc = self.loc(op.getarg(i))
-            if loc in self.rm.save_around_call_regs:
-                self.rm.force_spill_var(op.getarg(i))
         assert guard_op is not None
         self._consider_call(op, guard_op)
 
@@ -837,7 +805,7 @@ class RegAlloc(BaseRegalloc):
         # looking at the result
         self.rm.force_allocate_reg(op.result, selected_reg=eax)
         #
-        # We need edx as a temporary, but otherwise don't save any more
+        # We need edi as a temporary, but otherwise don't save any more
         # register.  See comments in _build_malloc_slowpath().
         tmp_box = TempBox()
         self.rm.force_allocate_reg(tmp_box, selected_reg=edi)
@@ -850,25 +818,55 @@ class RegAlloc(BaseRegalloc):
             gc_ll_descr.get_nursery_top_addr(),
             size, gcmap)
 
-    def consider_call_malloc_nursery_varsize_small(self, op):
+    def consider_call_malloc_nursery_varsize_frame(self, op):
         size_box = op.getarg(0)
         assert isinstance(size_box, BoxInt) # we cannot have a const here!
-        # looking at the result
+        # sizeloc must be in a register, but we can free it now
+        # (we take care explicitly of conflicts with eax or edi)
+        sizeloc = self.rm.make_sure_var_in_reg(size_box)
+        self.rm.possibly_free_var(size_box)
+        # the result will be in eax
         self.rm.force_allocate_reg(op.result, selected_reg=eax)
-        #
-        # We need edx as a temporary, but otherwise don't save any more
-        # register.  See comments in _build_malloc_slowpath().
+        # we need edi as a temporary
         tmp_box = TempBox()
         self.rm.force_allocate_reg(tmp_box, selected_reg=edi)
-        sizeloc = self.rm.make_sure_var_in_reg(size_box, [op.result, tmp_box])
         gcmap = self.get_gcmap([eax, edi]) # allocate the gcmap *before*
         self.rm.possibly_free_var(tmp_box)
         #
         gc_ll_descr = self.assembler.cpu.gc_ll_descr
-        self.assembler.malloc_cond_varsize_small(
+        self.assembler.malloc_cond_varsize_frame(
             gc_ll_descr.get_nursery_free_addr(),
             gc_ll_descr.get_nursery_top_addr(),
             sizeloc, gcmap)
+
+    def consider_call_malloc_nursery_varsize(self, op):
+        gc_ll_descr = self.assembler.cpu.gc_ll_descr
+        if not hasattr(gc_ll_descr, 'max_size_of_young_obj'):
+            raise Exception("unreachable code")
+            # for boehm, this function should never be called
+        arraydescr = op.getdescr()
+        length_box = op.getarg(2)
+        assert isinstance(length_box, BoxInt) # we cannot have a const here!
+        # the result will be in eax
+        self.rm.force_allocate_reg(op.result, selected_reg=eax)
+        # we need edi as a temporary
+        tmp_box = TempBox()
+        self.rm.force_allocate_reg(tmp_box, selected_reg=edi)
+        gcmap = self.get_gcmap([eax, edi]) # allocate the gcmap *before*
+        self.rm.possibly_free_var(tmp_box)
+        # length_box always survives: it's typically also present in the
+        # next operation that will copy it inside the new array.  It's
+        # fine to load it from the stack too, as long as it's != eax, edi.
+        lengthloc = self.rm.loc(length_box)
+        self.rm.possibly_free_var(length_box)
+        #
+        itemsize = op.getarg(1).getint()
+        maxlength = (gc_ll_descr.max_size_of_young_obj - WORD * 2) / itemsize
+        self.assembler.malloc_cond_varsize(
+            op.getarg(0).getint(),
+            gc_ll_descr.get_nursery_free_addr(),
+            gc_ll_descr.get_nursery_top_addr(),
+            lengthloc, itemsize, maxlength, gcmap, arraydescr)
 
     def get_gcmap(self, forbidden_regs=[], noregs=False):
         frame_depth = self.fm.get_frame_depth()
@@ -1121,9 +1119,8 @@ class RegAlloc(BaseRegalloc):
         # call memcpy()
         self.rm.before_call()
         self.xrm.before_call()
-        self.assembler._emit_call(imm(self.assembler.memcpy_addr),
-                                  [dstaddr_loc, srcaddr_loc, length_loc],
-                                  can_collect=False)
+        self.assembler.simple_call_no_collect(imm(self.assembler.memcpy_addr),
+                                        [dstaddr_loc, srcaddr_loc, length_loc])
         self.rm.possibly_free_var(length_box)
         self.rm.possibly_free_var(dstaddr_box)
         self.rm.possibly_free_var(srcaddr_box)
@@ -1313,7 +1310,7 @@ class RegAlloc(BaseRegalloc):
         #jump_op = self.final_jump_op
         #if jump_op is not None and jump_op.getdescr() is descr:
         #    self._compute_hint_frame_locations_from_descr(descr)
-        
+
 
     def consider_keepalive(self, op):
         pass
@@ -1349,16 +1346,6 @@ def get_ebp_ofs(base_ofs, position):
     # Returns (ebp+20), (ebp+24), (ebp+28)...
     # i.e. the n'th word beyond the fixed frame size.
     return base_ofs + WORD * (position + JITFRAME_FIXED_SIZE)
-
-def _valid_addressing_size(size):
-    return size == 1 or size == 2 or size == 4 or size == 8
-
-def _get_scale(size):
-    assert _valid_addressing_size(size)
-    if size < 4:
-        return size - 1         # 1, 2 => 0, 1
-    else:
-        return (size >> 2) + 1  # 4, 8 => 2, 3
 
 def not_implemented(msg):
     os.write(2, '[x86/regalloc] %s\n' % msg)

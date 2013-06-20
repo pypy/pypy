@@ -80,21 +80,21 @@ class GraphAnalyzer(object):
             if graph is None:
                 x = self.analyze_external_call(op, seen)
                 if self.verbose and x:
-                    print '\tanalyze_external_call %s: %r' % (op, x)
+                    self.dump_info('analyze_external_call %s: %r' % (op, x))
                 return x
             x = self.analyze_direct_call(graph, seen)
             if self.verbose and x:
-                print '\tanalyze_direct_call(%s): %r' % (graph, x)
+                self.dump_info('analyze_direct_call(%s): %r' % (graph, x))
             return x
         elif op.opname == "indirect_call":
             graphs = op.args[-1].value
             if graphs is None:
                 if self.verbose:
-                    print '\t%s to unknown' % (op,)
+                    self.dump_info('%s to unknown' % (op,))
                 return self.top_result()
             x = self.analyze_indirect_call(graphs, seen)
             if self.verbose and x:
-                print '\tanalyze_indirect_call(%s): %r' % (graphs, x)
+                self.dump_info('analyze_indirect_call(%s): %r' % (graphs, x))
             return x
         elif op.opname == "oosend":
             name = op.args[0].value
@@ -106,8 +106,11 @@ class GraphAnalyzer(object):
             return self.analyze_oosend(TYPE, name, seen)
         x = self.analyze_simple_operation(op, graphinfo)
         if self.verbose and x:
-            print '\t%s: %r' % (op, x)
+            self.dump_info('%s: %r' % (op, x))
         return x
+
+    def dump_info(self, info):
+        print '[%s] %s' % (self.__class__.__name__, info)
 
     def analyze_direct_call(self, graph, seen=None):
         if seen is None:
@@ -204,26 +207,29 @@ class DependencyTracker(object):
         self.graph_results = analyzer._analyzed_calls
         # the current stack of graphs being analyzed
         self.current_stack = []
-        self.current_stack_set = set()
+        #self.current_stack_set = set()
 
     def enter(self, graph):
         if graph not in self.graph_results:
             self.current_stack.append(graph)
-            self.current_stack_set.add(graph)
+            #self.current_stack_set.add(graph)
             self.graph_results.find(graph)
             return True
         else:
-            if graph in self.current_stack_set:
-                # found a cycle; merge all graphs in that cycle
-                i = len(self.current_stack) - 1
-                while self.current_stack[i] is not graph:
-                    self.graph_results.union(self.current_stack[i], graph)
-                    i -= 1
+            graph = self.graph_results.find_rep(graph)
+            for j in range(len(self.current_stack)):
+                othergraph = self.graph_results.find_rep(self.current_stack[j])
+                if graph is othergraph:
+                    # found a cycle; merge all graphs in that cycle
+                    for i in range(j, len(self.current_stack)):
+                        self.graph_results.union(self.current_stack[i], graph)
+                    # done
+                    break
             return False
 
     def leave_with(self, result):
         graph = self.current_stack.pop()
-        self.current_stack_set.remove(graph)
+        #self.current_stack_set.remove(graph)
         dep = self.graph_results[graph]
         dep.merge_with_result(result)
 
