@@ -707,7 +707,7 @@ class CTypesBackend(object):
         class CTypesStructOrUnion(CTypesBaseStructOrUnion):
             __slots__ = ['_blob']
             _ctype = struct_or_union
-            _reftypename = '%s %s &' % (kind, name)
+            _reftypename = '%s &' % (name,)
             _kind = kind
         #
         CTypesStructOrUnion._fix_class()
@@ -934,7 +934,7 @@ class CTypesBackend(object):
         #
         class CTypesEnum(CTypesInt):
             __slots__ = []
-            _reftypename = 'enum %s &' % name
+            _reftypename = '%s &' % name
 
             def _get_own_repr(self):
                 value = self._value
