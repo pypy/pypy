@@ -25,7 +25,6 @@ class W_SolutionIterator(W_Root):
 
         self.space = space
         self.d_result = None
-        self.first_sol = True
 
         self.fcont = None
         self.heap = None
@@ -51,11 +50,9 @@ class W_SolutionIterator(W_Root):
         self.d_result = self.space.newdict()
         cur_mod = self.w_engine.engine.modulewrapper.current_module
 
-        if self.first_sol:
+        if self.fcont is None:
             cont = UnipycationContinuation2(
                     self.w_engine, self.var_to_pos, self.space.wrap(self))
-            self.first_sol = False
-
             try:
                 r = self.w_engine.engine.run(self.goal, cur_mod, cont)
             except perr.UnificationFailed:
