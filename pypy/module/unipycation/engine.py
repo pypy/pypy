@@ -25,8 +25,12 @@ class W_SolutionIterator(W_Root):
 
         self.space = space
         self.d_result = None
+        self.first_sol = True
 
-    def populate_result(self, var_to_pos, heap):
+        self.fcont = None
+        self.heap = None
+
+    def populate_result(self, var_to_pos, fcont, heap):
 
         for var, real_var in var_to_pos.iteritems():
             print("VAR: %s" % var)
@@ -36,18 +40,31 @@ class W_SolutionIterator(W_Root):
             w_val = conv.w_of_p(self.space, real_var.dereference(heap))
             self.space.setitem(self.d_result, w_var, w_val)
 
+        self.fcont = fcont
+        self.heap = heap
+
     def iter_w(self): return self.space.wrap(self)
 
     def next_w(self):
         """ Obtain the next solution (if there is one) """
-        cont = UnipycationContinuation2(self.w_engine, self.var_to_pos, self.space.wrap(self))
+
         self.d_result = self.space.newdict()
         cur_mod = self.w_engine.engine.modulewrapper.current_module
 
-        try:
-            r = self.w_engine.engine.run(self.goal, cur_mod, cont)
-        except perr.UnificationFailed:
-            self.d_result = None
+        if self.first_sol:
+            cont = UnipycationContinuation2(
+                    self.w_engine, self.var_to_pos, self.space.wrap(self))
+            self.first_sol = False
+
+            try:
+                r = self.w_engine.engine.run(self.goal, cur_mod, cont)
+            except perr.UnificationFailed:
+                self.d_result = None
+        else:
+            try:
+                pcont.driver(*self.fcont.fail(self.heap))
+            except perr.UnificationFailed:
+                raise OperationError(self.space.w_StopIteration, None)
 
         return self.d_result
 
@@ -75,7 +92,7 @@ class UnipycationContinuation2(pcont.Continuation):
         self.w_solution_iter = w_solution_iter
 
     def activate(self, fcont, heap):
-        self.w_solution_iter.populate_result(self.var_to_pos, heap)
+        self.w_solution_iter.populate_result(self.var_to_pos, fcont, heap)
         return pcont.DoneSuccessContinuation(self.engine), fcont, heap
 
 

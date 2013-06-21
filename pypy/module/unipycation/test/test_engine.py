@@ -86,5 +86,6 @@ class AppTestEngine(object):
         it = e.query_iter("f(X).")
 
         results = [ r["X"] for r in it ]
+        print(results)
 
         assert results == [1, 666]
