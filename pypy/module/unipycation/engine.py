@@ -18,8 +18,12 @@ class W_SolutionIterator(W_Root):
     def __init__(self, space, var_to_pos, goals, w_engine):
         # Stash some prolog structures
         self.w_engine = w_engine
+
         self.var_to_pos = var_to_pos
-        assert len(goals) == 1 # XXX
+        if len(goals) != 1:
+            w_GoalError = util.get_from_module(space, "unipycation", "GoalError")
+            raise OperationError(w_GoalError, space.wrap("Please pass a single query"))
+
         self.goal = goals[0]
 
         self.space = space

@@ -123,3 +123,15 @@ class AppTestEngine(object):
             first_ten.append(it.next()["X"])
 
         assert first_ten == range(0, 10)
+
+    def test_iterator_multigoal(self):
+        import unipycation
+
+        e = unipycation.Engine("f(666).")
+
+        try:
+            it = e.query_iter("f(666). f(667).")
+        except unipycation.GoalError:
+            return # expected
+
+        assert False
