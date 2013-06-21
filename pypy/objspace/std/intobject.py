@@ -59,11 +59,6 @@ class W_IntObject(W_AbstractIntObject):
 
 registerimplementation(W_IntObject)
 
-# NB: This code is shared by smallintobject.py, and thus no other Int
-# multimethods should be invoked from these implementations. Instead, add an
-# alias and then teach copy_multimethods in smallintobject.py to override
-# it. See int__Int for example.
-
 def repr__Int(space, w_int1):
     a = w_int1.intval
     res = str(a)
