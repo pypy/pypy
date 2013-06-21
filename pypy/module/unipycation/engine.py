@@ -10,35 +10,72 @@ import prolog.interpreter.parsing as ppars
 import pypy.module.unipycation.conversion as conv
 import pypy.module.unipycation.util as util
 
-def solution_iterator_new__(space, w_subtype, __args__):
-    var_to_pos = __args__.firstarg()
-    w_engine = __args__.secondarg()
-    e = W_SolutionIterator(space, var_to_pos, w_engine)
-    return space.wrap(e)
-
-class W_SolutionIterator(object):
+class W_SolutionIterator(W_Root):
     """
     An interface that allows retreival of multiple solutions
     """
 
-    def __init__(self, space, var_to_pos, w_engine):
+    def __init__(self, space, var_to_pos, goals, w_engine):
         print("CONSTRUCTOR")
         self.w_engine = w_engine
         self.var_to_pos = var_to_pos
+        self.goals = goals
+        self.space = space
+        self.d_result = None
+
+    def populate_result(self, var_to_pos, heap):
+
+        for var, real_var in var_to_pos.iteritems():
+            print("VAR: %s" % var)
+            if var.startswith("_"): continue
+
+            w_var = self.space.wrap(var)
+            w_val = conv.w_of_p(self.space, real_var.dereference(heap))
+            self.space.setitem(self.d_result, w_var, w_val)
 
     def iter_w(self): return self.space.wrap(self)
 
-    def next_w(self): return True
+    def next_w(self):
+        """ Obtain the next solution (if there is one) """
+        cont = UnipycationContinuation2(self.w_engine, self.var_to_pos, self.space.wrap(self))
+        self.d_result = self.space.newdict()
+        cur_mod = self.w_engine.engine.modulewrapper.current_module
+        for g in self.goals:
+            try:
+                r = self.w_engine.engine.run(g, cur_mod, cont)
+            except perr.UnificationFailed:
+                self.d_result = None
+                break
+
+        return self.d_result
 
 W_SolutionIterator.typedef = TypeDef("SolutionIterator",
-    __new__ = interp2app(solution_iterator_new__),
-    #__iter__ = interp2app(W_SolutionIterator.iter_w),
-    #next = interp2app(W_SolutionIterator.next_w),
+    __iter__ = interp2app(W_SolutionIterator.iter_w),
+    next = interp2app(W_SolutionIterator.next_w),
 )
 
 W_SolutionIterator.typedef.acceptable_as_base_class = False
 
 # ---
+
+
+# XXX this temproary variation is for the iterator interface
+class UnipycationContinuation2(pcont.Continuation):
+    def __init__(self, w_engine, var_to_pos, w_solution_iter):
+        engine = w_engine.engine
+
+        print("CONSTRUCT CONTINUATION")
+        pcont.Continuation.__init__(self, engine, pcont.DoneSuccessContinuation(engine))
+
+        # stash
+        self.var_to_pos = var_to_pos
+        self.w_engine = w_engine
+        self.w_solution_iter = w_solution_iter
+
+    def activate(self, fcont, heap):
+        self.w_solution_iter.populate_result(self.var_to_pos, heap)
+        return pcont.DoneSuccessContinuation(self.engine), fcont, heap
+
 
 class UnipycationContinuation(pcont.Continuation):
     def __init__(self, engine, var_to_pos, w_engine):
@@ -100,10 +137,9 @@ class W_Engine(W_Root):
             raise OperationError(w_ParseError, self.space.wrap(e.nice_error_message()))
 
         w_engine = self.space.wrap(self)
-        w_solution_iter = W_SolutionIterator(self.space, var_to_pos, w_engine)
+        w_solution_iter = W_SolutionIterator(self.space, var_to_pos, goals, w_engine)
 
-        # XXX dummy return, will actually return iterator later
-        return self.space.newlist([])
+        return w_solution_iter
 
     def populate_result(self, var_to_pos, heap):
 
