@@ -108,3 +108,18 @@ class AppTestEngine(object):
         results = [ r for r in it ]
 
         assert results == [{}]
+
+    def test_iterator_infty(self):
+        import unipycation
+
+        e = unipycation.Engine("""
+                f(0).
+                f(X) :- f(X0), X is X0 + 1.
+        """)
+        it = e.query_iter("f(X).")
+
+        first_ten = []
+        for i in range(10):
+            first_ten.append(it.next()["X"])
+
+        assert first_ten == range(0, 10)
