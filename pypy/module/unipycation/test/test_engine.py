@@ -78,3 +78,13 @@ class AppTestEngine(object):
             return # expected outcome
 
         assert False # Should be unreachable
+
+    def test_iterator(self):
+        import unipycation
+
+        e = unipycation.Engine("f(1). f(666).")
+        it = e.query_iter("f(X).")
+
+        results = [ r["X"] for r in it ]
+
+        assert results == [1, 666]
