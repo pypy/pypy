@@ -19,7 +19,10 @@ class W_SolutionIterator(W_Root):
         print("CONSTRUCTOR")
         self.w_engine = w_engine
         self.var_to_pos = var_to_pos
-        self.goals = goals
+
+        assert len(goals) == 1 # XXX
+        self.goal = goals[0]
+
         self.space = space
         self.d_result = None
 
@@ -40,12 +43,11 @@ class W_SolutionIterator(W_Root):
         cont = UnipycationContinuation2(self.w_engine, self.var_to_pos, self.space.wrap(self))
         self.d_result = self.space.newdict()
         cur_mod = self.w_engine.engine.modulewrapper.current_module
-        for g in self.goals:
-            try:
-                r = self.w_engine.engine.run(g, cur_mod, cont)
-            except perr.UnificationFailed:
-                self.d_result = None
-                break
+
+        try:
+            r = self.w_engine.engine.run(self.goal, cur_mod, cont)
+        except perr.UnificationFailed:
+            self.d_result = None
 
         return self.d_result
 
