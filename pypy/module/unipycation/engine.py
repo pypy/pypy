@@ -16,7 +16,6 @@ class W_SolutionIterator(W_Root):
     """
 
     def __init__(self, space, var_to_pos, goals, w_engine):
-        print("CONSTRUCTOR")
         self.w_engine = w_engine
         self.var_to_pos = var_to_pos
 
@@ -32,7 +31,6 @@ class W_SolutionIterator(W_Root):
     def populate_result(self, var_to_pos, fcont, heap):
 
         for var, real_var in var_to_pos.iteritems():
-            print("VAR: %s" % var)
             if var.startswith("_"): continue
 
             w_var = self.space.wrap(var)
@@ -56,13 +54,15 @@ class W_SolutionIterator(W_Root):
             try:
                 r = self.w_engine.engine.run(self.goal, cur_mod, cont)
             except perr.UnificationFailed:
-                self.d_result = None
+                # contradiction - no solutions
+                raise OperationError(self.space.w_StopIteration, None)
 
             self.goal = None # allow GC
         else:
             try:
                 pcont.driver(*self.fcont.fail(self.heap))
             except perr.UnificationFailed:
+                # enumerated all solutions
                 raise OperationError(self.space.w_StopIteration, None)
 
         return self.d_result
@@ -82,7 +82,6 @@ class UnipycationContinuation2(pcont.Continuation):
     def __init__(self, w_engine, var_to_pos, w_solution_iter):
         engine = w_engine.engine
 
-        print("CONSTRUCT CONTINUATION")
         pcont.Continuation.__init__(self, engine, pcont.DoneSuccessContinuation(engine))
 
         # stash
@@ -162,21 +161,16 @@ class W_Engine(W_Root):
     def populate_result(self, var_to_pos, heap):
 
         for var, real_var in var_to_pos.iteritems():
-            print("VAR: %s" % var)
             if var.startswith("_"): continue
 
             w_var = self.space.wrap(var)
             w_val = conv.w_of_p(self.space, real_var.dereference(heap))
             self.space.setitem(self.d_result, w_var, w_val)
 
-    def print_last_result(self):
-        print(self.result)
-
 W_Engine.typedef = TypeDef("Engine",
     __new__ = interp2app(engine_new__),
     query = interp2app(W_Engine.query),
     query_iter = interp2app(W_Engine.query_iter),
-    print_last_result = interp2app(W_Engine.print_last_result),
 )
 
 W_Engine.typedef.acceptable_as_base_class = False

@@ -86,6 +86,15 @@ class AppTestEngine(object):
         it = e.query_iter("f(X).")
 
         results = [ r["X"] for r in it ]
-        print(results)
 
         assert results == [1, 666]
+
+    def test_iterator_no_result(self):
+        import unipycation
+
+        e = unipycation.Engine("f(666).")
+        it = e.query_iter("f(1337).")
+
+        results = [ r["X"] for r in it ]
+
+        assert results == []
