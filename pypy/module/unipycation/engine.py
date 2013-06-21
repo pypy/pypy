@@ -16,19 +16,21 @@ class W_SolutionIterator(W_Root):
     """
 
     def __init__(self, space, var_to_pos, goals, w_engine):
+        # Stash some prolog structures
         self.w_engine = w_engine
         self.var_to_pos = var_to_pos
-
         assert len(goals) == 1 # XXX
         self.goal = goals[0]
 
         self.space = space
-        self.d_result = None
+        self.d_result = None    # Current result, populated on the fly
 
+        # The state of the continuation (for enumerating results)
         self.fcont = None
         self.heap = None
 
-    def populate_result(self, var_to_pos, fcont, heap):
+    def _populate_result(self, var_to_pos, fcont, heap):
+        """ Called interally by the activation of the continuation """
 
         for var, real_var in var_to_pos.iteritems():
             if var.startswith("_"): continue
@@ -46,9 +48,11 @@ class W_SolutionIterator(W_Root):
         """ Obtain the next solution (if there is one) """
 
         self.d_result = self.space.newdict()
-        cur_mod = self.w_engine.engine.modulewrapper.current_module
 
+        # The first iteration is special. Here we set up the continuation
+        # for subsequent iterations.
         if self.fcont is None:
+            cur_mod = self.w_engine.engine.modulewrapper.current_module
             cont = UnipycationContinuation2(
                     self.w_engine, self.var_to_pos, self.space.wrap(self))
             try:
@@ -76,7 +80,6 @@ W_SolutionIterator.typedef.acceptable_as_base_class = False
 
 # ---
 
-
 # XXX this temproary variation is for the iterator interface
 class UnipycationContinuation2(pcont.Continuation):
     def __init__(self, w_engine, var_to_pos, w_solution_iter):
@@ -90,9 +93,8 @@ class UnipycationContinuation2(pcont.Continuation):
         self.w_solution_iter = w_solution_iter
 
     def activate(self, fcont, heap):
-        self.w_solution_iter.populate_result(self.var_to_pos, fcont, heap)
+        self.w_solution_iter._populate_result(self.var_to_pos, fcont, heap)
         return pcont.DoneSuccessContinuation(self.engine), fcont, heap
-
 
 class UnipycationContinuation(pcont.Continuation):
     def __init__(self, engine, var_to_pos, w_engine):
@@ -101,7 +103,7 @@ class UnipycationContinuation(pcont.Continuation):
         self.w_engine = w_engine
 
     def activate(self, fcont, heap):
-        self.w_engine.populate_result(self.var_to_pos, heap)
+        self.w_engine._populate_result(self.var_to_pos, heap)
         return pcont.DoneSuccessContinuation(self.engine), fcont, heap
 
 # ---
@@ -158,7 +160,7 @@ class W_Engine(W_Root):
 
         return w_solution_iter
 
-    def populate_result(self, var_to_pos, heap):
+    def _populate_result(self, var_to_pos, heap):
 
         for var, real_var in var_to_pos.iteritems():
             if var.startswith("_"): continue
