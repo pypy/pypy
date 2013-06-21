@@ -57,6 +57,8 @@ class W_SolutionIterator(W_Root):
                 r = self.w_engine.engine.run(self.goal, cur_mod, cont)
             except perr.UnificationFailed:
                 self.d_result = None
+
+            self.goal = None # allow GC
         else:
             try:
                 pcont.driver(*self.fcont.fail(self.heap))
