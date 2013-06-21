@@ -98,3 +98,13 @@ class AppTestEngine(object):
         results = [ r["X"] for r in it ]
 
         assert results == []
+
+    def test_iterator_tautology(self):
+        import unipycation
+
+        e = unipycation.Engine("f(666).")
+        it = e.query_iter("f(666).")
+
+        results = [ r for r in it ]
+
+        assert results == [{}]
