@@ -7,6 +7,7 @@ class Module(MixedModule):
     interpleveldefs = {
         "PyCF_ONLY_AST" : "space.wrap(%s)" % consts.PyCF_ONLY_AST,
         "__version__"   : "space.wrap('82160')",  # from CPython's svn.
+        "AST": "interp_ast.W_AST",
         }
     appleveldefs = {}
 

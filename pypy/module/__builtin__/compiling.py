@@ -5,6 +5,7 @@ Implementation of the interpreter-level compile/eval builtins.
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.astcompiler import consts, ast
+from pypy.module._ast import interp_ast
 from pypy.interpreter.gateway import unwrap_spec
 
 
@@ -24,7 +25,7 @@ in addition to any features explicitly specified.
 """
 
     ast_node = None
-    w_ast_type = space.gettypeobject(ast.AST.typedef)
+    w_ast_type = space.gettypeobject(interp_ast.W_AST.typedef)
     str_ = None
     if space.isinstance_w(w_source, w_ast_type):
         ast_node = space.interp_w(ast.mod, w_source)
