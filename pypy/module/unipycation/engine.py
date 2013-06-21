@@ -84,7 +84,6 @@ W_SolutionIterator.typedef.acceptable_as_base_class = False
 
 # ---
 
-# XXX this temproary variation is for the iterator interface
 class UnipycationContinuation2(pcont.Continuation):
     def __init__(self, w_engine, var_to_pos, w_solution_iter):
         engine = w_engine.engine
@@ -100,6 +99,7 @@ class UnipycationContinuation2(pcont.Continuation):
         self.w_solution_iter._populate_result(self.var_to_pos, fcont, heap)
         return pcont.DoneSuccessContinuation(self.engine), fcont, heap
 
+# XXX This will dissappear
 class UnipycationContinuation(pcont.Continuation):
     def __init__(self, engine, var_to_pos, w_engine):
         pcont.Continuation.__init__(self, engine, pcont.DoneSuccessContinuation(engine))
@@ -129,6 +129,7 @@ class W_Engine(W_Root):
             w_ParseError = util.get_from_module(self.space, "unipycation", "ParseError")
             raise OperationError(w_ParseError, self.space.wrap(e.nice_error_message()))
 
+    # XXX This will dissappear
     def query(self, w_anything):
         query_raw = self.space.str_w(w_anything)
 
@@ -164,6 +165,7 @@ class W_Engine(W_Root):
 
         return w_solution_iter
 
+    # XXX This will dissappear
     def _populate_result(self, var_to_pos, heap):
 
         for var, real_var in var_to_pos.iteritems():
