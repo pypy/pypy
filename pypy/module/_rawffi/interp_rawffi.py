@@ -5,6 +5,7 @@ from pypy.interpreter.typedef import TypeDef, GetSetProperty
 
 from rpython.rlib.clibffi import *
 from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rtyper.tool import rffi_platform
 from rpython.rlib.unroll import unrolling_iterable
 import rpython.rlib.rposix as rposix
 
@@ -43,6 +44,8 @@ TYPEMAP = {
 }
 TYPEMAP_PTR_LETTERS = "POszZ"
 TYPEMAP_NUMBER_LETTERS = "bBhHiIlLqQ?"
+TYPEMAP_FLOAT_LETTERS = "fd" # XXX long doubles are not propperly supported in
+                             # rpython, so we ignore then here
 
 if _MS_WINDOWS:
     TYPEMAP['X'] = ffi_type_pointer
@@ -239,6 +242,52 @@ buffer.""" # xxx fix doc
 )
 
 unroll_letters_for_numbers = unrolling_iterable(TYPEMAP_NUMBER_LETTERS)
+unroll_letters_for_floats = unrolling_iterable(TYPEMAP_FLOAT_LETTERS)
+
+_ARM = rffi_platform.getdefined('__arm__', '')
+
+def read_ptr(ptr, ofs, TP):
+    T = lltype.Ptr(rffi.CArray(TP))
+    for c in unroll_letters_for_floats:
+        # Note: if we are on ARM and have a float-ish value that is not word
+        # aligned accessing it directly causes a SIGBUS. Instead we use memcpy
+        # to avoid the problem
+        if (_ARM and LL_TYPEMAP[c] is TP
+                    and rffi.cast(lltype.Signed, ptr) & 3 != 0):
+            if ofs != 0:
+                ptr = rffi.ptradd(ptr, ofs*rffi.sizeof(TP))
+            with lltype.scoped_alloc(T.TO, 1) as t_array:
+                rffi.c_memcpy(
+                    rffi.cast(rffi.VOIDP, t_array),
+                    rffi.cast(rffi.VOIDP, ptr),
+                    rffi.sizeof(TP))
+                ptr_val = t_array[0]
+                return ptr_val
+    else:
+        return rffi.cast(T, ptr)[ofs]
+read_ptr._annspecialcase_ = 'specialize:arg(2)'
+
+def write_ptr(ptr, ofs, value):
+    TP = lltype.typeOf(value)
+    T = lltype.Ptr(rffi.CArray(TP))
+    for c in unroll_letters_for_floats:
+        # Note: if we are on ARM and have a float-ish value that is not word
+        # aligned accessing it directly causes a SIGBUS. Instead we use memcpy
+        # to avoid the problem
+        if (_ARM and LL_TYPEMAP[c] is TP
+                    and rffi.cast(lltype.Signed, ptr) & 3 != 0):
+            if ofs != 0:
+                ptr = rffi.ptradd(ptr, ofs*rffi.sizeof(TP))
+            with lltype.scoped_alloc(T.TO, 1) as s_array:
+                s_array[0] = value
+                rffi.c_memcpy(
+                    rffi.cast(rffi.VOIDP, ptr),
+                    rffi.cast(rffi.VOIDP, s_array),
+                    rffi.sizeof(TP))
+                return
+    else:
+        rffi.cast(T, ptr)[ofs] = value
+write_ptr._annspecialcase_ = 'specialize:argtype(2)'
 
 def segfault_exception(space, reason):
     w_mod = space.getbuiltinmodule("_rawffi")

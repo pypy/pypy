@@ -211,6 +211,7 @@ class AppTestFfi:
         cls.w_platform = space.wrap(platform.name)
         cls.w_sizes_and_alignments = space.wrap(dict(
             [(k, (v.c_size, v.c_alignment)) for k,v in TYPEMAP.iteritems()]))
+        cls.w_typemap = space.wrap(TYPEMAP.keys())
 
     def test_libload(self):
         import _rawffi
@@ -750,6 +751,18 @@ class AppTestFfi:
         for k, (s, a) in self.sizes_and_alignments.iteritems():
             assert _rawffi.sizeof(k) == s
             assert _rawffi.alignment(k) == a
+
+    def test_unaligned(self):
+        import _rawffi
+        for k in self.typemap:
+            if k not in 'fdg':
+                continue
+            S = _rawffi.Structure([('pad', 'c'), ('value', k)], pack=1)
+            s = S()
+            s.value = 4
+            assert s.value == 4
+            s.free()
+
 
     def test_array_addressof(self):
         import _rawffi

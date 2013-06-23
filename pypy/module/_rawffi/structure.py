@@ -12,8 +12,10 @@ from pypy.module._rawffi.interp_rawffi import segfault_exception, _MS_WINDOWS
 from pypy.module._rawffi.interp_rawffi import W_DataShape, W_DataInstance
 from pypy.module._rawffi.interp_rawffi import wrap_value, unwrap_value
 from pypy.module._rawffi.interp_rawffi import unpack_shape_with_length
-from pypy.module._rawffi.interp_rawffi import size_alignment, LL_TYPEMAP
+from pypy.module._rawffi.interp_rawffi import LL_TYPEMAP
 from pypy.module._rawffi.interp_rawffi import unroll_letters_for_numbers
+from pypy.module._rawffi.interp_rawffi import size_alignment
+from pypy.module._rawffi.interp_rawffi import read_ptr, write_ptr
 from rpython.rlib import clibffi
 from rpython.rlib.rarithmetic import intmask, signedtype, widen
 from rpython.rlib.rarithmetic import r_uint, r_ulonglong, r_longlong
@@ -289,19 +291,18 @@ def push_field(self, num, value):
                 value = widen(value)
                 bitmask = BIT_MASK(numbits, TP)
                 #
-                current = widen(rffi.cast(T, ptr)[0])
+                current = widen(read_ptr(ptr, 0, TP))
                 current &= ~ (bitmask << lowbit)
                 current |= (value & bitmask) << lowbit
                 value = rffi.cast(TP, current)
             break
-
-    rffi.cast(T, ptr)[0] = value
+    write_ptr(ptr, 0, value)
 push_field._annspecialcase_ = 'specialize:argtype(2)'
 
 def cast_pos(self, i, ll_t):
     pos = rffi.ptradd(self.ll_buffer, self.shape.ll_positions[i])
     TP = lltype.Ptr(rffi.CArray(ll_t))
-    value = rffi.cast(TP, pos)[0]
+    value = read_ptr(pos, 0, ll_t)
 
     # Handle bitfields
     for c in unroll_letters_for_numbers:
