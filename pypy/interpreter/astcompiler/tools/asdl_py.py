@@ -57,17 +57,13 @@ class ASTNodeVisitor(ASDLVisitor):
     def visitSum(self, sum, base):
         if is_simple_sum(sum):
             self.emit("class %s(AST):" % (base,))
-            self.emit("")
-            self.emit("def to_simple_int(self, space):", 1)
-            self.emit("w_msg = space.wrap(\"not a valid %s\")" % (base,), 2)
-            self.emit("raise OperationError(space.w_TypeError, w_msg)", 2)
+            self.emit("pass", 1)
             self.emit("State.ast_type('%s', 'AST')" % (base,))
             self.emit("")
             for i, cons in enumerate(sum.types):
                 self.emit("class _%s(%s):" % (cons.name, base))
-                self.emit("")
-                self.emit("def to_simple_int(self, space):", 1)
-                self.emit("return %i" % (i + 1,), 2)
+                self.emit("def to_object(self, space):", 1)
+                self.emit("return space.call_function(get(space).w_%s)" % (cons.name,), 2)
                 self.emit("State.ast_type('%s', '%s')" % (cons.name, base))
                 self.emit("")
             for i, cons in enumerate(sum.types):
@@ -107,32 +103,28 @@ class ASTNodeVisitor(ASDLVisitor):
         self.emit("State.ast_type('%r', 'AST')" % (name,))
         self.emit("")
 
+    def get_value_converter(self, field, value):
+        if field.type.value in self.data.simple_types:
+            return "%s_to_class[%s - 1]().to_object(space)" % (field.type, value)
+        elif field.type.value in ("object", "string"):
+            return value
+        else:
+            return "%s.to_object(space)" % (value,)
+
     def get_field_converter(self, field):
         if field.seq:
             lines = []
             lines.append("if self.%s is None:" % field.name)
             lines.append("    %s_w = []" % field.name)
             lines.append("else:")
-            if field.type.value in self.data.simple_types:
-                wrapper = "%s_to_class[node - 1]()" % (field.type,)
-            elif field.type.value in ("object", "string"):
-                wrapper = "node"
-            else:
-                wrapper = "node.to_object(space)"
+            wrapper = self.get_value_converter(field, "node")
             lines.append("    %s_w = [%s for node in self.%s] # %s" %
                          (field.name, wrapper, field.name, field.type))
             lines.append("w_%s = space.newlist(%s_w)" % (field.name, field.name))
             return lines
-        elif field.type.value in self.data.simple_types:
-            return ["w_%s = %s_to_class[self.%s - 1]()" % 
-                    (field.name, field.type, field.name)]
-        elif field.type.value in ("object", "string"):
-            return ["w_%s = self.%s" % (field.name, field.name)]
-        elif field.type.value in ("identifier",):
-            return ["w_%s = space.wrap(self.%s)" % (field.name, field.name)]
         else:
-            return ["w_%s = self.%s.to_object(space)  # %s" %
-                    (field.name, field.name, field.type)]
+            wrapper = self.get_value_converter(field, "self.%s" % field.name)
+            return ["w_%s = %s" % (field.name, wrapper)]
 
     def make_converters(self, fields, name):
         self.emit("def to_object(self, space):", 1)

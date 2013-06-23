@@ -180,7 +180,7 @@ class Expression(mod):
 
     def to_object(self, space):
         w_node = space.call_function(get(space).w_Expression)
-        w_body = self.body.to_object(space)  # expr
+        w_body = self.body.to_object(space)
         space.setattr(w_node, space.wrap('body'), w_body)
         return w_node
 State.ast_type('Expression', 'mod')
@@ -240,9 +240,9 @@ class FunctionDef(stmt):
 
     def to_object(self, space):
         w_node = space.call_function(get(space).w_FunctionDef)
-        w_name = space.wrap(self.name)
+        w_name = self.name.to_object(space)
         space.setattr(w_node, space.wrap('name'), w_name)
-        w_args = self.args.to_object(space)  # arguments
+        w_args = self.args.to_object(space)
         space.setattr(w_node, space.wrap('args'), w_args)
         if self.body is None:
             body_w = []
@@ -283,7 +283,7 @@ class ClassDef(stmt):
 
     def to_object(self, space):
         w_node = space.call_function(get(space).w_ClassDef)
-        w_name = space.wrap(self.name)
+        w_name = self.name.to_object(space)
         space.setattr(w_node, space.wrap('name'), w_name)
         if self.bases is None:
             bases_w = []
@@ -323,7 +323,7 @@ class Return(stmt):
 
     def to_object(self, space):
         w_node = space.call_function(get(space).w_Return)
-        w_value = self.value.to_object(space)  # expr
+        w_value = self.value.to_object(space)
         space.setattr(w_node, space.wrap('value'), w_value)
         return w_node
 State.ast_type('Return', 'stmt')
@@ -379,7 +379,7 @@ class Assign(stmt):
             targets_w = [node.to_object(space) for node in self.targets] # expr
         w_targets = space.newlist(targets_w)
         space.setattr(w_node, space.wrap('targets'), w_targets)
-        w_value = self.value.to_object(space)  # expr
+        w_value = self.value.to_object(space)
         space.setattr(w_node, space.wrap('value'), w_value)
         return w_node
 State.ast_type('Assign', 'stmt')
@@ -403,11 +403,11 @@ class AugAssign(stmt):
 
     def to_object(self, space):
         w_node = space.call_function(get(space).w_AugAssign)
-        w_target = self.target.to_object(space)  # expr
+        w_target = self.target.to_object(space)
         space.setattr(w_node, space.wrap('target'), w_target)
-        w_op = operator_to_class[self.op - 1]()
+        w_op = operator_to_class[self.op - 1]().to_object(space)
         space.setattr(w_node, space.wrap('op'), w_op)
-        w_value = self.value.to_object(space)  # expr
+        w_value = self.value.to_object(space)
         space.setattr(w_node, space.wrap('value'), w_value)
         return w_node
 State.ast_type('AugAssign', 'stmt')
@@ -433,7 +433,7 @@ class Print(stmt):
 
     def to_object(self, space):
         w_node = space.call_function(get(space).w_Print)
-        w_dest = self.dest.to_object(space)  # expr
+        w_dest = self.dest.to_object(space)
         space.setattr(w_node, space.wrap('dest'), w_dest)
         if self.values is None:
             values_w = []
@@ -441,7 +441,7 @@ class Print(stmt):
             values_w = [node.to_object(space) for node in self.values] # expr
         w_values = space.newlist(values_w)
         space.setattr(w_node, space.wrap('values'), w_values)
-        w_nl = self.nl.to_object(space)  # bool
+        w_nl = self.nl.to_object(space)
         space.setattr(w_node, space.wrap('nl'), w_nl)
         return w_node
 State.ast_type('Print', 'stmt')
@@ -470,9 +470,9 @@ class For(stmt):
 
     def to_object(self, space):
         w_node = space.call_function(get(space).w_For)
-        w_target = self.target.to_object(space)  # expr
+        w_target = self.target.to_object(space)
         space.setattr(w_node, space.wrap('target'), w_target)
-        w_iter = self.iter.to_object(space)  # expr
+        w_iter = self.iter.to_object(space)
         space.setattr(w_node, space.wrap('iter'), w_iter)
         if self.body is None:
             body_w = []
@@ -511,7 +511,7 @@ class While(stmt):
 
     def to_object(self, space):
         w_node = space.call_function(get(space).w_While)
-        w_test = self.test.to_object(space)  # expr
+        w_test = self.test.to_object(space)
         space.setattr(w_node, space.wrap('test'), w_test)
         if self.body is None:
             body_w = []
@@ -550,7 +550,7 @@ class If(stmt):
 
     def to_object(self, space):
         w_node = space.call_function(get(space).w_If)
-        w_test = self.test.to_object(space)  # expr
+        w_test = self.test.to_object(space)
         space.setattr(w_node, space.wrap('test'), w_test)
         if self.body is None:
             body_w = []
@@ -589,9 +589,9 @@ class With(stmt):
 
     def to_object(self, space):
         w_node = space.call_function(get(space).w_With)
-        w_context_expr = self.context_expr.to_object(space)  # expr
+        w_context_expr = self.context_expr.to_object(space)
         space.setattr(w_node, space.wrap('context_expr'), w_context_expr)
-        w_optional_vars = self.optional_vars.to_object(space)  # expr
+        w_optional_vars = self.optional_vars.to_object(space)
         space.setattr(w_node, space.wrap('optional_vars'), w_optional_vars)
         if self.body is None:
             body_w = []
@@ -625,11 +625,11 @@ class Raise(stmt):
 
     def to_object(self, space):
         w_node = space.call_function(get(space).w_Raise)
-        w_type = self.type.to_object(space)  # expr
+        w_type = self.type.to_object(space)
         space.setattr(w_node, space.wrap('type'), w_type)
-        w_inst = self.inst.to_object(space)  # expr
+        w_inst = self.inst.to_object(space)
         space.setattr(w_node, space.wrap('inst'), w_inst)
-        w_tback = self.tback.to_object(space)  # expr
+        w_tback = self.tback.to_object(space)
         space.setattr(w_node, space.wrap('tback'), w_tback)
         return w_node
 State.ast_type('Raise', 'stmt')
@@ -732,9 +732,9 @@ class Assert(stmt):
 
     def to_object(self, space):
         w_node = space.call_function(get(space).w_Assert)
-        w_test = self.test.to_object(space)  # expr
+        w_test = self.test.to_object(space)
         space.setattr(w_node, space.wrap('test'), w_test)
-        w_msg = self.msg.to_object(space)  # expr
+        w_msg = self.msg.to_object(space)
         space.setattr(w_node, space.wrap('msg'), w_msg)
         return w_node
 State.ast_type('Assert', 'stmt')
@@ -784,7 +784,7 @@ class ImportFrom(stmt):
 
     def to_object(self, space):
         w_node = space.call_function(get(space).w_ImportFrom)
-        w_module = space.wrap(self.module)
+        w_module = self.module.to_object(space)
         space.setattr(w_node, space.wrap('module'), w_module)
         if self.names is None:
             names_w = []
@@ -792,7 +792,7 @@ class ImportFrom(stmt):
             names_w = [node.to_object(space) for node in self.names] # alias
         w_names = space.newlist(names_w)
         space.setattr(w_node, space.wrap('names'), w_names)
-        w_level = self.level.to_object(space)  # int
+        w_level = self.level.to_object(space)
         space.setattr(w_node, space.wrap('level'), w_level)
         return w_node
 State.ast_type('ImportFrom', 'stmt')
@@ -819,11 +819,11 @@ class Exec(stmt):
 
     def to_object(self, space):
         w_node = space.call_function(get(space).w_Exec)
-        w_body = self.body.to_object(space)  # expr
+        w_body = self.body.to_object(space)
         space.setattr(w_node, space.wrap('body'), w_body)
-        w_globals = self.globals.to_object(space)  # expr
+        w_globals = self.globals.to_object(space)
         space.setattr(w_node, space.wrap('globals'), w_globals)
-        w_locals = self.locals.to_object(space)  # expr
+        w_locals = self.locals.to_object(space)
         space.setattr(w_node, space.wrap('locals'), w_locals)
         return w_node
 State.ast_type('Exec', 'stmt')
@@ -868,7 +868,7 @@ class Expr(stmt):
 
     def to_object(self, space):
         w_node = space.call_function(get(space).w_Expr)
-        w_value = self.value.to_object(space)  # expr
+        w_value = self.value.to_object(space)
         space.setattr(w_node, space.wrap('value'), w_value)
         return w_node
 State.ast_type('Expr', 'stmt')
@@ -949,7 +949,7 @@ class BoolOp(expr):
 
     def to_object(self, space):
         w_node = space.call_function(get(space).w_BoolOp)
-        w_op = boolop_to_class[self.op - 1]()
+        w_op = boolop_to_class[self.op - 1]().to_object(space)
         space.setattr(w_node, space.wrap('op'), w_op)
         if self.values is None:
             values_w = []
@@ -979,11 +979,11 @@ class BinOp(expr):
 
     def to_object(self, space):
         w_node = space.call_function(get(space).w_BinOp)
-        w_left = self.left.to_object(space)  # expr
+        w_left = self.left.to_object(space)
         space.setattr(w_node, space.wrap('left'), w_left)
-        w_op = operator_to_class[self.op - 1]()
+        w_op = operator_to_class[self.op - 1]().to_object(space)
         space.setattr(w_node, space.wrap('op'), w_op)
-        w_right = self.right.to_object(space)  # expr
+        w_right = self.right.to_object(space)
         space.setattr(w_node, space.wrap('right'), w_right)
         return w_node
 State.ast_type('BinOp', 'expr')
@@ -1005,9 +1005,9 @@ class UnaryOp(expr):
 
     def to_object(self, space):
         w_node = space.call_function(get(space).w_UnaryOp)
-        w_op = unaryop_to_class[self.op - 1]()
+        w_op = unaryop_to_class[self.op - 1]().to_object(space)
         space.setattr(w_node, space.wrap('op'), w_op)
-        w_operand = self.operand.to_object(space)  # expr
+        w_operand = self.operand.to_object(space)
         space.setattr(w_node, space.wrap('operand'), w_operand)
         return w_node
 State.ast_type('UnaryOp', 'expr')
@@ -1030,9 +1030,9 @@ class Lambda(expr):
 
     def to_object(self, space):
         w_node = space.call_function(get(space).w_Lambda)
-        w_args = self.args.to_object(space)  # arguments
+        w_args = self.args.to_object(space)
         space.setattr(w_node, space.wrap('args'), w_args)
-        w_body = self.body.to_object(space)  # expr
+        w_body = self.body.to_object(space)
         space.setattr(w_node, space.wrap('body'), w_body)
         return w_node
 State.ast_type('Lambda', 'expr')
@@ -1057,11 +1057,11 @@ class IfExp(expr):
 
     def to_object(self, space):
         w_node = space.call_function(get(space).w_IfExp)
-        w_test = self.test.to_object(space)  # expr
+        w_test = self.test.to_object(space)
         space.setattr(w_node, space.wrap('test'), w_test)
-        w_body = self.body.to_object(space)  # expr
+        w_body = self.body.to_object(space)
         space.setattr(w_node, space.wrap('body'), w_body)
-        w_orelse = self.orelse.to_object(space)  # expr
+        w_orelse = self.orelse.to_object(space)
         space.setattr(w_node, space.wrap('orelse'), w_orelse)
         return w_node
 State.ast_type('IfExp', 'expr')
@@ -1146,7 +1146,7 @@ class ListComp(expr):
 
     def to_object(self, space):
         w_node = space.call_function(get(space).w_ListComp)
-        w_elt = self.elt.to_object(space)  # expr
+        w_elt = self.elt.to_object(space)
         space.setattr(w_node, space.wrap('elt'), w_elt)
         if self.generators is None:
             generators_w = []
@@ -1176,7 +1176,7 @@ class SetComp(expr):
 
     def to_object(self, space):
         w_node = space.call_function(get(space).w_SetComp)
-        w_elt = self.elt.to_object(space)  # expr
+        w_elt = self.elt.to_object(space)
         space.setattr(w_node, space.wrap('elt'), w_elt)
         if self.generators is None:
             generators_w = []
@@ -1208,9 +1208,9 @@ class DictComp(expr):
 
     def to_object(self, space):
         w_node = space.call_function(get(space).w_DictComp)
-        w_key = self.key.to_object(space)  # expr
+        w_key = self.key.to_object(space)
         space.setattr(w_node, space.wrap('key'), w_key)
-        w_value = self.value.to_object(space)  # expr
+        w_value = self.value.to_object(space)
         space.setattr(w_node, space.wrap('value'), w_value)
         if self.generators is None:
             generators_w = []
@@ -1240,7 +1240,7 @@ class GeneratorExp(expr):
 
     def to_object(self, space):
         w_node = space.call_function(get(space).w_GeneratorExp)
-        w_elt = self.elt.to_object(space)  # expr
+        w_elt = self.elt.to_object(space)
         space.setattr(w_node, space.wrap('elt'), w_elt)
         if self.generators is None:
             generators_w = []
@@ -1268,7 +1268,7 @@ class Yield(expr):
 
     def to_object(self, space):
         w_node = space.call_function(get(space).w_Yield)
-        w_value = self.value.to_object(space)  # expr
+        w_value = self.value.to_object(space)
         space.setattr(w_node, space.wrap('value'), w_value)
         return w_node
 State.ast_type('Yield', 'expr')
@@ -1293,12 +1293,12 @@ class Compare(expr):
 
     def to_object(self, space):
         w_node = space.call_function(get(space).w_Compare)
-        w_left = self.left.to_object(space)  # expr
+        w_left = self.left.to_object(space)
         space.setattr(w_node, space.wrap('left'), w_left)
         if self.ops is None:
             ops_w = []
         else:
-            ops_w = [cmpop_to_class[node - 1]() for node in self.ops] # cmpop
+            ops_w = [cmpop_to_class[node - 1]().to_object(space) for node in self.ops] # cmpop
         w_ops = space.newlist(ops_w)
         space.setattr(w_node, space.wrap('ops'), w_ops)
         if self.comparators is None:
@@ -1338,7 +1338,7 @@ class Call(expr):
 
     def to_object(self, space):
         w_node = space.call_function(get(space).w_Call)
-        w_func = self.func.to_object(space)  # expr
+        w_func = self.func.to_object(space)
         space.setattr(w_node, space.wrap('func'), w_func)
         if self.args is None:
             args_w = []
@@ -1352,9 +1352,9 @@ class Call(expr):
             keywords_w = [node.to_object(space) for node in self.keywords] # keyword
         w_keywords = space.newlist(keywords_w)
         space.setattr(w_node, space.wrap('keywords'), w_keywords)
-        w_starargs = self.starargs.to_object(space)  # expr
+        w_starargs = self.starargs.to_object(space)
         space.setattr(w_node, space.wrap('starargs'), w_starargs)
-        w_kwargs = self.kwargs.to_object(space)  # expr
+        w_kwargs = self.kwargs.to_object(space)
         space.setattr(w_node, space.wrap('kwargs'), w_kwargs)
         return w_node
 State.ast_type('Call', 'expr')
@@ -1375,7 +1375,7 @@ class Repr(expr):
 
     def to_object(self, space):
         w_node = space.call_function(get(space).w_Repr)
-        w_value = self.value.to_object(space)  # expr
+        w_value = self.value.to_object(space)
         space.setattr(w_node, space.wrap('value'), w_value)
         return w_node
 State.ast_type('Repr', 'expr')
@@ -1438,11 +1438,11 @@ class Attribute(expr):
 
     def to_object(self, space):
         w_node = space.call_function(get(space).w_Attribute)
-        w_value = self.value.to_object(space)  # expr
+        w_value = self.value.to_object(space)
         space.setattr(w_node, space.wrap('value'), w_value)
-        w_attr = space.wrap(self.attr)
+        w_attr = self.attr.to_object(space)
         space.setattr(w_node, space.wrap('attr'), w_attr)
-        w_ctx = expr_context_to_class[self.ctx - 1]()
+        w_ctx = expr_context_to_class[self.ctx - 1]().to_object(space)
         space.setattr(w_node, space.wrap('ctx'), w_ctx)
         return w_node
 State.ast_type('Attribute', 'expr')
@@ -1466,11 +1466,11 @@ class Subscript(expr):
 
     def to_object(self, space):
         w_node = space.call_function(get(space).w_Subscript)
-        w_value = self.value.to_object(space)  # expr
+        w_value = self.value.to_object(space)
         space.setattr(w_node, space.wrap('value'), w_value)
-        w_slice = self.slice.to_object(space)  # slice
+        w_slice = self.slice.to_object(space)
         space.setattr(w_node, space.wrap('slice'), w_slice)
-        w_ctx = expr_context_to_class[self.ctx - 1]()
+        w_ctx = expr_context_to_class[self.ctx - 1]().to_object(space)
         space.setattr(w_node, space.wrap('ctx'), w_ctx)
         return w_node
 State.ast_type('Subscript', 'expr')
@@ -1491,9 +1491,9 @@ class Name(expr):
 
     def to_object(self, space):
         w_node = space.call_function(get(space).w_Name)
-        w_id = space.wrap(self.id)
+        w_id = self.id.to_object(space)
         space.setattr(w_node, space.wrap('id'), w_id)
-        w_ctx = expr_context_to_class[self.ctx - 1]()
+        w_ctx = expr_context_to_class[self.ctx - 1]().to_object(space)
         space.setattr(w_node, space.wrap('ctx'), w_ctx)
         return w_node
 State.ast_type('Name', 'expr')
@@ -1522,7 +1522,7 @@ class List(expr):
             elts_w = [node.to_object(space) for node in self.elts] # expr
         w_elts = space.newlist(elts_w)
         space.setattr(w_node, space.wrap('elts'), w_elts)
-        w_ctx = expr_context_to_class[self.ctx - 1]()
+        w_ctx = expr_context_to_class[self.ctx - 1]().to_object(space)
         space.setattr(w_node, space.wrap('ctx'), w_ctx)
         return w_node
 State.ast_type('List', 'expr')
@@ -1551,7 +1551,7 @@ class Tuple(expr):
             elts_w = [node.to_object(space) for node in self.elts] # expr
         w_elts = space.newlist(elts_w)
         space.setattr(w_node, space.wrap('elts'), w_elts)
-        w_ctx = expr_context_to_class[self.ctx - 1]()
+        w_ctx = expr_context_to_class[self.ctx - 1]().to_object(space)
         space.setattr(w_node, space.wrap('ctx'), w_ctx)
         return w_node
 State.ast_type('Tuple', 'expr')
@@ -1578,46 +1578,37 @@ State.ast_type('Const', 'expr')
 
 
 class expr_context(AST):
-
-    def to_simple_int(self, space):
-        w_msg = space.wrap("not a valid expr_context")
-        raise OperationError(space.w_TypeError, w_msg)
+    pass
 State.ast_type('expr_context', 'AST')
 
 class _Load(expr_context):
-
-    def to_simple_int(self, space):
-        return 1
+    def to_object(self, space):
+        return space.call_function(get(space).w_Load)
 State.ast_type('Load', 'expr_context')
 
 class _Store(expr_context):
-
-    def to_simple_int(self, space):
-        return 2
+    def to_object(self, space):
+        return space.call_function(get(space).w_Store)
 State.ast_type('Store', 'expr_context')
 
 class _Del(expr_context):
-
-    def to_simple_int(self, space):
-        return 3
+    def to_object(self, space):
+        return space.call_function(get(space).w_Del)
 State.ast_type('Del', 'expr_context')
 
 class _AugLoad(expr_context):
-
-    def to_simple_int(self, space):
-        return 4
+    def to_object(self, space):
+        return space.call_function(get(space).w_AugLoad)
 State.ast_type('AugLoad', 'expr_context')
 
 class _AugStore(expr_context):
-
-    def to_simple_int(self, space):
-        return 5
+    def to_object(self, space):
+        return space.call_function(get(space).w_AugStore)
 State.ast_type('AugStore', 'expr_context')
 
 class _Param(expr_context):
-
-    def to_simple_int(self, space):
-        return 6
+    def to_object(self, space):
+        return space.call_function(get(space).w_Param)
 State.ast_type('Param', 'expr_context')
 
 Load = 1
@@ -1676,11 +1667,11 @@ class Slice(slice):
 
     def to_object(self, space):
         w_node = space.call_function(get(space).w_Slice)
-        w_lower = self.lower.to_object(space)  # expr
+        w_lower = self.lower.to_object(space)
         space.setattr(w_node, space.wrap('lower'), w_lower)
-        w_upper = self.upper.to_object(space)  # expr
+        w_upper = self.upper.to_object(space)
         space.setattr(w_node, space.wrap('upper'), w_upper)
-        w_step = self.step.to_object(space)  # expr
+        w_step = self.step.to_object(space)
         space.setattr(w_node, space.wrap('step'), w_step)
         return w_node
 State.ast_type('Slice', 'slice')
@@ -1725,29 +1716,24 @@ class Index(slice):
 
     def to_object(self, space):
         w_node = space.call_function(get(space).w_Index)
-        w_value = self.value.to_object(space)  # expr
+        w_value = self.value.to_object(space)
         space.setattr(w_node, space.wrap('value'), w_value)
         return w_node
 State.ast_type('Index', 'slice')
 
 
 class boolop(AST):
-
-    def to_simple_int(self, space):
-        w_msg = space.wrap("not a valid boolop")
-        raise OperationError(space.w_TypeError, w_msg)
+    pass
 State.ast_type('boolop', 'AST')
 
 class _And(boolop):
-
-    def to_simple_int(self, space):
-        return 1
+    def to_object(self, space):
+        return space.call_function(get(space).w_And)
 State.ast_type('And', 'boolop')
 
 class _Or(boolop):
-
-    def to_simple_int(self, space):
-        return 2
+    def to_object(self, space):
+        return space.call_function(get(space).w_Or)
 State.ast_type('Or', 'boolop')
 
 And = 1
@@ -1759,82 +1745,67 @@ boolop_to_class = [
 ]
 
 class operator(AST):
-
-    def to_simple_int(self, space):
-        w_msg = space.wrap("not a valid operator")
-        raise OperationError(space.w_TypeError, w_msg)
+    pass
 State.ast_type('operator', 'AST')
 
 class _Add(operator):
-
-    def to_simple_int(self, space):
-        return 1
+    def to_object(self, space):
+        return space.call_function(get(space).w_Add)
 State.ast_type('Add', 'operator')
 
 class _Sub(operator):
-
-    def to_simple_int(self, space):
-        return 2
+    def to_object(self, space):
+        return space.call_function(get(space).w_Sub)
 State.ast_type('Sub', 'operator')
 
 class _Mult(operator):
-
-    def to_simple_int(self, space):
-        return 3
+    def to_object(self, space):
+        return space.call_function(get(space).w_Mult)
 State.ast_type('Mult', 'operator')
 
 class _Div(operator):
-
-    def to_simple_int(self, space):
-        return 4
+    def to_object(self, space):
+        return space.call_function(get(space).w_Div)
 State.ast_type('Div', 'operator')
 
 class _Mod(operator):
-
-    def to_simple_int(self, space):
-        return 5
+    def to_object(self, space):
+        return space.call_function(get(space).w_Mod)
 State.ast_type('Mod', 'operator')
 
 class _Pow(operator):
-
-    def to_simple_int(self, space):
-        return 6
+    def to_object(self, space):
+        return space.call_function(get(space).w_Pow)
 State.ast_type('Pow', 'operator')
 
 class _LShift(operator):
-
-    def to_simple_int(self, space):
-        return 7
+    def to_object(self, space):
+        return space.call_function(get(space).w_LShift)
 State.ast_type('LShift', 'operator')
 
 class _RShift(operator):
-
-    def to_simple_int(self, space):
-        return 8
+    def to_object(self, space):
+        return space.call_function(get(space).w_RShift)
 State.ast_type('RShift', 'operator')
 
 class _BitOr(operator):
-
-    def to_simple_int(self, space):
-        return 9
+    def to_object(self, space):
+        return space.call_function(get(space).w_BitOr)
 State.ast_type('BitOr', 'operator')
 
 class _BitXor(operator):
-
-    def to_simple_int(self, space):
-        return 10
+    def to_object(self, space):
+        return space.call_function(get(space).w_BitXor)
 State.ast_type('BitXor', 'operator')
 
 class _BitAnd(operator):
-
-    def to_simple_int(self, space):
-        return 11
+    def to_object(self, space):
+        return space.call_function(get(space).w_BitAnd)
 State.ast_type('BitAnd', 'operator')
 
 class _FloorDiv(operator):
-
-    def to_simple_int(self, space):
-        return 12
+    def to_object(self, space):
+        return space.call_function(get(space).w_FloorDiv)
 State.ast_type('FloorDiv', 'operator')
 
 Add = 1
@@ -1866,34 +1837,27 @@ operator_to_class = [
 ]
 
 class unaryop(AST):
-
-    def to_simple_int(self, space):
-        w_msg = space.wrap("not a valid unaryop")
-        raise OperationError(space.w_TypeError, w_msg)
+    pass
 State.ast_type('unaryop', 'AST')
 
 class _Invert(unaryop):
-
-    def to_simple_int(self, space):
-        return 1
+    def to_object(self, space):
+        return space.call_function(get(space).w_Invert)
 State.ast_type('Invert', 'unaryop')
 
 class _Not(unaryop):
-
-    def to_simple_int(self, space):
-        return 2
+    def to_object(self, space):
+        return space.call_function(get(space).w_Not)
 State.ast_type('Not', 'unaryop')
 
 class _UAdd(unaryop):
-
-    def to_simple_int(self, space):
-        return 3
+    def to_object(self, space):
+        return space.call_function(get(space).w_UAdd)
 State.ast_type('UAdd', 'unaryop')
 
 class _USub(unaryop):
-
-    def to_simple_int(self, space):
-        return 4
+    def to_object(self, space):
+        return space.call_function(get(space).w_USub)
 State.ast_type('USub', 'unaryop')
 
 Invert = 1
@@ -1909,70 +1873,57 @@ unaryop_to_class = [
 ]
 
 class cmpop(AST):
-
-    def to_simple_int(self, space):
-        w_msg = space.wrap("not a valid cmpop")
-        raise OperationError(space.w_TypeError, w_msg)
+    pass
 State.ast_type('cmpop', 'AST')
 
 class _Eq(cmpop):
-
-    def to_simple_int(self, space):
-        return 1
+    def to_object(self, space):
+        return space.call_function(get(space).w_Eq)
 State.ast_type('Eq', 'cmpop')
 
 class _NotEq(cmpop):
-
-    def to_simple_int(self, space):
-        return 2
+    def to_object(self, space):
+        return space.call_function(get(space).w_NotEq)
 State.ast_type('NotEq', 'cmpop')
 
 class _Lt(cmpop):
-
-    def to_simple_int(self, space):
-        return 3
+    def to_object(self, space):
+        return space.call_function(get(space).w_Lt)
 State.ast_type('Lt', 'cmpop')
 
 class _LtE(cmpop):
-
-    def to_simple_int(self, space):
-        return 4
+    def to_object(self, space):
+        return space.call_function(get(space).w_LtE)
 State.ast_type('LtE', 'cmpop')
 
 class _Gt(cmpop):
-
-    def to_simple_int(self, space):
-        return 5
+    def to_object(self, space):
+        return space.call_function(get(space).w_Gt)
 State.ast_type('Gt', 'cmpop')
 
 class _GtE(cmpop):
-
-    def to_simple_int(self, space):
-        return 6
+    def to_object(self, space):
+        return space.call_function(get(space).w_GtE)
 State.ast_type('GtE', 'cmpop')
 
 class _Is(cmpop):
-
-    def to_simple_int(self, space):
-        return 7
+    def to_object(self, space):
+        return space.call_function(get(space).w_Is)
 State.ast_type('Is', 'cmpop')
 
 class _IsNot(cmpop):
-
-    def to_simple_int(self, space):
-        return 8
+    def to_object(self, space):
+        return space.call_function(get(space).w_IsNot)
 State.ast_type('IsNot', 'cmpop')
 
 class _In(cmpop):
-
-    def to_simple_int(self, space):
-        return 9
+    def to_object(self, space):
+        return space.call_function(get(space).w_In)
 State.ast_type('In', 'cmpop')
 
 class _NotIn(cmpop):
-
-    def to_simple_int(self, space):
-        return 10
+    def to_object(self, space):
+        return space.call_function(get(space).w_NotIn)
 State.ast_type('NotIn', 'cmpop')
 
 Eq = 1
@@ -2018,9 +1969,9 @@ class comprehension(AST):
 
     def to_object(self, space):
         w_node = space.call_function(get(space).w_comprehension)
-        w_target = self.target.to_object(space)  # expr
+        w_target = self.target.to_object(space)
         space.setattr(w_node, space.wrap('target'), w_target)
-        w_iter = self.iter.to_object(space)  # expr
+        w_iter = self.iter.to_object(space)
         space.setattr(w_node, space.wrap('iter'), w_iter)
         if self.ifs is None:
             ifs_w = []
@@ -2060,9 +2011,9 @@ class ExceptHandler(excepthandler):
 
     def to_object(self, space):
         w_node = space.call_function(get(space).w_ExceptHandler)
-        w_type = self.type.to_object(space)  # expr
+        w_type = self.type.to_object(space)
         space.setattr(w_node, space.wrap('type'), w_type)
-        w_name = self.name.to_object(space)  # expr
+        w_name = self.name.to_object(space)
         space.setattr(w_node, space.wrap('name'), w_name)
         if self.body is None:
             body_w = []
@@ -2100,9 +2051,9 @@ class arguments(AST):
             args_w = [node.to_object(space) for node in self.args] # expr
         w_args = space.newlist(args_w)
         space.setattr(w_node, space.wrap('args'), w_args)
-        w_vararg = space.wrap(self.vararg)
+        w_vararg = self.vararg.to_object(space)
         space.setattr(w_node, space.wrap('vararg'), w_vararg)
-        w_kwarg = space.wrap(self.kwarg)
+        w_kwarg = self.kwarg.to_object(space)
         space.setattr(w_node, space.wrap('kwarg'), w_kwarg)
         if self.defaults is None:
             defaults_w = []
@@ -2128,9 +2079,9 @@ class keyword(AST):
 
     def to_object(self, space):
         w_node = space.call_function(get(space).w_keyword)
-        w_arg = space.wrap(self.arg)
+        w_arg = self.arg.to_object(space)
         space.setattr(w_node, space.wrap('arg'), w_arg)
-        w_value = self.value.to_object(space)  # expr
+        w_value = self.value.to_object(space)
         space.setattr(w_node, space.wrap('value'), w_value)
         return w_node
 State.ast_type('keyword', 'AST')
@@ -2149,9 +2100,9 @@ class alias(AST):
 
     def to_object(self, space):
         w_node = space.call_function(get(space).w_alias)
-        w_name = space.wrap(self.name)
+        w_name = self.name.to_object(space)
         space.setattr(w_node, space.wrap('name'), w_name)
-        w_asname = space.wrap(self.asname)
+        w_asname = self.asname.to_object(space)
         space.setattr(w_node, space.wrap('asname'), w_asname)
         return w_node
 State.ast_type('alias', 'AST')

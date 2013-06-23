@@ -26,5 +26,4 @@ class TestAstToObject:
                          lineno=1, col_offset=1)
         w_node = node.to_object(space)
         w_op = space.getattr(w_node, space.wrap("op"))
-        assert space.is_true(space.issubtype(
-                ast.get(space).w_operator, w_op))
+        assert space.isinstance_w(w_op, ast.get(space).w_operator)
