@@ -25,7 +25,7 @@ in addition to any features explicitly specified.
 """
 
     ast_node = None
-    w_ast_type = space.gettypeobject(interp_ast.W_AST.typedef)
+    w_ast_type = space.gettypeobject(ast.W_AST.typedef)
     str_ = None
     if space.isinstance_w(w_source, w_ast_type):
         ast_node = space.interp_w(ast.mod, w_source)
@@ -57,7 +57,8 @@ in addition to any features explicitly specified.
     if ast_node is None:
         if flags & consts.PyCF_ONLY_AST:
             mod = ec.compiler.compile_to_ast(str_, filename, mode, flags)
-            return space.wrap(mod)
+            w_mod = mod.to_object(space)
+            return w_mod
         else:
             code = ec.compiler.compile(str_, filename, mode, flags)
     else:
