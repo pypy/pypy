@@ -32,6 +32,6 @@ class TestAstToObject:
         value = space.wrap(42)
         w_node = space.call_function(ast.get(space).w_Num)
         space.setattr(w_node, space.wrap('n'), value)
-        node = ast.Num.from_object(space, w_node)
+        node = ast.Num.from_object(space, w_node, lineno=1, col_offset=1)
         assert node.n is value
         

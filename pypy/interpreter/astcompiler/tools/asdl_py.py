@@ -57,7 +57,14 @@ class ASTNodeVisitor(ASDLVisitor):
     def visitSum(self, sum, base):
         if is_simple_sum(sum):
             self.emit("class %s(AST):" % (base,))
-            self.emit("pass", 1)
+            self.emit("@staticmethod", 1)
+            self.emit("def from_object(space, w_node):", 1)
+            for i, cons in enumerate(sum.types):
+                self.emit("if space.isinstance_w(w_node, get(space).w_%s):"
+                          % (cons.name,), 2)
+                self.emit("return %i" % (i+1,), 3)
+            self.emit("raise operationerrfmt(space.w_TypeError,", 2)
+            self.emit("        \"Expected %s node, got %%T\", w_node)" % (base,), 2)
             self.emit("State.ast_type('%s', 'AST')" % (base,))
             self.emit("")
             for i, cons in enumerate(sum.types):
@@ -82,8 +89,16 @@ class ASTNodeVisitor(ASDLVisitor):
                 self.emit("def __init__(self, %s):" % (args,), 1)
                 for attr in sum.attributes:
                     self.visit(attr)
-            else:
-                self.emit("pass", 1)
+                self.emit("")
+            self.emit("@staticmethod", 1)
+            self.emit("def from_object(space, w_node):", 1)
+            for typ in sum.types:
+                self.emit("if space.isinstance_w(w_node, get(space).w_%s):"
+                          % (typ.name,), 2)
+                self.emit("return %s.from_object(space, w_node)"
+                          % (typ.name,), 3)
+            self.emit("raise operationerrfmt(space.w_TypeError,", 2)
+            self.emit("        \"Expected %s node, got %%T\", w_node)" % (base,), 2)
             self.emit("State.ast_type('%r', 'AST')" % (base,))
             self.emit("")
             for cons in sum.types:
@@ -113,6 +128,20 @@ class ASTNodeVisitor(ASDLVisitor):
         else:
             return "%s.to_object(space)" % (value,)
 
+    def get_value_extractor(self, field, value):
+        if field.type.value in self.data.simple_types:
+            return "%s.from_object(space, %s)" % (field.type, value)
+        elif field.type.value in ("object",):
+            return value
+        elif field.type.value in ("string",):
+            return "check_string(space, %s)" % (value,)
+        elif field.type.value in ("identifier",):
+            return "space.str_w(%s)" % (value,)
+        elif field.type.value in ("int",):
+            return "space.int_w(%s)" % (value,)
+        else:
+            return "%s.from_object(space, %s)" % (field.type, value)
+
     def get_field_converter(self, field):
         if field.seq:
             lines = []
@@ -129,13 +158,26 @@ class ASTNodeVisitor(ASDLVisitor):
             return ["w_%s = %s  # %s" % (field.name, wrapper, field.type)]
 
     def get_field_extractor(self, field):
-        lines = ["%s = space.getattr(w_node, space.wrap('%s'))" % (field.name, field.name)]
+        if field.seq:
+            lines = []
+            lines.append("%s_w = space.unpackiterable(" % (field.name,))
+            lines.append("        get_field(space, w_node, '%s', %s))"
+                         % (field.name, field.opt))
+            value = self.get_value_extractor(field, "w_item")
+            lines.append("%s = [%s for w_item in %s_w]" %
+                         (field.name, value, field.name))
+        else:
+            value = self.get_value_extractor(
+                field, 
+                "space.getattr(w_node, space.wrap('%s'))" % (field.name,))
+            lines = ["%s = %s" % (field.name, value)]
         return lines
 
-    def make_converters(self, fields, name):
+    def make_converters(self, fields, name, extras=None):
         self.emit("def to_object(self, space):", 1)
         self.emit("w_node = space.call_function(get(space).w_%s)" % name, 2)
-        for field in fields:
+        all_fields = fields + extras if extras else fields
+        for field in all_fields:
             wrapping_code = self.get_field_converter(field)
             for line in wrapping_code:
                 self.emit(line, 2)
@@ -145,12 +187,12 @@ class ASTNodeVisitor(ASDLVisitor):
         self.emit("")
         self.emit("@staticmethod", 1)
         self.emit("def from_object(space, w_node):", 1)
-        for field in fields:
+        for field in all_fields:
             unwrapping_code = self.get_field_extractor(field)
             for line in unwrapping_code:
                 self.emit(line, 2)
         self.emit("return %s(%s)" % (
-                name, ', '.join(str(field.name) for field in fields)), 2)
+                name, ', '.join(str(field.name) for field in all_fields)), 2)
         self.emit("")
 
     def make_constructor(self, fields, node, extras=None, base=None):
@@ -193,7 +235,7 @@ class ASTNodeVisitor(ASDLVisitor):
         self.emit("visitor.visit_%s(self)" % (cons.name,), 2)
         self.emit("")
         self.make_mutate_over(cons, cons.name)
-        self.make_converters(cons.fields, cons.name)
+        self.make_converters(cons.fields, cons.name, extra_attributes)
         self.emit("State.ast_type('%r', '%s')" % (cons.name, base))
         self.emit("")
 
@@ -327,13 +369,28 @@ class ASDLData(object):
         self.optional_masks = optional_masks
 
 
-HEAD = """# Generated by tools/asdl_py.py
-from pypy.interpreter.error import OperationError
-from rpython.tool.pairtype import extendabletype
+HEAD = r"""# Generated by tools/asdl_py.py
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter import typedef
 from pypy.interpreter.gateway import interp2app
+from pypy.interpreter.error import OperationError, operationerrfmt
+from rpython.tool.pairtype import extendabletype
 from rpython.tool.sourcetools import func_with_new_name
+
+
+def check_string(space, w_obj):
+    if not (space.isinstance_w(w_obj, space.w_str) or
+            space.isinstance_w(w_obj, space.w_unicode)):
+        raise OperationError(space.w_TypeError, space.wrap(
+                'AST string must be of type str or unicode'))
+    return w_obj
+
+def get_field(space, w_node, name, optional):
+    w_obj = w_node.getdictvalue(space, name)
+    if w_obj is None and not optional:
+        raise operationerrfmt(space.w_TypeError,
+                "required field \"%s\" missing from %T", name, w_node)
+    return w_obj
 
 
 class AST(object):
@@ -362,13 +419,6 @@ class _FieldsWrapper(W_Root):
 
 class W_AST(W_Root):
     w_dict = None
-
-    def obj2mod(self, space):
-        if space.isinstance_w(self, get(space).w_Module):
-            return Module.from_object(space, self)
-        else:
-            raise OperationError(space.w_TypeError, space.wrap(
-                    "Expected mod node"))
 
     def getdict(self, space):
         if self.w_dict is None:
