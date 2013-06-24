@@ -1474,7 +1474,41 @@ class ImplicitVirtualizableTests(object):
             "int_add": 2, "jump": 1
         })
 
+    def test_frame_nonstandard_no_virtualizable(self):
 
+        driver1 = JitDriver(greens=[], reds=['i', 's', 'frame'])
+        driver2 = JitDriver(greens=[], reds=['frame'],
+                            virtualizables=['frame'])
+
+        class Frame(object):
+            _virtualizable2_ = ['x']
+
+        def g(frame):
+            driver2.jit_merge_point(frame=frame)
+            frame.x += 1
+            return frame
+
+        def f():
+            i = 0
+            s = 0
+            frame = Frame()
+            frame.x = 0
+            g(frame)
+            while i < 10:
+                driver1.jit_merge_point(frame=frame, s=s, i=i)
+                frame = g(frame)
+                s += frame.x
+                i += 1
+            return s
+
+        def main():
+            res = 0
+            for i in range(10):
+                res += f()
+            return res
+
+        res = self.meta_interp(main, [])
+        assert res == main()
 
 class TestLLtype(ExplicitVirtualizableTests,
                  ImplicitVirtualizableTests,
