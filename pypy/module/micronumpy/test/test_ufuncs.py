@@ -334,7 +334,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert all([math.copysign(1, f(abs(float("nan")))) == 1 for f in floor, ceil, trunc])
         assert all([math.copysign(1, f(-abs(float("nan")))) == -1 for f in floor, ceil, trunc])
 
-    def test_around(self):
+    def test_round(self):
         from numpypy import array
         ninf, inf = float("-inf"), float("inf")
         a = array([ninf, -1.4, -1.5, -1.0, 0.0, 1.0, 1.4, 0.5, inf])
