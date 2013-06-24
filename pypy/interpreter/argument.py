@@ -86,12 +86,9 @@ class Arguments(object):
             args_w = space.fixedview(w_stararg)
         except OperationError, e:
             if e.match(space, space.w_TypeError):
-                w_type = space.type(w_stararg)
-                typename = w_type.getname(space)
-                raise OperationError(
+                raise operationerrfmt(
                     space.w_TypeError,
-                    space.wrap("argument after * must be "
-                               "a sequence, not %s" % (typename,)))
+                    "argument after * must be a sequence, not %T", w_stararg)
             raise
         self.arguments_w = self.arguments_w + args_w
 
@@ -116,12 +113,10 @@ class Arguments(object):
                 w_keys = space.call_method(w_starstararg, "keys")
             except OperationError, e:
                 if e.match(space, space.w_AttributeError):
-                    w_type = space.type(w_starstararg)
-                    typename = w_type.getname(space)
-                    raise OperationError(
+                    raise operationerrfmt(
                         space.w_TypeError,
-                        space.wrap("argument after ** must be "
-                                   "a mapping, not %s" % (typename,)))
+                        "argument after ** must be a mapping, not %T",
+                        w_starstararg)
                 raise
             keys_w = space.unpackiterable(w_keys)
         keywords_w = [None] * len(keys_w)

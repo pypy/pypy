@@ -147,21 +147,12 @@ def _gettypeerrormsg(nbargs):
     else:
         plural = ''
     return "unsupported operand type%s for %%s: %s" % (
-        plural, ', '.join(["'%s'"] * nbargs))
+        plural, ', '.join(["'%T'"] * nbargs))
 _gettypeerrormsg._annspecialcase_ = 'specialize:memo'
-
-def _gettypenames(space, *args_w):
-    if args_w:
-        typename = space.type(args_w[-1]).getname(space)
-        return _gettypenames(space, *args_w[:-1]) + (typename,)
-    return ()
-_gettypenames._always_inline_ = True
 
 def gettypeerror(space, operatorsymbol, *args_w):
     msg = _gettypeerrormsg(len(args_w))
-    type_names = _gettypenames(space, *args_w)
-    return operationerrfmt(space.w_TypeError, msg,
-                           operatorsymbol, *type_names)
+    return operationerrfmt(space.w_TypeError, msg, operatorsymbol, *args_w)
 
 def make_perform_trampoline(prefix, exprargs, expr, miniglobals,  multimethod, selfindex=0,
                             allow_NotImplemented_results=False):

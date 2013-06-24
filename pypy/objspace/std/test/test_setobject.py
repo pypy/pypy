@@ -953,3 +953,10 @@ class AppTestAppSetTest:
         # getting a RuntimeError because iterating over the old storage
         # gives us 1, but 1 is not in the set any longer.
         raises(RuntimeError, list, it)
+
+    def test_intersect_frozenset_set(self):
+        # worked before
+        assert type(frozenset([2]) & set([1, 2])) is frozenset
+        # did not work before because of an optimization that swaps both
+        # operands when the first set is larger than the second
+        assert type(frozenset([1, 2]) & set([2])) is frozenset

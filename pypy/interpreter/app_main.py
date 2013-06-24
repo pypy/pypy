@@ -2,8 +2,8 @@
 # App-level version of py.py.
 # See test/test_app_main.
 
-# Missing vs CPython: -d, -OO, -t, -v, -x, -3
-"""\
+# Missing vs CPython: -d, -t, -v, -x, -3
+USAGE1 = __doc__ = """\
 Options and arguments (and corresponding environment variables):
 -B     : don't write .py[co] files on import; also PYTHONDONTWRITEBYTECODE=x
 -c cmd : program passed in as string (terminates option list)
@@ -12,7 +12,8 @@ Options and arguments (and corresponding environment variables):
 -i     : inspect interactively after running script; forces a prompt even
          if stdin does not appear to be a terminal; also PYTHONINSPECT=x
 -m mod : run library module as a script (terminates option list)
--O     : dummy optimization flag for compatibility with CPython
+-O     : skip assert statements
+-OO    : remove docstrings when importing modules in addition to -O
 -R     : ignored (see http://bugs.python.org/issue14621)
 -Q arg : division options: -Qold (default), -Qwarn, -Qwarnall, -Qnew
 -s     : don't add user site directory to sys.path; also PYTHONNOUSERSITE
@@ -27,7 +28,6 @@ arg ...: arguments passed to program in sys.argv[1:]
 PyPy options and arguments:
 --info : print translation information about this PyPy executable
 """
-USAGE1 = __doc__
 # Missing vs CPython: PYTHONHOME, PYTHONCASEOK
 USAGE2 = """
 Other environment variables:
@@ -469,6 +469,10 @@ def parse_command_line(argv):
         sys.flags = type(sys.flags)(flags)
         sys.py3kwarning = bool(sys.flags.py3k_warning)
         sys.dont_write_bytecode = bool(sys.flags.dont_write_bytecode)
+
+        if sys.flags.optimize >= 1:
+            import __pypy__
+            __pypy__.set_debug(False)
 
         if sys.py3kwarning:
             print >> sys.stderr, (

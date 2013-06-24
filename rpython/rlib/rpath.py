@@ -7,7 +7,12 @@ from rpython.rlib import rposix
 
 if os.name == 'posix':
     # the posix version is already RPython, just use it
-    rabspath = os.path.abspath
+    # (but catch exceptions)
+    def rabspath(path):
+        try:
+            return os.path.abspath(path)
+        except OSError:
+            return path
 elif os.name == 'nt':
     def rabspath(path):
         if path == '':

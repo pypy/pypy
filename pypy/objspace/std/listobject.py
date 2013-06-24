@@ -1,5 +1,14 @@
+"""The builtin list implementation
+
+Lists optimize their storage by holding certain primitive datatypes in
+unwrapped form. For more information:
+
+http://morepypy.blogspot.com/2011/10/more-compact-lists-with-list-strategies.html
+
+"""
+
 import operator
-from sys import maxint
+import sys
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, operationerrfmt
@@ -18,11 +27,11 @@ from pypy.objspace.std.stdtypedef import StdTypeDef
 from pypy.objspace.std.stringobject import W_StringObject
 from pypy.objspace.std.tupleobject import W_AbstractTupleObject
 from pypy.objspace.std.unicodeobject import W_UnicodeObject
-from pypy.objspace.std.util import negate, get_positive_index
-from rpython.rlib import rerased, jit, debug
+from pypy.objspace.std.util import get_positive_index, negate
+from rpython.rlib import debug, jit, rerased
 from rpython.rlib.listsort import make_timsort_class
-from rpython.rlib.objectmodel import (instantiate, newlist_hint, specialize,
-    resizelist_hint)
+from rpython.rlib.objectmodel import (
+    instantiate, newlist_hint, resizelist_hint, specialize)
 from rpython.tool.sourcetools import func_with_new_name
 
 __all__ = ['W_ListObject', 'make_range_list', 'make_empty_list_with_size']
@@ -130,26 +139,26 @@ def list_unroll_condition(w_list1, space, w_list2):
 
 
 class W_ListObject(W_Root):
-    def __init__(w_self, space, wrappeditems, sizehint=-1):
+
+    def __init__(self, space, wrappeditems, sizehint=-1):
         assert isinstance(wrappeditems, list)
-        w_self.space = space
+        self.space = space
         if space.config.objspace.std.withliststrategies:
-            w_self.strategy = get_strategy_from_list_objects(space,
-                                                             wrappeditems,
-                                                             sizehint)
+            self.strategy = get_strategy_from_list_objects(space, wrappeditems,
+                                                           sizehint)
         else:
-            w_self.strategy = space.fromcache(ObjectListStrategy)
-        w_self.init_from_list_w(wrappeditems)
+            self.strategy = space.fromcache(ObjectListStrategy)
+        self.init_from_list_w(wrappeditems)
 
     @staticmethod
     def from_storage_and_strategy(space, storage, strategy):
-        w_self = instantiate(W_ListObject)
-        w_self.space = space
-        w_self.strategy = strategy
-        w_self.lstorage = storage
+        self = instantiate(W_ListObject)
+        self.space = space
+        self.strategy = strategy
+        self.lstorage = storage
         if not space.config.objspace.std.withliststrategies:
-            w_self.switch_to_object_strategy()
-        return w_self
+            self.switch_to_object_strategy()
+        return self
 
     @staticmethod
     def newlist_str(space, list_s):
@@ -157,10 +166,16 @@ class W_ListObject(W_Root):
         storage = strategy.erase(list_s)
         return W_ListObject.from_storage_and_strategy(space, storage, strategy)
 
-    def __repr__(w_self):
+    @staticmethod
+    def newlist_unicode(space, list_u):
+        strategy = space.fromcache(UnicodeListStrategy)
+        storage = strategy.erase(list_u)
+        return W_ListObject.from_storage_and_strategy(space, storage, strategy)
+
+    def __repr__(self):
         """ representation for debugging purposes """
-        return "%s(%s, %s)" % (w_self.__class__.__name__, w_self.strategy,
-                               w_self.lstorage._x)
+        return "%s(%s, %s)" % (self.__class__.__name__, self.strategy,
+                               self.lstorage._x)
 
     def unwrap(w_list, space):
         # for tests only!
@@ -216,7 +231,7 @@ class W_ListObject(W_Root):
         strategy and storage according to the other W_List"""
         self.strategy.copy_into(self, other)
 
-    def find(self, w_item, start=0, end=maxint):
+    def find(self, w_item, start=0, end=sys.maxint):
         """Find w_item in list[start:end]. If not found, raise ValueError"""
         return self.strategy.find(self, w_item, start, end)
 
@@ -403,7 +418,7 @@ class W_ListObject(W_Root):
             # No more items to compare -- compare sizes
             return space.newbool(op(self.length(), w_list2.length()))
 
-        return func_with_new_name(compare_unwrappeditems, name + '__List_List')
+        return func_with_new_name(compare_unwrappeditems, 'descr_' + name)
 
     descr_lt = _make_list_comparison('lt')
     descr_le = _make_list_comparison('le')
@@ -590,14 +605,14 @@ class W_ListObject(W_Root):
         'L.remove(value) -- remove first occurrence of value'
         # needs to be safe against eq_w() mutating the w_list behind our back
         try:
-            i = self.find(w_value, 0, maxint)
+            i = self.find(w_value, 0, sys.maxint)
         except ValueError:
             raise OperationError(space.w_ValueError,
                                  space.wrap("list.remove(x): x not in list"))
         if i < self.length():  # otherwise list was mutated
             self.pop(i)
 
-    @unwrap_spec(w_start=WrappedDefault(0), w_stop=WrappedDefault(maxint))
+    @unwrap_spec(w_start=WrappedDefault(0), w_stop=WrappedDefault(sys.maxint))
     def descr_index(self, space, w_value, w_start, w_stop):
         '''L.index(value, [start, [stop]]) -> integer -- return
         first index of value'''
@@ -684,6 +699,7 @@ class W_ListObject(W_Root):
             raise OperationError(space.w_ValueError,
                                  space.wrap("list modified during sort"))
 
+find_jmp = jit.JitDriver(greens = [], reds = 'auto', name = 'list.find')
 
 class ListStrategy(object):
     sizehint = -1
@@ -708,6 +724,7 @@ class ListStrategy(object):
         i = start
         # needs to be safe against eq_w mutating stuff
         while i < stop and i < w_list.length():
+            find_jmp.jit_merge_point()
             if space.eq_w(w_list.getitem(i), w_item):
                 return i
             i += 1
@@ -1205,8 +1222,7 @@ class AbstractUnwrappedStrategy(object):
     def _safe_find(self, w_list, obj, start, stop):
         l = self.unerase(w_list.lstorage)
         for i in range(start, min(stop, len(l))):
-            val = l[i]
-            if val == obj:
+            if l[i] == obj:
                 return i
         raise ValueError
 
@@ -1525,6 +1541,18 @@ class FloatListStrategy(AbstractUnwrappedStrategy, ListStrategy):
         sorter.sort()
         if reverse:
             l.reverse()
+
+    def _safe_find(self, w_list, obj, start, stop):
+        from rpython.rlib.rfloat import isnan
+        if not isnan(obj):
+            return AbstractUnwrappedStrategy._safe_find(self, w_list, obj,
+                                                        start, stop)
+        # unwrapped nan != nan, finding it requires more effort
+        l = self.unerase(w_list.lstorage)
+        for i in range(start, min(stop, len(l))):
+            if isnan(l[i]):
+                return i
+        raise ValueError
 
 
 class StringListStrategy(AbstractUnwrappedStrategy, ListStrategy):

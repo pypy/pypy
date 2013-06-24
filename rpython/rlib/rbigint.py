@@ -180,38 +180,19 @@ class rbigint(object):
             ival = r_uint(intval)
         else:
             return NULLRBIGINT
-        # Count the number of Python digits.
-        # We used to pick 5 ("big enough for anything"), but that's a
-        # waste of time and space given that 5*15 = 75 bits are rarely
-        # needed.
-        # XXX: Even better!
-        if SHIFT >= 63:
-            carry = ival >> SHIFT
-            if carry:
-                return rbigint([_store_digit(ival & MASK),
-                    _store_digit(carry & MASK)], sign, 2)
-            else:
-                return rbigint([_store_digit(ival & MASK)], sign, 1)
+        
+        carry = ival >> SHIFT
+        if carry:
+            return rbigint([_store_digit(ival & MASK),
+                _store_digit(carry)], sign, 2)
+        else:
+            return rbigint([_store_digit(ival & MASK)], sign, 1)
             
-        t = ival
-        ndigits = 0
-        while t:
-            ndigits += 1
-            t >>= SHIFT
-        v = rbigint([NULLDIGIT] * ndigits, sign, ndigits)
-        t = ival
-        p = 0
-        while t:
-            v.setdigit(p, t)
-            t >>= SHIFT
-            p += 1
-
-        return v
-
+        
     @staticmethod
+    @jit.elidable
     def frombool(b):
-        # This function is marked as pure, so you must not call it and
-        # then modify the result.
+        # You must not call this function and then modify the result.
         if b:
             return ONERBIGINT
         return NULLRBIGINT
@@ -270,6 +251,7 @@ class rbigint(object):
         return _decimalstr_to_bigint(s)
 
     @staticmethod
+    @jit.elidable
     def frombytes(s, byteorder, signed):
         if byteorder not in ('big', 'little'):
             raise InvalidEndiannessError()
@@ -402,9 +384,11 @@ class rbigint(object):
     def tolonglong(self):
         return _AsLongLong(self)
 
+    @jit.look_inside
     def tobool(self):
         return self.sign != 0
 
+    @jit.elidable
     def touint(self):
         if self.sign == -1:
             raise ValueError("cannot convert negative integer to unsigned int")
@@ -429,13 +413,16 @@ class rbigint(object):
             raise ValueError("cannot convert negative integer to unsigned int")
         return _AsULonglong_ignore_sign(self)
 
+    @jit.elidable
     def uintmask(self):
         return _AsUInt_mask(self)
 
+    @jit.elidable
     def ulonglongmask(self):
         """Return r_ulonglong(self), truncating."""
         return _AsULonglong_mask(self)
 
+    @jit.elidable
     def tofloat(self):
         return _AsDouble(self)
 
@@ -467,6 +454,7 @@ class rbigint(object):
             i += 1
         return True
 
+    @jit.look_inside
     def ne(self, other):
         return not self.eq(other)
 
@@ -505,12 +493,15 @@ class rbigint(object):
             i -= 1
         return False
 
+    @jit.look_inside
     def le(self, other):
         return not other.lt(self)
 
+    @jit.look_inside
     def gt(self, other):
         return other.lt(self)
 
+    @jit.look_inside
     def ge(self, other):
         return not self.lt(other)
 
@@ -566,7 +557,7 @@ class rbigint(object):
                 res = b.widedigit(0) * a.widedigit(0)
                 carry = res >> SHIFT
                 if carry:
-                    return rbigint([_store_digit(res & MASK), _store_digit(carry & MASK)], a.sign * b.sign, 2)
+                    return rbigint([_store_digit(res & MASK), _store_digit(carry)], a.sign * b.sign, 2)
                 else:
                     return rbigint([_store_digit(res & MASK)], a.sign * b.sign, 1)
                 
@@ -611,6 +602,7 @@ class rbigint(object):
             
         return div
 
+    @jit.look_inside
     def div(self, other):
         return self.floordiv(other)
 
@@ -811,14 +803,17 @@ class rbigint(object):
             z = z.sub(c)
         return z
 
+    @jit.elidable
     def neg(self):
         return rbigint(self._digits, -self.sign, self.size)
 
+    @jit.elidable
     def abs(self):
         if self.sign != -1:
             return self
         return rbigint(self._digits, 1, self.size)
 
+    @jit.elidable
     def invert(self): #Implement ~x as -(x + 1)
         if self.sign == 0:
             return ONENEGATIVERBIGINT
@@ -928,12 +923,14 @@ class rbigint(object):
     def or_(self, other):
         return _bitwise(self, '|', other)
 
+    @jit.elidable
     def oct(self):
         if self.sign == 0:
             return '0L'
         else:
             return _format(self, BASE8, '0', 'L')
 
+    @jit.elidable
     def hex(self):
         return _format(self, BASE16, '0x', 'L')
 
@@ -1107,10 +1104,6 @@ def _x_add(a, b):
 def _x_sub(a, b):
     """ Subtract the absolute values of two integers. """
     
-    # Special casing.
-    if a is b:
-        return NULLRBIGINT
-    
     size_a = a.numdigits()
     size_b = b.numdigits()
     sign = 1
@@ -1141,13 +1134,13 @@ def _x_sub(a, b):
         borrow = a.udigit(i) - b.udigit(i) - borrow
         z.setdigit(i, borrow)
         borrow >>= SHIFT
-        borrow &= 1 # Keep only one sign bit
+        #borrow &= 1 # Keep only one sign bit
         i += 1
     while i < size_a:
         borrow = a.udigit(i) - borrow
         z.setdigit(i, borrow)
         borrow >>= SHIFT
-        borrow &= 1
+        #borrow &= 1
         i += 1
         
     assert borrow == 0

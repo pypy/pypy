@@ -8,16 +8,14 @@ from pypy.objspace.std.model import W_Object, registerimplementation
 from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
-from pypy.objspace.std.stringobject import (
-    W_StringObject, make_rsplit_with_delim)
-from pypy.objspace.std.stringtype import stringendswith, stringstartswith
+from pypy.objspace.std.stringobject import W_StringObject
 from pypy.objspace.std.register_all import register_all
-from pypy.objspace.std.tupleobject import W_TupleObject
 from rpython.rlib import jit
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rlib.objectmodel import (
     compute_hash, compute_unique_id, specialize)
-from rpython.rlib.rstring import UnicodeBuilder
+from rpython.rlib.rstring import (UnicodeBuilder, split, rsplit, replace,
+    startswith, endswith)
 from rpython.rlib.runicode import make_unicode_escape_function
 from rpython.tool.sourcetools import func_with_new_name
 
@@ -83,9 +81,8 @@ registerimplementation(W_UnicodeObject)
 # Helper for converting int/long
 def unicode_to_decimal_w(space, w_unistr):
     if not isinstance(w_unistr, W_UnicodeObject):
-        raise operationerrfmt(space.w_TypeError,
-                              "expected unicode, got '%s'",
-                              space.type(w_unistr).getname(space))
+        raise operationerrfmt(space.w_TypeError, "expected unicode, got '%T'",
+                              w_unistr)
     unistr = w_unistr._value
     result = ['\0'] * len(unistr)
     digits = [ '0', '1', '2', '3', '4',
@@ -492,32 +489,36 @@ def _convert_idx_params(space, w_self, w_start, w_end, upper_bound=False):
 def unicode_endswith__Unicode_Unicode_ANY_ANY(space, w_self, w_substr, w_start, w_end):
     self, start, end = _convert_idx_params(space, w_self,
                                                    w_start, w_end, True)
-    return space.newbool(stringendswith(self, w_substr._value, start, end))
+    return space.newbool(endswith(self, w_substr._value, start, end))
 
 def unicode_startswith__Unicode_Unicode_ANY_ANY(space, w_self, w_substr, w_start, w_end):
     self, start, end = _convert_idx_params(space, w_self, w_start, w_end, True)
     # XXX this stuff can be waaay better for ootypebased backends if
     #     we re-use more of our rpython machinery (ie implement startswith
     #     with additional parameters as rpython)
-    return space.newbool(stringstartswith(self, w_substr._value, start, end))
+    return space.newbool(startswith(self, w_substr._value, start, end))
 
-def unicode_startswith__Unicode_Tuple_ANY_ANY(space, w_unistr, w_prefixes,
+def unicode_startswith__Unicode_ANY_ANY_ANY(space, w_unistr, w_prefixes,
                                               w_start, w_end):
+    if not space.isinstance_w(w_prefixes, space.w_tuple):
+        raise FailedToImplement
     unistr, start, end = _convert_idx_params(space, w_unistr,
                                              w_start, w_end, True)
     for w_prefix in space.fixedview(w_prefixes):
         prefix = space.unicode_w(w_prefix)
-        if stringstartswith(unistr, prefix, start, end):
+        if startswith(unistr, prefix, start, end):
             return space.w_True
     return space.w_False
 
-def unicode_endswith__Unicode_Tuple_ANY_ANY(space, w_unistr, w_suffixes,
+def unicode_endswith__Unicode_ANY_ANY_ANY(space, w_unistr, w_suffixes,
                                             w_start, w_end):
+    if not space.isinstance_w(w_suffixes, space.w_tuple):
+        raise FailedToImplement
     unistr, start, end = _convert_idx_params(space, w_unistr,
                                              w_start, w_end, True)
     for w_suffix in space.fixedview(w_suffixes):
         suffix = space.unicode_w(w_suffix)
-        if stringendswith(unistr, suffix, start, end):
+        if endswith(unistr, suffix, start, end):
             return space.w_True
     return space.w_False
 
@@ -606,17 +607,17 @@ def unicode_splitlines__Unicode_ANY(space, w_self, w_keepends):
             if (self[pos] == u'\r' and pos + 1 < end and
                 self[pos + 1] == u'\n'):
                 # Count CRLF as one linebreak
-                lines.append(W_UnicodeObject(self[start:pos + keepends * 2]))
+                lines.append(self[start:pos + keepends * 2])
                 pos += 1
             else:
-                lines.append(W_UnicodeObject(self[start:pos + keepends]))
+                lines.append(self[start:pos + keepends])
             pos += 1
             start = pos
         else:
             pos += 1
     if not unicodedb.islinebreak(ord(self[end - 1])):
-        lines.append(W_UnicodeObject(self[start:]))
-    return space.newlist(lines)
+        lines.append(self[start:])
+    return space.newlist_unicode(lines)
 
 def unicode_find__Unicode_Unicode_ANY_ANY(space, w_self, w_substr, w_start, w_end):
     self, start, end = _convert_idx_params(space, w_self, w_start, w_end)
@@ -648,7 +649,7 @@ def unicode_count__Unicode_Unicode_ANY_ANY(space, w_self, w_substr, w_start, w_e
 
 def unicode_split__Unicode_None_ANY(space, w_self, w_none, w_maxsplit):
     maxsplit = space.int_w(w_maxsplit)
-    res_w = []
+    res = []
     value = w_self._value
     length = len(value)
     i = 0
@@ -671,12 +672,12 @@ def unicode_split__Unicode_None_ANY(space, w_self, w_none, w_maxsplit):
             maxsplit -= 1   # NB. if it's already < 0, it stays < 0
 
         # the word is value[i:j]
-        res_w.append(W_UnicodeObject(value[i:j]))
+        res.append(value[i:j])
 
         # continue to look from the character following the space after the word
         i = j + 1
 
-    return space.newlist(res_w)
+    return space.newlist_unicode(res)
 
 def unicode_split__Unicode_Unicode_ANY(space, w_self, w_delim, w_maxsplit):
     self = w_self._value
@@ -686,13 +687,13 @@ def unicode_split__Unicode_Unicode_ANY(space, w_self, w_delim, w_maxsplit):
     if delim_len == 0:
         raise OperationError(space.w_ValueError,
                              space.wrap('empty separator'))
-    parts = _split_with(self, delim, maxsplit)
-    return space.newlist([W_UnicodeObject(part) for part in parts])
+    parts = split(self, delim, maxsplit)
+    return space.newlist_unicode(parts)
 
 
 def unicode_rsplit__Unicode_None_ANY(space, w_self, w_none, w_maxsplit):
     maxsplit = space.int_w(w_maxsplit)
-    res_w = []
+    res = []
     value = w_self._value
     i = len(value)-1
     while True:
@@ -717,59 +718,32 @@ def unicode_rsplit__Unicode_None_ANY(space, w_self, w_none, w_maxsplit):
         # the word is value[j+1:i+1]
         j1 = j + 1
         assert j1 >= 0
-        res_w.append(W_UnicodeObject(value[j1:i+1]))
+        res.append(value[j1:i+1])
 
         # continue to look from the character before the space before the word
         i = j - 1
 
-    res_w.reverse()
-    return space.newlist(res_w)
+    res.reverse()
+    return space.newlist_unicode(res)
 
-def sliced(space, s, start, stop, orig_obj):
-    assert start >= 0
-    assert stop >= 0
-    if start == 0 and stop == len(s) and space.is_w(space.type(orig_obj), space.w_unicode):
-        return orig_obj
-    return space.wrap( s[start:stop])
-
-unicode_rsplit__Unicode_Unicode_ANY = make_rsplit_with_delim('unicode_rsplit__Unicode_Unicode_ANY',
-                                                             sliced)
-
-def _split_into_chars(self, maxsplit):
-    if maxsplit == 0:
-        return [self]
-    index = 0
-    end = len(self)
-    parts = [u'']
-    maxsplit -= 1
-    while maxsplit != 0:
-        if index >= end:
-            break
-        parts.append(self[index])
-        index += 1
-        maxsplit -= 1
-    parts.append(self[index:])
-    return parts
-
-def _split_with(self, with_, maxsplit=-1):
-    parts = []
-    start = 0
-    end = len(self)
-    length = len(with_)
-    while maxsplit != 0:
-        index = self.find(with_, start, end)
-        if index < 0:
-            break
-        parts.append(self[start:index])
-        start = index + length
-        maxsplit -= 1
-    parts.append(self[start:])
-    return parts
+def unicode_rsplit__Unicode_Unicode_ANY(space, w_self, w_by, w_maxsplit=-1):
+    maxsplit = space.int_w(w_maxsplit)
+    value = w_self._value
+    by = w_by._value
+    if not by:
+        raise OperationError(space.w_ValueError, space.wrap("empty separator"))
+    return space.newlist_unicode(rsplit(value, by, maxsplit))
 
 def unicode_replace__Unicode_Unicode_Unicode_ANY(space, w_self, w_old,
                                                  w_new, w_maxsplit):
-    return _unicode_replace(space, w_self, w_old._value, w_new._value,
-                            w_maxsplit)
+    maxsplit = space.int_w(w_maxsplit)
+    try:
+        return W_UnicodeObject(
+                replace(w_self._value, w_old._value, w_new._value, maxsplit))
+    except OverflowError:
+        raise OperationError(
+            space.w_OverflowError,
+            space.wrap("replace string is too long"))
 
 def unicode_replace__Unicode_ANY_ANY_ANY(space, w_self, w_old, w_new,
                                          w_maxsplit):
@@ -781,26 +755,13 @@ def unicode_replace__Unicode_ANY_ANY_ANY(space, w_self, w_old, w_new,
         new = unicode(space.bufferstr_w(w_new))
     else:
         new = space.unicode_w(w_new)
-    return _unicode_replace(space, w_self, old, new, w_maxsplit)
-
-def _unicode_replace(space, w_self, old, new, w_maxsplit):
-    if len(old):
-        parts = _split_with(w_self._value, old, space.int_w(w_maxsplit))
-    else:
-        self = w_self._value
-        maxsplit = space.int_w(w_maxsplit)
-        parts = _split_into_chars(self, maxsplit)
-
+    maxsplit = space.int_w(w_maxsplit)
     try:
-        one = ovfcheck(len(parts) * len(new))
-        ovfcheck(one + len(w_self._value))
+        return W_UnicodeObject(replace(w_self._value, old, new, maxsplit))
     except OverflowError:
         raise OperationError(
             space.w_OverflowError,
             space.wrap("replace string is too long"))
-
-    return W_UnicodeObject(new.join(parts))
-
 
 def unicode_encode__Unicode_ANY_ANY(space, w_unistr,
                                     w_encoding=None,
@@ -846,7 +807,7 @@ def unicode_rpartition__Unicode_Unicode(space, w_unistr, w_unisub):
 def unicode_expandtabs__Unicode_ANY(space, w_self, w_tabsize):
     self = w_self._value
     tabsize  = space.int_w(w_tabsize)
-    parts = _split_with(self, u'\t')
+    parts = self.split(u'\t')
     result = [parts[0]]
     prevsize = 0
     for ch in parts[0]:

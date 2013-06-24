@@ -153,8 +153,9 @@ def PySequence_SetItem(space, w_o, i, w_v):
     is the equivalent of the Python statement o[i] = v.  This function does
     not steal a reference to v."""
     if PyDict_Check(space, w_o) or not PySequence_Check(space, w_o):
-        raise operationerrfmt(space.w_TypeError, "'%s' object does not support item assignment",
-                             space.type(w_o).getname(space))
+        raise operationerrfmt(space.w_TypeError,
+                              "'%T' object does not support item assignment",
+                              w_o)
     space.setitem(w_o, space.wrap(i), w_v)
     return 0
 

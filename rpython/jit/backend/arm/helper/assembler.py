@@ -82,7 +82,7 @@ def gen_emit_cmp_op_guard(name, true_cond):
         assert guard is not None
         l0 = arglocs[0]
         l1 = arglocs[1]
-        assert l0.is_reg()
+        assert l0.is_core_reg()
 
         if l1.is_imm():
             self.mc.CMP_ri(l0.value, imm=l1.getint(), cond=fcond)

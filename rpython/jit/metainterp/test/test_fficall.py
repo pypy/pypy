@@ -17,7 +17,7 @@ from rpython.rlib.longlong2float import float2longlong
 def get_description(atypes, rtype):
     p = lltype.malloc(CIF_DESCRIPTION, len(atypes),
                       flavor='raw', immortal=True)
-    p.abi = 42
+    p.abi = 1     # default
     p.nargs = len(atypes)
     p.rtype = rtype
     p.atypes = lltype.malloc(FFI_TYPE_PP.TO, len(atypes),

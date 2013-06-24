@@ -10,10 +10,8 @@ from rpython.rlib import jit
 
 
 def raise_type_err(space, argument, expected, w_obj):
-    type_name = space.type(w_obj).getname(space)
-    raise operationerrfmt(space.w_TypeError,
-                          "argument %s must be %s, not %s",
-                          argument, expected, type_name)
+    raise operationerrfmt(space.w_TypeError, "argument %s must be %s, not %T",
+                          argument, expected, w_obj)
 
 def unwrap_attr(space, w_attr):
     try:

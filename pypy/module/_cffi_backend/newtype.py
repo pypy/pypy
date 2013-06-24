@@ -1,9 +1,11 @@
+import sys
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import unwrap_spec
 
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rtyper.tool import rffi_platform
 
 from pypy.module._cffi_backend import (ctypeobj, ctypeprim, ctypeptr,
     ctypearray, ctypestruct, ctypevoid, ctypeenum)
@@ -113,6 +115,16 @@ def new_array_type(space, w_ctptr, w_length):
 
 # ____________________________________________________________
 
+SF_MSVC_BITFIELDS = 1
+SF_GCC_ARM_BITFIELDS = 2
+
+if sys.platform == 'win32':
+    DEFAULT_SFLAGS = SF_MSVC_BITFIELDS
+elif rffi_platform.getdefined('__arm__', ''):
+    DEFAULT_SFLAGS = SF_GCC_ARM_BITFIELDS
+else:
+    DEFAULT_SFLAGS = 0
+
 @unwrap_spec(name=str)
 def new_struct_type(space, name):
     return ctypestruct.W_CTypeStruct(space, name)
@@ -121,9 +133,11 @@ def new_struct_type(space, name):
 def new_union_type(space, name):
     return ctypestruct.W_CTypeUnion(space, name)
 
-@unwrap_spec(w_ctype=ctypeobj.W_CType, totalsize=int, totalalignment=int)
+@unwrap_spec(w_ctype=ctypeobj.W_CType, totalsize=int, totalalignment=int,
+             sflags=int)
 def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
-                             totalsize=-1, totalalignment=-1):
+                             totalsize=-1, totalalignment=-1,
+                             sflags=DEFAULT_SFLAGS):
     if (not isinstance(w_ctype, ctypestruct.W_CTypeStructOrUnion)
             or w_ctype.size >= 0):
         raise OperationError(space.w_TypeError,
@@ -131,13 +145,14 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
                                         " struct or union ctype"))
 
     is_union = isinstance(w_ctype, ctypestruct.W_CTypeUnion)
-    maxsize = 1
     alignment = 1
-    offset = 0
+    boffset = 0         # this number is in *bits*, not bytes!
+    boffsetmax = 0      # the maximum value of boffset, in bits too
+    prev_bitfield_size = 0
+    prev_bitfield_free = 0
     fields_w = space.listview(w_fields)
     fields_list = []
     fields_dict = {}
-    prev_bit_position = 0
     custom_field_pos = False
 
     for w_field in fields_w:
@@ -161,92 +176,174 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
                     "field '%s.%s' has ctype '%s' of unknown size",
                                   w_ctype.name, fname, ftype.name)
         #
+        if is_union:
+            boffset = 0         # reset each field at offset 0
+        #
+        # update the total alignment requirement, but skip it if the
+        # field is an anonymous bitfield
         falign = ftype.alignof()
-        if alignment < falign:
+        do_align = True
+        if (sflags & SF_GCC_ARM_BITFIELDS) == 0 and fbitsize >= 0:
+            if (sflags & SF_MSVC_BITFIELDS) == 0:
+                # GCC: anonymous bitfields (of any size) don't cause alignment
+                do_align = (fname != '')
+            else:
+                # MSVC: zero-sized bitfields don't cause alignment
+                do_align = (fbitsize > 0)
+        if alignment < falign and do_align:
             alignment = falign
         #
-        if foffset < 0:
-            # align this field to its own 'falign' by inserting padding
-            offset = (offset + falign - 1) & ~(falign - 1)
-        else:
-            # a forced field position: ignore the offset just computed,
-            # except to know if we must set 'custom_field_pos'
-            custom_field_pos |= (offset != foffset)
-            offset = foffset
-        #
-        if fbitsize < 0 or (
-                fbitsize == 8 * ftype.size and not
-                isinstance(ftype, ctypeprim.W_CTypePrimitiveCharOrUniChar)):
-            fbitsize = -1
-            if isinstance(ftype, ctypearray.W_CTypeArray) and ftype.length == 0:
-                bitshift = ctypestruct.W_CField.BS_EMPTY_ARRAY
-            else:
-                bitshift = ctypestruct.W_CField.BS_REGULAR
-            prev_bit_position = 0
-        else:
-            if (not (isinstance(ftype, ctypeprim.W_CTypePrimitiveSigned) or
-                     isinstance(ftype, ctypeprim.W_CTypePrimitiveUnsigned) or
-                     isinstance(ftype, ctypeprim.W_CTypePrimitiveChar)) or
-                fbitsize == 0 or
-                fbitsize > 8 * ftype.size):
-                raise operationerrfmt(space.w_TypeError,
-                                      "invalid bit field '%s'", fname)
-            if prev_bit_position > 0:
-                prev_field = fields_list[-1]
-                assert prev_field.bitshift >= 0
-                if prev_field.ctype.size != ftype.size:
-                    raise OperationError(space.w_NotImplementedError,
-                        space.wrap("consecutive bit fields should be "
-                                   "declared with a same-sized type"))
-                if prev_bit_position + fbitsize > 8 * ftype.size:
-                    prev_bit_position = 0
-                else:
-                    # we can share the same field as 'prev_field'
-                    offset = prev_field.offset
-            bitshift = prev_bit_position
-            if not is_union:
-                prev_bit_position += fbitsize
-        #
-        if (len(fname) == 0 and
-            isinstance(ftype, ctypestruct.W_CTypeStructOrUnion)):
-            # a nested anonymous struct or union
-            srcfield2names = {}
-            for name, srcfld in ftype.fields_dict.items():
-                srcfield2names[srcfld] = name
-            for srcfld in ftype.fields_list:
-                fld = srcfld.make_shifted(offset)
-                fields_list.append(fld)
-                try:
-                    fields_dict[srcfield2names[srcfld]] = fld
-                except KeyError:
-                    pass
-            # always forbid such structures from being passed by value
-            custom_field_pos = True
-        else:
-            # a regular field
-            fld = ctypestruct.W_CField(ftype, offset, bitshift, fbitsize)
-            fields_list.append(fld)
-            fields_dict[fname] = fld
-        #
-        if maxsize < ftype.size:
-            maxsize = ftype.size
-        if not is_union:
-            offset += ftype.size
+        if fbitsize < 0:
+            # not a bitfield: common case
 
-    if is_union:
-        assert offset == 0
-        offset = maxsize
+            if isinstance(ftype, ctypearray.W_CTypeArray) and ftype.length==0:
+                bs_flag = ctypestruct.W_CField.BS_EMPTY_ARRAY
+            else:
+                bs_flag = ctypestruct.W_CField.BS_REGULAR
+
+            # align this field to its own 'falign' by inserting padding
+            boffset = (boffset + falign*8-1) & ~(falign*8-1)
+
+            if foffset >= 0:
+                # a forced field position: ignore the offset just computed,
+                # except to know if we must set 'custom_field_pos'
+                custom_field_pos |= (boffset != foffset * 8)
+                boffset = foffset * 8
+
+            if (fname == '' and
+                    isinstance(ftype, ctypestruct.W_CTypeStructOrUnion)):
+                # a nested anonymous struct or union
+                srcfield2names = {}
+                for name, srcfld in ftype.fields_dict.items():
+                    srcfield2names[srcfld] = name
+                for srcfld in ftype.fields_list:
+                    fld = srcfld.make_shifted(boffset // 8)
+                    fields_list.append(fld)
+                    try:
+                        fields_dict[srcfield2names[srcfld]] = fld
+                    except KeyError:
+                        pass
+                # always forbid such structures from being passed by value
+                custom_field_pos = True
+            else:
+                # a regular field
+                fld = ctypestruct.W_CField(ftype, boffset // 8, bs_flag, -1)
+                fields_list.append(fld)
+                fields_dict[fname] = fld
+
+            boffset += ftype.size * 8
+            prev_bitfield_size = 0
+
+        else:
+            # this is the case of a bitfield
+
+            if foffset >= 0:
+                raise operationerrfmt(space.w_TypeError,
+                                      "field '%s.%s' is a bitfield, "
+                                      "but a fixed offset is specified",
+                                      w_ctype.name, fname)
+
+            if not (isinstance(ftype, ctypeprim.W_CTypePrimitiveSigned) or
+                    isinstance(ftype, ctypeprim.W_CTypePrimitiveUnsigned) or
+                    isinstance(ftype,ctypeprim.W_CTypePrimitiveCharOrUniChar)):
+                raise operationerrfmt(space.w_TypeError,
+                                      "field '%s.%s' declared as '%s' "
+                                      "cannot be a bit field",
+                                      w_ctype.name, fname, ftype.name)
+            if fbitsize > 8 * ftype.size:
+                raise operationerrfmt(space.w_TypeError,
+                                      "bit field '%s.%s' is declared '%s:%d',"
+                                      " which exceeds the width of the type",
+                                      w_ctype.name, fname,
+                                      ftype.name, fbitsize)
+
+            # compute the starting position of the theoretical field
+            # that covers a complete 'ftype', inside of which we will
+            # locate the real bitfield
+            field_offset_bytes = boffset // 8
+            field_offset_bytes &= ~(falign - 1)
+
+            if fbitsize == 0:
+                if fname != '':
+                    raise operationerrfmt(space.w_TypeError,
+                                          "field '%s.%s' is declared with :0",
+                                          w_ctype.name, fname)
+                if (sflags & SF_MSVC_BITFIELDS) == 0:
+                    # GCC's notion of "ftype :0;"
+                    # pad boffset to a value aligned for "ftype"
+                    if boffset > field_offset_bytes * 8:
+                        field_offset_bytes += falign
+                        assert boffset < field_offset_bytes * 8
+                    boffset = field_offset_bytes * 8
+                else:
+                    # MSVC's notion of "ftype :0;
+                    # Mostly ignored.  It seems they only serve as
+                    # separator between other bitfields, to force them
+                    # into separate words.
+                    pass
+                prev_bitfield_size = 0
+
+            else:
+                if (sflags & SF_MSVC_BITFIELDS) == 0:
+                    # GCC's algorithm
+
+                    # Can the field start at the offset given by 'boffset'?  It
+                    # can if it would entirely fit into an aligned ftype field.
+                    bits_already_occupied = boffset - (field_offset_bytes * 8)
+
+                    if bits_already_occupied + fbitsize > 8 * ftype.size:
+                        # it would not fit, we need to start at the next
+                        # allowed position
+                        field_offset_bytes += falign
+                        assert boffset < field_offset_bytes * 8
+                        boffset = field_offset_bytes * 8
+                        bitshift = 0
+                    else:
+                        bitshift = bits_already_occupied
+                        assert bitshift >= 0
+                    boffset += fbitsize
+
+                else:
+                    # MSVC's algorithm
+
+                    # A bitfield is considered as taking the full width
+                    # of their declared type.  It can share some bits
+                    # with the previous field only if it was also a
+                    # bitfield and used a type of the same size.
+                    if (prev_bitfield_size == ftype.size and
+                        prev_bitfield_free >= fbitsize):
+                        # yes: reuse
+                        bitshift = 8 * prev_bitfield_size - prev_bitfield_free
+                    else:
+                        # no: start a new full field
+                        boffset = (boffset + falign*8-1) & ~(falign*8-1)
+                        boffset += ftype.size * 8
+                        bitshift = 0
+                        prev_bitfield_size = ftype.size
+                        prev_bitfield_free = 8 * prev_bitfield_size
+                    #
+                    prev_bitfield_free -= fbitsize
+                    field_offset_bytes = boffset / 8 - ftype.size
+
+                fld = ctypestruct.W_CField(ftype, field_offset_bytes,
+                                           bitshift, fbitsize)
+                fields_list.append(fld)
+                fields_dict[fname] = fld
+
+        if boffset > boffsetmax:
+            boffsetmax = boffset
 
     # Like C, if the size of this structure would be zero, we compute it
     # as 1 instead.  But for ctypes support, we allow the manually-
     # specified totalsize to be zero in this case.
+    got = (boffsetmax + 7) // 8
     if totalsize < 0:
-        offset = (offset + alignment - 1) & ~(alignment - 1)
-        totalsize = offset or 1
-    elif totalsize < offset:
+        totalsize = (got + alignment - 1) & ~(alignment - 1)
+        totalsize = totalsize or 1
+    elif totalsize < got:
         raise operationerrfmt(space.w_TypeError,
                      "%s cannot be of size %d: there are fields at least "
-                     "up to %d", w_ctype.name, totalsize, offset)
+                     "up to %d", w_ctype.name, totalsize, got)
     if totalalignment < 0:
         totalalignment = alignment
 

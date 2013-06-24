@@ -148,3 +148,6 @@ pass"""
         self.parse('0b1101')
         self.parse('0b0l')
         py.test.raises(SyntaxError, self.parse, "0b112")
+
+    def test_print_function(self):
+        self.parse("from __future__ import print_function\nx = print\n")

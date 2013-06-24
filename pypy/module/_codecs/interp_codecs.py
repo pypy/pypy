@@ -52,13 +52,11 @@ class CodecState(object):
                                  space.w_unicode)):
                 if decode:
                     msg = ("decoding error handler must return "
-                           "(unicode, int) tuple, not %s")
+                           "(unicode, int) tuple, not %R")
                 else:
                     msg = ("encoding error handler must return "
-                           "(unicode, int) tuple, not %s")
-                raise operationerrfmt(
-                    space.w_TypeError, msg,
-                    space.str_w(space.repr(w_res)))
+                           "(unicode, int) tuple, not %R")
+                raise operationerrfmt(space.w_TypeError, msg, w_res)
             w_replace, w_newpos = space.fixedview(w_res, 2)
             newpos = space.int_w(w_newpos)
             if newpos < 0:
@@ -218,9 +216,8 @@ def replace_errors(space, w_exc):
         text = u'\ufffd' * size
         return space.newtuple([space.wrap(text), w_end])
     else:
-        typename = space.type(w_exc).getname(space)
         raise operationerrfmt(space.w_TypeError,
-            "don't know how to handle %s in error callback", typename)
+            "don't know how to handle %T in error callback", w_exc)
 
 def xmlcharrefreplace_errors(space, w_exc):
     check_exception(space, w_exc)
@@ -239,9 +236,8 @@ def xmlcharrefreplace_errors(space, w_exc):
             pos += 1
         return space.newtuple([space.wrap(builder.build()), w_end])
     else:
-        typename = space.type(w_exc).getname(space)
         raise operationerrfmt(space.w_TypeError,
-            "don't know how to handle %s in error callback", typename)
+            "don't know how to handle %T in error callback", w_exc)
 
 def backslashreplace_errors(space, w_exc):
     check_exception(space, w_exc)
@@ -272,9 +268,8 @@ def backslashreplace_errors(space, w_exc):
             pos += 1
         return space.newtuple([space.wrap(builder.build()), w_end])
     else:
-        typename = space.type(w_exc).getname(space)
         raise operationerrfmt(space.w_TypeError,
-            "don't know how to handle %s in error callback", typename)
+            "don't know how to handle %T in error callback", w_exc)
 
 def register_builtin_error_handlers(space):
     "NOT_RPYTHON"

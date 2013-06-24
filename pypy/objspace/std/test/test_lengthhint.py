@@ -74,7 +74,7 @@ class TestLengthHint:
         self._test_length_hint(self.space.wrap(u'Y' * self.SIZE))
 
     def test_tuple(self):
-        self._test_length_hint(self.space.newtuple(self.ITEMS))
+        self._test_length_hint(self.space.wrap(tuple(self.ITEMS)))
 
     def test_reversed(self):
         # test the generic reversed iterator (w_foo lacks __reversed__)

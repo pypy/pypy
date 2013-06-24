@@ -1314,6 +1314,10 @@ class AppTestW_ListObject(object):
         non_list = NonList()
         assert [] != non_list
 
+    def test_nan_containment(self):
+        nan = float('nan')
+        assert nan in [nan]
+
 
 class AppTestForRangeLists(AppTestW_ListObject):
     spaceconfig = {"objspace.std.withrangelist": True}

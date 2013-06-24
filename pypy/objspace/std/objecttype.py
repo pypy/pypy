@@ -33,8 +33,8 @@ def descr_set___class__(space, w_obj, w_newcls):
     from pypy.objspace.std.typeobject import W_TypeObject
     if not isinstance(w_newcls, W_TypeObject):
         raise operationerrfmt(space.w_TypeError,
-                              "__class__ must be set to new-style class, not '%s' object",
-                              space.type(w_newcls).getname(space))
+                              "__class__ must be set to new-style class, not '%T' object",
+                              w_newcls)
     if not w_newcls.is_heaptype():
         raise OperationError(space.w_TypeError,
                              space.wrap("__class__ assignment: only for heap types"))
@@ -44,8 +44,8 @@ def descr_set___class__(space, w_obj, w_newcls):
         w_obj.setclass(space, w_newcls)
     else:
         raise operationerrfmt(space.w_TypeError,
-                              "__class__ assignment: '%s' object layout differs from '%s'",
-                              w_oldcls.getname(space), w_newcls.getname(space))
+                              "__class__ assignment: '%N' object layout differs from '%N'",
+                              w_oldcls, w_newcls)
 
 
 app = gateway.applevel("""

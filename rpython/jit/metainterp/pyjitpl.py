@@ -623,7 +623,8 @@ class MIFrame(object):
         tobox = self.metainterp.heapcache.getfield(box, fielddescr)
         if tobox is valuebox:
             return
-        self.execute_with_descr(rop.SETFIELD_GC, fielddescr, box, valuebox)
+        if tobox is not None or not self.metainterp.heapcache.is_unescaped(box) or not isinstance(valuebox, Const) or valuebox.nonnull():
+            self.execute_with_descr(rop.SETFIELD_GC, fielddescr, box, valuebox)
         self.metainterp.heapcache.setfield(box, valuebox, fielddescr)
     opimpl_setfield_gc_i = _opimpl_setfield_gc_any
     opimpl_setfield_gc_r = _opimpl_setfield_gc_any
@@ -1170,6 +1171,7 @@ class MIFrame(object):
         obj = box.getref_base()
         vref = vrefinfo.virtual_ref_during_tracing(obj)
         resbox = history.BoxPtr(vref)
+        self.metainterp.heapcache.new(resbox)
         cindex = history.ConstInt(len(metainterp.virtualref_boxes) // 2)
         metainterp.history.record(rop.VIRTUAL_REF, [box, cindex], resbox)
         # Note: we allocate a JIT_VIRTUAL_REF here

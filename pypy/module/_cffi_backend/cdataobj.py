@@ -394,6 +394,19 @@ class W_CDataSliced(W_CData):
         return self.length
 
 
+class W_CDataHandle(W_CData):
+    _attrs_ = ['w_keepalive']
+    _immutable_fields_ = ['w_keepalive']
+
+    def __init__(self, space, cdata, ctype, w_keepalive):
+        W_CData.__init__(self, space, cdata, ctype)
+        self.w_keepalive = w_keepalive
+
+    def _repr_extra(self):
+        w_repr = self.space.repr(self.w_keepalive)
+        return "handle to %s" % (self.space.str_w(w_repr),)
+
+
 W_CData.typedef = TypeDef(
     'CData',
     __module__ = '_cffi_backend',

@@ -13,6 +13,7 @@ class TestDicts(BaseTestPyPyC):
             a = A()
             a.x = 1
             for s in sys.modules.keys() * 1000:
+                d.get(s)  # force pending setfields etc.
                 inc = a.x # ID: look
                 d[s] = d.get(s, 0) + inc
             return sum(d.values())
@@ -21,8 +22,7 @@ class TestDicts(BaseTestPyPyC):
         assert log.result % 1000 == 0
         loop, = log.loops_by_filename(self.filepath)
         ops = loop.ops_by_id('look')
-        assert log.opnames(ops) == ['setfield_gc',
-                                    'guard_not_invalidated']
+        assert log.opnames(ops) == []
 
     def test_identitydict(self):
         def fn(n):
