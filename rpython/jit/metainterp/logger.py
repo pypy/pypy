@@ -1,14 +1,13 @@
-
-from rpython.rlib.debug import have_debug_prints
-from rpython.rlib.debug import debug_start, debug_stop, debug_print
+from rpython.jit.metainterp.history import (ConstInt, BoxInt, ConstFloat,
+    BoxFloat, TargetToken)
+from rpython.jit.metainterp.resoperation import rop
+from rpython.rlib.debug import (have_debug_prints, debug_start, debug_stop,
+    debug_print)
 from rpython.rlib.objectmodel import we_are_translated, compute_unique_id
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
-from rpython.jit.metainterp.resoperation import rop
-from rpython.jit.metainterp.history import ConstInt, \
-     BoxInt, ConstFloat, BoxFloat, TargetToken
+
 
 class Logger(object):
-
     def __init__(self, metainterp_sd, guard_number=False):
         self.metainterp_sd = metainterp_sd
         self.guard_number = guard_number
@@ -24,7 +23,7 @@ class Logger(object):
             debug_stop("jit-log-compiling-loop")
         else:
             debug_start("jit-log-opt-loop")
-            debug_print("# Loop", number, '(%s)' % name , ":", type,
+            debug_print("# Loop", number, '(%s)' % name, ":", type,
                         "with", len(operations), "ops")
             logops = self._log_operations(inputargs, operations, ops_offset)
             debug_stop("jit-log-opt-loop")
@@ -138,7 +137,7 @@ class LogOperations(object):
             else:
                 r = self.repr_of_descr(descr)
             if args:
-                args += ', descr=' +  r
+                args += ', descr=' + r
             else:
                 args = "descr=" + r
         if is_guard and op.getfailargs() is not None:
