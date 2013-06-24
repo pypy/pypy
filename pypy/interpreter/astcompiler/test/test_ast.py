@@ -38,7 +38,13 @@ class TestAstToObject:
         assert node.n is value
 
     def test_fields(self, space):
-        w_fields = space.getattr(ast.get(space).w_FunctionDef, space.wrap("_fields"))
-        assert (space.listview_str(w_fields) == 
-                ['name', 'args', 'body', 'decorator_list'])
+        w_fields = space.getattr(ast.get(space).w_FunctionDef,
+                                 space.wrap("_fields"))
+        assert space.eq_w(w_fields, space.wrap(
+            ('name', 'args', 'body', 'decorator_list')))
+        
+    def test_attributes(self, space):
+        w_attrs = space.getattr(ast.get(space).w_FunctionDef,
+                                space.wrap("_attributes"))
+        assert space.eq_w(w_attrs, space.wrap(('lineno', 'col_offset')))
         

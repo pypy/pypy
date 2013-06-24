@@ -101,7 +101,8 @@ class ASTNodeVisitor(ASDLVisitor):
                           % (typ.name,), 3)
             self.emit("raise operationerrfmt(space.w_TypeError,", 2)
             self.emit("        \"Expected %s node, got %%T\", w_node)" % (base,), 2)
-            self.emit("State.ast_type('%r', 'AST', None)" % (base,))
+            self.emit("State.ast_type('%r', 'AST', None, %s)" %
+                      (base, [repr(attr.name) for attr in sum.attributes]))
             self.emit("")
             for cons in sum.types:
                 self.visit(cons, base, sum.attributes)
@@ -489,20 +490,23 @@ class State:
     AST_TYPES = []
 
     @classmethod
-    def ast_type(cls, name, base, fields):
-        cls.AST_TYPES.append((name, base, fields))
+    def ast_type(cls, name, base, fields, attributes=None):
+        cls.AST_TYPES.append((name, base, fields, attributes))
 
     def __init__(self, space):
         self.w_AST = space.gettypeobject(W_AST.typedef)
-        for (name, base, fields) in self.AST_TYPES:
-            self.make_new_type(space, name, base, fields)
+        for (name, base, fields, attributes) in self.AST_TYPES:
+            self.make_new_type(space, name, base, fields, attributes)
         
-    def make_new_type(self, space, name, base, fields):
+    def make_new_type(self, space, name, base, fields, attributes):
         w_base = getattr(self, 'w_%s' % base)
         w_dict = space.newdict()
         if fields is not None:
             space.setitem_str(w_dict, "_fields",
                               space.newtuple([space.wrap(f) for f in fields]))
+        if attributes is not None:
+            space.setitem_str(w_dict, "_attributes",
+                              space.newtuple([space.wrap(a) for a in attributes]))
         w_type = space.call_function(
             space.w_type, 
             space.wrap(name), space.newtuple([w_base]), w_dict)

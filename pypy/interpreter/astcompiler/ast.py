@@ -112,20 +112,23 @@ class State:
     AST_TYPES = []
 
     @classmethod
-    def ast_type(cls, name, base, fields):
-        cls.AST_TYPES.append((name, base, fields))
+    def ast_type(cls, name, base, fields, attributes=None):
+        cls.AST_TYPES.append((name, base, fields, attributes))
 
     def __init__(self, space):
         self.w_AST = space.gettypeobject(W_AST.typedef)
-        for (name, base, fields) in self.AST_TYPES:
-            self.make_new_type(space, name, base, fields)
+        for (name, base, fields, attributes) in self.AST_TYPES:
+            self.make_new_type(space, name, base, fields, attributes)
         
-    def make_new_type(self, space, name, base, fields):
+    def make_new_type(self, space, name, base, fields, attributes):
         w_base = getattr(self, 'w_%s' % base)
         w_dict = space.newdict()
         if fields is not None:
             space.setitem_str(w_dict, "_fields",
                               space.newtuple([space.wrap(f) for f in fields]))
+        if attributes is not None:
+            space.setitem_str(w_dict, "_attributes",
+                              space.newtuple([space.wrap(a) for a in attributes]))
         w_type = space.call_function(
             space.w_type, 
             space.wrap(name), space.newtuple([w_base]), w_dict)
@@ -149,7 +152,7 @@ class mod(AST):
             return Suite.from_object(space, w_node)
         raise operationerrfmt(space.w_TypeError,
                 "Expected mod node, got %T", w_node)
-State.ast_type('mod', 'AST', None)
+State.ast_type('mod', 'AST', None, [])
 
 class Module(mod):
 
@@ -334,7 +337,7 @@ class stmt(AST):
             return Continue.from_object(space, w_node)
         raise operationerrfmt(space.w_TypeError,
                 "Expected stmt node, got %T", w_node)
-State.ast_type('stmt', 'AST', None)
+State.ast_type('stmt', 'AST', None, ['lineno', 'col_offset'])
 
 class FunctionDef(stmt):
 
@@ -1450,7 +1453,7 @@ class expr(AST):
             return Const.from_object(space, w_node)
         raise operationerrfmt(space.w_TypeError,
                 "Expected expr node, got %T", w_node)
-State.ast_type('expr', 'AST', None)
+State.ast_type('expr', 'AST', None, ['lineno', 'col_offset'])
 
 class BoolOp(expr):
 
@@ -2507,7 +2510,7 @@ class slice(AST):
             return Index.from_object(space, w_node)
         raise operationerrfmt(space.w_TypeError,
                 "Expected slice node, got %T", w_node)
-State.ast_type('slice', 'AST', None)
+State.ast_type('slice', 'AST', None, [])
 
 class Ellipsis(slice):
 
@@ -2979,7 +2982,7 @@ class excepthandler(AST):
             return ExceptHandler.from_object(space, w_node)
         raise operationerrfmt(space.w_TypeError,
                 "Expected excepthandler node, got %T", w_node)
-State.ast_type('excepthandler', 'AST', None)
+State.ast_type('excepthandler', 'AST', None, ['lineno', 'col_offset'])
 
 class ExceptHandler(excepthandler):
 
