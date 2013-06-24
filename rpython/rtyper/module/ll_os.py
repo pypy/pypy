@@ -1143,9 +1143,9 @@ class RegisterOs(BaseLazyRegistering):
                 dirp = os_opendir(path)
                 if not dirp:
                     raise OSError(rposix.get_errno(), "os_opendir failed")
-                rposix.set_errno(0)
                 result = []
                 while True:
+                    rposix.set_errno(0)
                     direntp = os_readdir(dirp)
                     if not direntp:
                         error = rposix.get_errno()
