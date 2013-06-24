@@ -27,3 +27,11 @@ class TestAstToObject:
         w_node = node.to_object(space)
         w_op = space.getattr(w_node, space.wrap("op"))
         assert space.isinstance_w(w_op, ast.get(space).w_operator)
+
+    def from_object(self, space):
+        value = space.wrap(42)
+        w_node = space.call_function(ast.get(space).w_Num)
+        space.setattr(w_node, space.wrap('n'), value)
+        node = ast.Num.from_object(space, w_node)
+        assert node.n is value
+        

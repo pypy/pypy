@@ -128,6 +128,10 @@ class ASTNodeVisitor(ASDLVisitor):
             wrapper = self.get_value_converter(field, "self.%s" % field.name)
             return ["w_%s = %s  # %s" % (field.name, wrapper, field.type)]
 
+    def get_field_extractor(self, field):
+        lines = ["%s = space.getattr(w_node, space.wrap('%s'))" % (field.name, field.name)]
+        return lines
+
     def make_converters(self, fields, name):
         self.emit("def to_object(self, space):", 1)
         self.emit("w_node = space.call_function(get(space).w_%s)" % name, 2)
@@ -138,6 +142,16 @@ class ASTNodeVisitor(ASDLVisitor):
             self.emit("space.setattr(w_node, space.wrap(%r), w_%s)" % (
                     str(field.name), field.name), 2)
         self.emit("return w_node", 2)
+        self.emit("")
+        self.emit("@staticmethod", 1)
+        self.emit("def from_object(space, w_node):", 1)
+        for field in fields:
+            unwrapping_code = self.get_field_extractor(field)
+            for line in unwrapping_code:
+                self.emit(line, 2)
+        self.emit("return %s(%s)" % (
+                name, ', '.join(str(field.name) for field in fields)), 2)
+        self.emit("")
 
     def make_constructor(self, fields, node, extras=None, base=None):
         if fields or extras:
@@ -348,6 +362,13 @@ class _FieldsWrapper(W_Root):
 
 class W_AST(W_Root):
     w_dict = None
+
+    def obj2mod(self, space):
+        if space.isinstance_w(self, get(space).w_Module):
+            return Module.from_object(space, self)
+        else:
+            raise OperationError(space.w_TypeError, space.wrap(
+                    "Expected mod node"))
 
     def getdict(self, space):
         if self.w_dict is None:

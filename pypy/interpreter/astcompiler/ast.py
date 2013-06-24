@@ -34,6 +34,13 @@ class _FieldsWrapper(W_Root):
 class W_AST(W_Root):
     w_dict = None
 
+    def obj2mod(self, space):
+        if space.isinstance_w(self, get(space).w_Module):
+            return Module.from_object(space, self)
+        else:
+            raise OperationError(space.w_TypeError, space.wrap(
+                    "Expected mod node"))
+
     def getdict(self, space):
         if self.w_dict is None:
             self.w_dict = space.newdict(instance=True)
@@ -138,6 +145,12 @@ class Module(mod):
         w_body = space.newlist(body_w)
         space.setattr(w_node, space.wrap('body'), w_body)
         return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        body = space.getattr(w_node, space.wrap('body'))
+        return Module(body)
+
 State.ast_type('Module', 'mod')
 
 
@@ -163,6 +176,12 @@ class Interactive(mod):
         w_body = space.newlist(body_w)
         space.setattr(w_node, space.wrap('body'), w_body)
         return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        body = space.getattr(w_node, space.wrap('body'))
+        return Interactive(body)
+
 State.ast_type('Interactive', 'mod')
 
 
@@ -183,6 +202,12 @@ class Expression(mod):
         w_body = self.body.to_object(space)  # expr
         space.setattr(w_node, space.wrap('body'), w_body)
         return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        body = space.getattr(w_node, space.wrap('body'))
+        return Expression(body)
+
 State.ast_type('Expression', 'mod')
 
 
@@ -208,6 +233,12 @@ class Suite(mod):
         w_body = space.newlist(body_w)
         space.setattr(w_node, space.wrap('body'), w_body)
         return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        body = space.getattr(w_node, space.wrap('body'))
+        return Suite(body)
+
 State.ast_type('Suite', 'mod')
 
 
@@ -257,6 +288,15 @@ class FunctionDef(stmt):
         w_decorator_list = space.newlist(decorator_list_w)
         space.setattr(w_node, space.wrap('decorator_list'), w_decorator_list)
         return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        name = space.getattr(w_node, space.wrap('name'))
+        args = space.getattr(w_node, space.wrap('args'))
+        body = space.getattr(w_node, space.wrap('body'))
+        decorator_list = space.getattr(w_node, space.wrap('decorator_list'))
+        return FunctionDef(name, args, body, decorator_list)
+
 State.ast_type('FunctionDef', 'stmt')
 
 
@@ -304,6 +344,15 @@ class ClassDef(stmt):
         w_decorator_list = space.newlist(decorator_list_w)
         space.setattr(w_node, space.wrap('decorator_list'), w_decorator_list)
         return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        name = space.getattr(w_node, space.wrap('name'))
+        bases = space.getattr(w_node, space.wrap('bases'))
+        body = space.getattr(w_node, space.wrap('body'))
+        decorator_list = space.getattr(w_node, space.wrap('decorator_list'))
+        return ClassDef(name, bases, body, decorator_list)
+
 State.ast_type('ClassDef', 'stmt')
 
 
@@ -326,6 +375,12 @@ class Return(stmt):
         w_value = self.value.to_object(space)  # expr
         space.setattr(w_node, space.wrap('value'), w_value)
         return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        value = space.getattr(w_node, space.wrap('value'))
+        return Return(value)
+
 State.ast_type('Return', 'stmt')
 
 
@@ -352,6 +407,12 @@ class Delete(stmt):
         w_targets = space.newlist(targets_w)
         space.setattr(w_node, space.wrap('targets'), w_targets)
         return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        targets = space.getattr(w_node, space.wrap('targets'))
+        return Delete(targets)
+
 State.ast_type('Delete', 'stmt')
 
 
@@ -382,6 +443,13 @@ class Assign(stmt):
         w_value = self.value.to_object(space)  # expr
         space.setattr(w_node, space.wrap('value'), w_value)
         return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        targets = space.getattr(w_node, space.wrap('targets'))
+        value = space.getattr(w_node, space.wrap('value'))
+        return Assign(targets, value)
+
 State.ast_type('Assign', 'stmt')
 
 
@@ -410,6 +478,14 @@ class AugAssign(stmt):
         w_value = self.value.to_object(space)  # expr
         space.setattr(w_node, space.wrap('value'), w_value)
         return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        target = space.getattr(w_node, space.wrap('target'))
+        op = space.getattr(w_node, space.wrap('op'))
+        value = space.getattr(w_node, space.wrap('value'))
+        return AugAssign(target, op, value)
+
 State.ast_type('AugAssign', 'stmt')
 
 
@@ -444,6 +520,14 @@ class Print(stmt):
         w_nl = self.nl.to_object(space)  # bool
         space.setattr(w_node, space.wrap('nl'), w_nl)
         return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        dest = space.getattr(w_node, space.wrap('dest'))
+        values = space.getattr(w_node, space.wrap('values'))
+        nl = space.getattr(w_node, space.wrap('nl'))
+        return Print(dest, values, nl)
+
 State.ast_type('Print', 'stmt')
 
 
@@ -487,6 +571,15 @@ class For(stmt):
         w_orelse = space.newlist(orelse_w)
         space.setattr(w_node, space.wrap('orelse'), w_orelse)
         return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        target = space.getattr(w_node, space.wrap('target'))
+        iter = space.getattr(w_node, space.wrap('iter'))
+        body = space.getattr(w_node, space.wrap('body'))
+        orelse = space.getattr(w_node, space.wrap('orelse'))
+        return For(target, iter, body, orelse)
+
 State.ast_type('For', 'stmt')
 
 
@@ -526,6 +619,14 @@ class While(stmt):
         w_orelse = space.newlist(orelse_w)
         space.setattr(w_node, space.wrap('orelse'), w_orelse)
         return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        test = space.getattr(w_node, space.wrap('test'))
+        body = space.getattr(w_node, space.wrap('body'))
+        orelse = space.getattr(w_node, space.wrap('orelse'))
+        return While(test, body, orelse)
+
 State.ast_type('While', 'stmt')
 
 
@@ -565,6 +666,14 @@ class If(stmt):
         w_orelse = space.newlist(orelse_w)
         space.setattr(w_node, space.wrap('orelse'), w_orelse)
         return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        test = space.getattr(w_node, space.wrap('test'))
+        body = space.getattr(w_node, space.wrap('body'))
+        orelse = space.getattr(w_node, space.wrap('orelse'))
+        return If(test, body, orelse)
+
 State.ast_type('If', 'stmt')
 
 
@@ -600,6 +709,14 @@ class With(stmt):
         w_body = space.newlist(body_w)
         space.setattr(w_node, space.wrap('body'), w_body)
         return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        context_expr = space.getattr(w_node, space.wrap('context_expr'))
+        optional_vars = space.getattr(w_node, space.wrap('optional_vars'))
+        body = space.getattr(w_node, space.wrap('body'))
+        return With(context_expr, optional_vars, body)
+
 State.ast_type('With', 'stmt')
 
 
@@ -632,6 +749,14 @@ class Raise(stmt):
         w_tback = self.tback.to_object(space)  # expr
         space.setattr(w_node, space.wrap('tback'), w_tback)
         return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        type = space.getattr(w_node, space.wrap('type'))
+        inst = space.getattr(w_node, space.wrap('inst'))
+        tback = space.getattr(w_node, space.wrap('tback'))
+        return Raise(type, inst, tback)
+
 State.ast_type('Raise', 'stmt')
 
 
@@ -676,6 +801,14 @@ class TryExcept(stmt):
         w_orelse = space.newlist(orelse_w)
         space.setattr(w_node, space.wrap('orelse'), w_orelse)
         return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        body = space.getattr(w_node, space.wrap('body'))
+        handlers = space.getattr(w_node, space.wrap('handlers'))
+        orelse = space.getattr(w_node, space.wrap('orelse'))
+        return TryExcept(body, handlers, orelse)
+
 State.ast_type('TryExcept', 'stmt')
 
 
@@ -711,6 +844,13 @@ class TryFinally(stmt):
         w_finalbody = space.newlist(finalbody_w)
         space.setattr(w_node, space.wrap('finalbody'), w_finalbody)
         return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        body = space.getattr(w_node, space.wrap('body'))
+        finalbody = space.getattr(w_node, space.wrap('finalbody'))
+        return TryFinally(body, finalbody)
+
 State.ast_type('TryFinally', 'stmt')
 
 
@@ -737,6 +877,13 @@ class Assert(stmt):
         w_msg = self.msg.to_object(space)  # expr
         space.setattr(w_node, space.wrap('msg'), w_msg)
         return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        test = space.getattr(w_node, space.wrap('test'))
+        msg = space.getattr(w_node, space.wrap('msg'))
+        return Assert(test, msg)
+
 State.ast_type('Assert', 'stmt')
 
 
@@ -763,6 +910,12 @@ class Import(stmt):
         w_names = space.newlist(names_w)
         space.setattr(w_node, space.wrap('names'), w_names)
         return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        names = space.getattr(w_node, space.wrap('names'))
+        return Import(names)
+
 State.ast_type('Import', 'stmt')
 
 
@@ -795,6 +948,14 @@ class ImportFrom(stmt):
         w_level = space.wrap(self.level)  # int
         space.setattr(w_node, space.wrap('level'), w_level)
         return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        module = space.getattr(w_node, space.wrap('module'))
+        names = space.getattr(w_node, space.wrap('names'))
+        level = space.getattr(w_node, space.wrap('level'))
+        return ImportFrom(module, names, level)
+
 State.ast_type('ImportFrom', 'stmt')
 
 
@@ -826,6 +987,14 @@ class Exec(stmt):
         w_locals = self.locals.to_object(space)  # expr
         space.setattr(w_node, space.wrap('locals'), w_locals)
         return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        body = space.getattr(w_node, space.wrap('body'))
+        globals = space.getattr(w_node, space.wrap('globals'))
+        locals = space.getattr(w_node, space.wrap('locals'))
+        return Exec(body, globals, locals)
+
 State.ast_type('Exec', 'stmt')
 
 
@@ -850,6 +1019,12 @@ class Global(stmt):
         w_names = space.newlist(names_w)
         space.setattr(w_node, space.wrap('names'), w_names)
         return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        names = space.getattr(w_node, space.wrap('names'))
+        return Global(names)
+
 State.ast_type('Global', 'stmt')
 
 
@@ -871,6 +1046,12 @@ class Expr(stmt):
         w_value = self.value.to_object(space)  # expr
         space.setattr(w_node, space.wrap('value'), w_value)
         return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        value = space.getattr(w_node, space.wrap('value'))
+        return Expr(value)
+
 State.ast_type('Expr', 'stmt')
 
 
@@ -888,6 +1069,11 @@ class Pass(stmt):
     def to_object(self, space):
         w_node = space.call_function(get(space).w_Pass)
         return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        return Pass()
+
 State.ast_type('Pass', 'stmt')
 
 
@@ -905,6 +1091,11 @@ class Break(stmt):
     def to_object(self, space):
         w_node = space.call_function(get(space).w_Break)
         return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        return Break()
+
 State.ast_type('Break', 'stmt')
 
 
@@ -922,6 +1113,11 @@ class Continue(stmt):
     def to_object(self, space):
         w_node = space.call_function(get(space).w_Continue)
         return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        return Continue()
+
 State.ast_type('Continue', 'stmt')
 
 
@@ -958,6 +1154,13 @@ class BoolOp(expr):
         w_values = space.newlist(values_w)
         space.setattr(w_node, space.wrap('values'), w_values)
         return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        op = space.getattr(w_node, space.wrap('op'))
+        values = space.getattr(w_node, space.wrap('values'))
+        return BoolOp(op, values)
+
 State.ast_type('BoolOp', 'expr')
 
 
@@ -986,6 +1189,14 @@ class BinOp(expr):
         w_right = self.right.to_object(space)  # expr
         space.setattr(w_node, space.wrap('right'), w_right)
         return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        left = space.getattr(w_node, space.wrap('left'))
+        op = space.getattr(w_node, space.wrap('op'))
+        right = space.getattr(w_node, space.wrap('right'))
+        return BinOp(left, op, right)
+
 State.ast_type('BinOp', 'expr')
 
 
@@ -1010,6 +1221,13 @@ class UnaryOp(expr):
         w_operand = self.operand.to_object(space)  # expr
         space.setattr(w_node, space.wrap('operand'), w_operand)
         return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        op = space.getattr(w_node, space.wrap('op'))
+        operand = space.getattr(w_node, space.wrap('operand'))
+        return UnaryOp(op, operand)
+
 State.ast_type('UnaryOp', 'expr')
 
 
@@ -1035,6 +1253,13 @@ class Lambda(expr):
         w_body = self.body.to_object(space)  # expr
         space.setattr(w_node, space.wrap('body'), w_body)
         return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        args = space.getattr(w_node, space.wrap('args'))
+        body = space.getattr(w_node, space.wrap('body'))
+        return Lambda(args, body)
+
 State.ast_type('Lambda', 'expr')
 
 
@@ -1064,6 +1289,14 @@ class IfExp(expr):
         w_orelse = self.orelse.to_object(space)  # expr
         space.setattr(w_node, space.wrap('orelse'), w_orelse)
         return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        test = space.getattr(w_node, space.wrap('test'))
+        body = space.getattr(w_node, space.wrap('body'))
+        orelse = space.getattr(w_node, space.wrap('orelse'))
+        return IfExp(test, body, orelse)
+
 State.ast_type('IfExp', 'expr')
 
 
@@ -1099,6 +1332,13 @@ class Dict(expr):
         w_values = space.newlist(values_w)
         space.setattr(w_node, space.wrap('values'), w_values)
         return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        keys = space.getattr(w_node, space.wrap('keys'))
+        values = space.getattr(w_node, space.wrap('values'))
+        return Dict(keys, values)
+
 State.ast_type('Dict', 'expr')
 
 
@@ -1125,6 +1365,12 @@ class Set(expr):
         w_elts = space.newlist(elts_w)
         space.setattr(w_node, space.wrap('elts'), w_elts)
         return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        elts = space.getattr(w_node, space.wrap('elts'))
+        return Set(elts)
+
 State.ast_type('Set', 'expr')
 
 
@@ -1155,6 +1401,13 @@ class ListComp(expr):
         w_generators = space.newlist(generators_w)
         space.setattr(w_node, space.wrap('generators'), w_generators)
         return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        elt = space.getattr(w_node, space.wrap('elt'))
+        generators = space.getattr(w_node, space.wrap('generators'))
+        return ListComp(elt, generators)
+
 State.ast_type('ListComp', 'expr')
 
 
@@ -1185,6 +1438,13 @@ class SetComp(expr):
         w_generators = space.newlist(generators_w)
         space.setattr(w_node, space.wrap('generators'), w_generators)
         return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        elt = space.getattr(w_node, space.wrap('elt'))
+        generators = space.getattr(w_node, space.wrap('generators'))
+        return SetComp(elt, generators)
+
 State.ast_type('SetComp', 'expr')
 
 
@@ -1219,6 +1479,14 @@ class DictComp(expr):
         w_generators = space.newlist(generators_w)
         space.setattr(w_node, space.wrap('generators'), w_generators)
         return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        key = space.getattr(w_node, space.wrap('key'))
+        value = space.getattr(w_node, space.wrap('value'))
+        generators = space.getattr(w_node, space.wrap('generators'))
+        return DictComp(key, value, generators)
+
 State.ast_type('DictComp', 'expr')
 
 
@@ -1249,6 +1517,13 @@ class GeneratorExp(expr):
         w_generators = space.newlist(generators_w)
         space.setattr(w_node, space.wrap('generators'), w_generators)
         return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        elt = space.getattr(w_node, space.wrap('elt'))
+        generators = space.getattr(w_node, space.wrap('generators'))
+        return GeneratorExp(elt, generators)
+
 State.ast_type('GeneratorExp', 'expr')
 
 
@@ -1271,6 +1546,12 @@ class Yield(expr):
         w_value = self.value.to_object(space)  # expr
         space.setattr(w_node, space.wrap('value'), w_value)
         return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        value = space.getattr(w_node, space.wrap('value'))
+        return Yield(value)
+
 State.ast_type('Yield', 'expr')
 
 
@@ -1308,6 +1589,14 @@ class Compare(expr):
         w_comparators = space.newlist(comparators_w)
         space.setattr(w_node, space.wrap('comparators'), w_comparators)
         return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        left = space.getattr(w_node, space.wrap('left'))
+        ops = space.getattr(w_node, space.wrap('ops'))
+        comparators = space.getattr(w_node, space.wrap('comparators'))
+        return Compare(left, ops, comparators)
+
 State.ast_type('Compare', 'expr')
 
 
@@ -1357,6 +1646,16 @@ class Call(expr):
         w_kwargs = self.kwargs.to_object(space)  # expr
         space.setattr(w_node, space.wrap('kwargs'), w_kwargs)
         return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        func = space.getattr(w_node, space.wrap('func'))
+        args = space.getattr(w_node, space.wrap('args'))
+        keywords = space.getattr(w_node, space.wrap('keywords'))
+        starargs = space.getattr(w_node, space.wrap('starargs'))
+        kwargs = space.getattr(w_node, space.wrap('kwargs'))
+        return Call(func, args, keywords, starargs, kwargs)
+
 State.ast_type('Call', 'expr')
 
 
@@ -1378,6 +1677,12 @@ class Repr(expr):
         w_value = self.value.to_object(space)  # expr
         space.setattr(w_node, space.wrap('value'), w_value)
         return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        value = space.getattr(w_node, space.wrap('value'))
+        return Repr(value)
+
 State.ast_type('Repr', 'expr')
 
 
@@ -1398,6 +1703,12 @@ class Num(expr):
         w_n = self.n  # object
         space.setattr(w_node, space.wrap('n'), w_n)
         return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        n = space.getattr(w_node, space.wrap('n'))
+        return Num(n)
+
 State.ast_type('Num', 'expr')
 
 
@@ -1418,6 +1729,12 @@ class Str(expr):
         w_s = self.s  # string
         space.setattr(w_node, space.wrap('s'), w_s)
         return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        s = space.getattr(w_node, space.wrap('s'))
+        return Str(s)
+
 State.ast_type('Str', 'expr')
 
 
@@ -1445,6 +1762,14 @@ class Attribute(expr):
         w_ctx = expr_context_to_class[self.ctx - 1]().to_object(space)  # expr_context
         space.setattr(w_node, space.wrap('ctx'), w_ctx)
         return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        value = space.getattr(w_node, space.wrap('value'))
+        attr = space.getattr(w_node, space.wrap('attr'))
+        ctx = space.getattr(w_node, space.wrap('ctx'))
+        return Attribute(value, attr, ctx)
+
 State.ast_type('Attribute', 'expr')
 
 
@@ -1473,6 +1798,14 @@ class Subscript(expr):
         w_ctx = expr_context_to_class[self.ctx - 1]().to_object(space)  # expr_context
         space.setattr(w_node, space.wrap('ctx'), w_ctx)
         return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        value = space.getattr(w_node, space.wrap('value'))
+        slice = space.getattr(w_node, space.wrap('slice'))
+        ctx = space.getattr(w_node, space.wrap('ctx'))
+        return Subscript(value, slice, ctx)
+
 State.ast_type('Subscript', 'expr')
 
 
@@ -1496,6 +1829,13 @@ class Name(expr):
         w_ctx = expr_context_to_class[self.ctx - 1]().to_object(space)  # expr_context
         space.setattr(w_node, space.wrap('ctx'), w_ctx)
         return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        id = space.getattr(w_node, space.wrap('id'))
+        ctx = space.getattr(w_node, space.wrap('ctx'))
+        return Name(id, ctx)
+
 State.ast_type('Name', 'expr')
 
 
@@ -1525,6 +1865,13 @@ class List(expr):
         w_ctx = expr_context_to_class[self.ctx - 1]().to_object(space)  # expr_context
         space.setattr(w_node, space.wrap('ctx'), w_ctx)
         return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        elts = space.getattr(w_node, space.wrap('elts'))
+        ctx = space.getattr(w_node, space.wrap('ctx'))
+        return List(elts, ctx)
+
 State.ast_type('List', 'expr')
 
 
@@ -1554,6 +1901,13 @@ class Tuple(expr):
         w_ctx = expr_context_to_class[self.ctx - 1]().to_object(space)  # expr_context
         space.setattr(w_node, space.wrap('ctx'), w_ctx)
         return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        elts = space.getattr(w_node, space.wrap('elts'))
+        ctx = space.getattr(w_node, space.wrap('ctx'))
+        return Tuple(elts, ctx)
+
 State.ast_type('Tuple', 'expr')
 
 
@@ -1574,6 +1928,12 @@ class Const(expr):
         w_value = self.value  # object
         space.setattr(w_node, space.wrap('value'), w_value)
         return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        value = space.getattr(w_node, space.wrap('value'))
+        return Const(value)
+
 State.ast_type('Const', 'expr')
 
 
@@ -1643,6 +2003,11 @@ class Ellipsis(slice):
     def to_object(self, space):
         w_node = space.call_function(get(space).w_Ellipsis)
         return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        return Ellipsis()
+
 State.ast_type('Ellipsis', 'slice')
 
 
@@ -1674,6 +2039,14 @@ class Slice(slice):
         w_step = self.step.to_object(space)  # expr
         space.setattr(w_node, space.wrap('step'), w_step)
         return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        lower = space.getattr(w_node, space.wrap('lower'))
+        upper = space.getattr(w_node, space.wrap('upper'))
+        step = space.getattr(w_node, space.wrap('step'))
+        return Slice(lower, upper, step)
+
 State.ast_type('Slice', 'slice')
 
 
@@ -1699,6 +2072,12 @@ class ExtSlice(slice):
         w_dims = space.newlist(dims_w)
         space.setattr(w_node, space.wrap('dims'), w_dims)
         return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        dims = space.getattr(w_node, space.wrap('dims'))
+        return ExtSlice(dims)
+
 State.ast_type('ExtSlice', 'slice')
 
 
@@ -1719,6 +2098,12 @@ class Index(slice):
         w_value = self.value.to_object(space)  # expr
         space.setattr(w_node, space.wrap('value'), w_value)
         return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        value = space.getattr(w_node, space.wrap('value'))
+        return Index(value)
+
 State.ast_type('Index', 'slice')
 
 
@@ -1980,6 +2365,14 @@ class comprehension(AST):
         w_ifs = space.newlist(ifs_w)
         space.setattr(w_node, space.wrap('ifs'), w_ifs)
         return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        target = space.getattr(w_node, space.wrap('target'))
+        iter = space.getattr(w_node, space.wrap('iter'))
+        ifs = space.getattr(w_node, space.wrap('ifs'))
+        return comprehension(target, iter, ifs)
+
 State.ast_type('comprehension', 'AST')
 
 class excepthandler(AST):
@@ -2022,6 +2415,14 @@ class ExceptHandler(excepthandler):
         w_body = space.newlist(body_w)
         space.setattr(w_node, space.wrap('body'), w_body)
         return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        type = space.getattr(w_node, space.wrap('type'))
+        name = space.getattr(w_node, space.wrap('name'))
+        body = space.getattr(w_node, space.wrap('body'))
+        return ExceptHandler(type, name, body)
+
 State.ast_type('ExceptHandler', 'excepthandler')
 
 
@@ -2062,6 +2463,15 @@ class arguments(AST):
         w_defaults = space.newlist(defaults_w)
         space.setattr(w_node, space.wrap('defaults'), w_defaults)
         return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        args = space.getattr(w_node, space.wrap('args'))
+        vararg = space.getattr(w_node, space.wrap('vararg'))
+        kwarg = space.getattr(w_node, space.wrap('kwarg'))
+        defaults = space.getattr(w_node, space.wrap('defaults'))
+        return arguments(args, vararg, kwarg, defaults)
+
 State.ast_type('arguments', 'AST')
 
 class keyword(AST):
@@ -2084,6 +2494,13 @@ class keyword(AST):
         w_value = self.value.to_object(space)  # expr
         space.setattr(w_node, space.wrap('value'), w_value)
         return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        arg = space.getattr(w_node, space.wrap('arg'))
+        value = space.getattr(w_node, space.wrap('value'))
+        return keyword(arg, value)
+
 State.ast_type('keyword', 'AST')
 
 class alias(AST):
@@ -2105,6 +2522,13 @@ class alias(AST):
         w_asname = space.wrap(self.asname)  # identifier
         space.setattr(w_node, space.wrap('asname'), w_asname)
         return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        name = space.getattr(w_node, space.wrap('name'))
+        asname = space.getattr(w_node, space.wrap('asname'))
+        return alias(name, asname)
+
 State.ast_type('alias', 'AST')
 
 class ASTVisitor(object):

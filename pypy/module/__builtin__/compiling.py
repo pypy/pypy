@@ -28,8 +28,7 @@ in addition to any features explicitly specified.
     w_ast_type = space.gettypeobject(ast.W_AST.typedef)
     str_ = None
     if space.isinstance_w(w_source, w_ast_type):
-        ast_node = space.interp_w(ast.mod, w_source)
-        ast_node.sync_app_attrs(space)
+        ast_node = space.interp_w(ast.W_AST, w_source).obj2mod(space)
     elif space.isinstance_w(w_source, space.w_unicode):
         w_utf_8_source = space.call_method(w_source, "encode",
                                            space.wrap("utf-8"))
