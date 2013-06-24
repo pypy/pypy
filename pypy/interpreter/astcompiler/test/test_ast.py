@@ -28,10 +28,17 @@ class TestAstToObject:
         w_op = space.getattr(w_node, space.wrap("op"))
         assert space.isinstance_w(w_op, ast.get(space).w_operator)
 
-    def from_object(self, space):
+    def test_from_object(self, space):
         value = space.wrap(42)
         w_node = space.call_function(ast.get(space).w_Num)
         space.setattr(w_node, space.wrap('n'), value)
-        node = ast.Num.from_object(space, w_node, lineno=1, col_offset=1)
+        space.setattr(w_node, space.wrap('lineno'), space.wrap(1))
+        space.setattr(w_node, space.wrap('col_offset'), space.wrap(1))
+        node = ast.Num.from_object(space, w_node)
         assert node.n is value
+
+    def test_fields(self, space):
+        w_fields = space.getattr(ast.get(space).w_FunctionDef, space.wrap("_fields"))
+        assert (space.listview_str(w_fields) == 
+                ['name', 'args', 'body', 'decorator_list'])
         

@@ -65,13 +65,13 @@ class ASTNodeVisitor(ASDLVisitor):
                 self.emit("return %i" % (i+1,), 3)
             self.emit("raise operationerrfmt(space.w_TypeError,", 2)
             self.emit("        \"Expected %s node, got %%T\", w_node)" % (base,), 2)
-            self.emit("State.ast_type('%s', 'AST')" % (base,))
+            self.emit("State.ast_type('%s', 'AST', None)" % (base,))
             self.emit("")
             for i, cons in enumerate(sum.types):
                 self.emit("class _%s(%s):" % (cons.name, base))
                 self.emit("def to_object(self, space):", 1)
                 self.emit("return space.call_function(get(space).w_%s)" % (cons.name,), 2)
-                self.emit("State.ast_type('%s', '%s')" % (cons.name, base))
+                self.emit("State.ast_type('%s', '%s', None)" % (cons.name, base))
                 self.emit("")
             for i, cons in enumerate(sum.types):
                 self.emit("%s = %i" % (cons.name, i + 1))
@@ -99,7 +99,7 @@ class ASTNodeVisitor(ASDLVisitor):
                           % (typ.name,), 3)
             self.emit("raise operationerrfmt(space.w_TypeError,", 2)
             self.emit("        \"Expected %s node, got %%T\", w_node)" % (base,), 2)
-            self.emit("State.ast_type('%r', 'AST')" % (base,))
+            self.emit("State.ast_type('%r', 'AST', None)" % (base,))
             self.emit("")
             for cons in sum.types:
                 self.visit(cons, base, sum.attributes)
@@ -115,7 +115,7 @@ class ASTNodeVisitor(ASDLVisitor):
         self.emit("visitor.visit_%s(self)" % (name,), 2)
         self.emit("")
         self.make_converters(product.fields, name)
-        self.emit("State.ast_type('%r', 'AST')" % (name,))
+        self.emit("State.ast_type('%r', 'AST', None)" % (name,))
         self.emit("")
 
     def get_value_converter(self, field, value):
@@ -168,8 +168,8 @@ class ASTNodeVisitor(ASDLVisitor):
                          (field.name, value, field.name))
         else:
             value = self.get_value_extractor(
-                field, 
-                "space.getattr(w_node, space.wrap('%s'))" % (field.name,))
+                field,
+                "get_field(space, w_node, '%s', %s)" % (field.name, field.opt))
             lines = ["%s = %s" % (field.name, value)]
         return lines
 
@@ -236,7 +236,8 @@ class ASTNodeVisitor(ASDLVisitor):
         self.emit("")
         self.make_mutate_over(cons, cons.name)
         self.make_converters(cons.fields, cons.name, extra_attributes)
-        self.emit("State.ast_type('%r', '%s')" % (cons.name, base))
+        self.emit("State.ast_type('%r', '%s', %s)" % 
+                  (cons.name, base, [repr(f.name) for f in cons.fields]))
         self.emit("")
 
     def visitField(self, field):
@@ -448,18 +449,21 @@ class W_AST(W_Root):
             space.setattr(self, w_name,
                           space.getitem(w_state, w_name))
 
-def get_W_AST_new(node_class):
-    def generic_W_AST_new(space, w_type, __args__):
-        node = space.allocate_instance(node_class, w_type)
-        return space.wrap(node)
-    return func_with_new_name(generic_W_AST_new, "new_%s" % node_class.__name__)
-
+def W_AST_new(space, w_type, __args__):
+    node = space.allocate_instance(W_AST, w_type)
+    return space.wrap(node)
 
 def W_AST_init(space, w_self, __args__):
     args_w, kwargs_w = __args__.unpack()
-    if args_w and len(args_w) != 0:
-        w_err = space.wrap("_ast.AST constructor takes 0 positional arguments")
-        raise OperationError(space.w_TypeError, w_err)
+    fields_w = space.unpackiterable(space.getattr(space.type(w_self),
+                                    space.wrap("_fields")))
+    num_fields = len(fields_w) if fields_w else 0
+    if args_w and len(args_w) != num_fields:
+        raise operationerrfmt(space.w_TypeError,
+                "_ast.%T constructor takes %s positional arguments", w_self, num_fields)
+    if args_w:
+        for i, w_field in enumerate(fields_w):
+            space.setattr(w_self, w_field, args_w[i])
     for field, w_value in kwargs_w.iteritems():
         space.setattr(w_self, space.wrap(field), w_value)
 
@@ -472,7 +476,7 @@ W_AST.typedef = typedef.TypeDef("AST",
     __setstate__=interp2app(W_AST.setstate_w),
     __dict__ = typedef.GetSetProperty(typedef.descr_get_dict,
                                       typedef.descr_set_dict, cls=W_AST),
-    __new__=interp2app(get_W_AST_new(W_AST)),
+    __new__=interp2app(W_AST_new),
     __init__=interp2app(W_AST_init),
 )
 
@@ -480,19 +484,23 @@ class State:
     AST_TYPES = []
 
     @classmethod
-    def ast_type(cls, name, base):
-        cls.AST_TYPES.append((name, base))
+    def ast_type(cls, name, base, fields):
+        cls.AST_TYPES.append((name, base, fields))
 
     def __init__(self, space):
         self.w_AST = space.gettypeobject(W_AST.typedef)
-        for (name, base) in self.AST_TYPES:
-            self.make_new_type(space, name, base)
+        for (name, base, fields) in self.AST_TYPES:
+            self.make_new_type(space, name, base, fields)
         
-    def make_new_type(self, space, name, base):
+    def make_new_type(self, space, name, base, fields):
         w_base = getattr(self, 'w_%s' % base)
+        w_dict = space.newdict()
+        if fields is not None:
+            space.setitem_str(w_dict, "_fields",
+                              space.newtuple([space.wrap(f) for f in fields]))
         w_type = space.call_function(
             space.w_type, 
-            space.wrap(name), space.newtuple([w_base]), space.newdict())
+            space.wrap(name), space.newtuple([w_base]), w_dict)
         setattr(self, 'w_%s' % name, w_type)
 
 def get(space):
