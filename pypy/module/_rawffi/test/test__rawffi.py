@@ -1,6 +1,6 @@
 from rpython.translator.platform import platform
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.module._rawffi.interp_rawffi import TYPEMAP
+from pypy.module._rawffi.interp_rawffi import TYPEMAP, TYPEMAP_FLOAT_LETTERS
 from pypy.module._rawffi.tracker import Tracker
 
 import os, sys, py
@@ -211,7 +211,7 @@ class AppTestFfi:
         cls.w_platform = space.wrap(platform.name)
         cls.w_sizes_and_alignments = space.wrap(dict(
             [(k, (v.c_size, v.c_alignment)) for k,v in TYPEMAP.iteritems()]))
-        cls.w_typemap = space.wrap(TYPEMAP.keys())
+        cls.w_float_typemap = space.wrap(TYPEMAP_FLOAT_LETTERS)
 
     def test_libload(self):
         import _rawffi
@@ -749,14 +749,13 @@ class AppTestFfi:
     def test_sizes_and_alignments(self):
         import _rawffi
         for k, (s, a) in self.sizes_and_alignments.iteritems():
+            print k,s,a
             assert _rawffi.sizeof(k) == s
             assert _rawffi.alignment(k) == a
 
     def test_unaligned(self):
         import _rawffi
-        for k in self.typemap:
-            if k not in 'fdg':
-                continue
+        for k in self.float_typemap:
             S = _rawffi.Structure([('pad', 'c'), ('value', k)], pack=1)
             s = S()
             s.value = 4
