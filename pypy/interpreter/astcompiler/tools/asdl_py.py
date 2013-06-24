@@ -437,6 +437,7 @@ class W_AST(W_Root):
         if w_dict is None:
             w_dict = space.newdict()
         w_type = space.type(self)
+        w_fields = space.getattr(w_type, space.wrap("_fields"))
         w_fields = w_type.getdictvalue(space, "_fields")
         for w_name in space.fixedview(w_fields):
             space.setitem(w_dict, w_name,
@@ -461,8 +462,8 @@ def W_AST_new(space, w_type, __args__):
 
 def W_AST_init(space, w_self, __args__):
     args_w, kwargs_w = __args__.unpack()
-    fields_w = space.unpackiterable(space.getattr(space.type(w_self),
-                                    space.wrap("_fields")))
+    fields_w = space.fixedview(space.getattr(space.type(w_self),
+                               space.wrap("_fields")))
     num_fields = len(fields_w) if fields_w else 0
     if args_w and len(args_w) != num_fields:
         raise operationerrfmt(space.w_TypeError,
@@ -501,6 +502,7 @@ class State:
     def make_new_type(self, space, name, base, fields, attributes):
         w_base = getattr(self, 'w_%s' % base)
         w_dict = space.newdict()
+        space.setitem_str(w_dict, '__module__', space.wrap('_ast'))
         if fields is not None:
             space.setitem_str(w_dict, "_fields",
                               space.newtuple([space.wrap(f) for f in fields]))
