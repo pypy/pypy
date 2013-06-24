@@ -92,6 +92,8 @@ class ASTNodeVisitor(ASDLVisitor):
                 self.emit("")
             self.emit("@staticmethod", 1)
             self.emit("def from_object(space, w_node):", 1)
+            self.emit("if space.is_w(w_node, space.w_None):", 2)
+            self.emit("    return None", 2)
             for typ in sum.types:
                 self.emit("if space.isinstance_w(w_node, get(space).w_%s):"
                           % (typ.name,), 2)
@@ -126,8 +128,11 @@ class ASTNodeVisitor(ASDLVisitor):
         elif field.type.value in ("identifier", "int"):
             return "space.wrap(%s)" % (value,)
         else:
-            return "%s.to_object(space)" % (value,)
-
+            wrapper = "%s.to_object(space)" % (value,)
+            if field.opt:
+                wrapper += " if %s else space.w_None" % (value,)
+            return wrapper
+        
     def get_value_extractor(self, field, value):
         if field.type.value in self.data.simple_types:
             return "%s.from_object(space, %s)" % (field.type, value)
