@@ -108,6 +108,8 @@ class ASTNodeVisitor(ASDLVisitor):
             return "%s_to_class[%s - 1]().to_object(space)" % (field.type, value)
         elif field.type.value in ("object", "string"):
             return value
+        elif field.type.value in ("identifier", "int"):
+            return "space.wrap(%s)" % (value,)
         else:
             return "%s.to_object(space)" % (value,)
 
@@ -124,7 +126,7 @@ class ASTNodeVisitor(ASDLVisitor):
             return lines
         else:
             wrapper = self.get_value_converter(field, "self.%s" % field.name)
-            return ["w_%s = %s" % (field.name, wrapper)]
+            return ["w_%s = %s  # %s" % (field.name, wrapper, field.type)]
 
     def make_converters(self, fields, name):
         self.emit("def to_object(self, space):", 1)
