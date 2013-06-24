@@ -131,7 +131,7 @@ class ASTNodeVisitor(ASDLVisitor):
         else:
             wrapper = "%s.to_object(space)" % (value,)
             if field.opt:
-                wrapper += " if %s else space.w_None" % (value,)
+                wrapper += " if %s is not None else space.w_None" % (value,)
             return wrapper
         
     def get_value_extractor(self, field, value):
@@ -142,6 +142,8 @@ class ASTNodeVisitor(ASDLVisitor):
         elif field.type.value in ("string",):
             return "check_string(space, %s)" % (value,)
         elif field.type.value in ("identifier",):
+            if field.opt:
+                return "space.str_or_None_w(%s)" % (value,)
             return "space.str_w(%s)" % (value,)
         elif field.type.value in ("int",):
             return "space.int_w(%s)" % (value,)
@@ -438,7 +440,6 @@ class W_AST(W_Root):
             w_dict = space.newdict()
         w_type = space.type(self)
         w_fields = space.getattr(w_type, space.wrap("_fields"))
-        w_fields = w_type.getdictvalue(space, "_fields")
         for w_name in space.fixedview(w_fields):
             space.setitem(w_dict, w_name,
                           space.getattr(self, w_name))
@@ -466,8 +467,12 @@ def W_AST_init(space, w_self, __args__):
                                space.wrap("_fields")))
     num_fields = len(fields_w) if fields_w else 0
     if args_w and len(args_w) != num_fields:
-        raise operationerrfmt(space.w_TypeError,
-                "_ast.%T constructor takes %s positional arguments", w_self, num_fields)
+        if num_fields:
+            raise operationerrfmt(space.w_TypeError,
+                "_ast.%T constructor takes either 0 or %s positional arguments", w_self, num_fields)
+        else:
+            raise operationerrfmt(space.w_TypeError,
+                "_ast.%T constructor takes 0 positional arguments", w_self)
     if args_w:
         for i, w_field in enumerate(fields_w):
             space.setattr(w_self, w_field, args_w[i])

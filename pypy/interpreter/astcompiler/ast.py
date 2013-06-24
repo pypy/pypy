@@ -87,8 +87,12 @@ def W_AST_init(space, w_self, __args__):
                                space.wrap("_fields")))
     num_fields = len(fields_w) if fields_w else 0
     if args_w and len(args_w) != num_fields:
-        raise operationerrfmt(space.w_TypeError,
-                "_ast.%T constructor takes %s positional arguments", w_self, num_fields)
+        if num_fields:
+            raise operationerrfmt(space.w_TypeError,
+                "_ast.%T constructor takes either 0 or %s positional arguments", w_self, num_fields)
+        else:
+            raise operationerrfmt(space.w_TypeError,
+                "_ast.%T constructor takes 0 positional arguments", w_self)
     if args_w:
         for i, w_field in enumerate(fields_w):
             space.setattr(w_self, w_field, args_w[i])
@@ -485,7 +489,7 @@ class Return(stmt):
 
     def to_object(self, space):
         w_node = space.call_function(get(space).w_Return)
-        w_value = self.value.to_object(space) if self.value else space.w_None  # expr
+        w_value = self.value.to_object(space) if self.value is not None else space.w_None  # expr
         space.setattr(w_node, space.wrap('value'), w_value)
         w_lineno = space.wrap(self.lineno)  # int
         space.setattr(w_node, space.wrap('lineno'), w_lineno)
@@ -650,7 +654,7 @@ class Print(stmt):
 
     def to_object(self, space):
         w_node = space.call_function(get(space).w_Print)
-        w_dest = self.dest.to_object(space) if self.dest else space.w_None  # expr
+        w_dest = self.dest.to_object(space) if self.dest is not None else space.w_None  # expr
         space.setattr(w_node, space.wrap('dest'), w_dest)
         if self.values is None:
             values_w = []
@@ -879,7 +883,7 @@ class With(stmt):
         w_node = space.call_function(get(space).w_With)
         w_context_expr = self.context_expr.to_object(space)  # expr
         space.setattr(w_node, space.wrap('context_expr'), w_context_expr)
-        w_optional_vars = self.optional_vars.to_object(space) if self.optional_vars else space.w_None  # expr
+        w_optional_vars = self.optional_vars.to_object(space) if self.optional_vars is not None else space.w_None  # expr
         space.setattr(w_node, space.wrap('optional_vars'), w_optional_vars)
         if self.body is None:
             body_w = []
@@ -929,11 +933,11 @@ class Raise(stmt):
 
     def to_object(self, space):
         w_node = space.call_function(get(space).w_Raise)
-        w_type = self.type.to_object(space) if self.type else space.w_None  # expr
+        w_type = self.type.to_object(space) if self.type is not None else space.w_None  # expr
         space.setattr(w_node, space.wrap('type'), w_type)
-        w_inst = self.inst.to_object(space) if self.inst else space.w_None  # expr
+        w_inst = self.inst.to_object(space) if self.inst is not None else space.w_None  # expr
         space.setattr(w_node, space.wrap('inst'), w_inst)
-        w_tback = self.tback.to_object(space) if self.tback else space.w_None  # expr
+        w_tback = self.tback.to_object(space) if self.tback is not None else space.w_None  # expr
         space.setattr(w_node, space.wrap('tback'), w_tback)
         w_lineno = space.wrap(self.lineno)  # int
         space.setattr(w_node, space.wrap('lineno'), w_lineno)
@@ -1089,7 +1093,7 @@ class Assert(stmt):
         w_node = space.call_function(get(space).w_Assert)
         w_test = self.test.to_object(space)  # expr
         space.setattr(w_node, space.wrap('test'), w_test)
-        w_msg = self.msg.to_object(space) if self.msg else space.w_None  # expr
+        w_msg = self.msg.to_object(space) if self.msg is not None else space.w_None  # expr
         space.setattr(w_node, space.wrap('msg'), w_msg)
         w_lineno = space.wrap(self.lineno)  # int
         space.setattr(w_node, space.wrap('lineno'), w_lineno)
@@ -1184,7 +1188,7 @@ class ImportFrom(stmt):
 
     @staticmethod
     def from_object(space, w_node):
-        module = space.str_w(get_field(space, w_node, 'module', True))
+        module = space.str_or_None_w(get_field(space, w_node, 'module', True))
         names_w = space.unpackiterable(
                 get_field(space, w_node, 'names', False))
         names = [alias.from_object(space, w_item) for w_item in names_w]
@@ -1219,9 +1223,9 @@ class Exec(stmt):
         w_node = space.call_function(get(space).w_Exec)
         w_body = self.body.to_object(space)  # expr
         space.setattr(w_node, space.wrap('body'), w_body)
-        w_globals = self.globals.to_object(space) if self.globals else space.w_None  # expr
+        w_globals = self.globals.to_object(space) if self.globals is not None else space.w_None  # expr
         space.setattr(w_node, space.wrap('globals'), w_globals)
-        w_locals = self.locals.to_object(space) if self.locals else space.w_None  # expr
+        w_locals = self.locals.to_object(space) if self.locals is not None else space.w_None  # expr
         space.setattr(w_node, space.wrap('locals'), w_locals)
         w_lineno = space.wrap(self.lineno)  # int
         space.setattr(w_node, space.wrap('lineno'), w_lineno)
@@ -1953,7 +1957,7 @@ class Yield(expr):
 
     def to_object(self, space):
         w_node = space.call_function(get(space).w_Yield)
-        w_value = self.value.to_object(space) if self.value else space.w_None  # expr
+        w_value = self.value.to_object(space) if self.value is not None else space.w_None  # expr
         space.setattr(w_node, space.wrap('value'), w_value)
         w_lineno = space.wrap(self.lineno)  # int
         space.setattr(w_node, space.wrap('lineno'), w_lineno)
@@ -2067,9 +2071,9 @@ class Call(expr):
             keywords_w = [node.to_object(space) for node in self.keywords] # keyword
         w_keywords = space.newlist(keywords_w)
         space.setattr(w_node, space.wrap('keywords'), w_keywords)
-        w_starargs = self.starargs.to_object(space) if self.starargs else space.w_None  # expr
+        w_starargs = self.starargs.to_object(space) if self.starargs is not None else space.w_None  # expr
         space.setattr(w_node, space.wrap('starargs'), w_starargs)
-        w_kwargs = self.kwargs.to_object(space) if self.kwargs else space.w_None  # expr
+        w_kwargs = self.kwargs.to_object(space) if self.kwargs is not None else space.w_None  # expr
         space.setattr(w_node, space.wrap('kwargs'), w_kwargs)
         w_lineno = space.wrap(self.lineno)  # int
         space.setattr(w_node, space.wrap('lineno'), w_lineno)
@@ -2554,11 +2558,11 @@ class Slice(slice):
 
     def to_object(self, space):
         w_node = space.call_function(get(space).w_Slice)
-        w_lower = self.lower.to_object(space) if self.lower else space.w_None  # expr
+        w_lower = self.lower.to_object(space) if self.lower is not None else space.w_None  # expr
         space.setattr(w_node, space.wrap('lower'), w_lower)
-        w_upper = self.upper.to_object(space) if self.upper else space.w_None  # expr
+        w_upper = self.upper.to_object(space) if self.upper is not None else space.w_None  # expr
         space.setattr(w_node, space.wrap('upper'), w_upper)
-        w_step = self.step.to_object(space) if self.step else space.w_None  # expr
+        w_step = self.step.to_object(space) if self.step is not None else space.w_None  # expr
         space.setattr(w_node, space.wrap('step'), w_step)
         return w_node
 
@@ -3007,9 +3011,9 @@ class ExceptHandler(excepthandler):
 
     def to_object(self, space):
         w_node = space.call_function(get(space).w_ExceptHandler)
-        w_type = self.type.to_object(space) if self.type else space.w_None  # expr
+        w_type = self.type.to_object(space) if self.type is not None else space.w_None  # expr
         space.setattr(w_node, space.wrap('type'), w_type)
-        w_name = self.name.to_object(space) if self.name else space.w_None  # expr
+        w_name = self.name.to_object(space) if self.name is not None else space.w_None  # expr
         space.setattr(w_node, space.wrap('name'), w_name)
         if self.body is None:
             body_w = []
@@ -3080,8 +3084,8 @@ class arguments(AST):
         args_w = space.unpackiterable(
                 get_field(space, w_node, 'args', False))
         args = [expr.from_object(space, w_item) for w_item in args_w]
-        vararg = space.str_w(get_field(space, w_node, 'vararg', True))
-        kwarg = space.str_w(get_field(space, w_node, 'kwarg', True))
+        vararg = space.str_or_None_w(get_field(space, w_node, 'vararg', True))
+        kwarg = space.str_or_None_w(get_field(space, w_node, 'kwarg', True))
         defaults_w = space.unpackiterable(
                 get_field(space, w_node, 'defaults', False))
         defaults = [expr.from_object(space, w_item) for w_item in defaults_w]
@@ -3141,7 +3145,7 @@ class alias(AST):
     @staticmethod
     def from_object(space, w_node):
         name = space.str_w(get_field(space, w_node, 'name', False))
-        asname = space.str_w(get_field(space, w_node, 'asname', True))
+        asname = space.str_or_None_w(get_field(space, w_node, 'asname', True))
         return alias(name, asname)
 
 State.ast_type('alias', 'AST', None)
