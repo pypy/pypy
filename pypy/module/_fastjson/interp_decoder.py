@@ -322,8 +322,11 @@ class JSONDecoder(object):
         return i
 
 
-@unwrap_spec(s=str)
-def loads(space, s):
+def loads(space, w_s):
+    if space.isinstance_w(w_s, space.w_unicode):
+        raise OperationError(space.w_TypeError,
+                             space.wrap("Expected utf8-encoded str, got unicode"))
+    s = space.str_w(w_s)
     decoder = JSONDecoder(space, s)
     w_res = decoder.decode_any(0)
     i = decoder.skip_whitespace(decoder.pos)

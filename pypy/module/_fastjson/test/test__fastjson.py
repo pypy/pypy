@@ -15,6 +15,11 @@ def test_skip_whitespace():
 class AppTest(object):
     spaceconfig = {"objspace.usemodules._fastjson": True}
 
+    def test_raise_on_unicode(self):
+        import _fastjson
+        raises(TypeError, _fastjson.loads, u"42")
+
+
     def test_decode_constants(self):
         import _fastjson
         assert _fastjson.loads('null') is None
@@ -143,3 +148,4 @@ class AppTest(object):
         assert _fastjson.loads('[1, 2]') == [1, 2]
         raises(ValueError, "_fastjson.loads('[1: 2]')")
         raises(ValueError, "_fastjson.loads('[1, 2')")
+
