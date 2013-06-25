@@ -434,11 +434,11 @@ class rbigint(object):
 
     @jit.elidable
     def repr(self):
-        return _format_decimal(self, addL=True)
+        return _format_decimal_new(self, addL=True)
 
     @jit.elidable
     def str(self):
-        return _format_decimal(self)
+        return _format_decimal_new(self)
 
     @jit.elidable
     def eq(self, other):
@@ -2187,6 +2187,43 @@ def _format_decimal(a, addL=False):
     if addL:
         builder.append('L')
     return builder.build()
+
+
+_FORMAT_DECIMAL_MINDIGITS = 9 # fits in 32 bits, there may be a better choice for this
+
+def _format_decimal_recursive(x, i, output, pts):
+    if i < 0: # bottomed out with min_digit sized pieces
+        if output or x.gt(NULLRBIGINT):
+            s = str(x.toint())
+            output.append("0"*(_FORMAT_DECIMAL_MINDIGITS - len(s)) + s) # note that this appends in inorder
+    else:
+        top,bot = x.divmod(pts[i]) # split the number
+        _format_decimal_recursive(top,i-1, output, pts)
+        _format_decimal_recursive(bot,i-1, output, pts)
+
+def _format_decimal_new(x, addL=False):
+    if x.sign == 0:
+        if addL:
+            return "0L"
+        return "0"
+    negative = x.sign < 0
+    if negative:
+        x = x.neg()
+    ten = rbigint.fromint(10)
+    two = rbigint.fromint(2)
+
+    pts = [ten.pow(rbigint.fromint(_FORMAT_DECIMAL_MINDIGITS))]
+    while pts[-1].lt(x):
+        pts.append(pts[-1].pow(two))
+    pts.pop() # remove first 10**2**i greater than x
+    output = []
+
+    _format_decimal_recursive(x,len(pts)-1, output, pts)
+    # strip leading zeros, we can probably do this more elegantly
+    output = "".join(output)
+    while len(output) > 1 and output[0] == "0":
+        output = output[1:]
+    return "-" * negative + output + "L" * addL
 
 
 def _bitwise(a, op, b): # '&', '|', '^'
