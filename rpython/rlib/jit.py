@@ -66,6 +66,9 @@ def hint(x, **kwds):
                             Useful in say Frame.__init__ when we do want
                             to store things directly on it. Has to come with
                             access_directly=True
+    * force_virtualizable - a performance hint to force the virtualizable early
+                            (useful e.g. for python generators that are going
+                            to be read later anyway)
     """
     return x
 
