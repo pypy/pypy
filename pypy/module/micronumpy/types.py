@@ -1378,6 +1378,15 @@ class ComplexFloating(object):
         except ZeroDivisionError:
             return rfloat.NAN, rfloat.NAN
 
+    @specialize.argtype(1)
+    def round(self, v, decimals=0):
+        ans = list(self.unbox(v))
+        if isfinite(ans[0]):
+            ans[0] = rfloat.round_double(ans[0], decimals,  half_even=True)
+        if isfinite(ans[1]):
+            ans[1] = rfloat.round_double(ans[1], decimals,  half_even=True)
+        return self.box_complex(*ans)
+
     # No floor, ceil, trunc in numpy for complex
     #@simple_unary_op
     #def floor(self, v):

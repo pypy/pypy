@@ -347,6 +347,8 @@ class AppTestUfuncs(BaseNumpyAppTest):
         bround = b.round()
         assert (bround == [1., 0.]).all()
         assert bround.dtype is dtype('float16')
+        c = array([10.5+11.5j, -15.2-100.3456j, 0.2343+11.123456j])
+        assert (c.round(0) == [10.+12.j, -15-100j, 0+11j]).all()
 
 
     def test_copysign(self):
