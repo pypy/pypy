@@ -708,30 +708,27 @@ class MIFrame(object):
     def _nonstandard_virtualizable(self, pc, box, fielddescr):
         # returns True if 'box' is actually not the "standard" virtualizable
         # that is stored in metainterp.virtualizable_boxes[-1]
-        if (self.metainterp.jitdriver_sd.virtualizable_info is None and
-            self.metainterp.jitdriver_sd.greenfield_info is None):
-            return True      # can occur in case of multiple JITs
-        standard_box = self.metainterp.virtualizable_boxes[-1]
-        if standard_box is box:
-            return False
         if self.metainterp.heapcache.is_nonstandard_virtualizable(box):
             return True
-        vinfo = self.metainterp.jitdriver_sd.virtualizable_info
-        if vinfo is not fielddescr.get_vinfo():
-            self.metainterp.heapcache.nonstandard_virtualizables_now_known(box)
-            return True
-        eqbox = self.metainterp.execute_and_record(rop.PTR_EQ, None,
-                                                   box, standard_box)
-        eqbox = self.implement_guard_value(eqbox, pc)
-        isstandard = eqbox.getint()
-        if isstandard:
-            self.metainterp.replace_box(box, standard_box)
-        else:
-            if not self.metainterp.heapcache.is_unescaped(box):
-                self.metainterp.execute_and_record(rop.FORCE_VIRTUALIZABLE,
-                                                   fielddescr, box)
-            self.metainterp.heapcache.nonstandard_virtualizables_now_known(box)
-        return not isstandard
+        if (self.metainterp.jitdriver_sd.virtualizable_info is not None or
+            self.metainterp.jitdriver_sd.greenfield_info is not None):
+            standard_box = self.metainterp.virtualizable_boxes[-1]
+            if standard_box is box:
+                return False
+            vinfo = self.metainterp.jitdriver_sd.virtualizable_info
+            if vinfo is fielddescr.get_vinfo():
+                eqbox = self.metainterp.execute_and_record(rop.PTR_EQ, None,
+                                                           box, standard_box)
+                eqbox = self.implement_guard_value(eqbox, pc)
+                isstandard = eqbox.getint()
+                if isstandard:
+                    self.metainterp.replace_box(box, standard_box)
+                    return False
+        if not self.metainterp.heapcache.is_unescaped(box):
+            self.metainterp.execute_and_record(rop.FORCE_VIRTUALIZABLE,
+                                               fielddescr, box)
+        self.metainterp.heapcache.nonstandard_virtualizables_now_known(box)
+        return True
 
     def _get_virtualizable_field_index(self, fielddescr):
         # Get the index of a fielddescr.  Must only be called for
