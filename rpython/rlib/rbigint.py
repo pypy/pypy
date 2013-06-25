@@ -2191,15 +2191,26 @@ def _format_decimal(a, addL=False):
 
 _FORMAT_DECIMAL_MINDIGITS = 9 # fits in 32 bits, there may be a better choice for this
 
-def _format_decimal_recursive(x, i, output, pts):
-    if i < 0: # bottomed out with min_digit sized pieces
-        if output or x.gt(NULLRBIGINT):
+def _format_decimal_recursive(x, i, output, pts, negative):
+    # bottomed out with min_digit sized pieces
+    # use str of ints
+    if i < 0:
+        # this checks whether any digit has been appended yet
+        # the extra char for negative rbigints is the '-'
+        if output.getlength() == negative:
+            if x.sign == 0:
+                pass
+            else:
+                s = str(x.toint())
+                output.append(s)
+        else:
             s = str(x.toint())
-            output.append("0"*(_FORMAT_DECIMAL_MINDIGITS - len(s)) + s) # note that this appends in inorder
+            output.append_multiple_char("0", _FORMAT_DECIMAL_MINDIGITS - len(s))
+            output.append(s)
     else:
         top,bot = x.divmod(pts[i]) # split the number
-        _format_decimal_recursive(top,i-1, output, pts)
-        _format_decimal_recursive(bot,i-1, output, pts)
+        _format_decimal_recursive(top, i-1, output, pts, negative)
+        _format_decimal_recursive(bot, i-1, output, pts, negative)
 
 def _format_decimal_new(x, addL=False):
     if x.sign == 0:
@@ -2213,17 +2224,20 @@ def _format_decimal_new(x, addL=False):
     two = rbigint.fromint(2)
 
     pts = [ten.pow(rbigint.fromint(_FORMAT_DECIMAL_MINDIGITS))]
+    stringsize = _FORMAT_DECIMAL_MINDIGITS
     while pts[-1].lt(x):
         pts.append(pts[-1].pow(two))
+        stringsize *= 2
     pts.pop() # remove first 10**2**i greater than x
-    output = []
 
-    _format_decimal_recursive(x,len(pts)-1, output, pts)
-    # strip leading zeros, we can probably do this more elegantly
-    output = "".join(output)
-    while len(output) > 1 and output[0] == "0":
-        output = output[1:]
-    return "-" * negative + output + "L" * addL
+    output = StringBuilder(stringsize)
+    if negative:
+        output.append('-')
+    _format_decimal_recursive(x,len(pts)-1, output, pts, negative)
+
+    if addL:
+        output.append('L')
+    return output.build()
 
 
 def _bitwise(a, op, b): # '&', '|', '^'
