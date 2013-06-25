@@ -1329,6 +1329,7 @@ class RegAlloc(BaseRegalloc):
         fail_locs = [self.loc(v) for v in op.getfailargs()]
         self.assembler.store_force_descr(op, fail_locs,
                                          self.fm.get_frame_depth())
+        self.possibly_free_vars(guard_op.getfailargs())
 
     def consider_keepalive(self, op):
         pass
