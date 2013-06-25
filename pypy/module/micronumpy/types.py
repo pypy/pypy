@@ -523,9 +523,12 @@ class Integer(Primitive):
 
     @specialize.argtype(1)
     def round(self, v, decimals=0):
-        raw = self.unbox(v)
+        raw = self.for_computation(self.unbox(v))
         if decimals < 0:
-            factor = int(10 ** -decimals)
+            # No ** in rpython
+            factor = 1
+            for i in xrange(-decimals):
+                factor *=10
             #int does floor division, we want toward zero
             if raw < 0:
                 ans = - (-raw / factor * factor)
@@ -814,7 +817,7 @@ class Float(Primitive):
 
     @specialize.argtype(1)
     def round(self, v, decimals=0):
-        raw = self.unbox(v)
+        raw = self.for_computation(self.unbox(v))
         if rfloat.isinf(raw):
             return v
         elif rfloat.isnan(raw):
@@ -1380,12 +1383,12 @@ class ComplexFloating(object):
 
     @specialize.argtype(1)
     def round(self, v, decimals=0):
-        ans = list(self.unbox(v))
+        ans = list(self.for_computation(self.unbox(v)))
         if isfinite(ans[0]):
             ans[0] = rfloat.round_double(ans[0], decimals,  half_even=True)
         if isfinite(ans[1]):
             ans[1] = rfloat.round_double(ans[1], decimals,  half_even=True)
-        return self.box_complex(*ans)
+        return self.box_complex(ans[0], ans[1])
 
     # No floor, ceil, trunc in numpy for complex
     #@simple_unary_op
