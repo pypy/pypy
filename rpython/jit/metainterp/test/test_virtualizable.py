@@ -1510,6 +1510,40 @@ class ImplicitVirtualizableTests(object):
         res = self.meta_interp(main, [])
         assert res == main()
 
+    def test_two_virtualizables_mixed(self):
+        driver1 = JitDriver(greens=[], reds=['i', 's', 'frame',
+                                             'subframe'])
+        driver2 = JitDriver(greens=[], reds=['subframe'],
+                            virtualizables=['subframe'])
+
+        class Frame(object):
+            _virtualizable2_ = ['x']
+
+        class SubFrame(object):
+            _virtualizable2_ = ['x']
+
+        def g(subframe):
+            driver2.jit_merge_point(subframe=subframe)
+            subframe.x += 1
+
+        def f():
+            i = 0
+            frame = Frame()
+            frame.x = 0
+            subframe = SubFrame()
+            subframe.x = 0
+            s = 0
+            while i < 10:
+                driver1.jit_merge_point(frame=frame, subframe=subframe, i=i,
+                                        s=s)
+                g(subframe)
+                s += subframe.x
+                i += 1
+            return s
+
+        res = self.meta_interp(f, [])
+        assert res == f()
+
 class TestLLtype(ExplicitVirtualizableTests,
                  ImplicitVirtualizableTests,
                  LLJitMixin):
