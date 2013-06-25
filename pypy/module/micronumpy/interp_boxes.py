@@ -235,6 +235,11 @@ class W_GenericBox(W_Root):
         w_values = space.newtuple([self])
         return convert_to_array(space, w_values)
 
+    @unwrap_spec(decimals=int)
+    def descr_round(self, space, decimals=0):
+        v = self.convert_to(self.get_dtype(space))
+        return self.get_dtype(space).itemtype.round(v, decimals)
+
 class W_BoolBox(W_GenericBox, PrimitiveBox):
     descr__new__, _get_dtype, descr_reduce = new_dtype_getter("bool")
 
@@ -501,6 +506,7 @@ W_GenericBox.typedef = TypeDef("generic",
     any = interp2app(W_GenericBox.descr_any),
     all = interp2app(W_GenericBox.descr_all),
     ravel = interp2app(W_GenericBox.descr_ravel),
+    round = interp2app(W_GenericBox.descr_round),
 )
 
 W_BoolBox.typedef = TypeDef("bool_", W_GenericBox.typedef,
