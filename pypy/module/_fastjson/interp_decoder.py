@@ -152,6 +152,8 @@ class JSONDecoder(object):
         if self.ll_chars[i] == '-':
             sign = -1
             i += 1
+        elif self.ll_chars[i] == '+':
+            i += 1
         i, intval, _ = self.parse_digits(i)
         return i, sign * intval
 
@@ -314,8 +316,8 @@ class JSONDecoder(object):
             val = int(hexdigits, 16)
             if val & 0xfc00 == 0xd800:
                 # surrogate pair
-                val = self.decode_surrogate_pair(i, val)
                 i += 6
+                val = self.decode_surrogate_pair(i, val)
         except ValueError:
             self._raise("Invalid \uXXXX escape (char %d)", i-1)
             return # help the annotator to know that we'll never go beyond
