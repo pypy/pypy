@@ -434,11 +434,11 @@ class rbigint(object):
 
     @jit.elidable
     def repr(self):
-        return _format_decimal(self, addL=True)
+        return self.format(BASE10, suffix="L")
 
     @jit.elidable
     def str(self):
-        return _format_decimal(self)
+        return self.format(BASE10)
 
     @jit.elidable
     def eq(self, other):
@@ -2093,57 +2093,64 @@ def _format(a, digits, prefix='', suffix=''):
                      # hint for the annotator for the slice below)
     return ''.join(s[p:])
 
+_FORMAT_MINDIGITS = 5 # 36 ** 5 fits in 32 bits, there may be a better choice for this
 
-_FORMAT_DECIMAL_MINDIGITS = 9 # fits in 32 bits, there may be a better choice for this
+def _format_int(val, digits):
+    base = len(digits)
+    j = 0
+    out = []
+    while val:
+        out.append(digits[val % base])
+        val //= base
+    out.reverse()
+    return "".join(out)
 
-def _format_decimal_recursive(x, i, output, pts, negative):
+
+def _format_recursive(x, i, output, pts, digits, size_prefix):
     # bottomed out with min_digit sized pieces
     # use str of ints
     if i < 0:
         # this checks whether any digit has been appended yet
-        # the extra char for negative rbigints is the '-'
-        if output.getlength() == negative:
+        if output.getlength() == size_prefix:
             if x.sign == 0:
                 pass
             else:
-                s = str(x.toint())
+                s = _format_int(x.toint(), digits)
                 output.append(s)
         else:
-            s = str(x.toint())
-            output.append_multiple_char("0", _FORMAT_DECIMAL_MINDIGITS - len(s))
+            s = _format_int(x.toint(), digits)
+            output.append_multiple_char(digits[0], _FORMAT_MINDIGITS - len(s))
             output.append(s)
     else:
         top, bot = x.divmod(pts[i]) # split the number
-        _format_decimal_recursive(top, i-1, output, pts, negative)
-        _format_decimal_recursive(bot, i-1, output, pts, negative)
+        _format_recursive(top, i-1, output, pts, digits, size_prefix)
+        _format_recursive(bot, i-1, output, pts, digits, size_prefix)
 
-def _format_decimal(x, addL=False):
+def _format(x, digits, prefix='', suffix=''):
     if x.sign == 0:
-        if addL:
-            return "0L"
-        return "0"
+        return prefix + "0" + suffix
+    base = len(digits)
     negative = x.sign < 0
     if negative:
         x = x.neg()
-    ten = rbigint.fromint(10)
+    rbase = rbigint.fromint(base)
     two = rbigint.fromint(2)
 
-    pts = [ten.pow(rbigint.fromint(_FORMAT_DECIMAL_MINDIGITS))]
-    stringsize = _FORMAT_DECIMAL_MINDIGITS
+    pts = [rbase.pow(rbigint.fromint(_FORMAT_MINDIGITS))]
+    stringsize = _FORMAT_MINDIGITS
     while pts[-1].lt(x):
         pts.append(pts[-1].pow(two))
         stringsize *= 2
-    pts.pop() # remove first 10**2**i greater than x
+    pts.pop() # remove first base**2**i greater than x
 
     output = StringBuilder(stringsize)
     if negative:
         output.append('-')
-    _format_decimal_recursive(x,len(pts)-1, output, pts, negative)
+    output.append(prefix)
+    _format_recursive(x,len(pts)-1, output, pts, digits, output.getlength())
 
-    if addL:
-        output.append('L')
+    output.append(suffix)
     return output.build()
-
 
 def _bitwise(a, op, b): # '&', '|', '^'
     """ Bitwise and/or/xor operations """
