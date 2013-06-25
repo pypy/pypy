@@ -12,7 +12,6 @@ from pypy.module.micronumpy.base import W_NDimArray
 from pypy.module.micronumpy.iter import PureShapeIterator
 from pypy.module.micronumpy import constants
 from pypy.module.micronumpy.support import int_w
-from rpython.rlib.rfloat import round_double
 
 call2_driver = jit.JitDriver(name='numpy_call2',
                              greens = ['shapelen', 'func', 'calc_dtype',
@@ -576,16 +575,14 @@ def clip(space, arr, shape, min, max, out):
 round_driver = jit.JitDriver(greens = ['shapelen', 'dtype'],
                                     reds = 'auto')
 
-def round(space, arr, shape, decimals, out):
+def round(space, arr, dtype, shape, decimals, out):
     arr_iter = arr.create_iter(shape)
-    dtype = out.get_dtype()
     shapelen = len(shape)
     out_iter = out.create_iter(shape)
     while not arr_iter.done():
         round_driver.jit_merge_point(shapelen=shapelen, dtype=dtype)
-        #w_v = dtype.itemtype.round(arr_iter.getitem().convert_to(dtype),
-        #             decimals)
-        w_v = arr_iter.getitem().convert_to(dtype)
+        w_v = dtype.itemtype.round(arr_iter.getitem().convert_to(dtype),
+                     decimals)
         out_iter.setitem(w_v)
         arr_iter.next()
         out_iter.next()

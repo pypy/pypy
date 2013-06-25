@@ -37,7 +37,7 @@ def simple_unary_op(func):
         return self.box(
             func(
                 self,
-                self.for_computation(raw)
+                self.for_computation(raw),
             )
         )
     return dispatcher
@@ -521,6 +521,20 @@ class Integer(Primitive):
             return v
         return 0
 
+    @specialize.argtype(1)
+    def round(self, v, decimals=0):
+        raw = self.unbox(v)
+        if decimals < 0:
+            factor = int(10 ** -decimals)
+            #int does floor division, we want toward zero
+            if raw < 0:
+                ans = - (-raw / factor * factor)
+            else:
+                ans = raw / factor * factor
+        else:
+            ans = raw
+        return self.box(ans)
+
     @raw_unary_op
     def signbit(self, v):
         return v < 0
@@ -797,6 +811,16 @@ class Float(Primitive):
     @simple_unary_op
     def ceil(self, v):
         return math.ceil(v)
+
+    @specialize.argtype(1)
+    def round(self, v, decimals=0):
+        raw = self.unbox(v)
+        if rfloat.isinf(raw):
+            return v
+        elif rfloat.isnan(raw):
+            return v
+        ans = rfloat.round_double(raw, decimals, half_even=True)
+        return self.box(ans)
 
     @simple_unary_op
     def trunc(self, v):

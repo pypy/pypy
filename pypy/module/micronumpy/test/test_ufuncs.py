@@ -335,10 +335,18 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert all([math.copysign(1, f(-abs(float("nan")))) == -1 for f in floor, ceil, trunc])
 
     def test_round(self):
-        from numpypy import array
+        from numpypy import array, dtype
         ninf, inf = float("-inf"), float("inf")
         a = array([ninf, -1.4, -1.5, -1.0, 0.0, 1.0, 1.4, 0.5, inf])
         assert ([ninf, -1.0, -2.0, -1.0, 0.0, 1.0, 1.0, 0.0, inf] == a.round()).all()
+        i = array([-1000, -100, -1, 0, 1, 111, 1111, 11111], dtype=int)
+        assert (i == i.round()).all()
+        assert (i.round(decimals=4) == i).all()
+        assert (i.round(decimals=-4) == [0, 0, 0, 0, 0, 0, 0, 10000]).all()
+        b = array([True, False], dtype=bool)
+        bround = b.round()
+        assert (bround == [1., 0.]).all()
+        assert bround.dtype is dtype('float16')
 
 
     def test_copysign(self):

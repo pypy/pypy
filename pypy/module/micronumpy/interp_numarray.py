@@ -561,13 +561,23 @@ class __extend__(W_NDimArray):
     @unwrap_spec(decimals=int)
     def descr_round(self, space, decimals=0, w_out=None):
         if space.is_none(w_out):
-            w_out = None
+            if self.get_dtype().is_bool_type():
+                #numpy promotes bool.round() to float16. Go figure.
+                w_out = W_NDimArray.from_shape(self.get_shape(),
+                       interp_dtype.get_dtype_cache(space).w_float16dtype)
+            else:
+                w_out = None
         elif not isinstance(w_out, W_NDimArray):
             raise OperationError(space.w_TypeError, space.wrap(
                 "return arrays must be of ArrayType"))
         out = interp_dtype.dtype_agreement(space, [self], self.get_shape(),
                                            w_out)
-        loop.round(space, self, self.get_shape(), decimals, out)
+        if out.get_dtype().is_bool_type() and self.get_dtype().is_bool_type():
+            calc_dtype = interp_dtype.get_dtype_cache(space).w_longdtype
+        else:
+            calc_dtype = out.get_dtype()
+
+        loop.round(space, self, calc_dtype, self.get_shape(), decimals, out)
         return out
 
     def descr_searchsorted(self, space, w_v, w_side='left'):
