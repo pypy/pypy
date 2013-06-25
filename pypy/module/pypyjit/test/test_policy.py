@@ -8,7 +8,12 @@ def test_id_any():
 
 def test_bigint():
     from rpython.rlib.rbigint import rbigint
-    assert pypypolicy.look_inside_function(rbigint.lt.im_func)
+    assert not pypypolicy.look_inside_function(rbigint.eq.im_func)
+    assert not pypypolicy.look_inside_function(rbigint.ne.im_func)
+    assert not pypypolicy.look_inside_function(rbigint.lt.im_func)
+    assert not pypypolicy.look_inside_function(rbigint.le.im_func)
+    assert not pypypolicy.look_inside_function(rbigint.gt.im_func)
+    assert not pypypolicy.look_inside_function(rbigint.ge.im_func)
 
 def test_rlocale():
     from rpython.rlib.rlocale import setlocale

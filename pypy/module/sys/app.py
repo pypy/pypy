@@ -29,14 +29,13 @@ def excepthook_failsafe(exctype, value):
     try:
         # first try to print the exception's class name
         stderr = sys.stderr
-        stderr.write(getattr(exctype, '__name__', exctype))
+        stderr.write(str(getattr(exctype, '__name__', exctype)))
         # then attempt to get the str() of the exception
         try:
             s = str(value)
         except:
             s = '<failure of str() on the exception instance>'
-        # then print it, and don't worry too much about the extra space
-        # between the exception class and the ':'
+        # then print it
         if s:
             stderr.write(': %s\n' % (s,))
         else:

@@ -9,6 +9,7 @@ from py.test import raises
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimization
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 
+
 class BaseTestMultiLabel(BaseTest):
     enable_opts = "intbounds:rewrite:virtualize:string:earlyforce:pure:heap:unroll"
 
@@ -25,7 +26,7 @@ class BaseTestMultiLabel(BaseTest):
         optimized = TreeLoop('optimized')
         optimized.inputargs = loop.inputargs
         optimized.operations = []
-        
+
         labels = [i for i, op in enumerate(loop.operations) \
                   if op.getopnum()==rop.LABEL]
         prv = 0
@@ -46,10 +47,10 @@ class BaseTestMultiLabel(BaseTest):
                 last_label = [part.operations.pop()]
             else:
                 last_label = []
-            
+
             optimized.operations.extend(part.operations)
             prv = nxt + 1
-        
+
         #
         print
         print "Optimized:"
@@ -84,7 +85,7 @@ class BaseTestMultiLabel(BaseTest):
                 self.assert_equal(short_preamble, expected_short,
                                   text_right='expected short preamble')
 
-        
+
         return optimized
 
 class OptimizeoptTestMultiLabel(BaseTestMultiLabel):
@@ -138,12 +139,12 @@ class OptimizeoptTestMultiLabel(BaseTestMultiLabel):
         [p1]
         p2 = new_array(3, descr=arraydescr)
         label(p2)
-        p4 = new_array(2, descr=arraydescr)        
+        p4 = new_array(2, descr=arraydescr)
         jump(p4)
         """
         with raises(InvalidLoop):
             self.optimize_loop(ops, ops)
-        
+
     def test_nonmatching_arraystruct_1(self):
         ops = """
         [p1, f0]
@@ -156,7 +157,7 @@ class OptimizeoptTestMultiLabel(BaseTestMultiLabel):
         """
         with raises(InvalidLoop):
             self.optimize_loop(ops, ops)
-        
+
     def test_nonmatching_arraystruct_2(self):
         ops = """
         [p1, f0]
@@ -164,7 +165,7 @@ class OptimizeoptTestMultiLabel(BaseTestMultiLabel):
         setinteriorfield_gc(p2, 2, f0, descr=complexrealdescr)
         label(p2, f0)
         p4 = new_array(2, descr=complexarraydescr)
-        setinteriorfield_gc(p4, 0, f0, descr=complexrealdescr)        
+        setinteriorfield_gc(p4, 0, f0, descr=complexrealdescr)
         jump(p4, f0)
         """
         with raises(InvalidLoop):
@@ -213,7 +214,7 @@ class OptimizeoptTestMultiLabel(BaseTestMultiLabel):
         """
         with raises(InvalidLoop):
             self.optimize_loop(ops, ops)
-        
+
     def test_virtuals_turns_not_equal(self):
         ops = """
         [p1, p2]
@@ -317,7 +318,7 @@ class OptimizeoptTestMultiLabel(BaseTestMultiLabel):
         short = """
         [p1, i1]
         label(p1, i1)
-        i2 = getfield_gc(p1, descr=valuedescr)        
+        i2 = getfield_gc(p1, descr=valuedescr)
         jump(p1, i1, i2)
         """
         self.optimize_loop(ops, expected, expected_shorts=[short, short])
@@ -360,7 +361,7 @@ class OptimizeoptTestMultiLabel(BaseTestMultiLabel):
         jump(p1, i5)
         """
         self.optimize_loop(ops, exported)
-    
+
     def test_import_virtual_across_multiple_labels(self):
         ops = """
         [p0, i1]
@@ -435,25 +436,25 @@ class OptimizeoptTestMultiLabel(BaseTestMultiLabel):
     def test_boxed_opaque_unknown_class(self):
         ops = """
         [p1]
-        p2 = getfield_gc(p1, descr=nextdescr) 
-        mark_opaque_ptr(p2)        
+        p2 = getfield_gc(p1, descr=nextdescr)
+        mark_opaque_ptr(p2)
         i3 = getfield_gc(p2, descr=otherdescr)
         label(p1)
         i4 = getfield_gc(p1, descr=otherdescr)
         label(p1)
-        p5 = getfield_gc(p1, descr=nextdescr) 
-        mark_opaque_ptr(p5)        
+        p5 = getfield_gc(p1, descr=nextdescr)
+        mark_opaque_ptr(p5)
         i6 = getfield_gc(p5, descr=otherdescr)
         i7 = call(i6, descr=nonwritedescr)
         """
         expected = """
         [p1]
-        p2 = getfield_gc(p1, descr=nextdescr) 
+        p2 = getfield_gc(p1, descr=nextdescr)
         i3 = getfield_gc(p2, descr=otherdescr)
         label(p1)
         i4 = getfield_gc(p1, descr=otherdescr)
         label(p1)
-        p5 = getfield_gc(p1, descr=nextdescr) 
+        p5 = getfield_gc(p1, descr=nextdescr)
         i6 = getfield_gc(p5, descr=otherdescr)
         i7 = call(i6, descr=nonwritedescr)
         """
@@ -462,20 +463,20 @@ class OptimizeoptTestMultiLabel(BaseTestMultiLabel):
     def test_opaque_pointer_fails_to_close_loop(self):
         ops = """
         [p1, p11]
-        p2 = getfield_gc(p1, descr=nextdescr) 
+        p2 = getfield_gc(p1, descr=nextdescr)
         guard_class(p2, ConstClass(node_vtable)) []
-        mark_opaque_ptr(p2)        
+        mark_opaque_ptr(p2)
         i3 = getfield_gc(p2, descr=otherdescr)
         label(p1, p11)
-        p12 = getfield_gc(p1, descr=nextdescr) 
+        p12 = getfield_gc(p1, descr=nextdescr)
         i13 = getfield_gc(p2, descr=otherdescr)
-        i14 = call(i13, descr=nonwritedescr)        
+        i14 = call(i13, descr=nonwritedescr)
         jump(p11, p1)
         """
         with raises(InvalidLoop):
             self.optimize_loop(ops, ops)
 
-            
+
 
 
 class OptRenameStrlen(Optimization):
@@ -487,7 +488,7 @@ class OptRenameStrlen(Optimization):
         newop.result = op.result.clonebox()
         self.emit_operation(newop)
         self.make_equal_to(op.result, self.getvalue(newop.result))
-    
+
 dispatch_opt = make_dispatcher_method(OptRenameStrlen, 'optimize_',
                                       default=OptRenameStrlen.emit_operation)
 
@@ -537,7 +538,7 @@ class BaseTestOptimizerRenamingBoxes(BaseTestMultiLabel):
         jump(p1, i11)
         """
         self.optimize_loop(ops, expected)
-        
+
 
 class TestLLtype(OptimizeoptTestMultiLabel, LLtypeMixin):
     pass

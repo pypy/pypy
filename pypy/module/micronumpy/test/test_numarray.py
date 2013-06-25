@@ -1801,6 +1801,13 @@ class AppTestNumArray(BaseNumpyAppTest):
         pickled_data = dumps(a)
         assert (loads(pickled_data) == a).all()
 
+    def test_pickle_slice(self):
+        from cPickle import loads, dumps
+        import numpypy as numpy
+
+        a = numpy.arange(10.).reshape((5, 2))[::2]
+        assert (loads(dumps(a)) == a).all()
+
 class AppTestMultiDim(BaseNumpyAppTest):
     def test_init(self):
         import numpypy
@@ -2131,6 +2138,9 @@ class AppTestMultiDim(BaseNumpyAppTest):
         a = array([1, 2, 3])
         i = a.__array_interface__
         assert isinstance(i['data'][0], int)
+        assert i['shape'] == (3,)
+        assert i['strides'] == None  # Because array is in C order
+        assert i['typestr'] == a.dtype.str
         a = a[::2]
         i = a.__array_interface__
         assert isinstance(i['data'][0], int)
@@ -2488,6 +2498,13 @@ class AppTestSupport(BaseNumpyAppTest):
         a = array(range(100) + range(100) + range(100))
         b = a.argsort()
         assert (b[:3] == [0, 100, 200]).all()
+
+    def test_argsort_random(self):
+        from numpypy import array
+        from _random import Random
+        rnd = Random(1)
+        a = array([rnd.random() for i in range(512*2)]).reshape(512,2)
+        a.argsort()
 
     def test_argsort_axis(self):
         from numpypy import array

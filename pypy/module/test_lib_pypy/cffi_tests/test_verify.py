@@ -1442,7 +1442,7 @@ def test_struct_returned_by_func():
                        "foo_t myfunc(void) { foo_t x = { 42 }; return x; }")
     assert str(e.value) in [
         "function myfunc: 'foo_t' is used as result type, but is opaque",
-        "function myfunc: result type 'struct $foo_t' is opaque"]
+        "function myfunc: result type 'foo_t' is opaque"]
 
 def test_include():
     ffi1 = FFI()

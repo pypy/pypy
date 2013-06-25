@@ -1,6 +1,7 @@
 from rpython.jit.metainterp.history import Const
 from rpython.jit.metainterp.resume import Snapshot
 
+
 class Inliner(object):
     def __init__(self, inputargs, jump_args):
         assert len(inputargs) == len(jump_args)
@@ -54,4 +55,3 @@ class Inliner(object):
         new_snapshot = Snapshot(self.inline_snapshot(snapshot.prev), boxes)
         self.snapshot_map[snapshot] = new_snapshot
         return new_snapshot
-
