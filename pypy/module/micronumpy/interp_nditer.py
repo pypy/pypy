@@ -269,6 +269,7 @@ class W_NDIter(W_Root):
         parse_func_flags(space, self, w_flags)
         self.op_flags = parse_op_arg(space, 'op_flags', w_op_flags,
                                      len(self.seq), parse_op_flag)
+        self.set_op_axes(space, w_op_axes)
         self.iters=[]
         self.shape = iter_shape = shape_agreement_multiple(space, self.seq)
         if self.tracked_index != "":
@@ -287,6 +288,22 @@ class W_NDIter(W_Root):
             for i in range(len(self.seq)):
                 self.iters.append(BoxIterator(get_iter(space, self.order,
                                 self.seq[i], iter_shape), self.op_flags[i]))
+
+    def set_op_axes(self, space, w_op_axes):
+        if space.len_w(w_op_axes) != len(self.seq):
+            raise OperationError(space.w_ValueError, space.wrap("op_axes must be a tuple/list matching the number of ops"))
+        op_axes = space.listview(w_op_axes)
+        l = -1
+        for w_axis in op_axes:
+            if not space.is_(w_axis, space.w_None):
+                axis_len = space.len_w(w_axis)
+                if l == -1:
+                    l = axis_len
+                elif axis_len != l:
+                    raise OperationError(space.w_ValueError, space.wrap("Each entry of op_axes must have the same size"))
+                self.op_axes.append([space.int_w(x) if not space.is_(x, space.w_None) else space.w_None for x in space.listview(w_axis)])
+        if l == -1:
+            raise OperationError(space.w_ValueError, space.wrap("If op_axes is provided, at least one list of axes must be contained within it"))
 
     def descr_iter(self, space):
         return space.wrap(self)
