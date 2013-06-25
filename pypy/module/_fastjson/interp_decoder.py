@@ -311,15 +311,28 @@ class JSONDecoder(object):
         i += 4
         hexdigits = self.getslice(start, i)
         try:
-            uchr = unichr(int(hexdigits, 16))
+            val = int(hexdigits, 16)
+            if val & 0xfc00 == 0xd800:
+                # surrogate pair
+                val = self.decode_surrogate_pair(i, val)
+                i += 6
         except ValueError:
             self._raise("Invalid \uXXXX escape (char %d)", i-1)
             return # help the annotator to know that we'll never go beyond
                    # this point
         #
+        uchr = unichr(val)
         utf8_ch = unicodehelper.encode_utf8(self.space, uchr)
         builder.append(utf8_ch)
         return i
+
+    def decode_surrogate_pair(self, i, highsurr):
+        if self.ll_chars[i] != '\\' or self.ll_chars[i+1] != 'u':
+            self._raise("Unpaired high surrogate at char %d", i)
+        i += 2
+        hexdigits = self.getslice(i, i+4)
+        lowsurr = int(hexdigits, 16) # the possible ValueError is caugth by the caller
+        return 0x10000 + (((highsurr - 0xd800) << 10) | (lowsurr - 0xdc00))
 
 
 def loads(space, w_s):

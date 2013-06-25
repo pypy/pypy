@@ -149,3 +149,8 @@ class AppTest(object):
         raises(ValueError, "_fastjson.loads('[1: 2]')")
         raises(ValueError, "_fastjson.loads('[1, 2')")
 
+    def test_big_unicode_decode(self):
+        import _fastjson
+        expected = u'z\U0001d120x'
+        res = _fastjson.loads('"z\\ud834\\udd20x"')
+        assert res == expected
