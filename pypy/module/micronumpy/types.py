@@ -37,7 +37,7 @@ def simple_unary_op(func):
         return self.box(
             func(
                 self,
-                self.for_computation(raw)
+                self.for_computation(raw),
             )
         )
     return dispatcher
@@ -521,6 +521,23 @@ class Integer(Primitive):
             return v
         return 0
 
+    @specialize.argtype(1)
+    def round(self, v, decimals=0):
+        raw = self.for_computation(self.unbox(v))
+        if decimals < 0:
+            # No ** in rpython
+            factor = 1
+            for i in xrange(-decimals):
+                factor *=10
+            #int does floor division, we want toward zero
+            if raw < 0:
+                ans = - (-raw / factor * factor)
+            else:
+                ans = raw / factor * factor
+        else:
+            ans = raw
+        return self.box(ans)
+
     @raw_unary_op
     def signbit(self, v):
         return v < 0
@@ -797,6 +814,16 @@ class Float(Primitive):
     @simple_unary_op
     def ceil(self, v):
         return math.ceil(v)
+
+    @specialize.argtype(1)
+    def round(self, v, decimals=0):
+        raw = self.for_computation(self.unbox(v))
+        if rfloat.isinf(raw):
+            return v
+        elif rfloat.isnan(raw):
+            return v
+        ans = rfloat.round_double(raw, decimals, half_even=True)
+        return self.box(ans)
 
     @simple_unary_op
     def trunc(self, v):
@@ -1353,6 +1380,15 @@ class ComplexFloating(object):
             return rcomplex.c_div((v[0], -v[1]), (a2, 0.))
         except ZeroDivisionError:
             return rfloat.NAN, rfloat.NAN
+
+    @specialize.argtype(1)
+    def round(self, v, decimals=0):
+        ans = list(self.for_computation(self.unbox(v)))
+        if isfinite(ans[0]):
+            ans[0] = rfloat.round_double(ans[0], decimals,  half_even=True)
+        if isfinite(ans[1]):
+            ans[1] = rfloat.round_double(ans[1], decimals,  half_even=True)
+        return self.box_complex(ans[0], ans[1])
 
     # No floor, ceil, trunc in numpy for complex
     #@simple_unary_op

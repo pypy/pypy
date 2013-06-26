@@ -97,11 +97,6 @@ class Module(MixedModule):
         '_xoptions'             : 'app.null__xoptions',
     }
 
-    def setbuiltinmodule(self, w_module, name):
-        w_name = self.space.wrap(name)
-        w_modules = self.get('modules')
-        self.space.setitem(w_modules, w_name, w_module)
-
     def startup(self, space):
         if space.config.translating and not we_are_translated():
             # don't get the filesystemencoding at translation time

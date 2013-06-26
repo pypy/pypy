@@ -912,7 +912,10 @@ class ObjSpace(object):
         return (None, None)
 
     def newlist_str(self, list_s):
-        return self.newlist([self.wrap(s) for s in list_s])
+        return self.newlist([self.wrapbytes(s) for s in list_s])
+
+    def newlist_unicode(self, list_u):
+        return self.newlist([self.wrap(u) for u in list_u])
 
     def newlist_hint(self, sizehint):
         from pypy.objspace.std.listobject import make_empty_list_with_size

@@ -418,8 +418,16 @@ class __extend__(W_NDimArray):
         addr = self.implementation.get_storage_as_int(space)
         # will explode if it can't
         w_d = space.newdict()
-        space.setitem_str(w_d, 'data', space.newtuple([space.wrap(addr),
-                                                       space.w_False]))
+        space.setitem_str(w_d, 'data',
+                          space.newtuple([space.wrap(addr), space.w_False]))
+        space.setitem_str(w_d, 'shape', self.descr_get_shape(space))
+        space.setitem_str(w_d, 'typestr', self.get_dtype().descr_get_str(space))
+        if self.implementation.order == 'C':
+            # Array is contiguous, no strides in the interface.
+            strides = space.w_None
+        else:
+            strides = self.descr_get_strides(space)
+        space.setitem_str(w_d, 'strides', strides)
         return w_d
 
     w_pypy_data = None
@@ -550,9 +558,27 @@ class __extend__(W_NDimArray):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "resize not implemented yet"))
 
-    def descr_round(self, space, w_decimals=0, w_out=None):
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            "round not implemented yet"))
+    @unwrap_spec(decimals=int)
+    def descr_round(self, space, decimals=0, w_out=None):
+        if space.is_none(w_out):
+            if self.get_dtype().is_bool_type():
+                #numpy promotes bool.round() to float16. Go figure.
+                w_out = W_NDimArray.from_shape(self.get_shape(),
+                       interp_dtype.get_dtype_cache(space).w_float16dtype)
+            else:
+                w_out = None
+        elif not isinstance(w_out, W_NDimArray):
+            raise OperationError(space.w_TypeError, space.wrap(
+                "return arrays must be of ArrayType"))
+        out = interp_dtype.dtype_agreement(space, [self], self.get_shape(),
+                                           w_out)
+        if out.get_dtype().is_bool_type() and self.get_dtype().is_bool_type():
+            calc_dtype = interp_dtype.get_dtype_cache(space).w_longdtype
+        else:
+            calc_dtype = out.get_dtype()
+
+        loop.round(space, self, calc_dtype, self.get_shape(), decimals, out)
+        return out
 
     def descr_searchsorted(self, space, w_v, w_side='left'):
         raise OperationError(space.w_NotImplementedError, space.wrap(
@@ -967,6 +993,7 @@ W_NDimArray.typedef = TypeDef(
     byteswap = interp2app(W_NDimArray.descr_byteswap),
     choose   = interp2app(W_NDimArray.descr_choose),
     clip     = interp2app(W_NDimArray.descr_clip),
+    round    = interp2app(W_NDimArray.descr_round),
     data     = GetSetProperty(W_NDimArray.descr_get_data),
     diagonal = interp2app(W_NDimArray.descr_diagonal),
 

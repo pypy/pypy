@@ -244,6 +244,10 @@ class StructOrUnionOrEnum(BaseTypeByIdentity):
         self.forcename = forcename
         self.build_c_name_with_marker()
 
+    def get_official_name(self):
+        assert self.c_name_with_marker.endswith('&')
+        return self.c_name_with_marker[:-1]
+
 
 class StructOrUnion(StructOrUnionOrEnum):
     fixedlayout = None
@@ -357,7 +361,9 @@ class StructType(StructOrUnion):
     def build_backend_type(self, ffi, finishlist):
         self.check_not_partial()
         finishlist.append(self)
-        return global_cache(self, ffi, 'new_struct_type', self.name, key=self)
+        
+        return global_cache(self, ffi, 'new_struct_type',
+                            self.get_official_name(), key=self)
 
 
 class UnionType(StructOrUnion):
@@ -365,7 +371,8 @@ class UnionType(StructOrUnion):
 
     def build_backend_type(self, ffi, finishlist):
         finishlist.append(self)
-        return global_cache(self, ffi, 'new_union_type', self.name, key=self)
+        return global_cache(self, ffi, 'new_union_type',
+                            self.get_official_name(), key=self)
 
 
 class EnumType(StructOrUnionOrEnum):
@@ -388,7 +395,8 @@ class EnumType(StructOrUnionOrEnum):
     def build_backend_type(self, ffi, finishlist):
         self.check_not_partial()
         base_btype = self.build_baseinttype(ffi, finishlist)
-        return global_cache(self, ffi, 'new_enum_type', self.name,
+        return global_cache(self, ffi, 'new_enum_type',
+                            self.get_official_name(),
                             self.enumerators, self.enumvalues,
                             base_btype, key=self)
 

@@ -2,7 +2,7 @@
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from rpython.rtyper.lltypesystem import lltype, rffi
-from pypy.module._rawffi.array import push_elem
+from pypy.module._rawffi.interp_rawffi import read_ptr, write_ptr
 from pypy.module._rawffi.structure import W_Structure
 from pypy.module._rawffi.interp_rawffi import (W_DataInstance, letter2tp,
      unwrap_value, unpack_argshapes, got_libffi_error)
@@ -40,7 +40,7 @@ def callback(ll_args, ll_res, ll_userdata):
                 args_w[i] = space.wrap(rffi.cast(rffi.ULONG, ll_args[i]))
         w_res = space.call(w_callable, space.newtuple(args_w))
         if callback_ptr.result is not None: # don't return void
-            unwrap_value(space, push_elem, ll_res, 0,
+            unwrap_value(space, write_ptr, ll_res, 0,
                          callback_ptr.result, w_res)
     except OperationError, e:
         tbprint(space, space.wrap(e.get_traceback()),

@@ -1,25 +1,50 @@
 """ String builder interface and string functions
 """
+import sys
 
 from rpython.annotator.model import (SomeObject, SomeString, s_None, SomeChar,
     SomeInteger, SomeUnicodeCodePoint, SomeUnicodeString, SomePtr, SomePBC)
-from rpython.rlib.objectmodel import newlist_hint
+from rpython.rlib.objectmodel import newlist_hint, specialize
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.tool.pairtype import pairtype
+from rpython.rlib import jit
 
 
 # -------------- public API for string functions -----------------------
+
+@specialize.argtype(0)
 def split(value, by, maxsplit=-1):
+    if isinstance(value, str):
+        assert isinstance(by, str)
+    else:
+        assert isinstance(by, unicode)
     bylen = len(by)
     if bylen == 0:
         raise ValueError("empty separator")
+
+    start = 0
+    if bylen == 1:
+        # fast path: uses str.rfind(character) and str.count(character)
+        by = by[0]    # annotator hack: string -> char
+        count = value.count(by)
+        if 0 <= maxsplit < count:
+            count = maxsplit
+        res = newlist_hint(count + 1)
+        while count > 0:
+            next = value.find(by, start)
+            assert next >= 0 # cannot fail due to the value.count above
+            res.append(value[start:next])
+            start = next + bylen
+            count -= 1
+        res.append(value[start:len(value)])
+        return res
 
     if maxsplit > 0:
         res = newlist_hint(min(maxsplit + 1, len(value)))
     else:
         res = []
-    start = 0
+
     while maxsplit != 0:
         next = value.find(by, start)
         if next < 0:
@@ -32,7 +57,12 @@ def split(value, by, maxsplit=-1):
     return res
 
 
+@specialize.argtype(0)
 def rsplit(value, by, maxsplit=-1):
+    if isinstance(value, str):
+        assert isinstance(by, str)
+    else:
+        assert isinstance(by, unicode)
     if maxsplit > 0:
         res = newlist_hint(min(maxsplit + 1, len(value)))
     else:
@@ -53,6 +83,109 @@ def rsplit(value, by, maxsplit=-1):
     res.append(value[:end])
     res.reverse()
     return res
+
+
+@specialize.argtype(0)
+def replace(input, sub, by, maxsplit=-1):
+    if isinstance(input, str):
+        assert isinstance(sub, str)
+        assert isinstance(by, str)
+        Builder = StringBuilder
+    else:
+        assert isinstance(sub, unicode)
+        assert isinstance(by, unicode)
+        Builder = UnicodeBuilder
+    if maxsplit == 0:
+        return input
+
+    if not sub:
+        upper = len(input)
+        if maxsplit > 0 and maxsplit < upper + 2:
+            upper = maxsplit - 1
+            assert upper >= 0
+
+        try:
+            result_size = ovfcheck(upper * len(by))
+            result_size = ovfcheck(result_size + upper)
+            result_size = ovfcheck(result_size + len(by))
+            remaining_size = len(input) - upper
+            result_size = ovfcheck(result_size + remaining_size)
+        except OverflowError:
+            raise
+        builder = Builder(result_size)
+        for i in range(upper):
+            builder.append(by)
+            builder.append(input[i])
+        builder.append(by)
+        builder.append_slice(input, upper, len(input))
+    else:
+        # First compute the exact result size
+        count = input.count(sub)
+        if count > maxsplit and maxsplit > 0:
+            count = maxsplit
+        diff_len = len(by) - len(sub)
+        try:
+            result_size = ovfcheck(diff_len * count)
+            result_size = ovfcheck(result_size + len(input))
+        except OverflowError:
+            raise
+
+        builder = Builder(result_size)
+        start = 0
+        sublen = len(sub)
+
+        while maxsplit != 0:
+            next = input.find(sub, start)
+            if next < 0:
+                break
+            builder.append_slice(input, start, next)
+            builder.append(by)
+            start = next + sublen
+            maxsplit -= 1   # NB. if it's already < 0, it stays < 0
+
+        builder.append_slice(input, start, len(input))
+
+    return builder.build()
+
+def _normalize_start_end(length, start, end):
+    if start < 0:
+        start += length
+        if start < 0:
+            start = 0
+    if end < 0:
+        end += length
+        if end < 0:
+            end = 0
+    elif end > length:
+        end = length
+    return start, end
+
+@specialize.argtype(0)
+@jit.elidable
+def startswith(u_self, prefix, start=0, end=sys.maxint):
+    length = len(u_self)
+    start, end = _normalize_start_end(length, start, end)
+    stop = start + len(prefix)
+    if stop > end:
+        return False
+    for i in range(len(prefix)):
+        if u_self[start+i] != prefix[i]:
+            return False
+    return True
+
+@specialize.argtype(0)
+@jit.elidable
+def endswith(u_self, suffix, start=0, end=sys.maxint):
+    length = len(u_self)
+    start, end = _normalize_start_end(length, start, end)
+    begin = end - len(suffix)
+    if begin < start:
+        return False
+    for i in range(len(suffix)):
+        if u_self[begin+i] != suffix[i]:
+            return False
+    return True
+
 
 # -------------- public API ---------------------------------
 
@@ -271,3 +404,5 @@ class Entry(ExtRegistryEntry):
 
     def specialize_call(self, hop):
         hop.exception_cannot_occur()
+
+

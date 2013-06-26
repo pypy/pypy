@@ -45,10 +45,7 @@ def _readlink_maybe(filename):
     raise NotImplementedError
 
 def resolvedirof(filename):
-    try:
-        filename = rpath.rabspath(filename)
-    except OSError:
-        pass
+    filename = rpath.rabspath(filename)
     dirname = rpath.rabspath(os.path.join(filename, '..'))
     if os.path.islink(filename):
         try:

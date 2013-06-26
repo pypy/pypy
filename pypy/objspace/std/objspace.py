@@ -314,8 +314,13 @@ class StdObjSpace(ObjSpace, DescrOperation):
         assert not list_w or sizehint == -1
         return W_ListObject(self, list_w, sizehint)
 
-    def newlist_str(self, list_s):
-        return W_ListObject.newlist_str(self, list_s)
+    # XXX: StringListStrategy is currently broken
+    # use the default implementation, which simply wraps
+    #def newlist_str(self, list_s):
+    #    return W_ListObject.newlist_str(self, list_s)
+
+    def newlist_unicode(self, list_u):
+        return W_ListObject.newlist_unicode(self, list_u)
 
     def newdict(self, module=False, instance=False, kwargs=False,
                 strdict=False):

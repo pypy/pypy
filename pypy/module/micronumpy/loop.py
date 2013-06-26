@@ -173,7 +173,7 @@ def where(out, shape, arr, x, y, dtype):
         iter = x_iter
     shapelen = len(shape)
     while not iter.done():
-        where_driver.jit_merge_point(shapelen=shapelen, dtype=dtype, 
+        where_driver.jit_merge_point(shapelen=shapelen, dtype=dtype,
                                         arr_dtype=arr_dtype)
         w_cond = arr_iter.getitem()
         if arr_dtype.itemtype.bool(w_cond):
@@ -188,7 +188,7 @@ def where(out, shape, arr, x, y, dtype):
     return out
 
 axis_reduce__driver = jit.JitDriver(name='numpy_axis_reduce',
-                                    greens=['shapelen', 
+                                    greens=['shapelen',
                                             'func', 'dtype',
                                             'identity'],
                                     reds='auto')
@@ -228,7 +228,7 @@ def _new_argmin_argmax(op_name):
     arg_driver = jit.JitDriver(name='numpy_' + op_name,
                                greens = ['shapelen', 'dtype'],
                                reds = 'auto')
-    
+
     def argmin_argmax(arr):
         result = 0
         idx = 1
@@ -265,7 +265,7 @@ def multidim_dot(space, left, right, result, dtype, right_critical_dim):
      result.shape == [3, 5, 2, 4]
      broadcast shape should be [3, 5, 2, 7, 4]
      result should skip dims 3 which is len(result_shape) - 1
-        (note that if right is 1d, result should 
+        (note that if right is 1d, result should
                   skip len(result_shape))
      left should skip 2, 4 which is a.ndims-1 + range(right.ndims)
           except where it==(right.ndims-2)
@@ -283,9 +283,9 @@ def multidim_dot(space, left, right, result, dtype, right_critical_dim):
     righti = right.create_dot_iter(broadcast_shape, right_skip)
     while not outi.done():
         dot_driver.jit_merge_point(dtype=dtype)
-        lval = lefti.getitem().convert_to(dtype) 
-        rval = righti.getitem().convert_to(dtype) 
-        outval = outi.getitem().convert_to(dtype) 
+        lval = lefti.getitem().convert_to(dtype)
+        rval = righti.getitem().convert_to(dtype)
+        outval = outi.getitem().convert_to(dtype)
         v = dtype.itemtype.mul(lval, rval)
         value = dtype.itemtype.add(v, outval).convert_to(dtype)
         outi.setitem(value)
@@ -355,7 +355,7 @@ def setitem_filter(arr, index, value):
         setitem_filter_driver.jit_merge_point(shapelen=shapelen,
                                               index_dtype=index_dtype,
                                               arr_dtype=arr_dtype,
-                                             ) 
+                                             )
         if index_iter.getitem_bool():
             arr_iter.setitem(value_iter.getitem())
             value_iter.next()
@@ -572,6 +572,21 @@ def clip(space, arr, shape, min, max, out):
         out_iter.next()
         min_iter.next()
 
+round_driver = jit.JitDriver(greens = ['shapelen', 'dtype'],
+                                    reds = 'auto')
+
+def round(space, arr, dtype, shape, decimals, out):
+    arr_iter = arr.create_iter(shape)
+    shapelen = len(shape)
+    out_iter = out.create_iter(shape)
+    while not arr_iter.done():
+        round_driver.jit_merge_point(shapelen=shapelen, dtype=dtype)
+        w_v = dtype.itemtype.round(arr_iter.getitem().convert_to(dtype),
+                     decimals)
+        out_iter.setitem(w_v)
+        arr_iter.next()
+        out_iter.next()
+
 diagonal_simple_driver = jit.JitDriver(greens = ['axis1', 'axis2'],
                                        reds = 'auto')
 
@@ -613,4 +628,4 @@ def diagonal_array(space, arr, out, offset, axis1, axis2, shape):
         out_iter.setitem(arr.getitem_index(space, indexes))
         iter.next()
         out_iter.next()
-       
+

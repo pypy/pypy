@@ -641,6 +641,8 @@ def test_alignof():
 
 def test_new_struct_type():
     BStruct = new_struct_type("foo")
+    assert repr(BStruct) == "<ctype 'foo'>"
+    BStruct = new_struct_type("struct foo")
     assert repr(BStruct) == "<ctype 'struct foo'>"
     BPtr = new_pointer_type(BStruct)
     assert repr(BPtr) == "<ctype 'struct foo *'>"
@@ -648,7 +650,7 @@ def test_new_struct_type():
     py.test.raises(ValueError, alignof, BStruct)
 
 def test_new_union_type():
-    BUnion = new_union_type("foo")
+    BUnion = new_union_type("union foo")
     assert repr(BUnion) == "<ctype 'union foo'>"
     BPtr = new_pointer_type(BUnion)
     assert repr(BPtr) == "<ctype 'union foo *'>"
@@ -657,7 +659,7 @@ def test_complete_struct():
     BLong = new_primitive_type("long")
     BChar = new_primitive_type("char")
     BShort = new_primitive_type("short")
-    BStruct = new_struct_type("foo")
+    BStruct = new_struct_type("struct foo")
     assert BStruct.kind == "struct"
     assert BStruct.cname == "struct foo"
     assert BStruct.fields is None
@@ -689,7 +691,7 @@ def test_complete_struct():
 def test_complete_union():
     BLong = new_primitive_type("long")
     BChar = new_primitive_type("char")
-    BUnion = new_union_type("foo")
+    BUnion = new_union_type("union foo")
     assert BUnion.kind == "union"
     assert BUnion.cname == "union foo"
     assert BUnion.fields is None
@@ -708,7 +710,7 @@ def test_complete_union():
 
 def test_struct_instance():
     BInt = new_primitive_type("int")
-    BStruct = new_struct_type("foo")
+    BStruct = new_struct_type("struct foo")
     BStructPtr = new_pointer_type(BStruct)
     p = cast(BStructPtr, 0)
     py.test.raises(AttributeError, "p.a1")    # opaque
@@ -728,7 +730,7 @@ def test_struct_instance():
 def test_union_instance():
     BInt = new_primitive_type("int")
     BUInt = new_primitive_type("unsigned int")
-    BUnion = new_union_type("bar")
+    BUnion = new_union_type("union bar")
     complete_struct_or_union(BUnion, [('a1', BInt, -1), ('a2', BUInt, -1)])
     p = newp(new_pointer_type(BUnion), [-42])
     bigval = -42 + (1 << (8*size_of_int()))
@@ -744,7 +746,7 @@ def test_union_instance():
 
 def test_struct_pointer():
     BInt = new_primitive_type("int")
-    BStruct = new_struct_type("foo")
+    BStruct = new_struct_type("struct foo")
     BStructPtr = new_pointer_type(BStruct)
     complete_struct_or_union(BStruct, [('a1', BInt, -1),
                                        ('a2', BInt, -1)])
@@ -758,7 +760,7 @@ def test_struct_init_list():
     BVoidP = new_pointer_type(new_void_type())
     BInt = new_primitive_type("int")
     BIntPtr = new_pointer_type(BInt)
-    BStruct = new_struct_type("foo")
+    BStruct = new_struct_type("struct foo")
     BStructPtr = new_pointer_type(BStruct)
     complete_struct_or_union(BStruct, [('a1', BInt, -1),
                                        ('a2', BInt, -1),
@@ -792,7 +794,7 @@ def test_struct_init_list():
 
 def test_array_in_struct():
     BInt = new_primitive_type("int")
-    BStruct = new_struct_type("foo")
+    BStruct = new_struct_type("struct foo")
     BArrayInt5 = new_array_type(new_pointer_type(BInt), 5)
     complete_struct_or_union(BStruct, [('a1', BArrayInt5, -1)])
     s = newp(new_pointer_type(BStruct), [[20, 24, 27, 29, 30]])
@@ -803,7 +805,7 @@ def test_offsetof():
     def offsetof(BType, fieldname):
         return typeoffsetof(BType, fieldname)[1]
     BInt = new_primitive_type("int")
-    BStruct = new_struct_type("foo")
+    BStruct = new_struct_type("struct foo")
     py.test.raises(TypeError, offsetof, BInt, "abc")
     py.test.raises(TypeError, offsetof, BStruct, "abc")
     complete_struct_or_union(BStruct, [('abc', BInt, -1), ('def', BInt, -1)])
@@ -832,7 +834,7 @@ def test_inspect_function_type():
 def test_function_type_taking_struct():
     BChar = new_primitive_type("char")
     BShort = new_primitive_type("short")
-    BStruct = new_struct_type("foo")
+    BStruct = new_struct_type("struct foo")
     complete_struct_or_union(BStruct, [('a1', BChar, -1),
                                        ('a2', BShort, -1)])
     BFunc = new_function_type((BStruct,), BShort, False)
@@ -937,7 +939,7 @@ def test_call_function_6():
 def test_call_function_7():
     BChar = new_primitive_type("char")
     BShort = new_primitive_type("short")
-    BStruct = new_struct_type("foo")
+    BStruct = new_struct_type("struct foo")
     BStructPtr = new_pointer_type(BStruct)
     complete_struct_or_union(BStruct, [('a1', BChar, -1),
                                        ('a2', BShort, -1)])
@@ -953,7 +955,7 @@ def test_call_function_7():
 def test_call_function_20():
     BChar = new_primitive_type("char")
     BShort = new_primitive_type("short")
-    BStruct = new_struct_type("foo")
+    BStruct = new_struct_type("struct foo")
     BStructPtr = new_pointer_type(BStruct)
     complete_struct_or_union(BStruct, [('a1', BChar, -1),
                                        ('a2', BShort, -1)])
@@ -965,7 +967,7 @@ def test_call_function_20():
 
 def test_call_function_21():
     BInt = new_primitive_type("int")
-    BStruct = new_struct_type("foo")
+    BStruct = new_struct_type("struct foo")
     complete_struct_or_union(BStruct, [('a', BInt, -1),
                                        ('b', BInt, -1),
                                        ('c', BInt, -1),
@@ -985,7 +987,7 @@ def test_call_function_21():
 def test_call_function_22():
     BInt = new_primitive_type("int")
     BArray10 = new_array_type(new_pointer_type(BInt), 10)
-    BStruct = new_struct_type("foo")
+    BStruct = new_struct_type("struct foo")
     BStructP = new_pointer_type(BStruct)
     complete_struct_or_union(BStruct, [('a', BArray10, -1)])
     BFunc22 = new_function_type((BStruct, BStruct), BStruct, False)
@@ -1023,7 +1025,7 @@ def test_call_function_23_bis():
 def test_cannot_pass_struct_with_array_of_length_0():
     BInt = new_primitive_type("int")
     BArray0 = new_array_type(new_pointer_type(BInt), 0)
-    BStruct = new_struct_type("foo")
+    BStruct = new_struct_type("struct foo")
     complete_struct_or_union(BStruct, [('a', BArray0)])
     py.test.raises(NotImplementedError, new_function_type,
                    (BStruct,), BInt, False)
@@ -1048,7 +1050,7 @@ def test_call_function_9():
 def test_cannot_call_with_a_autocompleted_struct():
     BSChar = new_primitive_type("signed char")
     BDouble = new_primitive_type("double")
-    BStruct = new_struct_type("foo")
+    BStruct = new_struct_type("struct foo")
     BStructPtr = new_pointer_type(BStruct)
     complete_struct_or_union(BStruct, [('c', BDouble, -1, 8),
                                        ('a', BSChar, -1, 2),
@@ -1221,7 +1223,7 @@ def test_callback_returning_struct():
     BSChar = new_primitive_type("signed char")
     BInt = new_primitive_type("int")
     BDouble = new_primitive_type("double")
-    BStruct = new_struct_type("foo")
+    BStruct = new_struct_type("struct foo")
     BStructPtr = new_pointer_type(BStruct)
     complete_struct_or_union(BStruct, [('a', BSChar, -1),
                                        ('b', BDouble, -1)])
@@ -1238,7 +1240,7 @@ def test_callback_returning_struct():
 
 def test_callback_returning_big_struct():
     BInt = new_primitive_type("int")
-    BStruct = new_struct_type("foo")
+    BStruct = new_struct_type("struct foo")
     BStructPtr = new_pointer_type(BStruct)
     complete_struct_or_union(BStruct, [('a', BInt, -1),
                                        ('b', BInt, -1),
@@ -1275,26 +1277,27 @@ def test_callback_returning_void():
 def test_enum_type():
     BUInt = new_primitive_type("unsigned int")
     BEnum = new_enum_type("foo", (), (), BUInt)
-    assert repr(BEnum) == "<ctype 'enum foo'>"
+    assert repr(BEnum) == "<ctype 'foo'>"
     assert BEnum.kind == "enum"
-    assert BEnum.cname == "enum foo"
+    assert BEnum.cname == "foo"
     assert BEnum.elements == {}
     #
     BInt = new_primitive_type("int")
-    BEnum = new_enum_type("foo", ('def', 'c', 'ab'), (0, 1, -20), BInt)
+    BEnum = new_enum_type("enum foo", ('def', 'c', 'ab'), (0, 1, -20), BInt)
     assert BEnum.kind == "enum"
+    assert BEnum.cname == "enum foo"
     assert BEnum.elements == {-20: 'ab', 0: 'def', 1: 'c'}
     # 'elements' is not the real dict, but merely a copy
     BEnum.elements[2] = '??'
     assert BEnum.elements == {-20: 'ab', 0: 'def', 1: 'c'}
     #
-    BEnum = new_enum_type("bar", ('ab', 'cd'), (5, 5), BUInt)
+    BEnum = new_enum_type("enum bar", ('ab', 'cd'), (5, 5), BUInt)
     assert BEnum.elements == {5: 'ab'}
     assert BEnum.relements == {'ab': 5, 'cd': 5}
 
 def test_cast_to_enum():
     BInt = new_primitive_type("int")
-    BEnum = new_enum_type("foo", ('def', 'c', 'ab'), (0, 1, -20), BInt)
+    BEnum = new_enum_type("enum foo", ('def', 'c', 'ab'), (0, 1, -20), BInt)
     assert sizeof(BEnum) == sizeof(BInt)
     e = cast(BEnum, 0)
     assert repr(e) == "<cdata 'enum foo' 0: def>"
@@ -1308,27 +1311,27 @@ def test_cast_to_enum():
     assert string(cast(BEnum, -242 + 2**128)) == '-242'
     #
     BUInt = new_primitive_type("unsigned int")
-    BEnum = new_enum_type("bar", ('def', 'c', 'ab'), (0, 1, 20), BUInt)
+    BEnum = new_enum_type("enum bar", ('def', 'c', 'ab'), (0, 1, 20), BUInt)
     e = cast(BEnum, -1)
     assert repr(e) == "<cdata 'enum bar' 4294967295>"     # unsigned int
     #
     BLong = new_primitive_type("long")
-    BEnum = new_enum_type("baz", (), (), BLong)
+    BEnum = new_enum_type("enum baz", (), (), BLong)
     assert sizeof(BEnum) == sizeof(BLong)
     e = cast(BEnum, -1)
     assert repr(e) == "<cdata 'enum baz' -1>"
 
 def test_enum_with_non_injective_mapping():
     BInt = new_primitive_type("int")
-    BEnum = new_enum_type("foo", ('ab', 'cd'), (7, 7), BInt)
+    BEnum = new_enum_type("enum foo", ('ab', 'cd'), (7, 7), BInt)
     e = cast(BEnum, 7)
     assert repr(e) == "<cdata 'enum foo' 7: ab>"
     assert string(e) == 'ab'
 
 def test_enum_in_struct():
     BInt = new_primitive_type("int")
-    BEnum = new_enum_type("foo", ('def', 'c', 'ab'), (0, 1, -20), BInt)
-    BStruct = new_struct_type("bar")
+    BEnum = new_enum_type("enum foo", ('def', 'c', 'ab'), (0, 1, -20), BInt)
+    BStruct = new_struct_type("struct bar")
     BStructPtr = new_pointer_type(BStruct)
     complete_struct_or_union(BStruct, [('a1', BEnum, -1)])
     p = newp(BStructPtr, [-20])
@@ -1432,7 +1435,7 @@ def test_callback_returning_wchar_t():
 
 def test_struct_with_bitfields():
     BLong = new_primitive_type("long")
-    BStruct = new_struct_type("foo")
+    BStruct = new_struct_type("struct foo")
     LONGBITS = 8 * sizeof(BLong)
     complete_struct_or_union(BStruct, [('a1', BLong, 1),
                                        ('a2', BLong, 2),
@@ -1455,7 +1458,7 @@ def test_struct_with_bitfields():
 def test_bitfield_instance():
     BInt = new_primitive_type("int")
     BUnsignedInt = new_primitive_type("unsigned int")
-    BStruct = new_struct_type("foo")
+    BStruct = new_struct_type("struct foo")
     complete_struct_or_union(BStruct, [('a1', BInt, 1),
                                        ('a2', BUnsignedInt, 2),
                                        ('a3', BInt, 3)])
@@ -1485,14 +1488,14 @@ def test_bitfield_instance():
 
 def test_bitfield_instance_init():
     BInt = new_primitive_type("int")
-    BStruct = new_struct_type("foo")
+    BStruct = new_struct_type("struct foo")
     complete_struct_or_union(BStruct, [('a1', BInt, 1)])
     p = newp(new_pointer_type(BStruct), [-1])
     assert p.a1 == -1
     p = newp(new_pointer_type(BStruct), {'a1': -1})
     assert p.a1 == -1
     #
-    BUnion = new_union_type("bar")
+    BUnion = new_union_type("union bar")
     complete_struct_or_union(BUnion, [('a1', BInt, 1)])
     p = newp(new_pointer_type(BUnion), [-1])
     assert p.a1 == -1
@@ -1561,7 +1564,7 @@ def test_too_many_items():
     py.test.raises(IndexError, newp, BArray, tuple(b'123456'))
     py.test.raises(IndexError, newp, BArray, list(b'123456'))
     py.test.raises(IndexError, newp, BArray, b'123456')
-    BStruct = new_struct_type("foo")
+    BStruct = new_struct_type("struct foo")
     complete_struct_or_union(BStruct, [])
     py.test.raises(TypeError, newp, new_pointer_type(BStruct), b'')
     py.test.raises(ValueError, newp, new_pointer_type(BStruct), [b'1'])
@@ -1601,7 +1604,7 @@ def test_newp_copying():
     p = newp(new_pointer_type(BFloat), cast(BFloat, 12.25))
     assert p[0] == 12.25
     #
-    BStruct = new_struct_type("foo_s")
+    BStruct = new_struct_type("struct foo_s")
     BStructPtr = new_pointer_type(BStruct)
     complete_struct_or_union(BStruct, [('a1', BInt, -1)])
     s1 = newp(BStructPtr, [42])
@@ -1619,7 +1622,7 @@ def test_newp_copying():
     s2 = newp(BStructPtr, s1[0])
     assert s2.a1 == 42
     #
-    BUnion = new_union_type("foo_u")
+    BUnion = new_union_type("union foo_u")
     BUnionPtr = new_pointer_type(BUnion)
     complete_struct_or_union(BUnion, [('a1', BInt, -1)])
     u1 = newp(BUnionPtr, [42])
@@ -1697,7 +1700,7 @@ def test_set_struct_fields():
     BChar = new_primitive_type("char")
     BCharP = new_pointer_type(BChar)
     BCharArray10 = new_array_type(BCharP, 10)
-    BStruct = new_struct_type("foo")
+    BStruct = new_struct_type("struct foo")
     BStructPtr = new_pointer_type(BStruct)
     complete_struct_or_union(BStruct, [('a1', BCharArray10, -1)])
     p = newp(BStructPtr, None)
@@ -1714,7 +1717,7 @@ def test_invalid_function_result_types():
     new_function_type((), BFunc)    # works
     new_function_type((), new_primitive_type("int"))
     new_function_type((), new_pointer_type(BFunc))
-    BUnion = new_union_type("foo_u")
+    BUnion = new_union_type("union foo_u")
     complete_struct_or_union(BUnion, [])
     py.test.raises(NotImplementedError, new_function_type, (), BUnion)
     py.test.raises(TypeError, new_function_type, (), BArray)
@@ -1725,7 +1728,7 @@ def test_struct_return_in_func():
     BFloat = new_primitive_type("float")
     BDouble = new_primitive_type("double")
     BInt = new_primitive_type("int")
-    BStruct = new_struct_type("foo_s")
+    BStruct = new_struct_type("struct foo_s")
     complete_struct_or_union(BStruct, [('a1', BChar, -1),
                                        ('a2', BShort, -1)])
     BFunc10 = new_function_type((BInt,), BStruct)
@@ -1735,7 +1738,7 @@ def test_struct_return_in_func():
     assert s.a1 == bytechr(40)
     assert s.a2 == 40 * 40
     #
-    BStruct11 = new_struct_type("test11")
+    BStruct11 = new_struct_type("struct test11")
     complete_struct_or_union(BStruct11, [('a1', BInt, -1),
                                          ('a2', BInt, -1)])
     BFunc11 = new_function_type((BInt,), BStruct11)
@@ -1745,7 +1748,7 @@ def test_struct_return_in_func():
     assert s.a1 == 40
     assert s.a2 == 40 * 40
     #
-    BStruct12 = new_struct_type("test12")
+    BStruct12 = new_struct_type("struct test12")
     complete_struct_or_union(BStruct12, [('a1', BDouble, -1),
                                          ])
     BFunc12 = new_function_type((BInt,), BStruct12)
@@ -1754,7 +1757,7 @@ def test_struct_return_in_func():
     assert repr(s) == "<cdata 'struct test12' owning 8 bytes>"
     assert s.a1 == 40.0
     #
-    BStruct13 = new_struct_type("test13")
+    BStruct13 = new_struct_type("struct test13")
     complete_struct_or_union(BStruct13, [('a1', BInt, -1),
                                          ('a2', BInt, -1),
                                          ('a3', BInt, -1)])
@@ -1766,7 +1769,7 @@ def test_struct_return_in_func():
     assert s.a2 == 40 * 40
     assert s.a3 == 40 * 40 * 40
     #
-    BStruct14 = new_struct_type("test14")
+    BStruct14 = new_struct_type("struct test14")
     complete_struct_or_union(BStruct14, [('a1', BFloat, -1),
                                          ])
     BFunc14 = new_function_type((BInt,), BStruct14)
@@ -1775,7 +1778,7 @@ def test_struct_return_in_func():
     assert repr(s) == "<cdata 'struct test14' owning 4 bytes>"
     assert s.a1 == 40.0
     #
-    BStruct15 = new_struct_type("test15")
+    BStruct15 = new_struct_type("struct test15")
     complete_struct_or_union(BStruct15, [('a1', BFloat, -1),
                                          ('a2', BInt, -1)])
     BFunc15 = new_function_type((BInt,), BStruct15)
@@ -1785,7 +1788,7 @@ def test_struct_return_in_func():
     assert s.a1 == 40.0
     assert s.a2 == 40 * 40
     #
-    BStruct16 = new_struct_type("test16")
+    BStruct16 = new_struct_type("struct test16")
     complete_struct_or_union(BStruct16, [('a1', BFloat, -1),
                                          ('a2', BFloat, -1)])
     BFunc16 = new_function_type((BInt,), BStruct16)
@@ -1795,7 +1798,7 @@ def test_struct_return_in_func():
     assert s.a1 == 40.0
     assert s.a2 == -40.0
     #
-    BStruct17 = new_struct_type("test17")
+    BStruct17 = new_struct_type("struct test17")
     complete_struct_or_union(BStruct17, [('a1', BInt, -1),
                                          ('a2', BFloat, -1)])
     BFunc17 = new_function_type((BInt,), BStruct17)
@@ -1818,7 +1821,7 @@ def test_cast_with_functionptr():
     BFunc2 = new_function_type((), new_primitive_type("short"))
     BCharP = new_pointer_type(new_primitive_type("char"))
     BIntP = new_pointer_type(new_primitive_type("int"))
-    BStruct = new_struct_type("foo")
+    BStruct = new_struct_type("struct foo")
     BStructPtr = new_pointer_type(BStruct)
     complete_struct_or_union(BStruct, [('a1', BFunc, -1)])
     newp(BStructPtr, [cast(BFunc, 0)])
@@ -1845,7 +1848,7 @@ def test_wchar():
         assert not pyuni4
     #
     BWCharP = new_pointer_type(BWChar)
-    BStruct = new_struct_type("foo_s")
+    BStruct = new_struct_type("struct foo_s")
     BStructPtr = new_pointer_type(BStruct)
     complete_struct_or_union(BStruct, [('a1', BWChar, -1),
                                        ('a2', BWCharP, -1)])
@@ -1957,7 +1960,7 @@ def test_keepalive_struct():
     # exception to the no-keepalive rule: p=newp(BStructPtr) returns a
     # pointer owning the memory, and p[0] returns a pointer to the
     # struct that *also* owns the memory
-    BStruct = new_struct_type("foo")
+    BStruct = new_struct_type("struct foo")
     BStructPtr = new_pointer_type(BStruct)
     complete_struct_or_union(BStruct, [('a1', new_primitive_type("int"), -1),
                                        ('a2', new_primitive_type("int"), -1),
@@ -1977,7 +1980,7 @@ def test_keepalive_struct():
     assert q.a1 == 123456
 
 def test_nokeepalive_struct():
-    BStruct = new_struct_type("foo")
+    BStruct = new_struct_type("struct foo")
     BStructPtr = new_pointer_type(BStruct)
     BStructPtrPtr = new_pointer_type(BStructPtr)
     complete_struct_or_union(BStruct, [('a1', new_primitive_type("int"), -1)])
@@ -2164,7 +2167,7 @@ def test_cast_to_array():
     assert repr(x) == "<cdata 'int[3]' NULL>"
 
 def test_cast_invalid():
-    BStruct = new_struct_type("foo")
+    BStruct = new_struct_type("struct foo")
     complete_struct_or_union(BStruct, [])
     p = cast(new_pointer_type(BStruct), 123456)
     s = p[0]
@@ -2183,7 +2186,7 @@ def test_bug_delitem():
 
 def test_bug_delattr():
     BLong = new_primitive_type("long")
-    BStruct = new_struct_type("foo")
+    BStruct = new_struct_type("struct foo")
     complete_struct_or_union(BStruct, [('a1', BLong, -1)])
     x = newp(new_pointer_type(BStruct))
     py.test.raises(AttributeError, "del x.a1")
@@ -2192,7 +2195,7 @@ def test_variable_length_struct():
     py.test.skip("later")
     BLong = new_primitive_type("long")
     BArray = new_array_type(new_pointer_type(BLong), None)
-    BStruct = new_struct_type("foo")
+    BStruct = new_struct_type("struct foo")
     BStructP = new_pointer_type(BStruct)
     complete_struct_or_union(BStruct, [('a1', BLong, -1),
                                        ('a2', BArray, -1)])
@@ -2308,7 +2311,7 @@ def test_get_array_of_length_zero():
         BLong = new_primitive_type("long")
         BLongP = new_pointer_type(BLong)
         BArray0 = new_array_type(BLongP, length)
-        BStruct = new_struct_type("foo")
+        BStruct = new_struct_type("struct foo")
         BStructPtr = new_pointer_type(BStruct)
         complete_struct_or_union(BStruct, [('a1', BArray0, -1)])
         p = newp(BStructPtr, None)
@@ -2320,8 +2323,8 @@ def test_get_array_of_length_zero():
 def test_nested_anonymous_struct():
     BInt = new_primitive_type("int")
     BChar = new_primitive_type("char")
-    BStruct = new_struct_type("foo")
-    BInnerStruct = new_struct_type("foo")
+    BStruct = new_struct_type("struct foo")
+    BInnerStruct = new_struct_type("struct foo")
     complete_struct_or_union(BInnerStruct, [('a1', BInt, -1),
                                             ('a2', BChar, -1)])
     complete_struct_or_union(BStruct, [('', BInnerStruct, -1),
@@ -2353,12 +2356,12 @@ def test_sizeof_union():
     BChar = new_primitive_type("char")
     BShort = new_primitive_type("short")
     assert sizeof(BShort) == alignof(BShort) == 2
-    BStruct = new_struct_type("foo")
+    BStruct = new_struct_type("struct foo")
     complete_struct_or_union(BStruct, [('a1', BChar),
                                        ('a2', BChar),
                                        ('a3', BChar)])
     assert sizeof(BStruct) == 3 and alignof(BStruct) == 1
-    BUnion = new_union_type("u")
+    BUnion = new_union_type("union u")
     complete_struct_or_union(BUnion, [('s', BStruct),
                                       ('i', BShort)])
     assert sizeof(BUnion) == 4
@@ -2366,7 +2369,7 @@ def test_sizeof_union():
 
 def test_unaligned_struct():
     BInt = new_primitive_type("int")
-    BStruct = new_struct_type("foo")
+    BStruct = new_struct_type("struct foo")
     complete_struct_or_union(BStruct, [('b', BInt, -1, 1)],
                              None, 5, 1)
 
@@ -2424,7 +2427,7 @@ def test_bool():
 
 def test_typeoffsetof():
     BChar = new_primitive_type("char")
-    BStruct = new_struct_type("foo")
+    BStruct = new_struct_type("struct foo")
     BStructPtr = new_pointer_type(BStruct)
     complete_struct_or_union(BStruct, [('a1', BChar, -1),
                                        ('a2', BChar, -1),
@@ -2440,14 +2443,14 @@ def test_typeoffsetof():
 
 def test_typeoffsetof_no_bitfield():
     BInt = new_primitive_type("int")
-    BStruct = new_struct_type("foo")
+    BStruct = new_struct_type("struct foo")
     complete_struct_or_union(BStruct, [('a1', BInt, 4)])
     py.test.raises(TypeError, typeoffsetof, BStruct, 'a1')
 
 def test_rawaddressof():
     BChar = new_primitive_type("char")
     BCharP = new_pointer_type(BChar)
-    BStruct = new_struct_type("foo")
+    BStruct = new_struct_type("struct foo")
     BStructPtr = new_pointer_type(BStruct)
     complete_struct_or_union(BStruct, [('a1', BChar, -1),
                                        ('a2', BChar, -1),
@@ -2508,7 +2511,7 @@ def test_FILE():
     if sys.platform == "win32":
         py.test.skip("testing FILE not implemented")
     #
-    BFILE = new_struct_type("_IO_FILE")
+    BFILE = new_struct_type("struct _IO_FILE")
     BFILEP = new_pointer_type(BFILE)
     BChar = new_primitive_type("char")
     BCharP = new_pointer_type(BChar)
@@ -2540,7 +2543,7 @@ def test_FILE_only_for_FILE_arg():
     if sys.platform == "win32":
         py.test.skip("testing FILE not implemented")
     #
-    B_NOT_FILE = new_struct_type("NOT_FILE")
+    B_NOT_FILE = new_struct_type("struct NOT_FILE")
     B_NOT_FILEP = new_pointer_type(B_NOT_FILE)
     BChar = new_primitive_type("char")
     BCharP = new_pointer_type(BChar)
@@ -2563,7 +2566,7 @@ def test_FILE_object():
     if sys.platform == "win32":
         py.test.skip("testing FILE not implemented")
     #
-    BFILE = new_struct_type("$FILE")
+    BFILE = new_struct_type("FILE")
     BFILEP = new_pointer_type(BFILE)
     BChar = new_primitive_type("char")
     BCharP = new_pointer_type(BChar)
@@ -2762,20 +2765,20 @@ def _test_bitfield_details(flag):
     BShort = new_primitive_type("short")
     BInt = new_primitive_type("int")
     BUInt = new_primitive_type("unsigned int")
-    BStruct = new_struct_type("foo1")
+    BStruct = new_struct_type("struct foo1")
     complete_struct_or_union(BStruct, [('a', BChar, -1),
                                        ('b1', BInt, 9),
                                        ('b2', BUInt, 7),
                                        ('c', BChar, -1)], -1, -1, -1, flag)
-    if flag == 0:   # gcc
+    if flag % 2 == 0:   # gcc and gcc ARM
         assert typeoffsetof(BStruct, 'c') == (BChar, 3)
         assert sizeof(BStruct) == 4
-    else:           # msvc
+    else:               # msvc
         assert typeoffsetof(BStruct, 'c') == (BChar, 8)
         assert sizeof(BStruct) == 12
     assert alignof(BStruct) == 4
     #
-    BStruct = new_struct_type("foo2")
+    BStruct = new_struct_type("struct foo2")
     complete_struct_or_union(BStruct, [('a', BChar, -1),
                                        ('',  BShort, 9),
                                        ('c', BChar, -1)], -1, -1, -1, flag)
@@ -2783,11 +2786,14 @@ def _test_bitfield_details(flag):
     if flag == 0:   # gcc
         assert sizeof(BStruct) == 5
         assert alignof(BStruct) == 1
-    else:           # msvc
+    elif flag == 1: # msvc
+        assert sizeof(BStruct) == 6
+        assert alignof(BStruct) == 2
+    else:           # gcc ARM
         assert sizeof(BStruct) == 6
         assert alignof(BStruct) == 2
     #
-    BStruct = new_struct_type("foo2")
+    BStruct = new_struct_type("struct foo2")
     complete_struct_or_union(BStruct, [('a', BChar, -1),
                                        ('',  BInt, 0),
                                        ('',  BInt, 0),
@@ -2795,10 +2801,15 @@ def _test_bitfield_details(flag):
     if flag == 0:   # gcc
         assert typeoffsetof(BStruct, 'c') == (BChar, 4)
         assert sizeof(BStruct) == 5
-    else:           # msvc
+        assert alignof(BStruct) == 1
+    elif flag == 1:  # msvc
         assert typeoffsetof(BStruct, 'c') == (BChar, 1)
         assert sizeof(BStruct) == 2
-    assert alignof(BStruct) == 1
+        assert alignof(BStruct) == 1
+    else:            # gcc ARM
+        assert typeoffsetof(BStruct, 'c') == (BChar, 4)
+        assert sizeof(BStruct) == 8
+        assert alignof(BStruct) == 4
 
 
 def test_bitfield_as_gcc():
@@ -2806,6 +2817,9 @@ def test_bitfield_as_gcc():
 
 def test_bitfield_as_msvc():
     _test_bitfield_details(flag=1)
+
+def test_bitfield_as_arm_gcc():
+    _test_bitfield_details(flag=2)
 
 
 def test_version():

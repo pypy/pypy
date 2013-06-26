@@ -379,7 +379,6 @@ def decompose_valuefmt(valuefmt):
     return tuple(parts), tuple(formats)
 
 def get_operrcls2(valuefmt):
-    from rpython.rlib.runicode import str_decode_utf_8
     valuefmt = valuefmt.decode('ascii')
     strings, formats = decompose_valuefmt(valuefmt)
     assert len(strings) == len(formats) + 1
@@ -407,8 +406,7 @@ def get_operrcls2(valuefmt):
                     if fmt == 'd':
                         result = str(value).decode('ascii')
                     elif fmt == '8':
-                        result, _ = str_decode_utf_8(value, len(value),
-                                                     'strict')
+                        result = value.decode('utf-8')
                     elif fmt == 'R':
                         result = space.unicode_w(space.repr(value))
                     elif fmt in 'NT':
@@ -440,7 +438,7 @@ def operationerrfmt(w_type, valuefmt, *args):
 
     Supports the standard %s and %d formats, plus the following:
 
-    %8 - The result of arg.decode('utf-8', 'strict')
+    %8 - The result of arg.decode('utf-8')
     %N - The result of w_arg.getname(space)
     %R - The result of space.unicode_w(space.repr(w_arg))
     %T - The result of space.type(w_arg).getname(space)

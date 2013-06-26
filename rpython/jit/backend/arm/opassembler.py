@@ -248,7 +248,7 @@ class ResOpAssembler(BaseAssembler):
         l1 = arglocs[1]
         failargs = arglocs[2:]
 
-        if l0.is_reg():
+        if l0.is_core_reg():
             if l1.is_imm():
                 self.mc.CMP_ri(l0.value, l1.getint())
             else:
@@ -488,7 +488,7 @@ class ResOpAssembler(BaseAssembler):
             # case GCFLAG_CARDS_SET: emit a few instructions to do
             # directly the card flag setting
             loc_index = arglocs[1]
-            assert loc_index.is_reg()
+            assert loc_index.is_core_reg()
             # must save the register loc_index before it is mutated
             mc.PUSH([loc_index.value])
             tmp1 = loc_index
@@ -588,7 +588,7 @@ class ResOpAssembler(BaseAssembler):
 
     def emit_op_setarrayitem_gc(self, op, arglocs, regalloc, fcond):
         value_loc, base_loc, ofs_loc, scale, ofs = arglocs
-        assert ofs_loc.is_reg()
+        assert ofs_loc.is_core_reg()
         if scale.value > 0:
             self.mc.LSL_ri(r.ip.value, ofs_loc.value, scale.value)
             ofs_loc = r.ip
@@ -606,7 +606,7 @@ class ResOpAssembler(BaseAssembler):
             # vstr only supports imm offsets
             # so if the ofset is too large we add it to the base and use an
             # offset of 0
-            if ofs_loc.is_reg():
+            if ofs_loc.is_core_reg():
                 tmploc, save = self.get_tmp_reg([value_loc, base_loc, ofs_loc])
                 assert not save
                 self.mc.ADD_rr(tmploc.value, base_loc.value, ofs_loc.value)
@@ -644,13 +644,13 @@ class ResOpAssembler(BaseAssembler):
 
     def emit_op_raw_store(self, op, arglocs, regalloc, fcond):
         value_loc, base_loc, ofs_loc, scale, ofs = arglocs
-        assert ofs_loc.is_reg()
+        assert ofs_loc.is_core_reg()
         self._write_to_mem(value_loc, base_loc, ofs_loc, scale, fcond)
         return fcond
 
     def emit_op_getarrayitem_gc(self, op, arglocs, regalloc, fcond):
         res_loc, base_loc, ofs_loc, scale, ofs = arglocs
-        assert ofs_loc.is_reg()
+        assert ofs_loc.is_core_reg()
         signed = op.getdescr().is_item_signed()
 
         # scale the offset as required
@@ -672,7 +672,7 @@ class ResOpAssembler(BaseAssembler):
             # vldr only supports imm offsets
             # if the offset is in a register we add it to the base and use a
             # tmp reg
-            if ofs_loc.is_reg():
+            if ofs_loc.is_core_reg():
                 tmploc, save = self.get_tmp_reg([base_loc, ofs_loc])
                 assert not save
                 self.mc.ADD_rr(tmploc.value, base_loc.value, ofs_loc.value)
@@ -727,7 +727,7 @@ class ResOpAssembler(BaseAssembler):
 
     def emit_op_raw_load(self, op, arglocs, regalloc, fcond):
         res_loc, base_loc, ofs_loc, scale, ofs = arglocs
-        assert ofs_loc.is_reg()
+        assert ofs_loc.is_core_reg()
         # no base offset
         assert ofs.value == 0
         signed = op.getdescr().is_item_signed()
@@ -805,10 +805,10 @@ class ResOpAssembler(BaseAssembler):
             bytes_box = TempBox()
             bytes_loc = regalloc.rm.force_allocate_reg(bytes_box, forbidden_vars)
             scale = self._get_unicode_item_scale()
-            if not length_loc.is_reg():
+            if not length_loc.is_core_reg():
                 self.regalloc_mov(length_loc, bytes_loc)
                 length_loc = bytes_loc
-            assert length_loc.is_reg()
+            assert length_loc.is_core_reg()
             self.mc.MOV_ri(r.ip.value, 1 << scale)
             self.mc.MUL(bytes_loc.value, r.ip.value, length_loc.value)
             length_box = bytes_box
@@ -835,8 +835,8 @@ class ResOpAssembler(BaseAssembler):
 
    # result = base_loc  + (scaled_loc << scale) + static_offset
     def _gen_address(self, result, base_loc, scaled_loc, scale=0, static_offset=0):
-        assert scaled_loc.is_reg()
-        assert base_loc.is_reg()
+        assert scaled_loc.is_core_reg()
+        assert base_loc.is_core_reg()
         assert check_imm_arg(scale)
         assert check_imm_arg(static_offset)
         if scale > 0:
@@ -1063,7 +1063,7 @@ class ResOpAssembler(BaseAssembler):
     def emit_op_cast_float_to_int(self, op, arglocs, regalloc, fcond):
         arg, res = arglocs
         assert arg.is_vfp_reg()
-        assert res.is_reg()
+        assert res.is_core_reg()
         self.mc.VCVT_float_to_int(r.vfp_ip.value, arg.value)
         self.mc.VMOV_rc(res.value, r.ip.value, r.vfp_ip.value)
         return fcond
@@ -1071,7 +1071,7 @@ class ResOpAssembler(BaseAssembler):
     def emit_op_cast_int_to_float(self, op, arglocs, regalloc, fcond):
         arg, res = arglocs
         assert res.is_vfp_reg()
-        assert arg.is_reg()
+        assert arg.is_core_reg()
         self.mc.MOV_ri(r.ip.value, 0)
         self.mc.VMOV_cr(res.value, arg.value, r.ip.value)
         self.mc.VCVT_int_to_float(res.value, res.value)
@@ -1087,7 +1087,7 @@ class ResOpAssembler(BaseAssembler):
         loc = arglocs[0]
         res = arglocs[1]
         assert loc.is_vfp_reg()
-        assert res.is_reg()
+        assert res.is_core_reg()
         self.mc.VMOV_rc(res.value, r.ip.value, loc.value)
         return fcond
 
@@ -1108,7 +1108,7 @@ class ResOpAssembler(BaseAssembler):
     def emit_op_cast_float_to_singlefloat(self, op, arglocs, regalloc, fcond):
         arg, res = arglocs
         assert arg.is_vfp_reg()
-        assert res.is_reg()
+        assert res.is_core_reg()
         self.mc.VCVT_f64_f32(r.vfp_ip.value, arg.value)
         self.mc.VMOV_rc(res.value, r.ip.value, r.vfp_ip.value)
         return fcond
@@ -1116,7 +1116,7 @@ class ResOpAssembler(BaseAssembler):
     def emit_op_cast_singlefloat_to_float(self, op, arglocs, regalloc, fcond):
         arg, res = arglocs
         assert res.is_vfp_reg()
-        assert arg.is_reg()
+        assert arg.is_core_reg()
         self.mc.MOV_ri(r.ip.value, 0)
         self.mc.VMOV_cr(res.value, arg.value, r.ip.value)
         self.mc.VCVT_f32_f64(res.value, res.value)

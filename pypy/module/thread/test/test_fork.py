@@ -30,7 +30,7 @@ class AppTestFork(GenericTestThread):
                 if pid == 0:
                     os._exit(0)
                 else:
-                    self.timeout_killer(pid, 5)
+                    self.timeout_killer(pid, 10)
                     exitcode = os.waitpid(pid, 0)[1]
                     assert exitcode == 0 # if 9, process was killed by timer!
             finally:
@@ -56,7 +56,7 @@ class AppTestFork(GenericTestThread):
                 _thread.start_new_thread(lambda: None, ())
                 os._exit(0)
             else:
-                self.timeout_killer(pid, 5)
+                self.timeout_killer(pid, 10)
                 exitcode = os.waitpid(pid, 0)[1]
                 assert exitcode == 0 # if 9, process was killed by timer!
 
@@ -75,7 +75,7 @@ class AppTestFork(GenericTestThread):
                 signal.signal(signal.SIGUSR1, signal.SIG_IGN)
                 os._exit(42)
             else:
-                self.timeout_killer(pid, 5)
+                self.timeout_killer(pid, 10)
                 exitcode = os.waitpid(pid, 0)[1]
                 feedback.append(exitcode)
 

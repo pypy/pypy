@@ -56,3 +56,9 @@ class AppTestBasic:
         assert len(d2) == 1
         assert d2[2] == 3
         assert d2[3] == 42
+
+    def test_reduce(self):
+        import _collections
+        d = _collections.defaultdict(None, {3: 4})
+        dict_iter = d.__reduce__()[4]
+        assert type(dict_iter) is type(iter(d.items()))
