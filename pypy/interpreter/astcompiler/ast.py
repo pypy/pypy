@@ -89,7 +89,7 @@ def W_AST_init(space, w_self, __args__):
     if args_w and len(args_w) != num_fields:
         if num_fields:
             raise operationerrfmt(space.w_TypeError,
-                "_ast.%T constructor takes either 0 or %s positional arguments", w_self, num_fields)
+                "_ast.%T constructor takes either 0 or %d positional arguments", w_self, num_fields)
         else:
             raise operationerrfmt(space.w_TypeError,
                 "_ast.%T constructor takes 0 positional arguments", w_self)
@@ -186,8 +186,8 @@ class Module(mod):
     def from_object(space, w_node):
         body_w = space.unpackiterable(
                 get_field(space, w_node, 'body', False))
-        body = [stmt.from_object(space, w_item) for w_item in body_w]
-        return Module(body)
+        _body = [stmt.from_object(space, w_item) for w_item in body_w]
+        return Module(_body)
 
 State.ast_type('Module', 'mod', ['body'])
 
@@ -219,8 +219,8 @@ class Interactive(mod):
     def from_object(space, w_node):
         body_w = space.unpackiterable(
                 get_field(space, w_node, 'body', False))
-        body = [stmt.from_object(space, w_item) for w_item in body_w]
-        return Interactive(body)
+        _body = [stmt.from_object(space, w_item) for w_item in body_w]
+        return Interactive(_body)
 
 State.ast_type('Interactive', 'mod', ['body'])
 
@@ -245,8 +245,8 @@ class Expression(mod):
 
     @staticmethod
     def from_object(space, w_node):
-        body = expr.from_object(space, get_field(space, w_node, 'body', False))
-        return Expression(body)
+        _body = expr.from_object(space, get_field(space, w_node, 'body', False))
+        return Expression(_body)
 
 State.ast_type('Expression', 'mod', ['body'])
 
@@ -278,8 +278,8 @@ class Suite(mod):
     def from_object(space, w_node):
         body_w = space.unpackiterable(
                 get_field(space, w_node, 'body', False))
-        body = [stmt.from_object(space, w_item) for w_item in body_w]
-        return Suite(body)
+        _body = [stmt.from_object(space, w_item) for w_item in body_w]
+        return Suite(_body)
 
 State.ast_type('Suite', 'mod', ['body'])
 
@@ -390,17 +390,17 @@ class FunctionDef(stmt):
 
     @staticmethod
     def from_object(space, w_node):
-        name = space.str_w(get_field(space, w_node, 'name', False))
-        args = arguments.from_object(space, get_field(space, w_node, 'args', False))
+        _name = space.str_w(get_field(space, w_node, 'name', False))
+        _args = arguments.from_object(space, get_field(space, w_node, 'args', False))
         body_w = space.unpackiterable(
                 get_field(space, w_node, 'body', False))
-        body = [stmt.from_object(space, w_item) for w_item in body_w]
+        _body = [stmt.from_object(space, w_item) for w_item in body_w]
         decorator_list_w = space.unpackiterable(
                 get_field(space, w_node, 'decorator_list', False))
-        decorator_list = [expr.from_object(space, w_item) for w_item in decorator_list_w]
-        lineno = space.int_w(get_field(space, w_node, 'lineno', False))
-        col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
-        return FunctionDef(name, args, body, decorator_list, lineno, col_offset)
+        _decorator_list = [expr.from_object(space, w_item) for w_item in decorator_list_w]
+        _lineno = space.int_w(get_field(space, w_node, 'lineno', False))
+        _col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
+        return FunctionDef(_name, _args, _body, _decorator_list, _lineno, _col_offset)
 
 State.ast_type('FunctionDef', 'stmt', ['name', 'args', 'body', 'decorator_list'])
 
@@ -456,19 +456,19 @@ class ClassDef(stmt):
 
     @staticmethod
     def from_object(space, w_node):
-        name = space.str_w(get_field(space, w_node, 'name', False))
+        _name = space.str_w(get_field(space, w_node, 'name', False))
         bases_w = space.unpackiterable(
                 get_field(space, w_node, 'bases', False))
-        bases = [expr.from_object(space, w_item) for w_item in bases_w]
+        _bases = [expr.from_object(space, w_item) for w_item in bases_w]
         body_w = space.unpackiterable(
                 get_field(space, w_node, 'body', False))
-        body = [stmt.from_object(space, w_item) for w_item in body_w]
+        _body = [stmt.from_object(space, w_item) for w_item in body_w]
         decorator_list_w = space.unpackiterable(
                 get_field(space, w_node, 'decorator_list', False))
-        decorator_list = [expr.from_object(space, w_item) for w_item in decorator_list_w]
-        lineno = space.int_w(get_field(space, w_node, 'lineno', False))
-        col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
-        return ClassDef(name, bases, body, decorator_list, lineno, col_offset)
+        _decorator_list = [expr.from_object(space, w_item) for w_item in decorator_list_w]
+        _lineno = space.int_w(get_field(space, w_node, 'lineno', False))
+        _col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
+        return ClassDef(_name, _bases, _body, _decorator_list, _lineno, _col_offset)
 
 State.ast_type('ClassDef', 'stmt', ['name', 'bases', 'body', 'decorator_list'])
 
@@ -499,10 +499,10 @@ class Return(stmt):
 
     @staticmethod
     def from_object(space, w_node):
-        value = expr.from_object(space, get_field(space, w_node, 'value', True))
-        lineno = space.int_w(get_field(space, w_node, 'lineno', False))
-        col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
-        return Return(value, lineno, col_offset)
+        _value = expr.from_object(space, get_field(space, w_node, 'value', True))
+        _lineno = space.int_w(get_field(space, w_node, 'lineno', False))
+        _col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
+        return Return(_value, _lineno, _col_offset)
 
 State.ast_type('Return', 'stmt', ['value'])
 
@@ -539,10 +539,10 @@ class Delete(stmt):
     def from_object(space, w_node):
         targets_w = space.unpackiterable(
                 get_field(space, w_node, 'targets', False))
-        targets = [expr.from_object(space, w_item) for w_item in targets_w]
-        lineno = space.int_w(get_field(space, w_node, 'lineno', False))
-        col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
-        return Delete(targets, lineno, col_offset)
+        _targets = [expr.from_object(space, w_item) for w_item in targets_w]
+        _lineno = space.int_w(get_field(space, w_node, 'lineno', False))
+        _col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
+        return Delete(_targets, _lineno, _col_offset)
 
 State.ast_type('Delete', 'stmt', ['targets'])
 
@@ -583,11 +583,11 @@ class Assign(stmt):
     def from_object(space, w_node):
         targets_w = space.unpackiterable(
                 get_field(space, w_node, 'targets', False))
-        targets = [expr.from_object(space, w_item) for w_item in targets_w]
-        value = expr.from_object(space, get_field(space, w_node, 'value', False))
-        lineno = space.int_w(get_field(space, w_node, 'lineno', False))
-        col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
-        return Assign(targets, value, lineno, col_offset)
+        _targets = [expr.from_object(space, w_item) for w_item in targets_w]
+        _value = expr.from_object(space, get_field(space, w_node, 'value', False))
+        _lineno = space.int_w(get_field(space, w_node, 'lineno', False))
+        _col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
+        return Assign(_targets, _value, _lineno, _col_offset)
 
 State.ast_type('Assign', 'stmt', ['targets', 'value'])
 
@@ -624,12 +624,12 @@ class AugAssign(stmt):
 
     @staticmethod
     def from_object(space, w_node):
-        target = expr.from_object(space, get_field(space, w_node, 'target', False))
-        op = operator.from_object(space, get_field(space, w_node, 'op', False))
-        value = expr.from_object(space, get_field(space, w_node, 'value', False))
-        lineno = space.int_w(get_field(space, w_node, 'lineno', False))
-        col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
-        return AugAssign(target, op, value, lineno, col_offset)
+        _target = expr.from_object(space, get_field(space, w_node, 'target', False))
+        _op = operator.from_object(space, get_field(space, w_node, 'op', False))
+        _value = expr.from_object(space, get_field(space, w_node, 'value', False))
+        _lineno = space.int_w(get_field(space, w_node, 'lineno', False))
+        _col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
+        return AugAssign(_target, _op, _value, _lineno, _col_offset)
 
 State.ast_type('AugAssign', 'stmt', ['target', 'op', 'value'])
 
@@ -662,7 +662,7 @@ class Print(stmt):
             values_w = [node.to_object(space) for node in self.values] # expr
         w_values = space.newlist(values_w)
         space.setattr(w_node, space.wrap('values'), w_values)
-        w_nl = self.nl.to_object(space)  # bool
+        w_nl = space.wrap(self.nl)  # bool
         space.setattr(w_node, space.wrap('nl'), w_nl)
         w_lineno = space.wrap(self.lineno)  # int
         space.setattr(w_node, space.wrap('lineno'), w_lineno)
@@ -672,14 +672,14 @@ class Print(stmt):
 
     @staticmethod
     def from_object(space, w_node):
-        dest = expr.from_object(space, get_field(space, w_node, 'dest', True))
+        _dest = expr.from_object(space, get_field(space, w_node, 'dest', True))
         values_w = space.unpackiterable(
                 get_field(space, w_node, 'values', False))
-        values = [expr.from_object(space, w_item) for w_item in values_w]
-        nl = bool.from_object(space, get_field(space, w_node, 'nl', False))
-        lineno = space.int_w(get_field(space, w_node, 'lineno', False))
-        col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
-        return Print(dest, values, nl, lineno, col_offset)
+        _values = [expr.from_object(space, w_item) for w_item in values_w]
+        _nl = space.bool_w(get_field(space, w_node, 'nl', False))
+        _lineno = space.int_w(get_field(space, w_node, 'lineno', False))
+        _col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
+        return Print(_dest, _values, _nl, _lineno, _col_offset)
 
 State.ast_type('Print', 'stmt', ['dest', 'values', 'nl'])
 
@@ -731,17 +731,17 @@ class For(stmt):
 
     @staticmethod
     def from_object(space, w_node):
-        target = expr.from_object(space, get_field(space, w_node, 'target', False))
-        iter = expr.from_object(space, get_field(space, w_node, 'iter', False))
+        _target = expr.from_object(space, get_field(space, w_node, 'target', False))
+        _iter = expr.from_object(space, get_field(space, w_node, 'iter', False))
         body_w = space.unpackiterable(
                 get_field(space, w_node, 'body', False))
-        body = [stmt.from_object(space, w_item) for w_item in body_w]
+        _body = [stmt.from_object(space, w_item) for w_item in body_w]
         orelse_w = space.unpackiterable(
                 get_field(space, w_node, 'orelse', False))
-        orelse = [stmt.from_object(space, w_item) for w_item in orelse_w]
-        lineno = space.int_w(get_field(space, w_node, 'lineno', False))
-        col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
-        return For(target, iter, body, orelse, lineno, col_offset)
+        _orelse = [stmt.from_object(space, w_item) for w_item in orelse_w]
+        _lineno = space.int_w(get_field(space, w_node, 'lineno', False))
+        _col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
+        return For(_target, _iter, _body, _orelse, _lineno, _col_offset)
 
 State.ast_type('For', 'stmt', ['target', 'iter', 'body', 'orelse'])
 
@@ -789,16 +789,16 @@ class While(stmt):
 
     @staticmethod
     def from_object(space, w_node):
-        test = expr.from_object(space, get_field(space, w_node, 'test', False))
+        _test = expr.from_object(space, get_field(space, w_node, 'test', False))
         body_w = space.unpackiterable(
                 get_field(space, w_node, 'body', False))
-        body = [stmt.from_object(space, w_item) for w_item in body_w]
+        _body = [stmt.from_object(space, w_item) for w_item in body_w]
         orelse_w = space.unpackiterable(
                 get_field(space, w_node, 'orelse', False))
-        orelse = [stmt.from_object(space, w_item) for w_item in orelse_w]
-        lineno = space.int_w(get_field(space, w_node, 'lineno', False))
-        col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
-        return While(test, body, orelse, lineno, col_offset)
+        _orelse = [stmt.from_object(space, w_item) for w_item in orelse_w]
+        _lineno = space.int_w(get_field(space, w_node, 'lineno', False))
+        _col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
+        return While(_test, _body, _orelse, _lineno, _col_offset)
 
 State.ast_type('While', 'stmt', ['test', 'body', 'orelse'])
 
@@ -846,16 +846,16 @@ class If(stmt):
 
     @staticmethod
     def from_object(space, w_node):
-        test = expr.from_object(space, get_field(space, w_node, 'test', False))
+        _test = expr.from_object(space, get_field(space, w_node, 'test', False))
         body_w = space.unpackiterable(
                 get_field(space, w_node, 'body', False))
-        body = [stmt.from_object(space, w_item) for w_item in body_w]
+        _body = [stmt.from_object(space, w_item) for w_item in body_w]
         orelse_w = space.unpackiterable(
                 get_field(space, w_node, 'orelse', False))
-        orelse = [stmt.from_object(space, w_item) for w_item in orelse_w]
-        lineno = space.int_w(get_field(space, w_node, 'lineno', False))
-        col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
-        return If(test, body, orelse, lineno, col_offset)
+        _orelse = [stmt.from_object(space, w_item) for w_item in orelse_w]
+        _lineno = space.int_w(get_field(space, w_node, 'lineno', False))
+        _col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
+        return If(_test, _body, _orelse, _lineno, _col_offset)
 
 State.ast_type('If', 'stmt', ['test', 'body', 'orelse'])
 
@@ -899,14 +899,14 @@ class With(stmt):
 
     @staticmethod
     def from_object(space, w_node):
-        context_expr = expr.from_object(space, get_field(space, w_node, 'context_expr', False))
-        optional_vars = expr.from_object(space, get_field(space, w_node, 'optional_vars', True))
+        _context_expr = expr.from_object(space, get_field(space, w_node, 'context_expr', False))
+        _optional_vars = expr.from_object(space, get_field(space, w_node, 'optional_vars', True))
         body_w = space.unpackiterable(
                 get_field(space, w_node, 'body', False))
-        body = [stmt.from_object(space, w_item) for w_item in body_w]
-        lineno = space.int_w(get_field(space, w_node, 'lineno', False))
-        col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
-        return With(context_expr, optional_vars, body, lineno, col_offset)
+        _body = [stmt.from_object(space, w_item) for w_item in body_w]
+        _lineno = space.int_w(get_field(space, w_node, 'lineno', False))
+        _col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
+        return With(_context_expr, _optional_vars, _body, _lineno, _col_offset)
 
 State.ast_type('With', 'stmt', ['context_expr', 'optional_vars', 'body'])
 
@@ -947,12 +947,12 @@ class Raise(stmt):
 
     @staticmethod
     def from_object(space, w_node):
-        type = expr.from_object(space, get_field(space, w_node, 'type', True))
-        inst = expr.from_object(space, get_field(space, w_node, 'inst', True))
-        tback = expr.from_object(space, get_field(space, w_node, 'tback', True))
-        lineno = space.int_w(get_field(space, w_node, 'lineno', False))
-        col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
-        return Raise(type, inst, tback, lineno, col_offset)
+        _type = expr.from_object(space, get_field(space, w_node, 'type', True))
+        _inst = expr.from_object(space, get_field(space, w_node, 'inst', True))
+        _tback = expr.from_object(space, get_field(space, w_node, 'tback', True))
+        _lineno = space.int_w(get_field(space, w_node, 'lineno', False))
+        _col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
+        return Raise(_type, _inst, _tback, _lineno, _col_offset)
 
 State.ast_type('Raise', 'stmt', ['type', 'inst', 'tback'])
 
@@ -1007,16 +1007,16 @@ class TryExcept(stmt):
     def from_object(space, w_node):
         body_w = space.unpackiterable(
                 get_field(space, w_node, 'body', False))
-        body = [stmt.from_object(space, w_item) for w_item in body_w]
+        _body = [stmt.from_object(space, w_item) for w_item in body_w]
         handlers_w = space.unpackiterable(
                 get_field(space, w_node, 'handlers', False))
-        handlers = [excepthandler.from_object(space, w_item) for w_item in handlers_w]
+        _handlers = [excepthandler.from_object(space, w_item) for w_item in handlers_w]
         orelse_w = space.unpackiterable(
                 get_field(space, w_node, 'orelse', False))
-        orelse = [stmt.from_object(space, w_item) for w_item in orelse_w]
-        lineno = space.int_w(get_field(space, w_node, 'lineno', False))
-        col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
-        return TryExcept(body, handlers, orelse, lineno, col_offset)
+        _orelse = [stmt.from_object(space, w_item) for w_item in orelse_w]
+        _lineno = space.int_w(get_field(space, w_node, 'lineno', False))
+        _col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
+        return TryExcept(_body, _handlers, _orelse, _lineno, _col_offset)
 
 State.ast_type('TryExcept', 'stmt', ['body', 'handlers', 'orelse'])
 
@@ -1062,13 +1062,13 @@ class TryFinally(stmt):
     def from_object(space, w_node):
         body_w = space.unpackiterable(
                 get_field(space, w_node, 'body', False))
-        body = [stmt.from_object(space, w_item) for w_item in body_w]
+        _body = [stmt.from_object(space, w_item) for w_item in body_w]
         finalbody_w = space.unpackiterable(
                 get_field(space, w_node, 'finalbody', False))
-        finalbody = [stmt.from_object(space, w_item) for w_item in finalbody_w]
-        lineno = space.int_w(get_field(space, w_node, 'lineno', False))
-        col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
-        return TryFinally(body, finalbody, lineno, col_offset)
+        _finalbody = [stmt.from_object(space, w_item) for w_item in finalbody_w]
+        _lineno = space.int_w(get_field(space, w_node, 'lineno', False))
+        _col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
+        return TryFinally(_body, _finalbody, _lineno, _col_offset)
 
 State.ast_type('TryFinally', 'stmt', ['body', 'finalbody'])
 
@@ -1103,11 +1103,11 @@ class Assert(stmt):
 
     @staticmethod
     def from_object(space, w_node):
-        test = expr.from_object(space, get_field(space, w_node, 'test', False))
-        msg = expr.from_object(space, get_field(space, w_node, 'msg', True))
-        lineno = space.int_w(get_field(space, w_node, 'lineno', False))
-        col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
-        return Assert(test, msg, lineno, col_offset)
+        _test = expr.from_object(space, get_field(space, w_node, 'test', False))
+        _msg = expr.from_object(space, get_field(space, w_node, 'msg', True))
+        _lineno = space.int_w(get_field(space, w_node, 'lineno', False))
+        _col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
+        return Assert(_test, _msg, _lineno, _col_offset)
 
 State.ast_type('Assert', 'stmt', ['test', 'msg'])
 
@@ -1144,10 +1144,10 @@ class Import(stmt):
     def from_object(space, w_node):
         names_w = space.unpackiterable(
                 get_field(space, w_node, 'names', False))
-        names = [alias.from_object(space, w_item) for w_item in names_w]
-        lineno = space.int_w(get_field(space, w_node, 'lineno', False))
-        col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
-        return Import(names, lineno, col_offset)
+        _names = [alias.from_object(space, w_item) for w_item in names_w]
+        _lineno = space.int_w(get_field(space, w_node, 'lineno', False))
+        _col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
+        return Import(_names, _lineno, _col_offset)
 
 State.ast_type('Import', 'stmt', ['names'])
 
@@ -1188,14 +1188,14 @@ class ImportFrom(stmt):
 
     @staticmethod
     def from_object(space, w_node):
-        module = space.str_or_None_w(get_field(space, w_node, 'module', True))
+        _module = space.str_or_None_w(get_field(space, w_node, 'module', True))
         names_w = space.unpackiterable(
                 get_field(space, w_node, 'names', False))
-        names = [alias.from_object(space, w_item) for w_item in names_w]
-        level = space.int_w(get_field(space, w_node, 'level', True))
-        lineno = space.int_w(get_field(space, w_node, 'lineno', False))
-        col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
-        return ImportFrom(module, names, level, lineno, col_offset)
+        _names = [alias.from_object(space, w_item) for w_item in names_w]
+        _level = space.int_w(get_field(space, w_node, 'level', True))
+        _lineno = space.int_w(get_field(space, w_node, 'lineno', False))
+        _col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
+        return ImportFrom(_module, _names, _level, _lineno, _col_offset)
 
 State.ast_type('ImportFrom', 'stmt', ['module', 'names', 'level'])
 
@@ -1235,12 +1235,12 @@ class Exec(stmt):
 
     @staticmethod
     def from_object(space, w_node):
-        body = expr.from_object(space, get_field(space, w_node, 'body', False))
-        globals = expr.from_object(space, get_field(space, w_node, 'globals', True))
-        locals = expr.from_object(space, get_field(space, w_node, 'locals', True))
-        lineno = space.int_w(get_field(space, w_node, 'lineno', False))
-        col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
-        return Exec(body, globals, locals, lineno, col_offset)
+        _body = expr.from_object(space, get_field(space, w_node, 'body', False))
+        _globals = expr.from_object(space, get_field(space, w_node, 'globals', True))
+        _locals = expr.from_object(space, get_field(space, w_node, 'locals', True))
+        _lineno = space.int_w(get_field(space, w_node, 'lineno', False))
+        _col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
+        return Exec(_body, _globals, _locals, _lineno, _col_offset)
 
 State.ast_type('Exec', 'stmt', ['body', 'globals', 'locals'])
 
@@ -1275,10 +1275,10 @@ class Global(stmt):
     def from_object(space, w_node):
         names_w = space.unpackiterable(
                 get_field(space, w_node, 'names', False))
-        names = [space.str_w(w_item) for w_item in names_w]
-        lineno = space.int_w(get_field(space, w_node, 'lineno', False))
-        col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
-        return Global(names, lineno, col_offset)
+        _names = [space.str_w(w_item) for w_item in names_w]
+        _lineno = space.int_w(get_field(space, w_node, 'lineno', False))
+        _col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
+        return Global(_names, _lineno, _col_offset)
 
 State.ast_type('Global', 'stmt', ['names'])
 
@@ -1308,10 +1308,10 @@ class Expr(stmt):
 
     @staticmethod
     def from_object(space, w_node):
-        value = expr.from_object(space, get_field(space, w_node, 'value', False))
-        lineno = space.int_w(get_field(space, w_node, 'lineno', False))
-        col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
-        return Expr(value, lineno, col_offset)
+        _value = expr.from_object(space, get_field(space, w_node, 'value', False))
+        _lineno = space.int_w(get_field(space, w_node, 'lineno', False))
+        _col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
+        return Expr(_value, _lineno, _col_offset)
 
 State.ast_type('Expr', 'stmt', ['value'])
 
@@ -1337,9 +1337,9 @@ class Pass(stmt):
 
     @staticmethod
     def from_object(space, w_node):
-        lineno = space.int_w(get_field(space, w_node, 'lineno', False))
-        col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
-        return Pass(lineno, col_offset)
+        _lineno = space.int_w(get_field(space, w_node, 'lineno', False))
+        _col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
+        return Pass(_lineno, _col_offset)
 
 State.ast_type('Pass', 'stmt', [])
 
@@ -1365,9 +1365,9 @@ class Break(stmt):
 
     @staticmethod
     def from_object(space, w_node):
-        lineno = space.int_w(get_field(space, w_node, 'lineno', False))
-        col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
-        return Break(lineno, col_offset)
+        _lineno = space.int_w(get_field(space, w_node, 'lineno', False))
+        _col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
+        return Break(_lineno, _col_offset)
 
 State.ast_type('Break', 'stmt', [])
 
@@ -1393,9 +1393,9 @@ class Continue(stmt):
 
     @staticmethod
     def from_object(space, w_node):
-        lineno = space.int_w(get_field(space, w_node, 'lineno', False))
-        col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
-        return Continue(lineno, col_offset)
+        _lineno = space.int_w(get_field(space, w_node, 'lineno', False))
+        _col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
+        return Continue(_lineno, _col_offset)
 
 State.ast_type('Continue', 'stmt', [])
 
@@ -1493,13 +1493,13 @@ class BoolOp(expr):
 
     @staticmethod
     def from_object(space, w_node):
-        op = boolop.from_object(space, get_field(space, w_node, 'op', False))
+        _op = boolop.from_object(space, get_field(space, w_node, 'op', False))
         values_w = space.unpackiterable(
                 get_field(space, w_node, 'values', False))
-        values = [expr.from_object(space, w_item) for w_item in values_w]
-        lineno = space.int_w(get_field(space, w_node, 'lineno', False))
-        col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
-        return BoolOp(op, values, lineno, col_offset)
+        _values = [expr.from_object(space, w_item) for w_item in values_w]
+        _lineno = space.int_w(get_field(space, w_node, 'lineno', False))
+        _col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
+        return BoolOp(_op, _values, _lineno, _col_offset)
 
 State.ast_type('BoolOp', 'expr', ['op', 'values'])
 
@@ -1536,12 +1536,12 @@ class BinOp(expr):
 
     @staticmethod
     def from_object(space, w_node):
-        left = expr.from_object(space, get_field(space, w_node, 'left', False))
-        op = operator.from_object(space, get_field(space, w_node, 'op', False))
-        right = expr.from_object(space, get_field(space, w_node, 'right', False))
-        lineno = space.int_w(get_field(space, w_node, 'lineno', False))
-        col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
-        return BinOp(left, op, right, lineno, col_offset)
+        _left = expr.from_object(space, get_field(space, w_node, 'left', False))
+        _op = operator.from_object(space, get_field(space, w_node, 'op', False))
+        _right = expr.from_object(space, get_field(space, w_node, 'right', False))
+        _lineno = space.int_w(get_field(space, w_node, 'lineno', False))
+        _col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
+        return BinOp(_left, _op, _right, _lineno, _col_offset)
 
 State.ast_type('BinOp', 'expr', ['left', 'op', 'right'])
 
@@ -1574,11 +1574,11 @@ class UnaryOp(expr):
 
     @staticmethod
     def from_object(space, w_node):
-        op = unaryop.from_object(space, get_field(space, w_node, 'op', False))
-        operand = expr.from_object(space, get_field(space, w_node, 'operand', False))
-        lineno = space.int_w(get_field(space, w_node, 'lineno', False))
-        col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
-        return UnaryOp(op, operand, lineno, col_offset)
+        _op = unaryop.from_object(space, get_field(space, w_node, 'op', False))
+        _operand = expr.from_object(space, get_field(space, w_node, 'operand', False))
+        _lineno = space.int_w(get_field(space, w_node, 'lineno', False))
+        _col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
+        return UnaryOp(_op, _operand, _lineno, _col_offset)
 
 State.ast_type('UnaryOp', 'expr', ['op', 'operand'])
 
@@ -1612,11 +1612,11 @@ class Lambda(expr):
 
     @staticmethod
     def from_object(space, w_node):
-        args = arguments.from_object(space, get_field(space, w_node, 'args', False))
-        body = expr.from_object(space, get_field(space, w_node, 'body', False))
-        lineno = space.int_w(get_field(space, w_node, 'lineno', False))
-        col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
-        return Lambda(args, body, lineno, col_offset)
+        _args = arguments.from_object(space, get_field(space, w_node, 'args', False))
+        _body = expr.from_object(space, get_field(space, w_node, 'body', False))
+        _lineno = space.int_w(get_field(space, w_node, 'lineno', False))
+        _col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
+        return Lambda(_args, _body, _lineno, _col_offset)
 
 State.ast_type('Lambda', 'expr', ['args', 'body'])
 
@@ -1654,12 +1654,12 @@ class IfExp(expr):
 
     @staticmethod
     def from_object(space, w_node):
-        test = expr.from_object(space, get_field(space, w_node, 'test', False))
-        body = expr.from_object(space, get_field(space, w_node, 'body', False))
-        orelse = expr.from_object(space, get_field(space, w_node, 'orelse', False))
-        lineno = space.int_w(get_field(space, w_node, 'lineno', False))
-        col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
-        return IfExp(test, body, orelse, lineno, col_offset)
+        _test = expr.from_object(space, get_field(space, w_node, 'test', False))
+        _body = expr.from_object(space, get_field(space, w_node, 'body', False))
+        _orelse = expr.from_object(space, get_field(space, w_node, 'orelse', False))
+        _lineno = space.int_w(get_field(space, w_node, 'lineno', False))
+        _col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
+        return IfExp(_test, _body, _orelse, _lineno, _col_offset)
 
 State.ast_type('IfExp', 'expr', ['test', 'body', 'orelse'])
 
@@ -1705,13 +1705,13 @@ class Dict(expr):
     def from_object(space, w_node):
         keys_w = space.unpackiterable(
                 get_field(space, w_node, 'keys', False))
-        keys = [expr.from_object(space, w_item) for w_item in keys_w]
+        _keys = [expr.from_object(space, w_item) for w_item in keys_w]
         values_w = space.unpackiterable(
                 get_field(space, w_node, 'values', False))
-        values = [expr.from_object(space, w_item) for w_item in values_w]
-        lineno = space.int_w(get_field(space, w_node, 'lineno', False))
-        col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
-        return Dict(keys, values, lineno, col_offset)
+        _values = [expr.from_object(space, w_item) for w_item in values_w]
+        _lineno = space.int_w(get_field(space, w_node, 'lineno', False))
+        _col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
+        return Dict(_keys, _values, _lineno, _col_offset)
 
 State.ast_type('Dict', 'expr', ['keys', 'values'])
 
@@ -1748,10 +1748,10 @@ class Set(expr):
     def from_object(space, w_node):
         elts_w = space.unpackiterable(
                 get_field(space, w_node, 'elts', False))
-        elts = [expr.from_object(space, w_item) for w_item in elts_w]
-        lineno = space.int_w(get_field(space, w_node, 'lineno', False))
-        col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
-        return Set(elts, lineno, col_offset)
+        _elts = [expr.from_object(space, w_item) for w_item in elts_w]
+        _lineno = space.int_w(get_field(space, w_node, 'lineno', False))
+        _col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
+        return Set(_elts, _lineno, _col_offset)
 
 State.ast_type('Set', 'expr', ['elts'])
 
@@ -1790,13 +1790,13 @@ class ListComp(expr):
 
     @staticmethod
     def from_object(space, w_node):
-        elt = expr.from_object(space, get_field(space, w_node, 'elt', False))
+        _elt = expr.from_object(space, get_field(space, w_node, 'elt', False))
         generators_w = space.unpackiterable(
                 get_field(space, w_node, 'generators', False))
-        generators = [comprehension.from_object(space, w_item) for w_item in generators_w]
-        lineno = space.int_w(get_field(space, w_node, 'lineno', False))
-        col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
-        return ListComp(elt, generators, lineno, col_offset)
+        _generators = [comprehension.from_object(space, w_item) for w_item in generators_w]
+        _lineno = space.int_w(get_field(space, w_node, 'lineno', False))
+        _col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
+        return ListComp(_elt, _generators, _lineno, _col_offset)
 
 State.ast_type('ListComp', 'expr', ['elt', 'generators'])
 
@@ -1835,13 +1835,13 @@ class SetComp(expr):
 
     @staticmethod
     def from_object(space, w_node):
-        elt = expr.from_object(space, get_field(space, w_node, 'elt', False))
+        _elt = expr.from_object(space, get_field(space, w_node, 'elt', False))
         generators_w = space.unpackiterable(
                 get_field(space, w_node, 'generators', False))
-        generators = [comprehension.from_object(space, w_item) for w_item in generators_w]
-        lineno = space.int_w(get_field(space, w_node, 'lineno', False))
-        col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
-        return SetComp(elt, generators, lineno, col_offset)
+        _generators = [comprehension.from_object(space, w_item) for w_item in generators_w]
+        _lineno = space.int_w(get_field(space, w_node, 'lineno', False))
+        _col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
+        return SetComp(_elt, _generators, _lineno, _col_offset)
 
 State.ast_type('SetComp', 'expr', ['elt', 'generators'])
 
@@ -1884,14 +1884,14 @@ class DictComp(expr):
 
     @staticmethod
     def from_object(space, w_node):
-        key = expr.from_object(space, get_field(space, w_node, 'key', False))
-        value = expr.from_object(space, get_field(space, w_node, 'value', False))
+        _key = expr.from_object(space, get_field(space, w_node, 'key', False))
+        _value = expr.from_object(space, get_field(space, w_node, 'value', False))
         generators_w = space.unpackiterable(
                 get_field(space, w_node, 'generators', False))
-        generators = [comprehension.from_object(space, w_item) for w_item in generators_w]
-        lineno = space.int_w(get_field(space, w_node, 'lineno', False))
-        col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
-        return DictComp(key, value, generators, lineno, col_offset)
+        _generators = [comprehension.from_object(space, w_item) for w_item in generators_w]
+        _lineno = space.int_w(get_field(space, w_node, 'lineno', False))
+        _col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
+        return DictComp(_key, _value, _generators, _lineno, _col_offset)
 
 State.ast_type('DictComp', 'expr', ['key', 'value', 'generators'])
 
@@ -1930,13 +1930,13 @@ class GeneratorExp(expr):
 
     @staticmethod
     def from_object(space, w_node):
-        elt = expr.from_object(space, get_field(space, w_node, 'elt', False))
+        _elt = expr.from_object(space, get_field(space, w_node, 'elt', False))
         generators_w = space.unpackiterable(
                 get_field(space, w_node, 'generators', False))
-        generators = [comprehension.from_object(space, w_item) for w_item in generators_w]
-        lineno = space.int_w(get_field(space, w_node, 'lineno', False))
-        col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
-        return GeneratorExp(elt, generators, lineno, col_offset)
+        _generators = [comprehension.from_object(space, w_item) for w_item in generators_w]
+        _lineno = space.int_w(get_field(space, w_node, 'lineno', False))
+        _col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
+        return GeneratorExp(_elt, _generators, _lineno, _col_offset)
 
 State.ast_type('GeneratorExp', 'expr', ['elt', 'generators'])
 
@@ -1967,10 +1967,10 @@ class Yield(expr):
 
     @staticmethod
     def from_object(space, w_node):
-        value = expr.from_object(space, get_field(space, w_node, 'value', True))
-        lineno = space.int_w(get_field(space, w_node, 'lineno', False))
-        col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
-        return Yield(value, lineno, col_offset)
+        _value = expr.from_object(space, get_field(space, w_node, 'value', True))
+        _lineno = space.int_w(get_field(space, w_node, 'lineno', False))
+        _col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
+        return Yield(_value, _lineno, _col_offset)
 
 State.ast_type('Yield', 'expr', ['value'])
 
@@ -2016,16 +2016,16 @@ class Compare(expr):
 
     @staticmethod
     def from_object(space, w_node):
-        left = expr.from_object(space, get_field(space, w_node, 'left', False))
+        _left = expr.from_object(space, get_field(space, w_node, 'left', False))
         ops_w = space.unpackiterable(
                 get_field(space, w_node, 'ops', False))
-        ops = [cmpop.from_object(space, w_item) for w_item in ops_w]
+        _ops = [cmpop.from_object(space, w_item) for w_item in ops_w]
         comparators_w = space.unpackiterable(
                 get_field(space, w_node, 'comparators', False))
-        comparators = [expr.from_object(space, w_item) for w_item in comparators_w]
-        lineno = space.int_w(get_field(space, w_node, 'lineno', False))
-        col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
-        return Compare(left, ops, comparators, lineno, col_offset)
+        _comparators = [expr.from_object(space, w_item) for w_item in comparators_w]
+        _lineno = space.int_w(get_field(space, w_node, 'lineno', False))
+        _col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
+        return Compare(_left, _ops, _comparators, _lineno, _col_offset)
 
 State.ast_type('Compare', 'expr', ['left', 'ops', 'comparators'])
 
@@ -2083,18 +2083,18 @@ class Call(expr):
 
     @staticmethod
     def from_object(space, w_node):
-        func = expr.from_object(space, get_field(space, w_node, 'func', False))
+        _func = expr.from_object(space, get_field(space, w_node, 'func', False))
         args_w = space.unpackiterable(
                 get_field(space, w_node, 'args', False))
-        args = [expr.from_object(space, w_item) for w_item in args_w]
+        _args = [expr.from_object(space, w_item) for w_item in args_w]
         keywords_w = space.unpackiterable(
                 get_field(space, w_node, 'keywords', False))
-        keywords = [keyword.from_object(space, w_item) for w_item in keywords_w]
-        starargs = expr.from_object(space, get_field(space, w_node, 'starargs', True))
-        kwargs = expr.from_object(space, get_field(space, w_node, 'kwargs', True))
-        lineno = space.int_w(get_field(space, w_node, 'lineno', False))
-        col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
-        return Call(func, args, keywords, starargs, kwargs, lineno, col_offset)
+        _keywords = [keyword.from_object(space, w_item) for w_item in keywords_w]
+        _starargs = expr.from_object(space, get_field(space, w_node, 'starargs', True))
+        _kwargs = expr.from_object(space, get_field(space, w_node, 'kwargs', True))
+        _lineno = space.int_w(get_field(space, w_node, 'lineno', False))
+        _col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
+        return Call(_func, _args, _keywords, _starargs, _kwargs, _lineno, _col_offset)
 
 State.ast_type('Call', 'expr', ['func', 'args', 'keywords', 'starargs', 'kwargs'])
 
@@ -2124,10 +2124,10 @@ class Repr(expr):
 
     @staticmethod
     def from_object(space, w_node):
-        value = expr.from_object(space, get_field(space, w_node, 'value', False))
-        lineno = space.int_w(get_field(space, w_node, 'lineno', False))
-        col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
-        return Repr(value, lineno, col_offset)
+        _value = expr.from_object(space, get_field(space, w_node, 'value', False))
+        _lineno = space.int_w(get_field(space, w_node, 'lineno', False))
+        _col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
+        return Repr(_value, _lineno, _col_offset)
 
 State.ast_type('Repr', 'expr', ['value'])
 
@@ -2156,10 +2156,10 @@ class Num(expr):
 
     @staticmethod
     def from_object(space, w_node):
-        n = get_field(space, w_node, 'n', False)
-        lineno = space.int_w(get_field(space, w_node, 'lineno', False))
-        col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
-        return Num(n, lineno, col_offset)
+        _n = get_field(space, w_node, 'n', False)
+        _lineno = space.int_w(get_field(space, w_node, 'lineno', False))
+        _col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
+        return Num(_n, _lineno, _col_offset)
 
 State.ast_type('Num', 'expr', ['n'])
 
@@ -2188,10 +2188,10 @@ class Str(expr):
 
     @staticmethod
     def from_object(space, w_node):
-        s = check_string(space, get_field(space, w_node, 's', False))
-        lineno = space.int_w(get_field(space, w_node, 'lineno', False))
-        col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
-        return Str(s, lineno, col_offset)
+        _s = check_string(space, get_field(space, w_node, 's', False))
+        _lineno = space.int_w(get_field(space, w_node, 'lineno', False))
+        _col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
+        return Str(_s, _lineno, _col_offset)
 
 State.ast_type('Str', 'expr', ['s'])
 
@@ -2227,12 +2227,12 @@ class Attribute(expr):
 
     @staticmethod
     def from_object(space, w_node):
-        value = expr.from_object(space, get_field(space, w_node, 'value', False))
-        attr = space.str_w(get_field(space, w_node, 'attr', False))
-        ctx = expr_context.from_object(space, get_field(space, w_node, 'ctx', False))
-        lineno = space.int_w(get_field(space, w_node, 'lineno', False))
-        col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
-        return Attribute(value, attr, ctx, lineno, col_offset)
+        _value = expr.from_object(space, get_field(space, w_node, 'value', False))
+        _attr = space.str_w(get_field(space, w_node, 'attr', False))
+        _ctx = expr_context.from_object(space, get_field(space, w_node, 'ctx', False))
+        _lineno = space.int_w(get_field(space, w_node, 'lineno', False))
+        _col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
+        return Attribute(_value, _attr, _ctx, _lineno, _col_offset)
 
 State.ast_type('Attribute', 'expr', ['value', 'attr', 'ctx'])
 
@@ -2269,12 +2269,12 @@ class Subscript(expr):
 
     @staticmethod
     def from_object(space, w_node):
-        value = expr.from_object(space, get_field(space, w_node, 'value', False))
-        slice = slice.from_object(space, get_field(space, w_node, 'slice', False))
-        ctx = expr_context.from_object(space, get_field(space, w_node, 'ctx', False))
-        lineno = space.int_w(get_field(space, w_node, 'lineno', False))
-        col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
-        return Subscript(value, slice, ctx, lineno, col_offset)
+        _value = expr.from_object(space, get_field(space, w_node, 'value', False))
+        _slice = slice.from_object(space, get_field(space, w_node, 'slice', False))
+        _ctx = expr_context.from_object(space, get_field(space, w_node, 'ctx', False))
+        _lineno = space.int_w(get_field(space, w_node, 'lineno', False))
+        _col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
+        return Subscript(_value, _slice, _ctx, _lineno, _col_offset)
 
 State.ast_type('Subscript', 'expr', ['value', 'slice', 'ctx'])
 
@@ -2306,11 +2306,11 @@ class Name(expr):
 
     @staticmethod
     def from_object(space, w_node):
-        id = space.str_w(get_field(space, w_node, 'id', False))
-        ctx = expr_context.from_object(space, get_field(space, w_node, 'ctx', False))
-        lineno = space.int_w(get_field(space, w_node, 'lineno', False))
-        col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
-        return Name(id, ctx, lineno, col_offset)
+        _id = space.str_w(get_field(space, w_node, 'id', False))
+        _ctx = expr_context.from_object(space, get_field(space, w_node, 'ctx', False))
+        _lineno = space.int_w(get_field(space, w_node, 'lineno', False))
+        _col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
+        return Name(_id, _ctx, _lineno, _col_offset)
 
 State.ast_type('Name', 'expr', ['id', 'ctx'])
 
@@ -2350,11 +2350,11 @@ class List(expr):
     def from_object(space, w_node):
         elts_w = space.unpackiterable(
                 get_field(space, w_node, 'elts', False))
-        elts = [expr.from_object(space, w_item) for w_item in elts_w]
-        ctx = expr_context.from_object(space, get_field(space, w_node, 'ctx', False))
-        lineno = space.int_w(get_field(space, w_node, 'lineno', False))
-        col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
-        return List(elts, ctx, lineno, col_offset)
+        _elts = [expr.from_object(space, w_item) for w_item in elts_w]
+        _ctx = expr_context.from_object(space, get_field(space, w_node, 'ctx', False))
+        _lineno = space.int_w(get_field(space, w_node, 'lineno', False))
+        _col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
+        return List(_elts, _ctx, _lineno, _col_offset)
 
 State.ast_type('List', 'expr', ['elts', 'ctx'])
 
@@ -2394,11 +2394,11 @@ class Tuple(expr):
     def from_object(space, w_node):
         elts_w = space.unpackiterable(
                 get_field(space, w_node, 'elts', False))
-        elts = [expr.from_object(space, w_item) for w_item in elts_w]
-        ctx = expr_context.from_object(space, get_field(space, w_node, 'ctx', False))
-        lineno = space.int_w(get_field(space, w_node, 'lineno', False))
-        col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
-        return Tuple(elts, ctx, lineno, col_offset)
+        _elts = [expr.from_object(space, w_item) for w_item in elts_w]
+        _ctx = expr_context.from_object(space, get_field(space, w_node, 'ctx', False))
+        _lineno = space.int_w(get_field(space, w_node, 'lineno', False))
+        _col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
+        return Tuple(_elts, _ctx, _lineno, _col_offset)
 
 State.ast_type('Tuple', 'expr', ['elts', 'ctx'])
 
@@ -2427,10 +2427,10 @@ class Const(expr):
 
     @staticmethod
     def from_object(space, w_node):
-        value = get_field(space, w_node, 'value', False)
-        lineno = space.int_w(get_field(space, w_node, 'lineno', False))
-        col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
-        return Const(value, lineno, col_offset)
+        _value = get_field(space, w_node, 'value', False)
+        _lineno = space.int_w(get_field(space, w_node, 'lineno', False))
+        _col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
+        return Const(_value, _lineno, _col_offset)
 
 State.ast_type('Const', 'expr', ['value'])
 
@@ -2568,10 +2568,10 @@ class Slice(slice):
 
     @staticmethod
     def from_object(space, w_node):
-        lower = expr.from_object(space, get_field(space, w_node, 'lower', True))
-        upper = expr.from_object(space, get_field(space, w_node, 'upper', True))
-        step = expr.from_object(space, get_field(space, w_node, 'step', True))
-        return Slice(lower, upper, step)
+        _lower = expr.from_object(space, get_field(space, w_node, 'lower', True))
+        _upper = expr.from_object(space, get_field(space, w_node, 'upper', True))
+        _step = expr.from_object(space, get_field(space, w_node, 'step', True))
+        return Slice(_lower, _upper, _step)
 
 State.ast_type('Slice', 'slice', ['lower', 'upper', 'step'])
 
@@ -2603,8 +2603,8 @@ class ExtSlice(slice):
     def from_object(space, w_node):
         dims_w = space.unpackiterable(
                 get_field(space, w_node, 'dims', False))
-        dims = [slice.from_object(space, w_item) for w_item in dims_w]
-        return ExtSlice(dims)
+        _dims = [slice.from_object(space, w_item) for w_item in dims_w]
+        return ExtSlice(_dims)
 
 State.ast_type('ExtSlice', 'slice', ['dims'])
 
@@ -2629,8 +2629,8 @@ class Index(slice):
 
     @staticmethod
     def from_object(space, w_node):
-        value = expr.from_object(space, get_field(space, w_node, 'value', False))
-        return Index(value)
+        _value = expr.from_object(space, get_field(space, w_node, 'value', False))
+        return Index(_value)
 
 State.ast_type('Index', 'slice', ['value'])
 
@@ -2964,12 +2964,12 @@ class comprehension(AST):
 
     @staticmethod
     def from_object(space, w_node):
-        target = expr.from_object(space, get_field(space, w_node, 'target', False))
-        iter = expr.from_object(space, get_field(space, w_node, 'iter', False))
+        _target = expr.from_object(space, get_field(space, w_node, 'target', False))
+        _iter = expr.from_object(space, get_field(space, w_node, 'iter', False))
         ifs_w = space.unpackiterable(
                 get_field(space, w_node, 'ifs', False))
-        ifs = [expr.from_object(space, w_item) for w_item in ifs_w]
-        return comprehension(target, iter, ifs)
+        _ifs = [expr.from_object(space, w_item) for w_item in ifs_w]
+        return comprehension(_target, _iter, _ifs)
 
 State.ast_type('comprehension', 'AST', None)
 
@@ -3029,14 +3029,14 @@ class ExceptHandler(excepthandler):
 
     @staticmethod
     def from_object(space, w_node):
-        type = expr.from_object(space, get_field(space, w_node, 'type', True))
-        name = expr.from_object(space, get_field(space, w_node, 'name', True))
+        _type = expr.from_object(space, get_field(space, w_node, 'type', True))
+        _name = expr.from_object(space, get_field(space, w_node, 'name', True))
         body_w = space.unpackiterable(
                 get_field(space, w_node, 'body', False))
-        body = [stmt.from_object(space, w_item) for w_item in body_w]
-        lineno = space.int_w(get_field(space, w_node, 'lineno', False))
-        col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
-        return ExceptHandler(type, name, body, lineno, col_offset)
+        _body = [stmt.from_object(space, w_item) for w_item in body_w]
+        _lineno = space.int_w(get_field(space, w_node, 'lineno', False))
+        _col_offset = space.int_w(get_field(space, w_node, 'col_offset', False))
+        return ExceptHandler(_type, _name, _body, _lineno, _col_offset)
 
 State.ast_type('ExceptHandler', 'excepthandler', ['type', 'name', 'body'])
 
@@ -3083,13 +3083,13 @@ class arguments(AST):
     def from_object(space, w_node):
         args_w = space.unpackiterable(
                 get_field(space, w_node, 'args', False))
-        args = [expr.from_object(space, w_item) for w_item in args_w]
-        vararg = space.str_or_None_w(get_field(space, w_node, 'vararg', True))
-        kwarg = space.str_or_None_w(get_field(space, w_node, 'kwarg', True))
+        _args = [expr.from_object(space, w_item) for w_item in args_w]
+        _vararg = space.str_or_None_w(get_field(space, w_node, 'vararg', True))
+        _kwarg = space.str_or_None_w(get_field(space, w_node, 'kwarg', True))
         defaults_w = space.unpackiterable(
                 get_field(space, w_node, 'defaults', False))
-        defaults = [expr.from_object(space, w_item) for w_item in defaults_w]
-        return arguments(args, vararg, kwarg, defaults)
+        _defaults = [expr.from_object(space, w_item) for w_item in defaults_w]
+        return arguments(_args, _vararg, _kwarg, _defaults)
 
 State.ast_type('arguments', 'AST', None)
 
@@ -3116,9 +3116,9 @@ class keyword(AST):
 
     @staticmethod
     def from_object(space, w_node):
-        arg = space.str_w(get_field(space, w_node, 'arg', False))
-        value = expr.from_object(space, get_field(space, w_node, 'value', False))
-        return keyword(arg, value)
+        _arg = space.str_w(get_field(space, w_node, 'arg', False))
+        _value = expr.from_object(space, get_field(space, w_node, 'value', False))
+        return keyword(_arg, _value)
 
 State.ast_type('keyword', 'AST', None)
 
@@ -3144,9 +3144,9 @@ class alias(AST):
 
     @staticmethod
     def from_object(space, w_node):
-        name = space.str_w(get_field(space, w_node, 'name', False))
-        asname = space.str_or_None_w(get_field(space, w_node, 'asname', True))
-        return alias(name, asname)
+        _name = space.str_w(get_field(space, w_node, 'name', False))
+        _asname = space.str_or_None_w(get_field(space, w_node, 'asname', True))
+        return alias(_name, _asname)
 
 State.ast_type('alias', 'AST', None)
 

@@ -126,7 +126,7 @@ class ASTNodeVisitor(ASDLVisitor):
             return "%s_to_class[%s - 1]().to_object(space)" % (field.type, value)
         elif field.type.value in ("object", "string"):
             return value
-        elif field.type.value in ("identifier", "int"):
+        elif field.type.value in ("identifier", "int", "bool"):
             return "space.wrap(%s)" % (value,)
         else:
             wrapper = "%s.to_object(space)" % (value,)
@@ -147,6 +147,8 @@ class ASTNodeVisitor(ASDLVisitor):
             return "space.str_w(%s)" % (value,)
         elif field.type.value in ("int",):
             return "space.int_w(%s)" % (value,)
+        elif field.type.value in ("bool",):
+            return "space.bool_w(%s)" % (value,)
         else:
             return "%s.from_object(space, %s)" % (field.type, value)
 
@@ -172,13 +174,13 @@ class ASTNodeVisitor(ASDLVisitor):
             lines.append("        get_field(space, w_node, '%s', %s))"
                          % (field.name, field.opt))
             value = self.get_value_extractor(field, "w_item")
-            lines.append("%s = [%s for w_item in %s_w]" %
+            lines.append("_%s = [%s for w_item in %s_w]" %
                          (field.name, value, field.name))
         else:
             value = self.get_value_extractor(
                 field,
                 "get_field(space, w_node, '%s', %s)" % (field.name, field.opt))
-            lines = ["%s = %s" % (field.name, value)]
+            lines = ["_%s = %s" % (field.name, value)]
         return lines
 
     def make_converters(self, fields, name, extras=None):
@@ -200,7 +202,7 @@ class ASTNodeVisitor(ASDLVisitor):
             for line in unwrapping_code:
                 self.emit(line, 2)
         self.emit("return %s(%s)" % (
-                name, ', '.join(str(field.name) for field in all_fields)), 2)
+                name, ', '.join("_%s" % (field.name,) for field in all_fields)), 2)
         self.emit("")
 
     def make_constructor(self, fields, node, extras=None, base=None):
@@ -469,7 +471,7 @@ def W_AST_init(space, w_self, __args__):
     if args_w and len(args_w) != num_fields:
         if num_fields:
             raise operationerrfmt(space.w_TypeError,
-                "_ast.%T constructor takes either 0 or %s positional arguments", w_self, num_fields)
+                "_ast.%T constructor takes either 0 or %d positional arguments", w_self, num_fields)
         else:
             raise operationerrfmt(space.w_TypeError,
                 "_ast.%T constructor takes 0 positional arguments", w_self)
