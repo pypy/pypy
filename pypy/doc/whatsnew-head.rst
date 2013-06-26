@@ -58,3 +58,6 @@ Fix a segfault in argsort when sorting by chunks on multidim numpypy arrays (mik
 
 .. branch: dtype-isnative
 .. branch: ndarray-round
+
+.. branch: faster-str-of-bigint
+Improve performance of str(long).
