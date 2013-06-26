@@ -144,7 +144,7 @@ class ASTNodeVisitor(ASDLVisitor):
         elif field.type.value in ("identifier",):
             if field.opt:
                 return "space.str_or_None_w(%s)" % (value,)
-            return "space.str_w(%s)" % (value,)
+            return "space.realstr_w(%s)" % (value,)
         elif field.type.value in ("int",):
             return "space.int_w(%s)" % (value,)
         elif field.type.value in ("bool",):
@@ -469,12 +469,15 @@ def W_AST_init(space, w_self, __args__):
                                space.wrap("_fields")))
     num_fields = len(fields_w) if fields_w else 0
     if args_w and len(args_w) != num_fields:
-        if num_fields:
+        if num_fields == 0:
             raise operationerrfmt(space.w_TypeError,
-                "_ast.%T constructor takes either 0 or %d positional arguments", w_self, num_fields)
+                "%T constructor takes 0 positional arguments", w_self)
+        elif num_fields == 1:
+            raise operationerrfmt(space.w_TypeError,
+                "%T constructor takes either 0 or %d positional argument", w_self, num_fields)
         else:
             raise operationerrfmt(space.w_TypeError,
-                "_ast.%T constructor takes 0 positional arguments", w_self)
+                "%T constructor takes either 0 or %d positional arguments", w_self, num_fields)
     if args_w:
         for i, w_field in enumerate(fields_w):
             space.setattr(w_self, w_field, args_w[i])
@@ -482,10 +485,9 @@ def W_AST_init(space, w_self, __args__):
         space.setattr(w_self, space.wrap(field), w_value)
 
 
-W_AST.typedef = typedef.TypeDef("AST",
+W_AST.typedef = typedef.TypeDef("_ast.AST",
     _fields=_FieldsWrapper([]),
     _attributes=_FieldsWrapper([]),
-    __module__='_ast',
     __reduce__=interp2app(W_AST.reduce_w),
     __setstate__=interp2app(W_AST.setstate_w),
     __dict__ = typedef.GetSetProperty(typedef.descr_get_dict,

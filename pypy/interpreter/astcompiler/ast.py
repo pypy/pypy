@@ -87,12 +87,15 @@ def W_AST_init(space, w_self, __args__):
                                space.wrap("_fields")))
     num_fields = len(fields_w) if fields_w else 0
     if args_w and len(args_w) != num_fields:
-        if num_fields:
+        if num_fields == 0:
             raise operationerrfmt(space.w_TypeError,
-                "_ast.%T constructor takes either 0 or %d positional arguments", w_self, num_fields)
+                "%T constructor takes 0 positional arguments", w_self)
+        elif num_fields == 1:
+            raise operationerrfmt(space.w_TypeError,
+                "%T constructor takes either 0 or %d positional argument", w_self, num_fields)
         else:
             raise operationerrfmt(space.w_TypeError,
-                "_ast.%T constructor takes 0 positional arguments", w_self)
+                "%T constructor takes either 0 or %d positional arguments", w_self, num_fields)
     if args_w:
         for i, w_field in enumerate(fields_w):
             space.setattr(w_self, w_field, args_w[i])
@@ -100,10 +103,9 @@ def W_AST_init(space, w_self, __args__):
         space.setattr(w_self, space.wrap(field), w_value)
 
 
-W_AST.typedef = typedef.TypeDef("AST",
+W_AST.typedef = typedef.TypeDef("_ast.AST",
     _fields=_FieldsWrapper([]),
     _attributes=_FieldsWrapper([]),
-    __module__='_ast',
     __reduce__=interp2app(W_AST.reduce_w),
     __setstate__=interp2app(W_AST.setstate_w),
     __dict__ = typedef.GetSetProperty(typedef.descr_get_dict,
@@ -397,7 +399,7 @@ class FunctionDef(stmt):
         w_decorator_list = get_field(space, w_node, 'decorator_list', False)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _name = space.str_w(w_name)
+        _name = space.realstr_w(w_name)
         _args = arguments.from_object(space, w_args)
         body_w = space.unpackiterable(w_body)
         _body = [stmt.from_object(space, w_item) for w_item in body_w]
@@ -467,7 +469,7 @@ class ClassDef(stmt):
         w_decorator_list = get_field(space, w_node, 'decorator_list', False)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _name = space.str_w(w_name)
+        _name = space.realstr_w(w_name)
         bases_w = space.unpackiterable(w_bases)
         _bases = [expr.from_object(space, w_item) for w_item in bases_w]
         body_w = space.unpackiterable(w_body)
@@ -1340,7 +1342,7 @@ class Global(stmt):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         names_w = space.unpackiterable(w_names)
-        _names = [space.str_w(w_item) for w_item in names_w]
+        _names = [space.realstr_w(w_item) for w_item in names_w]
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
         return Global(_names, _lineno, _col_offset)
@@ -2365,7 +2367,7 @@ class Attribute(expr):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _value = expr.from_object(space, w_value)
-        _attr = space.str_w(w_attr)
+        _attr = space.realstr_w(w_attr)
         _ctx = expr_context.from_object(space, w_ctx)
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
@@ -2452,7 +2454,7 @@ class Name(expr):
         w_ctx = get_field(space, w_node, 'ctx', False)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _id = space.str_w(w_id)
+        _id = space.realstr_w(w_id)
         _ctx = expr_context.from_object(space, w_ctx)
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
@@ -3285,7 +3287,7 @@ class keyword(AST):
     def from_object(space, w_node):
         w_arg = get_field(space, w_node, 'arg', False)
         w_value = get_field(space, w_node, 'value', False)
-        _arg = space.str_w(w_arg)
+        _arg = space.realstr_w(w_arg)
         _value = expr.from_object(space, w_value)
         return keyword(_arg, _value)
 
@@ -3315,7 +3317,7 @@ class alias(AST):
     def from_object(space, w_node):
         w_name = get_field(space, w_node, 'name', False)
         w_asname = get_field(space, w_node, 'asname', True)
-        _name = space.str_w(w_name)
+        _name = space.realstr_w(w_name)
         _asname = space.str_or_None_w(w_asname)
         return alias(_name, _asname)
 
