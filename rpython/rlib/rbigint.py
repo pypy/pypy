@@ -1979,10 +1979,7 @@ def _format(a, digits, prefix='', suffix=''):
     Convert a bigint object to a string, using a given conversion base.
     Return a string object.
     """
-    size_a = a.numdigits()
 
-    base = len(digits)
-    assert base >= 2 and base <= 36
 
     # Compute a rough upper bound for the length of the string
     i = base
@@ -2002,8 +1999,15 @@ def _format(a, digits, prefix='', suffix=''):
     if a.sign == 0:
         p -= 1
         s[p] = '0'
-    elif (base & (base - 1)) == 0:
+
+def _format_base2(a, digits, prefix, suffix):
         # JRH: special case for power-of-2 bases
+        output = StringBuilder()
+        if a.sign < 0:
+            output.append('-')
+        output.append(prefix)
+        base = len(digits)
+        size_a = a.numdigits()
         accum = 0
         accumbits = 0  # # of bits in accum
         basebits = 1   # # of bits in base-1
@@ -2019,11 +2023,10 @@ def _format(a, digits, prefix='', suffix=''):
             accum |= a.widedigit(i) << accumbits
             accumbits += SHIFT
             assert accumbits >= basebits
+            out = []
             while 1:
                 cdigit = intmask(accum & (base - 1))
-                p -= 1
-                assert p >= 0
-                s[p] = digits[cdigit]
+                out.append(digits[cdigit])
                 accumbits -= basebits
                 accum >>= basebits
                 if i < size_a - 1:
@@ -2032,66 +2035,11 @@ def _format(a, digits, prefix='', suffix=''):
                 else:
                     if accum <= 0:
                         break
-                        
+            out.reverse()
+            output.append("".join(out))
             i += 1
-    else:
-        # Not 0, and base not a power of 2.  Divide repeatedly by
-        # base, but for speed use the highest power of base that
-        # fits in a digit.
-        size = size_a
-        pin = a # just for similarity to C source which uses the array
-        # powbase <- largest power of base that fits in a digit.
-        powbase = _widen_digit(base)  # powbase == base ** power
-        power = 1
-        while 1:
-            newpow = powbase * base
-            if newpow >> SHIFT:  # doesn't fit in a digit
-                break
-            powbase = newpow
-            power += 1
-
-        # Get a scratch area for repeated division.
-        scratch = rbigint([NULLDIGIT] * size, 1, size)
-
-        # Repeatedly divide by powbase.
-        while 1:
-            ntostore = power
-            rem = _inplace_divrem1(scratch, pin, powbase, size)
-            pin = scratch  # no need to use a again
-            if pin._digits[size - 1] == NULLDIGIT:
-                size -= 1
-
-            # Break rem into digits.
-            assert ntostore > 0
-            while 1:
-                nextrem = rem // base
-                c = rem - nextrem * base
-                p -= 1
-                assert p >= 0
-                s[p] = digits[c]
-                rem = nextrem
-                ntostore -= 1
-                # Termination is a bit delicate:  must not
-                # store leading zeroes, so must get out if
-                # remaining quotient and rem are both 0.
-                if not (ntostore and (size or rem)):
-                    break
-            if size == 0:
-                break
-
-    j = len(prefix)
-    while j > 0:
-        p -= 1
-        j -= 1
-        s[p] = prefix[j]
-
-    if a.sign < 0:
-        p -= 1
-        s[p] = '-'
-
-    assert p >= 0    # otherwise, buffer overflow (this is also a
-                     # hint for the annotator for the slice below)
-    return ''.join(s[p:])
+        output.append(suffix)
+        return output.build()
 
 _FORMAT_MINDIGITS = 5 # 36 ** 5 fits in 32 bits, there may be a better choice for this
 
@@ -2130,6 +2078,9 @@ def _format(x, digits, prefix='', suffix=''):
     if x.sign == 0:
         return prefix + "0" + suffix
     base = len(digits)
+    assert base >= 2 and base <= 36
+    if (base & (base - 1)) == 0:
+        return _format_base2(x, digits, prefix, suffix)
     negative = x.sign < 0
     if negative:
         x = x.neg()
