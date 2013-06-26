@@ -117,7 +117,7 @@ class JSONDecoder(object):
         self._raise("Error when decoding false at char %d", i)
 
     def decode_numeric(self, i):
-        i, intval = self.parse_integer(i)
+        i, intval = self.parse_integer(i, allow_leading_0=False)
         #
         is_float = False
         exp = 0
@@ -134,7 +134,7 @@ class JSONDecoder(object):
         # check for the optional exponent part
         if ch == 'E' or ch == 'e':
             is_float = True
-            i, exp = self.parse_integer(i+1)
+            i, exp = self.parse_integer(i+1, allow_leading_0=True)
         #
         self.pos = i
         if is_float:
@@ -146,7 +146,7 @@ class JSONDecoder(object):
         else:
             return self.space.wrap(intval)
 
-    def parse_integer(self, i):
+    def parse_integer(self, i, allow_leading_0=False):
         "Parse a decimal number with an optional minus sign"
         sign = 1
         if self.ll_chars[i] == '-':
@@ -154,7 +154,7 @@ class JSONDecoder(object):
             i += 1
         elif self.ll_chars[i] == '+':
             i += 1
-        elif self.ll_chars[i] == '0':
+        elif not allow_leading_0 and self.ll_chars[i] == '0':
             i += 1
             return i, 0
         i, intval, _ = self.parse_digits(i)
