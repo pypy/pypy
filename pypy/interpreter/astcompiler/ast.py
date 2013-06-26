@@ -3134,7 +3134,7 @@ class comprehension(AST):
         _ifs = [expr.from_object(space, w_item) for w_item in ifs_w]
         return comprehension(_target, _iter, _ifs)
 
-State.ast_type('comprehension', 'AST', None)
+State.ast_type('comprehension', 'AST', ['target', 'iter', 'ifs'])
 
 class excepthandler(AST):
 
@@ -3260,7 +3260,7 @@ class arguments(AST):
         _defaults = [expr.from_object(space, w_item) for w_item in defaults_w]
         return arguments(_args, _vararg, _kwarg, _defaults)
 
-State.ast_type('arguments', 'AST', None)
+State.ast_type('arguments', 'AST', ['args', 'vararg', 'kwarg', 'defaults'])
 
 class keyword(AST):
 
@@ -3291,7 +3291,7 @@ class keyword(AST):
         _value = expr.from_object(space, w_value)
         return keyword(_arg, _value)
 
-State.ast_type('keyword', 'AST', None)
+State.ast_type('keyword', 'AST', ['arg', 'value'])
 
 class alias(AST):
 
@@ -3321,7 +3321,7 @@ class alias(AST):
         _asname = space.str_or_None_w(w_asname)
         return alias(_name, _asname)
 
-State.ast_type('alias', 'AST', None)
+State.ast_type('alias', 'AST', ['name', 'asname'])
 
 class ASTVisitor(object):
 

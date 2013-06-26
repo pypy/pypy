@@ -118,7 +118,8 @@ class ASTNodeVisitor(ASDLVisitor):
         self.emit("visitor.visit_%s(self)" % (name,), 2)
         self.emit("")
         self.make_converters(product.fields, name)
-        self.emit("State.ast_type('%r', 'AST', None)" % (name,))
+        self.emit("State.ast_type('%r', 'AST', %s)" %
+                  (name, [repr(f.name) for f in product.fields]))
         self.emit("")
 
     def get_value_converter(self, field, value):
