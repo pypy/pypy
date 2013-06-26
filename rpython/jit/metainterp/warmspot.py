@@ -1,8 +1,11 @@
-import sys, py
+import sys
+
+import py
+
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rtyper.lltypesystem import lltype, llmemory
-from rpython.rtyper.annlowlevel import llhelper, MixLevelHelperAnnotator,\
-     cast_base_ptr_to_instance, hlstr
+from rpython.rtyper.annlowlevel import (llhelper, MixLevelHelperAnnotator,
+    cast_base_ptr_to_instance, hlstr)
 from rpython.annotator import model as annmodel
 from rpython.rtyper.llinterp import LLException
 from rpython.rtyper.test.test_llinterp import get_interpreter, clear_tcache
@@ -20,10 +23,11 @@ from rpython.jit.metainterp import history, pyjitpl, gc, memmgr, jitexc
 from rpython.jit.metainterp.pyjitpl import MetaInterpStaticData
 from rpython.jit.metainterp.jitprof import Profiler, EmptyProfiler
 from rpython.jit.metainterp.jitdriver import JitDriverStaticData
-from rpython.jit.codewriter import support, codewriter, longlong
+from rpython.jit.codewriter import support, codewriter
 from rpython.jit.codewriter.policy import JitPolicy
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.optimizeopt import ALL_OPTS_NAMES
+
 
 # ____________________________________________________________
 # Bootstrapping
@@ -39,8 +43,8 @@ def apply_jit(translator, backend_name="auto", inline=False,
     warmrunnerdesc = WarmRunnerDesc(translator,
                                     translate_support_code=True,
                                     listops=True,
-                                    no_stats = True,
-                                    ProfilerClass = ProfilerClass,
+                                    no_stats=True,
+                                    ProfilerClass=ProfilerClass,
                                     **kwds)
     for jd in warmrunnerdesc.jitdrivers_sd:
         jd.warmstate.set_param_inlining(inline)
@@ -336,7 +340,6 @@ class WarmRunnerDesc(object):
             c_new_driver = Constant(new_driver, v_driver.concretetype)
             op.args[1] = c_new_driver
 
-
     def find_portals(self):
         self.jitdrivers_sd = []
         graphs = self.translator.graphs
@@ -419,9 +422,12 @@ class WarmRunnerDesc(object):
             self.annhelper = MixLevelHelperAnnotator(self.translator.rtyper)
         cpu = CPUClass(self.translator.rtyper, self.stats, self.opt,
                        translate_support_code, gcdescr=self.gcdescr)
-        if not supports_floats:       cpu.supports_floats       = False
-        if not supports_longlong:     cpu.supports_longlong     = False
-        if not supports_singlefloats: cpu.supports_singlefloats = False
+        if not supports_floats:
+            cpu.supports_floats = False
+        if not supports_longlong:
+            cpu.supports_longlong = False
+        if not supports_singlefloats:
+            cpu.supports_singlefloats = False
         self.cpu = cpu
 
     def build_meta_interp(self, ProfilerClass):
@@ -677,6 +683,7 @@ class WarmRunnerDesc(object):
             # get special treatment since we rewrite it to a call that accepts
             # jit driver
             func = func_with_new_name(func, func.func_name + '_compiled')
+
             def new_func(ignored, *args):
                 return func(self, *args)
             ARGS = [lltype.Void] + [arg.concretetype for arg in op.args[3:]]
@@ -734,7 +741,7 @@ class WarmRunnerDesc(object):
         from rpython.jit.metainterp.warmstate import specialize_value
         from rpython.jit.metainterp.warmstate import unspecialize_value
         portal_ptr = self.cpu.ts.functionptr(PORTALFUNC, 'portal',
-                                         graph = portalgraph)
+                                         graph=portalgraph)
         jd._portal_ptr = portal_ptr
         #
         portalfunc_ARGS = []
@@ -758,7 +765,6 @@ class WarmRunnerDesc(object):
         ts = self.cpu.ts
         state = jd.warmstate
         maybe_compile_and_run = jd._maybe_compile_and_run_fn
-        cpu = jd.warmstate.cpu
 
         def ll_portal_runner(*args):
             start = True
@@ -920,7 +926,7 @@ class WarmRunnerDesc(object):
 
         if self.cpu.translate_support_code:
             call_final_function(self.translator, finish,
-                                annhelper = self.annhelper)
+                                annhelper=self.annhelper)
 
     def rewrite_set_param_and_get_stats(self):
         from rpython.rtyper.lltypesystem.rstr import STR
@@ -952,7 +958,7 @@ class WarmRunnerDesc(object):
             return Constant(funcptr, TP)
         #
         for graph, block, i in find_set_param(graphs):
-            
+
             op = block.operations[i]
             if op.args[1].value is not None:
                 for jd in self.jitdrivers_sd:

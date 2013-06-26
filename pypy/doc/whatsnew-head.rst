@@ -57,3 +57,7 @@ Add the '_obj' attribute on ctypes pointer() and byref() objects
 Fix a segfault in argsort when sorting by chunks on multidim numpypy arrays (mikefc)
 
 .. branch: dtype-isnative
+.. branch: ndarray-round
+
+.. branch: faster-str-of-bigint
+Improve performance of str(long).

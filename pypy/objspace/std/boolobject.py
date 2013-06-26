@@ -50,10 +50,6 @@ W_BoolObject.w_True  = W_BoolObject(True)
 def delegate_Bool2IntObject(space, w_bool):
     return W_IntObject(int(w_bool.boolval))
 
-def delegate_Bool2SmallInt(space, w_bool):
-    from pypy.objspace.std.smallintobject import W_SmallIntObject
-    return W_SmallIntObject(int(w_bool.boolval))   # cannot overflow
-
 
 def nonzero__Bool(space, w_bool):
     return w_bool
