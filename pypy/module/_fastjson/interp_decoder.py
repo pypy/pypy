@@ -159,6 +159,7 @@ class JSONDecoder(object):
             return i, 0
         i, intval, _ = self.parse_digits(i)
         return i, sign * intval
+    parse_integer._always_inline_ = True
 
     def parse_digits(self, i):
         "Parse a sequence of digits as a decimal number. No sign allowed"
@@ -175,7 +176,7 @@ class JSONDecoder(object):
         if count == 0:
             self._raise("Expected digit at char %d", i)
         return i, intval, count
-        
+
     def decode_array(self, i):
         w_list = self.space.newlist([])
         start = i
