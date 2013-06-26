@@ -1974,59 +1974,38 @@ BASE8  = '01234567'
 BASE10 = '0123456789'
 BASE16 = '0123456789abcdef'
 
-def _format(a, digits, prefix='', suffix=''):
-    """
-    Convert a bigint object to a string, using a given conversion base.
-    Return a string object.
-    """
-
-
-    # Compute a rough upper bound for the length of the string
-    i = base
-    bits = 0
-    while i > 1:
-        bits += 1
-        i >>= 1
-    i = 5 + len(prefix) + len(suffix) + (size_a*SHIFT + bits-1) // bits
-    s = [chr(0)] * i
-    p = i
-    j = len(suffix)
-    while j > 0:
-        p -= 1
-        j -= 1
-        s[p] = suffix[j]
-
-    if a.sign == 0:
-        p -= 1
-        s[p] = '0'
-
-def _format_base2(a, digits, prefix, suffix):
-        # JRH: special case for power-of-2 bases
-        output = StringBuilder()
-        if a.sign < 0:
-            output.append('-')
-        output.append(prefix)
+def _format_base2_notzero(a, digits, prefix='', suffix=''):
         base = len(digits)
-        size_a = a.numdigits()
+        # JRH: special case for power-of-2 bases
         accum = 0
         accumbits = 0  # # of bits in accum
-        basebits = 1   # # of bits in base-1
+        basebits = 0
         i = base
-        while 1:
-            i >>= 1
-            if i <= 1:
-                break
+        while i > 1:
             basebits += 1
+            i >>= 1
+
+        # Compute a rough upper bound for the length of the string
+        size_a = a.numdigits()
+        i = 5 + len(prefix) + len(suffix) + (size_a*SHIFT + basebits-1) // basebits
+        result = [chr(0)] * i
+        next_char_index = i
+        j = len(suffix)
+        while j > 0:
+            next_char_index -= 1
+            j -= 1
+            result[next_char_index] = suffix[j]
 
         i = 0
         while i < size_a:
             accum |= a.widedigit(i) << accumbits
             accumbits += SHIFT
             assert accumbits >= basebits
-            out = []
             while 1:
                 cdigit = intmask(accum & (base - 1))
-                out.append(digits[cdigit])
+                next_char_index -= 1
+                assert next_char_index >= 0
+                result[next_char_index] = digits[cdigit]
                 accumbits -= basebits
                 accum >>= basebits
                 if i < size_a - 1:
@@ -2035,11 +2014,20 @@ def _format_base2(a, digits, prefix, suffix):
                 else:
                     if accum <= 0:
                         break
-            out.reverse()
-            output.append("".join(out))
             i += 1
-        output.append(suffix)
-        return output.build()
+        j = len(prefix)
+        while j > 0:
+            next_char_index -= 1
+            j -= 1
+            result[next_char_index] = prefix[j]
+
+        if a.sign < 0:
+            next_char_index -= 1
+            result[next_char_index] = '-'
+
+        assert next_char_index >= 0    # otherwise, buffer overflow (this is also a
+                         # hint for the annotator for the slice below)
+        return ''.join(result[next_char_index:])
 
 _FORMAT_MINDIGITS = 5 # 36 ** 5 fits in 32 bits, there may be a better choice for this
 
@@ -2080,7 +2068,7 @@ def _format(x, digits, prefix='', suffix=''):
     base = len(digits)
     assert base >= 2 and base <= 36
     if (base & (base - 1)) == 0:
-        return _format_base2(x, digits, prefix, suffix)
+        return _format_base2_notzero(x, digits, prefix, suffix)
     negative = x.sign < 0
     if negative:
         x = x.neg()
