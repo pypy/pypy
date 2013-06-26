@@ -5,7 +5,6 @@ Implementation of the interpreter-level compile/eval builtins.
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.astcompiler import consts, ast
-from pypy.module._ast import interp_ast
 from pypy.interpreter.gateway import unwrap_spec
 
 
