@@ -14,7 +14,7 @@ don't escape from the trace. Such objects are called ``virtuals``. However,
 if we're dealing with frames, virtuals are often not good enough. Frames
 can escape and they can also be allocated already at the moment we enter the
 JIT. In such cases we need some extra object that can still be optimized away,
-despite existing on heap.
+despite existing on the heap.
 
 Solution
 --------
@@ -22,7 +22,8 @@ Solution
 We introduce virtualizables. They're objects that exist on the heap, but their
 fields are not always in sync with whatever happens in the assembler. One
 example is that virtualizable fields can store virtual objects without
-forcing them. It's very useful for frames. The definition looks like this::
+forcing them. This is very useful for frames. Declaring an object to be
+virtualizable works like this:
 
     class Frame(object):
        _virtualizable2_ = ['locals[*]', 'stackdepth']
@@ -39,16 +40,17 @@ up with a compile-time error (as opposed to strange behavior). The rules are:
 
 * Each array access must be with a known positive index that cannot raise
   an ``IndexError``. Using ``no = jit.hint(no, promote=True)`` might be useful
-  to get a constant-number access.
+  to get a constant-number access. This is only safe if the index is actually
+  constant or changing rarely within the context of the user's code.
 
-* If you allocate a new virtualizable in the JIT, it has to be done like this
+* If you initialize a new virtualizable in the JIT, it has to be done like this
   (for example if we're in ``Frame.__init__``)::
 
     self = hint(self, access_directly=True, fresh_virtualizable=True)
 
   that way you can populate the fields directly.
 
-* If you use virtualizable outside of the JIT - it's very expensive and
+* If you use virtualizable outside of the JIT – it's very expensive and
   sometimes aborts tracing. Consider it carefully as to how do it only for
   debugging purposes and not every time (e.g. ``sys._getframe`` call).
 
