@@ -170,16 +170,13 @@ class ASTNodeVisitor(ASDLVisitor):
     def get_field_extractor(self, field):
         if field.seq:
             lines = []
-            lines.append("%s_w = space.unpackiterable(" % (field.name,))
-            lines.append("        get_field(space, w_node, '%s', %s))"
-                         % (field.name, field.opt))
+            lines.append("%s_w = space.unpackiterable(w_%s)" %
+                         (field.name, field.name))
             value = self.get_value_extractor(field, "w_item")
             lines.append("_%s = [%s for w_item in %s_w]" %
                          (field.name, value, field.name))
         else:
-            value = self.get_value_extractor(
-                field,
-                "get_field(space, w_node, '%s', %s)" % (field.name, field.opt))
+            value = self.get_value_extractor(field, "w_%s" % (field.name,))
             lines = ["_%s = %s" % (field.name, value)]
         return lines
 
@@ -197,6 +194,9 @@ class ASTNodeVisitor(ASDLVisitor):
         self.emit("")
         self.emit("@staticmethod", 1)
         self.emit("def from_object(space, w_node):", 1)
+        for field in all_fields:
+            self.emit("w_%s = get_field(space, w_node, '%s', %s)" % (
+                    field.name, field.name, field.opt), 2)
         for field in all_fields:
             unwrapping_code = self.get_field_extractor(field)
             for line in unwrapping_code:
