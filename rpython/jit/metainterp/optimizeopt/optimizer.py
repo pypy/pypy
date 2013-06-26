@@ -351,7 +351,8 @@ class Optimizer(Optimization):
         self.resumedata_memo = resume.ResumeDataLoopMemo(metainterp_sd)
         self.bool_boxes = {}
         self.producer = {}
-        self.pendingfields = []
+        self.pendingfields = None # set temporarily to a list, normally by
+                                  # heap.py, as we're about to generate a guard
         self.quasi_immutable_deps = None
         self.opaque_pointers = {}
         self.replaces_guard = {}
@@ -546,12 +547,14 @@ class Optimizer(Optimization):
         self.metainterp_sd.profiler.count(jitprof.Counters.OPT_OPS)
         if op.is_guard():
             self.metainterp_sd.profiler.count(jitprof.Counters.OPT_GUARDS)
+            pendingfields = self.pendingfields
+            self.pendingfields = None
             if self.replaces_guard and op in self.replaces_guard:
                 self.replace_op(self.replaces_guard[op], op)
                 del self.replaces_guard[op]
                 return
             else:
-                op = self.store_final_boxes_in_guard(op)
+                op = self.store_final_boxes_in_guard(op, pendingfields)
         elif op.can_raise():
             self.exception_might_have_happened = True
         if op.result:
@@ -571,12 +574,13 @@ class Optimizer(Optimization):
         else:
             assert False
 
-    def store_final_boxes_in_guard(self, op):
+    def store_final_boxes_in_guard(self, op, pendingfields):
+        assert pendingfields is not None
         descr = op.getdescr()
         assert isinstance(descr, compile.ResumeGuardDescr)
         modifier = resume.ResumeDataVirtualAdder(descr, self.resumedata_memo)
         try:
-            newboxes = modifier.finish(self, self.pendingfields)
+            newboxes = modifier.finish(self, pendingfields)
             if len(newboxes) > self.metainterp_sd.options.failargs_limit:
                 raise resume.TagOverflow
         except resume.TagOverflow:
