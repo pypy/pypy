@@ -522,7 +522,7 @@ class AppTestMMap:
 
         f.seek(0)
         m = mmap(f.fileno(), 6)
-        assert eval('m[-3:7]') == b"bar"
+        assert m[-3:7] == b"bar"
 
         f.close()
 
