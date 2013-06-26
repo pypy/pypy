@@ -113,6 +113,10 @@ class AppTest(object):
         check('42E-1', 4.2)
         check('42E+1', 420.0)
         check('42.123E3', 42123.0)
+        check('0', 0)
+        check('-0', 0)
+        check('0.123', 0.123)
+        check('0E3', 0.0)
 
     def test_decode_numeric_invalid(self):
         import _fastjson
@@ -125,6 +129,7 @@ class AppTest(object):
         error('12.-3')
         error('12E')
         error('12E-')
+        error('0123') # numbers can't start with 0
 
     def test_decode_object(self):
         import _fastjson

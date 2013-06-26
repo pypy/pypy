@@ -154,6 +154,9 @@ class JSONDecoder(object):
             i += 1
         elif self.ll_chars[i] == '+':
             i += 1
+        elif self.ll_chars[i] == '0':
+            i += 1
+            return i, 0
         i, intval, _ = self.parse_digits(i)
         return i, sign * intval
 
