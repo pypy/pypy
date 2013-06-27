@@ -29,12 +29,12 @@ class OperationError(Exception):
     _application_traceback = None
 
     def __init__(self, w_type, w_value, tb=None):
-        assert w_type is not None
         self.setup(w_type)
         self._w_value = w_value
         self._application_traceback = tb
 
     def setup(self, w_type):
+        assert w_type is not None
         self.w_type = w_type
         if not we_are_translated():
             self.debug_excs = []
@@ -347,7 +347,6 @@ def get_operrcls2(valuefmt):
                 self.xstrings = strings
                 for i, _, attr in entries:
                     setattr(self, attr, args[i])
-                assert w_type is not None
 
             def _compute_value(self, space):
                 lst = [None] * (len(formats) + len(formats) + 1)
@@ -369,6 +368,18 @@ def get_operrcls2(valuefmt):
         _fmtcache2[formats] = OpErrFmt
     return OpErrFmt, strings
 
+class OpErrFmtNoArgs(OperationError):
+
+    def __init__(self, w_type, value):
+        self.setup(w_type)
+        self._value = value
+
+    def get_w_value(self, space):
+        w_value = self._w_value
+        if w_value is None:
+            self._w_value = w_value = space.wrap(self._value)
+        return w_value
+
 def get_operationerr_class(valuefmt):
     try:
         result = _fmtcache[valuefmt]
@@ -389,6 +400,8 @@ def operationerrfmt(w_type, valuefmt, *args):
     %T - The result of space.type(w_arg).getname(space)
 
     """
+    if not len(args):
+        return OpErrFmtNoArgs(w_type, valuefmt)
     OpErrFmt, strings = get_operationerr_class(valuefmt)
     return OpErrFmt(w_type, strings, *args)
 operationerrfmt._annspecialcase_ = 'specialize:arg(1)'

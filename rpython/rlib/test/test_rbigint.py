@@ -31,11 +31,14 @@ class TestRLong(object):
         assert rbigint.frombool(True).tolong() == 1
 
     def test_str(self):
-        for i in range(100):
-            n = 3 ** i
-            r1 = rbigint.fromlong(n)
+        n = 1
+        r1 = rbigint.fromint(1)
+        three = rbigint.fromint(3)
+        for i in range(300):
+            n *= 3
+            r1 = r1.mul(three)
             assert r1.str() == str(n)
-            r2 = rbigint.fromlong(-n)
+            r2 = r1.neg()
             assert r2.str() == str(-n)
 
     def test_floordiv(self):

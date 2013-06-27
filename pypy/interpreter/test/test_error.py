@@ -33,6 +33,14 @@ def test_operationerrfmt(space):
     operr3 = operationerrfmt("w_type2", "a %s b %s c", "bar", "4b")
     assert operr3.__class__ is not operr.__class__
 
+def test_operationerrfmt_noargs(space):
+    operr = operationerrfmt(space.w_AttributeError, "no attribute 'foo'")
+    operr.normalize_exception(space)
+    val = operr.get_w_value(space)
+    assert space.isinstance_w(val, space.w_AttributeError)
+    w_repr = space.repr(val)
+    assert space.str_w(w_repr) == "AttributeError(\"no attribute 'foo'\",)"
+
 def test_operationerrfmt_T(space):
     operr = operationerrfmt(space.w_AttributeError,
                             "'%T' object has no attribute '%s'",

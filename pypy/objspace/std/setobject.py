@@ -1062,14 +1062,22 @@ class AbstractUnwrappedSetStrategy(object):
 
     def _intersect_base(self, w_set, w_other):
         if self is w_other.strategy:
-            strategy = w_set.strategy
-            storage = strategy._intersect_unwrapped(w_set, w_other)
+            strategy = self
+            if w_set.length() > w_other.length():
+                # swap operants
+                storage = self._intersect_unwrapped(w_other, w_set)
+            else:
+                storage = self._intersect_unwrapped(w_set, w_other)
         elif not w_set.strategy.may_contain_equal_elements(w_other.strategy):
             strategy = self.space.fromcache(EmptySetStrategy)
             storage = strategy.get_empty_storage()
         else:
             strategy = self.space.fromcache(ObjectSetStrategy)
-            storage = self._intersect_wrapped(w_set, w_other)
+            if w_set.length() > w_other.length():
+                # swap operants
+                storage = w_other.strategy._intersect_wrapped(w_other, w_set)
+            else:
+                storage = self._intersect_wrapped(w_set, w_other)
         return storage, strategy
 
     def _intersect_wrapped(self, w_set, w_other):
@@ -1092,9 +1100,6 @@ class AbstractUnwrappedSetStrategy(object):
         return self.erase(result)
 
     def intersect(self, w_set, w_other):
-        if w_set.length() > w_other.length():
-            return w_other.intersect(w_set)
-
         storage, strategy = self._intersect_base(w_set, w_other)
         return w_set.from_storage_and_strategy(storage, strategy)
 

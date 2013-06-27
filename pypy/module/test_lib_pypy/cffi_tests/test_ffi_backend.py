@@ -179,3 +179,9 @@ class TestBitfield:
             'ffi.cdef("struct s2 { char x:0; };"); ffi.new("struct s2 *")')
         py.test.raises(TypeError,
             'ffi.cdef("struct s3 { char x:9; };"); ffi.new("struct s3 *")')
+
+    def test_struct_with_typedef(self):
+        ffi = FFI()
+        ffi.cdef("typedef struct { float x; } foo_t;")
+        p = ffi.new("foo_t *", [5.2])
+        assert repr(p).startswith("<cdata 'foo_t *' ")

@@ -18,7 +18,7 @@ class BaseProfiler(object):
 
 class EmptyProfiler(BaseProfiler):
     initialized = True
-    
+
     def start(self):
         pass
 
@@ -96,7 +96,7 @@ class Profiler(BaseProfiler):
     def end_backend(self):     self._end  (Counters.BACKEND)
 
     def count(self, kind, inc=1):
-        self.counters[kind] += inc        
+        self.counters[kind] += inc
 
     def get_counter(self, num):
         if num == Counters.TOTAL_COMPILED_LOOPS:

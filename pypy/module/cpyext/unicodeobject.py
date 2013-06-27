@@ -13,7 +13,7 @@ from pypy.module.cpyext.stringobject import PyString_Check
 from pypy.module.sys.interp_encoding import setdefaultencoding
 from pypy.module._codecs.interp_codecs import CodecState
 from pypy.objspace.std import unicodeobject
-from rpython.rlib import runicode
+from rpython.rlib import rstring, runicode
 from rpython.tool.sourcetools import func_renamer
 import sys
 
@@ -684,12 +684,9 @@ def PyUnicode_Tailmatch(space, w_str, w_substr, start, end, direction):
     str = space.unicode_w(w_str)
     substr = space.unicode_w(w_substr)
     if rffi.cast(lltype.Signed, direction) <= 0:
-        w_ret = space.call_method(w_str, "startswith", w_substr,
-                                  space.wrap(start), space.wrap(end))
+        return rstring.startswith(str, substr, start, end)
     else:
-        w_ret = space.call_method(w_str, "endswith", w_substr,
-                                  space.wrap(start), space.wrap(end))
-    return space.int_w(w_ret)
+        return rstring.endswith(str, substr, start, end)
 
 @cpython_api([PyObject, PyObject, Py_ssize_t, Py_ssize_t], Py_ssize_t, error=-1)
 def PyUnicode_Count(space, w_str, w_substr, start, end):

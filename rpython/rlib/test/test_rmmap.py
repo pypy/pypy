@@ -99,7 +99,7 @@ class TestMMap:
             m = mmap.mmap(no, 1)
             m.close()
             try:
-                m.read(1)
+                m.check_valid()
             except RValueError:
                 pass
             else:
@@ -214,13 +214,13 @@ class TestMMap:
         def func(no):
             m = mmap.mmap(no, 6, access=mmap.ACCESS_READ)
             try:
-                m.write('x')
+                m.check_writeable()
             except RTypeError:
                 pass
             else:
                 assert False
             try:
-                m.resize(7)
+                m.check_resizeable()
             except RTypeError:
                 pass
             else:
@@ -286,7 +286,7 @@ class TestMMap:
         f.write("foobar")
         f.flush()
         m = mmap.mmap(f.fileno(), 6, prot=mmap.PROT_READ)
-        py.test.raises(RTypeError, m.write, "foo")
+        py.test.raises(RTypeError, m.check_writeable)
         m.close()
         f.close()
 
@@ -297,8 +297,8 @@ class TestMMap:
         f.write("foobar")
         f.flush()
         m = mmap.mmap(f.fileno(), 6, prot=~mmap.PROT_WRITE)
-        py.test.raises(RTypeError, m.write_byte, 'a')
-        py.test.raises(RTypeError, m.write, "foo")
+        py.test.raises(RTypeError, m.check_writeable)
+        py.test.raises(RTypeError, m.check_writeable)
         m.close()
         f.close()
 
