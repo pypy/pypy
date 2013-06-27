@@ -252,6 +252,21 @@ class rbigint(object):
 
     @staticmethod
     @jit.elidable
+    def fromstr(s, base=0, parser=None):
+        """As string_to_int(), but ignores an optional 'l' or 'L' suffix
+        and returns an rbigint."""
+        from rpython.rlib.rstring import NumberStringParser, \
+            strip_spaces
+        if parser is None:
+            s = literal = strip_spaces(s)
+            if (s.endswith('l') or s.endswith('L')) and base < 22:
+                # in base 22 and above, 'L' is a valid digit!  try: long('L',22)
+                s = s[:-1]
+            parser = NumberStringParser(s, literal, base, 'long')
+        return parse_digit_string(parser)
+
+    @staticmethod
+    @jit.elidable
     def frombytes(s, byteorder, signed):
         if byteorder not in ('big', 'little'):
             raise InvalidEndiannessError()
@@ -2289,7 +2304,7 @@ def _decimalstr_to_bigint(s):
     return a
 
 def parse_digit_string(parser):
-    # helper for objspace.std.strutil
+    # helper for fromstr
     a = rbigint()
     base = parser.base
     digitmax = BASE_MAX[base]

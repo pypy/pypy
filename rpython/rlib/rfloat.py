@@ -27,6 +27,39 @@ del float_constants, int_constants, const
 
 globals().update(rffi_platform.configure(CConfig))
 
+def string_to_float(s):
+    """
+    Conversion of string to float.
+    This version tries to only raise on invalid literals.
+    Overflows should be converted to infinity whenever possible.
+
+    Expects an unwrapped string and return an unwrapped float.
+    """
+    from rpython.rlib.rstring import strip_spaces, ParseStringError
+
+    s = strip_spaces(s)
+
+    if not s:
+        raise ParseStringError("empty string for float()")
+
+
+    low = s.lower()
+    if low == "-inf" or low == "-infinity":
+        return -INFINITY
+    elif low == "inf" or low == "+inf":
+        return INFINITY
+    elif low == "infinity" or low == "+infinity":
+        return INFINITY
+    elif low == "nan" or low == "+nan":
+        return NAN
+    elif low == "-nan":
+        return -NAN
+
+    try:
+        return rstring_to_float(s)
+    except ValueError:
+        raise ParseStringError("invalid literal for float(): '%s'" % s)
+
 def rstring_to_float(s):
     return rstring_to_float_impl(s)
 

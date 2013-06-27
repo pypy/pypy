@@ -5,13 +5,11 @@ from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.buffer import Buffer
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
-from pypy.objspace.std.strutil import (string_to_int, string_to_bigint,
-                                       ParseStringError,
-                                       ParseStringOverflowError)
 from pypy.objspace.std.model import W_Object
-from rpython.rlib.rarithmetic import r_uint
+from rpython.rlib.rarithmetic import r_uint, string_to_int
 from rpython.rlib.objectmodel import instantiate
 from rpython.rlib.rbigint import rbigint
+from rpython.rlib.rstring import ParseStringError, ParseStringOverflowError
 
 # ____________________________________________________________
 
@@ -78,12 +76,11 @@ def string_to_int_or_long(space, string, base=10):
 def retry_to_w_long(space, parser, base=0):
     parser.rewind()
     try:
-        bigint = string_to_bigint(None, base=base, parser=parser)
+        bigint = rbigint.fromstr(None, base=base, parser=parser)
     except ParseStringError, e:
         raise OperationError(space.w_ValueError,
                              space.wrap(e.msg))
-    from pypy.objspace.std.longobject import newlong
-    return newlong(space, bigint)
+    return space.newlong_from_rbigint(bigint)
 
 @unwrap_spec(w_x = WrappedDefault(0))
 def descr__new__(space, w_inttype, w_x, w_base=None):
