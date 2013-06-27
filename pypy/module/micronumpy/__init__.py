@@ -71,6 +71,7 @@ class NumericTypesModule(MixedModule):
         'complex_': 'interp_boxes.W_Complex128Box',
         'complex128': 'interp_boxes.W_Complex128Box',
         'complex64': 'interp_boxes.W_Complex64Box',
+        'cfloat': 'interp_boxes.W_Complex64Box',
     }
     if ENABLED_LONG_DOUBLE:
         long_double_dtypes = [
