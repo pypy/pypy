@@ -4,12 +4,6 @@
 
 import os
 from rpython.jit.backend.llsupport import symbolic
-from rpython.jit.backend.x86.jump import remap_frame_layout_mixed
-from rpython.jit.codewriter import longlong
-from rpython.jit.codewriter.effectinfo import EffectInfo
-from rpython.jit.metainterp.history import (Box, Const, ConstInt, ConstPtr,
-    ConstFloat, BoxInt, BoxFloat, INT, REF, FLOAT, TargetToken)
-from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.backend.llsupport.descr import (ArrayDescr, CallDescr,
     unpack_arraydescr, unpack_fielddescr, unpack_interiorfielddescr)
 from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
@@ -18,11 +12,17 @@ from rpython.jit.backend.llsupport.regalloc import (FrameManager, BaseRegalloc,
 from rpython.jit.backend.x86 import rx86
 from rpython.jit.backend.x86.arch import (WORD, JITFRAME_FIXED_SIZE, IS_X86_32,
     IS_X86_64)
+from rpython.jit.backend.x86.jump import remap_frame_layout_mixed
 from rpython.jit.backend.x86.regloc import (FrameLoc, RegLoc, ConstFloatLoc,
     FloatImmedLoc, ImmedLoc, imm, imm0, imm1, ecx, eax, edx, ebx, esi, edi,
     ebp, r8, r9, r10, r11, r12, r13, r14, r15, xmm0, xmm1, xmm2, xmm3, xmm4,
     xmm5, xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14,
     X86_64_SCRATCH_REG, X86_64_XMM_SCRATCH_REG)
+from rpython.jit.codewriter import longlong
+from rpython.jit.codewriter.effectinfo import EffectInfo
+from rpython.jit.metainterp.history import (Box, Const, ConstInt, ConstPtr,
+    ConstFloat, BoxInt, BoxFloat, INT, REF, FLOAT, TargetToken)
+from rpython.jit.metainterp.resoperation import rop
 from rpython.rlib import rgc
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import r_longlong, r_uint
