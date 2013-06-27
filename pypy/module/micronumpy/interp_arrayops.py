@@ -192,6 +192,45 @@ def choose(space, w_arr, w_choices, w_out, mode):
     loop.choose(space, arr, choices, shape, dtype, out, MODES[mode])
     return out
 
+
+@unwrap_spec(mode=str)
+def put(space, w_arr, w_indices, w_values, mode='raise'):
+    from pypy.module.micronumpy import constants
+    from pypy.module.micronumpy.support import int_w
+    arr = convert_to_array(space, w_arr)
+    if mode not in constants.MODES:
+        raise OperationError(space.w_ValueError,
+                             space.wrap("mode %s not known" % (mode,)))
+    indices = convert_to_array(space, w_indices)
+    values = convert_to_array(space, w_values)
+    if not indices:
+        raise OperationError(space.w_ValueError,
+                             space.wrap("indice list cannot be empty"))
+    if not values:
+        raise OperationError(space.w_ValueError,
+                             space.wrap("value list cannot be empty"))
+    dtype = arr.get_dtype()
+    val_iter = values.create_iter()
+    ind_iter = indices.create_iter()
+    while not ind_iter.done():
+        index = int_w(space, ind_iter.getitem())
+        if index < 0 or index >= arr.get_size():
+            if constants.MODES[mode] == constants.MODE_RAISE:
+                raise OperationError(space.w_ValueError, space.wrap(
+                    "invalid entry in choice array"))
+            elif constants.MODES[mode] == constants.MODE_WRAP:
+                index = index % arr.get_size()
+            else:
+                assert constants.MODES[mode] == constants.MODE_CLIP
+                if index < 0:
+                    index = 0
+                else:
+                    index = arr.get_size() - 1
+        arr.setitem(space, [index], val_iter.getitem().convert_to(dtype))
+        ind_iter.next()
+        val_iter.next()
+
+
 def diagonal(space, arr, offset, axis1, axis2):
     shape = arr.get_shape()
     shapelen = len(shape)

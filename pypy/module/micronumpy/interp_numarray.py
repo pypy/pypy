@@ -550,9 +550,10 @@ class __extend__(W_NDimArray):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "ptp (peak to peak) not implemented yet"))
 
-    def descr_put(self, space, w_indices, w_values, w_mode='raise'):
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            "put not implemented yet"))
+    @unwrap_spec(mode=str)
+    def descr_put(self, space, w_indices, w_values, mode='raise'):
+        from pypy.module.micronumpy.interp_arrayops import put
+        put(space, self, w_indices, w_values, mode)
 
     def descr_resize(self, space, w_new_shape, w_refcheck=True):
         raise OperationError(space.w_NotImplementedError, space.wrap(
@@ -939,6 +940,7 @@ W_NDimArray.typedef = TypeDef(
     prod = interp2app(W_NDimArray.descr_prod),
     max = interp2app(W_NDimArray.descr_max),
     min = interp2app(W_NDimArray.descr_min),
+    put = interp2app(W_NDimArray.descr_put),
     argmax = interp2app(W_NDimArray.descr_argmax),
     argmin = interp2app(W_NDimArray.descr_argmin),
     all = interp2app(W_NDimArray.descr_all),
