@@ -1034,6 +1034,8 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
         if copy:
             w_ret = w_object.descr_copy(space)
         else:
+            if ndmin<= len(shape):
+                return w_object
             new_impl = w_object.implementation.set_shape(space, w_object, shape)
             w_ret = W_NDimArray(new_impl)
         if ndmin > len(shape):
