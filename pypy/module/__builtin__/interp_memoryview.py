@@ -57,9 +57,9 @@ class W_MemoryView(W_Root):
             size = 0
         buf = self.buf
         if isinstance(buf, buffer.RWBuffer):
-            buf = buffer.RWSubBuffer(buf, start, size)
+            buf = buffer.RWSubBuffer(buf, start, size, buf.format, buf.itemsize)
         else:
-            buf = buffer.SubBuffer(buf, start, size)
+            buf = buffer.SubBuffer(buf, start, size, buf.format, buf.itemsize)
         return W_MemoryView(buf)
 
     def descr_buffer(self, space):

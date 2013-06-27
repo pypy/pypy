@@ -177,9 +177,9 @@ def descr_buffer__new__(space, w_subtype, w_object, offset=0, size=-1):
         raise OperationError(space.w_ValueError,
                              space.wrap("size must be zero or positive"))
     if isinstance(buffer, RWBuffer):
-        buffer = RWSubBuffer(buffer, offset, size)
+        buffer = RWSubBuffer(buffer, offset, size, 'B', 1)
     else:
-        buffer = SubBuffer(buffer, offset, size)
+        buffer = SubBuffer(buffer, offset, size, 'B', 1)
     return space.wrap(buffer)
 
 
@@ -285,12 +285,12 @@ class StringLikeBuffer(Buffer):
 class SubBufferMixin(object):
     _mixin_ = True
 
-    def __init__(self, buffer, offset, size):
+    def __init__(self, buffer, offset, size, format, itemsize):
         self.buffer = buffer
         self.offset = offset
         self.size = size
-        self.format = 'B'
-        self.itemsize = 1
+        self.format = format
+        self.itemsize = itemsize
 
     def getlength(self):
         at_most = self.buffer.getlength() - self.offset
