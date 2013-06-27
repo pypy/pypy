@@ -674,6 +674,10 @@ class MIFrame(object):
     opimpl_raw_load_i = _opimpl_raw_load
     opimpl_raw_load_f = _opimpl_raw_load
 
+    @arguments("box")
+    def opimpl_hint_force_virtualizable(self, box):
+        self.metainterp.gen_store_back_in_vable(box)
+
     @arguments("box", "descr", "descr", "orgpc")
     def opimpl_record_quasiimmut_field(self, box, fielddescr,
                                        mutatefielddescr, orgpc):
@@ -2508,6 +2512,33 @@ class MetaInterp(object):
             self.virtualizable_boxes = vinfo.read_boxes(self.cpu,
                                                         virtualizable)
             self.virtualizable_boxes.append(virtualizable_box)
+
+            vinfo = self.jitdriver_sd.virtualizable_info
+
+    def gen_store_back_in_vable(self, box):
+        vinfo = self.jitdriver_sd.virtualizable_info
+        if vinfo is not None:
+            # xxx only write back the fields really modified
+            vbox = self.virtualizable_boxes[-1]
+            if vbox is not box:
+                return # ignore the hint on non-standard virtualizable
+            for i in range(vinfo.num_static_extra_boxes):
+                fieldbox = self.virtualizable_boxes[i]
+                descr = vinfo.static_field_descrs[i]
+                self.execute_and_record(rop.SETFIELD_GC, descr, vbox, fieldbox)
+            i = vinfo.num_static_extra_boxes
+            virtualizable = vinfo.unwrap_virtualizable_box(vbox)
+            for k in range(vinfo.num_arrays):
+                descr = vinfo.array_field_descrs[k]
+                abox = self.execute_and_record(rop.GETFIELD_GC, descr, vbox)
+                descr = vinfo.array_descrs[k]
+                for j in range(vinfo.get_array_length(virtualizable, k)):
+                    itembox = self.virtualizable_boxes[i]
+                    i += 1
+                    self.execute_and_record(rop.SETARRAYITEM_GC, descr,
+                                            abox, ConstInt(j), itembox)
+            assert i + 1 == len(self.virtualizable_boxes)
+
 
     def replace_box(self, oldbox, newbox):
         assert isinstance(oldbox, Box)

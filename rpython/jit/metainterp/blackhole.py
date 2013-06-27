@@ -1306,6 +1306,10 @@ class BlackholeInterpreter(object):
     def bhimpl_force_virtualizable(cpu, v, descr):
         cpu.bh_force_virtualizable(v, descr)
 
+    @arguments("r")
+    def bhimpl_hint_force_virtualizable(r):
+        pass
+
     @arguments("cpu", "d", returns="r")
     def bhimpl_new(cpu, descr):
         return cpu.bh_new(descr)

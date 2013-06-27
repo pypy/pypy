@@ -521,6 +521,8 @@ class Transformer(object):
             op1 = SpaceOperation('str_guard_value', [op.args[0], c, descr],
                                  op.result)
             return [SpaceOperation('-live-', [], None), op1, None]
+        if hints.get('force_virtualizable'):
+            return SpaceOperation('hint_force_virtualizable', [op.args[0]], None)
         else:
             log.WARNING('ignoring hint %r at %r' % (hints, self.graph))
 

@@ -3,8 +3,9 @@ import py
 from rpython.jit.codewriter import heaptracker
 from rpython.jit.codewriter.policy import StopAtXPolicy
 from rpython.jit.metainterp.optimizeopt.test.test_util import LLtypeMixin
-from rpython.jit.metainterp.test.support import LLJitMixin, OOJitMixin
-from rpython.jit.metainterp.warmspot import get_translator
+from rpython.jit.metainterp.test.support import LLJitMixin
+from rpython.jit.metainterp.warmspot import get_translator, get_stats
+from rpython.jit.metainterp.resoperation import rop
 from rpython.rlib.jit import JitDriver, hint, dont_look_inside, promote, virtual_ref
 from rpython.rlib.rarithmetic import intmask
 from rpython.rtyper.annlowlevel import hlstr
@@ -26,7 +27,6 @@ class Entry(ExtRegistryEntry):
         return lltype_to_annotation(lltype.Void)
 
     def specialize_call(self, hop):
-        op = self.instance    # the LLOp object that was called
         args_v = [hop.inputarg(hop.args_r[0], 0),
                   hop.inputconst(lltype.Void, hop.args_v[1].value),
                   hop.inputconst(lltype.Void, {})]
@@ -1544,6 +1544,39 @@ class ImplicitVirtualizableTests(object):
         res = self.meta_interp(f, [])
         assert res == f()
 
+    def test_force_virtualizable_by_hint(self):
+        class Frame(object):
+            _virtualizable_ = ['x']
+
+        driver = JitDriver(greens = [], reds = ['i', 'frame'],
+                           virtualizables = ['frame'])
+
+        def f(frame, i):
+            while i > 0:
+                driver.jit_merge_point(i=i, frame=frame)
+                i -= 1
+                frame.x += 1
+            hint(frame, force_virtualizable=True)
+
+        def main():
+            frame = Frame()
+            frame.x = 0
+            s = 0
+            for i in range(20):
+                f(frame, 4)
+                s += frame.x
+            return s
+
+        r = self.meta_interp(main, [])
+        assert r == main()
+        # fish the bridge
+        loop = get_stats().get_all_loops()[0]
+        d = loop.operations[-3].getdescr()
+        bridge = getattr(d, '_llgraph_bridge', None)
+        if bridge is not None:
+            l = [op for op in
+                 bridge.operations if op.getopnum() == rop.SETFIELD_GC]
+            assert len(l) == 2
 
 class TestLLtype(ExplicitVirtualizableTests,
                  ImplicitVirtualizableTests,
