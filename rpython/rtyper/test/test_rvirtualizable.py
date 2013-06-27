@@ -375,10 +375,3 @@ class TestLLtype(LLRtypeMixin, BaseTest):
         assert res.inst_v == 42
         assert res.vable_token == lltype.nullptr(llmemory.GCREF.TO)
 
-class TestOOtype(OORtypeMixin, BaseTest):
-    prefix = 'o'
-    GETFIELD = 'oogetfield'
-    SETFIELD = 'oosetfield'    
-    
-    def gettype(self, v):
-        return v.concretetype
