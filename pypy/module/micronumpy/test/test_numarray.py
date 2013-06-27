@@ -276,6 +276,24 @@ class AppTestNumArray(BaseNumpyAppTest):
         arr = array([1], ndmin=3)
         assert arr.shape == (1, 1, 1)
 
+    def test_array_copy(self):
+        from numpypy import array
+        a = array(range(12)).reshape(3,4)
+        b = array(a, ndmin=4)
+        assert b.shape == (1, 1, 3, 4)
+        b = array(a, copy=False)
+        b[0, 0] = 100
+        assert a[0, 0] == 100
+        b = array(a, copy=True, ndmin=2)
+        b[0, 0] = 0
+        assert a[0, 0] == 100
+        b = array(a, dtype=float)
+        assert (b[0] == [100, 1, 2, 3]).all()
+        assert b.dtype.kind == 'f'
+        b = array(a, copy=False, ndmin=4)
+        b[0,0,0,0] = 0
+        assert a[0, 0] == 0
+
     def test_type(self):
         from numpypy import array
         ar = array(range(5))

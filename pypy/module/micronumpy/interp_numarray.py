@@ -1028,15 +1028,19 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
                                   order)
 
     dtype = interp_dtype.decode_w_dtype(space, w_dtype)
-    if isinstance(w_object, W_NDimArray):
-        if (not space.is_none(w_dtype) and
-            w_object.get_dtype() is not dtype):
-            raise OperationError(space.w_NotImplementedError, space.wrap(
-                                  "copying over different dtypes unsupported"))
+    if isinstance(w_object, W_NDimArray) and \
+        (space.is_none(w_dtype) or w_object.get_dtype() is dtype):
+        shape = w_object.get_shape()
         if copy:
-            return w_object.descr_copy(space)
-        return w_object
-
+            w_ret = w_object.descr_copy(space)
+        else:
+            new_impl = w_object.implementation.set_shape(space, w_object, shape)
+            w_ret = W_NDimArray(new_impl)
+        if ndmin > len(shape):
+            shape = [1] * (ndmin - len(shape)) + shape
+            w_ret.implementation = w_ret.implementation.set_shape(space,
+                                            w_ret, shape)
+        return w_ret
     shape, elems_w = find_shape_and_elems(space, w_object, dtype)
     if dtype is None or (
                  dtype.is_str_or_unicode() and dtype.itemtype.get_size() < 1):
