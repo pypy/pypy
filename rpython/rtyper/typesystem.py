@@ -22,7 +22,7 @@ class TypeSystem(object):
                 return None
         if name in ('rclass', 'rpbc', 'rbuiltin', 'rtuple', 'rlist',
                     'rslice', 'rdict', 'rrange', 'rstr',
-                    'll_str', 'rbuilder', 'rvirtualizable2', 'rbytearray',
+                    'll_str', 'rbuilder', 'rvirtualizable', 'rbytearray',
                     'exceptiondata'):
             mod = load(name)
             if mod is not None:

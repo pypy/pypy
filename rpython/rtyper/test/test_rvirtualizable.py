@@ -1,7 +1,7 @@
 import py
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
-from rpython.rtyper.rvirtualizable2 import replace_force_virtualizable_with_call
+from rpython.rtyper.rvirtualizable import replace_force_virtualizable_with_call
 from rpython.rlib.jit import hint
 from rpython.flowspace.model import summary
 from rpython.rtyper.llinterp import LLInterpreter
@@ -10,7 +10,7 @@ from rpython.conftest import option
 
 
 class V(object):
-    _virtualizable2_ = ['v']
+    _virtualizable_ = ['v']
     v = -12
     w = -62
 
@@ -22,12 +22,12 @@ class SubclassV(V):
     pass
 
 class VArray(object):
-    _virtualizable2_ = ['lst[*]']
+    _virtualizable_ = ['lst[*]']
 
     def __init__(self, lst):
         self.lst = lst
 class B(object):
-    _virtualizable2_ = ['v0']
+    _virtualizable_ = ['v0']
 
     x = "XX"
     
@@ -102,7 +102,7 @@ class BaseTest(BaseRtypingTest):
         class Base(object):
             pass
         class V(Base):
-            _virtualizable2_ = ['v1', 'v2[*]']
+            _virtualizable_ = ['v1', 'v2[*]']
         class W(V):
             pass
         #
@@ -115,7 +115,7 @@ class BaseTest(BaseRtypingTest):
         _, _, graph = self.gengraph(fn1, [int])
         v_inst = graph.getreturnvar()
         TYPE = self.gettype(v_inst)
-        accessor = TYPE._hints['virtualizable2_accessor']
+        accessor = TYPE._hints['virtualizable_accessor']
         assert accessor.TYPE == TYPE
         assert accessor.fields == {self.prefix + 'v1': IR_IMMUTABLE,
                                    self.prefix + 'v2': IR_IMMUTABLE_ARRAY}
@@ -129,7 +129,7 @@ class BaseTest(BaseRtypingTest):
         _, _, graph = self.gengraph(fn2, [int])
         w_inst = graph.getreturnvar()
         TYPE = self.gettype(w_inst)
-        assert 'virtualizable2_accessor' not in TYPE._hints
+        assert 'virtualizable_accessor' not in TYPE._hints
 
     def replace_force_virtualizable(self, rtyper, graphs):
         from rpython.annotator import model as annmodel
@@ -285,7 +285,7 @@ class BaseTest(BaseRtypingTest):
 
     def test_access_directly_method(self):
         class A:
-            _virtualizable2_ = ['v0']
+            _virtualizable_ = ['v0']
 
             def __init__(self, v):
                 self.v0 = v
@@ -315,7 +315,7 @@ class BaseTest(BaseRtypingTest):
         from rpython.rlib.jit import dont_look_inside
 
         class A:
-            _virtualizable2_ = ['x']
+            _virtualizable_ = ['x']
 
         def h(a):
             g(a)

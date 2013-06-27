@@ -235,7 +235,7 @@ class Entry(ExtRegistryEntry):
             if isinstance(s_x, annmodel.SomeInstance):
                 from rpython.flowspace.model import Constant
                 classdesc = s_x.classdef.classdesc
-                virtualizable = classdesc.read_attribute('_virtualizable2_',
+                virtualizable = classdesc.read_attribute('_virtualizable_',
                                                          Constant(None)).value
                 if virtualizable is not None:
                     flags = s_x.flags.copy()

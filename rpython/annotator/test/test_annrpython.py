@@ -3059,7 +3059,7 @@ class TestAnnotateTestCase:
         from rpython.rlib.jit import hint
 
         class A:
-            _virtualizable2_ = []
+            _virtualizable_ = []
         class B(A):
             def meth(self):
                 return self
@@ -3099,7 +3099,7 @@ class TestAnnotateTestCase:
         from rpython.rlib.jit import hint
 
         class A:
-            _virtualizable2_ = []
+            _virtualizable_ = []
 
         class I:
             pass

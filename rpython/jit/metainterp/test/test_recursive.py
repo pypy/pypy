@@ -643,7 +643,7 @@ class RecursiveTests:
         # exactly the same logic as the previous test, but with 'frame.j'
         # instead of just 'j'
         class Frame(object):
-            _virtualizable2_ = ['j']
+            _virtualizable_ = ['j']
             def __init__(self, j):
                 self.j = j
 
@@ -767,7 +767,7 @@ class RecursiveTests:
                 self.val = val
 
         class Frame(object):
-            _virtualizable2_ = ['thing']
+            _virtualizable_ = ['thing']
 
         driver = JitDriver(greens = ['codeno'], reds = ['i', 's', 'frame'],
                            virtualizables = ['frame'],
@@ -809,7 +809,7 @@ class RecursiveTests:
                 self.val = val
 
         class Frame(object):
-            _virtualizable2_ = ['thing']
+            _virtualizable_ = ['thing']
 
         driver = JitDriver(greens = ['codeno'], reds = ['i', 'frame'],
                            virtualizables = ['frame'],
@@ -860,7 +860,7 @@ class RecursiveTests:
                 self.val = val
 
         class Frame(object):
-            _virtualizable2_ = ['thing']
+            _virtualizable_ = ['thing']
 
         driver = JitDriver(greens = ['codeno'], reds = ['i', 'frame'],
                            virtualizables = ['frame'],
@@ -911,7 +911,7 @@ class RecursiveTests:
                                 virtualizables = ['frame'])
 
         class Frame(object):
-            _virtualizable2_ = ['l[*]', 's']
+            _virtualizable_ = ['l[*]', 's']
 
             def __init__(self, l, s):
                 self = hint(self, access_directly=True,
@@ -954,7 +954,7 @@ class RecursiveTests:
                 self.val = val
 
         class Frame(object):
-            _virtualizable2_ = ['thing']
+            _virtualizable_ = ['thing']
 
         driver = JitDriver(greens = ['codeno'], reds = ['i', 'frame'],
                            virtualizables = ['frame'],

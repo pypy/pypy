@@ -15,15 +15,15 @@ from pypy.interpreter.pyframe import PyFrame
 from pypy.interpreter.pyopcode import ExitFrame
 from opcode import opmap
 
-PyFrame._virtualizable2_ = ['last_instr', 'pycode',
-                            'valuestackdepth', 'locals_stack_w[*]',
-                            'cells[*]',
-                            'last_exception',
-                            'lastblock',
-                            'is_being_profiled',
-                            'w_globals',
-                            'w_f_trace',
-                            ]
+PyFrame._virtualizable_ = ['last_instr', 'pycode',
+                           'valuestackdepth', 'locals_stack_w[*]',
+                           'cells[*]',
+                           'last_exception',
+                           'lastblock',
+                           'is_being_profiled',
+                           'w_globals',
+                           'w_f_trace',
+                           ]
 
 JUMP_ABSOLUTE = opmap['JUMP_ABSOLUTE']
 

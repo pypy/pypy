@@ -26,7 +26,7 @@ forcing them. This is very useful for frames. Declaring an object to be
 virtualizable works like this:
 
     class Frame(object):
-       _virtualizable2_ = ['locals[*]', 'stackdepth']
+       _virtualizable_ = ['locals[*]', 'stackdepth']
 
 And we use them in ``JitDriver`` like this::
 

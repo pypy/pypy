@@ -3,7 +3,7 @@ from rpython.jit.metainterp import history
 from rpython.jit.metainterp.typesystem import deref, fieldType, arrayItem
 from rpython.jit.metainterp.warmstate import wrap, unwrap
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rtyper import rvirtualizable2
+from rpython.rtyper import rvirtualizable
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.ootypesystem import ootype
 from rpython.rtyper.rclass import IR_IMMUTABLE_ARRAY, IR_IMMUTABLE
@@ -21,13 +21,13 @@ class VirtualizableInfo(object):
         self.cpu = cpu
         self.BoxArray = cpu.ts.BoxRef
         #
-        while 'virtualizable2_accessor' not in deref(VTYPEPTR)._hints:
+        while 'virtualizable_accessor' not in deref(VTYPEPTR)._hints:
             VTYPEPTR = cpu.ts.get_superclass(VTYPEPTR)
         self.VTYPEPTR = VTYPEPTR
         self.VTYPE = VTYPE = deref(VTYPEPTR)
         self.vable_token_descr = cpu.fielddescrof(VTYPE, 'vable_token')
         #
-        accessor = VTYPE._hints['virtualizable2_accessor']
+        accessor = VTYPE._hints['virtualizable_accessor']
         all_fields = accessor.fields
         static_fields = []
         array_fields = []
@@ -294,7 +294,7 @@ class VirtualizableInfo(object):
         (_, FUNCPTR) = ts.get_FuncType([self.VTYPEPTR], lltype.Void)
         funcptr = self.warmrunnerdesc.helper_func(
             FUNCPTR, force_virtualizable_if_necessary)
-        rvirtualizable2.replace_force_virtualizable_with_call(
+        rvirtualizable.replace_force_virtualizable_with_call(
             all_graphs, self.VTYPEPTR, funcptr)
         (_, FUNCPTR) = ts.get_FuncType([llmemory.GCREF], lltype.Void)
         self.clear_vable_ptr = self.warmrunnerdesc.helper_func(
@@ -308,7 +308,7 @@ class VirtualizableInfo(object):
         return virtualizable_box.getref(llmemory.GCREF)
 
     def is_vtypeptr(self, TYPE):
-        return rvirtualizable2.match_virtualizable_type(TYPE, self.VTYPEPTR)
+        return rvirtualizable.match_virtualizable_type(TYPE, self.VTYPEPTR)
 
 # ____________________________________________________________
 #
