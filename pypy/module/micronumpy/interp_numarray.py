@@ -618,8 +618,38 @@ class __extend__(W_NDimArray):
             "trace not implemented yet"))
 
     def descr_view(self, space, w_dtype=None, w_type=None) :
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            "view not implemented yet"))
+        if w_type is not None:
+            raise OperationError(space.w_NotImplementedError, space.wrap(
+                "view(... type=<class>) not implemented yet"))
+        if w_dtype:
+            dtype = space.interp_w(interp_dtype.W_Dtype,
+                space.call_function(space.gettypefor(interp_dtype.W_Dtype),
+                                                                   w_dtype))
+        else:
+            dtype = self.get_dtype()
+        factor = float(dtype.get_size()) / self.get_dtype().get_size()
+        if self.get_size() % factor != 0:
+            raise OperationError(space.w_ValueError, space.wrap(
+                "new type not compatible with array."))
+        impl = self.implementation
+        new_shape = self.get_shape()
+        if len(new_shape) > 0:
+            if impl.get_strides()[0] < impl.get_strides()[-1]:
+                new_shape[0] = int(new_shape[0] / factor)
+                if new_shape[0] == 0:
+                    raise OperationError(space.w_ValueError, space.wrap(
+                        "new type not compatible with array shape"))
+            else:
+                new_shape[-1] = int(new_shape[-1] / factor)
+                if new_shape[-1] == 0:
+                    raise OperationError(space.w_ValueError, space.wrap(
+                        "new type not compatible with array shape"))
+        else:
+            if factor != 1:
+                raise OperationError(space.w_ValueError, space.wrap(
+                    "new type not compatible with array shape"))
+        return W_NDimArray(impl.get_view(self, dtype, new_shape))
+
 
     # --------------------- operations ----------------------------
 
@@ -996,6 +1026,7 @@ W_NDimArray.typedef = TypeDef(
     round    = interp2app(W_NDimArray.descr_round),
     data     = GetSetProperty(W_NDimArray.descr_get_data),
     diagonal = interp2app(W_NDimArray.descr_diagonal),
+    view = interp2app(W_NDimArray.descr_view),
 
     ctypes = GetSetProperty(W_NDimArray.descr_get_ctypes), # XXX unimplemented
     __array_interface__ = GetSetProperty(W_NDimArray.descr_array_iface),
