@@ -61,3 +61,7 @@ Fix a segfault in argsort when sorting by chunks on multidim numpypy arrays (mik
 
 .. branch: faster-str-of-bigint
 Improve performance of str(long).
+
+.. branch: ndarray-view
+Add view to ndarray and zeroD arrays, not on dtype scalars yet
+
