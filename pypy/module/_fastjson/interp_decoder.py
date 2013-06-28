@@ -170,14 +170,23 @@ class JSONDecoder(object):
         # skip the integral part
         while self.ll_chars[i].isdigit():
             i += 1
+        #
+        # skip the fractional part, if any
         if self.ll_chars[i] == '.':
             is_float = True
             i += 1
-            # skip the fractional part
             while self.ll_chars[i].isdigit():
                 i += 1
-        s = self.getslice(start, i)
+        #
+        # skip the exponent part, if any
+        if self.ll_chars[i] == 'e' or self.ll_chars[i] == 'E':
+            is_float = True
+            i += 1
+            while self.ll_chars[i].isdigit():
+                i += 1
+        #
         self.pos = i
+        s = self.getslice(start, i)
         if is_float:
             w_func = self.space.w_float
         else:
