@@ -59,6 +59,9 @@ def setup_directory_structure(cls):
              relative_c = "from __future__ import absolute_import\nfrom .struct import inpackage",
              relative_f = "from .imp import get_magic",
              relative_g = "import imp; from .imp import get_magic",
+             inpackage  = "inpackage = 1",
+             function_a = "g = {'__name__': 'pkg.a'}; __import__('inpackage', g); print(g)",
+             function_b = "g = {'__name__': 'not.a'}; __import__('inpackage', g); print(g)",
              )
     setuppkg("pkg.pkg1",
              __init__   = 'from . import a',
@@ -551,6 +554,16 @@ class AppTestImport(BaseImportTest):
         ns = dict(__package__=object())
         check_absolute()
         raises(ValueError, check_relative)
+
+    def test_import_function(self):
+        # More tests for __import__
+        import sys
+        if sys.version < '3.3':
+            from pkg import function_a
+            assert function_a.g['__package__'] == 'pkg'
+            raises(ImportError, "from pkg import function_b")
+        else:
+            raises(ImportError, "from pkg import function_a")
 
     def test_universal_newlines(self):
         import pkg_univnewlines
