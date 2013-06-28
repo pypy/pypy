@@ -163,14 +163,26 @@ class JSONDecoder(object):
             return self.space.wrap(intval)
 
     def decode_numeric_slow(self, i):
+        is_float = False
         start = i
         if self.ll_chars[i] == '-':
             i += 1
+        # skip the integral part
         while self.ll_chars[i].isdigit():
             i += 1
+        if self.ll_chars[i] == '.':
+            is_float = True
+            i += 1
+            # skip the fractional part
+            while self.ll_chars[i].isdigit():
+                i += 1
         s = self.getslice(start, i)
         self.pos = i
-        w_res = self.space.call_function(self.space.w_int, self.space.wrap(s))
+        if is_float:
+            w_func = self.space.w_float
+        else:
+            w_func = self.space.w_int
+        w_res = self.space.call_function(w_func, self.space.wrap(s))
         #assert w_res is not None # XXX check if this brings any speedup in pypy-c
         return w_res
 

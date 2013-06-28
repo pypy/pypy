@@ -99,6 +99,7 @@ class AppTest(object):
 
 
     def test_decode_numeric(self):
+        import sys
         import _fastjson
         def check(s, val):
             res = _fastjson.loads(s)
@@ -120,6 +121,8 @@ class AppTest(object):
         check('5E0001', 50.0)
         check(str(1 << 32), 1 << 32)
         check(str(1 << 64), 1 << 64)
+        x = str(sys.maxint+1) + '.123'
+        check(x, float(x))
 
     def test_decode_numeric_invalid(self):
         import _fastjson
