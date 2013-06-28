@@ -627,27 +627,29 @@ class __extend__(W_NDimArray):
                                                                    w_dtype))
         else:
             dtype = self.get_dtype()
-        factor = float(dtype.get_size()) / self.get_dtype().get_size()
-        if self.get_size() % factor != 0:
-            raise OperationError(space.w_ValueError, space.wrap(
-                "new type not compatible with array."))
+        old_itemsize = self.get_dtype().get_size()
+        new_itemsize = dtype.get_size()
         impl = self.implementation
         new_shape = self.get_shape()
-        if len(new_shape) > 0:
-            if impl.get_strides()[0] < impl.get_strides()[-1]:
-                new_shape[0] = int(new_shape[0] / factor)
-                if new_shape[0] == 0:
-                    raise OperationError(space.w_ValueError, space.wrap(
-                        "new type not compatible with array shape"))
-            else:
-                new_shape[-1] = int(new_shape[-1] / factor)
-                if new_shape[-1] == 0:
-                    raise OperationError(space.w_ValueError, space.wrap(
-                        "new type not compatible with array shape"))
-        else:
-            if factor != 1:
+        dims = len(new_shape)
+        if dims == 0:
+            # Cannot resize scalars
+            if old_itemsize != new_itemsize:
                 raise OperationError(space.w_ValueError, space.wrap(
                     "new type not compatible with array shape"))
+        else:
+            if dims == 1 or impl.get_strides()[0] < impl.get_strides()[-1]:
+                # Column-major, resize first dimension
+                if new_shape[0] * old_itemsize % new_itemsize != 0:
+                    raise OperationError(space.w_ValueError, space.wrap(
+                        "new type not compatible with array."))
+                new_shape[0] = new_shape[0] * old_itemsize / new_itemsize
+            else:
+                # Row-major, resize last dimension
+                if new_shape[-1] * old_itemsize % new_itemsize != 0:
+                    raise OperationError(space.w_ValueError, space.wrap(
+                        "new type not compatible with array."))
+                new_shape[-1] = new_shape[-1] * old_itemsize / new_itemsize
         return W_NDimArray(impl.get_view(self, dtype, new_shape))
 
 

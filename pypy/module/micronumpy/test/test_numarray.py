@@ -1432,6 +1432,11 @@ class AppTestNumArray(BaseNumpyAppTest):
         x = array(range(15), dtype='int16').reshape(3,5).T
         assert x.view('int8').shape == (10, 3)
 
+    def test_ndarray_view_empty(self):
+        from numpypy import array, int8, int16, dtype
+        x = array([], dtype=[('a', int8), ('b', int8)])
+        y = x.view(dtype=int16)
+
     def test_scalar_view(self):
         from numpypy import int64, array
         a = array(0, dtype='int32')
