@@ -2,6 +2,7 @@ import sys
 import math
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.objectmodel import specialize
+from rpython.rlib import rfloat
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter import unicodehelper
@@ -157,7 +158,10 @@ class JSONDecoder(object):
             # build the float
             floatval = intval + frcval
             if exp != 0:
-                floatval = floatval * math.pow(10, exp)
+                try:
+                    floatval = floatval * math.pow(10, exp)
+                except OverflowError:
+                    floatval = rfloat.INFINITY
             return self.space.wrap(floatval)
         else:
             return self.space.wrap(intval)

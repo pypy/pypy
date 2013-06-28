@@ -126,6 +126,8 @@ class AppTest(object):
         check(x, float(x))
         x = str(sys.maxint+1) + 'E1'
         check(x, float(x))
+        #
+        check('1E400', float('inf'))
 
     def test_decode_numeric_invalid(self):
         import _fastjson
