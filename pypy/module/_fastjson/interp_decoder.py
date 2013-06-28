@@ -1,3 +1,4 @@
+import sys
 import math
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.objectmodel import specialize
@@ -5,6 +6,8 @@ from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter import unicodehelper
 from rpython.rtyper.annlowlevel import llstr, hlunicode
+
+OVF_DIGITS = len(str(sys.maxint))
 
 def is_whitespace(ch):
     return ch == ' ' or ch == '\t' or ch == '\r' or ch == '\n'
@@ -53,8 +56,8 @@ class JSONDecoder(object):
         self.last_type = TYPE_UNKNOWN
 
     def getslice(self, start, end):
-        assert start > 0
-        assert end > 0
+        assert start >= 0
+        assert end >= 0
         return self.s[start:end]
 
     def skip_whitespace(self, i):
@@ -117,7 +120,20 @@ class JSONDecoder(object):
         self._raise("Error when decoding false at char %d", i)
 
     def decode_numeric(self, i):
-        i, intval = self.parse_integer(i, allow_leading_0=False)
+        w_res = self.decode_numeric_fast(i)
+        if w_res is self.space.w_None:
+            # possible overflow, reparse it
+            return self.decode_numeric_slow(i)
+        return w_res
+
+    def decode_numeric_fast(self, i):
+        i, ovf_maybe, intval = self.parse_integer(i, allow_leading_0=False)
+        if ovf_maybe:
+            # apparently we get a ~30% slowdown on my microbenchmark if we
+            # return None instead of w_None, probably because the annotation
+            # of the results geta can_be_None=True. We need to check if this
+            # is still true also for the full pypy
+            return self.space.w_None
         #
         is_float = False
         exp = 0
@@ -134,7 +150,7 @@ class JSONDecoder(object):
         # check for the optional exponent part
         if ch == 'E' or ch == 'e':
             is_float = True
-            i, exp = self.parse_integer(i+1, allow_leading_0=True)
+            i, ovf_maybe, exp = self.parse_integer(i+1, allow_leading_0=True)
         #
         self.pos = i
         if is_float:
@@ -146,8 +162,21 @@ class JSONDecoder(object):
         else:
             return self.space.wrap(intval)
 
+    def decode_numeric_slow(self, i):
+        start = i
+        if self.ll_chars[i] == '-':
+            i += 1
+        while self.ll_chars[i].isdigit():
+            i += 1
+        s = self.getslice(start, i)
+        self.pos = i
+        w_res = self.space.call_function(self.space.w_int, self.space.wrap(s))
+        #assert w_res is not None # XXX check if this brings any speedup in pypy-c
+        return w_res
+
     def parse_integer(self, i, allow_leading_0=False):
         "Parse a decimal number with an optional minus sign"
+        start = i
         sign = 1
         if self.ll_chars[i] == '-':
             sign = -1
@@ -156,9 +185,12 @@ class JSONDecoder(object):
             i += 1
         elif not allow_leading_0 and self.ll_chars[i] == '0':
             i += 1
-            return i, 0
+            return i, False, 0
         i, intval, _ = self.parse_digits(i)
-        return i, sign * intval
+        # if the number has more digits than OVF_DIGITS, it might have
+        # overflowed
+        ovf_maybe = (i-start >= OVF_DIGITS)
+        return i, ovf_maybe, sign * intval
     parse_integer._always_inline_ = True
 
     def parse_digits(self, i):
