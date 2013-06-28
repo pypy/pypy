@@ -265,12 +265,14 @@ class JSONDecoder(object):
     def decode_object(self, i):
         start = i
         w_dict = self.space.newdict()
+        #
+        i = self.skip_whitespace(i)
+        ch = self.ll_chars[i]
+        if ch == '}':
+            self.pos = i+1
+            return w_dict
+
         while True:
-            ch = self.ll_chars[i]
-            if ch == '}':
-                self.pos = i+1
-                return w_dict
-            #
             # parse a key: value
             self.last_type = TYPE_UNKNOWN
             w_name = self.decode_any(i)

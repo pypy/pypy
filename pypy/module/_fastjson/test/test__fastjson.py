@@ -146,6 +146,7 @@ class AppTest(object):
     def test_decode_object(self):
         import _fastjson
         assert _fastjson.loads('{}') == {}
+        assert _fastjson.loads('{  }') == {}
         #
         s = '{"hello": "world", "aaa": "bbb"}'
         assert _fastjson.loads(s) == {'hello': 'world',
@@ -171,4 +172,5 @@ class AppTest(object):
         expected = u'z\U0001d120x'
         res = _fastjson.loads('"z\\ud834\\udd20x"')
         assert res == expected
+
 
