@@ -126,6 +126,8 @@ class AppTest(object):
         check(x, float(x))
         x = str(sys.maxint+1) + 'E1'
         check(x, float(x))
+        x = str(sys.maxint+1) + 'E-1'
+        check(x, float(x))
         #
         check('1E400', float('inf'))
 

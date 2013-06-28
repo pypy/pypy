@@ -186,6 +186,8 @@ class JSONDecoder(object):
         if self.ll_chars[i] == 'e' or self.ll_chars[i] == 'E':
             is_float = True
             i += 1
+            if self.ll_chars[i] == '+' or self.ll_chars[i] == '-':
+                i += 1
             while self.ll_chars[i].isdigit():
                 i += 1
         #
