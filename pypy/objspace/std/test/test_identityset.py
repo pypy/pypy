@@ -95,4 +95,115 @@ class AppTestIdentitySet(object):
         s.update([b,c])
         
         assert s == set([a,b,c])
-
+    
+    
+    def test_identity_strategy_iterators(self):
+        
+        class X(object):
+            pass
+        
+        s = set([X() for i in range(10)])
+        counter = 0
+        for item in s:
+            counter += 1
+            assert item in s
+        
+        assert counter == 10
+    
+    
+    def test_identity_strategy_other_cmp(self):
+        
+        #test tries to hit positive and negative in 
+        # may_contain_equal_elements
+        
+        class X(object):
+            pass
+            
+        s = set([X() for i in range(10)]) 
+        
+        assert s.intersection(set([1,2,3])) == set()
+        assert s.intersection(set(['a','b','c'])) == set()
+        assert s.intersection(set(['a','b','c'])) == set()
+        assert s.intersection(set([X(),X()])) == set()
+        
+        other = set(['a','b','c',s.__iter__().next()])
+        intersect = s.intersection(other)
+        assert len(intersect) == 1
+        assert intersect.__iter__().next() in s
+        assert intersect.__iter__().next() in other
+        
+    def test_class_monkey_patch(self):
+        
+        class X(object):
+            pass
+        
+        s = set()
+        
+        s.add(X())
+        assert self.uses_strategy('IdentitySetStrategy',s)
+        X.__eq__ = lambda self,other : None
+        s.add(X())
+        assert not self.uses_strategy('IdentitySetStrategy',s)
+        assert not self.uses_strategy('IdentitySetStrategy',set([X(),X()]))
+        assert not self.uses_strategy('IdentitySetStrategy',set([X(),""]))
+        assert not self.uses_strategy('IdentitySetStrategy',set([X(),u""]))
+        assert not self.uses_strategy('IdentitySetStrategy',set([X(),1]))
+        
+        # An interesting case, add an instance, mutate the class, 
+        # then add the same instance.
+        
+        class X(object):
+            pass
+        
+        s = set()
+        inst = X()
+        s.add(inst)
+        X.__eq__ = lambda x,y : x is y
+        s.add(inst)
+        
+        assert len(s) == 1
+        assert s.__iter__().next() is inst
+        assert not self.uses_strategy('IdentitySetStrategy',s)
+        
+        
+        #Add instance, mutate class, check membership of that instance.
+        
+        class X(object):
+            pass
+        
+        
+        inst = X()
+        s = set()
+        s.add(inst)
+        X.__eq__ = lambda x,y : x is y
+        assert inst in s
+        
+        # Test Wrong strategy
+        # If the strategy is changed by mutation, but the instance
+        # does not change, then this tests the methods that call
+        # may_contain_equal_elements still function.
+        # i.e. same instance in two sets, one with object strategy, one with
+        # identity strategy.
+        
+        class X(object):
+            pass
+        
+        
+        inst = X()
+        s1 = set()
+        s1.add(inst)
+        assert self.uses_strategy('IdentitySetStrategy',s1)
+        X.__eq__ = lambda x,y : x is y
+        s2 = set()
+        s2.add(inst)
+        assert not self.uses_strategy('IdentitySetStrategy',s2)
+        
+        assert s1.intersection(s2) == set([inst])
+        assert (s1 - s2) == set()
+        assert (s2 - s1) == set()
+        
+        s1.difference_update(s2)
+        assert s1 == set()
+        
+        
+        
