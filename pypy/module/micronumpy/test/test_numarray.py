@@ -1428,6 +1428,12 @@ class AppTestNumArray(BaseNumpyAppTest):
         exc = raises(TypeError, s.view, dtype='int8')
         assert exc.value[0] == "view() takes no keyword arguments"
         assert s.view('double') < 7e-323
+        x = array(range(15), dtype='int16').reshape(3,5)
+        exc = raises(ValueError, x.view, dtype='int32')
+        assert exc.value[0] == "new type not compatible with array."
+        assert x.view('int8').shape == (3, 10)
+        x = array(range(15), dtype='int16').reshape(3,5).T
+        assert x.view('int8').shape == (10, 3)
 
     def test_tolist_scalar(self):
         from numpypy import int32, bool_

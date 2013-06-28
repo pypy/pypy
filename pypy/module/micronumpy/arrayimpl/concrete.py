@@ -75,6 +75,10 @@ class BaseConcreteArray(base.BaseArrayImplementation):
         else:
             return None
 
+    def get_view(self, dtype, new_shape):
+        pass
+        #return SliceArray(self.start,
+
     def get_real(self, orig_array):
         strides = self.get_strides()
         backstrides = self.get_backstrides()
