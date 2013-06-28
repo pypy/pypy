@@ -343,13 +343,16 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a[1] == 1.0
 
     def test_ones(self):
-        from numpypy import ones
+        from numpypy import ones, dtype
         a = ones(3)
         assert len(a) == 3
         assert a[0] == 1
         raises(IndexError, "a[3]")
         a[2] = 4
         assert a[2] == 4
+        b = ones(3, complex)
+        assert b[0] == 1+0j
+        assert b.dtype is dtype(complex)
 
     def test_copy(self):
         from numpypy import arange, array
@@ -2193,6 +2196,10 @@ class AppTestMultiDim(BaseNumpyAppTest):
         d = array(10)
         d.fill(100)
         assert d == 100
+
+        e = array(10, dtype=complex)
+        e.fill(1.5-3j)
+        assert e == 1.5-3j
 
     def test_array_indexing_bool(self):
         from numpypy import arange
