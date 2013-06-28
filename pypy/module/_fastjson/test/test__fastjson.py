@@ -166,7 +166,8 @@ class AppTest(object):
         assert _fastjson.loads('[1, 2]') == [1, 2]
         raises(ValueError, "_fastjson.loads('[1: 2]')")
         raises(ValueError, "_fastjson.loads('[1, 2')")
-
+        raises(ValueError, """_fastjson.loads('["extra comma",]')""")
+        
     def test_unicode_surrogate_pair(self):
         import _fastjson
         expected = u'z\U0001d120x'

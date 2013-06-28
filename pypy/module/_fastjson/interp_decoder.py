@@ -239,11 +239,11 @@ class JSONDecoder(object):
         start = i
         count = 0
         i = self.skip_whitespace(start)
+        if self.ll_chars[i] == ']':
+            self.pos = i+1
+            return w_list
+        #
         while True:
-            ch = self.ll_chars[i]
-            if ch == ']':
-                self.pos = i+1
-                return w_list
             w_item = self.decode_any(i)
             i = self.pos
             self.space.call_method(w_list, 'append', w_item)
@@ -267,11 +267,10 @@ class JSONDecoder(object):
         w_dict = self.space.newdict()
         #
         i = self.skip_whitespace(i)
-        ch = self.ll_chars[i]
-        if ch == '}':
+        if self.ll_chars[i] == '}':
             self.pos = i+1
             return w_dict
-
+        #
         while True:
             # parse a key: value
             self.last_type = TYPE_UNKNOWN
