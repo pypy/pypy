@@ -10,6 +10,7 @@ from rpython.rlib.rarithmetic import r_uint, string_to_int
 from rpython.rlib.objectmodel import instantiate
 from rpython.rlib.rbigint import rbigint
 from rpython.rlib.rstring import ParseStringError, ParseStringOverflowError
+from rpython.rlib import jit
 
 # ____________________________________________________________
 
@@ -61,6 +62,7 @@ def wrapint(space, x):
 
 # ____________________________________________________________
 
+@jit.elidable
 def string_to_int_or_long(space, string, base=10):
     w_longval = None
     value = 0
@@ -73,10 +75,10 @@ def string_to_int_or_long(space, string, base=10):
         w_longval = retry_to_w_long(space, e.parser)
     return value, w_longval
 
-def retry_to_w_long(space, parser, base=0):
+def retry_to_w_long(space, parser):
     parser.rewind()
     try:
-        bigint = rbigint.fromstr(None, base=base, parser=parser)
+        bigint = rbigint._from_numberstring_parser(parser)
     except ParseStringError, e:
         raise OperationError(space.w_ValueError,
                              space.wrap(e.msg))

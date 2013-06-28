@@ -222,6 +222,11 @@ class Test_rbigint(object):
         assert rbigint.fromstr('123L', 21).tolong() == 441 + 42 + 3
         assert rbigint.fromstr('1891234174197319').tolong() == 1891234174197319
 
+    def test_from_numberstring_parser(self):
+        from rpython.rlib.rstring import NumberStringParser
+        parser = NumberStringParser("1231231241", "1231231241", 10, "long")
+        assert rbigint._from_numberstring_parser(parser).tolong() == 1231231241
+
     def test_add(self):
         x = 123456789123456789000000L
         y = 123858582373821923936744221L
