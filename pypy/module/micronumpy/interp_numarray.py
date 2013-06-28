@@ -618,8 +618,17 @@ class __extend__(W_NDimArray):
             "trace not implemented yet"))
 
     def descr_view(self, space, w_dtype=None, w_type=None) :
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            "view not implemented yet"))
+        if w_type is not None:
+            raise OperationError(space.w_NotImplementedError, space.wrap(
+                "view(... type=<class>) not implemented yet"))
+        if w_dtype:
+            dtype = space.interp_w(interp_dtype.W_Dtype,
+                space.call_function(space.gettypefor(interp_dtype.W_Dtype),
+                                                                   w_dtype))
+        else:
+            dtype = self.get_dtype()
+        return W_NDimArray(self.implementation.get_view(self, dtype))
+
 
     # --------------------- operations ----------------------------
 
@@ -996,6 +1005,7 @@ W_NDimArray.typedef = TypeDef(
     round    = interp2app(W_NDimArray.descr_round),
     data     = GetSetProperty(W_NDimArray.descr_get_data),
     diagonal = interp2app(W_NDimArray.descr_diagonal),
+    view = interp2app(W_NDimArray.descr_view),
 
     ctypes = GetSetProperty(W_NDimArray.descr_get_ctypes), # XXX unimplemented
     __array_interface__ = GetSetProperty(W_NDimArray.descr_array_iface),

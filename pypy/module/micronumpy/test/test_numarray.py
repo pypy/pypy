@@ -1412,7 +1412,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a[2].imag == -5
 
     def test_ndarray_view(self):
-        from numpypy import array, int8, int16, dtype
+        from numpypy import array, int8, int16, dtype, int64
         x = array([(1, 2)], dtype=[('a', int8), ('b', int8)])
         y = x.view(dtype=int16)
         assert y[0] == 513
@@ -1420,6 +1420,14 @@ class AppTestNumArray(BaseNumpyAppTest):
         y[0] = 670
         assert x['a'] == -98
         assert x['b'] == 2
+        f = array([1000, -1234], dtype='i')
+        nnp = self.non_native_prefix
+        d = f.view(dtype=nnp + 'i')
+        assert (d == [-402456576,  788267007]).all()
+        s = int64(12)
+        exc = raises(TypeError, s.view, dtype='int8')
+        assert exc.value[0] == "view() takes no keyword arguments"
+        assert s.view('double') < 7e-323
 
     def test_tolist_scalar(self):
         from numpypy import int32, bool_
