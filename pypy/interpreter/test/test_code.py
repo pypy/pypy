@@ -40,6 +40,7 @@ class AppTestCodeIntrospection:
                 (abs.__code__, {'co_name': 'abs',
                                  'co_varnames': ('val',),
                                  'co_argcount': 1,
+                                 'co_kwonlyargcount': 0,
                                  'co_flags': 0,
                                  'co_consts': ("abs(number) -> number\n\nReturn the absolute value of the argument.",),
                                  }),
@@ -47,6 +48,7 @@ class AppTestCodeIntrospection:
                                 {#'co_name': '__init__',   XXX getting descr__init__
                                  'co_varnames': ('obj', 'args', 'keywords'),
                                  'co_argcount': 1,
+                                 'co_kwonlyargcount': 0,
                                  'co_flags': 0x000C,  # VARARGS|VARKEYWORDS
                                  }),
                 ]
