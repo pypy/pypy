@@ -197,23 +197,35 @@ def choose(space, w_arr, w_choices, w_out, mode):
 def put(space, w_arr, w_indices, w_values, mode='raise'):
     from pypy.module.micronumpy import constants
     from pypy.module.micronumpy.support import int_w
+
     arr = convert_to_array(space, w_arr)
+
     if mode not in constants.MODES:
         raise OperationError(space.w_ValueError,
                              space.wrap("mode %s not known" % (mode,)))
-    indices = convert_to_array(space, w_indices)
-    values = convert_to_array(space, w_values)
-    if not indices:
+    if not w_indices:
         raise OperationError(space.w_ValueError,
                              space.wrap("indice list cannot be empty"))
-    if not values:
+    if not w_values:
         raise OperationError(space.w_ValueError,
                              space.wrap("value list cannot be empty"))
+
     dtype = arr.get_dtype()
-    val_iter = values.create_iter()
-    ind_iter = indices.create_iter()
-    while not ind_iter.done():
-        index = int_w(space, ind_iter.getitem())
+
+    if space.isinstance_w(w_indices, space.w_list):
+        indices = space.listview(w_indices)
+    else:
+        indices = [w_indices]
+
+    if space.isinstance_w(w_values, space.w_list):
+        values = space.listview(w_values)
+    else:
+        values = [w_values]
+
+    v_idx = 0
+    for idx in indices:
+        index = int_w(space, idx)
+
         if index < 0 or index >= arr.get_size():
             if constants.MODES[mode] == constants.MODE_RAISE:
                 raise OperationError(space.w_ValueError, space.wrap(
@@ -226,9 +238,13 @@ def put(space, w_arr, w_indices, w_values, mode='raise'):
                     index = 0
                 else:
                     index = arr.get_size() - 1
-        arr.setitem(space, [index], val_iter.getitem().convert_to(dtype))
-        ind_iter.next()
-        val_iter.next()
+
+        value = values[v_idx]
+
+        if v_idx + 1 < len(values):
+            v_idx += 1
+
+        arr.setitem(space, [index], dtype.coerce(space, value))
 
 
 def diagonal(space, arr, offset, axis1, axis2):

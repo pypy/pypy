@@ -136,8 +136,14 @@ class AppTestNumSupport(BaseNumpyAppTest):
     def test_put_basic(self):
         from numpypy import arange, array
         a = arange(5)
-        a.put([0,2], [-44, -55])
+        a.put([0, 2], [-44, -55])
         assert (a == array([-44, 1, -55, 3, 4])).all()
+        a = arange(5)
+        a.put([3, 4], 9)
+        assert (a == array([0, 1, 2, 9, 9])).all()
+        a = arange(5)
+        a.put(1, [7, 8])
+        assert (a == array([0, 7, 2, 3, 4])).all()
 
     def test_put_modes(self):
         from numpypy import array, arange
