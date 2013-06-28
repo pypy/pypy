@@ -240,6 +240,16 @@ class W_GenericBox(W_Root):
         v = self.convert_to(self.get_dtype(space))
         return self.get_dtype(space).itemtype.round(v, decimals)
 
+    def descr_view(self, space, w_dtype):
+        from pypy.module.micronumpy.interp_dtype import W_Dtype
+        dtype = space.interp_w(W_Dtype,
+            space.call_function(space.gettypefor(W_Dtype), w_dtype))
+        if dtype.get_size() != self.get_dtype(space).get_size():
+            raise OperationError(space.w_ValueError, space.wrap(
+                "new type not compatible with array."))
+        raise OperationError(space.w_NotImplementedError, space.wrap(
+            "view not implelemnted yet"))
+
 class W_BoolBox(W_GenericBox, PrimitiveBox):
     descr__new__, _get_dtype, descr_reduce = new_dtype_getter("bool")
 
@@ -507,6 +517,7 @@ W_GenericBox.typedef = TypeDef("generic",
     all = interp2app(W_GenericBox.descr_all),
     ravel = interp2app(W_GenericBox.descr_ravel),
     round = interp2app(W_GenericBox.descr_round),
+    view = interp2app(W_GenericBox.descr_view),
 )
 
 W_BoolBox.typedef = TypeDef("bool_", W_GenericBox.typedef,

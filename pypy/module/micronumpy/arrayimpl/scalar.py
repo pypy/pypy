@@ -63,6 +63,11 @@ class Scalar(base.BaseArrayImplementation):
     def transpose(self, _):
         return self
 
+    def get_view(self, orig_array, dtype, new_shape):
+        scalar = Scalar(dtype)
+        scalar.value = self.value.convert_to(dtype)
+        return scalar
+
     def get_real(self, orig_array):
         if self.dtype.is_complex_type():
             scalar = Scalar(self.dtype.float_type)

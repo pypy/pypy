@@ -628,23 +628,27 @@ class __extend__(W_NDimArray):
         else:
             dtype = self.get_dtype()
         factor = float(dtype.get_size()) / self.get_dtype().get_size()
-        print 'new dtype',dtype,'self dtype',self.get_dtype(),'factor',factor
         if self.get_size() % factor != 0:
             raise OperationError(space.w_ValueError, space.wrap(
                 "new type not compatible with array."))
-        new_shape = self.get_shape()
         impl = self.implementation
-        if impl.get_strides()[0] < impl.get_strides()[-1]:
-            new_shape[0] = int(new_shape[0] / factor)
-            if new_shape[0] == 0:
-                raise OperationError(space.w_ValueError, space.wrap(
-                    "new type not compatible with array shape"))
+        new_shape = self.get_shape()
+        if len(new_shape) > 0:
+            if impl.get_strides()[0] < impl.get_strides()[-1]:
+                new_shape[0] = int(new_shape[0] / factor)
+                if new_shape[0] == 0:
+                    raise OperationError(space.w_ValueError, space.wrap(
+                        "new type not compatible with array shape"))
+            else:
+                new_shape[-1] = int(new_shape[-1] / factor)
+                if new_shape[-1] == 0:
+                    raise OperationError(space.w_ValueError, space.wrap(
+                        "new type not compatible with array shape"))
         else:
-            new_shape[-1] = int(new_shape[-1] / factor)
-            if new_shape[-1] == 0:
+            if factor != 1:
                 raise OperationError(space.w_ValueError, space.wrap(
                     "new type not compatible with array shape"))
-        return W_NDimArray(self.implementation.get_view(self, dtype, new_shape))
+        return W_NDimArray(impl.get_view(self, dtype, new_shape))
 
 
     # --------------------- operations ----------------------------
