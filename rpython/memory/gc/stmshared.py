@@ -295,7 +295,7 @@ class StmGCThreadLocalAllocator(object):
         some other data structure.  Note that it is not zero-filled."""
         nsize = llmemory.raw_malloc_usage(totalsize)
         if nsize <= self.sharedarea.small_request_threshold:
-            size_class = (nsize + WORD_POWER_2 - 1) >> WORD_POWER_2
+            size_class = (nsize + WORD - 1) >> WORD_POWER_2
             return self._malloc_size_class(size_class)
         else:
             count = llmemory.raw_malloc_usage(totalsize)
