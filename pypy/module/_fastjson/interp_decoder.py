@@ -316,8 +316,8 @@ class JSONDecoder(object):
             val = int(hexdigits, 16)
             if val & 0xfc00 == 0xd800:
                 # surrogate pair
-                i += 6
                 val = self.decode_surrogate_pair(i, val)
+                i += 6
         except ValueError:
             self._raise("Invalid \uXXXX escape (char %d)", i-1)
             return # help the annotator to know that we'll never go beyond
