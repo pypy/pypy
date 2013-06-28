@@ -1415,6 +1415,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         from numpypy import array, int8, int16, dtype, int64
         x = array([(1, 2)], dtype=[('a', int8), ('b', int8)])
         y = x.view(dtype=int16)
+        print y,y.shape
         assert y[0] == 513
         assert y.dtype == dtype('int16')
         y[0] = 670
