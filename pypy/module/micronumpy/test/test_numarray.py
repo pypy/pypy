@@ -1412,7 +1412,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a[2].imag == -5
 
     def test_ndarray_view(self):
-        from numpypy import array, int8, int16, dtype, int64
+        from numpypy import array, int8, int16, dtype
         x = array([(1, 2)], dtype=[('a', int8), ('b', int8)])
         y = x.view(dtype=int16)
         print y,y.shape
@@ -1421,20 +1421,23 @@ class AppTestNumArray(BaseNumpyAppTest):
         y[0] = 670
         assert x['a'] == -98
         assert x['b'] == 2
-        f = array([1000, -1234], dtype='i')
+        f = array([1000, -1234], dtype='i4')
         nnp = self.non_native_prefix
-        d = f.view(dtype=nnp + 'i')
+        d = f.view(dtype=nnp + 'i4')
         assert (d == [-402456576,  788267007]).all()
-        s = int64(12)
-        exc = raises(TypeError, s.view, dtype='int8')
-        assert exc.value[0] == "view() takes no keyword arguments"
-        assert s.view('double') < 7e-323
-        x = array(range(15), dtype='int16').reshape(3,5)
-        exc = raises(ValueError, x.view, dtype='int32')
+        x = array(range(15), dtype='i2').reshape(3,5)
+        exc = raises(ValueError, x.view, dtype='i4')
         assert exc.value[0] == "new type not compatible with array."
         assert x.view('int8').shape == (3, 10)
         x = array(range(15), dtype='int16').reshape(3,5).T
         assert x.view('int8').shape == (10, 3)
+
+    def test_scalar_view(self):
+        from numpypy import int64
+        s = int64(12)
+        exc = raises(TypeError, s.view, dtype='int8')
+        assert exc.value[0] == "view() takes no keyword arguments"
+        assert s.view('double') < 7e-323
 
     def test_tolist_scalar(self):
         from numpypy import int32, bool_
