@@ -48,7 +48,7 @@ def strslice2unicode_latin1(s, start, end):
 TYPE_UNKNOWN = 0
 TYPE_STRING = 1
 class JSONDecoder(object):
-    def __init__(self, space, s):
+    def __init__(self, space, s, precise_float=True):
         self.space = space
         self.s = s
         # we put our string in a raw buffer so:
@@ -59,6 +59,7 @@ class JSONDecoder(object):
         self.end_ptr = lltype.malloc(rffi.CCHARPP.TO, 1, flavor='raw')
         self.pos = 0
         self.last_type = TYPE_UNKNOWN
+        self.precise_float = precise_float
 
     def close(self):
         rffi.free_charp(self.ll_chars)
@@ -144,9 +145,9 @@ class JSONDecoder(object):
         if ch == '.':
             if not self.ll_chars[i+1].isdigit():
                 self._raise("Expected digit at char %d", i+1)
-            return self.parse_float(start)
+            return self.parse_float(start, i, intval, ovf_maybe)
         elif ch == 'e' or ch == 'E':
-            return self.parse_float(start)
+            return self.parse_float(start, i, intval, ovf_maybe)
         elif ovf_maybe:
             # apparently we get a ~30% slowdown on my microbenchmark if we
             # return None instead of w_None, probably because the annotation
@@ -157,35 +158,38 @@ class JSONDecoder(object):
         self.pos = i
         return self.space.wrap(intval)
 
-        ## if ch == '.':
-        ##     is_float = True
-        ##     i, frcval, frccount = self.parse_digits(i+1)
-        ##     frcval = neg_pow_10(frcval, frccount)
-        ##     ch = self.ll_chars[i]
-        ## # check for the optional exponent part
-        ## if ch == 'E' or ch == 'e':
-        ##     is_float = True
-        ##     i, ovf_maybe, exp = self.parse_integer(i+1, allow_leading_0=True)
-        ## #
-        ## self.pos = i
-        ## if is_float:
-        ##     # build the float
-        ##     floatval = intval + frcval
-        ##     if exp != 0:
-        ##         try:
-        ##             floatval = floatval * math.pow(10, exp)
-        ##         except OverflowError:
-        ##             floatval = rfloat.INFINITY
-        ##     return self.space.wrap(floatval)
-        ## else:
-        ##     return self.space.wrap(intval)
+    def parse_float(self, start, i, intval, ovf_maybe):
+        if self.precise_float or ovf_maybe:
+            return self.parse_float_precise(start)
+        return self.parse_float_fast(i, intval)
 
-    def parse_float(self, i):
+    def parse_float_precise(self, i):
         from rpython.rlib import rdtoa
         start = rffi.ptradd(self.ll_chars, i)
         floatval = rdtoa.dg_strtod(start, self.end_ptr)
         diff = rffi.cast(rffi.LONG, self.end_ptr[0]) - rffi.cast(rffi.LONG, start)
         self.pos = i + diff
+        return self.space.wrap(floatval)
+
+    def parse_float_fast(self, i, intval):
+        exp = 0
+        frcval = 0
+        ch = self.ll_chars[i]
+        if ch == '.':
+            i, frcval, frccount = self.parse_digits(i+1)
+            frcval = neg_pow_10(frcval, frccount)
+            ch = self.ll_chars[i]
+        # check for the optional exponent part
+        if ch == 'E' or ch == 'e':
+            i, ovf_maybe, exp = self.parse_integer(i+1, allow_leading_0=True)
+        #
+        floatval = float(intval) + frcval
+        if exp != 0:
+            try:
+                floatval = floatval * math.pow(10, exp)
+            except OverflowError:
+                floatval = rfloat.INFINITY
+        self.pos = i
         return self.space.wrap(floatval)
 
     def decode_numeric_slow(self, i):
@@ -422,13 +426,13 @@ class JSONDecoder(object):
         lowsurr = int(hexdigits, 16) # the possible ValueError is caugth by the caller
         return 0x10000 + (((highsurr - 0xd800) << 10) | (lowsurr - 0xdc00))
 
-
-def loads(space, w_s):
+@unwrap_spec(precise_float=bool)
+def loads(space, w_s, precise_float=True):
     if space.isinstance_w(w_s, space.w_unicode):
         raise OperationError(space.w_TypeError,
                              space.wrap("Expected utf8-encoded str, got unicode"))
     s = space.str_w(w_s)
-    decoder = JSONDecoder(space, s)
+    decoder = JSONDecoder(space, s, precise_float)
     try:
         w_res = decoder.decode_any(0)
         i = decoder.skip_whitespace(decoder.pos)
