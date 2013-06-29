@@ -1,4 +1,4 @@
-/* Imported by rpython/translator/stm/import_stmgc.py */
+/* Imported by rpython/translator/stm/import_stmgc.py: 45380d4cb89c */
 #ifndef _SRCSTM_ATOMIC_OPS_
 #define _SRCSTM_ATOMIC_OPS_
 

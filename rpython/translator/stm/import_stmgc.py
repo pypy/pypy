@@ -7,15 +7,21 @@ import_stmgc.py <path-to-stmgc-working-copy>
 The working copy comes from:  hg clone https://bitbucket.org/pypy/stmgc
 """
 
-import sys, py
+import sys, py, subprocess
 
-def mangle(lines):
-    yield "/* Imported by rpython/translator/stm/import_stmgc.py */\n"
+def mangle(lines, rev):
+    yield ("/* Imported by rpython/translator/stm/import_stmgc.py: %s */\n"
+           % rev)
     for line in lines:
         yield line
 
 def main(stmgc_dir):
     stmgc_dir = py.path.local(stmgc_dir).join('c4')
+    popen = subprocess.Popen(['hg', 'id', '-i'], cwd=str(stmgc_dir),
+                             stdout=subprocess.PIPE)
+    rev = popen.stdout.read().strip()
+    popen.wait()
+    #
     stmgc_dest = py.path.local(__file__).join('..', 'src_stm')
     plist = stmgc_dir.visit(rec=lambda p: False)
     for p in sorted(plist):
@@ -28,7 +34,7 @@ def main(stmgc_dir):
         path.join('..').ensure(dir=1)
         if path.check():
             path.remove()
-        path.write(''.join(mangle(p.readlines())))
+        path.write(''.join(mangle(p.readlines(), rev)))
         path.chmod(0444)
 
 if __name__ == '__main__':

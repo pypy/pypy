@@ -1,4 +1,4 @@
-/* Imported by rpython/translator/stm/import_stmgc.py */
+/* Imported by rpython/translator/stm/import_stmgc.py: 45380d4cb89c */
 #ifndef _SRCSTM_STMSYNC_H
 #define _SRCSTM_STMSYNC_H
 
