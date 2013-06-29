@@ -3,6 +3,7 @@ import math
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib import rfloat
+from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter import unicodehelper
@@ -50,11 +51,18 @@ class JSONDecoder(object):
     def __init__(self, space, s):
         self.space = space
         self.s = s
-        # we put a sentinel at the end so that we never have to check for the
-        # "end of string" condition
-        self.ll_chars = llstr(s+'\0').chars
+        # we put our string in a raw buffer so:
+        # 1) we automatically get the '\0' sentinel at the end of the string,
+        #    which means that we never have to check for the "end of string"
+        # 2) we can pass the buffer directly to strtod
+        self.ll_chars = rffi.str2charp(s)
+        self.end_ptr = lltype.malloc(rffi.CCHARPP.TO, 1, flavor='raw')
         self.pos = 0
         self.last_type = TYPE_UNKNOWN
+
+    def close(self):
+        rffi.free_charp(self.ll_chars)
+        lltype.free(self.end_ptr, flavor='raw')
 
     def getslice(self, start, end):
         assert start >= 0
@@ -128,43 +136,57 @@ class JSONDecoder(object):
         return w_res
 
     def decode_numeric_fast(self, i):
+        start = i
         i, ovf_maybe, intval = self.parse_integer(i, allow_leading_0=False)
-        if ovf_maybe:
+        #
+        # check for the optional fractional part
+        ch = self.ll_chars[i]
+        if ch == '.':
+            if not self.ll_chars[i+1].isdigit():
+                self._raise("Expected digit at char %d", i+1)
+            return self.parse_float(start)
+        elif ch == 'e' or ch == 'E':
+            return self.parse_float(start)
+        elif ovf_maybe:
             # apparently we get a ~30% slowdown on my microbenchmark if we
             # return None instead of w_None, probably because the annotation
             # of the results geta can_be_None=True. We need to check if this
             # is still true also for the full pypy
             return self.space.w_None
-        #
-        is_float = False
-        exp = 0
-        frcval = 0.0
-        frccount = 0
-        #
-        # check for the optional fractional part
-        ch = self.ll_chars[i]
-        if ch == '.':
-            is_float = True
-            i, frcval, frccount = self.parse_digits(i+1)
-            frcval = neg_pow_10(frcval, frccount)
-            ch = self.ll_chars[i]
-        # check for the optional exponent part
-        if ch == 'E' or ch == 'e':
-            is_float = True
-            i, ovf_maybe, exp = self.parse_integer(i+1, allow_leading_0=True)
-        #
+
         self.pos = i
-        if is_float:
-            # build the float
-            floatval = intval + frcval
-            if exp != 0:
-                try:
-                    floatval = floatval * math.pow(10, exp)
-                except OverflowError:
-                    floatval = rfloat.INFINITY
-            return self.space.wrap(floatval)
-        else:
-            return self.space.wrap(intval)
+        return self.space.wrap(intval)
+
+        ## if ch == '.':
+        ##     is_float = True
+        ##     i, frcval, frccount = self.parse_digits(i+1)
+        ##     frcval = neg_pow_10(frcval, frccount)
+        ##     ch = self.ll_chars[i]
+        ## # check for the optional exponent part
+        ## if ch == 'E' or ch == 'e':
+        ##     is_float = True
+        ##     i, ovf_maybe, exp = self.parse_integer(i+1, allow_leading_0=True)
+        ## #
+        ## self.pos = i
+        ## if is_float:
+        ##     # build the float
+        ##     floatval = intval + frcval
+        ##     if exp != 0:
+        ##         try:
+        ##             floatval = floatval * math.pow(10, exp)
+        ##         except OverflowError:
+        ##             floatval = rfloat.INFINITY
+        ##     return self.space.wrap(floatval)
+        ## else:
+        ##     return self.space.wrap(intval)
+
+    def parse_float(self, i):
+        from rpython.rlib import rdtoa
+        start = rffi.ptradd(self.ll_chars, i)
+        floatval = rdtoa.dg_strtod(start, self.end_ptr)
+        diff = rffi.cast(rffi.LONG, self.end_ptr[0]) - rffi.cast(rffi.LONG, start)
+        self.pos = i + diff
+        return self.space.wrap(floatval)
 
     def decode_numeric_slow(self, i):
         is_float = False
@@ -407,10 +429,13 @@ def loads(space, w_s):
                              space.wrap("Expected utf8-encoded str, got unicode"))
     s = space.str_w(w_s)
     decoder = JSONDecoder(space, s)
-    w_res = decoder.decode_any(0)
-    i = decoder.skip_whitespace(decoder.pos)
-    if i < len(s):
-        start = i
-        end = len(s) - 1
-        raise operationerrfmt(space.w_ValueError, "Extra data: char %d - %d", start, end)
-    return w_res
+    try:
+        w_res = decoder.decode_any(0)
+        i = decoder.skip_whitespace(decoder.pos)
+        if i < len(s):
+            start = i
+            end = len(s) - 1
+            raise operationerrfmt(space.w_ValueError, "Extra data: char %d - %d", start, end)
+        return w_res
+    finally:
+        decoder.close()
