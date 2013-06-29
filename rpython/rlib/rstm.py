@@ -1,5 +1,4 @@
 import thread, weakref
-from rpython.translator.stm import stmgcintf
 from rpython.rlib.debug import ll_assert, fatalerror
 from rpython.rlib.objectmodel import keepalive_until_here, specialize
 from rpython.rlib.objectmodel import we_are_translated

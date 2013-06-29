@@ -592,6 +592,8 @@ class FunctionCodeGenerator(object):
     OP_STM_ABORT_INFO_PUSH = _OP_STM
     OP_STM_EXTRAREF_LLCOUNT = _OP_STM
     OP_STM_EXTRAREF_LLADDR = _OP_STM
+    OP_STM_PUSH_ROOT = _OP_STM
+    OP_STM_POP_ROOT_INTO = _OP_STM
 
 
     def OP_PTR_NONZERO(self, op):

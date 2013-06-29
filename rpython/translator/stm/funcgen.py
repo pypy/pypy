@@ -1,7 +1,6 @@
-from rpython.translator.c.support import c_string_constant
+from rpython.translator.c.support import c_string_constant, cdecl
 from rpython.translator.c.node import ContainerNode
 from rpython.translator.c.primitive import name_small_integer
-from rpython.translator.stm.stmgcintf import StmOperations
 
 
 class StmHeader_OpaqueNode(ContainerNode):
@@ -50,9 +49,12 @@ _STM_BARRIER_FUNCS = {   # XXX try to see if some combinations can be shorter
 def stm_barrier(funcgen, op):
     category_change = op.args[0].value
     funcname = _STM_BARRIER_FUNCS[category_change]
+    assert op.args[1].concretetype == op.result.concretetype
     arg = funcgen.expr(op.args[1])
     result = funcgen.expr(op.result)
-    return '%s = %s(%s);' % (result, funcname, arg)
+    return '%s = (%s)%s((gcptr)%s);' % (
+        result, cdecl(funcgen.lltypename(op.result), ''),
+        funcname, arg)
 
 def stm_ptr_eq(funcgen, op):
     xxx
@@ -94,6 +96,15 @@ def _stm_nogc_init_function():
     xxx
     StmOperations.descriptor_init()
     StmOperations.begin_inevitable_transaction()
+
+def stm_push_root(funcgen, op):
+    arg0 = funcgen.expr(op.args[0])
+    return 'stm_push_root((gcptr)%s);' % (arg0,)
+
+def stm_pop_root_into(funcgen, op):
+    arg0 = funcgen.expr(op.args[0])
+    return '%s = (%s)stm_pop_root();' % (
+        arg0, cdecl(funcgen.lltypename(op.args[0]), ''))
 
 
 def op_stm(funcgen, op):
