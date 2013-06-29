@@ -17,6 +17,16 @@ class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
         self.autoregister_ptrs.append(
             getfn(pypy_stmcb_size, [annmodel.SomeAddress()],
                   annmodel.SomeInteger()))
+        #
+        def invokecallback(root, visit_fn):
+            visit_fn(root)
+        def pypy_stmcb_trace(obj, visit_fn):
+            gc.trace(obj, invokecallback, visit_fn)
+        pypy_stmcb_trace.c_name = "pypy_stmcb_trace"
+        self.autoregister_ptrs.append(
+            getfn(pypy_stmcb_trace, [annmodel.SomeAddress(),
+                                     annmodel.SomePtr(GCClass.VISIT_FPTR)],
+                  annmodel.s_None))
 
     def build_root_walker(self):
         return StmRootWalker(self)

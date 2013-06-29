@@ -21,6 +21,8 @@ class StmGC(MovingGCBase):
     HDR = rffi.COpaque('struct stm_object_s')
     typeid_is_in_field = None
 
+    VISIT_FPTR = lltype.Ptr(lltype.FuncType([llmemory.Address], lltype.Void))
+
     TRANSLATION_PARAMS = {}
 
     def get_type_id(self, obj):

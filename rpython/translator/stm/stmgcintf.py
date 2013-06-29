@@ -9,9 +9,14 @@ separate_source = '''
 #include "src_stm/stmgc.h"
 
 extern Signed pypy_stmcb_size(void*);
+extern void pypy_stmcb_trace(void*, void(*)(void*));
 
 inline size_t stmcb_size(gcptr obj) {
     return pypy_stmcb_size(obj);
+}
+
+inline void stmcb_trace(gcptr obj, void visit(gcptr *)) {
+    pypy_stmcb_trace(obj, (void(*)(void*))visit);
 }
 
 #include "src_stm/stmgc.c"
