@@ -130,13 +130,6 @@ class JSONDecoder(object):
         self._raise("Error when decoding false at char %d", i)
 
     def decode_numeric(self, i):
-        w_res = self.decode_numeric_fast(i)
-        if w_res is self.space.w_None:
-            # possible overflow, reparse it
-            return self.decode_numeric_slow(i)
-        return w_res
-
-    def decode_numeric_fast(self, i):
         start = i
         i, ovf_maybe, intval = self.parse_integer(i, allow_leading_0=False)
         #
@@ -149,11 +142,7 @@ class JSONDecoder(object):
         elif ch == 'e' or ch == 'E':
             return self.parse_float(start, i, intval, ovf_maybe)
         elif ovf_maybe:
-            # apparently we get a ~30% slowdown on my microbenchmark if we
-            # return None instead of w_None, probably because the annotation
-            # of the results geta can_be_None=True. We need to check if this
-            # is still true also for the full pypy
-            return self.space.w_None
+            return self.decode_int_slow(start)
 
         self.pos = i
         return self.space.wrap(intval)
@@ -192,40 +181,15 @@ class JSONDecoder(object):
         self.pos = i
         return self.space.wrap(floatval)
 
-    def decode_numeric_slow(self, i):
-        is_float = False
+    def decode_int_slow(self, i):
         start = i
         if self.ll_chars[i] == '-':
             i += 1
-        # skip the integral part
         while self.ll_chars[i].isdigit():
             i += 1
-        #
-        # skip the fractional part, if any
-        if self.ll_chars[i] == '.':
-            is_float = True
-            i += 1
-            while self.ll_chars[i].isdigit():
-                i += 1
-        #
-        # skip the exponent part, if any
-        if self.ll_chars[i] == 'e' or self.ll_chars[i] == 'E':
-            is_float = True
-            i += 1
-            if self.ll_chars[i] == '+' or self.ll_chars[i] == '-':
-                i += 1
-            while self.ll_chars[i].isdigit():
-                i += 1
-        #
-        self.pos = i
         s = self.getslice(start, i)
-        if is_float:
-            w_func = self.space.w_float
-        else:
-            w_func = self.space.w_int
-        w_res = self.space.call_function(w_func, self.space.wrap(s))
-        #assert w_res is not None # XXX check if this brings any speedup in pypy-c
-        return w_res
+        self.pos = i
+        return self.space.call_function(self.space.w_int, self.space.wrap(s))
 
     def parse_integer(self, i, allow_leading_0=False):
         "Parse a decimal number with an optional minus sign"
