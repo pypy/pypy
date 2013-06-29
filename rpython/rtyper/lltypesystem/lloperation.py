@@ -422,21 +422,13 @@ LL_OPERATIONS = {
     # to keep them as operations until the genc stage)
 
     'stm_barrier':            LLOp(sideeffects=False),
-    'stm_read_barrier':       LLOp(),    # explicit read barrier, special case
-    'stm_write_barrier':      LLOp(),    # explicit write barrier, special case
+    'stm_allocate':           LLOp(sideeffects=False),
     'stm_become_inevitable':  LLOp(),
-    'stm_ptr_eq':             LLOp(sideeffects=False),
-    'stm_start_transaction':  LLOp(canrun=True, canmallocgc=True),
-    'stm_stop_transaction':   LLOp(canrun=True, canmallocgc=True),
-    #'stm_jit_invoke_code':    LLOp(canmallocgc=True),
-    'stm_threadlocalref_get': LLOp(sideeffects=False),
-    'stm_threadlocalref_set': LLOp(),
-    'stm_threadlocalref_llset':   LLOp(),
-    'stm_threadlocalref_llcount': LLOp(sideeffects=False),
-    'stm_threadlocalref_lladdr':  LLOp(sideeffects=False),
-    'stm_abort_info_push':    LLOp(),
-    'stm_extraref_llcount':   LLOp(sideeffects=False),
-    'stm_extraref_lladdr':    LLOp(sideeffects=False),
+    'stm_minor_collect':      LLOp(),
+    'stm_major_collect':      LLOp(),
+    'stm_get_tid':            LLOp(canfold=True),
+    'stm_id':                 LLOp(sideeffects=False),
+    'stm_hash':               LLOp(sideeffects=False),
 
     # __________ address operations __________
 

@@ -4,12 +4,11 @@ from rpython.translator.c.test.test_standalone import StandaloneTests
 
 
 class CompiledSTMTests(StandaloneTests):
-    gc = "stmgc"
 
     def compile(self, entry_point, **kwds):
         from pypy.config.pypyoption import get_pypy_config
         self.config = get_pypy_config(translating=True)
-        self.config.translation.gc = self.gc
+        self.config.translation.gc = "stmgc"
         self.config.translation.stm = True
         #
         # Prevent the RaiseAnalyzer from just emitting "WARNING: Unknown
@@ -22,7 +21,3 @@ class CompiledSTMTests(StandaloneTests):
         finally:
             RaiseAnalyzer.fail_on_unknown_operation = False
         return res
-
-
-class NoGcCompiledSTMTests(CompiledSTMTests):
-    gc = "none"

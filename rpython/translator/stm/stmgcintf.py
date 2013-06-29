@@ -9,7 +9,7 @@ cdir = os.path.abspath(os.path.join(cdir2, '..', 'stm'))
 
 eci = ExternalCompilationInfo(
     include_dirs = [cdir, cdir2],
-    includes = ['src_stm/et.h'],
+    includes = ['src_stm/stmgc.h'],
     pre_include_bits = ['#define PYPY_LONG_BIT %d' % LONG_BIT,
                         '#define RPY_STM 1'],
 )

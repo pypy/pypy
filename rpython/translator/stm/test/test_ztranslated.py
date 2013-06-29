@@ -3,19 +3,25 @@ from rpython.rlib import rstm, rgc
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.annlowlevel import cast_instance_to_base_ptr
-from rpython.translator.stm.test.support import NoGcCompiledSTMTests
 from rpython.translator.stm.test.support import CompiledSTMTests
 from rpython.translator.stm.test import targetdemo2
 
 
-class TestNoGcSTMTranslated(NoGcCompiledSTMTests):
-    def test_nogc_targetdemo(self):
-        t, cbuilder = self.compile(targetdemo2.entry_point)
-        data, dataerr = cbuilder.cmdexec('4 100', err=True)
-        assert 'check ok!' in data
-
-
 class TestSTMTranslated(CompiledSTMTests):
+
+    def test_malloc(self):
+        class Foo:
+            pass
+        def entry_point(argv):
+            lst = []
+            for i in range(int(argv[1])):
+                lst.append(Foo())
+            print '<', len(lst), '>'
+            return 0
+        #
+        t, cbuilder = self.compile(entry_point, backendopt=True)
+        data = cbuilder.cmdexec('42')
+        assert '< 42 >' in data, "got: %r" % (data,)
 
     def test_targetdemo(self):
         t, cbuilder = self.compile(targetdemo2.entry_point)
