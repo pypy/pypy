@@ -14,11 +14,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#ifdef RPY_STM
-#include <src/debug_print.h>
-#include "src_stm/et.c"
-#endif
-
 #ifdef __GNUC__
 /* Hack to prevent this function from being inlined.  Helps asmgcc
    because the main() function has often a different prologue/epilogue. */

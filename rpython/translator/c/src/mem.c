@@ -17,10 +17,10 @@ static struct pypy_debug_alloc_s *pypy_debug_alloc_list = NULL;
 
 #ifdef RPY_STM
 # include "src_stm/atomic_ops.h"
-static volatile Unsigned pypy_debug_alloc_lock = 0;
+static revision_t pypy_debug_alloc_lock = 0;
 #else
-# define stm_lock_acquire(lock)  /* nothing */
-# define stm_lock_release(lock)  /* nothing */
+# define spinlock_acquire(lock, targetvalue)  /* nothing */
+# define spinlock_release(lock)               /* nothing */
 #endif
 
 void pypy_debug_alloc_start(void *addr, const char *funcname)
@@ -29,23 +29,23 @@ void pypy_debug_alloc_start(void *addr, const char *funcname)
   RPyAssert(p, "out of memory");
   p->addr = addr;
   p->funcname = funcname;
-  stm_lock_acquire(pypy_debug_alloc_lock);
+  spinlock_acquire(pypy_debug_alloc_lock, '+');
   p->next = pypy_debug_alloc_list;
   pypy_debug_alloc_list = p;
-  stm_lock_release(pypy_debug_alloc_lock);
+  spinlock_release(pypy_debug_alloc_lock);
 }
 
 void pypy_debug_alloc_stop(void *addr)
 {
   struct pypy_debug_alloc_s **p;
-  stm_lock_acquire(pypy_debug_alloc_lock);
+  spinlock_acquire(pypy_debug_alloc_lock, '-');
   for (p = &pypy_debug_alloc_list; *p; p = &((*p)->next))
     if ((*p)->addr == addr)
       {
         struct pypy_debug_alloc_s *dying;
         dying = *p;
         *p = dying->next;
-        stm_lock_release(pypy_debug_alloc_lock);
+        spinlock_release(pypy_debug_alloc_lock);
         free(dying);
         return;
       }

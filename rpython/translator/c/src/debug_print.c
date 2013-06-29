@@ -137,11 +137,13 @@ static void display_startstop(const char *prefix, const char *postfix,
 
 #ifdef RPY_STM
 # include <src_stm/atomic_ops.h>
+# include <src_stm/fprintcolor.h>
 #else
   typedef long revision_t;
 # define bool_cas(vp, o, n) (*(vp)=(n), 1)
+# define dprintfcolor() 0
 #endif
-static volatile revision_t threadcounter = 0;
+static revision_t threadcounter = 0;
 
 static void _prepare_display_colors(void)
 {
@@ -160,7 +162,14 @@ static void _prepare_display_colors(void)
     }
     else {
         /* tty output */
-        int color = 31 + (int)(counter % 7);
+        /* If we have STM and it is compiled in debug mode, share
+           the color to use.  It avoids endless confusion caused by
+           each thread using two independent colors for the two
+           debugging outputs. */
+        int color = dprintfcolor();
+        if (color == 0) {
+            color = 31 + (int)(counter % 7);
+        }
         sprintf(debug_start_colors_1, "\033[%dm%d# \033[1m",
                 color, (int)counter);
         sprintf(debug_start_colors_2, "\033[%dm%d# ",

@@ -25,12 +25,8 @@ void stm_fatalerror(const char *format, ...)
 static __thread revision_t tcolor = 0;
 static revision_t tnextid = 0;
 
-
-int threadcolor_printf(const char *format, ...)
+int dprintfcolor(void)
 {
-    char buffer[2048];
-    va_list ap;
-    int result;
     if (tcolor == 0) {
         while (1) {
             tcolor = tnextid;
@@ -39,7 +35,15 @@ int threadcolor_printf(const char *format, ...)
         }
         tcolor = 31 + tcolor % 6;
     }
-    int size = (int)sprintf(buffer, "\033[%dm", (int)tcolor);
+    return tcolor;
+}
+
+int threadcolor_printf(const char *format, ...)
+{
+    char buffer[2048];
+    va_list ap;
+    int result;
+    int size = (int)sprintf(buffer, "\033[%dm", dprintfcolor());
     assert(size >= 0);
 
     va_start(ap, format);
