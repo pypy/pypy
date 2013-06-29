@@ -13,6 +13,9 @@ class ScalarIterator(base.BaseArrayIterator):
     def next(self):
         self.called_once = True
 
+    def next_skip_x(self, n):
+        self.called_once = True
+
     def getitem(self):
         return self.v.get_scalar_value()
 
