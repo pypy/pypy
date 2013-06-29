@@ -97,7 +97,15 @@ class JSONDecoder(object):
             return self.decode_true(i+1)
         elif ch == 'f':
             return self.decode_false(i+1)
-        elif ch.isdigit() or ch == '-':
+        elif ch == 'I':
+            return self.decode_infinity(i+1)
+        elif ch == 'N':
+            return self.decode_nan(i+1)
+        elif ch == '-':
+            if self.ll_chars[i+1] == 'I':
+                return self.decode_infinity(i+2, sign=-1)
+            return self.decode_numeric(i)
+        elif ch.isdigit():
             return self.decode_numeric(i)
         else:
             self._raise("No JSON object could be decoded: unexpected '%s' at char %d",
@@ -127,6 +135,25 @@ class JSONDecoder(object):
             self.pos = i+4
             return self.space.w_False
         self._raise("Error when decoding false at char %d", i)
+
+    def decode_infinity(self, i, sign=1):
+        if (self.ll_chars[i]   == 'n' and
+            self.ll_chars[i+1] == 'f' and
+            self.ll_chars[i+2] == 'i' and
+            self.ll_chars[i+3] == 'n' and
+            self.ll_chars[i+4] == 'i' and
+            self.ll_chars[i+5] == 't' and
+            self.ll_chars[i+6] == 'y'):
+            self.pos = i+7
+            return self.space.wrap(rfloat.INFINITY * sign)
+        self._raise("Error when decoding Infinity at char %d", i)
+
+    def decode_nan(self, i):
+        if (self.ll_chars[i]   == 'a' and
+            self.ll_chars[i+1] == 'N'):
+            self.pos = i+2
+            return self.space.wrap(rfloat.NAN)
+        self._raise("Error when decoding NaN at char %d", i)
 
     def decode_numeric(self, i):
         start = i

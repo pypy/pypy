@@ -98,7 +98,6 @@ class AppTest(object):
         s = '"\xe0"' # this is an invalid UTF8 sequence inside a string
         raises(UnicodeDecodeError, "_fastjson.loads(s)")
 
-
     def test_decode_numeric(self):
         import sys
         import _fastjson
@@ -131,6 +130,15 @@ class AppTest(object):
         check(x, float(x))
         #
         check('1E400', float('inf'))
+        ## # these are non-standard but supported by CPython json
+        check('Infinity', float('inf'))
+        check('-Infinity', float('-inf'))
+
+    def test_nan(self):
+        import math
+        import _fastjson
+        res = _fastjson.loads('NaN')
+        assert math.isnan(res)
 
     def test_decode_numeric_invalid(self):
         import _fastjson
