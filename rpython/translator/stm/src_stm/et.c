@@ -1,4 +1,4 @@
-/* Imported by rpython/translator/stm/import_stmgc.py: 45380d4cb89c */
+/* Imported by rpython/translator/stm/import_stmgc.py */
 /* -*- c-basic-offset: 2 -*- */
 
 /* XXX assumes that time never wraps around (in a 'long'), which may be

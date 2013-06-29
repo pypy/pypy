@@ -1,4 +1,4 @@
-/* Imported by rpython/translator/stm/import_stmgc.py: 45380d4cb89c */
+/* Imported by rpython/translator/stm/import_stmgc.py */
 #include "stmimpl.h"
 
 
@@ -73,6 +73,15 @@ inline static gcptr allocate_nursery(size_t size, revision_t tid)
         P = (gcptr)cur;
         P->h_tid = tid;
     }
+#ifdef _GC_DEBUG
+    if (P != NULL) {
+        assert(P->h_tid != 0);
+        assert_cleared(((char *)P) + sizeof(revision_t),
+                       size - sizeof(revision_t));
+    }
+    else
+        assert(tid == -1);
+#endif
     return P;
 }
 
@@ -539,18 +548,6 @@ static void minor_collect(struct tx_descriptor *d)
     */
     teardown_minor_collect(d);
 
-    /* if in debugging mode, we allocate a different nursery and make
-       the old one inaccessible
-    */
-#if defined(_GC_DEBUG) && _GC_DEBUG >= 2
-    stm_free(d->nursery_base, GC_NURSERY);
-    d->nursery_base = stm_malloc(GC_NURSERY);
-    d->nursery_end = d->nursery_base + GC_NURSERY;
-    d->nursery_nextlimit = d->nursery_base;
-    dprintf(("minor: nursery moved to [%p to %p]\n", d->nursery_base,
-             d->nursery_end));
-#endif
-
     /* When doing minor collections with the nursery "mostly empty",
        as occurs when other threads force major collections but this
        thread didn't do much at all, then we clear the nursery using
@@ -573,6 +570,20 @@ static void minor_collect(struct tx_descriptor *d)
         d->nursery_cleared = NC_REGULAR;
     }
 
+    /* if in debugging mode, we allocate a different nursery and make
+       the old one inaccessible
+    */
+#if defined(_GC_DEBUG) && _GC_DEBUG >= 2
+    if (d->nursery_cleared == NC_ALREADY_CLEARED)
+        assert_cleared(d->nursery_base, GC_NURSERY);
+    stm_free(d->nursery_base, GC_NURSERY);
+    d->nursery_base = stm_malloc(GC_NURSERY);
+    d->nursery_end = d->nursery_base + GC_NURSERY;
+    dprintf(("minor: nursery moved to [%p to %p]\n", d->nursery_base,
+             d->nursery_end));
+    if (d->nursery_cleared == NC_ALREADY_CLEARED)
+        memset(d->nursery_base, 0, GC_NURSERY);
+#endif
     d->nursery_current = d->nursery_base;
     d->nursery_nextlimit = d->nursery_base;
 
@@ -641,6 +652,7 @@ static gcptr allocate_next_section(size_t allocate_size, revision_t tid)
 
         /* Allocate it externally, and make it old */
         gcptr P = stmgcpage_malloc(allocate_size);
+        memset(P, 0, allocate_size);
         P->h_tid = tid | GCFLAG_OLD;
         gcptrlist_insert(&d->old_objects_to_trace, P);
         return P;
@@ -673,5 +685,7 @@ static gcptr allocate_next_section(size_t allocate_size, revision_t tid)
     assert(d->nursery_current <= d->nursery_nextlimit);
 
     P->h_tid = tid;
+    assert_cleared(((char *)P) + sizeof(revision_t),
+                   allocate_size - sizeof(revision_t));
     return P;
 }

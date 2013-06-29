@@ -9,9 +9,8 @@ The working copy comes from:  hg clone https://bitbucket.org/pypy/stmgc
 
 import sys, py, subprocess
 
-def mangle(lines, rev):
-    yield ("/* Imported by rpython/translator/stm/import_stmgc.py: %s */\n"
-           % rev)
+def mangle(lines):
+    yield "/* Imported by rpython/translator/stm/import_stmgc.py */\n"
     for line in lines:
         yield line
 
@@ -34,8 +33,10 @@ def main(stmgc_dir):
         path.join('..').ensure(dir=1)
         if path.check():
             path.remove()
-        path.write(''.join(mangle(p.readlines(), rev)))
+        path.write(''.join(mangle(p.readlines())))
         path.chmod(0444)
+    #
+    stmgc_dest.join('revision').write('%s\n' % rev)
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:

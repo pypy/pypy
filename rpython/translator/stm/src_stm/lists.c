@@ -1,4 +1,4 @@
-/* Imported by rpython/translator/stm/import_stmgc.py: 45380d4cb89c */
+/* Imported by rpython/translator/stm/import_stmgc.py */
 #include "stmimpl.h"
 
 /************************************************************/
