@@ -84,7 +84,12 @@ def should_turn_inevitable(op, block, fresh_mallocs):
         funcptr = get_funcobj(op.args[0].value)
         if not hasattr(funcptr, "external"):
             return False
-        return not getattr(funcptr, "transactionsafe", False)
+        if getattr(funcptr, "transactionsafe", False):
+            return False
+        try:
+            return funcptr._name + '()'
+        except AttributeError:
+            return True
 
     if op.opname == 'indirect_call':
         tographs = op.args[-1].value
@@ -118,6 +123,9 @@ def insert_turn_inevitable(graph):
     for block in graph.iterblocks():
         for i in range(len(block.operations)-1, -1, -1):
             op = block.operations[i]
-            if should_turn_inevitable(op, block, fresh_mallocs):
-                inev_op = turn_inevitable_op(op.opname)
+            inev = should_turn_inevitable(op, block, fresh_mallocs)
+            if inev:
+                if not isinstance(inev, str):
+                    inev = op.opname
+                inev_op = turn_inevitable_op(inev)
                 block.operations.insert(i, inev_op)

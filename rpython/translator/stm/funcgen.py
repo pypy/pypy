@@ -37,13 +37,22 @@ def stm_stop_transaction(funcgen, op):
     assert funcgen.db.translator.config.translation.gc == 'none'
     return 'stm_nogc_stop_transaction();'
 
+_STM_BARRIER_FUNCS = {   # XXX try to see if some combinations can be shorter
+    'P2R': 'stm_read_barrier',
+    'G2R': 'stm_read_barrier',
+    'O2R': 'stm_read_barrier',
+    'P2W': 'stm_write_barrier',
+    'G2W': 'stm_write_barrier',
+    'O2W': 'stm_write_barrier',
+    'R2W': 'stm_write_barrier',
+    }
+
 def stm_barrier(funcgen, op):
-    xxx
     category_change = op.args[0].value
-    assert type(category_change) is str and len(category_change) == 3   # "x2y"
+    funcname = _STM_BARRIER_FUNCS[category_change]
     arg = funcgen.expr(op.args[1])
     result = funcgen.expr(op.result)
-    return '%s = stm_barrier_%s(%s);' % (result, category_change, arg)
+    return '%s = %s(%s);' % (result, funcname, arg)
 
 def stm_ptr_eq(funcgen, op):
     xxx
@@ -53,7 +62,6 @@ def stm_ptr_eq(funcgen, op):
     return '%s = stm_pointer_equal(%s, %s);' % (result, arg0, arg1)
 
 def stm_become_inevitable(funcgen, op):
-    xxx
     try:
         info = op.args[0].value
     except IndexError:
