@@ -319,3 +319,25 @@ class AppTestGreenlet:
         g = G(lambda: 42)
         x = g.switch()
         assert x == 42
+
+    def test_kwargs_to_f(self):
+        import greenlet
+        seen = []
+        def f(*args, **kwds):
+            seen.append([args, kwds])
+        g = greenlet.greenlet(f)
+        g.switch(1, 2, x=3, y=4)
+        assert seen == [[(1, 2), {'x': 3, 'y': 4}]]
+
+    def test_kwargs_to_switch(self):
+        import greenlet
+        main = greenlet.getcurrent()
+        assert main.switch() == ()
+        assert main.switch(5) == 5
+        assert main.switch(5, 6) == (5, 6)
+        #
+        assert main.switch(x=5) == {'x': 5}
+        assert main.switch(x=5, y=6) == {'x': 5, 'y': 6}
+        assert main.switch(3, x=5) == ((3,), {'x': 5})
+        assert main.switch(3, x=5, y=6) == ((3,), {'x': 5, 'y': 6})
+        assert main.switch(2, 3, x=6) == ((2, 3), {'x': 6})

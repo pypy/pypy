@@ -668,3 +668,36 @@ def byteswap(arg):
     if T == lltype.Float:
         return longlong2float(rffi.cast(rffi.LONGLONG, res))
     return rffi.cast(T, res)
+
+
+# String parsing support
+# ---------------------------
+
+def string_to_int(s, base=10):
+    """Utility to converts a string to an integer.
+    If base is 0, the proper base is guessed based on the leading
+    characters of 's'.  Raises ParseStringError in case of error.
+    Raises ParseStringOverflowError in case the result does not fit.
+    """
+    from rpython.rlib.rstring import NumberStringParser, \
+        ParseStringOverflowError, \
+        ParseStringError, strip_spaces
+    s = literal = strip_spaces(s)
+    p = NumberStringParser(s, literal, base, 'int')
+    base = p.base
+    result = 0
+    while True:
+        digit = p.next_digit()
+        if digit == -1:
+            return result
+
+        if p.sign == -1:
+            digit = -digit
+
+        try:
+            result = ovfcheck(result * base)
+            result = ovfcheck(result + digit)
+        except OverflowError:
+            raise ParseStringOverflowError(p)
+
+

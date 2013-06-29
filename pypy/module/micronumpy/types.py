@@ -1100,6 +1100,13 @@ class ComplexFloating(object):
         op = '+' if imag >= 0 else ''
         return ''.join(['(', real_str, op, imag_str, ')'])
 
+    def fill(self, storage, width, box, start, stop, offset):
+        real, imag = self.unbox(box)
+        for i in xrange(start, stop, width):
+            raw_storage_setitem(storage, i+offset, real)
+            raw_storage_setitem(storage,
+                    i+offset+rffi.sizeof(self.T), imag)
+
     @staticmethod
     def for_computation(v):
         return float(v[0]), float(v[1])

@@ -6,9 +6,5 @@ except ImportError:
 
 # XXX very minimal test
 
-from lib_pypy.ctypes_config_cache import rebuild
-rebuild.rebuild_one('syslog.ctc.py')
-
-
 def test_syslog():
     assert hasattr(syslog, 'LOG_ALERT')
