@@ -130,7 +130,7 @@ class JSONDecoder(object):
 
     def decode_numeric(self, i):
         start = i
-        i, ovf_maybe, intval = self.parse_integer(i, allow_leading_0=False)
+        i, ovf_maybe, intval = self.parse_integer(i)
         #
         # check for the optional fractional part
         ch = self.ll_chars[i]
@@ -164,29 +164,22 @@ class JSONDecoder(object):
         self.pos = i
         return self.space.call_function(self.space.w_int, self.space.wrap(s))
 
-    def parse_integer(self, i, allow_leading_0=False):
+    def parse_integer(self, i):
         "Parse a decimal number with an optional minus sign"
-        start = i
         sign = 1
+        # parse the sign
         if self.ll_chars[i] == '-':
             sign = -1
             i += 1
         elif self.ll_chars[i] == '+':
             i += 1
-        elif not allow_leading_0 and self.ll_chars[i] == '0':
+        #
+        if self.ll_chars[i] == '0':
             i += 1
             return i, False, 0
-        i, intval, _ = self.parse_digits(i)
-        # if the number has more digits than OVF_DIGITS, it might have
-        # overflowed
-        ovf_maybe = (i-start >= OVF_DIGITS)
-        return i, ovf_maybe, sign * intval
-    parse_integer._always_inline_ = True
 
-    def parse_digits(self, i):
-        "Parse a sequence of digits as a decimal number. No sign allowed"
         intval = 0
-        start = i 
+        start = i
         while True:
             ch = self.ll_chars[i]
             if ch.isdigit():
@@ -197,7 +190,11 @@ class JSONDecoder(object):
         count = i - start
         if count == 0:
             self._raise("Expected digit at char %d", i)
-        return i, intval, count
+        # if the number has more digits than OVF_DIGITS, it might have
+        # overflowed
+        ovf_maybe = (count >= OVF_DIGITS)
+        return i, ovf_maybe, sign * intval
+    parse_integer._always_inline_ = True
 
     def decode_array(self, i):
         w_list = self.space.newlist([])
@@ -225,7 +222,6 @@ class JSONDecoder(object):
             else:
                 self._raise("Unexpected '%s' when decoding array (char %d)",
                             ch, self.pos)
-
 
     def decode_object(self, i):
         start = i
