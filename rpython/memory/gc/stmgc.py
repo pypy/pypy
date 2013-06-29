@@ -9,16 +9,6 @@ from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib.debug import ll_assert
 
 
-class PrebuiltStmGCHeader(llmemory.Symbolic):
-    def __init__(self, typeid16):
-        self.typeid16 = typeid16
-    def annotation(self):
-        from rpython.annotator import model
-        return model.SomePtr(self.lltype())
-    def lltype(self):
-        return lltype.Ptr(StmGC.HDR)
-
-
 class StmGC(MovingGCBase):
     _alloc_flavor_ = "raw"
     inline_simple_malloc = True
@@ -38,7 +28,15 @@ class StmGC(MovingGCBase):
 
     def init_gc_object_immortal(self, addr, typeid16, flags=0):
         assert flags == 0
-        return PrebuiltStmGCHeader(typeid16)
+        assert isinstance(typeid16, llgroup.GroupMemberOffset)
+        ptr = self.gcheaderbuilder.object_from_header(addr.ptr)
+        prebuilt_hash = lltype.identityhash_nocache(ptr)
+        assert prebuilt_hash != 0     # xxx probably good enough
+        #
+        hdr = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(self.HDR))
+        hdr._obj._name = typeid16.index   # debug only
+        hdr._obj.typeid16 = typeid16
+        hdr._obj.prebuilt_hash = prebuilt_hash
 
     def malloc_fixedsize_clear(self, typeid, size,
                                needs_finalizer=False,

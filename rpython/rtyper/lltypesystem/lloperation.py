@@ -429,6 +429,8 @@ LL_OPERATIONS = {
     'stm_get_tid':            LLOp(canfold=True),
     'stm_id':                 LLOp(sideeffects=False),
     'stm_hash':               LLOp(sideeffects=False),
+    'stm_push_root':          LLOp(),
+    'stm_pop_root_into':      LLOp(),
 
     # __________ address operations __________
 

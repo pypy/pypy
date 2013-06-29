@@ -458,10 +458,13 @@ class AsmGcRootFrameworkGcPolicy(BasicFrameworkGcPolicy):
         return 'pypy_asm_stack_bottom();'
 
 class StmFrameworkGcPolicy(BasicFrameworkGcPolicy):
-    
+
     def gettransformer(self):
         from rpython.memory.gctransform import stmframework
         return stmframework.StmFrameworkGCTransformer(self.db.translator)
+
+    def get_prebuilt_hash(self, obj):
+        return None       # done differently with the stmgc
 
 
 name_to_gcpolicy = {

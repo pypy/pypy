@@ -1002,6 +1002,9 @@ def opaquenode_factory(db, T, obj):
         return db.gcpolicy.rtti_node_factory()(db, T, obj)
     if T.hints.get("render_structure", False):
         return ExtType_OpaqueNode(db, T, obj)
+    if T.__name__ == 'struct stm_object_s':
+        from rpython.translator.stm.funcgen import StmHeader_OpaqueNode
+        return StmHeader_OpaqueNode(db, T, obj)
     raise Exception("don't know about %r" % (T,))
 
 
