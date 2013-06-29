@@ -4,10 +4,11 @@ import sys
 
 from rpython.annotator.model import (SomeObject, SomeString, s_None, SomeChar,
     SomeInteger, SomeUnicodeCodePoint, SomeUnicodeString, SomePtr, SomePBC)
-from rpython.rlib.objectmodel import newlist_hint, specialize
+from rpython.rlib.objectmodel import newlist_hint, specialize, enforceargs
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.tool.pairtype import pairtype
+from rpython.tool.sourcetools import with_unicode_literals
 from rpython.rlib import jit
 
 
@@ -188,6 +189,8 @@ def endswith(u_self, suffix, start=0, end=sys.maxint):
 
 # -------------- numeric parsing support --------------------
 
+@enforceargs(unicode)
+@with_unicode_literals
 def strip_spaces(s):
     # XXX this is not locale-dependent
     p = 0
@@ -200,6 +203,7 @@ def strip_spaces(s):
     return s[p:q]
 
 class ParseStringError(Exception):
+    @enforceargs(None, unicode)
     def __init__(self, msg):
         self.msg = msg
 
@@ -211,9 +215,11 @@ class ParseStringOverflowError(Exception):
 class NumberStringParser:
 
     def error(self):
-        raise ParseStringError("invalid literal for %s() with base %d: '%s'" %
+        raise ParseStringError(u"invalid literal for %s() with base %d: '%s'" %
                                (self.fname, self.original_base, self.literal))
 
+    @enforceargs(None, unicode, unicode, int, unicode)
+    @with_unicode_literals
     def __init__(self, s, literal, base, fname):
         self.literal = literal
         self.fname = fname
@@ -236,7 +242,7 @@ class NumberStringParser:
             else:
                 base = 10
         elif base < 2 or base > 36:
-            raise ParseStringError, "%s() base must be >= 2 and <= 36" % (fname,)
+            raise ParseStringError, u"%s() base must be >= 2 and <= 36" % (fname,)
         self.base = base
 
         if base == 16 and (s.startswith('0x') or s.startswith('0X')):
@@ -254,6 +260,7 @@ class NumberStringParser:
     def rewind(self):
         self.i = 0
 
+    @with_unicode_literals
     def next_digit(self): # -1 => exhausted
         if self.i < self.n:
             c = self.s[self.i]

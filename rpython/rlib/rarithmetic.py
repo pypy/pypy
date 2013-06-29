@@ -673,6 +673,7 @@ def byteswap(arg):
 # String parsing support
 # ---------------------------
 
+@objectmodel.enforceargs(unicode, None)
 def string_to_int(s, base=10):
     """Utility to converts a string to an integer.
     If base is 0, the proper base is guessed based on the leading
@@ -683,7 +684,7 @@ def string_to_int(s, base=10):
         ParseStringOverflowError, \
         ParseStringError, strip_spaces
     s = literal = strip_spaces(s)
-    p = NumberStringParser(s, literal, base, 'int')
+    p = NumberStringParser(s, literal, base, u'int')
     base = p.base
     result = 0
     while True:

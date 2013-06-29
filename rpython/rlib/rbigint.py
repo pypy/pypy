@@ -4,7 +4,7 @@ from rpython.rlib.rarithmetic import most_neg_value_of_same_type
 from rpython.rlib.rfloat import isinf, isnan
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.debug import make_sure_not_resized, check_regular_int
-from rpython.rlib.objectmodel import we_are_translated, specialize
+from rpython.rlib.objectmodel import we_are_translated, specialize, enforceargs
 from rpython.rlib import jit
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper import extregistry
@@ -254,16 +254,13 @@ class rbigint(object):
 
     @staticmethod
     @jit.elidable
+    @enforceargs(unicode, None)
     def fromstr(s, base=0):
-        """As string_to_int(), but ignores an optional 'l' or 'L' suffix
-        and returns an rbigint."""
+        """As string_to_int(), but returns an rbigint."""
         from rpython.rlib.rstring import NumberStringParser, \
             strip_spaces
         s = literal = strip_spaces(s)
-        if (s.endswith('l') or s.endswith('L')) and base < 22:
-            # in base 22 and above, 'L' is a valid digit!  try: long('L',22)
-            s = s[:-1]
-        parser = NumberStringParser(s, literal, base, 'long')
+        parser = NumberStringParser(s, literal, base, u'int')
         return rbigint._from_numberstring_parser(parser)
 
     @staticmethod
