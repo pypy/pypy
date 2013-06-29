@@ -23,20 +23,6 @@ class StmGC(MovingGCBase):
 
     TRANSLATION_PARAMS = {}
 
-    def __init__(self, config, **kwds):
-        MovingGCBase.__init__(self, config, **kwds)
-
-        def stmcb_size(obj):
-            typeid = self.get_type_id(obj)
-            size = self.fixed_size(typeid)
-            if self.is_varsize(typeid):
-                lenofs = self.varsize_offset_to_length(typeid)
-                length = (obj + lenofs).signed[0]
-                size += self.varsize_item_sizes(typeid) * length
-            return size
-
-        
-
     def get_type_id(self, obj):
         return llop.stm_get_tid(llgroup.HALFWORD, obj)
 

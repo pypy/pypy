@@ -85,6 +85,11 @@ def stm_allocate(funcgen, op):
     result = funcgen.expr(op.result)
     return '%s = stm_allocate(%s, %s);' % (result, arg0, arg1)
 
+def stm_get_tid(funcgen, op):
+    arg0 = funcgen.expr(op.args[0])
+    result = funcgen.expr(op.result)
+    return '%s = stm_get_tid((gcptr)%s);' % (result, arg0)
+
 
 def op_stm(funcgen, op):
     func = globals()[op.opname]

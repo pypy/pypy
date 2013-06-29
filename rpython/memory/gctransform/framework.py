@@ -219,6 +219,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
             return annhelper.graph2const(graph)
         self._getfn = getfn
 
+        self.autoregister_ptrs = []
         self.frameworkgc_setup_ptr = getfn(frameworkgc_setup, [],
                                            annmodel.s_None)
         # for tests

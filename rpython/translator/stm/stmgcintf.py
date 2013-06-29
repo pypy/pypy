@@ -6,6 +6,14 @@ from rpython.conftest import cdir as cdir2
 cdir = os.path.abspath(os.path.join(cdir2, '..', 'stm'))
 
 separate_source = '''
+#include "src_stm/stmgc.h"
+
+extern Signed pypy_stmcb_size(void*);
+
+inline size_t stmcb_size(gcptr obj) {
+    return pypy_stmcb_size(obj);
+}
+
 #include "src_stm/stmgc.c"
 '''
 

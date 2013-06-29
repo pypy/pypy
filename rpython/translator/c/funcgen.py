@@ -590,6 +590,7 @@ class FunctionCodeGenerator(object):
     OP_STM_PUSH_ROOT = _OP_STM
     OP_STM_POP_ROOT_INTO = _OP_STM
     OP_STM_ALLOCATE = _OP_STM
+    OP_STM_GET_TID = _OP_STM
 
 
     def OP_PTR_NONZERO(self, op):

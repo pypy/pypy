@@ -4,6 +4,20 @@ from rpython.memory.gctransform.framework import (
 
 class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
 
+    def _declare_functions(self, GCClass, getfn, s_gc, s_typeid16):
+        from rpython.annotator import model as annmodel
+        from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+        BaseFrameworkGCTransformer._declare_functions(self, GCClass, getfn,
+                                                      s_gc, s_typeid16)
+        gc = self.gcdata.gc
+        #
+        def pypy_stmcb_size(obj):
+            return gc.get_size(obj)
+        pypy_stmcb_size.c_name = "pypy_stmcb_size"
+        self.autoregister_ptrs.append(
+            getfn(pypy_stmcb_size, [annmodel.SomeAddress()],
+                  annmodel.SomeInteger()))
+
     def build_root_walker(self):
         return StmRootWalker(self)
 
