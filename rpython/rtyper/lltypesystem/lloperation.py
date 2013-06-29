@@ -421,6 +421,7 @@ LL_OPERATIONS = {
     # direct_calls and maybe several casts, but it looks less heavy-weight
     # to keep them as operations until the genc stage)
 
+    'stm_initialize':         LLOp(),
     'stm_barrier':            LLOp(sideeffects=False),
     'stm_allocate':           LLOp(sideeffects=False),
     'stm_become_inevitable':  LLOp(),

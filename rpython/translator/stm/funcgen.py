@@ -22,19 +22,8 @@ class StmHeader_OpaqueNode(ContainerNode):
             self.obj.prebuilt_hash)
 
 
-def stm_start_transaction(funcgen, op):
-    xxx
-    # only for testing.  With stmgc, this operation should have been handled
-    # already by gctransform.
-    assert funcgen.db.translator.config.translation.gc == 'none'
-    return 'stm_nogc_start_transaction();'
-
-def stm_stop_transaction(funcgen, op):
-    xxx
-    # only for testing.  With stmgc, this operation should have been handled
-    # already by gctransform.
-    assert funcgen.db.translator.config.translation.gc == 'none'
-    return 'stm_nogc_stop_transaction();'
+def stm_initialize(funcgen, op):
+    return 'stm_initialize();'
 
 _STM_BARRIER_FUNCS = {   # XXX try to see if some combinations can be shorter
     'P2R': 'stm_read_barrier',

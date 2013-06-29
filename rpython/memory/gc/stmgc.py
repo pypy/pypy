@@ -3,7 +3,7 @@ Minimal GC interface for STM.  The actual GC is implemented in C code,
 from rpython/translator/stm/src_stm/.
 """
 
-from rpython.memory.gc.base import MovingGCBase
+from rpython.memory.gc.base import GCBase, MovingGCBase
 from rpython.rtyper.lltypesystem import lltype, llmemory, llgroup, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib.debug import ll_assert
@@ -24,6 +24,14 @@ class StmGC(MovingGCBase):
     VISIT_FPTR = lltype.Ptr(lltype.FuncType([llmemory.Address], lltype.Void))
 
     TRANSLATION_PARAMS = {}
+
+    def setup(self):
+        # Hack: MovingGCBase.setup() sets up stuff related to id(), which
+        # we implement differently anyway.  So directly call GCBase.setup().
+        GCBase.setup(self)
+        #
+        llop.stm_initialize(lltype.Void)
+
 
     def get_type_id(self, obj):
         return llop.stm_get_tid(llgroup.HALFWORD, obj)
