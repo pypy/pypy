@@ -106,10 +106,6 @@ class AppTest(object):
             res = _fastjson.loads(s)
             assert type(res) is type(val)
             assert res == val
-            #
-            res = _fastjson.loads(s, precise_float=False)
-            assert type(res) is type(val)
-            assert res == val
         #
         check('42', 42)
         check('-42', -42)
@@ -140,7 +136,6 @@ class AppTest(object):
         import _fastjson
         def error(s):
             raises(ValueError, _fastjson.loads, s)
-            raises(ValueError, _fastjson.loads, s, False)
         #
         error('  42   abc')
         error('.123')
