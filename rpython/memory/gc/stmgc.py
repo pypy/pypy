@@ -38,19 +38,23 @@ class StmGC(MovingGCBase):
         hdr._obj.typeid16 = typeid16
         hdr._obj.prebuilt_hash = prebuilt_hash
 
-    def malloc_fixedsize_clear(self, typeid, size,
+    def malloc_fixedsize_clear(self, typeid16, size,
                                needs_finalizer=False,
                                is_finalizer_light=False,
                                contains_weakptr=False):
         ll_assert(not needs_finalizer, 'XXX')
         ll_assert(not is_finalizer_light, 'XXX')
         ll_assert(not contains_weakptr, 'XXX')
-        return llop.stm_allocate(llmemory.GCREF, size, typeid)
+        # XXX call optimized versions, e.g. if size < GC_NURSERY_SECTION
+        return llop.stm_allocate(llmemory.GCREF, size, typeid16)
 
-    def malloc_varsize_clear(self, typeid, length, size, itemsize,
+    def malloc_varsize_clear(self, typeid16, length, size, itemsize,
                              offset_to_length):
-        ll_assert(False, 'XXX')
-        return llop.stm_allocate(llmemory.GCREF)
+        # XXX be careful about overflows, and call optimized versions
+        totalsize = size + itemsize * length
+        obj = llop.stm_allocate(llmemory.Address, typeid16, totalsize)
+        (obj + offset_to_length).signed[0] = length
+        return llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
 
     def collect(self, gen=1):
         """Do a minor (gen=0) or major (gen>0) collection."""

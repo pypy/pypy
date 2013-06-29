@@ -584,16 +584,12 @@ class FunctionCodeGenerator(object):
             from rpython.translator.stm.funcgen import op_stm
             self.__class__.op_stm = op_stm
         return self.op_stm(op)
-    OP_STM_START_TRANSACTION = _OP_STM
-    OP_STM_STOP_TRANSACTION = _OP_STM
     OP_STM_BECOME_INEVITABLE = _OP_STM
     OP_STM_BARRIER = _OP_STM
     OP_STM_PTR_EQ = _OP_STM
-    OP_STM_ABORT_INFO_PUSH = _OP_STM
-    OP_STM_EXTRAREF_LLCOUNT = _OP_STM
-    OP_STM_EXTRAREF_LLADDR = _OP_STM
     OP_STM_PUSH_ROOT = _OP_STM
     OP_STM_POP_ROOT_INTO = _OP_STM
+    OP_STM_ALLOCATE = _OP_STM
 
 
     def OP_PTR_NONZERO(self, op):

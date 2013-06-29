@@ -57,7 +57,6 @@ def stm_barrier(funcgen, op):
         funcname, arg)
 
 def stm_ptr_eq(funcgen, op):
-    xxx
     arg0 = funcgen.expr(op.args[0])
     arg1 = funcgen.expr(op.args[1])
     result = funcgen.expr(op.result)
@@ -71,32 +70,6 @@ def stm_become_inevitable(funcgen, op):
     string_literal = c_string_constant(info)
     return 'stm_become_inevitable(%s);' % (string_literal,)
 
-##def stm_jit_invoke_code(funcgen, op):
-##    return funcgen.OP_DIRECT_CALL(op)
-
-def stm_abort_info_push(funcgen, op):
-    xxx
-    arg0 = funcgen.expr(op.args[0])
-    arg1 = funcgen.expr(op.args[1])
-    return 'stm_abort_info_push(%s, %s);' % (arg0, arg1)
-
-def stm_extraref_llcount(funcgen, op):
-    xxx
-    result = funcgen.expr(op.result)
-    return '%s = stm_extraref_llcount();' % (result,)
-
-def stm_extraref_lladdr(funcgen, op):
-    xxx
-    arg0 = funcgen.expr(op.args[0])
-    result = funcgen.expr(op.result)
-    return '%s = (char *)stm_extraref_lladdr(%s);' % (result, arg0)
-
-def _stm_nogc_init_function():
-    """Called at process start-up when running with no GC."""
-    xxx
-    StmOperations.descriptor_init()
-    StmOperations.begin_inevitable_transaction()
-
 def stm_push_root(funcgen, op):
     arg0 = funcgen.expr(op.args[0])
     return 'stm_push_root((gcptr)%s);' % (arg0,)
@@ -105,6 +78,12 @@ def stm_pop_root_into(funcgen, op):
     arg0 = funcgen.expr(op.args[0])
     return '%s = (%s)stm_pop_root();' % (
         arg0, cdecl(funcgen.lltypename(op.args[0]), ''))
+
+def stm_allocate(funcgen, op):
+    arg0 = funcgen.expr(op.args[0])
+    arg1 = funcgen.expr(op.args[1])
+    result = funcgen.expr(op.result)
+    return '%s = stm_allocate(%s, %s);' % (result, arg0, arg1)
 
 
 def op_stm(funcgen, op):

@@ -135,10 +135,10 @@ static void display_startstop(const char *prefix, const char *postfix,
           debug_stop_colors);
 }
 
-typedef Unsigned revision_t;
 #ifdef RPY_STM
 # include <src_stm/atomic_ops.h>
 #else
+  typedef long revision_t;
 # define bool_cas(vp, o, n) (*(vp)=(n), 1)
 #endif
 static volatile revision_t threadcounter = 0;
