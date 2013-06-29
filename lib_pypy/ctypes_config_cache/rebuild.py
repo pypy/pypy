@@ -25,13 +25,12 @@ def rebuild_one(name):
         sys.path[:] = path
 
 def try_rebuild():
-    from rpython.jit.backend import detect_cpu
-    model = detect_cpu.autodetect_main_model_and_size()
-    # remove the files '_*_model_.py'
+    size = 32 if sys.maxint <= 2**32 else 64
+    # remove the files '_*_size_.py'
     left = {}
     for p in os.listdir(_dirpath):
-        if p.startswith('_') and (p.endswith('_%s_.py' % model) or
-                                  p.endswith('_%s_.pyc' % model)):
+        if p.startswith('_') and (p.endswith('_%s_.py' % size) or
+                                  p.endswith('_%s_.pyc' % size)):
             os.unlink(os.path.join(_dirpath, p))
         elif p.startswith('_') and (p.endswith('_.py') or
                                     p.endswith('_.pyc')):

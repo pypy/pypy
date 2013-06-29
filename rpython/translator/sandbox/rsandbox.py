@@ -100,7 +100,7 @@ def reraise_error(error, loader):
     else:            raise RuntimeError
 
 
-@signature(types.str(), returns=types.none())
+@signature(types.str(), returns=types.impossible())
 def not_implemented_stub(msg):
     STDERR = 2
     buf = rffi.str2charp(msg + '\n')

@@ -65,18 +65,16 @@ class TestW_SetStrategies:
         assert s1.strategy is self.space.fromcache(EmptySetStrategy)
 
     def test_remove(self):
-        from pypy.objspace.std.setobject import set_remove__Set_ANY
         s1 = W_SetObject(self.space, self.wrapped([1]))
-        set_remove__Set_ANY(self.space, s1, self.space.wrap(1))
+        self.space.call_method(s1, 'remove', self.space.wrap(1))
         assert s1.strategy is self.space.fromcache(EmptySetStrategy)
 
     def test_union(self):
-        from pypy.objspace.std.setobject import set_union__Set
         s1 = W_SetObject(self.space, self.wrapped([1,2,3,4,5]))
         s2 = W_SetObject(self.space, self.wrapped([4,5,6,7]))
         s3 = W_SetObject(self.space, self.wrapped([4,'5','6',7]))
-        s4 = set_union__Set(self.space, s1, [s2])
-        s5 = set_union__Set(self.space, s1, [s3])
+        s4 = s1.descr_union(self.space, [s2])
+        s5 = s1.descr_union(self.space, [s3])
         assert s4.strategy is self.space.fromcache(IntegerSetStrategy)
         assert s5.strategy is self.space.fromcache(ObjectSetStrategy)
 
@@ -91,10 +89,8 @@ class TestW_SetStrategies:
                     return True
                 return False
 
-        from pypy.objspace.std.setobject import set_discard__Set_ANY
-
         s1 = W_SetObject(self.space, self.wrapped([1,2,3,4,5]))
-        set_discard__Set_ANY(self.space, s1, self.space.wrap("five"))
+        s1.descr_discard(self.space, self.space.wrap("five"))
         skip("currently not supported")
         assert s1.strategy is self.space.fromcache(IntegerSetStrategy)
 
@@ -111,8 +107,6 @@ class TestW_SetStrategies:
                 if other == self.value:
                     return True
                 return False
-
-        from pypy.objspace.std.setobject import set_discard__Set_ANY
 
         s1 = W_SetObject(self.space, self.wrapped([1,2,3,4,5]))
         assert not s1.has_key(self.space.wrap("five"))

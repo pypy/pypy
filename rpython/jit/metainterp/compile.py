@@ -9,18 +9,19 @@ from rpython.conftest import option
 from rpython.tool.sourcetools import func_with_new_name
 
 from rpython.jit.metainterp.resoperation import ResOperation, rop, get_deep_immutable_oplist
-from rpython.jit.metainterp.history import TreeLoop, Box, JitCellToken, TargetToken
-from rpython.jit.metainterp.history import AbstractFailDescr, BoxInt
-from rpython.jit.metainterp.history import BoxPtr, BoxFloat, ConstInt
-from rpython.jit.metainterp import history, resume
+from rpython.jit.metainterp.history import (TreeLoop, Box, JitCellToken,
+    TargetToken, AbstractFailDescr, BoxInt, BoxPtr, BoxFloat, ConstInt)
+from rpython.jit.metainterp import history, jitexc
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.inliner import Inliner
 from rpython.jit.metainterp.resume import NUMBERING, PENDINGFIELDSP, ResumeDataDirectReader
 from rpython.jit.codewriter import heaptracker, longlong
 
+
 def giveup():
     from rpython.jit.metainterp.pyjitpl import SwitchToBlackhole
     raise SwitchToBlackhole(Counters.ABORT_BRIDGE)
+
 
 def show_procedures(metainterp_sd, procedure=None, error=None):
     # debugging
@@ -85,7 +86,7 @@ def record_loop_or_bridge(metainterp_sd, loop):
             # exported_state is clear by optimizeopt when the short preamble is
             # constrcucted. if that did not happen the label should not show up
             # in a trace that will be used
-            assert descr.exported_state is None 
+            assert descr.exported_state is None
             if not we_are_translated():
                 op._descr_wref = weakref.ref(op._descr)
             op.cleardescr()    # clear reference to prevent the history.Stats
@@ -415,32 +416,32 @@ class _DoneWithThisFrameDescr(AbstractFailDescr):
 class DoneWithThisFrameDescrVoid(_DoneWithThisFrameDescr):
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         assert jitdriver_sd.result_type == history.VOID
-        raise metainterp_sd.DoneWithThisFrameVoid()
+        raise jitexc.DoneWithThisFrameVoid()
 
 class DoneWithThisFrameDescrInt(_DoneWithThisFrameDescr):
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         assert jitdriver_sd.result_type == history.INT
         result = metainterp_sd.cpu.get_int_value(deadframe, 0)
-        raise metainterp_sd.DoneWithThisFrameInt(result)
+        raise jitexc.DoneWithThisFrameInt(result)
 
 class DoneWithThisFrameDescrRef(_DoneWithThisFrameDescr):
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         assert jitdriver_sd.result_type == history.REF
         cpu = metainterp_sd.cpu
         result = cpu.get_ref_value(deadframe, 0)
-        raise metainterp_sd.DoneWithThisFrameRef(cpu, result)
+        raise jitexc.DoneWithThisFrameRef(cpu, result)
 
 class DoneWithThisFrameDescrFloat(_DoneWithThisFrameDescr):
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         assert jitdriver_sd.result_type == history.FLOAT
         result = metainterp_sd.cpu.get_float_value(deadframe, 0)
-        raise metainterp_sd.DoneWithThisFrameFloat(result)
+        raise jitexc.DoneWithThisFrameFloat(result)
 
 class ExitFrameWithExceptionDescrRef(_DoneWithThisFrameDescr):
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         cpu = metainterp_sd.cpu
         value = cpu.get_ref_value(deadframe, 0)
-        raise metainterp_sd.ExitFrameWithExceptionRef(cpu, value)
+        raise jitexc.ExitFrameWithExceptionRef(cpu, value)
 
 
 class TerminatingLoopToken(JitCellToken): # FIXME: kill?
@@ -657,16 +658,20 @@ class ResumeAtPositionDescr(ResumeGuardDescr):
 class AllVirtuals:
     llopaque = True
     cache = None
+
     def __init__(self, cache):
         self.cache = cache
+
     def hide(self, cpu):
         ptr = cpu.ts.cast_instance_to_base_ref(self)
         return cpu.ts.cast_to_ref(ptr)
+
     @staticmethod
     def show(cpu, gcref):
         from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance
         ptr = cpu.ts.cast_to_baseclass(gcref)
         return cast_base_ptr_to_instance(AllVirtuals, ptr)
+
 
 class ResumeGuardForcedDescr(ResumeGuardDescr):
 
@@ -762,9 +767,12 @@ def _see(self, newvalue):
     b = c = -1
     for i in range(1, 5):
         if self.counters[i] > self.counters[a]:
-            c = b; b = a; a = i
+            c = b
+            b = a
+            a = i
         elif b < 0 or self.counters[i] > self.counters[b]:
-            c = b; b = i
+            c = b
+            b = i
         elif c < 0 or self.counters[i] > self.counters[c]:
             c = i
     self.counters[c] = 1
@@ -819,7 +827,7 @@ def compile_trace(metainterp, resumekey, resume_at_jump_descr=None):
 
     # The history contains new operations to attach as the code for the
     # failure of 'resumekey.guard_op'.
-    # 
+    #
     # Attempt to use optimize_bridge().  This may return None in case
     # it does not work -- i.e. none of the existing old_loop_tokens match.
     new_trace = create_empty_loop(metainterp)
@@ -865,7 +873,7 @@ class PropagateExceptionDescr(AbstractFailDescr):
         if not exception:
             exception = cast_instance_to_gcref(memory_error)
         assert exception, "PropagateExceptionDescr: no exception??"
-        raise metainterp_sd.ExitFrameWithExceptionRef(cpu, exception)
+        raise jitexc.ExitFrameWithExceptionRef(cpu, exception)
 
 def compile_tmp_callback(cpu, jitdriver_sd, greenboxes, redargtypes,
                          memory_manager=None):
@@ -878,10 +886,14 @@ def compile_tmp_callback(cpu, jitdriver_sd, greenboxes, redargtypes,
     assert len(redargtypes) == nb_red_args
     inputargs = []
     for kind in redargtypes:
-        if   kind == history.INT:   box = BoxInt()
-        elif kind == history.REF:   box = BoxPtr()
-        elif kind == history.FLOAT: box = BoxFloat()
-        else: raise AssertionError
+        if kind == history.INT:
+            box = BoxInt()
+        elif kind == history.REF:
+            box = BoxPtr()
+        elif kind == history.FLOAT:
+            box = BoxFloat()
+        else:
+            raise AssertionError
         inputargs.append(box)
     k = jitdriver_sd.portal_runner_adr
     funcbox = history.ConstInt(heaptracker.adr2int(k))
@@ -909,7 +921,7 @@ def compile_tmp_callback(cpu, jitdriver_sd, greenboxes, redargtypes,
         ResOperation(rop.CALL, callargs, result, descr=jd.portal_calldescr),
         ResOperation(rop.GUARD_NO_EXCEPTION, [], None, descr=faildescr),
         ResOperation(rop.FINISH, finishargs, None, descr=jd.portal_finishtoken)
-        ]
+    ]
     operations[1].setfailargs([])
     operations = get_deep_immutable_oplist(operations)
     cpu.compile_loop(inputargs, operations, jitcell_token, log=False)

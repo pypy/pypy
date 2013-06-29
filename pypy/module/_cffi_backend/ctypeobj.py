@@ -88,8 +88,7 @@ class W_CType(W_Root):
         else:
             return operationerrfmt(space.w_TypeError,
                                    "initializer for ctype '%s' must be a %s, "
-                                   "not %s", self.name, expected,
-                                   space.type(w_got).getname(space))
+                                   "not %T", self.name, expected, w_got)
 
     def _cannot_index(self):
         space = self.space

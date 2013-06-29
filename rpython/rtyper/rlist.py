@@ -955,7 +955,7 @@ def ll_listsetslice(l1, start, stop, l2):
                  "setslice cannot resize lists in RPython")
     # XXX ...but it would be easy enough to support if really needed
     ll_arraycopy(l2, l1, 0, start, count)
-ll_listsetslice.oopspec = 'list.setslice(l1, start, stop, l2)'
+
 
 # ____________________________________________________________
 #

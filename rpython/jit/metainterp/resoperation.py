@@ -1,5 +1,6 @@
 from rpython.rlib.objectmodel import we_are_translated
 
+
 def ResOperation(opnum, args, result, descr=None):
     cls = opclasses[opnum]
     op = cls(result)
@@ -49,7 +50,6 @@ class AbstractResOp(object):
 
     def numargs(self):
         raise NotImplementedError
-
 
     # methods implemented by GuardResOp
     # ---------------------------------
@@ -178,6 +178,7 @@ class AbstractResOp(object):
 
 class PlainResOp(AbstractResOp):
     pass
+
 
 class ResOpWithDescr(AbstractResOp):
 
@@ -342,6 +343,7 @@ class TernaryOp(object):
             self._arg2 = box
         else:
             raise IndexError
+
 
 class N_aryOp(object):
     _mixin_ = True
@@ -521,7 +523,8 @@ _oplist = [
     'CALL_PURE/*d',             # removed before it's passed to the backend
     'CALL_MALLOC_GC/*d',      # like CALL, but NULL => propagate MemoryError
     'CALL_MALLOC_NURSERY/1',  # nursery malloc, const number of bytes, zeroed
-    'CALL_MALLOC_NURSERY_VARSIZE_SMALL/1',
+    'CALL_MALLOC_NURSERY_VARSIZE/3d',
+    'CALL_MALLOC_NURSERY_VARSIZE_FRAME/1',
     # nursery malloc, non-const number of bytes, zeroed
     # note that the number of bytes must be well known to be small enough
     # to fulfill allocating in the nursery rules (and no card markings)
@@ -572,7 +575,7 @@ def setup(debug_print=False):
         opclasses.append(cls)
         oparity.append(arity)
         opwithdescr.append(withdescr)
-    assert len(opclasses)==len(oparity)==len(opwithdescr)==len(_oplist)
+    assert len(opclasses) == len(oparity) == len(opwithdescr) == len(_oplist)
 
 def get_base_class(mixin, base):
     try:
@@ -592,7 +595,7 @@ def create_class_for_op(name, opnum, arity, withdescr):
         1: UnaryOp,
         2: BinaryOp,
         3: TernaryOp
-        }
+    }
 
     is_guard = name.startswith('GUARD')
     if is_guard:
@@ -634,7 +637,7 @@ opboolinvers = {
 
     rop.PTR_EQ: rop.PTR_NE,
     rop.PTR_NE: rop.PTR_EQ,
-    }
+}
 
 opboolreflex = {
     rop.INT_EQ: rop.INT_EQ,
@@ -658,7 +661,7 @@ opboolreflex = {
 
     rop.PTR_EQ: rop.PTR_EQ,
     rop.PTR_NE: rop.PTR_NE,
-    }
+}
 
 
 def get_deep_immutable_oplist(operations):

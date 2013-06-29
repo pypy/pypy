@@ -3,6 +3,14 @@ from pypy.module.cppyy import helper
 def test_remove_const():
     assert helper.remove_const("const int") == "int"
 
+    assert helper.remove_const("const some_class*") == "some_class*"
+    assert helper.remove_const("const some_class const*") == "some_class*"
+    assert helper.remove_const("some_class const*const") == "some_class*"
+
+    assert helper.remove_const("const some_class<const aap>*") == "some_class<const aap>*"
+    assert helper.remove_const("const some_class<const aap> const*") == "some_class<const aap>*"
+    assert helper.remove_const("some_class const<const aap*const>*const") == "some_class<const aap*const>*"
+
 def test_compound():
     assert helper.compound("int*") == "*"
     assert helper.compound("int* const *&") == "**&"
@@ -25,20 +33,20 @@ def test_clean_type():
 
 
 def test_operator_mapping():
-    assert helper.map_operator_name("operator[]", 1, "const int&")  == "__getitem__"
-    assert helper.map_operator_name("operator[]", 1, "int&")        == "__setitem__"
+    assert helper.map_operator_name(None, "operator[]", 1, "const int&")  == "__getitem__"
+    assert helper.map_operator_name(None, "operator[]", 1, "int&")        == "__setitem__"
 
-    assert helper.map_operator_name("operator()", 1, "")  == "__call__"
-    assert helper.map_operator_name("operator%", 1, "")   == "__mod__"
-    assert helper.map_operator_name("operator**", 1, "")  == "__pow__"
-    assert helper.map_operator_name("operator<<", 1, "")  == "__lshift__"
-    assert helper.map_operator_name("operator|", 1, "")   == "__or__"
+    assert helper.map_operator_name(None, "operator()", 1, "")  == "__call__"
+    assert helper.map_operator_name(None, "operator%", 1, "")   == "__mod__"
+    assert helper.map_operator_name(None, "operator**", 1, "")  == "__pow__"
+    assert helper.map_operator_name(None, "operator<<", 1, "")  == "__lshift__"
+    assert helper.map_operator_name(None, "operator|", 1, "")   == "__or__"
 
-    assert helper.map_operator_name("operator*", 1, "") == "__mul__"
-    assert helper.map_operator_name("operator*", 0, "") == "__deref__"
+    assert helper.map_operator_name(None, "operator*", 1, "") == "__mul__"
+    assert helper.map_operator_name(None, "operator*", 0, "") == "__deref__"
 
-    assert helper.map_operator_name("operator+", 1, "") == "__add__"
-    assert helper.map_operator_name("operator+", 0, "") == "__pos__"
+    assert helper.map_operator_name(None, "operator+", 1, "") == "__add__"
+    assert helper.map_operator_name(None, "operator+", 0, "") == "__pos__"
 
-    assert helper.map_operator_name("func", 0, "")        == "func"
-    assert helper.map_operator_name("some_method", 0, "") == "some_method"
+    assert helper.map_operator_name(None, "func", 0, "")        == "func"
+    assert helper.map_operator_name(None, "some_method", 0, "") == "some_method"

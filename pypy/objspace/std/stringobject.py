@@ -1,25 +1,24 @@
-from pypy.objspace.std.model import registerimplementation, W_Object
-from pypy.objspace.std.register_all import register_all
-from pypy.objspace.std.multimethod import FailedToImplement
-from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter import gateway
-from rpython.rlib.rarithmetic import ovfcheck
-from rpython.rlib.objectmodel import we_are_translated, compute_hash, specialize
-from rpython.rlib.objectmodel import compute_unique_id
-from pypy.objspace.std.inttype import wrapint
-from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
-from pypy.objspace.std import slicetype, newformat
-from pypy.objspace.std.listobject import W_ListObject
-from pypy.objspace.std.noneobject import W_NoneObject
-from pypy.objspace.std.tupleobject import W_TupleObject
-from rpython.rlib.rstring import StringBuilder, split
+"""The builtin str implementation"""
+
 from pypy.interpreter.buffer import StringBuffer
-from rpython.rlib import jit
-
-from pypy.objspace.std.stringtype import sliced, wrapstr, wrapchar, \
-     stringendswith, stringstartswith, joined2
-
+from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.objspace.std import newformat, slicetype
 from pypy.objspace.std.formatting import mod_format
+from pypy.objspace.std.inttype import wrapint
+from pypy.objspace.std.model import W_Object, registerimplementation
+from pypy.objspace.std.multimethod import FailedToImplement
+from pypy.objspace.std.noneobject import W_NoneObject
+from pypy.objspace.std.register_all import register_all
+from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
+from pypy.objspace.std.stringtype import (
+    joined2, sliced, wrapchar, wrapstr)
+from rpython.rlib import jit
+from rpython.rlib.objectmodel import (
+    compute_hash, compute_unique_id, specialize)
+from rpython.rlib.rarithmetic import ovfcheck
+from rpython.rlib.rstring import (StringBuilder, split, rsplit, replace,
+    endswith, startswith)
+
 
 class W_AbstractStringObject(W_Object):
     __slots__ = ()
@@ -40,12 +39,10 @@ class W_AbstractStringObject(W_Object):
 
     def unicode_w(w_self, space):
         # Use the default encoding.
-        from pypy.objspace.std.unicodetype import unicode_from_string, \
-                decode_object
+        from pypy.objspace.std.unicodetype import (unicode_from_string,
+            decode_object, _get_encoding_and_errors)
         w_defaultencoding = space.call_function(space.sys.get(
                                                 'getdefaultencoding'))
-        from pypy.objspace.std.unicodetype import _get_encoding_and_errors, \
-            unicode_from_string, decode_object
         encoding, errors = _get_encoding_and_errors(space, w_defaultencoding,
                                                     space.w_None)
         if encoding is None and errors is None:
@@ -237,7 +234,7 @@ def str_capitalize__String(space, w_self):
 def str_title__String(space, w_self):
     input = w_self._value
     builder = StringBuilder(len(input))
-    prev_letter=' '
+    prev_letter = ' '
 
     for pos in range(len(input)):
         ch = input[pos]
@@ -291,31 +288,12 @@ def str_split__String_String_ANY(space, w_self, w_by, w_maxsplit=-1):
     bylen = len(by)
     if bylen == 0:
         raise OperationError(space.w_ValueError, space.wrap("empty separator"))
-
-    if bylen == 1 and maxsplit < 0:
-        res = []
-        start = 0
-        # fast path: uses str.rfind(character) and str.count(character)
-        by = by[0]    # annotator hack: string -> char
-        count = value.count(by)
-        res = [None] * (count + 1)
-        end = len(value)
-        while count >= 0:
-            assert end >= 0
-            prev = value.rfind(by, 0, end)
-            start = prev + 1
-            assert start >= 0
-            res[count] = value[start:end]
-            count -= 1
-            end = prev
-    else:
-        res = split(value, by, maxsplit)
-
+    res = split(value, by, maxsplit)
     return space.newlist_str(res)
 
 def str_rsplit__String_None_ANY(space, w_self, w_none, w_maxsplit=-1):
     maxsplit = space.int_w(w_maxsplit)
-    res_w = []
+    res = []
     value = w_self._value
     i = len(value)-1
     while True:
@@ -340,43 +318,21 @@ def str_rsplit__String_None_ANY(space, w_self, w_none, w_maxsplit=-1):
         # the word is value[j+1:i+1]
         j1 = j + 1
         assert j1 >= 0
-        res_w.append(sliced(space, value, j1, i+1, w_self))
+        res.append(value[j1:i+1])
 
         # continue to look from the character before the space before the word
         i = j - 1
 
-    res_w.reverse()
-    return space.newlist(res_w)
+    res.reverse()
+    return space.newlist_str(res)
 
-def make_rsplit_with_delim(funcname, sliced):
-    from rpython.tool.sourcetools import func_with_new_name
-
-    def fn(space, w_self, w_by, w_maxsplit=-1):
-        maxsplit = space.int_w(w_maxsplit)
-        res_w = []
-        value = w_self._value
-        end = len(value)
-        by = w_by._value
-        bylen = len(by)
-        if bylen == 0:
-            raise OperationError(space.w_ValueError, space.wrap("empty separator"))
-
-        while maxsplit != 0:
-            next = value.rfind(by, 0, end)
-            if next < 0:
-                break
-            res_w.append(sliced(space, value, next+bylen, end, w_self))
-            end = next
-            maxsplit -= 1   # NB. if it's already < 0, it stays < 0
-
-        res_w.append(sliced(space, value, 0, end, w_self))
-        res_w.reverse()
-        return space.newlist(res_w)
-
-    return func_with_new_name(fn, funcname)
-
-str_rsplit__String_String_ANY = make_rsplit_with_delim('str_rsplit__String_String_ANY',
-                                                       sliced)
+def str_rsplit__String_String_ANY(space, w_self, w_by, w_maxsplit=-1):
+    maxsplit = space.int_w(w_maxsplit)
+    value = w_self._value
+    by = w_by._value
+    if not by:
+        raise OperationError(space.w_ValueError, space.wrap("empty separator"))
+    return space.newlist_str(rsplit(value, by, maxsplit))
 
 def str_join__String_ANY(space, w_self, w_list):
     l = space.listview_str(w_list)
@@ -413,10 +369,8 @@ def _str_join_many_items(space, w_self, list_w, size):
                 w_list = space.newlist(list_w)
                 w_u = space.call_function(space.w_unicode, w_self)
                 return space.call_method(w_u, "join", w_list)
-            raise operationerrfmt(
-                space.w_TypeError,
-                "sequence item %d: expected string, %s "
-                "found", i, space.type(w_s).getname(space))
+            msg = "sequence item %d: expected string, %T found"
+            raise operationerrfmt(space.w_TypeError, msg, i, w_s)
         reslen += len(space.str_w(w_s))
 
     sb = StringBuilder(reslen)
@@ -435,7 +389,7 @@ def str_rjust__String_ANY_ANY(space, w_self, w_arg, w_fillchar):
             space.wrap("rjust() argument 2 must be a single character"))
 
     d = u_arg - len(u_self)
-    if d>0:
+    if d > 0:
         fillchar = fillchar[0]    # annotator hint: it's a single character
         u_self = d * fillchar + u_self
 
@@ -451,7 +405,7 @@ def str_ljust__String_ANY_ANY(space, w_self, w_arg, w_fillchar):
             space.wrap("ljust() argument 2 must be a single character"))
 
     d = u_arg - len(u_self)
-    if d>0:
+    if d > 0:
         fillchar = fillchar[0]    # annotator hint: it's a single character
         u_self += d * fillchar
 
@@ -472,12 +426,12 @@ def contains__String_String(space, w_self, w_sub):
     return space.newbool(self.find(sub) >= 0)
 
 def str_find__String_String_ANY_ANY(space, w_self, w_sub, w_start, w_end):
-    (self, start, end) =  _convert_idx_params(space, w_self, w_start, w_end)
+    (self, start, end) = _convert_idx_params(space, w_self, w_start, w_end)
     res = self.find(w_sub._value, start, end)
     return space.wrap(res)
 
 def str_rfind__String_String_ANY_ANY(space, w_self, w_sub, w_start, w_end):
-    (self, start, end) =  _convert_idx_params(space, w_self, w_start, w_end)
+    (self, start, end) = _convert_idx_params(space, w_self, w_start, w_end)
     res = self.rfind(w_sub._value, start, end)
     return space.wrap(res)
 
@@ -512,7 +466,7 @@ def str_rpartition__String_String(space, w_self, w_sub):
 
 
 def str_index__String_String_ANY_ANY(space, w_self, w_sub, w_start, w_end):
-    (self, start, end) =  _convert_idx_params(space, w_self, w_start, w_end)
+    (self, start, end) = _convert_idx_params(space, w_self, w_start, w_end)
     res = self.find(w_sub._value, start, end)
     if res < 0:
         raise OperationError(space.w_ValueError,
@@ -522,7 +476,7 @@ def str_index__String_String_ANY_ANY(space, w_self, w_sub, w_start, w_end):
 
 
 def str_rindex__String_String_ANY_ANY(space, w_self, w_sub, w_start, w_end):
-    (self, start, end) =  _convert_idx_params(space, w_self, w_start, w_end)
+    (self, start, end) = _convert_idx_params(space, w_self, w_start, w_end)
     res = self.rfind(w_sub._value, start, end)
     if res < 0:
         raise OperationError(space.w_ValueError,
@@ -530,75 +484,30 @@ def str_rindex__String_String_ANY_ANY(space, w_self, w_sub, w_start, w_end):
 
     return space.wrap(res)
 
-def _string_replace(space, input, sub, by, maxsplit):
-    if maxsplit == 0:
-        return space.wrap(input)
-
-    if not sub:
-        upper = len(input)
-        if maxsplit > 0 and maxsplit < upper + 2:
-            upper = maxsplit - 1
-            assert upper >= 0
-
-        try:
-            result_size = ovfcheck(upper * len(by))
-            result_size = ovfcheck(result_size + upper)
-            result_size = ovfcheck(result_size + len(by))
-            remaining_size = len(input) - upper
-            result_size = ovfcheck(result_size + remaining_size)
-        except OverflowError:
-            raise OperationError(space.w_OverflowError,
-                space.wrap("replace string is too long")
-            )
-        builder = StringBuilder(result_size)
-        for i in range(upper):
-            builder.append(by)
-            builder.append(input[i])
-        builder.append(by)
-        builder.append_slice(input, upper, len(input))
-    else:
-        # First compute the exact result size
-        count = input.count(sub)
-        if count > maxsplit and maxsplit > 0:
-            count = maxsplit
-        diff_len = len(by) - len(sub)
-        try:
-            result_size = ovfcheck(diff_len * count)
-            result_size = ovfcheck(result_size + len(input))
-        except OverflowError:
-            raise OperationError(space.w_OverflowError,
-                space.wrap("replace string is too long")
-            )
-
-        builder = StringBuilder(result_size)
-        start = 0
-        sublen = len(sub)
-
-        while maxsplit != 0:
-            next = input.find(sub, start)
-            if next < 0:
-                break
-            builder.append_slice(input, start, next)
-            builder.append(by)
-            start = next + sublen
-            maxsplit -= 1   # NB. if it's already < 0, it stays < 0
-
-        builder.append_slice(input, start, len(input))
-
-    return space.wrap(builder.build())
-
 
 def str_replace__String_ANY_ANY_ANY(space, w_self, w_sub, w_by, w_maxsplit):
-    return _string_replace(space, w_self._value, space.buffer_w(w_sub).as_str(),
-                           space.buffer_w(w_by).as_str(),
-                           space.int_w(w_maxsplit))
+    sub = space.buffer_w(w_sub).as_str()
+    by = space.buffer_w(w_by).as_str()
+    maxsplit = space.int_w(w_maxsplit)
+    try:
+        res = replace(w_self._value, sub, by, maxsplit)
+    except OverflowError:
+        raise OperationError(space.w_OverflowError,
+            space.wrap("replace string is too long")
+        )
+    return space.wrap(res)
 
 def str_replace__String_String_String_ANY(space, w_self, w_sub, w_by, w_maxsplit=-1):
-    input = w_self._value
     sub = w_sub._value
     by = w_by._value
     maxsplit = space.int_w(w_maxsplit)
-    return _string_replace(space, input, sub, by, maxsplit)
+    try:
+        res = replace(w_self._value, sub, by, maxsplit)
+    except OverflowError:
+        raise OperationError(space.w_OverflowError,
+            space.wrap("replace string is too long")
+        )
+    return space.wrap(res)
 
 def _strip(space, w_self, w_chars, left, right):
     "internal function called by str_xstrip methods"
@@ -685,9 +594,11 @@ def str_count__String_String_ANY_ANY(space, w_self, w_arg, w_start, w_end):
 def str_endswith__String_String_ANY_ANY(space, w_self, w_suffix, w_start, w_end):
     (u_self, start, end) = _convert_idx_params(space, w_self, w_start,
                                                w_end, True)
-    return space.newbool(stringendswith(u_self, w_suffix._value, start, end))
+    return space.newbool(endswith(u_self, w_suffix._value, start, end))
 
-def str_endswith__String_Tuple_ANY_ANY(space, w_self, w_suffixes, w_start, w_end):
+def str_endswith__String_ANY_ANY_ANY(space, w_self, w_suffixes, w_start, w_end):
+    if not space.isinstance_w(w_suffixes, space.w_tuple):
+        raise FailedToImplement
     (u_self, start, end) = _convert_idx_params(space, w_self, w_start,
                                                w_end, True)
     for w_suffix in space.fixedview(w_suffixes):
@@ -696,16 +607,18 @@ def str_endswith__String_Tuple_ANY_ANY(space, w_self, w_suffixes, w_start, w_end
             return space.call_method(w_u, "endswith", w_suffixes, w_start,
                                      w_end)
         suffix = space.str_w(w_suffix)
-        if stringendswith(u_self, suffix, start, end):
+        if endswith(u_self, suffix, start, end):
             return space.w_True
     return space.w_False
 
 def str_startswith__String_String_ANY_ANY(space, w_self, w_prefix, w_start, w_end):
     (u_self, start, end) = _convert_idx_params(space, w_self, w_start,
                                                w_end, True)
-    return space.newbool(stringstartswith(u_self, w_prefix._value, start, end))
+    return space.newbool(startswith(u_self, w_prefix._value, start, end))
 
-def str_startswith__String_Tuple_ANY_ANY(space, w_self, w_prefixes, w_start, w_end):
+def str_startswith__String_ANY_ANY_ANY(space, w_self, w_prefixes, w_start, w_end):
+    if not space.isinstance_w(w_prefixes, space.w_tuple):
+        raise FailedToImplement
     (u_self, start, end) = _convert_idx_params(space, w_self,
                                                w_start, w_end, True)
     for w_prefix in space.fixedview(w_prefixes):
@@ -714,7 +627,7 @@ def str_startswith__String_Tuple_ANY_ANY(space, w_self, w_prefixes, w_start, w_e
             return space.call_method(w_u, "startswith", w_prefixes, w_start,
                                      w_end)
         prefix = space.str_w(w_prefix)
-        if stringstartswith(u_self, prefix, start, end):
+        if startswith(u_self, prefix, start, end):
             return space.w_True
     return space.w_False
 
@@ -729,7 +642,7 @@ def _tabindent(u_token, u_tabsize):
         while 1:
             #no sophisticated linebreak support now, '\r' just for passing adapted CPython test
             if u_token[offset-1] == "\n" or u_token[offset-1] == "\r":
-                break;
+                break
             distance += 1
             offset -= 1
             if offset == 0:
@@ -739,7 +652,7 @@ def _tabindent(u_token, u_tabsize):
         #print '<offset:%d distance:%d tabsize:%d token:%s>' % (offset, distance, u_tabsize, u_token)
         distance = (u_tabsize-distance) % u_tabsize
         if distance == 0:
-            distance=u_tabsize
+            distance = u_tabsize
 
     return distance
 
@@ -761,35 +674,16 @@ def str_expandtabs__String_ANY(space, w_self, w_tabsize):
 
         for token in split:
             #print  "%d#%d -%s-" % (_tabindent(oldtoken,u_tabsize), u_tabsize, token)
-            u_expanded += " " * _tabindent(oldtoken,u_tabsize) + token
+            u_expanded += " " * _tabindent(oldtoken, u_tabsize) + token
             oldtoken = token
 
     return wrapstr(space, u_expanded)
 
 
 def str_splitlines__String_ANY(space, w_self, w_keepends):
-    u_keepends  = space.int_w(w_keepends)  # truth value, but type checked
+    u_keepends = space.int_w(w_keepends)  # truth value, but type checked
     data = w_self._value
-    selflen = len(data)
-    strs_w = []
-    i = j = 0
-    while i < selflen:
-        # Find a line and append it
-        while i < selflen and data[i] != '\n' and data[i] != '\r':
-            i += 1
-        # Skip the line break reading CRLF as one line break
-        eol = i
-        i += 1
-        if i < selflen and data[i-1] == '\r' and data[i] == '\n':
-            i += 1
-        if u_keepends:
-            eol = i
-        strs_w.append(sliced(space, data, j, eol, w_self))
-        j = i
-
-    if j < selflen:
-        strs_w.append(sliced(space, data, j, len(data), w_self))
-    return space.newlist(strs_w)
+    return space.newlist_str(data.splitlines(u_keepends))
 
 def str_zfill__String_ANY(space, w_self, w_width):
     input = w_self._value
@@ -877,7 +771,6 @@ def getitem__String_ANY(space, w_str, w_index):
     return wrapchar(space, str[ival])
 
 def getitem__String_Slice(space, w_str, w_slice):
-    w = space.wrap
     s = w_str._value
     length = len(s)
     start, stop, step, sl = w_slice.indices4(space, length)

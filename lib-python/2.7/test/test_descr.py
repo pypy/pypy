@@ -3592,6 +3592,9 @@ order (MRO) for bases """
         list.__init__(a, sequence=[0, 1, 2])
         self.assertEqual(a, [0, 1, 2])
 
+    @unittest.skipIf(test_support.check_impl_detail(pypy=True) and
+                     sys.platform == 'win32',
+                     "XXX: https://bugs.pypy.org/issue1461")
     def test_recursive_call(self):
         # Testing recursive __call__() by setting to instance of class...
         class A(object):

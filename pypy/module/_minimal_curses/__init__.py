@@ -1,6 +1,6 @@
 try:
     import _curses
-except ImportError:
+except Exception:   # probably ImportError or cffi's VerificationError
     try:
         # when running on top of pypy before it had _curses, settle for minimal
         # we prefer _curses so any constants added make it into _minimal_curses

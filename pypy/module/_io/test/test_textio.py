@@ -26,6 +26,14 @@ class AppTestTextIO:
         assert t.readable()
         assert t.seekable()
 
+    def test_default_implementations(self):
+        import _io
+        file = _io._TextIOBase()
+        raises(_io.UnsupportedOperation, file.read)
+        raises(_io.UnsupportedOperation, file.seek, 0)
+        raises(_io.UnsupportedOperation, file.readline)
+        raises(_io.UnsupportedOperation, file.detach)
+
     def test_unreadable(self):
         import _io
         class UnReadable(_io.BytesIO):

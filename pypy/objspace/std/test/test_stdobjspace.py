@@ -23,19 +23,6 @@ class TestW_StdObjSpace:
         raises(OperationError,self.space.uint_w,self.space.wrap(None))
         raises(OperationError,self.space.uint_w,self.space.wrap(""))
 
-    def test_multimethods_defined_on(self):
-        from pypy.objspace.std.stdtypedef import multimethods_defined_on
-        from pypy.objspace.std.listobject import W_ListObject
-        res = multimethods_defined_on(W_ListObject)
-        res = [(m.name, local) for (m, local) in res]
-        assert ('add', False) in res
-        assert ('lt', False) in res
-        assert ('setitem', False) in res
-        assert ('mod', False) not in res
-        assert ('pop', True) not in res
-        assert ('reverse', True) not in res
-        assert ('popitem', True) not in res
-
     def test_sliceindices(self):
         space = self.space
         w_obj = space.appexec([], """():

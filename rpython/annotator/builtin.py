@@ -89,8 +89,14 @@ def builtin_range(*args):
 
 builtin_xrange = builtin_range # xxx for now allow it
 
+
 def builtin_enumerate(s_obj):
     return SomeIterator(s_obj, "enumerate")
+
+
+def builtin_reversed(s_obj):
+    return SomeIterator(s_obj, "reversed")
+
 
 def builtin_bool(s_obj):
     return s_obj.is_true()

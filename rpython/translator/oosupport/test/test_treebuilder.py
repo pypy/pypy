@@ -13,7 +13,7 @@ def translate(func, argtypes, backendopt=False):
     t = TranslationContext()
     t.buildannotator().build_types(func, argtypes)
     t.buildrtyper(type_system='ootype').specialize()
-    
+
     if backendopt: backend_optimizations(t, merge_if_blocks=True)
     return t
 
@@ -121,4 +121,5 @@ class BuildTreeRtypingTest(BaseRtypingTest, OORtypeMixin):
         return interp.eval_graph(graph, args)
 
 class TestBuildTreeList(BuildTreeRtypingTest, BaseTestRlist):
-    pass
+    def test_reversed(self):
+        py.test.skip("unsupported on ootype")

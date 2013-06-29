@@ -7,8 +7,13 @@ from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
 from rpython.rlib.jit_hooks import LOOP_RUN_CONTAINER
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.jit.backend.arm.detect import detect_hardfloat
+from rpython.jit.backend.arm.detect import detect_arch_version
 
 jitframe.STATICSIZE = JITFRAME_FIXED_SIZE
+
+class CPUInfo(object):
+    hf_abi = False
+    arch_version = 6
 
 class AbstractARMCPU(AbstractLLCPU):
 
@@ -18,6 +23,7 @@ class AbstractARMCPU(AbstractLLCPU):
     supports_longlong = False # XXX requires an implementation of
                               # read_timestamp that works in user mode
     supports_singlefloats = not detect_hardfloat()
+    can_inline_varsize_malloc = True
 
     from rpython.jit.backend.arm.arch import JITFRAME_FIXED_SIZE
     all_reg_indexes = range(len(all_regs))
@@ -25,13 +31,11 @@ class AbstractARMCPU(AbstractLLCPU):
     float_regs = VFPRegisterManager.all_regs
     frame_reg = fp
 
-    hf_abi = False        # use hard float abi flag
-    arch_version = 7
-
     def __init__(self, rtyper, stats, opts=None, translate_support_code=False,
                  gcdescr=None):
         AbstractLLCPU.__init__(self, rtyper, stats, opts,
                                translate_support_code, gcdescr)
+        self.cpuinfo = CPUInfo()
 
     def set_debug(self, flag):
         return self.assembler.set_debug(flag)
@@ -46,6 +50,8 @@ class AbstractARMCPU(AbstractLLCPU):
         self.assembler = AssemblerARM(self, self.translate_support_code)
 
     def setup_once(self):
+        self.cpuinfo.arch_version = detect_arch_version()
+        self.cpuinfo.hf_abi = detect_hardfloat()
         self.assembler.setup_once()
 
     def finish_once(self):
@@ -89,7 +95,7 @@ class AbstractARMCPU(AbstractLLCPU):
         from rpython.jit.backend.arm.codebuilder import InstrBuilder
 
         for jmp, tgt in looptoken.compiled_loop_token.invalidate_positions:
-            mc = InstrBuilder(self.arch_version)
+            mc = InstrBuilder(self.cpuinfo.arch_version)
             mc.B_offs(tgt)
             mc.copy_to_raw_memory(jmp)
         # positions invalidated
@@ -113,10 +119,5 @@ class AbstractARMCPU(AbstractLLCPU):
 
 
 class CPU_ARM(AbstractARMCPU):
-    """ARM v7"""
-    backend_name = "armv7"
-
-class CPU_ARMv6(AbstractARMCPU):
-    """ ARM v6, uses hardfp ABI, requires vfp"""
-    arch_version = 6
-    backend_name = "armv6"
+    """ARM"""
+    backend_name = "arm"

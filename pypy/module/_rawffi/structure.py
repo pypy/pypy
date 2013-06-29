@@ -12,10 +12,13 @@ from pypy.module._rawffi.interp_rawffi import segfault_exception, _MS_WINDOWS
 from pypy.module._rawffi.interp_rawffi import W_DataShape, W_DataInstance
 from pypy.module._rawffi.interp_rawffi import wrap_value, unwrap_value
 from pypy.module._rawffi.interp_rawffi import unpack_shape_with_length
-from pypy.module._rawffi.interp_rawffi import size_alignment, LL_TYPEMAP
+from pypy.module._rawffi.interp_rawffi import LL_TYPEMAP
 from pypy.module._rawffi.interp_rawffi import unroll_letters_for_numbers
+from pypy.module._rawffi.interp_rawffi import size_alignment
+from pypy.module._rawffi.interp_rawffi import read_ptr, write_ptr
 from rpython.rlib import clibffi
-from rpython.rlib.rarithmetic import intmask, r_uint, signedtype, widen
+from rpython.rlib.rarithmetic import intmask, signedtype, widen
+from rpython.rlib.rarithmetic import r_uint, r_ulonglong, r_longlong
 
 def unpack_fields(space, w_fields):
     fields_w = space.unpackiterable(w_fields)
@@ -31,9 +34,8 @@ def unpack_fields(space, w_fields):
         try:
             name = space.str_w(l_w[0])
         except OperationError:
-            raise OperationError(space.w_TypeError, space.wrap(
-               "structure field name must be string not %s" %
-               space.type(l_w[0]).getname(space)))
+            raise operationerrfmt(space.w_TypeError,
+                "structure field name must be string not %T", l_w[0])
         tp = unpack_shape_with_length(space, l_w[1])
 
         if len_l == 3:
@@ -261,10 +263,17 @@ W_Structure.typedef.acceptable_as_base_class = False
 
 def LOW_BIT(x):
     return x & 0xFFFF
+
 def NUM_BITS(x):
     return x >> 16
-def BIT_MASK(x):
-    return (1 << x) - 1
+
+def BIT_MASK(x, ll_t):
+    if ll_t is lltype.SignedLongLong:
+        return (r_longlong(1) << x) - 1
+    elif ll_t is lltype.UnsignedLongLong:
+        return (r_ulonglong(1) << x) - 1
+    return (1  << x) -1
+BIT_MASK._annspecialcase_ = 'specialize:arg(1)'
 
 def push_field(self, num, value):
     ptr = rffi.ptradd(self.ll_buffer, self.shape.ll_positions[num])
@@ -280,20 +289,20 @@ def push_field(self, num, value):
             lowbit = LOW_BIT(bitsize)
             if numbits:
                 value = widen(value)
-                current = widen(rffi.cast(T, ptr)[0])
-                bitmask = BIT_MASK(numbits)
+                bitmask = BIT_MASK(numbits, TP)
+                #
+                current = widen(read_ptr(ptr, 0, TP))
                 current &= ~ (bitmask << lowbit)
                 current |= (value & bitmask) << lowbit
                 value = rffi.cast(TP, current)
             break
-
-    rffi.cast(T, ptr)[0] = value
+    write_ptr(ptr, 0, value)
 push_field._annspecialcase_ = 'specialize:argtype(2)'
 
 def cast_pos(self, i, ll_t):
     pos = rffi.ptradd(self.ll_buffer, self.shape.ll_positions[i])
     TP = lltype.Ptr(rffi.CArray(ll_t))
-    value = rffi.cast(TP, pos)[0]
+    value = read_ptr(pos, 0, ll_t)
 
     # Handle bitfields
     for c in unroll_letters_for_numbers:
@@ -302,13 +311,16 @@ def cast_pos(self, i, ll_t):
             numbits = NUM_BITS(bitsize)
             lowbit = LOW_BIT(bitsize)
             if numbits:
-                value = widen(value)
+                value = widen(rffi.cast(ll_t, value))
+                bitmask = BIT_MASK(numbits, ll_t)
+                #
                 value >>= lowbit
-                value &= BIT_MASK(numbits)
+                value &= bitmask
                 if ll_t is lltype.Bool or signedtype(ll_t._type):
                     sign = (value >> (numbits - 1)) & 1
                     if sign:
-                        value = value - (1 << numbits)
+                        one = r_longlong(1) if ll_t is lltype.SignedLongLong else 1
+                        value = value - (one << numbits)
                 value = rffi.cast(ll_t, value)
             break
 

@@ -7,7 +7,8 @@ import shutil
 import subprocess
 from copy import copy, deepcopy
 
-from test.test_support import run_unittest, TESTFN, unlink, get_attribute
+from test.test_support import (run_unittest, TESTFN, unlink, get_attribute,
+                               import_module)
 
 import sysconfig
 from sysconfig import (get_paths, get_platform, get_config_vars,
@@ -236,7 +237,10 @@ class TestSysConfig(unittest.TestCase):
 
     def test_get_config_h_filename(self):
         config_h = sysconfig.get_config_h_filename()
-        self.assertTrue(os.path.isfile(config_h), config_h)
+        # import_module skips the test when the CPython C Extension API
+        # appears to not be supported
+        self.assertTrue(os.path.isfile(config_h) or
+                        not import_module('_testcapi'), config_h)
 
     def test_get_scheme_names(self):
         wanted = ('nt', 'nt_user', 'os2', 'os2_home', 'osx_framework_user',

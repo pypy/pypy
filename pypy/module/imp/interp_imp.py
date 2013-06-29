@@ -177,7 +177,7 @@ def acquire_lock(space):
 
 def release_lock(space):
     if space.config.objspace.usemodules.thread:
-        importing.getimportlock(space).release_lock()
+        importing.getimportlock(space).release_lock(silent_after_fork=False)
 
 def reinit_lock(space):
     if space.config.objspace.usemodules.thread:

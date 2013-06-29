@@ -73,6 +73,11 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
         rename_pypy_c += '.exe'
     binaries = [(pypy_c, rename_pypy_c)]
     #
+    builddir = udir.ensure("build", dir=True)
+    pypydir = builddir.ensure(name, dir=True)
+    includedir = basedir.join('include')
+    pypydir.ensure('include', dir=True)
+
     if sys.platform == 'win32':
         #Don't include a mscvrXX.dll, users should get their own.
         #Instructions are provided on the website.
@@ -85,12 +90,22 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
             p = pypy_c.dirpath().join(extra)
             if not p.check():
                 p = py.path.local.sysfind(extra)
-                assert p, "%s not found" % (extra,)
+                if not p:
+                    print "%s not found, expect trouble if this is a shared build" % (extra,)
+                    continue
             print "Picking %s" % p
             binaries.append((p, p.basename))
-    #
-    builddir = udir.ensure("build", dir=True)
-    pypydir = builddir.ensure(name, dir=True)
+        if pypy_c.dirpath().join("libpypy-c.lib").check():
+            shutil.copyfile(str(pypy_c.dirpath().join("libpypy-c.lib")),
+                        str(pypydir.join('include/python27.lib')))
+            print "Picking %s as %s" % (pypy_c.dirpath().join("libpypy-c.lib"),
+                        pypydir.join('include/python27.lib'))
+        else:
+            pass
+            # XXX users will complain that they cannot compile cpyext
+            # modules for windows, has the lib moved or are there no
+            # exported functions in the dll so no import library is created?
+
     # Careful: to copy lib_pypy, copying just the svn-tracked files
     # would not be enough: there are also ctypes_config_cache/_*_cache.py.
     shutil.copytree(str(basedir.join('lib-python').join(STDLIB_VER)),
@@ -102,15 +117,10 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
                                            '*.c', '*.o'))
     for file in ['LICENSE', 'README.rst']:
         shutil.copy(str(basedir.join(file)), str(pypydir))
-    pypydir.ensure('include', dir=True)
-    if sys.platform == 'win32':
-        shutil.copyfile(str(pypy_c.dirpath().join("libpypy-c.lib")),
-                        str(pypydir.join('include/python27.lib')))
-    # we want to put there all *.h and *.inl from trunk/include
-    # and from pypy/_interfaces
-    includedir = basedir.join('include')
     headers = includedir.listdir('*.h') + includedir.listdir('*.inl')
     for n in headers:
+        # we want to put there all *.h and *.inl from trunk/include
+        # and from pypy/_interfaces
         shutil.copy(str(n), str(pypydir.join('include')))
     #
     spdir = pypydir.ensure('site-packages', dir=True)

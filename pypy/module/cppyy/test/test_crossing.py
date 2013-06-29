@@ -80,7 +80,7 @@ class AppTestCrossing(AppTestCpythonExtensionBase):
         AppTestCpythonExtensionBase.setup_method.im_func(self, func)
 
         @unwrap_spec(name=str, init=str, body=str)
-        def load_cdll(space, name, init, body, w_symbols):
+        def create_cdll(space, name, init, body, w_symbols):
             # the following is loosely from test_cpyext.py import_module; it
             # is copied here to be able to tweak the call to
             # compile_extension_module and to get a different return result
@@ -98,13 +98,12 @@ class AppTestCrossing(AppTestCpythonExtensionBase):
             mod = compile_extension_module(space, name, symbols, **kwds)
 
             # explicitly load the module as a CDLL rather than as a module
-            import ctypes
             from pypy.module.imp.importing import get_so_extension
             fullmodname = os.path.join(
                 os.path.dirname(mod), name + get_so_extension(space))
-            return ctypes.CDLL(fullmodname, ctypes.RTLD_GLOBAL)
+            return space.wrap(fullmodname)
 
-        self.w_load_cdll = self.space.wrap(interp2app(load_cdll))
+        self.w_create_cdll = self.space.wrap(interp2app(create_cdll))
 
     def test00_base_class(self):
         """Test from cpyext; only here to see whether the imported class works"""
@@ -144,11 +143,10 @@ class AppTestCrossing(AppTestCpythonExtensionBase):
         };
         """
         # explicitly load the module as a CDLL rather than as a module
-#        dirname = space.wrap(os.path.dirname(mod))
-
-#        dirname = self.import_module(name='bar', init=init, body=body, load_it=False)
-#        fullmodname = os.path.join(dirname, name + self.soext)
-        self.cmodule = self.load_cdll(name, init, body, ['bar_unwrap', 'bar_wrap'])#ctypes.CDLL(fullmodname, ctypes.RTLD_GLOBAL)
+        import ctypes
+        self.cmodule = ctypes.CDLL(
+            self.create_cdll(name, init, body, ['bar_unwrap', 'bar_wrap']),
+            ctypes.RTLD_GLOBAL)
 
     def test02_crossing_dict(self):
         """Test availability of all needed classes in the dict"""

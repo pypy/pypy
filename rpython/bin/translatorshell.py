@@ -1,7 +1,7 @@
-#!/usr/bin/env python 
+#!/usr/bin/env python
 
 
-"""PyPy Translator Frontend
+"""RPython Translator Frontend
 
 Glue script putting together the various pieces of the translator.
 Can be used for interactive testing of the translator.
@@ -14,7 +14,7 @@ Example:
     t.annotate()
     t.view()                           # graph + annotations under the mouse
 
-    t.rtype()                          # use low level operations 
+    t.rtype()                          # use low level operations
     lib = t.compile_c()                # C compilation as a library
     f = get_c_function(lib, func)      # get the function out of the library
     assert f(arg) == func(arg)         # sanity check (for C)
@@ -51,7 +51,7 @@ def setup_readline():
     import os
     histfile = os.path.join(os.environ["HOME"], ".pypytrhist")
     try:
-        getattr(readline, "clear_history", lambda : None)()
+        getattr(readline, "clear_history", lambda: None)()
         readline.read_history_file(histfile)
     except IOError:
         pass
@@ -74,5 +74,3 @@ if __name__ == '__main__':
 
     import os
     os.putenv("PYTHONINSPECT", "1")
-
-

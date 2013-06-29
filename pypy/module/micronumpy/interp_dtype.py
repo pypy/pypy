@@ -1,7 +1,7 @@
 
 import sys
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
     interp_attrproperty, interp_attrproperty_w)
@@ -46,11 +46,11 @@ def dtype_agreement(space, w_arr_list, shape, out=None):
 
 
 class W_Dtype(W_Root):
-    _immutable_fields_ = ["itemtype", "num", "kind"]
+    _immutable_fields_ = ["itemtype", "num", "kind", "shape"]
 
     def __init__(self, itemtype, num, kind, name, char, w_box_type,
                  alternate_constructors=[], aliases=[],
-                 fields=None, fieldnames=None, native=True):
+                 fields=None, fieldnames=None, native=True, shape=[], subdtype=None):
         self.itemtype = itemtype
         self.num = num
         self.kind = kind
@@ -63,6 +63,12 @@ class W_Dtype(W_Root):
         self.fieldnames = fieldnames
         self.native = native
         self.float_type = None
+        self.shape = list(shape)
+        self.subdtype = subdtype
+        if not subdtype:
+            self.base = self
+        else:
+            self.base = subdtype.base
 
     @specialize.argtype(1)
     def box(self, value):
@@ -78,7 +84,8 @@ class W_Dtype(W_Root):
         return self.itemtype.coerce(space, self, w_item)
 
     def getitem(self, arr, i):
-        return self.itemtype.read(arr, i, 0)
+        item = self.itemtype.read(arr, i, 0)
+        return item
 
     def getitem_bool(self, arr, i):
         return self.itemtype.read_bool(arr, i, 0)
@@ -108,11 +115,36 @@ class W_Dtype(W_Root):
             return space.wrap('=')
         return space.wrap(nonnative_byteorder_prefix)
 
+    def descr_get_str(self, space):
+        size = self.get_size()
+        basic = self.kind
+        if basic == UNICODELTR:
+            size >>= 2
+            endian = byteorder_prefix
+        elif size <= 1:
+            endian = '|'  # ignore
+        elif self.native:
+            endian = byteorder_prefix
+        else:
+            endian = nonnative_byteorder_prefix
+
+        return space.wrap("%s%s%s" % (endian, basic, size))
+
     def descr_get_alignment(self, space):
         return space.wrap(self.itemtype.alignment)
 
+    def descr_get_isnative(self, space):
+        return space.wrap(self.native)
+
+    def descr_get_base(self, space):
+        return space.wrap(self.base)
+
+    def descr_get_subdtype(self, space):
+        return space.newtuple([space.wrap(self.subdtype), self.descr_get_shape(space)])
+
     def descr_get_shape(self, space):
-        return space.newtuple([])
+        w_shape = [space.wrap(dim) for dim in self.shape]
+        return space.newtuple(w_shape)
 
     def eq(self, space, w_other):
         w_other = space.call_function(space.gettypefor(W_Dtype), w_other)
@@ -133,10 +165,46 @@ class W_Dtype(W_Root):
                                                                  space.wrap(offset)]))
         return w_d
 
+    def set_fields(self, space, w_fields):
+        if w_fields == space.w_None:
+            self.fields = None
+        else:
+            self.fields = {}
+            ofs_and_items = []
+            size = 0
+            for key in space.listview(w_fields):
+                value = space.getitem(w_fields, key)
+
+                dtype = space.getitem(value, space.wrap(0))
+                assert isinstance(dtype, W_Dtype)
+
+                offset = space.int_w(space.getitem(value, space.wrap(1)))
+                self.fields[space.str_w(key)] = offset, dtype
+
+                ofs_and_items.append((offset, dtype.itemtype))
+                size += dtype.itemtype.get_element_size()
+
+            self.itemtype = types.RecordType(ofs_and_items, size)
+            self.name = "void" + str(8 * self.itemtype.get_element_size())
+
     def descr_get_names(self, space):
         if self.fieldnames is None:
             return space.w_None
         return space.newtuple([space.wrap(name) for name in self.fieldnames])
+
+    def set_names(self, space, w_names):
+        if w_names == space.w_None:
+            self.fieldnames = None
+        else:
+            self.fieldnames = []
+            iter = space.iter(w_names)
+            while True:
+                try:
+                    self.fieldnames.append(space.str_w(space.next(iter)))
+                except OperationError, e:
+                    if not e.match(space, space.w_StopIteration):
+                        raise
+                    break
 
     @unwrap_spec(item=str)
     def descr_getitem(self, space, item):
@@ -180,6 +248,50 @@ class W_Dtype(W_Root):
     def get_size(self):
         return self.itemtype.get_element_size()
 
+    def descr_reduce(self, space):
+        w_class = space.type(self)
+
+        kind = self.kind
+        elemsize = self.itemtype.get_element_size()
+        builder_args = space.newtuple([space.wrap("%s%d" % (kind, elemsize)), space.wrap(0), space.wrap(1)])
+
+        version = space.wrap(3)
+        order = space.wrap(byteorder_prefix if self.native else nonnative_byteorder_prefix)
+        names = self.descr_get_names(space)
+        values = self.descr_get_fields(space)
+        if self.fields:
+            #TODO: Implement this when subarrays are implemented
+            subdescr = space.w_None
+            #TODO: Change this when alignment is implemented :
+            size = 0
+            for key in self.fields:
+                dtype = self.fields[key][1]
+                assert isinstance(dtype, W_Dtype)
+                size += dtype.get_size()
+            w_size = space.wrap(size)
+            alignment = space.wrap(1)
+        else:
+            subdescr = space.w_None
+            w_size = space.wrap(-1)
+            alignment = space.wrap(-1)
+        flags = space.wrap(0)
+
+        data = space.newtuple([version, order, subdescr, names, values, w_size, alignment, flags])
+
+        return space.newtuple([w_class, builder_args, data])
+
+    def descr_setstate(self, space, w_data):
+        if space.int_w(space.getitem(w_data, space.wrap(0))) != 3:
+            raise OperationError(space.w_NotImplementedError, space.wrap("Pickling protocol version not supported"))
+
+        self.native = space.str_w(space.getitem(w_data, space.wrap(1))) == byteorder_prefix
+
+        fieldnames = space.getitem(w_data, space.wrap(3))
+        self.set_names(space, fieldnames)
+
+        fields = space.getitem(w_data, space.wrap(4))
+        self.set_fields(space, fields)
+
 class W_ComplexDtype(W_Dtype):
     def __init__(self, itemtype, num, kind, name, char, w_box_type,
                  alternate_constructors=[], aliases=[],
@@ -199,15 +311,22 @@ def dtype_from_list(space, w_lst):
     ofs_and_items = []
     fieldnames = []
     for w_elem in lst_w:
-        w_fldname, w_flddesc = space.fixedview(w_elem, 2)
-        subdtype = descr__new__(space, space.gettypefor(W_Dtype), w_flddesc)
+        size = 1
+        w_shape = space.newtuple([])
+        if space.len_w(w_elem) == 3:
+            w_fldname, w_flddesc, w_shape = space.fixedview(w_elem)
+            if not base.issequence_w(space, w_shape):
+                w_shape = space.newtuple([w_shape,])
+        else:
+            w_fldname, w_flddesc = space.fixedview(w_elem)
+        subdtype = descr__new__(space, space.gettypefor(W_Dtype), w_flddesc, w_shape=w_shape)
         fldname = space.str_w(w_fldname)
         if fldname in fields:
             raise OperationError(space.w_ValueError, space.wrap("two fields with the same name"))
         assert isinstance(subdtype, W_Dtype)
         fields[fldname] = (offset, subdtype)
         ofs_and_items.append((offset, subdtype.itemtype))
-        offset += subdtype.itemtype.get_element_size()
+        offset += subdtype.itemtype.get_element_size() * size
         fieldnames.append(fldname)
     itemtype = types.RecordType(ofs_and_items, offset)
     return W_Dtype(itemtype, 20, VOIDLTR, "void" + str(8 * itemtype.get_element_size()),
@@ -237,9 +356,9 @@ def variable_dtype(space, name):
     elif char == 'V':
         num = 20
         basename = 'void'
-        w_box_type = space.gettypefor(interp_boxes.W_VoidBox)
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            "pure void dtype"))
+        itemtype = types.VoidType(size)
+        return W_Dtype(itemtype, 20, VOIDLTR, "void" + str(size),
+                    "V", space.gettypefor(interp_boxes.W_VoidBox))
     else:
         assert char == 'U'
         basename = 'unicode'
@@ -252,10 +371,25 @@ def variable_dtype(space, name):
 
 def dtype_from_spec(space, name):
         raise OperationError(space.w_NotImplementedError, space.wrap(
-            "dtype from spec"))    
+            "dtype from spec"))
 
-def descr__new__(space, w_subtype, w_dtype):
+def descr__new__(space, w_subtype, w_dtype, w_align=None, w_copy=None, w_shape=None):
+    # w_align and w_copy are necessary for pickling
     cache = get_dtype_cache(space)
+
+    if w_shape is not None and (space.isinstance_w(w_shape, space.w_int) or space.len_w(w_shape) > 0):
+        subdtype = descr__new__(space, w_subtype, w_dtype, w_align, w_copy)
+        assert isinstance(subdtype, W_Dtype)
+        size = 1
+        if space.isinstance_w(w_shape, space.w_int):
+            w_shape = space.newtuple([w_shape])
+        shape = []
+        for w_dim in space.fixedview(w_shape):
+            dim = space.int_w(w_dim)
+            shape.append(dim)
+            size *= dim
+        return W_Dtype(types.VoidType(subdtype.itemtype.get_element_size() * size), 20, VOIDLTR, "void" + str(8 * subdtype.itemtype.get_element_size() * size),
+                    "V", space.gettypefor(interp_boxes.W_VoidBox), shape=shape, subdtype=subdtype)
 
     if space.is_none(w_dtype):
         return cache.w_float64dtype
@@ -275,6 +409,8 @@ def descr__new__(space, w_subtype, w_dtype):
                        "data type %s not understood" % name))
     elif space.isinstance_w(w_dtype, space.w_list):
         return dtype_from_list(space, w_dtype)
+    elif space.isinstance_w(w_dtype, space.w_tuple):
+        return descr__new__(space, w_subtype, space.getitem(w_dtype, space.wrap(0)), w_align, w_copy, w_shape=space.getitem(w_dtype, space.wrap(1)))
     elif space.isinstance_w(w_dtype, space.w_dict):
         return dtype_from_dict(space, w_dtype)
     for dtype in cache.builtin_dtypes:
@@ -282,10 +418,8 @@ def descr__new__(space, w_subtype, w_dtype):
             return dtype
         if w_dtype is dtype.w_box_type:
             return dtype
-    typename = space.type(w_dtype).getname(space)
-    raise OperationError(space.w_TypeError, space.wrap(
-                             "data type not understood (value of type " +
-                             "%s not expected here)" % typename))
+    msg = "data type not understood (value of type %T not expected here)"
+    raise operationerrfmt(space.w_TypeError, msg, w_dtype)
 
 W_Dtype.typedef = TypeDef("dtype",
     __module__ = "numpypy",
@@ -297,17 +431,24 @@ W_Dtype.typedef = TypeDef("dtype",
     __ne__ = interp2app(W_Dtype.descr_ne),
     __getitem__ = interp2app(W_Dtype.descr_getitem),
 
+    __reduce__ = interp2app(W_Dtype.descr_reduce),
+    __setstate__ = interp2app(W_Dtype.descr_setstate),
+
     num = interp_attrproperty("num", cls=W_Dtype),
     kind = interp_attrproperty("kind", cls=W_Dtype),
     char = interp_attrproperty("char", cls=W_Dtype),
     type = interp_attrproperty_w("w_box_type", cls=W_Dtype),
     byteorder = GetSetProperty(W_Dtype.descr_get_byteorder),
+    str = GetSetProperty(W_Dtype.descr_get_str),
     itemsize = GetSetProperty(W_Dtype.descr_get_itemsize),
     alignment = GetSetProperty(W_Dtype.descr_get_alignment),
+    isnative = GetSetProperty(W_Dtype.descr_get_isnative),
     shape = GetSetProperty(W_Dtype.descr_get_shape),
     name = interp_attrproperty('name', cls=W_Dtype),
     fields = GetSetProperty(W_Dtype.descr_get_fields),
     names = GetSetProperty(W_Dtype.descr_get_names),
+    subdtype = GetSetProperty(W_Dtype.descr_get_subdtype),
+    base = GetSetProperty(W_Dtype.descr_get_base),
 )
 W_Dtype.typedef.acceptable_as_base_class = False
 
@@ -461,7 +602,7 @@ class DtypeCache(object):
             alternate_constructors=[space.w_float,
                                     space.gettypefor(interp_boxes.W_NumberBox),
                                    ],
-            aliases=["float"],
+            aliases=["float", "double"],
         )
         self.w_complex64dtype = W_ComplexDtype(
             types.Complex64(),
@@ -542,9 +683,10 @@ class DtypeCache(object):
             char='S',
             w_box_type = space.gettypefor(interp_boxes.W_StringBox),
             alternate_constructors=[space.w_str],
+            aliases=["str"],
         )
         self.w_unicodedtype = W_Dtype(
-            types.UnicodeType(1),
+            types.UnicodeType(0),
             num=19,
             kind=UNICODELTR,
             name='unicode',

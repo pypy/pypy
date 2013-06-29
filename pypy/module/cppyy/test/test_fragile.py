@@ -49,7 +49,7 @@ class AppTestFRAGILE:
 
         assert fragile.B == fragile.B
         assert fragile.B().check() == ord('B')
-        raises(TypeError, fragile.B().gime_no_such)
+        raises(AttributeError, getattr, fragile.B().gime_no_such(), "_cpp_proxy")
 
         assert fragile.C == fragile.C
         assert fragile.C().check() == ord('C')
@@ -255,3 +255,32 @@ class AppTestFRAGILE:
 
         from cppyy.gbl.fragile.nested1.nested2.nested3 import A
         assert cppyy.gbl.fragile.nested1.nested2.nested3.A is nested3.A
+
+    def test13_missing_casts(self):
+        """Test proper handling when a hierarchy is not fully available"""
+
+        import cppyy
+
+        k = cppyy.gbl.fragile.K()
+
+        assert k is k.GimeK(False)
+        assert k is not k.GimeK(True)
+
+        kd = k.GimeK(True)
+        assert kd is k.GimeK(True)
+        assert kd is not k.GimeK(False)
+
+        l = k.GimeL()
+        assert l is k.GimeL()
+
+    def test14_double_enum_trouble(self):
+        """Test a redefinition of enum in a derived class"""
+
+        import cppyy
+
+        M = cppyy.gbl.fragile.M
+        N = cppyy.gbl.fragile.N
+
+        assert M.kOnce == N.kOnce
+        assert M.kTwice == N.kTwice
+        assert M.__dict__['kTwice'] is not N.__dict__['kTwice']

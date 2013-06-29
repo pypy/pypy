@@ -2,8 +2,7 @@ import sys
 import py
 
 from pypy.objspace.std.dictmultiobject import (W_DictMultiObject,
-    setitem__DictMulti_ANY_ANY, getitem__DictMulti_ANY, StringDictStrategy,
-    ObjectDictStrategy)
+    StringDictStrategy, ObjectDictStrategy)
 
 
 class TestW_DictObject(object):
@@ -409,6 +408,24 @@ class AppTest_DictObject:
         assert {'a': 1 } < { 'b': 1}
         assert {'a': 1, 'x': 2 } < { 'b': 1, 'x': 2}
 
+    def test_other_rich_cmp(self):
+        d1 = {1: 2, 3: 4}
+        d2 = {1: 2, 3: 4}
+        d3 = {1: 2, 3: 5}
+        d4 = {1: 2}
+
+        assert d1 <= d2
+        assert d1 <= d3
+        assert not d1 <= d4
+
+        assert not d1 > d2
+        assert not d1 > d3
+        assert d1 > d4
+
+        assert d1 >= d2
+        assert not d1 >= d3
+        assert d1 >= d4
+
     def test_str_repr(self):
         assert '{}' == str({})
         assert '{1: 2}' == str({1: 2})
@@ -604,6 +621,9 @@ class AppTest_DictObject:
         assert d.values() == []
         assert d.keys() == []
 
+    def test_cmp_with_noncmp(self):
+        assert not {} > object()
+
 class AppTest_DictMultiObject(AppTest_DictObject):
 
     def test_emptydict_unhashable(self):
@@ -676,6 +696,7 @@ class AppTestDictViews:
         assert d.viewkeys() == e.viewkeys()
         del e["a"]
         assert d.viewkeys() != e.viewkeys()
+        assert not d.viewkeys() == 42
 
     def test_dict_items(self):
         d = {1: 10, "a": "ABC"}
@@ -700,6 +721,7 @@ class AppTestDictViews:
         assert d.viewitems() == e.viewitems()
         e["a"] = "def"
         assert d.viewitems() != e.viewitems()
+        assert not d.viewitems() == 42
 
     def test_dict_mixed_keys_items(self):
         d = {(1, 1): 11, (2, 2): 22}
@@ -712,6 +734,7 @@ class AppTestDictViews:
         values = d.viewvalues()
         assert set(values) == set([10, "ABC"])
         assert len(values) == 2
+        assert not values == 42
 
     def test_dict_repr(self):
         d = {1: 10, "a": "ABC"}
@@ -754,6 +777,13 @@ class AppTestDictViews:
         assert d1.viewkeys() ^ set(d2.viewkeys()) == set('ac')
         assert d1.viewkeys() ^ set(d3.viewkeys()) == set('abde')
 
+        assert d1.viewkeys() - d1.viewkeys() == set()
+        assert d1.viewkeys() - d2.viewkeys() == set('a')
+        assert d1.viewkeys() - d3.viewkeys() == set('ab')
+        assert d1.viewkeys() - set(d1.viewkeys()) == set()
+        assert d1.viewkeys() - set(d2.viewkeys()) == set('a')
+        assert d1.viewkeys() - set(d3.viewkeys()) == set('ab')
+
     def test_items_set_operations(self):
         d1 = {'a': 1, 'b': 2}
         d2 = {'a': 2, 'b': 2}
@@ -782,6 +812,113 @@ class AppTestDictViews:
         assert (d1.viewitems() ^ d3.viewitems() ==
                 set([('a', 1), ('b', 2), ('d', 4), ('e', 5)]))
 
+        assert d1.viewitems() - d1.viewitems() == set()
+        assert d1.viewitems() - d2.viewitems() == set([('a', 1)])
+        assert d1.viewitems() - d3.viewitems() == set([('a', 1), ('b', 2)])
+
+    def test_keys_set_operations_any_type(self):
+        d = {1: u'a', 2: u'b', 3: u'c'}
+        assert d.viewkeys() & set([1]) == set([1])
+        assert d.viewkeys() & {1: u'foo'} == set([1])
+        assert d.viewkeys() & [1, 2] == set([1, 2])
+        #
+        assert set([1]) & d.viewkeys() == set([1])
+        assert {1: u'foo'} & d.viewkeys() == set([1])
+        assert [1, 2] & d.viewkeys() == set([1, 2])
+        #
+        assert d.viewkeys() - set([1]) == set([2, 3])
+        assert set([1, 4]) - d.viewkeys() == set([4])
+        #
+        assert d.viewkeys() == set([1, 2, 3])
+        # XXX: The following 4 commented out are CPython 2.7 bugs
+        #assert set([1, 2, 3]) == d.viewkeys()
+        assert d.viewkeys() == frozenset(set([1, 2, 3]))
+        #assert frozenset(set([1, 2, 3])) == d.viewkeys()
+        assert not d.viewkeys() != set([1, 2, 3])
+        #assert not set([1, 2, 3]) != d.viewkeys()
+        assert not d.viewkeys() != frozenset(set([1, 2, 3]))
+        #assert not frozenset(set([1, 2, 3])) != d.viewkeys()
+
+    def test_items_set_operations_any_type(self):
+        d = {1: u'a', 2: u'b', 3: u'c'}
+        assert d.viewitems() & set([(1, u'a')]) == set([(1, u'a')])
+        assert d.viewitems() & {(1, u'a'): u'foo'} == set([(1, u'a')])
+        assert d.viewitems() & [(1, u'a'), (2, u'b')] == set([(1, u'a'), (2, u'b')])
+        #
+        assert set([(1, u'a')]) & d.viewitems() == set([(1, u'a')])
+        assert {(1, u'a'): u'foo'} & d.viewitems() == set([(1, u'a')])
+        assert [(1, u'a'), (2, u'b')] & d.viewitems() == set([(1, u'a'), (2, u'b')])
+        #
+        assert d.viewitems() - set([(1, u'a')]) == set([(2, u'b'), (3, u'c')])
+        assert set([(1, u'a'), 4]) - d.viewitems() == set([4])
+        #
+        assert d.viewitems() == set([(1, u'a'), (2, u'b'), (3, u'c')])
+        # XXX: The following 4 commented out are CPython 2.7 bugs
+        #assert set([(1, u'a'), (2, u'b'), (3, u'c')]) == d.viewitems()
+        assert d.viewitems() == frozenset(set([(1, u'a'), (2, u'b'), (3, u'c')]))
+        #assert frozenset(set([(1, u'a'), (2, u'b'), (3, u'c')])) == d.viewitems()
+        assert not d.viewitems() != set([(1, u'a'), (2, u'b'), (3, u'c')])
+        #assert not set([(1, u'a'), (2, u'b'), (3, u'c')]) != d.viewitems()
+        assert not d.viewitems() != frozenset(set([(1, u'a'), (2, u'b'), (3, u'c')]))
+        #assert not frozenset(set([(1, u'a'), (2, u'b'), (3, u'c')])) != d.viewitems()
+
+    def test_dictviewset_unhashable_values(self):
+        class C:
+            def __eq__(self, other):
+                return True
+        d = {1: C()}
+        assert d.viewitems() <= d.viewitems()
+
+    def test_compare_keys_and_items(self):
+        d1 = {1: 2}
+        d2 = {(1, 2): 'foo'}
+        assert d1.viewitems() == d2.viewkeys()
+
+    def test_keys_items_contained(self):
+        def helper(fn):
+            empty = fn(dict())
+            empty2 = fn(dict())
+            smaller = fn({1:1, 2:2})
+            larger = fn({1:1, 2:2, 3:3})
+            larger2 = fn({1:1, 2:2, 3:3})
+            larger3 = fn({4:1, 2:2, 3:3})
+
+            assert smaller <  larger
+            assert smaller <= larger
+            assert larger >  smaller
+            assert larger >= smaller
+
+            assert not smaller >= larger
+            assert not smaller >  larger
+            assert not larger  <= smaller
+            assert not larger  <  smaller
+
+            assert not smaller <  larger3
+            assert not smaller <= larger3
+            assert not larger3 >  smaller
+            assert not larger3 >= smaller
+
+            # Inequality strictness
+            assert larger2 >= larger
+            assert larger2 <= larger
+            assert not larger2 > larger
+            assert not larger2 < larger
+
+            assert larger == larger2
+            assert smaller != larger
+
+            # There is an optimization on the zero-element case.
+            assert empty == empty2
+            assert not empty != empty2
+            assert not empty == smaller
+            assert empty != smaller
+
+            # With the same size, an elementwise compare happens
+            assert larger != larger3
+            assert not larger == larger3
+
+        helper(lambda x: x.viewkeys())
+        helper(lambda x: x.viewitems())
 
 class AppTestStrategies(object):
     def setup_class(cls):
@@ -971,10 +1108,10 @@ class TestDictImplementation:
         pydict = {}
         for i in range(N):
             x = randint(-N, N)
-            setitem__DictMulti_ANY_ANY(self.space, d, x, i)
+            d.descr_setitem(self.space, x, i)
             pydict[x] = i
         for key, value in pydict.iteritems():
-            assert value == getitem__DictMulti_ANY(self.space, d, key)
+            assert value == d.descr_getitem(self.space, key)
 
 class BaseTestRDictImplementation:
 

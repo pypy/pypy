@@ -329,7 +329,7 @@ class RunParam(object):
                     self.collect_one_testdir(testdirs, reldir,
                                    [self.reltoroot(t) for t in entries
                                     if self.is_test_py_file(t)])
-                    return
+                    break
 
         for p1 in entries:
             if p1.check(dir=1, link=0):

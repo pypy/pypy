@@ -1,4 +1,5 @@
 import py
+from rpython.jit.metainterp import jitexc
 from rpython.jit.metainterp.warmspot import get_stats
 from rpython.rlib.jit import JitDriver, set_param, unroll_safe, jit_callback
 from rpython.jit.backend.llgraph import runner
@@ -583,14 +584,14 @@ class TestWarmspotDirect(object):
                 no = self.no
                 assert deadframe._no == no
                 if no == 0:
-                    raise metainterp_sd.warmrunnerdesc.DoneWithThisFrameInt(3)
+                    raise jitexc.DoneWithThisFrameInt(3)
                 if no == 1:
-                    raise metainterp_sd.warmrunnerdesc.ContinueRunningNormally(
+                    raise jitexc.ContinueRunningNormally(
                         [0], [], [], [1], [], [])
                 if no == 3:
                     exc = lltype.malloc(OBJECT)
                     exc.typeptr = exc_vtable
-                    raise metainterp_sd.warmrunnerdesc.ExitFrameWithExceptionRef(
+                    raise jitexc.ExitFrameWithExceptionRef(
                         metainterp_sd.cpu,
                         lltype.cast_opaque_ptr(llmemory.GCREF, exc))
                 assert 0

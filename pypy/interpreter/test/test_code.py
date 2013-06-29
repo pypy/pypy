@@ -9,7 +9,6 @@ class AppTestCodeIntrospection:
             filename = filename[:-1]
 
         cls.w_file = cls.space.wrap(filename)
-        cls.w_CO_CONTAINSGLOBALS = cls.space.wrap(consts.CO_CONTAINSGLOBALS)
 
     def test_attributes(self):
         def f(): pass
@@ -183,27 +182,3 @@ class AppTestCodeIntrospection:
         # CO_NESTED
         assert f(4).func_code.co_flags & 0x10
         assert f.func_code.co_flags & 0x10 == 0
-        # check for CO_CONTAINSGLOBALS
-        assert not f.func_code.co_flags & self.CO_CONTAINSGLOBALS
-
-
-        exec """if 1:
-        r = range
-        def f():
-            return [l for l in r(100)]
-        def g():
-            return [l for l in [1, 2, 3, 4]]
-"""
-
-        # check for CO_CONTAINSGLOBALS
-        assert f.func_code.co_flags & self.CO_CONTAINSGLOBALS
-        assert not g.func_code.co_flags & self.CO_CONTAINSGLOBALS
-
-        exec """if 1:
-        b = 2
-        def f(x):
-            exec "a = 1";
-            return a + b + x
-"""
-        # check for CO_CONTAINSGLOBALS
-        assert f.func_code.co_flags & self.CO_CONTAINSGLOBALS

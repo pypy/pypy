@@ -16,6 +16,7 @@ from rpython.jit.tool.oparser import parse
 from rpython.jit.metainterp.typesystem import llhelper
 from rpython.rlib.jit import JitDebugInfo, AsmInfo, Counters
 
+
 class MockJitDriverSD(object):
     class warmstate(object):
         @staticmethod
@@ -34,8 +35,10 @@ class MockSD(object):
 
     jitdrivers_sd = [MockJitDriverSD]
 
+
 class AppTestJitHook(object):
     spaceconfig = dict(usemodules=('pypyjit',))
+
     def setup_class(cls):
         if cls.runappdirect:
             py.test.skip("Can't run this test with -A")
@@ -86,7 +89,7 @@ class AppTestJitHook(object):
 
         def interp_on_abort():
             pypy_hooks.on_abort(Counters.ABORT_TOO_LONG, pypyjitdriver,
-                                greenkey, 'blah')
+                                greenkey, 'blah', Logger(MockSD), [])
 
         space = cls.space
         cls.w_on_compile = space.wrap(interp2app(interp_on_compile))
@@ -189,12 +192,12 @@ class AppTestJitHook(object):
         import pypyjit
         l = []
 
-        def hook(jitdriver_name, greenkey, reason):
-            l.append((jitdriver_name, reason))
+        def hook(jitdriver_name, greenkey, reason, operations):
+            l.append((jitdriver_name, reason, operations))
 
         pypyjit.set_abort_hook(hook)
         self.on_abort()
-        assert l == [('pypyjit', 'ABORT_TOO_LONG')]
+        assert l == [('pypyjit', 'ABORT_TOO_LONG', [])]
 
     def test_on_optimize(self):
         import pypyjit

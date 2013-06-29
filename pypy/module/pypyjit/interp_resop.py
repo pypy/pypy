@@ -75,16 +75,19 @@ def set_optimize_hook(space, w_hook):
     cache.w_optimize_hook = w_hook
     cache.in_recursion = NonConstant(False)
 
+
 def set_abort_hook(space, w_hook):
     """ set_abort_hook(hook)
 
     Set a hook (callable) that will be called each time there is tracing
     aborted due to some reason.
 
-    The hook will be called as in: hook(jitdriver_name, greenkey, reason)
+    The hook will be called with the signature:
+
+        hook(jitdriver_name, greenkey, reason, operations)
 
     Reason is a string, the meaning of other arguments is the same
-    as attributes on JitLoopInfo object
+    as attributes on JitLoopInfo object.
     """
     cache = space.fromcache(Cache)
     cache.w_abort_hook = w_hook

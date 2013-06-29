@@ -27,7 +27,7 @@ def test_store_final_boxes_in_guard():
     snapshot0 = resume.Snapshot(None, [b0])
     fdescr.rd_snapshot = resume.Snapshot(snapshot0, [b1])
     #
-    opt.store_final_boxes_in_guard(op)
+    opt.store_final_boxes_in_guard(op, [])
     if op.getfailargs() == [b0, b1]:
         assert list(fdescr.rd_numb.nums)      == [tag(1, TAGBOX)]
         assert list(fdescr.rd_numb.prev.nums) == [tag(0, TAGBOX)]
@@ -1002,6 +1002,19 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         setinteriorfield_gc(p0, 0, f0, descr=complexrealdescr)
         i0 = escape(f2, p0)
         finish(i0)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_virtual_array_of_struct_len(self):
+        ops = """
+        []
+        p0 = new_array(2, descr=complexarraydescr)
+        i0 = arraylen_gc(p0)
+        finish(i0)
+        """
+        expected = """
+        []
+        finish(2)
         """
         self.optimize_loop(ops, expected)
 

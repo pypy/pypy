@@ -106,6 +106,8 @@ class OpParser(object):
                 tt = self.model.TargetToken(token)
                 self._consts[poss_descr] = tt
                 return tt
+            else:
+                raise
 
     def box_for_var(self, elem):
         try:

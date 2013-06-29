@@ -1,8 +1,11 @@
-import sys, py
+import sys
+
+import py
+
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rtyper.lltypesystem import lltype, llmemory
-from rpython.rtyper.annlowlevel import llhelper, MixLevelHelperAnnotator,\
-     cast_base_ptr_to_instance, hlstr
+from rpython.rtyper.annlowlevel import (llhelper, MixLevelHelperAnnotator,
+    cast_base_ptr_to_instance, hlstr)
 from rpython.annotator import model as annmodel
 from rpython.rtyper.llinterp import LLException
 from rpython.rtyper.test.test_llinterp import get_interpreter, clear_tcache
@@ -16,15 +19,15 @@ from rpython.translator.simplify import get_functype
 from rpython.translator.backendopt import removenoops
 from rpython.translator.unsimplify import call_final_function
 
-from rpython.jit.metainterp import history, pyjitpl, gc, memmgr
+from rpython.jit.metainterp import history, pyjitpl, gc, memmgr, jitexc
 from rpython.jit.metainterp.pyjitpl import MetaInterpStaticData
 from rpython.jit.metainterp.jitprof import Profiler, EmptyProfiler
-from rpython.jit.metainterp.jitexc import JitException
 from rpython.jit.metainterp.jitdriver import JitDriverStaticData
-from rpython.jit.codewriter import support, codewriter, longlong
+from rpython.jit.codewriter import support, codewriter
 from rpython.jit.codewriter.policy import JitPolicy
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.optimizeopt import ALL_OPTS_NAMES
+
 
 # ____________________________________________________________
 # Bootstrapping
@@ -40,8 +43,8 @@ def apply_jit(translator, backend_name="auto", inline=False,
     warmrunnerdesc = WarmRunnerDesc(translator,
                                     translate_support_code=True,
                                     listops=True,
-                                    no_stats = True,
-                                    ProfilerClass = ProfilerClass,
+                                    no_stats=True,
+                                    ProfilerClass=ProfilerClass,
                                     **kwds)
     for jd in warmrunnerdesc.jitdrivers_sd:
         jd.warmstate.set_param_inlining(inline)
@@ -172,9 +175,6 @@ def debug_checks():
     stats.maybe_view()
     stats.check_consistency()
 
-class ContinueRunningNormallyBase(JitException):
-    pass
-
 # ____________________________________________________________
 
 class WarmRunnerDesc(object):
@@ -210,7 +210,6 @@ class WarmRunnerDesc(object):
         #
         self.hooks = policy.jithookiface
         self.make_virtualizable_infos()
-        self.make_exception_classes()
         self.make_driverhook_graphs()
         self.make_enter_functions()
         self.rewrite_jit_merge_points(policy)
@@ -341,7 +340,6 @@ class WarmRunnerDesc(object):
             c_new_driver = Constant(new_driver, v_driver.concretetype)
             op.args[1] = c_new_driver
 
-
     def find_portals(self):
         self.jitdrivers_sd = []
         graphs = self.translator.graphs
@@ -424,9 +422,12 @@ class WarmRunnerDesc(object):
             self.annhelper = MixLevelHelperAnnotator(self.translator.rtyper)
         cpu = CPUClass(self.translator.rtyper, self.stats, self.opt,
                        translate_support_code, gcdescr=self.gcdescr)
-        if not supports_floats:       cpu.supports_floats       = False
-        if not supports_longlong:     cpu.supports_longlong     = False
-        if not supports_singlefloats: cpu.supports_singlefloats = False
+        if not supports_floats:
+            cpu.supports_floats = False
+        if not supports_longlong:
+            cpu.supports_longlong = False
+        if not supports_singlefloats:
+            cpu.supports_singlefloats = False
         self.cpu = cpu
 
     def build_meta_interp(self, ProfilerClass):
@@ -466,70 +467,6 @@ class WarmRunnerDesc(object):
                 vinfos[VTYPEPTR] = VirtualizableInfo(self, VTYPEPTR)
             jd.virtualizable_info = vinfos[VTYPEPTR]
 
-    def make_exception_classes(self):
-
-        class DoneWithThisFrameVoid(JitException):
-            def __str__(self):
-                return 'DoneWithThisFrameVoid()'
-
-        class DoneWithThisFrameInt(JitException):
-            def __init__(self, result):
-                assert lltype.typeOf(result) is lltype.Signed
-                self.result = result
-            def __str__(self):
-                return 'DoneWithThisFrameInt(%s)' % (self.result,)
-
-        class DoneWithThisFrameRef(JitException):
-            def __init__(self, cpu, result):
-                assert lltype.typeOf(result) == cpu.ts.BASETYPE
-                self.result = result
-            def __str__(self):
-                return 'DoneWithThisFrameRef(%s)' % (self.result,)
-
-        class DoneWithThisFrameFloat(JitException):
-            def __init__(self, result):
-                assert lltype.typeOf(result) is longlong.FLOATSTORAGE
-                self.result = result
-            def __str__(self):
-                return 'DoneWithThisFrameFloat(%s)' % (self.result,)
-
-        class ExitFrameWithExceptionRef(JitException):
-            def __init__(self, cpu, value):
-                assert lltype.typeOf(value) == cpu.ts.BASETYPE
-                self.value = value
-            def __str__(self):
-                return 'ExitFrameWithExceptionRef(%s)' % (self.value,)
-
-        class ContinueRunningNormally(ContinueRunningNormallyBase):
-            def __init__(self, gi, gr, gf, ri, rr, rf):
-                # the six arguments are: lists of green ints, greens refs,
-                # green floats, red ints, red refs, and red floats.
-                self.green_int = gi
-                self.green_ref = gr
-                self.green_float = gf
-                self.red_int = ri
-                self.red_ref = rr
-                self.red_float = rf
-            def __str__(self):
-                return 'ContinueRunningNormally(%s, %s, %s, %s, %s, %s)' % (
-                    self.green_int, self.green_ref, self.green_float,
-                    self.red_int, self.red_ref, self.red_float)
-
-        # XXX there is no point any more to not just have the exceptions
-        # as globals
-        self.DoneWithThisFrameVoid = DoneWithThisFrameVoid
-        self.DoneWithThisFrameInt = DoneWithThisFrameInt
-        self.DoneWithThisFrameRef = DoneWithThisFrameRef
-        self.DoneWithThisFrameFloat = DoneWithThisFrameFloat
-        self.ExitFrameWithExceptionRef = ExitFrameWithExceptionRef
-        self.ContinueRunningNormally = ContinueRunningNormally
-        self.metainterp_sd.DoneWithThisFrameVoid = DoneWithThisFrameVoid
-        self.metainterp_sd.DoneWithThisFrameInt = DoneWithThisFrameInt
-        self.metainterp_sd.DoneWithThisFrameRef = DoneWithThisFrameRef
-        self.metainterp_sd.DoneWithThisFrameFloat = DoneWithThisFrameFloat
-        self.metainterp_sd.ExitFrameWithExceptionRef = ExitFrameWithExceptionRef
-        self.metainterp_sd.ContinueRunningNormally = ContinueRunningNormally
-
     def make_enter_functions(self):
         for jd in self.jitdrivers_sd:
             self.make_enter_function(jd)
@@ -544,7 +481,7 @@ class WarmRunnerDesc(object):
             tb = not we_are_translated() and sys.exc_info()[2]
             try:
                 raise e
-            except JitException:
+            except jitexc.JitException:
                 raise     # go through
             except MemoryError:
                 raise     # go through
@@ -746,6 +683,7 @@ class WarmRunnerDesc(object):
             # get special treatment since we rewrite it to a call that accepts
             # jit driver
             func = func_with_new_name(func, func.func_name + '_compiled')
+
             def new_func(ignored, *args):
                 return func(self, *args)
             ARGS = [lltype.Void] + [arg.concretetype for arg in op.args[3:]]
@@ -803,7 +741,7 @@ class WarmRunnerDesc(object):
         from rpython.jit.metainterp.warmstate import specialize_value
         from rpython.jit.metainterp.warmstate import unspecialize_value
         portal_ptr = self.cpu.ts.functionptr(PORTALFUNC, 'portal',
-                                         graph = portalgraph)
+                                         graph=portalgraph)
         jd._portal_ptr = portal_ptr
         #
         portalfunc_ARGS = []
@@ -827,11 +765,8 @@ class WarmRunnerDesc(object):
         ts = self.cpu.ts
         state = jd.warmstate
         maybe_compile_and_run = jd._maybe_compile_and_run_fn
-        cpu = jd.warmstate.cpu
 
         def ll_portal_runner(*args):
-            hook_for_tests(cpu) # usually it's empty, but tests can monkeypatch
-                                # it to fix the annotator
             start = True
             while 1:
                 try:
@@ -850,7 +785,7 @@ class WarmRunnerDesc(object):
                     # want to interrupt the whole interpreter loop.
                     return support.maybe_on_top_of_llinterp(rtyper,
                                                       portal_ptr)(*args)
-                except self.ContinueRunningNormally, e:
+                except jitexc.ContinueRunningNormally, e:
                     args = ()
                     for ARGTYPE, attrname, count in portalfunc_ARGS:
                         x = getattr(e, attrname)[count]
@@ -858,19 +793,19 @@ class WarmRunnerDesc(object):
                         args = args + (x,)
                     start = False
                     continue
-                except self.DoneWithThisFrameVoid:
+                except jitexc.DoneWithThisFrameVoid:
                     assert result_kind == 'void'
                     return
-                except self.DoneWithThisFrameInt, e:
+                except jitexc.DoneWithThisFrameInt, e:
                     assert result_kind == 'int'
                     return specialize_value(RESULT, e.result)
-                except self.DoneWithThisFrameRef, e:
+                except jitexc.DoneWithThisFrameRef, e:
                     assert result_kind == 'ref'
                     return specialize_value(RESULT, e.result)
-                except self.DoneWithThisFrameFloat, e:
+                except jitexc.DoneWithThisFrameFloat, e:
                     assert result_kind == 'float'
                     return specialize_value(RESULT, e.result)
-                except self.ExitFrameWithExceptionRef, e:
+                except jitexc.ExitFrameWithExceptionRef, e:
                     value = ts.cast_to_baseclass(e.value)
                     if not we_are_translated():
                         raise LLException(ts.get_typeptr(value), value)
@@ -882,7 +817,7 @@ class WarmRunnerDesc(object):
             # XXX the bulk of this function is mostly a copy-paste from above
             try:
                 raise e
-            except self.ContinueRunningNormally, e:
+            except jitexc.ContinueRunningNormally, e:
                 args = ()
                 for ARGTYPE, attrname, count in portalfunc_ARGS:
                     x = getattr(e, attrname)[count]
@@ -892,19 +827,19 @@ class WarmRunnerDesc(object):
                 if result_kind != 'void':
                     result = unspecialize_value(result)
                 return result
-            except self.DoneWithThisFrameVoid:
+            except jitexc.DoneWithThisFrameVoid:
                 assert result_kind == 'void'
                 return
-            except self.DoneWithThisFrameInt, e:
+            except jitexc.DoneWithThisFrameInt, e:
                 assert result_kind == 'int'
                 return e.result
-            except self.DoneWithThisFrameRef, e:
+            except jitexc.DoneWithThisFrameRef, e:
                 assert result_kind == 'ref'
                 return e.result
-            except self.DoneWithThisFrameFloat, e:
+            except jitexc.DoneWithThisFrameFloat, e:
                 assert result_kind == 'float'
                 return e.result
-            except self.ExitFrameWithExceptionRef, e:
+            except jitexc.ExitFrameWithExceptionRef, e:
                 value = ts.cast_to_baseclass(e.value)
                 if not we_are_translated():
                     raise LLException(ts.get_typeptr(value), value)
@@ -932,7 +867,7 @@ class WarmRunnerDesc(object):
                 vinfo.reset_vable_token(virtualizable)
             try:
                 fail_descr.handle_fail(deadframe, self.metainterp_sd, jd)
-            except JitException, e:
+            except jitexc.JitException, e:
                 return handle_jitexception(e)
             else:
                 assert 0, "should have raised"
@@ -991,7 +926,7 @@ class WarmRunnerDesc(object):
 
         if self.cpu.translate_support_code:
             call_final_function(self.translator, finish,
-                                annhelper = self.annhelper)
+                                annhelper=self.annhelper)
 
     def rewrite_set_param_and_get_stats(self):
         from rpython.rtyper.lltypesystem.rstr import STR
@@ -1023,7 +958,7 @@ class WarmRunnerDesc(object):
             return Constant(funcptr, TP)
         #
         for graph, block, i in find_set_param(graphs):
-            
+
             op = block.operations[i]
             if op.args[1].value is not None:
                 for jd in self.jitdrivers_sd:
@@ -1068,10 +1003,3 @@ class WarmRunnerDesc(object):
         graphs = self.translator.graphs
         for graph, block, i in find_force_quasi_immutable(graphs):
             self.replace_force_quasiimmut_with_direct_call(block.operations[i])
-
-def hook_for_tests(cpu):
-    """
-    This function is empty and does nothing. Its only role is to be
-    monkey-patched by tests to "fix" the annotator if needed (see
-    e.g. x86/test/test_ztranslation::test_external_exception_handling_translates
-    """

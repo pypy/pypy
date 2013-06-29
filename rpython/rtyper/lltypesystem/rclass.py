@@ -442,8 +442,10 @@ class InstanceRepr(AbstractInstanceRepr):
                     except AttributeError:
                         attrvalue = self.classdef.classdesc.read_attribute(name, None)
                         if attrvalue is None:
-                            warning("prebuilt instance %r has no attribute %r" % (
-                                    value, name))
+                            # Ellipsis from get_reusable_prebuilt_instance()
+                            if value is not Ellipsis:
+                                warning("prebuilt instance %r has no "
+                                        "attribute %r" % (value, name))
                             llattrvalue = r.lowleveltype._defl()
                         else:
                             llattrvalue = r.convert_desc_or_const(attrvalue)

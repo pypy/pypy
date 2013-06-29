@@ -8,7 +8,7 @@ from pypy.module.test_lib_pypy.cffi_tests.support import *
 if sys.platform == 'win32':
     pass      # no obvious -Werror equivalent on MSVC
 elif (sys.platform == 'darwin' and
-      map(int, os.uname()[2].split('.')) >= [11, 0, 0]):
+      [int(x) for x in os.uname()[2].split('.')] >= [11, 0, 0]):
     pass      # recent MacOSX come with clang by default, and passing some
               # flags from the interpreter (-mno-fused-madd) generates a
               # warning --- which is interpreted as an error with -Werror
@@ -521,6 +521,18 @@ def test_struct_with_bitfield_exact():
     s.b = 3
     py.test.raises(OverflowError, "s.b = 4")
     assert s.b == 3
+
+def test_struct_with_bitfield_enum():
+    ffi = FFI()
+    code = """
+        typedef enum { AA, BB, CC } foo_e;
+        typedef struct { foo_e f:2; } foo_s;
+    """
+    ffi.cdef(code)
+    ffi.verify(code)
+    s = ffi.new("foo_s *")
+    s.f = 2
+    assert s.f == 2
 
 def test_unsupported_struct_with_bitfield_ellipsis():
     ffi = FFI()
@@ -1430,7 +1442,7 @@ def test_struct_returned_by_func():
                        "foo_t myfunc(void) { foo_t x = { 42 }; return x; }")
     assert str(e.value) in [
         "function myfunc: 'foo_t' is used as result type, but is opaque",
-        "function myfunc: result type 'struct $foo_t' is opaque"]
+        "function myfunc: result type 'foo_t' is opaque"]
 
 def test_include():
     ffi1 = FFI()
@@ -1608,3 +1620,18 @@ def test_call_with_voidstar_arg():
     ffi.cdef("int f(void *);")
     lib = ffi.verify("int f(void *x) { return ((char*)x)[0]; }")
     assert lib.f(b"foobar") == ord(b"f")
+
+def test_dir():
+    ffi = FFI()
+    ffi.cdef("""void somefunc(void);
+                extern int somevar, somearray[2];
+                static char *const sv2;
+                enum my_e { AA, BB, ... };
+                #define FOO ...""")
+    lib = ffi.verify("""void somefunc(void) { }
+                        int somevar, somearray[2];
+                        #define sv2 "text"
+                        enum my_e { AA, BB };
+                        #define FOO 42""")
+    assert dir(lib) == ['AA', 'BB', 'FOO', 'somearray',
+                        'somefunc', 'somevar', 'sv2']

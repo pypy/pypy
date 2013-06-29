@@ -1,7 +1,7 @@
 from rpython.translator.platform import CompilationError
 from rpython.conftest import cache_dir
 from hashlib import md5
-import py
+import py, os
 
 cache_dir_root = py.path.local(cache_dir).ensure(dir=1)
 
@@ -35,37 +35,45 @@ def build_executable_cache(c_files, eci, ignore_errors=False):
             # compare equal to another instance without it
             if platform.log_errors != _previous:
                 platform.log_errors = _previous
-        path.write(result.out)
+        try_atomic_write(path, result.out)
         return result.out
 
+def try_atomic_write(path, data):
+    path = str(path)
+    tmppath = '%s~%d' % (path, os.getpid())
+    f = open(tmppath, 'wb')
+    f.write(data)
+    f.close()
+    try:
+        os.rename(tmppath, path)
+    except OSError:
+        try:
+            os.unlink(tmppath)
+        except OSError:
+            pass
+
 def try_compile_cache(c_files, eci):
-    "Try to compile a program; caches the result (starts with 'True' or 'FAIL')"
+    "Try to compile a program.  If it works, caches this fact."
     # Import 'platform' every time, the compiler may have been changed
     from rpython.translator.platform import platform
     path = cache_file_path(c_files, eci, 'try_compile_cache')
     try:
         data = path.read()
+        if data == 'True':
+            return True
     except py.error.Error:
-        data = ''
-    if not (data.startswith('True') or data.startswith('FAIL\n')):
-        try:
-            _previous = platform.log_errors
-            try:
-                platform.log_errors = False
-                platform.compile(c_files, eci)
-            finally:
-                del platform.log_errors
-                # ^^^remove from the instance --- needed so that it can
-                # compare equal to another instance without it
-                if platform.log_errors != _previous:
-                    platform.log_errors = _previous
-            data = 'True'
-            path.write(data)
-        except CompilationError, e:
-            data = 'FAIL\n%s\n' % (e,)
-    if data.startswith('True'):
-        return True
-    else:
-        assert data.startswith('FAIL\n')
-        msg = data[len('FAIL\n'):]
-        raise CompilationError(msg.strip(), '')
+        pass
+    #
+    _previous = platform.log_errors
+    try:
+        platform.log_errors = False
+        platform.compile(c_files, eci)
+        # ^^^ may raise CompilationError.  We don't cache such results.
+    finally:
+        del platform.log_errors
+        # ^^^remove from the instance --- needed so that it can
+        # compare equal to another instance without it
+        if platform.log_errors != _previous:
+            platform.log_errors = _previous
+    path.write('True')
+    return True

@@ -1,17 +1,18 @@
-import sys, weakref
-from rpython.rtyper.lltypesystem import lltype, llmemory, rstr, rffi
-from rpython.rtyper.ootypesystem import ootype
-from rpython.rtyper.annlowlevel import hlstr, cast_base_ptr_to_instance
-from rpython.rtyper.annlowlevel import cast_object_to_ptr
+import sys
+import weakref
+
+from rpython.jit.codewriter import support, heaptracker, longlong
+from rpython.jit.metainterp import history
+from rpython.rlib.debug import debug_start, debug_stop, debug_print
+from rpython.rlib.jit import PARAMETERS, BaseJitCell
+from rpython.rlib.nonconst import NonConstant
 from rpython.rlib.objectmodel import specialize, we_are_translated, r_dict
 from rpython.rlib.rarithmetic import intmask
-from rpython.rlib.nonconst import NonConstant
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rlib.jit import PARAMETERS
-from rpython.rlib.jit import BaseJitCell
-from rpython.rlib.debug import debug_start, debug_stop, debug_print
-from rpython.jit.metainterp import history
-from rpython.jit.codewriter import support, heaptracker, longlong
+from rpython.rtyper.annlowlevel import (hlstr, cast_base_ptr_to_instance,
+    cast_object_to_ptr)
+from rpython.rtyper.lltypesystem import lltype, llmemory, rstr, rffi
+from rpython.rtyper.ootypesystem import ootype
 
 # ____________________________________________________________
 
@@ -601,7 +602,7 @@ class WarmEnterState(object):
                 fn = support.maybe_on_top_of_llinterp(rtyper, inline_ptr)
                 return fn(*greenargs)
         self.should_unroll_one_iteration = should_unroll_one_iteration
-        
+
         redargtypes = ''.join([kind[0] for kind in jd.red_args_types])
 
         def get_assembler_token(greenkey):

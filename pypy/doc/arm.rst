@@ -153,7 +153,7 @@ To translate the full python pypy interpreter with a jit, you can cd into pypy/g
 
 ::
 
-  pypy <path to rpython>/rpython/bin/rpython -Ojit --platform=arm --gcrootfinder=shadowstack --jit-backend=armv7 targetpypystandalone.py
+  pypy <path to rpython>/rpython/bin/rpython -Ojit --platform=arm --gcrootfinder=shadowstack --jit-backend=arm targetpypystandalone.py
 
 The gcrootfinder option is needed to work around `issue 1377`_ and the jit-backend works around `issue 1376`_
 

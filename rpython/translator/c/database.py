@@ -64,9 +64,8 @@ class LowLevelDatabase(object):
 
         self.instrument_ncounter = 0
 
-    def gettypedefnode(self, T, varlength=1):
-        if varlength <= 1:
-            varlength = 1   # it's C after all
+    def gettypedefnode(self, T, varlength=None):
+        if varlength is None:
             key = T
         else:
             key = T, varlength
@@ -94,7 +93,7 @@ class LowLevelDatabase(object):
             self.pendingsetupnodes.append(node)
         return node
 
-    def gettype(self, T, varlength=1, who_asks=None, argnames=[]):
+    def gettype(self, T, varlength=None, who_asks=None, argnames=[]):
         if isinstance(T, Primitive) or T == GCREF:
             return PrimitiveType[T]
         elif isinstance(T, Typedef):

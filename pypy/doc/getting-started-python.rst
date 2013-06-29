@@ -46,7 +46,7 @@ the version you have is not 4.2 or you will run into `this bug`_.
 2. Install build-time dependencies.  On a Debian box these are::
 
      [user@debian-box ~]$ sudo apt-get install \
-     gcc make python-dev libffi-dev lib-sqlite3-dev pkg-config \
+     gcc make python-dev libffi-dev libsqlite3-dev pkg-config \
      libz-dev libbz2-dev libncurses-dev libexpat1-dev \
      libssl-dev libgc-dev python-sphinx python-greenlet
 
@@ -105,7 +105,7 @@ executable. The executable behaves mostly like a normal Python interpreter::
 
     $ ./pypy-c
     Python 2.7.3 (7e4f0faa3d51, Nov 22 2012, 10:35:18)
-    [PyPy 2.0.0-beta1 with GCC 4.7.1] on linux2
+    [PyPy 2.0.0 with GCC 4.7.1] on linux2
     Type "help", "copyright", "credits" or "license" for more information.
     And now for something completely different: ``RPython magically makes you rich
     and famous (says so on the tin)''
@@ -235,7 +235,7 @@ correct hierarchy, so to run PyPy it's enough to unpack the archive, and run
 the ``bin/pypy`` executable.
 
 To install PyPy system wide on unix-like systems, it is recommended to put the
-whole hierarchy alone (e.g. in ``/opt/pypy2.0-beta1``) and put a symlink to the
+whole hierarchy alone (e.g. in ``/opt/pypy2.0``) and put a symlink to the
 ``pypy`` executable into ``/usr/bin`` or ``/usr/local/bin``
 
 If the executable fails to find suitable libraries, it will report

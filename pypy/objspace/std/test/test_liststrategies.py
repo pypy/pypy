@@ -488,15 +488,13 @@ class TestW_ListStrategies(TestW_ListObject):
 
     def test_weird_rangelist_bug(self):
         l = make_range_list(self.space, 1, 1, 3)
-        from pypy.objspace.std.listobject import getslice__List_ANY_ANY
         # should not raise
-        assert getslice__List_ANY_ANY(self.space, l, self.space.wrap(15), self.space.wrap(2222)).strategy == self.space.fromcache(EmptyListStrategy)
+        assert l.descr_getslice(self.space, self.space.wrap(15), self.space.wrap(2222)).strategy == self.space.fromcache(EmptyListStrategy)
 
     def test_add_to_rangelist(self):
         l1 = make_range_list(self.space, 1, 1, 3)
         l2 = W_ListObject(self.space, [self.space.wrap(4), self.space.wrap(5)])
-        from pypy.objspace.std.listobject import add__List_List
-        l3 = add__List_List(self.space, l1, l2)
+        l3 = l1.descr_add(self.space, l2)
         assert self.space.eq_w(l3, W_ListObject(self.space, [self.space.wrap(1), self.space.wrap(2), self.space.wrap(3), self.space.wrap(4), self.space.wrap(5)]))
 
     def test_unicode(self):
@@ -557,10 +555,30 @@ class TestW_ListStrategies(TestW_ListObject):
         try:
             w_l = space.call_method(w_s, "split")
             w_l2 = space.call_method(w_s, "split", space.wrap(" "))
+            w_l3 = space.call_method(w_s, "rsplit")
+            w_l4 = space.call_method(w_s, "rsplit", space.wrap(" "))
         finally:
             del space.newlist
         assert space.listview_str(w_l) == ["a", "b", "c"]
         assert space.listview_str(w_l2) == ["a", "b", "c"]
+        assert space.listview_str(w_l3) == ["a", "b", "c"]
+        assert space.listview_str(w_l4) == ["a", "b", "c"]
+
+    def test_unicode_uses_newlist_unicode(self):
+        space = self.space
+        w_u = space.wrap(u"a b c")
+        space.newlist = None
+        try:
+            w_l = space.call_method(w_u, "split")
+            w_l2 = space.call_method(w_u, "split", space.wrap(" "))
+            w_l3 = space.call_method(w_u, "rsplit")
+            w_l4 = space.call_method(w_u, "rsplit", space.wrap(" "))
+        finally:
+            del space.newlist
+        assert space.listview_unicode(w_l) == [u"a", u"b", u"c"]
+        assert space.listview_unicode(w_l2) == [u"a", u"b", u"c"]
+        assert space.listview_unicode(w_l3) == [u"a", u"b", u"c"]
+        assert space.listview_unicode(w_l4) == [u"a", u"b", u"c"]
 
     def test_pop_without_argument_is_fast(self):
         space = self.space

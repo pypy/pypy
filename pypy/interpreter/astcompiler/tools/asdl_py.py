@@ -409,8 +409,7 @@ class AppExposeVisitor(ASDLVisitor):
             self.emit("    if w_obj is not None:", 1)
             self.emit("        return w_obj", 1)
         self.emit("if not w_self.initialization_state & %s:" % (flag,), 1)
-        self.emit("typename = space.type(w_self).getname(space)", 2)
-        self.emit("raise operationerrfmt(space.w_AttributeError, \"'%%s' object has no attribute '%%s'\", typename, '%s')" %
+        self.emit("raise operationerrfmt(space.w_AttributeError, \"'%%T' object has no attribute '%%s'\", w_self, '%s')" %
                   (field.name,), 2)
         if field.seq:
             self.emit("if w_self.w_%s is None:" % (field.name,), 1)

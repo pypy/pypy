@@ -25,7 +25,6 @@ class W_CTypeStructOrUnion(W_CType):
     custom_field_pos = False
 
     def __init__(self, space, name):
-        name = '%s %s' % (self.kind, name)
         W_CType.__init__(self, space, -1, name, len(name))
 
     def check_complete(self, w_errorcls=None):

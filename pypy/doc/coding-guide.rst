@@ -339,8 +339,9 @@ We are using
 
 + methods and other class attributes do not change after startup
 + single inheritance is fully supported
-+ simple mixins work too, but the mixed in class needs a ``_mixin_ = True``
-  class attribute
++ simple mixins somewhat work too, but the mixed in class needs a
+  ``_mixin_ = True`` class attribute. isinstance checks against the
+  mixin type will fail when translated.
 
 + classes are first-class objects too
 
