@@ -9,6 +9,7 @@ def test_skip_whitespace():
     assert dec.skip_whitespace(0) == 3
     assert dec.skip_whitespace(3) == 3
     assert dec.skip_whitespace(8) == len(s)
+    dec.close()
 
     
 
