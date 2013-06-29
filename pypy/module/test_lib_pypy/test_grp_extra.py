@@ -8,7 +8,7 @@ except ImportError:
 def test_basic():
     g = grp.getgrnam("root")
     assert g.gr_gid == 0
-    assert g.gr_mem == ['root']
+    assert g.gr_mem == ['root'] or g.gr_mem == []
     assert g.gr_name == 'root'
     assert isinstance(g.gr_passwd, str)    # usually just 'x', don't hope :-)
 
