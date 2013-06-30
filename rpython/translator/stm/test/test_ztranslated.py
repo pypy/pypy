@@ -27,6 +27,33 @@ class TestSTMTranslated(CompiledSTMTests):
         data = cbuilder.cmdexec('260')
         assert '< 260 >' in data, "got: %r" % (data,)
 
+    def test_hash_id(self):
+        from rpython.rlib.objectmodel import compute_identity_hash
+        from rpython.rlib.objectmodel import compute_unique_id
+        FOO = lltype.GcStruct('FOO')
+        prebuilt = lltype.malloc(FOO)
+        prebuilt_hash = lltype.identityhash(prebuilt)
+        #
+        def w(num, x):
+            print '%d>>>' % num, compute_identity_hash(x), compute_unique_id(x)
+        #
+        def entry_point(argv):
+            w(1, prebuilt)
+            w(2, lltype.malloc(FOO))
+            return 0
+        #
+        t, cbuilder = self.compile(entry_point, backendopt=True)
+        assert prebuilt_hash == lltype.identityhash(prebuilt)
+        data = cbuilder.cmdexec('')
+        data = data.split()
+        i1 = data.index('1>>>')
+        i2 = data.index('2>>>')
+        int(data[i1 + 1])
+        int(data[i1 + 2])
+        int(data[i2 + 1])
+        int(data[i2 + 2])
+        assert int(data[i1 + 1]) == prebuilt_hash
+
     def test_targetdemo(self):
         t, cbuilder = self.compile(targetdemo2.entry_point)
         data, dataerr = cbuilder.cmdexec('4 5000', err=True,
