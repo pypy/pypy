@@ -21,7 +21,7 @@ def decrement_atomic():
     llop.stm_change_atomic(lltype.Signed, -1)
 
 def is_atomic():
-    return llop.stm_get_atomic(lltype.Signed, 0)
+    return llop.stm_get_atomic(lltype.Signed)
 
 def abort_info_push(instance, fieldnames):
     "Special-cased below."
