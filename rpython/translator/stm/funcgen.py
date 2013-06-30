@@ -123,6 +123,10 @@ def stm_should_break_transaction(funcgen, op):
     result = funcgen.expr(op.result)
     return '%s = stm_should_break_transaction();' % (result,)
 
+def stm_set_transaction_length(funcgen, op):
+    arg0 = funcgen.expr(op.args[0])
+    return 'stm_set_transaction_length(%s);' % (arg0,)
+
 
 def op_stm(funcgen, op):
     func = globals()[op.opname]

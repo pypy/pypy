@@ -95,6 +95,14 @@ class TestSTMTranslated(CompiledSTMTests):
         data = cbuilder.cmdexec('')
         assert '< 1 >\n' in data
 
+    def test_set_transaction_length(self):
+        def entry_point(argv):
+            rstm.set_transaction_length(123)
+            return 0
+        t, cbuilder = self.compile(entry_point)
+        cbuilder.cmdexec('')
+        # assert did not crash
+
     def test_targetdemo(self):
         t, cbuilder = self.compile(targetdemo2.entry_point)
         data, dataerr = cbuilder.cmdexec('4 5000', err=True,

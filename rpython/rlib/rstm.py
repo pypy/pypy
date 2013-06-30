@@ -12,7 +12,7 @@ def should_break_transaction():
         llop.stm_should_break_transaction(lltype.Bool))
 
 def set_transaction_length(length):
-    stmgcintf.StmOperations.set_transaction_length(length)
+    llop.stm_set_transaction_length(lltype.Void, length)
 
 def increment_atomic():
     stmgcintf.StmOperations.add_atomic(+1)

@@ -436,6 +436,7 @@ LL_OPERATIONS = {
     'stm_commit_transaction': LLOp(),
     'stm_begin_inevitable_transaction': LLOp(),
     'stm_should_break_transaction': LLOp(sideeffects=False),
+    'stm_set_transaction_length': LLOp(),
 
     # __________ address operations __________
 
