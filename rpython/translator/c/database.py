@@ -87,6 +87,9 @@ class LowLevelDatabase(object):
             elif T == WeakRef:
                 REALT = self.gcpolicy.get_real_weakref_type()
                 node = self.gettypedefnode(REALT)
+            elif isinstance(T, OpaqueType) and T.__name__ == "struct stm_object_s":
+                from rpython.translator.stm.funcgen import StmHeaderOpaqueDefNode
+                node = StmHeaderOpaqueDefNode(self, T)
             else:
                 raise NoCorrespondingNode("don't know about %r" % (T,))
             self.structdefnodes[key] = node

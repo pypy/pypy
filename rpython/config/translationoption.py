@@ -76,6 +76,9 @@ translation_optiondescription = OptionDescription(
                      "stmgc": [("translation.gctransformer", "framework"),
                                ("translation.gcrootfinder", "stm")],
                      },
+                 suggests = {
+                     "stmgc": [("translation.gcremovetypeptr", True)],
+                     },
                   cmdline="--gc"),
     ChoiceOption("gctransformer", "GC transformer that is used - internal",
                  ["boehm", "ref", "framework", "none"],

@@ -1,6 +1,24 @@
 from rpython.translator.c.support import c_string_constant, cdecl
-from rpython.translator.c.node import ContainerNode
+from rpython.translator.c.node import Node, ContainerNode
 from rpython.translator.c.primitive import name_small_integer
+
+
+class StmHeaderOpaqueDefNode(Node):
+    typetag = 'struct'
+
+    def __init__(self, db, T):
+        Node.__init__(self, db)
+        self.T = T
+        self.name = 'stm_object_s'
+
+    def setup(self):
+        pass
+
+    def definition(self):
+        return []
+
+    def c_struct_field_name(self, _):
+        return 'h_tid'
 
 
 class StmHeader_OpaqueNode(ContainerNode):
