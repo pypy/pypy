@@ -15,13 +15,13 @@ def set_transaction_length(length):
     llop.stm_set_transaction_length(lltype.Void, length)
 
 def increment_atomic():
-    stmgcintf.StmOperations.add_atomic(+1)
+    llop.stm_change_atomic(lltype.Signed, +1)
 
 def decrement_atomic():
-    stmgcintf.StmOperations.add_atomic(-1)
+    llop.stm_change_atomic(lltype.Signed, -1)
 
 def is_atomic():
-    return stmgcintf.StmOperations.get_atomic()
+    return llop.stm_get_atomic(lltype.Signed, 0)
 
 def abort_info_push(instance, fieldnames):
     "Special-cased below."

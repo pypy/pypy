@@ -127,6 +127,14 @@ def stm_set_transaction_length(funcgen, op):
     arg0 = funcgen.expr(op.args[0])
     return 'stm_set_transaction_length(%s);' % (arg0,)
 
+def stm_change_atomic(funcgen, op):
+    arg0 = funcgen.expr(op.args[0])
+    return 'stm_atomic(%s);' % (arg0,)
+
+def stm_get_atomic(funcgen, op):
+    result = funcgen.expr(op.result)
+    return '%s = stm_atomic(0);' % (result,)
+
 
 def op_stm(funcgen, op):
     func = globals()[op.opname]
