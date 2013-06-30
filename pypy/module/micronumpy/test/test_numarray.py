@@ -293,6 +293,17 @@ class AppTestNumArray(BaseNumpyAppTest):
         b = array(a, copy=False, ndmin=4)
         b[0,0,0,0] = 0
         assert a[0, 0] == 0
+        a = array([[[]]])
+        # Simulate tiling an empty array, really tests repeat, reshape
+        # b = tile(a, (3, 2, 5))
+        reps = (3, 4, 5)
+        c = array(a, copy=False, subok=True, ndmin=len(reps))
+        print '1',c,c.shape
+        d = c.reshape(3, 4, 0)
+        print '2',c,c.shape
+        e = d.repeat(3, 0)
+        print '3',c,c.shape,e.shape
+        assert e.shape == (9, 4, 0)
 
     def test_type(self):
         from numpypy import array
