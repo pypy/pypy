@@ -597,6 +597,7 @@ class FunctionCodeGenerator(object):
     OP_STM_ID = _OP_STM
     OP_STM_COMMIT_TRANSACTION = _OP_STM
     OP_STM_BEGIN_INEVITABLE_TRANSACTION = _OP_STM
+    OP_STM_SHOULD_BREAK_TRANSACTION = _OP_STM
 
 
     def OP_PTR_NONZERO(self, op):

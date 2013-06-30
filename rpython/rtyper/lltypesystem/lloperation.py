@@ -435,6 +435,7 @@ LL_OPERATIONS = {
     'stm_pop_root_into':      LLOp(),
     'stm_commit_transaction': LLOp(),
     'stm_begin_inevitable_transaction': LLOp(),
+    'stm_should_break_transaction': LLOp(sideeffects=False),
 
     # __________ address operations __________
 

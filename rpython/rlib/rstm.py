@@ -1,24 +1,15 @@
-import thread, weakref
-from rpython.rlib.debug import ll_assert, fatalerror
-from rpython.rlib.objectmodel import keepalive_until_here, specialize
-from rpython.rlib.objectmodel import we_are_translated
-from rpython.rlib.rposix import get_errno, set_errno
-from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rclass, rstr
+from rpython.rlib.objectmodel import we_are_translated, specialize
+from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem.lloperation import llop
-from rpython.rtyper.annlowlevel import cast_instance_to_base_ptr, llhelper
-from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance
 from rpython.rtyper.extregistry import ExtRegistryEntry
 
-
-def is_inevitable():
-    return we_are_translated() and stmgcintf.StmOperations.is_inevitable()
 
 def become_inevitable():
     llop.stm_become_inevitable(lltype.Void)
 
 def should_break_transaction():
     return we_are_translated() and (
-        stmgcintf.StmOperations.should_break_transaction())
+        llop.stm_should_break_transaction(lltype.Bool))
 
 def set_transaction_length(length):
     stmgcintf.StmOperations.set_transaction_length(length)

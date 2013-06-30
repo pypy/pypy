@@ -79,6 +79,22 @@ class TestSTMTranslated(CompiledSTMTests):
         cbuilder.cmdexec('')
         # assert did not crash
 
+    def test_become_inevitable(self):
+        def entry_point(argv):
+            rstm.become_inevitable()
+            return 0
+        t, cbuilder = self.compile(entry_point)
+        cbuilder.cmdexec('')
+        # assert did not crash
+
+    def test_should_break_transaction(self):
+        def entry_point(argv):
+            print '<', int(rstm.should_break_transaction()), '>'
+            return 0
+        t, cbuilder = self.compile(entry_point)
+        data = cbuilder.cmdexec('')
+        assert '< 1 >\n' in data
+
     def test_targetdemo(self):
         t, cbuilder = self.compile(targetdemo2.entry_point)
         data, dataerr = cbuilder.cmdexec('4 5000', err=True,

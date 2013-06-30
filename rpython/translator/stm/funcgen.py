@@ -119,6 +119,10 @@ def stm_commit_transaction(funcgen, op):
 def stm_begin_inevitable_transaction(funcgen, op):
     return 'stm_begin_inevitable_transaction();'
 
+def stm_should_break_transaction(funcgen, op):
+    result = funcgen.expr(op.result)
+    return '%s = stm_should_break_transaction();' % (result,)
+
 
 def op_stm(funcgen, op):
     func = globals()[op.opname]
