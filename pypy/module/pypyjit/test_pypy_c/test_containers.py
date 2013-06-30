@@ -201,10 +201,27 @@ class TestDicts(BaseTestPyPyC):
         def main(n):
             i = 0
             while i < n:
-                s = set([1,2,3])
+                s = set([1, 2, 3])
                 i += 1
         log = self.run(main, [1000])
         assert log.result == main(1000)
         loop, = log.loops_by_filename(self.filepath)
         opnames = log.opnames(loop.allops())
         assert opnames.count('new_with_vtable') == 0
+
+    def test_specialised_tuple(self):
+        def main(n):
+            import pypyjit
+
+            f = lambda: None
+            tup = (n, n)
+            while n > 0:
+                tup[0]  # ID: getitem
+                pypyjit.residual_call(f)
+                n -= 1
+
+        log = self.run(main, [1000])
+        assert log.result == main(1000)
+        loop, = log.loops_by_filename(self.filepath)
+        ops = loop.ops_by_id('getitem')
+        assert log.opnames(ops) == []
