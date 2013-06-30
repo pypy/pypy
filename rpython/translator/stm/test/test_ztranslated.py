@@ -24,6 +24,8 @@ class TestSTMTranslated(CompiledSTMTests):
         assert '< 5 >' in data, "got: %r" % (data,)
         data = cbuilder.cmdexec('42')
         assert '< 42 >' in data, "got: %r" % (data,)
+        data = cbuilder.cmdexec('260')
+        assert '< 260 >' in data, "got: %r" % (data,)
 
     def test_targetdemo(self):
         t, cbuilder = self.compile(targetdemo2.entry_point)
