@@ -62,7 +62,7 @@ class StmGC(MovingGCBase):
                              offset_to_length):
         # XXX be careful about overflows, and call optimized versions
         totalsize = size + itemsize * length
-        obj = llop.stm_allocate(llmemory.Address, typeid16, totalsize)
+        obj = llop.stm_allocate(llmemory.Address, totalsize, typeid16)
         (obj + offset_to_length).signed[0] = length
         return llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
 
