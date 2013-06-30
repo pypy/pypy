@@ -71,7 +71,8 @@ def stm_ptr_eq(funcgen, op):
     arg0 = funcgen.expr(op.args[0])
     arg1 = funcgen.expr(op.args[1])
     result = funcgen.expr(op.result)
-    return '%s = stm_pointer_equal(%s, %s);' % (result, arg0, arg1)
+    return '%s = stm_pointer_equal((gcptr)%s, (gcptr)%s);' % (
+        result, arg0, arg1)
 
 def stm_become_inevitable(funcgen, op):
     try:
@@ -134,6 +135,15 @@ def stm_change_atomic(funcgen, op):
 def stm_get_atomic(funcgen, op):
     result = funcgen.expr(op.result)
     return '%s = stm_atomic(0);' % (result,)
+
+def stm_threadlocal_get(funcgen, op):
+    result = funcgen.expr(op.result)
+    return '%s = (%s)stm_thread_local_obj;' % (
+        result, cdecl(funcgen.lltypename(op.result), ''))
+
+def stm_threadlocal_set(funcgen, op):
+    arg0 = funcgen.expr(op.args[0])
+    return 'stm_thread_local_obj = (gcptr)%s;' % (arg0,)
 
 
 def op_stm(funcgen, op):

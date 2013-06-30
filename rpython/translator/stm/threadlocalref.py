@@ -1,10 +1,13 @@
-from rpython.rtyper.lltypesystem import lltype, llmemory
-from rpython.translator.unsimplify import varoftype
+from rpython.annotator import model as annmodel
+from rpython.rtyper import annlowlevel
+from rpython.rtyper.lltypesystem import lltype, rclass
+from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.flowspace.model import SpaceOperation, Constant
 
 
-def transform_tlref(graphs):
+def transform_tlref(t):
     ids = set()
+    graphs = t.graphs
     #
     for graph in graphs:
         for block in graph.iterblocks():
@@ -13,23 +16,35 @@ def transform_tlref(graphs):
                 if (op.opname == 'stm_threadlocalref_set' or
                     op.opname == 'stm_threadlocalref_get'):
                     ids.add(op.args[0].value)
+    if not ids:
+        return
     #
     ids = sorted(ids)
-    ARRAY = lltype.FixedSizeArray(llmemory.Address, len(ids))
-    S = lltype.Struct('THREADLOCALREF', ('ptr', ARRAY),
-                      hints={'stm_thread_local': True})
-    ll_threadlocalref = lltype.malloc(S, immortal=True)
-    c_threadlocalref = Constant(ll_threadlocalref, lltype.Ptr(S))
-    c_fieldname = Constant('ptr', lltype.Void)
-    c_null = Constant(llmemory.NULL, llmemory.Address)
+    total = len(ids)
+    ARRAY = lltype.GcArray(rclass.OBJECTPTR)
     #
-    def getaddr(v_num, v_result):
-        v_array = varoftype(lltype.Ptr(ARRAY))
-        ops = [
-            SpaceOperation('getfield', [c_threadlocalref, c_fieldname],
-                           v_array),
-            SpaceOperation('direct_ptradd', [v_array, v_num], v_result)]
-        return ops
+    def ll_threadlocalref_get(index):
+        array = llop.stm_threadlocal_get(lltype.Ptr(ARRAY))
+        if not array:
+            return lltype.nullptr(rclass.OBJECTPTR.TO)
+        else:
+            return array[index]
+    #
+    def ll_threadlocalref_set(index, newvalue):
+        array = llop.stm_threadlocal_get(lltype.Ptr(ARRAY))
+        if not array:
+            array = lltype.malloc(ARRAY, total)
+            llop.stm_threadlocal_set(lltype.Void, array)
+        array[index] = newvalue
+    #
+    annhelper = annlowlevel.MixLevelHelperAnnotator(t.rtyper)
+    s_Int = annmodel.SomeInteger()
+    s_Ptr = annmodel.SomePtr(rclass.OBJECTPTR)
+    c_getter_ptr = annhelper.constfunc(ll_threadlocalref_get,
+                                       [s_Int], s_Ptr)
+    c_setter_ptr = annhelper.constfunc(ll_threadlocalref_set,
+                                       [s_Int, s_Ptr], annmodel.s_None)
+    annhelper.finish()
     #
     for graph in graphs:
         for block in graph.iterblocks():
@@ -38,26 +53,17 @@ def transform_tlref(graphs):
                 if op.opname == 'stm_threadlocalref_set':
                     id = op.args[0].value
                     c_num = Constant(ids.index(id), lltype.Signed)
-                    v_addr = varoftype(lltype.Ptr(ARRAY))
-                    ops = getaddr(c_num, v_addr)
-                    ops.append(SpaceOperation('stm_threadlocalref_llset',
-                                              [v_addr, op.args[1]],
-                                              op.result))
+                    ops = [
+                        SpaceOperation('direct_call', [c_setter_ptr, c_num,
+                                                       op.args[1]],
+                                       op.result)
+                        ]
                     block.operations[i:i+1] = ops
                 elif op.opname == 'stm_threadlocalref_get':
                     id = op.args[0].value
                     c_num = Constant(ids.index(id), lltype.Signed)
-                    v_array = varoftype(lltype.Ptr(ARRAY))
                     ops = [
-                        SpaceOperation('getfield', [c_threadlocalref,
-                                                    c_fieldname],
-                                       v_array),
-                        SpaceOperation('getarrayitem', [v_array, c_num],
-                                       op.result)]
+                        SpaceOperation('direct_call', [c_getter_ptr, c_num],
+                                       op.result)
+                        ]
                     block.operations[i:i+1] = ops
-                elif op.opname == 'stm_threadlocalref_lladdr':
-                    block.operations[i:i+1] = getaddr(op.args[0], op.result)
-                elif op.opname == 'stm_threadlocalref_llcount':
-                    c_count = Constant(len(ids), lltype.Signed)
-                    op = SpaceOperation('same_as', [c_count], op.result)
-                    block.operations[i] = op

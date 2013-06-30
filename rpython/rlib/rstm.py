@@ -163,6 +163,7 @@ class ThreadLocalReference(object):
 
     def __init__(self, Cls):
         "NOT_RPYTHON: must be prebuilt"
+        import thread
         self.Cls = Cls
         self.local = thread._local()      # <- NOT_RPYTHON
         self.unique_id = ThreadLocalReference._COUNT
@@ -174,6 +175,8 @@ class ThreadLocalReference(object):
     @specialize.arg(0)
     def get(self):
         if we_are_translated():
+            from rpython.rtyper.lltypesystem import rclass
+            from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance
             ptr = llop.stm_threadlocalref_get(rclass.OBJECTPTR, self.unique_id)
             return cast_base_ptr_to_instance(self.Cls, ptr)
         else:
@@ -183,6 +186,7 @@ class ThreadLocalReference(object):
     def set(self, value):
         assert isinstance(value, self.Cls) or value is None
         if we_are_translated():
+            from rpython.rtyper.annlowlevel import cast_instance_to_base_ptr
             ptr = cast_instance_to_base_ptr(value)
             llop.stm_threadlocalref_set(lltype.Void, self.unique_id, ptr)
         else:

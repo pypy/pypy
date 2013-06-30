@@ -215,12 +215,6 @@ class TestSTMTranslated(CompiledSTMTests):
             assert t.get() is None
             t.set(x)
             assert t.get() is x
-            assert llop.stm_threadlocalref_llcount(lltype.Signed) == 1
-            p = llop.stm_threadlocalref_lladdr(llmemory.Address, 0)
-            adr = p.address[0]
-            adr2 = cast_instance_to_base_ptr(x)
-            adr2 = llmemory.cast_ptr_to_adr(adr2)
-            assert adr == adr2
             print "ok"
             return 0
         t, cbuilder = self.compile(main)

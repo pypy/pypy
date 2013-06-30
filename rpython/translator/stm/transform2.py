@@ -40,7 +40,7 @@ class STMTransformer(object):
 
     def transform_threadlocalref(self):
         from rpython.translator.stm.threadlocalref import transform_tlref
-        transform_tlref(self.translator.graphs)
+        transform_tlref(self.translator)
 
     def start_log(self):
         from rpython.translator.c.support import log

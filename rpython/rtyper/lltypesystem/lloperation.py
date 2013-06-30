@@ -429,6 +429,7 @@ LL_OPERATIONS = {
     'stm_minor_collect':      LLOp(),
     'stm_major_collect':      LLOp(),
     'stm_get_tid':            LLOp(canfold=True),
+    'stm_ptr_eq':             LLOp(canfold=True),
     'stm_id':                 LLOp(sideeffects=False),
     'stm_hash':               LLOp(sideeffects=False),
     'stm_push_root':          LLOp(),
@@ -439,6 +440,11 @@ LL_OPERATIONS = {
     'stm_set_transaction_length': LLOp(),
     'stm_change_atomic':      LLOp(),
     'stm_get_atomic':         LLOp(sideeffects=False),
+
+    'stm_threadlocalref_get': LLOp(sideeffects=False),
+    'stm_threadlocalref_set': LLOp(),
+    'stm_threadlocal_get':    LLOp(sideeffects=False),
+    'stm_threadlocal_set':    LLOp(),
 
     # __________ address operations __________
 

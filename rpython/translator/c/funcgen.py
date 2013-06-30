@@ -601,6 +601,8 @@ class FunctionCodeGenerator(object):
     OP_STM_SET_TRANSACTION_LENGTH = _OP_STM
     OP_STM_CHANGE_ATOMIC = _OP_STM
     OP_STM_GET_ATOMIC = _OP_STM
+    OP_STM_THREADLOCAL_GET = _OP_STM
+    OP_STM_THREADLOCAL_SET = _OP_STM
 
 
     def OP_PTR_NONZERO(self, op):
