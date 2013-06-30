@@ -630,7 +630,7 @@ class __extend__(W_NDimArray):
         old_itemsize = self.get_dtype().get_size()
         new_itemsize = dtype.get_size()
         impl = self.implementation
-        new_shape = self.get_shape()
+        new_shape = self.get_shape()[:]
         dims = len(new_shape)
         if dims == 0:
             # Cannot resize scalars
