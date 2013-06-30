@@ -4,7 +4,8 @@ from rpython/translator/stm/src_stm/.
 """
 
 from rpython.memory.gc.base import GCBase, MovingGCBase
-from rpython.rtyper.lltypesystem import lltype, llmemory, llgroup, rffi
+from rpython.rtyper.lltypesystem import lltype, llmemory, llgroup, llarena
+from rpython.rtyper.lltypesystem import rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib.debug import ll_assert
 
@@ -62,6 +63,7 @@ class StmGC(MovingGCBase):
                              offset_to_length):
         # XXX be careful about overflows, and call optimized versions
         totalsize = size + itemsize * length
+        totalsize = llarena.round_up_for_allocation(totalsize)
         obj = llop.stm_allocate(llmemory.Address, totalsize, typeid16)
         (obj + offset_to_length).signed[0] = length
         return llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)

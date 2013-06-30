@@ -585,6 +585,7 @@ class FunctionCodeGenerator(object):
             self.__class__.op_stm = op_stm
         return self.op_stm(op)
     OP_STM_INITIALIZE = _OP_STM
+    OP_STM_FINALIZE = _OP_STM
     OP_STM_BECOME_INEVITABLE = _OP_STM
     OP_STM_BARRIER = _OP_STM
     OP_STM_PTR_EQ = _OP_STM
@@ -594,6 +595,8 @@ class FunctionCodeGenerator(object):
     OP_STM_GET_TID = _OP_STM
     OP_STM_HASH = _OP_STM
     OP_STM_ID = _OP_STM
+    OP_STM_COMMIT_TRANSACTION = _OP_STM
+    OP_STM_BEGIN_INEVITABLE_TRANSACTION = _OP_STM
 
 
     def OP_PTR_NONZERO(self, op):

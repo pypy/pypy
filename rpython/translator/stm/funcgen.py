@@ -1,3 +1,4 @@
+from rpython.flowspace.model import Constant
 from rpython.translator.c.support import c_string_constant, cdecl
 from rpython.translator.c.node import Node, ContainerNode
 from rpython.translator.c.primitive import name_small_integer
@@ -43,6 +44,9 @@ class StmHeader_OpaqueNode(ContainerNode):
 def stm_initialize(funcgen, op):
     return 'stm_initialize();'
 
+def stm_finalize(funcgen, op):
+    return 'stm_finalize();'
+
 _STM_BARRIER_FUNCS = {   # XXX try to see if some combinations can be shorter
     'P2R': 'stm_read_barrier',
     'G2R': 'stm_read_barrier',
@@ -83,6 +87,8 @@ def stm_push_root(funcgen, op):
 
 def stm_pop_root_into(funcgen, op):
     arg0 = funcgen.expr(op.args[0])
+    if isinstance(op.args[0], Constant):
+        return '/* %s = */ stm_pop_root();' % (arg0,)
     return '%s = (%s)stm_pop_root();' % (
         arg0, cdecl(funcgen.lltypename(op.args[0]), ''))
 
@@ -106,6 +112,12 @@ def stm_id(funcgen, op):
     arg0 = funcgen.expr(op.args[0])
     result = funcgen.expr(op.result)
     return '%s = stm_id((gcptr)%s);' % (result, arg0)
+
+def stm_commit_transaction(funcgen, op):
+    return 'stm_commit_transaction();'
+
+def stm_begin_inevitable_transaction(funcgen, op):
+    return 'stm_begin_inevitable_transaction();'
 
 
 def op_stm(funcgen, op):

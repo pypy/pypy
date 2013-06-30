@@ -1,3 +1,6 @@
+from rpython.annotator import model as annmodel
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.memory.gctransform.framework import (
      BaseFrameworkGCTransformer, BaseRootWalker, sizeofaddr)
 
@@ -5,8 +8,6 @@ from rpython.memory.gctransform.framework import (
 class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
 
     def _declare_functions(self, GCClass, getfn, s_gc, s_typeid16):
-        from rpython.annotator import model as annmodel
-        from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
         BaseFrameworkGCTransformer._declare_functions(self, GCClass, getfn,
                                                       s_gc, s_typeid16)
         gc = self.gcdata.gc
@@ -48,8 +49,13 @@ class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
 
 class StmRootWalker(BaseRootWalker):
 
-    def need_thread_support(self, gctransform, getfn):
-        pass
+    def need_thread_support(self, gctransformer, getfn):
+        def thread_start():
+            llop.stm_initialize(lltype.Void)
+        def thread_die():
+            llop.stm_finalize(lltype.Void)
+        self.thread_start_ptr = getfn(thread_start, [], annmodel.s_None)
+        self.thread_die_ptr = getfn(thread_die, [], annmodel.s_None)
 
     def walk_stack_roots(self, collect_stack_root):
         raise NotImplementedError

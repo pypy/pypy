@@ -422,6 +422,7 @@ LL_OPERATIONS = {
     # to keep them as operations until the genc stage)
 
     'stm_initialize':         LLOp(),
+    'stm_finalize':           LLOp(),
     'stm_barrier':            LLOp(sideeffects=False),
     'stm_allocate':           LLOp(sideeffects=False),
     'stm_become_inevitable':  LLOp(),
@@ -432,6 +433,8 @@ LL_OPERATIONS = {
     'stm_hash':               LLOp(sideeffects=False),
     'stm_push_root':          LLOp(),
     'stm_pop_root_into':      LLOp(),
+    'stm_commit_transaction': LLOp(),
+    'stm_begin_inevitable_transaction': LLOp(),
 
     # __________ address operations __________
 

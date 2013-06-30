@@ -65,6 +65,7 @@ inline static gcptr allocate_nursery(size_t size, revision_t tid)
     gcptr P;
     char *cur = d->nursery_current;
     char *end = cur + size;
+    assert((size & 3) == 0);
     d->nursery_current = end;
     if (end > d->nursery_nextlimit) {
         P = allocate_next_section(size, tid);

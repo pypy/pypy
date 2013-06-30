@@ -42,7 +42,7 @@ class TestSTMTranslated(CompiledSTMTests):
             w(2, lltype.malloc(FOO))
             return 0
         #
-        t, cbuilder = self.compile(entry_point, backendopt=True)
+        t, cbuilder = self.compile(entry_point)
         assert prebuilt_hash == lltype.identityhash(prebuilt)
         data = cbuilder.cmdexec('')
         data = data.split()
@@ -53,6 +53,31 @@ class TestSTMTranslated(CompiledSTMTests):
         int(data[i2 + 1])
         int(data[i2 + 2])
         assert int(data[i1 + 1]) == prebuilt_hash
+
+    def test_start_thread(self):
+        from rpython.rlib import rthread
+        class Global:
+            value = 1
+            seen = None
+        glob = Global()
+        #
+        def threadfn():
+            rthread.gc_thread_start()
+            x = Global()
+            x.value = 0
+            glob.seen = x
+            rthread.gc_thread_die()
+        def entry_point(argv):
+            glob.seen = None
+            rthread.start_new_thread(threadfn, ())
+            while glob.seen is None:
+                llop.stm_commit_transaction(lltype.Void)
+                llop.stm_begin_inevitable_transaction(lltype.Void)
+            return glob.seen.value
+        #
+        t, cbuilder = self.compile(entry_point)
+        cbuilder.cmdexec('')
+        # assert did not crash
 
     def test_targetdemo(self):
         t, cbuilder = self.compile(targetdemo2.entry_point)
