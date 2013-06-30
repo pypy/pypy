@@ -321,13 +321,20 @@ static void mark_prebuilt_roots(void)
 
 static void mark_roots(gcptr *root, gcptr *end)
 {
-    //assert(*root == END_MARKER);
-    //root++;
+    assert(*root == END_MARKER_ON);
+    root++;
+
     while (root != end) {
-        gcptr o = *root;
-        visit(root);
-        dprintf(("visit stack root: %p -> %p\n", o, *root));
-        (void)o;   /* silence "warning: unused variable 'o'" */
+        gcptr item = *root;
+        if (((revision_t)item) & ~((revision_t)END_MARKER_OFF |
+                                   (revision_t)END_MARKER_ON)) {
+            /* 'item' is a regular, non-null pointer */
+            visit(root);
+            dprintf(("visit stack root: %p -> %p\n", item, *root));
+        }
+        else if (item == END_MARKER_OFF) {
+            *root = END_MARKER_ON;
+        }
         root++;
     }
 }

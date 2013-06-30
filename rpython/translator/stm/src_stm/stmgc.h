@@ -58,7 +58,8 @@ gcptr stm_write_barrier(gcptr);
 /* start a new transaction, calls callback(), and when it returns
    finish that transaction.  callback() is called with the 'arg'
    provided, and with a retry_counter number.  Must save roots around
-   this call. */
+   this call.  The callback() is called repeatedly as long as it
+   returns a value > 0. */
 void stm_perform_transaction(gcptr arg, int (*callback)(gcptr, int));
 
 /* finish the current transaction, start a new one, or turn the current
@@ -71,8 +72,18 @@ void stm_become_inevitable(const char *reason);
 /* debugging: check if we're currently running a transaction or not. */
 int stm_in_transaction(void);
 
-/* change the default transaction length */
+/* change the default transaction length, and ask if now would be a good
+   time to break the transaction (by returning from the 'callback' above
+   with a positive value). */
 void stm_set_transaction_length(long length_max);
+_Bool stm_should_break_transaction(void);
+
+/* change the atomic counter by 'delta' and return the new value.  Used
+   with +1 to enter or with -1 to leave atomic mode, or with 0 to just
+   know the current value of the counter.  The current transaction is
+   *never* interrupted as long as this counter is positive. */
+long stm_atomic(long delta);
+
 
 /* callback: get the size of an object */
 extern size_t stmcb_size(gcptr);

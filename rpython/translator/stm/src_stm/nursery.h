@@ -19,6 +19,9 @@
 # error "GC_NURSERY must be a multiple of GC_NURSERY_SECTION"
 #endif
 
+#define END_MARKER_OFF  ((gcptr) 16)
+#define END_MARKER_ON   ((gcptr) 24)
+
 
 #define NURSERY_FIELDS_DECL                                             \
     /* the nursery */                                                   \

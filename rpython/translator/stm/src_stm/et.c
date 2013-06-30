@@ -87,6 +87,8 @@ gcptr stm_DirectReadBarrier(gcptr G)
   gcptr P = G;
   revision_t v;
 
+  d->count_reads++;
+
  restart_all:
   if (P->h_tid & GCFLAG_PRIVATE_FROM_PROTECTED)
     {
@@ -900,6 +902,15 @@ static void update_reads_size_limit(struct tx_descriptor *d)
   /* 'reads_size_limit' is set to ULONG_MAX if we are atomic; else
      we copy the value from reads_size_limit_nonatomic. */
   d->reads_size_limit = d->atomic ? ULONG_MAX : d->reads_size_limit_nonatomic;
+}
+
+long stm_atomic(long delta)
+{
+  struct tx_descriptor *d = thread_descriptor;
+  d->atomic += delta;
+  assert(d->atomic >= 0);
+  update_reads_size_limit(d);
+  return d->atomic;
 }
 
 static void init_transaction(struct tx_descriptor *d)

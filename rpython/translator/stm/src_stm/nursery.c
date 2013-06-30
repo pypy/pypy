@@ -324,12 +324,30 @@ static void visit_if_young(gcptr *root)
 
 static void mark_young_roots(struct tx_descriptor *d)
 {
-    gcptr *root = d->shadowstack;
+    /* we walk the shadowstack from the end, replacing any END_MARKER_OFF
+       found with END_MARKER_ON.  When we reach an END_MARKER_ON, we know
+       that we have already seen the rest of the stack in the previous
+       nursery collection, so we stop.
+    */
     gcptr *end = *d->shadowstack_end_ref;
 
-    /* XXX use a way to avoid walking all roots again and again */
-    for (; root != end; root++) {
-        visit_if_young(root);
+    while (1) {
+        assert(end > d->shadowstack);
+        gcptr item = *--end;
+
+        if (((revision_t)item) & ~((revision_t)END_MARKER_OFF |
+                                   (revision_t)END_MARKER_ON)) {
+            /* 'item' is a regular, non-null pointer */
+            visit_if_young(end);
+        }
+        else if (item != NULL) {
+            if (item == END_MARKER_OFF)
+                *end = END_MARKER_ON;
+            else {
+                assert(item == END_MARKER_ON);
+                break;
+            }
+        }
     }
 }
 

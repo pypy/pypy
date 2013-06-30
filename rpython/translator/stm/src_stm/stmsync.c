@@ -7,6 +7,7 @@
 
 __thread gcptr *stm_shadowstack;
 static unsigned long stm_regular_length_limit = 10000;
+static revision_t sync_required = 0;
 
 void stm_set_transaction_length(long length_max)
 {
@@ -15,6 +16,38 @@ void stm_set_transaction_length(long length_max)
         length_max = 1;
     }
     stm_regular_length_limit = length_max;
+}
+
+_Bool stm_should_break_transaction(void)
+{
+    struct tx_descriptor *d = thread_descriptor;
+
+    /* a single comparison to handle all cases:
+
+     - first, if sync_required == -1, this should return True.
+
+     - if d->atomic, then we should return False.  This is done by
+       forcing reads_size_limit to ULONG_MAX as soon as atomic > 0.
+
+     - otherwise, if is_inevitable(), then we should return True.
+       This is done by forcing both reads_size_limit and
+       reads_size_limit_nonatomic to 0 in that case.
+
+     - finally, the default case: return True if d->count_reads is
+       greater than reads_size_limit == reads_size_limit_nonatomic.
+    */
+#ifdef _GC_DEBUG
+    /* reads_size_limit is ULONG_MAX if d->atomic, or else it is equal to
+       reads_size_limit_nonatomic. */
+    assert(d->reads_size_limit == (d->atomic ? ULONG_MAX :
+                                   d->reads_size_limit_nonatomic));
+    /* if is_inevitable(), reads_size_limit_nonatomic should be 0
+       (and thus reads_size_limit too, if !d->atomic.) */
+    if (d->active == 2)
+        assert(d->reads_size_limit_nonatomic == 0);
+#endif
+
+    return (sync_required | d->count_reads) >= d->reads_size_limit;
 }
 
 static void init_shadowstack(void)
@@ -26,14 +59,14 @@ static void init_shadowstack(void)
     }
     stm_shadowstack = d->shadowstack;
     d->shadowstack_end_ref = &stm_shadowstack;
-    //stm_push_root(END_MARKER);
+    stm_push_root(END_MARKER_ON);
 }
 
 static void done_shadowstack(void)
 {
     struct tx_descriptor *d = thread_descriptor;
-    //gcptr x = stm_pop_root();
-    //assert(x == END_MARKER);
+    gcptr x = stm_pop_root();
+    assert(x == END_MARKER_ON);
     assert(stm_shadowstack == d->shadowstack);
     stm_shadowstack = NULL;
     free(d->shadowstack);
@@ -68,8 +101,6 @@ void stm_finalize(void)
 
 /************************************************************/
 
-static revision_t sync_required = 0;
-
 void stm_perform_transaction(gcptr arg, int (*callback)(gcptr, int))
 {   /* must save roots around this call */
     jmp_buf _jmpbuf;
@@ -78,6 +109,7 @@ void stm_perform_transaction(gcptr arg, int (*callback)(gcptr, int))
     long volatile v_atomic;
 
     stm_push_root(arg);
+    stm_push_root(END_MARKER_OFF);
 
     if (!(v_atomic = thread_descriptor->atomic))
         CommitTransaction();
@@ -99,14 +131,7 @@ void stm_perform_transaction(gcptr arg, int (*callback)(gcptr, int))
     long counter, result;
     counter = v_counter;
     d->atomic = v_atomic;
-    stm_shadowstack = v_saved_value + 1;    /* skip the 'arg', pushed above */
-    //    if (!d->atomic) {
-    //        /* In non-atomic mode, we are now between two transactions.
-    //           It means that in the next transaction's collections we know
-    //           that we won't need to access the shadow stack beyond its
-    //           current position.  So we add an end marker. */
-    //        stm_push_root(END_MARKER);
-    //    }
+    stm_shadowstack = v_saved_value + 2;   /*skip the two values pushed above*/
 
     do {
         v_counter = counter + 1;
@@ -136,7 +161,7 @@ void stm_perform_transaction(gcptr arg, int (*callback)(gcptr, int))
         /* invoke the callback in the new transaction */
         arg = v_saved_value[0];
         result = callback(arg, counter);
-        assert(stm_shadowstack == v_saved_value + 1);
+        assert(stm_shadowstack == v_saved_value + 2);
 
         v_atomic = d->atomic;
         if (!d->atomic)
@@ -155,7 +180,9 @@ void stm_perform_transaction(gcptr arg, int (*callback)(gcptr, int))
         BeginInevitableTransaction();
     }
 
-    stm_pop_root();      /* pop the 'arg' */
+    gcptr x = stm_pop_root();   /* pop the END_MARKER */
+    assert(x == END_MARKER_OFF || x == END_MARKER_ON);
+    stm_pop_root();             /* pop the 'arg' */
     assert(stm_shadowstack == v_saved_value);
 }
 
@@ -240,7 +267,7 @@ void stm_start_single_thread(void)
        which prevents any other thread from running in a transaction.
        Warning, may block waiting for rwlock_in_transaction while another
        thread runs a major GC itself! */
-    ACCESS_ONCE(sync_required) = 1;
+    ACCESS_ONCE(sync_required) = -1;
     stm_stop_sharedlock();
     start_exclusivelock();
     ACCESS_ONCE(sync_required) = 0;
