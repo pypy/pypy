@@ -46,7 +46,7 @@ class W_SolutionIterator(W_Root):
         self.fcont = fcont
         self.heap = heap
 
-    def iter_w(self): return self.space.wrap(self)
+    def iter_w(self): return self
 
     def next_w(self):
         """ Obtain the next solution (if there is one) """
@@ -58,7 +58,7 @@ class W_SolutionIterator(W_Root):
         if self.fcont is None:
             cur_mod = self.w_engine.engine.modulewrapper.current_module
             cont = UnipycationContinuation2(
-                    self.w_engine, self.var_to_pos, self.space.wrap(self))
+                    self.w_engine, self.var_to_pos, self)
             try:
                 r = self.w_engine.engine.run(self.goal, cur_mod, cont)
             except perr.UnificationFailed:
@@ -160,8 +160,8 @@ class W_Engine(W_Root):
             w_ParseError = util.get_from_module(self.space, "unipycation", "ParseError")
             raise OperationError(w_ParseError, self.space.wrap(e.nice_error_message()))
 
-        w_engine = self.space.wrap(self)
-        w_solution_iter = W_SolutionIterator(self.space, var_to_pos, goals, w_engine)
+        w_solution_iter = W_SolutionIterator(self.space, var_to_pos, goals, self)
+
 
         return w_solution_iter
 
