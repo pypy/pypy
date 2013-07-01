@@ -1,4 +1,5 @@
 import prolog.interpreter.term as pterm
+import prolog.interpreter.helper as phelper
 
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import W_Root
@@ -40,7 +41,7 @@ def p_bigint_of_w_long(space, w_long):
 def p_atom_of_w_str(space, w_str):
     _w_type_check(space, w_str, space.w_str)
 
-    val = space.str_w(w_str)
+    val = space.str0_w(w_str)
     return pterm.Atom(val)
 
 def p_of_w(space, w_anything):
@@ -78,7 +79,7 @@ def w_long_of_p_bigint(space, p_bigint):
 
 def w_str_of_p_atom(space, p_atom):
     _p_type_check(p_atom, pterm.Atom)
-    return space.wrap(p_atom._signature.name)
+    return space.wrap(phelper.unwrap_atom(p_atom))
 
 def w_of_p(space, p_anything):
     if isinstance(p_anything, pterm.Number):
