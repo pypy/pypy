@@ -1411,16 +1411,17 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a[3].imag == -10
         assert a[2].imag == -5
 
-    def test_ndarray_view(self):
+    def test_view(self):
         from numpypy import array, int8, int16, dtype
-        x = array([(1, 2)], dtype=[('a', int8), ('b', int8)])
+        x = array((1, 2), dtype=int8)
+        assert x.shape == (2,)
         y = x.view(dtype=int16)
-        print y,y.shape
+        assert x.shape == (2,)
         assert y[0] == 513
         assert y.dtype == dtype('int16')
         y[0] = 670
-        assert x['a'] == -98
-        assert x['b'] == 2
+        assert x[0] == -98
+        assert x[1] == 2
         f = array([1000, -1234], dtype='i4')
         nnp = self.non_native_prefix
         d = f.view(dtype=nnp + 'i4')

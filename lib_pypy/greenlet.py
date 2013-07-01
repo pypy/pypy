@@ -132,7 +132,8 @@ def _green_create_main():
     _tls.main = gmain
     _tls.current = gmain
 
-def _greenlet_start(greenlet, (args, kwds)):
+def _greenlet_start(greenlet, args):
+    args, kwds = args
     _tls.current = greenlet
     try:
         res = greenlet.run(*args, **kwds)

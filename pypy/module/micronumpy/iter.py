@@ -37,7 +37,7 @@ so if we precalculate the overflow backstride as
 we can go faster.
 All the calculations happen in next()
 
-next_skip_x() tries to do the iteration for a number of steps at once,
+next_skip_x(steps) tries to do the iteration for a number of steps at once,
 but then we cannot gaurentee that we only overflow one single shape
 dimension, perhaps we could overflow times in one big step.
 """
