@@ -65,7 +65,7 @@ def where(space, w_arr, w_x=None, w_y=None):
            [ 3.,  4., -1.],
            [-1., -1., -1.]])
 
-    
+
     NOTE: support for not passing x and y is unsupported
     """
     if space.is_none(w_y):
@@ -122,10 +122,10 @@ def concatenate(space, w_args, axis=0):
             for f in dtype.fields:
                 if f not in a_dt.fields or \
                              dtype.fields[f] != a_dt.fields[f]:
-                    raise OperationError(space.w_TypeError, 
+                    raise OperationError(space.w_TypeError,
                                space.wrap("record type mismatch"))
         elif dtype.is_record_type() or a_dt.is_record_type():
-            raise OperationError(space.w_TypeError, 
+            raise OperationError(space.w_TypeError,
                         space.wrap("invalid type promotion"))
         dtype = interp_ufuncs.find_binop_result_dtype(space, dtype,
                                                       arr.get_dtype())

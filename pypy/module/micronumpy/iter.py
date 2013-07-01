@@ -46,6 +46,7 @@ from pypy.module.micronumpy.strides import enumerate_chunks,\
      calculate_slice_strides
 from pypy.module.micronumpy.base import W_NDimArray
 from pypy.module.micronumpy.arrayimpl import base
+from pypy.module.micronumpy.support import product
 from rpython.rlib import jit
 
 # structures to describe slicing
@@ -225,7 +226,7 @@ class MultiDimViewIterator(ConcreteArrayIterator):
         self.shape = shape
         self.offset = start
         self.shapelen = len(shape)
-        self._done = False
+        self._done = self.shapelen == 0 or product(shape) == 0
         self.strides = strides
         self.backstrides = backstrides
         self.size = array.size
