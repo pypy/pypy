@@ -102,11 +102,29 @@ class TestTypeConversion(object):
     # Test high level converions
     # --------------------------
 
-    def test_w_of_p(self):
+    def test_w_of_p_atom(self):
         p_atom = pterm.Atom("Wibble")
         w_str = conv.w_of_p(self.space, p_atom)
 
         assert self.space.str_w(w_str) == "Wibble"
+
+    def test_w_of_p_int(self):
+        p_num = pterm.Number(666)
+        w_int = conv.w_of_p(self.space, p_num)
+
+        assert self.space.int_w(w_int) == 666
+
+    def test_w_of_p_long(self):
+        p_bigint = pterm.BigInt(2**64 * 7 + 3)
+        w_long = conv.w_of_p(self.space, p_bigint)
+
+        assert self.space.bigint_w(w_long) == 2 ** 64 * 7 + 3
+
+    def test_w_of_p_float(self):
+        p_float = pterm.Float(3.1415)
+        w_float = conv.w_of_p(self.space, p_float)
+
+        assert self.space.float_w(w_float) == 3.1415
 
     def test_w_of_p_fails(self):
         p_val = 666            # clearly not a prolog type

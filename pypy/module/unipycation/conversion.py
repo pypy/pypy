@@ -9,12 +9,13 @@ import pypy.module.unipycation.util as util
 def _w_type_check(space, inst, typ):
     if not space.is_true(space.isinstance(inst, typ)):
         w_ConversionError = util.get_from_module(space, "unipycation", "ConversionError")
-        raise OperationError(w_ConversionError, "%s is not of type %s" % (inst, typ))
+        raise OperationError(w_ConversionError, space.wrap("%s is not of type %s" % (inst, typ)))
 
-def _p_type_check(inst, typ):
+# XXX where does space come from here?
+def _p_type_check(space, inst, typ):
     if not isinstance(inst, typ):
         w_ConversionError = util.get_from_module(space, "unipycation", "ConversionError")
-        raise OperationError(w_ConversionError, "%s is not of type %s" % (inst, typ))
+        raise OperationError(w_ConversionError, space.wrap("%s is not of type %s" % (inst, typ)))
 
 # -----------------------------
 # Convert from Python to Prolog
@@ -59,26 +60,26 @@ def p_of_w(space, w_anything):
         return p_atom_of_w_str(space, w_anything)
     else:
         raise OperationError(w_ConversionError,
-                "Don't know how to convert wrapped %s to prolog type" % p_anything)
+                space.wrap("Don't know how to convert wrapped %s to prolog type" % p_anything))
 
 # -----------------------------
 # Convert from Prolog to Python
 # -----------------------------
 
 def w_int_of_p_number(space, p_number):
-    _p_type_check(p_number, pterm.Number)
+    _p_type_check(space, p_number, pterm.Number)
     return space.newint(p_number.num)
 
 def w_float_of_p_float(space, p_float):
-    _p_type_check(p_float, pterm.Float)
+    _p_type_check(space, p_float, pterm.Float)
     return space.newfloat(p_float.floatval)
 
 def w_long_of_p_bigint(space, p_bigint):
-    _p_type_check(p_bigint, pterm.BigInt)
+    _p_type_check(space, p_bigint, pterm.BigInt)
     return space.newlong_from_rbigint(p_bigint.value)
 
 def w_str_of_p_atom(space, p_atom):
-    _p_type_check(p_atom, pterm.Atom)
+    _p_type_check(space, p_atom, pterm.Atom)
     return space.wrap(phelper.unwrap_atom(p_atom))
 
 def w_of_p(space, p_anything):
@@ -86,11 +87,11 @@ def w_of_p(space, p_anything):
         return w_int_of_p_number(space, p_anything)
     elif isinstance(p_anything, pterm.Float):
         return w_float_of_p_float(space, p_anything)
-    elif isinstance(p_anything, pterm.Float):
+    elif isinstance(p_anything, pterm.BigInt):
         return w_long_of_p_bigint(space, p_anything)
     elif isinstance(p_anything, pterm.Atom):
         return w_str_of_p_atom(space, p_anything)
     else:
         w_ConversionError = util.get_from_module(space, "unipycation", "ConversionError")
         raise OperationError(w_ConversionError,
-                "Don't know how to convert %s to wrapped" % p_anything)
+                space.wrap("Don't know how to convert %s to wrapped" % p_anything))
