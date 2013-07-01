@@ -97,6 +97,9 @@ def allocate_lock():
 
 @specialize.arg(0)
 def ll_start_new_thread(func):
+    if rgc.stm_is_enabled:
+        from rpython.rlib.rstm import register_invoke_around_extcall
+        register_invoke_around_extcall()
     ident = c_thread_start(func)
     if ident == -1:
         raise error("can't start new thread")

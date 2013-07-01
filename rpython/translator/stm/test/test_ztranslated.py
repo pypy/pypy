@@ -66,7 +66,6 @@ class TestSTMTranslated(CompiledSTMTests):
             x.value = 0
             glob.seen = x
         def entry_point(argv):
-            rstm.invoke_around_extcall()
             glob.seen = None
             rthread.start_new_thread(threadfn, ())
             while glob.seen is None:

@@ -331,13 +331,8 @@ class CStandaloneBuilder(CBuilder):
         from rpython.rtyper.lltypesystem import rffi
         from rpython.rtyper.annlowlevel import MixLevelHelperAnnotator
         entrypoint = self.entrypoint
-        stm_nogc = (self.config.translation.stm and
-                    self.config.translation.gc == "none")
         #
         def entrypoint_wrapper(argc, argv):
-            if stm_nogc:
-                from rpython.translator.stm.funcgen import _stm_nogc_init_function
-                _stm_nogc_init_function()
             list = [""] * argc
             i = 0
             while i < argc:

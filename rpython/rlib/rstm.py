@@ -56,8 +56,9 @@ def leave_callback_call(token):
 leave_callback_call._dont_reach_me_in_del_ = True
 leave_callback_call._transaction_break_ = True
 
-def invoke_around_extcall():
-    """Initialize the STM system.  Must be called once from the start-up."""
+def register_invoke_around_extcall():
+    """Initialize the STM system.
+    Called automatically by rthread.start_new_thread()."""
     from rpython.rlib.objectmodel import invoke_around_extcall
     invoke_around_extcall(before_external_call, after_external_call,
                           enter_callback_call, leave_callback_call)
