@@ -15,7 +15,7 @@ def _w_type_check(space, inst, typ):
 def _p_type_check(space, inst, typ):
     if not isinstance(inst, typ):
         w_ConversionError = util.get_from_module(space, "unipycation", "ConversionError")
-        raise OperationError(w_ConversionError, space.wrap("%s is not of type %s" % (inst, typ)))
+        raise OperationError(w_ConversionError, space.wrap("type check failed"))
 
 # -----------------------------
 # Convert from Python to Prolog
