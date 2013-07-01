@@ -135,3 +135,14 @@ class AppTestEngine(object):
             return # expected
 
         assert False
+
+    def test_nonexisting_predicate(self):
+        import unipycation
+
+        e = unipycation.Engine("f(666).")
+
+        it = e.query_iter("lalalala.")
+        print(72 * "-")
+        print(it)
+
+	for i in it: pass # XXX boom crash!
