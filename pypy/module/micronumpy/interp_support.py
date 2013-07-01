@@ -2,7 +2,7 @@ from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
 from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.module.micronumpy import interp_dtype, loop
-from pypy.objspace.std.strutil import strip_spaces
+from rpython.rlib.rstring import strip_spaces
 from rpython.rlib.rarithmetic import maxint
 from pypy.module.micronumpy.base import W_NDimArray
 

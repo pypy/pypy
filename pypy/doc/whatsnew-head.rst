@@ -52,3 +52,18 @@ Skip and fix some non-translated (own) tests for win32 builds
 
 .. branch: ctypes-byref
 Add the '_obj' attribute on ctypes pointer() and byref() objects
+
+.. branch: argsort-segfault
+Fix a segfault in argsort when sorting by chunks on multidim numpypy arrays (mikefc)
+
+.. branch: dtype-isnative
+.. branch: ndarray-round
+
+.. branch: faster-str-of-bigint
+Improve performance of str(long).
+
+.. branch: ndarray-view
+Add view to ndarray and zeroD arrays, not on dtype scalars yet
+
+.. branch: identity-set
+Faster sets for objects

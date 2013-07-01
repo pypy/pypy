@@ -45,7 +45,7 @@ class AssemblerLocation(object):
     def is_stack(self):
         return False
 
-    def is_reg(self):
+    def is_core_reg(self):
         return False
 
     def get_position(self):
@@ -169,7 +169,7 @@ class RegLoc(AssemblerLocation):
     def is_float(self):
         return self.is_xmm
 
-    def is_reg(self):
+    def is_core_reg(self):
         return True
 
 class ImmediateAssemblerLocation(AssemblerLocation):

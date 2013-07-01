@@ -144,7 +144,7 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                    requires=module_dependencies.get(modname, []),
                    suggests=module_suggests.get(modname, []),
                    negation=modname not in essential_modules,
-                   validator=get_module_validator(modname))
+                   ) #validator=get_module_validator(modname))
         for modname in all_modules]),
 
     BoolOption("allworkingmodules", "use as many working modules as possible",

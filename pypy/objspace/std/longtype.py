@@ -4,7 +4,7 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault,\
      interpindirect2app
 from pypy.objspace.std.model import W_Object
 from pypy.objspace.std.stdtypedef import StdTypeDef
-from pypy.objspace.std.strutil import string_to_bigint, ParseStringError
+from rpython.rlib.rstring import ParseStringError
 from rpython.rlib.rbigint import rbigint
 
 def descr_conjugate(space, w_int):
@@ -66,7 +66,7 @@ def descr__new__(space, w_longtype, w_x, w_base=None):
 
 def string_to_w_long(space, w_longtype, s, base=10):
     try:
-        bigint = string_to_bigint(s, base)
+        bigint = rbigint.fromstr(s, base)
     except ParseStringError, e:
         raise OperationError(space.w_ValueError,
                              space.wrap(e.msg))

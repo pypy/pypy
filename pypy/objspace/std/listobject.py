@@ -166,6 +166,12 @@ class W_ListObject(W_Root):
         storage = strategy.erase(list_s)
         return W_ListObject.from_storage_and_strategy(space, storage, strategy)
 
+    @staticmethod
+    def newlist_unicode(space, list_u):
+        strategy = space.fromcache(UnicodeListStrategy)
+        storage = strategy.erase(list_u)
+        return W_ListObject.from_storage_and_strategy(space, storage, strategy)
+
     def __repr__(self):
         """ representation for debugging purposes """
         return "%s(%s, %s)" % (self.__class__.__name__, self.strategy,
@@ -693,6 +699,7 @@ class W_ListObject(W_Root):
             raise OperationError(space.w_ValueError,
                                  space.wrap("list modified during sort"))
 
+find_jmp = jit.JitDriver(greens = [], reds = 'auto', name = 'list.find')
 
 class ListStrategy(object):
     sizehint = -1
@@ -717,6 +724,7 @@ class ListStrategy(object):
         i = start
         # needs to be safe against eq_w mutating stuff
         while i < stop and i < w_list.length():
+            find_jmp.jit_merge_point()
             if space.eq_w(w_list.getitem(i), w_item):
                 return i
             i += 1

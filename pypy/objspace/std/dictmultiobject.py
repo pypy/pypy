@@ -225,8 +225,8 @@ class W_DictMultiObject(W_Root):
             space.raise_key_error(w_key)
 
     def descr_reversed(self, space):
-        raise OperationError(space.w_TypeError, space.wrap(
-                'argument to reversed() must be a sequence'))
+        raise operationerrfmt(space.w_TypeError,
+                              'argument to reversed() must be a sequence')
 
     def descr_copy(self, space):
         """D.copy() -> a shallow copy of D"""

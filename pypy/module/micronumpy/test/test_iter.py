@@ -1,4 +1,5 @@
 from pypy.module.micronumpy.iter import MultiDimViewIterator
+from pypy.module.micronumpy.arrayimpl.scalar import ScalarIterator
 
 class MockArray(object):
     size = 1
@@ -8,7 +9,7 @@ class TestIterDirect(object):
         #Let's get started, simple iteration in C order with
         #contiguous layout => strides[-1] is 1
         start = 0
-        shape = [3, 5] 
+        shape = [3, 5]
         strides = [5, 1]
         backstrides = [x * (y - 1) for x,y in zip(strides, shape)]
         assert backstrides == [10, 4]
@@ -47,7 +48,7 @@ class TestIterDirect(object):
         #iteration in C order with #contiguous layout => strides[-1] is 1
         #skip less than the shape
         start = 0
-        shape = [3, 5] 
+        shape = [3, 5]
         strides = [5, 1]
         backstrides = [x * (y - 1) for x,y in zip(strides, shape)]
         assert backstrides == [10, 4]
@@ -88,4 +89,10 @@ class TestIterDirect(object):
         i.next_skip_x(5)
         assert i.indexes == [0,1]
         assert i.offset == 3
+        assert i.done()
+
+    def test_scalar_iter(self):
+        i = ScalarIterator(MockArray)
+        i.next()
+        i.next_skip_x(3)
         assert i.done()
