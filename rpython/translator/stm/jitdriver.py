@@ -107,12 +107,9 @@ class JitDriverSplitter(object):
         # turn the following link into an "if False" link, add a new
         # "if True" link going to a fresh new block, and return this new
         # block.
-        funcptr = StmOperations.should_break_transaction
-        c = Constant(funcptr, lltype.typeOf(funcptr))
-        v1 = varoftype(lltype.Signed)
-        block.operations.append(SpaceOperation('direct_call', [c], v1))
         v2 = varoftype(lltype.Bool)
-        block.operations.append(SpaceOperation('int_is_true', [v1], v2))
+        block.operations.append(
+            SpaceOperation('stm_should_break_transaction', [], v2))
         #
         assert block.exitswitch is None
         [link] = block.exits

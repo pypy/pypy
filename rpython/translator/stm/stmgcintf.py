@@ -1,4 +1,5 @@
 import os
+from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.conftest import cdir as cdir2
 
@@ -30,3 +31,7 @@ eci = ExternalCompilationInfo(
     pre_include_bits = ['#define RPY_STM 1'],
     separate_module_sources = [separate_source],
 )
+
+GCPTR = lltype.Ptr(rffi.COpaque('struct stm_object_s'))
+CALLBACK_TX = lltype.Ptr(lltype.FuncType([GCPTR, rffi.INT_real],
+                                         rffi.INT_real))

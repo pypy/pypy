@@ -6,6 +6,7 @@ from rpython.translator.c.primitive import name_small_integer
 
 class StmHeaderOpaqueDefNode(Node):
     typetag = 'struct'
+    dependencies = ()
 
     def __init__(self, db, T):
         Node.__init__(self, db)
@@ -115,10 +116,10 @@ def stm_id(funcgen, op):
     return '%s = stm_id((gcptr)%s);' % (result, arg0)
 
 def stm_commit_transaction(funcgen, op):
-    return 'stm_commit_transaction();'
+    return '{ int e = errno; stm_commit_transaction(); errno = e; }'
 
 def stm_begin_inevitable_transaction(funcgen, op):
-    return 'stm_begin_inevitable_transaction();'
+    return '{ int e = errno; stm_begin_inevitable_transaction(); errno = e; }'
 
 def stm_should_break_transaction(funcgen, op):
     result = funcgen.expr(op.result)
@@ -144,6 +145,11 @@ def stm_threadlocal_get(funcgen, op):
 def stm_threadlocal_set(funcgen, op):
     arg0 = funcgen.expr(op.args[0])
     return 'stm_thread_local_obj = (gcptr)%s;' % (arg0,)
+
+def stm_perform_transaction(funcgen, op):
+    arg0 = funcgen.expr(op.args[0])
+    arg1 = funcgen.expr(op.args[1])
+    return 'stm_perform_transaction((gcptr)%s, %s);' % (arg0, arg1)
 
 
 def op_stm(funcgen, op):

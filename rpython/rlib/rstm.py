@@ -1,5 +1,5 @@
 from rpython.rlib.objectmodel import we_are_translated, specialize
-from rpython.rtyper.lltypesystem import lltype
+from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.extregistry import ExtRegistryEntry
 
@@ -37,73 +37,48 @@ def abort_and_retry():
     stmgcintf.StmOperations.abort_and_retry()
 
 def before_external_call():
-    if not is_atomic():
-        e = get_errno()
-        llop.stm_stop_transaction(lltype.Void)
-        stmgcintf.StmOperations.commit_transaction()
-        set_errno(e)
+    llop.stm_commit_transaction(lltype.Void)
 before_external_call._dont_reach_me_in_del_ = True
 before_external_call._transaction_break_ = True
 
 def after_external_call():
-    if not is_atomic():
-        e = get_errno()
-        stmgcintf.StmOperations.begin_inevitable_transaction()
-        llop.stm_start_transaction(lltype.Void)
-        set_errno(e)
+    llop.stm_begin_inevitable_transaction(lltype.Void)
 after_external_call._dont_reach_me_in_del_ = True
 after_external_call._transaction_break_ = True
 
 def enter_callback_call():
-    token = stmgcintf.StmOperations.descriptor_init()
-    if token != 1:
-        after_external_call()
-    else:
-        ll_assert(not is_atomic(), "new thread: is_atomic() != 0")
-        stmgcintf.StmOperations.begin_inevitable_transaction()
-        # the StmGCTLS is not built yet.  leave it to gc_thread_start()
-    return token
+    # XXX assumes that we're not called in a fresh new thread
+    llop.stm_begin_inevitable_transaction(lltype.Void)
+    return 0
 enter_callback_call._dont_reach_me_in_del_ = True
 enter_callback_call._transaction_break_ = True
 
-def leave_callback_call(token):
-    if token != 1:
-        before_external_call()
-    else:
-        # the StmGCTLS is already destroyed, done by gc_thread_die()
-        # (we don't care if is_atomic() or not, we'll commit now)
-        stmgcintf.StmOperations.commit_transaction()
-        stmgcintf.StmOperations.descriptor_done()
+def leave_callback_call(ignored):
+    llop.stm_commit_transaction(lltype.Void)
 leave_callback_call._dont_reach_me_in_del_ = True
 leave_callback_call._transaction_break_ = True
 
 # ____________________________________________________________
 
 def make_perform_transaction(func, CONTAINERP):
+    from rpython.rtyper.annlowlevel import llhelper
+    from rpython.rtyper.annlowlevel import cast_instance_to_base_ptr
+    from rpython.translator.stm.stmgcintf import CALLBACK_TX
     #
     def _stm_callback(llcontainer, retry_counter):
-        if not is_atomic():
-            llop.stm_start_transaction(lltype.Void)
         llcontainer = rffi.cast(CONTAINERP, llcontainer)
+        retry_counter = rffi.cast(lltype.Signed, retry_counter)
         try:
             res = func(llcontainer, retry_counter)
         except Exception, e:
-            res = 0     # stop perform_transaction() and returns
+            res = 0     # ends perform_transaction() and returns
             lle = cast_instance_to_base_ptr(e)
             llcontainer.got_exception = lle
-        if not is_atomic():
-            llop.stm_stop_transaction(lltype.Void)
-        return res
+        return rffi.cast(rffi.INT_real, res)
     #
     def perform_transaction(llcontainer):
-        before_external_call()
-        adr_of_top = llop.gc_adr_of_root_stack_top(llmemory.Address)
-        llcallback = llhelper(stmgcintf.StmOperations.CALLBACK_TX,
-                              _stm_callback)
-        stmgcintf.StmOperations.perform_transaction(llcallback, llcontainer,
-                                                    adr_of_top)
-        after_external_call()
-        keepalive_until_here(llcontainer)
+        llcallback = llhelper(CALLBACK_TX, _stm_callback)
+        llop.stm_perform_transaction(lltype.Void, llcontainer, llcallback)
     perform_transaction._transaction_break_ = True
     #
     return perform_transaction
