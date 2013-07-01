@@ -67,3 +67,6 @@ Add view to ndarray and zeroD arrays, not on dtype scalars yet
 
 .. branch: identity-set
 Faster sets for objects
+
+.. branch: inline-identityhash
+Inline the fast path of id() and hash()
