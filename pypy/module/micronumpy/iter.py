@@ -285,7 +285,7 @@ class AxisIterator(base.BaseArrayIterator):
             self.backstrides = backstrides[:dim] + [0] + backstrides[dim:]
         self.first_line = True
         self.indices = [0] * len(shape)
-        self._done = False
+        self._done = array.get_size() == 0
         self.offset = array.start
         self.dim = dim
         self.array = array

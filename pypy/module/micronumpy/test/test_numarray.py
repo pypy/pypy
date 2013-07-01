@@ -298,11 +298,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         # b = tile(a, (3, 2, 5))
         reps = (3, 4, 5)
         c = array(a, copy=False, subok=True, ndmin=len(reps))
-        print '1',c,c.shape
         d = c.reshape(3, 4, 0)
-        print '2',c,c.shape
         e = d.repeat(3, 0)
-        print '3',c,c.shape,e.shape
         assert e.shape == (9, 4, 0)
 
     def test_type(self):
@@ -2573,6 +2570,9 @@ class AppTestSupport(BaseNumpyAppTest):
         a = array(range(100) + range(100) + range(100))
         b = a.argsort()
         assert (b[:3] == [0, 100, 200]).all()
+        a = array([[[]]]).reshape(3,4,0)
+        b = a.argsort()
+        assert b.size == 0
 
     def test_argsort_random(self):
         from numpypy import array
