@@ -92,7 +92,7 @@ gcptr stm_allocate(size_t size, unsigned long tid)
     assert(tid == (tid & STM_USER_TID_MASK));
     gcptr P = allocate_nursery(size, tid);
     P->h_revision = stm_private_rev_num;
-    P->h_original = 0;
+    assert(P->h_original == 0);  /* null-initialized already */
     return P;
 }
 
@@ -199,8 +199,6 @@ revision_t stm_id(gcptr p)
         return (revision_t)p;
     }
     
-
-    
     spinlock_acquire(d->public_descriptor->collection_lock, 'I');
     /* old objects must have an h_original xOR be
        the original itself. 
@@ -222,7 +220,6 @@ revision_t stm_id(gcptr p)
         gcptr O = stmgc_duplicate_old(p);
         p->h_original = (revision_t)O;
         p->h_tid |= GCFLAG_HAS_ID;
-        O->h_tid |= GCFLAG_PUBLIC;
         
         if (p->h_tid & GCFLAG_PRIVATE_FROM_PROTECTED) {
             gcptr B = (gcptr)p->h_revision;
@@ -540,6 +537,7 @@ static void minor_collect(struct tx_descriptor *d)
 {
     dprintf(("minor collection [%p to %p]\n",
              d->nursery_base, d->nursery_end));
+    assert(!stm_has_got_any_lock(d));
 
     /* acquire the "collection lock" first */
     setup_minor_collect(d);
@@ -566,6 +564,7 @@ static void minor_collect(struct tx_descriptor *d)
        with GCFLAG_OLD
     */
     teardown_minor_collect(d);
+    assert(!stm_has_got_any_lock(d));
 
     /* When doing minor collections with the nursery "mostly empty",
        as occurs when other threads force major collections but this

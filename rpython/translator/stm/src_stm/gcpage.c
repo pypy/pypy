@@ -220,17 +220,14 @@ static void visit(gcptr *pobj)
         return;
 
  restart:
-    if (obj->h_tid & GCFLAG_VISITED) {
-        dprintf(("[already visited: %p]\n", obj));
-        assert(obj == *pobj);
-        assert((obj->h_revision & 3) ||   /* either odd, or stub */
-               (obj->h_tid & GCFLAG_PRIVATE_FROM_PROTECTED));
-        return;    /* already seen */
-    }
-
     if (obj->h_revision & 1) {
         assert(!(obj->h_tid & GCFLAG_PRIVATE_FROM_PROTECTED));
-        obj->h_tid &= ~GCFLAG_PUBLIC_TO_PRIVATE;  /* see also fix_outdated() */
+        assert(!(obj->h_tid & GCFLAG_STUB));
+        if (!(obj->h_tid & GCFLAG_VISITED)) {
+            obj->h_tid &= ~GCFLAG_PUBLIC_TO_PRIVATE;  /* see fix_outdated() */
+            obj->h_tid |= GCFLAG_VISITED;
+            gcptrlist_insert(&objects_to_trace, obj);
+        }
     }
     else if (obj->h_tid & GCFLAG_PUBLIC) {
         /* h_revision is a ptr: we have a more recent version */
@@ -267,27 +264,48 @@ static void visit(gcptr *pobj)
         *pobj = obj;
         goto restart;
     }
+    else if (obj->h_tid & GCFLAG_VISITED) {
+        dprintf(("[already visited: %p]\n", obj));
+        assert(obj == *pobj);
+        assert((obj->h_revision & 3) ||   /* either odd, or stub */
+               (obj->h_tid & GCFLAG_PRIVATE_FROM_PROTECTED));
+        return;    /* already seen */
+    }
     else {
         assert(obj->h_tid & GCFLAG_PRIVATE_FROM_PROTECTED);
         gcptr B = (gcptr)obj->h_revision;
-        gcptrlist_insert(&objects_to_trace, B);
+        assert(B->h_tid & (GCFLAG_PUBLIC | GCFLAG_BACKUP_COPY));
 
-        if (!(B->h_tid & GCFLAG_PUBLIC)) {
-            /* a regular private_from_protected object with a backup copy B */
-            assert(B->h_tid & GCFLAG_BACKUP_COPY);
-            assert(B->h_revision & 1);
-            B->h_tid |= GCFLAG_VISITED;
-        }
-        else {
-            /* a private_from_protected with a stolen backup copy B */
+        obj->h_tid |= GCFLAG_VISITED;
+        B->h_tid |= GCFLAG_VISITED;
+        assert(!(obj->h_tid & GCFLAG_STUB));
+        assert(!(B->h_tid & GCFLAG_STUB));
+        gcptrlist_insert2(&objects_to_trace, obj, B);
+
+        if (IS_POINTER(B->h_revision)) {
+            assert(B->h_tid & GCFLAG_PUBLIC);
             assert(!(B->h_tid & GCFLAG_BACKUP_COPY));
-            gcptr obj1 = B;
-            visit(&obj1);     /* xxx recursion? */
-            obj->h_revision = (revision_t)obj1;
+            assert(!(B->h_revision & 2));
+
+            pobj = (gcptr *)&B->h_revision;
+            obj = *pobj;
+            goto restart;
         }
     }
-    obj->h_tid |= GCFLAG_VISITED;
-    gcptrlist_insert(&objects_to_trace, obj);
+}
+
+static void visit_keep(gcptr obj)
+{
+    if (!(obj->h_tid & GCFLAG_VISITED)) {
+        obj->h_tid &= ~GCFLAG_PUBLIC_TO_PRIVATE;  /* see fix_outdated() */
+        obj->h_tid |= GCFLAG_VISITED;
+        gcptrlist_insert(&objects_to_trace, obj);
+
+        if (IS_POINTER(obj->h_revision)) {
+            assert(!(obj->h_revision & 2));
+            visit((gcptr *)&obj->h_revision);
+        }
+    }
 }
 
 static void visit_all_objects(void)
@@ -313,7 +331,6 @@ static void mark_prebuilt_roots(void)
     for (; pobj != pend; pobj++) {
         obj = *pobj;
         assert(obj->h_tid & GCFLAG_PREBUILT_ORIGINAL);
-        obj->h_tid &= ~GCFLAG_VISITED;
         assert(IS_POINTER(obj->h_revision));
         visit((gcptr *)&obj->h_revision);
     }
@@ -343,6 +360,7 @@ static void mark_all_stack_roots(void)
 {
     struct tx_descriptor *d;
     for (d = stm_tx_head; d; d = d->tx_next) {
+        assert(!stm_has_got_any_lock(d));
 
         /* the roots pushed on the shadowstack */
         mark_roots(d->shadowstack, *d->shadowstack_end_ref);
@@ -354,12 +372,22 @@ static void mark_all_stack_roots(void)
         /* the current transaction's private copies of public objects */
         wlog_t *item;
         G2L_LOOP_FORWARD(d->public_to_private, item) {
-
             /* note that 'item->addr' is also in the read set, so if it was
                outdated, it will be found at that time */
-            visit(&item->addr);
-            visit(&item->val);
-
+            gcptr R = item->addr;
+            gcptr L = item->val;
+            visit_keep(R);
+            if (L != NULL) {
+                revision_t v = L->h_revision;
+                visit_keep(L);
+                /* a bit of custom logic here: if L->h_revision used to
+                   point exactly to R, as set by stealing, then we must
+                   keep this property, even though visit_keep(L) might
+                   decide it would be better to make it point to a more
+                   recent copy. */
+                if (v == (revision_t)R)
+                    L->h_revision = v;   /* restore */
+            }
         } G2L_LOOP_END;
 
         /* make sure that the other lists are empty */
@@ -584,6 +612,7 @@ static void free_all_unused_local_pages(void)
     struct tx_descriptor *d;
     for (d = stm_tx_head; d; d = d->tx_next) {
         free_unused_local_pages(d->public_descriptor);
+        assert(!stm_has_got_any_lock(d));
     }
 }
 
@@ -626,6 +655,7 @@ void force_minor_collections(void)
         if (d != saved) {
             /* Hack: temporarily pretend that we "are" the other thread...
              */
+            assert(d->shadowstack_end_ref && *d->shadowstack_end_ref);
             thread_descriptor = d;
             stm_private_rev_num = *d->private_revision_ref;
             stm_read_barrier_cache = *d->read_barrier_cache_ref;

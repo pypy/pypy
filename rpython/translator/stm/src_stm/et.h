@@ -191,6 +191,7 @@ gcptr stm_get_private_from_protected(long);  /* debugging */
 gcptr stm_get_read_obj(long);  /* debugging */
 void stm_clear_read_cache(void);  /* debugging */
 void _stm_test_forget_previous_state(void);  /* debugging */
+_Bool stm_has_got_any_lock(struct tx_descriptor *);
 
 struct tx_public_descriptor *stm_get_free_public_descriptor(revision_t *);
 int DescriptorInit(void);

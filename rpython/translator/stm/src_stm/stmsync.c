@@ -80,12 +80,14 @@ void stm_set_max_aborts(int max_aborts)
 
 void stm_initialize(void)
 {
+    stmgcpage_acquire_global_lock();
     int r = DescriptorInit();
     if (r != 1)
         stm_fatalerror("stm_initialize: DescriptorInit failure\n");
     stmgc_init_nursery();
     init_shadowstack();
     //stmgcpage_init_tls();
+    stmgcpage_release_global_lock();
     BeginInevitableTransaction();
 }
 
@@ -93,10 +95,12 @@ void stm_finalize(void)
 {
     stmgc_minor_collect();   /* force everything out of the nursery */
     CommitTransaction();
+    stmgcpage_acquire_global_lock();
     //stmgcpage_done_tls();
     done_shadowstack();
     stmgc_done_nursery();
     DescriptorDone();
+    stmgcpage_release_global_lock();
 }
 
 /************************************************************/
