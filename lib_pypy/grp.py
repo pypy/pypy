@@ -25,8 +25,7 @@ class GroupStruct(Structure):
         ('gr_mem', POINTER(c_char_p)),
         )
 
-class struct_group:
-    __metaclass__ = _structseq.structseqtype
+class struct_group(metaclass=_structseq.structseqtype):
 
     gr_name   = _structseq.structseqfield(0)
     gr_passwd = _structseq.structseqfield(1)
