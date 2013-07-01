@@ -1892,6 +1892,7 @@ class MiniMarkGC(MovingGCBase):
         if is_hash:
             i = mangle_hash(i)
         return i
+    id_or_identityhash._always_inline_ = True
 
     def id(self, gcobj):
         return self.id_or_identityhash(gcobj, False)
