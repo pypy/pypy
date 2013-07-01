@@ -47,16 +47,20 @@ after_external_call._dont_reach_me_in_del_ = True
 after_external_call._transaction_break_ = True
 
 def enter_callback_call():
-    # XXX assumes that we're not called in a fresh new thread
-    llop.stm_begin_inevitable_transaction(lltype.Void)
-    return 0
+    return llop.stm_enter_callback_call(lltype.Signed)
 enter_callback_call._dont_reach_me_in_del_ = True
 enter_callback_call._transaction_break_ = True
 
-def leave_callback_call(ignored):
-    llop.stm_commit_transaction(lltype.Void)
+def leave_callback_call(token):
+    llop.stm_leave_callback_call(lltype.Void, token)
 leave_callback_call._dont_reach_me_in_del_ = True
 leave_callback_call._transaction_break_ = True
+
+def invoke_around_extcall():
+    """Initialize the STM system.  Must be called once from the start-up."""
+    from rpython.rlib.objectmodel import invoke_around_extcall
+    invoke_around_extcall(before_external_call, after_external_call,
+                          enter_callback_call, leave_callback_call)
 
 # ____________________________________________________________
 

@@ -50,12 +50,7 @@ class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
 class StmRootWalker(BaseRootWalker):
 
     def need_thread_support(self, gctransformer, getfn):
-        def thread_start():
-            llop.stm_initialize(lltype.Void)
-        def thread_die():
-            llop.stm_finalize(lltype.Void)
-        self.thread_start_ptr = getfn(thread_start, [], annmodel.s_None)
-        self.thread_die_ptr = getfn(thread_die, [], annmodel.s_None)
+        pass
 
     def walk_stack_roots(self, collect_stack_root):
         raise NotImplementedError

@@ -78,29 +78,46 @@ void stm_set_max_aborts(int max_aborts)
     d->max_aborts = max_aborts;
 }
 
+int stm_enter_callback_call(void)
+{
+    int token = (thread_descriptor == NULL);
+    if (token == 1) {
+        stmgcpage_acquire_global_lock();
+        DescriptorInit();
+        stmgc_init_nursery();
+        init_shadowstack();
+        stmgcpage_release_global_lock();
+    }
+    BeginInevitableTransaction();
+    return token;
+}
+
+void stm_leave_callback_call(int token)
+{
+    if (token == 1)
+        stmgc_minor_collect();   /* force everything out of the nursery */
+
+    CommitTransaction();
+
+    if (token == 1) {
+        stmgcpage_acquire_global_lock();
+        done_shadowstack();
+        stmgc_done_nursery();
+        DescriptorDone();
+        stmgcpage_release_global_lock();
+    }
+}
+
 void stm_initialize(void)
 {
-    stmgcpage_acquire_global_lock();
-    int r = DescriptorInit();
+    int r = stm_enter_callback_call();
     if (r != 1)
-        stm_fatalerror("stm_initialize: DescriptorInit failure\n");
-    stmgc_init_nursery();
-    init_shadowstack();
-    //stmgcpage_init_tls();
-    stmgcpage_release_global_lock();
-    BeginInevitableTransaction();
+        stm_fatalerror("stm_initialize: already initialized\n");
 }
 
 void stm_finalize(void)
 {
-    stmgc_minor_collect();   /* force everything out of the nursery */
-    CommitTransaction();
-    stmgcpage_acquire_global_lock();
-    //stmgcpage_done_tls();
-    done_shadowstack();
-    stmgc_done_nursery();
-    DescriptorDone();
-    stmgcpage_release_global_lock();
+    stm_leave_callback_call(1);
 }
 
 /************************************************************/

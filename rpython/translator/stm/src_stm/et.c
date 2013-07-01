@@ -1539,15 +1539,14 @@ struct tx_public_descriptor *stm_get_free_public_descriptor(revision_t *pindex)
 
 __thread gcptr stm_thread_local_obj;
 
-int DescriptorInit(void)
+void DescriptorInit(void)
 {
   if (GCFLAG_PREBUILT != PREBUILT_FLAGS)
     {
       stm_fatalerror("fix PREBUILT_FLAGS in stmgc.h by giving "
                      "it the same value as GCFLAG_PREBUILT!\n");
     }
-
-  if (thread_descriptor == NULL)
+  else
     {
       revision_t i;
       struct tx_descriptor *d = stm_malloc(sizeof(struct tx_descriptor));
@@ -1595,16 +1594,14 @@ int DescriptorInit(void)
       d->tx_next = stm_tx_head;
       if (d->tx_next != NULL) d->tx_next->tx_prev = d;
       stm_tx_head = d;
+      assert(thread_descriptor == NULL);
       thread_descriptor = d;
 
       dprintf(("[%lx] pthread %lx starting\n",
                (long)d->public_descriptor_index, (long)pthread_self()));
 
       stmgcpage_init_tls();
-      return 1;
     }
-  else
-    return 0;
 }
 
 void DescriptorDone(void)

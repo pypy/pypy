@@ -151,6 +151,14 @@ def stm_perform_transaction(funcgen, op):
     arg1 = funcgen.expr(op.args[1])
     return 'stm_perform_transaction((gcptr)%s, %s);' % (arg0, arg1)
 
+def stm_enter_callback_call(funcgen, op):
+    result = funcgen.expr(op.result)
+    return '%s = stm_enter_callback_call();' % (result,)
+
+def stm_leave_callback_call(funcgen, op):
+    arg0 = funcgen.expr(op.args[0])
+    return 'stm_leave_callback_call(%s);' % (arg0,)
+
 
 def op_stm(funcgen, op):
     func = globals()[op.opname]

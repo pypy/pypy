@@ -49,6 +49,12 @@ gcptr stm_pop_root(void);
 void stm_initialize(void);
 void stm_finalize(void);
 
+/* alternate initializers/deinitializers, to use for places that may or
+   may not be recursive, like callbacks from C code.  The return value
+   of the first one must be passed as argument to the second. */
+int stm_enter_callback_call(void);
+void stm_leave_callback_call(int);
+
 /* read/write barriers (the most general versions only for now) */
 #if 0     // (optimized version below)
 gcptr stm_read_barrier(gcptr);

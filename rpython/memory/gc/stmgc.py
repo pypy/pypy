@@ -53,9 +53,10 @@ class StmGC(MovingGCBase):
                                needs_finalizer=False,
                                is_finalizer_light=False,
                                contains_weakptr=False):
-        ll_assert(not needs_finalizer, 'XXX')
-        ll_assert(not is_finalizer_light, 'XXX')
-        ll_assert(not contains_weakptr, 'XXX')
+        # XXX finalizers are ignored for now
+        #ll_assert(not needs_finalizer, 'XXX needs_finalizer')
+        #ll_assert(not is_finalizer_light, 'XXX is_finalizer_light')
+        ll_assert(not contains_weakptr, 'XXX contains_weakptr')
         # XXX call optimized versions, e.g. if size < GC_NURSERY_SECTION
         return llop.stm_allocate(llmemory.GCREF, size, typeid16)
 

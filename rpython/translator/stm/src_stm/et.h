@@ -194,7 +194,7 @@ void _stm_test_forget_previous_state(void);  /* debugging */
 _Bool stm_has_got_any_lock(struct tx_descriptor *);
 
 struct tx_public_descriptor *stm_get_free_public_descriptor(revision_t *);
-int DescriptorInit(void);
+void DescriptorInit(void);
 void DescriptorDone(void);
 
 #endif  /* _ET_H */

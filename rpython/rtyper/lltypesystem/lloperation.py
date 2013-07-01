@@ -441,6 +441,8 @@ LL_OPERATIONS = {
     'stm_change_atomic':      LLOp(),
     'stm_get_atomic':         LLOp(sideeffects=False),
     'stm_perform_transaction':LLOp(),
+    'stm_enter_callback_call':LLOp(),
+    'stm_leave_callback_call':LLOp(),
 
     'stm_threadlocalref_get': LLOp(sideeffects=False),
     'stm_threadlocalref_set': LLOp(),

@@ -62,12 +62,11 @@ class TestSTMTranslated(CompiledSTMTests):
         glob = Global()
         #
         def threadfn():
-            rthread.gc_thread_start()
             x = Global()
             x.value = 0
             glob.seen = x
-            rthread.gc_thread_die()
         def entry_point(argv):
+            rstm.invoke_around_extcall()
             glob.seen = None
             rthread.start_new_thread(threadfn, ())
             while glob.seen is None:

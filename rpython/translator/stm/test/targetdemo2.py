@@ -1,7 +1,7 @@
 import time
 from rpython.rlib import rthread
 from rpython.rlib import rstm, jit
-from rpython.rlib.objectmodel import invoke_around_extcall, we_are_translated
+from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.objectmodel import compute_identity_hash
 from rpython.rlib.debug import ll_assert
 from rpython.rtyper.lltypesystem import lltype, rffi, rclass
@@ -250,8 +250,7 @@ bootstrapper = Bootstrapper()
 def setup_threads():
     #space.threadlocals.setup_threads(space)
     bootstrapper.setup()
-    invoke_around_extcall(rstm.before_external_call, rstm.after_external_call,
-                          rstm.enter_callback_call, rstm.leave_callback_call)
+    rstm.invoke_around_extcall()
 
 def start_thread(args):
     bootstrapper.acquire(args)
