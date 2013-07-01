@@ -184,6 +184,7 @@ class Module(MixedModule):
     appleveldefs = {}
     interpleveldefs = {
         'choose': 'interp_arrayops.choose',
+        'put': 'interp_arrayops.put',
         'repeat': 'interp_arrayops.repeat',
     }
     submodules = {
