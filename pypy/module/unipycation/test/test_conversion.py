@@ -99,8 +99,6 @@ class TestTypeConversion(object):
 
         assert unwrap1 == unwrap2
 
-    # class Term(Callable):
-    #   def __init__(self, term_name, args, signature):
     def test_w_term_of_p_term(self):
         p_sig = psig.Signature.getsignature("someterm", 3)
         p_atoms = [ pterm.Atom(x) for x in ["x", "y", "z"] ]
@@ -108,7 +106,12 @@ class TestTypeConversion(object):
 
         w_term = conv.w_term_of_p_term(self.space, p_term)
 
-        assert isinstance(w_term, conv.Term) and w_term.length == 3
+        args_unwrap = self.space.listview_str(w_term.getargs())
+
+        assert isinstance(w_term, conv.W_Term) and \
+                self.space.is_true(self.space.eq(w_term.getlength(), self.space.wrap(3))) and \
+                self.space.is_true(self.space.eq(w_term.getname(), self.space.wrap("someterm"))) and \
+                args_unwrap == ["x", "y", "z"]
 
     # --------------------------
     # Test high level converions
