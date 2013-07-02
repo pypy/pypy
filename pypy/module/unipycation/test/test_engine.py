@@ -2,7 +2,7 @@ import pypy.module.unipycation.engine as eng
 import pytest
 
 class AppTestEngine(object):
-    spaceconfig = dict(usemodules=('unipycation', ))
+    spaceconfig = dict(usemodules=('unipycation',))
 
     def test_basic(self):
         import unipycation
@@ -64,22 +64,12 @@ class AppTestEngine(object):
         import unipycation
         e = unipycation.Engine("f(1).")
 
-        try: # XXX handle properly
-            res = e.query("f(X)") # note missing .
-        except unipycation.ParseError:
-            return # expected outcome
-
-        assert False # Should be unreachable
+        raises(unipycation.ParseError, lambda: e.query("f(X)")) # note missing dot on query
 
     def test_parse_db_incomplete(self):
         import unipycation
 
-        try: # XXX handle properly
-            e = unipycation.Engine("f(1)") # missing dot
-        except unipycation.ParseError:
-            return # expected outcome
-
-        assert False # Should be unreachable
+        raises(unipycation.ParseError, lambda: unipycation.Engine("f(1)")) # missing dot on db
 
     def test_iterator(self):
         import unipycation
@@ -131,25 +121,12 @@ class AppTestEngine(object):
 
         e = unipycation.Engine("f(666).")
 
-        try: # XXX handle properly
-            it = e.query("f(666). f(667).")
-        except unipycation.GoalError:
-            return # expected
-
-        assert False
+        raises(unipycation.GoalError, lambda: e.query("f(666). f(667)."))
 
     def test_nonexisting_predicate(self):
         import unipycation
 
         e = unipycation.Engine("f(666).")
-
         it = e.query("lalalala.")
-        print(72 * "-")
-        print(it)
 
-        try: # XXX handle properly
-            for i in it: pass
-        except unipycation.GoalError:
-            return # expected, the goal was undefined
-
-        assert False
+        raises(unipycation.GoalError, lambda: it.next())
