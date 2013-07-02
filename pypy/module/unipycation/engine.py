@@ -64,6 +64,9 @@ class W_SolutionIterator(W_Root):
             except perr.UnificationFailed:
                 # contradiction - no solutions
                 raise OperationError(self.space.w_StopIteration, None)
+            except perr.CatchableError:
+                w_GoalError = util.get_from_module(self.space, "unipycation", "GoalError")
+                raise OperationError(w_GoalError, self.space.wrap("Undefined goal"))
 
             self.goal = None # allow GC
         else:
@@ -72,6 +75,9 @@ class W_SolutionIterator(W_Root):
             except perr.UnificationFailed:
                 # enumerated all solutions
                 raise OperationError(self.space.w_StopIteration, None)
+            except perr.CatchableError:
+                w_GoalError = util.get_from_module(self.space, "unipycation", "GoalError")
+                raise OperationError(w_GoalError, self.space.wrap("Undefined goal"))
 
         return self.d_result
 

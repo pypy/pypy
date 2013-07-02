@@ -145,4 +145,9 @@ class AppTestEngine(object):
         print(72 * "-")
         print(it)
 
-	for i in it: pass # XXX boom crash!
+        try:
+            for i in it: pass
+        except unipycation.GoalError:
+            return # expected, the goal was undefined
+
+        assert False
