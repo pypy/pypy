@@ -50,15 +50,17 @@ class AppTestEngine(object):
         assert res == {}
 
     # XXX XXX XXX
-    #def test_false(self):
-    #    import unipycation
-    #
-    #    e = unipycation.Engine("f(1).")
-    #    assert isinstance(e, unipycation.Engine)
-    #
-    #    sols = e.query("f(2).")
-    #    first = res.next() # XXX Boom!, but why?
-    #    assert first == None
+    def test_false(self):
+        import unipycation
+
+        e = unipycation.Engine("f(1).")
+        assert isinstance(e, unipycation.Engine)
+
+        sols = e.query("f(2).")
+        raises(StopIteration, sols.next)
+        #first = sols.next() # XXX Boom!, but why?
+        #assert first == None
+        assert True
 
     def test_parse_query_incomplete(self):
         import unipycation

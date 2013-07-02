@@ -63,7 +63,7 @@ class W_SolutionIterator(W_Root):
                 r = self.w_engine.engine.run(self.goal, cur_mod, cont)
             except perr.UnificationFailed:
                 # contradiction - no solutions
-                raise OperationError(self.space.w_StopIteration, None)
+                raise OperationError(self.space.w_StopIteration, self.space.w_None)
             except perr.CatchableError:
                 w_GoalError = util.get_from_module(self.space, "unipycation", "GoalError")
                 raise OperationError(w_GoalError, self.space.wrap("Undefined goal"))
@@ -74,7 +74,7 @@ class W_SolutionIterator(W_Root):
                 pcont.driver(*self.fcont.fail(self.heap))
             except perr.UnificationFailed:
                 # enumerated all solutions
-                raise OperationError(self.space.w_StopIteration, None)
+                raise OperationError(self.space.w_StopIteration, self.space.w_None)
             except perr.CatchableError:
                 w_GoalError = util.get_from_module(self.space, "unipycation", "GoalError")
                 raise OperationError(w_GoalError, self.space.wrap("Undefined goal"))
