@@ -145,6 +145,7 @@ class TestTypeConversion(object):
     def test_w_of_p_fails(self):
         p_val = 666            # clearly not a prolog type
 
+        # XXX
         #info = py.test.raises(OperationError, conv.w_of_p, self.space, p_val)
         #info.exc should exist now
         try:

@@ -20,7 +20,6 @@ class W_Term(W_Root):
         return self.space.newlist(args)
 
 W_Term.typedef = TypeDef("Term",
-    #__len__ = interp2app(W_Term.len_w),
     length = GetSetProperty(W_Term.getlength),
     name = GetSetProperty(W_Term.getname),
     args = GetSetProperty(W_Term.getargs),

@@ -57,7 +57,7 @@ class W_SolutionIterator(W_Root):
         # for subsequent iterations.
         if self.fcont is None:
             cur_mod = self.w_engine.engine.modulewrapper.current_module
-            cont = UnipycationContinuation2(
+            cont = UnipycationContinuation(
                     self.w_engine, self.var_to_pos, self)
             try:
                 r = self.w_engine.engine.run(self.goal, cur_mod, cont)
@@ -90,7 +90,7 @@ W_SolutionIterator.typedef.acceptable_as_base_class = False
 
 # ---
 
-class UnipycationContinuation2(pcont.Continuation):
+class UnipycationContinuation(pcont.Continuation):
     def __init__(self, w_engine, var_to_pos, w_solution_iter):
         engine = w_engine.engine
 
@@ -103,17 +103,6 @@ class UnipycationContinuation2(pcont.Continuation):
 
     def activate(self, fcont, heap):
         self.w_solution_iter._populate_result(self.var_to_pos, fcont, heap)
-        return pcont.DoneSuccessContinuation(self.engine), fcont, heap
-
-# XXX This will dissappear
-class UnipycationContinuation(pcont.Continuation):
-    def __init__(self, engine, var_to_pos, w_engine):
-        pcont.Continuation.__init__(self, engine, pcont.DoneSuccessContinuation(engine))
-        self.var_to_pos = var_to_pos
-        self.w_engine = w_engine
-
-    def activate(self, fcont, heap):
-        self.w_engine._populate_result(self.var_to_pos, heap)
         return pcont.DoneSuccessContinuation(self.engine), fcont, heap
 
 # ---

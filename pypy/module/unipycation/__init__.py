@@ -1,4 +1,4 @@
-from pypy.interpreter.mixedmodule import MixedModule                            
+from pypy.interpreter.mixedmodule import MixedModule
 
 class Module(MixedModule):
 
@@ -9,5 +9,5 @@ class Module(MixedModule):
     }
 
     interpleveldefs = {
-        'Engine'        : 'engine.W_Engine',        
+        'Engine'        : 'engine.W_Engine',
     }
