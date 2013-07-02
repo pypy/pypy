@@ -108,7 +108,7 @@ class TestTypeConversion(object):
 
         w_term = conv.w_term_of_p_term(self.space, p_term)
 
-        assert isinstance(w_term, pterm.Term) and w_term.length == 3
+        assert isinstance(w_term, conv.Term) and w_term.length == 3
 
     # --------------------------
     # Test high level converions
