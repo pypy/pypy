@@ -135,28 +135,7 @@ class W_Engine(W_Root):
             w_ParseError = util.get_from_module(self.space, "unipycation", "ParseError")
             raise OperationError(w_ParseError, self.space.wrap(e.nice_error_message()))
 
-    # XXX This will dissappear
-    def query(self, w_anything):
-        query_raw = self.space.str_w(w_anything)
-
-        try:
-            goals, var_to_pos = self.engine.parse(query_raw)
-        except ppars.ParseError as e:
-            w_ParseError = util.get_from_module(self.space, "unipycation", "ParseError")
-            raise OperationError(w_ParseError, self.space.wrap(e.nice_error_message()))
-
-        cont = UnipycationContinuation(self.engine, var_to_pos, self)
-        self.d_result = self.space.newdict()
-        for g in goals:
-            try:
-                self.engine.run(g, self.engine.modulewrapper.current_module, cont)
-            except perr.UnificationFailed:
-                self.d_result = None
-                break
-
-        return self.d_result
-
-    def query_iter(self, w_query_str):
+    def query(self, w_query_str):
         """ Returns an iterator by which to acquire multiple solutions """
         query_raw = self.space.str_w(w_query_str)
 
@@ -171,20 +150,9 @@ class W_Engine(W_Root):
 
         return w_solution_iter
 
-    # XXX This will dissappear
-    def _populate_result(self, var_to_pos, heap):
-
-        for var, real_var in var_to_pos.iteritems():
-            if var.startswith("_"): continue
-
-            w_var = self.space.wrap(var)
-            w_val = conv.w_of_p(self.space, real_var.dereference(heap))
-            self.space.setitem(self.d_result, w_var, w_val)
-
 W_Engine.typedef = TypeDef("Engine",
     __new__ = interp2app(engine_new__),
     query = interp2app(W_Engine.query),
-    query_iter = interp2app(W_Engine.query_iter),
 )
 
 W_Engine.typedef.acceptable_as_base_class = False
