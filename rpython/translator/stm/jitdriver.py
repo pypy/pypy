@@ -63,7 +63,6 @@ class JitDriverSplitter(object):
     #             store (green args, red args) into p
     #             return 1     # causes perform_tr() to loop and call us again
     #     p.result_value = result_value
-    #     p.got_exception = NULL
     #     return 0         # stop perform_tr() and returns
 
     def __init__(self, stmtransformer, graph):
@@ -212,20 +211,15 @@ class JitDriverSplitter(object):
         blockst.closeblock(Link(a_vars, link.target))
         #
         # hack at the regular return block, to set the result into
-        # 'p.result_value', clear 'p.got_exception', and return 0
+        # 'p.result_value' and return 0.  Note that 'p.got_exception'
+        # is already cleared.
         blockr = callback_graph.returnblock
         c_result_value = Constant('result_value', lltype.Void)
-        c_got_exception = Constant('got_exception', lltype.Void)
-        c_null = Constant(lltype.nullptr(self.CONTAINER.got_exception.TO),
-                          self.CONTAINER.got_exception)
         v_p = self.container_var()
         renamed_p[blockr] = v_p
         blockr.operations = [
             SpaceOperation('setfield',
                            [v_p, c_result_value, blockr.inputargs[0]],
-                           varoftype(lltype.Void)),
-            SpaceOperation('setfield',
-                           [v_p, c_got_exception, c_null],
                            varoftype(lltype.Void)),
             ]
         v = varoftype(lltype.Signed)

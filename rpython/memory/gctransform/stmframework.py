@@ -46,10 +46,22 @@ class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
     def gc_header_for(self, obj, needs_hash=False):
         return self.gcdata.gc.gcheaderbuilder.header_of_object(obj)
 
+    def _gct_with_roots_pushed(self, hop):
+        livevars = self.push_roots(hop)
+        self.default(hop)
+        self.pop_roots(hop, livevars)
+
+    gct_stm_become_inevitable   = _gct_with_roots_pushed
+    gct_stm_perform_transaction = _gct_with_roots_pushed
+
 
 class StmRootWalker(BaseRootWalker):
 
     def need_thread_support(self, gctransformer, getfn):
+        # gc_thread_start() and gc_thread_die() don't need to become
+        # anything.  When a new thread start, there is anyway first
+        # the "after/before" callbacks from rffi, which contain calls
+        # to "stm_enter_callback_call/stm_leave_callback_call".
         pass
 
     def walk_stack_roots(self, collect_stack_root):

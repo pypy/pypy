@@ -250,7 +250,6 @@ bootstrapper = Bootstrapper()
 def setup_threads():
     #space.threadlocals.setup_threads(space)
     bootstrapper.setup()
-    rstm.invoke_around_extcall()
 
 def start_thread(args):
     bootstrapper.acquire(args)
