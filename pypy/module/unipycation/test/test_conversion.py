@@ -1,5 +1,6 @@
 import pypy.module.unipycation.conversion as conv
 import pypy.module.unipycation.util as util
+import pypy.module.unipycation.objects as objects
 from pypy.interpreter.error import OperationError
 import prolog.interpreter.signature as psig
 
@@ -108,7 +109,7 @@ class TestTypeConversion(object):
 
         args_unwrap = self.space.listview_str(w_term.getargs())
 
-        assert isinstance(w_term, conv.W_Term) and \
+        assert isinstance(w_term, objects.W_Term) and \
                 self.space.is_true(self.space.eq(w_term.getlength(), self.space.wrap(3))) and \
                 self.space.is_true(self.space.eq(w_term.getname(), self.space.wrap("someterm"))) and \
                 args_unwrap == ["x", "y", "z"]

@@ -7,6 +7,7 @@ from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app
 
 import pypy.module.unipycation.util as util
+import pypy.module.unipycation.objects as objects
 
 def _w_type_check(space, inst, typ):
     if not space.is_true(space.isinstance(inst, typ)):
@@ -17,29 +18,6 @@ def _p_type_check(space, inst, typ):
     if not isinstance(inst, typ):
         w_ConversionError = util.get_from_module(space, "unipycation", "ConversionError")
         raise OperationError(w_ConversionError, space.wrap("type check failed"))
-
-class W_Term(W_Root):
-    """
-    Represents an aggregate term from pyrolog
-    """
-
-    def __init__(self, space, term_p):
-        self.space = space
-        self.term_p = term_p
-
-    # properties
-    def getlength(self): return self.space.newint(self.term_p.argument_count())
-    def getname(self): return self.space.wrap(self.term_p.name())
-    def getargs(self):
-        args = [ w_of_p(self.space, x) for x in self.term_p.arguments() ]
-        return self.space.newlist(args)
-
-W_Term.typedef = TypeDef("Term",
-    #__len__ = interp2app(W_Term.len_w),
-    length = GetSetProperty(W_Term.getlength),
-    name = GetSetProperty(W_Term.getname),
-    args = GetSetProperty(W_Term.getargs),
-)
 
 # -----------------------------
 # Convert from Python to Prolog
@@ -108,7 +86,7 @@ def w_str_of_p_atom(space, p_atom):
 
 def w_term_of_p_term(space, p_term):
     _p_type_check(space, p_term, pterm.Term)
-    return W_Term(space, p_term)
+    return objects.W_Term(space, p_term)
 
 def w_of_p(space, p_anything):
     if isinstance(p_anything, pterm.Number):
