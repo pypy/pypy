@@ -49,7 +49,6 @@ class AppTestEngine(object):
         res = e.query("f(_).").next()
         assert res == {}
 
-    # XXX XXX XXX
     def test_false(self):
         import unipycation
 
@@ -58,9 +57,6 @@ class AppTestEngine(object):
 
         sols = e.query("f(2).")
         raises(StopIteration, sols.next)
-        #first = sols.next() # XXX Boom!, but why?
-        #assert first == None
-        assert True
 
     def test_parse_query_incomplete(self):
         import unipycation
