@@ -65,3 +65,6 @@ Improve performance of str(long).
 .. branch: ndarray-view
 Add view to ndarray and zeroD arrays, not on dtype scalars yet
 
+.. branch: numpypy-segfault
+fix segfault caused by iterating over empty ndarrays
+
