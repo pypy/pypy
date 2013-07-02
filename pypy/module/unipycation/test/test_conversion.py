@@ -1,6 +1,7 @@
 import pypy.module.unipycation.conversion as conv
 import pypy.module.unipycation.util as util
 from pypy.interpreter.error import OperationError
+import prolog.interpreter.signature as psig
 
 import prolog.interpreter.term as pterm
 import pytest
@@ -98,6 +99,17 @@ class TestTypeConversion(object):
 
         assert unwrap1 == unwrap2
 
+    # class Term(Callable):
+    #   def __init__(self, term_name, args, signature):
+    def test_w_term_of_p_term(self):
+        p_sig = psig.Signature.getsignature("someterm", 3)
+        p_atoms = [ pterm.Atom(x) for x in ["x", "y", "z"] ]
+        p_term = pterm.Term("someterm",  p_atoms, p_sig)
+
+        w_term = conv.w_term_of_p_term(self.space, p_term)
+
+        assert isinstance(w_term, pterm.Term) and w_term.length == 3
+
     # --------------------------
     # Test high level converions
     # --------------------------
@@ -129,6 +141,8 @@ class TestTypeConversion(object):
     def test_w_of_p_fails(self):
         p_val = 666            # clearly not a prolog type
 
+        #info = py.test.raises(OperationError, conv.w_of_p, self.space, p_val)
+        #info.exc should exist now
         try:
             w_boom = conv.w_of_p(self.space, p_val)
         except OperationError as e:
