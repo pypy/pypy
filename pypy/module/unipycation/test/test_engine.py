@@ -62,7 +62,7 @@ class AppTestEngine(object):
         import unipycation
         e = unipycation.Engine("f(1).")
 
-        try:
+        try: # XXX handle properly
             res = e.query("f(X)") # note missing .
         except unipycation.ParseError:
             return # expected outcome
@@ -72,7 +72,7 @@ class AppTestEngine(object):
     def test_parse_db_incomplete(self):
         import unipycation
 
-        try:
+        try: # XXX handle properly
             e = unipycation.Engine("f(1)") # missing dot
         except unipycation.ParseError:
             return # expected outcome
@@ -129,7 +129,7 @@ class AppTestEngine(object):
 
         e = unipycation.Engine("f(666).")
 
-        try:
+        try: # XXX handle properly
             it = e.query_iter("f(666). f(667).")
         except unipycation.GoalError:
             return # expected
@@ -145,7 +145,7 @@ class AppTestEngine(object):
         print(72 * "-")
         print(it)
 
-        try:
+        try: # XXX handle properly
             for i in it: pass
         except unipycation.GoalError:
             return # expected, the goal was undefined
