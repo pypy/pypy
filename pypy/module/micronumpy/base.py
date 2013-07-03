@@ -10,6 +10,14 @@ def issequence_w(space, w_obj):
             space.isinstance_w(w_obj, space.w_list) or
             isinstance(w_obj, W_NDimArray))
 
+def wrap_impl(space, cls, impl):
+    if space.is_w(space.type(cls), space.gettypefor(W_NDimArray)):
+        ret = W_NDimArray(impl)
+    else:
+        ret = space.allocate_instance(W_NDimArray, space.type(cls))
+        print 'created',space.type(ret)
+        W_NDimArray.__init__(ret, impl)
+    return ret
 
 class ArrayArgumentException(Exception):
     pass

@@ -3,7 +3,7 @@ from pypy.interpreter.error import operationerrfmt, OperationError
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, make_weakref_descr
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.module.micronumpy.base import W_NDimArray, convert_to_array,\
-     ArrayArgumentException, issequence_w
+     ArrayArgumentException, issequence_w, wrap_impl
 from pypy.module.micronumpy import interp_dtype, interp_ufuncs, interp_boxes,\
      interp_arrayops
 from pypy.module.micronumpy.strides import find_shape_and_elems,\
@@ -298,7 +298,7 @@ class __extend__(W_NDimArray):
         new_shape = get_shape_from_iterable(space, self.get_size(), w_shape)
         new_impl = self.implementation.reshape(space, self, new_shape)
         if new_impl is not None:
-            return W_NDimArray(new_impl)
+            return wrap_impl(space, self, new_impl)
         # Create copy with contiguous data
         arr = self.descr_copy(space)
         if arr.get_size() > 0:
@@ -902,7 +902,6 @@ def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
     dtype = space.interp_w(interp_dtype.W_Dtype,
           space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype))
     shape = _find_shape(space, w_shape, dtype)
-    print 'desc_new_array(space,',w_subtype,',',shape,',',dtype,'...)'
     if not shape:
         return W_NDimArray.new_scalar(space, dtype)
     if space.is_w(w_subtype, space.gettypefor(W_NDimArray)):

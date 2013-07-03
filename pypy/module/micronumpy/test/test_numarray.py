@@ -1476,6 +1476,7 @@ class AppTestNumArray(BaseNumpyAppTest):
             def __new__(subtype, shape, dtype):
                 self = ndarray.__new__(subtype, shape, dtype)
                 self.id = 'subtype'
+                print 'called new'
                 return self
         a = C([2, 2], int)
         assert isinstance(a, C)
@@ -1483,6 +1484,14 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a.shape == (2, 2)
         assert a.dtype is dtype(int)
         assert a.id == 'subtype'
+        print '1'
+        a = a.reshape(1, 4)
+        print '2'
+        b = a.reshape(4, 1)
+        print '3'
+        assert isinstance(b, C)
+        #make sure __new__ was not called
+        assert not getattr(b, 'id', None)
         a.fill(3)
         b = a[0]
         assert isinstance(b, C)
