@@ -12,7 +12,7 @@ class W_Term(W_Root):
         self.term_p = term_p
 
     # properties
-    def prop_getlength(self, space): return self.space.newint(self.term_p.argument_count())
+    def descr_len(self, space): return self.space.newint(self.term_p.argument_count())
     def prop_getname(self, space): return self.space.wrap(self.term_p.name()) # this is an interanal method name in pypy, I fear
     def prop_getargs(self, space):
         import pypy.module.unipycation.conversion as conv
@@ -20,7 +20,7 @@ class W_Term(W_Root):
         return self.space.newlist(args)
 
 W_Term.typedef = TypeDef("Term",
-    length = GetSetProperty(W_Term.prop_getlength),
+    __len__ = interp2app(W_Term.descr_len),
     name = GetSetProperty(W_Term.prop_getname),
     args = GetSetProperty(W_Term.prop_getargs),
 )

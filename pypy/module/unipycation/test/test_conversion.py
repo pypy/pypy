@@ -111,7 +111,7 @@ class TestTypeConversion(object):
 
         space = self.space
         assert isinstance(w_term, objects.W_Term) and \
-                space.is_true(space.eq(w_term.prop_getlength(space), space.wrap(3))) and \
+                space.is_true(space.eq(w_term.descr_len(space), space.wrap(3))) and \
                 space.is_true(space.eq(w_term.prop_getname(space), space.wrap("someterm"))) and \
                 args_unwrap == ["x", "y", "z"]
 
@@ -193,3 +193,11 @@ class AppTestConversion(object):
 
         # XXX traverse the cons cells checking the list is preoperly nested
         assert x.name == "."
+
+    def test_aggregate_len(self):
+        import unipycation
+
+        e = unipycation.Engine("f(g(a, b, c, d)).")
+        x = e.query("f(X).").next()["X"]
+
+        assert len(x) == 4
