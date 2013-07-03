@@ -131,18 +131,19 @@ class TraceWithIds(Function):
     def has_id(self, id):
         return id in self.ids
 
-    def _ops_for_chunk(self, chunk):
+    def _ops_for_chunk(self, chunk, include_guard_not_invalidated):
         for op in chunk.operations:
-            if op.name != 'debug_merge_point':
+            if op.name != 'debug_merge_point' and \
+                (op.name != 'guard_not_invalidated' or include_guard_not_invalidated):
                 yield op
 
-    def _allops(self, opcode=None):
+    def _allops(self, opcode=None, include_guard_not_invalidated=True):
         opcode_name = opcode
         for chunk in self.flatten_chunks():
             opcode = chunk.getopcode()
             if opcode_name is None or \
                    (opcode and opcode.__class__.__name__ == opcode_name):
-                for op in self._ops_for_chunk(chunk):
+                for op in self._ops_for_chunk(chunk, include_guard_not_invalidated):
                     yield op
             else:
                for op in  chunk.operations:
@@ -162,7 +163,7 @@ class TraceWithIds(Function):
     def print_ops(self, *args, **kwds):
         print self.format_ops(*args, **kwds)
 
-    def _ops_by_id(self, id, opcode=None):
+    def _ops_by_id(self, id, include_guard_not_invalidated=True, opcode=None):
         opcode_name = opcode
         target_opcodes = self.ids[id]
         loop_ops = self.allops(opcode)
@@ -170,7 +171,7 @@ class TraceWithIds(Function):
             opcode = chunk.getopcode()
             if opcode in target_opcodes and (opcode_name is None or
                                              opcode.__class__.__name__ == opcode_name):
-                for op in self._ops_for_chunk(chunk):
+                for op in self._ops_for_chunk(chunk, include_guard_not_invalidated):
                     if op in loop_ops:
                         yield op
 
