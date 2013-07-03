@@ -53,7 +53,6 @@ class W_NDimArray(W_Root):
             impl = concrete.ConcreteArrayNotOwning(shape, dtype, order, strides,
                                                 backstrides, storage)
         if subtype_and_space[0]:
-            print 'creating subclass',subtype_and_space
             space = subtype_and_space[1]
             subtype = subtype_and_space[0]
             ret = space.allocate_instance(W_NDimArray, subtype)

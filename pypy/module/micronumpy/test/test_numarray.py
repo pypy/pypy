@@ -1458,19 +1458,31 @@ class AppTestNumArray(BaseNumpyAppTest):
         skip('not implemented yet')
         assert s.view('double') < 7e-323
 
-    def test_subclass_view(self):
+    def test_subtype_view(self):
         from numpypy import ndarray, array
         class matrix(ndarray):
             def __new__(subtype, data, dtype=None, copy=True):
-                print 'matix.__new__(',subtype,',',data,'...)'
                 if isinstance(data, matrix):
                     return data
                 return data.view(subtype)
         a = array(range(5))
         b = matrix(a)
-        print type(b),b
-        assert False
+        assert isinstance(b, matrix)
         assert (b == a).all()
+
+    def test_subtype_base(self):
+        from numpypy import ndarray, dtype
+        class C(ndarray):
+            def __new__(subtype, shape, dtype):
+                self = ndarray.__new__(subtype, shape, dtype)
+                self.id = 'subtype'
+                return self
+        a = C([2, 2], int)
+        assert isinstance(a, C)
+        assert isinstance(a, ndarray)
+        assert a.shape == (2, 2)
+        assert a.dtype is dtype(int)
+        assert a.id == 'subtype'
 
     def test_tolist_scalar(self):
         from numpypy import int32, bool_
@@ -2905,7 +2917,7 @@ class AppTestPyPy(BaseNumpyAppTest):
 class AppTestLongDoubleDtypes(BaseNumpyAppTest):
     def setup_class(cls):
         from pypy.module.micronumpy import Module
-        print dir(Module.interpleveldefs)
+        #print dir(Module.interpleveldefs)
         if not Module.interpleveldefs.get('longfloat', None):
             py.test.skip('no longdouble types yet')
         BaseNumpyAppTest.setup_class.im_func(cls)

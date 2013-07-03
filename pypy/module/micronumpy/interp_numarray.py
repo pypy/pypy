@@ -619,9 +619,9 @@ class __extend__(W_NDimArray):
             "trace not implemented yet"))
 
     def descr_view(self, space, w_dtype=None, w_type=None) :
-        if w_type is not None:
-            raise OperationError(space.w_NotImplementedError, space.wrap(
-                "view(... type=<class>) not implemented yet"))
+        if not w_type and w_dtype and w_dtype.issubtype(space.gettypefor(W_NDimArray)):
+            w_type = w_dtype
+            w_dtype = None
         if w_dtype:
             dtype = space.interp_w(interp_dtype.W_Dtype,
                 space.call_function(space.gettypefor(interp_dtype.W_Dtype),
@@ -651,7 +651,12 @@ class __extend__(W_NDimArray):
                     raise OperationError(space.w_ValueError, space.wrap(
                         "new type not compatible with array."))
                 new_shape[-1] = new_shape[-1] * old_itemsize / new_itemsize
-        return W_NDimArray(impl.get_view(self, dtype, new_shape))
+        v = impl.get_view(self, dtype, new_shape)
+        if w_type is not None:
+            ret = space.allocate_instance(W_NDimArray, w_type)
+            W_NDimArray.__init__(ret, v)
+            return ret
+        return W_NDimArray(v)
 
 
     # --------------------- operations ----------------------------
@@ -887,20 +892,22 @@ class __extend__(W_NDimArray):
         self.implementation = W_NDimArray.from_shape_and_storage([space.int_w(i) for i in space.listview(shape)], rffi.str2charp(space.str_w(storage), track_allocation=False), dtype, owning=True).implementation
 
 
-@unwrap_spec(offset=int)
+@unwrap_spec(offset=int, order=str)
 def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
-                    offset=0, w_strides=None, w_order=None):
+                    offset=0, w_strides=None, order='C'):
     if (offset != 0 or not space.is_none(w_strides) or
-        not space.is_none(w_order) or
         not space.is_none(w_buffer)):
         raise OperationError(space.w_NotImplementedError,
                              space.wrap("unsupported param"))
     dtype = space.interp_w(interp_dtype.W_Dtype,
           space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype))
     shape = _find_shape(space, w_shape, dtype)
+    print 'desc_new_array(space,',w_subtype,',',shape,',',dtype,'...)'
     if not shape:
         return W_NDimArray.new_scalar(space, dtype)
-    return W_NDimArray.from_shape(shape, dtype)
+    if space.is_w(w_subtype, space.gettypefor(W_NDimArray)):
+        return W_NDimArray.from_shape(shape, dtype, order)
+    return W_NDimArray.from_shape(shape, dtype, order, (w_subtype, space))
 
 @unwrap_spec(addr=int)
 def descr__from_shape_and_storage(space, w_cls, w_shape, addr, w_dtype, w_subclass=None):
