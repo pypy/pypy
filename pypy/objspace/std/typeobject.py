@@ -1145,9 +1145,6 @@ def getattr__Type_ANY(space, w_type, w_name):
                           "type object '%s' has no attribute '%s'",
                           w_type.name, name)
 
-def eq__Type_Type(space, w_self, w_other):
-    return space.is_(w_self, w_other)
-
 
 # ____________________________________________________________
 
