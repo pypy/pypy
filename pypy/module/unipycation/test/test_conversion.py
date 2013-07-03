@@ -100,18 +100,19 @@ class TestTypeConversion(object):
 
         assert unwrap1 == unwrap2
 
-    def test_w_term_of_p_term(self):
+    def test_w_term_of_p_callable(self):
         p_sig = psig.Signature.getsignature("someterm", 3)
         p_atoms = [ pterm.Atom(x) for x in ["x", "y", "z"] ]
-        p_term = pterm.Term("someterm",  p_atoms, p_sig)
+        p_callable = pterm.Term("someterm",  p_atoms, p_sig)
 
-        w_term = conv.w_term_of_p_term(self.space, p_term)
+        w_term = conv.w_term_of_p_callable(self.space, p_callable)
 
-        args_unwrap = self.space.listview_str(w_term.getargs())
+        args_unwrap = self.space.listview_str(w_term.prop_getargs(self.space))
 
+        space = self.space
         assert isinstance(w_term, objects.W_Term) and \
-                self.space.is_true(self.space.eq(w_term.getlength(), self.space.wrap(3))) and \
-                self.space.is_true(self.space.eq(w_term.getname(), self.space.wrap("someterm"))) and \
+                space.is_true(space.eq(w_term.prop_getlength(space), space.wrap(3))) and \
+                space.is_true(space.eq(w_term.prop_getname(space), space.wrap("someterm"))) and \
                 args_unwrap == ["x", "y", "z"]
 
     # --------------------------
@@ -175,3 +176,20 @@ class TestTypeConversion(object):
     #        return
     #
     #    assert False
+
+# Check that aggregate structures are nested properly.
+# Easier to test at the app-level
+class AppTestConversion(object):
+    spaceconfig = dict(usemodules=('unipycation',))
+
+    def test_aggregate_nest(self):
+        import unipycation
+
+        e = unipycation.Engine("f([x, y, z]).")
+        it = e.query("f(X).")
+
+        x = it.next()["X"]
+        print(type(x))
+
+        # XXX traverse the cons cells checking the list is preoperly nested
+        assert x.name == "."

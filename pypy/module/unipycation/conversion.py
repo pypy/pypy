@@ -84,9 +84,9 @@ def w_str_of_p_atom(space, p_atom):
     _p_type_check(space, p_atom, pterm.Atom)
     return space.wrap(phelper.unwrap_atom(p_atom))
 
-def w_term_of_p_term(space, p_term):
-    _p_type_check(space, p_term, pterm.Term)
-    return objects.W_Term(space, p_term)
+def w_term_of_p_callable(space, p_callable):
+    _p_type_check(space, p_callable, pterm.Callable)
+    return objects.W_Term(space, p_callable)
 
 def w_of_p(space, p_anything):
     if isinstance(p_anything, pterm.Number):
@@ -97,8 +97,8 @@ def w_of_p(space, p_anything):
         return w_long_of_p_bigint(space, p_anything)
     elif isinstance(p_anything, pterm.Atom):
         return w_str_of_p_atom(space, p_anything)
-    elif isinstance(p_anything, pterm.Term):
-        return w_term_of_p_term(space, p_anything)
+    elif isinstance(p_anything, pterm.Callable):
+        return w_term_of_p_callable(space, p_anything)
     else:
         w_ConversionError = util.get_from_module(space, "unipycation", "ConversionError")
         raise OperationError(w_ConversionError,
