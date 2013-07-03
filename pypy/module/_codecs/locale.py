@@ -21,6 +21,7 @@ MERGE_SURROGATES = UNICHAR_SIZE == 2 and rffi.sizeof(rffi.WCHAR_T) == 4
 
 cwd = py.path.local(__file__).dirpath()
 eci = ExternalCompilationInfo(
+    includes=[cwd.join('locale.h')],
     separate_module_files=[cwd.join('locale.c')],
     export_symbols=['pypy_char2wchar', 'pypy_char2wchar_free',
                     'pypy_wchar2char', 'pypy_wchar2char_free'])
