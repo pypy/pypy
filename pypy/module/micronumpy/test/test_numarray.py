@@ -1483,6 +1483,12 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a.shape == (2, 2)
         assert a.dtype is dtype(int)
         assert a.id == 'subtype'
+        a.fill(3)
+        b = a[0]
+        assert isinstance(b, C)
+        assert (b == 3).all()
+        b[0]=100
+        assert a[0,0] == 100
 
     def test_tolist_scalar(self):
         from numpypy import int32, bool_
