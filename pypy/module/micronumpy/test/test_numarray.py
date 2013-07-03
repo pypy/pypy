@@ -1442,7 +1442,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert x.view('int8').shape == (10, 3)
 
     def test_ndarray_view_empty(self):
-        from numpypy import array, int8, int16, dtype
+        from numpypy import array, int8, int16
         x = array([], dtype=[('a', int8), ('b', int8)])
         y = x.view(dtype=int16)
 
@@ -1457,6 +1457,20 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert exc.value[0] == "new type not compatible with array."
         skip('not implemented yet')
         assert s.view('double') < 7e-323
+
+    def test_subclass_view(self):
+        from numpypy import ndarray, array
+        class matrix(ndarray):
+            def __new__(subtype, data, dtype=None, copy=True):
+                print 'matix.__new__(',subtype,',',data,'...)'
+                if isinstance(data, matrix):
+                    return data
+                return data.view(subtype)
+        a = array(range(5))
+        b = matrix(a)
+        print type(b),b
+        assert False
+        assert (b == a).all()
 
     def test_tolist_scalar(self):
         from numpypy import int32, bool_
@@ -2871,6 +2885,12 @@ class AppTestPyPy(BaseNumpyAppTest):
         assert y[0, 1] == 2
         y[0, 1] = 42
         assert x[1] == 42
+        class C(ndarray):
+            pass
+        z = ndarray._from_shape_and_storage([4, 1], addr, x.dtype, C)
+        assert isinstance(z, C)
+        assert z.shape == (4, 1)
+        assert z[1, 0] == 42
 
     def test___pypy_data__(self):
         from numpypy import array

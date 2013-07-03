@@ -914,7 +914,7 @@ def descr__from_shape_and_storage(space, w_cls, w_shape, addr, w_dtype):
     dtype = space.interp_w(interp_dtype.W_Dtype,
                            space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype))
     shape = _find_shape(space, w_shape, dtype)
-    return W_NDimArray.from_shape_and_storage(shape, storage, dtype)
+    return W_NDimArray.from_shape_and_storage(shape, storage, dtype, (space, w_cls))
 
 W_NDimArray.typedef = TypeDef(
     "ndarray",

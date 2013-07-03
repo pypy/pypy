@@ -23,7 +23,7 @@ class W_NDimArray(W_Root):
         self.implementation = implementation
 
     @staticmethod
-    def from_shape(shape, dtype, order='C'):
+    def from_shape(shape, dtype, order='C', subtype_and_space=(None, None)):
         from pypy.module.micronumpy.arrayimpl import concrete, scalar
 
         if not shape:
@@ -32,10 +32,16 @@ class W_NDimArray(W_Root):
             strides, backstrides = calc_strides(shape, dtype.base, order)
             impl = concrete.ConcreteArray(shape, dtype.base, order, strides,
                                       backstrides)
+        if subtype_and_space[0]:
+            space = subtype_and_space[1]
+            subtype = subtype_and_space[0]
+            ret = space.allocate_instance(W_NDimArray, subtype)
+            W_NDimArray.__init__(ret, impl)
+            return ret
         return W_NDimArray(impl)
 
     @staticmethod
-    def from_shape_and_storage(shape, storage, dtype, order='C', owning=False):
+    def from_shape_and_storage(shape, storage, dtype, order='C', owning=False, subtype_and_space=(None, None)):
         from pypy.module.micronumpy.arrayimpl import concrete
         assert shape
         strides, backstrides = calc_strides(shape, dtype, order)
@@ -46,6 +52,13 @@ class W_NDimArray(W_Root):
         else:
             impl = concrete.ConcreteArrayNotOwning(shape, dtype, order, strides,
                                                 backstrides, storage)
+        if subtype_and_space[0]:
+            print 'creating subclass',subtype_and_space
+            space = subtype_and_space[1]
+            subtype = subtype_and_space[0]
+            ret = space.allocate_instance(W_NDimArray, subtype)
+            W_NDimArray.__init__(ret, impl)
+            return ret
         return W_NDimArray(impl)
 
     @staticmethod
