@@ -160,7 +160,7 @@ class TestTransform:
             extfunc()
 
         res = self.interpret_inevitable(f1, [])
-        assert res == 'direct_call'
+        assert res == 'extfunc()'
 
     def test_rpy_direct_call(self):
         def f2():
