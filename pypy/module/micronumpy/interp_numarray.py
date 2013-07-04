@@ -454,8 +454,7 @@ class __extend__(W_NDimArray):
             s = s[1:]
         dtype = interp_dtype.get_dtype_cache(space).dtypes_by_name[s]
         contig = self.implementation.astype(space, dtype)
-        assert isinstance(contig, W_NDimArray)
-        return contig.implementation.argsort(space, w_axis)
+        return contig.argsort(space, w_axis)
 
     def descr_astype(self, space, w_dtype):
         dtype = space.interp_w(interp_dtype.W_Dtype,

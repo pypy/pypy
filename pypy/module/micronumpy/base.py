@@ -41,7 +41,7 @@ class W_NDimArray(W_Root):
             impl = concrete.ConcreteArray(shape, dtype.base, order, strides,
                                       backstrides)
         if subtype:
-            ret = space.allocate_instance(W_NDimArray, subtype)
+            ret = space.allocate_instance(W_NDimArray, space.type(subtype))
             W_NDimArray.__init__(ret, impl)
             return ret
         return W_NDimArray(impl)
@@ -59,7 +59,7 @@ class W_NDimArray(W_Root):
             impl = concrete.ConcreteArrayNotOwning(shape, dtype, order, strides,
                                                 backstrides, storage)
         if subtype:
-            ret = space.allocate_instance(W_NDimArray, subtype)
+            ret = space.allocate_instance(W_NDimArray, space.type(subtype))
             W_NDimArray.__init__(ret, impl)
             return ret
         return W_NDimArray(impl)

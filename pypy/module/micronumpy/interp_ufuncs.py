@@ -182,7 +182,7 @@ class W_Ufunc(W_Root):
                 if out:
                     dtype = out.get_dtype()
                 temp = W_NDimArray.from_shape(space, temp_shape, dtype,
-                                                subtype=self)
+                                                subtype=obj)
             elif keepdims:
                 shape = obj_shape[:axis] + [1] + obj_shape[axis + 1:]
             else:
@@ -208,7 +208,7 @@ class W_Ufunc(W_Root):
                         )
                 dtype = out.get_dtype()
             else:
-                out = W_NDimArray.from_shape(space, shape, dtype, subtype=self)
+                out = W_NDimArray.from_shape(space, shape, dtype, subtype=obj)
             return loop.do_axis_reduce(shape, self.func, obj, dtype, axis, out,
                                        self.identity, cumultative, temp)
         if cumultative:
@@ -217,7 +217,7 @@ class W_Ufunc(W_Root):
                     raise OperationError(space.w_ValueError, space.wrap(
                         "out of incompatible size"))
             else:
-                out = W_NDimArray.from_shape(space, [obj.get_size()], dtype, subtype=self)
+                out = W_NDimArray.from_shape(space, [obj.get_size()], dtype, subtype=obj)
             loop.compute_reduce_cumultative(obj, out, dtype, self.func,
                                             self.identity)
             return out
