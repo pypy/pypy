@@ -664,12 +664,7 @@ class __extend__(W_NDimArray):
                         "new type not compatible with array."))
                 new_shape[-1] = new_shape[-1] * old_itemsize / new_itemsize
         v = impl.get_view(self, dtype, new_shape)
-        if w_type is not None:
-            ret = space.allocate_instance(W_NDimArray, w_type)
-            W_NDimArray.__init__(ret, v)
-            return ret
-        return W_NDimArray(v)
-
+        return wrap_impl(space, w_type, v)
 
     # --------------------- operations ----------------------------
 
@@ -906,6 +901,8 @@ class __extend__(W_NDimArray):
                 rffi.str2charp(space.str_w(storage), track_allocation=False),
                 dtype, owning=True).implementation
 
+    def descr___array_finalize__(self, space, w_obj):
+        pass
 
 @unwrap_spec(offset=int, order=str)
 def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
@@ -921,7 +918,8 @@ def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
         return W_NDimArray.new_scalar(space, dtype)
     if space.is_w(w_subtype, space.gettypefor(W_NDimArray)):
         return W_NDimArray.from_shape(space, shape, dtype, order)
-    return W_NDimArray.from_shape(space, shape, dtype, order, w_subtype)
+    ret = W_NDimArray.from_shape(space, shape, dtype, order, w_subtype, is_new=True)
+    return ret
 
 @unwrap_spec(addr=int)
 def descr__from_shape_and_storage(space, w_cls, w_shape, addr, w_dtype, w_subclass=None):
@@ -1068,6 +1066,7 @@ W_NDimArray.typedef = TypeDef(
                                    W_NDimArray.fdel___pypy_data__),
     __reduce__ = interp2app(W_NDimArray.descr_reduce),
     __setstate__ = interp2app(W_NDimArray.descr_setstate),
+    __array_finalize__ = interp2app(W_NDimArray.descr___array_finalize__),
 )
 
 @unwrap_spec(ndmin=int, copy=bool, subok=bool)

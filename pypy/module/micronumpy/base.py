@@ -11,12 +11,17 @@ def issequence_w(space, w_obj):
             isinstance(w_obj, W_NDimArray))
 
 def wrap_impl(space, cls, impl):
-    if space.is_w(space.type(cls), space.gettypefor(W_NDimArray)):
+    if cls is None or space.is_w(space.type(cls), space.gettypefor(W_NDimArray)):
         ret = W_NDimArray(impl)
     else:
-        ret = space.allocate_instance(W_NDimArray, space.type(cls))
-        print 'created',space.type(ret)
+        if space.isinstance_w(cls, space.w_type):
+            #got type, either from __new__ or from view casting
+            ret = space.allocate_instance(W_NDimArray, cls)
+        else:
+            ret = space.allocate_instance(W_NDimArray, space.type(cls))
         W_NDimArray.__init__(ret, impl)
+        space.call_function(space.getattr(ret, space.wrap('__array_finalize__')),
+                        cls)
     return ret
 
 class ArrayArgumentException(Exception):
@@ -31,7 +36,7 @@ class W_NDimArray(W_Root):
         self.implementation = implementation
 
     @staticmethod
-    def from_shape(space, shape, dtype, order='C', subtype=None):
+    def from_shape(space, shape, dtype, order='C', subtype=None, is_new=False):
         from pypy.module.micronumpy.arrayimpl import concrete, scalar
 
         if not shape:
@@ -42,12 +47,25 @@ class W_NDimArray(W_Root):
                                       backstrides)
         if subtype:
             if space.isinstance_w(subtype, space.w_type):
-                #got type, probably from descr_XXX
+                #got type, either from __new__ or from view casting
                 ret = space.allocate_instance(W_NDimArray, subtype)
+                W_NDimArray.__init__(ret, impl)
+                if is_new:
+                    space.call_function(space.getattr(ret,
+                                    space.wrap('__array_finalize__')),
+                                    space.w_None)
+                else:
+                    # view casting, call finalize
+                    space.call_function(space.getattr(ret,
+                                    space.wrap('__array_finalize__')),
+                                    subtype)
             else:
                 #got instance
                 ret = space.allocate_instance(W_NDimArray, space.type(subtype))
-            W_NDimArray.__init__(ret, impl)
+                W_NDimArray.__init__(ret, impl)
+                space.call_function(space.getattr(ret,
+                                    space.wrap('__array_finalize__')),
+                                    subtype)
         else:
             ret = W_NDimArray(impl)
         return ret
@@ -68,10 +86,17 @@ class W_NDimArray(W_Root):
             if space.isinstance_w(subtype, space.w_type):
                 #got type, probably from descr_XXX
                 ret = space.allocate_instance(W_NDimArray, subtype)
+                W_NDimArray.__init__(ret, impl)
+                space.call_function(space.getattr(ret,
+                                    space.wrap('__array_finalize__')),
+                                    space.w_None)
             else:
                 #got instance
                 ret = space.allocate_instance(W_NDimArray, space.type(subtype))
-            W_NDimArray.__init__(ret, impl)
+                W_NDimArray.__init__(ret, impl)
+                space.call_function(space.getattr(ret,
+                                    space.wrap('__array_finalize__')),
+                                    subtype)
             return ret
         return W_NDimArray(impl)
 

@@ -4,8 +4,9 @@ from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
 class AppTestSupport(BaseNumpyAppTest):
     def setup_class(cls):
-        from numpypy import ndarray
         BaseNumpyAppTest.setup_class.im_func(cls)
+        '''
+        from numpypy import ndarray
         class NoNew(ndarray):
             def __new__(cls):
                 raise ValueError('should not call __new__')
@@ -17,8 +18,42 @@ class AppTestSupport(BaseNumpyAppTest):
                 return cls
             def __array_finalize(self, obj):
                 self.called_finalize = True
-            cls.w_NoNew = cls.space.wrap(NoNew)
-            cls.w_SubType = cls.space.wrap(SubType)
+        cls.w_NoNew = cls.space.wrap(NoNew)
+        cls.w_SubType = cls.space.wrap(SubType)
+        '''
+
+    def test_finalize(self):
+        #taken from http://docs.scipy.org/doc/numpy/user/basics.subclassing.html#simple-example-adding-an-extra-attribute-to-ndarray
+        import numpypy as np
+        class InfoArray(np.ndarray):
+            def __new__(subtype, shape, dtype=float, buffer=None, offset=0,
+                          strides=None, order='C', info=None):
+                obj = np.ndarray.__new__(subtype, shape, dtype, buffer,
+                         offset, strides, order)
+                obj.info = info
+                return obj
+
+            def __array_finalize__(self, obj):
+                if obj is None:
+                    print 'finazlize with None'
+                    return
+                print 'finalize with something'
+                self.info = getattr(obj, 'info', None)
+        obj = InfoArray(shape=(3,))
+        assert isinstance(obj, InfoArray)
+        assert obj.info is None
+        obj = InfoArray(shape=(3,), info='information')
+        assert obj.info == 'information'
+        v = obj[1:]
+        assert isinstance(v, InfoArray)
+        assert v.base is obj
+        assert v.info == 'information'
+        arr = np.arange(10)
+        print '1'
+        cast_arr = arr.view(InfoArray)
+        assert isinstance(cast_arr, InfoArray)
+        assert cast_arr.base is arr
+        assert cast_arr.info is None
 
     def test_sub_where(self):
         from numpypy import where, ones, zeros, array
