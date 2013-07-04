@@ -627,9 +627,13 @@ class __extend__(W_NDimArray):
             "trace not implemented yet"))
 
     def descr_view(self, space, w_dtype=None, w_type=None) :
-        if not w_type and w_dtype and w_dtype.issubtype(space.gettypefor(W_NDimArray)):
-            w_type = w_dtype
-            w_dtype = None
+        if not w_type and w_dtype:
+            try:
+                if w_dtype.issubtype(space.gettypefor(W_NDimArray)):
+                    w_type = w_dtype
+                    w_dtype = None
+            except:
+                pass
         if w_dtype:
             dtype = space.interp_w(interp_dtype.W_Dtype,
                 space.call_function(space.gettypefor(interp_dtype.W_Dtype),

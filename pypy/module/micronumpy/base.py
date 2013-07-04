@@ -41,10 +41,16 @@ class W_NDimArray(W_Root):
             impl = concrete.ConcreteArray(shape, dtype.base, order, strides,
                                       backstrides)
         if subtype:
-            ret = space.allocate_instance(W_NDimArray, space.type(subtype))
+            if space.isinstance_w(subtype, space.w_type):
+                #got type, probably from descr_XXX
+                ret = space.allocate_instance(W_NDimArray, subtype)
+            else:
+                #got instance
+                ret = space.allocate_instance(W_NDimArray, space.type(subtype))
             W_NDimArray.__init__(ret, impl)
-            return ret
-        return W_NDimArray(impl)
+        else:
+            ret = W_NDimArray(impl)
+        return ret
 
     @staticmethod
     def from_shape_and_storage(space, shape, storage, dtype, order='C', owning=False, subtype=None):
@@ -59,7 +65,12 @@ class W_NDimArray(W_Root):
             impl = concrete.ConcreteArrayNotOwning(shape, dtype, order, strides,
                                                 backstrides, storage)
         if subtype:
-            ret = space.allocate_instance(W_NDimArray, space.type(subtype))
+            if space.isinstance_w(subtype, space.w_type):
+                #got type, probably from descr_XXX
+                ret = space.allocate_instance(W_NDimArray, subtype)
+            else:
+                #got instance
+                ret = space.allocate_instance(W_NDimArray, space.type(subtype))
             W_NDimArray.__init__(ret, impl)
             return ret
         return W_NDimArray(impl)
