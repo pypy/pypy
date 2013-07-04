@@ -2,6 +2,44 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app
 
+# XXX may be useful for listifying a cons
+"""
+def decons(t):
+    print("DECONS: %s" % str(t))
+    if not isinstance(t, unipycation.Term) or t.name != ".":
+        raise TypeError("Bad cons, should not happen")
+
+    print("CAR (%s): %s   CDR (%s): %s\n" % (type(t[0]), t[0], type(t[1]), t[1]))
+
+    (car, cdr) = (t[0], t[1])
+
+    if isinstance(cdr, unipycation.Term):
+        # more unwrapping to do
+        if cdr.name != ".": raise TypeError("Bad Cons (2), should not happen")
+        return [car] + decons(cdr)
+    elif cdr == "[]": # Seems the empty list is an atom
+        return [car]
+    else:
+        raise TypeError("This should not happen")
+"""
+
+def decons_idx(space, t, idx):
+    """ Recurse a prolog Cons looking for the element at index 'idx' """
+
+    # XXX type check
+    (car, cdr) = t.arguments() # should be only ever 2 elems
+
+    if idx != 0:
+        # XXX type check.
+        # XXX index out of bounds case (find [] in cdr)
+        if cdr.signature().name != ".":
+                raise TypeError("Bad Cons! Should not happen")
+
+        return decons_idx(space, cdr, idx - 1)
+    else:
+        # found the desired index
+        return car
+
 class W_Term(W_Root):
     """
     Represents a Callable from pyrolog
@@ -22,7 +60,13 @@ class W_Term(W_Root):
     def descr_getitem(self, space, w_idx):
         import pypy.module.unipycation.conversion as conv
         idx = self.space.int_w(w_idx)
-        return conv.w_of_p(self.space, self.term_p.arguments()[idx])
+
+        if self.space.str_w(self.prop_getname(self.space)) == ".":
+            # Need to walk the cons
+            return conv.w_of_p(self.space, decons_idx(self.space, self.term_p, idx))
+        else:
+            # Otherwise, straightforward indexing
+            return conv.w_of_p(self.space, self.term_p.arguments()[idx])
 
     def descr_str(self, space):
         st = "Term(name=%s, len=%d)" % \

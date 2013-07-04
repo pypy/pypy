@@ -186,37 +186,12 @@ class TestTypeConversion(object):
 class AppTestConversion(object):
     spaceconfig = dict(usemodules=('unipycation',))
 
-    def test_aggregate_nest(self):
+    def test_list(self):
         import unipycation
 
-        def decons(t):
-            print("DECONS: %s" % str(t))
-            if not isinstance(t, unipycation.Term) or t.name != ".":
-                raise TypeError("Bad cons, should not happen")
-
-            print("CAR (%s): %s   CDR (%s): %s\n" % (type(t[0]), t[0], type(t[1]), t[1]))
-
-            (car, cdr) = (t[0], t[1])
-
-            if isinstance(cdr, unipycation.Term):
-                # more unwrapping to do
-                if cdr.name != ".": raise TypeError("Bad Cons (2), should not happen")
-                return [car] + decons(cdr)
-            elif cdr == "[]": # Seems the empty list is an atom
-                return [car]
-            else:
-                raise TypeError("This should not happen")
-
-        #e = unipycation.Engine("f([x, [y0, y1(xxx)], z(za, zb)]).")
-        e = unipycation.Engine("f([x, y, [z]]).")
-        it = e.query("f(X).")
-
-        top = it.next()["X"]
-
-        l = decons(top)
-        print(l)
-
-        assert True # XXX for now
+        e = unipycation.Engine("f([w, x, y, z]).")
+        x = e.query("f(X).").next()["X"]
+        assert [ x[i] for i in range(4) ] == ["w", "x", "y", "z"]
 
     def test_aggregate_struct(self):
         import unipycation
