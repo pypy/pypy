@@ -10,4 +10,5 @@ class Module(MixedModule):
 
     interpleveldefs = {
         'Engine'        : 'engine.W_Engine',
+        'Term' : 'objects.W_Term',
     }

@@ -101,19 +101,23 @@ class TestTypeConversion(object):
         assert unwrap1 == unwrap2
 
     def test_w_term_of_p_callable(self):
+        space = self.space
+
         p_sig = psig.Signature.getsignature("someterm", 3)
         p_atoms = [ pterm.Atom(x) for x in ["x", "y", "z"] ]
         p_callable = pterm.Term("someterm",  p_atoms, p_sig)
 
-        w_term = conv.w_term_of_p_callable(self.space, p_callable)
+        w_term = conv.w_term_of_p_callable(space, p_callable)
 
-        args_unwrap = self.space.listview_str(w_term.prop_getargs(self.space))
+        term_len = space.int_w(w_term.descr_len(space))
+        unwrap = space.listview_str(w_term.prop_getargs(space))
+        unwrap2 = [ space.str_w(w_term.descr_getitem(space, space.newint(x))) \
+                for x in range(term_len) ]
 
-        space = self.space
         assert isinstance(w_term, objects.W_Term) and \
                 space.is_true(space.eq(w_term.descr_len(space), space.wrap(3))) and \
                 space.is_true(space.eq(w_term.prop_getname(space), space.wrap("someterm"))) and \
-                args_unwrap == ["x", "y", "z"]
+                unwrap == ["x", "y", "z"] == unwrap2
 
     # --------------------------
     # Test high level converions
@@ -185,19 +189,43 @@ class AppTestConversion(object):
     def test_aggregate_nest(self):
         import unipycation
 
-        e = unipycation.Engine("f([x, y, z]).")
+        def decons(t):
+            print("DECONS: %s" % str(t))
+            if not isinstance(t, unipycation.Term) or t.name != ".":
+                raise TypeError("Bad cons, should not happen")
+
+            print("CAR (%s): %s   CDR (%s): %s\n" % (type(t[0]), t[0], type(t[1]), t[1]))
+
+            (car, cdr) = (t[0], t[1])
+
+            if isinstance(cdr, unipycation.Term):
+                # more unwrapping to do
+                if cdr.name != ".": raise TypeError("Bad Cons (2), should not happen")
+                return [car] + decons(cdr)
+            elif cdr == "[]": # Seems the empty list is an atom
+                return [car]
+            else:
+                raise TypeError("This should not happen")
+
+        #e = unipycation.Engine("f([x, [y0, y1(xxx)], z(za, zb)]).")
+        e = unipycation.Engine("f([x, y, [z]]).")
         it = e.query("f(X).")
 
-        x = it.next()["X"]
-        print(type(x))
+        top = it.next()["X"]
 
-        # XXX traverse the cons cells checking the list is preoperly nested
-        assert x.name == "."
+        l = decons(top)
+        print(l)
 
-    def test_aggregate_len(self):
+        assert True # XXX for now
+
+    def test_aggregate_struct(self):
         import unipycation
 
         e = unipycation.Engine("f(g(a, b, c, d)).")
         x = e.query("f(X).").next()["X"]
 
-        assert len(x) == 4
+        assert len(x) == 4 and \
+                x[0] == "a" and \
+                x[1] == "b" and \
+                x[2] == "c" and \
+                x[3] == "d"
