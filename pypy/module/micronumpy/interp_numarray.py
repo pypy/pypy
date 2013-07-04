@@ -85,7 +85,7 @@ class __extend__(W_NDimArray):
             res_shape = [size] + self.get_shape()[1:]
         else:
             res_shape = [size]
-        res = W_NDimArray.from_shape(res_shape, self.get_dtype())
+        res = W_NDimArray.from_shape(space, res_shape, self.get_dtype(), subtype=self)
         return loop.getitem_filter(res, self, arr)
 
     def setitem_filter(self, space, idx, val):
@@ -145,9 +145,10 @@ class __extend__(W_NDimArray):
         if iter_shape is None:
             # w_index is a list of slices, return a view
             chunks = self.implementation._prepare_slice_args(space, w_index)
-            return chunks.apply(self)
+            return chunks.apply(space, self)
         shape = res_shape + self.get_shape()[len(indexes):]
-        res = W_NDimArray.from_shape(shape, self.get_dtype(), self.get_order())
+        res = W_NDimArray.from_shape(space, shape, self.get_dtype(),
+                                     self.get_order(), subtype=self)
         if not res.get_size():
             return res
         return loop.getitem_array_int(space, self, res, iter_shape, indexes,
@@ -161,7 +162,7 @@ class __extend__(W_NDimArray):
             # w_index is a list of slices
             w_value = convert_to_array(space, w_value)
             chunks = self.implementation._prepare_slice_args(space, w_index)
-            view = chunks.apply(self)
+            view = chunks.apply(space, self)
             view.implementation.setslice(space, w_value)
             return
         loop.setitem_array_int(space, self, iter_shape, indexes, val_arr,
@@ -259,14 +260,14 @@ class __extend__(W_NDimArray):
         return self.implementation.get_scalar_value()
 
     def descr_copy(self, space):
-        return W_NDimArray(self.implementation.copy(space))
+        return wrap_impl(space, self, self.implementation.copy(space))
 
     def descr_get_real(self, space):
-        return W_NDimArray(self.implementation.get_real(self))
+        return wrap_impl(space, self, self.implementation.get_real(self))
 
     def descr_get_imag(self, space):
         ret = self.implementation.get_imag(self)
-        return W_NDimArray(ret)
+        return wrap_impl(space, self, ret)
 
     def descr_set_real(self, space, w_value):
         # copy (broadcast) values into self
@@ -326,7 +327,7 @@ class __extend__(W_NDimArray):
         """
         if self.is_scalar():
             return self
-        return self.implementation.swapaxes(self, axis1, axis2)
+        return self.implementation.swapaxes(space, self, axis1, axis2)
 
     def descr_tolist(self, space):
         if len(self.get_shape()) == 0:
@@ -446,17 +447,25 @@ class __extend__(W_NDimArray):
         # we must do that, because we need a working set. otherwise
         # we would modify the array in-place. Use this to our advantage
         # by converting nonnative byte order.
+        if self.is_scalar():
+            return space.wrap(0)
         s = self.get_dtype().name
         if not self.get_dtype().native:
             s = s[1:]
         dtype = interp_dtype.get_dtype_cache(space).dtypes_by_name[s]
         contig = self.implementation.astype(space, dtype)
+        assert isinstance(contig, W_NDimArray)
         return contig.implementation.argsort(space, w_axis)
 
     def descr_astype(self, space, w_dtype):
         dtype = space.interp_w(interp_dtype.W_Dtype,
           space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype))
-        return self.implementation.astype(space, dtype)
+        impl = self.implementation
+        if isinstance(impl, scalar.Scalar):
+            return W_NDimArray.new_scalar(space, dtype, impl.value)
+        else:
+            new_impl = impl.astype(space, dtype)
+            return wrap_impl(space, self, new_impl)
 
     def descr_get_base(self, space):
         impl = self.implementation
@@ -471,7 +480,7 @@ class __extend__(W_NDimArray):
             loop.byteswap(self.implementation, self.implementation)
             return self
         else:
-            res = W_NDimArray.from_shape(self.get_shape(), self.get_dtype())
+            res = W_NDimArray.from_shape(space, self.get_shape(), self.get_dtype(), subtype=self)
             loop.byteswap(self.implementation, res.implementation)
             return res
 
@@ -564,7 +573,7 @@ class __extend__(W_NDimArray):
         if space.is_none(w_out):
             if self.get_dtype().is_bool_type():
                 #numpy promotes bool.round() to float16. Go figure.
-                w_out = W_NDimArray.from_shape(self.get_shape(),
+                w_out = W_NDimArray.from_shape(space, self.get_shape(),
                        interp_dtype.get_dtype_cache(space).w_float16dtype)
             else:
                 w_out = None
@@ -765,7 +774,7 @@ class __extend__(W_NDimArray):
             return W_NDimArray.new_scalar(space, dtype, space.wrap(0))
         # Do the dims match?
         out_shape, other_critical_dim = match_dot_shapes(space, self, other)
-        result = W_NDimArray.from_shape(out_shape, dtype)
+        result = W_NDimArray.from_shape(space, out_shape, dtype, subtype=self)
         # This is the place to add fpypy and blas
         return loop.multidim_dot(space, self, other,  result, dtype,
                                  other_critical_dim)
@@ -889,7 +898,10 @@ class __extend__(W_NDimArray):
         isfortran = space.getitem(w_state, space.wrap(3))
         storage = space.getitem(w_state, space.wrap(4))
 
-        self.implementation = W_NDimArray.from_shape_and_storage([space.int_w(i) for i in space.listview(shape)], rffi.str2charp(space.str_w(storage), track_allocation=False), dtype, owning=True).implementation
+        self.implementation = W_NDimArray.from_shape_and_storage(space,
+                [space.int_w(i) for i in space.listview(shape)],
+                rffi.str2charp(space.str_w(storage), track_allocation=False),
+                dtype, owning=True).implementation
 
 
 @unwrap_spec(offset=int, order=str)
@@ -905,8 +917,8 @@ def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
     if not shape:
         return W_NDimArray.new_scalar(space, dtype)
     if space.is_w(w_subtype, space.gettypefor(W_NDimArray)):
-        return W_NDimArray.from_shape(shape, dtype, order)
-    return W_NDimArray.from_shape(shape, dtype, order, (w_subtype, space))
+        return W_NDimArray.from_shape(space, shape, dtype, order)
+    return W_NDimArray.from_shape(space, shape, dtype, order, w_subtype)
 
 @unwrap_spec(addr=int)
 def descr__from_shape_and_storage(space, w_cls, w_shape, addr, w_dtype, w_subclass=None):
@@ -922,10 +934,10 @@ def descr__from_shape_and_storage(space, w_cls, w_shape, addr, w_dtype, w_subcla
                              w_dtype))
     shape = _find_shape(space, w_shape, dtype)
     if w_subclass:
-        return W_NDimArray.from_shape_and_storage(shape, storage, dtype, 'C',
-                            False, (w_subclass, space))
+        return W_NDimArray.from_shape_and_storage(space, shape, storage, dtype,
+                             'C', False, w_subclass)
     else:
-        return W_NDimArray.from_shape_and_storage(shape, storage, dtype)
+        return W_NDimArray.from_shape_and_storage(space, shape, storage, dtype)
 
 W_NDimArray.typedef = TypeDef(
     "ndarray",
@@ -1105,7 +1117,7 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
         dtype = interp_dtype.variable_dtype(space, dtype.char + '1')
     if ndmin > len(shape):
         shape = [1] * (ndmin - len(shape)) + shape
-    arr = W_NDimArray.from_shape(shape, dtype, order=order)
+    arr = W_NDimArray.from_shape(space, shape, dtype, order=order)
     arr_iter = arr.create_iter()
     for w_elem in elems_w:
         arr_iter.setitem(dtype.coerce(space, w_elem))
@@ -1120,7 +1132,7 @@ def zeros(space, w_shape, w_dtype=None, order='C'):
     shape = _find_shape(space, w_shape, dtype)
     if not shape:
         return W_NDimArray.new_scalar(space, dtype, space.wrap(0))
-    return space.wrap(W_NDimArray.from_shape(shape, dtype=dtype, order=order))
+    return space.wrap(W_NDimArray.from_shape(space, shape, dtype=dtype, order=order))
 
 @unwrap_spec(order=str)
 def ones(space, w_shape, w_dtype=None, order='C'):
@@ -1130,7 +1142,7 @@ def ones(space, w_shape, w_dtype=None, order='C'):
     shape = _find_shape(space, w_shape, dtype)
     if not shape:
         return W_NDimArray.new_scalar(space, dtype, space.wrap(0))
-    arr = W_NDimArray.from_shape(shape, dtype=dtype, order=order)
+    arr = W_NDimArray.from_shape(space, shape, dtype=dtype, order=order)
     one = dtype.box(1)
     arr.fill(one)
     return space.wrap(arr)

@@ -19,9 +19,9 @@ call2_driver = jit.JitDriver(name='numpy_call2',
                              reds = ['shape', 'w_lhs', 'w_rhs', 'out',
                                      'left_iter', 'right_iter', 'out_iter'])
 
-def call2(shape, func, calc_dtype, res_dtype, w_lhs, w_rhs, out):
+def call2(space, shape, func, calc_dtype, res_dtype, w_lhs, w_rhs, out):
     if out is None:
-        out = W_NDimArray.from_shape(shape, res_dtype)
+        out = W_NDimArray.from_shape(space, shape, res_dtype)
     left_iter = w_lhs.create_iter(shape)
     right_iter = w_rhs.create_iter(shape)
     out_iter = out.create_iter(shape)
@@ -48,9 +48,9 @@ call1_driver = jit.JitDriver(name='numpy_call1',
                              reds = ['shape', 'w_obj', 'out', 'obj_iter',
                                      'out_iter'])
 
-def call1(shape, func, calc_dtype, res_dtype, w_obj, out):
+def call1(space, shape, func, calc_dtype, res_dtype, w_obj, out):
     if out is None:
-        out = W_NDimArray.from_shape(shape, res_dtype)
+        out = W_NDimArray.from_shape(space, shape, res_dtype, subtype=w_obj)
     obj_iter = w_obj.create_iter(shape)
     out_iter = out.create_iter(shape)
     shapelen = len(shape)
@@ -437,7 +437,7 @@ def fromstring_loop(a, dtype, itemsize, s):
 def tostring(space, arr):
     builder = StringBuilder()
     iter = arr.create_iter()
-    res_str = W_NDimArray.from_shape([1], arr.get_dtype(), order='C')
+    res_str = W_NDimArray.from_shape(space, [1], arr.get_dtype(), order='C')
     itemsize = arr.get_dtype().itemtype.get_element_size()
     res_str_casted = rffi.cast(rffi.CArrayPtr(lltype.Char),
                                res_str.implementation.get_storage_as_int(space))

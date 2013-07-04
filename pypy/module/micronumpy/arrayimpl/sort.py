@@ -126,7 +126,7 @@ def make_sort_function(space, itemtype, comp_type, count=1):
             axis = space.int_w(w_axis)
         # create array of indexes
         dtype = interp_dtype.get_dtype_cache(space).w_longdtype
-        index_arr = W_NDimArray.from_shape(arr.get_shape(), dtype)
+        index_arr = W_NDimArray.from_shape(space, arr.get_shape(), dtype)
         storage = index_arr.implementation.get_storage()
         if len(arr.get_shape()) == 1:
             for i in range(arr.get_size()):
