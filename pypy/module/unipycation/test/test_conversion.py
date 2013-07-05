@@ -189,9 +189,14 @@ class AppTestConversion(object):
     def test_list(self):
         import unipycation
 
-        e = unipycation.Engine("f([w, x, y, z]).")
+        e = unipycation.Engine("f([w, x]).")
         x = e.query("f(X).").next()["X"]
-        assert [ x[i] for i in range(4) ] == ["w", "x", "y", "z"]
+
+        assert x.name == "."
+        assert x.args[0] == "w"
+        assert x.args[1].name == "."
+        assert x.args[1].args[0] == "x"
+        assert x.args[1].args[1] == "[]"
 
     def test_aggregate_struct(self):
         import unipycation
