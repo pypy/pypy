@@ -96,8 +96,21 @@ features (such as set comprehensions).
 Does PyPy have a GIL?  Why?
 -------------------------------------------------
 
-Yes, PyPy has a GIL.  Removing the GIL is very hard.  The first problem
-is that our garbage collectors are not re-entrant.
+Yes, PyPy has a GIL.  Removing the GIL is very hard.  The problems are
+essentially the same as with CPython (including the fact that our
+garbage collectors are not thread-safe so far).  Fixing it is possible,
+as shown by Jython and IronPython, but difficult.  It would require
+adapting the whole source code of PyPy, including subtle decisions about
+whether some effects are ok or not for the user (i.e. the Python
+programmer).
+
+Instead, since 2012, there is work going on on a still very experimental
+Software Transactional Memory (STM) version of PyPy.  This should give
+an alternative PyPy which internally has no GIL, while at the same time
+continuing to give the Python programmer the complete illusion of having
+one.  It would in fact push forward *more* GIL-ish behavior, like
+declaring that some sections of the code should run without releasing
+the GIL in the middle (these are called *atomic sections* in STM).
 
 ------------------------------------------
 How do I write extension modules for PyPy?
