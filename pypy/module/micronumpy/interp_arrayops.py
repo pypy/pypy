@@ -161,7 +161,7 @@ def repeat(space, w_arr, repeats, w_axis):
         chunks = [Chunk(0, i, 1, i) for i in shape]
         orig_size = shape[axis]
         shape[axis] *= repeats
-        w_res = W_NDimArray.from_shape(space, shape, arr.get_dtype(), subtype=w_arr)
+        w_res = W_NDimArray.from_shape(space, shape, arr.get_dtype(), w_subtype=w_arr)
         for i in range(repeats):
             chunks[axis] = Chunk(i, shape[axis] - repeats + i, repeats,
                                  orig_size)
