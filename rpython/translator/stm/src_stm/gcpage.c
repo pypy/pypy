@@ -213,6 +213,29 @@ void stmgcpage_free(gcptr obj)
 
 static struct GcPtrList objects_to_trace;
 
+static void keep_original_alive(gcptr obj)
+{
+    /* keep alive the original of a visited object */
+    gcptr id_copy = (gcptr)obj->h_original;
+    /* prebuilt original objects may have a predifined
+       hash in h_original */
+    if (id_copy && !(obj->h_tid & GCFLAG_PREBUILT_ORIGINAL)) {
+        if (!(id_copy->h_tid & GCFLAG_PREBUILT_ORIGINAL)) {
+            id_copy->h_tid &= ~GCFLAG_PUBLIC_TO_PRIVATE;
+            /* see fix_outdated() */
+            id_copy->h_tid |= GCFLAG_VISITED;
+
+            /* XXX: may not always need tracing? */
+            gcptrlist_insert(&objects_to_trace, id_copy);
+        } 
+        else {
+            /* prebuilt originals won't get collected anyway
+               and if they are not reachable in any other way,
+               we only ever need their location, not their content */
+        }
+    }
+}
+
 static void visit(gcptr *pobj)
 {
     gcptr obj = *pobj;
@@ -227,6 +250,8 @@ static void visit(gcptr *pobj)
             obj->h_tid &= ~GCFLAG_PUBLIC_TO_PRIVATE;  /* see fix_outdated() */
             obj->h_tid |= GCFLAG_VISITED;
             gcptrlist_insert(&objects_to_trace, obj);
+
+            keep_original_alive(obj);
         }
     }
     else if (obj->h_tid & GCFLAG_PUBLIC) {
@@ -247,6 +272,8 @@ static void visit(gcptr *pobj)
             obj = (gcptr)(obj->h_revision - 2);
             if (!(obj->h_tid & GCFLAG_PUBLIC)) {
                 prev_obj->h_tid |= GCFLAG_VISITED;
+                keep_original_alive(prev_obj);
+
                 assert(*pobj == prev_obj);
                 gcptr obj1 = obj;
                 visit(&obj1);       /* recursion, but should be only once */
@@ -257,6 +284,9 @@ static void visit(gcptr *pobj)
         }
 
         if (!(obj->h_revision & 3)) {
+            /* obj is neither a stub nor a most recent revision:
+               completely ignore obj->h_revision */
+
             obj = (gcptr)obj->h_revision;
             assert(obj->h_tid & GCFLAG_PUBLIC);
             prev_obj->h_revision = (revision_t)obj;
@@ -275,7 +305,14 @@ static void visit(gcptr *pobj)
         assert(obj->h_tid & GCFLAG_PRIVATE_FROM_PROTECTED);
         gcptr B = (gcptr)obj->h_revision;
         assert(B->h_tid & (GCFLAG_PUBLIC | GCFLAG_BACKUP_COPY));
-
+        
+        if (obj->h_original && (gcptr)obj->h_original != B) {
+            /* if B is original, it will be visited anyway */
+            assert(obj->h_original == B->h_original);
+            assert(!(obj->h_tid & GCFLAG_PREBUILT_ORIGINAL));
+            keep_original_alive(obj);
+        }
+        
         obj->h_tid |= GCFLAG_VISITED;
         B->h_tid |= GCFLAG_VISITED;
         assert(!(obj->h_tid & GCFLAG_STUB));
@@ -294,6 +331,7 @@ static void visit(gcptr *pobj)
     }
 }
 
+
 static void visit_keep(gcptr obj)
 {
     if (!(obj->h_tid & GCFLAG_VISITED)) {
@@ -305,6 +343,7 @@ static void visit_keep(gcptr obj)
             assert(!(obj->h_revision & 2));
             visit((gcptr *)&obj->h_revision);
         }
+        keep_original_alive(obj);
     }
 }
 
@@ -376,8 +415,24 @@ static void mark_all_stack_roots(void)
                outdated, it will be found at that time */
             gcptr R = item->addr;
             gcptr L = item->val;
+
+            /* Objects that were not visited yet must have the PUB_TO_PRIV
+             flag. Except if that transaction will abort anyway, then it
+             may be removed from a previous major collection that didn't
+             fix the PUB_TO_PRIV because the transaction was going to
+             abort anyway:
+             1. minor_collect before major collect (R->L, R is outdated, abort)
+             2. major collect removes flag
+             3. major collect again, same thread, no time to abort
+             4. flag still removed
+            */
+            assert(IMPLIES(!(R->h_tid & GCFLAG_VISITED) && d->active > 0,
+                           R->h_tid & GCFLAG_PUBLIC_TO_PRIVATE));
             visit_keep(R);
             if (L != NULL) {
+                /* minor collection found R->L in public_to_young
+                 and R was modified. It then sets item->val to NULL and wants 
+                 to abort later. */
                 revision_t v = L->h_revision;
                 visit_keep(L);
                 /* a bit of custom logic here: if L->h_revision used to
@@ -385,8 +440,10 @@ static void mark_all_stack_roots(void)
                    keep this property, even though visit_keep(L) might
                    decide it would be better to make it point to a more
                    recent copy. */
-                if (v == (revision_t)R)
+                if (v == (revision_t)R) {
+                    assert(L->h_tid & GCFLAG_PRIVATE_FROM_PROTECTED);
                     L->h_revision = v;   /* restore */
+                }
             }
         } G2L_LOOP_END;
 
@@ -449,6 +506,7 @@ static void cleanup_for_thread(struct tx_descriptor *d)
            just removing it is very wrong --- we want 'd' to abort.
         */
         if (obj->h_tid & GCFLAG_PRIVATE_FROM_PROTECTED) {
+            /* follow obj to its backup */
             assert(IS_POINTER(obj->h_revision));
             obj = (gcptr)obj->h_revision;
         }
@@ -483,14 +541,16 @@ static void cleanup_for_thread(struct tx_descriptor *d)
     /* We are now after visiting all objects, and we know the
      * transaction isn't aborting because of this collection.  We have
      * cleared GCFLAG_PUBLIC_TO_PRIVATE from public objects at the end
-     * of the chain.  Now we have to set it again on public objects that
-     * have a private copy.
+     * of the chain (head revisions). Now we have to set it again on 
+     * public objects that have a private copy.
      */
     wlog_t *item;
 
     dprintf(("fix public_to_private on thread %p\n", d));
 
     G2L_LOOP_FORWARD(d->public_to_private, item) {
+        assert(item->addr->h_tid & GCFLAG_VISITED);
+        assert(item->val->h_tid & GCFLAG_VISITED);
 
         assert(item->addr->h_tid & GCFLAG_PUBLIC);
         /* assert(is_private(item->val)); but in the other thread,

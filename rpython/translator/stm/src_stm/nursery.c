@@ -45,7 +45,12 @@ void stmgc_init_nursery(void)
 void stmgc_done_nursery(void)
 {
     struct tx_descriptor *d = thread_descriptor;
-    assert(!minor_collect_anything_to_do(d));
+    /* someone may have called minor_collect_soon()
+       inbetween the preceeding minor_collect() and 
+       this assert (committransaction() -> 
+       updatechainheads() -> stub_malloc() -> ...): */
+    assert(!minor_collect_anything_to_do(d)
+           || d->nursery_current == d->nursery_end);
     stm_free(d->nursery_base, GC_NURSERY);
 
     gcptrlist_delete(&d->old_objects_to_trace);
@@ -262,7 +267,7 @@ static inline gcptr create_old_object_copy(gcptr obj)
     return fresh_old_copy;
 }
 
-inline void copy_to_old_id_copy(gcptr obj, gcptr id)
+void copy_to_old_id_copy(gcptr obj, gcptr id)
 {
     assert(!is_in_nursery(thread_descriptor, id));
     assert(id->h_tid & GCFLAG_OLD);
@@ -315,6 +320,7 @@ static void visit_if_young(gcptr *root)
         *root = fresh_old_copy;
 
         /* add 'fresh_old_copy' to the list of objects to trace */
+        assert(!(fresh_old_copy->h_tid & GCFLAG_PUBLIC));
         gcptrlist_insert(&d->old_objects_to_trace, fresh_old_copy);
     }
 }
@@ -426,6 +432,7 @@ static void mark_public_to_young(struct tx_descriptor *d)
         gcptr P = items[i];
         assert(P->h_tid & GCFLAG_PUBLIC);
         assert(P->h_tid & GCFLAG_OLD);
+        assert(P->h_tid & GCFLAG_PUBLIC_TO_PRIVATE);
 
         revision_t v = ACCESS_ONCE(P->h_revision);
         wlog_t *item;
@@ -474,7 +481,18 @@ static void visit_all_outside_objects(struct tx_descriptor *d)
 
         assert(obj->h_tid & GCFLAG_OLD);
         assert(!(obj->h_tid & GCFLAG_WRITE_BARRIER));
-        obj->h_tid |= GCFLAG_WRITE_BARRIER;
+
+        /* We add the WRITE_BARRIER flag to objects here, but warning:
+           we may occasionally see a PUBLIC object --- one that was
+           a private/protected object when it was added to
+           old_objects_to_trace, and has been stolen.  So we have to
+           check and not do any change the obj->h_tid in that case.
+           Otherwise this conflicts with the rule that we may only
+           modify obj->h_tid of a public object in order to add
+           PUBLIC_TO_PRIVATE.
+        */
+        if (!(obj->h_tid & GCFLAG_PUBLIC))
+            obj->h_tid |= GCFLAG_WRITE_BARRIER;
 
         stmgc_trace(obj, &visit_if_young);
     }
@@ -672,6 +690,7 @@ static gcptr allocate_next_section(size_t allocate_size, revision_t tid)
         gcptr P = stmgcpage_malloc(allocate_size);
         memset(P, 0, allocate_size);
         P->h_tid = tid | GCFLAG_OLD;
+        assert(!(P->h_tid & GCFLAG_PUBLIC));
         gcptrlist_insert(&d->old_objects_to_trace, P);
         return P;
     }

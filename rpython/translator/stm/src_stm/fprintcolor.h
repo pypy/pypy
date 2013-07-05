@@ -7,7 +7,7 @@ void stm_fatalerror(const char *format, ...)
      __attribute__((format (printf, 1, 2), noreturn));
 
 
-#ifdef _GC_DEBUG
+#ifdef _GC_DEBUGPRINTS
 
 #define dprintf(args)   threadcolor_printf args
 int dprintfcolor(void);

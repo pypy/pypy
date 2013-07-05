@@ -1,8 +1,9 @@
 from rpython.jit.backend.llsupport.descr import *
 from rpython.jit.backend.llsupport.gc import *
 from rpython.jit.metainterp.gc import get_description
-from rpython.jit.backend.llsupport.test.test_rewrite import RewriteTests
-
+from rpython.jit.backend.llsupport.test.test_rewrite import (
+    RewriteTests, BaseFakeCPU)
+from rpython.rtyper.lltypesystem import lltype, rclass, rffi, llmemory
 
 class TestStm(RewriteTests):
     def setup_method(self, meth):
@@ -17,11 +18,12 @@ class TestStm(RewriteTests):
         self.gc_ll_descr = GcLLDescr_framework(gcdescr, None, None, None,
                                                really_not_translated=True)
         #
-        class FakeCPU(object):
+        class FakeCPU(BaseFakeCPU):
             def sizeof(self, STRUCT):
                 descr = SizeDescrWithVTable(104)
                 descr.tid = 9315
                 return descr
+
         self.cpu = FakeCPU()
 
     def check_rewrite(self, frm_operations, to_operations, **namespace):
@@ -48,6 +50,8 @@ class TestStm(RewriteTests):
         """)
 
     def test_rewrite_setfield_gc_const(self):
+        TP = lltype.GcArray(lltype.Signed)
+        NULL = lltype.cast_opaque_ptr(llmemory.GCREF, lltype.nullptr(TP))
         self.check_rewrite("""
             [p1, p2]
             setfield_gc(ConstPtr(t), p2, descr=tzdescr)
@@ -58,7 +62,7 @@ class TestStm(RewriteTests):
             cond_call_gc_wb(p3, 0, descr=P2Wdescr)
             setfield_gc(p3, p2, descr=tzdescr)
             jump()
-        """)
+            """, t=NULL)
 
     def test_rewrite_setfield_gc_on_local(self):
         self.check_rewrite("""
@@ -164,6 +168,8 @@ class TestStm(RewriteTests):
         """)
 
     def test_rewrite_getfield_gc_const(self):
+        TP = lltype.GcArray(lltype.Signed)
+        NULL = lltype.cast_opaque_ptr(llmemory.GCREF, lltype.nullptr(TP))
         self.check_rewrite("""
             [p1]
             p2 = getfield_gc(ConstPtr(t), descr=tzdescr)
@@ -174,7 +180,7 @@ class TestStm(RewriteTests):
             cond_call_gc_wb(p3, 0, descr=P2Rdescr)
             p2 = getfield_gc(p3, descr=tzdescr)
             jump(p2)
-        """)
+        """, t=NULL)
         # XXX could do better: G2Rdescr
 
     def test_rewrite_getarrayitem_gc(self):
@@ -300,62 +306,62 @@ class TestStm(RewriteTests):
     def test_getfield_raw(self):
         self.check_rewrite("""
             [i1, i2]
-            i3 = getfield_raw(i1, descr=?)
+            i3 = getfield_raw(i1, descr=<?)
             keepalive(i3)     # random ignored operation
-            i4 = getfield_raw(i2, descr=?)
+            i4 = getfield_raw(i2, descr=<?)
             jump(i3, i4)
         """, """
             [i1, i2]
             $INEV
-            i3 = getfield_raw(i1, descr=?)
+            i3 = getfield_raw(i1, descr=<?)
             keepalive(i3)
-            i4 = getfield_raw(i2, descr=?)
+            i4 = getfield_raw(i2, descr=<?)
             jump(i3, i4)
         """)
 
     def test_getfield_raw_over_label(self):
         self.check_rewrite("""
             [i1, i2]
-            i3 = getfield_raw(i1, descr=?)
+            i3 = getfield_raw(i1, descr=<?)
             label(i1, i2, i3)
-            i4 = getfield_raw(i2, descr=?)
+            i4 = getfield_raw(i2, descr=<?)
             jump(i3, i4)
         """, """
             [i1, i2]
             $INEV
-            i3 = getfield_raw(i1, descr=?)
+            i3 = getfield_raw(i1, descr=<?)
             label(i1, i2, i3)
             $INEV
-            i4 = getfield_raw(i2, descr=?)
+            i4 = getfield_raw(i2, descr=<?)
             jump(i3, i4)
         """)
 
     def test_getarrayitem_raw(self):
         self.check_rewrite("""
             [i1, i2]
-            i3 = getarrayitem_raw(i1, 5, descr=?)
-            i4 = getarrayitem_raw(i2, i3, descr=?)
+            i3 = getarrayitem_raw(i1, 5, descr=<?)
+            i4 = getarrayitem_raw(i2, i3, descr=<?)
             jump(i3, i4)
         """, """
             [i1, i2]
             $INEV
-            i3 = getarrayitem_raw(i1, 5, descr=?)
-            i4 = getarrayitem_raw(i2, i3, descr=?)
+            i3 = getarrayitem_raw(i1, 5, descr=<?)
+            i4 = getarrayitem_raw(i2, i3, descr=<?)
             jump(i3, i4)
         """)
 
     def test_rewrite_unrelated_setarrayitem_gcs(self):
         self.check_rewrite("""
             [p1, i1, p2, p3, i3, p4]
-            setarrayitem_gc(p1, i1, p2, descr=?)
-            setarrayitem_gc(p3, i3, p4, descr=?)
+            setarrayitem_gc(p1, i1, p2, descr=<?)
+            setarrayitem_gc(p3, i3, p4, descr=<?)
             jump()
         """, """
             [p1, i1, p2, p3, i3, p4]
             cond_call_gc_wb(p1, 0, descr=P2Wdescr)
-            setarrayitem_gc(p1, i1, p2, descr=?)
+            setarrayitem_gc(p1, i1, p2, descr=<?)
             cond_call_gc_wb(p3, 0, descr=P2Wdescr)
-            setarrayitem_gc(p3, i3, p4, descr=?)
+            setarrayitem_gc(p3, i3, p4, descr=<?)
             jump()
         """)
 
@@ -408,10 +414,12 @@ class TestStm(RewriteTests):
                      "that p1 is already a W")
 
     def test_fallback_to_inevitable(self):
+        T = rffi.CArrayPtr(rffi.TIME_T)
+        calldescr2 = get_call_descr(self.gc_ll_descr, [T], rffi.TIME_T)
         oplist = [
-            "setfield_raw(i1, i2, descr=?)",
-            "setarrayitem_raw(i1, i2, i3, descr=?)",
-            "setinteriorfield_raw(i1, i2, i3, descr=?)",
+            "setfield_raw(i1, i2, descr=<?)",
+            "setarrayitem_raw(i1, i2, i3, descr=<?)",
+            "setinteriorfield_raw(i1, i2, i3, descr=<?)",
             "call_release_gil(123, descr=calldescr2)",
             "escape(i1)",    # a generic unknown operation
             ]
@@ -431,7 +439,7 @@ class TestStm(RewriteTests):
                 cond_call_gc_wb(p7, 0, descr=P2Wdescr)
                 setfield_gc(p7, 20, descr=tydescr)
                 jump(i2, p7)
-            """ % op)
+            """ % op, calldescr2=calldescr2)
 
     def test_copystrcontent(self):
         self.check_rewrite("""
@@ -468,8 +476,10 @@ class TestStm(RewriteTests):
             """ % op)
 
     def test_call_force(self):
+        T = rffi.CArrayPtr(rffi.TIME_T)
+        calldescr2 = get_call_descr(self.gc_ll_descr, [T], rffi.TIME_T)
         for op in ["call(123, descr=calldescr2)",
-                   "call_assembler(123, descr=loopdescr)",
+                   "call_assembler(123, descr=casmdescr)",
                    "call_may_force(123, descr=calldescr2)",
                    "call_loopinvariant(123, descr=calldescr2)",
                    ]:
@@ -487,7 +497,7 @@ class TestStm(RewriteTests):
                 cond_call_gc_wb(p1, 0, descr=P2Wdescr)
                 setfield_gc(p1, 20, descr=tydescr)
                 jump(p1)
-            """ % op)
+            """ % op, calldescr2=calldescr2)
 
     def test_ptr_eq_null(self):
         self.check_rewrite("""
