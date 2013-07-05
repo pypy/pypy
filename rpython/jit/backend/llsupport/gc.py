@@ -241,6 +241,9 @@ class GcLLDescr_boehm(GcLLDescription):
         return self.malloc_array(arraydescr.basesize, num_elem,
                                  arraydescr.itemsize,
                                  arraydescr.lendescr.offset)
+    
+    def get_malloc_slowpath_addr(self):
+        return None
 
 # ____________________________________________________________
 # All code below is for the hybrid or minimark GC

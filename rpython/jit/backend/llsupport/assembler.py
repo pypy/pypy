@@ -92,7 +92,7 @@ class BaseAssembler(object):
             self._build_wb_slowpath(False, withfloats=True)
             self._build_wb_slowpath(True, withfloats=True)
         self._build_propagate_exception_path()
-        if gc_ll_descr.get_malloc_slowpath_addr is not None:
+        if gc_ll_descr.get_malloc_slowpath_addr() is not None:
             # generate few slowpaths for various cases
             self.malloc_slowpath = self._build_malloc_slowpath(kind='fixed')
             self.malloc_slowpath_varsize = self._build_malloc_slowpath(
