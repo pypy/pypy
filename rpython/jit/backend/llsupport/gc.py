@@ -362,7 +362,7 @@ class WriteBarrierDescr(AbstractDescr):
         self.wb_slowpath[withcards + 2 * withfloats] = addr
 
     @specialize.arg(2)
-    def _do_write_barrier(self, gcref_struct, returns_modified_object):
+    def _do_barrier(self, gcref_struct, returns_modified_object):
         assert self.returns_modified_object == returns_modified_object
         hdr_addr = llmemory.cast_ptr_to_adr(gcref_struct)
         hdr_addr -= self.gcheaderbuilder.size_gc_header
@@ -397,20 +397,29 @@ class STMBarrierDescr(WriteBarrierDescr):
         cat = self.stmcat
         return cat
 
+    @specialize.arg(2)
     def _do_barrier(self, gcref_struct, returns_modified_object):
-        raise NotImplemented
+        assert self.returns_modified_object == returns_modified_object
+        # XXX: fastpath for Read and Write variants
+        funcptr = self.get_barrier_funcptr(returns_modified_object)
+        res = funcptr(llmemory.cast_ptr_to_adr(gcref_struct))
+        if returns_modified_object:
+            return llmemory.cast_adr_to_ptr(res, llmemory.GCREF)
+
 
 class STMReadBarrierDescr(STMBarrierDescr):
     def __init__(self, gc_ll_descr, stmcat):
         assert stmcat == 'P2R'
         STMBarrierDescr.__init__(self, gc_ll_descr, stmcat,
-                                 'stm_DirectReadBarrier')
+                                 'stm_read_barrier')
+    
+    
 
 class STMWriteBarrierDescr(STMBarrierDescr):
     def __init__(self, gc_ll_descr, stmcat):
         assert stmcat in ['P2W', 'R2W']
         STMBarrierDescr.__init__(self, gc_ll_descr, stmcat,
-                                 'stm_WriteBarrier')
+                                 'stm_write_barrier')
     
         
 class GcLLDescr_framework(GcLLDescription):
@@ -507,7 +516,7 @@ class GcLLDescr_framework(GcLLDescription):
         else:
             self.write_barrier_descr = WriteBarrierDescr(self)
             def do_write_barrier(gcref_struct, gcref_newptr):
-                self.write_barrier_descr._do_write_barrier(gcref_struct, False)
+                self.write_barrier_descr._do_barrier(gcref_struct, False)
             self.do_write_barrier = do_write_barrier
 
     def _setup_barriers_for_stm(self):
@@ -524,7 +533,7 @@ class GcLLDescr_framework(GcLLDescription):
                 descr = self.P2Wdescr
             else:
                 descr = self.P2Rdescr
-            return descr._do_write_barrier(gcref, True)
+            return descr._do_barrier(gcref, True)
         self.do_stm_barrier = do_stm_barrier
 
     def _make_functions(self, really_not_translated):
