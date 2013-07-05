@@ -5,7 +5,7 @@ Software Transactional Memory emulation of the GIL.
 from pypy.module.thread.threadlocals import BaseThreadLocals
 from pypy.module.thread.error import wrap_thread_error
 from pypy.interpreter.executioncontext import ExecutionContext
-from pypy.interpreter.gateway import Wrappable, W_Root, interp2app
+from pypy.interpreter.gateway import W_Root, interp2app
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, descr_get_dict
 from rpython.rlib import rthread
 from rpython.rlib import rstm
@@ -122,7 +122,7 @@ def allocate_stm_lock(space):
 # ____________________________________________________________
 
 
-class STMLocal(Wrappable):
+class STMLocal(W_Root):
     """Thread-local data"""
 
     @jit.dont_look_inside

@@ -120,18 +120,21 @@ class TestSTMTranslated(CompiledSTMTests):
 
     def test_bug1(self):
         #
-        class Foobar:
-            pass
         def check(foobar, retry_counter):
             rgc.collect(0)
             return 0
         #
+        from rpython.rtyper.lltypesystem.rclass import OBJECTPTR
+        S = lltype.GcStruct('S', ('got_exception', OBJECTPTR))
+        PS = lltype.Ptr(S)
+        perform_transaction = rstm.make_perform_transaction(check, PS)
         class X:
             def __init__(self, count):
                 self.count = count
         def g():
             x = X(1000)
-            rstm.perform_transaction(check, Foobar, Foobar())
+            perform_transaction(lltype.malloc(S))
+            #rstm.perform_transaction(check, Foobar, Foobar())
             return x
         def entry_point(argv):
             x = X(len(argv))
@@ -145,8 +148,6 @@ class TestSTMTranslated(CompiledSTMTests):
 
     def test_bug2(self):
         #
-        class Foobar:
-            pass
         def check(foobar, retry_counter):
             return 0    # do nothing
         #
@@ -154,11 +155,16 @@ class TestSTMTranslated(CompiledSTMTests):
             pass
         prebuilt2 = [X2(), X2()]
         #
+        from rpython.rtyper.lltypesystem.rclass import OBJECTPTR
+        S = lltype.GcStruct('S', ('got_exception', OBJECTPTR))
+        PS = lltype.Ptr(S)
+        perform_transaction = rstm.make_perform_transaction(check, PS)
         def bug2(count):
             x = prebuilt2[count]
             x.foobar = 2                    # 'x' becomes a local
             #
-            rstm.perform_transaction(check, Foobar, Foobar())
+            #rstm.perform_transaction(check, Foobar, Foobar())
+            perform_transaction(lltype.malloc(S))
                                             # 'x' becomes the global again
             #
             y = prebuilt2[count]            # same prebuilt obj
@@ -175,10 +181,14 @@ class TestSTMTranslated(CompiledSTMTests):
         assert '12\n12\n' in data, "got: %r" % (data,)
 
     def test_prebuilt_nongc(self):
-        class Foobar:
-            pass
         def check(foobar, retry_counter):
             return 0    # do nothing
+        from rpython.rtyper.lltypesystem.rclass import OBJECTPTR
+        from rpython.rtyper.lltypesystem import lltype
+        S = lltype.GcStruct('S', ('got_exception', OBJECTPTR))
+        PS = lltype.Ptr(S)
+        perform_transaction = rstm.make_perform_transaction(check, PS)
+        
         from rpython.rtyper.lltypesystem import lltype
         R = lltype.GcStruct('R', ('x', lltype.Signed))
         S1 = lltype.Struct('S1', ('r', lltype.Ptr(R)))
@@ -187,7 +197,8 @@ class TestSTMTranslated(CompiledSTMTests):
         #                   hints={'stm_thread_local': True})
         #s2 = lltype.malloc(S2, immortal=True, flavor='raw')
         def do_stuff():
-            rstm.perform_transaction(check, Foobar, Foobar())
+            perform_transaction(lltype.malloc(S))
+            #rstm.perform_transaction(check, Foobar, Foobar())
             print s1.r.x
             #print s2.r.x
         do_stuff._dont_inline_ = True

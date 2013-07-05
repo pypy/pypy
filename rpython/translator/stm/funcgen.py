@@ -159,6 +159,13 @@ def stm_leave_callback_call(funcgen, op):
     arg0 = funcgen.expr(op.args[0])
     return 'stm_leave_callback_call(%s);' % (arg0,)
 
+def stm_minor_collect(funcgen, op):
+    return 'stmgc_minor_collect();'
+
+def stm_major_collect(funcgen, op):
+    return 'stmgcpage_possibly_major_collect(1);}' # forced
+
+    
 
 def op_stm(funcgen, op):
     func = globals()[op.opname]

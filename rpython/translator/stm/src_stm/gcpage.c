@@ -226,7 +226,8 @@ static void keep_original_alive(gcptr obj)
             id_copy->h_tid |= GCFLAG_VISITED;
 
             /* XXX: may not always need tracing? */
-            gcptrlist_insert(&objects_to_trace, id_copy);
+            if (!(id_copy->h_tid & GCFLAG_STUB))
+                gcptrlist_insert(&objects_to_trace, id_copy);
         } 
         else {
             /* prebuilt originals won't get collected anyway

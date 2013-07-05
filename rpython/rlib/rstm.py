@@ -28,13 +28,13 @@ def abort_info_push(instance, fieldnames):
 
 def abort_info_pop(count):
     if we_are_translated():
-        stmgcintf.StmOperations.abort_info_pop(count)
+        pass #stmgcintf.StmOperations.abort_info_pop(count)
 
 def charp_inspect_abort_info():
-    return stmgcintf.StmOperations.inspect_abort_info()
+    pass # return stmgcintf.StmOperations.inspect_abort_info()
 
 def abort_and_retry():
-    stmgcintf.StmOperations.abort_and_retry()
+    pass # stmgcintf.StmOperations.abort_and_retry()
 
 def before_external_call():
     llop.stm_commit_transaction(lltype.Void)
