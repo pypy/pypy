@@ -213,7 +213,7 @@ class TestFramework(object):
         gc_ll_descr = self.gc_ll_descr
         llop1 = self.llop1
         #
-        rewriter = gc.GcRewriterAssembler(gc_ll_descr, None)
+        rewriter = GcRewriterAssembler(gc_ll_descr, None)
         newops = rewriter.newops
         v_base = BoxPtr()
         v_value = BoxPtr()
