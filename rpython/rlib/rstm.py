@@ -1,5 +1,5 @@
 from rpython.rlib.objectmodel import we_are_translated, specialize
-from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rtyper.lltypesystem import lltype, rffi, rstr, llmemory
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.extregistry import ExtRegistryEntry
 
@@ -31,7 +31,7 @@ def abort_info_pop(count):
         pass #stmgcintf.StmOperations.abort_info_pop(count)
 
 def charp_inspect_abort_info():
-    pass # return stmgcintf.StmOperations.inspect_abort_info()
+    return rffi.NULL # return stmgcintf.StmOperations.inspect_abort_info()
 
 def abort_and_retry():
     pass # stmgcintf.StmOperations.abort_and_retry()
