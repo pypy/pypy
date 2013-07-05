@@ -270,37 +270,24 @@ class GcRootMap_shadowstack(object):
         rst_addr = llop.gc_adr_of_root_stack_top(llmemory.Address)
         return rffi.cast(lltype.Signed, rst_addr)
 
+
 class WriteBarrierDescr(AbstractDescr):
-    def __init__(self, gc_ll_descr, stmcat=None):
+    def __init__(self, gc_ll_descr):
         self.llop1 = gc_ll_descr.llop1
-        self.stmcat = stmcat
-        self.returns_modified_object = (stmcat is not None)
-        if not self.returns_modified_object:
-            self.WB_FUNCPTR = lltype.Ptr(lltype.FuncType(
-                [llmemory.Address], lltype.Void))
-        else:
-            self.WB_FUNCPTR_MOD = lltype.Ptr(lltype.FuncType(
-                [llmemory.Address], llmemory.Address))
+
+        self.returns_modified_object = False
+        self.WB_FUNCPTR = lltype.Ptr(lltype.FuncType(
+            [llmemory.Address], lltype.Void))
+
         self.fielddescr_tid = gc_ll_descr.fielddescr_tid
         self.gcheaderbuilder = gc_ll_descr.gcheaderbuilder
         self.HDRPTR = gc_ll_descr.HDRPTR
         #
-        if self.stmcat is not None:
-            cfunc_name = self.stmcat[2]
-            self.wb_failing_case_ptr = rffi.llexternal(
-                cfunc_name,
-                self.WB_FUNCPTR_MOD.TO.ARGS,
-                self.WB_FUNCPTR_MOD.TO.RESULT,
-                sandboxsafe=True,
-                _nowrapper=True)
-        #
         GCClass = gc_ll_descr.GCClass
         if GCClass is None:     # for tests
             return
-        if self.stmcat is None:
-            self.jit_wb_if_flag = GCClass.JIT_WB_IF_FLAG
-        else:
-            self.jit_wb_if_flag = self.stmcat[0]
+
+        self.jit_wb_if_flag = GCClass.JIT_WB_IF_FLAG
         self.jit_wb_if_flag_byteofs, self.jit_wb_if_flag_singlebyte = (
             self.extract_flag_byte(self.jit_wb_if_flag))
         #
@@ -320,11 +307,7 @@ class WriteBarrierDescr(AbstractDescr):
         self.wb_slowpath = [0, 0, 0, 0]
 
     def repr_of_descr(self):
-        if self.stmcat is None:
-            return 'wbdescr'
-        else:
-            cat = self.stmcat[1]
-            return cat
+        return 'wbdescr'
 
     def __repr__(self):
         return '<WriteBarrierDescr %r>' % (self.repr_of_descr(),)
@@ -395,7 +378,41 @@ class WriteBarrierDescr(AbstractDescr):
             if returns_modified_object:
                 return gcref_struct
 
+class STMBarrierDescr(WriteBarrierDescr):
+    def __init__(self, gc_ll_descr, stmcat, cfunc_name):
+        WriteBarrierDescr.__init__(self, gc_ll_descr)
+        self.stmcat = stmcat
+        self.returns_modified_object = True
+        self.WB_FUNCPTR_MOD = lltype.Ptr(lltype.FuncType(
+            [llmemory.Address], llmemory.Address))
 
+        self.wb_failing_case_ptr = rffi.llexternal(
+            cfunc_name,
+            self.WB_FUNCPTR_MOD.TO.ARGS,
+            self.WB_FUNCPTR_MOD.TO.RESULT,
+            sandboxsafe=True,
+            _nowrapper=True)
+
+    def repr_of_descr(self):
+        cat = self.stmcat
+        return cat
+
+    def _do_barrier(self, gcref_struct, returns_modified_object):
+        raise NotImplemented
+
+class STMReadBarrierDescr(STMBarrierDescr):
+    def __init__(self, gc_ll_descr, stmcat):
+        assert stmcat == 'P2R'
+        STMBarrierDescr.__init__(self, gc_ll_descr, stmcat,
+                                 'stm_DirectReadBarrier')
+
+class STMWriteBarrierDescr(STMBarrierDescr):
+    def __init__(self, gc_ll_descr, stmcat):
+        assert stmcat in ['P2W', 'R2W']
+        STMBarrierDescr.__init__(self, gc_ll_descr, stmcat,
+                                 'stm_WriteBarrier')
+    
+        
 class GcLLDescr_framework(GcLLDescription):
     DEBUG = False    # forced to True by x86/test/test_zrpy_gc.py
     kind = 'framework'
@@ -494,14 +511,9 @@ class GcLLDescr_framework(GcLLDescription):
             self.do_write_barrier = do_write_barrier
 
     def _setup_barriers_for_stm(self):
-        from rpython.memory.gc import stmgc
-        WBDescr = WriteBarrierDescr
-        self.P2Rdescr = WBDescr(self, (0,      'P2R',
-                                       'stm_DirectReadBarrier'))
-        self.P2Wdescr = WBDescr(self, (0, 'P2W',
-                                       'stm_WriteBarrier'))
-        self.R2Wdescr = WBDescr(self, (0, 'R2W',
-                                       'stm_WriteBarrierFromReady'))
+        self.P2Rdescr = STMReadBarrierDescr(self, 'P2R')
+        self.P2Wdescr = STMWriteBarrierDescr(self, 'P2W')
+        self.R2Wdescr = STMWriteBarrierDescr(self, 'R2W')
         self.write_barrier_descr = "wbdescr: do not use"
         #
         @specialize.argtype(0)
