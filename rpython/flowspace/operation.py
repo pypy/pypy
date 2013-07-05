@@ -8,6 +8,7 @@ import __future__
 import operator
 from rpython.tool.sourcetools import compile2
 from rpython.rlib.rarithmetic import ovfcheck
+from rpython.flowspace.model import Constant
 
 class _OpHolder(object): pass
 op = _OpHolder()
@@ -23,6 +24,22 @@ class SpaceOperator(object):
         self.pyfunc = pyfunc
         self.pure = pure
         self.can_overflow = can_overflow
+
+    def make_sc(self):
+        def sc_operator(space, args_w):
+            if len(args_w) != self.arity:
+                if self is op.pow and len(args_w) == 2:
+                    args_w = args_w + [Constant(None)]
+                elif self is op.getattr and len(args_w) == 3:
+                    return space.frame.do_operation('simple_call', Constant(getattr), *args_w)
+                else:
+                    raise Exception("should call %r with exactly %d arguments" % (
+                        self.name, self.arity))
+            # completely replace the call with the underlying
+            # operation and its limited implicit exceptions semantic
+            return getattr(space, self.name)(*args_w)
+        return sc_operator
+
 
 def add_operator(name, arity, symbol, pyfunc=None, pure=False, ovf=False):
     operator_func = getattr(operator, name, None)

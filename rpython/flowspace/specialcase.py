@@ -8,21 +8,6 @@ def sc_import(space, args_w):
     args = [space.unwrap(arg) for arg in args_w]
     return space.import_name(*args)
 
-def make_sc(oper):
-    def sc_operator(space, args_w):
-        if len(args_w) != oper.arity:
-            if oper is op.pow and len(args_w) == 2:
-                args_w = args_w + [Constant(None)]
-            elif oper is op.getattr and len(args_w) == 3:
-                return space.frame.do_operation('simple_call', Constant(getattr), *args_w)
-            else:
-                raise Exception("should call %r with exactly %d arguments" % (
-                    oper.name, oper.arity))
-        # completely replace the call with the underlying
-        # operation and its limited implicit exceptions semantic
-        return getattr(space, oper.name)(*args_w)
-    return sc_operator
-
 # _________________________________________________________________________
 # a simplified version of the basic printing routines, for RPython programs
 class StdOutBuffer:
@@ -73,4 +58,4 @@ SPECIAL_CASES = {__import__: sc_import, r_uint: sc_r_uint,
         we_are_translated: sc_we_are_translated,
         locals: sc_locals}
 for fn, oper in func2op.items():
-    SPECIAL_CASES[fn] = make_sc(oper)
+    SPECIAL_CASES[fn] = oper.make_sc()
