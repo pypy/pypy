@@ -163,7 +163,7 @@ def stm_minor_collect(funcgen, op):
     return 'stmgc_minor_collect();'
 
 def stm_major_collect(funcgen, op):
-    return 'stmgcpage_possibly_major_collect(1);}' # forced
+    return 'stmgcpage_possibly_major_collect(1);' # forced
 
     
 

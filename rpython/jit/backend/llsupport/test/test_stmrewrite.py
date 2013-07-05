@@ -306,62 +306,62 @@ class TestStm(RewriteTests):
     def test_getfield_raw(self):
         self.check_rewrite("""
             [i1, i2]
-            i3 = getfield_raw(i1, descr=<?)
+            i3 = getfield_raw(i1, descr=tydescr)
             keepalive(i3)     # random ignored operation
-            i4 = getfield_raw(i2, descr=<?)
+            i4 = getfield_raw(i2, descr=tydescr)
             jump(i3, i4)
         """, """
             [i1, i2]
             $INEV
-            i3 = getfield_raw(i1, descr=<?)
+            i3 = getfield_raw(i1, descr=tydescr)
             keepalive(i3)
-            i4 = getfield_raw(i2, descr=<?)
+            i4 = getfield_raw(i2, descr=tydescr)
             jump(i3, i4)
         """)
 
     def test_getfield_raw_over_label(self):
         self.check_rewrite("""
             [i1, i2]
-            i3 = getfield_raw(i1, descr=<?)
+            i3 = getfield_raw(i1, descr=tydescr)
             label(i1, i2, i3)
-            i4 = getfield_raw(i2, descr=<?)
+            i4 = getfield_raw(i2, descr=tydescr)
             jump(i3, i4)
         """, """
             [i1, i2]
             $INEV
-            i3 = getfield_raw(i1, descr=<?)
+            i3 = getfield_raw(i1, descr=tydescr)
             label(i1, i2, i3)
             $INEV
-            i4 = getfield_raw(i2, descr=<?)
+            i4 = getfield_raw(i2, descr=tydescr)
             jump(i3, i4)
         """)
 
     def test_getarrayitem_raw(self):
         self.check_rewrite("""
             [i1, i2]
-            i3 = getarrayitem_raw(i1, 5, descr=<?)
-            i4 = getarrayitem_raw(i2, i3, descr=<?)
+            i3 = getarrayitem_raw(i1, 5, descr=adescr)
+            i4 = getarrayitem_raw(i2, i3, descr=adescr)
             jump(i3, i4)
         """, """
             [i1, i2]
             $INEV
-            i3 = getarrayitem_raw(i1, 5, descr=<?)
-            i4 = getarrayitem_raw(i2, i3, descr=<?)
+            i3 = getarrayitem_raw(i1, 5, descr=adescr)
+            i4 = getarrayitem_raw(i2, i3, descr=adescr)
             jump(i3, i4)
         """)
 
     def test_rewrite_unrelated_setarrayitem_gcs(self):
         self.check_rewrite("""
             [p1, i1, p2, p3, i3, p4]
-            setarrayitem_gc(p1, i1, p2, descr=<?)
-            setarrayitem_gc(p3, i3, p4, descr=<?)
+            setarrayitem_gc(p1, i1, p2, descr=adescr)
+            setarrayitem_gc(p3, i3, p4, descr=adescr)
             jump()
         """, """
             [p1, i1, p2, p3, i3, p4]
             cond_call_gc_wb(p1, 0, descr=P2Wdescr)
-            setarrayitem_gc(p1, i1, p2, descr=<?)
+            setarrayitem_gc(p1, i1, p2, descr=adescr)
             cond_call_gc_wb(p3, 0, descr=P2Wdescr)
-            setarrayitem_gc(p3, i3, p4, descr=<?)
+            setarrayitem_gc(p3, i3, p4, descr=adescr)
             jump()
         """)
 
@@ -417,9 +417,9 @@ class TestStm(RewriteTests):
         T = rffi.CArrayPtr(rffi.TIME_T)
         calldescr2 = get_call_descr(self.gc_ll_descr, [T], rffi.TIME_T)
         oplist = [
-            "setfield_raw(i1, i2, descr=<?)",
-            "setarrayitem_raw(i1, i2, i3, descr=<?)",
-            "setinteriorfield_raw(i1, i2, i3, descr=<?)",
+            "setfield_raw(i1, i2, descr=tydescr)",
+            "setarrayitem_raw(i1, i2, i3, descr=tydescr)",
+            "setinteriorfield_raw(i1, i2, i3, descr=adescr)",
             "call_release_gil(123, descr=calldescr2)",
             "escape(i1)",    # a generic unknown operation
             ]
