@@ -19,7 +19,7 @@ from rpython.flowspace.generator import (tweak_generator_graph,
 from rpython.flowspace.pygraph import PyGraph
 from rpython.flowspace.specialcase import SPECIAL_CASES
 from rpython.rlib.unroll import unrolling_iterable, _unroller
-from rpython.rlib import rstackovf, rarithmetic
+from rpython.rlib import rstackovf
 from rpython.rlib.rarithmetic import is_valid_int
 
 
@@ -323,10 +323,10 @@ class FlowObjSpace(object):
         assert isinstance(w_name, Constant)
         # handle sys
         if w_module in self.not_really_const:
-            const_w = self.not_really_const[w_obj]
+            const_w = self.not_really_const[w_module]
             if w_name not in const_w:
                 return self.frame.do_operation_with_implicit_exceptions('getattr',
-                                                                w_obj, w_name)
+                                                                w_module, w_name)
         try:
             return self.wrap(getattr(w_module.value, w_name.value))
         except AttributeError:
