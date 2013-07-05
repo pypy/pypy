@@ -253,11 +253,6 @@ op_appendices = {
     }
 
 implicit_exceptions = {
-    int: [ValueError],      # built-ins that can always raise exceptions
-    float: [ValueError],
-    chr: [ValueError],
-    unichr: [ValueError],
-    unicode: [UnicodeDecodeError],
     # specifying IndexError, and KeyError beyond Exception,
     # allows the annotator to be more precise, see test_reraiseAnything/KeyError in
     # the annotator tests

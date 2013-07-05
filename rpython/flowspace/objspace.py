@@ -45,6 +45,16 @@ NOT_REALLY_CONST = {
         }
     }
 
+# built-ins that can always raise exceptions
+builtins_exceptions = {
+    int: [ValueError],
+    float: [ValueError],
+    chr: [ValueError],
+    unichr: [ValueError],
+    unicode: [UnicodeDecodeError],
+}
+
+
 def _assert_rpythonic(func):
     """Raise ValueError if ``func`` is obviously not RPython"""
     if func.func_doc and func.func_doc.lstrip().startswith('NOT_RPYTHON'):
@@ -365,15 +375,6 @@ class FlowObjSpace(object):
                 args_w = args.arguments_w
             w_res = self.frame.do_operation('simple_call', w_callable, *args_w)
 
-        # maybe the call has generated an exception (any one)
-        # but, let's say, not if we are calling a built-in class or function
-        # because this gets in the way of the special-casing of
-        #
-        #    raise SomeError(x)
-        #
-        # as shown by test_objspace.test_raise3.
-
-        exceptions = [Exception]   # *any* exception by default
         if isinstance(w_callable, Constant):
             c = w_callable.value
             if (isinstance(c, (types.BuiltinFunctionType,
@@ -381,8 +382,11 @@ class FlowObjSpace(object):
                                types.ClassType,
                                types.TypeType)) and
                   c.__module__ in ['__builtin__', 'exceptions']):
-                exceptions = operation.implicit_exceptions.get(c)
-        self.frame.handle_implicit_exceptions(exceptions)
+                if c in builtins_exceptions:
+                    self.frame.handle_implicit_exceptions(builtins_exceptions[c])
+                return w_res
+        # *any* exception for non-builtins
+        self.frame.handle_implicit_exceptions([Exception])
         return w_res
 
     def find_global(self, w_globals, varname):
