@@ -8,7 +8,7 @@ class AppTestSupport(BaseNumpyAppTest):
         cls.w_NoNew = cls.space.appexec([], '''():
             from numpypy import ndarray
             class NoNew(ndarray):
-                def __new__(cls):
+                def __new__(cls, subtype):
                     raise ValueError('should not call __new__')
                 def __array_finalize(self, obj):
                     self.called_finalize = True
@@ -36,15 +36,17 @@ class AppTestSupport(BaseNumpyAppTest):
 
             def __array_finalize__(self, obj):
                 if obj is None:
-                    print 'finazlize with None'
+                    print 'finalize with None'
                     return
-                print 'finalize with something'
+                # printing the object itself will crash the test
+                print 'finalize with something',type(obj)
                 self.info = getattr(obj, 'info', None)
         obj = InfoArray(shape=(3,))
         assert isinstance(obj, InfoArray)
         assert obj.info is None
         obj = InfoArray(shape=(3,), info='information')
         assert obj.info == 'information'
+        print 'a'
         v = obj[1:]
         assert isinstance(v, InfoArray)
         assert v.base is obj
@@ -62,19 +64,19 @@ class AppTestSupport(BaseNumpyAppTest):
         v = a.view(self.NoNew)
         assert False
 
-    def test_repeat(self):
+    def test_sub_repeat(self):
         assert False
 
-    def test_flatiter(self):
+    def test_sub_flatiter(self):
         assert False
 
-    def test_getitem_filter(self):
+    def test_sub_getitem_filter(self):
         assert False
 
-    def test_getitem_array_int(self):
+    def test_sub_getitem_array_int(self):
         assert False
 
-    def test_round(self):
+    def test_sub_round(self):
         from numpypy import array
         a = array(range(10), dtype=float).view(self.NoNew)
         # numpy compatibility
@@ -85,24 +87,28 @@ class AppTestSupport(BaseNumpyAppTest):
         b = a.round(decimal=-1)
         assert not isinstance(b, self.NoNew)
 
-    def test_dot(self):
+    def test_sub_dot(self):
         # the returned type is that of the first argument
         assert False
 
-    def test_reduce(self):
+    def test_sub_reduce(self):
         # i.e. sum, max
         # test for out as well
         assert False
 
-    def test_call2(self):
+    def test_sub_call2(self):
         # c + a vs. a + c, what about array priority?
         assert False
 
-    def test_call1(self):
+    def test_sub_call1(self):
         assert False
 
-    def test_astype(self):
+    def test_sub_astype(self):
         assert False
 
-    def test_reshape(self):
-        assert False
+    def test_sub_reshape(self):
+        from numpypy import array
+        a = array(range(12)).view(self.NoNew)
+        b = a.reshape(3, 4)
+        assert b.called_finalize == True
+

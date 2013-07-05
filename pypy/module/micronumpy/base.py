@@ -10,19 +10,14 @@ def issequence_w(space, w_obj):
             space.isinstance_w(w_obj, space.w_list) or
             isinstance(w_obj, W_NDimArray))
 
-def wrap_impl(space, cls, impl):
-    if cls is None or space.is_w(space.type(cls), space.gettypefor(W_NDimArray)):
-        ret = W_NDimArray(impl)
+def wrap_impl(space, w_cls, w_instance, impl):
+    if w_cls is None or space.is_w(w_cls, space.gettypefor(W_NDimArray)):
+        w_ret = W_NDimArray(impl)
     else:
-        if space.isinstance_w(cls, space.w_type):
-            #got type, either from __new__ or from view casting
-            ret = space.allocate_instance(W_NDimArray, cls)
-        else:
-            ret = space.allocate_instance(W_NDimArray, space.type(cls))
-        W_NDimArray.__init__(ret, impl)
-        space.call_function(space.getattr(ret, space.wrap('__array_finalize__')),
-                        cls)
-    return ret
+        w_ret = space.allocate_instance(W_NDimArray, w_cls)
+        W_NDimArray.__init__(w_ret, impl)
+        space.call_method(w_ret, space.wrap('__array_finalize__'), w_instance)
+    return w_ret
 
 class ArrayArgumentException(Exception):
     pass
@@ -106,7 +101,7 @@ class W_NDimArray(W_Root):
 
         impl = concrete.SliceArray(offset, strides, backstrides, shape, parent,
                                    orig_arr, dtype)
-        return wrap_impl(space, orig_arr, impl)
+        return wrap_impl(space, space.type(orig_arr), orig_arr, impl)
 
     @staticmethod
     def new_scalar(space, dtype, w_val=None):

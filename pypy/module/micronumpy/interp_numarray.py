@@ -260,14 +260,16 @@ class __extend__(W_NDimArray):
         return self.implementation.get_scalar_value()
 
     def descr_copy(self, space):
-        return wrap_impl(space, self, self.implementation.copy(space))
+        return wrap_impl(space, space.type(self),
+                         self, self.implementation.copy(space))
 
     def descr_get_real(self, space):
-        return wrap_impl(space, self, self.implementation.get_real(self))
+        return wrap_impl(space, space.type(self), self,
+                         self.implementation.get_real(self))
 
     def descr_get_imag(self, space):
         ret = self.implementation.get_imag(self)
-        return wrap_impl(space, self, ret)
+        return wrap_impl(space, space.type(self), self, ret)
 
     def descr_set_real(self, space, w_value):
         # copy (broadcast) values into self
@@ -299,7 +301,7 @@ class __extend__(W_NDimArray):
         new_shape = get_shape_from_iterable(space, self.get_size(), w_shape)
         new_impl = self.implementation.reshape(space, self, new_shape)
         if new_impl is not None:
-            return wrap_impl(space, self, new_impl)
+            return wrap_impl(space, space.type(self), self, new_impl)
         # Create copy with contiguous data
         arr = self.descr_copy(space)
         if arr.get_size() > 0:
@@ -464,7 +466,7 @@ class __extend__(W_NDimArray):
             return W_NDimArray.new_scalar(space, dtype, impl.value)
         else:
             new_impl = impl.astype(space, dtype)
-            return wrap_impl(space, self, new_impl)
+            return wrap_impl(space, space.type(self), self, new_impl)
 
     def descr_get_base(self, space):
         impl = self.implementation
@@ -664,7 +666,8 @@ class __extend__(W_NDimArray):
                         "new type not compatible with array."))
                 new_shape[-1] = new_shape[-1] * old_itemsize / new_itemsize
         v = impl.get_view(self, dtype, new_shape)
-        return wrap_impl(space, w_type, v)
+        w_ret = wrap_impl(space, w_type, self, v)
+        return w_ret
 
     # --------------------- operations ----------------------------
 
