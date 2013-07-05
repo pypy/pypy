@@ -5,22 +5,23 @@ from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 class AppTestSupport(BaseNumpyAppTest):
     def setup_class(cls):
         BaseNumpyAppTest.setup_class.im_func(cls)
-        '''
-        from numpypy import ndarray
-        class NoNew(ndarray):
-            def __new__(cls):
-                raise ValueError('should not call __new__')
-            def __array_finalize(self, obj):
-                self.called_finalize = True
-        class SubType(ndarray):
-            def __new__(cls):
-                cls.called_new = True
-                return cls
-            def __array_finalize(self, obj):
-                self.called_finalize = True
-        cls.w_NoNew = cls.space.wrap(NoNew)
-        cls.w_SubType = cls.space.wrap(SubType)
-        '''
+        cls.w_NoNew = cls.space.appexec([], '''():
+            from numpypy import ndarray
+            class NoNew(ndarray):
+                def __new__(cls):
+                    raise ValueError('should not call __new__')
+                def __array_finalize(self, obj):
+                    self.called_finalize = True
+            return NoNew ''')
+        cls.w_SubType = cls.space.appexec([], '''():
+            from numpypy import ndarray
+            class SubType(ndarray):
+                def __new__(cls):
+                    cls.called_new = True
+                    return cls
+                def __array_finalize(self, obj):
+                    self.called_finalize = True
+            return SubType ''')
 
     def test_finalize(self):
         #taken from http://docs.scipy.org/doc/numpy/user/basics.subclassing.html#simple-example-adding-an-extra-attribute-to-ndarray
