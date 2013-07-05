@@ -31,7 +31,7 @@ class W_NDimArray(W_Root):
         self.implementation = implementation
 
     @staticmethod
-    def from_shape(space, shape, dtype, order='C', subtype=None, is_new=False):
+    def from_shape(space, shape, dtype, order='C', w_subtype=None):
         from pypy.module.micronumpy.arrayimpl import concrete, scalar
 
         if not shape:
@@ -40,33 +40,17 @@ class W_NDimArray(W_Root):
             strides, backstrides = calc_strides(shape, dtype.base, order)
             impl = concrete.ConcreteArray(shape, dtype.base, order, strides,
                                       backstrides)
-        if subtype:
-            if space.isinstance_w(subtype, space.w_type):
-                #got type, either from __new__ or from view casting
-                ret = space.allocate_instance(W_NDimArray, subtype)
-                W_NDimArray.__init__(ret, impl)
-                if is_new:
-                    space.call_function(space.getattr(ret,
-                                    space.wrap('__array_finalize__')),
-                                    space.w_None)
-                else:
-                    # view casting, call finalize
-                    space.call_function(space.getattr(ret,
-                                    space.wrap('__array_finalize__')),
-                                    subtype)
-            else:
-                #got instance
-                ret = space.allocate_instance(W_NDimArray, space.type(subtype))
-                W_NDimArray.__init__(ret, impl)
-                space.call_function(space.getattr(ret,
-                                    space.wrap('__array_finalize__')),
-                                    subtype)
+        if w_subtype:
+            ret = space.allocate_instance(W_NDimArray, space.type(w_subtype))
+            W_NDimArray.__init__(ret, impl)
+            space.call_function(space.getattr(ret,
+                                space.wrap('__array_finalize__')), w_subtype)
         else:
             ret = W_NDimArray(impl)
         return ret
 
     @staticmethod
-    def from_shape_and_storage(space, shape, storage, dtype, order='C', owning=False, subtype=None):
+    def from_shape_and_storage(space, shape, storage, dtype, order='C', owning=False, w_subtype=None):
         from pypy.module.micronumpy.arrayimpl import concrete
         assert shape
         strides, backstrides = calc_strides(shape, dtype, order)
@@ -77,21 +61,11 @@ class W_NDimArray(W_Root):
         else:
             impl = concrete.ConcreteArrayNotOwning(shape, dtype, order, strides,
                                                 backstrides, storage)
-        if subtype:
-            if space.isinstance_w(subtype, space.w_type):
-                #got type, probably from descr_XXX
-                ret = space.allocate_instance(W_NDimArray, subtype)
-                W_NDimArray.__init__(ret, impl)
-                space.call_function(space.getattr(ret,
-                                    space.wrap('__array_finalize__')),
-                                    space.w_None)
-            else:
-                #got instance
-                ret = space.allocate_instance(W_NDimArray, space.type(subtype))
-                W_NDimArray.__init__(ret, impl)
-                space.call_function(space.getattr(ret,
-                                    space.wrap('__array_finalize__')),
-                                    subtype)
+        if w_subtype:
+            ret = space.allocate_instance(W_NDimArray, space.type(w_subtype))
+            W_NDimArray.__init__(ret, impl)
+            space.call_function(space.getattr(ret,
+                                space.wrap('__array_finalize__')), w_subtype)
             return ret
         return W_NDimArray(impl)
 

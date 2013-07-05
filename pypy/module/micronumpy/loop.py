@@ -20,8 +20,9 @@ call2_driver = jit.JitDriver(name='numpy_call2',
                                      'left_iter', 'right_iter', 'out_iter'])
 
 def call2(space, shape, func, calc_dtype, res_dtype, w_lhs, w_rhs, out):
+    # handle array_priority
     if out is None:
-        out = W_NDimArray.from_shape(space, shape, res_dtype)
+        out = W_NDimArray.from_shape(space, shape, res_dtype, w_subtype=w_lhs)
     left_iter = w_lhs.create_iter(shape)
     right_iter = w_rhs.create_iter(shape)
     out_iter = out.create_iter(shape)
@@ -50,7 +51,7 @@ call1_driver = jit.JitDriver(name='numpy_call1',
 
 def call1(space, shape, func, calc_dtype, res_dtype, w_obj, out):
     if out is None:
-        out = W_NDimArray.from_shape(space, shape, res_dtype, subtype=w_obj)
+        out = W_NDimArray.from_shape(space, shape, res_dtype, w_subtype=w_obj)
     obj_iter = w_obj.create_iter(shape)
     out_iter = out.create_iter(shape)
     shapelen = len(shape)

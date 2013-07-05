@@ -85,8 +85,8 @@ class __extend__(W_NDimArray):
             res_shape = [size] + self.get_shape()[1:]
         else:
             res_shape = [size]
-        res = W_NDimArray.from_shape(space, res_shape, self.get_dtype(), subtype=self)
-        return loop.getitem_filter(res, self, arr)
+        w_res = W_NDimArray.from_shape(space, res_shape, self.get_dtype(), w_subtype=self)
+        return loop.getitem_filter(w_res, self, arr)
 
     def setitem_filter(self, space, idx, val):
         if len(idx.get_shape()) > 1 and idx.get_shape() != self.get_shape():
@@ -481,9 +481,9 @@ class __extend__(W_NDimArray):
             loop.byteswap(self.implementation, self.implementation)
             return self
         else:
-            res = W_NDimArray.from_shape(space, self.get_shape(), self.get_dtype(), subtype=self)
-            loop.byteswap(self.implementation, res.implementation)
-            return res
+            w_res = W_NDimArray.from_shape(space, self.get_shape(), self.get_dtype(), w_subtype=self)
+            loop.byteswap(self.implementation, w_res.implementation)
+            return w_res
 
     @unwrap_spec(mode=str)
     def descr_choose(self, space, w_choices, w_out=None, mode='raise'):
@@ -775,9 +775,9 @@ class __extend__(W_NDimArray):
             return W_NDimArray.new_scalar(space, dtype, space.wrap(0))
         # Do the dims match?
         out_shape, other_critical_dim = match_dot_shapes(space, self, other)
-        result = W_NDimArray.from_shape(space, out_shape, dtype, subtype=self)
+        w_res = W_NDimArray.from_shape(space, out_shape, dtype, w_subtype=self)
         # This is the place to add fpypy and blas
-        return loop.multidim_dot(space, self, other,  result, dtype,
+        return loop.multidim_dot(space, self, other,  w_res, dtype,
                                  other_critical_dim)
 
     @unwrap_spec(w_axis = WrappedDefault(None))
@@ -921,8 +921,8 @@ def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
         return W_NDimArray.new_scalar(space, dtype)
     if space.is_w(w_subtype, space.gettypefor(W_NDimArray)):
         return W_NDimArray.from_shape(space, shape, dtype, order)
-    ret = W_NDimArray.from_shape(space, shape, dtype, order, w_subtype, is_new=True)
-    return ret
+    raise OperationError(space.w_TypeError, space.wrap(
+            "__new__ is not meant to be called except with a ndarray"))
 
 @unwrap_spec(addr=int)
 def descr__from_shape_and_storage(space, w_cls, w_shape, addr, w_dtype, w_subclass=None):

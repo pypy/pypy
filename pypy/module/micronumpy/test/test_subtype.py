@@ -10,16 +10,18 @@ class AppTestSupport(BaseNumpyAppTest):
             class NoNew(ndarray):
                 def __new__(cls, subtype):
                     raise ValueError('should not call __new__')
-                def __array_finalize(self, obj):
+                def __array_finalize__(self, obj):
+                    
                     self.called_finalize = True
             return NoNew ''')
         cls.w_SubType = cls.space.appexec([], '''():
-            from numpypy import ndarray
+            from numpypy import ndarray, asarray
             class SubType(ndarray):
-                def __new__(cls):
-                    cls.called_new = True
-                    return cls
-                def __array_finalize(self, obj):
+                def __new__(obj, input_array):
+                    obj = asarray(input_array).view(obj)
+                    obj.called_new = True
+                    return obj
+                def __array_finalize__(self, obj):
                     self.called_finalize = True
             return SubType ''')
 
@@ -98,13 +100,25 @@ class AppTestSupport(BaseNumpyAppTest):
 
     def test_sub_call2(self):
         # c + a vs. a + c, what about array priority?
-        assert False
+        from numpypy import array
+        a = array(range(12)).view(self.NoNew)
+        b = self.SubType(range(12))
+        c = b + a
+        assert isinstance(c, self.SubType)
+        c = a + b
+        assert isinstance(c, self.NoNew)
 
     def test_sub_call1(self):
-        assert False
+        from numpypy import array, sqrt
+        a = array(range(12)).view(self.NoNew)
+        b = sqrt(a)
+        assert b.called_finalize == True
 
     def test_sub_astype(self):
-        assert False
+        from numpypy import array
+        a = array(range(12)).view(self.NoNew)
+        b = a.astype(float)
+        assert b.called_finalize == True
 
     def test_sub_reshape(self):
         from numpypy import array
