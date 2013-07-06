@@ -7,13 +7,12 @@ from __future__ import absolute_import
 import sys, types, inspect, weakref
 
 from rpython.flowspace.model import Constant
-from rpython.annotator.model import SomeString, SomeChar, SomeFloat, \
-     SomePtr, unionof, SomeInstance, SomeDict, SomeBuiltin, SomePBC, \
-     SomeInteger, SomeOOInstance, SomeOOObject, TLS, SomeAddress, \
-     SomeUnicodeCodePoint, SomeOOStaticMeth, s_None, s_ImpossibleValue, \
-     SomeLLADTMeth, SomeBool, SomeTuple, SomeOOClass, SomeImpossibleValue, \
-     SomeUnicodeString, SomeList, HarmlesslyBlocked, \
-     SomeWeakRef, lltype_to_annotation, SomeType, SomeByteArray
+from rpython.annotator.model import (
+    SomeString, SomeChar, SomeFloat, SomePtr, unionof, SomeInstance, SomeDict,
+    SomeBuiltin, SomePBC, SomeInteger, TLS, SomeAddress, SomeUnicodeCodePoint,
+    s_None, s_ImpossibleValue, SomeLLADTMeth, SomeBool, SomeTuple,
+    SomeImpossibleValue, SomeUnicodeString, SomeList, HarmlesslyBlocked,
+    SomeWeakRef, lltype_to_annotation, SomeType, SomeByteArray)
 from rpython.annotator.classdef import InstanceSource, ClassDef
 from rpython.annotator.listdef import ListDef, ListItem
 from rpython.annotator.dictdef import DictDef
@@ -23,7 +22,6 @@ from rpython.annotator.argument import ArgumentsForTranslation, RPythonCallsSpac
 from rpython.rlib.objectmodel import r_dict, Symbolic
 from rpython.tool.algo.unionfind import UnionFind
 from rpython.rtyper.lltypesystem import lltype, llmemory
-from rpython.rtyper.ootypesystem import ootype
 from rpython.rtyper import extregistry
 
 
@@ -433,16 +431,6 @@ class Bookkeeper(object):
             result = SomePtr(lltype.typeOf(x))
         elif isinstance(x, llmemory.fakeaddress):
             result = SomeAddress()
-        elif isinstance(x, ootype._static_meth):
-            result = SomeOOStaticMeth(ootype.typeOf(x))
-        elif isinstance(x, ootype._class):
-            result = SomeOOClass(x._INSTANCE)   # NB. can be None
-        elif isinstance(x, ootype.instance_impl): # XXX
-            result = SomeOOInstance(ootype.typeOf(x))
-        elif isinstance(x, (ootype._record, ootype._string)):
-            result = SomeOOInstance(ootype.typeOf(x))
-        elif isinstance(x, (ootype._object)):
-            result = SomeOOObject()
         elif tp is type:
             if (x is type(None) or      # add cases here if needed
                 x.__module__ == 'rpython.rtyper.lltypesystem.lltype'):
