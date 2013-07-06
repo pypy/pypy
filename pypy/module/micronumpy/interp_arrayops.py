@@ -148,24 +148,24 @@ def concatenate(space, w_args, axis=0):
 def repeat(space, w_arr, repeats, w_axis):
     arr = convert_to_array(space, w_arr)
     if space.is_none(w_axis):
-        w_arr = arr.descr_flatten(space)
-        orig_size = w_arr.get_shape()[0]
-        shape = [w_arr.get_shape()[0] * repeats]
-        w_res = W_NDimArray.from_shape(space, shape, arr.get_dtype(), w_subtype=w_arr)
+        arr = arr.descr_flatten(space)
+        orig_size = arr.get_shape()[0]
+        shape = [arr.get_shape()[0] * repeats]
+        w_res = W_NDimArray.from_shape(space, shape, arr.get_dtype(), w_subtype=arr)
         for i in range(repeats):
             Chunks([Chunk(i, shape[0] - repeats + i, repeats,
-                 orig_size)]).apply(space, w_res).implementation.setslice(space, w_arr)
+                 orig_size)]).apply(space, w_res).implementation.setslice(space, arr)
     else:
         axis = space.int_w(w_axis)
-        shape = w_arr.get_shape()[:]
+        shape = arr.get_shape()[:]
         chunks = [Chunk(0, i, 1, i) for i in shape]
         orig_size = shape[axis]
         shape[axis] *= repeats
-        w_res = W_NDimArray.from_shape(space, shape, arr.get_dtype(), w_subtype=w_arr)
+        w_res = W_NDimArray.from_shape(space, shape, arr.get_dtype(), w_subtype=arr)
         for i in range(repeats):
             chunks[axis] = Chunk(i, shape[axis] - repeats + i, repeats,
                                  orig_size)
-            Chunks(chunks).apply(space, w_res).implementation.setslice(space, w_arr)
+            Chunks(chunks).apply(space, w_res).implementation.setslice(space, arr)
     return w_res
 
 def count_nonzero(space, w_obj):

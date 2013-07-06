@@ -28,6 +28,7 @@ class W_NDimArray(W_Root):
 
     def __init__(self, implementation):
         assert isinstance(implementation, BaseArrayImplementation)
+        assert isinstance(self, W_NDimArray)
         self.implementation = implementation
 
     @staticmethod
@@ -41,13 +42,13 @@ class W_NDimArray(W_Root):
             impl = concrete.ConcreteArray(shape, dtype.base, order, strides,
                                       backstrides)
         if w_subtype:
-            ret = space.allocate_instance(W_NDimArray, space.type(w_subtype))
-            W_NDimArray.__init__(ret, impl)
-            space.call_function(space.getattr(ret,
+            w_ret = space.allocate_instance(W_NDimArray, space.type(w_subtype))
+            W_NDimArray.__init__(w_ret, impl)
+            assert isinstance(w_ret, W_NDimArray)
+            space.call_function(space.getattr(w_ret,
                                 space.wrap('__array_finalize__')), w_subtype)
-        else:
-            ret = W_NDimArray(impl)
-        return ret
+            return w_ret
+        return W_NDimArray(impl)
 
     @staticmethod
     def from_shape_and_storage(space, shape, storage, dtype, order='C', owning=False, w_subtype=None):
@@ -62,11 +63,11 @@ class W_NDimArray(W_Root):
             impl = concrete.ConcreteArrayNotOwning(shape, dtype, order, strides,
                                                 backstrides, storage)
         if w_subtype:
-            ret = space.allocate_instance(W_NDimArray, space.type(w_subtype))
-            W_NDimArray.__init__(ret, impl)
-            space.call_function(space.getattr(ret,
+            w_ret = space.allocate_instance(W_NDimArray, w_subtype)
+            W_NDimArray.__init__(w_ret, impl)
+            space.call_function(space.getattr(w_ret,
                                 space.wrap('__array_finalize__')), w_subtype)
-            return ret
+            return w_ret
         return W_NDimArray(impl)
 
     @staticmethod

@@ -147,11 +147,11 @@ class __extend__(W_NDimArray):
             chunks = self.implementation._prepare_slice_args(space, w_index)
             return chunks.apply(space, self)
         shape = res_shape + self.get_shape()[len(indexes):]
-        res = W_NDimArray.from_shape(space, shape, self.get_dtype(),
-                                     self.get_order(), subtype=self)
-        if not res.get_size():
-            return res
-        return loop.getitem_array_int(space, self, res, iter_shape, indexes,
+        w_res = W_NDimArray.from_shape(space, shape, self.get_dtype(),
+                                     self.get_order(), w_subtype=self)
+        if not w_res.get_size():
+            return w_res
+        return loop.getitem_array_int(space, self, w_res, iter_shape, indexes,
                                       prefix)
 
     def setitem_array_int(self, space, w_index, w_value):
@@ -910,6 +910,8 @@ class __extend__(W_NDimArray):
 @unwrap_spec(offset=int, order=str)
 def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
                     offset=0, w_strides=None, order='C'):
+    from pypy.module.micronumpy.arrayimpl.concrete import ConcreteArray
+    from pypy.module.micronumpy.support import calc_strides
     if (offset != 0 or not space.is_none(w_strides) or
         not space.is_none(w_buffer)):
         raise OperationError(space.w_NotImplementedError,
@@ -921,11 +923,17 @@ def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
         return W_NDimArray.new_scalar(space, dtype)
     if space.is_w(w_subtype, space.gettypefor(W_NDimArray)):
         return W_NDimArray.from_shape(space, shape, dtype, order)
-    raise OperationError(space.w_TypeError, space.wrap(
-            "__new__ is not meant to be called except with a ndarray"))
+    strides, backstrides = calc_strides(shape, dtype.base, order)
+    impl = ConcreteArray(shape, dtype.base, order, strides,
+                                  backstrides)
+    w_ret = space.allocate_instance(W_NDimArray, w_subtype)
+    W_NDimArray.__init__(w_ret, impl)
+    space.call_function(space.getattr(w_ret,
+                        space.wrap('__array_finalize__')), w_subtype)
+    return w_ret
 
 @unwrap_spec(addr=int)
-def descr__from_shape_and_storage(space, w_cls, w_shape, addr, w_dtype, w_subclass=None):
+def descr__from_shape_and_storage(space, w_cls, w_shape, addr, w_dtype, w_subtype=None):
     """
     Create an array from an existing buffer, given its address as int.
     PyPy-only implementation detail.
@@ -937,9 +945,12 @@ def descr__from_shape_and_storage(space, w_cls, w_shape, addr, w_dtype, w_subcla
                      space.call_function(space.gettypefor(interp_dtype.W_Dtype),
                              w_dtype))
     shape = _find_shape(space, w_shape, dtype)
-    if w_subclass:
+    if w_subtype:
+        if not space.isinstance_w(w_subtype, space.w_type):
+            raise OperationError(space.w_ValueError, space.wrap(
+                "subtype must be a subtype of ndarray, not a class instance"))
         return W_NDimArray.from_shape_and_storage(space, shape, storage, dtype,
-                             'C', False, w_subclass)
+                             'C', False, w_subtype)
     else:
         return W_NDimArray.from_shape_and_storage(space, shape, storage, dtype)
 
@@ -1122,12 +1133,12 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
         dtype = interp_dtype.variable_dtype(space, dtype.char + '1')
     if ndmin > len(shape):
         shape = [1] * (ndmin - len(shape)) + shape
-    arr = W_NDimArray.from_shape(space, shape, dtype, order=order)
-    arr_iter = arr.create_iter()
+    w_arr = W_NDimArray.from_shape(space, shape, dtype, order=order)
+    arr_iter = w_arr.create_iter()
     for w_elem in elems_w:
         arr_iter.setitem(dtype.coerce(space, w_elem))
         arr_iter.next()
-    return arr
+    return w_arr
 
 @unwrap_spec(order=str)
 def zeros(space, w_shape, w_dtype=None, order='C'):
@@ -1137,7 +1148,7 @@ def zeros(space, w_shape, w_dtype=None, order='C'):
     shape = _find_shape(space, w_shape, dtype)
     if not shape:
         return W_NDimArray.new_scalar(space, dtype, space.wrap(0))
-    return space.wrap(W_NDimArray.from_shape(space, shape, dtype=dtype, order=order))
+    return W_NDimArray.from_shape(space, shape, dtype=dtype, order=order)
 
 @unwrap_spec(order=str)
 def ones(space, w_shape, w_dtype=None, order='C'):
@@ -1147,10 +1158,10 @@ def ones(space, w_shape, w_dtype=None, order='C'):
     shape = _find_shape(space, w_shape, dtype)
     if not shape:
         return W_NDimArray.new_scalar(space, dtype, space.wrap(0))
-    arr = W_NDimArray.from_shape(space, shape, dtype=dtype, order=order)
+    w_arr = W_NDimArray.from_shape(space, shape, dtype=dtype, order=order)
     one = dtype.box(1)
-    arr.fill(one)
-    return space.wrap(arr)
+    w_arr.fill(one)
+    return w_arr
 
 def _reconstruct(space, w_subtype, w_shape, w_dtype):
     return descr_new_array(space, w_subtype, w_shape, w_dtype)

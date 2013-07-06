@@ -182,7 +182,7 @@ class W_Ufunc(W_Root):
                 if out:
                     dtype = out.get_dtype()
                 temp = W_NDimArray.from_shape(space, temp_shape, dtype,
-                                                subtype=obj)
+                                                w_subtype=obj)
             elif keepdims:
                 shape = obj_shape[:axis] + [1] + obj_shape[axis + 1:]
             else:

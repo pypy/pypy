@@ -11,7 +11,7 @@ class AppTestSupport(BaseNumpyAppTest):
                 def __new__(cls, subtype):
                     raise ValueError('should not call __new__')
                 def __array_finalize__(self, obj):
-                    
+
                     self.called_finalize = True
             return NoNew ''')
         cls.w_SubType = cls.space.appexec([], '''():
@@ -48,13 +48,11 @@ class AppTestSupport(BaseNumpyAppTest):
         assert obj.info is None
         obj = InfoArray(shape=(3,), info='information')
         assert obj.info == 'information'
-        print 'a'
         v = obj[1:]
         assert isinstance(v, InfoArray)
         assert v.base is obj
         assert v.info == 'information'
         arr = np.arange(10)
-        print '1'
         cast_arr = arr.view(InfoArray)
         assert isinstance(cast_arr, InfoArray)
         assert cast_arr.base is arr
@@ -70,7 +68,13 @@ class AppTestSupport(BaseNumpyAppTest):
         assert False
 
     def test_sub_flatiter(self):
-        assert False
+        from numpypy import array
+        a = array(range(9)).reshape(3, 3).view(self.NoNew)
+        c = array(range(9)).reshape(3, 3)
+        assert isinstance(a.flat[:] + a.flat[:], self.NoNew)
+        assert isinstance(a.flat[:] + c.flat[:], self.NoNew)
+        assert isinstance(c.flat[:] + a.flat[:], self.NoNew)
+        assert not isinstance(c.flat[:] + c.flat[:], self.NoNew)
 
     def test_sub_getitem_filter(self):
         assert False

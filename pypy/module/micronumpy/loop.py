@@ -21,8 +21,33 @@ call2_driver = jit.JitDriver(name='numpy_call2',
 
 def call2(space, shape, func, calc_dtype, res_dtype, w_lhs, w_rhs, out):
     # handle array_priority
+    # w_lhs and w_rhs could be of different ndarray subtypes. Numpy does:
+    # 1. if __array_priorities__ are equal and one is an ndarray and the
+    #        other is a subtype,  flip the order
+    # 2. elif rhs.__array_priority__ is higher, flip the order
+    # Now return the subtype of the first one
+
+    w_ndarray = space.gettypefor(W_NDimArray)
+    lhs_type = space.type(w_lhs)
+    rhs_type = space.type(w_rhs)
+    lhs_for_subtype = w_lhs
+    rhs_for_subtype = w_rhs
+    #it may be something like a FlatIter, which is not an ndarray
+    if not lhs_type.issubtype(w_ndarray):
+        lhs_type = space.type(w_lhs.base)
+        lhs_for_subtype = w_lhs.base
+    if not rhs_type.issubtype(w_ndarray):
+        rhs_type = space.gettypefor(w_rhs.base)
+        rhs_for_subtype = w_rhs.base
+    if space.is_w(lhs_type, w_ndarray) and not space.is_w(rhs_type, w_ndarray):
+        w_lhs, w_rhs = w_rhs, w_lhs
+        lhs_for_subtype = rhs_for_subtype
+
+    # TODO handle __array_priorities__ and maybe flip the order
+
     if out is None:
-        out = W_NDimArray.from_shape(space, shape, res_dtype, w_subtype=w_lhs)
+        out = W_NDimArray.from_shape(space, shape, res_dtype,
+                                     w_subtype=lhs_for_subtype)
     left_iter = w_lhs.create_iter(shape)
     right_iter = w_rhs.create_iter(shape)
     out_iter = out.create_iter(shape)
@@ -438,12 +463,12 @@ def fromstring_loop(a, dtype, itemsize, s):
 def tostring(space, arr):
     builder = StringBuilder()
     iter = arr.create_iter()
-    res_str = W_NDimArray.from_shape(space, [1], arr.get_dtype(), order='C')
+    w_res_str = W_NDimArray.from_shape(space, [1], arr.get_dtype(), order='C')
     itemsize = arr.get_dtype().itemtype.get_element_size()
     res_str_casted = rffi.cast(rffi.CArrayPtr(lltype.Char),
-                               res_str.implementation.get_storage_as_int(space))
+                               w_res_str.implementation.get_storage_as_int(space))
     while not iter.done():
-        res_str.implementation.setitem(0, iter.getitem())
+        w_res_str.implementation.setitem(0, iter.getitem())
         for i in range(itemsize):
             builder.append(res_str_casted[i])
         iter.next()
