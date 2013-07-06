@@ -113,6 +113,15 @@ class TestSTMTranslated(CompiledSTMTests):
         cbuilder.cmdexec('')
         # assert did not crash
 
+    def test_collect(self):
+        def entry_point(argv):
+            rgc.collect(int(argv[1]))
+            return 0
+        t, cbuilder = self.compile(entry_point)
+        cbuilder.cmdexec('0')
+        cbuilder.cmdexec('1')
+        # assert did not crash
+
     def test_targetdemo(self):
         t, cbuilder = self.compile(targetdemo2.entry_point)
         data, dataerr = cbuilder.cmdexec('4 5000', err=True)

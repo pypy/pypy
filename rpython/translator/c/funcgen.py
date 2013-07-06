@@ -610,6 +610,8 @@ class FunctionCodeGenerator(object):
     OP_STM_ABORT_INFO_PUSH = _OP_STM
     OP_STM_ABORT_INFO_POP = _OP_STM
     OP_STM_INSPECT_ABORT_INFO = _OP_STM
+    OP_STM_MINOR_COLLECT = _OP_STM
+    OP_STM_MAJOR_COLLECT = _OP_STM
 
 
     def OP_PTR_NONZERO(self, op):

@@ -175,6 +175,12 @@ def stm_inspect_abort_info(funcgen, op):
     result = funcgen.expr(op.result)
     return '%s = stm_inspect_abort_info();' % (result,)
 
+def stm_minor_collect(funcgen, op):
+    return 'stm_minor_collect();'
+
+def stm_major_collect(funcgen, op):
+    return 'stm_major_collect();'
+
 
 def op_stm(funcgen, op):
     func = globals()[op.opname]
