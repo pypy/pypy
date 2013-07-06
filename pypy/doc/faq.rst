@@ -332,6 +332,13 @@ be written in RPython).  Not only is it not necessary for you to rewrite
 your code in RPython, it might not give you any speed improvements even
 if you manage to.
 
+Yes, it is possible with enough effort to compile small self-contained
+pieces of RPython code doing a few performance-sensitive things.  But
+this case is not interesting for us.  If you needed to rewrite the code
+in RPython, you could as well have rewritten it in C or C++ or Java for
+example.  These are much more supported, much more documented languages
+`:-)`
+
   *The above paragraphs are not the whole truth.  It* is *true that there
   are cases where writing a program as RPython gives you substantially
   better speed than running it on top of PyPy.  However, the attitude of
@@ -354,13 +361,6 @@ if you manage to.
   means that anybody is free to promote and develop anything; but it
   also means that you must let us choose* not *to go into that direction
   ourselves.*
-
-Yes, it is possible with enough effort to compile small self-contained
-pieces of RPython code doing a few performance-sensitive things.  But
-this case is not interesting for us.  If you needed to rewrite the code
-in RPython, you could as well have rewritten it in C or C++ or Java for
-example.  These are much more supported, much more documented languages
-`:-)`
 
 ---------------------------------------------------
 Which backends are there for the RPython toolchain?
