@@ -13,7 +13,7 @@
 #  endif
 #endif
 
-#ifdef _GC_DEBUG
+#if defined(_GC_DEBUG) && !defined(DUMP_EXTRA)
 #  if _GC_DEBUG >= 2
 #    define DUMP_EXTRA
 #  endif
@@ -36,5 +36,6 @@
 #include "et.h"
 #include "steal.h"
 #include "stmsync.h"
+#include "extra.h"
 
 #endif

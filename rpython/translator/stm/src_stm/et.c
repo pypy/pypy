@@ -249,6 +249,36 @@ gcptr stm_DirectReadBarrier(gcptr G)
     }
 }
 
+gcptr stm_RepeatReadBarrier(gcptr P)
+{
+  /* Version of stm_DirectReadBarrier() that doesn't abort and assumes
+   * that 'P' was already an up-to-date result of a previous
+   * stm_DirectReadBarrier().  We only have to check if we did in the
+   * meantime a stm_write_barrier().
+   */
+  if (P->h_tid & GCFLAG_PUBLIC)
+    {
+      if (P->h_tid & GCFLAG_NURSERY_MOVED)
+        {
+          P = (gcptr)P->h_revision;
+          assert(P->h_tid & GCFLAG_PUBLIC);
+        }
+      if (P->h_tid & GCFLAG_PUBLIC_TO_PRIVATE)
+        {
+          struct tx_descriptor *d = thread_descriptor;
+          wlog_t *item;
+          G2L_FIND(d->public_to_private, P, item, goto no_private_obj);
+
+          P = item->val;
+          assert(!(P->h_tid & GCFLAG_PUBLIC));
+        no_private_obj:
+          ;
+        }
+    }
+  assert(!(P->h_tid & GCFLAG_STUB));
+  return P;
+}
+
 static gcptr _match_public_to_private(gcptr P, gcptr pubobj, gcptr privobj,
                                       int from_stolen)
 {
@@ -421,29 +451,6 @@ gcptr _stm_nonrecord_barrier(gcptr P)
     }
   /* cannot _check_flags(P): foreign! */
   goto restart_all;
-}
-
-#if 0
-void *stm_DirectReadBarrierFromR(void *G1, void *R_Container1, size_t offset)
-{
-  return _direct_read_barrier((gcptr)G1, (gcptr)R_Container1, offset);
-}
-#endif
-
-gcptr stm_RepeatReadBarrier(gcptr O)
-{
-  abort();//XXX
-#if 0
-  // LatestGlobalRevision(O) would either return O or abort
-  // the whole transaction, so omitting it is not wrong
-  struct tx_descriptor *d = thread_descriptor;
-  gcptr L;
-  wlog_t *entry;
-  G2L_FIND(d->global_to_local, O, entry, return O);
-  L = entry->val;
-  assert(L->h_revision == stm_local_revision);
-  return L;
-#endif
 }
 
 static gcptr LocalizeProtected(struct tx_descriptor *d, gcptr P)
@@ -750,10 +757,10 @@ void SpinLoop(int num)
   smp_spinloop();
 }
 
-#if 0
-size_t _stm_decode_abort_info(struct tx_descriptor *d, long long elapsed_time,
-                              int abort_reason, char *output);
-#endif
+void stm_abort_and_retry(void)
+{
+    AbortTransaction(ABRT_MANUAL);
+}
 
 void AbortPrivateFromProtected(struct tx_descriptor *d);
 
@@ -796,41 +803,24 @@ void AbortTransaction(int num)
     elapsed_time = 1;
   }
 
-#if 0
-  size_t size;
   if (elapsed_time >= d->longest_abort_info_time)
     {
       /* decode the 'abortinfo' and produce a human-readable summary in
          the string 'longest_abort_info' */
-      size = _stm_decode_abort_info(d, elapsed_time, num, NULL);
+      size_t size = stm_decode_abort_info(d, elapsed_time, num, NULL);
       free(d->longest_abort_info);
       d->longest_abort_info = malloc(size);
       if (d->longest_abort_info == NULL)
         d->longest_abort_info_time = 0;   /* out of memory! */
       else
         {
-          if (_stm_decode_abort_info(d, elapsed_time,
+          if (stm_decode_abort_info(d, elapsed_time,
                                      num, d->longest_abort_info) != size)
             stm_fatalerror("during stm abort: object mutated unexpectedly\n");
 
           d->longest_abort_info_time = elapsed_time;
         }
     }
-#endif
-
-#if 0
-  /* run the undo log in reverse order, cancelling the values set by
-     stm_ThreadLocalRef_LLSet(). */
-  if (d->undolog.size > 0) {
-      gcptr *item = d->undolog.items;
-      long i;
-      for (i=d->undolog.size; i>=0; i-=2) {
-          void **addr = (void **)(item[i-2]);
-          void *oldvalue = (void *)(item[i-1]);
-          *addr = oldvalue;
-      }
-  }
-#endif
 
   /* upon abort, set the reads size limit to 94% of how much was read
      so far.  This should ensure that, assuming the retry does the same
@@ -937,10 +927,7 @@ static void init_transaction(struct tx_descriptor *d)
 
   d->count_reads = 1;
   fxcache_clear(&d->recent_reads_cache);
-#if 0
-  gcptrlist_clear(&d->undolog);
   gcptrlist_clear(&d->abortinfo);
-#endif
 }
 
 void BeginTransaction(jmp_buf* buf)
@@ -1497,17 +1484,6 @@ _Bool stm_PtrEq(gcptr P1, gcptr P2)
 
 /************************************************************/
 
-#if 0
-void stm_ThreadLocalRef_LLSet(void **addr, void *newvalue)
-{
-  struct tx_descriptor *d = thread_descriptor;
-  gcptrlist_insert2(&d->undolog, (gcptr)addr, (gcptr)*addr);
-  *addr = newvalue;
-}
-#endif
-
-/************************************************************/
-
 struct tx_descriptor *stm_tx_head = NULL;
 struct tx_public_descriptor *stm_descriptor_array[MAX_THREADS] = {0};
 static revision_t descriptor_array_free_list = 0;
@@ -1636,11 +1612,8 @@ void DescriptorDone(void)
     assert(d->private_from_protected.size == 0);
     gcptrlist_delete(&d->private_from_protected);
     gcptrlist_delete(&d->list_of_read_objects);
-#if 0
     gcptrlist_delete(&d->abortinfo);
     free(d->longest_abort_info);
-    gcptrlist_delete(&d->undolog);
-#endif
 
     int num_aborts = 0, num_spinloops = 0;
     char line[256], *p = line;

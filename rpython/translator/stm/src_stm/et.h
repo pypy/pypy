@@ -153,9 +153,9 @@ struct tx_descriptor {
   unsigned int num_aborts[ABORT_REASONS];
   unsigned int num_spinloops[SPINLOOP_REASONS];
   struct GcPtrList list_of_read_objects;
-  //struct GcPtrList abortinfo;
   struct GcPtrList private_from_protected;
   struct G2L public_to_private;
+  struct GcPtrList abortinfo;
   char *longest_abort_info;
   long long longest_abort_info_time;
   revision_t *private_revision_ref;

@@ -6,7 +6,7 @@ void stm_fatalerror(const char *format, ...)
 {
     va_list ap;
 
-#ifdef _GC_DEBUG
+#ifdef _GC_DEBUGPRINTS
     dprintf(("STM Subsystem: Fatal Error\n"));
 #else
     fprintf(stderr, "STM Subsystem: Fatal Error\n");
@@ -20,7 +20,7 @@ void stm_fatalerror(const char *format, ...)
 }
 
 
-#ifdef _GC_DEBUG
+#ifdef _GC_DEBUGPRINTS
 
 static __thread revision_t tcolor = 0;
 static revision_t tnextid = 0;

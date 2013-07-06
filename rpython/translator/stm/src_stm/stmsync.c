@@ -81,6 +81,7 @@ void stm_set_max_aborts(int max_aborts)
 int stm_enter_callback_call(void)
 {
     int token = (thread_descriptor == NULL);
+    dprintf(("enter_callback_call(tok=%d)\n", token));
     if (token == 1) {
         stmgcpage_acquire_global_lock();
         DescriptorInit();
@@ -94,6 +95,7 @@ int stm_enter_callback_call(void)
 
 void stm_leave_callback_call(int token)
 {
+    dprintf(("leave_callback_call(%d)\n", token));
     if (token == 1)
         stmgc_minor_collect();   /* force everything out of the nursery */
 

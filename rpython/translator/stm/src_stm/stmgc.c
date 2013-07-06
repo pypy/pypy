@@ -10,5 +10,6 @@
 #include "nursery.c"
 #include "gcpage.c"
 #include "stmsync.c"
+#include "extra.c"
 #include "dbgmem.c"
 #include "fprintcolor.c"
