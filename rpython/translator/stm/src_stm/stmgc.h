@@ -110,7 +110,10 @@ void stm_abort_info_push(gcptr obj, long fieldoffsets[]);
 void stm_abort_info_pop(long count);
 char *stm_inspect_abort_info(void);
 
+/* mostly for debugging support */
 void stm_abort_and_retry(void);
+void stm_minor_collect(void);
+void stm_major_collect(void);
 
 
 /****************  END OF PUBLIC INTERFACE  *****************/

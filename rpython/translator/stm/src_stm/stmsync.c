@@ -329,6 +329,18 @@ void stm_possible_safe_point(void)
     AbortNowIfDelayed();   /* if another thread ran a major GC */
 }
 
+void stm_minor_collect(void)
+{
+    stmgc_minor_collect();
+    stmgcpage_possibly_major_collect(0);
+}
+
+void stm_major_collect(void)
+{
+    stmgc_minor_collect();
+    stmgcpage_possibly_major_collect(1);
+}
+
 /************************************************************/
 
 /***** Prebuilt roots, added in the list as the transaction that changed
