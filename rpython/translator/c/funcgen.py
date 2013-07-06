@@ -584,34 +584,34 @@ class FunctionCodeGenerator(object):
             from rpython.translator.stm.funcgen import op_stm
             self.__class__.op_stm = op_stm
         return self.op_stm(op)
-    OP_STM_INITIALIZE = _OP_STM
-    OP_STM_FINALIZE = _OP_STM
-    OP_STM_BECOME_INEVITABLE = _OP_STM
-    OP_STM_BARRIER = _OP_STM
-    OP_STM_PTR_EQ = _OP_STM
-    OP_STM_PUSH_ROOT = _OP_STM
-    OP_STM_POP_ROOT_INTO = _OP_STM
-    OP_STM_ALLOCATE = _OP_STM
-    OP_STM_GET_TID = _OP_STM
-    OP_STM_HASH = _OP_STM
-    OP_STM_ID = _OP_STM
-    OP_STM_COMMIT_TRANSACTION = _OP_STM
+    OP_STM_INITIALIZE                   = _OP_STM
+    OP_STM_FINALIZE                     = _OP_STM
+    OP_STM_BECOME_INEVITABLE            = _OP_STM
+    OP_STM_BARRIER                      = _OP_STM
+    OP_STM_PTR_EQ                       = _OP_STM
+    OP_STM_PUSH_ROOT                    = _OP_STM
+    OP_STM_POP_ROOT_INTO                = _OP_STM
+    OP_STM_ALLOCATE                     = _OP_STM
+    OP_STM_GET_TID                      = _OP_STM
+    OP_STM_HASH                         = _OP_STM
+    OP_STM_ID                           = _OP_STM
+    OP_STM_COMMIT_TRANSACTION           = _OP_STM
     OP_STM_BEGIN_INEVITABLE_TRANSACTION = _OP_STM
-    OP_STM_SHOULD_BREAK_TRANSACTION = _OP_STM
-    OP_STM_SET_TRANSACTION_LENGTH = _OP_STM
-    OP_STM_CHANGE_ATOMIC = _OP_STM
-    OP_STM_GET_ATOMIC = _OP_STM
-    OP_STM_THREADLOCAL_GET = _OP_STM
-    OP_STM_THREADLOCAL_SET = _OP_STM
-    OP_STM_PERFORM_TRANSACTION = _OP_STM
-    OP_STM_ENTER_CALLBACK_CALL = _OP_STM
-    OP_STM_LEAVE_CALLBACK_CALL = _OP_STM
-    OP_STM_ABORT_AND_RETRY = _OP_STM
-    OP_STM_ABORT_INFO_PUSH = _OP_STM
-    OP_STM_ABORT_INFO_POP = _OP_STM
-    OP_STM_INSPECT_ABORT_INFO = _OP_STM
-    OP_STM_MINOR_COLLECT = _OP_STM
-    OP_STM_MAJOR_COLLECT = _OP_STM
+    OP_STM_SHOULD_BREAK_TRANSACTION     = _OP_STM
+    OP_STM_SET_TRANSACTION_LENGTH       = _OP_STM
+    OP_STM_CHANGE_ATOMIC                = _OP_STM
+    OP_STM_GET_ATOMIC                   = _OP_STM
+    OP_STM_THREADLOCAL_GET              = _OP_STM
+    OP_STM_THREADLOCAL_SET              = _OP_STM
+    OP_STM_PERFORM_TRANSACTION          = _OP_STM
+    OP_STM_ENTER_CALLBACK_CALL          = _OP_STM
+    OP_STM_LEAVE_CALLBACK_CALL          = _OP_STM
+    OP_STM_ABORT_AND_RETRY              = _OP_STM
+    OP_STM_ABORT_INFO_PUSH              = _OP_STM
+    OP_STM_ABORT_INFO_POP               = _OP_STM
+    OP_STM_INSPECT_ABORT_INFO           = _OP_STM
+    OP_STM_MAJOR_COLLECT                = _OP_STM
+    OP_STM_MINOR_COLLECT                = _OP_STM
 
 
     def OP_PTR_NONZERO(self, op):

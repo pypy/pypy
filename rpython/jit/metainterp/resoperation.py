@@ -500,6 +500,8 @@ _oplist = [
     'STRSETITEM/3',
     'UNICODESETITEM/3',
     #'RUNTIMENEW/1',     # ootype operation
+    'COND_CALL_STM_WB/2d', # [objptr, newvalue] (write barrier)
+    'COND_CALL_STM_RB/2d', # [objptr, newvalue] (read barrier)
     'COND_CALL_GC_WB/2d', # [objptr, newvalue] (for the write barrier)
     'COND_CALL_GC_WB_ARRAY/3d', # [objptr, arrayindex, newvalue] (write barr.)
     'DEBUG_MERGE_POINT/*',      # debugging only

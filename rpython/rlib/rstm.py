@@ -1,5 +1,5 @@
 from rpython.rlib.objectmodel import we_are_translated, specialize
-from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rstr
+from rpython.rtyper.lltypesystem import lltype, rffi, rstr, llmemory
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.extregistry import ExtRegistryEntry
 

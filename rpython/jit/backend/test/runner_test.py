@@ -4242,3 +4242,14 @@ class LLtypeBackendTest(BaseBackendTest):
         assert rffi.cast(lltype.Signed, a[0]) == -7654
         assert rffi.cast(lltype.Signed, a[1]) == 777
         lltype.free(a, flavor='raw')
+
+class WBDescrForTests(AbstractDescr):
+    returns_modified_object = False
+    wb_slowpath = (0, 0, 0, 0)
+    def get_wb_slowpath(self, c1, c2):
+        return self.wb_slowpath[c1+2*c2]
+    def set_wb_slowpath(self, c1, c2, addr):
+        i = c1+2*c2
+        self.wb_slowpath = (self.wb_slowpath[:i] + (addr,) +
+                            self.wb_slowpath[i+1:])
+        

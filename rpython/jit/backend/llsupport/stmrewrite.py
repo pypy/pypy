@@ -121,8 +121,13 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
         except KeyError:
             return v_base    # no barrier needed
         args = [v_base, self.c_zero]
-        self.newops.append(ResOperation(rop.COND_CALL_GC_WB, args, None,
+        if target_category == 'W':
+            op = rop.COND_CALL_STM_WB
+        else:
+            op = rop.COND_CALL_STM_RB
+        self.newops.append(ResOperation(op, args, None,
                                         descr=write_barrier_descr))
+        
         self.known_category[v_base] = target_category
         return v_base
 

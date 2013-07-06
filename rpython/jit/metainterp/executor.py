@@ -345,6 +345,8 @@ def _make_execute_list():
             if value in (rop.FORCE_TOKEN,
                          rop.CALL_ASSEMBLER,
                          rop.COND_CALL_GC_WB,
+                         rop.COND_CALL_STM_WB,
+                         rop.COND_CALL_STM_RB,
                          rop.COND_CALL_GC_WB_ARRAY,
                          rop.DEBUG_MERGE_POINT,
                          rop.JIT_DEBUG,

@@ -11,6 +11,7 @@ typedef unsigned long Unsigned;
 struct pypy_header0 {
     long h_tid;
     Unsigned h_revision;
+	Unsigned h_original;
 };
 
 struct pypy_pypy_rlib_rstm_Transaction0 {
@@ -33,7 +34,8 @@ typedef char RPyString;
 #define _RPyString_AsString(x) x
 #define RPyString_Size(x) strlen(x)
 
-
+#include "src_stm/stmgc.h"
+#include "src_stm/stmimpl.h"
 #include "src_stm/et.h"
 #include "src_stm/et.c"
 

@@ -133,12 +133,16 @@ class TestSTMTranslated(CompiledSTMTests):
             rgc.collect(0)
             return 0
         #
+        from rpython.rtyper.lltypesystem.rclass import OBJECTPTR
+        S = lltype.GcStruct('S', ('got_exception', OBJECTPTR))
+        PS = lltype.Ptr(S)
+        perform_transaction = rstm.make_perform_transaction(check, PS)
         class X:
             def __init__(self, count):
                 self.count = count
         def g():
             x = X(1000)
-            perform_transaction(lltype.malloc(FOOBAR))
+            perform_transaction(lltype.malloc(S))
             return x
         def entry_point(argv):
             x = X(len(argv))
@@ -146,7 +150,7 @@ class TestSTMTranslated(CompiledSTMTests):
             print '<', x.count, y.count, '>'
             return 0
         #
-        perform_transaction = rstm.make_perform_transaction(check, FOOBARP)
+        perform_transaction = rstm.make_perform_transaction(check, PS)
         t, cbuilder = self.compile(entry_point, backendopt=True)
         data = cbuilder.cmdexec('a b c d')
         assert '< 5 1000 >' in data, "got: %r" % (data,)
@@ -160,11 +164,15 @@ class TestSTMTranslated(CompiledSTMTests):
             pass
         prebuilt2 = [X2(), X2()]
         #
+        from rpython.rtyper.lltypesystem.rclass import OBJECTPTR
+        S = lltype.GcStruct('S', ('got_exception', OBJECTPTR))
+        PS = lltype.Ptr(S)
+        perform_transaction = rstm.make_perform_transaction(check, PS)
         def bug2(count):
             x = prebuilt2[count]
             x.foobar = 2                    # 'x' becomes a local
             #
-            perform_transaction(lltype.malloc(FOOBAR))
+            perform_transaction(lltype.malloc(S))
                                             # 'x' becomes the global again
             #
             y = prebuilt2[count]            # same prebuilt obj
@@ -176,7 +184,7 @@ class TestSTMTranslated(CompiledSTMTests):
             print bug2(1)
             return 0
         #
-        perform_transaction = rstm.make_perform_transaction(check, FOOBARP)
+        perform_transaction = rstm.make_perform_transaction(check, PS)
         t, cbuilder = self.compile(entry_point, backendopt=True)
         data = cbuilder.cmdexec('')
         assert '12\n12\n' in data, "got: %r" % (data,)
@@ -184,6 +192,12 @@ class TestSTMTranslated(CompiledSTMTests):
     def test_prebuilt_nongc(self):
         def check(foobar, retry_counter):
             return 0    # do nothing
+        from rpython.rtyper.lltypesystem.rclass import OBJECTPTR
+        from rpython.rtyper.lltypesystem import lltype
+        S = lltype.GcStruct('S', ('got_exception', OBJECTPTR))
+        PS = lltype.Ptr(S)
+        perform_transaction = rstm.make_perform_transaction(check, PS)
+        
         from rpython.rtyper.lltypesystem import lltype
         R = lltype.GcStruct('R', ('x', lltype.Signed))
         S1 = lltype.Struct('S1', ('r', lltype.Ptr(R)))
@@ -192,7 +206,7 @@ class TestSTMTranslated(CompiledSTMTests):
         #                   hints={'stm_thread_local': True})
         #s2 = lltype.malloc(S2, immortal=True, flavor='raw')
         def do_stuff():
-            perform_transaction(lltype.malloc(FOOBAR))
+            perform_transaction(lltype.malloc(S))
             print s1.r.x
             #print s2.r.x
         do_stuff._dont_inline_ = True
@@ -204,7 +218,7 @@ class TestSTMTranslated(CompiledSTMTests):
             do_stuff()
             return 0
         #
-        perform_transaction = rstm.make_perform_transaction(check, FOOBARP)
+        perform_transaction = rstm.make_perform_transaction(check, PS)
         t, cbuilder = self.compile(main)
         data = cbuilder.cmdexec('')
         assert '42\n' in data, "got: %r" % (data,)
@@ -262,9 +276,3 @@ class TestSTMTranslated(CompiledSTMTests):
         t, cbuilder = self.compile(main)
         data = cbuilder.cmdexec('a b')
         assert 'li102ee10:hi there 3e\n0\n' in data
-
-
-FOOBAR = lltype.GcStruct('FOOBAR',
-                         ('result_value', lltype.Void),
-                         ('got_exception', rclass.OBJECTPTR))
-FOOBARP = lltype.Ptr(FOOBAR)

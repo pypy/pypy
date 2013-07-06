@@ -8,6 +8,27 @@ from rpython.rtyper.lltypesystem import lltype, llmemory, llgroup, llarena
 from rpython.rtyper.lltypesystem import rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib.debug import ll_assert
+from rpython.rlib.rarithmetic import LONG_BIT, r_uint
+
+WORD = LONG_BIT // 8
+NULL = llmemory.NULL
+
+# keep in sync with stmgc.h & et.h:
+first_gcflag = 1 << (LONG_BIT//2)
+GCFLAG_OLD                    = first_gcflag << 0
+GCFLAG_VISITED                = first_gcflag << 1
+GCFLAG_PUBLIC                 = first_gcflag << 2
+GCFLAG_PREBUILT_ORIGINAL      = first_gcflag << 3
+GCFLAG_PUBLIC_TO_PRIVATE      = first_gcflag << 4
+GCFLAG_WRITE_BARRIER          = first_gcflag << 5 # stmgc.h
+GCFLAG_NURSERY_MOVED          = first_gcflag << 6
+GCFLAG_BACKUP_COPY            = first_gcflag << 7 # debug
+GCFLAG_STUB                   = first_gcflag << 8 # debug
+GCFLAG_PRIVATE_FROM_PROTECTED = first_gcflag << 9
+GCFLAG_HAS_ID                 = first_gcflag << 10
+
+PREBUILT_FLAGS    = first_gcflag * (1 + 2 + 4 + 8)
+PREBUILT_REVISION = r_uint(1)
 
 
 class StmGC(MovingGCBase):
