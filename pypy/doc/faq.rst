@@ -349,6 +349,12 @@ if you manage to.
   attempt to point newcomers at existing alternatives, which are more
   mainstream and where they will get help from many people.*
 
+  *If anybody seriously wants to promote RPython anyway, he is welcome
+  to: we won't actively resist such a plan.  This is open source, which
+  means that anybody is free to promote and develop anything; but it
+  also means that you must let us choose* not *to go into that direction
+  ourselves.*
+
 Yes, it is possible with enough effort to compile small self-contained
 pieces of RPython code doing a few performance-sensitive things.  But
 this case is not interesting for us.  If you needed to rewrite the code
