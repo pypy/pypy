@@ -443,11 +443,16 @@ LL_OPERATIONS = {
     'stm_perform_transaction':LLOp(canmallocgc=True),
     'stm_enter_callback_call':LLOp(),
     'stm_leave_callback_call':LLOp(),
+    'stm_abort_and_retry':    LLOp(),
 
     'stm_threadlocalref_get': LLOp(sideeffects=False),
     'stm_threadlocalref_set': LLOp(),
     'stm_threadlocal_get':    LLOp(sideeffects=False),
     'stm_threadlocal_set':    LLOp(),
+
+    'stm_abort_info_push':    LLOp(),
+    'stm_abort_info_pop':     LLOp(),
+    'stm_inspect_abort_info': LLOp(sideeffects=False),
 
     # __________ address operations __________
 

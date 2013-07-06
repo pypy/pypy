@@ -1,5 +1,5 @@
 from rpython.rlib.objectmodel import we_are_translated, specialize
-from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rstr
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.extregistry import ExtRegistryEntry
 
@@ -28,13 +28,13 @@ def abort_info_push(instance, fieldnames):
 
 def abort_info_pop(count):
     if we_are_translated():
-        stmgcintf.StmOperations.abort_info_pop(count)
+        llop.stm_abort_info_pop(lltype.Void, count)
 
 def charp_inspect_abort_info():
-    return stmgcintf.StmOperations.inspect_abort_info()
+    return llop.stm_inspect_abort_info(rffi.CCHARP)
 
 def abort_and_retry():
-    stmgcintf.StmOperations.abort_and_retry()
+    llop.stm_abort_and_retry(lltype.Void)
 
 def before_external_call():
     llop.stm_commit_transaction(lltype.Void)
@@ -111,6 +111,7 @@ class AbortInfoPush(ExtRegistryEntry):
                 lst.append(-1)    # end of sublist
                 continue
             fieldname = 'inst_' + fieldname
+            extraofs = None
             STRUCT = v_instance.concretetype.TO
             while not hasattr(STRUCT, fieldname):
                 STRUCT = STRUCT.super
@@ -121,12 +122,15 @@ class AbortInfoPush(ExtRegistryEntry):
                 kind = 2
             elif TYPE == lltype.Ptr(rstr.STR):
                 kind = 3
+                extraofs = llmemory.offsetof(rstr.STR, 'chars')
             else:
                 raise NotImplementedError(
                     "abort_info_push(%s, %r): field of type %r"
                     % (STRUCT.__name__, fieldname, TYPE))
             lst.append(kind)
             lst.append(llmemory.offsetof(STRUCT, fieldname))
+            if extraofs is not None:
+                lst.append(extraofs)
         lst.append(0)
         ARRAY = rffi.CArray(lltype.Signed)
         array = lltype.malloc(ARRAY, len(lst), flavor='raw', immortal=True)
