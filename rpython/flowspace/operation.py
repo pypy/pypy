@@ -24,6 +24,7 @@ class SpaceOperator(object):
         self.pyfunc = pyfunc
         self.pure = pure
         self.can_overflow = can_overflow
+        self.canraise = []
 
     def make_sc(self):
         def sc_operator(space, args_w):
@@ -252,19 +253,18 @@ op_appendices = {
     ValueError: 'val',
     }
 
-implicit_exceptions = {
-    # specifying IndexError, and KeyError beyond Exception,
-    # allows the annotator to be more precise, see test_reraiseAnything/KeyError in
-    # the annotator tests
-    'getitem': [IndexError, KeyError, Exception],
-    'setitem': [IndexError, KeyError, Exception],
-    'delitem': [IndexError, KeyError, Exception],
-    'contains': [Exception],    # from an r_dict
-    }
+# specifying IndexError, and KeyError beyond Exception,
+# allows the annotator to be more precise, see test_reraiseAnything/KeyError in
+# the annotator tests
+op.getitem.canraise = [IndexError, KeyError, Exception]
+op.setitem.canraise = [IndexError, KeyError, Exception]
+op.delitem.canraise = [IndexError, KeyError, Exception]
+op.contains.canraise = [Exception]    # from an r_dict
 
 def _add_exceptions(names, exc):
     for name in names.split():
-        lis = implicit_exceptions.setdefault(name, [])
+        oper = getattr(op, name)
+        lis = oper.canraise
         if exc in lis:
             raise ValueError, "your list is causing duplication!"
         lis.append(exc)
@@ -273,12 +273,13 @@ def _add_exceptions(names, exc):
 def _add_except_ovf(names):
     # duplicate exceptions and add OverflowError
     for name in names.split():
-        lis = implicit_exceptions.setdefault(name, [])[:]
-        lis.append(OverflowError)
-        implicit_exceptions[name+"_ovf"] = lis
+        oper = getattr(op, name)
+        oper_ovf = getattr(op, name+'_ovf')
+        oper_ovf.canraise = list(oper.canraise)
+        oper_ovf.canraise.append(OverflowError)
 
 _add_exceptions("""div mod divmod truediv floordiv pow
-                   inplace_div inplace_mod inplace_divmod inplace_truediv
+                   inplace_div inplace_mod inplace_truediv
                    inplace_floordiv inplace_pow""", ZeroDivisionError)
 _add_exceptions("""pow inplace_pow lshift inplace_lshift rshift
                    inplace_rshift""", ValueError)
@@ -287,7 +288,7 @@ _add_exceptions("""truediv divmod
                    inplace_floordiv inplace_div inplace_mod inplace_pow
                    inplace_lshift""", OverflowError) # without a _ovf version
 _add_except_ovf("""neg abs add sub mul
-                   floordiv div mod pow lshift""")   # with a _ovf version
+                   floordiv div mod lshift""")   # with a _ovf version
 _add_exceptions("""pow""",
                 OverflowError) # for the float case
 del _add_exceptions, _add_except_ovf

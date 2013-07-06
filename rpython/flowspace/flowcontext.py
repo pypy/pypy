@@ -14,7 +14,7 @@ from rpython.flowspace.framestate import (FrameState, recursively_unflatten,
     recursively_flatten)
 from rpython.flowspace.specialcase import (rpython_print_item,
     rpython_print_newline)
-from rpython.flowspace.operation import implicit_exceptions
+from rpython.flowspace.operation import op
 
 
 class FlowingError(Exception):
@@ -228,6 +228,7 @@ class Replayer(Recorder):
             w_exc_cls, w_exc_value = egg.inputargs[-2:]
             if isinstance(egg.last_exception, Constant):
                 w_exc_cls = egg.last_exception
+                assert not isinstance(w_exc_cls.value, list)
             raise ImplicitOperationError(w_exc_cls, w_exc_value)
 
 # ____________________________________________________________
@@ -464,7 +465,8 @@ class FlowSpaceFrame(object):
 
     def do_operation_with_implicit_exceptions(self, name, *args_w):
         w_result = self.do_operation(name, *args_w)
-        self.handle_implicit_exceptions(implicit_exceptions.get(name))
+        oper = getattr(op, name)
+        self.handle_implicit_exceptions(oper.canraise)
         return w_result
 
     def handle_implicit_exceptions(self, exceptions):
