@@ -176,7 +176,7 @@ class TestSTMTranslated(CompiledSTMTests):
             print bug2(1)
             return 0
         #
-        perform_transaction = rstm.make_perform_transaction(check, FOOBAR)
+        perform_transaction = rstm.make_perform_transaction(check, FOOBARP)
         t, cbuilder = self.compile(entry_point, backendopt=True)
         data = cbuilder.cmdexec('')
         assert '12\n12\n' in data, "got: %r" % (data,)
@@ -204,7 +204,7 @@ class TestSTMTranslated(CompiledSTMTests):
             do_stuff()
             return 0
         #
-        perform_transaction = rstm.make_perform_transaction(check, FOOBAR)
+        perform_transaction = rstm.make_perform_transaction(check, FOOBARP)
         t, cbuilder = self.compile(main)
         data = cbuilder.cmdexec('')
         assert '42\n' in data, "got: %r" % (data,)
