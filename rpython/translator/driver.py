@@ -350,15 +350,6 @@ class TranslationDriver(SimpleTaskEngine):
         rtyper = self.translator.buildrtyper(type_system='lltype')
         rtyper.specialize(dont_simplify_again=True)
 
-    OOTYPE = 'rtype_ootype'
-    @taskdef(['annotate'], "ootyping")
-    def task_rtype_ootype(self):
-        """ RTyping - ootype version
-        """
-        # Maybe type_system should simply be an option used in task_rtype
-        rtyper = self.translator.buildrtyper(type_system="ootype")
-        rtyper.specialize(dont_simplify_again=True)
-
     @taskdef([RTYPE], "JIT compiler generation")
     def task_pyjitpl_lltype(self):
         """ Generate bytecodes for JIT and flow the JIT helper functions
@@ -370,20 +361,6 @@ class TranslationDriver(SimpleTaskEngine):
         from rpython.jit.metainterp.warmspot import apply_jit
         apply_jit(self.translator, policy=self.jitpolicy,
                   backend_name=self.config.translation.jit_backend, inline=True)
-        #
-        self.log.info("the JIT compiler was generated")
-
-    @taskdef([OOTYPE], "JIT compiler generation")
-    def task_pyjitpl_ootype(self):
-        """ Generate bytecodes for JIT and flow the JIT helper functions
-        ootype version
-        """
-        get_policy = self.extra['jitpolicy']
-        self.jitpolicy = get_policy(self)
-        #
-        from rpython.jit.metainterp.warmspot import apply_jit
-        apply_jit(self.translator, policy=self.jitpolicy,
-                  backend_name='cli', inline=True) #XXX
         #
         self.log.info("the JIT compiler was generated")
 
@@ -404,14 +381,6 @@ class TranslationDriver(SimpleTaskEngine):
     @taskdef([RTYPE, '??pyjitpl_lltype', '??jittest_lltype'], "lltype back-end optimisations")
     def task_backendopt_lltype(self):
         """ Run all backend optimizations - lltype version
-        """
-        from rpython.translator.backendopt.all import backend_optimizations
-        backend_optimizations(self.translator)
-
-    OOBACKENDOPT = 'backendopt_ootype'
-    @taskdef([OOTYPE], "ootype back-end optimisations")
-    def task_backendopt_ootype(self):
-        """ Run all backend optimizations - ootype version
         """
         from rpython.translator.backendopt.all import backend_optimizations
         backend_optimizations(self.translator)
@@ -547,88 +516,6 @@ class TranslationDriver(SimpleTaskEngine):
                                              lambda: [])())
 
         log.llinterpret.event("result -> %s" % v)
-
-    @taskdef(["?" + OOBACKENDOPT, OOTYPE], 'Generating JVM source')
-    def task_source_jvm(self):
-        from rpython.translator.jvm.genjvm import GenJvm
-        from rpython.translator.jvm.node import EntryPoint
-
-        entry_point_graph = self.translator.graphs[0]
-        is_func = not self.standalone
-        entry_point = EntryPoint(entry_point_graph, is_func, is_func)
-        self.gen = GenJvm(udir, self.translator, entry_point)
-        self.jvmsource = self.gen.generate_source()
-        self.log.info("Wrote JVM code")
-
-    @taskdef(['source_jvm'], 'Compiling JVM source')
-    def task_compile_jvm(self):
-        from rpython.translator.oosupport.support import unpatch_os
-        from rpython.translator.jvm.test.runtest import JvmGeneratedSourceWrapper
-        self.jvmsource.compile()
-        self.c_entryp = JvmGeneratedSourceWrapper(self.jvmsource)
-        # restore original os values
-        if hasattr(self, 'old_cli_defs'):
-            unpatch_os(self.old_cli_defs)
-        self.log.info("Compiled JVM source")
-        if self.standalone and self.exe_name:
-            self.copy_jvm_jar()
-
-    def copy_jvm_jar(self):
-        import subprocess
-        basename = self.exe_name % self.get_info()
-        root = udir.join('pypy')
-        manifest = self.create_manifest(root)
-        jnajar = py.path.local(__file__).dirpath('jvm', 'src', 'jna.jar')
-        classlist = self.create_classlist(root, [jnajar])
-        jarfile = py.path.local(basename + '.jar')
-        self.log.info('Creating jar file')
-        oldpath = root.chdir()
-        subprocess.call(['jar', 'cmf', str(manifest), str(jarfile), '@'+str(classlist)])
-        oldpath.chdir()
-
-        # create a convenience script
-        newexename = basename
-        f = file(newexename, 'w')
-        f.write("""#!/bin/bash
-LEDIT=`type -p ledit`
-EXE=`readlink $0`
-if [ -z $EXE ]
-then
-    EXE=$0
-fi
-$LEDIT java -Xmx256m -jar $EXE.jar "$@"
-""")
-        f.close()
-        os.chmod(newexename, 0755)
-
-    def create_manifest(self, root):
-        filename = root.join('manifest.txt')
-        manifest = filename.open('w')
-        manifest.write('Main-class: pypy.Main\n\n')
-        manifest.close()
-        return filename
-
-    def create_classlist(self, root, additional_jars=[]):
-        import subprocess
-        # first, uncompress additional jars
-        for jarfile in additional_jars:
-            oldpwd = root.chdir()
-            subprocess.call(['jar', 'xf', str(jarfile)])
-            oldpwd.chdir()
-        filename = root.join('classlist.txt')
-        classlist = filename.open('w')
-        classfiles = list(root.visit('*.class', True))
-        classfiles += root.visit('*.so', True)
-        classfiles += root.visit('*.dll', True)
-        classfiles += root.visit('*.jnilib', True)
-        for classfile in classfiles:
-            print >> classlist, classfile.relto(root)
-        classlist.close()
-        return filename
-
-    @taskdef(['compile_jvm'], 'XXX')
-    def task_run_jvm(self):
-        pass
 
     def proceed(self, goals):
         if not goals:
