@@ -603,9 +603,6 @@ class StringTests:
         })
 
 
-#class TestOOtype(StringTests, OOJitMixin):
-#    CALL = "oosend"
-#    CALL_PURE = "oosend_pure"
 
 class TestLLtype(StringTests, LLJitMixin):
     CALL = "call"

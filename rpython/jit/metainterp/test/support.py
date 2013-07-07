@@ -263,39 +263,6 @@ class LLJitMixin(JitMixin):
         NODE.become(lltype.GcStruct('NODE', ('value', lltype.Signed),
                                             ('next', lltype.Ptr(NODE))))
         return NODE
-    
-class OOJitMixin(JitMixin):
-    type_system = 'ootype'
-    #CPUClass = runner.OOtypeCPU
-
-    def setup_class(cls):
-        py.test.skip("ootype tests skipped for now")
-
-    @staticmethod
-    def Ptr(T):
-        return T
-
-    @staticmethod
-    def GcStruct(name, *fields, **kwds):
-        if 'hints' in kwds:
-            kwds['_hints'] = kwds['hints']
-            del kwds['hints']
-        I = ootype.Instance(name, ootype.ROOT, dict(fields), **kwds)
-        return I
-
-    malloc = staticmethod(ootype.new)
-    nullptr = staticmethod(ootype.null)
-
-    @staticmethod
-    def malloc_immortal(T):
-        return ootype.new(T)
-
-    def _get_NODE(self):
-        NODE = ootype.Instance('NODE', ootype.ROOT, {})
-        NODE._add_fields({'value': ootype.Signed,
-                          'next': NODE})
-        return NODE
-
 # ____________________________________________________________
 
 class _Foo:
