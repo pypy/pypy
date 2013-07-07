@@ -8,10 +8,9 @@ from rpython.rtyper.error import TyperError
 from rpython.rtyper.llinterp import LLException
 from rpython.rtyper.lltypesystem import rlist as ll_rlist
 from rpython.rtyper.lltypesystem.rlist import ListRepr, FixedSizeListRepr, ll_newlist, ll_fixed_newlist
-from rpython.rtyper.ootypesystem import rlist as oo_rlist
 from rpython.rtyper.rint import signed_repr
 from rpython.rtyper.rlist import *
-from rpython.rtyper.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
+from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.translator.translator import TranslationContext
 
 
@@ -188,6 +187,8 @@ class Freezing:
 
 
 class BaseTestRlist(BaseRtypingTest):
+    type_system = 'lltype'
+    rlist = ll_rlist
 
     def test_simple(self):
         def dummyfn():
@@ -1139,13 +1140,7 @@ class BaseTestRlist(BaseRtypingTest):
 
         res = self.interpret(f, [0])
         assert res == 1
-        if self.type_system == 'lltype':
-            # on lltype we always get an AssertionError
-            py.test.raises(AssertionError, self.interpret, f, [1])
-        else:
-            # on ootype we happen to get through the ll_asserts and to
-            # hit the IndexError from ootype.py
-            self.interpret_raises(IndexError, f, [1])
+        py.test.raises(AssertionError, self.interpret, f, [1])
 
         def f(x):
             l = [1]
@@ -1190,13 +1185,7 @@ class BaseTestRlist(BaseRtypingTest):
 
         res = self.interpret(f, [0])
         assert res == 1
-        if self.type_system == 'lltype':
-            # on lltype we always get an AssertionError
-            py.test.raises(AssertionError, self.interpret, f, [1])
-        else:
-            # on ootype we happen to get through the ll_asserts and to
-            # hit the IndexError from ootype.py
-            self.interpret_raises(IndexError, f, [1])
+        py.test.raises(AssertionError, self.interpret, f, [1])
 
         def f(x):
             l = [1]
@@ -1233,13 +1222,7 @@ class BaseTestRlist(BaseRtypingTest):
 
         res = self.interpret(f, [0])
         assert res == 1
-        if self.type_system == 'lltype':
-            # on lltype we always get an AssertionError
-            py.test.raises(AssertionError, self.interpret, f, [1])
-        else:
-            # on ootype we happen to get through the ll_asserts and to
-            # hit the IndexError from ootype.py
-            self.interpret_raises(IndexError, f, [1])
+        py.test.raises(AssertionError, self.interpret, f, [1])
 
     def test_charlist_extension_1(self):
         def f(n):
@@ -1435,10 +1418,6 @@ class BaseTestRlist(BaseRtypingTest):
         res = self.interpret(f, [0])
         assert self.ll_to_string(res) == 'abc'
 
-class TestLLtype(BaseTestRlist, LLRtypeMixin):
-    type_system = 'lltype'
-    rlist = ll_rlist
-
     def test_memoryerror(self):
         def fn(i):
             lst = [0] * i
@@ -1610,11 +1589,3 @@ class TestLLtype(BaseTestRlist, LLRtypeMixin):
             assert res == sum(map(ord, 'abcdef'))
         finally:
             rlist.ll_getitem_foldable_nonneg = prev
-
-
-class TestOOtype(BaseTestRlist, OORtypeMixin):
-    rlist = oo_rlist
-    type_system = 'ootype'
-
-    def test_reversed(self):
-        py.test.skip("unsupported")

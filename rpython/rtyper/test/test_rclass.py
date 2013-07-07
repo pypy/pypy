@@ -10,7 +10,7 @@ from rpython.rtyper.ootypesystem import ootype
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.rclass import (IR_IMMUTABLE, IR_IMMUTABLE_ARRAY,
     IR_QUASIIMMUTABLE, IR_QUASIIMMUTABLE_ARRAY)
-from rpython.rtyper.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
+from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.translator.translator import TranslationContext, graphof
 
 
@@ -36,7 +36,7 @@ class B(A):
 class C(B):
     pass
 
-class BaseTestRclass(BaseRtypingTest):
+class TestRclass(BaseRtypingTest):
 
     def test_instanceattr(self):
         def dummyfn():
@@ -71,7 +71,7 @@ class BaseTestRclass(BaseRtypingTest):
                 return A
             else:
                 return B
-            
+
         def dummyfn(i):
             C = pick(i)
             i = C()
@@ -93,7 +93,7 @@ class BaseTestRclass(BaseRtypingTest):
                 return A
             else:
                 return B
-            
+
         def dummyfn(i):
             C = pick(i)
             i = C()
@@ -281,14 +281,14 @@ class BaseTestRclass(BaseRtypingTest):
 
         class B(A):
             pass
-        
+
         def f():
             a = A()
             b = B()
             a.meth(1) # the self of this variant is annotated with A
             b.meth(2) # the self of this variant is annotated with B
             return 42
-        
+
         res = self.interpret(f, [])
         assert res == 42
 
@@ -300,18 +300,18 @@ class BaseTestRclass(BaseRtypingTest):
         class B(A):
             pass
         def f(i):
-            if i == 0: 
+            if i == 0:
                 c1 = A()
-            else: 
+            else:
                 c1 = B()
             return issubclass(type(c1), B)
-        assert self.interpret(f, [0]) == False 
+        assert self.interpret(f, [0]) == False
         assert self.interpret(f, [1]) == True
 
         def g(i):
-            if i == 0: 
+            if i == 0:
                 c1 = A()
-            else: 
+            else:
                 c1 = B()
             return issubclass(type(c1), A)
         assert self.interpret(g, [0]) == True
@@ -468,11 +468,9 @@ class BaseTestRclass(BaseRtypingTest):
         # a value that is (or was) the current_object_addr_as_int().
         # --- disabled: assert res.item0 == res.item1
         # the following property is essential on top of the lltypesystem
-        # otherwise prebuilt dictionaries are broken.  It's wrong on
-        # top of the ootypesystem though.
-        if isinstance(self, LLRtypeMixin):
-            assert res.item2 == h_c
-            assert res.item3 == h_d
+        # otherwise prebuilt dictionaries are broken.
+        assert res.item2 == h_c
+        assert res.item3 == h_d
 
     def test_circular_hash_initialization(self):
         class B:
@@ -517,10 +515,10 @@ class BaseTestRclass(BaseRtypingTest):
 
         def f():
             return type(a) is A
-        
+
         res = self.interpret(f, [])
-        
-        
+
+
     def test_void_fnptr(self):
         def g():
             return 42
@@ -732,7 +730,7 @@ class BaseTestRclass(BaseRtypingTest):
     def test_immutable(self):
         class I(object):
             _immutable_ = True
-            
+
             def __init__(self, v):
                 self.v = v
 
@@ -973,8 +971,6 @@ class BaseTestRclass(BaseRtypingTest):
         self.gengraph(f, [])
 
 
-class TestLLtype(BaseTestRclass, LLRtypeMixin):
-
     def test__del__(self):
         class A(object):
             def __init__(self):
@@ -1161,7 +1157,7 @@ class TestLLtype(BaseTestRclass, LLRtypeMixin):
         class Iterable(object):
             def __init__(self):
                 self.counter = 0
-            
+
             def __iter__(self):
                 return self
 
@@ -1184,7 +1180,7 @@ class TestLLtype(BaseTestRclass, LLRtypeMixin):
         class BaseIterable(object):
             def __init__(self):
                 self.counter = 0
-            
+
             def __iter__(self):
                 return self
 
@@ -1193,7 +1189,7 @@ class TestLLtype(BaseTestRclass, LLRtypeMixin):
                     raise StopIteration
                 self.counter += self.step
                 return self.counter - 1
-        
+
         class Iterable(BaseIterable):
             step = 1
 
@@ -1212,125 +1208,3 @@ class TestLLtype(BaseTestRclass, LLRtypeMixin):
 
         assert self.interpret(f, [True]) == f(True)
         assert self.interpret(f, [False]) == f(False)
-
-
-class TestOOtype(BaseTestRclass, OORtypeMixin):
-
-    def test__del__(self):
-        class A(object):
-            def __init__(self):
-                self.a = 2
-            def __del__(self):
-                self.a = 3
-        def f():
-            a = A()
-            return a.a
-        t = TranslationContext()
-        t.buildannotator().build_types(f, [])
-        t.buildrtyper(type_system=self.type_system).specialize()
-        graph = graphof(t, f)
-        TYPE = graph.startblock.operations[0].args[0].value
-        _, meth = TYPE._lookup("o__del__")
-        assert meth.finalizer
-
-    def test_del_inheritance(self):
-        from rpython.rlib import rgc
-        class State:
-            pass
-        s = State()
-        s.a_dels = 0
-        s.b_dels = 0
-        class A(object):
-            def __del__(self):
-                s.a_dels += 1
-        class B(A):
-            def __del__(self):
-                s.b_dels += 1
-        class C(A):
-            pass
-        def f():
-            A()
-            B()
-            C()
-            A()
-            B()
-            C()
-            rgc.collect()
-            return s.a_dels * 10 + s.b_dels
-        res = f()
-        assert res == 42
-        t = TranslationContext()
-        t.buildannotator().build_types(f, [])
-        t.buildrtyper(type_system=self.type_system).specialize()
-        graph = graphof(t, f)
-        TYPEA = graph.startblock.operations[0].args[0].value
-        TYPEB = graph.startblock.operations[1].args[0].value
-        TYPEC = graph.startblock.operations[2].args[0].value
-        _, destra = TYPEA._lookup("o__del__")
-        _, destrb = TYPEB._lookup("o__del__")
-        _, destrc = TYPEC._lookup("o__del__")
-        assert destra == destrc
-        assert destrb is not None
-        assert destra is not None
-
-    def test_cast_object_instance(self):
-        A = ootype.Instance("Foo", ootype.ROOT)
-
-        def fn_instance():
-            a = ootype.new(A)
-            obj = ootype.cast_to_object(a)
-            a2 = ootype.cast_from_object(A, obj)
-            a3 = ootype.cast_from_object(ootype.ROOT, obj)
-            assert a is a2
-            assert a is a3
-        self.interpret(fn_instance, [])
-
-    def test_cast_object_record(self):
-        B = ootype.Record({'x': ootype.Signed}) 
-
-        def fn_record():
-            b = ootype.new(B)
-            b.x = 42
-            obj = ootype.cast_to_object(b)
-            b2 = ootype.cast_from_object(B, obj)
-            assert b2.x == 42
-            assert b is b2
-        self.interpret(fn_record, [])
-
-    def test_cast_object_null(self):
-        A = ootype.Instance("Foo", ootype.ROOT)
-        B = ootype.Record({'x': ootype.Signed}) 
-
-        def fn_null():
-            a = ootype.null(A)
-            b = ootype.null(B)
-            obj1 = ootype.cast_to_object(a)
-            obj2 = ootype.cast_to_object(b)
-            assert obj1 == obj2
-            assert ootype.cast_from_object(A, obj1) == a
-            assert ootype.cast_from_object(B, obj2) == b
-        self.interpret(fn_null, [])
-
-    def test_cast_object_is_true(self):
-        A = ootype.Instance("Foo", ootype.ROOT)
-        def fn_is_true(flag):
-            if flag:
-                a = ootype.new(A)
-            else:
-                a = ootype.null(A)
-            obj = ootype.cast_to_object(a)
-            return bool(obj)
-        assert self.interpret(fn_is_true, [True]) is True
-        assert self.interpret(fn_is_true, [False]) is False
-
-    def test_cast_object_mix_null(self):
-        A = ootype.Instance("Foo", ootype.ROOT)
-        def fn_mix_null(flag):
-            a = ootype.new(A)
-            obj = ootype.cast_to_object(a)
-            if flag:
-                return obj
-            else:
-                return ootype.NULL
-        res = self.interpret(fn_mix_null, [False])
-        assert res is ootype.NULL

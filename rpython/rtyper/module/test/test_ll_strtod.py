@@ -1,9 +1,9 @@
 import py
 
-from rpython.rtyper.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
+from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rlib import rfloat
 
-class BaseTestStrtod(BaseRtypingTest):    
+class TestStrtod(BaseRtypingTest):
     def test_formatd(self):
         for flags in [0,
                       rfloat.DTSF_ADD_DOT_0]:
@@ -14,12 +14,12 @@ class BaseTestStrtod(BaseRtypingTest):
 
     def test_parts_to_float(self):
         from rpython.rtyper.annlowlevel import hlstr
-        
+
         def f(a, b, c, d):
             a,b,c,d = hlstr(a), hlstr(b), hlstr(c), hlstr(d)
-            
+
             return rfloat.parts_to_float(a, b, c, d)
-        
+
         data = [
         (("","1","","")     , 1.0),
         (("-","1","","")    , -1.0),
@@ -32,6 +32,3 @@ class BaseTestStrtod(BaseRtypingTest):
         for parts, val in data:
             args = [self.string_to_ll(i) for i in parts]
             assert self.interpret(f, args) == val
-
-class TestLLStrtod(BaseTestStrtod, LLRtypeMixin):
-    pass

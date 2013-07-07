@@ -2,16 +2,15 @@
 """ Few tests for annlowlevel helpers
 """
 
-from rpython.rtyper.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
+from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rtyper.lltypesystem.rstr import mallocstr, mallocunicode
 from rpython.rtyper.lltypesystem import lltype
-from rpython.rtyper.ootypesystem import ootype
-from rpython.rtyper.annlowlevel import hlstr, llstr, oostr
+from rpython.rtyper.annlowlevel import hlstr, llstr
 from rpython.rtyper.annlowlevel import hlunicode, llunicode
 from rpython.rtyper import annlowlevel
 
 
-class TestLLType(BaseRtypingTest, LLRtypeMixin):
+class TestLLType(BaseRtypingTest):
     def test_hlstr(self):
         s = mallocstr(3)
         s.chars[0] = "a"
@@ -33,7 +32,7 @@ class TestLLType(BaseRtypingTest, LLRtypeMixin):
 
         res = self.interpret(f, [self.string_to_ll("abc")])
         assert res == 3
-    
+
     def test_hlunicode(self):
         s = mallocunicode(3)
         s.chars[0] = u"a"
@@ -63,32 +62,4 @@ class TestLLType(BaseRtypingTest, LLRtypeMixin):
         ptr = annlowlevel.cast_instance_to_base_ptr(x)
         assert lltype.typeOf(ptr) == annlowlevel.base_ptr_lltype()
         y = annlowlevel.cast_base_ptr_to_instance(X, ptr)
-        assert y is x
-
-
-class TestOOType(BaseRtypingTest, OORtypeMixin):
-    def test_hlstr(self):
-        s = ootype.make_string("abc")
-        assert hlstr(s) == "abc"
-
-    def test_oostr(self):
-        s = oostr("abc")
-        assert ootype.typeOf(s) == ootype.String
-        assert s._str == "abc"
-
-    def test_oostr_compile(self):
-        def f(arg):
-            s = oostr(hlstr(arg))
-            return s.ll_strlen()
-
-        res = self.interpret(f, [self.string_to_ll("abc")])
-        assert res == 3
-
-    def test_cast_instance_to_base_obj(self):
-        class X(object):
-            pass
-        x = X()
-        obj = annlowlevel.cast_instance_to_base_obj(x)
-        assert lltype.typeOf(obj) == annlowlevel.base_obj_ootype()
-        y = annlowlevel.cast_base_ptr_to_instance(X, obj)
         assert y is x
