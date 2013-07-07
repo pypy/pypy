@@ -319,7 +319,7 @@ Do I have to rewrite my programs in RPython?
 
 No, and you shouldn't try.  First and foremost, RPython is a language
 designed for writing interpreters. It is a restricted subset of
-Python.  If you program is not an interpreter but tries to do "real
+Python.  If your program is not an interpreter but tries to do "real
 things", like use *any* part of the standard Python library or *any*
 3rd-party library, then it is not RPython to start with.  You should
 only look at RPython if you try to `write your own interpreter`__.
