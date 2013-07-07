@@ -33,20 +33,11 @@ translation_optiondescription = OptionDescription(
                default=False, cmdline="--continuation",
                requires=[("translation.type_system", "lltype")]),
     ChoiceOption("type_system", "Type system to use when RTyping",
-                 ["lltype", "ootype"], cmdline=None, default="lltype",
-                 requires={
-                     "ootype": [
-                                ("translation.backendopt.constfold", False),
-                                ("translation.backendopt.clever_malloc_removal", False),
-                                ("translation.gc", "boehm"), # it's not really used, but some jit code expects a value here
-                                ]
-                     }),
+                 ["lltype"], cmdline=None, default="lltype"),
     ChoiceOption("backend", "Backend to use for code generation",
-                 ["c", "cli", "jvm"], default="c",
+                 ["c"], default="c",
                  requires={
                      "c":      [("translation.type_system", "lltype")],
-                     "cli":    [("translation.type_system", "ootype")],
-                     "jvm":    [("translation.type_system", "ootype")],
                      },
                  cmdline="-b --backend"),
 
@@ -188,11 +179,6 @@ translation_optiondescription = OptionDescription(
                "If true, makes an lldebug build", default=False,
                cmdline="--lldebug"),
 
-    # options for ootype
-    OptionDescription("ootype", "Object Oriented Typesystem options", [
-        BoolOption("mangle", "Mangle names of class members", default=True),
-    ]),
-
     OptionDescription("backendopt", "Backend Optimization Options", [
         # control inlining
         BoolOption("inline", "Do basic inlining and malloc removal",
@@ -270,11 +256,6 @@ translation_optiondescription = OptionDescription(
                              ('translation.backendopt.constfold', False)])
     ]),
 
-    OptionDescription("cli", "GenCLI options", [
-        BoolOption("trace_calls", "Trace function calls", default=False,
-                   cmdline="--cli-trace-calls"),
-        BoolOption("exception_transformer", "Use exception transformer", default=False),
-    ]),
     ChoiceOption("platform",
                  "target platform", ['host'] + PLATFORMS, default='host',
                  cmdline='--platform',
