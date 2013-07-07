@@ -60,7 +60,7 @@ class ProfInstrument(object):
         env = os.environ.copy()
         env['PYPY_INSTRUMENT_COUNTERS'] = str(self.datafile)
         self.compiler.platform.execute(exe, args, env=env)
-        
+
     def after(self):
         # xxx
         os._exit(0)
@@ -99,7 +99,7 @@ class TranslationDriver(SimpleTaskEngine):
             default_goal, = self.backend_select_goals([default_goal])
             if default_goal in self._maybe_skip():
                 default_goal = None
-        
+
         self.default_goal = default_goal
         self.extra_goals = []
         self.exposed = []
@@ -142,7 +142,7 @@ class TranslationDriver(SimpleTaskEngine):
 
     def set_backend_extra_options(self, extra_options):
         self._backend_extra_options = extra_options
-        
+
     def get_info(self): # XXX more?
         d = {'backend': self.config.translation.backend}
         return d
@@ -163,7 +163,7 @@ class TranslationDriver(SimpleTaskEngine):
                     new_goal = cand
                     break
             else:
-                raise Exception, "cannot infer complete goal from: %r" % goal 
+                raise Exception, "cannot infer complete goal from: %r" % goal
             l.append(new_goal)
         return l
 
@@ -423,7 +423,7 @@ class TranslationDriver(SimpleTaskEngine):
         from rpython.translator.transform import insert_ll_stackcheck
         count = insert_ll_stackcheck(self.translator)
         self.log.info("inserted %d stack checks." % (count,))
-        
+
 
     def possibly_check_for_boehm(self):
         if self.config.translation.gc == "boehm":
@@ -537,7 +537,7 @@ class TranslationDriver(SimpleTaskEngine):
     def task_llinterpret_lltype(self):
         from rpython.rtyper.llinterp import LLInterpreter
         py.log.setconsumer("llinterp operation", None)
-        
+
         translator = self.translator
         interp = LLInterpreter(translator.rtyper)
         bk = translator.annotator.bookkeeper
@@ -547,95 +547,6 @@ class TranslationDriver(SimpleTaskEngine):
                                              lambda: [])())
 
         log.llinterpret.event("result -> %s" % v)
-
-    @taskdef(["?" + OOBACKENDOPT, OOTYPE], 'Generating CLI source')
-    def task_source_cli(self):
-        from rpython.translator.cli.gencli import GenCli
-        from rpython.translator.cli.entrypoint import get_entrypoint
-
-        if self.entry_point is not None: # executable mode
-            entry_point_graph = self.translator.graphs[0]
-            entry_point = get_entrypoint(entry_point_graph)
-        else:
-            # library mode
-            assert self.libdef is not None
-            bk = self.translator.annotator.bookkeeper
-            entry_point = self.libdef.get_entrypoint(bk)
-
-        self.gen = GenCli(udir, self.translator, entry_point, config=self.config)
-        filename = self.gen.generate_source()
-        self.log.info("Wrote %s" % (filename,))
-
-    @taskdef(['source_cli'], 'Compiling CLI source')
-    def task_compile_cli(self):
-        from rpython.translator.oosupport.support import unpatch_os
-        from rpython.translator.cli.test.runtest import CliFunctionWrapper
-        filename = self.gen.build_exe()
-        self.c_entryp = CliFunctionWrapper(filename)
-        # restore original os values
-        if hasattr(self, 'old_cli_defs'):
-            unpatch_os(self.old_cli_defs)
-        
-        self.log.info("Compiled %s" % filename)
-        if self.standalone and self.exe_name:
-            self.copy_cli_exe()
-
-    def copy_cli_exe(self):
-        # XXX messy
-        main_exe = self.c_entryp._exe
-        usession_path, main_exe_name = os.path.split(main_exe)
-        pypylib_dll = os.path.join(usession_path, 'pypylib.dll')
-
-        basename = self.exe_name % self.get_info()
-        dirname = basename + '-data/'
-        if '/' not in dirname and '\\' not in dirname:
-            dirname = './' + dirname
-
-        if not os.path.exists(dirname):
-            os.makedirs(dirname)
-        shutil.copy(main_exe, dirname)
-        shutil.copy(pypylib_dll, dirname)
-        if bool(os.getenv('PYPY_GENCLI_COPYIL')):
-            shutil.copy(os.path.join(usession_path, 'main.il'), dirname)
-        newexename = basename
-        f = file(newexename, 'w')
-        f.write(r"""#!/bin/bash
-LEDIT=`type -p ledit`
-EXE=`readlink $0`
-if [ -z $EXE ]
-then
-    EXE=$0
-fi
-if  uname -s | grep -iq Cygwin
-then 
-    MONO=
-else 
-    MONO=mono
-    # workaround for known mono buggy versions
-    VER=`mono -V | head -1 | sed s/'Mono JIT compiler version \(.*\) (.*'/'\1/'`
-    if [[ 2.1 < "$VER" && "$VER" < 2.4.3 ]]
-    then
-        MONO="mono -O=-branch"
-    fi
-fi
-$LEDIT $MONO "$(dirname $EXE)/$(basename $EXE)-data/%s" "$@" # XXX doesn't work if it's placed in PATH
-""" % main_exe_name)
-        f.close()
-        os.chmod(newexename, 0755)
-
-    def copy_cli_dll(self):
-        dllname = self.gen.outfile
-        usession_path, dll_name = os.path.split(dllname)
-        pypylib_dll = os.path.join(usession_path, 'pypylib.dll')
-        shutil.copy(dllname, '.')
-        shutil.copy(pypylib_dll, '.')
-        
-        # main.exe is a stub but is needed right now because it's
-        # referenced by pypylib.dll.  Will be removed in the future
-        translator_path, _ = os.path.split(__file__)
-        main_exe = os.path.join(translator_path, 'cli/src/main.exe')
-        shutil.copy(main_exe, '.')
-        self.log.info("Copied to %s" % os.path.join(os.getcwd(), dllname))
 
     @taskdef(["?" + OOBACKENDOPT, OOTYPE], 'Generating JVM source')
     def task_source_jvm(self):
@@ -747,7 +658,7 @@ $LEDIT java -Xmx256m -jar $EXE.jar "$@"
         if backend in ('cli', 'jvm'):
             from rpython.translator.oosupport.support import patch_os
             driver.old_cli_defs = patch_os()
-        
+
         target = targetspec_dic['target']
         spec = target(driver, args)
 
@@ -757,8 +668,8 @@ $LEDIT java -Xmx256m -jar $EXE.jar "$@"
             entry_point, inputtypes = spec
             policy = None
 
-        driver.setup(entry_point, inputtypes, 
-                     policy=policy, 
+        driver.setup(entry_point, inputtypes,
+                     policy=policy,
                      extra=targetspec_dic,
                      empty_translator=empty_translator)
 
@@ -770,7 +681,7 @@ $LEDIT java -Xmx256m -jar $EXE.jar "$@"
         assert 'rpython.rtyper.rmodel' not in sys.modules, (
             "cannot fork because the rtyper has already been imported")
     prereq_checkpt_rtype_lltype = prereq_checkpt_rtype
-    prereq_checkpt_rtype_ootype = prereq_checkpt_rtype    
+    prereq_checkpt_rtype_ootype = prereq_checkpt_rtype
 
     # checkpointing support
     def _event(self, kind, goal, func):
