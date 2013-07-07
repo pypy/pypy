@@ -3,16 +3,13 @@ from rpython.translator.translator import TranslationContext, graphof
 from rpython.translator.simplify import get_funcobj
 from rpython.translator.backendopt.canraise import RaiseAnalyzer
 from rpython.translator.backendopt.all import backend_optimizations
-from rpython.rtyper.test.tool import LLRtypeMixin, OORtypeMixin
 from rpython.conftest import option
 
-class BaseTestCanRaise(object):
-    type_system = None
-
+class TestCanRaise(object):
     def translate(self, func, sig):
         t = TranslationContext()
         t.buildannotator().build_types(func, sig)
-        t.buildrtyper(type_system=self.type_system).specialize()
+        t.buildrtyper(type_system='lltype').specialize()
         if option.view:
             t.view()
         return t, RaiseAnalyzer(t)
@@ -136,7 +133,7 @@ class BaseTestCanRaise(object):
                 obj = B()
             f(obj)
             m(obj)
-        
+
         t, ra = self.translate(h, [int])
         hgraph = graphof(t, h)
         # fiiiish :-(
@@ -179,7 +176,7 @@ class BaseTestCanRaise(object):
         # an indirect call without a list of graphs
         from rpython.rlib.objectmodel import instantiate
         class A:
-            pass 
+            pass
         class B(A):
             pass
         def g(x):
@@ -195,7 +192,6 @@ class BaseTestCanRaise(object):
         result = ra.can_raise(fgraph.startblock.operations[0])
         assert result
 
-class TestLLType(LLRtypeMixin, BaseTestCanRaise):
     def test_llexternal(self):
         from rpython.rtyper.lltypesystem.rffi import llexternal
         from rpython.rtyper.lltypesystem import lltype
@@ -231,8 +227,3 @@ class TestLLType(LLRtypeMixin, BaseTestCanRaise):
         fgraph = graphof(t, f)
         result = ra.can_raise(fgraph.startblock.operations[0])
         assert not result
-
-
-class TestOOType(OORtypeMixin, BaseTestCanRaise):
-    def test_can_raise_recursive(self):
-        py.test.skip("ootype: no explicit stack checks raising RuntimeError")
