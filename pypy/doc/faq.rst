@@ -96,8 +96,21 @@ features (such as set comprehensions).
 Does PyPy have a GIL?  Why?
 -------------------------------------------------
 
-Yes, PyPy has a GIL.  Removing the GIL is very hard.  The first problem
-is that our garbage collectors are not re-entrant.
+Yes, PyPy has a GIL.  Removing the GIL is very hard.  The problems are
+essentially the same as with CPython (including the fact that our
+garbage collectors are not thread-safe so far).  Fixing it is possible,
+as shown by Jython and IronPython, but difficult.  It would require
+adapting the whole source code of PyPy, including subtle decisions about
+whether some effects are ok or not for the user (i.e. the Python
+programmer).
+
+Instead, since 2012, there is work going on on a still very experimental
+Software Transactional Memory (STM) version of PyPy.  This should give
+an alternative PyPy which internally has no GIL, while at the same time
+continuing to give the Python programmer the complete illusion of having
+one.  It would in fact push forward *more* GIL-ish behavior, like
+declaring that some sections of the code should run without releasing
+the GIL in the middle (these are called *atomic sections* in STM).
 
 ------------------------------------------
 How do I write extension modules for PyPy?
@@ -322,8 +335,32 @@ if you manage to.
 Yes, it is possible with enough effort to compile small self-contained
 pieces of RPython code doing a few performance-sensitive things.  But
 this case is not interesting for us.  If you needed to rewrite the code
-in RPython, you could as well have rewritten it in C for example.  The
-latter is a much more supported, much more documented language `:-)`
+in RPython, you could as well have rewritten it in C or C++ or Java for
+example.  These are much more supported, much more documented languages
+`:-)`
+
+  *The above paragraphs are not the whole truth.  It* is *true that there
+  are cases where writing a program as RPython gives you substantially
+  better speed than running it on top of PyPy.  However, the attitude of
+  the core group of people behind PyPy is to answer: "then report it as a
+  performance bug against PyPy!".*
+
+  *Here is a more diluted way to put it.  The "No, don't!" above is a
+  general warning we give to new people.  They are likely to need a lot
+  of help from* some *source, because RPython is not so simple nor
+  extensively documented; but at the same time, we, the pypy core group
+  of people, are not willing to invest time in supporting 3rd-party
+  projects that do very different things than interpreters for dynamic
+  languages --- just because we have other interests and there are only
+  so many hours a day.  So as a summary I believe it is only fair to
+  attempt to point newcomers at existing alternatives, which are more
+  mainstream and where they will get help from many people.*
+
+  *If anybody seriously wants to promote RPython anyway, he is welcome
+  to: we won't actively resist such a plan.  This is open source, which
+  means that anybody is free to promote and develop anything; but it
+  also means that you must let us choose* not *to go into that direction
+  ourselves.*
 
 ---------------------------------------------------
 Which backends are there for the RPython toolchain?
