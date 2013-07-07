@@ -128,17 +128,6 @@ class Translation(object):
         self.driver.compile_c()
         return self.driver.c_entryp
 
-    def compile_cli(self, **kwds):
-        self.update_options(kwds)
-        self.ensure_backend('cli')
-        self.driver.compile_cli()
-        return self.driver.c_entryp
-
-    def source_cli(self, **kwds):
-        self.update_options(kwds)
-        self.ensure_backend('cli')
-        self.driver.source_cli()
-
     def compile_jvm(self, **kwds):
         self.update_options(kwds)
         self.ensure_backend('jvm')
