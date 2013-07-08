@@ -18,7 +18,7 @@ class AppTest(object):
 
     def test_raise_on_unicode(self):
         import _pypyjson
-        raises(TypeError, _pypyjson.loads, u"42")
+        raises(TypeError, _pypyjson.loads, "42")
 
 
     def test_decode_constants(self):
@@ -46,19 +46,19 @@ class AppTest(object):
     def test_decode_string(self):
         import _pypyjson
         res = _pypyjson.loads('"hello"')
-        assert res == u'hello'
-        assert type(res) is unicode
+        assert res == 'hello'
+        assert type(res) is str
 
     def test_decode_string_utf8(self):
         import _pypyjson
-        s = u'àèìòù'
+        s = 'àèìòù'
         res = _pypyjson.loads('"%s"' % s.encode('utf-8'))
         assert res == s
 
     def test_skip_whitespace(self):
         import _pypyjson
         s = '   "hello"   '
-        assert _pypyjson.loads(s) == u'hello'
+        assert _pypyjson.loads(s) == 'hello'
         s = '   "hello"   extra'
         raises(ValueError, "_pypyjson.loads(s)")
 
@@ -69,14 +69,14 @@ class AppTest(object):
 
     def test_escape_sequence(self):
         import _pypyjson
-        assert _pypyjson.loads(r'"\\"') == u'\\'
-        assert _pypyjson.loads(r'"\""') == u'"'
-        assert _pypyjson.loads(r'"\/"') == u'/'       
-        assert _pypyjson.loads(r'"\b"') == u'\b'
-        assert _pypyjson.loads(r'"\f"') == u'\f'
-        assert _pypyjson.loads(r'"\n"') == u'\n'
-        assert _pypyjson.loads(r'"\r"') == u'\r'
-        assert _pypyjson.loads(r'"\t"') == u'\t'
+        assert _pypyjson.loads(r'"\\"') == '\\'
+        assert _pypyjson.loads(r'"\""') == '"'
+        assert _pypyjson.loads(r'"\/"') == '/'       
+        assert _pypyjson.loads(r'"\b"') == '\b'
+        assert _pypyjson.loads(r'"\f"') == '\f'
+        assert _pypyjson.loads(r'"\n"') == '\n'
+        assert _pypyjson.loads(r'"\r"') == '\r'
+        assert _pypyjson.loads(r'"\t"') == '\t'
 
     def test_escape_sequence_in_the_middle(self):
         import _pypyjson
@@ -91,7 +91,7 @@ class AppTest(object):
     def test_escape_sequence_unicode(self):
         import _pypyjson
         s = r'"\u1234"'
-        assert _pypyjson.loads(s) == u'\u1234'
+        assert _pypyjson.loads(s) == '\u1234'
 
     def test_invalid_utf_8(self):
         import _pypyjson
@@ -122,11 +122,11 @@ class AppTest(object):
         check(str(1 << 32), 1 << 32)
         check(str(1 << 64), 1 << 64)
         #
-        x = str(sys.maxint+1) + '.123'
+        x = str(sys.maxsize+1) + '.123'
         check(x, float(x))
-        x = str(sys.maxint+1) + 'E1'
+        x = str(sys.maxsize+1) + 'E1'
         check(x, float(x))
-        x = str(sys.maxint+1) + 'E-1'
+        x = str(sys.maxsize+1) + 'E-1'
         check(x, float(x))
         #
         check('1E400', float('inf'))
@@ -181,7 +181,7 @@ class AppTest(object):
         
     def test_unicode_surrogate_pair(self):
         import _pypyjson
-        expected = u'z\U0001d120x'
+        expected = 'z\U0001d120x'
         res = _pypyjson.loads('"z\\ud834\\udd20x"')
         assert res == expected
 
