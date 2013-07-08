@@ -107,9 +107,9 @@ __author__ = 'Bob Ippolito <bob@redivi.com>'
 
 try:
     # PyPy speedup, the interface is different than CPython's _json
-    import _fastjson
+    import _pypyjson
 except ImportError:
-    _fastjson = None
+    _pypyjson = None
 
 from .decoder import JSONDecoder
 from .encoder import JSONEncoder
@@ -328,8 +328,8 @@ def loads(s, encoding=None, cls=None, object_hook=None, parse_float=None,
     if (cls is None and encoding is None and object_hook is None and
             parse_int is None and parse_float is None and
             parse_constant is None and object_pairs_hook is None and not kw):
-        if _fastjson and not isinstance(s, unicode):
-            return _fastjson.loads(s)
+        if _pypyjson and not isinstance(s, unicode):
+            return _pypyjson.loads(s)
         else:
             return _default_decoder.decode(s)
     if cls is None:
