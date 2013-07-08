@@ -740,14 +740,14 @@ def make_string_mappings(strtype):
         string is already nonmovable.  Must be followed by a
         free_nonmovingbuffer call.
         """
+        lldata = llstrtype(data)
         if rgc.can_move(data):
             count = len(data)
             buf = lltype.malloc(TYPEP.TO, count, flavor='raw')
-            for i in range(count):
-                buf[i] = data[i]
+            copy_string_to_raw(lldata, buf, 0, count)
             return buf
         else:
-            data_start = cast_ptr_to_adr(llstrtype(data)) + \
+            data_start = cast_ptr_to_adr(lldata) + \
                 offsetof(STRTYPE, 'chars') + itemoffsetof(STRTYPE.chars, 0)
             return cast(TYPEP, data_start)
     get_nonmovingbuffer._annenforceargs_ = [strtype]
