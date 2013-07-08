@@ -9,8 +9,8 @@ from rpython.rlib.objectmodel import specialize
 #
 # Any SETFIELD_GC, SETARRAYITEM_GC, SETINTERIORFIELD_GC must be done on a
 # W object.  The operation that forces an object p1 to be W is
-# COND_CALL_GC_WB(p1, 0, descr=x2Wdescr), for x in 'PGORL'.  This
-# COND_CALL_GC_WB is a bit special because if p1 is not W, it *replaces*
+# COND_CALL_STM_WB(p1, 0, descr=x2Wdescr), for x in 'PGORL'.  This
+# COND_CALL_STM_WB is a bit special because if p1 is not W, it *replaces*
 # its value with the W copy (by changing the register's value and
 # patching the stack location if any).  It's still conceptually the same
 # object, but the pointer is different.
