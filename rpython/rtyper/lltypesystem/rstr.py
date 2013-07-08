@@ -102,7 +102,7 @@ def _new_copy_contents_fun(STR_TP, CHAR_TP, name):
     return copy_string_to_raw, copy_string_contents
 
 copy_string_to_raw, copy_string_contents = _new_copy_contents_fun(STR, Char, 'string')
-copy_unicode_do_raw, copy_unicode_contents = _new_copy_contents_fun(UNICODE,
+copy_unicode_to_raw, copy_unicode_contents = _new_copy_contents_fun(UNICODE,
                                                                     UniChar, 'unicode')
 
 CONST_STR_CACHE = WeakValueDictionary()

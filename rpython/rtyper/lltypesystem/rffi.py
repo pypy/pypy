@@ -677,7 +677,8 @@ SIGNEDP = lltype.Ptr(lltype.Array(SIGNED, hints={'nolength': True}))
 def make_string_mappings(strtype):
 
     if strtype is str:
-        from rpython.rtyper.lltypesystem.rstr import STR as STRTYPE
+        from rpython.rtyper.lltypesystem.rstr import (STR as STRTYPE,
+                                                      copy_string_to_raw)
         from rpython.rtyper.annlowlevel import llstr as llstrtype
         from rpython.rtyper.annlowlevel import hlstr as hlstrtype
         TYPEP = CCHARP
@@ -685,7 +686,9 @@ def make_string_mappings(strtype):
         lastchar = '\x00'
         builder_class = StringBuilder
     else:
-        from rpython.rtyper.lltypesystem.rstr import UNICODE as STRTYPE
+        from rpython.rtyper.lltypesystem.rstr import (
+            UNICODE as STRTYPE,
+            copy_unicode_to_raw as copy_string_to_raw)
         from rpython.rtyper.annlowlevel import llunicode as llstrtype
         from rpython.rtyper.annlowlevel import hlunicode as hlstrtype
         TYPEP = CWCHARP
@@ -702,11 +705,9 @@ def make_string_mappings(strtype):
         else:
             array = lltype.malloc(TYPEP.TO, len(s) + 1, flavor='raw', track_allocation=False)
         i = len(s)
+        ll_s = llstrtype(s)
+        copy_string_to_raw(ll_s, array, 0, i)
         array[i] = lastchar
-        i -= 1
-        while i >= 0:
-            array[i] = s[i]
-            i -= 1
         return array
     str2charp._annenforceargs_ = [strtype, bool]
 
