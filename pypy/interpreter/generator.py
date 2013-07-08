@@ -177,7 +177,7 @@ return next yielded value or raise StopIteration."""
                                   reds=['self', 'frame', 'results'],
                                   name='unpack_into')
 
-        def unpack_into(self, results):
+        def unpack_into(self, space, results):
             """This is a hack for performance: runs the generator and collects
             all produced items in a list."""
             # XXX copied and simplified version of send_ex()

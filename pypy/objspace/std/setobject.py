@@ -1,4 +1,4 @@
-from pypy.interpreter import gateway
+from pypy.interpreter import gateway, unpack
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.signature import Signature
 from pypy.interpreter.baseobjspace import W_Root
@@ -1568,56 +1568,19 @@ def set_strategy_and_setdata(space, w_set, w_iterable):
         w_set.sstorage = strategy.get_storage_from_unwrapped_list(intlist)
         return
 
-    iterable_w = space.listview(w_iterable)
+    w_set.strategy = strategy = space.fromcache(EmptySetStrategy)
+    w_set.sstorage = strategy.get_empty_storage()
+    space.unpack_into(w_iterable, SetUnpackTarget(space, w_set))
 
-    if len(iterable_w) == 0:
-        w_set.strategy = strategy = space.fromcache(EmptySetStrategy)
-        w_set.sstorage = strategy.get_empty_storage()
-        return
+class SetUnpackTarget(unpack.UnpackTarget):
+    # YYY is unrolling correctly done?
+    def __init__(self, space, w_set):
+        self.space = space
+        self.w_set = w_set
 
-    _pick_correct_strategy(space, w_set, iterable_w)
+    def append(self, w_obj):
+        self.w_set.add(w_obj)
 
-@jit.look_inside_iff(lambda space, w_set, iterable_w:
-        jit.loop_unrolling_heuristic(iterable_w, len(iterable_w), UNROLL_CUTOFF))
-def _pick_correct_strategy(space, w_set, iterable_w):
-    # check for integers
-    for w_item in iterable_w:
-        if type(w_item) is not W_IntObject:
-            break
-    else:
-        w_set.strategy = space.fromcache(IntegerSetStrategy)
-        w_set.sstorage = w_set.strategy.get_storage_from_list(iterable_w)
-        return
-
-    # check for strings
-    for w_item in iterable_w:
-        if type(w_item) is not W_StringObject:
-            break
-    else:
-        w_set.strategy = space.fromcache(StringSetStrategy)
-        w_set.sstorage = w_set.strategy.get_storage_from_list(iterable_w)
-        return
-
-    # check for unicode
-    for w_item in iterable_w:
-        if type(w_item) is not W_UnicodeObject:
-            break
-    else:
-        w_set.strategy = space.fromcache(UnicodeSetStrategy)
-        w_set.sstorage = w_set.strategy.get_storage_from_list(iterable_w)
-        return
-
-    # check for compares by identity
-    for w_item in iterable_w:
-        if not space.type(w_item).compares_by_identity():
-            break
-    else:
-        w_set.strategy = space.fromcache(IdentitySetStrategy)
-        w_set.sstorage = w_set.strategy.get_storage_from_list(iterable_w)
-        return
-
-    w_set.strategy = space.fromcache(ObjectSetStrategy)
-    w_set.sstorage = w_set.strategy.get_storage_from_list(iterable_w)
 
 init_signature = Signature(['some_iterable'], None, None)
 init_defaults = [None]

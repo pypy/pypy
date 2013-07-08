@@ -14,7 +14,7 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import (WrappedDefault, unwrap_spec, applevel,
     interp2app)
-from pypy.interpreter.generator import GeneratorIterator
+from pypy.interpreter import unpack
 from pypy.interpreter.signature import Signature
 from pypy.objspace.std import slicetype
 from pypy.objspace.std.floatobject import W_FloatObject
@@ -100,36 +100,13 @@ def get_strategy_from_list_objects(space, list_w, sizehint):
 
     return space.fromcache(ObjectListStrategy)
 
+class ListUnpackTarget(unpack.UnpackTarget):
+    def __init__(self, space, w_list):
+        self.space = space
+        self.w_list = w_list
 
-def _get_printable_location(w_type):
-    return ('list__do_extend_from_iterable [w_type=%s]' %
-            w_type.getname(w_type.space))
-
-
-_do_extend_jitdriver = jit.JitDriver(
-    name='list__do_extend_from_iterable',
-    greens=['w_type'],
-    reds=['i', 'w_iterator', 'w_list'],
-    get_printable_location=_get_printable_location)
-
-def _do_extend_from_iterable(space, w_list, w_iterable):
-    w_iterator = space.iter(w_iterable)
-    w_type = space.type(w_iterator)
-    i = 0
-    while True:
-        _do_extend_jitdriver.jit_merge_point(w_type=w_type,
-                                             i=i,
-                                             w_iterator=w_iterator,
-                                             w_list=w_list)
-        try:
-            w_list.append(space.next(w_iterator))
-        except OperationError, e:
-            if not e.match(space, space.w_StopIteration):
-                raise
-            break
-        i += 1
-    return i
-
+    def append(self, w_obj):
+        self.w_list.append(w_obj)
 
 def list_unroll_condition(w_list1, space, w_list2):
     return (jit.loop_unrolling_heuristic(w_list1, w_list1.length(),
@@ -790,10 +767,8 @@ class ListStrategy(object):
         if type(w_any) is W_ListObject or (isinstance(w_any, W_ListObject) and
                                            self.space._uses_list_iter(w_any)):
             self._extend_from_list(w_list, w_any)
-        elif isinstance(w_any, GeneratorIterator):
-            w_any.unpack_into_w(w_list)
-        else:
-            self._extend_from_iterable(w_list, w_any)
+            return
+        self._extend_from_iterable(w_list, w_any)
 
     def _extend_from_list(self, w_list, w_other):
         raise NotImplementedError
@@ -804,11 +779,12 @@ class ListStrategy(object):
         if length_hint:
             w_list._resize_hint(w_list.length() + length_hint)
 
-        extended = _do_extend_from_iterable(self.space, w_list, w_iterable)
+        self.space.unpack_into(w_iterable, ListUnpackTarget(self.space, w_list))
 
         # cut back if the length hint was too large
-        if extended < length_hint:
-            w_list._resize_hint(w_list.length())
+        length = w_list.length()
+        if length < length_hint:
+            w_list._resize_hint(length)
 
     def reverse(self, w_list):
         raise NotImplementedError

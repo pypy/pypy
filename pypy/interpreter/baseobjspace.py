@@ -4,8 +4,7 @@ from rpython.rlib.cache import Cache
 from rpython.tool.uid import HUGEVAL_BYTES
 from rpython.rlib import jit, types
 from rpython.rlib.debug import make_sure_not_resized
-from rpython.rlib.objectmodel import (we_are_translated, newlist_hint,
-     compute_unique_id)
+from rpython.rlib.objectmodel import (we_are_translated, compute_unique_id)
 from rpython.rlib.signature import signature
 from rpython.rlib.rarithmetic import r_uint
 
@@ -233,6 +232,18 @@ class W_Root(object):
 
     def __spacebind__(self, space):
         return self
+
+    def unpack_into(self, space, unpack_target):
+        w_iterator = space.iter(self)
+        while True:
+            # YYY jit driver
+            try:
+                w_item = space.next(w_iterator)
+            except OperationError, e:
+                if not e.match(space, space.w_StopIteration):
+                    raise
+                break  # done
+            unpack_target.append(w_item)
 
     def unwrap(self, space):
         """NOT_RPYTHON"""
@@ -751,20 +762,19 @@ class ObjSpace(object):
         """Unpack an iterable into a real (interpreter-level) list.
 
         Raise an OperationError(w_ValueError) if the length is wrong."""
+        from pypy.interpreter import unpack
         w_iterator = self.iter(w_iterable)
         if expected_length == -1:
-            # xxx special hack for speed
-            from pypy.interpreter.generator import GeneratorIterator
-            if isinstance(w_iterator, GeneratorIterator):
-                lst_w = []
-                w_iterator.unpack_into(lst_w)
-                return lst_w
-            # /xxx
-            return self._unpackiterable_unknown_length(w_iterator, w_iterable)
+            unpack_target = unpack.InterpListUnpackTarget(self, w_iterable)
+            self.unpack_into(w_iterable, unpack_target)
+            return unpack_target.items_w
         else:
             lst_w = self._unpackiterable_known_length(w_iterator,
                                                       expected_length)
             return lst_w[:]     # make the resulting list resizable
+
+    def unpack_into(self, w_iterable, unpack_target):
+        w_iterable.unpack_into(self, unpack_target)
 
     def iteriterable(self, w_iterable):
         return W_InterpIterable(self, w_iterable)
@@ -773,26 +783,6 @@ class ObjSpace(object):
         """Unpack an iterable of unknown length into an interp-level
         list.
         """
-        # If we can guess the expected length we can preallocate.
-        try:
-            items = newlist_hint(self.length_hint(w_iterable, 0))
-        except MemoryError:
-            items = [] # it might have lied
-
-        tp = self.type(w_iterator)
-        while True:
-            unpackiterable_driver.jit_merge_point(tp=tp,
-                                                  w_iterator=w_iterator,
-                                                  items=items)
-            try:
-                w_item = self.next(w_iterator)
-            except OperationError, e:
-                if not e.match(self, self.w_StopIteration):
-                    raise
-                break  # done
-            items.append(w_item)
-        #
-        return items
 
     @jit.dont_look_inside
     def _unpackiterable_known_length(self, w_iterator, expected_length):
@@ -805,21 +795,10 @@ class ObjSpace(object):
     @jit.unroll_safe
     def _unpackiterable_known_length_jitlook(self, w_iterator,
                                              expected_length):
-        items = [None] * expected_length
-        idx = 0
-        while True:
-            try:
-                w_item = self.next(w_iterator)
-            except OperationError, e:
-                if not e.match(self, self.w_StopIteration):
-                    raise
-                break  # done
-            if idx == expected_length:
-                raise OperationError(self.w_ValueError,
-                                    self.wrap("too many values to unpack"))
-            items[idx] = w_item
-            idx += 1
-        if idx < expected_length:
+        from pypy.interpreter import unpack
+        unpack_target = unpack.FixedSizeUnpackTarget(self, w_iterable)
+        self.unpack_into(unpack_target)
+        if unpack_target.index < expected_length:
             if idx == 1:
                 plural = ""
             else:
@@ -827,7 +806,7 @@ class ObjSpace(object):
             raise operationerrfmt(self.w_ValueError,
                                   "need more than %d value%s to unpack",
                                   idx, plural)
-        return items
+        return unpack_target.items_w
 
     def unpackiterable_unroll(self, w_iterable, expected_length):
         # Like unpackiterable(), but for the cases where we have
@@ -835,6 +814,7 @@ class ObjSpace(object):
         # Returns a fixed-size list.
         w_iterator = self.iter(w_iterable)
         assert expected_length != -1
+        # YYY correct unrolling
         return self._unpackiterable_known_length_jitlook(w_iterator,
                                                          expected_length)
 
