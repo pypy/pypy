@@ -36,7 +36,7 @@ working_modules.update(dict.fromkeys(
      "binascii", "_multiprocessing", '_warnings',
      "_collections", "_multibytecodec", "_ffi",
      "_continuation", "_csv", "_cffi_backend",
-     "_posixsubprocess",  # "cppyy", "micronumpy",
+     "_posixsubprocess", "_pypyjson", # "cppyy", "micronumpy",
      ]
 ))
 
