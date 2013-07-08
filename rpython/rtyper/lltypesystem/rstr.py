@@ -83,6 +83,7 @@ def _new_copy_contents_fun(STR_TP, CHAR_TP, name):
     copy_string_contents = func_with_new_name(copy_string_contents,
                                               'copy_%s_contents' % name)
 
+    @jit.oopspec('stroruni.copy_string_to_raw(src, ptrdst, srcstart, length)')
     def copy_string_to_raw(src, ptrdst, srcstart, length):
         """
         Copies 'length' characters from the 'src' string to the 'ptrdst'

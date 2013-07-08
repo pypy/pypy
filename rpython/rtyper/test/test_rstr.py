@@ -1138,10 +1138,6 @@ class TestLLtype(BaseTestRstr, LLRtypeMixin):
         self.interpret(f, [array, 4])
         assert list(array) == list('abc'*4)
         lltype.free(array, flavor='raw')
-        
-
-
-        
 
 class TestOOtype(BaseTestRstr, OORtypeMixin):
     pass
