@@ -16,7 +16,5 @@ def pytest_addoption(parser):
                     dest="run_translation_tests",
                     help="run tests that translate code")
 
-def pytest_collect_directory(path, parent):
-    if not cpu.startswith('arm'):
-        py.test.skip("ARM(v7) tests skipped: cpu is %r" % (cpu,))
-pytest_collect_file = pytest_collect_directory
+def pytest_ignore_collect(path, config):
+    return not cpu.startswith('arm')

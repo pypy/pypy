@@ -51,6 +51,7 @@ class FakeSpace(object):
     w_IndexError = W_TypeObject("IndexError")
     w_OverflowError = W_TypeObject("OverflowError")
     w_NotImplementedError = W_TypeObject("NotImplementedError")
+    w_AttributeError = W_TypeObject("AttributeError")
     w_None = None
 
     w_bool = W_TypeObject("bool")
