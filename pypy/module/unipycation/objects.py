@@ -1,6 +1,21 @@
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
-from pypy.interpreter.gateway import interp2app
+from pypy.interpreter.gateway import interp2app, unwrap_spec
+
+import prolog.interpreter.term as pterm
+import prolog.interpreter.signature as psig
+
+@unwrap_spec(name=str)
+def term_new__(space, w_subtype, name, __args__):
+    import pypy.module.unipycation.conversion as conv
+    w_args = __args__.unpack()[0][0]
+
+    # collect args for prolog Term constructor
+    term_args = [ conv.p_of_w(space, w_x) for w_x in space.listview(w_args) ]
+    p_sig = psig.Signature.getsignature(name, len(term_args))
+    p_term = pterm.Term(name, term_args, p_sig)
+
+    return W_Term(space, p_term)
 
 class W_Term(W_Root):
     """
@@ -8,6 +23,8 @@ class W_Term(W_Root):
     """
 
     def __init__(self, space, term_p):
+        # XXX typecheck
+        # XXX should be p_term
         self.space = space
         self.term_p = term_p
 
@@ -34,6 +51,7 @@ W_Term.typedef = TypeDef("Term",
     __len__ = interp2app(W_Term.descr_len),
     __str__ = interp2app(W_Term.descr_str),
     __getitem__ = interp2app(W_Term.descr_getitem),
+    __new__ = interp2app(term_new__),
     name = GetSetProperty(W_Term.prop_getname),
     args = GetSetProperty(W_Term.prop_getargs),
 )

@@ -209,3 +209,12 @@ class AppTestConversion(object):
                 x[1] == "b" and \
                 x[2] == "c" and \
                 x[3] == "d"
+
+    def test_term_builder(self):
+        import unipycation
+
+        t = unipycation.Term("myterm", ["e1", "e2", "e3"])
+        elems = [ t[x] for x in range(len(t)) ]
+
+        assert elems == ["e1", "e2", "e3" ]
+
