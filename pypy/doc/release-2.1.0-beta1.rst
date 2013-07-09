@@ -8,7 +8,7 @@ numpy in pypy effort. The main feature being that the ARM processor support is
 not longer considered alpha level. We would like to thank the `Raspberry Pi
 Foundation`_ for supporting the work to finish PyPy's ARM support.
 
-You can download the PyPy 2.0 beta 1 release here:
+You can download the PyPy 2.1 beta 1 release here:
 
     http://pypy.org/download.html 
 
