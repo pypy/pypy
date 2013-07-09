@@ -742,11 +742,13 @@ class TestAnnotateTestCase:
 
     def test_union_type_some_opbc(self):
         class A(object):
+            name = "A"
+
             def f(self):
                 return type(self)
 
         class B(A):
-            pass
+            name = "B"
 
         def f(tp):
             return tp
@@ -760,7 +762,7 @@ class TestAnnotateTestCase:
                 arg = inst.f()
             else:
                 arg = B
-            return f(arg).__name__
+            return f(arg).name
 
         a = self.RPythonAnnotator()
         s = a.build_types(main, [int])
