@@ -83,12 +83,6 @@ def wrap(cpu, value, in_const_box=False):
             adr = llmemory.cast_ptr_to_adr(value)
             value = heaptracker.adr2int(adr)
             # fall through to the end of the function
-    elif isinstance(lltype.typeOf(value), ootype.OOType):
-        value = ootype.cast_to_object(value)
-        if in_const_box:
-            return history.ConstObj(value)
-        else:
-            return history.BoxObj(value)
     elif (isinstance(value, float) or
           longlong.is_longlong(lltype.typeOf(value))):
         if isinstance(value, float):

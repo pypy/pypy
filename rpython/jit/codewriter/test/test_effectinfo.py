@@ -1,6 +1,5 @@
 from rpython.rtyper.lltypesystem.rclass import OBJECT
 from rpython.rtyper.lltypesystem import lltype
-from rpython.rtyper.ootypesystem import ootype
 from rpython.jit.codewriter.effectinfo import effectinfo_from_writeanalyze,\
     EffectInfo
 
@@ -87,20 +86,6 @@ def test_filter_out_array_of_void():
 
 def test_filter_out_struct_with_void():
     effects = frozenset([("struct", lltype.Ptr(lltype.GcStruct("x", ("a", lltype.Void))), "a")])
-    effectinfo = effectinfo_from_writeanalyze(effects, None)
-    assert not effectinfo.readonly_descrs_fields
-    assert not effectinfo.write_descrs_fields
-    assert not effectinfo.write_descrs_arrays
-
-def test_filter_out_ooarray_of_void():
-    effects = frozenset([("array", ootype.Array(ootype.Void))])
-    effectinfo = effectinfo_from_writeanalyze(effects, None)
-    assert not effectinfo.readonly_descrs_fields
-    assert not effectinfo.write_descrs_fields
-    assert not effectinfo.write_descrs_arrays
-
-def test_filter_out_instance_with_void():
-    effects = frozenset([("struct", ootype.Instance("x", ootype.ROOT, {"a": ootype.Void}), "a")])
     effectinfo = effectinfo_from_writeanalyze(effects, None)
     assert not effectinfo.readonly_descrs_fields
     assert not effectinfo.write_descrs_fields
