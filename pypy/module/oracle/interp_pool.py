@@ -130,14 +130,14 @@ class W_SessionPool(W_Root):
         self.checkConnected(space)
 
         if __args__.keywords:
-             keywords = __args__.keywords + ["pool"]
+            keywords = __args__.keywords + ["pool"]
         else:
-             keywords = ["pool"]
+            keywords = ["pool"]
         if __args__.keywords_w:
-             keywords_w = __args__.keywords_w + [space.wrap(self)]
+            keywords_w = __args__.keywords_w + [space.wrap(self)]
         else:
-             keywords_w = [space.wrap(self)]
-             
+            keywords_w = [space.wrap(self)]
+
         newargs = Arguments(space,
                             __args__.arguments_w,
                             keywords,

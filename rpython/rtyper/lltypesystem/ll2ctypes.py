@@ -900,123 +900,123 @@ def lltype2ctypes(llobj, normalize=True):
         return llobj
 
 def ctypes2lltype(T, cobj):
-  """Convert the ctypes object 'cobj' to its lltype equivalent.
-  'T' is the expected lltype type.
-  """
-  with rlock:
-    if T is lltype.Void:
-        return None
-    if isinstance(T, lltype.Typedef):
-        T = T.OF
-    if isinstance(T, lltype.Ptr):
-        ptrval = ctypes.cast(cobj, ctypes.c_void_p).value
-        if not cobj or not ptrval:   # NULL pointer
-            # CFunctionType.__nonzero__ is broken before Python 2.6
-            return lltype.nullptr(T.TO)
-        if isinstance(T.TO, lltype.Struct):
-            if T.TO._gckind == 'gc' and ptrval & 1: # a tagged pointer
-                gcref = _opaque_objs[ptrval // 2].hide()
-                return lltype.cast_opaque_ptr(T, gcref)
-            REAL_TYPE = T.TO
-            if T.TO._arrayfld is not None:
-                carray = getattr(cobj.contents, T.TO._arrayfld)
-                container = lltype._struct(T.TO, carray.length)
+    """Convert the ctypes object 'cobj' to its lltype equivalent.
+    'T' is the expected lltype type.
+    """
+    with rlock:
+        if T is lltype.Void:
+            return None
+        if isinstance(T, lltype.Typedef):
+            T = T.OF
+        if isinstance(T, lltype.Ptr):
+            ptrval = ctypes.cast(cobj, ctypes.c_void_p).value
+            if not cobj or not ptrval:   # NULL pointer
+                # CFunctionType.__nonzero__ is broken before Python 2.6
+                return lltype.nullptr(T.TO)
+            if isinstance(T.TO, lltype.Struct):
+                if T.TO._gckind == 'gc' and ptrval & 1: # a tagged pointer
+                    gcref = _opaque_objs[ptrval // 2].hide()
+                    return lltype.cast_opaque_ptr(T, gcref)
+                REAL_TYPE = T.TO
+                if T.TO._arrayfld is not None:
+                    carray = getattr(cobj.contents, T.TO._arrayfld)
+                    container = lltype._struct(T.TO, carray.length)
+                else:
+                    # special treatment of 'OBJECT' subclasses
+                    if get_rtyper() and lltype._castdepth(REAL_TYPE, OBJECT) >= 0:
+                        # figure out the real type of the object
+                        containerheader = lltype._struct(OBJECT)
+                        cobjheader = ctypes.cast(cobj,
+                                           get_ctypes_type(lltype.Ptr(OBJECT)))
+                        struct_use_ctypes_storage(containerheader,
+                                                  cobjheader)
+                        REAL_TYPE = get_rtyper().get_type_for_typeptr(
+                            containerheader.typeptr)
+                        REAL_T = lltype.Ptr(REAL_TYPE)
+                        cobj = ctypes.cast(cobj, get_ctypes_type(REAL_T))
+                    container = lltype._struct(REAL_TYPE)
+                struct_use_ctypes_storage(container, cobj)
+                if REAL_TYPE != T.TO:
+                    p = container._as_ptr()
+                    container = lltype.cast_pointer(T, p)._as_obj()
+                # special treatment of 'OBJECT_VTABLE' subclasses
+                if get_rtyper() and lltype._castdepth(REAL_TYPE,
+                                                      OBJECT_VTABLE) >= 0:
+                    # figure out the real object that this vtable points to,
+                    # and just return that
+                    p = get_rtyper().get_real_typeptr_for_typeptr(
+                        container._as_ptr())
+                    container = lltype.cast_pointer(T, p)._as_obj()
+            elif isinstance(T.TO, lltype.Array):
+                if T.TO._hints.get('nolength', False):
+                    container = _array_of_unknown_length(T.TO)
+                    container._storage = type(cobj)(cobj.contents)
+                else:
+                    container = _array_of_known_length(T.TO)
+                    container._storage = type(cobj)(cobj.contents)
+            elif isinstance(T.TO, lltype.FuncType):
+                cobjkey = intmask(ctypes.cast(cobj, ctypes.c_void_p).value)
+                if cobjkey in _int2obj:
+                    container = _int2obj[cobjkey]
+                else:
+                    _callable = get_ctypes_trampoline(T.TO, cobj)
+                    return lltype.functionptr(T.TO, getattr(cobj, '__name__', '?'),
+                                              _callable=_callable)
+            elif isinstance(T.TO, lltype.OpaqueType):
+                if T == llmemory.GCREF:
+                    container = _llgcopaque(cobj)
+                else:
+                    container = lltype._opaque(T.TO)
+                    cbuf = ctypes.cast(cobj, ctypes.c_void_p)
+                    add_storage(container, _parentable_mixin, cbuf)
             else:
-                # special treatment of 'OBJECT' subclasses
-                if get_rtyper() and lltype._castdepth(REAL_TYPE, OBJECT) >= 0:
-                    # figure out the real type of the object
-                    containerheader = lltype._struct(OBJECT)
-                    cobjheader = ctypes.cast(cobj,
-                                       get_ctypes_type(lltype.Ptr(OBJECT)))
-                    struct_use_ctypes_storage(containerheader,
-                                              cobjheader)
-                    REAL_TYPE = get_rtyper().get_type_for_typeptr(
-                        containerheader.typeptr)
-                    REAL_T = lltype.Ptr(REAL_TYPE)
-                    cobj = ctypes.cast(cobj, get_ctypes_type(REAL_T))
-                container = lltype._struct(REAL_TYPE)
-            struct_use_ctypes_storage(container, cobj)
-            if REAL_TYPE != T.TO:
-                p = container._as_ptr()
-                container = lltype.cast_pointer(T, p)._as_obj()
-            # special treatment of 'OBJECT_VTABLE' subclasses
-            if get_rtyper() and lltype._castdepth(REAL_TYPE,
-                                                  OBJECT_VTABLE) >= 0:
-                # figure out the real object that this vtable points to,
-                # and just return that
-                p = get_rtyper().get_real_typeptr_for_typeptr(
-                    container._as_ptr())
-                container = lltype.cast_pointer(T, p)._as_obj()
-        elif isinstance(T.TO, lltype.Array):
-            if T.TO._hints.get('nolength', False):
-                container = _array_of_unknown_length(T.TO)
-                container._storage = type(cobj)(cobj.contents)
+                raise NotImplementedError(T)
+            llobj = lltype._ptr(T, container, solid=True)
+        elif T is llmemory.Address:
+            if cobj is None:
+                llobj = llmemory.NULL
             else:
-                container = _array_of_known_length(T.TO)
-                container._storage = type(cobj)(cobj.contents)
-        elif isinstance(T.TO, lltype.FuncType):
-            cobjkey = intmask(ctypes.cast(cobj, ctypes.c_void_p).value)
-            if cobjkey in _int2obj:
-                container = _int2obj[cobjkey]
-            else:
-                _callable = get_ctypes_trampoline(T.TO, cobj)
-                return lltype.functionptr(T.TO, getattr(cobj, '__name__', '?'),
-                                          _callable=_callable)
-        elif isinstance(T.TO, lltype.OpaqueType):
-            if T == llmemory.GCREF:
-                container = _llgcopaque(cobj)
-            else:
-                container = lltype._opaque(T.TO)
-                cbuf = ctypes.cast(cobj, ctypes.c_void_p)
-                add_storage(container, _parentable_mixin, cbuf)
-        else:
-            raise NotImplementedError(T)
-        llobj = lltype._ptr(T, container, solid=True)
-    elif T is llmemory.Address:
-        if cobj is None:
-            llobj = llmemory.NULL
-        else:
-            llobj = _lladdress(cobj)
-    elif T is lltype.Char:
-        llobj = chr(cobj)
-    elif T is lltype.UniChar:
-        try:
-            llobj = unichr(cobj)
-        except (ValueError, OverflowError):
-            for tc in 'HIL':
-                if array(tc).itemsize == array('u').itemsize:
-                    import struct
-                    cobj &= 256 ** struct.calcsize(tc) - 1
-                    llobj = array('u', array(tc, (cobj,)).tostring())[0]
-                    break
-            else:
-                raise
-    elif T is lltype.Signed:
-        llobj = cobj
-    elif T is lltype.Bool:
-        assert cobj == True or cobj == False    # 0 and 1 work too
-        llobj = bool(cobj)
-    elif T is lltype.SingleFloat:
-        if isinstance(cobj, ctypes.c_float):
-            cobj = cobj.value
-        llobj = r_singlefloat(cobj)
-    elif T is lltype.LongFloat:
-        if isinstance(cobj, ctypes.c_longdouble):
-            cobj = cobj.value
-        llobj = r_longfloat(cobj)
-    elif T is lltype.Void:
-        llobj = cobj
-    else:
-        from rpython.rtyper.lltypesystem import rffi
-        try:
-            inttype = rffi.platform.numbertype_to_rclass[T]
-        except KeyError:
+                llobj = _lladdress(cobj)
+        elif T is lltype.Char:
+            llobj = chr(cobj)
+        elif T is lltype.UniChar:
+            try:
+                llobj = unichr(cobj)
+            except (ValueError, OverflowError):
+                for tc in 'HIL':
+                    if array(tc).itemsize == array('u').itemsize:
+                        import struct
+                        cobj &= 256 ** struct.calcsize(tc) - 1
+                        llobj = array('u', array(tc, (cobj,)).tostring())[0]
+                        break
+                else:
+                    raise
+        elif T is lltype.Signed:
+            llobj = cobj
+        elif T is lltype.Bool:
+            assert cobj == True or cobj == False    # 0 and 1 work too
+            llobj = bool(cobj)
+        elif T is lltype.SingleFloat:
+            if isinstance(cobj, ctypes.c_float):
+                cobj = cobj.value
+            llobj = r_singlefloat(cobj)
+        elif T is lltype.LongFloat:
+            if isinstance(cobj, ctypes.c_longdouble):
+                cobj = cobj.value
+            llobj = r_longfloat(cobj)
+        elif T is lltype.Void:
             llobj = cobj
         else:
-            llobj = inttype(cobj)
+            from rpython.rtyper.lltypesystem import rffi
+            try:
+                inttype = rffi.platform.numbertype_to_rclass[T]
+            except KeyError:
+                llobj = cobj
+            else:
+                llobj = inttype(cobj)
 
-    assert lltype.typeOf(llobj) == T
-    return llobj
+        assert lltype.typeOf(llobj) == T
+        return llobj
 
 def uninitialized2ctypes(T):
     "For debugging, create a ctypes object filled with 0xDD."
@@ -1244,52 +1244,52 @@ def get_ctypes_trampoline(FUNCTYPE, cfunc):
 
 
 def force_cast(RESTYPE, value):
-  with rlock:
-    if not isinstance(RESTYPE, lltype.LowLevelType):
-        raise TypeError("rffi.cast() first arg should be a TYPE")
-    if isinstance(value, llmemory.AddressAsInt):
-        value = value.adr
-    if isinstance(value, llmemory.fakeaddress):
-        value = value.ptr or 0
-    if isinstance(value, r_singlefloat):
-        value = float(value)
-    TYPE1 = lltype.typeOf(value)
-    cvalue = lltype2ctypes(value)
-    cresulttype = get_ctypes_type(RESTYPE)
-    if RESTYPE == TYPE1:
-        return value
-    elif isinstance(TYPE1, lltype.Ptr):
+    with rlock:
+        if not isinstance(RESTYPE, lltype.LowLevelType):
+            raise TypeError("rffi.cast() first arg should be a TYPE")
+        if isinstance(value, llmemory.AddressAsInt):
+            value = value.adr
+        if isinstance(value, llmemory.fakeaddress):
+            value = value.ptr or 0
+        if isinstance(value, r_singlefloat):
+            value = float(value)
+        TYPE1 = lltype.typeOf(value)
+        cvalue = lltype2ctypes(value)
+        cresulttype = get_ctypes_type(RESTYPE)
+        if RESTYPE == TYPE1:
+            return value
+        elif isinstance(TYPE1, lltype.Ptr):
+            if isinstance(RESTYPE, lltype.Ptr):
+                # shortcut: ptr->ptr cast
+                cptr = ctypes.cast(cvalue, cresulttype)
+                return ctypes2lltype(RESTYPE, cptr)
+            # first cast the input pointer to an integer
+            cvalue = ctypes.cast(cvalue, ctypes.c_void_p).value
+            if cvalue is None:
+                cvalue = 0
+        elif isinstance(cvalue, (str, unicode)):
+            cvalue = ord(cvalue)     # character -> integer
+        elif hasattr(RESTYPE, "_type") and issubclass(RESTYPE._type, base_int):
+            cvalue = int(cvalue)
+        elif isinstance(cvalue, r_longfloat):
+            cvalue = cvalue.value
+
+        if not isinstance(cvalue, (int, long, float)):
+            raise NotImplementedError("casting %r to %r" % (TYPE1, RESTYPE))
+
         if isinstance(RESTYPE, lltype.Ptr):
-            # shortcut: ptr->ptr cast
-            cptr = ctypes.cast(cvalue, cresulttype)
-            return ctypes2lltype(RESTYPE, cptr)
-        # first cast the input pointer to an integer
-        cvalue = ctypes.cast(cvalue, ctypes.c_void_p).value
-        if cvalue is None:
-            cvalue = 0
-    elif isinstance(cvalue, (str, unicode)):
-        cvalue = ord(cvalue)     # character -> integer
-    elif hasattr(RESTYPE, "_type") and issubclass(RESTYPE._type, base_int):
-        cvalue = int(cvalue)
-    elif isinstance(cvalue, r_longfloat):
-        cvalue = cvalue.value
-
-    if not isinstance(cvalue, (int, long, float)):
-        raise NotImplementedError("casting %r to %r" % (TYPE1, RESTYPE))
-
-    if isinstance(RESTYPE, lltype.Ptr):
-        # upgrade to a more recent ctypes (e.g. 1.0.2) if you get
-        # an OverflowError on the following line.
-        cvalue = ctypes.cast(ctypes.c_void_p(cvalue), cresulttype)
-    elif RESTYPE == lltype.Bool:
-        cvalue = bool(cvalue)
-    else:
-        try:
-            cvalue = cresulttype(cvalue).value   # mask high bits off if needed
-        except TypeError:
-            cvalue = int(cvalue)   # float -> int
-            cvalue = cresulttype(cvalue).value   # try again
-    return ctypes2lltype(RESTYPE, cvalue)
+            # upgrade to a more recent ctypes (e.g. 1.0.2) if you get
+            # an OverflowError on the following line.
+            cvalue = ctypes.cast(ctypes.c_void_p(cvalue), cresulttype)
+        elif RESTYPE == lltype.Bool:
+            cvalue = bool(cvalue)
+        else:
+            try:
+                cvalue = cresulttype(cvalue).value   # mask high bits off if needed
+            except TypeError:
+                cvalue = int(cvalue)   # float -> int
+                cvalue = cresulttype(cvalue).value   # try again
+        return ctypes2lltype(RESTYPE, cvalue)
 
 class ForceCastEntry(ExtRegistryEntry):
     _about_ = force_cast

@@ -580,9 +580,9 @@ def test_cast_primitive():
         (Unsigned, u"x", ord(u'x')),
     ]
     for TGT, orig_val, expect in cases:
-         res = cast_primitive(TGT, orig_val)
-         assert typeOf(res) == TGT
-         assert res == expect
+        res = cast_primitive(TGT, orig_val)
+        assert typeOf(res) == TGT
+        assert res == expect
     res = cast_primitive(SingleFloat, 2.1)
     assert isinstance(res, r_singlefloat)
     assert float(res) == float(r_singlefloat(2.1))

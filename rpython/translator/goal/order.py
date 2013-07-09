@@ -9,10 +9,10 @@ else:
 
 lst = open(module_list, 'r')
 try:
-   print "reading module-list: %s" % module_list
-   prefixes = lst.readlines()
+    print "reading module-list: %s" % module_list
+    prefixes = lst.readlines()
 finally:
-   lst.close()
+    lst.close()
 
 prefixes = [line.strip() for line in prefixes]
 prefixes = [line for line in prefixes if line and not line.startswith('#')]
