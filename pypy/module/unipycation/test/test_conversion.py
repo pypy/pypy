@@ -161,18 +161,11 @@ class TestTypeConversion(object):
 
         assert p_atom._signature.name == "Flibble"
 
-    # XXX reincarnate this, but pass down a pypy type that we can't convert.
-    #def test_p_of_w_fails(self):
-    #    w_str = pterm.Atom("Ohno!") # not a pypy type, should fail
-    #
-    #    try:
-    #        p_boom = conv.p_of_w(self.space, w_str)
-    #    except OperationError as e:
-    #        w_ConversionError = util.get_from_module(self.space, "unipycation", "ConversionError")
-    #        assert e.w_type == w_ConversionError
-    #        return
-    #
-    #    assert False
+    def test_p_of_w_fails(self):
+        w_none = self.space.wrap(None)
+        info = pytest.raises(OperationError, conv.p_of_w, self.space, w_none)
+        exn_str = info.exconly()
+        assert "ConversionError" in exn_str
 
 # Check that aggregate structures are nested properly.
 # Easier to test at the app-level

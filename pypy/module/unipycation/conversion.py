@@ -62,7 +62,7 @@ def p_of_w(space, w_anything):
         return p_atom_of_w_str(space, w_anything)
     else:
         raise OperationError(w_ConversionError,
-                space.wrap("Don't know how to convert wrapped %s to prolog type" % p_anything))
+                space.wrap("Don't know how to convert wrapped %s to prolog type" % w_anything))
 
 # -----------------------------
 # Convert from Prolog to Python
