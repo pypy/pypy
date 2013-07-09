@@ -55,7 +55,7 @@ class AppTestEngine(object):
         e = unipycation.Engine("f(1).")
         assert isinstance(e, unipycation.Engine)
 
-        raises(StopIteration, e.query_single("f(2)."))
+        raises(StopIteration, lambda: e.query_single("f(2)."))
 
     def test_parse_query_incomplete(self):
         import unipycation
