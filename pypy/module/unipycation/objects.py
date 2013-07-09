@@ -22,29 +22,27 @@ class W_Term(W_Root):
     Represents a Callable from pyrolog
     """
 
-    def __init__(self, space, term_p):
-        # XXX typecheck
-        # XXX should be p_term
+    def __init__(self, space, p_term):
         self.space = space
-        self.term_p = term_p
+        self.p_term = p_term
 
     # properties
-    def descr_len(self, space): return self.space.newint(self.term_p.argument_count())
-    def prop_getname(self, space): return self.space.wrap(self.term_p.name()) # this is an interanal method name in pypy, I fear
+    def descr_len(self, space): return self.space.newint(self.p_term.argument_count())
+    def prop_getname(self, space): return self.space.wrap(self.p_term.name()) # this is an interanal method name in pypy, I fear
     def prop_getargs(self, space):
         import pypy.module.unipycation.conversion as conv
-        args = [ conv.w_of_p(self.space, x) for x in self.term_p.arguments() ]
+        args = [ conv.w_of_p(self.space, x) for x in self.p_term.arguments() ]
         return self.space.newlist(args)
 
     def descr_getitem(self, space, w_idx):
         import pypy.module.unipycation.conversion as conv
         idx = self.space.int_w(w_idx)
 
-        return conv.w_of_p(self.space, self.term_p.arguments()[idx])
+        return conv.w_of_p(self.space, self.p_term.arguments()[idx])
 
     def descr_str(self, space):
         st = "Term(name=%s, len=%d)" % \
-                (self.prop_getname(self.space), self.term_p.argument_count())
+                (self.prop_getname(self.space), self.p_term.argument_count())
         return self.space.wrap(st)
 
 W_Term.typedef = TypeDef("Term",
