@@ -136,12 +136,15 @@ class W_Engine(W_Root):
 
         w_solution_iter = W_SolutionIterator(self.space, var_to_pos, goals, self)
 
-
         return w_solution_iter
+
+    def query_single(self, w_query_str):
+        return self.query(w_query_str).next_w()
 
 W_Engine.typedef = TypeDef("Engine",
     __new__ = interp2app(engine_new__),
     query = interp2app(W_Engine.query),
+    query_single = interp2app(W_Engine.query_single),
 )
 
 W_Engine.typedef.acceptable_as_base_class = False

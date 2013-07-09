@@ -128,3 +128,19 @@ class AppTestEngine(object):
         it = e.query("lalalala.")
 
         raises(unipycation.GoalError, lambda: it.next())
+
+    def test_query_single(self):
+        import unipycation
+
+        e = unipycation.Engine("f(666). f(667). f(668).")
+        s = e.query_single("f(X).")
+
+        assert s["X"] == 666
+
+
+    def test_query_single_nonexisting_predicate(self):
+        import unipycation
+
+        e = unipycation.Engine("f(666). f(667). f(668).")
+
+        raises(unipycation.GoalError, lambda: e.query_single("g(X)."))
