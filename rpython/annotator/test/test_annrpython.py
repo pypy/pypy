@@ -740,6 +740,32 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [B])
         assert s.classdef is a.bookkeeper.getuniqueclassdef(C)
 
+    def test_union_type_some_opbc(self):
+        class A(object):
+            def f(self):
+                return type(self)
+
+        class B(A):
+            pass
+
+        def f(tp):
+            return tp
+
+        def main(n):
+            if n:
+                if n == 1:
+                    inst = A()
+                else:
+                    inst = B()
+                arg = inst.f()
+            else:
+                arg = B
+            return f(arg).__name__
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(main, [int])
+        assert isinstance(s, annmodel.SomeString)
+
     def test_ann_assert(self):
         def assert_(x):
             assert x,"XXX"
