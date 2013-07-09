@@ -74,9 +74,11 @@ def _new_copy_contents_fun(STR_TP, CHAR_TP, name):
         # are obscurely essential to make sure that the strings stay alive
         # longer than the raw_memcopy().
         assert length >= 0
+        # from here, no GC operations can happen
         src = _get_raw_buf(src, srcstart)
         dst = _get_raw_buf(dst, dststart)
         llmemory.raw_memcopy(src, dst, llmemory.sizeof(CHAR_TP) * length)
+        # end of "no GC" section
         keepalive_until_here(src)
         keepalive_until_here(dst)
     copy_string_contents._always_inline_ = True
@@ -92,10 +94,12 @@ def _new_copy_contents_fun(STR_TP, CHAR_TP, name):
         """
         # xxx Warning: same note as above apply: don't do this at home
         assert length >= 0
+        # from here, no GC operations can happen
         src = _get_raw_buf(src, srcstart)
         adr = llmemory.cast_ptr_to_adr(ptrdst)
         dstbuf = adr + llmemory.itemoffsetof(typeOf(ptrdst).TO, 0)
         llmemory.raw_memcopy(src, dstbuf, llmemory.sizeof(CHAR_TP) * length)
+        # end of "no GC" section
         keepalive_until_here(src)
     copy_string_to_raw._always_inline_ = True
     copy_string_to_raw = func_with_new_name(copy_string_to_raw, 'copy_%s_to_raw' % name)
