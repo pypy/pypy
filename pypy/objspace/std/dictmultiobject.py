@@ -4,6 +4,7 @@ from pypy.interpreter.gateway import (
     WrappedDefault, applevel, interp2app, unwrap_spec)
 from pypy.interpreter.mixedmodule import MixedModule
 from pypy.interpreter.signature import Signature
+from pypy.interpreter import unpack
 from pypy.objspace.std.stdtypedef import StdTypeDef
 from pypy.objspace.std.util import negate
 
@@ -1045,12 +1046,13 @@ def update1(space, w_dict, w_data):
     w_method = space.findattr(w_data, space.wrap("keys"))
     if w_method is None:
         # no 'keys' method, so we assume it is a sequence of pairs
-        data_w = space.listview(w_data)
-        update1_pairs(space, w_dict, data_w)
+        unpacker = PairDictUpdateUnpacker(space, w_dict)
+        w_iterable = w_data
     else:
+        unpacker = KeyDictUpdateUnpacker(space, w_dict)
         # general case -- "for k in o.keys(): dict.__setitem__(d, k, o[k])"
-        data_w = space.listview(space.call_function(w_method))
-        update1_keys(space, w_dict, data_w)
+        w_iterable = space.call_function(w_method)
+    space.unpack_into(w_iterable, unpacker)
 
 
 @jit.look_inside_iff(lambda space, w_dict, w_data:
@@ -1063,21 +1065,23 @@ def update1_dict_dict(space, w_dict, w_data):
             break
         w_dict.setitem(w_key, w_value)
 
+class PairDictUpdateUnpacker(unpack.UnpackTarget):
+    def __init__(self, space, w_dict):
+        self.space = space
+        self.w_dict = w_dict
 
-def update1_pairs(space, w_dict, data_w):
-    for w_pair in data_w:
-        pair = space.fixedview(w_pair)
+    def append(self, w_pair):
+        pair = self.space.fixedview(w_pair)
         if len(pair) != 2:
-            raise OperationError(space.w_ValueError,
-                         space.wrap("sequence of pairs expected"))
+            raise OperationError(self.space.w_ValueError,
+                         self.space.wrap("sequence of pairs expected"))
         w_key, w_value = pair
-        w_dict.setitem(w_key, w_value)
+        self.w_dict.setitem(w_key, w_value)
 
-
-def update1_keys(space, w_dict, data_w):
-    for w_key in data_w:
-        w_value = space.getitem(w_data, w_key)
-        w_dict.setitem(w_key, w_value)
+class KeyDictUpdateUnpacker(PairDictUpdateUnpacker):
+    def append(self, w_key):
+        w_value = self.space.getitem(w_data, w_key)
+        self.w_dict.setitem(w_key, w_value)
 
 
 init_signature = Signature(['seq_or_map'], None, 'kwargs')
