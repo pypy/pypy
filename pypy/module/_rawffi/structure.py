@@ -86,20 +86,20 @@ def size_alignment_pos(fields, is_union=False, pack=0):
               (not _MS_WINDOWS or fieldsize * 8 == last_size) and
               fieldsize * 8 <= last_size and
               bitoffset + bitsize <= last_size):
-              # continue bit field
-              field_type = CONT_BITFIELD
+            # continue bit field
+            field_type = CONT_BITFIELD
         elif (not _MS_WINDOWS and
               last_size and # we have a bitfield open
               fieldsize * 8 >= last_size and
               bitoffset + bitsize <= fieldsize * 8):
-              # expand bit field
-              field_type = EXPAND_BITFIELD
+            # expand bit field
+            field_type = EXPAND_BITFIELD
         else:
-              # start new bitfield
-              field_type = NEW_BITFIELD
-              has_bitfield = True
-              bitoffset = 0
-              last_size = fieldsize * 8
+            # start new bitfield
+            field_type = NEW_BITFIELD
+            has_bitfield = True
+            bitoffset = 0
+            last_size = fieldsize * 8
 
         if is_union:
             pos.append(0)

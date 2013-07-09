@@ -56,5 +56,6 @@ class GreenFieldsTests:
 class TestLLtypeGreenFieldsTests(GreenFieldsTests, LLJitMixin):
     pass
 
+
 class TestOOtypeGreenFieldsTests(GreenFieldsTests, OOJitMixin):
-   pass
+    pass

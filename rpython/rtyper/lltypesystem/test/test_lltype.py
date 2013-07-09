@@ -53,9 +53,9 @@ def test_basics():
             length = len(l.items)
             newitems = malloc(List_typ.items.TO, length+1)
             i = 0
-            while i<length:
-              newitems[i].item = l.items[i].item
-              i += 1
+            while i < length:
+                newitems[i].item = l.items[i].item
+                i += 1
             newitems[length].item = newitem
             l.items = newitems
 
