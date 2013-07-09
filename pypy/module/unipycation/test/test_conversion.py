@@ -204,3 +204,25 @@ class AppTestConversion(object):
 
         assert elems == ["e1", "e2", "e3" ]
 
+    def test_nest_term_builder(self):
+        import unipycation
+
+        def nest_many(count):
+            if count < 10:
+                return unipycation.Term("myterm", [count, nest_many(count + 1)])
+            else:
+                return 666
+
+        def unnest_many(term, count):
+            assert len(term) == 2
+            assert term[0] == count
+            if isinstance(term[1], unipycation.Term):
+                assert term.name == "myterm"
+                assert term[1].name == "myterm"
+                unnest_many(term[1], count + 1)
+            else:
+                assert 9 == count
+                assert term[1] == 666
+
+        top = nest_many(0)
+        unnest_many(top, 0)
