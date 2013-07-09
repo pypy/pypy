@@ -89,7 +89,6 @@ def w_term_of_p_callable(space, p_callable):
     return objects.W_Term(space, p_callable)
 
 def w_of_p(space, p_anything):
-    print(p_anything)
     if isinstance(p_anything, pterm.Number):
         return w_int_of_p_number(space, p_anything)
     elif isinstance(p_anything, pterm.Float):
