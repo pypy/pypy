@@ -35,10 +35,12 @@ class TokenizerError(Exception):
 class BadToken(Exception):
     pass
 
+
 SINGLE_ARG_FUNCTIONS = ["sum", "prod", "max", "min", "all", "any",
                         "unegative", "flat", "tostring","count_nonzero",
                         "argsort"]
 TWO_ARG_FUNCTIONS = ["dot", 'take']
+TWO_ARG_FUNCTIONS_OR_NONE = ['view']
 THREE_ARG_FUNCTIONS = ['where']
 
 class W_TypeObject(W_Root):
@@ -184,17 +186,28 @@ class FakeSpace(object):
 
     def is_true(self, w_obj):
         assert isinstance(w_obj, BoolObject)
-        return False
-        #return w_obj.boolval
+        return w_obj.boolval
 
     def is_w(self, w_obj, w_what):
         return w_obj is w_what
 
+    def issubtype(self, w_type1, w_type2):
+        if not w_type2:
+            return self.wrap(False)
+        return self.wrap(issubclass(w_type1, w_type2))
+
     def type(self, w_obj):
-        return w_obj.tp
+        try:
+            return w_obj.tp
+        except AttributeError:
+            if isinstance(w_obj, W_NDimArray):
+                return W_NDimArray
+            if issubclass(w_obj, W_NDimArray):
+                return W_NDimArray
+            return None
 
     def gettypefor(self, w_obj):
-        return None
+        return self.type(w_obj)
 
     def call_function(self, tp, w_dtype):
         return w_dtype
@@ -205,7 +218,9 @@ class FakeSpace(object):
         return what
 
     def allocate_instance(self, klass, w_subtype):
-        return instantiate(klass)
+        inst = instantiate(klass)
+        inst.tp = klass
+        return inst
 
     def newtuple(self, list_w):
         return ListObject(list_w)
@@ -329,6 +344,8 @@ class Variable(Node):
         self.name = name.strip(" ")
 
     def execute(self, interp):
+        if self.name == 'None':
+            return None
         return interp.variables[self.name]
 
     def __repr__(self):
@@ -451,6 +468,32 @@ class SliceConstant(Node):
     def __repr__(self):
         return 'slice(%s,%s,%s)' % (self.start, self.stop, self.step)
 
+class ArrayClass(Node):
+    def __init__(self):
+        self.v = W_NDimArray
+
+    def execute(self, interp):
+       return self.v
+
+    def __repr__(self):
+        return '<class W_NDimArray>'
+
+class DtypeClass(Node):
+    def __init__(self, dt):
+        self.v = dt
+
+    def execute(self, interp):
+        if self.v == 'int':
+            dtype = get_dtype_cache(interp.space).w_int64dtype
+        elif self.v == 'float':
+            dtype = get_dtype_cache(interp.space).w_float64dtype
+        else:
+            raise BadToken('unknown v to dtype "%s"' % self.v)
+        return dtype
+
+    def __repr__(self):
+        return '<class %s dtype>' % self.v
+
 class Execute(Node):
     def __init__(self, expr):
         self.expr = expr
@@ -531,6 +574,14 @@ class FunctionCall(Node):
                 raise ArgumentNotAnArray
             if self.name == "where":
                 w_res = where(interp.space, arr, arg1, arg2)
+            else:
+                assert False
+        elif self.name in TWO_ARG_FUNCTIONS_OR_NONE:
+            if len(self.args) != 2:
+                raise ArgumentMismatch
+            arg = self.args[1].execute(interp)
+            if self.name == 'view':
+                w_res = arr.descr_view(interp.space, arg)
             else:
                 assert False
         else:
@@ -652,6 +703,12 @@ class Parser(object):
             if token.name == 'identifier':
                 if tokens.remaining() and tokens.get(0).name == 'paren_left':
                     stack.append(self.parse_function_call(token.v, tokens))
+                elif token.v.strip(' ') == 'ndarray':
+                    stack.append(ArrayClass())
+                elif token.v.strip(' ') == 'int':
+                    stack.append(DtypeClass('int'))
+                elif token.v.strip(' ') == 'float':
+                    stack.append(DtypeClass('float'))
                 else:
                     stack.append(Variable(token.v))
             elif token.name == 'array_left':

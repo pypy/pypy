@@ -260,8 +260,9 @@ class __extend__(W_NDimArray):
         return self.implementation.get_scalar_value()
 
     def descr_copy(self, space):
-        return wrap_impl(space, space.type(self),
-                         self, self.implementation.copy(space))
+        copy = self.implementation.copy(space)
+        w_subtype = space.type(self)
+        return wrap_impl(space, w_subtype, self, copy)
 
     def descr_get_real(self, space):
         return wrap_impl(space, space.type(self), self,
@@ -629,12 +630,13 @@ class __extend__(W_NDimArray):
             "trace not implemented yet"))
 
     def descr_view(self, space, w_dtype=None, w_type=None) :
+        print w_dtype, w_type
         if not w_type and w_dtype:
             try:
-                if w_dtype.issubtype(space.gettypefor(W_NDimArray)):
+                if space.is_true(space.issubtype(w_dtype, space.gettypefor(W_NDimArray))):
                     w_type = w_dtype
                     w_dtype = None
-            except:
+            except (OperationError, TypeError):
                 pass
         if w_dtype:
             dtype = space.interp_w(interp_dtype.W_Dtype,

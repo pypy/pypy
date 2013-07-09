@@ -33,11 +33,11 @@ def call2(space, shape, func, calc_dtype, res_dtype, w_lhs, w_rhs, out):
     lhs_for_subtype = w_lhs
     rhs_for_subtype = w_rhs
     #it may be something like a FlatIter, which is not an ndarray
-    if not lhs_type.issubtype(w_ndarray):
+    if not space.is_true(space.issubtype(lhs_type, w_ndarray)):
         lhs_type = space.type(w_lhs.base)
         lhs_for_subtype = w_lhs.base
-    if not rhs_type.issubtype(w_ndarray):
-        rhs_type = space.gettypefor(w_rhs.base)
+    if not space.is_true(space.issubtype(rhs_type, w_ndarray)):
+        rhs_type = space.type(w_rhs.base)
         rhs_for_subtype = w_rhs.base
     if space.is_w(lhs_type, w_ndarray) and not space.is_w(rhs_type, w_ndarray):
         w_lhs, w_rhs = w_rhs, w_lhs
