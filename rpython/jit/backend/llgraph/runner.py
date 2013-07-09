@@ -958,10 +958,10 @@ class LLFrame(object):
     def execute_cond_call_gc_wb_array(self, descr, a, b, c):
         py.test.skip("cond_call_gc_wb_array not supported")
 
-    def execute_cond_call_stm_wb(self, descr, a, b):
+    def execute_cond_call_stm_wb(self, descr, a):
         py.test.skip("cond_call_stm_wb not supported")
 
-    def execute_cond_call_stm_rb(self, descr, a, b):
+    def execute_cond_call_stm_rb(self, descr, a):
         py.test.skip("cond_call_stm_rb not supported")
 
     def execute_keepalive(self, descr, x):

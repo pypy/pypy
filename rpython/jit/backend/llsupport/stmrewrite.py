@@ -9,7 +9,7 @@ from rpython.rlib.objectmodel import specialize
 #
 # Any SETFIELD_GC, SETARRAYITEM_GC, SETINTERIORFIELD_GC must be done on a
 # W object.  The operation that forces an object p1 to be W is
-# COND_CALL_STM_WB(p1, 0, descr=x2Wdescr), for x in 'PGORL'.  This
+# COND_CALL_STM_WB(p1, descr=x2Wdescr), for x in 'PGORL'.  This
 # COND_CALL_STM_WB is a bit special because if p1 is not W, it *replaces*
 # its value with the W copy (by changing the register's value and
 # patching the stack location if any).  It's still conceptually the same
@@ -120,7 +120,7 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
             write_barrier_descr = mpcat[target_category]
         except KeyError:
             return v_base    # no barrier needed
-        args = [v_base, self.c_zero]
+        args = [v_base,]
         if target_category == 'W':
             op = rop.COND_CALL_STM_WB
         else:
