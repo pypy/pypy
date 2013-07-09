@@ -49,16 +49,18 @@ def emptystrfun():
 def emptyunicodefun():
     return emptyunicode
 
-def _new_copy_contents_fun(SRC_TP, DST_TP, CHAR_TP, name):
-    def _str_ofs_src(item):
-        return (llmemory.offsetof(SRC_TP, 'chars') +
-                llmemory.itemoffsetof(SRC_TP.chars, 0) +
+def _new_copy_contents_fun(STR_TP, CHAR_TP, name):
+    def _str_ofs(item):
+        return (llmemory.offsetof(STR_TP, 'chars') +
+                llmemory.itemoffsetof(STR_TP.chars, 0) +
                 llmemory.sizeof(CHAR_TP) * item)
 
-    def _str_ofs_dst(item):
-        return (llmemory.offsetof(DST_TP, 'chars') +
-                llmemory.itemoffsetof(DST_TP.chars, 0) +
-                llmemory.sizeof(CHAR_TP) * item)
+    @signature(types.any(), types.int(), returns=types.any())
+    def _get_raw_buf(src, ofs):
+        assert typeOf(src).TO == STR_TP
+        assert ofs >= 0
+        return llmemory.cast_ptr_to_adr(src) + _str_ofs(ofs)
+    _get_raw_buf._always_inline_ = True
 
     @jit.oopspec('stroruni.copy_contents(src, dst, srcstart, dststart, length)')
     @signature(types.any(), types.any(), types.int(), types.int(), types.int(), returns=types.none())
@@ -71,22 +73,42 @@ def _new_copy_contents_fun(SRC_TP, DST_TP, CHAR_TP, name):
         # because it might move the strings.  The keepalive_until_here()
         # are obscurely essential to make sure that the strings stay alive
         # longer than the raw_memcopy().
-        assert typeOf(src).TO == SRC_TP
-        assert typeOf(dst).TO == DST_TP
-        assert srcstart >= 0
-        assert dststart >= 0
         assert length >= 0
-        src = llmemory.cast_ptr_to_adr(src) + _str_ofs_src(srcstart)
-        dst = llmemory.cast_ptr_to_adr(dst) + _str_ofs_dst(dststart)
+        # from here, no GC operations can happen
+        src = _get_raw_buf(src, srcstart)
+        dst = _get_raw_buf(dst, dststart)
         llmemory.raw_memcopy(src, dst, llmemory.sizeof(CHAR_TP) * length)
+        # end of "no GC" section
         keepalive_until_here(src)
         keepalive_until_here(dst)
     copy_string_contents._always_inline_ = True
-    return func_with_new_name(copy_string_contents, 'copy_%s_contents' % name)
+    copy_string_contents = func_with_new_name(copy_string_contents,
+                                              'copy_%s_contents' % name)
 
-copy_string_contents = _new_copy_contents_fun(STR, STR, Char, 'string')
-copy_unicode_contents = _new_copy_contents_fun(UNICODE, UNICODE, UniChar,
-                                               'unicode')
+    @jit.oopspec('stroruni.copy_string_to_raw(src, ptrdst, srcstart, length)')
+    def copy_string_to_raw(src, ptrdst, srcstart, length):
+        """
+        Copies 'length' characters from the 'src' string to the 'ptrdst'
+        buffer, starting at position 'srcstart'.
+        'ptrdst' must be a non-gc Array of Char.
+        """
+        # xxx Warning: same note as above apply: don't do this at home
+        assert length >= 0
+        # from here, no GC operations can happen
+        src = _get_raw_buf(src, srcstart)
+        adr = llmemory.cast_ptr_to_adr(ptrdst)
+        dstbuf = adr + llmemory.itemoffsetof(typeOf(ptrdst).TO, 0)
+        llmemory.raw_memcopy(src, dstbuf, llmemory.sizeof(CHAR_TP) * length)
+        # end of "no GC" section
+        keepalive_until_here(src)
+    copy_string_to_raw._always_inline_ = True
+    copy_string_to_raw = func_with_new_name(copy_string_to_raw, 'copy_%s_to_raw' % name)
+
+    return copy_string_to_raw, copy_string_contents
+
+copy_string_to_raw, copy_string_contents = _new_copy_contents_fun(STR, Char, 'string')
+copy_unicode_to_raw, copy_unicode_contents = _new_copy_contents_fun(UNICODE,
+                                                                    UniChar, 'unicode')
 
 CONST_STR_CACHE = WeakValueDictionary()
 CONST_UNICODE_CACHE = WeakValueDictionary()
