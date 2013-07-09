@@ -347,7 +347,7 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
                            (self.use(typ), self.nextarg()))
 
     def visit__ObjSpace(self, el):
-        if self.finger != 0:
+        if self.finger > 1:
             raise FastFuncNotSupported
         self.unwrap.append("space")
 
