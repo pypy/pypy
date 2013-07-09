@@ -124,7 +124,7 @@ class W_Engine(W_Root):
             w_ParseError = util.get_from_module(self.space, "unipycation", "ParseError")
             raise OperationError(w_ParseError, self.space.wrap(e.nice_error_message()))
 
-    def query(self, w_query_str):
+    def query_iter(self, w_query_str):
         """ Returns an iterator by which to acquire multiple solutions """
         query_raw = self.space.str_w(w_query_str)
 
@@ -139,11 +139,11 @@ class W_Engine(W_Root):
         return w_solution_iter
 
     def query_single(self, w_query_str):
-        return self.query(w_query_str).next_w()
+        return self.query_iter(w_query_str).next_w()
 
 W_Engine.typedef = TypeDef("Engine",
     __new__ = interp2app(engine_new__),
-    query = interp2app(W_Engine.query),
+    query_iter = interp2app(W_Engine.query_iter),
     query_single = interp2app(W_Engine.query_single),
 )
 

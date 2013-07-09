@@ -190,7 +190,7 @@ class AppTestConversion(object):
         import unipycation
 
         e = unipycation.Engine("f([w, x]).")
-        x = e.query("f(X).").next()["X"]
+        x = e.query_single("f(X).")["X"]
 
         assert x.name == "."
         assert x.args[0] == "w"
@@ -202,7 +202,7 @@ class AppTestConversion(object):
         import unipycation
 
         e = unipycation.Engine("f(g(a, b, c, d)).")
-        x = e.query("f(X).").next()["X"]
+        x = e.query_single("f(X).")["X"]
 
         assert len(x) == 4 and \
                 x[0] == "a" and \
