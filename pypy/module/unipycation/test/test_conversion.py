@@ -5,6 +5,7 @@ from pypy.interpreter.error import OperationError
 import prolog.interpreter.signature as psig
 
 import prolog.interpreter.term as pterm
+import pypy.module.unipycation.app_error as err
 import pytest
 
 class TestTypeConversion(object):
@@ -150,17 +151,9 @@ class TestTypeConversion(object):
     def test_w_of_p_fails(self):
         p_val = 666            # clearly not a prolog type
 
-        # XXX
-        #info = py.test.raises(OperationError, conv.w_of_p, self.space, p_val)
-        #info.exc should exist now
-        try:
-            w_boom = conv.w_of_p(self.space, p_val)
-        except OperationError as e:
-            w_ConversionError = util.get_from_module(self.space, "unipycation", "ConversionError")
-            assert e.w_type == w_ConversionError
-            return
-
-        assert False
+        info = pytest.raises(OperationError, conv.w_of_p, self.space, p_val)
+        exn_str = info.exconly()
+        assert "ConversionError" in exn_str
 
     def test_p_of_w(self):
         w_str = self.space.wrap("Flibble")
