@@ -488,6 +488,7 @@ class W_ListObject(W_Root):
             if isinstance(w_any, W_ListObject):
                 self.setslice(start, step, slicelength, w_any)
             else:
+                # YYY use different interface here to prevent packing and unpacking?
                 sequence_w = space.listview(w_any)
                 w_other = W_ListObject(space, sequence_w)
                 self.setslice(start, step, slicelength, w_other)
