@@ -56,3 +56,4 @@ W_Term.typedef = TypeDef("Term",
     args = GetSetProperty(W_Term.prop_getargs),
 )
 
+W_Term.typedef.acceptable_as_base_class = False
