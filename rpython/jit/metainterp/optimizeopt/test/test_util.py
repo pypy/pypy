@@ -1,7 +1,6 @@
 import py, random
 
 from rpython.rtyper.lltypesystem import lltype, llmemory, rclass, rstr
-from rpython.rtyper.ootypesystem import ootype
 from rpython.rtyper.lltypesystem.rclass import OBJECT, OBJECT_VTABLE
 from rpython.rtyper.rclass import FieldListAccessor, IR_QUASIIMMUTABLE
 

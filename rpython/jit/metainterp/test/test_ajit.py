@@ -14,7 +14,6 @@ from rpython.rlib.jit import (JitDriver, we_are_jitted, hint, dont_look_inside,
 from rpython.rlib.longlong2float import float2longlong, longlong2float
 from rpython.rlib.rarithmetic import ovfcheck, is_valid_int
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rtyper.ootypesystem import ootype
 
 
 class BasicTests:
@@ -1218,8 +1217,6 @@ class BasicTests:
         res = self.interp_operations(fn, [1])
         assert res == 1
         self.check_operations_history(guard_class=0)
-        if self.type_system == 'ootype':
-            self.check_operations_history(instanceof=0)
 
     def test_r_dict(self):
         from rpython.rlib.objectmodel import r_dict

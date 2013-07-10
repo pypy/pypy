@@ -1,29 +1,18 @@
 from rpython.rtyper.lltypesystem import lltype, llmemory, rclass
-from rpython.rtyper.ootypesystem import ootype
-from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance, llstr, oostr
+from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance, llstr
 from rpython.rtyper.annlowlevel import cast_instance_to_base_ptr
-from rpython.rtyper.annlowlevel import cast_instance_to_base_obj
 from rpython.jit.metainterp import history
 from rpython.jit.codewriter import heaptracker
 from rpython.rlib.objectmodel import r_dict, specialize
 
 def deref(T):
-    if isinstance(T, lltype.Ptr):
-        return T.TO
-    assert isinstance(T, ootype.OOType)
-    return T
+    assert isinstance(T, lltype.Ptr)
+    return T.TO
+
 
 def fieldType(T, name):
-    if isinstance(T, lltype.Struct):
-        return getattr(T, name)
-    elif isinstance(T, (ootype.Instance, ootype.Record)):
-##         if name == '__class__':
-##             # XXX hack hack hack
-##             return ootype.Class
-        _, FIELD = T._lookup_field(name)
-        return FIELD
-    else:
-        assert False
+    assert isinstance(T, lltype.Struct)
+    return getattr(T, name)
 
 def arrayItem(ARRAY):
     try:

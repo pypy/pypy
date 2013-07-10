@@ -5,7 +5,6 @@ from rpython.jit.codewriter.policy import StopAtXPolicy
 from rpython.jit.metainterp.test.support import LLJitMixin
 from rpython.rtyper.lltypesystem import lltype, rclass, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
-from rpython.rtyper.ootypesystem import ootype
 from rpython.jit.codewriter import heaptracker
 
 class VirtualTests:
@@ -1276,13 +1275,6 @@ class TestLLtype_NotObject(VirtualTests, LLJitMixin):
     def _new():
         return lltype.malloc(NODE)
 
-
-
-
-OONODE = ootype.Instance('NODE', ootype.ROOT, {})
-OONODE._add_fields({'value': ootype.Signed,
-                    'floatval' : ootype.Float,
-                    'extra': ootype.Signed})
 
 # ____________________________________________________________
 # Run 3: all the tests use lltype.malloc to make a NODE2
