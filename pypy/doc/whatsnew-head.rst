@@ -5,3 +5,10 @@ What's new in PyPy 2.1
 .. this is a revision shortly after release-2.1-beta
 .. startrev: 4eb52818e7c0
 
+.. branch: fastjson
+Fast json decoder written in RPython, about 3-4x faster than the pure Python
+decoder which comes with the stdlib
+
+.. branch: improve-str2charp
+Improve the performance of I/O writing up to 15% by using memcpy instead of
+copying char-by-char in str2charp and get_nonmovingbuffer
