@@ -79,6 +79,9 @@ class EffectInfo(object):
     #
     OS_RAW_MALLOC_VARSIZE_CHAR  = 110
     OS_RAW_FREE                 = 111
+    #
+    OS_STR_COPY_TO_RAW          = 112
+    OS_UNI_COPY_TO_RAW          = 113
 
     OS_JIT_FORCE_VIRTUAL        = 120
 
