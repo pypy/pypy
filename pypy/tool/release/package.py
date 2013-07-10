@@ -70,6 +70,7 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
     if not sys.platform == 'win32':
         subprocess.check_call([str(pypy_c), '-c', 'import _curses'])
         subprocess.check_call([str(pypy_c), '-c', 'import syslog'])
+        subprocess.check_call([str(pypy_c), '-c', 'import _tkinter'])
     if sys.platform == 'win32' and not rename_pypy_c.lower().endswith('.exe'):
         rename_pypy_c += '.exe'
     binaries = [(pypy_c, rename_pypy_c)]
