@@ -2521,7 +2521,9 @@ class MetaInterp(object):
             # xxx only write back the fields really modified
             vbox = self.virtualizable_boxes[-1]
             if vbox is not box:
-                return # ignore the hint on non-standard virtualizable
+                # ignore the hint on non-standard virtualizable
+                # specifically, ignore it on a virtual
+                return
             for i in range(vinfo.num_static_extra_boxes):
                 fieldbox = self.virtualizable_boxes[i]
                 descr = vinfo.static_field_descrs[i]

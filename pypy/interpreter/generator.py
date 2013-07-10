@@ -95,6 +95,7 @@ return next yielded value or raise StopIteration."""
                 self.frame = None
                 raise OperationError(space.w_StopIteration, space.w_None)
             else:
+                jit.hint(frame, force_virtualizable=True)
                 return w_result     # YIELDed
         finally:
             frame.f_backref = jit.vref_None
