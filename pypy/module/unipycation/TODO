@@ -1,0 +1,19 @@
+Proposed Interface
+==================
+
+Variables and Terms
+--------------------
+
+X = unipycation.Var()
+t = unipycation.Term('f', [X]) # is equivalent to "f(X)"
+
+Querying
+--------
+
+for solution in e.query(t, [X]):
+	print solution[X]
+
+Subsequent Queries
+------------------
+
+The same? is X reusable? Yes. Cool.
