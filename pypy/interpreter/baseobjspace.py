@@ -20,9 +20,6 @@ __all__ = ['ObjSpace', 'OperationError', 'W_Root']
 
 UINT_MAX_32_BITS = r_uint(4294967295)
 
-unpackiterable_driver = jit.JitDriver(name='unpackiterable',
-                                      greens=['tp'],
-                                      reds=['items', 'w_iterator'])
 
 
 class W_Root(object):
@@ -31,6 +28,9 @@ class W_Root(object):
     __slots__ = ()
     _settled_ = True
     user_overridden_class = False
+
+    # unpacking support
+    from pypy.interpreter.unpack import generic_unpack_into as unpack_into
 
     def getdict(self, space):
         return None
@@ -233,17 +233,6 @@ class W_Root(object):
     def __spacebind__(self, space):
         return self
 
-    def unpack_into(self, space, unpack_target):
-        w_iterator = space.iter(self)
-        while True:
-            # YYY jit driver
-            try:
-                w_item = space.next(w_iterator)
-            except OperationError, e:
-                if not e.match(space, space.w_StopIteration):
-                    raise
-                break  # done
-            unpack_target.append(w_item)
 
     def unwrap(self, space):
         """NOT_RPYTHON"""
@@ -763,41 +752,25 @@ class ObjSpace(object):
 
         Raise an OperationError(w_ValueError) if the length is wrong."""
         from pypy.interpreter import unpack
-        w_iterator = self.iter(w_iterable)
         if expected_length == -1:
             unpack_target = unpack.InterpListUnpackTarget(self, w_iterable)
             self.unpack_into(w_iterable, unpack_target)
             return unpack_target.items_w
         else:
-            lst_w = self._unpackiterable_known_length(w_iterator,
+            lst_w = self._unpackiterable_known_length(w_iterable,
                                                       expected_length)
             return lst_w[:]     # make the resulting list resizable
 
-    def unpack_into(self, w_iterable, unpack_target):
-        w_iterable.unpack_into(self, unpack_target)
+    def unpack_into(self, w_iterable, unpack_target, unroll=False):
+        w_iterable.unpack_into(self, unpack_target, unroll)
 
     def iteriterable(self, w_iterable):
         return W_InterpIterable(self, w_iterable)
 
-    def _unpackiterable_unknown_length(self, w_iterator, w_iterable):
-        """Unpack an iterable of unknown length into an interp-level
-        list.
-        """
-
-    @jit.dont_look_inside
-    def _unpackiterable_known_length(self, w_iterator, expected_length):
-        # Unpack a known length list, without letting the JIT look inside.
-        # Implemented by just calling the @jit.unroll_safe version, but
-        # the JIT stopped looking inside already.
-        return self._unpackiterable_known_length_jitlook(w_iterator,
-                                                         expected_length)
-
-    @jit.unroll_safe
-    def _unpackiterable_known_length_jitlook(self, w_iterator,
-                                             expected_length):
+    def _unpackiterable_known_length(self, w_iterable, expected_length, unroll=False):
         from pypy.interpreter import unpack
         unpack_target = unpack.FixedSizeUnpackTarget(self, w_iterable)
-        self.unpack_into(unpack_target)
+        self.unpack_into(w_iterable, unpack_target, unroll=unroll)
         if unpack_target.index < expected_length:
             if idx == 1:
                 plural = ""
@@ -812,11 +785,9 @@ class ObjSpace(object):
         # Like unpackiterable(), but for the cases where we have
         # an expected_length and want to unroll when JITted.
         # Returns a fixed-size list.
-        w_iterator = self.iter(w_iterable)
         assert expected_length != -1
-        # YYY correct unrolling
-        return self._unpackiterable_known_length_jitlook(w_iterator,
-                                                         expected_length)
+        return self._unpackiterable_known_length(
+            w_iterable, expected_length, unroll=True)
 
     def length_hint(self, w_obj, default):
         """Return the length of an object, consulting its __length_hint__

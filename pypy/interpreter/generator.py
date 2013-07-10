@@ -3,6 +3,9 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.pyopcode import LoopBlock
 from rpython.rlib import jit
 
+unpack_into_jitdriver = jit.JitDriver(greens=['pycode'],
+                                      reds=['self', 'frame', 'unpack_target'],
+                                      name='unpack_into')
 
 class GeneratorIterator(W_Root):
     "An iterator created by a generator."
@@ -169,45 +172,35 @@ return next yielded value or raise StopIteration."""
                     break
                 block = block.previous
 
-    # Results can be either an RPython list of W_Root, or it can be an
-    # app-level W_ListObject, which also has an append() method, that's why we
-    # generate 2 versions of the function and 2 jit drivers.
-    def _create_unpack_into():
-        jitdriver = jit.JitDriver(greens=['pycode'],
-                                  reds=['self', 'frame', 'results'],
-                                  name='unpack_into')
-
-        def unpack_into(self, space, results):
-            """This is a hack for performance: runs the generator and collects
-            all produced items in a list."""
-            # XXX copied and simplified version of send_ex()
-            space = self.space
-            if self.running:
-                raise OperationError(space.w_ValueError,
-                                     space.wrap('generator already executing'))
-            frame = self.frame
-            if frame is None:    # already finished
-                return
-            self.running = True
-            try:
-                pycode = self.pycode
-                while True:
-                    jitdriver.jit_merge_point(self=self, frame=frame,
-                                              results=results, pycode=pycode)
-                    try:
-                        w_result = frame.execute_frame(space.w_None)
-                    except OperationError, e:
-                        if not e.match(space, space.w_StopIteration):
-                            raise
-                        break
-                    # if the frame is now marked as finished, it was RETURNed from
-                    if frame.frame_finished_execution:
-                        break
-                    results.append(w_result)     # YIELDed
-            finally:
-                frame.f_backref = jit.vref_None
-                self.running = False
-                self.frame = None
-        return unpack_into
-    unpack_into = _create_unpack_into()
-    unpack_into_w = _create_unpack_into()
+    def unpack_into(self, space, unpack_target, unroll=False):
+        """This is a hack for performance: runs the generator and collects
+        all produced items in a list."""
+        # YYY stop ignoring unroll
+        # XXX copied and simplified version of send_ex()
+        space = self.space
+        if self.running:
+            raise OperationError(space.w_ValueError,
+                                 space.wrap('generator already executing'))
+        frame = self.frame
+        if frame is None:    # already finished
+            return
+        self.running = True
+        try:
+            pycode = self.pycode
+            while True:
+                unpack_into_jitdriver.jit_merge_point(self=self, frame=frame,
+                                                      unpack_target=unpack_target, pycode=pycode)
+                try:
+                    w_result = frame.execute_frame(space.w_None)
+                except OperationError, e:
+                    if not e.match(space, space.w_StopIteration):
+                        raise
+                    break
+                # if the frame is now marked as finished, it was RETURNed from
+                if frame.frame_finished_execution:
+                    break
+                unpack_target.append(w_result)     # YIELDed
+        finally:
+            frame.f_backref = jit.vref_None
+            self.running = False
+            self.frame = None
