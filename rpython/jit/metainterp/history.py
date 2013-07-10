@@ -374,7 +374,7 @@ class ConstObj(Const):
     nonconstbox = clonebox
 
     def getref_base(self):
-       return self.value
+        return self.value
 
     def getref(self, OBJ):
         return ootype.cast_from_object(OBJ, self.getref_base())

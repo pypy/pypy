@@ -146,9 +146,9 @@ class TraceWithIds(Function):
                 for op in self._ops_for_chunk(chunk, include_guard_not_invalidated):
                     yield op
             else:
-               for op in  chunk.operations:
-                   if op.name == 'label':
-                       yield op
+                for op in chunk.operations:
+                    if op.name == 'label':
+                        yield op
 
     def allops(self, *args, **kwds):
         return list(self._allops(*args, **kwds))

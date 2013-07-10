@@ -111,7 +111,7 @@ def parsestr(space, encoding, s, unicode_literal=False):
 
     enc = None
     if need_encoding:
-         enc = encoding
+        enc = encoding
     v = PyString_DecodeEscape(space, substr, enc)
     return space.wrap(v)
 
