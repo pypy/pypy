@@ -223,5 +223,5 @@ class TestDicts(BaseTestPyPyC):
         log = self.run(main, [1000])
         assert log.result == main(1000)
         loop, = log.loops_by_filename(self.filepath)
-        ops = loop.ops_by_id('getitem')
+        ops = loop.ops_by_id('getitem', include_guard_not_invalidated=False)
         assert log.opnames(ops) == []

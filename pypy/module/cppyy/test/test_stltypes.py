@@ -97,9 +97,9 @@ class AppTestSTLVECTOR:
         assert hasattr(v, 'end' )
 
         for i in range(self.N):
-             v.push_back(cppyy.gbl.just_a_class())
-             v[i].m_i = i
-             assert v[i].m_i == i
+            v.push_back(cppyy.gbl.just_a_class())
+            v[i].m_i = i
+            assert v[i].m_i == i
 
         assert len(v) == self.N
         v.destruct()
@@ -332,7 +332,7 @@ class AppTestSTLLIST:
 
         a = std.list(int)()
         for arg in a:
-           pass
+            pass
 
 
 class AppTestSTLMAP:
@@ -395,7 +395,7 @@ class AppTestSTLMAP:
 
         m = std.map(int, int)()
         for key, value in m:
-           pass
+            pass
 
     def test04_unsignedvalue_typemap_types(self):
         """Test assignability of maps with unsigned value types"""

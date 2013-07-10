@@ -445,4 +445,4 @@ class TestLLSpecializeListComprehension:
 
 
 class TestOOSpecializeListComprehension(TestLLSpecializeListComprehension):
-   typesystem = 'ootype'
+    typesystem = 'ootype'
