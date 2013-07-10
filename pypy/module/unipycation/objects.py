@@ -55,3 +55,30 @@ W_Term.typedef = TypeDef("Term",
 )
 
 W_Term.typedef.acceptable_as_base_class = False
+
+# ---
+
+def var_new__(space, w_subtype, __args__): # __args__ unused
+    return W_Var(space, None)
+
+class W_Var(W_Root):
+    """
+    Represents an unbound variable in a query.
+    """
+
+    def __init__(self, space, p_var):
+        self.space = space
+        self.p_var = p_var
+
+    def prop_getname(self, space):
+        return self.space.wrap("XXX") # XXX
+
+    def descr_str(self, space):
+        return self.space.wrap("Var(name=%s)" % self.prop_getname(self.space))
+
+W_Var.typedef = TypeDef("Var",
+    __new__ = interp2app(var_new__),
+    name = GetSetProperty(W_Var.prop_getname),
+)
+
+W_Var.typedef.acceptable_as_base_class = False
