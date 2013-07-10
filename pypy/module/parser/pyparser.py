@@ -75,7 +75,7 @@ def parse_python(space, source, mode):
     info = pyparse.CompileInfo("<string>", mode)
     parser = pyparse.PythonParser(space)
     try:
-       tree = parser.parse_source(source, info)
+        tree = parser.parse_source(source, info)
     except error.IndentationError, e:
         raise OperationError(space.w_IndentationError,
                              e.wrap_info(space))

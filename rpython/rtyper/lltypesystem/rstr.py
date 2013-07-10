@@ -49,17 +49,19 @@ def emptystrfun():
 def emptyunicodefun():
     return emptyunicode
 
-def _new_copy_contents_fun(STR_TP, CHAR_TP, name):
-    def _str_ofs(item):
-        return (llmemory.offsetof(STR_TP, 'chars') +
-                llmemory.itemoffsetof(STR_TP.chars, 0) +
+def _new_copy_contents_fun(SRC_TP, DST_TP, CHAR_TP, name):
+    @specialize.arg(0)
+    def _str_ofs(TP, item):
+        return (llmemory.offsetof(TP, 'chars') +
+                llmemory.itemoffsetof(TP.chars, 0) +
                 llmemory.sizeof(CHAR_TP) * item)
 
-    @signature(types.any(), types.int(), returns=types.any())
-    def _get_raw_buf(src, ofs):
-        assert typeOf(src).TO == STR_TP
+    @signature(types.any(), types.any(), types.int(), returns=types.any())
+    @specialize.arg(0)
+    def _get_raw_buf(TP, src, ofs):
+        assert typeOf(src).TO == TP
         assert ofs >= 0
-        return llmemory.cast_ptr_to_adr(src) + _str_ofs(ofs)
+        return llmemory.cast_ptr_to_adr(src) + _str_ofs(TP, ofs)
     _get_raw_buf._always_inline_ = True
 
     @jit.oopspec('stroruni.copy_contents(src, dst, srcstart, dststart, length)')
@@ -75,8 +77,8 @@ def _new_copy_contents_fun(STR_TP, CHAR_TP, name):
         # longer than the raw_memcopy().
         assert length >= 0
         # from here, no GC operations can happen
-        src = _get_raw_buf(src, srcstart)
-        dst = _get_raw_buf(dst, dststart)
+        src = _get_raw_buf(SRC_TP, src, srcstart)
+        dst = _get_raw_buf(DST_TP, dst, dststart)
         llmemory.raw_memcopy(src, dst, llmemory.sizeof(CHAR_TP) * length)
         # end of "no GC" section
         keepalive_until_here(src)
@@ -95,7 +97,7 @@ def _new_copy_contents_fun(STR_TP, CHAR_TP, name):
         # xxx Warning: same note as above apply: don't do this at home
         assert length >= 0
         # from here, no GC operations can happen
-        src = _get_raw_buf(src, srcstart)
+        src = _get_raw_buf(SRC_TP, src, srcstart)
         adr = llmemory.cast_ptr_to_adr(ptrdst)
         dstbuf = adr + llmemory.itemoffsetof(typeOf(ptrdst).TO, 0)
         llmemory.raw_memcopy(src, dstbuf, llmemory.sizeof(CHAR_TP) * length)
@@ -106,8 +108,8 @@ def _new_copy_contents_fun(STR_TP, CHAR_TP, name):
 
     return copy_string_to_raw, copy_string_contents
 
-copy_string_to_raw, copy_string_contents = _new_copy_contents_fun(STR, Char, 'string')
-copy_unicode_to_raw, copy_unicode_contents = _new_copy_contents_fun(UNICODE,
+copy_string_to_raw, copy_string_contents = _new_copy_contents_fun(STR, STR, Char, 'string')
+copy_unicode_to_raw, copy_unicode_contents = _new_copy_contents_fun(UNICODE, UNICODE,
                                                                     UniChar, 'unicode')
 
 CONST_STR_CACHE = WeakValueDictionary()

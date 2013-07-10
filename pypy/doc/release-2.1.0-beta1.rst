@@ -18,15 +18,19 @@ Highlights
 ==========
 
 * Bugfixes to the ARM JIT backend, so that ARM is now an officially
-  supported processor architecture.
+  supported processor architecture
 
-* Various numpy improvements.
+* Stacklet support on ARM
 
-* Bugfixes to cffi and ctypes.
+* Various numpy improvements
+
+* Bugfixes to cffi and ctypes
 
 * Bugfixes to the stacklet support
 
 * Improved logging performance
+
+* Faster sets for objects
 
 What is PyPy?
 =============

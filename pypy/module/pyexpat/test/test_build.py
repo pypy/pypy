@@ -12,7 +12,7 @@ except ImportError:
     py.test.skip("No module expat")
 
 try:
-   from pypy.module.pyexpat import interp_pyexpat
+    from pypy.module.pyexpat import interp_pyexpat
 except (ImportError, CompilationError):
     py.test.skip("Expat not installed")
 
