@@ -492,7 +492,7 @@ _oplist = [
     'NEWUNICODE/1',
     '_MALLOC_LAST',
     'FORCE_VIRTUALIZABLE/1d', # forces a non-standard virtualizable
-    '_CANMALLOC_LAST'
+    '_CANMALLOC_LAST',
     'FORCE_TOKEN/0',
     'VIRTUAL_REF/2',         # removed before it's passed to the backend
     'READ_TIMESTAMP/0',
