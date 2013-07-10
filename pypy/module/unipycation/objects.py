@@ -59,7 +59,8 @@ W_Term.typedef.acceptable_as_base_class = False
 # ---
 
 def var_new__(space, w_subtype, __args__): # __args__ unused
-    return W_Var(space, None)
+    p_var = pterm.BindingVar()
+    return W_Var(space, p_var)
 
 class W_Var(W_Root):
     """
@@ -70,15 +71,12 @@ class W_Var(W_Root):
         self.space = space
         self.p_var = p_var
 
-    def prop_getname(self, space):
-        return self.space.wrap("XXX") # XXX
-
     def descr_str(self, space):
-        return self.space.wrap("Var(name=%s)" % self.prop_getname(self.space))
+        return self.space.wrap("Var(p_var=%s)" % hex(id(self.p_var)))
 
 W_Var.typedef = TypeDef("Var",
     __new__ = interp2app(var_new__),
-    name = GetSetProperty(W_Var.prop_getname),
+    __str__ = interp2app(W_Var.descr_str),
 )
 
 W_Var.typedef.acceptable_as_base_class = False
