@@ -77,7 +77,7 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
             except subprocess.CalledProcessError:
                 print >>sys.stderr, """Building Tk bindings failed.
 You can either install Tk development headers package or
-add --without-tk option to skip packaging Tk."""
+add --without-tk option to skip packaging binary CFFI extension."""
                 sys.exit(1)
     if sys.platform == 'win32' and not rename_pypy_c.lower().endswith('.exe'):
         rename_pypy_c += '.exe'
@@ -121,12 +121,10 @@ add --without-tk option to skip packaging Tk."""
     shutil.copytree(str(basedir.join('lib-python').join(STDLIB_VER)),
                     str(pypydir.join('lib-python').join(STDLIB_VER)),
                     ignore=ignore_patterns('.svn', 'py', '*.pyc', '*~'))
-    ignore = ['.svn', 'py', '*.pyc', '*~', '*.c', '*.o']
-    if withouttk:
-        ignore.append('_tkinter')
     shutil.copytree(str(basedir.join('lib_pypy')),
                     str(pypydir.join('lib_pypy')),
-                    ignore=ignore_patterns(*ignore))
+                    ignore=ignore_patterns('.svn', 'py', '*.pyc', '*~',
+                                           '*.c', '*.o'))
     for file in ['LICENSE', 'README.rst']:
         shutil.copy(str(basedir.join(file)), str(pypydir))
     headers = includedir.listdir('*.h') + includedir.listdir('*.inl')
