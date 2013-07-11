@@ -4,6 +4,7 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec
 
 import prolog.interpreter.term as pterm
 import prolog.interpreter.signature as psig
+import pypy.module.unipycation.util as util
 
 @unwrap_spec(name=str)
 def term_new__(space, w_subtype, name, __args__):
@@ -45,6 +46,21 @@ class W_Term(W_Root):
                 (self.prop_getname(self.space), self.p_term.argument_count())
         return self.space.wrap(st)
 
+    def descr_eq(self, space, w_other):
+        w_Term = util.get_from_module(self.space, "unipycation", "Term")
+
+        if not space.is_true(space.isinstance(w_other, w_Term)):
+            errstr_w = "Cannot compare %s with %s" % (type(self), type(w_other))
+            raise OperationError(space.w_TypeError, space.wrap(errstr_w))
+
+        eq = self.p_term.cmp_standard_order(w_other.p_term, None)
+        print(eq)
+        raw_input()
+        return space.wrap(eq == 0)
+
+    def descr_ne(self, space, w_other):
+        return space.not_(self.descr_eq(space, w_other))
+
 W_Term.typedef = TypeDef("Term",
     __len__ = interp2app(W_Term.descr_len),
     __str__ = interp2app(W_Term.descr_str),
@@ -52,6 +68,8 @@ W_Term.typedef = TypeDef("Term",
     __new__ = interp2app(term_new__),
     name = GetSetProperty(W_Term.prop_getname),
     args = GetSetProperty(W_Term.prop_getargs),
+    __eq__ = interp2app(W_Term.descr_eq),
+    __ne__ = interp2app(W_Term.descr_ne),
 )
 
 W_Term.typedef.acceptable_as_base_class = False

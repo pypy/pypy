@@ -42,10 +42,12 @@ class AppTestEngine(object):
         t = u.Term('f', [t1, Y])
 
         sol = e.query_single(t, vs)
-        expect_y = u.Term('b', [Y])
+        expect_y = u.Term('b', [3, 4])
+        not_expect_y = u.Term('zzz', ["oh", "no"])
 
         assert sol[X] == 2
-        assert(sol[Y]) == expect_y
+        assert sol[Y]  == expect_y
+        assert sol[Y] != not_expect_y
 
     def test_anonymous(self):
         import unipycation
