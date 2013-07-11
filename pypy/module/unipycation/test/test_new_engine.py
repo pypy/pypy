@@ -1,12 +1,18 @@
-import pypy.module.unipycation.engine as eng
+#import pypy.module.unipycation.engine as eng
 import pytest
 
 class AppTestEngine(object):
     spaceconfig = dict(usemodules=('unipycation',))
 
     def test_basic(self):
-        import unipycation
-        pass
+        import unipycation as u
+
+        e = u.Engine("f(666).")
+        X = u.Var()
+        t = u.Term('f', [X])
+        sol = e.query_single(t, [X])
+
+        assert sol[X] == 666
 
     def test_anonymous(self):
         import unipycation
