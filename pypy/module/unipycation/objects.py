@@ -59,14 +59,14 @@ class W_Term(W_Root):
         return space.not_(self.descr_eq(space, w_other))
 
 W_Term.typedef = TypeDef("Term",
-    __len__ = interp2app(W_Term.descr_len),
-    __str__ = interp2app(W_Term.descr_str),
-    __getitem__ = interp2app(W_Term.descr_getitem),
-    __new__ = interp2app(term_new__),
-    name = GetSetProperty(W_Term.prop_getname),
-    args = GetSetProperty(W_Term.prop_getargs),
     __eq__ = interp2app(W_Term.descr_eq),
+    __getitem__ = interp2app(W_Term.descr_getitem),
+    __len__ = interp2app(W_Term.descr_len),
     __ne__ = interp2app(W_Term.descr_ne),
+    __new__ = interp2app(term_new__),
+    __str__ = interp2app(W_Term.descr_str),
+    args = GetSetProperty(W_Term.prop_getargs),
+    name = GetSetProperty(W_Term.prop_getname),
 )
 
 W_Term.typedef.acceptable_as_base_class = False
