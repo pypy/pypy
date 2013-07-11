@@ -714,6 +714,8 @@ class MIFrame(object):
         # that is stored in metainterp.virtualizable_boxes[-1]
         if self.metainterp.heapcache.is_nonstandard_virtualizable(box):
             return True
+        if box is self.metainterp.forced_virtualizable:
+            self.metainterp.forced_virtualizable = None
         if (self.metainterp.jitdriver_sd.virtualizable_info is not None or
             self.metainterp.jitdriver_sd.greenfield_info is not None):
             standard_box = self.metainterp.virtualizable_boxes[-1]
@@ -1613,6 +1615,7 @@ class MetaInterp(object):
         self.portal_trace_positions = []
         self.free_frames_list = []
         self.last_exc_value_box = None
+        self.forced_virtualizable = None
         self.partial_trace = None
         self.retracing_from = -1
         self.call_pure_results = args_dict_box()
@@ -2277,6 +2280,8 @@ class MetaInterp(object):
         if vinfo is None:
             return
         vbox = self.virtualizable_boxes[-1]
+        if vbox is self.forced_virtualizable:
+            return # we already forced it by hand
         force_token_box = history.BoxPtr()
         # in case the force_token has not been recorded, record it here
         # to make sure we know the virtualizable can be broken. However, the
@@ -2524,6 +2529,11 @@ class MetaInterp(object):
                 # ignore the hint on non-standard virtualizable
                 # specifically, ignore it on a virtual
                 return
+            if self.forced_virtualizable is not None:
+                # this can happen only in strange cases, but we don't care
+                # it was already forced
+                return
+            self.forced_virtualizable = vbox
             for i in range(vinfo.num_static_extra_boxes):
                 fieldbox = self.virtualizable_boxes[i]
                 descr = vinfo.static_field_descrs[i]

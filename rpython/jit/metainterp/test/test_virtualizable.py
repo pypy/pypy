@@ -1576,7 +1576,11 @@ class ImplicitVirtualizableTests(object):
         if bridge is not None:
             l = [op for op in
                  bridge.operations if op.getopnum() == rop.SETFIELD_GC]
-            assert len(l) == 2
+            assert "'inst_x'" in str(l[0].getdescr().realdescrref())
+            assert len(l) == 1 # no vable token
+            l = [op for op in bridge.operations if
+                 op.getopnum() == rop.GUARD_NOT_FORCED_2]
+            assert len(l) == 0
 
 class TestLLtype(ExplicitVirtualizableTests,
                  ImplicitVirtualizableTests,
