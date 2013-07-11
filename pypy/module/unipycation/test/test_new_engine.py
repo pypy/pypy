@@ -47,7 +47,8 @@ class AppTestEngine(object):
 
         assert sol[X] == 2
         assert sol[Y]  == expect_y
-        assert sol[Y] != not_expect_y
+        assert sol[Y] != not_expect_y # inequal terms
+        assert sol[Y] != 1337         # term vs. number
 
     def test_anonymous(self):
         import unipycation

@@ -50,12 +50,9 @@ class W_Term(W_Root):
         w_Term = util.get_from_module(self.space, "unipycation", "Term")
 
         if not space.is_true(space.isinstance(w_other, w_Term)):
-            errstr_w = "Cannot compare %s with %s" % (type(self), type(w_other))
-            raise OperationError(space.w_TypeError, space.wrap(errstr_w))
+            return space.w_False
 
         eq = self.p_term.cmp_standard_order(w_other.p_term, None)
-        print(eq)
-        raw_input()
         return space.wrap(eq == 0)
 
     def descr_ne(self, space, w_other):
