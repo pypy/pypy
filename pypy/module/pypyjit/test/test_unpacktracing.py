@@ -97,11 +97,30 @@ class TestUnpackJIT(LLJitMixin):
             return len(target.items_w) + res
         assert f(4) == 210
 
-        # hack
-        from rpython.jit.metainterp import compile
-        class A(object):
-            view = viewloops = False
-        compile.option = A()
         result = self.meta_interp(f, [4], listops=True, backendopt=True, listcomp=True)
         assert result == 210
         self.check_trace_count(2)
+
+    def test_unroll(self):
+        unpack_into_driver = jit.JitDriver(greens=[], reds='auto')
+        def f(i):
+            l = [W_Int(x) for x in range(i)]
+            l.append(W_Int(i))
+
+            w_l = W_List(l)
+            res = 0
+            for i in range(100):
+                unpack_into_driver.jit_merge_point()
+                target = unpack.FixedSizeUnpackTarget(space, len(l))
+                if i < 0:
+                    w_l.unpack_into(space, target)
+                else:
+                    w_l.unpack_into(space, target, unroll=True)
+                res += len(target.items_w)
+            return res
+        assert f(4) == 500
+
+        result = self.meta_interp(f, [4], listops=True, backendopt=True, listcomp=True)
+        assert result == 500
+        self.check_resops(getarrayitem_gc=10, setarrayitem_gc=10,
+                call_may_force=0)

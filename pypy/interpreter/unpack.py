@@ -40,23 +40,36 @@ class FixedSizeUnpackTarget(UnpackTarget):
 
 
 unpack_into_driver = jit.JitDriver(name='unpack_into',
-                                   greens=['unroll', 'unpackcls', 'w_type'],
+                                   greens=['unpackcls', 'w_type'],
                                    reds=['unpack_target', 'w_iterator'])
 
 def generic_unpack_into(w_iterable, space, unpack_target, unroll=False):
+    if unroll:
+        return generic_unpack_into_unroll(w_iterable, space, unpack_target)
+    else:
+        return generic_unpack_into_jitdriver(w_iterable, space, unpack_target)
+
+def generic_unpack_into_jitdriver(w_iterable, space, unpack_target):
     w_iterator = space.iter(w_iterable)
     w_type = space.type(w_iterator)
     unpackcls = type(unpack_target)
     while True:
-        if not unroll:
-            unpack_into_driver.can_enter_jit(w_type=w_type, unroll=unroll,
-                                             w_iterator=w_iterator,
-                                             unpack_target=unpack_target,
-                                             unpackcls=unpackcls)
-        unpack_into_driver.jit_merge_point(w_type=w_type, unroll=unroll,
+        unpack_into_driver.jit_merge_point(w_type=w_type,
                                            w_iterator=w_iterator,
                                            unpack_target=unpack_target,
                                            unpackcls=unpackcls)
+        try:
+            w_item = space.next(w_iterator)
+        except OperationError, e:
+            if not e.match(space, space.w_StopIteration):
+                raise
+            break  # done
+        unpack_target.append(w_item)
+
+@jit.unroll_safe
+def generic_unpack_into_unroll(w_iterable, space, unpack_target):
+    w_iterator = space.iter(w_iterable)
+    while True:
         try:
             w_item = space.next(w_iterator)
         except OperationError, e:
