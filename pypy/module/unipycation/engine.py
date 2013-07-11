@@ -24,7 +24,7 @@ class W_SolutionIterator(W_Root):
         self.d_result = None    # Current result, populated on the fly
 
         # The state of the prolog interpreter continuation.
-        # Used(for enumerating results.
+        # Used for enumerating results.
         self.fcont = None
         self.heap = None
 
