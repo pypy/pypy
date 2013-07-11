@@ -1,3 +1,4 @@
  * __str__ of terms should give prolog syntax
  * Engine.from_file()
  * magical list conversion?
+ * term_from_str()
