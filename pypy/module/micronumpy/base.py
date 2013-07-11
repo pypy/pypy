@@ -16,7 +16,7 @@ def wrap_impl(space, w_cls, w_instance, impl):
     else:
         w_ret = space.allocate_instance(W_NDimArray, w_cls)
         W_NDimArray.__init__(w_ret, impl)
-        space.call_method(w_ret, space.wrap('__array_finalize__'), w_instance)
+        space.call_method(w_ret, '__array_finalize__', w_instance)
     return w_ret
 
 class ArrayArgumentException(Exception):
@@ -45,8 +45,7 @@ class W_NDimArray(W_Root):
             w_ret = space.allocate_instance(W_NDimArray, space.type(w_subtype))
             W_NDimArray.__init__(w_ret, impl)
             assert isinstance(w_ret, W_NDimArray)
-            space.call_function(space.getattr(w_ret,
-                                space.wrap('__array_finalize__')), w_subtype)
+            space.call_method(w_ret, '__array_finalize__', w_subtype)
             return w_ret
         return W_NDimArray(impl)
 
@@ -65,8 +64,7 @@ class W_NDimArray(W_Root):
         if w_subtype:
             w_ret = space.allocate_instance(W_NDimArray, w_subtype)
             W_NDimArray.__init__(w_ret, impl)
-            space.call_function(space.getattr(w_ret,
-                                space.wrap('__array_finalize__')), w_subtype)
+            space.call_method(w_ret, '__array_finalize__', w_subtype)
             return w_ret
         return W_NDimArray(impl)
 

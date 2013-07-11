@@ -630,7 +630,6 @@ class __extend__(W_NDimArray):
             "trace not implemented yet"))
 
     def descr_view(self, space, w_dtype=None, w_type=None) :
-        print w_dtype, w_type
         if not w_type and w_dtype:
             try:
                 if space.is_true(space.issubtype(w_dtype, space.gettypefor(W_NDimArray))):
@@ -1150,7 +1149,7 @@ def zeros(space, w_shape, w_dtype=None, order='C'):
     shape = _find_shape(space, w_shape, dtype)
     if not shape:
         return W_NDimArray.new_scalar(space, dtype, space.wrap(0))
-    return W_NDimArray.from_shape(space, shape, dtype=dtype, order=order)
+    return space.wrap(W_NDimArray.from_shape(space, shape, dtype=dtype, order=order))
 
 @unwrap_spec(order=str)
 def ones(space, w_shape, w_dtype=None, order='C'):
@@ -1163,7 +1162,7 @@ def ones(space, w_shape, w_dtype=None, order='C'):
     w_arr = W_NDimArray.from_shape(space, shape, dtype=dtype, order=order)
     one = dtype.box(1)
     w_arr.fill(one)
-    return w_arr
+    return space.wrap(w_arr)
 
 def _reconstruct(space, w_subtype, w_shape, w_dtype):
     return descr_new_array(space, w_subtype, w_shape, w_dtype)
