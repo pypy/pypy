@@ -71,11 +71,17 @@ def insert_stm_barrier(stmtransformer, graph):
         wants_a_barrier = {}
         expand_comparison = set()
         for op in block.operations:
+            # [1] XXX we can't leave getarraysize or the immutable getfields
+            #     fully unmodified.  We'd need at least some lightweight
+            #     read barrier to detect stubs.  For now we just put a
+            #     regular read barrier.
             if (op.opname in ('getfield', 'getarrayitem',
-                              'getinteriorfield') and
+                              'getinteriorfield',
+                              'getarraysize', 'getinteriorarraysize', # XXX [1]
+                              ) and
                   op.result.concretetype is not lltype.Void and
                   op.args[0].concretetype.TO._gckind == 'gc' and
-                  not is_immutable(op)):
+                  True): #not is_immutable(op)): XXX see [1]
                 wants_a_barrier.setdefault(op, 'R')
             elif (op.opname in ('setfield', 'setarrayitem',
                                 'setinteriorfield') and
