@@ -52,9 +52,16 @@ def p_term_of_w_term(space, w_term):
     _w_type_check(space, w_term, w_Term)
     return w_term.p_term
 
+def p_var_of_w_var(space, w_var):
+    w_Var = util.get_from_module(space, "unipycation", "Var")
+    _w_type_check(space, w_var, w_Var)
+    return w_var.p_var
+
 def p_of_w(space, w_anything):
+    # XXX move outside?
     w_ConversionError = util.get_from_module(space, "unipycation", "ConversionError")
     w_Term = util.get_from_module(space, "unipycation", "Term")
+    w_Var = util.get_from_module(space, "unipycation", "Var")
 
     assert(isinstance(w_anything, W_Root))
 
@@ -68,6 +75,8 @@ def p_of_w(space, w_anything):
         return p_atom_of_w_str(space, w_anything)
     elif space.is_true(space.isinstance(w_anything, w_Term)):
         return p_term_of_w_term(space, w_anything)
+    elif space.is_true(space.isinstance(w_anything, w_Var)):
+        return p_var_of_w_var(space, w_anything)
     else:
         raise OperationError(w_ConversionError,
                 space.wrap("Don't know how to convert wrapped %s to prolog type" % w_anything))

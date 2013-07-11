@@ -1,6 +1,7 @@
 import pypy.module.unipycation.conversion as conv
 import pypy.module.unipycation.util as util
 import pypy.module.unipycation.objects as objects
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError
 import prolog.interpreter.signature as psig
 
@@ -14,6 +15,12 @@ class TestTypeConversion(object):
     # -------------------------------------
     # Test conversion from Python to Prolog
     # -------------------------------------
+
+    def test_p_var_of_w_var(self):
+        w_var = objects.var_new__(self.space, W_Root, [])
+        var = conv.p_var_of_w_var(self.space, w_var)
+
+        assert type(var) == pterm.BindingVar
 
     def test_p_number_of_w_int(self):
         w_int = self.space.newint(666)
@@ -160,6 +167,13 @@ class TestTypeConversion(object):
         p_atom = conv.p_of_w(self.space, w_str)
 
         assert p_atom._signature.name == "Flibble"
+
+    # XXX some cases missing for p_of_w
+
+    def test_p_of_w_var(self):
+        w_var = objects.var_new__(self.space, W_Root, [])
+        var = conv.p_of_w(self.space, w_var)
+        assert type(var) == pterm.BindingVar
 
     def test_p_of_w_fails(self):
         w_none = self.space.wrap(None)
