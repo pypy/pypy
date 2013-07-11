@@ -1050,7 +1050,7 @@ def update1(space, w_dict, w_data):
     else:
         # general case -- "for k in o.keys(): dict.__setitem__(d, k, o[k])"
         data_w = space.listview(space.call_function(w_method))
-        update1_keys(space, w_dict, data_w)
+        update1_keys(space, w_dict, w_data, data_w)
 
 
 @jit.look_inside_iff(lambda space, w_dict, w_data:
@@ -1074,7 +1074,7 @@ def update1_pairs(space, w_dict, data_w):
         w_dict.setitem(w_key, w_value)
 
 
-def update1_keys(space, w_dict, data_w):
+def update1_keys(space, w_dict, w_data, data_w):
     for w_key in data_w:
         w_value = space.getitem(w_data, w_key)
         w_dict.setitem(w_key, w_value)
