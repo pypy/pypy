@@ -18,6 +18,12 @@ class TestW_LongObject:
         w_obj = fromlong(42)
         assert space.unwrap(w_obj) == 42
 
+    def test_overflow_error(self):
+        space = self.space
+        fromlong = lobj.W_LongObject.fromlong
+        w_big = fromlong(10**900)
+        space.raises_w(space.w_OverflowError, space.float_w, w_big)
+
     def test_rint_variants(self):
         py.test.skip("XXX broken!")
         from rpython.rtyper.tool.rfficache import platform

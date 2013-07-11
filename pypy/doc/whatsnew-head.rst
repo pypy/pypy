@@ -12,3 +12,7 @@ decoder which comes with the stdlib
 .. branch: improve-str2charp
 Improve the performance of I/O writing up to 15% by using memcpy instead of
 copying char-by-char in str2charp and get_nonmovingbuffer
+
+.. branch: flowoperators
+Simplify rpython/flowspace/ code by using more metaprogramming.  Create
+SpaceOperator class to gather static information about flow graph operations.
