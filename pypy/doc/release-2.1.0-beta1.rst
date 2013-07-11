@@ -22,6 +22,8 @@ Highlights
 
 * Stacklet support on ARM
 
+* Interpreter improvements
+
 * Various numpy improvements
 
 * Bugfixes to cffi and ctypes
