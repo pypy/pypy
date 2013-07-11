@@ -15,33 +15,25 @@ class W_SolutionIterator(W_Root):
     An interface that allows retreival of multiple solutions
     """
 
-    def __init__(self, space, var_to_pos, goals, w_engine):
-        # Stash some prolog structures
+    #def __init__(self, space, var_to_pos, goals, w_engine):
+    def __init__(self, space, w_unbound_vars, w_goal_term, w_engine):
         self.w_engine = w_engine
-
-        self.var_to_pos = var_to_pos
-        if len(goals) != 1:
-            w_GoalError = util.get_from_module(space, "unipycation", "GoalError")
-            raise OperationError(w_GoalError, space.wrap("Please pass a single query"))
-
-        self.goal = goals[0]
-
+        self.w_unbound_vars = w_unbound_vars
+        self.w_goal_term = w_goal_term
         self.space = space
         self.d_result = None    # Current result, populated on the fly
 
-        # The state of the continuation (for enumerating results)
+        # The state of the prolog interpreter continuation.
+        # Used(for enumerating results.
         self.fcont = None
         self.heap = None
 
-    def _populate_result(self, var_to_pos, fcont, heap):
+    def _populate_result(self, w_unbound_vars, fcont, heap):
         """ Called interally by the activation of the continuation """
 
-        for var, real_var in var_to_pos.iteritems():
-            if var.startswith("_"): continue
-
-            w_var = self.space.wrap(var)
-            w_val = conv.w_of_p(self.space, real_var.dereference(heap))
-            self.space.setitem(self.d_result, w_var, w_val)
+        for w_var in self.space.listview(w_unbound_vars):
+            w_binding = conv.w_of_p(self.space, w_var.p_var.dereference(heap))
+            self.space.setitem(self.d_result, w_var, w_binding)
 
         self.fcont = fcont
         self.heap = heap
@@ -58,9 +50,9 @@ class W_SolutionIterator(W_Root):
         if self.fcont is None:
             cur_mod = self.w_engine.engine.modulewrapper.current_module
             cont = UnipycationContinuation(
-                    self.w_engine, self.var_to_pos, self)
+                    self.w_engine, self.w_unbound_vars, self)
             try:
-                r = self.w_engine.engine.run(self.goal, cur_mod, cont)
+                r = self.w_engine.engine.run(self.w_goal_term.p_term, cur_mod, cont)
             except perr.UnificationFailed:
                 # contradiction - no solutions
                 raise OperationError(self.space.w_StopIteration, self.space.w_None)
@@ -68,7 +60,7 @@ class W_SolutionIterator(W_Root):
                 w_GoalError = util.get_from_module(self.space, "unipycation", "GoalError")
                 raise OperationError(w_GoalError, self.space.wrap("Undefined goal"))
 
-            self.goal = None # allow GC
+            self.w_goal_term = None # allow GC
         else:
             try:
                 pcont.driver(*self.fcont.fail(self.heap))
@@ -91,18 +83,18 @@ W_SolutionIterator.typedef.acceptable_as_base_class = False
 # ---
 
 class UnipycationContinuation(pcont.Continuation):
-    def __init__(self, w_engine, var_to_pos, w_solution_iter):
-        engine = w_engine.engine
+    def __init__(self, w_engine, w_unbound_vars, w_solution_iter):
+        p_engine = w_engine.engine
 
-        pcont.Continuation.__init__(self, engine, pcont.DoneSuccessContinuation(engine))
+        pcont.Continuation.__init__(self, p_engine, pcont.DoneSuccessContinuation(p_engine))
 
         # stash
-        self.var_to_pos = var_to_pos
+        self.w_unbound_vars = w_unbound_vars
         self.w_engine = w_engine
         self.w_solution_iter = w_solution_iter
 
     def activate(self, fcont, heap):
-        self.w_solution_iter._populate_result(self.var_to_pos, fcont, heap)
+        self.w_solution_iter._populate_result(self.w_unbound_vars, fcont, heap)
         return pcont.DoneSuccessContinuation(self.engine), fcont, heap
 
 # ---
@@ -124,22 +116,12 @@ class W_Engine(W_Root):
             w_ParseError = util.get_from_module(self.space, "unipycation", "ParseError")
             raise OperationError(w_ParseError, self.space.wrap(e.nice_error_message()))
 
-    def query_iter(self, w_query_str):
+    def query_iter(self, w_goal_term, w_unbound_vars):
         """ Returns an iterator by which to acquire multiple solutions """
-        query_raw = self.space.str_w(w_query_str)
+        return W_SolutionIterator(self.space, w_unbound_vars, w_goal_term, self)
 
-        try:
-            goals, var_to_pos = self.engine.parse(query_raw)
-        except ppars.ParseError as e:
-            w_ParseError = util.get_from_module(self.space, "unipycation", "ParseError")
-            raise OperationError(w_ParseError, self.space.wrap(e.nice_error_message()))
-
-        w_solution_iter = W_SolutionIterator(self.space, var_to_pos, goals, self)
-
-        return w_solution_iter
-
-    def query_single(self, w_query_str):
-        return self.query_iter(w_query_str).next_w()
+    def query_single(self, w_goal_term, w_unbound_vars):
+        return self.query_iter(w_goal_term, w_unbound_vars).next_w()
 
 W_Engine.typedef = TypeDef("Engine",
     __new__ = interp2app(engine_new__),
