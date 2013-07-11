@@ -3,7 +3,7 @@
 It uses 'pypy/goal/pypy-c' and parts of the rest of the working
 copy.  Usage:
 
-    package.py root-pypy-dir [--nostrip] [name-of-archive] [name-of-pypy-c] [destination-for-tarball] [pypy-c-path]
+    package.py root-pypy-dir [--nostrip] [--without-tk] [name-of-archive] [name-of-pypy-c] [destination-for-tarball] [pypy-c-path]
 
 Usually you would do:   package.py ../../.. pypy-VER-PLATFORM
 The output is found in the directory /tmp/usession-YOURNAME/build/.
@@ -46,7 +46,8 @@ def fix_permissions(basedir):
         os.system("chmod -R g-w %s" % basedir)
 
 def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
-            copy_to_dir = None, override_pypy_c = None, nostrip=False):
+            copy_to_dir=None, override_pypy_c=None, nostrip=False,
+            withouttk=False):
     basedir = py.path.local(basedir)
     if override_pypy_c is None:
         basename = 'pypy-c'
@@ -70,6 +71,14 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
     if not sys.platform == 'win32':
         subprocess.check_call([str(pypy_c), '-c', 'import _curses'])
         subprocess.check_call([str(pypy_c), '-c', 'import syslog'])
+        if not withouttk:
+            try:
+                subprocess.check_call([str(pypy_c), '-c', 'import _tkinter'])
+            except subprocess.CalledProcessError:
+                print >>sys.stderr, """Building Tk bindings failed.
+You can either install Tk development headers package or
+add --without-tk option to skip packaging binary CFFI extension."""
+                sys.exit(1)
     if sys.platform == 'win32' and not rename_pypy_c.lower().endswith('.exe'):
         rename_pypy_c += '.exe'
     binaries = [(pypy_c, rename_pypy_c)]
@@ -183,14 +192,28 @@ using another platform..."""
         print "Ready in %s" % (builddir,)
     return builddir # for tests
 
+
+def print_usage():
+    print >>sys.stderr, __doc__
+    sys.exit(1)
+
+
 if __name__ == '__main__':
     if len(sys.argv) == 1:
-        print >>sys.stderr, __doc__
-        sys.exit(1)
-    else:
-        args = sys.argv[1:]
-        kw = {}
-        if args[0] == '--nostrip':
+        print_usage()
+
+    args = sys.argv[1:]
+    kw = {}
+
+    for i, arg in enumerate(args):
+        if arg == '--nostrip':
             kw['nostrip'] = True
-            args = args[1:]
-        package(*args, **kw)
+        elif arg == '--without-tk':
+            kw['withouttk'] = True
+        elif not arg.startswith('--'):
+            break
+        else:
+            print_usage()
+
+    args = args[i:]
+    package(*args, **kw)

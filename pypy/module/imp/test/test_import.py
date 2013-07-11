@@ -760,6 +760,10 @@ class AppTestImport(BaseImportTest):
         assert module.__name__ == 'a'
         assert module.__file__ == 'invalid_path_name'
 
+    def test_crash_load_module(self):
+        import imp
+        raises(ValueError, imp.load_module, "", "", "", [1, 2, 3, 4])
+
     def test_source_encoding(self):
         import imp
         import encoded
