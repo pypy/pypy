@@ -26,33 +26,37 @@ class InterpListUnpackTarget(UnpackTarget):
 
 class FixedSizeUnpackTarget(UnpackTarget):
     def __init__(self, space, expected_size):
+        self.space = space
         self.items_w = [None] * expected_size
         self.index = 0
 
     def append(self, w_obj):
         if self.index == len(self.items_w):
-            raise OperationError(self.w_ValueError,
-                                self.wrap("too many values to unpack"))
-        self.items_w[self.index] = w_item
+            raise OperationError(self.space.w_ValueError,
+                                self.space.wrap("too many values to unpack"))
+        self.items_w[self.index] = w_obj
         self.index += 1
 
 
 
 unpack_into_driver = jit.JitDriver(name='unpack_into',
-                                   greens=['unroll', 'w_type'],
+                                   greens=['unroll', 'unpackcls', 'w_type'],
                                    reds=['unpack_target', 'w_iterator'])
 
 def generic_unpack_into(w_iterable, space, unpack_target, unroll=False):
     w_iterator = space.iter(w_iterable)
     w_type = space.type(w_iterator)
+    unpackcls = type(unpack_target)
     while True:
         if not unroll:
             unpack_into_driver.can_enter_jit(w_type=w_type, unroll=unroll,
                                              w_iterator=w_iterator,
-                                             unpack_target=unpack_target)
+                                             unpack_target=unpack_target,
+                                             unpackcls=unpackcls)
         unpack_into_driver.jit_merge_point(w_type=w_type, unroll=unroll,
                                            w_iterator=w_iterator,
-                                           unpack_target=unpack_target)
+                                           unpack_target=unpack_target,
+                                           unpackcls=unpackcls)
         try:
             w_item = space.next(w_iterator)
         except OperationError, e:
