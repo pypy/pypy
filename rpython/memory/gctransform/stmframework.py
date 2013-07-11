@@ -46,6 +46,9 @@ class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
     def gc_header_for(self, obj, needs_hash=False):
         return self.gcdata.gc.gcheaderbuilder.header_of_object(obj)
 
+    def gct_gc_adr_of_root_stack_top(self, hop):
+        hop.genop("stm_get_root_stack_top")
+
     def _gct_with_roots_pushed(self, hop):
         livevars = self.push_roots(hop)
         self.default(hop)

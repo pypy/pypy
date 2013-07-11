@@ -45,7 +45,10 @@ class StmGC(MovingGCBase):
 
     VISIT_FPTR = lltype.Ptr(lltype.FuncType([llmemory.Address], lltype.Void))
 
-    TRANSLATION_PARAMS = {}
+    minimal_size_in_nursery = llmemory.sizeof(HDR)
+
+    TRANSLATION_PARAMS = {
+    }
 
     def setup(self):
         # Hack: MovingGCBase.setup() sets up stuff related to id(), which
@@ -89,6 +92,15 @@ class StmGC(MovingGCBase):
         obj = llop.stm_allocate(llmemory.Address, totalsize, typeid16)
         (obj + offset_to_length).signed[0] = length
         return llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
+
+
+    @classmethod
+    def JIT_max_size_of_young_obj(cls):
+        return -1 # XXX: should not be used
+
+    @classmethod
+    def JIT_minimal_size_in_nursery(cls):
+        return cls.minimal_size_in_nursery
 
     def collect(self, gen=1):
         """Do a minor (gen=0) or major (gen>0) collection."""

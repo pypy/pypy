@@ -94,6 +94,11 @@ def stm_pop_root_into(funcgen, op):
     return '%s = (%s)stm_pop_root();' % (
         arg0, cdecl(funcgen.lltypename(op.args[0]), ''))
 
+def stm_get_root_stack_top(funcgen, op):
+    result = funcgen.expr(op.result)
+    return '%s = (%s)stm_shadowstack;' % (
+        result, cdecl(funcgen.lltypename(op.result), ''))
+
 def stm_allocate(funcgen, op):
     arg0 = funcgen.expr(op.args[0])
     arg1 = funcgen.expr(op.args[1])
