@@ -2550,7 +2550,9 @@ class MetaInterp(object):
                     self.execute_and_record(rop.SETARRAYITEM_GC, descr,
                                             abox, ConstInt(j), itembox)
             assert i + 1 == len(self.virtualizable_boxes)
-
+            # we're during tracing, so we should not execute it
+            self.history.record(rop.SETFIELD_GC, [vbox, self.cpu.ts.CONST_NULL],
+                                None, descr=vinfo.vable_token_descr)
 
     def replace_box(self, oldbox, newbox):
         assert isinstance(oldbox, Box)
