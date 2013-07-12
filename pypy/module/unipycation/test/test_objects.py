@@ -80,10 +80,9 @@ class AppTestObjects(object):
 
     def test_term_str_with_var(self):
         import unipycation as u
-        X = u.Var()
-        xname = X.name
-        t = u.Term("x", [X])
-        assert str(t) == ("x(%s)" % xname)
+        vs = [X, Y, Z] = [ u.Var() for i in range(3) ]
+        t = u.Term("x", vs)
+        assert str(t) == ("x(_G0, _G1, _G2)")
 
     def test_nested_term_str(self):
         import unipycation as u

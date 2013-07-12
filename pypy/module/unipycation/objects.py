@@ -1,10 +1,13 @@
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty_w
 from pypy.interpreter.gateway import interp2app, unwrap_spec
+import pypy.module.unipycation.util as util
 
 import prolog.interpreter.term as pterm
 import prolog.interpreter.signature as psig
-import pypy.module.unipycation.util as util
+import prolog.builtin.formatting as pfmt
+import prolog.interpreter.continuation as pcont
+
 @unwrap_spec(name=str)
 def term_new__(space, w_subtype, name, __args__):
     import pypy.module.unipycation.conversion as conv
@@ -60,10 +63,11 @@ class W_Term(W_Root):
     def descr_str(self, space):
         import pypy.module.unipycation.conversion as conv
 
-        w_args = [ conv.w_of_p(space, x) for x in self.p_term.arguments() ]
-        w_args_strs = [ space.str_w(x) for x in w_args ]
-        return self.space.wrap("XXX")
-        # XXX XXX XXX XXX Where would we get nested variable names from?
+        # XXX Hackarama XXX.
+        # TermFormatter needs an engine, so we just make a new one.
+        tmp_engine = pcont.Engine()
+        fmtr = pfmt.TermFormatter(tmp_engine)
+        return self.space.wrap(fmtr.format(self.p_term))
 
 W_Term.typedef = TypeDef("Term",
     __eq__ = interp2app(W_Term.descr_eq),
