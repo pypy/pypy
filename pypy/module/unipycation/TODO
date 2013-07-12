@@ -3,3 +3,4 @@
  * magical list conversion?
  * term_from_str()
  * Anonymous variables? '_'
+ * Contradiction raises StopIteration for query_single.....

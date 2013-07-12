@@ -16,7 +16,7 @@ class AppTestEngine(object):
 
     def test_from_file(self):
         import unipycation as u
-        import os, binascii, tempfile as t
+        import os, tempfile as t
 
         (fd, fname) = t.mkstemp(prefix="unipycation-")
         os.write(fd, "f(1,2,3).")
@@ -70,34 +70,77 @@ class AppTestEngine(object):
         assert sol[Y] != not_expect_y # inequal terms
         assert sol[Y] != 1337         # term vs. number
 
-    def test_anonymous(self):
-        import unipycation
-        pass
-
     def test_tautology(self):
-        import unipycation
-        pass
+        import unipycation as u
 
-    def test_false(self):
-        import unipycation
-        pass
+        e = u.Engine("eat(cheese, bread). eat(egg, salad).")
 
-    def test_iterator_no_result(self):
-        import unipycation
-        pass
+        t = u.Term('eat', ['cheese', 'bread'])
+        sol = e.query_single(t, [])
+
+        assert sol == {}
+
+    def test_contradicion(self):
+        import unipycation as u
+
+        e = u.Engine("eat(cheese, bread). eat(egg, salad).")
+        t = u.Term('eat', ['cheese', 'egg'])
+        raises(StopIteration, lambda : e.query_single(t, []))
 
     def test_iterator_tautology(self):
-        import unipycation
-        pass
+        import unipycation as u
+
+        e = u.Engine("eat(cheese, bread). eat(egg, salad).")
+        t = u.Term('eat', ['cheese', 'bread'])
+        it = e.query_iter(t, [])
+        sols = [ x for x in it ]
+        assert sols == [{}]
+
+    def test_iterator_contradiction(self):
+        import unipycation as u
+
+        e = u.Engine("eat(cheese, bread). eat(egg, salad).")
+        t = u.Term('eat', ['cheese', 'egg'])
+        it = e.query_iter(t, [])
+        raises(StopIteration, lambda : it.next())
 
     def test_iterator_infty(self):
-        import unipycation
-        pass
+        import unipycation as u
 
-    def test_iter_nonexisting_predicate(self):
-        import unipycation
-        pass
+        e = u.Engine("""
+                f(0).
+                f(X) :- f(X0), X is X0 + 1.
+        """)
+
+        X = u.Var()
+        t = u.Term('f', [X])
+        it = e.query_iter(t, [X])
+
+        first_ten = []
+        for i in range(10):
+            first_ten.append(it.next()[X])
+
+        assert first_ten == range(0, 10)
 
     def test_query_nonexisting_predicate(self):
+        import unipycation as u
+
+        e = u.Engine("f(666). f(667). f(668).")
+        X = u.Var()
+        t = u.Term("g", [X])
+
+        raises(u.GoalError, lambda: e.query_single(t, [X]))
+
+    def test_iter_nonexisting_predicate(self):
+        import unipycation as u
+
+        e = u.Engine("f(666). f(667). f(668).")
+        X = u.Var()
+        t = u.Term("g", [X])
+
+        raises(u.GoalError, lambda: e.query_iter(t, [X]).next())
+
+    def test_parse_db_incomplete(self):
         import unipycation
-        pass
+
+        raises(unipycation.ParseError, lambda: unipycation.Engine("f(1)")) # missing dot on db
