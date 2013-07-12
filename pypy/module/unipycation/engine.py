@@ -12,6 +12,7 @@ import pypy.module.unipycation.conversion as conv
 import pypy.module.unipycation.util as util
 
 from rpython.rlib.streamio import open_file_as_stream
+from rpython.rlib import rstring
 
 class W_SolutionIterator(W_Root):
     """
@@ -121,6 +122,9 @@ class W_Engine(W_Root):
     @staticmethod
     def from_file(space, w_cls, w_filename):
         filename = space.str_w(w_filename)
+        
+        # trust me rpython, it's null terminated.
+        filename = rstring.assert_str0(filename)
 
         # have to use rpython io
         hndl = open_file_as_stream(filename)
