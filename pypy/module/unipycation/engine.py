@@ -7,15 +7,17 @@ import prolog.interpreter.continuation as pcont
 import prolog.interpreter.term as pterm
 import prolog.interpreter.error as perr
 import prolog.interpreter.parsing as ppars
+
 import pypy.module.unipycation.conversion as conv
 import pypy.module.unipycation.util as util
+
+from rpython.rlib.streamio import open_file_as_stream
 
 class W_SolutionIterator(W_Root):
     """
     An interface that allows retreival of multiple solutions
     """
 
-    #def __init__(self, space, var_to_pos, goals, w_engine):
     def __init__(self, space, w_unbound_vars, w_goal_term, w_engine):
         self.w_engine = w_engine
         self.w_unbound_vars = w_unbound_vars
@@ -119,7 +121,11 @@ class W_Engine(W_Root):
     @staticmethod
     def from_file(space, w_cls, w_filename):
         filename = space.str_w(w_filename)
-        with open(filename, "r") as fh: db = fh.read()
+
+        # have to use rpython io
+        hndl = open_file_as_stream(filename)
+        prog = db = hndl.readall()
+        hndl.close()
 
         return space.wrap(W_Engine(space, space.wrap(db)))
 
