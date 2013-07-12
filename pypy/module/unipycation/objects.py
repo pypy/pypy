@@ -92,20 +92,16 @@ class W_Var(W_Root):
     """
     Represents an unbound variable in a query.
     """
-    var_ct = 0  # Used to build a unique id name for each var
 
     def __init__(self, space, p_var):
         self.space = space
         self.p_var = p_var
-        self.w_name = space.wrap("V%d" % W_Var.var_ct)
-        W_Var.var_ct += 1
 
     def descr_str(self, space): return self.w_name
 
 W_Var.typedef = TypeDef("Var",
     __new__ = interp2app(var_new__),
     __str__ = interp2app(W_Var.descr_str),
-    name = interp_attrproperty_w('w_name', W_Var)
 )
 
 W_Var.typedef.acceptable_as_base_class = False
