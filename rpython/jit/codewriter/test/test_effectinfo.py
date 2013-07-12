@@ -132,7 +132,6 @@ class TestVirtualizableAnalyzer(object):
         fgraph = graphof(t, func)
         return VirtualizableAnalyzer(t).analyze(fgraph.startblock.operations[0])
 
-    @pytest.mark.xfail
     def test_constructor(self):
         class A(object):
             x = 1

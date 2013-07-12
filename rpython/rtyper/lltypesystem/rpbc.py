@@ -394,9 +394,12 @@ class ClassesPBCRepr(AbstractClassesPBCRepr):
     # no __init__ here, AbstractClassesPBCRepr.__init__ is good enough
 
     def _instantiate_runtime_class(self, hop, vtypeptr, r_instance):
-        from rpython.rtyper.lltypesystem.rbuiltin import ll_instantiate
-        v_inst1 = hop.gendirectcall(ll_instantiate, vtypeptr)
-        return hop.genop('cast_pointer', [v_inst1], resulttype = r_instance)
+        v_instantiate = hop.genop('getfield', [vtypeptr, hop.inputconst(Void, "instantiate")], resulttype=vtypeptr.concretetype.TO.instantiate)
+        possible_graphs = hop.inputconst(Void,
+            [desc.getclassdef(None).my_instantiate_graph for desc in self.s_pbc.descriptions]
+        )
+        v_inst = hop.genop('indirect_call', [v_instantiate, possible_graphs], resulttype=vtypeptr.concretetype.TO.instantiate.TO.RESULT)
+        return hop.genop('cast_pointer', [v_inst], resulttype=r_instance)
 
     def getlowleveltype(self):
         return rclass.CLASSTYPE
