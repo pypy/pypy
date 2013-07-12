@@ -13,14 +13,9 @@ class AppTestTerms(object):
 
     def test_var(self):
         import unipycation as upy
+        N = 10
 
-        vs = [ upy.Var() for x in range(10) ]
+        vs = [ upy.Var() for x in range(N) ]
 
-        # Each var should have a distinct internal pyrolog BindingVar
-        # This is exposed in str() of a Var.
-        # No two Var's should have the same str()
-        str_combos = [ (str(x), str(y)) for x in vs for y in vs if x != y ]
-        print(str_combos)
-        same_str = [ (x, y) for (x, y) in str_combos if x == y ]
-
-        assert same_str == []
+        for i in range(N):
+            assert str(vs[i]) == ("V%d" % i)
