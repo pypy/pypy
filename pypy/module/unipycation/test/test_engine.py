@@ -2,7 +2,7 @@
 import pytest
 
 class AppTestEngine(object):
-    spaceconfig = dict(usemodules=('unipycation',))
+    spaceconfig = dict(usemodules=('unipycation', 'binascii', 'rctime'))
 
     def test_basic(self):
         import unipycation as u
