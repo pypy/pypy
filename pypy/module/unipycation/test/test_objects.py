@@ -5,13 +5,9 @@ class AppTestObjects(object):
 
     def test_var(self):
         import unipycation as upy
-        N = 10
 
-        vs = [ str(upy.Var()) for x in range(N) ]
-        combos = [ (str(x), str(y)) for x in vs for y in vs if x != y ]
-
-        for (x, y) in combos:
-            assert x != y # should all have distinct names
+        X = upy.Var()
+        assert str(X) == "_G0"
 
     def test_list(self):
         import unipycation as u

@@ -97,7 +97,14 @@ class W_Var(W_Root):
         self.space = space
         self.p_var = p_var
 
-    def descr_str(self, space): return self.w_name
+    def descr_str(self, space):
+        import pypy.module.unipycation.conversion as conv
+
+        # XXX Hackarama XXX.
+        # TermFormatter needs an engine, so we just make a new one.
+        tmp_engine = pcont.Engine()
+        fmtr = pfmt.TermFormatter(tmp_engine)
+        return self.space.wrap(fmtr.format(self.p_var))
 
 W_Var.typedef = TypeDef("Var",
     __new__ = interp2app(var_new__),
