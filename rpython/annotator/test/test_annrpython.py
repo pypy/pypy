@@ -740,7 +740,7 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [B])
         assert s.classdef is a.bookkeeper.getuniqueclassdef(C)
 
-    def test_union_type_some_opbc(self):
+    def test_union_type_some_pbc(self):
         class A(object):
             name = "A"
 
