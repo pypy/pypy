@@ -1,8 +1,15 @@
 #import pypy.module.unipycation.engine as eng
+import tempfile
 import pytest
 
 class AppTestEngine(object):
-    spaceconfig = dict(usemodules=('unipycation', 'binascii', 'rctime'))
+    spaceconfig = dict(usemodules=('unipycation', ))
+
+    def setup_class(cls):
+        space = cls.space
+        (fd, fname) = tempfile.mkstemp(prefix="unipycation-")
+        cls.w_fd = space.wrap(fd)
+        cls.w_fname = space.wrap(fname)
 
     def test_basic(self):
         import unipycation as u
@@ -16,9 +23,10 @@ class AppTestEngine(object):
 
     def test_from_file(self):
         import unipycation as u
-        import os, tempfile as t
+        import os
+        fd = self.fd
+        fname = self.fname
 
-        (fd, fname) = t.mkstemp(prefix="unipycation-")
         os.write(fd, "f(1,2,3).")
         os.close(fd)
 
