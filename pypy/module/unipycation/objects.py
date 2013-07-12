@@ -49,9 +49,9 @@ class W_Term(W_Root):
         return self.space.wrap(st)
 
     def descr_eq(self, space, w_other):
-        w_Term = util.get_from_module(self.space, "unipycation", "Term")
+        #w_Term = util.get_from_module(self.space, "unipycation", "Term")
 
-        if not space.is_true(space.isinstance(w_other, w_Term)):
+        if not isinstance(w_other, W_Term):
             return space.w_False
 
         eq = self.p_term.cmp_standard_order(w_other.p_term, None)
