@@ -51,7 +51,6 @@ class Assembler386(BaseAssembler):
         self.float_const_abs_addr = 0
         self.malloc_slowpath = 0
         self.malloc_slowpath_varsize = 0
-        self.wb_slowpath = [0, 0, 0, 0, 0]
         self.setup_failure_recovery()
         self.datablockwrapper = None
         self.stack_check_slowpath = 0
@@ -310,17 +309,21 @@ class Assembler386(BaseAssembler):
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
         self.stack_check_slowpath = rawstart
 
-    def _build_wb_slowpath(self, withcards, withfloats=False, for_frame=False):
-        descr = self.cpu.gc_ll_descr.write_barrier_descr
+    def _build_b_slowpath(self, descr, withcards, withfloats=False,
+                          for_frame=False):
+        is_stm = self.cpu.gc_ll_descr.stm
         exc0, exc1 = None, None
         if descr is None:
             return
+        
         if not withcards:
-            func = descr.get_write_barrier_fn(self.cpu)
+            func = descr.get_barrier_fn(self.cpu, 
+                                        returns_modified_object=is_stm)
         else:
+            assert not is_stm
             if descr.jit_wb_cards_set == 0:
                 return
-            func = descr.get_write_barrier_from_array_fn(self.cpu)
+            func = descr.get_barrier_from_array_fn(self.cpu)
             if func == 0:
                 return
         #
@@ -362,11 +365,16 @@ class Assembler386(BaseAssembler):
             self._store_and_reset_exception(mc, exc0, exc1)
 
         mc.CALL(imm(func))
-        #
+
+        if descr.returns_modified_object:
+            # new addr in eax, save in scratch reg
+            mc.PUSH_r(eax.value)
+                
         if withcards:
             # A final TEST8 before the RET, for the caller.  Careful to
             # not follow this instruction with another one that changes
             # the status of the CPU flags!
+            assert not is_stm
             if IS_X86_32:
                 mc.MOV_rs(eax.value, 3*WORD)
             else:
@@ -374,12 +382,14 @@ class Assembler386(BaseAssembler):
             mc.TEST8(addr_add_const(eax, descr.jit_wb_if_flag_byteofs),
                      imm(-0x80))
         #
-
         if not for_frame:
             if IS_X86_32:
                 # ADD touches CPU flags
                 mc.LEA_rs(esp.value, 2 * WORD)
             self._pop_all_regs_from_frame(mc, [], withfloats, callee_only=True)
+
+            if descr.returns_modified_object:
+                mc.POP_r(eax.value)
             mc.RET16_i(WORD)
         else:
             if IS_X86_32:
@@ -390,13 +400,16 @@ class Assembler386(BaseAssembler):
             mc.MOV(exc0, RawEspLoc(WORD * 5, REF))
             mc.MOV(exc1, RawEspLoc(WORD * 6, INT))
             mc.LEA_rs(esp.value, 7 * WORD)
+
+            if descr.returns_modified_object:
+                mc.POP_r(eax.value)
             mc.RET()
 
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
         if for_frame:
-            self.wb_slowpath[4] = rawstart
+            descr.set_b_slowpath(4, rawstart)
         else:
-            self.wb_slowpath[withcards + 2 * withfloats] = rawstart
+            descr.set_b_slowpath(withcards + 2 * withfloats, rawstart)
 
     def assemble_loop(self, loopname, inputargs, operations, looptoken, log):
         '''adds the following attributes to looptoken:
@@ -1027,9 +1040,11 @@ class Assembler386(BaseAssembler):
 
         if gcrootmap and gcrootmap.is_stm:
             wbdescr = self.cpu.gc_ll_descr.P2Wdescr
-        else:
-            wbdescr = self.cpu.gc_ll_descr.write_barrier_descr
-            
+            self._stm_barrier_fastpath(mc, wbdescr, [ebp], is_frame=True,
+                                       align_stack=align_stack)
+            return
+
+        wbdescr = self.cpu.gc_ll_descr.write_barrier_descr
         if gcrootmap and wbdescr:
             # frame never uses card marking, so we enforce this is not
             # an array
@@ -1980,13 +1995,43 @@ class Assembler386(BaseAssembler):
         self.mc.overwrite(jmp_location - 1, chr(offset))
 
     # ------------------- END CALL ASSEMBLER -----------------------
+    def _stm_barrier_fastpath(self, mc, descr, arglocs, is_frame=False,
+                              align_stack=False):
+        assert self.cpu.gc_ll_descr.stm
+        from rpython.jit.backend.llsupport.gc import STMBarrierDescr
+        assert isinstance(descr, STMBarrierDescr)
+        assert descr.returns_modified_object        
+        loc_base = arglocs[0]
+        assert isinstance(loc_base, RegLoc)
+        # Write only a CALL to the helper prepared in advance, passing it as
+        # argument the address of the structure we are writing into
+        # (the first argument to COND_CALL_GC_WB).
+        helper_num = 0
+        if is_frame:
+            helper_num = 4
+        elif self._regalloc is not None and self._regalloc.xrm.reg_bindings:
+            helper_num += 2
+        #
+        if not is_frame:
+            mc.PUSH(loc_base)
+        if is_frame and align_stack:
+            mc.SUB_ri(esp.value, 16 - WORD) # erase the return address
+        func = descr.get_b_slowpath(helper_num)
+        mc.CALL(imm(func))
+        mc.MOV_rr(loc_base.value, eax.value)
+        if is_frame and align_stack:
+            mc.ADD_ri(esp.value, 16 - WORD) # erase the return address
 
+
+
+        
     def _write_barrier_fastpath(self, mc, descr, arglocs, array=False,
                                 is_frame=False, align_stack=False):
         # Write code equivalent to write_barrier() in the GC: it checks
         # a flag in the object at arglocs[0], and if set, it calls a
         # helper piece of assembler.  The latter saves registers as needed
         # and call the function jit_remember_young_pointer() from the GC.
+        assert not self.cpu.gc_ll_descr.stm
         if we_are_translated():
             cls = self.cpu.gc_ll_descr.has_write_barrier_class()
             assert cls is not None and isinstance(descr, cls)
@@ -2029,18 +2074,18 @@ class Assembler386(BaseAssembler):
             helper_num = 4
         elif self._regalloc is not None and self._regalloc.xrm.reg_bindings:
             helper_num += 2
-        if self.wb_slowpath[helper_num] == 0:    # tests only
+        if descr.get_b_slowpath(helper_num) == 0:    # tests only
             assert not we_are_translated()
             self.cpu.gc_ll_descr.write_barrier_descr = descr
-            self._build_wb_slowpath(card_marking,
-                                    bool(self._regalloc.xrm.reg_bindings))
-            assert self.wb_slowpath[helper_num] != 0
+            self._build_b_slowpath(descr, card_marking,
+                                   bool(self._regalloc.xrm.reg_bindings))
+            assert descr.get_b_slowpath(helper_num) != 0
         #
         if not is_frame:
             mc.PUSH(loc_base)
         if is_frame and align_stack:
             mc.SUB_ri(esp.value, 16 - WORD) # erase the return address
-        mc.CALL(imm(self.wb_slowpath[helper_num]))
+        mc.CALL(imm(descr.get_b_slowpath(helper_num)))
         if is_frame and align_stack:
             mc.ADD_ri(esp.value, 16 - WORD) # erase the return address
 
@@ -2105,6 +2150,9 @@ class Assembler386(BaseAssembler):
         self._write_barrier_fastpath(self.mc, op.getdescr(), arglocs,
                                      array=True)
 
+    def genop_discard_cond_call_stm_b(self, op, arglocs):
+        self._stm_barrier_fastpath(self.mc, op.getdescr(), arglocs)
+
     def not_implemented_op_discard(self, op, arglocs):
         not_implemented("not implemented operation: %s" % op.getopname())
 
@@ -2129,6 +2177,7 @@ class Assembler386(BaseAssembler):
         self._check_frame_depth_debug(self.mc)
 
     def malloc_cond(self, nursery_free_adr, nursery_top_adr, size, gcmap):
+        assert not self.cpu.gc_ll_descr.stm
         assert size & (WORD-1) == 0     # must be correctly aligned
         self.mc.MOV(eax, heap(nursery_free_adr))
         self.mc.LEA_rm(edi.value, (eax.value, size))
@@ -2145,6 +2194,7 @@ class Assembler386(BaseAssembler):
 
     def malloc_cond_varsize_frame(self, nursery_free_adr, nursery_top_adr,
                                   sizeloc, gcmap):
+        assert not self.cpu.gc_ll_descr.stm
         if sizeloc is eax:
             self.mc.MOV(edi, sizeloc)
             sizeloc = edi
@@ -2167,6 +2217,7 @@ class Assembler386(BaseAssembler):
     def malloc_cond_varsize(self, kind, nursery_free_adr, nursery_top_adr,
                             lengthloc, itemsize, maxlength, gcmap,
                             arraydescr):
+        assert not self.cpu.gc_ll_descr.stm
         from rpython.jit.backend.llsupport.descr import ArrayDescr
         assert isinstance(arraydescr, ArrayDescr)
 

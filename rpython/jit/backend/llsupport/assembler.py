@@ -81,27 +81,34 @@ class BaseAssembler(object):
         self.memcpy_addr = self.cpu.cast_ptr_to_int(memcpy_fn)
         self._build_failure_recovery(False, withfloats=False)
         self._build_failure_recovery(True, withfloats=False)
-        self._build_wb_slowpath(False)
-        self._build_wb_slowpath(True)
-        self._build_wb_slowpath(False, for_frame=True)
+        if gc_ll_descr.stm:
+            descrs = [gc_ll_descr.P2Rdescr, gc_ll_descr.P2Wdescr]
+        else:
+            descrs = [gc_ll_descr.write_barrier_descr]
+        for d in descrs:
+                self._build_b_slowpath(d, False)
+                self._build_b_slowpath(d, True)
+                self._build_b_slowpath(d, False, for_frame=True)
         # only one of those
         self.build_frame_realloc_slowpath()
         if self.cpu.supports_floats:
             self._build_failure_recovery(False, withfloats=True)
             self._build_failure_recovery(True, withfloats=True)
-            self._build_wb_slowpath(False, withfloats=True)
-            self._build_wb_slowpath(True, withfloats=True)
+            for d in descrs:
+                self._build_b_slowpath(d, False, withfloats=True)
+                self._build_b_slowpath(d, True, withfloats=True)
         self._build_propagate_exception_path()
+
         if gc_ll_descr.get_malloc_slowpath_addr() is not None:
             # generate few slowpaths for various cases
             self.malloc_slowpath = self._build_malloc_slowpath(kind='fixed')
             self.malloc_slowpath_varsize = self._build_malloc_slowpath(
                 kind='var')
-        if hasattr(gc_ll_descr, 'malloc_str'):
+        if gc_ll_descr.get_malloc_slowpath_addr() is not None and hasattr(gc_ll_descr, 'malloc_str'):
             self.malloc_slowpath_str = self._build_malloc_slowpath(kind='str')
         else:
             self.malloc_slowpath_str = None
-        if hasattr(gc_ll_descr, 'malloc_unicode'):
+        if gc_ll_descr.get_malloc_slowpath_addr() is not None and hasattr(gc_ll_descr, 'malloc_unicode'):
             self.malloc_slowpath_unicode = self._build_malloc_slowpath(
                 kind='unicode')
         else:

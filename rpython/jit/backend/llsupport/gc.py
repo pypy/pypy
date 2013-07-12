@@ -294,12 +294,42 @@ class BarrierDescr(AbstractDescr):
         self.returns_modified_object = False
         self.gcheaderbuilder = gc_ll_descr.gcheaderbuilder
         self.HDRPTR = gc_ll_descr.HDRPTR
+        self.b_slowpath = [0, 0, 0, 0]
 
     def repr_of_descr(self):
         raise NotImplementedError
 
     def __repr(self):
         raise NotImplementedError
+
+    def get_b_slowpath(self, num):
+        return self.b_slowpath[num]
+
+    def set_b_slowpath(self, num, addr):
+        self.b_slowpath[num] = addr
+
+    def get_barrier_funcptr(self, returns_modified_object):
+        raise NotImplementedError
+        
+    def get_barrier_fn(self, cpu, returns_modified_object):
+        # must pass in 'self.returns_modified_object', to make sure that
+        # the callers are fixed for this case
+        funcptr = self.get_barrier_funcptr(returns_modified_object)
+        funcaddr = llmemory.cast_ptr_to_adr(funcptr)
+        return cpu.cast_adr_to_int(funcaddr)
+
+    def get_barrier_from_array_fn(self, cpu):
+        # returns a function with arguments [array, index, newvalue]
+        llop1 = self.llop1
+        funcptr = llop1.get_write_barrier_from_array_failing_case(
+            self.FUNCPTR)
+        funcaddr = llmemory.cast_ptr_to_adr(funcptr)
+        return cpu.cast_adr_to_int(funcaddr)    # this may return 0
+
+    def has_barrier_from_array(self, cpu):
+        return self.get_barrier_from_array_fn(cpu) != 0
+
+
         
 class WriteBarrierDescr(BarrierDescr):
     def __init__(self, gc_ll_descr):
@@ -325,8 +355,6 @@ class WriteBarrierDescr(BarrierDescr):
             assert self.jit_wb_cards_set_singlebyte == -0x80
         else:
             self.jit_wb_cards_set = 0
-        #
-        self.wb_slowpath = [0, 0, 0, 0]
 
     def repr_of_descr(self):
         return 'wbdescr'
@@ -350,30 +378,6 @@ class WriteBarrierDescr(BarrierDescr):
         assert not returns_modified_object
         FUNCTYPE = self.FUNCPTR
         return self.llop1.get_write_barrier_failing_case(FUNCTYPE)
-
-    def get_write_barrier_fn(self, cpu, returns_modified_object):
-        # must pass in 'self.returns_modified_object', to make sure that
-        # the callers are fixed for this case
-        funcptr = self.get_barrier_funcptr(returns_modified_object)
-        funcaddr = llmemory.cast_ptr_to_adr(funcptr)
-        return cpu.cast_adr_to_int(funcaddr)
-
-    def get_write_barrier_from_array_fn(self, cpu):
-        # returns a function with arguments [array, index, newvalue]
-        llop1 = self.llop1
-        funcptr = llop1.get_write_barrier_from_array_failing_case(
-            self.FUNCPTR)
-        funcaddr = llmemory.cast_ptr_to_adr(funcptr)
-        return cpu.cast_adr_to_int(funcaddr)    # this may return 0
-
-    def has_write_barrier_from_array(self, cpu):
-        return self.get_write_barrier_from_array_fn(cpu) != 0
-
-    def get_wb_slowpath(self, withcards, withfloats):
-        return self.wb_slowpath[withcards + 2 * withfloats]
-
-    def set_wb_slowpath(self, withcards, withfloats, addr):
-        self.wb_slowpath[withcards + 2 * withfloats] = addr
 
     @specialize.arg(2)
     def _do_barrier(self, gcref_struct, returns_modified_object):
@@ -431,7 +435,7 @@ class STMReadBarrierDescr(STMBarrierDescr):
         
 class STMWriteBarrierDescr(STMBarrierDescr):
     def __init__(self, gc_ll_descr, stmcat):
-        assert stmcat in ['P2W', 'R2W']
+        assert stmcat in ['P2W']
         STMBarrierDescr.__init__(self, gc_ll_descr, stmcat,
                                  'stm_write_barrier')
     
@@ -465,6 +469,8 @@ class GcLLDescr_framework(GcLLDescription):
             if not self.stm:
                 # XXX: not needed with stm/shadowstack??
                 self._setup_tid()
+            else:
+                self.fielddescr_tid = None
         self._setup_write_barrier()
         self._setup_str()
         self._make_functions(really_not_translated)
@@ -608,6 +614,7 @@ class GcLLDescr_framework(GcLLDescription):
         unicode_itemsize   = self.unicode_descr.itemsize
         unicode_ofs_length = self.unicode_descr.lendescr.offset
 
+        
         def malloc_str(length):
             return llop1.do_malloc_varsize_clear(
                 llmemory.GCREF,
@@ -615,7 +622,7 @@ class GcLLDescr_framework(GcLLDescription):
                 str_ofs_length)
         self.generate_function('malloc_str', malloc_str,
                                [lltype.Signed])
-
+            
         def malloc_unicode(length):
             return llop1.do_malloc_varsize_clear(
                 llmemory.GCREF,
@@ -717,7 +724,7 @@ class GcLLDescr_framework(GcLLDescription):
     def can_use_nursery_malloc(self, size):
         return (self.max_size_of_young_obj is not None and
                 size < self.max_size_of_young_obj)
-
+        
     def has_write_barrier_class(self):
         return WriteBarrierDescr
 

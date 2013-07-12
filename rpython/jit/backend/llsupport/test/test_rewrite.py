@@ -281,7 +281,7 @@ class TestFramework(RewriteTests):
         gcdescr = get_description(config_)
         self.gc_ll_descr = GcLLDescr_framework(gcdescr, None, None, None,
                                                really_not_translated=True)
-        self.gc_ll_descr.write_barrier_descr.has_write_barrier_from_array = (
+        self.gc_ll_descr.write_barrier_descr.has_barrier_from_array = (
             lambda cpu: True)
         #
         class FakeCPU(BaseFakeCPU):
@@ -573,7 +573,7 @@ class TestFramework(RewriteTests):
         """)
 
     def test_write_barrier_before_array_without_from_array(self):
-        self.gc_ll_descr.write_barrier_descr.has_write_barrier_from_array = (
+        self.gc_ll_descr.write_barrier_descr.has_barrier_from_array = (
             lambda cpu: False)
         self.check_rewrite("""
             [p1, i2, p3]

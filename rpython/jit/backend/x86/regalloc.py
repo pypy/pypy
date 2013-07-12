@@ -798,6 +798,7 @@ class RegAlloc(BaseRegalloc):
         self.perform_discard(op, arglocs)
 
     consider_cond_call_gc_wb_array = consider_cond_call_gc_wb
+    consider_cond_call_stm_b       = consider_cond_call_gc_wb
 
     def consider_call_malloc_nursery(self, op):
         gc_ll_descr = self.assembler.cpu.gc_ll_descr
@@ -823,6 +824,10 @@ class RegAlloc(BaseRegalloc):
             size, gcmap)
 
     def consider_call_malloc_nursery_varsize_frame(self, op):
+        gc_ll_descr = self.assembler.cpu.gc_ll_descr
+        assert gc_ll_descr.max_size_of_young_obj is not None
+        # ^^^ if this returns None, don't translate the rest of this function
+        #
         size_box = op.getarg(0)
         assert isinstance(size_box, BoxInt) # we cannot have a const here!
         # sizeloc must be in a register, but we can free it now
@@ -845,6 +850,9 @@ class RegAlloc(BaseRegalloc):
 
     def consider_call_malloc_nursery_varsize(self, op):
         gc_ll_descr = self.assembler.cpu.gc_ll_descr
+        assert gc_ll_descr.max_size_of_young_obj is not None
+        # ^^^ if this returns None, don't translate the rest of this function
+        #
         if not hasattr(gc_ll_descr, 'max_size_of_young_obj'):
             raise Exception("unreachable code")
             # for boehm, this function should never be called

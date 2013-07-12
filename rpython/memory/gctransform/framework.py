@@ -625,6 +625,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
                 # 'no_collect' function can trigger collection
                 import cStringIO
                 err = cStringIO.StringIO()
+                import sys
                 prev = sys.stdout
                 try:
                     sys.stdout = err

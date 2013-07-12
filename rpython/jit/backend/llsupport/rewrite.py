@@ -240,7 +240,8 @@ class GcRewriterAssembler(object):
         mallocs.  (For all I know this latter case never occurs in
         practice, but better safe than sorry.)
         """
-        if self.gc_ll_descr.fielddescr_tid is not None:  # framework GC
+        if self.gc_ll_descr.fielddescr_tid is not None \
+          or self.gc_ll_descr.stm:  # framework GC
             assert (size & (WORD-1)) == 0, "size not aligned?"
             addr = self.gc_ll_descr.get_malloc_fn_addr('malloc_big_fixedsize')
             args = [ConstInt(addr), ConstInt(size), ConstInt(typeid)]
@@ -434,7 +435,7 @@ class GcRewriterAssembler(object):
 
     def gen_write_barrier_array(self, v_base, v_index, v_value):
         write_barrier_descr = self.gc_ll_descr.write_barrier_descr
-        if write_barrier_descr.has_write_barrier_from_array(self.cpu):
+        if write_barrier_descr.has_barrier_from_array(self.cpu):
             # If we know statically the length of 'v', and it is not too
             # big, then produce a regular write_barrier.  If it's unknown or
             # too big, produce instead a write_barrier_from_array.

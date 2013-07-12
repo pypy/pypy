@@ -96,7 +96,7 @@ class StmGC(MovingGCBase):
 
     @classmethod
     def JIT_max_size_of_young_obj(cls):
-        return -1 # XXX: should not be used
+        return None
 
     @classmethod
     def JIT_minimal_size_in_nursery(cls):

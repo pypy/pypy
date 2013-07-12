@@ -4245,11 +4245,11 @@ class LLtypeBackendTest(BaseBackendTest):
 
 class WBDescrForTests(AbstractDescr):
     returns_modified_object = False
-    wb_slowpath = (0, 0, 0, 0)
-    def get_wb_slowpath(self, c1, c2):
-        return self.wb_slowpath[c1+2*c2]
-    def set_wb_slowpath(self, c1, c2, addr):
+    b_slowpath = (0, 0, 0, 0)
+    def get_b_slowpath(self, c1, c2):
+        return self.b_slowpath[c1+2*c2]
+    def set_b_slowpath(self, c1, c2, addr):
         i = c1+2*c2
-        self.wb_slowpath = (self.wb_slowpath[:i] + (addr,) +
-                            self.wb_slowpath[i+1:])
+        self.b_slowpath = (self.b_slowpath[:i] + (addr,) +
+                            self.b_slowpath[i+1:])
         
