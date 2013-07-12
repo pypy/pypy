@@ -250,6 +250,7 @@ class GcLLDescr_boehm(GcLLDescription):
 
 class GcRootMap_asmgcc(object):
     is_shadow_stack = False
+    is_stm = False
 
     def __init__(self, gcdescr):
         pass
@@ -259,7 +260,8 @@ class GcRootMap_asmgcc(object):
 
 class GcRootMap_shadowstack(object):
     is_shadow_stack = True
-
+    is_stm = False
+    
     def __init__(self, gcdescr):
         pass
 
@@ -271,8 +273,9 @@ class GcRootMap_shadowstack(object):
         return rffi.cast(lltype.Signed, rst_addr)
 
 class GcRootMap_stm(object):
-    is_shadow_stack = True # XXX: should it have an is_stmgc?
-
+    is_shadow_stack = True
+    is_stm = True
+    
     def __init__(self, gcdescr):
         pass
 
@@ -535,7 +538,6 @@ class GcLLDescr_framework(GcLLDescription):
     def _setup_barriers_for_stm(self):
         self.P2Rdescr = STMReadBarrierDescr(self, 'P2R')
         self.P2Wdescr = STMWriteBarrierDescr(self, 'P2W')
-        self.R2Wdescr = STMWriteBarrierDescr(self, 'R2W')
         self.write_barrier_descr = "wbdescr: do not use"
         #
         @specialize.argtype(0)

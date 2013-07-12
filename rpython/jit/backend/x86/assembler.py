@@ -1020,12 +1020,16 @@ class Assembler386(BaseAssembler):
 
     def _reload_frame_if_necessary(self, mc, align_stack=False):
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
-        if gcrootmap:
-            if gcrootmap.is_shadow_stack:
-                rst = gcrootmap.get_root_stack_top_addr()
-                mc.MOV(ecx, heap(rst))
-                mc.MOV(ebp, mem(ecx, -WORD))
-        wbdescr = self.cpu.gc_ll_descr.write_barrier_descr
+        if gcrootmap and gcrootmap.is_shadow_stack:
+            rst = gcrootmap.get_root_stack_top_addr()
+            mc.MOV(ecx, heap(rst))
+            mc.MOV(ebp, mem(ecx, -WORD))
+
+        if gcrootmap and gcrootmap.is_stm:
+            wbdescr = self.cpu.gc_ll_descr.P2Wdescr
+        else:
+            wbdescr = self.cpu.gc_ll_descr.write_barrier_descr
+            
         if gcrootmap and wbdescr:
             # frame never uses card marking, so we enforce this is not
             # an array

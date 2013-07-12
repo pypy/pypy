@@ -34,7 +34,7 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
             'P': {'R': self.gc_ll_descr.P2Rdescr,
                   'W': self.gc_ll_descr.P2Wdescr,
                  },
-            'R': {'W': self.gc_ll_descr.R2Wdescr,
+            'R': {'W': self.gc_ll_descr.P2Wdescr,
                  },
             'W': {},
            }

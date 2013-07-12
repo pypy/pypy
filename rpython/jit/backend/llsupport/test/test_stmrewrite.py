@@ -250,7 +250,7 @@ class TestStm(RewriteTests):
             cond_call_stm_b(p1, descr=P2Rdescr)
             i1 = getfield_gc(p1, descr=tydescr)
             i2 = int_add(i1, 1)
-            cond_call_stm_b(p1, descr=R2Wdescr)
+            cond_call_stm_b(p1, descr=P2Wdescr)
             setfield_gc(p1, i2, descr=tydescr)
             jump(p1)
         """)
