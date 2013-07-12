@@ -58,6 +58,11 @@ class W_Term(W_Root):
     def descr_ne(self, space, w_other):
         return space.not_(self.descr_eq(space, w_other))
 
+    def descr_str(self, space):
+        args_strs = [ str(x) for x in self.p_term.arguments() ]
+        args_str = ", ".join(args_strs)
+        return space.wrap("%s(%s)" % (self.p_term.name(), args_str))
+
 W_Term.typedef = TypeDef("Term",
     __eq__ = interp2app(W_Term.descr_eq),
     __getitem__ = interp2app(W_Term.descr_getitem),

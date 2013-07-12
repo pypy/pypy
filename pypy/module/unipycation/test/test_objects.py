@@ -72,3 +72,14 @@ class AppTestObjects(object):
 
         top = nest_many(0)
         unnest_many(top, 0)
+
+    def test_term_str(self):
+        import unipycation as u
+        t = u.Term("x", [1,2,666])
+        assert str(t) == "x(1, 2, 666)"
+
+    def test_nested_term_str(self):
+        import unipycation as u
+        t2 = u.Term("y", ["blah", "123", "bobbins"])
+        t = u.Term("x", [1, 2, t2])
+        assert str(t) == "x(1, 2, y(blah, 123, bobbins))"
