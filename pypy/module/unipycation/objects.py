@@ -43,11 +43,6 @@ class W_Term(W_Root):
 
         return conv.w_of_p(self.space, self.p_term.arguments()[idx])
 
-    def descr_str(self, space):
-        st = "Term(name=%s, len=%d)" % \
-                (self.prop_getname(self.space), self.p_term.argument_count())
-        return self.space.wrap(st)
-
     def descr_eq(self, space, w_other):
         w_Term = util.get_from_module(self.space, "unipycation", "Term")
 
