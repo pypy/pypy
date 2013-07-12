@@ -32,22 +32,22 @@ class CanRaise(object):
 
 
 def collect_called_graphs(graph, translator, include_oosend=True):
-    graphs_or_something = {}
+    graphs_or_something = set()
     for block in graph.iterblocks():
         for op in block.operations:
             if op.opname == "direct_call":
                 graph = get_graph(op.args[0], translator)
                 if graph is not None:
-                    graphs_or_something[graph] = True
+                    graphs_or_something.add(graph)
                 else:
-                    graphs_or_something[op.args[0]] = True
+                    graphs_or_something.add(op.args[0])
             if op.opname == "indirect_call":
                 graphs = op.args[-1].value
                 if graphs is None:
-                    graphs_or_something[op.args[0]] = True
+                    graphs_or_something.add(op.args[0])
                 else:
                     for graph in graphs:
-                        graphs_or_something[graph] = True
+                        graphs_or_something.add(graph)
             if op.opname == 'oosend' and include_oosend:
                 meth = get_meth_from_oosend(op)
                 if hasattr(meth, 'graph'):
@@ -56,7 +56,7 @@ def collect_called_graphs(graph, translator, include_oosend=True):
                     key = CanRaise(meth._can_raise)
                 else:
                     key = op.args[0]
-                graphs_or_something[key] = True
+                graphs_or_something.add(key)
     return graphs_or_something
 
 def iter_callsites(graph, calling_what):
