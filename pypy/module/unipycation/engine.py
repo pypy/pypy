@@ -116,6 +116,13 @@ class W_Engine(W_Root):
             w_ParseError = util.get_from_module(self.space, "unipycation", "ParseError")
             raise OperationError(w_ParseError, self.space.wrap(e.nice_error_message()))
 
+    @staticmethod
+    def from_file(space, w_cls, w_filename):
+        filename = space.str_w(w_filename)
+        with open(filename, "r") as fh: db = fh.read()
+
+        return space.wrap(W_Engine(space, space.wrap(db)))
+
     def query_iter(self, w_goal_term, w_unbound_vars):
         """ Returns an iterator by which to acquire multiple solutions """
         return W_SolutionIterator(self.space, w_unbound_vars, w_goal_term, self)
@@ -125,6 +132,7 @@ class W_Engine(W_Root):
 
 W_Engine.typedef = TypeDef("Engine",
     __new__ = interp2app(engine_new__),
+    from_file = interp2app(W_Engine.from_file, as_classmethod=True),
     query_iter = interp2app(W_Engine.query_iter),
     query_single = interp2app(W_Engine.query_single),
 )

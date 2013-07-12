@@ -14,6 +14,26 @@ class AppTestEngine(object):
 
         assert sol[X] == 666
 
+    def test_from_file(self):
+        import unipycation as u
+        import os, binascii, tempfile as t
+
+        (fd, fname) = t.mkstemp(prefix="unipycation-")
+        os.write(fd, "f(1,2,3).")
+        os.close(fd)
+
+        e = u.Engine.from_file(fname)
+        os.unlink(fname)
+
+        vs = [X, Y, Z] = [ u.Var() for x in range(3) ]
+
+        t = u.Term('f', vs)
+        sol = e.query_single(t, vs)
+
+        assert sol[X] == 1
+        assert sol[Y] == 2
+        assert sol[Z] == 3
+
     def test_iterator(self):
         import unipycation as u
 
