@@ -159,12 +159,12 @@ class Assembler386(BaseAssembler):
         assert no_args == 1
         mc.SUB(esp, imm(WORD))
         # first arg is always in edi
-        mc.CALL(imm(0))
+        mc.CALL(eax)
         mc.ADD(esp, imm(WORD))
         self._pop_all_regs_from_frame(mc, [], self.cpu.supports_floats,
                                       callee_only=False)
         mc.RET()
-        return 0
+        return mc.materialize(self.cpu.asmmemmgr, [])
 
     def _build_malloc_slowpath(self, kind):
         """ While arriving on slowpath, we have a gcpattern on stack 0.
@@ -2142,7 +2142,7 @@ class Assembler386(BaseAssembler):
         self._check_frame_depth_debug(self.mc)
 
     def cond_call(self, op, gcmap, cond_loc, call_loc, arglocs):
-        self.mc.CMP(cond_loc, cond_loc)
+        self.mc.TEST(cond_loc, cond_loc)
         self.mc.J_il8(rx86.Conditions['Z'], 0) # patched later
         jmp_adr = self.mc.get_relative_pos()
         self.push_gcmap(self.mc, gcmap, mov=True)

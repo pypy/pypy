@@ -802,8 +802,8 @@ class RegAlloc(BaseRegalloc):
         args = op.getarglist()
         assert len(args) == 1 + 2
         self.make_sure_var_in_reg(args[2], selected_reg=edi)
+        loc_call = self.make_sure_var_in_reg(args[1], args, selected_reg=eax)
         loc_cond = self.make_sure_var_in_reg(args[0], args)
-        loc_call = self.make_sure_var_in_reg(args[1], args)
         self.assembler.cond_call(op, self.get_gcmap(), loc_cond, loc_call,
                                  [edi])
 

@@ -2293,7 +2293,6 @@ class LLtypeBackendTest(BaseBackendTest):
             assert self.cpu.get_int_value(frame, i) == i
         assert self.cpu.get_float_value(frame, 6) == 1.2
         assert self.cpu.get_float_value(frame, 7) == 3.4
-        xxx
         frame = self.cpu.execute_token(looptoken, 1, 1, 1, 2, 3, 4, 5, 1.2, 3.4)
         assert called == [1]
         for i in range(4):
