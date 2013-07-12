@@ -7,10 +7,11 @@ class AppTestObjects(object):
         import unipycation as upy
         N = 10
 
-        vs = [ upy.Var() for x in range(N) ]
+        vs = [ str(upy.Var()) for x in range(N) ]
+        combos = [ (str(x), str(y)) for x in vs for y in vs if x != y ]
 
-        for i in range(N):
-            assert str(vs[i]) == ("V%d" % i)
+        for (x, y) in combos:
+            assert x != y # should all have distinct names
 
     def test_list(self):
         import unipycation as u
