@@ -149,6 +149,22 @@ class Assembler386(BaseAssembler):
         mc.RET()
         self._frame_realloc_slowpath = mc.materialize(self.cpu.asmmemmgr, [])
 
+    def _build_call_slowpath(self, no_args):
+        """ This builds a general call slowpath, for whatever call happens to
+        come.
+        """
+        mc = codebuf.MachineCodeBlockWrapper()
+        self._push_all_regs_to_frame(mc, [], self.cpu.supports_floats,
+                                     callee_only=False)
+        assert no_args == 1
+        mc.SUB(esp, imm(WORD))
+        # first arg is always in edi
+        mc.CALL()
+        mc.ADD(esp, imm(WORD))
+        self._pop_all_regs_from_frame(mc, [], self.cpu.supports_floats,
+                                      callee_only=False)
+        mc.RET()
+
     def _build_malloc_slowpath(self, kind):
         """ While arriving on slowpath, we have a gcpattern on stack 0.
         The arguments are passed in eax and edi, as follows:

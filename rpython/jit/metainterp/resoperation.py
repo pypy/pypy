@@ -518,6 +518,7 @@ _oplist = [
     '_CANRAISE_FIRST', # ----- start of can_raise operations -----
     '_CALL_FIRST',
     'CALL/*d',
+    'COND_CALL/*d', # a conditional call, with first argument as a condition
     'CALL_ASSEMBLER/*d',  # call already compiled assembler
     'CALL_MAY_FORCE/*d',
     'CALL_LOOPINVARIANT/*d',

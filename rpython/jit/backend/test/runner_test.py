@@ -2266,6 +2266,40 @@ class LLtypeBackendTest(BaseBackendTest):
                     value |= 32768
                 assert s.data.tid == value
 
+    def test_cond_call(self):
+        called = []
+
+        def func_void(arg):
+            called.append(arg)
+
+        FUNC = self.FuncType([lltype.Signed], lltype.Void)
+        func_ptr = llhelper(lltype.Ptr(FUNC), func_void)
+        calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                                         EffectInfo.MOST_GENERAL)
+
+        ops = '''
+        [i0, i1, i2, i3, i4, i5, i6, f0, f1]
+        cond_call(i1, ConstClass(func_ptr), i2, descr=calldescr)
+        guard_false(i0, descr=faildescr) [i1, i2, i3, i4, i5, i6, f0, f1]
+        '''
+        loop = parse(ops, namespace={'faildescr': BasicFailDescr(),
+                                     'func_ptr': func_ptr,
+                                     'calldescr': calldescr})
+        looptoken = JitCellToken()
+        self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+        frame = self.cpu.execute_token(looptoken, 1, 0, 1, 2, 3, 4, 5, 1.2, 3.4)
+        assert not called
+        for i in range(5):
+            assert self.cpu.get_int_value(frame, i) == i
+        assert self.cpu.get_float_value(frame, 6) == 1.2
+        assert self.cpu.get_float_value(frame, 7) == 3.4
+        frame = self.cpu.execute_token(looptoken, 1, 1, 1, 2, 3, 4, 5, 1.2, 3.4)
+        assert called == [1]
+        for i in range(4):
+            assert self.cpu.get_int_value(frame, i + 1) == i + 1
+        assert self.cpu.get_float_value(frame, 6) == 1.2
+        assert self.cpu.get_float_value(frame, 7) == 3.4
+
     def test_force_operations_returning_void(self):
         values = []
         def maybe_force(token, flag):
