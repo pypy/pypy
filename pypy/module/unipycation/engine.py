@@ -10,6 +10,7 @@ import prolog.interpreter.parsing as ppars
 
 import pypy.module.unipycation.conversion as conv
 import pypy.module.unipycation.util as util
+from pypy.module.unipycation import objects
 
 from rpython.rlib.streamio import open_file_as_stream
 from rpython.rlib import rstring
@@ -22,7 +23,10 @@ class W_SolutionIterator(W_Root):
     def __init__(self, space, w_unbound_vars, w_goal_term, w_engine):
         self.w_engine = w_engine
         self.w_unbound_vars = w_unbound_vars
+
+        w_goal_term = space.interp_w(objects.W_Term, w_goal_term)
         self.w_goal_term = w_goal_term
+
         self.space = space
         self.d_result = None    # Current result, populated on the fly
 
@@ -35,6 +39,12 @@ class W_SolutionIterator(W_Root):
         """ Called interally by the activation of the continuation """
 
         for w_var in self.space.listview(w_unbound_vars):
+            # it's the equivalent problem
+            # we need a test that does this:
+            # e.query_iter(term, [1, 2, 3])
+
+            w_var = self.space.interp_w(objects.W_Var, w_var)
+
             w_binding = conv.w_of_p(self.space, w_var.p_var.dereference(heap))
             self.space.setitem(self.d_result, w_var, w_binding)
 
