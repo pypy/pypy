@@ -109,8 +109,6 @@ class FakeTracker(object):
 class BaseFakeCPU(object):
     JITFRAME_FIXED_SIZE = 0
 
-    can_inline_varsize_malloc = True
-
     def __init__(self):
         self.tracker = FakeTracker()
         self._cache = {}
