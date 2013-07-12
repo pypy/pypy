@@ -797,6 +797,16 @@ class RegAlloc(BaseRegalloc):
 
     consider_cond_call_gc_wb_array = consider_cond_call_gc_wb
 
+    def consider_cond_call(self, op):
+        assert op.result is None
+        args = op.getarglist()
+        assert len(args) == 1 + 2
+        self.make_sure_var_in_reg(args[2], selected_reg=edi)
+        loc_cond = self.make_sure_var_in_reg(args[0], args)
+        loc_call = self.make_sure_var_in_reg(args[1], args)
+        self.assembler.cond_call(op, self.get_gcmap(), loc_cond, loc_call,
+                                 [edi])
+
     def consider_call_malloc_nursery(self, op):
         size_box = op.getarg(0)
         assert isinstance(size_box, ConstInt)

@@ -824,6 +824,7 @@ class LLFrame(object):
     def execute_cond_call(self, calldescr, cond, func, *args):
         if not cond:
             return
+        # cond_call can't have a return value
         self.execute_call(calldescr, func, *args)
 
     def execute_call(self, calldescr, func, *args):

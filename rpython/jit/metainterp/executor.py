@@ -346,6 +346,7 @@ def _make_execute_list():
                          rop.CALL_ASSEMBLER,
                          rop.COND_CALL_GC_WB,
                          rop.COND_CALL_GC_WB_ARRAY,
+                         rop.COND_CALL,
                          rop.DEBUG_MERGE_POINT,
                          rop.JIT_DEBUG,
                          rop.SETARRAYITEM_RAW,

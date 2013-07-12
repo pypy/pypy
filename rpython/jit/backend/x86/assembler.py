@@ -149,7 +149,7 @@ class Assembler386(BaseAssembler):
         mc.RET()
         self._frame_realloc_slowpath = mc.materialize(self.cpu.asmmemmgr, [])
 
-    def _build_call_slowpath(self, no_args):
+    def _build_cond_call_slowpath(self, no_args):
         """ This builds a general call slowpath, for whatever call happens to
         come.
         """
@@ -159,11 +159,12 @@ class Assembler386(BaseAssembler):
         assert no_args == 1
         mc.SUB(esp, imm(WORD))
         # first arg is always in edi
-        mc.CALL()
+        mc.CALL(imm(0))
         mc.ADD(esp, imm(WORD))
         self._pop_all_regs_from_frame(mc, [], self.cpu.supports_floats,
                                       callee_only=False)
         mc.RET()
+        return 0
 
     def _build_malloc_slowpath(self, kind):
         """ While arriving on slowpath, we have a gcpattern on stack 0.
@@ -2139,6 +2140,17 @@ class Assembler386(BaseAssembler):
 
     def label(self):
         self._check_frame_depth_debug(self.mc)
+
+    def cond_call(self, op, gcmap, cond_loc, call_loc, arglocs):
+        self.mc.CMP(cond_loc, cond_loc)
+        self.mc.J_il8(rx86.Conditions['Z'], 0) # patched later
+        jmp_adr = self.mc.get_relative_pos()
+        self.push_gcmap(self.mc, gcmap, mov=True)
+        self.mc.CALL(imm(self.cond_call_slowpath[len(arglocs)]))
+        # never any result value
+        offset = self.mc.get_relative_pos() - jmp_adr
+        assert 0 < offset <= 127
+        self.mc.overwrite(jmp_adr-1, chr(offset))        
 
     def malloc_cond(self, nursery_free_adr, nursery_top_adr, size, gcmap):
         assert size & (WORD-1) == 0     # must be correctly aligned
