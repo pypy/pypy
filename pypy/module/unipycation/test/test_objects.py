@@ -1,11 +1,3 @@
-#import pypy.module.unipycation.conversion as conv
-#import pypy.module.unipycation.util as util
-#import pypy.module.unipycation.objects as objects
-#from pypy.interpreter.error import OperationError
-#import prolog.interpreter.signature as psig
-
-#import prolog.interpreter.term as pterm
-#import pypy.module.unipycation.app_error as err
 import pytest
 
 class AppTestObjects(object):
