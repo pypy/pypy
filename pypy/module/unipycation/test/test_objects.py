@@ -78,6 +78,13 @@ class AppTestObjects(object):
         t = u.Term("x", [1,2,666])
         assert str(t) == "x(1, 2, 666)"
 
+    def test_term_str_with_var(self):
+        import unipycation as u
+        X = u.Var()
+        xname = X.name
+        t = u.Term("x", [X])
+        assert str(t) == ("x(%s)" % xname)
+
     def test_nested_term_str(self):
         import unipycation as u
         t2 = u.Term("y", ["blah", "123", "bobbins"])

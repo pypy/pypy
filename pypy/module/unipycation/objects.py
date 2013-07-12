@@ -1,11 +1,10 @@
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.typedef import TypeDef, GetSetProperty
+from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty_w
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 
 import prolog.interpreter.term as pterm
 import prolog.interpreter.signature as psig
 import pypy.module.unipycation.util as util
-
 @unwrap_spec(name=str)
 def term_new__(space, w_subtype, name, __args__):
     import pypy.module.unipycation.conversion as conv
@@ -59,9 +58,12 @@ class W_Term(W_Root):
         return space.not_(self.descr_eq(space, w_other))
 
     def descr_str(self, space):
-        args_strs = [ str(x) for x in self.p_term.arguments() ]
-        args_str = ", ".join(args_strs)
-        return space.wrap("%s(%s)" % (self.p_term.name(), args_str))
+        import pypy.module.unipycation.conversion as conv
+
+        w_args = [ conv.w_of_p(space, x) for x in self.p_term.arguments() ]
+        w_args_strs = [ space.str_w(x) for x in w_args ]
+        return self.space.wrap("XXX")
+        # XXX XXX XXX XXX Where would we get nested variable names from?
 
 W_Term.typedef = TypeDef("Term",
     __eq__ = interp2app(W_Term.descr_eq),
@@ -99,6 +101,7 @@ class W_Var(W_Root):
 W_Var.typedef = TypeDef("Var",
     __new__ = interp2app(var_new__),
     __str__ = interp2app(W_Var.descr_str),
+    name = interp_attrproperty_w('w_name', W_Var)
 )
 
 W_Var.typedef.acceptable_as_base_class = False
