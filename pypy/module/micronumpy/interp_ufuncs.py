@@ -538,7 +538,13 @@ def find_dtype_for_scalar(space, w_obj, current_guess=None):
         return current_guess
     if current_guess is complex_type:
         return complex_type
-    return interp_dtype.get_dtype_cache(space).w_float64dtype
+    if space.isinstance_w(w_obj, space.w_float):
+        return interp_dtype.get_dtype_cache(space).w_float64dtype
+    elif space.isinstance_w(w_obj, space.w_slice):
+        return long_dtype
+    raise operationerrfmt(space.w_NotImplementedError,
+        'unable to create dtype from objects, ' '"%T" instance not supported',
+        w_obj)
 
 
 def ufunc_dtype_caller(space, ufunc_name, op_name, argcount, comparison_func,

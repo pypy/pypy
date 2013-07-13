@@ -50,17 +50,6 @@ class AppTestSupport(BaseNumpyAppTest):
         b[0]=100
         assert a[0,0] == 100
 
-    def test_ndarray_from_iterable(self):
-        from numpypy import array
-        class Polynomial(object):
-            def __init__(self, coef):
-                self.coef = coef
-            def __iter__(self):
-                return iter(self.coef)
-            def __len__(self):
-                return len(self.coef)
-        a = array(Polynomial([1, 2, 3]))
-
     def test_subtype_view(self):
         from numpypy import ndarray, array
         class matrix(ndarray):
