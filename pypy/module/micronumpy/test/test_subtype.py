@@ -106,7 +106,11 @@ class AppTestSupport(BaseNumpyAppTest):
         assert not isinstance(b, self.NoNew)
 
     def test_sub_repeat(self):
-        assert False
+        from numpypy import repeat, array
+        a = self.SubType(array([[1, 2], [3, 4]]))
+        b =  repeat(a, 3)
+        assert (b == [1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4]).all()
+        assert isinstance(b, self.SubType)
 
     def test_sub_flatiter(self):
         from numpypy import array
