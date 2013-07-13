@@ -25,6 +25,55 @@ class AppTestSupport(BaseNumpyAppTest):
                     self.called_finalize = True
             return SubType ''')
 
+    def test_subtype_base(self):
+        from numpypy import ndarray, dtype
+        class C(ndarray):
+            def __new__(subtype, shape, dtype):
+                self = ndarray.__new__(subtype, shape, dtype)
+                self.id = 'subtype'
+                return self
+        a = C([2, 2], int)
+        assert isinstance(a, C)
+        assert isinstance(a, ndarray)
+        assert a.shape == (2, 2)
+        assert a.dtype is dtype(int)
+        assert a.id == 'subtype'
+        a = a.reshape(1, 4)
+        b = a.reshape(4, 1)
+        assert isinstance(b, C)
+        #make sure __new__ was not called
+        assert not getattr(b, 'id', None)
+        a.fill(3)
+        b = a[0]
+        assert isinstance(b, C)
+        assert (b == 3).all()
+        b[0]=100
+        assert a[0,0] == 100
+
+    def test_ndarray_from_iterable(self):
+        from numpypy import array
+        class Polynomial(object):
+            def __init__(self, coef):
+                self.coef = coef
+            def __iter__(self):
+                return iter(self.coef)
+            def __len__(self):
+                return len(self.coef)
+        a = array(Polynomial([1, 2, 3]))
+
+    def test_subtype_view(self):
+        from numpypy import ndarray, array
+        class matrix(ndarray):
+            def __new__(subtype, data, dtype=None, copy=True):
+                if isinstance(data, matrix):
+                    return data
+                return data.view(subtype)
+        a = array(range(5))
+        b = matrix(a)
+        assert isinstance(b, matrix)
+        assert (b == a).all()
+
+
     def test_finalize(self):
         #taken from http://docs.scipy.org/doc/numpy/user/basics.subclassing.html#simple-example-adding-an-extra-attribute-to-ndarray
         import numpypy as np

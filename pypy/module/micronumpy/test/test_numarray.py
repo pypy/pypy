@@ -1459,43 +1459,6 @@ class AppTestNumArray(BaseNumpyAppTest):
         skip('not implemented yet')
         assert s.view('double') < 7e-323
 
-    def test_subtype_view(self):
-        from numpypy import ndarray, array
-        class matrix(ndarray):
-            def __new__(subtype, data, dtype=None, copy=True):
-                if isinstance(data, matrix):
-                    return data
-                return data.view(subtype)
-        a = array(range(5))
-        b = matrix(a)
-        assert isinstance(b, matrix)
-        assert (b == a).all()
-
-    def test_subtype_base(self):
-        from numpypy import ndarray, dtype
-        class C(ndarray):
-            def __new__(subtype, shape, dtype):
-                self = ndarray.__new__(subtype, shape, dtype)
-                self.id = 'subtype'
-                return self
-        a = C([2, 2], int)
-        assert isinstance(a, C)
-        assert isinstance(a, ndarray)
-        assert a.shape == (2, 2)
-        assert a.dtype is dtype(int)
-        assert a.id == 'subtype'
-        a = a.reshape(1, 4)
-        b = a.reshape(4, 1)
-        assert isinstance(b, C)
-        #make sure __new__ was not called
-        assert not getattr(b, 'id', None)
-        a.fill(3)
-        b = a[0]
-        assert isinstance(b, C)
-        assert (b == 3).all()
-        b[0]=100
-        assert a[0,0] == 100
-
     def test_tolist_scalar(self):
         from numpypy import int32, bool_
         x = int32(23)
