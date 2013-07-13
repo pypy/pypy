@@ -16,3 +16,7 @@ copying char-by-char in str2charp and get_nonmovingbuffer
 .. branch: flowoperators
 Simplify rpython/flowspace/ code by using more metaprogramming.  Create
 SpaceOperator class to gather static information about flow graph operations.
+
+.. branch: package-tk
+Adapt package.py script to compile CFFI tk extension. Add a --without-tk switch
+to optionally skip it.
