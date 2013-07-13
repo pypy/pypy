@@ -589,6 +589,8 @@ class __extend__(W_NDimArray):
         else:
             calc_dtype = out.get_dtype()
 
+        if decimals == 0:
+            out = out.descr_view(space,space.type(self))
         loop.round(space, self, calc_dtype, self.get_shape(), decimals, out)
         return out
 

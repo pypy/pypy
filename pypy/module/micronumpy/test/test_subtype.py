@@ -131,11 +131,11 @@ class AppTestSupport(BaseNumpyAppTest):
         from numpypy import array
         a = array(range(10), dtype=float).view(self.NoNew)
         # numpy compatibility
-        b = a.round(decimal=0)
+        b = a.round(decimals=0)
         assert isinstance(b, self.NoNew)
-        b = a.round(decimal=1)
+        b = a.round(decimals=1)
         assert not isinstance(b, self.NoNew)
-        b = a.round(decimal=-1)
+        b = a.round(decimals=-1)
         assert not isinstance(b, self.NoNew)
 
     def test_sub_dot(self):
