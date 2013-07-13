@@ -100,7 +100,10 @@ class AppTestSupport(BaseNumpyAppTest):
         from numpypy import where, ones, zeros, array
         a = array([1, 2, 3, 0, -3])
         v = a.view(self.NoNew)
-        assert False
+        b = where(array(v) > 0, ones(5), zeros(5))
+        assert (b == [1, 1, 1, 0, 0]).all()
+        # where returns an ndarray irregardless of the subtype of v
+        assert not isinstance(b, self.NoNew)
 
     def test_sub_repeat(self):
         assert False
