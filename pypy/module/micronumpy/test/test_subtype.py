@@ -122,10 +122,27 @@ class AppTestSupport(BaseNumpyAppTest):
         assert not isinstance(c.flat[:] + c.flat[:], self.NoNew)
 
     def test_sub_getitem_filter(self):
-        assert False
+        from numpypy import array
+        a = array(range(5))
+        b = self.SubType(a)
+        c = b[array([False, True, False, True, False])]
+        assert c.shape == (2,)
+        assert (c == [1, 3]).all()
+        assert isinstance(c, self.SubType)
+        assert b.called_new
+        assert not getattr(c, 'called_new', False)
+        assert c.called_finalize
 
     def test_sub_getitem_array_int(self):
-        assert False
+        from numpypy import array
+        a = array(range(5))
+        b = self.SubType(a)
+        assert b.called_new
+        c = b[array([3, 2, 1, 4])]
+        assert (c == [3, 2, 1, 4]).all()
+        assert isinstance(c, self.SubType)
+        assert not getattr(c, 'called_new', False)
+        assert c.called_finalize
 
     def test_sub_round(self):
         from numpypy import array
@@ -140,12 +157,38 @@ class AppTestSupport(BaseNumpyAppTest):
 
     def test_sub_dot(self):
         # the returned type is that of the first argument
-        assert False
+        from numpypy import array
+        a = array(range(12)).reshape(3,4)
+        b = self.SubType(a)
+        c = array(range(12)).reshape(4,3).view(self.SubType)
+        d = c.dot(a)
+        assert isinstance(d, self.SubType)
+        assert not getattr(d, 'called_new', False)
+        assert d.called_finalize
+        d = a.dot(c)
+        assert not isinstance(d, self.SubType)
+        assert not getattr(d, 'called_new', False)
+        assert not getattr(d, 'called_finalize', False)
 
     def test_sub_reduce(self):
         # i.e. sum, max
         # test for out as well
-        assert False
+        from numpypy import array
+        a = array(range(12)).reshape(3,4)
+        b = self.SubType(a)
+        c = b.sum(axis=0)
+        assert (c == [12, 15, 18, 21]).all()
+        assert isinstance(c, self.SubType)
+        assert not getattr(c, 'called_new', False)
+        assert c.called_finalize
+        d = array(range(4))
+        c = b.sum(axis=0, out=d)
+        assert c is d
+        assert not isinstance(c, self.SubType)
+        d = array(range(4)).view(self.NoNew)
+        c = b.sum(axis=0, out=d)
+        assert c is d
+        assert isinstance(c, self.NoNew)
 
     def test_sub_call2(self):
         # c + a vs. a + c, what about array priority?
