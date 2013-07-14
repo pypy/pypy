@@ -63,7 +63,7 @@ class AppTestJitHook(object):
         offset = {}
         for i, op in enumerate(oplist):
             if i != 1:
-               offset[op] = i
+                offset[op] = i
 
         token = JitCellToken()
         token.number = 0

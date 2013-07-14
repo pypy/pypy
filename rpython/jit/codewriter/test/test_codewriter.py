@@ -13,6 +13,7 @@ class FakeCallDescr(AbstractDescr):
         self.ARGS = ARGS
         self.RESULT = RESULT
         self.effectinfo = effectinfo
+
     def get_extra_info(self):
         return self.effectinfo
 
@@ -37,7 +38,7 @@ class FakeCPU:
 
     class tracker:
         pass
-    
+
     calldescrof = FakeCallDescr
     fielddescrof = FakeFieldDescr
     sizeof = FakeSizeDescr
@@ -121,20 +122,32 @@ def test_integration():
     blackholeinterp.run()
     assert blackholeinterp.get_tmpreg_i() == 100+6+5+4+3
 
+
 def test_instantiate():
-    class A1:     id = 651
-    class A2(A1): id = 652
-    class B1:     id = 661
-    class B2(B1): id = 662
+    class A1:
+        id = 651
+
+    class A2(A1):
+        id = 652
+
+    class B1:
+        id = 661
+
+    class B2(B1):
+        id = 662
+
     def dont_look(n):
         return n + 1
+
+    classes = [
+        (A1, B1),
+        (A2, B2)
+    ]
+
     def f(n):
-        if n > 5:
-            x, y = A1, B1
-        else:
-            x, y = A2, B2
+        x, y = classes[n]
         return x().id + y().id + dont_look(n)
-    rtyper = support.annotate(f, [35])
+    rtyper = support.annotate(f, [0])
     maingraph = rtyper.annotator.translator.graphs[0]
     cw = CodeWriter(FakeCPU(rtyper), [FakeJitDriverSD(maingraph)])
     cw.find_all_graphs(FakePolicy())
@@ -149,15 +162,9 @@ def test_instantiate():
         else:
             assert 0, "missing instantiate_*_%s in:\n%r" % (expected,
                                                             names)
-    #
-    print cw.assembler.list_of_addr2name
-    names = dict.fromkeys([value
-                           for key, value in cw.assembler.list_of_addr2name])
-    assert 'A1' in names
-    assert 'B1' in names
-    assert 'A2' in names
-    assert 'B2' in names
+    names = set([value for key, value in cw.assembler.list_of_addr2name])
     assert 'dont_look' in names
+
 
 def test_instantiate_with_unreasonable_attr():
     # It is possible to have in real code the instantiate() function for
@@ -169,17 +176,19 @@ def test_instantiate_with_unreasonable_attr():
             name = graph.name
             return not (name.startswith('instantiate_') and
                         name.endswith('A2'))
+
     class A1:
         pass
+
     class A2(A1):
         pass
+
+    classes = [A1, A2]
+
     def f(n):
-        if n > 5:
-            x = A1
-        else:
-            x = A2
+        x = classes[n]
         x()
-    rtyper = support.annotate(f, [35])
+    rtyper = support.annotate(f, [1])
     maingraph = rtyper.annotator.translator.graphs[0]
     cw = CodeWriter(FakeCPU(rtyper), [FakeJitDriverSD(maingraph)])
     cw.find_all_graphs(MyFakePolicy())
@@ -188,12 +197,7 @@ def test_instantiate_with_unreasonable_attr():
     names = [jitcode.name for jitcode in cw.assembler.indirectcalltargets]
     assert len(names) == 1
     assert names[0].startswith('instantiate_') and names[0].endswith('A1')
-    #
-    print cw.assembler.list_of_addr2name
-    names = dict.fromkeys([value
-                           for key, value in cw.assembler.list_of_addr2name])
-    assert 'A1' in names
-    assert 'A2' in names
+
 
 def test_int_abs():
     def f(n):
@@ -209,7 +213,7 @@ def test_int_abs():
 
 def test_raw_malloc_and_access():
     TP = rffi.CArray(lltype.Signed)
-    
+
     def f(n):
         a = lltype.malloc(TP, n, flavor='raw')
         a[0] = n

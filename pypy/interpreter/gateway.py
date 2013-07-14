@@ -347,7 +347,7 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
                            (self.use(typ), self.nextarg()))
 
     def visit__ObjSpace(self, el):
-        if self.finger != 0:
+        if self.finger > 1:
             raise FastFuncNotSupported
         self.unwrap.append("space")
 
@@ -414,21 +414,21 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
                 mod = ""
             if mod == 'pypy.interpreter.astcompiler.ast':
                 raise FastFuncNotSupported
-            if (not mod.startswith('pypy.module.__builtin__') and
-                not mod.startswith('pypy.module.sys') and
-                not mod.startswith('pypy.module.math')):
-                if not func.__name__.startswith('descr'):
-                    raise FastFuncNotSupported
+            #if (not mod.startswith('pypy.module.__builtin__') and
+            #    not mod.startswith('pypy.module.sys') and
+            #    not mod.startswith('pypy.module.math')):
+            #    if not func.__name__.startswith('descr'):
+            #        raise FastFuncNotSupported
             d = {}
             unwrap_info.miniglobals['func'] = func
             source = """if 1:
                 def fastfunc_%s_%d(%s):
                     return func(%s)
-                \n""" % (func.__name__, narg,
+                \n""" % (func.__name__.replace('-', '_'), narg,
                          ', '.join(args),
                          ', '.join(unwrap_info.unwrap))
             exec compile2(source) in unwrap_info.miniglobals, d
-            fastfunc = d['fastfunc_%s_%d' % (func.__name__, narg)]
+            fastfunc = d['fastfunc_%s_%d' % (func.__name__.replace('-', '_'), narg)]
         return narg, fastfunc
     make_fastfunc = staticmethod(make_fastfunc)
 

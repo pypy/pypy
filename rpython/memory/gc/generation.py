@@ -468,7 +468,7 @@ class GenerationGC(SemiSpaceGC):
     JIT_WB_IF_FLAG = GCFLAG_NO_YOUNG_PTRS
 
     def write_barrier(self, newvalue, addr_struct):
-         if self.header(addr_struct).tid & GCFLAG_NO_YOUNG_PTRS:
+        if self.header(addr_struct).tid & GCFLAG_NO_YOUNG_PTRS:
             self.remember_young_pointer(addr_struct, newvalue)
 
     def _setup_wb(self):

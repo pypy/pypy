@@ -280,7 +280,7 @@ class BaseConcreteArray(base.BaseArrayImplementation):
                                      backstrides, shape, self, orig_arr)
 
     def get_storage_as_int(self, space):
-        return rffi.cast(lltype.Signed, self.storage)
+        return rffi.cast(lltype.Signed, self.storage) + self.start
 
     def get_storage(self):
         return self.storage

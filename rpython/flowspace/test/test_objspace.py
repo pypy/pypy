@@ -1,6 +1,6 @@
 from __future__ import with_statement
 import new
-import py, sys
+import py
 from contextlib import contextmanager
 
 from rpython.flowspace.model import Constant, mkentrymap, c_last_exception
@@ -1168,6 +1168,28 @@ class TestFlowObjSpace(Base):
         assert self.all_operations(graph) == {'getattr': 1,
                                               'iter': 1, 'newlist': 1,
                                               'next': 1, 'simple_call': 1}
+
+    def test_mutate_const_list(self):
+        lst = list('abcdef')
+        def f():
+            lst[0] = 'x'
+            return lst
+        graph = self.codetest(f)
+        assert 'setitem' in self.all_operations(graph)
+
+    def test_sys_getattr(self):
+        def f():
+            import sys
+            return sys.modules
+        graph = self.codetest(f)
+        assert 'getattr' in self.all_operations(graph)
+
+    def test_sys_import_from(self):
+        def f():
+            from sys import modules
+            return modules
+        graph = self.codetest(f)
+        assert 'getattr' in self.all_operations(graph)
 
 DATA = {'x': 5,
         'y': 6}

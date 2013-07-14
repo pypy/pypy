@@ -907,7 +907,7 @@ they are imported at interpreter-level while you test code
 runs at application level. If you need to use modules
 you have to import them within the test function.
 
-Another possibility to pass in data into the AppTest is to use
+Data can be passed into the AppTest using 
 the ``setup_class`` method of the AppTest. All wrapped objects that are
 attached to the class there and start with ``w_`` can be accessed
 via self (but without the ``w_``) in the actual test method. An example::
@@ -921,6 +921,46 @@ via self (but without the ``w_``) in the actual test method. An example::
             assert self.d["b"] == 2
 
 .. _`run the tests as usual`:
+
+Another possibility is to use cls.space.appexec, for example::
+
+    class AppTestSomething(object):
+        def setup_class(cls):
+            arg = 2
+            cls.w_result = cls.space.appexec([cls.space.wrap(arg)], """(arg):
+                return arg ** 6
+                """)
+
+        def test_power(self):
+            assert self.result == 2 ** 6
+
+which executes the code string function with the given arguments at app level.
+Note the use of ``w_result`` in ``setup_class`` but self.result in the test 
+Here is how to define an app level class  in ``setup_class`` that can be used
+in subsequent tests::
+
+    class AppTestSet(object):
+        def setup_class(cls):
+            w_fakeint = cls.space.appexec([], """():
+                class FakeInt(object):
+                    def __init__(self, value):
+                        self.value = value
+                    def __hash__(self):
+                        return hash(self.value)
+
+                    def __eq__(self, other):
+                        if other == self.value:
+                            return True
+                        return False
+                return FakeInt
+                """)
+            cls.w_FakeInt = w_fakeint
+
+        def test_fakeint(self):
+            f1 = self.FakeInt(4)
+            assert f1 == 4
+            assert hash(f1) == hash(4)
+
 
 Command line tool test_all
 --------------------------
