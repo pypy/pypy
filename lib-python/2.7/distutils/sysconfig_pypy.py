@@ -14,7 +14,6 @@ import sys
 import os
 
 from distutils.errors import DistutilsPlatformError
-from distutils import log; log.set_verbosity(1)
 
 
 PREFIX = os.path.normpath(sys.prefix)
@@ -71,7 +70,6 @@ def _init_posix():
     g['CPPFLAGS'] = ""
     g['CCSHARED'] = '-shared -O2 -fPIC -Wimplicit'
     g['LDSHARED'] = g['CC'] + ' -shared'
-
 
     global _config_vars
     _config_vars = g
