@@ -24,3 +24,8 @@ to optionally skip it.
 .. branch: distutils-cppldflags
 Copy CPython's implementation of customize_compiler, dont call split on
 environment variables, honour CFLAGS, CPPFLAGS, LDSHARED and LDFLAGS on Unices.
+
+.. branch: precise-instantiate
+When an RPython class is instantiated via an indirect call (that is, which
+class is being instantiated isn't known precisely) allow the optimizer to have
+more precise information about which functions can be called. Needed for Topaz.
