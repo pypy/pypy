@@ -148,7 +148,12 @@ class W_Engine(W_Root):
         return W_SolutionIterator(self.space, w_unbound_vars, w_goal_term, self)
 
     def query_single(self, w_goal_term, w_unbound_vars):
-        return self.query_iter(w_goal_term, w_unbound_vars).next_w()
+        try:
+            return self.query_iter(w_goal_term, w_unbound_vars).next_w()
+        except OperationError, e:
+            if not e.match(self.space, self.space.w_StopIteration):
+                raise
+            return self.space.w_None
 
 W_Engine.typedef = TypeDef("Engine",
     __new__ = interp2app(engine_new__),

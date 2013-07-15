@@ -93,7 +93,8 @@ class AppTestEngine(object):
 
         e = u.Engine("eat(cheese, bread). eat(egg, salad).")
         t = u.Term('eat', ['cheese', 'egg'])
-        raises(StopIteration, lambda : e.query_single(t, []))
+        res = e.query_single(t, [])
+        assert res is None
 
     def test_iterator_tautology(self):
         import unipycation as u
