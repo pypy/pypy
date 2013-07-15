@@ -153,3 +153,17 @@ class AppTestEngine(object):
         import unipycation
 
         raises(unipycation.ParseError, lambda: unipycation.Engine("f(1)")) # missing dot on db
+
+    def test_types_query(self):
+        import unipycation
+
+        e = unipycation.Engine("eat(cheese, bread). eat(egg, salad).")
+        v = unipycation.Var()
+        raises(TypeError, lambda : e.query_single(v, []))
+
+    def test_types_query2(self):
+        import unipycation
+
+        e = unipycation.Engine("eat(cheese, bread). eat(egg, salad).")
+        t = unipycation.Term('eat', ['cheese', 'bread'])
+        raises(TypeError, lambda : e.query_single(t, [t]))
