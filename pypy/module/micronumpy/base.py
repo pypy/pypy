@@ -16,6 +16,7 @@ def wrap_impl(space, w_cls, w_instance, impl):
     else:
         w_ret = space.allocate_instance(W_NDimArray, w_cls)
         W_NDimArray.__init__(w_ret, impl)
+        assert isinstance(w_ret, W_NDimArray)
         space.call_method(w_ret, '__array_finalize__', w_instance)
     return w_ret
 

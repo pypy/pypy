@@ -192,29 +192,28 @@ class FakeSpace(object):
         return w_obj is w_what
 
     def issubtype(self, w_type1, w_type2):
-        if not w_type2:
-            return self.wrap(False)
-        return self.wrap(issubclass(w_type1, w_type2))
+        return BoolObject(True)
 
     def type(self, w_obj):
+        if self.is_none(w_obj):
+            return self.w_None
         try:
             return w_obj.tp
         except AttributeError:
             if isinstance(w_obj, W_NDimArray):
                 return W_NDimArray
-            if issubclass(w_obj, W_NDimArray):
-                return W_NDimArray
-            return None
+            return self.w_None
 
     def gettypefor(self, w_obj):
-        return self.type(w_obj)
+        return None
 
     def call_function(self, tp, w_dtype):
         return w_dtype
 
-    def call_method(self, w_obj, s, *args, **kwargs):
-        # XXX hack
-        return getattr(w_obj, 'descr_' + s)(self, *args, **kwargs)
+    def call_method(self, w_obj, s, *args):
+        # XXX even the hacks have hacks
+        return None
+        #return getattr(w_obj, 'descr_' + s)(self, *args)
 
     @specialize.arg(1)
     def interp_w(self, tp, what):
@@ -222,9 +221,7 @@ class FakeSpace(object):
         return what
 
     def allocate_instance(self, klass, w_subtype):
-        inst = instantiate(klass)
-        inst.tp = klass
-        return inst
+        return instantiate(klass)
 
     def newtuple(self, list_w):
         return ListObject(list_w)
@@ -714,7 +711,7 @@ class Parser(object):
                 elif token.v.strip(' ') == 'float':
                     stack.append(DtypeClass('float'))
                 else:
-                    stack.append(Variable(token.v))
+                    stack.append(Variable(token.v.strip(' ')))
             elif token.name == 'array_left':
                 stack.append(ArrayConstant(self.parse_array_const(tokens)))
             elif token.name == 'operator':
