@@ -591,6 +591,7 @@ class FunctionCodeGenerator(object):
     OP_STM_PTR_EQ                       = _OP_STM
     OP_STM_PUSH_ROOT                    = _OP_STM
     OP_STM_POP_ROOT_INTO                = _OP_STM
+    OP_STM_GET_ROOT_STACK_TOP           = _OP_STM
     OP_STM_ALLOCATE                     = _OP_STM
     OP_STM_GET_TID                      = _OP_STM
     OP_STM_HASH                         = _OP_STM
