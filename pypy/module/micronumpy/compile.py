@@ -212,6 +212,10 @@ class FakeSpace(object):
     def call_function(self, tp, w_dtype):
         return w_dtype
 
+    def call_method(self, w_obj, s, *args, **kwargs):
+        # XXX hack
+        return getattr(w_obj, 'descr_' + s)(self, *args, **kwargs)
+
     @specialize.arg(1)
     def interp_w(self, tp, what):
         assert isinstance(what, tp)
