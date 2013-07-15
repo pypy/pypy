@@ -131,10 +131,7 @@ class W_Engine(W_Root):
 
     @staticmethod
     def from_file(space, w_cls, w_filename):
-        filename = space.str_w(w_filename)
-        
-        # trust me rpython, it's null terminated.
-        filename = rstring.assert_str0(filename)
+        filename = space.str0_w(w_filename)
 
         # have to use rpython io
         hndl = open_file_as_stream(filename)

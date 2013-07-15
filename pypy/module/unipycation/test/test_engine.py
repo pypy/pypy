@@ -42,6 +42,10 @@ class AppTestEngine(object):
         assert sol[Y] == 2
         assert sol[Z] == 3
 
+    def test_from_file_nul(self):
+        import unipycation
+        raises(TypeError, unipycation.Engine.from_file, "a\x00")
+
     def test_iterator(self):
         import unipycation as u
 
