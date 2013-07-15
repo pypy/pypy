@@ -8,9 +8,8 @@ import prolog.interpreter.term as pterm
 import prolog.interpreter.error as perr
 import prolog.interpreter.parsing as ppars
 
-import pypy.module.unipycation.conversion as conv
 import pypy.module.unipycation.util as util
-from pypy.module.unipycation import objects
+from pypy.module.unipycation import objects, conversion
 
 from rpython.rlib.streamio import open_file_as_stream
 from rpython.rlib import rstring
@@ -45,7 +44,8 @@ class W_SolutionIterator(W_Root):
 
             w_var = self.space.interp_w(objects.W_Var, w_var)
 
-            w_binding = conv.w_of_p(self.space, w_var.p_var.dereference(heap))
+            w_binding = conversion.w_of_p(
+                self.space, w_var.p_var.dereference(heap))
             self.space.setitem(self.d_result, w_var, w_binding)
 
         self.fcont = fcont

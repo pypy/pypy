@@ -10,11 +10,11 @@ import prolog.interpreter.continuation as pcont
 
 @unwrap_spec(name=str)
 def term_new__(space, w_subtype, name, __args__):
-    import pypy.module.unipycation.conversion as conv
+    from pypy.module.unipycation import conversion
     w_args = __args__.unpack()[0][0]
 
     # collect args for prolog Term constructor
-    term_args = [ conv.p_of_w(space, w_x) for w_x in space.listview(w_args) ]
+    term_args = [ conversion.p_of_w(space, w_x) for w_x in space.listview(w_args) ]
     p_sig = psig.Signature.getsignature(name, len(term_args))
     p_term = pterm.Term(name, term_args, p_sig)
 
@@ -33,15 +33,15 @@ class W_Term(W_Root):
     def descr_len(self, space): return self.space.newint(self.p_term.argument_count())
     def prop_getname(self, space): return self.space.wrap(self.p_term.name()) # this is an interanal method name in pypy, I fear
     def prop_getargs(self, space):
-        import pypy.module.unipycation.conversion as conv
-        args = [ conv.w_of_p(self.space, x) for x in self.p_term.arguments() ]
+        from pypy.module.unipycation import conversion
+        args = [ conversion.w_of_p(self.space, x) for x in self.p_term.arguments() ]
         return self.space.newlist(args)
 
     def descr_getitem(self, space, w_idx):
-        import pypy.module.unipycation.conversion as conv
+        from pypy.module.unipycation import conversion
         idx = self.space.int_w(w_idx)
 
-        return conv.w_of_p(self.space, self.p_term.arguments()[idx])
+        return conversion.w_of_p(self.space, self.p_term.arguments()[idx])
 
     def descr_eq(self, space, w_other):
         #w_Term = util.get_from_module(self.space, "unipycation", "Term")
@@ -56,8 +56,6 @@ class W_Term(W_Root):
         return space.not_(self.descr_eq(space, w_other))
 
     def descr_str(self, space):
-        import pypy.module.unipycation.conversion as conv
-
         # XXX Hackarama XXX.
         # TermFormatter needs an engine, so we just make a new one.
         tmp_engine = pcont.Engine()
@@ -93,7 +91,6 @@ class W_Var(W_Root):
         self.p_var = p_var
 
     def descr_str(self, space):
-        import pypy.module.unipycation.conversion as conv
 
         # XXX Hackarama XXX.
         # TermFormatter needs an engine, so we just make a new one.
