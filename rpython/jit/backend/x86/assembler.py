@@ -1032,19 +1032,22 @@ class Assembler386(BaseAssembler):
         cb.emit_no_collect()
 
     def _reload_frame_if_necessary(self, mc, align_stack=False):
-        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
+        gc_ll_descr = self.cpu.gc_ll_descr
+        gcrootmap = gc_ll_descr.gcrootmap
         if gcrootmap and gcrootmap.is_shadow_stack:
             rst = gcrootmap.get_root_stack_top_addr()
             mc.MOV(ecx, heap(rst))
             mc.MOV(ebp, mem(ecx, -WORD))
 
         if gcrootmap and gcrootmap.is_stm:
-            wbdescr = self.cpu.gc_ll_descr.P2Wdescr
+            if not hasattr(gc_ll_descr, 'P2Wdescr'):
+                raise Exception("unreachable code")
+            wbdescr = gc_ll_descr.P2Wdescr
             self._stm_barrier_fastpath(mc, wbdescr, [ebp], is_frame=True,
                                        align_stack=align_stack)
             return
 
-        wbdescr = self.cpu.gc_ll_descr.write_barrier_descr
+        wbdescr = gc_ll_descr.write_barrier_descr
         if gcrootmap and wbdescr:
             # frame never uses card marking, so we enforce this is not
             # an array

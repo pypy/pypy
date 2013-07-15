@@ -75,11 +75,18 @@ def compile(f, gc, **kwds):
     from rpython.translator.c import genc
     #
     t = TranslationContext()
-    t.config.translation.gc = gc
+    gcrootfinder = kwds['gcrootfinder']
+    if gcrootfinder == 'stm':
+        t.config.translation.stm = True
+        t.config.translation.gc = 'stmgc'
+    else:
+        t.config.translation.gc = gc
+    #
     if gc != 'boehm':
         t.config.translation.gcremovetypeptr = True
     for name, value in kwds.items():
         setattr(t.config.translation, name, value)
+
     ann = t.buildannotator()
     ann.build_types(f, [s_list_of_strings], main_entry_point=True)
     t.buildrtyper().specialize()

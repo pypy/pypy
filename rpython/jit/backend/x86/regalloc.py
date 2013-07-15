@@ -825,7 +825,7 @@ class RegAlloc(BaseRegalloc):
 
     def consider_call_malloc_nursery_varsize_frame(self, op):
         gc_ll_descr = self.assembler.cpu.gc_ll_descr
-        assert gc_ll_descr.max_size_of_young_obj is not None
+        assert gc_ll_descr.get_malloc_slowpath_addr() is not None
         # ^^^ if this returns None, don't translate the rest of this function
         #
         size_box = op.getarg(0)
@@ -850,10 +850,8 @@ class RegAlloc(BaseRegalloc):
 
     def consider_call_malloc_nursery_varsize(self, op):
         gc_ll_descr = self.assembler.cpu.gc_ll_descr
-        assert gc_ll_descr.max_size_of_young_obj is not None
-        # ^^^ if this returns None, don't translate the rest of this function
-        #
-        if not hasattr(gc_ll_descr, 'max_size_of_young_obj'):
+        if not hasattr(gc_ll_descr, 'max_size_of_young_obj') \
+          or gc_ll_descr.max_size_of_young_obj is None:
             raise Exception("unreachable code")
             # for boehm, this function should never be called
         arraydescr = op.getdescr()

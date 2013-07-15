@@ -2188,7 +2188,7 @@ class LLtypeBackendTest(BaseBackendTest):
             operations = [
                 ResOperation(rop.COND_CALL_GC_WB, [p0, ConstInt(0)], None,
                              descr=WriteBarrierDescr()),
-                ResOperation(rop.FINISH, [p0], None, descr=BasicFailDescr(1))
+                ResOperation(rop.FINISH, [p0], None, descr=BasicFinalDescr(0))
                 ]
             inputargs = [p0]
             looptoken = JitCellToken()
@@ -4246,10 +4246,9 @@ class LLtypeBackendTest(BaseBackendTest):
 class WBDescrForTests(AbstractDescr):
     returns_modified_object = False
     b_slowpath = (0, 0, 0, 0)
-    def get_b_slowpath(self, c1, c2):
-        return self.b_slowpath[c1+2*c2]
-    def set_b_slowpath(self, c1, c2, addr):
-        i = c1+2*c2
-        self.b_slowpath = (self.b_slowpath[:i] + (addr,) +
-                            self.b_slowpath[i+1:])
+    def get_b_slowpath(self, c1):
+        return self.b_slowpath[c1]
+    def set_b_slowpath(self, c1, addr):
+        self.b_slowpath = (self.b_slowpath[:c1] + (addr,) +
+                            self.b_slowpath[c1+1:])
         
