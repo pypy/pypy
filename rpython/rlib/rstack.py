@@ -20,10 +20,10 @@ compilation_info = ExternalCompilationInfo(
         includes=['src/stack.h'],
         separate_module_files=[srcdir / 'stack.c', srcdir / 'threadlocal.c'])
 
-def llexternal(name, args, res, _callable=None):
+def llexternal(name, args, res, _callable=None, **kwds):
     return rffi.llexternal(name, args, res, compilation_info=compilation_info,
                            sandboxsafe=True, _nowrapper=True,
-                           _callable=_callable)
+                           _callable=_callable, **kwds)
 
 _stack_get_end = llexternal('LL_stack_get_end', [], lltype.Signed,
                             lambda: 0)
@@ -34,7 +34,8 @@ _stack_set_length_fraction = llexternal('LL_stack_set_length_fraction',
                                         lambda frac: None)
 _stack_too_big_slowpath = llexternal('LL_stack_too_big_slowpath',
                                      [lltype.Signed], lltype.Char,
-                                     lambda cur: '\x00')
+                                     lambda cur: '\x00',
+                                     transactionsafe=True)
 # the following is used by the JIT
 _stack_get_end_adr   = llexternal('LL_stack_get_end_adr',   [], lltype.Signed)
 _stack_get_length_adr= llexternal('LL_stack_get_length_adr',[], lltype.Signed)

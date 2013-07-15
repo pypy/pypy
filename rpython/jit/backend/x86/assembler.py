@@ -315,6 +315,9 @@ class Assembler386(BaseAssembler):
         exc0, exc1 = None, None
         if descr is None:
             return
+
+        if is_stm and withcards:
+            return
         
         if not withcards:
             func = descr.get_barrier_fn(self.cpu, 

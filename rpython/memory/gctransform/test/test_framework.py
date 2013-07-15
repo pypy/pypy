@@ -23,7 +23,7 @@ class FrameworkGcPolicy2(BasicFrameworkGcPolicy):
     class transformerclass(ShadowStackFrameworkGCTransformer):
         root_stack_depth = 100
 
-def test_framework_simple():
+def test_framework_simple(gc="minimark"):
     def g(x):
         return x + 1
     class A(object):
@@ -37,7 +37,10 @@ def test_framework_simple():
     from rpython.translator.c.genc import CStandaloneBuilder
 
     t = rtype(entrypoint, [s_list_of_strings])
-    t.config.translation.gc = "minimark"
+    if gc == "stmgc":
+        t.config.translation.stm = True
+    t.config.translation.gc = gc
+    
     cbuild = CStandaloneBuilder(t, entrypoint, t.config,
                                 gcpolicy=FrameworkGcPolicy2)
     db = cbuild.generate_graphs_for_llinterp()
@@ -54,6 +57,9 @@ def test_framework_simple():
 
     assert res == 2
 
+def test_framework_simple_stm():
+    test_framework_simple("stmgc")
+    
 def test_cancollect():
     S = lltype.GcStruct('S', ('x', lltype.Signed))
     def g():
@@ -94,7 +100,7 @@ def test_cancollect_external():
     gg = graphof(t, g)
     assert CollectAnalyzer(t).analyze_direct_call(gg)
 
-def test_no_collect():
+def test_no_collect(gc="minimark"):
     from rpython.rlib import rgc
     from rpython.translator.c.genc import CStandaloneBuilder
 
@@ -109,12 +115,17 @@ def test_no_collect():
         return g() + 2
     
     t = rtype(entrypoint, [s_list_of_strings])
-    t.config.translation.gc = "minimark"
+    if gc == "stmgc":
+        t.config.translation.stm = True
+    t.config.translation.gc = gc
     cbuild = CStandaloneBuilder(t, entrypoint, t.config,
                                 gcpolicy=FrameworkGcPolicy2)
     db = cbuild.generate_graphs_for_llinterp()
 
-def test_no_collect_detection():
+def test_no_collect_stm():
+    test_no_collect("stmgc")
+
+def test_no_collect_detection(gc="minimark"):
     from rpython.rlib import rgc
     from rpython.translator.c.genc import CStandaloneBuilder
 
@@ -133,13 +144,18 @@ def test_no_collect_detection():
         return g() + 2
     
     t = rtype(entrypoint, [s_list_of_strings])
-    t.config.translation.gc = "minimark"
+    if gc == "stmgc":
+        t.config.translation.stm = True
+    t.config.translation.gc = gc
     cbuild = CStandaloneBuilder(t, entrypoint, t.config,
                                 gcpolicy=FrameworkGcPolicy2)
     f = py.test.raises(Exception, cbuild.generate_graphs_for_llinterp)
     expected = "'no_collect' function can trigger collection: <function g at "
     assert str(f.value).startswith(expected)
 
+def test_no_collect_detection_stm():
+    test_no_collect_detection("stmgc")
+    
 class WriteBarrierTransformer(ShadowStackFrameworkGCTransformer):
     clean_sets = {}
     GC_PARAMS = {}
