@@ -15,7 +15,12 @@ class AppTestHighLevelInterface(object):
         e = uni.Engine2("f(1, 2, 4, 8).")
         assert e.db.f(1, None, 4, None) == (2, 8)
 
-    # XXX uncaughterror, find out why
+    # XXX uncaughterror, fails outside of unipycation too.
+    # >?- sqrt(9, X1, X2).
+    # ERROR: Type error: 'evaluable' expected, found 'sqrt/1'
+    #
+    # The use of 'is' is incorrect. 'is' is for arithmetic, not
+    # unification. We should not fail in this horrible way however.
     def test_many_outvars(self):
         import uni
         e = uni.Engine2("""
@@ -38,7 +43,7 @@ class AppTestHighLevelInterface(object):
 
     # Test UndefinedGoal XXX
 
-    # XXX uncaught exception, figure out why XXX
+    # XXX uncaught exception, same as above probably.
     def test_many_solutions2(self):
         import uni
         e = uni.Engine2("""
