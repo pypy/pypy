@@ -7,12 +7,24 @@ class Engine2(object):
         self.db = Database(self)
         self.multisol = False
 
+class SolutionIterator2(object):
+    """ A wrapper around unipycation.SolutionIterator. Hack XXX """
+    def __init__(self, iter, vs):
+        self.iter = iter
+        self.vars = vs # indicates order of returned solutions
+
+    def __iter__(self): return self
+
+    def next(self):
+        sol = self.iter.next()
+        return tuple([ sol[v] for v in self.vars ])
+
 class Predicate(object):
     """ Represents a "callable" prolog predicate """
 
     def __init__(self, engine, name):
         self.engine = engine
-        self.multiple_solutions = False
+        self.many_solutions = False
         self.name = name
 
     def __call__(self, *args):
@@ -21,9 +33,14 @@ class Predicate(object):
         vs = [ e for e in term_args if type(e) == Var ]
         t = Term(self.name, term_args)
 
-        if self.multiple_solutions:
-            raise NotImplementedError("XXX")
+        if self.many_solutions:
+            it = self.engine.engine.query_iter(t, vs)
+            return SolutionIterator2(it, vs)
         else:
+            print(args)
+            print(vs)
+            print(self.name)
+            print(term_args)
             sol = self.engine.engine.query_single(t, vs)
             return tuple([ sol[v] for v in vs ])
     
