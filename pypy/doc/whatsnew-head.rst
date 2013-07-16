@@ -29,3 +29,5 @@ environment variables, honour CFLAGS, CPPFLAGS, LDSHARED and LDFLAGS on Unices.
 When an RPython class is instantiated via an indirect call (that is, which
 class is being instantiated isn't known precisely) allow the optimizer to have
 more precise information about which functions can be called. Needed for Topaz.
+
+.. branch: ssl_moving_write_buffer
