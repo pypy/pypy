@@ -33,6 +33,14 @@ class AppTestHighLevelInterface(object):
         e = uni.Engine("app([], X, X). app([H | T1], T2, [H | T3]).")
         assert e.db.app([1, 2, 3, 4], [7, 8, 9], None) == [1, 2, 3, 4, 7, 8, 9]
 
+    def test_append_nondet(self):
+        import uni
+
+        e = uni.Engine("app([], X, X). app([H | T1], T2, [H | T3]).")
+        e.db.app.many_solutions = True
+        for x, y in e.db.app(None, None, [1, 2, 3, 4, 5]):
+            assert x + y == [1, 2, 3, 4, 5]
+
     def test_reverse(self):
         import uni
         e = uni.Engine("""
