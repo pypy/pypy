@@ -16,13 +16,10 @@ class Predicate(object):
         self.name = name
 
     def __call__(self, *args):
-        name = self.name
-        print("query %s: %s" % (name, args, ))
-
         filter = lambda e : Var() if e is None else e
         term_args = [ filter(e) for e in args ]
         vs = [ e for e in term_args if type(e) == Var ]
-        t = Term(name, term_args)
+        t = Term(self.name, term_args)
 
         if self.multiple_solutions:
             raise NotImplementedError("XXX")
