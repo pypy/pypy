@@ -7,12 +7,6 @@ class Engine2(object):
         self.db = Database(self)
         self.multisol = False
     
-    def query_single(self, t, vs):
-        return self.engine.query_single(t, vs)
-
-    def query_iter(self, t, vs):
-        return self.engine.query_iter(t, vs)
-
 class Database(object):
     """ A class that represents the predicates exposed by a prolog engine """
 
@@ -30,7 +24,7 @@ class Database(object):
         vs = []
         term_args = []
         for i in range(len(args)):
-            if args[i] == None:
+            if args[i] is None:
                 e = Var()
                 vs.append(e)
             else:
@@ -44,7 +38,7 @@ class Database(object):
         if self.engine.multisol:
             raise NotImplementedError("XXX")
         else:
-            sol = self.engine.query_single(t, vs)
+            sol = self.engine.engine.query_single(t, vs)
             return tuple([ sol[v] for v in vs ])
 
 if __name__ == "__main__":
