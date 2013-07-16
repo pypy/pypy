@@ -10,6 +10,17 @@ class AppTestHighLevelInterface(object):
         e.db.f.argument_spec[0] = uni.result_converter()
         assert e.db.f() == 666
 
+    def test_many_outvars(self):
+        e = uni.Engine("""
+            sqrt(X, Sol1, Sol2) :-
+                Sol1 is sqrt(X), Sol2 is -Sol1.
+        """)
+        e.db.sqrt.argument_spec[1] = uni.result_converter()
+        e.db.sqrt.argument_spec[2] = uni.result_converter()
+        x, y = e.db.sqrt(4)
+        assert x == 2
+        assert y == -2
+
     def test_many_solutions(self):
         e = uni.Engine("""
             sqrt(X, Y) :-
