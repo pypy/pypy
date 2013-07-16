@@ -19,17 +19,9 @@ class Predicate(object):
         name = self.name
         print("query %s: %s" % (name, args, ))
 
-        vs = []
-        term_args = []
-        for i in range(len(args)):
-            if args[i] is None:
-                e = Var()
-                vs.append(e)
-            else:
-                e = args[i]
-
-            term_args.append(e)
-
+        filter = lambda e : Var() if e is None else e
+        term_args = [ filter(e) for e in args ]
+        vs = [ e for e in term_args if type(e) == Var ]
         t = Term(name, term_args)
 
         if self.multiple_solutions:
