@@ -36,9 +36,3 @@ class Database(object):
     def __getattr__(self, name):
         """ Predicates are called by db.name and are resolved dynamically """
         return Predicate(self.engine, name)
-
-if __name__ == "__main__":
-    e = Engine2("f(1, 2, 3).")
-    d = Database(e)
-    sol = d.f(1, None, None)
-    print(sol)
