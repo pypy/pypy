@@ -6,11 +6,18 @@ class AppTestHighLevelInterface(object):
     def test_basic(self):
         import uni
 
-        e = uni.Engine("f(666).")
-        assert e.db.f(None) == 666
+        e = uni.Engine2("f(666).")
+        assert e.db.f(None) == (666, )
+
+    def test_basic2(self):
+        import uni
+
+        e = uni.Engine2("f(1, 2, 4, 8).")
+        assert e.db.f(1, None, 4, None) == (2, 8)
 
     def test_many_outvars(self):
-        e = uni.Engine("""
+        import uni
+        e = uni.Engine2("""
             sqrt(X, Sol1, Sol2) :-
                 Sol1 is sqrt(X), Sol2 is -Sol1.
         """)
@@ -19,6 +26,7 @@ class AppTestHighLevelInterface(object):
         assert y == -2
 
     def test_many_solutions(self):
+        import uni
         e = uni.Engine("""
             sqrt(X, Y) :-
                 Sol1 is sqrt(X), Sol2 is -Sol1, (Y = Sol1; Y = Sol2).
