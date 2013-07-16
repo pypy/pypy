@@ -86,9 +86,9 @@ class BaseAssembler(object):
         else:
             descrs = [gc_ll_descr.write_barrier_descr]
         for d in descrs:
-                self._build_b_slowpath(d, False)
-                self._build_b_slowpath(d, True)
-                self._build_b_slowpath(d, False, for_frame=True)
+            self._build_b_slowpath(d, False)
+            self._build_b_slowpath(d, True)
+            self._build_b_slowpath(d, False, for_frame=True)
         # only one of those
         self.build_frame_realloc_slowpath()
         if self.cpu.supports_floats:

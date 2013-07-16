@@ -41,6 +41,9 @@ class StmGC(MovingGCBase):
     #gcflag_extra = GCFLAG_EXTRA
 
     HDR = rffi.COpaque('struct stm_object_s')
+    H_TID = 0
+    H_REVISION = WORD
+    H_ORIGINAL = WORD + WORD
     typeid_is_in_field = None
 
     VISIT_FPTR = lltype.Ptr(lltype.FuncType([llmemory.Address], lltype.Void))
@@ -61,6 +64,23 @@ class StmGC(MovingGCBase):
     def get_type_id(self, obj):
         return llop.stm_get_tid(llgroup.HALFWORD, obj)
 
+    def get_hdr_tid(self, addr):
+        return llmemory.cast_adr_to_int(addr + self.H_TID)
+
+    def get_hdr_revision(self, addr):
+        return llmemory.cast_adr_to_int(addr + self.H_REVISION)
+        
+    def get_hdr_original(self, addr):
+        return llmemory.cast_adr_to_int(addr + self.H_ORIGINAL)
+
+    def get_original_object(self, obj):
+        if bool(self.get_hdr_tid(obj) & GCFLAG_PREBUILT_ORIGINAL):
+            return obj
+        orig = self.get_hdr_original(obj)
+        if orig == 0:
+            return obj
+        return llmemory.cast_int_to_adr(orig)
+        
     def init_gc_object_immortal(self, addr, typeid16, flags=0):
         assert flags == 0
         assert isinstance(typeid16, llgroup.GroupMemberOffset)
@@ -93,6 +113,15 @@ class StmGC(MovingGCBase):
         (obj + offset_to_length).signed[0] = length
         return llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
 
+
+    def can_move(self, obj):
+        """Means the reference will stay valid, except if not
+        seen by the GC, then it can get collected."""
+        tid = self.get_hdr_tid(obj)
+        if bool(tid & GCFLAG_OLD):
+            return False
+        return True
+        
 
     @classmethod
     def JIT_max_size_of_young_obj(cls):

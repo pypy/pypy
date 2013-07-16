@@ -102,12 +102,16 @@ class GcLLDescription(GcCache):
             v = op.getarg(i)
             if isinstance(v, ConstPtr) and bool(v.value):
                 p = v.value
-                rgc._make_sure_does_not_move(p)
-                gcrefs_output_list.append(p)
+                new_p = rgc._make_sure_does_not_move(p)
+                v.value = new_p
+                gcrefs_output_list.append(new_p)
+                
         if op.is_guard() or op.getopnum() == rop.FINISH:
             llref = cast_instance_to_gcref(op.getdescr())
-            rgc._make_sure_does_not_move(llref)
-            gcrefs_output_list.append(llref)
+            new_llref = rgc._make_sure_does_not_move(llref)
+            new_d = rgc.try_cast_gcref_to_instance(llref.__class__, new_llref)
+            op.setdescr(new_d)
+            gcrefs_output_list.append(new_llref)
 
     def rewrite_assembler(self, cpu, operations, gcrefs_output_list):
         if not self.stm:

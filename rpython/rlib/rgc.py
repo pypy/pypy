@@ -94,6 +94,7 @@ class CanMoveEntry(ExtRegistryEntry):
 def _make_sure_does_not_move(p):
     """'p' is a non-null GC object.  This (tries to) make sure that the
     object does not move any more, by forcing collections if needed.
+    It may return a different addr!
     Warning: should ideally only be used with the minimark GC, and only
     on objects that are already a bit old, so have a chance to be
     already non-movable."""
@@ -105,6 +106,13 @@ def _make_sure_does_not_move(p):
             raise NotImplementedError("can't make object non-movable!")
         collect(i)
         i += 1
+
+    if stm_is_enabled():
+        from rpython.memory.gc.stmgc import StmGC
+        assert isinstance(gc, StmGC)
+        return gc.get_original_object()
+    else:
+        return p
 
 def _heap_stats():
     raise NotImplementedError # can't be run directly
