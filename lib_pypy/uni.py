@@ -38,7 +38,11 @@ class Predicate(object):
             return SolutionIterator2(it, vs)
         else:
             sol = self.engine.engine.query_single(t, vs)
-            return tuple([ sol[v] for v in vs ])
+
+            if sol is None:
+                return None # contradiction
+            else:
+                return tuple([ sol[v] for v in vs ])
     
 class Database(object):
     """ A class that represents the predicates exposed by a prolog engine """
