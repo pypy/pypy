@@ -199,6 +199,9 @@ class AppTestSupport(BaseNumpyAppTest):
         assert isinstance(c, self.SubType)
         c = a + b
         assert isinstance(c, self.NoNew)
+        d = range(12)
+        e = a - d
+        assert isinstance(e, self.NoNew)
 
     def test_sub_call1(self):
         from numpypy import array, sqrt

@@ -40,7 +40,6 @@ def call2(space, shape, func, calc_dtype, res_dtype, w_lhs, w_rhs, out):
         rhs_type = space.type(w_rhs.base)
         rhs_for_subtype = w_rhs.base
     if space.is_w(lhs_type, w_ndarray) and not space.is_w(rhs_type, w_ndarray):
-        w_lhs, w_rhs = w_rhs, w_lhs
         lhs_for_subtype = rhs_for_subtype
 
     # TODO handle __array_priorities__ and maybe flip the order
