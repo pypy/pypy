@@ -3,9 +3,9 @@ from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError
 
-import prolog.interpreter.continuation as pcont
-import prolog.interpreter.error as perr
-import prolog.interpreter.parsing as ppars
+from prolog.interpreter import continuation
+from prolog.interpreter import error
+from prolog.interpreter import parsing
 
 import pypy.module.unipycation.util as util
 from pypy.module.unipycation import objects, conversion
@@ -65,13 +65,13 @@ class W_CoreSolutionIterator(W_Root):
                     self.w_engine, self.w_unbound_vars, self)
             try:
                 r = self.w_engine.engine.run(self.w_goal_term.p_term, cur_mod, cont)
-            except perr.UnificationFailed:
+            except error.UnificationFailed:
                 # contradiction - no solutions
                 raise OperationError(self.space.w_StopIteration, self.space.w_None)
-            except perr.CatchableError:
+            except error.CatchableError:
                 w_GoalError = util.get_from_module(self.space, "unipycation", "GoalError")
                 raise OperationError(w_GoalError, self.space.wrap("Undefined goal"))
-            except perr.UncaughtError, e:
+            except error.UncaughtError, e:
                 # For now, the only way that I have seen this happen is when
                 # there is a type error in the database.
                 raise OperationError(self.space.w_TypeError, self.space.wrap(""))
@@ -79,11 +79,11 @@ class W_CoreSolutionIterator(W_Root):
             self.w_goal_term = None # allow GC
         else:
             try:
-                pcont.driver(*self.fcont.fail(self.heap))
-            except perr.UnificationFailed:
+                continuation.driver(*self.fcont.fail(self.heap))
+            except error.UnificationFailed:
                 # enumerated all solutions
                 raise OperationError(self.space.w_StopIteration, self.space.w_None)
-            except perr.CatchableError:
+            except error.CatchableError:
                 w_GoalError = util.get_from_module(self.space, "unipycation", "GoalError")
                 raise OperationError(w_GoalError, self.space.wrap("Undefined goal"))
 
@@ -98,11 +98,12 @@ W_CoreSolutionIterator.typedef.acceptable_as_base_class = False
 
 # ---
 
-class UnipycationContinuation(pcont.Continuation):
+class UnipycationContinuation(continuation.Continuation):
     def __init__(self, w_engine, w_unbound_vars, w_solution_iter):
         p_engine = w_engine.engine
 
-        pcont.Continuation.__init__(self, p_engine, pcont.DoneSuccessContinuation(p_engine))
+        continuation.Continuation.__init__(self,
+                p_engine, continuation.DoneSuccessContinuation(p_engine))
 
         # stash
         self.w_unbound_vars = w_unbound_vars
@@ -111,7 +112,7 @@ class UnipycationContinuation(pcont.Continuation):
 
     def activate(self, fcont, heap):
         self.w_solution_iter._populate_result(self.w_unbound_vars, fcont, heap)
-        return pcont.DoneSuccessContinuation(self.engine), fcont, heap
+        return continuation.DoneSuccessContinuation(self.engine), fcont, heap
 
 # ---
 
@@ -123,12 +124,12 @@ def engine_new__(space, w_subtype, __args__):
 class W_CoreEngine(W_Root):
     def __init__(self, space, w_anything):
         self.space = space                      # Stash space
-        self.engine = e = pcont.Engine()        # We embed an instance of prolog
+        self.engine = e = continuation.Engine() # We embed an instance of prolog
         self.d_result = None                    # When we have a result, we will stash it here
 
         try:
-            e.runstring(space.str_w(w_anything))    # Load the database with the first arg
-        except ppars.ParseError as e:
+            e.runstring(space.str_w(w_anything))# Load the database with the first arg
+        except parsing.ParseError as e:
             w_ParseError = util.get_from_module(self.space, "unipycation", "ParseError")
             raise OperationError(w_ParseError, self.space.wrap(e.nice_error_message()))
 
