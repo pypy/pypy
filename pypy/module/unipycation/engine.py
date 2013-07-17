@@ -72,6 +72,10 @@ class W_SolutionIterator(W_Root):
             except perr.CatchableError:
                 w_GoalError = util.get_from_module(self.space, "unipycation", "GoalError")
                 raise OperationError(w_GoalError, self.space.wrap("Undefined goal"))
+            except perr.UncaughtError, e:
+                # For now, the only way that I have seen this happen is when
+                # there is a type error in the database.
+                raise OperationError(self.space.w_TypeError, self.space.wrap(""))
 
             self.w_goal_term = None # allow GC
         else:
