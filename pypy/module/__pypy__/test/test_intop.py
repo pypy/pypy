@@ -50,3 +50,13 @@ class AppTestIntOp:
         assert intop.int_floordiv(-41, -3) == 13
         assert intop.int_floordiv(-sys.maxint, -1) == sys.maxint
         assert intop.int_floordiv(sys.maxint, -1) == -sys.maxint
+
+    def test_int_mod(self):
+        import sys
+        from __pypy__ import intop
+        assert intop.int_mod(41, 3) == 2
+        assert intop.int_mod(41, -3) == 2
+        assert intop.int_mod(-41, 3) == -2
+        assert intop.int_mod(-41, -3) == -2
+        assert intop.int_mod(-sys.maxint, -1) == 0
+        assert intop.int_mod(sys.maxint, -1) == 0

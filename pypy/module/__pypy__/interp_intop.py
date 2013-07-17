@@ -19,3 +19,7 @@ def int_mul(space, n, m):
 @unwrap_spec(n=int, m=int)
 def int_floordiv(space, n, m):
     return space.wrap(llop.int_floordiv(lltype.Signed, n, m))
+
+@unwrap_spec(n=int, m=int)
+def int_mod(space, n, m):
+    return space.wrap(llop.int_mod(lltype.Signed, n, m))
