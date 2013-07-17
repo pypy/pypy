@@ -518,9 +518,9 @@ class Test_rbigint(object):
 
     def test_format_caching(self):
         big = rbigint.fromlong(2 ** 1000)
-        rbigint.pow = None
         res1 = big.str()
         oldpow = rbigint.__dict__['pow']
+        rbigint.pow = None
         # make sure pow is not used the second time
         try:
             res2 = big.str()
