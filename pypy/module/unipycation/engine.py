@@ -14,7 +14,7 @@ from pypy.module.unipycation import objects, conversion
 from rpython.rlib.streamio import open_file_as_stream
 from rpython.rlib import rstring
 
-class W_SolutionIterator(W_Root):
+class W_CoreSolutionIterator(W_Root):
     """
     An interface that allows retreival of multiple solutions
     """
@@ -90,12 +90,12 @@ class W_SolutionIterator(W_Root):
 
         return self.d_result
 
-W_SolutionIterator.typedef = TypeDef("SolutionIterator",
-    __iter__ = interp2app(W_SolutionIterator.iter_w),
-    next = interp2app(W_SolutionIterator.next_w),
+W_CoreSolutionIterator.typedef = TypeDef("CoreSolutionIterator",
+    __iter__ = interp2app(W_CoreSolutionIterator.iter_w),
+    next = interp2app(W_CoreSolutionIterator.next_w),
 )
 
-W_SolutionIterator.typedef.acceptable_as_base_class = False
+W_CoreSolutionIterator.typedef.acceptable_as_base_class = False
 
 # ---
 
@@ -118,10 +118,10 @@ class UnipycationContinuation(pcont.Continuation):
 
 def engine_new__(space, w_subtype, __args__):
     w_anything = __args__.firstarg()
-    e = W_Engine(space, w_anything)
+    e = W_CoreEngine(space, w_anything)
     return space.wrap(e)
 
-class W_Engine(W_Root):
+class W_CoreEngine(W_Root):
     def __init__(self, space, w_anything):
         self.space = space                      # Stash space
         self.engine = e = pcont.Engine()        # We embed an instance of prolog
@@ -142,11 +142,11 @@ class W_Engine(W_Root):
         prog = db = hndl.readall()
         hndl.close()
 
-        return space.wrap(W_Engine(space, space.wrap(db)))
+        return space.wrap(W_CoreEngine(space, space.wrap(db)))
 
     def query_iter(self, w_goal_term, w_unbound_vars):
         """ Returns an iterator by which to acquire multiple solutions """
-        return W_SolutionIterator(self.space, w_unbound_vars, w_goal_term, self)
+        return W_CoreSolutionIterator(self.space, w_unbound_vars, w_goal_term, self)
 
     def query_single(self, w_goal_term, w_unbound_vars):
         try:
@@ -156,11 +156,11 @@ class W_Engine(W_Root):
                 raise
             return self.space.w_None
 
-W_Engine.typedef = TypeDef("Engine",
+W_CoreEngine.typedef = TypeDef("Engine",
     __new__ = interp2app(engine_new__),
-    from_file = interp2app(W_Engine.from_file, as_classmethod=True),
-    query_iter = interp2app(W_Engine.query_iter),
-    query_single = interp2app(W_Engine.query_single),
+    from_file = interp2app(W_CoreEngine.from_file, as_classmethod=True),
+    query_iter = interp2app(W_CoreEngine.query_iter),
+    query_single = interp2app(W_CoreEngine.query_single),
 )
 
-W_Engine.typedef.acceptable_as_base_class = False
+W_CoreEngine.typedef.acceptable_as_base_class = False

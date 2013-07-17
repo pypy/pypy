@@ -12,7 +12,7 @@ class AppTestObjects(object):
     def test_list(self):
         import unipycation as u
 
-        e = u.Engine("f([w, x]).")
+        e = u.CoreEngine("f([w, x]).")
         X = u.Var()
         t = u.Term("f", [X])
         x_val = e.query_single(t, [X])[X]
@@ -26,7 +26,7 @@ class AppTestObjects(object):
     def test_functor(self):
         import unipycation as u
 
-        e = u.Engine("f(g(a, b, c, d)).")
+        e = u.CoreEngine("f(g(a, b, c, d)).")
         X = u.Var()
         
         t = u.Term("f", [X])

@@ -1,14 +1,14 @@
 from unipycation import *
 
-class Engine2(object):
-    """ A wrapper around unipycation.Engine. Hack XXX """
+class Engine(object):
+    """ A wrapper around unipycation.CoreEngine. """
     def __init__(self, db_str):
-        self.engine = Engine(db_str)
+        self.engine = CoreEngine(db_str)
         self.db = Database(self)
-        self.multisol = False
+        self.many_solutions = False
 
-class SolutionIterator2(object):
-    """ A wrapper around unipycation.SolutionIterator. Hack XXX """
+class SolutionIterator(object):
+    """ A wrapper around unipycation.CoreSolutionIterator. """
     def __init__(self, iter, vs):
         self.iter = iter
         self.vars = vs # indicates order of returned solutions
@@ -35,7 +35,7 @@ class Predicate(object):
 
         if self.many_solutions:
             it = self.engine.engine.query_iter(t, vs)
-            return SolutionIterator2(it, vs)
+            return SolutionIterator(it, vs)
         else:
             sol = self.engine.engine.query_single(t, vs)
 

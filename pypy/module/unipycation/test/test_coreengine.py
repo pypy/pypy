@@ -2,7 +2,7 @@
 import tempfile
 import pytest
 
-class AppTestEngine(object):
+class AppTestCoreEngine(object):
     spaceconfig = dict(usemodules=('unipycation', ))
 
     def setup_class(cls):
@@ -14,7 +14,7 @@ class AppTestEngine(object):
     def test_basic(self):
         import unipycation as u
 
-        e = u.Engine("f(666).")
+        e = u.CoreEngine("f(666).")
         X = u.Var()
         t = u.Term('f', [X])
         sol = e.query_single(t, [X])
@@ -30,7 +30,7 @@ class AppTestEngine(object):
         os.write(fd, "f(1,2,3).")
         os.close(fd)
 
-        e = u.Engine.from_file(fname)
+        e = u.CoreEngine.from_file(fname)
         os.unlink(fname)
 
         vs = [X, Y, Z] = [ u.Var() for x in range(3) ]
@@ -44,12 +44,12 @@ class AppTestEngine(object):
 
     def test_from_file_nul(self):
         import unipycation
-        raises(TypeError, unipycation.Engine.from_file, "a\x00")
+        raises(TypeError, unipycation.CoreEngine.from_file, "a\x00")
 
     def test_iterator(self):
         import unipycation as u
 
-        e = u.Engine("f(666, 667). f(222, 334). f(777, 778).")
+        e = u.CoreEngine("f(666, 667). f(222, 334). f(777, 778).")
         vs = [X, Y] = [u.Var(), u.Var()]
 
         t = u.Term('f', vs)
@@ -67,7 +67,7 @@ class AppTestEngine(object):
     def test_functors(self):
         import unipycation as u
 
-        e = u.Engine("f(a(1, 2), b(3, 4)).")
+        e = u.CoreEngine("f(a(1, 2), b(3, 4)).")
         vs = [X, Y] = [u.Var(), u.Var()]
 
         t1 = u.Term('a', [1, X])
@@ -85,7 +85,7 @@ class AppTestEngine(object):
     def test_tautology(self):
         import unipycation as u
 
-        e = u.Engine("eat(cheese, bread). eat(egg, salad).")
+        e = u.CoreEngine("eat(cheese, bread). eat(egg, salad).")
 
         t = u.Term('eat', ['cheese', 'bread'])
         sol = e.query_single(t, [])
@@ -95,7 +95,7 @@ class AppTestEngine(object):
     def test_contradicion(self):
         import unipycation as u
 
-        e = u.Engine("eat(cheese, bread). eat(egg, salad).")
+        e = u.CoreEngine("eat(cheese, bread). eat(egg, salad).")
         t = u.Term('eat', ['cheese', 'egg'])
         res = e.query_single(t, [])
         assert res is None
@@ -103,7 +103,7 @@ class AppTestEngine(object):
     def test_iterator_tautology(self):
         import unipycation as u
 
-        e = u.Engine("eat(cheese, bread). eat(egg, salad).")
+        e = u.CoreEngine("eat(cheese, bread). eat(egg, salad).")
         t = u.Term('eat', ['cheese', 'bread'])
         it = e.query_iter(t, [])
         sols = [ x for x in it ]
@@ -112,7 +112,7 @@ class AppTestEngine(object):
     def test_iterator_contradiction(self):
         import unipycation as u
 
-        e = u.Engine("eat(cheese, bread). eat(egg, salad).")
+        e = u.CoreEngine("eat(cheese, bread). eat(egg, salad).")
         t = u.Term('eat', ['cheese', 'egg'])
         it = e.query_iter(t, [])
         raises(StopIteration, lambda : it.next())
@@ -120,7 +120,7 @@ class AppTestEngine(object):
     def test_iterator_infty(self):
         import unipycation as u
 
-        e = u.Engine("""
+        e = u.CoreEngine("""
                 f(0).
                 f(X) :- f(X0), X is X0 + 1.
         """)
@@ -138,7 +138,7 @@ class AppTestEngine(object):
     def test_query_nonexisting_predicate(self):
         import unipycation as u
 
-        e = u.Engine("f(666). f(667). f(668).")
+        e = u.CoreEngine("f(666). f(667). f(668).")
         X = u.Var()
         t = u.Term("g", [X])
 
@@ -147,7 +147,7 @@ class AppTestEngine(object):
     def test_iter_nonexisting_predicate(self):
         import unipycation as u
 
-        e = u.Engine("f(666). f(667). f(668).")
+        e = u.CoreEngine("f(666). f(667). f(668).")
         X = u.Var()
         t = u.Term("g", [X])
 
@@ -156,26 +156,26 @@ class AppTestEngine(object):
     def test_parse_db_incomplete(self):
         import unipycation
 
-        raises(unipycation.ParseError, lambda: unipycation.Engine("f(1)")) # missing dot on db
+        raises(unipycation.ParseError, lambda: unipycation.CoreEngine("f(1)")) # missing dot on db
 
     def test_types_query(self):
         import unipycation
 
-        e = unipycation.Engine("eat(cheese, bread). eat(egg, salad).")
+        e = unipycation.CoreEngine("eat(cheese, bread). eat(egg, salad).")
         v = unipycation.Var()
         raises(TypeError, lambda : e.query_single(v, []))
 
     def test_types_query2(self):
         import unipycation
 
-        e = unipycation.Engine("eat(cheese, bread). eat(egg, salad).")
+        e = unipycation.CoreEngine("eat(cheese, bread). eat(egg, salad).")
         t = unipycation.Term('eat', ['cheese', 'bread'])
         raises(TypeError, lambda : e.query_single(t, [t]))
 
     def test_type_error_passed_up(self):
         import unipycation
 
-        e = unipycation.Engine("test(X) :- X is sqrt(9).")
+        e = unipycation.CoreEngine("test(X) :- X is sqrt(9).")
         X = unipycation.Var()
         t = unipycation.Term('test', [X])
         raises(TypeError, lambda : e.query_single(t, [X]))
@@ -184,7 +184,7 @@ class AppTestEngine(object):
     def test_variable_sharing_bug(self):
         import unipycation as u
 
-        e = u.Engine("f(1). g(2).")
+        e = u.CoreEngine("f(1). g(2).")
         X = u.Var()
         t = u.Term('f', [X])
         sol = e.query_single(t, [X])
