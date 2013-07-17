@@ -54,6 +54,16 @@ class AppTestHighLevelInterface(object):
         for (x, ) in e.db.sqrt(4, None):
             assert x ** 2 == 4
 
+    # XXX This shows that the new interface is insufficient XXX
+    # ConversionError: Don't know how to convert wrapped <W_NoneObject()> to prolog type
+    def test_deep_vars(self):
+        import uni
+
+        e = uni.Engine2("f(1, g(2, 3)).")
+        sol = e.db.f(None, uni.Term("g", [2, None]))
+
+        assert sol == (1, 3)
+
     # XXX this wont work, as lists are not yet converted
     def _test_append(self):
         import uni
