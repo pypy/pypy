@@ -20,16 +20,14 @@ class AppTestHighLevelInterface(object):
 
         e = uni.Engine2("f(1).")
         sol = e.db.f(1)
-        print("YYY")
-        print(sol)
+        assert sol == tuple()
 
     def test_contradiction(self):
         import uni
 
         e = uni.Engine2("f(1).")
         sol = e.db.f(2)
-        print("XXX")
-        print(sol)
+        assert sol == None
 
     def test_many_solutions1(self):
         import uni
@@ -44,6 +42,7 @@ class AppTestHighLevelInterface(object):
     # Test UndefinedGoal XXX
 
     # XXX this wont work, as lists are not yet converted
+    @pytest.mark.skipif("True")
     def test_append(self):
         import uni
 
@@ -51,6 +50,7 @@ class AppTestHighLevelInterface(object):
         assert e.db.app([1, 2, 3, 4], [7, 8, 9], None) == [1, 2, 3, 4, 7, 8, 9]
 
     # XXX this wont work, as lists are not yet converted
+    @pytest.mark.skipif("True")
     def test_append_nondet(self):
         import uni
 
@@ -60,6 +60,7 @@ class AppTestHighLevelInterface(object):
             assert x + y == [1, 2, 3, 4, 5]
 
     # XXX this wont work, as lists are not yet converted
+    @pytest.mark.skipif("True")
     def test_reverse(self):
         import uni
         e = uni.Engine2("""

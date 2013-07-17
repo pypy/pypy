@@ -189,6 +189,7 @@ class AppTestEngine(object):
         t = u.Term('f', [X])
         sol = e.query_single(t, [X])
         assert sol[X] == 1
+
         t = u.Term('g', [X])
         sol = e.query_single(t, [X])
-        assert sol[X] == 2
+        assert sol == None # because X retains it's binding of 1
