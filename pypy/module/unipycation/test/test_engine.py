@@ -179,3 +179,16 @@ class AppTestEngine(object):
         X = unipycation.Var()
         t = unipycation.Term('test', [X])
         raises(TypeError, lambda : e.query_single(t, [X]))
+
+
+    def test_variable_sharing_bug(self):
+        import unipycation as u
+
+        e = u.Engine("f(1). g(2).")
+        X = u.Var()
+        t = u.Term('f', [X])
+        sol = e.query_single(t, [X])
+        assert sol[X] == 1
+        t = u.Term('g', [X])
+        sol = e.query_single(t, [X])
+        assert sol[X] == 2
