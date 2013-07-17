@@ -85,7 +85,7 @@ class __extend__(W_NDimArray):
             res_shape = [size] + self.get_shape()[1:]
         else:
             res_shape = [size]
-        w_res = W_NDimArray.from_shape(space, res_shape, self.get_dtype(), w_subtype=self)
+        w_res = W_NDimArray.from_shape(space, res_shape, self.get_dtype(), w_instance=self)
         return loop.getitem_filter(w_res, self, arr)
 
     def setitem_filter(self, space, idx, val):
@@ -148,7 +148,7 @@ class __extend__(W_NDimArray):
             return chunks.apply(space, self)
         shape = res_shape + self.get_shape()[len(indexes):]
         w_res = W_NDimArray.from_shape(space, shape, self.get_dtype(),
-                                     self.get_order(), w_subtype=self)
+                                     self.get_order(), w_instance=self)
         if not w_res.get_size():
             return w_res
         return loop.getitem_array_int(space, self, w_res, iter_shape, indexes,
@@ -482,7 +482,7 @@ class __extend__(W_NDimArray):
             loop.byteswap(self.implementation, self.implementation)
             return self
         else:
-            w_res = W_NDimArray.from_shape(space, self.get_shape(), self.get_dtype(), w_subtype=self)
+            w_res = W_NDimArray.from_shape(space, self.get_shape(), self.get_dtype(), w_instance=self)
             loop.byteswap(self.implementation, w_res.implementation)
             return w_res
 
@@ -778,7 +778,7 @@ class __extend__(W_NDimArray):
             return W_NDimArray.new_scalar(space, dtype, space.wrap(0))
         # Do the dims match?
         out_shape, other_critical_dim = match_dot_shapes(space, self, other)
-        w_res = W_NDimArray.from_shape(space, out_shape, dtype, w_subtype=self)
+        w_res = W_NDimArray.from_shape(space, out_shape, dtype, w_instance=self)
         # This is the place to add fpypy and blas
         return loop.multidim_dot(space, self, other,  w_res, dtype,
                                  other_critical_dim)

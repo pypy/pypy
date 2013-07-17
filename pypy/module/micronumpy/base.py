@@ -33,7 +33,7 @@ class W_NDimArray(W_Root):
         self.implementation = implementation
 
     @staticmethod
-    def from_shape(space, shape, dtype, order='C', w_subtype=None):
+    def from_shape(space, shape, dtype, order='C', w_instance=None):
         from pypy.module.micronumpy.arrayimpl import concrete, scalar
 
         if not shape:
@@ -42,12 +42,8 @@ class W_NDimArray(W_Root):
             strides, backstrides = calc_strides(shape, dtype.base, order)
             impl = concrete.ConcreteArray(shape, dtype.base, order, strides,
                                       backstrides)
-        if w_subtype:
-            w_ret = space.allocate_instance(W_NDimArray, space.type(w_subtype))
-            W_NDimArray.__init__(w_ret, impl)
-            assert isinstance(w_ret, W_NDimArray)
-            space.call_method(w_ret, '__array_finalize__', w_subtype)
-            return w_ret
+        if w_instance:
+            return wrap_impl(space, space.type(w_instance), w_instance, impl)
         return W_NDimArray(impl)
 
     @staticmethod

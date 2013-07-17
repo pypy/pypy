@@ -47,7 +47,7 @@ def call2(space, shape, func, calc_dtype, res_dtype, w_lhs, w_rhs, out):
 
     if out is None:
         out = W_NDimArray.from_shape(space, shape, res_dtype,
-                                     w_subtype=lhs_for_subtype)
+                                     w_instance=lhs_for_subtype)
     left_iter = w_lhs.create_iter(shape)
     right_iter = w_rhs.create_iter(shape)
     out_iter = out.create_iter(shape)
@@ -76,7 +76,7 @@ call1_driver = jit.JitDriver(name='numpy_call1',
 
 def call1(space, shape, func, calc_dtype, res_dtype, w_obj, out):
     if out is None:
-        out = W_NDimArray.from_shape(space, shape, res_dtype, w_subtype=w_obj)
+        out = W_NDimArray.from_shape(space, shape, res_dtype, w_instance=w_obj)
     obj_iter = w_obj.create_iter(shape)
     out_iter = out.create_iter(shape)
     shapelen = len(shape)
