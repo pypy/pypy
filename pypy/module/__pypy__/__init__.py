@@ -43,7 +43,6 @@ class IntOpModule(MixedModule):
         'int_sub':         'interp_intop.int_sub',
         'int_mul':         'interp_intop.int_mul',
         'int_floordiv':    'interp_intop.int_floordiv',
-        'uint_floordiv':   'interp_intop.uint_floordiv',
         'int_mod':         'interp_intop.int_mod',
         'int_lshift':      'interp_intop.int_lshift',
         'uint_rshift':     'interp_intop.uint_rshift',
