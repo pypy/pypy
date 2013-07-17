@@ -2145,12 +2145,13 @@ class Assembler386(BaseAssembler):
         self.mc.TEST(cond_loc, cond_loc)
         self.mc.J_il8(rx86.Conditions['Z'], 0) # patched later
         jmp_adr = self.mc.get_relative_pos()
-        self.push_gcmap(self.mc, gcmap, mov=True)
+        self.push_gcmap(self.mc, gcmap, store=True)
         self.mc.CALL(imm(self.cond_call_slowpath[len(arglocs)]))
+        self.pop_gcmap(self.mc)
         # never any result value
         offset = self.mc.get_relative_pos() - jmp_adr
         assert 0 < offset <= 127
-        self.mc.overwrite(jmp_adr-1, chr(offset))        
+        self.mc.overwrite(jmp_adr-1, chr(offset))
 
     def malloc_cond(self, nursery_free_adr, nursery_top_adr, size, gcmap):
         assert size & (WORD-1) == 0     # must be correctly aligned
