@@ -15,6 +15,7 @@ ALWAYS_ALLOW_OPERATIONS = set([
     'jit_record_known_class',
     'gc_identityhash', 'gc_id', 'gc_can_move', 'gc__collect',
     'gc_adr_of_root_stack_top',
+    'stmgc_get_original_copy',
     'weakref_create', 'weakref_deref',
     'stm_threadlocalref_get', 'stm_threadlocalref_set',
     'stm_threadlocalref_count', 'stm_threadlocalref_addr',

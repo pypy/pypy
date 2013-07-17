@@ -26,6 +26,12 @@ def stm_is_enabled():
     return None   # means 'not translated at all';
                   # in "if stm_is_enabled()" it is equivalent to False
 
+def stm_get_original_copy(obj):
+    """ Returns a non-moving reference to an object (only use if obj is
+    already OLD!)
+    """
+    return lltype.nullptr(llmemory.GCREF)
+
 # ____________________________________________________________
 # Annotation and specialization
 
@@ -70,6 +76,20 @@ class StmIsEnabled(ExtRegistryEntry):
         hop.exception_cannot_occur()
         return hop.inputconst(lltype.Bool, hop.s_result.const)
 
+
+class StmGCGetOriginalCopy(ExtRegistryEntry):
+    _about_ = stm_get_original_copy
+
+    def compute_result_annotation(self, s_obj):
+        from rpython.annotator import model as annmodel
+        return annmodel.SomePtr(llmemory.GCREF)
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        return hop.genop('gc_get_original_copy', hop.args_v, 
+                         resulttype=hop.r_result)
+
+        
 def can_move(p):
     """Check if the GC object 'p' is at an address that can move.
     Must not be called with None.  With non-moving GCs, it is always False.
@@ -108,9 +128,7 @@ def _make_sure_does_not_move(p):
         i += 1
 
     if stm_is_enabled():
-        from rpython.memory.gc.stmgc import StmGC
-        assert isinstance(gc, StmGC)
-        return gc.get_original_object()
+        return stm_get_original_copy(p)
     else:
         return p
 

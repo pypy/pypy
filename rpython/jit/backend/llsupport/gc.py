@@ -107,9 +107,12 @@ class GcLLDescription(GcCache):
                 gcrefs_output_list.append(new_p)
                 
         if op.is_guard() or op.getopnum() == rop.FINISH:
-            llref = cast_instance_to_gcref(op.getdescr())
+            # the only ops with descrs that get recorded in a trace
+            from rpython.jit.metainterp.history import AbstractDescr
+            descr = op.getdescr()
+            llref = cast_instance_to_gcref(descr)
             new_llref = rgc._make_sure_does_not_move(llref)
-            new_d = rgc.try_cast_gcref_to_instance(llref.__class__, new_llref)
+            new_d = rgc.try_cast_gcref_to_instance(AbstractDescr, new_llref)
             op.setdescr(new_d)
             gcrefs_output_list.append(new_llref)
 
@@ -298,7 +301,7 @@ class BarrierDescr(AbstractDescr):
         self.returns_modified_object = False
         self.gcheaderbuilder = gc_ll_descr.gcheaderbuilder
         self.HDRPTR = gc_ll_descr.HDRPTR
-        self.b_slowpath = [0, 0, 0, 0]
+        self.b_slowpath = [0, 0, 0, 0, 0]
 
     def repr_of_descr(self):
         raise NotImplementedError

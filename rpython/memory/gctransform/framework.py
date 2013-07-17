@@ -314,6 +314,13 @@ class BaseFrameworkGCTransformer(GCTransformer):
         self.can_move_ptr = getfn(GCClass.can_move.im_func,
                                   [s_gc, annmodel.SomeAddress()],
                                   annmodel.SomeBool())
+        if hasattr(GCClass, 'get_original_copy'):
+            self.get_original_copy_ptr = getfn(
+                GCClass.get_original_copy.im_func,
+                [s_gc, annmodel.SomePtr(llmemory.GCREF)],
+                annmodel.SomePtr(llmemory.GCREF))
+        else:
+            self.get_original_copy_ptr = None
 
         if hasattr(GCClass, 'shrink_array'):
             self.shrink_array_ptr = getfn(
@@ -742,6 +749,16 @@ class BaseFrameworkGCTransformer(GCTransformer):
         v_addr = hop.genop('cast_ptr_to_adr',
                            [op.args[0]], resulttype=llmemory.Address)
         hop.genop("direct_call", [self.can_move_ptr, self.c_const_gc, v_addr],
+                  resultvar=op.result)
+
+    def gct_gc_get_original_copy(self, hop):
+        if self.get_original_copy_ptr is None:
+            raise Exception("unreachable code")
+        op = hop.spaceop
+        v_addr = hop.genop('cast_ptr_to_adr',
+                           [op.args[0]], resulttype=llmemory.Address)
+        hop.genop("direct_call", [self.get_original_copy_ptr,
+                                  self.c_const_gc, v_addr],
                   resultvar=op.result)
 
     def gct_shrink_array(self, hop):

@@ -65,21 +65,25 @@ class StmGC(MovingGCBase):
         return llop.stm_get_tid(llgroup.HALFWORD, obj)
 
     def get_hdr_tid(self, addr):
-        return llmemory.cast_adr_to_int(addr + self.H_TID)
+        return llmemory.cast_adr_to_ptr(addr + self.H_TID, rffi.SIGNEDP)
 
     def get_hdr_revision(self, addr):
-        return llmemory.cast_adr_to_int(addr + self.H_REVISION)
-        
-    def get_hdr_original(self, addr):
-        return llmemory.cast_adr_to_int(addr + self.H_ORIGINAL)
+        return llmemory.cast_adr_to_ptr(addr + self.H_REVISION, rffi.SIGNEDP)
 
-    def get_original_object(self, obj):
-        if bool(self.get_hdr_tid(obj) & GCFLAG_PREBUILT_ORIGINAL):
+    def get_hdr_original(self, addr):
+        return llmemory.cast_adr_to_ptr(addr + self.H_ORIGINAL, rffi.SIGNEDP)
+
+    def get_original_copy(self, obj):
+        addr = llmemory.cast_ptr_to_adr(obj)
+        if bool(self.get_hdr_tid(addr)[0] & GCFLAG_PREBUILT_ORIGINAL):
             return obj
-        orig = self.get_hdr_original(obj)
+        #
+        orig = self.get_hdr_original(addr)[0]
         if orig == 0:
             return obj
-        return llmemory.cast_int_to_adr(orig)
+        #
+        return  llmemory.cast_adr_to_ptr(llmemory.cast_int_to_adr(orig), 
+                                         llmemory.GCREF)
         
     def init_gc_object_immortal(self, addr, typeid16, flags=0):
         assert flags == 0
@@ -117,7 +121,7 @@ class StmGC(MovingGCBase):
     def can_move(self, obj):
         """Means the reference will stay valid, except if not
         seen by the GC, then it can get collected."""
-        tid = self.get_hdr_tid(obj)
+        tid = self.get_hdr_tid(obj)[0]
         if bool(tid & GCFLAG_OLD):
             return False
         return True
