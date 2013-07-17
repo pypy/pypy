@@ -40,3 +40,13 @@ class AppTestIntOp:
         assert intop.int_mul(40, -2) == -80
         assert intop.int_mul(-sys.maxint, -sys.maxint) == (
             self.intmask(sys.maxint ** 2))
+
+    def test_int_floordiv(self):
+        import sys
+        from __pypy__ import intop
+        assert intop.int_floordiv(41, 3) == 13
+        assert intop.int_floordiv(41, -3) == -13
+        assert intop.int_floordiv(-41, 3) == -13
+        assert intop.int_floordiv(-41, -3) == 13
+        assert intop.int_floordiv(-sys.maxint, -1) == sys.maxint
+        assert intop.int_floordiv(sys.maxint, -1) == -sys.maxint
