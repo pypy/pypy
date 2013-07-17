@@ -2052,6 +2052,23 @@ def _format_base2_notzero(a, digits, prefix='', suffix=''):
 
 _FORMAT_MINDIGITS = 5 # 36 ** 5 fits in 32 bits, there may be a better choice for this
 
+class _PartsCache(object):
+    def __init__(self):
+        # 36 - 3, because bases 0, 1 make no sense
+        # and 2 is handled differently
+        self.parts_cache = [None] * 33
+
+    def get_cached_parts(self, base):
+        res = self.parts_cache[base - 3]
+        if res is None:
+            rbase = rbigint.fromint(base)
+            part = rbase.pow(rbigint.fromint(_FORMAT_MINDIGITS))
+            res = [part]
+            self.parts_cache[base - 3] = res
+        return res
+
+_parts_cache = _PartsCache()
+
 def _format_int(val, digits):
     base = len(digits)
     out = []
@@ -2068,9 +2085,7 @@ def _format_recursive(x, i, output, pts, digits, size_prefix):
     if i < 0:
         # this checks whether any digit has been appended yet
         if output.getlength() == size_prefix:
-            if x.sign == 0:
-                pass
-            else:
+            if x.sign != 0:
                 s = _format_int(x.toint(), digits)
                 output.append(s)
         else:
@@ -2095,21 +2110,33 @@ def _format(x, digits, prefix='', suffix=''):
     rbase = rbigint.fromint(base)
     two = rbigint.fromint(2)
 
-    pts = [rbase.pow(rbigint.fromint(_FORMAT_MINDIGITS))]
+    pts = _parts_cache.get_cached_parts(base)
     stringsize = _FORMAT_MINDIGITS
-    while pts[-1].lt(x):
-        pts.append(pts[-1].pow(two))
-        stringsize *= 2
-    pts.pop() # remove first base**2**i greater than x
+    startindex = 0
+    for startindex, part in enumerate(pts):
+        if not part.lt(x):
+            break
+        stringsize *= 2 # XXX can this overflow on 32 bit?
+    else:
+        # not enough parts computed yet
+        while pts[-1].lt(x):
+            pts.append(pts[-1].pow(two))
+            stringsize *= 2
+
+        startindex = len(pts) - 1
+
+    # remove first base**2**i greater than x
+    startindex -= 1
 
     output = StringBuilder(stringsize)
     if negative:
         output.append('-')
     output.append(prefix)
-    _format_recursive(x, len(pts)-1, output, pts, digits, output.getlength())
+    _format_recursive(x, startindex, output, pts, digits, output.getlength())
 
     output.append(suffix)
     return output.build()
+
 
 def _bitwise(a, op, b): # '&', '|', '^'
     """ Bitwise and/or/xor operations """
