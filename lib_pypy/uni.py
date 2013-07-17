@@ -37,10 +37,6 @@ class Predicate(object):
             it = self.engine.engine.query_iter(t, vs)
             return SolutionIterator2(it, vs)
         else:
-            print(args)
-            print(vs)
-            print(self.name)
-            print(term_args)
             sol = self.engine.engine.query_single(t, vs)
             return tuple([ sol[v] for v in vs ])
     
