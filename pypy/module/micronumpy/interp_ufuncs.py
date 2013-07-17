@@ -539,7 +539,7 @@ def find_dtype_for_scalar(space, w_obj, current_guess=None):
     if current_guess is complex_type:
         return complex_type
     if space.isinstance_w(w_obj, space.w_float):
-        return interp_dtype.get_dtype_cache(space).w_float64dtype
+        return float_type
     elif space.isinstance_w(w_obj, space.w_slice):
         return long_dtype
     raise operationerrfmt(space.w_NotImplementedError,
