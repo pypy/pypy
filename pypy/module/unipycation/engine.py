@@ -4,7 +4,6 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError
 
 import prolog.interpreter.continuation as pcont
-import prolog.interpreter.term as pterm
 import prolog.interpreter.error as perr
 import prolog.interpreter.parsing as ppars
 
