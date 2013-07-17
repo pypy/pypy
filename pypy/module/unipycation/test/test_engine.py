@@ -171,3 +171,11 @@ class AppTestEngine(object):
         e = unipycation.Engine("eat(cheese, bread). eat(egg, salad).")
         t = unipycation.Term('eat', ['cheese', 'bread'])
         raises(TypeError, lambda : e.query_single(t, [t]))
+
+    def test_type_error_passed_up(self):
+        import unipycation
+
+        e = unipycation.Engine("test(X) :- X is sqrt(9).")
+        X = unipycation.Var()
+        t = unipycation.Term('test', [X])
+        raises(TypeError, lambda : e.query_single(t, [X]))
