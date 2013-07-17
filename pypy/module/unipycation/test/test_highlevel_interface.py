@@ -15,21 +15,21 @@ class AppTestHighLevelInterface(object):
         e = uni.Engine2("f(1, 2, 4, 8).")
         assert e.db.f(1, None, 4, None) == (2, 8)
 
-    # XXX uncaughterror, fails outside of unipycation too.
-    # >?- sqrt(9, X1, X2).
-    # ERROR: Type error: 'evaluable' expected, found 'sqrt/1'
-    #
-    # The use of 'is' is incorrect. 'is' is for arithmetic, not
-    # unification. We should not fail in this horrible way however.
-    def test_many_outvars(self):
+    def test_tautology(self):
         import uni
-        e = uni.Engine2("""
-            sqrt(X, Sol1, Sol2) :-
-                Sol1 is sqrt(X), Sol2 is -Sol1.
-        """)
-        x, y = e.db.sqrt(4, None, None)
-        assert x == 2
-        assert y == -2
+
+        e = uni.Engine2("f(1).")
+        sol = e.db.f(1)
+        print("YYY")
+        print(sol)
+
+    def test_contradiction(self):
+        import uni
+
+        e = uni.Engine2("f(1).")
+        sol = e.db.f(2)
+        print("XXX")
+        print(sol)
 
     def test_many_solutions1(self):
         import uni
@@ -43,36 +43,15 @@ class AppTestHighLevelInterface(object):
 
     # Test UndefinedGoal XXX
 
-    # XXX uncaught exception, same as above probably.
-    def test_many_solutions2(self):
-        import uni
-        e = uni.Engine2("""
-            sqrt(X, Y) :-
-                Sol1 is sqrt(X), Sol2 is -Sol1, (Y = Sol1; Y = Sol2).
-        """)
-        e.db.sqrt.many_solutions = True
-        for (x, ) in e.db.sqrt(4, None):
-            assert x ** 2 == 4
-
-    # XXX This shows that the new interface is insufficient XXX
-    # ConversionError: Don't know how to convert wrapped <W_NoneObject()> to prolog type
-    def test_deep_vars(self):
-        import uni
-
-        e = uni.Engine2("f(1, g(2, 3)).")
-        sol = e.db.f(None, uni.Term("g", [2, None]))
-
-        assert sol == (1, 3)
-
     # XXX this wont work, as lists are not yet converted
-    def _test_append(self):
+    def test_append(self):
         import uni
 
         e = uni.Engine2("app([], X, X). app([H | T1], T2, [H | T3]).")
         assert e.db.app([1, 2, 3, 4], [7, 8, 9], None) == [1, 2, 3, 4, 7, 8, 9]
 
     # XXX this wont work, as lists are not yet converted
-    def _test_append_nondet(self):
+    def test_append_nondet(self):
         import uni
 
         e = uni.Engine2("app([], X, X). app([H | T1], T2, [H | T3]).")
@@ -81,7 +60,7 @@ class AppTestHighLevelInterface(object):
             assert x + y == [1, 2, 3, 4, 5]
 
     # XXX this wont work, as lists are not yet converted
-    def _test_reverse(self):
+    def test_reverse(self):
         import uni
         e = uni.Engine2("""
             rev(X, Y) :- rev_helper(X, [], Y).
