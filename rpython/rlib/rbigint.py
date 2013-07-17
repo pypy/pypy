@@ -454,11 +454,19 @@ class rbigint(object):
 
     @jit.elidable
     def repr(self):
-        return self.format(BASE10, suffix="L")
+        try:
+            x = self.toint()
+        except OverflowError:
+            return self.format(BASE10, suffix="L")
+        return str(x) + "L"
 
     @jit.elidable
     def str(self):
-        return self.format(BASE10)
+        try:
+            x = self.toint()
+        except OverflowError:
+            return self.format(BASE10)
+        return str(x)
 
     @jit.elidable
     def eq(self, other):
