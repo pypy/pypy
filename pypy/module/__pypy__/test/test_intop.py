@@ -60,3 +60,37 @@ class AppTestIntOp:
         assert intop.int_mod(-41, -3) == -2
         assert intop.int_mod(-sys.maxint, -1) == 0
         assert intop.int_mod(sys.maxint, -1) == 0
+
+    def test_int_lshift(self):
+        import sys
+        from __pypy__ import intop
+        if sys.maxint == 2**31-1:
+            bits = 32
+        else:
+            bits = 64
+        assert intop.int_lshift(42, 3) == 42 << 3
+        assert intop.int_lshift(0, 3333) == 0
+        assert intop.int_lshift(1, bits-2) == 1 << (bits-2)
+        assert intop.int_lshift(1, bits-1) == -sys.maxint-1 == (-1) << (bits-1)
+        assert intop.int_lshift(-1, bits-2) == (-1) << (bits-2)
+        assert intop.int_lshift(-1, bits-1) == -sys.maxint-1
+        assert intop.int_lshift(sys.maxint // 3, 2) == (
+            self.intmask((sys.maxint // 3) << 2))
+        assert intop.int_lshift(-sys.maxint // 3, 2) == (
+            self.intmask((-sys.maxint // 3) << 2))
+
+    def test_uint_rshift(self):
+        import sys
+        from __pypy__ import intop
+        if sys.maxint == 2**31-1:
+            bits = 32
+        else:
+            bits = 64
+        N = 1 << bits
+        assert intop.uint_rshift(42, 3) == 42 >> 3
+        assert intop.uint_rshift(-42, 3) == (N-42) >> 3
+        assert intop.uint_rshift(0, 3333) == 0
+        assert intop.uint_rshift(-1, 0) == -1
+        assert intop.uint_rshift(-1, 1) == sys.maxint
+        assert intop.uint_rshift(-1, bits-2) == 3
+        assert intop.uint_rshift(-1, bits-1) == 1
