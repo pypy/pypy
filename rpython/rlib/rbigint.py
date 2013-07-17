@@ -2091,7 +2091,7 @@ class _PartsCache(object):
 
 _parts_cache = _PartsCache()
 
-def _format_int(val, digits):
+def _format_int_general(val, digits):
     base = len(digits)
     out = []
     while val:
@@ -2100,8 +2100,11 @@ def _format_int(val, digits):
     out.reverse()
     return "".join(out)
 
+def _format_int10(val, digits):
+    return str(val)
 
-def _format_recursive(x, i, output, pts, digits, size_prefix, mindigits):
+@specialize.arg(7)
+def _format_recursive(x, i, output, pts, digits, size_prefix, mindigits, _format_int):
     # bottomed out with min_digit sized pieces
     # use str of ints
     if i < 0:
@@ -2116,8 +2119,8 @@ def _format_recursive(x, i, output, pts, digits, size_prefix, mindigits):
             output.append(s)
     else:
         top, bot = x.divmod(pts[i]) # split the number
-        _format_recursive(top, i-1, output, pts, digits, size_prefix, mindigits)
-        _format_recursive(bot, i-1, output, pts, digits, size_prefix, mindigits)
+        _format_recursive(top, i-1, output, pts, digits, size_prefix, mindigits, _format_int)
+        _format_recursive(bot, i-1, output, pts, digits, size_prefix, mindigits, _format_int)
 
 def _format(x, digits, prefix='', suffix=''):
     if x.sign == 0:
@@ -2155,7 +2158,14 @@ def _format(x, digits, prefix='', suffix=''):
     if negative:
         output.append('-')
     output.append(prefix)
-    _format_recursive(x, startindex, output, pts, digits, output.getlength(), mindigits)
+    if digits == BASE10:
+        _format_recursive(
+            x, startindex, output, pts, digits, output.getlength(), mindigits,
+            _format_int10)
+    else:
+        _format_recursive(
+            x, startindex, output, pts, digits, output.getlength(), mindigits,
+            _format_int_general)
 
     output.append(suffix)
     return output.build()
