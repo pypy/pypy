@@ -56,6 +56,7 @@ class X86_64_RegisterManager(X86RegisterManager):
 
     no_lower_byte_regs = []
     save_around_call_regs = [eax, ecx, edx, esi, edi, r8, r9, r10]
+    register_arguments = [edi, esi, edx, ecx]
 
 class X86XMMRegisterManager(RegisterManager):
 
@@ -800,9 +801,13 @@ class RegAlloc(BaseRegalloc):
     def consider_cond_call(self, op):
         assert op.result is None
         args = op.getarglist()
-        assert len(args) == 1 + 2
-        self.make_sure_var_in_reg(args[2], selected_reg=edi)
+        assert 2 <= len(args) <= 4 + 2
         loc_call = self.make_sure_var_in_reg(args[1], args, selected_reg=eax)
+        args_so_far = [args[1]]
+        for i in range(2, len(args)):
+            reg = self.rm.register_arguments[i - 2]
+            self.make_sure_var_in_reg(args[i], args_so_far, selected_reg=reg)
+            args_so_far.append(args[i])
         loc_cond = self.make_sure_var_in_reg(args[0], args)
         self.assembler.cond_call(op, self.get_gcmap(), loc_cond, loc_call,
                                  [edi])
