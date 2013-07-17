@@ -2060,20 +2060,34 @@ def _format_base2_notzero(a, digits, prefix='', suffix=''):
 
 _FORMAT_MINDIGITS = 5 # 36 ** 5 fits in 32 bits, there may be a better choice for this
 
+
 class _PartsCache(object):
     def __init__(self):
         # 36 - 3, because bases 0, 1 make no sense
         # and 2 is handled differently
-        self.parts_cache = [None] * 33
+        self.parts_cache = [None] * 34
+        self.mindigits = [0] * 34
+
+        for i in range(34):
+            base = i + 3
+            mindigits = 1
+            while base ** mindigits < sys.maxint:
+                mindigits += 1
+            mindigits -= 1
+            self.mindigits[i] = mindigits
 
     def get_cached_parts(self, base):
-        res = self.parts_cache[base - 3]
+        index = base - 3
+        res = self.parts_cache[index]
         if res is None:
             rbase = rbigint.fromint(base)
-            part = rbase.pow(rbigint.fromint(_FORMAT_MINDIGITS))
+            part = rbase.pow(rbigint.fromint(self.mindigits[index]))
             res = [part]
             self.parts_cache[base - 3] = res
         return res
+
+    def get_mindigits(self, base):
+        return self.mindigits[base - 3]
 
 _parts_cache = _PartsCache()
 
@@ -2087,7 +2101,7 @@ def _format_int(val, digits):
     return "".join(out)
 
 
-def _format_recursive(x, i, output, pts, digits, size_prefix):
+def _format_recursive(x, i, output, pts, digits, size_prefix, mindigits):
     # bottomed out with min_digit sized pieces
     # use str of ints
     if i < 0:
@@ -2098,12 +2112,12 @@ def _format_recursive(x, i, output, pts, digits, size_prefix):
                 output.append(s)
         else:
             s = _format_int(x.toint(), digits)
-            output.append_multiple_char(digits[0], _FORMAT_MINDIGITS - len(s))
+            output.append_multiple_char(digits[0], mindigits - len(s))
             output.append(s)
     else:
         top, bot = x.divmod(pts[i]) # split the number
-        _format_recursive(top, i-1, output, pts, digits, size_prefix)
-        _format_recursive(bot, i-1, output, pts, digits, size_prefix)
+        _format_recursive(top, i-1, output, pts, digits, size_prefix, mindigits)
+        _format_recursive(bot, i-1, output, pts, digits, size_prefix, mindigits)
 
 def _format(x, digits, prefix='', suffix=''):
     if x.sign == 0:
@@ -2119,7 +2133,8 @@ def _format(x, digits, prefix='', suffix=''):
     two = rbigint.fromint(2)
 
     pts = _parts_cache.get_cached_parts(base)
-    stringsize = _FORMAT_MINDIGITS
+    mindigits = _parts_cache.get_mindigits(base)
+    stringsize = mindigits
     startindex = 0
     for startindex, part in enumerate(pts):
         if not part.lt(x):
@@ -2140,7 +2155,7 @@ def _format(x, digits, prefix='', suffix=''):
     if negative:
         output.append('-')
     output.append(prefix)
-    _format_recursive(x, startindex, output, pts, digits, output.getlength())
+    _format_recursive(x, startindex, output, pts, digits, output.getlength(), mindigits)
 
     output.append(suffix)
     return output.build()
