@@ -79,11 +79,13 @@ class GcRewriterAssembler(object):
             if op.getopnum() == rop.CALL_ASSEMBLER:
                 self.handle_call_assembler(op)
                 continue
-            if op.getopnum() == rop.CALL:
-                idx = op.getdescr().get_extra_info().oopspecindex
-                if idx == EffectInfo.OS_LIST_RESIZE_GE:
-                    self.handle_list_resize_ge(op)
-                    continue
+            if op.getopnum() == rop.CALL and op.getdescr():
+                ei = op.getdescr().get_extra_info()
+                if ei:
+                    idx = ei.oopspecindex
+                    if idx == EffectInfo.OS_LIST_RESIZE_GE:
+                        self.handle_list_resize_ge(op)
+                        continue
             #
             self.newops.append(op)
         return self.newops
@@ -140,7 +142,7 @@ class GcRewriterAssembler(object):
         op0 = ResOperation(rop.GETFIELD_GC, [lst], arrbox, descr=itemsdescr)
         op1 = ResOperation(rop.ARRAYLEN_GC, [arrbox], arrlenbox,
                            descr=arraydescr)
-        op2 = ResOperation(rop.INT_LT, [arrlenbox, newsizebox], cond_box)
+        op2 = ResOperation(rop.INT_GE, [arrlenbox, newsizebox], cond_box)
         op3 = ResOperation(rop.COND_CALL, [cond_box, func, lst, newsizebox],
                            None, descr=op.getdescr())
         self.newops += [op0, op1, op2, op3]

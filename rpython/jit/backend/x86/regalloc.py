@@ -802,7 +802,7 @@ class RegAlloc(BaseRegalloc):
         assert op.result is None
         args = op.getarglist()
         assert 2 <= len(args) <= 4 + 2
-        loc_call = self.make_sure_var_in_reg(args[1], args, selected_reg=eax)
+        loc_call = self.make_sure_var_in_reg(args[1], [], selected_reg=eax)
         args_so_far = [args[1]]
         for i in range(2, len(args)):
             reg = self.rm.register_arguments[i - 2]
