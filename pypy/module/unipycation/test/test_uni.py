@@ -73,7 +73,10 @@ class AppTestHighLevelInterface(object):
     def test_append(self):
         import uni
 
-        e = uni.Engine("app([], X, X). app([H | T1], T2, [H | T3]).")
+        e = uni.Engine("""
+            app([], X, X).
+            app([H | T1], T2, [H | T3]) :- app(T1, T2, T3).
+        """)
         assert e.db.app([1, 2, 3, 4], [7, 8, 9], None) == [1, 2, 3, 4, 7, 8, 9]
 
     # XXX this wont work, as lists are not yet converted
