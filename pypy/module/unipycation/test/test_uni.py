@@ -1,6 +1,7 @@
 import pytest
 
 class AppTestHighLevelInterface(object):
+    """ Tests the Highlevel uni.py API sugar """
     spaceconfig = dict(usemodules=('unipycation', ))
 
     def test_basic(self):
@@ -38,6 +39,12 @@ class AppTestHighLevelInterface(object):
         for (x, ) in e.db.f(None):
             assert x == expect
             expect += 1
+
+    def test_term_getattrs(self):
+        import uni
+
+        e = uni.Engine("f(1,2,3).")
+        assert e.terms.f(1, 2, 3) == uni.Term("f", [1, 2, 3])
 
     # Test UndefinedGoal XXX
 
