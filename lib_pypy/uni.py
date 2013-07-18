@@ -57,11 +57,30 @@ class Database(object):
         setattr(self, name, pred)
         return pred
 
+
+def build_prolog_list(elems):
+    if len(elems) == 0:
+        return "[]"
+    else:
+        return Term(".", [ elems[0], build_prolog_list(elems[1:]) ])
+
 class TermPool(object):
     """ Represents the term pool, some magic to make term creation prettier """
 
+    @staticmethod
+    def _magic_convert(name, args):
+        """ For now this is where python lists become cons chains """
+
+        new_args = []
+        for a in args:
+            if isinstance(a, list):
+                new_args.append(build_prolog_list(a))
+            else:
+                new_args.append(a)
+
+        return Term(name, new_args)
+
     def __getattr__(self, name):
-        ctor = lambda *args : Term(name, args)
-        setattr(self, name, ctor)
-        return ctor
+        # Note that we cant memoise these due to the args being variable
+        return lambda *args : TermPool._magic_convert(name, args)
 

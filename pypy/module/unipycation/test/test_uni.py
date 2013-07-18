@@ -56,6 +56,16 @@ class AppTestHighLevelInterface(object):
 
         assert t == uni.Term("f", [1, 2, uni.Term("g", [666, 667, 668])])
 
+    def test_term_getattrs_listconv(self):
+        import uni
+
+        e = uni.Engine("f(1,2,3).")
+        t = e.terms.f([212, 313, 414])
+
+        expect = uni.Term("f",[uni.Term(".", [212,
+            uni.Term(".", [313, uni.Term(".", [ 414, "[]"])])])])
+        assert t == expect
+
     # Test UndefinedGoal XXX
 
     # XXX this wont work, as lists are not yet converted
