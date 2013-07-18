@@ -1219,6 +1219,54 @@ def test_a_lot_of_callbacks():
     for i, f in enumerate(flist):
         assert f(-142) == -142 + i
 
+def test_callback_receiving_tiny_struct():
+    BSChar = new_primitive_type("signed char")
+    BInt = new_primitive_type("int")
+    BStruct = new_struct_type("struct foo")
+    BStructPtr = new_pointer_type(BStruct)
+    complete_struct_or_union(BStruct, [('a', BSChar, -1),
+                                       ('b', BSChar, -1)])
+    def cb(s):
+        return s.a + 10 * s.b
+    BFunc = new_function_type((BStruct,), BInt)
+    f = callback(BFunc, cb)
+    p = newp(BStructPtr, [-2, -4])
+    n = f(p[0])
+    assert n == -42
+
+def test_callback_returning_tiny_struct():
+    BSChar = new_primitive_type("signed char")
+    BInt = new_primitive_type("int")
+    BStruct = new_struct_type("struct foo")
+    BStructPtr = new_pointer_type(BStruct)
+    complete_struct_or_union(BStruct, [('a', BSChar, -1),
+                                       ('b', BSChar, -1)])
+    def cb(n):
+        return newp(BStructPtr, [-n, -3*n])[0]
+    BFunc = new_function_type((BInt,), BStruct)
+    f = callback(BFunc, cb)
+    s = f(10)
+    assert typeof(s) is BStruct
+    assert repr(s) == "<cdata 'struct foo' owning 2 bytes>"
+    assert s.a == -10
+    assert s.b == -30
+
+def test_callback_receiving_struct():
+    BSChar = new_primitive_type("signed char")
+    BInt = new_primitive_type("int")
+    BDouble = new_primitive_type("double")
+    BStruct = new_struct_type("struct foo")
+    BStructPtr = new_pointer_type(BStruct)
+    complete_struct_or_union(BStruct, [('a', BSChar, -1),
+                                       ('b', BDouble, -1)])
+    def cb(s):
+        return s.a + int(s.b)
+    BFunc = new_function_type((BStruct,), BInt)
+    f = callback(BFunc, cb)
+    p = newp(BStructPtr, [-2, 44.444])
+    n = f(p[0])
+    assert n == 42
+
 def test_callback_returning_struct():
     BSChar = new_primitive_type("signed char")
     BInt = new_primitive_type("int")
@@ -1237,6 +1285,30 @@ def test_callback_returning_struct():
                        "<cdata 'struct foo' owning 16 bytes>"]
     assert s.a == -10
     assert s.b == 1E-42
+
+def test_callback_receiving_big_struct():
+    BInt = new_primitive_type("int")
+    BStruct = new_struct_type("struct foo")
+    BStructPtr = new_pointer_type(BStruct)
+    complete_struct_or_union(BStruct, [('a', BInt, -1),
+                                       ('b', BInt, -1),
+                                       ('c', BInt, -1),
+                                       ('d', BInt, -1),
+                                       ('e', BInt, -1),
+                                       ('f', BInt, -1),
+                                       ('g', BInt, -1),
+                                       ('h', BInt, -1),
+                                       ('i', BInt, -1),
+                                       ('j', BInt, -1)])
+    def cb(s):
+        for i, name in enumerate("abcdefghij"):
+            assert getattr(s, name) == 13 - i
+        return 42
+    BFunc = new_function_type((BStruct,), BInt)
+    f = callback(BFunc, cb)
+    p = newp(BStructPtr, list(range(13, 3, -1)))
+    n = f(p[0])
+    assert n == 42
 
 def test_callback_returning_big_struct():
     BInt = new_primitive_type("int")
