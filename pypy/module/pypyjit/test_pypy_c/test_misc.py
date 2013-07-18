@@ -411,6 +411,8 @@ class TestMisc(BaseTestPyPyC):
 
     def test_explicit_loop_unrolling(self):
         def main(n):
+            from __pypy__ import unroll_loop
+
             class A(object):
                 def __init__(self):
                     self.a = 0
@@ -419,7 +421,7 @@ class TestMisc(BaseTestPyPyC):
             i = 0
             while i < n:
                 a = A()
-                for attr in ["a", "b"]:
+                for attr in unroll_loop(["a", "b"]):
                     setattr(a, attr, getattr(a, attr) + 1)
                 i += a.b
 
