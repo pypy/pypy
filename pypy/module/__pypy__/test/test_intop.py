@@ -79,6 +79,14 @@ class AppTestIntOp:
         assert intop.int_lshift(-sys.maxint // 3, 2) == (
             self.intmask((-sys.maxint // 3) << 2))
 
+    def test_int_rshift(self):
+        from __pypy__ import intop
+        assert intop.int_rshift(42, 3) == 42 >> 3
+        assert intop.int_rshift(-42, 3) == (-42) >> 3
+        assert intop.int_rshift(0, 3333) == 0
+        assert intop.int_rshift(-1, 0) == -1
+        assert intop.int_rshift(-1, 1) == -1
+
     def test_uint_rshift(self):
         import sys
         from __pypy__ import intop
