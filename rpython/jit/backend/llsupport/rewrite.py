@@ -1,7 +1,7 @@
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rtyper.lltypesystem import llmemory
 from rpython.jit.metainterp import history
-from rpython.jit.metainterp.history import ConstInt, BoxPtr, ConstPtr
+from rpython.jit.metainterp.history import ConstInt, BoxPtr, ConstPtr, BoxInt
 from rpython.jit.metainterp.resoperation import ResOperation, rop
 from rpython.jit.codewriter import heaptracker
 from rpython.jit.codewriter.effectinfo import EffectInfo
@@ -128,7 +128,22 @@ class GcRewriterAssembler(object):
         """ what we want to do is to check the length and than add a conditional
         call to really resize
         """
-        xxx
+        extra_info = op.getdescr().get_extra_info()
+        itemsdescr = extra_info.extra_descrs[0]
+        arraydescr = extra_info.extra_descrs[1]
+        func = op.getarg(0)
+        lst = op.getarg(1)
+        newsizebox = op.getarg(2)
+        arrbox = BoxPtr()
+        arrlenbox = BoxInt()
+        cond_box = BoxInt()
+        op0 = ResOperation(rop.GETFIELD_GC, [lst], arrbox, descr=itemsdescr)
+        op1 = ResOperation(rop.ARRAYLEN_GC, [arrbox], arrlenbox,
+                           descr=arraydescr)
+        op2 = ResOperation(rop.INT_LT, [arrlenbox, newsizebox], cond_box)
+        op3 = ResOperation(rop.COND_CALL, [cond_box, func, lst, newsizebox],
+                           None, descr=op.getdescr())
+        self.newops += [op0, op1, op2, op3]
 
     def handle_new_array(self, arraydescr, op, kind=FLAG_ARRAY):
         v_length = op.getarg(0)

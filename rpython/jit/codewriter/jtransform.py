@@ -1621,10 +1621,10 @@ class Transformer(object):
     def do_resizable_list__resize_ge(self, op, args, *descrs):
         index = EffectInfo.OS_LIST_RESIZE_GE
         LIST = args[0].concretetype.TO
-        lengthdescr = self.cpu.fielddescrof(LIST, 'length')
+        itemsdescr = self.cpu.fielddescrof(LIST, 'items')
         arraydescr = self.cpu.arraydescrof(LIST.items.TO)
         return self.handle_residual_call(op, oopspecindex=index,
-                                         extradescrs=[lengthdescr, arraydescr])
+                                         extradescrs=[itemsdescr, arraydescr])
 
     # ----------
     # Strings and Unicodes.
