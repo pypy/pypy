@@ -5,6 +5,7 @@ class Engine(object):
     def __init__(self, db_str):
         self.engine = CoreEngine(db_str)
         self.db = Database(self)
+        self.terms = TermPool()
         self.many_solutions = False
 
 class SolutionIterator(object):
@@ -55,3 +56,12 @@ class Database(object):
         pred = Predicate(self.engine, name)
         setattr(self, name, pred)
         return pred
+
+class TermPool(object):
+    """ Represents the term pool, some magic to make term creation prettier """
+
+    def __getattr__(self, name):
+        ctor = lambda *args : Term(name, args)
+        setattr(self, name, ctor)
+        return ctor
+
