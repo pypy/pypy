@@ -1204,7 +1204,7 @@ class MIFrame(object):
                                                    CIF_DESCRIPTION_P)
 
         kind, descr, itemsize = get_arg_descr(self.metainterp.cpu, cif_description.rtype)
-        
+
         if kind != 'v':
             ofs = cif_description.exchange_result
             assert ofs % itemsize == 0     # alignment check (result)
