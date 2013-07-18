@@ -773,3 +773,6 @@ class TestFramework(RewriteTests):
         setarrayitem_gc(p1, 1, f0, descr=floatframedescr)
         i3 = call_assembler(p1, descr=casmdescr)
         """)
+
+    def test_rewrite_list_resize_ge(self):
+        pass

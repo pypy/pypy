@@ -85,10 +85,14 @@ class EffectInfo(object):
 
     OS_JIT_FORCE_VIRTUAL        = 120
 
+    OS_LIST_RESIZE_GE           = 130
+    OS_LIST_RESIZE_LE           = 130
+
     # for debugging:
     _OS_CANRAISE = set([
         OS_NONE, OS_STR2UNICODE, OS_LIBFFI_CALL, OS_RAW_MALLOC_VARSIZE_CHAR,
-        OS_JIT_FORCE_VIRTUAL, OS_SHRINK_ARRAY,
+        OS_JIT_FORCE_VIRTUAL, OS_SHRINK_ARRAY, OS_LIST_RESIZE_GE,
+        OS_LIST_RESIZE_LE,
     ])
 
     def __new__(cls, readonly_descrs_fields, readonly_descrs_arrays,

@@ -359,11 +359,12 @@ class Transformer(object):
         else: raise AssertionError(kind)
         lst.append(v)
 
-    def handle_residual_call(self, op, extraargs=[], may_call_jitcodes=False):
+    def handle_residual_call(self, op, extraargs=[], may_call_jitcodes=False,
+                             oopspecindex=EffectInfo.OS_NONE):
         """A direct_call turns into the operation 'residual_call_xxx' if it
         is calling a function that we don't want to JIT.  The initial args
         of 'residual_call_xxx' are the function to call, and its calldescr."""
-        calldescr = self.callcontrol.getcalldescr(op)
+        calldescr = self.callcontrol.getcalldescr(op, oopspecindex=oopspecindex)
         op1 = self.rewrite_call(op, 'residual_call',
                                 [op.args[0]] + extraargs, calldescr=calldescr)
         if may_call_jitcodes or self.callcontrol.calldescr_canraise(calldescr):
@@ -1615,6 +1616,15 @@ class Transformer(object):
         return []
     do_resizable_void_list_getitem_foldable = do_resizable_void_list_getitem
     do_resizable_void_list_setitem = do_resizable_void_list_getitem
+
+    def do_resizable_list__resize_ge(self, op, args, *descrs):
+        index = EffectInfo.OS_LIST_RESIZE_GE
+        op1 = self.handle_residual_call(op, oopspecindex=index)[0]
+        LIST = args[0].concretetype.TO
+        lengthdescr = self.cpu.fielddescrof(LIST, 'length')
+        arraydescr = self.cpu.arraydescrof(LIST.items.TO)
+        op1.args += [lengthdescr, arraydescr]
+        return [op1, SpaceOperation('-live-', [], None)]
 
     # ----------
     # Strings and Unicodes.

@@ -1,9 +1,10 @@
 from rpython.rlib.rarithmetic import ovfcheck
-from rpython.rtyper.lltypesystem import lltype, llmemory
+from rpython.rtyper.lltypesystem import llmemory
 from rpython.jit.metainterp import history
 from rpython.jit.metainterp.history import ConstInt, BoxPtr, ConstPtr
 from rpython.jit.metainterp.resoperation import ResOperation, rop
 from rpython.jit.codewriter import heaptracker
+from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.backend.llsupport.symbolic import WORD
 from rpython.jit.backend.llsupport.descr import SizeDescr, ArrayDescr
 from rpython.jit.metainterp.history import JitCellToken
@@ -78,6 +79,11 @@ class GcRewriterAssembler(object):
             if op.getopnum() == rop.CALL_ASSEMBLER:
                 self.handle_call_assembler(op)
                 continue
+            if op.getopnum() == rop.CALL:
+                idx = op.getdescr().get_extra_info().oopspecindex
+                if idx == EffectInfo.OS_LIST_RESIZE_GE:
+                    self.handle_list_resize_ge(op)
+                    continue
             #
             self.newops.append(op)
         return self.newops
@@ -117,6 +123,12 @@ class GcRewriterAssembler(object):
             self.gen_initialize_tid(op.result, descr.tid)
         else:
             self.gen_malloc_fixedsize(size, descr.tid, op.result)
+
+    def handle_list_resize_ge(self, op):
+        """ what we want to do is to check the length and than add a conditional
+        call to really resize
+        """
+        xxx
 
     def handle_new_array(self, arraydescr, op, kind=FLAG_ARRAY):
         v_length = op.getarg(0)
