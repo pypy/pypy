@@ -92,12 +92,13 @@ class RewriteTests(object):
         ARRAY = lltype.GcArray(lltype.Signed)
         LIST = lltype.GcStruct('LIST', ('length', lltype.Signed),
                                ('items', lltype.Ptr(ARRAY)))
+        lendescr = get_field_descr(self.gc_ll_descr, LIST, 'length')
         itemsdescr = get_field_descr(self.gc_ll_descr, LIST, 'items')
         arraydescr = get_array_descr(self.gc_ll_descr, ARRAY)
         extrainfo = EffectInfo(None, None, None, None,
                                extraeffect=EffectInfo.EF_RANDOM_EFFECTS,
                                oopspecindex=EffectInfo.OS_LIST_RESIZE_GE,
-                               extra_descrs=[itemsdescr, arraydescr])
+                               extra_descrs=[lendescr, itemsdescr, arraydescr])
         list_resize_descr = get_call_descr(self.gc_ll_descr,
                                            [lltype.Ptr(LIST), lltype.Signed],
                                            lltype.Void, extrainfo)
@@ -798,6 +799,7 @@ class TestFramework(RewriteTests):
         [p0, i0]
         p1 = getfield_gc(p0, descr=itemsdescr)
         i1 = arraylen_gc(p1, descr=arraydescr)
-        i2 = int_ge(i1, i0)
+        i2 = int_lt(i1, i0)
         cond_call(i2, ConstClass(list_resize_ge), p0, i0, descr=list_resize_descr)
+        setfield_gc(p0, i0, descr=lendescr)
         """)

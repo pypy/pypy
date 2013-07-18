@@ -1622,9 +1622,11 @@ class Transformer(object):
         index = EffectInfo.OS_LIST_RESIZE_GE
         LIST = args[0].concretetype.TO
         itemsdescr = self.cpu.fielddescrof(LIST, 'items')
+        lendescr = self.cpu.fielddescrof(LIST, 'length')
         arraydescr = self.cpu.arraydescrof(LIST.items.TO)
         return self.handle_residual_call(op, oopspecindex=index,
-                                         extradescrs=[itemsdescr, arraydescr])
+                                         extradescrs=[lendescr, itemsdescr,
+                                                      arraydescr])
 
     # ----------
     # Strings and Unicodes.
