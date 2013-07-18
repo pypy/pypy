@@ -428,12 +428,13 @@ class TestMisc(BaseTestPyPyC):
         log = self.run(main, [300])
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
-        label(..., descr=TargetToken(4370600008))
         i48 = int_lt(i43, i30)
         guard_true(i48, descr=...)
         guard_not_invalidated(descr=...)
         p49 = force_token()
+        --TICK--
+        --TICK--
         i50 = int_add(i43, 1)
         --TICK--
-        jump(..., descr=TargetToken(4370600008))
+        jump(..., descr=...)
         """)
