@@ -68,8 +68,6 @@ class AppTestHighLevelInterface(object):
 
     # Test UndefinedGoal XXX
 
-    # XXX this wont work, as lists are not yet converted
-    @pytest.mark.skipif("True")
     def test_append(self):
         import uni
 
@@ -77,7 +75,8 @@ class AppTestHighLevelInterface(object):
             app([], X, X).
             app([H | T1], T2, [H | T3]) :- app(T1, T2, T3).
         """)
-        assert e.db.app([1, 2, 3, 4], [7, 8, 9], None) == [1, 2, 3, 4, 7, 8, 9]
+        res = e.db.app([1, 2, 3, 4], [7, 8, 9], None)
+        assert res == ([1, 2, 3, 4, 7, 8, 9], ) # XXX conversion in the other direction!
 
     # XXX this wont work, as lists are not yet converted
     @pytest.mark.skipif("True")

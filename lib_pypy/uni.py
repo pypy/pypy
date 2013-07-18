@@ -1,5 +1,13 @@
 from unipycation import *
 
+def build_prolog_list(elems):
+    """ Converts a Python list into a cons chain """
+    if len(elems) == 0:
+        return "[]"
+    else:
+        return Term(".", [ elems[0], build_prolog_list(elems[1:]) ])
+
+
 class Engine(object):
     """ A wrapper around unipycation.CoreEngine. """
     def __init__(self, db_str):
@@ -28,9 +36,23 @@ class Predicate(object):
         self.many_solutions = False
         self.name = name
 
+    @staticmethod
+    def _arg_filter(e):
+        if e is None:
+            return Var()
+        elif isinstance(e, list):
+            return build_prolog_list(e)
+        else:
+            return e
+
     def __call__(self, *args):
-        filter = lambda e : Var() if e is None else e
-        term_args = [ filter(e) for e in args ]
+        #var_filter = lambda e : Var() if e is None else e
+        #list_filter = lambda e : build_prolog_list(e) if isinstance(e, list) else e
+
+        #term_args = [ var_filter(e) for e in args ]
+        #term_args = [ list_filter(e) for e in args ]
+        term_args = [ Predicate._arg_filter(e) for e in args ]
+
         vs = [ e for e in term_args if type(e) == Var ]
         t = Term(self.name, term_args)
 
@@ -57,19 +79,12 @@ class Database(object):
         setattr(self, name, pred)
         return pred
 
-
-def build_prolog_list(elems):
-    if len(elems) == 0:
-        return "[]"
-    else:
-        return Term(".", [ elems[0], build_prolog_list(elems[1:]) ])
-
 class TermPool(object):
     """ Represents the term pool, some magic to make term creation prettier """
 
     @staticmethod
     def _magic_convert(name, args):
-        """ For now this is where python lists become cons chains """
+        """ For now this is where pylists become cons chains in term args """
 
         new_args = []
         for a in args:
