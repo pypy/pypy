@@ -2058,8 +2058,6 @@ def _format_base2_notzero(a, digits, prefix='', suffix=''):
                          # hint for the annotator for the slice below)
         return ''.join(result[next_char_index:])
 
-_FORMAT_MINDIGITS = 5 # 36 ** 5 fits in 32 bits, there may be a better choice for this
-
 
 class _PartsCache(object):
     def __init__(self):
