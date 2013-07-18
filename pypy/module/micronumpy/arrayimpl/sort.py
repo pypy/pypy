@@ -20,7 +20,7 @@ INT_SIZE = rffi.sizeof(lltype.Signed)
 def make_sort_function(space, itemtype, comp_type, count=1):
     TP = itemtype.T
     step = rffi.sizeof(TP)
-    
+
     class Repr(object):
         def __init__(self, index_stride_size, stride_size, size, values,
                      indexes, index_start, start):
@@ -71,11 +71,11 @@ def make_sort_function(space, itemtype, comp_type, count=1):
         def __init__(self, index_stride_size, stride_size, size):
             start = 0
             dtype = interp_dtype.get_dtype_cache(space).w_longdtype
-            self.indexes = dtype.itemtype.malloc(size*dtype.get_size())
-            self.values = alloc_raw_storage(size * stride_size, 
+            indexes = dtype.itemtype.malloc(size*dtype.get_size())
+            values = alloc_raw_storage(size * stride_size,
                                             track_allocation=False)
-            Repr.__init__(self, index_stride_size, stride_size, 
-                          size, self.values, self.indexes, start, start)
+            Repr.__init__(self, dtype.get_size(), stride_size,
+                          size, values, indexes, start, start)
 
         def __del__(self):
             free_raw_storage(self.indexes, track_allocation=False)
@@ -96,7 +96,7 @@ def make_sort_function(space, itemtype, comp_type, count=1):
         for i in range(stop-start):
             retval.setitem(i, lst.getitem(i+start))
         return retval
-    
+
     if count < 2:
         def arg_lt(a, b):
             # Does numpy do <= ?
@@ -108,7 +108,7 @@ def make_sort_function(space, itemtype, comp_type, count=1):
                     return True
                 elif a[0][i] > b[0][i]:
                     return False
-            # Does numpy do True?    
+            # Does numpy do True?
             return False
 
     ArgSort = make_timsort_class(arg_getitem, arg_setitem, arg_length,
@@ -180,7 +180,7 @@ all_types = unrolling_iterable(all_types)
 
 class SortCache(object):
     built = False
-    
+
     def __init__(self, space):
         if self.built:
             return

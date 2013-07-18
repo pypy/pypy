@@ -22,7 +22,9 @@ class AppTestIoModule:
         import io
         with io.BufferedIOBase() as f:
             assert not f.closed
+            f._checkClosed()
         assert f.closed
+        raises(ValueError, f._checkClosed)
 
     def test_iter(self):
         import io

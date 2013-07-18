@@ -9,18 +9,19 @@ from rpython.conftest import option
 from rpython.tool.sourcetools import func_with_new_name
 
 from rpython.jit.metainterp.resoperation import ResOperation, rop, get_deep_immutable_oplist
-from rpython.jit.metainterp.history import TreeLoop, Box, JitCellToken, TargetToken
-from rpython.jit.metainterp.history import AbstractFailDescr, BoxInt
-from rpython.jit.metainterp.history import BoxPtr, BoxFloat, ConstInt
-from rpython.jit.metainterp import history, resume, jitexc
+from rpython.jit.metainterp.history import (TreeLoop, Box, JitCellToken,
+    TargetToken, AbstractFailDescr, BoxInt, BoxPtr, BoxFloat, ConstInt)
+from rpython.jit.metainterp import history, jitexc
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.inliner import Inliner
 from rpython.jit.metainterp.resume import NUMBERING, PENDINGFIELDSP, ResumeDataDirectReader
 from rpython.jit.codewriter import heaptracker, longlong
 
+
 def giveup():
     from rpython.jit.metainterp.pyjitpl import SwitchToBlackhole
     raise SwitchToBlackhole(Counters.ABORT_BRIDGE)
+
 
 def show_procedures(metainterp_sd, procedure=None, error=None):
     # debugging
@@ -657,16 +658,20 @@ class ResumeAtPositionDescr(ResumeGuardDescr):
 class AllVirtuals:
     llopaque = True
     cache = None
+
     def __init__(self, cache):
         self.cache = cache
+
     def hide(self, cpu):
         ptr = cpu.ts.cast_instance_to_base_ref(self)
         return cpu.ts.cast_to_ref(ptr)
+
     @staticmethod
     def show(cpu, gcref):
         from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance
         ptr = cpu.ts.cast_to_baseclass(gcref)
         return cast_base_ptr_to_instance(AllVirtuals, ptr)
+
 
 class ResumeGuardForcedDescr(ResumeGuardDescr):
 
@@ -762,9 +767,12 @@ def _see(self, newvalue):
     b = c = -1
     for i in range(1, 5):
         if self.counters[i] > self.counters[a]:
-            c = b; b = a; a = i
+            c = b
+            b = a
+            a = i
         elif b < 0 or self.counters[i] > self.counters[b]:
-            c = b; b = i
+            c = b
+            b = i
         elif c < 0 or self.counters[i] > self.counters[c]:
             c = i
     self.counters[c] = 1
@@ -878,10 +886,14 @@ def compile_tmp_callback(cpu, jitdriver_sd, greenboxes, redargtypes,
     assert len(redargtypes) == nb_red_args
     inputargs = []
     for kind in redargtypes:
-        if   kind == history.INT:   box = BoxInt()
-        elif kind == history.REF:   box = BoxPtr()
-        elif kind == history.FLOAT: box = BoxFloat()
-        else: raise AssertionError
+        if kind == history.INT:
+            box = BoxInt()
+        elif kind == history.REF:
+            box = BoxPtr()
+        elif kind == history.FLOAT:
+            box = BoxFloat()
+        else:
+            raise AssertionError
         inputargs.append(box)
     k = jitdriver_sd.portal_runner_adr
     funcbox = history.ConstInt(heaptracker.adr2int(k))
@@ -909,7 +921,7 @@ def compile_tmp_callback(cpu, jitdriver_sd, greenboxes, redargtypes,
         ResOperation(rop.CALL, callargs, result, descr=jd.portal_calldescr),
         ResOperation(rop.GUARD_NO_EXCEPTION, [], None, descr=faildescr),
         ResOperation(rop.FINISH, finishargs, None, descr=jd.portal_finishtoken)
-        ]
+    ]
     operations[1].setfailargs([])
     operations = get_deep_immutable_oplist(operations)
     cpu.compile_loop(inputargs, operations, jitcell_token, log=False)

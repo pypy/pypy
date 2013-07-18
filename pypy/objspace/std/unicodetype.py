@@ -13,22 +13,6 @@ def wrapunicode(space, uni):
     from pypy.objspace.std.unicodeobject import W_UnicodeObject
     return W_UnicodeObject(uni)
 
-def plain_str2unicode(space, s):
-    try:
-        return unicode(s)
-    except UnicodeDecodeError:
-        for i in range(len(s)):
-            if ord(s[i]) > 127:
-                raise OperationError(
-                    space.w_UnicodeDecodeError,
-                    space.newtuple([
-                    space.wrap('ascii'),
-                    space.wrap(s),
-                    space.wrap(i),
-                    space.wrap(i+1),
-                    space.wrap("ordinal not in range(128)")]))
-        assert False, "unreachable"
-
 
 unicode_capitalize = SMM('capitalize', 1,
                          doc='S.capitalize() -> unicode\n\nReturn a'
@@ -312,13 +296,16 @@ def descr_new_(space, w_unicodetype, w_string, w_encoding=None, w_errors=None):
     encoding, errors = _get_encoding_and_errors(space, w_encoding, w_errors)
     # convoluted logic for the case when unicode subclass has a __unicode__
     # method, we need to call this method
-    if (space.is_w(space.type(w_obj), space.w_unicode) or
+    is_precisely_unicode = space.is_w(space.type(w_obj), space.w_unicode)
+    if (is_precisely_unicode or
         (space.isinstance_w(w_obj, space.w_unicode) and
          space.findattr(w_obj, space.wrap('__unicode__')) is None)):
         if encoding is not None or errors is not None:
             raise OperationError(space.w_TypeError,
                                  space.wrap('decoding Unicode is not supported'))
         w_value = w_obj
+        if is_precisely_unicode and space.is_w(w_unicodetype, space.w_unicode):
+            return w_value
     else:
         if encoding is None and errors is None:
             w_value = unicode_from_object(space, w_obj)

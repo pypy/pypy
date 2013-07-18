@@ -8,8 +8,9 @@ class OpenBSD(BSD):
     DEFAULT_CC = "cc"
     name = "openbsd"
 
-    link_flags = os.environ.get("LDFLAGS", '-pthread').split()
-    cflags = os.environ.get("CFLAGS", "-O3 -pthread -fomit-frame-pointer -D_BSD_SOURCE").split()
+    link_flags = os.environ.get("LDFLAGS", "").split() + ['-pthread']
+    cflags = ['-O3', '-pthread', '-fomit-frame-pointer', '-D_BSD_SOURCE'
+             ] + os.environ.get("CFLAGS", "").split()
 
     def _libs(self, libraries):
         libraries=set(libraries + ("intl", "iconv", "compat"))

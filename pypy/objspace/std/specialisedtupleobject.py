@@ -18,6 +18,8 @@ def make_specialised_class(typetuple):
     iter_n = unrolling_iterable(range(typelen))
 
     class cls(W_AbstractTupleObject):
+        _immutable_fields_ = ['value%s' % i for i in iter_n]
+
         def __init__(self, space, *values_w):
             self.space = space
             assert len(values_w) == typelen

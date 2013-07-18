@@ -27,7 +27,7 @@ def test_store_final_boxes_in_guard():
     snapshot0 = resume.Snapshot(None, [b0])
     fdescr.rd_snapshot = resume.Snapshot(snapshot0, [b1])
     #
-    opt.store_final_boxes_in_guard(op)
+    opt.store_final_boxes_in_guard(op, [])
     if op.getfailargs() == [b0, b1]:
         assert list(fdescr.rd_numb.nums)      == [tag(1, TAGBOX)]
         assert list(fdescr.rd_numb.prev.nums) == [tag(0, TAGBOX)]

@@ -374,7 +374,7 @@ class W_PipeConnection(W_BaseConnection):
         return space.wrap(self)
 
     def descr_repr(self, space):
-        return self._repr(space, self.handle)
+        return self._repr(space, rffi.cast(rffi.INTPTR_T, self.handle))
 
     def is_valid(self):
         return self.handle != self.INVALID_HANDLE_VALUE

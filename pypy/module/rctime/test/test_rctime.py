@@ -43,6 +43,7 @@ class AppTestRCTime:
         assert isinstance(res, str)
         rctime.ctime(rctime.time())
         raises(ValueError, rctime.ctime, 1E200)
+        raises(OverflowError, rctime.ctime, 10**900)
 
     def test_gmtime(self):
         import time as rctime

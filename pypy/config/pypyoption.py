@@ -32,11 +32,10 @@ working_modules.update(dict.fromkeys(
      "rctime" , "select", "zipimport", "_lsprof",
      "crypt", "signal", "_rawffi", "termios", "zlib", "bz2",
      "struct", "_hashlib", "_md5", "_sha", "_minimal_curses", "cStringIO",
-     "thread", "itertools", "pyexpat", "_ssl", "array",
+     "thread", "itertools", "pyexpat", "_ssl", "cpyext", "array",
      "binascii", "_multiprocessing", '_warnings',
      "_collections", "_multibytecodec", "micronumpy", "_ffi",
-     "_continuation", "_cffi_backend", "_csv"] # "cpyext", "cppyy"]
-# disabled until problems are fixed
+     "_continuation", "_cffi_backend", "_csv", "cppyy", "_pypyjson"]
 ))
 
 translation_modules = default_modules.copy()
@@ -145,7 +144,7 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                    requires=module_dependencies.get(modname, []),
                    suggests=module_suggests.get(modname, []),
                    negation=modname not in essential_modules,
-                   validator=get_module_validator(modname))
+                   ) #validator=get_module_validator(modname))
         for modname in all_modules]),
 
     BoolOption("allworkingmodules", "use as many working modules as possible",

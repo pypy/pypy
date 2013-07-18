@@ -740,6 +740,35 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [B])
         assert s.classdef is a.bookkeeper.getuniqueclassdef(C)
 
+    def test_union_type_some_pbc(self):
+        py.test.skip("is there a point? f() can return self.__class__ instead")
+        class A(object):
+            name = "A"
+
+            def f(self):
+                return type(self)
+
+        class B(A):
+            name = "B"
+
+        def f(tp):
+            return tp
+
+        def main(n):
+            if n:
+                if n == 1:
+                    inst = A()
+                else:
+                    inst = B()
+                arg = inst.f()
+            else:
+                arg = B
+            return f(arg).name
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(main, [int])
+        assert isinstance(s, annmodel.SomeString)
+
     def test_ann_assert(self):
         def assert_(x):
             assert x,"XXX"
@@ -3541,6 +3570,16 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         s = a.build_types(f, [int])
         assert s.knowntype is int
+
+    def test_relax(self):
+        def f(*args):
+            return args[0] + args[1]
+        f.relax_sig_check = True
+        def g(x):
+            return f(x, x - x)
+        a = self.RPythonAnnotator()
+        s = a.build_types(g, [int])
+        assert a.bookkeeper.getdesc(f).getuniquegraph()
 
     def test_cannot_raise_ll_exception(self):
         from rpython.rtyper.annlowlevel import cast_instance_to_base_ptr

@@ -585,6 +585,7 @@ class AppTestTypes(BaseAppTestDtypes):
         import numpypy as numpy
 
         assert numpy.complex_ is numpy.complex128
+        assert numpy.cfloat is numpy.complex64
         assert numpy.complex64.__mro__ == (numpy.complex64,
             numpy.complexfloating, numpy.inexact, numpy.number, numpy.generic,
             object)
@@ -683,6 +684,20 @@ class AppTestTypes(BaseAppTestDtypes):
         assert dtype('=i8').byteorder == '='
         assert dtype(byteorder + 'i8').byteorder == '='
 
+    def test_dtype_str(self):
+        from numpypy import dtype
+        byteorder = self.native_prefix
+        assert dtype('i8').str == byteorder + 'i8'
+        assert dtype('<i8').str == '<i8'
+        assert dtype('>i8').str == '>i8'
+        assert dtype('int8').str == '|i1'
+        assert dtype('float').str == byteorder + 'f8'
+        # strange
+        assert dtype('string').str == '|S0'
+        assert dtype('unicode').str == byteorder + 'U0'
+        # assert dtype(('string', 7)).str == '|S7'
+        # assert dtype(('unicode', 7)).str == '<U7'
+
     def test_intp(self):
         from numpypy import dtype
         assert dtype('p') == dtype('intp')
@@ -691,6 +706,11 @@ class AppTestTypes(BaseAppTestDtypes):
     def test_alignment(self):
         from numpypy import dtype
         assert dtype('i4').alignment == 4
+
+    def test_isnative(self):
+        from numpypy import dtype
+        assert dtype('i4').isnative == True
+        assert dtype('>i8').isnative == False
 
     def test_any_all(self):
         import numpypy as numpy

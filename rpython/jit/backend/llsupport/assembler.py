@@ -47,7 +47,7 @@ class GuardToken(object):
             input_i += 1
             if arg.type == REF:
                 loc = fail_locs[i]
-                if loc.is_reg():
+                if loc.is_core_reg():
                     val = self.cpu.all_reg_indexes[loc.value]
                 else:
                     val = loc.get_position() + self.cpu.JITFRAME_FIXED_SIZE

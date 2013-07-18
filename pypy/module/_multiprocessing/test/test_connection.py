@@ -68,7 +68,12 @@ class BaseConnectionTest(object):
         assert rhandle.readable
 
 class AppTestWinpipeConnection(BaseConnectionTest):
-    spaceconfig = dict(usemodules=('_multiprocessing', 'thread', 'signal'))
+    spaceconfig = {
+        "usemodules": [
+            '_multiprocessing', 'thread', 'signal', 'struct', 'array',
+            'itertools', '_socket', 'binascii',
+        ]
+    }
 
     def setup_class(cls):
         if sys.platform != "win32":
@@ -180,4 +185,4 @@ class AppTestSocketConnection(BaseConnectionTest):
         assert repr(c) == '<read-write Connection, handle 1>'
         if hasattr(_multiprocessing, 'PipeConnection'):
             c = _multiprocessing.PipeConnection(1)
-            assert repr(c) == '<read-write Connection, handle 1>'
+            assert repr(c) == '<read-write PipeConnection, handle 1>'

@@ -8,6 +8,7 @@ from rpython.jit.backend.arm.arch import (WORD, DOUBLE_WORD, FUNC_ALIGN,
     JITFRAME_FIXED_SIZE)
 from rpython.jit.backend.arm.codebuilder import InstrBuilder, OverwritingBuilder
 from rpython.jit.backend.arm.locations import imm, StackLocation
+from rpython.jit.backend.arm.helper.regalloc import VMEM_imm_size
 from rpython.jit.backend.arm.opassembler import ResOpAssembler
 from rpython.jit.backend.arm.regalloc import (Regalloc,
     CoreRegisterManager, check_imm_arg, VFPRegisterManager,
@@ -112,7 +113,7 @@ class AssemblerARM(ResOpAssembler):
         tmpreg = r.lr
         mc.gen_load_int(r.ip.value, self.cpu.pos_exc_value())
         if excvalloc is not None: # store
-            assert excvalloc.is_reg()
+            assert excvalloc.is_core_reg()
             self.load_reg(mc, excvalloc, r.ip)
         if on_frame:
             # store exc_value in JITFRAME
@@ -124,7 +125,7 @@ class AssemblerARM(ResOpAssembler):
             self.store_reg(mc, r.ip, r.fp, ofs, helper=tmpreg)
         if exctploc is not None:
             # store pos_exception in exctploc
-            assert exctploc.is_reg()
+            assert exctploc.is_core_reg()
             mc.gen_load_int(r.ip.value, self.cpu.pos_exception())
             self.load_reg(mc, exctploc, r.ip, helper=tmpreg)
 
@@ -145,7 +146,7 @@ class AssemblerARM(ResOpAssembler):
         tmpreg = r.lr # use lr as a second temporary reg
         mc.gen_load_int(r.ip.value, self.cpu.pos_exc_value())
         if excvalloc is not None:
-            assert excvalloc.is_reg()
+            assert excvalloc.is_core_reg()
             self.store_reg(mc, excvalloc, r.ip)
         else:
             assert exctploc is not r.fp
@@ -946,7 +947,7 @@ class AssemblerARM(ResOpAssembler):
     # regalloc support
     def load(self, loc, value):
         """load an immediate value into a register"""
-        assert (loc.is_reg() and value.is_imm()
+        assert (loc.is_core_reg() and value.is_imm()
                     or loc.is_vfp_reg() and value.is_imm_float())
         if value.is_imm():
             self.mc.gen_load_int(loc.value, value.getint())
@@ -957,11 +958,11 @@ class AssemblerARM(ResOpAssembler):
     def load_reg(self, mc, target, base, ofs=0, cond=c.AL, helper=r.ip):
         if target.is_vfp_reg():
             return self._load_vfp_reg(mc, target, base, ofs, cond, helper)
-        elif target.is_reg():
+        elif target.is_core_reg():
             return self._load_core_reg(mc, target, base, ofs, cond, helper)
 
     def _load_vfp_reg(self, mc, target, base, ofs, cond=c.AL, helper=r.ip):
-        if check_imm_arg(ofs):
+        if check_imm_arg(ofs, VMEM_imm_size):
             mc.VLDR(target.value, base.value, imm=ofs, cond=cond)
         else:
             mc.gen_load_int(helper.value, ofs, cond=cond)
@@ -982,7 +983,7 @@ class AssemblerARM(ResOpAssembler):
             return self._store_core_reg(mc, source, base, ofs, cond, helper)
 
     def _store_vfp_reg(self, mc, source, base, ofs, cond=c.AL, helper=r.ip):
-        if check_imm_arg(ofs):
+        if check_imm_arg(ofs, VMEM_imm_size):
             mc.VSTR(source.value, base.value, imm=ofs, cond=cond)
         else:
             mc.gen_load_int(helper.value, ofs, cond=cond)
@@ -1011,7 +1012,7 @@ class AssemblerARM(ResOpAssembler):
     def _mov_imm_to_loc(self, prev_loc, loc, cond=c.AL):
         if loc.type == FLOAT:
             raise AssertionError("invalid target for move from imm value")
-        if loc.is_reg():
+        if loc.is_core_reg():
             new_loc = loc
         elif loc.is_stack() or loc.is_raw_sp():
             new_loc = r.lr
@@ -1026,7 +1027,7 @@ class AssemblerARM(ResOpAssembler):
     def _mov_reg_to_loc(self, prev_loc, loc, cond=c.AL):
         if loc.is_imm():
             raise AssertionError("mov reg to imm doesn't make sense")
-        if loc.is_reg():
+        if loc.is_core_reg():
             self.mc.MOV_rr(loc.value, prev_loc.value, cond=cond)
         elif loc.is_stack() and loc.type != FLOAT:
             # spill a core register
@@ -1049,7 +1050,7 @@ class AssemblerARM(ResOpAssembler):
         helper = None
         offset = prev_loc.value
         tmp = None
-        if loc.is_reg():
+        if loc.is_core_reg():
             assert prev_loc.type != FLOAT, 'trying to load from an \
                 incompatible location into a core register'
             # unspill a core register
@@ -1125,7 +1126,7 @@ class AssemblerARM(ResOpAssembler):
         """Moves a value from a previous location to some other location"""
         if prev_loc.is_imm():
             return self._mov_imm_to_loc(prev_loc, loc, cond)
-        elif prev_loc.is_reg():
+        elif prev_loc.is_core_reg():
             self._mov_reg_to_loc(prev_loc, loc, cond)
         elif prev_loc.is_stack():
             self._mov_stack_to_loc(prev_loc, loc, cond)
@@ -1214,7 +1215,7 @@ class AssemblerARM(ResOpAssembler):
                 scratch_reg = r.vfp_ip
             self.regalloc_mov(loc, scratch_reg, cond)
             self.regalloc_push(scratch_reg, cond)
-        elif loc.is_reg():
+        elif loc.is_core_reg():
             self.mc.PUSH([loc.value], cond=cond)
         elif loc.is_vfp_reg():
             self.mc.VPUSH([loc.value], cond=cond)
@@ -1237,7 +1238,7 @@ class AssemblerARM(ResOpAssembler):
                 scratch_reg = r.vfp_ip
             self.regalloc_pop(scratch_reg)
             self.regalloc_mov(scratch_reg, loc)
-        elif loc.is_reg():
+        elif loc.is_core_reg():
             self.mc.POP([loc.value], cond=cond)
         elif loc.is_vfp_reg():
             self.mc.VPOP([loc.value], cond=cond)
@@ -1305,7 +1306,7 @@ class AssemblerARM(ResOpAssembler):
 
         # lengthloc is the length of the array, which we must not modify!
         assert lengthloc is not r.r0 and lengthloc is not r.r1
-        if lengthloc.is_reg():
+        if lengthloc.is_core_reg():
             varsizeloc = lengthloc
         else:
             assert lengthloc.is_stack()

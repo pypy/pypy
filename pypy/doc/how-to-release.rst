@@ -32,11 +32,10 @@ Release Steps
 * go to pypy/tool/release and run:
   force-builds.py /release/<release branch>
 * wait for builds to complete, make sure there are no failures
-* run pypy/tool/release/make_release.py, this will build necessary binaries
-  and upload them to pypy.org
+* upload binaries to https://bitbucket.org/pypy/pypy/downloads
 
   Following binaries should be built, however, we need more buildbots:
-    JIT: windows, linux, os/x
+    JIT: windows, linux, os/x, armhf, armel
     no JIT: windows, linux, os/x
     sandbox: linux, os/x
 

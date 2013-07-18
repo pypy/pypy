@@ -115,8 +115,26 @@ class W_Dtype(W_Root):
             return space.wrap('=')
         return space.wrap(nonnative_byteorder_prefix)
 
+    def descr_get_str(self, space):
+        size = self.get_size()
+        basic = self.kind
+        if basic == UNICODELTR:
+            size >>= 2
+            endian = byteorder_prefix
+        elif size <= 1:
+            endian = '|'  # ignore
+        elif self.native:
+            endian = byteorder_prefix
+        else:
+            endian = nonnative_byteorder_prefix
+
+        return space.wrap("%s%s%s" % (endian, basic, size))
+
     def descr_get_alignment(self, space):
         return space.wrap(self.itemtype.alignment)
+
+    def descr_get_isnative(self, space):
+        return space.wrap(self.native)
 
     def descr_get_base(self, space):
         return space.wrap(self.base)
@@ -273,7 +291,6 @@ class W_Dtype(W_Root):
 
         fields = space.getitem(w_data, space.wrap(4))
         self.set_fields(space, fields)
-        print self.itemtype
 
 class W_ComplexDtype(W_Dtype):
     def __init__(self, itemtype, num, kind, name, char, w_box_type,
@@ -301,7 +318,7 @@ def dtype_from_list(space, w_lst):
             if not base.issequence_w(space, w_shape):
                 w_shape = space.newtuple([w_shape,])
         else:
-            w_fldname, w_flddesc = space.fixedview(w_elem)
+            w_fldname, w_flddesc = space.fixedview(w_elem, 2)
         subdtype = descr__new__(space, space.gettypefor(W_Dtype), w_flddesc, w_shape=w_shape)
         fldname = space.str_w(w_fldname)
         if fldname in fields:
@@ -422,8 +439,10 @@ W_Dtype.typedef = TypeDef("dtype",
     char = interp_attrproperty("char", cls=W_Dtype),
     type = interp_attrproperty_w("w_box_type", cls=W_Dtype),
     byteorder = GetSetProperty(W_Dtype.descr_get_byteorder),
+    str = GetSetProperty(W_Dtype.descr_get_str),
     itemsize = GetSetProperty(W_Dtype.descr_get_itemsize),
     alignment = GetSetProperty(W_Dtype.descr_get_alignment),
+    isnative = GetSetProperty(W_Dtype.descr_get_isnative),
     shape = GetSetProperty(W_Dtype.descr_get_shape),
     name = interp_attrproperty('name', cls=W_Dtype),
     fields = GetSetProperty(W_Dtype.descr_get_fields),
@@ -583,7 +602,7 @@ class DtypeCache(object):
             alternate_constructors=[space.w_float,
                                     space.gettypefor(interp_boxes.W_NumberBox),
                                    ],
-            aliases=["float"],
+            aliases=["float", "double"],
         )
         self.w_complex64dtype = W_ComplexDtype(
             types.Complex64(),
@@ -664,9 +683,10 @@ class DtypeCache(object):
             char='S',
             w_box_type = space.gettypefor(interp_boxes.W_StringBox),
             alternate_constructors=[space.w_str],
+            aliases=["str"],
         )
         self.w_unicodedtype = W_Dtype(
-            types.UnicodeType(1),
+            types.UnicodeType(0),
             num=19,
             kind=UNICODELTR,
             name='unicode',

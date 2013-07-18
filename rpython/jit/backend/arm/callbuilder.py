@@ -40,7 +40,7 @@ class ARMCallbuilder(AbstractCallBuilder):
         if self.fnloc.is_stack():
             self.asm.mov_loc_loc(self.fnloc, r.ip)
             self.fnloc = r.ip
-        assert self.fnloc.is_reg()
+        assert self.fnloc.is_core_reg()
         self.mc.BLX(self.fnloc.value)
 
     def restore_stack_pointer(self):
@@ -52,6 +52,8 @@ class ARMCallbuilder(AbstractCallBuilder):
 
     def _push_stack_args(self, stack_args, on_stack):
         assert on_stack % 8 == 0
+        if on_stack == 0:
+            return
         self._adjust_sp(-on_stack)
         self.current_sp = on_stack
         ofs = 0
@@ -71,7 +73,7 @@ class ARMCallbuilder(AbstractCallBuilder):
             else:
                 self.mc.gen_load_int(r.ip.value, n)
                 self.mc.ADD_rr(r.sp.value, r.sp.value, r.ip.value)
-        else:
+        elif n < 0:
             n = abs(n)
             if check_imm_arg(n):
                 self.mc.SUB_ri(r.sp.value, r.sp.value, n)
@@ -133,7 +135,7 @@ class SoftFloatCallBuilder(ARMCallbuilder):
             return [], []
         if self.resloc.is_vfp_reg():
             return [r.r0, r.r1], []
-        assert self.resloc.is_reg()
+        assert self.resloc.is_core_reg()
         return [r.r0], []
 
     def load_result(self):
@@ -144,7 +146,7 @@ class SoftFloatCallBuilder(ARMCallbuilder):
         if resloc.is_vfp_reg():
             # move result to the allocated register
             self.asm.mov_to_vfp_loc(r.r0, r.r1, resloc)
-        elif resloc.is_reg():
+        elif resloc.is_core_reg():
             # move result to the allocated register
             if resloc is not r.r0:
                 self.asm.mov_loc_loc(r.r0, resloc)
@@ -281,7 +283,7 @@ class HardFloatCallBuilder(ARMCallbuilder):
     def load_result(self):
         resloc = self.resloc
         # ensure the result is wellformed and stored in the correct location
-        if resloc is not None and resloc.is_reg():
+        if resloc is not None and resloc.is_core_reg():
             self._ensure_result_bit_extension(resloc,
                                                   self.ressize, self.ressign)
 
@@ -290,7 +292,7 @@ class HardFloatCallBuilder(ARMCallbuilder):
             return [], []
         if self.resloc.is_vfp_reg():
             return [], [r.d0]
-        assert self.resloc.is_reg()
+        assert self.resloc.is_core_reg()
         return [r.r0], []
 
 

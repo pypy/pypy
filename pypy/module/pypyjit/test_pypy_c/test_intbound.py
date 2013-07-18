@@ -231,6 +231,7 @@ class TestIntbound(BaseTestPyPyC):
         assert loop.match("""
             i8 = int_lt(i6, 300)
             guard_true(i8, descr=...)
+            guard_not_invalidated?
             i10 = int_lshift(i6, 1)
             i12 = int_add_ovf(i5, 1)
             guard_no_overflow(descr=...)
@@ -253,6 +254,7 @@ class TestIntbound(BaseTestPyPyC):
         assert loop.match("""
             i8 = int_lt(i6, 300)
             guard_true(i8, descr=...)
+            guard_not_invalidated?
             i10 = int_add_ovf(i5, 8)
             guard_no_overflow(descr=...)
             i12 = int_add(i6, 1)

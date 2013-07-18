@@ -424,7 +424,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
         self.identityhash_ptr = getfn(GCClass.identityhash.im_func,
                                       [s_gc, s_gcref],
                                       annmodel.SomeInteger(),
-                                      minimal_transform=False)
+                                      minimal_transform=False, inline=True)
         if getattr(GCClass, 'obtain_free_space', False):
             self.obtainfreespace_ptr = getfn(GCClass.obtain_free_space.im_func,
                                              [s_gc, annmodel.SomeInteger()],
@@ -433,7 +433,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
         if GCClass.moving_gc:
             self.id_ptr = getfn(GCClass.id.im_func,
                                 [s_gc, s_gcref], annmodel.SomeInteger(),
-                                inline = False,
+                                inline = True,
                                 minimal_transform = False)
         else:
             self.id_ptr = None

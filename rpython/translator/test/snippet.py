@@ -62,7 +62,7 @@ def get_set_del_slice(l=list):
 
 def sieve_of_eratosthenes():
     """Sieve of Eratosthenes
-    
+
     This one is from an infamous benchmark, "The Great Computer
     Language Shootout".
 
@@ -103,7 +103,7 @@ def nested_whiles(i=int, j=int):
         s = s + '!'
     return s
 
-def poor_man_range(i=int): 
+def poor_man_range(i=int):
     lst = []
     while i > 0:
         i = i - 1
@@ -111,14 +111,14 @@ def poor_man_range(i=int):
     lst.reverse()
     return lst
 
-def poor_man_rev_range(i=int): 
+def poor_man_rev_range(i=int):
     lst = []
     while i > 0:
         i = i - 1
         lst += [i]
     return lst
 
-def simple_id(x=anytype): 
+def simple_id(x=anytype):
     return x
 
 def branch_id(cond=anytype, a=anytype, b=anytype):
@@ -257,7 +257,7 @@ def factorial2(n=int):   # analysed in a different order
     else:
         return 1
 
-def _append_five(lst): 
+def _append_five(lst):
     lst += [5]
 
 def call_five():
@@ -265,7 +265,7 @@ def call_five():
     _append_five(a)
     return a
 
-def _append_six(lst): 
+def _append_six(lst):
     lst += [6]
 
 def call_five_six():
@@ -333,7 +333,7 @@ def do_try_raise_choose():
     return r
 
 
-# INHERITANCE / CLASS TESTS  
+# INHERITANCE / CLASS TESTS
 class C(object): pass
 
 def build_instance():
@@ -565,7 +565,7 @@ def call_star_args1def(z):
     b = star_args1def(5)
     c = star_args1def()
     return a+b+c
-    
+
 def star_args(x, y, *args):
     return x + args[0]
 
@@ -605,10 +605,10 @@ def powerset(setsize=int):
 
     This one is from a Philippine Pythonista Hangout, an modified
     version of Andy Sy's code.
-    
+
     list.append is modified to list concatenation, and powerset
     is pre-allocated and stored, instead of printed.
-    
+
     URL is: http://lists.free.net.ph/pipermail/python/2002-November/
     """
     set = range(setsize)
@@ -643,8 +643,8 @@ def _somebug1(n=int):
     l = []
     v = l.append
     while n:
-        l[7] = 5 # raises an exception 
-        break 
+        l[7] = 5 # raises an exception
+        break
     return v
 
 def _getstuff(x):
@@ -686,7 +686,7 @@ def func2():
     pass
 
 def mergefunctions(cond):
-    if cond: 
+    if cond:
         x = func1
     else:
         x = func2
@@ -703,48 +703,48 @@ def func_arg_unpack():
     a,b = 3, "hello"
     return a
 
-class APBC: 
-    def __init__(self): 
+class APBC:
+    def __init__(self):
         self.answer = 42
 
 apbc = APBC()
 apbc.answer = 7
 
 def preserve_pbc_attr_on_instance(cond):
-    if cond: 
+    if cond:
         x = APBC()
-    else: 
-        x = apbc 
-    return x.answer 
+    else:
+        x = apbc
+    return x.answer
 
 
 class APBCS(object):
     __slots__ = ['answer']
-    def __init__(self): 
+    def __init__(self):
         self.answer = 42
 
 apbcs = APBCS()
 apbcs.answer = 7
 
 def preserve_pbc_attr_on_instance_with_slots(cond):
-    if cond: 
+    if cond:
         x = APBCS()
-    else: 
+    else:
         x = apbcs
-    return x.answer 
+    return x.answer
 
 
-def is_and_knowntype(x): 
-    if x is None: 
-        return x 
-    else: 
-        return None 
-
-def isinstance_and_knowntype(x): 
-    if isinstance(x, APBC): 
+def is_and_knowntype(x):
+    if x is None:
         return x
-    else: 
-        return apbc 
+    else:
+        return None
+
+def isinstance_and_knowntype(x):
+    if isinstance(x, APBC):
+        return x
+    else:
+        return apbc
 
 def simple_slice(x):
     return x[:10]
@@ -836,7 +836,7 @@ def exception_deduction_with_raise3(x):
         witness(e)
         return e
     return Exc()
-    
+
 def slice_union(x):
     if x:
         return slice(1)
@@ -938,8 +938,8 @@ def one_thing1():
 
 
 class Thing2(long):
-    def __new__(t,v):
-       return  long.__new__(t,v*2)
+    def __new__(t, v):
+        return long.__new__(t, v * 2)
 
 thing2 = Thing2(2)
 
@@ -971,16 +971,16 @@ def propagation_of_fresh_instances_through_attrs(x):
 
 
 class R:
-  def __init__(self, n):
-      if n>0:
-          self.r = R(n-1)
-      else:
-          self.r = None
-      self.n = n
-      if self.r:
-          self.m = self.r.n
-      else:
-          self.m = -1
+    def __init__(self, n):
+        if n > 0:
+            self.r = R(n-1)
+        else:
+            self.r = None
+        self.n = n
+        if self.r:
+            self.m = self.r.n
+        else:
+            self.m = -1
 
 def make_r(n):
     return R(n)
@@ -989,7 +989,7 @@ class B:
     pass
 
 class Even(B):
-    def __init__(self,n):
+    def __init__(self, n):
         if n > 0:
             self.x = [Odd(n-1)]
             self.y = self.x[0].x
@@ -998,12 +998,12 @@ class Even(B):
             self.y = []
 
 class Odd(B):
-    def __init__(self,n):
+    def __init__(self, n):
         self.x = [Even(n-1)]
         self.y = self.x[0].x
 
 def make_eo(n):
-    if n%2 == 0:
+    if n % 2 == 0:
         return Even(n)
     else:
         return Odd(n)
@@ -1013,26 +1013,26 @@ def make_eo(n):
 # instances rev numbers
 
 class Box:
- pass
+    pass
 
 class Box2:
-  pass
+    pass
 
 class Box3(Box2):
-  pass
+    pass
 
 def flow_rev_numbers(n):
-  bx3 = Box3()
-  bx3.x = 1
-  bx = Box()
-  bx.bx3 = bx3
-  if n >0:
-     z =  bx.bx3.x
-     if n >0:
-        bx2 = Box2()
-        bx2.x = 3
-     return z
-  raise Exception
+    bx3 = Box3()
+    bx3.x = 1
+    bx = Box()
+    bx.bx3 = bx3
+    if n > 0:
+        z = bx.bx3.x
+        if n > 0:
+            bx2 = Box2()
+            bx2.x = 3
+        return z
+    raise Exception
 
 
 # class specialization
@@ -1077,13 +1077,13 @@ def div_func(i=numtype):
         return ovfcheck((-maxint-1) // i)
     except (OverflowError, ZeroDivisionError):
         raise
-    
+
 def mul_func(x=numtype, y=numtype):
     try:
         return ovfcheck(x * y)
     except OverflowError:
         raise
-    
+
 def mod_func(i=numtype):
     try:
         return ovfcheck((-maxint-1) % i)
@@ -1098,7 +1098,8 @@ def rshift_func(i=numtype):
     except ValueError:
         raise
 
-class hugelmugel(OverflowError):pass
+class hugelmugel(OverflowError):
+    pass
 
 def hugo(a, b, c):pass
 
@@ -1112,6 +1113,7 @@ def lshift_func(i=numtype):
 def unary_func(i=numtype):
     try:
         return ovfcheck(-i), ovfcheck(abs(i-1))
-    except: raise
+    except:
+        raise
     # XXX it would be nice to get it right without an exception
     # handler at all, but then we need to do much harder parsing
