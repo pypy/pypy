@@ -156,7 +156,7 @@ class W_CoreEngine(W_Root):
                 raise
             return self.space.w_None
 
-W_CoreEngine.typedef = TypeDef("Engine",
+W_CoreEngine.typedef = TypeDef("CoreEngine",
     __new__ = interp2app(engine_new__),
     from_file = interp2app(W_CoreEngine.from_file, as_classmethod=True),
     query_iter = interp2app(W_CoreEngine.query_iter),
