@@ -309,6 +309,61 @@ class Assembler386(BaseAssembler):
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
         self.stack_check_slowpath = rawstart
 
+
+    def _build_ptr_eq_slowpath(self):
+        cpu = self.cpu
+        is_stm = cpu.gc_ll_descr.stm
+        assert is_stm
+
+        func = cpu.gc_ll_descr.get_malloc_fn_addr('stm_ptr_eq')
+        #
+        # This builds a helper function called from the slow path of
+        # ptr_eq/ne.  It must save all registers, and optionally
+        # all XMM registers.  It takes a single argument just pushed
+        # on the stack even on X86_64.  It must restore stack alignment
+        # accordingly.
+        mc = codebuf.MachineCodeBlockWrapper()
+        #
+        self._push_all_regs_to_frame(mc, [], withfloats=False,
+                                     callee_only=True)
+        #
+        if IS_X86_32:
+            # ||val2|val1|retaddr|  growing->, || aligned 
+            mc.SUB_ri(esp.value, 5 * WORD)
+            # ||val2|val1|retaddr|x||x|x|x|x|
+            mc.MOV_rs(eax.value, 6 * WORD)
+            mc.MOV_rs(ecx.value, 7 * WORD)
+            # eax=val1, ecx=val2
+            mc.MOV_sr(0, eax.value)
+            mc.MOV_sr(WORD, ecx.value)
+            # ||val2|val1|retaddr|x||x|x|val2|val1|
+        else:
+            # ||val2|val1||retaddr|
+            mc.SUB_ri(esp.value, WORD)
+            # ||val2|val1||retaddr|x||
+            mc.MOV_rs(edi.value, 2 * WORD)
+            mc.MOV_rs(esi.value, 3 * WORD)
+        #
+        mc.CALL(imm(func))
+        # eax has result
+        if IS_X86_32:
+            mc.ADD_ri(esp.value, 5 * WORD)
+        else:
+            mc.ADD_ri(esp.value, WORD)
+        #
+        # result in eax, save (not sure if necessary)
+        mc.PUSH_r(eax.value)
+        #
+        self._pop_all_regs_from_frame(mc, [], withfloats=False,
+                                      callee_only=True)
+        #
+        mc.POP_r(eax.value)
+        mc.RET16_i(2 * WORD)
+        
+        rawstart = mc.materialize(self.cpu.asmmemmgr, [])
+        self.ptr_eq_slowpath = rawstart
+
+        
     def _build_b_slowpath(self, descr, withcards, withfloats=False,
                           for_frame=False):
         is_stm = self.cpu.gc_ll_descr.stm
@@ -370,8 +425,13 @@ class Assembler386(BaseAssembler):
         mc.CALL(imm(func))
 
         if descr.returns_modified_object:
-            # new addr in eax, save in scratch reg
-            mc.PUSH_r(eax.value)
+            # new addr in eax, save to now unused arg
+            if for_frame:
+                mc.PUSH_r(eax.value)
+            elif IS_X86_32:
+                mc.MOV_sr(3 * WORD, eax.value)
+            else:
+                mc.MOV_sr(WORD, eax.value)
                 
         if withcards:
             # A final TEST8 before the RET, for the caller.  Careful to
@@ -392,20 +452,24 @@ class Assembler386(BaseAssembler):
             self._pop_all_regs_from_frame(mc, [], withfloats, callee_only=True)
 
             if descr.returns_modified_object:
-                mc.POP_r(eax.value)
+                if IS_X86_32:
+                    mc.MOV_rs(eax.value, 3 * WORD)
+                else:
+                    mc.MOV_rs(eax.value, WORD)
             mc.RET16_i(WORD)
         else:
             if IS_X86_32:
-                mc.MOV_rs(edx.value, 4 * WORD)
-            mc.MOVSD_xs(xmm0.value, 3 * WORD)
-            mc.MOV_rs(eax.value, WORD) # restore
+                mc.MOV_rs(edx.value, 5 * WORD)
+            mc.MOVSD_xs(xmm0.value, 4 * WORD)
+            mc.MOV_rs(eax.value, 2 * WORD) # restore
             self._restore_exception(mc, exc0, exc1)
-            mc.MOV(exc0, RawEspLoc(WORD * 5, REF))
-            mc.MOV(exc1, RawEspLoc(WORD * 6, INT))
+            mc.MOV(exc0, RawEspLoc(WORD * 6, REF))
+            mc.MOV(exc1, RawEspLoc(WORD * 7, INT))
+
+            mc.POP_r(eax.value) # return value
+            
             mc.LEA_rs(esp.value, 7 * WORD)
 
-            if descr.returns_modified_object:
-                mc.POP_r(eax.value)
             mc.RET()
 
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
@@ -932,6 +996,43 @@ class Assembler386(BaseAssembler):
                 self.mc.LEA_rm(result_loc.value, (loc.value, delta))
         return genop_binary_or_lea
 
+    
+    def genop_ptr_eq(self, op, arglocs, result_loc):
+        assert self.cpu.gc_ll_descr.stm
+        rl = result_loc.lowest8bits()
+        self._stm_ptr_eq_fastpath(self.mc, arglocs, result_loc)
+        self.mc.TEST_rr(eax.value, eax.value)
+        self.mc.SET_ir(rx86.Conditions['NZ'], rl.value)
+        self.mc.MOVZX8_rr(result_loc.value, rl.value)
+
+    def genop_ptr_ne(self, op, arglocs, result_loc):
+        assert self.cpu.gc_ll_descr.stm
+        rl = result_loc.lowest8bits()
+        self._stm_ptr_eq_fastpath(self.mc, arglocs, result_loc)
+        self.mc.TEST_rr(eax.value, eax.value)
+        self.mc.SET_ir(rx86.Conditions['Z'], rl.value)
+        self.mc.MOVZX8_rr(result_loc.value, rl.value)
+
+    def genop_guard_ptr_eq(self, op, guard_op, guard_token, 
+                           arglocs, result_loc):
+        guard_opnum = guard_op.getopnum()
+        self._stm_ptr_eq_fastpath(self.mc, arglocs, result_loc)
+        self.mc.TEST_rr(eax.value, eax.value)
+        if guard_opnum == rop.GUARD_FALSE:
+            self.implement_guard(guard_token, "Z")
+        else:
+            self.implement_guard(guard_token, "NZ")
+
+    def genop_guard_ptr_ne(self, op, guard_op, guard_token, 
+                           arglocs, result_loc):
+        guard_opnum = guard_op.getopnum()
+        self._stm_ptr_eq_fastpath(self.mc, arglocs, result_loc)
+        self.mc.TEST_rr(eax.value, eax.value)
+        if guard_opnum == rop.GUARD_FALSE:
+            self.implement_guard(guard_token, "NZ")
+        else:
+            self.implement_guard(guard_token, "Z")        
+        
     def _cmpop(cond, rev_cond):
         def genop_cmp(self, op, arglocs, result_loc):
             rl = result_loc.lowest8bits()
@@ -1079,8 +1180,8 @@ class Assembler386(BaseAssembler):
     genop_int_ne = _cmpop("NE", "NE")
     genop_int_gt = _cmpop("G", "L")
     genop_int_ge = _cmpop("GE", "LE")
-    genop_ptr_eq = genop_instance_ptr_eq = genop_int_eq
-    genop_ptr_ne = genop_instance_ptr_ne = genop_int_ne
+    genop_instance_ptr_eq = genop_ptr_eq
+    genop_instance_ptr_ne = genop_ptr_ne
 
     genop_float_lt = _cmpop_float('B', 'A')
     genop_float_le = _cmpop_float('BE', 'AE')
@@ -1100,8 +1201,8 @@ class Assembler386(BaseAssembler):
     genop_guard_int_ne = _cmpop_guard("NE", "NE", "E", "E")
     genop_guard_int_gt = _cmpop_guard("G", "L", "LE", "GE")
     genop_guard_int_ge = _cmpop_guard("GE", "LE", "L", "G")
-    genop_guard_ptr_eq = genop_guard_instance_ptr_eq = genop_guard_int_eq
-    genop_guard_ptr_ne = genop_guard_instance_ptr_ne = genop_guard_int_ne
+    genop_guard_instance_ptr_eq = genop_guard_ptr_eq
+    genop_guard_instance_ptr_ne = genop_guard_ptr_ne
 
     genop_guard_uint_gt = _cmpop_guard("A", "B", "BE", "AE")
     genop_guard_uint_lt = _cmpop_guard("B", "A", "AE", "BE")
@@ -1114,6 +1215,9 @@ class Assembler386(BaseAssembler):
     genop_guard_float_gt = _cmpop_guard_float("A", "B", "BE","AE")
     genop_guard_float_ge = _cmpop_guard_float("AE","BE", "B", "A")
 
+    
+
+    
     def genop_math_sqrt(self, op, arglocs, resloc):
         self.mc.SQRTSD(arglocs[0], resloc)
 
@@ -2001,6 +2105,19 @@ class Assembler386(BaseAssembler):
         self.mc.overwrite(jmp_location - 1, chr(offset))
 
     # ------------------- END CALL ASSEMBLER -----------------------
+    def _stm_ptr_eq_fastpath(self, mc, arglocs, result_loc):
+        assert self.cpu.gc_ll_descr.stm
+        assert self.ptr_eq_slowpath is not None
+        a_base = arglocs[0]
+        b_base = arglocs[1]
+        #
+        mc.PUSH(b_base)
+        mc.PUSH(a_base)
+        func = self.ptr_eq_slowpath
+        mc.CALL(imm(func))
+        assert isinstance(result_loc, RegLoc)
+        mc.MOV_rr(result_loc.value, eax.value)
+        
     def _stm_barrier_fastpath(self, mc, descr, arglocs, is_frame=False,
                               align_stack=False):
         assert self.cpu.gc_ll_descr.stm

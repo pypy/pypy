@@ -21,6 +21,7 @@ else:
 #        |   scratch          |
 #        |      space         |
 #        +--------------------+    <== aligned to 16 bytes
+#             STACK TOP
 
 # All the rest of the data is in a GC-managed variable-size "frame".
 # This frame object's address is always stored in the register EBP/RBP.

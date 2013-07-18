@@ -89,6 +89,11 @@ class BaseAssembler(object):
             self._build_b_slowpath(d, False)
             self._build_b_slowpath(d, True)
             self._build_b_slowpath(d, False, for_frame=True)
+        # only for stm:
+        if hasattr(gc_ll_descr, 'stm_ptr_eq_FUNCPTR'):
+            self._build_ptr_eq_slowpath()
+        else:
+            self.ptr_eq_slowpath = None
         # only one of those
         self.build_frame_realloc_slowpath()
         if self.cpu.supports_floats:

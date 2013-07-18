@@ -7,6 +7,7 @@ from rpython.translator.simplify import get_funcobj
 
 ALWAYS_ALLOW_OPERATIONS = set([
     'force_cast', 'keepalive', 'cast_ptr_to_adr',
+    'cast_adr_to_int',
     'debug_print', 'debug_assert', 'cast_opaque_ptr', 'hint',
     'stack_current', 'gc_stack_bottom',
     'cast_current_ptr_to_int',   # this variant of 'cast_ptr_to_int' is ok
@@ -14,7 +15,7 @@ ALWAYS_ALLOW_OPERATIONS = set([
     'jit_force_quasi_immutable', 'jit_marker', 'jit_is_virtual',
     'jit_record_known_class',
     'gc_identityhash', 'gc_id', 'gc_can_move', 'gc__collect',
-    'gc_adr_of_root_stack_top',
+    'gc_adr_of_root_stack_top', 'gc_get_original_copy',
     'stmgc_get_original_copy',
     'weakref_create', 'weakref_deref',
     'stm_threadlocalref_get', 'stm_threadlocalref_set',

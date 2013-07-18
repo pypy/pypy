@@ -173,12 +173,4 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
         return isinstance(box, ConstPtr) and not box.value
 
     def handle_ptr_eq(self, op):
-        if self._is_null(op.getarg(0)) or self._is_null(op.getarg(1)):
-            self.newops.append(op)
-            return
-        args = op.getarglist()
-        result = op.result
-        if op.getopnum() in (rop.PTR_EQ, rop.INSTANCE_PTR_EQ):
-            self._do_stm_call('stm_ptr_eq', args, result)
-        else:
-            self._do_stm_call('stm_ptr_ne', args, result)
+        self.newops.append(op)

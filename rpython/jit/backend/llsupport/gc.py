@@ -110,6 +110,8 @@ class GcLLDescription(GcCache):
             # the only ops with descrs that get recorded in a trace
             from rpython.jit.metainterp.history import AbstractDescr
             descr = op.getdescr()
+            if not we_are_translated() and descr is None:
+                return
             llref = cast_instance_to_gcref(descr)
             new_llref = rgc._make_sure_does_not_move(llref)
             new_d = rgc.try_cast_gcref_to_instance(AbstractDescr, new_llref)

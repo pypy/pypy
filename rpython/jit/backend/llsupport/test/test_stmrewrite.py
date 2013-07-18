@@ -517,7 +517,7 @@ class TestStm(RewriteTests):
             jump(i1)
         """, """
             [p1, p2]
-            i1 = call(ConstClass(stm_ptr_eq), p1, p2, descr=stm_ptr_eq_descr)
+            i1 = ptr_eq(p1, p2)
             jump(i1)
         """)
 
@@ -528,7 +528,7 @@ class TestStm(RewriteTests):
             jump(i1)
         """, """
             [p1, p2]
-            i1 = call(ConstClass(stm_ptr_eq), p1, p2, descr=stm_ptr_eq_descr)
+            i1 = instance_ptr_eq(p1, p2)
             jump(i1)
         """)
 
@@ -539,7 +539,7 @@ class TestStm(RewriteTests):
             jump(i1)
         """, """
             [p1, p2]
-            i1 = call(ConstClass(stm_ptr_ne), p1, p2, descr=stm_ptr_ne_descr)
+            i1 = ptr_ne(p1, p2)
             jump(i1)
         """)
 
@@ -550,7 +550,7 @@ class TestStm(RewriteTests):
             jump(i1)
         """, """
             [p1, p2]
-            i1 = call(ConstClass(stm_ptr_ne), p1, p2, descr=stm_ptr_ne_descr)
+            i1 = instance_ptr_ne(p1, p2)
             jump(i1)
         """)
 
