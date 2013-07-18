@@ -408,3 +408,30 @@ class TestMisc(BaseTestPyPyC):
         log = self.run(main, [300])
         loop, = log.loops_by_id("long_op")
         assert len(loop.ops_by_id("long_op")) == 0
+
+    def test_explicit_loop_unrolling(self):
+        def main(n):
+            class A(object):
+                def __init__(self):
+                    self.a = 0
+                    self.b = 0
+
+            i = 0
+            while i < n:
+                a = A()
+                for attr in ["a", "b"]:
+                    setattr(a, attr, getattr(a, attr) + 1)
+                i += a.b
+
+        log = self.run(main, [300])
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+        label(..., descr=TargetToken(4370600008))
+        i48 = int_lt(i43, i30)
+        guard_true(i48, descr=...)
+        guard_not_invalidated(descr=...)
+        p49 = force_token()
+        i50 = int_add(i43, 1)
+        --TICK--
+        jump(..., descr=TargetToken(4370600008))
+        """)
