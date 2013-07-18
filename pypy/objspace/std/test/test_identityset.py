@@ -23,10 +23,7 @@ class AppTestIdentitySet(object):
         class CustomEq(object):
             def __eq__(self, other):
                 return True
-
-        class CustomCmp (object):
-            def __cmp__(self, other):
-                return 0
+            __hash__ = object.__hash__
 
         class CustomHash(object):
             def __hash__(self):
@@ -40,7 +37,7 @@ class AppTestIdentitySet(object):
 
         assert self.uses_strategy('IdentitySetStrategy',s)
 
-        for cls in [CustomEq,CustomCmp,CustomHash]:
+        for cls in [CustomEq,CustomHash]:
             s = set()
             s.add(cls())
             assert not self.uses_strategy('IdentitySetStrategy',s)
@@ -64,6 +61,7 @@ class AppTestIdentitySet(object):
         class NotIdent(object):
             def __eq__(self,other):
                 pass
+            __hash__ = object.__hash__
 
         s = set([X(),X()])
         s.add('foo')
