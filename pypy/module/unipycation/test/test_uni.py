@@ -40,6 +40,17 @@ class AppTestHighLevelInterface(object):
             assert x == expect
             expect += 1
 
+    def test_many_solutions2(self):
+        import uni
+        e = uni.Engine("f(1, 2). f(2, 3). f(3, 4).")
+        e.db.f.many_solutions = True
+
+        xe = 1; ye = 2
+        for (x, y) in e.db.f(None, None):
+            assert (x, y) == (xe, ye)
+            xe += 1
+            ye += 1
+
     def test_term_getattrs(self):
         import uni
 
@@ -78,15 +89,27 @@ class AppTestHighLevelInterface(object):
         res = e.db.app([1, 2, 3, 4], [7, 8, 9], None)
         assert res == ([1, 2, 3, 4, 7, 8, 9], )
 
-    # XXX this wont work, as lists are not yet converted
-    @pytest.mark.skipif("True")
+
+    def test_emptylist(self):
+        import uni
+
+        e = uni.Engine("f([]).")
+        (res, ) = e.db.f(None)
+        assert res == []
+
     def test_append_nondet(self):
         import uni
 
         e = uni.Engine("app([], X, X). app([H | T1], T2, [H | T3]).")
         e.db.app.many_solutions = True
-        for x, y in e.db.app(None, None, [1, 2, 3, 4, 5]):
+        for (x, y) in e.db.app(None, None, [1, 2, 3, 4, 5]):
+            print(72 * "-")
+            print("%s: %s" % (type(x), x))
+            print("%s: %s" % (type(y), y))
+            assert(type(x) == list)
+            assert(type(y) == list)
             assert x + y == [1, 2, 3, 4, 5]
+            print("OKOKOK")
 
     # XXX this wont work, as lists are not yet converted
     @pytest.mark.skipif("True")

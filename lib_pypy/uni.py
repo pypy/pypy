@@ -25,15 +25,16 @@ class Engine(object):
 
 class SolutionIterator(object):
     """ A wrapper around unipycation.CoreSolutionIterator. """
-    def __init__(self, iter, vs):
-        self.iter = iter
-        self.vars = vs # indicates order of returned solutions
+    def __init__(self, it, vs):
+        self.it = it
+        self.vs = vs # indicates order of returned solutions
 
     def __iter__(self): return self
 
     def next(self):
-        sol = self.iter.next()
-        return tuple([ sol[v] for v in self.vars ])
+        sol = self.it.next()
+        return tuple([ Predicate._back_to_py(sol[v]) for v in self.vs ])
+        #return tuple([ sol[v] for v in self.vars ])
 
 class Predicate(object):
     """ Represents a "callable" prolog predicate """
@@ -54,11 +55,15 @@ class Predicate(object):
 
     @staticmethod
     def _back_to_py(e):
+        print("BACK TO PY: %s %s" % (type(e), e))
         if e == "[]":
+            print("emptylist atom")
             return []
         if (not isinstance(e, Term)):
+            print("not a term")
             return e
         elif e.name == ".":
+            print("cons")
             assert len(e) == 2
             return [ Predicate._back_to_py(e.args[0]) ] + \
                     Predicate._back_to_py(e.args[1])
