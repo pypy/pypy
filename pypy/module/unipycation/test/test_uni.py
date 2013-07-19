@@ -122,8 +122,6 @@ class AppTestHighLevelInterface(object):
             assert(type(y) == list)
             assert x + y == [1, 2, 3, 4, 5]
 
-    # XXX this wont work, as lists are not yet converted
-    @pytest.mark.skipif("True")
     def test_reverse(self):
         import uni
         e = uni.Engine("""
@@ -131,5 +129,5 @@ class AppTestHighLevelInterface(object):
             rev_helper([], Acc, Acc).
             rev_helper([H | T], Acc, Res) :- rev_helper(T, [H | Acc], Res).
         """)
-        assert e.db.rev([1, 2, 3, 4], None) == [4, 3, 2, 1]
+        assert e.db.rev([1, 2, 3, 4], None) == ([4, 3, 2, 1], )
 
