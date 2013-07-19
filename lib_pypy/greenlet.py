@@ -147,5 +147,8 @@ def _greenlet_throw(greenlet, exc, value, tb):
     _tls.current = greenlet
     try:
         raise exc, value, tb
+    except GreenletExit, e:
+        res = e
     finally:
         _continuation.permute(greenlet, greenlet.parent)
+    return ((res,), None)
