@@ -9,7 +9,7 @@ from rpython.jit.metainterp.gc import get_description
 from rpython.jit.tool.oparser import parse
 from rpython.jit.metainterp.optimizeopt.util import equaloplists
 from rpython.jit.codewriter.heaptracker import register_known_gctype
-from rpython.jit.metainterp.history import JitCellToken, FLOAT
+from rpython.jit.metainterp.history import JitCellToken, FLOAT, ConstInt
 from rpython.rtyper.lltypesystem import lltype, rclass, rffi
 from rpython.jit.backend.x86.arch import WORD
 
@@ -95,14 +95,16 @@ class RewriteTests(object):
         lendescr = get_field_descr(self.gc_ll_descr, LIST, 'length')
         itemsdescr = get_field_descr(self.gc_ll_descr, LIST, 'items')
         arraydescr = get_array_descr(self.gc_ll_descr, ARRAY)
+        resize_ptr = ConstInt(123)
         extrainfo = EffectInfo(None, None, None, None,
                                extraeffect=EffectInfo.EF_RANDOM_EFFECTS,
                                oopspecindex=EffectInfo.OS_LIST_RESIZE_GE,
-                               extra_descrs=[lendescr, itemsdescr, arraydescr])
+                               extra_descrs=[lendescr, itemsdescr, arraydescr,
+                                             resize_ptr])
         list_resize_descr = get_call_descr(self.gc_ll_descr,
                                            [lltype.Ptr(LIST), lltype.Signed],
                                            lltype.Void, extrainfo)
-        list_resize_ge = lltype.nullptr(ARRAY) # does not matter, not used
+        extrainfo.extra_descrs.append(list_resize_descr)
 
         namespace.update(locals())
         #
@@ -794,12 +796,12 @@ class TestFramework(RewriteTests):
     def test_rewrite_list_resize_ge(self):
         self.check_rewrite("""
         [p0, i0]
-        call(ConstClass(list_resize_ge), p0, i0, descr=list_resize_descr)
+        call(121, p0, i0, descr=list_resize_descr)
         """, """
         [p0, i0]
         p1 = getfield_gc(p0, descr=itemsdescr)
         i1 = arraylen_gc(p1, descr=arraydescr)
         i2 = int_lt(i1, i0)
-        cond_call(i2, ConstClass(list_resize_ge), p0, i0, descr=list_resize_descr)
+        cond_call(i2, 123, p0, i0, descr=list_resize_descr)
         setfield_gc(p0, i0, descr=lendescr)
         """)
