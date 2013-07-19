@@ -2,10 +2,18 @@ from unipycation import *
 
 def build_prolog_list(elems):
     """ Converts a Python list into a cons chain """
-    if len(elems) == 0:
-        return "[]"
-    else:
-        return Term(".", [ elems[0], build_prolog_list(elems[1:]) ])
+    #if len(elems) == 0:
+    #    return "[]"
+    #else:
+    #    return Term(".", [ elems[0], build_prolog_list(elems[1:]) ])
+
+    # Iterative, to avoid list slicing (linear in list size)
+    n_elems = len(elems)
+    e = "[]"
+    for i in xrange(n_elems - 1, -1, -1):
+        e = Term(".", [elems[i], e])
+
+    return e
 
 class Engine(object):
     """ A wrapper around unipycation.CoreEngine. """
