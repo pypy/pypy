@@ -94,6 +94,9 @@ class TinyObjSpace(object):
     def is_true(self, obj):
         return bool(obj)
 
+    def is_none(self, obj):
+        return obj is None
+
     def str_w(self, w_str):
         return w_str
 
