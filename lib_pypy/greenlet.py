@@ -58,7 +58,6 @@ class greenlet(_continulet):
 
     def __switch(target, methodname, *baseargs):
         current = getcurrent()
-        convert_greenletexit = True
         #
         while not (target.__main or _continulet.is_pending(target)):
             # inlined __nonzero__ ^^^ in case it's overridden
@@ -78,7 +77,7 @@ class greenlet(_continulet):
             # will show that the program is caught in this loop here.)
             target = target.parent
             # convert a "raise GreenletExit" into "return GreenletExit"
-            if methodname == 'throw' and convert_greenletexit:
+            if methodname == 'throw':
                 try:
                     raise baseargs[0], baseargs[1]
                 except GreenletExit, e:
@@ -86,7 +85,6 @@ class greenlet(_continulet):
                     baseargs = (((e,), {}),)
                 except:
                     baseargs = sys.exc_info()[:2] + baseargs[2:]
-                    convert_greenletexit = False
         #
         try:
             unbound_method = getattr(_continulet, methodname)
