@@ -141,7 +141,7 @@ class Assembler386(BaseAssembler):
 
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap and gcrootmap.is_shadow_stack:
-            self._load_shadowstack_top_in_ebx(mc, gcrootmap)
+            self._load_shadowstack_top_in_reg(mc, gcrootmap)
             mc.MOV_mr((ebx.value, -WORD), eax.value)
 
         mc.MOV_bi(gcmap_ofs, 0)
@@ -149,15 +149,15 @@ class Assembler386(BaseAssembler):
         mc.RET()
         self._frame_realloc_slowpath = mc.materialize(self.cpu.asmmemmgr, [])
 
-    def _build_cond_call_slowpath(self, supports_floats):
+    def _build_cond_call_slowpath(self, supports_floats, callee_only):
         """ This builds a general call slowpath, for whatever call happens to
         come.
         """
         mc = codebuf.MachineCodeBlockWrapper()
-        self._push_all_regs_to_frame(mc, [], supports_floats, callee_only=False)
+        self._push_all_regs_to_frame(mc, [], supports_floats, callee_only)
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap and gcrootmap.is_shadow_stack:
-            self._call_header_shadowstack(mc, gcrootmap)
+            self._call_header_shadowstack(mc, gcrootmap, selected_reg=r8)
         mc.SUB(esp, imm(WORD))
         self.set_extra_stack_depth(mc, 2 * WORD)
         # args are in their respective positions
@@ -166,9 +166,9 @@ class Assembler386(BaseAssembler):
         self.set_extra_stack_depth(mc, 0)
         self._reload_frame_if_necessary(mc, align_stack=True)
         if gcrootmap and gcrootmap.is_shadow_stack:
-            self._call_footer_shadowstack(mc, gcrootmap)
-        self._pop_all_regs_from_frame(mc, [], self.cpu.supports_floats,
-                                      callee_only=False)
+            self._call_footer_shadowstack(mc, gcrootmap, selected_reg=r8)
+        self._pop_all_regs_from_frame(mc, [], supports_floats,
+                                      callee_only)
         mc.RET()
         return mc.materialize(self.cpu.asmmemmgr, [])
 
@@ -757,34 +757,34 @@ class Assembler386(BaseAssembler):
         self.mc.ADD_ri(esp.value, FRAME_FIXED_SIZE * WORD)
         self.mc.RET()
 
-    def _load_shadowstack_top_in_ebx(self, mc, gcrootmap):
+    def _load_shadowstack_top_in_reg(self, mc, gcrootmap, selected_reg=ebx):
         rst = gcrootmap.get_root_stack_top_addr()
         if rx86.fits_in_32bits(rst):
-            mc.MOV_rj(ebx.value, rst)            # MOV ebx, [rootstacktop]
+            mc.MOV_rj(selected_reg.value, rst)       # MOV ebx, [rootstacktop]
         else:
             mc.MOV_ri(X86_64_SCRATCH_REG.value, rst) # MOV r11, rootstacktop
-            mc.MOV_rm(ebx.value, (X86_64_SCRATCH_REG.value, 0))
+            mc.MOV_rm(selected_reg.value, (X86_64_SCRATCH_REG.value, 0))
             # MOV ebx, [r11]
         #
         return rst
 
-    def _call_header_shadowstack(self, mc, gcrootmap):
-        rst = self._load_shadowstack_top_in_ebx(mc, gcrootmap)
-        mc.MOV_mr((ebx.value, 0), ebp.value)      # MOV [ebx], ebp
-        mc.ADD_ri(ebx.value, WORD)
+    def _call_header_shadowstack(self, mc, gcrootmap, selected_reg=ebx):
+        rst = self._load_shadowstack_top_in_reg(mc, gcrootmap, selected_reg)
+        mc.MOV_mr((selected_reg.value, 0), ebp.value)      # MOV [ebx], ebp
+        mc.ADD_ri(selected_reg.value, WORD)
         if rx86.fits_in_32bits(rst):
-            mc.MOV_jr(rst, ebx.value)            # MOV [rootstacktop], ebx
+            mc.MOV_jr(rst, selected_reg.value)       # MOV [rootstacktop], ebx
         else:
             mc.MOV_mr((X86_64_SCRATCH_REG.value, 0),
-                      ebx.value) # MOV [r11], ebx
+                      selected_reg.value) # MOV [r11], ebx
 
-    def _call_footer_shadowstack(self, mc, gcrootmap):
+    def _call_footer_shadowstack(self, mc, gcrootmap, selected_reg=ebx):
         rst = gcrootmap.get_root_stack_top_addr()
         if rx86.fits_in_32bits(rst):
             mc.SUB_ji8(rst, WORD)       # SUB [rootstacktop], WORD
         else:
-            mc.MOV_ri(ebx.value, rst)           # MOV ebx, rootstacktop
-            mc.SUB_mi8((ebx.value, 0), WORD)  # SUB [ebx], WORD
+            mc.MOV_ri(selected_reg.value, rst)           # MOV ebx, rootstacktop
+            mc.SUB_mi8((selected_reg.value, 0), WORD)    # SUB [ebx], WORD
 
     def redirect_call_assembler(self, oldlooptoken, newlooptoken):
         # some minimal sanity checking
@@ -2152,10 +2152,17 @@ class Assembler386(BaseAssembler):
         self.mc.J_il8(rx86.Conditions['Z'], 0) # patched later
         jmp_adr = self.mc.get_relative_pos()
         self.push_gcmap(self.mc, gcmap, store=True)
-        if self._regalloc is not None and self._regalloc.xrm.reg_bindings:
-            cond_call_adr = self.cond_call_slowpath[1]
-        else:
-            cond_call_adr = self.cond_call_slowpath[0]
+        callee_only = False
+        floats = False
+        if self._regalloc is not None:
+            for reg in self._regalloc.rm.reg_bindings.values():
+                if reg not in self._regalloc.rm.save_around_call_regs:
+                    break
+            else:
+                callee_only = True
+            if self._regalloc.xrm.reg_bindings:
+                floats = True
+        cond_call_adr = self.cond_call_slowpath[floats * 2 + callee_only]
         self.mc.CALL(imm(cond_call_adr))
         self.pop_gcmap(self.mc)
         # never any result value
