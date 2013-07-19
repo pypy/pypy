@@ -229,10 +229,15 @@ class GcRewriterAssembler(object):
         call to really resize
         """
         extra_info = op.getdescr().get_extra_info()
+        if extra_info.extra_descrs is None:
+            # this is for tests only, actually never happens
+            self.newops.append(op)
+            return
         lendescr = extra_info.extra_descrs[0]
         itemsdescr = extra_info.extra_descrs[1]
         arraydescr = extra_info.extra_descrs[2]
-        func = op.getarg(0)
+        resize_ptr = ConstInt(extra_info.extra_descrs[3].getint())
+        calldescr = extra_info.extra_descrs[4]
         lst = op.getarg(1)
         newsizebox = op.getarg(2)
         arrbox = BoxPtr()
@@ -242,8 +247,9 @@ class GcRewriterAssembler(object):
         op1 = ResOperation(rop.ARRAYLEN_GC, [arrbox], arrlenbox,
                            descr=arraydescr)
         op2 = ResOperation(rop.INT_LT, [arrlenbox, newsizebox], cond_box)
-        op3 = ResOperation(rop.COND_CALL, [cond_box, func, lst, newsizebox],
-                           None, descr=op.getdescr())
+        op3 = ResOperation(rop.COND_CALL, [cond_box, resize_ptr, lst,
+                                           newsizebox],
+                           None, descr=calldescr)
         op4 = ResOperation(rop.SETFIELD_GC, [lst, newsizebox], None,
                            descr=lendescr)
         self.newops += [op0, op1, op2, op3, op4]

@@ -8,6 +8,7 @@ from rpython.rlib import rgc
 from rpython.rlib.jit import elidable, oopspec
 from rpython.rlib.rarithmetic import r_longlong, r_ulonglong, r_uint, intmask
 from rpython.rtyper import rlist
+from rpython.rtyper.lltypesystem import rlist as rlist_ll
 from rpython.rtyper.annlowlevel import MixLevelHelperAnnotator
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.llinterp import LLInterpreter
@@ -74,7 +75,7 @@ def autodetect_jit_markers_redvars(graph):
             # another block, so the set of alive_v will be different.
             methname = op.args[0].value
             assert methname == 'jit_merge_point', (
-                "reds='auto' is supported only for jit drivers which " 
+                "reds='auto' is supported only for jit drivers which "
                 "calls only jit_merge_point. Found a call to %s" % methname)
             #
             # compute the set of live variables across the jit_marker
@@ -212,6 +213,8 @@ _ll_1_list_len_foldable     = _ll_1_list_len
 
 _ll_5_list_ll_arraycopy = rgc.ll_arraycopy
 
+def _ll_2_list_resize_hint_really(l, newsize):
+    rlist_ll._ll_list_resize_hint_really(l, newsize, True)
 
 @elidable
 def _ll_1_gc_identityhash(x):

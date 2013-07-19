@@ -5,7 +5,7 @@ from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.codewriter.flatten import ListOfKind, IndirectCallTargets
 from rpython.jit.codewriter.policy import log
 from rpython.jit.metainterp import quasiimmut
-from rpython.jit.metainterp.history import getkind
+from rpython.jit.metainterp.history import getkind, AbstractDescr
 from rpython.jit.metainterp.typesystem import deref, arrayItem
 from rpython.jit.metainterp.blackhole import BlackholeInterpreter
 from rpython.flowspace.model import SpaceOperation, Variable, Constant, c_last_exception
@@ -16,6 +16,15 @@ from rpython.rtyper.lltypesystem import lltype, llmemory, rstr, rclass, rffi
 from rpython.rtyper.rclass import IR_QUASIIMMUTABLE, IR_QUASIIMMUTABLE_ARRAY
 from rpython.translator.simplify import get_funcobj
 from rpython.translator.unsimplify import varoftype
+
+class IntDescr(AbstractDescr):
+    """ Disguise int as a descr
+    """
+    def __init__(self, v):
+        self.v = v
+
+    def getint(self):
+        return self.v
 
 class UnsupportedMallocFlags(Exception):
     pass
@@ -1624,9 +1633,16 @@ class Transformer(object):
         itemsdescr = self.cpu.fielddescrof(LIST, 'items')
         lendescr = self.cpu.fielddescrof(LIST, 'length')
         arraydescr = self.cpu.arraydescrof(LIST.items.TO)
+        oopspec = "list.resize_hint_really"
+        c_func, TP = support.builtin_func_for_spec(self.cpu.rtyper,
+            oopspec, [lltype.Ptr(LIST), lltype.Signed], lltype.Void)
+        op1 = SpaceOperation('direct_call', [c_func] + args, op.result)
+        calldescr = self.callcontrol.getcalldescr(op1)
+        extradescrs = [lendescr, itemsdescr, arraydescr,
+                       IntDescr(rffi.cast(lltype.Signed, c_func.value)),
+                       calldescr]
         return self.handle_residual_call(op, oopspecindex=index,
-                                         extradescrs=[lendescr, itemsdescr,
-                                                      arraydescr])
+                                         extradescrs=extradescrs)
 
     # ----------
     # Strings and Unicodes.
