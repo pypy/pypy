@@ -1638,8 +1638,9 @@ class Transformer(object):
             oopspec, [lltype.Ptr(LIST), lltype.Signed], lltype.Void)
         op1 = SpaceOperation('direct_call', [c_func] + args, op.result)
         calldescr = self.callcontrol.getcalldescr(op1)
+        addr = llmemory.cast_ptr_to_adr(c_func.value)
         extradescrs = [lendescr, itemsdescr, arraydescr,
-                       IntDescr(rffi.cast(lltype.Signed, c_func.value)),
+                       IntDescr(heaptracker.adr2int(addr)),
                        calldescr]
         return self.handle_residual_call(op, oopspecindex=index,
                                          extradescrs=extradescrs)

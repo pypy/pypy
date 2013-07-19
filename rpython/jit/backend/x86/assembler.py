@@ -149,18 +149,17 @@ class Assembler386(BaseAssembler):
         mc.RET()
         self._frame_realloc_slowpath = mc.materialize(self.cpu.asmmemmgr, [])
 
-    def _build_cond_call_slowpath(self):
+    def _build_cond_call_slowpath(self, supports_floats):
         """ This builds a general call slowpath, for whatever call happens to
         come.
         """
         mc = codebuf.MachineCodeBlockWrapper()
-        self._push_all_regs_to_frame(mc, [], self.cpu.supports_floats,
-                                     callee_only=False)
+        self._push_all_regs_to_frame(mc, [], supports_floats, callee_only=False)
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap and gcrootmap.is_shadow_stack:
             self._call_header_shadowstack(mc, gcrootmap)
         mc.SUB(esp, imm(WORD))
-        # first arg is always in edi
+        # args are in their respective positions
         mc.CALL(eax)
         mc.ADD(esp, imm(WORD))
         if gcrootmap and gcrootmap.is_shadow_stack:
@@ -2150,7 +2149,11 @@ class Assembler386(BaseAssembler):
         self.mc.J_il8(rx86.Conditions['Z'], 0) # patched later
         jmp_adr = self.mc.get_relative_pos()
         self.push_gcmap(self.mc, gcmap, store=True)
-        self.mc.CALL(imm(self.cond_call_slowpath))
+        if self._regalloc is not None and self._regalloc.xrm.reg_bindings:
+            cond_call_adr = self.cond_call_slowpath[1]
+        else:
+            cond_call_adr = self.cond_call_slowpath[0]
+        self.mc.CALL(imm(cond_call_adr))
         self.pop_gcmap(self.mc)
         # never any result value
         offset = self.mc.get_relative_pos() - jmp_adr

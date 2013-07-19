@@ -86,7 +86,7 @@ class EffectInfo(object):
     OS_JIT_FORCE_VIRTUAL        = 120
 
     OS_LIST_RESIZE_GE           = 130
-    OS_LIST_RESIZE_LE           = 130
+    OS_LIST_RESIZE_LE           = 131
 
     # for debugging:
     _OS_CANRAISE = set([
