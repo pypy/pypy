@@ -159,9 +159,12 @@ class Assembler386(BaseAssembler):
         if gcrootmap and gcrootmap.is_shadow_stack:
             self._call_header_shadowstack(mc, gcrootmap)
         mc.SUB(esp, imm(WORD))
+        self.set_extra_stack_depth(mc, 2 * WORD)
         # args are in their respective positions
         mc.CALL(eax)
         mc.ADD(esp, imm(WORD))
+        self.set_extra_stack_depth(mc, 0)
+        self._reload_frame_if_necessary(mc, align_stack=True)
         if gcrootmap and gcrootmap.is_shadow_stack:
             self._call_footer_shadowstack(mc, gcrootmap)
         self._pop_all_regs_from_frame(mc, [], self.cpu.supports_floats,
@@ -2144,7 +2147,7 @@ class Assembler386(BaseAssembler):
     def label(self):
         self._check_frame_depth_debug(self.mc)
 
-    def cond_call(self, op, gcmap, cond_loc, call_loc, arglocs):
+    def cond_call(self, op, gcmap, cond_loc, call_loc):
         self.mc.TEST(cond_loc, cond_loc)
         self.mc.J_il8(rx86.Conditions['Z'], 0) # patched later
         jmp_adr = self.mc.get_relative_pos()

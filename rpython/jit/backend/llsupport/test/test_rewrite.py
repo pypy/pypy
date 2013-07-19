@@ -802,6 +802,6 @@ class TestFramework(RewriteTests):
         p1 = getfield_gc(p0, descr=itemsdescr)
         i1 = arraylen_gc(p1, descr=arraydescr)
         i2 = int_lt(i1, i0)
-        cond_call(i2, 123, p0, i0, descr=list_resize_descr)
+        cond_call(i2, 123, p0, i0, 1, descr=list_resize_descr)
         setfield_gc(p0, i0, descr=lendescr)
         """)

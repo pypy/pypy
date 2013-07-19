@@ -213,8 +213,7 @@ _ll_1_list_len_foldable     = _ll_1_list_len
 
 _ll_5_list_ll_arraycopy = rgc.ll_arraycopy
 
-def _ll_2_list_resize_hint_really(l, newsize):
-    rlist_ll._ll_list_resize_hint_really(l, newsize, True)
+_ll_3_list_resize_hint_really = rlist_ll._ll_list_resize_hint_really
 
 @elidable
 def _ll_1_gc_identityhash(x):

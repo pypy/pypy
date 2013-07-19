@@ -78,7 +78,7 @@ class LinkedList(object):
 
     def _candidate(self, node):
         return (node.val & 1 == 0) and (node.val + 1 == node.next.val)
-        
+
     def _pop_two(self, tp):
         node = self.master_node
         if node is None or node.next is None:
@@ -281,6 +281,7 @@ class RegisterManager(object):
 
     def __init__(self, longevity, frame_manager=None, assembler=None):
         self.free_regs = self.all_regs[:]
+        self.free_regs.reverse()
         self.longevity = longevity
         self.temp_boxes = []
         if not we_are_translated():

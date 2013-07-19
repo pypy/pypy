@@ -1635,8 +1635,11 @@ class Transformer(object):
         arraydescr = self.cpu.arraydescrof(LIST.items.TO)
         oopspec = "list.resize_hint_really"
         c_func, TP = support.builtin_func_for_spec(self.cpu.rtyper,
-            oopspec, [lltype.Ptr(LIST), lltype.Signed], lltype.Void)
-        op1 = SpaceOperation('direct_call', [c_func] + args, op.result)
+            oopspec, [lltype.Ptr(LIST), lltype.Signed, lltype.Bool],
+            lltype.Void)
+        op1 = SpaceOperation('direct_call', [c_func] + args +
+                             [Constant(1, concretetype=lltype.Bool)],
+                             op.result)
         calldescr = self.callcontrol.getcalldescr(op1)
         addr = llmemory.cast_ptr_to_adr(c_func.value)
         extradescrs = [lendescr, itemsdescr, arraydescr,

@@ -248,7 +248,7 @@ class GcRewriterAssembler(object):
                            descr=arraydescr)
         op2 = ResOperation(rop.INT_LT, [arrlenbox, newsizebox], cond_box)
         op3 = ResOperation(rop.COND_CALL, [cond_box, resize_ptr, lst,
-                                           newsizebox],
+                                           newsizebox, ConstInt(1)],
                            None, descr=calldescr)
         op4 = ResOperation(rop.SETFIELD_GC, [lst, newsizebox], None,
                            descr=lendescr)
