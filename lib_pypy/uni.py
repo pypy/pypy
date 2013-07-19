@@ -46,11 +46,6 @@ class Predicate(object):
             return e
 
     def __call__(self, *args):
-        #var_filter = lambda e : Var() if e is None else e
-        #list_filter = lambda e : build_prolog_list(e) if isinstance(e, list) else e
-
-        #term_args = [ var_filter(e) for e in args ]
-        #term_args = [ list_filter(e) for e in args ]
         term_args = [ Predicate._arg_filter(e) for e in args ]
 
         vs = [ e for e in term_args if type(e) == Var ]
@@ -98,4 +93,3 @@ class TermPool(object):
     def __getattr__(self, name):
         # Note that we cant memoise these due to the args being variable
         return lambda *args : TermPool._magic_convert(name, args)
-
