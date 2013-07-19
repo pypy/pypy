@@ -1,13 +1,13 @@
-import prolog.interpreter.term as pterm
-import prolog.interpreter.helper as phelper
+from prolog.interpreter import term
+from prolog.interpreter import helper
 
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app
 
-import pypy.module.unipycation.util as util
-import pypy.module.unipycation.objects as objects
+from pypy.module.unipycation import util
+from pypy.module.unipycation import objects
 
 from pypy.interpreter.baseobjspace import W_Root
 
@@ -27,19 +27,19 @@ def _p_type_check(space, inst, typ):
 
 def p_number_of_w_int(space, w_int):
     val = space.int_w(w_int)
-    return pterm.Number(val)
+    return term.Number(val)
 
 def p_float_of_w_float(space, w_float):
     val = space.float_w(w_float)
-    return pterm.Float(val)
+    return term.Float(val)
 
 def p_bigint_of_w_long(space, w_long):
     val = space.bigint_w(w_long)
-    return pterm.BigInt(val)
+    return term.BigInt(val)
 
 def p_atom_of_w_str(space, w_str):
     val = space.str0_w(w_str)
-    return pterm.Atom(val)
+    return term.Atom(val)
 
 def p_term_of_w_term(space, w_term):
     assert isinstance(w_term, objects.W_Term)
@@ -86,7 +86,7 @@ def w_long_of_p_bigint(space, p_bigint):
     return space.newlong_from_rbigint(p_bigint.value)
 
 def w_str_of_p_atom(space, p_atom):
-    return space.wrap(phelper.unwrap_atom(p_atom))
+    return space.wrap(helper.unwrap_atom(p_atom))
 
 def w_term_of_p_callable(space, p_callable):
     return objects.W_Term(space, p_callable)
@@ -97,17 +97,17 @@ def w_whatever_of_p_bindingvar(space, p_bindingvar):
     return w_of_p(space, p_bindingvar.binding)
 
 def w_of_p(space, p_anything):
-    if isinstance(p_anything, pterm.Number):
+    if isinstance(p_anything, term.Number):
         return w_int_of_p_number(space, p_anything)
-    elif isinstance(p_anything, pterm.Float):
+    elif isinstance(p_anything, term.Float):
         return w_float_of_p_float(space, p_anything)
-    elif isinstance(p_anything, pterm.BigInt):
+    elif isinstance(p_anything, term.BigInt):
         return w_long_of_p_bigint(space, p_anything)
-    elif isinstance(p_anything, pterm.Atom):
+    elif isinstance(p_anything, term.Atom):
         return w_str_of_p_atom(space, p_anything)
-    elif isinstance(p_anything, pterm.Callable):
+    elif isinstance(p_anything, term.Callable):
         return w_term_of_p_callable(space, p_anything)
-    elif isinstance(p_anything, pterm.BindingVar):
+    elif isinstance(p_anything, term.BindingVar):
         return w_whatever_of_p_bindingvar(space, p_anything)
     else:
         w_ConversionError = util.get_from_module(space, "unipycation", "ConversionError")
