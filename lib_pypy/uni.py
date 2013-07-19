@@ -1,12 +1,9 @@
 from unipycation import *
 
+class InstantiationError(Exception): pass
+
 def build_prolog_list(elems):
     """ Converts a Python list into a cons chain """
-    #if len(elems) == 0:
-    #    return "[]"
-    #else:
-    #    return Term(".", [ elems[0], build_prolog_list(elems[1:]) ])
-
     # Iterative, to avoid list slicing (linear in list size)
     n_elems = len(elems)
     e = "[]"
@@ -14,8 +11,6 @@ def build_prolog_list(elems):
         e = Term(".", [elems[i], e])
 
     return e
-
-class InstantiationError(Exception): pass
 
 def unpack_prolog_list(e):
     assert e.name == "."
@@ -45,7 +40,6 @@ class SolutionIterator(object):
     def next(self):
         sol = self.it.next()
         return tuple([ Predicate._back_to_py(sol[v]) for v in self.vs ])
-        #return tuple([ sol[v] for v in self.vars ])
 
 class Predicate(object):
     """ Represents a "callable" prolog predicate """
