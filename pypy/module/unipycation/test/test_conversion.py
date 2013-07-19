@@ -155,6 +155,15 @@ class TestTypeConversion(object):
 
         assert self.space.float_w(w_float) == 3.1415
 
+    def test_w_of_p_var_bound_to_number(self):
+        p_number = pterm.BindingVar()
+        p_number.binding = pterm.Number(666)
+        w_int = conv.w_of_p(self.space, p_number)
+
+        unwrap = self.space.int_w(w_int)
+
+        assert unwrap == 666
+
     def test_w_of_p_fails(self):
         p_val = 666            # clearly not a prolog type
 
