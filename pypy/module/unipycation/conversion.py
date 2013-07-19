@@ -50,8 +50,6 @@ def p_var_of_w_var(space, w_var):
     return w_var.p_var
 
 def p_of_w(space, w_anything):
-    # XXX move outside?
-    w_ConversionError = util.get_from_module(space, "unipycation", "ConversionError")
     w_Term = util.get_from_module(space, "unipycation", "Term")
     w_Var = util.get_from_module(space, "unipycation", "Var")
 
@@ -70,6 +68,7 @@ def p_of_w(space, w_anything):
     elif space.is_true(space.isinstance(w_anything, w_Var)):
         return p_var_of_w_var(space, w_anything)
     else:
+        w_ConversionError = util.get_from_module(space, "unipycation", "ConversionError")
         raise OperationError(w_ConversionError,
                 space.wrap("Don't know how to convert wrapped %s to prolog type" % w_anything))
 
