@@ -77,7 +77,8 @@ Limitations of the High-Level Interface
  * Lists (which are automagically converted) must not end with an unbound variable.
  * It is not possible to place variables inside terms/lists in a query.
 
-If need to do either of the above, then you must use the low-level interface.
+If you need to do either of the above, then you must use the low-level
+interface.
 
 Low-Level Interface
 -------------------
