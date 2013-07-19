@@ -7,7 +7,6 @@ def build_prolog_list(elems):
     else:
         return Term(".", [ elems[0], build_prolog_list(elems[1:]) ])
 
-
 class Engine(object):
     """ A wrapper around unipycation.CoreEngine. """
     def __init__(self, db_str):
@@ -45,6 +44,26 @@ class Predicate(object):
         else:
             return e
 
+    #@staticmethod
+    #def _decons_result(e):
+    #    if not isinstance(e, Term) or e.name != ".":
+    #        return e
+
+    #    # If we get here we have a cons which needs to become a list
+    #    assert len(e) == 2
+    #    return [ e.args[0] ] + Predicate._decons_result(e.args[1])
+
+    @staticmethod
+    def _back_to_py(e):
+        print("\n" + 72 * "-")
+        print("RECONVERT: " + str(e))
+        if not isinstance(e, Term) or e.name != ".":
+            return e
+
+        assert len(e) == 2
+        next_e = Predicate._back_to_py(e.args[1])
+        return [ Predicate._back_to_py(e.args[0]) ] + next_e
+
     def __call__(self, *args):
         term_args = [ Predicate._arg_filter(e) for e in args ]
 
@@ -60,7 +79,7 @@ class Predicate(object):
             if sol is None:
                 return None # contradiction
             else:
-                return tuple([ sol[v] for v in vs ])
+                return tuple([ Predicate._back_to_py(sol[v]) for v in vs ])
     
 class Database(object):
     """ A class that represents the predicates exposed by a prolog engine """
