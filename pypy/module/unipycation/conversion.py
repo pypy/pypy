@@ -9,6 +9,8 @@ from pypy.interpreter.gateway import interp2app
 import pypy.module.unipycation.util as util
 import pypy.module.unipycation.objects as objects
 
+from pypy.interpreter.baseobjspace import W_Root
+
 def _w_type_check(space, inst, typ):
     if not space.is_true(space.isinstance(inst, typ)):
         w_ConversionError = util.get_from_module(space, "unipycation", "ConversionError")
@@ -108,6 +110,8 @@ def w_term_of_p_callable(space, p_callable):
     return objects.W_Term(space, p_callable)
 
 def w_whatever_of_p_bindingvar(space, p_bindingvar):
+    if p_bindingvar.binding is None:
+        return objects.var_new__(space, W_Root, None) # unbound variable, it is what it is...
     return w_of_p(space, p_bindingvar.binding)
 
 def w_of_p(space, p_anything):
