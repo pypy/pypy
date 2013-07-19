@@ -57,7 +57,7 @@ High-Level Interface
 The high-level interface provides a concise way to execute 90% of the
 most common Prolog usage patterns from Python. For example::
 
-        # Find all combinations of lists which when concatenated
+        # Find all combinations of two lists which when concatenated
         # give [1, 2, 3, 4, 5]
 
         import uni                                                              
