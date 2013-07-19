@@ -43,6 +43,7 @@ class AppTestRCTime:
         assert isinstance(res, str)
         rctime.ctime(rctime.time())
         raises(ValueError, rctime.ctime, 1E200)
+        raises(OverflowError, rctime.ctime, 10**900)
         for year in [-100, 100, 1000, 2000, 10000]:
             try:
                 testval = rctime.mktime((year, 1, 10) + (0,)*6)

@@ -2212,6 +2212,11 @@ class AppTestMultiDim(BaseNumpyAppTest):
         a = a[::2]
         i = a.__array_interface__
         assert isinstance(i['data'][0], int)
+        b = array(range(9), dtype=int)
+        c = b[3:5]
+        b_data = b.__array_interface__['data'][0]
+        c_data = c.__array_interface__['data'][0]
+        assert b_data + 3 * b.dtype.itemsize == c_data
 
     def test_array_indexing_one_elem(self):
         from numpypy import array, arange

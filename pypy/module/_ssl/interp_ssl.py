@@ -857,7 +857,10 @@ def new_sslobject(space, ctx, w_sock, side, server_hostname):
 
     ss.ssl = libssl_SSL_new(ctx) # new ssl struct
     libssl_SSL_set_fd(ss.ssl, sock_fd) # set the socket for SSL
-    libssl_SSL_set_mode(ss.ssl, SSL_MODE_AUTO_RETRY)
+    # The ACCEPT_MOVING_WRITE_BUFFER flag is necessary because the address
+    # of a str object may be changed by the garbage collector.
+    libssl_SSL_set_mode(ss.ssl, 
+                        SSL_MODE_AUTO_RETRY | SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER)
 
     if server_hostname:
         libssl_SSL_set_tlsext_host_name(ss.ssl, server_hostname);

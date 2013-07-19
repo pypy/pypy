@@ -32,8 +32,12 @@ class W_LongObject(W_AbstractLongObject):
     def unwrap(w_self, space): #YYYYYY
         return w_self.longval()
 
-    def tofloat(self):
-        return self.num.tofloat()
+    def tofloat(self, space):
+        try:
+            return self.num.tofloat()
+        except OverflowError:
+            raise OperationError(space.w_OverflowError,
+                    space.wrap("long int too large to convert to float"))
 
     def toint(self):
         return self.num.toint()
@@ -72,7 +76,7 @@ class W_LongObject(W_AbstractLongObject):
         return w_self.num
 
     def float_w(self, space):
-        return self.num.tofloat()
+        return self.tofloat(space)
 
     def int(self, space):
         if (type(self) is not W_LongObject and
@@ -137,11 +141,7 @@ def index__Long(space, w_value):
     return long_long(space, w_value)
 
 def float__Long(space, w_longobj):
-    try:
-        return space.newfloat(w_longobj.num.tofloat())
-    except OverflowError:
-        raise OperationError(space.w_OverflowError,
-                             space.wrap("long int too large to convert to float"))
+    return space.newfloat(w_longobj.tofloat(space))
 
 def repr__Long(space, w_long):
     return space.wrap(w_long.num.str())

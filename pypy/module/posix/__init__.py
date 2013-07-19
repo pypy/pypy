@@ -35,6 +35,7 @@ corresponding Unix manual entries for more information on calls."""
     'error'      : 'app_posix.error',
     'stat_result': 'app_posix.stat_result',
     'urandom': 'app_posix.urandom',
+    'statvfs_result': 'app_posix.statvfs_result',
     }
     if os.name == 'nt':
         del appleveldefs['urandom'] # at interp on win32
