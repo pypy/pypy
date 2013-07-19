@@ -1,3 +1,4 @@
+import sys
 import _continuation
 
 __version__ = "0.4.0"
@@ -84,8 +85,8 @@ class greenlet(_continulet):
                     methodname = 'switch'
                     baseargs = (((e,), {}),)
                 except:
-                    pass
-                convert_greenletexit = False
+                    baseargs = sys.exc_info()[:2] + baseargs[2:]
+                    convert_greenletexit = False
         #
         try:
             unbound_method = getattr(_continulet, methodname)

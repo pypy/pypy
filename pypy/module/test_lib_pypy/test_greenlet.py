@@ -360,3 +360,21 @@ class AppTestGreenlet:
         e = greenlet.GreenletExit()
         x = g.throw(e)
         assert x is e
+
+    def test_throw_exception_already_finished(self):
+        import greenlet
+        def f():
+            pass
+        g = greenlet.greenlet(f)
+        g.switch()
+        seen = []
+        class MyException(Exception):
+            def __init__(self):
+                seen.append(1)
+        try:
+            g.throw(MyException)
+        except MyException:
+            pass
+        else:
+            raise AssertionError("no exception??")
+        assert seen == [1]
