@@ -107,6 +107,9 @@ def w_term_of_p_callable(space, p_callable):
     #_p_type_check(space, p_callable, pterm.Callable)
     return objects.W_Term(space, p_callable)
 
+def w_whatever_of_p_bindingvar(space, bindingvar):
+    return w_of_p(space, bindingvar.binding)
+
 def w_of_p(space, p_anything):
     if isinstance(p_anything, pterm.Number):
         return w_int_of_p_number(space, p_anything)
@@ -118,6 +121,8 @@ def w_of_p(space, p_anything):
         return w_str_of_p_atom(space, p_anything)
     elif isinstance(p_anything, pterm.Callable):
         return w_term_of_p_callable(space, p_anything)
+    elif isinstance(p_anything, pterm.BindingVar):
+        return w_whatever_of_p_bindingvar(space, p_anything)
     else:
         w_ConversionError = util.get_from_module(space, "unipycation", "ConversionError")
         raise OperationError(w_ConversionError,
