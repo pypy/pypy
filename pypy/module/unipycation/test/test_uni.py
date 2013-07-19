@@ -77,7 +77,10 @@ class AppTestHighLevelInterface(object):
             uni.Term(".", [313, uni.Term(".", [ 414, "[]"])])])])
         assert t == expect
 
-    # Test UndefinedGoal XXX
+    def test_undefined_goal(self):
+        import uni
+        e = uni.Engine("f(1,2,3).")
+        raises(uni.GoalError, lambda : e.db.g(666))
 
     def test_append(self):
         import uni
