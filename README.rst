@@ -2,8 +2,8 @@
 Unipycation: A Language Composition Experiment
 ==============================================
 
-Unipycation is an experimental composition of a Python Interpreter (PyPy
-http://pypy.org/) and a Prolog Interpreter (Pyrolog by Carl Friedrich
+Unipycation is an experimental composition of a Python interpreter (PyPy
+http://pypy.org/) and a Prolog interpreter (Pyrolog by Carl Friedrich
 Bolz https://bitbucket.org/cfbolz/pyrolog). The languages are composed
 using RPython, meaning that the entire composition is meta-traced.
 
