@@ -52,25 +52,18 @@ class Predicate(object):
         else:
             return e
 
-    #@staticmethod
-    #def _decons_result(e):
-    #    if not isinstance(e, Term) or e.name != ".":
-    #        return e
-
-    #    # If we get here we have a cons which needs to become a list
-    #    assert len(e) == 2
-    #    return [ e.args[0] ] + Predicate._decons_result(e.args[1])
-
     @staticmethod
     def _back_to_py(e):
-        print("\n" + 72 * "-")
-        print("RECONVERT: " + str(e))
-        if not isinstance(e, Term) or e.name != ".":
+        if e == "[]":
+            return []
+        if (not isinstance(e, Term)):
             return e
-
-        assert len(e) == 2
-        next_e = Predicate._back_to_py(e.args[1])
-        return [ Predicate._back_to_py(e.args[0]) ] + next_e
+        elif e.name == ".":
+            assert len(e) == 2
+            return [ Predicate._back_to_py(e.args[0]) ] + \
+                    Predicate._back_to_py(e.args[1])
+        else:
+            assert(False) # should not happen
 
     def __call__(self, *args):
         term_args = [ Predicate._arg_filter(e) for e in args ]

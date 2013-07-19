@@ -107,8 +107,8 @@ def w_term_of_p_callable(space, p_callable):
     #_p_type_check(space, p_callable, pterm.Callable)
     return objects.W_Term(space, p_callable)
 
-def w_whatever_of_p_bindingvar(space, bindingvar):
-    return w_of_p(space, bindingvar.binding)
+def w_whatever_of_p_bindingvar(space, p_bindingvar):
+    return w_of_p(space, p_bindingvar.binding)
 
 def w_of_p(space, p_anything):
     if isinstance(p_anything, pterm.Number):
