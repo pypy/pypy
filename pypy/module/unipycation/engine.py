@@ -37,18 +37,10 @@ class W_CoreSolutionIterator(W_Root):
         """ Called interally by the activation of the continuation """
 
         for w_var in self.space.listview(w_unbound_vars):
-            # it's the equivalent problem
-            # we need a test that does this:
-            # e.query_iter(term, [1, 2, 3])
-            print("W_VAR: %s" % w_var)
-
             w_var = self.space.interp_w(objects.W_Var, w_var)
 
-            print("pre conversion")
-            print( w_var.p_var.dereference(heap))
             w_binding = conversion.w_of_p(
                 self.space, w_var.p_var.dereference(heap))
-            print("post conversion")
             self.space.setitem(self.d_result, w_var, w_binding)
 
         self.fcont = fcont
@@ -82,7 +74,6 @@ class W_CoreSolutionIterator(W_Root):
 
             self.w_goal_term = None # allow GC
         else:
-            print("CONTINUATION RUN DAWG!!!")
             try:
                 continuation.driver(*self.fcont.fail(self.heap))
             except error.UnificationFailed:
@@ -116,7 +107,6 @@ class UnipycationContinuation(continuation.Continuation):
         self.w_solution_iter = w_solution_iter
 
     def activate(self, fcont, heap):
-        print("ACTIVATE")
         self.w_solution_iter._populate_result(self.w_unbound_vars, fcont, heap)
         return continuation.DoneSuccessContinuation(self.engine), fcont, heap
 

@@ -15,6 +15,17 @@ def build_prolog_list(elems):
 
     return e
 
+class InstantiationError(Exception): pass
+
+def unpack_prolog_list(e):
+    assert e.name == "."
+    if isinstance(e.args[1], Var): # the rest of the list is unknown
+        raise InstantiationError("The tail of a list was undefined")
+    if e.args[1] == "[]": # end of list
+        return [e.args[0]]
+    else:
+        return [e.args[0]] + unpack_prolog_list(e.args[1])
+
 class Engine(object):
     """ A wrapper around unipycation.CoreEngine. """
     def __init__(self, db_str):
@@ -55,18 +66,12 @@ class Predicate(object):
 
     @staticmethod
     def _back_to_py(e):
-        print("BACK TO PY: %s %s" % (type(e), e))
         if e == "[]":
-            print("emptylist atom")
             return []
         if (not isinstance(e, Term)):
-            print("not a term")
             return e
         elif e.name == ".":
-            print("cons")
-            assert len(e) == 2
-            return [ Predicate._back_to_py(e.args[0]) ] + \
-                    Predicate._back_to_py(e.args[1])
+            return unpack_prolog_list(e)
         else:
             assert(False) # should not happen
 

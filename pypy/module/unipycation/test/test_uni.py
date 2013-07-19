@@ -97,19 +97,30 @@ class AppTestHighLevelInterface(object):
         (res, ) = e.db.f(None)
         assert res == []
 
+    def test_undefined_list_tail(self):
+        import uni
+        e = uni.Engine("app([], X, X). app([H | T1], T2, [H | T3]).")
+        e.db.app.many_solutions = True
+
+        def should_fail(e):
+            # the second solution will have a list like [1|_G0]
+            for (x, y) in e.db.app(None, None, [1, 2, 3, 4, 5]): pass
+
+        raises(uni.InstantiationError, lambda : should_fail(e))
+
     def test_append_nondet(self):
         import uni
 
-        e = uni.Engine("app([], X, X). app([H | T1], T2, [H | T3]).")
+        e = uni.Engine("""
+            app([], X, X).
+            app([H | T1], T2, [H | T3]) :- app(T1, T2, T3).
+        """)
         e.db.app.many_solutions = True
+
         for (x, y) in e.db.app(None, None, [1, 2, 3, 4, 5]):
-            print(72 * "-")
-            print("%s: %s" % (type(x), x))
-            print("%s: %s" % (type(y), y))
             assert(type(x) == list)
             assert(type(y) == list)
             assert x + y == [1, 2, 3, 4, 5]
-            print("OKOKOK")
 
     # XXX this wont work, as lists are not yet converted
     @pytest.mark.skipif("True")
