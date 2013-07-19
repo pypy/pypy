@@ -134,3 +134,10 @@ class AppTestHighLevelInterface(object):
         """)
         assert e.db.rev([1, 2, 3, 4], None) == ([4, 3, 2, 1], )
 
+    def test_unbound(self):
+        import uni
+
+        e = uni.Engine("f(X) :- X = g(_).")
+        sol = e.db.f(None)
+        assert len(sol[0].args) == 1
+        assert type(sol[0].args[0]) == uni.Var

@@ -67,7 +67,8 @@ class Predicate(object):
         elif e.name == ".":
             return unpack_prolog_list(e)
         else:
-            assert(False) # should not happen
+            # is a Term
+            return e
 
     def __call__(self, *args):
         term_args = [ Predicate._arg_filter(e) for e in args ]

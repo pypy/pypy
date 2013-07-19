@@ -193,3 +193,14 @@ class AppTestCoreEngine(object):
         t = u.Term('g', [X])
         sol = e.query_single(t, [X])
         assert sol == None # because X retains it's binding of 1
+
+    def test_unbound(self):
+        import unipycation as u
+
+        e = u.CoreEngine("f(X) :- X = g(_).")
+        X = u.Var()
+        t = u.Term('f', [X])
+        sol = e.query_single(t, [X])
+        assert type(sol[X] == u.Term)
+        assert len(sol[X].args) == 1
+        assert type(sol[X].args[0] == u.Var)
