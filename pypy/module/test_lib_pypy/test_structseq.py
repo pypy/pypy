@@ -10,30 +10,32 @@ class AppTestStructseq:
 
     def w_get_mydata(self):
         _structseq = self._structseq
-        ssfield = _structseq.structseqfield
-        class mydata:
-            __metaclass__ = _structseq.structseqtype
-
-            st_mode  = ssfield(0, "protection bits")
-            st_ino   = ssfield(1)
-            st_dev   = ssfield(2)
-            st_nlink = ssfield(3)
-            st_uid   = ssfield(4)
-            st_gid   = ssfield(5)
-            st_size  = ssfield(6)
-            _st_atime_as_int = ssfield(7)
-            _st_mtime_as_int = ssfield(8)
-            _st_ctime_as_int = ssfield(9)
-            # skip to higher numbers for fields not part of the sequence.
-            # the numbers are only used to ordering
-            st_rdev  = ssfield(50, "device type (if inode device)")
-            st_atime = ssfield(57,
-                               default=lambda self: self._st_atime_as_int)
-            st_mtime = ssfield(58,
-                               default=lambda self: self._st_mtime_as_int)
-            st_ctime = ssfield(59,
-                               default=lambda self: self._st_ctime_as_int)
-        return mydata
+        ns = dict(_structseq=_structseq,
+                  ssfield=_structseq.structseqfield)
+        # need to exec since it uses the py3k-only metaclass syntax
+        exec("""\
+class mydata(metaclass=_structseq.structseqtype):
+    st_mode  = ssfield(0, "protection bits")
+    st_ino   = ssfield(1)
+    st_dev   = ssfield(2)
+    st_nlink = ssfield(3)
+    st_uid   = ssfield(4)
+    st_gid   = ssfield(5)
+    st_size  = ssfield(6)
+    _st_atime_as_int = ssfield(7)
+    _st_mtime_as_int = ssfield(8)
+    _st_ctime_as_int = ssfield(9)
+    # skip to higher numbers for fields not part of the sequence.
+    # the numbers are only used to ordering
+    st_rdev  = ssfield(50, "device type (if inode device)")
+    st_atime = ssfield(57,
+                       default=lambda self: self._st_atime_as_int)
+    st_mtime = ssfield(58,
+                       default=lambda self: self._st_mtime_as_int)
+    st_ctime = ssfield(59,
+                       default=lambda self: self._st_ctime_as_int)
+""", ns)
+        return ns['mydata']
 
     def test_class(self):
         mydata = self.get_mydata()
@@ -52,7 +54,7 @@ class AppTestStructseq:
         assert x.st_ctime == 109    # copied by the default=lambda...
         assert x.st_rdev  == 110
         assert len(x)     == 10
-        assert list(x)    == range(100, 110)
+        assert list(x)    == list(range(100, 110))
         assert x + (5,)   == tuple(range(100, 110)) + (5,)
         assert x[4:12:2]  == (104, 106, 108)
         assert 104 in x
@@ -72,7 +74,7 @@ class AppTestStructseq:
     def test_compare_like_tuple(self):
         mydata = self.get_mydata()
         x = mydata(range(100, 111))
-        y = mydata(range(100, 110) + [555])
+        y = mydata(list(range(100, 110)) + [555])
         assert x == tuple(range(100, 110))
         assert x == y    # blame CPython
         assert hash(x) == hash(y) == hash(tuple(range(100, 110)))

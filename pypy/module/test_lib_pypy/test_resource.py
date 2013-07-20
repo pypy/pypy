@@ -37,5 +37,5 @@ class AppTestResource:
             if i < 2:
                 expected_type = float
             else:
-                expected_type = (int, long)
+                expected_type = int
             assert isinstance(x[i], expected_type)
