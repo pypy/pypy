@@ -37,7 +37,6 @@ def maketestobjspace(config=None):
     space.setitem(space.builtin.w_dict, space.wrap('skip'),
                   space.wrap(appsupport.app_skip))
     space.raises_w = appsupport.raises_w.__get__(space)
-    space.eq_w = appsupport.eq_w.__get__(space)
     return space
 
 
