@@ -6,7 +6,7 @@ __version__ = "0.4.0"
 # ____________________________________________________________
 # Exceptions
 
-class GreenletExit(Exception):
+class GreenletExit(BaseException):
     """This special exception does not propagate to the parent greenlet; it
 can be used to kill a single greenlet."""
 
