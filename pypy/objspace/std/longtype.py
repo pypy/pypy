@@ -3,8 +3,8 @@ from pypy.interpreter import typedef
 from pypy.interpreter.gateway import (
     WrappedDefault, applevel, interp2app, interpindirect2app, unwrap_spec)
 from pypy.objspace.std.model import W_Object
-from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
-from pypy.objspace.std.strutil import string_to_bigint, ParseStringError
+from pypy.objspace.std.stdtypedef import StdTypeDef
+from rpython.rlib.rstring import ParseStringError
 from rpython.rlib.rbigint import rbigint, InvalidEndiannessError, InvalidSignednessError
 
 def descr_conjugate(space, w_int):
@@ -71,7 +71,7 @@ def descr__new__(space, w_longtype, w_x, w_base=None):
 
 def string_to_w_long(space, w_longtype, s, base=10):
     try:
-        bigint = string_to_bigint(s, base)
+        bigint = rbigint.fromstr(s, base)
     except ParseStringError, e:
         raise OperationError(space.w_ValueError,
                              space.wrap(e.msg))

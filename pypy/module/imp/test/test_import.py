@@ -59,6 +59,9 @@ def setup_directory_structure(cls):
              relative_c = "from __future__ import absolute_import\nfrom .struct import inpackage",
              relative_f = "from .imp import get_magic",
              relative_g = "import imp; from .imp import get_magic",
+             inpackage  = "inpackage = 1",
+             function_a = "g = {'__name__': 'pkg.a'}; __import__('inpackage', g); print(g)",
+             function_b = "g = {'__name__': 'not.a'}; __import__('inpackage', g); print(g)",
              )
     setuppkg("pkg.pkg1",
              __init__   = 'from . import a',
@@ -552,6 +555,16 @@ class AppTestImport(BaseImportTest):
         check_absolute()
         raises(ValueError, check_relative)
 
+    def test_import_function(self):
+        # More tests for __import__
+        import sys
+        if sys.version < '3.3':
+            from pkg import function_a
+            assert function_a.g['__package__'] == 'pkg'
+            raises(ImportError, "from pkg import function_b")
+        else:
+            raises(ImportError, "from pkg import function_a")
+
     def test_universal_newlines(self):
         import pkg_univnewlines
         assert pkg_univnewlines.a == 5
@@ -746,6 +759,10 @@ class AppTestImport(BaseImportTest):
                                  'invalid_path_name', ('.py', 'r', imp.PY_SOURCE))
         assert module.__name__ == 'a'
         assert module.__file__ == 'invalid_path_name'
+
+    def test_crash_load_module(self):
+        import imp
+        raises(ValueError, imp.load_module, "", "", "", [1, 2, 3, 4])
 
     def test_source_encoding(self):
         import imp

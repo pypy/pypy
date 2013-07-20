@@ -7,6 +7,7 @@
 # ...unless the -A option ('runappdirect') is passed.
 
 import py
+import os
 import sys, textwrap, types
 from pypy.interpreter.gateway import app2interp_temp
 from pypy.interpreter.error import OperationError
@@ -15,8 +16,10 @@ from rpython.tool import runsubprocess
 from pypy.tool.pytest import appsupport
 from pypy.tool.pytest.objspace import gettestobjspace
 from rpython.tool.udir import udir
-from pypy.conftest import PyPyClassCollector
+from pypy.conftest import PyPyClassCollector, pypydir
 from inspect import getmro
+
+pypyroot = os.path.dirname(pypydir)
 
 RENAMED_USEMODULES = dict(
     _winreg='winreg',
@@ -69,6 +72,7 @@ def run_with_python(python_, target_, usemodules, **definitions):
     helpers = r"""# -*- encoding: utf-8 -*-
 if 1:
     import sys
+    sys.path.append('%s')
 %s
     def skip(message):
         print(message)
@@ -161,7 +165,7 @@ if 1:
     else:
         target_name = target_.__name__
     with pyfile.open('w') as f:
-        f.write(helpers % check_usemodules)
+        f.write(helpers % (pypyroot, check_usemodules))
         f.write('\n'.join(defs))
         f.write('def %s():\n' % target_name)
         f.write('\n'.join(source))

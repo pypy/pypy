@@ -542,20 +542,18 @@ class AppTestMMap:
 
     def test_buffer_write(self):
         from mmap import mmap
-        f = open(self.tmpname + "y", "w+")
-        f.write("foobar")
+        f = open(self.tmpname + "y", "wb+")
+        f.write(b"foobar")
         f.flush()
         m = mmap(f.fileno(), 6)
-        m[5] = '?'
-        b = buffer(m)
-        try:
-            b[:3] = "FOO"
-        except TypeError:     # on CPython: "buffer is read-only" :-/
-            skip("on CPython: buffer is read-only")
+        m[5] = ord('?')
+        b = memoryview(m)
+        b[:3] = b"FOO"
+        del b  # For CPython: "cannot close exported pointers exist"
         m.close()
         f.seek(0)
         got = f.read()
-        assert got == "FOOba?"
+        assert got == b"FOOba?"
         f.close()
 
     def test_offset(self):

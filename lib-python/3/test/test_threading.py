@@ -346,10 +346,15 @@ class ThreadTests(BaseTestCase):
         # Try hard to trigger #1703448: a thread is still returned in
         # threading.enumerate() after it has been join()ed.
         enum = threading.enumerate
-        old_interval = sys.getswitchinterval()
+        newgil = hasattr(sys, 'getswitchinterval')
+        if newgil:
+            geti, seti = sys.getswitchinterval, sys.setswitchinterval
+        else:
+            geti, seti = sys.getcheckinterval, sys.setcheckinterval
+        old_interval = geti()
         try:
             for i in range(1, 100):
-                sys.setswitchinterval(i * 0.0002)
+                seti(i * 0.0002 if newgil else i // 5)
                 t = threading.Thread(target=lambda: None)
                 t.start()
                 t.join()
@@ -357,7 +362,7 @@ class ThreadTests(BaseTestCase):
                 self.assertNotIn(t, l,
                     "#1703448 triggered after %d trials: %s" % (i, l))
         finally:
-            sys.setswitchinterval(old_interval)
+            seti(old_interval)
 
     @test.support.cpython_only
     def test_no_refcycle_through_target(self):

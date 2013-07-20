@@ -30,12 +30,12 @@ class OperationError(Exception):
     w_cause = None
 
     def __init__(self, w_type, w_value, tb=None, w_cause=None):
-        assert w_type is not None
         self.setup(w_type, w_value)
         self._application_traceback = tb
         self.w_cause = w_cause
 
     def setup(self, w_type, w_value=None):
+        assert w_type is not None
         from pypy.objspace.std.typeobject import W_TypeObject
         self.w_type = w_type
         self._w_value = w_value
@@ -395,7 +395,6 @@ def get_operrcls2(valuefmt):
                 self.xstrings = strings
                 for i, _, attr in entries:
                     setattr(self, attr, args[i])
-                assert w_type is not None
                 self.setup(w_type)
 
             def _compute_value(self, space):
@@ -422,6 +421,18 @@ def get_operrcls2(valuefmt):
         _fmtcache2[formats] = OpErrFmt
     return OpErrFmt, strings
 
+class OpErrFmtNoArgs(OperationError):
+
+    def __init__(self, w_type, value):
+        self.setup(w_type)
+        self._value = value
+
+    def get_w_value(self, space):
+        w_value = self._w_value
+        if w_value is None:
+            self._w_value = w_value = space.wrap(self._value)
+        return w_value
+
 def get_operationerr_class(valuefmt):
     try:
         result = _fmtcache[valuefmt]
@@ -444,6 +455,8 @@ def operationerrfmt(w_type, valuefmt, *args):
     %T - The result of space.type(w_arg).getname(space)
 
     """
+    if not len(args):
+        return OpErrFmtNoArgs(w_type, valuefmt)
     OpErrFmt, strings = get_operationerr_class(valuefmt)
     return OpErrFmt(w_type, strings, *args)
 operationerrfmt._annspecialcase_ = 'specialize:arg(1)'

@@ -1,28 +1,8 @@
 TODO for the python3 test suite:
 
-* test_float
-   nan = float('nan');  assert nan in [nan]
-   This has always been true in CPython, it is now guaranteed that the
-   containers use the "is" operator as an optimization.
-   Difficult in pypy because optimized containers are arrays of
-   unwrapped doubles. A possible solution is to special-case nan in
-   FloatListStrategy.unwrap().
-
 * test_memoryview
    Needs bytes/str changes. Probably easy. Work for this has begun on
-   py3k-memoryview (by mjacob)
-
-* test_pep263
-   Tracebacks should be able to print unicode source code. This is
-   really due to the tokenizer not being fully unicode aware. The
-   parser can somewhat hack around this but maybe not completely
-
-* test_sys
-* test_threading:
-   Missing sys.getswitchinterval(). https://bugs.pypy.org/issue1470
-   We would be interesting to implement the new thread switching
-   logic, it's a lot of work though.
-
+   py3k-memoryview (by mjacob) https://bugs.pypy.org/issue1542
 
 own-tests:
 
@@ -34,30 +14,22 @@ own-tests:
   structseq now subclasses tuple on py3, which breaks how
   BaseCpyTypeDescr.realize allocates it
 
-* module.marshal.test.test_marshal
-  Handling of exceptions w/ bad data? Or is the test wrong?
-
-* objspace.std.test.test_floatobject test_from_string
-  The unicode-based number parsing routines don't raise UnicodeErrors,
-  but more importantly they raise unprintable exceptions
-
 
 antocuni's older TODO:
 
-run coverage against the parser/astbuilder/astcompiler: it's probably full of
+* run coverage against the parser/astbuilder/astcompiler: it's probably full of
 dead code because the grammar changed
 
-re-enable IntDictStrategy
+* re-enable strategies https://bugs.pypy.org/issue1540 :
+ - re-enable IntDictStrategy
+ - re-enable StdObjSpace.listview_str
+ - re-enable the kwargs dict strategy in dictmultiobject.py
+ - re-enable view_as_kwargs
 
-re-enable StdObjSpace.listview_str
+* unskip numpypy tests in module/test_lib_pypy/numpypy/
 
-re-enable the kwargs dict strategy in dictmultiobject.py
-re-enable view_as_kwargs
-
-unskip numpypy tests in module/test_lib_pypy/numpypy/
-
-optimize W_UnicodeObject, right now it stores both an unicode and an utf8
+* optimize W_UnicodeObject, right now it stores both an unicode and an utf8
 version of the same string
 
-re-enable BUILD_LIST_FROM_ARG: see the comment in astcompiler/codegen.py in
+* re-enable BUILD_LIST_FROM_ARG: see the comment in astcompiler/codegen.py in
 ast.ListComp.build_container

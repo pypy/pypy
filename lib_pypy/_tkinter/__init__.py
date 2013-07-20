@@ -16,8 +16,8 @@ except cffi.VerificationError:
 
 from .app import TkApp
 
-TK_VERSION = tkffi.string(tklib.get_tk_version())
-TCL_VERSION = tkffi.string(tklib.get_tcl_version())
+TK_VERSION = tkffi.string(tklib.get_tk_version()).decode('utf-8')
+TCL_VERSION = tkffi.string(tklib.get_tcl_version()).decode('utf-8')
 
 READABLE = tklib.TCL_READABLE
 WRITABLE = tklib.TCL_WRITABLE
@@ -26,7 +26,7 @@ EXCEPTION = tklib.TCL_EXCEPTION
 def create(screenName=None, baseName=None, className=None,
            interactive=False, wantobjects=False, wantTk=True,
            sync=False, use=None):
-    return TkApp(screenName, baseName, className,
+    return TkApp(screenName, className,
                  interactive, wantobjects, wantTk, sync, use)
 
 def _flatten(item):

@@ -1274,10 +1274,6 @@ class AppTestW_ListObject(object):
         non_list = NonList()
         assert [] != non_list
 
-    def test_nan_containment(self):
-        nan = float('nan')
-        assert nan in [nan]
-
     def test_issue1266(self):
         l = list(range(1))
         l.pop()

@@ -159,11 +159,11 @@ class AppTestLocaleTrivia:
         _locale.setlocale(_locale.LC_ALL, self.language_pl)
         assert _locale.strcoll("a", "b") < 0
         assert _locale.strcoll(
-            u"\N{LATIN SMALL LETTER A WITH OGONEK}",
+            "\N{LATIN SMALL LETTER A WITH OGONEK}",
             "b") < 0
 
         assert _locale.strcoll(
-            u"\N{LATIN SMALL LETTER C WITH ACUTE}",
+            "\N{LATIN SMALL LETTER C WITH ACUTE}",
             "b") > 0
         assert _locale.strcoll("c", "b") > 0
 

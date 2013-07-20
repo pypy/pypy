@@ -145,6 +145,9 @@ def _get_relative_name(space, modulename, level, w_globals):
 
     if ctxt_package is not None:
         # __package__ is set, so use it
+        if ctxt_package == '' and level < 0:
+            return None, 0
+
         dot_position = _get_dot_position(ctxt_package, level - 1)
         if dot_position < 0:
             if len(ctxt_package) == 0:
@@ -226,9 +229,9 @@ def _get_relative_name(space, modulename, level, w_globals):
 
 @unwrap_spec(name='str0', level=int)
 def importhook(space, name, w_globals=None,
-               w_locals=None, w_fromlist=None, level=0):
+               w_locals=None, w_fromlist=None, level=-1):
     modulename = name
-    if not modulename and level == 0:
+    if not modulename and level < 0:
         raise OperationError(
             space.w_ValueError,
             space.wrap("Empty module name"))
@@ -240,15 +243,31 @@ def importhook(space, name, w_globals=None,
         fromlist_w = None
 
     rel_modulename = None
-    if (level > 0 and
+    if (level != 0 and
         w_globals is not None and
         space.isinstance_w(w_globals, space.w_dict)):
 
         rel_modulename, rel_level = _get_relative_name(space, modulename, level, w_globals)
 
         if rel_modulename:
-            w_mod = absolute_import(space, rel_modulename, rel_level,
-                                    fromlist_w, tentative=False)
+            # if no level was set, ignore import errors, and
+            # fall back to absolute import at the end of the
+            # function.
+            if level == -1:
+                # This check is a fast path to avoid redoing the
+                # following absolute_import() in the common case
+                w_mod = check_sys_modules_w(space, rel_modulename)
+                if w_mod is not None and space.is_w(w_mod, space.w_None):
+                    # if we already find space.w_None, it means that we
+                    # already tried and failed and fell back to the
+                    # end of this function.
+                    w_mod = None
+                else:
+                    w_mod = absolute_import(space, rel_modulename, rel_level,
+                                            fromlist_w, tentative=True)
+            else:
+                w_mod = absolute_import(space, rel_modulename, rel_level,
+                                        fromlist_w, tentative=False)
             if w_mod is not None:
                 return w_mod
 

@@ -1,4 +1,11 @@
+import py
+
+
 class AppTestCodeModule:
+
+    def setup_class(cls):
+        if cls.runappdirect:
+            py.test.skip("CPython's code module doesn't yet support this")
 
     def w_get_interp(self):
         import code

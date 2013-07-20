@@ -61,7 +61,7 @@ for module, methods in _register:
         # Things with a tuple return type have a fake impl for RPython, check
         # to see if the method has one.
         if hasattr(oo_math, method_name):
-          oofake = getattr(oo_math, method_name)
+            oofake = getattr(oo_math, method_name)
         register_external(getattr(module, name), arg_types, return_type,
                           export_name='ll_math.%s' % method_name,
                           sandboxsafe=True,

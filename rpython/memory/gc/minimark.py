@@ -57,8 +57,8 @@ from rpython.memory.support import mangle_hash
 from rpython.rlib.rarithmetic import ovfcheck, LONG_BIT, intmask, r_uint
 from rpython.rlib.rarithmetic import LONG_BIT_SHIFT
 from rpython.rlib.debug import ll_assert, debug_print, debug_start, debug_stop
-from rpython.rlib.objectmodel import we_are_translated
-from rpython.tool.sourcetools import func_with_new_name
+from rpython.rlib.objectmodel import specialize
+
 
 #
 # Handles the objects in 2 generations:
@@ -1824,6 +1824,48 @@ class MiniMarkGC(MovingGCBase):
     # ----------
     # id() and identityhash() support
 
+    def _allocate_shadow(self, obj):
+        size_gc_header = self.gcheaderbuilder.size_gc_header
+        size = self.get_size(obj)
+        shadowhdr = self._malloc_out_of_nursery(size_gc_header +
+                                                size)
+        # Initialize the shadow enough to be considered a
+        # valid gc object.  If the original object stays
+        # alive at the next minor collection, it will anyway
+        # be copied over the shadow and overwrite the
+        # following fields.  But if the object dies, then
+        # the shadow will stay around and only be freed at
+        # the next major collection, at which point we want
+        # it to look valid (but ready to be freed).
+        shadow = shadowhdr + size_gc_header
+        self.header(shadow).tid = self.header(obj).tid
+        typeid = self.get_type_id(obj)
+        if self.is_varsize(typeid):
+            lenofs = self.varsize_offset_to_length(typeid)
+            (shadow + lenofs).signed[0] = (obj + lenofs).signed[0]
+        #
+        self.header(obj).tid |= GCFLAG_HAS_SHADOW
+        self.nursery_objects_shadows.setitem(obj, shadow)
+        return shadow
+
+    def _find_shadow(self, obj):
+        #
+        # The object is not a tagged pointer, and it is still in the
+        # nursery.  Find or allocate a "shadow" object, which is
+        # where the object will be moved by the next minor
+        # collection
+        if self.header(obj).tid & GCFLAG_HAS_SHADOW:
+            shadow = self.nursery_objects_shadows.get(obj)
+            ll_assert(shadow != NULL,
+                      "GCFLAG_HAS_SHADOW but no shadow found")
+        else:
+            shadow = self._allocate_shadow(obj)
+        #
+        # The answer is the address of the shadow.
+        return shadow
+    _find_shadow._dont_inline_ = True
+
+    @specialize.arg(2)
     def id_or_identityhash(self, gcobj, is_hash):
         """Implement the common logic of id() and identityhash()
         of an object, given as a GCREF.
@@ -1832,41 +1874,7 @@ class MiniMarkGC(MovingGCBase):
         #
         if self.is_valid_gc_object(obj):
             if self.is_in_nursery(obj):
-                #
-                # The object is not a tagged pointer, and it is still in the
-                # nursery.  Find or allocate a "shadow" object, which is
-                # where the object will be moved by the next minor
-                # collection
-                if self.header(obj).tid & GCFLAG_HAS_SHADOW:
-                    shadow = self.nursery_objects_shadows.get(obj)
-                    ll_assert(shadow != NULL,
-                              "GCFLAG_HAS_SHADOW but no shadow found")
-                else:
-                    size_gc_header = self.gcheaderbuilder.size_gc_header
-                    size = self.get_size(obj)
-                    shadowhdr = self._malloc_out_of_nursery(size_gc_header +
-                                                            size)
-                    # Initialize the shadow enough to be considered a
-                    # valid gc object.  If the original object stays
-                    # alive at the next minor collection, it will anyway
-                    # be copied over the shadow and overwrite the
-                    # following fields.  But if the object dies, then
-                    # the shadow will stay around and only be freed at
-                    # the next major collection, at which point we want
-                    # it to look valid (but ready to be freed).
-                    shadow = shadowhdr + size_gc_header
-                    self.header(shadow).tid = self.header(obj).tid
-                    typeid = self.get_type_id(obj)
-                    if self.is_varsize(typeid):
-                        lenofs = self.varsize_offset_to_length(typeid)
-                        (shadow + lenofs).signed[0] = (obj + lenofs).signed[0]
-                    #
-                    self.header(obj).tid |= GCFLAG_HAS_SHADOW
-                    self.nursery_objects_shadows.setitem(obj, shadow)
-                #
-                # The answer is the address of the shadow.
-                obj = shadow
-                #
+                obj = self._find_shadow(obj)
             elif is_hash:
                 if self.header(obj).tid & GCFLAG_HAS_SHADOW:
                     #
@@ -1884,6 +1892,7 @@ class MiniMarkGC(MovingGCBase):
         if is_hash:
             i = mangle_hash(i)
         return i
+    id_or_identityhash._always_inline_ = True
 
     def id(self, gcobj):
         return self.id_or_identityhash(gcobj, False)

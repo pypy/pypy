@@ -170,7 +170,8 @@ class GeneralFloatCases(unittest.TestCase):
     def test_float_containment(self):
         floats = (INF, -INF, 0.0, 1.0, NAN)
         for f in floats:
-            self.assertIn(f, [f])
+            if f is NAN and support.check_impl_detail(pypy=False):
+                self.assertIn(f, [f])
             self.assertIn(f, (f,))
             self.assertIn(f, {f})
             self.assertIn(f, {f: None})

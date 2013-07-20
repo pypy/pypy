@@ -7,6 +7,7 @@ from rpython.jit.metainterp.typesystem import deref
 from rpython.rlib import rgc
 from rpython.rlib.jit import elidable, oopspec
 from rpython.rlib.rarithmetic import r_longlong, r_ulonglong, r_uint, intmask
+from rpython.rlib.rarithmetic import LONG_BIT
 from rpython.rtyper import rlist
 from rpython.rtyper.annlowlevel import MixLevelHelperAnnotator
 from rpython.rtyper.extregistry import ExtRegistryEntry
@@ -272,10 +273,9 @@ def _ll_2_int_lshift_ovf(x, y):
     return result
 
 def _ll_1_int_abs(x):
-    if x < 0:
-        return -x
-    else:
-        return x
+    # this version doesn't branch
+    mask = x >> (LONG_BIT - 1)
+    return (x ^ mask) - mask
 
 def _ll_1_cast_uint_to_float(x):
     # XXX on 32-bit platforms, this should be done using cast_longlong_to_float

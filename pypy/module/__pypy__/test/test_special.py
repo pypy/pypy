@@ -93,6 +93,25 @@ class AppTest(object):
         o = 5
         raises(TypeError, list_strategy, 5)
 
+    def test_normalize_exc(self):
+        from __pypy__ import normalize_exc
+        e = normalize_exc(TypeError)
+        assert isinstance(e, TypeError)
+        e = normalize_exc(TypeError, 'foo')
+        assert isinstance(e, TypeError)
+        assert str(e) == 'foo'
+        e = normalize_exc(TypeError('doh'))
+        assert isinstance(e, TypeError)
+        assert str(e) == 'doh'
+
+        try:
+            1 / 0
+        except ZeroDivisionError as e:
+            tb = e.__traceback__
+        e = normalize_exc(TypeError, None, tb)
+        assert isinstance(e, TypeError)
+        assert e.__traceback__ == tb
+
 
 class AppTestJitFeatures(object):
     spaceconfig = {"translation.jit": True}

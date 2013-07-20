@@ -306,12 +306,13 @@ class AppTest_Descroperation:
             raises(TypeError, operate, A())
 
     def test_missing_getattribute(self):
-        class X(object): pass
+        class X(object):
+            pass
 
         class Y(X):
-          class __metaclass__(type):
-            def mro(cls):
-              return [cls, X]
+            class __metaclass__(type):
+                def mro(cls):
+                    return [cls, X]
 
         x = X()
         x.__class__ = Y

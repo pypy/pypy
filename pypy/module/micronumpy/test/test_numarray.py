@@ -276,6 +276,32 @@ class AppTestNumArray(BaseNumpyAppTest):
         arr = array([1], ndmin=3)
         assert arr.shape == (1, 1, 1)
 
+    def test_array_copy(self):
+        from numpypy import array
+        a = array(range(12)).reshape(3,4)
+        b = array(a, ndmin=4)
+        assert b.shape == (1, 1, 3, 4)
+        b = array(a, copy=False)
+        b[0, 0] = 100
+        assert a[0, 0] == 100
+        b = array(a, copy=True, ndmin=2)
+        b[0, 0] = 0
+        assert a[0, 0] == 100
+        b = array(a, dtype=float)
+        assert (b[0] == [100, 1, 2, 3]).all()
+        assert b.dtype.kind == 'f'
+        b = array(a, copy=False, ndmin=4)
+        b[0,0,0,0] = 0
+        assert a[0, 0] == 0
+        a = array([[[]]])
+        # Simulate tiling an empty array, really tests repeat, reshape
+        # b = tile(a, (3, 2, 5))
+        reps = (3, 4, 5)
+        c = array(a, copy=False, subok=True, ndmin=len(reps))
+        d = c.reshape(3, 4, 0)
+        e = d.repeat(3, 0)
+        assert e.shape == (9, 4, 0)
+
     def test_type(self):
         from numpypy import array
         ar = array(range(5))
@@ -325,13 +351,16 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a[1] == 1.0
 
     def test_ones(self):
-        from numpypy import ones
+        from numpypy import ones, dtype
         a = ones(3)
         assert len(a) == 3
         assert a[0] == 1
         raises(IndexError, "a[3]")
         a[2] = 4
         assert a[2] == 4
+        b = ones(3, complex)
+        assert b[0] == 1+0j
+        assert b.dtype is dtype(complex)
 
     def test_copy(self):
         from numpypy import arange, array
@@ -1390,6 +1419,45 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a[3].imag == -10
         assert a[2].imag == -5
 
+    def test_view(self):
+        from numpypy import array, int8, int16, dtype
+        x = array((1, 2), dtype=int8)
+        assert x.shape == (2,)
+        y = x.view(dtype=int16)
+        assert x.shape == (2,)
+        assert y[0] == 513
+        assert y.dtype == dtype('int16')
+        y[0] = 670
+        assert x[0] == -98
+        assert x[1] == 2
+        f = array([1000, -1234], dtype='i4')
+        nnp = self.non_native_prefix
+        d = f.view(dtype=nnp + 'i4')
+        assert (d == [-402456576,  788267007]).all()
+        x = array(range(15), dtype='i2').reshape(3,5)
+        exc = raises(ValueError, x.view, dtype='i4')
+        assert exc.value[0] == "new type not compatible with array."
+        assert x.view('int8').shape == (3, 10)
+        x = array(range(15), dtype='int16').reshape(3,5).T
+        assert x.view('int8').shape == (10, 3)
+
+    def test_ndarray_view_empty(self):
+        from numpypy import array, int8, int16, dtype
+        x = array([], dtype=[('a', int8), ('b', int8)])
+        y = x.view(dtype=int16)
+
+    def test_scalar_view(self):
+        from numpypy import int64, array
+        a = array(0, dtype='int32')
+        b = a.view(dtype='float32')
+        assert b.shape == ()
+        assert b == 0
+        s = int64(12)
+        exc = raises(ValueError, s.view, 'int8')
+        assert exc.value[0] == "new type not compatible with array."
+        skip('not implemented yet')
+        assert s.view('double') < 7e-323
+
     def test_tolist_scalar(self):
         from numpypy import int32, bool_
         x = int32(23)
@@ -2144,6 +2212,11 @@ class AppTestMultiDim(BaseNumpyAppTest):
         a = a[::2]
         i = a.__array_interface__
         assert isinstance(i['data'][0], int)
+        b = array(range(9), dtype=int)
+        c = b[3:5]
+        b_data = b.__array_interface__['data'][0]
+        c_data = c.__array_interface__['data'][0]
+        assert b_data + 3 * b.dtype.itemsize == c_data
 
     def test_array_indexing_one_elem(self):
         from numpypy import array, arange
@@ -2175,6 +2248,10 @@ class AppTestMultiDim(BaseNumpyAppTest):
         d = array(10)
         d.fill(100)
         assert d == 100
+
+        e = array(10, dtype=complex)
+        e.fill(1.5-3j)
+        assert e == 1.5-3j
 
     def test_array_indexing_bool(self):
         from numpypy import arange
@@ -2498,6 +2575,9 @@ class AppTestSupport(BaseNumpyAppTest):
         a = array(range(100) + range(100) + range(100))
         b = a.argsort()
         assert (b[:3] == [0, 100, 200]).all()
+        a = array([[[]]]).reshape(3,4,0)
+        b = a.argsort()
+        assert b.size == 0
 
     def test_argsort_random(self):
         from numpypy import array

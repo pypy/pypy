@@ -4,13 +4,13 @@ from .tklib import tklib, tkffi
 
 class TypeCache(object):
     def __init__(self):
-        self.BooleanType = tklib.Tcl_GetObjType("boolean")
-        self.ByteArrayType = tklib.Tcl_GetObjType("bytearray")
-        self.DoubleType = tklib.Tcl_GetObjType("double")
-        self.IntType = tklib.Tcl_GetObjType("int")
-        self.ListType = tklib.Tcl_GetObjType("list")
-        self.ProcBodyType = tklib.Tcl_GetObjType("procbody")
-        self.StringType = tklib.Tcl_GetObjType("string")
+        self.BooleanType = tklib.Tcl_GetObjType(b"boolean")
+        self.ByteArrayType = tklib.Tcl_GetObjType(b"bytearray")
+        self.DoubleType = tklib.Tcl_GetObjType(b"double")
+        self.IntType = tklib.Tcl_GetObjType(b"int")
+        self.ListType = tklib.Tcl_GetObjType(b"list")
+        self.ProcBodyType = tklib.Tcl_GetObjType(b"procbody")
+        self.StringType = tklib.Tcl_GetObjType(b"string")
         
 
 def FromObj(app, value):
@@ -18,13 +18,7 @@ def FromObj(app, value):
     typeCache = app._typeCache
     if not value.typePtr:
         buf = tkffi.buffer(value.bytes, value.length)
-        result = buf[:]
-        # If the result contains any bytes with the top bit set, it's
-        # UTF-8 and we should decode it to Unicode.
-        try:
-            result.decode('ascii')
-        except UnicodeDecodeError:
-            result = result.decode('utf8')
+        result = buf[:].decode('utf8')
         return result
 
     elif value.typePtr == typeCache.BooleanType:
@@ -60,12 +54,15 @@ def FromObj(app, value):
     return TclObject(value)
 
 def AsObj(value):
-    if isinstance(value, str):
+    if isinstance(value, bytes):
         return tklib.Tcl_NewStringObj(value, len(value))
     elif isinstance(value, bool):
         return tklib.Tcl_NewBooleanObj(value)
     elif isinstance(value, int):
-        return tklib.Tcl_NewLongObj(value)
+        try:
+            return tklib.Tcl_NewLongObj(value)
+        except OverflowError:
+            pass  # and fall through to default object handling.
     elif isinstance(value, float):
         return tklib.Tcl_NewDoubleObj(value)
     elif isinstance(value, tuple):
@@ -73,16 +70,16 @@ def AsObj(value):
         for i in range(len(value)):
             argv[i] = AsObj(value[i])
         return tklib.Tcl_NewListObj(len(value), argv)
-    elif isinstance(value, unicode):
+    elif isinstance(value, str):
         encoded = value.encode('utf-16')[2:]
         buf = tkffi.new("char[]", encoded)
         inbuf = tkffi.cast("Tcl_UniChar*", buf)
-        return tklib.Tcl_NewUnicodeObj(buf, len(encoded)/2)
+        return tklib.Tcl_NewUnicodeObj(buf, len(encoded)//2)
     elif isinstance(value, TclObject):
         tklib.Tcl_IncrRefCount(value._value)
         return value._value
-    else:
-        return AsObj(str(value))
+
+    return AsObj(str(value))
 
 class TclObject(object):
     def __new__(cls, value):
@@ -98,17 +95,15 @@ class TclObject(object):
     def __str__(self):
         if self._string and isinstance(self._string, str):
             return self._string
-        return tkffi.string(tklib.Tcl_GetString(self._value))
+        return tkffi.string(tklib.Tcl_GetString(self._value)).decode('utf-8')
 
     @property
     def string(self):
+        "the string representation of this object, either as str or bytes"
         if self._string is None:
             length = tkffi.new("int*")
             s = tklib.Tcl_GetStringFromObj(self._value, length)
             value = tkffi.buffer(s, length[0])[:]
-            try:
-                value.decode('ascii')
-            except UnicodeDecodeError:
-                value = value.decode('utf8')
+            value = value.decode('utf8')
             self._string = value
         return self._string

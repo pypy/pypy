@@ -1,5 +1,5 @@
 from pypy.interpreter.error import OperationError, wrap_oserror
-from pypy.interpreter.gateway import unwrap_spec
+from pypy.interpreter.gateway import WrappedDefault, unwrap_spec
 from rpython.rlib.objectmodel import we_are_translated
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.typeobject import MethodCache
@@ -108,3 +108,9 @@ def set_debug(space, debug):
 @unwrap_spec(estimate=int)
 def add_memory_pressure(estimate):
     rgc.add_memory_pressure(estimate)
+
+@unwrap_spec(w_value=WrappedDefault(None), w_tb=WrappedDefault(None))
+def normalize_exc(space, w_type, w_value=None, w_tb=None):
+    operr = OperationError(w_type, w_value, w_tb)
+    operr.normalize_exception(space)
+    return operr.get_w_value(space)

@@ -9,15 +9,15 @@ import sys
 def varname_converter(input):
     if isinstance(input, TclObject):
         return input.string
-    return input
+    return input.encode('utf-8')
 
 
 def Tcl_AppInit(app):
     if tklib.Tcl_Init(app.interp) == tklib.TCL_ERROR:
         app.raiseTclError()
     skip_tk_init = tklib.Tcl_GetVar(
-        app.interp, "_tkinter_skip_tk_init", tklib.TCL_GLOBAL_ONLY)
-    if skip_tk_init and tkffi.string(skip_tk_init) == "1":
+        app.interp, b"_tkinter_skip_tk_init", tklib.TCL_GLOBAL_ONLY)
+    if skip_tk_init and tkffi.string(skip_tk_init) == b"1":
         return
 
     if tklib.Tk_Init(app.interp) == tklib.TCL_ERROR:
@@ -38,7 +38,8 @@ class _CommandData(object):
         self = tkffi.from_handle(clientData)
         assert self.app.interp == interp
         try:
-            args = [tkffi.string(arg) for arg in argv[1:argc]]
+            args = [tkffi.string(arg).decode('utf-8')
+                    for arg in argv[1:argc]]
             result = self.func(*args)
             obj = AsObj(result)
             tklib.Tcl_SetObjResult(interp, obj)
@@ -58,7 +59,7 @@ class _CommandData(object):
 
 
 class TkApp(object):
-    def __new__(cls, screenName, baseName, className,
+    def __new__(cls, screenName, className,
                 interactive, wantobjects, wantTk, sync, use):
         if not wantobjects:
             raise NotImplementedError("wantobjects=True only")
@@ -66,7 +67,7 @@ class TkApp(object):
         self.interp = tklib.Tcl_CreateInterp()
         self._wantobjects = wantobjects
         self.threaded = bool(tklib.Tcl_GetVar2Ex(
-            self.interp, "tcl_platform", "threaded",
+            self.interp, b"tcl_platform", b"threaded",
             tklib.TCL_GLOBAL_ONLY))
         self.thread_id = tklib.Tcl_GetCurrentThread()
         self.dispatching = False
@@ -77,26 +78,27 @@ class TkApp(object):
         self._commands = {}
 
         # Delete the 'exit' command, which can screw things up
-        tklib.Tcl_DeleteCommand(self.interp, "exit")
+        tklib.Tcl_DeleteCommand(self.interp, b"exit")
 
         if screenName is not None:
-            tklib.Tcl_SetVar2(self.interp, "env", "DISPLAY", screenName,
+            tklib.Tcl_SetVar2(self.interp, b"env", b"DISPLAY",
+                              screenName.encode('utf-8'),
                               tklib.TCL_GLOBAL_ONLY)
 
         if interactive:
-            tklib.Tcl_SetVar(self.interp, "tcl_interactive", "1",
+            tklib.Tcl_SetVar(self.interp, b"tcl_interactive", b"1",
                              tklib.TCL_GLOBAL_ONLY)
         else:
-            tklib.Tcl_SetVar(self.interp, "tcl_interactive", "0",
+            tklib.Tcl_SetVar(self.interp, b"tcl_interactive", b"0",
                              tklib.TCL_GLOBAL_ONLY)
 
         # This is used to get the application class for Tk 4.1 and up
-        argv0 = className.lower()
-        tklib.Tcl_SetVar(self.interp, "argv0", argv0,
+        argv0 = className.lower().encode('utf-8')
+        tklib.Tcl_SetVar(self.interp, b"argv0", argv0,
                          tklib.TCL_GLOBAL_ONLY)
 
         if not wantTk:
-            tklib.Tcl_SetVar(self.interp, "_tkinter_skip_tk_init", "1",
+            tklib.Tcl_SetVar(self.interp, b"_tkinter_skip_tk_init", b"1",
                              tklib.TCL_GLOBAL_ONLY)
 
         # some initial arguments need to be in argv
@@ -123,8 +125,9 @@ class TkApp(object):
     def raiseTclError(self):
         if self.errorInCmd:
             self.errorInCmd = False
-            raise self.exc_info[0], self.exc_info[1], self.exc_info[2]
-        raise TclError(tkffi.string(tklib.Tcl_GetStringResult(self.interp)))
+            raise self.exc_info[1].with_traceback(self.exc_info[2])
+        raise TclError(tkffi.string(
+                tklib.Tcl_GetStringResult(self.interp)).decode('utf-8'))
 
     def wantobjects(self):
         return self._wantobjects
@@ -135,11 +138,11 @@ class TkApp(object):
 
     def loadtk(self):
         # We want to guard against calling Tk_Init() multiple times
-        err = tklib.Tcl_Eval(self.interp, "info exists     tk_version")
+        err = tklib.Tcl_Eval(self.interp, b"info exists     tk_version")
         if err == tklib.TCL_ERROR:
             self.raiseTclError()
         tk_exists = tklib.Tcl_GetStringResult(self.interp)
-        if not tk_exists or tkffi.string(tk_exists) != "1":
+        if not tk_exists or tkffi.string(tk_exists) != b"1":
             err = tklib.Tk_Init(self.interp)
             if err == tklib.TCL_ERROR:
                 self.raiseTclError()
@@ -220,7 +223,7 @@ class TkApp(object):
             raise NotImplementedError("Call from another thread")
 
         res = tklib.Tcl_CreateCommand(
-            self.interp, cmdName, _CommandData.PythonCmd,
+            self.interp, cmdName.encode('utf-8'), _CommandData.PythonCmd,
             clientData, _CommandData.PythonCmdDelete)
         if not res:
             raise TclError("can't create Tcl command")
@@ -229,7 +232,7 @@ class TkApp(object):
         if self.threaded and self.thread_id != tklib.Tcl_GetCurrentThread():
             raise NotImplementedError("Call from another thread")
 
-        res = tklib.Tcl_DeleteCommand(self.interp, cmdName)
+        res = tklib.Tcl_DeleteCommand(self.interp, cmdName.encode('utf-8'))
         if res == -1:
             raise TclError("can't delete Tcl command")
 
@@ -280,17 +283,19 @@ class TkApp(object):
 
     def eval(self, script):
         self._check_tcl_appartment()
-        res = tklib.Tcl_Eval(self.interp, script)
+        res = tklib.Tcl_Eval(self.interp, script.encode('utf-8'))
         if res == tklib.TCL_ERROR:
             self.raiseTclError()
-        return tkffi.string(tklib.Tcl_GetStringResult(self.interp))
+        result = tkffi.string(tklib.Tcl_GetStringResult(self.interp))
+        return result.decode('utf-8')
 
     def evalfile(self, filename):
         self._check_tcl_appartment()
-        res = tklib.Tcl_EvalFile(self.interp, filename)
+        res = tklib.Tcl_EvalFile(self.interp, filename.encode('utf-8'))
         if res == tklib.TCL_ERROR:
             self.raiseTclError()
-        return tkffi.string(tklib.Tcl_GetStringResult(self.interp))
+        result = tkffi.string(tklib.Tcl_GetStringResult(self.interp))
+        return result.decode('utf-8')
 
     def split(self, arg):
         if isinstance(arg, tuple):
@@ -301,7 +306,7 @@ class TkApp(object):
     def splitlist(self, arg):
         if isinstance(arg, tuple):
             return arg
-        if isinstance(arg, unicode):
+        if isinstance(arg, str):
             arg = arg.encode('utf8')
 
         argc = tkffi.new("int*")
@@ -310,7 +315,7 @@ class TkApp(object):
         if res == tklib.TCL_ERROR:
             self.raiseTclError()
 
-        result = tuple(tkffi.string(argv[0][i])
+        result = tuple(tkffi.string(argv[0][i]).decode('utf-8')
                        for i in range(argc[0]))
         tklib.Tcl_Free(argv[0])
         return result
@@ -326,7 +331,7 @@ class TkApp(object):
             for elem, newelem in zip(arg, newelems):
                 if elem is not newelem:
                     return newelems
-        elif isinstance(arg, str):
+        elif isinstance(arg, bytes):
             argc = tkffi.new("int*")
             argv = tkffi.new("char***")
             res = tklib.Tcl_SplitList(tkffi.NULL, arg, argc, argv)
@@ -345,7 +350,7 @@ class TkApp(object):
             # Not a list.
             # Could be a quoted string containing funnies, e.g. {"}.
             # Return the string itself.
-            return arg
+            return arg.decode('utf-8')
 
         try:
             if argc[0] == 0:
@@ -361,6 +366,7 @@ class TkApp(object):
     def getboolean(self, s):
         if isinstance(s, int):
             return s
+        s = s.encode('utf-8')
         v = tkffi.new("int*")
         res = tklib.Tcl_GetBoolean(self.interp, s, v)
         if res == tklib.TCL_ERROR:
@@ -383,7 +389,7 @@ class TkApp(object):
         self.quitMainLoop = False
         if self.errorInCmd:
             self.errorInCmd = False
-            raise self.exc_info[0], self.exc_info[1], self.exc_info[2]
+            raise self.exc_info[1].with_traceback(self.exc_info[2])
 
     def quit(self):
         self.quitMainLoop = True

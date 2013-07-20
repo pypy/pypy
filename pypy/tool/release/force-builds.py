@@ -28,6 +28,9 @@ BUILDERS = [
     'pypy-c-jit-linux-x86-64',
     'pypy-c-jit-macosx-x86-64',
     'pypy-c-jit-win-x86-32',
+    'build-pypy-c-jit-linux-armhf-raring',
+    'build-pypy-c-jit-linux-armhf-raspbian',
+    'build-pypy-c-jit-linux-armel',
 ]
 
 def main():

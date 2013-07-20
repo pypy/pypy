@@ -41,8 +41,8 @@ class W_Reader(W_Root):
     def save_field(self, field_builder):
         field = field_builder.build()
         if self.numeric_field:
-            from pypy.objspace.std.strutil import ParseStringError
-            from pypy.objspace.std.strutil import string_to_float
+            from rpython.rlib.rstring import ParseStringError
+            from rpython.rlib.rfloat import string_to_float
             self.numeric_field = False
             try:
                 ff = string_to_float(field)

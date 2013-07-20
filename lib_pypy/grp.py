@@ -9,6 +9,7 @@ if sys.platform == 'win32':
 
 from ctypes import Structure, c_char_p, c_int, POINTER
 from ctypes_support import standard_c_lib as libc
+import _structseq
 
 try: from __pypy__ import builtinify
 except ImportError: builtinify = lambda f: f
@@ -24,32 +25,12 @@ class GroupStruct(Structure):
         ('gr_mem', POINTER(c_char_p)),
         )
 
-class Group(object):
-    def __init__(self, gr_name, gr_passwd, gr_gid, gr_mem):
-        self.gr_name = gr_name
-        self.gr_passwd = gr_passwd
-        self.gr_gid = gr_gid
-        self.gr_mem = gr_mem
+class struct_group(metaclass=_structseq.structseqtype):
 
-    def __getitem__(self, item):
-        if item == 0:
-            return self.gr_name
-        elif item == 1:
-            return self.gr_passwd
-        elif item == 2:
-            return self.gr_gid
-        elif item == 3:
-            return self.gr_mem
-        else:
-            raise IndexError(item)
-
-    def __len__(self):
-        return 4
-
-    def __repr__(self):
-        return str((self.gr_name, self.gr_passwd, self.gr_gid, self.gr_mem))
-
-    # whatever else...
+    gr_name   = _structseq.structseqfield(0)
+    gr_passwd = _structseq.structseqfield(1)
+    gr_gid    = _structseq.structseqfield(2)
+    gr_mem    = _structseq.structseqfield(3)
 
 libc.getgrgid.argtypes = [gid_t]
 libc.getgrgid.restype = POINTER(GroupStruct)
@@ -72,10 +53,10 @@ def _group_from_gstruct(res):
     while res.contents.gr_mem[i]:
         mem.append(res.contents.gr_mem[i])
         i += 1
-    return Group(os.fsdecode(res.contents.gr_name),
-                 os.fsdecode(res.contents.gr_passwd),
-                 res.contents.gr_gid,
-                 mem)
+    return struct_group((os.fsdecode(res.contents.gr_name),
+                         os.fsdecode(res.contents.gr_passwd),
+                         res.contents.gr_gid,
+                         mem))
 
 @builtinify
 def getgrgid(gid):
