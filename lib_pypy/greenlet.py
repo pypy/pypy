@@ -1,4 +1,5 @@
 import sys
+import __pypy__
 import _continuation
 
 __version__ = "0.4.0"
@@ -79,7 +80,7 @@ class greenlet(_continulet):
             # convert a "raise GreenletExit" into "return GreenletExit"
             if methodname == 'throw':
                 try:
-                    raise baseargs[0](baseargs[1])
+                    raise __pypy__.normalize_exc(baseargs[0], baseargs[1])
                 except GreenletExit as e:
                     methodname = 'switch'
                     baseargs = (((e,), {}),)
@@ -156,7 +157,7 @@ def _greenlet_start(greenlet, args):
 def _greenlet_throw(greenlet, exc, value, tb):
     _tls.current = greenlet
     try:
-        raise value.with_traceback(tb)
+        raise __pypy__.normalize_exc(exc, value, tb)
     except GreenletExit as e:
         res = e
     finally:

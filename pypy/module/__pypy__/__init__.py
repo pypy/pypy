@@ -74,6 +74,7 @@ class Module(MixedModule):
         'newdict'                   : 'interp_dict.newdict',
         'dictstrategy'              : 'interp_dict.dictstrategy',
         'set_debug'                 : 'interp_magic.set_debug',
+        'normalize_exc'             : 'interp_magic.normalize_exc',
     }
 
     submodules = {
