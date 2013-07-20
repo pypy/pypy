@@ -387,9 +387,9 @@ class JSONDecoder(object):
         return 0x10000 + (((highsurr - 0xd800) << 10) | (lowsurr - 0xdc00))
 
 def loads(space, w_s):
-    if space.isinstance_w(w_s, space.w_unicode):
-        raise OperationError(space.w_TypeError,
-                             space.wrap("Expected utf8-encoded str, got unicode"))
+    if space.isinstance_w(w_s, space.w_bytes):
+        raise operationerrfmt(space.w_TypeError,
+                              "Expected string, got %T", w_s)
     s = space.str_w(w_s)
     decoder = JSONDecoder(space, s)
     try:

@@ -16,9 +16,9 @@ def test_skip_whitespace():
 class AppTest(object):
     spaceconfig = {"objspace.usemodules._pypyjson": True}
 
-    def test_raise_on_unicode(self):
+    def test_raise_on_bytes(self):
         import _pypyjson
-        raises(TypeError, _pypyjson.loads, "42")
+        raises(TypeError, _pypyjson.loads, b"42")
 
 
     def test_decode_constants(self):
