@@ -19,16 +19,15 @@ def import_lib_pypy(space, name, skipmsg=None):
         return getattr(mod, name)
 
     try:
-        # Assume app-level import finds it from the right place (we
-        # assert so afterwards). It should as long as a builtin module
-        # overshadows it
-        w_mod = space.appexec([], "(): import %s; return %s" % (name, name))
+        # app-level import should find it from the right place (we
+        # assert so afterwards) as long as a builtin module doesn't
+        # overshadow it
+        failed = ("%s didn't import from lib_pypy. Is a usemodules directive "
+                  "overshadowing it?" % name)
+        importline = ("(): import %s; assert 'lib_pypy' in %s.__file__, %r; "
+                      "return %s" % (name, name, failed, name))
+        return space.appexec([], importline)
     except OperationError as e:
         if skipmsg is None or not e.match(space, space.w_ImportError):
             raise
         py.test.skip('%s (%s))' % (skipmsg, str(e)))
-    w_file = space.getattr(w_mod, space.wrap('__file__'))
-    assert space.is_true(space.contains(w_file, space.wrap('lib_pypy'))), \
-        ("%s didn't import from lib_pypy. Is a usemodules directive "
-         "overshadowing it?" % name)
-    return w_mod
