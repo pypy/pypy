@@ -12,22 +12,22 @@ class AppTestSHA:
     spaceconfig = dict(usemodules=('struct',))
 
     def setup_class(cls):
-        cls.w__sha = import_lib_pypy(cls.space, '_sha')
+        cls.w__sha = import_lib_pypy(cls.space, '_sha1')
 
     def w_check(self, data, digest):
-        computed = self._sha.new(data).hexdigest()
+        computed = self._sha.sha1(data).hexdigest()
         assert computed == digest
 
     def test_case_1(self):
-        self.check("abc",
+        self.check(b"abc",
                    "a9993e364706816aba3e25717850c26c9cd0d89d")
 
     def test_case_2(self):
-        self.check("abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq",
+        self.check(b"abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq",
                    "84983e441c3bd26ebaae4aa1f95129e5e54670f1")
 
     def disabled_too_slow_test_case_3(self):
-        self.check("a" * 1000000,
+        self.check(b"a" * 1000000,
                    "34aa973cd4c4daa4f61eeb2bdbad27316534016f")
 
     def test_attributes(self):
@@ -35,5 +35,5 @@ class AppTestSHA:
         assert _sha.digest_size == 20
         assert _sha.digestsize == 20
         assert _sha.blocksize == 1
-        assert _sha.new().digest_size == 20
-        assert _sha.new().digestsize == 20
+        assert _sha.sha1().digest_size == 20
+        assert _sha.sha1().digestsize == 20
