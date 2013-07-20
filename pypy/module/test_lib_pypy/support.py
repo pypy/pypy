@@ -24,7 +24,7 @@ def import_lib_pypy(space, name, skipmsg=None):
         # overshadows it
         w_mod = space.appexec([], "(): import %s; return %s" % (name, name))
     except OperationError as e:
-        if skipmsg is not None or not e.match(space, space.w_ImportError):
+        if skipmsg is None or not e.match(space, space.w_ImportError):
             raise
         py.test.skip('%s (%s))' % (skipmsg, str(e)))
     w_file = space.getattr(w_mod, space.wrap('__file__'))
