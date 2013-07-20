@@ -8,40 +8,41 @@ from pypy.module.test_lib_pypy.support import import_lib_pypy
 class AppTestDeque:
 
     def setup_class(cls):
-        cls.w_collections = import_lib_pypy(cls.space, '_collections')
+        space = cls.space
+        cls.w_collections = import_lib_pypy(space, '_collections')
+        cls.w_n = space.wrap(10)
 
-    def setup_method(self, method):
-        space = self.space
-        n = 10
-        self.w_n = space.wrap(n)
-        w_deque = space.getattr(self.w_collections, space.wrap('deque'))
-        self.w_d = space.call_function(w_deque, space.wrap(range(n)))
+    def w_get_deque(self):
+        return self.collections.deque(range(self.n))
 
     def test_deque(self):
-        assert len(self.d) == self.n
+        d = self.get_deque()
+        assert len(d) == self.n
         for i in range(self.n):
-            assert i == self.d[i]
+            assert i == d[i]
         for i in range(self.n-1, -1, -1):
-            assert self.d.pop() == i
-        assert len(self.d) == 0
+            assert d.pop() == i
+        assert len(d) == 0
 
     def test_deque_iter(self):
-        it = iter(self.d)
+        d = self.get_deque()
+        it = iter(d)
         raises(TypeError, len, it)
         assert it.next() == 0
-        self.d.pop()
+        d.pop()
         raises(RuntimeError, it.next)
 
     def test_deque_reversed(self):
-        it = reversed(self.d)
+        d = self.get_deque()
+        it = reversed(d)
         raises(TypeError, len, it)
         assert it.next() == self.n-1
         assert it.next() == self.n-2
-        self.d.pop()
+        d.pop()
         raises(RuntimeError, it.next)
 
     def test_deque_remove(self):
-        d = self.d
+        d = self.get_deque()
         raises(ValueError, d.remove, "foobar")
 
     def test_mutate_during_remove(self):
