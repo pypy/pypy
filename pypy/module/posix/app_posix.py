@@ -64,8 +64,7 @@ class stat_result(metaclass=structseqtype):
             self.__dict__['st_ctime'] = self[9]
 
 
-class statvfs_result:
-    __metaclass__ = structseqtype
+class statvfs_result(metaclass=structseqtype):
 
     name = osname + ".statvfs_result"
 
