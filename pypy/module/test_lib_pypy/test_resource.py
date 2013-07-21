@@ -6,7 +6,8 @@ from pypy.module.test_lib_pypy.support import import_lib_pypy
 
 class AppTestResource:
 
-    spaceconfig = dict(usemodules=('_ffi', '_rawffi', 'itertools'))
+    spaceconfig = dict(usemodules=('_ffi', '_rawffi', 'fcntl', 'itertools',
+                                   'select', 'signal'))
 
     def setup_class(cls):
         rebuild.rebuild_one('resource.ctc.py')
