@@ -64,6 +64,43 @@ class TestStm(RewriteTests):
             jump()
             """, t=NULL)
 
+    def test_rewrite_write_barrier_after_malloc(self):
+        self.check_rewrite("""
+            [p1, p3]
+            setfield_gc(p3, p1, descr=tzdescr)
+            p2 = new(descr=tdescr)
+            setfield_gc(p3, p1, descr=tzdescr)
+            jump(p2)
+        """, """
+            [p1, p3]
+            cond_call_stm_b(p3, descr=P2Wdescr)
+            setfield_gc(p3, p1, descr=tzdescr)
+            p2 = call_malloc_gc(ConstClass(malloc_big_fixedsize),    \
+                                %(tdescr.size)d, %(tdescr.tid)d, \
+                                descr=malloc_big_fixedsize_descr)
+            cond_call_stm_b(p3, descr=P2Wdescr)
+            setfield_gc(p3, p1, descr=tzdescr)
+            jump(p2)
+        """)
+
+    def test_rewrite_read_barrier_after_malloc(self):
+        self.check_rewrite("""
+            [p1]
+            p2 = getfield_gc(p1, descr=tzdescr)
+            p3 = new(descr=tdescr)
+            p4 = getfield_gc(p1, descr=tzdescr)
+            jump(p2)
+        """, """
+            [p1]
+            cond_call_stm_b(p1, descr=P2Rdescr)
+            p2 = getfield_gc(p1, descr=tzdescr)
+            p3 = call_malloc_gc(ConstClass(malloc_big_fixedsize),    \
+                                %(tdescr.size)d, %(tdescr.tid)d, \
+                                descr=malloc_big_fixedsize_descr)
+            p4 = getfield_gc(p1, descr=tzdescr)
+            jump(p2)
+        """)
+            
     def test_rewrite_setfield_gc_on_local(self):
         self.check_rewrite("""
             [p1]

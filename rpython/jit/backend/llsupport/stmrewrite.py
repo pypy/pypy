@@ -70,6 +70,8 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
                 continue
             # ----------  mallocs  ----------
             if op.is_malloc():
+                # write barriers not valid after possible collection
+                self.write_to_read_categories()
                 self.handle_malloc_operation(op)
                 continue
             # ----------  calls  ----------
@@ -107,7 +109,11 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
             #
         return self.newops
 
-
+    def write_to_read_categories(self):
+        for v, c in self.known_category.items():
+            if c == 'W':
+                self.known_category[v] = 'R'
+        
     def gen_write_barrier(self, v):
         raise NotImplementedError
 
