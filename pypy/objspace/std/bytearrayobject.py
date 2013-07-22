@@ -35,7 +35,7 @@ class W_BytearrayObject(W_Object, StringMethods):
     def _len(self):
         return len(self.data)
 
-    def _val(self):
+    def _val(self, space):
         return self.data
 
     def _op_val(self, w_other):

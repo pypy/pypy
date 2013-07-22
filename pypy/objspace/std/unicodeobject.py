@@ -75,7 +75,7 @@ class W_UnicodeObject(W_Object, StringMethods):
     def _len(self):
         return len(self._value)
 
-    def _val(self):
+    def _val(self, space):
         return self._value
 
     def _op_val(self, space, w_other):
