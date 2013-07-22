@@ -4,7 +4,7 @@
 
 void stm_copy_to_old_id_copy(gcptr obj, gcptr id)
 {
-    //assert(!is_in_nursery(thread_descriptor, id));
+    //assert(!stmgc_is_in_nursery(thread_descriptor, id));
     assert(id->h_tid & GCFLAG_OLD);
 
     size_t size = stmgc_size(obj);
@@ -108,10 +108,12 @@ revision_t stm_id(gcptr p)
     else {
         /* must create shadow original object XXX: or use
            backup, if exists */
-        
-        /* XXX use stmgcpage_malloc() directly, we don't need to copy
-         * the contents yet */
-        gcptr O = stmgc_duplicate_old(p);
+        gcptr O = (gcptr)stmgcpage_malloc(stmgc_size(p));
+        memcpy(O, p, stmgc_size(p)); /* at least major collections
+                                      depend on some content of id_copy.
+                                      remove after fixing that XXX */
+        O->h_tid |= GCFLAG_OLD;
+
         p->h_original = (revision_t)O;
         p->h_tid |= GCFLAG_HAS_ID;
         

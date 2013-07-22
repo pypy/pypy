@@ -7,6 +7,29 @@
  */
 #include "stmimpl.h"
 
+#ifdef _GC_DEBUG
+char tmp_buf[128];
+char* stm_dbg_get_hdr_str(gcptr obj)
+{
+    char *cur;
+    char *flags[] = GC_FLAG_NAMES;
+    int i;
+
+    i = 0;
+    cur = tmp_buf;
+    cur += sprintf(cur, "%p:", obj);
+    while (flags[i]) {
+        if (obj->h_tid & (STM_FIRST_GCFLAG << i)) {
+            cur += sprintf(cur, "%s|", flags[i]);
+        }
+        i++;
+    }
+    cur += sprintf(cur, "tid=%ld", stm_get_tid(obj));
+    return tmp_buf;
+}
+#endif
+
+
 
 __thread struct tx_descriptor *thread_descriptor = NULL;
 
@@ -546,6 +569,7 @@ static inline void record_write_barrier(gcptr P)
 
 gcptr stm_WriteBarrier(gcptr P)
 {
+  assert(!(P->h_tid & GCFLAG_IMMUTABLE));
   if (is_private(P))
     {
       /* If we have GCFLAG_WRITE_BARRIER in P, then list it into
@@ -1092,7 +1116,7 @@ static void UpdateChainHeads(struct tx_descriptor *d, revision_t cur_time,
 #endif
       L->h_revision = new_revision;
 
-      gcptr stub = stm_stub_malloc(d->public_descriptor);
+      gcptr stub = stm_stub_malloc(d->public_descriptor, 0);
       stub->h_tid = (L->h_tid & STM_USER_TID_MASK) | GCFLAG_PUBLIC
                                                    | GCFLAG_STUB
                                                    | GCFLAG_OLD;

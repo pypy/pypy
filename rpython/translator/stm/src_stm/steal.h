@@ -10,7 +10,7 @@ struct stm_stub_s {
 
 #define STUB_THREAD(h)    (((struct stm_stub_s *)(h))->s_thread)
 
-gcptr stm_stub_malloc(struct tx_public_descriptor *);
+gcptr stm_stub_malloc(struct tx_public_descriptor *, size_t minsize);
 void stm_steal_stub(gcptr);
 gcptr stm_get_stolen_obj(long index);   /* debugging */
 void stm_normalize_stolen_objects(struct tx_descriptor *);

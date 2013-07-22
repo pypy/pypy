@@ -30,6 +30,9 @@ typedef struct stm_object_s {
 
 /* allocate an object out of the local nursery */
 gcptr stm_allocate(size_t size, unsigned long tid);
+/* allocate an object that is be immutable. it cannot be changed with
+   a stm_write_barrier() or after the next commit */
+gcptr stm_allocate_immutable(size_t size, unsigned long tid);
 
 /* returns a never changing hash for the object */
 revision_t stm_hash(gcptr);
@@ -55,11 +58,19 @@ void stm_finalize(void);
 int stm_enter_callback_call(void);
 void stm_leave_callback_call(int);
 
-/* read/write barriers (the most general versions only for now) */
-#if 0     // (optimized version below)
-gcptr stm_read_barrier(gcptr);
-gcptr stm_write_barrier(gcptr);
-#endif
+/* read/write barriers (the most general versions only for now).
+
+   - the read barrier must be applied before reading from an object.
+     the result is valid as long as we're in the same transaction,
+     and stm_write_barrier() is not called on the same object.
+
+   - the write barrier must be applied before writing to an object.
+     the result is valid for a shorter period of time: we have to
+     do stm_write_barrier() again if we ended the transaction, or
+     if we did a potential collection (e.g. stm_allocate()).
+*/
+static inline gcptr stm_read_barrier(gcptr);
+static inline gcptr stm_write_barrier(gcptr);
 
 /* start a new transaction, calls callback(), and when it returns
    finish that transaction.  callback() is called with the 'arg'
@@ -114,6 +125,14 @@ char *stm_inspect_abort_info(void);
 void stm_abort_and_retry(void);
 void stm_minor_collect(void);
 void stm_major_collect(void);
+
+/* weakref support: allocate a weakref object, and set it to point
+   weakly to 'obj'.  The weak pointer offset is hard-coded to be at
+   'size - WORD'.  Important: stmcb_trace() must NOT trace it.
+   Weakrefs are *immutable*!  Don't attempt to use stm_write_barrier()
+   on them. */
+gcptr stm_weakref_allocate(size_t size, unsigned long tid, gcptr obj);
+
 
 
 /****************  END OF PUBLIC INTERFACE  *****************/

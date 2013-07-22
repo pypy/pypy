@@ -37,5 +37,6 @@
 #include "steal.h"
 #include "stmsync.h"
 #include "extra.h"
+#include "weakref.h"
 
 #endif

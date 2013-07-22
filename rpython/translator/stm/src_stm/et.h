@@ -73,6 +73,8 @@ static const revision_t GCFLAG_BACKUP_COPY  /*debug*/ = STM_FIRST_GCFLAG << 7;
 static const revision_t GCFLAG_STUB         /*debug*/ = STM_FIRST_GCFLAG << 8;
 static const revision_t GCFLAG_PRIVATE_FROM_PROTECTED = STM_FIRST_GCFLAG << 9;
 static const revision_t GCFLAG_HAS_ID                 = STM_FIRST_GCFLAG << 10;
+static const revision_t GCFLAG_IMMUTABLE              = STM_FIRST_GCFLAG << 11;
+
 
 /* this value must be reflected in PREBUILT_FLAGS in stmgc.h */
 #define GCFLAG_PREBUILT  (GCFLAG_VISITED           | \
@@ -90,6 +92,8 @@ static const revision_t GCFLAG_HAS_ID                 = STM_FIRST_GCFLAG << 10;
                          "BACKUP_COPY",       \
                          "STUB",              \
                          "PRIVATE_FROM_PROTECTED", \
+                         "HAS_ID", \
+                         "IMMUTABLE", \
                          NULL }
 
 #define IS_POINTER(v)    (!((v) & 1))   /* even-valued number */
@@ -197,4 +201,7 @@ struct tx_public_descriptor *stm_get_free_public_descriptor(revision_t *);
 void DescriptorInit(void);
 void DescriptorDone(void);
 
+#ifdef _GC_DEBUG
+char* stm_dbg_get_hdr_str(gcptr obj);
+#endif
 #endif  /* _ET_H */
