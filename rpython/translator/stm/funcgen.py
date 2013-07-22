@@ -99,6 +99,14 @@ def stm_get_root_stack_top(funcgen, op):
     return '%s = (%s)stm_shadowstack;' % (
         result, cdecl(funcgen.lltypename(op.result), ''))
 
+def stm_weakref_allocate(funcgen, op):
+    arg0 = funcgen.expr(op.args[0])
+    arg1 = funcgen.expr(op.args[1])
+    arg2 = funcgen.expr(op.args[2])
+    result = funcgen.expr(op.result)
+    return '%s = stm_weakref_allocate(%s, %s, %s);' % (result, arg0, 
+                                                       arg1, arg2)
+    
 def stm_allocate(funcgen, op):
     arg0 = funcgen.expr(op.args[0])
     arg1 = funcgen.expr(op.args[1])

@@ -445,6 +445,8 @@ LL_OPERATIONS = {
     'stm_leave_callback_call':LLOp(),
     'stm_abort_and_retry':    LLOp(),
 
+    'stm_weakref_allocate':   LLOp(sideeffects=False, canmallocgc=True),
+    
     'stm_threadlocalref_get': LLOp(sideeffects=False),
     'stm_threadlocalref_set': LLOp(),
     'stm_threadlocal_get':    LLOp(sideeffects=False),

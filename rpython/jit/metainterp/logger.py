@@ -39,6 +39,10 @@ class Logger(object):
             debug_start("jit-log-compiling-bridge")
             logops = self._log_operations(inputargs, operations, ops_offset)
             debug_stop("jit-log-compiling-bridge")
+        elif extra == "rewritten":
+            debug_start("jit-log-rewritten-bridge")
+            logops = self._log_operations(inputargs, operations, ops_offset)
+            debug_stop("jit-log-rewritten-bridge")
         else:
             debug_start("jit-log-opt-bridge")
             debug_print("# bridge out of Guard",

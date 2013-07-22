@@ -303,14 +303,17 @@ def do_compile_loop(metainterp_sd, inputargs, operations, looptoken,
     metainterp_sd.logger_ops.log_loop(inputargs, operations, -2,
                                       'compiling', name=name)
     return metainterp_sd.cpu.compile_loop(inputargs, operations, looptoken,
-                                          log=log, name=name)
+                                          log=log, name=name,
+                                          logger=metainterp_sd.logger_ops)
 
 def do_compile_bridge(metainterp_sd, faildescr, inputargs, operations,
                       original_loop_token, log=True):
     metainterp_sd.logger_ops.log_bridge(inputargs, operations, "compiling")
     assert isinstance(faildescr, AbstractFailDescr)
     return metainterp_sd.cpu.compile_bridge(faildescr, inputargs, operations,
-                                            original_loop_token, log=log)
+                                            original_loop_token, log=log,
+                                            logger=metainterp_sd.logger_ops)
+                                            
 
 def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type):
     vinfo = jitdriver_sd.virtualizable_info

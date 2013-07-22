@@ -397,16 +397,24 @@ class Assembler386(BaseAssembler):
             if IS_X86_32:
                 # we have 2 extra words on stack for retval and we pass 1 extra
                 # arg, so we need to substract 2 words
+                # ||val|retadr|
                 mc.SUB_ri(esp.value, 2 * WORD)
+                # ||val|retadr|x|x||
                 mc.MOV_rs(eax.value, 3 * WORD) # 2 + 1
                 mc.MOV_sr(0, eax.value)
+                # ||val|retadr|x|val||
             else:
+                # ||val|retadr||
                 mc.MOV_rs(edi.value, WORD)
         else:
+            # ||retadr|
             # we have one word to align
             mc.SUB_ri(esp.value, 7 * WORD) # align and reserve some space
+            # ||retadr|x||x|x||x|x||x|x||
             mc.MOV_sr(WORD, eax.value) # save for later
+            # ||retadr|x||x|x||x|x||rax|x||
             mc.MOVSD_sx(3 * WORD, xmm0.value)
+            # ||retadr|x||x|x||xmm0|x||rax|x||
             if IS_X86_32:
                 mc.MOV_sr(4 * WORD, edx.value)
                 mc.MOV_sr(0, ebp.value)
@@ -427,19 +435,24 @@ class Assembler386(BaseAssembler):
         if descr.returns_modified_object:
             # new addr in eax, save to now unused arg
             if for_frame:
+                # ||retadr|x||x|x||xmm0|x||rax|x||
                 mc.PUSH_r(eax.value)
+                # ||retadr|x||x|x||xmm0|x||rax|x||result|
             elif IS_X86_32:
                 mc.MOV_sr(3 * WORD, eax.value)
+                # ||val|retadr|x|val||
+                # -> ||result|retaddr|x|val||
             else:
                 mc.MOV_sr(WORD, eax.value)
+                # ||val|retadr|| -> ||result|retadr||
                 
         if withcards:
             # A final TEST8 before the RET, for the caller.  Careful to
             # not follow this instruction with another one that changes
             # the status of the CPU flags!
-            assert not is_stm
+            assert not is_stm and not descr.returns_modified_object
             if IS_X86_32:
-                mc.MOV_rs(eax.value, 3*WORD)
+                mc.MOV_rs(eax.value, 3 * WORD)
             else:
                 mc.MOV_rs(eax.value, WORD)
             mc.TEST8(addr_add_const(eax, descr.jit_wb_if_flag_byteofs),
@@ -460,14 +473,18 @@ class Assembler386(BaseAssembler):
         else:
             if IS_X86_32:
                 mc.MOV_rs(edx.value, 5 * WORD)
+            # ||retadr|x||x|x||xmm0|x||rax|x||result|
             mc.MOVSD_xs(xmm0.value, 4 * WORD)
             mc.MOV_rs(eax.value, 2 * WORD) # restore
             self._restore_exception(mc, exc0, exc1)
             mc.MOV(exc0, RawEspLoc(WORD * 6, REF))
             mc.MOV(exc1, RawEspLoc(WORD * 7, INT))
 
-            mc.POP_r(eax.value) # return value
-            
+            if IS_X86_32:
+                mc.POP_r(edx.value) # return value
+            else:
+                mc.POP_r(edi.value) # return value
+
             mc.LEA_rs(esp.value, 7 * WORD)
 
             mc.RET()
@@ -478,7 +495,8 @@ class Assembler386(BaseAssembler):
         else:
             descr.set_b_slowpath(withcards + 2 * withfloats, rawstart)
 
-    def assemble_loop(self, loopname, inputargs, operations, looptoken, log):
+    def assemble_loop(self, loopname, inputargs, operations, looptoken, log,
+                      logger=None):
         '''adds the following attributes to looptoken:
                _ll_function_addr    (address of the generated func, as an int)
                _ll_loop_code       (debug: addr of the start of the ResOps)
@@ -513,6 +531,9 @@ class Assembler386(BaseAssembler):
         self._check_frame_depth_debug(self.mc)
         operations = regalloc.prepare_loop(inputargs, operations, looptoken,
                                            clt.allgcrefs)
+        if logger:
+            logger.log_loop(inputargs, operations, -2, "rewritten", 
+                            name=loopname)
         looppos = self.mc.get_relative_pos()
         frame_depth_no_fixed_size = self._assemble(regalloc, inputargs,
                                                    operations)
@@ -554,7 +575,7 @@ class Assembler386(BaseAssembler):
                        size_excluding_failure_stuff - looppos)
 
     def assemble_bridge(self, faildescr, inputargs, operations,
-                        original_loop_token, log):
+                        original_loop_token, log, logger=None):
         if not we_are_translated():
             # Arguments should be unique
             assert len(set(inputargs)) == len(inputargs)
@@ -572,6 +593,8 @@ class Assembler386(BaseAssembler):
                                              operations,
                                              self.current_clt.allgcrefs,
                                              self.current_clt.frame_info)
+        if logger:
+            logger.log_bridge(inputargs, operations, "rewritten")
         self._check_frame_depth(self.mc, regalloc.get_gcmap())
         frame_depth_no_fixed_size = self._assemble(regalloc, inputargs, operations)
         codeendpos = self.mc.get_relative_pos()
@@ -2138,10 +2161,21 @@ class Assembler386(BaseAssembler):
         if not is_frame:
             mc.PUSH(loc_base)
         if is_frame and align_stack:
+            # ||retadr|
             mc.SUB_ri(esp.value, 16 - WORD) # erase the return address
+            # ||retadr|...||
         func = descr.get_b_slowpath(helper_num)
         mc.CALL(imm(func))
-        mc.MOV_rr(loc_base.value, eax.value)
+
+        # result in eax, except if is_frame
+        if is_frame:
+            if IS_X86_32:
+                mc.MOV_rr(loc_base.value, edx.value)
+            else:
+                mc.MOV_rr(loc_base.value, edi.value)
+        else:
+            mc.MOV_rr(loc_base.value, eax.value)
+            
         if is_frame and align_stack:
             mc.ADD_ri(esp.value, 16 - WORD) # erase the return address
 

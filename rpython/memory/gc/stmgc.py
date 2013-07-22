@@ -104,7 +104,7 @@ class StmGC(MovingGCBase):
         # XXX finalizers are ignored for now
         #ll_assert(not needs_finalizer, 'XXX needs_finalizer')
         #ll_assert(not is_finalizer_light, 'XXX is_finalizer_light')
-        ll_assert(not contains_weakptr, 'XXX contains_weakptr')
+        #ll_assert(not contains_weakptr, 'XXX contains_weakptr')
         # XXX call optimized versions, e.g. if size < GC_NURSERY_SECTION
         return llop.stm_allocate(llmemory.GCREF, size, typeid16)
 
@@ -117,6 +117,9 @@ class StmGC(MovingGCBase):
         (obj + offset_to_length).signed[0] = length
         return llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
 
+    def malloc_weakref(self, typeid16, size, obj):
+        return llop.stm_weakref_allocate(llmemory.GCREF, size,
+                                         typeid16, obj)
 
     def can_move(self, obj):
         """Means the reference will stay valid, except if not
