@@ -24,7 +24,7 @@ class TestTransform(BaseTestTransform):
         res = self.interpret(f1, [-5])
         assert res == 42
         assert len(self.writemode) == 0
-        assert self.barriers == ['G2R']
+        assert self.barriers == ['P2R']
 
     def test_simple_write(self):
         X = lltype.GcStruct('X', ('foo', lltype.Signed))
@@ -37,7 +37,7 @@ class TestTransform(BaseTestTransform):
         self.interpret(f1, [4])
         assert x1.foo == 4
         assert len(self.writemode) == 1
-        assert self.barriers == ['G2W']
+        assert self.barriers == ['P2W']
 
     def test_multiple_reads(self):
         X = lltype.GcStruct('X', ('foo', lltype.Signed),
@@ -58,7 +58,7 @@ class TestTransform(BaseTestTransform):
         res = self.interpret(f1, [4])
         assert res == -81
         assert len(self.writemode) == 0
-        assert self.barriers == ['G2R']
+        assert self.barriers == ['P2R']
 
     def test_malloc(self):
         X = lltype.GcStruct('X', ('foo', lltype.Signed))
@@ -81,7 +81,7 @@ class TestTransform(BaseTestTransform):
 
         self.interpret(f1, [4])
         assert len(self.writemode) == 2
-        assert self.barriers == ['G2W', 'r2w']
+        assert self.barriers == ['P2W', 'r2w']
 
     def test_repeat_read_barrier_after_malloc(self):
         X = lltype.GcStruct('X', ('foo', lltype.Signed))
@@ -95,7 +95,7 @@ class TestTransform(BaseTestTransform):
 
         self.interpret(f1, [4])
         assert len(self.writemode) == 1
-        assert self.barriers == ['G2R']
+        assert self.barriers == ['P2R']
 
     def test_write_may_alias(self):
         X = lltype.GcStruct('X', ('foo', lltype.Signed))
@@ -109,10 +109,10 @@ class TestTransform(BaseTestTransform):
         y = lltype.malloc(X, immortal=True)
         res = self.interpret(f1, [x, y])
         assert res == 36
-        assert self.barriers == ['P2R', 'P2W', 'o2r']
+        assert self.barriers == ['P2R', 'P2W', 'p2r']
         res = self.interpret(f1, [x, x])
         assert res == 42
-        assert self.barriers == ['P2R', 'P2W', 'O2R']
+        assert self.barriers == ['P2R', 'P2W', 'P2R']
 
     def test_write_cannot_alias(self):
         X = lltype.GcStruct('X', ('foo', lltype.Signed))
@@ -254,18 +254,31 @@ class TestTransform(BaseTestTransform):
                 x.foo = 815
                 x.zbar = 'A'
             external_stuff()
-            result = x.foo
-            if isinstance(x, Y):
-                result += x.ybar
+            result = x.foo          # 1
+            if isinstance(x, Y):    # 2
+                result += x.ybar    # 3
             return result
 
         res = self.interpret(f1, [10])
         assert res == 42 + 10
-        assert self.barriers == ['p2r', 'p2r']  # from two blocks (could be
-                                                # optimized later)
+        assert self.barriers == ['p2r', 'p2r', 'p2r'] # from 3 blocks (could be
+                                                      # optimized later)
         res = self.interpret(f1, [-10])
         assert res == 815
-        assert self.barriers == ['p2r']
+        assert self.barriers == ['p2r', 'p2r']
+
+    def test_write_barrier_repeated(self):
+        class X:
+            pass
+        x = X()
+        def f1(i):
+            x.a = i   # write barrier
+            y = X()   # malloc
+            x.a += 1  # write barrier again
+            return y
+
+        res = self.interpret(f1, [10])
+        assert self.barriers == ['P2W', 'r2w']
 
 
 external_stuff = rffi.llexternal('external_stuff', [], lltype.Void,

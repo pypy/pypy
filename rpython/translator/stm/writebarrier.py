@@ -9,14 +9,14 @@ MALLOCS = set([
     'malloc_nonmovable', 'malloc_nonmovable_varsize',
     ])
 
-MORE_PRECISE_CATEGORIES = {
-    'P': 'PGORLWN',     # Pointer: the most general category
-    'G': 'GN',          # Global: known to be a non-local pointer
-    'O': 'ORLWN',       # Old: used to be read-ready, but maybe someone wrote
-    'R': 'RLWN',        # Read-ready: direct reads from there are ok
-    'L': 'LWN',         # Local: a local pointer
-    'W': 'WN',          # Write-ready: direct writes here are ok
-    'N': 'N'}           # NULL (the other categories also all contain NULL)
+NEEDS_BARRIER = {
+    ('P', 'R'): True,
+    ('P', 'W'): True,
+    ('R', 'R'): False,
+    ('R', 'W'): True,
+    ('W', 'R'): False,
+    ('W', 'W'): False,
+    }
 
 def unwraplist(list_v):
     for v in list_v: 
@@ -44,14 +44,20 @@ def is_immutable(op):
 
 
 def insert_stm_barrier(stmtransformer, graph):
+    """This function uses the following characters for 'categories':
+
+           * 'P': a general pointer
+           * 'R': the read barrier was applied
+           * 'W': the write barrier was applied
+    """
     graphinfo = stmtransformer.write_analyzer.compute_graph_info(graph)
 
     def get_category(v):
-        if isinstance(v, Constant):
-            if v.value:
-                return 'G'
-            else:
-                return 'N'     # NULL
+        return category.get(v, 'P')
+
+    def get_category_or_null(v):
+        if isinstance(v, Constant) and not v.value:
+            return 'N'
         return category.get(v, 'P')
 
     def renamings_get(v):
@@ -82,7 +88,7 @@ def insert_stm_barrier(stmtransformer, graph):
                   op.result.concretetype is not lltype.Void and
                   op.args[0].concretetype.TO._gckind == 'gc' and
                   True): #not is_immutable(op)): XXX see [1]
-                wants_a_barrier.setdefault(op, 'R')
+                wants_a_barrier[op] = 'R'
             elif (op.opname in ('setfield', 'setarrayitem',
                                 'setinteriorfield') and
                   op.args[-1].concretetype is not lltype.Void and
@@ -113,7 +119,7 @@ def insert_stm_barrier(stmtransformer, graph):
                     v_holder = renamings.setdefault(v, [v])
                     v = v_holder[0]
                     frm = get_category(v)
-                    if frm not in MORE_PRECISE_CATEGORIES[to]:
+                    if NEEDS_BARRIER[frm, to]:
                         c_info = Constant('%s2%s' % (frm, to), lltype.Void)
                         w = varoftype(v.concretetype)
                         newop = SpaceOperation('stm_barrier', [c_info, v], w)
@@ -127,9 +133,9 @@ def insert_stm_barrier(stmtransformer, graph):
                 newoperations.append(newop)
                 #
                 if op in expand_comparison:
-                    cats = ''.join([get_category(v) for v in newop.args])
-                    if ('N' not in cats and
-                            cats not in ('LL', 'LW', 'WL', 'WW')):
+                    cats = (get_category_or_null(newop.args[0]),
+                            get_category_or_null(newop.args[1]))
+                    if 'N' not in cats and cats != ('W', 'W'):
                         if newop.opname == 'ptr_ne':
                             v = varoftype(lltype.Bool)
                             negop = SpaceOperation('bool_not', [v],
@@ -137,24 +143,33 @@ def insert_stm_barrier(stmtransformer, graph):
                             newoperations.append(negop)
                             newop.result = v
                         newop.opname = 'stm_ptr_eq'
-                #
+
+                if stmtransformer.collect_analyzer.analyze(op):
+                    # this operation can collect: we bring all 'W'
+                    # categories back to 'R', because we would need
+                    # another stm_write_barrier on them afterwards
+                    for v, cat in category.items():
+                        if cat == 'W':
+                            category[v] = 'R'
+
                 effectinfo = stmtransformer.write_analyzer.analyze(
                     op, graphinfo=graphinfo)
                 if effectinfo:
                     if effectinfo is top_set:
-                        category.clear()
+                        # this operation can perform random writes: any
+                        # 'R'-category object falls back to 'P' because
+                        # we would need another stm_read_barrier()
+                        for v, cat in category.items():
+                            if cat == 'R':
+                                category[v] = 'P'
                     else:
+                        # the same, but only on objects of the right types
                         types = set([entry[1] for entry in effectinfo])
                         for v in category.keys():
                             if v.concretetype in types and category[v] == 'R':
-                                category[v] = 'O'
-                #
+                                category[v] = 'P'
+
                 if op.opname in MALLOCS:
-                    # write barriers after a possible minor collection
-                    # are not valid anymore:
-                    for v, c in category.items():
-                        if c == 'W':
-                            category[v] = 'R'
                     category[op.result] = 'W'
 
             block.operations = newoperations
