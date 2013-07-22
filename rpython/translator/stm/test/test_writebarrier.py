@@ -70,6 +70,33 @@ class TestTransform(BaseTestTransform):
         assert len(self.writemode) == 1
         assert self.barriers == []
 
+    def test_repeat_write_barrier_after_malloc(self):
+        X = lltype.GcStruct('X', ('foo', lltype.Signed))
+        x1 = lltype.malloc(X, immortal=True)
+        x1.foo = 6
+        def f1(n):
+            x1.foo = n
+            lltype.malloc(X)
+            x1.foo = x1.foo + n
+
+        self.interpret(f1, [4])
+        assert len(self.writemode) == 2
+        assert self.barriers == ['G2W', 'r2w']
+
+    def test_repeat_read_barrier_after_malloc(self):
+        X = lltype.GcStruct('X', ('foo', lltype.Signed))
+        x1 = lltype.malloc(X, immortal=True)
+        x1.foo = 6
+        def f1(n):
+            i = x1.foo
+            lltype.malloc(X)
+            i = x1.foo + i
+            return i
+
+        self.interpret(f1, [4])
+        assert len(self.writemode) == 1
+        assert self.barriers == ['G2R']
+
     def test_write_may_alias(self):
         X = lltype.GcStruct('X', ('foo', lltype.Signed))
         def f1(p, q):

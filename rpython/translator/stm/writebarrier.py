@@ -150,6 +150,11 @@ def insert_stm_barrier(stmtransformer, graph):
                                 category[v] = 'O'
                 #
                 if op.opname in MALLOCS:
+                    # write barriers after a possible minor collection
+                    # are not valid anymore:
+                    for v, c in category.items():
+                        if c == 'W':
+                            category[v] = 'R'
                     category[op.result] = 'W'
 
             block.operations = newoperations
