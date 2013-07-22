@@ -51,6 +51,16 @@ class AppTestHighLevelInterface(object):
             xe += 1
             ye += 1
 
+    def test_many_solutions3(self):
+        import uni
+        e = uni.Engine("f(card(5, d)). f(card(6, c)).")
+        e.db.f.many_solutions = True
+
+        sols = [ x for (x, ) in e.db.f(None) ]
+        expect = [ e.terms.card(5, "d"), e.terms.card(6, "c") ]
+
+        assert sols == expect
+
     def test_term_getattrs(self):
         import uni
 
