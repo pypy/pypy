@@ -155,9 +155,6 @@ class Assembler386(BaseAssembler):
         """
         mc = codebuf.MachineCodeBlockWrapper()
         self._push_all_regs_to_frame(mc, [], supports_floats, callee_only)
-        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
-        if gcrootmap and gcrootmap.is_shadow_stack:
-            self._call_header_shadowstack(mc, gcrootmap, selected_reg=r8)
         mc.SUB(esp, imm(WORD))
         self.set_extra_stack_depth(mc, 2 * WORD)
         # args are in their respective positions
@@ -165,8 +162,6 @@ class Assembler386(BaseAssembler):
         mc.ADD(esp, imm(WORD))
         self.set_extra_stack_depth(mc, 0)
         self._reload_frame_if_necessary(mc, align_stack=True)
-        if gcrootmap and gcrootmap.is_shadow_stack:
-            self._call_footer_shadowstack(mc, gcrootmap, selected_reg=r8)
         self._pop_all_regs_from_frame(mc, [], supports_floats,
                                       callee_only)
         mc.RET()
@@ -1745,7 +1740,8 @@ class Assembler386(BaseAssembler):
             regs = gpr_reg_mgr_cls.all_regs
         for i, gpr in enumerate(regs):
             if gpr not in ignored_regs:
-                mc.MOV_br(i * WORD + base_ofs, gpr.value)
+                v = gpr_reg_mgr_cls.all_reg_indexes[gpr.value]
+                mc.MOV_br(v * WORD + base_ofs, gpr.value)
         if withfloats:
             if IS_X86_64:
                 coeff = 1
@@ -1766,7 +1762,8 @@ class Assembler386(BaseAssembler):
             regs = gpr_reg_mgr_cls.all_regs
         for i, gpr in enumerate(regs):
             if gpr not in ignored_regs:
-                mc.MOV_rb(gpr.value, i * WORD + base_ofs)
+                v = gpr_reg_mgr_cls.all_reg_indexes[gpr.value]
+                mc.MOV_rb(gpr.value, v * WORD + base_ofs)
         if withfloats:
             # Pop all XMM regs
             if IS_X86_64:
