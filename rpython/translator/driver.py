@@ -60,7 +60,7 @@ class ProfInstrument(object):
         env = os.environ.copy()
         env['PYPY_INSTRUMENT_COUNTERS'] = str(self.datafile)
         self.compiler.platform.execute(exe, args, env=env)
-        
+
     def after(self):
         # xxx
         os._exit(0)
@@ -99,7 +99,7 @@ class TranslationDriver(SimpleTaskEngine):
             default_goal, = self.backend_select_goals([default_goal])
             if default_goal in self._maybe_skip():
                 default_goal = None
-        
+
         self.default_goal = default_goal
         self.extra_goals = []
         self.exposed = []
@@ -142,7 +142,7 @@ class TranslationDriver(SimpleTaskEngine):
 
     def set_backend_extra_options(self, extra_options):
         self._backend_extra_options = extra_options
-        
+
     def get_info(self): # XXX more?
         d = {'backend': self.config.translation.backend}
         return d
@@ -163,7 +163,7 @@ class TranslationDriver(SimpleTaskEngine):
                     new_goal = cand
                     break
             else:
-                raise Exception, "cannot infer complete goal from: %r" % goal 
+                raise Exception("cannot infer complete goal from: %r" % goal)
             l.append(new_goal)
         return l
 
@@ -173,10 +173,9 @@ class TranslationDriver(SimpleTaskEngine):
     def _maybe_skip(self):
         maybe_skip = []
         if self._disabled:
-             for goal in self.backend_select_goals(self._disabled):
-                 maybe_skip.extend(self._depending_on_closure(goal))
+            for goal in self.backend_select_goals(self._disabled):
+                maybe_skip.extend(self._depending_on_closure(goal))
         return dict.fromkeys(maybe_skip).keys()
-
 
     def setup(self, entry_point, inputtypes, policy=None, extra={}, empty_translator=None):
         standalone = inputtypes is None
@@ -423,7 +422,7 @@ class TranslationDriver(SimpleTaskEngine):
         from rpython.translator.transform import insert_ll_stackcheck
         count = insert_ll_stackcheck(self.translator)
         self.log.info("inserted %d stack checks." % (count,))
-        
+
 
     def possibly_check_for_boehm(self):
         if self.config.translation.gc == "boehm":
@@ -537,7 +536,7 @@ class TranslationDriver(SimpleTaskEngine):
     def task_llinterpret_lltype(self):
         from rpython.rtyper.llinterp import LLInterpreter
         py.log.setconsumer("llinterp operation", None)
-        
+
         translator = self.translator
         interp = LLInterpreter(translator.rtyper)
         bk = translator.annotator.bookkeeper
@@ -575,7 +574,7 @@ class TranslationDriver(SimpleTaskEngine):
         # restore original os values
         if hasattr(self, 'old_cli_defs'):
             unpatch_os(self.old_cli_defs)
-        
+
         self.log.info("Compiled %s" % filename)
         if self.standalone and self.exe_name:
             self.copy_cli_exe()
@@ -607,9 +606,9 @@ then
     EXE=$0
 fi
 if  uname -s | grep -iq Cygwin
-then 
+then
     MONO=
-else 
+else
     MONO=mono
     # workaround for known mono buggy versions
     VER=`mono -V | head -1 | sed s/'Mono JIT compiler version \(.*\) (.*'/'\1/'`
@@ -629,7 +628,7 @@ $LEDIT $MONO "$(dirname $EXE)/$(basename $EXE)-data/%s" "$@" # XXX doesn't work 
         pypylib_dll = os.path.join(usession_path, 'pypylib.dll')
         shutil.copy(dllname, '.')
         shutil.copy(pypylib_dll, '.')
-        
+
         # main.exe is a stub but is needed right now because it's
         # referenced by pypylib.dll.  Will be removed in the future
         translator_path, _ = os.path.split(__file__)
@@ -747,7 +746,7 @@ $LEDIT java -Xmx256m -jar $EXE.jar "$@"
         if backend in ('cli', 'jvm'):
             from rpython.translator.oosupport.support import patch_os
             driver.old_cli_defs = patch_os()
-        
+
         target = targetspec_dic['target']
         spec = target(driver, args)
 
@@ -757,8 +756,8 @@ $LEDIT java -Xmx256m -jar $EXE.jar "$@"
             entry_point, inputtypes = spec
             policy = None
 
-        driver.setup(entry_point, inputtypes, 
-                     policy=policy, 
+        driver.setup(entry_point, inputtypes,
+                     policy=policy,
                      extra=targetspec_dic,
                      empty_translator=empty_translator)
 
@@ -770,7 +769,7 @@ $LEDIT java -Xmx256m -jar $EXE.jar "$@"
         assert 'rpython.rtyper.rmodel' not in sys.modules, (
             "cannot fork because the rtyper has already been imported")
     prereq_checkpt_rtype_lltype = prereq_checkpt_rtype
-    prereq_checkpt_rtype_ootype = prereq_checkpt_rtype    
+    prereq_checkpt_rtype_ootype = prereq_checkpt_rtype
 
     # checkpointing support
     def _event(self, kind, goal, func):

@@ -80,10 +80,11 @@ class Lexer(object):
                 self.ignore)
 
     def __getstate__(self):
-         return (self.token_regexs, self.names, self.ignore)
+        return (self.token_regexs, self.names, self.ignore)
 
     def __setstate__(self, args):
-         self.__init__(*args)
+        self.__init__(*args)
+
 
 class DummyLexer(Lexer):
     def __init__(self, matcher, automaton, ignore):

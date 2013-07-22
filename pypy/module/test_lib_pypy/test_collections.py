@@ -2,44 +2,51 @@
 Extra tests for the pure Python PyPy _collections module
 (not used in normal PyPy's)
 """
+from pypy.module.test_lib_pypy.support import import_lib_pypy
 
-from __future__ import absolute_import
-from lib_pypy import _collections as collections
-import py
 
-class TestDeque:
-    def setup_method(self, method):
-        self.n = 10
-        self.d = collections.deque(range(self.n))
+class AppTestDeque:
+
+    def setup_class(cls):
+        space = cls.space
+        cls.w_collections = import_lib_pypy(space, '_collections')
+        cls.w_n = space.wrap(10)
+
+    def w_get_deque(self):
+        return self.collections.deque(range(self.n))
 
     def test_deque(self):
-        assert len(self.d) == self.n
+        d = self.get_deque()
+        assert len(d) == self.n
         for i in range(self.n):
-            assert i == self.d[i]
+            assert i == d[i]
         for i in range(self.n-1, -1, -1):
-            assert self.d.pop() == i
-        assert len(self.d) == 0
+            assert d.pop() == i
+        assert len(d) == 0
 
     def test_deque_iter(self):
-        it = iter(self.d)
-        py.test.raises(TypeError, len, it)
+        d = self.get_deque()
+        it = iter(d)
+        raises(TypeError, len, it)
         assert it.next() == 0
-        self.d.pop()
-        py.test.raises(RuntimeError, it.next)
+        d.pop()
+        raises(RuntimeError, it.next)
 
     def test_deque_reversed(self):
-        it = reversed(self.d)
-        py.test.raises(TypeError, len, it)
+        d = self.get_deque()
+        it = reversed(d)
+        raises(TypeError, len, it)
         assert it.next() == self.n-1
         assert it.next() == self.n-2
-        self.d.pop()
-        py.test.raises(RuntimeError, it.next)
+        d.pop()
+        raises(RuntimeError, it.next)
 
     def test_deque_remove(self):
-        d = self.d
-        py.test.raises(ValueError, d.remove, "foobar")
+        d = self.get_deque()
+        raises(ValueError, d.remove, "foobar")
 
     def test_mutate_during_remove(self):
+        collections = self.collections
         # Handle evil mutator
         class MutateCmp:
             def __init__(self, deque, result):
@@ -52,24 +59,33 @@ class TestDeque:
         for match in (True, False):
             d = collections.deque(['ab'])
             d.extend([MutateCmp(d, match), 'c'])
-            py.test.raises(IndexError, d.remove, 'c')
+            raises(IndexError, d.remove, 'c')
             assert len(d) == 0
 
-class TestDequeExtra:
+class AppTestDequeExtra:
+
+    spaceconfig = dict(usemodules=('binascii', 'struct',))
+
+    def setup_class(cls):
+        cls.w_collections = import_lib_pypy(cls.space, '_collections')
+
     def test_remove_empty(self):
+        collections = self.collections
         d = collections.deque([])
-        py.test.raises(ValueError, d.remove, 1)
+        raises(ValueError, d.remove, 1)
 
     def test_remove_mutating(self):
+        collections = self.collections
         class MutatingCmp(object):
             def __eq__(self, other):
                 d.clear()
                 return True
 
         d = collections.deque([MutatingCmp()])
-        py.test.raises(IndexError, d.remove, 1)
+        raises(IndexError, d.remove, 1)
 
     def test_remove_failing(self):
+        collections = self.collections
         class FailingCmp(object):
             def __eq__(self, other):
                 assert False
@@ -77,10 +93,11 @@ class TestDequeExtra:
         f = FailingCmp()
         d = collections.deque([1, 2, 3, f, 4, 5])
         d.remove(3)
-        py.test.raises(AssertionError, d.remove, 4)
+        raises(AssertionError, d.remove, 4)
         assert d == collections.deque([1, 2, f, 4, 5])
 
     def test_maxlen(self):
+        collections = self.collections
         d = collections.deque([], 3)
         d.append(1); d.append(2); d.append(3); d.append(4)
         assert list(d) == [2, 3, 4]
@@ -95,11 +112,13 @@ class TestDequeExtra:
         assert repr(d3) == "deque([2, 3, 4], maxlen=3)"
 
     def test_count(self):
+        collections = self.collections
         d = collections.deque([1, 2, 2, 3, 2])
         assert d.count(2) == 3
         assert d.count(4) == 0
 
     def test_reverse(self):
+        collections = self.collections
         d = collections.deque([1, 2, 2, 3, 2])
         d.reverse()
         assert list(d) == [2, 3, 2, 2, 1]
@@ -109,6 +128,7 @@ class TestDequeExtra:
         assert list(d) == range(99, -1, -1)
 
     def test_subclass_with_kwargs(self):
+        collections = self.collections
         class SubclassWithKwargs(collections.deque):
             def __init__(self, newarg=1):
                 collections.deque.__init__(self)
@@ -116,11 +136,13 @@ class TestDequeExtra:
         # SF bug #1486663 -- this used to erroneously raise a TypeError
         SubclassWithKwargs(newarg=1)
 
-def foobar():
-    return list
+class AppTestDefaultDict:
 
-class TestDefaultDict:
+    def setup_class(cls):
+        cls.w_collections = import_lib_pypy(cls.space, '_collections')
+
     def test_basic(self):
+        collections = self.collections
         d1 = collections.defaultdict()
         assert d1.default_factory is None
         d1.default_factory = list
@@ -148,20 +170,23 @@ class TestDefaultDict:
         assert 12 not in d2.keys()
         d2.default_factory = None
         assert d2.default_factory == None
-        py.test.raises(KeyError, d2.__getitem__, 15)
-        py.test.raises(TypeError, collections.defaultdict, 1)
+        raises(KeyError, d2.__getitem__, 15)
+        raises(TypeError, collections.defaultdict, 1)
 
     def test_constructor(self):
+        collections = self.collections
         assert collections.defaultdict(None) == {}
         assert collections.defaultdict(None, {1: 2}) == {1: 2}
 
     def test_missing(self):
+        collections = self.collections
         d1 = collections.defaultdict()
-        py.test.raises(KeyError, d1.__missing__, 42)
+        raises(KeyError, d1.__missing__, 42)
         d1.default_factory = list
         assert d1.__missing__(42) == []
 
     def test_repr(self):
+        collections = self.collections
         d1 = collections.defaultdict()
         assert d1.default_factory == None
         assert repr(d1) == "defaultdict(None, {})"
@@ -181,6 +206,7 @@ class TestDefaultDict:
         assert repr(d4) == "defaultdict(%s, {14: defaultdict(None, {})})" % repr(int)
 
     def test_recursive_repr(self):
+        collections = self.collections
         # Issue2045: stack overflow when default_factory is a bound method
         class sub(collections.defaultdict):
             def __init__(self):
@@ -192,6 +218,7 @@ class TestDefaultDict:
             "defaultdict(<bound method sub._factory of defaultdict(...")
 
     def test_copy(self):
+        collections = self.collections
         d1 = collections.defaultdict()
         d2 = d1.copy()
         assert type(d2) == collections.defaultdict
@@ -212,6 +239,9 @@ class TestDefaultDict:
 
     def test_shallow_copy(self):
         import copy
+        collections = self.collections
+        def foobar():
+            return list
         d1 = collections.defaultdict(foobar, {1: 1})
         d2 = copy.copy(d1)
         assert d2.default_factory == foobar
@@ -223,6 +253,9 @@ class TestDefaultDict:
 
     def test_deep_copy(self):
         import copy
+        collections = self.collections
+        def foobar():
+            return list
         d1 = collections.defaultdict(foobar, {1: [1]})
         d2 = copy.deepcopy(d1)
         assert d2.default_factory == foobar
@@ -232,4 +265,3 @@ class TestDefaultDict:
         d2 = copy.deepcopy(d1)
         assert d2.default_factory == list
         assert d2 == d1
-

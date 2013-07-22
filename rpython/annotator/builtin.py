@@ -177,8 +177,8 @@ def builtin_isinstance(s_obj, s_type, variables=None):
                 r.const = isinstance(s_obj.const, typ)
             elif our_issubclass(s_obj.knowntype, typ):
                 if not s_obj.can_be_none():
-                    r.const = True 
-            elif not our_issubclass(typ, s_obj.knowntype): 
+                    r.const = True
+            elif not our_issubclass(typ, s_obj.knowntype):
                 r.const = False
             elif s_obj.knowntype == int and typ == bool: # xxx this will explode in case of generalisation
                                                    # from bool to int, notice that isinstance( , bool|int)
@@ -207,12 +207,12 @@ def builtin_hasattr(s_obj, s_attr):
         r.const = hasattr(s_obj.const, s_attr.const)
     elif (isinstance(s_obj, SomePBC)
           and s_obj.getKind() is description.FrozenDesc):
-       answers = {}    
-       for d in s_obj.descriptions:
-           answer = (d.s_read_attribute(s_attr.const) != s_ImpossibleValue)
-           answers[answer] = True
-       if len(answers) == 1:
-           r.const, = answers
+        answers = {}
+        for d in s_obj.descriptions:
+            answer = (d.s_read_attribute(s_attr.const) != s_ImpossibleValue)
+            answers[answer] = True
+        if len(answers) == 1:
+            r.const, = answers
     return r
 
 ##def builtin_callable(s_obj):
@@ -344,7 +344,7 @@ def llmemory_cast_int_to_adr(s):
     return SomeAddress()
 
 def unicodedata_decimal(s_uchr):
-    raise TypeError, "unicodedate.decimal() calls should not happen at interp-level"    
+    raise TypeError, "unicodedate.decimal() calls should not happen at interp-level"
 
 def test(*args):
     return s_Bool
@@ -395,7 +395,7 @@ else:
 if hasattr(object.__init__, 'im_func'):
     BUILTIN_ANALYZERS[object.__init__.im_func] = object_init
 else:
-    BUILTIN_ANALYZERS[object.__init__] = object_init    
+    BUILTIN_ANALYZERS[object.__init__] = object_init
 
 # import
 BUILTIN_ANALYZERS[__import__] = import_func
@@ -549,12 +549,12 @@ def instanceof(i, I):
     return s_Bool
 
 def classof(i):
-    assert isinstance(i, SomeOOInstance) 
+    assert isinstance(i, SomeOOInstance)
     return SomeOOClass(i.ootype)
 
 def subclassof(class1, class2):
-    assert isinstance(class1, SomeOOClass) 
-    assert isinstance(class2, SomeOOClass) 
+    assert isinstance(class1, SomeOOClass)
+    assert isinstance(class2, SomeOOClass)
     return s_Bool
 
 def runtimenew(c):

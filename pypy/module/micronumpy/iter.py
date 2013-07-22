@@ -37,7 +37,7 @@ so if we precalculate the overflow backstride as
 we can go faster.
 All the calculations happen in next()
 
-next_skip_x() tries to do the iteration for a number of steps at once,
+next_skip_x(steps) tries to do the iteration for a number of steps at once,
 but then we cannot gaurentee that we only overflow one single shape
 dimension, perhaps we could overflow times in one big step.
 """
@@ -46,6 +46,7 @@ from pypy.module.micronumpy.strides import enumerate_chunks,\
      calculate_slice_strides
 from pypy.module.micronumpy.base import W_NDimArray
 from pypy.module.micronumpy.arrayimpl import base
+from pypy.module.micronumpy.support import product
 from rpython.rlib import jit
 
 # structures to describe slicing
@@ -225,7 +226,7 @@ class MultiDimViewIterator(ConcreteArrayIterator):
         self.shape = shape
         self.offset = start
         self.shapelen = len(shape)
-        self._done = False
+        self._done = self.shapelen == 0 or product(shape) == 0
         self.strides = strides
         self.backstrides = backstrides
         self.size = array.size
@@ -284,7 +285,7 @@ class AxisIterator(base.BaseArrayIterator):
             self.backstrides = backstrides[:dim] + [0] + backstrides[dim:]
         self.first_line = True
         self.indices = [0] * len(shape)
-        self._done = False
+        self._done = array.get_size() == 0
         self.offset = array.start
         self.dim = dim
         self.array = array

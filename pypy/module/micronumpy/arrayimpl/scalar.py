@@ -13,6 +13,9 @@ class ScalarIterator(base.BaseArrayIterator):
     def next(self):
         self.called_once = True
 
+    def next_skip_x(self, n):
+        self.called_once = True
+
     def getitem(self):
         return self.v.get_scalar_value()
 
@@ -62,6 +65,11 @@ class Scalar(base.BaseArrayImplementation):
 
     def transpose(self, _):
         return self
+
+    def get_view(self, orig_array, dtype, new_shape):
+        scalar = Scalar(dtype)
+        scalar.value = self.value.convert_to(dtype)
+        return scalar
 
     def get_real(self, orig_array):
         if self.dtype.is_complex_type():

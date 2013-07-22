@@ -75,6 +75,12 @@ class BaseConcreteArray(base.BaseArrayImplementation):
         else:
             return None
 
+    def get_view(self, orig_array, dtype, new_shape):
+        strides, backstrides = support.calc_strides(new_shape, dtype,
+                                                    self.order)
+        return SliceArray(self.start, strides, backstrides, new_shape,
+                          self, orig_array, dtype=dtype)
+
     def get_real(self, orig_array):
         strides = self.get_strides()
         backstrides = self.get_backstrides()
@@ -274,7 +280,7 @@ class BaseConcreteArray(base.BaseArrayImplementation):
                                      backstrides, shape, self, orig_arr)
 
     def get_storage_as_int(self, space):
-        return rffi.cast(lltype.Signed, self.storage)
+        return rffi.cast(lltype.Signed, self.storage) + self.start
 
     def get_storage(self):
         return self.storage

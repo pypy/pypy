@@ -542,7 +542,7 @@ class AppTestADVANCEDCPP:
 
         # TODO: get the capi-identify test selection right ...
         if self.capi_identity != 'CINT':     # don't test anything for Reflex
-             return
+            return
 
         import cppyy
 
