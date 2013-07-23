@@ -1,16 +1,11 @@
 # XXX clean up these tests to use more uniform helpers
 import py
-import os
-from rpython.flowspace.model import Block, Link, Variable, Constant
-from rpython.flowspace.model import last_exception, checkgraph
+from rpython.flowspace.model import Variable, Constant, checkgraph
 from rpython.translator.backendopt import canraise
-from rpython.translator.backendopt.inline import simple_inline_function, CannotInline
-from rpython.translator.backendopt.inline import auto_inlining, Inliner
-from rpython.translator.backendopt.inline import collect_called_graphs
-from rpython.translator.backendopt.inline import measure_median_execution_cost
-from rpython.translator.backendopt.inline import instrument_inline_candidates
-from rpython.translator.backendopt.inline import auto_inline_graphs
-from rpython.translator.backendopt.checkvirtual import check_virtual_methods
+from rpython.translator.backendopt.inline import (simple_inline_function,
+    CannotInline, auto_inlining, Inliner, collect_called_graphs,
+    measure_median_execution_cost, instrument_inline_candidates,
+    auto_inline_graphs)
 from rpython.translator.translator import TranslationContext, graphof
 from rpython.rtyper.llinterp import LLInterpreter
 from rpython.rtyper.test.tool import BaseRtypingTest
@@ -87,11 +82,8 @@ class TestInline(BaseRtypingTest):
         return eval_func
 
     def check_auto_inlining(self, func, sig, multiplier=None, call_count_check=False,
-                            checkvirtual=False, remove_same_as=False, heuristic=None,
-                            const_fold_first=False):
+                            remove_same_as=False, heuristic=None, const_fold_first=False):
         t = self.translate(func, sig)
-        if checkvirtual:
-            check_virtual_methods()
         if const_fold_first:
             from rpython.translator.backendopt.constfold import constant_fold_graph
             from rpython.translator.simplify import eliminate_empty_blocks
@@ -556,7 +548,7 @@ class TestInline(BaseRtypingTest):
                 tot += item
             return tot
 
-        eval_func, t = self.check_auto_inlining(f, [], checkvirtual=True)
+        eval_func, t = self.check_auto_inlining(f, [])
         f_graph = graphof(t, f)
         called_graphs = collect_called_graphs(f_graph, t, include_oosend=False)
         assert len(called_graphs) == 0
