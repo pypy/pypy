@@ -275,7 +275,7 @@ class StatAttributeTests(unittest.TestCase):
         try:
             result.f_bfree = 1
             self.fail("No exception thrown")
-        except TypeError:
+        except (TypeError, AttributeError):
             pass
 
         try:
