@@ -101,7 +101,11 @@ class RStringIO(object):
         self.__pos = endp
 
     def seek(self, position, mode=0):
-        if mode == 1:
+        if mode == 0:
+            if position == self.getsize():
+                self.__pos = AT_END
+                return
+        elif mode == 1:
             if self.__pos == AT_END:
                 self.__pos = self.getsize()
             position += self.__pos
@@ -163,14 +167,24 @@ class RStringIO(object):
         return ''.join(self.__bigbuffer[p:i])
 
     def truncate(self, size):
+        """Warning, this gets us slightly strange behavior from the
+        point of view of a traditional Unix file, but consistent with
+        Python 2.7's cStringIO module: it will not enlarge the file,
+        and it will always seek to the (new) end of the file."""
         assert size >= 0
-        if self.__bigbuffer is None or size > len(self.__bigbuffer):
-            self.__copy_into_bigbuffer()
-        else:
-            # we can drop all extra strings
-            if self.__strings is not None:
-                self.__strings = None
-        if size < len(self.__bigbuffer):
-            del self.__bigbuffer[size:]
-        if len(self.__bigbuffer) == 0:
+        if size == 0:
             self.__bigbuffer = None
+            self.__strings = None
+        else:
+            if self.__bigbuffer is None or size > len(self.__bigbuffer):
+                self.__copy_into_bigbuffer()
+            else:
+                # we can drop all extra strings
+                if self.__strings is not None:
+                    self.__strings = None
+            if size < len(self.__bigbuffer):
+                del self.__bigbuffer[size:]
+            if len(self.__bigbuffer) == 0:
+                self.__bigbuffer = None
+        # it always has the effect of seeking at the new end
+        self.__pos = AT_END

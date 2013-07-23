@@ -830,6 +830,30 @@ class TestStandalone(StandaloneTests):
         out = cbuilder.cmdexec('')
         assert out.strip() == '789'
 
+    def test_llhelper_stored_in_struct(self):
+        from rpython.rtyper.annlowlevel import llhelper
+
+        def f(x):
+            return x + 3
+
+        FUNC_TP = lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Signed))
+
+        S = lltype.GcStruct('s', ('f', FUNC_TP))
+
+        class Glob(object):
+            pass
+
+        glob = Glob()
+
+        def entry_point(argv):
+            x = llhelper(FUNC_TP, f)
+            s = lltype.malloc(S)
+            s.f = x
+            glob.s = s # escape
+            return 0
+
+        self.compile(entry_point)
+        # assert did not explode
 
 class TestMaemo(TestStandalone):
     def setup_class(cls):

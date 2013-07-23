@@ -132,7 +132,7 @@ else:
 # ---------- Linux2 ----------
 
 def get_L2cache_linux2():
-    arch = platform.machine()
+    arch = os.uname()[4]  # machine
     if arch.endswith('86') or arch == 'x86_64':
         return get_L2cache_linux2_cpuinfo()
     if arch in ('alpha', 'ppc', 'ppc64'):
@@ -215,9 +215,12 @@ def get_L2cache_linux2_sparc():
             fd = os.open('/sys/devices/system/cpu/cpu' + assert_str0(str(cpu))
                          + '/l2_cache_size', os.O_RDONLY, 0644)
             try:
-                number = int(os.read(fd, 4096))
+                line = os.read(fd, 4096)
             finally:
                 os.close(fd)
+            end = len(line) - 1
+            assert end > 0
+            number = int(line[:end])
         except OSError:
             break
         if number < L2cache:

@@ -69,6 +69,7 @@ OBJECT_VTABLE.become(Struct('object_vtable',
                             ('subclassrange_max', Signed),
                             ('rtti', Ptr(RuntimeTypeInfo)),
                             ('name', Ptr(Array(Char))),
+                            ('hash', Signed),
                             ('instantiate', Ptr(FuncType([], OBJECTPTR))),
                             hints = {'immutable': True}))
 # non-gc case
@@ -185,6 +186,7 @@ class ClassRepr(AbstractClassRepr):
         """Initialize the 'self' portion of the 'vtable' belonging to the
         given subclass."""
         if self.classdef is None:
+            vtable.hash = hash(rsubcls)
             # initialize the 'subclassrange_*' and 'name' fields
             if rsubcls.classdef is not None:
                 #vtable.parenttypeptr = rsubcls.rbase.getvtable()
@@ -442,8 +444,10 @@ class InstanceRepr(AbstractInstanceRepr):
                     except AttributeError:
                         attrvalue = self.classdef.classdesc.read_attribute(name, None)
                         if attrvalue is None:
-                            warning("prebuilt instance %r has no attribute %r" % (
-                                    value, name))
+                            # Ellipsis from get_reusable_prebuilt_instance()
+                            if value is not Ellipsis:
+                                warning("prebuilt instance %r has no "
+                                        "attribute %r" % (value, name))
                             llattrvalue = r.lowleveltype._defl()
                         else:
                             llattrvalue = r.convert_desc_or_const(attrvalue)

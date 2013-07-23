@@ -319,3 +319,62 @@ class AppTestGreenlet:
         g = G(lambda: 42)
         x = g.switch()
         assert x == 42
+
+    def test_kwargs_to_f(self):
+        import greenlet
+        seen = []
+        def f(*args, **kwds):
+            seen.append([args, kwds])
+        g = greenlet.greenlet(f)
+        g.switch(1, 2, x=3, y=4)
+        assert seen == [[(1, 2), {'x': 3, 'y': 4}]]
+
+    def test_kwargs_to_switch(self):
+        import greenlet
+        main = greenlet.getcurrent()
+        assert main.switch() == ()
+        assert main.switch(5) == 5
+        assert main.switch(5, 6) == (5, 6)
+        #
+        assert main.switch(x=5) == {'x': 5}
+        assert main.switch(x=5, y=6) == {'x': 5, 'y': 6}
+        assert main.switch(3, x=5) == ((3,), {'x': 5})
+        assert main.switch(3, x=5, y=6) == ((3,), {'x': 5, 'y': 6})
+        assert main.switch(2, 3, x=6) == ((2, 3), {'x': 6})
+
+    def test_throw_GreenletExit_not_started(self):
+        import greenlet
+        def f():
+            never_executed
+        g = greenlet.greenlet(f)
+        e = greenlet.GreenletExit()
+        x = g.throw(e)
+        assert x is e
+
+    def test_throw_GreenletExit_already_finished(self):
+        import greenlet
+        def f():
+            pass
+        g = greenlet.greenlet(f)
+        g.switch()
+        e = greenlet.GreenletExit()
+        x = g.throw(e)
+        assert x is e
+
+    def test_throw_exception_already_finished(self):
+        import greenlet
+        def f():
+            pass
+        g = greenlet.greenlet(f)
+        g.switch()
+        seen = []
+        class MyException(Exception):
+            def __init__(self):
+                seen.append(1)
+        try:
+            g.throw(MyException)
+        except MyException:
+            pass
+        else:
+            raise AssertionError("no exception??")
+        assert seen == [1]

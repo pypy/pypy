@@ -7,7 +7,7 @@ class Module(MixedModule):
     appleveldefs = {
         }
     interpleveldefs = {
-        '__version__': 'space.wrap("0.6")',
+        '__version__': 'space.wrap("0.7")',
 
         'load_library': 'libraryobj.load_library',
 
@@ -30,6 +30,8 @@ class Module(MixedModule):
         'typeoffsetof': 'func.typeoffsetof',
         'rawaddressof': 'func.rawaddressof',
         'getcname': 'func.getcname',
+        'newp_handle': 'handle.newp_handle',
+        'from_handle': 'handle.from_handle',
         '_get_types': 'func._get_types',
 
         'string': 'func.string',

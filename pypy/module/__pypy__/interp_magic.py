@@ -101,6 +101,13 @@ def resizelist_hint(space, w_iterable, sizehint):
 def newlist_hint(space, sizehint):
     return space.newlist_hint(sizehint)
 
+@unwrap_spec(debug=bool)
+def set_debug(space, debug):
+    space.sys.debug = debug
+    space.setitem(space.builtin.w_dict,
+                  space.wrap('__debug__'),
+                  space.wrap(debug))
+
 @unwrap_spec(estimate=int)
 def add_memory_pressure(estimate):
     rgc.add_memory_pressure(estimate)

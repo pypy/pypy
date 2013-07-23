@@ -1,10 +1,11 @@
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.objspace.std.register_all import register_all
-from pypy.objspace.std.strutil import string_to_float, ParseStringError
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.stdtypedef import GetSetProperty, StdTypeDef
 from pypy.objspace.std.stdtypedef import StdObjSpaceMultiMethod
+from rpython.rlib.rfloat import string_to_float
+from rpython.rlib.rstring import ParseStringError
 
 # ERRORCODES
 
@@ -220,8 +221,8 @@ def unpackcomplex(space, w_complex, strict_typing=True):
     if (space.isinstance_w(w_complex, space.w_str) or
         space.isinstance_w(w_complex, space.w_unicode)):
         raise operationerrfmt(space.w_TypeError,
-                              "complex number expected, got '%s'",
-                              space.type(w_complex).getname(space))
+                              "complex number expected, got '%T'",
+                              w_complex)
     #
     return (space.float_w(space.float(w_complex)), 0.0)
 

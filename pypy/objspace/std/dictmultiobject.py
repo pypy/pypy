@@ -5,6 +5,7 @@ from pypy.interpreter.gateway import (
 from pypy.interpreter.mixedmodule import MixedModule
 from pypy.interpreter.signature import Signature
 from pypy.objspace.std.stdtypedef import StdTypeDef
+from pypy.objspace.std.util import negate
 
 from rpython.rlib import jit, rerased
 from rpython.rlib.debug import mark_dict_non_null
@@ -40,19 +41,6 @@ def w_dict_unrolling_heuristic(w_dct):
     return jit.isvirtual(w_dct) or (jit.isconstant(w_dct) and
                                     w_dct.length() <= UNROLL_CUTOFF)
 
-
-def negate(f):
-    def _negator(self, space, w_other):
-        # no need to use space.is_ / space.not_
-        tmp = f(self, space, w_other)
-        if tmp is space.w_NotImplemented:
-            return space.w_NotImplemented
-        elif tmp is space.w_False:
-            return space.w_True
-        else:
-            return space.w_False
-    _negator.func_name = 'negate-%s' % f.func_name
-    return _negator
 
 class W_DictMultiObject(W_Root):
     @staticmethod
@@ -237,8 +225,8 @@ class W_DictMultiObject(W_Root):
             space.raise_key_error(w_key)
 
     def descr_reversed(self, space):
-        raise OperationError(space.w_TypeError, space.wrap(
-                'argument to reversed() must be a sequence'))
+        raise operationerrfmt(space.w_TypeError,
+                              'argument to reversed() must be a sequence')
 
     def descr_copy(self, space):
         """D.copy() -> a shallow copy of D"""
@@ -1051,15 +1039,18 @@ create_iterator_classes(IntDictStrategy)
 
 
 def update1(space, w_dict, w_data):
-    if space.findattr(w_data, space.wrap("keys")) is None:
+    if isinstance(w_data, W_DictMultiObject):    # optimization case only
+        update1_dict_dict(space, w_dict, w_data)
+        return
+    w_method = space.findattr(w_data, space.wrap("keys"))
+    if w_method is None:
         # no 'keys' method, so we assume it is a sequence of pairs
-        update1_pairs(space, w_dict, w_data)
+        data_w = space.listview(w_data)
+        update1_pairs(space, w_dict, data_w)
     else:
-        if isinstance(w_data, W_DictMultiObject):    # optimization case only
-            update1_dict_dict(space, w_dict, w_data)
-        else:
-            # general case -- "for k in o.keys(): dict.__setitem__(d, k, o[k])"
-            update1_keys(space, w_dict, w_data)
+        # general case -- "for k in o.keys(): dict.__setitem__(d, k, o[k])"
+        data_w = space.listview(space.call_function(w_method))
+        update1_keys(space, w_dict, w_data, data_w)
 
 
 @jit.look_inside_iff(lambda space, w_dict, w_data:
@@ -1073,8 +1064,8 @@ def update1_dict_dict(space, w_dict, w_data):
         w_dict.setitem(w_key, w_value)
 
 
-def update1_pairs(space, w_dict, w_data):
-    for w_pair in space.listview(w_data):
+def update1_pairs(space, w_dict, data_w):
+    for w_pair in data_w:
         pair = space.fixedview(w_pair)
         if len(pair) != 2:
             raise OperationError(space.w_ValueError,
@@ -1083,9 +1074,8 @@ def update1_pairs(space, w_dict, w_data):
         w_dict.setitem(w_key, w_value)
 
 
-def update1_keys(space, w_dict, w_data):
-    w_keys = space.call_method(w_data, "keys")
-    for w_key in space.listview(w_keys):
+def update1_keys(space, w_dict, w_data, data_w):
+    for w_key in data_w:
         w_value = space.getitem(w_data, w_key)
         w_dict.setitem(w_key, w_value)
 

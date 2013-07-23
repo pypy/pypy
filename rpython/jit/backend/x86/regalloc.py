@@ -3,35 +3,34 @@
 """
 
 import os
-from rpython.jit.metainterp.history import (Box, Const, ConstInt, ConstPtr,
-                                            ConstFloat, BoxInt,
-                                            BoxFloat, INT, REF, FLOAT,
-                                            TargetToken)
-from rpython.jit.backend.x86.regloc import *
-from rpython.rtyper.lltypesystem import lltype, rffi, rstr
-from rpython.rtyper.annlowlevel import cast_instance_to_gcref
-from rpython.rlib.objectmodel import we_are_translated
-from rpython.rlib import rgc
 from rpython.jit.backend.llsupport import symbolic
+from rpython.jit.backend.llsupport.descr import (ArrayDescr, CallDescr,
+    unpack_arraydescr, unpack_fielddescr, unpack_interiorfielddescr)
+from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
+from rpython.jit.backend.llsupport.regalloc import (FrameManager, BaseRegalloc,
+     RegisterManager, TempBox, compute_vars_longevity, is_comparison_or_ovf_op)
+from rpython.jit.backend.x86 import rx86
+from rpython.jit.backend.x86.arch import (WORD, JITFRAME_FIXED_SIZE, IS_X86_32,
+    IS_X86_64)
 from rpython.jit.backend.x86.jump import remap_frame_layout_mixed
+from rpython.jit.backend.x86.regloc import (FrameLoc, RegLoc, ConstFloatLoc,
+    FloatImmedLoc, ImmedLoc, imm, imm0, imm1, ecx, eax, edx, ebx, esi, edi,
+    ebp, r8, r9, r10, r11, r12, r13, r14, r15, xmm0, xmm1, xmm2, xmm3, xmm4,
+    xmm5, xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14,
+    X86_64_SCRATCH_REG, X86_64_XMM_SCRATCH_REG)
 from rpython.jit.codewriter import longlong
 from rpython.jit.codewriter.effectinfo import EffectInfo
+from rpython.jit.metainterp.history import (Box, Const, ConstInt, ConstPtr,
+    ConstFloat, BoxInt, BoxFloat, INT, REF, FLOAT, TargetToken)
 from rpython.jit.metainterp.resoperation import rop
-from rpython.jit.backend.llsupport.descr import ArrayDescr
-from rpython.jit.backend.llsupport.descr import CallDescr
-from rpython.jit.backend.llsupport.descr import unpack_arraydescr
-from rpython.jit.backend.llsupport.descr import unpack_fielddescr
-from rpython.jit.backend.llsupport.descr import unpack_interiorfielddescr
-from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
-from rpython.jit.backend.llsupport.regalloc import FrameManager, BaseRegalloc,\
-     RegisterManager, TempBox, compute_vars_longevity, is_comparison_or_ovf_op
-from rpython.jit.backend.x86.arch import WORD, JITFRAME_FIXED_SIZE
-from rpython.jit.backend.x86.arch import IS_X86_32, IS_X86_64
-from rpython.jit.backend.x86 import rx86
+from rpython.rlib import rgc
+from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import r_longlong, r_uint
+from rpython.rtyper.annlowlevel import cast_instance_to_gcref
+from rpython.rtyper.lltypesystem import lltype, rffi, rstr
+
 
 class X86RegisterManager(RegisterManager):
-
     box_types = [INT, REF]
     all_regs = [ecx, eax, edx, ebx, esi, edi]
     no_lower_byte_regs = [esi, edi]
@@ -226,18 +225,6 @@ class RegAlloc(BaseRegalloc):
             return self.xrm.convert_to_imm_16bytes_align(var)
         else:
             return self.xrm.make_sure_var_in_reg(var, forbidden_vars)
-
-    def _frame_bindings(self, locs, inputargs):
-        bindings = {}
-        i = 0
-        for loc in locs:
-            if loc is None:
-                continue
-            arg = inputargs[i]
-            i += 1
-            if not isinstance(loc, RegLoc):
-                bindings[arg] = loc
-        return bindings
 
     def _update_bindings(self, locs, inputargs):
         # XXX this should probably go to llsupport/regalloc.py
@@ -898,7 +885,6 @@ class RegAlloc(BaseRegalloc):
                 gcmap[val // WORD // 8] |= r_uint(1) << (val % (WORD * 8))
         return gcmap
 
-
     def consider_setfield_gc(self, op):
         ofs, size, _ = unpack_fielddescr(op.getdescr())
         ofs_loc = imm(ofs)
@@ -962,7 +948,7 @@ class RegAlloc(BaseRegalloc):
     def consider_setarrayitem_gc(self, op):
         itemsize, ofs, _ = unpack_arraydescr(op.getdescr())
         args = op.getarglist()
-        base_loc  = self.rm.make_sure_var_in_reg(op.getarg(0), args)
+        base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
         if itemsize == 1:
             need_lower_byte = True
         else:
@@ -1322,7 +1308,6 @@ class RegAlloc(BaseRegalloc):
         #jump_op = self.final_jump_op
         #if jump_op is not None and jump_op.getdescr() is descr:
         #    self._compute_hint_frame_locations_from_descr(descr)
-
 
     def consider_keepalive(self, op):
         pass

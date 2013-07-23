@@ -1,9 +1,17 @@
-"""PyPy's minimal configuration information.
+"""Provide access to Python's configuration information.
+This is actually PyPy's minimal configuration information.
+
+The specific configuration variables available depend heavily on the
+platform and configuration.  The values may be retrieved using
+get_config_var(name), and the list of variables is available via
+get_config_vars().keys().  Additional convenience functions are also
+available.
 """
+
+__revision__ = "$Id: sysconfig.py 85358 2010-10-10 09:54:59Z antoine.pitrou $"
 
 import sys
 import os
-import imp
 
 from distutils.errors import DistutilsPlatformError
 
@@ -49,19 +57,19 @@ def get_python_lib(plat_specific=0, standard_lib=0, prefix=None):
 
 _config_vars = None
 
-def _get_so_extension():
-    for ext, mod, typ in imp.get_suffixes():
-        if typ == imp.C_EXTENSION:
-            return ext
-
 def _init_posix():
     """Initialize the module as appropriate for POSIX systems."""
     g = {}
     g['EXE'] = ""
-    g['SO'] = _get_so_extension() or ".so"
+    g['SO'] = ".so"
     g['SOABI'] = g['SO'].rsplit('.')[0]
     g['LIBDIR'] = os.path.join(sys.prefix, 'lib')
     g['CC'] = "gcc -pthread" # -pthread might not be valid on OS/X, check
+    g['OPT'] = ""
+    g['CFLAGS'] = ""
+    g['CPPFLAGS'] = ""
+    g['CCSHARED'] = '-shared -O2 -fPIC -Wimplicit'
+    g['LDSHARED'] = g['CC'] + ' -shared'
 
     global _config_vars
     _config_vars = g
@@ -71,7 +79,7 @@ def _init_nt():
     """Initialize the module as appropriate for NT"""
     g = {}
     g['EXE'] = ".exe"
-    g['SO'] = _get_so_extension() or ".pyd"
+    g['SO'] = ".pyd"
     g['SOABI'] = g['SO'].rsplit('.')[0]
 
     global _config_vars
@@ -119,13 +127,34 @@ def customize_compiler(compiler):
     optional C speedup components.
     """
     if compiler.compiler_type == "unix":
-        compiler.compiler_so.extend(['-O2', '-fPIC', '-Wimplicit'])
+        cc, opt, cflags, ccshared, ldshared = get_config_vars(
+            'CC', 'OPT', 'CFLAGS', 'CCSHARED', 'LDSHARED')
+
         compiler.shared_lib_extension = get_config_var('SO')
-        if "CFLAGS" in os.environ:
-            cflags = os.environ["CFLAGS"].split()
-            compiler.compiler.extend(cflags)
-            compiler.compiler_so.extend(cflags)
-            compiler.linker_so.extend(cflags)
+
+        if 'LDSHARED' in os.environ:
+            ldshared = os.environ['LDSHARED']
+        if 'CPP' in os.environ:
+            cpp = os.environ['CPP']
+        else:
+            cpp = cc + " -E"           # not always
+        if 'LDFLAGS' in os.environ:
+            ldshared = ldshared + ' ' + os.environ['LDFLAGS']
+        if 'CFLAGS' in os.environ:
+            cflags = opt + ' ' + os.environ['CFLAGS']
+            ldshared = ldshared + ' ' + os.environ['CFLAGS']
+        if 'CPPFLAGS' in os.environ:
+            cpp = cpp + ' ' + os.environ['CPPFLAGS']
+            cflags = cflags + ' ' + os.environ['CPPFLAGS']
+            ldshared = ldshared + ' ' + os.environ['CPPFLAGS']
+
+        cc_cmd = cc + ' ' + cflags
+
+        compiler.set_executables(
+            preprocessor=cpp,
+            compiler=cc_cmd,
+            compiler_so=cc_cmd + ' ' + ccshared,
+            linker_so=ldshared)
 
 
 from sysconfig_cpython import (

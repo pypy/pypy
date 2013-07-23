@@ -76,4 +76,5 @@ with a JIT compiler, use ``--viewloops`` option.
 The rest of directories serve specific niche goal and are unlikely a good
 entry point.
 
-.. _`introduction to RPython`: getting-started-dev.rst
+.. _`introduction to RPython`: getting-started-dev.html
+.. _`pytest`: http://pytest.org/

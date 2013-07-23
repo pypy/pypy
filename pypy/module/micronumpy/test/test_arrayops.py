@@ -132,3 +132,26 @@ class AppTestNumSupport(BaseNumpyAppTest):
         x = array([0, 0, 0], dtype='i2')
         r = array([2, 1, 0]).choose([a, b, c], out=x)
         assert r.dtype == 'i2'
+
+    def test_put_basic(self):
+        from numpypy import arange, array
+        a = arange(5)
+        a.put([0, 2], [-44, -55])
+        assert (a == array([-44, 1, -55, 3, 4])).all()
+        a = arange(5)
+        a.put([3, 4], 9)
+        assert (a == array([0, 1, 2, 9, 9])).all()
+        a = arange(5)
+        a.put(1, [7, 8])
+        assert (a == array([0, 7, 2, 3, 4])).all()
+
+    def test_put_modes(self):
+        from numpypy import array, arange
+        a = arange(5)
+        a.put(22, -5, mode='clip')
+        assert (a == array([0, 1, 2, 3, -5])).all()
+        a = arange(5)
+        a.put(22, -5, mode='wrap')
+        assert (a == array([0, 1, -5, 3, 4])).all()
+        raises(ValueError, "arange(5).put(22, -5, mode='raise')")
+        raises(ValueError, "arange(5).put(22, -5, mode='wrongmode')")

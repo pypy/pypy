@@ -18,18 +18,18 @@ UNROLL_CUTOFF = 5
 class W_BaseSetObject(W_Root):
     typedef = None
 
-    def __init__(w_self, space, w_iterable=None):
+    def __init__(self, space, w_iterable=None):
         """Initialize the set by taking ownership of 'setdata'."""
-        w_self.space = space
-        set_strategy_and_setdata(space, w_self, w_iterable)
+        self.space = space
+        set_strategy_and_setdata(space, self, w_iterable)
 
-    def __repr__(w_self):
+    def __repr__(self):
         """representation for debugging purposes"""
-        reprlist = [repr(w_item) for w_item in w_self.getkeys()]
-        return "<%s(%s)>" % (w_self.__class__.__name__, ', '.join(reprlist))
+        reprlist = [repr(w_item) for w_item in self.getkeys()]
+        return "<%s(%s)(%s)>" % (self.__class__.__name__, self.strategy, ', '.join(reprlist))
 
-    def from_storage_and_strategy(w_self, storage, strategy):
-        obj = w_self._newobj(w_self.space, None)
+    def from_storage_and_strategy(self, storage, strategy):
+        obj = self._newobj(self.space, None)
         assert isinstance(obj, W_BaseSetObject)
         obj.strategy = strategy
         obj.sstorage = storage
@@ -180,8 +180,7 @@ class W_BaseSetObject(W_Root):
         if not space.isinstance_w(w_other, space.w_set):
             return space.w_False
 
-        # XXX there is no test_buildinshortcut.py
-        # tested in test_buildinshortcut.py
+        # tested in test_builtinshortcut.py
         # XXX do not make new setobject here
         w_other_as_set = self._newobj(space, w_other)
         return space.wrap(self.equals(w_other_as_set))
@@ -501,11 +500,11 @@ class W_BaseSetObject(W_Root):
 
 
 class W_SetObject(W_BaseSetObject):
-    def _newobj(w_self, space, w_iterable):
+    def _newobj(self, space, w_iterable):
         """Make a new set by taking ownership of 'w_iterable'."""
-        if type(w_self) is W_SetObject:
+        if type(self) is W_SetObject:
             return W_SetObject(space, w_iterable)
-        w_type = space.type(w_self)
+        w_type = space.type(self)
         w_obj = space.allocate_instance(W_SetObject, w_type)
         W_SetObject.__init__(w_obj, space, w_iterable)
         return w_obj
@@ -577,11 +576,11 @@ set_typedef = W_SetObject.typedef
 class W_FrozensetObject(W_BaseSetObject):
     hash = 0
 
-    def _newobj(w_self, space, w_iterable):
+    def _newobj(self, space, w_iterable):
         """Make a new frozenset by taking ownership of 'w_iterable'."""
-        if type(w_self) is W_FrozensetObject:
+        if type(self) is W_FrozensetObject:
             return W_FrozensetObject(space, w_iterable)
-        w_type = space.type(w_self)
+        w_type = space.type(self)
         w_obj = space.allocate_instance(W_FrozensetObject, w_type)
         W_FrozensetObject.__init__(w_obj, space, w_iterable)
         return w_obj
@@ -780,6 +779,8 @@ class EmptySetStrategy(SetStrategy):
             strategy = self.space.fromcache(StringSetStrategy)
         elif type(w_key) is W_UnicodeObject:
             strategy = self.space.fromcache(UnicodeSetStrategy)
+        elif self.space.type(w_key).compares_by_identity():
+            strategy = self.space.fromcache(IdentitySetStrategy)
         else:
             strategy = self.space.fromcache(ObjectSetStrategy)
         w_set.strategy = strategy
@@ -939,6 +940,13 @@ class AbstractUnwrappedSetStrategy(object):
     def equals(self, w_set, w_other):
         if w_set.length() != w_other.length():
             return False
+        if w_set.length() == 0:
+            return True
+        # it's possible to have 0-lenght strategy that's not empty
+        if w_set.strategy is w_other.strategy:
+            return self._issubset_unwrapped(w_set, w_other)
+        if not self.may_contain_equal_elements(w_other.strategy):
+            return False
         items = self.unerase(w_set.sstorage).keys()
         for key in items:
             if not w_other.has_key(self.wrap(key)):
@@ -1062,14 +1070,22 @@ class AbstractUnwrappedSetStrategy(object):
 
     def _intersect_base(self, w_set, w_other):
         if self is w_other.strategy:
-            strategy = w_set.strategy
-            storage = strategy._intersect_unwrapped(w_set, w_other)
+            strategy = self
+            if w_set.length() > w_other.length():
+                # swap operants
+                storage = self._intersect_unwrapped(w_other, w_set)
+            else:
+                storage = self._intersect_unwrapped(w_set, w_other)
         elif not w_set.strategy.may_contain_equal_elements(w_other.strategy):
             strategy = self.space.fromcache(EmptySetStrategy)
             storage = strategy.get_empty_storage()
         else:
             strategy = self.space.fromcache(ObjectSetStrategy)
-            storage = self._intersect_wrapped(w_set, w_other)
+            if w_set.length() > w_other.length():
+                # swap operants
+                storage = w_other.strategy._intersect_wrapped(w_other, w_set)
+            else:
+                storage = self._intersect_wrapped(w_set, w_other)
         return storage, strategy
 
     def _intersect_wrapped(self, w_set, w_other):
@@ -1092,9 +1108,6 @@ class AbstractUnwrappedSetStrategy(object):
         return self.erase(result)
 
     def intersect(self, w_set, w_other):
-        if w_set.length() > w_other.length():
-            return w_other.intersect(w_set)
-
         storage, strategy = self._intersect_base(w_set, w_other)
         return w_set.from_storage_and_strategy(storage, strategy)
 
@@ -1203,7 +1216,9 @@ class StringSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
     def may_contain_equal_elements(self, strategy):
         if strategy is self.space.fromcache(IntegerSetStrategy):
             return False
-        if strategy is self.space.fromcache(EmptySetStrategy):
+        elif strategy is self.space.fromcache(EmptySetStrategy):
+            return False
+        elif strategy is self.space.fromcache(IdentitySetStrategy):
             return False
         return True
 
@@ -1237,7 +1252,9 @@ class UnicodeSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
     def may_contain_equal_elements(self, strategy):
         if strategy is self.space.fromcache(IntegerSetStrategy):
             return False
-        if strategy is self.space.fromcache(EmptySetStrategy):
+        elif strategy is self.space.fromcache(EmptySetStrategy):
+            return False
+        elif strategy is self.space.fromcache(IdentitySetStrategy):
             return False
         return True
 
@@ -1271,9 +1288,11 @@ class IntegerSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
     def may_contain_equal_elements(self, strategy):
         if strategy is self.space.fromcache(StringSetStrategy):
             return False
-        if strategy is self.space.fromcache(UnicodeSetStrategy):
+        elif strategy is self.space.fromcache(UnicodeSetStrategy):
             return False
-        if strategy is self.space.fromcache(EmptySetStrategy):
+        elif strategy is self.space.fromcache(EmptySetStrategy):
+            return False
+        elif strategy is self.space.fromcache(IdentitySetStrategy):
             return False
         return True
 
@@ -1331,6 +1350,41 @@ class ObjectSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
                 break
             d_obj[w_item] = None
 
+class IdentitySetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
+    erase, unerase = rerased.new_erasing_pair("identityset")
+    erase = staticmethod(erase)
+    unerase = staticmethod(unerase)
+
+    def get_empty_storage(self):
+        return self.erase({})
+
+    def get_empty_dict(self):
+        return {}
+
+    def is_correct_type(self, w_key):
+        w_type = self.space.type(w_key)
+        return w_type.compares_by_identity()
+
+    def may_contain_equal_elements(self, strategy):
+        #empty first, probably more likely
+        if strategy is self.space.fromcache(EmptySetStrategy):
+            return False
+        if strategy is self.space.fromcache(IntegerSetStrategy):
+            return False
+        if strategy is self.space.fromcache(StringSetStrategy):
+            return False
+        if strategy is self.space.fromcache(UnicodeSetStrategy):
+            return False
+        return True
+
+    def unwrap(self, w_item):
+        return w_item
+
+    def wrap(self, item):
+        return item
+
+    def iter(self, w_set):
+        return IdentityIteratorImplementation(self.space, self, w_set)
 
 class IteratorImplementation(object):
     def __init__(self, space, strategy, implementation):
@@ -1422,6 +1476,17 @@ class IntegerIteratorImplementation(IteratorImplementation):
         else:
             return None
 
+class IdentityIteratorImplementation(IteratorImplementation):
+    def __init__(self, space, strategy, w_set):
+        IteratorImplementation.__init__(self, space, strategy, w_set)
+        d = strategy.unerase(w_set.sstorage)
+        self.iterator = d.iterkeys()
+
+    def next_entry(self):
+        for key in self.iterator:
+            return self.space.wrap(key)
+        else:
+            return None
 
 class RDictIteratorImplementation(IteratorImplementation):
     def __init__(self, space, strategy, w_set):
@@ -1439,9 +1504,9 @@ class RDictIteratorImplementation(IteratorImplementation):
 
 class W_SetIterObject(W_Root):
 
-    def __init__(w_self, space, iterimplementation):
-        w_self.space = space
-        w_self.iterimplementation = iterimplementation
+    def __init__(self, space, iterimplementation):
+        self.space = space
+        self.iterimplementation = iterimplementation
 
     def descr_length_hint(self, space):
         return space.wrap(self.iterimplementation.length())
@@ -1538,6 +1603,15 @@ def _pick_correct_strategy(space, w_set, iterable_w):
             break
     else:
         w_set.strategy = space.fromcache(UnicodeSetStrategy)
+        w_set.sstorage = w_set.strategy.get_storage_from_list(iterable_w)
+        return
+
+    # check for compares by identity
+    for w_item in iterable_w:
+        if not space.type(w_item).compares_by_identity():
+            break
+    else:
+        w_set.strategy = space.fromcache(IdentitySetStrategy)
         w_set.sstorage = w_set.strategy.get_storage_from_list(iterable_w)
         return
 

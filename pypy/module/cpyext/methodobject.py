@@ -1,24 +1,22 @@
+from rpython.rtyper.lltypesystem import lltype, rffi
+
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.typedef import TypeDef, GetSetProperty
-from pypy.interpreter.argument import Arguments
-from pypy.interpreter.typedef import interp_attrproperty, interp_attrproperty_w
-from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.function import (
-    BuiltinFunction, Method, StaticMethod, ClassMethod)
-from rpython.rtyper.lltypesystem import rffi, lltype
-from pypy.module.cpyext.pyobject import (PyObject, from_ref, make_ref,
-                                         make_typedescr, Py_DecRef)
+from pypy.interpreter.function import ClassMethod, Method, StaticMethod
+from pypy.interpreter.gateway import interp2app
+from pypy.interpreter.typedef import (
+    GetSetProperty, TypeDef, interp_attrproperty, interp_attrproperty_w)
 from pypy.module.cpyext.api import (
-    generic_cpy_call, cpython_api, PyObject, cpython_struct, METH_KEYWORDS,
-    METH_O, CONST_STRING, METH_CLASS, METH_STATIC, METH_COEXIST, METH_NOARGS,
-    METH_VARARGS, build_type_checkers, PyObjectFields, bootstrap_function)
-from pypy.module.cpyext.pyerrors import PyErr_Occurred
-from rpython.rlib.objectmodel import we_are_translated
+    CONST_STRING, METH_CLASS, METH_COEXIST, METH_KEYWORDS, METH_NOARGS, METH_O,
+    METH_STATIC, METH_VARARGS, PyObject, PyObjectFields, bootstrap_function,
+    build_type_checkers, cpython_api, cpython_struct, generic_cpy_call)
+from pypy.module.cpyext.pyobject import (
+    Py_DecRef, from_ref, make_ref, make_typedescr)
 
 PyCFunction_typedef = rffi.COpaquePtr(typedef='PyCFunction')
 PyCFunction = lltype.Ptr(lltype.FuncType([PyObject, PyObject], PyObject))
-PyCFunctionKwArgs = lltype.Ptr(lltype.FuncType([PyObject, PyObject, PyObject], PyObject))
+PyCFunctionKwArgs = lltype.Ptr(lltype.FuncType([PyObject, PyObject, PyObject],
+                                               PyObject))
 
 PyMethodDef = cpython_struct(
     'PyMethodDef',
@@ -89,9 +87,9 @@ class W_PyCFunctionObject(W_Root):
                 self.name + "() takes no arguments"))
         elif flags & METH_O:
             if length != 1:
-                raise OperationError(space.w_TypeError,
-                        space.wrap("%s() takes exactly one argument (%d given)" %  (
-                        self.name, length)))
+                msg = "%s() takes exactly one argument (%d given)"
+                raise operationerrfmt(space.w_TypeError, msg,
+                                      self.name, length)
             w_arg = space.getitem(w_args, space.wrap(0))
             return generic_cpy_call(space, func, w_self, w_arg)
         elif flags & METH_VARARGS:
@@ -126,9 +124,12 @@ class W_PyCMethodObject(W_PyCFunctionObject):
         return self.space.unwrap(self.descr_method_repr())
 
     def descr_method_repr(self):
-        return self.getrepr(self.space, "built-in method '%s' of '%s' object" % (self.name, self.w_objclass.getname(self.space)))
+        return self.getrepr(self.space,
+                            "built-in method '%s' of '%s' object" %
+                            (self.name, self.w_objclass.getname(self.space)))
 
-PyCFunction_Check, PyCFunction_CheckExact = build_type_checkers("CFunction", W_PyCFunctionObject)
+PyCFunction_Check, PyCFunction_CheckExact = build_type_checkers(
+    "CFunction", W_PyCFunctionObject)
 
 class W_PyCClassMethodObject(W_PyCFunctionObject):
     w_self = None
@@ -142,12 +143,14 @@ class W_PyCClassMethodObject(W_PyCFunctionObject):
         return self.space.unwrap(self.descr_method_repr())
 
     def descr_method_repr(self):
-        return self.getrepr(self.space, "built-in method '%s' of '%s' object" % (self.name, self.w_objclass.getname(self.space)))
+        return self.getrepr(self.space,
+                            "built-in method '%s' of '%s' object" %
+                            (self.name, self.w_objclass.getname(self.space)))
 
 
 class W_PyCWrapperObject(W_Root):
-    def __init__(self, space, pto, method_name, wrapper_func, wrapper_func_kwds,
-            doc, func):
+    def __init__(self, space, pto, method_name, wrapper_func,
+                 wrapper_func_kwds, doc, func):
         self.space = space
         self.method_name = method_name
         self.wrapper_func = wrapper_func
@@ -160,7 +163,8 @@ class W_PyCWrapperObject(W_Root):
     def call(self, space, w_self, w_args, w_kw):
         if self.wrapper_func is None:
             assert self.wrapper_func_kwds is not None
-            return self.wrapper_func_kwds(space, w_self, w_args, self.func, w_kw)
+            return self.wrapper_func_kwds(space, w_self, w_args, self.func,
+                                          w_kw)
         if space.is_true(w_kw):
             raise operationerrfmt(
                 space.w_TypeError,
@@ -169,8 +173,9 @@ class W_PyCWrapperObject(W_Root):
         return self.wrapper_func(space, w_self, w_args, self.func)
 
     def descr_method_repr(self):
-        return self.space.wrap("<slot wrapper '%s' of '%s' objects>" % (self.method_name,
-            self.w_objclass.getname(self.space)))
+        return self.space.wrap("<slot wrapper '%s' of '%s' objects>" %
+                               (self.method_name,
+                                self.w_objclass.getname(self.space)))
 
 def cwrapper_descr_call(space, w_self, __args__):
     self = space.interp_w(W_PyCWrapperObject, w_self)
@@ -243,7 +248,8 @@ W_PyCClassMethodObject.typedef = TypeDef(
     __get__ = interp2app(cclassmethod_descr_get),
     __call__ = interp2app(cmethod_descr_call),
     __name__ = interp_attrproperty('name', cls=W_PyCClassMethodObject),
-    __objclass__ = interp_attrproperty_w('w_objclass', cls=W_PyCClassMethodObject),
+    __objclass__ = interp_attrproperty_w('w_objclass',
+                                         cls=W_PyCClassMethodObject),
     __repr__ = interp2app(W_PyCClassMethodObject.descr_method_repr),
     )
 W_PyCClassMethodObject.typedef.acceptable_as_base_class = False
@@ -287,18 +293,19 @@ def PyDescr_NewMethod(space, w_type, method):
 def PyDescr_NewClassMethod(space, w_type, method):
     return space.wrap(W_PyCClassMethodObject(space, method, w_type))
 
-def PyDescr_NewWrapper(space, pto, method_name, wrapper_func, wrapper_func_kwds,
-                       doc, func):
+def PyDescr_NewWrapper(space, pto, method_name, wrapper_func,
+                       wrapper_func_kwds, doc, func):
     # not exactly the API sig
     return space.wrap(W_PyCWrapperObject(space, pto, method_name,
         wrapper_func, wrapper_func_kwds, doc, func))
 
 @cpython_api([lltype.Ptr(PyMethodDef), PyObject, CONST_STRING], PyObject)
 def Py_FindMethod(space, table, w_obj, name_ptr):
-    """Return a bound method object for an extension type implemented in C.  This
-    can be useful in the implementation of a tp_getattro or
-    tp_getattr handler that does not use the
-    PyObject_GenericGetAttr() function."""
+    """Return a bound method object for an extension type implemented in
+    C.  This can be useful in the implementation of a tp_getattro or
+    tp_getattr handler that does not use the PyObject_GenericGetAttr()
+    function.
+    """
     # XXX handle __doc__
 
     name = rffi.charp2str(name_ptr)
@@ -310,10 +317,12 @@ def Py_FindMethod(space, table, w_obj, name_ptr):
         while True:
             i = i + 1
             method = methods[i]
-            if not method.c_ml_name: break
+            if not method.c_ml_name:
+                break
             if name == "__methods__":
-                method_list_w.append(space.wrap(rffi.charp2str(method.c_ml_name)))
-            elif rffi.charp2str(method.c_ml_name) == name: # XXX expensive copying
+                method_list_w.append(
+                    space.wrap(rffi.charp2str(method.c_ml_name)))
+            elif rffi.charp2str(method.c_ml_name) == name: # XXX expensive copy
                 return space.wrap(W_PyCFunctionObject(space, method, w_obj))
     if name == "__methods__":
         return space.newlist(method_list_w)

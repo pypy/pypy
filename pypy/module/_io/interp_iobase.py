@@ -16,6 +16,11 @@ def convert_size(space, w_size):
     else:
         return space.int_w(w_size)
 
+def unsupported(space, message):
+    w_exc = space.getattr(space.getbuiltinmodule('_io'),
+                          space.wrap('UnsupportedOperation'))
+    return OperationError(w_exc, space.wrap(message))
+
 # May be called with any object
 def check_readable_w(space, w_obj):
     if not space.is_true(space.call_method(w_obj, 'readable')):
@@ -86,12 +91,18 @@ class W_IOBase(W_Root):
         # attribute as returned by whatever subclass.
         return self.__IOBase_closed
 
+    def _unsupportedoperation(self, space, message):
+        raise unsupported(space, message)
+
     def _check_closed(self, space, message=None):
         if message is None:
             message = "I/O operation on closed file"
         if self._closed(space):
             raise OperationError(
                 space.w_ValueError, space.wrap(message))
+
+    def check_closed_w(self, space):
+        self._check_closed(space)
 
     def closed_get_w(self, space):
         return space.newbool(self.__IOBase_closed)
@@ -111,8 +122,17 @@ class W_IOBase(W_Root):
                 space.w_ValueError,
                 space.wrap("I/O operation on closed file"))
 
+    def seek_w(self, space, w_offset, w_whence=None):
+        self._unsupportedoperation(space, "seek")
+
     def tell_w(self, space):
         return space.call_method(self, "seek", space.wrap(0), space.wrap(1))
+
+    def truncate_w(self, space, w_size=None):
+        self._unsupportedoperation(space, "truncate")
+
+    def fileno_w(self, space):
+        self._unsupportedoperation(space, "fileno")
 
     def enter_w(self, space):
         self._check_closed(space)
@@ -163,8 +183,8 @@ class W_IOBase(W_Root):
                 if not space.isinstance_w(w_readahead, space.w_str):
                     raise operationerrfmt(
                         space.w_IOError,
-                        "peek() should have returned a bytes object, "
-                        "not '%s'", space.type(w_readahead).getname(space))
+                        "peek() should have returned a bytes object, not '%T'",
+                        w_readahead)
                 length = space.len_w(w_readahead)
                 if length > 0:
                     n = 0
@@ -189,8 +209,8 @@ class W_IOBase(W_Root):
             if not space.isinstance_w(w_read, space.w_str):
                 raise operationerrfmt(
                     space.w_IOError,
-                    "peek() should have returned a bytes object, "
-                    "not '%s'", space.type(w_read).getname(space))
+                    "peek() should have returned a bytes object, not '%T'",
+                    w_read)
             read = space.str_w(w_read)
             if not read:
                 break
@@ -248,14 +268,19 @@ W_IOBase.typedef = TypeDef(
     next = interp2app(W_IOBase.next_w),
     close = interp2app(W_IOBase.close_w),
     flush = interp2app(W_IOBase.flush_w),
+    seek = interp2app(W_IOBase.seek_w),
     tell = interp2app(W_IOBase.tell_w),
+    truncate = interp2app(W_IOBase.truncate_w),
+    fileno = interp2app(W_IOBase.fileno_w),
     isatty = interp2app(W_IOBase.isatty_w),
     readable = interp2app(W_IOBase.readable_w),
     writable = interp2app(W_IOBase.writable_w),
     seekable = interp2app(W_IOBase.seekable_w),
+
     _checkReadable = interp2app(check_readable_w),
     _checkWritable = interp2app(check_writable_w),
     _checkSeekable = interp2app(check_seekable_w),
+    _checkClosed = interp2app(W_IOBase.check_closed_w),
     closed = GetSetProperty(W_IOBase.closed_get_w),
     __dict__ = GetSetProperty(descr_get_dict, descr_set_dict, cls=W_IOBase),
     __weakref__ = make_weakref_descr(W_IOBase),

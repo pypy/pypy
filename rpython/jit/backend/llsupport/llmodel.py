@@ -21,8 +21,6 @@ from rpython.rlib.unroll import unrolling_iterable
 class AbstractLLCPU(AbstractCPU):
     from rpython.jit.metainterp.typesystem import llhelper as ts
 
-    can_inline_varsize_malloc = False
-
     def __init__(self, rtyper, stats, opts, translate_support_code=False,
                  gcdescr=None):
         assert type(opts) is not bool

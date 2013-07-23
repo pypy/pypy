@@ -183,6 +183,7 @@ def _contains_gcptr(TP):
             return True
     return False
 
+
 @jit.oopspec('list.ll_arraycopy(source, dest, source_start, dest_start, length)')
 @enforceargs(None, None, int, int, int)
 @specialize.ll()
@@ -229,6 +230,9 @@ def ll_arraycopy(source, dest, source_start, dest_start, length):
     keepalive_until_here(source)
     keepalive_until_here(dest)
 
+
+@jit.oopspec('rgc.ll_shrink_array(p, smallerlength)')
+@specialize.ll()
 def ll_shrink_array(p, smallerlength):
     from rpython.rtyper.lltypesystem.lloperation import llop
     from rpython.rlib.objectmodel import keepalive_until_here
@@ -249,16 +253,15 @@ def ll_shrink_array(p, smallerlength):
     ARRAY = getattr(TP, TP._arrayfld)
     offset = (llmemory.offsetof(TP, TP._arrayfld) +
               llmemory.itemoffsetof(ARRAY, 0))
-    source_addr = llmemory.cast_ptr_to_adr(p)    + offset
-    dest_addr   = llmemory.cast_ptr_to_adr(newp) + offset
+    source_addr = llmemory.cast_ptr_to_adr(p) + offset
+    dest_addr = llmemory.cast_ptr_to_adr(newp) + offset
     llmemory.raw_memcopy(source_addr, dest_addr,
                          llmemory.sizeof(ARRAY.OF) * smallerlength)
 
     keepalive_until_here(p)
     keepalive_until_here(newp)
     return newp
-ll_shrink_array._annspecialcase_ = 'specialize:ll'
-ll_shrink_array._jit_look_inside_ = False
+
 
 def no_collect(func):
     func._dont_inline_ = True

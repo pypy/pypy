@@ -999,10 +999,6 @@ class Assembler386(BaseAssembler):
                     self.implement_guard(guard_token, checkfalsecond)
         return genop_cmp_guard_float
 
-    def _is_asmgcc(self):
-        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
-        return bool(gcrootmap) and not gcrootmap.is_shadow_stack
-
     def simple_call(self, fnloc, arglocs, result_loc=eax):
         if result_loc is xmm0:
             result_type = FLOAT
@@ -1555,14 +1551,14 @@ class Assembler386(BaseAssembler):
         frame in jf_guard_exc
         """
         if excvalloc is not None:
-            assert excvalloc.is_reg()
+            assert excvalloc.is_core_reg()
             mc.MOV(excvalloc, heap(self.cpu.pos_exc_value()))
         elif tmploc is not None: # if both are None, just ignore
             ofs = self.cpu.get_ofs_of_frame_field('jf_guard_exc')
             mc.MOV(tmploc, heap(self.cpu.pos_exc_value()))
             mc.MOV(RawEbpLoc(ofs), tmploc)
         if exctploc is not None:
-            assert exctploc.is_reg()
+            assert exctploc.is_core_reg()
             mc.MOV(exctploc, heap(self.cpu.pos_exception()))
 
         mc.MOV(heap(self.cpu.pos_exception()), imm0)

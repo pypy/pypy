@@ -39,7 +39,7 @@ class TestArray(BaseTestPyPyC):
         assert log.result == 19507200
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
-            guard_not_invalidated(descr=...)
+            guard_not_invalidated?
             i13 = int_lt(i7, i9)
             guard_true(i13, descr=...)
             i15 = getarrayitem_raw(i10, i7, descr=<ArrayS .>)
@@ -105,7 +105,6 @@ class TestArray(BaseTestPyPyC):
         assert loop.match("""
             i10 = int_lt(i6, 1000)
             guard_true(i10, descr=...)
-            guard_not_invalidated(descr=...)
             i11 = int_lt(i6, i7)
             guard_true(i11, descr=...)
             f13 = getarrayitem_raw(i8, i6, descr=<ArrayF 8>)
@@ -117,7 +116,7 @@ class TestArray(BaseTestPyPyC):
             i20 = int_add(i6, 1)
             --TICK--
             jump(..., descr=...)
-        """)
+        """, ignore_ops=['guard_not_invalidated'])
 
     def test_array_of_floats(self):
         try:
@@ -142,7 +141,6 @@ class TestArray(BaseTestPyPyC):
         assert loop.match("""
             i10 = int_lt(i6, 1000)
             guard_true(i10, descr=...)
-            guard_not_invalidated(descr=...)
             i11 = int_lt(i6, i7)
             guard_true(i11, descr=...)
             i13 = getarrayitem_raw(i8, i6, descr=<Array. 4>)
@@ -157,7 +155,7 @@ class TestArray(BaseTestPyPyC):
             i23 = int_add(i6, 1)
             --TICK--
             jump(..., descr=...)
-        """)
+        """, ignore_ops=['guard_not_invalidated'])
 
 
     def test_zeropadded(self):

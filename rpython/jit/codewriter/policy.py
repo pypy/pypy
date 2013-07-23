@@ -39,8 +39,6 @@ class JitPolicy(object):
         return True # look into everything by default
 
     def _reject_function(self, func):
-        if hasattr(func, '_jit_look_inside_'):
-            return not func._jit_look_inside_
         # explicitly elidable functions are always opaque
         if getattr(func, '_elidable_function_', False):
             return True
@@ -58,8 +56,11 @@ class JitPolicy(object):
         except AttributeError:
             see_function = True
         else:
-            see_function = (self.look_inside_function(func) and not
-                            self._reject_function(func))
+            if hasattr(func, '_jit_look_inside_'):
+                see_function = func._jit_look_inside_   # override guessing
+            else:
+                see_function = (self.look_inside_function(func) and not
+                                self._reject_function(func))
             contains_loop = contains_loop and not getattr(
                     func, '_jit_unroll_safe_', False)
 

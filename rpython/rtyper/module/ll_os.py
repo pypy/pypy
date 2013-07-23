@@ -682,7 +682,7 @@ class RegisterOs(BaseLazyRegistering):
 
     @registering_if(os, 'getpid')
     def register_os_getpid(self):
-        return self.extdef_for_os_function_returning_int('getpid')
+        return self.extdef_for_os_function_returning_int('getpid', threadsafe=False)
 
     @registering_if(os, 'getgid')
     def register_os_getgid(self):
@@ -1145,9 +1145,9 @@ class RegisterOs(BaseLazyRegistering):
                 dirp = os_opendir(path)
                 if not dirp:
                     raise OSError(rposix.get_errno(), "os_opendir failed")
-                rposix.set_errno(0)
                 result = []
                 while True:
+                    rposix.set_errno(0)
                     direntp = os_readdir(dirp)
                     if not direntp:
                         error = rposix.get_errno()
@@ -1699,6 +1699,17 @@ class RegisterOs(BaseLazyRegistering):
     def register_os_lstat(self, traits):
         from rpython.rtyper.module import ll_os_stat
         return ll_os_stat.register_stat_variant('lstat', traits)
+
+    @registering(os.fstatvfs)
+    def register_os_fstatvfs(self):
+        from rpython.rtyper.module import ll_os_stat
+        return ll_os_stat.register_statvfs_variant('fstatvfs', StringTraits())
+
+    @registering_str_unicode(os.statvfs)
+    def register_os_statvfs(self, traits):
+        from rpython.rtyper.module import ll_os_stat
+        return ll_os_stat.register_statvfs_variant('statvfs', traits)
+
 
     # ------------------------------- os.W* ---------------------------------
 

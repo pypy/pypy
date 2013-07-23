@@ -8,9 +8,9 @@ def is_raisingop(op):
     s = op.opname
     if (not s.startswith('int_') and not s.startswith('uint_') and
         not s.startswith('float_') and not s.startswith('llong_')):
-       return False
+        return False
     if not s.endswith('_zer') and not s.endswith('_ovf') and not s.endswith('_val'): #not s in special_operations:
-       return False
+        return False
     return True
 
 def raisingop2direct_call(translator, graphs=None):

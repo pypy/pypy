@@ -1,15 +1,14 @@
+import sys
+
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.tool import rffi_platform
 from rpython.translator.platform import platform
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rlib.unroll import unrolling_iterable
 
-import sys, os
 
-link_files = []
-include_dirs = []
 if sys.platform == 'win32' and platform.name != 'mingw32':
-    libraries = ['libeay32', 'ssleay32',
+    libraries = ['libeay32', 'ssleay32', 'zlib1',
                  'user32', 'advapi32', 'gdi32', 'msvcrt', 'ws2_32']
     includes = [
         # ssl.h includes winsock.h, which will conflict with our own
@@ -24,7 +23,7 @@ else:
     includes = []
 
 includes += [
-    'openssl/ssl.h', 
+    'openssl/ssl.h',
     'openssl/err.h',
     'openssl/rand.h',
     'openssl/evp.h',
@@ -33,16 +32,14 @@ includes += [
 
 eci = ExternalCompilationInfo(
     libraries = libraries,
-    link_files = link_files,
     includes = includes,
-    include_dirs = include_dirs,
     export_symbols = [],
     post_include_bits = [
         # Unnamed structures are not supported by rffi_platform.
         # So we replace an attribute access with a macro call.
         '#define pypy_GENERAL_NAME_dirn(name) (name->d.dirn)',
-        ],
-    )
+    ],
+)
 
 eci = rffi_platform.configure_external_library(
     'openssl', eci,
@@ -57,20 +54,10 @@ if sys.platform == 'win32':
 else:
     from rpython.rlib._rsocket_rffi import FD_SETSIZE as MAX_FD_SIZE
 
-
 ASN1_STRING = lltype.Ptr(lltype.ForwardReference())
 ASN1_ITEM = rffi.COpaquePtr('ASN1_ITEM')
+ASN1_ITEM_EXP = lltype.Ptr(lltype.FuncType([], ASN1_ITEM))
 X509_NAME = rffi.COpaquePtr('X509_NAME')
-
-# XXX not sure if there is a better way but this fixes LLVM translation
-class CConfigBootstrap:
-    _compilation_info_ = eci
-    OPENSSL_EXPORT_VAR_AS_FUNCTION = rffi_platform.Defined(
-            "OPENSSL_EXPORT_VAR_AS_FUNCTION")
-if rffi_platform.configure(CConfigBootstrap)["OPENSSL_EXPORT_VAR_AS_FUNCTION"]:
-    ASN1_ITEM_EXP = lltype.Ptr(lltype.FuncType([], ASN1_ITEM))
-else:
-    ASN1_ITEM_EXP = ASN1_ITEM
 
 class CConfig:
     _compilation_info_ = eci
@@ -106,6 +93,7 @@ class CConfig:
     SSL_RECEIVED_SHUTDOWN = rffi_platform.ConstantInteger(
         "SSL_RECEIVED_SHUTDOWN")
     SSL_MODE_AUTO_RETRY = rffi_platform.ConstantInteger("SSL_MODE_AUTO_RETRY")
+    SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER = rffi_platform.ConstantInteger("SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER")
 
     NID_subject_alt_name = rffi_platform.ConstantInteger("NID_subject_alt_name")
     GEN_DIRNAME = rffi_platform.ConstantInteger("GEN_DIRNAME")
@@ -124,7 +112,7 @@ class CConfig:
     X509_extension_st = rffi_platform.Struct(
         'struct X509_extension_st',
         [('value', ASN1_STRING)])
-    X509V3_EXT_D2I = lltype.FuncType([rffi.VOIDP, rffi.CCHARPP, rffi.LONG], 
+    X509V3_EXT_D2I = lltype.FuncType([rffi.VOIDP, rffi.CCHARPP, rffi.LONG],
                                      rffi.VOIDP)
     v3_ext_method = rffi_platform.Struct(
         'struct v3_ext_method',
@@ -140,12 +128,14 @@ class CConfig:
          ('block_size', rffi.INT)])
     EVP_MD_SIZE = rffi_platform.SizeOf('EVP_MD')
     EVP_MD_CTX_SIZE = rffi_platform.SizeOf('EVP_MD_CTX')
+    OPENSSL_EXPORT_VAR_AS_FUNCTION = rffi_platform.Defined(
+                                             "OPENSSL_EXPORT_VAR_AS_FUNCTION")
 
     OBJ_NAME_st = rffi_platform.Struct(
         'OBJ_NAME',
         [('alias', rffi.INT),
          ('name', rffi.CCHARP),
-         ]) 
+         ])
 
 
 for k, v in rffi_platform.configure(CConfig).items():
@@ -267,9 +257,12 @@ ssl_external('OBJ_obj2txt',
 ssl_external('ASN1_STRING_to_UTF8', [rffi.CCHARPP, ASN1_STRING], rffi.INT)
 ssl_external('ASN1_TIME_print', [BIO, ASN1_TIME], rffi.INT)
 ssl_external('i2a_ASN1_INTEGER', [BIO, ASN1_INTEGER], rffi.INT)
-ssl_external('ASN1_item_d2i', 
+ssl_external('ASN1_item_d2i',
              [rffi.VOIDP, rffi.CCHARPP, rffi.LONG, ASN1_ITEM], rffi.VOIDP)
-ssl_external('ASN1_ITEM_ptr', [ASN1_ITEM_EXP], ASN1_ITEM, macro=True)
+if OPENSSL_EXPORT_VAR_AS_FUNCTION:
+    ssl_external('ASN1_ITEM_ptr', [ASN1_ITEM_EXP], ASN1_ITEM, macro=True)
+else:
+    ssl_external('ASN1_ITEM_ptr', [rffi.VOIDP], ASN1_ITEM, macro=True)
 
 ssl_external('sk_GENERAL_NAME_num', [GENERAL_NAMES], rffi.INT,
              macro=True)

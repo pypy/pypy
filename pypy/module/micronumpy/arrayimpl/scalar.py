@@ -2,6 +2,7 @@
 from pypy.module.micronumpy.arrayimpl import base
 from pypy.module.micronumpy.base import W_NDimArray, convert_to_array
 from pypy.module.micronumpy import support
+from pypy.module.micronumpy.interp_boxes import W_GenericBox
 from pypy.interpreter.error import OperationError
 
 class ScalarIterator(base.BaseArrayIterator):
@@ -10,6 +11,9 @@ class ScalarIterator(base.BaseArrayIterator):
         self.called_once = False
 
     def next(self):
+        self.called_once = True
+
+    def next_skip_x(self, n):
         self.called_once = True
 
     def getitem(self):
@@ -48,6 +52,7 @@ class Scalar(base.BaseArrayImplementation):
         return self.value
 
     def set_scalar_value(self, w_val):
+        assert isinstance(w_val, W_GenericBox)
         self.value = w_val.convert_to(self.dtype)
 
     def copy(self, space):
@@ -61,6 +66,11 @@ class Scalar(base.BaseArrayImplementation):
     def transpose(self, _):
         return self
 
+    def get_view(self, orig_array, dtype, new_shape):
+        scalar = Scalar(dtype)
+        scalar.value = self.value.convert_to(dtype)
+        return scalar
+
     def get_real(self, orig_array):
         if self.dtype.is_complex_type():
             scalar = Scalar(self.dtype.float_type)
@@ -73,7 +83,7 @@ class Scalar(base.BaseArrayImplementation):
         dtype = self.dtype.float_type or self.dtype
         if len(w_arr.get_shape()) > 0:
             raise OperationError(space.w_ValueError, space.wrap(
-                "could not broadcast input array from shape " + 
+                "could not broadcast input array from shape " +
                 "(%s) into shape ()" % (
                     ','.join([str(x) for x in w_arr.get_shape()],))))
         if self.dtype.is_complex_type():
@@ -102,7 +112,7 @@ class Scalar(base.BaseArrayImplementation):
         dtype = self.dtype.float_type
         if len(w_arr.get_shape()) > 0:
             raise OperationError(space.w_ValueError, space.wrap(
-                "could not broadcast input array from shape " + 
+                "could not broadcast input array from shape " +
                 "(%s) into shape ()" % (
                     ','.join([str(x) for x in w_arr.get_shape()],))))
         self.value = self.dtype.itemtype.composite(

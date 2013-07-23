@@ -12,6 +12,7 @@ DEFL_CLEVER_MALLOC_REMOVAL_INLINE_THRESHOLD = 32.4
 DEFL_LOW_INLINE_THRESHOLD = DEFL_INLINE_THRESHOLD / 2.0
 
 DEFL_GC = "minimark"
+
 if sys.platform.startswith("linux"):
     DEFL_ROOTFINDER_WITHJIT = "asmgcc"
 else:
@@ -176,7 +177,6 @@ translation_optiondescription = OptionDescription(
               cmdline="--make-jobs", default=detect_number_of_processors()),
 
     # Flags of the TranslationContext:
-    BoolOption("simplifying", "Simplify flow graphs", default=True),
     BoolOption("list_comprehension_operations",
                "When true, look for and special-case the sequence of "
                "operations that results from a list comprehension and "
@@ -283,7 +283,9 @@ translation_optiondescription = OptionDescription(
     ]),
     ChoiceOption("platform",
                  "target platform", ['host'] + PLATFORMS, default='host',
-                 cmdline='--platform'),
+                 cmdline='--platform',
+                 suggests={"arm": [("translation.gcrootfinder", "shadowstack"),
+                                   ("translation.jit_backend", "arm")]}),
 
 ])
 

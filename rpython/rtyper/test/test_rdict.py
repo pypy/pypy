@@ -496,6 +496,55 @@ class BaseTestRdict(BaseRtypingTest):
         res = self.interpret(f, [6])
         assert res == 0
 
+    def test_cls_dict(self):
+        class A(object):
+            pass
+
+        class B(A):
+            pass
+
+        def f(i):
+            d = {
+                A: 3,
+                B: 4,
+            }
+            if i:
+                cls = A
+            else:
+                cls = B
+            return d[cls]
+
+        res = self.interpret(f, [1])
+        assert res == 3
+        res = self.interpret(f, [0])
+        assert res == 4
+
+    def test_prebuilt_cls_dict(self):
+        class A(object):
+            pass
+
+        class B(A):
+            pass
+
+        d = {(A, 3): 3, (B, 0): 4}
+
+        def f(i):
+            if i:
+                cls = A
+            else:
+                cls = B
+            try:
+                return d[cls, i]
+            except KeyError:
+                return -99
+
+        res = self.interpret(f, [0])
+        assert res == 4
+        res = self.interpret(f, [3])
+        assert res == 3
+        res = self.interpret(f, [10])
+        assert res == -99
+
     def test_access_in_try(self):
         def f(d):
             try:

@@ -178,5 +178,6 @@ class ImmutableFieldsTests:
 class TestLLtypeImmutableFieldsTests(ImmutableFieldsTests, LLJitMixin):
     pass
 
+
 class TestOOtypeImmutableFieldsTests(ImmutableFieldsTests, OOJitMixin):
-   pass
+    pass
