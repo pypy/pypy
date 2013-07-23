@@ -460,8 +460,11 @@ def parse_command_line(argv):
         if os.getenv('PYTHONVERBOSE'):
             options["verbose"] = 1
 
+    # skip environment cache since PYTHONINSPECT could be set in same process
+    from __pypy__.os import real_getenv
+
     if (options["interactive"] or
-        (not options["ignore_environment"] and os.getenv('PYTHONINSPECT'))):
+        (not options["ignore_environment"] and real_getenv('PYTHONINSPECT'))):
         options["inspect"] = 1
 
 ##    We don't print the warning, because it offers no additional security
