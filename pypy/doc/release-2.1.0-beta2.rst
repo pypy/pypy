@@ -3,7 +3,7 @@ PyPy 2.1 beta 2
 ===============
 
 We're pleased to announce the second beta of the upcoming 2.1 release of PyPy.
-This beta does not add any new features to the 2.1 release but contains several bugfixes.
+This beta does not add any new features to the 2.1 release, but contains several bugfixes listed below.
 
 Highlights
 ==========
@@ -20,7 +20,7 @@ Highlights
   split on environment variables, honour CFLAGS, CPPFLAGS, LDSHARED and
   LDFLAGS.
 
-* On packaging, compile the CFFI tk extension.
+* During packaging, compile the CFFI tk extension.
 
 .. _`1533`: https://bugs.pypy.org/issue1533
 .. _`1552`: https://bugs.pypy.org/issue1552
