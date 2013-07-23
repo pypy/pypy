@@ -18,3 +18,6 @@ class ConversionError(Exception):
 
     def __str__(self):
         return repr(self.value)
+
+# XXX specialise this class of errors
+class UnknownPrologError(Exception): pass

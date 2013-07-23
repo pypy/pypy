@@ -6,6 +6,7 @@ from pypy.interpreter.error import OperationError
 from prolog.interpreter import continuation
 from prolog.interpreter import error
 from prolog.interpreter import parsing
+from prolog.interpreter import term
 
 import pypy.module.unipycation.util as util
 from pypy.module.unipycation import objects, conversion
@@ -67,11 +68,16 @@ class W_CoreSolutionIterator(W_Root):
             except error.CatchableError:
                 w_GoalError = util.get_from_module(self.space, "unipycation", "GoalError")
                 raise OperationError(w_GoalError, self.space.wrap("Undefined goal"))
-            # This can happen when there is a parse error in the db.
-            # XXX find a better way to deal with this and give a useful error.
-            #
-            #except error.UncaughtError, e:
-            #    raise OperationError(self.space.w_TypeError, self.space.wrap(""))
+            except error.UncaughtError, e:
+                # XXX just for debugging for now. This atleast gives us a clue as to
+                # what may have gone wrong instead of just getting an UncaughError
+                #
+                # Eventually we want to do something like in pyrolog's translatedmain.py.
+                assert isinstance(e.term, term.Callable) # assume this until we see a counterexample XXX
+                errterm = e.term.argument_at(0)
+
+                w_UnknownPrologError = util.get_from_module(self.space, "unipycation", "UnknownPrologError")
+                raise OperationError(w_UnknownPrologError, self.space.wrap(str(errterm)))
 
             self.w_goal_term = None # allow GC
         else:

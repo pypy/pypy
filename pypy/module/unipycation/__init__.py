@@ -6,6 +6,7 @@ class Module(MixedModule):
             'ParseError' : 'app_error.ParseError',
             'ConversionError' : 'app_error.ConversionError',
             'GoalError' : 'app_error.GoalError',
+            'UnknownPrologError' : 'app_error.UnknownPrologError',
     }
 
     interpleveldefs = {
