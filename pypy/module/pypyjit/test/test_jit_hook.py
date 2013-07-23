@@ -71,7 +71,7 @@ class AppTestJitHook(object):
                    greenkey)
         di_loop_optimize = JitDebugInfo(MockJitDriverSD, logger, JitCellToken(),
                                         oplist, 'loop', greenkey)
-        di_loop.asminfo = AsmInfo(offset, 0, 0)
+        di_loop.asminfo = AsmInfo(offset, 0x42, 12)
         di_bridge = JitDebugInfo(MockJitDriverSD, logger, JitCellToken(),
                                  oplist, 'bridge', fail_descr=BasicFailDescr())
         di_bridge.asminfo = AsmInfo(offset, 0, 0)
@@ -123,6 +123,8 @@ class AppTestJitHook(object):
         assert info.greenkey[2] == False
         assert info.loop_no == 0
         assert info.type == 'loop'
+        assert info.asmaddr == 0x42
+        assert info.asmlen == 12
         raises(TypeError, 'info.bridge_no')
         assert len(info.operations) == 4
         int_add = info.operations[0]
@@ -132,8 +134,10 @@ class AppTestJitHook(object):
         assert dmp.greenkey == (self.f.func_code, 0, False)
         assert dmp.call_depth == 0
         assert dmp.call_id == 0
+        assert dmp.offset == -1
         assert int_add.name == 'int_add'
         assert int_add.num == self.int_add_num
+        assert int_add.offset == 0
         self.on_compile_bridge()
         expected = ('<JitLoopInfo pypyjit, 4 operations, starting at '
                     '<(%s, 0, False)>>' % repr(self.f.func_code))

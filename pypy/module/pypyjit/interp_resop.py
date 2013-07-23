@@ -242,7 +242,8 @@ WrappedOp.typedef = TypeDef(
     getarg = interp2app(WrappedOp.descr_getarg),
     setarg = interp2app(WrappedOp.descr_setarg),
     result = GetSetProperty(WrappedOp.descr_getresult,
-                            WrappedOp.descr_setresult)
+                            WrappedOp.descr_setresult),
+    offset = interp_attrproperty("offset", cls=WrappedOp),
 )
 WrappedOp.acceptable_as_base_class = False
 
@@ -352,6 +353,10 @@ W_JitLoopInfo.typedef = TypeDef(
                                doc="bridge number (if a bridge)"),
     type = interp_attrproperty('type', cls=W_JitLoopInfo,
                                doc="Loop type"),
+    asmaddr = interp_attrproperty('asmaddr', cls=W_JitLoopInfo,
+                                  doc="Address of machine code"),
+    asmlen = interp_attrproperty('asmlen', cls=W_JitLoopInfo,
+                                  doc="Length of machine code"),
     __repr__ = interp2app(W_JitLoopInfo.descr_repr),
 )
 W_JitLoopInfo.acceptable_as_base_class = False
