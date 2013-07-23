@@ -8,8 +8,6 @@ This beta does not add any new features to the 2.1 release but contains several 
 Highlights
 ==========
 
-* On packaging compile the CFFI tk extension.
-
 * Fixed issue `1533`_: fix an RPython-level OverflowError for space.float_w(w_big_long_number). 
 
 * Fixed issue `1552`_: GreenletExit should inherit from BaseException
@@ -21,6 +19,8 @@ Highlights
 * `distutils`_: copy CPython's implementation of customize_compiler, dont call
   split on environment variables, honour CFLAGS, CPPFLAGS, LDSHARED and
   LDFLAGS.
+
+* On packaging, compile the CFFI tk extension.
 
 .. _`1533`: https://bugs.pypy.org/issue1533
 .. _`1552`: https://bugs.pypy.org/issue1552
