@@ -332,7 +332,6 @@ class _LLVMMixin(object):
     def getcompiled(self, func, argtypes, gcpolicy='ref', backendopt=True):
         config = get_pypy_config(translating=True)
         config.translation.backendopt.raisingop2direct_call = True
-        config.translation.simplifying = True
         config.translation.gc = gcpolicy
         config.override(self.config_override)
         t = self._translator = TranslationContext(config=config)
