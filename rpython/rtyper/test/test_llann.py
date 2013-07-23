@@ -4,10 +4,11 @@ from rpython.annotator import model as annmodel
 from rpython.conftest import option
 from rpython.rtyper.annlowlevel import (annotate_lowlevel_helper,
     MixLevelHelperAnnotator, PseudoHighLevelCallable, llhelper,
-    cast_instance_to_base_ptr, cast_base_ptr_to_instance, base_ptr_lltype)
+    cast_instance_to_base_ptr, cast_base_ptr_to_instance)
 from rpython.rtyper.llinterp import LLInterpreter
 from rpython.rtyper.lltypesystem.lltype import *
 from rpython.rtyper.rclass import fishllattr
+from rpython.rtyper.lltypesystem.rclass import OBJECTPTR
 from rpython.rtyper.test.test_llinterp import interpret
 from rpython.translator.translator import TranslationContext
 
@@ -478,12 +479,12 @@ def test_cast_instance_to_base_ptr():
         return a1
 
     res = interpret(f, [5, 10])
-    assert typeOf(res) == base_ptr_lltype()
+    assert typeOf(res) == OBJECTPTR
     assert fishllattr(res, 'x') == 5
     assert fishllattr(res, 'y') == 10
 
     res = interpret(f, [25, 10])
-    assert res == nullptr(base_ptr_lltype().TO)
+    assert res == nullptr(OBJECTPTR.TO)
 
 
 def test_cast_base_ptr_to_instance():

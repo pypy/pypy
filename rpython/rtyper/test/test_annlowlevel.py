@@ -8,6 +8,7 @@ from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.annlowlevel import hlstr, llstr
 from rpython.rtyper.annlowlevel import hlunicode, llunicode
 from rpython.rtyper import annlowlevel
+from rpython.rtyper.lltypesystem.rclass import OBJECTPTR
 
 
 class TestLLType(BaseRtypingTest):
@@ -60,6 +61,6 @@ class TestLLType(BaseRtypingTest):
             pass
         x = X()
         ptr = annlowlevel.cast_instance_to_base_ptr(x)
-        assert lltype.typeOf(ptr) == annlowlevel.base_ptr_lltype()
+        assert lltype.typeOf(ptr) == OBJECTPTR
         y = annlowlevel.cast_base_ptr_to_instance(X, ptr)
         assert y is x
