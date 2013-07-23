@@ -6,7 +6,6 @@ from rpython.flowspace.model import summary
 from rpython.rlib.rarithmetic import r_longlong
 from rpython.rtyper.lltypesystem.lltype import (typeOf, Signed, getRuntimeTypeInfo,
     identityhash)
-from rpython.rtyper.ootypesystem import ootype
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.rclass import (IR_IMMUTABLE, IR_IMMUTABLE_ARRAY,
     IR_QUASIIMMUTABLE, IR_QUASIIMMUTABLE_ARRAY)
@@ -756,9 +755,7 @@ class TestRclass(BaseRtypingTest):
         A_TYPE = deref(graph.getreturnvar().concretetype)
         accessor = A_TYPE._hints["immutable_fields"]
         assert accessor.fields == {"inst_x": IR_IMMUTABLE,
-                                   "inst_y": IR_IMMUTABLE_ARRAY} or \
-               accessor.fields == {"ox": IR_IMMUTABLE,
-                                   "oy": IR_IMMUTABLE_ARRAY} # for ootype
+                                   "inst_y": IR_IMMUTABLE_ARRAY}
 
     def test_immutable_fields_subclass_1(self):
         from rpython.jit.metainterp.typesystem import deref
@@ -776,8 +773,7 @@ class TestRclass(BaseRtypingTest):
         t, typer, graph = self.gengraph(f, [])
         B_TYPE = deref(graph.getreturnvar().concretetype)
         accessor = B_TYPE._hints["immutable_fields"]
-        assert accessor.fields == {"inst_x": IR_IMMUTABLE} or \
-               accessor.fields == {"ox": IR_IMMUTABLE} # for ootype
+        assert accessor.fields == {"inst_x": IR_IMMUTABLE}
 
     def test_immutable_fields_subclass_2(self):
         from rpython.jit.metainterp.typesystem import deref
@@ -797,9 +793,7 @@ class TestRclass(BaseRtypingTest):
         B_TYPE = deref(graph.getreturnvar().concretetype)
         accessor = B_TYPE._hints["immutable_fields"]
         assert accessor.fields == {"inst_x": IR_IMMUTABLE,
-                                   "inst_y": IR_IMMUTABLE} or \
-               accessor.fields == {"ox": IR_IMMUTABLE,
-                                   "oy": IR_IMMUTABLE} # for ootype
+                                   "inst_y": IR_IMMUTABLE}
 
     def test_immutable_fields_only_in_subclass(self):
         from rpython.jit.metainterp.typesystem import deref
@@ -817,8 +811,7 @@ class TestRclass(BaseRtypingTest):
         t, typer, graph = self.gengraph(f, [])
         B_TYPE = deref(graph.getreturnvar().concretetype)
         accessor = B_TYPE._hints["immutable_fields"]
-        assert accessor.fields == {"inst_y": IR_IMMUTABLE} or \
-               accessor.fields == {"oy": IR_IMMUTABLE} # for ootype
+        assert accessor.fields == {"inst_y": IR_IMMUTABLE}
 
     def test_immutable_forbidden_inheritance_1(self):
         from rpython.rtyper.rclass import ImmutableConflictError
@@ -857,13 +850,9 @@ class TestRclass(BaseRtypingTest):
         t, typer, graph = self.gengraph(f, [])
         B_TYPE = deref(graph.getreturnvar().concretetype)
         assert B_TYPE._hints["immutable"]
-        try:
-            A_TYPE = B_TYPE.super
-        except AttributeError:
-            A_TYPE = B_TYPE._superclass  # for ootype
+        A_TYPE = B_TYPE.super
         accessor = A_TYPE._hints["immutable_fields"]
-        assert accessor.fields == {"inst_v": IR_IMMUTABLE} or \
-               accessor.fields == {"ov": IR_IMMUTABLE} # for ootype
+        assert accessor.fields == {"inst_v": IR_IMMUTABLE}
 
     def test_immutable_subclass_1(self):
         from rpython.rtyper.rclass import ImmutableConflictError
@@ -928,11 +917,7 @@ class TestRclass(BaseRtypingTest):
         B_TYPE = deref(graph.getreturnvar().concretetype)
         accessor = B_TYPE._hints["immutable_fields"]
         assert accessor.fields == {"inst_y": IR_IMMUTABLE,
-                                   "inst_b": IR_QUASIIMMUTABLE} or \
-               accessor.fields == {"ox": IR_IMMUTABLE,
-                                   "oy": IR_IMMUTABLE,
-                                   "oa": IR_QUASIIMMUTABLE,
-                                   "ob": IR_QUASIIMMUTABLE} # for ootype
+                                   "inst_b": IR_QUASIIMMUTABLE}
         found = []
         for op in graph.startblock.operations:
             if op.opname == 'jit_force_quasi_immutable':
@@ -952,8 +937,7 @@ class TestRclass(BaseRtypingTest):
         t, typer, graph = self.gengraph(f, [])
         A_TYPE = deref(graph.getreturnvar().concretetype)
         accessor = A_TYPE._hints["immutable_fields"]
-        assert accessor.fields == {"inst_c": IR_QUASIIMMUTABLE_ARRAY} or \
-               accessor.fields == {"oc": IR_QUASIIMMUTABLE_ARRAY} # for ootype
+        assert accessor.fields == {"inst_c": IR_QUASIIMMUTABLE_ARRAY}
         found = []
         for op in graph.startblock.operations:
             if op.opname == 'jit_force_quasi_immutable':
