@@ -160,6 +160,20 @@ class AppTestJitHook(object):
         assert 'jit hook' in s.getvalue()
         assert 'ZeroDivisionError' in s.getvalue()
 
+    def test_on_compile_crashes(self):
+        import pypyjit
+        loops = []
+        def hook(loop):
+            loops.append(loop)
+        pypyjit.set_compile_hook(hook)
+        self.on_compile()
+        loop = loops[0]
+        op = loop.operations[2]
+        # Should not crash the interpreter
+        raises(IndexError, op.getarg, 2)
+        assert op.name == 'guard_nonnull'
+        raises(NotImplementedError, op.getarg(0).getint)
+
     def test_non_reentrant(self):
         import pypyjit
         l = []

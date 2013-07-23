@@ -125,7 +125,12 @@ class WrappedBox(W_Root):
         self.llbox = llbox
 
     def descr_getint(self, space):
-        return space.wrap(jit_hooks.box_getint(self.llbox))
+        try:
+            value = jit_hooks.box_getint(self.llbox)
+        except NotImplementedError:
+            raise OperationError(space.w_NotImplementedError,
+                                 space.wrap("Box has no int value"))
+        return space.wrap(value)
 
 @unwrap_spec(no=int)
 def descr_new_box(space, w_tp, no):
@@ -182,7 +187,12 @@ class WrappedOp(W_Root):
 
     @unwrap_spec(no=int)
     def descr_getarg(self, space, no):
-        return WrappedBox(jit_hooks.resop_getarg(self.op, no))
+        try:
+            box = jit_hooks.resop_getarg(self.op, no)
+        except IndexError:
+            raise OperationError(space.w_IndexError,
+                                 space.wrap("Index out of range"))
+        return WrappedBox(box)
 
     @unwrap_spec(no=int, w_box=WrappedBox)
     def descr_setarg(self, space, no, w_box):
