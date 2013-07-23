@@ -52,8 +52,7 @@ class AppTest(object):
     def test_decode_string_utf8(self):
         import _pypyjson
         s = 'àèìòù'
-        res = _pypyjson.loads('"%s"' % s.encode('utf-8'))
-        assert res == s
+        raises(ValueError, _pypyjson.loads, '"%s"' % s.encode('utf-8'))
 
     def test_skip_whitespace(self):
         import _pypyjson
@@ -96,7 +95,7 @@ class AppTest(object):
     def test_invalid_utf_8(self):
         import _pypyjson
         s = '"\xe0"' # this is an invalid UTF8 sequence inside a string
-        raises(UnicodeDecodeError, "_pypyjson.loads(s)")
+        assert _pypyjson.loads(s) == 'à'
 
     def test_decode_numeric(self):
         import sys
