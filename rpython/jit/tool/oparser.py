@@ -309,6 +309,7 @@ class OpParser(object):
         newlines = []
         first_comment = None
         for line in lines:
+            line = line[line.find('#')+1:].strip()
             # for simplicity comments are not allowed on
             # debug_merge_point lines
             if '#' in line and 'debug_merge_point(' not in line:

@@ -17,11 +17,13 @@ def count_loops_and_bridges(log):
     time0 = None
     lines = iter(log)
     for line in lines:
+        line = line[line.find("#") + 1:].strip()
         if time0 is None and line.startswith('['):
             time0 = get_timestamp(line)
         if '{jit-mem-looptoken-' in line:
             time_now = get_timestamp(line) - time0
             text = lines.next()
+            text = text[text.find("#") + 1:].strip()
             if text.startswith('allocating Loop #'):
                 loops += 1
             elif text.startswith('allocating Bridge #'):

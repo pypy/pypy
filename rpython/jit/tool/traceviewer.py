@@ -187,7 +187,7 @@ def splitloops(loops):
             return real_loops, allloops
         bar.render((i * 100) / len(loops))
         firstline = loop[:loop.find("\n")]
-        m = re.match('# Loop (\d+)', firstline)
+        m = re.match('\d+# # Loop (\d+)', firstline)
         if m:
             no = int(m.group(1))
             assert len(real_loops) == no
