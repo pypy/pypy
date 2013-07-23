@@ -27,6 +27,12 @@ class TestMD5Update:
 
     spaceconfig = dict(usemodules=('struct',))
 
+    def setup_class(cls):
+        if cls.runappdirect:
+            # XXX:
+            import py
+            py.test.skip('Unavailable under py3 runappdirect')
+
     def test_update(self):
         """Test updating cloned objects."""
         cases = (
@@ -63,7 +69,7 @@ class TestMD5Update:
         m1c = m1.copy()
 
         # The app-level _md5
-        w_m2 = space.call_method(w__md5, 'new')
+        w_m2 = space.call_method(w__md5, 'md5')
         space.call_method(w_m2, 'update', space.wrap(prefix1))
         w_m2c = space.call_method(w_m2, 'copy')
 
@@ -91,8 +97,9 @@ class AppTestMD5Compare:
         space = cls.space
         cls.w__md5 = import_lib_pypy(space, '_md5')
         if cls.runappdirect:
-            # interp2app doesn't work in appdirect mode
-            cls.w_compare_host = staticmethod(compare_host)
+            # XXX:
+            import py
+            py.test.skip('Unavailable under py3 runappdirect')
         else:
             compare_host.unwrap_spec = [str, str, str]
             cls.w_compare_host = space.wrap(gateway.interp2app(compare_host))
@@ -100,7 +107,7 @@ class AppTestMD5Compare:
     def w_compare(self, message):
         # Generate results against the app-level pure Python MD5 and
         # pass them off for comparison against the host Python's MD5
-        m2 = self._md5.new()
+        m2 = self._md5.md5()
         m2.update(message)
         return self.compare_host(message, m2.digest(), m2.hexdigest())
 
@@ -220,7 +227,6 @@ class AppTestMD5Compare:
 
     def test_attributes(self):
         _md5 = self._md5
-        assert _md5.digest_size == 16
-        assert _md5.new().digest_size == 16
-        assert _md5.new().digestsize == 16
-        assert _md5.new().block_size == 64
+        assert _md5.md5().digest_size == 16
+        assert _md5.md5().digestsize == 16
+        assert _md5.md5().block_size == 64
