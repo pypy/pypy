@@ -290,7 +290,7 @@ class VirtualizableInfo(object):
         return virtualizable_box.getref(llmemory.GCREF)
 
     def is_vtypeptr(self, TYPE):
-        return rvirtualizable2.match_virtualizable_type(TYPE, self.VTYPEPTR)
+        return TYPE == self.VTYPEPTR
 
 # ____________________________________________________________
 #
