@@ -1354,6 +1354,16 @@ class Transformer(object):
             return []
         return getattr(self, 'handle_jit_marker__%s' % key)(op, jitdriver)
 
+    def rewrite_op_jit_conditional_call(self, op):
+        callop = SpaceOperation('direct_call', op.args[1:], op.result)
+        calldescr = self.callcontrol.getcalldescr(callop)
+        op1 = self.rewrite_call(op, 'conditional_call',
+                                op.args[:2], args=op.args[1:],
+                                calldescr=calldescr)
+        if self.callcontrol.calldescr_canraise(calldescr):
+            op1 = [op1, SpaceOperation('-live-', [], None)]
+        return op1
+
     def handle_jit_marker__jit_merge_point(self, op, jitdriver):
         assert self.portal_jd is not None, (
             "'jit_merge_point' in non-portal graph!")

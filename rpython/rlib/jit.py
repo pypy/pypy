@@ -1000,6 +1000,31 @@ class Entry(ExtRegistryEntry):
         return hop.genop('jit_record_known_class', [v_inst, v_cls],
                          resulttype=lltype.Void)
 
+def _jit_conditional_call(condition, function, *args):
+    pass
+
+@specialize.arg(1)
+def conditional_call(condition, function, *args):
+    if we_are_jitted():
+        _jit_conditional_call(condition, function, *args)
+    else:
+        if condition:
+            function(*args)
+
+class ConditionalCallEntry(ExtRegistryEntry):
+    _about_ = _jit_conditional_call
+
+    def compute_result_annotation(self, *args_s):
+        self.bookkeeper.emulate_pbc_call(self.bookkeeper.position_key,
+                                         args_s[1], args_s[2:])
+
+    def specialize_call(self, hop):
+        from rpython.rtyper.lltypesystem import lltype
+
+        hop.exception_is_here()
+        args_v = hop.inputargs(lltype.Bool, lltype.Void, *hop.args_r[2:])
+        return hop.genop('jit_conditional_call', args_v)
+
 class Counters(object):
     counters="""
     TRACING
