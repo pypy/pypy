@@ -78,18 +78,3 @@ def test_simple_compile_c():
     dll = ctypes.CDLL(str(t.driver.c_entryp))
     f = dll.pypy_g_f
     assert f(2, 3) == 5
-
-def test_simple_rtype_with_type_system():
-
-    def f(x,y):
-        return x+y
-
-    t = Translation(f, [int, int])
-    t.rtype(type_system='lltype')
-
-    assert 'rtype_lltype' in t.driver.done
-
-    t = Translation(f, [int, int], backend='cli')
-    t.annotate()
-    py.test.raises(Exception, "t.rtype(type_system='lltype')")
-
