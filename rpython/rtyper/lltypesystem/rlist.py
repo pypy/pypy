@@ -176,6 +176,7 @@ class FixedSizeListRepr(AbstractFixedSizeListRepr, BaseListRepr):
 
 # adapted C code
 
+@jit.look_inside_iff(lambda l, newsize, overallocate: jit.isconstant(len(l.items)) and jit.isconstant(newsize))
 @signature(types.any(), types.int(), types.bool(), returns=types.none())
 def _ll_list_resize_hint_really(l, newsize, overallocate):
     """
@@ -218,7 +219,7 @@ def _ll_list_resize_hint_really(l, newsize, overallocate):
         rgc.ll_arraycopy(items, newitems, 0, 0, p)
     l.items = newitems
 
-@jit.dont_look_inside
+@jit.look_inside_iff(lambda l, newsize: jit.isconstant(len(l.items)) and jit.isconstant(newsize))
 def _ll_list_resize_hint(l, newsize):
     """Ensure l.items has room for at least newsize elements without
     setting l.length to newsize.
@@ -231,7 +232,6 @@ def _ll_list_resize_hint(l, newsize):
     allocated = len(l.items)
     if allocated < newsize or newsize < (allocated >> 1) - 5:
         _ll_list_resize_hint_really(l, newsize, False)
-
 
 @signature(types.any(), types.int(), types.bool(), returns=types.none())
 def _ll_list_resize_really(l, newsize, overallocate):
@@ -253,18 +253,14 @@ def _ll_list_resize(l, newsize):
     _ll_list_resize_really(l, newsize, False)
 
 
-@jit.look_inside_iff(lambda l, newsize: jit.isconstant(len(l.items)) and jit.isconstant(newsize))
-@jit.oopspec("list._resize_ge(l, newsize)")
 def _ll_list_resize_ge(l, newsize):
     """This is called with 'newsize' larger than the current length of the
     list.  If the list storage doesn't have enough space, then really perform
     a realloc().  In the common case where we already overallocated enough,
     then this is a very fast operation.
     """
-    if len(l.items) >= newsize:
-        l.length = newsize
-    else:
-        _ll_list_resize_really(l, newsize, True)
+    jit.conditional_call(len(l.items) < newsize, _ll_list_resize_really, l, newsize, True)
+    l.length = newsize
 
 @jit.look_inside_iff(lambda l, newsize: jit.isconstant(len(l.items)) and jit.isconstant(newsize))
 @jit.oopspec("list._resize_le(l, newsize)")

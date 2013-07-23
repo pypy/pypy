@@ -79,13 +79,6 @@ class GcRewriterAssembler(object):
             if op.getopnum() == rop.CALL_ASSEMBLER:
                 self.handle_call_assembler(op)
                 continue
-            if op.getopnum() == rop.CALL and op.getdescr():
-                ei = op.getdescr().get_extra_info()
-                if ei:
-                    idx = ei.oopspecindex
-                    if idx == EffectInfo.OS_LIST_RESIZE_GE:
-                        self.handle_list_resize_ge(op)
-                        continue
             #
             self.newops.append(op)
         return self.newops
@@ -223,36 +216,6 @@ class GcRewriterAssembler(object):
             args = [frame]
         self.newops.append(ResOperation(rop.CALL_ASSEMBLER, args,
                                         op.result, op.getdescr()))
-
-    def handle_list_resize_ge(self, op):
-        """ what we want to do is to check the length and than add a conditional
-        call to really resize
-        """
-        extra_info = op.getdescr().get_extra_info()
-        if extra_info.extra_descrs is None:
-            # this is for tests only, actually never happens
-            self.newops.append(op)
-            return
-        lendescr = extra_info.extra_descrs[0]
-        itemsdescr = extra_info.extra_descrs[1]
-        arraydescr = extra_info.extra_descrs[2]
-        resize_ptr = ConstInt(extra_info.extra_descrs[3].getint())
-        calldescr = extra_info.extra_descrs[4]
-        lst = op.getarg(1)
-        newsizebox = op.getarg(2)
-        arrbox = BoxPtr()
-        arrlenbox = BoxInt()
-        cond_box = BoxInt()
-        op0 = ResOperation(rop.GETFIELD_GC, [lst], arrbox, descr=itemsdescr)
-        op1 = ResOperation(rop.ARRAYLEN_GC, [arrbox], arrlenbox,
-                           descr=arraydescr)
-        op2 = ResOperation(rop.INT_LT, [arrlenbox, newsizebox], cond_box)
-        op3 = ResOperation(rop.COND_CALL, [cond_box, resize_ptr, lst,
-                                           newsizebox, ConstInt(1)],
-                           None, descr=calldescr)
-        op4 = ResOperation(rop.SETFIELD_GC, [lst, newsizebox], None,
-                           descr=lendescr)
-        self.newops += [op0, op1, op2, op3, op4]
 
     # ----------
 

@@ -1638,27 +1638,6 @@ class Transformer(object):
     do_resizable_void_list_getitem_foldable = do_resizable_void_list_getitem
     do_resizable_void_list_setitem = do_resizable_void_list_getitem
 
-    def do_resizable_list__resize_ge(self, op, args, *descrs):
-        index = EffectInfo.OS_LIST_RESIZE_GE
-        LIST = args[0].concretetype.TO
-        itemsdescr = self.cpu.fielddescrof(LIST, 'items')
-        lendescr = self.cpu.fielddescrof(LIST, 'length')
-        arraydescr = self.cpu.arraydescrof(LIST.items.TO)
-        oopspec = "list.resize_hint_really"
-        c_func, TP = support.builtin_func_for_spec(self.cpu.rtyper,
-            oopspec, [lltype.Ptr(LIST), lltype.Signed, lltype.Bool],
-            lltype.Void)
-        op1 = SpaceOperation('direct_call', [c_func] + args +
-                             [Constant(1, concretetype=lltype.Bool)],
-                             op.result)
-        calldescr = self.callcontrol.getcalldescr(op1)
-        addr = llmemory.cast_ptr_to_adr(c_func.value)
-        extradescrs = [lendescr, itemsdescr, arraydescr,
-                       IntDescr(heaptracker.adr2int(addr)),
-                       calldescr]
-        return self.handle_residual_call(op, oopspecindex=index,
-                                         extradescrs=extradescrs)
-
     # ----------
     # Strings and Unicodes.
 
