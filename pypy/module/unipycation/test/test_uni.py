@@ -151,3 +151,57 @@ class AppTestHighLevelInterface(object):
         sol = e.db.f(None)
         assert len(sol[0].args) == 1
         assert type(sol[0].args[0]) == uni.Var
+
+    # XXX Temproary, until I figure out this UncaughtError
+    # (Pdb) p exc
+    # Generic1(error, [Generic2(existence_error, [Atom('procedure'), Generic2(/, [Atom('select'), Number(3)])])])
+    """
+    def test_debug(self):
+        import uni
+
+        with open("/home/edd/research/unipycation-examples/poker/poker.pl", "r") as fh: e = uni.Engine(fh.read())
+
+        e.db.hand.many_solutions = True
+        card1 = e.terms.card("k", "c")
+        card2 = e.terms.card(6, "d")
+
+        # Why does this uncaughterror? XXX
+        for (name, match) in e.db.hand([card1, card2], None, None):
+            print(72 * "-")
+            print(name)
+            print(match[0])
+    """
+
+    # Smaller test with the same issue
+    # (Pdb) p exc
+    # Generic1(error, [Generic2(existence_error, [Atom('procedure'), Generic2(/, [Atom('select'), Number(3)])])])
+    def test_select(self):
+        import uni
+
+        # This gives a "permission error"
+        #e = uni.Engine("use_module(list). f(X) :- select(1, [1,2,3], None).")
+
+        # This gives the above existence_error
+        e = uni.Engine("f(X) :- select(1, [1,2,3], X).")
+
+        (res, ) = e.db.f(None)
+        print(res)
+
+
+    # This fails with the existence error too
+    def test_nextto(self):
+        import uni
+
+        e = uni.Engine("f(X) :- nextto(1, X, [1,2,3]).")
+
+        (res, ) = e.db.f(None)
+        print(res)
+
+
+    def test_member(self):
+        import uni
+
+        e = uni.Engine("f(X) :- member(X, [1, 2, 3]).")
+
+        (res, ) = e.db.f(None)
+        print(res)
