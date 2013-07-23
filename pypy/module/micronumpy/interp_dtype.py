@@ -318,7 +318,7 @@ def dtype_from_list(space, w_lst):
             if not base.issequence_w(space, w_shape):
                 w_shape = space.newtuple([w_shape,])
         else:
-            w_fldname, w_flddesc = space.fixedview(w_elem)
+            w_fldname, w_flddesc = space.fixedview(w_elem, 2)
         subdtype = descr__new__(space, space.gettypefor(W_Dtype), w_flddesc, w_shape=w_shape)
         fldname = space.str_w(w_fldname)
         if fldname in fields:

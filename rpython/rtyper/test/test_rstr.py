@@ -1114,3 +1114,24 @@ class TestRstr(AbstractTestRstr):
 
         res = self.interpret(f, [5])
         assert res == 0
+
+    def test_copy_string_to_raw(self):
+        from rpython.rtyper.lltypesystem import lltype, llmemory
+        from rpython.rtyper.annlowlevel import llstr
+        from rpython.rtyper.lltypesystem.rstr import copy_string_to_raw
+
+        def f(buf, n):
+            s = 'abc' * n
+            ll_s = llstr(s)
+            copy_string_to_raw(ll_s, buf, 0, n*3)
+
+        TP = lltype.Array(lltype.Char)
+        array = lltype.malloc(TP, 12, flavor='raw')
+        f(array, 4)
+        assert list(array) == list('abc'*4)
+        lltype.free(array, flavor='raw')
+
+        array = lltype.malloc(TP, 12, flavor='raw')
+        self.interpret(f, [array, 4])
+        assert list(array) == list('abc'*4)
+        lltype.free(array, flavor='raw')

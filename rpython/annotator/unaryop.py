@@ -5,14 +5,12 @@ Unary operations on SomeValues.
 from __future__ import absolute_import
 
 from types import MethodType
-from rpython.annotator.model import \
-     SomeObject, SomeInteger, SomeBool, SomeString, SomeChar, SomeList, \
-     SomeDict, SomeTuple, SomeImpossibleValue, SomeUnicodeCodePoint, \
-     SomeInstance, SomeBuiltin, SomeFloat, SomeIterator, SomePBC, \
-     SomeTypedAddressAccess, SomeAddress, SomeType, \
-     s_ImpossibleValue, s_Bool, s_None, \
-     unionof, missing_operation, add_knowntypedata, HarmlesslyBlocked, \
-     SomeWeakRef, SomeUnicodeString
+from rpython.annotator.model import (SomeObject, SomeInteger, SomeBool,
+    SomeString, SomeChar, SomeList, SomeDict, SomeTuple, SomeImpossibleValue,
+    SomeUnicodeCodePoint, SomeInstance, SomeBuiltin, SomeFloat, SomeIterator,
+    SomePBC, SomeTypedAddressAccess, SomeAddress, SomeType, s_ImpossibleValue,
+    s_Bool, s_None, unionof, missing_operation, add_knowntypedata,
+    HarmlesslyBlocked, SomeWeakRef, SomeUnicodeString)
 from rpython.annotator.bookkeeper import getbookkeeper
 from rpython.annotator import builtin
 from rpython.annotator.binaryop import _clone ## XXX where to put this?
@@ -39,7 +37,7 @@ class __extend__(SomeObject):
 
     def type(obj, *moreargs):
         if moreargs:
-            raise Exception, 'type() called with more than one argument'
+            raise Exception('type() called with more than one argument')
         r = SomeType()
         bk = getbookkeeper()
         op = bk._find_current_op(opname="type", arity=1, pos=0, s_type=obj)

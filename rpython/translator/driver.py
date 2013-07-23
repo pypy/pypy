@@ -163,7 +163,7 @@ class TranslationDriver(SimpleTaskEngine):
                     new_goal = cand
                     break
             else:
-                raise Exception, "cannot infer complete goal from: %r" % goal
+                raise Exception("cannot infer complete goal from: %r" % goal)
             l.append(new_goal)
         return l
 
@@ -173,10 +173,9 @@ class TranslationDriver(SimpleTaskEngine):
     def _maybe_skip(self):
         maybe_skip = []
         if self._disabled:
-             for goal in self.backend_select_goals(self._disabled):
-                 maybe_skip.extend(self._depending_on_closure(goal))
+            for goal in self.backend_select_goals(self._disabled):
+                maybe_skip.extend(self._depending_on_closure(goal))
         return dict.fromkeys(maybe_skip).keys()
-
 
     def setup(self, entry_point, inputtypes, policy=None, extra={}, empty_translator=None):
         standalone = inputtypes is None

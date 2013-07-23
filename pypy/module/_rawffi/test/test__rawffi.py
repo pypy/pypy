@@ -1107,6 +1107,14 @@ class AppTestFfi:
         S2E = _rawffi.Structure([('bah', (EMPTY, 1))])
         S2E.get_ffi_type()     # does not hang
 
+    def test_overflow_error(self):
+        import _rawffi
+        A = _rawffi.Array('d')
+        arg1 = A(1)
+        raises(OverflowError, "arg1[0] = 10**900")
+        arg1.free()
+
+
 class AppTestAutoFree:
     spaceconfig = dict(usemodules=['_rawffi', 'struct'])
 

@@ -65,6 +65,11 @@ def _init_posix():
     g['SOABI'] = g['SO'].rsplit('.')[0]
     g['LIBDIR'] = os.path.join(sys.prefix, 'lib')
     g['CC'] = "gcc -pthread" # -pthread might not be valid on OS/X, check
+    g['OPT'] = ""
+    g['CFLAGS'] = ""
+    g['CPPFLAGS'] = ""
+    g['CCSHARED'] = '-shared -O2 -fPIC -Wimplicit'
+    g['LDSHARED'] = g['CC'] + ' -shared'
 
     global _config_vars
     _config_vars = g
@@ -122,13 +127,34 @@ def customize_compiler(compiler):
     optional C speedup components.
     """
     if compiler.compiler_type == "unix":
-        compiler.compiler_so.extend(['-O2', '-fPIC', '-Wimplicit'])
+        cc, opt, cflags, ccshared, ldshared = get_config_vars(
+            'CC', 'OPT', 'CFLAGS', 'CCSHARED', 'LDSHARED')
+
         compiler.shared_lib_extension = get_config_var('SO')
-        if "CFLAGS" in os.environ:
-            cflags = os.environ["CFLAGS"].split()
-            compiler.compiler.extend(cflags)
-            compiler.compiler_so.extend(cflags)
-            compiler.linker_so.extend(cflags)
+
+        if 'LDSHARED' in os.environ:
+            ldshared = os.environ['LDSHARED']
+        if 'CPP' in os.environ:
+            cpp = os.environ['CPP']
+        else:
+            cpp = cc + " -E"           # not always
+        if 'LDFLAGS' in os.environ:
+            ldshared = ldshared + ' ' + os.environ['LDFLAGS']
+        if 'CFLAGS' in os.environ:
+            cflags = opt + ' ' + os.environ['CFLAGS']
+            ldshared = ldshared + ' ' + os.environ['CFLAGS']
+        if 'CPPFLAGS' in os.environ:
+            cpp = cpp + ' ' + os.environ['CPPFLAGS']
+            cflags = cflags + ' ' + os.environ['CPPFLAGS']
+            ldshared = ldshared + ' ' + os.environ['CPPFLAGS']
+
+        cc_cmd = cc + ' ' + cflags
+
+        compiler.set_executables(
+            preprocessor=cpp,
+            compiler=cc_cmd,
+            compiler_so=cc_cmd + ' ' + ccshared,
+            linker_so=ldshared)
 
 
 from sysconfig_cpython import (

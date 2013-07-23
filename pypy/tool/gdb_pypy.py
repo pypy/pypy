@@ -76,18 +76,22 @@ class RPyType(Command):
 
     def invoke(self, arg, from_tty):
         # some magic code to automatically reload the python file while developing
-        ## from pypy.tool import gdb_pypy
-        ## reload(gdb_pypy)
-        ## gdb_pypy.RPyType.prog2typeids = self.prog2typeids # persist the cache
-        ## self.__class__ = gdb_pypy.RPyType
+        from pypy.tool import gdb_pypy
+        reload(gdb_pypy)
+        gdb_pypy.RPyType.prog2typeids = self.prog2typeids # persist the cache
+        self.__class__ = gdb_pypy.RPyType
         print self.do_invoke(arg, from_tty)
 
     def do_invoke(self, arg, from_tty):
-        obj = self.gdb.parse_and_eval(arg)
-        hdr = lookup(obj, '_gcheader')
-        tid = hdr['h_tid']
-        offset = tid & 0xFFFFFFFF # 64bit only
-        offset = int(offset) # convert from gdb.Value to python int
+        try:
+            offset = int(arg)
+        except ValueError:
+            obj = self.gdb.parse_and_eval(arg)
+            hdr = lookup(obj, '_gcheader')
+            tid = hdr['h_tid']
+            offset = tid & 0xFFFFFFFF # 64bit only
+            offset = int(offset) # convert from gdb.Value to python int
+
         typeids = self.get_typeids()
         if offset in typeids:
             return typeids[offset]

@@ -881,15 +881,15 @@ class AppTestCompiler:
         assert "0 ('hi')" not in output.getvalue()
 
     def test_print_to(self):
-         exec """if 1:
-         from StringIO import StringIO
-         s = StringIO()
-         print >> s, "hi", "lovely!"
-         assert s.getvalue() == "hi lovely!\\n"
-         s = StringIO()
-         print >> s, "hi", "lovely!",
-         assert s.getvalue() == "hi lovely!"
-         """ in {}
+        exec """if 1:
+        from StringIO import StringIO
+        s = StringIO()
+        print >> s, "hi", "lovely!"
+        assert s.getvalue() == "hi lovely!\\n"
+        s = StringIO()
+        print >> s, "hi", "lovely!",
+        assert s.getvalue() == "hi lovely!"
+        """ in {}
 
     def test_assert_with_tuple_arg(self):
         try:
