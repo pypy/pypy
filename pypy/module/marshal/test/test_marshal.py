@@ -184,7 +184,7 @@ class AppTestMarshal:
         import marshal
         # Yes, there is code that depends on this :-(
         raises(EOFError, marshal.loads, b'<test>')
-        raises(ValueError, marshal.loads, b'(test)')
+        raises((MemoryError, ValueError), marshal.loads, b'(test)')
 
 
 class AppTestSmallLong(AppTestMarshal):
