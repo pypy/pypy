@@ -1,7 +1,5 @@
 import sys
 
-import py
-
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.annlowlevel import (llhelper, MixLevelHelperAnnotator,
@@ -977,8 +975,6 @@ class WarmRunnerDesc(object):
             op.args[:3] = [closures[key]]
 
     def rewrite_force_virtual(self, vrefinfo):
-        if self.cpu.ts.name != 'lltype':
-            py.test.skip("rewrite_force_virtual: port it to ootype")
         all_graphs = self.translator.graphs
         vrefinfo.replace_force_virtual_with_call(all_graphs)
 
