@@ -72,16 +72,8 @@ def rstring_to_float_impl(s):
         raise ValueError
     return parts_to_float(sign, before_point, after_point, exponent)
 
-def oo_rstring_to_float(s):
-    from rpython.rtyper.annlowlevel import oostr
-    from rpython.rtyper.ootypesystem import ootype
-    lls = oostr(s)
-    return ootype.ooparse_float(lls)
-
 register_external(rstring_to_float, [SomeString(can_be_None=False)], float,
-                  llimpl=rstring_to_float_impl,
-                  ooimpl=oo_rstring_to_float,
-                  sandboxsafe=True)
+                  llimpl=rstring_to_float_impl, sandboxsafe=True)
 
 
 # float as string  -> sign, beforept, afterpt, exponent

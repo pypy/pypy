@@ -20,7 +20,7 @@ class CConfig:
 class RegisterStrtod(BaseLazyRegistering):
     def __init__(self):
         self.configure(CConfig)
-    
+
     @registering(rfloat._formatd)
     def register_formatd(self):
         ll_strtod = self.llexternal('LL_strtod_formatd',
@@ -59,14 +59,10 @@ class RegisterStrtod(BaseLazyRegistering):
 
             return s
 
-        def oofakeimpl(x, code, precision, flags):
-            return ootype.oostring(rfloat.formatd(x, code, precision, flags), -1)
-
         return extdef([float, lltype.Char, int, int],
                       SomeString(can_be_None=True),
                       'll_strtod.ll_strtod_formatd',
-                      llimpl=llimpl, oofakeimpl=oofakeimpl,
-                      sandboxsafe=True)
+                      llimpl=llimpl, sandboxsafe=True)
 
     @registering(rfloat.parts_to_float)
     def register_parts_to_float(self):
@@ -81,14 +77,10 @@ class RegisterStrtod(BaseLazyRegistering):
                 raise ValueError("Wrong literal for float")
             return res
 
-        def oofakeimpl(sign, beforept, afterpt, exponent):
-            return rfloat.parts_to_float(sign._str, beforept._str,
-                                         afterpt._str, exponent._str)
-
         tp = SomeString(can_be_None=True)
         return extdef([tp, tp, tp, tp], float,
                       'll_strtod.ll_strtod_parts_to_float', llimpl=llimpl,
-                      oofakeimpl=oofakeimpl, sandboxsafe=True)
+                      sandboxsafe=True)
 
 def ensure_decimal_point(s, precision):
     # make sure we have at least one character after the decimal point (and
