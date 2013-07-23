@@ -137,6 +137,7 @@ class __extend__(pairtype(SomeStatvfsResult, annmodel.SomeInteger)):
 
 
 s_StatResult = SomeStatResult()
+s_StatvfsResult = SomeStatvfsResult()
 
 
 def make_stat_result(tup):
@@ -161,6 +162,17 @@ class MakeStatResultEntry(extregistry.ExtRegistryEntry):
     def specialize_call(self, hop):
         from rpython.rtyper.module import r_os_stat
         return r_os_stat.specialize_make_stat_result(hop)
+
+
+class MakeStatvfsResultEntry(extregistry.ExtRegistryEntry):
+    _about_ = make_statvfs_result
+
+    def compute_result_annotation(self, s_tup):
+        return s_StatvfsResult
+
+    def specialize_call(self, hop):
+        from rpython.rtyper.module import r_os_stat
+        return r_os_stat.specialize_make_statvfs_result(hop)
 
 # ____________________________________________________________
 #
@@ -410,16 +422,11 @@ def register_statvfs_variant(name, traits):
         ll_tup = lltype.malloc(TP.TO)
         for i, (fieldname, TYPE) in enumerate(STATVFS_FIELDS):
             val = getattr(st, fieldname)
-            if isinstance(TYPE, lltype.Number):
-                rffi.setintfield(ll_tup, 'item%d' % i, int(val))
-            elif TYPE is lltype.Float:
-                setattr(ll_tup, 'item%d' % i, float(val))
-            else:
-                setattr(ll_tup, 'item%d' % i, val)
+            rffi.setintfield(ll_tup, 'item%d' % i, int(val))
         return ll_tup
 
     return extdef(
-        [s_arg], s_StatResult, "ll_os.ll_os_%s" % (name,),
+        [s_arg], s_StatvfsResult, "ll_os.ll_os_%s" % (name,),
         llimpl=posix_statvfs_llimpl, llfakeimpl=posix_fakeimpl
     )
 

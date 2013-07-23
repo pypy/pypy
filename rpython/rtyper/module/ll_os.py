@@ -1703,6 +1703,11 @@ class RegisterOs(BaseLazyRegistering):
         from rpython.rtyper.module import ll_os_stat
         return ll_os_stat.register_statvfs_variant('fstatvfs', StringTraits())
 
+    @registering_str_unicode(os.statvfs)
+    def register_os_statvfs(self, traits):
+        from rpython.rtyper.module import ll_os_stat
+        return ll_os_stat.register_statvfs_variant('statvfs', traits)
+
 
     # ------------------------------- os.W* ---------------------------------
 

@@ -331,7 +331,7 @@ If newval is omitted, return the current setting.
 @unwrap_spec(fd=c_int)
 def fstatvfs(space, fd):
     try:
-        st = os.fstat(fd)
+        st = os.fstatvfs(fd)
     except OSError as e:
         raise wrap_oserror(space, e)
     else:
