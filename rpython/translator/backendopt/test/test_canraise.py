@@ -1,6 +1,4 @@
-import py
 from rpython.translator.translator import TranslationContext, graphof
-from rpython.translator.simplify import get_funcobj
 from rpython.translator.backendopt.canraise import RaiseAnalyzer
 from rpython.translator.backendopt.all import backend_optimizations
 from rpython.conftest import option
@@ -144,7 +142,7 @@ class TestCanRaise(object):
         # check that we fished the expected ops
         def check_call(op, fname):
             assert op.opname == "direct_call"
-            assert get_funcobj(op.args[0].value)._name == fname
+            assert op.args[0].value._obj._name == fname
         check_call(op_call_f, "f")
         check_call(op_call_m, "m")
 

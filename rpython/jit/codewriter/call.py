@@ -8,7 +8,7 @@ from rpython.jit.codewriter.jitcode import JitCode
 from rpython.jit.codewriter.effectinfo import (VirtualizableAnalyzer,
     QuasiImmutAnalyzer, RandomEffectsAnalyzer, effectinfo_from_writeanalyze,
     EffectInfo, CallInfoCollection)
-from rpython.translator.simplify import get_funcobj, get_functype
+from rpython.translator.simplify import get_functype
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.translator.backendopt.canraise import RaiseAnalyzer
 from rpython.translator.backendopt.writeanalyze import ReadWriteAnalyzer
@@ -86,7 +86,7 @@ class CallControl(object):
         if is_candidate is None:
             is_candidate = self.is_candidate
         if op.opname == 'direct_call':
-            funcobj = get_funcobj(op.args[0].value)
+            funcobj = op.args[0].value._obj
             graph = funcobj.graph
             if is_candidate(graph):
                 return [graph]     # common case: look inside this graph
@@ -130,7 +130,7 @@ class CallControl(object):
             funcptr = op.args[0].value
             if self.jitdriver_sd_from_portal_runner_ptr(funcptr) is not None:
                 return 'recursive'
-            funcobj = get_funcobj(funcptr)
+            funcobj = funcptr._obj
             if getattr(funcobj, 'graph', None) is None:
                 return 'residual'
             targetgraph = funcobj.graph
@@ -222,7 +222,7 @@ class CallControl(object):
         loopinvariant = False
         call_release_gil_target = llmemory.NULL
         if op.opname == "direct_call":
-            funcobj = get_funcobj(op.args[0].value)
+            funcobj = op.args[0].value._obj
             assert getattr(funcobj, 'calling_conv', 'c') == 'c', (
                 "%r: getcalldescr() with a non-default call ABI" % (op,))
             func = getattr(funcobj, '_callable', None)

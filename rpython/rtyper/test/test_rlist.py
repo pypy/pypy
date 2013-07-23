@@ -1382,7 +1382,6 @@ class BaseTestRlist(BaseRtypingTest):
         assert res == True
 
     def test_immutable_list_out_of_instance(self):
-        from rpython.translator.simplify import get_funcobj
         for immutable_fields in (["a", "b"], ["a", "b", "y[*]"]):
             class A(object):
                 _immutable_fields_ = immutable_fields
@@ -1401,7 +1400,7 @@ class BaseTestRlist(BaseRtypingTest):
             block = graph.startblock
             op = block.operations[-1]
             assert op.opname == 'direct_call'
-            func = get_funcobj(op.args[0].value)._callable
+            func = op.args[0].value._obj._callable
             assert ('foldable' in func.func_name) == \
                    ("y[*]" in immutable_fields)
 

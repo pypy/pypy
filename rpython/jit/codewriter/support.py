@@ -15,7 +15,6 @@ from rpython.rtyper.llinterp import LLInterpreter
 from rpython.rtyper.lltypesystem import lltype, rclass, rffi, llmemory, rstr as ll_rstr, rdict as ll_rdict
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.lltypesystem.module import ll_math
-from rpython.translator.simplify import get_funcobj
 from rpython.translator.translator import TranslationContext
 from rpython.translator.unsimplify import split_block
 
@@ -149,7 +148,7 @@ def decode_hp_hint_args(op):
 def maybe_on_top_of_llinterp(rtyper, fnptr):
     # Run a generated graph on top of the llinterp for testing.
     # When translated, this just returns the fnptr.
-    funcobj = get_funcobj(fnptr)
+    funcobj = fnptr._obj
     if hasattr(funcobj, 'graph'):
         llinterp = LLInterpreter(rtyper)  #, exc_data_ptr=exc_data_ptr)
         def on_top_of_llinterp(*args):
@@ -772,7 +771,7 @@ def get_send_oopspec(SELFTYPE, name):
 
 def decode_builtin_call(op):
     if op.opname == 'direct_call':
-        fnobj = get_funcobj(op.args[0].value)
+        fnobj = op.args[0].value._obj
         opargs = op.args[1:]
         return get_call_oopspec_opargs(fnobj, opargs)
     elif op.opname == 'gc_identityhash':

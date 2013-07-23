@@ -1,4 +1,4 @@
-from rpython.translator.simplify import get_graph, get_funcobj
+from rpython.translator.simplify import get_graph
 from rpython.tool.algo.unionfind import UnionFind
 
 
@@ -52,7 +52,7 @@ class GraphAnalyzer(object):
         return self.bottom_result()
 
     def analyze_external_call(self, op, seen=None):
-        funcobj = get_funcobj(op.args[0].value)
+        funcobj = op.args[0].value._obj
         result = self.bottom_result()
         if hasattr(funcobj, '_callbacks'):
             bk = self.translator.annotator.bookkeeper

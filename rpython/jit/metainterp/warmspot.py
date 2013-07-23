@@ -247,7 +247,7 @@ class WarmRunnerDesc(object):
         test_ajit::test_inline_jit_merge_point
         """
         from rpython.translator.backendopt.inline import (
-            get_funcobj, inlinable_static_callers, auto_inlining)
+            inlinable_static_callers, auto_inlining)
 
         jmp_calls = {}
         def get_jmp_call(graph, _inline_jit_merge_point_):
@@ -277,7 +277,7 @@ class WarmRunnerDesc(object):
             msg = ("The first operation of an _inline_jit_merge_point_ graph must be "
                    "a direct_call to the function passed to @jitdriver.inline()")
             assert op_jmp_call.opname == 'direct_call', msg
-            jmp_funcobj = get_funcobj(op_jmp_call.args[0].value)
+            jmp_funcobj = op_jmp_call.args[0].value._obj
             assert jmp_funcobj._callable is _inline_jit_merge_point_, msg
             jmp_block.operations.remove(op_jmp_call)
             return op_jmp_call, jmp_funcobj.graph

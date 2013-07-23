@@ -14,7 +14,6 @@ from rpython.rlib.jit import _we_are_jitted
 from rpython.rlib.rgc import lltype_is_gc
 from rpython.rtyper.lltypesystem import lltype, llmemory, rstr, rclass, rffi
 from rpython.rtyper.rclass import IR_QUASIIMMUTABLE, IR_QUASIIMMUTABLE_ARRAY
-from rpython.translator.simplify import get_funcobj
 from rpython.translator.unsimplify import varoftype
 
 class UnsupportedMallocFlags(Exception):
@@ -1444,7 +1443,7 @@ class Transformer(object):
         # because functions that are neither nonneg nor fast don't have an
         # oopspec any more
         # xxx break of abstraction:
-        func = get_funcobj(op.args[0].value)._callable
+        func = op.args[0].value._obj._callable
         # base hints on the name of the ll function, which is a bit xxx-ish
         # but which is safe for now
         assert func.func_name.startswith('ll_')

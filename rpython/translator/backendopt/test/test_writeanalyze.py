@@ -1,7 +1,5 @@
-import py
 from rpython.rtyper.lltypesystem import lltype
 from rpython.translator.translator import TranslationContext, graphof
-from rpython.translator.simplify import get_funcobj
 from rpython.translator.backendopt.writeanalyze import WriteAnalyzer, top_set
 from rpython.translator.backendopt.writeanalyze import ReadWriteAnalyzer
 from rpython.translator.backendopt.all import backend_optimizations
@@ -159,7 +157,7 @@ class TestWriteAnalyze(BaseTest):
         # check that we fished the expected ops
         def check_call(op, fname):
             assert op.opname == "direct_call"
-            assert get_funcobj(op.args[0].value)._name == fname
+            assert op.args[0].value._obj._name == fname
         check_call(op_call_f, "f")
         check_call(op_call_m, "m")
 
@@ -193,7 +191,6 @@ class TestWriteAnalyze(BaseTest):
 
     def test_llexternal(self):
         from rpython.rtyper.lltypesystem.rffi import llexternal
-        from rpython.rtyper.lltypesystem import lltype
         z = llexternal('z', [lltype.Signed], lltype.Signed)
         def f(x):
             return z(x)
@@ -307,7 +304,7 @@ class TestLLtypeReadWriteAnalyze(BaseTest):
 
         # check that we fished the expected ops
         assert op_call_f.opname == "direct_call"
-        assert get_funcobj(op_call_f.args[0].value)._name == 'A.f'
+        assert op_call_f.args[0].value._obj._name == 'A.f'
 
         result = wa.analyze(op_call_f)
         assert len(result) == 2

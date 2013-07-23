@@ -8,7 +8,7 @@ from rpython.tool.algo import sparsemat
 from rpython.translator.backendopt import removenoops
 from rpython.translator.backendopt.canraise import RaiseAnalyzer
 from rpython.translator.backendopt.support import log, find_loop_blocks
-from rpython.translator.simplify import join_blocks, cleanup_graph, get_graph, get_funcobj
+from rpython.translator.simplify import join_blocks, cleanup_graph, get_graph
 from rpython.translator.unsimplify import copyvar, split_block
 
 
@@ -63,7 +63,7 @@ def iter_callsites(graph, calling_what):
     for block in graph.iterblocks():
         for i, op in enumerate(block.operations):
             if op.opname == "direct_call":
-                funcobj = get_funcobj(op.args[0].value)
+                funcobj = op.args[0].value._obj
             elif op.opname == "oosend":
                 funcobj = get_meth_from_oosend(op)
                 if funcobj is None:
@@ -218,7 +218,7 @@ class BaseInliner(object):
     def get_graph_from_op(self, op):
         assert op.opname in ('direct_call', 'oosend')
         if op.opname == 'direct_call':
-            return get_funcobj(self.op.args[0].value).graph
+            return self.op.args[0].value._obj.graph
         else:
             return get_meth_from_oosend(op).graph
 
@@ -246,7 +246,7 @@ class BaseInliner(object):
         d = {}
         for i, op in enumerate(block.operations):
             if op.opname == "direct_call":
-                funcobj = get_funcobj(op.args[0].value)
+                funcobj = op.args[0].value._obj
             elif op.opname == "oosend":
                 funcobj = get_meth_from_oosend(op)
                 if funcobj is None:
@@ -622,7 +622,7 @@ def inlinable_static_callers(graphs, store_calls=False, ok_to_call=None):
         for block in parentgraph.iterblocks():
             for op in block.operations:
                 if op.opname == "direct_call":
-                    funcobj = get_funcobj(op.args[0].value)
+                    funcobj = op.args[0].value._obj
                     graph = getattr(funcobj, 'graph', None)
                     if graph is not None and graph in ok_to_call:
                         if getattr(getattr(funcobj, '_callable', None),
@@ -654,7 +654,7 @@ def instrument_inline_candidates(graphs, threshold):
                 op = ops[i]
                 i -= 1
                 if op.opname == "direct_call":
-                    funcobj = get_funcobj(op.args[0].value)
+                    funcobj = op.args[0].value._obj
                     graph = getattr(funcobj, 'graph', None)
                     if graph is not None:
                         if getattr(getattr(funcobj, '_callable', None),
