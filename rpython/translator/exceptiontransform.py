@@ -402,7 +402,6 @@ class ExceptionTransformer(object):
         spaceop = block.operations[-1]
         alloc_shortcut = self.check_for_alloc_shortcut(spaceop)
 
-        # XXX: does alloc_shortcut make sense also for ootype?
         if alloc_shortcut:
             var_no_exc = self.gen_nonnull(spaceop.result, llops)
         else:

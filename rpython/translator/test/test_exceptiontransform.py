@@ -65,8 +65,6 @@ class TestExceptionTransform:
         assert f() == 1
 
     def test_passthrough(self):
-        if self.type_system == 'ootype':
-            py.test.skip("XXX")
         def one(x):
             if x:
                 raise ValueError()
@@ -145,8 +143,6 @@ class TestExceptionTransform:
         assert result == 2
 
     def test_raises(self):
-        if self.type_system == 'ootype':
-            py.test.skip("XXX")
         def foo(x):
             if x:
                 raise ValueError()
