@@ -1698,6 +1698,12 @@ class RegisterOs(BaseLazyRegistering):
         from rpython.rtyper.module import ll_os_stat
         return ll_os_stat.register_stat_variant('lstat', traits)
 
+    @registering(os.fstatvfs)
+    def register_os_fstatvfs(self):
+        from rpython.rtyper.module import ll_os_stat
+        return ll_os_stat.register_statvfs_variant('fstatvfs', StringTraits())
+
+
     # ------------------------------- os.W* ---------------------------------
 
     w_star = ['WCOREDUMP', 'WIFCONTINUED', 'WIFSTOPPED',
