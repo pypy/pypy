@@ -347,18 +347,19 @@ class Assembler386(BaseAssembler):
         mc.CALL(imm(func))
         # eax has result
         if IS_X86_32:
-            mc.ADD_ri(esp.value, 5 * WORD)
+            # ||val2|val1|retaddr|x||x|x|val2|val1|
+            mc.MOV_sr(7 * WORD, eax.value)
+            # ||result|val1|retaddr|x||x|x|val2|val1|
         else:
-            mc.ADD_ri(esp.value, WORD)
-        #
-        # result in eax, save (not sure if necessary)
-        mc.PUSH_r(eax.value)
+            # ||val2|val1||retaddr|x||
+            mc.MOV_sr(3 * WORD, eax.value)
+            # ||result|val1||retaddr|x||
         #
         self._pop_all_regs_from_frame(mc, [], withfloats=False,
                                       callee_only=True)
         #
-        mc.POP_r(eax.value)
-        mc.RET16_i(2 * WORD)
+        # only remove one arg:
+        mc.RET16_i(1 * WORD)
         
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
         self.ptr_eq_slowpath = rawstart
@@ -465,11 +466,10 @@ class Assembler386(BaseAssembler):
             self._pop_all_regs_from_frame(mc, [], withfloats, callee_only=True)
 
             if descr.returns_modified_object:
-                if IS_X86_32:
-                    mc.MOV_rs(eax.value, 3 * WORD)
-                else:
-                    mc.MOV_rs(eax.value, WORD)
-            mc.RET16_i(WORD)
+                # preserve argument which now holds the result
+                mc.RET()
+            else:
+                mc.RET16_i(WORD)
         else:
             if IS_X86_32:
                 mc.MOV_rs(edx.value, 5 * WORD)
@@ -481,7 +481,7 @@ class Assembler386(BaseAssembler):
             mc.MOV(exc1, RawEspLoc(WORD * 7, INT))
 
             if IS_X86_32:
-                mc.POP_r(edx.value) # return value
+                mc.POP_r(ecx.value) # return value
             else:
                 mc.POP_r(edi.value) # return value
 
@@ -2138,8 +2138,10 @@ class Assembler386(BaseAssembler):
         mc.PUSH(a_base)
         func = self.ptr_eq_slowpath
         mc.CALL(imm(func))
+        # result still on stack
         assert isinstance(result_loc, RegLoc)
-        mc.MOV_rr(result_loc.value, eax.value)
+        mc.POP_r(result_loc.value)
+        
         
     def _stm_barrier_fastpath(self, mc, descr, arglocs, is_frame=False,
                               align_stack=False):
@@ -2166,15 +2168,17 @@ class Assembler386(BaseAssembler):
             # ||retadr|...||
         func = descr.get_b_slowpath(helper_num)
         mc.CALL(imm(func))
-
-        # result in eax, except if is_frame
+        # get result:
         if is_frame:
+            # result in register:
             if IS_X86_32:
-                mc.MOV_rr(loc_base.value, edx.value)
+                mc.MOV_rr(loc_base.value, ecx.value)
             else:
                 mc.MOV_rr(loc_base.value, edi.value)
         else:
-            mc.MOV_rr(loc_base.value, eax.value)
+            # result where argument was:
+            mc.POP_r(loc_base.value)
+
             
         if is_frame and align_stack:
             mc.ADD_ri(esp.value, 16 - WORD) # erase the return address
