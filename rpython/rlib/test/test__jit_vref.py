@@ -4,14 +4,11 @@ from rpython.rlib.jit import vref_None, non_virtual_ref, InvalidVirtualRef
 from rpython.rlib._jit_vref import SomeVRef
 from rpython.annotator import model as annmodel
 from rpython.annotator.annrpython import RPythonAnnotator
-from rpython.rtyper.test.test_llinterp import interpret
 from rpython.rtyper.lltypesystem.rclass import OBJECTPTR
-from rpython.rtyper.ootypesystem.rclass import OBJECT
 from rpython.rtyper.lltypesystem import lltype
 
 from rpython.rtyper.test.tool import BaseRtypingTest
 
-from rpython.rtyper.ootypesystem import ootype
 
 class X(object):
     pass
