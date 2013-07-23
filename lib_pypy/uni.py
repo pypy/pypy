@@ -27,7 +27,6 @@ class Engine(object):
         self.engine = CoreEngine(db_str)
         self.db = Database(self)
         self.terms = TermPool()
-        self.many_solutions = False
 
 class SolutionIterator(object):
     """ A wrapper around unipycation.CoreSolutionIterator. """
