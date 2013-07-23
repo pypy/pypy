@@ -318,7 +318,7 @@ class TestLLtype(ListTests, LLJitMixin):
         assert res == f(37)
         # There is the one actual field on a, plus several fields on the list
         # itself
-        self.check_resops(getfield_gc=10)
+        self.check_resops(getfield_gc=7)
 
     def test_conditional_call_append(self):
         jitdriver = JitDriver(greens = [], reds = 'auto')
@@ -347,5 +347,5 @@ class TestLLtype(ListTests, LLJitMixin):
             return len(l)
 
         res = self.meta_interp(f, [10])
-        assert res == 10
+        assert res == 0
         self.check_resops(call=0, cond_call=2)
