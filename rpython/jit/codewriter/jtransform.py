@@ -640,9 +640,6 @@ class Transformer(object):
                               op.result)
 
     def _array_of_voids(self, ARRAY):
-        #if isinstance(ARRAY, ootype.Array):
-        #    return ARRAY.ITEM == ootype.Void
-        #else:
         return ARRAY.OF == lltype.Void
 
     def rewrite_op_getfield(self, op):
