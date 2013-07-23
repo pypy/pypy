@@ -239,6 +239,7 @@ class World(object):
 
     def parse(self, f, textonly=True):
         for line in f:
+            line = line[line.find('#') + 1:].strip()
             if line.startswith('BACKEND '):
                 self.backend_name = line.split(' ')[1].strip()
             elif line.startswith('CODE_DUMP '):

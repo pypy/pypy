@@ -26,8 +26,11 @@ def parse_log_file(filename, verbose=True):
 
 def parse_log(lines, verbose=False):
     color = "(?:\x1b.*?m)?"
-    r_start = re.compile(color + r"\[([0-9a-fA-F]+)\] \{([\w-]+)" + color + "$")
-    r_stop  = re.compile(color + r"\[([0-9a-fA-F]+)\] ([\w-]+)\}" + color + "$")
+    thread = "\d+#\s"
+    r_start = re.compile(color + thread + 
+                         r"\[([0-9a-fA-F]+)\] \{([\w-]+)" + color + "$")
+    r_stop  = re.compile(color + thread +
+                         r"\[([0-9a-fA-F]+)\] ([\w-]+)\}" + color + "$")
     lasttime = 0
     log = DebugLog()
     time_decrase = False
