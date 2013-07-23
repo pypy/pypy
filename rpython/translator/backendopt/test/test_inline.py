@@ -550,7 +550,7 @@ class TestInline(BaseRtypingTest):
 
         eval_func, t = self.check_auto_inlining(f, [])
         f_graph = graphof(t, f)
-        called_graphs = collect_called_graphs(f_graph, t, include_oosend=False)
+        called_graphs = collect_called_graphs(f_graph, t)
         assert len(called_graphs) == 0
 
         result = eval_func([])
