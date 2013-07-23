@@ -334,3 +334,18 @@ class TestLLtype(ListTests, LLJitMixin):
         res = self.meta_interp(f, [10])
         assert res == 10
         self.check_resops(call=0, cond_call=2)
+
+    def test_conditional_call_pop(self):
+        jitdriver = JitDriver(greens = [], reds = 'auto')
+
+        def f(n):
+            l = range(n)
+            while n > 0:
+                jitdriver.jit_merge_point()
+                l.pop()
+                n -= 1
+            return len(l)
+
+        res = self.meta_interp(f, [10])
+        assert res == 10
+        self.check_resops(call=0, cond_call=2)

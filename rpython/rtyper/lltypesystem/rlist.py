@@ -262,17 +262,14 @@ def _ll_list_resize_ge(l, newsize):
     jit.conditional_call(len(l.items) < newsize, _ll_list_resize_really, l, newsize, True)
     l.length = newsize
 
-@jit.look_inside_iff(lambda l, newsize: jit.isconstant(len(l.items)) and jit.isconstant(newsize))
-@jit.oopspec("list._resize_le(l, newsize)")
 def _ll_list_resize_le(l, newsize):
     """This is called with 'newsize' smaller than the current length of the
     list.  If 'newsize' falls lower than half the allocated size, proceed
     with the realloc() to shrink the list.
     """
-    if newsize >= (len(l.items) >> 1) - 5:
-        l.length = newsize
-    else:
-        _ll_list_resize_really(l, newsize, False)
+    cond = newsize < (len(l.items) >> 1) - 5
+    jit.conditional_call(cond, _ll_list_resize_hint_really, l, newsize, False)
+    l.length = newsize
 
 def ll_append_noresize(l, newitem):
     length = l.length
