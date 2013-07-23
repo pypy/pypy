@@ -3,7 +3,6 @@ import py
 from rpython.rtyper.extfunc import BaseLazyRegistering, extdef, registering
 from rpython.rlib import rfloat
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rtyper.ootypesystem import ootype
 from rpython.rlib import rposix
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.conftest import cdir
