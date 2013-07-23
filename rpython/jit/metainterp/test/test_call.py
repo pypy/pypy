@@ -45,13 +45,12 @@ class TestCall(LLJitMixin):
         self.meta_interp(main, [10])
 
     def test_cond_call(self):
-        l = []
-
-        def f(n):
+        def f(l, n):
             l.append(n)
 
         def main(n):
-            jit.conditional_call(n == 10, f, n)
+            l = []
+            jit.conditional_call(n == 10, f, l, n)
             return len(l)
 
         assert self.interp_operations(main, [10]) == 1

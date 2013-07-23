@@ -1357,8 +1357,9 @@ class Transformer(object):
     def rewrite_op_jit_conditional_call(self, op):
         callop = SpaceOperation('direct_call', op.args[1:], op.result)
         calldescr = self.callcontrol.getcalldescr(callop)
+        assert not calldescr.get_extra_info().check_forces_virtual_or_virtualizable()
         op1 = self.rewrite_call(op, 'conditional_call',
-                                op.args[:2], args=op.args[1:],
+                                op.args[:2], args=op.args[2:],
                                 calldescr=calldescr)
         if self.callcontrol.calldescr_canraise(calldescr):
             op1 = [op1, SpaceOperation('-live-', [], None)]

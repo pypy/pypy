@@ -79,6 +79,11 @@ def do_call(cpu, metainterp, argboxes, descr):
 do_call_loopinvariant = do_call
 do_call_may_force = do_call
 
+def do_cond_call(cpu, metainterp, argboxes, descr):
+    condbox = argboxes[0]
+    if condbox.getint():
+        do_call(cpu, metainterp, argboxes[1:], descr)
+
 def do_getarrayitem_gc(cpu, _, arraybox, indexbox, arraydescr):
     array = arraybox.getref_base()
     index = indexbox.getint()
@@ -346,7 +351,6 @@ def _make_execute_list():
                          rop.CALL_ASSEMBLER,
                          rop.COND_CALL_GC_WB,
                          rop.COND_CALL_GC_WB_ARRAY,
-                         rop.COND_CALL,
                          rop.DEBUG_MERGE_POINT,
                          rop.JIT_DEBUG,
                          rop.SETARRAYITEM_RAW,
