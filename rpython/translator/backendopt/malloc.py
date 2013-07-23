@@ -1,7 +1,6 @@
 from rpython.flowspace.model import Variable, Constant, SpaceOperation
 from rpython.tool.algo.unionfind import UnionFind
 from rpython.rtyper.lltypesystem import lltype
-from rpython.rtyper.ootypesystem import ootype
 from rpython.translator import simplify
 from rpython.translator.backendopt import removenoops
 from rpython.translator.backendopt.support import log
@@ -538,10 +537,7 @@ class LLTypeMallocRemover(BaseMallocRemover):
 
 
 def remove_simple_mallocs(graph, type_system='lltypesystem', verbose=True):
-    if type_system == 'lltypesystem':
-        remover = LLTypeMallocRemover(verbose)
-    else:
-        remover = OOTypeMallocRemover(verbose)
+    remover = LLTypeMallocRemover(verbose)
     return remover.remove_simple_mallocs(graph)
 
 
