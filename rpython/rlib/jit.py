@@ -1021,8 +1021,9 @@ class ConditionalCallEntry(ExtRegistryEntry):
     def specialize_call(self, hop):
         from rpython.rtyper.lltypesystem import lltype
 
-        hop.exception_is_here()
         args_v = hop.inputargs(lltype.Bool, lltype.Void, *hop.args_r[2:])
+        args_v[1] = hop.args_r[1].get_unique_llfn()
+        hop.exception_is_here()
         return hop.genop('jit_conditional_call', args_v)
 
 class Counters(object):
