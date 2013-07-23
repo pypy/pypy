@@ -529,6 +529,7 @@ class Assembler386(BaseAssembler):
         #
         self._call_header_with_stack_check()
         self._check_frame_depth_debug(self.mc)
+
         operations = regalloc.prepare_loop(inputargs, operations, looptoken,
                                            clt.allgcrefs)
         if logger:
@@ -1021,6 +1022,8 @@ class Assembler386(BaseAssembler):
 
     
     def genop_ptr_eq(self, op, arglocs, result_loc):
+        if not self.cpu.gc_ll_descr.stm:
+            self.genop_int_eq(op, arglocs, result_loc)
         assert self.cpu.gc_ll_descr.stm
         rl = result_loc.lowest8bits()
         self._stm_ptr_eq_fastpath(self.mc, arglocs, result_loc)
@@ -1029,6 +1032,8 @@ class Assembler386(BaseAssembler):
         self.mc.MOVZX8_rr(result_loc.value, rl.value)
 
     def genop_ptr_ne(self, op, arglocs, result_loc):
+        if not self.cpu.gc_ll_descr.stm:
+            self.genop_int_ne(op, arglocs, result_loc)
         assert self.cpu.gc_ll_descr.stm
         rl = result_loc.lowest8bits()
         self._stm_ptr_eq_fastpath(self.mc, arglocs, result_loc)
@@ -1038,6 +1043,10 @@ class Assembler386(BaseAssembler):
 
     def genop_guard_ptr_eq(self, op, guard_op, guard_token, 
                            arglocs, result_loc):
+        if not self.cpu.gc_ll_descr.stm:
+            self.genop_guard_int_eq(op, guard_op, guard_token,
+                                    arglocs, result_loc)
+        assert not self.cpu.gc_ll_descr.stm
         guard_opnum = guard_op.getopnum()
         self._stm_ptr_eq_fastpath(self.mc, arglocs, result_loc)
         self.mc.TEST_rr(eax.value, eax.value)
@@ -1048,6 +1057,10 @@ class Assembler386(BaseAssembler):
 
     def genop_guard_ptr_ne(self, op, guard_op, guard_token, 
                            arglocs, result_loc):
+        if not self.cpu.gc_ll_descr.stm:
+            self.genop_guard_int_ne(op, guard_op, guard_token,
+                                    arglocs, result_loc)
+        assert not self.cpu.gc_ll_descr.stm
         guard_opnum = guard_op.getopnum()
         self._stm_ptr_eq_fastpath(self.mc, arglocs, result_loc)
         self.mc.TEST_rr(eax.value, eax.value)

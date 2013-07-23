@@ -112,10 +112,12 @@ class GcLLDescription(GcCache):
             descr = op.getdescr()
             if not we_are_translated() and descr is None:
                 return
-            llref = cast_instance_to_gcref(descr)
+            llref = rgc.cast_instance_to_gcref(descr)
             new_llref = rgc._make_sure_does_not_move(llref)
             new_d = rgc.try_cast_gcref_to_instance(AbstractDescr, new_llref)
-            op.setdescr(new_d)
+            if we_are_translated():
+                # tests don't allow this
+                op.setdescr(new_d)
             gcrefs_output_list.append(new_llref)
 
     def rewrite_assembler(self, cpu, operations, gcrefs_output_list):

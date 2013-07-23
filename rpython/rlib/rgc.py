@@ -30,7 +30,7 @@ def stm_get_original_copy(obj):
     """ Returns a non-moving reference to an object (only use if obj is
     already OLD!)
     """
-    return lltype.nullptr(llmemory.GCREF)
+    return obj
 
 # ____________________________________________________________
 # Annotation and specialization
@@ -119,7 +119,7 @@ def _make_sure_does_not_move(p):
     on objects that are already a bit old, so have a chance to be
     already non-movable."""
     if not we_are_translated():
-        return
+        return p
     i = 0
     while can_move(p):
         if i > 6:

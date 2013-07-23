@@ -344,7 +344,7 @@ class TestStm(RewriteTests):
         self.check_rewrite("""
             [i1, i2]
             i3 = getfield_raw(i1, descr=tydescr)
-            keepalive(i3)     # random ignored operation
+            keepalive(i3)
             i4 = getfield_raw(i2, descr=tydescr)
             jump(i3, i4)
         """, """
