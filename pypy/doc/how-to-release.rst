@@ -30,7 +30,7 @@ Release Steps
 * update README
 * change the tracker to have a new release tag to file bugs against
 * go to pypy/tool/release and run:
-  force-builds.py /release/<release branch>
+  force-builds.py <release branch>
 * wait for builds to complete, make sure there are no failures
 * upload binaries to https://bitbucket.org/pypy/pypy/downloads
 
