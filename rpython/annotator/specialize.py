@@ -39,8 +39,8 @@ def flatten_star_args(funcdesc, args_s):
             graph.startblock = newstartblock
             argnames = argnames + ['.star%d' % i for i in range(nb_extra_args)]
             graph.signature = Signature(argnames)
-            # note that we can mostly ignore defaults: if nb_extra_args > 0, 
-            # then defaults aren't applied.  if nb_extra_args == 0, then this 
+            # note that we can mostly ignore defaults: if nb_extra_args > 0,
+            # then defaults aren't applied.  if nb_extra_args == 0, then this
             # just removes the *arg and the defaults keep their meaning.
             if nb_extra_args > 0:
                 graph.defaults = None   # shouldn't be used in this case
@@ -66,7 +66,7 @@ def default_specialize(funcdesc, args_s):
             if jit_look_inside:
                 access_directly = True
                 key = (AccessDirect, key)
-                break                
+                break
             else:
                 new_flags = s_obj.flags.copy()
                 del new_flags['access_directly']
@@ -331,8 +331,8 @@ def maybe_star_args(funcdesc, key, args_s):
     if key1 is not None:
         key = key + key1
     return funcdesc.cachedgraph(key, builder=builder)
- 
-def specialize_argvalue(funcdesc, args_s, *argindices):
+
+def _get_key(args_s, argindices):
     from rpython.annotator.model import SomePBC
     key = []
     for i in argindices:
@@ -347,6 +347,9 @@ def specialize_argvalue(funcdesc, args_s, *argindices):
             raise Exception("specialize:arg(%d): argument not constant: %r"
                             % (i, s))
     key = tuple(key)
+
+def specialize_argvalue(funcdesc, args_s, *argindices):
+    key = _get_key(args_s, argindices)
     return maybe_star_args(funcdesc, key, args_s)
 
 def specialize_arg_or_var(funcdesc, args_s, *argindices):

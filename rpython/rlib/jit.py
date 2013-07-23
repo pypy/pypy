@@ -1003,7 +1003,7 @@ class Entry(ExtRegistryEntry):
 def _jit_conditional_call(condition, function, *args):
     pass
 
-@specialize.arg(1)
+@specialize.ll_and_arg(1)
 def conditional_call(condition, function, *args):
     if we_are_jitted():
         _jit_conditional_call(condition, function, *args)

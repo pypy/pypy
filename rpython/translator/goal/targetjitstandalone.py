@@ -6,6 +6,7 @@ from rpython.rlib import jit
 from rpython.jit.codewriter.policy import JitPolicy
 
 driver = jit.JitDriver(greens = [], reds = 'auto')
+driver2 = jit.JitDriver(greens = [], reds = 'auto')
 
 def main(count):
     i = 0
@@ -13,6 +14,15 @@ def main(count):
     while i < count:
         driver.jit_merge_point()
         l.append(i)
+        i += 1
+    l = main2(l, count)
+    return l
+
+def main2(l, count):
+    i = 0
+    while i < count:
+        driver2.jit_merge_point()
+        l.pop()
         i += 1
     return l
 
