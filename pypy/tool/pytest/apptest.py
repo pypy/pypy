@@ -72,7 +72,7 @@ def run_with_python(python_, target_, usemodules, **definitions):
     helpers = r"""# -*- encoding: utf-8 -*-
 if 1:
     import sys
-    sys.path.append('%s')
+    sys.path.append(%r)
 %s
     def skip(message):
         print(message)
