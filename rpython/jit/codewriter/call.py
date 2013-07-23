@@ -8,7 +8,6 @@ from rpython.jit.codewriter.jitcode import JitCode
 from rpython.jit.codewriter.effectinfo import (VirtualizableAnalyzer,
     QuasiImmutAnalyzer, RandomEffectsAnalyzer, effectinfo_from_writeanalyze,
     EffectInfo, CallInfoCollection)
-from rpython.translator.simplify import get_functype
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.translator.backendopt.canraise import RaiseAnalyzer
 from rpython.translator.backendopt.writeanalyze import ReadWriteAnalyzer
@@ -191,7 +190,7 @@ class CallControl(object):
         interp to really do the call corresponding to 'inline_call' ops.
         """
         fnptr = self.rtyper.type_system.getcallable(graph)
-        FUNC = get_functype(lltype.typeOf(fnptr))
+        FUNC = lltype.typeOf(fnptr).TO
         assert self.rtyper.type_system.name == "lltypesystem"
         fnaddr = llmemory.cast_ptr_to_adr(fnptr)
         NON_VOID_ARGS = [ARG for ARG in FUNC.ARGS if ARG is not lltype.Void]
@@ -212,7 +211,7 @@ class CallControl(object):
                                         if x.concretetype is not lltype.Void]
         RESULT = op.result.concretetype
         # check the number and type of arguments
-        FUNC = get_functype(op.args[0].concretetype)
+        FUNC = op.args[0].concretetype.TO
         ARGS = FUNC.ARGS
         assert NON_VOID_ARGS == [T for T in ARGS if T is not lltype.Void]
         assert RESULT == FUNC.RESULT

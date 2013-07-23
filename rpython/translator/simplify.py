@@ -13,20 +13,12 @@ from rpython.rlib import rarithmetic
 from rpython.translator import unsimplify
 from rpython.translator.backendopt import ssa
 from rpython.rtyper.lltypesystem import lloperation, lltype
-from rpython.rtyper.ootypesystem import ootype
-
-def get_functype(TYPE):
-    if isinstance(TYPE, lltype.Ptr):
-        return TYPE.TO
-    elif isinstance(TYPE, (ootype.StaticMethod, ootype.ForwardReference)):
-        return TYPE
-    assert False
 
 def get_graph(arg, translator):
     if isinstance(arg, Variable):
         return None
     f = arg.value
-    if not isinstance(f, lltype._ptr) and not isinstance(f, ootype._callable):
+    if not isinstance(f, lltype._ptr):
         return None
     funcobj = f._obj
     try:

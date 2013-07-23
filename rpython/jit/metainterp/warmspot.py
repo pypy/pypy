@@ -13,7 +13,6 @@ from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.debug import fatalerror
 from rpython.rlib.rstackovf import StackOverflow
-from rpython.translator.simplify import get_functype
 from rpython.translator.backendopt import removenoops
 from rpython.translator.unsimplify import call_final_function
 
@@ -661,7 +660,7 @@ class WarmRunnerDesc(object):
     def helper_func(self, FUNCPTR, func):
         if not self.cpu.translate_support_code:
             return llhelper(FUNCPTR, func)
-        FUNC = get_functype(FUNCPTR)
+        FUNC = FUNCPTR.TO
         args_s = [annmodel.lltype_to_annotation(ARG) for ARG in FUNC.ARGS]
         s_result = annmodel.lltype_to_annotation(FUNC.RESULT)
         graph = self.annhelper.getgraph(func, args_s, s_result)

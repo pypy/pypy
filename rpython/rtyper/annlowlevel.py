@@ -13,7 +13,6 @@ from rpython.rlib.objectmodel import specialize
 from rpython.rtyper import extregistry
 from rpython.rtyper.ootypesystem import ootype
 from rpython.rtyper.rmodel import warning
-from rpython.translator.simplify import get_functype
 
 
 class KeyComp(object):
@@ -283,8 +282,8 @@ class MixLevelHelperAnnotator(object):
         for p, graph in self.delayedfuncs:
             self.newgraphs[graph] = True
             real_p = rtyper.getcallable(graph)
-            REAL = get_functype(lltype.typeOf(real_p))
-            FUNCTYPE = get_functype(lltype.typeOf(p))
+            REAL = lltype.typeOf(real_p).TO
+            FUNCTYPE = lltype.typeOf(p).TO
             if isinstance(FUNCTYPE, (lltype.ForwardReference, ootype.ForwardReference)):
                 FUNCTYPE.become(REAL)
             assert FUNCTYPE == REAL
@@ -334,7 +333,7 @@ class PseudoHighLevelCallableEntry(extregistry.ExtRegistryEntry):
         p = self.instance.llfnptr
         TYPE = lltype.typeOf(p)
         c_func = Constant(p, TYPE)
-        FUNCTYPE = get_functype(TYPE)
+        FUNCTYPE = TYPE.TO
         for r_arg, ARGTYPE in zip(args_r, FUNCTYPE.ARGS):
             assert r_arg.lowleveltype == ARGTYPE
         assert r_res.lowleveltype == FUNCTYPE.RESULT
