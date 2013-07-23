@@ -34,6 +34,7 @@ corresponding Unix manual entries for more information on calls."""
     appleveldefs = {
     'error'      : 'app_posix.error',
     'stat_result': 'app_posix.stat_result',
+    'statvfs_result': 'app_posix.statvfs_result',
     'fdopen'     : 'app_posix.fdopen',
     'tmpfile'    : 'app_posix.tmpfile',
     'popen'      : 'app_posix.popen',

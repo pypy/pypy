@@ -33,10 +33,8 @@ def run(filename, outputname):
 
 
 def test_resource():
-    try:
-        import lib_pypy.resource
-    except ImportError:
-        py.test.skip('no syslog on this platform')
+    if sys.platform == 'win32':
+        py.test.skip('no resource module on this platform')
     d = run('resource.ctc.py', '_resource_cache.py')
     assert 'RLIM_NLIMITS' in d
 
