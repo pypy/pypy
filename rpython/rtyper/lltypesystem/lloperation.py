@@ -350,7 +350,7 @@ LL_OPERATIONS = {
     'lllong_lshift':         LLOp(canfold=True),  # args (r_longlonglong, int)
     'lllong_rshift':         LLOp(canfold=True),  # args (r_longlonglong, int)
     'lllong_xor':            LLOp(canfold=True),
-    
+
     'cast_primitive':       LLOp(canfold=True),
     'cast_bool_to_int':     LLOp(canfold=True),
     'cast_bool_to_uint':    LLOp(canfold=True),
@@ -457,6 +457,7 @@ LL_OPERATIONS = {
     'jit_force_quasi_immutable': LLOp(canrun=True),
     'jit_record_known_class'  : LLOp(canrun=True),
     'jit_ffi_save_result':  LLOp(canrun=True),
+    'jit_conditional_call': LLOp(),
     'get_exception_addr':   LLOp(),
     'get_exc_value_addr':   LLOp(),
     'do_malloc_fixedsize_clear':LLOp(canmallocgc=True),

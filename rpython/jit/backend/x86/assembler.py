@@ -155,11 +155,19 @@ class Assembler386(BaseAssembler):
         """
         mc = codebuf.MachineCodeBlockWrapper()
         self._push_all_regs_to_frame(mc, [], supports_floats, callee_only)
-        mc.SUB(esp, imm(WORD))
+        if self.cpu.IS_X86_64:
+            mc.SUB(esp, imm(WORD))
+        else:
+            # we want space for 3 arguments + call + alignment
+            # the caller is responsible for putting arguments in the right spot
+            mc.SUB(esp, imm(WORD * 7))
         self.set_extra_stack_depth(mc, 2 * WORD)
         # args are in their respective positions
         mc.CALL(eax)
-        mc.ADD(esp, imm(WORD))
+        if self.cpu.IS_X86_64:
+            mc.ADD(esp, imm(WORD))
+        else:
+            mc.ADD(esp, imm(WORD * 7))
         self.set_extra_stack_depth(mc, 0)
         self._reload_frame_if_necessary(mc, align_stack=True)
         self._pop_all_regs_from_frame(mc, [], supports_floats,
@@ -2144,7 +2152,7 @@ class Assembler386(BaseAssembler):
     def label(self):
         self._check_frame_depth_debug(self.mc)
 
-    def cond_call(self, op, gcmap, cond_loc, call_loc):
+    def cond_call(self, op, gcmap, cond_loc, call_loc, arglocs):
         self.mc.TEST(cond_loc, cond_loc)
         self.mc.J_il8(rx86.Conditions['Z'], 0) # patched later
         jmp_adr = self.mc.get_relative_pos()
@@ -2160,6 +2168,12 @@ class Assembler386(BaseAssembler):
             if self._regalloc.xrm.reg_bindings:
                 floats = True
         cond_call_adr = self.cond_call_slowpath[floats * 2 + callee_only]
+        if self.cpu.IS_X86_32:
+            p = -7 * WORD
+            for i in range(len(arglocs) - 1, -1, -1):
+                loc = arglocs[i]
+                self.mc.MOV(RawEspLoc(p), loc)
+                p += WORD
         self.mc.CALL(imm(cond_call_adr))
         self.pop_gcmap(self.mc)
         # never any result value

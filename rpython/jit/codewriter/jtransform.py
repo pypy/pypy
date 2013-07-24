@@ -1355,6 +1355,13 @@ class Transformer(object):
         return getattr(self, 'handle_jit_marker__%s' % key)(op, jitdriver)
 
     def rewrite_op_jit_conditional_call(self, op):
+        have_floats = False
+        for arg in op.args:
+            if getkind(arg.concretetype) == 'float':
+                have_floats = True
+                break
+        if len(op.args) > 4 + 2 or have_floats:
+            raise Exception("Conditional call does not support floats or more than 4 arguments")
         callop = SpaceOperation('direct_call', op.args[1:], op.result)
         calldescr = self.callcontrol.getcalldescr(callop)
         assert not calldescr.get_extra_info().check_forces_virtual_or_virtualizable()
