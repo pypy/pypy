@@ -1,11 +1,12 @@
+import time
+
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rlib import rbigint, rrandom, rstring
 
-import time
 
 def descr_new__(space, w_subtype, __args__):
     w_anything = __args__.firstarg()
@@ -14,7 +15,8 @@ def descr_new__(space, w_subtype, __args__):
     W_Random.__init__(x, space, w_anything)
     return space.wrap(x)
 
-class W_Random(Wrappable):
+
+class W_Random(W_Root):
     def __init__(self, space, w_anything):
         self._rnd = rrandom.Random()
         self.seed(space, w_anything)
@@ -26,13 +28,13 @@ class W_Random(Wrappable):
         if w_n is None:
             w_n = space.newint(int(time.time()))
         else:
-            if space.is_true(space.isinstance(w_n, space.w_int)):
+            if space.isinstance_w(w_n, space.w_int):
                 w_n = space.abs(w_n)
-            elif space.is_true(space.isinstance(w_n, space.w_long)):
+            elif space.isinstance_w(w_n, space.w_long):
                 w_n = space.abs(w_n)
             else:
-                # XXX not perfectly like CPython
-                w_n = space.abs(space.hash(w_n))
+                n = space.hash_w(w_n)
+                w_n = space.wrap(r_uint(n))
         key = []
         w_one = space.newint(1)
         w_two = space.newint(2)
@@ -57,7 +59,7 @@ class W_Random(Wrappable):
         return space.newtuple(state)
 
     def setstate(self, space, w_state):
-        if not space.is_true(space.isinstance(w_state, space.w_tuple)):
+        if not space.isinstance_w(w_state, space.w_tuple):
             errstring = space.wrap("state vector must be tuple")
             raise OperationError(space.w_TypeError, errstring)
         if space.len_w(w_state) != rrandom.N + 1:
@@ -76,7 +78,7 @@ class W_Random(Wrappable):
         self._rnd.index = space.int_w(w_item)
 
     def jumpahead(self, space, w_n):
-        if space.is_true(space.isinstance(w_n, space.w_long)):
+        if space.isinstance_w(w_n, space.w_long):
             num = space.bigint_w(w_n)
             n = intmask(num.uintmask())
         else:

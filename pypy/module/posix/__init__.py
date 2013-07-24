@@ -1,8 +1,7 @@
-# Package initialisation
 from pypy.interpreter.mixedmodule import MixedModule
 from rpython.rlib import rposix
 
-import os, sys
+import os
 
 # this is the list of function which is *not* present in the posix module of
 # IronPython 2.6, and that we want to ignore for now
@@ -17,11 +16,12 @@ lltype_only_defs = [
     'setregid', 'setreuid', 'setsid', 'setuid', 'stat_float_times', 'statvfs',
     'statvfs_result', 'symlink', 'sysconf', 'sysconf_names', 'tcgetpgrp', 'tcsetpgrp',
     'ttyname', 'uname', 'wait', 'wait3', 'wait4'
-    ]
+]
 
 # the Win32 urandom implementation isn't going to translate on JVM or CLI so
 # we have to remove it
 lltype_only_defs.append('urandom')
+
 
 class Module(MixedModule):
     """This module provides access to operating system functionality that is
@@ -32,20 +32,22 @@ corresponding Unix manual entries for more information on calls."""
     applevel_name = os.name
 
     appleveldefs = {
-        'error'      : 'app_posix.error',
+        'error': 'app_posix.error',
         'stat_result': 'app_posix.stat_result',
-        'fdopen'     : 'app_posix.fdopen',
-        'tmpfile'    : 'app_posix.tmpfile',
-        'popen'      : 'app_posix.popen',
-        'tmpnam'     : 'app_posix.tmpnam',
-        'tempnam'    : 'app_posix.tempnam',
+        'statvfs_result': 'app_posix.statvfs_result',
+        'fdopen': 'app_posix.fdopen',
+        'tmpfile': 'app_posix.tmpfile',
+        'popen': 'app_posix.popen',
+        'tmpnam': 'app_posix.tmpnam',
+        'tempnam': 'app_posix.tempnam',
     }
     if os.name == 'nt':
         appleveldefs.update({
-                'popen2' : 'app_posix.popen2',
-                'popen3' : 'app_posix.popen3',
-                'popen4' : 'app_posix.popen4',
-                })
+            'popen2': 'app_posix.popen2',
+            'popen3': 'app_posix.popen3',
+            'popen4': 'app_posix.popen4',
+        })
+
     for name in '''wait wait3 wait4'''.split():
         symbol = 'HAVE_' + name.upper()
         if getattr(rposix, symbol):
@@ -53,43 +55,48 @@ corresponding Unix manual entries for more information on calls."""
         
     # Functions implemented on all platforms
     interpleveldefs = {
-        'open'      : 'interp_posix.open',
-        'lseek'     : 'interp_posix.lseek',
-        'write'     : 'interp_posix.write',
-        'isatty'    : 'interp_posix.isatty',
-        'read'      : 'interp_posix.read',
-        'close'     : 'interp_posix.close',
+        'open': 'interp_posix.open',
+        'lseek': 'interp_posix.lseek',
+        'write': 'interp_posix.write',
+        'isatty': 'interp_posix.isatty',
+        'read': 'interp_posix.read',
+        'close': 'interp_posix.close',
         'closerange': 'interp_posix.closerange',
-        'fstat'     : 'interp_posix.fstat',
-        'stat'      : 'interp_posix.stat',
-        'lstat'     : 'interp_posix.lstat',
-        'stat_float_times' : 'interp_posix.stat_float_times',
-        'dup'       : 'interp_posix.dup',
-        'dup2'      : 'interp_posix.dup2',
-        'access'    : 'interp_posix.access',
-        'times'     : 'interp_posix.times',
-        'system'    : 'interp_posix.system',
-        'getpid'    : 'interp_posix.getpid',
-        'unlink'    : 'interp_posix.unlink',
-        'remove'    : 'interp_posix.remove',
-        'getcwd'    : 'interp_posix.getcwd',
-        'getcwdu'   : 'interp_posix.getcwdu',
-        'chdir'     : 'interp_posix.chdir',
-        'mkdir'     : 'interp_posix.mkdir',
-        'rmdir'     : 'interp_posix.rmdir',
-        'environ'   : 'interp_posix.get(space).w_environ',
-        'listdir'   : 'interp_posix.listdir',
-        'strerror'  : 'interp_posix.strerror',
-        'pipe'      : 'interp_posix.pipe',
-        'rename'    : 'interp_posix.rename',
-        'umask'     : 'interp_posix.umask',
-        '_exit'     : 'interp_posix._exit',
-        'utime'     : 'interp_posix.utime',
+
+        'fstat': 'interp_posix.fstat',
+        'stat': 'interp_posix.stat',
+        'lstat': 'interp_posix.lstat',
+        'stat_float_times': 'interp_posix.stat_float_times',
+
+        'fstatvfs': 'interp_posix.fstatvfs',
+        'statvfs': 'interp_posix.statvfs',
+
+        'dup': 'interp_posix.dup',
+        'dup2': 'interp_posix.dup2',
+        'access': 'interp_posix.access',
+        'times': 'interp_posix.times',
+        'system': 'interp_posix.system',
+        'getpid': 'interp_posix.getpid',
+        'unlink': 'interp_posix.unlink',
+        'remove': 'interp_posix.remove',
+        'getcwd': 'interp_posix.getcwd',
+        'getcwdu': 'interp_posix.getcwdu',
+        'chdir': 'interp_posix.chdir',
+        'mkdir': 'interp_posix.mkdir',
+        'rmdir': 'interp_posix.rmdir',
+        'environ': 'interp_posix.get(space).w_environ',
+        'listdir': 'interp_posix.listdir',
+        'strerror': 'interp_posix.strerror',
+        'pipe': 'interp_posix.pipe',
+        'rename': 'interp_posix.rename',
+        'umask': 'interp_posix.umask',
+        '_exit': 'interp_posix._exit',
+        'utime': 'interp_posix.utime',
         '_statfields': 'interp_posix.getstatfields(space)',
-        'kill'      : 'interp_posix.kill',
-        'abort'     : 'interp_posix.abort',
-        'urandom'   : 'interp_posix.urandom',
-        }
+        'kill': 'interp_posix.kill',
+        'abort': 'interp_posix.abort',
+        'urandom': 'interp_posix.urandom',
+    }
 
     # XXX Missing functions: chflags lchmod lchflags ctermid fork1
     #                        plock setgroups initgroups tcgetpgrp
@@ -150,7 +157,7 @@ corresponding Unix manual entries for more information on calls."""
         # if it's an ootype translation, remove all the defs that are lltype
         # only
         backend = space.config.translation.backend
-        if backend == 'cli' or backend == 'jvm':
+        if backend == 'cli' or backend == 'jvm' :
             for name in lltype_only_defs:
                 self.interpleveldefs.pop(name, None)
         MixedModule.__init__(self, space, w_name)

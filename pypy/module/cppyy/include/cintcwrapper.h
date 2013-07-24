@@ -15,6 +15,8 @@ extern "C" {
         void* vtree, const char* branchname, const char* classname,
         void* addobj, int bufsize, int splitlevel);
 
+    long long cppyy_ttree_GetEntry(void* vtree, long long entry);
+
 #ifdef __cplusplus
 }
 #endif // ifdef __cplusplus

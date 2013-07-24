@@ -1,4 +1,4 @@
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr,\
      interp_attrproperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
@@ -131,7 +131,7 @@ def ipaddr_from_object(space, w_sockaddr):
     return addr
 
 
-class W_RSocket(Wrappable, RSocket):
+class W_RSocket(W_Root, RSocket):
     def __del__(self):
         self.clear_all_weakrefs()
         RSocket.__del__(self)
@@ -163,7 +163,7 @@ class W_RSocket(Wrappable, RSocket):
 
     def bind_w(self, space, w_addr):
         """bind(address)
-        
+
         Bind the socket to a local address.  For IP sockets, the address is a
         pair (host, port); the host must refer to the local host. For raw packet
         sockets the address is a tuple (ifname, proto [,pkttype [,hatype]])
@@ -180,7 +180,7 @@ class W_RSocket(Wrappable, RSocket):
         """
         try:
             self.close()
-        except SocketError, e:
+        except SocketError:
             # cpython doesn't return any errors on close
             pass
 
@@ -473,7 +473,7 @@ class W_RSocket(Wrappable, RSocket):
                     option_ptr = rffi.cast(rffi.INTP, value_ptr)
                     option_ptr[0] = space.int_w(w_option)
                 elif cmd == _c.SIO_KEEPALIVE_VALS:
-                    w_onoff, w_time, w_interval = space.unpackiterable(w_option)
+                    w_onoff, w_time, w_interval = space.unpackiterable(w_option, 3)
                     option_ptr = rffi.cast(lltype.Ptr(_c.tcp_keepalive), value_ptr)
                     option_ptr.c_onoff = space.uint_w(w_onoff)
                     option_ptr.c_keepalivetime = space.uint_w(w_time)

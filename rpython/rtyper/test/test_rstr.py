@@ -156,6 +156,15 @@ class AbstractTestRstr(BaseRtypingTest):
         for i in xrange(3):
             assert self.interpret(fn, [i]) == fn(i)
 
+    def test_str_isalnum(self):
+        const = self.const
+
+        def fn(i):
+            consts = [const(''), const('abc'), const('abc123'), const('abc123!')]
+            return consts[i].isalnum()
+        for i in xrange(3):
+            assert self.interpret(fn, [i]) == fn(i)
+
     def test_char_compare(self):
         const = self.const
         res = self.interpret(lambda c1, c2: c1 == c2,  [const('a'),
@@ -1109,6 +1118,26 @@ class TestLLtype(BaseTestRstr, LLRtypeMixin):
         res = self.interpret(f, [5])
         assert res == 0
 
+    def test_copy_string_to_raw(self):
+        from rpython.rtyper.lltypesystem import lltype, llmemory
+        from rpython.rtyper.annlowlevel import llstr
+        from rpython.rtyper.lltypesystem.rstr import copy_string_to_raw
+
+        def f(buf, n):
+            s = 'abc' * n
+            ll_s = llstr(s)
+            copy_string_to_raw(ll_s, buf, 0, n*3)
+
+        TP = lltype.Array(lltype.Char)
+        array = lltype.malloc(TP, 12, flavor='raw')
+        f(array, 4)
+        assert list(array) == list('abc'*4)
+        lltype.free(array, flavor='raw')
+
+        array = lltype.malloc(TP, 12, flavor='raw')
+        self.interpret(f, [array, 4])
+        assert list(array) == list('abc'*4)
+        lltype.free(array, flavor='raw')
 
 class TestOOtype(BaseTestRstr, OORtypeMixin):
     pass

@@ -118,11 +118,12 @@ def localeconv(space):
 _strcoll = rlocale.external('strcoll', [rffi.CCHARP, rffi.CCHARP], rffi.INT)
 _wcscoll = rlocale.external('wcscoll', [rffi.CWCHARP, rffi.CWCHARP], rffi.INT)
 
+
 def strcoll(space, w_s1, w_s2):
     "string,string -> int. Compares two strings according to the locale."
 
-    if space.is_true(space.isinstance(w_s1, space.w_str)) and \
-       space.is_true(space.isinstance(w_s2, space.w_str)):
+    if (space.isinstance_w(w_s1, space.w_str) and
+        space.isinstance_w(w_s2, space.w_str)):
 
         s1, s2 = space.str_w(w_s1), space.str_w(w_s2)
         s1_c = rffi.str2charp(s1)
@@ -132,11 +133,6 @@ def strcoll(space, w_s1, w_s2):
         finally:
             rffi.free_charp(s1_c)
             rffi.free_charp(s2_c)
-
-    #if not space.is_true(space.isinstance(w_s1, space.w_unicode)) and \
-    #   not space.is_true(space.isinstance(w_s2, space.w_unicode)):
-    #    raise OperationError(space.w_ValueError,
-    #                         space.wrap("strcoll arguments must be strings"))
 
     s1, s2 = space.unicode_w(w_s1), space.unicode_w(w_s2)
 

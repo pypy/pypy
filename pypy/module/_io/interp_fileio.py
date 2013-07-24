@@ -290,7 +290,7 @@ class W_FileIO(W_RawIOBase):
         self._check_closed(space)
         if self.seekable < 0:
             try:
-                pos = os.lseek(self.fd, 0, os.SEEK_CUR)
+                os.lseek(self.fd, 0, os.SEEK_CUR)
             except OSError:
                 self.seekable = 0
             else:

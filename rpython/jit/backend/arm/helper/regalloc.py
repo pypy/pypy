@@ -1,11 +1,13 @@
 from rpython.jit.backend.arm import conditions as c
 from rpython.jit.backend.arm import registers as r
-from rpython.jit.backend.arm.codebuilder import AbstractARMv7Builder
 from rpython.jit.metainterp.history import ConstInt, BoxInt, Box, FLOAT
 from rpython.jit.metainterp.history import ConstInt
 from rpython.rlib.objectmodel import we_are_translated
 
-def check_imm_arg(arg, size=0xFF, allow_zero=True):
+VMEM_imm_size=0x3FC
+default_imm_size=0xFF
+
+def check_imm_arg(arg, size=default_imm_size, allow_zero=True):
     assert not isinstance(arg, ConstInt)
     if not we_are_translated():
         if not isinstance(arg, int):

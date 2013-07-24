@@ -1,4 +1,4 @@
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
@@ -11,7 +11,8 @@ from pypy.module.oracle import roci, config
 from pypy.module.oracle import interp_error, interp_environ
 from pypy.module.oracle.interp_error import get
 
-class W_SessionPool(Wrappable):
+
+class W_SessionPool(W_Root):
     def __init__(self):
         self.environment = None
 
@@ -129,14 +130,14 @@ class W_SessionPool(Wrappable):
         self.checkConnected(space)
 
         if __args__.keywords:
-             keywords = __args__.keywords + ["pool"]
+            keywords = __args__.keywords + ["pool"]
         else:
-             keywords = ["pool"]
+            keywords = ["pool"]
         if __args__.keywords_w:
-             keywords_w = __args__.keywords_w + [space.wrap(self)]
+            keywords_w = __args__.keywords_w + [space.wrap(self)]
         else:
-             keywords_w = [space.wrap(self)]
-             
+            keywords_w = [space.wrap(self)]
+
         newargs = Arguments(space,
                             __args__.arguments_w,
                             keywords,

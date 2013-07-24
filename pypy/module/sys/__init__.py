@@ -7,7 +7,7 @@ _WIN = sys.platform == 'win32'
 
 class Module(MixedModule):
     """Sys Builtin Module. """
-    _immutable_fields_ = ["defaultencoding?"]
+    _immutable_fields_ = ["defaultencoding?", "debug?"]
 
     def __init__(self, space, w_name):
         """NOT_RPYTHON""" # because parent __init__ isn't
@@ -18,6 +18,7 @@ class Module(MixedModule):
         self.w_default_encoder = None
         self.defaultencoding = "ascii"
         self.filesystemencoding = None
+        self.debug = True
 
     interpleveldefs = {
         '__name__'              : '(space.wrap("sys"))', 
@@ -91,21 +92,16 @@ class Module(MixedModule):
     if sys.platform == 'win32':
         interpleveldefs['winver'] = 'version.get_winver(space)'
         interpleveldefs['getwindowsversion'] = 'vm.getwindowsversion'
-    
+
     appleveldefs = {
-        'excepthook'            : 'app.excepthook', 
-        '__excepthook__'        : 'app.excepthook', 
-        'exit'                  : 'app.exit', 
+        'excepthook'            : 'app.excepthook',
+        '__excepthook__'        : 'app.excepthook',
+        'exit'                  : 'app.exit',
         'exitfunc'              : 'app.exitfunc',
         'callstats'             : 'app.callstats',
         'copyright'             : 'app.copyright_str',
         'flags'                 : 'app.null_sysflags',
     }
-
-    def setbuiltinmodule(self, w_module, name): 
-        w_name = self.space.wrap(name)
-        w_modules = self.get('modules')
-        self.space.setitem(w_modules, w_name, w_module)
 
     def startup(self, space):
         if space.config.translating and not we_are_translated():
@@ -120,8 +116,8 @@ class Module(MixedModule):
 
     def getmodule(self, name):
         space = self.space
-        w_modules = self.get('modules') 
-        try: 
+        w_modules = self.get('modules')
+        try:
             return space.getitem(w_modules, space.wrap(name))
         except OperationError, e: 
             if not e.match(space, space.w_KeyError): 

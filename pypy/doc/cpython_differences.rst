@@ -21,7 +21,6 @@ List of extension modules that we support:
     __builtin__
     `__pypy__`_
     _ast
-    _bisect
     _codecs
     _collections
     `_continuation`_

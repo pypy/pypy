@@ -1,6 +1,6 @@
 from __future__ import with_statement
 
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import operationerrfmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
@@ -12,7 +12,7 @@ from pypy.module._cffi_backend.cdataobj import W_CData
 from pypy.module._cffi_backend.ctypeobj import W_CType
 
 
-class W_Library(Wrappable):
+class W_Library(W_Root):
     _immutable_ = True
     handle = rffi.cast(DLLHANDLE, 0)
 
@@ -39,21 +39,21 @@ class W_Library(Wrappable):
         space = self.space
         return space.wrap("<clibrary '%s'>" % self.name)
 
-    @unwrap_spec(ctype=W_CType, name=str)
-    def load_function(self, ctype, name):
+    @unwrap_spec(w_ctype=W_CType, name=str)
+    def load_function(self, w_ctype, name):
         from pypy.module._cffi_backend import ctypefunc, ctypeptr, ctypevoid
         space = self.space
         #
         ok = False
-        if isinstance(ctype, ctypefunc.W_CTypeFunc):
+        if isinstance(w_ctype, ctypefunc.W_CTypeFunc):
             ok = True
-        if (isinstance(ctype, ctypeptr.W_CTypePointer) and
-            isinstance(ctype.ctitem, ctypevoid.W_CTypeVoid)):
+        if (isinstance(w_ctype, ctypeptr.W_CTypePointer) and
+            isinstance(w_ctype.ctitem, ctypevoid.W_CTypeVoid)):
             ok = True
         if not ok:
             raise operationerrfmt(space.w_TypeError,
                                   "function cdata expected, got '%s'",
-                                  ctype.name)
+                                  w_ctype.name)
         #
         try:
             cdata = dlsym(self.handle, name)
@@ -61,10 +61,10 @@ class W_Library(Wrappable):
             raise operationerrfmt(space.w_KeyError,
                                   "function '%s' not found in library '%s'",
                                   name, self.name)
-        return W_CData(space, rffi.cast(rffi.CCHARP, cdata), ctype)
+        return W_CData(space, rffi.cast(rffi.CCHARP, cdata), w_ctype)
 
-    @unwrap_spec(ctype=W_CType, name=str)
-    def read_variable(self, ctype, name):
+    @unwrap_spec(w_ctype=W_CType, name=str)
+    def read_variable(self, w_ctype, name):
         space = self.space
         try:
             cdata = dlsym(self.handle, name)
@@ -72,10 +72,10 @@ class W_Library(Wrappable):
             raise operationerrfmt(space.w_KeyError,
                                   "variable '%s' not found in library '%s'",
                                   name, self.name)
-        return ctype.convert_to_object(rffi.cast(rffi.CCHARP, cdata))
+        return w_ctype.convert_to_object(rffi.cast(rffi.CCHARP, cdata))
 
-    @unwrap_spec(ctype=W_CType, name=str)
-    def write_variable(self, ctype, name, w_value):
+    @unwrap_spec(w_ctype=W_CType, name=str)
+    def write_variable(self, w_ctype, name, w_value):
         space = self.space
         try:
             cdata = dlsym(self.handle, name)
@@ -83,7 +83,7 @@ class W_Library(Wrappable):
             raise operationerrfmt(space.w_KeyError,
                                   "variable '%s' not found in library '%s'",
                                   name, self.name)
-        ctype.convert_from_object(rffi.cast(rffi.CCHARP, cdata), w_value)
+        w_ctype.convert_from_object(rffi.cast(rffi.CCHARP, cdata), w_value)
 
 
 W_Library.typedef = TypeDef(

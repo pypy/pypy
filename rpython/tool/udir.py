@@ -12,13 +12,13 @@
 #
 #    $PYPY_USESSION_DIR/usession-$PYPY_USESSION_BASENAME-$USER
 #
-# The default value for $PYPY_USESSION_DIR is the system tmp.
+# The default value for $PYPY_USESSION_DIR is the system's tmp.
 # The default value for $PYPY_USESSION_BASENAME is the name
 # of the current Mercurial branch.
 #
 
-import os, sys
-import py
+import os
+import sys
 
 from rpython.tool.version import get_repo_version_info
 from py.path import local 

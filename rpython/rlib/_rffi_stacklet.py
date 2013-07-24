@@ -4,7 +4,6 @@ from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.tool import rffi_platform
 from rpython.rlib.rarithmetic import is_emulated_long
 from rpython.conftest import cdir
-import sys
 
 
 cdir = py.path.local(cdir)
@@ -56,9 +55,9 @@ deletethread = llexternal('stacklet_deletethread',[thread_handle], lltype.Void)
 
 new = llexternal('stacklet_new', [thread_handle, run_fn, llmemory.Address],
                  handle, random_effects_on_gcobjs=True)
-switch = llexternal('stacklet_switch', [thread_handle, handle], handle,
+switch = llexternal('stacklet_switch', [handle], handle,
                     random_effects_on_gcobjs=True)
-destroy = llexternal('stacklet_destroy', [thread_handle, handle], lltype.Void)
+destroy = llexternal('stacklet_destroy', [handle], lltype.Void)
 
 _translate_pointer = llexternal("_stacklet_translate_pointer",
                                 [llmemory.Address, llmemory.Address],

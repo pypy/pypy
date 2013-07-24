@@ -4,7 +4,6 @@
 #     Meta hooks can override the sys.path, frozen modules , built-in modules
 #     To register a Meta Hook simply add importer object to sys.meta_path
 
-import imp
 import sys
 import types
 
@@ -69,8 +68,6 @@ class importer(object):
                 mod.__name__ = fullname
                 # add it to the modules dict
                 sys.modules[fullname] = mod
-            else:
-                mod = sys.modules[fullname]
 
             # if it is a PACKAGE then we are to initialize the __path__ for the module
             # we won't deal with Packages here
@@ -81,7 +78,7 @@ class CLRModule(types.ModuleType):
         if not name.startswith("__"):
             try:
                 iname = self.__name__ + '.' + name
-                mod = __import__(iname)
+                __import__(iname)
             except ImportError:
                 pass
         return types.ModuleType.__getattribute__(self, name)

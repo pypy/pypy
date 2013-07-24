@@ -1,4 +1,5 @@
 # coding: iso-8859-15
+import py
 import random
 from pypy.objspace.std.listobject import W_ListObject, SizeListStrategy,\
      IntegerListStrategy, ObjectListStrategy
@@ -199,6 +200,15 @@ class TestW_ListObject(object):
         # commute
         w_res = self.space.mul(w(n), w_lis)
         assert self.space.eq_w(w_lis3, w_res)
+
+    def test_mul_does_not_clone(self):
+        # only testing right mul at the moment
+        w = self.space.wrap
+        arg = w(2)
+        w_lis = W_ListObject(self.space, [arg])
+        w_lis.clone = None
+        # does not crash
+        self.space.mul(w_lis, w(5))
 
     def test_setitem(self):
         w = self.space.wrap
@@ -406,12 +416,27 @@ class TestW_ListObject(object):
         assert isinstance(w_lst.strategy, SizeListStrategy)
         assert w_lst.strategy.sizehint == 13
 
+    def test_find_fast_on_intlist(self, monkeypatch):
+        monkeypatch.setattr(self.space, "eq_w", None)
+        w = self.space.wrap
+        intlist = W_ListObject(self.space, [w(1),w(2),w(3),w(4),w(5),w(6),w(7)])
+        res = intlist.find(w(4), 0, 7)
+        assert res == 3
+        res = intlist.find(w(4), 0, 100)
+        assert res == 3
+        with py.test.raises(ValueError):
+            intlist.find(w(4), 4, 7)
+        with py.test.raises(ValueError):
+            intlist.find(w(4), 0, 2)
+
 class AppTestW_ListObject(object):
     def setup_class(cls):
+        import platform
         import sys
         on_cpython = (cls.runappdirect and
                       not hasattr(sys, 'pypy_translation_info'))
         cls.w_on_cpython = cls.space.wrap(on_cpython)
+        cls.w_on_arm = cls.space.wrap(platform.machine().startswith('arm'))
         cls.w_runappdirect = cls.space.wrap(cls.runappdirect)
 
     def test_getstrategyfromlist_w(self):
@@ -758,6 +783,8 @@ class AppTestW_ListObject(object):
         assert l == [1,2,3,4,5]
 
     def test_iadd_subclass(self):
+        #XXX
+        skip("Maybe there is something wrong in descroperation?")
         class Bar(object):
             def __radd__(self, other):
                 return ('radd', self, other)
@@ -925,6 +952,8 @@ class AppTestW_ListObject(object):
     def test_setitem_slice_performance(self):
         # because of a complexity bug, this used to take forever on a
         # translated pypy.  On CPython2.6 -A, it takes around 5 seconds.
+        if self.on_arm:
+            skip("consumes too much memory for most ARM machines")
         if self.runappdirect:
             count = 16*1024*1024
         else:
@@ -1086,7 +1115,7 @@ class AppTestW_ListObject(object):
                 self.i = i
             def __eq__(self, other):
                 if self.i == 9:
-                    del l[i - 1]
+                    del l[self.i - 1]
                     return True
                 else:
                     return False
@@ -1275,6 +1304,15 @@ class AppTestW_ListObject(object):
         l1 = [1, 2, 3]
         l1[:] = l2
         assert len(l1) == 0
+
+    def test_use_method_for_wrong_object(self):
+        raises(TypeError, list.append.im_func, 1, 2)
+
+    def test_ne_NotImplemented(self):
+        class NonList(object):
+            pass
+        non_list = NonList()
+        assert [] != non_list
 
 
 class AppTestForRangeLists(AppTestW_ListObject):

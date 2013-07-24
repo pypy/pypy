@@ -14,7 +14,7 @@ class AppProxy(object):
         class Controller(object):
             def __init__(self, obj):
                 self.obj = obj
-    
+
             def perform(self, name, *args, **kwargs):
                 return getattr(self.obj, name)(*args, **kwargs)
         def get_proxy(f):
@@ -28,9 +28,9 @@ class AppTestProxyInterpOnly(AppProxy):
         if cls.runappdirect:
             py.test.skip("interp only test")
         from pypy.interpreter.typedef import TypeDef, interp2app
-        from pypy.interpreter.baseobjspace import Wrappable
+        from pypy.interpreter.baseobjspace import W_Root
 
-        class W_Stuff(Wrappable):
+        class W_Stuff(W_Root):
             pass
 
         def descr_new(space, w_subtype):
@@ -52,7 +52,7 @@ class AppTestProxyInternals(AppProxy):
         except:
             import sys
             e = sys.exc_info()
-        
+
         tb = self.get_proxy(e[2])
         assert tb.tb_frame is e[2].tb_frame
 
@@ -75,7 +75,7 @@ class AppTestProxyInternals(AppProxy):
         except:
             import sys
             e = sys.exc_info()
-        
+
         tb = self.get_proxy(e[2])
         raises(ZeroDivisionError, "raise e[0], e[1], tb")
         raises(ZeroDivisionError, "raise e[0], self.get_proxy(e[1]), tb")
@@ -93,11 +93,11 @@ class AppTestProxyTracebackController(AppProxy):
         import types
         import sys
         import traceback
-        
+
         def get_proxy(f):
             from __pypy__ import tproxy as proxy
             return proxy(type(f), Controller(f).perform)
-        
+
         class FakeTb(object):
             def __init__(self, tb):
                 self.tb_lasti = tb.tb_lasti
@@ -107,43 +107,46 @@ class AppTestProxyTracebackController(AppProxy):
                 else:
                     self.tb_next = None
                 self.tb_frame = get_proxy(tb.tb_frame)
-        
+
         class Controller(object):
             def __init__(self, tb):
                 if isinstance(tb, types.TracebackType):
                     self.obj = FakeTb(tb)
                 else:
                     self.obj = tb
-            
+
             def perform(self, name, *args, **kwargs):
                 return getattr(self.obj, name)(*args, **kwargs)
-        
+
         def f():
             1/0
-        
+
         def g():
             f()
-        
+
         try:
             g()
         except:
             e = sys.exc_info()
-        
+
         last_tb = e[2]
         tb = get_proxy(e[2])
         try:
             raise e[0], e[1], tb
         except:
             e = sys.exc_info()
-        
+
         assert traceback.format_tb(last_tb) == traceback.format_tb(e[2])
-    
+
     def test_proxy_get(self):
         from __pypy__ import tproxy, get_tproxy_controller
-        l = [1,2,3]
+
+        class A(object):
+            pass
+
         def f(name, *args, **kwargs):
-            return getattr(l, name)(*args, **kwargs)
-        lst = tproxy(list, f)
+            pass
+        lst = tproxy(A, f)
         assert get_tproxy_controller(lst) is f
 
     def test_proxy_file(self):

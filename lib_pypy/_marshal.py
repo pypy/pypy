@@ -7,7 +7,6 @@ This module contains functions that can read and write Python values in a binary
 # the "sandboxed" process.  It must work for Python2 as well.
 
 import types
-from _codecs import utf_8_decode, utf_8_encode
 
 try:
     intern
@@ -166,9 +165,8 @@ class _Marshaller:
 
     def dump_unicode(self, x):
         self._write(TYPE_UNICODE)
-        #s = x.encode('utf8')
-        s, len_s = utf_8_encode(x)
-        self.w_long(len_s)
+        s = x.encode('utf8')
+        self.w_long(len(s))
         self._write(s)
     try:
         unicode
@@ -386,8 +384,7 @@ class _Unmarshaller:
     def load_unicode(self):
         n = self.r_long()
         s = self._read(n)
-        #ret = s.decode('utf8')
-        ret, len_ret = utf_8_decode(s)
+        ret = s.decode('utf8')
         return ret
     dispatch[TYPE_UNICODE] = load_unicode
 

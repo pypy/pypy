@@ -1,15 +1,7 @@
 import sys
-from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
+from rpython.rtyper.lltypesystem import rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.jit.backend.x86.arch import WORD
-
-# ____________________________________________________________
-
-memcpy_fn = rffi.llexternal('memcpy', [llmemory.Address, llmemory.Address,
-                                       rffi.SIZE_T], lltype.Void,
-                            sandboxsafe=True, _nowrapper=True)
-
-# ____________________________________________________________
 
 if WORD == 4:
     extra = ['-DPYPY_X86_CHECK_SSE2']

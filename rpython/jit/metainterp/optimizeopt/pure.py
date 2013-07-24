@@ -5,7 +5,7 @@ from rpython.jit.metainterp.optimizeopt.util import (make_dispatcher_method,
 
 class OptPure(Optimization):
     def __init__(self):
-        self.posponedop = None
+        self.postponed_op = None
         self.pure_operations = args_dict()
         self.emitted_pure_operations = {}
 
@@ -15,12 +15,12 @@ class OptPure(Optimization):
     def optimize_default(self, op):
         canfold = op.is_always_pure()
         if op.is_ovf():
-            self.posponedop = op
+            self.postponed_op = op
             return
-        if self.posponedop:
+        if self.postponed_op:
             nextop = op
-            op = self.posponedop
-            self.posponedop = None
+            op = self.postponed_op
+            self.postponed_op = None
             canfold = nextop.getopnum() == rop.GUARD_NO_OVERFLOW
         else:
             nextop = None
@@ -83,10 +83,10 @@ class OptPure(Optimization):
         self.emit_operation(op)
 
     def flush(self):
-        assert self.posponedop is None
+        assert self.postponed_op is None
 
     def new(self):
-        assert self.posponedop is None
+        assert self.postponed_op is None
         return OptPure()
 
     def setup(self):

@@ -1,6 +1,6 @@
-import sys
-from rpython.tool.pairtype import extendabletype
-from rpython.jit.backend.x86.regloc import ImmediateAssemblerLocation, StackLoc
+
+from rpython.jit.backend.x86.regloc import ImmediateAssemblerLocation,\
+     FrameLoc
 
 def remap_frame_layout(assembler, src_locations, dst_locations, tmpreg):
     pending_dests = len(dst_locations)
@@ -95,7 +95,7 @@ def remap_frame_layout_mixed(assembler,
     for i in range(len(src_locations2)):
         loc    = src_locations2[i]
         dstloc = dst_locations2[i]
-        if isinstance(loc, StackLoc):
+        if isinstance(loc, FrameLoc):
             key = loc._getregkey()
             if (key in dst_keys or (loc.get_width() > WORD and
                                     (key + WORD) in dst_keys)):

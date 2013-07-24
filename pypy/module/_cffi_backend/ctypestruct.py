@@ -3,7 +3,7 @@ Struct and unions.
 """
 
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 
 from rpython.rlib import jit
@@ -25,7 +25,6 @@ class W_CTypeStructOrUnion(W_CType):
     custom_field_pos = False
 
     def __init__(self, space, name):
-        name = '%s %s' % (self.kind, name)
         W_CType.__init__(self, space, -1, name, len(name))
 
     def check_complete(self, w_errorcls=None):
@@ -80,11 +79,10 @@ class W_CTypeStructOrUnion(W_CType):
 
     def _copy_from_same(self, cdata, w_ob):
         space = self.space
-        ob = space.interpclass_w(w_ob)
-        if isinstance(ob, cdataobj.W_CData):
-            if ob.ctype is self and self.size >= 0:
-                misc._raw_memcopy(ob._cdata, cdata, self.size)
-                keepalive_until_here(ob)
+        if isinstance(w_ob, cdataobj.W_CData):
+            if w_ob.ctype is self and self.size >= 0:
+                misc._raw_memcopy(w_ob._cdata, cdata, self.size)
+                keepalive_until_here(w_ob)
                 return True
         return False
 
@@ -156,7 +154,7 @@ class W_CTypeUnion(W_CTypeStructOrUnion):
                                   self.name, n)
 
 
-class W_CField(Wrappable):
+class W_CField(W_Root):
     _immutable_ = True
 
     BS_REGULAR     = -1
@@ -243,11 +241,13 @@ class W_CField(Wrappable):
         #
         value = misc.as_long_long(space, w_ob)
         if isinstance(ctype, ctypeprim.W_CTypePrimitiveSigned):
+            is_signed = True
             fmin = -(r_longlong(1) << (self.bitsize - 1))
             fmax = (r_longlong(1) << (self.bitsize - 1)) - 1
             if fmax == 0:
                 fmax = 1      # special case to let "int x:1" receive "1"
         else:
+            is_signed = False
             fmin = r_longlong(0)
             fmax = r_longlong((r_ulonglong(1) << self.bitsize) - 1)
         if value < fmin or value > fmax:
@@ -259,7 +259,10 @@ class W_CField(Wrappable):
         rawvalue = r_ulonglong(value) << self.bitshift
         rawfielddata = misc.read_raw_unsigned_data(cdata, ctype.size)
         rawfielddata = (rawfielddata & ~rawmask) | (rawvalue & rawmask)
-        misc.write_raw_integer_data(cdata, rawfielddata, ctype.size)
+        if is_signed:
+            misc.write_raw_signed_data(cdata, rawfielddata, ctype.size)
+        else:
+            misc.write_raw_unsigned_data(cdata, rawfielddata, ctype.size)
 
 
 W_CField.typedef = TypeDef(

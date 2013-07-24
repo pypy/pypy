@@ -45,10 +45,7 @@ def _readlink_maybe(filename):
     raise NotImplementedError
 
 def resolvedirof(filename):
-    try:
-        filename = rpath.rabspath(filename)
-    except OSError:
-        pass
+    filename = rpath.rabspath(filename)
     dirname = rpath.rabspath(os.path.join(filename, '..'))
     if os.path.islink(filename):
         try:
@@ -68,7 +65,7 @@ def find_stdlib(state, executable):
     If it cannot be found, return (None, None).
     """
     if executable == '':
-        return None, None
+        executable = 'pypy-c'
     search = executable
     while True:
         dirname = resolvedirof(search)
@@ -91,7 +88,8 @@ def compute_stdlib_path(state, prefix):
     ``lib_pypy``. If they cannot be found, it raises OSError.
     """
     from pypy.module.sys.version import CPYTHON_VERSION
-    dirname = '%d' % CPYTHON_VERSION[0]
+    dirname = '%d.%d' % (CPYTHON_VERSION[0],
+                         CPYTHON_VERSION[1])
     lib_python = os.path.join(prefix, 'lib-python')
     python_std_lib = os.path.join(lib_python, dirname)
     _checkdir(python_std_lib)

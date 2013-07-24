@@ -148,11 +148,10 @@ def set_errno(errno):
     _set_errno(rffi.cast(INT, errno))
 
 if os.name == 'nt':
-    is_valid_fd = rffi.llexternal(
+    is_valid_fd = jit.dont_look_inside(rffi.llexternal(
         "_PyVerify_fd", [rffi.INT], rffi.INT,
         compilation_info=rposix_eci,
-        )
-    @jit.dont_look_inside
+        ))
     def validate_fd(fd):
         if not is_valid_fd(fd):
             raise OSError(get_errno(), 'Bad file descriptor')
@@ -213,6 +212,15 @@ def lstat(path):
         return os.lstat(path)
     else:
         return os.lstat(path.as_bytes())
+
+
+@specialize.argtype(0)
+def statvfs(path):
+    if isinstance(path, str):
+        return os.statvfs(path)
+    else:
+        return os.statvfs(path.as_bytes())
+
 
 @specialize.argtype(0)
 def unlink(path):
@@ -325,4 +333,3 @@ if os.name == 'nt':
     os_kill = rwin32.os_kill
 else:
     os_kill = os.kill
-    

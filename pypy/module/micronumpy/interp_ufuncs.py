@@ -1,4 +1,4 @@
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty
@@ -16,10 +16,10 @@ def done_if_true(dtype, val):
 def done_if_false(dtype, val):
     return not dtype.itemtype.bool(val)
 
-class W_Ufunc(Wrappable):
-    _attrs_ = ["name", "promote_to_float", "promote_bools", "identity", 
+class W_Ufunc(W_Root):
+    _attrs_ = ["name", "promote_to_float", "promote_bools", "identity",
                "allow_complex", "complex_to_float"]
-    _immutable_fields_ = ["promote_to_float", "promote_bools", "name", 
+    _immutable_fields_ = ["promote_to_float", "promote_bools", "name",
             "allow_complex", "complex_to_float"]
 
     def __init__(self, name, promote_to_float, promote_bools, identity,
@@ -151,13 +151,13 @@ class W_Ufunc(Wrappable):
         assert isinstance(self, W_Ufunc2)
         obj = convert_to_array(space, w_obj)
         if obj.get_dtype().is_flexible_type():
-            raise OperationError(space.w_TypeError, 
+            raise OperationError(space.w_TypeError,
                       space.wrap('cannot perform reduce for flexible type'))
         obj_shape = obj.get_shape()
         if obj.is_scalar():
             return obj.get_scalar_value()
         shapelen = len(obj_shape)
-        axis = unwrap_axis_arg(space, shapelen, w_axis)    
+        axis = unwrap_axis_arg(space, shapelen, w_axis)
         assert axis >= 0
         size = obj.get_size()
         dtype = interp_dtype.decode_w_dtype(space, dtype)
@@ -256,7 +256,7 @@ class W_Ufunc1(W_Ufunc):
                 out = None
         w_obj = convert_to_array(space, w_obj)
         if w_obj.get_dtype().is_flexible_type():
-            raise OperationError(space.w_TypeError, 
+            raise OperationError(space.w_TypeError,
                       space.wrap('Not implemented for this type'))
         if self.int_only and not w_obj.get_dtype().is_int_type():
             raise OperationError(space.w_TypeError, space.wrap(
@@ -281,7 +281,7 @@ class W_Ufunc1(W_Ufunc):
             if self.complex_to_float and calc_dtype.is_complex_type():
                 if calc_dtype.name == 'complex64':
                     res_dtype = interp_dtype.get_dtype_cache(space).w_float32dtype
-                else:    
+                else:
                     res_dtype = interp_dtype.get_dtype_cache(space).w_float64dtype
         if w_obj.is_scalar():
             w_val = self.func(calc_dtype,
@@ -304,7 +304,7 @@ class W_Ufunc2(W_Ufunc):
     argcount = 2
 
     def __init__(self, func, name, promote_to_float=False, promote_bools=False,
-        identity=None, comparison_func=False, int_only=False, 
+        identity=None, comparison_func=False, int_only=False,
         allow_complex=True, complex_to_float=False):
 
         W_Ufunc.__init__(self, name, promote_to_float, promote_bools, identity,
@@ -414,7 +414,7 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
     if promote_to_float:
         return find_unaryop_result_dtype(space, dt2, promote_to_float=True)
     # If they're the same kind, choose the greater one.
-    if dt1.kind == dt2.kind:
+    if dt1.kind == dt2.kind and not dt2.is_flexible_type():
         return dt2
 
     # Everything promotes to float, and bool promotes to everything.
@@ -434,7 +434,23 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
     elif dt2.num == 10 or (LONG_BIT == 64 and dt2.num == 8):
         # UInt64 + signed = Float64
         dtypenum = 12
-    else:
+    elif dt2.is_flexible_type():
+        # For those operations that get here (concatenate, stack),
+        # flexible types take precedence over numeric type
+        if dt2.is_record_type():
+            return dt2
+        if dt1.is_str_or_unicode():
+            if dt2.num == 18:
+                if dt2.itemtype.get_element_size() >= \
+                           dt1.itemtype.get_element_size():
+                    return dt2
+                return dt1
+            if dt2.itemtype.get_element_size() >= \
+                       dt1.itemtype.get_element_size():
+                return dt2
+            return dt1
+        return dt2
+    else:    
         # increase to the next signed type
         dtypenum = dt2.num + 1
     newdtype = interp_dtype.get_dtype_cache(space).dtypes_by_num[dtypenum]
@@ -512,11 +528,11 @@ def find_dtype_for_scalar(space, w_obj, current_guess=None):
         return current_guess
     elif space.isinstance_w(w_obj, space.w_str):
         if (current_guess is None):
-            return interp_dtype.variable_dtype(space, 
+            return interp_dtype.variable_dtype(space,
                                                'S%d' % space.len_w(w_obj))
         elif current_guess.num ==18:
             if  current_guess.itemtype.get_size() < space.len_w(w_obj):
-                return interp_dtype.variable_dtype(space, 
+                return interp_dtype.variable_dtype(space,
                                                    'S%d' % space.len_w(w_obj))
         return current_guess
     if current_guess is complex_type:
@@ -593,7 +609,7 @@ class UfuncState(object):
             ("negative", "neg", 1),
             ("absolute", "abs", 1, {"complex_to_float": True}),
             ("sign", "sign", 1, {"promote_bools": True}),
-            ("signbit", "signbit", 1, {"bool_result": True, 
+            ("signbit", "signbit", 1, {"bool_result": True,
                                        "allow_complex": False}),
             ("reciprocal", "reciprocal", 1),
             ("conjugate", "conj", 1),
@@ -604,7 +620,7 @@ class UfuncState(object):
                                  "allow_complex": False}),
             ("fmax", "fmax", 2, {"promote_to_float": True}),
             ("fmin", "fmin", 2, {"promote_to_float": True}),
-            ("fmod", "fmod", 2, {"promote_to_float": True, 
+            ("fmod", "fmod", 2, {"promote_to_float": True,
                                  'allow_complex': False}),
             ("floor", "floor", 1, {"promote_to_float": True,
                                    "allow_complex": False}),

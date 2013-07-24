@@ -32,22 +32,22 @@ class CanRaise(object):
 
 
 def collect_called_graphs(graph, translator, include_oosend=True):
-    graphs_or_something = {}
+    graphs_or_something = set()
     for block in graph.iterblocks():
         for op in block.operations:
             if op.opname == "direct_call":
                 graph = get_graph(op.args[0], translator)
                 if graph is not None:
-                    graphs_or_something[graph] = True
+                    graphs_or_something.add(graph)
                 else:
-                    graphs_or_something[op.args[0]] = True
+                    graphs_or_something.add(op.args[0])
             if op.opname == "indirect_call":
                 graphs = op.args[-1].value
                 if graphs is None:
-                    graphs_or_something[op.args[0]] = True
+                    graphs_or_something.add(op.args[0])
                 else:
                     for graph in graphs:
-                        graphs_or_something[graph] = True
+                        graphs_or_something.add(graph)
             if op.opname == 'oosend' and include_oosend:
                 meth = get_meth_from_oosend(op)
                 if hasattr(meth, 'graph'):
@@ -56,7 +56,7 @@ def collect_called_graphs(graph, translator, include_oosend=True):
                     key = CanRaise(meth._can_raise)
                 else:
                     key = op.args[0]
-                graphs_or_something[key] = True
+                graphs_or_something.add(key)
     return graphs_or_something
 
 def iter_callsites(graph, calling_what):
@@ -608,8 +608,9 @@ def inlining_heuristic(graph):
     return (0.9999 * measure_median_execution_cost(graph) +
             count), True
 
-def inlinable_static_callers(graphs, store_calls=False):
-    ok_to_call = set(graphs)
+def inlinable_static_callers(graphs, store_calls=False, ok_to_call=None):
+    if ok_to_call is None:
+        ok_to_call = set(graphs)
     result = []
     def add(parentgraph, block, op, graph):
         if store_calls:
@@ -773,11 +774,19 @@ def auto_inlining(translator, threshold=None,
     return count
 
 def auto_inline_graphs(translator, graphs, threshold, call_count_pred=None,
-                       heuristic=inlining_heuristic):
-        callgraph = inlinable_static_callers(graphs)
-        count = auto_inlining(translator, threshold, callgraph=callgraph,
-                              heuristic=heuristic,
-                              call_count_pred=call_count_pred)
-        log.inlining('inlined %d callsites.' % (count,))
-        for graph in graphs:
-            removenoops.remove_duplicate_casts(graph, translator)
+                       heuristic=inlining_heuristic,
+                       inline_graph_from_anywhere=False):
+    if inline_graph_from_anywhere:
+        # it's ok to inline calls to any graph, with the exception of
+        # graphs that would be already exception-transformed
+        ok_to_call = set([graph for graph in translator.graphs
+                                if not hasattr(graph, 'exceptiontransformed')])
+    else:
+        ok_to_call = None
+    callgraph = inlinable_static_callers(graphs, ok_to_call=ok_to_call)
+    count = auto_inlining(translator, threshold, callgraph=callgraph,
+                          heuristic=heuristic,
+                          call_count_pred=call_count_pred)
+    log.inlining('inlined %d callsites.' % (count,))
+    for graph in graphs:
+        removenoops.remove_duplicate_casts(graph, translator)

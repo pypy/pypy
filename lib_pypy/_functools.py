@@ -20,3 +20,16 @@ class partial(object):
         if self.keywords is not None:
             fkeywords = dict(self.keywords, **fkeywords)
         return self.func(*(self.args + fargs), **fkeywords)
+
+    def __reduce__(self):
+        d = dict((k, v) for k, v in self.__dict__.iteritems() if k not in
+                ('func', 'args', 'keywords'))
+        if len(d) == 0:
+            d = None
+        return (type(self), (self.func,),
+                (self.func, self.args, self.keywords, d))
+
+    def __setstate__(self, state):
+        self.func, self.args, self.keywords, d = state
+        if d is not None:
+            self.__dict__.update(d)

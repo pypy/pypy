@@ -5,11 +5,9 @@ simplified - instead of a polling object there is only a poll()
 function that directly takes a dictionary as argument.
 """
 
-import os
 from rpython.rlib import _rsocket_rffi as _c
+from rpython.rlib.rarithmetic import r_uint
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rlib.rarithmetic import intmask, r_uint
-import math
 
 # ____________________________________________________________
 # events

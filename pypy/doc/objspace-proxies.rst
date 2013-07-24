@@ -5,7 +5,6 @@ What PyPy can do for your objects
 .. contents::
 
 
-
 Thanks to the `Object Space`_ architecture, any feature that is
 based on proxying, extending, changing or otherwise controlling the
 behavior of all objects in a running program is easy to implement on

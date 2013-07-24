@@ -39,7 +39,7 @@ class Exchange(object):
 
 class SlaveProcess(object):
     _broken = False
-    
+
     def __init__(self, slave_impl):
         if sys.platform == 'win32':
             unbuffered = ''
@@ -58,7 +58,7 @@ class SlaveProcess(object):
 
     def close(self):
         if not self._broken:
-             assert self.cmd(None) == 'done'
+            assert self.cmd(None) == 'done'
         self.exchg.forceclose()
 
 class Slave(object):
@@ -70,7 +70,7 @@ class Slave(object):
         exchg = Exchange(sys.stdin, sys.stdout)
         while True:
             try:
-               cmd = exchg.recv()
+                cmd = exchg.recv()
             except EOFError: # master died
                 break
             if cmd is None:
@@ -78,4 +78,3 @@ class Slave(object):
                 break
             result = self.do_cmd(cmd)
             exchg.send(result)
-        

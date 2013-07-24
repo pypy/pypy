@@ -248,7 +248,7 @@ def inherit_special(space, pto, base_pto):
     Py_DecRef(space, base_object_pyo)
 
 def check_descr(space, w_self, w_type):
-    if not space.is_true(space.isinstance(w_self, w_type)):
+    if not space.isinstance_w(w_self, w_type):
         raise DescrMismatch()
 
 class GettersAndSetters:
@@ -489,7 +489,7 @@ def type_alloc(space, w_metatype):
     pto.c_tp_as_sequence = heaptype.c_as_sequence
     pto.c_tp_as_mapping = heaptype.c_as_mapping
     pto.c_tp_as_buffer = heaptype.c_as_buffer
-    
+
     return rffi.cast(PyObject, heaptype)
 
 def type_attach(space, py_obj, w_type):
@@ -729,6 +729,9 @@ def PyType_Modified(space, w_obj):
     subtypes.  This function must be called after any manual
     modification of the attributes or base classes of the type.
     """
-    # PyPy already takes care of direct modifications to type.__dict__
-    # (which is a W_DictProxyObject).
-    pass
+    # Invalidate the type cache in case of a builtin type.
+    if not isinstance(w_obj, W_TypeObject):
+        return
+    if w_obj.is_cpytype():
+        w_obj.mutated(None)
+

@@ -5,7 +5,7 @@ from pypy.module.sys.initpath import (compute_stdlib_path, find_executable, find
 from pypy.module.sys.version import PYPY_VERSION, CPYTHON_VERSION
 
 def build_hierarchy(prefix):
-    dirname = '%d' % CPYTHON_VERSION[0]
+    dirname = '%d.%d' % CPYTHON_VERSION[:2]
     a = prefix.join('lib_pypy').ensure(dir=1)
     b = prefix.join('lib-python', dirname).ensure(dir=1)
     return a, b
@@ -16,9 +16,12 @@ def test_find_stdlib(tmpdir, monkeypatch):
     build_hierarchy(tmpdir)
     path, prefix = find_stdlib(None, str(pypy))
     assert prefix == tmpdir
-    # shouldn't find stdlib if executable == '' even if parent dir has a stdlib
-    monkeypatch.chdir(tmpdir.join('bin'))
-    assert find_stdlib(None, '') == (None, None)
+    # in executable is None look for stdlib based on the working directory
+    # see lib-python/2.7/test/test_sys.py:test_executable
+    _, prefix = find_stdlib(None, '')
+    cwd = os.path.dirname(os.path.realpath(__file__))
+    assert prefix is not None
+    assert cwd.startswith(str(prefix))
 
 @py.test.mark.skipif('not hasattr(os, "symlink")')
 def test_find_stdlib_follow_symlink(tmpdir):

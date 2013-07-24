@@ -3,15 +3,16 @@ import math
 
 from pypy.interpreter.error import OperationError
 from pypy.module.micronumpy import interp_boxes
+from pypy.module.micronumpy import support
 from pypy.module.micronumpy.arrayimpl.voidbox import VoidBoxStorage
+from pypy.module.micronumpy.arrayimpl.concrete import SliceArray
 from pypy.objspace.std.floatobject import float2string
 from pypy.objspace.std.complexobject import str_format
 from rpython.rlib import rfloat, clibffi, rcomplex
 from rpython.rlib.rawstorage import (alloc_raw_storage, raw_storage_setitem,
                                   raw_storage_getitem)
 from rpython.rlib.objectmodel import specialize
-from rpython.rlib.rarithmetic import (widen, byteswap, r_ulonglong,
-                                      most_neg_value_of)
+from rpython.rlib.rarithmetic import widen, byteswap, r_ulonglong
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.rstruct.runpack import runpack
 from rpython.rlib.rstruct.nativefmttable import native_is_bigendian
@@ -36,7 +37,7 @@ def simple_unary_op(func):
         return self.box(
             func(
                 self,
-                self.for_computation(raw)
+                self.for_computation(raw),
             )
         )
     return dispatcher
@@ -143,6 +144,11 @@ class Primitive(object):
     def box_complex(self, real, imag):
         #XXX this is the place to display a warning
         return self.box(real)
+
+    def box_raw_data(self, data):
+        # For pickle
+        array = rffi.cast(rffi.CArrayPtr(self.T), data)
+        return self.box(array[0])
 
     @specialize.argtype(1)
     def unbox(self, box):
@@ -515,6 +521,23 @@ class Integer(Primitive):
             return v
         return 0
 
+    @specialize.argtype(1)
+    def round(self, v, decimals=0):
+        raw = self.for_computation(self.unbox(v))
+        if decimals < 0:
+            # No ** in rpython
+            factor = 1
+            for i in xrange(-decimals):
+                factor *=10
+            #int does floor division, we want toward zero
+            if raw < 0:
+                ans = - (-raw / factor * factor)
+            else:
+                ans = raw / factor * factor
+        else:
+            ans = raw
+        return self.box(ans)
+
     @raw_unary_op
     def signbit(self, v):
         return v < 0
@@ -792,6 +815,16 @@ class Float(Primitive):
     def ceil(self, v):
         return math.ceil(v)
 
+    @specialize.argtype(1)
+    def round(self, v, decimals=0):
+        raw = self.for_computation(self.unbox(v))
+        if rfloat.isinf(raw):
+            return v
+        elif rfloat.isnan(raw):
+            return v
+        ans = rfloat.round_double(raw, decimals, half_even=True)
+        return self.box(ans)
+
     @simple_unary_op
     def trunc(self, v):
         if v < 0:
@@ -1067,6 +1100,13 @@ class ComplexFloating(object):
         op = '+' if imag >= 0 else ''
         return ''.join(['(', real_str, op, imag_str, ')'])
 
+    def fill(self, storage, width, box, start, stop, offset):
+        real, imag = self.unbox(box)
+        for i in xrange(start, stop, width):
+            raw_storage_setitem(storage, i+offset, real)
+            raw_storage_setitem(storage,
+                    i+offset+rffi.sizeof(self.T), imag)
+
     @staticmethod
     def for_computation(v):
         return float(v[0]), float(v[1])
@@ -1077,7 +1117,7 @@ class ComplexFloating(object):
 
     def to_builtin_type(self, space, box):
         real,imag = self.for_computation(self.unbox(box))
-        return space.newcomplex(real, imag) 
+        return space.newcomplex(real, imag)
 
     def read_bool(self, arr, i, offset):
         v = self.for_computation(self._read(arr.storage, i, offset))
@@ -1106,6 +1146,11 @@ class ComplexFloating(object):
         return self.BoxType(
             rffi.cast(self.T, real),
             rffi.cast(self.T, imag))
+
+    def box_raw_data(self, data):
+        # For pickle
+        array = rffi.cast(rffi.CArrayPtr(self.T), data)
+        return self.box_complex(array[0], array[1])
 
     def unbox(self, box):
         assert isinstance(box, self.BoxType)
@@ -1149,6 +1194,14 @@ class ComplexFloating(object):
             if rcomplex.c_abs(*v1) == 0:
                 return rfloat.NAN, rfloat.NAN
             return rfloat.INFINITY, rfloat.INFINITY
+
+    @specialize.argtype(1)
+    def composite(self, v1, v2):
+        assert isinstance(v1, self.ComponentBoxType)
+        assert isinstance(v2, self.ComponentBoxType)
+        real = v1.value
+        imag = v2.value
+        return self.box_complex(real, imag)
 
     @complex_unary_op
     def pos(self, v):
@@ -1210,7 +1263,7 @@ class ComplexFloating(object):
 
     @raw_binary_op
     def le(self, v1, v2):
-        return self._lt(v1, v2) or self._eq(v1, v2) 
+        return self._lt(v1, v2) or self._eq(v1, v2)
 
     @raw_binary_op
     def gt(self, v1, v2):
@@ -1218,7 +1271,7 @@ class ComplexFloating(object):
 
     @raw_binary_op
     def ge(self, v1, v2):
-        return self._lt(v2, v1) or self._eq(v2, v1) 
+        return self._lt(v2, v1) or self._eq(v2, v1)
 
     def _bool(self, v):
         return bool(v[0]) or bool(v[1])
@@ -1334,7 +1387,16 @@ class ComplexFloating(object):
             return rcomplex.c_div((v[0], -v[1]), (a2, 0.))
         except ZeroDivisionError:
             return rfloat.NAN, rfloat.NAN
- 
+
+    @specialize.argtype(1)
+    def round(self, v, decimals=0):
+        ans = list(self.for_computation(self.unbox(v)))
+        if isfinite(ans[0]):
+            ans[0] = rfloat.round_double(ans[0], decimals,  half_even=True)
+        if isfinite(ans[1]):
+            ans[1] = rfloat.round_double(ans[1], decimals,  half_even=True)
+        return self.box_complex(ans[0], ans[1])
+
     # No floor, ceil, trunc in numpy for complex
     #@simple_unary_op
     #def floor(self, v):
@@ -1627,6 +1689,7 @@ class BaseStringType(object):
     def get_size(self):
         return self.size
 
+
 class StringType(BaseType, BaseStringType):
     T = lltype.Char
 
@@ -1634,7 +1697,7 @@ class StringType(BaseType, BaseStringType):
     def coerce(self, space, dtype, w_item):
         from pypy.module.micronumpy.interp_dtype import new_string_dtype
         arg = space.str_w(space.str(w_item))
-        arr = interp_boxes.VoidBoxStorage(len(arg), new_string_dtype(space, len(arg)))
+        arr = VoidBoxStorage(len(arg), new_string_dtype(space, len(arg)))
         for i in range(len(arg)):
             arr.storage[i] = arg[i]
         return interp_boxes.W_StringBox(arr,  0, arr.dtype)
@@ -1675,8 +1738,64 @@ class StringType(BaseType, BaseStringType):
     def to_builtin_type(self, space, box):
         return space.wrap(self.to_str(box))
 
+    def build_and_convert(self, space, mydtype, box):
+        assert isinstance(box, interp_boxes.W_GenericBox)
+        if box.get_dtype(space).is_str_or_unicode():
+            arg = box.get_dtype(space).itemtype.to_str(box)
+        else:
+            w_arg = box.descr_str(space)
+            arg = space.str_w(space.str(w_arg))
+        arr = VoidBoxStorage(self.size, mydtype)
+        i = 0
+        for i in range(min(len(arg), self.size)):
+            arr.storage[i] = arg[i]
+        for j in range(i + 1, self.size):
+            arr.storage[j] = '\x00'
+        return interp_boxes.W_StringBox(arr,  0, arr.dtype)
+
 class VoidType(BaseType, BaseStringType):
     T = lltype.Char
+
+    def _coerce(self, space, arr, ofs, dtype, w_items, shape):
+        # TODO: Make sure the shape and the array match
+        from interp_dtype import W_Dtype
+        items_w = space.fixedview(w_items)
+        subdtype = dtype.subdtype
+        assert isinstance(subdtype, W_Dtype)
+        itemtype = subdtype.itemtype
+        if len(shape) <= 1:
+            for i in range(len(items_w)):
+                w_box = itemtype.coerce(space, dtype.subdtype, items_w[i])
+                itemtype.store(arr, 0, ofs, w_box)
+                ofs += itemtype.get_element_size()
+        else:
+            for w_item in items_w:
+                size = 1
+                for dimension in shape[1:]:
+                    size *= dimension
+                size *= itemtype.get_element_size()
+                self._coerce(space, arr, ofs, dtype, w_item, shape[1:])
+                ofs += size
+
+    def coerce(self, space, dtype, w_items):
+        arr = VoidBoxStorage(self.size, dtype)
+        self._coerce(space, arr, 0, dtype, w_items, dtype.shape)
+        return interp_boxes.W_VoidBox(arr, 0, dtype)
+
+    @jit.unroll_safe
+    def store(self, arr, i, ofs, box):
+        assert isinstance(box, interp_boxes.W_VoidBox)
+        for k in range(self.get_element_size()):
+            arr.storage[k + ofs] = box.arr.storage[k + box.ofs]
+
+    def readarray(self, arr, i, offset, dtype=None):
+        from pypy.module.micronumpy.base import W_NDimArray
+        if dtype is None:
+            dtype = arr.dtype
+        strides, backstrides = support.calc_strides(dtype.shape, dtype.subdtype, arr.order)
+        implementation = SliceArray(i + offset, strides, backstrides,
+                             dtype.shape, arr, W_NDimArray(arr), dtype.subdtype)
+        return W_NDimArray(implementation)
 
 NonNativeVoidType = VoidType
 NonNativeStringType = StringType
@@ -1711,7 +1830,7 @@ class RecordType(BaseType):
         if not space.issequence_w(w_item):
             raise OperationError(space.w_TypeError, space.wrap(
                 "expected sequence"))
-        if len(self.offsets_and_fields) != space.int_w(space.len(w_item)):
+        if len(self.offsets_and_fields) != space.len_w(w_item):
             raise OperationError(space.w_ValueError, space.wrap(
                 "wrong length"))
         items_w = space.fixedview(w_item)

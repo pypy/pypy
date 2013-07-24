@@ -1,8 +1,9 @@
 from rpython.rtyper.annlowlevel import cast_instance_to_base_ptr
 from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance
-from rpython.rtyper.lltypesystem import rclass
+from rpython.rtyper.lltypesystem import lltype, rclass
 from rpython.rtyper.llinterp import LLException
 from rpython.rlib.objectmodel import we_are_translated
+from rpython.jit.codewriter import longlong
 
 
 class JitException(Exception):
@@ -11,6 +12,54 @@ class JitException(Exception):
     catching exceptions that inherit from JitException.
     """
     _go_through_llinterp_uncaught_ = True     # ugh
+
+class DoneWithThisFrameVoid(JitException):
+    def __str__(self):
+        return 'DoneWithThisFrameVoid()'
+
+class DoneWithThisFrameInt(JitException):
+    def __init__(self, result):
+        assert lltype.typeOf(result) is lltype.Signed
+        self.result = result
+    def __str__(self):
+        return 'DoneWithThisFrameInt(%s)' % (self.result,)
+
+class DoneWithThisFrameRef(JitException):
+    def __init__(self, cpu, result):
+        assert lltype.typeOf(result) == cpu.ts.BASETYPE
+        self.result = result
+    def __str__(self):
+        return 'DoneWithThisFrameRef(%s)' % (self.result,)
+
+class DoneWithThisFrameFloat(JitException):
+    def __init__(self, result):
+        assert lltype.typeOf(result) is longlong.FLOATSTORAGE
+        self.result = result
+    def __str__(self):
+        return 'DoneWithThisFrameFloat(%s)' % (self.result,)
+
+class ExitFrameWithExceptionRef(JitException):
+    def __init__(self, cpu, value):
+        assert lltype.typeOf(value) == cpu.ts.BASETYPE
+        self.value = value
+    def __str__(self):
+        return 'ExitFrameWithExceptionRef(%s)' % (self.value,)
+
+class ContinueRunningNormally(JitException):
+    def __init__(self, gi, gr, gf, ri, rr, rf):
+        # the six arguments are: lists of green ints, greens refs,
+        # green floats, red ints, red refs, and red floats.
+        self.green_int = gi
+        self.green_ref = gr
+        self.green_float = gf
+        self.red_int = ri
+        self.red_ref = rr
+        self.red_float = rf
+    def __str__(self):
+        return 'ContinueRunningNormally(%s, %s, %s, %s, %s, %s)' % (
+            self.green_int, self.green_ref, self.green_float,
+            self.red_int, self.red_ref, self.red_float)
+
 
 def _get_standard_error(rtyper, Class):
     exdata = rtyper.getexceptiondata()

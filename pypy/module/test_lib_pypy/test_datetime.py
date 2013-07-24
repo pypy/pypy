@@ -25,6 +25,16 @@ def test_unpickle():
     e = raises(TypeError, datetime.datetime, '123')
     assert e.value.args[0] == 'an integer is required'
 
+    datetime.time('\x01' * 6, None)
+    with raises(TypeError) as e:
+        datetime.time('\x01' * 6, 123)
+    assert str(e.value) == "bad tzinfo state arg"
+
+    datetime.datetime('\x01' * 10, None)
+    with raises(TypeError) as e:
+        datetime.datetime('\x01' * 10, 123)
+    assert str(e.value) == "bad tzinfo state arg"
+
 def test_strptime():
     import time, sys
     if sys.version_info < (2, 6):

@@ -6,6 +6,9 @@
 
 #pragma link C++ struct cppyy_test_pod;
 #pragma link C++ class cppyy_test_data;
+#pragma link C++ class four_vector;
+
+#pragma link C++ enum fruit;
 
 #pragma link C++ function get_pod_address(cppyy_test_data&);
 #pragma link C++ function get_int_address(cppyy_test_data&);
@@ -16,6 +19,7 @@
 #pragma link C++ function is_global_pod(cppyy_test_pod*);
 #pragma link C++ function set_global_pod(cppyy_test_pod*);
 #pragma link C++ function get_global_pod();
+#pragma link C++ function get_null_pod();
 
 #pragma link C++ global N;
 #pragma link C++ global g_int;

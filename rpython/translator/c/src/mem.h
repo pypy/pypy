@@ -37,7 +37,7 @@
 
 #define OP_RAW_MALLOC_USAGE(size, r) r = size
 
-#ifdef MS_WINDOWS
+#if defined(MS_WINDOWS) && !defined(__MINGW32__)
 #define alloca  _alloca
 #endif
 
@@ -195,8 +195,14 @@ extern long pypy_asm_stackwalk(void*, void*);
                                              "g" (v))
 
 /* marker for trackgcroot.py, and inhibits tail calls */
-#define pypy_asm_stack_bottom()  asm volatile ("/* GC_STACK_BOTTOM */" : : : \
-                                               "memory")
+#define pypy_asm_stack_bottom() { asm volatile ("/* GC_STACK_BOTTOM */" : : : \
+                                  "memory"); pypy_check_stack_count(); }
+#ifdef RPY_ASSERT
+void pypy_check_stack_count(void);
+#else
+static void pypy_check_stack_count(void) { }
+#endif
+
 
 #define OP_GC_ASMGCROOT_STATIC(i, r)   r =	       \
 	i == 0 ? (void*)&__gcmapstart :		       \

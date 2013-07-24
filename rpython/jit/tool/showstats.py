@@ -1,11 +1,10 @@
 #!/usr/bin/env python
 from __future__ import division
 
-import sys, py
+import sys
 from rpython.tool import logparser
 from rpython.jit.tool.oparser import parse
 from rpython.jit.metainterp.resoperation import rop
-from rpython.rtyper.lltypesystem import lltype, llmemory
 
 def main(argv):
     log = logparser.parse_log_file(argv[0])
@@ -26,6 +25,6 @@ def main(argv):
             print "Loop #%d, length: %d, opcodes: %d, guards: %d" % (i, num_ops, num_dmp, num_guards)
         else:
             print "Loop #%d, length: %d, opcodes: %d, guards: %d, %f" % (i, num_ops, num_dmp, num_guards, num_ops/num_dmp)
-        
+
 if __name__ == '__main__':
     main(sys.argv[1:])

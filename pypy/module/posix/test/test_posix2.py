@@ -170,6 +170,7 @@ class AppTestPosix:
         assert st.st_atime == 41
         assert st.st_mtime == 42.1
         assert st.st_ctime == 43
+        assert repr(st).startswith(self.posix.__name__ + '.stat_result')
 
     def test_stat_lstat(self):
         import stat
@@ -179,7 +180,8 @@ class AppTestPosix:
         assert stat.S_ISDIR(st.st_mode)
 
     def test_stat_exception(self):
-        import sys, errno
+        import sys
+        import errno
         for fn in [self.posix.stat, self.posix.lstat]:
             try:
                 fn("nonexistentdir/nonexistentfile")
@@ -192,6 +194,15 @@ class AppTestPosix:
                 if sys.platform == 'win32':
                     assert isinstance(e, WindowsError)
                     assert e.winerror == 3
+
+    def test_statvfs(self):
+        st = self.posix.statvfs(".")
+        assert isinstance(st, self.posix.statvfs_result)
+        for field in [
+            'f_bsize', 'f_frsize', 'f_blocks', 'f_bfree', 'f_bavail',
+            'f_files', 'f_ffree', 'f_favail', 'f_flag', 'f_namemax',
+        ]:
+            assert hasattr(st, field)
 
     def test_pickle(self):
         import pickle, os

@@ -2,7 +2,7 @@ from __future__ import with_statement
 
 import errno
 
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError, operationerrfmt, exception_from_errno
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
@@ -69,7 +69,7 @@ epoll_wait = rffi.llexternal(
 )
 
 
-class W_Epoll(Wrappable):
+class W_Epoll(W_Root):
     def __init__(self, space, epfd):
         self.epfd = epfd
 

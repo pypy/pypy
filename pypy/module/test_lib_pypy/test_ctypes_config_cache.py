@@ -32,11 +32,9 @@ def run(filename, outputname):
     return d
 
 
-def test_syslog():
-    d = run('syslog.ctc.py', '_syslog_cache.py')
-    assert 'LOG_NOTICE' in d
-
 def test_resource():
+    if sys.platform == 'win32':
+        py.test.skip('no resource module on this platform')
     d = run('resource.ctc.py', '_resource_cache.py')
     assert 'RLIM_NLIMITS' in d
 

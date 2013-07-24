@@ -83,7 +83,7 @@ class PackFormatIterator(FormatIterator):
 
         def _maybe_float(self, w_obj):
             space = self.space
-            if space.is_true(space.isinstance(w_obj, space.w_float)):
+            if space.isinstance_w(w_obj, space.w_float):
                 msg = "struct: integer argument expected, got float"
             else:
                 msg = "integer argument expected, got non-integer"

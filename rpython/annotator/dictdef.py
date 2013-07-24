@@ -1,6 +1,5 @@
-from rpython.annotator.model import SomeObject, s_ImpossibleValue
+from rpython.annotator.model import s_ImpossibleValue
 from rpython.annotator.model import SomeInteger, s_Bool, unionof
-from rpython.annotator.model import SomeInstance
 from rpython.annotator.listdef import ListItem
 from rpython.rlib.objectmodel import compute_hash
 

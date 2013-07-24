@@ -318,12 +318,13 @@ class AppTest_Descroperation:
             raises(TypeError, operate, A())
 
     def test_missing_getattribute(self):
-        class X(object): pass
+        class X(object):
+            pass
 
         class Y(X):
-          class __metaclass__(type):
-            def mro(cls):
-              return [cls, X]
+            class __metaclass__(type):
+                def mro(cls):
+                    return [cls, X]
 
         x = X()
         x.__class__ = Y
@@ -331,8 +332,10 @@ class AppTest_Descroperation:
 
     def test_silly_but_consistent_order(self):
         # incomparable objects sort by type name :-/
-        class A(object): pass
-        class zz(object): pass
+        class A(object):
+            pass
+        class zz(object):
+            pass
         assert A() < zz()
         assert zz() > A()
         # if in doubt, CPython sorts numbers before non-numbers

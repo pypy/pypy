@@ -1,8 +1,8 @@
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.tool import rffi_platform
 from rpython.rtyper.lltypesystem import rffi, lltype
-from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.gateway import unwrap_spec
+from pypy.interpreter.error import operationerrfmt
 from rpython.rlib.rarithmetic import intmask
 
 eci = ExternalCompilationInfo(

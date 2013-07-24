@@ -1,16 +1,18 @@
-from rpython.tool.pairtype import pairtype, pair
-from rpython.flowspace.model import Constant
 from rpython.annotator import model as annmodel
-from rpython.rtyper.error import TyperError
-from rpython.rtyper.rmodel import Repr, IteratorRepr, IntegerRepr
-from rpython.rtyper.rstr import AbstractStringRepr, AbstractCharRepr
-from rpython.rtyper.lltypesystem.lltype import typeOf, Ptr, Void, Signed, Bool
-from rpython.rtyper.lltypesystem.lltype import nullptr, Char, UniChar, Number
-from rpython.rlib.objectmodel import malloc_zero_filled
+from rpython.flowspace.model import Constant
+from rpython.rlib import rgc, jit, types
 from rpython.rlib.debug import ll_assert
+from rpython.rlib.objectmodel import malloc_zero_filled
+from rpython.rlib.signature import signature
 from rpython.rlib.rarithmetic import ovfcheck, widen, r_uint, intmask
 from rpython.rtyper.annlowlevel import ADTInterface
-from rpython.rlib import rgc, jit
+from rpython.rtyper.error import TyperError
+from rpython.rtyper.lltypesystem.lltype import typeOf, Ptr, Void, Signed, Bool
+from rpython.rtyper.lltypesystem.lltype import nullptr, Char, UniChar, Number
+from rpython.rtyper.rmodel import Repr, IteratorRepr, IntegerRepr
+from rpython.rtyper.rstr import AbstractStringRepr, AbstractCharRepr
+from rpython.tool.pairtype import pairtype, pair
+
 
 ADTIFixedList = ADTInterface(None, {
     'll_newlist':      (['SELF', Signed        ], 'self'),
@@ -521,6 +523,7 @@ def listItemType(lst):
     return LIST.ITEM
 
 
+@signature(types.any(), types.any(), types.int(), types.int(), types.int(), returns=types.none())
 def ll_arraycopy(source, dest, source_start, dest_start, length):
     SRCTYPE = typeOf(source)
     if isinstance(SRCTYPE, Ptr):
@@ -534,8 +537,7 @@ def ll_arraycopy(source, dest, source_start, dest_start, length):
             item = source.ll_getitem_fast(source_start + i)
             dest.ll_setitem_fast(dest_start + i, item)
             i += 1
-ll_arraycopy._annenforceargs_ = [None, None, int, int, int]
-# no oopspec -- the function is inlined by the JIT
+
 
 def ll_copy(RESLIST, l):
     length = l.ll_length()
@@ -873,8 +875,9 @@ def ll_extend_with_char_count(lst, char, count):
     while j < newlength:
         lst.ll_setitem_fast(j, char)
         j += 1
-# not inlined by the JIT -- contains a loop
 
+
+@signature(types.any(), types.any(), types.int(), returns=types.any())
 def ll_listslice_startonly(RESLIST, l1, start):
     len1 = l1.ll_length()
     ll_assert(start >= 0, "unexpectedly negative list slice start")
@@ -883,8 +886,7 @@ def ll_listslice_startonly(RESLIST, l1, start):
     l = RESLIST.ll_newlist(newlength)
     ll_arraycopy(l1, l, start, 0, newlength)
     return l
-ll_listslice_startonly._annenforceargs_ = (None, None, int)
-# no oopspec -- the function is inlined by the JIT
+
 
 def ll_listslice_startstop(RESLIST, l1, start, stop):
     length = l1.ll_length()
@@ -948,11 +950,12 @@ def ll_listsetslice(l1, start, stop, l2):
     count = l2.ll_length()
     ll_assert(start >= 0, "l[start:x] = l with unexpectedly negative start")
     ll_assert(start <= l1.ll_length(), "l[start:x] = l with start > len(l)")
+    ll_assert(stop <= l1.ll_length(), "stop cannot be past the end of l1")
     ll_assert(count == stop - start,
                  "setslice cannot resize lists in RPython")
     # XXX ...but it would be easy enough to support if really needed
     ll_arraycopy(l2, l1, 0, start, count)
-ll_listsetslice.oopspec = 'list.setslice(l1, start, stop, l2)'
+
 
 # ____________________________________________________________
 #

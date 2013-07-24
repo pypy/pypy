@@ -1,25 +1,50 @@
 """ String builder interface and string functions
 """
+import sys
 
 from rpython.annotator.model import (SomeObject, SomeString, s_None, SomeChar,
     SomeInteger, SomeUnicodeCodePoint, SomeUnicodeString, SomePtr, SomePBC)
-from rpython.rlib.objectmodel import newlist_hint
+from rpython.rlib.objectmodel import newlist_hint, specialize
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.tool.pairtype import pairtype
+from rpython.rlib import jit
 
 
 # -------------- public API for string functions -----------------------
+
+@specialize.argtype(0)
 def split(value, by, maxsplit=-1):
+    if isinstance(value, str):
+        assert isinstance(by, str)
+    else:
+        assert isinstance(by, unicode)
     bylen = len(by)
     if bylen == 0:
         raise ValueError("empty separator")
+
+    start = 0
+    if bylen == 1:
+        # fast path: uses str.rfind(character) and str.count(character)
+        by = by[0]    # annotator hack: string -> char
+        count = value.count(by)
+        if 0 <= maxsplit < count:
+            count = maxsplit
+        res = newlist_hint(count + 1)
+        while count > 0:
+            next = value.find(by, start)
+            assert next >= 0 # cannot fail due to the value.count above
+            res.append(value[start:next])
+            start = next + bylen
+            count -= 1
+        res.append(value[start:len(value)])
+        return res
 
     if maxsplit > 0:
         res = newlist_hint(min(maxsplit + 1, len(value)))
     else:
         res = []
-    start = 0
+
     while maxsplit != 0:
         next = value.find(by, start)
         if next < 0:
@@ -32,7 +57,12 @@ def split(value, by, maxsplit=-1):
     return res
 
 
+@specialize.argtype(0)
 def rsplit(value, by, maxsplit=-1):
+    if isinstance(value, str):
+        assert isinstance(by, str)
+    else:
+        assert isinstance(by, unicode)
     if maxsplit > 0:
         res = newlist_hint(min(maxsplit + 1, len(value)))
     else:
@@ -53,6 +83,195 @@ def rsplit(value, by, maxsplit=-1):
     res.append(value[:end])
     res.reverse()
     return res
+
+
+@specialize.argtype(0)
+def replace(input, sub, by, maxsplit=-1):
+    if isinstance(input, str):
+        assert isinstance(sub, str)
+        assert isinstance(by, str)
+        Builder = StringBuilder
+    else:
+        assert isinstance(sub, unicode)
+        assert isinstance(by, unicode)
+        Builder = UnicodeBuilder
+    if maxsplit == 0:
+        return input
+
+    if not sub:
+        upper = len(input)
+        if maxsplit > 0 and maxsplit < upper + 2:
+            upper = maxsplit - 1
+            assert upper >= 0
+
+        try:
+            result_size = ovfcheck(upper * len(by))
+            result_size = ovfcheck(result_size + upper)
+            result_size = ovfcheck(result_size + len(by))
+            remaining_size = len(input) - upper
+            result_size = ovfcheck(result_size + remaining_size)
+        except OverflowError:
+            raise
+        builder = Builder(result_size)
+        for i in range(upper):
+            builder.append(by)
+            builder.append(input[i])
+        builder.append(by)
+        builder.append_slice(input, upper, len(input))
+    else:
+        # First compute the exact result size
+        count = input.count(sub)
+        if count > maxsplit and maxsplit > 0:
+            count = maxsplit
+        diff_len = len(by) - len(sub)
+        try:
+            result_size = ovfcheck(diff_len * count)
+            result_size = ovfcheck(result_size + len(input))
+        except OverflowError:
+            raise
+
+        builder = Builder(result_size)
+        start = 0
+        sublen = len(sub)
+
+        while maxsplit != 0:
+            next = input.find(sub, start)
+            if next < 0:
+                break
+            builder.append_slice(input, start, next)
+            builder.append(by)
+            start = next + sublen
+            maxsplit -= 1   # NB. if it's already < 0, it stays < 0
+
+        builder.append_slice(input, start, len(input))
+
+    return builder.build()
+
+def _normalize_start_end(length, start, end):
+    if start < 0:
+        start += length
+        if start < 0:
+            start = 0
+    if end < 0:
+        end += length
+        if end < 0:
+            end = 0
+    elif end > length:
+        end = length
+    return start, end
+
+@specialize.argtype(0)
+@jit.elidable
+def startswith(u_self, prefix, start=0, end=sys.maxint):
+    length = len(u_self)
+    start, end = _normalize_start_end(length, start, end)
+    stop = start + len(prefix)
+    if stop > end:
+        return False
+    for i in range(len(prefix)):
+        if u_self[start+i] != prefix[i]:
+            return False
+    return True
+
+@specialize.argtype(0)
+@jit.elidable
+def endswith(u_self, suffix, start=0, end=sys.maxint):
+    length = len(u_self)
+    start, end = _normalize_start_end(length, start, end)
+    begin = end - len(suffix)
+    if begin < start:
+        return False
+    for i in range(len(suffix)):
+        if u_self[begin+i] != suffix[i]:
+            return False
+    return True
+
+# -------------- numeric parsing support --------------------
+
+def strip_spaces(s):
+    # XXX this is not locale-dependent
+    p = 0
+    q = len(s)
+    while p < q and s[p] in ' \f\n\r\t\v':
+        p += 1
+    while p < q and s[q-1] in ' \f\n\r\t\v':
+        q -= 1
+    assert q >= p     # annotator hint, don't remove
+    return s[p:q]
+
+class ParseStringError(Exception):
+    def __init__(self, msg):
+        self.msg = msg
+
+class ParseStringOverflowError(Exception):
+    def __init__(self, parser):
+        self.parser = parser
+
+# iterator-like class
+class NumberStringParser:
+
+    def error(self):
+        raise ParseStringError("invalid literal for %s() with base %d: '%s'" %
+                               (self.fname, self.original_base, self.literal))
+
+    def __init__(self, s, literal, base, fname):
+        self.literal = literal
+        self.fname = fname
+        sign = 1
+        if s.startswith('-'):
+            sign = -1
+            s = strip_spaces(s[1:])
+        elif s.startswith('+'):
+            s = strip_spaces(s[1:])
+        self.sign = sign
+        self.original_base = base
+
+        if base == 0:
+            if s.startswith('0x') or s.startswith('0X'):
+                base = 16
+            elif s.startswith('0b') or s.startswith('0B'):
+                base = 2
+            elif s.startswith('0'): # also covers the '0o' case
+                base = 8
+            else:
+                base = 10
+        elif base < 2 or base > 36:
+            raise ParseStringError, "%s() base must be >= 2 and <= 36" % (fname,)
+        self.base = base
+
+        if base == 16 and (s.startswith('0x') or s.startswith('0X')):
+            s = s[2:]
+        if base == 8 and (s.startswith('0o') or s.startswith('0O')):
+            s = s[2:]
+        if base == 2 and (s.startswith('0b') or s.startswith('0B')):
+            s = s[2:]
+        if not s:
+            self.error()
+        self.s = s
+        self.n = len(s)
+        self.i = 0
+
+    def rewind(self):
+        self.i = 0
+
+    def next_digit(self): # -1 => exhausted
+        if self.i < self.n:
+            c = self.s[self.i]
+            digit = ord(c)
+            if '0' <= c <= '9':
+                digit -= ord('0')
+            elif 'A' <= c <= 'Z':
+                digit = (digit - ord('A')) + 10
+            elif 'a' <= c <= 'z':
+                digit = (digit - ord('a')) + 10
+            else:
+                self.error()
+            if digit >= self.base:
+                self.error()
+            self.i += 1
+            return digit
+        else:
+            return -1
 
 # -------------- public API ---------------------------------
 
@@ -271,3 +490,5 @@ class Entry(ExtRegistryEntry):
 
     def specialize_call(self, hop):
         hop.exception_cannot_occur()
+
+

@@ -7,7 +7,7 @@ from pypy.module.imp.importing import get_pyc_magic, _w_long
 from StringIO import StringIO
 
 from rpython.tool.udir import udir
-from zipfile import ZIP_STORED, ZIP_DEFLATED
+from zipfile import ZIP_STORED
 
 
 class AppTestZipimport:
@@ -53,7 +53,7 @@ class AppTestZipimport:
 
         space = cls.space
 
-        tmpdir = udir.ensure('zipimport_%s' % cls.__name__, dir=1)
+        tmpdir = udir.ensure('zipimport_%s_%s' % (__name__, cls.__name__), dir=1)
         now = time.time()
         cls.w_now = space.wrap(now)
         test_pyc = cls.make_pyc(space, co, now)
@@ -358,20 +358,6 @@ def get_co_filename():
         code = z.get_code('mymodule')
         co_filename = code.co_filename
         assert co_filename == expected
-
-
-class AppTestZipimportDeflated(AppTestZipimport):
-    compression = ZIP_DEFLATED
-    spaceconfig = {
-        "usemodules": ['zipimport', 'zlib', 'rctime', 'struct', 'itertools', 'binascii'],
-    }
-
-    def setup_class(cls):
-        try:
-            import rpython.rlib.rzlib
-        except ImportError:
-            py.test.skip("zlib not available, cannot test compressed zipfiles")
-        cls.make_class()
 
 
 if os.sep != '/':

@@ -21,7 +21,7 @@ class TypeSystem(object):
             except ImportError:
                 return None
         if name in ('rclass', 'rpbc', 'rbuiltin', 'rtuple', 'rlist',
-                    'rslice', 'rdict', 'rrange', 'rstr', 'rgeneric',
+                    'rslice', 'rdict', 'rrange', 'rstr',
                     'll_str', 'rbuilder', 'rvirtualizable2', 'rbytearray',
                     'exceptiondata'):
             mod = load(name)
@@ -50,7 +50,7 @@ class TypeSystem(object):
     def getcallabletype(self, ARGS, RESTYPE):
         cls = self.callable_trait[0]
         return cls(ARGS, RESTYPE)
-        
+
     def getcallable(self, graph, getconcretetype=None):
         """Return callable given a Python function."""
         if getconcretetype is None:
@@ -59,7 +59,7 @@ class TypeSystem(object):
         lloutput = getconcretetype(graph.getreturnvar())
 
         typ, constr = self.callable_trait
-        
+
         FT = typ(llinputs, lloutput)
         name = graph.name
         if hasattr(graph, 'func') and callable(graph.func):
@@ -138,7 +138,7 @@ class LowLevelTypeSystem(TypeSystem):
         if robj1.lowleveltype != robj2.lowleveltype:
             raise TyperError('is of instances of different pointer types: %r, %r' % (
                 roriginal1, roriginal2))
-            
+
         v_list = hop.inputargs(robj1, robj2)
         return hop.genop('ptr_eq', v_list, resulttype=lltype.Bool)
 
@@ -177,7 +177,7 @@ class ObjectOrientedTypeSystem(TypeSystem):
              robj2.lowleveltype is not ootype.Class):
             raise TyperError('is of instances of the non-instances: %r, %r' % (
                 roriginal1, roriginal2))
-            
+
         v_list = hop.inputargs(robj1, robj2)
         return hop.genop('oois', v_list, resulttype=lltype.Bool)
 

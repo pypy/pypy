@@ -3,7 +3,6 @@ Reference tracker for lltype data structures.
 """
 
 import sys, os
-import gc
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.memory.gcheader import header2obj
 from rpython.translator.tool.reftracker import BaseRefTrackerPage, MARKER
@@ -12,7 +11,6 @@ from rpython.tool.identity_dict import identity_dict
 
 
 class LLRefTrackerPage(BaseRefTrackerPage):
-
     def compute(self, objectlist, size_gc_header):
         self.size_gc_header = size_gc_header
         return BaseRefTrackerPage.compute(self, objectlist)
@@ -74,7 +72,6 @@ class LLRefTrackerPage(BaseRefTrackerPage):
                                                      with_header=False):
                     yield fmt % (name,), value
             if gcobjptr:
-                GCT = lltype.typeOf(gcobjptr)
                 if self.size_gc_header is not None:
                     for sub in self.enum_content(gcobjptr._obj,
                                                  with_header=False):

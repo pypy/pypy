@@ -83,3 +83,42 @@ int some_class_with_data::some_data::s_num_data = 0;
 multi1::~multi1() {}
 multi2::~multi2() {}
 multi::~multi() {}
+
+
+// for testing calls to overloaded new
+int new_overloader::s_instances = 0;
+
+void* new_overloader::operator new(std::size_t size) {
+    ++s_instances;
+    return ::operator new(size);
+}
+
+void* new_overloader::operator new(std::size_t, void* p) throw() {
+    // no ++s_instances, as no memory is allocated
+    return p;
+}
+
+void new_overloader::operator delete(void* p, std::size_t) {
+    if (p == 0) return;
+    --s_instances;
+    ::operator delete(p);
+}
+
+
+// more template testing
+long my_templated_method_class::get_size() { return -1; }
+
+long my_templated_method_class::get_char_size()   { return (long)sizeof(char); }
+long my_templated_method_class::get_int_size()    { return (long)sizeof(int); }
+long my_templated_method_class::get_long_size()   { return (long)sizeof(long); }
+long my_templated_method_class::get_float_size()  { return (long)sizeof(float); }
+long my_templated_method_class::get_double_size() { return (long)sizeof(double); }
+long my_templated_method_class::get_self_size()   { return (long)sizeof(my_templated_method_class); }
+
+
+// overload order testing
+int overload_one_way::gime() const { return 1; }
+std::string overload_one_way::gime() { return "aap"; }
+
+std::string overload_the_other_way::gime() { return "aap"; }
+int overload_the_other_way::gime() const { return 1; }

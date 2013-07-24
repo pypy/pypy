@@ -529,7 +529,7 @@ class MethodOfFrozenPBCRepr(Repr):
 
         im_selves = []
         for desc in s_pbc.descriptions:
-            assert desc.funcdesc is self.funcdesc
+            assert desc.funcdesc is self.funcdesc, "You can't mix a set of methods on a frozen PBC in RPython that are different underlaying functions"
             im_selves.append(desc.frozendesc)
 
         self.s_im_self = annmodel.SomePBC(im_selves)

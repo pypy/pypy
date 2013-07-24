@@ -1,5 +1,4 @@
-
-from pypy.module.micronumpy.arrayimpl import base
+from pypy.module.micronumpy.arrayimpl import base, scalar
 from pypy.module.micronumpy import support, loop, iter
 from pypy.module.micronumpy.base import convert_to_array, W_NDimArray,\
      ArrayArgumentException
@@ -12,15 +11,15 @@ from rpython.rlib import jit
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib.rawstorage import free_raw_storage, raw_storage_getitem,\
      raw_storage_setitem, RAW_STORAGE
-from pypy.module.micronumpy.arrayimpl.sort import argsort_array
 from rpython.rlib.debug import make_sure_not_resized
+
 
 class BaseConcreteArray(base.BaseArrayImplementation):
     start = 0
     parent = None
 
     # JIT hints that length of all those arrays is a constant
-    
+
     def get_shape(self):
         shape = self.shape
         jit.hint(len(shape), promote=True)
@@ -49,11 +48,14 @@ class BaseConcreteArray(base.BaseArrayImplementation):
             return
         shape = shape_agreement(space, self.get_shape(), arr)
         if impl.storage == self.storage:
-            impl = impl.copy()
-        loop.setslice(shape, self, impl)
+            impl = impl.copy(space)
+        loop.setslice(space, shape, self, impl)
 
     def get_size(self):
         return self.size // self.dtype.itemtype.get_element_size()
+
+    def get_storage_size(self):
+        return self.size
 
     def reshape(self, space, orig_array, new_shape):
         # Since we got to here, prod(new_shape) == self.size
@@ -67,11 +69,18 @@ class BaseConcreteArray(base.BaseArrayImplementation):
             new_backstrides = [0] * ndims
             for nd in range(ndims):
                 new_backstrides[nd] = (new_shape[nd] - 1) * new_strides[nd]
+            assert isinstance(orig_array, W_NDimArray) or orig_array is None
             return SliceArray(self.start, new_strides, new_backstrides,
                               new_shape, self, orig_array)
         else:
             return None
-    
+
+    def get_view(self, orig_array, dtype, new_shape):
+        strides, backstrides = support.calc_strides(new_shape, dtype,
+                                                    self.order)
+        return SliceArray(self.start, strides, backstrides, new_shape,
+                          self, orig_array, dtype=dtype)
+
     def get_real(self, orig_array):
         strides = self.get_strides()
         backstrides = self.get_backstrides()
@@ -79,15 +88,19 @@ class BaseConcreteArray(base.BaseArrayImplementation):
             dtype =  self.dtype.float_type
             return SliceArray(self.start, strides, backstrides,
                           self.get_shape(), self, orig_array, dtype=dtype)
-        return SliceArray(self.start, strides, backstrides, 
+        return SliceArray(self.start, strides, backstrides,
                           self.get_shape(), self, orig_array)
+
+    def set_real(self, space, orig_array, w_value):
+        tmp = self.get_real(orig_array)
+        tmp.setslice(space, convert_to_array(space, w_value))
 
     def get_imag(self, orig_array):
         strides = self.get_strides()
         backstrides = self.get_backstrides()
         if self.dtype.is_complex_type():
             dtype =  self.dtype.float_type
-            return SliceArray(self.start + dtype.get_size(), strides, 
+            return SliceArray(self.start + dtype.get_size(), strides,
                     backstrides, self.get_shape(), self, orig_array, dtype=dtype)
         if self.dtype.is_flexible_type():
             # numpy returns self for self.imag
@@ -97,6 +110,10 @@ class BaseConcreteArray(base.BaseArrayImplementation):
                              backstrides)
         impl.fill(self.dtype.box(0))
         return impl
+
+    def set_imag(self, space, orig_array, w_value):
+        tmp = self.get_imag(orig_array)
+        tmp.setslice(space, convert_to_array(space, w_value))
 
     # -------------------- applevel get/setitem -----------------------
 
@@ -148,16 +165,12 @@ class BaseConcreteArray(base.BaseArrayImplementation):
             space.isinstance_w(w_idx, space.w_slice) or
             space.is_w(w_idx, space.w_None)):
             raise IndexError
-        if isinstance(w_idx, W_NDimArray):
+        if isinstance(w_idx, W_NDimArray) and not isinstance(w_idx.implementation, scalar.Scalar):
             raise ArrayArgumentException
         shape = self.get_shape()
         shape_len = len(shape)
-        if shape_len == 0:
-            raise OperationError(space.w_IndexError, space.wrap(
-                "0-d arrays can't be indexed"))
         view_w = None
-        if (space.isinstance_w(w_idx, space.w_list) or
-            isinstance(w_idx, W_NDimArray)):
+        if space.isinstance_w(w_idx, space.w_list):
             raise ArrayArgumentException
         if space.isinstance_w(w_idx, space.w_tuple):
             view_w = space.fixedview(w_idx)
@@ -241,12 +254,12 @@ class BaseConcreteArray(base.BaseArrayImplementation):
         return SliceArray(self.start, strides,
                           backstrides, shape, self, orig_array)
 
-    def copy(self):
+    def copy(self, space):
         strides, backstrides = support.calc_strides(self.get_shape(), self.dtype,
                                                     self.order)
         impl = ConcreteArray(self.get_shape(), self.dtype, self.order, strides,
                              backstrides)
-        return loop.setslice(self.get_shape(), impl, self)
+        return loop.setslice(space, self.get_shape(), impl, self)
 
     def create_axis_iter(self, shape, dim, cum):
         return iter.AxisIterator(self, shape, dim, cum)
@@ -260,14 +273,14 @@ class BaseConcreteArray(base.BaseArrayImplementation):
         shape = self.get_shape()[:]
         strides = self.get_strides()[:]
         backstrides = self.get_backstrides()[:]
-        shape[axis1], shape[axis2] = shape[axis2], shape[axis1]   
+        shape[axis1], shape[axis2] = shape[axis2], shape[axis1]
         strides[axis1], strides[axis2] = strides[axis2], strides[axis1]
-        backstrides[axis1], backstrides[axis2] = backstrides[axis2], backstrides[axis1] 
-        return W_NDimArray.new_slice(self.start, strides, 
+        backstrides[axis1], backstrides[axis2] = backstrides[axis2], backstrides[axis1]
+        return W_NDimArray.new_slice(self.start, strides,
                                      backstrides, shape, self, orig_arr)
 
     def get_storage_as_int(self, space):
-        return rffi.cast(lltype.Signed, self.storage)
+        return rffi.cast(lltype.Signed, self.storage) + self.start
 
     def get_storage(self):
         return self.storage
@@ -277,8 +290,13 @@ class BaseConcreteArray(base.BaseArrayImplementation):
 
     def astype(self, space, dtype):
         new_arr = W_NDimArray.from_shape(self.get_shape(), dtype)
-        loop.copy_from_to(self, new_arr.implementation, dtype)
+        if self.dtype.is_str_or_unicode() and not dtype.is_str_or_unicode():
+            raise OperationError(space.w_NotImplementedError, space.wrap(
+                "astype(%s) not implemented yet" % self.dtype))
+        else:
+            loop.setslice(space, new_arr.get_shape(), new_arr.implementation, self)
         return new_arr
+
 
 class ConcreteArrayNotOwning(BaseConcreteArray):
     def __init__(self, shape, dtype, order, strides, backstrides, storage):
@@ -294,12 +312,12 @@ class ConcreteArrayNotOwning(BaseConcreteArray):
         self.backstrides = backstrides
         self.storage = storage
 
-    def create_iter(self, shape=None):
+    def create_iter(self, shape=None, backward_broadcast=False):
         if shape is None or shape == self.get_shape():
             return iter.ConcreteArrayIterator(self)
         r = calculate_broadcast_strides(self.get_strides(),
                                         self.get_backstrides(),
-                                        self.get_shape(), shape)
+                                        self.get_shape(), shape, backward_broadcast)
         return iter.MultiDimViewIterator(self, self.dtype, 0, r[0], r[1], shape)
 
     def fill(self, box):
@@ -312,31 +330,32 @@ class ConcreteArrayNotOwning(BaseConcreteArray):
                           orig_array)
 
     def argsort(self, space, w_axis):
+        from pypy.module.micronumpy.arrayimpl.sort import argsort_array
         return argsort_array(self, space, w_axis)
 
     def base(self):
         return None
 
+
 class ConcreteArray(ConcreteArrayNotOwning):
-    def __init__(self, shape, dtype, order, strides, backstrides):
-        # we allocate the actual storage later because we need to compute
-        # self.size first
+    def __init__(self, shape, dtype, order, strides, backstrides, storage=lltype.nullptr(RAW_STORAGE)):
         null_storage = lltype.nullptr(RAW_STORAGE)
         ConcreteArrayNotOwning.__init__(self, shape, dtype, order, strides, backstrides,
                                         null_storage)
-        self.storage = dtype.itemtype.malloc(self.size)
+        if storage == lltype.nullptr(RAW_STORAGE):
+            self.storage = dtype.itemtype.malloc(self.size)
+        else:
+            self.storage = storage
 
     def __del__(self):
         free_raw_storage(self.storage, track_allocation=False)
 
 
-        
-
 class NonWritableArray(ConcreteArray):
     def descr_setitem(self, space, orig_array, w_index, w_value):
         raise OperationError(space.w_RuntimeError, space.wrap(
             "array is not writable"))
-        
+
 
 class SliceArray(BaseConcreteArray):
     def __init__(self, start, strides, backstrides, shape, parent, orig_arr,
@@ -344,13 +363,13 @@ class SliceArray(BaseConcreteArray):
         self.strides = strides
         self.backstrides = backstrides
         self.shape = shape
+        if dtype is None:
+            dtype = parent.dtype
         if isinstance(parent, SliceArray):
             parent = parent.parent # one level only
         self.parent = parent
         self.storage = parent.storage
         self.order = parent.order
-        if dtype is None:
-            dtype = parent.dtype
         self.dtype = dtype
         self.size = support.product(shape) * self.dtype.itemtype.get_element_size()
         self.start = start
@@ -362,15 +381,16 @@ class SliceArray(BaseConcreteArray):
     def fill(self, box):
         loop.fill(self, box.convert_to(self.dtype))
 
-    def create_iter(self, shape=None):
+    def create_iter(self, shape=None, backward_broadcast=False):
         if shape is not None and shape != self.get_shape():
             r = calculate_broadcast_strides(self.get_strides(),
                                             self.get_backstrides(),
-                                            self.get_shape(), shape)
+                                            self.get_shape(), shape,
+                                            backward_broadcast)
             return iter.MultiDimViewIterator(self.parent, self.dtype,
                                              self.start, r[0], r[1], shape)
         if len(self.get_shape()) == 1:
-            return iter.OneDimViewIterator(self.parent, self.dtype, self.start, 
+            return iter.OneDimViewIterator(self.parent, self.dtype, self.start,
                     self.get_strides(), self.get_shape())
         return iter.MultiDimViewIterator(self.parent, self.dtype, self.start,
                                     self.get_strides(),
@@ -407,6 +427,7 @@ class SliceArray(BaseConcreteArray):
             new_backstrides[nd] = (new_shape[nd] - 1) * new_strides[nd]
         return SliceArray(self.start, new_strides, new_backstrides, new_shape,
                           self, orig_array)
+
 
 class ArrayBuffer(RWBuffer):
     def __init__(self, impl):

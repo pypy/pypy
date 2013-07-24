@@ -1,4 +1,4 @@
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.error import OperationError
@@ -6,8 +6,7 @@ from pypy.module._multibytecodec import c_codecs
 from pypy.module._codecs.interp_codecs import CodecState
 
 
-class MultibyteCodec(Wrappable):
-
+class MultibyteCodec(W_Root):
     def __init__(self, name, codec):
         self.name = name
         self.codec = codec

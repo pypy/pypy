@@ -102,6 +102,7 @@ opcodes = _proc_dict({
     'jit_force_virtual':        DoNothing,
     'jit_force_quasi_immutable': Ignore,
     'jit_is_virtual':           PushPrimitive(ootype.Bool, False),
+    'jit_ffi_save_result':      Ignore,
 
     'debug_assert':              [], # TODO: implement?
     'debug_start_traceback':    Ignore,

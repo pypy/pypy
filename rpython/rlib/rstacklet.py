@@ -34,16 +34,10 @@ class StackletThread(object):
     def switch(self, stacklet):
         if DEBUG:
             debug.remove(stacklet)
-        h = self._gcrootfinder.switch(self, stacklet)
+        h = self._gcrootfinder.switch(stacklet)
         if DEBUG:
             debug.add(h)
         return h
-
-    @jit.dont_look_inside
-    def destroy(self, stacklet):
-        if DEBUG:
-            debug.remove(stacklet)
-        self._gcrootfinder.destroy(self, stacklet)
 
     def is_empty_handle(self, stacklet):
         # note that "being an empty handle" and being equal to
@@ -52,6 +46,10 @@ class StackletThread(object):
 
     def get_null_handle(self):
         return self._gcrootfinder.get_null_handle()
+
+    def _freeze_(self):
+        raise Exception("StackletThread instances must not be seen during"
+                        " translation.")
 
 
 class StackletThreadDeleter(object):

@@ -44,13 +44,12 @@ stacklet_handle stacklet_new(stacklet_thread_handle thrd,
  * Don't call this with an already-used target, with EMPTY_STACKLET_HANDLE,
  * or with a stack handle from another thread (in multithreaded apps).
  */
-stacklet_handle stacklet_switch(stacklet_thread_handle thrd,
-                                stacklet_handle target);
+stacklet_handle stacklet_switch(stacklet_handle target);
 
 /* Delete a stack handle without resuming it at all.
  * (This works even if the stack handle is of a different thread)
  */
-void stacklet_destroy(stacklet_thread_handle thrd, stacklet_handle target);
+void stacklet_destroy(stacklet_handle target);
 
 /* stacklet_handle _stacklet_switch_to_copy(stacklet_handle) --- later */
 

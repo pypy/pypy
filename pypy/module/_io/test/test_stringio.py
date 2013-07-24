@@ -32,7 +32,7 @@ class AppTestStringIO:
         raises(ValueError, sio.read, 1)
         raises(ValueError, sio.write, u"text")
 
-    def testRead(self):
+    def test_read(self):
         import io
         buf = u"1234567890"
         sio = io.StringIO(buf)
@@ -41,6 +41,13 @@ class AppTestStringIO:
         assert buf[1:5] == sio.read(4)
         assert buf[5:] == sio.read(900)
         assert u"" == sio.read()
+
+    def test_readline(self):
+        import io
+        sio = io.StringIO(u'123\n456')
+        assert sio.readline(2) == '12'
+        assert sio.readline(None) == '3\n'
+        assert sio.readline() == '456'
 
     def test_seek(self):
         import io

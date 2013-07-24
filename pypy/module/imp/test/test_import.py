@@ -565,6 +565,43 @@ class AppTestImport:
         assert sys.path is oldpath
         assert 'setdefaultencoding' in dir(sys)
 
+    def test_reload_builtin_doesnt_clear(self):
+        import sys
+        sys.foobar = "baz"
+        reload(sys)
+        assert sys.foobar == "baz"
+
+    def test_reimport_builtin_simple_case_1(self):
+        import sys, time
+        del time.tzset
+        del sys.modules['time']
+        import time
+        assert hasattr(time, 'tzset')
+
+    def test_reimport_builtin_simple_case_2(self):
+        skip("fix me")
+        import sys, time
+        time.foo = "bar"
+        del sys.modules['time']
+        import time
+        assert not hasattr(time, 'foo')
+
+    def test_reimport_builtin(self):
+        skip("fix me")
+        import sys, time
+        oldpath = sys.path
+        time.tzset = "<test_reimport_builtin removed this>"
+
+        del sys.modules['time']
+        import time as time1
+        assert sys.modules['time'] is time1
+
+        assert time.tzset == "<test_reimport_builtin removed this>"
+
+        reload(time1)   # don't leave a broken time.tzset behind
+        import time
+        assert time.tzset != "<test_reimport_builtin removed this>"
+
     def test_reload_infinite(self):
         import infinite_reload
 
@@ -641,6 +678,10 @@ class AppTestImport:
                                  'invalid_path_name', ('.py', 'r', imp.PY_SOURCE))
         assert module.__name__ == 'a'
         assert module.__file__ == 'invalid_path_name'
+
+    def test_crash_load_module(self):
+        import imp
+        raises(ValueError, imp.load_module, "", "", "", [1, 2, 3, 4])
 
 
 class TestAbi:
@@ -727,7 +768,7 @@ class TestPycStuff:
             stream.seek(8, 0)
             w_code = importing.read_compiled_module(
                     space, cpathname, stream.readall())
-            pycode = space.interpclass_w(w_code)
+            pycode = w_code
         finally:
             stream.close()
         assert type(pycode) is pypy.interpreter.pycode.PyCode
@@ -772,7 +813,7 @@ class TestPycStuff:
                                                   stream.readall())
         finally:
             stream.close()
-        pycode = space.interpclass_w(w_ret)
+        pycode = w_ret
         assert type(pycode) is pypy.interpreter.pycode.PyCode
         w_dic = space.newdict()
         pycode.exec_code(space, w_dic, w_dic)
@@ -911,7 +952,7 @@ class TestPycStuff:
                                                   stream.readall())
         finally:
             stream.close()
-        pycode = space.interpclass_w(w_ret)
+        pycode = w_ret
         assert type(pycode) is pypy.interpreter.pycode.PyCode
 
         cpathname = str(udir.join('cpathname.pyc'))
@@ -939,7 +980,7 @@ class TestPycStuff:
             stream.seek(8, 0)
             w_code = importing.read_compiled_module(space, cpathname,
                                                     stream.readall())
-            pycode = space.interpclass_w(w_code)
+            pycode = w_code
         finally:
             stream.close()
 

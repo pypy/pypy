@@ -1,13 +1,11 @@
 from rpython.flowspace.model import Constant
 from rpython.rtyper.lltypesystem import lltype, llmemory, rclass, rdict
 from rpython.rtyper.lltypesystem.llmemory import weakref_create, weakref_deref
-from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.rclass import getinstancerepr
 from rpython.rtyper.rmodel import Repr
 from rpython.rlib.rweakref import RWeakKeyDictionary
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import compute_identity_hash
-from rpython.rlib.objectmodel import we_are_translated
 
 
 # Warning: this implementation of RWeakKeyDictionary is not exactly

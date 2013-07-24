@@ -93,3 +93,23 @@ struct operator_float {
    operator float() { return m_float; }
    float m_float;
 };
+
+//----------------------------------------------------------------------------
+class v_opeq_base {
+public:
+   v_opeq_base(int val);
+   virtual ~v_opeq_base();
+
+   virtual bool operator==(const v_opeq_base& other);
+
+protected:
+   int m_val;
+};
+
+class v_opeq_derived : public v_opeq_base {
+public:
+   v_opeq_derived(int val);
+   virtual ~v_opeq_derived();
+
+   virtual bool operator==(const v_opeq_derived& other);
+};

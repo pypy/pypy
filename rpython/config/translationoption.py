@@ -1,6 +1,6 @@
-import py, os, sys
+import sys
 from rpython.config.config import OptionDescription, BoolOption, IntOption, ArbitraryOption, FloatOption
-from rpython.config.config import ChoiceOption, StrOption, to_optparse, Config
+from rpython.config.config import ChoiceOption, StrOption, Config
 from rpython.config.config import ConfigError
 from rpython.config.support import detect_number_of_processors
 
@@ -12,6 +12,7 @@ DEFL_CLEVER_MALLOC_REMOVAL_INLINE_THRESHOLD = 32.4
 DEFL_LOW_INLINE_THRESHOLD = DEFL_INLINE_THRESHOLD / 2.0
 
 DEFL_GC = "minimark"
+
 if sys.platform.startswith("linux"):
     DEFL_ROOTFINDER_WITHJIT = "asmgcc"
 else:
@@ -149,7 +150,7 @@ translation_optiondescription = OptionDescription(
     StrOption("output", "Output file name", cmdline="--output"),
     StrOption("secondaryentrypoints",
             "Comma separated list of keys choosing secondary entrypoints",
-            cmdline="--entrypoints", default=""),
+            cmdline="--entrypoints", default="main"),
 
     BoolOption("dump_static_data_info", "Dump static data info",
                cmdline="--dump_static_data_info",
@@ -169,7 +170,6 @@ translation_optiondescription = OptionDescription(
               cmdline="--make-jobs", default=detect_number_of_processors()),
 
     # Flags of the TranslationContext:
-    BoolOption("simplifying", "Simplify flow graphs", default=True),
     BoolOption("list_comprehension_operations",
                "When true, look for and special-case the sequence of "
                "operations that results from a list comprehension and "
@@ -276,7 +276,9 @@ translation_optiondescription = OptionDescription(
     ]),
     ChoiceOption("platform",
                  "target platform", ['host'] + PLATFORMS, default='host',
-                 cmdline='--platform'),
+                 cmdline='--platform',
+                 suggests={"arm": [("translation.gcrootfinder", "shadowstack"),
+                                   ("translation.jit_backend", "arm")]}),
 
 ])
 
@@ -349,11 +351,6 @@ def set_opt_level(config, level):
     """Apply optimization suggestions on the 'config'.
     The optimizations depend on the selected level and possibly on the backend.
     """
-    # warning: during some tests, the type_system and the backend may be
-    # unspecified and we get None.  It shouldn't occur in translate.py though.
-    type_system = config.translation.type_system
-    backend = config.translation.backend
-
     try:
         opts = OPT_TABLE[level]
     except KeyError:

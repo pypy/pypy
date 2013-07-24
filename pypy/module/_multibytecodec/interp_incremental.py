@@ -3,14 +3,13 @@ from pypy.module._multibytecodec import c_codecs
 from pypy.module._multibytecodec.interp_multibytecodec import (
     MultibyteCodec, wrap_unicodedecodeerror, wrap_runtimeerror,
     wrap_unicodeencodeerror)
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.module._codecs.interp_codecs import CodecState
 
 
-class MultibyteIncrementalBase(Wrappable):
-
+class MultibyteIncrementalBase(W_Root):
     def __init__(self, space, errors):
         if errors is None:
             errors = 'strict'
@@ -82,7 +81,7 @@ MultibyteIncrementalDecoder.typedef = TypeDef(
     reset   = interp2app(MultibyteIncrementalDecoder.reset_w),
     errors  = GetSetProperty(MultibyteIncrementalDecoder.fget_errors,
                              MultibyteIncrementalDecoder.fset_errors),
-    )
+)
 
 
 class MultibyteIncrementalEncoder(MultibyteIncrementalBase):
@@ -131,7 +130,7 @@ MultibyteIncrementalEncoder.typedef = TypeDef(
     reset   = interp2app(MultibyteIncrementalEncoder.reset_w),
     errors  = GetSetProperty(MultibyteIncrementalEncoder.fget_errors,
                              MultibyteIncrementalEncoder.fset_errors),
-    )
+)
 
 
 def get_ignore_error(final):

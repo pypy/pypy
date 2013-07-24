@@ -48,9 +48,6 @@ def predeclare_utility_functions(db, rtyper):
         def _RPyListOfString_New(length=lltype.Signed):
             return LIST_OF_STR.ll_newlist(length)
 
-        def _RPyListOfString_New(length=lltype.Signed):
-            return LIST_OF_STR.ll_newlist(length)
-
         def _RPyListOfString_SetItem(l=p,
                                     index=lltype.Signed,
                                     newstring=lltype.Ptr(STR)):

@@ -89,7 +89,7 @@ def open_file_as_stream(path, mode="r", buffering=-1):
 
 def _setfd_binary(fd):
     pass
-    
+
 def fdopen_as_stream(fd, mode, buffering=-1):
     # XXX XXX XXX you want do check whether the modes are compatible
     # otherwise you get funny results

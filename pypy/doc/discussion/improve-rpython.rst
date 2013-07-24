@@ -8,7 +8,7 @@ Improve the interpreter API
   implement a pypy module. A typical rpython file is likely to contain many
   `import` statements::
 
-    from pypy.interpreter.baseobjspace import Wrappable
+    from pypy.interpreter.baseobjspace import W_Root
     from pypy.interpreter.gateway import ObjSpace, W_Root
     from pypy.interpreter.argument import Arguments
     from pypy.interpreter.typedef import TypeDef, GetSetProperty
@@ -19,7 +19,7 @@ Improve the interpreter API
 
 - A more direct declarative way to write Typedef::
 
-    class W_Socket(Wrappable):
+    class W_Socket(W_Root):
         _typedef_name_ = 'socket'
         _typedef_base_ = W_EventualBaseClass
 

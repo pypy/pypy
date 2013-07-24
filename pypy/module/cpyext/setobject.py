@@ -6,7 +6,6 @@ from pypy.module.cpyext.pyobject import (PyObject, PyObjectP, Py_DecRef,
     borrow_from, make_ref, from_ref)
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
 from pypy.objspace.std.setobject import W_SetObject, newset
-from pypy.objspace.std.smalltupleobject import W_SmallTupleObject
 
 
 PySet_Check, PySet_CheckExact = build_type_checkers("Set")

@@ -5,7 +5,7 @@ Verify that the PyPy source files have no tabs.
 import os
 from pypy.conftest import pypydir
 
-ROOT = pypydir
+ROOT = os.path.abspath(os.path.join(pypydir, '..'))
 EXCLUDE = {}
 
 

@@ -1,15 +1,16 @@
 import py
+
 from rpython.rlib import streamio
 from rpython.rlib.streamio import StreamErrors
 
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.baseobjspace import ObjSpace, Wrappable
+from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.streamutil import wrap_streamerror, wrap_oserror_as_ioerror
 
 
-class W_AbstractStream(Wrappable):
+class W_AbstractStream(W_Root):
     """Base class for interp-level objects that expose streams to app-level"""
     slock = None
     slockowner = None
@@ -86,6 +87,7 @@ class W_AbstractStream(Wrappable):
             self.stream.write(data)
         except StreamErrors, e:
             raise wrap_streamerror(self.space, e)
+
 
 # ____________________________________________________________
 

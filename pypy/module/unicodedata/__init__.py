@@ -1,4 +1,5 @@
 from pypy.interpreter.mixedmodule import MixedModule
+
 # This is the default unicodedb used in various places:
 # - the unicode type
 # - the regular expression engine

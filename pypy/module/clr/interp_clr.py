@@ -1,6 +1,6 @@
 import os.path
 from pypy.module.clr import assemblyname
-from pypy.interpreter.baseobjspace import W_Root, Wrappable
+from pypy.interpreter.baseobjspace import W_Root, W_Root
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, ApplevelClass
 from pypy.interpreter.typedef import TypeDef
@@ -327,7 +327,7 @@ def build_cli_class(space, namespace, classname, fullname, assemblyname):
                          space.wrap(isClassGeneric))
 
 
-class W_CliObject(Wrappable):
+class W_CliObject(W_Root):
     def __init__(self, space, b_obj):
         self.space = space
         self.b_obj = b_obj

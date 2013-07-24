@@ -15,6 +15,15 @@ class TestW_LongObject:
         w_obj = space.wrap(123.456)
         space.raises_w(space.w_TypeError, space.bigint_w, w_obj)
 
+        w_obj = fromlong(42)
+        assert space.unwrap(w_obj) == 42
+
+    def test_overflow_error(self):
+        space = self.space
+        fromlong = lobj.W_LongObject.fromlong
+        w_big = fromlong(10**900)
+        space.raises_w(space.w_OverflowError, space.float_w, w_big)
+
     def test_rint_variants(self):
         py.test.skip("XXX broken!")
         from rpython.rtyper.tool.rfficache import platform
@@ -228,13 +237,13 @@ class AppTestLong:
 
     def test_math_log(self):
         import math
-        raises(ValueError, math.log, 0L) 
-        raises(ValueError, math.log, -1L) 
-        raises(ValueError, math.log, -2L) 
+        raises(ValueError, math.log, 0L)
+        raises(ValueError, math.log, -1L)
+        raises(ValueError, math.log, -2L)
         raises(ValueError, math.log, -(1L << 10000))
-        #raises(ValueError, math.log, 0) 
-        raises(ValueError, math.log, -1) 
-        raises(ValueError, math.log, -2) 
+        #raises(ValueError, math.log, 0)
+        raises(ValueError, math.log, -1)
+        raises(ValueError, math.log, -2)
 
     def test_long(self):
         import sys
@@ -324,3 +333,11 @@ class AppTestLong:
         class A(long): pass
         b = A(5).real
         assert type(b) is long
+
+    def test__int__(self):
+        class A(long):
+            def __int__(self):
+                return 42
+
+        assert int(long(3)) == long(3)
+        assert int(A(13)) == 42

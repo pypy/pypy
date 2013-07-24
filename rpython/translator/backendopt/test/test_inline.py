@@ -9,6 +9,7 @@ from rpython.translator.backendopt.inline import auto_inlining, Inliner
 from rpython.translator.backendopt.inline import collect_called_graphs
 from rpython.translator.backendopt.inline import measure_median_execution_cost
 from rpython.translator.backendopt.inline import instrument_inline_candidates
+from rpython.translator.backendopt.inline import auto_inline_graphs
 from rpython.translator.backendopt.checkvirtual import check_virtual_methods
 from rpython.translator.translator import TranslationContext, graphof
 from rpython.rtyper.llinterp import LLInterpreter
@@ -624,6 +625,19 @@ class TestInlineLLType(LLRtypeMixin, BaseTestInline):
         eval_func = self.check_inline(g, f, [])
         res = eval_func([])
         assert res == 5
+
+    def test_auto_inline_graphs_from_anywhere(self):
+        def leaf(n):
+            return n
+        def f(n):
+            return leaf(n)
+        t = self.translate(f, [int])
+        f_graph = graphof(t, f)
+        assert len(collect_called_graphs(f_graph, t)) == 1
+        auto_inline_graphs(t, [f_graph], 32)
+        assert len(collect_called_graphs(f_graph, t)) == 1
+        auto_inline_graphs(t, [f_graph], 32, inline_graph_from_anywhere=True)
+        assert len(collect_called_graphs(f_graph, t)) == 0
 
 
 class TestInlineOOType(OORtypeMixin, BaseTestInline):

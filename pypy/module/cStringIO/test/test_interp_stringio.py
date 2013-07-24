@@ -142,8 +142,11 @@ class AppTestcStringIO:
         f.write(' world')
         f.truncate(30)
         assert f.getvalue() == '\x00' * 20 + 'hello worl'
+        assert f.tell() == 30
+        f.seek(0)
         f.truncate(25)
         assert f.getvalue() == '\x00' * 20 + 'hello'
+        assert f.tell() == 25
         f.write('baz')
         f.write('egg')
         f.truncate(3)

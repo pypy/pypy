@@ -17,20 +17,22 @@ class GCData(object):
 
     OFFSETS_TO_GC_PTR = lltype.Array(lltype.Signed)
 
-    # When used as a finalizer, the following functions only take one
-    # address and ignore the second, and return NULL.  When used as a
-    # custom tracer (CT), it enumerates the addresses that contain GCREFs.
+    # A custom tracer (CT), enumerates the addresses that contain GCREFs.
     # It is called with the object as first argument, and the previous
     # returned address (or NULL the first time) as the second argument.
-    FINALIZER_OR_CT_FUNC = lltype.FuncType([llmemory.Address,
-                                            llmemory.Address],
-                                           llmemory.Address)
-    FINALIZER_OR_CT = lltype.Ptr(FINALIZER_OR_CT_FUNC)
+    FINALIZER_FUNC = lltype.FuncType([llmemory.Address], lltype.Void)
+    CUSTOMTRACER_FUNC = lltype.FuncType([llmemory.Address, llmemory.Address],
+                                        llmemory.Address)
+    FINALIZER = lltype.Ptr(FINALIZER_FUNC)
+    CUSTOMTRACER = lltype.Ptr(CUSTOMTRACER_FUNC)
+    EXTRA = lltype.Struct("type_info_extra",
+                          ('finalizer', FINALIZER),
+                          ('customtracer', CUSTOMTRACER))
 
     # structure describing the layout of a typeid
     TYPE_INFO = lltype.Struct("type_info",
         ("infobits",       lltype.Signed),    # combination of the T_xxx consts
-        ("finalizer_or_customtrace", FINALIZER_OR_CT),
+        ("extra",          lltype.Ptr(EXTRA)),
         ("fixedsize",      lltype.Signed),
         ("ofstoptrs",      lltype.Ptr(OFFSETS_TO_GC_PTR)),
         hints={'immutable': True},
@@ -80,16 +82,16 @@ class GCData(object):
     def q_finalizer(self, typeid):
         typeinfo = self.get(typeid)
         if typeinfo.infobits & T_HAS_FINALIZER:
-            return typeinfo.finalizer_or_customtrace
+            return typeinfo.extra.finalizer
         else:
-            return lltype.nullptr(GCData.FINALIZER_OR_CT_FUNC)
+            return lltype.nullptr(GCData.FINALIZER_FUNC)
 
     def q_light_finalizer(self, typeid):
         typeinfo = self.get(typeid)
         if typeinfo.infobits & T_HAS_LIGHTWEIGHT_FINALIZER:
-            return typeinfo.finalizer_or_customtrace
+            return typeinfo.extra.finalizer
         else:
-            return lltype.nullptr(GCData.FINALIZER_OR_CT_FUNC)        
+            return lltype.nullptr(GCData.FINALIZER_FUNC)
 
     def q_offsets_to_gc_pointers(self, typeid):
         return self.get(typeid).ofstoptrs
@@ -131,7 +133,7 @@ class GCData(object):
         ll_assert(self.q_has_custom_trace(typeid),
                   "T_HAS_CUSTOM_TRACE missing")
         typeinfo = self.get(typeid)
-        return typeinfo.finalizer_or_customtrace
+        return typeinfo.extra.customtracer
 
     def q_fast_path_tracing(self, typeid):
         # return True if none of the flags T_HAS_GCPTR_IN_VARSIZE,
@@ -196,18 +198,20 @@ def encode_type_shape(builder, info, TYPE, index):
     infobits = index
     info.ofstoptrs = builder.offsets2table(offsets, TYPE)
     #
-    kind_and_fptr = builder.special_funcptr_for_type(TYPE)
-    if kind_and_fptr is not None:
-        kind, fptr = kind_and_fptr
-        info.finalizer_or_customtrace = fptr
-        if kind == "finalizer":
+    fptrs = builder.special_funcptr_for_type(TYPE)
+    if fptrs:
+        extra = lltype.malloc(GCData.EXTRA, zero=True, immortal=True,
+                              flavor='raw')
+        if "finalizer" in fptrs:
+            extra.finalizer = fptrs["finalizer"]
             infobits |= T_HAS_FINALIZER
-        elif kind == 'light_finalizer':
+        if "light_finalizer" in fptrs:
+            extra.finalizer = fptrs["light_finalizer"]
             infobits |= T_HAS_FINALIZER | T_HAS_LIGHTWEIGHT_FINALIZER
-        elif kind == "custom_trace":
+        if "custom_trace" in fptrs:
+            extra.customtracer = fptrs["custom_trace"]
             infobits |= T_HAS_CUSTOM_TRACE
-        else:
-            assert 0, kind
+        info.extra = extra
     #
     if not TYPE._is_varsize():
         info.fixedsize = llarena.round_up_for_allocation(
@@ -379,19 +383,16 @@ class TypeLayoutBuilder(object):
             return self._special_funcptrs[TYPE]
         fptr1, is_lightweight = self.make_finalizer_funcptr_for_type(TYPE)
         fptr2 = self.make_custom_trace_funcptr_for_type(TYPE)
-        assert not (fptr1 and fptr2), (
-            "type %r needs both a finalizer and a custom tracer" % (TYPE,))
+        result = {}
         if fptr1:
             if is_lightweight:
-                kind_and_fptr = "light_finalizer", fptr1
+                result["light_finalizer"] = fptr1
             else:
-                kind_and_fptr = "finalizer", fptr1
-        elif fptr2:
-            kind_and_fptr = "custom_trace", fptr2
-        else:
-            kind_and_fptr = None
-        self._special_funcptrs[TYPE] = kind_and_fptr
-        return kind_and_fptr
+                result["finalizer"] = fptr1
+        if fptr2:
+            result["custom_trace"] = fptr2
+        self._special_funcptrs[TYPE] = result
+        return result
 
     def make_finalizer_funcptr_for_type(self, TYPE):
         # must be overridden for proper finalizer support

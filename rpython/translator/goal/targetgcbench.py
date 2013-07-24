@@ -1,4 +1,3 @@
-import os, sys
 from rpython.translator.goal import gcbench
 
 # _____ Define and setup target ___

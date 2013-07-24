@@ -17,8 +17,8 @@ This feature is based on a custom primitive called a continulet_.
 Continulets can be directly used by application code, or it is possible
 to write (entirely at app-level) more user-friendly interfaces.
 
-Currently PyPy implements greenlets_ on top of continulets.  It would be
-easy to implement tasklets and channels as well, emulating the model
+Currently PyPy implements greenlets_ on top of continulets.  It also
+implements (an approximation of) tasklets and channels, emulating the model
 of `Stackless Python`_.
 
 Continulets are extremely light-weight, which means that PyPy should be

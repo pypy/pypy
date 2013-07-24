@@ -23,6 +23,13 @@ def PyLong_FromSsize_t(space, val):
     """
     return space.newlong(val)
 
+@cpython_api([rffi.SIZE_T], PyObject)
+def PyLong_FromSize_t(space, val):
+    """Return a new PyLongObject object from a C size_t, or NULL on
+    failure.
+    """
+    return space.wrap(val)
+
 @cpython_api([rffi.LONGLONG], PyObject)
 def PyLong_FromLongLong(space, val):
     """Return a new PyLongObject object from a C long long, or NULL

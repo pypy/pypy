@@ -7,8 +7,6 @@ Run the given script.  If the timeout elapses, trying interrupting it by
 sending KeyboardInterrupts.
 """
 
-import traceback 
-
 def _main_with_alarm(finished):
     import sys, os
     import time

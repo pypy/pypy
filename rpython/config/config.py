@@ -1,4 +1,3 @@
-import py
 import optparse
 from rpython.tool.pairtype import extendabletype
 
@@ -18,7 +17,7 @@ class ConflictConfigError(ConfigError):
 
 class Config(object):
     _cfgimpl_frozen = False
-    
+
     def __init__(self, descr, parent=None, **overrides):
         self._cfgimpl_descr = descr
         self._cfgimpl_value_owners = {}
@@ -239,15 +238,15 @@ class Option(object):
 
     def add_optparse_option(self, argnames, parser, config):
         callback = ConfigUpdate(config, self)
-        option = parser.add_option(help=self.doc+" %default",
-                                   action='callback', type=self.opt_type,
-                                   callback=callback, metavar=self._name.upper(),
-                                   *argnames)
+        parser.add_option(help=self.doc+" %default",
+                          action='callback', type=self.opt_type,
+                          callback=callback, metavar=self._name.upper(),
+                          *argnames)
 
-        
+
 class ChoiceOption(Option):
     opt_type = 'string'
-    
+
     def __init__(self, name, doc, values, default=None, requires=None,
                  suggests=None, cmdline=DEFAULT_OPTION_NAME):
         super(ChoiceOption, self).__init__(name, doc, cmdline)
@@ -328,9 +327,9 @@ class BoolOption(Option):
 
     def add_optparse_option(self, argnames, parser, config):
         callback = BoolConfigUpdate(config, self, True)
-        option = parser.add_option(help=self.doc+" %default",
-                                   action='callback',
-                                   callback=callback, *argnames)
+        parser.add_option(help=self.doc+" %default",
+                          action='callback',
+                          callback=callback, *argnames)
         if not self.negation:
             return
         no_argnames = ["--" + _getnegation(argname.lstrip("-"))
@@ -340,14 +339,14 @@ class BoolOption(Option):
             no_argnames = ["--" + _getnegation(argname.lstrip("-"))
                                for argname in argnames]
         callback = BoolConfigUpdate(config, self, False)
-        option = parser.add_option(help="unset option set by %s %%default" % (argname, ),
-                                   action='callback',
-                                   callback=callback, *no_argnames)
+        parser.add_option(help="unset option set by %s %%default" % (argname, ),
+                          action='callback',
+                          callback=callback, *no_argnames)
 
-        
+
 class IntOption(Option):
     opt_type = 'int'
-    
+
     def __init__(self, name, doc, default=None, cmdline=DEFAULT_OPTION_NAME):
         super(IntOption, self).__init__(name, doc, cmdline)
         self.default = default

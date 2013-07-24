@@ -29,7 +29,7 @@ static long _pypythread_stacksize = 0;
  * Return the thread Id instead of an handle. The Id is said to uniquely
    identify the thread in the system
  */
-int RPyThreadGetIdent()
+long RPyThreadGetIdent()
 {
   return GetCurrentThreadId();
 }
@@ -105,6 +105,7 @@ long RPyThreadSetStackSize(long newsize)
 BOOL InitializeNonRecursiveMutex(PNRMUTEX mutex)
 {
     mutex->sem = CreateSemaphore(NULL, 1, 1, NULL);
+    return !!mutex->sem;
 }
 
 VOID DeleteNonRecursiveMutex(PNRMUTEX mutex)

@@ -8,7 +8,6 @@ import _rawffi
 import _ffi
 import sys
 import traceback
-import warnings
 
 try: from __pypy__ import builtinify
 except ImportError: builtinify = lambda f: f
@@ -315,8 +314,12 @@ class CFuncPtr(_CData):
             return
 
         if argtypes is None:
-            warnings.warn('C function without declared arguments called',
-                          RuntimeWarning, stacklevel=2)
+            # XXX this warning was originally meaning "it's going to be
+            # really slow".  Now we don't worry that much about slowness
+            # of ctypes, and it's strange to get warnings for perfectly-
+            # legal code.
+            #warnings.warn('C function without declared arguments called',
+            #              RuntimeWarning, stacklevel=2)
             argtypes = []
 
         if self._com_index:
@@ -342,6 +345,7 @@ class CFuncPtr(_CData):
         if not outargs:
             return result
 
+        from ctypes import c_void_p
         simple_cdata = type(c_void_p()).__bases__[0]
         outargs = [x.value if type(x).__bases__[0] is simple_cdata else x
                    for x in outargs]

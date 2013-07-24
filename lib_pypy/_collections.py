@@ -8,7 +8,6 @@
 # Note that PyPy also contains a built-in module '_collections' which will hide
 # this one if compiled in.
 
-import operator
 try:
     from threading import _get_ident as _thread_ident
 except ImportError:

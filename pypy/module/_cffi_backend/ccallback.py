@@ -27,8 +27,8 @@ class W_CDataCallback(W_CData):
         #
         if not space.is_true(space.callable(w_callable)):
             raise operationerrfmt(space.w_TypeError,
-                                  "expected a callable object, not %s",
-                                  space.type(w_callable).getname(space))
+                                  "expected a callable object, not %T",
+                                  w_callable)
         self.w_callable = w_callable
         #
         fresult = self.getfunctype().ctitem
@@ -134,7 +134,7 @@ def convert_from_object_fficallback(fresult, ll_res, w_res):
             # W_CTypePrimitiveSigned.convert_from_object() in order
             # to write a whole 'ffi_arg'.
             value = misc.as_long(space, w_res)
-            misc.write_raw_integer_data(ll_res, value, SIZE_OF_FFI_ARG)
+            misc.write_raw_signed_data(ll_res, value, SIZE_OF_FFI_ARG)
             return
         else:
             # zero extension: fill the '*result' with zeros, and (on big-

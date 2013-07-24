@@ -2,8 +2,8 @@
 
 import sys
 import py
-py.path.local(__file__)
 from rpython.jit.tl.tla.test_tla import assemble
+py.path.local(__file__)
 
 def usage():
     print >> sys.stderr, 'Usage: tla_assembler.py filename.tla.py'

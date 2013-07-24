@@ -5,8 +5,6 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import W_Root
 import os, sys
 
-import inspect
-
 class MixedModule(Module):
     applevel_name = None
     expose__file__attribute = True
@@ -15,6 +13,7 @@ class MixedModule(Module):
     # imported yet, and when it has been, it is mod.__dict__.items() just
     # after startup().
     w_initialdict = None
+    lazy = False
 
     def __init__(self, space, w_name):
         """ NOT_RPYTHON """
@@ -91,13 +90,13 @@ class MixedModule(Module):
             return None
         else:
             w_value = loader(space)
-            func = space.interpclass_w(w_value)
             # the idea of the following code is that all functions that are
             # directly in a mixed-module are "builtin", e.g. they get a
             # special type without a __get__
             # note that this is not just all functions that contain a
             # builtin code object, as e.g. methods of builtin types have to
             # be normal Functions to get the correct binding behaviour
+            func = w_value
             if (isinstance(func, Function) and
                 type(func) is not BuiltinFunction):
                 try:

@@ -1,5 +1,5 @@
 from rpython.rlib.rstring import StringBuilder
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.typedef import TypeDef, interp2app
@@ -13,7 +13,7 @@ from pypy.module._csv.interp_csv import (QUOTE_MINIMAL, QUOTE_ALL,
  EAT_CRNL) = range(8)
 
 
-class W_Reader(Wrappable):
+class W_Reader(W_Root):
 
     def __init__(self, space, dialect, w_iter):
         self.space = space
@@ -41,8 +41,8 @@ class W_Reader(Wrappable):
     def save_field(self, field_builder):
         field = field_builder.build()
         if self.numeric_field:
-            from pypy.objspace.std.strutil import ParseStringError
-            from pypy.objspace.std.strutil import string_to_float
+            from rpython.rlib.rstring import ParseStringError
+            from rpython.rlib.rfloat import string_to_float
             self.numeric_field = False
             try:
                 ff = string_to_float(field)

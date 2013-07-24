@@ -268,7 +268,7 @@ class TestW_IntObject:
 
     def test_int(self):
         f1 = iobj.W_IntObject(1)
-        result = iobj.int__Int(self.space, f1)
+        result = f1.int(self.space)
         assert result == f1
 
     def test_oct(self):

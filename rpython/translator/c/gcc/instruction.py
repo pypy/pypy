@@ -57,11 +57,11 @@ class LocalVar(object):
 
     def getlocation(self, framesize, uses_frame_pointer, wordsize):
         if (self.hint == 'esp' or not uses_frame_pointer
-            or self.ofs_from_frame_end % 2 != 0):
+            or self.ofs_from_frame_end % 1 != 0):
             # try to use esp-relative addressing
             ofs_from_esp = framesize + self.ofs_from_frame_end
-            if ofs_from_esp % 2 == 0:
-                return frameloc_esp(ofs_from_esp, wordsize)
+            if ofs_from_esp % 1 == 0:
+                return frameloc_esp(int(ofs_from_esp), wordsize)
             # we can get an odd value if the framesize is marked as bogus
             # by visit_andl()
         assert uses_frame_pointer
@@ -177,12 +177,12 @@ class InsnCopyLocal(Insn):
 class InsnStackAdjust(Insn):
     _args_ = ['delta']
     def __init__(self, delta):
-        assert delta % 2 == 0     # should be "% 4", but there is the special
-        self.delta = delta        # case of 'pushw' to handle
+        #assert delta % 4 == 0 --- but not really, gcc generates strange code
+        self.delta = delta
 
 class InsnCannotFollowEsp(InsnStackAdjust):
     def __init__(self):
-        self.delta = -7     # use an odd value as marker
+        self.delta = -7.25     # use this non-integer value as a marker
 
 class InsnStop(Insn):
     _args_ = ['reason']

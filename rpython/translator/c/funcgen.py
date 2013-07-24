@@ -184,15 +184,15 @@ class FunctionCodeGenerator(object):
 
     def cfunction_declarations(self):
         # declare the local variables, excluding the function arguments
-        seen = {}
+        seen = set()
         for a in self.graph.getargs():
-            seen[a.name] = True
+            seen.add(a.name)
 
         result_by_name = []
         for v in self.allvariables():
             name = v.name
             if name not in seen:
-                seen[name] = True
+                seen.add(name)
                 result = cdecl(self.lltypename(v), LOCALVAR % name) + ';'
                 if self.lltypemap(v) is Void:
                     continue  #result = '/*%s*/' % result
@@ -264,7 +264,6 @@ class FunctionCodeGenerator(object):
                         for op in self.gen_link(link):
                             yield '\t' + op
                         # 'break;' not needed, as gen_link ends in a 'goto'
-                        
                     # Emit default case
                     yield 'default:'
                     if defaultlink is None:
@@ -371,7 +370,7 @@ class FunctionCodeGenerator(object):
 
     # the C preprocessor cannot handle operations taking a variable number
     # of arguments, so here are Python methods that do it
-    
+
     def OP_NEWLIST(self, op):
         args = [self.expr(v) for v in op.args]
         r = self.expr(op.result)
@@ -843,6 +842,9 @@ class FunctionCodeGenerator(object):
 
     def OP_JIT_FORCE_QUASI_IMMUTABLE(self, op):
         return '/* JIT_FORCE_QUASI_IMMUTABLE %s */' % op
+
+    def OP_JIT_FFI_SAVE_RESULT(self, op):
+        return '/* JIT_FFI_SAVE_RESULT %s */' % op
 
     def OP_GET_GROUP_MEMBER(self, op):
         typename = self.db.gettype(op.result.concretetype)

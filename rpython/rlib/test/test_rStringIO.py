@@ -49,6 +49,10 @@ def test_tell():
         assert f.tell() == i
     assert f.getvalue() == '01XXXXXXXXXXXXXXXXX'
 
+    f.seek(1)
+    f.close()
+    assert f.tell() == 0
+
 def test_read():
     f = RStringIO()
     assert f.read() == ''
@@ -77,12 +81,30 @@ def test_read():
     assert f.read(2) == ''
     assert f.tell() == 15
 
+def test_readline():
+    f = RStringIO()
+    f.write('foo\nbar\nbaz')
+    f.seek(0)
+    assert f.readline() == 'foo\n'
+    assert f.readline(2) == 'ba'
+    assert f.readline() == 'r\n'
+    assert f.readline() == 'baz'
+    assert f.readline() == ''
+
 def test_truncate():
     f = RStringIO()
     f.truncate(20)
     assert f.getvalue() == ''
     assert f.tell() == 0
-    f.write('\x00' * 20)
+    f.write('\x00' * 25)
+    f.seek(12)
+    f.truncate(20)
+    assert f.getvalue() == '\x00' * 20
+    assert f.tell() == 20
+    f.write('more')
+    f.truncate(20)
+    assert f.getvalue() == '\x00' * 20
+    assert f.tell() == 20
     f.write('hello')
     f.write(' world')
     f.truncate(30)
@@ -94,6 +116,13 @@ def test_truncate():
     f.truncate(3)
     assert f.getvalue() == '\x00' * 3
     assert f.tell() == 3
+
+def test_truncate_end():
+    f = RStringIO()
+    f.write("abc")
+    f.seek(0)
+    f.truncate(0)
+    assert f.getvalue() == ""
 
 def test_bug():
     f = RStringIO()

@@ -571,6 +571,7 @@ class LoopTest(object):
             while n > 13:
                 myjitdriver.can_enter_jit(n=n, x=x)
                 myjitdriver.jit_merge_point(n=n, x=x)
+                #print len(x), x
                 x += chr(n)
                 n -= 1
             return compute_hash(x)

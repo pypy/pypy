@@ -4,10 +4,7 @@ little use of termios module on RPython level by itself
 """
 
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.interpreter.error import OperationError, wrap_oserror
-from rpython.rtyper.module import ll_termios
-from rpython.rlib.objectmodel import we_are_translated
-import os
+from pypy.interpreter.error import wrap_oserror
 from rpython.rlib import rtermios
 import termios
 
@@ -27,7 +24,7 @@ def tcsetattr(space, w_fd, when, w_attributes):
     w_builtin = space.getbuiltinmodule('__builtin__')
     cc = []
     for w_c in space.unpackiterable(w_cc):
-        if space.is_true(space.isinstance(w_c, space.w_int)):
+        if space.isinstance_w(w_c, space.w_int):
             ch = space.call_function(space.getattr(w_builtin,
                                           space.wrap('chr')), w_c)
             cc.append(space.str_w(ch))

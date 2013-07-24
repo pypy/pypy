@@ -169,14 +169,14 @@ def compile2(source, filename='', mode='exec', flags=
     try:
         co = compile2_cache[key]
         #print "***** duplicate code ******* "
-        #print source 
-    except KeyError: 
-        #if DEBUG: 
-        co = py.code.compile(source, filename, mode, flags) 
-        #else: 
-        #    co = compile(source, filename, mode, flags) 
-        compile2_cache[key] = co 
-    return co 
+        #print source
+    except KeyError:
+        #if DEBUG:
+        co = py.code.compile(source, filename, mode, flags)
+        #else:
+        #    co = compile(source, filename, mode, flags)
+        compile2_cache[key] = co
+    return co
 
 compile2_cache = {}
 
@@ -203,7 +203,7 @@ def compile_template(source, resultname):
         localnames = locals.keys()
         localnames.sort()
     values = [locals[key] for key in localnames]
-    
+
     source = source.putaround(
         before = "def container(%s):" % (', '.join(localnames),),
         after  = "# no unindent\n    return %s" % resultname)
@@ -272,7 +272,7 @@ def nice_repr_for_func(fn, name=None):
 
 
 def rpython_wrapper(f, template, templateargs=None, **globaldict):
-    """  
+    """
     We cannot simply wrap the function using *args, **kwds, because it's not
     RPython. Instead, we generate a function from ``template`` with exactly
     the same argument list.
@@ -280,8 +280,8 @@ def rpython_wrapper(f, template, templateargs=None, **globaldict):
     if templateargs is None:
         templateargs = {}
     srcargs, srcvarargs, srckeywords, defaults = inspect.getargspec(f)
-    assert not srcvarargs, '*args not supported by enforceargs'
-    assert not srckeywords, '**kwargs not supported by enforceargs'
+    assert not srcvarargs, '*args not supported by rpython_wrapper'
+    assert not srckeywords, '**kwargs not supported by rpython_wrapper'
     #
     arglist = ', '.join(srcargs)
     templateargs.update(name=f.func_name,
@@ -305,7 +305,7 @@ def _convert_const_maybe(x, encoding):
         items = [_convert_const_maybe(item, encoding) for item in x]
         return tuple(items)
     return x
-    
+
 def with_unicode_literals(fn=None, **kwds):
     """Decorator that replace all string literals with unicode literals.
     Similar to 'from __future__ import string literals' at function level.

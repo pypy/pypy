@@ -636,11 +636,11 @@ def f%s:
             assert fn.code.fast_natural_arity == i|PyCode.FLATPYCALL
             if i < 5:
 
-                 def bomb(*args):
-                     assert False, "shortcutting should have avoided this"
+                def bomb(*args):
+                    assert False, "shortcutting should have avoided this"
 
-                 code.funcrun = bomb
-                 code.funcrun_obj = bomb
+                code.funcrun = bomb
+                code.funcrun_obj = bomb
 
             args_w = map(space.wrap, range(i))
             w_res = space.call_function(fn, *args_w)

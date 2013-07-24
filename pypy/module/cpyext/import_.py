@@ -29,7 +29,7 @@ def PyImport_Import(space, w_name):
         space.setitem(w_globals, space.wrap("__builtins__"), w_builtin)
 
     # Get the __import__ function from the builtins
-    if space.is_true(space.isinstance(w_builtin, space.w_dict)):
+    if space.isinstance_w(w_builtin, space.w_dict):
         w_import = space.getitem(w_builtin, space.wrap("__import__"))
     else:
         w_import = space.getattr(w_builtin, space.wrap("__import__"))

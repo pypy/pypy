@@ -14,8 +14,8 @@ class StackletGcRootFinder:
         return h
     new._annspecialcase_ = 'specialize:arg(1)'
 
-    def switch(thrd, h):
-        h = _c.switch(thrd._thrd, h)
+    def switch(h):
+        h = _c.switch(h)
         if not h:
             raise MemoryError
         return h

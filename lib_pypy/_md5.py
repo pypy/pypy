@@ -316,7 +316,7 @@ class MD5Type:
         else:
             padLen = 120 - index
 
-        padding = ['\200'] + ['\000'] * 63
+        padding = [b'\200'] + [b'\000'] * 63
         self.update(padding[:padLen])
 
         # Append length (before padding).

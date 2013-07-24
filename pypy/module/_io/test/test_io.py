@@ -22,7 +22,9 @@ class AppTestIoModule:
         import io
         with io.BufferedIOBase() as f:
             assert not f.closed
+            f._checkClosed()
         assert f.closed
+        raises(ValueError, f._checkClosed)
 
     def test_iter(self):
         import io
@@ -42,6 +44,13 @@ class AppTestIoModule:
     def test_exception(self):
         import _io
         e = _io.UnsupportedOperation("seek")
+
+    def test_default_implementations(self):
+        import _io
+        file = _io._IOBase()
+        raises(_io.UnsupportedOperation, file.seek, 0, 1)
+        raises(_io.UnsupportedOperation, file.fileno)
+        raises(_io.UnsupportedOperation, file.truncate)
 
     def test_blockingerror(self):
         import _io

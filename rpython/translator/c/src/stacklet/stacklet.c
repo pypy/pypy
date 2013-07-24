@@ -52,6 +52,8 @@ struct stacklet_s {
      * main stack.
      */
     struct stacklet_s *stack_prev;
+
+    stacklet_thread_handle stack_thrd;  /* the thread where the stacklet is */
 };
 
 void *(*_stacklet_switchstack)(void*(*)(void*, void*),
@@ -132,6 +134,7 @@ static int g_allocate_source_stacklet(void *old_stack_pointer,
     stacklet->stack_stop  = thrd->g_current_stack_stop;
     stacklet->stack_saved = 0;
     stacklet->stack_prev  = thrd->g_stack_chain_head;
+    stacklet->stack_thrd  = thrd;
     thrd->g_stack_chain_head = stacklet;
     return 0;
 }
@@ -293,10 +296,10 @@ stacklet_handle stacklet_new(stacklet_thread_handle thrd,
     return thrd->g_source;
 }
 
-stacklet_handle stacklet_switch(stacklet_thread_handle thrd,
-                                stacklet_handle target)
+stacklet_handle stacklet_switch(stacklet_handle target)
 {
     long stackmarker;
+    stacklet_thread_handle thrd = target->stack_thrd;
     if (thrd->g_current_stack_stop <= (char *)&stackmarker)
         thrd->g_current_stack_stop = ((char *)&stackmarker) + 1;
 
@@ -305,15 +308,23 @@ stacklet_handle stacklet_switch(stacklet_thread_handle thrd,
     return thrd->g_source;
 }
 
-void stacklet_destroy(stacklet_thread_handle thrd, stacklet_handle target)
+void stacklet_destroy(stacklet_handle target)
 {
-    /* remove 'target' from the chained list 'unsaved_stack', if it is there */
-    struct stacklet_s **pp = &thrd->g_stack_chain_head;
-    for (; *pp != NULL; pp = &(*pp)->stack_prev)
-        if (*pp == target) {
-            *pp = target->stack_prev;
-            break;
-        }
+    if (target->stack_prev != NULL) {
+        /* 'target' appears to be in the chained list 'unsaved_stack',
+           so remove it from there.  Note that if 'thrd' was already
+           deleted, it means that we left the thread and all stacklets
+           still in the thread should be fully copied away from the
+           stack --- so should have stack_prev == NULL.  In this case
+           we don't even read 'stack_thrd', already deallocated. */
+        stacklet_thread_handle thrd = target->stack_thrd;
+        struct stacklet_s **pp = &thrd->g_stack_chain_head;
+        for (; *pp != NULL; pp = &(*pp)->stack_prev)
+            if (*pp == target) {
+                *pp = target->stack_prev;
+                break;
+            }
+    }
     free(target);
 }
 

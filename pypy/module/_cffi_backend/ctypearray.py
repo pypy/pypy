@@ -2,7 +2,7 @@
 Arrays.
 """
 
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef
@@ -119,7 +119,7 @@ class W_CTypeArray(W_CTypePtrOrArray):
         return W_CTypePtrOrArray._fget(self, attrchar)
 
 
-class W_CDataIter(Wrappable):
+class W_CDataIter(W_Root):
     _immutable_fields_ = ['ctitem', 'cdata', '_stop']    # but not '_next'
 
     def __init__(self, space, ctitem, cdata):

@@ -175,9 +175,9 @@ Creation of Application Level objects
 ``wrap(x):``
   Returns a wrapped object that is a reference to the interpreter-level object
   x. This can be used either on simple immutable objects (integers,
-  strings...) to create a new wrapped object, or on instances of ``Wrappable``
+  strings...) to create a new wrapped object, or on instances of ``W_Root``
   to obtain an application-level-visible reference to them.  For example,
-  most classes of the bytecode interpreter subclass ``Wrappable`` and can
+  most classes of the bytecode interpreter subclass ``W_Root`` and can
   be directly exposed to app-level in this way - functions, frames, code
   objects, etc.
 

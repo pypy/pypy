@@ -1,15 +1,10 @@
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.typedef import GetSetProperty, default_identity_hash
 from pypy.interpreter import gateway
-from pypy.interpreter.argument import Arguments
-from pypy.interpreter.baseobjspace import ObjSpace
 from pypy.objspace.descroperation import Object
 from pypy.objspace.std.stdtypedef import StdTypeDef
-from pypy.objspace.std.register_all import register_all
-from pypy.objspace.std import identitydict
 
 def descr__repr__(space, w_obj):
-    w = space.wrap
     w_type = space.type(w_obj)
     classname = w_type.getname(space)
     w_module = w_type.lookup("__module__")
@@ -38,8 +33,8 @@ def descr_set___class__(space, w_obj, w_newcls):
     from pypy.objspace.std.typeobject import W_TypeObject
     if not isinstance(w_newcls, W_TypeObject):
         raise operationerrfmt(space.w_TypeError,
-                              "__class__ must be set to new-style class, not '%s' object",
-                              space.type(w_newcls).getname(space))
+                              "__class__ must be set to new-style class, not '%T' object",
+                              w_newcls)
     if not w_newcls.is_heaptype():
         raise OperationError(space.w_TypeError,
                              space.wrap("__class__ assignment: only for heap types"))
@@ -49,8 +44,8 @@ def descr_set___class__(space, w_obj, w_newcls):
         w_obj.setclass(space, w_newcls)
     else:
         raise operationerrfmt(space.w_TypeError,
-                              "__class__ assignment: '%s' object layout differs from '%s'",
-                              w_oldcls.getname(space), w_newcls.getname(space))
+                              "__class__ assignment: '%N' object layout differs from '%N'",
+                              w_oldcls, w_newcls)
 
 
 app = gateway.applevel("""
@@ -64,7 +59,7 @@ _abstract_method_error = app.interphook("_abstract_method_error")
 
 def descr__new__(space, w_type, __args__):
     from pypy.objspace.std.objectobject import W_ObjectObject
-    from pypy.objspace.std.typetype import _precheck_for_new
+    from pypy.objspace.std.typeobject import _precheck_for_new
     # don't allow arguments if the default object.__init__() is about
     # to be called
     w_type = _precheck_for_new(space, w_type)

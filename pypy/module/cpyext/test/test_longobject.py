@@ -146,6 +146,15 @@ class AppTestLongObject(AppTestCpythonExtensionBase):
         assert module.from_longlong() == -1
         assert module.from_unsignedlonglong() == (1<<64) - 1
 
+    def test_from_size_t(self):
+        module = self.import_extension('foo', [
+            ("from_unsignedlong", "METH_NOARGS",
+             """
+                 return PyLong_FromSize_t((size_t)-1);
+             """)])
+        import sys
+        assert module.from_unsignedlong() == 2 * sys.maxint + 1
+
     def test_fromstring(self):
         module = self.import_extension('foo', [
             ("from_string", "METH_NOARGS",

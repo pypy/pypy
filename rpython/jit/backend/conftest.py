@@ -2,7 +2,7 @@
 This conftest adds options used by test/test_random and
 x86/test/test_zll_random.
 """
-import py, random
+import random
 
 def pytest_addoption(parser):
     group = parser.getgroup('random test options')

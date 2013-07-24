@@ -1,4 +1,3 @@
-import weakref
 from rpython.rtyper.lltypesystem import lltype, rclass
 from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance
 from rpython.jit.metainterp.history import AbstractDescr
@@ -52,7 +51,7 @@ def do_force_quasi_immutable(cpu, p, mutatefielddescr):
 class QuasiImmut(object):
     llopaque = True
     compress_limit = 30
-    
+
     def __init__(self, cpu):
         self.cpu = cpu
         # list of weakrefs to the LoopTokens that must be invalidated if

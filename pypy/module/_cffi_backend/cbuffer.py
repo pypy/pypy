@@ -1,4 +1,4 @@
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.buffer import RWBuffer
 from pypy.interpreter.error import operationerrfmt
 from pypy.interpreter.gateway import unwrap_spec, interp2app
@@ -38,8 +38,8 @@ class LLBuffer(RWBuffer):
             raw_cdata[i] = string[i]
 
 
-class MiniBuffer(Wrappable):
-    # a different subclass of Wrappable for the MiniBuffer, because we
+class MiniBuffer(W_Root):
+    # a different subclass of W_Root for the MiniBuffer, because we
     # want a slightly different (simplified) API at the level of Python.
 
     def __init__(self, buffer, keepalive=None):
@@ -72,15 +72,15 @@ MiniBuffer.typedef = TypeDef(
 MiniBuffer.typedef.acceptable_as_base_class = False
 
 
-@unwrap_spec(cdata=cdataobj.W_CData, size=int)
-def buffer(space, cdata, size=-1):
-    ctype = cdata.ctype
+@unwrap_spec(w_cdata=cdataobj.W_CData, size=int)
+def buffer(space, w_cdata, size=-1):
+    ctype = w_cdata.ctype
     if isinstance(ctype, ctypeptr.W_CTypePointer):
         if size < 0:
             size = ctype.ctitem.size
     elif isinstance(ctype, ctypearray.W_CTypeArray):
         if size < 0:
-            size = cdata._sizeof()
+            size = w_cdata._sizeof()
     else:
         raise operationerrfmt(space.w_TypeError,
                               "expected a pointer or array cdata, got '%s'",
@@ -89,4 +89,4 @@ def buffer(space, cdata, size=-1):
         raise operationerrfmt(space.w_TypeError,
                               "don't know the size pointed to by '%s'",
                               ctype.name)
-    return space.wrap(MiniBuffer(LLBuffer(cdata._cdata, size), cdata))
+    return space.wrap(MiniBuffer(LLBuffer(w_cdata._cdata, size), w_cdata))

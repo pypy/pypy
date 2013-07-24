@@ -7,7 +7,7 @@ from rpython.translator.platform.posix import BasePosix
 
 class BaseLinux(BasePosix):
     name = "linux"
-    
+
     link_flags = tuple(
                  ['-pthread',]
                  + os.environ.get('LDFLAGS', '').split())
@@ -20,7 +20,7 @@ class BaseLinux(BasePosix):
     shared_only = ('-fPIC',)
     so_ext = 'so'
     so_prefixes = ('lib', '')
-    
+
     def _args_for_shared(self, args):
         return ['-shared'] + args
 
@@ -31,20 +31,6 @@ class BaseLinux(BasePosix):
     def _library_dirs_for_libffi(self):
         return self._pkg_config("libffi", "--libs-only-L",
                                 ['/usr/lib/libffi'])
-
-    def library_dirs_for_libffi_a(self):
-        # places where we need to look for libffi.a
-        # XXX obscuuure!  only look for libffi.a if run with translate.py
-        if 'translate' in sys.modules:
-            if sys.maxint > 2**32:
-                host = 'x86_64'
-            else:
-                host = 'x86'
-            return self.library_dirs_for_libffi() + [
-                '/usr/lib',
-                '/usr/lib/%s-linux-gnu/' % host]
-        else:
-            return []
 
 
 class Linux(BaseLinux):

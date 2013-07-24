@@ -20,7 +20,7 @@ error = OSError
 class stat_result:
     __metaclass__ = structseqtype
 
-    name = "posix.stat_result"
+    name = osname + ".stat_result"
 
     st_mode  = structseqfield(0, "protection bits")
     st_ino   = structseqfield(1, "inode")
@@ -64,6 +64,23 @@ class stat_result:
             self.__dict__['st_mtime'] = self[8]
         if self.st_ctime is None:
             self.__dict__['st_ctime'] = self[9]
+
+
+class statvfs_result:
+    __metaclass__ = structseqtype
+
+    name = osname + ".statvfs_result"
+
+    f_bsize = structseqfield(0)
+    f_frsize = structseqfield(1)
+    f_blocks = structseqfield(2)
+    f_bfree = structseqfield(3)
+    f_bavail = structseqfield(4)
+    f_files = structseqfield(5)
+    f_ffree = structseqfield(6)
+    f_favail = structseqfield(7)
+    f_flag = structseqfield(8)
+    f_namemax = structseqfield(9)
 
 if osname == 'posix':
     # POSIX: we want to check the file descriptor when fdopen() is called,

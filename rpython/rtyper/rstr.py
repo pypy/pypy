@@ -2,8 +2,7 @@ from rpython.annotator import model as annmodel
 from rpython.rlib import jit
 from rpython.rtyper import rint
 from rpython.rtyper.error import TyperError
-from rpython.rtyper.lltypesystem.lltype import (Signed, Bool, Void, UniChar,
-    typeOf)
+from rpython.rtyper.lltypesystem.lltype import Signed, Bool, Void, UniChar
 from rpython.rtyper.rmodel import IntegerRepr, IteratorRepr, inputconst, Repr
 from rpython.rtyper.rtuple import AbstractTupleRepr
 from rpython.tool.pairtype import pairtype, pair
@@ -259,6 +258,12 @@ class __extend__(AbstractStringRepr):
         [v_str] = hop.inputargs(string_repr)
         hop.exception_cannot_occur()
         return hop.gendirectcall(self.ll.ll_isalpha, v_str)
+
+    def rtype_method_isalnum(self, hop):
+        string_repr = hop.args_r[0].repr
+        [v_str] = hop.inputargs(string_repr)
+        hop.exception_cannot_occur()
+        return hop.gendirectcall(self.ll.ll_isalnum, v_str)
 
     def _list_length_items(self, hop, v_lst, LIST):
         """Return two Variables containing the length and items of a
@@ -777,6 +782,17 @@ class AbstractLLHelpers:
             return False
         for ch in s:
             if not ch.isalpha():
+                return False
+        return True
+
+    def ll_isalnum(s):
+        from rpython.rtyper.annlowlevel import hlstr
+
+        s = hlstr(s)
+        if not s:
+            return False
+        for ch in s:
+            if not ch.isalnum():
                 return False
         return True
 

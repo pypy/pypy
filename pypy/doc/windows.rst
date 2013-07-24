@@ -2,7 +2,7 @@
 PyPy on Windows
 ===============
 
-Pypy is supported on Windows platforms, starting with Windows 2000.
+PyPy is supported on Windows platforms, starting with Windows 2000.
 The following text gives some hints about how to translate the PyPy
 interpreter.
 
@@ -111,6 +111,18 @@ the base directory.  Then compile::
     cd bzip2-1.0.5
     nmake -f makefile.msc
     
+The sqlite3 database library
+~~~~~~~~~~~~~~~~~~~~
+
+Download http://www.sqlite.org/2013/sqlite-amalgamation-3071601.zip and extract
+it into a directory under the base directory. Also get 
+http://www.sqlite.org/2013/sqlite-dll-win32-x86-3071601.zip and extract the dll
+into the bin directory, and the sqlite3.def into the sources directory.
+Now build the import library so cffi can use the header and dll::
+    lib /DEF:sqlite3.def" /OUT:sqlite3.lib"
+    copy sqlite3.lib path\to\libs
+
+
 The expat XML parser
 ~~~~~~~~~~~~~~~~~~~~
 
@@ -187,9 +199,9 @@ If you wish to experiment with win64, you must run configure with flags::
 
 or such, depending on your mingw64 download.
 
-hacking on Pypy with the mingw compiler
+hacking on PyPy with the mingw compiler
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Since hacking on Pypy means running tests, you will need a way to specify
+Since hacking on PyPy means running tests, you will need a way to specify
 the mingw compiler when hacking (as opposed to translating). As of
 March 2012, --cc is not a valid option for pytest.py. However if you set an
 environment variable CC to the compliter exe, testing will use it.

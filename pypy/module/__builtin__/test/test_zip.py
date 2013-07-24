@@ -13,6 +13,12 @@ class AppTestZip:
     def test_one_list(self):
         assert zip([1, 2, 3]) == [(1,), (2,), (3,)]
 
+    def test_two_lists(self):
+        # uses a different code path
+        assert zip([1, 2, 3], [3, 4, 5]) == [(1, 3), (2, 4), (3, 5)]
+        assert zip([1, 2, 3], [3, 4]) == [(1, 3), (2, 4)]
+        assert zip([1, 2], [3, 4, 5]) == [(1, 3), (2, 4)]
+
     def test_three_lists_same_size(self):
         assert zip([1, 2, 3], [3, 4, 5], [6, 7, 8]) == (
                           [(1, 3, 6), (2, 4, 7), (3, 5, 8)])

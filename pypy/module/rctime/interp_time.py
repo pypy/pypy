@@ -209,12 +209,12 @@ def _init_timezone(space):
     tzname = ["", ""]
 
     if _WIN:
-         c_tzset()
-         timezone = c_get_timezone()
-         altzone = timezone - 3600
-         daylight = c_get_daylight()
-         tzname_ptr = c_get_tzname()
-         tzname = rffi.charp2str(tzname_ptr[0]), rffi.charp2str(tzname_ptr[1])
+        c_tzset()
+        timezone = c_get_timezone()
+        altzone = timezone - 3600
+        daylight = c_get_daylight()
+        tzname_ptr = c_get_tzname()
+        tzname = rffi.charp2str(tzname_ptr[0]), rffi.charp2str(tzname_ptr[1])
 
     if _POSIX:
         if _CYGWIN:
@@ -432,10 +432,10 @@ def _gettmarg(space, w_tup, allowNone=True):
             glob_buf.c_tm_zone = lltype.nullptr(rffi.CCHARP.TO)
             rffi.setintfield(glob_buf, 'c_tm_gmtoff', 0)
 
-    w_accept2dyear = _get_module_object(space, "accept2dyear")
-    accept2dyear = space.int_w(w_accept2dyear)
-
     if y < 1900:
+        w_accept2dyear = _get_module_object(space, "accept2dyear")
+        accept2dyear = space.int_w(w_accept2dyear)
+
         if not accept2dyear:
             raise OperationError(space.w_ValueError,
                 space.wrap("year >= 1900 required"))
