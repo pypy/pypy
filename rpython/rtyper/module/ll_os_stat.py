@@ -105,7 +105,10 @@ class SomeStatResult(annmodel.SomeObject):
 
 
 class SomeStatvfsResult(annmodel.SomeObject):
-    knowntype = os.statvfs_result
+    if hasattr(os, 'statvfs_result'):
+        knowntype = os.statvfs_result
+    else:
+        knowntype = None # will not be used
 
     def rtyper_makerepr(self, rtyper):
         from rpython.rtyper.module import r_os_stat
