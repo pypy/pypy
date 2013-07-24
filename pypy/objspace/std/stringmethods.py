@@ -277,31 +277,32 @@ class StringMethods(object):
         return space.wrap(res)
 
     @specialize.arg(2)
-    def _is_generic(self, space, fun):
+    def _is_generic(self, space, func_name):
+        func = getattr(self, func_name)
         v = self._val(space)
         if len(v) == 0:
             return space.w_False
         if len(v) == 1:
             c = v[0]
-            return space.newbool(fun(c))
+            return space.newbool(func(c))
         else:
-            return self._is_generic_loop(space, v, fun)
+            return self._is_generic_loop(space, v, func)
 
     @specialize.arg(3)
-    def _is_generic_loop(self, space, v, fun):
+    def _is_generic_loop(self, space, v, func):
         for idx in range(len(v)):
-            if not fun(v[idx]):
+            if not func(v[idx]):
                 return space.w_False
         return space.w_True
 
     def descr_isalnum(self, space):
-        return self._is_generic(space, self._isalnum)
+        return self._is_generic(space, '_isalnum')
 
     def descr_isalpha(self, space):
-        return self._is_generic(space, self._isalpha)
+        return self._is_generic(space, '_isalpha')
 
     def descr_isdigit(self, space):
-        return self._is_generic(space, self._isdigit)
+        return self._is_generic(space, '_isdigit')
 
     def descr_islower(self, space):
         v = self._val(space)
@@ -317,7 +318,7 @@ class StringMethods(object):
         return space.newbool(cased)
 
     def descr_isspace(self, space):
-        return self._is_generic(space, self._isspace)
+        return self._is_generic(space, '_isspace')
 
     def descr_istitle(self, space):
         input = self._val(space)
