@@ -96,7 +96,7 @@ def stm_pop_root_into(funcgen, op):
 
 def stm_get_root_stack_top(funcgen, op):
     result = funcgen.expr(op.result)
-    return '%s = (%s)stm_shadowstack;' % (
+    return '%s = (%s)&stm_shadowstack;' % (
         result, cdecl(funcgen.lltypename(op.result), ''))
 
 def stm_weakref_allocate(funcgen, op):

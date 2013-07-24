@@ -1188,7 +1188,6 @@ class Assembler386(BaseAssembler):
         rst = gcrootmap.get_root_stack_top_addr()
         if gcrootmap.is_stm:
             rst = rst - stmtlocal.threadlocal_base()
-            assert rst > 0
             assert rx86.fits_in_32bits(rst)
         return rst
             
