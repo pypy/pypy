@@ -437,8 +437,8 @@ class Assembler386(BaseAssembler):
             # new addr in eax, save to now unused arg
             if for_frame:
                 # ||retadr|x||x|x||xmm0|x||rax|x||
-                mc.PUSH_r(eax.value)
-                # ||retadr|x||x|x||xmm0|x||rax|x||result|
+                # directly move to rbp
+                mc.MOV_rr(ebp.value, eax.value)
             elif IS_X86_32:
                 mc.MOV_sr(3 * WORD, eax.value)
                 # ||val|retadr|x|val||
@@ -473,20 +473,15 @@ class Assembler386(BaseAssembler):
         else:
             if IS_X86_32:
                 mc.MOV_rs(edx.value, 5 * WORD)
-            # ||retadr|x||x|x||xmm0|x||rax|x||result|
-            mc.MOVSD_xs(xmm0.value, 4 * WORD)
-            mc.MOV_rs(eax.value, 2 * WORD) # restore
+            # ||retadr|x||x|x||xmm0|x||rax|x||
+            mc.MOVSD_xs(xmm0.value, 3 * WORD)
+            mc.MOV_rs(eax.value, WORD) # restore
             self._restore_exception(mc, exc0, exc1)
-            mc.MOV(exc0, RawEspLoc(WORD * 6, REF))
-            mc.MOV(exc1, RawEspLoc(WORD * 7, INT))
-
-            if IS_X86_32:
-                mc.POP_r(ecx.value) # return value
-            else:
-                mc.POP_r(edi.value) # return value
+            mc.MOV(exc0, RawEspLoc(WORD * 5, REF))
+            mc.MOV(exc1, RawEspLoc(WORD * 6, INT))
 
             mc.LEA_rs(esp.value, 7 * WORD)
-
+            # retval already in ebp
             mc.RET()
 
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
@@ -521,9 +516,9 @@ class Assembler386(BaseAssembler):
         clt.allgcrefs = []
         clt.frame_info.clear() # for now
 
-        if log:
-            operations = self._inject_debugging_code(looptoken, operations,
-                                                     'e', looptoken.number)
+        # if log:
+        #     operations = self._inject_debugging_code(looptoken, operations,
+        #                                              'e', looptoken.number)
 
         regalloc = RegAlloc(self, self.cpu.translate_support_code)
         #
@@ -582,9 +577,9 @@ class Assembler386(BaseAssembler):
 
         self.setup(original_loop_token)
         descr_number = compute_unique_id(faildescr)
-        if log:
-            operations = self._inject_debugging_code(faildescr, operations,
-                                                     'b', descr_number)
+        # if log:
+        #     operations = self._inject_debugging_code(faildescr, operations,
+        #                                              'b', descr_number)
 
         arglocs = self.rebuild_faillocs_from_descr(faildescr, inputargs)
         regalloc = RegAlloc(self, self.cpu.translate_support_code)
@@ -838,10 +833,17 @@ class Assembler386(BaseAssembler):
         self.mc.RET()
 
     def _load_shadowstack_top_in_ebx(self, mc, gcrootmap):
+        """Loads the shadowstack top in ebx, and returns an integer
+        that gives the address of the stack top.  If this integer doesn't
+        fit in 32 bits, it will be loaded in r11.
+        """
         rst = gcrootmap.get_root_stack_top_addr()
         if rx86.fits_in_32bits(rst):
             mc.MOV_rj(ebx.value, rst)            # MOV ebx, [rootstacktop]
         else:
+            # The integer 'rst' doesn't fit in 32 bits, so we know that
+            # _load_shadowstack_top_in_ebx() above loaded it in r11.
+            # Reuse it.  Be careful not to overwrite r11 in the middle!
             mc.MOV_ri(X86_64_SCRATCH_REG.value, rst) # MOV r11, rootstacktop
             mc.MOV_rm(ebx.value, (X86_64_SCRATCH_REG.value, 0))
             # MOV ebx, [r11]
@@ -2160,7 +2162,7 @@ class Assembler386(BaseAssembler):
         assert self.cpu.gc_ll_descr.stm
         from rpython.jit.backend.llsupport.gc import STMBarrierDescr
         assert isinstance(descr, STMBarrierDescr)
-        assert descr.returns_modified_object        
+        assert descr.returns_modified_object
         loc_base = arglocs[0]
         assert isinstance(loc_base, RegLoc)
         # Write only a CALL to the helper prepared in advance, passing it as
@@ -2182,11 +2184,8 @@ class Assembler386(BaseAssembler):
         mc.CALL(imm(func))
         # get result:
         if is_frame:
-            # result in register:
-            if IS_X86_32:
-                mc.MOV_rr(loc_base.value, ecx.value)
-            else:
-                mc.MOV_rr(loc_base.value, edi.value)
+            # result already written back to ebp
+            assert loc_base is ebp
         else:
             # result where argument was:
             mc.POP_r(loc_base.value)
