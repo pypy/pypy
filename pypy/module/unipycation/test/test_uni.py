@@ -166,12 +166,5 @@ class AppTestHighLevelInterface(object):
         import uni
 
         e = uni.Engine("f(X) :- willsmith(1, [1,2,3], X).")
-
-        # Can't seem to use info.exconly this at the applevel
-        #info = raises(uni.PrologError, e.db.f, None)
-        #assert info.exconly() == "PrologError: Undefined procedure: willsmith/3"
-        try:
-            (res, ) = e.db.f(None)
-            assert(False)
-        except uni.PrologError as ex:
-            assert str(ex) == "Undefined procedure: willsmith/3"
+        info = raises(uni.PrologError, e.db.f, None)
+        assert str(info.value) == "Undefined procedure: willsmith/3"
