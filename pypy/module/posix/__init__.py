@@ -70,9 +70,6 @@ corresponding Unix manual entries for more information on calls."""
         'lstat': 'interp_posix.lstat',
         'stat_float_times': 'interp_posix.stat_float_times',
 
-        'fstatvfs': 'interp_posix.fstatvfs',
-        'statvfs': 'interp_posix.statvfs',
-
         'dup': 'interp_posix.dup',
         'dup2': 'interp_posix.dup2',
         'access': 'interp_posix.access',
@@ -176,7 +173,7 @@ corresponding Unix manual entries for more information on calls."""
     for name in ['setsid', 'getuid', 'geteuid', 'getgid', 'getegid', 'setuid',
                  'seteuid', 'setgid', 'setegid', 'getgroups', 'getpgrp',
                  'setpgrp', 'getppid', 'getpgid', 'setpgid', 'setreuid',
-                 'setregid', 'getsid', 'setsid']:
+                 'setregid', 'getsid', 'setsid', 'fstatvfs', 'statvfs']:
         if hasattr(os, name):
             interpleveldefs[name] = 'interp_posix.%s' % (name,)
     # not visible via os, inconsistency in nt:
