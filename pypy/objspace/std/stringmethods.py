@@ -286,10 +286,11 @@ class StringMethods(object):
             c = v[0]
             return space.newbool(func(c))
         else:
-            return self._is_generic_loop(space, v, func)
+            return self._is_generic_loop(space, v, func_name)
 
     @specialize.arg(3)
-    def _is_generic_loop(self, space, v, func):
+    def _is_generic_loop(self, space, v, func_name):
+        func = getattr(self, func_name)
         for idx in range(len(v)):
             if not func(v[idx]):
                 return space.w_False
