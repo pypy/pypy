@@ -111,6 +111,11 @@ def box_isconst(llbox):
     from rpython.jit.metainterp.history import Const
     return isinstance(_cast_to_box(llbox), Const)
 
+@register_helper(annmodel.SomeBool())
+def box_isint(llbox):
+    from rpython.jit.metainterp.history import INT
+    return _cast_to_box(llbox).type == INT
+
 # ------------------------- stats interface ---------------------------
 
 @register_helper(annmodel.SomeBool())
