@@ -65,19 +65,10 @@ class W_CoreSolutionIterator(W_Root):
             except error.UnificationFailed:
                 # contradiction - no solutions
                 raise OperationError(self.space.w_StopIteration, self.space.w_None)
-            except error.CatchableError:
-                w_GoalError = util.get_from_module(self.space, "unipycation", "GoalError")
-                raise OperationError(w_GoalError, self.space.wrap("Undefined goal"))
-            except error.UncaughtError, e:
-                # XXX just for debugging for now. This atleast gives us a clue as to
-                # what may have gone wrong instead of just getting an UncaughError
-                #
-                # Eventually we want to do something like in pyrolog's translatedmain.py.
-                assert isinstance(e.term, term.Callable) # assume this until we see a counterexample XXX
-                errterm = e.term.argument_at(0)
-
-                w_UnknownPrologError = util.get_from_module(self.space, "unipycation", "UnknownPrologError")
-                raise OperationError(w_UnknownPrologError, self.space.wrap(str(errterm)))
+            except (error.CatchableError, error.UncaughtError) as ex:
+                w_PrologError = util.get_from_module(self.space, "unipycation", "PrologError")
+                engine = self.w_engine.engine
+                raise OperationError(w_PrologError, self.space.wrap(ex.get_errstr(engine)))
 
             self.w_goal_term = None # allow GC
         else:
@@ -86,9 +77,10 @@ class W_CoreSolutionIterator(W_Root):
             except error.UnificationFailed:
                 # enumerated all solutions
                 raise OperationError(self.space.w_StopIteration, self.space.w_None)
-            except error.CatchableError:
-                w_GoalError = util.get_from_module(self.space, "unipycation", "GoalError")
-                raise OperationError(w_GoalError, self.space.wrap("Undefined goal"))
+            except (error.CatchableError, error.UncaughtError) as ex:
+                w_PrologError = util.get_from_module(self.space, "unipycation", "PrologError")
+                engine = self.w_engine.engine
+                raise OperationError(w_PrologError, self.space.wrap(ex.get_errstr(engine)))
 
         return self.d_result
 

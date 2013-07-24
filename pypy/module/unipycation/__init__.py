@@ -5,8 +5,7 @@ class Module(MixedModule):
     appleveldefs = {
             'ParseError' : 'app_error.ParseError',
             'ConversionError' : 'app_error.ConversionError',
-            'GoalError' : 'app_error.GoalError',
-            'UnknownPrologError' : 'app_error.UnknownPrologError',
+            'PrologError' : 'app_error.PrologError',
     }
 
     interpleveldefs = {

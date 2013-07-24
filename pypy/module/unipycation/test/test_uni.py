@@ -90,7 +90,7 @@ class AppTestHighLevelInterface(object):
     def test_undefined_goal(self):
         import uni
         e = uni.Engine("f(1,2,3).")
-        raises(uni.GoalError, lambda : e.db.g(666))
+        raises(uni.PrologError, lambda : e.db.g(666))
 
     def test_append(self):
         import uni
@@ -154,11 +154,24 @@ class AppTestHighLevelInterface(object):
 
     # (Pdb) p exc
     # Generic1(error, [Generic2(existence_error, [Atom('procedure'), Generic2(/, [Atom('select'), Number(3)])])])
-    #
-    # When fixed, convert this test into an existenceerror test :)
+    # This does not belong here XXX
     def test_select(self):
         import uni
 
         e = uni.Engine("f(X) :- select(1, [1,2,3], X).")
         (res, ) = e.db.f(None)
         assert res == [2, 3]
+
+    def test_pass_up_prolog_error_string(self):
+        import uni
+
+        e = uni.Engine("f(X) :- willsmith(1, [1,2,3], X).")
+
+        # Can't seem to use info.exconly this at the applevel
+        #info = raises(uni.PrologError, e.db.f, None)
+        #assert info.exconly() == "PrologError: Undefined procedure: willsmith/3"
+        try:
+            (res, ) = e.db.f(None)
+            assert(False)
+        except uni.PrologError as ex:
+            assert str(ex) == "Undefined procedure: willsmith/3"

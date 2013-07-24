@@ -142,7 +142,7 @@ class AppTestCoreEngine(object):
         X = u.Var()
         t = u.Term("g", [X])
 
-        raises(u.GoalError, lambda: e.query_single(t, [X]))
+        raises(u.PrologError, lambda: e.query_single(t, [X]))
 
     def test_iter_nonexisting_predicate(self):
         import unipycation as u
@@ -151,7 +151,7 @@ class AppTestCoreEngine(object):
         X = u.Var()
         t = u.Term("g", [X])
 
-        raises(u.GoalError, lambda: e.query_iter(t, [X]).next())
+        raises(u.PrologError, lambda: e.query_iter(t, [X]).next())
 
     def test_parse_db_incomplete(self):
         import unipycation
@@ -174,16 +174,12 @@ class AppTestCoreEngine(object):
 
     # XXX this is not right, see XXX in CoreEngine
     def test_type_error_passed_up(self):
-        pass
-        """
         import unipycation
 
         e = unipycation.CoreEngine("test(X) :- X is sqrt(9).")
         X = unipycation.Var()
         t = unipycation.Term('test', [X])
-        raises(TypeError, lambda : e.query_single(t, [X]))
-        """
-
+        raises(unipycation.PrologError, lambda : e.query_single(t, [X]))
 
     def test_variable_sharing_bug(self):
         import unipycation as u
