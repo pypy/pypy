@@ -186,6 +186,92 @@ def endswith(u_self, suffix, start=0, end=sys.maxint):
             return False
     return True
 
+# -------------- numeric parsing support --------------------
+
+def strip_spaces(s):
+    # XXX this is not locale-dependent
+    p = 0
+    q = len(s)
+    while p < q and s[p] in ' \f\n\r\t\v':
+        p += 1
+    while p < q and s[q-1] in ' \f\n\r\t\v':
+        q -= 1
+    assert q >= p     # annotator hint, don't remove
+    return s[p:q]
+
+class ParseStringError(Exception):
+    def __init__(self, msg):
+        self.msg = msg
+
+class ParseStringOverflowError(Exception):
+    def __init__(self, parser):
+        self.parser = parser
+
+# iterator-like class
+class NumberStringParser:
+
+    def error(self):
+        raise ParseStringError("invalid literal for %s() with base %d: '%s'" %
+                               (self.fname, self.original_base, self.literal))
+
+    def __init__(self, s, literal, base, fname):
+        self.literal = literal
+        self.fname = fname
+        sign = 1
+        if s.startswith('-'):
+            sign = -1
+            s = strip_spaces(s[1:])
+        elif s.startswith('+'):
+            s = strip_spaces(s[1:])
+        self.sign = sign
+        self.original_base = base
+
+        if base == 0:
+            if s.startswith('0x') or s.startswith('0X'):
+                base = 16
+            elif s.startswith('0b') or s.startswith('0B'):
+                base = 2
+            elif s.startswith('0'): # also covers the '0o' case
+                base = 8
+            else:
+                base = 10
+        elif base < 2 or base > 36:
+            raise ParseStringError, "%s() base must be >= 2 and <= 36" % (fname,)
+        self.base = base
+
+        if base == 16 and (s.startswith('0x') or s.startswith('0X')):
+            s = s[2:]
+        if base == 8 and (s.startswith('0o') or s.startswith('0O')):
+            s = s[2:]
+        if base == 2 and (s.startswith('0b') or s.startswith('0B')):
+            s = s[2:]
+        if not s:
+            self.error()
+        self.s = s
+        self.n = len(s)
+        self.i = 0
+
+    def rewind(self):
+        self.i = 0
+
+    def next_digit(self): # -1 => exhausted
+        if self.i < self.n:
+            c = self.s[self.i]
+            digit = ord(c)
+            if '0' <= c <= '9':
+                digit -= ord('0')
+            elif 'A' <= c <= 'Z':
+                digit = (digit - ord('A')) + 10
+            elif 'a' <= c <= 'z':
+                digit = (digit - ord('a')) + 10
+            else:
+                self.error()
+            if digit >= self.base:
+                self.error()
+            self.i += 1
+            return digit
+        else:
+            return -1
 
 # -------------- public API ---------------------------------
 

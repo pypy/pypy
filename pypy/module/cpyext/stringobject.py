@@ -225,9 +225,9 @@ def PyString_Concat(space, ref, w_newpart):
 
     if w_newpart is None or not PyString_Check(space, ref[0]) or \
             not PyString_Check(space, w_newpart):
-         Py_DecRef(space, ref[0])
-         ref[0] = lltype.nullptr(PyObject.TO)
-         return
+        Py_DecRef(space, ref[0])
+        ref[0] = lltype.nullptr(PyObject.TO)
+        return
     w_str = from_ref(space, ref[0])
     w_newstr = space.add(w_str, w_newpart)
     Py_DecRef(space, ref[0])

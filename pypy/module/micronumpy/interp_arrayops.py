@@ -65,7 +65,7 @@ def where(space, w_arr, w_x=None, w_y=None):
            [ 3.,  4., -1.],
            [-1., -1., -1.]])
 
-    
+
     NOTE: support for not passing x and y is unsupported
     """
     if space.is_none(w_y):
@@ -122,10 +122,10 @@ def concatenate(space, w_args, axis=0):
             for f in dtype.fields:
                 if f not in a_dt.fields or \
                              dtype.fields[f] != a_dt.fields[f]:
-                    raise OperationError(space.w_TypeError, 
+                    raise OperationError(space.w_TypeError,
                                space.wrap("record type mismatch"))
         elif dtype.is_record_type() or a_dt.is_record_type():
-            raise OperationError(space.w_TypeError, 
+            raise OperationError(space.w_TypeError,
                         space.wrap("invalid type promotion"))
         dtype = interp_ufuncs.find_binop_result_dtype(space, dtype,
                                                       arr.get_dtype())
@@ -191,6 +191,61 @@ def choose(space, w_arr, w_choices, w_out, mode):
                              space.wrap("mode %s not known" % (mode,)))
     loop.choose(space, arr, choices, shape, dtype, out, MODES[mode])
     return out
+
+
+@unwrap_spec(mode=str)
+def put(space, w_arr, w_indices, w_values, mode='raise'):
+    from pypy.module.micronumpy import constants
+    from pypy.module.micronumpy.support import int_w
+
+    arr = convert_to_array(space, w_arr)
+
+    if mode not in constants.MODES:
+        raise OperationError(space.w_ValueError,
+                             space.wrap("mode %s not known" % (mode,)))
+    if not w_indices:
+        raise OperationError(space.w_ValueError,
+                             space.wrap("indice list cannot be empty"))
+    if not w_values:
+        raise OperationError(space.w_ValueError,
+                             space.wrap("value list cannot be empty"))
+
+    dtype = arr.get_dtype()
+
+    if space.isinstance_w(w_indices, space.w_list):
+        indices = space.listview(w_indices)
+    else:
+        indices = [w_indices]
+
+    if space.isinstance_w(w_values, space.w_list):
+        values = space.listview(w_values)
+    else:
+        values = [w_values]
+
+    v_idx = 0
+    for idx in indices:
+        index = int_w(space, idx)
+
+        if index < 0 or index >= arr.get_size():
+            if constants.MODES[mode] == constants.MODE_RAISE:
+                raise OperationError(space.w_ValueError, space.wrap(
+                    "invalid entry in choice array"))
+            elif constants.MODES[mode] == constants.MODE_WRAP:
+                index = index % arr.get_size()
+            else:
+                assert constants.MODES[mode] == constants.MODE_CLIP
+                if index < 0:
+                    index = 0
+                else:
+                    index = arr.get_size() - 1
+
+        value = values[v_idx]
+
+        if v_idx + 1 < len(values):
+            v_idx += 1
+
+        arr.setitem(space, [index], dtype.coerce(space, value))
+
 
 def diagonal(space, arr, offset, axis1, axis2):
     shape = arr.get_shape()

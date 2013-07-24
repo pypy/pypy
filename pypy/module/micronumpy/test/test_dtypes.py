@@ -585,6 +585,7 @@ class AppTestTypes(BaseAppTestDtypes):
         import numpypy as numpy
 
         assert numpy.complex_ is numpy.complex128
+        assert numpy.cfloat is numpy.complex64
         assert numpy.complex64.__mro__ == (numpy.complex64,
             numpy.complexfloating, numpy.inexact, numpy.number, numpy.generic,
             object)

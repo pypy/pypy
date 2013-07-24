@@ -49,7 +49,7 @@ class FakeDict(object):
 class FakeCPU:
     class tracker:
         pass
-    
+
     def __init__(self, rtyper):
         rtyper._builtin_func_for_spec_cache = FakeDict()
         self.rtyper = rtyper
@@ -71,7 +71,8 @@ class FakeCallControl:
     callinfocollection = FakeCallInfoCollection()
     def guess_call_kind(self, op):
         return 'residual'
-    def getcalldescr(self, op, oopspecindex=None, extraeffect=None):
+    def getcalldescr(self, op, oopspecindex=None, extraeffect=None,
+                     extradescrs=None):
         try:
             name = op.args[0].value._obj._name
             if 'cannot_raise' in name or name.startswith('cast_'):

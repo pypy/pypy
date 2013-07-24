@@ -301,6 +301,32 @@ class ResOpAssembler(BaseAssembler):
         self._check_frame_depth_debug(self.mc)
         return fcond
 
+    def cond_call(self, op, gcmap, cond_loc, call_loc, fcond):
+        assert call_loc is r.r4
+        self.mc.TST_rr(cond_loc.value, cond_loc.value)
+        jmp_adr = self.mc.currpos()
+        self.mc.BKPT()  # patched later
+        #
+        self.push_gcmap(self.mc, gcmap, store=True)
+        #
+        callee_only = False
+        floats = False
+        if self._regalloc is not None:
+            for reg in self._regalloc.rm.reg_bindings.values():
+                if reg not in self._regalloc.rm.save_around_call_regs:
+                    break
+            else:
+                callee_only = True
+            if self._regalloc.vfprm.reg_bindings:
+                floats = True
+        cond_call_adr = self.cond_call_slowpath[floats * 2 + callee_only]
+        self.mc.BL(cond_call_adr)
+        self.pop_gcmap(self.mc)
+        # never any result value
+        pmc = OverwritingBuilder(self.mc, jmp_adr, WORD)
+        pmc.B_offs(self.mc.currpos(), c.EQ)  # equivalent to 0 as result of TST above
+        return fcond
+
     def emit_op_jump(self, op, arglocs, regalloc, fcond):
         target_token = op.getdescr()
         assert isinstance(target_token, TargetToken)

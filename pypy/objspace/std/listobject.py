@@ -1222,7 +1222,8 @@ class AbstractUnwrappedStrategy(object):
     def _safe_find(self, w_list, obj, start, stop):
         l = self.unerase(w_list.lstorage)
         for i in range(start, min(stop, len(l))):
-            if l[i] == obj:
+            val = l[i]
+            if val == obj:
                 return i
         raise ValueError
 
@@ -1541,18 +1542,6 @@ class FloatListStrategy(AbstractUnwrappedStrategy, ListStrategy):
         sorter.sort()
         if reverse:
             l.reverse()
-
-    def _safe_find(self, w_list, obj, start, stop):
-        from rpython.rlib.rfloat import isnan
-        if not isnan(obj):
-            return AbstractUnwrappedStrategy._safe_find(self, w_list, obj,
-                                                        start, stop)
-        # unwrapped nan != nan, finding it requires more effort
-        l = self.unerase(w_list.lstorage)
-        for i in range(start, min(stop, len(l))):
-            if isnan(l[i]):
-                return i
-        raise ValueError
 
 
 class StringListStrategy(AbstractUnwrappedStrategy, ListStrategy):

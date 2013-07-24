@@ -1,14 +1,15 @@
 from rpython.jit.backend.llsupport.descr import get_size_descr,\
      get_field_descr, get_array_descr, ArrayDescr, FieldDescr,\
-     SizeDescrWithVTable, get_interiorfield_descr
+     SizeDescrWithVTable, get_interiorfield_descr, get_call_descr
 from rpython.jit.backend.llsupport.gc import GcLLDescr_boehm,\
      GcLLDescr_framework
 from rpython.jit.backend.llsupport import jitframe
+from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.gc import get_description
 from rpython.jit.tool.oparser import parse
 from rpython.jit.metainterp.optimizeopt.util import equaloplists
 from rpython.jit.codewriter.heaptracker import register_known_gctype
-from rpython.jit.metainterp.history import JitCellToken, FLOAT
+from rpython.jit.metainterp.history import JitCellToken, FLOAT, ConstInt
 from rpython.rtyper.lltypesystem import lltype, rclass, rffi
 from rpython.jit.backend.x86.arch import WORD
 
@@ -87,6 +88,24 @@ class RewriteTests(object):
         casmdescr.compiled_loop_token = clt
         tzdescr = None # noone cares
         #
+
+        ARRAY = lltype.GcArray(lltype.Signed)
+        LIST = lltype.GcStruct('LIST', ('length', lltype.Signed),
+                               ('items', lltype.Ptr(ARRAY)))
+        lendescr = get_field_descr(self.gc_ll_descr, LIST, 'length')
+        itemsdescr = get_field_descr(self.gc_ll_descr, LIST, 'items')
+        arraydescr = get_array_descr(self.gc_ll_descr, ARRAY)
+        resize_ptr = ConstInt(123)
+        extrainfo = EffectInfo(None, None, None, None,
+                               extraeffect=EffectInfo.EF_RANDOM_EFFECTS,
+                               oopspecindex=EffectInfo.OS_LIST_RESIZE_GE,
+                               extra_descrs=[lendescr, itemsdescr, arraydescr,
+                                             resize_ptr])
+        list_resize_descr = get_call_descr(self.gc_ll_descr,
+                                           [lltype.Ptr(LIST), lltype.Signed],
+                                           lltype.Void, extrainfo)
+        extrainfo.extra_descrs.append(list_resize_descr)
+
         namespace.update(locals())
         #
         for funcname in self.gc_ll_descr._generated_functions:

@@ -840,6 +840,12 @@ class LLFrame(object):
         x = math.sqrt(y)
         return support.cast_to_floatstorage(x)
 
+    def execute_cond_call(self, calldescr, cond, func, *args):
+        if not cond:
+            return
+        # cond_call can't have a return value
+        self.execute_call(calldescr, func, *args)
+
     def execute_call(self, calldescr, func, *args):
         effectinfo = calldescr.get_extra_info()
         if effectinfo is not None and hasattr(effectinfo, 'oopspecindex'):

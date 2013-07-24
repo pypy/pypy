@@ -283,9 +283,13 @@ class AbstractFunctionsPBCRepr(CanBeNull, Repr):
         assert len(self.s_pbc.descriptions) == 1
                                   # lowleveltype wouldn't be Void otherwise
         funcdesc, = self.s_pbc.descriptions
-        if len(self.callfamily.calltables) != 1:
+        tables = []        # find the simple call in the calltable
+        for key, table in self.callfamily.calltables.items():
+            if not key[1] and not key[2] and not key[3]:
+                tables.append(table)
+        if len(tables) != 1:
             raise TyperError("cannot pass a function with various call shapes")
-        table, = self.callfamily.calltables.values()
+        table, = tables
         graphs = []
         for row in table:
             if funcdesc in row:
@@ -295,6 +299,18 @@ class AbstractFunctionsPBCRepr(CanBeNull, Repr):
         graph = graphs[0]
         if graphs != [graph]*len(graphs):
             raise TyperError("cannot pass a specialized function here")
+        llfn = self.rtyper.getcallable(graph)
+        return inputconst(typeOf(llfn), llfn)
+
+    def get_concrete_llfn(self, s_pbc, args_s, op):
+        bk = self.rtyper.annotator.bookkeeper
+        descs = list(s_pbc.descriptions)
+        vfcs = description.FunctionDesc.variant_for_call_site
+        args = bk.build_args("simple_call", args_s)
+        shape, index = vfcs(bk, self.callfamily, descs, args, op)
+        funcdesc, = descs
+        row_of_one_graph = self.callfamily.calltables[shape][index]
+        graph = row_of_one_graph[funcdesc]
         llfn = self.rtyper.getcallable(graph)
         return inputconst(typeOf(llfn), llfn)
 

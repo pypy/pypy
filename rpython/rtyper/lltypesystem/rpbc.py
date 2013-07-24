@@ -401,6 +401,20 @@ class ClassesPBCRepr(AbstractClassesPBCRepr):
     def getlowleveltype(self):
         return rclass.CLASSTYPE
 
+    def get_ll_hash_function(self):
+        return ll_cls_hash
+
+    get_ll_fasthash_function = get_ll_hash_function
+
+    def get_ll_eq_function(self):
+        return None
+
+
+def ll_cls_hash(cls):
+    if not cls:
+        return 0
+    else:
+        return cls.hash
 
 # ____________________________________________________________
 

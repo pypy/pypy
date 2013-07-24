@@ -3,35 +3,34 @@
 """
 
 import os
-from rpython.jit.metainterp.history import (Box, Const, ConstInt, ConstPtr,
-                                            ConstFloat, BoxInt,
-                                            BoxFloat, INT, REF, FLOAT,
-                                            TargetToken)
-from rpython.jit.backend.x86.regloc import *
-from rpython.rtyper.lltypesystem import lltype, rffi, rstr
-from rpython.rtyper.annlowlevel import cast_instance_to_gcref
-from rpython.rlib.objectmodel import we_are_translated
-from rpython.rlib import rgc
 from rpython.jit.backend.llsupport import symbolic
+from rpython.jit.backend.llsupport.descr import (ArrayDescr, CallDescr,
+    unpack_arraydescr, unpack_fielddescr, unpack_interiorfielddescr)
+from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
+from rpython.jit.backend.llsupport.regalloc import (FrameManager, BaseRegalloc,
+     RegisterManager, TempBox, compute_vars_longevity, is_comparison_or_ovf_op)
+from rpython.jit.backend.x86 import rx86
+from rpython.jit.backend.x86.arch import (WORD, JITFRAME_FIXED_SIZE, IS_X86_32,
+    IS_X86_64)
 from rpython.jit.backend.x86.jump import remap_frame_layout_mixed
+from rpython.jit.backend.x86.regloc import (FrameLoc, RegLoc, ConstFloatLoc,
+    FloatImmedLoc, ImmedLoc, imm, imm0, imm1, ecx, eax, edx, ebx, esi, edi,
+    ebp, r8, r9, r10, r11, r12, r13, r14, r15, xmm0, xmm1, xmm2, xmm3, xmm4,
+    xmm5, xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14,
+    X86_64_SCRATCH_REG, X86_64_XMM_SCRATCH_REG)
 from rpython.jit.codewriter import longlong
 from rpython.jit.codewriter.effectinfo import EffectInfo
+from rpython.jit.metainterp.history import (Box, Const, ConstInt, ConstPtr,
+    ConstFloat, BoxInt, BoxFloat, INT, REF, FLOAT, TargetToken)
 from rpython.jit.metainterp.resoperation import rop, ResOperation
-from rpython.jit.backend.llsupport.descr import ArrayDescr
-from rpython.jit.backend.llsupport.descr import CallDescr
-from rpython.jit.backend.llsupport.descr import unpack_arraydescr
-from rpython.jit.backend.llsupport.descr import unpack_fielddescr
-from rpython.jit.backend.llsupport.descr import unpack_interiorfielddescr
-from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
-from rpython.jit.backend.llsupport.regalloc import FrameManager, BaseRegalloc,\
-     RegisterManager, TempBox, compute_vars_longevity, is_comparison_or_ovf_op
-from rpython.jit.backend.x86.arch import WORD, JITFRAME_FIXED_SIZE
-from rpython.jit.backend.x86.arch import IS_X86_32, IS_X86_64
-from rpython.jit.backend.x86 import rx86
+from rpython.rlib import rgc
+from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import r_longlong, r_uint
+from rpython.rtyper.annlowlevel import cast_instance_to_gcref
+from rpython.rtyper.lltypesystem import lltype, rffi, rstr
+
 
 class X86RegisterManager(RegisterManager):
-
     box_types = [INT, REF]
     all_regs = [ecx, eax, edx, ebx, esi, edi]
     no_lower_byte_regs = [esi, edi]
@@ -57,6 +56,7 @@ class X86_64_RegisterManager(X86RegisterManager):
 
     no_lower_byte_regs = []
     save_around_call_regs = [eax, ecx, edx, esi, edi, r8, r9, r10]
+    register_arguments = [edi, esi, edx, ecx]
 
 class X86XMMRegisterManager(RegisterManager):
 
@@ -799,6 +799,31 @@ class RegAlloc(BaseRegalloc):
 
     consider_cond_call_gc_wb_array = consider_cond_call_gc_wb
 
+    def consider_cond_call(self, op):
+        assert op.result is None
+        args = op.getarglist()
+        assert 2 <= len(args) <= 4 + 2
+        tmpbox = TempBox()
+        self.rm.force_allocate_reg(tmpbox, selected_reg=eax)
+        v = args[1]
+        assert isinstance(v, Const)
+        imm = self.rm.convert_to_imm(v)
+        self.assembler.regalloc_mov(imm, eax)
+        args_so_far = [tmpbox]
+        locs = []
+        for i in range(2, len(args)):
+            if IS_X86_64:
+                reg = self.rm.register_arguments[i - 2]
+                self.make_sure_var_in_reg(args[i], args_so_far, selected_reg=reg)
+            else:
+                loc = self.make_sure_var_in_reg(args[i], args_so_far)
+                locs.append(loc)
+            args_so_far.append(args[i])
+        loc_cond = self.make_sure_var_in_reg(args[0], args)
+        self.assembler.cond_call(op, self.get_gcmap([eax]), loc_cond, eax,
+                                 locs)
+        self.rm.possibly_free_var(tmpbox)
+
     def consider_call_malloc_nursery(self, op):
         size_box = op.getarg(0)
         assert isinstance(size_box, ConstInt)
@@ -899,7 +924,6 @@ class RegAlloc(BaseRegalloc):
                 gcmap[val // WORD // 8] |= r_uint(1) << (val % (WORD * 8))
         return gcmap
 
-
     def consider_setfield_gc(self, op):
         ofs, size, _ = unpack_fielddescr(op.getdescr())
         ofs_loc = imm(ofs)
@@ -963,7 +987,7 @@ class RegAlloc(BaseRegalloc):
     def consider_setarrayitem_gc(self, op):
         itemsize, ofs, _ = unpack_arraydescr(op.getdescr())
         args = op.getarglist()
-        base_loc  = self.rm.make_sure_var_in_reg(op.getarg(0), args)
+        base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
         if itemsize == 1:
             need_lower_byte = True
         else:

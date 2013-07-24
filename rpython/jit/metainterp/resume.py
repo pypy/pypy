@@ -190,8 +190,8 @@ class ResumeDataLoopMemo(object):
         if snapshot is None:
             return lltype.nullptr(NUMBERING), {}, 0
         if snapshot in self.numberings:
-             numb, liveboxes, v = self.numberings[snapshot]
-             return numb, liveboxes.copy(), v
+            numb, liveboxes, v = self.numberings[snapshot]
+            return numb, liveboxes.copy(), v
 
         numb1, liveboxes, v = self.number(optimizer, snapshot.prev)
         n = len(liveboxes) - v

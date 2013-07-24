@@ -2266,6 +2266,43 @@ class LLtypeBackendTest(BaseBackendTest):
                     value |= 32768
                 assert s.data.tid == value
 
+    def test_cond_call(self):
+        def func_void(*args):
+            called.append(args)
+
+        for i in range(5):
+            called = []
+        
+            FUNC = self.FuncType([lltype.Signed] * i, lltype.Void)
+            func_ptr = llhelper(lltype.Ptr(FUNC), func_void)
+            calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                                             EffectInfo.MOST_GENERAL)
+
+            ops = '''
+            [i0, i1, i2, i3, i4, i5, i6, f0, f1]
+            cond_call(i1, ConstClass(func_ptr), %s, descr=calldescr)
+            guard_false(i0, descr=faildescr) [i1, i2, i3, i4, i5, i6, f0, f1]
+            ''' % ', '.join(['i%d' % (j + 2) for j in range(i)])
+            loop = parse(ops, namespace={'faildescr': BasicFailDescr(),
+                                         'func_ptr': func_ptr,
+                                         'calldescr': calldescr})
+            looptoken = JitCellToken()
+            self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+            f1 = longlong.getfloatstorage(1.2)
+            f2 = longlong.getfloatstorage(3.4)
+            frame = self.cpu.execute_token(looptoken, 1, 0, 1, 2, 3, 4, 5, f1, f2)
+            assert not called
+            for j in range(5):
+                assert self.cpu.get_int_value(frame, j) == j
+            assert longlong.getrealfloat(self.cpu.get_float_value(frame, 6)) == 1.2
+            assert longlong.getrealfloat(self.cpu.get_float_value(frame, 7)) == 3.4
+            frame = self.cpu.execute_token(looptoken, 1, 1, 1, 2, 3, 4, 5, f1, f2)
+            assert called == [tuple(range(1, i + 1))]
+            for j in range(4):
+                assert self.cpu.get_int_value(frame, j + 1) == j + 1
+            assert longlong.getrealfloat(self.cpu.get_float_value(frame, 6)) == 1.2
+            assert longlong.getrealfloat(self.cpu.get_float_value(frame, 7)) == 3.4
+
     def test_force_operations_returning_void(self):
         values = []
         def maybe_force(token, flag):
