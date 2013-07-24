@@ -300,6 +300,12 @@ def decode_object(space, w_obj, encoding, errors):
 
 
 def unicode_from_encoded_object(space, w_obj, encoding, errors):
+    # explicitly block bytearray on 2.7
+    from .bytearrayobject import W_BytearrayObject
+    if isinstance(w_obj, W_BytearrayObject):
+        raise OperationError(space.w_TypeError,
+                             space.wrap("decoding bytearray is not supported"))
+
     w_retval = decode_object(space, w_obj, encoding, errors)
     if not space.isinstance_w(w_retval, space.w_unicode):
         raise operationerrfmt(space.w_TypeError,
@@ -405,7 +411,6 @@ errors can be 'strict', 'replace' or 'ignore' and defaults to 'strict'.''',
     __ge__ = interp2app(W_UnicodeObject.descr_ge),
 
     __len__ = interp2app(W_UnicodeObject.descr_len),
-    #__iter__ = interp2app(W_UnicodeObject.descr_iter),
     __contains__ = interp2app(W_UnicodeObject.descr_contains),
 
     __add__ = interp2app(W_UnicodeObject.descr_add),

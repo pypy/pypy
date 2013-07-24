@@ -3,7 +3,7 @@
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.interpreter.buffer import RWBuffer
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.gateway import interp2app
+from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.signature import Signature
 from pypy.objspace.std import bytesobject
 from pypy.objspace.std.intobject import W_IntObject
@@ -11,7 +11,6 @@ from pypy.objspace.std.inttype import wrapint
 from pypy.objspace.std.model import W_Object, registerimplementation
 from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.objspace.std.noneobject import W_NoneObject
-from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
 from pypy.objspace.std.stringmethods import StringMethods
@@ -36,10 +35,235 @@ class W_BytearrayObject(W_Object, StringMethods):
         return len(self.data)
 
     def _val(self, space):
-        return self.data
+        return space.bufferstr_w(self)
 
-    def _op_val(self, w_other):
-        return w_other.data
+    def _op_val(self, space, w_other):
+        return space.bufferstr_new_w(w_other)
+
+    def _chr(self, char):
+        return str(char)
+
+    _builder = StringBuilder
+
+    def _newlist_unwrapped(self, space, res):
+        return space.wrap([W_BytearrayObject(list(i)) for i in res])
+
+    def _isupper(self, ch):
+        return ch.isupper()
+
+    def _islower(self, ch):
+        return ch.islower()
+
+    def _istitle(self, ch):
+        return ch.istitle()
+
+    def _isspace(self, ch):
+        return ch.isspace()
+
+    def _isalpha(self, ch):
+        return ch.isalpha()
+
+    def _isalnum(self, ch):
+        return ch.isalnum()
+
+    def _isdigit(self, ch):
+        return ch.isdigit()
+
+    _iscased = _isalpha
+
+    def _upper(self, ch):
+        if ch.islower():
+            o = ord(ch) - 32
+            return chr(o)
+        else:
+            return ch
+
+    def _lower(self, ch):
+        if ch.isupper():
+            o = ord(ch) + 32
+            return chr(o)
+        else:
+            return ch
+
+    def _join_return_one(self, space, w_obj):
+        return space.is_w(space.type(w_obj), space.w_unicode)
+
+    def _join_check_item(self, space, w_obj):
+        if (space.is_w(space.type(w_obj), space.w_str) or
+            space.is_w(space.type(w_obj), space.w_bytearray)):
+            return 0
+        return 1
+
+    def ord(self, space):
+        if len(self.data) != 1:
+            msg = "ord() expected a character, but string of length %d found"
+            raise operationerrfmt(space.w_TypeError, msg, len(self.data))
+        return space.wrap(ord(self.data[0]))
+
+    def descr_init(self, space, __args__):
+        # this is on the silly side
+        w_source, w_encoding, w_errors = __args__.parse_obj(
+                None, 'bytearray', init_signature, init_defaults)
+
+        if w_source is None:
+            w_source = space.wrap('')
+        if w_encoding is None:
+            w_encoding = space.w_None
+        if w_errors is None:
+            w_errors = space.w_None
+
+        # Unicode argument
+        if not space.is_w(w_encoding, space.w_None):
+            from pypy.objspace.std.unicodeobject import (
+                _get_encoding_and_errors, encode_object
+            )
+            encoding, errors = _get_encoding_and_errors(space, w_encoding, w_errors)
+
+            # if w_source is an integer this correctly raises a TypeError
+            # the CPython error message is: "encoding or errors without a string argument"
+            # ours is: "expected unicode, got int object"
+            w_source = encode_object(space, w_source, encoding, errors)
+
+        # Is it an int?
+        try:
+            count = space.int_w(w_source)
+        except OperationError, e:
+            if not e.match(space, space.w_TypeError):
+                raise
+        else:
+            if count < 0:
+                raise OperationError(space.w_ValueError,
+                                     space.wrap("bytearray negative count"))
+            self.data = ['\0'] * count
+            return
+
+        data = makebytearraydata_w(space, w_source)
+        self.data = data
+
+    def descr_repr(self, space):
+        s = self.data
+
+        # Good default if there are no replacements.
+        buf = StringBuilder(len("bytearray(b'')") + len(s))
+
+        buf.append("bytearray(b'")
+
+        for i in range(len(s)):
+            c = s[i]
+
+            if c == '\\' or c == "'":
+                buf.append('\\')
+                buf.append(c)
+            elif c == '\t':
+                buf.append('\\t')
+            elif c == '\r':
+                buf.append('\\r')
+            elif c == '\n':
+                buf.append('\\n')
+            elif not '\x20' <= c < '\x7f':
+                n = ord(c)
+                buf.append('\\x')
+                buf.append("0123456789abcdef"[n>>4])
+                buf.append("0123456789abcdef"[n&0xF])
+            else:
+                buf.append(c)
+
+        buf.append("')")
+
+        return space.wrap(buf.build())
+
+    def descr_str(self, space):
+        return space.wrap(''.join(self.data))
+
+    def descr_buffer(self, space):
+        return BytearrayBuffer(self.data)
+
+    def descr_inplace_add(self, space, w_other):
+        if isinstance(w_other, W_BytearrayObject):
+            self.data += w_other.data
+        else:
+            self.data += self._op_val(space, w_other)
+        return self
+
+    def descr_inplace_mul(self, space, w_times):
+        try:
+            times = space.getindex_w(w_times, space.w_OverflowError)
+        except OperationError, e:
+            if e.match(space, space.w_TypeError):
+                return space.w_NotImplemented
+            raise
+        self.data *= times
+        return self
+
+    def descr_setitem(self, space, w_index, w_other):
+        if isinstance(w_index, W_SliceObject):
+            oldsize = len(self.data)
+            start, stop, step, slicelength = w_index.indices4(space, oldsize)
+            sequence2 = makebytearraydata_w(space, w_other)
+            _setitem_slice_helper(space, self.data, start, step,
+                                  slicelength, sequence2, empty_elem='\x00')
+        else:
+            idx = space.getindex_w(w_index, space.w_IndexError, "bytearray index")
+            try:
+                self.data[idx] = getbytevalue(space, w_other)
+            except IndexError:
+                raise OperationError(space.w_IndexError,
+                                     space.wrap("bytearray index out of range"))
+
+    def descr_delitem(self, space, w_idx):
+        if isinstance(w_idx, W_SliceObject):
+            start, stop, step, slicelength = w_idx.indices4(space,
+                                                            len(self.data))
+            _delitem_slice_helper(space, self.data, start, step, slicelength)
+        else:
+            idx = space.getindex_w(w_idx, space.w_IndexError, "bytearray index")
+            try:
+                del self.data[idx]
+            except IndexError:
+                raise OperationError(space.w_IndexError,
+                                     space.wrap("bytearray deletion index out of range"))
+
+    def descr_append(self, space, w_item):
+        self.data.append(getbytevalue(space, w_item))
+
+    def descr_extend(self, space, w_other):
+        if isinstance(w_other, W_BytearrayObject):
+            self.data += w_other.data
+        else:
+            self.data += makebytearraydata_w(space, w_other)
+        return self
+
+    def descr_insert(self, space, w_idx, w_other):
+        where = space.int_w(w_idx)
+        length = len(self.data)
+        index = get_positive_index(where, length)
+        val = getbytevalue(space, w_other)
+        self.data.insert(index, val)
+        return space.w_None
+
+    @unwrap_spec(w_idx=WrappedDefault(-1))
+    def descr_pop(self, space, w_idx):
+        index = space.int_w(w_idx)
+        try:
+            result = self.data.pop(index)
+        except IndexError:
+            if not self.data:
+                raise OperationError(space.w_IndexError, space.wrap(
+                    "pop from empty bytearray"))
+            raise OperationError(space.w_IndexError, space.wrap(
+                "pop index out of range"))
+        return space.wrap(ord(result))
+
+    def descr_remove(self, space, w_char):
+        char = space.int_w(space.index(w_char))
+        try:
+            result = self.data.remove(chr(char))
+        except ValueError:
+            raise OperationError(space.w_ValueError, space.wrap(
+                "value not found in bytearray"))
+
+    def descr_reverse(self, space):
+        self.data.reverse()
 
 W_BytearrayObject.EMPTY = W_BytearrayObject([])
 
@@ -200,109 +424,81 @@ If the argument is a bytearray, the return value is the same object.''',
     __reduce__ = interp2app(descr_bytearray__reduce__),
     fromhex = interp2app(descr_fromhex, as_classmethod=True),
 
-#    __repr__ = interp2app(W_BytearrayObject.descr_repr),
-#    __str__ = interp2app(W_BytearrayObject.descr_str),
+    __repr__ = interp2app(W_BytearrayObject.descr_repr),
+    __str__ = interp2app(W_BytearrayObject.descr_str),
 
-#    __eq__ = interp2app(W_BytearrayObject.descr_eq),
-#    __ne__ = interp2app(W_BytearrayObject.descr_ne),
-#    __lt__ = interp2app(W_BytearrayObject.descr_lt),
-#    __le__ = interp2app(W_BytearrayObject.descr_le),
-#    __gt__ = interp2app(W_BytearrayObject.descr_gt),
-#    __ge__ = interp2app(W_BytearrayObject.descr_ge),
+    __eq__ = interp2app(W_BytearrayObject.descr_eq),
+    __ne__ = interp2app(W_BytearrayObject.descr_ne),
+    __lt__ = interp2app(W_BytearrayObject.descr_lt),
+    __le__ = interp2app(W_BytearrayObject.descr_le),
+    __gt__ = interp2app(W_BytearrayObject.descr_gt),
+    __ge__ = interp2app(W_BytearrayObject.descr_ge),
 
-#    __len__ = interp2app(W_BytearrayObject.descr_len),
-#    __iter__ = interp2app(W_BytearrayObject.descr_iter),
-#    __contains__ = interp2app(W_BytearrayObject.descr_contains),
+    __len__ = interp2app(W_BytearrayObject.descr_len),
+    __contains__ = interp2app(W_BytearrayObject.descr_contains),
 
-#    __add__ = interp2app(W_BytearrayObject.descr_add),
+    __add__ = interp2app(W_BytearrayObject.descr_add),
     __mul__ = interp2app(W_BytearrayObject.descr_mul),
     __rmul__ = interp2app(W_BytearrayObject.descr_mul),
 
-#    __getitem__ = interp2app(W_BytearrayObject.descr_getitem),
+    __getitem__ = interp2app(W_BytearrayObject.descr_getitem),
 
-#    capitalize = interp2app(W_BytearrayObject.descr_capitalize),
-#    center = interp2app(W_BytearrayObject.descr_center),
-#    count = interp2app(W_BytearrayObject.descr_count),
-#    decode = interp2app(W_BytearrayObject.descr_decode),
-#    expandtabs = interp2app(W_BytearrayObject.descr_expandtabs),
-#    find = interp2app(W_BytearrayObject.descr_find),
-#    rfind = interp2app(W_BytearrayObject.descr_rfind),
-#    index = interp2app(W_BytearrayObject.descr_index),
-#    rindex = interp2app(W_BytearrayObject.descr_rindex),
-#    isalnum = interp2app(W_BytearrayObject.descr_isalnum),
-#    isalpha = interp2app(W_BytearrayObject.descr_isalpha),
-#    isdigit = interp2app(W_BytearrayObject.descr_isdigit),
-#    islower = interp2app(W_BytearrayObject.descr_islower),
-#    isspace = interp2app(W_BytearrayObject.descr_isspace),
-#    istitle = interp2app(W_BytearrayObject.descr_istitle),
-#    isupper = interp2app(W_BytearrayObject.descr_isupper),
-#    join = interp2app(W_BytearrayObject.descr_join),
-#    ljust = interp2app(W_BytearrayObject.descr_ljust),
-#    rjust = interp2app(W_BytearrayObject.descr_rjust),
-#    lower = interp2app(W_BytearrayObject.descr_lower),
-#    partition = interp2app(W_BytearrayObject.descr_partition),
-#    rpartition = interp2app(W_BytearrayObject.descr_rpartition),
-#    replace = interp2app(W_BytearrayObject.descr_replace),
-#    split = interp2app(W_BytearrayObject.descr_split),
-#    rsplit = interp2app(W_BytearrayObject.descr_rsplit),
-#    splitlines = interp2app(W_BytearrayObject.descr_splitlines),
-#    startswith = interp2app(W_BytearrayObject.descr_startswith),
-#    endswith = interp2app(W_BytearrayObject.descr_endswith),
-#    strip = interp2app(W_BytearrayObject.descr_strip),
-#    lstrip = interp2app(W_BytearrayObject.descr_lstrip),
-#    rstrip = interp2app(W_BytearrayObject.descr_rstrip),
-#    swapcase = interp2app(W_BytearrayObject.descr_swapcase),
-#    title = interp2app(W_BytearrayObject.descr_title),
-#    translate = interp2app(W_BytearrayObject.descr_translate),
-#    upper = interp2app(W_BytearrayObject.descr_upper),
-#    zfill = interp2app(W_BytearrayObject.descr_zfill),
+    capitalize = interp2app(W_BytearrayObject.descr_capitalize),
+    center = interp2app(W_BytearrayObject.descr_center),
+    count = interp2app(W_BytearrayObject.descr_count),
+    decode = interp2app(W_BytearrayObject.descr_decode),
+    expandtabs = interp2app(W_BytearrayObject.descr_expandtabs),
+    find = interp2app(W_BytearrayObject.descr_find),
+    rfind = interp2app(W_BytearrayObject.descr_rfind),
+    index = interp2app(W_BytearrayObject.descr_index),
+    rindex = interp2app(W_BytearrayObject.descr_rindex),
+    isalnum = interp2app(W_BytearrayObject.descr_isalnum),
+    isalpha = interp2app(W_BytearrayObject.descr_isalpha),
+    isdigit = interp2app(W_BytearrayObject.descr_isdigit),
+    islower = interp2app(W_BytearrayObject.descr_islower),
+    isspace = interp2app(W_BytearrayObject.descr_isspace),
+    istitle = interp2app(W_BytearrayObject.descr_istitle),
+    isupper = interp2app(W_BytearrayObject.descr_isupper),
+    join = interp2app(W_BytearrayObject.descr_join),
+    ljust = interp2app(W_BytearrayObject.descr_ljust),
+    rjust = interp2app(W_BytearrayObject.descr_rjust),
+    lower = interp2app(W_BytearrayObject.descr_lower),
+    partition = interp2app(W_BytearrayObject.descr_partition),
+    rpartition = interp2app(W_BytearrayObject.descr_rpartition),
+    replace = interp2app(W_BytearrayObject.descr_replace),
+    split = interp2app(W_BytearrayObject.descr_split),
+    rsplit = interp2app(W_BytearrayObject.descr_rsplit),
+    splitlines = interp2app(W_BytearrayObject.descr_splitlines),
+    startswith = interp2app(W_BytearrayObject.descr_startswith),
+    endswith = interp2app(W_BytearrayObject.descr_endswith),
+    strip = interp2app(W_BytearrayObject.descr_strip),
+    lstrip = interp2app(W_BytearrayObject.descr_lstrip),
+    rstrip = interp2app(W_BytearrayObject.descr_rstrip),
+    swapcase = interp2app(W_BytearrayObject.descr_swapcase),
+    title = interp2app(W_BytearrayObject.descr_title),
+    translate = interp2app(W_BytearrayObject.descr_translate),
+    upper = interp2app(W_BytearrayObject.descr_upper),
+    zfill = interp2app(W_BytearrayObject.descr_zfill),
+
+    __init__ = interp2app(W_BytearrayObject.descr_init),
+    __buffer__ = interp2app(W_BytearrayObject.descr_buffer),
+
+    __iadd__ = interp2app(W_BytearrayObject.descr_inplace_add),
+    __imul__ = interp2app(W_BytearrayObject.descr_inplace_mul),
+    __setitem__ = interp2app(W_BytearrayObject.descr_setitem),
+    __delitem__ = interp2app(W_BytearrayObject.descr_delitem),
+
+    append = interp2app(W_BytearrayObject.descr_append),
+    extend = interp2app(W_BytearrayObject.descr_extend),
+    insert = interp2app(W_BytearrayObject.descr_insert),
+    pop = interp2app(W_BytearrayObject.descr_pop),
+    remove = interp2app(W_BytearrayObject.descr_remove),
+    reverse = interp2app(W_BytearrayObject.descr_reverse),
 )
-bytearray_typedef.registermethods(globals())
-
 registerimplementation(W_BytearrayObject)
 
 init_signature = Signature(['source', 'encoding', 'errors'], None, None)
 init_defaults = [None, None, None]
-
-def init__Bytearray(space, w_bytearray, __args__):
-    # this is on the silly side
-    w_source, w_encoding, w_errors = __args__.parse_obj(
-            None, 'bytearray', init_signature, init_defaults)
-
-    if w_source is None:
-        w_source = space.wrap('')
-    if w_encoding is None:
-        w_encoding = space.w_None
-    if w_errors is None:
-        w_errors = space.w_None
-
-    # Unicode argument
-    if not space.is_w(w_encoding, space.w_None):
-        from pypy.objspace.std.unicodeobject import (
-            _get_encoding_and_errors, encode_object
-        )
-        encoding, errors = _get_encoding_and_errors(space, w_encoding, w_errors)
-
-        # if w_source is an integer this correctly raises a TypeError
-        # the CPython error message is: "encoding or errors without a string argument"
-        # ours is: "expected unicode, got int object"
-        w_source = encode_object(space, w_source, encoding, errors)
-
-    # Is it an int?
-    try:
-        count = space.int_w(w_source)
-    except OperationError, e:
-        if not e.match(space, space.w_TypeError):
-            raise
-    else:
-        if count < 0:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("bytearray negative count"))
-        w_bytearray.data = ['\0'] * count
-        return
-
-    data = makebytearraydata_w(space, w_source)
-    w_bytearray.data = data
 
 def len__Bytearray(space, w_bytearray):
     result = len(w_bytearray.data)
@@ -379,16 +575,6 @@ def add__String_Bytearray(space, w_str, w_bytearray):
     data1 = [c for c in space.str_w(w_str)]
     return W_BytearrayObject(data1 + data2)
 
-def inplace_mul__Bytearray_ANY(space, w_bytearray, w_times):
-    try:
-        times = space.getindex_w(w_times, space.w_OverflowError)
-    except OperationError, e:
-        if e.match(space, space.w_TypeError):
-            raise FailedToImplement
-        raise
-    w_bytearray.data *= times
-    return w_bytearray
-
 def eq__Bytearray_Bytearray(space, w_bytearray1, w_bytearray2):
     data1 = w_bytearray1.data
     data2 = w_bytearray2.data
@@ -443,43 +629,6 @@ def gt__Bytearray_Bytearray(space, w_bytearray1, w_bytearray2):
             return space.newbool(data1[p] > data2[p])
     # No more items to compare -- compare sizes
     return space.newbool(len(data1) > len(data2))
-
-# Mostly copied from repr__String, but without the "smart quote"
-# functionality.
-def repr__Bytearray(space, w_bytearray):
-    s = w_bytearray.data
-
-    # Good default if there are no replacements.
-    buf = StringBuilder(len("bytearray(b'')") + len(s))
-
-    buf.append("bytearray(b'")
-
-    for i in range(len(s)):
-        c = s[i]
-
-        if c == '\\' or c == "'":
-            buf.append('\\')
-            buf.append(c)
-        elif c == '\t':
-            buf.append('\\t')
-        elif c == '\r':
-            buf.append('\\r')
-        elif c == '\n':
-            buf.append('\\n')
-        elif not '\x20' <= c < '\x7f':
-            n = ord(c)
-            buf.append('\\x')
-            buf.append("0123456789abcdef"[n>>4])
-            buf.append("0123456789abcdef"[n&0xF])
-        else:
-            buf.append(c)
-
-    buf.append("')")
-
-    return space.wrap(buf.build())
-
-def str__Bytearray(space, w_bytearray):
-    return space.wrap(''.join(w_bytearray.data))
 
 def str_count__Bytearray_ANY_ANY_ANY(space, w_bytearray, w_char, w_start, w_stop):
     w_char = space.wrap(space.bufferstr_new_w(w_char))
@@ -586,38 +735,6 @@ def str_isspace__Bytearray(space, w_bytearray):
     w_str = str__Bytearray(space, w_bytearray)
     return bytesobject.str_isspace__String(space, w_str)
 
-def bytearray_insert__Bytearray_Int_ANY(space, w_bytearray, w_idx, w_other):
-    where = space.int_w(w_idx)
-    length = len(w_bytearray.data)
-    index = get_positive_index(where, length)
-    val = getbytevalue(space, w_other)
-    w_bytearray.data.insert(index, val)
-    return space.w_None
-
-def bytearray_pop__Bytearray_Int(space, w_bytearray, w_idx):
-    index = space.int_w(w_idx)
-    try:
-        result = w_bytearray.data.pop(index)
-    except IndexError:
-        if not w_bytearray.data:
-            raise OperationError(space.w_IndexError, space.wrap(
-                "pop from empty bytearray"))
-        raise OperationError(space.w_IndexError, space.wrap(
-            "pop index out of range"))
-    return space.wrap(ord(result))
-
-def bytearray_remove__Bytearray_ANY(space, w_bytearray, w_char):
-    char = space.int_w(space.index(w_char))
-    try:
-        result = w_bytearray.data.remove(chr(char))
-    except ValueError:
-        raise OperationError(space.w_ValueError, space.wrap(
-            "value not found in bytearray"))
-
-def bytearray_reverse__Bytearray(space, w_bytearray):
-    w_bytearray.data.reverse()
-    return space.w_None
-
 _space_chars = ''.join([chr(c) for c in [9, 10, 11, 12, 13, 32]])
 
 def bytearray_strip__Bytearray_None(space, w_bytearray, w_chars):
@@ -637,54 +754,6 @@ def bytearray_rstrip__Bytearray_None(space, w_bytearray, w_chars):
 
 def bytearray_rstrip__Bytearray_ANY(space, w_bytearray, w_chars):
     return _strip(space, w_bytearray, space.bufferstr_new_w(w_chars), 0, 1)
-
-# __________________________________________________________
-# Mutability methods
-
-def bytearray_append__Bytearray_ANY(space, w_bytearray, w_item):
-    w_bytearray.data.append(getbytevalue(space, w_item))
-
-def bytearray_extend__Bytearray_Bytearray(space, w_bytearray, w_other):
-    w_bytearray.data += w_other.data
-
-def bytearray_extend__Bytearray_ANY(space, w_bytearray, w_other):
-    w_bytearray.data += makebytearraydata_w(space, w_other)
-
-def inplace_add__Bytearray_Bytearray(space, w_bytearray1, w_bytearray2):
-    bytearray_extend__Bytearray_Bytearray(space, w_bytearray1, w_bytearray2)
-    return w_bytearray1
-
-def inplace_add__Bytearray_ANY(space, w_bytearray1, w_iterable2):
-    w_bytearray1.data += space.bufferstr_new_w(w_iterable2)
-    return w_bytearray1
-
-def setitem__Bytearray_ANY_ANY(space, w_bytearray, w_index, w_item):
-    idx = space.getindex_w(w_index, space.w_IndexError, "bytearray index")
-    try:
-        w_bytearray.data[idx] = getbytevalue(space, w_item)
-    except IndexError:
-        raise OperationError(space.w_IndexError,
-                             space.wrap("bytearray index out of range"))
-
-def setitem__Bytearray_Slice_ANY(space, w_bytearray, w_slice, w_other):
-    oldsize = len(w_bytearray.data)
-    start, stop, step, slicelength = w_slice.indices4(space, oldsize)
-    sequence2 = makebytearraydata_w(space, w_other)
-    _setitem_slice_helper(space, w_bytearray.data, start, step, slicelength, sequence2, empty_elem='\x00')
-
-def delitem__Bytearray_ANY(space, w_bytearray, w_idx):
-    idx = space.getindex_w(w_idx, space.w_IndexError, "bytearray index")
-    try:
-        del w_bytearray.data[idx]
-    except IndexError:
-        raise OperationError(space.w_IndexError,
-                             space.wrap("bytearray deletion index out of range"))
-    return space.w_None
-
-def delitem__Bytearray_Slice(space, w_bytearray, w_slice):
-    start, stop, step, slicelength = w_slice.indices4(space,
-                                                      len(w_bytearray.data))
-    _delitem_slice_helper(space, w_bytearray.data, start, step, slicelength)
 
 #XXX share the code again with the stuff in listobject.py
 def _delitem_slice_helper(space, items, start, step, slicelength):
@@ -802,5 +871,3 @@ class BytearrayBuffer(RWBuffer):
 def buffer__Bytearray(space, self):
     b = BytearrayBuffer(self.data)
     return space.wrap(b)
-
-#register_all(vars(), globals())

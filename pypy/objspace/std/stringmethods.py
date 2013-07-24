@@ -104,6 +104,17 @@ class StringMethods(object):
     #    pass
 
     def descr_contains(self, space, w_sub):
+        from pypy.objspace.std.bytearrayobject import W_BytearrayObject
+        if (isinstance(self, W_BytearrayObject) and
+            space.isinstance_w(w_sub, space.w_int)):
+            char = space.int_w(w_sub)
+            if not 0 <= char < 256:
+                raise OperationError(space.w_ValueError,
+                                     space.wrap("byte must be in range(0, 256)"))
+            for c in self.data:
+                if ord(c) == char:
+                    return space.w_True
+            return space.w_False
         return space.newbool(self._val(space).find(self._op_val(space, w_sub)) >= 0)
 
     def descr_add(self, space, w_other):
@@ -144,6 +155,9 @@ class StringMethods(object):
         if index < 0 or index >= selflen:
             raise OperationError(space.w_IndexError,
                                  space.wrap("string index out of range"))
+        from pypy.objspace.std.bytearrayobject import W_BytearrayObject
+        if isinstance(self, W_BytearrayObject):
+            return space.wrap(ord(selfvalue[index]))
         #return wrapchar(space, selfvalue[index])
         return self._new(selfvalue[index])
 
@@ -165,7 +179,7 @@ class StringMethods(object):
         builder.append(self._upper(value[0]))
         for i in range(1, len(value)):
             builder.append(self._lower(value[i]))
-        return space.wrap(builder.build())
+        return self._new(builder.build())
 
     @unwrap_spec(width=int, w_fillchar=WrappedDefault(' '))
     def descr_center(self, space, width, w_fillchar):
@@ -419,7 +433,7 @@ class StringMethods(object):
             fillchar = fillchar[0]    # annotator hint: it's a single character
             value += d * fillchar
 
-        return space.wrap(value)
+        return self._new(value)
 
     @unwrap_spec(width=int, w_fillchar=WrappedDefault(' '))
     def descr_rjust(self, space, width, w_fillchar):
@@ -434,7 +448,7 @@ class StringMethods(object):
             fillchar = fillchar[0]    # annotator hint: it's a single character
             value = d * fillchar + value
 
-        return space.wrap(value)
+        return self._new(value)
 
     def descr_lower(self, space):
         value = self._val(space)
@@ -453,6 +467,9 @@ class StringMethods(object):
         if pos == -1:
             return space.newtuple([self, self.EMPTY, self.EMPTY])
         else:
+            from pypy.objspace.std.bytearrayobject import W_BytearrayObject
+            if isinstance(self, W_BytearrayObject):
+                w_sub = self._new(sub)
             return space.newtuple(
                 [self._sliced(space, value, 0, pos, value), w_sub,
                  self._sliced(space, value, pos+len(sub), len(value), value)])
@@ -467,6 +484,9 @@ class StringMethods(object):
         if pos == -1:
             return space.newtuple([self.EMPTY, self.EMPTY, self])
         else:
+            from pypy.objspace.std.bytearrayobject import W_BytearrayObject
+            if isinstance(self, W_BytearrayObject):
+                w_sub = self._new(sub)
             return space.newtuple(
                 [self._sliced(space, value, 0, pos, value), w_sub,
                  self._sliced(space, value, pos+len(sub), len(value), value)])
@@ -481,7 +501,7 @@ class StringMethods(object):
         except OverflowError:
             raise OperationError(space.w_OverflowError,
                                  space.wrap("replace string is too long"))
-        return space.wrap(res)
+        return self._new(res)
 
     @unwrap_spec(maxsplit=int)
     def descr_split(self, space, w_sep=None, maxsplit=-1):
@@ -682,7 +702,7 @@ class StringMethods(object):
                 builder.append(self._upper(ch))
             else:
                 builder.append(ch)
-        return space.wrap(builder.build())
+        return self._new(builder.build())
 
     def descr_title(self, space):
         selfval = self._val(space)
@@ -698,7 +718,7 @@ class StringMethods(object):
             else:
                 builder.append(self._lower(ch))
             previous_is_cased = self._iscased(ch)
-        return space.wrap(builder.build())
+        return self._new(builder.build())
 
     DEFAULT_NOOP_TABLE = ''.join([chr(i) for i in range(256)])
 
@@ -745,7 +765,7 @@ class StringMethods(object):
         num_zeros = width - len(selfval)
         if num_zeros <= 0:
             # cannot return self, in case it is a subclass of str
-            return space.wrap(selfval)
+            return self._new(selfval)
 
         builder = self._builder(width)
         if len(selfval) > 0 and (selfval[0] == '+' or selfval[0] == '-'):
@@ -756,7 +776,7 @@ class StringMethods(object):
             start = 0
         builder.append_multiple_char(self._chr('0'), num_zeros)
         builder.append_slice(selfval, start, len(selfval))
-        return space.wrap(builder.build())
+        return self._new(builder.build())
 
     def descr_getnewargs(self, space):
         return space.newtuple([self._new(self._val(space))])

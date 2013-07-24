@@ -177,8 +177,12 @@ class W_BytesObject(W_AbstractBytesObject, StringMethods):
     def descr_add(self, space, w_other):
         if space.isinstance_w(w_other, space.w_unicode):
             self_as_unicode = decode_object(space, self, None, None)
-            #return self_as_unicode.descr_add(space, w_other)
             return space.add(self_as_unicode, w_other)
+        elif space.isinstance_w(w_other, space.w_bytearray):
+            # XXX: eliminate double-copy
+            from .bytearrayobject import W_BytearrayObject
+            self_as_bytearray = W_BytearrayObject(list(self._value))
+            return space.add(self_as_bytearray, w_other)
         return StringMethods.descr_add(self, space, w_other)
 
     def _startswith(self, space, value, w_prefix, start, end):
@@ -266,7 +270,6 @@ If the argument is a string, the return value is the same object.''',
     __ge__ = interp2app(W_BytesObject.descr_ge),
 
     __len__ = interp2app(W_BytesObject.descr_len),
-    #__iter__ = interp2app(W_BytesObject.descr_iter),
     __contains__ = interp2app(W_BytesObject.descr_contains),
 
     __add__ = interp2app(W_BytesObject.descr_add),
