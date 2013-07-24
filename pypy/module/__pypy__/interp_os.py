@@ -1,4 +1,4 @@
-from rpython.rtyper.module.ll_os_environ import getenv_llimpl
+import os
 
 from pypy.interpreter.gateway import unwrap_spec
 
@@ -6,4 +6,4 @@ from pypy.interpreter.gateway import unwrap_spec
 @unwrap_spec(name=str)
 def real_getenv(space, name):
     """Get an OS environment value skipping Python cache"""
-    return space.wrap(getenv_llimpl(name))
+    return space.wrap(os.getenv(name))
