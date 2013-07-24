@@ -256,12 +256,19 @@ class LLtypeMixin(object):
     asmdescr = LoopToken() # it can be whatever, it's not a descr though
 
     from rpython.jit.metainterp.virtualref import VirtualRefInfo
+
     class FakeWarmRunnerDesc:
         pass
     FakeWarmRunnerDesc.cpu = cpu
     vrefinfo = VirtualRefInfo(FakeWarmRunnerDesc)
     virtualtokendescr = vrefinfo.descr_virtual_token
     virtualforceddescr = vrefinfo.descr_forced
+    FUNC = lltype.FuncType([], lltype.Void)
+    ei = EffectInfo([], [], [], [], EffectInfo.EF_CANNOT_RAISE,
+                    can_invalidate=False,
+                    oopspecindex=EffectInfo.OS_JIT_FORCE_VIRTUALIZABLE)
+    clear_vable = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT, ei)
+
     jit_virtual_ref_vtable = vrefinfo.jit_virtual_ref_vtable
     jvr_vtable_adr = llmemory.cast_ptr_to_adr(jit_virtual_ref_vtable)
 
@@ -447,7 +454,7 @@ class BaseTest(object):
         preamble.inputargs = inputargs
         preamble.resume_at_jump_descr = FakeDescrWithSnapshot()
 
-        token = JitCellToken() 
+        token = JitCellToken()
         preamble.operations = [ResOperation(rop.LABEL, inputargs, None, descr=TargetToken(token))] + \
                               operations +  \
                               [ResOperation(rop.LABEL, jump_args, None, descr=token)]
@@ -460,7 +467,7 @@ class BaseTest(object):
         loop.operations = [preamble.operations[-1]] + \
                           [inliner.inline_op(op, clone=False) for op in cloned_operations] + \
                           [ResOperation(rop.JUMP, [inliner.inline_arg(a) for a in jump_args],
-                                        None, descr=token)] 
+                                        None, descr=token)]
                           #[inliner.inline_op(jumpop)]
         assert loop.operations[-1].getopnum() == rop.JUMP
         assert loop.operations[0].getopnum() == rop.LABEL
@@ -479,7 +486,7 @@ class BaseTest(object):
             preamble.operations.insert(-1, op)
 
         return preamble
-        
+
 
 class FakeDescr(compile.ResumeGuardDescr):
     def clone_if_mutable(self):

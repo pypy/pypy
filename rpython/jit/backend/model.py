@@ -182,7 +182,7 @@ class AbstractCPU(object):
     def arraydescrof(self, A):
         raise NotImplementedError
 
-    def calldescrof(self, FUNC, ARGS, RESULT):
+    def calldescrof(self, FUNC, ARGS, RESULT, extrainfo):
         # FUNC is the original function type, but ARGS is a list of types
         # with Voids removed
         raise NotImplementedError
@@ -297,11 +297,6 @@ class AbstractCPU(object):
         raise NotImplementedError
     def bh_copyunicodecontent(self, src, dst, srcstart, dststart, length):
         raise NotImplementedError
-
-    def bh_force_virtualizable(self, v, descr):
-        vinfo = descr.get_vinfo()
-        if vinfo is not None:
-            vinfo.clear_vable_token(v)
 
 class CompiledLoopToken(object):
     asmmemmgr_blocks = None

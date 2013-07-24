@@ -314,8 +314,7 @@ class RegAlloc(BaseRegalloc):
             self.assembler.mc.mark_op(op)
             self.rm.position = i
             self.xrm.position = i
-            if (op.has_no_side_effect() and op.result not in self.longevity
-                and op.opnum != rop.FORCE_VIRTUALIZABLE):
+            if op.has_no_side_effect() and op.result not in self.longevity:
                 i += 1
                 self.possibly_free_vars_for_op(op)
                 continue
@@ -864,18 +863,6 @@ class RegAlloc(BaseRegalloc):
             gc_ll_descr.get_nursery_free_addr(),
             gc_ll_descr.get_nursery_top_addr(),
             sizeloc, gcmap)
-
-    def consider_force_virtualizable(self, op):
-        # just do a call for now
-        vinfo = op.getdescr().get_vinfo()
-        if vinfo is None:
-            return # for tests
-        calldescr = vinfo.clear_vable_descr
-        assert isinstance(calldescr, CallDescr)
-        fval = rffi.cast(lltype.Signed, vinfo.clear_vable_ptr)
-        op = ResOperation(rop.CALL, [ConstInt(fval), op.getarg(0)], None,
-                          descr=calldescr)
-        self.consider_call(op)
 
     def consider_call_malloc_nursery_varsize(self, op):
         gc_ll_descr = self.assembler.cpu.gc_ll_descr

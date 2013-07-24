@@ -543,17 +543,20 @@ class OptVirtualize(optimizer.Optimization):
         else:
             self.emit_operation(op)
 
-    def optimize_FORCE_VIRTUALIZABLE(self, op):
-        val = self.getvalue(op.getarg(0))
-        if val.is_virtual():
-            return
-        self.emit_operation(op)
-
     def optimize_CALL_MAY_FORCE(self, op):
         effectinfo = op.getdescr().get_extra_info()
         oopspecindex = effectinfo.oopspecindex
         if oopspecindex == EffectInfo.OS_JIT_FORCE_VIRTUAL:
             if self._optimize_JIT_FORCE_VIRTUAL(op):
+                return
+        self.emit_operation(op)
+
+    def optimize_COND_CALL(self, op):
+        effectinfo = op.getdescr().get_extra_info()
+        oopspecindex = effectinfo.oopspecindex
+        if oopspecindex == EffectInfo.OS_JIT_FORCE_VIRTUALIZABLE:
+            value = self.getvalue(op.getarg(2))
+            if value.is_virtual():
                 return
         self.emit_operation(op)
 

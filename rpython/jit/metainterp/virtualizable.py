@@ -300,9 +300,12 @@ class VirtualizableInfo(object):
         self.clear_vable_ptr = self.warmrunnerdesc.helper_func(
             FUNCPTR, self.clear_vable_token)
         FUNC = FUNCPTR.TO
+        ei = EffectInfo([], [], [], [], EffectInfo.EF_CANNOT_RAISE,
+                        can_invalidate=False,
+                        oopspecindex=EffectInfo.OS_JIT_FORCE_VIRTUALIZABLE)
+
         self.clear_vable_descr = self.cpu.calldescrof(FUNC, FUNC.ARGS,
-                                                      FUNC.RESULT,
-                                                      EffectInfo.LEAST_GENERAL)
+                                                      FUNC.RESULT, ei)
 
     def unwrap_virtualizable_box(self, virtualizable_box):
         return virtualizable_box.getref(llmemory.GCREF)
