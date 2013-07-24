@@ -119,7 +119,7 @@ def engine_new__(space, w_subtype, __args__):
 class W_CoreEngine(W_Root):
     def __init__(self, space, w_anything):
         self.space = space                      # Stash space
-        self.engine = e = continuation.Engine() # We embed an instance of prolog
+        self.engine = e = continuation.Engine(load_system=True) # We embed an instance of prolog
         self.d_result = None                    # When we have a result, we will stash it here
 
         try:

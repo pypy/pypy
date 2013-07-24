@@ -172,7 +172,6 @@ class AppTestCoreEngine(object):
         t = unipycation.Term('eat', ['cheese', 'bread'])
         raises(TypeError, lambda : e.query_single(t, [t]))
 
-    # XXX this is not right, see XXX in CoreEngine
     def test_type_error_passed_up(self):
         import unipycation
 
@@ -180,6 +179,16 @@ class AppTestCoreEngine(object):
         X = unipycation.Var()
         t = unipycation.Term('test', [X])
         raises(unipycation.PrologError, lambda : e.query_single(t, [X]))
+
+    # (Pdb) p exc
+    # Generic1(error, [Generic2(existence_error, [Atom('procedure'), Generic2(/, [Atom('select'), Number(3)])])])
+    # This does not belong here XXX
+    def test_select(self):
+        import uni
+
+        e = uni.Engine("f(X) :- select(1, [1,2,3], X).")
+        (res, ) = e.db.f(None)
+        assert res == [2, 3]
 
     def test_variable_sharing_bug(self):
         import unipycation as u

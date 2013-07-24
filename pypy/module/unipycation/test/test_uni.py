@@ -152,16 +152,6 @@ class AppTestHighLevelInterface(object):
         assert len(sol[0].args) == 1
         assert type(sol[0].args[0]) == uni.Var
 
-    # (Pdb) p exc
-    # Generic1(error, [Generic2(existence_error, [Atom('procedure'), Generic2(/, [Atom('select'), Number(3)])])])
-    # This does not belong here XXX
-    def test_select(self):
-        import uni
-
-        e = uni.Engine("f(X) :- select(1, [1,2,3], X).")
-        (res, ) = e.db.f(None)
-        assert res == [2, 3]
-
     def test_pass_up_prolog_error_string(self):
         import uni
 
