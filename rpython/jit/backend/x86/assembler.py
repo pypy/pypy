@@ -533,8 +533,7 @@ class Assembler386(BaseAssembler):
         operations = regalloc.prepare_loop(inputargs, operations, looptoken,
                                            clt.allgcrefs)
         if logger:
-            logger.log_loop(inputargs, operations, -2, "rewritten", 
-                            name=loopname)
+            logger.log_loop(inputargs, operations, -3, "rewritten")
         looppos = self.mc.get_relative_pos()
         frame_depth_no_fixed_size = self._assemble(regalloc, inputargs,
                                                    operations)

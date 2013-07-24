@@ -21,6 +21,10 @@ class Logger(object):
             debug_start("jit-log-compiling-loop")
             logops = self._log_operations(inputargs, operations, ops_offset)
             debug_stop("jit-log-compiling-loop")
+        elif number == -3:
+            debug_start("jit-log-rewritten-loop")
+            logops = self._log_operations(inputargs, operations, ops_offset)
+            debug_stop("jit-log-rewritten-loop")
         else:
             debug_start("jit-log-opt-loop")
             debug_print("# Loop", number, '(%s)' % name, ":", type,

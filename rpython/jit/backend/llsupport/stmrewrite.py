@@ -101,6 +101,8 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
                                  rop.MARK_OPAQUE_PTR,
                                  rop.JIT_DEBUG,
                                  rop.KEEPALIVE,
+                                 rop.QUASIIMMUT_FIELD,
+                                 rop.RECORD_KNOWN_CLASS,
                                  ):
                 self.newops.append(op)
                 continue
