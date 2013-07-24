@@ -202,8 +202,8 @@ class ExplicitVirtualizableTests:
             return xy.inst_x
         res = self.meta_interp(f, [20])
         assert res == 134
-        self.check_simple_loop(setfield_gc=1, getfield_gc=0, force_virtualizable=1)
-        self.check_resops(setfield_gc=2, getfield_gc=3)
+        self.check_simple_loop(setfield_gc=1, getfield_gc=0, cond_call=1)
+        self.check_resops(setfield_gc=2, getfield_gc=4)
 
     # ------------------------------
 
@@ -384,7 +384,7 @@ class ExplicitVirtualizableTests:
         res = self.meta_interp(f, [20], enable_opts='')
         assert res == expected
         self.check_simple_loop(setarrayitem_gc=1, setfield_gc=0,
-                               getarrayitem_gc=1, arraylen_gc=1, getfield_gc=1)
+                               getarrayitem_gc=1, arraylen_gc=1, getfield_gc=2)
 
     # ------------------------------
 

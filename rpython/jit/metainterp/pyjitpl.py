@@ -18,7 +18,7 @@ from rpython.rlib.debug import debug_start, debug_stop, debug_print, make_sure_n
 from rpython.rlib.jit import Counters
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rtyper.lltypesystem import lltype, rclass
+from rpython.rtyper.lltypesystem import lltype, rclass, rffi
 
 
 
@@ -731,10 +731,21 @@ class MIFrame(object):
                     self.metainterp.replace_box(box, standard_box)
                     return False
         if not self.metainterp.heapcache.is_unescaped(box):
-            self.metainterp.execute_and_record(rop.FORCE_VIRTUALIZABLE,
-                                               fielddescr, box)
+            self.emit_force_virtualizable(fielddescr, box)
         self.metainterp.heapcache.nonstandard_virtualizables_now_known(box)
         return True
+
+    def emit_force_virtualizable(self, fielddescr, box):
+        vinfo = fielddescr.get_vinfo()
+        token_descr = vinfo.vable_token_descr
+        mi = self.metainterp
+        tokenbox = mi.execute_and_record(rop.GETFIELD_GC, token_descr, box)
+        condbox = mi.execute_and_record(rop.PTR_NE, None, tokenbox,
+                                       history.CONST_NULL)
+        funcbox = ConstInt(rffi.cast(lltype.Signed, vinfo.clear_vable_ptr))
+        calldescr = vinfo.clear_vable_descr
+        self.execute_varargs(rop.COND_CALL, [condbox, funcbox, box],
+                             calldescr, False, False)
 
     def _get_virtualizable_field_index(self, fielddescr):
         # Get the index of a fielddescr.  Must only be called for
