@@ -12,18 +12,6 @@ from rpython.rlib.rstring import split, rsplit, replace, startswith, endswith
 class StringMethods(object):
     _mixin_ = True
 
-    def _new(self, value):
-        raise NotImplementedError
-
-    def _len(self):
-        raise NotImplementedError
-
-    def _val(self, space):
-        raise NotImplementedError
-
-    def _op_val(self, space, w_other):
-        raise NotImplementedError
-
     def _sliced(self, space, s, start, stop, orig_obj):
         assert start >= 0
         assert stop >= 0
@@ -410,12 +398,6 @@ class StringMethods(object):
                 sb.append(value)
             sb.append(self._op_val(space, list_w[i]))
         return self._new(sb.build())
-
-    def _join_return_one(self, space, w_obj):
-        raise NotImplementedError
-
-    def _join_check_item(self, space, w_obj):
-        raise NotImplementedError
 
     def _join_autoconvert(self, space, list_w):
         assert False, 'unreachable'
