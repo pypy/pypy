@@ -811,7 +811,7 @@ class RegAlloc(BaseRegalloc):
         args_so_far = [tmpbox]
         locs = []
         for i in range(2, len(args)):
-            if self.cpu.IS_X86_64:
+            if IS_X86_64:
                 reg = self.rm.register_arguments[i - 2]
                 self.make_sure_var_in_reg(args[i], args_so_far, selected_reg=reg)
             else:

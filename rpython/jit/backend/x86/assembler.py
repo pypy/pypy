@@ -155,7 +155,7 @@ class Assembler386(BaseAssembler):
         """
         mc = codebuf.MachineCodeBlockWrapper()
         self._push_all_regs_to_frame(mc, [], supports_floats, callee_only)
-        if self.cpu.IS_X86_64:
+        if IS_X86_64:
             mc.SUB(esp, imm(WORD))
         else:
             # we want space for 3 arguments + call + alignment
@@ -164,7 +164,7 @@ class Assembler386(BaseAssembler):
         self.set_extra_stack_depth(mc, 2 * WORD)
         # args are in their respective positions
         mc.CALL(eax)
-        if self.cpu.IS_X86_64:
+        if IS_X86_64:
             mc.ADD(esp, imm(WORD))
         else:
             mc.ADD(esp, imm(WORD * 7))
@@ -2168,7 +2168,7 @@ class Assembler386(BaseAssembler):
             if self._regalloc.xrm.reg_bindings:
                 floats = True
         cond_call_adr = self.cond_call_slowpath[floats * 2 + callee_only]
-        if self.cpu.IS_X86_32:
+        if IS_X86_32:
             p = -7 * WORD
             for i in range(len(arglocs) - 1, -1, -1):
                 loc = arglocs[i]
