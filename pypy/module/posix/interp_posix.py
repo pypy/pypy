@@ -1,15 +1,17 @@
-from pypy.interpreter.gateway import unwrap_spec
+import os
+import sys
+
 from rpython.rlib import rposix, objectmodel, rurandom
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import r_longlong
 from rpython.rlib.unroll import unrolling_iterable
-from pypy.interpreter.error import OperationError, wrap_oserror, wrap_oserror2
-from rpython.rtyper.module.ll_os import RegisterOs
 from rpython.rtyper.module import ll_os_stat
+from rpython.rtyper.module.ll_os import RegisterOs
+
+from pypy.interpreter.gateway import unwrap_spec
+from pypy.interpreter.error import OperationError, wrap_oserror, wrap_oserror2
 from pypy.module.sys.interp_encoding import getfilesystemencoding
 
-import os
-import sys
 
 _WIN32 = sys.platform == 'win32'
 if _WIN32:
@@ -213,6 +215,7 @@ opened on a directory, not a file."""
 STAT_FIELDS = unrolling_iterable(enumerate(ll_os_stat.STAT_FIELDS))
 PORTABLE_STAT_FIELDS = unrolling_iterable(
                                  enumerate(ll_os_stat.PORTABLE_STAT_FIELDS))
+STATVFS_FIELDS = unrolling_iterable(enumerate(ll_os_stat.STATVFS_FIELDS))
 
 def build_stat_result(space, st):
     if space.config.translation.type_system == 'ootype':
@@ -252,6 +255,16 @@ def build_stat_result(space, st):
     w_stat_result = space.getattr(space.getbuiltinmodule(os.name),
                                   space.wrap('stat_result'))
     return space.call_function(w_stat_result, w_tuple, w_keywords)
+
+
+def build_statvfs_result(space, st):
+    vals_w = [None] * len(ll_os_stat.STATVFS_FIELDS)
+    for i, (name, _) in STATVFS_FIELDS:
+        vals_w[i] = space.wrap(getattr(st, name))
+    w_tuple = space.newtuple(vals_w)
+    w_statvfs_result = space.getattr(space.getbuiltinmodule(os.name), space.wrap('statvfs_result'))
+    return space.call_function(w_statvfs_result, w_tuple)
+
 
 @unwrap_spec(fd=c_int)
 def fstat(space, fd):
@@ -313,6 +326,26 @@ If newval is omitted, return the current setting.
         return space.wrap(state.stat_float_times)
     else:
         state.stat_float_times = space.bool_w(w_value)
+
+
+@unwrap_spec(fd=c_int)
+def fstatvfs(space, fd):
+    try:
+        st = os.fstatvfs(fd)
+    except OSError as e:
+        raise wrap_oserror(space, e)
+    else:
+        return build_statvfs_result(space, st)
+
+
+def statvfs(space, w_path):
+    try:
+        st = dispatch_filename(rposix.statvfs)(space, w_path)
+    except OSError as e:
+        raise wrap_oserror2(space, e, w_path)
+    else:
+        return build_statvfs_result(space, st)
+
 
 @unwrap_spec(fd=c_int)
 def dup(space, fd):
