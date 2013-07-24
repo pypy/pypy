@@ -84,7 +84,8 @@ if os.name == 'nt':
 else:
     separate_module_sources = []
     export_symbols = []
-    includes=['errno.h', 'stdio.h', 'stdlib.h', 'unistd.h', 'sys/stat.h',
+    includes=['errno.h', 'stdio.h', 'stdlib.h', 'unistd.h',
+              'sys/stat.h', 'sys/statvfs.h',
               'fcntl.h', 'signal.h', 'pty.h', 'sys/utsname.h', 'sys/wait.h',
               'sysexits.h', 'limits.h']
 rposix_eci = ExternalCompilationInfo(
@@ -102,6 +103,7 @@ for name in '''
         ttyname chmod fchmod chown lchown fchown chroot link symlink readlink
         ftruncate getloadavg nice uname execv execve fork spawnv spawnve
         putenv unsetenv fchdir fsync fdatasync mknod
+        fstatvfs statvfs
         openpty forkpty mkfifo getlogin sysconf fpathconf
         getsid getuid geteuid getgid getegid getpgrp getpgid
         setsid setuid seteuid setgid setegid setpgrp setpgid

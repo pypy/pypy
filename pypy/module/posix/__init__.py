@@ -68,9 +68,6 @@ corresponding Unix manual entries for more information on calls."""
         'lstat': 'interp_posix.lstat',
         'stat_float_times': 'interp_posix.stat_float_times',
 
-        'fstatvfs': 'interp_posix.fstatvfs',
-        'statvfs': 'interp_posix.statvfs',
-
         'dup': 'interp_posix.dup',
         'dup2': 'interp_posix.dup2',
         'access': 'interp_posix.access',
@@ -106,6 +103,7 @@ corresponding Unix manual entries for more information on calls."""
             ttyname chmod fchmod chown lchown fchown chroot link symlink readlink
             ftruncate getloadavg nice uname execv execve fork spawnv spawnve
             putenv unsetenv fchdir fsync fdatasync mknod
+            fstatvfs statvfs
             openpty forkpty mkfifo getlogin sysconf fpathconf
             getsid getuid geteuid getgid getegid getpgrp getpgid
             setsid setuid seteuid setgid setegid setpgrp setpgid
