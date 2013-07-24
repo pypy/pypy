@@ -8165,9 +8165,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
-
-
-    def test_only_strengthen_guard_if_class_matches(self):
+    def test_only_strengthen_guard_if_class_matches_2(self):
         ops = """
         [p1]
         guard_class(p1, ConstClass(node_vtable2)) []
@@ -8177,6 +8175,30 @@ class OptimizeOptTest(BaseTestWithUnroll):
         self.raises(InvalidLoop, self.optimize_loop,
                        ops, ops)
 
+    def test_cond_call_with_a_constant(self):
+        ops = """
+        [p1]
+        cond_call(1, 123, p1, descr=plaincalldescr)
+        jump(p1)
+        """
+        expected = """
+        [p1]
+        call(123, p1, descr=plaincalldescr)
+        jump(p1)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_cond_call_with_a_constant_2(self):
+        ops = """
+        [p1]
+        cond_call(0, 123, p1, descr=plaincalldescr)
+        jump(p1)
+        """
+        expected = """
+        [p1]
+        jump(p1)
+        """
+        self.optimize_loop(ops, expected)
 
 class TestLLtype(OptimizeOptTest, LLtypeMixin):
     pass
