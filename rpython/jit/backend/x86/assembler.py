@@ -34,6 +34,7 @@ from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.codewriter import longlong
 from rpython.rlib.rarithmetic import intmask, r_uint
 from rpython.rlib.objectmodel import compute_unique_id
+from rpython.jit.backend.x86 import stmtlocal
 
 
 class Assembler386(BaseAssembler):
@@ -837,13 +838,13 @@ class Assembler386(BaseAssembler):
         that gives the address of the stack top.  If this integer doesn't
         fit in 32 bits, it will be loaded in r11.
         """
-        rst = gcrootmap.get_root_stack_top_addr()
+        rst = self._get_root_stack_top_addr()
+        
         if rx86.fits_in_32bits(rst):
+            if gcrootmap.is_stm:
+                stmtlocal.tl_segment_prefix(mc)
             mc.MOV_rj(ebx.value, rst)            # MOV ebx, [rootstacktop]
         else:
-            # The integer 'rst' doesn't fit in 32 bits, so we know that
-            # _load_shadowstack_top_in_ebx() above loaded it in r11.
-            # Reuse it.  Be careful not to overwrite r11 in the middle!
             mc.MOV_ri(X86_64_SCRATCH_REG.value, rst) # MOV r11, rootstacktop
             mc.MOV_rm(ebx.value, (X86_64_SCRATCH_REG.value, 0))
             # MOV ebx, [r11]
@@ -854,15 +855,24 @@ class Assembler386(BaseAssembler):
         rst = self._load_shadowstack_top_in_ebx(self.mc, gcrootmap)
         self.mc.MOV_mr((ebx.value, 0), ebp.value)      # MOV [ebx], ebp
         self.mc.ADD_ri(ebx.value, WORD)
+        
         if rx86.fits_in_32bits(rst):
+            if gcrootmap.is_stm:
+                stmtlocal.tl_segment_prefix(self.mc)
             self.mc.MOV_jr(rst, ebx.value)            # MOV [rootstacktop], ebx
         else:
+            # The integer 'rst' doesn't fit in 32 bits, so we know that
+            # _load_shadowstack_top_in_ebx() above loaded it in r11.
+            # Reuse it.  Be careful not to overwrite r11 in the middle!
             self.mc.MOV_mr((X86_64_SCRATCH_REG.value, 0),
                            ebx.value) # MOV [r11], ebx
 
     def _call_footer_shadowstack(self, gcrootmap):
-        rst = gcrootmap.get_root_stack_top_addr()
+        rst = self._get_root_stack_top_addr()
+        
         if rx86.fits_in_32bits(rst):
+            if gcrootmap.is_stm:
+                stmtlocal.tl_segment_prefix(self.mc)
             self.mc.SUB_ji8(rst, WORD)       # SUB [rootstacktop], WORD
         else:
             self.mc.MOV_ri(ebx.value, rst)           # MOV ebx, rootstacktop
@@ -1172,15 +1182,30 @@ class Assembler386(BaseAssembler):
         cb = callbuilder.CallBuilder(self, fnloc, arglocs)
         cb.emit_no_collect()
 
+    def _get_root_stack_top_addr(self):
+        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
+        
+        rst = gcrootmap.get_root_stack_top_addr()
+        if gcrootmap.is_stm:
+            rst = rst - stmtlocal.threadlocal_base()
+            assert rst > 0
+            assert rx86.fits_in_32bits(rst)
+        return rst
+            
     def _reload_frame_if_necessary(self, mc, align_stack=False):
         gc_ll_descr = self.cpu.gc_ll_descr
         gcrootmap = gc_ll_descr.gcrootmap
         if gcrootmap and gcrootmap.is_shadow_stack:
-            rst = gcrootmap.get_root_stack_top_addr()
+            rst = self._get_root_stack_top_addr()
+
+            if gcrootmap.is_stm:
+                stmtlocal.tl_segment_prefix(mc)
             mc.MOV(ecx, heap(rst))
             mc.MOV(ebp, mem(ecx, -WORD))
-
+        #
         if gcrootmap and gcrootmap.is_stm:
+            
+            
             if not hasattr(gc_ll_descr, 'P2Wdescr'):
                 raise Exception("unreachable code")
             wbdescr = gc_ll_descr.P2Wdescr
