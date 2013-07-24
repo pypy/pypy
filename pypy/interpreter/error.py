@@ -413,11 +413,7 @@ def get_operrcls2(valuefmt):
                             value = space.type(value)
                         result = value.getname(space)
                     else:
-                        try:
-                            result = unicode(value)
-                        except UnicodeDecodeError:
-                            print('_compute_value failed %r' % value)
-                            raise
+                        result = unicode(value)
                     lst[i + i + 1] = result
                 lst[-1] = self.xstrings[-1]
                 return u''.join(lst)
