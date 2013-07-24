@@ -164,7 +164,11 @@ class CoreRegisterManager(ARMRegisterManager):
 
     def get_scratch_reg(self, type=INT, forbidden_vars=[], selected_reg=None):
         assert type == INT or type == REF
-        box = TempBox()
+        box = None
+        if type == INT:
+            box = TempInt()
+        else:
+            box = TempPtr()
         self.temp_boxes.append(box)
         reg = self.force_allocate_reg(box, forbidden_vars=forbidden_vars,
                                                     selected_reg=selected_reg)
@@ -1125,6 +1129,24 @@ class Regalloc(BaseRegalloc):
         return arglocs
 
     prepare_op_cond_call_gc_wb_array = prepare_op_cond_call_gc_wb
+
+    def prepare_op_cond_call(self, op, fcond):
+        assert op.result is None
+        assert 2 <= op.numargs() <= 4 + 2
+        tmpreg = self.get_scratch_reg(INT, selected_reg=r.r4)
+        v = op.getarg(1)
+        assert isinstance(v, Const)
+        imm = self.rm.convert_to_imm(v)
+        self.assembler.regalloc_mov(imm, tmpreg)
+        args_so_far = []
+        for i in range(2, op.numargs()):
+            reg = r.argument_regs[i - 2]
+            arg = op.getarg(i)
+            self.make_sure_var_in_reg(arg, args_so_far, selected_reg=reg)
+            args_so_far.append(arg)
+        loc_cond = self.make_sure_var_in_reg(op.getarg(0), args_so_far)
+        gcmap = self.get_gcmap([tmpreg])
+        self.assembler.cond_call(op, gcmap, loc_cond, tmpreg, fcond)
 
     def prepare_op_force_token(self, op, fcond):
         # XXX for now we return a regular reg
