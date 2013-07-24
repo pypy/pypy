@@ -1022,7 +1022,8 @@ class ConditionalCallEntry(ExtRegistryEntry):
         from rpython.rtyper.lltypesystem import lltype
 
         args_v = hop.inputargs(lltype.Bool, lltype.Void, *hop.args_r[2:])
-        args_v[1] = hop.args_r[1].get_unique_llfn()
+        args_v[1] = hop.args_r[1].get_concrete_llfn(hop.args_s[1],
+                                                    hop.args_s[2:], hop.spaceop)
         hop.exception_is_here()
         return hop.genop('jit_conditional_call', args_v)
 

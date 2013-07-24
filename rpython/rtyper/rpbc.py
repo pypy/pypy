@@ -302,6 +302,18 @@ class AbstractFunctionsPBCRepr(CanBeNull, Repr):
         llfn = self.rtyper.getcallable(graph)
         return inputconst(typeOf(llfn), llfn)
 
+    def get_concrete_llfn(self, s_pbc, args_s, op):
+        bk = self.rtyper.annotator.bookkeeper
+        descs = list(s_pbc.descriptions)
+        vfcs = description.FunctionDesc.variant_for_call_site
+        args = bk.build_args("simple_call", args_s)
+        shape, index = vfcs(bk, self.callfamily, descs, args, op)
+        funcdesc, = descs
+        row_of_one_graph = self.callfamily.calltables[shape][index]
+        graph = row_of_one_graph[funcdesc]
+        llfn = self.rtyper.getcallable(graph)
+        return inputconst(typeOf(llfn), llfn)
+
     def rtype_simple_call(self, hop):
         return self.call('simple_call', hop)
 

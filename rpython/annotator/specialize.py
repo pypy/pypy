@@ -332,7 +332,7 @@ def maybe_star_args(funcdesc, key, args_s):
         key = key + key1
     return funcdesc.cachedgraph(key, builder=builder)
 
-def _get_key(args_s, argindices):
+def specialize_argvalue(funcdesc, args_s, *argindices):
     from rpython.annotator.model import SomePBC
     key = []
     for i in argindices:
@@ -347,9 +347,6 @@ def _get_key(args_s, argindices):
             raise Exception("specialize:arg(%d): argument not constant: %r"
                             % (i, s))
     key = tuple(key)
-
-def specialize_argvalue(funcdesc, args_s, *argindices):
-    key = _get_key(args_s, argindices)
     return maybe_star_args(funcdesc, key, args_s)
 
 def specialize_arg_or_var(funcdesc, args_s, *argindices):
