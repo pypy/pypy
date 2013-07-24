@@ -1419,6 +1419,7 @@ class FunctionWriter(object):
     op_jit_force_virtualizable = _ignore
     op_jit_force_quasi_immutable = _ignore
     op_jit_marker = _ignore
+    op_jit_ffi_save_result = _ignore
     op_gc__collect = _ignore
 
     def op_jit_force_virtual(self, result, x):
