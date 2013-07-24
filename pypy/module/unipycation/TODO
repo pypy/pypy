@@ -1,6 +1,1 @@
- * magical list conversion?
  * term_from_str()
- * 15:25 < cfbolz> it would be nice to have a similar term construction shortcut as for calls
-   15:25 < cfbolz> instead of writing Term("c", [1, 2])
-   15:25 < cfbolz> you could write e.terms.c(1, 2)
-
