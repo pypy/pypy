@@ -1771,6 +1771,8 @@ class GenLLVM(object):
             separate_module_sources=self.sources,
             post_include_bits=['typedef _Bool bool_t;']
         ).merge(*self.ecis).convert_sources_to_files()
+
+        # compile c files to LLVM IR
         include_dirs = ''.join('-I{} '.format(ic) for ic in eci.include_dirs)
         ll_files = [str(self.main_ll_file)]
         for c_file in eci.separate_module_files:
@@ -1779,32 +1781,32 @@ class GenLLVM(object):
             cmdexec('clang -O3 -Wall -Wno-unused -emit-llvm -S {}{} -o {}'
                     .format(include_dirs, c_file, ll_file))
 
+        # link LLVM IR into one module
         linked_bc = self.work_dir.join('output_unoptimized.bc')
+        cmdexec('llvm-link {} -o {}'.format(' '.join(ll_files), linked_bc))
+
+        # optimize this module
         optimized_bc = self.work_dir.join('output_optimized.bc')
-        object_file = self.work_dir.join('output.' +
-                                         self.translator.platform.o_ext)
+        cmdexec('opt -O3 {} -o {}'.format(linked_bc, optimized_bc))
+
+        # compile object file
+        llc_add_opts = ''
+        link_add_opts = ''
         if shared:
-            llc_add_opts = '-relocation-model=pic '
-            link_add_opts = '-shared '
+            llc_add_opts += '-relocation-model=pic '
+            link_add_opts += '-shared '
+        if self.translator.config.translation.gcrootfinder == 'llvmgcroot':
+            llc_add_opts += '-load {} '.format(self._compile_llvmgcroot())
+        object_file = self.work_dir.join(
+                'output.' + self.translator.platform.o_ext)
+        cmdexec('llc -O3 -filetype=obj {}{} -o {}'
+                .format(llc_add_opts, optimized_bc, object_file))
+
+        # link executable
+        if shared:
             output_file = object_file.new(ext=self.translator.platform.so_ext)
         else:
-            llc_add_opts = ''
-            link_add_opts = ''
             output_file = object_file.new(ext=self.translator.platform.exe_ext)
-        cmdexec('llvm-link {} -o {}'.format(' '.join(ll_files), linked_bc))
-        cmdexec('opt -O3 {} -o {}'.format(linked_bc, optimized_bc))
-        if database.stack_bottoms:
-            this_file = local(__file__)
-            gc_cpp = this_file.new(basename='PyPyGC.cpp')
-            gc_lib = this_file.new(purebasename='PyPyGC',
-                                   ext=self.translator.platform.so_ext)
-            cflags = cmdexec('llvm-config --cxxflags').strip()
-            cmdexec('clang {} -shared {} -o {}'.format(cflags, gc_cpp, gc_lib))
-            cmdexec('llc -O3 -filetype=obj -load {} {}{} -o {}'
-                    .format(gc_lib, llc_add_opts, optimized_bc, object_file))
-        else:
-            cmdexec('llc -O3 -filetype=obj {}{} -o {}'
-                    .format(llc_add_opts, optimized_bc, object_file))
         cmdexec('clang -O3 -pthread {}{} {}{}{}-o {}'
                 .format(link_add_opts, object_file,
                         ''.join('-L{} '.format(ld) for ld in eci.library_dirs),
@@ -1812,6 +1814,15 @@ class GenLLVM(object):
                         ''.join('{} '.format(lf) for lf in eci.link_files),
                         output_file))
         return output_file
+
+    def _compile_llvmgcroot(self):
+        this_file = local(__file__)
+        gc_cpp = this_file.new(basename='PyPyGC.cpp')
+        gc_lib = this_file.new(purebasename='PyPyGC',
+                               ext=self.translator.platform.so_ext)
+        cflags = cmdexec('llvm-config --cxxflags').strip()
+        cmdexec('clang {} -shared {} -o {}'.format(cflags, gc_cpp, gc_lib))
+        return gc_lib
 
     def compile(self, exe_name):
         return self._compile()
