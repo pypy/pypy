@@ -2169,10 +2169,9 @@ class Assembler386(BaseAssembler):
                 floats = True
         cond_call_adr = self.cond_call_slowpath[floats * 2 + callee_only]
         if IS_X86_32:
-            p = -7 * WORD
-            for i in range(len(arglocs) - 1, -1, -1):
-                loc = arglocs[i]
-                self.mc.MOV(RawEspLoc(p), loc)
+            p = -8 * WORD
+            for loc in arglocs:
+                self.mc.MOV(RawEspLoc(p, INT), loc)
                 p += WORD
         self.mc.CALL(imm(cond_call_adr))
         self.pop_gcmap(self.mc)

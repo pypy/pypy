@@ -2288,18 +2288,20 @@ class LLtypeBackendTest(BaseBackendTest):
                                          'calldescr': calldescr})
             looptoken = JitCellToken()
             self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
-            frame = self.cpu.execute_token(looptoken, 1, 0, 1, 2, 3, 4, 5, 1.2, 3.4)
+            f1 = longlong.getfloatstorage(1.2)
+            f2 = longlong.getfloatstorage(3.4)
+            frame = self.cpu.execute_token(looptoken, 1, 0, 1, 2, 3, 4, 5, f1, f2)
             assert not called
             for j in range(5):
                 assert self.cpu.get_int_value(frame, j) == j
-            assert self.cpu.get_float_value(frame, 6) == 1.2
-            assert self.cpu.get_float_value(frame, 7) == 3.4
-            frame = self.cpu.execute_token(looptoken, 1, 1, 1, 2, 3, 4, 5, 1.2, 3.4)
+            assert longlong.getrealfloat(self.cpu.get_float_value(frame, 6)) == 1.2
+            assert longlong.getrealfloat(self.cpu.get_float_value(frame, 7)) == 3.4
+            frame = self.cpu.execute_token(looptoken, 1, 1, 1, 2, 3, 4, 5, f1, f2)
             assert called == [tuple(range(1, i + 1))]
             for j in range(4):
                 assert self.cpu.get_int_value(frame, j + 1) == j + 1
-            assert self.cpu.get_float_value(frame, 6) == 1.2
-            assert self.cpu.get_float_value(frame, 7) == 3.4
+            assert longlong.getrealfloat(self.cpu.get_float_value(frame, 6)) == 1.2
+            assert longlong.getrealfloat(self.cpu.get_float_value(frame, 7)) == 3.4
 
     def test_force_operations_returning_void(self):
         values = []

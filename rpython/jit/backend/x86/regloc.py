@@ -89,7 +89,6 @@ class RawEspLoc(AssemblerLocation):
     _location_code = 's'
 
     def __init__(self, value, type):
-        assert value >= 0
         self.value = value
         self.type = type
 
