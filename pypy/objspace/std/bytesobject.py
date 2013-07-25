@@ -83,7 +83,8 @@ class W_BytesObject(W_AbstractBytesObject, StringMethods):
         #return w_other._value
 
     def _chr(self, char):
-        return str(char)
+        assert len(char) == 1
+        return str(char)[0]
 
     _builder = StringBuilder
 

@@ -29,7 +29,7 @@ class W_BytearrayObject(W_Object, StringMethods):
         return "%s(%s)" % (w_self.__class__.__name__, ''.join(w_self.data))
 
     def _new(self, value):
-        return W_BytearrayObject(value)
+        return W_BytearrayObject(list(value))
 
     def _len(self):
         return len(self.data)
@@ -41,7 +41,8 @@ class W_BytearrayObject(W_Object, StringMethods):
         return space.bufferstr_new_w(w_other)
 
     def _chr(self, char):
-        return str(char)
+        assert len(char) == 1
+        return str(char)[0]
 
     _builder = StringBuilder
 

@@ -84,7 +84,8 @@ class W_UnicodeObject(W_Object, StringMethods):
         return unicode_from_encoded_object(space, w_other, None, "strict")._value
 
     def _chr(self, char):
-        return unicode(char)
+        assert len(char) == 1
+        return unicode(char)[0]
 
     _builder = UnicodeBuilder
 
