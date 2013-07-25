@@ -343,9 +343,9 @@ def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type):
     metainterp_sd.profiler.start_backend()
     debug_start("jit-backend")
     try:
-        asminfo = do_compile_loop(metainterp_sd, loop.inputargs,
-                                  operations, original_jitcell_token,
-                                  name=loopname)
+        asminfo, new_ops = do_compile_loop(metainterp_sd, loop.inputargs,
+                                           operations, original_jitcell_token,
+                                           name=loopname)
     finally:
         debug_stop("jit-backend")
     metainterp_sd.profiler.end_backend()
@@ -361,7 +361,7 @@ def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type):
         ops_offset = asminfo.ops_offset
     else:
         ops_offset = None
-    metainterp_sd.logger_ops.log_loop(loop.inputargs, loop.operations, n,
+    metainterp_sd.logger_ops.log_loop(loop.inputargs, new_ops, n,
                                       type, ops_offset,
                                       name=loopname)
     #
@@ -387,9 +387,9 @@ def send_bridge_to_backend(jitdriver_sd, metainterp_sd, faildescr, inputargs,
     metainterp_sd.profiler.start_backend()
     debug_start("jit-backend")
     try:
-        asminfo = do_compile_bridge(metainterp_sd, faildescr, inputargs,
-                                    operations,
-                                    original_loop_token)
+        asminfo, new_ops = do_compile_bridge(metainterp_sd, faildescr,
+                                             inputargs, operations,
+                                             original_loop_token)
     finally:
         debug_stop("jit-backend")
     metainterp_sd.profiler.end_backend()
@@ -404,7 +404,7 @@ def send_bridge_to_backend(jitdriver_sd, metainterp_sd, faildescr, inputargs,
         ops_offset = asminfo.ops_offset
     else:
         ops_offset = None
-    metainterp_sd.logger_ops.log_bridge(inputargs, operations, None, faildescr,
+    metainterp_sd.logger_ops.log_bridge(inputargs, new_ops, None, faildescr,
                                         ops_offset)
     #
     #if metainterp_sd.warmrunnerdesc is not None:    # for tests

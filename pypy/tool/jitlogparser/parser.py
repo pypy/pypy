@@ -452,6 +452,7 @@ def parse_log_counts(input, loops):
         mapping[loop.descr] = loop
     for line in lines:
         if line:
+            line = purge_thread_numbers(line)
             num, count = line.split(':', 2)
             mapping[num].count = int(count)
 
