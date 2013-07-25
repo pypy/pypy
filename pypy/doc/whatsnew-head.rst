@@ -43,4 +43,3 @@ Added os.statvfs and os.fstatvfs
 
 .. branch: statvfs_tests
 Added some addition tests for statvfs.
->>>>>>> other
