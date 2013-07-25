@@ -58,7 +58,7 @@ def getscript_in_dir(source):
     pdir = _get_next_path(ext='')
     p = pdir.ensure(dir=1).join('__main__.py')
     p.write(str(py.code.Source(source)))
-    # return relative path for testing purposes 
+    # return relative path for testing purposes
     return py.path.local().bestrelpath(pdir)
 
 def pytest_funcarg__demo_script(request):
@@ -768,6 +768,20 @@ class TestNonInteractive:
                         expect_prompt=True, expect_banner=False)
         assert '42\n' in data
 
+    def test_putenv_fires_interactive_within_process(self):
+        try:
+            import __pypy__
+        except ImportError:
+            py.test.skip("This can be only tested on PyPy with real_getenv")
+
+        # should be noninteractive when piped in
+        data = 'import os\nos.putenv("PYTHONINSPECT", "1")\n'
+        self.run('', senddata=data, expect_prompt=False)
+
+        # should go interactive with -c
+        data = data.replace('\n', ';')
+        self.run("-c '%s'" % data, expect_prompt=True)
+
     def test_option_S_copyright(self):
         data = self.run('-S -i', expect_prompt=True, expect_banner=True)
         assert 'copyright' not in data
@@ -1090,7 +1104,7 @@ class AppTestAppMain:
             pypy_c = os.path.join(self.trunkdir, 'pypy', 'goal', 'pypy-c')
             app_main.setup_bootstrap_path(pypy_c)
             newpath = sys.path[:]
-            # we get at least lib_pypy 
+            # we get at least lib_pypy
             # lib-python/X.Y.Z, and maybe more (e.g. plat-linux2)
             assert len(newpath) >= 2
             for p in newpath:
