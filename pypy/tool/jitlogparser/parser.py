@@ -361,12 +361,19 @@ def adjust_bridges(loop, bridges):
             i += 1
     return res
 
-
+def purge_thread_numbers(entry):
+    result = []
+    for line in entry.split('\n'):
+        line = line[line.find('#')+2:]
+        result.append(line)
+    return '\n'.join(result)
+    
 def import_log(logname, ParserCls=SimpleParser):
     log = parse_log_file(logname)
     hex_re = '0x(-?[\da-f]+)'
     addrs = {}
     for entry in extract_category(log, 'jit-backend-addr'):
+        entry = purge_thread_numbers(entry)
         m = re.search('bootstrap ' + hex_re, entry)
         if not m:
             # a bridge
@@ -381,6 +388,7 @@ def import_log(logname, ParserCls=SimpleParser):
         addrs.setdefault(addr, []).append(name)
     dumps = {}
     for entry in extract_category(log, 'jit-backend-dump'):
+        entry = purge_thread_numbers(entry)
         backend, _, dump, _ = entry.split("\n")
         _, addr, _, data = re.split(" +", dump)
         backend_name = backend.split(" ")[1]

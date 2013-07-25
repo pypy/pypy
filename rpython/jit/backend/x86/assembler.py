@@ -1203,15 +1203,13 @@ class Assembler386(BaseAssembler):
             mc.MOV(ebp, mem(ecx, -WORD))
         #
         if gcrootmap and gcrootmap.is_stm:
-            
-            
             if not hasattr(gc_ll_descr, 'P2Wdescr'):
                 raise Exception("unreachable code")
             wbdescr = gc_ll_descr.P2Wdescr
             self._stm_barrier_fastpath(mc, wbdescr, [ebp], is_frame=True,
                                        align_stack=align_stack)
             return
-
+        #
         wbdescr = gc_ll_descr.write_barrier_descr
         if gcrootmap and wbdescr:
             # frame never uses card marking, so we enforce this is not
