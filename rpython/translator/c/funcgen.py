@@ -592,6 +592,7 @@ class FunctionCodeGenerator(object):
     OP_STM_PUSH_ROOT                    = _OP_STM
     OP_STM_POP_ROOT_INTO                = _OP_STM
     OP_STM_GET_ROOT_STACK_TOP           = _OP_STM
+    OP_STM_GET_ADR_OF_PRIVATE_REV_NUM   = _OP_STM
     OP_STM_ALLOCATE                     = _OP_STM
     OP_STM_WEAKREF_ALLOCATE             = _OP_STM
     OP_STM_GET_TID                      = _OP_STM

@@ -99,6 +99,12 @@ def stm_get_root_stack_top(funcgen, op):
     return '%s = (%s)&stm_shadowstack;' % (
         result, cdecl(funcgen.lltypename(op.result), ''))
 
+def stm_get_adr_of_private_rev_num(funcgen, op):
+    result = funcgen.expr(op.result)
+    return '%s = (%s)&stm_private_rev_num;' % (
+        result, cdecl(funcgen.lltypename(op.result), ''))
+    
+    
 def stm_weakref_allocate(funcgen, op):
     arg0 = funcgen.expr(op.args[0])
     arg1 = funcgen.expr(op.args[1])

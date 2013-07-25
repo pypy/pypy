@@ -3,6 +3,9 @@ from rpython.rtyper.lltypesystem import lltype, rffi, rstr, llmemory
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.extregistry import ExtRegistryEntry
 
+def get_adr_of_private_rev_num():
+    addr = llop.stm_get_adr_of_private_rev_num(llmemory.Address)
+    return rffi.cast(lltype.Signed, addr)
 
 def become_inevitable():
     llop.stm_become_inevitable(lltype.Void)

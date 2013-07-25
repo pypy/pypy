@@ -35,6 +35,8 @@ from rpython.jit.codewriter import longlong
 from rpython.rlib.rarithmetic import intmask, r_uint
 from rpython.rlib.objectmodel import compute_unique_id
 from rpython.jit.backend.x86 import stmtlocal
+from rpython.rlib import rstm
+from rpython.memory.gc.stmgc import StmGC
 
 
 class Assembler386(BaseAssembler):
@@ -517,9 +519,9 @@ class Assembler386(BaseAssembler):
         clt.allgcrefs = []
         clt.frame_info.clear() # for now
 
-        if log:
-            operations = self._inject_debugging_code(looptoken, operations,
-                                                     'e', looptoken.number)
+        # if log:
+        #     operations = self._inject_debugging_code(looptoken, operations,
+        #                                              'e', looptoken.number)
 
         regalloc = RegAlloc(self, self.cpu.translate_support_code)
         #
@@ -578,9 +580,9 @@ class Assembler386(BaseAssembler):
 
         self.setup(original_loop_token)
         descr_number = compute_unique_id(faildescr)
-        if log:
-            operations = self._inject_debugging_code(faildescr, operations,
-                                                     'b', descr_number)
+        # if log:
+        #     operations = self._inject_debugging_code(faildescr, operations,
+        #                                              'b', descr_number)
 
         arglocs = self.rebuild_faillocs_from_descr(faildescr, inputargs)
         regalloc = RegAlloc(self, self.cpu.translate_support_code)
@@ -2180,27 +2182,49 @@ class Assembler386(BaseAssembler):
         assert isinstance(result_loc, RegLoc)
         mc.POP_r(result_loc.value)
         
+    def _get_private_rev_num_addr(self):
+        assert self.cpu.gc_ll_descr.stm
+        rn = rstm.get_adr_of_private_rev_num()
+        rn = rn - stmtlocal.threadlocal_base()
+        assert rx86.fits_in_32bits(rn)
+        return rn
         
     def _stm_barrier_fastpath(self, mc, descr, arglocs, is_frame=False,
                               align_stack=False):
         assert self.cpu.gc_ll_descr.stm
-        from rpython.jit.backend.llsupport.gc import STMBarrierDescr
+        from rpython.jit.backend.llsupport.gc import (
+            STMBarrierDescr, STMReadBarrierDescr, STMWriteBarrierDescr)
         assert isinstance(descr, STMBarrierDescr)
         assert descr.returns_modified_object
         loc_base = arglocs[0]
         assert isinstance(loc_base, RegLoc)
-        # Write only a CALL to the helper prepared in advance, passing it as
-        # argument the address of the structure we are writing into
-        # (the first argument to COND_CALL_GC_WB).
+        
         helper_num = 0
         if is_frame:
             helper_num = 4
         elif self._regalloc is not None and self._regalloc.xrm.reg_bindings:
             helper_num += 2
         #
+        # FASTPATH:
+        #
+        rn = self._get_private_rev_num_addr()
+        if isinstance(descr, STMReadBarrierDescr):
+            # (obj->h_revision != stm_private_rev_num)
+            #      && (FXCACHE_AT(obj) != obj)))
+            stmtlocal.tl_segment_prefix(mc)
+            #mc.CMP_jr(rn, loc_base.value)
+            mc.MOV_rj(X86_64_SCRATCH_REG.value, rn)
+            mc.CMP(X86_64_SCRATCH_REG, mem(loc_base, StmGC.H_REVISION))
+            mc.J_il8(rx86.Conditions['Z'], 0) # patched below
+            jz_location = mc.get_relative_pos()
+        else:
+            jz_location = 0
+        #
+        # SLOWPATH_START
+        #
         if not is_frame:
             mc.PUSH(loc_base)
-        if is_frame and align_stack:
+        elif is_frame and align_stack:
             # ||retadr|
             mc.SUB_ri(esp.value, 16 - WORD) # erase the return address
             # ||retadr|...||
@@ -2214,10 +2238,15 @@ class Assembler386(BaseAssembler):
             # result where argument was:
             mc.POP_r(loc_base.value)
 
-            
         if is_frame and align_stack:
             mc.ADD_ri(esp.value, 16 - WORD) # erase the return address
-
+        #
+        # SLOWPATH_END
+        #
+        if isinstance(descr, STMReadBarrierDescr):
+            offset = mc.get_relative_pos() - jz_location
+            assert 0 < offset <= 127
+            mc.overwrite(jz_location - 1, chr(offset))
 
 
         

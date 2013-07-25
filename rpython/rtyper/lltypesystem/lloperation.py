@@ -456,6 +456,8 @@ LL_OPERATIONS = {
     'stm_abort_info_pop':     LLOp(),
     'stm_inspect_abort_info': LLOp(sideeffects=False),
 
+    'stm_get_adr_of_private_rev_num':LLOp(),
+    
     # __________ address operations __________
 
     'boehm_malloc':         LLOp(),
