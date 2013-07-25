@@ -10,7 +10,7 @@ from pypy.objspace.std.model import W_Object, registerimplementation
 from pypy.objspace.std.stdtypedef import StdTypeDef
 from pypy.objspace.std.stringmethods import StringMethods
 from pypy.objspace.std.unicodeobject import (unicode_from_string,
-    decode_object, _get_encoding_and_errors)
+    decode_object, unicode_from_encoded_object, _get_encoding_and_errors)
 from rpython.rlib.jit import we_are_jitted
 from rpython.rlib.objectmodel import compute_hash, compute_unique_id
 from rpython.rlib.rstring import StringBuilder
@@ -177,7 +177,7 @@ class W_BytesObject(W_AbstractBytesObject, StringMethods):
 
     def descr_add(self, space, w_other):
         if space.isinstance_w(w_other, space.w_unicode):
-            self_as_unicode = decode_object(space, self, None, None)
+            self_as_unicode = unicode_from_encoded_object(space, self, None, None)
             return space.add(self_as_unicode, w_other)
         elif space.isinstance_w(w_other, space.w_bytearray):
             # XXX: eliminate double-copy
@@ -188,13 +188,13 @@ class W_BytesObject(W_AbstractBytesObject, StringMethods):
 
     def _startswith(self, space, value, w_prefix, start, end):
         if space.isinstance_w(w_prefix, space.w_unicode):
-            self_as_unicode = decode_object(space, self, None, None)
+            self_as_unicode = unicode_from_encoded_object(space, self, None, None)
             return self_as_unicode._startswith(space, value, w_prefix, start, end)
         return StringMethods._startswith(self, space, value, w_prefix, start, end)
 
     def _endswith(self, space, value, w_suffix, start, end):
         if space.isinstance_w(w_suffix, space.w_unicode):
-            self_as_unicode = decode_object(space, self, None, None)
+            self_as_unicode = unicode_from_encoded_object(space, self, None, None)
             return self_as_unicode._endswith(space, value, w_suffix, start, end)
         return StringMethods._endswith(self, space, value, w_suffix, start, end)
 
