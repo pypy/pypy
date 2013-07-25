@@ -89,25 +89,25 @@ class W_UnicodeObject(W_Object, StringMethods):
     _builder = UnicodeBuilder
 
     def _isupper(self, ch):
-        return ch.isupper()
+        return unicodedb.isupper(ord(ch))
 
     def _islower(self, ch):
-        return ch.islower()
+        return unicodedb.islower(ord(ch))
 
     def _istitle(self, ch):
-        return ch.istitle()
+        return unicodedb.istitle(ord(ch))
 
     def _isspace(self, ch):
-        return ch.isspace()
+        return unicodedb.isspace(ord(ch))
 
     def _isalpha(self, ch):
-        return ch.isalpha()
+        return unicodedb.isalpha(ord(ch))
 
     def _isalnum(self, ch):
-        return ch.isalnum()
+        return unicodedb.isalnum(ord(ch))
 
     def _isdigit(self, ch):
-        return ch.isdigit()
+        return unicodedb.isdigit(ord(ch))
 
     def _iscased(self, ch):
         return unicodedb.iscased(ord(ch))

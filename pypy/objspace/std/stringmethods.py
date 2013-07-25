@@ -336,12 +336,12 @@ class StringMethods(object):
         v = self._val(space)
         if len(v) == 1:
             c = v[0]
-            return space.newbool(c.islower())
+            return space.newbool(self._islower(c))
         cased = False
         for idx in range(len(v)):
-            if v[idx].isupper():
+            if self._isupper(v[idx]):
                 return space.w_False
-            elif not cased and v[idx].islower():
+            elif not cased and self._islower(v[idx]):
                 cased = True
         return space.newbool(cased)
 
@@ -357,12 +357,12 @@ class StringMethods(object):
 
         for pos in range(0, len(input)):
             ch = input[pos]
-            if ch.isupper():
+            if self._isupper(ch):
                 if previous_is_cased:
                     return space.w_False
                 previous_is_cased = True
                 cased = True
-            elif ch.islower():
+            elif self._islower(ch):
                 if not previous_is_cased:
                     return space.w_False
                 cased = True
@@ -376,12 +376,12 @@ class StringMethods(object):
         v = self._val(space)
         if len(v) == 1:
             c = v[0]
-            return space.newbool(c.isupper())
+            return space.newbool(self._isupper(c))
         cased = False
         for idx in range(len(v)):
-            if v[idx].islower():
+            if self._islower(v[idx]):
                 return space.w_False
-            elif not cased and v[idx].isupper():
+            elif not cased and self._isupper(v[idx]):
                 cased = True
         return space.newbool(cased)
 
@@ -535,7 +535,7 @@ class StringMethods(object):
             while True:
                 # find the beginning of the next word
                 while i < length:
-                    if not value[i].isspace():
+                    if not self._isspace(value[i]):
                         break   # found
                     i += 1
                 else:
@@ -546,7 +546,7 @@ class StringMethods(object):
                     j = length   # take all the rest of the string
                 else:
                     j = i + 1
-                    while j < length and not value[j].isspace():
+                    while j < length and not self._isspace(value[j]):
                         j += 1
                     maxsplit -= 1   # NB. if it's already < 0, it stays < 0
 
@@ -575,7 +575,7 @@ class StringMethods(object):
             while True:
                 # starting from the end, find the end of the next word
                 while i >= 0:
-                    if not value[i].isspace():
+                    if not self._isspace(value[i]):
                         break   # found
                     i -= 1
                 else:
@@ -587,7 +587,7 @@ class StringMethods(object):
                     j = -1   # take all the rest of the string
                 else:
                     j = i - 1
-                    while j >= 0 and not value[j].isspace():
+                    while j >= 0 and not self._isspace(value[j]):
                         j -= 1
                     maxsplit -= 1   # NB. if it's already < 0, it stays < 0
 
@@ -692,11 +692,11 @@ class StringMethods(object):
 
         if left:
             #print "while %d < %d and -%s- in -%s-:"%(lpos, rpos, value[lpos],w_chars)
-            while lpos < rpos and value[lpos].isspace():
+            while lpos < rpos and self._isspace(value[lpos]):
                lpos += 1
 
         if right:
-            while rpos > lpos and value[rpos - 1].isspace():
+            while rpos > lpos and self._isspace(value[rpos - 1]):
                rpos -= 1
 
         assert rpos >= lpos    # annotator hint, don't remove
