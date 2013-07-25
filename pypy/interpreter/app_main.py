@@ -460,11 +460,8 @@ def parse_command_line(argv):
         if os.getenv('PYTHONVERBOSE'):
             options["verbose"] = 1
 
-    # skip environment cache since PYTHONINSPECT could be set in same process
-    from __pypy__.os import real_getenv
-
     if (options["interactive"] or
-        (not options["ignore_environment"] and real_getenv('PYTHONINSPECT'))):
+        (not options["ignore_environment"] and os.getenv('PYTHONINSPECT'))):
         options["inspect"] = 1
 
 ##    We don't print the warning, because it offers no additional security
@@ -559,8 +556,15 @@ def run_command_line(interactive,
         # or
         #     * PYTHONINSPECT is set and stdin is a tty.
         #
+        try:
+            # we need a version of getenv that bypasses Python caching
+            from __pypy__.os import real_getenv
+        except ImportError:
+            # dont fail on CPython here
+            real_getenv = os.getenv
+
         return (interactive or
-                ((inspect or (readenv and os.getenv('PYTHONINSPECT')))
+                ((inspect or (readenv and real_getenv('PYTHONINSPECT')))
                  and sys.stdin.isatty()))
 
     success = True
