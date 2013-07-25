@@ -20,10 +20,6 @@ class RaiseAnalyzer(graphanalyze.BoolGraphAnalyzer):
         fnobj = op.args[0].value._obj
         return getattr(fnobj, 'canraise', True)
 
-    def analyze_external_method(self, op, TYPE, meth):
-        assert op.opname == 'oosend'
-        return getattr(meth, '_can_raise', True)
-
     def analyze_exceptblock(self, block, seen=None):
         return True
 

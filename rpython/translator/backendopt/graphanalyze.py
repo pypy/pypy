@@ -63,9 +63,6 @@ class GraphAnalyzer(object):
                         result, self.analyze_direct_call(graph, seen))
         return result
 
-    def analyze_external_method(self, op, TYPE, meth):
-        return self.top_result()
-
     def analyze_link(self, graph, link):
         return self.bottom_result()
 
@@ -96,14 +93,6 @@ class GraphAnalyzer(object):
             if self.verbose and x:
                 self.dump_info('analyze_indirect_call(%s): %r' % (graphs, x))
             return x
-        elif op.opname == "oosend":
-            name = op.args[0].value
-            TYPE = op.args[1].concretetype
-            _, meth = TYPE._lookup(name)
-            graph = getattr(meth, 'graph', None)
-            if graph is None:
-                return self.analyze_external_method(op, TYPE, meth)
-            return self.analyze_oosend(TYPE, name, seen)
         x = self.analyze_simple_operation(op, graphinfo)
         if self.verbose and x:
             self.dump_info('%s: %r' % (op, x))
