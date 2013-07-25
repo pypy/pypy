@@ -27,6 +27,7 @@ class StringMethods(object):
                 space, lenself, w_start, w_end, upper_bound=upper_bound)
         return (value, start, end)
 
+    @specialize.argtype(0)
     def descr_eq(self, space, w_other):
         try:
             return space.newbool(self._val(space) == self._op_val(space, w_other))
@@ -42,6 +43,7 @@ class StringMethods(object):
                 return space.w_False
             raise
 
+    @specialize.argtype(0)
     def descr_ne(self, space, w_other):
         try:
             return space.newbool(self._val(space) != self._op_val(space, w_other))
@@ -57,6 +59,7 @@ class StringMethods(object):
                 return space.w_True
             raise
 
+    @specialize.argtype(0)
     def descr_lt(self, space, w_other):
         try:
             return space.newbool(self._val(space) < self._op_val(space, w_other))
@@ -64,6 +67,7 @@ class StringMethods(object):
             if e.match(space, space.w_TypeError):
                 return space.w_NotImplemented
 
+    @specialize.argtype(0)
     def descr_le(self, space, w_other):
         try:
             return space.newbool(self._val(space) <= self._op_val(space, w_other))
@@ -71,6 +75,7 @@ class StringMethods(object):
             if e.match(space, space.w_TypeError):
                 return space.w_NotImplemented
 
+    @specialize.argtype(0)
     def descr_gt(self, space, w_other):
         try:
             return space.newbool(self._val(space) > self._op_val(space, w_other))
@@ -78,6 +83,7 @@ class StringMethods(object):
             if e.match(space, space.w_TypeError):
                 return space.w_NotImplemented
 
+    @specialize.argtype(0)
     def descr_ge(self, space, w_other):
         try:
             return space.newbool(self._val(space) >= self._op_val(space, w_other))
@@ -85,12 +91,15 @@ class StringMethods(object):
             if e.match(space, space.w_TypeError):
                 return space.w_NotImplemented
 
+    @specialize.argtype(0)
     def descr_len(self, space):
         return space.wrap(self._len())
 
+    @specialize.argtype(0)
     #def descr_iter(self, space):
     #    pass
 
+    @specialize.argtype(0)
     def descr_contains(self, space, w_sub):
         from pypy.objspace.std.bytearrayobject import W_BytearrayObject
         if (isinstance(self, W_BytearrayObject) and
@@ -105,9 +114,11 @@ class StringMethods(object):
             return space.w_False
         return space.newbool(self._val(space).find(self._op_val(space, w_sub)) >= 0)
 
+    @specialize.argtype(0)
     def descr_add(self, space, w_other):
         return self._new(self._val(space) + self._op_val(space, w_other))
 
+    @specialize.argtype(0)
     def descr_mul(self, space, w_times):
         try:
             times = space.getindex_w(w_times, space.w_OverflowError)
@@ -121,6 +132,7 @@ class StringMethods(object):
             return self._new(self._val(space)[0] * times)
         return self._new(self._val(space) * times)
 
+    @specialize.argtype(0)
     def descr_getitem(self, space, w_index):
         if isinstance(w_index, W_SliceObject):
             selfvalue = self._val(space)
@@ -149,6 +161,7 @@ class StringMethods(object):
         #return wrapchar(space, selfvalue[index])
         return self._new(selfvalue[index])
 
+    @specialize.argtype(0)
     def descr_getslice(self, space, w_start, w_stop):
         selfvalue = self._val(space)
         start, stop = normalize_simple_slice(space, len(selfvalue), w_start,
@@ -158,6 +171,7 @@ class StringMethods(object):
         else:
             return self._sliced(space, selfvalue, start, stop, self)
 
+    @specialize.argtype(0)
     def descr_capitalize(self, space):
         value = self._val(space)
         if len(value) == 0:
@@ -170,6 +184,7 @@ class StringMethods(object):
         return self._new(builder.build())
 
     @unwrap_spec(width=int, w_fillchar=WrappedDefault(' '))
+    @specialize.argtype(0)
     def descr_center(self, space, width, w_fillchar):
         value = self._val(space)
         fillchar = self._op_val(space, w_fillchar)
@@ -187,10 +202,12 @@ class StringMethods(object):
 
         return self._new(u_centered)
 
+    @specialize.argtype(0)
     def descr_count(self, space, w_sub, w_start=None, w_end=None):
         value, start, end = self._convert_idx_params(space, w_start, w_end)
         return wrapint(space, value.count(self._op_val(space, w_sub), start, end))
 
+    @specialize.argtype(0)
     def descr_decode(self, space, w_encoding=None, w_errors=None):
         from pypy.objspace.std.unicodeobject import _get_encoding_and_errors, \
             unicode_from_string, decode_object
@@ -199,6 +216,7 @@ class StringMethods(object):
             return unicode_from_string(space, self)
         return decode_object(space, self, encoding, errors)
 
+    @specialize.argtype(0)
     def descr_encode(self, space, w_encoding=None, w_errors=None):
         from pypy.objspace.std.unicodeobject import _get_encoding_and_errors, \
             encode_object
@@ -206,6 +224,7 @@ class StringMethods(object):
         return encode_object(space, self, encoding, errors)
 
     @unwrap_spec(tabsize=int)
+    @specialize.argtype(0)
     def descr_expandtabs(self, space, tabsize=8):
         value = self._val(space)
         if not value:
@@ -248,16 +267,19 @@ class StringMethods(object):
 
         return distance
 
+    @specialize.argtype(0)
     def descr_find(self, space, w_sub, w_start=None, w_end=None):
         (value, start, end) = self._convert_idx_params(space, w_start, w_end)
         res = value.find(self._op_val(space, w_sub), start, end)
         return space.wrap(res)
 
+    @specialize.argtype(0)
     def descr_rfind(self, space, w_sub, w_start=None, w_end=None):
         (value, start, end) = self._convert_idx_params(space, w_start, w_end)
         res = value.rfind(self._op_val(space, w_sub), start, end)
         return space.wrap(res)
 
+    @specialize.argtype(0)
     def descr_index(self, space, w_sub, w_start=None, w_end=None):
         (value, start, end) = self._convert_idx_params(space, w_start, w_end)
         res = value.find(self._op_val(space, w_sub), start, end)
@@ -267,6 +289,7 @@ class StringMethods(object):
 
         return space.wrap(res)
 
+    @specialize.argtype(0)
     def descr_rindex(self, space, w_sub, w_start=None, w_end=None):
         (value, start, end) = self._convert_idx_params(space, w_start, w_end)
         res = value.rfind(self._op_val(space, w_sub), start, end)
@@ -296,15 +319,19 @@ class StringMethods(object):
                 return space.w_False
         return space.w_True
 
+    @specialize.argtype(0)
     def descr_isalnum(self, space):
         return self._is_generic(space, '_isalnum')
 
+    @specialize.argtype(0)
     def descr_isalpha(self, space):
         return self._is_generic(space, '_isalpha')
 
+    @specialize.argtype(0)
     def descr_isdigit(self, space):
         return self._is_generic(space, '_isdigit')
 
+    @specialize.argtype(0)
     def descr_islower(self, space):
         v = self._val(space)
         if len(v) == 1:
@@ -318,9 +345,11 @@ class StringMethods(object):
                 cased = True
         return space.newbool(cased)
 
+    @specialize.argtype(0)
     def descr_isspace(self, space):
         return self._is_generic(space, '_isspace')
 
+    @specialize.argtype(0)
     def descr_istitle(self, space):
         input = self._val(space)
         cased = False
@@ -342,6 +371,7 @@ class StringMethods(object):
 
         return space.newbool(cased)
 
+    @specialize.argtype(0)
     def descr_isupper(self, space):
         v = self._val(space)
         if len(v) == 1:
@@ -355,6 +385,7 @@ class StringMethods(object):
                 cased = True
         return space.newbool(cased)
 
+    @specialize.argtype(0)
     def descr_join(self, space, w_list):
         #l = space.listview_str(w_list)
         #if l is not None:
@@ -405,6 +436,7 @@ class StringMethods(object):
         assert False, 'unreachable'
 
     @unwrap_spec(width=int, w_fillchar=WrappedDefault(' '))
+    @specialize.argtype(0)
     def descr_ljust(self, space, width, w_fillchar):
         value = self._val(space)
         fillchar = self._op_val(space, w_fillchar)
@@ -420,6 +452,7 @@ class StringMethods(object):
         return self._new(value)
 
     @unwrap_spec(width=int, w_fillchar=WrappedDefault(' '))
+    @specialize.argtype(0)
     def descr_rjust(self, space, width, w_fillchar):
         value = self._val(space)
         fillchar = self._op_val(space, w_fillchar)
@@ -434,6 +467,7 @@ class StringMethods(object):
 
         return self._new(value)
 
+    @specialize.argtype(0)
     def descr_lower(self, space):
         value = self._val(space)
         builder = self._builder(len(value))
@@ -441,6 +475,7 @@ class StringMethods(object):
             builder.append(self._lower(value[i]))
         return self._new(builder.build())
 
+    @specialize.argtype(0)
     def descr_partition(self, space, w_sub):
         value = self._val(space)
         sub = self._op_val(space, w_sub)
@@ -458,6 +493,7 @@ class StringMethods(object):
                 [self._sliced(space, value, 0, pos, value), w_sub,
                  self._sliced(space, value, pos+len(sub), len(value), value)])
 
+    @specialize.argtype(0)
     def descr_rpartition(self, space, w_sub):
         value = self._val(space)
         sub = self._op_val(space, w_sub)
@@ -476,6 +512,7 @@ class StringMethods(object):
                  self._sliced(space, value, pos+len(sub), len(value), value)])
 
     @unwrap_spec(count=int)
+    @specialize.argtype(0)
     def descr_replace(self, space, w_old, w_new, count=-1):
         input = self._val(space)
         sub = self._op_val(space, w_old)
@@ -488,6 +525,7 @@ class StringMethods(object):
         return self._new(res)
 
     @unwrap_spec(maxsplit=int)
+    @specialize.argtype(0)
     def descr_split(self, space, w_sep=None, maxsplit=-1):
         res = []
         value = self._val(space)
@@ -528,6 +566,7 @@ class StringMethods(object):
         return self._newlist_unwrapped(space, res)
 
     @unwrap_spec(maxsplit=int)
+    @specialize.argtype(0)
     def descr_rsplit(self, space, w_sep=None, maxsplit=-1):
         res = []
         value = self._val(space)
@@ -571,6 +610,7 @@ class StringMethods(object):
         return self._newlist_unwrapped(space, res)
 
     @unwrap_spec(keepends=bool)
+    @specialize.argtype(0)
     def descr_splitlines(self, space, keepends=False):
         data = self._val(space)
         selflen = len(data)
@@ -594,6 +634,7 @@ class StringMethods(object):
             strs.append(data[j:len(data)])
         return self._newlist_unwrapped(space, strs)
 
+    @specialize.argtype(0)
     def descr_startswith(self, space, w_prefix, w_start=None, w_end=None):
         (value, start, end) = self._convert_idx_params(space, w_start, w_end,
                                                        True)
@@ -607,6 +648,7 @@ class StringMethods(object):
     def _startswith(self, space, value, w_prefix, start, end):
         return startswith(value, self._op_val(space, w_prefix), start, end)
 
+    @specialize.argtype(0)
     def descr_endswith(self, space, w_suffix, w_start=None, w_end=None):
         (value, start, end) = self._convert_idx_params(space, w_start,
                                                    w_end, True)
@@ -660,21 +702,25 @@ class StringMethods(object):
         assert rpos >= lpos    # annotator hint, don't remove
         return self._sliced(space, value, lpos, rpos, self)
 
+    @specialize.argtype(0)
     def descr_strip(self, space, w_chars=None):
         if space.is_none(w_chars):
             return self._strip_none(space, left=1, right=1)
         return self._strip(space, w_chars, left=1, right=1)
 
+    @specialize.argtype(0)
     def descr_lstrip(self, space, w_chars=None):
         if space.is_none(w_chars):
             return self._strip_none(space, left=1, right=0)
         return self._strip(space, w_chars, left=1, right=0)
 
+    @specialize.argtype(0)
     def descr_rstrip(self, space, w_chars=None):
         if space.is_none(w_chars):
             return self._strip_none(space, left=0, right=1)
         return self._strip(space, w_chars, left=0, right=1)
 
+    @specialize.argtype(0)
     def descr_swapcase(self, space):
         selfvalue = self._val(space)
         builder = self._builder(len(selfvalue))
@@ -688,6 +734,7 @@ class StringMethods(object):
                 builder.append(ch)
         return self._new(builder.build())
 
+    @specialize.argtype(0)
     def descr_title(self, space):
         selfval = self._val(space)
         if len(selfval) == 0:
@@ -708,6 +755,7 @@ class StringMethods(object):
 
     # for bytes and bytearray, overridden by unicode
     @unwrap_spec(w_deletechars=WrappedDefault(''))
+    @specialize.argtype(0)
     def descr_translate(self, space, w_table, w_deletechars):
         if space.is_w(w_table, space.w_None):
             table = self.DEFAULT_NOOP_TABLE
@@ -734,6 +782,7 @@ class StringMethods(object):
                     buf.append(table[ord(char)])
         return self._new(buf.build())
 
+    @specialize.argtype(0)
     def descr_upper(self, space):
         value = self._val(space)
         builder = self._builder(len(value))
@@ -742,6 +791,7 @@ class StringMethods(object):
         return self._new(builder.build())
 
     @unwrap_spec(width=int)
+    @specialize.argtype(0)
     def descr_zfill(self, space, width):
         selfval = self._val(space)
         if len(selfval) == 0:
@@ -762,5 +812,6 @@ class StringMethods(object):
         builder.append_slice(selfval, start, len(selfval))
         return self._new(builder.build())
 
+    @specialize.argtype(0)
     def descr_getnewargs(self, space):
         return space.newtuple([self._new(self._val(space))])
