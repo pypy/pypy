@@ -32,6 +32,12 @@ more precise information about which functions can be called. Needed for Topaz.
 
 .. branch: ssl_moving_write_buffer
 
+.. branch: pythoninspect-fix
+Make PyPy respect PYTHONINSPECT variable set via os.putenv in the same process
+to start interactive prompt when the script execution finishes. This adds
+new __pypy__.os.real_getenv call that bypasses Python cache and looksup env
+in the underlying OS. Translatorshell now works on PyPy.
+
 .. branch: add-statvfs
 Added os.statvfs and os.fstatvfs
 
