@@ -761,6 +761,10 @@ class Assembler386(BaseAssembler):
         self.mc.RET()
 
     def _load_shadowstack_top_in_reg(self, mc, gcrootmap, selected_reg=ebx):
+        """Loads the shadowstack top in selected reg, and returns an integer
+        that gives the address of the stack top.  If this integer doesn't
+        fit in 32 bits, it will be loaded in r11.
+        """
         rst = gcrootmap.get_root_stack_top_addr()
         if rx86.fits_in_32bits(rst):
             mc.MOV_rj(selected_reg.value, rst)       # MOV ebx, [rootstacktop]
@@ -778,6 +782,9 @@ class Assembler386(BaseAssembler):
         if rx86.fits_in_32bits(rst):
             mc.MOV_jr(rst, selected_reg.value)       # MOV [rootstacktop], ebx
         else:
+            # The integer 'rst' doesn't fit in 32 bits, so we know that
+            # _load_shadowstack_top_in_ebx() above loaded it in r11.
+            # Reuse it.  Be careful not to overwrite r11 in the middle!
             mc.MOV_mr((X86_64_SCRATCH_REG.value, 0),
                       selected_reg.value) # MOV [r11], ebx
 

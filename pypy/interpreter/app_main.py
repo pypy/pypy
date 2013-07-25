@@ -196,6 +196,11 @@ def print_version(*args):
     print >> sys.stderr, "Python", sys.version
     raise SystemExit
 
+
+def funroll_loops(*args):
+    print("Vroom vroom, I'm a racecar!")
+
+
 def set_jit_option(options, jitparam, *args):
     if jitparam == 'help':
         _print_jit_help()
@@ -381,6 +386,7 @@ cmdline_options = {
     'Q':         (div_option,      Ellipsis),
     '--info':    (print_info,      None),
     '--jit':     (set_jit_option,  Ellipsis),
+    '-funroll-loops': (funroll_loops, None),
     '--':        (end_options,     None),
     }
 
