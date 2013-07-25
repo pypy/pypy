@@ -79,8 +79,9 @@ class W_UnicodeObject(W_Object, StringMethods):
         return self._value
 
     def _op_val(self, space, w_other):
-        return unicode_from_object2(space, w_other)._value
-        #return w_other._value
+        if isinstance(w_other, W_UnicodeObject):
+            return w_other._value
+        return unicode_from_encoded_object(space, w_other, None, "strict")._value
 
     def _chr(self, char):
         return unicode(char)
@@ -333,14 +334,6 @@ def unicode_from_object(space, w_obj):
         if space.isinstance_w(w_res, space.w_unicode):
             return w_res
     return unicode_from_encoded_object(space, w_res, None, "strict")
-
-# XXX refactor / rename / share with unicode_from_object
-def unicode_from_object2(space, w_obj):
-    if space.is_w(space.type(w_obj), space.w_unicode):
-        return w_obj
-    elif isinstance(w_obj, W_UnicodeObject):
-        return W_UnicodeObject(w_obj._value)
-    return unicode_from_encoded_object(space, w_obj, None, "strict")
 
 def unicode_from_string(space, w_str):
     # this is a performance and bootstrapping hack
