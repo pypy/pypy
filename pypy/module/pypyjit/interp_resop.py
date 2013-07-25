@@ -125,12 +125,10 @@ class WrappedBox(W_Root):
         self.llbox = llbox
 
     def descr_getint(self, space):
-        try:
-            value = jit_hooks.box_getint(self.llbox)
-        except NotImplementedError:
+        if not jit_hooks.box_isint(self.llbox):
             raise OperationError(space.w_NotImplementedError,
                                  space.wrap("Box has no int value"))
-        return space.wrap(value)
+        return space.wrap(jit_hooks.box_getint(self.llbox))
 
 @unwrap_spec(no=int)
 def descr_new_box(space, w_tp, no):

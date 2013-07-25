@@ -31,3 +31,9 @@ class is being instantiated isn't known precisely) allow the optimizer to have
 more precise information about which functions can be called. Needed for Topaz.
 
 .. branch: ssl_moving_write_buffer
+
+.. branch: add-statvfs
+Added os.statvfs and os.fstatvfs
+
+.. branch: statvfs_tests
+Added some addition tests for statvfs.
