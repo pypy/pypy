@@ -19,10 +19,7 @@ class StatResultRepr(Repr):
 
     def __init__(self, rtyper):
         self.rtyper = rtyper
-        if rtyper.type_system.name == "lltypesystem":
-            self.stat_fields = ll_os_stat.STAT_FIELDS
-        else:
-            self.stat_fields = ll_os_stat.PORTABLE_STAT_FIELDS
+        self.stat_fields = ll_os_stat.STAT_FIELDS
 
         self.stat_field_indexes = {}
         for i, (name, TYPE) in enumerate(self.stat_fields):

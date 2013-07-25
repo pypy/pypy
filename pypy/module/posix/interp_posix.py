@@ -208,11 +208,8 @@ opened on a directory, not a file."""
 
 # ____________________________________________________________
 
-# For LL backends, expose all fields.
-# For OO backends, only the portable fields (the first 10).
 STAT_FIELDS = unrolling_iterable(enumerate(ll_os_stat.STAT_FIELDS))
-PORTABLE_STAT_FIELDS = unrolling_iterable(
-                                 enumerate(ll_os_stat.PORTABLE_STAT_FIELDS))
+
 
 def build_stat_result(space, st):
     FIELDS = STAT_FIELDS    # also when not translating at all

@@ -48,11 +48,6 @@ translation_modules.update(dict.fromkeys(
      "termios", "_minimal_curses",
      ]))
 
-working_oo_modules = default_modules.copy()
-working_oo_modules.update(dict.fromkeys(
-    ["_md5", "_sha", "cStringIO", "itertools"]
-))
-
 # XXX this should move somewhere else, maybe to platform ("is this posixish"
 #     check or something)
 if sys.platform == "win32":
