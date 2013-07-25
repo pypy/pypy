@@ -340,10 +340,6 @@ def set_pypy_opt_level(config, level):
         if not IS_64_BITS:
             config.objspace.std.suggest(withsmalllong=True)
 
-    # some optimizations have different effects depending on the typesystem
-    if type_system == 'ootype':
-        config.objspace.std.suggest(multimethods="doubledispatch")
-
     # extra optimizations with the JIT
     if level == 'jit':
         config.objspace.std.suggest(withcelldict=True)
@@ -351,10 +347,7 @@ def set_pypy_opt_level(config, level):
 
 
 def enable_allworkingmodules(config):
-    if config.translation.type_system == 'ootype':
-        modules = working_oo_modules
-    else:
-        modules = working_modules
+    modules = working_modules
     if config.translation.sandbox:
         modules = default_modules
     # ignore names from 'essential_modules', notably 'exceptions', which

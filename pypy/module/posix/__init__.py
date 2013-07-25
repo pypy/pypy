@@ -4,25 +4,6 @@ from rpython.rtyper.module.ll_os import RegisterOs
 import os
 exec 'import %s as posix' % os.name
 
-# this is the list of function which is *not* present in the posix module of
-# IronPython 2.6, and that we want to ignore for now
-lltype_only_defs = [
-    'chown', 'chroot', 'closerange', 'confstr', 'confstr_names', 'ctermid', 'dup',
-    'dup2', 'execv', 'execve', 'fchdir', 'fchmod', 'fchown', 'fdatasync', 'fork',
-    'forkpty', 'fpathconf', 'fstatvfs', 'fsync', 'ftruncate', 'getegid', 'geteuid',
-    'getgid', 'getgroups', 'getloadavg', 'getlogin', 'getpgid', 'getpgrp', 'getppid',
-    'getsid', 'getuid', 'kill', 'killpg', 'lchown', 'link', 'lseek', 'major',
-    'makedev', 'minor', 'mkfifo', 'mknod', 'nice', 'openpty', 'pathconf', 'pathconf_names',
-    'pipe', 'readlink', 'setegid', 'seteuid', 'setgid', 'setgroups', 'setpgid', 'setpgrp',
-    'setregid', 'setreuid', 'setsid', 'setuid', 'stat_float_times', 'statvfs',
-    'statvfs_result', 'symlink', 'sysconf', 'sysconf_names', 'tcgetpgrp', 'tcsetpgrp',
-    'ttyname', 'uname', 'wait', 'wait3', 'wait4'
-    ]
-
-# the Win32 urandom implementation isn't going to translate on JVM or CLI so
-# we have to remove it
-lltype_only_defs.append('urandom')
-
 class Module(MixedModule):
     """This module provides access to operating system functionality that is
 standardized by the C Standard and the POSIX standard (a thinly
@@ -54,7 +35,7 @@ corresponding Unix manual entries for more information on calls."""
         appleveldefs['wait3'] = 'app_posix.wait3'
     if hasattr(os, 'wait4'):
         appleveldefs['wait4'] = 'app_posix.wait4'
-        
+
     interpleveldefs = {
     'open'      : 'interp_posix.open',
     'lseek'     : 'interp_posix.lseek',
@@ -168,8 +149,8 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['getlogin'] = 'interp_posix.getlogin'
 
     for name in ['setsid', 'getuid', 'geteuid', 'getgid', 'getegid', 'setuid',
-                 'seteuid', 'setgid', 'setegid', 'getgroups', 'getpgrp', 
-                 'setpgrp', 'getppid', 'getpgid', 'setpgid', 'setreuid', 
+                 'seteuid', 'setgid', 'setegid', 'getgroups', 'getpgrp',
+                 'setpgrp', 'getppid', 'getpgid', 'setpgid', 'setreuid',
                  'setregid', 'getsid', 'setsid']:
         if hasattr(os, name):
             interpleveldefs[name] = 'interp_posix.%s' % (name,)
@@ -178,24 +159,15 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['_getfullpathname'] = 'interp_posix._getfullpathname'
     if hasattr(os, 'chroot'):
         interpleveldefs['chroot'] = 'interp_posix.chroot'
-    
+
     for name in RegisterOs.w_star:
         if hasattr(os, name):
             interpleveldefs[name] = 'interp_posix.' + name
 
-    def __init__(self, space, w_name):
-        # if it's an ootype translation, remove all the defs that are lltype
-        # only
-        backend = space.config.translation.backend
-        if backend == 'cli' or backend == 'jvm':
-            for name in lltype_only_defs:
-                self.interpleveldefs.pop(name, None)
-        MixedModule.__init__(self, space, w_name)
-
     def startup(self, space):
         from pypy.module.posix import interp_posix
         interp_posix.get(space).startup(space)
-        
+
 for constant in dir(os):
     value = getattr(os, constant)
     if constant.isupper() and type(value) is int:
