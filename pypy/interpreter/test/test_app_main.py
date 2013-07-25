@@ -710,7 +710,7 @@ class TestNonInteractive:
         try:
             import __pypy__
         except ImportError:
-            py.test.skip("This can be only tested on PyPy with get_realenv")
+            py.test.skip("This can be only tested on PyPy with real_getenv")
 
         # should be noninteractive when piped in
         data = 'import os\nos.putenv("PYTHONINSPECT", "1")\n'
