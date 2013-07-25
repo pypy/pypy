@@ -707,6 +707,11 @@ class TestNonInteractive:
         assert '42\n' in data
 
     def test_putenv_fires_interactive_within_process(self):
+        try:
+            import __pypy__
+        except ImportError:
+            py.test.skip("This can be only tested on PyPy with get_realenv")
+
         # should be noninteractive when piped in
         data = 'import os\nos.putenv("PYTHONINSPECT", "1")\n'
         self.run('', senddata=data, expect_prompt=False)
