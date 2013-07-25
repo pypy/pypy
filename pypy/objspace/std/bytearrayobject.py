@@ -47,7 +47,7 @@ class W_BytearrayObject(W_Object, StringMethods):
     _builder = StringBuilder
 
     def _newlist_unwrapped(self, space, res):
-        return space.wrap([W_BytearrayObject(list(i)) for i in res])
+        return space.newlist([W_BytearrayObject(list(i)) for i in res])
 
     def _isupper(self, ch):
         return ch.isupper()

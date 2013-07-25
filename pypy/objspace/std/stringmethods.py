@@ -490,8 +490,8 @@ class StringMethods(object):
             if isinstance(self, W_BytearrayObject):
                 w_sub = self._new(sub)
             return space.newtuple(
-                [self._sliced(space, value, 0, pos, value), w_sub,
-                 self._sliced(space, value, pos+len(sub), len(value), value)])
+                [self._sliced(space, value, 0, pos, self), w_sub,
+                 self._sliced(space, value, pos+len(sub), len(value), self)])
 
     @specialize.argtype(0)
     def descr_rpartition(self, space, w_sub):
@@ -508,8 +508,8 @@ class StringMethods(object):
             if isinstance(self, W_BytearrayObject):
                 w_sub = self._new(sub)
             return space.newtuple(
-                [self._sliced(space, value, 0, pos, value), w_sub,
-                 self._sliced(space, value, pos+len(sub), len(value), value)])
+                [self._sliced(space, value, 0, pos, self), w_sub,
+                 self._sliced(space, value, pos+len(sub), len(value), self)])
 
     @unwrap_spec(count=int)
     @specialize.argtype(0)
