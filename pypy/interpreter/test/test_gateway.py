@@ -708,6 +708,18 @@ class TestGateway:
             never_called
         py.test.raises(AssertionError, space.wrap, gateway.interp2app_temp(g))
 
+    def test_interp2app_doc(self):
+        space = self.space
+        def f(space, w_x):
+            """foo"""
+        w_f = space.wrap(gateway.interp2app_temp(f))
+        assert space.unwrap(space.getattr(w_f, space.wrap('__doc__'))) == 'foo'
+        #
+        def g(space, w_x):
+            never_called
+        w_g = space.wrap(gateway.interp2app_temp(g, doc='bar'))
+        assert space.unwrap(space.getattr(w_g, space.wrap('__doc__'))) == 'bar'
+
 
 class AppTestPyTestMark:
     @py.test.mark.unlikely_to_exist
