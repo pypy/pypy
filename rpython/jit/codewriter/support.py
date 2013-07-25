@@ -814,15 +814,3 @@ def builtin_func_for_spec(rtyper, oopspec_name, ll_args, ll_res,
     rtyper._builtin_func_for_spec_cache[key] = (c_func, LIST_OR_DICT)
     #
     return c_func, LIST_OR_DICT
-
-
-def decompose_oosend(op):
-    name = op.args[0].value
-    opargs = op.args[1:]
-    SELFTYPE = opargs[0].concretetype
-    return SELFTYPE, name, opargs
-
-def lookup_oosend_method(op):
-    SELFTYPE, methname, args_v = decompose_oosend(op)
-    _, meth = SELFTYPE._lookup(methname)
-    return SELFTYPE, methname, meth

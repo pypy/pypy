@@ -156,10 +156,6 @@ class GraphAnalyzer(object):
                 break
         return self.finalize_builder(result)
 
-    def analyze_oosend(self, TYPE, name, seen=None):
-        graphs = TYPE._lookup_graphs(name)
-        return self.analyze_indirect_call(graphs, seen)
-
     def analyze_all(self, graphs=None):
         if graphs is None:
             graphs = self.translator.graphs

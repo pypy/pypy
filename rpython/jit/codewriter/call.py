@@ -65,7 +65,7 @@ class CallControl(object):
         while todo:
             top_graph = todo.pop()
             for _, op in top_graph.iterblockops():
-                if op.opname not in ("direct_call", "indirect_call", "oosend"):
+                if op.opname not in ("direct_call", "indirect_call"):
                     continue
                 kind = self.guess_call_kind(op, is_candidate)
                 # use callers() to view the calling chain in pdb
@@ -90,13 +90,8 @@ class CallControl(object):
             if is_candidate(graph):
                 return [graph]     # common case: look inside this graph
         else:
-            assert op.opname in ('indirect_call', 'oosend')
-            if op.opname == 'indirect_call':
-                graphs = op.args[-1].value
-            else:
-                v_obj = op.args[1].concretetype
-                graphs = v_obj._lookup_graphs(op.args[0].value)
-            #
+            assert op.opname == 'indirect_call'
+            graphs = op.args[-1].value
             if graphs is None:
                 # special case: handle the indirect call that goes to
                 # the 'instantiate' methods.  This check is a bit imprecise
@@ -141,10 +136,6 @@ class CallControl(object):
                     return 'residual'
                 if hasattr(targetgraph.func, 'oopspec'):
                     return 'builtin'
-        elif op.opname == 'oosend':
-            SELFTYPE, methname, opargs = support.decompose_oosend(op)
-            if SELFTYPE.oopspec_name is not None:
-                return 'builtin'
         if self.graphs_from(op, is_candidate) is None:
             return 'residual'
         return 'regular'
