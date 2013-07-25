@@ -1,3 +1,4 @@
+from rpython.rtyper.lltypesystem.lltype import DelayedPointer
 from rpython.translator.simplify import get_graph
 from rpython.tool.algo.unionfind import UnionFind
 
@@ -52,7 +53,10 @@ class GraphAnalyzer(object):
         return self.bottom_result()
 
     def analyze_external_call(self, op, seen=None):
-        funcobj = op.args[0].value._obj
+        try:
+            funcobj = op.args[0].value._obj
+        except DelayedPointer:
+            return self.bottom_result()
         result = self.bottom_result()
         if hasattr(funcobj, '_callbacks'):
             bk = self.translator.annotator.bookkeeper

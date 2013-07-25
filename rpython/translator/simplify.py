@@ -20,7 +20,10 @@ def get_graph(arg, translator):
     f = arg.value
     if not isinstance(f, lltype._ptr):
         return None
-    funcobj = f._obj
+    try:
+        funcobj = f._getobj()
+    except lltype.DelayedPointer:
+        return None
     try:
         callable = funcobj._callable
     except (AttributeError, KeyError, AssertionError):
