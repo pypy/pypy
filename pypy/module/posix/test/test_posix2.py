@@ -184,14 +184,15 @@ class AppTestPosix:
                     assert isinstance(e, WindowsError)
                     assert e.winerror == 3
 
-    def test_statvfs(self):
-        st = self.posix.statvfs(".")
-        assert isinstance(st, self.posix.statvfs_result)
-        for field in [
-            'f_bsize', 'f_frsize', 'f_blocks', 'f_bfree', 'f_bavail',
-            'f_files', 'f_ffree', 'f_favail', 'f_flag', 'f_namemax',
-        ]:
-            assert hasattr(st, field)
+    if hasattr(__import__(os.name), "statvfs"):
+        def test_statvfs(self):
+            st = self.posix.statvfs(".")
+            assert isinstance(st, self.posix.statvfs_result)
+            for field in [
+                'f_bsize', 'f_frsize', 'f_blocks', 'f_bfree', 'f_bavail',
+                'f_files', 'f_ffree', 'f_favail', 'f_flag', 'f_namemax',
+            ]:
+                assert hasattr(st, field)
 
     def test_pickle(self):
         import pickle, os
