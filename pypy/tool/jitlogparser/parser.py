@@ -4,6 +4,8 @@ from rpython.jit.metainterp.resoperation import opname
 from rpython.jit.tool.oparser import OpParser
 from rpython.tool.logparser import parse_log_file, extract_category
 from copy import copy
+from rpython.jit.backend.tool.viewcode import (machine_code_dump, load_symbols,
+                                               lineaddresses)
 
 def parse_code_data(arg):
     name = None
@@ -74,7 +76,7 @@ class SimpleParser(OpParser):
     use_mock_model = True
 
     def postprocess(self, loop, backend_dump=None, backend_tp=None,
-                    dump_start=0):
+                    dump_start=0, symbols=None):
         if backend_dump is not None:
             raw_asm = self._asm_disassemble(backend_dump.decode('hex'),
                                             backend_tp, dump_start)
@@ -89,8 +91,15 @@ class SimpleParser(OpParser):
                 if not start:
                     start = int(adr.strip(":"), 16)
                 ofs = int(adr.strip(":"), 16) - start
+                # add symbols to addresses:
+                for addr in lineaddresses(v):
+                    sym = symbols.get(addr)
+                    if sym:
+                        v = '%s\t%s\n' % (v.rstrip(), 
+                                          sym.replace('\xb7', ''))
                 if ofs >= 0:
                     asm.append((ofs, v.strip("\n")))
+            #
             asm_index = 0
             for i, op in enumerate(loop.operations):
                 end = 0
@@ -113,7 +122,6 @@ class SimpleParser(OpParser):
         return loop
 
     def _asm_disassemble(self, d, origin_addr, tp):
-        from rpython.jit.backend.tool.viewcode import machine_code_dump
         return list(machine_code_dump(d, tp, origin_addr))
 
     @classmethod
@@ -387,15 +395,22 @@ def import_log(logname, ParserCls=SimpleParser):
             addr = int(m.group(1), 16)
         addrs.setdefault(addr, []).append(name)
     dumps = {}
+    executables = set()
+    symbols = {}
     for entry in extract_category(log, 'jit-backend-dump'):
         entry = purge_thread_numbers(entry)
-        backend, _, dump, _ = entry.split("\n")
+        backend, executable, dump, _ = entry.split("\n")
+        _, executable = executable.split(" ")
+        if executable not in executables:
+            symbols.update(load_symbols(executable))
+            executables.add(executable)
         _, addr, _, data = re.split(" +", dump)
         backend_name = backend.split(" ")[1]
         addr = int(addr[1:], 16)
         if addr in addrs and addrs[addr]:
             name = addrs[addr].pop(0) # they should come in order
             dumps[name] = (backend_name, addr, data)
+    
     loops = []
     for entry in extract_category(log, 'jit-log-opt'):
         parser = ParserCls(entry, None, {}, 'lltype', None,
@@ -416,7 +431,8 @@ def import_log(logname, ParserCls=SimpleParser):
                               bname=bname, loop=loop:
                               parser.postprocess(loop, backend_tp=bname,
                                                  backend_dump=dump,
-                                                 dump_start=start_ofs))
+                                                 dump_start=start_ofs,
+                                                 symbols=symbols))
         loops += split_trace(loop)
     return log, loops
 

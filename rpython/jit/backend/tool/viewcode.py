@@ -205,7 +205,8 @@ class CodeRange(object):
                 for addr in lineaddresses(line):
                     sym = symbols.get(addr)
                     if sym:
-                        lines[i] = '%s\t%s\n' % (lines[i].rstrip(), sym)
+                        lines[i] = '%s\t%s\n' % (lines[i].rstrip(), 
+                                                 str(sym).strip('\xb7'))
             self.text = ''.join(lines)
         return self.text
 
