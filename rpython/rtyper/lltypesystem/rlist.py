@@ -259,10 +259,12 @@ def _ll_list_resize_ge(l, newsize):
     a realloc().  In the common case where we already overallocated enough,
     then this is a very fast operation.
     """
+    cond = len(l.items) < newsize
     if jit.isconstant(len(l.items)) and jit.isconstant(newsize):
-        _ll_list_resize_hint_really(l, newsize, True)
+        if cond:
+            _ll_list_resize_hint_really(l, newsize, True)
     else:
-        jit.conditional_call(len(l.items) < newsize,
+        jit.conditional_call(cond,
                              _ll_list_resize_hint_really, l, newsize, True)
     l.length = newsize
 
@@ -273,7 +275,8 @@ def _ll_list_resize_le(l, newsize):
     """
     cond = newsize < (len(l.items) >> 1) - 5
     if jit.isconstant(len(l.items)) and jit.isconstant(newsize):
-        _ll_list_resize_hint_really(l, newsize, False)
+        if cond:
+            _ll_list_resize_hint_really(l, newsize, False)
     else:
         jit.conditional_call(cond, _ll_list_resize_hint_really, l, newsize,
                              False)
