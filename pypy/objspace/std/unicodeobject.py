@@ -313,6 +313,7 @@ def unicode_from_encoded_object(space, w_obj, encoding, errors):
         raise operationerrfmt(space.w_TypeError,
             "decoder did not return an unicode object (type '%s')",
             space.type(w_retval).getname(space))
+    assert isinstance(w_retval, W_UnicodeObject)
     return w_retval
 
 def unicode_from_object(space, w_obj):

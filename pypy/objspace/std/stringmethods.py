@@ -95,7 +95,7 @@ class StringMethods(object):
     def descr_len(self, space):
         return space.wrap(self._len())
 
-    @specialize.argtype(0)
+    #@specialize.argtype(0)
     #def descr_iter(self, space):
     #    pass
 
@@ -645,6 +645,7 @@ class StringMethods(object):
             return space.w_False
         return space.newbool(self._startswith(space, value, w_prefix, start, end))
 
+    @specialize.argtype(0)
     def _startswith(self, space, value, w_prefix, start, end):
         return startswith(value, self._op_val(space, w_prefix), start, end)
 
@@ -660,6 +661,7 @@ class StringMethods(object):
             return space.w_False
         return space.newbool(self._endswith(space, value, w_suffix, start, end))
 
+    @specialize.argtype(0)
     def _endswith(self, space, value, w_prefix, start, end):
         return endswith(value, self._op_val(space, w_prefix), start, end)
 
