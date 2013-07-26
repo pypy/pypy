@@ -86,6 +86,7 @@ class W_BytesObject(W_AbstractBytesObject, StringMethods):
         assert len(char) == 1
         return str(char)[0]
 
+    _empty = ''
     _builder = StringBuilder
 
     def _isupper(self, ch):

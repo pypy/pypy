@@ -87,6 +87,7 @@ class W_UnicodeObject(W_Object, StringMethods):
         assert len(char) == 1
         return unicode(char)[0]
 
+    _empty = u''
     _builder = UnicodeBuilder
 
     def _isupper(self, ch):

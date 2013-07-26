@@ -44,6 +44,7 @@ class W_BytearrayObject(W_Object, StringMethods):
         assert len(char) == 1
         return str(char)[0]
 
+    _empty = ''
     _builder = StringBuilder
 
     def _newlist_unwrapped(self, space, res):

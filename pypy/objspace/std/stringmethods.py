@@ -144,7 +144,7 @@ class StringMethods(object):
                 assert start >= 0 and stop >= 0
                 return self._sliced(space, selfvalue, start, stop, self)
             else:
-                str = "".join([selfvalue[start + i*step] for i in range(sl)])
+                str = self._empty.join([selfvalue[start + i*step] for i in range(sl)])
             return self._new(str)
 
         index = space.getindex_w(w_index, space.w_IndexError, "string index")
