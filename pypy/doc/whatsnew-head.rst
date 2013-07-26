@@ -24,3 +24,22 @@ to optionally skip it.
 .. branch: distutils-cppldflags
 Copy CPython's implementation of customize_compiler, dont call split on
 environment variables, honour CFLAGS, CPPFLAGS, LDSHARED and LDFLAGS on Unices.
+
+.. branch: precise-instantiate
+When an RPython class is instantiated via an indirect call (that is, which
+class is being instantiated isn't known precisely) allow the optimizer to have
+more precise information about which functions can be called. Needed for Topaz.
+
+.. branch: ssl_moving_write_buffer
+
+.. branch: pythoninspect-fix
+Make PyPy respect PYTHONINSPECT variable set via os.putenv in the same process
+to start interactive prompt when the script execution finishes. This adds
+new __pypy__.os.real_getenv call that bypasses Python cache and looksup env
+in the underlying OS. Translatorshell now works on PyPy.
+
+.. branch: add-statvfs
+Added os.statvfs and os.fstatvfs
+
+.. branch: statvfs_tests
+Added some addition tests for statvfs.

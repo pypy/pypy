@@ -140,6 +140,11 @@ def got_libffi_error(space):
     raise OperationError(space.w_SystemError,
                          space.wrap("not supported by libffi"))
 
+def wrap_dlopenerror(space, e, filename):
+    msg = e.msg if e.msg else 'unspecified error'
+    return operationerrfmt(space.w_OSError, 'Cannot load library %s: %s',
+                           filename, msg)
+
 
 class W_CDLL(W_Root):
     def __init__(self, space, name, cdll):
@@ -219,8 +224,7 @@ def descr_new_cdll(space, w_type, name):
     try:
         cdll = CDLL(name)
     except DLOpenError, e:
-        raise operationerrfmt(space.w_OSError, '%s: %s', name,
-                              e.msg or 'unspecified error')
+        raise wrap_dlopenerror(space, e, name)
     except OSError, e:
         raise wrap_oserror(space, e)
     return space.wrap(W_CDLL(space, name, cdll))

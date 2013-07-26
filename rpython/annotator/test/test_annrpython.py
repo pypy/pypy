@@ -741,6 +741,7 @@ class TestAnnotateTestCase:
         assert s.classdef is a.bookkeeper.getuniqueclassdef(C)
 
     def test_union_type_some_pbc(self):
+        py.test.skip("is there a point? f() can return self.__class__ instead")
         class A(object):
             name = "A"
 

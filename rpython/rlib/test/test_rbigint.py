@@ -515,7 +515,19 @@ class Test_rbigint(object):
         assert x.format('.!') == (
             '-!....!!..!!..!.!!.!......!...!...!!!........!')
         assert x.format('abcdefghijkl', '<<', '>>') == '-<<cakdkgdijffjf>>'
-        
+
+    def test_format_caching(self):
+        big = rbigint.fromlong(2 ** 1000)
+        res1 = big.str()
+        oldpow = rbigint.__dict__['pow']
+        rbigint.pow = None
+        # make sure pow is not used the second time
+        try:
+            res2 = big.str()
+            assert res2 == res1
+        finally:
+            rbigint.pow = oldpow
+
     def test_overzelous_assertion(self):
         a = rbigint.fromlong(-1<<10000)
         b = rbigint.fromlong(-1<<3000)

@@ -46,6 +46,26 @@ def test_getlogin():
     data = getllimpl(os.getlogin)()
     assert data == expected
 
+def test_statvfs():
+    if not hasattr(os, 'statvfs'):
+        py.test.skip('posix specific function')
+    try:
+        expected = os.statvfs('.')
+    except OSError, e:
+        py.test.skip("the underlying os.statvfs() failed: %s" % e)
+    data = getllimpl(os.statvfs)('.')
+    assert data == expected
+
+def test_fstatvfs():
+    if not hasattr(os, 'fstatvfs'):
+        py.test.skip('posix specific function')
+    try:
+        expected = os.fstatvfs(0)
+    except OSError, e:
+        py.test.skip("the underlying os.fstatvfs() failed: %s" % e)
+    data = getllimpl(os.fstatvfs)(0)
+    assert data == expected
+
 def test_utimes():
     if os.name != 'nt':
         py.test.skip('Windows specific feature')

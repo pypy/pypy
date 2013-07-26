@@ -223,7 +223,8 @@ class AppTestFfi:
             _rawffi.CDLL("xxxxx_this_name_does_not_exist_xxxxx")
         except OSError, e:
             print e
-            assert str(e).startswith("xxxxx_this_name_does_not_exist_xxxxx: ")
+            assert str(e).startswith(
+                "Cannot load library xxxxx_this_name_does_not_exist_xxxxx: ")
         else:
             raise AssertionError("did not fail??")
 
