@@ -2232,7 +2232,7 @@ class Assembler386(BaseAssembler):
             mc.CMP_rb(X86_64_SCRATCH_REG.value, StmGC.H_REVISION)
         else:
             mc.CMP(X86_64_SCRATCH_REG, mem(loc_base, StmGC.H_REVISION))
-            
+        #
         if isinstance(descr, STMReadBarrierDescr):
             # jump to end if h_rev==priv_rev
             mc.J_il8(rx86.Conditions['Z'], 0) # patched below
@@ -2268,19 +2268,15 @@ class Assembler386(BaseAssembler):
                 mc.TEST8_bi(StmGC.H_TID + off, flag)
             else:
                 mc.TEST8_mi((loc_base.value, StmGC.H_TID + off), flag)
-            mc.J_il8(rx86.Conditions['NZ'], 0) # patched below
-            jnz_location2 = mc.get_relative_pos()
-            
-            # jump to end
-            mc.JMP_l8(0) # patched below
+
+            mc.J_il8(rx86.Conditions['Z'], 0) # patched below
             jz_location = mc.get_relative_pos()
+            # both conditions succeeded, jump to end
             
             # jump target slowpath:
             offset = mc.get_relative_pos() - jnz_location
-            offset2 = mc.get_relative_pos() - jnz_location2
             assert 0 < offset <= 127
             mc.overwrite(jnz_location - 1, chr(offset))
-            mc.overwrite(jnz_location2 - 1, chr(offset2))
         #
         # SLOWPATH_START
         #
