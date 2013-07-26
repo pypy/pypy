@@ -5,6 +5,7 @@ from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.objspace.std.stringtype import getbytevalue
 
 from rpython.rlib.clibffi import *
+from rpython.rlib.objectmodel import we_are_translated
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.tool import rffi_platform
 from rpython.rlib.unroll import unrolling_iterable
@@ -142,7 +143,13 @@ def got_libffi_error(space):
                          space.wrap("not supported by libffi"))
 
 def wrap_dlopenerror(space, e, filename):
-    msg = e.msg if e.msg else 'unspecified error'
+    if e.msg:
+        # dlerror can return garbage messages under ll2ctypes (not
+        # we_are_translated()), so repr it to avoid potential problems
+        # converting to unicode later
+        msg = e.msg if we_are_translated() else repr(e.msg)
+    else:
+        msg = 'unspecified error'
     return operationerrfmt(space.w_OSError, 'Cannot load library %s: %s',
                            filename, msg)
 
