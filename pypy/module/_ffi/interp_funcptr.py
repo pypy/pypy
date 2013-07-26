@@ -14,7 +14,7 @@ from rpython.rlib.rdynload import DLOpenError
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rlib.objectmodel import we_are_translated
 from pypy.module._ffi.type_converter import FromAppLevelConverter, ToAppLevelConverter
-from pypy.module._rawffi.interp_rawffi import got_libffi_error
+from pypy.module._rawffi.interp_rawffi import got_libffi_error, wrap_dlopenerror
 
 import os
 if os.name == 'nt':
@@ -324,8 +324,7 @@ class W_CDLL(W_Root):
         try:
             self.cdll = libffi.CDLL(name, mode)
         except DLOpenError, e:
-            raise operationerrfmt(space.w_OSError, '%s: %s', self.name,
-                                  e.msg or 'unspecified error')
+            raise wrap_dlopenerror(space, e, self.name)
 
     def getfunc(self, space, w_name, w_argtypes, w_restype):
         return _getfunc(space, self, w_name, w_argtypes, w_restype)

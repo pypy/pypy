@@ -50,7 +50,7 @@ def _fromstring_text(space, s, count, sep, length, dtype):
         raise OperationError(space.w_ValueError, space.wrap(
             "string is smaller than requested size"))
 
-    a = W_NDimArray.from_shape([num_items], dtype=dtype)
+    a = W_NDimArray.from_shape(space, [num_items], dtype=dtype)
     ai = a.create_iter()
     for val in items:
         ai.setitem(val)
@@ -71,7 +71,7 @@ def _fromstring_bin(space, s, count, length, dtype):
         raise OperationError(space.w_ValueError, space.wrap(
             "string is smaller than requested size"))
 
-    a = W_NDimArray.from_shape([count], dtype=dtype)
+    a = W_NDimArray.from_shape(space, [count], dtype=dtype)
     loop.fromstring_loop(a, dtype, itemsize, s)
     return space.wrap(a)
 

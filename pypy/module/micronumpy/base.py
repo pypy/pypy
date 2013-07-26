@@ -10,6 +10,15 @@ def issequence_w(space, w_obj):
             space.isinstance_w(w_obj, space.w_list) or
             isinstance(w_obj, W_NDimArray))
 
+def wrap_impl(space, w_cls, w_instance, impl):
+    if w_cls is None or space.is_w(w_cls, space.gettypefor(W_NDimArray)):
+        w_ret = W_NDimArray(impl)
+    else:
+        w_ret = space.allocate_instance(W_NDimArray, w_cls)
+        W_NDimArray.__init__(w_ret, impl)
+        assert isinstance(w_ret, W_NDimArray)
+        space.call_method(w_ret, '__array_finalize__', w_instance)
+    return w_ret
 
 class ArrayArgumentException(Exception):
     pass
@@ -20,10 +29,11 @@ class W_NDimArray(W_Root):
 
     def __init__(self, implementation):
         assert isinstance(implementation, BaseArrayImplementation)
+        assert isinstance(self, W_NDimArray)
         self.implementation = implementation
 
     @staticmethod
-    def from_shape(shape, dtype, order='C'):
+    def from_shape(space, shape, dtype, order='C', w_instance=None):
         from pypy.module.micronumpy.arrayimpl import concrete, scalar
 
         if not shape:
@@ -32,10 +42,12 @@ class W_NDimArray(W_Root):
             strides, backstrides = calc_strides(shape, dtype.base, order)
             impl = concrete.ConcreteArray(shape, dtype.base, order, strides,
                                       backstrides)
+        if w_instance:
+            return wrap_impl(space, space.type(w_instance), w_instance, impl)
         return W_NDimArray(impl)
 
     @staticmethod
-    def from_shape_and_storage(shape, storage, dtype, order='C', owning=False):
+    def from_shape_and_storage(space, shape, storage, dtype, order='C', owning=False, w_subtype=None):
         from pypy.module.micronumpy.arrayimpl import concrete
         assert shape
         strides, backstrides = calc_strides(shape, dtype, order)
@@ -46,15 +58,20 @@ class W_NDimArray(W_Root):
         else:
             impl = concrete.ConcreteArrayNotOwning(shape, dtype, order, strides,
                                                 backstrides, storage)
+        if w_subtype:
+            w_ret = space.allocate_instance(W_NDimArray, w_subtype)
+            W_NDimArray.__init__(w_ret, impl)
+            space.call_method(w_ret, '__array_finalize__', w_subtype)
+            return w_ret
         return W_NDimArray(impl)
 
     @staticmethod
-    def new_slice(offset, strides, backstrides, shape, parent, orig_arr, dtype=None):
+    def new_slice(space, offset, strides, backstrides, shape, parent, orig_arr, dtype=None):
         from pypy.module.micronumpy.arrayimpl import concrete
 
         impl = concrete.SliceArray(offset, strides, backstrides, shape, parent,
                                    orig_arr, dtype)
-        return W_NDimArray(impl)
+        return wrap_impl(space, space.type(orig_arr), orig_arr, impl)
 
     @staticmethod
     def new_scalar(space, dtype, w_val=None):
