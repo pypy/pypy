@@ -189,13 +189,13 @@ class W_BytesObject(W_AbstractBytesObject, StringMethods):
     def _startswith(self, space, value, w_prefix, start, end):
         if space.isinstance_w(w_prefix, space.w_unicode):
             self_as_unicode = unicode_from_encoded_object(space, self, None, None)
-            return self_as_unicode._startswith(space, value, w_prefix, start, end)
+            return self_as_unicode._startswith(space, self_as_unicode._value, w_prefix, start, end)
         return StringMethods._startswith(self, space, value, w_prefix, start, end)
 
     def _endswith(self, space, value, w_suffix, start, end):
         if space.isinstance_w(w_suffix, space.w_unicode):
             self_as_unicode = unicode_from_encoded_object(space, self, None, None)
-            return self_as_unicode._endswith(space, value, w_suffix, start, end)
+            return self_as_unicode._endswith(space, self_as_unicode._value, w_suffix, start, end)
         return StringMethods._endswith(self, space, value, w_suffix, start, end)
 
     def _join_return_one(self, space, w_obj):
