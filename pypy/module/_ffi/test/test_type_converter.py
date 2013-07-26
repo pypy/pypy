@@ -119,7 +119,7 @@ class TestFromAppLevel(object):
 
     def test_strings(self):
         # first, try automatic conversion from applevel
-        self.check(app_types.char_p, self.space.wrap('foo'), 'foo')
+        self.check(app_types.char_p, self.space.wrapbytes('foo'), 'foo')
         self.check(app_types.unichar_p, self.space.wrap(u'foo\u1234'), u'foo\u1234')    
         self.check(app_types.unichar_p, self.space.wrap('foo'), u'foo')    
         # then, try to pass explicit pointers
