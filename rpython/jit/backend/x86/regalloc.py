@@ -797,8 +797,25 @@ class RegAlloc(BaseRegalloc):
                    for i in range(N)]
         self.perform_discard(op, arglocs)
 
+    def consider_cond_call_stm_b(self, op):
+        assert op.result is None
+        args = op.getarglist()
+        N = len(args)
+        assert N == 1
+        # we force all arguments in a reg (unless they are Consts),
+        # because it will be needed anyway by the following setfield_gc
+        # or setarrayitem_gc. It avoids loading it twice from the memory.
+        tmp_box = TempBox()
+        tmp_loc = self.rm.force_allocate_reg(tmp_box, args)
+        args = args + [tmp_box]
+
+        arglocs = [self.rm.make_sure_var_in_reg(op.getarg(i), args)
+                   for i in range(N)] + [tmp_loc]
+
+        self.perform_discard(op, arglocs)
+        self.rm.possibly_free_var(tmp_box)
+        
     consider_cond_call_gc_wb_array = consider_cond_call_gc_wb
-    consider_cond_call_stm_b       = consider_cond_call_gc_wb
 
     def consider_call_malloc_nursery(self, op):
         gc_ll_descr = self.assembler.cpu.gc_ll_descr

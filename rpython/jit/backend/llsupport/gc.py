@@ -441,14 +441,14 @@ class STMReadBarrierDescr(STMBarrierDescr):
     def __init__(self, gc_ll_descr, stmcat):
         assert stmcat == 'P2R'
         STMBarrierDescr.__init__(self, gc_ll_descr, stmcat,
-                                 'stm_read_barrier')
+                                 'stm_DirectReadBarrier')
 
         
 class STMWriteBarrierDescr(STMBarrierDescr):
     def __init__(self, gc_ll_descr, stmcat):
         assert stmcat in ['P2W']
         STMBarrierDescr.__init__(self, gc_ll_descr, stmcat,
-                                 'stm_write_barrier')
+                                 'stm_WriteBarrier')
     
         
 class GcLLDescr_framework(GcLLDescription):

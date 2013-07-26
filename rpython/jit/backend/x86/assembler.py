@@ -2204,6 +2204,7 @@ class Assembler386(BaseAssembler):
         assert isinstance(descr, STMBarrierDescr)
         assert descr.returns_modified_object
         loc_base = arglocs[0]
+        temp_loc = arglocs[1]
         assert isinstance(loc_base, RegLoc)
         
         helper_num = 0
@@ -2242,32 +2243,22 @@ class Assembler386(BaseAssembler):
             mc.J_il8(rx86.Conditions['NZ'], 0) # patched below
             jnz_location = mc.get_relative_pos()
 
+        # FXCACHE_AT(obj) != obj
         if isinstance(descr, STMReadBarrierDescr):
-            # FXCACHE_AT(obj) != obj
-            # XXX: optimize...
-            temp = loc_base.find_unused_reg()
-            mc.PUSH_r(temp.value)
-            mc.MOV_rr(temp.value, loc_base.value)
-            mc.AND_ri(temp.value, StmGC.FX_MASK)
-
-            # XXX: addressings like [rdx+rax*1] don't seem to work
+            # calculate: temp = obj & FX_MASK
+            assert StmGC.FX_MASK == 65535
+            mc.MOVZX16(temp_loc, loc_base)
+            # calculate: rbc + temp == obj
             rbc = self._get_stm_read_barrier_cache_addr()
             stmtlocal.tl_segment_prefix(mc)
             mc.MOV_rj(X86_64_SCRATCH_REG.value, rbc)
-            mc.ADD_rr(X86_64_SCRATCH_REG.value, temp.value)
-            mc.CMP(loc_base, mem(X86_64_SCRATCH_REG, 0))
-            mc.POP_r(temp.value)
+            mc.CMP_ra(loc_base.value, 
+                      (X86_64_SCRATCH_REG.value, temp_loc.value, 0, 0))
             mc.J_il8(rx86.Conditions['Z'], 0) # patched below
             jz_location2 = mc.get_relative_pos()
-            # <stm_read_barrier+21>:	mov    rdx,0xffffffffffffffb0
-            # <stm_read_barrier+28>:	movzx  eax,di
-            # <stm_read_barrier+31>:	mov    rdx,QWORD PTR fs:[rdx]
-            # <stm_read_barrier+35>:	cmp    rdi,QWORD PTR [rdx+rax*1]
-            # <stm_read_barrier+39>:	je     0x401f61 <stm_read_barrier+17>
-            # <stm_read_barrier+41>:	jmp    0x6a59f0 <stm_DirectReadBarrier>
-        
+
+        # obj->h_tid & GCFLAG_WRITE_BARRIER) != 0
         if isinstance(descr, STMWriteBarrierDescr):
-            # obj->h_tid & GCFLAG_WRITE_BARRIER) != 0
             if loc_base == ebp:
                 #mc.MOV_rb(X86_64_SCRATCH_REG.value, StmGC.H_TID)
                 mc.TEST8_bi(StmGC.H_TID, StmGC.GCFLAG_WRITE_BARRIER)
