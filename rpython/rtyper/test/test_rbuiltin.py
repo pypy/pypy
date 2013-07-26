@@ -233,7 +233,7 @@ class TestRbuiltin(BaseRtypingTest):
         assert self.ll_to_string(res) == 'hello world'
 
     def test_os_lseek(self):
-        self._skip_llinterpreter("os.lseek", skipOO=False)
+        self._skip_llinterpreter("os.lseek")
         tmpfile = str(udir.udir.join("os_lseek_test"))
         f = file(tmpfile, 'w')
         f.write('0123456789')
@@ -400,7 +400,6 @@ class TestRbuiltin(BaseRtypingTest):
         assert self.class_name(res) == 'B'
 
     def test_os_path_join(self):
-        self._skip_llinterpreter("os path oofakeimpl", skipLL=False)
         def fn(a, b):
             return os.path.join(a, b)
         res = self.ll_to_string(self.interpret(fn, ['a', 'b']))
