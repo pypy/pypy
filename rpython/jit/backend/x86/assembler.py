@@ -2204,7 +2204,6 @@ class Assembler386(BaseAssembler):
         assert isinstance(descr, STMBarrierDescr)
         assert descr.returns_modified_object
         loc_base = arglocs[0]
-        temp_loc = arglocs[1]
         assert isinstance(loc_base, RegLoc)
         
         helper_num = 0
@@ -2247,6 +2246,8 @@ class Assembler386(BaseAssembler):
         if isinstance(descr, STMReadBarrierDescr):
             # calculate: temp = obj & FX_MASK
             assert StmGC.FX_MASK == 65535
+            assert not is_frame
+            temp_loc = arglocs[1] # does not exist if is_frame!
             mc.MOVZX16(temp_loc, loc_base)
             # calculate: rbc + temp == obj
             rbc = self._get_stm_read_barrier_cache_addr()
