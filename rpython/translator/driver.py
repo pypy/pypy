@@ -529,6 +529,7 @@ class TranslationDriver(SimpleTaskEngine):
         goals = self.backend_select_goals(goals)
         return self._execute(goals, task_skip = self._maybe_skip())
 
+    @staticmethod
     def from_targetspec(targetspec_dic, config=None, args=None,
                         empty_translator=None,
                         disable=[],
@@ -538,13 +539,6 @@ class TranslationDriver(SimpleTaskEngine):
 
         driver = TranslationDriver(config=config, default_goal=default_goal,
                                    disable=disable)
-        # patch some attributes of the os module to make sure they
-        # have the same value on every platform.
-        backend, ts = driver.get_backend_and_type_system()
-        if backend in ('cli', 'jvm'):
-            from rpython.translator.oosupport.support import patch_os
-            driver.old_cli_defs = patch_os()
-
         target = targetspec_dic['target']
         spec = target(driver, args)
 
@@ -558,10 +552,7 @@ class TranslationDriver(SimpleTaskEngine):
                      policy=policy,
                      extra=targetspec_dic,
                      empty_translator=empty_translator)
-
         return driver
-
-    from_targetspec = staticmethod(from_targetspec)
 
     def prereq_checkpt_rtype(self):
         assert 'rpython.rtyper.rmodel' not in sys.modules, (

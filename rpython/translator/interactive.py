@@ -127,14 +127,3 @@ class Translation(object):
         self.ensure_backend('c')
         self.driver.compile_c()
         return self.driver.c_entryp
-
-    def compile_jvm(self, **kwds):
-        self.update_options(kwds)
-        self.ensure_backend('jvm')
-        self.driver.compile_jvm()
-        return self.driver.c_entryp
-
-    def source_jvm(self, **kwds):
-        self.update_options(kwds)
-        self.ensure_backend('jvm')
-        self.driver.source_jvm()
