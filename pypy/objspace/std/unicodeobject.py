@@ -144,8 +144,9 @@ class W_UnicodeObject(W_Object, StringMethods):
             w_format_spec = space.call_function(space.w_unicode, w_format_spec)
         spec = space.unicode_w(w_format_spec)
         formatter = newformat.unicode_formatter(space, spec)
-        return formatter.format_string(unicode_from_object(space, self))
-        #return formatter.format_string(space.unicode_w(self))
+        self2 = unicode_from_object(space, self)
+        assert isinstance(self2, W_UnicodeObject)
+        return formatter.format_string(self2._value)
 
     def descr_mod(self, space, w_values):
         return mod_format(space, self, w_values, do_unicode=True)
