@@ -2260,15 +2260,14 @@ class Assembler386(BaseAssembler):
 
         # obj->h_tid & GCFLAG_WRITE_BARRIER) != 0
         if isinstance(descr, STMWriteBarrierDescr):
+            assert IS_X86_64 and (StmGC.GCFLAG_WRITE_BARRIER >> 32) > 0
+            assert (StmGC.GCFLAG_WRITE_BARRIER >> 40) == 0
+            off = 4
+            flag = StmGC.GCFLAG_WRITE_BARRIER >> 32
             if loc_base == ebp:
-                #mc.MOV_rb(X86_64_SCRATCH_REG.value, StmGC.H_TID)
-                mc.TEST8_bi(StmGC.H_TID, StmGC.GCFLAG_WRITE_BARRIER)
+                mc.TEST8_bi(StmGC.H_TID + off, flag)
             else:
-                # mc.MOV(X86_64_SCRATCH_REG, mem(loc_base, StmGC.H_TID))
-                mc.TEST8_mi((loc_base.value, StmGC.H_TID),
-                            StmGC.GCFLAG_WRITE_BARRIER)
-            #doesn't work:
-            # mc.TEST(X86_64_SCRATCH_REG, imm(StmGC.GCFLAG_WRITE_BARRIER))
+                mc.TEST8_mi((loc_base.value, StmGC.H_TID + off), flag)
             mc.J_il8(rx86.Conditions['NZ'], 0) # patched below
             jnz_location2 = mc.get_relative_pos()
             

@@ -49,8 +49,8 @@ class StmGC(MovingGCBase):
     GCFLAG_STUB                   = first_gcflag << 8 # debug
     GCFLAG_PRIVATE_FROM_PROTECTED = first_gcflag << 9
     GCFLAG_HAS_ID                 = first_gcflag << 10
-    GCFLAG_IMMUTABLE              = first_gcflag << 11;
-    GCFLAG_SMALLSTUB              = first_gcflag << 12;
+    GCFLAG_IMMUTABLE              = first_gcflag << 11
+    GCFLAG_SMALLSTUB              = first_gcflag << 12
     
     PREBUILT_FLAGS    = first_gcflag * (1 + 2 + 4 + 8)
     PREBUILT_REVISION = r_uint(1)
