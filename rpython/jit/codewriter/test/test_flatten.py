@@ -94,7 +94,7 @@ class FakeCallControlWithVRefInfo:
         if op.args[0].value._obj._name == 'jit_force_virtual':
             return 'residual'
         return 'builtin'
-    def getcalldescr(self, op):
+    def getcalldescr(self, op, **kwds):
         return FakeDescr()
     def calldescr_canraise(self, calldescr):
         return False
