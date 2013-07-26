@@ -12,23 +12,7 @@ from rpython.rlib.rarithmetic import LONG_BIT, r_uint
 
 WORD = LONG_BIT // 8
 NULL = llmemory.NULL
-
-# keep in sync with stmgc.h & et.h:
 first_gcflag = 1 << (LONG_BIT//2)
-GCFLAG_OLD                    = first_gcflag << 0
-GCFLAG_VISITED                = first_gcflag << 1
-GCFLAG_PUBLIC                 = first_gcflag << 2
-GCFLAG_PREBUILT_ORIGINAL      = first_gcflag << 3
-GCFLAG_PUBLIC_TO_PRIVATE      = first_gcflag << 4
-GCFLAG_WRITE_BARRIER          = first_gcflag << 5 # stmgc.h
-GCFLAG_NURSERY_MOVED          = first_gcflag << 6
-GCFLAG_BACKUP_COPY            = first_gcflag << 7 # debug
-GCFLAG_STUB                   = first_gcflag << 8 # debug
-GCFLAG_PRIVATE_FROM_PROTECTED = first_gcflag << 9
-GCFLAG_HAS_ID                 = first_gcflag << 10
-
-PREBUILT_FLAGS    = first_gcflag * (1 + 2 + 4 + 8)
-PREBUILT_REVISION = r_uint(1)
 
 
 class StmGC(MovingGCBase):
@@ -53,6 +37,27 @@ class StmGC(MovingGCBase):
     TRANSLATION_PARAMS = {
     }
 
+    # keep in sync with stmgc.h & et.h:
+    GCFLAG_OLD                    = first_gcflag << 0
+    GCFLAG_VISITED                = first_gcflag << 1
+    GCFLAG_PUBLIC                 = first_gcflag << 2
+    GCFLAG_PREBUILT_ORIGINAL      = first_gcflag << 3
+    GCFLAG_PUBLIC_TO_PRIVATE      = first_gcflag << 4
+    GCFLAG_WRITE_BARRIER          = first_gcflag << 5 # stmgc.h
+    GCFLAG_NURSERY_MOVED          = first_gcflag << 6
+    GCFLAG_BACKUP_COPY            = first_gcflag << 7 # debug
+    GCFLAG_STUB                   = first_gcflag << 8 # debug
+    GCFLAG_PRIVATE_FROM_PROTECTED = first_gcflag << 9
+    GCFLAG_HAS_ID                 = first_gcflag << 10
+    GCFLAG_IMMUTABLE              = first_gcflag << 11;
+    GCFLAG_SMALLSTUB              = first_gcflag << 12;
+    
+    PREBUILT_FLAGS    = first_gcflag * (1 + 2 + 4 + 8)
+    PREBUILT_REVISION = r_uint(1)
+    
+    FX_MASK = 65535
+
+
     def setup(self):
         # Hack: MovingGCBase.setup() sets up stuff related to id(), which
         # we implement differently anyway.  So directly call GCBase.setup().
@@ -75,7 +80,7 @@ class StmGC(MovingGCBase):
 
     def get_original_copy(self, obj):
         addr = llmemory.cast_ptr_to_adr(obj)
-        if bool(self.get_hdr_tid(addr)[0] & GCFLAG_PREBUILT_ORIGINAL):
+        if bool(self.get_hdr_tid(addr)[0] & self.GCFLAG_PREBUILT_ORIGINAL):
             return obj
         #
         orig = self.get_hdr_original(addr)[0]
@@ -125,7 +130,7 @@ class StmGC(MovingGCBase):
         """Means the reference will stay valid, except if not
         seen by the GC, then it can get collected."""
         tid = self.get_hdr_tid(obj)[0]
-        if bool(tid & GCFLAG_OLD):
+        if bool(tid & self.GCFLAG_OLD):
             return False
         return True
         

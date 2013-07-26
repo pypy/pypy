@@ -103,6 +103,11 @@ def stm_get_adr_of_private_rev_num(funcgen, op):
     result = funcgen.expr(op.result)
     return '%s = (%s)&stm_private_rev_num;' % (
         result, cdecl(funcgen.lltypename(op.result), ''))
+
+def stm_get_adr_of_read_barrier_cache(funcgen, op):
+    result = funcgen.expr(op.result)
+    return '%s = (%s)&stm_read_barrier_cache;' % (
+        result, cdecl(funcgen.lltypename(op.result), ''))
     
     
 def stm_weakref_allocate(funcgen, op):

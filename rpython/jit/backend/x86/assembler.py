@@ -2182,12 +2182,19 @@ class Assembler386(BaseAssembler):
         assert isinstance(result_loc, RegLoc)
         mc.POP_r(result_loc.value)
         
-    def _get_private_rev_num_addr(self):
+    def _get_stm_private_rev_num_addr(self):
         assert self.cpu.gc_ll_descr.stm
         rn = rstm.get_adr_of_private_rev_num()
         rn = rn - stmtlocal.threadlocal_base()
         assert rx86.fits_in_32bits(rn)
         return rn
+
+    def _get_stm_read_barrier_cache_addr(self):
+        assert self.cpu.gc_ll_descr.stm
+        rbc = rstm.get_adr_of_read_barrier_cache()
+        rbc = rbc - stmtlocal.threadlocal_base()
+        assert rx86.fits_in_32bits(rbc)
+        return rbc
         
     def _stm_barrier_fastpath(self, mc, descr, arglocs, is_frame=False,
                               align_stack=False):
@@ -2207,18 +2214,82 @@ class Assembler386(BaseAssembler):
         #
         # FASTPATH:
         #
-        rn = self._get_private_rev_num_addr()
-        if isinstance(descr, STMReadBarrierDescr):
-            # (obj->h_revision != stm_private_rev_num)
-            #      && (FXCACHE_AT(obj) != obj)))
-            stmtlocal.tl_segment_prefix(mc)
-            #mc.CMP_jr(rn, loc_base.value)
-            mc.MOV_rj(X86_64_SCRATCH_REG.value, rn)
+        # write_barrier:
+        # (obj->h_revision != stm_private_rev_num)
+        #     || (obj->h_tid & GCFLAG_WRITE_BARRIER) != 0)
+        # read_barrier:
+        # (obj->h_revision != stm_private_rev_num)
+        #     && (FXCACHE_AT(obj) != obj)))
+        assert not IS_X86_32 # XXX: todo
+        jz_location = 0
+        jz_location2 = 0
+        jnz_location = 0
+        # compare h_revision with stm_private_rev_num (XXX: may be slow)
+        rn = self._get_stm_private_rev_num_addr()
+        stmtlocal.tl_segment_prefix(mc)
+        mc.MOV_rj(X86_64_SCRATCH_REG.value, rn)
+        if loc_base == ebp:
+            mc.CMP_rb(X86_64_SCRATCH_REG.value, StmGC.H_REVISION)
+        else:
             mc.CMP(X86_64_SCRATCH_REG, mem(loc_base, StmGC.H_REVISION))
+            
+        if isinstance(descr, STMReadBarrierDescr):
+            # jump to end if h_rev==priv_rev
             mc.J_il8(rx86.Conditions['Z'], 0) # patched below
             jz_location = mc.get_relative_pos()
-        else:
-            jz_location = 0
+        else: # write_barrier
+            # jump to slowpath if h_rev!=priv_rev
+            mc.J_il8(rx86.Conditions['NZ'], 0) # patched below
+            jnz_location = mc.get_relative_pos()
+
+        if isinstance(descr, STMReadBarrierDescr):
+            # FXCACHE_AT(obj) != obj
+            # XXX: optimize...
+            temp = loc_base.find_unused_reg()
+            mc.PUSH_r(temp.value)
+            mc.MOV_rr(temp.value, loc_base.value)
+            mc.AND_ri(temp.value, StmGC.FX_MASK)
+
+            # XXX: addressings like [rdx+rax*1] don't seem to work
+            rbc = self._get_stm_read_barrier_cache_addr()
+            stmtlocal.tl_segment_prefix(mc)
+            mc.MOV_rj(X86_64_SCRATCH_REG.value, rbc)
+            mc.ADD_rr(X86_64_SCRATCH_REG.value, temp.value)
+            mc.CMP(loc_base, mem(X86_64_SCRATCH_REG, 0))
+            mc.POP_r(temp.value)
+            mc.J_il8(rx86.Conditions['Z'], 0) # patched below
+            jz_location2 = mc.get_relative_pos()
+            # <stm_read_barrier+21>:	mov    rdx,0xffffffffffffffb0
+            # <stm_read_barrier+28>:	movzx  eax,di
+            # <stm_read_barrier+31>:	mov    rdx,QWORD PTR fs:[rdx]
+            # <stm_read_barrier+35>:	cmp    rdi,QWORD PTR [rdx+rax*1]
+            # <stm_read_barrier+39>:	je     0x401f61 <stm_read_barrier+17>
+            # <stm_read_barrier+41>:	jmp    0x6a59f0 <stm_DirectReadBarrier>
+        
+        if isinstance(descr, STMWriteBarrierDescr):
+            # obj->h_tid & GCFLAG_WRITE_BARRIER) != 0
+            if loc_base == ebp:
+                #mc.MOV_rb(X86_64_SCRATCH_REG.value, StmGC.H_TID)
+                mc.TEST8_bi(StmGC.H_TID, StmGC.GCFLAG_WRITE_BARRIER)
+            else:
+                # mc.MOV(X86_64_SCRATCH_REG, mem(loc_base, StmGC.H_TID))
+                mc.TEST8_mi((loc_base.value, StmGC.H_TID),
+                            StmGC.GCFLAG_WRITE_BARRIER)
+            #doesn't work:
+            # mc.TEST(X86_64_SCRATCH_REG, imm(StmGC.GCFLAG_WRITE_BARRIER))
+            mc.J_il8(rx86.Conditions['NZ'], 0) # patched below
+            jnz_location2 = mc.get_relative_pos()
+            
+            # jump to end
+            mc.JMP_l8(0) # patched below
+            jz_location = mc.get_relative_pos()
+            
+            # jump target slowpath:
+            offset = mc.get_relative_pos() - jnz_location
+            offset2 = mc.get_relative_pos() - jnz_location2
+            assert 0 < offset <= 127
+            mc.overwrite(jnz_location - 1, chr(offset))
+            mc.overwrite(jnz_location2 - 1, chr(offset2))
         #
         # SLOWPATH_START
         #
@@ -2243,10 +2314,14 @@ class Assembler386(BaseAssembler):
         #
         # SLOWPATH_END
         #
+        # jump target end:
+        offset = mc.get_relative_pos() - jz_location
+        assert 0 < offset <= 127
+        mc.overwrite(jz_location - 1, chr(offset))
         if isinstance(descr, STMReadBarrierDescr):
-            offset = mc.get_relative_pos() - jz_location
+            offset = mc.get_relative_pos() - jz_location2
             assert 0 < offset <= 127
-            mc.overwrite(jz_location - 1, chr(offset))
+            mc.overwrite(jz_location2 - 1, chr(offset))
 
 
         

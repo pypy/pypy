@@ -7,6 +7,10 @@ def get_adr_of_private_rev_num():
     addr = llop.stm_get_adr_of_private_rev_num(llmemory.Address)
     return rffi.cast(lltype.Signed, addr)
 
+def get_adr_of_read_barrier_cache():
+    addr = llop.stm_get_adr_of_read_barrier_cache(llmemory.Address)
+    return rffi.cast(lltype.Signed, addr)
+
 def become_inevitable():
     llop.stm_become_inevitable(lltype.Void)
 

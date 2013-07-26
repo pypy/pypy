@@ -457,6 +457,7 @@ LL_OPERATIONS = {
     'stm_inspect_abort_info': LLOp(sideeffects=False),
 
     'stm_get_adr_of_private_rev_num':LLOp(),
+    'stm_get_adr_of_read_barrier_cache':LLOp(),
     
     # __________ address operations __________
 
