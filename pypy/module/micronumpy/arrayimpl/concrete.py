@@ -229,7 +229,7 @@ class BaseConcreteArray(base.BaseArrayImplementation):
         except IndexError:
             # not a single result
             chunks = self._prepare_slice_args(space, w_index)
-            return chunks.apply(orig_arr)
+            return chunks.apply(space, orig_arr)
 
     def descr_setitem(self, space, orig_arr, w_index, w_value):
         try:
@@ -238,7 +238,7 @@ class BaseConcreteArray(base.BaseArrayImplementation):
         except IndexError:
             w_value = convert_to_array(space, w_value)
             chunks = self._prepare_slice_args(space, w_index)
-            view = chunks.apply(orig_arr)
+            view = chunks.apply(space, orig_arr)
             view.implementation.setslice(space, w_value)
 
     def transpose(self, orig_array):
@@ -269,14 +269,14 @@ class BaseConcreteArray(base.BaseArrayImplementation):
                                   shape, skip)
         return iter.MultiDimViewIterator(self, self.dtype, self.start, r[0], r[1], shape)
 
-    def swapaxes(self, orig_arr, axis1, axis2):
+    def swapaxes(self, space, orig_arr, axis1, axis2):
         shape = self.get_shape()[:]
         strides = self.get_strides()[:]
         backstrides = self.get_backstrides()[:]
         shape[axis1], shape[axis2] = shape[axis2], shape[axis1]
         strides[axis1], strides[axis2] = strides[axis2], strides[axis1]
         backstrides[axis1], backstrides[axis2] = backstrides[axis2], backstrides[axis1]
-        return W_NDimArray.new_slice(self.start, strides,
+        return W_NDimArray.new_slice(space, self.start, strides,
                                      backstrides, shape, self, orig_arr)
 
     def get_storage_as_int(self, space):
@@ -289,13 +289,16 @@ class BaseConcreteArray(base.BaseArrayImplementation):
         return ArrayBuffer(self)
 
     def astype(self, space, dtype):
-        new_arr = W_NDimArray.from_shape(self.get_shape(), dtype)
+        strides, backstrides = support.calc_strides(self.get_shape(), dtype,
+                                                    self.order)
+        impl = ConcreteArray(self.get_shape(), dtype, self.order,
+                             strides, backstrides)
         if self.dtype.is_str_or_unicode() and not dtype.is_str_or_unicode():
             raise OperationError(space.w_NotImplementedError, space.wrap(
                 "astype(%s) not implemented yet" % self.dtype))
         else:
-            loop.setslice(space, new_arr.get_shape(), new_arr.implementation, self)
-        return new_arr
+            loop.setslice(space, impl.get_shape(), impl, self)
+        return impl
 
 
 class ConcreteArrayNotOwning(BaseConcreteArray):

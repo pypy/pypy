@@ -41,7 +41,7 @@ def dtype_agreement(space, w_arr_list, shape, out=None):
     dtype = w_arr_list[0].get_dtype()
     for w_arr in w_arr_list[1:]:
         dtype = find_binop_result_dtype(space, dtype, w_arr.get_dtype())
-    out = base.W_NDimArray.from_shape(shape, dtype)
+    out = base.W_NDimArray.from_shape(space, shape, dtype)
     return out
 
 

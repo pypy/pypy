@@ -263,8 +263,8 @@ class W_TypeObject(W_Object):
 
     def setdictvalue(w_self, space, name, w_value):
         if not w_self.is_heaptype():
-            msg = "can't set attributes on type object '%s'"
-            raise operationerrfmt(space.w_TypeError, msg, w_self.name)
+            msg = "can't set attributes on type object '%N'"
+            raise operationerrfmt(space.w_TypeError, msg, w_self)
         if name == "__del__" and name not in w_self.dict_w:
             msg = ("a __del__ method added to an existing type will not be "
                    "called")
@@ -287,8 +287,8 @@ class W_TypeObject(W_Object):
         if w_self.lazyloaders:
             w_self._cleanup_()    # force un-lazification
         if not w_self.is_heaptype():
-            msg = "can't delete attributes on type object '%s'"
-            raise operationerrfmt(space.w_TypeError, msg, w_self.name)
+            msg = "can't delete attributes on type object '%N'"
+            raise operationerrfmt(space.w_TypeError, msg, w_self)
         try:
             del w_self.dict_w[key]
         except KeyError:
@@ -415,12 +415,12 @@ class W_TypeObject(W_Object):
                 w_subtype)
         if not w_subtype.issubtype(w_self):
             raise operationerrfmt(space.w_TypeError,
-                "%s.__new__(%s): %s is not a subtype of %s",
-                w_self.name, w_subtype.name, w_subtype.name, w_self.name)
+                "%N.__new__(%N): %N is not a subtype of %N",
+                w_self, w_subtype, w_subtype, w_self)
         if w_self.instancetypedef is not w_subtype.instancetypedef:
             raise operationerrfmt(space.w_TypeError,
-                "%s.__new__(%s) is not safe, use %s.__new__()",
-                w_self.name, w_subtype.name, w_subtype.name)
+                "%N.__new__(%N) is not safe, use %N.__new__()",
+                w_self, w_subtype, w_subtype)
         return w_subtype
 
     def _cleanup_(w_self):
@@ -628,7 +628,7 @@ def descr_set__name__(space, w_type, w_value):
     w_type = _check(space, w_type)
     if not w_type.is_heaptype():
         raise operationerrfmt(space.w_TypeError,
-                              "can't set %s.__name__", w_type.name)
+                              "can't set %N.__name__", w_type)
     w_type.name = space.str_w(w_value)
 
 def descr_get__mro__(space, w_type):
@@ -660,16 +660,16 @@ def descr_set__bases__(space, w_type, w_value):
     w_type = _check(space, w_type)
     if not w_type.is_heaptype():
         raise operationerrfmt(space.w_TypeError,
-                              "can't set %s.__bases__", w_type.name)
+                              "can't set %N.__bases__", w_type)
     if not space.isinstance_w(w_value, space.w_tuple):
         raise operationerrfmt(space.w_TypeError,
-                              "can only assign tuple to %s.__bases__, not %T",
-                              w_type.name, w_value)
+                              "can only assign tuple to %N.__bases__, not %T",
+                              w_type, w_value)
     newbases_w = space.fixedview(w_value)
     if len(newbases_w) == 0:
         raise operationerrfmt(space.w_TypeError,
-                    "can only assign non-empty tuple to %s.__bases__, not ()",
-                              w_type.name)
+                    "can only assign non-empty tuple to %N.__bases__, not ()",
+                              w_type)
 
     for w_newbase in newbases_w:
         if isinstance(w_newbase, W_TypeObject):
@@ -886,9 +886,9 @@ def check_and_find_best_base(space, bases_w):
                                         "only classic bases"))
     if not w_bestbase.instancetypedef.acceptable_as_base_class:
         raise operationerrfmt(space.w_TypeError,
-                              "type '%s' is not an "
+                              "type '%N' is not an "
                               "acceptable base class",
-                              w_bestbase.instancetypedef.name)
+                              w_bestbase)
 
     # check that all other bases' layouts are superclasses of the bestbase
     w_bestlayout = w_bestbase.w_same_layout_as or w_bestbase
@@ -1142,8 +1142,8 @@ def getattr__Type_ANY(space, w_type, w_name):
     if w_descr is not None:
         return space.get(w_descr, w_type)
     raise operationerrfmt(space.w_AttributeError,
-                          "type object '%s' has no attribute '%s'",
-                          w_type.name, name)
+                          "type object '%N' has no attribute %R",
+                          w_type, w_name)
 
 
 # ____________________________________________________________

@@ -975,3 +975,16 @@ class AppTestLongDoubleDtypes(BaseNumpyAppTest):
         assert a[0] == 1
         assert (a + a)[1] == 4
 
+class AppTestObjectDtypes(BaseNumpyAppTest):
+    def test_scalar_from_object(self):
+        from numpypy import array
+        class Polynomial(object):
+            pass
+        try:
+            a = array(Polynomial())
+            assert a.shape == ()
+        except NotImplementedError, e:
+            if e.message.find('unable to create dtype from objects')>=0:
+                skip('creating ojbect dtype not supported yet')
+
+

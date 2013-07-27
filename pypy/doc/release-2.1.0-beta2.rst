@@ -5,6 +5,10 @@ PyPy 2.1 beta 2
 We're pleased to announce the second beta of the upcoming 2.1 release of PyPy.
 This beta adds one new feature to the 2.1 release and contains several bugfixes listed below.
 
+You can download the PyPy 2.1 beta 1 release here:
+
+    http://pypy.org/download.html
+
 Highlights
 ==========
 

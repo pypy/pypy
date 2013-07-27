@@ -565,9 +565,9 @@ class Member(W_Root):
 
     def typecheck(self, space, w_obj):
         if not space.isinstance_w(w_obj, self.w_cls):
-            m = "descriptor '%s' for '%s' objects doesn't apply to '%T' object"
+            m = "descriptor '%N' for '%N' objects doesn't apply to '%T' object"
             raise operationerrfmt(space.w_TypeError, m,
-                                  self.name, self.w_cls.name, w_obj)
+                                  self, self.w_cls, w_obj)
 
     def descr_member_get(self, space, w_obj, w_cls=None):
         """member.__get__(obj[, type]) -> value

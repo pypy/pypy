@@ -434,8 +434,8 @@ class Function(W_Root):
             closure_len = len(self.closure)
         if isinstance(code, PyCode) and closure_len != len(code.co_freevars):
             raise operationerrfmt(space.w_ValueError,
-                "%s() requires a code object with %d free vars, not %d",
-                self.name, closure_len, len(code.co_freevars))
+                "%N() requires a code object with %d free vars, not %d",
+                self, closure_len, len(code.co_freevars))
         self.fget_func_doc(space)    # see test_issue1293
         self.code = code
 
