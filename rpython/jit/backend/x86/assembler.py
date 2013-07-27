@@ -157,12 +157,13 @@ class Assembler386(BaseAssembler):
         self._push_all_regs_to_frame(mc, [], supports_floats, callee_only)
         if IS_X86_64:
             mc.SUB(esp, imm(WORD))
+            self.set_extra_stack_depth(mc, 2 * WORD)
         else:
             # we want space for 3 arguments + call + alignment
             # the caller is responsible for putting arguments in the right spot
             mc.SUB(esp, imm(WORD * 7))
-        self.set_extra_stack_depth(mc, 2 * WORD)
-        # args are in their respective positions
+            self.set_extra_stack_depth(mc, 8 * WORD)
+            # args are in their respective positions
         mc.CALL(eax)
         if IS_X86_64:
             mc.ADD(esp, imm(WORD))
