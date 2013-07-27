@@ -137,7 +137,7 @@ gcptr stmgc_duplicate_old(gcptr P)
 static inline gcptr create_old_object_copy(gcptr obj)
 {
     assert(!(obj->h_tid & GCFLAG_PUBLIC));
-    assert(!(obj->h_tid & GCFLAG_NURSERY_MOVED));
+    assert(!(obj->h_tid & GCFLAG_MOVED));
     assert(!(obj->h_tid & GCFLAG_VISITED));
     assert(!(obj->h_tid & GCFLAG_WRITE_BARRIER));
     assert(!(obj->h_tid & GCFLAG_PREBUILT_ORIGINAL));
@@ -160,9 +160,9 @@ static void visit_if_young(gcptr *root)
     }
     else {
         /* it's a nursery object.  Was it already moved? */
-        if (UNLIKELY(obj->h_tid & GCFLAG_NURSERY_MOVED)) {
+        if (UNLIKELY(obj->h_tid & GCFLAG_MOVED)) {
             /* yes.  Such an object can be a public object in the nursery
-               too (such objects are always NURSERY_MOVED).  For all cases,
+               too (such objects are always MOVED).  For all cases,
                we can just fix the ref. 
                Can be stolen objects or those we already moved.
             */
@@ -183,7 +183,7 @@ static void visit_if_young(gcptr *root)
             fresh_old_copy = create_old_object_copy(obj);
         }
         
-        obj->h_tid |= GCFLAG_NURSERY_MOVED;
+        obj->h_tid |= GCFLAG_MOVED;
         obj->h_revision = (revision_t)fresh_old_copy;
 
         /* fix the original reference */
@@ -233,8 +233,23 @@ static void mark_private_from_protected(struct tx_descriptor *d)
         assert(items[i]->h_tid & GCFLAG_PRIVATE_FROM_PROTECTED);
         assert(IS_POINTER(items[i]->h_revision));
 
+        /* if items[i] is young, move it, update the pointer, and
+           schedule the object for later consideration by
+           visit_all_outside_objects() (which will for example ensure
+           that the WRITE_BARRIER flag is added to it).
+        */
         visit_if_young(&items[i]);
 
+        /* the backup copy is always allocated outside the nursery,
+           but we have to trace it as well, as it may contain its own
+           young pointers.
+           
+           but only once: if the transaction was running for long enough
+           to have num_private_from_protected_known_old > 0, then the
+           backup copies of known-old objects have already been traced
+           in a previous minor collection, and as they are read-only,
+           they cannot contain young pointers any more.
+        */
         stmgc_trace((gcptr)items[i]->h_revision, &visit_if_young);
     }
 
@@ -386,13 +401,13 @@ static void fix_list_of_read_objects(struct tx_descriptor *d)
             /* non-young or visited young objects are kept */
             continue;
         }
-        else if (obj->h_tid & GCFLAG_NURSERY_MOVED) {
+        else if (obj->h_tid & GCFLAG_MOVED) {
             /* visited nursery objects are kept and updated */
             items[i] = (gcptr)obj->h_revision;
             assert(!(items[i]->h_tid & GCFLAG_STUB));
             continue;
         }
-        /* Sanity check: a nursery object without the NURSERY_MOVED flag
+        /* Sanity check: a nursery object without the MOVED flag
            is necessarily a private-without-backup object, or a protected
            object; it cannot be a public object. */
         assert(!(obj->h_tid & GCFLAG_PRIVATE_FROM_PROTECTED));
@@ -432,7 +447,7 @@ static void minor_collect(struct tx_descriptor *d)
     setup_minor_collect(d);
 
     /* first do this, which asserts that some objects are private ---
-       which fails if they have already been GCFLAG_NURSERY_MOVED */
+       which fails if they have already been GCFLAG_MOVED */
     mark_public_to_young(d);
 
     mark_young_roots(d);

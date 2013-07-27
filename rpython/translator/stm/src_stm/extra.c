@@ -132,17 +132,16 @@ revision_t stm_id(gcptr p)
 
 _Bool stm_pointer_equal(gcptr p1, gcptr p2)
 {
-    /* fast path for two equal pointers */
-    if (p1 == p2)
-        return 1;
-    /* if p1 or p2 is NULL (but not both, because they are different
-       pointers), then return 0 */
-    if (p1 == NULL || p2 == NULL)
-        return 0;
-    /* types must be the same */
-    if ((p1->h_tid & STM_USER_TID_MASK) != (p2->h_tid & STM_USER_TID_MASK))
-        return 0;
-    return stm_id(p1) == stm_id(p2);
+    if (p1 != NULL && p2 != NULL) {
+        /* resolve h_original, but only if !PREBUILT_ORIGINAL */
+        if (p1->h_original && !(p1->h_tid & GCFLAG_PREBUILT_ORIGINAL)) {
+            p1 = (gcptr)p1->h_original;
+        }
+        if (p2->h_original && !(p2->h_tid & GCFLAG_PREBUILT_ORIGINAL)) {
+            p2 = (gcptr)p2->h_original;
+        }
+    }
+    return (p1 == p2);
 }
 
 /************************************************************/
