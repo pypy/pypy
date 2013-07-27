@@ -182,8 +182,8 @@ class W_BytesObject(W_AbstractBytesObject, StringMethods):
             return space.add(self_as_unicode, w_other)
         elif space.isinstance_w(w_other, space.w_bytearray):
             # XXX: eliminate double-copy
-            from .bytearrayobject import W_BytearrayObject
-            self_as_bytearray = W_BytearrayObject(list(self._value))
+            from .bytearrayobject import W_BytearrayObject, _make_data
+            self_as_bytearray = W_BytearrayObject(_make_data(self._value))
             return space.add(self_as_bytearray, w_other)
         return StringMethods.descr_add(self, space, w_other)
 
