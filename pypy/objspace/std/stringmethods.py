@@ -127,7 +127,7 @@ class StringMethods(object):
                 return space.w_NotImplemented
             raise
         if times <= 0:
-            return self.EMPTY
+            return self._empty()
         if self._len() == 1:
             return self._new(self._val(space)[0] * times)
         return self._new(self._val(space) * times)
@@ -139,13 +139,13 @@ class StringMethods(object):
             length = len(selfvalue)
             start, stop, step, sl = w_index.indices4(space, length)
             if sl == 0:
-                return self.EMPTY
+                return self._empty()
             elif step == 1:
                 assert start >= 0 and stop >= 0
                 return self._sliced(space, selfvalue, start, stop, self)
             else:
-                str = self._empty.join([selfvalue[start + i*step] for i in range(sl)])
-            return self._new(str)
+                ret = [selfvalue[start + i*step] for i in range(sl)]
+                return self._new_from_list(ret)
 
         index = space.getindex_w(w_index, space.w_IndexError, "string index")
         selfvalue = self._val(space)
@@ -167,7 +167,7 @@ class StringMethods(object):
         start, stop = normalize_simple_slice(space, len(selfvalue), w_start,
                                              w_stop)
         if start == stop:
-            return self.EMPTY
+            return self._empty()
         else:
             return self._sliced(space, selfvalue, start, stop, self)
 
@@ -175,7 +175,7 @@ class StringMethods(object):
     def descr_capitalize(self, space):
         value = self._val(space)
         if len(value) == 0:
-            return self.EMPTY
+            return self._empty()
 
         builder = self._builder(len(value))
         builder.append(self._upper(value[0]))
@@ -228,7 +228,7 @@ class StringMethods(object):
     def descr_expandtabs(self, space, tabsize=8):
         value = self._val(space)
         if not value:
-            return self.EMPTY
+            return self._empty()
 
         splitted = value.split(self._chr('\t'))
         try:
@@ -397,7 +397,7 @@ class StringMethods(object):
         size = len(list_w)
 
         if size == 0:
-            return self.EMPTY
+            return self._empty()
 
         if size == 1:
             w_s = list_w[0]
@@ -484,7 +484,7 @@ class StringMethods(object):
                                  space.wrap("empty separator"))
         pos = value.find(sub)
         if pos == -1:
-            return space.newtuple([self, self.EMPTY, self.EMPTY])
+            return space.newtuple([self, self._empty(), self._empty()])
         else:
             from pypy.objspace.std.bytearrayobject import W_BytearrayObject
             if isinstance(self, W_BytearrayObject):
@@ -502,7 +502,7 @@ class StringMethods(object):
                                  space.wrap("empty separator"))
         pos = value.rfind(sub)
         if pos == -1:
-            return space.newtuple([self.EMPTY, self.EMPTY, self])
+            return space.newtuple([self._empty(), self._empty(), self])
         else:
             from pypy.objspace.std.bytearrayobject import W_BytearrayObject
             if isinstance(self, W_BytearrayObject):

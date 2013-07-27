@@ -72,6 +72,12 @@ class W_UnicodeObject(W_Object, StringMethods):
     def _new(self, value):
         return W_UnicodeObject(value)
 
+    def _new_from_list(self, value):
+        return W_UnicodeObject(u''.join(value))
+
+    def _empty(self):
+        return W_UnicodeObject.EMPTY
+
     def _len(self):
         return len(self._value)
 
@@ -87,7 +93,6 @@ class W_UnicodeObject(W_Object, StringMethods):
         assert len(char) == 1
         return unicode(char)[0]
 
-    _empty = u''
     _builder = UnicodeBuilder
 
     def _isupper(self, ch):

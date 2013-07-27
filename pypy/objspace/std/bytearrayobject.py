@@ -34,6 +34,12 @@ class W_BytearrayObject(W_Object, StringMethods):
     def _new(self, value):
         return W_BytearrayObject(_make_data(value))
 
+    def _new_from_list(self, value):
+        return W_BytearrayObject(value)
+
+    def _empty(self):
+        return W_BytearrayObject([])
+
     def _len(self):
         return len(self.data)
 
@@ -47,7 +53,6 @@ class W_BytearrayObject(W_Object, StringMethods):
         assert len(char) == 1
         return str(char)[0]
 
-    _empty = ''
     _builder = StringBuilder
 
     def _newlist_unwrapped(self, space, res):
@@ -269,8 +274,6 @@ class W_BytearrayObject(W_Object, StringMethods):
 
     def descr_reverse(self, space):
         self.data.reverse()
-
-W_BytearrayObject.EMPTY = W_BytearrayObject([])
 
 
 bytearray_append  = SMM('append', 2)

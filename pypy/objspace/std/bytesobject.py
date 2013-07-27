@@ -72,6 +72,12 @@ class W_BytesObject(W_AbstractBytesObject, StringMethods):
     def _new(self, value):
         return W_BytesObject(value)
 
+    def _new_from_list(self, value):
+        return W_BytesObject(''.join(value))
+
+    def _empty(self):
+        return W_BytesObject.EMPTY
+
     def _len(self):
         return len(self._value)
 
@@ -86,7 +92,6 @@ class W_BytesObject(W_AbstractBytesObject, StringMethods):
         assert len(char) == 1
         return str(char)[0]
 
-    _empty = ''
     _builder = StringBuilder
 
     def _isupper(self, ch):
