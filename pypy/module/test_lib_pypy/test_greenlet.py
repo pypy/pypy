@@ -341,3 +341,40 @@ class AppTestGreenlet:
         assert main.switch(3, x=5) == ((3,), {'x': 5})
         assert main.switch(3, x=5, y=6) == ((3,), {'x': 5, 'y': 6})
         assert main.switch(2, 3, x=6) == ((2, 3), {'x': 6})
+
+    def test_throw_GreenletExit_not_started(self):
+        import greenlet
+        def f():
+            never_executed
+        g = greenlet.greenlet(f)
+        e = greenlet.GreenletExit()
+        x = g.throw(e)
+        assert x is e
+
+    def test_throw_GreenletExit_already_finished(self):
+        import greenlet
+        def f():
+            pass
+        g = greenlet.greenlet(f)
+        g.switch()
+        e = greenlet.GreenletExit()
+        x = g.throw(e)
+        assert x is e
+
+    def test_throw_exception_already_finished(self):
+        import greenlet
+        def f():
+            pass
+        g = greenlet.greenlet(f)
+        g.switch()
+        seen = []
+        class MyException(Exception):
+            def __init__(self):
+                seen.append(1)
+        try:
+            g.throw(MyException)
+        except MyException:
+            pass
+        else:
+            raise AssertionError("no exception??")
+        assert seen == [1]

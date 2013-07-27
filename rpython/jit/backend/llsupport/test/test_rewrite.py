@@ -89,23 +89,6 @@ class RewriteTests(object):
         tzdescr = None # noone cares
         #
 
-        ARRAY = lltype.GcArray(lltype.Signed)
-        LIST = lltype.GcStruct('LIST', ('length', lltype.Signed),
-                               ('items', lltype.Ptr(ARRAY)))
-        lendescr = get_field_descr(self.gc_ll_descr, LIST, 'length')
-        itemsdescr = get_field_descr(self.gc_ll_descr, LIST, 'items')
-        arraydescr = get_array_descr(self.gc_ll_descr, ARRAY)
-        resize_ptr = ConstInt(123)
-        extrainfo = EffectInfo(None, None, None, None,
-                               extraeffect=EffectInfo.EF_RANDOM_EFFECTS,
-                               oopspecindex=EffectInfo.OS_LIST_RESIZE_GE,
-                               extra_descrs=[lendescr, itemsdescr, arraydescr,
-                                             resize_ptr])
-        list_resize_descr = get_call_descr(self.gc_ll_descr,
-                                           [lltype.Ptr(LIST), lltype.Signed],
-                                           lltype.Void, extrainfo)
-        extrainfo.extra_descrs.append(list_resize_descr)
-
         namespace.update(locals())
         #
         for funcname in self.gc_ll_descr._generated_functions:
@@ -127,8 +110,6 @@ class FakeTracker(object):
 
 class BaseFakeCPU(object):
     JITFRAME_FIXED_SIZE = 0
-
-    can_inline_varsize_malloc = True
 
     def __init__(self):
         self.tracker = FakeTracker()

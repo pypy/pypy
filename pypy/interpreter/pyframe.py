@@ -370,7 +370,7 @@ class PyFrame(eval.Frame):
         from pypy.module._pickle_support import maker # helper fns
         from pypy.interpreter.pycode import PyCode
         from pypy.interpreter.module import Module
-        args_w = space.unpackiterable(w_args)
+        args_w = space.unpackiterable(w_args, 18)
         w_f_back, w_builtin, w_pycode, w_valuestack, w_blockstack, w_exc_value, w_tb,\
             w_globals, w_last_instr, w_finished, w_f_lineno, w_fastlocals, w_f_locals, \
             w_f_trace, w_instr_lb, w_instr_ub, w_instr_prev_plus_one, w_cells = args_w

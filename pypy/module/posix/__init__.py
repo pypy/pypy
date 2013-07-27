@@ -17,11 +17,12 @@ lltype_only_defs = [
     'setregid', 'setreuid', 'setsid', 'setuid', 'stat_float_times', 'statvfs',
     'statvfs_result', 'symlink', 'sysconf', 'sysconf_names', 'tcgetpgrp', 'tcsetpgrp',
     'ttyname', 'uname', 'wait', 'wait3', 'wait4'
-    ]
+]
 
 # the Win32 urandom implementation isn't going to translate on JVM or CLI so
 # we have to remove it
 lltype_only_defs.append('urandom')
+
 
 class Module(MixedModule):
     """This module provides access to operating system functionality that is
@@ -32,20 +33,21 @@ corresponding Unix manual entries for more information on calls."""
     applevel_name = os.name
 
     appleveldefs = {
-    'error'      : 'app_posix.error',
-    'stat_result': 'app_posix.stat_result',
-    'fdopen'     : 'app_posix.fdopen',
-    'tmpfile'    : 'app_posix.tmpfile',
-    'popen'      : 'app_posix.popen',
-    'tmpnam'     : 'app_posix.tmpnam',
-    'tempnam'    : 'app_posix.tempnam',
+        'error': 'app_posix.error',
+        'stat_result': 'app_posix.stat_result',
+        'statvfs_result': 'app_posix.statvfs_result',
+        'fdopen': 'app_posix.fdopen',
+        'tmpfile': 'app_posix.tmpfile',
+        'popen': 'app_posix.popen',
+        'tmpnam': 'app_posix.tmpnam',
+        'tempnam': 'app_posix.tempnam',
     }
     if os.name == 'nt':
         appleveldefs.update({
-                'popen2' : 'app_posix.popen2',
-                'popen3' : 'app_posix.popen3',
-                'popen4' : 'app_posix.popen4',
-                })
+            'popen2': 'app_posix.popen2',
+            'popen3': 'app_posix.popen3',
+            'popen4': 'app_posix.popen4',
+        })
 
     if hasattr(os, 'wait'):
         appleveldefs['wait'] = 'app_posix.wait'
@@ -53,44 +55,46 @@ corresponding Unix manual entries for more information on calls."""
         appleveldefs['wait3'] = 'app_posix.wait3'
     if hasattr(os, 'wait4'):
         appleveldefs['wait4'] = 'app_posix.wait4'
-        
+
     interpleveldefs = {
-    'open'      : 'interp_posix.open',
-    'lseek'     : 'interp_posix.lseek',
-    'write'     : 'interp_posix.write',
-    'isatty'    : 'interp_posix.isatty',
-    'read'      : 'interp_posix.read',
-    'close'     : 'interp_posix.close',
-    'closerange': 'interp_posix.closerange',
-    'fstat'     : 'interp_posix.fstat',
-    'stat'      : 'interp_posix.stat',
-    'lstat'     : 'interp_posix.lstat',
-    'stat_float_times' : 'interp_posix.stat_float_times',
-    'dup'       : 'interp_posix.dup',
-    'dup2'      : 'interp_posix.dup2',
-    'access'    : 'interp_posix.access',
-    'times'     : 'interp_posix.times',
-    'system'    : 'interp_posix.system',
-    'unlink'    : 'interp_posix.unlink',
-    'remove'    : 'interp_posix.remove',
-    'getcwd'    : 'interp_posix.getcwd',
-    'getcwdu'   : 'interp_posix.getcwdu',
-    'chdir'     : 'interp_posix.chdir',
-    'mkdir'     : 'interp_posix.mkdir',
-    'rmdir'     : 'interp_posix.rmdir',
-    'environ'   : 'interp_posix.get(space).w_environ',
-    'listdir'   : 'interp_posix.listdir',
-    'strerror'  : 'interp_posix.strerror',
-    'pipe'      : 'interp_posix.pipe',
-    'chmod'     : 'interp_posix.chmod',
-    'rename'    : 'interp_posix.rename',
-    'umask'     : 'interp_posix.umask',
-    '_exit'     : 'interp_posix._exit',
-    'utime'     : 'interp_posix.utime',
-    '_statfields': 'interp_posix.getstatfields(space)',
-    'kill'      : 'interp_posix.kill',
-    'abort'     : 'interp_posix.abort',
-    'urandom'   : 'interp_posix.urandom',
+        'open': 'interp_posix.open',
+        'lseek': 'interp_posix.lseek',
+        'write': 'interp_posix.write',
+        'isatty': 'interp_posix.isatty',
+        'read': 'interp_posix.read',
+        'close': 'interp_posix.close',
+        'closerange': 'interp_posix.closerange',
+
+        'fstat': 'interp_posix.fstat',
+        'stat': 'interp_posix.stat',
+        'lstat': 'interp_posix.lstat',
+        'stat_float_times': 'interp_posix.stat_float_times',
+
+        'dup': 'interp_posix.dup',
+        'dup2': 'interp_posix.dup2',
+        'access': 'interp_posix.access',
+        'times': 'interp_posix.times',
+        'system': 'interp_posix.system',
+        'unlink': 'interp_posix.unlink',
+        'remove': 'interp_posix.remove',
+        'getcwd': 'interp_posix.getcwd',
+        'getcwdu': 'interp_posix.getcwdu',
+        'chdir': 'interp_posix.chdir',
+        'mkdir': 'interp_posix.mkdir',
+        'rmdir': 'interp_posix.rmdir',
+        'environ': 'interp_posix.get(space).w_environ',
+        'listdir': 'interp_posix.listdir',
+        'strerror': 'interp_posix.strerror',
+        'pipe': 'interp_posix.pipe',
+        'chmod': 'interp_posix.chmod',
+        'rename': 'interp_posix.rename',
+        'umask': 'interp_posix.umask',
+        '_exit': 'interp_posix._exit',
+        'utime': 'interp_posix.utime',
+        '_statfields': 'interp_posix.getstatfields(space)',
+        'kill': 'interp_posix.kill',
+        'abort': 'interp_posix.abort',
+        'urandom': 'interp_posix.urandom',
     }
 
     if hasattr(os, 'chown'):
@@ -167,9 +171,9 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['getlogin'] = 'interp_posix.getlogin'
 
     for name in ['setsid', 'getuid', 'geteuid', 'getgid', 'getegid', 'setuid',
-                 'seteuid', 'setgid', 'setegid', 'getgroups', 'getpgrp', 
-                 'setpgrp', 'getppid', 'getpgid', 'setpgid', 'setreuid', 
-                 'setregid', 'getsid', 'setsid']:
+                 'seteuid', 'setgid', 'setegid', 'getgroups', 'getpgrp',
+                 'setpgrp', 'getppid', 'getpgid', 'setpgid', 'setreuid',
+                 'setregid', 'getsid', 'setsid', 'fstatvfs', 'statvfs']:
         if hasattr(os, name):
             interpleveldefs[name] = 'interp_posix.%s' % (name,)
     # not visible via os, inconsistency in nt:
@@ -177,7 +181,7 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['_getfullpathname'] = 'interp_posix._getfullpathname'
     if hasattr(os, 'chroot'):
         interpleveldefs['chroot'] = 'interp_posix.chroot'
-    
+
     for name in RegisterOs.w_star:
         if hasattr(os, name):
             interpleveldefs[name] = 'interp_posix.' + name
@@ -186,7 +190,7 @@ corresponding Unix manual entries for more information on calls."""
         # if it's an ootype translation, remove all the defs that are lltype
         # only
         backend = space.config.translation.backend
-        if backend == 'cli' or backend == 'jvm':
+        if backend == 'cli' or backend == 'jvm' :
             for name in lltype_only_defs:
                 self.interpleveldefs.pop(name, None)
         MixedModule.__init__(self, space, w_name)
@@ -194,7 +198,7 @@ corresponding Unix manual entries for more information on calls."""
     def startup(self, space):
         from pypy.module.posix import interp_posix
         interp_posix.get(space).startup(space)
-        
+
 for constant in dir(os):
     value = getattr(os, constant)
     if constant.isupper() and type(value) is int:

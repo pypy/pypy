@@ -367,6 +367,16 @@ class AppTest_DictObject:
         d.update({'foo': 'bar'}, baz=1)
         assert d == {'foo': 'bar', 'baz': 1}
 
+    def test_update_keys_method(self):
+        class Foo(object):
+            def keys(self):
+                return [4, 1]
+            def __getitem__(self, key):
+                return key * 10
+        d = {}
+        d.update(Foo())
+        assert d == {1: 10, 4: 40}
+
     def test_values(self):
         d = {1: 2, 3: 4}
         vals = d.values()

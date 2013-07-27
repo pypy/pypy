@@ -48,6 +48,8 @@ class BaseTester(object):
 
     def translateopt(self, func, sig, **optflags):
         t = TranslationContext()
+        opts = {'translation.list_comprehension_operations': True}
+        t.config.set(**opts)
         t.buildannotator().build_types(func, sig)
         t.buildrtyper(type_system=self.type_system).specialize()
         if option.view:
@@ -61,7 +63,7 @@ class BaseTester(object):
         assert big() == 83
 
         t = self.translateopt(big, [], inline_threshold=HUGE_THRESHOLD,
-                              mallocs=True) 
+                              mallocs=True)
 
         big_graph = graphof(t, big)
         self.check_malloc_removed(big_graph)
@@ -128,7 +130,7 @@ class BaseTester(object):
             return res
 
         def g(x):
-            return s(100) + s(1) + x 
+            return s(100) + s(1) + x
 
         def idempotent(n1, n2):
             c = [i for i in range(n2)]
@@ -301,4 +303,4 @@ class TestLLType(BaseTester):
 class TestOOType(BaseTester):
     type_system = 'ootype'
     check_malloc_removed = OOTypeMallocRemovalTest.check_malloc_removed
-    
+

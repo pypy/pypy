@@ -158,12 +158,13 @@ class Assembler386(BaseAssembler):
         self._push_all_regs_to_frame(mc, [], supports_floats, callee_only)
         if IS_X86_64:
             mc.SUB(esp, imm(WORD))
+            self.set_extra_stack_depth(mc, 2 * WORD)
         else:
             # we want space for 3 arguments + call + alignment
             # the caller is responsible for putting arguments in the right spot
             mc.SUB(esp, imm(WORD * 7))
-        self.set_extra_stack_depth(mc, 2 * WORD)
-        # args are in their respective positions
+            self.set_extra_stack_depth(mc, 8 * WORD)
+            # args are in their respective positions
         mc.CALL(eax)
         if IS_X86_64:
             mc.ADD(esp, imm(WORD))
@@ -762,6 +763,10 @@ class Assembler386(BaseAssembler):
         self.mc.RET()
 
     def _load_shadowstack_top_in_reg(self, mc, gcrootmap, selected_reg=ebx):
+        """Loads the shadowstack top in selected reg, and returns an integer
+        that gives the address of the stack top.  If this integer doesn't
+        fit in 32 bits, it will be loaded in r11.
+        """
         rst = gcrootmap.get_root_stack_top_addr()
         if rx86.fits_in_32bits(rst):
             mc.MOV_rj(selected_reg.value, rst)       # MOV ebx, [rootstacktop]
@@ -779,6 +784,9 @@ class Assembler386(BaseAssembler):
         if rx86.fits_in_32bits(rst):
             mc.MOV_jr(rst, selected_reg.value)       # MOV [rootstacktop], ebx
         else:
+            # The integer 'rst' doesn't fit in 32 bits, so we know that
+            # _load_shadowstack_top_in_ebx() above loaded it in r11.
+            # Reuse it.  Be careful not to overwrite r11 in the middle!
             mc.MOV_mr((X86_64_SCRATCH_REG.value, 0),
                       selected_reg.value) # MOV [r11], ebx
 

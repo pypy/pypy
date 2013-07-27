@@ -626,7 +626,7 @@ Module directories / Import order
 
 Here is the order in which PyPy looks up Python modules:
 
-*pypy/modules*
+*pypy/module*
 
     mixed interpreter/app-level builtin modules, such as
     the ``sys`` and ``__builtin__`` module.
@@ -657,7 +657,7 @@ by default and CPython has a number of places where it relies
 on some classes being old-style.
 
 We just maintain those changes in place,
-to see what is changed we have a branch called `vendot/stdlib`
+to see what is changed we have a branch called `vendor/stdlib`
 wich contains the unmodified cpython stdlib
 
 .. _`mixed module mechanism`:

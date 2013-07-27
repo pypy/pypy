@@ -76,3 +76,8 @@ Faster sets for objects
 
 .. branch: inline-identityhash
 Inline the fast path of id() and hash()
+
+.. branch: package-tk
+Adapt package.py script to compile CFFI tk extension. Add a --without-tk switch
+to optionally skip it.
+
