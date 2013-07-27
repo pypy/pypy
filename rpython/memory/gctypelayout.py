@@ -75,6 +75,10 @@ class GCData(object):
         infobits = self.get(typeid).infobits
         return (infobits & T_HAS_GCPTR_IN_VARSIZE) != 0
 
+    def q_has_gcptr(self, typeid):
+        infobits = self.get(typeid).infobits
+        return (infobits & T_HAS_GCPTR) != 0
+
     def q_is_gcarrayofgcptr(self, typeid):
         infobits = self.get(typeid).infobits
         return (infobits & T_IS_GCARRAY_OF_GCPTR) != 0
@@ -162,7 +166,8 @@ class GCData(object):
             self.q_is_rpython_class,
             self.q_has_custom_trace,
             self.q_get_custom_trace,
-            self.q_fast_path_tracing)
+            self.q_fast_path_tracing,
+            self.q_has_gcptr)
 
 
 # the lowest 16bits are used to store group member index
@@ -175,7 +180,8 @@ T_IS_RPYTHON_INSTANCE       = 0x100000 # the type is a subclass of OBJECT
 T_HAS_FINALIZER             = 0x200000
 T_HAS_CUSTOM_TRACE          = 0x400000
 T_HAS_LIGHTWEIGHT_FINALIZER = 0x800000
-T_KEY_MASK                  = intmask(0xFF000000)
+T_HAS_GCPTR                 = 0x1000000
+T_KEY_MASK                  = intmask(0xFE000000) # bug detection only
 T_KEY_VALUE                 = intmask(0x5A000000) # bug detection only
 
 def _check_valid_type_info(p):
@@ -250,6 +256,8 @@ def encode_type_shape(builder, info, TYPE, index):
         infobits |= T_IS_WEAKREF
     if is_subclass_of_object(TYPE):
         infobits |= T_IS_RPYTHON_INSTANCE
+    if infobits | T_HAS_GCPTR_IN_VARSIZE or offsets:
+        infobits |= T_HAS_GCPTR
     info.infobits = infobits | T_KEY_VALUE
 
 # ____________________________________________________________

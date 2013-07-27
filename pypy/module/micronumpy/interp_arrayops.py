@@ -88,7 +88,7 @@ def where(space, w_arr, w_x=None, w_y=None):
                                                   y.get_dtype())
     shape = shape_agreement(space, arr.get_shape(), x)
     shape = shape_agreement(space, shape, y)
-    out = W_NDimArray.from_shape(shape, dtype)
+    out = W_NDimArray.from_shape(space, shape, dtype)
     return loop.where(out, shape, arr, x, y, dtype)
 
 def dot(space, w_obj1, w_obj2):
@@ -131,7 +131,8 @@ def concatenate(space, w_args, axis=0):
                                                       arr.get_dtype())
         if _axis < 0 or len(arr.get_shape()) <= _axis:
             raise operationerrfmt(space.w_IndexError, "axis %d out of bounds [0, %d)", axis, len(shape))
-    res = W_NDimArray.from_shape(shape, dtype, 'C')
+    # concatenate does not handle ndarray subtypes, it always returns a ndarray
+    res = W_NDimArray.from_shape(space, shape, dtype, 'C')
     chunks = [Chunk(0, i, 1, i) for i in shape]
     axis_start = 0
     for arr in args_w:
@@ -139,7 +140,7 @@ def concatenate(space, w_args, axis=0):
             continue
         chunks[_axis] = Chunk(axis_start, axis_start + arr.get_shape()[_axis], 1,
                              arr.get_shape()[_axis])
-        Chunks(chunks).apply(res).implementation.setslice(space, arr)
+        Chunks(chunks).apply(space, res).implementation.setslice(space, arr)
         axis_start += arr.get_shape()[_axis]
     return res
 
@@ -150,22 +151,22 @@ def repeat(space, w_arr, repeats, w_axis):
         arr = arr.descr_flatten(space)
         orig_size = arr.get_shape()[0]
         shape = [arr.get_shape()[0] * repeats]
-        res = W_NDimArray.from_shape(shape, arr.get_dtype())
+        w_res = W_NDimArray.from_shape(space, shape, arr.get_dtype(), w_instance=arr)
         for i in range(repeats):
             Chunks([Chunk(i, shape[0] - repeats + i, repeats,
-                          orig_size)]).apply(res).implementation.setslice(space, arr)
+                 orig_size)]).apply(space, w_res).implementation.setslice(space, arr)
     else:
         axis = space.int_w(w_axis)
         shape = arr.get_shape()[:]
         chunks = [Chunk(0, i, 1, i) for i in shape]
         orig_size = shape[axis]
         shape[axis] *= repeats
-        res = W_NDimArray.from_shape(shape, arr.get_dtype())
+        w_res = W_NDimArray.from_shape(space, shape, arr.get_dtype(), w_instance=arr)
         for i in range(repeats):
             chunks[axis] = Chunk(i, shape[axis] - repeats + i, repeats,
                                  orig_size)
-            Chunks(chunks).apply(res).implementation.setslice(space, arr)
-    return res
+            Chunks(chunks).apply(space, w_res).implementation.setslice(space, arr)
+    return w_res
 
 def count_nonzero(space, w_obj):
     return space.wrap(loop.count_all_true(convert_to_array(space, w_obj)))
@@ -261,7 +262,7 @@ def diagonal(space, arr, offset, axis1, axis2):
     else:
         shape = (shape[:axis2] + shape[axis2 + 1:axis1] +
                  shape[axis1 + 1:] + [size])
-    out = W_NDimArray.from_shape(shape, dtype)
+    out = W_NDimArray.from_shape(space, shape, dtype)
     if size == 0:
         return out
     if shapelen == 2:
