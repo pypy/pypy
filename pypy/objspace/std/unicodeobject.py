@@ -195,6 +195,16 @@ class W_UnicodeObject(W_Object, StringMethods):
             return 0
         return 1
 
+    def descr_formatter_parser(self, space):
+        from pypy.objspace.std.newformat import unicode_template_formatter
+        tformat = unicode_template_formatter(space, space.unicode_w(self))
+        return tformat.formatter_parser()
+
+    def descr_formatter_field_name_split(self, space):
+        from pypy.objspace.std.newformat import unicode_template_formatter
+        tformat = unicode_template_formatter(space, space.unicode_w(self))
+        return tformat.formatter_field_name_split()
+
 
 def wrapunicode(space, uni):
     return W_UnicodeObject(uni)
@@ -215,16 +225,6 @@ def plain_str2unicode(space, s):
                     space.wrap("ordinal not in range(128)")]))
         assert False, "unreachable"
 
-
-#def unicode_formatter_parser__ANY(space, w_unicode):
-#    from pypy.objspace.std.newformat import unicode_template_formatter
-#    tformat = unicode_template_formatter(space, space.unicode_w(w_unicode))
-#    return tformat.formatter_parser()
-#
-#def unicode_formatter_field_name_split__ANY(space, w_unicode):
-#    from pypy.objspace.std.newformat import unicode_template_formatter
-#    tformat = unicode_template_formatter(space, space.unicode_w(w_unicode))
-#    return tformat.formatter_field_name_split()
 
 # stuff imported from bytesobject for interoperability
 
@@ -459,6 +459,9 @@ errors can be 'strict', 'replace' or 'ignore' and defaults to 'strict'.''',
     __format__ = interp2app(W_UnicodeObject.descr__format__),
     __mod__ = interp2app(W_UnicodeObject.descr_mod),
     __getnewargs__ = interp2app(W_UnicodeObject.descr_getnewargs),
+    _formatter_parser = interp2app(W_UnicodeObject.descr_formatter_parser),
+    _formatter_field_name_split =
+        interp2app(W_UnicodeObject.descr_formatter_field_name_split),
 )
 
 unitypedef = unicode_typedef

@@ -217,6 +217,16 @@ class W_BytesObject(W_AbstractBytesObject, StringMethods):
         w_u = space.call_function(space.w_unicode, self)
         return space.call_method(w_u, "join", w_list)
 
+    def descr_formatter_parser(self, space):
+        from pypy.objspace.std.newformat import str_template_formatter
+        tformat = str_template_formatter(space, space.str_w(self))
+        return tformat.formatter_parser()
+
+    def descr_formatter_field_name_split(self, space):
+        from pypy.objspace.std.newformat import str_template_formatter
+        tformat = str_template_formatter(space, space.str_w(self))
+        return tformat.formatter_field_name_split()
+
 
 def _create_list_from_string(value):
     # need this helper function to allow the jit to look inside and inline
@@ -324,6 +334,9 @@ If the argument is a string, the return value is the same object.''',
     __mod__ = interp2app(W_BytesObject.descr_mod),
     __buffer__ = interp2app(W_BytesObject.descr_buffer),
     __getnewargs__ = interp2app(W_BytesObject.descr_getnewargs),
+    _formatter_parser = interp2app(W_BytesObject.descr_formatter_parser),
+    _formatter_field_name_split =
+        interp2app(W_BytesObject.descr_formatter_field_name_split),
 )
 
 
@@ -372,18 +385,3 @@ def string_escape_encode(s, quote):
     buf.append(quote)
 
     return buf.build()
-
-
-
-#str_formatter_parser           = SMM('_formatter_parser', 1)
-#str_formatter_field_name_split = SMM('_formatter_field_name_split', 1)
-#
-#def str_formatter_parser__ANY(space, w_str):
-#    from pypy.objspace.std.newformat import str_template_formatter
-#    tformat = str_template_formatter(space, space.str_w(w_str))
-#    return tformat.formatter_parser()
-#
-#def str_formatter_field_name_split__ANY(space, w_str):
-#    from pypy.objspace.std.newformat import str_template_formatter
-#    tformat = str_template_formatter(space, space.str_w(w_str))
-#    return tformat.formatter_field_name_split()
