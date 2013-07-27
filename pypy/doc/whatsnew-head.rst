@@ -44,5 +44,5 @@ Added os.statvfs and os.fstatvfs
 .. branch: statvfs_tests
 Added some addition tests for statvfs.
 
-.. branch: ndarray-subtypes
+.. branch: ndarray-subtype
 Allow subclassing ndarray, i.e. matrix
