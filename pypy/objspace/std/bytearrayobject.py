@@ -20,6 +20,9 @@ from rpython.rlib.objectmodel import newlist_hint, resizelist_hint
 from rpython.rlib.rstring import StringBuilder
 
 
+def _make_data(s):
+    return [s[i] for i in range(len(s))]
+
 class W_BytearrayObject(W_Object, StringMethods):
     def __init__(w_self, data):
         w_self.data = data
@@ -29,7 +32,7 @@ class W_BytearrayObject(W_Object, StringMethods):
         return "%s(%s)" % (w_self.__class__.__name__, ''.join(w_self.data))
 
     def _new(self, value):
-        return W_BytearrayObject(list(value))
+        return W_BytearrayObject(_make_data(value))
 
     def _len(self):
         return len(self.data)
@@ -48,7 +51,7 @@ class W_BytearrayObject(W_Object, StringMethods):
     _builder = StringBuilder
 
     def _newlist_unwrapped(self, space, res):
-        return space.newlist([W_BytearrayObject(list(i)) for i in res])
+        return space.newlist([W_BytearrayObject(_make_data(i)) for i in res])
 
     def _isupper(self, ch):
         return ch.isupper()
