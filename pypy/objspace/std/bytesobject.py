@@ -1,7 +1,7 @@
 """The builtin str implementation"""
 
 from pypy.interpreter.buffer import StringBuffer
-from pypy.interpreter.error import operationerrfmt
+from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.objspace.std import newformat
 from pypy.objspace.std.basestringtype import basestring_typedef
