@@ -888,3 +888,15 @@ class AppTestUnicodeString:
         assert b == u'hello \u1234'
 
         assert u'%s' % S(u'mar\xe7') == u'mar\xe7'
+
+    def test_isdecimal(self):
+        assert u'0'.isdecimal()
+        assert not u''.isdecimal()
+        assert not u'a'.isdecimal()
+        assert not u'\u2460'.isdecimal() # CIRCLED DIGIT ONE
+
+    def test_isnumeric(self):
+        assert u'0'.isnumeric()
+        assert not u''.isnumeric()
+        assert not u'a'.isnumeric()
+        assert u'\u2460'.isnumeric() # CIRCLED DIGIT ONE

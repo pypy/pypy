@@ -96,6 +96,9 @@ class W_UnicodeObject(W_Object, StringMethods):
     def _islower(self, ch):
         return unicodedb.islower(ord(ch))
 
+    def _isnumeric(self, ch):
+        return unicodedb.isnumeric(ord(ch))
+
     def _istitle(self, ch):
         return unicodedb.istitle(ord(ch))
 
@@ -110,6 +113,9 @@ class W_UnicodeObject(W_Object, StringMethods):
 
     def _isdigit(self, ch):
         return unicodedb.isdigit(ord(ch))
+
+    def _isdecimal(self, ch):
+        return unicodedb.isdecimal(ord(ch))
 
     def _iscased(self, ch):
         return unicodedb.iscased(ord(ch))
@@ -204,6 +210,12 @@ class W_UnicodeObject(W_Object, StringMethods):
         from pypy.objspace.std.newformat import unicode_template_formatter
         tformat = unicode_template_formatter(space, space.unicode_w(self))
         return tformat.formatter_field_name_split()
+
+    def descr_isdecimal(self, space):
+        return self._is_generic(space, '_isdecimal')
+
+    def descr_isnumeric(self, space):
+        return self._is_generic(space, '_isnumeric')
 
 
 def wrapunicode(space, uni):
@@ -429,8 +441,10 @@ errors can be 'strict', 'replace' or 'ignore' and defaults to 'strict'.''',
     rindex = interp2app(W_UnicodeObject.descr_rindex),
     isalnum = interp2app(W_UnicodeObject.descr_isalnum),
     isalpha = interp2app(W_UnicodeObject.descr_isalpha),
+    isdecimal = interp2app(W_UnicodeObject.descr_isdecimal),
     isdigit = interp2app(W_UnicodeObject.descr_isdigit),
     islower = interp2app(W_UnicodeObject.descr_islower),
+    isnumeric = interp2app(W_UnicodeObject.descr_isnumeric),
     isspace = interp2app(W_UnicodeObject.descr_isspace),
     istitle = interp2app(W_UnicodeObject.descr_istitle),
     isupper = interp2app(W_UnicodeObject.descr_isupper),
