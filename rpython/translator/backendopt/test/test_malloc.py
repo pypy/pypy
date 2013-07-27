@@ -365,7 +365,7 @@ class TestOOTypeMallocRemoval(BaseMallocRemovalTest):
     def test_classattr_as_defaults(self):
         class Bar:
             foo = 41
-        
+
         def fn():
             x = Bar()
             x.foo += 1
