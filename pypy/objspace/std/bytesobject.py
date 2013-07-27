@@ -13,7 +13,7 @@ from pypy.objspace.std.unicodeobject import (unicode_from_string,
     decode_object, unicode_from_encoded_object, _get_encoding_and_errors)
 from rpython.rlib.jit import we_are_jitted
 from rpython.rlib.objectmodel import compute_hash, compute_unique_id
-from rpython.rlib.rstring import StringBuilder
+from rpython.rlib.rstring import StringBuilder, replace
 
 
 class W_AbstractBytesObject(W_Object):
@@ -198,6 +198,27 @@ class W_BytesObject(W_AbstractBytesObject, StringMethods):
             self_as_unicode = unicode_from_encoded_object(space, self, None, None)
             return self_as_unicode._endswith(space, self_as_unicode._value, w_suffix, start, end)
         return StringMethods._endswith(self, space, value, w_suffix, start, end)
+
+    @unwrap_spec(count=int)
+    def descr_replace(self, space, w_old, w_new, count=-1):
+        old_is_unicode = space.isinstance_w(w_old, space.w_unicode)
+        new_is_unicode = space.isinstance_w(w_new, space.w_unicode)
+        if old_is_unicode or new_is_unicode:
+            self_as_uni = unicode_from_encoded_object(space, self, None, None)
+            if not old_is_unicode:
+                w_old = unicode_from_encoded_object(space, w_old, None, None)
+            if not new_is_unicode:
+                w_new = unicode_from_encoded_object(space, w_new, None, None)
+            input = self_as_uni._val(space)
+            sub = self_as_uni._op_val(space, w_old)
+            by = self_as_uni._op_val(space, w_new)
+            try:
+                res = replace(input, sub, by, count)
+            except OverflowError:
+                raise OperationError(space.w_OverflowError,
+                                     space.wrap("replace string is too long"))
+            return self_as_uni._new(res)
+        return StringMethods.descr_replace(self, space, w_old, w_new, count)
 
     def _join_return_one(self, space, w_obj):
         return (space.is_w(space.type(w_obj), space.w_str) or

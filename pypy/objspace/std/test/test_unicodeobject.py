@@ -900,3 +900,8 @@ class AppTestUnicodeString:
         assert not u''.isnumeric()
         assert not u'a'.isnumeric()
         assert u'\u2460'.isnumeric() # CIRCLED DIGIT ONE
+
+    def test_replace_autoconvert(self):
+        res = 'one!two!three!'.replace(u'!', u'@', 1)
+        assert res == u'one@two!three!'
+        assert type(res) == unicode
