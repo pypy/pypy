@@ -139,6 +139,7 @@ class StmGC(MovingGCBase):
 
     @classmethod
     def JIT_max_size_of_young_obj(cls):
+        # XXX there is actually a maximum, check
         return None
 
     @classmethod
