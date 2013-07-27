@@ -91,11 +91,11 @@ class W_BytearrayObject(W_Object, StringMethods):
             return ch
 
     def _join_return_one(self, space, w_obj):
-        return space.is_w(space.type(w_obj), space.w_unicode)
+        return False
 
     def _join_check_item(self, space, w_obj):
-        if (space.is_w(space.type(w_obj), space.w_str) or
-            space.is_w(space.type(w_obj), space.w_bytearray)):
+        if (space.isinstance_w(w_obj, space.w_str) or
+            space.isinstance_w(w_obj, space.w_bytearray)):
             return 0
         return 1
 
