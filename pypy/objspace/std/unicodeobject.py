@@ -196,8 +196,8 @@ class W_UnicodeObject(W_Object, StringMethods):
         return space.is_w(space.type(w_obj), space.w_unicode)
 
     def _join_check_item(self, space, w_obj):
-        if (space.is_w(space.type(w_obj), space.w_str) or
-            space.is_w(space.type(w_obj), space.w_unicode)):
+        if (space.isinstance_w(w_obj, space.w_str) or
+            space.isinstance_w(w_obj, space.w_unicode)):
             return 0
         return 1
 

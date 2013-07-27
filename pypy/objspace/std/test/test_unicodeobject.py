@@ -905,3 +905,14 @@ class AppTestUnicodeString:
         res = 'one!two!three!'.replace(u'!', u'@', 1)
         assert res == u'one@two!three!'
         assert type(res) == unicode
+
+    def test_join_subclass(self):
+        class UnicodeSubclass(unicode):
+            pass
+        class StrSubclass(str):
+            pass
+
+        s1 = UnicodeSubclass(u'a')
+        assert u''.join([s1]) is not s1
+        s2 = StrSubclass(u'a')
+        assert u''.join([s2]) is not s2
