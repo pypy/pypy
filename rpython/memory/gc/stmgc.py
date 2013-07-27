@@ -44,15 +44,16 @@ class StmGC(MovingGCBase):
     GCFLAG_PREBUILT_ORIGINAL      = first_gcflag << 3
     GCFLAG_PUBLIC_TO_PRIVATE      = first_gcflag << 4
     GCFLAG_WRITE_BARRIER          = first_gcflag << 5 # stmgc.h
-    GCFLAG_NURSERY_MOVED          = first_gcflag << 6
+    GCFLAG_MOVED                  = first_gcflag << 6
     GCFLAG_BACKUP_COPY            = first_gcflag << 7 # debug
     GCFLAG_STUB                   = first_gcflag << 8 # debug
     GCFLAG_PRIVATE_FROM_PROTECTED = first_gcflag << 9
     GCFLAG_HAS_ID                 = first_gcflag << 10
     GCFLAG_IMMUTABLE              = first_gcflag << 11
     GCFLAG_SMALLSTUB              = first_gcflag << 12
+    GCFLAG_MARKED                 = first_gcflag << 13
     
-    PREBUILT_FLAGS    = first_gcflag * (1 + 2 + 4 + 8)
+    PREBUILT_FLAGS    = first_gcflag * ((1<<0) | (1<<1) | (1<<2) | (1<<3) | (1<<13))
     PREBUILT_REVISION = r_uint(1)
     
     FX_MASK = 65535
