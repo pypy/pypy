@@ -241,21 +241,6 @@ class TestRfloat(BaseRtypingTest):
         f = compile(func, [float])
         assert f(10/3.0) == '3.3333'
 
-    def test_parts_to_float(self):
-        from rpython.rlib.rfloat import parts_to_float, break_up_float
-        def f(x):
-            if x == 0:
-                s = '1.0'
-            else:
-                s = '1e-100'
-            sign, beforept, afterpt, expt = break_up_float(s)
-            return parts_to_float(sign, beforept, afterpt, expt)
-        res = self.interpret(f, [0])
-        assert res == 1.0
-
-        res = self.interpret(f, [1])
-        assert res == 1e-100
-
     def test_string_to_float(self):
         from rpython.rlib.rfloat import rstring_to_float
         def func(x):

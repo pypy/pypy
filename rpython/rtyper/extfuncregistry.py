@@ -85,7 +85,3 @@ for name, args, res in path_functions:
     llimpl = func_with_new_name(func, name)
     register_external(func, args, res, 'll_os_path.ll_%s' % name,
                       llimpl=llimpl, sandboxsafe=True)
-
-# -------------------- strtod functions ----------------------
-
-from rpython.rtyper.module import ll_strtod

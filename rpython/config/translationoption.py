@@ -321,13 +321,6 @@ OPT_TABLE = {
     'jit':  DEFL_GC + '  extraopts     jit',
     }
 
-def final_check_config(config):
-    # XXX: this should be a real config option, but it is hard to refactor it;
-    # instead, we "just" patch it from here
-    from rpython.rlib import rfloat
-    if config.translation.type_system == 'ootype':
-        rfloat.USE_SHORT_FLOAT_REPR = False
-
 def set_opt_level(config, level):
     """Apply optimization suggestions on the 'config'.
     The optimizations depend on the selected level and possibly on the backend.
