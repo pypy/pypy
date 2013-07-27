@@ -132,7 +132,8 @@ class StmGC(MovingGCBase):
         seen by the GC, then it can get collected."""
         tid = self.get_hdr_tid(obj)[0]
         if bool(tid & self.GCFLAG_OLD):
-            return False
+            return False    # XXX wrong so far.  We should add a flag to the
+                            # object that means "don't ever kill this copy"
         return True
         
 
