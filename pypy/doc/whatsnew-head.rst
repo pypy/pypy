@@ -46,3 +46,5 @@ Added some addition tests for statvfs.
 
 .. branch: ndarray-subtype
 Allow subclassing ndarray, i.e. matrix
+
+.. branch: kill-ootype
