@@ -1004,6 +1004,7 @@ class CBufferedReaderTest(BufferedReaderTest, SizeofTest):
         support.gc_collect()
         self.assertTrue(wr() is None, wr)
 
+    @support.impl_detail(cpython=True)
     def test_args_error(self):
         # Issue #17275
         with self.assertRaisesRegexp(TypeError, "BufferedReader"):
@@ -1302,6 +1303,7 @@ class CBufferedWriterTest(BufferedWriterTest, SizeofTest):
         with self.open(support.TESTFN, "rb") as f:
             self.assertEqual(f.read(), b"123xxx")
 
+    @support.impl_detail(cpython=True)
     def test_args_error(self):
         # Issue #17275
         with self.assertRaisesRegexp(TypeError, "BufferedWriter"):
@@ -1676,6 +1678,7 @@ class CBufferedRandomTest(CBufferedReaderTest, CBufferedWriterTest,
         CBufferedReaderTest.test_garbage_collection(self)
         CBufferedWriterTest.test_garbage_collection(self)
 
+    @support.impl_detail(cpython=True)
     def test_args_error(self):
         # Issue #17275
         with self.assertRaisesRegexp(TypeError, "BufferedRandom"):
