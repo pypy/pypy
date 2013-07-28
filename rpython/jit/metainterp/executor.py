@@ -283,22 +283,6 @@ def do_keepalive(cpu, _, x):
 
 # ____________________________________________________________
 
-##def do_force_token(cpu):
-##    raise NotImplementedError
-
-##def do_virtual_ref(cpu, box1, box2):
-##    raise NotImplementedError
-
-##def do_virtual_ref_finish(cpu, box1, box2):
-##    raise NotImplementedError
-
-##def do_debug_merge_point(cpu, box1):
-##    from rpython.jit.metainterp.warmspot import get_stats
-##    loc = box1._get_str()
-##    get_stats().add_merge_point_location(loc)
-
-# ____________________________________________________________
-
 
 def _make_execute_list():
     execute_by_num_args = {}

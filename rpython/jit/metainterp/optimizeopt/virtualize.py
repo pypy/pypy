@@ -698,7 +698,6 @@ class OptVirtualize(optimizer.Optimization):
             self.make_constant_int(op.result, value.getlength())
         else:
             value.ensure_nonnull()
-            ###self.optimize_default(op)
             self.emit_operation(op)
 
     def optimize_GETARRAYITEM_GC(self, op):

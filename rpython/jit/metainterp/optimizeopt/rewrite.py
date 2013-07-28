@@ -411,18 +411,6 @@ class OptRewrite(Optimization):
     def optimize_INSTANCE_PTR_NE(self, op):
         self._optimize_oois_ooisnot(op, True, True)
 
-##    def optimize_INSTANCEOF(self, op):
-##        value = self.getvalue(op.args[0])
-##        realclassbox = value.get_constant_class(self.optimizer.cpu)
-##        if realclassbox is not None:
-##            checkclassbox = self.optimizer.cpu.typedescr2classbox(op.descr)
-##            result = self.optimizer.cpu.ts.subclassOf(self.optimizer.cpu,
-##                                                      realclassbox,
-##                                                      checkclassbox)
-##            self.make_constant_int(op.result, result)
-##            return
-##        self.emit_operation(op)
-
     def optimize_CALL(self, op):
         # dispatch based on 'oopspecindex' to a method that handles
         # specifically the given oopspec call.  For non-oopspec calls,

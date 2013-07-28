@@ -326,15 +326,6 @@ class __extend__(pairtype(AbstractBaseListRepr, AbstractBaseListRepr)):
             return NotImplemented
         return v
 
-##    # TODO: move it to lltypesystem
-##    def rtype_is_((r_lst1, r_lst2), hop):
-##        if r_lst1.lowleveltype != r_lst2.lowleveltype:
-##            # obscure logic, the is can be true only if both are None
-##            v_lst1, v_lst2 = hop.inputargs(r_lst1, r_lst2)
-##            return hop.gendirectcall(ll_both_none, v_lst1, v_lst2)
-
-##        return pairtype(Repr, Repr).rtype_is_(pair(r_lst1, r_lst2), hop)
-
     def rtype_eq((r_lst1, r_lst2), hop):
         assert r_lst1.item_repr == r_lst2.item_repr
         v_lst1, v_lst2 = hop.inputargs(r_lst1, r_lst2)
