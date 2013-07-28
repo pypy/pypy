@@ -4,7 +4,7 @@ from rpython.jit.codewriter import heaptracker
 from rpython.jit.codewriter.policy import StopAtXPolicy
 from rpython.jit.metainterp.optimizeopt.test.test_util import LLtypeMixin
 from rpython.jit.metainterp.test.support import LLJitMixin
-from rpython.jit.metainterp.warmspot import get_translator
+from rpython.jit.metainterp.warmspot import get_translator, get_stats
 from rpython.jit.metainterp.resoperation import rop
 from rpython.rlib.jit import JitDriver, hint, dont_look_inside, promote, virtual_ref
 from rpython.rlib.rarithmetic import intmask
