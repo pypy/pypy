@@ -56,7 +56,6 @@ class X86_64_RegisterManager(X86RegisterManager):
 
     no_lower_byte_regs = []
     save_around_call_regs = [eax, ecx, edx, esi, edi, r8, r9, r10]
-    register_arguments = [edi, esi, edx, ecx]
 
 class X86XMMRegisterManager(RegisterManager):
 
@@ -119,6 +118,9 @@ else:
 gpr_reg_mgr_cls.all_reg_indexes = [-1] * WORD * 2 # eh, happens to be true
 for _i, _reg in enumerate(gpr_reg_mgr_cls.all_regs):
     gpr_reg_mgr_cls.all_reg_indexes[_reg.value] = _i
+
+_register_arguments = [edi, esi, edx, ecx]
+
 
 class RegAlloc(BaseRegalloc):
 
@@ -809,18 +811,12 @@ class RegAlloc(BaseRegalloc):
         imm = self.rm.convert_to_imm(v)
         self.assembler.regalloc_mov(imm, eax)
         args_so_far = [tmpbox]
-        locs = []
         for i in range(2, len(args)):
-            if IS_X86_64:
-                reg = self.rm.register_arguments[i - 2]
-                self.make_sure_var_in_reg(args[i], args_so_far, selected_reg=reg)
-            else:
-                loc = self.make_sure_var_in_reg(args[i], args_so_far)
-                locs.append(loc)
+            reg = _register_arguments[i - 2]
+            self.make_sure_var_in_reg(args[i], args_so_far, selected_reg=reg)
             args_so_far.append(args[i])
         loc_cond = self.make_sure_var_in_reg(args[0], args)
-        self.assembler.cond_call(op, self.get_gcmap([eax]), loc_cond, eax,
-                                 locs)
+        self.assembler.cond_call(op, self.get_gcmap([eax]), loc_cond, eax)
         self.rm.possibly_free_var(tmpbox)
 
     def consider_call_malloc_nursery(self, op):

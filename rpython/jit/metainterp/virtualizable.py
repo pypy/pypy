@@ -5,7 +5,6 @@ from rpython.jit.metainterp.warmstate import wrap, unwrap
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper import rvirtualizable
 from rpython.rtyper.lltypesystem import lltype, llmemory
-from rpython.rtyper.ootypesystem import ootype
 from rpython.rtyper.rclass import IR_IMMUTABLE_ARRAY, IR_IMMUTABLE
 
 
@@ -15,9 +14,6 @@ class VirtualizableInfo(object):
     def __init__(self, warmrunnerdesc, VTYPEPTR):
         self.warmrunnerdesc = warmrunnerdesc
         cpu = warmrunnerdesc.cpu
-        if cpu.ts.name == 'ootype':
-            import py
-            py.test.skip("ootype: fix virtualizables")
         self.cpu = cpu
         self.BoxArray = cpu.ts.BoxRef
         #
@@ -46,8 +42,8 @@ class VirtualizableInfo(object):
         for name in array_fields:
             ARRAYPTR = fieldType(VTYPE, name)
             ARRAY = deref(ARRAYPTR)
-            assert isinstance(ARRAYPTR, (lltype.Ptr, ootype.Array))
-            assert isinstance(ARRAY, (lltype.GcArray, ootype.Array))
+            assert isinstance(ARRAYPTR, lltype.Ptr)
+            assert isinstance(ARRAY, lltype.GcArray)
             ARRAYITEMTYPES.append(arrayItem(ARRAY))
         self.array_descrs = [cpu.arraydescrof(deref(fieldType(VTYPE, name)))
                              for name in array_fields]
@@ -311,7 +307,7 @@ class VirtualizableInfo(object):
         return virtualizable_box.getref(llmemory.GCREF)
 
     def is_vtypeptr(self, TYPE):
-        return rvirtualizable.match_virtualizable_type(TYPE, self.VTYPEPTR)
+        return TYPE == self.VTYPEPTR
 
 # ____________________________________________________________
 #

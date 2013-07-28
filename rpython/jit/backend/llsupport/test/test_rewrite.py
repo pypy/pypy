@@ -1,15 +1,14 @@
 from rpython.jit.backend.llsupport.descr import get_size_descr,\
      get_field_descr, get_array_descr, ArrayDescr, FieldDescr,\
-     SizeDescrWithVTable, get_interiorfield_descr, get_call_descr
+     SizeDescrWithVTable, get_interiorfield_descr
 from rpython.jit.backend.llsupport.gc import GcLLDescr_boehm,\
      GcLLDescr_framework
 from rpython.jit.backend.llsupport import jitframe
-from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.gc import get_description
 from rpython.jit.tool.oparser import parse
 from rpython.jit.metainterp.optimizeopt.util import equaloplists
 from rpython.jit.codewriter.heaptracker import register_known_gctype
-from rpython.jit.metainterp.history import JitCellToken, FLOAT, ConstInt
+from rpython.jit.metainterp.history import JitCellToken, FLOAT
 from rpython.rtyper.lltypesystem import lltype, rclass, rffi
 from rpython.jit.backend.x86.arch import WORD
 
@@ -88,7 +87,6 @@ class RewriteTests(object):
         casmdescr.compiled_loop_token = clt
         tzdescr = None # noone cares
         #
-
         namespace.update(locals())
         #
         for funcname in self.gc_ll_descr._generated_functions:

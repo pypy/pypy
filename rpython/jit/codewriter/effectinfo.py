@@ -1,7 +1,6 @@
 from rpython.jit.metainterp.typesystem import deref, fieldType, arrayItem
 from rpython.rtyper.lltypesystem.rclass import OBJECT
 from rpython.rtyper.lltypesystem import lltype, llmemory
-from rpython.rtyper.ootypesystem import ootype
 from rpython.translator.backendopt.graphanalyze import BoolGraphAnalyzer
 
 
@@ -235,8 +234,6 @@ def effectinfo_from_writeanalyze(effects, cpu,
 def consider_struct(TYPE, fieldname):
     if fieldType(TYPE, fieldname) is lltype.Void:
         return False
-    if isinstance(TYPE, ootype.OOType):
-        return True
     if not isinstance(TYPE, lltype.GcStruct): # can be a non-GC-struct
         return False
     if fieldname == "typeptr" and TYPE is OBJECT:
@@ -249,8 +246,6 @@ def consider_struct(TYPE, fieldname):
 def consider_array(ARRAY):
     if arrayItem(ARRAY) is lltype.Void:
         return False
-    if isinstance(ARRAY, ootype.Array):
-        return True
     if not isinstance(ARRAY, lltype.GcArray): # can be a non-GC-array
         return False
     return True
@@ -272,10 +267,8 @@ class RandomEffectsAnalyzer(BoolGraphAnalyzer):
             funcobj = op.args[0].value._obj
             if funcobj.random_effects_on_gcobjs:
                 return True
-        except lltype.DelayedPointer:
+        except (AttributeError, lltype.DelayedPointer):
             return True   # better safe than sorry
-        except AttributeError:
-            return False
         return super(RandomEffectsAnalyzer, self).analyze_external_call(
             op, seen)
 

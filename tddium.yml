@@ -10,7 +10,6 @@ tddium:
      - pypy/**/test_*.py
      - rpython/**/test_*.py
      - exclude: pypy/module/test_lib_pypy/ctypes_tests/** # don't run in CPython
-     - exclude: rpython/jit/backend/cli/**  # bitrotted AFAICT
      - exclude: rpython/jit/backend/llvm/** # bitrotted AFAICT
      # and things requiring a fix in Tddium, omitted to avoid confusion:
      - exclude: rpython/rlib/unicodedata/test/test_ucd.py # need wide build

@@ -455,7 +455,7 @@ class FunctionCodeGenerator(object):
         return self.generic_call(FUNC, fnexpr, op.args[1:], op.result)
 
     def OP_JIT_CONDITIONAL_CALL(self, op):
-        return ''
+        return 'abort();  /* jit_conditional_call */'
 
     # low-level operations
     def generic_get(self, op, sourceexpr):

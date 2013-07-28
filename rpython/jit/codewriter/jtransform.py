@@ -5,7 +5,7 @@ from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.codewriter.flatten import ListOfKind, IndirectCallTargets
 from rpython.jit.codewriter.policy import log
 from rpython.jit.metainterp import quasiimmut
-from rpython.jit.metainterp.history import getkind, AbstractDescr
+from rpython.jit.metainterp.history import getkind
 from rpython.jit.metainterp.typesystem import deref, arrayItem
 from rpython.jit.metainterp.blackhole import BlackholeInterpreter
 from rpython.flowspace.model import SpaceOperation, Variable, Constant, c_last_exception
@@ -14,17 +14,7 @@ from rpython.rlib.jit import _we_are_jitted
 from rpython.rlib.rgc import lltype_is_gc
 from rpython.rtyper.lltypesystem import lltype, llmemory, rstr, rclass, rffi
 from rpython.rtyper.rclass import IR_QUASIIMMUTABLE, IR_QUASIIMMUTABLE_ARRAY
-from rpython.translator.simplify import get_funcobj
 from rpython.translator.unsimplify import varoftype
-
-class IntDescr(AbstractDescr):
-    """ Disguise int as a descr
-    """
-    def __init__(self, v):
-        self.v = v
-
-    def getint(self):
-        return self.v
 
 class UnsupportedMallocFlags(Exception):
     pass
@@ -653,9 +643,6 @@ class Transformer(object):
                               op.result)
 
     def _array_of_voids(self, ARRAY):
-        #if isinstance(ARRAY, ootype.Array):
-        #    return ARRAY.ITEM == ootype.Void
-        #else:
         return ARRAY.OF == lltype.Void
 
     def rewrite_op_getfield(self, op):
@@ -1478,7 +1465,7 @@ class Transformer(object):
         # because functions that are neither nonneg nor fast don't have an
         # oopspec any more
         # xxx break of abstraction:
-        func = get_funcobj(op.args[0].value)._callable
+        func = op.args[0].value._obj._callable
         # base hints on the name of the ll function, which is a bit xxx-ish
         # but which is safe for now
         assert func.func_name.startswith('ll_')

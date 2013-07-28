@@ -1,7 +1,7 @@
 from rpython.translator.translator import TranslationContext
 from rpython.annotator import unaryop, binaryop
 from rpython.rtyper.test import snippet
-from rpython.rtyper.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
+from rpython.rtyper.test.tool import BaseRtypingTest
 
 
 class TestSnippet(object):
@@ -33,7 +33,7 @@ class TestSnippet(object):
         for opname in binaryop.BINARY_OPERATIONS:
             print 'BINARY_OPERATIONS:', opname
 
-class BaseTestRbool(BaseRtypingTest):
+class TestRbool(BaseRtypingTest):
 
     def test_bool2int(self):
         def f(n):
@@ -82,9 +82,3 @@ class BaseTestRbool(BaseRtypingTest):
         assert res == 1
         res = self.interpret(f, [1, True])
         assert res == 1
-
-class TestLLtype(BaseTestRbool, LLRtypeMixin):
-    pass
-
-class TestOOtype(BaseTestRbool, OORtypeMixin):
-    pass

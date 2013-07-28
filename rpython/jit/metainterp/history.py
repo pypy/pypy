@@ -1,6 +1,5 @@
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
-from rpython.rtyper.ootypesystem import ootype
 from rpython.rlib.objectmodel import we_are_translated, Symbolic
 from rpython.rlib.objectmodel import compute_unique_id
 from rpython.rlib.rarithmetic import r_int64, is_valid_int
@@ -48,8 +47,6 @@ def getkind(TYPE, supports_floats=True,
             return "int"
         else:
             return "ref"
-    elif isinstance(TYPE, ootype.OOType):
-        return "ref"
     else:
         raise NotImplementedError("type %s not supported" % TYPE)
 getkind._annspecialcase_ = 'specialize:memo'
@@ -67,14 +64,7 @@ def repr_pointer(box):
 def repr_object(box):
     try:
         TYPE = box.value.obj._TYPE
-        if TYPE is ootype.String:
-            return '(%r)' % box.value.obj._str
-        if TYPE is ootype.Class or isinstance(TYPE, ootype.StaticMethod):
-            return '(%r)' % box.value.obj
-        if isinstance(box.value.obj, ootype._view):
-            return repr(box.value.obj._inst._TYPE)
-        else:
-            return repr(TYPE)
+        return repr(TYPE)
     except AttributeError:
         return box.value
 
@@ -361,56 +351,6 @@ class ConstPtr(Const):
 
 CONST_NULL = ConstPtr(ConstPtr.value)
 
-class ConstObj(Const):
-    type = REF
-    value = ootype.NULL
-    _attrs_ = ('value',)
-
-    def __init__(self, value):
-        assert ootype.typeOf(value) is ootype.Object
-        self.value = value
-
-    def clonebox(self):
-        return BoxObj(self.value)
-
-    nonconstbox = clonebox
-
-    def getref_base(self):
-        return self.value
-
-    def getref(self, OBJ):
-        return ootype.cast_from_object(OBJ, self.getref_base())
-    getref._annspecialcase_ = 'specialize:arg(1)'
-
-    def _get_hash_(self):
-        if self.value:
-            return ootype.identityhash(self.value)
-        else:
-            return 0
-
-##    def getaddr(self):
-##        # so far this is used only when calling
-##        # CodeWriter.IndirectCallset.bytecode_for_address.  We don't need a
-##        # real addr, but just a key for the dictionary
-##        return self.value
-
-    def same_constant(self, other):
-        if isinstance(other, ConstObj):
-            return self.value == other.value
-        return False
-
-    def nonnull(self):
-        return bool(self.value)
-
-    _getrepr_ = repr_object
-
-    def repr_rpython(self):
-        return repr_rpython(self, 'co')
-
-    def _get_str(self):    # for debugging only
-        from rpython.rtyper.annlowlevel import hlstr
-        return hlstr(ootype.cast_from_object(ootype.String, self.value))
-
 class Box(AbstractValue):
     __slots__ = ()
     _extended_display = True
@@ -425,7 +365,6 @@ class Box(AbstractValue):
             intval = lltype.cast_primitive(lltype.Signed, x)
             return BoxInt(intval)
         elif kind == "ref":
-            # XXX add ootype support?
             ptrval = lltype.cast_opaque_ptr(llmemory.GCREF, x)
             return BoxPtr(ptrval)
         elif kind == "float":
@@ -576,46 +515,6 @@ class BoxPtr(Box):
     _getrepr_ = repr_pointer
 
 NULLBOX = BoxPtr()
-
-
-class BoxObj(Box):
-    type = REF
-    _attrs_ = ('value',)
-
-    def __init__(self, value=ootype.NULL):
-        assert ootype.typeOf(value) is ootype.Object
-        self.value = value
-
-    def forget_value(self):
-        self.value = ootype.NULL
-
-    def clonebox(self):
-        return BoxObj(self.value)
-
-    def constbox(self):
-        return ConstObj(self.value)
-
-    def getref_base(self):
-        return self.value
-
-    def getref(self, OBJ):
-        return ootype.cast_from_object(OBJ, self.getref_base())
-    getref._annspecialcase_ = 'specialize:arg(1)'
-
-    def _get_hash_(self):
-        if self.value:
-            return ootype.identityhash(self.value)
-        else:
-            return 0
-
-    def nonnull(self):
-        return bool(self.value)
-
-    def repr_rpython(self):
-        return repr_rpython(self, 'bo')
-
-    _getrepr_ = repr_object
-
 
 # ____________________________________________________________
 

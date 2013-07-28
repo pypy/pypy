@@ -11,7 +11,7 @@ from rpython.rlib.rstring import StringBuilder, UnicodeBuilder
 from rpython.rtyper.annlowlevel import hlstr, LowLevelAnnotatorPolicy
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.test import test_llinterp
-from rpython.rtyper.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
+from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.tool import udir
 from rpython.translator.translator import graphof
 
@@ -24,7 +24,7 @@ def enum_direct_calls(translator, func):
                 yield op
 
 
-class BaseTestRbuiltin(BaseRtypingTest):
+class TestRbuiltin(BaseRtypingTest):
 
     def test_method_join(self):
         # this is tuned to catch a specific bug:
@@ -233,7 +233,7 @@ class BaseTestRbuiltin(BaseRtypingTest):
         assert self.ll_to_string(res) == 'hello world'
 
     def test_os_lseek(self):
-        self._skip_llinterpreter("os.lseek", skipOO=False)
+        self._skip_llinterpreter("os.lseek")
         tmpfile = str(udir.udir.join("os_lseek_test"))
         f = file(tmpfile, 'w')
         f.write('0123456789')
@@ -400,7 +400,6 @@ class BaseTestRbuiltin(BaseRtypingTest):
         assert self.class_name(res) == 'B'
 
     def test_os_path_join(self):
-        self._skip_llinterpreter("os path oofakeimpl", skipLL=False)
         def fn(a, b):
             return os.path.join(a, b)
         res = self.ll_to_string(self.interpret(fn, ['a', 'b']))
@@ -453,9 +452,8 @@ class BaseTestRbuiltin(BaseRtypingTest):
         assert x0 != x2
         # the following checks are probably too precise, but work at
         # least on top of llinterp
-        if type(self) is TestLLtype:
-            assert x1 == intmask(x0)
-            assert x3 == intmask(x2)
+        assert x1 == intmask(x0)
+        assert x3 == intmask(x2)
 
     def test_id_on_builtins(self):
         def fn():
@@ -537,8 +535,6 @@ class BaseTestRbuiltin(BaseRtypingTest):
         res = self.interpret(f, [12])
         assert res == 512
 
-
-class TestLLtype(BaseTestRbuiltin, LLRtypeMixin):
     def test_cast(self):
         def llfn(v):
             return rffi.cast(rffi.VOIDP, v)
@@ -559,23 +555,3 @@ class TestLLtype(BaseTestRbuiltin, LLRtypeMixin):
         res = self.interpret(llfn, [lltype.nullptr(rffi.VOIDP.TO)])
         assert res == 0
         assert isinstance(res, r_ulonglong)
-
-
-class TestOOtype(BaseTestRbuiltin, OORtypeMixin):
-
-    def test_instantiate_multiple_meta(self):
-        class A:
-            x = 2
-        class B(A):
-            x = 3
-        def do_stuff(cls):
-            return cls.x
-        def f(i):
-            if i == 1:
-                cls = A
-            else:
-                cls = B
-            do_stuff(cls)
-            return instantiate(cls)
-        res = self.interpret(f, [1])
-        assert res.getmeta() # check that it exists

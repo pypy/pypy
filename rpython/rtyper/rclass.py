@@ -466,34 +466,24 @@ def ll_inst_hash(ins):
         return 0    # for None
     else:
         from rpython.rtyper.lltypesystem import lltype
-        return lltype.identityhash(ins)     # also works for ootype
+        return lltype.identityhash(ins)
 
 
 _missing = object()
 
 def fishllattr(inst, name, default=_missing):
     from rpython.rtyper.lltypesystem import lltype
-    from rpython.rtyper.ootypesystem import ootype
-    if isinstance(inst, (ootype._instance, ootype._view)):
-        # XXX: we need to call ootypesystem.rclass.mangle, but we
-        # can't because we don't have a config object
-        mangled = 'o' + name
-        if default is _missing:
-            return getattr(inst, mangled)
-        else:
-            return getattr(inst, mangled, default)
-    else:
-        p = widest = lltype.normalizeptr(inst)
-        while True:
-            try:
-                return getattr(p, 'inst_' + name)
-            except AttributeError:
-                pass
-            try:
-                p = p.super
-            except AttributeError:
-                break
-        if default is _missing:
-            raise AttributeError("%s has no field %s" % (lltype.typeOf(widest),
-                                                         name))
-        return default
+    p = widest = lltype.normalizeptr(inst)
+    while True:
+        try:
+            return getattr(p, 'inst_' + name)
+        except AttributeError:
+            pass
+        try:
+            p = p.super
+        except AttributeError:
+            break
+    if default is _missing:
+        raise AttributeError("%s has no field %s" % (lltype.typeOf(widest),
+                                                        name))
+    return default

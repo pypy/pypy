@@ -84,12 +84,6 @@ links to more information.
        extend or twist these semantics, or c) serve whole-program analysis
        purposes.
 
-    ootypesystem
-       An `object oriented type model <rtyper.html#object-oriented-types>`__
-       containing classes and instances.  A :term:`backend` that uses this type system
-       is also called a high-level backend.  The JVM and CLI backends
-       all use this typesystem.
-
     prebuilt constant
        In :term:`RPython` module globals are considered constants.  Moreover,
        global (i.e. prebuilt) lists and dictionaries are supposed to be

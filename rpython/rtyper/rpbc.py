@@ -840,15 +840,7 @@ class AbstractMethodsPBCRepr(Repr):
                                  "classes with no common base: %r" % (mdescs,))
 
         self.methodname = methodname
-        # for ootype, the right thing to do is to always keep the most precise
-        # type of the instance, while for lltype we want to cast it to the
-        # type where the method is actually defined. See also
-        # test_rclass.test_method_specialized_with_subclass and
-        # rtyper.attach_methods_to_subclasses
-        if self.rtyper.type_system.name == 'ootypesystem':
-            self.classdef = classdef
-        else:
-            self.classdef = classdef.locate_attribute(methodname)
+        self.classdef = classdef.locate_attribute(methodname)
         # the low-level representation is just the bound 'self' argument.
         self.s_im_self = annmodel.SomeInstance(self.classdef, flags=flags)
         self.r_im_self = rclass.getinstancerepr(rtyper, self.classdef)

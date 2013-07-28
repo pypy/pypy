@@ -412,7 +412,6 @@ class RecursiveTests:
                 self.i8 = i8
                 self.i9 = i9
 
-
         def loop(n):
             i = 0
             o = A(0, 1, 2, 3, 4, 5, 6, 7, 8, 9)
@@ -444,7 +443,6 @@ class RecursiveTests:
                 self.i7 = i7
                 self.i8 = i8
                 self.i9 = i9
-
 
         def loop(n):
             i = 0

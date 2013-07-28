@@ -24,7 +24,6 @@ class RPythonAnnotator(object):
     See description in doc/translation.txt."""
 
     def __init__(self, translator=None, policy=None, bookkeeper=None):
-        import rpython.rtyper.ootypesystem.ooregistry # has side effects
         import rpython.rtyper.extfuncregistry # has side effects
         import rpython.rlib.nonconst # has side effects
 
@@ -138,10 +137,10 @@ class RPythonAnnotator(object):
         checkgraph(flowgraph)
 
         nbarg = len(flowgraph.getargs())
-        if len(inputcells) != nbarg: 
-            raise TypeError("%s expects %d args, got %d" %(       
+        if len(inputcells) != nbarg:
+            raise TypeError("%s expects %d args, got %d" %(
                             flowgraph, nbarg, len(inputcells)))
-        
+
         # register the entry point
         self.addpendinggraph(flowgraph, inputcells)
         # recursively proceed until no more pending block is left
@@ -267,7 +266,7 @@ class RPythonAnnotator(object):
                 pos = '?'
         if pos != '?':
             pos = self.whereami(pos)
- 
+
         log.WARNING("%s/ %s" % (pos, msg))
 
 
@@ -297,7 +296,7 @@ class RPythonAnnotator(object):
         v = graph.getreturnvar()
         try:
             return self.bindings[v]
-        except KeyError: 
+        except KeyError:
             # the function didn't reach any return statement so far.
             # (some functions actually never do, they always raise exceptions)
             return annmodel.s_ImpossibleValue

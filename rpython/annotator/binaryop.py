@@ -866,12 +866,8 @@ class __extend__(pairtype(SomeString, SomePBC)):
 
 # ____________________________________________________________
 # annotation of low-level types
-from rpython.annotator.model import SomePtr, SomeOOInstance, SomeOOClass
-from rpython.annotator.model import SomeOOObject
+from rpython.annotator.model import SomePtr
 from rpython.annotator.model import ll_to_annotation, annotation_to_lltype
-from rpython.rtyper.ootypesystem import ootype
-
-_make_none_union('SomeOOInstance', 'ootype=obj.ootype, can_be_None=True')
 
 class __extend__(pairtype(SomePtr, SomePtr)):
     def union((p1, p2)):
@@ -911,41 +907,6 @@ class __extend__(pairtype(SomeObject, SomePtr)):
     def union((obj, p2)):
         return pair(p2, obj).union()
 
-
-class __extend__(pairtype(SomeOOInstance, SomeOOInstance)):
-    def union((r1, r2)):
-        common = ootype.commonBaseclass(r1.ootype, r2.ootype)
-        assert common is not None, 'Mixing of incompatible instances %r, %r' %(r1.ootype, r2.ootype)
-        return SomeOOInstance(common, can_be_None=r1.can_be_None or r2.can_be_None)
-
-class __extend__(pairtype(SomeOOClass, SomeOOClass)):
-    def union((r1, r2)):
-        if r1.ootype is None:
-            common = r2.ootype
-        elif r2.ootype is None:
-            common = r1.ootype
-        elif r1.ootype == r2.ootype:
-            common = r1.ootype
-        elif isinstance(r1.ootype, ootype.Instance) and isinstance(r2.ootype, ootype.Instance):
-            common = ootype.commonBaseclass(r1.ootype, r2.ootype)
-            assert common is not None, ('Mixing of incompatible classes %r, %r'
-                                        % (r1.ootype, r2.ootype))
-        else:
-            common = ootype.Object
-        return SomeOOClass(common)
-
-class __extend__(pairtype(SomeOOInstance, SomeObject)):
-    def union((r, obj)):
-        assert False, ("mixing reference type %r with something else %r" % (r.ootype, obj))
-
-class __extend__(pairtype(SomeObject, SomeOOInstance)):
-    def union((obj, r2)):
-        return pair(r2, obj).union()
-
-class __extend__(pairtype(SomeOOObject, SomeOOObject)):
-    def union((r1, r2)):
-        assert r1.ootype is ootype.Object and r2.ootype is ootype.Object
-        return SomeOOObject()
 
 #_________________________________________
 # weakrefs

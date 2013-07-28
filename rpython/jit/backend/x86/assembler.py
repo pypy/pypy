@@ -14,7 +14,7 @@ from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_gcref
 from rpython.rlib.jit import AsmInfo
 from rpython.jit.backend.model import CompiledLoopToken
 from rpython.jit.backend.x86.regalloc import (RegAlloc, get_ebp_ofs,
-    gpr_reg_mgr_cls, xmm_reg_mgr_cls)
+    gpr_reg_mgr_cls, xmm_reg_mgr_cls, _register_arguments)
 from rpython.jit.backend.llsupport.regalloc import (get_scale, valid_addressing_size)
 from rpython.jit.backend.x86.arch import (FRAME_FIXED_SIZE, WORD, IS_X86_64,
                                        JITFRAME_FIXED_SIZE, IS_X86_32,
@@ -142,7 +142,7 @@ class Assembler386(BaseAssembler):
 
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap and gcrootmap.is_shadow_stack:
-            self._load_shadowstack_top_in_reg(mc, gcrootmap)
+            self._load_shadowstack_top_in_ebx(mc, gcrootmap)
             mc.MOV_mr((ebx.value, -WORD), eax.value)
 
         mc.MOV_bi(gcmap_ofs, 0)
@@ -164,7 +164,8 @@ class Assembler386(BaseAssembler):
             # the caller is responsible for putting arguments in the right spot
             mc.SUB(esp, imm(WORD * 7))
             self.set_extra_stack_depth(mc, 8 * WORD)
-            # args are in their respective positions
+            for i in range(4):
+                mc.MOV_sr(i * WORD, _register_arguments[i].value)
         mc.CALL(eax)
         if IS_X86_64:
             mc.ADD(esp, imm(WORD))
@@ -729,7 +730,7 @@ class Assembler386(BaseAssembler):
 
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap and gcrootmap.is_shadow_stack:
-            self._call_header_shadowstack(self.mc, gcrootmap)
+            self._call_header_shadowstack(gcrootmap)
 
     def _call_header_with_stack_check(self):
         self._call_header()
@@ -752,7 +753,7 @@ class Assembler386(BaseAssembler):
     def _call_footer(self):
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap and gcrootmap.is_shadow_stack:
-            self._call_footer_shadowstack(self.mc, gcrootmap)
+            self._call_footer_shadowstack(gcrootmap)
 
         for i in range(len(self.cpu.CALLEE_SAVE_REGISTERS)-1, -1, -1):
             self.mc.MOV_rs(self.cpu.CALLEE_SAVE_REGISTERS[i].value,
@@ -762,41 +763,41 @@ class Assembler386(BaseAssembler):
         self.mc.ADD_ri(esp.value, FRAME_FIXED_SIZE * WORD)
         self.mc.RET()
 
-    def _load_shadowstack_top_in_reg(self, mc, gcrootmap, selected_reg=ebx):
-        """Loads the shadowstack top in selected reg, and returns an integer
+    def _load_shadowstack_top_in_ebx(self, mc, gcrootmap):
+        """Loads the shadowstack top in ebx, and returns an integer
         that gives the address of the stack top.  If this integer doesn't
         fit in 32 bits, it will be loaded in r11.
         """
         rst = gcrootmap.get_root_stack_top_addr()
         if rx86.fits_in_32bits(rst):
-            mc.MOV_rj(selected_reg.value, rst)       # MOV ebx, [rootstacktop]
+            mc.MOV_rj(ebx.value, rst)            # MOV ebx, [rootstacktop]
         else:
             mc.MOV_ri(X86_64_SCRATCH_REG.value, rst) # MOV r11, rootstacktop
-            mc.MOV_rm(selected_reg.value, (X86_64_SCRATCH_REG.value, 0))
+            mc.MOV_rm(ebx.value, (X86_64_SCRATCH_REG.value, 0))
             # MOV ebx, [r11]
         #
         return rst
 
-    def _call_header_shadowstack(self, mc, gcrootmap, selected_reg=ebx):
-        rst = self._load_shadowstack_top_in_reg(mc, gcrootmap, selected_reg)
-        mc.MOV_mr((selected_reg.value, 0), ebp.value)      # MOV [ebx], ebp
-        mc.ADD_ri(selected_reg.value, WORD)
+    def _call_header_shadowstack(self, gcrootmap):
+        rst = self._load_shadowstack_top_in_ebx(self.mc, gcrootmap)
+        self.mc.MOV_mr((ebx.value, 0), ebp.value)      # MOV [ebx], ebp
+        self.mc.ADD_ri(ebx.value, WORD)
         if rx86.fits_in_32bits(rst):
-            mc.MOV_jr(rst, selected_reg.value)       # MOV [rootstacktop], ebx
+            self.mc.MOV_jr(rst, ebx.value)            # MOV [rootstacktop], ebx
         else:
             # The integer 'rst' doesn't fit in 32 bits, so we know that
             # _load_shadowstack_top_in_ebx() above loaded it in r11.
             # Reuse it.  Be careful not to overwrite r11 in the middle!
-            mc.MOV_mr((X86_64_SCRATCH_REG.value, 0),
-                      selected_reg.value) # MOV [r11], ebx
+            self.mc.MOV_mr((X86_64_SCRATCH_REG.value, 0),
+                           ebx.value) # MOV [r11], ebx
 
-    def _call_footer_shadowstack(self, mc, gcrootmap, selected_reg=ebx):
+    def _call_footer_shadowstack(self, gcrootmap):
         rst = gcrootmap.get_root_stack_top_addr()
         if rx86.fits_in_32bits(rst):
-            mc.SUB_ji8(rst, WORD)       # SUB [rootstacktop], WORD
+            self.mc.SUB_ji8(rst, WORD)       # SUB [rootstacktop], WORD
         else:
-            mc.MOV_ri(selected_reg.value, rst)           # MOV ebx, rootstacktop
-            mc.SUB_mi8((selected_reg.value, 0), WORD)    # SUB [ebx], WORD
+            self.mc.MOV_ri(ebx.value, rst)           # MOV ebx, rootstacktop
+            self.mc.SUB_mi8((ebx.value, 0), WORD)  # SUB [ebx], WORD
 
     def redirect_call_assembler(self, oldlooptoken, newlooptoken):
         # some minimal sanity checking
@@ -2156,7 +2157,7 @@ class Assembler386(BaseAssembler):
     def label(self):
         self._check_frame_depth_debug(self.mc)
 
-    def cond_call(self, op, gcmap, cond_loc, call_loc, arglocs):
+    def cond_call(self, op, gcmap, cond_loc, call_loc):
         self.mc.TEST(cond_loc, cond_loc)
         self.mc.J_il8(rx86.Conditions['Z'], 0) # patched later
         jmp_adr = self.mc.get_relative_pos()
@@ -2172,11 +2173,6 @@ class Assembler386(BaseAssembler):
             if self._regalloc.xrm.reg_bindings:
                 floats = True
         cond_call_adr = self.cond_call_slowpath[floats * 2 + callee_only]
-        if IS_X86_32:
-            p = -8 * WORD
-            for loc in arglocs:
-                self.mc.MOV(RawEspLoc(p, INT), loc)
-                p += WORD
         self.mc.CALL(imm(cond_call_adr))
         self.pop_gcmap(self.mc)
         # never any result value

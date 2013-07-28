@@ -4,7 +4,7 @@ import py
 
 from rpython.jit.codewriter.policy import StopAtXPolicy
 from rpython.jit.metainterp import history
-from rpython.jit.metainterp.test.support import LLJitMixin, OOJitMixin, noConst
+from rpython.jit.metainterp.test.support import LLJitMixin, noConst
 from rpython.jit.metainterp.warmspot import get_stats
 from rpython.rlib import rerased
 from rpython.rlib.jit import (JitDriver, we_are_jitted, hint, dont_look_inside,
@@ -14,7 +14,6 @@ from rpython.rlib.jit import (JitDriver, we_are_jitted, hint, dont_look_inside,
 from rpython.rlib.longlong2float import float2longlong, longlong2float
 from rpython.rlib.rarithmetic import ovfcheck, is_valid_int
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rtyper.ootypesystem import ootype
 
 
 class BasicTests:
@@ -1218,8 +1217,6 @@ class BasicTests:
         res = self.interp_operations(fn, [1])
         assert res == 1
         self.check_operations_history(guard_class=0)
-        if self.type_system == 'ootype':
-            self.check_operations_history(instanceof=0)
 
     def test_r_dict(self):
         from rpython.rlib.objectmodel import r_dict
@@ -3045,86 +3042,6 @@ class BasicTests:
                 i += 1
         res = self.meta_interp(f, [32])
         assert res == f(32)
-        
-class XXXDisabledTestOOtype(BasicTests, OOJitMixin):
-
-    def test_oohash(self):
-        def f(n):
-            s = ootype.oostring(n, -1)
-            return s.ll_hash()
-        res = self.interp_operations(f, [5])
-        assert res == ootype.oostring(5, -1).ll_hash()
-
-    def test_identityhash(self):
-        A = ootype.Instance("A", ootype.ROOT)
-        def f():
-            obj1 = ootype.new(A)
-            obj2 = ootype.new(A)
-            return ootype.identityhash(obj1) == ootype.identityhash(obj2)
-        assert not f()
-        res = self.interp_operations(f, [])
-        assert not res
-
-    def test_oois(self):
-        A = ootype.Instance("A", ootype.ROOT)
-        def f(n):
-            obj1 = ootype.new(A)
-            if n:
-                obj2 = obj1
-            else:
-                obj2 = ootype.new(A)
-            return obj1 is obj2
-        res = self.interp_operations(f, [0])
-        assert not res
-        res = self.interp_operations(f, [1])
-        assert res
-
-    def test_oostring_instance(self):
-        A = ootype.Instance("A", ootype.ROOT)
-        B = ootype.Instance("B", ootype.ROOT)
-        def f(n):
-            obj1 = ootype.new(A)
-            obj2 = ootype.new(B)
-            s1 = ootype.oostring(obj1, -1)
-            s2 = ootype.oostring(obj2, -1)
-            ch1 = s1.ll_stritem_nonneg(1)
-            ch2 = s2.ll_stritem_nonneg(1)
-            return ord(ch1) + ord(ch2)
-        res = self.interp_operations(f, [0])
-        assert res == ord('A') + ord('B')
-
-    def test_subclassof(self):
-        A = ootype.Instance("A", ootype.ROOT)
-        B = ootype.Instance("B", A)
-        clsA = ootype.runtimeClass(A)
-        clsB = ootype.runtimeClass(B)
-        myjitdriver = JitDriver(greens = [], reds = ['n', 'flag', 'res'])
-
-        def getcls(flag):
-            if flag:
-                return clsA
-            else:
-                return clsB
-
-        def f(flag, n):
-            res = True
-            while n > -100:
-                myjitdriver.can_enter_jit(n=n, flag=flag, res=res)
-                myjitdriver.jit_merge_point(n=n, flag=flag, res=res)
-                cls = getcls(flag)
-                n -= 1
-                res = ootype.subclassof(cls, clsB)
-            return res
-
-        res = self.meta_interp(f, [1, 100],
-                               policy=StopAtXPolicy(getcls),
-                               enable_opts='')
-        assert not res
-
-        res = self.meta_interp(f, [0, 100],
-                               policy=StopAtXPolicy(getcls),
-                               enable_opts='')
-        assert res
 
 class BaseLLtypeTests(BasicTests):
 
@@ -3959,7 +3876,7 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
 
     def test_weakref(self):
         import weakref
-        
+
         class A(object):
             def __init__(self, x):
                 self.x = x
@@ -3982,7 +3899,7 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
 
     def test_external_call(self):
         from rpython.rlib.objectmodel import invoke_around_extcall
-        
+
         T = rffi.CArrayPtr(rffi.TIME_T)
         external = rffi.llexternal("time", [T], rffi.TIME_T)
 

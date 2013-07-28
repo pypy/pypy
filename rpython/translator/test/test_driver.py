@@ -1,7 +1,6 @@
 import py
 
 from rpython.translator.driver import TranslationDriver
-import optparse
 
 def test_ctr():
     td = TranslationDriver()
@@ -27,16 +26,9 @@ def test_ctr():
     assert td.backend_select_goals(['backendopt_lltype']) == [
         'backendopt_lltype']
 
-    expected = ['annotate', 'backendopt_lltype',
-                 'backendopt_ootype',
-                 'llinterpret_lltype',
-                 'rtype_ootype', 'rtype_lltype',
-                 'source_cli', 'source_c',
-                 'compile_cli', 'compile_c',
-                 'compile_jvm', 'source_jvm', 'run_jvm',
-                 'pyjitpl_lltype',
-                 'pyjitpl_ootype']
-    assert set(td.exposed) == set(expected)                             
+    expected = ['annotate', 'backendopt_lltype', 'llinterpret_lltype',
+                'rtype_lltype', 'source_c', 'compile_c', 'pyjitpl_lltype', ]
+    assert set(td.exposed) == set(expected)
 
     td = TranslationDriver({'backend': None, 'type_system': 'lltype'})
 
