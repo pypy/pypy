@@ -85,13 +85,8 @@ Directory                          explanation/links
                                    from an
                                    RPython program (generally via the rtyper_)
 
-`rpython/translator/cli/`_         the `CLI backend`_ for `.NET`_
-                                   (Microsoft CLR or Mono_)
-
 `pypy/goal/`_                      our `main PyPy-translation scripts`_
                                    live here
-
-`rpython/translator/jvm/`_         the Java backend
 
 `rpython/translator/tool/`_        helper tools for translation
 
@@ -123,7 +118,6 @@ Directory                          explanation/links
 .. _`testing methods`: coding-guide.html#testing-in-pypy
 .. _`translation`: translation.html 
 .. _`GenC backend`: translation.html#genc 
-.. _`CLI backend`: cli-backend.html
 .. _`py.py`: getting-started-python.html#the-py.py-interpreter
 .. _`translatorshell.py`: getting-started-dev.html#try-out-the-translator
 .. _JIT: jit/index.html
