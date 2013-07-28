@@ -157,10 +157,9 @@ class RPythonTyper(object):
         raise KeyError(search)
 
     def makekey(self, s_obj):
-        return pair(self.type_system, s_obj).rtyper_makekey(self)
-
-    def _makerepr(self, s_obj):
-        return pair(self.type_system, s_obj).rtyper_makerepr(self)
+        if hasattr(s_obj, "rtyper_makekey_ex"):
+            return s_obj.rtyper_makekey_ex(self)
+        return s_obj.rtyper_makekey()
 
     def getrepr(self, s_obj):
         # s_objs are not hashable... try hard to find a unique key anyway
@@ -170,7 +169,7 @@ class RPythonTyper(object):
             result = self.reprs[key]
         except KeyError:
             self.reprs[key] = None
-            result = self._makerepr(s_obj)
+            result = s_obj.rtyper_makerepr(self)
             assert not isinstance(result.lowleveltype, ContainerType), (
                 "missing a Ptr in the type specification "
                 "of %s:\n%r" % (s_obj, result.lowleveltype))

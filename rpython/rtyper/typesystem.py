@@ -145,17 +145,3 @@ class LowLevelTypeSystem(TypeSystem):
 LowLevelTypeSystem.instance = LowLevelTypeSystem()
 
 getfunctionptr = LowLevelTypeSystem.instance.getcallable
-
-# Multiple dispatch on type system and high-level annotation
-
-from rpython.tool.pairtype import pairtype
-from rpython.annotator.model import SomeObject
-
-class __extend__(pairtype(TypeSystem, SomeObject)):
-    def rtyper_makerepr((ts, s_obj), rtyper):
-        return s_obj.rtyper_makerepr(rtyper)
-
-    def rtyper_makekey((ts, s_obj), rtyper):
-        if hasattr(s_obj, "rtyper_makekey_ex"):
-            return s_obj.rtyper_makekey_ex(rtyper)
-        return s_obj.rtyper_makekey()
