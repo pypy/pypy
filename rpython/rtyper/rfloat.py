@@ -1,6 +1,9 @@
 from rpython.annotator import model as annmodel
 from rpython.rlib.objectmodel import _hash_float
 from rpython.rlib.rarithmetic import base_int
+from rpython.rlib.rfloat import formatd
+from rpython.rlib import jit
+from rpython.rtyper.annlowlevel import llstr
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.lltypesystem.lltype import (Signed, Unsigned,
     SignedLongLong, UnsignedLongLong, Bool, Float)
@@ -134,11 +137,9 @@ class __extend__(FloatRepr):
         hop.exception_cannot_occur()
         return vlist[0]
 
-    # version picked by specialisation based on which
-    # type system rtyping is using, from <type_system>.ll_str module
+    @jit.elidable
     def ll_str(self, f):
-        pass
-    ll_str._annspecialcase_ = "specialize:ts('ll_str.ll_float_str')"
+        return llstr(formatd(f, 'f', 6))
 
 #
 # _________________________ Conversions _________________________

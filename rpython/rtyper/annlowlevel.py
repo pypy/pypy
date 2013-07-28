@@ -73,16 +73,6 @@ class LowLevelAnnotatorPolicy(AnnotatorPolicy):
         return LowLevelAnnotatorPolicy.lowlevelspecialize(funcdesc, args_s, {})
     default_specialize = staticmethod(default_specialize)
 
-    def specialize__ts(pol, funcdesc, args_s, ref):
-        ts = pol.rtyper.type_system
-        ref = ref.split('.')
-        x = ts
-        for part in ref:
-            x = getattr(x, part)
-        bk = pol.rtyper.annotator.bookkeeper
-        funcdesc2 = bk.getdesc(x)
-        return pol.default_specialize(funcdesc2, args_s)
-
     def specialize__semierased(funcdesc, args_s):
         a2l = annmodel.annotation_to_lltype
         l2a = annmodel.lltype_to_annotation
