@@ -32,19 +32,10 @@ from rpython.translator.unsimplify import insert_empty_block
 class RPythonTyper(object):
     from rpython.rtyper.rmodel import log
 
-    def __init__(self, annotator, type_system="lltype"):
+    def __init__(self, annotator):
         self.annotator = annotator
-
         self.lowlevel_ann_policy = LowLevelAnnotatorPolicy(self)
-
-        if isinstance(type_system, str):
-            if type_system == "lltype":
-                self.type_system = LowLevelTypeSystem.instance
-            else:
-                raise TyperError("Unknown type system %r!" % type_system)
-        else:
-            self.type_system = type_system
-        self.type_system_deref = self.type_system.deref
+        self.type_system = LowLevelTypeSystem.instance
         self.reprs = {}
         self._reprs_must_call_setup = []
         self._seen_reprs_must_call_setup = {}
@@ -940,7 +931,7 @@ class LowLevelOpList(list):
         # build the 'direct_call' operation
         f = self.rtyper.getcallable(graph)
         c = inputconst(typeOf(f), f)
-        fobj = self.rtyper.type_system_deref(f)
+        fobj = self.rtyper.type_system.deref(f)
         return self.genop('direct_call', [c]+newargs_v,
                           resulttype = typeOf(fobj).RESULT)
 

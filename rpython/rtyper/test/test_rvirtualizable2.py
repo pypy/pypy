@@ -339,7 +339,7 @@ class TestVirtualizable(BaseRtypingTest):
             g(a)
 
         t, typer, graph = self.gengraph(f, [])
-        deref = typer.type_system_deref
+        deref = typer.type_system.deref
 
         desc = typer.annotator.bookkeeper.getdesc(g)
         g_graphs = desc._cache.items()
