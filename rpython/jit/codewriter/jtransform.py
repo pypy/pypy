@@ -359,12 +359,11 @@ class Transformer(object):
         lst.append(v)
 
     def handle_residual_call(self, op, extraargs=[], may_call_jitcodes=False,
-                             oopspecindex=EffectInfo.OS_NONE, extradescrs=None):
+                             oopspecindex=EffectInfo.OS_NONE):
         """A direct_call turns into the operation 'residual_call_xxx' if it
         is calling a function that we don't want to JIT.  The initial args
         of 'residual_call_xxx' are the function to call, and its calldescr."""
-        calldescr = self.callcontrol.getcalldescr(op, oopspecindex=oopspecindex,
-                                                  extradescrs=extradescrs)
+        calldescr = self.callcontrol.getcalldescr(op, oopspecindex=oopspecindex)
         op1 = self.rewrite_call(op, 'residual_call',
                                 [op.args[0]] + extraargs, calldescr=calldescr)
         if may_call_jitcodes or self.callcontrol.calldescr_canraise(calldescr):

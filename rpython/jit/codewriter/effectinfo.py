@@ -95,13 +95,11 @@ class EffectInfo(object):
                 extraeffect=EF_CAN_RAISE,
                 oopspecindex=OS_NONE,
                 can_invalidate=False,
-                call_release_gil_target=llmemory.NULL,
-                extra_descrs=None):
+                call_release_gil_target=llmemory.NULL):
         key = (frozenset_or_none(readonly_descrs_fields),
                frozenset_or_none(readonly_descrs_arrays),
                frozenset_or_none(write_descrs_fields),
                frozenset_or_none(write_descrs_arrays),
-               frozenset_or_none(extra_descrs),
                extraeffect,
                oopspecindex,
                can_invalidate)
@@ -134,7 +132,6 @@ class EffectInfo(object):
         result.can_invalidate = can_invalidate
         result.oopspecindex = oopspecindex
         result.call_release_gil_target = call_release_gil_target
-        result.extra_descrs = extra_descrs
         if result.check_can_raise():
             assert oopspecindex in cls._OS_CANRAISE
         cls._cache[key] = result
@@ -174,8 +171,7 @@ def effectinfo_from_writeanalyze(effects, cpu,
                                  extraeffect=EffectInfo.EF_CAN_RAISE,
                                  oopspecindex=EffectInfo.OS_NONE,
                                  can_invalidate=False,
-                                 call_release_gil_target=llmemory.NULL,
-                                 extra_descrs=None):
+                                 call_release_gil_target=llmemory.NULL):
     from rpython.translator.backendopt.writeanalyze import top_set
     if effects is top_set or extraeffect == EffectInfo.EF_RANDOM_EFFECTS:
         readonly_descrs_fields = None
@@ -224,8 +220,7 @@ def effectinfo_from_writeanalyze(effects, cpu,
                       extraeffect,
                       oopspecindex,
                       can_invalidate,
-                      call_release_gil_target,
-                      extra_descrs)
+                      call_release_gil_target)
 
 def consider_struct(TYPE, fieldname):
     if fieldType(TYPE, fieldname) is lltype.Void:
