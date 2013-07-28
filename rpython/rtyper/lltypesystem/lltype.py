@@ -2108,8 +2108,7 @@ def runtime_type_info(p):
 
 def identityhash(p):
     """Returns the lltype-level hash of the given GcStruct.
-    Also works with most ootype objects.  Not for NULL.
-    See rlib.objectmodel.compute_identity_hash() for more
+    Not for NULL. See rlib.objectmodel.compute_identity_hash() for more
     information about the RPython-level meaning of this.
     """
     assert p

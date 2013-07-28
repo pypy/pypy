@@ -503,9 +503,7 @@ def ll_alloc_and_set(LIST, count, item):
     return l
 
 
-# return a nullptr() if lst is a list of pointers it, else None.  Note
-# that if we are using ootypesystem there are not pointers, so we
-# always return None.
+# return a nullptr() if lst is a list of pointers it, else None.
 def ll_null_item(lst):
     LIST = typeOf(lst)
     if isinstance(LIST, Ptr):
@@ -516,25 +514,15 @@ def ll_null_item(lst):
 
 def listItemType(lst):
     LIST = typeOf(lst)
-    if isinstance(LIST, Ptr):    # lltype
-        LIST = LIST.TO
-    return LIST.ITEM
+    return LIST.TO.ITEM
 
 
 @signature(types.any(), types.any(), types.int(), types.int(), types.int(), returns=types.none())
 def ll_arraycopy(source, dest, source_start, dest_start, length):
     SRCTYPE = typeOf(source)
-    if isinstance(SRCTYPE, Ptr):
-        # lltype
-        rgc.ll_arraycopy(source.ll_items(), dest.ll_items(),
-                         source_start, dest_start, length)
-    else:
-        # ootype -- XXX improve the case of array->array copy?
-        i = 0
-        while i < length:
-            item = source.ll_getitem_fast(source_start + i)
-            dest.ll_setitem_fast(dest_start + i, item)
-            i += 1
+    # lltype
+    rgc.ll_arraycopy(source.ll_items(), dest.ll_items(),
+                     source_start, dest_start, length)
 
 
 def ll_copy(RESLIST, l):

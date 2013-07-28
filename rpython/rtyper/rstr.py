@@ -757,9 +757,7 @@ class AbstractStringIteratorRepr(IteratorRepr):
 #  get flowed and annotated, mostly with SomePtr.
 #
 
-# this class contains low level helpers used both by lltypesystem and
-# ootypesystem; each typesystem should subclass it and add its own
-# primitives.
+# this class contains low level helpers used both by lltypesystem
 class AbstractLLHelpers:
     __metaclass__ = StaticMethods
 
