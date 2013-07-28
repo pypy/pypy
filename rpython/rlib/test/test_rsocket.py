@@ -1,7 +1,6 @@
 import py, errno, sys
 from rpython.rlib import rsocket
 from rpython.rlib.rsocket import *
-from rpython.rtyper.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 import socket as cpy_socket
 
 # cannot test error codes in Win32 because ll2ctypes doesn't save

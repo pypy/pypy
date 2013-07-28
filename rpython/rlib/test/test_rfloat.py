@@ -1,7 +1,6 @@
 import sys, py
 
 from rpython.rlib.rfloat import float_as_rbigint_ratio
-from rpython.rlib.rfloat import break_up_float
 from rpython.rlib.rfloat import copysign
 from rpython.rlib.rfloat import round_away
 from rpython.rlib.rfloat import round_double
@@ -88,32 +87,11 @@ def test_round_double():
 
 def test_round_half_even():
     from rpython.rlib import rfloat
-    for func in (rfloat.round_double_short_repr,
-                 rfloat.round_double_fallback_repr):
-        # 2.x behavior
-        assert func(2.5, 0, False) == 3.0
-        # 3.x behavior
-        assert func(2.5, 0, True) == 2.0
-
-def test_break_up_float():
-    assert break_up_float('1') == ('', '1', '', '')
-    assert break_up_float('+1') == ('+', '1', '', '')
-    assert break_up_float('-1') == ('-', '1', '', '')
-
-    assert break_up_float('.5') == ('', '', '5', '')
-
-    assert break_up_float('1.2e3') == ('', '1', '2', '3')
-    assert break_up_float('1.2e+3') == ('', '1', '2', '+3')
-    assert break_up_float('1.2e-3') == ('', '1', '2', '-3')
-
-    # some that will get thrown out on return:
-    assert break_up_float('.') == ('', '', '', '')
-    assert break_up_float('+') == ('+', '', '', '')
-    assert break_up_float('-') == ('-', '', '', '')
-    assert break_up_float('e1') == ('', '', '', '1')
-
-    py.test.raises(ValueError, break_up_float, 'e')
-
+    func = rfloat.round_double
+    # 2.x behavior
+    assert func(2.5, 0, False) == 3.0
+    # 3.x behavior
+    assert func(2.5, 0, True) == 2.0
 
 def test_float_as_rbigint_ratio():
     for f, ratio in [

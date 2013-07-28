@@ -264,25 +264,6 @@ def test_time_time():
     assert t0 <= res <= t1
 
 
-def test_parts_to_float():
-    from rpython.rlib.rfloat import parts_to_float
-    def fn(sign, beforept, afterpt, exponent):
-        return parts_to_float(sign, beforept, afterpt, exponent)
-
-    f = compile(fn, [str, str, str, str])
-
-    data = [
-    (("","1","","")     , 1.0),
-    (("-","1","","")    , -1.0),
-    (("-","1","5","")   , -1.5),
-    (("-","1","5","2")  , -1.5e2),
-    (("-","1","5","+2") , -1.5e2),
-    (("-","1","5","-2") , -1.5e-2),
-    ]
-
-    for parts, val in data:
-        assert f(*parts) == val
-
 def test_formatd():
     from rpython.rlib.rfloat import formatd
     def fn(x):
@@ -453,7 +434,7 @@ if hasattr(os, 'getpid'):
         f1 = compile(does_stuff, [])
         res = f1()
         assert res != os.getpid()
-        
+
 if hasattr(os, 'getpgrp'):
     def test_os_getpgrp():
         def does_stuff():

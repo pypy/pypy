@@ -1,7 +1,6 @@
 import py
 from rpython.rtyper.lltypesystem.lloperation import LL_OPERATIONS, llop, void
 from rpython.rtyper.lltypesystem import lltype, opimpl
-from rpython.rtyper.ootypesystem import ootype, ooopimpl
 from rpython.rtyper.llinterp import LLFrame
 from rpython.rtyper.test.test_llinterp import interpret
 from rpython.rtyper import rclass
@@ -16,10 +15,7 @@ def test_canfold_opimpl_complete():
     for opname, llop in LL_OPERATIONS.items():
         assert opname == llop.opname
         if llop.canfold:
-            if llop.oo:
-                func = ooopimpl.get_op_impl(opname)
-            else:
-                func = opimpl.get_op_impl(opname)
+            func = opimpl.get_op_impl(opname)
             assert callable(func)
 
 def test_llop_fold():
@@ -48,14 +44,13 @@ def test_llop_with_voids_interp():
     def llf():
         s = lltype.malloc(S)
         llop.bare_setfield(lltype.Void, s, void('x'), 3)
-        llop.bare_setfield(lltype.Void, s, name_y, 2)        
+        llop.bare_setfield(lltype.Void, s, name_y, 2)
         return s.x + s.y
     res = interpret(llf, [], policy=LowLevelAnnotatorPolicy())
     assert res == 5
 
 def test_is_pure():
     from rpython.flowspace.model import Variable, Constant
-    from rpython.rtyper import rclass
     assert llop.bool_not.is_pure([Variable()])
     assert llop.debug_assert.is_pure([Variable()])
     assert not llop.int_add_ovf.is_pure([Variable(), Variable()])

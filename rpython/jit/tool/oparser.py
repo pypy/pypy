@@ -81,18 +81,11 @@ class OpParser(object):
         if self._consts is None:
             return name
         obj = self._consts[name]
-        if self.type_system == 'lltype':
-            if typ == 'ptr':
-                return self.model.ConstPtr(obj)
-            else:
-                assert typ == 'class'
-                return self.model.ConstInt(self.model.ptr_to_int(obj))
+        if typ == 'ptr':
+            return self.model.ConstPtr(obj)
         else:
-            if typ == 'ptr':
-                return self.model.ConstObj(obj)
-            else:
-                assert typ == 'class'
-                return self.model.ConstObj(ootype.cast_to_object(obj))
+            assert typ == 'class'
+            return self.model.ConstInt(self.model.ptr_to_int(obj))
 
     def get_descr(self, poss_descr, allow_invent):
         if poss_descr.startswith('<'):
@@ -180,10 +173,7 @@ class OpParser(object):
             elif arg == 'None':
                 return None
             elif arg == 'NULL':
-                if self.type_system == 'lltype':
-                    return self.model.ConstPtr(self.model.ConstPtr.value)
-                else:
-                    return self.model.ConstObj(self.model.ConstObj.value)
+                return self.model.ConstPtr(self.model.ConstPtr.value)
             elif arg.startswith('ConstPtr('):
                 name = arg[len('ConstPtr('):-1]
                 return self.get_const(name, 'ptr')

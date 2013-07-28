@@ -4,7 +4,6 @@
 
 simplify_graph() applies all simplifications defined in this file.
 """
-
 import py
 
 from rpython.flowspace import operation
@@ -14,32 +13,17 @@ from rpython.rlib import rarithmetic
 from rpython.translator import unsimplify
 from rpython.translator.backendopt import ssa
 from rpython.rtyper.lltypesystem import lloperation, lltype
-from rpython.rtyper.ootypesystem import ootype
-
-def get_funcobj(func):
-    """
-    Return an object which is supposed to have attributes such as graph and
-    _callable
-    """
-    if hasattr(func, '_obj'):
-        return func._obj # lltypesystem
-    else:
-        return func # ootypesystem
-
-def get_functype(TYPE):
-    if isinstance(TYPE, lltype.Ptr):
-        return TYPE.TO
-    elif isinstance(TYPE, (ootype.StaticMethod, ootype.ForwardReference)):
-        return TYPE
-    assert False
 
 def get_graph(arg, translator):
     if isinstance(arg, Variable):
         return None
     f = arg.value
-    if not isinstance(f, lltype._ptr) and not isinstance(f, ootype._callable):
+    if not isinstance(f, lltype._ptr):
         return None
-    funcobj = get_funcobj(f)
+    try:
+        funcobj = f._getobj()
+    except lltype.DelayedPointer:
+        return None
     try:
         callable = funcobj._callable
     except (AttributeError, KeyError, AssertionError):
