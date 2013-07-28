@@ -343,9 +343,6 @@ class Struct(ContainerType):
     def _short_name(self):
         return "%s %s" % (self.__class__.__name__, self._name)
 
-##     def _defl(self, parent=None, parentindex=None):
-##         return _struct(self, parent=parent, parentindex=parentindex)
-
     def _allocate(self, initialization, parent=None, parentindex=None):
         return _struct(self, initialization=initialization,
                        parent=parent, parentindex=parentindex)
@@ -1029,15 +1026,6 @@ def parentlink(container):
     parent = container._parentstructure()
     if parent is not None:
         return parent, container._parent_index
-##        if isinstance(parent, _struct):
-##            for name in parent._TYPE._names:
-##                if getattr(parent, name) is container:
-##                    return parent, name
-##            raise RuntimeError("lost ourselves")
-##        if isinstance(parent, _array):
-##            raise TypeError("cannot fish a pointer to an array item or an "
-##                            "inlined substructure of it")
-##        raise AssertionError("don't know about %r" % (parent,))
     else:
         return None, None
 
@@ -2108,8 +2096,7 @@ def runtime_type_info(p):
 
 def identityhash(p):
     """Returns the lltype-level hash of the given GcStruct.
-    Also works with most ootype objects.  Not for NULL.
-    See rlib.objectmodel.compute_identity_hash() for more
+    Not for NULL. See rlib.objectmodel.compute_identity_hash() for more
     information about the RPython-level meaning of this.
     """
     assert p

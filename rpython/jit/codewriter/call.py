@@ -248,7 +248,8 @@ class CallControl(object):
         #
         effectinfo = effectinfo_from_writeanalyze(
             self.readwrite_analyzer.analyze(op), self.cpu, extraeffect,
-            oopspecindex, can_invalidate, call_release_gil_target)
+            oopspecindex, can_invalidate, call_release_gil_target,
+        )
         #
         assert effectinfo is not None
         if elidable or loopinvariant:

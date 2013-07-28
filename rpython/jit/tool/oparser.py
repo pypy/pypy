@@ -160,11 +160,9 @@ class OpParser(object):
                 return self.model.ConstFloat(self.model.convert_to_floatstorage(arg))
             if (arg.startswith('"') or arg.startswith("'") or
                 arg.startswith('s"')):
-                # XXX ootype
                 info = arg[1:].strip("'\"")
                 return self.model.get_const_ptr_for_string(info)
             if arg.startswith('u"'):
-                # XXX ootype
                 info = arg[1:].strip("'\"")
                 return self.model.get_const_ptr_for_unicode(info)
             if arg.startswith('ConstClass('):

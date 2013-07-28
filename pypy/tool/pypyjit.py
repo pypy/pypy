@@ -7,11 +7,18 @@ Run it with py.test -s --pdb pypyjit.py
 
 import py, os
 
+try:
+    py.test.config.option.runappdirect
+except AttributeError:
+    import sys
+    print >> sys.stderr, __doc__
+    sys.exit(2)
+
 from pypy.objspace.std import Space
 from rpython.config.translationoption import set_opt_level
 from pypy.config.pypyoption import get_pypy_config, set_pypy_opt_level
 from pypy.objspace.std import multimethod
-from rpython.rtyper.annlowlevel import llhelper, llstr, oostr, hlstr
+from rpython.rtyper.annlowlevel import llhelper, llstr, hlstr
 from rpython.rtyper.lltypesystem.rstr import STR
 from rpython.rtyper.lltypesystem import lltype
 from pypy.interpreter.pycode import PyCode

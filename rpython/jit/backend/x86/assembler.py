@@ -14,7 +14,7 @@ from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_gcref
 from rpython.rlib.jit import AsmInfo
 from rpython.jit.backend.model import CompiledLoopToken
 from rpython.jit.backend.x86.regalloc import (RegAlloc, get_ebp_ofs,
-    gpr_reg_mgr_cls, xmm_reg_mgr_cls)
+    gpr_reg_mgr_cls, xmm_reg_mgr_cls, _register_arguments)
 from rpython.jit.backend.llsupport.regalloc import (get_scale, valid_addressing_size)
 from rpython.jit.backend.x86.arch import (FRAME_FIXED_SIZE, WORD, IS_X86_64,
                                        JITFRAME_FIXED_SIZE, IS_X86_32,
@@ -148,6 +148,34 @@ class Assembler386(BaseAssembler):
         self._pop_all_regs_from_frame(mc, [], self.cpu.supports_floats)
         mc.RET()
         self._frame_realloc_slowpath = mc.materialize(self.cpu.asmmemmgr, [])
+
+    def _build_cond_call_slowpath(self, supports_floats, callee_only):
+        """ This builds a general call slowpath, for whatever call happens to
+        come.
+        """
+        mc = codebuf.MachineCodeBlockWrapper()
+        self._push_all_regs_to_frame(mc, [], supports_floats, callee_only)
+        if IS_X86_64:
+            mc.SUB(esp, imm(WORD))
+            self.set_extra_stack_depth(mc, 2 * WORD)
+        else:
+            # we want space for 3 arguments + call + alignment
+            # the caller is responsible for putting arguments in the right spot
+            mc.SUB(esp, imm(WORD * 7))
+            self.set_extra_stack_depth(mc, 8 * WORD)
+            for i in range(4):
+                mc.MOV_sr(i * WORD, _register_arguments[i].value)
+        mc.CALL(eax)
+        if IS_X86_64:
+            mc.ADD(esp, imm(WORD))
+        else:
+            mc.ADD(esp, imm(WORD * 7))
+        self.set_extra_stack_depth(mc, 0)
+        self._reload_frame_if_necessary(mc, align_stack=True)
+        self._pop_all_regs_from_frame(mc, [], supports_floats,
+                                      callee_only)
+        mc.RET()
+        return mc.materialize(self.cpu.asmmemmgr, [])
 
     def _build_malloc_slowpath(self, kind):
         """ While arriving on slowpath, we have a gcpattern on stack 0.
@@ -1729,7 +1757,8 @@ class Assembler386(BaseAssembler):
             regs = gpr_reg_mgr_cls.all_regs
         for i, gpr in enumerate(regs):
             if gpr not in ignored_regs:
-                mc.MOV_br(i * WORD + base_ofs, gpr.value)
+                v = gpr_reg_mgr_cls.all_reg_indexes[gpr.value]
+                mc.MOV_br(v * WORD + base_ofs, gpr.value)
         if withfloats:
             if IS_X86_64:
                 coeff = 1
@@ -1750,7 +1779,8 @@ class Assembler386(BaseAssembler):
             regs = gpr_reg_mgr_cls.all_regs
         for i, gpr in enumerate(regs):
             if gpr not in ignored_regs:
-                mc.MOV_rb(gpr.value, i * WORD + base_ofs)
+                v = gpr_reg_mgr_cls.all_reg_indexes[gpr.value]
+                mc.MOV_rb(gpr.value, v * WORD + base_ofs)
         if withfloats:
             # Pop all XMM regs
             if IS_X86_64:
@@ -2130,6 +2160,29 @@ class Assembler386(BaseAssembler):
 
     def label(self):
         self._check_frame_depth_debug(self.mc)
+
+    def cond_call(self, op, gcmap, cond_loc, call_loc):
+        self.mc.TEST(cond_loc, cond_loc)
+        self.mc.J_il8(rx86.Conditions['Z'], 0) # patched later
+        jmp_adr = self.mc.get_relative_pos()
+        self.push_gcmap(self.mc, gcmap, store=True)
+        callee_only = False
+        floats = False
+        if self._regalloc is not None:
+            for reg in self._regalloc.rm.reg_bindings.values():
+                if reg not in self._regalloc.rm.save_around_call_regs:
+                    break
+            else:
+                callee_only = True
+            if self._regalloc.xrm.reg_bindings:
+                floats = True
+        cond_call_adr = self.cond_call_slowpath[floats * 2 + callee_only]
+        self.mc.CALL(imm(cond_call_adr))
+        self.pop_gcmap(self.mc)
+        # never any result value
+        offset = self.mc.get_relative_pos() - jmp_adr
+        assert 0 < offset <= 127
+        self.mc.overwrite(jmp_adr-1, chr(offset))
 
     def malloc_cond(self, nursery_free_adr, nursery_top_adr, size, gcmap):
         assert size & (WORD-1) == 0     # must be correctly aligned

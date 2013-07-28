@@ -57,7 +57,7 @@ class TestVirtualizable(BaseRtypingTest):
         block = graph.startblock
         op_promote = block.operations[-2]
         op_getfield = block.operations[-1]
-        assert op_getfield.opname in ('getfield', 'oogetfield')
+        assert op_getfield.opname == 'getfield'
         v_inst = op_getfield.args[0]
         assert op_promote.opname == 'jit_force_virtualizable'
         assert op_promote.args[0] is v_inst
@@ -72,7 +72,7 @@ class TestVirtualizable(BaseRtypingTest):
         block = graph.startblock
         op_promote = block.operations[-2]
         op_getfield = block.operations[-1]
-        assert op_getfield.opname in ('getfield', 'oogetfield')
+        assert op_getfield.opname == 'getfield'
         v_inst = op_getfield.args[0]
         assert op_promote.opname == 'jit_force_virtualizable'
         assert op_promote.args[0] is v_inst
@@ -86,7 +86,7 @@ class TestVirtualizable(BaseRtypingTest):
         block = graph.startblock
         op_getfield = block.operations[-1]
         op_call = block.operations[-2]
-        assert op_getfield.opname in ('getfield', 'oogetfield')
+        assert op_getfield.opname == 'getfield'
         assert op_call.opname == 'direct_call'    # to V.__init__
 
     def test_generate_force_virtualizable_array(self):
@@ -99,7 +99,7 @@ class TestVirtualizable(BaseRtypingTest):
         op_getfield = block.operations[-2]
         op_getarrayitem = block.operations[-1]
         assert op_getarrayitem.opname == 'direct_call'  # to ll_getitem_xxx
-        assert op_getfield.opname in ('getfield', 'oogetfield')
+        assert op_getfield.opname == 'getfield'
         v_inst = op_getfield.args[0]
         assert op_promote.opname == 'jit_force_virtualizable'
         assert op_promote.args[0] is v_inst
@@ -168,13 +168,13 @@ class TestVirtualizable(BaseRtypingTest):
         _, rtyper, graph = self.gengraph(fn, [int])
         block = graph.startblock
         op_getfield = block.operations[-1]
-        assert op_getfield.opname in ('getfield', 'oogetfield')
+        assert op_getfield.opname == 'getfield'
         funcptr = self.replace_force_virtualizable(rtyper, [graph])
         if getattr(option, 'view', False):
             graph.show()
         op_promote = block.operations[-2]
         op_getfield = block.operations[-1]
-        assert op_getfield.opname in ('getfield', 'oogetfield')
+        assert op_getfield.opname == 'getfield'
         assert op_promote.opname == 'direct_call'
         assert op_promote.args[0].value == funcptr
         assert op_promote.args[1] == op_getfield.args[0]
