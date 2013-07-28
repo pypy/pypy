@@ -347,10 +347,11 @@ class TestCall(BaseTestPyPyC):
             guard_not_invalidated?
             i13 = getfield_gc(p8, descr=<FieldS list.length .*>)
             i15 = int_add(i13, 1)
-            # Will be killed by the backend
             p15 = getfield_gc(p8, descr=<FieldP list.items .*>)
             i17 = arraylen_gc(p15, descr=<ArrayS .>)
-            call(_, p8, i15, descr=<Callv 0 ri EF=4>) # this is a call to _ll_list_resize_ge_trampoline__...
+            i18 = int_lt(i17, i15)
+            # a cond call to _ll_list_resize_hint_really_look_inside_iff
+            cond_call(i18, _, p8, i15, 1, descr=<Callv 0 rii EF=4>)
             guard_no_exception(descr=...)
             p17 = getfield_gc(p8, descr=<FieldP list.items .*>)
             setarrayitem_gc(p17, i13, i12, descr=<ArrayS .>)

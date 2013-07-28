@@ -119,6 +119,9 @@ gpr_reg_mgr_cls.all_reg_indexes = [-1] * WORD * 2 # eh, happens to be true
 for _i, _reg in enumerate(gpr_reg_mgr_cls.all_regs):
     gpr_reg_mgr_cls.all_reg_indexes[_reg.value] = _i
 
+_register_arguments = [edi, esi, edx, ecx]
+
+
 class RegAlloc(BaseRegalloc):
 
     def __init__(self, assembler, translate_support_code=False):
@@ -796,6 +799,25 @@ class RegAlloc(BaseRegalloc):
         self.perform_discard(op, arglocs)
 
     consider_cond_call_gc_wb_array = consider_cond_call_gc_wb
+
+    def consider_cond_call(self, op):
+        assert op.result is None
+        args = op.getarglist()
+        assert 2 <= len(args) <= 4 + 2
+        tmpbox = TempBox()
+        self.rm.force_allocate_reg(tmpbox, selected_reg=eax)
+        v = args[1]
+        assert isinstance(v, Const)
+        imm = self.rm.convert_to_imm(v)
+        self.assembler.regalloc_mov(imm, eax)
+        args_so_far = [tmpbox]
+        for i in range(2, len(args)):
+            reg = _register_arguments[i - 2]
+            self.make_sure_var_in_reg(args[i], args_so_far, selected_reg=reg)
+            args_so_far.append(args[i])
+        loc_cond = self.make_sure_var_in_reg(args[0], args)
+        self.assembler.cond_call(op, self.get_gcmap([eax]), loc_cond, eax)
+        self.rm.possibly_free_var(tmpbox)
 
     def consider_call_malloc_nursery(self, op):
         size_box = op.getarg(0)

@@ -9,6 +9,7 @@ from rpython.rlib.jit import elidable, oopspec
 from rpython.rlib.rarithmetic import r_longlong, r_ulonglong, r_uint, intmask
 from rpython.rlib.rarithmetic import LONG_BIT
 from rpython.rtyper import rlist
+from rpython.rtyper.lltypesystem import rlist as rlist_ll
 from rpython.rtyper.annlowlevel import MixLevelHelperAnnotator
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.llinterp import LLInterpreter
@@ -211,6 +212,7 @@ _ll_1_list_len_foldable     = _ll_1_list_len
 
 _ll_5_list_ll_arraycopy = rgc.ll_arraycopy
 
+_ll_3_list_resize_hint_really = rlist_ll._ll_list_resize_hint_really
 
 @elidable
 def _ll_1_gc_identityhash(x):

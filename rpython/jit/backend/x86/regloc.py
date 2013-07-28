@@ -89,8 +89,8 @@ class RawEspLoc(AssemblerLocation):
     _location_code = 's'
 
     def __init__(self, value, type):
-        assert value >= 0
-        self.value = value
+        assert value >= 0     # accessing values < 0 is forbidden on x86-32.
+        self.value = value    # (on x86-64 we could allow values down to -128)
         self.type = type
 
     def _getregkey(self):

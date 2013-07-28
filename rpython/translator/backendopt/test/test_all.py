@@ -47,6 +47,8 @@ class TestLLType(object):
 
     def translateopt(self, func, sig, **optflags):
         t = TranslationContext()
+        opts = {'translation.list_comprehension_operations': True}
+        t.config.set(**opts)
         t.buildannotator().build_types(func, sig)
         t.buildrtyper(type_system=self.type_system).specialize()
         if option.view:
