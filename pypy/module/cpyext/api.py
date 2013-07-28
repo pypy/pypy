@@ -130,11 +130,7 @@ udir.join('pypy_decl.h').write("/* Will be filled later */\n")
 udir.join('pypy_macros.h').write("/* Will be filled later */\n")
 globals().update(rffi_platform.configure(CConfig_constants))
 
-def copy_header_files(dstdir):
-    assert dstdir.check(dir=True)
-    headers = include_dir.listdir('*.h') + include_dir.listdir('*.inl')
-    for name in ("pypy_decl.h", "pypy_macros.h"):
-        headers.append(udir.join(name))
+def _copy_header_files(headers, dstdir):
     for header in headers:
         target = dstdir.join(header.basename)
         try:
@@ -145,6 +141,25 @@ def copy_header_files(dstdir):
         target.chmod(0444) # make the file read-only, to make sure that nobody
                            # edits it by mistake
 
+def copy_header_files(dstdir):
+    # XXX: 20 lines of code to recursively copy a directory, really??
+    assert dstdir.check(dir=True)
+    headers = include_dir.listdir('*.h') + include_dir.listdir('*.inl')
+    for name in ("pypy_decl.h", "pypy_macros.h"):
+        headers.append(udir.join(name))
+    _copy_header_files(headers, dstdir)
+
+    try:
+        dstdir.mkdir('numpy')
+    except py.error.EEXIST:
+        pass
+    numpy_dstdir = dstdir / 'numpy'
+
+    numpy_include_dir = include_dir / 'numpy'
+    numpy_headers = numpy_include_dir.listdir('*.h') + numpy_include_dir.listdir('*.inl')
+    _copy_header_files(numpy_headers, numpy_dstdir)
+
+    
 class NotSpecified(object):
     pass
 _NOT_SPECIFIED = NotSpecified()

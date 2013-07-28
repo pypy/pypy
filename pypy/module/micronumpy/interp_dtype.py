@@ -804,10 +804,12 @@ class DtypeCache(object):
                 self.dtypes_by_name[alias] = dtype
             self.dtypes_by_name[dtype.char] = dtype
 
-        self.dtypes_by_num = [dtype for dtype in
-                sorted(self.dtypes_by_num.values(), key=lambda dtype: dtype.num)
-                if dtype.num <= self.w_float64dtype.num]
-        assert len(self.dtypes_by_num) == self.w_float64dtype.num + 1
+        # shmuller 2013/07/22: Cannot find complex data types after conversion to
+        #                      list! Solution: Keep in dictionary form.
+        #self.dtypes_by_num = [dtype for dtype in
+        #        sorted(self.dtypes_by_num.values(), key=lambda dtype: dtype.num)
+        #        if dtype.num <= self.w_float64dtype.num]
+        #assert len(self.dtypes_by_num) == self.w_float64dtype.num + 1
 
         typeinfo_full = {
             'LONGLONG': self.w_int64dtype,

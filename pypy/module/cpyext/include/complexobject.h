@@ -6,6 +6,9 @@
 extern "C" {
 #endif
 
+/* fake PyComplexObject so that code that doesn't do direct field access works */
+#define PyComplexObject PyObject
+
 typedef struct Py_complex_t {
     double real;
     double imag;

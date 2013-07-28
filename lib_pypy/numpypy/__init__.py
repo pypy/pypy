@@ -10,5 +10,5 @@ __all__ = []
 __all__ += core.__all__
 __all__ += lib.__all__
 
-import sys
-sys.modules.setdefault('numpy', sys.modules['numpypy'])
+#import sys
+#sys.modules.setdefault('numpy', sys.modules['numpypy'])

@@ -1,5 +1,14 @@
-raise ImportError(
+import warnings
+
+warnings.warn(
     "The 'numpy' module of PyPy is in-development and not complete. "
-    "To try it out anyway, you can either import from 'numpypy', "
-    "or just write 'import numpypy' first in your program and then "
-    "import from 'numpy' as usual.")
+    "To avoid this warning, write 'import numpypy as numpy'. ")
+
+from numpypy import *
+
+import os
+
+def get_include():
+    head, tail = os.path.split(os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(head, 'include')
+
