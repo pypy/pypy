@@ -5,7 +5,7 @@ from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.codewriter.flatten import ListOfKind, IndirectCallTargets
 from rpython.jit.codewriter.policy import log
 from rpython.jit.metainterp import quasiimmut
-from rpython.jit.metainterp.history import getkind, AbstractDescr
+from rpython.jit.metainterp.history import getkind
 from rpython.jit.metainterp.typesystem import deref, arrayItem
 from rpython.jit.metainterp.blackhole import BlackholeInterpreter
 from rpython.flowspace.model import SpaceOperation, Variable, Constant, c_last_exception
@@ -15,15 +15,6 @@ from rpython.rlib.rgc import lltype_is_gc
 from rpython.rtyper.lltypesystem import lltype, llmemory, rstr, rclass, rffi
 from rpython.rtyper.rclass import IR_QUASIIMMUTABLE, IR_QUASIIMMUTABLE_ARRAY
 from rpython.translator.unsimplify import varoftype
-
-class IntDescr(AbstractDescr):
-    """ Disguise int as a descr
-    """
-    def __init__(self, v):
-        self.v = v
-
-    def getint(self):
-        return self.v
 
 class UnsupportedMallocFlags(Exception):
     pass
