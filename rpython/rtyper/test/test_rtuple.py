@@ -159,7 +159,7 @@ class TestRtuple(BaseRtypingTest):
 
         t = TranslationContext()
         s = t.buildannotator().build_types(f, [])
-        rtyper = t.buildrtyper(type_system=self.type_system)
+        rtyper = t.buildrtyper()
         rtyper.specialize()
 
         s_AB_tup = s.items[0]

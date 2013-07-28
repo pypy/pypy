@@ -1439,7 +1439,7 @@ class BaseTestRlist(BaseRtypingTest):
 
         t = TranslationContext()
         s = t.buildannotator().build_types(f, [])
-        rtyper = t.buildrtyper(type_system=self.type_system)
+        rtyper = t.buildrtyper()
         rtyper.specialize()
 
         s_A_list = s.items[0]
@@ -1467,7 +1467,7 @@ class BaseTestRlist(BaseRtypingTest):
 
         t = TranslationContext()
         s = t.buildannotator().build_types(f, [])
-        rtyper = t.buildrtyper(type_system=self.type_system)
+        rtyper = t.buildrtyper()
         rtyper.specialize()
 
         s_A_list = s.items[0]

@@ -36,8 +36,7 @@ def timelog(prefix, call, *args, **kwds):
     return res
 
 def gengraph(func, argtypes=[], viewbefore='auto', policy=None,
-             type_system="lltype", backendopt=False, config=None,
-             **extraconfigopts):
+             backendopt=False, config=None, **extraconfigopts):
     t = TranslationContext(config=config)
     t.config.set(**extraconfigopts)
     a = t.buildannotator(policy=policy)
@@ -48,7 +47,7 @@ def gengraph(func, argtypes=[], viewbefore='auto', policy=None,
         a.simplify()
         t.view()
     global typer # we need it for find_exception
-    typer = t.buildrtyper(type_system=type_system)
+    typer = t.buildrtyper()
     timelog("rtyper-specializing", typer.specialize)
     #t.view()
     timelog("checking graphs", t.checkgraphs)
@@ -88,9 +87,8 @@ def get_interpreter(func, values, view='auto', viewbefore='auto', policy=None,
             policy = AnnotatorPolicy()
 
         t, typer, graph = gengraph(func, [annotation(x) for x in values],
-                                   viewbefore, policy, type_system=type_system,
-                                   backendopt=backendopt, config=config,
-                                   **extraconfigopts)
+                                   viewbefore, policy, backendopt=backendopt,
+                                   config=config, **extraconfigopts)
         interp = LLInterpreter(typer)
         _tcache[key] = (t, interp, graph)
         # keep the cache small
