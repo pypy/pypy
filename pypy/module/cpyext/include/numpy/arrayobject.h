@@ -17,6 +17,23 @@ extern "C" {
 #define import_array()
 #endif
 
+#ifndef PyArray_NDIM
+
+#define PyArray_NDIM     _PyArray_NDIM
+#define PyArray_DIM      _PyArray_DIM
+#define PyArray_SIZE     _PyArray_SIZE
+#define PyArray_ITEMSIZE _PyArray_ITEMSIZE
+#define PyArray_NBYTES   _PyArray_NBYTES
+#define PyArray_TYPE     _PyArray_TYPE
+#define PyArray_DATA     _PyArray_DATA
+#define PyArray_FromAny  _PyArray_FromAny
+
+#define PyArray_SimpleNew _PyArray_SimpleNew
+#define PyArray_SimpleNewFromData _PyArray_SimpleNewFromData
+#define PyArray_SimpleNewFromDataOwning _PyArray_SimpleNewFromDataOwning
+
+#endif
+
 /* copied from numpy/ndarraytypes.h 
  * keep numbers in sync with micronumpy.interp_dtype.DTypeCache
  */

@@ -13,38 +13,38 @@ from rpython.rlib.rawstorage import RAW_STORAGE_PTR
 # the asserts are needed, otherwise the translation fails
 
 @cpython_api([PyObject], Py_ssize_t, error=CANNOT_FAIL)
-def PyArray_NDIM(space, w_array):
+def _PyArray_NDIM(space, w_array):
     assert isinstance(w_array, W_NDimArray)
     return len(w_array.get_shape())
 
 @cpython_api([PyObject, Py_ssize_t], Py_ssize_t, error=CANNOT_FAIL)
-def PyArray_DIM(space, w_array, n):
+def _PyArray_DIM(space, w_array, n):
     assert isinstance(w_array, W_NDimArray)
     return w_array.get_shape()[n]
 
 @cpython_api([PyObject], Py_ssize_t, error=CANNOT_FAIL)
-def PyArray_SIZE(space, w_array):
+def _PyArray_SIZE(space, w_array):
     assert isinstance(w_array, W_NDimArray)
     return w_array.get_size()
 
 @cpython_api([PyObject], Py_ssize_t, error=CANNOT_FAIL)
-def PyArray_ITEMSIZE(space, w_array):
+def _PyArray_ITEMSIZE(space, w_array):
     assert isinstance(w_array, W_NDimArray)
     return w_array.get_dtype().get_size()
 
 @cpython_api([PyObject], Py_ssize_t, error=CANNOT_FAIL)
-def PyArray_NBYTES(space, w_array):
+def _PyArray_NBYTES(space, w_array):
     assert isinstance(w_array, W_NDimArray)
     return w_array.get_size() * w_array.get_dtype().get_size()
 
 @cpython_api([PyObject], Py_ssize_t, error=CANNOT_FAIL)
-def PyArray_TYPE(space, w_array):
+def _PyArray_TYPE(space, w_array):
     assert isinstance(w_array, W_NDimArray)
     return w_array.get_dtype().num
 
 
 @cpython_api([PyObject], rffi.VOIDP, error=CANNOT_FAIL)
-def PyArray_DATA(space, w_array):
+def _PyArray_DATA(space, w_array):
     # fails on scalars - see PyArray_FromAny()
     assert isinstance(w_array, W_NDimArray)
     return rffi.cast(rffi.VOIDP, w_array.implementation.storage)
@@ -52,7 +52,7 @@ def PyArray_DATA(space, w_array):
 
 @cpython_api([PyObject, rffi.VOIDP, Py_ssize_t, Py_ssize_t, Py_ssize_t, rffi.VOIDP], 
              PyObject)
-def PyArray_FromAny(space, w_obj, dtype, min_depth, max_depth, requirements, context):
+def _PyArray_FromAny(space, w_obj, dtype, min_depth, max_depth, requirements, context):
     # ignore all additional arguments for now
     w_array = convert_to_array(space, w_obj)
     if w_array.is_scalar():
@@ -69,7 +69,7 @@ def PyArray_FromAny(space, w_obj, dtype, min_depth, max_depth, requirements, con
 
 
 @cpython_api([Py_ssize_t, rffi.LONGP, Py_ssize_t], PyObject)
-def PyArray_SimpleNew(space, nd, dims, typenum):
+def _PyArray_SimpleNew(space, nd, dims, typenum):
     dtype = get_dtype_cache(space).dtypes_by_num[typenum]
     shape = []
     for i in range(nd):
@@ -94,11 +94,11 @@ def simple_new_from_data(space, nd, dims, typenum, data, owning):
         return W_NDimArray.from_shape_and_storage(space, shape, storage, dtype, owning=owning)
 
 @cpython_api([Py_ssize_t, rffi.LONGP, Py_ssize_t, rffi.VOIDP], PyObject)
-def PyArray_SimpleNewFromData(space, nd, dims, typenum, data):
+def _PyArray_SimpleNewFromData(space, nd, dims, typenum, data):
     return simple_new_from_data(space, nd, dims, typenum, data, owning=False)
 
 @cpython_api([Py_ssize_t, rffi.LONGP, Py_ssize_t, rffi.VOIDP], PyObject)
-def PyArray_SimpleNewFromDataOwning(space, nd, dims, typenum, data):
+def _PyArray_SimpleNewFromDataOwning(space, nd, dims, typenum, data):
     # Variant to take over ownership of the memory, equivalent to:
     #     PyObject *arr = PyArray_SimpleNewFromData(nd, dims, typenum, data);
     #     ((PyArrayObject*)arr)->flags |= NPY_OWNDATA;
