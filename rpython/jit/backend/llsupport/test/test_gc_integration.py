@@ -86,7 +86,7 @@ class TestRegallocGcIntegration(BaseTestRegalloc):
             if self.cpu.IS_64_BIT:
                 assert nos == [0, 1, 31]
             else:
-                assert nos ==  [4, 5, 25]
+                assert nos ==  [0, 1, 25]
         elif self.cpu.backend_name.startswith('arm'):
             assert nos == [9, 10, 47]
         else:
