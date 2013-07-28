@@ -7,10 +7,6 @@
 extern "C" {
 #endif
 
-#include "old_defines.h"
-
-#define NPY_INLINE
-
 /* fake PyArrayObject so that code that doesn't do direct field access works */
 #define PyArrayObject PyObject
 
@@ -23,20 +19,14 @@ extern "C" {
 
 #ifndef PyArray_NDIM
 
-#define PyArray_ISCONTIGUOUS(arr) (1)
-
 #define PyArray_NDIM     _PyArray_NDIM
 #define PyArray_DIM      _PyArray_DIM
-#define PyArray_STRIDE   _PyArray_STRIDE
 #define PyArray_SIZE     _PyArray_SIZE
 #define PyArray_ITEMSIZE _PyArray_ITEMSIZE
 #define PyArray_NBYTES   _PyArray_NBYTES
 #define PyArray_TYPE     _PyArray_TYPE
 #define PyArray_DATA     _PyArray_DATA
-
-#define PyArray_FromAny _PyArray_FromAny
-#define PyArray_FromObject _PyArray_FromObject
-#define PyArray_ContiguousFromObject PyArray_FromObject
+#define PyArray_FromAny  _PyArray_FromAny
 
 #define PyArray_SimpleNew _PyArray_SimpleNew
 #define PyArray_SimpleNewFromData _PyArray_SimpleNewFromData
@@ -72,19 +62,6 @@ enum NPY_TYPES {    NPY_BOOL=0,
                     /* The number of types not including the new 1.6 types */
                     NPY_NTYPES_ABI_COMPATIBLE=21
 };
-
-#define NPY_INT8      NPY_BYTE
-#define NPY_UINT8     NPY_UBYTE
-#define NPY_INT16     NPY_SHORT
-#define NPY_UINT16    NPY_USHORT
-#define NPY_INT32     NPY_INT
-#define NPY_UINT32    NPY_UINT
-#define NPY_INT64     NPY_LONG
-#define NPY_UINT64    NPY_ULONG
-#define NPY_FLOAT32   NPY_FLOAT
-#define NPY_FLOAT64   NPY_DOUBLE
-#define NPY_COMPLEX32 NPY_CFLOAT
-#define NPY_COMPLEX64 NPY_CDOUBLE
 
 #ifdef __cplusplus
 }
