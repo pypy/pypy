@@ -133,25 +133,3 @@ class Translation(object):
         self.ensure_backend('llvm')
         self.driver.compile_llvm()
         return self.driver.c_entryp
-  
-    def compile_cli(self, **kwds):
-        self.update_options(kwds)
-        self.ensure_backend('cli')
-        self.driver.compile_cli()
-        return self.driver.c_entryp
-
-    def source_cli(self, **kwds):
-        self.update_options(kwds)
-        self.ensure_backend('cli')
-        self.driver.source_cli()
-
-    def compile_jvm(self, **kwds):
-        self.update_options(kwds)
-        self.ensure_backend('jvm')
-        self.driver.compile_jvm()
-        return self.driver.c_entryp
-
-    def source_jvm(self, **kwds):
-        self.update_options(kwds)
-        self.ensure_backend('jvm')
-        self.driver.source_jvm()

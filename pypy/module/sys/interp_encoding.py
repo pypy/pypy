@@ -3,12 +3,12 @@ from rpython.rlib import rlocale
 from rpython.rlib.objectmodel import we_are_translated
 
 def getdefaultencoding(space):
-    """Return the current default string encoding used by the Unicode 
+    """Return the current default string encoding used by the Unicode
 implementation."""
     return space.wrap(space.sys.defaultencoding)
 
 def setdefaultencoding(space, w_encoding):
-    """Set the current default string encoding used by the Unicode 
+    """Set the current default string encoding used by the Unicode
 implementation."""
     encoding = space.str_w(w_encoding)
     mod = space.getbuiltinmodule("_codecs")
@@ -37,10 +37,6 @@ else:
     base_encoding = None
 
 def _getfilesystemencoding(space):
-    if (space.config.translation.type_system == 'ootype'):
-        # XXX: fix this for ootype
-        return base_encoding
-    #
     encoding = base_encoding
     if rlocale.HAVE_LANGINFO and rlocale.CODESET:
         try:

@@ -9,6 +9,7 @@ from rpython.rlib.debug import (have_debug_prints, ll_assert, debug_start,
     debug_stop, debug_print)
 from rpython.rtyper import annlowlevel
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rstr
+from rpython.rtyper.lltypesystem.rclass import OBJECTPTR
 
 
 # Logic to encode the chain of frames and the state of the boxes at a
@@ -82,7 +83,7 @@ NUMBERING = lltype.GcStruct('Numbering',
 NUMBERINGP.TO.become(NUMBERING)
 
 PENDINGFIELDSTRUCT = lltype.Struct('PendingField',
-                                   ('lldescr', annlowlevel.base_ptr_lltype()),
+                                   ('lldescr', OBJECTPTR),
                                    ('num', rffi.SHORT),
                                    ('fieldnum', rffi.SHORT),
                                    ('itemindex', rffi.INT))
@@ -549,7 +550,7 @@ class VArrayInfo(AbstractVirtualInfo):
 class VRawBufferStateInfo(AbstractVirtualInfo):
     kind = INT
     is_about_raw = True
-    
+
     def __init__(self, size, offsets, descrs):
         self.size = size
         self.offsets = offsets

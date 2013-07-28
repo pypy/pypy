@@ -98,8 +98,8 @@ class DictProxyStrategy(DictStrategy):
         space = self.space
         w_type = self.unerase(w_dict.dstorage)
         if not w_type.is_heaptype():
-            msg = "can't clear dictionary of type '%s'"
-            raise operationerrfmt(space.w_TypeError, msg, w_type.name)
+            msg = "can't clear dictionary of type '%N'"
+            raise operationerrfmt(space.w_TypeError, msg, w_type)
         w_type.dict_w.clear()
         w_type.mutated(None)
 

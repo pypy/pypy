@@ -6,7 +6,7 @@ from rpython.jit.metainterp.optimizeopt.intutils import IntBound, IntUnbounded, 
                                                      IntLowerBound, MININT, MAXINT
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.resoperation import rop, ResOperation, AbstractResOp
-from rpython.jit.metainterp.typesystem import llhelper, oohelper
+from rpython.jit.metainterp.typesystem import llhelper
 from rpython.tool.pairtype import extendabletype
 from rpython.rlib.debug import debug_print
 from rpython.rlib.objectmodel import specialize
@@ -256,7 +256,6 @@ CONST_1      = ConstInt(1)
 CVAL_ZERO    = ConstantValue(CONST_0)
 CVAL_ZERO_FLOAT = ConstantValue(Const._new(0.0))
 llhelper.CVAL_NULLREF = ConstantValue(llhelper.CONST_NULL)
-oohelper.CVAL_NULLREF = ConstantValue(oohelper.CONST_NULL)
 REMOVED = AbstractResOp(None)
 
 

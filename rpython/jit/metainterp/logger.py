@@ -95,7 +95,6 @@ class LogOperations(object):
         elif isinstance(arg, BoxInt):
             return 'i' + str(mv)
         elif isinstance(arg, self.ts.ConstRef):
-            # XXX for ootype, this should also go through get_name_from_address
             return 'ConstPtr(ptr' + str(mv) + ')'
         elif isinstance(arg, self.ts.BoxRef):
             return 'p' + str(mv)

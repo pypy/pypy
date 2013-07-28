@@ -33,22 +33,13 @@ translation_optiondescription = OptionDescription(
                default=False, cmdline="--continuation",
                requires=[("translation.type_system", "lltype")]),
     ChoiceOption("type_system", "Type system to use when RTyping",
-                 ["lltype", "ootype"], cmdline=None, default="lltype",
-                 requires={
-                     "ootype": [
-                                ("translation.backendopt.constfold", False),
-                                ("translation.backendopt.clever_malloc_removal", False),
-                                ("translation.gc", "boehm"), # it's not really used, but some jit code expects a value here
-                                ]
-                     }),
+                 ["lltype"], cmdline=None, default="lltype"),
     ChoiceOption("backend", "Backend to use for code generation",
-                 ["c", "llvm", "cli", "jvm"], default="c",
+                 ["c", "llvm"], default="c",
                  requires={
                      "c":      [("translation.type_system", "lltype")],
                      "llvm":   [("translation.type_system", "lltype"),
                                 ("translation.backendopt.raisingop2direct_call", True)],
-                     "cli":    [("translation.type_system", "ootype")],
-                     "jvm":    [("translation.type_system", "ootype")],
                      },
                  #suggests={
                  #    "llvm":   [("translation.gcrootfinder", "llvmgcroot")]
@@ -194,11 +185,6 @@ translation_optiondescription = OptionDescription(
                "If true, makes an lldebug build", default=False,
                cmdline="--lldebug"),
 
-    # options for ootype
-    OptionDescription("ootype", "Object Oriented Typesystem options", [
-        BoolOption("mangle", "Mangle names of class members", default=True),
-    ]),
-
     OptionDescription("backendopt", "Backend Optimization Options", [
         # control inlining
         BoolOption("inline", "Do basic inlining and malloc removal",
@@ -276,11 +262,6 @@ translation_optiondescription = OptionDescription(
                              ('translation.backendopt.constfold', False)])
     ]),
 
-    OptionDescription("cli", "GenCLI options", [
-        BoolOption("trace_calls", "Trace function calls", default=False,
-                   cmdline="--cli-trace-calls"),
-        BoolOption("exception_transformer", "Use exception transformer", default=False),
-    ]),
     ChoiceOption("platform",
                  "target platform", ['host'] + PLATFORMS, default='host',
                  cmdline='--platform',
@@ -346,13 +327,6 @@ OPT_TABLE = {
     '3':    DEFL_GC + '  extraopts     remove_asserts',
     'jit':  DEFL_GC + '  extraopts     jit',
     }
-
-def final_check_config(config):
-    # XXX: this should be a real config option, but it is hard to refactor it;
-    # instead, we "just" patch it from here
-    from rpython.rlib import rfloat
-    if config.translation.type_system == 'ootype':
-        rfloat.USE_SHORT_FLOAT_REPR = False
 
 def set_opt_level(config, level):
     """Apply optimization suggestions on the 'config'.

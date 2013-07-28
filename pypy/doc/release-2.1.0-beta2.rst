@@ -3,14 +3,20 @@ PyPy 2.1 beta 2
 ===============
 
 We're pleased to announce the second beta of the upcoming 2.1 release of PyPy.
-This beta does not add any new features to the 2.1 release, but contains several bugfixes listed below.
+This beta adds one new feature to the 2.1 release and contains several bugfixes listed below.
+
+You can download the PyPy 2.1 beta 1 release here:
+
+    http://pypy.org/download.html
 
 Highlights
 ==========
 
+* Support for os.statvfs and os.fstatvfs on unix systems.
+
 * Fixed issue `1533`_: fix an RPython-level OverflowError for space.float_w(w_big_long_number). 
 
-* Fixed issue `1552`_: GreenletExit should inherit from BaseException
+* Fixed issue `1552`_: GreenletExit should inherit from BaseException.
 
 * Fixed issue `1537`_: numpypy __array_interface__
   
