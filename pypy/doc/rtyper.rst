@@ -559,17 +559,6 @@ be called as a second and the list of function arguments as a third. Example::
         interpret_raises(IndexError, raise_exception, [42])
         interpret_raises(ValueError, raise_exception, [43])
 
-By default the ``interpret`` and ``interpret_raises`` functions use
-the low-level typesystem. If you want to use the object oriented one
-you have to set the ``type_system`` parameter to the string
-``'ootype'``::
-
-    def test_invert():
-        def f(x):
-            return ~x
-        res = interpret(f, [3], type_system='ootype')
-        assert res == ~3
-
 .. _annotator: translation.html#the-annotation-pass
 
 .. include:: _ref.txt

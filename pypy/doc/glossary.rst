@@ -26,8 +26,7 @@ links to more information.
     backend
         Code generator that converts an `RPython
         <coding-guide.html#restricted-python>`__ program to a `target
-        language`_ using the :term:`RPython toolchain`. A backend uses either the
-        :term:`lltypesystem` or the :term:`ootypesystem`.
+        language`_ using the :term:`RPython toolchain`.
 
     compile-time
         In the context of the :term:`JIT`, compile time is when the JIT is
