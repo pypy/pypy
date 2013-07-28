@@ -14,7 +14,7 @@ from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_gcref
 from rpython.rlib.jit import AsmInfo
 from rpython.jit.backend.model import CompiledLoopToken
 from rpython.jit.backend.x86.regalloc import (RegAlloc, get_ebp_ofs,
-    gpr_reg_mgr_cls, xmm_reg_mgr_cls)
+    gpr_reg_mgr_cls, xmm_reg_mgr_cls, _register_arguments)
 from rpython.jit.backend.llsupport.regalloc import (get_scale, valid_addressing_size)
 from rpython.jit.backend.x86.arch import (FRAME_FIXED_SIZE, WORD, IS_X86_64,
                                        JITFRAME_FIXED_SIZE, IS_X86_32,
@@ -163,7 +163,8 @@ class Assembler386(BaseAssembler):
             # the caller is responsible for putting arguments in the right spot
             mc.SUB(esp, imm(WORD * 7))
             self.set_extra_stack_depth(mc, 8 * WORD)
-            # args are in their respective positions
+            for i in range(4):
+                mc.MOV_sr(i * WORD, _register_arguments[i].value)
         mc.CALL(eax)
         if IS_X86_64:
             mc.ADD(esp, imm(WORD))
@@ -2160,7 +2161,7 @@ class Assembler386(BaseAssembler):
     def label(self):
         self._check_frame_depth_debug(self.mc)
 
-    def cond_call(self, op, gcmap, cond_loc, call_loc, arglocs):
+    def cond_call(self, op, gcmap, cond_loc, call_loc):
         self.mc.TEST(cond_loc, cond_loc)
         self.mc.J_il8(rx86.Conditions['Z'], 0) # patched later
         jmp_adr = self.mc.get_relative_pos()
@@ -2176,11 +2177,6 @@ class Assembler386(BaseAssembler):
             if self._regalloc.xrm.reg_bindings:
                 floats = True
         cond_call_adr = self.cond_call_slowpath[floats * 2 + callee_only]
-        if IS_X86_32:
-            p = -8 * WORD
-            for loc in arglocs:
-                self.mc.MOV(RawEspLoc(p, INT), loc)
-                p += WORD
         self.mc.CALL(imm(cond_call_adr))
         self.pop_gcmap(self.mc)
         # never any result value
