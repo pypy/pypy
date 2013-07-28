@@ -2,11 +2,9 @@ import py
 from rpython.translator.backendopt.all import backend_optimizations
 from rpython.translator.backendopt.all import INLINE_THRESHOLD_FOR_TEST
 from rpython.translator.backendopt.support import md5digest
-from rpython.translator.backendopt.test.test_malloc import TestLLTypeMallocRemoval as LLTypeMallocRemovalTest
-from rpython.translator.backendopt.test.test_malloc import TestOOTypeMallocRemoval as OOTypeMallocRemovalTest
+from rpython.translator.backendopt.test.test_malloc import TestMallocRemoval as MallocRemovalTest
 from rpython.translator.translator import TranslationContext, graphof
 from rpython.flowspace.model import Constant, summary
-from rpython.annotator import model as annmodel
 from rpython.rtyper.llinterp import LLInterpreter
 from rpython.rlib.rarithmetic import intmask
 from rpython.conftest import option
@@ -43,8 +41,9 @@ def big():
 LARGE_THRESHOLD  = 10*INLINE_THRESHOLD_FOR_TEST
 HUGE_THRESHOLD  = 100*INLINE_THRESHOLD_FOR_TEST
 
-class BaseTester(object):
-    type_system = None
+class TestLLType(object):
+    type_system = 'lltype'
+    check_malloc_removed = MallocRemovalTest.check_malloc_removed
 
     def translateopt(self, func, sig, **optflags):
         t = TranslationContext()
@@ -234,10 +233,6 @@ class BaseTester(object):
         graph = graphof(t, fn)
         assert "direct_call" not in summary(graph)
 
-class TestLLType(BaseTester):
-    type_system = 'lltype'
-    check_malloc_removed = LLTypeMallocRemovalTest.check_malloc_removed
-
     def test_list_comp(self):
         def f(n1, n2):
             c = [i for i in range(n2)]
@@ -298,9 +293,3 @@ class TestLLType(BaseTester):
         llinterp = LLInterpreter(t.rtyper)
         res = llinterp.eval_graph(later_graph, [10])
         assert res == 1
-
-
-class TestOOType(BaseTester):
-    type_system = 'ootype'
-    check_malloc_removed = OOTypeMallocRemovalTest.check_malloc_removed
-

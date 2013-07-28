@@ -1,6 +1,5 @@
 from rpython.rtyper.rmodel import inputconst, log
 from rpython.rtyper.lltypesystem import lltype
-from rpython.rtyper.ootypesystem import ootype
 from rpython.rtyper.rclass import AbstractInstanceRepr, FieldListAccessor
 
 
@@ -56,7 +55,7 @@ class AbstractVirtualizable2InstanceRepr(AbstractInstanceRepr):
 
 
 def replace_force_virtualizable_with_call(graphs, VTYPEPTR, funcptr):
-    # funcptr should be an ll or oo function pointer with a VTYPEPTR argument
+    # funcptr should be a function pointer with a VTYPEPTR argument
     c_funcptr = inputconst(lltype.typeOf(funcptr), funcptr)
     count = 0
     for graph in graphs:
@@ -66,8 +65,7 @@ def replace_force_virtualizable_with_call(graphs, VTYPEPTR, funcptr):
             newoplist = []
             for i, op in enumerate(block.operations):
                 if (op.opname == 'jit_force_virtualizable' and
-                    match_virtualizable_type(op.args[0].concretetype,
-                                             VTYPEPTR)):
+                        op.args[0].concretetype == VTYPEPTR):
                     if op.args[-1].value.get('access_directly', False):
                         continue
                     op.opname = 'direct_call'
@@ -76,11 +74,3 @@ def replace_force_virtualizable_with_call(graphs, VTYPEPTR, funcptr):
                 newoplist.append(op)
             block.operations = newoplist
     log("replaced %d 'jit_force_virtualizable' with %r" % (count, funcptr))
-
-def match_virtualizable_type(TYPE, VTYPEPTR):
-    if isinstance(TYPE, ootype.Instance):
-        # ootype only: any subtype may be used
-        return ootype.isSubclass(TYPE, VTYPEPTR)
-    else:
-        # lltype, or ootype with a TYPE that is e.g. an ootype.Record
-        return TYPE == VTYPEPTR

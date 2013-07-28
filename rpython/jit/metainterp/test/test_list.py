@@ -1,7 +1,7 @@
 import py
 from rpython.rlib.objectmodel import newlist_hint
 from rpython.rlib.jit import JitDriver, promote
-from rpython.jit.metainterp.test.support import LLJitMixin, OOJitMixin
+from rpython.jit.metainterp.test.support import LLJitMixin
 
 
 class ListTests:
@@ -287,9 +287,6 @@ class ListTests:
         assert res == 5
         self.check_resops(call=0)
 
-
-class TestOOtype(ListTests, OOJitMixin):
-    pass
 
 class TestLLtype(ListTests, LLJitMixin):
     def test_listops_dont_invalidate_caches(self):

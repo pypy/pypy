@@ -2,7 +2,6 @@ import py
 
 from rpython.annotator.model import *
 from rpython.annotator.listdef import ListDef
-from rpython.rtyper.ootypesystem import ootype
 
 
 listdef1 = ListDef(None, SomeTuple([SomeInteger(nonneg=True), SomeString()]))
@@ -57,11 +56,11 @@ def test_contains():
                                                      (s6, s6)])
 
 def test_commonbase_simple():
-    class A0: 
+    class A0:
         pass
-    class A1(A0): 
+    class A1(A0):
         pass
-    class A2(A0): 
+    class A2(A0):
         pass
     class B1(object):
         pass
@@ -73,10 +72,10 @@ def test_commonbase_simple():
     except TypeError:    # if A0 is also a new-style class, e.g. in PyPy
         class B3(A0, object):
             pass
-    assert commonbase(A1,A2) is A0 
+    assert commonbase(A1,A2) is A0
     assert commonbase(A1,A0) is A0
     assert commonbase(A1,A1) is A1
-    assert commonbase(A2,B2) is object 
+    assert commonbase(A2,B2) is object
     assert commonbase(A2,B3) is A0
 
 def test_list_union():
@@ -115,9 +114,6 @@ def test_ll_to_annotation():
     assert isinstance(s_p, SomePtr) and s_p.ll_ptrtype == lltype.Ptr(S)
     s_p = ll_to_annotation(lltype.malloc(A, 0))
     assert isinstance(s_p, SomePtr) and s_p.ll_ptrtype == lltype.Ptr(A)
-    C = ootype.Instance('C', ootype.ROOT, {})
-    s_p = ll_to_annotation(ootype.new(C))
-    assert isinstance(s_p, SomeOOInstance) and s_p.ootype == C
 
 def test_annotation_to_lltype():
     from rpython.rlib.rarithmetic import r_uint, r_singlefloat
@@ -125,8 +121,8 @@ def test_annotation_to_lltype():
     s_pos = SomeInteger(nonneg=True)
     s_1 = SomeInteger(nonneg=True); s_1.const = 1
     s_m1 = SomeInteger(nonneg=False); s_m1.const = -1
-    s_u = SomeInteger(nonneg=True, unsigned=True); 
-    s_u1 = SomeInteger(nonneg=True, unsigned=True); 
+    s_u = SomeInteger(nonneg=True, unsigned=True);
+    s_u1 = SomeInteger(nonneg=True, unsigned=True);
     s_u1.const = r_uint(1)
     assert annotation_to_lltype(s_i) == lltype.Signed
     assert annotation_to_lltype(s_pos) == lltype.Signed
@@ -140,13 +136,10 @@ def test_annotation_to_lltype():
     s_p = SomePtr(ll_ptrtype=PS)
     assert annotation_to_lltype(s_p) == PS
     py.test.raises(ValueError, "annotation_to_lltype(si0)")
-    C = ootype.Instance('C', ootype.ROOT, {})
-    ref = SomeOOInstance(C)
-    assert annotation_to_lltype(ref) == C
     s_singlefloat = SomeSingleFloat()
     s_singlefloat.const = r_singlefloat(0.0)
     assert annotation_to_lltype(s_singlefloat) == lltype.SingleFloat
-    
+
 def test_ll_union():
     PS1 = lltype.Ptr(lltype.GcStruct('s'))
     PS2 = lltype.Ptr(lltype.GcStruct('s'))
@@ -171,29 +164,6 @@ def test_ll_union():
     py.test.raises(AssertionError, "unionof(SomePtr(PS1), SomeObject())")
     py.test.raises(AssertionError, "unionof(SomeInteger(), SomePtr(PS1))")
     py.test.raises(AssertionError, "unionof(SomeObject(), SomePtr(PS1))")
-
-def test_oo_union():
-    C1 = ootype.Instance("C1", ootype.ROOT)
-    C2 = ootype.Instance("C2", C1)
-    C3 = ootype.Instance("C3", C1)
-    D = ootype.Instance("D", ootype.ROOT)
-    assert unionof(SomeOOInstance(C1), SomeOOInstance(C1)) == SomeOOInstance(C1)
-    assert unionof(SomeOOInstance(C1), SomeOOInstance(C2)) == SomeOOInstance(C1)
-    assert unionof(SomeOOInstance(C2), SomeOOInstance(C1)) == SomeOOInstance(C1)
-    assert unionof(SomeOOInstance(C2), SomeOOInstance(C3)) == SomeOOInstance(C1)
-
-    assert unionof(SomeOOInstance(C1),SomeImpossibleValue()) == SomeOOInstance(C1)
-    assert unionof(SomeImpossibleValue(), SomeOOInstance(C1)) == SomeOOInstance(C1)
-
-    assert unionof(SomeOOInstance(C1), SomeOOInstance(D)) == SomeOOInstance(ootype.ROOT)
-
-def test_ooclass_array_contains():
-    A = ootype.Array(ootype.Signed)
-    cls = ootype.runtimeClass(A)
-    s1 = SomeOOClass(A)
-    s2 = SomeOOClass(A)
-    s2.const=cls
-    assert s1.contains(s2)
 
 def test_nan():
     f1 = SomeFloat()

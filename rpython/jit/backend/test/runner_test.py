@@ -6,8 +6,7 @@ from rpython.jit.metainterp.history import (AbstractFailDescr,
                                          BoxInt, Box, BoxPtr,
                                          JitCellToken, TargetToken,
                                          ConstInt, ConstPtr,
-                                         BoxObj,
-                                         ConstObj, BoxFloat, ConstFloat)
+                                         BoxFloat, ConstFloat)
 from rpython.jit.metainterp.resoperation import ResOperation, rop
 from rpython.jit.metainterp.typesystem import deref
 from rpython.jit.codewriter.effectinfo import EffectInfo
@@ -55,7 +54,7 @@ class Runner(object):
         for box in inputargs:
             if isinstance(box, BoxInt):
                 args.append(box.getint())
-            elif isinstance(box, (BoxPtr, BoxObj)):
+            elif isinstance(box, BoxPtr):
                 args.append(box.getref_base())
             elif isinstance(box, BoxFloat):
                 args.append(box.getfloatstorage())

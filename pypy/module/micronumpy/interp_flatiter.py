@@ -64,8 +64,8 @@ class W_FlatIterator(W_NDimArray):
         base_iter.next_skip_x(start)
         if length == 1:
             return base_iter.getitem()
-        res = W_NDimArray.from_shape([length], base.get_dtype(),
-                                     base.get_order())
+        res = W_NDimArray.from_shape(space, [length], base.get_dtype(),
+                                     base.get_order(), w_instance=base)
         return loop.flatiter_getitem(res, base_iter, step)
 
     def descr_setitem(self, space, w_idx, w_value):

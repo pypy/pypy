@@ -36,6 +36,9 @@ rpython.tool.udir = mod
 if sys.platform == "win32":
     pass   # lots more in Psyco
 
+class ObjdumpNotFound(Exception):
+    pass
+
 def find_objdump():
     exe = ('objdump', 'gobjdump')
     path = os.environ['PATH'].split(os.pathsep)
@@ -45,7 +48,7 @@ def find_objdump():
             if not os.path.exists(path_to):
                 continue
             return e
-    raise AssertionError('(g)objdump was not found in PATH')
+    raise ObjdumpNotFound('(g)objdump was not found in PATH')
 
 def machine_code_dump(data, originaddr, backend_name, label_list=None):
     objdump_backend_option = {
@@ -326,7 +329,7 @@ class World(object):
                         color = "black"
                     else:
                         color = "red"
-                    g1.emit_edge('N_%x' % r.addr, 'N_%x' % targetaddr, 
+                    g1.emit_edge('N_%x' % r.addr, 'N_%x' % targetaddr,
                                  color=color)
         sys.stdout.flush()
         if showgraph:

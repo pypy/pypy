@@ -1,7 +1,7 @@
 import py
 
 from rpython.translator.translator import TranslationContext
-from rpython.rtyper.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
+from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rtyper.llinterp import LLException
 from rpython.rtyper.error import MissingRTypeOperation
 
@@ -33,7 +33,7 @@ def test_simple():
     rtype(dummyfn)
 
 
-class BaseTestException(BaseRtypingTest):
+class TestException(BaseRtypingTest):
     def test_exception_with_arg(self):
         def g(n):
             raise OSError(n, "?")
@@ -113,8 +113,6 @@ class BaseTestException(BaseRtypingTest):
         res = self.interpret(f, [42])
         assert res == 42
 
-
-class TestLLtype(BaseTestException, LLRtypeMixin):
     def test_cannot_raise_ll_exception(self):
         from rpython.rtyper.annlowlevel import cast_instance_to_base_ptr
         def g():
@@ -127,6 +125,3 @@ class TestLLtype(BaseTestException, LLRtypeMixin):
             except OverflowError:
                 return 42
         py.test.raises(MissingRTypeOperation, self.interpret, f, [])
-
-class TestOOtype(BaseTestException, OORtypeMixin):
-    pass

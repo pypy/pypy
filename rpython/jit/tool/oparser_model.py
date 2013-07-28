@@ -5,7 +5,7 @@ def get_real_model():
     class LoopModel(object):
         from rpython.jit.metainterp.history import TreeLoop, JitCellToken
         from rpython.jit.metainterp.history import Box, BoxInt, BoxFloat
-        from rpython.jit.metainterp.history import ConstInt, ConstObj, ConstPtr, ConstFloat
+        from rpython.jit.metainterp.history import ConstInt, ConstPtr, ConstFloat
         from rpython.jit.metainterp.history import BasicFailDescr, BasicFinalDescr, TargetToken
         from rpython.jit.metainterp.typesystem import llhelper
 
@@ -24,11 +24,6 @@ def get_real_model():
             from rpython.jit.codewriter.heaptracker import adr2int
             from rpython.rtyper.lltypesystem import llmemory
             return adr2int(llmemory.cast_ptr_to_adr(obj))
-
-        @staticmethod
-        def ootype_cast_to_object(obj):
-            from rpython.rtyper.ootypesystem import ootype
-            return ootype.cast_to_object(obj)
 
     return LoopModel
 

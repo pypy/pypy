@@ -1,6 +1,5 @@
 from rpython.jit.metainterp import typesystem
 from rpython.rtyper.lltypesystem import lltype, llmemory
-from rpython.rtyper.ootypesystem import ootype
 
 
 class TypeSystemTests(object):
@@ -35,19 +34,3 @@ class TestLLtype(TypeSystemTests):
 
     def null_ref(self):
         return lltype.nullptr(llmemory.GCREF.TO)
-
-
-class TestOOtype(TypeSystemTests):
-    helper = typesystem.oohelper
-
-    def fresh_ref(self):
-        O = ootype.StaticMethod([], ootype.Signed)
-        o = O._example()
-        return ootype.cast_to_object(o)
-
-    def duplicate_ref(self, x):
-        o = x.obj
-        return ootype.cast_to_object(o)
-
-    def null_ref(self):
-        return ootype.NULL
