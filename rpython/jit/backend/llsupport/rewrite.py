@@ -1,10 +1,9 @@
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rtyper.lltypesystem import llmemory
 from rpython.jit.metainterp import history
-from rpython.jit.metainterp.history import ConstInt, BoxPtr, ConstPtr, BoxInt
+from rpython.jit.metainterp.history import ConstInt, BoxPtr, ConstPtr
 from rpython.jit.metainterp.resoperation import ResOperation, rop
 from rpython.jit.codewriter import heaptracker
-from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.backend.llsupport.symbolic import WORD
 from rpython.jit.backend.llsupport.descr import SizeDescr, ArrayDescr
 from rpython.jit.metainterp.history import JitCellToken
