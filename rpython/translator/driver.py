@@ -38,7 +38,7 @@ _BACKEND_TO_TYPESYSTEM = {
 }
 
 def backend_to_typesystem(backend):
-    return _BACKEND_TO_TYPESYSTEM.get(backend, 'ootype')
+    return _BACKEND_TO_TYPESYSTEM[backend]
 
 # set of translation steps to profile
 PROFILE = set([])
@@ -558,7 +558,6 @@ class TranslationDriver(SimpleTaskEngine):
         assert 'rpython.rtyper.rmodel' not in sys.modules, (
             "cannot fork because the rtyper has already been imported")
     prereq_checkpt_rtype_lltype = prereq_checkpt_rtype
-    prereq_checkpt_rtype_ootype = prereq_checkpt_rtype
 
     # checkpointing support
     def _event(self, kind, goal, func):

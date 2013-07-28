@@ -32,8 +32,7 @@ from rpython.tool.pairtype import pairtype, pair
 class BaseListRepr(AbstractBaseListRepr):
     rstr_ll = rstr.LLHelpers
 
-    # known_maxlength is ignored by lltype but used by ootype
-    def __init__(self, rtyper, item_repr, listitem=None, known_maxlength=False):
+    def __init__(self, rtyper, item_repr, listitem=None):
         self.rtyper = rtyper
         self.LIST = GcForwardReference()
         self.lowleveltype = Ptr(self.LIST)

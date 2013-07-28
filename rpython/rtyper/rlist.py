@@ -48,16 +48,14 @@ class __extend__(annmodel.SomeList):
             # of recursive structures -- i.e. if the listdef contains itself
             rlist = rtyper.type_system.rlist
             item_repr = lambda: rtyper.getrepr(listitem.s_value)
-            known_maxlength = getattr(self, 'known_maxlength', False)
             if self.listdef.listitem.resized:
-                return rlist.ListRepr(rtyper, item_repr, listitem, known_maxlength)
+                return rlist.ListRepr(rtyper, item_repr, listitem)
             else:
                 return rlist.FixedSizeListRepr(rtyper, item_repr, listitem)
 
     def rtyper_makekey(self):
         self.listdef.listitem.dont_change_any_more = True
-        known_maxlength = getattr(self, 'known_maxlength', False)
-        return self.__class__, self.listdef.listitem, known_maxlength
+        return self.__class__, self.listdef.listitem
 
 
 class AbstractBaseListRepr(Repr):

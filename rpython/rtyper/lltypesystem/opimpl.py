@@ -553,8 +553,7 @@ def op_getarrayitem(p, index):
 def _normalize(x):
     if not isinstance(x, str):
         TYPE = lltype.typeOf(x)
-        if (isinstance(TYPE, lltype.Ptr) and TYPE.TO._name == 'rpy_string'
-            or getattr(TYPE, '_name', '') == 'String'):    # ootype
+        if isinstance(TYPE, lltype.Ptr) and TYPE.TO._name == 'rpy_string':
             from rpython.rtyper.annlowlevel import hlstr
             return hlstr(x)
     return x
