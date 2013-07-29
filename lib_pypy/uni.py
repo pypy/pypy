@@ -1,4 +1,4 @@
-from unipycation import *
+from unipycation import Term, Var, CoreEngine, PrologError
 
 class InstantiationError(Exception): pass
 
