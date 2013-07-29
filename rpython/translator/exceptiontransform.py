@@ -49,7 +49,7 @@ class ExceptionTransformer(object):
     def __init__(self, translator):
         self.translator = translator
         self.raise_analyzer = canraise.RaiseAnalyzer(translator)
-        edata = translator.rtyper.getexceptiondata()
+        edata = translator.rtyper.exceptiondata
         self.lltype_of_exception_value = edata.lltype_of_exception_value
         self.lltype_of_exception_type = edata.lltype_of_exception_type
         self.mixlevelannotator = MixLevelHelperAnnotator(translator.rtyper)
@@ -169,7 +169,7 @@ class ExceptionTransformer(object):
                                   exception_policy="exc_helper", **kwds)
 
     def get_builtin_exception(self, Class):
-        edata = self.translator.rtyper.getexceptiondata()
+        edata = self.translator.rtyper.exceptiondata
         rclass = self.translator.rtyper.type_system.rclass
         bk = self.translator.annotator.bookkeeper
         error_def = bk.getuniqueclassdef(Class)

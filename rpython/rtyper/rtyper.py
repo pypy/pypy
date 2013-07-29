@@ -100,9 +100,6 @@ class RPythonTyper(object):
         self._reprs_must_call_setup.append(repr)
         self._seen_reprs_must_call_setup[repr] = True
 
-    def getexceptiondata(self):
-        return self.exceptiondata    # built at the end of specialize()
-
     def lltype_to_classdef_mapping(self):
         result = {}
         for (classdef, _), repr in self.instance_reprs.iteritems():
