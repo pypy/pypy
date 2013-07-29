@@ -387,11 +387,21 @@ class StringMethods(object):
 
     @specialize.argtype(0)
     def descr_join(self, space, w_list):
-        #l = space.listview_str(w_list)
-        #if l is not None:
-        #    if len(l) == 1:
-        #        return space.wrap(l[0])
-        #    return space.wrap(self._val(space).join(l))
+        from pypy.objspace.std.bytesobject import W_BytesObject
+        from pypy.objspace.std.unicodeobject import W_UnicodeObject
+
+        if isinstance(self, W_BytesObject):
+            l = space.listview_str(w_list)
+            if l is not None:
+                if len(l) == 1:
+                    return space.wrap(l[0])
+                return space.wrap(self._val(space).join(l))
+        elif isinstance(self, W_UnicodeObject):
+            l = space.listview_unicode(w_list)
+            if l is not None:
+                if len(l) == 1:
+                    return space.wrap(l[0])
+                return space.wrap(self._val(space).join(l))
 
         list_w = space.listview(w_list)
         size = len(list_w)
