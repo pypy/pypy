@@ -2174,7 +2174,10 @@ class Assembler386(BaseAssembler):
         # first save away the 4 registers from 'cond_call_register_arguments'
         # plus the register 'eax'
         base_ofs = self.cpu.get_baseofs_of_frame_field()
+        should_be_saved = self._regalloc.rm.reg_bindings.values()
         for gpr in cond_call_register_arguments + [eax]:
+            if gpr not in should_be_saved:
+                continue
             v = gpr_reg_mgr_cls.all_reg_indexes[gpr.value]
             self.mc.MOV_br(v * WORD + base_ofs, gpr.value)
         #
