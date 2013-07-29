@@ -64,6 +64,26 @@ class TestStm(RewriteTests):
             jump()
             """, t=NULL)
 
+    def test_invalidate_read_status_after_write(self):
+        self.check_rewrite("""
+            [p0]
+            p1 = same_as(p0)
+            p2 = same_as(p0)
+            p4 = getfield_gc(p1, descr=tzdescr)
+            setfield_gc(p2, p0, descr=tzdescr)
+            p5 = getfield_gc(p1, descr=tzdescr)
+        """, """
+            [p0]
+            p1 = same_as(p0)
+            p2 = same_as(p0)
+            cond_call_stm_b(p1, descr=P2Rdescr)
+            p4 = getfield_gc(p1, descr=tzdescr)
+            cond_call_stm_b(p2, descr=P2Wdescr)
+            setfield_gc(p2, p0, descr=tzdescr)
+            cond_call_stm_b(p1, descr=P2Rdescr)
+            p5 = getfield_gc(p1, descr=tzdescr)
+        """)
+
     def test_rewrite_write_barrier_after_malloc(self):
         self.check_rewrite("""
             [p1, p3]
