@@ -515,6 +515,9 @@ class StringMethods(object):
                                  space.wrap("empty separator"))
         pos = value.rfind(sub)
         if pos == -1:
+            from pypy.objspace.std.bytearrayobject import W_BytearrayObject
+            if isinstance(self, W_BytearrayObject):
+                self = self._new(value)
             return space.newtuple([self._empty(), self._empty(), self])
         else:
             from pypy.objspace.std.bytearrayobject import W_BytearrayObject
