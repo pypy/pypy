@@ -1,11 +1,9 @@
 """The builtin bytearray implementation"""
 
-from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.buffer import RWBuffer
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.signature import Signature
-from pypy.objspace.std.inttype import wrapint
 from pypy.objspace.std.model import W_Object, registerimplementation
 from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.objspace.std.stdtypedef import StdTypeDef
