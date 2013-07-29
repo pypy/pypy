@@ -1,20 +1,15 @@
 """The builtin bytearray implementation"""
 
-from pypy.interpreter.baseobjspace import ObjSpace, W_Root
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.buffer import RWBuffer
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.signature import Signature
-from pypy.objspace.std import bytesobject
-from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.inttype import wrapint
 from pypy.objspace.std.model import W_Object, registerimplementation
-from pypy.objspace.std.multimethod import FailedToImplement
-from pypy.objspace.std.noneobject import W_NoneObject
-from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
-from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
+from pypy.objspace.std.sliceobject import W_SliceObject
+from pypy.objspace.std.stdtypedef import StdTypeDef
 from pypy.objspace.std.stringmethods import StringMethods
-from pypy.objspace.std.unicodeobject import W_UnicodeObject
 from pypy.objspace.std.util import get_positive_index
 from rpython.rlib.objectmodel import newlist_hint, resizelist_hint
 from rpython.rlib.rstring import StringBuilder
@@ -267,49 +262,13 @@ class W_BytearrayObject(W_Object, StringMethods):
     def descr_remove(self, space, w_char):
         char = space.int_w(space.index(w_char))
         try:
-            result = self.data.remove(chr(char))
+            self.data.remove(chr(char))
         except ValueError:
             raise OperationError(space.w_ValueError, space.wrap(
                 "value not found in bytearray"))
 
     def descr_reverse(self, space):
         self.data.reverse()
-
-
-bytearray_append  = SMM('append', 2)
-bytearray_extend  = SMM('extend', 2)
-bytearray_insert  = SMM('insert', 3,
-                    doc="B.insert(index, int) -> None\n\n"
-                    "Insert a single item into the bytearray before "
-                    "the given index.")
-
-bytearray_pop  = SMM('pop', 2, defaults=(-1,),
-                    doc="B.pop([index]) -> int\n\nRemove and return a "
-                    "single item from B. If no index\nargument is given, "
-                    "will pop the last value.")
-
-bytearray_remove  = SMM('remove', 2,
-                    doc="B.remove(int) -> None\n\n"
-                    "Remove the first occurance of a value in B.")
-
-bytearray_reverse  = SMM('reverse', 1,
-                    doc="B.reverse() -> None\n\n"
-                    "Reverse the order of the values in B in place.")
-
-bytearray_strip  = SMM('strip', 2, defaults=(None,),
-                    doc="B.strip([bytes]) -> bytearray\n\nStrip leading "
-                    "and trailing bytes contained in the argument.\nIf "
-                    "the argument is omitted, strip ASCII whitespace.")
-
-bytearray_lstrip  = SMM('lstrip', 2, defaults=(None,),
-                    doc="B.lstrip([bytes]) -> bytearray\n\nStrip leading "
-                    "bytes contained in the argument.\nIf the argument is "
-                    "omitted, strip leading ASCII whitespace.")
-
-bytearray_rstrip  = SMM('rstrip', 2, defaults=(None,),
-                    doc="'B.rstrip([bytes]) -> bytearray\n\nStrip trailing "
-                    "bytes contained in the argument.\nIf the argument is "
-                    "omitted, strip trailing ASCII whitespace.")
 
 def getbytevalue(space, w_value):
     if space.isinstance_w(w_value, space.w_str):
@@ -508,191 +467,8 @@ registerimplementation(W_BytearrayObject)
 init_signature = Signature(['source', 'encoding', 'errors'], None, None)
 init_defaults = [None, None, None]
 
-def len__Bytearray(space, w_bytearray):
-    result = len(w_bytearray.data)
-    return wrapint(space, result)
 
-def ord__Bytearray(space, w_bytearray):
-    if len(w_bytearray.data) != 1:
-        raise OperationError(space.w_TypeError,
-                             space.wrap("expected a character, but string"
-                            "of length %s found" % len(w_bytearray.data)))
-    return space.wrap(ord(w_bytearray.data[0]))
-
-def getitem__Bytearray_ANY(space, w_bytearray, w_index):
-    # getindex_w should get a second argument space.w_IndexError,
-    # but that doesn't exist the first time this is called.
-    try:
-        w_IndexError = space.w_IndexError
-    except AttributeError:
-        w_IndexError = None
-    index = space.getindex_w(w_index, w_IndexError, "bytearray index")
-    try:
-        return space.newint(ord(w_bytearray.data[index]))
-    except IndexError:
-        raise OperationError(space.w_IndexError,
-                             space.wrap("bytearray index out of range"))
-
-def getitem__Bytearray_Slice(space, w_bytearray, w_slice):
-    data = w_bytearray.data
-    length = len(data)
-    start, stop, step, slicelength = w_slice.indices4(space, length)
-    assert slicelength >= 0
-    if step == 1 and 0 <= start <= stop:
-        newdata = data[start:stop]
-    else:
-        newdata = _getitem_slice_multistep(data, start, step, slicelength)
-    return W_BytearrayObject(newdata)
-
-def _getitem_slice_multistep(data, start, step, slicelength):
-    return [data[start + i*step] for i in range(slicelength)]
-
-def contains__Bytearray_Int(space, w_bytearray, w_char):
-    char = space.int_w(w_char)
-    if not 0 <= char < 256:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("byte must be in range(0, 256)"))
-    for c in w_bytearray.data:
-        if ord(c) == char:
-            return space.w_True
-    return space.w_False
-
-def contains__Bytearray_String(space, w_bytearray, w_str):
-    # XXX slow - copies, needs rewriting
-    w_str2 = str__Bytearray(space, w_bytearray)
-    return bytesobject.contains__String_String(space, w_str2, w_str)
-
-def contains__Bytearray_ANY(space, w_bytearray, w_sub):
-    # XXX slow - copies, needs rewriting
-    w_str = space.wrap(space.bufferstr_new_w(w_sub))
-    w_str2 = str__Bytearray(space, w_bytearray)
-    return bytesobject.contains__String_String(space, w_str2, w_str)
-
-def add__Bytearray_Bytearray(space, w_bytearray1, w_bytearray2):
-    data1 = w_bytearray1.data
-    data2 = w_bytearray2.data
-    return W_BytearrayObject(data1 + data2)
-
-def add__Bytearray_ANY(space, w_bytearray1, w_other):
-    data1 = w_bytearray1.data
-    data2 = [c for c in space.bufferstr_new_w(w_other)]
-    return W_BytearrayObject(data1 + data2)
-
-def add__String_Bytearray(space, w_str, w_bytearray):
-    data2 = w_bytearray.data
-    data1 = [c for c in space.str_w(w_str)]
-    return W_BytearrayObject(data1 + data2)
-
-def eq__Bytearray_Bytearray(space, w_bytearray1, w_bytearray2):
-    data1 = w_bytearray1.data
-    data2 = w_bytearray2.data
-    if len(data1) != len(data2):
-        return space.w_False
-    for i in range(len(data1)):
-        if data1[i] != data2[i]:
-            return space.w_False
-    return space.w_True
-
-def eq__Bytearray_String(space, w_bytearray, w_other):
-    return space.eq(str__Bytearray(space, w_bytearray), w_other)
-
-def eq__Bytearray_Unicode(space, w_bytearray, w_other):
-    return space.w_False
-
-def eq__Unicode_Bytearray(space, w_other, w_bytearray):
-    return space.w_False
-
-def ne__Bytearray_String(space, w_bytearray, w_other):
-    return space.ne(str__Bytearray(space, w_bytearray), w_other)
-
-def ne__Bytearray_Unicode(space, w_bytearray, w_other):
-    return space.w_True
-
-def ne__Unicode_Bytearray(space, w_other, w_bytearray):
-    return space.w_True
-
-def _min(a, b):
-    if a < b:
-        return a
-    return b
-
-def lt__Bytearray_Bytearray(space, w_bytearray1, w_bytearray2):
-    data1 = w_bytearray1.data
-    data2 = w_bytearray2.data
-    ncmp = _min(len(data1), len(data2))
-    # Search for the first index where items are different
-    for p in range(ncmp):
-        if data1[p] != data2[p]:
-            return space.newbool(data1[p] < data2[p])
-    # No more items to compare -- compare sizes
-    return space.newbool(len(data1) < len(data2))
-
-def gt__Bytearray_Bytearray(space, w_bytearray1, w_bytearray2):
-    data1 = w_bytearray1.data
-    data2 = w_bytearray2.data
-    ncmp = _min(len(data1), len(data2))
-    # Search for the first index where items are different
-    for p in range(ncmp):
-        if data1[p] != data2[p]:
-            return space.newbool(data1[p] > data2[p])
-    # No more items to compare -- compare sizes
-    return space.newbool(len(data1) > len(data2))
-
-def str_count__Bytearray_ANY_ANY_ANY(space, w_bytearray, w_char, w_start, w_stop):
-    w_char = space.wrap(space.bufferstr_new_w(w_char))
-    w_str = str__Bytearray(space, w_bytearray)
-    return bytesobject.str_count__String_String_ANY_ANY(space, w_str, w_char,
-                                                         w_start, w_stop)
-
-def str_index__Bytearray_ANY_ANY_ANY(space, w_bytearray, w_char, w_start, w_stop):
-    w_char = space.wrap(space.bufferstr_new_w(w_char))
-    w_str = str__Bytearray(space, w_bytearray)
-    return bytesobject.str_index__String_String_ANY_ANY(space, w_str, w_char,
-                                                         w_start, w_stop)
-
-def str_rindex__Bytearray_ANY_ANY_ANY(space, w_bytearray, w_char, w_start, w_stop):
-    w_char = space.wrap(space.bufferstr_new_w(w_char))
-    w_str = str__Bytearray(space, w_bytearray)
-    return bytesobject.str_rindex__String_String_ANY_ANY(space, w_str, w_char,
-                                                         w_start, w_stop)
-
-def str_find__Bytearray_ANY_ANY_ANY(space, w_bytearray, w_char, w_start, w_stop):
-    w_char = space.wrap(space.bufferstr_new_w(w_char))
-    w_str = str__Bytearray(space, w_bytearray)
-    return bytesobject.str_find__String_String_ANY_ANY(space, w_str, w_char,
-                                                         w_start, w_stop)
-
-def str_rfind__Bytearray_ANY_ANY_ANY(space, w_bytearray, w_char, w_start, w_stop):
-    w_char = space.wrap(space.bufferstr_new_w(w_char))
-    w_str = str__Bytearray(space, w_bytearray)
-    return bytesobject.str_rfind__String_String_ANY_ANY(space, w_str, w_char,
-                                                         w_start, w_stop)
-
-def str_startswith__Bytearray_ANY_ANY_ANY(space, w_bytearray, w_prefix, w_start, w_stop):
-    if space.isinstance_w(w_prefix, space.w_tuple):
-        w_str = str__Bytearray(space, w_bytearray)
-        w_prefix = space.newtuple([space.wrap(space.bufferstr_new_w(w_entry)) for w_entry in
-                                   space.fixedview(w_prefix)])
-        return bytesobject.str_startswith__String_ANY_ANY_ANY(space, w_str, w_prefix,
-                                                                  w_start, w_stop)
-
-    w_prefix = space.wrap(space.bufferstr_new_w(w_prefix))
-    w_str = str__Bytearray(space, w_bytearray)
-    return bytesobject.str_startswith__String_String_ANY_ANY(space, w_str, w_prefix,
-                                                              w_start, w_stop)
-
-def str_endswith__Bytearray_ANY_ANY_ANY(space, w_bytearray, w_suffix, w_start, w_stop):
-    if space.isinstance_w(w_suffix, space.w_tuple):
-        w_str = str__Bytearray(space, w_bytearray)
-        w_suffix = space.newtuple([space.wrap(space.bufferstr_new_w(w_entry)) for w_entry in
-                                   space.fixedview(w_suffix)])
-        return bytesobject.str_endswith__String_ANY_ANY_ANY(space, w_str, w_suffix,
-                                                                  w_start, w_stop)
-    w_suffix = space.wrap(space.bufferstr_new_w(w_suffix))
-    w_str = str__Bytearray(space, w_bytearray)
-    return bytesobject.str_endswith__String_String_ANY_ANY(space, w_str, w_suffix,
-                                                              w_start, w_stop)
-
+# XXX consider moving to W_BytearrayObject or remove
 def str_join__Bytearray_ANY(space, w_self, w_list):
     list_w = space.listview(w_list)
     if not list_w:
@@ -711,57 +487,7 @@ def str_join__Bytearray_ANY(space, w_self, w_list):
         newdata.extend([c for c in space.bufferstr_new_w(w_s)])
     return W_BytearrayObject(newdata)
 
-def str_decode__Bytearray_ANY_ANY(space, w_bytearray, w_encoding, w_errors):
-    w_str = str__Bytearray(space, w_bytearray)
-    return bytesobject.str_decode__String_ANY_ANY(space, w_str, w_encoding, w_errors)
-
-def str_islower__Bytearray(space, w_bytearray):
-    w_str = str__Bytearray(space, w_bytearray)
-    return bytesobject.str_islower__String(space, w_str)
-
-def str_isupper__Bytearray(space, w_bytearray):
-    w_str = str__Bytearray(space, w_bytearray)
-    return bytesobject.str_isupper__String(space, w_str)
-
-def str_isalpha__Bytearray(space, w_bytearray):
-    w_str = str__Bytearray(space, w_bytearray)
-    return bytesobject.str_isalpha__String(space, w_str)
-
-def str_isalnum__Bytearray(space, w_bytearray):
-    w_str = str__Bytearray(space, w_bytearray)
-    return bytesobject.str_isalnum__String(space, w_str)
-
-def str_isdigit__Bytearray(space, w_bytearray):
-    w_str = str__Bytearray(space, w_bytearray)
-    return bytesobject.str_isdigit__String(space, w_str)
-
-def str_istitle__Bytearray(space, w_bytearray):
-    w_str = str__Bytearray(space, w_bytearray)
-    return bytesobject.str_istitle__String(space, w_str)
-
-def str_isspace__Bytearray(space, w_bytearray):
-    w_str = str__Bytearray(space, w_bytearray)
-    return bytesobject.str_isspace__String(space, w_str)
-
 _space_chars = ''.join([chr(c) for c in [9, 10, 11, 12, 13, 32]])
-
-def bytearray_strip__Bytearray_None(space, w_bytearray, w_chars):
-    return _strip(space, w_bytearray, _space_chars, 1, 1)
-
-def bytearray_strip__Bytearray_ANY(space, w_bytearray, w_chars):
-    return _strip(space, w_bytearray, space.bufferstr_new_w(w_chars), 1, 1)
-
-def bytearray_lstrip__Bytearray_None(space, w_bytearray, w_chars):
-    return _strip(space, w_bytearray, _space_chars, 1, 0)
-
-def bytearray_lstrip__Bytearray_ANY(space, w_bytearray, w_chars):
-    return _strip(space, w_bytearray, space.bufferstr_new_w(w_chars), 1, 0)
-
-def bytearray_rstrip__Bytearray_None(space, w_bytearray, w_chars):
-    return _strip(space, w_bytearray, _space_chars, 0, 1)
-
-def bytearray_rstrip__Bytearray_ANY(space, w_bytearray, w_chars):
-    return _strip(space, w_bytearray, space.bufferstr_new_w(w_chars), 0, 1)
 
 #XXX share the code again with the stuff in listobject.py
 def _delitem_slice_helper(space, items, start, step, slicelength):
@@ -841,27 +567,6 @@ def _setitem_slice_helper(space, items, start, step, slicelength, sequence2,
         items[start] = sequence2[i]
         start += step
 
-def _strip(space, w_bytearray, u_chars, left, right):
-    # note: mostly copied from bytesobject._strip
-    # should really be shared
-    u_self = w_bytearray.data
-
-    lpos = 0
-    rpos = len(u_self)
-
-    if left:
-        while lpos < rpos and u_self[lpos] in u_chars:
-            lpos += 1
-
-    if right:
-        while rpos > lpos and u_self[rpos - 1] in u_chars:
-            rpos -= 1
-        assert rpos >= 0
-
-    return new_bytearray(space, space.w_bytearray, u_self[lpos:rpos])
-
-# __________________________________________________________
-# Buffer interface
 
 class BytearrayBuffer(RWBuffer):
     def __init__(self, data):
@@ -875,7 +580,3 @@ class BytearrayBuffer(RWBuffer):
 
     def setitem(self, index, char):
         self.data[index] = char
-
-def buffer__Bytearray(space, self):
-    b = BytearrayBuffer(self.data)
-    return space.wrap(b)
