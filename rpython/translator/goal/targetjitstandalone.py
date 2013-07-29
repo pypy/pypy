@@ -28,7 +28,9 @@ def main2(l, count):
 
 def entry_point(argv):
     if len(argv) < 3:
-        print "Usage: jitstandalone <number> <another number>"
+        print "Usage: jitstandalone <count1> <count2>"
+        print "runs a total of '2 * count1 * count2' iterations"
+        return 0
     count1 = int(argv[1])
     count2 = int(argv[2])
     s = 0
