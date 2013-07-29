@@ -206,6 +206,8 @@ class W_BytesObject(W_AbstractBytesObject, StringMethods):
 
     def descr_contains(self, space, w_sub):
         if space.isinstance_w(w_sub, space.w_unicode):
+            from pypy.objspace.std.unicodeobject import W_UnicodeObject
+            assert isinstance(w_sub, W_UnicodeObject)
             self_as_unicode = unicode_from_encoded_object(space, self, None, None)
             return space.newbool(self_as_unicode._value.find(w_sub._value) >= 0)
         return StringMethods.descr_contains(self, space, w_sub)
