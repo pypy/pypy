@@ -462,3 +462,7 @@ class AppTestBytesArray:
         for i in range(count):
             b[i:i+1] = 'y'
         assert str(b) == 'y' * count
+
+    def test_partition_return_copy(self):
+        b = bytearray(b'foo')
+        assert b.partition(b'x')[0] is not b
