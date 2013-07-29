@@ -21,8 +21,7 @@ class TypeSystem(object):
                 return None
         if name in ('rclass', 'rpbc', 'rbuiltin', 'rtuple', 'rlist',
                     'rslice', 'rdict', 'rrange', 'rstr',
-                    'll_str', 'rbuilder', 'rvirtualizable2', 'rbytearray',
-                    'exceptiondata'):
+                    'll_str', 'rbuilder', 'rbytearray', 'exceptiondata'):
             mod = load(name)
             if mod is not None:
                 setattr(self, name, mod)
