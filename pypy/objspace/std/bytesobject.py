@@ -134,6 +134,8 @@ class W_BytesObject(W_AbstractBytesObject, StringMethods):
         else:
             return ch
 
+    _title = _upper
+
     def _newlist_unwrapped(self, space, lst):
         return space.newlist_str(lst)
 

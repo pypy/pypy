@@ -91,6 +91,8 @@ class W_BytearrayObject(W_Root, StringMethods):
         else:
             return ch
 
+    _title = _upper
+
     def _join_return_one(self, space, w_obj):
         return False
 

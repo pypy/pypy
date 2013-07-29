@@ -134,6 +134,9 @@ class W_UnicodeObject(W_Root, StringMethods):
     def _lower(self, ch):
         return unichr(unicodedb.tolower(ord(ch)))
 
+    def _title(self, ch):
+        return unichr(unicodedb.totitle(ord(ch)))
+
     def _newlist_unwrapped(self, space, lst):
         return space.newlist_unicode(lst)
 

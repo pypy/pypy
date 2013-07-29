@@ -761,7 +761,7 @@ class StringMethods(object):
         for pos in range(len(selfval)):
             ch = selfval[pos]
             if not previous_is_cased:
-                builder.append(self._upper(ch))
+                builder.append(self._title(ch))
             else:
                 builder.append(self._lower(ch))
             previous_is_cased = self._iscased(ch)
