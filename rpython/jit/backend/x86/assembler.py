@@ -180,6 +180,7 @@ class Assembler386(BaseAssembler):
         self.set_extra_stack_depth(mc, 0)
         self._reload_frame_if_necessary(mc, align_stack=True)
         self._pop_all_regs_from_frame(mc, [], supports_floats, callee_only)
+        self.pop_gcmap(mc)   # push_gcmap(store=True) done by the caller
         mc.RET()
         return mc.materialize(self.cpu.asmmemmgr, [])
 
@@ -2206,11 +2207,13 @@ class Assembler386(BaseAssembler):
                 floats = True
         cond_call_adr = self.cond_call_slowpath[floats * 2 + callee_only]
         self.mc.CALL(imm(cond_call_adr))
-        self.pop_gcmap(self.mc)
-        # never any result value
+        # restoring the registers saved above, and doing pop_gcmap(), is left
+        # to the cond_call_slowpath helper.  We never have any result value.
         offset = self.mc.get_relative_pos() - jmp_adr
         assert 0 < offset <= 127
         self.mc.overwrite(jmp_adr-1, chr(offset))
+        # XXX if the next operation is a GUARD_NO_EXCEPTION, we should
+        # somehow jump over it too in the fast path
 
     def malloc_cond(self, nursery_free_adr, nursery_top_adr, size, gcmap):
         assert size & (WORD-1) == 0     # must be correctly aligned
