@@ -216,6 +216,29 @@ class AppTestTextIO:
         raises(IOError, txt.close)  # exception not swallowed
         assert txt.closed
 
+    def test_illegal_decoder(self):
+        import _io
+        t = _io.TextIOWrapper(_io.BytesIO(b'aaaaaa'), newline='\n',
+                             encoding='quopri_codec')
+        raises(TypeError, t.read, 1)
+        t = _io.TextIOWrapper(_io.BytesIO(b'aaaaaa'), newline='\n',
+                             encoding='quopri_codec')
+        raises(TypeError, t.readline)
+        t = _io.TextIOWrapper(_io.BytesIO(b'aaaaaa'), newline='\n',
+                             encoding='quopri_codec')
+        raises(TypeError, t.read)
+
+    def test_read_nonbytes(self):
+        import _io
+        class NonbytesStream(_io.StringIO):
+            read1 = _io.StringIO.read
+        t = _io.TextIOWrapper(NonbytesStream(u'a'))
+        raises(TypeError, t.read, 1)
+        t = _io.TextIOWrapper(NonbytesStream(u'a'))
+        raises(TypeError, t.readline)
+        t = _io.TextIOWrapper(NonbytesStream(u'a'))
+        t.read() == u'a'
+
 
 class AppTestIncrementalNewlineDecoder:
     def test_newline_decoder(self):

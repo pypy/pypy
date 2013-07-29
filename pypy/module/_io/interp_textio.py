@@ -1,7 +1,7 @@
 import sys
 
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
 from pypy.interpreter.typedef import (
     GetSetProperty, TypeDef, generic_new_descr, interp_attrproperty,
@@ -327,6 +327,13 @@ class PositionSnapshot:
         self.flags = flags
         self.input = input
 
+
+def check_decoded(space, w_decoded):
+    if not space.isinstance_w(w_decoded, space.w_unicode):
+        msg = "decoder should return a string result, not '%T'"
+        raise operationerrfmt(space.w_TypeError, msg, w_decoded)
+
+
 class W_TextIOWrapper(W_TextIOBase):
     def __init__(self, space):
         W_TextIOBase.__init__(self, space)
@@ -546,9 +553,16 @@ class W_TextIOWrapper(W_TextIOBase):
         # Read a chunk, decode it, and put the result in self._decoded_chars
         w_input = space.call_method(self.w_buffer, "read1",
                                     space.wrap(self.chunk_size))
+
+        if not space.isinstance_w(w_input, space.w_str):
+            msg = "decoder getstate() should have returned a bytes " \
+                  "object not '%T'"
+            raise operationerrfmt(space.w_TypeError, msg, w_input)
+
         eof = space.len_w(w_input) == 0
         w_decoded = space.call_method(self.w_decoder, "decode",
                                       w_input, space.wrap(eof))
+        check_decoded(space, w_decoded)
         self._set_decoded_chars(space.unicode_w(w_decoded))
         if space.len_w(w_decoded) > 0:
             eof = False
@@ -577,10 +591,12 @@ class W_TextIOWrapper(W_TextIOBase):
 
         size = convert_size(space, w_size)
         self._writeflush(space)
+
         if size < 0:
             # Read everything
             w_bytes = space.call_method(self.w_buffer, "read")
             w_decoded = space.call_method(self.w_decoder, "decode", w_bytes, space.w_True)
+            check_decoded(space, w_decoded)
             w_result = space.wrap(self._get_decoded_chars(-1))
             w_final = space.add(w_result, w_decoded)
             self.snapshot = None
@@ -700,6 +716,10 @@ class W_TextIOWrapper(W_TextIOBase):
 
         if not self.w_encoder:
             raise OperationError(space.w_IOError, space.wrap("not writable"))
+
+        if not space.isinstance_w(w_text, space.w_unicode):
+            msg = "unicode argument expected, got '%T'"
+            raise operationerrfmt(space.w_TypeError, msg, w_text)
 
         text = space.unicode_w(w_text)
         textlen = len(text)
@@ -845,11 +865,17 @@ class W_TextIOWrapper(W_TextIOBase):
             # Just like _read_chunk, feed the decoder and save a snapshot.
             w_chunk = space.call_method(self.w_buffer, "read",
                                         space.wrap(cookie.bytes_to_feed))
+            if not space.isinstance_w(w_chunk, space.w_str):
+                msg = "underlying read() should have returned " \
+                      "a bytes object, not '%T'"
+                raise operationerrfmt(space.w_TypeError, msg, w_chunk)
+
             self.snapshot = PositionSnapshot(cookie.dec_flags,
                                              space.str_w(w_chunk))
 
             w_decoded = space.call_method(self.w_decoder, "decode",
                                           w_chunk, space.wrap(cookie.need_eof))
+            check_decoded(space, w_decoded)
             self._set_decoded_chars(space.unicode_w(w_decoded))
 
             # Skip chars_to_skip of the decoded characters
@@ -918,6 +944,7 @@ class W_TextIOWrapper(W_TextIOBase):
             while i < len(input):
                 w_decoded = space.call_method(self.w_decoder, "decode",
                                               space.wrap(input[i]))
+                check_decoded(space, w_decoded)
                 chars_decoded += len(space.unicode_w(w_decoded))
 
                 cookie.bytes_to_feed += 1
@@ -942,6 +969,7 @@ class W_TextIOWrapper(W_TextIOBase):
                 w_decoded = space.call_method(self.w_decoder, "decode",
                                               space.wrap(""),
                                               space.wrap(1)) # final=1
+                check_decoded(space, w_decoded)
                 chars_decoded += len(space.unicode_w(w_decoded))
                 cookie.need_eof = 1
 

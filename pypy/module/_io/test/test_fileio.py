@@ -98,6 +98,13 @@ class AppTestFileIO:
         f.close()
         f2.close()
 
+    def test_writelines_error(self):
+        import _io
+        txt = _io.TextIOWrapper(_io.BytesIO())
+        raises(TypeError, txt.writelines, [1, 2, 3])
+        raises(TypeError, txt.writelines, None)
+        raises(TypeError, txt.writelines, b'abc')
+
     def test_seek(self):
         import _io
         f = _io.FileIO(self.tmpfile, 'rb')
@@ -195,7 +202,7 @@ def test_flush_at_exit():
     space.appexec([space.wrap(str(tmpfile))], """(tmpfile):
         import io
         f = io.open(tmpfile, 'w', encoding='ascii')
-        f.write('42')
+        f.write(u'42')
         # no flush() and no close()
         import sys; sys._keepalivesomewhereobscure = f
     """)
