@@ -54,33 +54,29 @@ class W_CoreSolutionIterator(W_Root):
 
         self.d_result = self.space.newdict()
 
-        # The first iteration is special. Here we set up the continuation
-        # for subsequent iterations.
-        if self.fcont is None:
+        p_goal_term = cur_mod = cont = None
+
+        first_iteration = self.fcont is None
+        if first_iteration:
+            # The first iteration is special. Here we set up the continuation
+            # for subsequent iterations.
             cur_mod = self.w_engine.engine.modulewrapper.current_module
             cont = UnipycationContinuation(
                     self.w_engine, self.w_unbound_vars, self)
-            try:
-                r = self.w_engine.engine.run(self.w_goal_term.p_term, cur_mod, cont)
-            except error.UnificationFailed:
-                # contradiction - no solutions
-                raise OperationError(self.space.w_StopIteration, self.space.w_None)
-            except (error.CatchableError, error.UncaughtError) as ex:
-                w_PrologError = util.get_from_module(self.space, "unipycation", "PrologError")
-                engine = self.w_engine.engine
-                raise OperationError(w_PrologError, self.space.wrap(ex.get_errstr(engine)))
-
+            p_goal_term = self.w_goal_term.p_term
             self.w_goal_term = None # allow GC
-        else:
-            try:
+        try:
+            if first_iteration:
+                r = self.w_engine.engine.run(p_goal_term, cur_mod, cont)
+            else:
                 continuation.driver(*self.fcont.fail(self.heap))
-            except error.UnificationFailed:
-                # enumerated all solutions
-                raise OperationError(self.space.w_StopIteration, self.space.w_None)
-            except (error.CatchableError, error.UncaughtError) as ex:
-                w_PrologError = util.get_from_module(self.space, "unipycation", "PrologError")
-                engine = self.w_engine.engine
-                raise OperationError(w_PrologError, self.space.wrap(ex.get_errstr(engine)))
+        except error.UnificationFailed:
+            # contradiction - no solutions
+            raise OperationError(self.space.w_StopIteration, self.space.w_None)
+        except (error.CatchableError, error.UncaughtError) as ex:
+            w_PrologError = util.get_from_module(self.space, "unipycation", "PrologError")
+            engine = self.w_engine.engine
+            raise OperationError(w_PrologError, self.space.wrap(ex.get_errstr(engine)))
 
         return self.d_result
 
