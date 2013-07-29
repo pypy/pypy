@@ -2,9 +2,9 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import operationerrfmt, OperationError
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
-from pypy.objspace.std.bytesobject import str_typedef
+from pypy.objspace.std.bytesobject import W_BytesObject
 from pypy.objspace.std.floattype import float_typedef
-from pypy.objspace.std.unicodeobject import unicode_typedef, unicode_from_object
+from pypy.objspace.std.unicodeobject import W_UnicodeObject, unicode_from_object
 from pypy.objspace.std.inttype import int_typedef
 from pypy.objspace.std.complextype import complex_typedef
 from rpython.rlib.rarithmetic import LONG_BIT
@@ -682,12 +682,12 @@ W_CharacterBox.typedef = TypeDef("character", W_FlexibleBox.typedef,
     __module__ = "numpypy",
 )
 
-W_StringBox.typedef = TypeDef("string_", (str_typedef, W_CharacterBox.typedef),
+W_StringBox.typedef = TypeDef("string_", (W_BytesObject.typedef, W_CharacterBox.typedef),
     __module__ = "numpypy",
     __new__ = interp2app(W_StringBox.descr__new__string_box.im_func),
 )
 
-W_UnicodeBox.typedef = TypeDef("unicode_", (unicode_typedef, W_CharacterBox.typedef),
+W_UnicodeBox.typedef = TypeDef("unicode_", (W_UnicodeObject.typedef, W_CharacterBox.typedef),
     __module__ = "numpypy",
     __new__ = interp2app(W_UnicodeBox.descr__new__unicode_box.im_func),
 )

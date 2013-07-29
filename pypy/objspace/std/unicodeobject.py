@@ -1,13 +1,13 @@
 """The builtin unicode implementation"""
 
 from pypy.interpreter import unicodehelper
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.module.unicodedata import unicodedb
 from pypy.objspace.std import newformat
 from pypy.objspace.std.basestringtype import basestring_typedef
 from pypy.objspace.std.formatting import mod_format
-from pypy.objspace.std.model import W_Object, registerimplementation
 from pypy.objspace.std.stdtypedef import StdTypeDef
 from pypy.objspace.std.stringmethods import StringMethods
 from rpython.rlib.objectmodel import compute_hash, compute_unique_id
@@ -20,7 +20,7 @@ __all__ = ['W_UnicodeObject', 'wrapunicode', 'plain_str2unicode',
            'unicode_from_string', 'unicode_to_decimal_w']
 
 
-class W_UnicodeObject(W_Object, StringMethods):
+class W_UnicodeObject(W_Root, StringMethods):
     _immutable_fields_ = ['_value']
 
     def __init__(w_self, unistr):
@@ -404,7 +404,7 @@ def descr_new_(space, w_unicodetype, w_string, w_encoding=None, w_errors=None):
 
 # ____________________________________________________________
 
-unicode_typedef = W_UnicodeObject.typedef = StdTypeDef(
+W_UnicodeObject.typedef = StdTypeDef(
     "unicode", basestring_typedef,
     __new__ = interp2app(descr_new_),
     __doc__ = '''unicode(string [, encoding[, errors]]) -> object
@@ -483,8 +483,6 @@ errors can be 'strict', 'replace' or 'ignore' and defaults to 'strict'.''',
         interp2app(W_UnicodeObject.descr_formatter_field_name_split),
 )
 
-unitypedef = unicode_typedef
-
 
 def _create_list_from_unicode(value):
     # need this helper function to allow the jit to look inside and inline
@@ -493,8 +491,6 @@ def _create_list_from_unicode(value):
 
 
 W_UnicodeObject.EMPTY = W_UnicodeObject(u'')
-
-registerimplementation(W_UnicodeObject)
 
 # Helper for converting int/long
 def unicode_to_decimal_w(space, w_unistr):

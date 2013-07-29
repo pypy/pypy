@@ -1,10 +1,10 @@
 """The builtin bytearray implementation"""
 
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.buffer import RWBuffer
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.signature import Signature
-from pypy.objspace.std.model import W_Object, registerimplementation
 from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.objspace.std.stdtypedef import StdTypeDef
 from pypy.objspace.std.stringmethods import StringMethods
@@ -16,7 +16,7 @@ from rpython.rlib.rstring import StringBuilder
 def _make_data(s):
     return [s[i] for i in range(len(s))]
 
-class W_BytearrayObject(W_Object, StringMethods):
+class W_BytearrayObject(W_Root, StringMethods):
     def __init__(w_self, data):
         w_self.data = data
 
@@ -378,7 +378,7 @@ def descr_fromhex(space, w_type, w_hexstring):
 
 # ____________________________________________________________
 
-bytearray_typedef = W_BytearrayObject.typedef = StdTypeDef(
+W_BytearrayObject.typedef = StdTypeDef(
     "bytearray",
     __doc__ = '''bytearray() -> an empty bytearray
 bytearray(sequence) -> bytearray initialized from sequence\'s items
@@ -460,7 +460,6 @@ If the argument is a bytearray, the return value is the same object.''',
     remove = interp2app(W_BytearrayObject.descr_remove),
     reverse = interp2app(W_BytearrayObject.descr_reverse),
 )
-registerimplementation(W_BytearrayObject)
 
 init_signature = Signature(['source', 'encoding', 'errors'], None, None)
 init_defaults = [None, None, None]

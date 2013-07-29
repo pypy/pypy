@@ -1,12 +1,8 @@
-from pypy.objspace.std.model import registerimplementation, W_Object
-from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.bytesobject import W_AbstractBytesObject, W_BytesObject
 from rpython.rlib.rstring import StringBuilder
 from pypy.interpreter.buffer import Buffer
 
 class W_StringBufferObject(W_AbstractBytesObject):
-    from pypy.objspace.std.bytesobject import str_typedef as typedef
-
     w_str = None
 
     def __init__(self, builder):
@@ -34,7 +30,7 @@ class W_StringBufferObject(W_AbstractBytesObject):
     def str_w(self, space):
         return self.force()
 
-registerimplementation(W_StringBufferObject)
+W_StringBufferObject.typedef = W_BytesObject.typedef
 
 # ____________________________________________________________
 
@@ -64,4 +60,3 @@ def str__StringBuffer(space, w_self):
     return w_self
 
 from pypy.objspace.std import bytesobject
-register_all(vars(), bytesobject)

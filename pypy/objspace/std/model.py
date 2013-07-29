@@ -36,13 +36,9 @@ class StdTypeModel:
             from pypy.objspace.std.inttype    import int_typedef
             from pypy.objspace.std.floattype  import float_typedef
             from pypy.objspace.std.complextype  import complex_typedef
-            from pypy.objspace.std.basestringtype import basestring_typedef
-            from pypy.objspace.std.bytesobject import str_typedef
-            from pypy.objspace.std.bytearrayobject import bytearray_typedef
             from pypy.objspace.std.typeobject   import type_typedef
             from pypy.objspace.std.slicetype  import slice_typedef
             from pypy.objspace.std.longtype   import long_typedef
-            from pypy.objspace.std.unicodeobject import unicode_typedef
             from pypy.objspace.std.nonetype import none_typedef
         self.pythontypes = [value for key, value in result.__dict__.items()
                             if not key.startswith('_')]   # don't look
@@ -59,6 +55,7 @@ class StdTypeModel:
         from pypy.objspace.std import listobject
         from pypy.objspace.std import dictmultiobject
         from pypy.objspace.std import setobject
+        from pypy.objspace.std import basestringtype
         from pypy.objspace.std import bytesobject
         from pypy.objspace.std import bytearrayobject
         from pypy.objspace.std import typeobject
@@ -81,6 +78,10 @@ class StdTypeModel:
         self.pythontypes.append(setobject.W_SetObject.typedef)
         self.pythontypes.append(setobject.W_FrozensetObject.typedef)
         self.pythontypes.append(iterobject.W_AbstractSeqIterObject.typedef)
+        self.pythontypes.append(basestringtype.basestring_typedef)
+        self.pythontypes.append(bytesobject.W_BytesObject.typedef)
+        self.pythontypes.append(bytearrayobject.W_BytearrayObject.typedef)
+        self.pythontypes.append(unicodeobject.W_UnicodeObject.typedef)
 
         # the set of implementation types
         self.typeorder = {
@@ -88,14 +89,11 @@ class StdTypeModel:
             boolobject.W_BoolObject: [],
             intobject.W_IntObject: [],
             floatobject.W_FloatObject: [],
-            bytesobject.W_BytesObject: [],
-            bytearrayobject.W_BytearrayObject: [],
             typeobject.W_TypeObject: [],
             sliceobject.W_SliceObject: [],
             longobject.W_LongObject: [],
             noneobject.W_NoneObject: [],
             complexobject.W_ComplexObject: [],
-            unicodeobject.W_UnicodeObject: [],
             pypy.interpreter.pycode.PyCode: [],
             pypy.interpreter.special.Ellipsis: [],
             }

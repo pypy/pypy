@@ -1,12 +1,12 @@
 """The builtin str implementation"""
 
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.buffer import StringBuffer
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.objspace.std import newformat
 from pypy.objspace.std.basestringtype import basestring_typedef
 from pypy.objspace.std.formatting import mod_format
-from pypy.objspace.std.model import W_Object, registerimplementation
 from pypy.objspace.std.stdtypedef import StdTypeDef
 from pypy.objspace.std.stringmethods import StringMethods
 from pypy.objspace.std.unicodeobject import (unicode_from_string,
@@ -16,7 +16,7 @@ from rpython.rlib.objectmodel import compute_hash, compute_unique_id
 from rpython.rlib.rstring import StringBuilder, replace
 
 
-class W_AbstractBytesObject(W_Object):
+class W_AbstractBytesObject(W_Root):
     __slots__ = ()
 
     def is_w(self, space, w_other):
@@ -265,8 +265,6 @@ def _create_list_from_string(value):
     # listview_str
     return [s for s in value]
 
-registerimplementation(W_BytesObject)
-
 W_BytesObject.EMPTY = W_BytesObject('')
 W_BytesObject.PREBUILT = [W_BytesObject(chr(i)) for i in range(256)]
 del i
@@ -294,7 +292,7 @@ def wrapchar(space, c):
     else:
         return W_BytesObject(c)
 
-str_typedef = W_BytesObject.typedef = StdTypeDef(
+W_BytesObject.typedef = StdTypeDef(
     "str", basestring_typedef,
     __new__ = interp2app(W_BytesObject.descr_new),
     __doc__ = '''str(object) -> string
