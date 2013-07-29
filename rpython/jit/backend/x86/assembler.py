@@ -2181,7 +2181,8 @@ class Assembler386(BaseAssembler):
         # load the 0-to-4 arguments into these registers
         from rpython.jit.backend.x86.jump import remap_frame_layout
         remap_frame_layout(self, arglocs,
-                           cond_call_register_arguments[:len(arglocs)], eax)
+                           cond_call_register_arguments[:len(arglocs)],
+                           X86_64_SCRATCH_REG if IS_X86_64 else None)
         #
         # load the constant address of the function to call into eax
         self.mc.MOV(eax, imm_func)
