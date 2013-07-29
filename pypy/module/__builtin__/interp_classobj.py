@@ -116,6 +116,9 @@ class W_ClassObject(W_Root):
         return None
 
     def descr_getattribute(self, space, w_attr):
+        if not space.isinstance_w(w_attr, space.w_str):
+            msg = "attribute name must be a string"
+            raise OperationError(space.w_TypeError, space.wrap(msg))
         name = unwrap_attr(space, w_attr)
         if name and name[0] == "_":
             if name == "__dict__":
@@ -137,6 +140,9 @@ class W_ClassObject(W_Root):
         return space.call_function(w_descr_get, w_value, space.w_None, self)
 
     def descr_setattr(self, space, w_attr, w_value):
+        if not space.isinstance_w(w_attr, space.w_str):
+            msg = "attribute name must be a string"
+            raise OperationError(space.w_TypeError, space.wrap(msg))
         name = unwrap_attr(space, w_attr)
         if name and name[0] == "_":
             if name == "__dict__":
@@ -370,6 +376,9 @@ class W_InstanceObject(W_Root):
             return None
 
     def descr_getattribute(self, space, w_attr):
+        if not space.isinstance_w(w_attr, space.w_str):
+            msg = "attribute name must be a string"
+            raise OperationError(space.w_TypeError, space.wrap(msg))
         name = space.str_w(w_attr)
         if len(name) >= 8 and name[0] == '_':
             if name == "__dict__":
@@ -379,6 +388,9 @@ class W_InstanceObject(W_Root):
         return self.getattr(space, name)
 
     def descr_setattr(self, space, w_name, w_value):
+        if not space.isinstance_w(w_name, space.w_str):
+            msg = "attribute name must be a string"
+            raise OperationError(space.w_TypeError, space.wrap(msg))
         name = unwrap_attr(space, w_name)
         w_meth = self.getattr_from_class(space, '__setattr__')
         if name and name[0] == "_":

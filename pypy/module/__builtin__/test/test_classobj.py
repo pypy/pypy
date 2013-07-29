@@ -1078,6 +1078,13 @@ class AppTestOldStyleClassStrDict(object):
             b = 2
         assert self.is_strdict(A)
 
+    def test_attr_slots(self):
+        class C:
+            pass
+        for c in C, C():
+            raises(TypeError, type(c).__getattribute__, c, [])
+            raises(TypeError, type(c).__setattr__, c, [], [])
+
 class AppTestOldStyleMapDict(AppTestOldstyle):
     spaceconfig = {"objspace.std.withmapdict": True}
 
