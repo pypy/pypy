@@ -1059,7 +1059,7 @@ class Assembler386(BaseAssembler):
         if not self.cpu.gc_ll_descr.stm:
             self.genop_guard_int_eq(op, guard_op, guard_token,
                                     arglocs, result_loc)
-        assert not self.cpu.gc_ll_descr.stm
+        assert self.cpu.gc_ll_descr.stm
         guard_opnum = guard_op.getopnum()
         self._stm_ptr_eq_fastpath(self.mc, arglocs, result_loc)
         if guard_opnum == rop.GUARD_FALSE:
@@ -1072,7 +1072,7 @@ class Assembler386(BaseAssembler):
         if not self.cpu.gc_ll_descr.stm:
             self.genop_guard_int_ne(op, guard_op, guard_token,
                                     arglocs, result_loc)
-        assert not self.cpu.gc_ll_descr.stm
+        assert self.cpu.gc_ll_descr.stm
         guard_opnum = guard_op.getopnum()
         self._stm_ptr_eq_fastpath(self.mc, arglocs, result_loc)
         if guard_opnum == rop.GUARD_FALSE:
@@ -2179,7 +2179,8 @@ class Assembler386(BaseAssembler):
         mc.CMP(X86_64_SCRATCH_REG, b_base)
         mc.SET_ir(rx86.Conditions['Z'], sl.value)
         mc.MOVZX8_rr(X86_64_SCRATCH_REG.value, sl.value)
-        mc.TEST(X86_64_SCRATCH_REG, X86_64_SCRATCH_REG)
+        # mc.TEST8_rr() without movzx8
+        mc.TEST_rr(X86_64_SCRATCH_REG.value, X86_64_SCRATCH_REG.value)
         mc.J_il8(rx86.Conditions['NZ'], 0)
         j_ok1 = mc.get_relative_pos()
 
@@ -2188,7 +2189,7 @@ class Assembler386(BaseAssembler):
         mc.J_il8(rx86.Conditions['Z'], 0)
         j_ok2 = mc.get_relative_pos()
         #
-        mc.CMP(a_base, imm(0))
+        mc.CMP(b_base, imm(0))
         mc.J_il8(rx86.Conditions['Z'], 0)
         j_ok3 = mc.get_relative_pos()
         
@@ -2203,7 +2204,6 @@ class Assembler386(BaseAssembler):
         func = self.ptr_eq_slowpath
         mc.CALL(imm(func))
         # result still on stack
-        assert isinstance(result_loc, RegLoc)
         mc.POP_r(X86_64_SCRATCH_REG.value)
         # set flags:
         mc.TEST(X86_64_SCRATCH_REG, X86_64_SCRATCH_REG)

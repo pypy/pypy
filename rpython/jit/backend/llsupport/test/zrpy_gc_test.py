@@ -45,9 +45,11 @@ def get_entry(g):
             rgc.collect()
         rgc.collect(); rgc.collect()
         freed = 0
-        for r in r_list:
+        for i, r in enumerate(r_list):
             if r() is None:
                 freed += 1
+            else:
+                print "not freed:", r(), "pos:", i
         print freed
         return 0
 
@@ -79,10 +81,11 @@ def compile(f, gc, **kwds):
     if gcrootfinder == 'stm':
         t.config.translation.stm = True
         t.config.translation.gc = 'stmgc'
+        gc = 'stmgc'
     else:
         t.config.translation.gc = gc
     #
-    if gc != 'boehm':
+    if gc != 'boehm' and gc != 'stmgc':
         t.config.translation.gcremovetypeptr = True
     for name, value in kwds.items():
         setattr(t.config.translation, name, value)
@@ -777,3 +780,33 @@ class CompileFrameworkTests(BaseFrameworkTests):
 
     def test_compile_framework_call_assembler(self):
         self.run('compile_framework_call_assembler')
+
+    def define_compile_framework_ptr_eq(cls):
+        # test ptr_eq
+        def raiseassert(cond):
+            if not bool(cond):
+                raise AssertionError
+
+        def before(n, x):
+            x0 = X()
+            x1 = X()
+            ptrs = [None, x0, x1, X()]
+            return (n, x, x0, x1, None, None, None,
+                    None, None, None, ptrs, None)
+            
+        @unroll_safe
+        def f(n, x, x0, x1, x2, x3, x4, x5, x6, x7, ptrs, s):
+            raiseassert(x0 != ptrs[0])
+            raiseassert(x0 == ptrs[1])
+            raiseassert(x0 != ptrs[2])
+            raiseassert(x0 != ptrs[3])
+            raiseassert(x1 != ptrs[0])
+            raiseassert(x1 != ptrs[1])
+            raiseassert(x1 == ptrs[2])
+            raiseassert(x1 != ptrs[3])
+            #
+            return n - 1, x, x0, x1, x2, x3, x4, x5, x6, x7, ptrs, s
+        return before, f, None
+
+    def test_compile_framework_ptr_eq(self):
+        self.run('compile_framework_ptr_eq')
