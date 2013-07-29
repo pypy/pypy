@@ -105,7 +105,7 @@ class W_UnicodeObject(W_Object, StringMethods):
         return unicodedb.isnumeric(ord(ch))
 
     def _istitle(self, ch):
-        return unicodedb.istitle(ord(ch))
+        return unicodedb.isupper(ord(ch)) or unicodedb.istitle(ord(ch))
 
     def _isspace(self, ch):
         return unicodedb.isspace(ord(ch))

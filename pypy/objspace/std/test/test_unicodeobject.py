@@ -215,7 +215,9 @@ class AppTestUnicodeString:
         assert u"!Brown Fox".istitle() == True
         assert u"Brow&&&&N Fox".istitle() == True
         assert u"!Brow&&&&n Fox".istitle() == False
-        
+        assert u'\u1FFc'.istitle()
+        assert u'Greek \u1FFcitlecases ...'.istitle()
+
     def test_capitalize(self):
         assert u"brown fox".capitalize() == u"Brown fox"
         assert u' hello '.capitalize() == u' hello '

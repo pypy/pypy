@@ -357,7 +357,7 @@ class StringMethods(object):
 
         for pos in range(0, len(input)):
             ch = input[pos]
-            if self._isupper(ch):
+            if self._istitle(ch):
                 if previous_is_cased:
                     return space.w_False
                 previous_is_cased = True
