@@ -5,24 +5,10 @@ from rpython.rtyper.lltypesystem.rclass import (ll_issubclass, ll_type,
         ll_cast_to_object)
 
 # the exceptions that can be implicitely raised by some operations
-standardexceptions = {
-    TypeError        : True,
-    OverflowError    : True,
-    ValueError       : True,
-    ZeroDivisionError: True,
-    MemoryError      : True,
-    IOError          : True,
-    OSError          : True,
-    StopIteration    : True,
-    KeyError         : True,
-    IndexError       : True,
-    AssertionError   : True,
-    RuntimeError     : True,
-    UnicodeDecodeError: True,
-    UnicodeEncodeError: True,
-    NotImplementedError: True,
-    rstackovf._StackOverflow: True,
-    }
+standardexceptions = set([TypeError, OverflowError, ValueError,
+    ZeroDivisionError, MemoryError, IOError, OSError, StopIteration, KeyError,
+    IndexError, AssertionError, RuntimeError, UnicodeDecodeError,
+    UnicodeEncodeError, NotImplementedError, rstackovf._StackOverflow])
 
 class UnknownException(Exception):
     pass
@@ -30,6 +16,7 @@ class UnknownException(Exception):
 
 class ExceptionData(object):
     """Public information for the code generators to help with exceptions."""
+
     standardexceptions = standardexceptions
 
     def __init__(self, rtyper):
@@ -67,7 +54,7 @@ class ExceptionData(object):
         rclass = rtyper.type_system.rclass
         r_inst = rclass.getinstancerepr(rtyper, clsdef)
         example = r_inst.get_reusable_prebuilt_instance()
-        example = self.cast_exception(self.lltype_of_exception_value, example)
+        example = ll_cast_to_object(example)
         return example
 
     def get_standard_ll_exc_instance_by_class(self, exceptionclass):
@@ -94,6 +81,3 @@ class ExceptionData(object):
         s_excinst = annmodel.SomePtr(self.lltype_of_exception_value)
         helper_fn = rtyper.annotate_helper_fn(ll_type, [s_excinst])
         return helper_fn
-
-    def cast_exception(self, TYPE, value):
-        return ll_cast_to_object(value)
