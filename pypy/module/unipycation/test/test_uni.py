@@ -121,6 +121,12 @@ class AppTestHighLevelInterface(object):
 
         raises(uni.InstantiationError, lambda : should_fail(e))
 
+    def test_weird_list(self):
+        import uni
+        e = uni.Engine("f('.'(a, b)).")
+        result, = e.db.f(None)
+        assert result == uni.Term('.', ["a", "b"])
+
     def test_append_nondet(self):
         import uni
 

@@ -12,14 +12,19 @@ def build_prolog_list(elems):
 
     return e
 
-def unpack_prolog_list(e):
-    assert e.name == "."
-    if isinstance(e.args[1], Var): # the rest of the list is unknown
-        raise InstantiationError("The tail of a list was undefined")
-    if e.args[1] == "[]": # end of list
-        return [e.args[0]]
-    else:
-        return [e.args[0]] + unpack_prolog_list(e.args[1])
+def unpack_prolog_list(obj):
+    assert obj.name == "."
+    curr = obj
+    result = []
+    while True:
+        if isinstance(curr, Var): # the rest of the list is unknown
+            raise InstantiationError("The tail of a list was undefined")
+        if curr == "[]": # end of list
+            return result
+        if not isinstance(curr, Term) or not curr.name == ".":
+            return obj # malformed list, just return it unconverted
+        result.append(curr.args[0])
+        curr = curr.args[1]
 
 class Engine(object):
     """ A wrapper around unipycation.CoreEngine. """
