@@ -28,7 +28,7 @@ void stm_move_young_weakrefs(struct tx_descriptor *d)
     */
     while (gcptrlist_size(&d->young_weakrefs) > 0) {
         gcptr weakref = gcptrlist_pop(&d->young_weakrefs);
-        if (!(weakref->h_tid & GCFLAG_NURSERY_MOVED))
+        if (!(weakref->h_tid & GCFLAG_MOVED))
             continue;   /* the weakref itself dies */
 
         weakref = (gcptr)weakref->h_revision;
@@ -37,7 +37,7 @@ void stm_move_young_weakrefs(struct tx_descriptor *d)
         assert(pointing_to != NULL);
 
         if (stmgc_is_in_nursery(d, pointing_to)) {
-            if (pointing_to->h_tid & GCFLAG_NURSERY_MOVED) {
+            if (pointing_to->h_tid & GCFLAG_MOVED) {
                 dprintf(("weakref ptr moved %p->%p\n", 
                          WEAKREF_PTR(weakref, size),
                          (gcptr)pointing_to->h_revision));
@@ -69,49 +69,25 @@ void stm_move_young_weakrefs(struct tx_descriptor *d)
 
 static _Bool is_partially_visited(gcptr obj)
 {
-    /* Based on gcpage.c:visit().  Check the code here if we simplify
-       visit().  Returns True or False depending on whether we find any
-       version of 'obj' to be VISITED or not.
+    /* Based on gcpage.c:visit_public().  Check the code here if we change
+       visit_public().  Returns True or False depending on whether we find any
+       version of 'obj' to be MARKED or not.
     */
- restart:
-    if (obj->h_tid & GCFLAG_VISITED)
+    assert(IMPLIES(obj->h_tid & GCFLAG_VISITED,
+                   obj->h_tid & GCFLAG_MARKED));
+    if (obj->h_tid & GCFLAG_MARKED)
         return 1;
 
-    if (obj->h_revision & 1) {
-        assert(!(obj->h_tid & GCFLAG_PRIVATE_FROM_PROTECTED));
-        assert(!(obj->h_tid & GCFLAG_STUB));
+    if (!(obj->h_tid & GCFLAG_PUBLIC))
         return 0;
-    }
-    else if (obj->h_tid & GCFLAG_PUBLIC) {
-        /* h_revision is a ptr: we have a more recent version */
-        if (!(obj->h_revision & 2)) {
-            /* go visit the more recent version */
-            obj = (gcptr)obj->h_revision;
-        }
-        else {
-            /* it's a stub */
-            assert(obj->h_tid & GCFLAG_STUB);
-            obj = (gcptr)(obj->h_revision - 2);
-        }
-        goto restart;
-    }
-    else {
-        assert(obj->h_tid & GCFLAG_PRIVATE_FROM_PROTECTED);
-        gcptr B = (gcptr)obj->h_revision;
-        assert(B->h_tid & (GCFLAG_PUBLIC | GCFLAG_BACKUP_COPY));
-        if (B->h_tid & GCFLAG_VISITED)
+
+    if (obj->h_original != 0 &&
+            !(obj->h_tid & GCFLAG_PREBUILT_ORIGINAL)) {
+        gcptr original = (gcptr)obj->h_original;
+        assert(IMPLIES(original->h_tid & GCFLAG_VISITED,
+                       original->h_tid & GCFLAG_MARKED));
+        if (original->h_tid & GCFLAG_MARKED)
             return 1;
-        assert(!(obj->h_tid & GCFLAG_STUB));
-        assert(!(B->h_tid & GCFLAG_STUB));
-
-        if (IS_POINTER(B->h_revision)) {
-            assert(B->h_tid & GCFLAG_PUBLIC);
-            assert(!(B->h_tid & GCFLAG_BACKUP_COPY));
-            assert(!(B->h_revision & 2));
-
-            obj = (gcptr)B->h_revision;
-            goto restart;
-        }
     }
     return 0;
 }

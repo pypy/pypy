@@ -26,7 +26,11 @@
  *
  * GCFLAG_OLD is set on old objects.
  *
- * GCFLAG_VISITED is used temporarily during major collections.
+ * GCFLAG_VISITED and GCFLAG_MARKED are used temporarily during major
+ * collections.  The objects are MARKED|VISITED as soon as they have been
+ * added to 'objects_to_trace', and so will be or have been traced.  The
+ * objects are only MARKED if their memory must be kept alive, but (so far)
+ * we found that tracing them is not useful.
  *
  * GCFLAG_PUBLIC is set on public objects.
  *
@@ -47,7 +51,7 @@
  * the list 'old_objects_to_trace'; it is set again at the next minor
  * collection.
  *
- * GCFLAG_NURSERY_MOVED is used temporarily during minor collections.
+ * GCFLAG_MOVED is used temporarily during minor/major collections.
  *
  * GCFLAG_STUB is set for debugging on stub objects made by stealing or
  * by major collections.  'p_stub->h_revision' might be a value
@@ -68,16 +72,20 @@ static const revision_t GCFLAG_PUBLIC                 = STM_FIRST_GCFLAG << 2;
 static const revision_t GCFLAG_PREBUILT_ORIGINAL      = STM_FIRST_GCFLAG << 3;
 static const revision_t GCFLAG_PUBLIC_TO_PRIVATE      = STM_FIRST_GCFLAG << 4;
 // in stmgc.h:          GCFLAG_WRITE_BARRIER          = STM_FIRST_GCFLAG << 5;
-static const revision_t GCFLAG_NURSERY_MOVED          = STM_FIRST_GCFLAG << 6;
+static const revision_t GCFLAG_MOVED                  = STM_FIRST_GCFLAG << 6;
 static const revision_t GCFLAG_BACKUP_COPY  /*debug*/ = STM_FIRST_GCFLAG << 7;
 static const revision_t GCFLAG_STUB         /*debug*/ = STM_FIRST_GCFLAG << 8;
 static const revision_t GCFLAG_PRIVATE_FROM_PROTECTED = STM_FIRST_GCFLAG << 9;
 static const revision_t GCFLAG_HAS_ID                 = STM_FIRST_GCFLAG << 10;
 static const revision_t GCFLAG_IMMUTABLE              = STM_FIRST_GCFLAG << 11;
+static const revision_t GCFLAG_SMALLSTUB    /*debug*/ = STM_FIRST_GCFLAG << 12;
+static const revision_t GCFLAG_MARKED                 = STM_FIRST_GCFLAG << 13;
+/* warning, the last flag available is "<< 15" on 32-bit */
 
 
 /* this value must be reflected in PREBUILT_FLAGS in stmgc.h */
 #define GCFLAG_PREBUILT  (GCFLAG_VISITED           | \
+                          GCFLAG_MARKED            | \
                           GCFLAG_PREBUILT_ORIGINAL | \
                           GCFLAG_OLD               | \
                           GCFLAG_PUBLIC)
@@ -88,12 +96,14 @@ static const revision_t GCFLAG_IMMUTABLE              = STM_FIRST_GCFLAG << 11;
                          "PREBUILT_ORIGINAL", \
                          "PUBLIC_TO_PRIVATE", \
                          "WRITE_BARRIER",     \
-                         "NURSERY_MOVED",     \
+                         "MOVED",             \
                          "BACKUP_COPY",       \
                          "STUB",              \
                          "PRIVATE_FROM_PROTECTED", \
-                         "HAS_ID", \
-                         "IMMUTABLE", \
+                         "HAS_ID",            \
+                         "IMMUTABLE",         \
+                         "SMALLSTUB",         \
+                         "MARKED",            \
                          NULL }
 
 #define IS_POINTER(v)    (!((v) & 1))   /* even-valued number */

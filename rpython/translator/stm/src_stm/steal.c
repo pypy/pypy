@@ -31,7 +31,7 @@ static void replace_ptr_to_protected_with_stub(gcptr *pobj)
         assert(!(obj->h_tid & GCFLAG_PRIVATE_FROM_PROTECTED));
         if (obj->h_tid & GCFLAG_PUBLIC) {
             /* young public, replace with stolen old copy */
-            assert(obj->h_tid & GCFLAG_NURSERY_MOVED);
+            assert(obj->h_tid & GCFLAG_MOVED);
             assert(IS_POINTER(obj->h_revision));
             stub = (gcptr)obj->h_revision;
             assert(!IS_POINTER(stub->h_revision)); /* not outdated */
@@ -56,7 +56,7 @@ static void replace_ptr_to_protected_with_stub(gcptr *pobj)
                 if (!(obj->h_original))
                     obj->h_original = (revision_t)O;
             }
-            obj->h_tid |= (GCFLAG_NURSERY_MOVED | GCFLAG_PUBLIC);
+            obj->h_tid |= (GCFLAG_MOVED | GCFLAG_PUBLIC);
             obj->h_revision = (revision_t)O;
             
             O->h_tid |= GCFLAG_PUBLIC;
@@ -105,6 +105,8 @@ static void replace_ptr_to_protected_with_stub(gcptr *pobj)
     stub->h_tid = (obj->h_tid & STM_USER_TID_MASK) | GCFLAG_PUBLIC
                                                    | GCFLAG_STUB
                                                    | GCFLAG_OLD;
+    if (size == 0)
+        stub->h_tid |= GCFLAG_SMALLSTUB;
     stub->h_revision = ((revision_t)obj) | 2;
     if (obj->h_original) {
         stub->h_original = obj->h_original;
@@ -206,7 +208,7 @@ void stm_steal_stub(gcptr P)
 
             /* note that we should follow h_revision at least one more
                step: it is necessary if L is public but young (and then
-               has GCFLAG_NURSERY_MOVED), but it is fine to do it more
+               has GCFLAG_MOVED), but it is fine to do it more
                generally. */
             v = ACCESS_ONCE(L->h_revision);
             if (IS_POINTER(v)) {
@@ -239,7 +241,7 @@ void stm_steal_stub(gcptr P)
             }
             L->h_revision = (revision_t)O;
 
-            L->h_tid |= GCFLAG_PUBLIC | GCFLAG_NURSERY_MOVED;
+            L->h_tid |= GCFLAG_PUBLIC | GCFLAG_MOVED;
             /* subtle: we need to remove L from the fxcache of the target
                thread, otherwise its read barrier might not trigger on it.
                It is mostly fine because it is anyway identical to O.  But

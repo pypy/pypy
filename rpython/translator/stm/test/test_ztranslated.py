@@ -1,5 +1,5 @@
 import py
-from rpython.rlib import rstm, rgc
+from rpython.rlib import rstm, rgc, objectmodel
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rclass
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.annlowlevel import cast_instance_to_base_ptr
@@ -276,3 +276,30 @@ class TestSTMTranslated(CompiledSTMTests):
         t, cbuilder = self.compile(main)
         data = cbuilder.cmdexec('a b')
         assert 'li102ee10:hi there 3e\n0\n' in data
+
+    def test_weakref(self):
+        import weakref
+        class Foo(object):
+            pass
+
+        def f(argv):
+            foo = Foo()
+            foo.n = argv
+            w = weakref.ref(foo)
+            assert w() is foo
+            objectmodel.keepalive_until_here(foo)
+            return w
+        f._dont_inline_ = True
+
+        def main(argv):
+            w = f(argv)
+            assert w() is not None
+            assert len(w().n) == len(argv)
+            rgc.collect()
+            assert w() is None
+            print 'test ok'
+            return 0
+
+        t, cbuilder = self.compile(main)
+        data = cbuilder.cmdexec('a b')
+        assert 'test ok\n' in data

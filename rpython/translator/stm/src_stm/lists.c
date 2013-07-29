@@ -19,7 +19,7 @@ void g2l_clear(struct G2L *g2l)
 
 void g2l_delete(struct G2L *g2l)
 {
-  free(g2l->raw_start);
+  stm_free(g2l->raw_start, g2l->raw_end - g2l->raw_start);
   memset(g2l, 0, sizeof(struct G2L));
 }
 
@@ -57,7 +57,7 @@ static void _g2l_grow(struct G2L *g2l, long extra)
   long alloc = g2l->raw_end - g2l->raw_start;
   long newalloc = (alloc + extra + (alloc >> 2) + 31) & ~15;
   //fprintf(stderr, "growth: %ld\n", newalloc);
-  char *newitems = malloc(newalloc);
+  char *newitems = stm_malloc(newalloc);
   newg2l.raw_start = newitems;
   newg2l.raw_current = newitems;
   newg2l.raw_end = newitems + newalloc;
@@ -66,7 +66,7 @@ static void _g2l_grow(struct G2L *g2l, long extra)
     {
       g2l_insert(&newg2l, item->addr, item->val);
     } G2L_LOOP_END;
-  free(g2l->raw_start);
+  stm_free(g2l->raw_start, g2l->raw_end - g2l->raw_start);
   *g2l = newg2l;
 }
 
@@ -152,7 +152,7 @@ void gcptrlist_delete(struct GcPtrList *gcptrlist)
     //fprintf(stderr, "list %p deleted (%ld KB)\n",
     //gcptrlist, gcptrlist->alloc * sizeof(gcptr) / 1024);
   gcptrlist->size = 0;
-  free(gcptrlist->items);
+  stm_free(gcptrlist->items, gcptrlist->alloc * sizeof(gcptr));
   gcptrlist->items = NULL;
   gcptrlist->alloc = 0;
 }
@@ -163,7 +163,8 @@ void gcptrlist_compress(struct GcPtrList *gcptrlist)
     return;
 
   size_t nsize = gcptrlist->size * sizeof(gcptr);
-  gcptr *newitems = realloc(gcptrlist->items, nsize);
+  gcptr *newitems = stm_realloc(gcptrlist->items, nsize,
+                                gcptrlist->alloc * sizeof(gcptr));
   if (newitems != NULL || nsize == 0)
     {
       gcptrlist->items = newitems;
@@ -178,11 +179,11 @@ void _gcptrlist_grow(struct GcPtrList *gcptrlist)
   //fprintf(stderr, "list %p growth to %ld items (%ld KB)\n",
   //          gcptrlist, newalloc, newalloc * sizeof(gcptr) / 1024);
 
-  gcptr *newitems = malloc(newalloc * sizeof(gcptr));
+  gcptr *newitems = stm_malloc(newalloc * sizeof(gcptr));
   long i;
   for (i=0; i<gcptrlist->size; i++)
     newitems[i] = gcptrlist->items[i];
-  free(gcptrlist->items);
+  stm_free(gcptrlist->items, gcptrlist->alloc * sizeof(gcptr));
   gcptrlist->items = newitems;
   gcptrlist->alloc = newalloc;
 }

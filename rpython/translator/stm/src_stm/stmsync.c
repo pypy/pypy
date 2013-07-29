@@ -53,7 +53,7 @@ _Bool stm_should_break_transaction(void)
 static void init_shadowstack(void)
 {
     struct tx_descriptor *d = thread_descriptor;
-    d->shadowstack = malloc(sizeof(gcptr) * LENGTH_SHADOW_STACK);
+    d->shadowstack = stm_malloc(sizeof(gcptr) * LENGTH_SHADOW_STACK);
     if (!d->shadowstack) {
         stm_fatalerror("out of memory: shadowstack\n");
     }
@@ -69,7 +69,7 @@ static void done_shadowstack(void)
     assert(x == END_MARKER_ON);
     assert(stm_shadowstack == d->shadowstack);
     stm_shadowstack = NULL;
-    free(d->shadowstack);
+    stm_free(d->shadowstack, sizeof(gcptr) * LENGTH_SHADOW_STACK);
 }
 
 void stm_set_max_aborts(int max_aborts)

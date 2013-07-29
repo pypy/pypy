@@ -9,7 +9,7 @@
 #ifdef _GC_DEBUG
 /************************************************************/
 
-#define MMAP_TOTAL  671088640   /* 640MB */
+#define MMAP_TOTAL  1280*1024*1024   /* 1280MB */
 
 static pthread_mutex_t malloc_mutex = PTHREAD_MUTEX_INITIALIZER;
 static char *zone_start, *zone_current = NULL, *zone_end = NULL;
@@ -71,6 +71,10 @@ void *stm_malloc(size_t sz)
 
 void stm_free(void *p, size_t sz)
 {
+    if (p == NULL) {
+        assert(sz == 0);
+        return;
+    }
     assert(((intptr_t)((char *)p + sz) & (PAGE_SIZE-1)) == 0);
 
     size_t nb_pages = (sz + PAGE_SIZE - 1) / PAGE_SIZE + 1;
@@ -82,6 +86,14 @@ void stm_free(void *p, size_t sz)
     }
     memset(p, 0xDD, sz);
     _stm_dbgmem(p, sz, PROT_NONE);
+}
+
+void *stm_realloc(void *p, size_t newsz, size_t oldsz)
+{
+    void *r = stm_malloc(newsz);
+    memcpy(r, p, oldsz < newsz ? oldsz : newsz);
+    stm_free(p, oldsz);
+    return r;
 }
 
 int _stm_can_access_memory(char *p)

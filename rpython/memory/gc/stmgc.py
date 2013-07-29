@@ -44,15 +44,16 @@ class StmGC(MovingGCBase):
     GCFLAG_PREBUILT_ORIGINAL      = first_gcflag << 3
     GCFLAG_PUBLIC_TO_PRIVATE      = first_gcflag << 4
     GCFLAG_WRITE_BARRIER          = first_gcflag << 5 # stmgc.h
-    GCFLAG_NURSERY_MOVED          = first_gcflag << 6
+    GCFLAG_MOVED                  = first_gcflag << 6
     GCFLAG_BACKUP_COPY            = first_gcflag << 7 # debug
     GCFLAG_STUB                   = first_gcflag << 8 # debug
     GCFLAG_PRIVATE_FROM_PROTECTED = first_gcflag << 9
     GCFLAG_HAS_ID                 = first_gcflag << 10
     GCFLAG_IMMUTABLE              = first_gcflag << 11
     GCFLAG_SMALLSTUB              = first_gcflag << 12
+    GCFLAG_MARKED                 = first_gcflag << 13
     
-    PREBUILT_FLAGS    = first_gcflag * (1 + 2 + 4 + 8)
+    PREBUILT_FLAGS    = first_gcflag * ((1<<0) | (1<<1) | (1<<2) | (1<<3) | (1<<13))
     PREBUILT_REVISION = r_uint(1)
     
     FX_MASK = 65535
@@ -109,7 +110,7 @@ class StmGC(MovingGCBase):
         # XXX finalizers are ignored for now
         #ll_assert(not needs_finalizer, 'XXX needs_finalizer')
         #ll_assert(not is_finalizer_light, 'XXX is_finalizer_light')
-        #ll_assert(not contains_weakptr, 'XXX contains_weakptr')
+        ll_assert(not contains_weakptr, 'contains_weakptr: use malloc_weakref')
         # XXX call optimized versions, e.g. if size < GC_NURSERY_SECTION
         return llop.stm_allocate(llmemory.GCREF, size, typeid16)
 
@@ -131,12 +132,14 @@ class StmGC(MovingGCBase):
         seen by the GC, then it can get collected."""
         tid = self.get_hdr_tid(obj)[0]
         if bool(tid & self.GCFLAG_OLD):
-            return False
+            return False    # XXX wrong so far.  We should add a flag to the
+                            # object that means "don't ever kill this copy"
         return True
         
 
     @classmethod
     def JIT_max_size_of_young_obj(cls):
+        # XXX there is actually a maximum, check
         return None
 
     @classmethod
