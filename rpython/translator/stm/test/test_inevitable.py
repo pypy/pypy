@@ -224,4 +224,22 @@ class TestTransform:
         res = self.interpret_inevitable(f1, [True])
         assert res is None
 
+    def test_raw_class_hint(self):
+        class A:
+            _alloc_flavor_ = "raw"
+            _stm_dont_track_raw_accesses_ = True
+            def __init__(self): self.x = 1
+
+        def f2():
+            return A()
+
+        def f(i):
+            a = f2()
+            a.x = i
+            i = a.x
+            lltype.free(a, flavor='raw')
+            return i
+
+        res = self.interpret_inevitable(f, [2])
+        assert res == 'free' # not setfield or getfield
 

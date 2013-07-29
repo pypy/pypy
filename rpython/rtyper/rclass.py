@@ -46,6 +46,10 @@ IR_QUASIIMMUTABLE_ARRAY = ImmutableRanking('quasiimmutable_array', False)
 class ImmutableConflictError(Exception):
     """Raised when the _immutable_ or _immutable_fields_ hints are
     not consistent across a class hierarchy."""
+    
+class StmHintConflictError(Exception):
+    """Raised when the _stm_dont_track_raw_accesses_ hints are
+    not consistent across a class hierarchy."""
 
 
 def getclassrepr(rtyper, classdef):
@@ -214,6 +218,26 @@ class AbstractInstanceRepr(Repr):
             accessor = FieldListAccessor()
             hints['immutable_fields'] = accessor
         return hints
+
+    def _check_for_stm_hints(self, hints):
+        loc = self.classdef.classdesc.lookup('_stm_dont_track_raw_accesses_')
+        if loc is not None:
+            if loc is not self.classdef.classdesc:
+                raise StmHintConflictError(
+                    "class %r inherits from its parent"
+                    " _immutable__stm_dont_track_raw_accesses_=True, "
+                    "so it should also declare"
+                    " _stm_dont_track_raw_accesses_=True" % (
+                    self.classdef,))
+            if loc.classdict.get('_stm_dont_track_raw_accesses_').value is not True:
+                raise TyperError(
+                    "class %r: _stm_dont_track_raw_accesses_ = something "
+                    "else than True" % (
+                    self.classdef,))
+            hints = hints.copy()
+            hints['stm_dont_track_raw_accesses'] = True
+        return hints
+
 
     def __repr__(self):
         if self.classdef is None:

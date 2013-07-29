@@ -470,7 +470,8 @@ class LLTypeExceptionTransformer(BaseExceptionTransformer):
         EXCDATA = lltype.Struct('ExcData',
             ('exc_type',  self.lltype_of_exception_type),
             ('exc_value', self.lltype_of_exception_value),
-            hints={'stm_thread_local': True})
+            hints={'stm_thread_local': True,
+                   'stm_dont_track_raw_accesses':True})
         self.EXCDATA = EXCDATA
 
         exc_data = lltype.malloc(EXCDATA, immortal=True)

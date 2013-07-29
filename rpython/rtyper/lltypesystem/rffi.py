@@ -329,6 +329,7 @@ LeaveCallbackFnPtr = lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Void))
 
 class AroundState:
     _alloc_flavor_ = "raw"
+    _stm_dont_track_raw_accesses_ = True
 
     def _cleanup_(self):
         self.before = None        # or a regular RPython function
