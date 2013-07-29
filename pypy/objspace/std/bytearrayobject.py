@@ -58,7 +58,7 @@ class W_BytearrayObject(W_Root, StringMethods):
         return ch.islower()
 
     def _istitle(self, ch):
-        return ch.istitle()
+        return ch.isupper()
 
     def _isspace(self, ch):
         return ch.isspace()

@@ -101,7 +101,7 @@ class W_BytesObject(W_AbstractBytesObject, StringMethods):
         return ch.islower()
 
     def _istitle(self, ch):
-        return ch.istitle()
+        return ch.isupper()
 
     def _isspace(self, ch):
         return ch.isspace()
