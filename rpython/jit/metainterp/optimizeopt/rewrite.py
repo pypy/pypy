@@ -250,7 +250,7 @@ class OptRewrite(Optimization):
                 # This is only safe if the class of the guard_value matches the
                 # class of the guard_*_class, otherwise the intermediate ops might
                 # be executed with wrong classes.
-                previous_classbox = value.get_constant_class(self.optimizer.cpu)            
+                previous_classbox = value.get_constant_class(self.optimizer.cpu)
                 expected_classbox = self.optimizer.cpu.ts.cls_of_box(op.getarg(1))
                 assert previous_classbox is not None
                 assert expected_classbox is not None
@@ -343,6 +343,15 @@ class OptRewrite(Optimization):
         resvalue = self.getvalue(op.result)
         self.loop_invariant_results[key] = resvalue
 
+    def optimize_COND_CALL(self, op):
+        arg = op.getarg(0)
+        val = self.getvalue(arg)
+        if val.is_constant():
+            if val.box.same_constant(CONST_0):
+                return
+            op = op.copy_and_change(rop.CALL, args=op.getarglist()[1:])
+        self.emit_operation(op)
+
     def _optimize_nullness(self, op, box, expect_nonnull):
         value = self.getvalue(box)
         if value.is_nonnull():
@@ -401,18 +410,6 @@ class OptRewrite(Optimization):
 
     def optimize_INSTANCE_PTR_NE(self, op):
         self._optimize_oois_ooisnot(op, True, True)
-
-##    def optimize_INSTANCEOF(self, op):
-##        value = self.getvalue(op.args[0])
-##        realclassbox = value.get_constant_class(self.optimizer.cpu)
-##        if realclassbox is not None:
-##            checkclassbox = self.optimizer.cpu.typedescr2classbox(op.descr)
-##            result = self.optimizer.cpu.ts.subclassOf(self.optimizer.cpu,
-##                                                      realclassbox,
-##                                                      checkclassbox)
-##            self.make_constant_int(op.result, result)
-##            return
-##        self.emit_operation(op)
 
     def optimize_CALL(self, op):
         # dispatch based on 'oopspecindex' to a method that handles

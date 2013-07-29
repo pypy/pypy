@@ -676,13 +676,6 @@ class __extend__(AbstractUniCharRepr):
 
     get_ll_fasthash_function = get_ll_hash_function
 
-##    def rtype_len(_, hop):
-##        return hop.inputconst(Signed, 1)
-##
-##    def rtype_is_true(_, hop):
-##        assert not hop.args_s[0].can_be_None
-##        return hop.inputconst(Bool, True)
-
     def rtype_ord(_, hop):
         rstr = hop.rtyper.type_system.rstr
         vlist = hop.inputargs(rstr.unichar_repr)
@@ -694,10 +687,6 @@ class __extend__(pairtype(AbstractUniCharRepr, AbstractUniCharRepr),
                  pairtype(AbstractUniCharRepr, AbstractCharRepr)):
     def rtype_eq(_, hop): return _rtype_unchr_compare_template(hop, 'eq')
     def rtype_ne(_, hop): return _rtype_unchr_compare_template(hop, 'ne')
-##    def rtype_lt(_, hop): return _rtype_unchr_compare_template(hop, 'lt')
-##    def rtype_le(_, hop): return _rtype_unchr_compare_template(hop, 'le')
-##    def rtype_gt(_, hop): return _rtype_unchr_compare_template(hop, 'gt')
-##    def rtype_ge(_, hop): return _rtype_unchr_compare_template(hop, 'ge')
 
 #Helper functions for comparisons
 
@@ -757,9 +746,7 @@ class AbstractStringIteratorRepr(IteratorRepr):
 #  get flowed and annotated, mostly with SomePtr.
 #
 
-# this class contains low level helpers used both by lltypesystem and
-# ootypesystem; each typesystem should subclass it and add its own
-# primitives.
+# this class contains low level helpers used both by lltypesystem
 class AbstractLLHelpers:
     __metaclass__ = StaticMethods
 

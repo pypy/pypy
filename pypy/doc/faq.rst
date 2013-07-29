@@ -369,13 +369,11 @@ example.  These are much more supported, much more documented languages
 Which backends are there for the RPython toolchain?
 ---------------------------------------------------
 
-Currently, there are backends for C_, the CLI_, and the JVM_.
-All of these can translate the entire PyPy interpreter.
+Currently, there only backends is C_.
+It can translate the entire PyPy interpreter.
 To learn more about backends take a look at the `translation document`_.
 
 .. _C: translation.html#the-c-back-end
-.. _CLI: cli-backend.html
-.. _JVM: translation.html#genjvm
 .. _`translation document`: translation.html
 
 ------------------

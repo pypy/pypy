@@ -1,8 +1,8 @@
-PyPy directory cross-reference 
+PyPy directory cross-reference
 ------------------------------
 
-Here is a fully referenced alphabetical two-level deep 
-directory overview of PyPy: 
+Here is a fully referenced alphabetical two-level deep
+directory overview of PyPy:
 
 =================================  ============================================
 Directory                          explanation/links
@@ -24,7 +24,7 @@ Directory                          explanation/links
 ``doc/*/``                         other specific documentation topics or tools
 
 `pypy/interpreter/`_               `bytecode interpreter`_ and related objects
-                                   (frames, functions, modules,...) 
+                                   (frames, functions, modules,...)
 
 `pypy/interpreter/pyparser/`_      interpreter-level Python source parser
 
@@ -32,7 +32,7 @@ Directory                          explanation/links
                                    via an AST representation
 
 `pypy/module/`_                    contains `mixed modules`_
-                                   implementing core modules with 
+                                   implementing core modules with
                                    both application and interpreter level code.
                                    Not all are finished and working.  Use
                                    the ``--withmod-xxx``
@@ -45,7 +45,7 @@ Directory                          explanation/links
                                    objects and types
 
 `pypy/tool/`_                      various utilities and hacks used
-                                   from various places 
+                                   from various places
 
 `pypy/tool/algo/`_                 general-purpose algorithmic and mathematic
                                    tools
@@ -54,7 +54,7 @@ Directory                          explanation/links
 
 
 `rpython/annotator/`_              `type inferencing code`_ for
-                                   `RPython`_ programs 
+                                   `RPython`_ programs
 
 `rpython/config/`_                 handles the numerous options for RPython
 
@@ -65,65 +65,56 @@ Directory                          explanation/links
 `rpython/rlib/`_                   a `"standard library"`_ for RPython_
                                    programs
 
-`rpython/rtyper/`_                 the `RPython Typer`_ 
+`rpython/rtyper/`_                 the `RPython Typer`_
 
 `rpython/rtyper/lltypesystem/`_    the `low-level type system`_ for
                                    C-like backends
-
-`rpython/rtyper/ootypesystem/`_    the `object-oriented type system`_
-                                   for OO backends
 
 `rpython/memory/`_                 the `garbage collector`_ construction
                                    framework
 
 `rpython/translator/`_             translation_ backends and support code
 
-`rpython/translator/backendopt/`_  general optimizations that run before a 
+`rpython/translator/backendopt/`_  general optimizations that run before a
                                    backend generates code
 
 `rpython/translator/c/`_           the `GenC backend`_, producing C code
                                    from an
                                    RPython program (generally via the rtyper_)
 
-`rpython/translator/cli/`_         the `CLI backend`_ for `.NET`_
-                                   (Microsoft CLR or Mono_)
-
 `pypy/goal/`_                      our `main PyPy-translation scripts`_
                                    live here
-
-`rpython/translator/jvm/`_         the Java backend
 
 `rpython/translator/tool/`_        helper tools for translation
 
 `dotviewer/`_                      `graph viewer`_
 
 ``*/test/``                        many directories have a test subdirectory
-                                   containing test 
-                                   modules (see `Testing in PyPy`_) 
+                                   containing test
+                                   modules (see `Testing in PyPy`_)
 
 ``_cache/``                        holds cache files from various purposes
 =================================  ============================================
 
 .. _`bytecode interpreter`: interpreter.html
-.. _`Testing in PyPy`: coding-guide.html#testing-in-pypy 
-.. _`mixed modules`: coding-guide.html#mixed-modules 
-.. _`modules`: coding-guide.html#modules 
+.. _`Testing in PyPy`: coding-guide.html#testing-in-pypy
+.. _`mixed modules`: coding-guide.html#mixed-modules
+.. _`modules`: coding-guide.html#modules
 .. _`basil`: http://people.cs.uchicago.edu/~jriehl/BasilTalk.pdf
 .. _`object space`: objspace.html
-.. _FlowObjSpace: objspace.html#the-flow-object-space 
+.. _FlowObjSpace: objspace.html#the-flow-object-space
 .. _`transparent proxies`: objspace-proxies.html#tproxy
 .. _`Differences between PyPy and CPython`: cpython_differences.html
 .. _`What PyPy can do for your objects`: objspace-proxies.html
 .. _`Continulets and greenlets`: stackless.html
-.. _StdObjSpace: objspace.html#the-standard-object-space 
+.. _StdObjSpace: objspace.html#the-standard-object-space
 .. _`abstract interpretation`: http://en.wikipedia.org/wiki/Abstract_interpretation
-.. _`rpython`: coding-guide.html#rpython 
-.. _`type inferencing code`: translation.html#the-annotation-pass 
-.. _`RPython Typer`: translation.html#rpython-typer 
+.. _`rpython`: coding-guide.html#rpython
+.. _`type inferencing code`: translation.html#the-annotation-pass
+.. _`RPython Typer`: translation.html#rpython-typer
 .. _`testing methods`: coding-guide.html#testing-in-pypy
-.. _`translation`: translation.html 
-.. _`GenC backend`: translation.html#genc 
-.. _`CLI backend`: cli-backend.html
+.. _`translation`: translation.html
+.. _`GenC backend`: translation.html#genc
 .. _`py.py`: getting-started-python.html#the-py.py-interpreter
 .. _`translatorshell.py`: getting-started-dev.html#try-out-the-translator
 .. _JIT: jit/index.html

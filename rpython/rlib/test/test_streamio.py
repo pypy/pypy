@@ -7,7 +7,7 @@ from rpython.tool.udir import udir
 
 from rpython.rlib import streamio
 
-from rpython.rtyper.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
+from rpython.rtyper.test.tool import BaseRtypingTest
 
 
 class TSource(streamio.Stream):
@@ -113,7 +113,7 @@ class TWriter(streamio.Stream):
 
     def flush(self):
         pass
-            
+
 class TReaderWriter(TWriter):
 
     def read(self, n=-1):
@@ -130,7 +130,7 @@ class TReaderWriter(TWriter):
             result = self.buf[start: stop]
             self.pos += n
         return result
-    
+
 class BaseTestBufferingInputStreamTests(BaseRtypingTest):
 
     packets = ["a", "b", "\n", "def", "\nxy\npq\nuv", "wx"]
@@ -247,7 +247,7 @@ class BaseTestBufferingInputStreamTests(BaseRtypingTest):
             return blocks == ["ab\nd", "ef\nx", "y\npq", "\nuvw", "x"]
         res = self.interpret(f, [])
         assert res
-        
+
     def test_read_4_after_readline(self):
         file = self.makeStream()
         def f():
@@ -360,8 +360,7 @@ class BaseTestBufferingInputStreamTests(BaseRtypingTest):
                                           for seekto in range(0, end+1)
                                           for whence in [0, 1, 2]]
         random.shuffle(cases)
-        if isinstance(self, (LLRtypeMixin, OORtypeMixin)):
-            cases = cases[:7]      # pick some cases at random - too slow!
+        cases = cases[:7]      # pick some cases at random - too slow!
         def f():
             all = file.readall()
             assert end == len(all)
@@ -393,8 +392,7 @@ class BaseTestBufferingInputStreamTests(BaseRtypingTest):
                                           for seekto in range(0, end+1)
                                           for whence in [0, 1, 2]]
         random.shuffle(cases)
-        if isinstance(self, (LLRtypeMixin, OORtypeMixin)):
-            cases = cases[:7]      # pick some cases at random - too slow!
+        cases = cases[:7]      # pick some cases at random - too slow!
         def f():
             for readto, seekto, whence in cases:
                 base = TSource(self.packets, seek=False)
@@ -428,12 +426,7 @@ class TestBufferingInputStreamTests(BaseTestBufferingInputStreamTests):
     def interpret(self, func, args, **kwds):
         return func(*args)
 
-class TestBufferingInputStreamTestsLLinterp(BaseTestBufferingInputStreamTests,
-                                            LLRtypeMixin):
-    pass
-
-class TestBufferingInputStreamTestsOOinterp(BaseTestBufferingInputStreamTests,
-                                            OORtypeMixin):
+class TestBufferingInputStreamTestsLLinterp(BaseTestBufferingInputStreamTests):
     pass
 
 class TestBufferedRead:
@@ -452,7 +445,6 @@ class TestBufferedRead:
         return streamio.BufferingInputStream(base, bufsize)
 
     def test_dont_read_small(self):
-        import sys
         file = self.makeStream(bufsize=4)
         while file.read(1): pass
         for want, got, pos in self.source.chunks:
@@ -527,12 +519,7 @@ class TestBufferingOutputStream(BaseTestBufferingOutputStream):
     def interpret(self, func, args, **kwds):
         return func(*args)
 
-class TestBufferingOutputStreamLLinterp(BaseTestBufferingOutputStream,
-                                        LLRtypeMixin):
-    pass
-
-class TestBufferingOutputStreamOOinterp(BaseTestBufferingOutputStream,
-                                        OORtypeMixin):
+class TestBufferingOutputStreamLLinterp(BaseTestBufferingOutputStream):
     pass
 
 
@@ -572,12 +559,7 @@ class TestLineBufferingOutputStream(BaseTestLineBufferingOutputStream):
     def interpret(self, func, args, **kwds):
         return func(*args)
 
-class TestLineBufferingOutputStreamLLinterp(BaseTestLineBufferingOutputStream,
-                                            LLRtypeMixin):
-    pass
-
-class TestLineBufferingOutputStreamOOinterp(BaseTestLineBufferingOutputStream,
-                                            OORtypeMixin):
+class TestLineBufferingOutputStreamLLinterp(BaseTestLineBufferingOutputStream):
     pass
 
 
@@ -601,10 +583,7 @@ class TestCRLFFilter(BaseTestCRLFFilter):
     def interpret(self, func, args, **kwds):
         return func(*args)
 
-class TestCRLFFilterLLinterp(BaseTestCRLFFilter, LLRtypeMixin):
-    pass
-
-class TestCRLFFilterOOinterp(BaseTestCRLFFilter, OORtypeMixin):
+class TestCRLFFilterLLinterp(BaseTestCRLFFilter):
     pass
 
 class BaseTestTextCRLFFilter(BaseRtypingTest):
@@ -639,7 +618,7 @@ class BaseTestTextCRLFFilter(BaseRtypingTest):
                     break
                 crlf.seek(pos, 0)
                 line2 = crlf.readline()
-                assert line2 == line                         
+                assert line2 == line
                 lines.append(line)
             assert lines == expected
         self.interpret(f, [])
@@ -678,12 +657,10 @@ class BaseTestTextCRLFFilter(BaseRtypingTest):
             assert line == ''
         self.interpret(f, [])
 
-class TestTextCRLFFilterLLInterp(BaseTestTextCRLFFilter, LLRtypeMixin):
+class TestTextCRLFFilterLLInterp(BaseTestTextCRLFFilter):
     pass
-        
-class TestTextCRLFFilterOOInterp(BaseTestTextCRLFFilter, OORtypeMixin):
-    pass
-        
+
+
 class TestMMapFile(BaseTestBufferingInputStreamTests):
     tfn = None
     fd = None
@@ -783,11 +760,7 @@ class TestBufferingInputOutputStreamTests(
         return func(*args)
 
 class TestBufferingInputOutputStreamTestsLLinterp(
-        BaseTestBufferingInputOutputStreamTests, LLRtypeMixin):
-    pass
-
-class TestBufferingInputOutputStreamTestsOOinterp(
-        BaseTestBufferingInputOutputStreamTests, OORtypeMixin):
+        BaseTestBufferingInputOutputStreamTests):
     pass
 
 
@@ -895,15 +868,12 @@ class BaseTestTextInputFilter(BaseRtypingTest):
                     assert filter.getnewlines() == e
             self.interpret(f, [])
 
-    
+
 class TestTextInputFilter(BaseTestTextInputFilter):
     def interpret(self, func, args):
         return func(*args)
 
-class TestTextInputFilterLLinterp(BaseTestTextInputFilter, LLRtypeMixin):
-    pass
-
-class TestTextInputFilterOOinterp(BaseTestTextInputFilter, OORtypeMixin):
+class TestTextInputFilterLLinterp(BaseTestTextInputFilter):
     pass
 
 
@@ -983,10 +953,7 @@ class TestTextOutputFilter(BaseTestTextOutputFilter):
     def interpret(self, func, args):
         return func(*args)
 
-class TestTextOutputFilterLLinterp(BaseTestTextOutputFilter, LLRtypeMixin):
-    pass
-
-class TestTextOutputFilterOOinterp(BaseTestTextOutputFilter, OORtypeMixin):
+class TestTextOutputFilterLLinterp(BaseTestTextOutputFilter):
     pass
 
 
@@ -1007,7 +974,7 @@ class TestDecodingInputFilter:
                 bufs.append(c)
             assert u"".join(bufs) == chars
 
-class TestEncodingOutputFilterTests: 
+class TestEncodingOutputFilterTests:
 
     def test_write(self):
         chars = u"abc\xff\u1234\u4321\x80xyz"
@@ -1161,7 +1128,7 @@ def speed_main():
             filemode = os.O_RDONLY
         if "w" in mode:
             filemode |= os.O_WRONLY
-        
+
         fd = os.open(fn, filemode)
         base = streamio.DiskFile(fd)
         return streamio.BufferingInputStream(base)

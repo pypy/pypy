@@ -1,5 +1,5 @@
 from rpython.rlib.rarithmetic import ovfcheck
-from rpython.rtyper.lltypesystem import lltype, llmemory
+from rpython.rtyper.lltypesystem import llmemory
 from rpython.jit.metainterp import history
 from rpython.jit.metainterp.history import ConstInt, BoxPtr, ConstPtr
 from rpython.jit.metainterp.resoperation import ResOperation, rop

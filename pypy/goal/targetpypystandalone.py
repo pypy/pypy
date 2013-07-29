@@ -234,9 +234,6 @@ class PyPyTarget(object):
             from pypy.config.pypyoption import enable_translationmodules
             enable_translationmodules(config)
 
-        ## if config.translation.type_system == 'ootype':
-        ##     config.objspace.usemodules.suggest(rbench=True)
-
         config.translation.suggest(check_str_without_nul=True)
 
         if config.translation.thread:
@@ -271,12 +268,6 @@ class PyPyTarget(object):
         elif config.objspace.usemodules.pypyjit:
             config.translation.jit = True
 
-        if config.translation.backend == "cli":
-            config.objspace.usemodules.clr = True
-        # XXX did it ever work?
-        #elif config.objspace.usemodules.clr:
-        #    config.translation.backend == "cli"
-
         if config.translation.sandbox:
             config.objspace.lonepycfiles = False
             config.objspace.usepycfiles = False
@@ -291,16 +282,6 @@ class PyPyTarget(object):
         options = make_dict(config)
         wrapstr = 'space.wrap(%r)' % (options)
         pypy.module.sys.Module.interpleveldefs['pypy_translation_info'] = wrapstr
-
-        if config.translation.backend in ["cli", "jvm"] and sys.platform == "win32":
-            # HACK: The ftruncate implementation in streamio.py which is used for the Win32 platform
-            # is specific for the C backend and can't be generated on CLI or JVM. Because of that,
-            # we have to patch it out.
-            from rpython.rlib import streamio
-            def ftruncate_win32_dummy(fd, size): pass
-            def _setfd_binary_dummy(fd): pass
-            streamio.ftruncate_win32 = ftruncate_win32_dummy
-            streamio._setfd_binary = _setfd_binary_dummy
 
         return self.get_entry_point(config)
 
