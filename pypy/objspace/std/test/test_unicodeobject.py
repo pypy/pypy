@@ -86,6 +86,7 @@ class AppTestUnicodeString:
     def test_contains(self):
         assert u'a' in 'abc'
         assert 'a' in u'abc'
+        raises(UnicodeDecodeError, "u'\xe2' in 'g\xe2teau'")
 
     def test_splitlines(self):
         assert u''.splitlines() == []

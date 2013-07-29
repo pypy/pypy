@@ -204,6 +204,12 @@ class W_BytesObject(W_AbstractBytesObject, StringMethods):
             return self_as_unicode._endswith(space, self_as_unicode._value, w_suffix, start, end)
         return StringMethods._endswith(self, space, value, w_suffix, start, end)
 
+    def descr_contains(self, space, w_sub):
+        if space.isinstance_w(w_sub, space.w_unicode):
+            self_as_unicode = unicode_from_encoded_object(space, self, None, None)
+            return space.newbool(self_as_unicode._value.find(self._op_val(space, w_sub)) >= 0)
+        return StringMethods.descr_contains(self, space, w_sub)
+
     @unwrap_spec(count=int)
     def descr_replace(self, space, w_old, w_new, count=-1):
         old_is_unicode = space.isinstance_w(w_old, space.w_unicode)
