@@ -52,16 +52,12 @@ class ThreadRunner(object):
 
     def run(self):
         try:
-            rstm.perform_transaction(ThreadRunner.run_really,
-                                     ThreadRunner, self)
+            while self.value < glob.LENGTH:
+                jitdriver.jit_merge_point(self=self)
+                glob.node = Node(self.value, glob.node)
+                self.value += 1
         finally:
             self.finished_lock.release()
-
-    def run_really(self, retry_counter):
-        jitdriver.jit_merge_point(self=self)
-        glob.node = Node(self.value, glob.node)
-        self.value += 1
-        return int(self.value < glob.LENGTH)
 
 jitdriver = jit.JitDriver(greens=[], reds=['self'])
 
@@ -84,9 +80,9 @@ class Bootstrapper(object):
         bootstrapper.lock = None
         bootstrapper.args = None
 
-    def _freeze_(self):
-        self.reinit()
-        return False
+    # def _freeze_(self):
+    #     self.reinit()
+    #     return False
 
     @staticmethod
     def bootstrap():
