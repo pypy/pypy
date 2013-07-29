@@ -1042,7 +1042,6 @@ class Assembler386(BaseAssembler):
         assert self.cpu.gc_ll_descr.stm
         rl = result_loc.lowest8bits()
         self._stm_ptr_eq_fastpath(self.mc, arglocs, result_loc)
-        self.mc.TEST_rr(eax.value, eax.value)
         self.mc.SET_ir(rx86.Conditions['NZ'], rl.value)
         self.mc.MOVZX8_rr(result_loc.value, rl.value)
 
@@ -1052,7 +1051,6 @@ class Assembler386(BaseAssembler):
         assert self.cpu.gc_ll_descr.stm
         rl = result_loc.lowest8bits()
         self._stm_ptr_eq_fastpath(self.mc, arglocs, result_loc)
-        self.mc.TEST_rr(eax.value, eax.value)
         self.mc.SET_ir(rx86.Conditions['Z'], rl.value)
         self.mc.MOVZX8_rr(result_loc.value, rl.value)
 
@@ -1064,7 +1062,6 @@ class Assembler386(BaseAssembler):
         assert not self.cpu.gc_ll_descr.stm
         guard_opnum = guard_op.getopnum()
         self._stm_ptr_eq_fastpath(self.mc, arglocs, result_loc)
-        self.mc.TEST_rr(eax.value, eax.value)
         if guard_opnum == rop.GUARD_FALSE:
             self.implement_guard(guard_token, "Z")
         else:
@@ -1078,7 +1075,6 @@ class Assembler386(BaseAssembler):
         assert not self.cpu.gc_ll_descr.stm
         guard_opnum = guard_op.getopnum()
         self._stm_ptr_eq_fastpath(self.mc, arglocs, result_loc)
-        self.mc.TEST_rr(eax.value, eax.value)
         if guard_opnum == rop.GUARD_FALSE:
             self.implement_guard(guard_token, "NZ")
         else:
@@ -2173,6 +2169,34 @@ class Assembler386(BaseAssembler):
         assert self.ptr_eq_slowpath is not None
         a_base = arglocs[0]
         b_base = arglocs[1]
+
+        #
+        # FASTPATH
+        #
+        # a == b -> SET NZ
+        sl = X86_64_SCRATCH_REG.lowest8bits()
+        mc.MOV(X86_64_SCRATCH_REG, a_base)
+        mc.CMP(X86_64_SCRATCH_REG, b_base)
+        mc.SET_ir(rx86.Conditions['Z'], sl.value)
+        mc.MOVZX8_rr(X86_64_SCRATCH_REG.value, sl.value)
+        mc.TEST(X86_64_SCRATCH_REG, X86_64_SCRATCH_REG)
+        mc.J_il8(rx86.Conditions['NZ'], 0)
+        j_ok1 = mc.get_relative_pos()
+
+        # a == 0 || b == 0 -> SET Z
+        mc.CMP(a_base, imm(0))
+        mc.J_il8(rx86.Conditions['Z'], 0)
+        j_ok2 = mc.get_relative_pos()
+        #
+        mc.CMP(a_base, imm(0))
+        mc.J_il8(rx86.Conditions['Z'], 0)
+        j_ok3 = mc.get_relative_pos()
+        
+        # a.type != b.type
+        # XXX: todo, if it ever happens..
+        
+        #
+        # SLOWPATH
         #
         mc.PUSH(b_base)
         mc.PUSH(a_base)
@@ -2180,7 +2204,22 @@ class Assembler386(BaseAssembler):
         mc.CALL(imm(func))
         # result still on stack
         assert isinstance(result_loc, RegLoc)
-        mc.POP_r(result_loc.value)
+        mc.POP_r(X86_64_SCRATCH_REG.value)
+        # set flags:
+        mc.TEST(X86_64_SCRATCH_REG, X86_64_SCRATCH_REG)
+        #
+        # END SLOWPATH
+        #
+        
+        # OK: flags already set
+        offset = mc.get_relative_pos() - j_ok1
+        mc.overwrite(j_ok1 - 1, chr(offset))
+        offset = mc.get_relative_pos() - j_ok2
+        mc.overwrite(j_ok2 - 1, chr(offset))
+        offset = mc.get_relative_pos() - j_ok3
+        mc.overwrite(j_ok3 - 1, chr(offset))
+
+        
         
     def _get_stm_private_rev_num_addr(self):
         assert self.cpu.gc_ll_descr.stm

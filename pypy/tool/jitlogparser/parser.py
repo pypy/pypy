@@ -395,7 +395,7 @@ def import_log(logname, ParserCls=SimpleParser):
             addr = int(m.group(1), 16)
         addrs.setdefault(addr, []).append(name)
     dumps = {}
-    executables = set()
+    executables = set(["??"])
     symbols = {}
     for entry in extract_category(log, 'jit-backend-dump'):
         entry = purge_thread_numbers(entry)
