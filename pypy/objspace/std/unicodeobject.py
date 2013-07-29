@@ -125,6 +125,9 @@ class W_UnicodeObject(W_Root, StringMethods):
     def _iscased(self, ch):
         return unicodedb.iscased(ord(ch))
 
+    def _islinebreak(self, ch):
+        return unicodedb.islinebreak(ord(ch))
+
     def _upper(self, ch):
         return unichr(unicodedb.toupper(ord(ch)))
 

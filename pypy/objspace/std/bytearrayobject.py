@@ -74,6 +74,9 @@ class W_BytearrayObject(W_Root, StringMethods):
 
     _iscased = _isalpha
 
+    def _islinebreak(self, ch):
+        return (ch == '\n') or (ch == '\r')
+
     def _upper(self, ch):
         if ch.islower():
             o = ord(ch) - 32

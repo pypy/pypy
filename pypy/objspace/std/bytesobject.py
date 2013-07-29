@@ -117,6 +117,9 @@ class W_BytesObject(W_AbstractBytesObject, StringMethods):
 
     _iscased = _isalpha
 
+    def _islinebreak(self, ch):
+        return (ch == '\n') or (ch == '\r')
+
     def _upper(self, ch):
         if ch.islower():
             o = ord(ch) - 32

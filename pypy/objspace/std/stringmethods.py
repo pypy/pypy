@@ -628,26 +628,24 @@ class StringMethods(object):
     @unwrap_spec(keepends=bool)
     @specialize.argtype(0)
     def descr_splitlines(self, space, keepends=False):
-        data = self._val(space)
-        selflen = len(data)
+        value = self._val(space)
+        length = len(value)
         strs = []
-        i = j = 0
-        while i < selflen:
-            # Find a line and append it
-            while i < selflen and data[i] != '\n' and data[i] != '\r':
-                i += 1
-            # Skip the line break reading CRLF as one line break
-            eol = i
-            i += 1
-            if i < selflen and data[i-1] == '\r' and data[i] == '\n':
-                i += 1
+        pos = 0
+        while pos < length:
+            sol = pos
+            while pos < length and not self._islinebreak(value[pos]):
+                pos += 1
+            eol = pos
+            pos += 1
+            # read CRLF as one line break
+            if pos < length and value[eol] == '\r' and value[pos] == '\n':
+                pos += 1
             if keepends:
-                eol = i
-            strs.append(data[j:eol])
-            j = i
-
-        if j < selflen:
-            strs.append(data[j:len(data)])
+                eol = pos
+            strs.append(value[sol:eol])
+        if pos < length:
+            strs.append(value[pos:length])
         return self._newlist_unwrapped(space, strs)
 
     @specialize.argtype(0)
