@@ -18,8 +18,7 @@ from rpython.jit.metainterp.history import (AbstractFailDescr,
                                          BoxInt, Box, BoxPtr,
                                          JitCellToken, TargetToken,
                                          ConstInt, ConstPtr,
-                                         BoxObj,
-                                         ConstObj, BoxFloat, ConstFloat)
+                                         BoxFloat, ConstFloat)
 
 skip_unless_run_slow_tests()
 
@@ -64,7 +63,7 @@ class TestARMCallingConvention(CallingConvTests):
             assert self.cpu.get_int_value(deadframe, x) == x
         assert self.cpu.get_int_value(deadframe, 11) == 38
 
-   
+
     def test_float_hf_call_mixed(self):
         if not self.cpu.supports_floats:
             py.test.skip("requires floats")

@@ -14,7 +14,6 @@ from rpython.rlib.jit import _we_are_jitted
 from rpython.rlib.rgc import lltype_is_gc
 from rpython.rtyper.lltypesystem import lltype, llmemory, rstr, rclass, rffi
 from rpython.rtyper.rclass import IR_QUASIIMMUTABLE, IR_QUASIIMMUTABLE_ARRAY
-from rpython.translator.simplify import get_funcobj
 from rpython.translator.unsimplify import varoftype
 
 class UnsupportedMallocFlags(Exception):
@@ -359,11 +358,12 @@ class Transformer(object):
         else: raise AssertionError(kind)
         lst.append(v)
 
-    def handle_residual_call(self, op, extraargs=[], may_call_jitcodes=False):
+    def handle_residual_call(self, op, extraargs=[], may_call_jitcodes=False,
+                             oopspecindex=EffectInfo.OS_NONE):
         """A direct_call turns into the operation 'residual_call_xxx' if it
         is calling a function that we don't want to JIT.  The initial args
         of 'residual_call_xxx' are the function to call, and its calldescr."""
-        calldescr = self.callcontrol.getcalldescr(op)
+        calldescr = self.callcontrol.getcalldescr(op, oopspecindex=oopspecindex)
         op1 = self.rewrite_call(op, 'residual_call',
                                 [op.args[0]] + extraargs, calldescr=calldescr)
         if may_call_jitcodes or self.callcontrol.calldescr_canraise(calldescr):
@@ -640,9 +640,6 @@ class Transformer(object):
                               op.result)
 
     def _array_of_voids(self, ARRAY):
-        #if isinstance(ARRAY, ootype.Array):
-        #    return ARRAY.ITEM == ootype.Void
-        #else:
         return ARRAY.OF == lltype.Void
 
     def rewrite_op_getfield(self, op):
@@ -1343,6 +1340,24 @@ class Transformer(object):
             return []
         return getattr(self, 'handle_jit_marker__%s' % key)(op, jitdriver)
 
+    def rewrite_op_jit_conditional_call(self, op):
+        have_floats = False
+        for arg in op.args:
+            if getkind(arg.concretetype) == 'float':
+                have_floats = True
+                break
+        if len(op.args) > 4 + 2 or have_floats:
+            raise Exception("Conditional call does not support floats or more than 4 arguments")
+        callop = SpaceOperation('direct_call', op.args[1:], op.result)
+        calldescr = self.callcontrol.getcalldescr(callop)
+        assert not calldescr.get_extra_info().check_forces_virtual_or_virtualizable()
+        op1 = self.rewrite_call(op, 'conditional_call',
+                                op.args[:2], args=op.args[2:],
+                                calldescr=calldescr)
+        if self.callcontrol.calldescr_canraise(calldescr):
+            op1 = [op1, SpaceOperation('-live-', [], None)]
+        return op1
+
     def handle_jit_marker__jit_merge_point(self, op, jitdriver):
         assert self.portal_jd is not None, (
             "'jit_merge_point' in non-portal graph!")
@@ -1447,7 +1462,7 @@ class Transformer(object):
         # because functions that are neither nonneg nor fast don't have an
         # oopspec any more
         # xxx break of abstraction:
-        func = get_funcobj(op.args[0].value)._callable
+        func = op.args[0].value._obj._callable
         # base hints on the name of the ll function, which is a bit xxx-ish
         # but which is safe for now
         assert func.func_name.startswith('ll_')

@@ -60,14 +60,6 @@ class __extend__(annmodel.SomePBC):
             t = ()
         return tuple([self.__class__, self.can_be_None]+lst)+t
 
-##builtin_descriptor_type = (
-##    type(len),                            # type 'builtin_function_or_method'
-##    type(list.append),                    # type 'method_descriptor'
-##    type(type(None).__repr__),            # type 'wrapper_descriptor'
-##    type(type.__dict__['__dict__']),      # type 'getset_descriptor'
-##    type(type.__dict__['__flags__']),     # type 'member_descriptor'
-##    )
-
 # ____________________________________________________________
 
 class ConcreteCallTableRow(dict):
@@ -196,16 +188,6 @@ class AbstractFunctionsPBCRepr(CanBeNull, Repr):
         funcdesc = self.s_pbc.any_description()
         return funcdesc.get_s_signatures(shape)
 
-##    def function_signatures(self):
-##        if self._function_signatures is None:
-##            self._function_signatures = {}
-##            for func in self.s_pbc.prebuiltinstances:
-##                if func is not None:
-##                    self._function_signatures[func] = getsignature(self.rtyper,
-##                                                                   func)
-##            assert self._function_signatures
-##        return self._function_signatures
-
     def convert_desc(self, funcdesc):
         # get the whole "column" of the call table corresponding to this desc
         try:
@@ -283,9 +265,13 @@ class AbstractFunctionsPBCRepr(CanBeNull, Repr):
         assert len(self.s_pbc.descriptions) == 1
                                   # lowleveltype wouldn't be Void otherwise
         funcdesc, = self.s_pbc.descriptions
-        if len(self.callfamily.calltables) != 1:
+        tables = []        # find the simple call in the calltable
+        for key, table in self.callfamily.calltables.items():
+            if not key[1] and not key[2] and not key[3]:
+                tables.append(table)
+        if len(tables) != 1:
             raise TyperError("cannot pass a function with various call shapes")
-        table, = self.callfamily.calltables.values()
+        table, = tables
         graphs = []
         for row in table:
             if funcdesc in row:
@@ -295,6 +281,18 @@ class AbstractFunctionsPBCRepr(CanBeNull, Repr):
         graph = graphs[0]
         if graphs != [graph]*len(graphs):
             raise TyperError("cannot pass a specialized function here")
+        llfn = self.rtyper.getcallable(graph)
+        return inputconst(typeOf(llfn), llfn)
+
+    def get_concrete_llfn(self, s_pbc, args_s, op):
+        bk = self.rtyper.annotator.bookkeeper
+        descs = list(s_pbc.descriptions)
+        vfcs = description.FunctionDesc.variant_for_call_site
+        args = bk.build_args("simple_call", args_s)
+        shape, index = vfcs(bk, self.callfamily, descs, args, op)
+        funcdesc, = descs
+        row_of_one_graph = self.callfamily.calltables[shape][index]
+        graph = row_of_one_graph[funcdesc]
         llfn = self.rtyper.getcallable(graph)
         return inputconst(typeOf(llfn), llfn)
 
@@ -824,15 +822,7 @@ class AbstractMethodsPBCRepr(Repr):
                                  "classes with no common base: %r" % (mdescs,))
 
         self.methodname = methodname
-        # for ootype, the right thing to do is to always keep the most precise
-        # type of the instance, while for lltype we want to cast it to the
-        # type where the method is actually defined. See also
-        # test_rclass.test_method_specialized_with_subclass and
-        # rtyper.attach_methods_to_subclasses
-        if self.rtyper.type_system.name == 'ootypesystem':
-            self.classdef = classdef
-        else:
-            self.classdef = classdef.locate_attribute(methodname)
+        self.classdef = classdef.locate_attribute(methodname)
         # the low-level representation is just the bound 'self' argument.
         self.s_im_self = annmodel.SomeInstance(self.classdef, flags=flags)
         self.r_im_self = rclass.getinstancerepr(rtyper, self.classdef)
@@ -867,16 +857,6 @@ class AbstractMethodsPBCRepr(Repr):
             adjust_shape(hop2, s_shape)
         return hop2
 # ____________________________________________________________
-
-##def getsignature(rtyper, func):
-##    f = rtyper.getcallable(func)
-##    graph = rtyper.type_system_deref(f).graph
-##    rinputs = [rtyper.bindingrepr(v) for v in graph.getargs()]
-##    if graph.getreturnvar() in rtyper.annotator.bindings:
-##        rresult = rtyper.bindingrepr(graph.getreturnvar())
-##    else:
-##        rresult = Void
-##    return f, rinputs, rresult
 
 def samesig(funcs):
     import inspect

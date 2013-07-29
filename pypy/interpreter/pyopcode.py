@@ -688,16 +688,17 @@ class __extend__(pyframe.PyFrame):
         self.pushvalue(w_list)
 
     def BUILD_LIST_FROM_ARG(self, _, next_instr):
+        space = self.space
         # this is a little dance, because list has to be before the
         # value
         last_val = self.popvalue()
+        length_hint = 0
         try:
-            lgt = self.space.len_w(last_val)
-        except OperationError, e:
-            if e.async(self.space):
+            length_hint = space.length_hint(last_val, length_hint)
+        except OperationError as e:
+            if e.async(space):
                 raise
-            lgt = 0 # oh well
-        self.pushvalue(self.space.newlist([], sizehint=lgt))
+        self.pushvalue(space.newlist([], sizehint=length_hint))
         self.pushvalue(last_val)
 
     def LOAD_ATTR(self, nameindex, next_instr):

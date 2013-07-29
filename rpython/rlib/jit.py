@@ -758,12 +758,6 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
             args_s.append(s_arg)
         bk.emulate_pbc_call(uniquekey, s_func, args_s)
 
-    def get_getfield_op(self, rtyper):
-        if rtyper.type_system.name == 'ootypesystem':
-            return 'oogetfield'
-        else:
-            return 'getfield'
-
     def specialize_call(self, hop, **kwds_i):
         # XXX to be complete, this could also check that the concretetype
         # of the variables are the same for each of the calls.
@@ -792,10 +786,7 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
                         "field %r not found in %r" % (name,
                                                       r_red.lowleveltype.TO))
                     r_red = r_red.rbase
-                if hop.rtyper.type_system.name == 'ootypesystem':
-                    GTYPE = r_red.lowleveltype
-                else:
-                    GTYPE = r_red.lowleveltype.TO
+                GTYPE = r_red.lowleveltype.TO
                 assert GTYPE._immutable_field(mangled_name), (
                     "field %r must be declared as immutable" % name)
                 if not hasattr(driver, 'll_greenfields'):
@@ -804,8 +795,7 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
                 #
                 v_red = hop.inputarg(r_red, arg=i)
                 c_llname = hop.inputconst(lltype.Void, mangled_name)
-                getfield_op = self.get_getfield_op(hop.rtyper)
-                v_green = hop.genop(getfield_op, [v_red, c_llname],
+                v_green = hop.genop('getfield', [v_red, c_llname],
                                     resulttype=r_field)
                 s_green = s_red.classdef.about_attribute(fieldname)
                 assert s_green is not None
@@ -999,6 +989,33 @@ class Entry(ExtRegistryEntry):
         v_cls = hop.inputarg(classrepr, arg=1)
         return hop.genop('jit_record_known_class', [v_inst, v_cls],
                          resulttype=lltype.Void)
+
+def _jit_conditional_call(condition, function, *args):
+    pass
+
+@specialize.ll_and_arg(1)
+def conditional_call(condition, function, *args):
+    if we_are_jitted():
+        _jit_conditional_call(condition, function, *args)
+    else:
+        if condition:
+            function(*args)
+
+class ConditionalCallEntry(ExtRegistryEntry):
+    _about_ = _jit_conditional_call
+
+    def compute_result_annotation(self, *args_s):
+        self.bookkeeper.emulate_pbc_call(self.bookkeeper.position_key,
+                                         args_s[1], args_s[2:])
+
+    def specialize_call(self, hop):
+        from rpython.rtyper.lltypesystem import lltype
+
+        args_v = hop.inputargs(lltype.Bool, lltype.Void, *hop.args_r[2:])
+        args_v[1] = hop.args_r[1].get_concrete_llfn(hop.args_s[1],
+                                                    hop.args_s[2:], hop.spaceop)
+        hop.exception_is_here()
+        return hop.genop('jit_conditional_call', args_v)
 
 class Counters(object):
     counters="""

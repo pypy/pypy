@@ -7,7 +7,7 @@ from rpython.rtyper.lltypesystem.lltype import typeOf, Signed, malloc
 from rpython.rtyper.lltypesystem.rstr import LLHelpers, STR
 from rpython.rtyper.rstr import AbstractLLHelpers
 from rpython.rtyper.rtyper import TyperError
-from rpython.rtyper.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
+from rpython.rtyper.test.tool import BaseRtypingTest
 
 
 def test_parse_fmt():
@@ -1073,7 +1073,7 @@ def FIXME_test_str_to_pystringobj():
     res = interpret(g, [-2])
     assert res._obj.value == 42
 
-class BaseTestRstr(AbstractTestRstr):
+class TestRstr(AbstractTestRstr):
     const = str
     constchar = chr
 
@@ -1088,9 +1088,6 @@ class BaseTestRstr(AbstractTestRstr):
             return chr(i).upper()
         for c in ["a", "A", "1"]:
             assert self.interpret(fn, [ord(c)]) == c.upper()
-
-
-class TestLLtype(BaseTestRstr, LLRtypeMixin):
 
     def test_ll_find_rfind(self):
         llstr = self.string_to_ll
@@ -1138,6 +1135,3 @@ class TestLLtype(BaseTestRstr, LLRtypeMixin):
         self.interpret(f, [array, 4])
         assert list(array) == list('abc'*4)
         lltype.free(array, flavor='raw')
-
-class TestOOtype(BaseTestRstr, OORtypeMixin):
-    pass

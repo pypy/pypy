@@ -46,3 +46,9 @@ Added some addition tests for statvfs.
 
 .. branch: ndarray-subtype
 Allow subclassing ndarray, i.e. matrix
+
+.. branch: kill-ootype
+
+.. branch: fast-slowpath
+Added an abstraction for functions with a fast and slow path in the JIT. This
+speeds up list.append() and list.pop().

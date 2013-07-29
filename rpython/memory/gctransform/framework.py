@@ -299,10 +299,6 @@ class BaseFrameworkGCTransformer(GCTransformer):
         else:
             malloc_fixedsize_meth = None
             self.malloc_fixedsize_ptr = self.malloc_fixedsize_clear_ptr
-##         self.malloc_varsize_ptr = getfn(
-##             GCClass.malloc_varsize.im_func,
-##             [s_gc] + [annmodel.SomeInteger(nonneg=True) for i in range(5)]
-##             + [annmodel.SomeBool()], s_gcref)
         self.malloc_varsize_clear_ptr = getfn(
             GCClass.malloc_varsize_clear.im_func,
             [s_gc, s_typeid16]

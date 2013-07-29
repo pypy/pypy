@@ -297,30 +297,6 @@ directory are all copyrighted by the Python Software Foundation and licensed
 under the Python Software License of which you can find a copy here:
 http://www.python.org/doc/Copyright.html 
 
-License for 'rpython/translator/jvm/src/jna.jar'
-=============================================
-
-The file 'rpyhton/translator/jvm/src/jna.jar' is licensed under the GNU
-Lesser General Public License of which you can find a copy here:
-http://www.gnu.org/licenses/lgpl.html
-
-License for 'rpython/translator/jvm/src/jasmin.jar'
-================================================
-
-The file 'rpyhton/translator/jvm/src/jasmin.jar' is copyright (c) 1996-2004 Jon Meyer
-and distributed with permission.  The use of Jasmin by PyPy does not imply
-that PyPy is endorsed by Jon Meyer nor any of Jasmin's contributors.  Furthermore,
-the following disclaimer applies to Jasmin:
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
-WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
-PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
-ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR
-TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
-ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
 License for 'pypy/module/unicodedata/'
 ======================================
 

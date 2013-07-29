@@ -48,16 +48,14 @@ class __extend__(annmodel.SomeList):
             # of recursive structures -- i.e. if the listdef contains itself
             rlist = rtyper.type_system.rlist
             item_repr = lambda: rtyper.getrepr(listitem.s_value)
-            known_maxlength = getattr(self, 'known_maxlength', False)
             if self.listdef.listitem.resized:
-                return rlist.ListRepr(rtyper, item_repr, listitem, known_maxlength)
+                return rlist.ListRepr(rtyper, item_repr, listitem)
             else:
                 return rlist.FixedSizeListRepr(rtyper, item_repr, listitem)
 
     def rtyper_makekey(self):
         self.listdef.listitem.dont_change_any_more = True
-        known_maxlength = getattr(self, 'known_maxlength', False)
-        return self.__class__, self.listdef.listitem, known_maxlength
+        return self.__class__, self.listdef.listitem
 
 
 class AbstractBaseListRepr(Repr):
@@ -328,15 +326,6 @@ class __extend__(pairtype(AbstractBaseListRepr, AbstractBaseListRepr)):
             return NotImplemented
         return v
 
-##    # TODO: move it to lltypesystem
-##    def rtype_is_((r_lst1, r_lst2), hop):
-##        if r_lst1.lowleveltype != r_lst2.lowleveltype:
-##            # obscure logic, the is can be true only if both are None
-##            v_lst1, v_lst2 = hop.inputargs(r_lst1, r_lst2)
-##            return hop.gendirectcall(ll_both_none, v_lst1, v_lst2)
-
-##        return pairtype(Repr, Repr).rtype_is_(pair(r_lst1, r_lst2), hop)
-
     def rtype_eq((r_lst1, r_lst2), hop):
         assert r_lst1.item_repr == r_lst2.item_repr
         v_lst1, v_lst2 = hop.inputargs(r_lst1, r_lst2)
@@ -505,9 +494,7 @@ def ll_alloc_and_set(LIST, count, item):
     return l
 
 
-# return a nullptr() if lst is a list of pointers it, else None.  Note
-# that if we are using ootypesystem there are not pointers, so we
-# always return None.
+# return a nullptr() if lst is a list of pointers it, else None.
 def ll_null_item(lst):
     LIST = typeOf(lst)
     if isinstance(LIST, Ptr):
@@ -518,25 +505,15 @@ def ll_null_item(lst):
 
 def listItemType(lst):
     LIST = typeOf(lst)
-    if isinstance(LIST, Ptr):    # lltype
-        LIST = LIST.TO
-    return LIST.ITEM
+    return LIST.TO.ITEM
 
 
 @signature(types.any(), types.any(), types.int(), types.int(), types.int(), returns=types.none())
 def ll_arraycopy(source, dest, source_start, dest_start, length):
     SRCTYPE = typeOf(source)
-    if isinstance(SRCTYPE, Ptr):
-        # lltype
-        rgc.ll_arraycopy(source.ll_items(), dest.ll_items(),
-                         source_start, dest_start, length)
-    else:
-        # ootype -- XXX improve the case of array->array copy?
-        i = 0
-        while i < length:
-            item = source.ll_getitem_fast(source_start + i)
-            dest.ll_setitem_fast(dest_start + i, item)
-            i += 1
+    # lltype
+    rgc.ll_arraycopy(source.ll_items(), dest.ll_items(),
+                     source_start, dest_start, length)
 
 
 def ll_copy(RESLIST, l):

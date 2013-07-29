@@ -3,12 +3,11 @@ import sys
 from rpython.flowspace.model import (Variable, Constant, Block, Link,
     SpaceOperation, c_last_exception, FunctionGraph, mkentrymap)
 from rpython.rtyper.lltypesystem.lltype import Bool, Signed, typeOf, Void, Ptr, normalizeptr
-from rpython.rtyper.ootypesystem import ootype
 from rpython.tool.algo import sparsemat
 from rpython.translator.backendopt import removenoops
 from rpython.translator.backendopt.canraise import RaiseAnalyzer
 from rpython.translator.backendopt.support import log, find_loop_blocks
-from rpython.translator.simplify import join_blocks, cleanup_graph, get_graph, get_funcobj
+from rpython.translator.simplify import join_blocks, cleanup_graph, get_graph
 from rpython.translator.unsimplify import copyvar, split_block
 
 
@@ -16,22 +15,12 @@ class CannotInline(Exception):
     pass
 
 
-def get_meth_from_oosend(op):
-    INSTANCE = op.args[1].concretetype
-    _, meth = INSTANCE._lookup(op.args[0].value)
-    virtual = getattr(meth, '_virtual', True)
-    if virtual:
-        return None
-    else:
-        return meth
-
-
 class CanRaise(object):
     def __init__(self, can_raise):
         self.can_raise = can_raise
 
 
-def collect_called_graphs(graph, translator, include_oosend=True):
+def collect_called_graphs(graph, translator):
     graphs_or_something = set()
     for block in graph.iterblocks():
         for op in block.operations:
@@ -48,26 +37,13 @@ def collect_called_graphs(graph, translator, include_oosend=True):
                 else:
                     for graph in graphs:
                         graphs_or_something.add(graph)
-            if op.opname == 'oosend' and include_oosend:
-                meth = get_meth_from_oosend(op)
-                if hasattr(meth, 'graph'):
-                    key = meth.graph
-                elif hasattr(meth, '_can_raise'):
-                    key = CanRaise(meth._can_raise)
-                else:
-                    key = op.args[0]
-                graphs_or_something.add(key)
     return graphs_or_something
 
 def iter_callsites(graph, calling_what):
     for block in graph.iterblocks():
         for i, op in enumerate(block.operations):
             if op.opname == "direct_call":
-                funcobj = get_funcobj(op.args[0].value)
-            elif op.opname == "oosend":
-                funcobj = get_meth_from_oosend(op)
-                if funcobj is None:
-                    continue # cannot inline virtual methods
+                funcobj = op.args[0].value._obj
             else:
                 continue
 
@@ -119,21 +95,16 @@ def _find_exception_type(block):
     while True:
         if isinstance(currvar, Constant):
             value = currvar.value
-            if isinstance(typeOf(value), ootype.Instance):
-                TYPE = ootype.dynamicType(value)
-            else:
-                TYPE = typeOf(normalizeptr(value))
+            TYPE = typeOf(normalizeptr(value))
             return TYPE, block.exits[0]
         if i < 0:
             return None, None
         op = ops[i]
         i -= 1
-        if op.opname in ("same_as", "cast_pointer", "ooupcast", "oodowncast") and op.result is currvar:
+        if op.opname in ("same_as", "cast_pointer") and op.result is currvar:
             currvar = op.args[0]
         elif op.opname == "malloc" and op.result is currvar:
             return Ptr(op.args[0].value), block.exits[0]
-        elif op.opname == "new" and op.result is currvar:
-            return op.args[0].value, block.exits[0]
 
 def does_raise_directly(graph, raise_analyzer):
     """ this function checks, whether graph contains operations which can raise
@@ -216,11 +187,8 @@ class BaseInliner(object):
         return count
 
     def get_graph_from_op(self, op):
-        assert op.opname in ('direct_call', 'oosend')
-        if op.opname == 'direct_call':
-            return get_funcobj(self.op.args[0].value).graph
-        else:
-            return get_meth_from_oosend(op).graph
+        assert op.opname == 'direct_call'
+        return self.op.args[0].value._obj.graph
 
     def inline_once(self, block, index_operation):
         self.varmap = {}
@@ -246,11 +214,7 @@ class BaseInliner(object):
         d = {}
         for i, op in enumerate(block.operations):
             if op.opname == "direct_call":
-                funcobj = get_funcobj(op.args[0].value)
-            elif op.opname == "oosend":
-                funcobj = get_meth_from_oosend(op)
-                if funcobj is None:
-                    continue
+                funcobj = op.args[0].value._obj
             else:
                 continue
             graph = getattr(funcobj, 'graph', None)
@@ -457,26 +421,6 @@ class BaseInliner(object):
                 passon_args.append(linktoinlined.args[index])
         passon_args += self.original_passon_vars
 
-        if self.op.opname == 'oosend' and not isinstance(self.op.args[1], Constant):
-            # if we try to inline a graph defined in a superclass, the
-            # type of 'self' on the graph differs from the current
-            linkv = passon_args[0]
-            inputv = copiedstartblock.inputargs[0]
-            LINK_SELF = linkv.concretetype
-            INPUT_SELF = inputv.concretetype
-            if LINK_SELF != INPUT_SELF:
-                # need to insert an upcast
-                if ootype.isSubclass(LINK_SELF, INPUT_SELF):
-                    opname = 'ooupcast'
-                else:
-                    assert ootype.isSubclass(INPUT_SELF, LINK_SELF)
-                    opname = 'oodowncast'
-                v = Variable()
-                v.concretetype = INPUT_SELF
-                upcast = SpaceOperation(opname, [linkv], v)
-                block.operations.append(upcast)
-                passon_args[0] = v
-
         #rewire blocks
         linktoinlined.target = copiedstartblock
         linktoinlined.args = passon_args
@@ -543,8 +487,6 @@ def block_weight(block, weights=OP_WEIGHTS):
         if op.opname == "direct_call":
             total += 1.5 + len(op.args) / 2
         elif op.opname == "indirect_call":
-            total += 2 + len(op.args) / 2
-        elif op.opname == "oosend":
             total += 2 + len(op.args) / 2
         total += weights.get(op.opname, 1)
     if block.exitswitch is not None:
@@ -622,17 +564,12 @@ def inlinable_static_callers(graphs, store_calls=False, ok_to_call=None):
         for block in parentgraph.iterblocks():
             for op in block.operations:
                 if op.opname == "direct_call":
-                    funcobj = get_funcobj(op.args[0].value)
+                    funcobj = op.args[0].value._obj
                     graph = getattr(funcobj, 'graph', None)
                     if graph is not None and graph in ok_to_call:
                         if getattr(getattr(funcobj, '_callable', None),
                                    '_dont_inline_', False):
                             continue
-                        add(parentgraph, block, op, graph)
-                if op.opname == "oosend":
-                    meth = get_meth_from_oosend(op)
-                    graph = getattr(meth, 'graph', None)
-                    if graph is not None and graph in ok_to_call:
                         add(parentgraph, block, op, graph)
     return result
 
@@ -654,7 +591,7 @@ def instrument_inline_candidates(graphs, threshold):
                 op = ops[i]
                 i -= 1
                 if op.opname == "direct_call":
-                    funcobj = get_funcobj(op.args[0].value)
+                    funcobj = op.args[0].value._obj
                     graph = getattr(funcobj, 'graph', None)
                     if graph is not None:
                         if getattr(getattr(funcobj, '_callable', None),

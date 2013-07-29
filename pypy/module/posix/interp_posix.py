@@ -200,18 +200,12 @@ opened on a directory, not a file."""
 
 # ____________________________________________________________
 
-# For LL backends, expose all fields.
-# For OO backends, only the portable fields (the first 10).
 STAT_FIELDS = unrolling_iterable(enumerate(ll_os_stat.STAT_FIELDS))
-PORTABLE_STAT_FIELDS = unrolling_iterable(
-                                 enumerate(ll_os_stat.PORTABLE_STAT_FIELDS))
+
 STATVFS_FIELDS = unrolling_iterable(enumerate(ll_os_stat.STATVFS_FIELDS))
 
 def build_stat_result(space, st):
-    if space.config.translation.type_system == 'ootype':
-        FIELDS = PORTABLE_STAT_FIELDS
-    else:
-        FIELDS = STAT_FIELDS    # also when not translating at all
+    FIELDS = STAT_FIELDS    # also when not translating at all
     lst = [None] * ll_os_stat.N_INDEXABLE_FIELDS
     w_keywords = space.newdict()
     stat_float_times = space.fromcache(StatState).stat_float_times
@@ -501,11 +495,7 @@ def getlogin(space):
 def getstatfields(space):
     # for app_posix.py: export the list of 'st_xxx' names that we know
     # about at RPython level
-    if space.config.translation.type_system == 'ootype':
-        FIELDS = PORTABLE_STAT_FIELDS
-    else:
-        FIELDS = STAT_FIELDS    # also when not translating at all
-    return space.newlist([space.wrap(name) for _, (name, _) in FIELDS])
+    return space.newlist([space.wrap(name) for _, (name, _) in STAT_FIELDS])
 
 
 class State:
