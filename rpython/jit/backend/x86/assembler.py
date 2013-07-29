@@ -156,17 +156,20 @@ class Assembler386(BaseAssembler):
         mc = codebuf.MachineCodeBlockWrapper()
         # copy registers to the frame, with the exception of the
         # 'cond_call_register_arguments' and eax, because these have already
-        # been saved by the caller
+        # been saved by the caller.  Note that this is not symmetrical:
+        # these 5 registers are saved by the caller but restored here at
+        # the end of this function.
         self._push_all_regs_to_frame(mc, cond_call_register_arguments + [eax],
                                      supports_floats, callee_only)
         if IS_X86_64:
-            mc.SUB(esp, imm(WORD))
+            mc.SUB(esp, imm(WORD))     # alignment
             self.set_extra_stack_depth(mc, 2 * WORD)
+            # the arguments are already in the correct registers
         else:
-            # we want space for 3 arguments + call + alignment
-            # the caller is responsible for putting arguments in the right spot
+            # we want space for 4 arguments + call + alignment
             mc.SUB(esp, imm(WORD * 7))
             self.set_extra_stack_depth(mc, 8 * WORD)
+            # store the arguments at the correct place in the stack
             for i in range(4):
                 mc.MOV_sr(i * WORD, cond_call_register_arguments[i].value)
         mc.CALL(eax)
