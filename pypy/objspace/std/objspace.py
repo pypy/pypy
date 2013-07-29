@@ -15,7 +15,8 @@ from rpython.rlib import jit
 
 # Object imports
 from pypy.objspace.std.boolobject import W_BoolObject
-from pypy.objspace.std.bytesobject import W_BytesObject, wrapstr
+from pypy.objspace.std.bytesobject import W_AbstractBytesObject, W_BytesObject, wrapstr
+from pypy.objspace.std.bytearrayobject import W_BytearrayObject
 from pypy.objspace.std.complexobject import W_ComplexObject
 from pypy.objspace.std.dictmultiobject import W_DictMultiObject
 from pypy.objspace.std.floatobject import W_FloatObject
@@ -667,12 +668,19 @@ class StdObjSpace(ObjSpace, DescrOperation):
                 self._interplevel_classes[w_type] = base
 
         # register other things
+        # XXX: fix automatic registration
         self._interplevel_classes[self.w_dict] = W_DictMultiObject
         self._interplevel_classes[self.w_list] = W_ListObject
         self._interplevel_classes[self.w_set] = W_SetObject
         self._interplevel_classes[self.w_tuple] = W_AbstractTupleObject
         self._interplevel_classes[self.w_sequenceiterator] = \
                 W_AbstractSeqIterObject
+        if self.config.objspace.std.withstrbuf:
+            self._interplevel_classes[self.w_str] = W_AbstractBytesObject
+        else:
+            self._interplevel_classes[self.w_str] = W_BytesObject
+        self._interplevel_classes[self.w_bytearray] = W_BytearrayObject
+        self._interplevel_classes[self.w_unicode] = W_UnicodeObject
 
     @specialize.memo()
     def _get_interplevel_cls(self, w_type):
