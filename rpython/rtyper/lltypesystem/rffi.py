@@ -62,8 +62,8 @@ def llexternal(name, args, result, _callable=None,
                compilation_info=ExternalCompilationInfo(),
                sandboxsafe=False, threadsafe='auto',
                _nowrapper=False, calling_conv='c',
-               oo_primitive=None, elidable_function=False,
-               macro=None, random_effects_on_gcobjs='auto'):
+               elidable_function=False, macro=None,
+               random_effects_on_gcobjs='auto'):
     """Build an external function that will invoke the C function 'name'
     with the given 'args' types and 'result' type.
 
@@ -97,8 +97,6 @@ def llexternal(name, args, result, _callable=None,
     if elidable_function:
         _callable._elidable_function_ = True
     kwds = {}
-    if oo_primitive:
-        kwds['oo_primitive'] = oo_primitive
 
     has_callback = False
     for ARG in args:

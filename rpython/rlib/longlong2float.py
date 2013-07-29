@@ -68,14 +68,12 @@ static unsigned int pypy__singlefloat2uint(float x) {
 uint2singlefloat = rffi.llexternal(
     "pypy__uint2singlefloat", [rffi.UINT], rffi.FLOAT,
     _callable=uint2singlefloat_emulator, compilation_info=eci,
-    _nowrapper=True, elidable_function=True, sandboxsafe=True,
-    oo_primitive="pypy__uint2singlefloat")
+    _nowrapper=True, elidable_function=True, sandboxsafe=True)
 
 singlefloat2uint = rffi.llexternal(
     "pypy__singlefloat2uint", [rffi.FLOAT], rffi.UINT,
     _callable=singlefloat2uint_emulator, compilation_info=eci,
-    _nowrapper=True, elidable_function=True, sandboxsafe=True,
-    oo_primitive="pypy__singlefloat2uint")
+    _nowrapper=True, elidable_function=True, sandboxsafe=True)
 
 
 class Float2LongLongEntry(ExtRegistryEntry):
