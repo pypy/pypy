@@ -20,6 +20,7 @@ from rpython.annotator.annrpython import FAIL
 from rpython.flowspace.model import Variable, Constant, SpaceOperation, c_last_exception
 from rpython.rtyper.annlowlevel import annotate_lowlevel_helper, LowLevelAnnotatorPolicy
 from rpython.rtyper.error import TyperError
+from rpython.rtyper.exceptiondata import ExceptionData
 from rpython.rtyper.lltypesystem.lltype import (Signed, Void, LowLevelType,
     Ptr, ContainerType, FuncType, functionptr, typeOf, RuntimeTypeInfo,
     attachRuntimeTypeInfo, Primitive)
@@ -56,10 +57,7 @@ class RPythonTyper(object):
         self.typererror_count = 0
         # make the primitive_to_repr constant mapping
         self.primitive_to_repr = {}
-        if self.type_system.offers_exceptiondata:
-            self.exceptiondata = self.type_system.exceptiondata.ExceptionData(self)
-        else:
-            self.exceptiondata = None
+        self.exceptiondata = ExceptionData(self)
 
         try:
             self.seed = int(os.getenv('RTYPERSEED'))

@@ -9,8 +9,6 @@ from rpython.rtyper.error import TyperError
 class TypeSystem(object):
     __metaclass__ = extendabletype
 
-    offers_exceptiondata = True
-
     def __getattr__(self, name):
         """Lazy import to avoid circular dependencies."""
         def load(modname):
@@ -21,7 +19,7 @@ class TypeSystem(object):
                 return None
         if name in ('rclass', 'rpbc', 'rbuiltin', 'rtuple', 'rlist',
                     'rslice', 'rdict', 'rrange', 'rstr',
-                    'll_str', 'rbuilder', 'rbytearray', 'exceptiondata'):
+                    'll_str', 'rbuilder', 'rbytearray'):
             mod = load(name)
             if mod is not None:
                 setattr(self, name, mod)
