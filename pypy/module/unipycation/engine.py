@@ -16,7 +16,7 @@ from rpython.rlib import rstring
 
 class W_CoreSolutionIterator(W_Root):
     """
-    An interface that allows retreival of multiple solutions
+    An interface that allows retrieval of multiple solutions
     """
 
     def __init__(self, space, w_unbound_vars, w_goal_term, w_engine):
@@ -35,7 +35,7 @@ class W_CoreSolutionIterator(W_Root):
         self.heap = None
 
     def _populate_result(self, w_unbound_vars, fcont, heap):
-        """ Called interally by the activation of the continuation """
+        """ Called internally by the activation of the continuation """
 
         for w_var in self.space.listview(w_unbound_vars):
             w_var = self.space.interp_w(objects.W_Var, w_var)
