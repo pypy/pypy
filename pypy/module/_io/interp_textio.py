@@ -555,7 +555,8 @@ class W_TextIOWrapper(W_TextIOBase):
                                     space.wrap(self.chunk_size))
 
         if not space.isinstance_w(w_input, space.w_str):
-            msg = "decoder getstate() should have returned a bytes object not '%T'"
+            msg = "decoder getstate() should have returned a bytes " \
+                  "object not '%T'"
             raise operationerrfmt(space.w_TypeError, msg, w_input)
 
         eof = space.len_w(w_input) == 0
@@ -865,7 +866,8 @@ class W_TextIOWrapper(W_TextIOBase):
             w_chunk = space.call_method(self.w_buffer, "read",
                                         space.wrap(cookie.bytes_to_feed))
             if not space.isinstance_w(w_chunk, space.w_str):
-                msg = "underlying read() should have returned a bytes object, not '%T'"
+                msg = "underlying read() should have returned " \
+                      "a bytes object, not '%T'"
                 raise operationerrfmt(space.w_TypeError, msg, w_chunk)
 
             self.snapshot = PositionSnapshot(cookie.dec_flags,
