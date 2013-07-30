@@ -8,7 +8,10 @@ import prolog.interpreter.signature as psig
 import prolog.builtin.formatting as pfmt
 import prolog.interpreter.continuation as pcont
 
+from rpython.rlib import jit
+
 @unwrap_spec(name=str)
+@jit.unroll_safe
 def term_new__(space, w_subtype, name, w_args):
     from pypy.module.unipycation import conversion
 
