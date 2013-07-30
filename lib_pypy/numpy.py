@@ -8,6 +8,8 @@ from numpypy import *
 
 import os
 
+__version__ = '1.6.2'
+
 def get_include():
     head, tail = os.path.split(os.path.dirname(os.path.abspath(__file__)))
     return os.path.join(head, 'include')
