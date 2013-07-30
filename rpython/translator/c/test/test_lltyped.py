@@ -944,7 +944,6 @@ class TestLowLevelType(object):
         assert fn(2) == 10 + 34
 
     def test_const_char_star(self):
-        import os
         from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
         eci = ExternalCompilationInfo(includes=["stdlib.h"])
