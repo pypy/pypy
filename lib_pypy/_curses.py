@@ -1121,6 +1121,7 @@ def setupterm(term=None, fd=-1):
         term = ffi.NULL
     err = ffi.new("int *")
     if lib.setupterm(term, fd, err) == lib.ERR:
+        err = err[0]
         if err == 0:
             raise error("setupterm: could not find terminal")
         elif err == -1:
