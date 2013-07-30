@@ -799,6 +799,15 @@ class RegAlloc(BaseRegalloc):
     consider_cond_call_gc_wb_array = consider_cond_call_gc_wb
 
     def consider_cond_call(self, op):
+        # A 32-bit-only, asmgcc-only issue: 'cond_call_register_arguments'
+        # contains edi and esi, which are also in asmgcroot.py:ASM_FRAMEDATA.
+        # We must make sure that edi and esi do not contain GC pointers.
+        if IS_X86_32 and self.assembler._is_asmgcc():
+            for box, loc in self.rm.reg_bindings.items():
+                if (loc == edi or loc == esi) and box.type == REF:
+                    self.rm.force_spill_var(box)
+                    assert box not in self.rm.reg_bindings
+        #
         assert op.result is None
         args = op.getarglist()
         assert 2 <= len(args) <= 4 + 2     # maximum 4 arguments
