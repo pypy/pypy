@@ -50,6 +50,13 @@ class IntOpModule(MixedModule):
     }
 
 
+class OsModule(MixedModule):
+    appleveldefs = {}
+    interpleveldefs = {
+        'real_getenv': 'interp_os.real_getenv'
+    }
+
+
 class Module(MixedModule):
     appleveldefs = {
     }
@@ -82,6 +89,7 @@ class Module(MixedModule):
         "time": TimeModule,
         "thread": ThreadModule,
         "intop": IntOpModule,
+        "os": OsModule,
     }
 
     def setup_after_space_initialization(self):

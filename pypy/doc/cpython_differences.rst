@@ -45,7 +45,6 @@ List of extension modules that we support:
     binascii
     bz2
     cStringIO
-    clr
     cmath
     `cpyext`_
     crypt

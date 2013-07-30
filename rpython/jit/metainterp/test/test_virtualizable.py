@@ -3,7 +3,7 @@ import py
 from rpython.jit.codewriter import heaptracker
 from rpython.jit.codewriter.policy import StopAtXPolicy
 from rpython.jit.metainterp.optimizeopt.test.test_util import LLtypeMixin
-from rpython.jit.metainterp.test.support import LLJitMixin, OOJitMixin
+from rpython.jit.metainterp.test.support import LLJitMixin
 from rpython.jit.metainterp.warmspot import get_translator
 from rpython.rlib.jit import JitDriver, hint, dont_look_inside, promote, virtual_ref
 from rpython.rlib.rarithmetic import intmask
@@ -1468,12 +1468,6 @@ class ImplicitVirtualizableTests(object):
             "getfield_gc": 1, "int_lt": 2, "ptr_eq": 1, "guard_true": 3,
             "int_add": 2, "jump": 1
         })
-
-
-class TestOOtype(#ExplicitVirtualizableTests,
-                 ImplicitVirtualizableTests,
-                 OOJitMixin):
-    pass
 
 
 class TestLLtype(ExplicitVirtualizableTests,

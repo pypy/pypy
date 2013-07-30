@@ -991,9 +991,12 @@ class MiniMarkGC(MovingGCBase):
         # after a minor or major collection, no object should be in the nursery
         ll_assert(not self.is_in_nursery(obj),
                   "object in nursery after collection")
-        # similarily, all objects should have this flag:
-        ll_assert(self.header(obj).tid & GCFLAG_TRACK_YOUNG_PTRS != 0,
-                  "missing GCFLAG_TRACK_YOUNG_PTRS")
+        # similarily, all objects should have this flag, except if they
+        # don't have any GC pointer
+        typeid = self.get_type_id(obj)
+        if self.has_gcptr(typeid):
+            ll_assert(self.header(obj).tid & GCFLAG_TRACK_YOUNG_PTRS != 0,
+                      "missing GCFLAG_TRACK_YOUNG_PTRS")
         # the GCFLAG_VISITED should not be set between collections
         ll_assert(self.header(obj).tid & GCFLAG_VISITED == 0,
                   "unexpected GCFLAG_VISITED")
@@ -1511,6 +1514,7 @@ class MiniMarkGC(MovingGCBase):
         # replace the old object's content with the target address.
         # A bit of no-ops to convince llarena that we are changing
         # the layout, in non-translated versions.
+        typeid = self.get_type_id(obj)
         obj = llarena.getfakearenaaddress(obj)
         llarena.arena_reset(obj - size_gc_header, totalsize, 0)
         llarena.arena_reserve(obj - size_gc_header,
@@ -1526,7 +1530,9 @@ class MiniMarkGC(MovingGCBase):
         # because it can contain further pointers to other young objects.
         # We will fix such references to point to the copy of the young
         # objects when we walk 'old_objects_pointing_to_young'.
-        self.old_objects_pointing_to_young.append(newobj)
+        if self.has_gcptr(typeid):
+            # we only have to do it if we have any gcptrs
+            self.old_objects_pointing_to_young.append(newobj)
     _trace_drag_out._always_inline_ = True
 
     def _visit_young_rawmalloced_object(self, obj):
@@ -1815,6 +1821,8 @@ class MiniMarkGC(MovingGCBase):
         #
         # It's the first time.  We set the flag.
         hdr.tid |= GCFLAG_VISITED
+        if not self.has_gcptr(llop.extract_ushort(llgroup.HALFWORD, hdr.tid)):
+            return
         #
         # Trace the content of the object and put all objects it references
         # into the 'objects_to_trace' list.

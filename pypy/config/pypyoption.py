@@ -50,11 +50,6 @@ translation_modules.update(dict.fromkeys(
      "termios", "_minimal_curses",
      ]))
 
-working_oo_modules = default_modules.copy()
-working_oo_modules.update(dict.fromkeys(
-    ["_md5", "itertools"]
-))
-
 # XXX this should move somewhere else, maybe to platform ("is this posixish"
 #     check or something)
 if sys.platform == "win32":
@@ -332,10 +327,6 @@ def set_pypy_opt_level(config, level):
         if not IS_64_BITS:
             config.objspace.std.suggest(withsmalllong=True)
 
-    # some optimizations have different effects depending on the typesystem
-    if type_system == 'ootype':
-        config.objspace.std.suggest(multimethods="doubledispatch")
-
     # extra optimizations with the JIT
     if level == 'jit':
         config.objspace.std.suggest(withcelldict=True)
@@ -343,10 +334,7 @@ def set_pypy_opt_level(config, level):
 
 
 def enable_allworkingmodules(config):
-    if config.translation.type_system == 'ootype':
-        modules = working_oo_modules
-    else:
-        modules = working_modules
+    modules = working_modules
     if config.translation.sandbox:
         modules = default_modules
     # ignore names from 'essential_modules', notably 'exceptions', which

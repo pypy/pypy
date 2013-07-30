@@ -259,6 +259,23 @@ class AssemblerARM(ResOpAssembler):
         else:
             self.wb_slowpath[withcards + 2 * withfloats] = rawstart
 
+    def _build_cond_call_slowpath(self, supports_floats, callee_only):
+        """ This builds a general call slowpath, for whatever call happens to
+        come.
+        """
+        mc = InstrBuilder(self.cpu.cpuinfo.arch_version)
+        #
+        self._push_all_regs_to_jitframe(mc, [], self.cpu.supports_floats, callee_only)
+        ## args are in their respective positions
+        mc.PUSH([r.ip.value, r.lr.value])
+        mc.BLX(r.r4.value)
+        self._reload_frame_if_necessary(mc)
+        self._pop_all_regs_from_jitframe(mc, [], supports_floats,
+                                      callee_only)
+        # return
+        mc.POP([r.ip.value, r.pc.value])
+        return mc.materialize(self.cpu.asmmemmgr, [])
+
     def _build_malloc_slowpath(self, kind):
         """ While arriving on slowpath, we have a gcpattern on stack 0.
         The arguments are passed in r0 and r10, as follows:

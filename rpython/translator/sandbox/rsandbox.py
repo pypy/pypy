@@ -65,8 +65,6 @@ class FdLoader(rmarshal.Loader):
         self.buf += ''.join([buf[i] for i in range(count)])
         self.buflen *= 2
 
-##CFalse = CDefinedIntSymbolic('0')    # hack hack
-
 def sandboxed_io(buf):
     STDIN = 0
     STDOUT = 1

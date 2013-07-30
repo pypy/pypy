@@ -177,12 +177,8 @@ def numeric_formatting_impl():
     grouping = rffi.charp2str(conv.c_grouping)
     return decimal_point, thousands_sep, grouping
 
-def oo_numeric_formatting():
-    return '.', '', ''
-
 register_external(numeric_formatting, [], (str, str, str),
                   llimpl=numeric_formatting_impl,
-                  ooimpl=oo_numeric_formatting,
                   sandboxsafe=True)
 
 

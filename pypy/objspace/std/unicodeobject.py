@@ -457,9 +457,6 @@ def unicode_endswith__Unicode_Unicode_ANY_ANY(space, w_self, w_substr, w_start, 
 
 def unicode_startswith__Unicode_Unicode_ANY_ANY(space, w_self, w_substr, w_start, w_end):
     self, start, end = _convert_idx_params(space, w_self, w_start, w_end, True)
-    # XXX this stuff can be waaay better for ootypebased backends if
-    #     we re-use more of our rpython machinery (ie implement startswith
-    #     with additional parameters as rpython)
     return space.newbool(startswith(self, w_substr._value, start, end))
 
 def unicode_startswith__Unicode_ANY_ANY_ANY(space, w_unistr, w_prefixes,

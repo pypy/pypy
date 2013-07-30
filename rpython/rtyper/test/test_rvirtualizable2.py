@@ -1,6 +1,6 @@
 import py
 from rpython.rtyper.lltypesystem import lltype, llmemory
-from rpython.rtyper.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
+from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rtyper.rvirtualizable2 import replace_force_virtualizable_with_call
 from rpython.rlib.jit import hint
 from rpython.flowspace.model import summary
@@ -30,7 +30,7 @@ class B(object):
     _virtualizable2_ = ['v0']
 
     x = "XX"
-    
+
     def __init__(self, v0):
         self.v0 = v0
 
@@ -41,7 +41,14 @@ def get_force_virtualizable_flags(graph):
             res.append(op.args[-1].value)
     return res
 
-class BaseTest(BaseRtypingTest):
+class TestVirtualizable(BaseRtypingTest):
+    prefix = 'inst_'
+    GETFIELD = 'getfield'
+    SETFIELD = 'setfield'
+
+    def gettype(self, v):
+        return v.concretetype.TO
+
     def test_generate_force_virtualizable(self):
         def fn(n):
             vinst = V(n)
@@ -50,7 +57,7 @@ class BaseTest(BaseRtypingTest):
         block = graph.startblock
         op_promote = block.operations[-2]
         op_getfield = block.operations[-1]
-        assert op_getfield.opname in ('getfield', 'oogetfield')
+        assert op_getfield.opname == 'getfield'
         v_inst = op_getfield.args[0]
         assert op_promote.opname == 'jit_force_virtualizable'
         assert op_promote.args[0] is v_inst
@@ -65,7 +72,7 @@ class BaseTest(BaseRtypingTest):
         block = graph.startblock
         op_promote = block.operations[-2]
         op_getfield = block.operations[-1]
-        assert op_getfield.opname in ('getfield', 'oogetfield')
+        assert op_getfield.opname == 'getfield'
         v_inst = op_getfield.args[0]
         assert op_promote.opname == 'jit_force_virtualizable'
         assert op_promote.args[0] is v_inst
@@ -79,7 +86,7 @@ class BaseTest(BaseRtypingTest):
         block = graph.startblock
         op_getfield = block.operations[-1]
         op_call = block.operations[-2]
-        assert op_getfield.opname in ('getfield', 'oogetfield')
+        assert op_getfield.opname == 'getfield'
         assert op_call.opname == 'direct_call'    # to V.__init__
 
     def test_generate_force_virtualizable_array(self):
@@ -92,11 +99,11 @@ class BaseTest(BaseRtypingTest):
         op_getfield = block.operations[-2]
         op_getarrayitem = block.operations[-1]
         assert op_getarrayitem.opname == 'direct_call'  # to ll_getitem_xxx
-        assert op_getfield.opname in ('getfield', 'oogetfield')
+        assert op_getfield.opname == 'getfield'
         v_inst = op_getfield.args[0]
         assert op_promote.opname == 'jit_force_virtualizable'
         assert op_promote.args[0] is v_inst
-        assert op_promote.args[-1].value == {}        
+        assert op_promote.args[-1].value == {}
 
     def test_accessor(self):
         class Base(object):
@@ -140,7 +147,7 @@ class BaseTest(BaseRtypingTest):
             if op.opname == 'jit_force_virtualizable':
                 v_inst_ll_type = op.args[0].concretetype
                 break
-            
+
         def mycall(vinst_ll):
             if vinst_ll.vable_token:
                 raise ValueError
@@ -161,13 +168,13 @@ class BaseTest(BaseRtypingTest):
         _, rtyper, graph = self.gengraph(fn, [int])
         block = graph.startblock
         op_getfield = block.operations[-1]
-        assert op_getfield.opname in ('getfield', 'oogetfield')
+        assert op_getfield.opname == 'getfield'
         funcptr = self.replace_force_virtualizable(rtyper, [graph])
         if getattr(option, 'view', False):
             graph.show()
         op_promote = block.operations[-2]
         op_getfield = block.operations[-1]
-        assert op_getfield.opname in ('getfield', 'oogetfield')
+        assert op_getfield.opname == 'getfield'
         assert op_promote.opname == 'direct_call'
         assert op_promote.args[0].value == funcptr
         assert op_promote.args[1] == op_getfield.args[0]
@@ -216,7 +223,7 @@ class BaseTest(BaseRtypingTest):
         self.replace_force_virtualizable(typer, [f_graph, g_graph])
         t.checkgraphs()
 
-        res = self.interpret(f, [23]) 
+        res = self.interpret(f, [23])
         assert res == 23
 
     def test_access_directly_specialized(self):
@@ -237,16 +244,16 @@ class BaseTest(BaseRtypingTest):
         assert g_graphs[0][0] is None
 
         assert get_force_virtualizable_flags(g_graphs[0][1]) == [{}]
-        expected =  [{'access_directly': True}]        
+        expected =  [{'access_directly': True}]
         assert get_force_virtualizable_flags(g_graphs[1][1]) == expected
 
         self.replace_force_virtualizable(typer, [g_graphs[0][1],
                                                  g_graphs[1][1]])
-        
-        assert summary(g_graphs[0][1]) == {'direct_call': 1, self.GETFIELD: 1}
-        assert summary(g_graphs[1][1]) == {self.GETFIELD: 1}        
 
-        res = self.interpret(f, [23]) 
+        assert summary(g_graphs[0][1]) == {'direct_call': 1, self.GETFIELD: 1}
+        assert summary(g_graphs[1][1]) == {self.GETFIELD: 1}
+
+        res = self.interpret(f, [23])
         assert res == 46
 
     def test_access_directly_escape(self):
@@ -274,7 +281,7 @@ class BaseTest(BaseRtypingTest):
         assert g_graphs[0][0] is None
         assert summary(g_graphs[0][1]) == {self.SETFIELD: 1}
         assert summary(g_graphs[1][1]) == {self.SETFIELD: 1}
-        
+
         h_graph = t._graphof(h)
         assert summary(h_graph) == {'jit_force_virtualizable': 1,
                                     self.GETFIELD: 1}
@@ -289,7 +296,7 @@ class BaseTest(BaseRtypingTest):
 
             def __init__(self, v):
                 self.v0 = v
-            
+
             def meth1(self, x):
                 return self.g(x+1)
 
@@ -305,7 +312,7 @@ class BaseTest(BaseRtypingTest):
         g_graph = t._graphof(A.g.im_func)
 
         self.replace_force_virtualizable(typer, [g_graph])
-        
+
         assert summary(g_graph) == {self.GETFIELD: 1, 'int_mul': 1}
 
         res = self.interpret(f, [23])
@@ -319,8 +326,8 @@ class BaseTest(BaseRtypingTest):
 
         def h(a):
             g(a)
-        h = dont_look_inside(h)        
-        
+        h = dont_look_inside(h)
+
         def g(a):
             a.x = 2
             h(a)
@@ -333,7 +340,7 @@ class BaseTest(BaseRtypingTest):
 
         t, typer, graph = self.gengraph(f, [])
         deref = typer.type_system_deref
-        
+
         desc = typer.annotator.bookkeeper.getdesc(g)
         g_graphs = desc._cache.items()
         assert len(g_graphs) == 2
@@ -357,14 +364,6 @@ class BaseTest(BaseRtypingTest):
         assert get_direct_call_graph(g_graph_directly) is h_graph
         assert get_direct_call_graph(h_graph) is g_graph
 
-class TestLLtype(LLRtypeMixin, BaseTest):
-    prefix = 'inst_'
-    GETFIELD = 'getfield'
-    SETFIELD = 'setfield'
-
-    def gettype(self, v):
-        return v.concretetype.TO
-
     def test_simple(self):
         def f(v):
             vinst = V(v)
@@ -374,11 +373,3 @@ class TestLLtype(LLRtypeMixin, BaseTest):
         res = lltype.normalizeptr(res.item0)
         assert res.inst_v == 42
         assert res.vable_token == lltype.nullptr(llmemory.GCREF.TO)
-
-class TestOOtype(OORtypeMixin, BaseTest):
-    prefix = 'o'
-    GETFIELD = 'oogetfield'
-    SETFIELD = 'oosetfield'    
-    
-    def gettype(self, v):
-        return v.concretetype

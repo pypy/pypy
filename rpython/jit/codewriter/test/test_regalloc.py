@@ -250,7 +250,7 @@ class TestRegAlloc:
         class FakeCallControl:
             def guess_call_kind(self, op):
                 return 'residual'
-            def getcalldescr(self, op):
+            def getcalldescr(self, op, **kwds):
                 return FakeDescr()
             def calldescr_canraise(self, calldescr):
                 return True

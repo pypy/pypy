@@ -19,14 +19,6 @@ def run_child(glob, loc):
     apply_jit(interp, graph, LLtypeCPU)
 
 
-def run_child_ootype(glob, loc):
-    import sys, pdb
-    interp = loc['interp']
-    graph = loc['graph']
-    from rpython.jit.backend.llgraph.runner import OOtypeCPU
-    apply_jit(interp, graph, OOtypeCPU)
-
-
 def apply_jit(interp, graph, CPUClass):
     print 'warmspot.jittify_and_run() started...'
     policy = PyPyJitPolicy()

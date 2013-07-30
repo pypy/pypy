@@ -1,4 +1,4 @@
-from rpython.rtyper.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
+from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rtyper.test.test_llinterp import interpret
 from rpython.rlib.rarithmetic import *
 from rpython.rlib.rstring import ParseStringError, ParseStringOverflowError
@@ -68,7 +68,7 @@ class Test_r_int:
                     left, right = types
                     cmp = f(left(larg), right(rarg))
                     assert res == cmp
-                    
+
 class Test_r_uint:
     def test__add__(self):
         self.binary_test(lambda x, y: x + y)
@@ -115,12 +115,12 @@ class Test_r_uint:
 
     def unary_test(self, f):
         for arg in (0, 3, 12345):
-            res = f(arg) & maxint_mask 
+            res = f(arg) & maxint_mask
             cmp = f(r_uint(arg))
             assert res == cmp
 
     def binary_test(self, f, rargs = None, translated=False):
-        mask = maxint_mask 
+        mask = maxint_mask
         if not rargs:
             rargs = (1, 3, 55)
         # when translated merging different int types is not allowed
@@ -178,7 +178,7 @@ def test_intmask():
     assert intmask(2*sys.maxint+1) == -1
     assert intmask(sys.maxint*2) == -2
     assert intmask(sys.maxint*2+2) == 0
-    assert intmask(2*(sys.maxint*1+1)) == 0    
+    assert intmask(2*(sys.maxint*1+1)) == 0
     assert intmask(1 << (machbits-1)) == 1 << (machbits-1)
     assert intmask(sys.maxint+1) == minint
     assert intmask(minint-1) == sys.maxint
@@ -229,13 +229,13 @@ def test_ovfcheck():
     except OverflowError:
         assert False
     else:
-        pass        
+        pass
     try:
         ovfcheck(n-n)
     except OverflowError:
         assert False
     else:
-        pass    
+        pass
 
     # overflowing
     try:
@@ -313,7 +313,7 @@ def test_r_singlefloat_eq():
     assert x != 2.5
     py.test.raises(TypeError, "x>y")
 
-class BaseTestRarithmetic(BaseRtypingTest):
+class TestRarithmetic(BaseRtypingTest):
     def test_compare_singlefloat_crashes(self):
         from rpython.rlib.rarithmetic import r_singlefloat
         from rpython.rtyper.error import MissingRTypeOperation
@@ -332,11 +332,6 @@ class BaseTestRarithmetic(BaseRtypingTest):
         res = self.interpret(f, [123])
         assert res == 4 + 2
 
-class TestLLtype(BaseTestRarithmetic, LLRtypeMixin):
-    pass
-
-class TestOOtype(BaseTestRarithmetic, OORtypeMixin):
-    pass
 
 def test_int_real_union():
     from rpython.rtyper.lltypesystem.rffi import r_int_real

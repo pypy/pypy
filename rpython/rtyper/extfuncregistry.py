@@ -7,7 +7,6 @@ from rpython.rtyper.extfunc import register_external
 
 import math
 from rpython.rtyper.lltypesystem.module import ll_math
-from rpython.rtyper.ootypesystem.module import ll_math as oo_math
 from rpython.rtyper.module import ll_os
 from rpython.rtyper.module import ll_time
 from rpython.rlib import rfloat
@@ -57,16 +56,10 @@ _register = [  # (module, [(method name, arg types, return type), ...], ...)
 for module, methods in _register:
     for name, arg_types, return_type in methods:
         method_name = 'll_math_%s' % name
-        oofake = None
-        # Things with a tuple return type have a fake impl for RPython, check
-        # to see if the method has one.
-        if hasattr(oo_math, method_name):
-            oofake = getattr(oo_math, method_name)
         register_external(getattr(module, name), arg_types, return_type,
                           export_name='ll_math.%s' % method_name,
                           sandboxsafe=True,
-                          llimpl=getattr(ll_math, method_name),
-                          oofakeimpl=oofake)
+                          llimpl=getattr(ll_math, method_name))
 
 # ___________________________
 # os.path functions
@@ -82,9 +75,6 @@ import os.path
 # external function, but we provide a clone for lltype using
 # func_with_new_name.
 
-# XXX: I can't see any easy way to provide an oofakeimpl for the
-# llinterpreter
-
 path_functions = [
     ('join',     [ll_os.str0, ll_os.str0], ll_os.str0),
     ('dirname',  [ll_os.str0], ll_os.str0),
@@ -95,7 +85,3 @@ for name, args, res in path_functions:
     llimpl = func_with_new_name(func, name)
     register_external(func, args, res, 'll_os_path.ll_%s' % name,
                       llimpl=llimpl, sandboxsafe=True)
-
-# -------------------- strtod functions ----------------------
-
-from rpython.rtyper.module import ll_strtod

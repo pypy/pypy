@@ -2,10 +2,9 @@ import py
 from rpython.rlib.jit import JitDriver, promote, dont_look_inside
 from rpython.rlib.objectmodel import compute_unique_id
 from rpython.jit.codewriter.policy import StopAtXPolicy
-from rpython.jit.metainterp.test.support import LLJitMixin, OOJitMixin
+from rpython.jit.metainterp.test.support import LLJitMixin
 from rpython.rtyper.lltypesystem import lltype, rclass, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
-from rpython.rtyper.ootypesystem import ootype
 from rpython.jit.codewriter import heaptracker
 
 class VirtualTests:
@@ -189,7 +188,7 @@ class VirtualTests:
         self.check_resops(new_with_vtable=0, setfield_gc=0,
                           getfield_gc=2, new=0)
 
-        
+
     def test_two_loops_with_escaping_virtual(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'node'])
         def externfn(node):
@@ -296,7 +295,7 @@ class VirtualTests:
 
         class StuffList(object):
             _immutable_ = True
-        
+
         def f(n, a, i):
             stufflist = StuffList()
             stufflist.lst = [Stuff(a), Stuff(3)]
@@ -339,7 +338,7 @@ class VirtualTests:
 
         res = self.meta_interp(f, [10], policy=StopAtXPolicy(g))
         assert res == 3
-        self.check_resops(**{self._new_op: 1}) 
+        self.check_resops(**{self._new_op: 1})
 
     def test_virtual_on_virtual(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'parent'])
@@ -351,7 +350,7 @@ class VirtualTests:
         class SubNode(object):
             def __init__(self, f):
                 self.f = f
-        
+
         def f(n):
             subnode = self._new()
             subnode.value = 3
@@ -439,7 +438,7 @@ class VirtualTests:
                 n -= 1
             return sa
         assert self.meta_interp(f, [30]) == f(30)
-        
+
     def test_constant_virtual2(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'sa', 'node'])
         def f(n):
@@ -461,7 +460,7 @@ class VirtualTests:
                 n -= 1
             return sa
         assert self.meta_interp(f, [31]) == f(31)
-        
+
     def test_stored_reference_with_bridge1(self):
         class RefNode(object):
             def __init__(self, ref):
@@ -711,7 +710,7 @@ class VirtualTests:
         assert self.meta_interp(f, [40]) == f(40)
 
     def FIXME_why_does_this_force(self):
-        mydriver = JitDriver(reds = ['i', 'j'], greens = []) 
+        mydriver = JitDriver(reds = ['i', 'j'], greens = [])
         def f():
             i = self._new()
             i.value = 0
@@ -727,7 +726,7 @@ class VirtualTests:
         assert self.meta_interp(f, []) == 20
 
     def FIXME_why_does_this_force2(self):
-        mydriver = JitDriver(reds = ['i', 'j'], greens = []) 
+        mydriver = JitDriver(reds = ['i', 'j'], greens = [])
         def f():
             i = self._new()
             i.value = 0
@@ -745,7 +744,7 @@ class VirtualTests:
                 i = j
             return i.value + j.value
         assert self.meta_interp(f, []) == 20
-                
+
     def test_virtual_skipped_by_bridge(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'm', 'i', 'x'])
         def f(n, m):
@@ -778,12 +777,12 @@ class VirtualTests:
                 node1 = next
                 node2 = next
                 n -= 1
-            return node1.value 
+            return node1.value
         res = self.meta_interp(f, [10])
         assert res == f(10)
         self.check_resops(new_with_vtable=0, new=0)
 
-        
+
 
     def test_retrace_not_matching_bridge(self):
         @dont_look_inside
@@ -817,7 +816,7 @@ class VirtualTests:
                 node2 = node2.new()
 
                 i += 1
-            return node.value 
+            return node.value
         res = self.meta_interp(f, [10], repeat=10)
         assert res == f(10)
         self.check_resops(jump=2)
@@ -855,7 +854,7 @@ class VirtualTests:
                 node2 = node2.new()
                 node.value += len(s)
                 i += 1
-            return node.value 
+            return node.value
         res = self.meta_interp(f, [10], repeat=10)
         assert res == f(10)
         self.check_resops(jump=2)
@@ -1018,12 +1017,12 @@ class VirtualMiscTests:
         assert r == expected
 
     def test_arraycopy_disappears(self):
-        mydriver = JitDriver(reds = ['i'], greens = []) 
+        mydriver = JitDriver(reds = ['i'], greens = [])
         def f():
             i = 0
             while i < 10:
                 mydriver.can_enter_jit(i=i)
-                mydriver.jit_merge_point(i=i)                
+                mydriver.jit_merge_point(i=i)
                 t = (1, 2, 3, i + 1)
                 t2 = t[:]
                 del t
@@ -1039,7 +1038,7 @@ class VirtualMiscTests:
         class A(object):
             def __init__(self, state):
                 self.state = state
-        
+
         def f():
             i = 0
             s = 10000
@@ -1227,7 +1226,7 @@ class MyClass:
 class TestLLtype_Instance(VirtualTests, LLJitMixin):
     _new_op = 'new_with_vtable'
     _field_prefix = 'inst_'
-    
+
     @staticmethod
     def _new():
         return MyClass()
@@ -1261,16 +1260,6 @@ class TestLLtype_Instance(VirtualTests, LLJitMixin):
         self.check_resops(new_with_vtable=0, setfield_gc=0, getfield_gc=0,
                           new=0)
 
-class TestOOtype_Instance(VirtualTests, OOJitMixin):
-    _new_op = 'new_with_vtable'
-    _field_prefix = 'o'
-    
-    @staticmethod
-    def _new():
-        return MyClass()
-
-    test_class_with_default_fields = TestLLtype_Instance.test_class_with_default_fields.im_func
-
 # ____________________________________________________________
 # Run 2: all the tests use lltype.malloc to make a NODE
 
@@ -1281,26 +1270,11 @@ NODE = lltype.GcStruct('NODE', ('value', lltype.Signed),
 class TestLLtype_NotObject(VirtualTests, LLJitMixin):
     _new_op = 'new'
     _field_prefix = ''
-    
+
     @staticmethod
     def _new():
         return lltype.malloc(NODE)
 
-
-
-
-OONODE = ootype.Instance('NODE', ootype.ROOT, {})
-OONODE._add_fields({'value': ootype.Signed,
-                    'floatval' : ootype.Float,
-                    'extra': ootype.Signed})
-
-class TestOOtype_NotObject(VirtualTests, OOJitMixin):
-    _new_op = 'new_with_vtable'
-    _field_prefix = ''
-    
-    @staticmethod
-    def _new():
-        return ootype.new(OONODE)
 
 # ____________________________________________________________
 # Run 3: all the tests use lltype.malloc to make a NODE2
@@ -1317,7 +1291,7 @@ heaptracker.set_testing_vtable_for_gcstruct(NODE2, vtable2, 'NODE2')
 class TestLLtype_Object(VirtualTests, LLJitMixin):
     _new_op = 'new_with_vtable'
     _field_prefix = ''
-    
+
     @staticmethod
     def _new():
         p = lltype.malloc(NODE2)
@@ -1325,9 +1299,6 @@ class TestLLtype_Object(VirtualTests, LLJitMixin):
         return p
 
 # misc
-
-class TestOOTypeMisc(VirtualMiscTests, OOJitMixin):
-    pass
 
 class TestLLTypeMisc(VirtualMiscTests, LLJitMixin):
     pass

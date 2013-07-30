@@ -982,6 +982,22 @@ class AppTestCompiler:
             assert False, (3,)
         except AssertionError as e:
             assert str(e) == "(3,)"
+
+    # BUILD_LIST_FROM_ARG is PyPy specific
+    @py.test.mark.skipif('config.option.runappdirect')
+    def test_build_list_from_arg_length_hint(self):
+        py3k_skip('XXX: BUILD_LIST_FROM_ARG list comps are genexps on py3k')
+        hint_called = [False]
+        class Foo(object):
+            def __length_hint__(self):
+                hint_called[0] = True
+                return 5
+            def __iter__(self):
+                for i in range(5):
+                    yield i
+        l = [a for a in Foo()]
+        assert hint_called[0]
+        assert l == list(range(5))
         
 
 class TestOptimizations:

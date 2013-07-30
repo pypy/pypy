@@ -23,9 +23,8 @@ from rpython.rtyper.error import TyperError
 from rpython.rtyper.lltypesystem.lltype import (Signed, Void, LowLevelType,
     Ptr, ContainerType, FuncType, functionptr, typeOf, RuntimeTypeInfo,
     attachRuntimeTypeInfo, Primitive)
-from rpython.rtyper.ootypesystem import ootype
 from rpython.rtyper.rmodel import Repr, inputconst, BrokenReprTyperError
-from rpython.rtyper.typesystem import LowLevelTypeSystem, ObjectOrientedTypeSystem
+from rpython.rtyper.typesystem import LowLevelTypeSystem
 from rpython.tool.pairtype import pair
 from rpython.translator.unsimplify import insert_empty_block
 
@@ -41,8 +40,6 @@ class RPythonTyper(object):
         if isinstance(type_system, str):
             if type_system == "lltype":
                 self.type_system = LowLevelTypeSystem.instance
-            elif type_system == "ootype":
-                self.type_system = ObjectOrientedTypeSystem.instance
             else:
                 raise TyperError("Unknown type system %r!" % type_system)
         else:
@@ -80,14 +77,6 @@ class RPythonTyper(object):
         except:
             self.seed = 0
         self.order = None
-        # the following code would invoke translator.goal.order, which is
-        # not up-to-date any more:
-##        RTYPERORDER = os.getenv('RTYPERORDER')
-##        if RTYPERORDER:
-##            order_module = RTYPERORDER.split(',')[0]
-##            self.order = __import__(order_module, {}, {},  ['*']).order
-##            s = 'Using %s.%s for order' % (self.order.__module__, self.order.__name__)
-##            self.log.info(s)
 
     def getconfig(self):
         return self.annotator.translator.config
@@ -208,8 +197,6 @@ class RPythonTyper(object):
         if self.exceptiondata is not None:
             self.exceptiondata.make_helpers(self)
             self.specialize_more_blocks()   # for the helpers just made
-        if self.type_system.name == 'ootypesystem':
-            self.attach_methods_to_subclasses()
 
     def getannmixlevel(self):
         if self.annmixlevel is not None:
@@ -274,40 +261,6 @@ class RPythonTyper(object):
         del self.annmixlevel
         if annmixlevel is not None:
             annmixlevel.finish()
-
-    def attach_methods_to_subclasses(self):
-        # in ootype, it might happen that a method is defined in the
-        # superclass but the annotator discovers that it's always called
-        # through instances of a subclass (e.g. because of specialization, see
-        # test_rclass.test_method_specialized_with_subclass).  In that cases,
-        # we copy the method also in the ootype.Instance of the subclass, so
-        # that the type of v_self coincides with the type returned by
-        # _lookup().
-        assert self.type_system.name == 'ootypesystem'
-        def allclasses(TYPE, seen):
-            '''Yield TYPE and all its subclasses'''
-            if TYPE in seen:
-                return
-            seen.add(TYPE)
-            yield TYPE
-            for SUB in TYPE._subclasses:
-                for T in allclasses(SUB, seen):
-                    yield T
-
-        for TYPE in allclasses(ootype.ROOT, set()):
-            for methname, meth in TYPE._methods.iteritems():
-                try:
-                    graph = meth.graph
-                except AttributeError:
-                    continue
-                SELF = graph.getargs()[0].concretetype
-                if TYPE != SELF and ootype.isSubclass(SELF, TYPE):
-                    # the annotator found that this method has a more precise
-                    # type. Attach it to the proper subclass, so that the type
-                    # of 'self' coincides with the type returned by _lookup(),
-                    # else we might have type errors
-                    if methname not in SELF._methods:
-                        ootype.addMethods(SELF, {methname: meth})
 
     def dump_typererrors(self, num=None, minimize=True, to_log=False):
         c = 0
@@ -1015,4 +968,3 @@ from rpython.rtyper import rclass, rbuiltin, rpbc
 from rpython.rtyper import rptr
 from rpython.rtyper import rweakref
 from rpython.rtyper import raddress # memory addresses
-from rpython.rtyper.ootypesystem import rootype

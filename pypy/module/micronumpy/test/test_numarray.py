@@ -24,8 +24,8 @@ class MockDtype(object):
     def get_size(self):
         return 1
 
-def create_slice(a, chunks):
-    return Chunks(chunks).apply(W_NDimArray(a)).implementation
+def create_slice(space, a, chunks):
+    return Chunks(chunks).apply(space, W_NDimArray(a)).implementation
 
 
 def create_array(*args, **kwargs):
@@ -46,100 +46,100 @@ class TestNumArrayDirect(object):
         return self.space.newtuple(args_w)
 
     def test_strides_f(self):
-        a = create_array([10, 5, 3], MockDtype(), order='F')
+        a = create_array(self.space, [10, 5, 3], MockDtype(), order='F')
         assert a.strides == [1, 10, 50]
         assert a.backstrides == [9, 40, 100]
 
     def test_strides_c(self):
-        a = create_array([10, 5, 3], MockDtype(), order='C')
+        a = create_array(self.space, [10, 5, 3], MockDtype(), order='C')
         assert a.strides == [15, 3, 1]
         assert a.backstrides == [135, 12, 2]
-        a = create_array([1, 0, 7], MockDtype(), order='C')
+        a = create_array(self.space, [1, 0, 7], MockDtype(), order='C')
         assert a.strides == [7, 7, 1]
         assert a.backstrides == [0, 0, 6]
 
     def test_create_slice_f(self):
-        a = create_array([10, 5, 3], MockDtype(), order='F')
-        s = create_slice(a, [Chunk(3, 0, 0, 1)])
+        a = create_array(self.space, [10, 5, 3], MockDtype(), order='F')
+        s = create_slice(self.space, a, [Chunk(3, 0, 0, 1)])
         assert s.start == 3
         assert s.strides == [10, 50]
         assert s.backstrides == [40, 100]
-        s = create_slice(a, [Chunk(1, 9, 2, 4)])
+        s = create_slice(self.space, a, [Chunk(1, 9, 2, 4)])
         assert s.start == 1
         assert s.strides == [2, 10, 50]
         assert s.backstrides == [6, 40, 100]
-        s = create_slice(a, [Chunk(1, 5, 3, 2), Chunk(1, 2, 1, 1), Chunk(1, 0, 0, 1)])
+        s = create_slice(self.space, a, [Chunk(1, 5, 3, 2), Chunk(1, 2, 1, 1), Chunk(1, 0, 0, 1)])
         assert s.shape == [2, 1]
         assert s.strides == [3, 10]
         assert s.backstrides == [3, 0]
-        s = create_slice(a, [Chunk(0, 10, 1, 10), Chunk(2, 0, 0, 1)])
+        s = create_slice(self.space, a, [Chunk(0, 10, 1, 10), Chunk(2, 0, 0, 1)])
         assert s.start == 20
         assert s.shape == [10, 3]
 
     def test_create_slice_c(self):
-        a = create_array([10, 5, 3], MockDtype(), order='C')
-        s = create_slice(a, [Chunk(3, 0, 0, 1)])
+        a = create_array(self.space, [10, 5, 3], MockDtype(), order='C')
+        s = create_slice(self.space, a, [Chunk(3, 0, 0, 1)])
         assert s.start == 45
         assert s.strides == [3, 1]
         assert s.backstrides == [12, 2]
-        s = create_slice(a, [Chunk(1, 9, 2, 4)])
+        s = create_slice(self.space, a, [Chunk(1, 9, 2, 4)])
         assert s.start == 15
         assert s.strides == [30, 3, 1]
         assert s.backstrides == [90, 12, 2]
-        s = create_slice(a, [Chunk(1, 5, 3, 2), Chunk(1, 2, 1, 1),
+        s = create_slice(self.space, a, [Chunk(1, 5, 3, 2), Chunk(1, 2, 1, 1),
                             Chunk(1, 0, 0, 1)])
         assert s.start == 19
         assert s.shape == [2, 1]
         assert s.strides == [45, 3]
         assert s.backstrides == [45, 0]
-        s = create_slice(a, [Chunk(0, 10, 1, 10), Chunk(2, 0, 0, 1)])
+        s = create_slice(self.space, a, [Chunk(0, 10, 1, 10), Chunk(2, 0, 0, 1)])
         assert s.start == 6
         assert s.shape == [10, 3]
 
     def test_slice_of_slice_f(self):
-        a = create_array([10, 5, 3], MockDtype(), order='F')
-        s = create_slice(a, [Chunk(5, 0, 0, 1)])
+        a = create_array(self.space, [10, 5, 3], MockDtype(), order='F')
+        s = create_slice(self.space, a, [Chunk(5, 0, 0, 1)])
         assert s.start == 5
-        s2 = create_slice(s, [Chunk(3, 0, 0, 1)])
+        s2 = create_slice(self.space, s, [Chunk(3, 0, 0, 1)])
         assert s2.shape == [3]
         assert s2.strides == [50]
         assert s2.parent is a
         assert s2.backstrides == [100]
         assert s2.start == 35
-        s = create_slice(a, [Chunk(1, 5, 3, 2)])
-        s2 = create_slice(s, [Chunk(0, 2, 1, 2), Chunk(2, 0, 0, 1)])
+        s = create_slice(self.space, a, [Chunk(1, 5, 3, 2)])
+        s2 = create_slice(self.space, s, [Chunk(0, 2, 1, 2), Chunk(2, 0, 0, 1)])
         assert s2.shape == [2, 3]
         assert s2.strides == [3, 50]
         assert s2.backstrides == [3, 100]
         assert s2.start == 1 * 15 + 2 * 3
 
     def test_slice_of_slice_c(self):
-        a = create_array([10, 5, 3], MockDtype(), order='C')
-        s = create_slice(a, [Chunk(5, 0, 0, 1)])
+        a = create_array(self.space, [10, 5, 3], MockDtype(), order='C')
+        s = create_slice(self.space, a, [Chunk(5, 0, 0, 1)])
         assert s.start == 15 * 5
-        s2 = create_slice(s, [Chunk(3, 0, 0, 1)])
+        s2 = create_slice(self.space, s, [Chunk(3, 0, 0, 1)])
         assert s2.shape == [3]
         assert s2.strides == [1]
         assert s2.parent is a
         assert s2.backstrides == [2]
         assert s2.start == 5 * 15 + 3 * 3
-        s = create_slice(a, [Chunk(1, 5, 3, 2)])
-        s2 = create_slice(s, [Chunk(0, 2, 1, 2), Chunk(2, 0, 0, 1)])
+        s = create_slice(self.space, a, [Chunk(1, 5, 3, 2)])
+        s2 = create_slice(self.space, s, [Chunk(0, 2, 1, 2), Chunk(2, 0, 0, 1)])
         assert s2.shape == [2, 3]
         assert s2.strides == [45, 1]
         assert s2.backstrides == [45, 2]
         assert s2.start == 1 * 15 + 2 * 3
 
     def test_negative_step_f(self):
-        a = create_array([10, 5, 3], MockDtype(), order='F')
-        s = create_slice(a, [Chunk(9, -1, -2, 5)])
+        a = create_array(self.space, [10, 5, 3], MockDtype(), order='F')
+        s = create_slice(self.space, a, [Chunk(9, -1, -2, 5)])
         assert s.start == 9
         assert s.strides == [-2, 10, 50]
         assert s.backstrides == [-8, 40, 100]
 
     def test_negative_step_c(self):
-        a = create_array([10, 5, 3], MockDtype(), order='C')
-        s = create_slice(a, [Chunk(9, -1, -2, 5)])
+        a = create_array(self.space, [10, 5, 3], MockDtype(), order='C')
+        s = create_slice(self.space, a, [Chunk(9, -1, -2, 5)])
         assert s.start == 135
         assert s.strides == [-30, 3, 1]
         assert s.backstrides == [-120, 12, 2]
@@ -207,7 +207,8 @@ class TestNumArrayDirect(object):
             raw_storage_setitem(storage, i, rffi.cast(rffi.UCHAR, i))
         #
         dtypes = get_dtype_cache(self.space)
-        w_array = W_NDimArray.from_shape_and_storage([2, 2], storage, dtypes.w_int8dtype)
+        w_array = W_NDimArray.from_shape_and_storage(self.space, [2, 2],
+                                                storage, dtypes.w_int8dtype)
         def get(i, j):
             return w_array.getitem(self.space, [i, j]).value
         assert get(0, 0) == 0
@@ -1442,7 +1443,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert x.view('int8').shape == (10, 3)
 
     def test_ndarray_view_empty(self):
-        from numpypy import array, int8, int16, dtype
+        from numpypy import array, int8, int16
         x = array([], dtype=[('a', int8), ('b', int8)])
         y = x.view(dtype=int16)
 
@@ -2877,6 +2878,12 @@ class AppTestPyPy(BaseNumpyAppTest):
         assert y[0, 1] == 2
         y[0, 1] = 42
         assert x[1] == 42
+        class C(ndarray):
+            pass
+        z = ndarray._from_shape_and_storage([4, 1], addr, x.dtype, C)
+        assert isinstance(z, C)
+        assert z.shape == (4, 1)
+        assert z[1, 0] == 42
 
     def test___pypy_data__(self):
         from numpypy import array
@@ -2891,7 +2898,7 @@ class AppTestPyPy(BaseNumpyAppTest):
 class AppTestLongDoubleDtypes(BaseNumpyAppTest):
     def setup_class(cls):
         from pypy.module.micronumpy import Module
-        print dir(Module.interpleveldefs)
+        #print dir(Module.interpleveldefs)
         if not Module.interpleveldefs.get('longfloat', None):
             py.test.skip('no longdouble types yet')
         BaseNumpyAppTest.setup_class.im_func(cls)

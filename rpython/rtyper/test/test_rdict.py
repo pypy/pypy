@@ -2,7 +2,7 @@ from rpython.translator.translator import TranslationContext
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper import rint
 from rpython.rtyper.lltypesystem import rdict, rstr
-from rpython.rtyper.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
+from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rlib.objectmodel import r_dict
 from rpython.rlib.rarithmetic import r_int, r_uint, r_longlong, r_ulonglong
 
@@ -22,7 +22,7 @@ def not_really_random():
         yield x
 
 
-class BaseTestRdict(BaseRtypingTest):
+class TestRdict(BaseRtypingTest):
 
     def test_dict_creation(self):
         def createdict(i):
@@ -732,7 +732,6 @@ class BaseTestRdict(BaseRtypingTest):
         res = self.interpret(f, [700])
         assert res == 12
 
-class TestLLtype(BaseTestRdict, LLRtypeMixin):
     def test_dict_but_not_with_char_keys(self):
         def func(i):
             d = {'h': i}
@@ -1052,21 +1051,6 @@ class TestLLtype(BaseTestRdict, LLRtypeMixin):
         finally:
             lltype._array._check_range = original_check_range
 
-    # ____________________________________________________________
-
-
-
-class TestOOtype(BaseTestRdict, OORtypeMixin):
-
-    def test_recursive(self):
-        def func(i):
-            dic = {i: {}}
-            dic[i] = dic
-            return dic[i]
-        res = self.interpret(func, [5])
-        assert res.ll_get(5) is res
-
-    # ____________________________________________________________
 
 class TestStress:
 

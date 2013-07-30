@@ -34,9 +34,7 @@ extern wchar_t* _Py_DecodeUTF8_surrogateescape(const char *s, Py_ssize_t size);
 #endif
 
 #if !defined(__APPLE__) && !defined(MS_WINDOWS)
-#if 0
 extern int _pypy_normalize_encoding(const char *, char *, size_t);
-#endif
 
 /* Workaround FreeBSD and OpenIndiana locale encoding issue with the C locale.
    On these operating systems, nl_langinfo(CODESET) announces an alias of the
