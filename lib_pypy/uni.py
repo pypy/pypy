@@ -55,9 +55,7 @@ class Predicate(object):
 
     @staticmethod
     def _arg_filter(e):
-        if e is None:
-            return Var()
-        elif isinstance(e, list):
+        if isinstance(e, list):
             return build_prolog_list(e)
         else:
             return e
@@ -75,9 +73,15 @@ class Predicate(object):
             return e
 
     def __call__(self, *args):
-        term_args = [ Predicate._arg_filter(e) for e in args ]
-
-        vs = [ e for e in term_args if type(e) == Var ]
+        term_args = []
+        vs = []
+        for e in args:
+            if e is None:
+                var = Var()
+                term_args.append(var)
+                vs.append(var)
+            else:
+                term_args.append(self._arg_filter(e))
         t = Term(self.name, term_args)
 
         if self.many_solutions:
