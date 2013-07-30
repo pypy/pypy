@@ -42,15 +42,9 @@ class W_CoreSolutionIterator(W_Root):
 
     def _create_result(self):
         """ Called internally after the activation of the continuation """
-        w_result = self.space.newdict()
-
-        for w_var in self.unbound_vars_w:
-            w_var = self.space.interp_w(objects.W_Var, w_var)
-
-            w_binding = conversion.w_of_p(
-                self.space, w_var.p_var.dereference(None))
-            self.space.setitem(w_result, w_var, w_binding)
-        return w_result
+        values_w = [conversion.w_of_p(self.space, w_var.p_var.dereference(None))
+                        for w_var in self.unbound_vars_w]
+        return W_Solution(self.space, self.unbound_vars_w, values_w)
 
     def iter_w(self): return self
 
@@ -107,6 +101,41 @@ class UnipycationContinuation(continuation.Continuation):
     def activate(self, fcont, heap):
         self.w_solution_iter._store_fcont_heap(fcont, heap)
         return continuation.DoneSuccessContinuation(self.engine), fcont, heap
+
+# ---
+
+class W_Solution(W_Root):
+    def __init__(self, space, unbound_vars_w, values_w):
+        self.space = space
+        self.unbound_vars_w = unbound_vars_w
+        self.values_w = values_w
+        assert len(unbound_vars_w) == len(values_w)
+        self.w_dict = None
+
+    def _create_dict(self):
+        if self.w_dict is None:
+            self.w_dict = self.space.newdict()
+            for i, w_var in enumerate(self.unbound_vars_w):
+                self.space.setitem(self.w_dict, w_var, self.values_w[i])
+
+    def descr_length(self):
+        return self.space.wrap(len(self.unbound_vars_w))
+
+    def descr_getitem(self, w_key):
+        self._create_dict()
+        return self.space.getitem(self.w_dict, w_key)
+
+    def get_values_in_order(self):
+        return self.space.newtuple(self.values_w)
+
+W_Solution.typedef = TypeDef("Solution",
+    __getitem__ = interp2app(W_Solution.descr_getitem),
+    __len__ = interp2app(W_Solution.descr_length),
+    get_values_in_order = interp2app(W_Solution.get_values_in_order),
+)
+
+W_Solution.typedef.acceptable_as_base_class = False
+
 
 # ---
 

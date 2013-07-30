@@ -90,7 +90,7 @@ class AppTestCoreEngine(object):
         t = u.Term('eat', ['cheese', 'bread'])
         sol = e.query_single(t, [])
 
-        assert sol == {}
+        assert len(sol) == 0
 
     def test_contradicion(self):
         import unipycation as u
@@ -107,7 +107,8 @@ class AppTestCoreEngine(object):
         t = u.Term('eat', ['cheese', 'bread'])
         it = e.query_iter(t, [])
         sols = [ x for x in it ]
-        assert sols == [{}]
+        sol, = sols
+        assert len(sol) == 0
 
     def test_iterator_contradiction(self):
         import unipycation as u

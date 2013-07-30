@@ -35,15 +35,14 @@ class Engine(object):
 
 class SolutionIterator(object):
     """ A wrapper around unipycation.CoreSolutionIterator. """
-    def __init__(self, it, vs):
+    def __init__(self, it):
         self.it = it
-        self.vs = vs # indicates order of returned solutions
 
     def __iter__(self): return self
 
     def next(self):
         sol = self.it.next()
-        return Predicate._make_result_tuple(sol, self.vs)
+        return Predicate._make_result_tuple(sol)
 
 class Predicate(object):
     """ Represents a "callable" prolog predicate """
@@ -73,9 +72,9 @@ class Predicate(object):
             return e
 
     @staticmethod
-    def _make_result_tuple(sol, variables):
-        fun = lambda v: Predicate._back_to_py(sol[v])
-        return tuple(unrolling_map(fun, variables))
+    def _make_result_tuple(sol):
+        values = sol.get_values_in_order()
+        return tuple(unrolling_map(Predicate._back_to_py, values))
 
     def __call__(self, *args):
         vs = []
@@ -90,15 +89,15 @@ class Predicate(object):
 
         if self.many_solutions:
             it = self.engine.engine.query_iter(t, vs)
-            return SolutionIterator(it, vs)
+            return SolutionIterator(it)
         else:
             sol = self.engine.engine.query_single(t, vs)
 
             if sol is None:
                 return None # contradiction
             else:
-                return Predicate._make_result_tuple(sol, vs)
-    
+                return Predicate._make_result_tuple(sol)
+
 class Database(object):
     """ A class that represents the predicates exposed by a prolog engine """
 
