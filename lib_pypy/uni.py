@@ -54,7 +54,7 @@ class Predicate(object):
         self.name = name
 
     @staticmethod
-    def _arg_filter(e):
+    def _convert_to_prolog(e):
         if isinstance(e, list):
             return build_prolog_list(e)
         else:
@@ -81,7 +81,7 @@ class Predicate(object):
                 term_args.append(var)
                 vs.append(var)
             else:
-                term_args.append(self._arg_filter(e))
+                term_args.append(self._convert_to_prolog(e))
         t = Term(self.name, term_args)
 
         if self.many_solutions:
@@ -116,10 +116,7 @@ class TermPool(object):
 
         new_args = []
         for a in args:
-            if isinstance(a, list):
-                new_args.append(build_prolog_list(a))
-            else:
-                new_args.append(a)
+            new_args.append(Predicate._convert_to_prolog(a))
 
         return Term(name, new_args)
 
