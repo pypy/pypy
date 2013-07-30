@@ -2,62 +2,79 @@ from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rtyper.lltypesystem import lltype, rffi, rstr, llmemory
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.extregistry import ExtRegistryEntry
+from rpython.rlib.jit import dont_look_inside
 
+@dont_look_inside
 def get_adr_of_private_rev_num():
     addr = llop.stm_get_adr_of_private_rev_num(llmemory.Address)
     return rffi.cast(lltype.Signed, addr)
 
+@dont_look_inside
 def get_adr_of_read_barrier_cache():
     addr = llop.stm_get_adr_of_read_barrier_cache(llmemory.Address)
     return rffi.cast(lltype.Signed, addr)
 
+@dont_look_inside
 def become_inevitable():
     llop.stm_become_inevitable(lltype.Void)
 
+@dont_look_inside
 def should_break_transaction():
     return we_are_translated() and (
         llop.stm_should_break_transaction(lltype.Bool))
 
+@dont_look_inside
 def set_transaction_length(length):
     llop.stm_set_transaction_length(lltype.Void, length)
 
+@dont_look_inside
 def increment_atomic():
     llop.stm_change_atomic(lltype.Signed, +1)
 
+@dont_look_inside
 def decrement_atomic():
     llop.stm_change_atomic(lltype.Signed, -1)
 
+@dont_look_inside
 def is_atomic():
     return llop.stm_get_atomic(lltype.Signed)
 
+@dont_look_inside
 def abort_info_push(instance, fieldnames):
     "Special-cased below."
 
+@dont_look_inside
 def abort_info_pop(count):
     if we_are_translated():
         llop.stm_abort_info_pop(lltype.Void, count)
 
+@dont_look_inside
 def charp_inspect_abort_info():
     return llop.stm_inspect_abort_info(rffi.CCHARP)
 
+@dont_look_inside
 def abort_and_retry():
     llop.stm_abort_and_retry(lltype.Void)
 
+@dont_look_inside
 def before_external_call():
     llop.stm_commit_transaction(lltype.Void)
 before_external_call._dont_reach_me_in_del_ = True
 before_external_call._transaction_break_ = True
 
+@dont_look_inside
 def after_external_call():
     llop.stm_begin_inevitable_transaction(lltype.Void)
 after_external_call._dont_reach_me_in_del_ = True
 after_external_call._transaction_break_ = True
 
+@dont_look_inside
 def enter_callback_call():
     return llop.stm_enter_callback_call(lltype.Signed)
 enter_callback_call._dont_reach_me_in_del_ = True
 enter_callback_call._transaction_break_ = True
 
+@dont_look_inside
 def leave_callback_call(token):
     llop.stm_leave_callback_call(lltype.Void, token)
 leave_callback_call._dont_reach_me_in_del_ = True
@@ -88,6 +105,7 @@ def make_perform_transaction(func, CONTAINERP):
             llcontainer.got_exception = lle
         return rffi.cast(rffi.INT_real, res)
     #
+    @dont_look_inside
     def perform_transaction(llcontainer):
         llcallback = llhelper(CALLBACK_TX, _stm_callback)
         llop.stm_perform_transaction(lltype.Void, llcontainer, llcallback)

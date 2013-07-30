@@ -519,9 +519,9 @@ class Assembler386(BaseAssembler):
         clt.allgcrefs = []
         clt.frame_info.clear() # for now
 
-        # if log:
-        #     operations = self._inject_debugging_code(looptoken, operations,
-        #                                              'e', looptoken.number)
+        if log:
+            operations = self._inject_debugging_code(looptoken, operations,
+                                                     'e', looptoken.number)
 
         regalloc = RegAlloc(self, self.cpu.translate_support_code)
         #
@@ -580,9 +580,9 @@ class Assembler386(BaseAssembler):
 
         self.setup(original_loop_token)
         descr_number = compute_unique_id(faildescr)
-        # if log:
-        #     operations = self._inject_debugging_code(faildescr, operations,
-        #                                              'b', descr_number)
+        if log:
+            operations = self._inject_debugging_code(faildescr, operations,
+                                                     'b', descr_number)
 
         arglocs = self.rebuild_faillocs_from_descr(faildescr, inputargs)
         regalloc = RegAlloc(self, self.cpu.translate_support_code)

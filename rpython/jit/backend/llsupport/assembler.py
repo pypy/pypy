@@ -269,7 +269,10 @@ class BaseAssembler(object):
                 if op.getopnum() == rop.LABEL:
                     self._append_debugging_code(newoperations, 'l', number,
                                                 op.getdescr())
-            operations = newoperations
+            if not self.cpu.gc_ll_descr.stm:
+                # XXX: find a workaround to ignore inserting $INEV for
+                # raw accesses here
+                operations = newoperations
         return operations
 
     def _append_debugging_code(self, operations, tp, number, token):
