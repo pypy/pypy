@@ -15,15 +15,19 @@ from rpython.rtyper.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 from rpython.translator.translator import TranslationContext
 
 
-# undo the specialization parameter
+# undo the specialization parameters
 for n1 in 'get set del'.split():
+    if n1 == "get":
+        extraarg = "ll_getitem_fast, "
+    else:
+        extraarg = ""
     for n2 in '', '_nonneg':
         name = 'll_%sitem%s' % (n1, n2)
         globals()['_' + name] = globals()[name]
         exec """if 1:
             def %s(*args):
-                return _%s(dum_checkidx, *args)
-""" % (name, name)
+                return _%s(dum_checkidx, %s*args)
+""" % (name, name, extraarg)
 del n1, n2, name
 
 
@@ -1418,7 +1422,7 @@ class BaseTestRlist(BaseRtypingTest):
             block = graph.startblock
             op = block.operations[-1]
             assert op.opname == 'direct_call'
-            func = get_funcobj(op.args[0].value)._callable
+            func = op.args[2].value
             assert ('foldable' in func.func_name) == \
                    ("y[*]" in immutable_fields)
 
@@ -1533,8 +1537,8 @@ class TestLLtype(BaseTestRlist, LLRtypeMixin):
         block = graph.startblock
         lst1_getitem_op = block.operations[-3]     # XXX graph fishing
         lst2_getitem_op = block.operations[-2]
-        func1 = lst1_getitem_op.args[0].value._obj._callable
-        func2 = lst2_getitem_op.args[0].value._obj._callable
+        func1 = lst1_getitem_op.args[2].value
+        func2 = lst2_getitem_op.args[2].value
         assert func1.oopspec == 'list.getitem_foldable(l, index)'
         assert not hasattr(func2, 'oopspec')
 
