@@ -34,18 +34,19 @@ class W_CoreSolutionIterator(W_Root):
         self.fcont = None
         self.heap = None
 
-    def _populate_result(self, w_unbound_vars, fcont, heap):
+    def _store_fcont_heap(self, fcont, heap):
+        self.fcont = fcont
+        self.heap = heap
+
+    def _populate_result(self, w_unbound_vars):
         """ Called internally by the activation of the continuation """
 
         for w_var in self.space.listview(w_unbound_vars):
             w_var = self.space.interp_w(objects.W_Var, w_var)
 
             w_binding = conversion.w_of_p(
-                self.space, w_var.p_var.dereference(heap))
+                self.space, w_var.p_var.dereference(None))
             self.space.setitem(self.d_result, w_var, w_binding)
-
-        self.fcont = fcont
-        self.heap = heap
 
     def iter_w(self): return self
 
@@ -62,7 +63,7 @@ class W_CoreSolutionIterator(W_Root):
             # for subsequent iterations.
             cur_mod = self.w_engine.engine.modulewrapper.current_module
             cont = UnipycationContinuation(
-                    self.w_engine, self.w_unbound_vars, self)
+                    self.w_engine, self)
             p_goal_term = self.w_goal_term.p_term
             self.w_goal_term = None # allow GC
         try:
@@ -77,6 +78,7 @@ class W_CoreSolutionIterator(W_Root):
             w_PrologError = util.get_from_module(self.space, "unipycation", "PrologError")
             engine = self.w_engine.engine
             raise OperationError(w_PrologError, self.space.wrap(ex.get_errstr(engine)))
+        self._populate_result(self.w_unbound_vars)
 
         return self.d_result
 
@@ -90,19 +92,18 @@ W_CoreSolutionIterator.typedef.acceptable_as_base_class = False
 # ---
 
 class UnipycationContinuation(continuation.Continuation):
-    def __init__(self, w_engine, w_unbound_vars, w_solution_iter):
+    def __init__(self, w_engine, w_solution_iter):
         p_engine = w_engine.engine
 
         continuation.Continuation.__init__(self,
                 p_engine, continuation.DoneSuccessContinuation(p_engine))
 
         # stash
-        self.w_unbound_vars = w_unbound_vars
         self.w_engine = w_engine
         self.w_solution_iter = w_solution_iter
 
     def activate(self, fcont, heap):
-        self.w_solution_iter._populate_result(self.w_unbound_vars, fcont, heap)
+        self.w_solution_iter._store_fcont_heap(fcont, heap)
         return continuation.DoneSuccessContinuation(self.engine), fcont, heap
 
 # ---
