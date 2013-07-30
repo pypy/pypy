@@ -43,7 +43,7 @@ parameter::
 See cbuild_ for more info on ExternalCompilationInfo.
 
 .. _`low level types`: rtyper.html#low-level-type
-.. _cbuild: https://bitbucket.org/pypy/pypy/src/tip/pypy/translator/tool/cbuild.py
+.. _cbuild: https://bitbucket.org/pypy/pypy/src/tip/rpython/translator/tool/cbuild.py
 
 
 Types
@@ -69,9 +69,3 @@ functions, passing llimpl as an argument and eventually llfakeimpl
 as a fake low-level implementation for tests performed by an llinterp.
 
 .. _`extfunc.py`: https://bitbucket.org/pypy/pypy/src/tip/pypy/rpython/extfunc.py
-
-
-OO backends
------------
-
-XXX to be written

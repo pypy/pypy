@@ -14,7 +14,6 @@ from rpython.rlib.objectmodel import (ComputedIntSymbolic, CDefinedIntSymbolic,
 from rpython.rlib.rarithmetic import (ovfcheck, is_valid_int, intmask,
     r_uint, r_longlong, r_ulonglong, r_longlonglong)
 from rpython.rtyper.lltypesystem import lltype, llmemory, lloperation, llheap, rclass
-from rpython.rtyper.ootypesystem import ootype
 
 
 log = py.log.Producer('llinterp')
@@ -43,11 +42,7 @@ class LLFatalError(Exception):
         return ': '.join([str(x) for x in self.args])
 
 def type_name(etype):
-    if isinstance(lltype.typeOf(etype), lltype.Ptr):
-        return ''.join(etype.name).rstrip('\x00')
-    else:
-        # ootype!
-        return etype._INSTANCE._name.split(".")[-1]
+    return ''.join(etype.name).rstrip('\x00')
 
 class LLInterpreter(object):
     """ low level interpreter working with concrete values. """
@@ -150,12 +145,8 @@ class LLInterpreter(object):
         assert isinstance(exc, LLException)
         klass, inst = exc.args[0], exc.args[1]
         for cls in enumerate_exceptions_top_down():
-            if hasattr(klass, 'name'):   # lltype
-                if "".join(klass.name).rstrip("\0") == cls.__name__:
-                    return cls
-            else:                        # ootype
-                if klass._INSTANCE._name.split('.')[-1] == cls.__name__:
-                    return cls
+            if "".join(klass.name).rstrip("\0") == cls.__name__:
+                return cls
         raise ValueError("couldn't match exception, maybe it"
                       " has RPython attributes like OSError?")
 
@@ -177,12 +168,6 @@ def checkptr(ptr):
 
 def checkadr(addr):
     assert lltype.typeOf(addr) is llmemory.Address
-
-def is_inst(inst):
-    return isinstance(lltype.typeOf(inst), (ootype.Instance, ootype.BuiltinType, ootype.StaticMethod))
-
-def checkinst(inst):
-    assert is_inst(inst)
 
 
 class LLFrame(object):
@@ -240,16 +225,6 @@ class LLFrame(object):
             except TypeError:
                 assert False, "type error: %r val from %r var/const" % (lltype.typeOf(val), varorconst.concretetype)
         return val
-
-    def getval_or_subop(self, varorsubop):
-        from rpython.translator.oosupport.treebuilder import SubOperation
-        if isinstance(varorsubop, SubOperation):
-            self.eval_operation(varorsubop.op)
-            resultval = self.getval(varorsubop.op.result)
-            del self.bindings[varorsubop.op.result] # XXX hack
-            return resultval
-        else:
-            return self.getval(varorsubop)
 
     # _______________________________________________________
     # other helpers
@@ -406,7 +381,7 @@ class LLFrame(object):
         if getattr(ophandler, 'specialform', False):
             retval = ophandler(*operation.args)
         else:
-            vals = [self.getval_or_subop(x) for x in operation.args]
+            vals = [self.getval(x) for x in operation.args]
             if getattr(ophandler, 'need_result_type', False):
                 vals.insert(0, operation.result.concretetype)
             try:
@@ -553,6 +528,9 @@ class LLFrame(object):
 
     def op_jit_record_known_class(self, *args):
         pass
+
+    def op_jit_conditional_call(self, *args):
+        raise NotImplementedError("should not be called while not jitted")
 
     def op_get_exception_addr(self, *args):
         raise NotImplementedError
@@ -873,8 +851,6 @@ class LLFrame(object):
         PTR = lltype.typeOf(ptr)
         if isinstance(PTR, lltype.Ptr):
             return self.heap.gc_id(ptr)
-        elif isinstance(PTR, ootype.OOType):
-            return ootype.identityhash(ptr)     # XXX imprecise
         raise NotImplementedError("gc_id on %r" % (PTR,))
 
     def op_gc_set_max_heap_size(self, maxsize):
@@ -1127,84 +1103,6 @@ class LLFrame(object):
         exc_data.exc_value = lltype.typeOf(evalue)._defl()
         return bool(etype)
 
-    #Operation of ootype
-
-    def op_new(self, INST):
-        assert isinstance(INST, (ootype.Instance, ootype.BuiltinType))
-        return ootype.new(INST)
-
-    def op_oonewarray(self, ARRAY, length):
-        assert isinstance(ARRAY, ootype.Array)
-        assert is_valid_int(length)
-        return ootype.oonewarray(ARRAY, length)
-
-    def op_runtimenew(self, class_):
-        return ootype.runtimenew(class_)
-
-    def op_oonewcustomdict(self, DICT, eq_func, eq_obj, eq_method_name,
-                           hash_func, hash_obj, hash_method_name):
-        eq_name, interp_eq = \
-                 wrap_callable(self.llinterpreter, eq_func, eq_obj, eq_method_name)
-        EQ_FUNC = ootype.StaticMethod([DICT._KEYTYPE, DICT._KEYTYPE], ootype.Bool)
-        sm_eq = ootype.static_meth(EQ_FUNC, eq_name, _callable=interp_eq)
-
-        hash_name, interp_hash = \
-                   wrap_callable(self.llinterpreter, hash_func, hash_obj, hash_method_name)
-        HASH_FUNC = ootype.StaticMethod([DICT._KEYTYPE], ootype.Signed)
-        sm_hash = ootype.static_meth(HASH_FUNC, hash_name, _callable=interp_hash)
-
-        # XXX: is it fine to have StaticMethod type for bound methods, too?
-        return ootype.oonewcustomdict(DICT, sm_eq, sm_hash)
-
-    def op_oosetfield(self, inst, name, value):
-        checkinst(inst)
-        assert isinstance(name, str)
-        FIELDTYPE = lltype.typeOf(inst)._field_type(name)
-        if FIELDTYPE is not lltype.Void:
-            setattr(inst, name, value)
-
-    def op_oogetfield(self, inst, name):
-        checkinst(inst)
-        assert isinstance(name, str)
-        return getattr(inst, name)
-
-    def op_oosend(self, message, inst, *args):
-        checkinst(inst)
-        assert isinstance(message, str)
-        bm = getattr(inst, message)
-        inst = bm.inst
-        m = bm.meth
-        args = m._checkargs(args, check_callable=False)
-        if getattr(m, 'abstract', False):
-            raise RuntimeError("calling abstract method %r" % (m,))
-        return self.perform_call(m, (lltype.typeOf(inst),)+lltype.typeOf(m).ARGS, [inst]+args)
-
-    def op_oostring(self, obj, base):
-        return ootype.oostring(obj, base)
-
-    def op_oounicode(self, obj, base):
-        try:
-            return ootype.oounicode(obj, base)
-        except UnicodeDecodeError:
-            self.make_llexception()
-
-    def op_ooparse_int(self, s, base):
-        try:
-            return ootype.ooparse_int(s, base)
-        except ValueError:
-            self.make_llexception()
-
-    def op_ooparse_float(self, s):
-        try:
-            return ootype.ooparse_float(s)
-        except ValueError:
-            self.make_llexception()
-
-    def op_oobox_int(self, i):
-        return ootype.oobox_int(i)
-
-    def op_oounbox_int(self, x):
-        return ootype.oounbox_int(x)
 
 class Tracer(object):
     Counter = 0

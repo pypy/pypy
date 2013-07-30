@@ -856,6 +856,21 @@ class MIFrame(object):
     opimpl_residual_call_irf_f = _opimpl_residual_call3
     opimpl_residual_call_irf_v = _opimpl_residual_call3
 
+    @arguments("box", "box", "boxes", "descr", "orgpc")
+    def opimpl_conditional_call_i_v(self, condbox, funcbox, argboxes, calldescr,
+                                    pc):
+        self.do_conditional_call(condbox, funcbox, argboxes, calldescr, pc)
+
+    @arguments("box", "box", "boxes2", "descr", "orgpc")
+    def opimpl_conditional_call_ir_v(self, condbox, funcbox, argboxes,
+                                     calldescr, pc):
+        self.do_conditional_call(condbox, funcbox, argboxes, calldescr, pc)
+
+    @arguments("box", "box", "boxes3", "descr", "orgpc")
+    def opimpl_conditional_call_irf_v(self, condbox, funcbox, argboxes,
+                                      calldescr, pc):
+        self.do_conditional_call(condbox, funcbox, argboxes, calldescr, pc)
+
     @arguments("int", "boxes3", "boxes3", "orgpc")
     def _opimpl_recursive_call(self, jdindex, greenboxes, redboxes, pc):
         targetjitdriver_sd = self.metainterp.staticdata.jitdrivers_sd[jdindex]
@@ -1204,7 +1219,7 @@ class MIFrame(object):
                                                    CIF_DESCRIPTION_P)
 
         kind, descr, itemsize = get_arg_descr(self.metainterp.cpu, cif_description.rtype)
-        
+
         if kind != 'v':
             ofs = cif_description.exchange_result
             assert ofs % itemsize == 0     # alignment check (result)
@@ -1239,10 +1254,6 @@ class MIFrame(object):
 
     def setup_resume_at_op(self, pc):
         self.pc = pc
-        ##  values = ' '.join([box.repr_rpython() for box in self.env])
-        ##  log('setup_resume_at_op  %s:%d [%s] %d' % (self.jitcode.name,
-        ##                                             self.pc, values,
-        ##                                             self.exception_target))
 
     def run_one_step(self):
         # Execute the frame forward.  This method contains a loop that leaves
@@ -1339,12 +1350,7 @@ class MIFrame(object):
             self.metainterp.assert_no_exception()
         return resbox
 
-    def do_residual_call(self, funcbox, argboxes, descr, pc,
-                         assembler_call=False,
-                         assembler_call_jd=None):
-        # First build allboxes: it may need some reordering from the
-        # list provided in argboxes, depending on the order in which
-        # the arguments are expected by the function
+    def _build_allboxes(self, funcbox, argboxes, descr):
         allboxes = [None] * (len(argboxes)+1)
         allboxes[0] = funcbox
         src_i = src_r = src_f = 0
@@ -1373,7 +1379,16 @@ class MIFrame(object):
             allboxes[i] = box
             i += 1
         assert i == len(allboxes)
+        return allboxes
+
+    def do_residual_call(self, funcbox, argboxes, descr, pc,
+                         assembler_call=False,
+                         assembler_call_jd=None):
+        # First build allboxes: it may need some reordering from the
+        # list provided in argboxes, depending on the order in which
+        # the arguments are expected by the function
         #
+        allboxes = self._build_allboxes(funcbox, argboxes, descr)
         effectinfo = descr.get_extra_info()
         if (assembler_call or
                 effectinfo.check_forces_virtual_or_virtualizable()):
@@ -1412,6 +1427,15 @@ class MIFrame(object):
             exc = effectinfo.check_can_raise()
             pure = effectinfo.check_is_elidable()
             return self.execute_varargs(rop.CALL, allboxes, descr, exc, pure)
+
+    def do_conditional_call(self, condbox, funcbox, argboxes, descr, pc):
+        allboxes = self._build_allboxes(funcbox, argboxes, descr)
+        effectinfo = descr.get_extra_info()
+        assert not effectinfo.check_forces_virtual_or_virtualizable()
+        exc = effectinfo.check_can_raise()
+        pure = effectinfo.check_is_elidable()
+        return self.execute_varargs(rop.COND_CALL, [condbox] + allboxes, descr,
+                                    exc, pure)
 
     def _do_jit_force_virtual(self, allboxes, descr, pc):
         assert len(allboxes) == 2

@@ -45,7 +45,15 @@ class IntOpModule(MixedModule):
         'int_floordiv':    'interp_intop.int_floordiv',
         'int_mod':         'interp_intop.int_mod',
         'int_lshift':      'interp_intop.int_lshift',
+        'int_rshift':      'interp_intop.int_rshift',
         'uint_rshift':     'interp_intop.uint_rshift',
+    }
+
+
+class OsModule(MixedModule):
+    appleveldefs = {}
+    interpleveldefs = {
+        'real_getenv': 'interp_os.real_getenv'
     }
 
 
@@ -81,6 +89,7 @@ class Module(MixedModule):
         "time": TimeModule,
         "thread": ThreadModule,
         "intop": IntOpModule,
+        "os": OsModule,
     }
 
     def setup_after_space_initialization(self):

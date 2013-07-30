@@ -5,7 +5,7 @@ from rpython.annotator.model import UnionError
 from rpython.rlib.jit import (hint, we_are_jitted, JitDriver, elidable_promote,
     JitHintError, oopspec, isconstant)
 from rpython.rlib.rarithmetic import r_uint
-from rpython.rtyper.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
+from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rtyper.lltypesystem import lltype
 
 
@@ -73,9 +73,9 @@ def test_jitdriver_clone():
     assert driver2.foo == 'bar'
     driver.foo = 'xxx'
     assert driver2.foo == 'bar'
-    
 
-class BaseTestJIT(BaseRtypingTest):
+
+class TestJIT(BaseRtypingTest):
     def test_hint(self):
         def f():
             x = hint(5, hello="world")
@@ -109,11 +109,11 @@ class BaseTestJIT(BaseRtypingTest):
             return func + 1
         def f(x):
             return g(x * 2, x)
-        
+
         import dis
         from StringIO import StringIO
         import sys
-        
+
         s = StringIO()
         prev = sys.stdout
         sys.stdout = s
@@ -131,9 +131,9 @@ class BaseTestJIT(BaseRtypingTest):
         assert res == 5
 
     def test_annotate_hooks(self):
-        
+
         def get_printable_location(m): pass
-        
+
         myjitdriver = JitDriver(greens=['m'], reds=['n'],
                                 get_printable_location=get_printable_location)
         def fn(n):
@@ -247,10 +247,3 @@ class BaseTestJIT(BaseRtypingTest):
         # this used to fail on 64-bit, because r_uint == r_ulonglong
         myjitdriver = JitDriver(greens=['i1'], reds=[])
         myjitdriver.jit_merge_point(i1=r_uint(42))
-
-
-class TestJITLLtype(BaseTestJIT, LLRtypeMixin):
-    pass
-
-class TestJITOOtype(BaseTestJIT, OORtypeMixin):
-    pass

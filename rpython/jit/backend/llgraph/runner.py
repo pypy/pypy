@@ -286,7 +286,7 @@ class LLGraphCPU(model.AbstractCPU):
     def get_savedata_ref(self, deadframe):
         assert deadframe._saved_data is not None
         return deadframe._saved_data
-    
+
     # ------------------------------------------------------------
 
     def calldescrof(self, FUNC, ARGS, RESULT, effect_info):
@@ -334,7 +334,7 @@ class LLGraphCPU(model.AbstractCPU):
         except KeyError:
             descr = InteriorFieldDescr(A, fieldname)
             self.descrs[key] = descr
-            return descr        
+            return descr
 
     def _calldescr_dynamic_for_tests(self, atypes, rtype,
                                      abiname='FFI_DEFAULT_ABI'):
@@ -802,7 +802,7 @@ class LLFrame(object):
         else:
             ovf = False
         self.overflow_flag = ovf
-        return z        
+        return z
 
     def execute_guard_no_overflow(self, descr):
         if self.overflow_flag:
@@ -820,6 +820,12 @@ class LLFrame(object):
         y = support.cast_from_floatstorage(lltype.Float, value)
         x = math.sqrt(y)
         return support.cast_to_floatstorage(x)
+
+    def execute_cond_call(self, calldescr, cond, func, *args):
+        if not cond:
+            return
+        # cond_call can't have a return value
+        self.execute_call(calldescr, func, *args)
 
     def execute_call(self, calldescr, func, *args):
         effectinfo = calldescr.get_extra_info()

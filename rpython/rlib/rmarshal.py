@@ -429,26 +429,3 @@ class __extend__(pairtype(MTag, annmodel.SomeTuple)):
         expected_length = len(itemloaders)
         unroll_item_loaders = unrolling_iterable(enumerate(itemloaders))
         add_loader(s_tuple, load_tuple)
-
-
-## -- not used any more right now --
-##class __extend__(pairtype(MTag, controllerentry.SomeControlledInstance)):
-##    # marshal a ControlledInstance by marshalling the underlying object
-
-##    def install_marshaller((tag, s_obj)):
-##        def dump_controlled_instance(buf, x):
-##            real_obj = controllerentry.controlled_instance_unbox(controller, x)
-##            realdumper(buf, real_obj)
-
-##        controller = s_obj.controller
-##        realdumper = get_marshaller(s_obj.s_real_obj)
-##        add_dumper(s_obj, dump_controlled_instance)
-
-##    def install_unmarshaller((tag, s_obj)):
-##        def load_controlled_instance(loader):
-##            real_obj = realloader(loader)
-##            return controllerentry.controlled_instance_box(controller,
-##                                                           real_obj)
-##        controller = s_obj.controller
-##        realloader = get_loader(s_obj.s_real_obj)
-##        add_loader(s_obj, load_controlled_instance)

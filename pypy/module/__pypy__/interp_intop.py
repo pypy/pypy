@@ -29,6 +29,10 @@ def int_lshift(space, n, m):
     return space.wrap(llop.int_lshift(lltype.Signed, n, m))
 
 @unwrap_spec(n=int, m=int)
+def int_rshift(space, n, m):
+    return space.wrap(llop.int_rshift(lltype.Signed, n, m))
+
+@unwrap_spec(n=int, m=int)
 def uint_rshift(space, n, m):
     n = r_uint(n)
     x = llop.uint_rshift(lltype.Unsigned, n, m)

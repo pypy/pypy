@@ -54,7 +54,7 @@ from rpython.rtyper.lltypesystem.lloperation import llop
 #         ...               // extra instance attributes
 #     }
 #
-# there's also a nongcobject 
+# there's also a nongcobject
 
 OBJECT_VTABLE = lltype.ForwardReference()
 CLASSTYPE = Ptr(OBJECT_VTABLE)
@@ -284,16 +284,11 @@ class ClassRepr(AbstractClassRepr):
         cname = inputconst(Void, mangled_name)
         return llops.genop('getfield', [v_vtable, cname], resulttype=r)
 
-    def rtype_issubtype(self, hop): 
+    def rtype_issubtype(self, hop):
         class_repr = get_type_repr(self.rtyper)
         v_cls1, v_cls2 = hop.inputargs(class_repr, class_repr)
         if isinstance(v_cls2, Constant):
             cls2 = v_cls2.value
-            # XXX re-implement the following optimization
-##            if cls2.subclassrange_max == cls2.subclassrange_min:
-##                # a class with no subclass
-##                return hop.genop('ptr_eq', [v_cls1, v_cls2], resulttype=Bool)
-##            else:
             minid = hop.inputconst(Signed, cls2.subclassrange_min)
             maxid = hop.inputconst(Signed, cls2.subclassrange_max)
             return hop.gendirectcall(ll_issubclass_const, v_cls1, minid,
@@ -313,7 +308,7 @@ class InstanceRepr(AbstractInstanceRepr):
         else:
             ForwardRef = lltype.FORWARDREF_BY_FLAVOR[LLFLAVOR[gcflavor]]
             self.object_type = ForwardRef()
-            
+
         self.iprebuiltinstances = identity_dict()
         self.lowleveltype = Ptr(self.object_type)
         self.gcflavor = gcflavor

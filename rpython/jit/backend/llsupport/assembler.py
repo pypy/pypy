@@ -106,6 +106,10 @@ class BaseAssembler(object):
                 kind='unicode')
         else:
             self.malloc_slowpath_unicode = None
+        self.cond_call_slowpath = [self._build_cond_call_slowpath(False, False),
+                                   self._build_cond_call_slowpath(False, True),
+                                   self._build_cond_call_slowpath(True, False),
+                                   self._build_cond_call_slowpath(True, True)]
 
         self._build_stack_check_slowpath()
         self._build_release_gil(gc_ll_descr.gcrootmap)
