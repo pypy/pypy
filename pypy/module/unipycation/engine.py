@@ -27,7 +27,6 @@ class W_CoreSolutionIterator(W_Root):
         self.w_goal_term = w_goal_term
 
         self.space = space
-        self.d_result = None    # Current result, populated on the fly
 
         # The state of the prolog interpreter continuation.
         # Used for enumerating results.
@@ -38,22 +37,23 @@ class W_CoreSolutionIterator(W_Root):
         self.fcont = fcont
         self.heap = heap
 
-    def _populate_result(self, w_unbound_vars):
-        """ Called internally by the activation of the continuation """
+    def _create_result(self, w_unbound_vars):
+        """ Called internally after the activation of the continuation """
+        w_result = self.space.newdict()
 
         for w_var in self.space.listview(w_unbound_vars):
             w_var = self.space.interp_w(objects.W_Var, w_var)
 
             w_binding = conversion.w_of_p(
                 self.space, w_var.p_var.dereference(None))
-            self.space.setitem(self.d_result, w_var, w_binding)
+            self.space.setitem(w_result, w_var, w_binding)
+        return w_result
 
     def iter_w(self): return self
 
     def next_w(self):
         """ Obtain the next solution (if there is one) """
 
-        self.d_result = self.space.newdict()
 
         p_goal_term = cur_mod = cont = None
 
@@ -78,9 +78,8 @@ class W_CoreSolutionIterator(W_Root):
             w_PrologError = util.get_from_module(self.space, "unipycation", "PrologError")
             engine = self.w_engine.engine
             raise OperationError(w_PrologError, self.space.wrap(ex.get_errstr(engine)))
-        self._populate_result(self.w_unbound_vars)
 
-        return self.d_result
+        return self._create_result(self.w_unbound_vars)
 
 W_CoreSolutionIterator.typedef = TypeDef("CoreSolutionIterator",
     __iter__ = interp2app(W_CoreSolutionIterator.iter_w),
@@ -117,7 +116,6 @@ class W_CoreEngine(W_Root):
     def __init__(self, space, w_anything):
         self.space = space                      # Stash space
         self.engine = e = continuation.Engine(load_system=True) # We embed an instance of prolog
-        self.d_result = None                    # When we have a result, we will stash it here
 
         try:
             e.runstring(space.str_w(w_anything))# Load the database with the first arg
