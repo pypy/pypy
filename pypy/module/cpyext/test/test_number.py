@@ -2,6 +2,7 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.interpreter.error import OperationError
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext import sequence
+from pypy.module.cpyext.pyobject import PyObject, PyObjectP, from_ref, make_ref, Py_DecRef
 
 class TestIterator(BaseApiTest):
     def test_check(self, space, api):
@@ -35,6 +36,26 @@ class TestIterator(BaseApiTest):
         assert w_l is None
         api.PyErr_Clear()
 
+    def test_number_coerce_ex(self, space, api):
+        pl = make_ref(space, space.wrap(123))
+        pf = make_ref(space, space.wrap(42.))
+        ppl = lltype.malloc(PyObjectP.TO, 1, flavor='raw')
+        ppf = lltype.malloc(PyObjectP.TO, 1, flavor='raw')
+        ppl[0] = pl
+        ppf[0] = pf
+        
+        ret = api.PyNumber_CoerceEx(ppl, ppf)
+        assert ret == 0
+
+        w_res = from_ref(space, ppl[0])
+
+        assert api.PyFloat_Check(w_res)
+        assert space.unwrap(w_res) == 123.
+        Py_DecRef(space, ppl[0])
+        Py_DecRef(space, ppf[0])
+        lltype.free(ppl, flavor='raw')
+        lltype.free(ppf, flavor='raw')
+       
     def test_numbermethods(self, space, api):
         assert "ab" == space.unwrap(
             api.PyNumber_Add(space.wrap("a"), space.wrap("b")))

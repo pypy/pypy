@@ -1,6 +1,6 @@
 from pypy.interpreter.error import OperationError
 from pypy.module.cpyext.api import cpython_api, CANNOT_FAIL, Py_ssize_t
-from pypy.module.cpyext.pyobject import PyObject
+from pypy.module.cpyext.pyobject import PyObject, PyObjectP, from_ref, make_ref, Py_DecRef
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.tool.sourcetools import func_with_new_name
 
@@ -55,6 +55,38 @@ def PyNumber_Index(space, w_obj):
     TypeError exception raised on failure.
     """
     return space.index(w_obj)
+
+@cpython_api([PyObjectP, PyObjectP], rffi.INT_real, error=-1)
+def PyNumber_CoerceEx(space, pp1, pp2):
+    """
+    """
+    w_obj1 = from_ref(space, pp1[0])
+    w_obj2 = from_ref(space, pp2[0])
+    w_res = space.try_coerce(w_obj1, w_obj2)
+    if w_res is None:
+        return 1
+    else:
+        Py_DecRef(space, pp1[0])
+        Py_DecRef(space, pp2[0])
+        pp1[0] = make_ref(space, space.getitem(w_res, space.wrap(0)))
+        pp2[0] = make_ref(space, space.getitem(w_res, space.wrap(1)))
+        return 0
+
+@cpython_api([PyObjectP, PyObjectP], rffi.INT_real, error=-1)
+def PyNumber_Coerce(space, pp1, pp2):
+    """
+    """
+    w_obj1 = from_ref(space, pp1[0])
+    w_obj2 = from_ref(space, pp2[0])
+    w_res = space.coerce(w_obj1, w_obj2)
+    if w_res is None:
+        return 1
+    else:
+        Py_DecRef(space, pp1[0])
+        Py_DecRef(space, pp2[0])
+        pp1[0] = make_ref(space, space.getitem(w_res, space.wrap(0)))
+        pp2[0] = make_ref(space, space.getitem(w_res, space.wrap(1)))
+        return 0
 
 def func_rename(newname):
     return lambda func: func_with_new_name(func, newname)
