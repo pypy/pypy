@@ -74,7 +74,8 @@ class Predicate(object):
 
     @staticmethod
     def _make_result_tuple(sol, variables):
-        return tuple(unrolling_map(lambda v: sol[v], variables))
+        fun = lambda v: Predicate._back_to_py(sol[v])
+        return tuple(unrolling_map(fun, variables))
 
     def __call__(self, *args):
         vs = []
@@ -117,7 +118,7 @@ class TermPool(object):
     def _magic_convert(name, args):
         """ For now this is where pylists become cons chains in term args """
 
-        new_args = unrolling_map(Predicate._convert_to_prolog(a))
+        new_args = unrolling_map(Predicate._convert_to_prolog, args)
         return Term(name, new_args)
 
     def __getattr__(self, name):
