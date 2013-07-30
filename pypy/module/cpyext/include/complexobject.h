@@ -16,6 +16,7 @@ typedef struct Py_complex_t {
 
 /* generated function */
 PyAPI_FUNC(void) _PyComplex_AsCComplex(PyObject *, Py_complex *);
+PyAPI_FUNC(PyObject *) _PyComplex_FromCComplex(Py_complex *);
 
 Py_LOCAL_INLINE(Py_complex) PyComplex_AsCComplex(PyObject *obj)
 {
@@ -24,7 +25,12 @@ Py_LOCAL_INLINE(Py_complex) PyComplex_AsCComplex(PyObject *obj)
     return result;
 }
 
-#define PyComplex_FromCComplex(c) _PyComplex_FromCComplex(&c)
+// shmuller 2013/07/30: Make a function, since macro will fail in C++ due to 
+//                      const correctness if called with "const Py_complex"
+//#define PyComplex_FromCComplex(c) _PyComplex_FromCComplex(&c)
+PyObject *PyComplex_FromCComplex(Py_complex c) {
+    return _PyComplex_FromCComplex(&c);
+}
 
 #ifdef __cplusplus
 }

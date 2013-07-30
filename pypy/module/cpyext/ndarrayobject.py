@@ -5,7 +5,7 @@ Numpy C-API for PyPy - S. H. Muller, 2013/07/26
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import cpython_api, Py_ssize_t, CANNOT_FAIL
 from pypy.module.cpyext.pyobject import PyObject
-from pypy.module.micronumpy.interp_numarray import W_NDimArray, convert_to_array
+from pypy.module.micronumpy.interp_numarray import W_NDimArray, convert_to_array, wrap_impl
 from pypy.module.micronumpy.interp_dtype import get_dtype_cache
 from pypy.module.micronumpy.arrayimpl.scalar import Scalar
 from rpython.rlib.rawstorage import RAW_STORAGE_PTR
@@ -21,6 +21,11 @@ def _PyArray_NDIM(space, w_array):
 def _PyArray_DIM(space, w_array, n):
     assert isinstance(w_array, W_NDimArray)
     return w_array.get_shape()[n]
+
+@cpython_api([PyObject, Py_ssize_t], Py_ssize_t, error=CANNOT_FAIL)
+def _PyArray_STRIDE(space, w_array, n):
+    assert isinstance(w_array, W_NDimArray)
+    return w_array.implementation.get_strides()[n]
 
 @cpython_api([PyObject], Py_ssize_t, error=CANNOT_FAIL)
 def _PyArray_SIZE(space, w_array):
@@ -66,6 +71,18 @@ def _PyArray_FromAny(space, w_obj, dtype, min_depth, max_depth, requirements, co
         w_array.implementation.setitem(0, impl.value)
         w_array.implementation.shape = []
     return w_array
+
+@cpython_api([PyObject, Py_ssize_t, Py_ssize_t, Py_ssize_t], PyObject)
+def _PyArray_FromObject(space, w_obj, typenum, min_depth, max_depth):
+    # ignore min_depth and max_depth for now
+    dtype = get_dtype_cache(space).dtypes_by_num[typenum]
+    w_array = convert_to_array(space, w_obj)
+    impl = w_array.implementation
+    if w_array.is_scalar():
+        return W_NDimArray.new_scalar(space, dtype, impl.value)
+    else:
+        new_impl = impl.astype(space, dtype)
+        return wrap_impl(space, space.type(w_array), w_array, new_impl)
 
 
 @cpython_api([Py_ssize_t, rffi.LONGP, Py_ssize_t], PyObject)
