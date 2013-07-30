@@ -25,8 +25,8 @@ class AbstractTestAsmGCRoot:
 
     @classmethod
     def make_config(cls):
-        if _MSVC and _WIN64:
-            py.test.skip("all asmgcroot tests disabled for MSVC X64")
+        if _MSVC:
+            py.test.skip("all asmgcroot tests disabled for MSVC")
         from rpython.config.translationoption import get_combined_translation_config
         config = get_combined_translation_config(translating=True)
         config.translation.gc = cls.gcpolicy
@@ -195,10 +195,7 @@ class TestAsmGCRootWithSemiSpaceGC(AbstractTestAsmGCRoot,
         
         @entrypoint("x42", [lltype.Signed, lltype.Signed], c_name='callback')
         def mycallback(a, b):
-            rffi.stackcounter.stacks_counter += 1
-            llop.gc_stack_bottom(lltype.Void)
             gc.collect()
-            rffi.stackcounter.stacks_counter -= 1
             return a + b
 
         c_source = py.code.Source("""

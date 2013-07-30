@@ -108,6 +108,13 @@ class TestPointers(BaseCTypesTestChecker):
 
             py.test.raises(TypeError, delitem, p, 0)
 
+    def test_byref(self):
+        for ct, pt in zip(ctype_types, python_types):
+            i = ct(42)
+            p = byref(i)
+            assert type(p._obj) is ct
+            assert p._obj.value == 42
+
     def test_pointer_to_pointer(self):
         x = c_int(32)
         y = c_int(42)

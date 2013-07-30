@@ -12,3 +12,11 @@ class Freebsd(BSD):
 
 class Freebsd_64(Freebsd):
     shared_only = ('-fPIC',)
+
+class GNUkFreebsd(Freebsd):
+    DEFAULT_CC = 'cc'
+    extra_libs = ('-lrt',)
+
+class GNUkFreebsd_64(Freebsd_64):
+    DEFAULT_CC = 'cc'
+    extra_libs = ('-lrt',)

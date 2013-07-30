@@ -1,9 +1,9 @@
-from rpython.rtyper.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
+from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rlib.rstruct.runpack import runpack
 from rpython.rlib.rarithmetic import LONG_BIT
 import struct
 
-class BaseTestRStruct(BaseRtypingTest):
+class TestRStruct(BaseRtypingTest):
     def test_unpack(self):
         pad = '\x00' * (LONG_BIT//8-1)    # 3 or 7 null bytes
         def fn():
@@ -26,8 +26,14 @@ class BaseTestRStruct(BaseRtypingTest):
         assert fn() == 123
         assert self.interpret(fn, []) == 123
 
-class TestLLType(BaseTestRStruct, LLRtypeMixin):
-    pass
+    def test_unpack_big_endian(self):
+        def fn():
+            return runpack(">i", "\x01\x02\x03\x04")
+        assert fn() == 0x01020304
+        assert self.interpret(fn, []) == 0x01020304
 
-class TestOOType(BaseTestRStruct, OORtypeMixin):
-    pass
+    def test_unpack_double_big_endian(self):
+        def fn():
+            return runpack(">d", "testtest")
+        assert fn() == struct.unpack(">d", "testtest")[0]
+        assert self.interpret(fn, []) == struct.unpack(">d", "testtest")[0]

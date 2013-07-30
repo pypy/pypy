@@ -32,8 +32,7 @@ from rpython.tool.pairtype import pairtype, pair
 class BaseListRepr(AbstractBaseListRepr):
     rstr_ll = rstr.LLHelpers
 
-    # known_maxlength is ignored by lltype but used by ootype
-    def __init__(self, rtyper, item_repr, listitem=None, known_maxlength=False):
+    def __init__(self, rtyper, item_repr, listitem=None):
         self.rtyper = rtyper
         self.LIST = GcForwardReference()
         self.lowleveltype = Ptr(self.LIST)
@@ -52,8 +51,13 @@ class BaseListRepr(AbstractBaseListRepr):
     def get_eqfunc(self):
         return inputconst(Void, self.item_repr.get_ll_eq_function())
 
-    def make_iterator_repr(self):
-        return ListIteratorRepr(self)
+    def make_iterator_repr(self, *variant):
+        if not variant:
+            return ListIteratorRepr(self)
+        elif variant == ("reversed",):
+            return ReversedListIteratorRepr(self)
+        else:
+            raise NotImplementedError(variant)
 
     def get_itemarray_lowleveltype(self):
         ITEM = self.item_repr.lowleveltype
@@ -171,6 +175,7 @@ class FixedSizeListRepr(AbstractFixedSizeListRepr, BaseListRepr):
 
 # adapted C code
 
+@jit.look_inside_iff(lambda l, newsize, overallocate: jit.isconstant(len(l.items)) and jit.isconstant(newsize))
 @signature(types.any(), types.int(), types.bool(), returns=types.none())
 def _ll_list_resize_hint_really(l, newsize, overallocate):
     """
@@ -213,7 +218,7 @@ def _ll_list_resize_hint_really(l, newsize, overallocate):
         rgc.ll_arraycopy(items, newitems, 0, 0, p)
     l.items = newitems
 
-@jit.dont_look_inside
+@jit.look_inside_iff(lambda l, newsize: jit.isconstant(len(l.items)) and jit.isconstant(newsize))
 def _ll_list_resize_hint(l, newsize):
     """Ensure l.items has room for at least newsize elements without
     setting l.length to newsize.
@@ -226,7 +231,6 @@ def _ll_list_resize_hint(l, newsize):
     allocated = len(l.items)
     if allocated < newsize or newsize < (allocated >> 1) - 5:
         _ll_list_resize_hint_really(l, newsize, False)
-
 
 @signature(types.any(), types.int(), types.bool(), returns=types.none())
 def _ll_list_resize_really(l, newsize, overallocate):
@@ -248,30 +252,34 @@ def _ll_list_resize(l, newsize):
     _ll_list_resize_really(l, newsize, False)
 
 
-@jit.look_inside_iff(lambda l, newsize: jit.isconstant(len(l.items)) and jit.isconstant(newsize))
-@jit.oopspec("list._resize_ge(l, newsize)")
 def _ll_list_resize_ge(l, newsize):
     """This is called with 'newsize' larger than the current length of the
     list.  If the list storage doesn't have enough space, then really perform
     a realloc().  In the common case where we already overallocated enough,
     then this is a very fast operation.
     """
-    if len(l.items) >= newsize:
-        l.length = newsize
+    cond = len(l.items) < newsize
+    if jit.isconstant(len(l.items)) and jit.isconstant(newsize):
+        if cond:
+            _ll_list_resize_hint_really(l, newsize, True)
     else:
-        _ll_list_resize_really(l, newsize, True)
+        jit.conditional_call(cond,
+                             _ll_list_resize_hint_really, l, newsize, True)
+    l.length = newsize
 
-@jit.look_inside_iff(lambda l, newsize: jit.isconstant(len(l.items)) and jit.isconstant(newsize))
-@jit.oopspec("list._resize_le(l, newsize)")
 def _ll_list_resize_le(l, newsize):
     """This is called with 'newsize' smaller than the current length of the
     list.  If 'newsize' falls lower than half the allocated size, proceed
     with the realloc() to shrink the list.
     """
-    if newsize >= (len(l.items) >> 1) - 5:
-        l.length = newsize
+    cond = newsize < (len(l.items) >> 1) - 5
+    if jit.isconstant(len(l.items)) and jit.isconstant(newsize):
+        if cond:
+            _ll_list_resize_hint_really(l, newsize, False)
     else:
-        _ll_list_resize_really(l, newsize, False)
+        jit.conditional_call(cond, _ll_list_resize_hint_really, l, newsize,
+                             False)
+    l.length = newsize
 
 def ll_append_noresize(l, newitem):
     length = l.length
@@ -432,6 +440,7 @@ class ListIteratorRepr(AbstractListIteratorRepr):
             self.ll_listnext = ll_listnext
         self.ll_getnextindex = ll_getnextindex
 
+
 def ll_listiter(ITERPTR, lst):
     iter = malloc(ITERPTR.TO)
     iter.list = lst
@@ -457,3 +466,30 @@ def ll_listnext_foldable(iter):
 
 def ll_getnextindex(iter):
     return iter.index
+
+
+class ReversedListIteratorRepr(AbstractListIteratorRepr):
+    def __init__(self, r_list):
+        self.r_list = r_list
+        self.lowleveltype = Ptr(GcStruct('revlistiter',
+            ('list', r_list.lowleveltype),
+            ('index', Signed),
+        ))
+        self.ll_listnext = ll_revlistnext
+        self.ll_listiter = ll_revlistiter
+
+
+def ll_revlistiter(ITERPTR, lst):
+    iter = malloc(ITERPTR.TO)
+    iter.list = lst
+    iter.index = lst.ll_length() - 1
+    return iter
+
+
+def ll_revlistnext(iter):
+    l = iter.list
+    index = iter.index
+    if index < 0:
+        raise StopIteration
+    iter.index -= 1
+    return l.ll_getitem_fast(index)

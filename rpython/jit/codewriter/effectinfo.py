@@ -1,7 +1,6 @@
 from rpython.jit.metainterp.typesystem import deref, fieldType, arrayItem
 from rpython.rtyper.lltypesystem.rclass import OBJECT
 from rpython.rtyper.lltypesystem import lltype, llmemory
-from rpython.rtyper.ootypesystem import ootype
 from rpython.translator.backendopt.graphanalyze import BoolGraphAnalyzer
 
 
@@ -21,6 +20,7 @@ class EffectInfo(object):
     OS_NONE                     = 0    # normal case, no oopspec
     OS_ARRAYCOPY                = 1    # "list.ll_arraycopy"
     OS_STR2UNICODE              = 2    # "str.str2unicode"
+    OS_SHRINK_ARRAY             = 3    # rgc.ll_shrink_array
     #
     OS_STR_CONCAT               = 22   # "stroruni.concat"
     OS_STR_SLICE                = 23   # "stroruni.slice"
@@ -78,12 +78,17 @@ class EffectInfo(object):
     #
     OS_RAW_MALLOC_VARSIZE_CHAR  = 110
     OS_RAW_FREE                 = 111
+    #
+    OS_STR_COPY_TO_RAW          = 112
+    OS_UNI_COPY_TO_RAW          = 113
 
     OS_JIT_FORCE_VIRTUAL        = 120
 
     # for debugging:
-    _OS_CANRAISE = set([OS_NONE, OS_STR2UNICODE, OS_LIBFFI_CALL,
-                        OS_RAW_MALLOC_VARSIZE_CHAR, OS_JIT_FORCE_VIRTUAL])
+    _OS_CANRAISE = set([
+        OS_NONE, OS_STR2UNICODE, OS_LIBFFI_CALL, OS_RAW_MALLOC_VARSIZE_CHAR,
+        OS_JIT_FORCE_VIRTUAL, OS_SHRINK_ARRAY,
+    ])
 
     def __new__(cls, readonly_descrs_fields, readonly_descrs_arrays,
                 write_descrs_fields, write_descrs_arrays,
@@ -220,8 +225,6 @@ def effectinfo_from_writeanalyze(effects, cpu,
 def consider_struct(TYPE, fieldname):
     if fieldType(TYPE, fieldname) is lltype.Void:
         return False
-    if isinstance(TYPE, ootype.OOType):
-        return True
     if not isinstance(TYPE, lltype.GcStruct): # can be a non-GC-struct
         return False
     if fieldname == "typeptr" and TYPE is OBJECT:
@@ -234,8 +237,6 @@ def consider_struct(TYPE, fieldname):
 def consider_array(ARRAY):
     if arrayItem(ARRAY) is lltype.Void:
         return False
-    if isinstance(ARRAY, ootype.Array):
-        return True
     if not isinstance(ARRAY, lltype.GcArray): # can be a non-GC-array
         return False
     return True

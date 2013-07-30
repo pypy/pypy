@@ -12,6 +12,8 @@ class MultiArrayModule(MixedModule):
         'zeros': 'interp_numarray.zeros',
         'empty': 'interp_numarray.zeros',
         'ones': 'interp_numarray.ones',
+        '_reconstruct' : 'interp_numarray._reconstruct',
+        'scalar' : 'interp_numarray.build_scalar',
         'dot': 'interp_arrayops.dot',
         'fromstring': 'interp_support.fromstring',
         'flatiter': 'interp_flatiter.W_FlatIterator',
@@ -69,6 +71,7 @@ class NumericTypesModule(MixedModule):
         'complex_': 'interp_boxes.W_Complex128Box',
         'complex128': 'interp_boxes.W_Complex128Box',
         'complex64': 'interp_boxes.W_Complex64Box',
+        'cfloat': 'interp_boxes.W_Complex64Box',
     }
     if ENABLED_LONG_DOUBLE:
         long_double_dtypes = [
@@ -181,6 +184,7 @@ class Module(MixedModule):
     appleveldefs = {}
     interpleveldefs = {
         'choose': 'interp_arrayops.choose',
+        'put': 'interp_arrayops.put',
         'repeat': 'interp_arrayops.repeat',
     }
     submodules = {

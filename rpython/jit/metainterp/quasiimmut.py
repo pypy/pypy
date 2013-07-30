@@ -7,8 +7,6 @@ from rpython.rlib.objectmodel import we_are_translated
 def get_mutate_field_name(fieldname):
     if fieldname.startswith('inst_'):    # lltype
         return 'mutate_' + fieldname[5:]
-    elif fieldname.startswith('o'):      # ootype
-        return 'mutate_' + fieldname[1:]
     else:
         raise AssertionError(fieldname)
 
@@ -51,7 +49,7 @@ def do_force_quasi_immutable(cpu, p, mutatefielddescr):
 class QuasiImmut(object):
     llopaque = True
     compress_limit = 30
-    
+
     def __init__(self, cpu):
         self.cpu = cpu
         # list of weakrefs to the LoopTokens that must be invalidated if

@@ -2,7 +2,9 @@ import contextlib
 import py
 import sys, os
 from rpython.rlib import exports
+from rpython.rlib.entrypoint import entrypoint
 from rpython.rtyper.typesystem import getfunctionptr
+from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.tool import runsubprocess
 from rpython.tool.nullpath import NullPyPathLocal
 from rpython.tool.udir import udir
@@ -112,7 +114,7 @@ class CCompilerDriver(object):
             str(exename), args))
         profdrv.probe(exename, args)
         return profdrv.after()
-    
+
 class CBuilder(object):
     c_source_filename = None
     _compiled = False
@@ -149,7 +151,7 @@ class CBuilder(object):
                               thread_enabled=self.config.translation.thread,
                               sandbox=self.config.translation.sandbox)
         self.db = db
-        
+
         # give the gc a chance to register interest in the start-up functions it
         # need (we call this for its side-effects of db.get())
         list(db.gcpolicy.gc_startup_code())
@@ -257,7 +259,7 @@ class CBuilder(object):
             if self.config.translation.shared:
                 defines['PYPY_MAIN_FUNCTION'] = "pypy_main_startup"
                 self.eci = self.eci.merge(ExternalCompilationInfo(
-                    export_symbols=["pypy_main_startup"]))
+                    export_symbols=["pypy_main_startup", "pypy_debug_file"]))
         self.eci, cfile, extra = gen_source(db, modulename, targetdir,
                                             self.eci, defines=defines,
                                             split=self.split)
@@ -425,7 +427,10 @@ class CStandaloneBuilder(CBuilder):
             if sys.platform == 'win32':
                 mk.definition('DEBUGFLAGS', '/MD /Zi')
             else:
-                mk.definition('DEBUGFLAGS', '-O2 -fomit-frame-pointer -g')
+                if self.config.translation.shared:
+                    mk.definition('DEBUGFLAGS', '-O2 -fomit-frame-pointer -g -fPIC')
+                else:
+                    mk.definition('DEBUGFLAGS', '-O2 -fomit-frame-pointer -g')
 
             if self.config.translation.shared:
                 mk.definition('PYPY_MAIN_FUNCTION', "pypy_main_startup")
@@ -622,7 +627,7 @@ class SourceGenerator:
             if self.database.gcpolicy.need_no_typeptr():
                 pass    # XXX gcc uses toooooons of memory???
             else:
-                split_criteria_big = SPLIT_CRITERIA * 4 
+                split_criteria_big = SPLIT_CRITERIA * 4
 
         #
         # All declarations
@@ -698,6 +703,8 @@ def gen_structdef(f, database):
     print >> f, '/***********************************************************/'
     print >> f, '/***  Structure definitions                              ***/'
     print >> f
+    print >> f, "#ifndef _PYPY_STRUCTDEF_H"
+    print >> f, "#define _PYPY_STRUCTDEF_H"
     for node in structdeflist:
         if hasattr(node, 'forward_decl'):
             if node.forward_decl:
@@ -708,14 +715,18 @@ def gen_structdef(f, database):
     for node in structdeflist:
         for line in node.definition():
             print >> f, line
+    print >> f, "#endif"
 
 def gen_forwarddecl(f, database):
     print >> f, '/***********************************************************/'
     print >> f, '/***  Forward declarations                               ***/'
     print >> f
+    print >> f, "#ifndef _PYPY_FORWARDDECL_H"
+    print >> f, "#define _PYPY_FORWARDDECL_H"
     for node in database.globalcontainers():
         for line in node.forward_declaration():
             print >> f, line
+    print >> f, "#endif"
 
 def gen_preimpl(f, database):
     if database.translator is None or database.translator.rtyper is None:

@@ -196,11 +196,6 @@ class W_TextIOBase(W_IOBase):
     def __init__(self, space):
         W_IOBase.__init__(self, space)
 
-    def _unsupportedoperation(self, space, message):
-        w_exc = space.getattr(space.getbuiltinmodule('_io'),
-                              space.wrap('UnsupportedOperation'))
-        raise OperationError(w_exc, space.wrap(message))
-
     def read_w(self, space, w_size=None):
         self._unsupportedoperation(space, "read")
 

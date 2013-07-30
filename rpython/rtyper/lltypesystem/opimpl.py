@@ -1,4 +1,4 @@
-from rpython.flowspace.operation import FunctionByName
+from rpython.flowspace.operation import op
 from rpython.rlib import debug
 from rpython.rlib.rarithmetic import is_valid_int
 from rpython.rtyper.lltypesystem import lltype, llmemory
@@ -13,7 +13,6 @@ ops_returning_a_bool = {'gt': True, 'ge': True,
                         'lt': True, 'le': True,
                         'eq': True, 'ne': True,
                         'is_true': True}
-ops_unary = {'is_true': True, 'neg': True, 'abs': True, 'invert': True}
 
 # global synonyms for some types
 from rpython.rlib.rarithmetic import intmask
@@ -46,11 +45,13 @@ def no_op(x):
 def get_primitive_op_src(fullopname):
     assert '_' in fullopname, "%s: not a primitive op" % (fullopname,)
     typname, opname = fullopname.split('_', 1)
-    if opname not in FunctionByName and (opname + '_') in FunctionByName:
-        func = FunctionByName[opname + '_']   # or_, and_
+    if hasattr(op, opname):
+        oper = getattr(op, opname)
+    elif hasattr(op, opname + '_'):
+        oper = getattr(op, opname + '_')   # or_, and_
     else:
-        assert opname in FunctionByName, "%s: not a primitive op" % (fullopname,)
-        func = FunctionByName[opname]
+        raise ValueError("%s: not a primitive op" % (fullopname,))
+    func = oper.pyfunc
 
     if typname == 'char':
         # char_lt, char_eq, ...
@@ -72,7 +73,7 @@ def get_primitive_op_src(fullopname):
             fullopname,)
         argtype = argtype_by_name[typname]
 
-        if opname in ops_unary:
+        if oper.arity == 1:
             def op_function(x):
                 if not isinstance(x, argtype):
                     raise TypeError("%r arg must be %s, got %r instead" % (
@@ -451,10 +452,6 @@ op_cast_adr_to_ptr.need_result_type = True
 def op_cast_int_to_adr(int):
     return llmemory.cast_int_to_adr(int)
 
-##def op_cast_int_to_adr(x):
-##    assert type(x) is int
-##    return llmemory.cast_int_to_adr(x)
-
 def op_convert_float_bytes_to_longlong(a):
     from rpython.rlib.longlong2float import float2longlong
     return float2longlong(a)
@@ -552,8 +549,7 @@ def op_getarrayitem(p, index):
 def _normalize(x):
     if not isinstance(x, str):
         TYPE = lltype.typeOf(x)
-        if (isinstance(TYPE, lltype.Ptr) and TYPE.TO._name == 'rpy_string'
-            or getattr(TYPE, '_name', '') == 'String'):    # ootype
+        if isinstance(TYPE, lltype.Ptr) and TYPE.TO._name == 'rpy_string':
             from rpython.rtyper.annlowlevel import hlstr
             return hlstr(x)
     return x

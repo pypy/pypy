@@ -11,7 +11,6 @@ from rpython.rlib import jit
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib.rawstorage import free_raw_storage, raw_storage_getitem,\
      raw_storage_setitem, RAW_STORAGE
-from pypy.module.micronumpy.arrayimpl.sort import argsort_array
 from rpython.rlib.debug import make_sure_not_resized
 
 
@@ -55,6 +54,9 @@ class BaseConcreteArray(base.BaseArrayImplementation):
     def get_size(self):
         return self.size // self.dtype.itemtype.get_element_size()
 
+    def get_storage_size(self):
+        return self.size
+
     def reshape(self, space, orig_array, new_shape):
         # Since we got to here, prod(new_shape) == self.size
         new_strides = None
@@ -67,10 +69,17 @@ class BaseConcreteArray(base.BaseArrayImplementation):
             new_backstrides = [0] * ndims
             for nd in range(ndims):
                 new_backstrides[nd] = (new_shape[nd] - 1) * new_strides[nd]
+            assert isinstance(orig_array, W_NDimArray) or orig_array is None
             return SliceArray(self.start, new_strides, new_backstrides,
                               new_shape, self, orig_array)
         else:
             return None
+
+    def get_view(self, orig_array, dtype, new_shape):
+        strides, backstrides = support.calc_strides(new_shape, dtype,
+                                                    self.order)
+        return SliceArray(self.start, strides, backstrides, new_shape,
+                          self, orig_array, dtype=dtype)
 
     def get_real(self, orig_array):
         strides = self.get_strides()
@@ -220,7 +229,7 @@ class BaseConcreteArray(base.BaseArrayImplementation):
         except IndexError:
             # not a single result
             chunks = self._prepare_slice_args(space, w_index)
-            return chunks.apply(orig_arr)
+            return chunks.apply(space, orig_arr)
 
     def descr_setitem(self, space, orig_arr, w_index, w_value):
         try:
@@ -229,7 +238,7 @@ class BaseConcreteArray(base.BaseArrayImplementation):
         except IndexError:
             w_value = convert_to_array(space, w_value)
             chunks = self._prepare_slice_args(space, w_index)
-            view = chunks.apply(orig_arr)
+            view = chunks.apply(space, orig_arr)
             view.implementation.setslice(space, w_value)
 
     def transpose(self, orig_array):
@@ -260,18 +269,18 @@ class BaseConcreteArray(base.BaseArrayImplementation):
                                   shape, skip)
         return iter.MultiDimViewIterator(self, self.dtype, self.start, r[0], r[1], shape)
 
-    def swapaxes(self, orig_arr, axis1, axis2):
+    def swapaxes(self, space, orig_arr, axis1, axis2):
         shape = self.get_shape()[:]
         strides = self.get_strides()[:]
         backstrides = self.get_backstrides()[:]
         shape[axis1], shape[axis2] = shape[axis2], shape[axis1]
         strides[axis1], strides[axis2] = strides[axis2], strides[axis1]
         backstrides[axis1], backstrides[axis2] = backstrides[axis2], backstrides[axis1]
-        return W_NDimArray.new_slice(self.start, strides,
+        return W_NDimArray.new_slice(space, self.start, strides,
                                      backstrides, shape, self, orig_arr)
 
     def get_storage_as_int(self, space):
-        return rffi.cast(lltype.Signed, self.storage)
+        return rffi.cast(lltype.Signed, self.storage) + self.start
 
     def get_storage(self):
         return self.storage
@@ -280,13 +289,16 @@ class BaseConcreteArray(base.BaseArrayImplementation):
         return ArrayBuffer(self)
 
     def astype(self, space, dtype):
-        new_arr = W_NDimArray.from_shape(self.get_shape(), dtype)
+        strides, backstrides = support.calc_strides(self.get_shape(), dtype,
+                                                    self.order)
+        impl = ConcreteArray(self.get_shape(), dtype, self.order,
+                             strides, backstrides)
         if self.dtype.is_str_or_unicode() and not dtype.is_str_or_unicode():
             raise OperationError(space.w_NotImplementedError, space.wrap(
                 "astype(%s) not implemented yet" % self.dtype))
         else:
-            loop.setslice(space, new_arr.get_shape(), new_arr.implementation, self)
-        return new_arr
+            loop.setslice(space, impl.get_shape(), impl, self)
+        return impl
 
 
 class ConcreteArrayNotOwning(BaseConcreteArray):
@@ -321,6 +333,7 @@ class ConcreteArrayNotOwning(BaseConcreteArray):
                           orig_array)
 
     def argsort(self, space, w_axis):
+        from pypy.module.micronumpy.arrayimpl.sort import argsort_array
         return argsort_array(self, space, w_axis)
 
     def base(self):
@@ -328,13 +341,14 @@ class ConcreteArrayNotOwning(BaseConcreteArray):
 
 
 class ConcreteArray(ConcreteArrayNotOwning):
-    def __init__(self, shape, dtype, order, strides, backstrides):
-        # we allocate the actual storage later because we need to compute
-        # self.size first
+    def __init__(self, shape, dtype, order, strides, backstrides, storage=lltype.nullptr(RAW_STORAGE)):
         null_storage = lltype.nullptr(RAW_STORAGE)
         ConcreteArrayNotOwning.__init__(self, shape, dtype, order, strides, backstrides,
                                         null_storage)
-        self.storage = dtype.itemtype.malloc(self.size)
+        if storage == lltype.nullptr(RAW_STORAGE):
+            self.storage = dtype.itemtype.malloc(self.size)
+        else:
+            self.storage = storage
 
     def __del__(self):
         free_raw_storage(self.storage, track_allocation=False)
@@ -352,13 +366,13 @@ class SliceArray(BaseConcreteArray):
         self.strides = strides
         self.backstrides = backstrides
         self.shape = shape
+        if dtype is None:
+            dtype = parent.dtype
         if isinstance(parent, SliceArray):
             parent = parent.parent # one level only
         self.parent = parent
         self.storage = parent.storage
         self.order = parent.order
-        if dtype is None:
-            dtype = parent.dtype
         self.dtype = dtype
         self.size = support.product(shape) * self.dtype.itemtype.get_element_size()
         self.start = start

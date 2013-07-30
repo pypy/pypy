@@ -135,16 +135,37 @@ class TestGateway:
 
     def test_interpindirect2app(self):
         space = self.space
+
         class BaseA(W_Root):
             def method(self, space, x):
+                "This is a method"
+                pass
+
+            def method_with_default(self, space, x=5):
+                pass
+
+            @gateway.unwrap_spec(x=int)
+            def method_with_unwrap_spec(self, space, x):
                 pass
 
         class A(BaseA):
             def method(self, space, x):
                 return space.wrap(x + 2)
 
+            def method_with_default(self, space, x):
+                return space.wrap(x + 2)
+
+            def method_with_unwrap_spec(self, space, x):
+                return space.wrap(x + 2)
+
         class B(BaseA):
             def method(self, space, x):
+                return space.wrap(x + 1)
+
+            def method_with_default(self, space, x):
+                return space.wrap(x + 1)
+
+            def method_with_unwrap_spec(self, space, x):
                 return space.wrap(x + 1)
 
         class FakeTypeDef(object):
@@ -162,6 +183,23 @@ class TestGateway:
         w_b = B()
         assert space.int_w(space.call_function(w_c, w_a, space.wrap(1))) == 1 + 2
         assert space.int_w(space.call_function(w_c, w_b, space.wrap(-10))) == -10 + 1
+
+        doc = space.str_w(space.getattr(w_c, space.wrap('__doc__')))
+        assert doc == "This is a method"
+
+        meth_with_default = gateway.interpindirect2app(
+            BaseA.method_with_default, {'x': int})
+        w_d = space.wrap(meth_with_default)
+
+        assert space.int_w(space.call_function(w_d, w_a, space.wrap(4))) == 4 + 2
+        assert space.int_w(space.call_function(w_d, w_b, space.wrap(-10))) == -10 + 1
+        assert space.int_w(space.call_function(w_d, w_a)) == 5 + 2
+        assert space.int_w(space.call_function(w_d, w_b)) == 5 + 1
+
+        meth_with_unwrap_spec = gateway.interpindirect2app(
+            BaseA.method_with_unwrap_spec)
+        w_e = space.wrap(meth_with_unwrap_spec)
+        assert space.int_w(space.call_function(w_e, w_a, space.wrap(4))) == 4 + 2
 
     def test_interp2app_unwrap_spec(self):
         space = self.space
@@ -558,6 +596,32 @@ class TestGateway:
 
         assert space.is_true(w_res)
         assert called == [w_app_f, w_app_f]
+
+    def test_interp2app_fastcall_method_with_space(self):
+        class W_X(W_Root):
+            def descr_f(self, space, w_x):
+                return w_x
+
+        app_f = gateway.interp2app_temp(W_X.descr_f, unwrap_spec=['self',
+                                        gateway.ObjSpace, gateway.W_Root])
+
+        w_app_f = self.space.wrap(app_f)
+
+        assert isinstance(w_app_f.code, gateway.BuiltinCode2)
+        
+        called = []
+        fastcall_2 = w_app_f.code.fastcall_2
+        def witness_fastcall_2(space, w_func, w_a, w_b):
+            called.append(w_func)
+            return fastcall_2(space, w_func, w_a, w_b)
+
+        w_app_f.code.fastcall_2 = witness_fastcall_2
+        space = self.space
+
+        w_res = space.call_function(w_app_f, W_X(), space.wrap(3))
+
+        assert space.is_true(w_res)
+        assert called == [w_app_f]
 
     def test_plain(self):
         space = self.space

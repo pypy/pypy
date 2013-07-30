@@ -6,11 +6,16 @@ from rpython.jit.backend.arm.locations import imm
 from rpython.jit.backend.arm.test.support import run_asm
 from rpython.jit.backend.detect_cpu import getcpuclass
 from rpython.jit.metainterp.resoperation import rop
+from rpython.jit.codewriter import longlong
 
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.jit.metainterp.history import JitCellToken
 from rpython.jit.backend.model import CompiledLoopToken
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.rtyper.annlowlevel import llhelper
+from rpython.rlib.objectmodel import specialize
+from rpython.rlib.debug import ll_assert
 
 CPU = getcpuclass()
 
@@ -247,7 +252,91 @@ class TestRunningAssembler(object):
         self.a.mc.ADD_ri(r.sp.value, r.sp.value, 8)
         self.a.gen_func_epilog()
         assert run_asm(self.a) == x
+    
+    def test_stm(self):
+        container = lltype.malloc(lltype.Array(lltype.Signed, hints={'nolength': True}), 10, flavor='raw')
+        self.a.gen_func_prolog()
+        self.a.mc.gen_load_int(r.ip.value, rffi.cast(lltype.Signed, container))
+        for x in range(10):
+            self.a.mc.gen_load_int(x, x)
+        self.a.mc.STM(r.ip.value, [x for x in range(10)])
+        self.a.gen_func_epilog()
+        run_asm(self.a)
+        for x in range(10):
+            assert container[x] == x
+        lltype.free(container, flavor='raw')
 
+    def test_ldm(self):
+        container = lltype.malloc(lltype.Array(lltype.Signed, hints={'nolength': True}), 10, flavor='raw')
+        for x in range(10):
+            container[x] = x
+        self.a.gen_func_prolog()
+        self.a.mc.gen_load_int(r.ip.value, rffi.cast(lltype.Signed, container))
+        self.a.mc.LDM(r.ip.value, [x for x in range(10)])
+        for x in range(1, 10):
+            self.a.mc.ADD_rr(0, 0, x)
+        self.a.gen_func_epilog()
+        res = run_asm(self.a)
+        assert res == sum(range(10))
+        lltype.free(container, flavor='raw')
+
+    def test_vstm(self):
+        n = 14
+        source_container = lltype.malloc(lltype.Array(longlong.FLOATSTORAGE,
+            hints={'nolength': True}), n, flavor='raw')
+        target_container = lltype.malloc(lltype.Array(longlong.FLOATSTORAGE,
+            hints={'nolength': True}), n, flavor='raw')
+        for x in range(n):
+            source_container[x] = longlong.getfloatstorage(float("%d.%d" % (x,x)))
+        self.a.gen_func_prolog()
+        for x in range(n):
+            self.a.mc.ADD_ri(r.ip.value, r.ip.value, 8)
+            self.a.mc.VLDR(n, r.ip.value)
+        self.a.mc.gen_load_int(r.ip.value, rffi.cast(lltype.Signed, target_container))
+        self.a.mc.VSTM(r.ip.value, [x for x in range(n)])
+        self.a.gen_func_epilog()
+        run_asm(self.a)
+        for d in range(n):
+            res = longlong.getrealfloat(target_container[0]) == float("%d.%d" % (d,d))
+        lltype.free(source_container, flavor='raw')
+        lltype.free(target_container, flavor='raw')
+
+    def test_vldm(self):
+        n = 14
+        container = lltype.malloc(lltype.Array(longlong.FLOATSTORAGE,
+                                hints={'nolength': True}), n, flavor='raw')
+        for x in range(n):
+            container[x] = longlong.getfloatstorage(float("%d.%d" % (x,x)))
+        self.a.gen_func_prolog()
+        self.a.mc.gen_load_int(r.ip.value, rffi.cast(lltype.Signed, container))
+        self.a.mc.VLDM(r.ip.value, [x for x in range(n)])
+        for x in range(1, n):
+            self.a.mc.VADD(0, 0, x)
+        self.a.mc.VSTR(r.d0.value, r.ip.value)
+        self.a.gen_func_epilog()
+        res = run_asm(self.a)
+        assert longlong.getrealfloat(container[0]) == sum([float("%d.%d" % (d,d)) for d in range(n)])
+        lltype.free(container, flavor='raw')
+
+    def test_vstm_vldm_combined(self):
+        n = 14
+        source_container = lltype.malloc(lltype.Array(longlong.FLOATSTORAGE,
+            hints={'nolength': True}), n, flavor='raw')
+        target_container = lltype.malloc(lltype.Array(longlong.FLOATSTORAGE,
+            hints={'nolength': True}), n, flavor='raw')
+        for x in range(n):
+            source_container[x] = longlong.getfloatstorage(float("%d.%d" % (x,x)))
+        self.a.gen_func_prolog()
+        self.a.mc.gen_load_int(r.ip.value, rffi.cast(lltype.Signed, source_container))
+        self.a.mc.VLDM(r.ip.value, [x for x in range(n)])
+        self.a.mc.gen_load_int(r.ip.value, rffi.cast(lltype.Signed, target_container))
+        self.a.mc.VSTM(r.ip.value, [x for x in range(n)])
+        self.a.gen_func_epilog()
+        run_asm(self.a)
+        for d in range(n):
+            res = longlong.getrealfloat(target_container[0]) == float("%d.%d" % (d,d))
+        lltype.free(source_container, flavor='raw')
+        lltype.free(target_container, flavor='raw')
 
 def callme(inp):
     i = inp + 10

@@ -2,6 +2,7 @@
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rlib import clibffi, jit
+from rpython.rlib.rarithmetic import r_longlong, r_singlefloat
 from rpython.rlib.nonconst import NonConstant
 
 
@@ -107,12 +108,14 @@ def jit_ffi_call(cif_description, func_addr, exchange_buffer):
     reskind = types.getkind(cif_description.rtype)
     if reskind == 'v':
         jit_ffi_call_impl_void(cif_description, func_addr, exchange_buffer)
-    elif reskind == 'f' or reskind == 'L': # L is for longlongs, on 32bit
-        result = jit_ffi_call_impl_float(cif_description, func_addr, exchange_buffer)
-        jit_ffi_save_result('float', cif_description, exchange_buffer, result)
     elif reskind == 'i' or reskind == 'u':
-        result = jit_ffi_call_impl_int(cif_description, func_addr, exchange_buffer)
-        jit_ffi_save_result('int', cif_description, exchange_buffer, result)
+        _do_ffi_call_int(cif_description, func_addr, exchange_buffer)
+    elif reskind == 'f':
+        _do_ffi_call_float(cif_description, func_addr, exchange_buffer)
+    elif reskind == 'L': # L is for longlongs, on 32bit
+        _do_ffi_call_longlong(cif_description, func_addr, exchange_buffer)
+    elif reskind == 'S': # SingleFloat
+        _do_ffi_call_singlefloat(cif_description, func_addr, exchange_buffer)
     else:
         # the result kind is not supported: we disable the jit_ffi_call
         # optimization by calling directly jit_ffi_call_impl_any, so the JIT
@@ -121,6 +124,30 @@ def jit_ffi_call(cif_description, func_addr, exchange_buffer):
         # Since call_release_gil is not generated, there is no need to
         # jit_ffi_save_result
         jit_ffi_call_impl_any(cif_description, func_addr, exchange_buffer)
+
+
+def _do_ffi_call_int(cif_description, func_addr, exchange_buffer):
+    result = jit_ffi_call_impl_int(cif_description, func_addr,
+                                   exchange_buffer)
+    jit_ffi_save_result('int', cif_description, exchange_buffer, result)
+
+def _do_ffi_call_float(cif_description, func_addr, exchange_buffer):
+    # a separate function in case the backend doesn't support floats
+    result = jit_ffi_call_impl_float(cif_description, func_addr,
+                                     exchange_buffer)
+    jit_ffi_save_result('float', cif_description, exchange_buffer, result)
+
+def _do_ffi_call_longlong(cif_description, func_addr, exchange_buffer):
+    # a separate function in case the backend doesn't support longlongs
+    result = jit_ffi_call_impl_longlong(cif_description, func_addr,
+                                        exchange_buffer)
+    jit_ffi_save_result('longlong', cif_description, exchange_buffer, result)
+
+def _do_ffi_call_singlefloat(cif_description, func_addr, exchange_buffer):
+    # a separate function in case the backend doesn't support singlefloats
+    result = jit_ffi_call_impl_singlefloat(cif_description, func_addr,
+                                           exchange_buffer)
+    jit_ffi_save_result('singlefloat', cif_description, exchange_buffer,result)
 
 
 # we must return a NonConstant else we get the constant -1 as the result of
@@ -137,6 +164,16 @@ def jit_ffi_call_impl_int(cif_description, func_addr, exchange_buffer):
 def jit_ffi_call_impl_float(cif_description, func_addr, exchange_buffer):
     jit_ffi_call_impl_any(cif_description, func_addr, exchange_buffer)
     return NonConstant(-1.0)
+
+@jit.oopspec("libffi_call(cif_description,func_addr,exchange_buffer)")
+def jit_ffi_call_impl_longlong(cif_description, func_addr, exchange_buffer):
+    jit_ffi_call_impl_any(cif_description, func_addr, exchange_buffer)
+    return r_longlong(-1)
+
+@jit.oopspec("libffi_call(cif_description,func_addr,exchange_buffer)")
+def jit_ffi_call_impl_singlefloat(cif_description, func_addr, exchange_buffer):
+    jit_ffi_call_impl_any(cif_description, func_addr, exchange_buffer)
+    return r_singlefloat(-1.0)
 
 @jit.oopspec("libffi_call(cif_description,func_addr,exchange_buffer)")
 def jit_ffi_call_impl_void(cif_description, func_addr, exchange_buffer):
@@ -175,7 +212,7 @@ class Entry(ExtRegistryEntry):
     def compute_result_annotation(self, kind_s, *args_s):
         from rpython.annotator import model as annmodel
         assert isinstance(kind_s, annmodel.SomeString)
-        assert kind_s.const in ('int', 'float')
+        assert kind_s.const in ('int', 'float', 'longlong', 'singlefloat')
 
     def specialize_call(self, hop):
         hop.exception_cannot_occur()

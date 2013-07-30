@@ -1,11 +1,12 @@
-from pypy.interpreter.gateway import unwrap_spec, interp2app
-from pypy.interpreter.function import StaticMethod
-from pypy.interpreter.error import wrap_windowserror, OperationError
 from rpython.rlib import rwin32
 from rpython.rlib.rarithmetic import r_uint
-from rpython.rtyper.lltypesystem import rffi, lltype
-from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.tool import rffi_platform
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
+
+from pypy.interpreter.error import OperationError, wrap_windowserror
+from pypy.interpreter.function import StaticMethod
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.module._multiprocessing.interp_connection import w_handle
 
 CONSTANTS = """
@@ -130,10 +131,12 @@ def ConnectNamedPipe(space, w_handle, w_overlapped):
     if not _ConnectNamedPipe(handle, rffi.NULL):
         raise wrap_windowserror(space, rwin32.lastWindowsError())
 
-def SetNamedPipeHandleState(space, w_handle, w_pipemode, w_maxinstances, w_timeout):
+def SetNamedPipeHandleState(space, w_handle, w_pipemode, w_maxinstances,
+                            w_timeout):
     handle = handle_w(space, w_handle)
     state = lltype.malloc(rffi.CArrayPtr(rffi.UINT).TO, 3, flavor='raw')
-    statep = lltype.malloc(rffi.CArrayPtr(rffi.UINTP).TO, 3, flavor='raw', zero=True)
+    statep = lltype.malloc(rffi.CArrayPtr(rffi.UINTP).TO, 3, flavor='raw',
+                           zero=True)
     try:
         if not space.is_w(w_pipemode, space.w_None):
             state[0] = space.uint_w(w_pipemode)
@@ -144,7 +147,8 @@ def SetNamedPipeHandleState(space, w_handle, w_pipemode, w_maxinstances, w_timeo
         if not space.is_w(w_timeout, space.w_None):
             state[2] = space.uint_w(w_timeout)
             statep[2] = rffi.ptradd(state, 2)
-        if not _SetNamedPipeHandleState(handle, statep[0], statep[1], statep[2]):
+        if not _SetNamedPipeHandleState(handle, statep[0], statep[1],
+                                        statep[2]):
             raise wrap_windowserror(space, rwin32.lastWindowsError())
     finally:
         lltype.free(state, flavor='raw')

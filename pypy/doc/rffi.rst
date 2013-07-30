@@ -5,7 +5,7 @@ Foreign Function Interface for RPython
 Purpose
 -------
 
-This document describes an FFI for RPython language, concentrating
+This document describes an FFI for the RPython language, concentrating
 on low-level backends like C. It describes
 how to declare and call low-level (C) functions from RPython level.
 
@@ -43,14 +43,14 @@ parameter::
 See cbuild_ for more info on ExternalCompilationInfo.
 
 .. _`low level types`: rtyper.html#low-level-type
-.. _cbuild: https://bitbucket.org/pypy/pypy/src/tip/pypy/translator/tool/cbuild.py
+.. _cbuild: https://bitbucket.org/pypy/pypy/src/tip/rpython/translator/tool/cbuild.py
 
 
 Types
 ------
 
 In rffi_ there are various declared types for C-structures, like CCHARP
-(char*), SIZE_T (size_t) and others. refer to file for details. 
+(char*), SIZE_T (size_t) and others. Refer to file for details. 
 Instances of non-primitive types must be alloced by hand, with call 
 to lltype.malloc, and freed by lltype.free both with keyword argument 
 flavor='raw'. There are several helpers like string -> char*
@@ -69,9 +69,3 @@ functions, passing llimpl as an argument and eventually llfakeimpl
 as a fake low-level implementation for tests performed by an llinterp.
 
 .. _`extfunc.py`: https://bitbucket.org/pypy/pypy/src/tip/pypy/rpython/extfunc.py
-
-
-OO backends
------------
-
-XXX to be written

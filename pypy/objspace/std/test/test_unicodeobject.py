@@ -25,6 +25,12 @@ class TestUnicodeObject:
         w_str = self.space.wrap(u'abcd')
         assert self.space.listview_unicode(w_str) == list(u"abcd")
 
+    def test_new_shortcut(self):
+        space = self.space
+        w_uni = self.space.wrap(u'abcd')
+        w_new = space.call_method(
+                space.w_unicode, "__new__", space.w_unicode, w_uni)
+        assert w_new is w_uni
 
 class AppTestUnicodeStringStdOnly:
     def test_compares(self):

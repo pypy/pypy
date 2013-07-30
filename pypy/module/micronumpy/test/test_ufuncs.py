@@ -286,7 +286,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
         skip('sign of nan is non-determinant')
         assert (signbit([float('nan'), float('-nan'), -float('nan')]) ==
-            [False, True, True]).all()    
+            [False, True, True]).all()
 
     def test_reciprocal(self):
         from numpypy import array, reciprocal, complex64, complex128
@@ -334,6 +334,23 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert all([math.copysign(1, f(abs(float("nan")))) == 1 for f in floor, ceil, trunc])
         assert all([math.copysign(1, f(-abs(float("nan")))) == -1 for f in floor, ceil, trunc])
 
+    def test_round(self):
+        from numpypy import array, dtype
+        ninf, inf = float("-inf"), float("inf")
+        a = array([ninf, -1.4, -1.5, -1.0, 0.0, 1.0, 1.4, 0.5, inf])
+        assert ([ninf, -1.0, -2.0, -1.0, 0.0, 1.0, 1.0, 0.0, inf] == a.round()).all()
+        i = array([-1000, -100, -1, 0, 1, 111, 1111, 11111], dtype=int)
+        assert (i == i.round()).all()
+        assert (i.round(decimals=4) == i).all()
+        assert (i.round(decimals=-4) == [0, 0, 0, 0, 0, 0, 0, 10000]).all()
+        b = array([True, False], dtype=bool)
+        bround = b.round()
+        assert (bround == [1., 0.]).all()
+        assert bround.dtype is dtype('float16')
+        c = array([10.5+11.5j, -15.2-100.3456j, 0.2343+11.123456j])
+        assert (c.round(0) == [10.+12.j, -15-100j, 0+11j]).all()
+
+
     def test_copysign(self):
         from numpypy import array, copysign
 
@@ -364,7 +381,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert b[i] == res
 
     def test_exp2(self):
-        import math 
+        import math
         from numpypy import array, exp2
         inf = float('inf')
         ninf = -float('inf')
@@ -759,8 +776,8 @@ class AppTestUfuncs(BaseNumpyAppTest):
              complex(inf, inf), complex(inf, ninf), complex(0, inf),
              complex(ninf, ninf), complex(nan, 0), complex(0, nan),
              complex(nan, nan)]
-        assert (isfinite(a) == [True, True, False, False, False, 
-                        False, False, False, False, False]).all() 
+        assert (isfinite(a) == [True, True, False, False, False,
+                        False, False, False, False, False]).all()
 
     def test_logical_ops(self):
         from numpypy import logical_and, logical_or, logical_xor, logical_not
@@ -864,7 +881,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         #numpy returns (a.real*b.real + a.imag*b.imag) / abs(b)**2
         expect = [3., -23., 1.]
         for i in range(len(a)):
-            assert b[i] == expect[i] 
+            assert b[i] == expect[i]
         b = floor_divide(a[0], 0.)
         assert math.isnan(b.real)
         assert b.imag == 0.

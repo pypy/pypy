@@ -317,7 +317,7 @@ class Struct(ContainerType):
     def _names_without_voids(self):
         names_without_voids = [name for name in self._names if self._flds[name] is not Void]
         return names_without_voids
-    
+
     def _str_fields_without_voids(self):
         return ', '.join(['%s: %s' % (name, self._flds[name])
                           for name in self._names_without_voids(False)])
@@ -342,9 +342,6 @@ class Struct(ContainerType):
 
     def _short_name(self):
         return "%s %s" % (self.__class__.__name__, self._name)
-
-##     def _defl(self, parent=None, parentindex=None):
-##         return _struct(self, parent=parent, parentindex=parentindex)
 
     def _allocate(self, initialization, parent=None, parentindex=None):
         return _struct(self, initialization=initialization,
@@ -425,7 +422,7 @@ class Array(ContainerType):
     _gckind = 'raw'
     __name__ = 'array'
     _anonym_struct = False
-    
+
     def __init__(self, *fields, **kwds):
         if len(fields) == 1 and isinstance(fields[0], LowLevelType):
             self.OF = fields[0]
@@ -669,7 +666,7 @@ class Number(Primitive):
 
     def normalized(self):
         return build_number(None, normalizedinttype(self._type))
-        
+
 
 _numbertypes = {int: Number("Signed", int, intmask)}
 _numbertypes[r_int] = _numbertypes[int]
@@ -766,7 +763,7 @@ class Ptr(LowLevelType):
                          adtmeths=TO._adtmeths)
         else:
             R = GcStruct("Interior", ('ptr', self), ('index', Signed),
-                         hints={'interior_ptr_type':True})            
+                         hints={'interior_ptr_type':True})
         return R
 
 class InteriorPtr(LowLevelType):
@@ -911,7 +908,7 @@ def _castdepth(OUTSIDE, INSIDE):
             return dwn
         OUTSIDE = getattr(OUTSIDE, first)
     return -1
- 
+
 def castable(PTRTYPE, CURTYPE):
     if CURTYPE.TO._gckind != PTRTYPE.TO._gckind:
         raise TypeError("cast_pointer() cannot change the gc status: %s to %s"
@@ -1029,15 +1026,6 @@ def parentlink(container):
     parent = container._parentstructure()
     if parent is not None:
         return parent, container._parent_index
-##        if isinstance(parent, _struct):
-##            for name in parent._TYPE._names:
-##                if getattr(parent, name) is container:
-##                    return parent, name
-##            raise RuntimeError("lost ourselves")
-##        if isinstance(parent, _array):
-##            raise TypeError("cannot fish a pointer to an array item or an "
-##                            "inlined substructure of it")
-##        raise AssertionError("don't know about %r" % (parent,))
     else:
         return None, None
 
@@ -1120,7 +1108,7 @@ class _abstract_ptr(object):
 
     # _setobj, _getobj and _obj0 are really _internal_ implementations details of _ptr,
     # use _obj if necessary instead !
-    def _setobj(self, pointing_to, solid=False):        
+    def _setobj(self, pointing_to, solid=False):
         if pointing_to is None:
             obj0 = None
         elif (solid or self._T._gckind != 'raw' or
@@ -1131,7 +1119,7 @@ class _abstract_ptr(object):
             obj0 = weakref.ref(pointing_to)
         self._set_solid(solid)
         self._set_obj0(obj0)
-        
+
     def _getobj(self, check=True):
         obj = self._obj0
         if obj is not None:
@@ -1307,7 +1295,7 @@ class _abstract_ptr(object):
             return result
 
 class _ptr(_abstract_ptr):
-    __slots__ = ('_TYPE', 
+    __slots__ = ('_TYPE',
                  '_weak', '_solid',
                  '_obj0', '__weakref__')
 
@@ -1462,9 +1450,9 @@ class _interior_ptr(_abstract_ptr):
             assert T._gckind == 'raw'
             val = _interior_ptr(T, self._parent, self._offsets + [offset])
         return val
-    
-    
-        
+
+
+
 assert not '__dict__' in dir(_interior_ptr)
 
 class _container(object):
@@ -1581,7 +1569,7 @@ def _struct_variety(flds, cache={}):
             __slots__ = flds
         cache[tag] = _struct1
         return _struct1
- 
+
 #for pickling support:
 def _get_empty_instance_of_struct_variety(flds):
     cls = _struct_variety(flds)
@@ -1644,7 +1632,7 @@ class _struct(_parentable):
         return r
 
     # for FixedSizeArray kind of structs:
-    
+
     def getlength(self):
         assert isinstance(self._TYPE, FixedSizeArray)
         return self._TYPE.length
@@ -1891,6 +1879,8 @@ class _func(_container):
         attrs.setdefault('_name', '?')
         attrs.setdefault('_callable', None)
         self.__dict__.update(attrs)
+        if '_callable' in attrs and hasattr(attrs['_callable'], '_compilation_info'):
+            self.__dict__['compilation_info'] = attrs['_callable']._compilation_info
 
     def __repr__(self):
         return '<%s>' % (self,)
@@ -1959,7 +1949,7 @@ class _opaque(_parentable):
         # if we are an opaque containing a normal Struct/GcStruct,
         # unwrap it
         if hasattr(self, 'container'):
-            # an integer, cast to a ptr, cast to an opaque    
+            # an integer, cast to a ptr, cast to an opaque
             if type(self.container) is int:
                 return self.container
             if getattr(self.container, '_carry_around_for_tests', False):
@@ -2082,7 +2072,7 @@ def getRuntimeTypeInfo(GCSTRUCT):
     if not isinstance(GCSTRUCT, RttiStruct):
         raise TypeError, "expected a RttiStruct: %s" % GCSTRUCT
     if GCSTRUCT._runtime_type_info is None:
-        raise ValueError, ("no attached runtime type info for GcStruct %s" % 
+        raise ValueError, ("no attached runtime type info for GcStruct %s" %
                            GCSTRUCT._name)
     return _ptr(Ptr(RuntimeTypeInfo), GCSTRUCT._runtime_type_info)
 
@@ -2106,8 +2096,7 @@ def runtime_type_info(p):
 
 def identityhash(p):
     """Returns the lltype-level hash of the given GcStruct.
-    Also works with most ootype objects.  Not for NULL.
-    See rlib.objectmodel.compute_identity_hash() for more
+    Not for NULL. See rlib.objectmodel.compute_identity_hash() for more
     information about the RPython-level meaning of this.
     """
     assert p

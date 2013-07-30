@@ -3,35 +3,34 @@
 """
 
 import os
-from rpython.jit.metainterp.history import (Box, Const, ConstInt, ConstPtr,
-                                            ConstFloat, BoxInt,
-                                            BoxFloat, INT, REF, FLOAT,
-                                            TargetToken)
-from rpython.jit.backend.x86.regloc import *
-from rpython.rtyper.lltypesystem import lltype, rffi, rstr
-from rpython.rtyper.annlowlevel import cast_instance_to_gcref
-from rpython.rlib.objectmodel import we_are_translated
-from rpython.rlib import rgc
 from rpython.jit.backend.llsupport import symbolic
+from rpython.jit.backend.llsupport.descr import (ArrayDescr, CallDescr,
+    unpack_arraydescr, unpack_fielddescr, unpack_interiorfielddescr)
+from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
+from rpython.jit.backend.llsupport.regalloc import (FrameManager, BaseRegalloc,
+     RegisterManager, TempBox, compute_vars_longevity, is_comparison_or_ovf_op)
+from rpython.jit.backend.x86 import rx86
+from rpython.jit.backend.x86.arch import (WORD, JITFRAME_FIXED_SIZE, IS_X86_32,
+    IS_X86_64)
 from rpython.jit.backend.x86.jump import remap_frame_layout_mixed
+from rpython.jit.backend.x86.regloc import (FrameLoc, RegLoc, ConstFloatLoc,
+    FloatImmedLoc, ImmedLoc, imm, imm0, imm1, ecx, eax, edx, ebx, esi, edi,
+    ebp, r8, r9, r10, r11, r12, r13, r14, r15, xmm0, xmm1, xmm2, xmm3, xmm4,
+    xmm5, xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14,
+    X86_64_SCRATCH_REG, X86_64_XMM_SCRATCH_REG)
 from rpython.jit.codewriter import longlong
 from rpython.jit.codewriter.effectinfo import EffectInfo
+from rpython.jit.metainterp.history import (Box, Const, ConstInt, ConstPtr,
+    ConstFloat, BoxInt, BoxFloat, INT, REF, FLOAT, TargetToken)
 from rpython.jit.metainterp.resoperation import rop
-from rpython.jit.backend.llsupport.descr import ArrayDescr
-from rpython.jit.backend.llsupport.descr import CallDescr
-from rpython.jit.backend.llsupport.descr import unpack_arraydescr
-from rpython.jit.backend.llsupport.descr import unpack_fielddescr
-from rpython.jit.backend.llsupport.descr import unpack_interiorfielddescr
-from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
-from rpython.jit.backend.llsupport.regalloc import FrameManager, BaseRegalloc,\
-     RegisterManager, TempBox, compute_vars_longevity, is_comparison_or_ovf_op
-from rpython.jit.backend.x86.arch import WORD, JITFRAME_FIXED_SIZE
-from rpython.jit.backend.x86.arch import IS_X86_32, IS_X86_64
-from rpython.jit.backend.x86 import rx86
+from rpython.rlib import rgc
+from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import r_longlong, r_uint
+from rpython.rtyper.annlowlevel import cast_instance_to_gcref
+from rpython.rtyper.lltypesystem import lltype, rffi, rstr
+
 
 class X86RegisterManager(RegisterManager):
-
     box_types = [INT, REF]
     all_regs = [ecx, eax, edx, ebx, esi, edi]
     no_lower_byte_regs = [esi, edi]
@@ -79,25 +78,13 @@ class X86XMMRegisterManager(RegisterManager):
         rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), adr)[1] = y
         return ConstFloatLoc(adr)
 
-    def after_call(self, v):
-        # the result is stored in st0, but we don't have this around,
-        # so genop_call will move it to some frame location immediately
-        # after the call
-        return self.frame_manager.loc(v)
+    def call_result_location(self, v):
+        return xmm0
 
 class X86_64_XMMRegisterManager(X86XMMRegisterManager):
     # xmm15 reserved for scratch use
     all_regs = [xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14]
     save_around_call_regs = all_regs
-
-    def call_result_location(self, v):
-        return xmm0
-
-    def after_call(self, v):
-        # We use RegisterManager's implementation, since X86XMMRegisterManager
-        # places the result on the stack, which we don't need to do when the
-        # calling convention places the result in xmm0
-        return RegisterManager.after_call(self, v)
 
 class X86FrameManager(FrameManager):
     def __init__(self, base_ofs):
@@ -131,6 +118,7 @@ else:
 gpr_reg_mgr_cls.all_reg_indexes = [-1] * WORD * 2 # eh, happens to be true
 for _i, _reg in enumerate(gpr_reg_mgr_cls.all_regs):
     gpr_reg_mgr_cls.all_reg_indexes[_reg.value] = _i
+
 
 class RegAlloc(BaseRegalloc):
 
@@ -238,18 +226,6 @@ class RegAlloc(BaseRegalloc):
             return self.xrm.convert_to_imm_16bytes_align(var)
         else:
             return self.xrm.make_sure_var_in_reg(var, forbidden_vars)
-
-    def _frame_bindings(self, locs, inputargs):
-        bindings = {}
-        i = 0
-        for loc in locs:
-            if loc is None:
-                continue
-            arg = inputargs[i]
-            i += 1
-            if not isinstance(loc, RegLoc):
-                bindings[arg] = loc
-        return bindings
 
     def _update_bindings(self, locs, inputargs):
         # XXX this should probably go to llsupport/regalloc.py
@@ -799,14 +775,6 @@ class RegAlloc(BaseRegalloc):
         self._consider_call(op, guard_op)
 
     def consider_call_release_gil(self, op, guard_op):
-        # We spill the arguments to the stack, because we need to do 3 calls:
-        # call_release_gil(), the_real_c_function(), and call_reacquire_gil().
-        # The arguments are used on the second call only.  XXX we assume
-        # that the XMM arguments won't be modified by call_release_gil().
-        for i in range(op.numargs()):
-            loc = self.loc(op.getarg(i))
-            if loc in self.rm.save_around_call_regs:
-                self.rm.force_spill_var(op.getarg(i))
         assert guard_op is not None
         self._consider_call(op, guard_op)
 
@@ -829,6 +797,28 @@ class RegAlloc(BaseRegalloc):
         self.perform_discard(op, arglocs)
 
     consider_cond_call_gc_wb_array = consider_cond_call_gc_wb
+
+    def consider_cond_call(self, op):
+        # A 32-bit-only, asmgcc-only issue: 'cond_call_register_arguments'
+        # contains edi and esi, which are also in asmgcroot.py:ASM_FRAMEDATA.
+        # We must make sure that edi and esi do not contain GC pointers.
+        if IS_X86_32 and self.assembler._is_asmgcc():
+            for box, loc in self.rm.reg_bindings.items():
+                if (loc == edi or loc == esi) and box.type == REF:
+                    self.rm.force_spill_var(box)
+                    assert box not in self.rm.reg_bindings
+        #
+        assert op.result is None
+        args = op.getarglist()
+        assert 2 <= len(args) <= 4 + 2     # maximum 4 arguments
+        loc_cond = self.make_sure_var_in_reg(args[0], args)
+        v = args[1]
+        assert isinstance(v, Const)
+        imm_func = self.rm.convert_to_imm(v)
+        arglocs = [self.loc(args[i]) for i in range(2, len(args))]
+        gcmap = self.get_gcmap()
+        self.rm.possibly_free_var(args[0])
+        self.assembler.cond_call(op, gcmap, loc_cond, imm_func, arglocs)
 
     def consider_call_malloc_nursery(self, op):
         size_box = op.getarg(0)
@@ -918,7 +908,6 @@ class RegAlloc(BaseRegalloc):
                 gcmap[val // WORD // 8] |= r_uint(1) << (val % (WORD * 8))
         return gcmap
 
-
     def consider_setfield_gc(self, op):
         ofs, size, _ = unpack_fielddescr(op.getdescr())
         ofs_loc = imm(ofs)
@@ -982,7 +971,7 @@ class RegAlloc(BaseRegalloc):
     def consider_setarrayitem_gc(self, op):
         itemsize, ofs, _ = unpack_arraydescr(op.getdescr())
         args = op.getarglist()
-        base_loc  = self.rm.make_sure_var_in_reg(op.getarg(0), args)
+        base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
         if itemsize == 1:
             need_lower_byte = True
         else:
@@ -1151,9 +1140,8 @@ class RegAlloc(BaseRegalloc):
         # call memcpy()
         self.rm.before_call()
         self.xrm.before_call()
-        self.assembler._emit_call(imm(self.assembler.memcpy_addr),
-                                  [dstaddr_loc, srcaddr_loc, length_loc],
-                                  can_collect=False)
+        self.assembler.simple_call_no_collect(imm(self.assembler.memcpy_addr),
+                                        [dstaddr_loc, srcaddr_loc, length_loc])
         self.rm.possibly_free_var(length_box)
         self.rm.possibly_free_var(dstaddr_box)
         self.rm.possibly_free_var(srcaddr_box)
@@ -1343,7 +1331,6 @@ class RegAlloc(BaseRegalloc):
         #jump_op = self.final_jump_op
         #if jump_op is not None and jump_op.getdescr() is descr:
         #    self._compute_hint_frame_locations_from_descr(descr)
-
 
     def consider_keepalive(self, op):
         pass

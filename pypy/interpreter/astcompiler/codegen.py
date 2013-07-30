@@ -11,7 +11,6 @@ from pypy.interpreter.astcompiler import ast, assemble, symtable, consts, misc
 from pypy.interpreter.astcompiler import optimize # For side effects
 from pypy.interpreter.pyparser.error import SyntaxError
 from pypy.tool import stdlib_opcode as ops
-from pypy.interpreter.error import OperationError
 
 
 def compile_ast(space, module, info):
@@ -21,91 +20,91 @@ def compile_ast(space, module, info):
 
 
 name_ops_default = misc.dict_to_switch({
-    ast.Load : ops.LOAD_NAME,
-    ast.Store : ops.STORE_NAME,
-    ast.Del : ops.DELETE_NAME
+    ast.Load: ops.LOAD_NAME,
+    ast.Store: ops.STORE_NAME,
+    ast.Del: ops.DELETE_NAME
 })
 
 name_ops_fast = misc.dict_to_switch({
-    ast.Load : ops.LOAD_FAST,
-    ast.Store : ops.STORE_FAST,
-    ast.Del : ops.DELETE_FAST
+    ast.Load: ops.LOAD_FAST,
+    ast.Store: ops.STORE_FAST,
+    ast.Del: ops.DELETE_FAST
 })
 
 name_ops_deref = misc.dict_to_switch({
-    ast.Load : ops.LOAD_DEREF,
-    ast.Store : ops.STORE_DEREF,
+    ast.Load: ops.LOAD_DEREF,
+    ast.Store: ops.STORE_DEREF,
 })
 
 name_ops_global = misc.dict_to_switch({
-    ast.Load : ops.LOAD_GLOBAL,
-    ast.Store : ops.STORE_GLOBAL,
-    ast.Del : ops.DELETE_GLOBAL
+    ast.Load: ops.LOAD_GLOBAL,
+    ast.Store: ops.STORE_GLOBAL,
+    ast.Del: ops.DELETE_GLOBAL
 })
 
 
 unary_operations = misc.dict_to_switch({
-    ast.Invert : ops.UNARY_INVERT,
-    ast.Not : ops.UNARY_NOT,
-    ast.UAdd : ops.UNARY_POSITIVE,
-    ast.USub : ops.UNARY_NEGATIVE
+    ast.Invert: ops.UNARY_INVERT,
+    ast.Not: ops.UNARY_NOT,
+    ast.UAdd: ops.UNARY_POSITIVE,
+    ast.USub: ops.UNARY_NEGATIVE
 })
 
 binary_operations = misc.dict_to_switch({
-    ast.Add : ops.BINARY_ADD,
-    ast.Sub : ops.BINARY_SUBTRACT,
-    ast.Mult : ops.BINARY_MULTIPLY,
-    ast.Mod : ops.BINARY_MODULO,
-    ast.Pow : ops.BINARY_POWER,
-    ast.LShift : ops.BINARY_LSHIFT,
-    ast.RShift : ops.BINARY_RSHIFT,
-    ast.BitOr : ops.BINARY_OR,
-    ast.BitAnd : ops.BINARY_AND,
-    ast.BitXor : ops.BINARY_XOR,
-    ast.FloorDiv : ops.BINARY_FLOOR_DIVIDE
+    ast.Add: ops.BINARY_ADD,
+    ast.Sub: ops.BINARY_SUBTRACT,
+    ast.Mult: ops.BINARY_MULTIPLY,
+    ast.Mod: ops.BINARY_MODULO,
+    ast.Pow: ops.BINARY_POWER,
+    ast.LShift: ops.BINARY_LSHIFT,
+    ast.RShift: ops.BINARY_RSHIFT,
+    ast.BitOr: ops.BINARY_OR,
+    ast.BitAnd: ops.BINARY_AND,
+    ast.BitXor: ops.BINARY_XOR,
+    ast.FloorDiv: ops.BINARY_FLOOR_DIVIDE
 })
 
 inplace_operations = misc.dict_to_switch({
-    ast.Add : ops.INPLACE_ADD,
-    ast.Sub : ops.INPLACE_SUBTRACT,
-    ast.Mult : ops.INPLACE_MULTIPLY,
-    ast.Mod : ops.INPLACE_MODULO,
-    ast.Pow : ops.INPLACE_POWER,
-    ast.LShift : ops.INPLACE_LSHIFT,
-    ast.RShift : ops.INPLACE_RSHIFT,
-    ast.BitOr : ops.INPLACE_OR,
-    ast.BitAnd : ops.INPLACE_AND,
-    ast.BitXor : ops.INPLACE_XOR,
-    ast.FloorDiv : ops.INPLACE_FLOOR_DIVIDE
+    ast.Add: ops.INPLACE_ADD,
+    ast.Sub: ops.INPLACE_SUBTRACT,
+    ast.Mult: ops.INPLACE_MULTIPLY,
+    ast.Mod: ops.INPLACE_MODULO,
+    ast.Pow: ops.INPLACE_POWER,
+    ast.LShift: ops.INPLACE_LSHIFT,
+    ast.RShift: ops.INPLACE_RSHIFT,
+    ast.BitOr: ops.INPLACE_OR,
+    ast.BitAnd: ops.INPLACE_AND,
+    ast.BitXor: ops.INPLACE_XOR,
+    ast.FloorDiv: ops.INPLACE_FLOOR_DIVIDE
 })
 
 compare_operations = misc.dict_to_switch({
-    ast.Eq : 2,
-    ast.NotEq : 3,
-    ast.Lt : 0,
-    ast.LtE : 1,
-    ast.Gt : 4,
-    ast.GtE : 5,
-    ast.In : 6,
-    ast.NotIn : 7,
-    ast.Is : 8,
-    ast.IsNot : 9
+    ast.Eq: 2,
+    ast.NotEq: 3,
+    ast.Lt: 0,
+    ast.LtE: 1,
+    ast.Gt: 4,
+    ast.GtE: 5,
+    ast.In: 6,
+    ast.NotIn: 7,
+    ast.Is: 8,
+    ast.IsNot: 9
 })
 
 subscr_operations = misc.dict_to_switch({
-    ast.AugLoad : ops.BINARY_SUBSCR,
-    ast.Load : ops.BINARY_SUBSCR,
-    ast.AugStore : ops.STORE_SUBSCR,
-    ast.Store : ops.STORE_SUBSCR,
-    ast.Del : ops.DELETE_SUBSCR
+    ast.AugLoad: ops.BINARY_SUBSCR,
+    ast.Load: ops.BINARY_SUBSCR,
+    ast.AugStore: ops.STORE_SUBSCR,
+    ast.Store: ops.STORE_SUBSCR,
+    ast.Del: ops.DELETE_SUBSCR
 })
 
 slice_operations = misc.dict_to_switch({
-    ast.AugLoad : ops.SLICE,
-    ast.Load : ops.SLICE,
-    ast.AugStore : ops.STORE_SLICE,
-    ast.Store : ops.STORE_SLICE,
-    ast.Del : ops.DELETE_SLICE
+    ast.AugLoad: ops.SLICE,
+    ast.Load: ops.SLICE,
+    ast.AugStore: ops.STORE_SLICE,
+    ast.Store: ops.STORE_SLICE,
+    ast.Del: ops.DELETE_SLICE
 })
 
 
@@ -255,6 +254,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 start = 1
                 doc_expr.walkabout(self)
                 self.name_op("__doc__", ast.Store)
+                self.scope.doc_removable = True
             for i in range(start, len(body)):
                 body[i].walkabout(self)
             return True
@@ -372,6 +372,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
     def visit_Assert(self, asrt):
         self.update_position(asrt.lineno)
         end = self.new_block()
+        self.emit_jump(ops.JUMP_IF_NOT_DEBUG, end)
         asrt.test.accept_jump_if(self, True, end)
         self.emit_op_name(ops.LOAD_GLOBAL, self.names, "AssertionError")
         if asrt.msg:
@@ -475,9 +476,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                     self.emit_jump(ops.CONTINUE_LOOP, block, True)
                     break
                 if f_type == F_BLOCK_FINALLY_END:
-                    self.error("'continue' not supported inside 'finally' " \
-                                   "clause",
-                               cont)
+                    self.error("'continue' not supported inside 'finally' "
+                                   "clause", cont)
             else:
                 self.error("'continue' not properly in loop", cont)
         elif current_block == F_BLOCK_FINALLY_END:
@@ -637,7 +637,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             last_line, last_offset = self.compile_info.last_future_import
             if imp.lineno > last_line or \
                     imp.lineno == last_line and imp.col_offset > last_offset:
-                self.error("__future__ statements must appear at beginning " \
+                self.error("__future__ statements must appear at beginning "
                                "of file", imp)
             if star_import:
                 self.error("* not valid in __future__ imports", imp)
@@ -816,7 +816,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def visit_Const(self, const):
         self.update_position(const.lineno)
-        space = self.space
         self.load_const(const.value)
 
     def visit_UnaryOp(self, op):
@@ -853,9 +852,10 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.emit_jump(ops.JUMP_IF_FALSE_OR_POP, cleanup, True)
             if i < (ops_count - 1):
                 comp.comparators[i].walkabout(self)
-        comp.comparators[-1].walkabout(self)
-        last_kind = compare_operations(comp.ops[-1])
-        self.emit_op_arg(ops.COMPARE_OP, last_kind)
+        last_op, last_comparator = comp.ops[-1], comp.comparators[-1]
+        if not self._optimize_comparator(last_op, last_comparator):
+            last_comparator.walkabout(self)
+        self.emit_op_arg(ops.COMPARE_OP, compare_operations(last_op))
         if ops_count > 1:
             end = self.new_block()
             self.emit_jump(ops.JUMP_FORWARD, end)
@@ -863,6 +863,37 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.emit_op(ops.ROT_TWO)
             self.emit_op(ops.POP_TOP)
             self.use_next_block(end)
+
+    def _optimize_comparator(self, op, node):
+        """Fold lists/sets of constants in the context of "in"/"not in".
+
+        lists are folded into tuples, sets into frozensets, otherwise
+        returns False
+        """
+        if op in (ast.In, ast.NotIn):
+            is_list = isinstance(node, ast.List)
+            if is_list or isinstance(node, ast.Set):
+                w_const = self._tuple_of_consts(node.elts)
+                if w_const is not None:
+                    if not is_list:
+                        from pypy.objspace.std.setobject import (
+                            W_FrozensetObject)
+                        w_const = W_FrozensetObject(self.space, w_const)
+                    self.load_const(w_const)
+                    return True
+        return False
+
+    def _tuple_of_consts(self, elts):
+        """Return a tuple of consts from elts if possible, or None"""
+        count = len(elts) if elts is not None else 0
+        consts_w = [None] * count
+        for i in range(count):
+            w_value = elts[i].as_constant()
+            if w_value is None:
+                # Not all constants
+                return None
+            consts_w[i] = w_value
+        return self.space.newtuple(consts_w)
 
     def visit_IfExp(self, ifexp):
         self.update_position(ifexp.lineno)
@@ -943,7 +974,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         elif call_type == 3:
             op = ops.CALL_FUNCTION_VAR_KW
         self.emit_op_arg(op, arg)
-    
+
     def _call_has_no_star_args(self, call):
         return not call.starargs and not call.kwargs
 
@@ -982,12 +1013,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.use_next_block()
         gen.target.walkabout(self)
         if gen.ifs:
-            if_count = len(gen.ifs)
             for if_ in gen.ifs:
                 if_.accept_jump_if(self, False, if_cleanup)
                 self.use_next_block()
-        else:
-            if_count = 0
         gen_index += 1
         if gen_index < len(gens):
             self._listcomp_generator(gens, gen_index, elt)
@@ -1010,7 +1038,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def _comp_generator(self, node, generators, gen_index):
         start = self.new_block()
-        skip = self.new_block()
         if_cleanup = self.new_block()
         anchor = self.new_block()
         gen = generators[gen_index]
@@ -1026,12 +1053,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.use_next_block()
         gen.target.walkabout(self)
         if gen.ifs:
-            ifs_count = len(gen.ifs)
             for if_ in gen.ifs:
                 if_.accept_jump_if(self, False, if_cleanup)
                 self.use_next_block()
-        else:
-            ifs_count = 0
         gen_index += 1
         if gen_index < len(generators):
             self._comp_generator(node, generators, gen_index)
@@ -1144,22 +1168,18 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def _compile_slice(self, slc, ctx):
         if isinstance(slc, ast.Index):
-            kind = "index"
             if ctx != ast.AugStore:
                 slc.value.walkabout(self)
         elif isinstance(slc, ast.Ellipsis):
-            kind = "ellipsis"
             if ctx != ast.AugStore:
                 self.load_const(self.space.w_Ellipsis)
         elif isinstance(slc, ast.Slice):
-            kind = "slice"
             if not slc.step:
                 self._simple_slice(slc, ctx)
                 return
             elif ctx != ast.AugStore:
                 self._complex_slice(slc, ctx)
         elif isinstance(slc, ast.ExtSlice):
-            kind = "extended slice"
             if ctx != ast.AugStore:
                 for dim in slc.dims:
                     self._nested_slice(dim, ctx)
@@ -1189,7 +1209,10 @@ class TopLevelCodeGenerator(PythonCodeGenerator):
         tree.walkabout(self)
 
     def _get_code_flags(self):
-        return 0
+        flags = 0
+        if self.scope.doc_removable:
+            flags |= consts.CO_KILL_DOCSTRING
+        return flags
 
 
 class AbstractFunctionCodeGenerator(PythonCodeGenerator):
@@ -1216,6 +1239,8 @@ class AbstractFunctionCodeGenerator(PythonCodeGenerator):
             flags |= consts.CO_VARARGS
         if scope.has_keywords_arg:
             flags |= consts.CO_VARKEYWORDS
+        if scope.doc_removable:
+            flags |= consts.CO_KILL_DOCSTRING
         if not self.cell_vars and not self.free_vars:
             flags |= consts.CO_NOFREE
         return PythonCodeGenerator._get_code_flags(self) | flags
@@ -1232,6 +1257,7 @@ class FunctionCodeGenerator(AbstractFunctionCodeGenerator):
             doc_expr = None
         if doc_expr is not None:
             self.add_const(doc_expr.s)
+            self.scope.doc_removable = True
             start = 1
         else:
             self.add_const(self.space.w_None)
@@ -1294,3 +1320,9 @@ class ClassCodeGenerator(PythonCodeGenerator):
         self._handle_body(cls.body)
         self.emit_op(ops.LOAD_LOCALS)
         self.emit_op(ops.RETURN_VALUE)
+
+    def _get_code_flags(self):
+        flags = 0
+        if self.scope.doc_removable:
+            flags |= consts.CO_KILL_DOCSTRING
+        return PythonCodeGenerator._get_code_flags(self) | flags

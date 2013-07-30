@@ -159,25 +159,5 @@ initial apicid  : 1
 fpu     : yes
 etc.
 """)
-    result = env.get_L2cache_linux2(str(filepath))
+    result = env.get_L2cache_linux2_cpuinfo(str(filepath))
     assert result == 3072 * 1024
-
-def test_estimate_best_nursery_size_linux2_arm():
-    filepath = udir.join('estimate_best_nursery_size_linux2')
-    filepath.write("""\
-Processor       : ARMv6-compatible processor rev 7 (v6l)
-# this is not actually from cpuinfo, but here for the test
-cache size      : 3072 KB
-...
-""")
-    result = env.get_L2cache_linux2(str(filepath))
-    assert result == -1
-
-def test__detect_arm():
-    assert env._detect_arm_cpu("Processor       : ARMv6-compatible processor rev 7 (v6l)")
-    assert not env._detect_arm_cpu("""\
-processor   : 0
-vendor_id   : GenuineIntel
-cpu family  : 6
-model       : 37
-""")

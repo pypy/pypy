@@ -54,8 +54,8 @@ class W_CTypeFunc(W_CTypePtrBase):
             else:
                 raise operationerrfmt(space.w_TypeError,
                              "argument %d passed in the variadic part "
-                             "needs to be a cdata object (got %s)",
-                             i + 1, space.type(w_obj).getname(space))
+                             "needs to be a cdata object (got %T)",
+                             i + 1, w_obj)
             fvarargs[i] = ct
         ctypefunc = instantiate(W_CTypeFunc)
         ctypefunc.space = space
@@ -289,16 +289,6 @@ class CifDescrBuilder(object):
                "with verify() (see pypy/module/_cffi_backend/ctypefunc.py "
                "for details)"))
 
-        if USE_C_LIBFFI_MSVC and is_result_type:
-            # MSVC returns small structures in registers.  Pretend int32 or
-            # int64 return type.  This is needed as a workaround for what
-            # is really a bug of libffi_msvc seen as an independent library
-            # (ctypes has a similar workaround).
-            if ctype.size <= 4:
-                return clibffi.ffi_type_sint32
-            if ctype.size <= 8:
-                return clibffi.ffi_type_sint64
-
         # walk the fields, expanding arrays into repetitions; first,
         # only count how many flattened fields there are
         nflat = 0
@@ -317,6 +307,16 @@ class CifDescrBuilder(object):
                     space.wrap("cannot pass as argument or return value "
                                "a struct with a zero-length array"))
             nflat += flat
+
+        if USE_C_LIBFFI_MSVC and is_result_type:
+            # MSVC returns small structures in registers.  Pretend int32 or
+            # int64 return type.  This is needed as a workaround for what
+            # is really a bug of libffi_msvc seen as an independent library
+            # (ctypes has a similar workaround).
+            if ctype.size <= 4:
+                return clibffi.ffi_type_sint32
+            if ctype.size <= 8:
+                return clibffi.ffi_type_sint64
 
         # allocate an array of (nflat + 1) ffi_types
         elements = self.fb_alloc(rffi.sizeof(FFI_TYPE_P) * (nflat + 1))

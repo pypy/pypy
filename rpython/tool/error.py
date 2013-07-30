@@ -2,11 +2,15 @@
 """ error handling features, just a way of displaying errors
 """
 
-from rpython.tool.ansi_print import ansi_log
-from rpython.flowspace.model import Variable
 import sys
 
 import py
+
+from rpython.flowspace.model import Variable
+from rpython.rlib import jit
+from rpython.tool.ansi_print import ansi_log
+
+
 log = py.log.Producer("error")
 py.log.setconsumer("error", ansi_log)
 
@@ -14,7 +18,8 @@ SHOW_TRACEBACK = False
 SHOW_ANNOTATIONS = True
 SHOW_DEFAULT_LINES_OF_CODE = 0
 
-def source_lines1(graph, block, operindex=None, offset=None, long=False, \
+
+def source_lines1(graph, block, operindex=None, offset=None, long=False,
     show_lines_of_code=SHOW_DEFAULT_LINES_OF_CODE):
     if block is not None:
         if block is graph.returnblock:
@@ -32,23 +37,24 @@ def source_lines1(graph, block, operindex=None, offset=None, long=False, \
         else:
             if block is None or not block.operations:
                 return []
+
             def toline(operindex):
                 return offset2lineno(graph.func.func_code, block.operations[operindex].offset)
             if operindex is None:
-                linerange =  (toline(0), toline(-1))
+                linerange = (toline(0), toline(-1))
                 if not long:
                     return ['?']
                 here = None
             else:
                 operline = toline(operindex)
                 if long:
-                    linerange =  (toline(0), toline(-1))
+                    linerange = (toline(0), toline(-1))
                     here = operline
                 else:
                     linerange = (operline, operline)
                     here = None
         lines = ["Happened at file %s line %d" % (graph.filename, here or linerange[0]), ""]
-        for n in range(max(0, linerange[0]-show_lines_of_code), \
+        for n in range(max(0, linerange[0]-show_lines_of_code),
             min(linerange[1]+1+show_lines_of_code, len(graph_lines)+graph.startline)):
             if n == here:
                 prefix = '==> '
@@ -136,6 +142,7 @@ def debug(drv, use_pdb=True):
     from rpython.translator.tool.pdbplus import PdbPlusShow
     from rpython.translator.driver import log
     t = drv.translator
+
     class options:
         huge = 100
 
@@ -161,6 +168,7 @@ def debug(drv, use_pdb=True):
         pdb_plus_show.start(tb)
 
 
+@jit.elidable
 def offset2lineno(c, stopat):
     tab = c.co_lnotab
     line = c.co_firstlineno

@@ -126,10 +126,7 @@ def delegate_Int2Complex(space, w_int):
     return W_ComplexObject(w_int.intval, 0.0)
 
 def delegate_Long2Complex(space, w_long):
-    try:
-        dval =  w_long.tofloat()
-    except OverflowError, e:
-        raise OperationError(space.w_OverflowError, space.wrap(str(e)))
+    dval = w_long.tofloat(space)
     return W_ComplexObject(dval, 0.0)
 
 def delegate_Float2Complex(space, w_float):

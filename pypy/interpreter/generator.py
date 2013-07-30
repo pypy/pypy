@@ -27,7 +27,7 @@ class GeneratorIterator(W_Root):
         new_inst = mod.get('generator_new')
         w        = space.wrap
         if self.frame:
-            w_frame = w(self.frame)
+            w_frame = self.frame._reduce_state(space)
         else:
             w_frame = space.w_None
 
@@ -36,7 +36,20 @@ class GeneratorIterator(W_Root):
             w(self.running),
             ]
 
-        return space.newtuple([new_inst, space.newtuple(tup)])
+        return space.newtuple([new_inst, space.newtuple([]),
+                               space.newtuple(tup)])
+
+    def descr__setstate__(self, space, w_args):
+        from rpython.rlib.objectmodel import instantiate
+        args_w = space.unpackiterable(w_args)
+        w_framestate, w_running = args_w
+        if space.is_w(w_framestate, space.w_None):
+            self.frame = None
+        else:
+            frame = instantiate(space.FrameClass)   # XXX fish
+            frame.descr__setstate__(space, w_framestate)
+            GeneratorIterator.__init__(self, frame)
+        self.running = self.space.is_true(w_running)
 
     def descr__iter__(self):
         """x.__iter__() <==> iter(x)"""

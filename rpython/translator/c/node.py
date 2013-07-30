@@ -358,6 +358,8 @@ class BareBoneArrayDefNode(NodeWithDependencies):
             self.fullptrtypename = 'void *@'
         else:
             self.fullptrtypename = self.itemtypename.replace('@', '*@')
+            if ARRAY._hints.get("render_as_const"):
+                self.fullptrtypename = 'const ' + self.fullptrtypename
 
     def setup(self):
         """Array loops are forbidden by ForwardReference.become() because
@@ -492,7 +494,7 @@ class ExtTypeOpaqueDefNode(NodeWithDependencies):
 
 class ContainerNode(Node):
     if USESLOTS:      # keep the number of slots down!
-        __slots__ = """db obj 
+        __slots__ = """db obj
                        typename implementationtypename
                         name
                         _funccodegen_owner

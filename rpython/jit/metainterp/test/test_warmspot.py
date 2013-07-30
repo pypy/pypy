@@ -1,9 +1,10 @@
 import py
+from rpython.jit.metainterp import jitexc
 from rpython.jit.metainterp.warmspot import get_stats
 from rpython.rlib.jit import JitDriver, set_param, unroll_safe, jit_callback
 from rpython.jit.backend.llgraph import runner
 
-from rpython.jit.metainterp.test.support import LLJitMixin, OOJitMixin
+from rpython.jit.metainterp.test.support import LLJitMixin
 from rpython.jit.metainterp.optimizeopt import ALL_OPTS_NAMES
 
 
@@ -501,13 +502,13 @@ class WarmspotTests(object):
         # of W_InterpIterable), but we need to put it in a try/except block.
         # With the first "inline_in_portal" approach, this case crashed
         myjitdriver = JitDriver(greens = [], reds = 'auto')
-        
+
         def inc(x, n):
             if x == n:
                 raise OverflowError
             return x+1
         inc._dont_inline_ = True
-        
+
         class MyRange(object):
             def __init__(self, n):
                 self.cur = 0
@@ -562,10 +563,6 @@ class TestLLWarmspot(WarmspotTests, LLJitMixin):
     CPUClass = runner.LLGraphCPU
     type_system = 'lltype'
 
-class TestOOWarmspot(WarmspotTests, OOJitMixin):
-    ##CPUClass = runner.OOtypeCPU
-    type_system = 'ootype'
-
 class TestWarmspotDirect(object):
     def setup_class(cls):
         from rpython.jit.metainterp.typesystem import llhelper
@@ -583,14 +580,14 @@ class TestWarmspotDirect(object):
                 no = self.no
                 assert deadframe._no == no
                 if no == 0:
-                    raise metainterp_sd.warmrunnerdesc.DoneWithThisFrameInt(3)
+                    raise jitexc.DoneWithThisFrameInt(3)
                 if no == 1:
-                    raise metainterp_sd.warmrunnerdesc.ContinueRunningNormally(
+                    raise jitexc.ContinueRunningNormally(
                         [0], [], [], [1], [], [])
                 if no == 3:
                     exc = lltype.malloc(OBJECT)
                     exc.typeptr = exc_vtable
-                    raise metainterp_sd.warmrunnerdesc.ExitFrameWithExceptionRef(
+                    raise jitexc.ExitFrameWithExceptionRef(
                         metainterp_sd.cpu,
                         lltype.cast_opaque_ptr(llmemory.GCREF, exc))
                 assert 0

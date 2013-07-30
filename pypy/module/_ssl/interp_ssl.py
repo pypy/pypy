@@ -722,7 +722,10 @@ def new_sslobject(space, w_sock, side, w_key_file, w_cert_file,
     libssl_SSL_CTX_set_verify(ss.ctx, verification_mode, None)
     ss.ssl = libssl_SSL_new(ss.ctx) # new ssl struct
     libssl_SSL_set_fd(ss.ssl, sock_fd) # set the socket for SSL
-    libssl_SSL_set_mode(ss.ssl, SSL_MODE_AUTO_RETRY)
+    # The ACCEPT_MOVING_WRITE_BUFFER flag is necessary because the address
+    # of a str object may be changed by the garbage collector.
+    libssl_SSL_set_mode(ss.ssl, 
+                        SSL_MODE_AUTO_RETRY | SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER)
 
     # If the socket is in non-blocking mode or timeout mode, set the BIO
     # to non-blocking mode (blocking is the default)

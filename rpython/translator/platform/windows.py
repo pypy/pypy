@@ -28,6 +28,8 @@ def Windows(cc=None):
     return _get_compiler_type(cc, False)
 
 def Windows_x64(cc=None):
+    raise Exception("Win64 is not supported.  You must either build for Win32"
+                    " or contribute the missing support in PyPy.")
     return _get_compiler_type(cc, True)
     
 def _get_msvc_env(vsver, x64flag):
@@ -117,7 +119,7 @@ class MsvcPlatform(Platform):
         # detect version of current compiler
         returncode, stdout, stderr = _run_subprocess(self.cc, '',
                                                      env=self.c_environ)
-        r = re.match(r'Microsoft.+C/C\+\+.+\s([0-9]+)\.([0-9]+).*', stderr)
+        r = re.search(r'Microsoft.+C/C\+\+.+\s([0-9]+)\.([0-9]+).*', stderr)
         if r is not None:
             self.version = int(''.join(r.groups())) / 10 - 60
         else:

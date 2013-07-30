@@ -12,7 +12,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.astcompiler.consts import (
     CO_OPTIMIZED, CO_NEWLOCALS, CO_VARARGS, CO_VARKEYWORDS, CO_NESTED,
-    CO_GENERATOR)
+    CO_GENERATOR, CO_KILL_DOCSTRING)
 from pypy.tool.stdlib_opcode import opcodedesc, HAVE_ARGUMENT
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.objectmodel import compute_hash
@@ -31,7 +31,7 @@ def unpack_str_tuple(space,w_str_tuple):
 # Magic numbers for the bytecode version in code objects.
 # See comments in pypy/module/imp/importing.
 cpython_magic, = struct.unpack("<i", imp.get_magic())   # host magic number
-default_magic = (168686339+2) | 0x0a0d0000              # this PyPy's magic
+default_magic = (0xf303 + 6) | 0x0a0d0000               # this PyPy's magic
                                                         # (from CPython 2.7.0)
 
 # cpython_code_signature helper
@@ -217,6 +217,13 @@ class PyCode(eval.Code):
             if space.isinstance_w(w_first, space.w_basestring):
                 return w_first
         return space.w_None
+
+    def remove_docstrings(self, space):
+        if self.co_flags & CO_KILL_DOCSTRING:
+            self.co_consts_w[0] = space.w_None
+        for w_co in self.co_consts_w:
+            if isinstance(w_co, PyCode):
+                w_co.remove_docstrings(space)
 
     def _to_code(self):
         """For debugging only."""

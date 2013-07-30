@@ -1,21 +1,18 @@
 from rpython.jit.metainterp import resume
-from rpython.jit.metainterp.optimizeopt import virtualize
-from rpython.jit.metainterp.optimizeopt.optimizer import LEVEL_CONSTANT, \
-                                                      LEVEL_KNOWNCLASS, \
-                                                      LEVEL_NONNULL, \
-                                                      LEVEL_UNKNOWN, \
-                                                      MININT, MAXINT, OptValue
 from rpython.jit.metainterp.history import BoxInt, ConstInt, BoxPtr, Const
 from rpython.jit.metainterp.optimize import InvalidLoop
-from rpython.jit.metainterp.optimizeopt.intutils import IntBound, IntUnbounded
+from rpython.jit.metainterp.optimizeopt import virtualize
+from rpython.jit.metainterp.optimizeopt.intutils import IntUnbounded
+from rpython.jit.metainterp.optimizeopt.optimizer import (LEVEL_CONSTANT,
+    LEVEL_KNOWNCLASS, LEVEL_NONNULL, LEVEL_UNKNOWN)
 from rpython.jit.metainterp.resoperation import rop, ResOperation
-from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.debug import debug_start, debug_stop, debug_print
 from rpython.rlib.objectmodel import we_are_translated
-import os
+
 
 class BadVirtualState(Exception):
     pass
+
 
 class AbstractVirtualStateInfo(resume.AbstractVirtualInfo):
     position = -1
@@ -61,7 +58,6 @@ class AbstractVirtualStateInfo(resume.AbstractVirtualInfo):
                 s.debug_print(indent + "    ", seen, bad)
         else:
             debug_print(indent + "    ...")
-
 
     def debug_header(self, indent):
         raise NotImplementedError
@@ -143,6 +139,7 @@ class VirtualStateInfo(AbstractVirtualStructStateInfo):
     def debug_header(self, indent):
         debug_print(indent + 'VirtualStateInfo(%d):' % self.position)
 
+
 class VStructStateInfo(AbstractVirtualStructStateInfo):
     def __init__(self, typedescr, fielddescrs):
         AbstractVirtualStructStateInfo.__init__(self, fielddescrs)
@@ -198,11 +195,10 @@ class VArrayStateInfo(AbstractVirtualStateInfo):
             raise BadVirtualState
         if not value.is_virtual():
             raise BadVirtualState
+        if len(self.fieldstate) > value.getlength():
+            raise BadVirtualState
         for i in range(len(self.fieldstate)):
-            try:
-                v = value.get_item_value(i)
-            except IndexError:
-                raise BadVirtualState
+            v = value.get_item_value(i)
             s = self.fieldstate[i]
             if s.position > self.position:
                 s.enum_forced_boxes(boxes, v, optimizer)
@@ -213,7 +209,6 @@ class VArrayStateInfo(AbstractVirtualStateInfo):
 
     def debug_header(self, indent):
         debug_print(indent + 'VArrayStateInfo(%d):' % self.position)
-
 
 
 class VArrayStructStateInfo(AbstractVirtualStateInfo):
@@ -273,13 +268,13 @@ class VArrayStructStateInfo(AbstractVirtualStateInfo):
             raise BadVirtualState
         if not value.is_virtual():
             raise BadVirtualState
+        if len(self.fielddescrs) > len(value._items):
+            raise BadVirtualState
         p = 0
         for i in range(len(self.fielddescrs)):
             for j in range(len(self.fielddescrs[i])):
                 try:
                     v = value._items[i][self.fielddescrs[i][j]]
-                except IndexError:
-                    raise BadVirtualState
                 except KeyError:
                     raise BadVirtualState
                 s = self.fieldstate[p]
@@ -289,7 +284,6 @@ class VArrayStructStateInfo(AbstractVirtualStateInfo):
 
     def debug_header(self, indent):
         debug_print(indent + 'VArrayStructStateInfo(%d):' % self.position)
-
 
 
 class NotVirtualStateInfo(AbstractVirtualStateInfo):
@@ -382,21 +376,21 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
             extra_guards.append(op)
             return
 
-        if self.level == LEVEL_NONNULL and \
-               other.level == LEVEL_UNKNOWN and \
-               isinstance(box, BoxPtr) and \
-               box.nonnull():
+        if (self.level == LEVEL_NONNULL and
+               other.level == LEVEL_UNKNOWN and
+               isinstance(box, BoxPtr) and
+               box.nonnull()):
             op = ResOperation(rop.GUARD_NONNULL, [box], None)
             extra_guards.append(op)
             return
 
-        if self.level == LEVEL_UNKNOWN and \
-               other.level == LEVEL_UNKNOWN and \
-               isinstance(box, BoxInt) and \
-               self.intbound.contains(box.getint()):
+        if (self.level == LEVEL_UNKNOWN and
+               other.level == LEVEL_UNKNOWN and
+               isinstance(box, BoxInt) and
+               self.intbound.contains(box.getint())):
             if self.intbound.has_lower:
                 bound = self.intbound.lower
-                if not (other.intbound.has_lower and \
+                if not (other.intbound.has_lower and
                         other.intbound.lower >= bound):
                     res = BoxInt()
                     op = ResOperation(rop.INT_GE, [box, ConstInt(bound)], res)
@@ -405,7 +399,7 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
                     extra_guards.append(op)
             if self.intbound.has_upper:
                 bound = self.intbound.upper
-                if not (other.intbound.has_upper and \
+                if not (other.intbound.has_upper and
                         other.intbound.upper <= bound):
                     res = BoxInt()
                     op = ResOperation(rop.INT_LE, [box, ConstInt(bound)], res)
@@ -417,9 +411,6 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
         # Remaining cases are probably not interesting
         raise InvalidLoop('Generating guards for making the VirtualStates ' +
                           'at hand match have not been implemented')
-        if self.level == LEVEL_CONSTANT:
-            import pdb; pdb.set_trace()
-            raise NotImplementedError
 
     def enum_forced_boxes(self, boxes, value, optimizer):
         if self.level == LEVEL_CONSTANT:
@@ -462,6 +453,7 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
 
         debug_print(indent + mark + 'NotVirtualInfo(%d' % self.position +
                     ', ' + l + ', ' + self.intbound.__repr__() + lb + ')')
+
 
 class VirtualState(object):
     def __init__(self, state):
@@ -520,6 +512,7 @@ class VirtualState(object):
         seen = {}
         for s in self.state:
             s.debug_print("    ", seen, bad)
+
 
 class VirtualStateAdder(resume.ResumeDataVirtualAdder):
     def __init__(self, optimizer):
@@ -587,8 +580,10 @@ class VirtualStateAdder(resume.ResumeDataVirtualAdder):
     def make_vrawbuffer(self, size, offsets, descrs):
         raise NotImplementedError
 
+
 class BoxNotProducable(Exception):
     pass
+
 
 class ShortBoxes(object):
     def __init__(self, optimizer, surviving_boxes, availible_boxes=None):
@@ -672,7 +667,7 @@ class ShortBoxes(object):
         if self.availible_boxes is not None and box not in self.availible_boxes:
             raise BoxNotProducable
         self.short_boxes_in_production[box] = None
-        
+
         if box in self.potential_ops:
             ops = self.prioritized_alternatives(box)
             produced_one = False

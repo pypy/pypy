@@ -1,11 +1,10 @@
-
-from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.annotator import model as annmodel
-from rpython.rtyper.lltypesystem import llmemory, lltype
-from rpython.rtyper.lltypesystem import rclass
-from rpython.rtyper.annlowlevel import cast_instance_to_base_ptr,\
-     cast_base_ptr_to_instance, llstr
 from rpython.rlib.objectmodel import specialize
+from rpython.rtyper.annlowlevel import (cast_instance_to_base_ptr,
+    cast_base_ptr_to_instance, llstr)
+from rpython.rtyper.extregistry import ExtRegistryEntry
+from rpython.rtyper.lltypesystem import llmemory, lltype, rclass
+
 
 def register_helper(s_result):
     def wrapper(helper):
@@ -111,6 +110,11 @@ def box_nonconstbox(llbox):
 def box_isconst(llbox):
     from rpython.jit.metainterp.history import Const
     return isinstance(_cast_to_box(llbox), Const)
+
+@register_helper(annmodel.SomeBool())
+def box_isint(llbox):
+    from rpython.jit.metainterp.history import INT
+    return _cast_to_box(llbox).type == INT
 
 # ------------------------- stats interface ---------------------------
 

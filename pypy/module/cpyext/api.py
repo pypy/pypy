@@ -26,7 +26,7 @@ from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.module.__builtin__.descriptor import W_Property
 from pypy.module.__builtin__.interp_classobj import W_ClassObject
 from pypy.module.__builtin__.interp_memoryview import W_MemoryView
-from rpython.rlib.entrypoint import entrypoint
+from rpython.rlib.entrypoint import entrypoint_lowlevel
 from rpython.rlib.rposix import is_valid_fd, validate_fd
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import specialize
@@ -1023,7 +1023,7 @@ def setup_library(space):
         export_struct(name, struct)
 
     for name, func in FUNCTIONS.iteritems():
-        deco = entrypoint("cpyext", func.argtypes, name, relax=True)
+        deco = entrypoint_lowlevel("cpyext", func.argtypes, name, relax=True)
         deco(func.get_wrapper(space))
 
     setup_init_functions(eci, translating=True)
