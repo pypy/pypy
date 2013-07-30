@@ -1,4 +1,4 @@
-import _curses
+from lib_pypy import _curses
 
 import pytest
 
