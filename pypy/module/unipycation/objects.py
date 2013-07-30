@@ -18,7 +18,7 @@ def term_new__(space, w_subtype, name, w_args):
     # collect args for prolog Term constructor
     term_args = [ conversion.p_of_w(space, w_x) for w_x in space.listview(w_args) ]
     p_sig = psig.Signature.getsignature(name, len(term_args))
-    p_term = pterm.Term(name, term_args, p_sig)
+    p_term = pterm.Callable.build(name, term_args, p_sig)
 
     return W_Term(space, p_term)
 
