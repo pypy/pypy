@@ -22,6 +22,9 @@ class W_CoreSolutionIterator(W_Root):
     def __init__(self, space, w_unbound_vars, w_goal_term, w_engine):
         self.w_engine = w_engine
         self.w_unbound_vars = w_unbound_vars
+        self.unbound_vars_w = [
+            space.interp_w(objects.W_Var, w_var)
+                for w_var in space.listview(w_unbound_vars)]
 
         w_goal_term = space.interp_w(objects.W_Term, w_goal_term)
         self.w_goal_term = w_goal_term
@@ -37,11 +40,11 @@ class W_CoreSolutionIterator(W_Root):
         self.fcont = fcont
         self.heap = heap
 
-    def _create_result(self, w_unbound_vars):
+    def _create_result(self):
         """ Called internally after the activation of the continuation """
         w_result = self.space.newdict()
 
-        for w_var in self.space.listview(w_unbound_vars):
+        for w_var in self.unbound_vars_w:
             w_var = self.space.interp_w(objects.W_Var, w_var)
 
             w_binding = conversion.w_of_p(
@@ -79,7 +82,7 @@ class W_CoreSolutionIterator(W_Root):
             engine = self.w_engine.engine
             raise OperationError(w_PrologError, self.space.wrap(ex.get_errstr(engine)))
 
-        return self._create_result(self.w_unbound_vars)
+        return self._create_result()
 
 W_CoreSolutionIterator.typedef = TypeDef("CoreSolutionIterator",
     __iter__ = interp2app(W_CoreSolutionIterator.iter_w),
