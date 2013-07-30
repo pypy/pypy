@@ -307,6 +307,8 @@ class MMapBuffer(RWBuffer):
     def __init__(self, space, mmap):
         self.space = space
         self.mmap = mmap
+        self.format = 'B'
+        self.itemsize = 1
 
     def get_raw_address(self):
         return self.mmap.data
