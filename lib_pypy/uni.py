@@ -74,18 +74,17 @@ class Predicate(object):
 
     @staticmethod
     def _make_result_tuple(sol, variables):
-        return tuple([ Predicate._back_to_py(sol[v]) for v in variables ])
+        return tuple(unrolling_map(lambda v: sol[v], variables))
 
     def __call__(self, *args):
-        term_args = []
         vs = []
-        for e in args:
+        def _convert_arg(e):
             if e is None:
                 var = Var()
-                term_args.append(var)
                 vs.append(var)
-            else:
-                term_args.append(self._convert_to_prolog(e))
+                return var
+            return self._convert_to_prolog(e)
+        term_args = unrolling_map(_convert_arg, args)
         t = Term(self.name, term_args)
 
         if self.many_solutions:
@@ -118,12 +117,33 @@ class TermPool(object):
     def _magic_convert(name, args):
         """ For now this is where pylists become cons chains in term args """
 
-        new_args = []
-        for a in args:
-            new_args.append(Predicate._convert_to_prolog(a))
-
+        new_args = unrolling_map(Predicate._convert_to_prolog(a))
         return Term(name, new_args)
 
     def __getattr__(self, name):
         # Note that we cant memoise these due to the args being variable
         return lambda *args : TermPool._magic_convert(name, args)
+
+
+def unrolling_map(fun, sequence):
+    """ This function behaves like a simple version of map, taking a function
+    of one argument, and a sequence. The added complication over map is that it
+    will unroll the loop for small lists. The benefit is that for the short
+    cases, the JIT does not see the loop and thus the construction of the
+    result is completely transparent to it. """
+    length = len(sequence)
+    if length == 0:
+        return []
+    elif length == 1:
+        return [fun(sequence[0])]
+    elif length == 2:
+        return [fun(sequence[0]), fun(sequence[1])]
+    elif length == 3:
+        return [fun(sequence[0]), fun(sequence[1]), fun(sequence[2])]
+    elif length == 4:
+        return [fun(sequence[0]), fun(sequence[1]), fun(sequence[2]),
+                fun(sequence[3])]
+    elif length == 5:
+        return [fun(sequence[0]), fun(sequence[1]), fun(sequence[2]),
+                fun(sequence[3]), fun(sequence[4])]
+    return map(fun, sequence)
