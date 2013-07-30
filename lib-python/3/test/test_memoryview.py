@@ -50,7 +50,6 @@ class AbstractMemoryTests:
         m = None
         self.assertEqual(getrefcount(b), oldrefcount)
 
-    @unittest.skip('XXX: https://bugs.pypy.org/issue1542')
     def test_getitem(self):
         for tp in self._types:
             self.check_getitem_with_type(tp)
@@ -75,7 +74,6 @@ class AbstractMemoryTests:
         m = None
         self.assertEqual(getrefcount(b), oldrefcount)
 
-    @unittest.skip('XXX: https://bugs.pypy.org/issue1542')
     def test_setitem_writable(self):
         if not self.rw_type:
             return
@@ -128,7 +126,6 @@ class AbstractMemoryTests:
             with self.assertRaises(TypeError):
                 del m[1:4]
 
-    @unittest.skip('XXX: https://bugs.pypy.org/issue1542')
     def test_tobytes(self):
         for tp in self._types:
             m = self._view(tp(self._source))
@@ -145,7 +142,6 @@ class AbstractMemoryTests:
             l = m.tolist()
             self.assertEqual(l, list(b"abcdef"))
 
-    @unittest.skip('XXX: https://bugs.pypy.org/issue1542')
     def test_compare(self):
         # memoryviews can compare for equality with other objects
         # having the buffer interface.
@@ -193,7 +189,6 @@ class AbstractMemoryTests:
         m = self.check_attributes_with_type(self.ro_type)
         self.assertEqual(m.readonly, True)
 
-    @unittest.skip('XXX: https://bugs.pypy.org/issue1542')
     def test_attributes_writable(self):
         if not self.rw_type:
             return
