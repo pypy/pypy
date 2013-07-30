@@ -38,12 +38,23 @@ def get_entry(g):
             name = args[1]
         if argc > 2:
             n = int(args[2])
+            
         r_list = []
         for i in range(20):
             r = g(name, n)
             r_list.append(r)
             rgc.collect()
+            
+        if rgc.stm_is_enabled():
+            from rpython.rlib import rstm
+            # this breaks the transaction. necessary to make possible
+            # weak-reffed private_from_protected objects non-private
+            # and thereby non-reffed (remove them from some list)
+            rstm.before_external_call()
+            rstm.after_external_call()
+
         rgc.collect(); rgc.collect()
+        
         freed = 0
         for i, r in enumerate(r_list):
             if r() is None:
@@ -51,6 +62,7 @@ def get_entry(g):
             else:
                 print "not freed:", r(), "pos:", i
         print freed
+        
         return 0
 
     return entrypoint

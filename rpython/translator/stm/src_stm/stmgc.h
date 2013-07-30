@@ -70,8 +70,10 @@ void stm_leave_callback_call(int);
      do stm_write_barrier() again if we ended the transaction, or
      if we did a potential collection (e.g. stm_allocate()).
 */
-static inline gcptr stm_read_barrier(gcptr);
-static inline gcptr stm_write_barrier(gcptr);
+#if 0     // (optimized version below)
+gcptr stm_read_barrier(gcptr);
+gcptr stm_write_barrier(gcptr);
+#endif
 
 /* start a new transaction, calls callback(), and when it returns
    finish that transaction.  callback() is called with the 'arg'
@@ -140,16 +142,12 @@ gcptr stm_weakref_allocate(size_t size, unsigned long tid, gcptr obj);
 /************************************************************/
 
 
-/* macro-like functionality */
+/* macro functionality */
 
 extern __thread gcptr *stm_shadowstack;
 
-static inline void stm_push_root(gcptr obj) {
-    *stm_shadowstack++ = obj;
-}
-static inline gcptr stm_pop_root(void) {
-    return *--stm_shadowstack;
-}
+#define stm_push_root(obj)  (*stm_shadowstack++ = (obj))
+#define stm_pop_root()      (*--stm_shadowstack)
 
 extern __thread revision_t stm_private_rev_num;
 gcptr stm_DirectReadBarrier(gcptr);
@@ -161,21 +159,18 @@ extern __thread char *stm_read_barrier_cache;
     (*(gcptr *)(stm_read_barrier_cache + ((revision_t)(obj) & FX_MASK)))
 
 #define UNLIKELY(test)  __builtin_expect(test, 0)
-static inline gcptr stm_read_barrier(gcptr obj) {
-    /* XXX optimize to get the smallest code */
-    if (UNLIKELY((obj->h_revision != stm_private_rev_num) &&
-                 (FXCACHE_AT(obj) != obj)))
-        obj = stm_DirectReadBarrier(obj);
-    return obj;
-}
 
-static inline gcptr stm_write_barrier(gcptr obj) {
-    if (UNLIKELY((obj->h_revision != stm_private_rev_num) |
-                 ((obj->h_tid & GCFLAG_WRITE_BARRIER) != 0)))
-        obj = stm_WriteBarrier(obj);
-    return obj;
-}
-#undef UNLIKELY
+#define stm_read_barrier(obj)                                   \
+    (UNLIKELY(((obj)->h_revision != stm_private_rev_num) &&     \
+              (FXCACHE_AT(obj) != (obj))) ?                     \
+        stm_DirectReadBarrier(obj)                              \
+     :  (obj))
+
+#define stm_write_barrier(obj)                                  \
+    (UNLIKELY(((obj)->h_revision != stm_private_rev_num) ||     \
+              (((obj)->h_tid & GCFLAG_WRITE_BARRIER) != 0)) ?   \
+        stm_WriteBarrier(obj)                                   \
+     :  (obj))
 
 
 #endif
