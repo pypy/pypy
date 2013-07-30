@@ -649,6 +649,10 @@ VOIDPP = CArrayPtr(VOIDP)
 # char *
 CCHARP = lltype.Ptr(lltype.Array(lltype.Char, hints={'nolength': True}))
 
+# const char *
+CONST_CCHARP = lltype.Ptr(lltype.Array(lltype.Char, hints={'nolength': True,
+                                       'render_as_const': True}))
+
 # wchar_t *
 CWCHARP = lltype.Ptr(lltype.Array(lltype.UniChar, hints={'nolength': True}))
 
