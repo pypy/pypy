@@ -43,7 +43,7 @@ class SolutionIterator(object):
 
     def next(self):
         sol = self.it.next()
-        return tuple([ Predicate._back_to_py(sol[v]) for v in self.vs ])
+        return Predicate._make_result_tuple(sol, self.vs)
 
 class Predicate(object):
     """ Represents a "callable" prolog predicate """
@@ -72,6 +72,10 @@ class Predicate(object):
             # is a Term
             return e
 
+    @staticmethod
+    def _make_result_tuple(sol, variables):
+        return tuple([ Predicate._back_to_py(sol[v]) for v in variables ])
+
     def __call__(self, *args):
         term_args = []
         vs = []
@@ -93,7 +97,7 @@ class Predicate(object):
             if sol is None:
                 return None # contradiction
             else:
-                return tuple([ Predicate._back_to_py(sol[v]) for v in vs ])
+                return Predicate._make_result_tuple(sol, vs)
     
 class Database(object):
     """ A class that represents the predicates exposed by a prolog engine """
