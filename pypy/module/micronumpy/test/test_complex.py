@@ -400,6 +400,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
         assert conj is conjugate
         assert conj(c0) == c0
+        assert c0.conjugate() == c0
         assert conj(c1) == complex(1, -2)
         assert conj(1) == 1
         assert conj(-3) == -3
@@ -625,6 +626,8 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
         a = array([1 + 2j, 1 - 2j])
         assert (a.conj() == [1 - 2j, 1 + 2j]).all()
+        a = array([1,2,3.4J],dtype=complex)
+        assert a[2].conjugate() == 0-3.4j
 
     def test_math(self):
         if self.isWindows:
