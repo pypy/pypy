@@ -51,8 +51,8 @@ class ExceptionData(object):
         return helper_fn
 
     def get_standard_ll_exc_instance(self, rtyper, clsdef):
-        rclass = rtyper.type_system.rclass
-        r_inst = rclass.getinstancerepr(rtyper, clsdef)
+        from rpython.rtyper.lltypesystem.rclass import getinstancerepr
+        r_inst = getinstancerepr(rtyper, clsdef)
         example = r_inst.get_reusable_prebuilt_instance()
         example = ll_cast_to_object(example)
         return example

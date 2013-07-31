@@ -54,7 +54,8 @@ def getclassrepr(rtyper, classdef):
     try:
         result = rtyper.class_reprs[classdef]
     except KeyError:
-        result = rtyper.type_system.rclass.ClassRepr(rtyper, classdef)
+        from rpython.rtyper.lltypesystem.rclass import ClassRepr
+        result = ClassRepr(rtyper, classdef)
         rtyper.class_reprs[classdef] = result
         rtyper.add_pendingsetup(result)
     return result
@@ -103,7 +104,8 @@ def buildinstancerepr(rtyper, classdef, gcflavor='gc'):
         from rpython.rtyper.lltypesystem import rtagged
         return rtagged.TaggedInstanceRepr(rtyper, classdef, unboxed[0])
     else:
-        return rtyper.type_system.rclass.InstanceRepr(rtyper, classdef, gcflavor)
+        from rpython.rtyper.lltypesystem.rclass import InstanceRepr
+        return InstanceRepr(rtyper, classdef, gcflavor)
 
 
 class MissingRTypeAttribute(TyperError):

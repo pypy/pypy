@@ -328,7 +328,7 @@ class BaseInliner(object):
     def rewire_exceptblock_with_guard(self, afterblock, copiedexceptblock):
         # this rewiring does not always succeed. in the cases where it doesn't
         # there will be generic code inserted
-        rclass = self.translator.rtyper.type_system.rclass
+        from rpython.rtyper.lltypesystem import rclass
         excdata = self.translator.rtyper.exceptiondata
         exc_match = excdata.fn_exception_match
         for link in self.entrymap[self.graph_to_inline.exceptblock]:
