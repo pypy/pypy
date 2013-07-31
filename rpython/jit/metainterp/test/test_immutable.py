@@ -69,6 +69,28 @@ class ImmutableFieldsTests:
         self.check_operations_history(getfield_gc=0, getfield_gc_pure=1,
                             getarrayitem_gc=0, getarrayitem_gc_pure=1)
 
+    def test_array_index_error(self):
+        class X(object):
+            _immutable_fields_ = ["y[*]"]
+
+            def __init__(self, x):
+                self.y = x
+
+            def get(self, index):
+                try:
+                    return self.y[index]
+                except IndexError:
+                    return -41
+
+        def f(index):
+            l = [1, 2, 3, 4]
+            l[2] = 30
+            a = escape(X(l))
+            return a.get(index)
+        res = self.interp_operations(f, [2], listops=True)
+        assert res == 30
+        self.check_operations_history(getfield_gc=0, getfield_gc_pure=1,
+                            getarrayitem_gc=0, getarrayitem_gc_pure=1)
 
     def test_array_in_immutable(self):
         class X(object):

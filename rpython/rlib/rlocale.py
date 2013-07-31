@@ -193,11 +193,11 @@ def setlocale(category, locale):
         raise LocaleError("unsupported locale setting")
     return rffi.charp2str(ll_result)
 
-isalpha = external('isalpha', [rffi.INT], rffi.INT, oo_primitive='locale_isalpha')
-isupper = external('isupper', [rffi.INT], rffi.INT, oo_primitive='locale_isupper')
-islower = external('islower', [rffi.INT], rffi.INT, oo_primitive='locale_islower')
-tolower = external('tolower', [rffi.INT], rffi.INT, oo_primitive='locale_tolower')
-isalnum = external('isalnum', [rffi.INT], rffi.INT, oo_primitive='locale_isalnum')
+isalpha = external('isalpha', [rffi.INT], rffi.INT)
+isupper = external('isupper', [rffi.INT], rffi.INT)
+islower = external('islower', [rffi.INT], rffi.INT)
+tolower = external('tolower', [rffi.INT], rffi.INT)
+isalnum = external('isalnum', [rffi.INT], rffi.INT)
 
 if HAVE_LANGINFO:
     _nl_langinfo = external('nl_langinfo', [rffi.INT], rffi.CCHARP)

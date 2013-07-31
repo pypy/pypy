@@ -58,7 +58,6 @@ class RPythonTyper(object):
         self.classdef_to_pytypeobject = {}
         self.concrete_calltables = {}
         self.class_pbc_attributes = {}
-        self.oo_meth_impls = {}
         self.cache_dummy_values = {}
         self.lltype2vtable = {}
         self.typererrors = []

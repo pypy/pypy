@@ -88,7 +88,7 @@ class TestRegallocGcIntegration(BaseTestRegalloc):
             else:
                 assert nos ==  [0, 1, 25]
         elif self.cpu.backend_name.startswith('arm'):
-            assert nos == [9, 10, 47]
+            assert nos == [0, 1, 47]
         else:
             raise Exception("write the data here")
         assert frame.jf_frame[nos[0]]

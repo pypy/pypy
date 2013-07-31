@@ -205,6 +205,7 @@ class W_GenericBox(W_Root):
     descr_neg = _unaryop_impl("negative")
     descr_abs = _unaryop_impl("absolute")
     descr_invert = _unaryop_impl("invert")
+    descr_conjugate = _unaryop_impl("conjugate")
 
     def descr_divmod(self, space, w_other):
         w_quotient = self.descr_div(space, w_other)
@@ -517,6 +518,7 @@ W_GenericBox.typedef = TypeDef("generic",
     all = interp2app(W_GenericBox.descr_all),
     ravel = interp2app(W_GenericBox.descr_ravel),
     round = interp2app(W_GenericBox.descr_round),
+    conjugate = interp2app(W_GenericBox.descr_conjugate),
     view = interp2app(W_GenericBox.descr_view),
 )
 
