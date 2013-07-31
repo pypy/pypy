@@ -14,6 +14,16 @@ void stm_copy_to_old_id_copy(gcptr obj, gcptr id)
     dprintf(("copy_to_old_id_copy(%p -> %p)\n", obj, id));
 }
 
+
+__thread void *stm_to_clear_on_abort = NULL;
+__thread size_t stm_bytes_to_clear_on_abort;
+
+void stm_clear_on_abort(void *start, size_t bytes)
+{
+    stm_to_clear_on_abort = start;
+    stm_bytes_to_clear_on_abort = bytes;
+}
+
 /************************************************************/
 /* Each object has a h_original pointer to an old copy of 
    the same object (e.g. an old revision), the "original". 

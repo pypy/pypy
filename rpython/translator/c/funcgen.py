@@ -616,6 +616,7 @@ class FunctionCodeGenerator(object):
     OP_STM_INSPECT_ABORT_INFO           = _OP_STM
     OP_STM_MAJOR_COLLECT                = _OP_STM
     OP_STM_MINOR_COLLECT                = _OP_STM
+    OP_STM_CLEAR_EXCEPTION_DATA_ON_ABORT= _OP_STM
 
 
     def OP_PTR_NONZERO(self, op):

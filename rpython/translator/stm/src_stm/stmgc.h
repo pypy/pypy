@@ -141,6 +141,13 @@ gcptr stm_weakref_allocate(size_t size, unsigned long tid, gcptr obj);
 /****************  END OF PUBLIC INTERFACE  *****************/
 /************************************************************/
 
+/* Clear some memory when aborting a transaction in the current
+   thread. This is a provisional API. The information is stored
+   thread-locally and belongs to the current thread. */
+void stm_clear_on_abort(void *start, size_t bytes);
+extern __thread void *stm_to_clear_on_abort;
+extern __thread size_t stm_bytes_to_clear_on_abort;
+
 
 /* macro functionality */
 

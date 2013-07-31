@@ -880,6 +880,10 @@ void AbortTransaction(int num)
   /* release the lock */
   spinlock_release(d->public_descriptor->collection_lock);
 
+  /* clear memory registered by stm_clear_on_abort */
+  if (stm_to_clear_on_abort)
+    memset(stm_to_clear_on_abort, 0, stm_bytes_to_clear_on_abort);
+
   dprintf(("\n"
           "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n"
           "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n"

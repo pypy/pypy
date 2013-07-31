@@ -15,6 +15,12 @@ def get_adr_of_read_barrier_cache():
     return rffi.cast(lltype.Signed, addr)
 
 @dont_look_inside
+def clear_exception_data_on_abort():
+    # XXX: provisional API just to be safe
+    # called by pypy/module/thread/stm:initialize_execution_context
+    llop.stm_clear_exception_data_on_abort(lltype.Void)
+
+@dont_look_inside
 def become_inevitable():
     llop.stm_become_inevitable(lltype.Void)
 
