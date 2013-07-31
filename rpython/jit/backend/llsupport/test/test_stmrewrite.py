@@ -64,6 +64,30 @@ class TestStm(RewriteTests):
             jump()
             """, t=NULL)
 
+    def test_invalidate_read_status_after_write_to_constptr(self):
+        TP = lltype.GcArray(lltype.Signed)
+        NULL = lltype.cast_opaque_ptr(llmemory.GCREF, lltype.nullptr(TP))
+        self.check_rewrite("""
+            [p0]
+            p1 = same_as(ConstPtr(t))
+            p2 = same_as(ConstPtr(t))
+            p3 = getfield_gc(p1, descr=tzdescr)
+            setfield_gc(p2, p0, descr=tzdescr)
+            p4 = getfield_gc(p1, descr=tzdescr)
+            jump()
+        """, """
+            [p0]
+            p1 = same_as(ConstPtr(t))
+            p2 = same_as(ConstPtr(t))
+            cond_call_stm_b(p1, descr=P2Rdescr)
+            p3 = getfield_gc(p1, descr=tzdescr)
+            cond_call_stm_b(p2, descr=P2Wdescr)
+            setfield_gc(p2, p0, descr=tzdescr)
+            cond_call_stm_b(p1, descr=P2Rdescr)
+            p4 = getfield_gc(p1, descr=tzdescr)
+            jump()
+            """, t=NULL)
+
     def test_invalidate_read_status_after_write(self):
         self.check_rewrite("""
             [p0]
