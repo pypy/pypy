@@ -12,7 +12,6 @@ from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.annlowlevel import (hlstr, cast_base_ptr_to_instance,
     cast_object_to_ptr)
 from rpython.rtyper.lltypesystem import lltype, llmemory, rstr, rffi
-from rpython.rtyper.ootypesystem import ootype
 
 # ____________________________________________________________
 
@@ -47,8 +46,6 @@ def unspecialize_value(value):
         else:
             adr = llmemory.cast_ptr_to_adr(value)
             return heaptracker.adr2int(adr)
-    elif isinstance(lltype.typeOf(value), ootype.OOType):
-        return ootype.cast_to_object(value)
     elif isinstance(value, float):
         return longlong.getfloatstorage(value)
     else:
@@ -63,8 +60,6 @@ def unwrap(TYPE, box):
             return box.getref(TYPE)
         else:
             return llmemory.cast_adr_to_ptr(box.getaddr(), TYPE)
-    if isinstance(TYPE, ootype.OOType):
-        return box.getref(TYPE)
     if TYPE == lltype.Float:
         return box.getfloat()
     else:
@@ -83,12 +78,6 @@ def wrap(cpu, value, in_const_box=False):
             adr = llmemory.cast_ptr_to_adr(value)
             value = heaptracker.adr2int(adr)
             # fall through to the end of the function
-    elif isinstance(lltype.typeOf(value), ootype.OOType):
-        value = ootype.cast_to_object(value)
-        if in_const_box:
-            return history.ConstObj(value)
-        else:
-            return history.BoxObj(value)
     elif (isinstance(value, float) or
           longlong.is_longlong(lltype.typeOf(value))):
         if isinstance(value, float):
@@ -116,13 +105,11 @@ def equal_whatever(TYPE, x, y):
     if isinstance(TYPE, lltype.Ptr):
         if TYPE.TO is rstr.STR or TYPE.TO is rstr.UNICODE:
             return rstr.LLHelpers.ll_streq(x, y)
-    if TYPE is ootype.String or TYPE is ootype.Unicode:
-        return x.ll_streq(y)
     return x == y
 
 @specialize.arg(0)
 def hash_whatever(TYPE, x):
-    # Hash of lltype or ootype object.
+    # Hash of lltype object.
     # Only supports strings, unicodes and regular instances,
     # as well as primitives that can meaningfully be cast to Signed.
     if isinstance(TYPE, lltype.Ptr) and TYPE.TO._gckind == 'gc':
@@ -133,13 +120,6 @@ def hash_whatever(TYPE, x):
                 return lltype.identityhash(x)
             else:
                 return 0
-    elif TYPE is ootype.String or TYPE is ootype.Unicode:
-        return x.ll_hash()
-    elif isinstance(TYPE, ootype.OOType):
-        if x:
-            return ootype.identityhash(x)
-        else:
-            return 0
     else:
         return rffi.cast(lltype.Signed, x)
 
@@ -554,8 +534,6 @@ class WarmEnterState(object):
                     else:
                         if isinstance(BASEJITCELL, lltype.Ptr):
                             cellref = lltype.malloc(BASEJITCELL.TO)
-                        elif isinstance(BASEJITCELL, ootype.Instance):
-                            cellref = ootype.new(BASEJITCELL)
                         else:
                             assert False, "no clue"
                         lltohlhack[rtyper.type_system.deref(cellref)] = cell

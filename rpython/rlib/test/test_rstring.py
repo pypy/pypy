@@ -2,7 +2,7 @@ import sys, py
 
 from rpython.rlib.rstring import StringBuilder, UnicodeBuilder, split, rsplit
 from rpython.rlib.rstring import replace, startswith, endswith
-from rpython.rtyper.test.tool import BaseRtypingTest, LLRtypeMixin
+from rpython.rtyper.test.tool import BaseRtypingTest
 
 def test_split():
     assert split("", 'x') == ['']
@@ -163,7 +163,7 @@ def test_unicode_builder():
     assert isinstance(s.build(), unicode)
 
 
-class TestTranslates(LLRtypeMixin, BaseRtypingTest):
+class TestTranslates(BaseRtypingTest):
     def test_split_rsplit(self):
         def fn():
             res = True

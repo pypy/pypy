@@ -264,6 +264,7 @@ class OptHeap(Optimization):
             return
         if (opnum == rop.CALL or
             opnum == rop.CALL_PURE or
+            opnum == rop.COND_CALL or
             opnum == rop.CALL_MAY_FORCE or
             opnum == rop.CALL_RELEASE_GIL or
             opnum == rop.CALL_ASSEMBLER):

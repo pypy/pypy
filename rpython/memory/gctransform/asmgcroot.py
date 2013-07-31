@@ -729,6 +729,10 @@ class ShapeDecompressor:
 #   - frame address (actually the addr of the retaddr of the current function;
 #                    that's the last word of the frame in memory)
 #
+# On 64 bits, it is an array of 7 values instead of 5:
+#
+#   - %rbx, %r12, %r13, %r14, %r15, %rbp; and the frame address
+#
 
 if IS_64_BITS:
     CALLEE_SAVED_REGS = 6

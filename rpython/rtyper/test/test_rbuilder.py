@@ -6,7 +6,7 @@ from rpython.rlib.rstring import StringBuilder, UnicodeBuilder
 from rpython.rtyper.annlowlevel import llstr, hlstr
 from rpython.rtyper.lltypesystem import rffi
 from rpython.rtyper.lltypesystem.rbuilder import StringBuilderRepr
-from rpython.rtyper.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
+from rpython.rtyper.test.tool import BaseRtypingTest
 
 
 class TestStringBuilderDirect(object):
@@ -25,7 +25,7 @@ class TestStringBuilderDirect(object):
         assert StringBuilderRepr.ll_build(sb) == sb.buf
 
 
-class BaseTestStringBuilder(BaseRtypingTest):
+class TestStringBuilder(BaseRtypingTest):
     def test_simple(self):
         def func():
             s = StringBuilder()
@@ -92,7 +92,7 @@ class BaseTestStringBuilder(BaseRtypingTest):
             if s:
                 s.append("3")
             return bool(s)
-        
+
         def func(i):
             if i:
                 s = StringBuilder()
@@ -109,7 +109,7 @@ class BaseTestStringBuilder(BaseRtypingTest):
             if s:
                 s.append(u"3")
             return bool(s)
-        
+
         def func(i):
             if i:
                 s = UnicodeBuilder()
@@ -120,11 +120,3 @@ class BaseTestStringBuilder(BaseRtypingTest):
         assert not res
         res = self.interpret(func, [1])
         assert res
-
-
-class TestLLtype(BaseTestStringBuilder, LLRtypeMixin):
-    pass
-
-class TestOOtype(BaseTestStringBuilder, OORtypeMixin):
-    def test_append_charpsize(self):
-        py.test.skip("append_charpsize(): not implemented on ootype")

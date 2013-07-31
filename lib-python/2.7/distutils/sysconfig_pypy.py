@@ -12,6 +12,7 @@ __revision__ = "$Id: sysconfig.py 85358 2010-10-10 09:54:59Z antoine.pitrou $"
 
 import sys
 import os
+import shlex
 
 from distutils.errors import DistutilsPlatformError
 
@@ -65,11 +66,6 @@ def _init_posix():
     g['SOABI'] = g['SO'].rsplit('.')[0]
     g['LIBDIR'] = os.path.join(sys.prefix, 'lib')
     g['CC'] = "gcc -pthread" # -pthread might not be valid on OS/X, check
-    g['OPT'] = ""
-    g['CFLAGS'] = ""
-    g['CPPFLAGS'] = ""
-    g['CCSHARED'] = '-shared -O2 -fPIC -Wimplicit'
-    g['LDSHARED'] = g['CC'] + ' -shared'
 
     global _config_vars
     _config_vars = g
@@ -127,34 +123,21 @@ def customize_compiler(compiler):
     optional C speedup components.
     """
     if compiler.compiler_type == "unix":
-        cc, opt, cflags, ccshared, ldshared = get_config_vars(
-            'CC', 'OPT', 'CFLAGS', 'CCSHARED', 'LDSHARED')
-
+        compiler.compiler_so.extend(['-O2', '-fPIC', '-Wimplicit'])
         compiler.shared_lib_extension = get_config_var('SO')
-
-        if 'LDSHARED' in os.environ:
-            ldshared = os.environ['LDSHARED']
-        if 'CPP' in os.environ:
-            cpp = os.environ['CPP']
-        else:
-            cpp = cc + " -E"           # not always
-        if 'LDFLAGS' in os.environ:
-            ldshared = ldshared + ' ' + os.environ['LDFLAGS']
-        if 'CFLAGS' in os.environ:
-            cflags = opt + ' ' + os.environ['CFLAGS']
-            ldshared = ldshared + ' ' + os.environ['CFLAGS']
-        if 'CPPFLAGS' in os.environ:
-            cpp = cpp + ' ' + os.environ['CPPFLAGS']
-            cflags = cflags + ' ' + os.environ['CPPFLAGS']
-            ldshared = ldshared + ' ' + os.environ['CPPFLAGS']
-
-        cc_cmd = cc + ' ' + cflags
-
-        compiler.set_executables(
-            preprocessor=cpp,
-            compiler=cc_cmd,
-            compiler_so=cc_cmd + ' ' + ccshared,
-            linker_so=ldshared)
+        if "CPPFLAGS" in os.environ:
+            cppflags = shlex.split(os.environ["CPPFLAGS"])
+            compiler.compiler.extend(cppflags)
+            compiler.compiler_so.extend(cppflags)
+            compiler.linker_so.extend(cppflags)
+        if "CFLAGS" in os.environ:
+            cflags = shlex.split(os.environ["CFLAGS"])
+            compiler.compiler.extend(cflags)
+            compiler.compiler_so.extend(cflags)
+            compiler.linker_so.extend(cflags)
+        if "LDFLAGS" in os.environ:
+            ldflags = shlex.split(os.environ["LDFLAGS"])
+            compiler.linker_so.extend(ldflags)
 
 
 from sysconfig_cpython import (

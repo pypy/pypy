@@ -556,8 +556,15 @@ def run_command_line(interactive,
         # or
         #     * PYTHONINSPECT is set and stdin is a tty.
         #
+        try:
+            # we need a version of getenv that bypasses Python caching
+            from __pypy__.os import real_getenv
+        except ImportError:
+            # dont fail on CPython here
+            real_getenv = os.getenv
+
         return (interactive or
-                ((inspect or (readenv and os.getenv('PYTHONINSPECT')))
+                ((inspect or (readenv and real_getenv('PYTHONINSPECT')))
                  and sys.stdin.isatty()))
 
     success = True

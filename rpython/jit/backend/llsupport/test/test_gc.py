@@ -137,18 +137,6 @@ class TestFramework(object):
         self.gc_ll_descr = gc_ll_descr
         self.fake_cpu = FakeCPU()
 
-##    def test_args_for_new(self):
-##        S = lltype.GcStruct('S', ('x', lltype.Signed))
-##        sizedescr = get_size_descr(self.gc_ll_descr, S)
-##        args = self.gc_ll_descr.args_for_new(sizedescr)
-##        for x in args:
-##            assert lltype.typeOf(x) == lltype.Signed
-##        A = lltype.GcArray(lltype.Signed)
-##        arraydescr = get_array_descr(self.gc_ll_descr, A)
-##        args = self.gc_ll_descr.args_for_new(sizedescr)
-##        for x in args:
-##            assert lltype.typeOf(x) == lltype.Signed
-
     def test_gc_malloc(self):
         S = lltype.GcStruct('S', ('x', lltype.Signed))
         sizedescr = descr.get_size_descr(self.gc_ll_descr, S)
