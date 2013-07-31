@@ -2174,25 +2174,51 @@ class Assembler386(BaseAssembler):
         # FASTPATH
         #
         # a == b -> SET NZ
-        sl = X86_64_SCRATCH_REG.lowest8bits()
-        mc.MOV(X86_64_SCRATCH_REG, a_base)
-        mc.CMP(X86_64_SCRATCH_REG, b_base)
-        mc.SET_ir(rx86.Conditions['Z'], sl.value)
-        mc.MOVZX8_rr(X86_64_SCRATCH_REG.value, sl.value)
-        # mc.TEST8_rr() without movzx8
-        mc.TEST_rr(X86_64_SCRATCH_REG.value, X86_64_SCRATCH_REG.value)
-        mc.J_il8(rx86.Conditions['NZ'], 0)
-        j_ok1 = mc.get_relative_pos()
+        if isinstance(a_base, ImmedLoc) and isinstance(b_base, ImmedLoc):
+            if a_base.getint() == b_base.getint():
+                mc.XOR(X86_64_SCRATCH_REG, X86_64_SCRATCH_REG)
+                mc.INC(X86_64_SCRATCH_REG) # NZ flag
+                mc.JMP_l8(0)
+                j_ok1 = mc.get_relative_pos()
+        else:
+            # do the dance, even if a or b is an Immed
+            # XXX: figure out if CMP() is able to handle it without
+            #      the explicit MOV before it (CMP(a_base, b_base))
+            sl = X86_64_SCRATCH_REG.lowest8bits()
+            mc.MOV(X86_64_SCRATCH_REG, a_base)
+            mc.CMP(X86_64_SCRATCH_REG, b_base)
+            mc.SET_ir(rx86.Conditions['Z'], sl.value)
+            mc.MOVZX8_rr(X86_64_SCRATCH_REG.value, sl.value)
+            # mc.TEST8_rr() without movzx8
+            mc.TEST_rr(X86_64_SCRATCH_REG.value, X86_64_SCRATCH_REG.value)
+            mc.J_il8(rx86.Conditions['NZ'], 0)
+            j_ok1 = mc.get_relative_pos()
 
         # a == 0 || b == 0 -> SET Z
-        mc.CMP(a_base, imm(0))
-        mc.J_il8(rx86.Conditions['Z'], 0)
-        j_ok2 = mc.get_relative_pos()
+        if isinstance(a_base, ImmedLoc):
+            if a_base.getint() == 0:
+                # Z flag still set from above
+                mc.JMP_l8(0)
+                j_ok2 = mc.get_relative_pos()
+            else:
+                j_ok2 = 0
+        else:
+            mc.CMP(a_base, imm(0))
+            mc.J_il8(rx86.Conditions['Z'], 0)
+            j_ok2 = mc.get_relative_pos()
         #
-        mc.CMP(b_base, imm(0))
-        mc.J_il8(rx86.Conditions['Z'], 0)
-        j_ok3 = mc.get_relative_pos()
-        
+        if isinstance(b_base, ImmedLoc):
+            if b_base.getint() == 0:
+                # set Z flag:
+                mc.XOR(X86_64_SCRATCH_REG, X86_64_SCRATCH_REG)
+                mc.JMP_l8(0)
+                j_ok3 = mc.get_relative_pos()
+            else:
+                j_ok3 = 0
+        else:
+            mc.CMP(b_base, imm(0))
+            mc.J_il8(rx86.Conditions['Z'], 0)
+            j_ok3 = mc.get_relative_pos()
         # a.type != b.type
         # XXX: todo, if it ever happens..
         
@@ -2214,10 +2240,12 @@ class Assembler386(BaseAssembler):
         # OK: flags already set
         offset = mc.get_relative_pos() - j_ok1
         mc.overwrite(j_ok1 - 1, chr(offset))
-        offset = mc.get_relative_pos() - j_ok2
-        mc.overwrite(j_ok2 - 1, chr(offset))
-        offset = mc.get_relative_pos() - j_ok3
-        mc.overwrite(j_ok3 - 1, chr(offset))
+        if j_ok2:
+            offset = mc.get_relative_pos() - j_ok2
+            mc.overwrite(j_ok2 - 1, chr(offset))
+        if j_ok3:
+            offset = mc.get_relative_pos() - j_ok3
+            mc.overwrite(j_ok3 - 1, chr(offset))
 
         
         
