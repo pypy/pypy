@@ -20,9 +20,11 @@ class AppTestPwd:
         else:
             assert pw.pw_dir.startswith('/')
         assert pw.pw_shell.startswith('/')
-        #
         assert type(pw.pw_uid) is int
         assert type(pw.pw_gid) is int
+        # should be out of uid_t range
+        raises(KeyError, pwd.getpwuid, 2**128)
+        raises(KeyError, pwd.getpwuid, -2**128)
 
     def test_getpwnam(self):
         import pwd
