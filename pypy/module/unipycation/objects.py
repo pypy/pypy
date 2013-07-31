@@ -27,6 +27,8 @@ class W_Term(W_Root):
     Represents a Callable from pyrolog
     """
 
+    _immutable_fields_ = ["p_term"]
+
     def __init__(self, space, p_term):
         self.space = space
         self.p_term = p_term
@@ -87,6 +89,7 @@ class W_Var(W_Root):
     """
     Represents an unbound variable in a query.
     """
+    _immutable_fields_ = ["p_var"]
 
     def __init__(self, space, p_var):
         self.space = space

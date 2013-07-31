@@ -155,6 +155,9 @@ def engine_new__(space, w_subtype, __args__):
     return space.wrap(e)
 
 class W_CoreEngine(W_Root):
+
+    _immutable_fields_ = ["engine"]
+
     def __init__(self, space, w_anything):
         self.space = space                      # Stash space
         self.engine = e = continuation.Engine(load_system=True) # We embed an instance of prolog
