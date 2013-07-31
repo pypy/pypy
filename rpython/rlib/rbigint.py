@@ -1242,10 +1242,10 @@ def _x_mul(a, b, digit=0):
     i = UDIGIT_TYPE(0)
     while i < size_a:
         carry = 0
+        f = a.widedigit(i)
         pz = i
         pb = 0
         while pb < size_b:
-            f = a.widedigit(i)
             carry += z.widedigit(pz) + b.widedigit(pb) * f
             pb += 1
             z.setdigit(pz, carry)
