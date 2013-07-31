@@ -26,6 +26,12 @@ typedef unsigned char npy_uint8;
 #define import_array()
 #endif
 
+#define NPY_MAXDIMS 32
+
+typedef struct {
+    npy_intp *ptr;
+    int len;
+} PyArray_Dims;
 
 /* data types copied from numpy/ndarraytypes.h 
  * keep numbers in sync with micronumpy.interp_dtype.DTypeCache
@@ -70,10 +76,18 @@ enum NPY_TYPES {    NPY_BOOL=0,
 #define NPY_COMPLEX64 NPY_CDOUBLE
 
 
+/* selection of flags */
+#define NPY_C_CONTIGUOUS    0x0001
+#define NPY_OWNDATA         0x0004
+#define NPY_ALIGNED         0x0100
+#define NPY_IN_ARRAY (NPY_C_CONTIGUOUS | NPY_ALIGNED)
+
+
 /* functions */
 #ifndef PyArray_NDIM
 
 #define PyArray_ISCONTIGUOUS(arr) (1)
+#define PyArray_Check(arr) (1)
 
 #define PyArray_NDIM     _PyArray_NDIM
 #define PyArray_DIM      _PyArray_DIM
@@ -84,11 +98,16 @@ enum NPY_TYPES {    NPY_BOOL=0,
 #define PyArray_TYPE     _PyArray_TYPE
 #define PyArray_DATA     _PyArray_DATA
 
-#define PyArray_BYTES(obj) ((char *)PyArray_DATA(obj))
+#define PyArray_Size PyArray_SIZE
+#define PyArray_BYTES(arr) ((char *)PyArray_DATA(arr))
 
 #define PyArray_FromAny _PyArray_FromAny
 #define PyArray_FromObject _PyArray_FromObject
 #define PyArray_ContiguousFromObject PyArray_FromObject
+#define PyArray_ContiguousFromAny PyArray_FromObject
+
+#define PyArray_FROMANY(obj, typenum, min, max, requirements) (obj)
+#define PyArray_FROM_OTF(obj, typenum, requirements) (obj)
 
 #define PyArray_SimpleNew _PyArray_SimpleNew
 #define PyArray_SimpleNewFromData _PyArray_SimpleNewFromData
@@ -105,8 +124,10 @@ PyObject* PyArray_ZEROS(int nd, npy_intp* dims, int type_num, int fortran)
     PyObject *arr = PyArray_EMPTY(nd, dims, type_num, fortran);
     memset(PyArray_DATA(arr), 0, PyArray_NBYTES(arr));
     return arr;
-}
+};
 */
+
+#define PyArray_Resize(self, newshape, refcheck, fortran) (NULL)
 
 /* Don't use these in loops! */
 
