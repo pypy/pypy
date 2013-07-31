@@ -16,73 +16,73 @@ from rpython.rlib import rstring
 
 class W_CoreSolutionIterator(W_Root):
     """
-    An interface that allows retreival of multiple solutions
+    An interface that allows retrieval of multiple solutions
     """
 
     def __init__(self, space, w_unbound_vars, w_goal_term, w_engine):
         self.w_engine = w_engine
         self.w_unbound_vars = w_unbound_vars
+        self.unbound_vars_w = [
+            space.interp_w(objects.W_Var, w_var)
+                for w_var in space.listview(w_unbound_vars)]
 
         w_goal_term = space.interp_w(objects.W_Term, w_goal_term)
         self.w_goal_term = w_goal_term
 
         self.space = space
-        self.d_result = None    # Current result, populated on the fly
 
         # The state of the prolog interpreter continuation.
         # Used for enumerating results.
         self.fcont = None
         self.heap = None
 
-    def _populate_result(self, w_unbound_vars, fcont, heap):
-        """ Called interally by the activation of the continuation """
+    def _store_fcont_heap(self, fcont, heap):
+        self.fcont = fcont
+        self.heap = heap
 
-        for w_var in self.space.listview(w_unbound_vars):
+    def _create_result(self):
+        """ Called internally after the activation of the continuation """
+        w_result = self.space.newdict()
+
+        for w_var in self.unbound_vars_w:
             w_var = self.space.interp_w(objects.W_Var, w_var)
 
             w_binding = conversion.w_of_p(
-                self.space, w_var.p_var.dereference(heap))
-            self.space.setitem(self.d_result, w_var, w_binding)
-
-        self.fcont = fcont
-        self.heap = heap
+                self.space, w_var.p_var.dereference(None))
+            self.space.setitem(w_result, w_var, w_binding)
+        return w_result
 
     def iter_w(self): return self
 
     def next_w(self):
         """ Obtain the next solution (if there is one) """
 
-        self.d_result = self.space.newdict()
 
-        # The first iteration is special. Here we set up the continuation
-        # for subsequent iterations.
-        if self.fcont is None:
+        p_goal_term = cur_mod = cont = None
+
+        first_iteration = self.fcont is None
+        if first_iteration:
+            # The first iteration is special. Here we set up the continuation
+            # for subsequent iterations.
             cur_mod = self.w_engine.engine.modulewrapper.current_module
             cont = UnipycationContinuation(
-                    self.w_engine, self.w_unbound_vars, self)
-            try:
-                r = self.w_engine.engine.run(self.w_goal_term.p_term, cur_mod, cont)
-            except error.UnificationFailed:
-                # contradiction - no solutions
-                raise OperationError(self.space.w_StopIteration, self.space.w_None)
-            except (error.CatchableError, error.UncaughtError) as ex:
-                w_PrologError = util.get_from_module(self.space, "unipycation", "PrologError")
-                engine = self.w_engine.engine
-                raise OperationError(w_PrologError, self.space.wrap(ex.get_errstr(engine)))
-
+                    self.w_engine, self)
+            p_goal_term = self.w_goal_term.p_term
             self.w_goal_term = None # allow GC
-        else:
-            try:
+        try:
+            if first_iteration:
+                r = self.w_engine.engine.run(p_goal_term, cur_mod, cont)
+            else:
                 continuation.driver(*self.fcont.fail(self.heap))
-            except error.UnificationFailed:
-                # enumerated all solutions
-                raise OperationError(self.space.w_StopIteration, self.space.w_None)
-            except (error.CatchableError, error.UncaughtError) as ex:
-                w_PrologError = util.get_from_module(self.space, "unipycation", "PrologError")
-                engine = self.w_engine.engine
-                raise OperationError(w_PrologError, self.space.wrap(ex.get_errstr(engine)))
+        except error.UnificationFailed:
+            # contradiction - no solutions
+            raise OperationError(self.space.w_StopIteration, self.space.w_None)
+        except (error.CatchableError, error.UncaughtError) as ex:
+            w_PrologError = util.get_from_module(self.space, "unipycation", "PrologError")
+            engine = self.w_engine.engine
+            raise OperationError(w_PrologError, self.space.wrap(ex.get_errstr(engine)))
 
-        return self.d_result
+        return self._create_result()
 
 W_CoreSolutionIterator.typedef = TypeDef("CoreSolutionIterator",
     __iter__ = interp2app(W_CoreSolutionIterator.iter_w),
@@ -94,19 +94,18 @@ W_CoreSolutionIterator.typedef.acceptable_as_base_class = False
 # ---
 
 class UnipycationContinuation(continuation.Continuation):
-    def __init__(self, w_engine, w_unbound_vars, w_solution_iter):
+    def __init__(self, w_engine, w_solution_iter):
         p_engine = w_engine.engine
 
         continuation.Continuation.__init__(self,
                 p_engine, continuation.DoneSuccessContinuation(p_engine))
 
         # stash
-        self.w_unbound_vars = w_unbound_vars
         self.w_engine = w_engine
         self.w_solution_iter = w_solution_iter
 
     def activate(self, fcont, heap):
-        self.w_solution_iter._populate_result(self.w_unbound_vars, fcont, heap)
+        self.w_solution_iter._store_fcont_heap(fcont, heap)
         return continuation.DoneSuccessContinuation(self.engine), fcont, heap
 
 # ---
@@ -120,7 +119,6 @@ class W_CoreEngine(W_Root):
     def __init__(self, space, w_anything):
         self.space = space                      # Stash space
         self.engine = e = continuation.Engine(load_system=True) # We embed an instance of prolog
-        self.d_result = None                    # When we have a result, we will stash it here
 
         try:
             e.runstring(space.str_w(w_anything))# Load the database with the first arg

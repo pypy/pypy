@@ -8,15 +8,17 @@ import prolog.interpreter.signature as psig
 import prolog.builtin.formatting as pfmt
 import prolog.interpreter.continuation as pcont
 
+from rpython.rlib import jit
+
 @unwrap_spec(name=str)
-def term_new__(space, w_subtype, name, __args__):
+@jit.unroll_safe
+def term_new__(space, w_subtype, name, w_args):
     from pypy.module.unipycation import conversion
-    w_args = __args__.unpack()[0][0]
 
     # collect args for prolog Term constructor
     term_args = [ conversion.p_of_w(space, w_x) for w_x in space.listview(w_args) ]
     p_sig = psig.Signature.getsignature(name, len(term_args))
-    p_term = pterm.Term(name, term_args, p_sig)
+    p_term = pterm.Callable.build(name, term_args, p_sig)
 
     return W_Term(space, p_term)
 

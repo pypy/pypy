@@ -46,6 +46,12 @@ class AppTestObjects(object):
 
         assert elems == ["e1", "e2", "e3" ]
 
+    def test_term_builder_wrong_arguments(self):
+        import unipycation
+
+        raises(TypeError, unipycation.Term, "myterm", a=1)
+        raises(TypeError, unipycation.Term, "myterm", 1, 2, 3)
+
     def test_nest_term_builder(self):
         import unipycation
 
