@@ -816,6 +816,19 @@ class CompileFrameworkTests(BaseFrameworkTests):
             raiseassert(x1 != ptrs[1])
             raiseassert(x1 == ptrs[2])
             raiseassert(x1 != ptrs[3])
+            raiseassert(x2 == ptrs[0])
+            raiseassert(x2 != ptrs[1])
+            raiseassert(x2 != ptrs[2])
+            raiseassert(x2 != ptrs[3])
+            raiseassert(ptrs[0] is None)
+            raiseassert(ptrs[1] is not None)
+            raiseassert(ptrs[2] is not None)
+            raiseassert(ptrs[3] is not None)
+            raiseassert(ptrs[1] is x0)
+            raiseassert(ptrs[2] is x1)
+            raiseassert(x0 is not None)
+            raiseassert(x1 is not None)
+            raiseassert(x3 is None)
             #
             return n - 1, x, x0, x1, x2, x3, x4, x5, x6, x7, ptrs, s
         return before, f, None

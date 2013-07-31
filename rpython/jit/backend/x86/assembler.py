@@ -2176,10 +2176,12 @@ class Assembler386(BaseAssembler):
         # a == b -> SET NZ
         if isinstance(a_base, ImmedLoc) and isinstance(b_base, ImmedLoc):
             if a_base.getint() == b_base.getint():
-                mc.XOR(X86_64_SCRATCH_REG, X86_64_SCRATCH_REG)
-                mc.INC(X86_64_SCRATCH_REG) # NZ flag
+                mc.MOV_ri(X86_64_SCRATCH_REG.value, 1)
+                mc.TEST(X86_64_SCRATCH_REG, X86_64_SCRATCH_REG) # NZ flag
                 mc.JMP_l8(0)
                 j_ok1 = mc.get_relative_pos()
+            else:
+                j_ok1 = 0
         else:
             # do the dance, even if a or b is an Immed
             # XXX: figure out if CMP() is able to handle it without
@@ -2238,8 +2240,9 @@ class Assembler386(BaseAssembler):
         #
         
         # OK: flags already set
-        offset = mc.get_relative_pos() - j_ok1
-        mc.overwrite(j_ok1 - 1, chr(offset))
+        if j_ok1:
+            offset = mc.get_relative_pos() - j_ok1
+            mc.overwrite(j_ok1 - 1, chr(offset))
         if j_ok2:
             offset = mc.get_relative_pos() - j_ok2
             mc.overwrite(j_ok2 - 1, chr(offset))
