@@ -354,8 +354,12 @@ class TranslationDriver(SimpleTaskEngine):
         """ Generate bytecodes for JIT and flow the JIT helper functions
         lltype version
         """
-        get_policy = self.extra['jitpolicy']
-        self.jitpolicy = get_policy(self)
+        from rpython.jit.codewriter.policy import JitPolicy
+        get_policy = self.extra.get('jitpolicy', None)
+        if get_policy is None:
+            self.jitpolicy = JitPolicy()
+        else:
+            self.jitpolicy = get_policy(self)
         #
         from rpython.jit.metainterp.warmspot import apply_jit
         apply_jit(self.translator, policy=self.jitpolicy,
