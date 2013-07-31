@@ -12,7 +12,15 @@ import pypy.module.unipycation.util as util
 from pypy.module.unipycation import objects, conversion
 
 from rpython.rlib.streamio import open_file_as_stream
-from rpython.rlib import rstring
+from rpython.rlib import rstring, jit
+
+UNROLL_SIZE = 10
+
+@jit.look_inside_iff(lambda space, list_w, unroll: unroll)
+def _typecheck_list_of_vars(space, list_w, unroll):
+    return [space.interp_w(objects.W_Var, w_var)
+                for w_var in list_w]
+
 
 class W_CoreSolutionIterator(W_Root):
     """
@@ -22,9 +30,11 @@ class W_CoreSolutionIterator(W_Root):
     def __init__(self, space, w_unbound_vars, w_goal_term, w_engine):
         self.w_engine = w_engine
         self.w_unbound_vars = w_unbound_vars
-        self.unbound_vars_w = [
-            space.interp_w(objects.W_Var, w_var)
-                for w_var in space.listview(w_unbound_vars)]
+
+        list_w = space.listview(w_unbound_vars)
+        unroll = jit.isconstant(len(list_w)) or len(list_w) < UNROLL_SIZE
+        self.unroll_result_creation = unroll
+        self.unbound_vars_w = _typecheck_list_of_vars(space, list_w, unroll)
 
         w_goal_term = space.interp_w(objects.W_Term, w_goal_term)
         self.w_goal_term = w_goal_term
@@ -40,6 +50,7 @@ class W_CoreSolutionIterator(W_Root):
         self.fcont = fcont
         self.heap = heap
 
+    @jit.look_inside_iff(lambda self: self.unroll_result_creation)
     def _create_result(self):
         """ Called internally after the activation of the continuation """
         values_w = [conversion.w_of_p(self.space, w_var.p_var.dereference(None))
@@ -50,7 +61,6 @@ class W_CoreSolutionIterator(W_Root):
 
     def next_w(self):
         """ Obtain the next solution (if there is one) """
-
 
         p_goal_term = cur_mod = cont = None
 
