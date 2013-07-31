@@ -544,9 +544,14 @@ class TranslationDriver(SimpleTaskEngine):
 
         try:
             entry_point, inputtypes, policy = spec
+        except TypeError:
+            # not a tuple at all
+            entry_point = spec
+            inputtypes = policy = None
         except ValueError:
-            entry_point, inputtypes = spec
             policy = None
+            entry_point, inputtypes = spec
+
 
         driver.setup(entry_point, inputtypes,
                      policy=policy,
