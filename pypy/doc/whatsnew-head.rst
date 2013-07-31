@@ -54,3 +54,7 @@ Added an abstraction for functions with a fast and slow path in the JIT. This
 speeds up list.append() and list.pop().
 
 .. branch: curses_fixes
+
+.. branch: foldable-getarrayitem-indexerror
+Constant-fold reading out of constant tuples in PyPy.
+
