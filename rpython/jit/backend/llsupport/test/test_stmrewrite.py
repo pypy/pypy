@@ -96,6 +96,7 @@ class TestStm(RewriteTests):
             p4 = getfield_gc(p1, descr=tzdescr)
             setfield_gc(p2, p0, descr=tzdescr)
             p5 = getfield_gc(p1, descr=tzdescr)
+            jump()
         """, """
             [p0]
             p1 = same_as(p0)
@@ -106,6 +107,7 @@ class TestStm(RewriteTests):
             setfield_gc(p2, p0, descr=tzdescr)
             cond_call_stm_b(p1, descr=P2Rdescr)
             p5 = getfield_gc(p1, descr=tzdescr)
+            jump()
         """)
 
     def test_invalidate_read_status_after_write_to_field(self):
@@ -116,6 +118,7 @@ class TestStm(RewriteTests):
             p3 = getfield_gc(p1, descr=tzdescr)
             setfield_gc(p2, p0, descr=tzdescr)
             p4 = getfield_gc(p1, descr=tzdescr)
+            jump()
         """, """
             [p0]
             cond_call_stm_b(p0, descr=P2Rdescr)
@@ -127,6 +130,7 @@ class TestStm(RewriteTests):
             setfield_gc(p2, p0, descr=tzdescr)
             cond_call_stm_b(p1, descr=P2Rdescr)
             p4 = getfield_gc(p1, descr=tzdescr)
+            jump()
         """)
 
     def test_invalidate_read_status_after_write_to_array(self):
@@ -137,6 +141,7 @@ class TestStm(RewriteTests):
             p3 = getfield_gc(p1, descr=tzdescr)
             setfield_gc(p2, p0, descr=tzdescr)
             p4 = getfield_gc(p1, descr=tzdescr)
+            jump()
         """, """
             [p0, i1, i2]
             cond_call_stm_b(p0, descr=P2Rdescr)
@@ -148,6 +153,7 @@ class TestStm(RewriteTests):
             setfield_gc(p2, p0, descr=tzdescr)
             cond_call_stm_b(p1, descr=P2Rdescr)
             p4 = getfield_gc(p1, descr=tzdescr)
+            jump()
         """)
 
     def test_rewrite_write_barrier_after_malloc(self):
