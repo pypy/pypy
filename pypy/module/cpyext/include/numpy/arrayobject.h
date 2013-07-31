@@ -7,12 +7,17 @@
 extern "C" {
 #endif
 
+#include <string.h>   /* memset */
+
 #include "old_defines.h"
 
 #define NPY_INLINE
 
 /* fake PyArrayObject so that code that doesn't do direct field access works */
 #define PyArrayObject PyObject
+
+typedef unsigned char npy_bool;
+typedef unsigned char npy_uint8;
 
 #ifndef npy_intp
 #define npy_intp long
@@ -21,30 +26,8 @@ extern "C" {
 #define import_array()
 #endif
 
-#ifndef PyArray_NDIM
 
-#define PyArray_ISCONTIGUOUS(arr) (1)
-
-#define PyArray_NDIM     _PyArray_NDIM
-#define PyArray_DIM      _PyArray_DIM
-#define PyArray_STRIDE   _PyArray_STRIDE
-#define PyArray_SIZE     _PyArray_SIZE
-#define PyArray_ITEMSIZE _PyArray_ITEMSIZE
-#define PyArray_NBYTES   _PyArray_NBYTES
-#define PyArray_TYPE     _PyArray_TYPE
-#define PyArray_DATA     _PyArray_DATA
-
-#define PyArray_FromAny _PyArray_FromAny
-#define PyArray_FromObject _PyArray_FromObject
-#define PyArray_ContiguousFromObject PyArray_FromObject
-
-#define PyArray_SimpleNew _PyArray_SimpleNew
-#define PyArray_SimpleNewFromData _PyArray_SimpleNewFromData
-#define PyArray_SimpleNewFromDataOwning _PyArray_SimpleNewFromDataOwning
-
-#endif
-
-/* copied from numpy/ndarraytypes.h 
+/* data types copied from numpy/ndarraytypes.h 
  * keep numbers in sync with micronumpy.interp_dtype.DTypeCache
  */
 enum NPY_TYPES {    NPY_BOOL=0,
@@ -85,6 +68,67 @@ enum NPY_TYPES {    NPY_BOOL=0,
 #define NPY_FLOAT64   NPY_DOUBLE
 #define NPY_COMPLEX32 NPY_CFLOAT
 #define NPY_COMPLEX64 NPY_CDOUBLE
+
+
+/* functions */
+#ifndef PyArray_NDIM
+
+#define PyArray_ISCONTIGUOUS(arr) (1)
+
+#define PyArray_NDIM     _PyArray_NDIM
+#define PyArray_DIM      _PyArray_DIM
+#define PyArray_STRIDE   _PyArray_STRIDE
+#define PyArray_SIZE     _PyArray_SIZE
+#define PyArray_ITEMSIZE _PyArray_ITEMSIZE
+#define PyArray_NBYTES   _PyArray_NBYTES
+#define PyArray_TYPE     _PyArray_TYPE
+#define PyArray_DATA     _PyArray_DATA
+
+#define PyArray_BYTES(obj) ((char *)PyArray_DATA(obj))
+
+#define PyArray_FromAny _PyArray_FromAny
+#define PyArray_FromObject _PyArray_FromObject
+#define PyArray_ContiguousFromObject PyArray_FromObject
+
+#define PyArray_SimpleNew _PyArray_SimpleNew
+#define PyArray_SimpleNewFromData _PyArray_SimpleNewFromData
+#define PyArray_SimpleNewFromDataOwning _PyArray_SimpleNewFromDataOwning
+
+#define PyArray_EMPTY(nd, dims, type_num, fortran) \
+        PyArray_SimpleNew(nd, dims, type_num)
+
+#define PyArray_ZEROS PyArray_EMPTY
+
+/*
+PyObject* PyArray_ZEROS(int nd, npy_intp* dims, int type_num, int fortran) 
+{
+    PyObject *arr = PyArray_EMPTY(nd, dims, type_num, fortran);
+    memset(PyArray_DATA(arr), 0, PyArray_NBYTES(arr));
+    return arr;
+}
+*/
+
+/* Don't use these in loops! */
+
+#define PyArray_GETPTR1(obj, i) ((void *)(PyArray_BYTES(obj) + \
+                                         (i)*PyArray_STRIDE(obj,0)))
+
+#define PyArray_GETPTR2(obj, i, j) ((void *)(PyArray_BYTES(obj) + \
+                                            (i)*PyArray_STRIDE(obj,0) + \
+                                            (j)*PyArray_STRIDE(obj,1)))
+
+#define PyArray_GETPTR3(obj, i, j, k) ((void *)(PyArray_BYTES(obj) + \
+                                            (i)*PyArray_STRIDE(obj,0) + \
+                                            (j)*PyArray_STRIDE(obj,1) + \
+                                            (k)*PyArray_STRIDE(obj,2)))
+
+#define PyArray_GETPTR4(obj, i, j, k, l) ((void *)(PyArray_BYTES(obj) + \
+                                            (i)*PyArray_STRIDE(obj,0) + \
+                                            (j)*PyArray_STRIDE(obj,1) + \
+                                            (k)*PyArray_STRIDE(obj,2) + \
+                                            (l)*PyArray_STRIDE(obj,3)))
+
+#endif
 
 #ifdef __cplusplus
 }
