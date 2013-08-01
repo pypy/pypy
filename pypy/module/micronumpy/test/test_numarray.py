@@ -2755,6 +2755,15 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         assert a[2] == 'ab'
         raises(TypeError, a, 'sum')
         raises(TypeError, 'a+a')
+        b = array(['abcdefg', 'ab', 'cd'])
+        assert a[2] == b[1]
+        assert bool(a[1])
+
+    def test_to_str(self):
+        from numpypy import array
+        a = array(['abc', 'def', 'ab'], 'S3')
+        b = array(['abcdef', 'ab', 'cd'])
+        assert b[0] != a[0]
 
     def test_string_scalar(self):
         from numpypy import array

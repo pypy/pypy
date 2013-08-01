@@ -1758,11 +1758,11 @@ class StringType(BaseType, BaseStringType):
 
     @str_binary_op
     def eq(self, v1, v2):
-        print 'string eq',v1,v2
         return v1 == v2
 
     @str_binary_op
     def ne(self, v1, v2):
+        print 'string neq',v1,v2
         return v1 != v2
 
     @str_binary_op
@@ -1798,6 +1798,7 @@ class StringType(BaseType, BaseStringType):
         return bool(v1) ^ bool(v2)
 
     def bool(self, v):
+        print 'string bool',v
         return bool(self.to_str(v))
 
     def build_and_convert(self, space, mydtype, box):
