@@ -371,18 +371,18 @@ class __extend__(IntegerRepr):
         return ll_int2dec(i)
 
     def rtype_hex(self, hop):
+        from rpython.rtyper.lltypesystem.ll_str import ll_int2hex
         self = self.as_int
         varg = hop.inputarg(self, 0)
         true = inputconst(Bool, True)
-        fn = hop.rtyper.type_system.ll_str.ll_int2hex
-        return hop.gendirectcall(fn, varg, true)
+        return hop.gendirectcall(ll_int2hex, varg, true)
 
     def rtype_oct(self, hop):
+        from rpython.rtyper.lltypesystem.ll_str import ll_int2oct
         self = self.as_int
         varg = hop.inputarg(self, 0)
         true = inputconst(Bool, True)
-        fn = hop.rtyper.type_system.ll_str.ll_int2oct
-        return hop.gendirectcall(fn, varg, true)
+        return hop.gendirectcall(ll_int2oct, varg, true)
 
 def ll_hash_int(n):
     return intmask(n)

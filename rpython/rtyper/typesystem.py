@@ -9,24 +9,6 @@ from rpython.rtyper.error import TyperError
 class TypeSystem(object):
     __metaclass__ = extendabletype
 
-    def __getattr__(self, name):
-        """Lazy import to avoid circular dependencies."""
-        def load(modname):
-            try:
-                return __import__("rpython.rtyper.%s.%s" % (self.name, modname),
-                                  None, None, ['__doc__'])
-            except ImportError:
-                return None
-        if name in ('rclass', 'rpbc', 'rbuiltin', 'rtuple', 'rlist',
-                    'rslice', 'rdict', 'rrange', 'rstr',
-                    'll_str', 'rbuilder', 'rbytearray'):
-            mod = load(name)
-            if mod is not None:
-                setattr(self, name, mod)
-                return mod
-
-        raise AttributeError(name)
-
     def derefType(self, T):
         raise NotImplementedError()
 

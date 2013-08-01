@@ -13,8 +13,8 @@ from rpython.tool.pairtype import pairtype
 
 class __extend__(annmodel.SomeTuple):
     def rtyper_makerepr(self, rtyper):
-        repr_class = rtyper.type_system.rtuple.TupleRepr
-        return repr_class(rtyper, [rtyper.getrepr(s_item) for s_item in self.items])
+        from rpython.rtyper.lltypesystem.rtuple import TupleRepr
+        return TupleRepr(rtyper, [rtyper.getrepr(s_item) for s_item in self.items])
 
     def rtyper_makekey_ex(self, rtyper):
         keys = [rtyper.makekey(s_item) for s_item in self.items]

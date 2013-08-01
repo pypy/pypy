@@ -93,7 +93,8 @@ class BuiltinFunctionRepr(Repr):
         except (KeyError, TypeError):
             pass
         try:
-            return rtyper.type_system.rbuiltin.BUILTIN_TYPER[self.builtinfunc]
+            from rpython.rtyper.lltypesystem.rbuiltin import BUILTIN_TYPER as ll_BUILTIN_TYPER
+            return ll_BUILTIN_TYPER[self.builtinfunc]
         except (KeyError, TypeError):
             pass
         if extregistry.is_registered(self.builtinfunc):

@@ -77,8 +77,8 @@ class __extend__(pairtype(FloatRepr, FloatRepr)):
 
 class __extend__(pairtype(AbstractStringRepr, FloatRepr)):
     def rtype_mod(_, hop):
-        rstr = hop.rtyper.type_system.rstr
-        return rstr.do_stringformat(hop, [(hop.args_v[1], hop.args_r[1])])
+        from rpython.rtyper.lltypesystem.rstr import do_stringformat
+        return do_stringformat(hop, [(hop.args_v[1], hop.args_r[1])])
 
 #Helpers FloatRepr,FloatRepr
 
@@ -90,7 +90,6 @@ def _rtype_compare_template(hop, func):
     vlist = hop.inputargs(Float, Float)
     return hop.genop('float_'+func, vlist, resulttype=Bool)
 
-#
 
 class __extend__(FloatRepr):
 
