@@ -22,6 +22,18 @@ def _typecheck_list_of_vars(space, list_w, unroll):
                 for w_var in list_w]
 
 
+class ContinuationHolder(object):
+    def __init__(self):
+        # The state of the prolog interpreter continuation.
+        # Used for enumerating results.
+        self.fcont = None
+        self.heap = None
+
+    def _store_fcont_heap(self, fcont, heap):
+        self.fcont = fcont
+        self.heap = heap
+
+
 class W_CoreSolutionIterator(W_Root):
     """
     An interface that allows retrieval of multiple solutions
@@ -41,14 +53,7 @@ class W_CoreSolutionIterator(W_Root):
 
         self.space = space
 
-        # The state of the prolog interpreter continuation.
-        # Used for enumerating results.
-        self.fcont = None
-        self.heap = None
-
-    def _store_fcont_heap(self, fcont, heap):
-        self.fcont = fcont
-        self.heap = heap
+        self.continuation_holder = ContinuationHolder()
 
     @jit.look_inside_iff(lambda self: self.unroll_result_creation)
     def _create_result(self):
@@ -64,20 +69,22 @@ class W_CoreSolutionIterator(W_Root):
 
         p_goal_term = cur_mod = cont = None
 
-        first_iteration = self.fcont is None
+        first_iteration = self.continuation_holder.fcont is None
         if first_iteration:
             # The first iteration is special. Here we set up the continuation
             # for subsequent iterations.
             cur_mod = self.w_engine.engine.modulewrapper.current_module
             cont = UnipycationContinuation(
-                    self.w_engine, self)
+                    self.w_engine, self.continuation_holder)
             p_goal_term = self.w_goal_term.p_term
             self.w_goal_term = None # allow GC
         try:
             if first_iteration:
                 r = self.w_engine.engine.run(p_goal_term, cur_mod, cont)
             else:
-                continuation.driver(*self.fcont.fail(self.heap))
+                fcont = self.continuation_holder.fcont
+                heap = self.continuation_holder.heap
+                continuation.driver(*fcont.fail(heap))
         except error.UnificationFailed:
             # contradiction - no solutions
             raise OperationError(self.space.w_StopIteration, self.space.w_None)
@@ -98,7 +105,7 @@ W_CoreSolutionIterator.typedef.acceptable_as_base_class = False
 # ---
 
 class UnipycationContinuation(continuation.Continuation):
-    def __init__(self, w_engine, w_solution_iter):
+    def __init__(self, w_engine, continuation_holder):
         p_engine = w_engine.engine
 
         continuation.Continuation.__init__(self,
@@ -106,10 +113,10 @@ class UnipycationContinuation(continuation.Continuation):
 
         # stash
         self.w_engine = w_engine
-        self.w_solution_iter = w_solution_iter
+        self.continuation_holder = continuation_holder
 
     def activate(self, fcont, heap):
-        self.w_solution_iter._store_fcont_heap(fcont, heap)
+        self.continuation_holder._store_fcont_heap(fcont, heap)
         return continuation.DoneSuccessContinuation(self.engine), fcont, heap
 
 # ---
