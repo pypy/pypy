@@ -702,10 +702,12 @@ class W_ListObject(W_Root):
 find_jmp = jit.JitDriver(greens = [], reds = 'auto', name = 'list.find')
 
 class ListStrategy(object):
-    sizehint = -1
 
     def __init__(self, space):
         self.space = space
+
+    def get_sizehint(self):
+        return -1
 
     def init_from_list_w(self, w_list, list_w):
         raise NotImplementedError
@@ -894,7 +896,7 @@ class EmptyListStrategy(ListStrategy):
         else:
             strategy = self.space.fromcache(ObjectListStrategy)
 
-        storage = strategy.get_empty_storage(self.sizehint)
+        storage = strategy.get_empty_storage(self.get_sizehint())
         w_list.strategy = strategy
         w_list.lstorage = storage
 
@@ -973,6 +975,9 @@ class SizeListStrategy(EmptyListStrategy):
     def __init__(self, space, sizehint):
         self.sizehint = sizehint
         ListStrategy.__init__(self, space)
+
+    def get_sizehint(self):
+        return self.sizehint
 
     def _resize_hint(self, w_list, hint):
         assert hint >= 0

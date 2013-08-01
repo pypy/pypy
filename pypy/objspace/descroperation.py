@@ -472,6 +472,14 @@ class DescrOperation(object):
         return space.wrap(1)
 
     def coerce(space, w_obj1, w_obj2):
+        w_res = space.try_coerce(w_obj1, w_obj2)
+        if w_res is None:
+            raise OperationError(space.w_TypeError,
+                                 space.wrap("coercion failed"))
+        return w_res
+
+    def try_coerce(space, w_obj1, w_obj2):
+        """Returns a wrapped 2-tuple or a real None if it failed."""
         w_typ1 = space.type(w_obj1)
         w_typ2 = space.type(w_obj2)
         w_left_src, w_left_impl = space.lookup_in_type_where(w_typ1, '__coerce__')
@@ -488,8 +496,7 @@ class DescrOperation(object):
         if w_res is None or space.is_w(w_res, space.w_None):
             w_res = _invoke_binop(space, w_right_impl, w_obj2, w_obj1)
             if w_res is None  or space.is_w(w_res, space.w_None):
-                raise OperationError(space.w_TypeError,
-                                     space.wrap("coercion failed"))
+                return None
             if (not space.isinstance_w(w_res, space.w_tuple) or
                 space.len_w(w_res) != 2):
                 raise OperationError(space.w_TypeError,

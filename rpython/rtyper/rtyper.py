@@ -58,7 +58,6 @@ class RPythonTyper(object):
         self.classdef_to_pytypeobject = {}
         self.concrete_calltables = {}
         self.class_pbc_attributes = {}
-        self.oo_meth_impls = {}
         self.cache_dummy_values = {}
         self.lltype2vtable = {}
         self.typererrors = []
@@ -77,14 +76,6 @@ class RPythonTyper(object):
         except:
             self.seed = 0
         self.order = None
-        # the following code would invoke translator.goal.order, which is
-        # not up-to-date any more:
-##        RTYPERORDER = os.getenv('RTYPERORDER')
-##        if RTYPERORDER:
-##            order_module = RTYPERORDER.split(',')[0]
-##            self.order = __import__(order_module, {}, {},  ['*']).order
-##            s = 'Using %s.%s for order' % (self.order.__module__, self.order.__name__)
-##            self.log.info(s)
 
     def getconfig(self):
         return self.annotator.translator.config

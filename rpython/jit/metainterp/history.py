@@ -34,7 +34,6 @@ def getkind(TYPE, supports_floats=True,
             return 'int'     # singlefloats are stored in an int
         if TYPE in (lltype.Float, lltype.SingleFloat):
             raise NotImplementedError("type %s not supported" % TYPE)
-        # XXX fix this for oo...
         if (TYPE != llmemory.Address and
             rffi.sizeof(TYPE) > rffi.sizeof(lltype.Signed)):
             if supports_longlong and TYPE is not lltype.LongFloat:
@@ -170,18 +169,11 @@ class BasicFinalDescr(AbstractFailDescr):
     def __init__(self, identifier=None):
         self.identifier = identifier      # for testing
 
+
 class BasicFailDescr(AbstractFailDescr):
     def __init__(self, identifier=None):
         self.identifier = identifier      # for testing
 
-class AbstractMethDescr(AbstractDescr):
-    # the base class of the result of cpu.methdescrof()
-    jitcodes = None
-    def setup(self, jitcodes):
-        # jitcodes maps { runtimeClass -> jitcode for runtimeClass.methname }
-        self.jitcodes = jitcodes
-    def get_jitcode_for_class(self, oocls):
-        return self.jitcodes[oocls]
 
 class Const(AbstractValue):
     __slots__ = ()

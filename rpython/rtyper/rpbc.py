@@ -60,14 +60,6 @@ class __extend__(annmodel.SomePBC):
             t = ()
         return tuple([self.__class__, self.can_be_None]+lst)+t
 
-##builtin_descriptor_type = (
-##    type(len),                            # type 'builtin_function_or_method'
-##    type(list.append),                    # type 'method_descriptor'
-##    type(type(None).__repr__),            # type 'wrapper_descriptor'
-##    type(type.__dict__['__dict__']),      # type 'getset_descriptor'
-##    type(type.__dict__['__flags__']),     # type 'member_descriptor'
-##    )
-
 # ____________________________________________________________
 
 class ConcreteCallTableRow(dict):
@@ -195,16 +187,6 @@ class AbstractFunctionsPBCRepr(CanBeNull, Repr):
     def get_s_signatures(self, shape):
         funcdesc = self.s_pbc.any_description()
         return funcdesc.get_s_signatures(shape)
-
-##    def function_signatures(self):
-##        if self._function_signatures is None:
-##            self._function_signatures = {}
-##            for func in self.s_pbc.prebuiltinstances:
-##                if func is not None:
-##                    self._function_signatures[func] = getsignature(self.rtyper,
-##                                                                   func)
-##            assert self._function_signatures
-##        return self._function_signatures
 
     def convert_desc(self, funcdesc):
         # get the whole "column" of the call table corresponding to this desc
@@ -875,16 +857,6 @@ class AbstractMethodsPBCRepr(Repr):
             adjust_shape(hop2, s_shape)
         return hop2
 # ____________________________________________________________
-
-##def getsignature(rtyper, func):
-##    f = rtyper.getcallable(func)
-##    graph = rtyper.type_system_deref(f).graph
-##    rinputs = [rtyper.bindingrepr(v) for v in graph.getargs()]
-##    if graph.getreturnvar() in rtyper.annotator.bindings:
-##        rresult = rtyper.bindingrepr(graph.getreturnvar())
-##    else:
-##        rresult = Void
-##    return f, rinputs, rresult
 
 def samesig(funcs):
     import inspect

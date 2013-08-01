@@ -209,6 +209,22 @@ class TestDicts(BaseTestPyPyC):
         opnames = log.opnames(loop.allops())
         assert opnames.count('new_with_vtable') == 0
 
+    def test_constfold_tuple(self):
+        code = """if 1:
+        tup = tuple(range(10000))
+        l = [1, 2, 3, 4, 5, 6, "a"]
+        def main(n):
+            while n > 0:
+                sub = tup[1]  # ID: getitem
+                l[1] = n # kill cache of tup[1]
+                n -= sub
+        """
+        log = self.run(code, [1000])
+        loop, = log.loops_by_filename(self.filepath)
+        ops = loop.ops_by_id('getitem', include_guard_not_invalidated=False)
+        assert log.opnames(ops) == []
+
+
     def test_specialised_tuple(self):
         def main(n):
             import pypyjit

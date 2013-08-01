@@ -210,8 +210,6 @@ def builtin_hasattr(s_obj, s_attr):
             r.const, = answers
     return r
 
-##def builtin_callable(s_obj):
-##    return SomeBool()
 
 def builtin_tuple(s_iterable):
     if isinstance(s_iterable, SomeTuple):

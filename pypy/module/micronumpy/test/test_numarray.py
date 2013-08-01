@@ -264,6 +264,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a.dtype is dtype(int)
         a = ndarray([], dtype=float)
         assert a.shape == ()
+        # test uninitialized value crash?
+        assert len(str(a)) > 0
 
     def test_ndmin(self):
         from numpypy import array

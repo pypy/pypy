@@ -51,18 +51,6 @@ def test_division():
     res = fn(-5, 2)
     assert res == -3
 
-    # this becomes an int_floordiv_ovf_zer already?
-##     def g(x, y):
-##         try:
-##             return ovfcheck(x//y)
-##         except OverflowError:
-##             return 123
-##     gn = get_runner(g, 'int_floordiv_ovf', [int, int])
-##     res = gn(-sys.maxint-1, -1)
-##     assert res == 123
-##     res = gn(-5, 2)
-##     assert res == -3
-
     def h(x, y):
         try:
             return ovfcheck(x//y)

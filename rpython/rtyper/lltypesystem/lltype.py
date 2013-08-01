@@ -343,9 +343,6 @@ class Struct(ContainerType):
     def _short_name(self):
         return "%s %s" % (self.__class__.__name__, self._name)
 
-##     def _defl(self, parent=None, parentindex=None):
-##         return _struct(self, parent=parent, parentindex=parentindex)
-
     def _allocate(self, initialization, parent=None, parentindex=None):
         return _struct(self, initialization=initialization,
                        parent=parent, parentindex=parentindex)
@@ -1029,15 +1026,6 @@ def parentlink(container):
     parent = container._parentstructure()
     if parent is not None:
         return parent, container._parent_index
-##        if isinstance(parent, _struct):
-##            for name in parent._TYPE._names:
-##                if getattr(parent, name) is container:
-##                    return parent, name
-##            raise RuntimeError("lost ourselves")
-##        if isinstance(parent, _array):
-##            raise TypeError("cannot fish a pointer to an array item or an "
-##                            "inlined substructure of it")
-##        raise AssertionError("don't know about %r" % (parent,))
     else:
         return None, None
 

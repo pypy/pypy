@@ -3,7 +3,6 @@
 """
 
 from rpython.rlib import jit
-from rpython.jit.codewriter.policy import JitPolicy
 
 driver = jit.JitDriver(greens = [], reds = 'auto')
 driver2 = jit.JitDriver(greens = [], reds = 'auto')
@@ -28,7 +27,9 @@ def main2(l, count):
 
 def entry_point(argv):
     if len(argv) < 3:
-        print "Usage: jitstandalone <number> <another number>"
+        print "Usage: jitstandalone <count1> <count2>"
+        print "runs a total of '2 * count1 * count2' iterations"
+        return 0
     count1 = int(argv[1])
     count2 = int(argv[2])
     s = 0
@@ -38,7 +39,4 @@ def entry_point(argv):
     return 0
 
 def target(*args):
-    return entry_point, None
-
-def jitpolicy(driver):
-    return JitPolicy()
+    return entry_point

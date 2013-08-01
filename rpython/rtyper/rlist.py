@@ -247,27 +247,22 @@ class __extend__(pairtype(AbstractBaseListRepr, IntegerRepr)):
         v_lst, v_index = hop.inputargs(r_lst, Signed)
         if checkidx:
             hop.exception_is_here()
+            spec = dum_checkidx
         else:
+            spec = dum_nocheck
             hop.exception_cannot_occur()
-        if hop.args_s[0].listdef.listitem.mutated or checkidx:
-            if hop.args_s[1].nonneg:
-                llfn = ll_getitem_nonneg
-            else:
-                llfn = ll_getitem
-            if checkidx:
-                spec = dum_checkidx
-            else:
-                spec = dum_nocheck
-            c_func_marker = hop.inputconst(Void, spec)
-            v_res = hop.gendirectcall(llfn, c_func_marker, v_lst, v_index)
+        if hop.args_s[0].listdef.listitem.mutated:
+            basegetitem = ll_getitem_fast
         else:
-            # this is the 'foldable' version, which is not used when
-            # we check for IndexError
-            if hop.args_s[1].nonneg:
-                llfn = ll_getitem_foldable_nonneg
-            else:
-                llfn = ll_getitem_foldable
-            v_res = hop.gendirectcall(llfn, v_lst, v_index)
+            basegetitem = ll_getitem_foldable_nonneg
+
+        if hop.args_s[1].nonneg:
+            llfn = ll_getitem_nonneg
+        else:
+            llfn = ll_getitem
+        c_func_marker = hop.inputconst(Void, spec)
+        c_basegetitem = hop.inputconst(Void, basegetitem)
+        v_res = hop.gendirectcall(llfn, c_func_marker, c_basegetitem, v_lst, v_index)
         return r_lst.recast(hop.llops, v_res)
 
     rtype_getitem_key = rtype_getitem
@@ -325,15 +320,6 @@ class __extend__(pairtype(AbstractBaseListRepr, AbstractBaseListRepr)):
         if r_lst1.listitem is not r_lst2.listitem:
             return NotImplemented
         return v
-
-##    # TODO: move it to lltypesystem
-##    def rtype_is_((r_lst1, r_lst2), hop):
-##        if r_lst1.lowleveltype != r_lst2.lowleveltype:
-##            # obscure logic, the is can be true only if both are None
-##            v_lst1, v_lst2 = hop.inputargs(r_lst1, r_lst2)
-##            return hop.gendirectcall(ll_both_none, v_lst1, v_lst2)
-
-##        return pairtype(Repr, Repr).rtype_is_(pair(r_lst1, r_lst2), hop)
 
     def rtype_eq((r_lst1, r_lst2), hop):
         assert r_lst1.item_repr == r_lst2.item_repr
@@ -663,16 +649,16 @@ def ll_reverse(l):
         i += 1
         length_1_i -= 1
 
-def ll_getitem_nonneg(func, l, index):
+def ll_getitem_nonneg(func, basegetitem, l, index):
     ll_assert(index >= 0, "unexpectedly negative list getitem index")
     if func is dum_checkidx:
         if index >= l.ll_length():
             raise IndexError
-    return l.ll_getitem_fast(index)
+    return basegetitem(l, index)
 ll_getitem_nonneg._always_inline_ = True
 # no oopspec -- the function is inlined by the JIT
 
-def ll_getitem(func, l, index):
+def ll_getitem(func, basegetitem, l, index):
     if func is dum_checkidx:
         length = l.ll_length()    # common case: 0 <= index < length
         if r_uint(index) >= r_uint(length):
@@ -689,20 +675,17 @@ def ll_getitem(func, l, index):
         if index < 0:
             index += l.ll_length()
             ll_assert(index >= 0, "negative list getitem index out of bound")
-    return l.ll_getitem_fast(index)
+    return basegetitem(l, index)
 # no oopspec -- the function is inlined by the JIT
+
+def ll_getitem_fast(l, index):
+    return l.ll_getitem_fast(index)
+ll_getitem_fast._always_inline_ = True
 
 def ll_getitem_foldable_nonneg(l, index):
     ll_assert(index >= 0, "unexpectedly negative list getitem index")
     return l.ll_getitem_fast(index)
 ll_getitem_foldable_nonneg.oopspec = 'list.getitem_foldable(l, index)'
-
-def ll_getitem_foldable(l, index):
-    if index < 0:
-        index += l.ll_length()
-    return ll_getitem_foldable_nonneg(l, index)
-ll_getitem_foldable._always_inline_ = True
-# no oopspec -- the function is inlined by the JIT
 
 def ll_setitem_nonneg(func, l, index, newitem):
     ll_assert(index >= 0, "unexpectedly negative list setitem index")

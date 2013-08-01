@@ -14,7 +14,7 @@ from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_gcref
 from rpython.rlib.jit import AsmInfo
 from rpython.jit.backend.model import CompiledLoopToken
 from rpython.jit.backend.x86.regalloc import (RegAlloc, get_ebp_ofs,
-    gpr_reg_mgr_cls, xmm_reg_mgr_cls, _register_arguments)
+    gpr_reg_mgr_cls, xmm_reg_mgr_cls)
 from rpython.jit.backend.llsupport.regalloc import (get_scale, valid_addressing_size)
 from rpython.jit.backend.x86.arch import (FRAME_FIXED_SIZE, WORD, IS_X86_64,
                                        JITFRAME_FIXED_SIZE, IS_X86_32,
@@ -155,17 +155,24 @@ class Assembler386(BaseAssembler):
         come.
         """
         mc = codebuf.MachineCodeBlockWrapper()
-        self._push_all_regs_to_frame(mc, [], supports_floats, callee_only)
+        # copy registers to the frame, with the exception of the
+        # 'cond_call_register_arguments' and eax, because these have already
+        # been saved by the caller.  Note that this is not symmetrical:
+        # these 5 registers are saved by the caller but restored here at
+        # the end of this function.
+        self._push_all_regs_to_frame(mc, cond_call_register_arguments + [eax],
+                                     supports_floats, callee_only)
         if IS_X86_64:
-            mc.SUB(esp, imm(WORD))
+            mc.SUB(esp, imm(WORD))     # alignment
             self.set_extra_stack_depth(mc, 2 * WORD)
+            # the arguments are already in the correct registers
         else:
-            # we want space for 3 arguments + call + alignment
-            # the caller is responsible for putting arguments in the right spot
+            # we want space for 4 arguments + call + alignment
             mc.SUB(esp, imm(WORD * 7))
             self.set_extra_stack_depth(mc, 8 * WORD)
+            # store the arguments at the correct place in the stack
             for i in range(4):
-                mc.MOV_sr(i * WORD, _register_arguments[i].value)
+                mc.MOV_sr(i * WORD, cond_call_register_arguments[i].value)
         mc.CALL(eax)
         if IS_X86_64:
             mc.ADD(esp, imm(WORD))
@@ -173,8 +180,8 @@ class Assembler386(BaseAssembler):
             mc.ADD(esp, imm(WORD * 7))
         self.set_extra_stack_depth(mc, 0)
         self._reload_frame_if_necessary(mc, align_stack=True)
-        self._pop_all_regs_from_frame(mc, [], supports_floats,
-                                      callee_only)
+        self._pop_all_regs_from_frame(mc, [], supports_floats, callee_only)
+        self.pop_gcmap(mc)   # push_gcmap(store=True) done by the caller
         mc.RET()
         return mc.materialize(self.cpu.asmmemmgr, [])
 
@@ -1756,7 +1763,7 @@ class Assembler386(BaseAssembler):
             regs = gpr_reg_mgr_cls.save_around_call_regs
         else:
             regs = gpr_reg_mgr_cls.all_regs
-        for i, gpr in enumerate(regs):
+        for gpr in regs:
             if gpr not in ignored_regs:
                 v = gpr_reg_mgr_cls.all_reg_indexes[gpr.value]
                 mc.MOV_br(v * WORD + base_ofs, gpr.value)
@@ -1778,7 +1785,7 @@ class Assembler386(BaseAssembler):
             regs = gpr_reg_mgr_cls.save_around_call_regs
         else:
             regs = gpr_reg_mgr_cls.all_regs
-        for i, gpr in enumerate(regs):
+        for gpr in regs:
             if gpr not in ignored_regs:
                 v = gpr_reg_mgr_cls.all_reg_indexes[gpr.value]
                 mc.MOV_rb(gpr.value, v * WORD + base_ofs)
@@ -2157,11 +2164,33 @@ class Assembler386(BaseAssembler):
     def label(self):
         self._check_frame_depth_debug(self.mc)
 
-    def cond_call(self, op, gcmap, cond_loc, call_loc):
-        self.mc.TEST(cond_loc, cond_loc)
+    def cond_call(self, op, gcmap, loc_cond, imm_func, arglocs):
+        self.mc.TEST(loc_cond, loc_cond)
         self.mc.J_il8(rx86.Conditions['Z'], 0) # patched later
         jmp_adr = self.mc.get_relative_pos()
+        #
         self.push_gcmap(self.mc, gcmap, store=True)
+        #
+        # first save away the 4 registers from 'cond_call_register_arguments'
+        # plus the register 'eax'
+        base_ofs = self.cpu.get_baseofs_of_frame_field()
+        should_be_saved = self._regalloc.rm.reg_bindings.values()
+        for gpr in cond_call_register_arguments + [eax]:
+            if gpr not in should_be_saved:
+                continue
+            v = gpr_reg_mgr_cls.all_reg_indexes[gpr.value]
+            self.mc.MOV_br(v * WORD + base_ofs, gpr.value)
+        #
+        # load the 0-to-4 arguments into these registers
+        from rpython.jit.backend.x86.jump import remap_frame_layout
+        remap_frame_layout(self, arglocs,
+                           cond_call_register_arguments[:len(arglocs)],
+                           X86_64_SCRATCH_REG if IS_X86_64 else None)
+        #
+        # load the constant address of the function to call into eax
+        self.mc.MOV(eax, imm_func)
+        #
+        # figure out which variant of cond_call_slowpath to call, and call it
         callee_only = False
         floats = False
         if self._regalloc is not None:
@@ -2174,11 +2203,13 @@ class Assembler386(BaseAssembler):
                 floats = True
         cond_call_adr = self.cond_call_slowpath[floats * 2 + callee_only]
         self.mc.CALL(imm(cond_call_adr))
-        self.pop_gcmap(self.mc)
-        # never any result value
+        # restoring the registers saved above, and doing pop_gcmap(), is left
+        # to the cond_call_slowpath helper.  We never have any result value.
         offset = self.mc.get_relative_pos() - jmp_adr
         assert 0 < offset <= 127
         self.mc.overwrite(jmp_adr-1, chr(offset))
+        # XXX if the next operation is a GUARD_NO_EXCEPTION, we should
+        # somehow jump over it too in the fast path
 
     def malloc_cond(self, nursery_free_adr, nursery_top_adr, size, gcmap):
         assert size & (WORD-1) == 0     # must be correctly aligned
@@ -2352,6 +2383,8 @@ def heap(addr):
 def not_implemented(msg):
     os.write(2, '[x86/asm] %s\n' % msg)
     raise NotImplementedError(msg)
+
+cond_call_register_arguments = [edi, esi, edx, ecx]
 
 class BridgeAlreadyCompiled(Exception):
     pass
