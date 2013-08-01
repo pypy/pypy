@@ -328,7 +328,11 @@ class W_Ufunc2(W_Ufunc):
             w_out = None
         w_lhs = convert_to_array(space, w_lhs)
         w_rhs = convert_to_array(space, w_rhs)
-        if (w_lhs.get_dtype().is_flexible_type() or \
+        if w_lhs.get_dtype().is_str_type() and \
+           w_rhs.get_dtype().is_str_type() and \
+           self.comparison_func:
+            pass
+        elif (w_lhs.get_dtype().is_flexible_type() or \
                 w_rhs.get_dtype().is_flexible_type()):
             raise OperationError(space.w_TypeError, space.wrap(
                  'unsupported operand dtypes %s and %s for "%s"' % \
