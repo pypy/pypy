@@ -7,8 +7,6 @@
 extern "C" {
 #endif
 
-#include <string.h>   /* memset */
-
 #include "old_defines.h"
 
 #define NPY_INLINE
@@ -116,16 +114,7 @@ enum NPY_TYPES {    NPY_BOOL=0,
 #define PyArray_EMPTY(nd, dims, type_num, fortran) \
         PyArray_SimpleNew(nd, dims, type_num)
 
-#define PyArray_ZEROS PyArray_EMPTY
-
-/*
-PyObject* PyArray_ZEROS(int nd, npy_intp* dims, int type_num, int fortran) 
-{
-    PyObject *arr = PyArray_EMPTY(nd, dims, type_num, fortran);
-    memset(PyArray_DATA(arr), 0, PyArray_NBYTES(arr));
-    return arr;
-};
-*/
+PyObject* PyArray_ZEROS(int nd, npy_intp* dims, int type_num, int fortran);
 
 #define PyArray_Resize(self, newshape, refcheck, fortran) (NULL)
 

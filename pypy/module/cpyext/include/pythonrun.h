@@ -8,15 +8,6 @@ extern "C" {
 
 void Py_FatalError(const char *msg);
 
-/* the -3 option will probably not be implemented */
-/*
-#define Py_Py3kWarningFlag 0
-
-#define Py_FrozenFlag 0
-#define Py_VerboseFlag 0
-#define Py_DebugFlag 1
-*/
-
 /* taken from Python-2.7.3/Include/pydebug.h */
 PyAPI_DATA(int) Py_DebugFlag;
 PyAPI_DATA(int) Py_VerboseFlag;
