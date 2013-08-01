@@ -42,7 +42,7 @@ Using Unipycation
 
 For the moment, the languages are composed without any adjustments to
 syntax. In other words, communication between Python and Prolog is in
-the form of an API. Better syntactical composition will come later.
+the form of an API. Better syntactic composition will come later.
 
 Currently all programs begin in Python.
 
@@ -74,7 +74,7 @@ most common Prolog usage patterns from Python. For example::
 Limitations of the High-Level Interface
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
- * Lists (which are automagically converted) must not end with an unbound variable.
+ * Lists (which are automagically converted) must not have an undefined tail.
  * It is not possible to place variables inside terms/lists in a query.
 
 If you need to do either of the above, then you must use the low-level
