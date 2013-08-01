@@ -387,7 +387,6 @@ class W_CharacterBox(W_FlexibleBox):
 class W_StringBox(W_CharacterBox):
     def descr__new__string_box(space, w_subtype, w_arg):
         from pypy.module.micronumpy.interp_dtype import new_string_dtype
-
         arg = space.str_w(space.str(w_arg))
         arr = VoidBoxStorage(len(arg), new_string_dtype(space, len(arg)))
         for i in range(len(arg)):

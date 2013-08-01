@@ -328,18 +328,19 @@ class W_Ufunc2(W_Ufunc):
             w_out = None
         w_lhs = convert_to_array(space, w_lhs)
         w_rhs = convert_to_array(space, w_rhs)
-        if w_lhs.get_dtype().is_str_type() and \
-           w_rhs.get_dtype().is_str_type() and \
+        w_ldtype = w_lhs.get_dtype()
+        w_rdtype = w_rhs.get_dtype()
+        if w_ldtype.is_str_type() and w_rdtype.is_str_type() and \
            self.comparison_func:
             pass
-        elif (w_lhs.get_dtype().is_flexible_type() or \
-                w_rhs.get_dtype().is_flexible_type()):
+        elif (w_ldtype.is_flexible_type() or \
+                w_rdtype.is_flexible_type()):
             raise OperationError(space.w_TypeError, space.wrap(
                  'unsupported operand dtypes %s and %s for "%s"' % \
-                 (w_rhs.get_dtype().get_name(), w_lhs.get_dtype().get_name(),
+                 (w_rdtype.get_name(), w_ldtype.get_name(),
                   self.name)))
         calc_dtype = find_binop_result_dtype(space,
-            w_lhs.get_dtype(), w_rhs.get_dtype(),
+            w_ldtype, w_rdtype,
             int_only=self.int_only,
             promote_to_float=self.promote_to_float,
             promote_bools=self.promote_bools,

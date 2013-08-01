@@ -1712,8 +1712,9 @@ class StringType(BaseType, BaseStringType):
     @jit.unroll_safe
     def coerce(self, space, dtype, w_item):
         from pypy.module.micronumpy.interp_dtype import new_string_dtype
+        if isinstance(w_item, interp_boxes.W_StringBox):
+            return w_item
         arg = space.str_w(space.str(w_item))
-        print 'coerce "%s"' %arg
         arr = VoidBoxStorage(len(arg), new_string_dtype(space, len(arg)))
         for i in range(len(arg)):
             arr.storage[i] = arg[i]
@@ -1735,7 +1736,7 @@ class StringType(BaseType, BaseStringType):
         builder = StringBuilder()
         assert isinstance(item, interp_boxes.W_StringBox)
         i = item.ofs
-        end = i+self.size
+        end = i + min(self.size, item.arr.size)
         while i < end:
             assert isinstance(item.arr.storage[i], str)
             if item.arr.storage[i] == '\x00':
@@ -1757,6 +1758,7 @@ class StringType(BaseType, BaseStringType):
 
     @str_binary_op
     def eq(self, v1, v2):
+        print 'string eq',v1,v2
         return v1 == v2
 
     @str_binary_op
