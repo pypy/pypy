@@ -164,3 +164,14 @@ class AppTestHighLevelInterface(object):
         e = uni.Engine("f(X) :- willsmith(1, [1,2,3], X).")
         info = raises(uni.PrologError, e.db.f, None)
         assert str(info.value) == "Undefined procedure: willsmith/3"
+
+    # XXX Lists inside terms need to be converted.
+    def test_list_in_term(self):
+        import uni
+
+        e = uni.Engine("f(g([c(0, 0)])).")
+        (g, ) = e.db.f(None)
+        assert isinstance(g, uni.Term)
+        assert g.name == "g"
+        assert len(g) == 1
+        assert isinstance(g.args[0], list) # BELCH! XXX
