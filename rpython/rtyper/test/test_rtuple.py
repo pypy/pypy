@@ -1,4 +1,4 @@
-from rpython.rtyper.lltypesystem.rtuple import TUPLE_TYPE, TupleRepr
+from rpython.rtyper.rtuple import TUPLE_TYPE, TupleRepr
 from rpython.rtyper.lltypesystem.lltype import Signed, Bool
 from rpython.rtyper.rbool import bool_repr
 from rpython.rtyper.rint import signed_repr

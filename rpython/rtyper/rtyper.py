@@ -578,7 +578,7 @@ class RPythonTyper(object):
         return pair(r_arg1, r_arg2).rtype_extend_with_char_count(hop)
 
     def translate_op_newtuple(self, hop):
-        from rpython.rtyper.lltypesystem.rtuple import rtype_newtuple
+        from rpython.rtyper.rtuple import rtype_newtuple
         return rtype_newtuple(hop)
 
     def translate_op_instantiate1(self, hop):

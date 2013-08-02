@@ -4,7 +4,6 @@ from rpython.rtyper import rint
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.lltypesystem.lltype import Signed, Bool, Void, UniChar
 from rpython.rtyper.rmodel import IntegerRepr, IteratorRepr, inputconst, Repr
-from rpython.rtyper.rtuple import AbstractTupleRepr
 from rpython.tool.pairtype import pairtype, pair
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.tool.staticmethods import StaticMethods
@@ -563,18 +562,6 @@ class __extend__(pairtype(AbstractStringRepr, AbstractCharRepr),
         v_str, v_chr = hop.inputargs(string_repr, char_repr)
         hop.exception_cannot_occur()
         return hop.gendirectcall(r_str.ll.ll_contains, v_str, v_chr)
-
-class __extend__(pairtype(AbstractStringRepr, AbstractTupleRepr)):
-    def rtype_mod((r_str, r_tuple), hop):
-        r_tuple = hop.args_r[1]
-        v_tuple = hop.args_v[1]
-
-        sourcevars = []
-        for i, r_arg in enumerate(r_tuple.external_items_r):
-            v_item = r_tuple.getitem(hop.llops, v_tuple, i)
-            sourcevars.append((v_item, r_arg))
-
-        return r_str.ll.do_stringformat(hop, sourcevars)
 
 
 class __extend__(AbstractCharRepr):

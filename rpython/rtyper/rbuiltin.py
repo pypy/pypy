@@ -53,14 +53,14 @@ def call_args_expand(hop, takes_kwds = True):
         raise TyperError("**kwds call not implemented")
     if arguments.w_stararg is not None:
         # expand the *arg in-place -- it must be a tuple
-        from rpython.rtyper.rtuple import AbstractTupleRepr
+        from rpython.rtyper.rtuple import TupleRepr
         if arguments.w_stararg != hop.nb_args - 3:
             raise TyperError("call pattern too complex")
         hop.nb_args -= 1
         v_tuple = hop.args_v.pop()
         s_tuple = hop.args_s.pop()
         r_tuple = hop.args_r.pop()
-        if not isinstance(r_tuple, AbstractTupleRepr):
+        if not isinstance(r_tuple, TupleRepr):
             raise TyperError("*arg must be a tuple")
         for i in range(len(r_tuple.items_r)):
             v_item = r_tuple.getitem_internal(hop.llops, v_tuple, i)
