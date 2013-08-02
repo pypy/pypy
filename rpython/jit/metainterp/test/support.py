@@ -12,7 +12,7 @@ from rpython.rlib.rfloat import isnan
 from rpython.translator.backendopt.all import backend_optimizations
 
 
-def _get_jitcodes(testself, CPUClass, func, values, type_system,
+def _get_jitcodes(testself, CPUClass, func, values,
                   supports_floats=True,
                   supports_longlong=False,
                   supports_singlefloats=False,
