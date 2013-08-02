@@ -3,7 +3,6 @@ from rpython.rtyper.rmodel import inputconst
 from rpython.rtyper.rtuple import AbstractTupleRepr, AbstractTupleIteratorRepr
 from rpython.rtyper.lltypesystem.lltype import \
      Ptr, GcStruct, Void, Signed, malloc, typeOf, nullptr
-from rpython.rtyper.lltypesystem.rtupletype import TUPLE_TYPE
 from rpython.rtyper.lltypesystem import rstr
 
 # ____________________________________________________________
@@ -16,6 +15,16 @@ from rpython.rtyper.lltypesystem import rstr
 #        type2 item2;
 #        ...
 #    }
+
+def TUPLE_TYPE(field_lltypes):
+    if len(field_lltypes) == 0:
+        return Void      # empty tuple
+    else:
+        fields = [('item%d' % i, TYPE) for i, TYPE in enumerate(field_lltypes)]
+        kwds = {'hints': {'immutable': True,
+                          'noidentity': True}}
+        return Ptr(GcStruct('tuple%d' % len(field_lltypes), *fields, **kwds))
+
 
 class TupleRepr(AbstractTupleRepr):
     rstr_ll = rstr.LLHelpers
