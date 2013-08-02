@@ -2758,6 +2758,10 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         b = array(['abcdefg', 'ab', 'cd'])
         assert a[2] == b[1]
         assert bool(a[1])
+        c = array(['ab','cdefg','hi','jk'])
+        # not implemented yet
+        #c[0] += c[3]
+        #assert c[0] == 'abjk'
 
     def test_to_str(self):
         from numpypy import array
@@ -2775,8 +2779,7 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         assert str(a.dtype) == '|S1'
         a = array('x', dtype='c')
         assert str(a.dtype) == '|S1'
-        # XXX can sort flexible types, why not comparison?
-        #assert a == 'x'
+        assert a == 'x'
 
     def test_flexible_repr(self):
         from numpypy import array
