@@ -586,6 +586,10 @@ class StdObjSpace(ObjSpace, DescrOperation):
             return w_obj.intval
         return ObjSpace.getindex_w(self, w_obj, w_exception, objdescr)
 
+    def unicode_from_object(self, w_obj):
+        from pypy.objspace.std.unicodeobject import unicode_from_object
+        return unicode_from_object(self, w_obj)
+
     def call_method(self, w_obj, methname, *arg_w):
         if self.config.objspace.opcodes.CALL_METHOD:
             return callmethod.call_method_opt(self, w_obj, methname, *arg_w)

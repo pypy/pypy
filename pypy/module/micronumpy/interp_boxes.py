@@ -4,7 +4,7 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.objspace.std.bytesobject import W_BytesObject
 from pypy.objspace.std.floattype import float_typedef
-from pypy.objspace.std.unicodeobject import W_UnicodeObject, unicode_from_object
+from pypy.objspace.std.unicodeobject import W_UnicodeObject
 from pypy.objspace.std.inttype import int_typedef
 from pypy.objspace.std.complextype import complex_typedef
 from rpython.rlib.rarithmetic import LONG_BIT
@@ -398,7 +398,7 @@ class W_UnicodeBox(W_CharacterBox):
     def descr__new__unicode_box(space, w_subtype, w_arg):
         from pypy.module.micronumpy.interp_dtype import new_unicode_dtype
 
-        arg = space.unicode_w(unicode_from_object(space, w_arg))
+        arg = space.unicode_w(space.unicode_from_object(w_arg))
         # XXX size computations, we need tests anyway
         arr = VoidBoxStorage(len(arg), new_unicode_dtype(space, len(arg)))
         # XXX not this way, we need store
