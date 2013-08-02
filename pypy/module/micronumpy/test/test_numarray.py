@@ -2761,9 +2761,9 @@ class AppTestRecordDtype(BaseNumpyAppTest):
 
     def test_to_str(self):
         from numpypy import array
-        a = array(['abc', 'def', 'ab'], 'S3')
-        b = array(['abcdef', 'ab', 'cd'])
-        assert b[0] != a[0]
+        a = array(['abc','abc', 'def', 'ab'], 'S3')
+        b = array(['mnopqr','abcdef', 'ab', 'cd'])
+        assert b[1] != a[1]
 
     def test_string_scalar(self):
         from numpypy import array

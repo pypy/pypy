@@ -1723,6 +1723,7 @@ class StringType(BaseType, BaseStringType):
     @jit.unroll_safe
     def store(self, arr, i, offset, box):
         assert isinstance(box, interp_boxes.W_StringBox)
+        # XXX simplify to range(box.dtype.get_size()) ?
         for k in range(min(self.size, box.arr.size-offset)):
             arr.storage[k + i] = box.arr.storage[k + offset]
 
@@ -1736,7 +1737,7 @@ class StringType(BaseType, BaseStringType):
         builder = StringBuilder()
         assert isinstance(item, interp_boxes.W_StringBox)
         i = item.ofs
-        end = i + min(self.size, item.arr.size)
+        end = i + item.dtype.get_size()
         while i < end:
             assert isinstance(item.arr.storage[i], str)
             if item.arr.storage[i] == '\x00':
@@ -1762,7 +1763,6 @@ class StringType(BaseType, BaseStringType):
 
     @str_binary_op
     def ne(self, v1, v2):
-        print 'string neq',v1,v2
         return v1 != v2
 
     @str_binary_op
@@ -1798,7 +1798,6 @@ class StringType(BaseType, BaseStringType):
         return bool(v1) ^ bool(v2)
 
     def bool(self, v):
-        print 'string bool',v
         return bool(self.to_str(v))
 
     def build_and_convert(self, space, mydtype, box):
