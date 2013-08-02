@@ -26,3 +26,36 @@ implement thread-locals in RPython (for the executioncontext)
 ------------------------------------------------------------
 
 optimize the static placement of the STM_XxxBARRIERs
+
+------------------------------------------------------------
+
+
+
+Current optimization opportunities (outside the JIT)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+tweak translator/stm/ to improve placement of barriers, at least at
+whole-function level, but maybe cross-function; and reintroduce tweaks
+to the PyFrame object (make sure it's always written and don't put more
+barriers)
+
+in parallel, tweak the API of stmgc: think about adding
+stm_repeat_read_barrier, and support "tentative" write_barrier calls
+that are not actually followed by a write (checked by comparing the
+object contents)
+
+in the interpreter, e.g. BINARY_ADD calls space.add() which possibly
+(but rarely) can cause a transaction break, thus requiring that the
+frame be write-barrier()-ed again.  I'm thinking about alternatives for
+this case: e.g. have a separate stack of objects, and the top-most
+object on this stack is always in write mode.  so just after a
+transaction break, we force a write barrier on the top object of the
+stack.  this would be needed to avoid the usually-pointless write
+barriers on the PyFrame everywhere in the interpreter
+
+running valgrind we can see X% of the time in the read or write
+barriers, but it would be interesting to know also the time spent in the
+fast-path, as well as splitting it based e.g. on the RPython type of
+object.  See also vtune.
+
+reimplement the fast-path of the nursery allocations in the GC
