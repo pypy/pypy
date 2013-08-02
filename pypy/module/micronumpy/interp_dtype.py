@@ -234,6 +234,9 @@ class W_Dtype(W_Root):
     def is_record_type(self):
         return self.fields is not None
 
+    def is_str_type(self):
+        return self.num == 18
+
     def is_str_or_unicode(self):
         return (self.num == 18 or self.num == 19)
 

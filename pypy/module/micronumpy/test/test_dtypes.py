@@ -739,6 +739,7 @@ class AppTestTypes(BaseAppTestDtypes):
 
 class AppTestStrUnicodeDtypes(BaseNumpyAppTest):
     def test_str_unicode(self):
+        skip('numpypy differs from numpy')
         from numpypy import str_, unicode_, character, flexible, generic
 
         assert str_.mro() == [str_, str, character, flexible, generic, object]

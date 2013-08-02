@@ -2,7 +2,6 @@ import time
 import py
 py.path.local(__file__)
 from rpython.jit.tl.tlc import interp, interp_nonjit, ConstantPool
-from rpython.jit.codewriter.policy import JitPolicy
 from rpython.jit.backend.hlinfo import highleveljitinfo
 
 
@@ -54,13 +53,9 @@ def load_bytecode(filename):
     return decode_program(f.readall())
 
 def target(driver, args):
-    return entry_point, None
+    return entry_point
 
 # ____________________________________________________________
-
-def jitpolicy(driver):
-    """Returns the JIT policy to use when translating."""
-    return JitPolicy()
 
 if __name__ == '__main__':
     import sys

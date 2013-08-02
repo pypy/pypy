@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Tests for _sqlite3.py"""
 
 import pytest, sys
@@ -222,3 +223,8 @@ def test_executemany_lastrowid(con):
     cur.execute("create table test(a)")
     cur.executemany("insert into test values (?)", [[1], [2], [3]])
     assert cur.lastrowid is None
+
+def test_issue1573(con):
+    cur = con.cursor()
+    cur.execute(u'SELECT 1 as méil')
+    assert cur.description[0][0] == u"méil".encode('utf-8')

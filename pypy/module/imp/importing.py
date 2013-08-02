@@ -852,15 +852,10 @@ def getimportlock(space):
 # Depending on which opcodes are enabled, eg. CALL_METHOD we bump the version
 # number by some constant
 #
-#  * CALL_METHOD            +2
-#
-# In other words:
-#
-#     default_magic        -- used by CPython without the -U option
-#     default_magic + 1    -- used by CPython with the -U option
-#     default_magic + 2    -- used by PyPy without any extra opcode
-#     ...
-#     default_magic + 5    -- used by PyPy with both extra opcodes
+#     default_magic - 6    -- used by CPython without the -U option
+#     default_magic - 5    -- used by CPython with the -U option
+#     default_magic        -- used by PyPy without the CALL_METHOD opcode
+#     default_magic + 2    -- used by PyPy with the CALL_METHOD opcode
 #
 from pypy.interpreter.pycode import default_magic
 MARSHAL_VERSION_FOR_PYC = 2

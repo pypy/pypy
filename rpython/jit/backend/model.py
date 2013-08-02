@@ -187,10 +187,6 @@ class AbstractCPU(object):
         # with Voids removed
         raise NotImplementedError
 
-    def methdescrof(self, SELFTYPE, methname):
-        # must return a subclass of history.AbstractMethDescr
-        raise NotImplementedError
-
     def typedescrof(self, TYPE):
         raise NotImplementedError
 

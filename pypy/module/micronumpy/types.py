@@ -1689,6 +1689,22 @@ class BaseStringType(object):
     def get_size(self):
         return self.size
 
+def str_unary_op(func):
+    specialize.argtype(1)(func)
+    @functools.wraps(func)
+    def dispatcher(self, v1):
+        return func(self, self.to_str(v1))
+    return dispatcher
+
+def str_binary_op(func):
+    specialize.argtype(1, 2)(func)
+    @functools.wraps(func)
+    def dispatcher(self, v1, v2):
+        return func(self,
+            self.to_str(v1),
+            self.to_str(v2)
+        )
+    return dispatcher
 
 class StringType(BaseType, BaseStringType):
     T = lltype.Char
@@ -1696,6 +1712,8 @@ class StringType(BaseType, BaseStringType):
     @jit.unroll_safe
     def coerce(self, space, dtype, w_item):
         from pypy.module.micronumpy.interp_dtype import new_string_dtype
+        if isinstance(w_item, interp_boxes.W_StringBox):
+            return w_item
         arg = space.str_w(space.str(w_item))
         arr = VoidBoxStorage(len(arg), new_string_dtype(space, len(arg)))
         for i in range(len(arg)):
@@ -1705,6 +1723,7 @@ class StringType(BaseType, BaseStringType):
     @jit.unroll_safe
     def store(self, arr, i, offset, box):
         assert isinstance(box, interp_boxes.W_StringBox)
+        # XXX simplify to range(box.dtype.get_size()) ?
         for k in range(min(self.size, box.arr.size-offset)):
             arr.storage[k + i] = box.arr.storage[k + offset]
 
@@ -1718,7 +1737,7 @@ class StringType(BaseType, BaseStringType):
         builder = StringBuilder()
         assert isinstance(item, interp_boxes.W_StringBox)
         i = item.ofs
-        end = i+self.size
+        end = i + item.dtype.get_size()
         while i < end:
             assert isinstance(item.arr.storage[i], str)
             if item.arr.storage[i] == '\x00':
@@ -1734,9 +1753,52 @@ class StringType(BaseType, BaseStringType):
         builder.append("'")
         return builder.build()
 
-    # XXX move to base class when UnicodeType is supported
+    # XXX move the rest of this to base class when UnicodeType is supported
     def to_builtin_type(self, space, box):
         return space.wrap(self.to_str(box))
+
+    @str_binary_op
+    def eq(self, v1, v2):
+        return v1 == v2
+
+    @str_binary_op
+    def ne(self, v1, v2):
+        return v1 != v2
+
+    @str_binary_op
+    def lt(self, v1, v2):
+        return v1 < v2
+
+    @str_binary_op
+    def le(self, v1, v2):
+        return v1 <= v2
+
+    @str_binary_op
+    def gt(self, v1, v2):
+        return v1 > v2
+
+    @str_binary_op
+    def ge(self, v1, v2):
+        return v1 >= v2
+
+    @str_binary_op
+    def logical_and(self, v1, v2):
+        return bool(v1) and bool(v2)
+
+    @str_binary_op
+    def logical_or(self, v1, v2):
+        return bool(v1) or bool(v2)
+
+    @str_unary_op
+    def logical_not(self, v):
+        return not bool(v)
+
+    @str_binary_op
+    def logical_xor(self, v1, v2):
+        return bool(v1) ^ bool(v2)
+
+    def bool(self, v):
+        return bool(self.to_str(v))
 
     def build_and_convert(self, space, mydtype, box):
         assert isinstance(box, interp_boxes.W_GenericBox)
@@ -1752,6 +1814,13 @@ class StringType(BaseType, BaseStringType):
         for j in range(i + 1, self.size):
             arr.storage[j] = '\x00'
         return interp_boxes.W_StringBox(arr,  0, arr.dtype)
+
+NonNativeStringType = StringType
+
+class UnicodeType(BaseType, BaseStringType):
+    T = lltype.UniChar
+
+NonNativeUnicodeType = UnicodeType
 
 class VoidType(BaseType, BaseStringType):
     T = lltype.Char
@@ -1798,12 +1867,6 @@ class VoidType(BaseType, BaseStringType):
         return W_NDimArray(implementation)
 
 NonNativeVoidType = VoidType
-NonNativeStringType = StringType
-
-class UnicodeType(BaseType, BaseStringType):
-    T = lltype.UniChar
-
-NonNativeUnicodeType = UnicodeType
 
 class RecordType(BaseType):
 
