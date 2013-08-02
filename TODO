@@ -56,6 +56,6 @@ barriers on the PyFrame everywhere in the interpreter
 running valgrind we can see X% of the time in the read or write
 barriers, but it would be interesting to know also the time spent in the
 fast-path, as well as splitting it based e.g. on the RPython type of
-object.
+object.  See also vtune.
 
 reimplement the fast-path of the nursery allocations in the GC
