@@ -126,6 +126,15 @@ def insert_stm_barrier(stmtransformer, graph):
                         newoperations.append(newop)
                         v_holder[0] = w
                         category[w] = to
+                        if to == 'W':
+                            # if any of the other vars in the same path
+                            # points to the same object, they must lose
+                            # their read-status now
+                            for u in block.getvariables():
+                                if get_category(u) == 'R' \
+                                  and u.concretetype == v.concretetype:
+                                    category[u] = 'P'
+                            
                 #
                 newop = SpaceOperation(op.opname,
                                        [renamings_get(v) for v in op.args],

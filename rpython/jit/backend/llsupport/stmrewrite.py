@@ -115,6 +115,14 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
         for v, c in self.known_category.items():
             if c == 'W':
                 self.known_category[v] = 'R'
+
+    def clear_readable_statuses(self, reason):
+        # XXX: needs aliasing info to be better
+        # XXX: move to optimizeopt to only invalidate same typed vars?
+        for v, c in self.known_category.items():
+            if c == 'R':
+                self.known_category[v] = 'P'
+        
         
     def gen_write_barrier(self, v):
         raise NotImplementedError
@@ -123,6 +131,10 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
         v_base = self.unconstifyptr(v_base)
         assert isinstance(v_base, BoxPtr)
         source_category = self.known_category.get(v_base, 'P')
+        if target_category == 'W':
+            # if *any* of the readable vars is the same object,
+            # it must repeat the read_barrier now
+            self.clear_readable_statuses(v_base)
         mpcat = self.more_precise_categories[source_category]
         try:
             write_barrier_descr = mpcat[target_category]
