@@ -269,23 +269,16 @@ class BaseAssembler(object):
                 if op.getopnum() == rop.LABEL:
                     self._append_debugging_code(newoperations, 'l', number,
                                                 op.getdescr())
-            if not self.cpu.gc_ll_descr.stm:
-                # XXX: find a workaround to ignore inserting $INEV for
-                # raw accesses here
-                operations = newoperations
+            operations = newoperations
         return operations
 
     def _append_debugging_code(self, operations, tp, number, token):
         counter = self._register_counter(tp, number, token)
         c_adr = ConstInt(rffi.cast(lltype.Signed, counter))
-        box = BoxInt()
-        box2 = BoxInt()
-        ops = [ResOperation(rop.GETFIELD_RAW, [c_adr],
-                            box, descr=self.debug_counter_descr),
-               ResOperation(rop.INT_ADD, [box, ConstInt(1)], box2),
-               ResOperation(rop.SETFIELD_RAW, [c_adr, box2],
-                            None, descr=self.debug_counter_descr)]
-        operations.extend(ops)
+        operations.append(
+            ResOperation(rop.INCREMENT_DEBUG_COUNTER,
+                         [c_adr], None, descr=self.debug_counter_descr))
+
 
     def _register_counter(self, tp, number, token):
         # YYY very minor leak -- we need the counters to stay alive

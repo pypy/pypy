@@ -344,6 +344,7 @@ def _make_execute_list():
                     continue
             if value in (rop.FORCE_TOKEN,
                          rop.CALL_ASSEMBLER,
+                         rop.INCREMENT_DEBUG_COUNTER,
                          rop.COND_CALL_GC_WB,
                          rop.COND_CALL_GC_WB_ARRAY,
                          rop.COND_CALL_STM_B,

@@ -490,6 +490,7 @@ _oplist = [
     'MARK_OPAQUE_PTR/1b',
     '_NOSIDEEFFECT_LAST', # ----- end of no_side_effect operations -----
 
+    'INCREMENT_DEBUG_COUNTER/1d',        
     'SETARRAYITEM_GC/3d',
     'SETARRAYITEM_RAW/3d',
     'SETINTERIORFIELD_GC/3d',

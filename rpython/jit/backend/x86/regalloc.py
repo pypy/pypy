@@ -1008,6 +1008,14 @@ class RegAlloc(BaseRegalloc):
     consider_getfield_raw_pure = consider_getfield_gc
     consider_getfield_gc_pure = consider_getfield_gc
 
+    def consider_increment_debug_counter(self, op):
+        ofs, size, _ = unpack_fielddescr(op.getdescr())
+        ofs_loc = imm(ofs)
+        size_loc = imm(size)
+        base_loc = self.loc(op.getarg(0))
+        self.perform_discard(op, [base_loc, ofs_loc, size_loc])
+
+        
     def consider_getarrayitem_gc(self, op):
         itemsize, ofs, sign = unpack_arraydescr(op.getdescr())
         args = op.getarglist()

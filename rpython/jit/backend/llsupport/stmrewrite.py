@@ -45,6 +45,9 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
         for op in operations:
             if op.getopnum() == rop.DEBUG_MERGE_POINT:
                 continue
+            if op.getopnum() == rop.INCREMENT_DEBUG_COUNTER:
+                self.newops.append(op)
+                continue
             # ----------  ptr_eq  ----------
             if op.getopnum() in (rop.PTR_EQ, rop.INSTANCE_PTR_EQ,
                                  rop.PTR_NE, rop.INSTANCE_PTR_NE):
