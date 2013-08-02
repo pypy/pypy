@@ -15,7 +15,7 @@ to finish PyPy's ARM support.
 
 .. _`Raspberry Pi Foundation`: http://www.raspberrypi.org
 
-The first beta of PyPy3 2.1, targetting version 3 of the Python language, was
+The first beta of PyPy3 2.1, targeting version 3 of the Python language, was
 just released, more details can be found `here`_.
 
 .. _`here`: http://morepypy.blogspot.com/2013/07/pypy3-21-beta-1.html
