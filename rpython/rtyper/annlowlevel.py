@@ -7,6 +7,7 @@ from rpython.annotator import model as annmodel
 from rpython.annotator.policy import AnnotatorPolicy
 from rpython.annotator.signature import Sig
 from rpython.annotator.specialize import flatten_star_args
+from rpython.rtyper.normalizecalls import perform_normalizations
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.flowspace.model import Constant
 from rpython.rlib.objectmodel import specialize
@@ -251,7 +252,7 @@ class MixLevelHelperAnnotator(object):
         rtyper = self.rtyper
         translator = rtyper.annotator.translator
         original_graph_count = len(translator.graphs)
-        rtyper.type_system.perform_normalizations(rtyper)
+        perform_normalizations(rtyper)
         for r in self.delayedreprs:
             r.set_setup_delayed(False)
         rtyper.call_all_setups()

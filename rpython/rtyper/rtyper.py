@@ -26,6 +26,7 @@ from rpython.rtyper.lltypesystem.lltype import (Signed, Void, LowLevelType,
     attachRuntimeTypeInfo, Primitive)
 from rpython.rtyper.rmodel import Repr, inputconst, BrokenReprTyperError
 from rpython.rtyper.typesystem import LowLevelTypeSystem
+from rpython.rtyper.normalizecalls import perform_normalizations
 from rpython.tool.pairtype import pair
 from rpython.translator.unsimplify import insert_empty_block
 
@@ -172,12 +173,12 @@ class RPythonTyper(object):
 
         # first make sure that all functions called in a group have exactly
         # the same signature, by hacking their flow graphs if needed
-        self.type_system.perform_normalizations(self)
+        perform_normalizations(self)
         self.exceptiondata.finish(self)
+
         # new blocks can be created as a result of specialize_block(), so
         # we need to be careful about the loop here.
         self.already_seen = {}
-
         self.specialize_more_blocks()
         if self.exceptiondata is not None:
             self.exceptiondata.make_helpers(self)
