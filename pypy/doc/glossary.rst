@@ -26,8 +26,7 @@ links to more information.
     backend
         Code generator that converts an `RPython
         <coding-guide.html#restricted-python>`__ program to a `target
-        language`_ using the :term:`RPython toolchain`. A backend uses either the
-        :term:`lltypesystem` or the :term:`ootypesystem`.
+        language`_ using the :term:`RPython toolchain`.
 
     compile-time
         In the context of the :term:`JIT`, compile time is when the JIT is
@@ -83,12 +82,6 @@ links to more information.
        that a) correspond to the known semantics of Python objects, b)
        extend or twist these semantics, or c) serve whole-program analysis
        purposes.
-
-    ootypesystem
-       An `object oriented type model <rtyper.html#object-oriented-types>`__
-       containing classes and instances.  A :term:`backend` that uses this type system
-       is also called a high-level backend.  The JVM and CLI backends
-       all use this typesystem.
 
     prebuilt constant
        In :term:`RPython` module globals are considered constants.  Moreover,

@@ -45,7 +45,7 @@ class AssemblerLocation(object):
     def is_stack(self):
         return False
 
-    def is_reg(self):
+    def is_core_reg(self):
         return False
 
     def get_position(self):
@@ -89,8 +89,8 @@ class RawEspLoc(AssemblerLocation):
     _location_code = 's'
 
     def __init__(self, value, type):
-        assert value >= 0
-        self.value = value
+        assert value >= 0     # accessing values < 0 is forbidden on x86-32.
+        self.value = value    # (on x86-64 we could allow values down to -128)
         self.type = type
 
     def _getregkey(self):
@@ -169,7 +169,7 @@ class RegLoc(AssemblerLocation):
     def is_float(self):
         return self.is_xmm
 
-    def is_reg(self):
+    def is_core_reg(self):
         return True
 
 class ImmediateAssemblerLocation(AssemblerLocation):

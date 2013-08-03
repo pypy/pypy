@@ -35,7 +35,7 @@ working_modules.update(dict.fromkeys(
      "thread", "itertools", "pyexpat", "_ssl", "cpyext", "array",
      "binascii", "_multiprocessing", '_warnings',
      "_collections", "_multibytecodec", "micronumpy", "_ffi",
-     "_continuation", "_cffi_backend", "_csv", "cppyy"]
+     "_continuation", "_cffi_backend", "_csv", "cppyy", "_pypyjson"]
 ))
 
 translation_modules = default_modules.copy()
@@ -48,11 +48,6 @@ translation_modules.update(dict.fromkeys(
      "termios", "_minimal_curses",
      ]))
 
-working_oo_modules = default_modules.copy()
-working_oo_modules.update(dict.fromkeys(
-    ["_md5", "_sha", "cStringIO", "itertools"]
-))
-
 # XXX this should move somewhere else, maybe to platform ("is this posixish"
 #     check or something)
 if sys.platform == "win32":
@@ -64,7 +59,8 @@ if sys.platform == "win32":
     del working_modules["termios"]
     del working_modules["_minimal_curses"]
 
-    del working_modules["cppyy"]  # not tested on win32
+    if "cppyy" in working_modules:
+        del working_modules["cppyy"]  # not tested on win32
 
     # The _locale module is needed by site.py on Windows
     default_modules["_locale"] = None
@@ -77,20 +73,22 @@ if sys.platform == "sunos5":
     del working_modules["_minimal_curses"]
     del working_modules["termios"]
     del working_modules["_multiprocessing"]   # depends on rctime
-    del working_modules["cppyy"]  # depends on ctypes
+    if "cppyy" in working_modules:
+        del working_modules["cppyy"]  # depends on ctypes
 
 
 module_dependencies = {
     '_multiprocessing': [('objspace.usemodules.rctime', True),
                          ('objspace.usemodules.thread', True)],
     'cpyext': [('objspace.usemodules.array', True)],
+    'cppyy': [('objspace.usemodules.cpyext', True)],
     }
 module_suggests = {
     # the reason you want _rawffi is for ctypes, which
     # itself needs the interp-level struct module
     # because 'P' is missing from the app-level one
     "_rawffi": [("objspace.usemodules.struct", True)],
-    "cpyext": [("translation.secondaryentrypoints", "cpyext"),
+    "cpyext": [("translation.secondaryentrypoints", "cpyext,main"),
                ("translation.shared", sys.platform == "win32")],
 }
 
@@ -119,12 +117,10 @@ def get_module_validator(modname):
                     __import__(name)
             except (ImportError, CompilationError, py.test.skip.Exception), e:
                 errcls = e.__class__.__name__
-                config.add_warning(
+                raise Exception(
                     "The module %r is disabled\n" % (modname,) +
                     "because importing %s raised %s\n" % (name, errcls) +
                     str(e))
-                raise ConflictConfigError("--withmod-%s: %s" % (modname,
-                                                                errcls))
         return validator
     else:
         return None
@@ -143,7 +139,7 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                    requires=module_dependencies.get(modname, []),
                    suggests=module_suggests.get(modname, []),
                    negation=modname not in essential_modules,
-                   validator=get_module_validator(modname))
+                   ) #validator=get_module_validator(modname))
         for modname in all_modules]),
 
     BoolOption("allworkingmodules", "use as many working modules as possible",
@@ -213,10 +209,6 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
         BoolOption("sharesmallstr",
                    "always reuse the prebuilt string objects "
                    "(the empty string and potentially single-char strings)",
-                   default=False),
-
-        BoolOption("withsmalltuple",
-                   "use small tuples",
                    default=False),
 
         BoolOption("withspecialisedtuple",
@@ -343,10 +335,6 @@ def set_pypy_opt_level(config, level):
         if not IS_64_BITS:
             config.objspace.std.suggest(withsmalllong=True)
 
-    # some optimizations have different effects depending on the typesystem
-    if type_system == 'ootype':
-        config.objspace.std.suggest(multimethods="doubledispatch")
-
     # extra optimizations with the JIT
     if level == 'jit':
         config.objspace.std.suggest(withcelldict=True)
@@ -354,15 +342,13 @@ def set_pypy_opt_level(config, level):
 
 
 def enable_allworkingmodules(config):
-    if config.translation.type_system == 'ootype':
-        modules = working_oo_modules
-    else:
-        modules = working_modules
+    modules = working_modules
     if config.translation.sandbox:
         modules = default_modules
     # ignore names from 'essential_modules', notably 'exceptions', which
     # may not be present in config.objspace.usemodules at all
     modules = [name for name in modules if name not in essential_modules]
+
     config.objspace.usemodules.suggest(**dict.fromkeys(modules, True))
 
 def enable_translationmodules(config):

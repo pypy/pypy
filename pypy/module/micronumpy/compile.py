@@ -14,6 +14,7 @@ from pypy.module.micronumpy.interp_numarray import array
 from pypy.module.micronumpy.interp_arrayops import where
 from pypy.module.micronumpy import interp_ufuncs
 from rpython.rlib.objectmodel import specialize, instantiate
+from rpython.rlib.nonconst import NonConstant
 
 
 class BogusBytecode(Exception):
@@ -34,31 +35,39 @@ class TokenizerError(Exception):
 class BadToken(Exception):
     pass
 
+
 SINGLE_ARG_FUNCTIONS = ["sum", "prod", "max", "min", "all", "any",
                         "unegative", "flat", "tostring","count_nonzero",
                         "argsort"]
 TWO_ARG_FUNCTIONS = ["dot", 'take']
+TWO_ARG_FUNCTIONS_OR_NONE = ['view']
 THREE_ARG_FUNCTIONS = ['where']
 
+class W_TypeObject(W_Root):
+    def __init__(self, name):
+        self.name = name
+
 class FakeSpace(object):
-    w_ValueError = "ValueError"
-    w_TypeError = "TypeError"
-    w_IndexError = "IndexError"
-    w_OverflowError = "OverflowError"
-    w_NotImplementedError = "NotImplementedError"
+    w_ValueError = W_TypeObject("ValueError")
+    w_TypeError = W_TypeObject("TypeError")
+    w_IndexError = W_TypeObject("IndexError")
+    w_OverflowError = W_TypeObject("OverflowError")
+    w_NotImplementedError = W_TypeObject("NotImplementedError")
+    w_AttributeError = W_TypeObject("AttributeError")
     w_None = None
 
-    w_bool = "bool"
-    w_int = "int"
-    w_float = "float"
-    w_list = "list"
-    w_long = "long"
-    w_tuple = 'tuple'
-    w_slice = "slice"
-    w_str = "str"
-    w_unicode = "unicode"
-    w_complex = "complex"
-    
+    w_bool = W_TypeObject("bool")
+    w_int = W_TypeObject("int")
+    w_float = W_TypeObject("float")
+    w_list = W_TypeObject("list")
+    w_long = W_TypeObject("long")
+    w_tuple = W_TypeObject('tuple')
+    w_slice = W_TypeObject("slice")
+    w_str = W_TypeObject("str")
+    w_unicode = W_TypeObject("unicode")
+    w_complex = W_TypeObject("complex")
+    w_dict = W_TypeObject("dict")
+
     def __init__(self):
         """NOT_RPYTHON"""
         self.fromcache = InternalSpaceCache(self).getorbuild
@@ -71,6 +80,13 @@ class FakeSpace(object):
 
     def issequence_w(self, w_obj):
         return isinstance(w_obj, ListObject) or isinstance(w_obj, W_NDimArray)
+
+    def len(self, w_obj):
+        assert isinstance(w_obj, ListObject)
+        return self.wrap(len(w_obj.items))
+
+    def getattr(self, w_obj, w_attr):
+        return StringObject(NonConstant('foo'))
 
     def isinstance_w(self, w_obj, w_tp):
         return w_obj.tp == w_tp
@@ -115,9 +131,13 @@ class FakeSpace(object):
     def newcomplex(self, r, i):
         return ComplexObject(r, i)
 
-    def listview(self, obj):
+    def listview(self, obj, number=-1):
         assert isinstance(obj, ListObject)
+        if number != -1:
+            assert number == 2
+            return [obj.items[0], obj.items[1]]
         return obj.items
+
     fixedview = listview
 
     def float(self, w_obj):
@@ -166,20 +186,34 @@ class FakeSpace(object):
 
     def is_true(self, w_obj):
         assert isinstance(w_obj, BoolObject)
-        return False
-        #return w_obj.boolval
+        return w_obj.boolval
 
     def is_w(self, w_obj, w_what):
         return w_obj is w_what
 
+    def issubtype(self, w_type1, w_type2):
+        return BoolObject(True)
+
     def type(self, w_obj):
-        return w_obj.tp
+        if self.is_none(w_obj):
+            return self.w_None
+        try:
+            return w_obj.tp
+        except AttributeError:
+            if isinstance(w_obj, W_NDimArray):
+                return W_NDimArray
+            return self.w_None
 
     def gettypefor(self, w_obj):
         return None
 
     def call_function(self, tp, w_dtype):
         return w_dtype
+
+    def call_method(self, w_obj, s, *args):
+        # XXX even the hacks have hacks
+        return None
+        #return getattr(w_obj, 'descr_' + s)(self, *args)
 
     @specialize.arg(1)
     def interp_w(self, tp, what):
@@ -311,6 +345,8 @@ class Variable(Node):
         self.name = name.strip(" ")
 
     def execute(self, interp):
+        if self.name == 'None':
+            return None
         return interp.variables[self.name]
 
     def __repr__(self):
@@ -433,6 +469,32 @@ class SliceConstant(Node):
     def __repr__(self):
         return 'slice(%s,%s,%s)' % (self.start, self.stop, self.step)
 
+class ArrayClass(Node):
+    def __init__(self):
+        self.v = W_NDimArray
+
+    def execute(self, interp):
+       return self.v
+
+    def __repr__(self):
+        return '<class W_NDimArray>'
+
+class DtypeClass(Node):
+    def __init__(self, dt):
+        self.v = dt
+
+    def execute(self, interp):
+        if self.v == 'int':
+            dtype = get_dtype_cache(interp.space).w_int64dtype
+        elif self.v == 'float':
+            dtype = get_dtype_cache(interp.space).w_float64dtype
+        else:
+            raise BadToken('unknown v to dtype "%s"' % self.v)
+        return dtype
+
+    def __repr__(self):
+        return '<class %s dtype>' % self.v
+
 class Execute(Node):
     def __init__(self, expr):
         self.expr = expr
@@ -480,7 +542,7 @@ class FunctionCall(Node):
                 w_res = neg.call(interp.space, [arr])
             elif self.name == "cos":
                 cos = interp_ufuncs.get(interp.space).cos
-                w_res = cos.call(interp.space, [arr])                
+                w_res = cos.call(interp.space, [arr])
             elif self.name == "flat":
                 w_res = arr.descr_get_flatiter(interp.space)
             elif self.name == "argsort":
@@ -513,6 +575,14 @@ class FunctionCall(Node):
                 raise ArgumentNotAnArray
             if self.name == "where":
                 w_res = where(interp.space, arr, arg1, arg2)
+            else:
+                assert False
+        elif self.name in TWO_ARG_FUNCTIONS_OR_NONE:
+            if len(self.args) != 2:
+                raise ArgumentMismatch
+            arg = self.args[1].execute(interp)
+            if self.name == 'view':
+                w_res = arr.descr_view(interp.space, arg)
             else:
                 assert False
         else:
@@ -634,8 +704,14 @@ class Parser(object):
             if token.name == 'identifier':
                 if tokens.remaining() and tokens.get(0).name == 'paren_left':
                     stack.append(self.parse_function_call(token.v, tokens))
+                elif token.v.strip(' ') == 'ndarray':
+                    stack.append(ArrayClass())
+                elif token.v.strip(' ') == 'int':
+                    stack.append(DtypeClass('int'))
+                elif token.v.strip(' ') == 'float':
+                    stack.append(DtypeClass('float'))
                 else:
-                    stack.append(Variable(token.v))
+                    stack.append(Variable(token.v.strip(' ')))
             elif token.name == 'array_left':
                 stack.append(ArrayConstant(self.parse_array_const(tokens)))
             elif token.name == 'operator':

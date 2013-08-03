@@ -31,7 +31,7 @@ stacklet_handle switchbackonce_callback(stacklet_handle h, void *arg)
   assert(status == 0);
   status = 1;
   assert(h != EMPTY_STACKLET_HANDLE);
-  h = stacklet_switch(thrd, h);
+  h = stacklet_switch(h);
   assert(status == 2);
   assert(h != EMPTY_STACKLET_HANDLE);
   status = 3;
@@ -45,7 +45,7 @@ void test_simple_switch(void)
   assert(h != EMPTY_STACKLET_HANDLE);
   assert(status == 1);
   status = 2;
-  h = stacklet_switch(thrd, h);
+  h = stacklet_switch(h);
   assert(status == 3);
   assert(h == EMPTY_STACKLET_HANDLE);
 }
@@ -148,7 +148,7 @@ int withdepth(int self, float d)
           //printf("switch to %d\n", n);
           h = handles[n];
           handles[n] = NULL;
-          h = stacklet_switch(thrd, h);
+          h = stacklet_switch(h);
         }
       //printf("back in self = %d, coming from %d\n", self, comefrom);
       assert(nextstep == status);

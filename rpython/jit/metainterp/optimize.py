@@ -1,6 +1,7 @@
 from rpython.rlib.debug import debug_start, debug_stop, debug_print
 from rpython.jit.metainterp.jitexc import JitException
 
+
 class InvalidLoop(JitException):
     """Raised when the optimize*.py detect that the loop that
     we are trying to build cannot possibly make sense as a

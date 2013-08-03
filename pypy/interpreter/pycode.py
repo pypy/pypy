@@ -12,7 +12,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.astcompiler.consts import (
     CO_OPTIMIZED, CO_NEWLOCALS, CO_VARARGS, CO_VARKEYWORDS, CO_NESTED,
-    CO_GENERATOR, CO_CONTAINSGLOBALS)
+    CO_GENERATOR, CO_KILL_DOCSTRING)
 from pypy.tool.stdlib_opcode import opcodedesc, HAVE_ARGUMENT
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.objectmodel import compute_hash
@@ -31,7 +31,7 @@ def unpack_str_tuple(space,w_str_tuple):
 # Magic numbers for the bytecode version in code objects.
 # See comments in pypy/module/imp/importing.
 cpython_magic, = struct.unpack("<i", imp.get_magic())   # host magic number
-default_magic = (168686339+2) | 0x0a0d0000              # this PyPy's magic
+default_magic = (0xf303 + 6) | 0x0a0d0000               # this PyPy's magic
                                                         # (from CPython 2.7.0)
 
 # cpython_code_signature helper
@@ -88,8 +88,6 @@ class PyCode(eval.Code):
         self._initialize()
 
     def _initialize(self):
-        self._init_flags()
-
         if self.co_cellvars:
             argcount = self.co_argcount
             assert argcount >= 0     # annotator hint
@@ -133,22 +131,6 @@ class PyCode(eval.Code):
         if (self.magic == cpython_magic and
             '__pypy__' not in sys.builtin_module_names):
             raise Exception("CPython host codes should not be rendered")
-
-    def _init_flags(self):
-        co_code = self.co_code
-        next_instr = 0
-        while next_instr < len(co_code):
-            opcode = ord(co_code[next_instr])
-            next_instr += 1
-            if opcode >= HAVE_ARGUMENT:
-                next_instr += 2
-            while opcode == opcodedesc.EXTENDED_ARG.index:
-                opcode = ord(co_code[next_instr])
-                next_instr += 3
-            if opcode == opcodedesc.LOAD_GLOBAL.index:
-                self.co_flags |= CO_CONTAINSGLOBALS
-            elif opcode == opcodedesc.LOAD_NAME.index:
-                self.co_flags |= CO_CONTAINSGLOBALS
 
     co_names = property(lambda self: [self.space.unwrap(w_name) for w_name in self.co_names_w]) # for trace
 
@@ -235,6 +217,13 @@ class PyCode(eval.Code):
             if space.isinstance_w(w_first, space.w_basestring):
                 return w_first
         return space.w_None
+
+    def remove_docstrings(self, space):
+        if self.co_flags & CO_KILL_DOCSTRING:
+            self.co_consts_w[0] = space.w_None
+        for w_co in self.co_consts_w:
+            if isinstance(w_co, PyCode):
+                w_co.remove_docstrings(space)
 
     def _to_code(self):
         """For debugging only."""

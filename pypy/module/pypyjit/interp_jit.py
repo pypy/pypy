@@ -33,14 +33,15 @@ def get_printable_location(next_instr, is_being_profiled, bytecode):
     return '%s #%d %s' % (bytecode.get_repr(), next_instr, name)
 
 def get_jitcell_at(next_instr, is_being_profiled, bytecode):
-    return bytecode.jit_cells.get((next_instr, is_being_profiled), None)
+    # use only uints as keys in the jit_cells dict, rather than
+    # a tuple (next_instr, is_being_profiled)
+    key = (next_instr << 1) | r_uint(intmask(is_being_profiled))
+    return bytecode.jit_cells.get(key, None)
 
 def set_jitcell_at(newcell, next_instr, is_being_profiled, bytecode):
-    bytecode.jit_cells[next_instr, is_being_profiled] = newcell
+    key = (next_instr << 1) | r_uint(intmask(is_being_profiled))
+    bytecode.jit_cells[key] = newcell
 
-
-def can_never_inline(next_instr, is_being_profiled, bytecode):
-    return False
 
 def should_unroll_one_iteration(next_instr, is_being_profiled, bytecode):
     return (bytecode.co_flags & CO_GENERATOR) != 0
@@ -53,7 +54,6 @@ class PyPyJitDriver(JitDriver):
 pypyjitdriver = PyPyJitDriver(get_printable_location = get_printable_location,
                               get_jitcell_at = get_jitcell_at,
                               set_jitcell_at = set_jitcell_at,
-                              can_never_inline = can_never_inline,
                               should_unroll_one_iteration =
                               should_unroll_one_iteration,
                               name='pypyjit')

@@ -101,20 +101,24 @@ def test_guess_call_kind_and_calls_from_graphs():
                         Variable())
     assert cc.guess_call_kind(op) == 'recursive'
 
-    op = SpaceOperation('direct_call', [Constant(object())],
+    class fakeresidual:
+        _obj = object()
+    op = SpaceOperation('direct_call', [Constant(fakeresidual)],
                         Variable())
     assert cc.guess_call_kind(op) == 'residual'
 
     class funcptr:
-        class graph:
-            class func:
-                oopspec = "spec"
+        class _obj:
+            class graph:
+                class func:
+                    oopspec = "spec"
     op = SpaceOperation('direct_call', [Constant(funcptr)],
                         Variable())
     assert cc.guess_call_kind(op) == 'builtin'
 
     class funcptr:
-        graph = g
+        class _obj:
+            graph = g
     op = SpaceOperation('direct_call', [Constant(funcptr)],
                         Variable())
     res = cc.graphs_from(op)
@@ -122,7 +126,8 @@ def test_guess_call_kind_and_calls_from_graphs():
     assert cc.guess_call_kind(op) == 'regular'
 
     class funcptr:
-        graph = object()
+        class _obj:
+            graph = object()
     op = SpaceOperation('direct_call', [Constant(funcptr)],
                         Variable())
     res = cc.graphs_from(op)

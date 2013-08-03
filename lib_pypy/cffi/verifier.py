@@ -102,21 +102,10 @@ class Verifier(object):
                 path = pkg.__path__
             else:
                 path = None
-            try:
-                f, filename, descr = imp.find_module(self.get_module_name(),
-                                                     path)
-            except ImportError:
+            filename = self._vengine.find_module(self.get_module_name(), path,
+                                                 _get_so_suffix())
+            if filename is None:
                 return
-            if f is not None:
-                f.close()
-            if filename.lower().endswith('.py'):
-                # on PyPy, if there are both .py and .pypy-19.so files in
-                # the same directory, the .py file is returned.  That's the
-                # case after a setuptools installation.  We never want to
-                # load the .py file here...
-                filename = filename[:-3] + _get_so_suffix()
-                if not os.path.isfile(filename):
-                    return
             self.modulefilename = filename
         self._vengine.collect_types()
         self._has_module = True

@@ -1,4 +1,4 @@
-from rpython.memory.test.test_semispace_gc import TestSemiSpaceGC
+from rpython.memory.test import test_semispace_gc
 
-class TestGenerationalGC(TestSemiSpaceGC):
+class TestGenerationalGC(test_semispace_gc.TestSemiSpaceGC):
     from rpython.memory.gc.generation import GenerationGC as GCClass

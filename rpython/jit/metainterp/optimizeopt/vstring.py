@@ -136,6 +136,10 @@ class VStringPlainValue(VAbstractStringValue):
         assert size <= MAX_CONST_LEN
         self._chars = [None] * size
 
+    def shrink(self, length):
+        assert length >= 0
+        del self._chars[length:]
+
     def setup_slice(self, longerlist, start, stop):
         assert 0 <= start <= stop <= len(longerlist)
         self._chars = longerlist[start:stop]
@@ -554,6 +558,9 @@ class OptString(optimizer.Optimization):
             if oopspecindex == EffectInfo.OS_STR2UNICODE:
                 if self.opt_call_str_STR2UNICODE(op):
                     return
+            if oopspecindex == EffectInfo.OS_SHRINK_ARRAY:
+                if self.opt_call_SHRINK_ARRAY(op):
+                    return
         self.emit_operation(op)
 
     optimize_CALL_PURE = optimize_CALL
@@ -718,6 +725,19 @@ class OptString(optimizer.Optimization):
                                              v1.vstart.force_box(self),
                                              v1.vlength.force_box(self),
                                              v2.force_box(self)], resultbox, mode)
+            return True
+        return False
+
+    def opt_call_SHRINK_ARRAY(self, op):
+        v1 = self.getvalue(op.getarg(1))
+        v2 = self.getvalue(op.getarg(2))
+        # If the index is constant, if the argument is virtual (we only support
+        # VStringPlainValue for now) we can optimize away the call.
+        if v2.is_constant() and v1.is_virtual() and isinstance(v1, VStringPlainValue):
+            length = v2.box.getint()
+            v1.shrink(length)
+            self.last_emitted_operation = REMOVED
+            self.make_equal_to(op.result, v1)
             return True
         return False
 

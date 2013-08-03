@@ -106,7 +106,7 @@ class HeapCache(object):
             rop._NOSIDEEFFECT_FIRST <= opnum <= rop._NOSIDEEFFECT_LAST or
             rop._GUARD_FIRST <= opnum <= rop._GUARD_LAST):
             return
-        if opnum == rop.CALL or opnum == rop.CALL_LOOPINVARIANT:
+        if opnum == rop.CALL or opnum == rop.CALL_LOOPINVARIANT or opnum == rop.COND_CALL:
             effectinfo = descr.get_extra_info()
             ef = effectinfo.extraeffect
             if (ef == effectinfo.EF_LOOPINVARIANT or
@@ -125,7 +125,7 @@ class HeapCache(object):
                     for descr, cache in self.heap_array_cache.iteritems():
                         for idx, cache in cache.iteritems():
                             for frombox in cache.keys():
-                                if frombox not in self.new_boxes:
+                                if not self.new_boxes.get(frombox, False):
                                     del cache[frombox]
                     return
             else:

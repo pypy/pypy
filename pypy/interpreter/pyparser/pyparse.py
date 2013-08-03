@@ -135,16 +135,7 @@ class PythonParser(parser.Parser):
                         raise error.SyntaxError(space.str_w(w_message))
                     raise
 
-        f_flags, future_info = future.get_futures(self.future_flags, textsrc)
-        compile_info.last_future_import = future_info
-        compile_info.flags |= f_flags
-
         flags = compile_info.flags
-
-        if flags & consts.CO_FUTURE_PRINT_FUNCTION:
-            self.grammar = pygram.python_grammar_no_print
-        else:
-            self.grammar = pygram.python_grammar
 
         # The tokenizer is very picky about how it wants its input.
         source_lines = textsrc.splitlines(True)
@@ -157,7 +148,21 @@ class PythonParser(parser.Parser):
         tp = 0
         try:
             try:
+                # Note: we no longer pass the CO_FUTURE_* to the tokenizer,
+                # which is expected to work independently of them.  It's
+                # certainly the case for all futures in Python <= 2.7.
                 tokens = pytokenizer.generate_tokens(source_lines, flags)
+
+                newflags, last_future_import = (
+                    future.add_future_flags(self.future_flags, tokens))
+                compile_info.last_future_import = last_future_import
+                compile_info.flags |= newflags
+
+                if compile_info.flags & consts.CO_FUTURE_PRINT_FUNCTION:
+                    self.grammar = pygram.python_grammar_no_print
+                else:
+                    self.grammar = pygram.python_grammar
+
                 for tp, value, lineno, column, line in tokens:
                     if self.add_token(tp, value, lineno, column, line):
                         break

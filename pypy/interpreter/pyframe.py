@@ -16,10 +16,9 @@ from pypy.tool import stdlib_opcode
 from rpython.tool.stdlib_opcode import host_bytecode_spec
 
 # Define some opcodes used
-g = globals()
 for op in '''DUP_TOP POP_TOP SETUP_LOOP SETUP_EXCEPT SETUP_FINALLY
 POP_BLOCK END_FINALLY'''.split():
-    g[op] = stdlib_opcode.opmap[op]
+    globals()[op] = stdlib_opcode.opmap[op]
 HAVE_ARGUMENT = stdlib_opcode.HAVE_ARGUMENT
 
 class PyFrame(eval.Frame):
@@ -304,11 +303,17 @@ class PyFrame(eval.Frame):
     @jit.dont_look_inside
     def descr__reduce__(self, space):
         from pypy.interpreter.mixedmodule import MixedModule
-        from pypy.module._pickle_support import maker # helper fns
         w_mod    = space.getbuiltinmodule('_pickle_support')
         mod      = space.interp_w(MixedModule, w_mod)
         new_inst = mod.get('frame_new')
-        w        = space.wrap
+        w_tup_state = self._reduce_state(space)
+        nt = space.newtuple
+        return nt([new_inst, nt([]), w_tup_state])
+
+    @jit.dont_look_inside
+    def _reduce_state(self, space):
+        from pypy.module._pickle_support import maker # helper fns
+        w = space.wrap
         nt = space.newtuple
 
         cells = self._getcells()
@@ -359,15 +364,14 @@ class PyFrame(eval.Frame):
             w(self.instr_prev_plus_one),
             w_cells,
             ]
-
-        return nt([new_inst, nt([]), nt(tup_state)])
+        return nt(tup_state)
 
     @jit.dont_look_inside
     def descr__setstate__(self, space, w_args):
         from pypy.module._pickle_support import maker # helper fns
         from pypy.interpreter.pycode import PyCode
         from pypy.interpreter.module import Module
-        args_w = space.unpackiterable(w_args)
+        args_w = space.unpackiterable(w_args, 18)
         w_f_back, w_builtin, w_pycode, w_valuestack, w_blockstack, w_exc_value, w_tb,\
             w_globals, w_last_instr, w_finished, w_f_lineno, w_fastlocals, w_f_locals, \
             w_f_trace, w_instr_lb, w_instr_ub, w_instr_prev_plus_one, w_cells = args_w

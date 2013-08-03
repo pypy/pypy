@@ -75,16 +75,19 @@ def set_optimize_hook(space, w_hook):
     cache.w_optimize_hook = w_hook
     cache.in_recursion = NonConstant(False)
 
+
 def set_abort_hook(space, w_hook):
     """ set_abort_hook(hook)
 
     Set a hook (callable) that will be called each time there is tracing
     aborted due to some reason.
 
-    The hook will be called as in: hook(jitdriver_name, greenkey, reason)
+    The hook will be called with the signature:
+
+        hook(jitdriver_name, greenkey, reason, operations)
 
     Reason is a string, the meaning of other arguments is the same
-    as attributes on JitLoopInfo object
+    as attributes on JitLoopInfo object.
     """
     cache = space.fromcache(Cache)
     cache.w_abort_hook = w_hook
@@ -122,6 +125,9 @@ class WrappedBox(W_Root):
         self.llbox = llbox
 
     def descr_getint(self, space):
+        if not jit_hooks.box_isint(self.llbox):
+            raise OperationError(space.w_NotImplementedError,
+                                 space.wrap("Box has no int value"))
         return space.wrap(jit_hooks.box_getint(self.llbox))
 
 @unwrap_spec(no=int)
@@ -179,7 +185,12 @@ class WrappedOp(W_Root):
 
     @unwrap_spec(no=int)
     def descr_getarg(self, space, no):
-        return WrappedBox(jit_hooks.resop_getarg(self.op, no))
+        try:
+            box = jit_hooks.resop_getarg(self.op, no)
+        except IndexError:
+            raise OperationError(space.w_IndexError,
+                                 space.wrap("Index out of range"))
+        return WrappedBox(box)
 
     @unwrap_spec(no=int, w_box=WrappedBox)
     def descr_setarg(self, space, no, w_box):
@@ -229,7 +240,8 @@ WrappedOp.typedef = TypeDef(
     getarg = interp2app(WrappedOp.descr_getarg),
     setarg = interp2app(WrappedOp.descr_setarg),
     result = GetSetProperty(WrappedOp.descr_getresult,
-                            WrappedOp.descr_setresult)
+                            WrappedOp.descr_setresult),
+    offset = interp_attrproperty("offset", cls=WrappedOp),
 )
 WrappedOp.acceptable_as_base_class = False
 
@@ -339,6 +351,10 @@ W_JitLoopInfo.typedef = TypeDef(
                                doc="bridge number (if a bridge)"),
     type = interp_attrproperty('type', cls=W_JitLoopInfo,
                                doc="Loop type"),
+    asmaddr = interp_attrproperty('asmaddr', cls=W_JitLoopInfo,
+                                  doc="Address of machine code"),
+    asmlen = interp_attrproperty('asmlen', cls=W_JitLoopInfo,
+                                  doc="Length of machine code"),
     __repr__ = interp2app(W_JitLoopInfo.descr_repr),
 )
 W_JitLoopInfo.acceptable_as_base_class = False

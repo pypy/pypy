@@ -74,7 +74,7 @@ def find_module(space, w_name, w_path=None):
     return space.newtuple([w_fileobj, w_filename, w_import_info])
 
 def load_module(space, w_name, w_file, w_filename, w_info):
-    w_suffix, w_filemode, w_modtype = space.unpackiterable(w_info)
+    w_suffix, w_filemode, w_modtype = space.unpackiterable(w_info, 3)
 
     filename = space.str0_w(w_filename)
     filemode = space.str_w(w_filemode)
@@ -177,7 +177,7 @@ def acquire_lock(space):
 
 def release_lock(space):
     if space.config.objspace.usemodules.thread:
-        importing.getimportlock(space).release_lock()
+        importing.getimportlock(space).release_lock(silent_after_fork=False)
 
 def reinit_lock(space):
     if space.config.objspace.usemodules.thread:

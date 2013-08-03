@@ -4,8 +4,7 @@ from rpython.jit.metainterp.history import (AbstractFailDescr,
                                          BasicFailDescr,
                                          BoxInt, Box, BoxPtr,
                                          ConstInt, ConstPtr,
-                                         BoxObj, Const,
-                                         ConstObj, BoxFloat, ConstFloat)
+                                         Const, BoxFloat, ConstFloat)
 from rpython.jit.metainterp.history import JitCellToken
 from rpython.jit.metainterp.resoperation import ResOperation, rop
 from rpython.rtyper.test.test_llinterp import interpret

@@ -19,6 +19,7 @@ from twisted.web.error import PageRedirect
 BUILDERS = [
     'own-linux-x86-32',
     'own-linux-x86-64',
+    'own-linux-armhf',
 #    'own-macosx-x86-32',
 #    'pypy-c-app-level-linux-x86-32',
 #    'pypy-c-app-level-linux-x86-64',
@@ -28,6 +29,9 @@ BUILDERS = [
     'pypy-c-jit-linux-x86-64',
     'pypy-c-jit-macosx-x86-64',
     'pypy-c-jit-win-x86-32',
+    'build-pypy-c-jit-linux-armhf-raring',
+    'build-pypy-c-jit-linux-armhf-raspbian',
+    'build-pypy-c-jit-linux-armel',
 ]
 
 def main():

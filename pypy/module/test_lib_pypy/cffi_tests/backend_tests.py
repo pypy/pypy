@@ -971,6 +971,16 @@ class BackendTests:
         s.c = -4
         assert s.c == -4
 
+    def test_bitfield_enum(self):
+        ffi = FFI(backend=self.Backend())
+        ffi.cdef("""
+            typedef enum { AA, BB, CC } foo_e;
+            typedef struct { foo_e f:2; } foo_s;
+        """)
+        s = ffi.new("foo_s *")
+        s.f = 2
+        assert s.f == 2
+
     def test_anonymous_struct(self):
         ffi = FFI(backend=self.Backend())
         ffi.cdef("typedef struct { int a; } foo_t;")
@@ -980,7 +990,7 @@ class BackendTests:
         assert f.a == 12345
         assert b.b == b"B"
         assert b.c == b"C"
-        assert repr(b).startswith("<cdata 'struct $bar_t *'")
+        assert repr(b).startswith("<cdata 'bar_t *'")
 
     def test_struct_with_two_usages(self):
         for name in ['foo_s', '']:    # anonymous or not
@@ -1290,9 +1300,9 @@ class BackendTests:
         ffi = FFI(backend=self.Backend())
         ffi.cdef("typedef enum { Value0 = 0 } e, *pe;\n"
                  "typedef enum { Value1 = 1 } e1;")
-        assert ffi.getctype("e*") == 'enum $e *'
-        assert ffi.getctype("pe") == 'enum $e *'
-        assert ffi.getctype("e1*") == 'enum $e1 *'
+        assert ffi.getctype("e*") == 'e *'
+        assert ffi.getctype("pe") == 'e *'
+        assert ffi.getctype("e1*") == 'e1 *'
 
     def test_new_ctype(self):
         ffi = FFI(backend=self.Backend())

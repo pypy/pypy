@@ -72,8 +72,6 @@ allow you to customize PyPy.
 
 `command line reference`_
 
-`CLI backend`_ describes the details of the .NET backend.
-
 `JIT Generation in PyPy`_ describes how we produce the Python Just-in-time Compiler
 from our Python interpreter.
 

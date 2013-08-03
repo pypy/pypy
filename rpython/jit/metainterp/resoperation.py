@@ -1,5 +1,6 @@
 from rpython.rlib.objectmodel import we_are_translated
 
+
 def ResOperation(opnum, args, result, descr=None):
     cls = opclasses[opnum]
     op = cls(result)
@@ -49,7 +50,6 @@ class AbstractResOp(object):
 
     def numargs(self):
         raise NotImplementedError
-
 
     # methods implemented by GuardResOp
     # ---------------------------------
@@ -182,6 +182,7 @@ class AbstractResOp(object):
 
 class PlainResOp(AbstractResOp):
     pass
+
 
 class ResOpWithDescr(AbstractResOp):
 
@@ -347,6 +348,7 @@ class TernaryOp(object):
         else:
             raise IndexError
 
+
 class N_aryOp(object):
     _mixin_ = True
     _args = None
@@ -467,10 +469,6 @@ _oplist = [
     'UNICODELEN/1',
     'UNICODEGETITEM/2',
     #
-    # ootype operations
-    #'INSTANCEOF/1db',
-    #'SUBCLASSOF/2b',
-    #
     '_ALWAYS_PURE_LAST',  # ----- end of always_pure operations -----
 
     'GETARRAYITEM_GC/2d',
@@ -501,7 +499,6 @@ _oplist = [
     'SETFIELD_RAW/2d',
     'STRSETITEM/3',
     'UNICODESETITEM/3',
-    #'RUNTIMENEW/1',     # ootype operation
     'COND_CALL_GC_WB/2d', # [objptr, newvalue] (for the write barrier)
     'COND_CALL_GC_WB_ARRAY/3d', # [objptr, arrayindex, newvalue] (write barr.)
     'DEBUG_MERGE_POINT/*',      # debugging only
@@ -516,12 +513,11 @@ _oplist = [
     '_CANRAISE_FIRST', # ----- start of can_raise operations -----
     '_CALL_FIRST',
     'CALL/*d',
+    'COND_CALL/*d', # a conditional call, with first argument as a condition
     'CALL_ASSEMBLER/*d',  # call already compiled assembler
     'CALL_MAY_FORCE/*d',
     'CALL_LOOPINVARIANT/*d',
     'CALL_RELEASE_GIL/*d',  # release the GIL and "close the stack" for asmgcc
-    #'OOSEND',                     # ootype operation
-    #'OOSEND_PURE',                # ootype operation
     'CALL_PURE/*d',             # removed before it's passed to the backend
     'CALL_MALLOC_GC/*d',      # like CALL, but NULL => propagate MemoryError
     'CALL_MALLOC_NURSERY/1',  # nursery malloc, const number of bytes, zeroed
@@ -577,7 +573,7 @@ def setup(debug_print=False):
         opclasses.append(cls)
         oparity.append(arity)
         opwithdescr.append(withdescr)
-    assert len(opclasses)==len(oparity)==len(opwithdescr)==len(_oplist)
+    assert len(opclasses) == len(oparity) == len(opwithdescr) == len(_oplist)
 
 def get_base_class(mixin, base):
     try:
@@ -597,7 +593,7 @@ def create_class_for_op(name, opnum, arity, withdescr):
         1: UnaryOp,
         2: BinaryOp,
         3: TernaryOp
-        }
+    }
 
     is_guard = name.startswith('GUARD')
     if is_guard:
@@ -639,7 +635,7 @@ opboolinvers = {
 
     rop.PTR_EQ: rop.PTR_NE,
     rop.PTR_NE: rop.PTR_EQ,
-    }
+}
 
 opboolreflex = {
     rop.INT_EQ: rop.INT_EQ,
@@ -663,7 +659,7 @@ opboolreflex = {
 
     rop.PTR_EQ: rop.PTR_EQ,
     rop.PTR_NE: rop.PTR_NE,
-    }
+}
 
 
 def get_deep_immutable_oplist(operations):

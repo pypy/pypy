@@ -1,20 +1,40 @@
 #! /usr/bin/env python
 # App-level version of py.py.
 # See test/test_app_main.
+
+# Missing vs CPython: -d, -t, -v, -x, -3
+USAGE1 = __doc__ = """\
+Options and arguments (and corresponding environment variables):
+-B     : don't write .py[co] files on import; also PYTHONDONTWRITEBYTECODE=x
+-c cmd : program passed in as string (terminates option list)
+-E     : ignore PYTHON* environment variables (such as PYTHONPATH)
+-h     : print this help message and exit (also --help)
+-i     : inspect interactively after running script; forces a prompt even
+         if stdin does not appear to be a terminal; also PYTHONINSPECT=x
+-m mod : run library module as a script (terminates option list)
+-O     : skip assert statements
+-OO    : remove docstrings when importing modules in addition to -O
+-R     : ignored (see http://bugs.python.org/issue14621)
+-Q arg : division options: -Qold (default), -Qwarn, -Qwarnall, -Qnew
+-s     : don't add user site directory to sys.path; also PYTHONNOUSERSITE
+-S     : don't imply 'import site' on initialization
+-u     : unbuffered binary stdout and stderr; also PYTHONUNBUFFERED=x
+-V     : print the Python version number and exit (also --version)
+-W arg : warning control; arg is action:message:category:module:lineno
+         also PYTHONWARNINGS=arg
+file   : program read from script file
+-      : program read from stdin (default; interactive mode if a tty)
+arg ...: arguments passed to program in sys.argv[1:]
+PyPy options and arguments:
+--info : print translation information about this PyPy executable
 """
-options:
-  -i             inspect interactively after running script
-  -O             dummy optimization flag for compatibility with C Python
-  -c cmd         program passed in as CMD (terminates option list)
-  -S             do not 'import site' on initialization
-  -u             unbuffered binary stdout and stderr
-  -h, --help     show this help message and exit
-  -m mod         library module to be run as a script (terminates option list)
-  -W arg         warning control (arg is action:message:category:module:lineno)
-  -E             ignore environment variables (such as PYTHONPATH)
-  -R             ignored (see http://bugs.python.org/issue14621)
-  --version      print the PyPy version
-  --info         print translation information about this PyPy executable
+# Missing vs CPython: PYTHONHOME, PYTHONCASEOK
+USAGE2 = """
+Other environment variables:
+PYTHONSTARTUP: file executed on interactive startup (no default)
+PYTHONPATH   : %r-separated list of directories prefixed to the
+               default module search path.  The result is sys.path.
+PYTHONIOENCODING: Encoding[:errors] used for stdin/stdout/stderr.
 """
 
 import sys
@@ -136,12 +156,13 @@ def print_info(*args):
     raise SystemExit
 
 def print_help(*args):
-    print 'usage: %s [options] [-c cmd|-m mod|file.py|-] [arg...]' % (
+    import os
+    print 'usage: %s [option] ... [-c cmd | -m mod | file | -] [arg] ...' % (
         sys.executable,)
-    print __doc__.rstrip()
+    print USAGE1,
     if 'pypyjit' in sys.builtin_module_names:
-        print "  --jit OPTIONS  advanced JIT options: try 'off' or 'help'"
-    print
+        print "--jit options: advanced JIT options: try 'off' or 'help'"
+    print (USAGE2 % (os.pathsep,)),
     raise SystemExit
 
 def _print_jit_help():
@@ -174,6 +195,11 @@ def _print_jit_help():
 def print_version(*args):
     print >> sys.stderr, "Python", sys.version
     raise SystemExit
+
+
+def funroll_loops(*args):
+    print("Vroom vroom, I'm a racecar!")
+
 
 def set_jit_option(options, jitparam, *args):
     if jitparam == 'help':
@@ -360,6 +386,7 @@ cmdline_options = {
     'Q':         (div_option,      Ellipsis),
     '--info':    (print_info,      None),
     '--jit':     (set_jit_option,  Ellipsis),
+    '-funroll-loops': (funroll_loops, None),
     '--':        (end_options,     None),
     }
 
@@ -449,6 +476,10 @@ def parse_command_line(argv):
         sys.py3kwarning = bool(sys.flags.py3k_warning)
         sys.dont_write_bytecode = bool(sys.flags.dont_write_bytecode)
 
+        if sys.flags.optimize >= 1:
+            import __pypy__
+            __pypy__.set_debug(False)
+
         if sys.py3kwarning:
             print >> sys.stderr, (
                 "Warning: pypy does not implement py3k warnings")
@@ -525,8 +556,15 @@ def run_command_line(interactive,
         # or
         #     * PYTHONINSPECT is set and stdin is a tty.
         #
+        try:
+            # we need a version of getenv that bypasses Python caching
+            from __pypy__.os import real_getenv
+        except ImportError:
+            # dont fail on CPython here
+            real_getenv = os.getenv
+
         return (interactive or
-                ((inspect or (readenv and os.getenv('PYTHONINSPECT')))
+                ((inspect or (readenv and real_getenv('PYTHONINSPECT')))
                  and sys.stdin.isatty()))
 
     success = True

@@ -259,6 +259,12 @@ class __extend__(AbstractStringRepr):
         hop.exception_cannot_occur()
         return hop.gendirectcall(self.ll.ll_isalpha, v_str)
 
+    def rtype_method_isalnum(self, hop):
+        string_repr = hop.args_r[0].repr
+        [v_str] = hop.inputargs(string_repr)
+        hop.exception_cannot_occur()
+        return hop.gendirectcall(self.ll.ll_isalnum, v_str)
+
     def _list_length_items(self, hop, v_lst, LIST):
         """Return two Variables containing the length and items of a
         list. Need to be overriden because it is typesystem-specific."""
@@ -670,13 +676,6 @@ class __extend__(AbstractUniCharRepr):
 
     get_ll_fasthash_function = get_ll_hash_function
 
-##    def rtype_len(_, hop):
-##        return hop.inputconst(Signed, 1)
-##
-##    def rtype_is_true(_, hop):
-##        assert not hop.args_s[0].can_be_None
-##        return hop.inputconst(Bool, True)
-
     def rtype_ord(_, hop):
         rstr = hop.rtyper.type_system.rstr
         vlist = hop.inputargs(rstr.unichar_repr)
@@ -688,10 +687,6 @@ class __extend__(pairtype(AbstractUniCharRepr, AbstractUniCharRepr),
                  pairtype(AbstractUniCharRepr, AbstractCharRepr)):
     def rtype_eq(_, hop): return _rtype_unchr_compare_template(hop, 'eq')
     def rtype_ne(_, hop): return _rtype_unchr_compare_template(hop, 'ne')
-##    def rtype_lt(_, hop): return _rtype_unchr_compare_template(hop, 'lt')
-##    def rtype_le(_, hop): return _rtype_unchr_compare_template(hop, 'le')
-##    def rtype_gt(_, hop): return _rtype_unchr_compare_template(hop, 'gt')
-##    def rtype_ge(_, hop): return _rtype_unchr_compare_template(hop, 'ge')
 
 #Helper functions for comparisons
 
@@ -751,9 +746,7 @@ class AbstractStringIteratorRepr(IteratorRepr):
 #  get flowed and annotated, mostly with SomePtr.
 #
 
-# this class contains low level helpers used both by lltypesystem and
-# ootypesystem; each typesystem should subclass it and add its own
-# primitives.
+# this class contains low level helpers used both by lltypesystem
 class AbstractLLHelpers:
     __metaclass__ = StaticMethods
 
@@ -776,6 +769,17 @@ class AbstractLLHelpers:
             return False
         for ch in s:
             if not ch.isalpha():
+                return False
+        return True
+
+    def ll_isalnum(s):
+        from rpython.rtyper.annlowlevel import hlstr
+
+        s = hlstr(s)
+        if not s:
+            return False
+        for ch in s:
+            if not ch.isalnum():
                 return False
         return True
 

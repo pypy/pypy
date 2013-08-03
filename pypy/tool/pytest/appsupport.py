@@ -1,3 +1,5 @@
+from inspect import CO_VARARGS, CO_VARKEYWORDS
+
 import py
 from pypy.interpreter import gateway, pycode
 from pypy.interpreter.error import OperationError
@@ -35,8 +37,13 @@ class AppCode(object):
             return None
     fullsource = property(fullsource, None, None, "Full source of AppCode")
 
-    def getargs(self):
-        return self.raw.co_varnames[:self.raw.co_argcount]
+    def getargs(self, var=False):
+        raw = self.raw
+        argcount = raw.co_argcount
+        if var:
+            argcount += raw.co_flags & CO_VARARGS
+            argcount += raw.co_flags & CO_VARKEYWORDS
+        return raw.co_varnames[:argcount]
 
 class AppFrame(py.code.Frame):
 
@@ -70,10 +77,10 @@ class AppFrame(py.code.Frame):
     def is_true(self, w_value):
         return self.space.is_true(w_value)
 
-    def getargs(self):
+    def getargs(self, var=False):
         space = self.space
         retval = []
-        for arg in self.code.getargs():
+        for arg in self.code.getargs(var):
             w_val = space.finditem(self.w_locals, space.wrap(arg))
             if w_val is None:
                 w_val = space.wrap('<no value found>')
@@ -270,7 +277,3 @@ def raises_w(space, w_ExpectedException, *args, **kwds):
     except py.test.raises.Exception, e:
         e.tbindex = getattr(e, 'tbindex', -1) - 1
         raise
-
-def eq_w(space, w_obj1, w_obj2): 
-    """ return interp-level boolean of eq(w_obj1, w_obj2). """ 
-    return space.is_true(space.eq(w_obj1, w_obj2))

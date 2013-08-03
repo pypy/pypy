@@ -2,7 +2,7 @@ from rpython.translator.translator import TranslationContext
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper import rint
 from rpython.rtyper.lltypesystem import rdict, rstr
-from rpython.rtyper.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
+from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rlib.objectmodel import r_dict
 from rpython.rlib.rarithmetic import r_int, r_uint, r_longlong, r_ulonglong
 
@@ -22,7 +22,7 @@ def not_really_random():
         yield x
 
 
-class BaseTestRdict(BaseRtypingTest):
+class TestRdict(BaseRtypingTest):
 
     def test_dict_creation(self):
         def createdict(i):
@@ -496,6 +496,55 @@ class BaseTestRdict(BaseRtypingTest):
         res = self.interpret(f, [6])
         assert res == 0
 
+    def test_cls_dict(self):
+        class A(object):
+            pass
+
+        class B(A):
+            pass
+
+        def f(i):
+            d = {
+                A: 3,
+                B: 4,
+            }
+            if i:
+                cls = A
+            else:
+                cls = B
+            return d[cls]
+
+        res = self.interpret(f, [1])
+        assert res == 3
+        res = self.interpret(f, [0])
+        assert res == 4
+
+    def test_prebuilt_cls_dict(self):
+        class A(object):
+            pass
+
+        class B(A):
+            pass
+
+        d = {(A, 3): 3, (B, 0): 4}
+
+        def f(i):
+            if i:
+                cls = A
+            else:
+                cls = B
+            try:
+                return d[cls, i]
+            except KeyError:
+                return -99
+
+        res = self.interpret(f, [0])
+        assert res == 4
+        res = self.interpret(f, [3])
+        assert res == 3
+        res = self.interpret(f, [10])
+        assert res == -99
+
     def test_access_in_try(self):
         def f(d):
             try:
@@ -683,7 +732,6 @@ class BaseTestRdict(BaseRtypingTest):
         res = self.interpret(f, [700])
         assert res == 12
 
-class TestLLtype(BaseTestRdict, LLRtypeMixin):
     def test_dict_but_not_with_char_keys(self):
         def func(i):
             d = {'h': i}
@@ -1003,21 +1051,6 @@ class TestLLtype(BaseTestRdict, LLRtypeMixin):
         finally:
             lltype._array._check_range = original_check_range
 
-    # ____________________________________________________________
-
-
-
-class TestOOtype(BaseTestRdict, OORtypeMixin):
-
-    def test_recursive(self):
-        def func(i):
-            dic = {i: {}}
-            dic[i] = dic
-            return dic[i]
-        res = self.interpret(func, [5])
-        assert res.ll_get(5) is res
-
-    # ____________________________________________________________
 
 class TestStress:
 

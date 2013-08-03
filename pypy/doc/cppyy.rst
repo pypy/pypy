@@ -163,6 +163,9 @@ code::
     $ genreflex MyClass.h
     $ g++ -fPIC -rdynamic -O2 -shared -I$REFLEXHOME/include MyClass_rflx.cpp -o libMyClassDict.so -L$REFLEXHOME/lib -lReflex
 
+Next, make sure that the library can be found through the dynamic lookup path
+(the ``LD_LIBRARY_PATH`` environment variable on Linux, ``PATH`` on Windows),
+for example by adding ".".
 Now you're ready to use the bindings.
 Since the bindings are designed to look pythonistic, it should be
 straightforward::

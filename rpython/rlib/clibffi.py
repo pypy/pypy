@@ -64,38 +64,17 @@ if _WIN32:
 else:
     separate_module_sources = []
 
+
 if not _WIN32:
-    # On some platforms, we try to link statically libffi, which is small
-    # anyway and avoids endless troubles for installing.  On other platforms
-    # libffi.a is typically not there, so we link dynamically.
     includes = ['ffi.h']
 
     if _MAC_OS:
         pre_include_bits = ['#define MACOSX']
-    else: 
+    else:
         pre_include_bits = []
 
-    def find_libffi_a():
-        dirlist = platform.library_dirs_for_libffi_a()
-        for dir in dirlist:
-            result = os.path.join(dir, 'libffi.a')
-            if os.path.exists(result):
-                return result
-        log.WARNING("'libffi.a' not found in %s" % (dirlist,))
-        log.WARNING("trying to use the dynamic library instead...")
-        return None
-
-    path_libffi_a = None
-    if hasattr(platform, 'library_dirs_for_libffi_a'):
-        path_libffi_a = find_libffi_a()
-    if path_libffi_a is not None:
-        # platforms on which we want static linking
-        libraries = []
-        link_files = [path_libffi_a]
-    else:
-        # platforms on which we want dynamic linking
-        libraries = ['ffi']
-        link_files = []
+    libraries = ['ffi']
+    link_files = []
 
     eci = ExternalCompilationInfo(
         pre_include_bits = pre_include_bits,
@@ -357,7 +336,7 @@ CALLBACK_TP = rffi.CCallback([FFI_CIFP, rffi.VOIDP, rffi.VOIDPP, rffi.VOIDP],
                              lltype.Void)
 c_ffi_prep_closure = external('ffi_prep_closure', [FFI_CLOSUREP, FFI_CIFP,
                                                    CALLBACK_TP, rffi.VOIDP],
-                              rffi.INT)            
+                              rffi.INT)
 
 FFI_STRUCT_P = lltype.Ptr(lltype.Struct('FFI_STRUCT',
                                         ('ffistruct', FFI_TYPE_P.TO),

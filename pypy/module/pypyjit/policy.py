@@ -1,26 +1,29 @@
 from rpython.jit.codewriter.policy import JitPolicy
-from rpython.rlib.jit import JitHookInterface, Counters
 from rpython.rlib import jit_hooks
+from rpython.rlib.jit import JitHookInterface, Counters
+
 from pypy.interpreter.error import OperationError
-from pypy.module.pypyjit.interp_resop import Cache, wrap_greenkey,\
-     WrappedOp, W_JitLoopInfo
+from pypy.module.pypyjit.interp_resop import (Cache, wrap_greenkey,
+    WrappedOp, W_JitLoopInfo, wrap_oplist)
+
 
 class PyPyJitIface(JitHookInterface):
-    def on_abort(self, reason, jitdriver, greenkey, greenkey_repr):
+    def on_abort(self, reason, jitdriver, greenkey, greenkey_repr, logops, operations):
         space = self.space
         cache = space.fromcache(Cache)
         if cache.in_recursion:
             return
         if space.is_true(cache.w_abort_hook):
             cache.in_recursion = True
+            oplist_w = wrap_oplist(space, logops, operations)
             try:
                 try:
                     space.call_function(cache.w_abort_hook,
-                                        space.wrap(jitdriver.name),
-                                        wrap_greenkey(space, jitdriver,
-                                                      greenkey, greenkey_repr),
-                                        space.wrap(
-                                            Counters.counter_names[reason]))
+                        space.wrap(jitdriver.name),
+                        wrap_greenkey(space, jitdriver, greenkey, greenkey_repr),
+                        space.wrap(Counters.counter_names[reason]),
+                        space.newlist(oplist_w)
+                    )
                 except OperationError, e:
                     e.write_unraisable(space, "jit hook ", cache.w_abort_hook)
             finally:
@@ -106,7 +109,7 @@ class PyPyJitPolicy(JitPolicy):
                        'posix', '_socket', '_sre', '_lsprof', '_weakref',
                        '__pypy__', 'cStringIO', '_collections', 'struct',
                        'mmap', 'marshal', '_codecs', 'rctime', 'cppyy',
-                       '_cffi_backend', 'pyexpat', '_continuation']:
+                       '_cffi_backend', 'pyexpat', '_continuation', '_io']:
             if modname == 'pypyjit' and 'interp_resop' in rest:
                 return False
             return True

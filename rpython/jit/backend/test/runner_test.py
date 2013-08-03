@@ -6,8 +6,7 @@ from rpython.jit.metainterp.history import (AbstractFailDescr,
                                          BoxInt, Box, BoxPtr,
                                          JitCellToken, TargetToken,
                                          ConstInt, ConstPtr,
-                                         BoxObj,
-                                         ConstObj, BoxFloat, ConstFloat)
+                                         BoxFloat, ConstFloat)
 from rpython.jit.metainterp.resoperation import ResOperation, rop
 from rpython.jit.metainterp.typesystem import deref
 from rpython.jit.codewriter.effectinfo import EffectInfo
@@ -18,7 +17,7 @@ from rpython.rtyper.llinterp import LLException
 from rpython.jit.codewriter import heaptracker, longlong
 from rpython.rlib import longlong2float
 from rpython.rlib.rarithmetic import intmask, is_valid_int
-from rpython.jit.backend.detect_cpu import autodetect_main_model_and_size
+from rpython.jit.backend.detect_cpu import autodetect
 from rpython.jit.backend.llsupport import jitframe
 
 
@@ -41,8 +40,8 @@ random_gcref = lltype.cast_opaque_ptr(llmemory.GCREF,
 
 class Runner(object):
 
-    add_loop_instruction = ['overload for a specific cpu']
-    bridge_loop_instruction = ['overload for a specific cpu']
+    add_loop_instructions = ['overload for a specific cpu']
+    bridge_loop_instructions = ['overload for a specific cpu']
 
     def execute_operation(self, opname, valueboxes, result_type, descr=None):
         inputargs, operations = self._get_single_operation_list(opname,
@@ -55,7 +54,7 @@ class Runner(object):
         for box in inputargs:
             if isinstance(box, BoxInt):
                 args.append(box.getint())
-            elif isinstance(box, (BoxPtr, BoxObj)):
+            elif isinstance(box, BoxPtr):
                 args.append(box.getref_base())
             elif isinstance(box, BoxFloat):
                 args.append(box.getfloatstorage())
@@ -1911,6 +1910,31 @@ class LLtypeBackendTest(BaseBackendTest):
                                      [BoxPtr(x)], 'int').value
         assert res == -19
 
+    def test_cast_int_to_float(self):
+        if not self.cpu.supports_floats:
+            py.test.skip("requires floats")
+        for x in [-10, -1, 0, 3, 42, sys.maxint-1]:
+            res = self.execute_operation(rop.CAST_INT_TO_FLOAT,
+                                         [BoxInt(x)],  'float').value
+            assert longlong.getrealfloat(res) == float(x)
+            # --- the front-end never generates CAST_INT_TO_FLOAT(Const)
+            #res = self.execute_operation(rop.CAST_INT_TO_FLOAT,
+            #                             [ConstInt(x)],  'float').value
+            #assert longlong.getrealfloat(res) == float(x)
+
+    def test_cast_float_to_int(self):
+        if not self.cpu.supports_floats:
+            py.test.skip("requires floats")
+        for x in [-24.23, -5.3, 0.0, 3.1234, 11.1, 0.1]:
+            v = longlong.getfloatstorage(x)
+            res = self.execute_operation(rop.CAST_FLOAT_TO_INT,
+                                         [BoxFloat(v)],  'int').value
+            assert res == int(x)
+            # --- the front-end never generates CAST_FLOAT_TO_INT(Const)
+            #res = self.execute_operation(rop.CAST_FLOAT_TO_INT,
+            #                             [ConstFloat(v)],  'int').value
+            #assert res == int(x)
+
     def test_convert_float_bytes(self):
         if not self.cpu.supports_floats:
             py.test.skip("requires floats")
@@ -2241,6 +2265,43 @@ class LLtypeBackendTest(BaseBackendTest):
                     value |= 32768
                 assert s.data.tid == value
 
+    def test_cond_call(self):
+        def func_void(*args):
+            called.append(args)
+
+        for i in range(5):
+            called = []
+        
+            FUNC = self.FuncType([lltype.Signed] * i, lltype.Void)
+            func_ptr = llhelper(lltype.Ptr(FUNC), func_void)
+            calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                                             EffectInfo.MOST_GENERAL)
+
+            ops = '''
+            [i0, i1, i2, i3, i4, i5, i6, f0, f1]
+            cond_call(i1, ConstClass(func_ptr), %s)
+            guard_false(i0, descr=faildescr) [i1, i2, i3, i4, i5, i6, f0, f1]
+            ''' % ', '.join(['i%d' % (j + 2) for j in range(i)] + ["descr=calldescr"])
+            loop = parse(ops, namespace={'faildescr': BasicFailDescr(),
+                                         'func_ptr': func_ptr,
+                                         'calldescr': calldescr})
+            looptoken = JitCellToken()
+            self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+            f1 = longlong.getfloatstorage(1.2)
+            f2 = longlong.getfloatstorage(3.4)
+            frame = self.cpu.execute_token(looptoken, 1, 0, 1, 2, 3, 4, 5, f1, f2)
+            assert not called
+            for j in range(5):
+                assert self.cpu.get_int_value(frame, j) == j
+            assert longlong.getrealfloat(self.cpu.get_float_value(frame, 6)) == 1.2
+            assert longlong.getrealfloat(self.cpu.get_float_value(frame, 7)) == 3.4
+            frame = self.cpu.execute_token(looptoken, 1, 1, 1, 2, 3, 4, 5, f1, f2)
+            assert called == [tuple(range(1, i + 1))]
+            for j in range(4):
+                assert self.cpu.get_int_value(frame, j + 1) == j + 1
+            assert longlong.getrealfloat(self.cpu.get_float_value(frame, 6)) == 1.2
+            assert longlong.getrealfloat(self.cpu.get_float_value(frame, 7)) == 3.4
+
     def test_force_operations_returning_void(self):
         values = []
         def maybe_force(token, flag):
@@ -2531,6 +2592,219 @@ class LLtypeBackendTest(BaseBackendTest):
         assert self.cpu.get_int_value(deadframe, 0) == len(cwd)
         assert rffi.charp2strn(buffer, buflen) == cwd
         lltype.free(buffer, flavor='raw')
+
+    def test_call_release_gil_return_types(self):
+        from rpython.rlib.libffi import types
+        from rpython.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
+        from rpython.rlib.rarithmetic import r_singlefloat
+        cpu = self.cpu
+
+        for ffitype, result, TP in [
+            (types.ulong,  r_uint(sys.maxint + 10), lltype.Unsigned),
+            (types.slong,  -4321, lltype.Signed),
+            (types.uint8,  200, rffi.UCHAR),
+            (types.sint8,  -42, rffi.SIGNEDCHAR),
+            (types.uint16, 50000, rffi.USHORT),
+            (types.sint16, -20000, rffi.SHORT),
+            (types.uint32, r_uint(3000000000), rffi.UINT),
+            (types.sint32, -2000000000, rffi.INT),
+            (types.uint64, r_ulonglong(9999999999999999999),
+                                                   lltype.UnsignedLongLong),
+            (types.sint64, r_longlong(-999999999999999999),
+                                                   lltype.SignedLongLong),
+            (types.double, 12.3475226, rffi.DOUBLE),
+            (types.float,  r_singlefloat(-592.75), rffi.FLOAT),
+            ]:
+            if sys.maxint < 2**32 and TP in (lltype.SignedLongLong,
+                                             lltype.UnsignedLongLong):
+                if not cpu.supports_longlong:
+                    continue
+            if TP == rffi.DOUBLE:
+                if not cpu.supports_floats:
+                    continue
+            if TP == rffi.FLOAT:
+                if not cpu.supports_singlefloats:
+                    continue
+            #
+            result = rffi.cast(TP, result)
+            #
+            def pseudo_c_function():
+                return result
+            #
+            FPTR = self.Ptr(self.FuncType([], TP))
+            func_ptr = llhelper(FPTR, pseudo_c_function)
+            funcbox = self.get_funcbox(cpu, func_ptr)
+            calldescr = cpu._calldescr_dynamic_for_tests([], ffitype)
+            faildescr = BasicFailDescr(1)
+            kind = types.getkind(ffitype)
+            if kind in 'uis':
+                b3 = BoxInt()
+            elif kind in 'fUI':
+                b3 = BoxFloat()
+            else:
+                assert 0, kind
+            #
+            ops = [
+                ResOperation(rop.CALL_RELEASE_GIL, [funcbox], b3,
+                             descr=calldescr),
+                ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
+                ResOperation(rop.FINISH, [b3], None, descr=BasicFinalDescr(0))
+                ]
+            ops[1].setfailargs([])
+            looptoken = JitCellToken()
+            self.cpu.compile_loop([], ops, looptoken)
+
+            deadframe = self.cpu.execute_token(looptoken)
+            fail = self.cpu.get_latest_descr(deadframe)
+            assert fail.identifier == 0
+            if isinstance(b3, BoxInt):
+                r = self.cpu.get_int_value(deadframe, 0)
+                if isinstance(result, r_singlefloat):
+                    assert -sys.maxint-1 <= r <= 0xFFFFFFFF
+                    r, = struct.unpack("f", struct.pack("I", r & 0xFFFFFFFF))
+                    result = float(result)
+                else:
+                    r = rffi.cast(TP, r)
+                assert r == result
+            elif isinstance(b3, BoxFloat):
+                r = self.cpu.get_float_value(deadframe, 0)
+                if isinstance(result, float):
+                    r = longlong.getrealfloat(r)
+                else:
+                    r = rffi.cast(TP, r)
+                assert r == result
+
+    def test_call_release_gil_variable_function_and_arguments(self):
+        from rpython.rlib.libffi import types
+        from rpython.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
+        from rpython.rlib.rarithmetic import r_singlefloat
+
+        cpu = self.cpu
+        rnd = random.Random(525)
+
+        ALL_TYPES = [
+            (types.ulong,  lltype.Unsigned),
+            (types.slong,  lltype.Signed),
+            (types.uint8,  rffi.UCHAR),
+            (types.sint8,  rffi.SIGNEDCHAR),
+            (types.uint16, rffi.USHORT),
+            (types.sint16, rffi.SHORT),
+            (types.uint32, rffi.UINT),
+            (types.sint32, rffi.INT),
+            ]
+        if sys.maxint < 2**32 and cpu.supports_longlong:
+            ALL_TYPES += [
+                (types.uint64, lltype.UnsignedLongLong),
+                (types.sint64, lltype.SignedLongLong),
+                ] * 2
+        if cpu.supports_floats:
+            ALL_TYPES += [
+                (types.double, rffi.DOUBLE),
+                ] * 4
+        if cpu.supports_singlefloats:
+            ALL_TYPES += [
+                (types.float,  rffi.FLOAT),
+                ] * 4
+
+        for k in range(100):
+            POSSIBLE_TYPES = [rnd.choice(ALL_TYPES)
+                              for i in range(random.randrange(2, 5))]
+            load_factor = rnd.random()
+            keepalive_factor = rnd.random()
+            #
+            def pseudo_c_function(*args):
+                seen.append(list(args))
+            #
+            ffitypes = []
+            ARGTYPES = []
+            for i in range(rnd.randrange(4, 20)):
+                ffitype, TP = rnd.choice(POSSIBLE_TYPES)
+                ffitypes.append(ffitype)
+                ARGTYPES.append(TP)
+            #
+            FPTR = self.Ptr(self.FuncType(ARGTYPES, lltype.Void))
+            func_ptr = llhelper(FPTR, pseudo_c_function)
+            funcbox = self.get_funcbox(cpu, func_ptr)
+            calldescr = cpu._calldescr_dynamic_for_tests(ffitypes, types.void)
+            faildescr = BasicFailDescr(1)
+            #
+            argboxes = [BoxInt()]   # for the function to call
+            codes = ['X']
+            for ffitype in ffitypes:
+                kind = types.getkind(ffitype)
+                codes.append(kind)
+                if kind in 'uis':
+                    b1 = BoxInt()
+                elif kind in 'fUI':
+                    b1 = BoxFloat()
+                else:
+                    assert 0, kind
+                argboxes.append(b1)
+            codes = ''.join(codes)     # useful for pdb
+            print
+            print codes
+            #
+            argvalues = [funcbox.getint()]
+            for TP in ARGTYPES:
+                r = (rnd.random() - 0.5) * 999999999999.9
+                r = rffi.cast(TP, r)
+                argvalues.append(r)
+            #
+            argvalues_normal = argvalues[:1]
+            for ffitype, r in zip(ffitypes, argvalues[1:]):
+                kind = types.getkind(ffitype)
+                if kind in 'ui':
+                    r = rffi.cast(lltype.Signed, r)
+                elif kind in 's':
+                    r, = struct.unpack("i", struct.pack("f", float(r)))
+                elif kind in 'f':
+                    r = longlong.getfloatstorage(r)
+                elif kind in 'UI':   # 32-bit only
+                    r = rffi.cast(lltype.SignedLongLong, r)
+                else:
+                    assert 0
+                argvalues_normal.append(r)
+            #
+            ops = []
+            loadcodes = []
+            insideboxes = []
+            for b1 in argboxes:
+                load = rnd.random() < load_factor
+                loadcodes.append(' ^'[load])
+                if load:
+                    b2 = b1.clonebox()
+                    ops.insert(rnd.randrange(0, len(ops)+1),
+                               ResOperation(rop.SAME_AS, [b1], b2))
+                    b1 = b2
+                insideboxes.append(b1)
+            loadcodes = ''.join(loadcodes)
+            print loadcodes
+            ops += [
+                ResOperation(rop.CALL_RELEASE_GIL, insideboxes, None,
+                             descr=calldescr),
+                ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
+                ResOperation(rop.FINISH, [], None, descr=BasicFinalDescr(0))
+                ]
+            ops[-2].setfailargs([])
+            # keep alive a random subset of the insideboxes
+            for b1 in insideboxes:
+                if rnd.random() < keepalive_factor:
+                    ops.insert(-1, ResOperation(rop.SAME_AS, [b1],
+                                                b1.clonebox()))
+            looptoken = JitCellToken()
+            self.cpu.compile_loop(argboxes, ops, looptoken)
+            #
+            seen = []
+            deadframe = self.cpu.execute_token(looptoken, *argvalues_normal)
+            fail = self.cpu.get_latest_descr(deadframe)
+            assert fail.identifier == 0
+            expected = argvalues[1:]
+            [got] = seen
+            different_values = ['%r != %r' % (a, b)
+                                    for a, b in zip(got, expected)
+                                        if a != b]
+            assert got == expected, ', '.join(different_values)
+
 
     def test_guard_not_invalidated(self):
         cpu = self.cpu
@@ -3539,7 +3813,7 @@ class LLtypeBackendTest(BaseBackendTest):
                                               looptoken)
         self.cpu.assembler.set_debug(True) # always on untranslated
         assert info.asmlen != 0
-        cpuname = autodetect_main_model_and_size()
+        cpuname = autodetect()
         # XXX we have to check the precise assembler, otherwise
         # we don't quite know if borders are correct
 

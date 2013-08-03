@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Tests for _sqlite3.py"""
 
 import pytest, sys
@@ -91,13 +92,13 @@ def test_cursor_iter(con):
         next(cur)
 
 def test_cursor_after_close(con):
-     cur = con.execute('select 1')
-     cur.close()
-     con.close()
-     pytest.raises(_sqlite3.ProgrammingError, "cur.close()")
-     # raises ProgrammingError because should check closed before check args
-     pytest.raises(_sqlite3.ProgrammingError, "cur.execute(1,2,3,4,5)")
-     pytest.raises(_sqlite3.ProgrammingError, "cur.executemany(1,2,3,4,5)")
+    cur = con.execute('select 1')
+    cur.close()
+    con.close()
+    pytest.raises(_sqlite3.ProgrammingError, "cur.close()")
+    # raises ProgrammingError because should check closed before check args
+    pytest.raises(_sqlite3.ProgrammingError, "cur.execute(1,2,3,4,5)")
+    pytest.raises(_sqlite3.ProgrammingError, "cur.executemany(1,2,3,4,5)")
 
 @pytest.mark.skipif("not hasattr(sys, 'pypy_translation_info')")
 def test_connection_del(tmpdir):
@@ -222,3 +223,8 @@ def test_executemany_lastrowid(con):
     cur.execute("create table test(a)")
     cur.executemany("insert into test values (?)", [[1], [2], [3]])
     assert cur.lastrowid is None
+
+def test_issue1573(con):
+    cur = con.cursor()
+    cur.execute(u'SELECT 1 as méil')
+    assert cur.description[0][0] == u"méil".encode('utf-8')

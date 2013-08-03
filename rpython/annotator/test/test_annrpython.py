@@ -740,6 +740,35 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [B])
         assert s.classdef is a.bookkeeper.getuniqueclassdef(C)
 
+    def test_union_type_some_pbc(self):
+        py.test.skip("is there a point? f() can return self.__class__ instead")
+        class A(object):
+            name = "A"
+
+            def f(self):
+                return type(self)
+
+        class B(A):
+            name = "B"
+
+        def f(tp):
+            return tp
+
+        def main(n):
+            if n:
+                if n == 1:
+                    inst = A()
+                else:
+                    inst = B()
+                arg = inst.f()
+            else:
+                arg = B
+            return f(arg).name
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(main, [int])
+        assert isinstance(s, annmodel.SomeString)
+
     def test_ann_assert(self):
         def assert_(x):
             assert x,"XXX"
@@ -3832,6 +3861,16 @@ class TestAnnotateTestCase:
             x = [0, 1, n]
             i = iter(x)
             return next(i) + next(i)
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(fn, [int])
+        assert isinstance(s, annmodel.SomeInteger)
+
+    def test_reversed(self):
+        def fn(n):
+            for elem in reversed([1, 2, 3, 4, 5]):
+                return elem
+            return n
 
         a = self.RPythonAnnotator()
         s = a.build_types(fn, [int])

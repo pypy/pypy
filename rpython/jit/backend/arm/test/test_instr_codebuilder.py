@@ -76,16 +76,16 @@ class TestInstrCodeBuilder(ASMTest):
         self.assert_equal('ASR r7, r5, #24')
 
     def test_orr_rr_no_shift(self):
-        self.cb.ORR_rr(r.r0.value, r.r7.value,r.r12.value)
+        self.cb.ORR_rr(r.r0.value, r.r7.value, r.r12.value)
         self.assert_equal('ORR r0, r7, r12')
 
     def test_orr_rr_lsl_8(self):
-        self.cb.ORR_rr(r.r0.value, r.r7.value,r.r12.value, 8)
+        self.cb.ORR_rr(r.r0.value, r.r7.value, r.r12.value, 8)
         self.assert_equal('ORR r0, r7, r12, lsl #8')
 
     def test_push_one_reg(self):
         if get_as_version() < (2, 23):
-          py.test.xfail("GNU as before version 2.23 generates encoding A1 for "
+            py.test.xfail("GNU as before version 2.23 generates encoding A1 for "
                         "pushing only one register")
         self.cb.PUSH([r.r1.value])
         self.assert_equal('PUSH {r1}')
@@ -138,6 +138,22 @@ class TestInstrCodeBuilder(ASMTest):
 
     def test_push_raises_sp(self):
         assert py.test.raises(AssertionError, 'self.cb.PUSH([r.sp.value])')
+
+    def test_stm(self):
+        self.cb.STM(r.fp.value, [reg.value for reg in r.caller_resp], cond=conditions.AL)
+        self.assert_equal('STM fp, {r0, r1, r2, r3}')
+
+    def test_ldm(self):
+        self.cb.LDM(r.fp.value, [reg.value for reg in r.caller_resp], cond=conditions.AL)
+        self.assert_equal('LDM fp, {r0, r1, r2, r3}')
+
+    def test_vstm(self):
+        self.cb.VSTM(r.fp.value, [reg.value for reg in r.caller_vfp_resp], cond=conditions.AL)
+        self.assert_equal('VSTM fp, {d0, d1, d2, d3, d4, d5, d6, d7}')
+
+    def test_vldm(self):
+        self.cb.VLDM(r.fp.value, [reg.value for reg in r.caller_vfp_resp], cond=conditions.AL)
+        self.assert_equal('VLDM fp, {d0, d1, d2, d3, d4, d5, d6, d7}')
 
     def test_pop(self):
         self.cb.POP([reg.value for reg in r.caller_resp], cond=conditions.AL)

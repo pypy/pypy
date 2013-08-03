@@ -48,8 +48,8 @@ class RawMemTests(object):
     def test_raw_storage_float(self):
         def f():
             p = alloc_raw_storage(15)
-            raw_storage_setitem(p, 3, 2.4e15)
-            res = raw_storage_getitem(lltype.Float, p, 3)
+            raw_storage_setitem(p, 4, 2.4e15)
+            res = raw_storage_getitem(lltype.Float, p, 4)
             free_raw_storage(p)
             return res
         res = self.interp_operations(f, [])

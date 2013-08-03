@@ -181,7 +181,8 @@ class W_Ufunc(W_Root):
                 temp_shape = obj_shape[:axis] + obj_shape[axis + 1:]
                 if out:
                     dtype = out.get_dtype()
-                temp = W_NDimArray.from_shape(temp_shape, dtype)
+                temp = W_NDimArray.from_shape(space, temp_shape, dtype,
+                                                w_instance=obj)
             elif keepdims:
                 shape = obj_shape[:axis] + [1] + obj_shape[axis + 1:]
             else:
@@ -207,7 +208,7 @@ class W_Ufunc(W_Root):
                         )
                 dtype = out.get_dtype()
             else:
-                out = W_NDimArray.from_shape(shape, dtype)
+                out = W_NDimArray.from_shape(space, shape, dtype, w_instance=obj)
             return loop.do_axis_reduce(shape, self.func, obj, dtype, axis, out,
                                        self.identity, cumultative, temp)
         if cumultative:
@@ -216,7 +217,7 @@ class W_Ufunc(W_Root):
                     raise OperationError(space.w_ValueError, space.wrap(
                         "out of incompatible size"))
             else:
-                out = W_NDimArray.from_shape([obj.get_size()], dtype)
+                out = W_NDimArray.from_shape(space, [obj.get_size()], dtype, w_instance=obj)
             loop.compute_reduce_cumultative(obj, out, dtype, self.func,
                                             self.identity)
             return out
@@ -295,7 +296,7 @@ class W_Ufunc1(W_Ufunc):
             return out
         shape = shape_agreement(space, w_obj.get_shape(), out,
                                 broadcast_down=False)
-        return loop.call1(shape, self.func, calc_dtype, res_dtype,
+        return loop.call1(space, shape, self.func, calc_dtype, res_dtype,
                           w_obj, out)
 
 
@@ -327,14 +328,19 @@ class W_Ufunc2(W_Ufunc):
             w_out = None
         w_lhs = convert_to_array(space, w_lhs)
         w_rhs = convert_to_array(space, w_rhs)
-        if (w_lhs.get_dtype().is_flexible_type() or \
-                w_rhs.get_dtype().is_flexible_type()):
+        w_ldtype = w_lhs.get_dtype()
+        w_rdtype = w_rhs.get_dtype()
+        if w_ldtype.is_str_type() and w_rdtype.is_str_type() and \
+           self.comparison_func:
+            pass
+        elif (w_ldtype.is_flexible_type() or \
+                w_rdtype.is_flexible_type()):
             raise OperationError(space.w_TypeError, space.wrap(
                  'unsupported operand dtypes %s and %s for "%s"' % \
-                 (w_rhs.get_dtype().get_name(), w_lhs.get_dtype().get_name(),
+                 (w_rdtype.get_name(), w_ldtype.get_name(),
                   self.name)))
         calc_dtype = find_binop_result_dtype(space,
-            w_lhs.get_dtype(), w_rhs.get_dtype(),
+            w_ldtype, w_rdtype,
             int_only=self.int_only,
             promote_to_float=self.promote_to_float,
             promote_bools=self.promote_bools,
@@ -370,7 +376,7 @@ class W_Ufunc2(W_Ufunc):
             return out
         new_shape = shape_agreement(space, w_lhs.get_shape(), w_rhs)
         new_shape = shape_agreement(space, new_shape, out, broadcast_down=False)
-        return loop.call2(new_shape, self.func, calc_dtype,
+        return loop.call2(space, new_shape, self.func, calc_dtype,
                           res_dtype, w_lhs, w_rhs, out)
 
 
@@ -450,7 +456,7 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
                 return dt2
             return dt1
         return dt2
-    else:    
+    else:
         # increase to the next signed type
         dtypenum = dt2.num + 1
     newdtype = interp_dtype.get_dtype_cache(space).dtypes_by_num[dtypenum]
@@ -537,7 +543,13 @@ def find_dtype_for_scalar(space, w_obj, current_guess=None):
         return current_guess
     if current_guess is complex_type:
         return complex_type
-    return interp_dtype.get_dtype_cache(space).w_float64dtype
+    if space.isinstance_w(w_obj, space.w_float):
+        return float_type
+    elif space.isinstance_w(w_obj, space.w_slice):
+        return long_dtype
+    raise operationerrfmt(space.w_NotImplementedError,
+        'unable to create dtype from objects, ' '"%T" instance not supported',
+        w_obj)
 
 
 def ufunc_dtype_caller(space, ufunc_name, op_name, argcount, comparison_func,
