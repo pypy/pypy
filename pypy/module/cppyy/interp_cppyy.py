@@ -592,11 +592,15 @@ class W_CPPDataMember(W_Root):
 
     def get(self, w_cppinstance, w_pycppclass):
         cppinstance = self.space.interp_w(W_CPPInstance, w_cppinstance, can_be_None=True)
+        if not cppinstance:
+            raise OperationError(self.space.w_ReferenceError, self.space.wrap("attribute access requires an instance")) 
         offset = self._get_offset(cppinstance)
         return self.converter.from_memory(self.space, w_cppinstance, w_pycppclass, offset)
 
     def set(self, w_cppinstance, w_value):
         cppinstance = self.space.interp_w(W_CPPInstance, w_cppinstance, can_be_None=True)
+        if not cppinstance:
+            raise OperationError(self.space.w_ReferenceError, self.space.wrap("attribute access requires an instance"))
         offset = self._get_offset(cppinstance)
         self.converter.to_memory(self.space, w_cppinstance, w_value, offset)
         return self.space.w_None
