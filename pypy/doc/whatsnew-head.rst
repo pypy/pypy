@@ -48,3 +48,7 @@ Added some addition tests for statvfs.
 Allow subclassing ndarray, i.e. matrix
 
 .. branch: kill-ootype
+
+.. branch: kill-typesystem
+Remove the "type system" abstraction, now that there is only ever one kind of
+type system used.
