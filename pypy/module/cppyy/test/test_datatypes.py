@@ -105,6 +105,13 @@ class AppTestDATATYPES:
         raises(IndexError, c.m_float_array.__getitem__,  self.N)
         raises(IndexError, c.m_double_array.__getitem__, self.N)
 
+        # can not access an instance member on the class
+        raises(ReferenceError, getattr, cppyy_test_data, 'm_bool')
+        raises(ReferenceError, getattr, cppyy_test_data, 'm_int')
+
+        assert not hasattr(cppyy_test_data, 'm_bool')
+        assert not hasattr(cppyy_test_data, 'm_int')
+
         c.destruct()
 
     def test03_instance_data_write_access(self):
