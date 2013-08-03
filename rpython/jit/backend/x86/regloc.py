@@ -599,6 +599,7 @@ class LocationCodeBuilder(object):
     TEST8 = _binaryop('TEST8')
     BTS = _binaryop('BTS')
 
+    INC = _unaryop('INC')
     ADD = _binaryop('ADD')
     SUB = _binaryop('SUB')
     IMUL = _binaryop('IMUL')

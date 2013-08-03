@@ -1610,14 +1610,11 @@ class Assembler386(BaseAssembler):
         self.load_from_mem(resloc, src_addr, fieldsize_loc, sign_loc)
 
     def genop_discard_increment_debug_counter(self, op, arglocs):
-        assert IS_X86_64
-        # I'm getting lazy. mem_reg_plus_const does not support 
-        # ebp as a register, but that is what we get from the regalloc
-        # (mostly?) -> change to SCRATCH_REG
+        # base_loc and ofs_loc should be immediates, but maybe not
+        # fitting in 32-bit
         base_loc, ofs_loc, size_loc = arglocs
-        self.mc.MOV(X86_64_SCRATCH_REG, base_loc)
-        self.mc.INC_m((X86_64_SCRATCH_REG.value, ofs_loc.getint()))
-    
+        self.mc.INC(addr_add(base_loc, ofs_loc))
+
     def genop_discard_setfield_gc(self, op, arglocs):
         base_loc, ofs_loc, size_loc, value_loc = arglocs
         assert isinstance(size_loc, ImmedLoc)
