@@ -428,11 +428,16 @@ class AppTestDATATYPES:
         c = cppyy_test_data()
         assert isinstance(c, cppyy_test_data)
 
-        # TODO: test that the enum is accessible as a type
+        # test that the enum is accessible as a type
+        assert cppyy_test_data.what
 
         assert cppyy_test_data.kNothing   ==   6
         assert cppyy_test_data.kSomething == 111
         assert cppyy_test_data.kLots      ==  42
+
+        assert cppyy_test_data.what(cppyy_test_data.kNothing) == cppyy_test_data.kNothing
+        assert cppyy_test_data.what(6) == cppyy_test_data.kNothing
+        # TODO: only allow instantiations with correct values (C++11)
 
         assert c.get_enum() == cppyy_test_data.kNothing
         assert c.m_enum == cppyy_test_data.kNothing
@@ -455,6 +460,7 @@ class AppTestDATATYPES:
         assert cppyy_test_data.s_enum == cppyy_test_data.kSomething
 
         # global enums
+        assert gbl.fruit          # test type accessible
         assert gbl.kApple  == 78
         assert gbl.kBanana == 29
         assert gbl.kCitrus == 34
