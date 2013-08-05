@@ -2553,8 +2553,6 @@ class MetaInterp(object):
                                                         virtualizable)
             self.virtualizable_boxes.append(virtualizable_box)
 
-            vinfo = self.jitdriver_sd.virtualizable_info
-
     def gen_store_back_in_vable(self, box):
         vinfo = self.jitdriver_sd.virtualizable_info
         if vinfo is not None:
