@@ -158,8 +158,7 @@ class AbstractResOp(object):
         return rop._MALLOC_FIRST <= self.getopnum() <= rop._MALLOC_LAST
 
     def can_malloc(self):
-        return (rop._CANMALLOC_FIRST <= self.getopnum() <= rop._CANMALLOC_LAST
-                or self.is_call())
+        return self.is_call() or self.is_malloc()
 
     def is_call(self):
         return rop._CALL_FIRST <= self.getopnum() <= rop._CALL_LAST
@@ -479,7 +478,6 @@ _oplist = [
     'RAW_LOAD/2d',
     'GETFIELD_GC/1d',
     'GETFIELD_RAW/1d',
-    '_CANMALLOC_FIRST',
     '_MALLOC_FIRST',
     'NEW/0d',
     'NEW_WITH_VTABLE/1',
@@ -487,7 +485,6 @@ _oplist = [
     'NEWSTR/1',
     'NEWUNICODE/1',
     '_MALLOC_LAST',
-    '_CANMALLOC_LAST',
     'FORCE_TOKEN/0',
     'VIRTUAL_REF/2',         # removed before it's passed to the backend
     'READ_TIMESTAMP/0',
