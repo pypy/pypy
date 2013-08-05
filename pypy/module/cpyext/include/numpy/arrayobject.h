@@ -85,16 +85,17 @@ enum NPY_TYPES {    NPY_BOOL=0,
 #ifndef PyArray_NDIM
 
 #define PyArray_ISCONTIGUOUS(arr) (1)
-#define PyArray_Check(arr) (1)
 
-#define PyArray_NDIM     _PyArray_NDIM
-#define PyArray_DIM      _PyArray_DIM
-#define PyArray_STRIDE   _PyArray_STRIDE
-#define PyArray_SIZE     _PyArray_SIZE
-#define PyArray_ITEMSIZE _PyArray_ITEMSIZE
-#define PyArray_NBYTES   _PyArray_NBYTES
-#define PyArray_TYPE     _PyArray_TYPE
-#define PyArray_DATA     _PyArray_DATA
+#define PyArray_Check      _PyArray_Check
+#define PyArray_CheckExact _PyArray_CheckExact
+#define PyArray_NDIM       _PyArray_NDIM
+#define PyArray_DIM        _PyArray_DIM
+#define PyArray_STRIDE     _PyArray_STRIDE
+#define PyArray_SIZE       _PyArray_SIZE
+#define PyArray_ITEMSIZE   _PyArray_ITEMSIZE
+#define PyArray_NBYTES     _PyArray_NBYTES
+#define PyArray_TYPE       _PyArray_TYPE
+#define PyArray_DATA       _PyArray_DATA
 
 #define PyArray_Size PyArray_SIZE
 #define PyArray_BYTES(arr) ((char *)PyArray_DATA(arr))

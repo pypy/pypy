@@ -24,6 +24,14 @@ NULL = lltype.nullptr(rffi.VOIDP.TO)
 
 class TestNDArrayObject(BaseApiTest):
 
+    def test_Check(self, space, api):
+        a = array(space, [10, 5, 3])
+        x = space.wrap(10.)
+        assert api._PyArray_Check(a)
+        assert api._PyArray_CheckExact(a)
+        assert not api._PyArray_Check(x)
+        assert not api._PyArray_CheckExact(x)
+
     def test_NDIM(self, space, api):
         a = array(space, [10, 5, 3])
         assert api._PyArray_NDIM(a) == 3

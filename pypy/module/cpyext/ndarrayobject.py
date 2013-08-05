@@ -12,6 +12,20 @@ from rpython.rlib.rawstorage import RAW_STORAGE_PTR
 
 # the asserts are needed, otherwise the translation fails
 
+@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
+def _PyArray_Check(space, w_obj):
+    w_obj_type = space.type(w_obj)
+    w_type = space.gettypeobject(W_NDimArray.typedef)
+    return (space.is_w(w_obj_type, w_type) or
+            space.is_true(space.issubtype(w_obj_type, w_type)))
+
+@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
+def _PyArray_CheckExact(space, w_obj):
+    w_obj_type = space.type(w_obj)
+    w_type = space.gettypeobject(W_NDimArray.typedef)
+    return space.is_w(w_obj_type, w_type)
+
+
 @cpython_api([PyObject], Py_ssize_t, error=CANNOT_FAIL)
 def _PyArray_NDIM(space, w_array):
     assert isinstance(w_array, W_NDimArray)
