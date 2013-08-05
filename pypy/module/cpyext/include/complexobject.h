@@ -28,7 +28,7 @@ Py_LOCAL_INLINE(Py_complex) PyComplex_AsCComplex(PyObject *obj)
 // shmuller 2013/07/30: Make a function, since macro will fail in C++ due to 
 //                      const correctness if called with "const Py_complex"
 //#define PyComplex_FromCComplex(c) _PyComplex_FromCComplex(&c)
-Py_LOCAL_INLINE(PyObject) *PyComplex_FromCComplex(Py_complex c) {
+Py_LOCAL_INLINE(PyObject *) PyComplex_FromCComplex(Py_complex c) {
     return _PyComplex_FromCComplex(&c);
 }
 
