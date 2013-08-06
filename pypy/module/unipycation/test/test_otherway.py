@@ -47,6 +47,8 @@ class AppTestCoreEngine(object):
         e = unipycation.CoreEngine("""
             f(L, X) :-
                 python:f(L, X).
+            method(L, X) :-
+                L:f(X).
                 """,
             {"f": returnx})
         X = unipycation.Var()
@@ -54,3 +56,9 @@ class AppTestCoreEngine(object):
         sol = e.query_single(t, [X])
 
         assert sol[X] == 16
+
+        X = unipycation.Var()
+        t = unipycation.Term('method', [a, X])
+        sol = e.query_single(t, [X])
+
+        assert sol[X] == 17

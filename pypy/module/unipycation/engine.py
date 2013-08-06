@@ -200,14 +200,29 @@ class W_CoreEngine(W_Root):
                 raise
             return self.space.w_None
 
-    @jit.unroll_safe
     def python_call_from_prolog(self, p_term, scont, fcont, heap):
         space = self.space
         if self.w_python_namespace is None:
             raise OperationError(
                     space.w_TypeError,
                     space.wrap("no python namespace given in CoreEngine constructor"))
+        args_w, returnarg = self._prepare_python_call_args(p_term)
+        w_func = space.getitem(self.w_python_namespace,
+                                    space.wrap(p_term.name()))
+        w_res = space.call(w_func, space.newlist(args_w))
+        return self._return_python_result(w_res, returnarg, scont, fcont, heap)
 
+    def python_method_call_from_prolog(self, p_obj, p_term, scont, fcont, heap):
+        space = self.space
+        w_obj = conversion.w_of_p(space, p_obj)
+        args_w, returnarg = self._prepare_python_call_args(p_term)
+        w_meth = space.getattr(w_obj, space.wrap(p_term.name()))
+        w_res = space.call(w_meth, space.newlist(args_w))
+        return self._return_python_result(w_res, returnarg, scont, fcont, heap)
+
+    @jit.unroll_safe
+    def _prepare_python_call_args(self, p_term):
+        space = self.space
         numargs = p_term.argument_count()
         if numargs == 0:
             raise OperationError(
@@ -216,9 +231,10 @@ class W_CoreEngine(W_Root):
         returnarg = p_term.argument_at(numargs - 1)
         args_w = [conversion.w_of_p(space, p_term.argument_at(i))
                     for i in range(numargs - 1)]
-        w_func = space.getitem(self.w_python_namespace,
-                                    space.wrap(p_term.name()))
-        w_res = space.call(w_func, space.newlist(args_w))
+        return args_w, returnarg
+
+    def _return_python_result(self, w_res, returnarg, scont, fcont, heap):
+        space = self.space
         if space.findattr(w_res, space.wrap("next")) is not None:
             # many solutions
             return continue_python_iter(
