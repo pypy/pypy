@@ -65,8 +65,9 @@ def compile_extension_module(space, modname, symbols, **kwds):
     return str(pydname)
 
 class AppTestCrossing(AppTestCpythonExtensionBase):
-    spaceconfig = dict(usemodules=['cpyext', 'cppyy', 'thread', '_rawffi', '_ffi',
-                                   'array', 'itertools', 'rctime', 'binascii'])
+    #spaceconfig = dict(usemodules=['cpyext', 'thread', '_rawffi',
+    #                               'array', 'rctime', 'binascii', 'itertools', '_ffi', 'cppyy'])
+    spaceconfig = dict(usemodules=['cppyy', '_rawffi', '_ffi', 'itertools', 'cpyext'])
 
     def setup_class(cls):
         AppTestCpythonExtensionBase.setup_class.im_func(cls)
@@ -74,7 +75,7 @@ class AppTestCrossing(AppTestCpythonExtensionBase):
         # to allow the generated extension module be loaded first)
         cls.w_test_dct    = cls.space.wrap(test_dct)
         cls.w_pre_imports = cls.space.appexec([], """():
-            import cppyy, ctypes""")    # prevents leak-checking complaints on ctypes
+            import cppyy, cpyext, ctypes""")    # prevents leak-checking complaints on ctypes
 
     def setup_method(self, func):
         AppTestCpythonExtensionBase.setup_method.im_func(self, func)

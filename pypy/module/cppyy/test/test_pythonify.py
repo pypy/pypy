@@ -16,7 +16,7 @@ def setup_module(mod):
         raise OSError("'make' failed (see stderr)")
 
 class AppTestPYTHONIFY:
-    spaceconfig = dict(usemodules=['cppyy'])
+    spaceconfig = dict(usemodules=['cppyy', '_rawffi', '_ffi', 'itertools'])
 
     def setup_class(cls):
         cls.w_test_dct  = cls.space.wrap(test_dct)
@@ -325,7 +325,7 @@ class AppTestPYTHONIFY:
 
 
 class AppTestPYTHONIFY_UI:
-    spaceconfig = dict(usemodules=['cppyy'])
+    spaceconfig = dict(usemodules=['cppyy', '_rawffi', '_ffi', 'itertools'])
 
     def setup_class(cls):
         cls.w_test_dct  = cls.space.wrap(test_dct)

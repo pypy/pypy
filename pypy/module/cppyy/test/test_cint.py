@@ -18,7 +18,7 @@ def setup_module(mod):
         raise OSError("'make' failed (see stderr)")
 
 class AppTestCINT:
-    spaceconfig = dict(usemodules=['cppyy'])
+    spaceconfig = dict(usemodules=['cppyy', '_rawffi', '_ffi', 'itertools'])
 
     def test01_globals(self):
         """Test the availability of ROOT globals"""
@@ -96,7 +96,7 @@ class AppTestCINT:
 
 
 class AppTestCINTPYTHONIZATIONS:
-    spaceconfig = dict(usemodules=['cppyy'])
+    spaceconfig = dict(usemodules=['cppyy', '_rawffi', '_ffi', 'itertools'])
 
     def test01_strings(self):
         """Test TString/TObjString compatibility"""
@@ -139,7 +139,7 @@ class AppTestCINTPYTHONIZATIONS:
 
 
 class AppTestCINTTTREE:
-    spaceconfig = dict(usemodules=['cppyy', 'array', '_rawffi', '_cffi_backend'])
+    spaceconfig = dict(usemodules=['cppyy', '_rawffi', '_ffi', 'itertools', '_cffi_backend'])
 
     def setup_class(cls):
         cls.w_N = cls.space.wrap(5)
@@ -385,7 +385,7 @@ class AppTestCINTTTREE:
 
 
 class AppTestCINTREGRESSION:
-    spaceconfig = dict(usemodules=['cppyy'])
+    spaceconfig = dict(usemodules=['cppyy', '_rawffi', '_ffi', 'itertools'])
 
     # these are tests that at some point in the past resulted in failures on
     # PyROOT; kept here to confirm no regression from PyROOT
@@ -405,7 +405,7 @@ class AppTestCINTREGRESSION:
 
 
 class AppTestSURPLUS:
-    spaceconfig = dict(usemodules=['cppyy'])
+    spaceconfig = dict(usemodules=['cppyy', '_rawffi', '_ffi', 'itertools'])
 
     # these are tests that were historically exercised on ROOT classes and
     # have twins on custom classes; kept here just in case differences crop

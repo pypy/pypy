@@ -12,7 +12,7 @@ def setup_module(mod):
         raise OSError("'make' failed (see stderr)")
 
 class AppTestDATATYPES:
-    spaceconfig = dict(usemodules=['cppyy', 'array', '_rawffi'])
+    spaceconfig = dict(usemodules=['cppyy', '_rawffi', '_ffi', 'itertools'])
 
     def setup_class(cls):
         cls.w_N = cls.space.wrap(5)  # should be imported from the dictionary

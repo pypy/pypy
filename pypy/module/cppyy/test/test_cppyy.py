@@ -28,7 +28,7 @@ class TestCPPYYImplementation:
 
 
 class AppTestCPPYY:
-    spaceconfig = dict(usemodules=['cppyy'])
+    spaceconfig = dict(usemodules=['cppyy', '_rawffi', '_ffi', 'itertools'])
 
     def setup_class(cls):
         cls.w_example01, cls.w_payload = cls.space.unpackiterable(cls.space.appexec([], """():
