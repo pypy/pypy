@@ -1,6 +1,6 @@
 from rpython.rlib.objectmodel import specialize
 
-from prolog.interpreter import term
+from prolog.interpreter import term, error
 
 class PythonBlackBox(term.NonVar):
     TYPE_STANDARD_ORDER = 4
@@ -15,10 +15,10 @@ class PythonBlackBox(term.NonVar):
     def basic_unify(self, other, heap, occurs_check):
         if isinstance(other, PythonBlackBox) and self.space.is_w(other.obj, self.obj):
             return
-        raise UnificationFailed
+        raise error.UnificationFailed
 
     def copy_and_basic_unify(self, other, heap, env):
-        if isinstance(other, Number) and other.num == self.num:
+        if isinstance(other, PythonBlackBox) and self.space.is_w(other.obj, self.obj):
             return self
         else:
             raise UnificationFailed
@@ -34,7 +34,7 @@ class PythonBlackBox(term.NonVar):
 
     def quick_unify_check(self, other):
         other = other.dereference(None)
-        if isinstance(other, Var):
+        if isinstance(other, term.Var):
             return True
         return isinstance(other, PythonBlackBox)
 
