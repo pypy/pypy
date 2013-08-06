@@ -4,18 +4,21 @@ from rpython.rtyper.rclass import FieldListAccessor
 from rpython.rtyper.lltypesystem.rclass import InstanceRepr
 
 
-class Virtualizable2InstanceRepr(InstanceRepr):
+class VirtualizableInstanceRepr(InstanceRepr):
 
     def _super(self):
-        return super(Virtualizable2InstanceRepr, self)
+        return super(VirtualizableInstanceRepr, self)
 
     def __init__(self, rtyper, classdef):
         self._super().__init__(rtyper, classdef)
         classdesc = classdef.classdesc
         if '_virtualizable2_' in classdesc.classdict:
+            raise Exception("_virtualizable2_ is now called _virtualizable_, "
+                            "please rename")
+        if '_virtualizable_' in classdesc.classdict:
             basedesc = classdesc.basedesc
             assert basedesc is None or basedesc.lookup(
-                '_virtualizable2_') is None
+                '_virtualizable_') is None
             self.top_of_virtualizable_hierarchy = True
             self.accessor = FieldListAccessor()
         else:
@@ -29,13 +32,13 @@ class Virtualizable2InstanceRepr(InstanceRepr):
 
     def _setup_repr(self):
         if self.top_of_virtualizable_hierarchy:
-            hints = {'virtualizable2_accessor': self.accessor}
+            hints = {'virtualizable_accessor': self.accessor}
             llfields = self._setup_repr_llfields()
             if llfields:
                 self._super()._setup_repr(llfields, hints=hints)
             else:
-                self._super()._setup_repr(hints=hints)
-            c_vfields = self.classdef.classdesc.classdict['_virtualizable2_']
+                self._super()._setup_repr(hints = hints)
+            c_vfields = self.classdef.classdesc.classdict['_virtualizable_']
             self.my_redirected_fields = self._parse_field_list(c_vfields.value,
                                                                self.accessor)
         else:

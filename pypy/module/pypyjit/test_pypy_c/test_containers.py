@@ -87,7 +87,7 @@ class TestDicts(BaseTestPyPyC):
             i8 = int_lt(i5, i7)
             guard_true(i8, descr=...)
             guard_not_invalidated(descr=...)
-            p10 = call(ConstClass(ll_int_str), i5, descr=<Callr . i EF=3>)
+            p10 = call(ConstClass(ll_str__IntegerR_SignedConst_Signed), i5, descr=<Callr . i EF=3>)
             guard_no_exception(descr=...)
             i12 = call(ConstClass(ll_strhash), p10, descr=<Calli . r EF=0>)
             p13 = new(descr=...)

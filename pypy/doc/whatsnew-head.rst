@@ -66,3 +66,10 @@ branch
 .. branch: kill-typesystem
 Remove the "type system" abstraction, now that there is only ever one kind of
 type system used.
+
+.. branch: kill-gen-store-back-in
+Kills gen_store_back_in_virtualizable - should improve non-inlined calls by
+a bit
+
+.. branch: dotviewer-linewidth
+.. branch: reflex-support
