@@ -794,7 +794,7 @@ class RecursiveTests:
             return frame.thing.val
 
         res = self.meta_interp(main, [0], inline=True)
-        self.check_resops(cond_call=2)
+        self.check_resops(call=0, cond_call=0) # got removed by optimization
         assert res == main(0)
 
     def test_directly_call_assembler_virtualizable_reset_token(self):
