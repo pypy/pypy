@@ -76,24 +76,24 @@ def getinstancerepr(rtyper, classdef, default_flavor='gc'):
 
 
 def buildinstancerepr(rtyper, classdef, gcflavor='gc'):
-    from rpython.rtyper.rvirtualizable2 import Virtualizable2InstanceRepr
+    from rpython.rtyper.rvirtualizable import VirtualizableInstanceRepr
 
     if classdef is None:
         unboxed = []
-        virtualizable2 = False
+        virtualizable = False
     else:
         unboxed = [subdef for subdef in classdef.getallsubdefs()
                           if subdef.classdesc.pyobj is not None and
                              issubclass(subdef.classdesc.pyobj, UnboxedValue)]
-        virtualizable2 = classdef.classdesc.read_attribute('_virtualizable2_',
+        virtualizable = classdef.classdesc.read_attribute('_virtualizable_',
                                                            Constant(False)).value
     config = rtyper.annotator.translator.config
     usetagging = len(unboxed) != 0 and config.translation.taggedpointers
 
-    if virtualizable2:
+    if virtualizable:
         assert len(unboxed) == 0
         assert gcflavor == 'gc'
-        return Virtualizable2InstanceRepr(rtyper, classdef)
+        return VirtualizableInstanceRepr(rtyper, classdef)
     elif usetagging:
         # the UnboxedValue class and its parent classes need a
         # special repr for their instances
@@ -301,7 +301,7 @@ class AbstractInstanceRepr(Repr):
                         fieldname, base, self))
 
     def hook_access_field(self, vinst, cname, llops, flags):
-        pass        # for virtualizables; see rvirtualizable2.py
+        pass        # for virtualizables; see rvirtualizable.py
 
     def hook_setfield(self, vinst, fieldname, llops):
         if self.is_quasi_immutable(fieldname):

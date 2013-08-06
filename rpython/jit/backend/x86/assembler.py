@@ -79,6 +79,7 @@ class Assembler386(BaseAssembler):
                                                         allblocks)
         self.target_tokens_currently_compiling = {}
         self.frame_depth_to_patch = []
+        self._finish_gcmap = lltype.nullptr(jitframe.GCMAP)
 
     def teardown(self):
         self.pending_guard_tokens = None
@@ -1846,7 +1847,11 @@ class Assembler386(BaseAssembler):
         self.mov(fail_descr_loc, RawEbpLoc(ofs))
         arglist = op.getarglist()
         if arglist and arglist[0].type == REF:
-            gcmap = self.gcmap_for_finish
+            if self._finish_gcmap:
+                self._finish_gcmap[0] |= r_uint(1) # rax
+                gcmap = self._finish_gcmap
+            else:
+                gcmap = self.gcmap_for_finish
             self.push_gcmap(self.mc, gcmap, store=True)
         else:
             # note that the 0 here is redundant, but I would rather
@@ -1990,15 +1995,6 @@ class Assembler386(BaseAssembler):
         self.mc.overwrite(je_location - 1, chr(offset))
         #
         return jmp_location
-
-    def _call_assembler_reset_vtoken(self, jd, vloc):
-        from rpython.jit.backend.llsupport.descr import FieldDescr
-        fielddescr = jd.vable_token_descr
-        assert isinstance(fielddescr, FieldDescr)
-        vtoken_ofs = fielddescr.offset
-        self.mc.MOV(edx, vloc) # we know vloc is on the current frame
-        self.mc.MOV_mi((edx.value, vtoken_ofs), 0)
-        # in the line above, TOKEN_NONE = 0
 
     def _call_assembler_load_result(self, op, result_loc):
         if op.result is not None:
@@ -2325,6 +2321,15 @@ class Assembler386(BaseAssembler):
         offset = self.mc.get_relative_pos() - jmp_location
         assert 0 < offset <= 127
         self.mc.overwrite(jmp_location - 1, chr(offset))
+
+    def store_force_descr(self, op, fail_locs, frame_depth):
+        guard_token = self.implement_guard_recovery(op.opnum,
+                                                    op.getdescr(),
+                                                    op.getfailargs(),
+                                                    fail_locs, frame_depth)
+        self._finish_gcmap = guard_token.gcmap
+        self._store_force_index(op)
+        self.store_info_on_descr(0, guard_token)
 
     def force_token(self, reg):
         # XXX kill me

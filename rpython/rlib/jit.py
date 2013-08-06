@@ -66,6 +66,9 @@ def hint(x, **kwds):
                             Useful in say Frame.__init__ when we do want
                             to store things directly on it. Has to come with
                             access_directly=True
+    * force_virtualizable - a performance hint to force the virtualizable early
+                            (useful e.g. for python generators that are going
+                            to be read later anyway)
     """
     return x
 
@@ -232,7 +235,7 @@ class Entry(ExtRegistryEntry):
             if isinstance(s_x, annmodel.SomeInstance):
                 from rpython.flowspace.model import Constant
                 classdesc = s_x.classdef.classdesc
-                virtualizable = classdesc.read_attribute('_virtualizable2_',
+                virtualizable = classdesc.read_attribute('_virtualizable_',
                                                          Constant(None)).value
                 if virtualizable is not None:
                     flags = s_x.flags.copy()
