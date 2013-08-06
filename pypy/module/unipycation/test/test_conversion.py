@@ -183,9 +183,3 @@ class TestTypeConversion(object):
         w_var = objects.var_new__(self.space, W_Root, [])
         var = conv.p_of_w(self.space, w_var)
         assert type(var) == pterm.BindingVar
-
-    def test_p_of_w_fails(self):
-        w_none = self.space.wrap(None)
-        info = pytest.raises(OperationError, conv.p_of_w, self.space, w_none)
-        exn_str = info.exconly()
-        assert "ConversionError" in exn_str
