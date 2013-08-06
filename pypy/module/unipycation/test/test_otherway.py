@@ -62,3 +62,52 @@ class AppTestCoreEngine(object):
         sol = e.query_single(t, [X])
 
         assert sol[X] == 17
+
+
+    def test_attribue_chain(self):
+        import unipycation
+        def returnx(obj):
+            return obj.x
+
+        class A(object):
+            def f(self):
+                return self.x + 1
+
+        a = A()
+        a.a = a
+        a.x = 16
+
+        e = unipycation.CoreEngine("""
+            method(L, X) :-
+                L:a:a:a:f(X).
+                """,
+            {"f": returnx})
+        X = unipycation.Var()
+        t = unipycation.Term('method', [a, X])
+        sol = e.query_single(t, [X])
+
+        assert sol[X] == 17
+
+    def test_attribue_chain_python(self):
+        import unipycation
+        def returnx(obj):
+            return obj.x
+
+        class A(object):
+            def f(self):
+                return self.x + 1
+
+        a = A()
+        a.a = a
+        a.x = 16
+
+        e = unipycation.CoreEngine("""
+            method(X) :-
+                python:a:a:a:f(X).
+                """,
+            {"a": a})
+        X = unipycation.Var()
+        t = unipycation.Term('method', [X])
+        sol = e.query_single(t, [X])
+
+        assert sol[X] == 17

@@ -7,6 +7,8 @@ from prolog.interpreter import continuation
 from prolog.interpreter import error
 from prolog.interpreter import parsing
 from prolog.interpreter import term
+from prolog.interpreter import helper
+from prolog.interpreter.signature import Signature
 
 import pypy.module.unipycation.util as util
 from pypy.module.unipycation import objects, conversion
@@ -21,6 +23,7 @@ def _typecheck_list_of_vars(space, list_w, unroll):
     return [space.interp_w(objects.W_Var, w_var)
                 for w_var in list_w]
 
+colonsignature = Signature.getsignature(":", 2)
 
 class ContinuationHolder(object):
     def __init__(self):
@@ -200,24 +203,31 @@ class W_CoreEngine(W_Root):
                 raise
             return self.space.w_None
 
+    @jit.unroll_safe
     def python_call_from_prolog(self, p_term, scont, fcont, heap):
         space = self.space
         if self.w_python_namespace is None:
             raise OperationError(
                     space.w_TypeError,
                     space.wrap("no python namespace given in CoreEngine constructor"))
+        names_w, p_term = self._unwrap_name_chain(p_term)
         args_w, returnarg = self._prepare_python_call_args(p_term)
-        w_func = space.getitem(self.w_python_namespace,
-                                    space.wrap(p_term.name()))
-        w_res = space.call(w_func, space.newlist(args_w))
+        w_obj = space.getitem(self.w_python_namespace, names_w[0])
+        for i in range(1, len(names_w)):
+            w_name = names_w[i]
+            w_obj = space.getattr(w_obj, w_name)
+        w_res = space.call(w_obj, space.newlist(args_w))
         return self._return_python_result(w_res, returnarg, scont, fcont, heap)
 
+    @jit.unroll_safe
     def python_method_call_from_prolog(self, p_obj, p_term, scont, fcont, heap):
         space = self.space
         w_obj = conversion.w_of_p(space, p_obj)
+        names_w, p_term = self._unwrap_name_chain(p_term)
         args_w, returnarg = self._prepare_python_call_args(p_term)
-        w_meth = space.getattr(w_obj, space.wrap(p_term.name()))
-        w_res = space.call(w_meth, space.newlist(args_w))
+        for w_name in names_w:
+            w_obj = space.getattr(w_obj, w_name)
+        w_res = space.call(w_obj, space.newlist(args_w))
         return self._return_python_result(w_res, returnarg, scont, fcont, heap)
 
     @jit.unroll_safe
@@ -232,6 +242,17 @@ class W_CoreEngine(W_Root):
         args_w = [conversion.w_of_p(space, p_term.argument_at(i))
                     for i in range(numargs - 1)]
         return args_w, returnarg
+
+    @jit.unroll_safe
+    def _unwrap_name_chain(self, p_term):
+        space = self.space
+        result_w = []
+        while p_term.signature().eq(colonsignature):
+            name = helper.unwrap_atom(p_term.argument_at(0))
+            result_w.append(space.wrap(name))
+            p_term = p_term.argument_at(1)
+        result_w.append(space.wrap(p_term.name()))
+        return result_w, p_term
 
     def _return_python_result(self, w_res, returnarg, scont, fcont, heap):
         space = self.space
