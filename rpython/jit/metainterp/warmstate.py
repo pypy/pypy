@@ -600,7 +600,12 @@ class WarmEnterState(object):
         #
         get_location_ptr = self.jitdriver_sd._get_printable_location_ptr
         if get_location_ptr is None:
-            missing = '(no jitdriver.get_printable_location!)'
+            jitdriver = self.jitdriver_sd.jitdriver
+            if self.jitdriver_sd.jitdriver:
+                drivername = jitdriver.name
+            else:
+                drivername = '<unknown jitdriver>'
+            missing = '(%s: no get_printable_location)' % drivername
             def get_location_str(greenkey):
                 return missing
         else:
