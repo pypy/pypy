@@ -3,7 +3,6 @@ from pypy.module.cpyext.api import (
 from pypy.module.cpyext.pyobject import PyObject, Py_DecRef, make_ref, from_ref
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib import rthread
-from pypy.module.thread import os_thread
 
 PyInterpreterStateStruct = lltype.ForwardReference()
 PyInterpreterState = lltype.Ptr(PyInterpreterStateStruct)
@@ -45,7 +44,10 @@ def PyEval_RestoreThread(space, tstate):
 
 @cpython_api([], lltype.Void)
 def PyEval_InitThreads(space):
-    os_thread.setup_threads(space)
+    if space.config.translation.thread:
+        from pypy.module.thread import os_thread
+        os_thread.setup_threads(space)
+    #else: nothing to do
 
 @cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
 def PyEval_ThreadsInitialized(space):
