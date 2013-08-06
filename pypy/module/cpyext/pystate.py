@@ -16,6 +16,9 @@ PyThreadState = lltype.Ptr(cpython_struct(
      ('dict', PyObject),
      ]))
 
+class NoThreads(Exception):
+    pass
+
 @cpython_api([], PyThreadState, error=CANNOT_FAIL)
 def PyEval_SaveThread(space):
     """Release the global interpreter lock (if it has been created and thread
@@ -44,13 +47,15 @@ def PyEval_RestoreThread(space, tstate):
 
 @cpython_api([], lltype.Void)
 def PyEval_InitThreads(space):
-    if space.config.translation.thread:
-        from pypy.module.thread import os_thread
-        os_thread.setup_threads(space)
-    #else: nothing to do
+    if not space.config.translation.thread:
+        raise NoThreads
+    from pypy.module.thread import os_thread
+    os_thread.setup_threads(space)
 
 @cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
 def PyEval_ThreadsInitialized(space):
+    if not space.config.translation.thread:
+        return 0
     return 1
 
 # XXX: might be generally useful
@@ -234,6 +239,8 @@ def PyThreadState_New(space, interp):
     """Create a new thread state object belonging to the given interpreter
     object.  The global interpreter lock need not be held, but may be held if
     it is necessary to serialize calls to this function."""
+    if not space.config.translation.thread:
+        raise NoThreads
     rthread.gc_thread_prepare()
     # PyThreadState_Get will allocate a new execution context,
     # we need to protect gc and other globals with the GIL.
@@ -248,11 +255,11 @@ def PyThreadState_New(space, interp):
 def PyThreadState_Clear(space, tstate):
     """Reset all information in a thread state object.  The global
     interpreter lock must be held."""
+    if not space.config.translation.thread:
+        raise NoThreads
     Py_DecRef(space, tstate.c_dict)
     tstate.c_dict = lltype.nullptr(PyObject.TO)
-    if space.config.translation.thread:
-        space.threadlocals.leave_thread(space)
-    #else: nothing to do
+    space.threadlocals.leave_thread(space)
     space.getexecutioncontext().cleanup_cpyext_state()
     rthread.gc_thread_die()
 
