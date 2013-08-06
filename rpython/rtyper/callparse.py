@@ -137,7 +137,7 @@ class NewTupleHolder(Holder):
         return self.holders
 
     def _emit(self, repr, hop):
-        assert isinstance(repr, rtuple.AbstractTupleRepr)
+        assert isinstance(repr, rtuple.TupleRepr)
         tupleitems_v = []
         for h in self.holders:
             v = h.emit(repr.items_r[len(tupleitems_v)], hop)

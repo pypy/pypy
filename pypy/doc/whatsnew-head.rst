@@ -58,3 +58,11 @@ speeds up list.append() and list.pop().
 .. branch: foldable-getarrayitem-indexerror
 Constant-fold reading out of constant tuples in PyPy.
 
+.. branch: mro-reorder-numpypy-str
+No longer delegate numpy string_ methods to space.StringObject, in numpy
+this works by kind of by accident. Support for merging the refactor-str-types
+branch
+
+.. branch: kill-typesystem
+Remove the "type system" abstraction, now that there is only ever one kind of
+type system used.

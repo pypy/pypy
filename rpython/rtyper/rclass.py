@@ -1,9 +1,11 @@
 import types
 
+from rpython.flowspace.model import Constant
 from rpython.annotator import description, model as annmodel
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.lltypesystem.lltype import Void
 from rpython.rtyper.rmodel import Repr, getgcflavor, inputconst
+from rpython.rlib.objectmodel import UnboxedValue
 
 
 class FieldListAccessor(object):
@@ -52,7 +54,8 @@ def getclassrepr(rtyper, classdef):
     try:
         result = rtyper.class_reprs[classdef]
     except KeyError:
-        result = rtyper.type_system.rclass.ClassRepr(rtyper, classdef)
+        from rpython.rtyper.lltypesystem.rclass import ClassRepr
+        result = ClassRepr(rtyper, classdef)
         rtyper.class_reprs[classdef] = result
         rtyper.add_pendingsetup(result)
     return result
@@ -73,8 +76,7 @@ def getinstancerepr(rtyper, classdef, default_flavor='gc'):
 
 
 def buildinstancerepr(rtyper, classdef, gcflavor='gc'):
-    from rpython.rlib.objectmodel import UnboxedValue
-    from rpython.flowspace.model import Constant
+    from rpython.rtyper.rvirtualizable2 import VirtualizableInstanceRepr
 
     if classdef is None:
         unboxed = []
@@ -91,8 +93,8 @@ def buildinstancerepr(rtyper, classdef, gcflavor='gc'):
     if virtualizable:
         assert len(unboxed) == 0
         assert gcflavor == 'gc'
-        return rtyper.type_system.rvirtualizable.VirtualizableInstanceRepr(rtyper, classdef)
-    elif usetagging and rtyper.type_system.name == 'lltypesystem':
+        return VirtualizableInstanceRepr(rtyper, classdef)
+    elif usetagging:
         # the UnboxedValue class and its parent classes need a
         # special repr for their instances
         if len(unboxed) != 1:
@@ -102,7 +104,8 @@ def buildinstancerepr(rtyper, classdef, gcflavor='gc'):
         from rpython.rtyper.lltypesystem import rtagged
         return rtagged.TaggedInstanceRepr(rtyper, classdef, unboxed[0])
     else:
-        return rtyper.type_system.rclass.InstanceRepr(rtyper, classdef, gcflavor)
+        from rpython.rtyper.lltypesystem.rclass import InstanceRepr
+        return InstanceRepr(rtyper, classdef, gcflavor)
 
 
 class MissingRTypeAttribute(TyperError):

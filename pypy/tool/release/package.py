@@ -3,7 +3,7 @@
 It uses 'pypy/goal/pypy-c' and parts of the rest of the working
 copy.  Usage:
 
-    package.py root-pypy-dir [--nostrip] [--without-tk] [name-of-archive] [name-of-pypy-c] [destination-for-tarball] [pypy-c-path]
+    package.py [--nostrip] [--without-tk] root-pypy-dir [name-of-archive] [name-of-pypy-c] [destination-for-tarball] [pypy-c-path]
 
 Usually you would do:   package.py ../../.. pypy-VER-PLATFORM
 The output is found in the directory /tmp/usession-YOURNAME/build/.

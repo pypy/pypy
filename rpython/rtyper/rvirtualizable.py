@@ -1,12 +1,13 @@
 from rpython.rtyper.rmodel import inputconst, log
-from rpython.rtyper.lltypesystem import lltype
-from rpython.rtyper.rclass import AbstractInstanceRepr, FieldListAccessor
+from rpython.rtyper.lltypesystem import lltype, llmemory
+from rpython.rtyper.rclass import FieldListAccessor
+from rpython.rtyper.lltypesystem.rclass import InstanceRepr
 
 
-class AbstractVirtualizableInstanceRepr(AbstractInstanceRepr):
+class VirtualizableInstanceRepr(InstanceRepr):
 
     def _super(self):
-        return super(AbstractVirtualizableInstanceRepr, self)
+        return super(VirtualizableInstanceRepr, self)
 
     def __init__(self, rtyper, classdef):
         self._super().__init__(rtyper, classdef)
@@ -16,21 +17,25 @@ class AbstractVirtualizableInstanceRepr(AbstractInstanceRepr):
                             "please rename")
         if '_virtualizable_' in classdesc.classdict:
             basedesc = classdesc.basedesc
-            assert basedesc is None or basedesc.lookup('_virtualizable_') is None
+            assert basedesc is None or basedesc.lookup(
+                '_virtualizable_') is None
             self.top_of_virtualizable_hierarchy = True
             self.accessor = FieldListAccessor()
         else:
             self.top_of_virtualizable_hierarchy = False
 
     def _setup_repr_llfields(self):
-        raise NotImplementedError
+        llfields = []
+        if self.top_of_virtualizable_hierarchy:
+            llfields.append(('vable_token', llmemory.GCREF))
+        return llfields
 
     def _setup_repr(self):
         if self.top_of_virtualizable_hierarchy:
             hints = {'virtualizable_accessor': self.accessor}
             llfields = self._setup_repr_llfields()
             if llfields:
-                self._super()._setup_repr(llfields, hints = hints)
+                self._super()._setup_repr(llfields, hints=hints)
             else:
                 self._super()._setup_repr(hints = hints)
             c_vfields = self.classdef.classdesc.classdict['_virtualizable_']
@@ -43,7 +48,7 @@ class AbstractVirtualizableInstanceRepr(AbstractInstanceRepr):
             self.my_redirected_fields = self.rbase.my_redirected_fields
 
     def hook_access_field(self, vinst, cname, llops, flags):
-        #if not flags.get('access_directly'):
+        # if not flags.get('access_directly'):
         if self.my_redirected_fields.get(cname.value):
             cflags = inputconst(lltype.Void, flags)
             llops.genop('jit_force_virtualizable', [vinst, cname, cflags])
