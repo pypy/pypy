@@ -76,7 +76,7 @@ def getinstancerepr(rtyper, classdef, default_flavor='gc'):
 
 
 def buildinstancerepr(rtyper, classdef, gcflavor='gc'):
-    from rpython.rtyper.rvirtualizable2 import VirtualizableInstanceRepr
+    from rpython.rtyper.rvirtualizable import VirtualizableInstanceRepr
 
     if classdef is None:
         unboxed = []
