@@ -1289,7 +1289,7 @@ class ASTBuilder(object):
     def handle_listcomp(self, listcomp_node):
         elt = self.handle_expr(listcomp_node.children[0])
         comps = self.comprehension_helper(listcomp_node.children[1],
-                                          "handle_testlist",
+                                          "handle_expr",
                                           syms.comp_for, syms.comp_if,
                                           syms.comp_iter,
                                           comp_fix_unamed_tuple_location=True)
