@@ -1,5 +1,10 @@
 import py, os, sys
+
+if py.path.local.sysfind('genreflex') is None:
+    py.test.skip("genreflex is not installed")
+
 from pypy.module.cppyy import capi
+
 
 currpath = py.path.local(__file__).dirpath()
 test_dct = str(currpath.join("fragileDict.so"))
