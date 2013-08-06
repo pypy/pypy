@@ -2323,14 +2323,12 @@ class Assembler386(BaseAssembler):
             # calculate: temp = obj & FX_MASK
             assert StmGC.FX_MASK == 65535
             assert not is_frame
-            temp_loc = arglocs[1] # does not exist if is_frame!
-            mc.MOVZX16(temp_loc, loc_base)
+            mc.MOVZX16(X86_64_SCRATCH_REG, loc_base)
             # calculate: rbc + temp == obj
             rbc = self._get_stm_read_barrier_cache_addr()
             stmtlocal.tl_segment_prefix(mc)
-            mc.MOV_rj(X86_64_SCRATCH_REG.value, rbc)
-            mc.CMP_ra(loc_base.value, 
-                      (X86_64_SCRATCH_REG.value, temp_loc.value, 0, 0))
+            mc.ADD_rj(X86_64_SCRATCH_REG.value, rbc)
+            mc.CMP_rm(loc_base.value, (X86_64_SCRATCH_REG.value, 0))
             mc.J_il8(rx86.Conditions['Z'], 0) # patched below
             jz_location2 = mc.get_relative_pos()
 
