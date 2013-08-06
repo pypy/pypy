@@ -682,6 +682,11 @@ class OptVirtualize(optimizer.Optimization):
             self.do_RAW_MALLOC_VARSIZE_CHAR(op)
         elif effectinfo.oopspecindex == EffectInfo.OS_RAW_FREE:
             self.do_RAW_FREE(op)
+        elif effectinfo.oopspecindex == EffectInfo.OS_JIT_FORCE_VIRTUALIZABLE:
+            # we might end up having CALL here instead of COND_CALL
+            value = self.getvalue(op.getarg(1))
+            if value.is_virtual():
+                return
         else:
             self.emit_operation(op)
 
