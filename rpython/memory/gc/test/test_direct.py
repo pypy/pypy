@@ -583,3 +583,110 @@ class TestMiniMarkGCSimple(DirectGCTest):
 
 class TestMiniMarkGCFull(DirectGCTest):
     from rpython.memory.gc.minimark import MiniMarkGC as GCClass
+
+
+class TestIncrementalMiniMarkGCSimple(DirectGCTest):
+    from rpython.memory.gc.incminimark import IncrementalMiniMarkGC as GCClass
+    #simple arena doesnt change for incremental.
+    from rpython.memory.gc.minimarktest import SimpleArenaCollection
+    # test the GC itself, providing a simple class for ArenaCollection
+    GC_PARAMS = {'ArenaCollectionClass': SimpleArenaCollection}
+
+    def test_card_marker(self):
+        for arraylength in (range(4, 17)
+                            + [69]      # 3 bytes
+                            + [300]):   # 10 bytes
+            print 'array length:', arraylength
+            nums = {}
+            a = self.malloc(VAR, arraylength)
+            self.stackroots.append(a)
+            for i in range(50):
+                p = self.malloc(S)
+                p.x = -i
+                a = self.stackroots[-1]
+                index = (i*i) % arraylength
+                self.writearray(a, index, p)
+                nums[index] = p.x
+                #
+                for index, expected_x in nums.items():
+                    assert a[index].x == expected_x
+            self.stackroots.pop()
+    test_card_marker.GC_PARAMS = {"card_page_indices": 4}
+
+    def test_writebarrier_before_copy(self):
+        from rpython.memory.gc import incminimark
+        largeobj_size =  self.gc.nonlarge_max + 1
+        self.gc.next_major_collection_threshold = 99999.0
+        p_src = self.malloc(VAR, largeobj_size)
+        p_dst = self.malloc(VAR, largeobj_size)
+        # make them old
+        self.stackroots.append(p_src)
+        self.stackroots.append(p_dst)
+        self.gc.collect()
+        p_dst = self.stackroots.pop()
+        p_src = self.stackroots.pop()
+        #
+        addr_src = llmemory.cast_ptr_to_adr(p_src)
+        addr_dst = llmemory.cast_ptr_to_adr(p_dst)
+        hdr_src = self.gc.header(addr_src)
+        hdr_dst = self.gc.header(addr_dst)
+        #
+        assert hdr_src.tid & incminimark.GCFLAG_TRACK_YOUNG_PTRS
+        assert hdr_dst.tid & incminimark.GCFLAG_TRACK_YOUNG_PTRS
+        #
+        res = self.gc.writebarrier_before_copy(addr_src, addr_dst, 0, 0, 10)
+        assert res
+        assert hdr_dst.tid & incminimark.GCFLAG_TRACK_YOUNG_PTRS
+        #
+        hdr_src.tid &= ~incminimark.GCFLAG_TRACK_YOUNG_PTRS  # pretend we have young ptrs
+        res = self.gc.writebarrier_before_copy(addr_src, addr_dst, 0, 0, 10)
+        assert res # we optimized it
+        assert hdr_dst.tid & incminimark.GCFLAG_TRACK_YOUNG_PTRS == 0 # and we copied the flag
+        #
+        hdr_src.tid |= incminimark.GCFLAG_TRACK_YOUNG_PTRS
+        hdr_dst.tid |= incminimark.GCFLAG_TRACK_YOUNG_PTRS
+        hdr_src.tid |= incminimark.GCFLAG_HAS_CARDS
+        hdr_src.tid |= incminimark.GCFLAG_CARDS_SET
+        # hdr_dst.tid does not have minimark.GCFLAG_HAS_CARDS
+        res = self.gc.writebarrier_before_copy(addr_src, addr_dst, 0, 0, 10)
+        assert not res # there might be young ptrs, let ll_arraycopy to find them
+
+    def test_writebarrier_before_copy_preserving_cards(self):
+        from rpython.rtyper.lltypesystem import llarena
+        from rpython.memory.gc import incminimark
+        tid = self.get_type_id(VAR)
+        largeobj_size =  self.gc.nonlarge_max + 1
+        self.gc.next_major_collection_threshold = 99999.0
+        addr_src = self.gc.external_malloc(tid, largeobj_size)
+        addr_dst = self.gc.external_malloc(tid, largeobj_size)
+        hdr_src = self.gc.header(addr_src)
+        hdr_dst = self.gc.header(addr_dst)
+        #
+        assert hdr_src.tid & incminimark.GCFLAG_HAS_CARDS
+        assert hdr_dst.tid & incminimark.GCFLAG_HAS_CARDS
+        #
+        young_p = self.malloc(S)
+        self.gc.write_barrier_from_array(young_p, addr_src, 0)
+        index_in_third_page = int(2.5 * self.gc.card_page_indices)
+        assert index_in_third_page < largeobj_size
+        self.gc.write_barrier_from_array(young_p, addr_src,
+                                         index_in_third_page)
+        #
+        assert hdr_src.tid & incminimark.GCFLAG_CARDS_SET
+        addr_byte = self.gc.get_card(addr_src, 0)
+        assert ord(addr_byte.char[0]) == 0x01 | 0x04  # bits 0 and 2
+        #
+        res = self.gc.writebarrier_before_copy(addr_src, addr_dst,
+                                             0, 0, 2*self.gc.card_page_indices)
+        assert res
+        #
+        assert hdr_dst.tid & incminimark.GCFLAG_CARDS_SET
+        addr_byte = self.gc.get_card(addr_dst, 0)
+        assert ord(addr_byte.char[0]) == 0x01 | 0x04  # bits 0 and 2
+
+    test_writebarrier_before_copy_preserving_cards.GC_PARAMS = {
+        "card_page_indices": 4}
+
+
+class TestIncrementalMiniMarkGCFull(DirectGCTest):
+    from rpython.memory.gc.incminimark import IncrementalMiniMarkGC as GCClass
