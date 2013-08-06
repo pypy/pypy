@@ -1236,6 +1236,12 @@ class TestAstBuilder:
         if1, if2 = comps[0].ifs
         assert isinstance(if1, ast.Name)
         assert isinstance(if2, ast.Name)
+        gen = self.get_first_expr(brack("x for x in y or z"))
+        comp = gen.generators[0]
+        assert isinstance(comp.iter, ast.BoolOp)
+        assert len(comp.iter.values, 2)
+        assert isinstance(comp.iter.values[0], ast.Name)
+        assert isinstance(comp.iter.values[1], ast.Name)
 
     def test_genexp(self):
         self.check_comprehension("(%s)", ast.GeneratorExp)

@@ -891,6 +891,10 @@ class TestCompiler:
         py.test.raises(SyntaxError, self.simple_test, "for *a in x: pass",
                        None, None)
 
+    def test_list_compr_or(self):
+        yield self.st, 'x = list(d for d in [1] or [])', 'x', [1]
+        yield self.st, 'y = [d for d in [1] or []]', 'y', [1]
+
 
 class AppTestCompiler:
 
