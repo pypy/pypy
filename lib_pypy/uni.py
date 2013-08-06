@@ -1,3 +1,4 @@
+import sys
 from unipycation import Term, Var, CoreEngine, PrologError
 
 class InstantiationError(Exception): pass
@@ -28,8 +29,10 @@ def unpack_prolog_list(obj):
 
 class Engine(object):
     """ A wrapper around unipycation.CoreEngine. """
-    def __init__(self, db_str):
-        self.engine = CoreEngine(db_str)
+    def __init__(self, db_str, ns=None):
+        if ns is None:
+            ns = sys._getframe(1).f_globals
+        self.engine = CoreEngine(db_str, ns)
         self.db = Database(self)
         self.terms = TermPool()
 

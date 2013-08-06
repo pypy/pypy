@@ -165,6 +165,16 @@ class AppTestHighLevelInterface(object):
         info = raises(uni.PrologError, e.db.f, None)
         assert str(info.value) == "Undefined procedure: willsmith/3"
 
+    def test_call_python(self):
+        import uni
+
+        def f(x):
+            return x + 1
+
+        e = uni.Engine("f(X) :- python:f(15, X).", locals())
+        x, = e.db.f(None)
+        assert x == 16
+
     # XXX Lists inside terms need to be converted.
     def test_list_in_term(self):
         import uni

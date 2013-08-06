@@ -88,7 +88,7 @@ class AppTestCoreEngine(object):
 
         assert sol[X] == 17
 
-    def test_attribue_chain_python(self):
+    def test_attribute_chain_python(self):
         import unipycation
         def returnx(obj):
             return obj.x
