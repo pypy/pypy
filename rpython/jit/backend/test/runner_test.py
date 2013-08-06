@@ -4210,37 +4210,6 @@ class LLtypeBackendTest(BaseBackendTest):
         assert descr.identifier == 42
         assert not self.cpu.grab_exc_value(frame)
 
-    def test_force_virtualizable(self):
-
-        class FakeVinfo(object):
-            pass
-
-        def clear_vable_token(token):
-            lltype.cast_opaque_ptr(lltype.Ptr(S), token).x = 18
-
-        FUNC = lltype.FuncType([llmemory.GCREF], lltype.Void)
-        clear_vable_ptr = llhelper(lltype.Ptr(FUNC), clear_vable_token)
-        S = lltype.GcStruct('x', ('x', lltype.Signed))
-
-        pdescr = self.cpu.fielddescrof(S, 'x')
-        pdescr.vinfo = FakeVinfo()
-        pdescr.vinfo.clear_vable_token = clear_vable_token
-        pdescr.vinfo.clear_vable_ptr = clear_vable_ptr
-        pdescr.vinfo.clear_vable_descr = self.cpu.calldescrof(FUNC, FUNC.ARGS,
-          FUNC.RESULT, EffectInfo.LEAST_GENERAL)
-        loop = parse("""
-        [p0]
-        force_virtualizable(p0, descr=pdescr)
-        i1 = getfield_gc(p0, descr=pdescr)
-        finish(i1)
-        """, namespace={'pdescr': pdescr})
-        looptoken = JitCellToken()
-        self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
-        s = lltype.malloc(S)
-        s.x = 13
-        frame = self.cpu.execute_token(looptoken, lltype.cast_opaque_ptr(llmemory.GCREF, s))
-        assert self.cpu.get_int_value(frame, 0) == 18
-
     def test_setarrayitem_raw_short(self):
         # setarrayitem_raw(140737353744432, 0, 30583, descr=<ArrayS 2>)
         A = rffi.CArray(rffi.SHORT)

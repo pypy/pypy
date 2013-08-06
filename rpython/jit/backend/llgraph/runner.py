@@ -593,12 +593,11 @@ class LLDeadFrame(object):
     _TYPE = llmemory.GCREF
 
     def __init__(self, latest_descr, values,
-                 last_exception=None, saved_data=None, force_descr=None):
+                 last_exception=None, saved_data=None):
         self._latest_descr = latest_descr
         self._values = values
         self._last_exception = last_exception
         self._saved_data = saved_data
-        self.force_descr = force_descr
 
 
 class LLFrame(object):
@@ -704,24 +703,15 @@ class LLFrame(object):
             values = [value for value in values if value is not None]
             raise Jump(target, values)
         else:
-            if self.force_guard_op is not None:
-                force_descr = self.force_guard_op.getdescr()
-            else:
-                force_descr = None
             raise ExecutionFinished(LLDeadFrame(descr, values,
                                                 self.last_exception,
-                                                saved_data, force_descr))
+                                                saved_data))
 
     def execute_force_spill(self, _, arg):
         pass
 
     def execute_finish(self, descr, *args):
-        if self.force_guard_op is not None:
-            force_descr = self.force_guard_op.getdescr()
-        else:
-            force_descr = None
-        raise ExecutionFinished(LLDeadFrame(descr, args,
-                                   force_descr=force_descr))
+        raise ExecutionFinished(LLDeadFrame(descr, args))
 
     def execute_label(self, descr, *args):
         argboxes = self.current_op.getarglist()
