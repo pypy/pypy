@@ -1,5 +1,5 @@
 from pypy.interpreter.typedef import TypeDef
-from pypy.interpreter.gateway import interp2app
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError
 
@@ -156,21 +156,23 @@ W_Solution.typedef.acceptable_as_base_class = False
 
 # ---
 
-def engine_new__(space, w_subtype, __args__):
-    w_anything = __args__.firstarg()
-    e = W_CoreEngine(space, w_anything)
+@unwrap_spec(prolog_code=str)
+def engine_new__(space, w_subtype, prolog_code, w_namespace=None):
+    e = W_CoreEngine(space, prolog_code, w_namespace)
     return space.wrap(e)
 
 class W_CoreEngine(W_Root):
 
     _immutable_fields_ = ["engine"]
 
-    def __init__(self, space, w_anything):
+    def __init__(self, space, prolog_code, w_python_namespace=None):
         self.space = space                      # Stash space
         self.engine = e = continuation.Engine(load_system=True) # We embed an instance of prolog
+        e.modulewrapper.python_engine = self
+        self.w_python_namespace = w_python_namespace
 
         try:
-            e.runstring(space.str_w(w_anything))# Load the database with the first arg
+            e.runstring(prolog_code)# Load the database with the first arg
         except parsing.ParseError as e:
             w_ParseError = util.get_from_module(self.space, "unipycation", "ParseError")
             raise OperationError(w_ParseError, self.space.wrap(e.nice_error_message()))
@@ -181,10 +183,10 @@ class W_CoreEngine(W_Root):
 
         # have to use rpython io
         hndl = open_file_as_stream(filename)
-        prog = db = hndl.readall()
+        db = hndl.readall()
         hndl.close()
 
-        return space.wrap(W_CoreEngine(space, space.wrap(db)))
+        return space.wrap(W_CoreEngine(space, db))
 
     def query_iter(self, w_goal_term, w_unbound_vars):
         """ Returns an iterator by which to acquire multiple solutions """
@@ -197,6 +199,46 @@ class W_CoreEngine(W_Root):
             if not e.match(self.space, self.space.w_StopIteration):
                 raise
             return self.space.w_None
+
+    @jit.unroll_safe
+    def python_call_from_prolog(self, p_term, scont, fcont, heap):
+        space = self.space
+        if self.w_python_namespace is None:
+            raise OperationError(
+                    space.w_TypeError,
+                    space.wrap("no python namespace given in CoreEngine constructor"))
+
+        numargs = p_term.argument_count()
+        if numargs == 0:
+            raise OperationError(
+                    space.w_TypeError,
+                    space.wrap("at least one argument (return value) is required"))
+        returnarg = p_term.argument_at(numargs - 1)
+        args_w = [conversion.w_of_p(space, p_term.argument_at(i))
+                    for i in range(numargs - 1)]
+        w_func = space.getitem(self.w_python_namespace,
+                                    space.wrap(p_term.name()))
+        w_res = space.call(w_func, space.newlist(args_w))
+        if space.findattr(w_res, space.wrap("next")) is not None:
+            # many solutions
+            return continue_python_iter(
+                self.engine, scont, fcont, heap, returnarg, space, w_res)
+        returnarg.unify(conversion.p_of_w(space, w_res), heap)
+        return scont, fcont, heap
+
+@continuation.make_failure_continuation
+def continue_python_iter(Choice, engine, scont, fcont, heap, resultvar, space, w_iter):
+    try:
+        w_res = space.next(w_iter)
+    except OperationError, e:
+        if not e.match(space, space.w_StopIteration):
+            raise
+        return fcont.fail(heap) # no more solutions
+    fcont = Choice(engine, scont, fcont, heap, resultvar, space, w_iter)
+    heap = heap.branch()
+    resultvar.unify(conversion.p_of_w(space, w_res), heap)
+    return scont, fcont, heap
+
 
 W_CoreEngine.typedef = TypeDef("CoreEngine",
     __new__ = interp2app(engine_new__),

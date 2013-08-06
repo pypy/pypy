@@ -8,6 +8,7 @@ from pypy.interpreter.gateway import interp2app
 
 from pypy.module.unipycation import util
 from pypy.module.unipycation import objects
+from pypy.module.unipycation import prologobject
 
 from pypy.interpreter.baseobjspace import W_Root
 
@@ -68,9 +69,7 @@ def p_of_w(space, w_anything):
     elif space.is_true(space.isinstance(w_anything, w_Var)):
         return p_var_of_w_var(space, w_anything)
     else:
-        w_ConversionError = util.get_from_module(space, "unipycation", "ConversionError")
-        raise OperationError(w_ConversionError,
-                space.wrap("Don't know how to convert wrapped %s to prolog type" % w_anything))
+        return prologobject.PythonBlackBox(space, w_anything)
 
 # -----------------------------
 # Convert from Prolog to Python
@@ -110,6 +109,8 @@ def w_of_p(space, p_anything):
         return w_term_of_p_callable(space, p_anything)
     elif isinstance(p_anything, term.BindingVar):
         return w_whatever_of_p_bindingvar(space, p_anything)
+    elif isinstance(p_anything, prologobject.PythonBlackBox):
+        return p_anything.obj
     else:
         w_ConversionError = util.get_from_module(space, "unipycation", "ConversionError")
         raise OperationError(w_ConversionError,
