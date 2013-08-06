@@ -1239,7 +1239,7 @@ class TestAstBuilder:
         gen = self.get_first_expr(brack("x for x in y or z"))
         comp = gen.generators[0]
         assert isinstance(comp.iter, ast.BoolOp)
-        assert len(comp.iter.values, 2)
+        assert len(comp.iter.values) == 2
         assert isinstance(comp.iter.values[0], ast.Name)
         assert isinstance(comp.iter.values[1], ast.Name)
 
