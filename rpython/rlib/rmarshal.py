@@ -6,7 +6,7 @@ from rpython.annotator import model as annmodel
 from rpython.annotator.signature import annotation
 from rpython.annotator.listdef import ListDef, TooLateForChange
 from rpython.tool.pairtype import pair, pairtype
-from rpython.rlib.rarithmetic import r_longlong, intmask, LONG_BIT
+from rpython.rlib.rarithmetic import r_longlong, intmask, LONG_BIT, ovfcheck
 from rpython.rlib.rfloat import formatd, rstring_to_float
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.rstring import assert_str0
@@ -289,7 +289,10 @@ def readstr(loader, count):
     if count < 0:
         raise ValueError("negative count")
     pos = loader.pos
-    end = pos + count
+    try:
+        end = ovfcheck(pos + count)
+    except OverflowError:
+        raise ValueError("cannot decode count: value too big")
     while end > len(loader.buf):
         loader.need_more_data()
     loader.pos = end
