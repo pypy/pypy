@@ -53,6 +53,13 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
                                  rop.PTR_NE, rop.INSTANCE_PTR_NE):
                 self.handle_ptr_eq(op)
                 continue
+            # ----------  guard_class  ----------
+            if op.getopnum() == rop.GUARD_CLASS:
+                assert self.cpu.vtable_offset is None
+                # requires gcremovetypeptr translation option
+                # uses h_tid which doesn't need a read-barrier
+                self.newops.append(op)
+                continue
             # ----------  pure operations, guards  ----------
             if op.is_always_pure() or op.is_guard() or op.is_ovf():
                 self.newops.append(op)

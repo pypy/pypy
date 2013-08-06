@@ -75,7 +75,7 @@ translation_optiondescription = OptionDescription(
                      "minimark": [("translation.gctransformer", "framework")],
                      "stmgc": [("translation.gctransformer", "framework"),
                                ("translation.gcrootfinder", "stm"),
-                               ("translation.gcremovetypeptr", False)],
+                               ("translation.gcremovetypeptr", True)],
                      },
                  suggests = {
                      },
