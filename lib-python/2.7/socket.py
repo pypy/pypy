@@ -179,12 +179,21 @@ class _socketobject(object):
     def __init__(self, family=AF_INET, type=SOCK_STREAM, proto=0, _sock=None):
         if _sock is None:
             _sock = _realsocket(family, type, proto)
-        elif _type(_sock) is _realsocket:
+        else:
+            # PyPy note about refcounting: implemented with _reuse()/_drop()
+            # on the class '_socket.socket'.  Python 3 did it differently
+            # with a reference counter on this class 'socket._socketobject'
+            # instead, but it is a less compatible change.
+            
+            # Note that a few libraries (like eventlet) poke at the
+            # private implementation of socket.py, passing custom
+            # objects to _socketobject().  These libraries need the
+            # following fix for use on PyPy: the custom objects need
+            # methods _reuse() and _drop() that maintains an explicit
+            # reference counter, starting at 0.  When it drops back to
+            # zero, close() must be called.
             _sock._reuse()
-        # PyPy note about refcounting: implemented with _reuse()/_drop()
-        # on the class '_socket.socket'.  Python 3 did it differently
-        # with a reference counter on this class 'socket._socketobject'
-        # instead, but it is a less compatible change (breaks eventlet).
+
         self._sock = _sock
 
     def send(self, data, flags=0):
@@ -216,9 +225,8 @@ class _socketobject(object):
 
     def close(self):
         s = self._sock
-        if type(s) is _realsocket:
-            s._drop()
         self._sock = _closedsocket()
+        s._drop()
     close.__doc__ = _realsocket.close.__doc__
 
     def accept(self):
@@ -280,8 +288,14 @@ class _fileobject(object):
                  "_close"]
 
     def __init__(self, sock, mode='rb', bufsize=-1, close=False):
-        if type(sock) is _realsocket:
-            sock._reuse()
+        # Note that a few libraries (like eventlet) poke at the
+        # private implementation of socket.py, passing custom
+        # objects to _fileobject().  These libraries need the
+        # following fix for use on PyPy: the custom objects need
+        # methods _reuse() and _drop() that maintains an explicit
+        # reference counter, starting at 0.  When it drops back to
+        # zero, close() must be called.
+        sock._reuse()
         self._sock = sock
         self.mode = mode # Not actually used in this version
         if bufsize < 0:
@@ -317,11 +331,10 @@ class _fileobject(object):
                 self.flush()
         finally:
             s = self._sock
-            if type(s) is _realsocket:
-                s._drop()
             if self._close:
                 self._sock.close()
             self._sock = None
+            s._drop()
 
     def __del__(self):
         try:
