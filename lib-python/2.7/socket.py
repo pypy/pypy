@@ -165,6 +165,8 @@ class _closedsocket(object):
     # All _delegate_methods must also be initialized here.
     send = recv = recv_into = sendto = recvfrom = recvfrom_into = _dummy
     __getattr__ = _dummy
+    def _drop(self):
+        pass
 
 # Wrapper around platform socket objects. This implements
 # a platform-independent dup() functionality. The
@@ -331,10 +333,11 @@ class _fileobject(object):
                 self.flush()
         finally:
             s = self._sock
-            if self._close:
-                self._sock.close()
             self._sock = None
-            s._drop()
+            if s is not None:
+                s._drop()
+                if self._close:
+                    s.close()
 
     def __del__(self):
         try:
