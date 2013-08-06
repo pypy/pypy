@@ -77,6 +77,7 @@ TYPE_FLOAT    = 'f'
 TYPE_STRING   = 's'
 TYPE_TUPLE    = '('
 TYPE_LIST     = '['
+TYPE_DICT     = '{'
 
 dumpers = []
 loaders = []
@@ -302,6 +303,12 @@ def readchr(loader):
     loader.pos = pos + 1
     return loader.buf[pos]
 
+def peekchr(loader):
+    pos = loader.pos
+    while pos >= len(loader.buf):
+        loader.need_more_data()
+    return loader.buf[pos]
+
 def readlong(loader):
     a = ord(readchr(loader))
     b = ord(readchr(loader))
@@ -396,6 +403,51 @@ class __extend__(pairtype(MTag, annmodel.SomeList)):
 
         itemloader = get_loader(s_list.listdef.listitem.s_value)
         add_loader(s_list, load_list_or_none)
+
+
+class __extend__(pairtype(MTag, annmodel.SomeDict)):
+
+    def install_marshaller((tag, s_dict)):
+        def dump_dict_or_none(buf, x):
+            if x is None:
+                dump_none(buf, x)
+            else:
+                buf.append(TYPE_DICT)
+                for key, value in x.items():
+                    keydumper(buf, key)
+                    valuedumper(buf, value)
+                buf.append('0')    # end of dict
+
+        keydumper = get_marshaller(s_dict.dictdef.dictkey.s_value)
+        valuedumper = get_marshaller(s_dict.dictdef.dictvalue.s_value)
+        if (s_dict.dictdef.dictkey.dont_change_any_more or
+            s_dict.dictdef.dictvalue.dont_change_any_more):
+            s_general_dict = s_dict
+        else:
+            s_key = get_dumper_annotation(keydumper)
+            s_value = get_dumper_annotation(valuedumper)
+            s_general_dict = annotation({s_key: s_value})
+        add_dumper(s_general_dict, dump_dict_or_none)
+
+    def install_unmarshaller((tag, s_dict)):
+        def load_dict_or_none(loader):
+            t = readchr(loader)
+            if t == TYPE_DICT:
+                result = {}
+                while peekchr(loader) != '0':
+                    key = keyloader(loader)
+                    value = valueloader(loader)
+                    result[key] = value
+                readchr(loader)   # consume the final '0'
+                return result
+            elif t == TYPE_NONE:
+                return None
+            else:
+                raise ValueError("expected a dict or None")
+
+        keyloader = get_loader(s_dict.dictdef.dictkey.s_value)
+        valueloader = get_loader(s_dict.dictdef.dictvalue.s_value)
+        add_loader(s_dict, load_dict_or_none)
 
 
 class __extend__(pairtype(MTag, annmodel.SomeTuple)):
