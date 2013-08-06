@@ -358,10 +358,18 @@ class SSLSocket(socket):
         works with the SSL connection.  Just use the code
         from the socket module."""
 
-        self._makefile_refs += 1
         # close=True so as to decrement the reference count when done with
         # the file-like object.
         return _fileobject(self, mode, bufsize, close=True)
+
+    def _reuse(self):
+        self._makefile_refs += 1
+
+    def _drop(self):
+        if self._makefile_refs < 1:
+            self.close()
+        else:
+            self._makefile_refs -= 1
 
 
 
