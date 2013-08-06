@@ -21,7 +21,7 @@ class PythonBlackBox(term.NonVar):
         if isinstance(other, PythonBlackBox) and self.space.is_w(other.obj, self.obj):
             return self
         else:
-            raise UnificationFailed
+            raise error.UnificationFailed
 
     def __str__(self):
         return repr(self.obj)
