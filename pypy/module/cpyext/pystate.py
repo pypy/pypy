@@ -250,7 +250,9 @@ def PyThreadState_Clear(space, tstate):
     interpreter lock must be held."""
     Py_DecRef(space, tstate.c_dict)
     tstate.c_dict = lltype.nullptr(PyObject.TO)
-    space.threadlocals.leave_thread(space)
+    if space.config.translation.thread:
+        space.threadlocals.leave_thread(space)
+    #else: nothing to do
     space.getexecutioncontext().cleanup_cpyext_state()
     rthread.gc_thread_die()
 
