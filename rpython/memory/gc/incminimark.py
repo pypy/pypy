@@ -1022,6 +1022,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # the GCFLAG_VISITED should not be set between collections
         ll_assert(self.header(obj).tid & GCFLAG_VISITED == 0,
                   "unexpected GCFLAG_VISITED")
+        
+        # the GCFLAG_VISITED should never be set at the start of a collection
+        ll_assert(self.header(obj).tid & GCFLAG_GRAY == 0,
+          "unexpected GCFLAG_GRAY")
+        
         # the GCFLAG_FINALIZATION_ORDERING should not be set between coll.
         ll_assert(self.header(obj).tid & GCFLAG_FINALIZATION_ORDERING == 0,
                   "unexpected GCFLAG_FINALIZATION_ORDERING")
@@ -1651,23 +1656,37 @@ class IncrementalMiniMarkGC(MovingGCBase):
         if self.gc_state == STATE_SCANNING:
             self.objects_to_trace = self.AddressStack()
             self.collect_roots()
+            #set all found roots to gray before entering marking state
+            self.objects_to_trace.foreach(self._set_gcflag_gray,None)
             self.gc_state = STATE_MARKING
             #END SCANNING
         elif self.gc_state == STATE_MARKING:
-            self.visit_all_objects()
             
-            if self.objects_with_finalizers.non_empty():
-                self.deal_with_objects_with_finalizers()
+            # XXX need a heuristic to tell how many objects to mark.
+            # Maybe based on previous mark time average
+            self.visit_all_objects_step(1)
             
-            self.objects_to_trace.delete()
-            #
-            # Weakref support: clear the weak pointers to dying objects
-            if self.old_objects_with_weakrefs.non_empty():
-                self.invalidate_old_weakrefs()
-            if self.old_objects_with_light_finalizers.non_empty():
-                self.deal_with_old_objects_with_finalizers()
-            
-            self.gc_state = STATE_SWEEPING
+            # XXX A simplifying assumption that should be checked, 
+            # finalizers/weak references are rare and short which means that
+            # they do not need a seperate state and do not need to be 
+            # made incremental.
+            if not self.objects_to_trace.non_empty(): 
+                
+                self.objects_to_trace.delete()
+                
+                if self.objects_with_finalizers.non_empty():
+                    self.deal_with_objects_with_finalizers()
+                #
+                # Weakref support: clear the weak pointers to dying objects
+                if self.old_objects_with_weakrefs.non_empty():
+                    self.invalidate_old_weakrefs()
+                if self.old_objects_with_light_finalizers.non_empty():
+                    self.deal_with_old_objects_with_finalizers()
+                #objects_to_trace processed fully, can move on to sweeping
+                self.gc_state = STATE_SWEEPING
+                
+                #SWEEPING not yet incrementalised
+                self.major_collection_step(reserving_size)
             #END MARKING
         elif self.gc_state == STATE_SWEEPING:
             #
@@ -1710,8 +1729,14 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 self.max_heap_size_already_raised = True
                 raise MemoryError
             self.gc_state = STATE_FINALIZING
-            #END SWEEPING
+            # END SWEEPING
+            # FINALIZING not yet incrementalised
+            # but it seems safe to allow mutator to run after sweeping and
+            # before finalizers are called. This is because run_finalizers
+            # is a different list to objects_with_finalizers.
         elif self.gc_state == STATE_FINALIZING:
+            # XXX This is considered rare, 
+            # so should we make the calling incremental? or leave as is
             self.execute_finalizers()
             self.num_major_collects += 1
             self.gc_state = STATE_SCANNING
@@ -1745,6 +1770,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
 
     def _reset_gcflag_visited(self, obj, ignored):
         self.header(obj).tid &= ~GCFLAG_VISITED
+
+    def _set_gcflag_gray(self, obj, ignored):
+        self.header(obj).tid |= GCFLAG_GRAY
 
     def free_rawmalloced_object_if_unvisited(self, obj):
         if self.header(obj).tid & GCFLAG_VISITED:
@@ -1822,7 +1850,15 @@ class IncrementalMiniMarkGC(MovingGCBase):
         while pending.non_empty():
             obj = pending.pop()
             self.visit(obj)
-
+    
+    def visit_all_objects_step(self,nobjects=1):
+        # Objects can be added to pending by visit_step
+        pending = self.objects_to_trace
+        while nobjects > 0 and pending.non_empty():
+            obj = pending.pop()
+            self.visit(obj)
+            nobjects -= 1
+    
     def visit(self, obj):
         #
         # 'obj' is a live object.  Check GCFLAG_VISITED to know if we
@@ -1840,6 +1876,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
         #
         # It's the first time.  We set the flag.
         hdr.tid |= GCFLAG_VISITED
+        #visited objects are no longer grey
+        hdr.tid &= ~GCFLAG_GRAY
         if not self.has_gcptr(llop.extract_ushort(llgroup.HALFWORD, hdr.tid)):
             return
         #
