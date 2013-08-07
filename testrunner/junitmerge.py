@@ -2,7 +2,7 @@
 simple scrpt for junitxml file merging
 """
 
-from lxml.etree import parse, Element, tostring
+from lxml.etree import parse, Element
 from collections import defaultdict
 import argparse
 
@@ -12,6 +12,7 @@ parser.add_argument('path', nargs='...')
 
 
 TEST_ITEMS = 'test', 'errors', 'skips'
+
 
 def merge(files):
     accum = defaultdict(int)
@@ -36,11 +37,16 @@ def merge(files):
 
     return new
 
+def run(paths, out):
+
+    files = map(parse, paths)
+    merged = merge(files)
+
+    with open(out, 'wb') as fp:
+        merged.getroottree().write(fp)
+
 
 if __name__ == '__main__':
     opts = parser.parse_args()
-    files = map(parse, opts.path)
-
-    with open(opts.out, 'w') as fp:
-        fp.write(tostring(merge(files)))
+    run(opts.path, opts.out)
 
