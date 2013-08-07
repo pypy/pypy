@@ -11,13 +11,14 @@ opts = parser.parse_args()
 xml = parse(opts.junitxml)
 root = xml.getroot()
 
-
 bugstarts = 'interpreter', 'tool', 'module'
+
+
 def findfile(root, classname):
     if not classname:
         return
     parts = classname.split('.')
-    
+
     #pytest bug workaround
     first = parts[0]
     for start in bugstarts:
@@ -41,8 +42,6 @@ for item in root:
     accum[filename].append(float(item.attrib['time']))
     if filename is None:
         garbageitems.append(item)
-
-
 
 
 garbage = accum.pop(None, [])
