@@ -23,7 +23,10 @@ Content
 
 - Hooks_ debugging facilities available to a python programmer
 
+- Virtualizable_ how virtualizables work and what they are (in other words how
+  to make frames more efficient).
 
 .. _Overview: overview.html
 .. _Notes: pyjitpl5.html
 .. _Hooks: ../jit-hooks.html
+.. _Virtualizable: virtualizable.html

@@ -56,7 +56,7 @@ def descr_itemsize(space, self):
 def descr_typecode(space, self):
     return space.wrap(self.typecode)
 
-arr_eq_driver = jit.JitDriver(greens = ['comp_func'], reds = 'auto')
+arr_eq_driver = jit.JitDriver(name='array_eq_driver', greens = ['comp_func'], reds = 'auto')
 EQ, NE, LT, LE, GT, GE = range(6)
 
 def compare_arrays(space, arr1, arr2, comp_op):

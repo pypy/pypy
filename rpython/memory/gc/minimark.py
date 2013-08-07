@@ -124,7 +124,7 @@ GCFLAG_CARDS_SET    = first_gcflag << 7     # <- at least one card bit is set
 # note that GCFLAG_CARDS_SET is the most significant bit of a byte:
 # this is required for the JIT (x86)
 
-TID_MASK            = (first_gcflag << 8) - 1
+_GCFLAG_FIRST_UNUSED = first_gcflag << 8    # the first unused bit
 
 
 FORWARDSTUB = lltype.GcStruct('forwarding_stub',
@@ -944,7 +944,7 @@ class MiniMarkGC(MovingGCBase):
             ll_assert(tid == -42, "bogus header for young obj")
         else:
             ll_assert(bool(tid), "bogus header (1)")
-            ll_assert(tid & ~TID_MASK == 0, "bogus header (2)")
+            ll_assert(tid & -_GCFLAG_FIRST_UNUSED == 0, "bogus header (2)")
         return result
 
     def get_forwarding_address(self, obj):

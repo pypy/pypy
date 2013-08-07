@@ -3,7 +3,6 @@
 """
 
 from rpython.rlib import jit
-from rpython.jit.codewriter.policy import JitPolicy
 
 driver = jit.JitDriver(greens = [], reds = 'auto')
 driver2 = jit.JitDriver(greens = [], reds = 'auto')
@@ -40,7 +39,4 @@ def entry_point(argv):
     return 0
 
 def target(*args):
-    return entry_point, None
-
-def jitpolicy(driver):
-    return JitPolicy()
+    return entry_point

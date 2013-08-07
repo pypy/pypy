@@ -254,12 +254,19 @@ class LLtypeMixin(object):
     asmdescr = LoopToken() # it can be whatever, it's not a descr though
 
     from rpython.jit.metainterp.virtualref import VirtualRefInfo
+
     class FakeWarmRunnerDesc:
         pass
     FakeWarmRunnerDesc.cpu = cpu
     vrefinfo = VirtualRefInfo(FakeWarmRunnerDesc)
     virtualtokendescr = vrefinfo.descr_virtual_token
     virtualforceddescr = vrefinfo.descr_forced
+    FUNC = lltype.FuncType([], lltype.Void)
+    ei = EffectInfo([], [], [], [], EffectInfo.EF_CANNOT_RAISE,
+                    can_invalidate=False,
+                    oopspecindex=EffectInfo.OS_JIT_FORCE_VIRTUALIZABLE)
+    clear_vable = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT, ei)
+
     jit_virtual_ref_vtable = vrefinfo.jit_virtual_ref_vtable
     jvr_vtable_adr = llmemory.cast_ptr_to_adr(jit_virtual_ref_vtable)
 
