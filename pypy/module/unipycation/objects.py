@@ -2,6 +2,7 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty_w
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 import pypy.module.unipycation.util as util
+from pypy.interpreter.error import OperationError
 
 import prolog.interpreter.term as pterm
 import prolog.interpreter.signature as psig
@@ -44,8 +45,15 @@ class W_Term(W_Root):
     def descr_getitem(self, space, w_idx):
         from pypy.module.unipycation import conversion
         idx = self.space.int_w(w_idx)
-
-        return conversion.w_of_p(self.space, self.p_term.arguments()[idx])
+        p_term = self.p_term
+        length = p_term.argument_count()
+        if idx >= length:
+            raise OperationError(space.w_IndexError, space.wrap("index out of bounds"))
+        if idx < 0:
+            idx += length
+            if idx < 0:
+                raise OperationError(space.w_IndexError, space.wrap("index out of bounds"))
+        return conversion.w_of_p(self.space, p_term.argument_at(idx))
 
     def descr_eq(self, space, w_other):
         #w_Term = util.get_from_module(self.space, "unipycation", "Term")

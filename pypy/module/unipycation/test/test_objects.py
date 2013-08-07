@@ -91,3 +91,10 @@ class AppTestObjects(object):
         t2 = u.Term("y", ["blah", "123", "bobbins"])
         t = u.Term("x", [1, 2, t2])
         assert str(t) == "x(1, 2, y(blah, 123, bobbins))"
+
+    def test_term_indexing(self):
+        import unipycation
+
+        t = unipycation.Term("f", [1, "abc"])
+        assert list(t) == [1, "abc"]
+        assert t[-1] == "abc"
