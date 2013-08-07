@@ -1236,17 +1236,15 @@ class ASTBuilder(object):
 
     @specialize.arg(2)
     def comprehension_helper(self, comp_node,
-                             handle_source_expr_meth="handle_expr",
                              for_type=syms.comp_for, if_type=syms.comp_if,
                              iter_type=syms.comp_iter,
                              comp_fix_unamed_tuple_location=False):
-        handle_source_expression = getattr(self, handle_source_expr_meth)
         fors_count = self.count_comp_fors(comp_node, for_type, if_type)
         comps = []
         for i in range(fors_count):
             for_node = comp_node.children[1]
             for_targets = self.handle_exprlist(for_node, ast.Store)
-            expr = handle_source_expression(comp_node.children[3])
+            expr = self.handle_expr(comp_node.children[3])
             assert isinstance(expr, ast.expr)
             if len(for_node.children) == 1:
                 comp = ast.comprehension(for_targets[0], expr, None)
@@ -1289,7 +1287,6 @@ class ASTBuilder(object):
     def handle_listcomp(self, listcomp_node):
         elt = self.handle_expr(listcomp_node.children[0])
         comps = self.comprehension_helper(listcomp_node.children[1],
-                                          "handle_expr",
                                           syms.comp_for, syms.comp_if,
                                           syms.comp_iter,
                                           comp_fix_unamed_tuple_location=True)
