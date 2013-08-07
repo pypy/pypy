@@ -124,7 +124,26 @@ GCFLAG_CARDS_SET    = first_gcflag << 7     # <- at least one card bit is set
 # note that GCFLAG_CARDS_SET is the most significant bit of a byte:
 # this is required for the JIT (x86)
 
-TID_MASK            = (first_gcflag << 8) - 1
+# This flag is used by the tri color algorithm. An object which
+# has the gray bit set has been marked reachable, but not yet walked
+# by the incremental collection
+GCFLAG_GRAY = first_gcflag << 8
+
+# States for the incremental GC
+
+# The scanning phase, next step call will scan the current roots
+# This state must complete in a single step
+STATE_SCANNING = 0
+
+#XXX describe
+# marking of objects can be done over multiple 
+STATE_MARKING  = 1
+STATE_SWEEPING = 2
+STATE_FINALIZING = 3
+
+
+
+TID_MASK            = (first_gcflag << 9) - 1
 
 
 FORWARDSTUB = lltype.GcStruct('forwarding_stub',
@@ -308,6 +327,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
         self.young_rawmalloced_objects = self.null_address_dict()
         self.old_rawmalloced_objects = self.AddressStack()
         self.rawmalloced_total_size = r_uint(0)
+        
+        self.gc_state = r_uint(0) #XXX Only really needs to be a byte
+        
         #
         # A list of all objects with finalizers (these are never young).
         self.objects_with_finalizers = self.AddressDeque()
@@ -1613,107 +1635,208 @@ class IncrementalMiniMarkGC(MovingGCBase):
         while new.non_empty():
             old.append(new.pop())
         new.delete()
-
+    
+    # Note - minor collections seem fast enough so that one
+    # is done before every major collection step
+    def major_collection_step(self,reserving_size):
+        debug_start("gc-collect-step")
+        debug_print("stating gc state: ",self.gc_state)
+        # Debugging checks
+        ll_assert(self.nursery_free == self.nursery,
+                  "nursery not empty in major_collection_step()")
+        
+        
+        # XXX currently very course increments, get this working then split
+        # to smaller increments using stacks for resuming
+        if self.gc_state == STATE_SCANNING:
+            self.objects_to_trace = self.AddressStack()
+            self.collect_roots()
+            self.gc_state = STATE_MARKING
+            #END SCANNING
+        elif self.gc_state == STATE_MARKING:
+            self.visit_all_objects()
+            
+            if self.objects_with_finalizers.non_empty():
+                self.deal_with_objects_with_finalizers()
+            
+            self.objects_to_trace.delete()
+            #
+            # Weakref support: clear the weak pointers to dying objects
+            if self.old_objects_with_weakrefs.non_empty():
+                self.invalidate_old_weakrefs()
+            if self.old_objects_with_light_finalizers.non_empty():
+                self.deal_with_old_objects_with_finalizers()
+            
+            self.gc_state = STATE_SWEEPING
+            #END MARKING
+        elif self.gc_state == STATE_SWEEPING:
+            #
+            # Walk all rawmalloced objects and free the ones that don't
+            # have the GCFLAG_VISITED flag.
+            self.free_unvisited_rawmalloc_objects()
+            #
+            # Ask the ArenaCollection to visit all objects.  Free the ones
+            # that have not been visited above, and reset GCFLAG_VISITED on
+            # the others.
+            self.ac.mass_free(self._free_if_unvisited)
+            #
+            # We also need to reset the GCFLAG_VISITED on prebuilt GC objects.
+            self.prebuilt_root_objects.foreach(self._reset_gcflag_visited, None)
+            #
+            # Set the threshold for the next major collection to be when we
+            # have allocated 'major_collection_threshold' times more than
+            # we currently have -- but no more than 'max_delta' more than
+            # we currently have.
+            total_memory_used = float(self.get_total_memory_used())
+            bounded = self.set_major_threshold_from(
+                min(total_memory_used * self.major_collection_threshold,
+                    total_memory_used + self.max_delta),
+                reserving_size)
+            #
+            # Max heap size: gives an upper bound on the threshold.  If we
+            # already have at least this much allocated, raise MemoryError.
+            if bounded and (float(self.get_total_memory_used()) + reserving_size >=
+                            self.next_major_collection_initial):
+                #
+                # First raise MemoryError, giving the program a chance to
+                # quit cleanly.  It might still allocate in the nursery,
+                # which might eventually be emptied, triggering another
+                # major collect and (possibly) reaching here again with an
+                # even higher memory consumption.  To prevent it, if it's
+                # the second time we are here, then abort the program.
+                if self.max_heap_size_already_raised:
+                    llop.debug_fatalerror(lltype.Void,
+                                          "Using too much memory, aborting")
+                self.max_heap_size_already_raised = True
+                raise MemoryError
+            self.gc_state = STATE_FINALIZING
+            #END SWEEPING
+        elif self.gc_state == STATE_FINALIZING:
+            self.execute_finalizers()
+            self.num_major_collects += 1
+            self.gc_state = STATE_SCANNING
+            #END FINALIZING
+        else:
+            pass #XXX which exception to raise here. Should be unreachable.
+        
+        debug_stop("gc-collect-step")
+    
+    def major_collection(self,reserving_size=0):
+        # For now keep things compatible with the existing GC
+        # and do all steps in a loop
+        
+        # We start in scanning state
+        ll_assert(self.gc_state == STATE_SCANNING,
+                    "Scan start state incorrect")
+        self.debug_check_consistency()
+        self.major_collection_step(reserving_size)
+        ll_assert(self.gc_state == STATE_MARKING, "Initial Scan did not complete")
+        
+        while self.gc_state != STATE_SCANNING:
+            self.major_collection_step(reserving_size)
+        
+        
+    
     # ----------
     # Full collection
 
-    def major_collection(self, reserving_size=0):
-        """Do a major collection.  Only for when the nursery is empty."""
-        #
-        debug_start("gc-collect")
-        debug_print()
-        debug_print(".----------- Full collection ------------------")
-        debug_print("| used before collection:")
-        debug_print("|          in ArenaCollection:     ",
-                    self.ac.total_memory_used, "bytes")
-        debug_print("|          raw_malloced:           ",
-                    self.rawmalloced_total_size, "bytes")
-        #
-        # Debugging checks
-        ll_assert(self.nursery_free == self.nursery,
-                  "nursery not empty in major_collection()")
-        self.debug_check_consistency()
-        #
-        # Note that a major collection is non-moving.  The goal is only to
-        # find and free some of the objects allocated by the ArenaCollection.
-        # We first visit all objects and toggle the flag GCFLAG_VISITED on
-        # them, starting from the roots.
-        self.objects_to_trace = self.AddressStack()
-        self.collect_roots()
-        self.visit_all_objects()
-        #
-        # Finalizer support: adds the flag GCFLAG_VISITED to all objects
-        # with a finalizer and all objects reachable from there (and also
-        # moves some objects from 'objects_with_finalizers' to
-        # 'run_finalizers').
-        if self.objects_with_finalizers.non_empty():
-            self.deal_with_objects_with_finalizers()
-        #
-        self.objects_to_trace.delete()
-        #
-        # Weakref support: clear the weak pointers to dying objects
-        if self.old_objects_with_weakrefs.non_empty():
-            self.invalidate_old_weakrefs()
-        if self.old_objects_with_light_finalizers.non_empty():
-            self.deal_with_old_objects_with_finalizers()
+#    def major_collection(self, reserving_size=0):
+#        """Do a major collection.  Only for when the nursery is empty."""
+#        #
+#        debug_start("gc-collect")
+#        debug_print()
+#        debug_print(".----------- Full collection ------------------")
+#        debug_print("| used before collection:")
+#        debug_print("|          in ArenaCollection:     ",
+#                    self.ac.total_memory_used, "bytes")
+#        debug_print("|          raw_malloced:           ",
+#                    self.rawmalloced_total_size, "bytes")
+#        #
+#        # Debugging checks
+#        ll_assert(self.nursery_free == self.nursery,
+#                  "nursery not empty in major_collection()")
+#        self.debug_check_consistency()
+#        #
+#        # Note that a major collection is non-moving.  The goal is only to
+#        # find and free some of the objects allocated by the ArenaCollection.
+#        # We first visit all objects and toggle the flag GCFLAG_VISITED on
+#        # them, starting from the roots.
+#        self.objects_to_trace = self.AddressStack()
+#        self.collect_roots()
+#        self.visit_all_objects()
+#        #
+#        # Finalizer support: adds the flag GCFLAG_VISITED to all objects
+#        # with a finalizer and all objects reachable from there (and also
+#        # moves some objects from 'objects_with_finalizers' to
+#        # 'run_finalizers').
+#        if self.objects_with_finalizers.non_empty():
+#            self.deal_with_objects_with_finalizers()
+#        #
+#        self.objects_to_trace.delete()
+#        #
+#        # Weakref support: clear the weak pointers to dying objects
+#        if self.old_objects_with_weakrefs.non_empty():
+#            self.invalidate_old_weakrefs()
+#        if self.old_objects_with_light_finalizers.non_empty():
+#            self.deal_with_old_objects_with_finalizers()
 
-        #
-        # Walk all rawmalloced objects and free the ones that don't
-        # have the GCFLAG_VISITED flag.
-        self.free_unvisited_rawmalloc_objects()
-        #
-        # Ask the ArenaCollection to visit all objects.  Free the ones
-        # that have not been visited above, and reset GCFLAG_VISITED on
-        # the others.
-        self.ac.mass_free(self._free_if_unvisited)
-        #
-        # We also need to reset the GCFLAG_VISITED on prebuilt GC objects.
-        self.prebuilt_root_objects.foreach(self._reset_gcflag_visited, None)
-        #
-        self.debug_check_consistency()
-        #
-        self.num_major_collects += 1
-        debug_print("| used after collection:")
-        debug_print("|          in ArenaCollection:     ",
-                    self.ac.total_memory_used, "bytes")
-        debug_print("|          raw_malloced:           ",
-                    self.rawmalloced_total_size, "bytes")
-        debug_print("| number of major collects:        ",
-                    self.num_major_collects)
-        debug_print("`----------------------------------------------")
-        debug_stop("gc-collect")
-        #
-        # Set the threshold for the next major collection to be when we
-        # have allocated 'major_collection_threshold' times more than
-        # we currently have -- but no more than 'max_delta' more than
-        # we currently have.
-        total_memory_used = float(self.get_total_memory_used())
-        bounded = self.set_major_threshold_from(
-            min(total_memory_used * self.major_collection_threshold,
-                total_memory_used + self.max_delta),
-            reserving_size)
-        #
-        # Max heap size: gives an upper bound on the threshold.  If we
-        # already have at least this much allocated, raise MemoryError.
-        if bounded and (float(self.get_total_memory_used()) + reserving_size >=
-                        self.next_major_collection_initial):
-            #
-            # First raise MemoryError, giving the program a chance to
-            # quit cleanly.  It might still allocate in the nursery,
-            # which might eventually be emptied, triggering another
-            # major collect and (possibly) reaching here again with an
-            # even higher memory consumption.  To prevent it, if it's
-            # the second time we are here, then abort the program.
-            if self.max_heap_size_already_raised:
-                llop.debug_fatalerror(lltype.Void,
-                                      "Using too much memory, aborting")
-            self.max_heap_size_already_raised = True
-            raise MemoryError
-        #
-        # At the end, we can execute the finalizers of the objects
-        # listed in 'run_finalizers'.  Note that this will typically do
-        # more allocations.
-        self.execute_finalizers()
+#        #
+#        # Walk all rawmalloced objects and free the ones that don't
+#        # have the GCFLAG_VISITED flag.
+#        self.free_unvisited_rawmalloc_objects()
+#        #
+#        # Ask the ArenaCollection to visit all objects.  Free the ones
+#        # that have not been visited above, and reset GCFLAG_VISITED on
+#        # the others.
+#        self.ac.mass_free(self._free_if_unvisited)
+#        #
+#        # We also need to reset the GCFLAG_VISITED on prebuilt GC objects.
+#        self.prebuilt_root_objects.foreach(self._reset_gcflag_visited, None)
+#        #
+#        self.debug_check_consistency()
+#        #
+#        self.num_major_collects += 1
+#        debug_print("| used after collection:")
+#        debug_print("|          in ArenaCollection:     ",
+#                    self.ac.total_memory_used, "bytes")
+#        debug_print("|          raw_malloced:           ",
+#                    self.rawmalloced_total_size, "bytes")
+#        debug_print("| number of major collects:        ",
+#                    self.num_major_collects)
+#        debug_print("`----------------------------------------------")
+#        debug_stop("gc-collect")
+#        #
+#        # Set the threshold for the next major collection to be when we
+#        # have allocated 'major_collection_threshold' times more than
+#        # we currently have -- but no more than 'max_delta' more than
+#        # we currently have.
+#        total_memory_used = float(self.get_total_memory_used())
+#        bounded = self.set_major_threshold_from(
+#            min(total_memory_used * self.major_collection_threshold,
+#                total_memory_used + self.max_delta),
+#            reserving_size)
+#        #
+#        # Max heap size: gives an upper bound on the threshold.  If we
+#        # already have at least this much allocated, raise MemoryError.
+#        if bounded and (float(self.get_total_memory_used()) + reserving_size >=
+#                        self.next_major_collection_initial):
+#            #
+#            # First raise MemoryError, giving the program a chance to
+#            # quit cleanly.  It might still allocate in the nursery,
+#            # which might eventually be emptied, triggering another
+#            # major collect and (possibly) reaching here again with an
+#            # even higher memory consumption.  To prevent it, if it's
+#            # the second time we are here, then abort the program.
+#            if self.max_heap_size_already_raised:
+#                llop.debug_fatalerror(lltype.Void,
+#                                      "Using too much memory, aborting")
+#            self.max_heap_size_already_raised = True
+#            raise MemoryError
+#        #
+#        # At the end, we can execute the finalizers of the objects
+#        # listed in 'run_finalizers'.  Note that this will typically do
+#        # more allocations.
+#        self.execute_finalizers()
 
 
     def _free_if_unvisited(self, hdr):
