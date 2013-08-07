@@ -829,6 +829,10 @@ class CompileFrameworkTests(BaseFrameworkTests):
             raiseassert(x0 is not None)
             raiseassert(x1 is not None)
             raiseassert(x3 is None)
+            for i in range(1, 4):
+                ptrs[i].x = i
+            x0.x = 6
+            x1.x = 9
             #
             return n - 1, x, x0, x1, x2, x3, x4, x5, x6, x7, ptrs, s
         return before, f, None

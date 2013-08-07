@@ -1613,7 +1613,12 @@ class Assembler386(BaseAssembler):
         # base_loc and ofs_loc should be immediates, but maybe not
         # fitting in 32-bit
         base_loc, ofs_loc, size_loc = arglocs
-        self.mc.INC(addr_add(base_loc, ofs_loc))
+        addr = addr_add(base_loc, ofs_loc)
+        if rx86.fits_in_32bits(addr.value):
+            self.mc.INC(addr)
+        else:
+            self.mc.MOV(X86_64_SCRATCH_REG, base_loc)
+            self.mc.INC_m((X86_64_SCRATCH_REG.value, ofs_loc.getint()))
 
     def genop_discard_setfield_gc(self, op, arglocs):
         base_loc, ofs_loc, size_loc, value_loc = arglocs
@@ -1798,7 +1803,15 @@ class Assembler386(BaseAssembler):
     genop_guard_guard_isnull = genop_guard_guard_false
 
     def genop_guard_guard_value(self, ign_1, guard_op, guard_token, locs, ign_2):
-        if guard_op.getarg(0).type == FLOAT:
+        argtype = guard_op.getarg(0).type
+        if self.cpu.gc_ll_descr.stm and argtype == REF:
+            assert guard_op.getarg(1).type == REF
+            # x64 has no support for 64bit immed. Force them into registers!
+            # XXX: do better for 32 bit
+            self.genop_guard_ptr_eq(ign_1, guard_op, guard_token, 
+                                    locs, ign_2)
+            return
+        elif argtype == FLOAT:
             assert guard_op.getarg(1).type == FLOAT
             self.mc.UCOMISD(locs[0], locs[1])
         else:

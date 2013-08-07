@@ -407,8 +407,16 @@ class RegAlloc(BaseRegalloc):
     consider_guard_overflow    = consider_guard_no_exception
 
     def consider_guard_value(self, op):
-        x = self.make_sure_var_in_reg(op.getarg(0))
-        y = self.loc(op.getarg(1))
+        args = op.getarglist()
+        if args[0].type == REF:
+            assert args[1].type == REF
+            # XXX: this is certainly not wanted.
+            # We force immed64 into registers here.
+            x = self.make_sure_var_in_reg(args[0], args, selected_reg=ecx)
+            y = self.make_sure_var_in_reg(args[1], args, selected_reg=eax)
+        else:
+            x = self.make_sure_var_in_reg(args[0], args)
+            y = self.loc(args[1])
         self.perform_guard(op, [x, y], None)
 
     def consider_guard_class(self, op):
