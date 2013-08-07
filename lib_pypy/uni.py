@@ -24,8 +24,8 @@ def unpack_prolog_list(obj):
             return result
         if not isinstance(curr, Term) or not curr.name == ".":
             return obj # malformed list, just return it unconverted
-        result.append(curr.args[0])
-        curr = curr.args[1]
+        result.append(curr[0])
+        curr = curr[1]
 
 class Engine(object):
     """ A wrapper around unipycation.CoreEngine. """
