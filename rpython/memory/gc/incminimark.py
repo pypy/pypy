@@ -1672,10 +1672,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # made incremental.
             if not self.objects_to_trace.non_empty(): 
                 
-                self.objects_to_trace.delete()
-                
                 if self.objects_with_finalizers.non_empty():
                     self.deal_with_objects_with_finalizers()
+                
+                self.objects_to_trace.delete()
+                
                 #
                 # Weakref support: clear the weak pointers to dying objects
                 if self.old_objects_with_weakrefs.non_empty():
@@ -1737,9 +1738,12 @@ class IncrementalMiniMarkGC(MovingGCBase):
         elif self.gc_state == STATE_FINALIZING:
             # XXX This is considered rare, 
             # so should we make the calling incremental? or leave as is
+             
+            # Must be ready to start another scan
+            self.gc_state = STATE_SCANNING
+            # just in case finalizer calls collect again.
             self.execute_finalizers()
             self.num_major_collects += 1
-            self.gc_state = STATE_SCANNING
             #END FINALIZING
         else:
             pass #XXX which exception to raise here. Should be unreachable.
