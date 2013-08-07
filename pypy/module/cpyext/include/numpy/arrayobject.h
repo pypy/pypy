@@ -13,12 +13,19 @@ extern "C" {
 
 /* fake PyArrayObject so that code that doesn't do direct field access works */
 #define PyArrayObject PyObject
+#define PyArray_Descr PyObject
+
+PyTypeObject PyArray_Type;
 
 typedef unsigned char npy_bool;
 typedef unsigned char npy_uint8;
+typedef int npy_int;
 
 #ifndef npy_intp
 #define npy_intp long
+#endif
+#ifndef NPY_INTP_FMT
+#define NPY_INTP_FMT "ld"
 #endif
 #ifndef import_array
 #define import_array()
@@ -73,21 +80,51 @@ enum NPY_TYPES {    NPY_BOOL=0,
 #define NPY_COMPLEX32 NPY_CFLOAT
 #define NPY_COMPLEX64 NPY_CDOUBLE
 
+#define PyTypeNum_ISBOOL(type)      ((type) == NPY_BOOL)
+#define PyTypeNum_ISINTEGER(type)  (((type) >= NPY_BYTE) && \
+                                    ((type) <= NPY_ULONGLONG))
+#define PyTypeNum_ISFLOAT(type)   ((((type) >= NPY_FLOAT) && \
+                                    ((type) <= NPY_LONGDOUBLE)) || \
+                                    ((type) == NPY_HALF))
+#define PyTypeNum_ISCOMPLEX(type)  (((type) >= NPY_CFLOAT) && \
+                                    ((type) <= NPY_CLONGDOUBLE))
+
+#define PyArray_ISBOOL(arr)    (PyTypeNum_ISBOOL(PyArray_TYPE(arr)))
+#define PyArray_ISINTEGER(arr) (PyTypeNum_ISINTEGER(PyArray_TYPE(arr)))
+#define PyArray_ISFLOAT(arr)   (PyTypeNum_ISFLOAT(PyArray_TYPE(arr)))
+#define PyArray_ISCOMPLEX(arr) (PyTypeNum_ISCOMPLEX(PyArray_TYPE(arr)))
+
 
 /* selection of flags */
-#define NPY_C_CONTIGUOUS    0x0001
+#define NPY_CONTIGUOUS      0x0001
+#define NPY_FORTRAN         0x0002
 #define NPY_OWNDATA         0x0004
+#define NPY_FORCECAST       0x0010
 #define NPY_ALIGNED         0x0100
-#define NPY_IN_ARRAY (NPY_C_CONTIGUOUS | NPY_ALIGNED)
-
+#define NPY_NOTSWAPPED      0x0200
+#define NPY_WRITEABLE       0x0400
+#define NPY_C_CONTIGUOUS    NPY_CONTIGUOUS
+#define NPY_F_CONTIGUOUS    NPY_FORTRAN
+#define NPY_IN_ARRAY       (NPY_C_CONTIGUOUS | NPY_ALIGNED)
+#define NPY_BEHAVED        (NPY_ALIGNED | NPY_WRITEABLE)
+#define NPY_CARRAY         (NPY_CONTIGUOUS | NPY_BEHAVED)
+#define NPY_FARRAY         (NPY_FORTRAN | NPY_BEHAVED)
+#define NPY_DEFAULT         NPY_CARRAY
 
 /* functions */
 #ifndef PyArray_NDIM
 
-#define PyArray_ISCONTIGUOUS(arr) (1)
-
 #define PyArray_Check      _PyArray_Check
 #define PyArray_CheckExact _PyArray_CheckExact
+
+#define PyArray_ISONESEGMENT(arr) (1)
+#define PyArray_FLAGS(arr)        (0)
+
+#define PyArray_ISCONTIGUOUS _PyArray_ISCONTIGUOUS
+
+#define PyArray_ISCARRAY(arr)   PyArray_ISCONTIGUOUS(arr)
+#define PyArray_ISFARRAY(arr) (!PyArray_ISCONTIGUOUS(arr))
+
 #define PyArray_NDIM       _PyArray_NDIM
 #define PyArray_DIM        _PyArray_DIM
 #define PyArray_STRIDE     _PyArray_STRIDE
@@ -106,8 +143,10 @@ enum NPY_TYPES {    NPY_BOOL=0,
 #define PyArray_ContiguousFromAny PyArray_FromObject
 
 #define PyArray_FROMANY(obj, typenum, min, max, requirements) (obj)
-#define PyArray_FROM_OTF(obj, typenum, requirements) (obj)
+#define PyArray_FROM_OTF(obj, typenum, requirements) \
+        PyArray_FromObject(obj, typenum, 0, 0)
 
+#define PyArray_New _PyArray_New
 #define PyArray_SimpleNew _PyArray_SimpleNew
 #define PyArray_SimpleNewFromData _PyArray_SimpleNewFromData
 #define PyArray_SimpleNewFromDataOwning _PyArray_SimpleNewFromDataOwning
@@ -115,7 +154,13 @@ enum NPY_TYPES {    NPY_BOOL=0,
 #define PyArray_EMPTY(nd, dims, type_num, fortran) \
         PyArray_SimpleNew(nd, dims, type_num)
 
-PyObject* PyArray_ZEROS(int nd, npy_intp* dims, int type_num, int fortran);
+void _PyArray_FILLWBYTE(PyObject* obj, int val);
+PyObject* _PyArray_ZEROS(int nd, npy_intp* dims, int type_num, int fortran);
+int _PyArray_CopyInto(PyArrayObject* dest, PyArrayObject* src);
+
+#define PyArray_FILLWBYTE _PyArray_FILLWBYTE
+#define PyArray_ZEROS _PyArray_ZEROS
+#define PyArray_CopyInto _PyArray_CopyInto
 
 #define PyArray_Resize(self, newshape, refcheck, fortran) (NULL)
 

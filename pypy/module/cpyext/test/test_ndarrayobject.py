@@ -11,13 +11,13 @@ def scalar(space):
     dtype = get_dtype_cache(space).w_float64dtype
     return W_NDimArray.new_scalar(space, dtype, space.wrap(10.))
 
-def array(space, shape):
+def array(space, shape, order='C'):
     dtype = get_dtype_cache(space).w_float64dtype
-    return W_NDimArray.from_shape(space, shape, dtype, order='C')
+    return W_NDimArray.from_shape(space, shape, dtype, order=order)
 
-def iarray(space, shape):
+def iarray(space, shape, order='C'):
     dtype = get_dtype_cache(space).w_int64dtype
-    return W_NDimArray.from_shape(space, shape, dtype, order='C')
+    return W_NDimArray.from_shape(space, shape, dtype, order=order)
 
 
 NULL = lltype.nullptr(rffi.VOIDP.TO)
@@ -32,6 +32,12 @@ class TestNDArrayObject(BaseApiTest):
         assert not api._PyArray_Check(x)
         assert not api._PyArray_CheckExact(x)
 
+    def test_ISCONTIGUOUS(self, space, api):
+        a = array(space, [10, 5, 3], order='C')
+        f = array(space, [10, 5, 3], order='F')
+        assert api._PyArray_ISCONTIGUOUS(a) == 1
+        assert api._PyArray_ISCONTIGUOUS(f) == 0
+        
     def test_NDIM(self, space, api):
         a = array(space, [10, 5, 3])
         assert api._PyArray_NDIM(a) == 3
