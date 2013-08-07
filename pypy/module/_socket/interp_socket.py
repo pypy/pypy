@@ -1,4 +1,4 @@
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from rpython.rlib.rarithmetic import intmask
@@ -135,7 +135,11 @@ def ipaddr_from_object(space, w_sockaddr):
     return addr
 
 
-class W_RSocket(Wrappable, RSocket):
+class W_RSocket(W_Root, RSocket):
+
+    # for _dealloc_warn
+    space = None
+
     def descr_new(space, w_subtype, __args__):
         sock = space.allocate_instance(W_RSocket, w_subtype)
         return space.wrap(sock)
@@ -150,8 +154,34 @@ class W_RSocket(Wrappable, RSocket):
                                    fd=space.c_filedescriptor_w(w_fileno))
             else:
                 W_RSocket.__init__(self, family, type, proto)
+            self.space = space
         except SocketError, e:
             raise converted_error(space, e)
+
+    def __del__(self):
+        self.clear_all_weakrefs()
+        if self.space:
+            self.enqueue_for_destruction(self.space, W_RSocket.destructor,
+                                         'internal __del__ of ')
+
+    def destructor(self):
+        assert isinstance(self, W_RSocket)
+        if self.fd != rsocket.INVALID_SOCKET:
+            try:
+                self._dealloc_warn()
+            finally:
+                self.close_w(self.space)
+
+    def _dealloc_warn(self):
+        space = self.space
+        try:
+            msg = (u"unclosed %s" %
+                   space.unicode_w(space.repr(space.wrap(self))))
+            space.warn(space.wrap(msg), space.w_ResourceWarning)
+        except OperationError as e:
+            # Spurious errors can appear at shutdown
+            if e.match(space, space.w_Warning):
+                e.write_unraisable(space, '', space.wrap(self))
 
     def _accept_w(self, space):
         """_accept() -> (socket object, address info)
@@ -178,7 +208,7 @@ class W_RSocket(Wrappable, RSocket):
 
     def bind_w(self, space, w_addr):
         """bind(address)
-        
+
         Bind the socket to a local address.  For IP sockets, the address is a
         pair (host, port); the host must refer to the local host. For raw packet
         sockets the address is a tuple (ifname, proto [,pkttype [,hatype]])
@@ -195,7 +225,7 @@ class W_RSocket(Wrappable, RSocket):
         """
         try:
             self.close()
-        except SocketError, e:
+        except SocketError:
             # cpython doesn't return any errors on close
             pass
 
@@ -481,7 +511,7 @@ class W_RSocket(Wrappable, RSocket):
                     option_ptr = rffi.cast(rffi.INTP, value_ptr)
                     option_ptr[0] = space.int_w(w_option)
                 elif cmd == _c.SIO_KEEPALIVE_VALS:
-                    w_onoff, w_time, w_interval = space.unpackiterable(w_option)
+                    w_onoff, w_time, w_interval = space.unpackiterable(w_option, 3)
                     option_ptr = rffi.cast(lltype.Ptr(_c.tcp_keepalive), value_ptr)
                     option_ptr.c_onoff = space.uint_w(w_onoff)
                     option_ptr.c_keepalivetime = space.uint_w(w_time)

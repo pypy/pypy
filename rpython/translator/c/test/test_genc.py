@@ -37,7 +37,7 @@ def llrepr_out(v):
     if isinstance(v, float):
         from rpython.rlib.rfloat import formatd, DTSF_ADD_DOT_0
         return formatd(v, 'r', 0, DTSF_ADD_DOT_0)
-    return v
+    return str(v)   # always return a string, to get consistent types
 
 def parse_longlong(a):
     p0, p1 = a.split(":")
@@ -203,6 +203,28 @@ def test_simple():
     assert f1(-123) == -246
 
     py.test.raises(Exception, f1, "world")  # check that it's really typed
+
+
+def test_int_becomes_float():
+    # used to crash "very often": the long chain of mangle() calls end
+    # up converting the return value of f() from an int to a float, but
+    # if blocks are followed in random order by the annotator, it will
+    # very likely first follow the call to llrepr_out() done after the
+    # call to f(), getting an int first (and a float only later).
+    @specialize.arg(1)
+    def mangle(x, chain):
+        if chain:
+            return mangle(x, chain[1:])
+        return x - 0.5
+    def f(x):
+        if x > 10:
+            x = mangle(x, (1,1,1,1,1,1,1,1,1,1))
+        return x + 1
+
+    f1 = compile(f, [int])
+
+    assert f1(5) == 6
+    assert f1(12) == 12.5
 
 
 def test_string_arg():
@@ -483,12 +505,16 @@ def test_entrypoints():
     assert hasattr(ctypes.CDLL(str(t.driver.c_entryp)), 'foobar')
 
 def test_exportstruct():
+    from rpython.translator.tool.cbuild import ExternalCompilationInfo
     from rpython.rlib.exports import export_struct
     def f():
         return 42
     FOO = Struct("FOO", ("field1", Signed))
     foo = malloc(FOO, flavor="raw")
     foo.field1 = 43
+    # maybe export_struct should add the struct name to eci automatically?
+    # https://bugs.pypy.org/issue1361
+    foo._obj._compilation_info = ExternalCompilationInfo(export_symbols=['BarStruct'])
     export_struct("BarStruct", foo._obj)
     t = Translation(f, [], backend="c")
     t.annotate()

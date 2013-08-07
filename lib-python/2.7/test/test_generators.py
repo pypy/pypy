@@ -1501,9 +1501,7 @@ True
 """
 
 coroutine_tests = """\
-A helper function to call gc.collect() without printing
->>> import gc
->>> def gc_collect(): gc.collect()
+>>> from test.test_support import gc_collect
 
 Sending a value into a started generator:
 
@@ -1823,8 +1821,7 @@ Prior to adding cycle-GC support to itertools.tee, this code would leak
 references. We add it to the standard suite so the routine refleak-tests
 would trigger if it starts being uncleanable again.
 
->>> import gc
->>> def gc_collect(): gc.collect()
+>>> from test.test_support import gc_collect
 
 >>> import itertools
 >>> def leak():

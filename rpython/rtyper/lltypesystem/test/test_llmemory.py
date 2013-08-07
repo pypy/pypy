@@ -362,7 +362,7 @@ def test_raw_malloc_array():
     py.test.raises(IndexError, "item_adr.signed[0]")
 
 def test_raw_malloc_gcstruct():
-    from rpython.rtyper.memory import gcheader
+    from rpython.memory import gcheader
     HDR = lltype.Struct('header', ('a', lltype.Signed))
     builder = gcheader.GCHeaderBuilder(HDR)
     gchdr = builder.size_gc_header
@@ -445,7 +445,7 @@ def test_raw_free():
     str(p_u)
 
 def test_raw_free_with_hdr():
-    from rpython.rtyper.memory.gcheader import GCHeaderBuilder
+    from rpython.memory.gcheader import GCHeaderBuilder
     
     HDR = lltype.Struct('h', ('t', lltype.Signed))
     gh = GCHeaderBuilder(HDR).size_gc_header

@@ -1,7 +1,7 @@
-#!/usr/bin/env python 
+#!/usr/bin/env python
 
 
-"""PyPy Translator Frontend
+"""RPython Translator Frontend
 
 Glue script putting together the various pieces of the translator.
 Can be used for interactive testing of the translator.
@@ -14,22 +14,31 @@ Example:
     t.annotate()
     t.view()                           # graph + annotations under the mouse
 
-    t.rtype()                          # use low level operations 
-    f = t.compile_c()                  # C compilation
+    t.rtype()                          # use low level operations
+    lib = t.compile_c()                # C compilation as a library
+    f = get_c_function(lib, func)      # get the function out of the library
     assert f(arg) == func(arg)         # sanity check (for C)
-    
+
 
 Some functions are provided for the benefit of interactive testing.
 Try dir(snippet) for list of current snippets.
 """
 
-import os, sys
+import os
+import sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(
+                       os.path.dirname(os.path.realpath(__file__)))))
 
 from rpython.translator.interactive import Translation
 from rpython.rtyper.rtyper import *
 from rpython.rlib.rarithmetic import *
 
-import py
+
+def get_c_function(lib, f):
+    from ctypes import CDLL
+    name = f.__name__
+    return getattr(CDLL(lib.strpath), 'pypy_g_' + name)
+
 
 def setup_readline():
     import readline
@@ -42,7 +51,7 @@ def setup_readline():
     import os
     histfile = os.path.join(os.environ["HOME"], ".pypytrhist")
     try:
-        getattr(readline, "clear_history", lambda : None)()
+        getattr(readline, "clear_history", lambda: None)()
         readline.read_history_file(histfile)
     except IOError:
         pass
@@ -65,5 +74,3 @@ if __name__ == '__main__':
 
     import os
     os.putenv("PYTHONINSPECT", "1")
-
-

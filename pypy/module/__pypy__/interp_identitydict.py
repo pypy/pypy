@@ -1,9 +1,10 @@
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 
-class W_IdentityDict(Wrappable):
+
+class W_IdentityDict(W_Root):
     def __init__(self, space):
         self.dict = {}
 

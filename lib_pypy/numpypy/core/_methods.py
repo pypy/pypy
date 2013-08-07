@@ -1,11 +1,9 @@
 # Array methods which are called by the both the C-code for the method
 # and the Python code for the NumPy-namespace function
 
-#from numpy.core import multiarray as mu
-#from numpy.core import umath as um
-import _numpypy as mu
-um = mu
-from numpy.core.numeric import asanyarray
+import multiarray as mu
+import umath as um
+from numeric import asanyarray
 
 def _amax(a, axis=None, out=None, keepdims=False):
     return um.maximum.reduce(a, axis=axis,

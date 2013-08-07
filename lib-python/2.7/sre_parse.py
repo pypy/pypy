@@ -19,8 +19,8 @@ from sre_constants import *
 try:
     from __pypy__ import newdict
 except ImportError:
-    def newdict(tp):
-        return {}
+    assert '__pypy__' not in sys.builtin_module_names
+    newdict = lambda _ : {}
 
 SPECIAL_CHARS = ".\\[{()*+?^$|"
 REPEAT_CHARS = "*+?{"

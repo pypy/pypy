@@ -1,8 +1,9 @@
-from rpython.rlib import _rffi_stacklet as _c
 from rpython.rlib.debug import ll_assert
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
-from rpython.rtyper.annlowlevel import llhelper
+from rpython.rtyper.annlowlevel import llhelper, MixLevelHelperAnnotator
+from rpython.annotator import model as annmodel
+from rpython.rlib import _rffi_stacklet as _c
 
 
 _asmstackrootwalker = None    # BIG HACK: monkey-patched by asmgcroot.py
@@ -14,7 +15,7 @@ def get_stackletrootwalker():
     if _stackletrootwalker is not None:
         return _stackletrootwalker
 
-    from rpython.rtyper.memory.gctransform.asmgcroot import (
+    from rpython.memory.gctransform.asmgcroot import (
         WALKFRAME, CALLEE_SAVED_REGS, INDEX_OF_EBP, sizeofaddr)
 
     assert _asmstackrootwalker is not None, "should have been monkey-patched"
@@ -31,6 +32,7 @@ def get_stackletrootwalker():
             if not p.handle:
                 return False
             self.context = llmemory.cast_ptr_to_adr(p.handle)
+            self.next_callback_piece = p.callback_pieces
             anchor = p.anchor
             del p
             self.curframe = lltype.malloc(WALKFRAME, flavor='raw')
@@ -49,11 +51,19 @@ def get_stackletrootwalker():
             retaddraddr = self.translateptr(retaddraddr)
             curframe.frame_address = retaddraddr.address[0]
 
-        def teardown(self):
-            lltype.free(self.curframe, flavor='raw')
-            lltype.free(self.otherframe, flavor='raw')
-            self.context = llmemory.NULL
-            return llmemory.NULL
+        def fetch_next_stack_piece(self):
+            if self.next_callback_piece == llmemory.NULL:
+                lltype.free(self.curframe, flavor='raw')
+                lltype.free(self.otherframe, flavor='raw')
+                self.context = llmemory.NULL
+                return False
+            else:
+                anchor = self.next_callback_piece
+                nextaddr = anchor + sizeofaddr
+                nextaddr = self.translateptr(nextaddr)
+                self.next_callback_piece = nextaddr.address[0]
+                self.fill_initial_frame(self.curframe, anchor)
+                return True
 
         def next(self, obj, prev):
             #
@@ -77,15 +87,20 @@ def get_stackletrootwalker():
                     callee = self.curframe
                     retaddraddr = self.translateptr(callee.frame_address)
                     retaddr = retaddraddr.address[0]
-                    basewalker.locate_caller_based_on_retaddr(retaddr)
+                    ebp_in_caller = callee.regs_stored_at[INDEX_OF_EBP]
+                    ebp_in_caller = self.translateptr(ebp_in_caller)
+                    ebp_in_caller = ebp_in_caller.address[0]
+                    basewalker.locate_caller_based_on_retaddr(retaddr,
+                                                              ebp_in_caller)
                     self.enumerating = True
+                else:
+                    callee = self.curframe
+                    ebp_in_caller = callee.regs_stored_at[INDEX_OF_EBP]
+                    ebp_in_caller = self.translateptr(ebp_in_caller)
+                    ebp_in_caller = ebp_in_caller.address[0]
                 #
                 # not really a loop, but kept this way for similarity
                 # with asmgcroot:
-                callee = self.curframe
-                ebp_in_caller = callee.regs_stored_at[INDEX_OF_EBP]
-                ebp_in_caller = self.translateptr(ebp_in_caller)
-                ebp_in_caller = ebp_in_caller.address[0]
                 while True:
                     location = basewalker._shape_decompressor.next()
                     if location == 0:
@@ -111,7 +126,10 @@ def get_stackletrootwalker():
                                                               location)
                 # ^^^ non-translated
                 if caller.frame_address == llmemory.NULL:
-                    return self.teardown()    # completely done with this stack
+                    # completely done with this piece of stack
+                    if not self.fetch_next_stack_piece():
+                        return llmemory.NULL
+                    continue
                 #
                 self.otherframe = callee
                 self.curframe = caller
@@ -124,15 +142,31 @@ def get_stackletrootwalker():
     return _stackletrootwalker
 get_stackletrootwalker._annspecialcase_ = 'specialize:memo'
 
+def complete_destrptr(gctransformer):
+    translator = gctransformer.translator
+    mixlevelannotator = MixLevelHelperAnnotator(translator.rtyper)
+    args_s = [annmodel.lltype_to_annotation(lltype.Ptr(SUSPSTACK))]
+    s_result = annmodel.s_None
+    destrptr = mixlevelannotator.delayedfunction(suspstack_destructor,
+                                                 args_s, s_result)
+    mixlevelannotator.finish()
+    lltype.attachRuntimeTypeInfo(SUSPSTACK, destrptr=destrptr)
+
 
 def customtrace(obj, prev):
     stackletrootwalker = get_stackletrootwalker()
     return stackletrootwalker.next(obj, prev)
 
+def suspstack_destructor(suspstack):
+    h = suspstack.handle
+    if h:
+        _c.destroy(h)
+
 
 SUSPSTACK = lltype.GcStruct('SuspStack',
                             ('handle', _c.handle),
                             ('anchor', llmemory.Address),
+                            ('callback_pieces', llmemory.Address),
                             rtti=True)
 NULL_SUSPSTACK = lltype.nullptr(SUSPSTACK)
 CUSTOMTRACEFUNC = lltype.FuncType([llmemory.Address, llmemory.Address],
@@ -164,7 +198,8 @@ def _new_callback():
     # stacklet with stacklet_new().  If this call fails, then we
     # are just returning NULL.
     _stack_just_closed()
-    return _c.new(gcrootfinder.thrd, llhelper(_c.run_fn, _new_runfn),
+    #
+    return _c.new(gcrootfinder.newthrd, llhelper(_c.run_fn, _new_runfn),
                   llmemory.NULL)
 
 def _stack_just_closed():
@@ -211,7 +246,7 @@ def _switch_callback():
     #
     # gcrootfinder.suspstack.anchor is left with the anchor of the
     # previous place (i.e. before the call to switch()).
-    h2 = _c.switch(gcrootfinder.thrd, h)
+    h2 = _c.switch(h)
     #
     if not h2:    # MemoryError: restore
         gcrootfinder.suspstack.anchor = oldanchor
@@ -223,7 +258,7 @@ class StackletGcRootFinder(object):
     suspstack = NULL_SUSPSTACK
 
     def new(self, thrd, callback, arg):
-        self.thrd = thrd._thrd
+        self.newthrd = thrd._thrd
         self.runfn = callback
         self.arg = arg
         # make a fresh new clean SUSPSTACK
@@ -231,15 +266,36 @@ class StackletGcRootFinder(object):
         newsuspstack.handle = _c.null_handle
         self.suspstack = newsuspstack
         # Invoke '_new_callback' by closing the stack
+        #
+        callback_pieces = llop.gc_detach_callback_pieces(llmemory.Address)
+        newsuspstack.callback_pieces = callback_pieces
+        #
         h = pypy_asm_stackwalk2(llhelper(FUNCNOARG_P, _new_callback),
                                 alternateanchor)
+        #
+        llop.gc_reattach_callback_pieces(lltype.Void, callback_pieces)
         return self.get_result_suspstack(h)
 
-    def switch(self, thrd, suspstack):
-        self.thrd = thrd._thrd
+    def switch(self, suspstack):
+        # Immediately before the switch, 'suspstack' describes the suspended
+        # state of the *target* of the switch.  Then it is theoretically
+        # freed.  In fact what occurs is that we reuse the same 'suspstack'
+        # object in the target, just after the switch, to store the
+        # description of where we came from.  Then that "other" 'suspstack'
+        # object is returned.
         self.suspstack = suspstack
+        #
+        callback_pieces = llop.gc_detach_callback_pieces(llmemory.Address)
+        old_callback_pieces = suspstack.callback_pieces
+        suspstack.callback_pieces = callback_pieces
+        #
         h = pypy_asm_stackwalk2(llhelper(FUNCNOARG_P, _switch_callback),
                                 alternateanchor)
+        #
+        llop.gc_reattach_callback_pieces(lltype.Void, callback_pieces)
+        if not h:
+            self.suspstack.callback_pieces = old_callback_pieces
+        #
         return self.get_result_suspstack(h)
 
     def attach_handle_on_suspstack(self, handle):
@@ -261,11 +317,6 @@ class StackletGcRootFinder(object):
         else:
             # This is a return that gave us a real handle.  Store it.
             return self.attach_handle_on_suspstack(h)
-
-    def destroy(self, thrd, suspstack):
-        h = suspstack.handle
-        suspstack.handle = _c.null_handle
-        _c.destroy(thrd._thrd, h)
 
     def is_empty_handle(self, suspstack):
         return not suspstack

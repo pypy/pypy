@@ -2,7 +2,7 @@
 Python control flow graph generation and bytecode assembly.
 """
 
-from pypy.interpreter.astcompiler import ast, symtable
+from pypy.interpreter.astcompiler import ast, consts, symtable
 from pypy.interpreter import pycode
 from pypy.tool import stdlib_opcode as ops
 
@@ -246,6 +246,8 @@ class PythonCodeMaker(ast.ASTVisitor):
         if w_len is None:
             w_len = space.len(self.w_consts)
             space.setitem(self.w_consts, w_key, w_len)
+        if space.int_w(w_len) == 0:
+            self.scope.doc_removable = False
         return space.int_w(w_len)
 
     def _make_key(self, obj):
@@ -425,7 +427,8 @@ class PythonCodeMaker(ast.ASTVisitor):
                 if instr.lineno:
                     # compute deltas
                     line = instr.lineno - current_line
-                    assert line >= 0
+                    if line < 0:
+                        continue
                     addr = offset - current_off
                     # Python assumes that lineno always increases with
                     # increasing bytecode address (lnotab is unsigned char).
@@ -477,7 +480,9 @@ class PythonCodeMaker(ast.ASTVisitor):
         var_names = _list_from_dict(self.var_names)
         cell_names = _list_from_dict(self.cell_vars)
         free_names = _list_from_dict(self.free_vars, len(cell_names))
-        flags = self._get_code_flags() | self.compile_info.flags
+        flags = self._get_code_flags()
+        # (Only) inherit compilerflags in PyCF_MASK
+        flags |= (self.compile_info.flags & consts.PyCF_MASK)
         bytecode = ''.join([block.get_code() for block in blocks])
         return pycode.PyCode(self.space,
                              self.argcount,
@@ -615,6 +620,7 @@ _static_opcode_stack_effects = {
     ops.JUMP_IF_FALSE_OR_POP : 0,
     ops.POP_JUMP_IF_TRUE : -1,
     ops.POP_JUMP_IF_FALSE : -1,
+    ops.JUMP_IF_NOT_DEBUG : 0,
 
     ops.BUILD_LIST_FROM_ARG: 1,
 }

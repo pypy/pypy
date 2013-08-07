@@ -573,7 +573,7 @@ class TestCompiler:
                     append = components.append
                     level += 1
                     saferepr = _safe_repr
-                    for k, v in object.iteritems():
+                    for k, v in object.items():
                         krepr, kreadable, krecur = saferepr(k, context, maxlevels, level)
                         vrepr, vreadable, vrecur = saferepr(v, context, maxlevels, level)
                         append("%s: %s" % (krepr, vrepr))
@@ -668,8 +668,8 @@ class TestCompiler:
                 #cmp
                 self.assert_(p == p)
                 self.assert_(d == d)
-                self.assert_(p < d)
-                self.assert_(d > p)
+                self.failUnlessRaises(TypeError, lambda: p < d)
+                self.failUnlessRaises(TypeError, lambda: d > p)
                 #__non__zero__
                 if p: self.fail("Empty mapping must compare to False")
                 if not d: self.fail("Full mapping must compare to True")
@@ -679,13 +679,13 @@ class TestCompiler:
                     self.assert_(hasattr(iter, '__iter__'))
                     x = list(iter)
                     self.assert_(set(x)==set(lst)==set(ref))
-                check_iterandlist(d.iterkeys(), d.keys(), self.reference.keys())
+                check_iterandlist(iter(d.keys()), d.keys(), self.reference.keys())
                 check_iterandlist(iter(d), d.keys(), self.reference.keys())
-                check_iterandlist(d.itervalues(), d.values(), self.reference.values())
-                check_iterandlist(d.iteritems(), d.items(), self.reference.items())
+                check_iterandlist(iter(d.values()), d.values(), self.reference.values())
+                check_iterandlist(iter(d.items()), d.items(), self.reference.items())
                 #get
-                key, value = next(d.iteritems())
-                knownkey, knownvalue = next(self.other.iteritems())
+                key, value = next(iter(d.items()))
+                knownkey, knownvalue = next(iter(self.other.items()))
                 self.assertEqual(d.get(key, knownvalue), value)
                 self.assertEqual(d.get(knownkey, knownvalue), knownvalue)
                 self.failIf(knownkey in d)
@@ -842,6 +842,58 @@ class TestCompiler:
         """
         self.simple_test(source, 'ok', 1)
 
+    def test_remove_docstring(self):
+        source = '"module_docstring"\n' + """if 1:
+        def f1():
+            'docstring'
+        def f2():
+            'docstring'
+            return 'docstring'
+        def f3():
+            'foo'
+            return 'bar'
+        class C1():
+            'docstring'
+        class C2():
+            __doc__ = 'docstring'
+        class C3():
+            field = 'not docstring'
+        class C4():
+            'docstring'
+            field = 'docstring'
+        """
+        code_w = compile_with_astcompiler(source, 'exec', self.space)
+        code_w.remove_docstrings(self.space)
+        dict_w = self.space.newdict();
+        code_w.exec_code(self.space, dict_w, dict_w)
+
+        yield self.check, dict_w, "f1.__doc__", None
+        yield self.check, dict_w, "f2.__doc__", 'docstring'
+        yield self.check, dict_w, "f2()", 'docstring'
+        yield self.check, dict_w, "f3.__doc__", None
+        yield self.check, dict_w, "f3()", 'bar'
+        yield self.check, dict_w, "C1.__doc__", None
+        yield self.check, dict_w, "C2.__doc__", 'docstring'
+        yield self.check, dict_w, "C3.field", 'not docstring'
+        yield self.check, dict_w, "C4.field", 'docstring'
+        yield self.check, dict_w, "C4.__doc__", 'docstring'
+        yield self.check, dict_w, "C4.__doc__", 'docstring'
+        yield self.check, dict_w, "__doc__", None
+
+    def test_assert_skipping(self):
+        space = self.space
+        mod = space.getbuiltinmodule('__pypy__')
+        w_set_debug = space.getattr(mod, space.wrap('set_debug'))
+        space.call_function(w_set_debug, space.w_False)
+
+        source = """if 1:
+        assert False
+        """
+        try:
+            self.run(source)
+        finally:
+            space.call_function(w_set_debug, space.w_True)
+
     def test_raise_from(self):
         test = """if 1:
         def f():
@@ -884,12 +936,30 @@ class TestCompiler:
                 return a, b, c
         """
         yield self.st, func, "f()", (1, [2, 3], 4)
-        py.test.raises(SyntaxError, self.simple_test, "*a, *b = [1, 2]",
-                       None, None)
-        py.test.raises(SyntaxError, self.simple_test, "a = [*b, c]",
-                       None, None)
-        py.test.raises(SyntaxError, self.simple_test, "for *a in x: pass",
-                       None, None)
+
+    def test_extended_unpacking_fail(self):
+        exc = py.test.raises(SyntaxError, self.simple_test, "*a, *b = [1, 2]",
+                             None, None).value
+        assert exc.msg == "two starred expressions in assignment"
+        exc = py.test.raises(SyntaxError, self.simple_test,
+                             "[*b, *c] = range(10)", None, None).value
+        assert exc.msg == "two starred expressions in assignment"
+
+        exc = py.test.raises(SyntaxError, self.simple_test, "a = [*b, c]",
+                             None, None).value
+        assert exc.msg == "can use starred expression only as assignment target"
+        exc = py.test.raises(SyntaxError, self.simple_test, "for *a in x: pass",
+                             None, None).value
+        assert exc.msg == "starred assignment target must be in a list or tuple"
+
+        s = ", ".join("a%d" % i for i in range(1<<8)) + ", *rest = range(1<<8 + 1)"
+        exc = py.test.raises(SyntaxError, self.simple_test, s, None,
+                             None).value
+        assert exc.msg == "too many expressions in star-unpacking assignment"
+        s = ", ".join("a%d" % i for i in range(1<<8 + 1)) + ", *rest = range(1<<8 + 2)"
+        exc = py.test.raises(SyntaxError, self.simple_test, s, None,
+                             None).value
+        assert exc.msg == "too many expressions in star-unpacking assignment"
 
     def test_list_compr_or(self):
         yield self.st, 'x = list(d for d in [1] or [])', 'x', [1]
@@ -916,6 +986,22 @@ class AppTestCompiler:
             assert False, (3,)
         except AssertionError as e:
             assert str(e) == "(3,)"
+
+    # BUILD_LIST_FROM_ARG is PyPy specific
+    @py.test.mark.skipif('config.option.runappdirect')
+    def test_build_list_from_arg_length_hint(self):
+        py3k_skip('XXX: BUILD_LIST_FROM_ARG list comps are genexps on py3k')
+        hint_called = [False]
+        class Foo(object):
+            def __length_hint__(self):
+                hint_called[0] = True
+                return 5
+            def __iter__(self):
+                for i in range(5):
+                    yield i
+        l = [a for a in Foo()]
+        assert hint_called[0]
+        assert l == list(range(5))
         
 
 class TestOptimizations:
@@ -1032,3 +1118,29 @@ class TestOptimizations:
         """)
         assert 'generator' in space.str_w(space.repr(w_generator))
 
+    def test_folding_of_list_constants(self):
+        for source in (
+            # in/not in constants with BUILD_LIST should be folded to a tuple:
+            'a in [1,2,3]',
+            'a not in ["a","b","c"]',
+            'a in [None, 1, None]',
+            'a not in [(1, 2), 3, 4]',
+            ):
+            source = 'def f(): %s' % source
+            counts = self.count_instructions(source)
+            assert ops.BUILD_LIST not in counts
+            assert ops.LOAD_CONST in counts
+
+    def test_folding_of_set_constants(self):
+        for source in (
+            # in/not in constants with BUILD_SET should be folded to a frozenset:
+            'a in {1,2,3}',
+            'a not in {"a","b","c"}',
+            'a in {None, 1, None}',
+            'a not in {(1, 2), 3, 4}',
+            'a in {1, 2, 3, 3, 2, 1}',
+            ):
+            source = 'def f(): %s' % source
+            counts = self.count_instructions(source)
+            assert ops.BUILD_SET not in counts
+            assert ops.LOAD_CONST in counts

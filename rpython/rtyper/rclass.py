@@ -1,10 +1,9 @@
 import types
-from rpython.annotator import model as annmodel
-#from rpython.annotator.classdef import isclassdef
-from rpython.annotator import description
+
+from rpython.annotator import description, model as annmodel
 from rpython.rtyper.error import TyperError
-from rpython.rtyper.rmodel import Repr, getgcflavor, inputconst
 from rpython.rtyper.lltypesystem.lltype import Void
+from rpython.rtyper.rmodel import Repr, getgcflavor, inputconst
 
 
 class FieldListAccessor(object):
@@ -76,7 +75,7 @@ def getinstancerepr(rtyper, classdef, default_flavor='gc'):
 def buildinstancerepr(rtyper, classdef, gcflavor='gc'):
     from rpython.rlib.objectmodel import UnboxedValue
     from rpython.flowspace.model import Constant
-    
+
     if classdef is None:
         unboxed = []
         virtualizable2 = False
@@ -137,7 +136,7 @@ class AbstractClassRepr(Repr):
             if self.classdef.commonbase(subclassdef) != self.classdef:
                 raise TyperError("not a subclass of %r: %r" % (
                     self.classdef.name, desc))
-        
+
         r_subclass = getclassrepr(self.rtyper, subclassdef)
         return r_subclass.getruntime(self.lowleveltype)
 
@@ -170,12 +169,14 @@ def get_type_repr(rtyper):
 class __extend__(annmodel.SomeInstance):
     def rtyper_makerepr(self, rtyper):
         return getinstancerepr(rtyper, self.classdef)
+
     def rtyper_makekey(self):
         return self.__class__, self.classdef
 
 class __extend__(annmodel.SomeType):
     def rtyper_makerepr(self, rtyper):
         return get_type_repr(rtyper)
+
     def rtyper_makekey(self):
         return self.__class__,
 
@@ -390,11 +391,11 @@ class AbstractInstanceRepr(Repr):
         s_unbound_attr = clsdef.find_attribute(meth_name).getvalue()
         s_attr = clsdef.lookup_filter(s_unbound_attr, meth_name,
                                       hop.args_s[0].flags)
-        if s_attr.is_constant():
-            xxx # does that even happen?
+        # does that even happen?
+        assert not s_attr.is_constant()
         if '__iter__' in self.allinstancefields:
             raise Exception("__iter__ on instance disallowed")
-        r_method = self.rtyper.makerepr(s_attr)
+        r_method = self.rtyper.getrepr(s_attr)
         r_method.get_method_from_instance(self, vinst, hop.llops)
         hop2 = hop.copy()
         hop2.spaceop.opname = 'simple_call'
@@ -465,34 +466,24 @@ def ll_inst_hash(ins):
         return 0    # for None
     else:
         from rpython.rtyper.lltypesystem import lltype
-        return lltype.identityhash(ins)     # also works for ootype
+        return lltype.identityhash(ins)
 
 
 _missing = object()
 
 def fishllattr(inst, name, default=_missing):
     from rpython.rtyper.lltypesystem import lltype
-    from rpython.rtyper.ootypesystem import ootype
-    if isinstance(inst, (ootype._instance, ootype._view)):
-        # XXX: we need to call ootypesystem.rclass.mangle, but we
-        # can't because we don't have a config object
-        mangled = 'o' + name
-        if default is _missing:
-            return getattr(inst, mangled)
-        else:
-            return getattr(inst, mangled, default)
-    else:
-        p = widest = lltype.normalizeptr(inst)
-        while True:
-            try:
-                return getattr(p, 'inst_' + name)
-            except AttributeError:
-                pass
-            try:
-                p = p.super
-            except AttributeError:
-                break
-        if default is _missing:
-            raise AttributeError("%s has no field %s" % (lltype.typeOf(widest),
-                                                         name))
-        return default
+    p = widest = lltype.normalizeptr(inst)
+    while True:
+        try:
+            return getattr(p, 'inst_' + name)
+        except AttributeError:
+            pass
+        try:
+            p = p.super
+        except AttributeError:
+            break
+    if default is _missing:
+        raise AttributeError("%s has no field %s" % (lltype.typeOf(widest),
+                                                        name))
+    return default

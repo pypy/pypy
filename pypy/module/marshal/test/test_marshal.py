@@ -178,13 +178,13 @@ class AppTestMarshal:
     def test_bad_typecode(self):
         import marshal
         exc = raises(ValueError, marshal.loads, b'\x01')
-        assert r"'\x01'" in exc.value.message
+        assert r"'\x01'" in str(exc.value)
 
     def test_bad_data(self):
         import marshal
         # Yes, there is code that depends on this :-(
         raises(EOFError, marshal.loads, b'<test>')
-        raises(MemoryError, marshal.loads, b'(test)')
+        raises((MemoryError, ValueError), marshal.loads, b'(test)')
 
 
 class AppTestSmallLong(AppTestMarshal):

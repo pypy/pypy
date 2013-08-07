@@ -1,3 +1,5 @@
+from inspect import CO_VARARGS, CO_VARKEYWORDS
+
 import py
 from pypy.interpreter import gateway, pycode
 from pypy.interpreter.error import OperationError
@@ -35,8 +37,13 @@ class AppCode(object):
             return None
     fullsource = property(fullsource, None, None, "Full source of AppCode")
 
-    def getargs(self):
-        return self.raw.co_varnames[:self.raw.co_argcount]
+    def getargs(self, var=False):
+        raw = self.raw
+        argcount = raw.co_argcount
+        if var:
+            argcount += raw.co_flags & CO_VARARGS
+            argcount += raw.co_flags & CO_VARKEYWORDS
+        return raw.co_varnames[:argcount]
 
 class AppFrame(py.code.Frame):
 
@@ -70,10 +77,10 @@ class AppFrame(py.code.Frame):
     def is_true(self, w_value):
         return self.space.is_true(w_value)
 
-    def getargs(self):
+    def getargs(self, var=False):
         space = self.space
         retval = []
-        for arg in self.code.getargs():
+        for arg in self.code.getargs(var):
             w_val = space.finditem(self.w_locals, space.wrap(arg))
             if w_val is None:
                 w_val = space.wrap('<no value found>')
@@ -87,7 +94,7 @@ class AppExceptionInfo(py.code.ExceptionInfo):
     def __init__(self, space, operr):
         self.space = space
         self.operr = operr
-        self.typename = operr.w_type.getname(space)
+        self.typename = operr.w_type.getname(space).encode('utf-8')
         self.traceback = AppTraceback(space, self.operr.get_traceback())
         debug_excs = getattr(operr, 'debug_excs', [])
         if debug_excs:
@@ -184,7 +191,8 @@ def build_pytest_assertion(space):
                                             space.wrap('AssertionError'))
     w_metaclass = space.type(w_BuiltinAssertionError)
     w_init = space.wrap(gateway.interp2app_temp(my_init))
-    w_dict = space.newdict()
+    w_dict = space.getattr(w_BuiltinAssertionError, space.wrap('__dict__'))
+    w_dict = space.call_method(w_dict, 'copy')
     space.setitem(w_dict, space.wrap('__init__'), w_init)
     return space.call_function(w_metaclass,
                                space.wrap('AssertionError'),
@@ -206,7 +214,7 @@ def _exc_info(space, err):
             self.type, self.value, self.traceback = sys.exc_info()
 
     return _ExceptionInfo
-""")    
+""")
     try:
         return space.call_function(space._w_ExceptionInfo)
     finally:
@@ -215,7 +223,7 @@ def _exc_info(space, err):
 def pypyraises(space, w_ExpectedException, w_expr, __args__):
     """A built-in function providing the equivalent of py.test.raises()."""
     args_w, kwds_w = __args__.unpack()
-    if space.is_true(space.isinstance(w_expr, space.w_unicode)):
+    if space.isinstance_w(w_expr, space.w_unicode):
         if args_w:
             raise OperationError(space.w_TypeError,
                                  space.wrap("raises() takes no argument "
@@ -277,7 +285,3 @@ def raises_w(space, w_ExpectedException, *args, **kwds):
     except py.test.raises.Exception, e:
         e.tbindex = getattr(e, 'tbindex', -1) - 1
         raise
-
-def eq_w(space, w_obj1, w_obj2): 
-    """ return interp-level boolean of eq(w_obj1, w_obj2). """ 
-    return space.is_true(space.eq(w_obj1, w_obj2))

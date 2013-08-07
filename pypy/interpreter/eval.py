@@ -3,10 +3,10 @@ This module defines the abstract base classes that support execution:
 Code and Frame.
 """
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 
 
-class Code(Wrappable):
+class Code(W_Root):
     """A code is a compiled version of some source code.
     Abstract base class."""
     _immutable_ = True
@@ -28,7 +28,6 @@ class Code(Wrappable):
     def exec_code(self, space, w_globals, w_locals):
         "Implements the 'exec' statement."
         # this should be on PyCode?
-        space.possibly_convert_to_celldict(w_globals)
         frame = space.createframe(self, w_globals, None)
         frame.setdictscope(w_locals)
         return frame.run()
@@ -53,19 +52,20 @@ class Code(Wrappable):
     def funcrun_obj(self, func, w_obj, args):
         return self.funcrun(func, args.prepend(w_obj))
 
-class Frame(Wrappable):
+
+class Frame(W_Root):
     """A frame is an environment supporting the execution of a code object.
     Abstract base class."""
 
     def __init__(self, space, w_globals=None):
-        self.space      = space
-        self.w_globals  = w_globals  # wrapped dict of globals
-        self.w_locals   = None       # wrapped dict of locals
+        self.space = space
+        self.w_globals = w_globals  # wrapped dict of globals
+        self.w_locals = None       # wrapped dict of locals
 
     def run(self):
         "Abstract method to override. Runs the frame"
-        raise TypeError, "abstract"
-    
+        raise TypeError("abstract")
+
     def getdictscope(self):
         "Get the locals as a dictionary."
         self.fast2locals()
@@ -87,16 +87,16 @@ class Frame(Wrappable):
 
     def getfastscope(self):
         "Abstract. Get the fast locals as a list."
-        raise TypeError, "abstract"
+        raise TypeError("abstract")
 
     def setfastscope(self, scope_w):
         """Abstract. Initialize the fast locals from a list of values,
         where the order is according to self.getcode().signature()."""
-        raise TypeError, "abstract"
+        raise TypeError("abstract")
 
     def getfastscopelength(self):
         "Abstract. Get the expected number of locals."
-        raise TypeError, "abstract"
+        raise TypeError("abstract")
 
     def fast2locals(self):
         # Copy values from the fastlocals to self.w_locals
@@ -108,7 +108,7 @@ class Frame(Wrappable):
             name = varnames[i]
             w_value = fastscope_w[i]
             if w_value is not None:
-                w_name = self.space.wrap(name)
+                w_name = self.space.wrap(name.decode('utf-8'))
                 self.space.setitem(self.w_locals, w_name, w_value)
 
     def locals2fast(self):
@@ -120,7 +120,7 @@ class Frame(Wrappable):
         new_fastlocals_w = [None] * numlocals
 
         for i in range(min(len(varnames), numlocals)):
-            w_name = self.space.wrap(varnames[i])
+            w_name = self.space.wrap(varnames[i].decode('utf-8'))
             try:
                 w_value = self.space.getitem(self.w_locals, w_name)
             except OperationError, e:

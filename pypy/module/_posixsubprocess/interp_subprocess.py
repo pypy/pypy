@@ -1,5 +1,6 @@
 from rpython.rtyper.lltypesystem import rffi, lltype, llmemory
-from pypy.module.posix.interp_posix import fsencode_w, run_fork_hooks
+from rpython.rtyper.tool import rffi_platform as platform
+from pypy.module.posix.interp_posix import run_fork_hooks
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.error import (
     OperationError, exception_from_errno, wrap_oserror)
@@ -9,12 +10,31 @@ import os
 
 thisdir = py.path.local(__file__).dirpath()
 
+class CConfig:
+    _compilation_info_ = ExternalCompilationInfo(
+        includes=['unistd.h', 'sys/syscall.h'])
+    HAVE_SYS_SYSCALL_H = platform.Has("syscall")
+    HAVE_SETSID = platform.Has("setsid")
+
+config = platform.configure(CConfig)
+
 eci = ExternalCompilationInfo(
     separate_module_files=[thisdir.join('_posixsubprocess.c')],
     export_symbols=['pypy_subprocess_child_exec',
                     'pypy_subprocess_cloexec_pipe',
                     'pypy_subprocess_init',
                     ])
+
+compile_extra = []
+if config['HAVE_SYS_SYSCALL_H']:
+    compile_extra.append("-DHAVE_SYS_SYSCALL_H")
+if config['HAVE_SETSID']:
+    compile_extra.append("-DHAVE_SETSID")
+
+eci = eci.merge(
+    ExternalCompilationInfo(
+        compile_extra=compile_extra))
+
 c_child_exec = rffi.llexternal(
     'pypy_subprocess_child_exec',
     [rffi.CCHARPP, rffi.CCHARPP, rffi.CCHARPP, rffi.CCHARP,
@@ -29,8 +49,13 @@ c_cloexec_pipe = rffi.llexternal(
     'pypy_subprocess_cloexec_pipe',
     [rffi.CArrayPtr(rffi.INT)], rffi.INT,
     compilation_info=eci,
-    threadsafe=True)     
-    
+    threadsafe=True)
+c_init = rffi.llexternal(
+    'pypy_subprocess_init',
+    [], lltype.Void,
+    compilation_info=eci,
+    threadsafe=True)
+
 
 class PreexecCallback:
     def __init__(self):
@@ -44,8 +69,8 @@ class PreexecCallback:
             try:
                 self.space.call_function(self.w_preexec_fn)
             except OperationError:
-                return 0
-        return 1
+                return rffi.cast(rffi.INT, 0)
+        return rffi.cast(rffi.INT, 1)
 preexec = PreexecCallback()
 
 
@@ -115,7 +140,7 @@ def fork_exec(space, w_process_args, w_executable_list,
         l_exec_array = rffi.liststr2charpp(exec_array)
 
         if not space.is_none(w_process_args):
-            argv = [fsencode_w(space, w_item)
+            argv = [space.fsencode_w(w_item)
                     for w_item in space.listview(w_process_args)]
             l_argv = rffi.liststr2charpp(argv)
 
@@ -136,7 +161,7 @@ def fork_exec(space, w_process_args, w_executable_list,
             preexec.w_preexec_fn = None
 
         if not space.is_none(w_cwd):
-            cwd = fsencode_w(space, w_cwd)
+            cwd = space.fsencode_w(w_cwd)
             l_cwd = rffi.str2charp(cwd)
             
         run_fork_hooks('before', space)
@@ -175,13 +200,13 @@ def fork_exec(space, w_process_args, w_executable_list,
         preexec.w_preexec_fn = None
 
         if l_cwd:
-            lltype.free(l_cwd, flavor='raw')
+            rffi.free_charp(l_cwd)
         if l_envp:
-            lltype.free(l_envp, flavor='raw')
+            rffi.free_charpp(l_envp)
         if l_argv:
-            lltype.free(l_argv, flavor='raw')
+            rffi.free_charpp(l_argv)
         if l_exec_array:
-            lltype.free(l_exec_array, flavor='raw')
+            rffi.free_charpp(l_exec_array)
         if l_fds_to_keep:
             lltype.free(l_fds_to_keep, flavor='raw')
 

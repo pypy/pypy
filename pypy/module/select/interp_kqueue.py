@@ -1,4 +1,4 @@
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, operationerrfmt, exception_from_errno
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.typedef import TypeDef, generic_new_descr, GetSetProperty
@@ -103,7 +103,7 @@ syscall_kevent = rffi.llexternal(
 )
 
 
-class W_Kqueue(Wrappable):
+class W_Kqueue(W_Root):
     def __init__(self, space, kqfd):
         self.kqfd = kqfd
 
@@ -232,7 +232,7 @@ W_Kqueue.typedef = TypeDef("select.kqueue",
 W_Kqueue.typedef.acceptable_as_base_class = False
 
 
-class W_Kevent(Wrappable):
+class W_Kevent(W_Root):
     def __init__(self, space):
         self.event = lltype.nullptr(kevent)
 
@@ -242,7 +242,10 @@ class W_Kevent(Wrappable):
 
     @unwrap_spec(filter=int, flags='c_uint', fflags='c_uint', data=int, udata=r_uint)
     def descr__init__(self, space, w_ident, filter=KQ_FILTER_READ, flags=KQ_EV_ADD, fflags=0, data=0, udata=r_uint(0)):
-        ident = r_uint(space.c_filedescriptor_w(w_ident))
+        if space.isinstance_w(w_ident, space.w_int):
+            ident = space.uint_w(w_ident)
+        else:
+            ident = r_uint(space.c_filedescriptor_w(w_ident))
 
         self.event = lltype.malloc(kevent, flavor="raw")
         rffi.setintfield(self.event, "c_ident", ident)

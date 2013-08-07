@@ -1,6 +1,11 @@
 #include "Python.h"
 #include "structmember.h"
 
+#if PY_MAJOR_VERSION >= 3
+    #define PyInt_FromLong PyLong_FromLong
+    #define PyInt_AsLong PyLong_AsLong
+#endif
+
 typedef struct {
     PyObject_HEAD
     int    foo;        /* the context holder */

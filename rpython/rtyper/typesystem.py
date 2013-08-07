@@ -3,7 +3,6 @@
 
 from rpython.tool.pairtype import extendabletype
 
-from rpython.rtyper.ootypesystem import ootype
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.error import TyperError
 
@@ -21,7 +20,7 @@ class TypeSystem(object):
             except ImportError:
                 return None
         if name in ('rclass', 'rpbc', 'rbuiltin', 'rtuple', 'rlist',
-                    'rslice', 'rdict', 'rrange', 'rstr', 'rgeneric',
+                    'rslice', 'rdict', 'rrange', 'rstr',
                     'll_str', 'rbuilder', 'rvirtualizable2', 'rbytearray',
                     'exceptiondata'):
             mod = load(name)
@@ -50,7 +49,7 @@ class TypeSystem(object):
     def getcallabletype(self, ARGS, RESTYPE):
         cls = self.callable_trait[0]
         return cls(ARGS, RESTYPE)
-        
+
     def getcallable(self, graph, getconcretetype=None):
         """Return callable given a Python function."""
         if getconcretetype is None:
@@ -59,7 +58,7 @@ class TypeSystem(object):
         lloutput = getconcretetype(graph.getreturnvar())
 
         typ, constr = self.callable_trait
-        
+
         FT = typ(llinputs, lloutput)
         name = graph.name
         if hasattr(graph, 'func') and callable(graph.func):
@@ -138,52 +137,12 @@ class LowLevelTypeSystem(TypeSystem):
         if robj1.lowleveltype != robj2.lowleveltype:
             raise TyperError('is of instances of different pointer types: %r, %r' % (
                 roriginal1, roriginal2))
-            
+
         v_list = hop.inputargs(robj1, robj2)
         return hop.genop('ptr_eq', v_list, resulttype=lltype.Bool)
 
-class ObjectOrientedTypeSystem(TypeSystem):
-    name = "ootypesystem"
-    callable_trait = (ootype.StaticMethod, ootype.static_meth)
-
-    def derefType(self, T):
-        assert isinstance(T, ootype.OOType)
-        return T
-
-    def deref(self, obj):
-        assert isinstance(ootype.typeOf(obj), ootype.OOType)
-        return obj
-
-    def check_null(self, repr, hop):
-        vlist = hop.inputargs(repr)
-        return hop.genop('oononnull', vlist, resulttype=ootype.Bool)
-
-    def getconcretetype(self, v):
-        return v.concretetype
-
-    def null_callable(self, T):
-        return ootype.null(T)
-
-    def generic_is(self, robj1, robj2, hop):
-        roriginal1 = robj1
-        roriginal2 = robj2
-        if robj1.lowleveltype is lltype.Void:
-            robj1 = robj2
-        elif robj2.lowleveltype is lltype.Void:
-            robj2 = robj1
-        if (not isinstance(robj1.lowleveltype, (ootype.Instance, ootype.BuiltinADTType)) or
-            not isinstance(robj2.lowleveltype, (ootype.Instance, ootype.BuiltinADTType))) and \
-            (robj1.lowleveltype is not ootype.Class or
-             robj2.lowleveltype is not ootype.Class):
-            raise TyperError('is of instances of the non-instances: %r, %r' % (
-                roriginal1, roriginal2))
-            
-        v_list = hop.inputargs(robj1, robj2)
-        return hop.genop('oois', v_list, resulttype=lltype.Bool)
-
 # All typesystems are singletons
 LowLevelTypeSystem.instance = LowLevelTypeSystem()
-ObjectOrientedTypeSystem.instance = ObjectOrientedTypeSystem()
 
 getfunctionptr = LowLevelTypeSystem.instance.getcallable
 

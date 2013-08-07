@@ -36,47 +36,60 @@ class AppTestC(object):
         testfuncs_w = []
         keepalive_funcs = []
 
-        def find_and_load_library_for_test(space, w_name, w_is_global=None):
-            if w_is_global is None:
-                w_is_global = space.wrap(0)
-            if space.is_w(w_name, space.w_None):
-                path = None
-            else:
-                import ctypes.util
-                path = ctypes.util.find_library(space.str_w(w_name))
-            return space.appexec([space.wrap(path), w_is_global],
-            """(path, is_global):
-                import _cffi_backend
-                return _cffi_backend.load_library(path, is_global)""")
-
         test_lib_c = tmpdir.join('_test_lib.c')
         src_test_lib_c = py.path.local(__file__).dirpath().join('_test_lib.c')
         src_test_lib_c.copy(test_lib_c)
         eci = ExternalCompilationInfo()
-        test_lib = host.compile([test_lib_c], eci, standalone=False)
+        test_lib = str(host.compile([test_lib_c], eci, standalone=False))
 
-        cdll = ctypes.CDLL(str(test_lib))
+        cdll = ctypes.CDLL(test_lib)
         cdll.gettestfunc.restype = ctypes.c_void_p
-
-        def testfunc_for_test(space, w_num):
-            if hasattr(space, 'int_w'):
-                w_num = space.int_w(w_num)
-            addr = cdll.gettestfunc(w_num)
-            return space.wrap(addr)
 
         space = cls.space
         if cls.runappdirect:
-            def interp2app(func):
-                def run(*args):
-                    return func(space, *args)
-                return run
-        else:
-            interp2app = gateway.interp2app
+            def find_and_load_library_for_test(name, is_global=False):
+                if name is None:
+                    path = None
+                else:
+                    import ctypes.util
+                    path = ctypes.util.find_library(name)
+                import _cffi_backend
+                return _cffi_backend.load_library(path, is_global)
 
-        w_func = space.wrap(interp2app(find_and_load_library_for_test))
-        w_testfunc = space.wrap(interp2app(testfunc_for_test))
-        space.appexec([space.wrap(str(tmpdir)), w_func, w_testfunc,
-                       space.wrap(sys.version[:3])],
+            def w_testfunc_for_test(num):
+                import ctypes
+                cdll = ctypes.CDLL(str(self.test_lib))
+                cdll.gettestfunc.restype = ctypes.c_void_p
+                return cdll.gettestfunc(num)
+
+            cls.w_test_lib = space.wrap(test_lib)
+            cls.w_func = find_and_load_library_for_test
+            cls.w_testfunc = w_testfunc_for_test
+        else:
+            def find_and_load_library_for_test(space, w_name, w_is_global=None):
+                if w_is_global is None:
+                    w_is_global = space.wrap(0)
+                if space.is_w(w_name, space.w_None):
+                    path = None
+                else:
+                    import ctypes.util
+                    path = ctypes.util.find_library(space.str_w(w_name))
+                return space.appexec([space.wrap(path), w_is_global],
+                """(path, is_global):
+                    import _cffi_backend
+                    return _cffi_backend.load_library(path, is_global)""")
+
+            def testfunc_for_test(space, w_num):
+                if hasattr(space, 'int_w'):
+                    w_num = space.int_w(w_num)
+                addr = cdll.gettestfunc(w_num)
+                return space.wrap(addr)
+
+            cls.w_func = space.wrap(gateway.interp2app(find_and_load_library_for_test))
+            cls.w_testfunc = space.wrap(gateway.interp2app(testfunc_for_test))
+        cls.w_zz_init = space.appexec(
+            [space.wrap(str(tmpdir)), cls.w_func, cls.w_testfunc,
+             space.wrap(sys.version[:3])],
         """(path, func, testfunc, underlying_version):
             import sys
             sys.path.append(path)

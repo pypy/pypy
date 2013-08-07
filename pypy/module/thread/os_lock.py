@@ -2,9 +2,10 @@
 Python locks, based on true threading locks provided by the OS.
 """
 
-from rpython.rlib import rthread as thread
+import time
+from rpython.rlib import rthread
 from pypy.module.thread.error import wrap_thread_error
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.interpreter.error import OperationError
@@ -16,6 +17,7 @@ from rpython.rlib.rarithmetic import r_longlong, ovfcheck
 LONGLONG_MAX = r_longlong(2 ** (r_longlong.BITS-1) - 1)
 TIMEOUT_MAX = LONGLONG_MAX
 
+RPY_LOCK_FAILURE, RPY_LOCK_ACQUIRED, RPY_LOCK_INTR = range(3)
 
 ##import sys
 ##def debug(msg, n):
@@ -27,7 +29,7 @@ TIMEOUT_MAX = LONGLONG_MAX
 ##    except:
 ##        pass
 ##    tb = ' '.join(tb)
-##    msg = '| %6d | %d %s | %s\n' % (thread.get_ident(), n, msg, tb)
+##    msg = '| %6d | %d %s | %s\n' % (rthread.get_ident(), n, msg, tb)
 ##    sys.stderr.write(msg)
 
 
@@ -51,14 +53,33 @@ def parse_acquire_args(space, blocking, timeout):
     return microseconds
 
 
-class Lock(Wrappable):
+def acquire_timed(space, lock, microseconds):
+    """Helper to acquire an interruptible lock with a timeout."""
+    endtime = (time.time() * 1e6) + microseconds
+    while True:
+        result = lock.acquire_timed(microseconds)
+        if result == RPY_LOCK_INTR:
+            # Run signal handlers if we were interrupted
+            space.getexecutioncontext().checksignals()
+            if microseconds >= 0:
+                microseconds = r_longlong(endtime - (time.time() * 1e6))
+                # Check for negative values, since those mean block
+                # forever
+                if microseconds <= 0:
+                    result = RPY_LOCK_FAILURE
+        if result != RPY_LOCK_INTR:
+            break
+    return result
+
+
+class Lock(W_Root):
     "A wrappable box around an interp-level lock object."
 
     def __init__(self, space):
         self.space = space
         try:
-            self.lock = thread.allocate_lock()
-        except thread.error:
+            self.lock = rthread.allocate_lock()
+        except rthread.error:
             raise wrap_thread_error(space, "out of resources")
 
     @unwrap_spec(blocking=int, timeout=float)
@@ -70,10 +91,8 @@ With an argument, this will only block if the argument is true,
 and the return value reflects whether the lock is acquired.
 The blocking operation is interruptible."""
         microseconds = parse_acquire_args(space, blocking, timeout)
-        mylock = self.lock
-        result = mylock.acquire_timed(microseconds)
-        result = (result == 1)    # XXX handle RPY_LOCK_INTR (see e80549fefb75)
-        return space.newbool(result)
+        result = acquire_timed(space, self.lock, microseconds)
+        return space.newbool(result == RPY_LOCK_ACQUIRED)
 
     def descr_lock_release(self, space):
         """Release the lock, allowing another thread that is blocked waiting for
@@ -81,7 +100,7 @@ the lock to acquire the lock.  The lock must be in the locked state,
 but it needn't be locked by the same thread that unlocks it."""
         try:
             self.lock.release()
-        except thread.error:
+        except rthread.error:
             raise wrap_thread_error(space, "release unlocked lock")
 
     def descr_lock_locked(self, space):
@@ -137,13 +156,13 @@ See LockType.__doc__ for information about locks."""
     return space.wrap(Lock(space))
 
 
-class W_RLock(Wrappable):
+class W_RLock(W_Root):
     def __init__(self, space):
         self.rlock_count = 0
         self.rlock_owner = 0
         try:
-            self.lock = thread.allocate_lock()
-        except thread.error:
+            self.lock = rthread.allocate_lock()
+        except rthread.error:
             raise wrap_thread_error(space, "cannot allocate lock")
 
     def descr__new__(space, w_subtype):
@@ -153,7 +172,7 @@ class W_RLock(Wrappable):
 
     def descr__repr__(self):
         typename = space.type(self).getname(space)
-        return space.wrap("<%s owner=%d count=%d>" % (
+        return space.wrap(u"<%s owner=%d count=%d>" % (
                 typename, self.rlock_owner, self.rlock_count))
 
     @unwrap_spec(blocking=bool, timeout=float)
@@ -171,7 +190,7 @@ class W_RLock(Wrappable):
         internal counter is simply incremented. If nobody holds the lock,
         the lock is taken and its internal counter initialized to 1."""
         microseconds = parse_acquire_args(space, blocking, timeout)
-        tid = thread.get_ident()
+        tid = rthread.get_ident()
         if self.rlock_count > 0 and tid == self.rlock_owner:
             try:
                 self.rlock_count = ovfcheck(self.rlock_count + 1)
@@ -184,8 +203,8 @@ class W_RLock(Wrappable):
         if self.rlock_count > 0 or not self.lock.acquire(False):
             if not blocking:
                 return space.w_False
-            r = self.lock.acquire_timed(microseconds)
-            r = (r == 1)    # XXX handle RPY_LOCK_INTR (see e80549fefb75)
+            r = acquire_timed(space, self.lock, microseconds)
+            r = (r == RPY_LOCK_ACQUIRED)
         if r:
             assert self.rlock_count == 0
             self.rlock_owner = tid
@@ -203,7 +222,7 @@ class W_RLock(Wrappable):
         Do note that if the lock was acquire()d several times in a row by the
         current thread, release() needs to be called as many times for the lock
         to be available for other threads."""
-        tid = thread.get_ident()
+        tid = rthread.get_ident()
         if self.rlock_count == 0 or self.rlock_owner != tid:
             raise OperationError(space.w_RuntimeError, space.wrap(
                     "cannot release un-acquired lock"))
@@ -214,7 +233,7 @@ class W_RLock(Wrappable):
 
     def is_owned_w(self, space):
         """For internal use by `threading.Condition`."""
-        tid = thread.get_ident()
+        tid = rthread.get_ident()
         if self.rlock_count > 0 and self.rlock_owner == tid:
             return space.w_True
         else:

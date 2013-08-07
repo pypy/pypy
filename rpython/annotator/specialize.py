@@ -1,10 +1,10 @@
 # specialization support
 import py
-from rpython.tool.uid import uid
+
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.tool.algo.unionfind import UnionFind
 from rpython.flowspace.model import Block, Link, Variable, SpaceOperation
-from rpython.flowspace.model import Constant, checkgraph
+from rpython.flowspace.model import checkgraph
 from rpython.annotator import model as annmodel
 from rpython.flowspace.argument import Signature
 
@@ -22,7 +22,7 @@ def flatten_star_args(funcdesc, args_s):
         nb_extra_args = s_len.const
         flattened_s = list(args_s[:-1])
         flattened_s.extend(s_tuple.items)
-        
+
         def builder(translator, func):
             # build a hacked graph that doesn't take a *arg any more, but
             # individual extra arguments
@@ -39,8 +39,8 @@ def flatten_star_args(funcdesc, args_s):
             graph.startblock = newstartblock
             argnames = argnames + ['.star%d' % i for i in range(nb_extra_args)]
             graph.signature = Signature(argnames)
-            # note that we can mostly ignore defaults: if nb_extra_args > 0, 
-            # then defaults aren't applied.  if nb_extra_args == 0, then this 
+            # note that we can mostly ignore defaults: if nb_extra_args > 0,
+            # then defaults aren't applied.  if nb_extra_args == 0, then this
             # just removes the *arg and the defaults keep their meaning.
             if nb_extra_args > 0:
                 graph.defaults = None   # shouldn't be used in this case
@@ -66,7 +66,7 @@ def default_specialize(funcdesc, args_s):
             if jit_look_inside:
                 access_directly = True
                 key = (AccessDirect, key)
-                break                
+                break
             else:
                 new_flags = s_obj.flags.copy()
                 del new_flags['access_directly']
@@ -93,7 +93,6 @@ def getuniquenondirectgraph(desc):
         result.append(graph)
     assert len(result) == 1
     return result[0]
-        
 
 # ____________________________________________________________________________
 # specializations
@@ -111,7 +110,8 @@ class MemoTable(object):
 
     def absorb(self, other):
         self.table.update(other.table)
-        self.graph = None   # just in case
+        assert self.graph is None, "too late for MemoTable merge!"
+        del other.graph   # just in case
         other.do_not_process = True
 
     fieldnamecounter = 0
@@ -188,8 +188,6 @@ class MemoTable(object):
 
                 # is the arg a bool?
                 elif nextargvalues == [False, True]:
-                    fieldname0 = self.getuniquefieldname()
-                    fieldname1 = self.getuniquefieldname()
                     stmt = ['if %s:' % argnames[firstarg]]
                     if hasattr(nextfns[True], 'constant_result'):
                         # the True branch has a constant result
@@ -333,7 +331,7 @@ def maybe_star_args(funcdesc, key, args_s):
     if key1 is not None:
         key = key + key1
     return funcdesc.cachedgraph(key, builder=builder)
- 
+
 def specialize_argvalue(funcdesc, args_s, *argindices):
     from rpython.annotator.model import SomePBC
     key = []

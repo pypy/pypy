@@ -1,11 +1,10 @@
-from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.interpreter.error import OperationError, wrap_oserror
-from pypy.interpreter.gateway import unwrap_spec
+from pypy.interpreter.gateway import WrappedDefault, unwrap_spec
 from rpython.rlib.objectmodel import we_are_translated
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.typeobject import MethodCache
 from pypy.objspace.std.mapdict import IndexCache
-from rpython.rlib import rposix
+from rpython.rlib import rposix, rgc
 
 
 def internal_repr(space, w_object):
@@ -56,7 +55,14 @@ def builtinify(space, w_func):
     bltn = BuiltinFunction(func)
     return space.wrap(bltn)
 
-@unwrap_spec(ObjSpace, W_Root, str)
+def hidden_applevel(space, w_func):
+    """Decorator that hides a function's frame from app-level"""
+    from pypy.interpreter.function import Function
+    func = space.interp_w(Function, w_func)
+    func.getcode().hidden_applevel = True
+    return w_func
+
+@unwrap_spec(meth=str)
 def lookup_special(space, w_obj, meth):
     """Lookup up a special method on an object."""
     w_descr = space.lookup(w_obj, meth)
@@ -81,13 +87,6 @@ def validate_fd(space, fd):
     except OSError, e:
         raise wrap_oserror(space, e)
 
-def get_console_cp(space):
-    from rpython.rlib import rwin32    # Windows only
-    return space.newtuple([
-        space.wrap('cp%d' % rwin32.GetConsoleCP()),
-        space.wrap('cp%d' % rwin32.GetConsoleOutputCP()),
-        ])
-
 @unwrap_spec(sizehint=int)
 def resizelist_hint(space, w_iterable, sizehint):
     if not isinstance(w_iterable, W_ListObject):
@@ -98,3 +97,20 @@ def resizelist_hint(space, w_iterable, sizehint):
 @unwrap_spec(sizehint=int)
 def newlist_hint(space, sizehint):
     return space.newlist_hint(sizehint)
+
+@unwrap_spec(debug=bool)
+def set_debug(space, debug):
+    space.sys.debug = debug
+    space.setitem(space.builtin.w_dict,
+                  space.wrap('__debug__'),
+                  space.wrap(debug))
+
+@unwrap_spec(estimate=int)
+def add_memory_pressure(estimate):
+    rgc.add_memory_pressure(estimate)
+
+@unwrap_spec(w_value=WrappedDefault(None), w_tb=WrappedDefault(None))
+def normalize_exc(space, w_type, w_value=None, w_tb=None):
+    operr = OperationError(w_type, w_value, w_tb)
+    operr.normalize_exception(space)
+    return operr.get_w_value(space)

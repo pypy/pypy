@@ -14,7 +14,6 @@ from rpython.rlib.jit import _we_are_jitted
 from rpython.rlib.rgc import lltype_is_gc
 from rpython.rtyper.lltypesystem import lltype, llmemory, rstr, rclass, rffi
 from rpython.rtyper.rclass import IR_QUASIIMMUTABLE, IR_QUASIIMMUTABLE_ARRAY
-from rpython.translator.simplify import get_funcobj
 from rpython.translator.unsimplify import varoftype
 
 class UnsupportedMallocFlags(Exception):
@@ -359,11 +358,12 @@ class Transformer(object):
         else: raise AssertionError(kind)
         lst.append(v)
 
-    def handle_residual_call(self, op, extraargs=[], may_call_jitcodes=False):
+    def handle_residual_call(self, op, extraargs=[], may_call_jitcodes=False,
+                             oopspecindex=EffectInfo.OS_NONE):
         """A direct_call turns into the operation 'residual_call_xxx' if it
         is calling a function that we don't want to JIT.  The initial args
         of 'residual_call_xxx' are the function to call, and its calldescr."""
-        calldescr = self.callcontrol.getcalldescr(op)
+        calldescr = self.callcontrol.getcalldescr(op, oopspecindex=oopspecindex)
         op1 = self.rewrite_call(op, 'residual_call',
                                 [op.args[0]] + extraargs, calldescr=calldescr)
         if may_call_jitcodes or self.callcontrol.calldescr_canraise(calldescr):
@@ -398,6 +398,8 @@ class Transformer(object):
             prepare = self._handle_libffi_call
         elif oopspec_name.startswith('math.sqrt'):
             prepare = self._handle_math_sqrt_call
+        elif oopspec_name.startswith('rgc.'):
+            prepare = self._handle_rgc_call
         else:
             prepare = self.prepare_builtin_call
         try:
@@ -539,9 +541,11 @@ class Transformer(object):
             name += '_no_track_allocation'
         op1 = self.prepare_builtin_call(op, name, args, (TYPE,), TYPE)
         if name == 'raw_malloc_varsize':
-            return self._handle_oopspec_call(op1, args,
-                                             EffectInfo.OS_RAW_MALLOC_VARSIZE,
-                                             EffectInfo.EF_CAN_RAISE)
+            ITEMTYPE = op.args[0].value.OF
+            if ITEMTYPE == lltype.Char:
+                return self._handle_oopspec_call(op1, args,
+                                                 EffectInfo.OS_RAW_MALLOC_VARSIZE_CHAR,
+                                                 EffectInfo.EF_CAN_RAISE)
         return self.rewrite_op_direct_call(op1)
 
     def rewrite_op_malloc_varsize(self, op):
@@ -636,9 +640,6 @@ class Transformer(object):
                               op.result)
 
     def _array_of_voids(self, ARRAY):
-        #if isinstance(ARRAY, ootype.Array):
-        #    return ARRAY.ITEM == ootype.Void
-        #else:
         return ARRAY.OF == lltype.Void
 
     def rewrite_op_getfield(self, op):
@@ -1339,6 +1340,24 @@ class Transformer(object):
             return []
         return getattr(self, 'handle_jit_marker__%s' % key)(op, jitdriver)
 
+    def rewrite_op_jit_conditional_call(self, op):
+        have_floats = False
+        for arg in op.args:
+            if getkind(arg.concretetype) == 'float':
+                have_floats = True
+                break
+        if len(op.args) > 4 + 2 or have_floats:
+            raise Exception("Conditional call does not support floats or more than 4 arguments")
+        callop = SpaceOperation('direct_call', op.args[1:], op.result)
+        calldescr = self.callcontrol.getcalldescr(callop)
+        assert not calldescr.get_extra_info().check_forces_virtual_or_virtualizable()
+        op1 = self.rewrite_call(op, 'conditional_call',
+                                op.args[:2], args=op.args[2:],
+                                calldescr=calldescr)
+        if self.callcontrol.calldescr_canraise(calldescr):
+            op1 = [op1, SpaceOperation('-live-', [], None)]
+        return op1
+
     def handle_jit_marker__jit_merge_point(self, op, jitdriver):
         assert self.portal_jd is not None, (
             "'jit_merge_point' in non-portal graph!")
@@ -1443,7 +1462,7 @@ class Transformer(object):
         # because functions that are neither nonneg nor fast don't have an
         # oopspec any more
         # xxx break of abstraction:
-        func = get_funcobj(op.args[0].value)._callable
+        func = op.args[0].value._obj._callable
         # base hints on the name of the ll function, which is a bit xxx-ish
         # but which is safe for now
         assert func.func_name.startswith('ll_')
@@ -1661,12 +1680,14 @@ class Transformer(object):
             dict = {"stroruni.concat": EffectInfo.OS_STR_CONCAT,
                     "stroruni.slice":  EffectInfo.OS_STR_SLICE,
                     "stroruni.equal":  EffectInfo.OS_STR_EQUAL,
+                    "stroruni.copy_string_to_raw": EffectInfo.OS_STR_COPY_TO_RAW,
                     }
             CHR = lltype.Char
         elif SoU.TO == rstr.UNICODE:
             dict = {"stroruni.concat": EffectInfo.OS_UNI_CONCAT,
                     "stroruni.slice":  EffectInfo.OS_UNI_SLICE,
                     "stroruni.equal":  EffectInfo.OS_UNI_EQUAL,
+                    "stroruni.copy_string_to_raw": EffectInfo.OS_UNI_COPY_TO_RAW
                     }
             CHR = lltype.UniChar
         else:
@@ -1747,12 +1768,21 @@ class Transformer(object):
             assert False, 'unsupported oopspec: %s' % oopspec_name
         return self._handle_oopspec_call(op, args, oopspecindex, extraeffect)
 
+    def rewrite_op_jit_ffi_save_result(self, op):
+        kind = op.args[0].value
+        assert kind in ('int', 'float', 'longlong', 'singlefloat')
+        return SpaceOperation('libffi_save_result_%s' % kind, op.args[1:], None)
+
     def rewrite_op_jit_force_virtual(self, op):
-        return self._do_builtin_call(op)
+        op0 = SpaceOperation('-live-', [], None)
+        op1 = self._do_builtin_call(op)
+        if isinstance(op1, list):
+            return [op0] + op1
+        else:
+            return [op0, op1]
 
     def rewrite_op_jit_is_virtual(self, op):
-        raise Exception, (
-            "'vref.virtual' should not be used from jit-visible code")
+        raise Exception("'vref.virtual' should not be used from jit-visible code")
 
     def rewrite_op_jit_force_virtualizable(self, op):
         # this one is for virtualizables
@@ -1767,6 +1797,12 @@ class Transformer(object):
     def _handle_math_sqrt_call(self, op, oopspec_name, args):
         return self._handle_oopspec_call(op, args, EffectInfo.OS_MATH_SQRT,
                                          EffectInfo.EF_ELIDABLE_CANNOT_RAISE)
+
+    def _handle_rgc_call(self, op, oopspec_name, args):
+        if oopspec_name == 'rgc.ll_shrink_array':
+            return self._handle_oopspec_call(op, args, EffectInfo.OS_SHRINK_ARRAY, EffectInfo.EF_CAN_RAISE)
+        else:
+            raise NotImplementedError(oopspec_name)
 
     def rewrite_op_jit_force_quasi_immutable(self, op):
         v_inst, c_fieldname = op.args

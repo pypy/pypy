@@ -27,15 +27,10 @@ generally one that is considerably lower-level than Python.  It divides
 this task into several steps, and the purpose of this document is to
 introduce them.
 
-As of the 1.2 release, RPython_ programs can be translated into the following
-languages/platforms: C/POSIX, CLI/.NET
-and Java/JVM.
-
 .. _`application-level`: coding-guide.html#application-level
 .. _`interpreter-level`: coding-guide.html#interpreter-level
 
-The choice of the target platform affects the process somewhat, but to
-start with we describe the process of translating an RPython_ program into
+To start with we describe the process of translating an RPython_ program into
 C (which is the default and original target).
 
 .. _`initialization time`:
@@ -90,7 +85,7 @@ steps (see also the figure below):
 (although these steps are not quite as distinct as you might think from
 this presentation).
 
-There is an `interactive interface`_ called `pypy/bin/translatorshell.py`_ to the
+There is an `interactive interface`_ called `rpython/bin/translatorshell.py`_ to the
 translation process which allows you to interactively work through these
 stages.
 
@@ -116,7 +111,7 @@ describing object spaces`_. Here we describe the data structures produced by it,
 which are the basic data structures of the translation
 process.
 
-All these types are defined in `pypy/objspace/flow/model.py`_ (which is a rather
+All these types are defined in `rpython/flowspace/model.py`_ (which is a rather
 important module in the PyPy source base, to reinforce the point).
 
 The flow graph of a function is represented by the class ``FunctionGraph``.
@@ -653,54 +648,6 @@ Other backends
 
 Use the :config:`translation.backend` option to choose which backend to use.
 
-
-
-The Object-Oriented Backends
-----------------------------
-
-The Object-Oriented backends target platforms that are less C-like and support
-classes, instance etc. If such a platform is targeted, the `OO type system` is
-used while rtyping. Of the OO backends, both gencli and genjava can translate
-the full Python interpreter.
-
-.. _`oo type system`: rtyper.html#oo-type
-
-.. mention that pretty much all these backends are done by volunteers?
-
-GenCLI
-++++++
-
-GenCLI_ targets the `Common Language Infrastructure`_, the most famous
-implementations of which are Microsoft's `.NET`_ and Mono_.
-
-It is the most advanced of the object oriented backends -- it can
-compile the PyPy interpreter as well as our two standard benchmarks,
-RPyStone (CPython's PyStone benchmark modified slightly to be RPython)
-and a RPython version of the common Richards benchmark.
-
-It is almost entirely the work of Antonio Cuni, who started this
-backend as part of his `Master's thesis`_, the Google's Summer of Code
-2006 program and the Summer of PyPy program.
-
-.. _`Common Language Infrastructure`: http://www.ecma-international.org/publications/standards/Ecma-335.htm
-.. _`.NET`: http://www.microsoft.com/net/
-.. _Mono: http://www.mono-project.com/
-.. _`Master's thesis`: http://buildbot.pypy.org/misc/Implementing%20Python%20in%20.NET.pdf
-.. _GenCLI: cli-backend.html
-
-GenJVM
-++++++
-
-GenJVM targets the Java Virtual Machine: it translates RPython
-programs directly into Java bytecode, similarly to what GenCLI does.
-
-So far it is the second most mature high level backend after GenCLI:
-it still can't translate the full Standard Interpreter, but after the
-Leysin sprint we were able to compile and run the rpystone and
-richards benchmarks.
-
-GenJVM is almost entirely the work of Niko Matsakis, who worked on it
-also as part of the Summer of PyPy program.
 
 .. _extfunccalls:
 

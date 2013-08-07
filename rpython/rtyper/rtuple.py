@@ -1,20 +1,21 @@
 import operator
-from rpython.tool.pairtype import pairtype
+
 from rpython.annotator import model as annmodel
 from rpython.flowspace.model import Constant
-from rpython.rtyper.error import TyperError
-from rpython.rtyper.rmodel import Repr, IntegerRepr, inputconst
-from rpython.rtyper.rmodel import IteratorRepr
-from rpython.rtyper.rmodel import externalvsinternal
-from rpython.rtyper.lltypesystem.lltype import Void, Signed, Bool
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.unroll import unrolling_iterable
+from rpython.rtyper.error import TyperError
+from rpython.rtyper.lltypesystem.lltype import Void, Signed, Bool
+from rpython.rtyper.rmodel import (Repr, IntegerRepr, inputconst, IteratorRepr,
+    externalvsinternal)
+from rpython.tool.pairtype import pairtype
+
 
 class __extend__(annmodel.SomeTuple):
     def rtyper_makerepr(self, rtyper):
         repr_class = rtyper.type_system.rtuple.TupleRepr
         return repr_class(rtyper, [rtyper.getrepr(s_item) for s_item in self.items])
-    
+
     def rtyper_makekey_ex(self, rtyper):
         keys = [rtyper.makekey(s_item) for s_item in self.items]
         return tuple([self.__class__]+keys)
@@ -202,29 +203,29 @@ class __extend__(AbstractTupleRepr):
                    for i in indices]
         return hop.r_result.newtuple(hop.llops, hop.r_result, items_v)
 
-class __extend__(pairtype(AbstractTupleRepr, Repr)): 
+class __extend__(pairtype(AbstractTupleRepr, Repr)):
     def rtype_contains((r_tup, r_item), hop):
         s_tup = hop.args_s[0]
         if not s_tup.is_constant():
-            raise TyperError("contains() on non-const tuple") 
+            raise TyperError("contains() on non-const tuple")
         t = s_tup.const
-        typ = type(t[0]) 
-        for x in t[1:]: 
-            if type(x) is not typ: 
+        typ = type(t[0])
+        for x in t[1:]:
+            if type(x) is not typ:
                 raise TyperError("contains() on mixed-type tuple "
                                  "constant %r" % (t,))
         d = {}
-        for x in t: 
-            d[x] = None 
+        for x in t:
+            d[x] = None
         hop2 = hop.copy()
         _, _ = hop2.r_s_popfirstarg()
         v_dict = Constant(d)
         s_dict = hop.rtyper.annotator.bookkeeper.immutablevalue(d)
         hop2.v_s_insertfirstarg(v_dict, s_dict)
         return hop2.dispatch()
- 
+
 class __extend__(pairtype(AbstractTupleRepr, AbstractTupleRepr)):
-    
+
     def rtype_add((r_tup1, r_tup2), hop):
         v_tuple1, v_tuple2 = hop.inputargs(r_tup1, r_tup2)
         vlist = []
@@ -278,4 +279,3 @@ class AbstractTupleIteratorRepr(IteratorRepr):
         hop.exception_is_here()
         v = hop.gendirectcall(self.ll_tuplenext, v_iter)
         return hop.llops.convertvar(v, self.r_tuple.items_r[0], self.r_tuple.external_items_r[0])
-

@@ -1,4 +1,5 @@
-from rpython.translator.simplify import get_graph, get_funcobj
+from rpython.rtyper.lltypesystem.lltype import DelayedPointer
+from rpython.translator.simplify import get_graph
 from rpython.tool.algo.unionfind import UnionFind
 
 
@@ -52,7 +53,10 @@ class GraphAnalyzer(object):
         return self.bottom_result()
 
     def analyze_external_call(self, op, seen=None):
-        funcobj = get_funcobj(op.args[0].value)
+        try:
+            funcobj = op.args[0].value._obj
+        except DelayedPointer:
+            return self.bottom_result()
         result = self.bottom_result()
         if hasattr(funcobj, '_callbacks'):
             bk = self.translator.annotator.bookkeeper
@@ -62,9 +66,6 @@ class GraphAnalyzer(object):
                     result = self.join_two_results(
                         result, self.analyze_direct_call(graph, seen))
         return result
-
-    def analyze_external_method(self, op, TYPE, meth):
-        return self.top_result()
 
     def analyze_link(self, graph, link):
         return self.bottom_result()
@@ -80,34 +81,29 @@ class GraphAnalyzer(object):
             if graph is None:
                 x = self.analyze_external_call(op, seen)
                 if self.verbose and x:
-                    print '\tanalyze_external_call %s: %r' % (op, x)
+                    self.dump_info('analyze_external_call %s: %r' % (op, x))
                 return x
             x = self.analyze_direct_call(graph, seen)
             if self.verbose and x:
-                print '\tanalyze_direct_call(%s): %r' % (graph, x)
+                self.dump_info('analyze_direct_call(%s): %r' % (graph, x))
             return x
         elif op.opname == "indirect_call":
             graphs = op.args[-1].value
             if graphs is None:
                 if self.verbose:
-                    print '\t%s to unknown' % (op,)
+                    self.dump_info('%s to unknown' % (op,))
                 return self.top_result()
             x = self.analyze_indirect_call(graphs, seen)
             if self.verbose and x:
-                print '\tanalyze_indirect_call(%s): %r' % (graphs, x)
+                self.dump_info('analyze_indirect_call(%s): %r' % (graphs, x))
             return x
-        elif op.opname == "oosend":
-            name = op.args[0].value
-            TYPE = op.args[1].concretetype
-            _, meth = TYPE._lookup(name)
-            graph = getattr(meth, 'graph', None)
-            if graph is None:
-                return self.analyze_external_method(op, TYPE, meth)
-            return self.analyze_oosend(TYPE, name, seen)
         x = self.analyze_simple_operation(op, graphinfo)
         if self.verbose and x:
-            print '\t%s: %r' % (op, x)
+            self.dump_info('%s: %r' % (op, x))
         return x
+
+    def dump_info(self, info):
+        print '[%s] %s' % (self.__class__.__name__, info)
 
     def analyze_direct_call(self, graph, seen=None):
         if seen is None:
@@ -160,10 +156,6 @@ class GraphAnalyzer(object):
                 break
         return self.finalize_builder(result)
 
-    def analyze_oosend(self, TYPE, name, seen=None):
-        graphs = TYPE._lookup_graphs(name)
-        return self.analyze_indirect_call(graphs, seen)
-
     def analyze_all(self, graphs=None):
         if graphs is None:
             graphs = self.translator.graphs
@@ -204,26 +196,29 @@ class DependencyTracker(object):
         self.graph_results = analyzer._analyzed_calls
         # the current stack of graphs being analyzed
         self.current_stack = []
-        self.current_stack_set = set()
+        #self.current_stack_set = set()
 
     def enter(self, graph):
         if graph not in self.graph_results:
             self.current_stack.append(graph)
-            self.current_stack_set.add(graph)
+            #self.current_stack_set.add(graph)
             self.graph_results.find(graph)
             return True
         else:
-            if graph in self.current_stack_set:
-                # found a cycle; merge all graphs in that cycle
-                i = len(self.current_stack) - 1
-                while self.current_stack[i] is not graph:
-                    self.graph_results.union(self.current_stack[i], graph)
-                    i -= 1
+            graph = self.graph_results.find_rep(graph)
+            for j in range(len(self.current_stack)):
+                othergraph = self.graph_results.find_rep(self.current_stack[j])
+                if graph is othergraph:
+                    # found a cycle; merge all graphs in that cycle
+                    for i in range(j, len(self.current_stack)):
+                        self.graph_results.union(self.current_stack[i], graph)
+                    # done
+                    break
             return False
 
     def leave_with(self, result):
         graph = self.current_stack.pop()
-        self.current_stack_set.remove(graph)
+        #self.current_stack_set.remove(graph)
         dep = self.graph_results[graph]
         dep.merge_with_result(result)
 

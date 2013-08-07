@@ -7,7 +7,6 @@ import py
 from struct import unpack
 from rpython.rlib.rstruct.formatiterator import FormatIterator
 from rpython.rlib.rstruct.error import StructError
-from rpython.rlib.rstruct.nativefmttable import native_is_bigendian
 
 class MasterReader(object):
     def __init__(self, s):
@@ -30,9 +29,9 @@ class AbstractReader(object):
 
 def reader_for_pos(pos):
     class ReaderForPos(AbstractReader):
-        def __init__(self, mr):
+        def __init__(self, mr, bigendian):
             self.mr = mr
-            self.bigendian = native_is_bigendian
+            self.bigendian = bigendian
 
         def read(self, count):
             return self.mr.read(count)
@@ -46,7 +45,7 @@ class FrozenUnpackIterator(FormatIterator):
     def __init__(self, fmt):
         self.formats = []
         self.fmt = fmt
-    
+
     def operate(self, fmtdesc, repetitions):
         if fmtdesc.needcount:
             self.formats.append((fmtdesc, repetitions, None))
@@ -64,6 +63,7 @@ class FrozenUnpackIterator(FormatIterator):
         perform_lst = []
         miniglobals = {}
         miniglobals.update(globals())
+        miniglobals['bigendian'] = self.bigendian
         for i in rg:
             fmtdesc, rep, mask = self.formats[i]
             miniglobals['unpacker%d' % i] = fmtdesc.unpack
@@ -74,8 +74,8 @@ class FrozenUnpackIterator(FormatIterator):
             else:
                 perform_lst.append('unpacker%d(reader%d, %d)' % (i, i, rep))
             miniglobals['reader_cls%d' % i] = reader_for_pos(i)
-        readers = ";".join(["reader%d = reader_cls%d(master_reader)" % (i, i)
-                             for i in rg])
+        readers = ";".join(["reader%d = reader_cls%d(master_reader, bigendian)"
+                            % (i, i) for i in rg])
         perform = ";".join(perform_lst)
         unpackers = ','.join(['reader%d.value' % i for i in rg])
         source = py.code.Source("""
@@ -110,5 +110,3 @@ def runpack(fmt, input):
     unpacker = create_unpacker(fmt)
     return unpacker.unpack(input)
 runpack._annspecialcase_ = 'specialize:arg(0)'
-
-    

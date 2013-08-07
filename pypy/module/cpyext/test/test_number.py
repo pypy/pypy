@@ -22,11 +22,11 @@ class TestIterator(BaseApiTest):
 
     def test_number_int(self, space, api):
         w_l = api.PyNumber_Int(space.wraplong(123L))
-        assert api.PyInt_CheckExact(w_l)
+        assert api.PyLong_CheckExact(w_l)
         w_l = api.PyNumber_Int(space.wrap(2 << 65))
         assert api.PyLong_CheckExact(w_l)
         w_l = api.PyNumber_Int(space.wrap(42.3))
-        assert api.PyInt_CheckExact(w_l)
+        assert api.PyLong_CheckExact(w_l)
 
     def test_number_index(self, space, api):
         w_l = api.PyNumber_Index(space.wraplong(123L))

@@ -1,23 +1,21 @@
 from weakref import WeakValueDictionary
+
 from rpython.annotator import model as annmodel
-from rpython.rtyper.error import TyperError
-from rpython.rlib.objectmodel import malloc_zero_filled, we_are_translated
-from rpython.rlib.objectmodel import _hash_string, enforceargs
-from rpython.rlib.objectmodel import keepalive_until_here, specialize
+from rpython.rlib import jit, types
 from rpython.rlib.debug import ll_assert
-from rpython.rlib import jit
+from rpython.rlib.objectmodel import (malloc_zero_filled, we_are_translated,
+    _hash_string, keepalive_until_here, specialize)
+from rpython.rlib.signature import signature
 from rpython.rlib.rarithmetic import ovfcheck
-from rpython.rtyper.rmodel import inputconst, IntegerRepr
+from rpython.rtyper.error import TyperError
+from rpython.rtyper.lltypesystem import ll_str, llmemory
+from rpython.rtyper.lltypesystem.lltype import (GcStruct, Signed, Array, Char,
+    UniChar, Ptr, malloc, Bool, Void, GcArray, nullptr, cast_primitive,
+    typeOf, staticAdtMethod, GcForwardReference)
+from rpython.rtyper.rmodel import inputconst, Repr, IntegerRepr
 from rpython.rtyper.rstr import (AbstractStringRepr, AbstractCharRepr,
-     AbstractUniCharRepr, AbstractStringIteratorRepr,
-     AbstractLLHelpers, AbstractUnicodeRepr)
-from rpython.rtyper.lltypesystem import ll_str
-from rpython.rtyper.lltypesystem.lltype import \
-     GcStruct, Signed, Array, Char, UniChar, Ptr, malloc, \
-     Bool, Void, GcArray, nullptr, cast_primitive, typeOf,\
-     staticAdtMethod, GcForwardReference, malloc
-from rpython.rtyper.rmodel import Repr
-from rpython.rtyper.lltypesystem import llmemory
+    AbstractUniCharRepr, AbstractStringIteratorRepr, AbstractLLHelpers,
+    AbstractUnicodeRepr)
 from rpython.tool.sourcetools import func_with_new_name
 
 # ____________________________________________________________
@@ -52,18 +50,22 @@ def emptyunicodefun():
     return emptyunicode
 
 def _new_copy_contents_fun(SRC_TP, DST_TP, CHAR_TP, name):
-    def _str_ofs_src(item):
-        return (llmemory.offsetof(SRC_TP, 'chars') +
-                llmemory.itemoffsetof(SRC_TP.chars, 0) +
+    @specialize.arg(0)
+    def _str_ofs(TP, item):
+        return (llmemory.offsetof(TP, 'chars') +
+                llmemory.itemoffsetof(TP.chars, 0) +
                 llmemory.sizeof(CHAR_TP) * item)
 
-    def _str_ofs_dst(item):
-        return (llmemory.offsetof(DST_TP, 'chars') +
-                llmemory.itemoffsetof(DST_TP.chars, 0) +
-                llmemory.sizeof(CHAR_TP) * item)
+    @signature(types.any(), types.any(), types.int(), returns=types.any())
+    @specialize.arg(0)
+    def _get_raw_buf(TP, src, ofs):
+        assert typeOf(src).TO == TP
+        assert ofs >= 0
+        return llmemory.cast_ptr_to_adr(src) + _str_ofs(TP, ofs)
+    _get_raw_buf._always_inline_ = True
 
     @jit.oopspec('stroruni.copy_contents(src, dst, srcstart, dststart, length)')
-    @enforceargs(None, None, int, int, int)
+    @signature(types.any(), types.any(), types.int(), types.int(), types.int(), returns=types.none())
     def copy_string_contents(src, dst, srcstart, dststart, length):
         """Copies 'length' characters from the 'src' string to the 'dst'
         string, starting at position 'srcstart' and 'dststart'."""
@@ -73,22 +75,42 @@ def _new_copy_contents_fun(SRC_TP, DST_TP, CHAR_TP, name):
         # because it might move the strings.  The keepalive_until_here()
         # are obscurely essential to make sure that the strings stay alive
         # longer than the raw_memcopy().
-        assert typeOf(src).TO == SRC_TP
-        assert typeOf(dst).TO == DST_TP
-        assert srcstart >= 0
-        assert dststart >= 0
         assert length >= 0
-        src = llmemory.cast_ptr_to_adr(src) + _str_ofs_src(srcstart)
-        dst = llmemory.cast_ptr_to_adr(dst) + _str_ofs_dst(dststart)
+        # from here, no GC operations can happen
+        src = _get_raw_buf(SRC_TP, src, srcstart)
+        dst = _get_raw_buf(DST_TP, dst, dststart)
         llmemory.raw_memcopy(src, dst, llmemory.sizeof(CHAR_TP) * length)
+        # end of "no GC" section
         keepalive_until_here(src)
         keepalive_until_here(dst)
     copy_string_contents._always_inline_ = True
-    return func_with_new_name(copy_string_contents, 'copy_%s_contents' % name)
+    copy_string_contents = func_with_new_name(copy_string_contents,
+                                              'copy_%s_contents' % name)
 
-copy_string_contents = _new_copy_contents_fun(STR, STR, Char, 'string')
-copy_unicode_contents = _new_copy_contents_fun(UNICODE, UNICODE, UniChar,
-                                               'unicode')
+    @jit.oopspec('stroruni.copy_string_to_raw(src, ptrdst, srcstart, length)')
+    def copy_string_to_raw(src, ptrdst, srcstart, length):
+        """
+        Copies 'length' characters from the 'src' string to the 'ptrdst'
+        buffer, starting at position 'srcstart'.
+        'ptrdst' must be a non-gc Array of Char.
+        """
+        # xxx Warning: same note as above apply: don't do this at home
+        assert length >= 0
+        # from here, no GC operations can happen
+        src = _get_raw_buf(SRC_TP, src, srcstart)
+        adr = llmemory.cast_ptr_to_adr(ptrdst)
+        dstbuf = adr + llmemory.itemoffsetof(typeOf(ptrdst).TO, 0)
+        llmemory.raw_memcopy(src, dstbuf, llmemory.sizeof(CHAR_TP) * length)
+        # end of "no GC" section
+        keepalive_until_here(src)
+    copy_string_to_raw._always_inline_ = True
+    copy_string_to_raw = func_with_new_name(copy_string_to_raw, 'copy_%s_to_raw' % name)
+
+    return copy_string_to_raw, copy_string_contents
+
+copy_string_to_raw, copy_string_contents = _new_copy_contents_fun(STR, STR, Char, 'string')
+copy_unicode_to_raw, copy_unicode_contents = _new_copy_contents_fun(UNICODE, UNICODE,
+                                                                    UniChar, 'unicode')
 
 CONST_STR_CACHE = WeakValueDictionary()
 CONST_UNICODE_CACHE = WeakValueDictionary()
@@ -266,12 +288,12 @@ class LLHelpers(AbstractLLHelpers):
     def ll_strlen(s):
         return len(s.chars)
 
+    @signature(types.any(), types.int(), returns=types.any())
     def ll_stritem_nonneg(s, i):
         chars = s.chars
         ll_assert(i >= 0, "negative str getitem index")
         ll_assert(i < len(chars), "str getitem index out of bound")
         return chars[i]
-    ll_stritem_nonneg._annenforceargs_ = [None, int]
 
     def ll_chr2str(ch):
         if typeOf(ch) is Char:
@@ -334,7 +356,7 @@ class LLHelpers(AbstractLLHelpers):
             newstr = s2.malloc(len1 + len2)
             newstr.copy_contents_from_str(s1, newstr, 0, 0, len1)
         else:
-            newstr = s1.malloc(len1 + len2)            
+            newstr = s1.malloc(len1 + len2)
             newstr.copy_contents(s1, newstr, 0, 0, len1)
         if typeOf(s2) == Ptr(STR):
             newstr.copy_contents_from_str(s2, newstr, 0, len1, len2)
@@ -511,6 +533,7 @@ class LLHelpers(AbstractLLHelpers):
         return s.chars[len(s.chars) - 1] == ch
 
     @jit.elidable
+    @signature(types.any(), types.any(), types.int(), types.int(), returns=types.int())
     def ll_find_char(s, ch, start, end):
         i = start
         if end > len(s.chars):
@@ -520,7 +543,6 @@ class LLHelpers(AbstractLLHelpers):
                 return i
             i += 1
         return -1
-    ll_find_char._annenforceargs_ = [None, None, int, int]
 
     @jit.elidable
     def ll_rfind_char(s, ch, start, end):
@@ -680,7 +702,7 @@ class LLHelpers(AbstractLLHelpers):
             return -1
         return count
 
-    @enforceargs(int, None)
+    @signature(types.int(), types.any(), returns=types.any())
     @jit.look_inside_iff(lambda length, items: jit.loop_unrolling_heuristic(
         items, length))
     def ll_join_strs(length, items):
@@ -733,6 +755,8 @@ class LLHelpers(AbstractLLHelpers):
             i += 1
         return result
 
+    @jit.oopspec('stroruni.slice(s1, start, stop)')
+    @signature(types.any(), types.int(), types.int(), returns=types.any())
     @jit.elidable
     def _ll_stringslice(s1, start, stop):
         lgt = stop - start
@@ -745,8 +769,6 @@ class LLHelpers(AbstractLLHelpers):
         newstr = s1.malloc(lgt)
         s1.copy_contents(s1, newstr, start, 0, lgt)
         return newstr
-    _ll_stringslice.oopspec = 'stroruni.slice(s1, start, stop)'
-    _ll_stringslice._annenforceargs_ = [None, int, int]
 
     def ll_stringslice_startonly(s1, start):
         return LLHelpers._ll_stringslice(s1, start, len(s1.chars))
@@ -1054,15 +1076,18 @@ class BaseStringIteratorRepr(AbstractStringIteratorRepr):
     def __init__(self):
         self.ll_striter = ll_striter
         self.ll_strnext = ll_strnext
+        self.ll_getnextindex = ll_getnextindex
 
 class StringIteratorRepr(BaseStringIteratorRepr):
 
+    external_item_repr = char_repr
     lowleveltype = Ptr(GcStruct('stringiter',
                                 ('string', string_repr.lowleveltype),
                                 ('index', Signed)))
 
 class UnicodeIteratorRepr(BaseStringIteratorRepr):
 
+    external_item_repr = unichar_repr
     lowleveltype = Ptr(GcStruct('unicodeiter',
                                 ('string', unicode_repr.lowleveltype),
                                 ('index', Signed)))
@@ -1086,6 +1111,9 @@ def ll_strnext(iter):
         raise StopIteration
     iter.index = index + 1
     return chars[index]
+
+def ll_getnextindex(iter):
+    return iter.index
 
 string_repr.iterator_repr = StringIteratorRepr()
 unicode_repr.iterator_repr = UnicodeIteratorRepr()

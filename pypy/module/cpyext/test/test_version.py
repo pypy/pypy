@@ -6,10 +6,18 @@ class AppTestVersion(AppTestCpythonExtensionBase):
     def test_versions(self):
         import sys
         init = """
+        static struct PyModuleDef moduledef = {
+                PyModuleDef_HEAD_INIT,
+                "foo",          /* m_name */
+                NULL,           /* m_doc */
+                -1,             /* m_size */
+                NULL            /* m_methods */
+            };
         if (Py_IsInitialized()) {
-            PyObject *m = Py_InitModule("foo", NULL);
+            PyObject *m = PyModule_Create(&moduledef);
             PyModule_AddStringConstant(m, "py_version", PY_VERSION);
             PyModule_AddStringConstant(m, "pypy_version", PYPY_VERSION);
+            return m;
         }
         """
         module = self.import_module(name='foo', init=init)

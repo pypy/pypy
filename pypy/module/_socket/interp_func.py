@@ -1,5 +1,6 @@
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
-from pypy.module._socket.interp_socket import converted_error, W_RSocket, addr_as_object, ipaddr_from_object
+from pypy.module._socket.interp_socket import (
+    converted_error, W_RSocket, addr_as_object, fill_from_object, get_error)
 from rpython.rlib import rsocket
 from rpython.rlib.rsocket import SocketError, INVALID_SOCKET
 from pypy.interpreter.error import OperationError
@@ -120,7 +121,17 @@ def getnameinfo(space, w_sockaddr, flags):
 
     Get host and port for a sockaddr."""
     try:
-        addr = ipaddr_from_object(space, w_sockaddr)
+        host = space.str_w((space.getitem(w_sockaddr, space.wrap(0))))
+        port = str(space.int_w(space.getitem(w_sockaddr, space.wrap(1))))
+        lst = rsocket.getaddrinfo(host, port, rsocket.AF_UNSPEC,
+                                  rsocket.SOCK_DGRAM, 0,
+                                  rsocket.AI_NUMERICHOST)
+        if len(lst) > 1:
+            raise OperationError(
+                get_error(space, 'error'),
+                space.wrap("sockaddr resolved to multiple addresses"))
+        addr = lst[0][4]
+        fill_from_object(addr, space, w_sockaddr)
         host, servport = rsocket.getnameinfo(addr, flags)
     except SocketError, e:
         raise converted_error(space, e)
@@ -248,9 +259,9 @@ def getaddrinfo(space, w_host, w_port,
     # host can be None, string or unicode
     if space.is_w(w_host, space.w_None):
         host = None
-    elif space.is_true(space.isinstance(w_host, space.w_bytes)):
+    elif space.isinstance_w(w_host, space.w_bytes):
         host = space.bytes_w(w_host)
-    elif space.is_true(space.isinstance(w_host, space.w_unicode)):
+    elif space.isinstance_w(w_host, space.w_unicode):
         w_shost = space.call_method(w_host, "encode", space.wrap("idna"))
         host = space.bytes_w(w_shost)
     else:
@@ -261,11 +272,11 @@ def getaddrinfo(space, w_host, w_port,
     # port can be None, int or string
     if space.is_w(w_port, space.w_None):
         port = None
-    elif space.is_true(space.isinstance(w_port, space.w_int)):
+    elif space.isinstance_w(w_port, space.w_int):
         port = str(space.int_w(w_port))
-    elif space.is_true(space.isinstance(w_port, space.w_bytes)):
+    elif space.isinstance_w(w_port, space.w_bytes):
         port = space.bytes_w(w_port)
-    elif space.is_true(space.isinstance(w_port, space.w_unicode)):
+    elif space.isinstance_w(w_port, space.w_unicode):
         port = space.str_w(w_port)
     else:
         raise OperationError(space.w_TypeError,

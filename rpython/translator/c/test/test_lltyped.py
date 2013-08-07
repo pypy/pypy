@@ -1,5 +1,6 @@
 import py
 from rpython.rtyper.lltypesystem.lltype import *
+from rpython.rtyper.lltypesystem import rffi
 from rpython.translator.c.test.test_genc import compile
 from rpython.tool.sourcetools import func_with_new_name
 
@@ -314,14 +315,14 @@ class TestLowLevelType(object):
         from rpython.rtyper.lltypesystem.rstr import STR
         from rpython.rtyper.lltypesystem import rffi, llmemory, lltype
         P = lltype.Ptr(lltype.FixedSizeArray(lltype.Char, 1))
-        
+
         def f():
             a = llstr("xyz")
             b = (llmemory.cast_ptr_to_adr(a) + llmemory.offsetof(STR, 'chars')
                  + llmemory.itemoffsetof(STR.chars, 0))
             buf = rffi.cast(rffi.VOIDP, b)
             return buf[2]
-        
+
         fn = self.getcompiled(f, [])
         res = fn()
         assert res == 'z'
@@ -919,3 +920,43 @@ class TestLowLevelType(object):
             return x
         fn = self.getcompiled(llf, [int])
         assert fn(5) == 42
+
+    def test_raw_array_field_prebuilt(self):
+        from rpython.rtyper.lltypesystem import rffi
+        S = Struct('S', ('array', rffi.CArray(Signed)))
+        s0 = malloc(S, 0, flavor='raw', immortal=True)
+        s1 = malloc(S, 1, flavor='raw', immortal=True)
+        s1.array[0] = 521
+        s2 = malloc(S, 2, flavor='raw', immortal=True)
+        s2.array[0] = 12
+        s2.array[1] = 34
+        def llf(i):
+            if   i == 0: s = s0
+            elif i == 1: s = s1
+            else:        s = s2
+            x = 10
+            if i > 0:
+                x += s.array[i-1]
+            return x
+        fn = self.getcompiled(llf, [int])
+        assert fn(0) == 10
+        assert fn(1) == 10 + 521
+        assert fn(2) == 10 + 34
+
+    def test_const_char_star(self):
+        from rpython.translator.tool.cbuild import ExternalCompilationInfo
+
+        eci = ExternalCompilationInfo(includes=["stdlib.h"])
+        atoi = rffi.llexternal('atoi', [rffi.CONST_CCHARP], rffi.INT,
+                               compilation_info=eci)
+
+        def f(n):
+            s = malloc(rffi.CCHARP.TO, 2, flavor='raw')
+            s[0] = '9'
+            s[1] = '\0'
+            res = atoi(rffi.cast(rffi.CONST_CCHARP, s))
+            free(s, flavor='raw')
+            return res
+
+        fn = self.getcompiled(f, [int])
+        assert fn(0) == 9

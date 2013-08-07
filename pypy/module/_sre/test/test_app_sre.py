@@ -93,6 +93,10 @@ class AppTestSrePattern:
         import re, _weakref
         _weakref.ref(re.compile(r""))
 
+    def test_pattern_check(self):
+        import _sre
+        raises(TypeError, _sre.compile, {}, 0, [])
+
 
 class AppTestSreMatch:
     spaceconfig = dict(usemodules=('array',))
@@ -324,6 +328,12 @@ class AppTestSreScanner:
         p = re.compile(".*").scanner("bla")
         assert ("bla", "") == (p.search().group(0), p.search().group(0))
         assert None == p.search()
+
+    def test_no_pattern(self):
+        import sre_compile, sre_parse
+        sre_pattern = sre_compile.compile(
+            sre_parse.SubPattern(sre_parse.Pattern()))
+        assert sre_pattern.scanner('s') is not None
 
 
 class AppTestGetlower:

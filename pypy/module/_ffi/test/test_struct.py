@@ -40,23 +40,27 @@ class TestStruct(object):
 
 class AppTestStruct(BaseAppTestFFI):
 
+    @classmethod
+    def read_raw_mem(cls, addr, typename, length):
+        import ctypes
+        addr = ctypes.cast(addr, ctypes.c_void_p)
+        c_type = getattr(ctypes, typename)
+        array_type = ctypes.POINTER(c_type * length)
+        ptr_array = ctypes.cast(addr, array_type)
+        array = ptr_array[0]
+        lst = [array[i] for i in range(length)]
+        return lst
+
     def setup_class(cls):
         BaseAppTestFFI.setup_class.im_func(cls)
 
-        @unwrap_spec(addr=int, typename=str, length=int)
-        def read_raw_mem(space, addr, typename, length):
-            import ctypes
-            addr = ctypes.cast(addr, ctypes.c_void_p)
-            c_type = getattr(ctypes, typename)
-            array_type = ctypes.POINTER(c_type * length)
-            ptr_array = ctypes.cast(addr, array_type)
-            array = ptr_array[0]
-            lst = [array[i] for i in range(length)]
-            return space.wrap(lst)
         if cls.runappdirect:
-            cls.w_read_raw_mem = lambda self, *args: read_raw_mem(cls.space, *args)
+            cls.w_read_raw_mem = cls.read_raw_mem
         else:
-            cls.w_read_raw_mem = cls.space.wrap(interp2app(read_raw_mem))
+            @unwrap_spec(addr=int, typename=str, length=int)
+            def read_raw_mem_w(space, addr, typename, length):
+                return space.wrap(cls.read_raw_mem(addr, typename, length))
+            cls.w_read_raw_mem = cls.space.wrap(interp2app(read_raw_mem_w))
         #
         from rpython.rlib import clibffi
         from rpython.rlib.rarithmetic import r_uint

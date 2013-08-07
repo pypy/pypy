@@ -1,11 +1,13 @@
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, wrap_oserror, operationerrfmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.objspace.std.stringtype import getbytevalue
 
 from rpython.rlib.clibffi import *
+from rpython.rlib.objectmodel import we_are_translated
 from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rtyper.tool import rffi_platform
 from rpython.rlib.unroll import unrolling_iterable
 import rpython.rlib.rposix as rposix
 
@@ -44,6 +46,8 @@ TYPEMAP = {
 }
 TYPEMAP_PTR_LETTERS = "POszZ"
 TYPEMAP_NUMBER_LETTERS = "bBhHiIlLqQ?"
+TYPEMAP_FLOAT_LETTERS = "fd" # XXX long doubles are not propperly supported in
+                             # rpython, so we ignore then here
 
 if _MS_WINDOWS:
     TYPEMAP['X'] = ffi_type_pointer
@@ -55,7 +59,7 @@ def size_alignment(ffi_type):
     return intmask(ffi_type.c_size), intmask(ffi_type.c_alignment)
 
 LL_TYPEMAP = {
-    'c' : rffi.UCHAR,
+    'c' : rffi.CHAR,
     'u' : lltype.UniChar,
     'b' : rffi.SIGNEDCHAR,
     'B' : rffi.UCHAR,
@@ -92,7 +96,7 @@ def letter2tp(space, key):
 
 def unpack_simple_shape(space, w_shape):
     # 'w_shape' must be either a letter or a tuple (struct, 1).
-    if space.is_true(space.isinstance(w_shape, space.w_unicode)):
+    if space.isinstance_w(w_shape, space.w_unicode):
         letter = space.str_w(w_shape)
         return letter2tp(space, letter)
     else:
@@ -103,7 +107,7 @@ def unpack_simple_shape(space, w_shape):
 def unpack_shape_with_length(space, w_shape):
     # Allow 'w_shape' to be a letter or any (shape, number).
     # The result is always a W_Array.
-    if space.is_true(space.isinstance(w_shape, space.w_unicode)):
+    if space.isinstance_w(w_shape, space.w_unicode):
         letter = space.str_w(w_shape)
         return letter2tp(space, letter)
     else:
@@ -138,8 +142,19 @@ def got_libffi_error(space):
     raise OperationError(space.w_SystemError,
                          space.wrap("not supported by libffi"))
 
+def wrap_dlopenerror(space, e, filename):
+    if e.msg:
+        # dlerror can return garbage messages under ll2ctypes (not
+        # we_are_translated()), so repr it to avoid potential problems
+        # converting to unicode later
+        msg = e.msg if we_are_translated() else repr(e.msg)
+    else:
+        msg = 'unspecified error'
+    return operationerrfmt(space.w_OSError, 'Cannot load library %s: %s',
+                           filename, msg)
 
-class W_CDLL(Wrappable):
+
+class W_CDLL(W_Root):
     def __init__(self, space, name, cdll):
         self.cdll = cdll
         self.name = name
@@ -172,7 +187,7 @@ class W_CDLL(Wrappable):
         else:
             ffi_restype = ffi_type_void
 
-        if space.is_true(space.isinstance(w_name, space.w_unicode)):
+        if space.isinstance_w(w_name, space.w_unicode):
             name = space.str_w(w_name)
 
             try:
@@ -184,8 +199,7 @@ class W_CDLL(Wrappable):
             except LibFFIError:
                 raise got_libffi_error(space)
 
-        elif (_MS_WINDOWS and
-              space.is_true(space.isinstance(w_name, space.w_int))):
+        elif (_MS_WINDOWS and space.isinstance_w(w_name, space.w_int)):
             ordinal = space.int_w(w_name)
             try:
                 ptr = self.cdll.getrawpointer_byordinal(ordinal, ffi_argtypes,
@@ -218,8 +232,7 @@ def descr_new_cdll(space, w_type, name):
     try:
         cdll = CDLL(name)
     except DLOpenError, e:
-        raise operationerrfmt(space.w_OSError, '%s: %s', name,
-                              e.msg or 'unspecified error')
+        raise wrap_dlopenerror(space, e, name)
     except OSError, e:
         raise wrap_oserror(space, e)
     return space.wrap(W_CDLL(space, name, cdll))
@@ -241,13 +254,59 @@ buffer.""" # xxx fix doc
 )
 
 unroll_letters_for_numbers = unrolling_iterable(TYPEMAP_NUMBER_LETTERS)
+unroll_letters_for_floats = unrolling_iterable(TYPEMAP_FLOAT_LETTERS)
+
+_ARM = rffi_platform.getdefined('__arm__', '')
+
+def read_ptr(ptr, ofs, TP):
+    T = lltype.Ptr(rffi.CArray(TP))
+    for c in unroll_letters_for_floats:
+        # Note: if we are on ARM and have a float-ish value that is not word
+        # aligned accessing it directly causes a SIGBUS. Instead we use memcpy
+        # to avoid the problem
+        if (_ARM and LL_TYPEMAP[c] is TP
+                    and rffi.cast(lltype.Signed, ptr) & 3 != 0):
+            if ofs != 0:
+                ptr = rffi.ptradd(ptr, ofs*rffi.sizeof(TP))
+            with lltype.scoped_alloc(T.TO, 1) as t_array:
+                rffi.c_memcpy(
+                    rffi.cast(rffi.VOIDP, t_array),
+                    rffi.cast(rffi.VOIDP, ptr),
+                    rffi.sizeof(TP))
+                ptr_val = t_array[0]
+                return ptr_val
+    else:
+        return rffi.cast(T, ptr)[ofs]
+read_ptr._annspecialcase_ = 'specialize:arg(2)'
+
+def write_ptr(ptr, ofs, value):
+    TP = lltype.typeOf(value)
+    T = lltype.Ptr(rffi.CArray(TP))
+    for c in unroll_letters_for_floats:
+        # Note: if we are on ARM and have a float-ish value that is not word
+        # aligned accessing it directly causes a SIGBUS. Instead we use memcpy
+        # to avoid the problem
+        if (_ARM and LL_TYPEMAP[c] is TP
+                    and rffi.cast(lltype.Signed, ptr) & 3 != 0):
+            if ofs != 0:
+                ptr = rffi.ptradd(ptr, ofs*rffi.sizeof(TP))
+            with lltype.scoped_alloc(T.TO, 1) as s_array:
+                s_array[0] = value
+                rffi.c_memcpy(
+                    rffi.cast(rffi.VOIDP, ptr),
+                    rffi.cast(rffi.VOIDP, s_array),
+                    rffi.sizeof(TP))
+                return
+    else:
+        rffi.cast(T, ptr)[ofs] = value
+write_ptr._annspecialcase_ = 'specialize:argtype(2)'
 
 def segfault_exception(space, reason):
     w_mod = space.getbuiltinmodule("_rawffi")
     w_exception = space.getattr(w_mod, space.wrap("SegfaultException"))
     return OperationError(w_exception, space.wrap(reason))
 
-class W_DataShape(Wrappable):
+class W_DataShape(W_Root):
     _array_shapes = None
     size = 0
     alignment = 0
@@ -272,7 +331,7 @@ class W_DataShape(Wrappable):
                                space.wrap(self.alignment)])
 
 
-class W_DataInstance(Wrappable):
+class W_DataInstance(W_Root):
     def __init__(self, space, size, address=r_uint(0)):
         if address:
             self.ll_buffer = rffi.cast(rffi.VOIDP, address)
@@ -315,13 +374,13 @@ def unwrap_truncate_int(TP, space, w_arg):
     return rffi.cast(TP, space.bigint_w(w_arg).ulonglongmask())
 unwrap_truncate_int._annspecialcase_ = 'specialize:arg(0)'
 
+
 def unwrap_value(space, push_func, add_arg, argdesc, letter, w_arg):
     w = space.wrap
     if letter in TYPEMAP_PTR_LETTERS:
         # check for NULL ptr
-        datainstance = space.interpclass_w(w_arg)
-        if isinstance(datainstance, W_DataInstance):
-            ptr = datainstance.ll_buffer
+        if isinstance(w_arg, W_DataInstance):
+            ptr = w_arg.ll_buffer
         else:
             ptr = unwrap_truncate_int(rffi.VOIDP, space, w_arg)
         push_func(add_arg, argdesc, ptr)
@@ -334,7 +393,14 @@ def unwrap_value(space, push_func, add_arg, argdesc, letter, w_arg):
         push_func(add_arg, argdesc, rffi.cast(rffi.LONGDOUBLE,
                                               space.float_w(w_arg)))
     elif letter == "c":
-        val = getbytevalue(space, w_arg)
+        if space.isinstance_w(w_arg, space.w_int):
+            val = getbytevalue(space, w_arg)
+        else:
+            s = space.str_w(w_arg)
+            if len(s) != 1:
+                raise OperationError(space.w_TypeError, w(
+                    "Expected string of length one as character"))
+            val = s[0]
         push_func(add_arg, argdesc, val)
     elif letter == 'u':
         s = space.unicode_w(w_arg)
@@ -363,7 +429,9 @@ def wrap_value(space, func, add_arg, argdesc, letter):
             if c in TYPEMAP_PTR_LETTERS:
                 res = func(add_arg, argdesc, rffi.VOIDP)
                 return space.wrap(rffi.cast(lltype.Unsigned, res))
-            elif c == 'q' or c == 'Q' or c == 'L' or c == 'c' or c == 'u':
+            elif c == 'c':
+                return space.wrapbytes(func(add_arg, argdesc, ll_type))
+            elif c == 'q' or c == 'Q' or c == 'L' or c == 'u':
                 return space.wrap(func(add_arg, argdesc, ll_type))
             elif c == 'f' or c == 'd' or c == 'g':
                 return space.wrap(float(func(add_arg, argdesc, ll_type)))
@@ -373,7 +441,8 @@ def wrap_value(space, func, add_arg, argdesc, letter):
                          space.wrap("cannot directly read value"))
 wrap_value._annspecialcase_ = 'specialize:arg(1)'
 
-class W_FuncPtr(Wrappable):
+
+class W_FuncPtr(W_Root):
     def __init__(self, space, ptr, argshapes, resshape):
         self.ptr = ptr
         self.argshapes = argshapes

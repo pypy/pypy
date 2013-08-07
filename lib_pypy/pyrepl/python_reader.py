@@ -186,10 +186,10 @@ class ReaderConsole(code.InteractiveInterpreter):
 
     def execute(self, text):
         try:
-            # ooh, look at the hack:            
-            code = self.compile(text, '<input>', 'single')
+            # ooh, look at the hack:
+            code = self.compile(text, '<stdin>', 'single')
         except (OverflowError, SyntaxError, ValueError):
-            self.showsyntaxerror("<input>")
+            self.showsyntaxerror('<stdin>')
         else:
             self.runcode(code)
             if sys.stdout and not sys.stdout.closed:

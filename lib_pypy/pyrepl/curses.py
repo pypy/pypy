@@ -19,18 +19,26 @@
 # CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 # CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
+# If we are running on top of pypy, we import only _minimal_curses.
+# Don't try to fall back to _curses, because that's going to use cffi
+# and fall again more loudly.
+import sys
+if '__pypy__' in sys.builtin_module_names:
+    # pypy case
+    import _minimal_curses as _curses
+else:
+    # cpython case
+    try:
+        import _curses
+    except ImportError:
+        # Who knows, maybe some environment has "curses" but not "_curses".
+        # If not, at least the following import gives a clean ImportError.
+        try:
+            import curses as _curses
+        except ImportError:
+            import _curses
 
-import imp
-
-try:
-    # Forces import of the builtin module.  Seems necessary with PyPy.
-    _curses = imp.init_builtin('_minimal_curses')
-    if not _curses:
-        raise ImportError
-    setupterm = _curses.setupterm
-    tigetstr = _curses.tigetstr
-    tparm = _curses.tparm
-    error = _curses.error
-except ImportError:
-    raise
-    from ._minimal_curses import setupterm, tigetstr, tparm, error
+setupterm = _curses.setupterm
+tigetstr = _curses.tigetstr
+tparm = _curses.tparm
+error = _curses.error

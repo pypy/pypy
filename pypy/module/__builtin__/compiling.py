@@ -9,7 +9,7 @@ from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.nestedscope import Cell
 
-@unwrap_spec(filename='str0', mode=str, flags=int, dont_inherit=int,
+@unwrap_spec(filename='fsencode', mode=str, flags=int, dont_inherit=int,
              optimize=int)
 def compile(space, w_source, filename, mode, flags=0, dont_inherit=0,
             optimize=0):
@@ -82,13 +82,11 @@ If only globals is given, locals defaults to it.
                                       "string, bytes or code",
                                       consts.PyCF_SOURCE_IS_UTF8)
         # source.lstrip(' \t')
-        i = 0
-        for c in source:
+        for i, c in enumerate(source):
             if c not in ' \t':
                 if i:
                     source = source[i:]
                 break
-            i += 1
 
         ec = space.getexecutioncontext()
         code = ec.compiler.compile(source, "<string>", 'eval', flags)
@@ -118,7 +116,7 @@ def build_class(space, w_func, w_name, __args__):
     if isclass:
         # w_meta is really a class, so check for a more derived
         # metaclass, or possible metaclass conflicts
-        from pypy.objspace.std.typetype import _calculate_metaclass
+        from pypy.objspace.std.typeobject import _calculate_metaclass
         w_meta = _calculate_metaclass(space, w_meta, bases_w)
 
     try:

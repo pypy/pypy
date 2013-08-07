@@ -78,6 +78,11 @@ def find_numpy_items(python, modname="numpy", attr=None):
         items.add(Item(name, kind, subitems))
     return items
 
+def get_version_str(python):
+    args = [python, '-c', 'import sys; print sys.version']
+    lines = subprocess.check_output(args).splitlines()
+    return lines[0]
+
 def split(lst):
     SPLIT = 5
     lgt = len(lst) // SPLIT + 1
@@ -93,6 +98,7 @@ SPECIAL_NAMES = ["ndarray", "dtype", "generic", "flatiter"]
 def main(argv):
     cpy_items = find_numpy_items("/usr/bin/python")
     pypy_items = find_numpy_items(argv[1], "numpypy")
+    ver = get_version_str(argv[1])
     all_items = []
 
     msg = "{:d}/{:d} names".format(len(pypy_items), len(cpy_items)) + " "
@@ -113,7 +119,8 @@ def main(argv):
     env = jinja2.Environment(
         loader=jinja2.FileSystemLoader(os.path.dirname(__file__))
     )
-    html = env.get_template("page.html").render(all_items=split(sorted(all_items)), msg=msg)
+    html = env.get_template("page.html").render(all_items=split(sorted(all_items)),
+             msg=msg, ver=ver)
     if len(argv) > 2:
         with open(argv[2], 'w') as f:
             f.write(html.encode("utf-8"))

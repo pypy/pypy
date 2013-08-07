@@ -23,8 +23,8 @@ def test__getfilesystemencoding(space):
             clear()
             os.environ.update(original_env)
 
-    assert get() in (base_encoding, 'ANSI_X3.4-1968')
-    assert get(LANG='foobar') in (base_encoding, 'ANSI_X3.4-1968')
-    assert get(LANG='en_US.UTF-8') == 'UTF-8'
-    assert get(LC_ALL='en_US.UTF-8') == 'UTF-8'
-    assert get(LC_CTYPE='en_US.UTF-8') == 'UTF-8'
+    assert get() in (base_encoding, 'ascii')
+    assert get(LANG='foobar') in (base_encoding, 'ascii')
+    assert get(LANG='en_US.UTF-8') == 'utf-8'
+    assert get(LC_ALL='en_US.UTF-8') == 'utf-8'
+    assert get(LC_CTYPE='en_US.UTF-8') == 'utf-8'

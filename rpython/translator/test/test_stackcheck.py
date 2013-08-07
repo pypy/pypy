@@ -2,7 +2,7 @@ from rpython.conftest import option
 from rpython.translator.translator import TranslationContext, graphof
 from rpython.translator.backendopt.all import backend_optimizations
 from rpython.translator.transform import insert_ll_stackcheck
-from rpython.rtyper.memory.gctransform import shadowstack
+from rpython.memory.gctransform import shadowstack
 
 def _follow_path_naive(block, cur_path, accum):
     cur_path = (cur_path, block)
@@ -95,7 +95,7 @@ def test_gctransformed():
     check(f_graph, 'f')    
 
     class GCTransform(shadowstack.ShadowStackFrameworkGCTransformer):
-        from rpython.rtyper.memory.gc.generation import GenerationGC as \
+        from rpython.memory.gc.generation import GenerationGC as \
                                                           GCClass
         GC_PARAMS = {}
 

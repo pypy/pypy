@@ -1,9 +1,9 @@
-from rpython.tool.pairtype import pairtype
+from rpython.flowspace.model import Constant
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.lltypesystem.lltype import Signed, Void, Ptr
-from rpython.rtyper.rmodel import Repr, IntegerRepr, IteratorRepr
-from rpython.flowspace.model import Constant
 from rpython.rtyper.rlist import dum_nocheck, dum_checkidx
+from rpython.rtyper.rmodel import Repr, IntegerRepr, IteratorRepr
+from rpython.tool.pairtype import pairtype
 
 
 class AbstractRangeRepr(Repr):
@@ -54,9 +54,9 @@ class __extend__(pairtype(AbstractRangeRepr, IntegerRepr)):
 
 def _ll_rangelen(start, stop, step):
     if step > 0:
-        result = (stop - start + (step-1)) // step
+        result = (stop - start + (step - 1)) // step
     else:
-        result = (start - stop - (step+1)) // (-step)
+        result = (start - stop - (step + 1)) // (-step)
     if result < 0:
         result = 0
     return result
@@ -207,7 +207,7 @@ class EnumerateIteratorRepr(IteratorRepr):
         v_index = hop.gendirectcall(self.ll_getnextindex, v_enumerate)
         hop2 = hop.copy()
         hop2.args_r = [self.r_baseiter]
-        r_item_src = self.r_baseiter.r_list.external_item_repr
+        r_item_src = self.r_baseiter.external_item_repr
         r_item_dst = hop.r_result.items_r[1]
         v_item = self.r_baseiter.rtype_next(hop2)
         v_item = hop.llops.convertvar(v_item, r_item_src, r_item_dst)

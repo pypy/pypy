@@ -4,7 +4,7 @@ The RPython Typer
 .. contents::
 
 
-The RPython Typer lives in the directory `pypy/rpython/`_.
+The RPython Typer lives in the directory `rpython/rtyper/`_.
 
 
 Overview
@@ -52,7 +52,7 @@ then obviously we want to type it and replace it with::
 where -- in C notation -- all three variables v1, v2 and v3 are typed ``int``.
 This is done by attaching an attribute ``concretetype`` to v1, v2 and v3
 (which might be instances of Variable or possibly Constant).  In our model,
-this ``concretetype`` is ``pypy.rpython.lltypesystem.lltype.Signed``.  Of
+this ``concretetype`` is ``rpython.rtyper.lltypesystem.lltype.Signed``.  Of
 course, the purpose of replacing the operation called ``add`` with
 ``int_add`` is that code generators no longer have to worry about what kind
 of addition (or concatenation maybe?) it means.
@@ -66,7 +66,7 @@ consider each block of the flow graphs in turn, and perform some analysis on
 each operation.  In both cases the analysis of an operation depends on the
 annotations of its input arguments.  This is reflected in the usage of the same
 ``__extend__`` syntax in the source files (compare e.g.
-`pypy/annotation/binaryop.py`_ and `pypy/rpython/rint.py`_).
+`rpython/annotator/binaryop.py`_ and `rpython/rtyper/rint.py`_).
 
 The analogy stops here, though: while it runs, the Annotator is in the middle
 of computing the annotations, so it might need to reflow and generalize until
@@ -104,7 +104,7 @@ This example shows that two representations may need very different low-level
 implementations for the same high-level operations.  This is the reason for
 turning representations into explicit objects.
 
-The base Repr class is defined in `pypy/rpython/rmodel.py`_.  Most of the
+The base Repr class is defined in `rpython/rtyper/rmodel.py`_.  Most of the
 ``rpython/r*.py`` files define one or a few subclasses of Repr.  The method
 getrepr() of the RTyper will build and cache a single Repr instance per
 SomeXxx() instance; moreover, two SomeXxx() instances that are equal get the
@@ -131,9 +131,9 @@ Low-Level Types
 The RPython Typer uses a standard low-level model which we believe can
 correspond rather directly to various target languages such as C.
 This model is implemented in the first part of
-`pypy/rpython/lltypesystem/lltype.py`_.
+`rpython/rtyper/lltypesystem/lltype.py`_.
 
-The second part of `pypy/rpython/lltypesystem/lltype.py`_ is a runnable
+The second part of `rpython/rtyper/lltypesystem/lltype.py`_ is a runnable
 implementation of these types, for testing purposes.  It allows us to write
 and test plain Python code using a malloc() function to obtain and manipulate
 structures and arrays.  This is useful for example to implement and test
@@ -147,7 +147,7 @@ are allocated in the heap, and they are always manipulated via pointers.
 
 Here is a quick tour:
 
-    >>> from pypy.rpython.lltypesystem.lltype import *
+    >>> from rpython.rtyper.lltypesystem.lltype import *
 
 Here are a few primitive low-level types, and the typeOf() function to figure
 them out:
@@ -191,7 +191,7 @@ a very limited, easily controllable set of types, and define implementations of
 types like list in this elementary world.  The ``malloc()`` function is a kind
 of placeholder, which must eventually be provided by the code generator for the
 target platform; but as we have just seen its Python implementation in
-`pypy/rpython/lltypesystem/lltype.py`_ works too, which is primarily useful for
+`rpython/rtyper/lltypesystem/lltype.py`_ works too, which is primarily useful for
 testing, interactive exploring, etc.
 
 The argument to ``malloc()`` is the structure type directly, but it returns a
@@ -245,7 +245,7 @@ Structure Types
 +++++++++++++++
 
 Structure types are built as instances of 
-``pypy.rpython.lltypesystem.lltype.Struct``::
+``rpython.rtyper.lltypesystem.lltype.Struct``::
 
     MyStructType = Struct('somename',  ('field1', Type1), ('field2', Type2)...)
     MyStructType = GcStruct('somename',  ('field1', Type1), ('field2', Type2)...)
@@ -277,7 +277,7 @@ Array Types
 +++++++++++
 
 An array type is built as an instance of 
-``pypy.rpython.lltypesystem.lltype.Array``::
+``rpython.rtyper.lltypesystem.lltype.Array``::
 
     MyIntArray = Array(Signed)
     MyOtherArray = Array(MyItemType)
@@ -316,7 +316,7 @@ go away when their container is deallocated (Struct, Array) must be handled
 with care: the bigger structure of which they are part of could be freed while
 the Ptr to the substructure is still in use.  In general, it is a good idea to
 avoid passing around pointers to inlined substructures of malloc()ed structures.
-(The testing implementation of `pypy/rpython/lltypesystem/lltype.py`_ checks to some
+(The testing implementation of `rpython/rtyper/lltypesystem/lltype.py`_ checks to some
 extent that you are not trying to use a pointer to a structure after its
 container has been freed, using weak references.  But pointers to non-GC
 structures are not officially meant to be weak references: using them after what
@@ -429,227 +429,7 @@ this case, SomePtr maps directly to a low-level pointer type.  This is the only
 change needed to the Annotator to allow it to perform type inference of our
 very-low-level snippets of code.
 
-See for example `pypy/rpython/rlist.py`_.
-
-
-.. _`oo type`:
-
-Object Oriented Types
----------------------
-
-The standard `low-level type` model described above is fine for
-targeting low level backends such as C, but it is not good
-enough for targeting higher level backends such as .NET CLI or Java
-JVM, so a new object oriented model has been introduced. This model is
-implemented in the first part of `pypy/rpython/ootypesystem/ootype.py`_.
-
-As for the low-level typesystem, the second part of
-`pypy/rpython/ootypesystem/ootype.py`_ is a runnable implementation of
-these types, for testing purposes.
-
-
-The target platform
-+++++++++++++++++++
-
-There are plenty of object oriented languages and platforms around,
-each one with its own native features: they could be statically or
-dynamically typed, they could support or not things like multiple
-inheritance, classes and functions as first class order objects,
-generics, and so on.
-
-The goal of *ootypesystem* is to define a trade-off between all
-the potential backends that let them to use the native facilities when
-available while not preventing other backends to work when they
-aren't.
-
-
-Types and classes
-+++++++++++++++++
-
-Most of the primitive types defined in *ootypesystem* are the very
-same of those found in *lltypesystem*: ``Bool``, ``Signed``,
-``Unsigned``, ``Float``, ``Char``, ``UniChar`` and ``Void``.
-
-The target platform is supposed to support classes and instances with
-**single inheritance**. Instances of user-defined classes are mapped
-to the ``Instance`` type, whose ``_superclass`` attribute indicates
-the base class of the instance. At the very beginning of the
-inheritance hierarchy there is the ``Root`` object, i.e. the common
-base class between all instances; if the target platform has the
-notion of a common base class too, the backend can choose to map the
-``Root`` class to its native equivalent.
-
-Object of ``Instance`` type can have attributes and methods:
-attributes are got and set by the ``oogetfield`` and ``oosetfield``
-operations, while method calls are expressed by the ``oosend``
-operation.
-
-Classes are passed around using the ``Class`` type: this is a first
-order class type whose only goal is to allow **runtime instantiation**
-of the class. Backends that don't support this feature natively, such
-as Java, may need to use some sort of placeholder instead.
-
-
-Static vs. dynamic typing
-+++++++++++++++++++++++++
-
-The target platform is assumed to be **statically typed**, i.e.  the
-type of each object is known at compile time.
-
-As usual, it is possible to convert an object from type to type only
-under certain conditions; there is a number of predefined conversions
-between primitive types such as from ``Bool`` to ``Signed`` or from
-``Signed`` to ``Float``. For each one of these conversions there is a
-corresponding low level operation, such as ``cast_bool_to_int`` and
-``cast_int_to_float``.
-
-Moreover it is possible to cast instances of a class up and down the
-inheritance hierarchy with the ``ooupcast`` and ``oodowncast`` low
-level operations. Implicit upcasting is not allowed, so you really
-need to do a ``ooupcast`` for converting from a subclass to a
-superclass.
-
-With this design statically typed backends can trivially insert
-appropriate casts when needed, while dynamically typed backends can
-simply ignore some of the operation such as ``ooupcast`` and
-``oodowncast``. Backends that supports implicit upcasting, such as CLI
-and Java, can simply ignore only ``ooupcast``.
-
-Object model
-++++++++++++
-
-The object model implemented by ootype is quite Java-like. The
-following is a list of key features of the ootype object model which
-have a direct correspondence in the Java or .NET object model:
-
-  - classes have a static set of strongly typed methods and
-    attributes;
-
-  - methods can be overriden in subclasses; every method is "virtual"
-    (i.e., can be overridden); methods can be "abstract" (i.e., need
-    to be overridden in subclasses);
-
-  - classes support single inheritance; all classes inherit directly
-    or indirectly from the ROOT class;
-
-  - there is some support for method overloading. This feature is not
-    used by the RTyper itself because RPython doesn't support method
-    overloading, but it is used by the GenCLI backend for offering
-    access to the native .NET libraries (see XXX);
-
-  - all classes, attributes and methods are public: ootype is only
-    used internally by the translator, so there is no need to enforce
-    accessibility rules;
-
-  - classes and functions are first-class order objects: this feature
-    can be easily simulated by backends for platforms on which it is not
-    a native feature;
-
-  - there is a set of `built-in types`_ offering standard features.
-
-Exception handling
-++++++++++++++++++
-
-Since flow graphs are meant to be used also for very low level
-backends such as C, they are quite unstructured: this means that the
-target platform doesn't need to have a native exception handling
-mechanism, since at the very least the backend can handle exceptions
-just like ``genc`` does.
-
-By contrast we know that most of high level platforms natively support
-exception handling, so *ootypesystem* is designed to let them to use
-it. In particular the exception instances are typed with the
-``Instance`` type, so the usual inheritance exception hierarchy is
-preserved and the native way to catch exception should just work.
-
-.. `built-in types`_
-
-Built-in types
-++++++++++++++
-
-It seems reasonable to assume high level platforms to provide built-in
-facilities for common types such as *lists* or *hashtables*.
-
-RPython standard types such as ``List`` and ``Dict`` are implemented
-on top of these common types; at the moment of writing there are six
-built-in types:
-
-  - **String**: self-descriptive
-
-  - **StringBuilder**: used for dynamic building of string
-
-  - **List**: a variable-sized, homogeneous list of object
-
-  - **Dict**: a hashtable of homogeneous keys and values
-
-  - **CustomDict**: same as dict, but with custom equal and hash
-    functions
-
-  - **DictItemsIterator**: a helper class for iterating over the
-    elements of a ``Dict``
-
-
-Each of these types is a subtype of ``BuiltinADTType`` and has set of
-ADT (Abstract Data Type) methods (hence the name of the base class)
-for being manipulated. Examples of ADT methods are ``ll_length`` for
-``List`` and ``ll_get`` for ``Dict``.
-
-From the backend point of view an instance of a built-in types is
-treated exactly as a plain ``Instance``, so usually no special-casing
-is needed. The backend is supposed to provide a bunch of classes
-wrapping the native ones in order to provide the right signature and
-semantic for the ADT methods.
-
-As an alternative, backends can special-case the ADT types to map them
-directly to the native equivalent, translating the method names
-on-the-fly at compile time.
-
-Generics
-++++++++
-
-Some target platforms offer native support for **generics**, i.e.
-classes that can be parametrized on types, not only values. For
-example, if one wanted to create a list using generics, a possible
-declaration would be to say ``List<T>``, where ``T`` represented the
-type.  When instantiated, one could create ``List<Integer>`` or
-``List<Animal>``. The list is then treated as a list of whichever type
-is specified.
-
-Each subclass of ``BuiltinADTTypes`` defines a bunch of type
-parameters by creating some class level placeholder in the form of
-``PARAMNAME_T``; then it fills up the ``_GENERIC_METHODS`` attribute
-by defining the signature of each of the ADT methods using those
-placeholders in the appropriate places. As an example, here is an
-extract of *ootypesystem*'s List type::
-
-    class List(BuiltinADTType):
-        # placeholders for types
-        SELFTYPE_T = object()
-        ITEMTYPE_T = object()
-
-        ...
-
-        def _init_methods(self):
-            # 'ITEMTYPE_T' is used as a placeholder for indicating
-            # arguments that should have ITEMTYPE type. 'SELFTYPE_T' indicates 'self'
-
-            self._GENERIC_METHODS = frozendict({
-                "ll_length": Meth([], Signed),
-                "ll_getitem_fast": Meth([Signed], self.ITEMTYPE_T),
-                "ll_setitem_fast": Meth([Signed, self.ITEMTYPE_T], Void),
-                "_ll_resize_ge": Meth([Signed], Void),
-                "_ll_resize_le": Meth([Signed], Void),
-                "_ll_resize": Meth([Signed], Void),
-            })
-
-        ...
-
-Thus backends that support generics can simply look for placeholders
-for discovering where the type parameters are used. Backends that
-don't support generics can simply use the ``Root`` class instead and
-insert the appropriate casts where needed. Note that placeholders
-might also stand for primitive types, which typically require more
-involved casts: e.g. in Java, making wrapper objects around ints.
+See for example `rpython/rtyper/rlist.py`_.
 
 
 HighLevelOp interface
@@ -751,7 +531,7 @@ The LLInterpreter
 The LLInterpreter is a simple piece of code that is able to interpret flow
 graphs. This is very useful for testing purposes, especially if you work on
 the RPython Typer. The most useful interface for it is the ``interpret``
-function in the file `pypy/rpython/test/test_llinterp.py`_. It takes as
+function in the file `rpython/rtyper/test/test_llinterp.py`_. It takes as
 arguments a function and a list of arguments with which the function is
 supposed to be called. Then it generates the flow graph, annotates it
 according to the types of the arguments you passed to it and runs the
@@ -778,17 +558,6 @@ be called as a second and the list of function arguments as a third. Example::
         assert res == 41
         interpret_raises(IndexError, raise_exception, [42])
         interpret_raises(ValueError, raise_exception, [43])
-
-By default the ``interpret`` and ``interpret_raises`` functions use
-the low-level typesystem. If you want to use the object oriented one
-you have to set the ``type_system`` parameter to the string
-``'ootype'``::
-
-    def test_invert():
-        def f(x):
-            return ~x
-        res = interpret(f, [3], type_system='ootype')
-        assert res == ~3
 
 .. _annotator: translation.html#the-annotation-pass
 

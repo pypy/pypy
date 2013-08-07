@@ -220,7 +220,7 @@ def test_address_eq_as_int():
     assert llmemory.cast_adr_to_int(a+1) == llmemory.cast_adr_to_int(a1) + 1
 
 def test_replace_object_with_stub():
-    from rpython.rtyper.memory.gcheader import GCHeaderBuilder
+    from rpython.memory.gcheader import GCHeaderBuilder
     HDR = lltype.Struct('HDR', ('x', lltype.Signed))
     S = lltype.GcStruct('S', ('y', lltype.Signed), ('z', lltype.Signed))
     STUB = lltype.GcStruct('STUB', ('t', lltype.Char))
@@ -271,7 +271,7 @@ def test_compiled():
     assert res == 42
 
 def test_shrink_obj():
-    from rpython.rtyper.memory.gcheader import GCHeaderBuilder
+    from rpython.memory.gcheader import GCHeaderBuilder
     HDR = lltype.Struct('HDR', ('h', lltype.Signed))
     gcheaderbuilder = GCHeaderBuilder(HDR)
     size_gc_header = gcheaderbuilder.size_gc_header
@@ -302,6 +302,7 @@ def test_arena_protect():
 
 class TestStandalone(test_standalone.StandaloneTests):
     def test_compiled_arena_protect(self):
+        import sys
         S = lltype.Struct('S', ('x', lltype.Signed))
         #
         def fn(argv):
@@ -326,5 +327,14 @@ class TestStandalone(test_standalone.StandaloneTests):
         data = cbuilder.cmdexec('0')
         assert data == '133\n'
         if has_protect:
+            if sys.platform.startswith('win'):
+                # Do not open error dialog box
+                import ctypes
+                SEM_NOGPFAULTERRORBOX = 0x0002 # From MSDN
+                old_err_mode = ctypes.windll.kernel32.GetErrorMode()
+                new_err_mode = old_err_mode | SEM_NOGPFAULTERRORBOX
+                ctypes.windll.kernel32.SetErrorMode(new_err_mode)
             cbuilder.cmdexec('1', expect_crash=True)
             cbuilder.cmdexec('2', expect_crash=True)
+            if sys.platform.startswith('win'):
+                ctypes.windll.kernel32.SetErrorMode(old_err_mode)

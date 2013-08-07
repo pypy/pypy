@@ -14,10 +14,9 @@ from pypy.objspace.std.stringtype import (
     str_join, str_split, str_rsplit, str_partition, str_rpartition,
     str_splitlines, str_translate)
 from pypy.objspace.std.stringtype import descr_maketrans, newbytesdata_w
-from pypy.objspace.std.listtype import (
-    list_append, list_extend)
 
-
+bytearray_append  = SMM('append', 2)
+bytearray_extend  = SMM('extend', 2)
 bytearray_insert  = SMM('insert', 3,
                     doc="B.insert(index, int) -> None\n\n"
                     "Insert a single item into the bytearray before "

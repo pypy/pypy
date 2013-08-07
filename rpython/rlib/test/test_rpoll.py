@@ -1,4 +1,6 @@
-import thread, errno
+import os
+import errno
+
 from rpython.rlib.rsocket import *
 from rpython.rlib.rpoll import *
 from rpython.rtyper.test.test_llinterp import interpret

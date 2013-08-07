@@ -7,8 +7,8 @@ from rpython.jit.backend.x86.support import ensure_sse2_floats
 from rpython.rlib import rfloat
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.debug import debug_print
-from rpython.rtyper.lltypesystem.module.test.test_ll_math import (MathTests,
-                                                                  get_tester)
+from rpython.rtyper.lltypesystem.module.test.math_cases import (MathTests,
+                                                                get_tester)
 
 def get_test_case((fnname, args, expected)):
     try:

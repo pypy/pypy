@@ -2,7 +2,7 @@ from rpython.translator.backendopt.removenoops import remove_same_as, \
         remove_unaryops, remove_duplicate_casts
 from rpython.translator.backendopt.inline import simple_inline_function
 from rpython.translator.translator import TranslationContext, graphof
-from rpython.rtyper.memory.gctransform.test.test_transform import getops
+from rpython.memory.gctransform.test.test_transform import getops
 from rpython.translator.test.snippet import simple_method
 from rpython.translator.backendopt.all import backend_optimizations
 from rpython.translator.backendopt.all import INLINE_THRESHOLD_FOR_TEST
@@ -97,9 +97,8 @@ def test_remove_same_as_nonconst():
 
 
 def test_remove_unaryops():
-    # We really want to use remove_unaryops for things like ooupcast and
-    # oodowncast in dynamically typed languages, but it's easier to test
-    # it with operations on ints here.
+    # We really want to use remove_unaryops for more complex operations, but
+    # it's easier to test it with operations on ints here.
     def f(x):
         i = llop.int_invert(lltype.Signed, x)
         i = llop.int_add(lltype.Signed, x, 1)

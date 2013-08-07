@@ -143,7 +143,7 @@ member2    GcStruct zzz {}
     cmd = gdb_pypy.RPyType(gdb)
     assert cmd.do_invoke('*myvar', True) == 'GcStruct yyy {}'
 
-def test_pprint_string():
+def test_pprint_string(monkeypatch):
     d = {'_gcheader': {
             'h_tid': 123
             },
@@ -156,6 +156,8 @@ def test_pprint_string():
     p_string = PtrValue(d, type_tag='pypy_rpy_string0')
     printer = gdb_pypy.RPyStringPrinter.lookup(p_string, FakeGdb)
     assert printer.to_string() == "r'foobar'"
+    monkeypatch.setattr(gdb_pypy, 'MAX_DISPLAY_LENGTH', 5)
+    assert printer.to_string() == "r'fooba...'"
 
 def test_pprint_list():
     d = {'_gcheader': {

@@ -6,6 +6,7 @@ from pypy.module.cpyext.pyobject import Py_DecRef
 
 class AppTestStructSeq(AppTestCpythonExtensionBase):
     def test_StructSeq(self):
+        skip("XXX: https://bugs.pypy.org/issue1557")
         module = self.import_extension('foo',
         prologue="""
             #include <structseq.h>
@@ -33,8 +34,8 @@ class AppTestStructSeq(AppTestCpythonExtensionBase):
                  if (PyErr_Occurred()) return NULL;
                  seq = PyStructSequence_New(&PyDatatype);
                  if (!seq) return NULL;
-                 PyStructSequence_SET_ITEM(seq, 0, PyInt_FromLong(42));
-                 PyStructSequence_SET_ITEM(seq, 1, PyInt_FromLong(43));
+                 PyStructSequence_SET_ITEM(seq, 0, PyLong_FromLong(42));
+                 PyStructSequence_SET_ITEM(seq, 1, PyLong_FromLong(43));
                  PyStructSequence_SET_ITEM(seq, 2, PyUnicode_FromString("hello"));
                  PyStructSequence_SET_ITEM(seq, 3, PyUnicode_FromString("other"));
                  Py_DECREF(&PyDatatype);

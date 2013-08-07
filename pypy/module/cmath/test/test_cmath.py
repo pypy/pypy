@@ -21,8 +21,8 @@ class AppTestCMath:
         import math
         z = eval("-0j")
         assert z == -0j
-        assert math.copysign(1., z.real) == 1.
-        assert math.copysign(1., z.imag) == -1.
+        assert math.copysign(1., z.real) == -1.0
+        assert math.copysign(1., z.imag) == -1.0
 
     def test_sqrt(self):
         import cmath, math

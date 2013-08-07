@@ -5,8 +5,10 @@ from pypy.objspace.std.multimethod import FailedToImplement
 from rpython.rlib.rarithmetic import r_uint, is_valid_int
 from rpython.rlib.rbigint import rbigint
 
-
 class TestW_IntObject:
+
+    def setup_class(cls):
+        py.test.skip("W_IntObject was replaced w/ W_LongObject in py3k")
 
     def _longshiftresult(self, x):
         """ calculate an overflowing shift """
@@ -268,7 +270,7 @@ class TestW_IntObject:
 
     def test_int(self):
         f1 = iobj.W_IntObject(1)
-        result = iobj.int__Int(self.space, f1)
+        result = f1.int(self.space)
         assert result == f1
 
 class AppTestInt:

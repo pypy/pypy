@@ -9,11 +9,8 @@ class AppTestObject:
         from pypy.interpreter import gateway
         import sys
 
-        cpython_behavior = (not option.runappdirect
-                            or not hasattr(sys, 'pypy_translation_info'))
-
         space = cls.space
-        cls.w_cpython_behavior = space.wrap(cpython_behavior)
+        cls.w_cpython_behavior = space.wrap(not option.runappdirect)
         cls.w_cpython_version = space.wrap(tuple(sys.version_info))
         cls.w_appdirect = space.wrap(option.runappdirect)
         cls.w_cpython_apptest = space.wrap(option.runappdirect and not hasattr(sys, 'pypy_translation_info'))
@@ -32,7 +29,7 @@ class AppTestObject:
             skip("on CPython >= 2.7, id != hash")
         import sys
         o = object()
-        assert (hash(o) & sys.maxint) == (id(o) & sys.maxint)
+        assert (hash(o) & sys.maxsize) == (id(o) & sys.maxsize)
 
     def test_hash_method(self):
         o = object()
@@ -52,7 +49,7 @@ class AppTestObject:
             pass
         x = X()
         if self.cpython_behavior and self.cpython_version < (2, 7):
-            assert (hash(x) & sys.maxint) == (id(x) & sys.maxint)
+            assert (hash(x) & sys.maxsize) == (id(x) & sys.maxsize)
         assert hash(x) == object.__hash__(x)
 
     def test_reduce_recursion_bug(self):
@@ -189,10 +186,12 @@ class AppTestObject:
         for i in range(10):
             l.append(float(i))
             l.append(i + 0.1)
-            l.append(i + sys.maxint)
-            l.append(i - sys.maxint)
+            l.append(i + sys.maxsize)
+            l.append(i - sys.maxsize)
             l.append(i + 1j)
+            l.append(i - 1j)
             l.append(1 + i * 1j)
+            l.append(1 - i * 1j)
             s = str(i)
             l.append(s)
             u = bytes(s, 'ascii')

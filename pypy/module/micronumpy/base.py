@@ -1,53 +1,78 @@
 
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from rpython.tool.pairtype import extendabletype
 from pypy.module.micronumpy.support import calc_strides
 from pypy.module.micronumpy.arrayimpl.base import BaseArrayImplementation
+
 
 def issequence_w(space, w_obj):
     return (space.isinstance_w(w_obj, space.w_tuple) or
             space.isinstance_w(w_obj, space.w_list) or
             isinstance(w_obj, W_NDimArray))
 
+def wrap_impl(space, w_cls, w_instance, impl):
+    if w_cls is None or space.is_w(w_cls, space.gettypefor(W_NDimArray)):
+        w_ret = W_NDimArray(impl)
+    else:
+        w_ret = space.allocate_instance(W_NDimArray, w_cls)
+        W_NDimArray.__init__(w_ret, impl)
+        assert isinstance(w_ret, W_NDimArray)
+        space.call_method(w_ret, '__array_finalize__', w_instance)
+    return w_ret
+
 class ArrayArgumentException(Exception):
     pass
 
-class W_NDimArray(Wrappable):
+
+class W_NDimArray(W_Root):
     __metaclass__ = extendabletype
 
     def __init__(self, implementation):
         assert isinstance(implementation, BaseArrayImplementation)
+        assert isinstance(self, W_NDimArray)
         self.implementation = implementation
-    
+
     @staticmethod
-    def from_shape(shape, dtype, order='C'):
+    def from_shape(space, shape, dtype, order='C', w_instance=None):
         from pypy.module.micronumpy.arrayimpl import concrete, scalar
-        
+
         if not shape:
-            impl = scalar.Scalar(dtype)
+            w_val = dtype.base.coerce(space, space.wrap(0))
+            impl = scalar.Scalar(dtype.base, w_val)
         else:
-            strides, backstrides = calc_strides(shape, dtype, order)
-            impl = concrete.ConcreteArray(shape, dtype, order, strides,
+            strides, backstrides = calc_strides(shape, dtype.base, order)
+            impl = concrete.ConcreteArray(shape, dtype.base, order, strides,
                                       backstrides)
+        if w_instance:
+            return wrap_impl(space, space.type(w_instance), w_instance, impl)
         return W_NDimArray(impl)
 
     @staticmethod
-    def from_shape_and_storage(shape, storage, dtype, order='C'):
+    def from_shape_and_storage(space, shape, storage, dtype, order='C', owning=False, w_subtype=None):
         from pypy.module.micronumpy.arrayimpl import concrete
         assert shape
         strides, backstrides = calc_strides(shape, dtype, order)
-        impl = concrete.ConcreteArrayNotOwning(shape, dtype, order, strides,
-                                               backstrides, storage)
+        if owning:
+            # Will free storage when GCd
+            impl = concrete.ConcreteArray(shape, dtype, order, strides,
+                                                backstrides, storage=storage)
+        else:
+            impl = concrete.ConcreteArrayNotOwning(shape, dtype, order, strides,
+                                                backstrides, storage)
+        if w_subtype:
+            w_ret = space.allocate_instance(W_NDimArray, w_subtype)
+            W_NDimArray.__init__(w_ret, impl)
+            space.call_method(w_ret, '__array_finalize__', w_subtype)
+            return w_ret
         return W_NDimArray(impl)
 
-
     @staticmethod
-    def new_slice(offset, strides, backstrides, shape, parent, orig_arr, dtype=None):
+    def new_slice(space, offset, strides, backstrides, shape, parent, orig_arr, dtype=None):
         from pypy.module.micronumpy.arrayimpl import concrete
 
         impl = concrete.SliceArray(offset, strides, backstrides, shape, parent,
                                    orig_arr, dtype)
-        return W_NDimArray(impl)
+        return wrap_impl(space, space.type(orig_arr), orig_arr, impl)
 
     @staticmethod
     def new_scalar(space, dtype, w_val=None):
@@ -55,12 +80,15 @@ class W_NDimArray(Wrappable):
 
         if w_val is not None:
             w_val = dtype.coerce(space, w_val)
+        else:
+            w_val = dtype.coerce(space, space.wrap(0))
         return W_NDimArray(scalar.Scalar(dtype, w_val))
+
 
 def convert_to_array(space, w_obj):
     from pypy.module.micronumpy.interp_numarray import array
     from pypy.module.micronumpy import interp_ufuncs
-    
+
     if isinstance(w_obj, W_NDimArray):
         return w_obj
     elif issequence_w(space, w_obj):

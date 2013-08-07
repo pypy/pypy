@@ -82,8 +82,8 @@ def annotationoftype(t, bookkeeper=False):
         return SomeUnicodeString()
     elif t is types.NoneType:
         return s_None
-    elif bookkeeper and extregistry.is_registered_type(t, bookkeeper.policy):
-        entry = extregistry.lookup_type(t, bookkeeper.policy)
+    elif bookkeeper and extregistry.is_registered_type(t):
+        entry = extregistry.lookup_type(t)
         return entry.compute_annotation_bk(bookkeeper)
     elif t is type:
         return SomeType()
@@ -97,7 +97,7 @@ class Sig(object):
 
     def __init__(self, *argtypes):
         self.argtypes = argtypes
-        
+
     def __call__(self, funcdesc, inputcells):
         from rpython.rtyper.lltypesystem import lltype
         args_s = []
@@ -132,11 +132,13 @@ class Sig(object):
         inputcells[:] = args_s
 
 def finish_type(paramtype, bookkeeper, func):
-    from rpython.rlib.types import SelfTypeMarker
+    from rpython.rlib.types import SelfTypeMarker, AnyTypeMarker
     if isinstance(paramtype, SomeObject):
         return paramtype
     elif isinstance(paramtype, SelfTypeMarker):
         raise Exception("%r argument declared as annotation.types.self(); class needs decorator rlib.signature.finishsigs()" % (func,))
+    elif isinstance(paramtype, AnyTypeMarker):
+        return None
     else:
         return paramtype(bookkeeper)
 
@@ -144,15 +146,20 @@ def enforce_signature_args(funcdesc, paramtypes, actualtypes):
     assert len(paramtypes) == len(actualtypes)
     params_s = [finish_type(paramtype, funcdesc.bookkeeper, funcdesc.pyobj) for paramtype in paramtypes]
     for i, (s_param, s_actual) in enumerate(zip(params_s, actualtypes)):
+        if s_param is None: # can be anything
+            continue
         if not s_param.contains(s_actual):
             raise Exception("%r argument %d:\n"
                             "expected %s,\n"
                             "     got %s" % (funcdesc, i+1, s_param, s_actual))
-    actualtypes[:] = params_s
+    for i, s_param in enumerate(params_s):
+        if s_param is None:
+            continue
+        actualtypes[i] = s_param
 
 def enforce_signature_return(funcdesc, sigtype, inferredtype):
     s_sigret = finish_type(sigtype, funcdesc.bookkeeper, funcdesc.pyobj)
-    if not s_sigret.contains(inferredtype):
+    if s_sigret is not None and not s_sigret.contains(inferredtype):
         raise Exception("%r return value:\n"
                         "expected %s,\n"
                         "     got %s" % (funcdesc, s_sigret, inferredtype))

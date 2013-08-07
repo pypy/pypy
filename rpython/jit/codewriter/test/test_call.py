@@ -101,20 +101,24 @@ def test_guess_call_kind_and_calls_from_graphs():
                         Variable())
     assert cc.guess_call_kind(op) == 'recursive'
 
-    op = SpaceOperation('direct_call', [Constant(object())],
+    class fakeresidual:
+        _obj = object()
+    op = SpaceOperation('direct_call', [Constant(fakeresidual)],
                         Variable())
     assert cc.guess_call_kind(op) == 'residual'
 
     class funcptr:
-        class graph:
-            class func:
-                oopspec = "spec"
+        class _obj:
+            class graph:
+                class func:
+                    oopspec = "spec"
     op = SpaceOperation('direct_call', [Constant(funcptr)],
                         Variable())
     assert cc.guess_call_kind(op) == 'builtin'
 
     class funcptr:
-        graph = g
+        class _obj:
+            graph = g
     op = SpaceOperation('direct_call', [Constant(funcptr)],
                         Variable())
     res = cc.graphs_from(op)
@@ -122,7 +126,8 @@ def test_guess_call_kind_and_calls_from_graphs():
     assert cc.guess_call_kind(op) == 'regular'
 
     class funcptr:
-        graph = object()
+        class _obj:
+            graph = object()
     op = SpaceOperation('direct_call', [Constant(funcptr)],
                         Variable())
     res = cc.graphs_from(op)
@@ -223,7 +228,7 @@ def test_random_effects_on_stacklet_switch():
     from rpython.jit.backend.llgraph.runner import LLGraphCPU
     from rpython.translator.platform import CompilationError
     try:
-        from rpython.rlib._rffi_stacklet import switch, thread_handle, handle
+        from rpython.rlib._rffi_stacklet import switch, handle
     except CompilationError as e:
         if "Unsupported platform!" in e.out:
             py.test.skip("Unsupported platform!")
@@ -231,7 +236,7 @@ def test_random_effects_on_stacklet_switch():
             raise e
     @jit.dont_look_inside
     def f():
-        switch(rffi.cast(thread_handle, 0), rffi.cast(handle, 0))
+        switch(rffi.cast(handle, 0))
 
     rtyper = support.annotate(f, [])
     jitdriver_sd = FakeJitDriverSD(rtyper.annotator.translator.graphs[0])

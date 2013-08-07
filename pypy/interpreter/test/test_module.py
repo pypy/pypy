@@ -1,4 +1,4 @@
-
+# encoding: utf-8
 from pypy.interpreter.module import Module
 
 class TestModule: 
@@ -75,3 +75,9 @@ class AppTest_ModuleObject:
         assert sys.__package__ is None
         assert os.__package__ is None
         assert not hasattr(type(sys)('foo'), '__package__')
+
+    def test_name_nonascii(self):
+        import sys
+        m = type(sys)('日本')
+        assert m.__name__ == '日本'
+        assert repr(m).startswith("<module '日本'")

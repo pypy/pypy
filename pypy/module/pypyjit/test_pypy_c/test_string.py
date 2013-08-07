@@ -49,7 +49,7 @@ class TestString(BaseTestPyPyC):
             guard_true(i32, descr=...)
             i34 = int_add(i6, 1)
             --TICK--
-            jump(p0, p1, p2, p3, p4, p5, i34, p7, p8, i9, i10, p11, i12, p13, descr=...)
+            jump(..., descr=...)
         """ % (-sys.maxint-1, SHIFT))
 
     def test_long(self):
@@ -80,42 +80,14 @@ class TestString(BaseTestPyPyC):
             i23 = strgetitem(p10, i19)
             p25 = newstr(1)
             strsetitem(p25, 0, i23)
-            p28 = call(ConstClass(strip_spaces), p25, descr=<Callr . r EF=4>)
+            p93 = call(ConstClass(fromstr), p25, 16, descr=<Callr . ri EF=3>)
             guard_no_exception(descr=...)
-            i29 = strlen(p28)
-            i30 = int_is_true(i29)
-            guard_true(i30, descr=...)
-            i32 = int_sub(i29, 1)
-            i33 = strgetitem(p28, i32)
-            i35 = int_eq(i33, 108)
-            guard_false(i35, descr=...)
-            i37 = int_eq(i33, 76)
-            guard_false(i37, descr=...)
-            i39 = strgetitem(p28, 0)
-            i41 = int_eq(i39, 45)
-            guard_false(i41, descr=...)
-            i43 = int_eq(i39, 43)
-            guard_false(i43, descr=...)
-            i43 = call(ConstClass(ll_startswith__rpy_stringPtr_rpy_stringPtr), p28, ConstPtr(ptr42), descr=<Calli 1 rr EF=0>)
-            guard_false(i43, descr=...)
-            i46 = call(ConstClass(ll_startswith__rpy_stringPtr_rpy_stringPtr), p28, ConstPtr(ptr45), descr=<Calli 1 rr EF=0>)
-            guard_false(i46, descr=...)
-            p51 = new_with_vtable(...)
-            setfield_gc(p51, _, descr=...)    # 7 setfields, but the order is dict-order-dependent
-            setfield_gc(p51, _, descr=...)
-            setfield_gc(p51, _, descr=...)
-            setfield_gc(p51, _, descr=...)
-            setfield_gc(p51, _, descr=...)
-            setfield_gc(p51, _, descr=...)
-            setfield_gc(p51, _, descr=...)
-            p55 = call(ConstClass(parse_digit_string), p51, descr=<Callr . r EF=4>)
+            i94 = call(ConstClass(rbigint.toint), p93, descr=<Calli . r EF=3>)
             guard_no_exception(descr=...)
-            i57 = call(ConstClass(rbigint.toint), p55, descr=<Calli . r EF=3>)
-            guard_no_exception(descr=...)
-            i58 = int_add_ovf(i6, i57)
+            i95 = int_add_ovf(i6, i94)
             guard_no_overflow(descr=...)
             --TICK--
-            jump(p0, p1, p2, p3, p4, p5, i58, i7, descr=...)
+            jump(..., descr=...)
         """ % (-sys.maxint-1, SHIFT))
 
     def test_str_mod(self):
@@ -157,14 +129,14 @@ class TestString(BaseTestPyPyC):
             copystrcontent(p9, p21, 0, i25, i10)
             i33 = int_lt(i30, 23)
             guard_true(i33, descr=...)
-            p35 = call(ConstClass(ll_shrink_array__rpy_stringPtr_Signed), p21, i30, descr=<Callr . ri EF=4>)
+            p35 = call(ConstClass(ll_shrink_array__rpy_stringPtr_Signed), p21, i30, descr=<Callr . ri EF=4 OS=3>)
             guard_no_exception(descr=...)
             i37 = strlen(p35)
             i38 = int_add_ovf(i5, i37)
             guard_no_overflow(descr=...)
             i40 = int_sub(i4, 1)
             --TICK--
-            jump(p0, p1, p2, p3, i40, i38, descr=...)
+            jump(..., descr=...)
         """)
 
     def test_getattr_promote(self):
@@ -190,7 +162,7 @@ class TestString(BaseTestPyPyC):
         assert len(loops) == 1
         for loop in loops:
             loop.match_by_id('getattr','''
-            guard_not_invalidated(descr=...)
+            guard_not_invalidated?
             i32 = strlen(p31)
             i34 = int_add(5, i32)
             p35 = newstr(i34)
@@ -237,3 +209,23 @@ class TestString(BaseTestPyPyC):
         loops = log.loops_by_filename(self.filepath)
         loop, = loops
         loop.match_by_id('callone', '')    # nothing
+
+    def test_lookup_codec(self):
+        log = self.run("""
+        import codecs
+
+        def main(n):
+            for i in xrange(n):
+                codecs.lookup('utf8')
+            return i
+        """, [1000])
+        loop, = log.loops_by_filename(self.filepath)
+        loop.match("""
+        i45 = int_lt(i43, i26)
+        guard_true(i45, descr=...)
+        i46 = int_add(i43, 1)
+        setfield_gc(p15, i46, descr=<FieldS pypy.module.__builtin__.functional.W_XRangeIterator.inst_current 8>)
+        guard_not_invalidated(descr=...)
+        --TICK--
+        jump(..., descr=...)
+        """)

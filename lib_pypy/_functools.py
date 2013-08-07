@@ -1,7 +1,11 @@
 """ Supplies the internal functions for functools.py in the standard library """
+try: from __pypy__ import builtinify
+except ImportError: builtinify = lambda f: f
+
 
 sentinel = object()
 
+@builtinify
 def reduce(func, sequence, initial=sentinel):
     """reduce(function, sequence[, initial]) -> value
 
@@ -40,3 +44,30 @@ class partial(object):
         if self.keywords is not None:
             fkeywords = dict(self.keywords, **fkeywords)
         return self.func(*(self.args + fargs), **fkeywords)
+
+    def __repr__(self):
+        cls = type(self)
+        if cls is partial:
+            name = 'functools.partial'
+        else:
+            name = cls.__name__
+        tmp = [repr(self.func)]
+        for arg in self.args:
+            tmp.append(repr(arg))
+        if self.keywords:
+            for k, v in self.keywords.items():
+                tmp.append("{}={!r}".format(k, v))
+        return "{}({})".format(name, ', '.join(tmp))
+
+    def __reduce__(self):
+        d = dict((k, v) for k, v in self.__dict__.items() if k not in
+                ('func', 'args', 'keywords'))
+        if len(d) == 0:
+            d = None
+        return (type(self), (self.func,),
+                (self.func, self.args, self.keywords, d))
+
+    def __setstate__(self, state):
+        self.func, self.args, self.keywords, d = state
+        if d is not None:
+            self.__dict__.update(d)

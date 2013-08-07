@@ -1,28 +1,26 @@
-from rpython.tool.pairtype import pairtype
 from rpython.annotator import model as annmodel
 from rpython.flowspace import model as flowmodel
-from rpython.rtyper.lltypesystem import lltype
-from rpython.rtyper.error import TyperError
-from rpython.rtyper.rmodel import Repr, IntegerRepr
 from rpython.rlib.rarithmetic import r_uint
+from rpython.rtyper.error import TyperError
+from rpython.rtyper.lltypesystem import lltype
+from rpython.rtyper.rmodel import Repr, IntegerRepr
+from rpython.tool.pairtype import pairtype
 
 
 class __extend__(annmodel.SomePtr):
     def rtyper_makerepr(self, rtyper):
-##        if self.is_constant() and not self.const:   # constant NULL
-##            return nullptr_repr
-##        else:
         return PtrRepr(self.ll_ptrtype)
+
     def rtyper_makekey(self):
-##        if self.is_constant() and not self.const:
-##            return None
-##        else:
         return self.__class__, self.ll_ptrtype
+
 
 class __extend__(annmodel.SomeInteriorPtr):
     def rtyper_makerepr(self, rtyper):
         return InteriorPtrRepr(self.ll_ptrtype)
 
+    def rtyper_makekey(self):
+        return self.__class__, self.ll_ptrtype
 
 class PtrRepr(Repr):
 
@@ -152,22 +150,6 @@ class __extend__(pairtype(PtrRepr, IntegerRepr)):
         vlist = hop.inputargs(r_ptr, lltype.Signed, hop.args_r[2])
         hop.genop('setarrayitem', vlist)
 
-# ____________________________________________________________
-#
-#  Null Pointers
-
-##class NullPtrRepr(Repr):
-##    lowleveltype = lltype.Void
-
-##    def rtype_is_true(self, hop):
-##        return hop.inputconst(lltype.Bool, False)
-
-##nullptr_repr = NullPtrRepr()
-
-##class __extend__(pairtype(NullPtrRepr, PtrRepr)):
-##    def convert_from_to((r_null, r_ptr), v, llops):
-##        # nullptr to general pointer
-##        return inputconst(r_ptr, _ptr(r_ptr.lowleveltype, None))
 
 # ____________________________________________________________
 #
@@ -232,6 +214,7 @@ class __extend__(pairtype(PtrRepr, LLADTMethRepr)):
 class InteriorPtrRepr(Repr):
     def __init__(self, ptrtype):
         assert isinstance(ptrtype, lltype.InteriorPtr)
+        self._ptrtype = ptrtype     # for debugging
         self.v_offsets = []
         numitemoffsets = 0
         for i, offset in enumerate(ptrtype.offsets):
@@ -346,3 +329,9 @@ class __extend__(pairtype(InteriorPtrRepr, LLADTMethRepr)):
             return v
         return NotImplemented
 
+class __extend__(pairtype(InteriorPtrRepr, InteriorPtrRepr)):
+
+    def convert_from_to((r_from, r_to), v, llops):
+        if r_from.__dict__ == r_to.__dict__:
+            return v
+        return NotImplemented

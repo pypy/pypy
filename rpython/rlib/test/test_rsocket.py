@@ -1,7 +1,6 @@
 import py, errno, sys
 from rpython.rlib import rsocket
 from rpython.rlib.rsocket import *
-from rpython.rtyper.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 import socket as cpy_socket
 
 # cannot test error codes in Win32 because ll2ctypes doesn't save
@@ -40,55 +39,59 @@ def test_netlink_addr():
     a = NETLINKAddress(pid, group_mask)
     assert a.get_pid() == pid
     assert a.get_groups() == group_mask
-    
+
 def test_gethostname():
     s = gethostname()
     assert isinstance(s, str)
 
 def test_gethostbyname():
-    a = gethostbyname('localhost')
-    assert isinstance(a, INETAddress)
-    assert a.get_host() == "127.0.0.1"
+    for host in ["localhost", "127.0.0.1"]:
+        a = gethostbyname(host)
+        assert isinstance(a, INETAddress)
+        assert a.get_host() == "127.0.0.1"
 
 def test_gethostbyname_ex():
-    name, aliases, address_list = gethostbyname_ex('localhost')
-    allnames = [name] + aliases
-    for n in allnames:
-        assert isinstance(n, str)
-    if sys.platform != 'win32':
-        assert 'localhost' in allnames
-    for a in address_list:
-        if isinstance(a, INETAddress) and a.get_host() == "127.0.0.1":
-            break  # ok
-    else:
-        py.test.fail("could not find the 127.0.0.1 IPv4 address in %r"
-                     % (address_list,))
-
-def test_gethostbyaddr():
-    name, aliases, address_list = gethostbyaddr('127.0.0.1')
-    allnames = [name] + aliases
-    for n in allnames:
-        assert isinstance(n, str)
-    if sys.platform != 'win32':
-        assert 'localhost' in allnames
-    for a in address_list:
-        if isinstance(a, INETAddress) and a.get_host() == "127.0.0.1":
-            break  # ok
-    else:
-        py.test.fail("could not find the 127.0.0.1 IPv4 address in %r"
-                     % (address_list,))
-
-        name, aliases, address_list = gethostbyaddr('localhost')
+    for host in ["localhost", "127.0.0.1"]:
+        name, aliases, address_list = gethostbyname_ex(host)
         allnames = [name] + aliases
         for n in allnames:
             assert isinstance(n, str)
         if sys.platform != 'win32':
-            assert 'localhost' in allnames
+            assert host in allnames
         for a in address_list:
-            if isinstance(a, INET6Address) and a.get_host() == "::1":
+            if isinstance(a, INETAddress) and a.get_host() == "127.0.0.1":
                 break  # ok
+            # no IPV6, should always return IPV4
         else:
-            py.test.fail("could not find the ::1 IPv6 address in %r"
+            py.test.fail("could not find the localhost address in %r"
+                         % (address_list,))
+
+def test_gethostbyaddr():
+    try:
+        cpy_socket.gethostbyaddr("::1")
+    except cpy_socket.herror:
+        ipv6 = False
+    else:
+        ipv6 = True
+    for host in ["localhost", "127.0.0.1", "::1"]:
+        if host == "::1" and not ipv6:
+            with py.test.raises(HSocketError):
+                gethostbyaddr(host)
+            continue
+        name, aliases, address_list = gethostbyaddr(host)
+        allnames = [name] + aliases
+        for n in allnames:
+            assert isinstance(n, str)
+        if sys.platform != 'win32':
+            assert 'localhost' in allnames or 'ip6-localhost' in allnames
+        for a in address_list:
+            if isinstance(a, INETAddress) and a.get_host() == "127.0.0.1":
+                break  # ok
+            if host != '127.0.0.1':  # name lookup might return IPV6
+                if isinstance(a, INET6Address) and a.get_host() == "::1":
+                    break  # ok
+        else:
+            py.test.fail("could not find the localhost address in %r"
                          % (address_list,))
 
 def test_getservbyname():
@@ -124,7 +127,7 @@ def test_socketpair_recvinto():
 
         def as_str(self):
             return self.x
-    
+
     if sys.platform == "win32":
         py.test.skip('No socketpair on Windows')
     s1, s2 = socketpair()
@@ -367,20 +370,23 @@ def test_dup():
     if sys.platform == "win32":
         skip("dup does not work on Windows")
     s = RSocket(AF_INET, SOCK_STREAM)
-    s.setsockopt_int(SOL_SOCKET, SO_REUSEADDR, 1)
     s.bind(INETAddress('localhost', 50007))
     s2 = s.dup()
     assert s.fd != s2.fd
     assert s.getsockname().eq(s2.getsockname())
+    s.close()
+    s2.close()
 
 def test_c_dup():
     # rsocket.dup() duplicates fd, it also works on Windows
     # (but only on socket handles!)
     s = RSocket(AF_INET, SOCK_STREAM)
-    s.setsockopt_int(SOL_SOCKET, SO_REUSEADDR, 1)
     s.bind(INETAddress('localhost', 50007))
-    fd2 = dup(s.fd)
-    assert s.fd != fd2
+    s2 = RSocket(fd=dup(s.fd))
+    assert s.fd != s2.fd
+    assert s.getsockname().eq(s2.getsockname())
+    s.close()
+    s2.close()
 
 def test_inet_aton():
     assert inet_aton('1.2.3.4') == '\x01\x02\x03\x04'
@@ -444,7 +450,6 @@ class TestTCP:
 
     def setup_method(self, method):
         self.serv = RSocket(AF_INET, SOCK_STREAM)
-        self.serv.setsockopt_int(SOL_SOCKET, SO_REUSEADDR, 1)
         self.serv.bind(INETAddress(self.HOST, self.PORT))
         self.serv.listen(1)
 

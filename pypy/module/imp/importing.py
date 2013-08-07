@@ -8,15 +8,17 @@ from pypy.interpreter.module import Module
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, generic_new_descr
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.eval import Code
 from pypy.interpreter.pycode import PyCode
 from rpython.rlib import streamio, jit
 from rpython.rlib.streamio import StreamErrors
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rlib.signature import signature
-from rpython.rlib import types
+from rpython.rlib import rposix, types
 from pypy.module.sys.version import PYPY_VERSION
+
+_WIN32 = sys.platform == 'win32'
 
 SEARCH_ERROR = 0
 PY_SOURCE = 1
@@ -29,12 +31,8 @@ PY_FROZEN = 7
 # PY_CODERESOURCE = 8
 IMP_HOOK = 9
 
-if sys.platform == 'win32':
-    SO = ".pyd"
-else:
-    SO = ".so"
+SO = '.pyd' if _WIN32 else '.so'
 DEFAULT_SOABI = 'pypy-%d%d' % PYPY_VERSION[:2]
-CHECK_FOR_PYW = sys.platform == 'win32'
 
 PYC_TAG = 'pypy-%d%d' % PYPY_VERSION[:2]
 
@@ -68,7 +66,7 @@ def find_modtype(space, filepart):
         return PY_SOURCE, ".py", "U"
 
     # on Windows, also check for a .pyw file
-    if CHECK_FOR_PYW:
+    if _WIN32:
         pyfile = filepart + ".pyw"
         if file_exists(pyfile):
             return PY_SOURCE, ".pyw", "U"
@@ -108,7 +106,7 @@ else:
 def try_getattr(space, w_obj, w_name):
     try:
         return space.getattr(w_obj, w_name)
-    except OperationError, e:
+    except OperationError:
         # ugh, but blame CPython :-/ this is supposed to emulate
         # hasattr, which eats all exceptions.
         return None
@@ -147,6 +145,9 @@ def _get_relative_name(space, modulename, level, w_globals):
 
     if ctxt_package is not None:
         # __package__ is set, so use it
+        if ctxt_package == '' and level < 0:
+            return None, 0
+
         dot_position = _get_dot_position(ctxt_package, level - 1)
         if dot_position < 0:
             if len(ctxt_package) == 0:
@@ -157,8 +158,7 @@ def _get_relative_name(space, modulename, level, w_globals):
 
         # Try to import parent package
         try:
-            w_parent = absolute_import(space, ctxt_package, 0,
-                                       None, tentative=False)
+            absolute_import(space, ctxt_package, 0, None, tentative=False)
         except OperationError, e:
             if not e.match(space, space.w_ImportError):
                 raise
@@ -167,9 +167,9 @@ def _get_relative_name(space, modulename, level, w_globals):
                     "Parent module '%s' not loaded, "
                     "cannot perform relative import" % ctxt_package))
             else:
-                space.warn("Parent module '%s' not found "
-                           "while handling absolute import" % ctxt_package,
-                           space.w_RuntimeWarning)
+                msg = ("Parent module '%s' not found while handling absolute "
+                       "import" % ctxt_package)
+                space.warn(space.wrap(msg), space.w_RuntimeWarning)
 
         rel_modulename = ctxt_package[:dot_position]
         rel_level = rel_modulename.count('.') + 1
@@ -229,9 +229,9 @@ def _get_relative_name(space, modulename, level, w_globals):
 
 @unwrap_spec(name='str0', level=int)
 def importhook(space, name, w_globals=None,
-               w_locals=None, w_fromlist=None, level=0):
+               w_locals=None, w_fromlist=None, level=-1):
     modulename = name
-    if not modulename and level == 0:
+    if not modulename and level < 0:
         raise OperationError(
             space.w_ValueError,
             space.wrap("Empty module name"))
@@ -243,15 +243,31 @@ def importhook(space, name, w_globals=None,
         fromlist_w = None
 
     rel_modulename = None
-    if (level > 0 and
+    if (level != 0 and
         w_globals is not None and
         space.isinstance_w(w_globals, space.w_dict)):
 
         rel_modulename, rel_level = _get_relative_name(space, modulename, level, w_globals)
 
         if rel_modulename:
-            w_mod = absolute_import(space, rel_modulename, rel_level,
-                                    fromlist_w, tentative=False)
+            # if no level was set, ignore import errors, and
+            # fall back to absolute import at the end of the
+            # function.
+            if level == -1:
+                # This check is a fast path to avoid redoing the
+                # following absolute_import() in the common case
+                w_mod = check_sys_modules_w(space, rel_modulename)
+                if w_mod is not None and space.is_w(w_mod, space.w_None):
+                    # if we already find space.w_None, it means that we
+                    # already tried and failed and fell back to the
+                    # end of this function.
+                    w_mod = None
+                else:
+                    w_mod = absolute_import(space, rel_modulename, rel_level,
+                                            fromlist_w, tentative=True)
+            else:
+                w_mod = absolute_import(space, rel_modulename, rel_level,
+                                        fromlist_w, tentative=False)
             if w_mod is not None:
                 return w_mod
 
@@ -283,7 +299,7 @@ def absolute_import_with_lock(space, modulename, baselevel,
         return _absolute_import(space, modulename, baselevel,
                                 fromlist_w, tentative)
     finally:
-        lock.release_lock()
+        lock.release_lock(silent_after_fork=True)
 
 @jit.unroll_safe
 def absolute_import_try(space, modulename, baselevel, fromlist_w):
@@ -416,20 +432,30 @@ def find_in_path_hooks(space, w_modulename, w_pathitem):
         if space.is_true(w_loader):
             return w_loader
 
+class _WIN32Path(object):
+    def __init__(self, path):
+        self.path = path
 
-class W_NullImporter(Wrappable):
+    def as_unicode(self):
+        return self.path
+
+class W_NullImporter(W_Root):
     def __init__(self, space):
         pass
 
-    @unwrap_spec(path='str0')
-    def descr_init(self, space, path):
+    def descr_init(self, space, w_path):
+        self._descr_init(space, w_path, _WIN32)
+
+    @specialize.arg(3)
+    def _descr_init(self, space, w_path, win32):
+        path = space.unicode0_w(w_path) if win32 else space.fsencode_w(w_path)
         if not path:
             raise OperationError(space.w_ImportError, space.wrap(
                 "empty pathname"))
 
         # Directory should not exist
         try:
-            st = os.stat(path)
+            st = rposix.stat(_WIN32Path(path) if win32 else path)
         except OSError:
             pass
         else:
@@ -510,9 +536,9 @@ def find_module(space, modulename, w_modulename, partname, w_path,
                 if modtype in (PY_SOURCE, PY_COMPILED):
                     return FindInfo(PKG_DIRECTORY, filepart, None)
                 else:
-                    msg = "Not importing directory " +\
-                            "'%s' missing __init__.py" % (filepart,)
-                    space.warn(msg, space.w_ImportWarning)
+                    msg = ("Not importing directory '%s' missing __init__.py" %
+                           (filepart,))
+                    space.warn(space.wrap(msg), space.w_ImportWarning)
             modtype, suffix, filemode = find_modtype(space, filepart)
             try:
                 if modtype in (PY_SOURCE, PY_COMPILED, C_EXTENSION):
@@ -680,7 +706,6 @@ def reload(space, w_module):
         namepath = modulename.split('.')
         subname = namepath[-1]
         parent_name = '.'.join(namepath[:-1])
-        parent = None
         if parent_name:
             w_parent = check_sys_modules_w(space, parent_name)
             if w_parent is None:
@@ -769,9 +794,13 @@ class ImportRLock:
             self.lockowner = me
         self.lockcounter += 1
 
-    def release_lock(self):
+    def release_lock(self, silent_after_fork):
         me = self.space.getexecutioncontext()   # used as thread ident
         if self.lockowner is not me:
+            if self.lockowner is None and silent_after_fork:
+                # Too bad.  This situation can occur if a fork() occurred
+                # with the import lock held, and we're the child.
+                return
             if not self._can_have_lock():
                 return
             space = self.space
@@ -786,9 +815,18 @@ class ImportRLock:
     def reinit_lock(self):
         # Called after fork() to ensure that newly created child
         # processes do not share locks with the parent
-        self.lock = None
-        self.lockowner = None
-        self.lockcounter = 0
+        if self.lockcounter > 1:
+            # Forked as a side effect of import
+            self.lock = self.space.allocate_lock()
+            me = self.space.getexecutioncontext()
+            self.lock.acquire(True)
+            # XXX: can the previous line fail?
+            self.lockowner = me
+            self.lockcounter -= 1
+        else:
+            self.lock = None
+            self.lockowner = None
+            self.lockcounter = 0
 
 def getimportlock(space):
     return space.fromcache(ImportRLock)
@@ -814,15 +852,10 @@ def getimportlock(space):
 # Depending on which opcodes are enabled, eg. CALL_METHOD we bump the version
 # number by some constant
 #
-#  * CALL_METHOD            +2
-#
-# In other words:
-#
-#     default_magic        -- used by CPython without the -U option
-#     default_magic + 1    -- used by CPython with the -U option
-#     default_magic + 2    -- used by PyPy without any extra opcode
-#     ...
-#     default_magic + 5    -- used by PyPy with both extra opcodes
+#     default_magic - 6    -- used by CPython without the -U option
+#     default_magic - 5    -- used by CPython with the -U option
+#     default_magic        -- used by PyPy without the CALL_METHOD opcode
+#     default_magic + 2    -- used by PyPy with the CALL_METHOD opcode
 #
 from pypy.interpreter.pycode import default_magic
 MARSHAL_VERSION_FOR_PYC = 2
@@ -847,17 +880,19 @@ def parse_source_module(space, pathname, source):
     pycode = ec.compiler.compile(source, pathname, 'exec', 0)
     return pycode
 
-def exec_code_module(space, w_mod, code_w, pathname, cpathname):
+def exec_code_module(space, w_mod, code_w, pathname, cpathname,
+                     write_paths=True):
     w_dict = space.getattr(w_mod, space.wrap('__dict__'))
     space.call_method(w_dict, 'setdefault',
                       space.wrap('__builtins__'),
                       space.wrap(space.builtin))
-    if pathname is not None:
-        w_pathname = get_sourcefile(space, pathname)
-    else:
-        w_pathname = space.wrap(code_w.co_filename)
-    space.setitem(w_dict, space.wrap("__file__"), w_pathname)
-    space.setitem(w_dict, space.wrap("__cached__"), space.wrap(cpathname))
+    if write_paths:
+        if pathname is not None:
+            w_pathname = get_sourcefile(space, pathname)
+        else:
+            w_pathname = space.wrap(code_w.co_filename)
+        space.setitem(w_dict, space.wrap("__file__"), w_pathname)
+        space.setitem(w_dict, space.wrap("__cached__"), space.wrap(cpathname))
     code_w.exec_code(space, w_dict, w_dict)
 
 def rightmost_sep(filename):
@@ -971,6 +1006,14 @@ def load_source_module(space, w_modulename, w_mod, pathname, source, fd,
             if not space.is_true(space.sys.get('dont_write_bytecode')):
                 write_compiled_module(space, code_w, cpathname, mode, mtime)
 
+    try:
+        optimize = space.sys.get_flag('optimize')
+    except RuntimeError:
+        # during bootstrapping
+        optimize = 0
+    if optimize >= 2:
+        code_w.remove_docstrings(space)
+
     update_code_filenames(space, code_w, pathname)
     exec_code_module(space, w_mod, code_w, pathname, cpathname)
 
@@ -1048,26 +1091,32 @@ def read_compiled_module(space, cpathname, strbuf):
 
     w_marshal = space.getbuiltinmodule('marshal')
     w_code = space.call_method(w_marshal, 'loads', space.wrapbytes(strbuf))
-    pycode = space.interpclass_w(w_code)
-    if pycode is None or not isinstance(pycode, Code):
+    if not isinstance(w_code, Code):
         raise operationerrfmt(space.w_ImportError,
                               "Non-code object in %s", cpathname)
-    return pycode
+    return w_code
 
 @jit.dont_look_inside
 def load_compiled_module(space, w_modulename, w_mod, cpathname, magic,
-                         timestamp, source):
+                         timestamp, source, write_paths=True):
     """
     Load a module from a compiled file, execute it, and return its
     module object.
     """
-    w = space.wrap
     if magic != get_pyc_magic(space):
         raise operationerrfmt(space.w_ImportError,
                               "Bad magic number in %s", cpathname)
     #print "loading pyc file:", cpathname
     code_w = read_compiled_module(space, cpathname, source)
-    exec_code_module(space, w_mod, code_w, cpathname, cpathname)
+    try:
+        optimize = space.sys.get_flag('optimize')
+    except RuntimeError:
+        # during bootstrapping
+        optimize = 0
+    if optimize >= 2:
+        code_w.remove_docstrings(space)
+
+    exec_code_module(space, w_mod, code_w, cpathname, cpathname, write_paths)
 
     return w_mod
 

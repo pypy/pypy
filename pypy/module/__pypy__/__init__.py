@@ -26,6 +26,37 @@ class TimeModule(MixedModule):
                 interpleveldefs[name] = "space.wrap(interp_time.%s)" % name
 
 
+class ThreadModule(MixedModule):
+    appleveldefs = {
+        'signals_enabled': 'app_signal.signals_enabled',
+    }
+    interpleveldefs = {
+        '_signals_enter':  'interp_signal.signals_enter',
+        '_signals_exit':   'interp_signal.signals_exit',
+    }
+
+
+class IntOpModule(MixedModule):
+    appleveldefs = {}
+    interpleveldefs = {
+        'int_add':         'interp_intop.int_add',
+        'int_sub':         'interp_intop.int_sub',
+        'int_mul':         'interp_intop.int_mul',
+        'int_floordiv':    'interp_intop.int_floordiv',
+        'int_mod':         'interp_intop.int_mod',
+        'int_lshift':      'interp_intop.int_lshift',
+        'int_rshift':      'interp_intop.int_rshift',
+        'uint_rshift':     'interp_intop.uint_rshift',
+    }
+
+
+class OsModule(MixedModule):
+    appleveldefs = {}
+    interpleveldefs = {
+        'real_getenv': 'interp_os.real_getenv'
+    }
+
+
 class Module(MixedModule):
     appleveldefs = {
     }
@@ -39,21 +70,26 @@ class Module(MixedModule):
         'debug_stop'                : 'interp_debug.debug_stop',
         'debug_print_once'          : 'interp_debug.debug_print_once',
         'builtinify'                : 'interp_magic.builtinify',
+        'hidden_applevel'           : 'interp_magic.hidden_applevel',
         'lookup_special'            : 'interp_magic.lookup_special',
         'do_what_I_mean'            : 'interp_magic.do_what_I_mean',
         'list_strategy'             : 'interp_magic.list_strategy',
         'validate_fd'               : 'interp_magic.validate_fd',
         'resizelist_hint'           : 'interp_magic.resizelist_hint',
         'newlist_hint'              : 'interp_magic.newlist_hint',
+        'add_memory_pressure'       : 'interp_magic.add_memory_pressure',
         'newdict'                   : 'interp_dict.newdict',
         'dictstrategy'              : 'interp_dict.dictstrategy',
+        'set_debug'                 : 'interp_magic.set_debug',
+        'normalize_exc'             : 'interp_magic.normalize_exc',
     }
-    if sys.platform == 'win32':
-        interpleveldefs['get_console_cp'] = 'interp_magic.get_console_cp'
 
     submodules = {
         "builders": BuildersModule,
         "time": TimeModule,
+        "thread": ThreadModule,
+        "intop": IntOpModule,
+        "os": OsModule,
     }
 
     def setup_after_space_initialization(self):
@@ -71,6 +107,17 @@ class Module(MixedModule):
         PYC_MAGIC = get_pyc_magic(self.space)
         self.extra_interpdef('PYC_MAGIC', 'space.wrap(%d)' % PYC_MAGIC)
         #
-        from rpython.jit.backend import detect_cpu
-        model = detect_cpu.autodetect_main_model_and_size()
-        self.extra_interpdef('cpumodel', 'space.wrap(%r)' % model)
+        try:
+            from rpython.jit.backend import detect_cpu
+            model = detect_cpu.autodetect()
+            self.extra_interpdef('cpumodel', 'space.wrap(%r)' % model)
+        except Exception:
+            if self.space.config.translation.jit:
+                raise
+            else:
+                pass   # ok fine to ignore in this case
+        #
+        if self.space.config.translation.jit:
+            features = detect_cpu.getcpufeatures(model)
+            self.extra_interpdef('jit_backend_features',
+                                    'space.wrap(%r)' % features)

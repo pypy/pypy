@@ -36,6 +36,10 @@ class TestPythonParserWithoutSpace:
         tree = self.parse("""foo = '日本'""", info=info)
         assert info.encoding == 'utf-8'
 
+    def test_unicode_identifier(self):
+        tree = self.parse("a日本 = 32")
+        tree = self.parse("日本 = 32")
+
     def test_syntax_error(self):
         parse = self.parse
         exc = py.test.raises(SyntaxError, parse, "name another for").value
@@ -132,6 +136,9 @@ if 1:
         py.test.raises(SyntaxError, self.parse, '0b0l')
         py.test.raises(SyntaxError, self.parse, "0b112")
 
+    def test_print_function(self):
+        self.parse("from __future__ import print_function\nx = print\n")
+
     def test_py3k_reject_old_binary_literal(self):
         py.test.raises(SyntaxError, self.parse, '0777')
 
@@ -191,4 +198,3 @@ stuff = "nothing"
         exc = py.test.raises(SyntaxError, self.parse, input).value
         assert exc.msg == ("'ascii' codec can't decode byte 0xc3 "
                            "in position 16: ordinal not in range(128)")
-

@@ -1,4 +1,4 @@
-import os, sys
+import os
 #from rpython.translator.goal import richards
 
 modfilename = os.path.join(os.path.dirname(__file__), 'richards.py')

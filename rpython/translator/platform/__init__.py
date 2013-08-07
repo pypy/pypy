@@ -2,9 +2,9 @@
 
 import py, os, sys
 
-from rpython.tool.ansi_print import ansi_log
 from rpython.tool.runsubprocess import run_subprocess as _run_subprocess
 from rpython.tool.udir import udir
+from rpython.tool.version import rpythonroot
 
 log = py.log.Producer("platform")
 
@@ -164,6 +164,15 @@ class Platform(object):
                 break
         return response_file
 
+    def _make_o_file(self, cfile, ext):
+        """Create an object file name under the udir for a .c file"""
+        ofile = cfile.new(ext=ext)
+        if ofile.relto(udir):
+            return ofile
+        ofile = udir.join(ofile.relto(rpythonroot))
+        ofile.dirpath().ensure(dir=True)
+        return ofile
+
     def preprocess_include_dirs(self, include_dirs):
         if 'PYPY_LOCALBASE' in os.environ:
             dirs = list(self._preprocess_include_dirs(include_dirs))
@@ -286,6 +295,13 @@ elif "freebsd" in sys.platform:
         host_factory = Freebsd
     else:
         host_factory = Freebsd_64
+elif sys.platform.startswith('netbsd'):
+    from rpython.translator.platform.netbsd import Netbsd, Netbsd_64
+    import platform
+    if platform.architecture()[0] == '32bit':
+        host_factory = Netbsd
+    else:
+        host_factory = Netbsd_64
 elif "openbsd" in sys.platform:
     from rpython.translator.platform.openbsd import OpenBSD, OpenBSD_64
     import platform
@@ -341,3 +357,6 @@ def set_platform(new_platform, cc):
         global host
         host = platform
 
+
+def is_host_build():
+    return host == platform

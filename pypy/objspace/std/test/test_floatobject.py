@@ -26,10 +26,8 @@ class TestW_FloatObject:
         assert v.floatval == x ** y
         f1 = fobj.W_FloatObject(-1.23)
         f2 = fobj.W_FloatObject(-4.56)
-        self.space.raises_w(self.space.w_ValueError,
-                            fobj.pow__Float_Float_ANY,
-                            self.space, f1, f2,
-                            self.space.w_None)
+        v = fobj.pow__Float_Float_ANY(self.space, f1, f2, self.space.w_None)
+        assert self.space.isinstance_w(v, self.space.w_complex)
         x = -10
         y = 2.0
         f1 = fobj.W_FloatObject(x)
@@ -97,19 +95,28 @@ class AppTestAppFloatTest:
         assert 42.0 == float(42)
 
     def test_float_hash(self):
-        # these are taken from standard Python, which produces
-        # the same but for -1.
         import math
+        import sys
+
+        assert hash(-1.0) == -2
+        assert hash(-2.0) == -2
+        assert hash(-3.0) == -3
         assert hash(42.0) == 42
-        assert hash(42.125) == 1413677056
-        assert hash(math.ldexp(0.125, 1000)) in (
-            32,              # answer on 32-bit machines
-            137438953472)    # answer on 64-bit machines
-        # testing special overflow values
-        inf = 1e200 * 1e200
+        if sys.maxsize > 2 ** 31 - 1:
+            assert hash(42.125) == 288230376151711786
+            assert hash(math.ldexp(0.125, 1000)) == 2097152
+            assert hash(3.141593) == 326491229203594243
+            assert hash(2.5) == 1152921504606846978
+        else:
+            assert hash(42.125) == 268435498
+            assert hash(math.ldexp(0.125, 1000)) == 32
+            assert hash(3.141593) == 671854639
+            assert hash(2.5) == 1073741826
+        inf = float('inf')
+        nan = float('nan')
         assert hash(inf) == 314159
         assert hash(-inf) == -314159
-        assert hash(inf/inf) == 0
+        assert hash(nan) == 0
 
     def test_int_float(self):
         assert int(42.1234) == 42
@@ -218,7 +225,7 @@ class AppTestAppFloatTest:
         assert espeq(pw(4.0, 0.5), 2.0)
         assert pw(4.0, 0) == 1.0
         assert pw(-4.0, 0) == 1.0
-        raises(ValueError, pw, -1.0, 0.5)
+        assert type(pw(-1.0, 0.5)) == complex
         assert pw(-1.0, 2.0) == 1.0
         assert pw(-1.0, 3.0) == -1.0
         assert pw(-1.0, 1e200) == 1.0
@@ -439,11 +446,14 @@ class AppTestAppFloatTest:
 
     def test_from_string(self):
         raises(ValueError, float, "\0")
-        raises(UnicodeEncodeError, float, '\uD8F0')
+        raises(ValueError, float, '\uD8F0')
 
     def test_format(self):
         f = 1.1234e200
         assert f.__format__("G") == "1.1234E+200"
+        assert 123.456.__format__('.4') == '123.5'
+        assert 1234.56.__format__('.4') == '1.235e+03'
+        assert 12345.6.__format__('.4') == '1.235e+04'
 
     def test_float_real(self):
         class A(float): pass
@@ -454,7 +464,7 @@ class AppTestAppFloatTest:
         try:
             float('abcdef')
         except ValueError as e:
-            assert 'abcdef' in e.message
+            assert 'abcdef' in str(e)
         else:
             assert False, 'did not raise'
 
@@ -837,3 +847,6 @@ class AppTestFloatHex:
         check(mod(0.0, -1.0), -0.0)
         check(mod(1e-100, -1.0), -1.0)
         check(mod(1.0, -1.0), -0.0)
+
+    def test_repr_str_eq(self):
+        assert repr(19 * 0.1) == str(19 * 0.1)

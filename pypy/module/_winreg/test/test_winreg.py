@@ -22,8 +22,8 @@ class AppTestHKey:
     spaceconfig = dict(usemodules=('_winreg',))
 
     def test_repr(self):
-        import _winreg
-        k = _winreg.HKEYType(0x123)
+        import winreg
+        k = winreg.HKEYType(0x123)
         assert str(k) == "<PyHKEY:0x123>"
 
 class AppTestFfi:
@@ -45,9 +45,12 @@ class AppTestFfi:
             ("Unicode Value", u"A unicode Value", _winreg.REG_SZ),
             ("Str Expand", "The path is %path%", _winreg.REG_EXPAND_SZ),
             ("Multi Str", ["Several", "string", u"values"], _winreg.REG_MULTI_SZ),
-            ("Raw data", "binary"+chr(0)+"data", _winreg.REG_BINARY),
             ]
-        cls.w_test_data = space.wrap(test_data)
+        cls.w_test_data = w_test_data = space.wrap(test_data)
+        w_btest = space.newtuple([space.wrap("Raw data"),
+                                  space.wrapbytes("binary\x00data"),
+                                  space.wrap(_winreg.REG_BINARY)])
+        w_test_data.append(w_btest)
 
     def teardown_class(cls):
         import _winreg
@@ -57,19 +60,19 @@ class AppTestFfi:
             pass
 
     def test_constants(self):
-        from _winreg import (
+        from winreg import (
             HKEY_LOCAL_MACHINE, HKEY_CLASSES_ROOT, HKEY_CURRENT_CONFIG,
             HKEY_CURRENT_USER, HKEY_DYN_DATA, HKEY_LOCAL_MACHINE,
             HKEY_PERFORMANCE_DATA, HKEY_USERS)
 
     def test_simple_write(self):
-        from _winreg import SetValue, QueryValue, REG_SZ
+        from winreg import SetValue, QueryValue, REG_SZ
         value = "Some Default value"
         SetValue(self.root_key, self.test_key_name, REG_SZ, value)
         assert QueryValue(self.root_key, self.test_key_name) == value
 
     def test_CreateKey(self):
-        from _winreg import CreateKey, QueryInfoKey
+        from winreg import CreateKey, QueryInfoKey
         key = CreateKey(self.root_key, self.test_key_name)
         sub_key = CreateKey(key, "sub_key")
 
@@ -80,8 +83,8 @@ class AppTestFfi:
         assert nkeys == 0
 
     def test_CreateKeyEx(self):
-        from _winreg import CreateKeyEx, QueryInfoKey
-        from _winreg import KEY_ALL_ACCESS, KEY_READ
+        from winreg import CreateKeyEx, QueryInfoKey
+        from winreg import KEY_ALL_ACCESS, KEY_READ
         key = CreateKeyEx(self.root_key, self.test_key_name, 0, KEY_ALL_ACCESS)
         sub_key = CreateKeyEx(key, "sub_key", 0, KEY_READ)
 
@@ -92,7 +95,7 @@ class AppTestFfi:
         assert nkeys == 0
 
     def test_close(self):
-        from _winreg import OpenKey, CloseKey, FlushKey, QueryInfoKey
+        from winreg import OpenKey, CloseKey, FlushKey, QueryInfoKey
         key = OpenKey(self.root_key, self.test_key_name)
         sub_key = OpenKey(key, "sub_key")
 
@@ -114,7 +117,7 @@ class AppTestFfi:
         raises(EnvironmentError, QueryInfoKey, int_key) # now closed
 
     def test_with(self):
-        from _winreg import OpenKey
+        from winreg import OpenKey
         with OpenKey(self.root_key, self.test_key_name) as key:
             with OpenKey(key, "sub_key") as sub_key:
                 assert key.handle != 0
@@ -123,11 +126,11 @@ class AppTestFfi:
         assert sub_key.handle == 0
 
     def test_exception(self):
-        from _winreg import QueryInfoKey
+        from winreg import QueryInfoKey
         import errno
         try:
             QueryInfoKey(0)
-        except EnvironmentError, e:
+        except EnvironmentError as e:
             assert e.winerror == 6
             assert e.errno == errno.EBADF
             # XXX translations...
@@ -137,21 +140,21 @@ class AppTestFfi:
             assert 0, "Did not raise"
 
     def test_SetValueEx(self):
-        from _winreg import CreateKey, SetValueEx
+        from winreg import CreateKey, SetValueEx
         key = CreateKey(self.root_key, self.test_key_name)
         sub_key = CreateKey(key, "sub_key")
         for name, value, type in self.test_data:
             SetValueEx(sub_key, name, 0, type, value)
 
     def test_readValues(self):
-        from _winreg import OpenKey, EnumValue, QueryValueEx, EnumKey
+        from winreg import OpenKey, EnumValue, QueryValueEx, EnumKey
         key = OpenKey(self.root_key, self.test_key_name)
         sub_key = OpenKey(key, "sub_key")
         index = 0
         while 1:
             try:
                 data = EnumValue(sub_key, index)
-            except EnvironmentError, e:
+            except EnvironmentError as e:
                 break
             assert data in self.test_data
             index = index + 1
@@ -164,7 +167,7 @@ class AppTestFfi:
         raises(EnvironmentError, EnumKey, key, 1)
 
     def test_delete(self):
-        from _winreg import OpenKey, KEY_ALL_ACCESS, DeleteValue, DeleteKey
+        from winreg import OpenKey, KEY_ALL_ACCESS, DeleteValue, DeleteKey
         key = OpenKey(self.root_key, self.test_key_name, 0, KEY_ALL_ACCESS)
         sub_key = OpenKey(key, "sub_key", 0, KEY_ALL_ACCESS)
 
@@ -174,14 +177,14 @@ class AppTestFfi:
         DeleteKey(key, "sub_key")
 
     def test_connect(self):
-        from _winreg import ConnectRegistry, HKEY_LOCAL_MACHINE
+        from winreg import ConnectRegistry, HKEY_LOCAL_MACHINE
         h = ConnectRegistry(None, HKEY_LOCAL_MACHINE)
         h.Close()
 
     def test_savekey(self):
         if not self.canSaveKey:
             skip("CPython needs win32api to set the SeBackupPrivilege security privilege")
-        from _winreg import OpenKey, KEY_ALL_ACCESS, SaveKey
+        from winreg import OpenKey, KEY_ALL_ACCESS, SaveKey
         import os
         try:
             os.unlink(self.tmpfilename)
@@ -192,17 +195,17 @@ class AppTestFfi:
         SaveKey(key, self.tmpfilename)
 
     def test_expand_environment_string(self):
-        from _winreg import ExpandEnvironmentStrings
+        from winreg import ExpandEnvironmentStrings
         import nt
-        r = ExpandEnvironmentStrings(u"%windir%\\test")
-        assert isinstance(r, unicode)
-        if 'WINDIR' in nt.environ.keys():
+        r = ExpandEnvironmentStrings("%windir%\\test")
+        assert isinstance(r, str)
+        if 'WINDIR' in list(nt.environ.keys()):
             assert r == nt.environ["WINDIR"] + "\\test"
         else:
             assert r == nt.environ["windir"] + "\\test"
 
     def test_long_key(self):
-        from _winreg import (
+        from winreg import (
             HKEY_CURRENT_USER, KEY_ALL_ACCESS, CreateKey, SetValue, EnumKey,
             REG_SZ, QueryInfoKey, OpenKey, DeleteKey)
         name = 'x'*256
@@ -218,10 +221,10 @@ class AppTestFfi:
             DeleteKey(HKEY_CURRENT_USER, self.test_key_name)
 
     def test_dynamic_key(self):
-        from _winreg import EnumValue, QueryValueEx, HKEY_PERFORMANCE_DATA
+        from winreg import EnumValue, QueryValueEx, HKEY_PERFORMANCE_DATA
         try:
             EnumValue(HKEY_PERFORMANCE_DATA, 0)
-        except WindowsError, e:
+        except WindowsError as e:
             import errno
             if e.errno in (errno.EPERM, errno.EACCES):
                 skip("access denied to registry key "
@@ -233,7 +236,7 @@ class AppTestFfi:
         import sys
         if sys.getwindowsversion() >= (5, 2):
             skip("Requires Windows XP")
-        from _winreg import (
+        from winreg import (
             CreateKey, DisableReflectionKey, EnableReflectionKey,
             QueryReflectionKey, DeleteKeyEx)
         with CreateKey(self.root_key, self.test_key_name) as key:
@@ -243,3 +246,12 @@ class AppTestFfi:
             raises(NotImplementedError, DeleteKeyEx, self.root_key,
                    self.test_key_name)
 
+    def test_named_arguments(self):
+        from winreg import KEY_ALL_ACCESS, CreateKeyEx, DeleteKey, OpenKeyEx
+        with CreateKeyEx(key=self.root_key, sub_key=self.test_key_name,
+                         reserved=0, access=KEY_ALL_ACCESS) as ckey:
+            assert ckey.handle != 0
+        with OpenKeyEx(key=self.root_key, sub_key=self.test_key_name,
+                       reserved=0, access=KEY_ALL_ACCESS) as okey:
+            assert okey.handle != 0
+        DeleteKey(self.root_key, self.test_key_name)

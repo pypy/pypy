@@ -1,10 +1,12 @@
+import py
+from py.test import raises
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.gateway import app2interp
 from pypy.tool.pytest.objspace import gettestobjspace
 
 class TestW_StdObjSpace:
 
     def test_wrap_wrap(self):
+        py.test.skip("maybe unskip in the future")
         raises(TypeError,
                           self.space.wrap,
                           self.space.wrap(0))
@@ -21,19 +23,6 @@ class TestW_StdObjSpace:
         raises(OperationError,self.space.uint_w,self.space.wrap(None))
         raises(OperationError,self.space.uint_w,self.space.wrap(""))
 
-    def test_multimethods_defined_on(self):
-        from pypy.objspace.std.stdtypedef import multimethods_defined_on
-        from pypy.objspace.std.listobject import W_ListObject
-        res = multimethods_defined_on(W_ListObject)
-        res = [(m.name, local) for (m, local) in res]
-        assert ('add', False) in res
-        assert ('lt', False) in res
-        assert ('setitem', False) in res
-        assert ('mod', False) not in res
-        assert ('pop', True) in res
-        assert ('reverse', True) in res
-        assert ('popitem', True) not in res
-
     def test_sliceindices(self):
         space = self.space
         w_obj = space.appexec([], """():
@@ -49,13 +38,13 @@ class TestW_StdObjSpace:
 
     def test_fastpath_isinstance(self):
         from pypy.objspace.std.stringobject import W_StringObject
-        from pypy.objspace.std.intobject import W_AbstractIntObject
+        from pypy.objspace.std.longobject import W_LongObject
         from pypy.objspace.std.iterobject import W_AbstractSeqIterObject
         from pypy.objspace.std.iterobject import W_SeqIterObject
 
         space = self.space
         assert space._get_interplevel_cls(space.w_str) is W_StringObject
-        assert space._get_interplevel_cls(space.w_int) is W_AbstractIntObject
+        assert space._get_interplevel_cls(space.w_int) is W_LongObject
         class X(W_StringObject):
             def __init__(self):
                 pass

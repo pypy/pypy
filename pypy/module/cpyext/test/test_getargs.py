@@ -18,7 +18,7 @@ class AppTestGetargs(AppTestCpythonExtensionBase):
             if (!PyArg_ParseTuple(args, "i", &l)) {
                 return NULL;
             }
-            return PyInt_FromLong(l);
+            return PyLong_FromLong(l);
             ''')
         assert oneargint(1) == 1
         raises(TypeError, oneargint, None)
@@ -36,7 +36,7 @@ class AppTestGetargs(AppTestCpythonExtensionBase):
             if (!PyArg_ParseTuple(args, "i:oneargandstuff", &l)) {
                 return NULL;
             }
-            return PyInt_FromLong(l);
+            return PyLong_FromLong(l);
             ''')
         assert oneargandform(1) == 1
 
@@ -94,7 +94,7 @@ class AppTestGetargs(AppTestCpythonExtensionBase):
             if (b)
                 Py_INCREF(b);
             else
-                b = PyInt_FromLong(42);
+                b = PyLong_FromLong(42);
             /* return an owned reference */
             return b;
             ''')

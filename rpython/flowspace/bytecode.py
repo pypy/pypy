@@ -36,7 +36,6 @@ class HostCode(object):
                      code, consts, names, varnames, filename,
                      name, firstlineno, lnotab, freevars):
         """Initialize a new code object"""
-        self.co_name = name
         assert nlocals >= 0
         self.co_argcount = argcount
         self.co_nlocals = nlocals

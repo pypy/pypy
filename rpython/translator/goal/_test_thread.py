@@ -1,4 +1,4 @@
-import thread, time
+import thread
 
 class MonitorList(list):
     def append(self, obj):

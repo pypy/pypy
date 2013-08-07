@@ -6,14 +6,13 @@
 
 """
 
-import os, sys
+import os
+import sys
 import time
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
-import pypy
 from pypy.tool import option
-from optparse import make_option
 from pypy.interpreter import main, interactive, error, gateway
 from rpython.config.config import OptionDescription, BoolOption, StrOption
 from rpython.config.config import Config, to_optparse
@@ -28,7 +27,8 @@ cmdline_optiondescr = OptionDescription("interactive", "the options of pyinterac
     BoolOption("completer", "use readline commandline completer",
                default=False, cmdline="-C"),
     BoolOption("optimize",
-               "dummy optimization flag for compatibility with CPython",
+               "skip assert statements and remove docstrings when importing modules"
+               " (this is -OO in regular CPython)",
                default=False, cmdline="-O"),
     BoolOption("no_site_import", "do not 'import site' on initialization",
                default=False, cmdline="-S"),
@@ -94,6 +94,17 @@ def main_(argv=None):
     space._starttime = starttime
     space.setitem(space.sys.w_dict, space.wrap('executable'),
                   space.wrap(argv[0]))
+
+    if interactiveconfig.optimize:
+        #change the optimize flag's value and set __debug__ to False
+        space.appexec([], """():
+            import sys
+            flags = list(sys.flags)
+            flags[6] = 2
+            sys.flags = type(sys.flags)(flags)
+            import __pypy__
+            __pypy__.set_debug(False)
+        """)
 
     # call pypy_find_stdlib: the side-effect is that it sets sys.prefix and
     # sys.exec_prefix

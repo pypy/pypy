@@ -1,5 +1,3 @@
-import py
-
 from pypy.interpreter.mixedmodule import MixedModule
 
 class ErrorsModule(MixedModule):

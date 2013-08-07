@@ -58,10 +58,27 @@
 #pragma link C++ class some_class_with_data;
 #pragma link C++ class some_class_with_data::some_data;
 
+#pragma link C++ class some_comparable;
+#pragma link C++ function operator==(const some_comparable&, const some_comparable&);
+#pragma link C++ function operator!=(const some_comparable&, const some_comparable&);
+
+#pragma link C++ class ref_tester;
+#pragma link C++ class std::vector<ref_tester>;
 #pragma link C++ class pointer_pass;
 
 #pragma link C++ class multi1;
 #pragma link C++ class multi2;
 #pragma link C++ class multi;
+
+#pragma link C++ class new_overloader;
+
+#pragma link C++ class my_templated_class<std::vector<float> >;
+#pragma link C++ function my_templated_function<char>(char);
+#pragma link C++ function my_templated_function<double>(double);
+#pragma link C++ class my_templated_method_class;
+#pragma link C++ typedef my_typedef_t;
+
+#pragma link C++ class overload_one_way;
+#pragma link C++ class overload_the_other_way;
 
 #endif

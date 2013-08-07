@@ -32,8 +32,7 @@ class SignalActionFlag(AbstractActionFlag):
         p = pypysig_getaddr_occurred()
         p.c_value = value
 
-    @staticmethod
-    def rearm_ticker():
+    def rearm_ticker(self):
         p = pypysig_getaddr_occurred()
         p.c_value = -1
 
@@ -61,17 +60,17 @@ class CheckSignalAction(PeriodicAsyncAction):
         "NOT_RPYTHON"
         AsyncAction.__init__(self, space)
         self.pending_signal = -1
-        self.fire_in_main_thread = False
+        self.fire_in_another_thread = False
         if self.space.config.objspace.usemodules.thread:
             from pypy.module.thread import gil
             gil.after_thread_switch = self._after_thread_switch
 
     @rgc.no_collect
     def _after_thread_switch(self):
-        if self.fire_in_main_thread:
-            if self.space.threadlocals.ismainthread():
-                self.fire_in_main_thread = False
-                SignalActionFlag.rearm_ticker()
+        if self.fire_in_another_thread:
+            if self.space.threadlocals.signals_enabled():
+                self.fire_in_another_thread = False
+                self.space.actionflag.rearm_ticker()
                 # this occurs when we just switched to the main thread
                 # and there is a signal pending: we force the ticker to
                 # -1, which should ensure perform() is called quickly.
@@ -82,11 +81,7 @@ class CheckSignalAction(PeriodicAsyncAction):
         n = self.pending_signal
         if n < 0: n = pypysig_poll()
         while n >= 0:
-            if self.space.config.objspace.usemodules.thread:
-                in_main = self.space.threadlocals.ismainthread()
-            else:
-                in_main = True
-            if in_main:
+            if self.space.threadlocals.signals_enabled():
                 # If we are in the main thread, report the signal now,
                 # and poll more
                 self.pending_signal = -1
@@ -97,7 +92,7 @@ class CheckSignalAction(PeriodicAsyncAction):
                 # Otherwise, arrange for perform() to be called again
                 # after we switch to the main thread.
                 self.pending_signal = n
-                self.fire_in_main_thread = True
+                self.fire_in_another_thread = True
                 break
 
     def set_interrupt(self):
@@ -105,9 +100,9 @@ class CheckSignalAction(PeriodicAsyncAction):
         if not we_are_translated():
             self.pending_signal = cpy_signal.SIGINT
             # ^^^ may override another signal, but it's just for testing
+            self.fire_in_another_thread = True
         else:
             pypysig_pushback(cpy_signal.SIGINT)
-        self.fire_in_main_thread = True
 
 # ____________________________________________________________
 
@@ -204,9 +199,10 @@ def signal(space, signum, w_handler):
     if WIN32 and signum not in signal_values:
         raise OperationError(space.w_ValueError,
                              space.wrap("invalid signal value"))
-    if not space.threadlocals.ismainthread():
+    if not space.threadlocals.signals_enabled():
         raise OperationError(space.w_ValueError,
-                             space.wrap("signal only works in main thread"))
+                             space.wrap("signal only works in main thread "
+                                 "or with __pypy__.thread.enable_signals()"))
     check_signum_in_range(space, signum)
 
     if space.eq_w(w_handler, space.wrap(SIG_DFL)):
@@ -235,10 +231,11 @@ def set_wakeup_fd(space, fd):
 
     The fd must be non-blocking.
     """
-    if not space.threadlocals.ismainthread():
+    if not space.threadlocals.signals_enabled():
         raise OperationError(
             space.w_ValueError,
-            space.wrap("set_wakeup_fd only works in main thread"))
+            space.wrap("set_wakeup_fd only works in main thread "
+                       "or with __pypy__.thread.enable_signals()"))
     old_fd = pypysig_set_wakeup_fd(fd)
     return space.wrap(intmask(old_fd))
 

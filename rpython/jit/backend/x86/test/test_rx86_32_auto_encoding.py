@@ -190,10 +190,6 @@ class TestRx86_32(object):
         #
         for args in args_lists:
             suffix = ""
-    ##        all = instr.as_all_suffixes
-    ##        for m, extra in args:
-    ##            if m in (i386.MODRM, i386.MODRM8) or all:
-    ##                suffix = suffixes[sizes[m]] + suffix
             if (argmodes and not self.is_xmm_insn
                          and not instrname.startswith('FSTP')):
                 suffix = suffixes[self.WORD]

@@ -7,8 +7,11 @@ This module contains functions that can read and write Python values in a binary
 # the "sandboxed" process.  It must work for Python2 as well.
 
 import types
-from _codecs import utf_8_decode, utf_8_encode
-import sys
+
+try:
+    intern
+except NameError:
+    from sys import intern
 
 try: from __pypy__ import builtinify
 except ImportError: builtinify = lambda f: f
@@ -162,9 +165,8 @@ class _Marshaller:
 
     def dump_unicode(self, x):
         self._write(TYPE_UNICODE)
-        #s = x.encode('utf8')
-        s, len_s = utf_8_encode(x)
-        self.w_long(len_s)
+        s = x.encode('utf8')
+        self.w_long(len(s))
         self._write(s)
     try:
         unicode
@@ -295,10 +297,10 @@ class _Unmarshaller:
         b = ord(self._read(1))
         c = ord(self._read(1))
         d = ord(self._read(1))
-        e = int(ord(self._read(1)))
-        f = int(ord(self._read(1)))
-        g = int(ord(self._read(1)))
-        h = int(ord(self._read(1)))
+        e = ord(self._read(1))
+        f = ord(self._read(1))
+        g = ord(self._read(1))
+        h = ord(self._read(1))
         x = a | (b<<8) | (c<<16) | (d<<24)
         x = x | (e<<32) | (f<<40) | (g<<48) | (h<<56)
         if h & 0x80 and x > 0:
@@ -369,7 +371,7 @@ class _Unmarshaller:
 
     def load_interned(self):
         n = self.r_long()
-        ret = sys.intern(self._read(n))
+        ret = intern(self._read(n))
         self._stringtable.append(ret)
         return ret
     dispatch[TYPE_INTERNED] = load_interned
@@ -382,8 +384,7 @@ class _Unmarshaller:
     def load_unicode(self):
         n = self.r_long()
         s = self._read(n)
-        #ret = s.decode('utf8')
-        ret, len_ret = utf_8_decode(s)
+        ret = s.decode('utf8')
         return ret
     dispatch[TYPE_UNICODE] = load_unicode
 
@@ -484,10 +485,10 @@ def _r_long64(self):
     b = ord(_read1(self))
     c = ord(_read1(self))
     d = ord(_read1(self))
-    e = int(ord(_read1(self)))
-    f = int(ord(_read1(self)))
-    g = int(ord(_read1(self)))
-    h = int(ord(_read1(self)))
+    e = ord(_read1(self))
+    f = ord(_read1(self))
+    g = ord(_read1(self))
+    h = ord(_read1(self))
     x = a | (b<<8) | (c<<16) | (d<<24)
     x = x | (e<<32) | (f<<40) | (g<<48) | (h<<56)
     if h & 0x80 and x > 0:
@@ -585,7 +586,7 @@ class _FastUnmarshaller:
 
     def load_interned(self):
         n = _r_long(self)
-        ret = sys.intern(_read(self, n))
+        ret = intern(_read(self, n))
         self._stringtable.append(ret)
         return ret
     dispatch[TYPE_INTERNED] = load_interned

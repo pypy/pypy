@@ -7,14 +7,15 @@ Low-level implementations for the external functions of the 'os' module.
 
 import os, sys, errno
 import py
-from rpython.rtyper.module.support import OOSupport
+from rpython.rtyper.module.support import (
+    _WIN32, StringTraits, UnicodeTraits, underscore_on_windows)
 from rpython.tool.sourcetools import func_renamer
 from rpython.rlib.rarithmetic import r_longlong
 from rpython.rtyper.extfunc import (
     BaseLazyRegistering, register_external)
 from rpython.rtyper.extfunc import registering, registering_if, extdef
 from rpython.annotator.model import (
-    SomeInteger, SomeString, SomeTuple, SomeFloat, SomeUnicodeString)
+    SomeInteger, SomeString, SomeTuple, SomeFloat, s_Str0, s_Unicode0)
 from rpython.annotator.model import s_ImpossibleValue, s_None, s_Bool
 from rpython.rtyper.lltypesystem import rffi
 from rpython.rtyper.lltypesystem import lltype
@@ -25,8 +26,8 @@ from rpython.rtyper.lltypesystem.llmemory import itemoffsetof, offsetof
 from rpython.rtyper.lltypesystem.rstr import STR
 from rpython.rlib.objectmodel import specialize
 
-str0 = SomeString(no_nul=True)
-unicode0 = SomeUnicodeString(no_nul=True)
+str0 = s_Str0
+unicode0 = s_Unicode0
 
 def monkeypatch_rposix(posixfunc, unicodefunc, signature):
     func_name = posixfunc.__name__
@@ -66,42 +67,6 @@ def monkeypatch_rposix(posixfunc, unicodefunc, signature):
     # Monkeypatch the function in rpython.rlib.rposix
     setattr(rposix, func_name, new_func)
 
-class StringTraits:
-    str = str
-    str0 = str0
-    CHAR = rffi.CHAR
-    CCHARP = rffi.CCHARP
-    charp2str = staticmethod(rffi.charp2str)
-    str2charp = staticmethod(rffi.str2charp)
-    free_charp = staticmethod(rffi.free_charp)
-    scoped_alloc_buffer = staticmethod(rffi.scoped_alloc_buffer)
-
-    @staticmethod
-    def posix_function_name(name):
-        return underscore_on_windows + name
-
-    @staticmethod
-    def ll_os_name(name):
-        return 'll_os.ll_os_' + name
-
-class UnicodeTraits:
-    str = unicode
-    str0 = unicode0
-    CHAR = rffi.WCHAR_T
-    CCHARP = rffi.CWCHARP
-    charp2str = staticmethod(rffi.wcharp2unicode)
-    str2charp = staticmethod(rffi.unicode2wcharp)
-    free_charp = staticmethod(rffi.free_wcharp)
-    scoped_alloc_buffer = staticmethod(rffi.scoped_alloc_unicodebuffer)
-
-    @staticmethod
-    def posix_function_name(name):
-        return underscore_on_windows + 'w' + name
-
-    @staticmethod
-    def ll_os_name(name):
-        return 'll_os.ll_os_w' + name
-
 def registering_str_unicode(posixfunc, condition=True):
     if not condition or posixfunc is None:
         return registering(None, condition=False)
@@ -128,16 +93,6 @@ def registering_str_unicode(posixfunc, condition=True):
     return decorator
 
 posix = __import__(os.name)
-
-if sys.platform.startswith('win'):
-    _WIN32 = True
-else:
-    _WIN32 = False
-
-if _WIN32:
-    underscore_on_windows = '_'
-else:
-    underscore_on_windows = ''
 
 includes = []
 if not _WIN32:
@@ -224,9 +179,10 @@ class RegisterOs(BaseLazyRegistering):
             decls = []
             defs = []
             for name in self.w_star:
-                data = {'ret_type': 'int', 'name': name}
-                decls.append((decl_snippet % data).strip())
-                defs.append((def_snippet % data).strip())
+                if hasattr(os, name):
+                    data = {'ret_type': 'int', 'name': name}
+                    decls.append((decl_snippet % data).strip())
+                    defs.append((def_snippet % data).strip())
 
             self.compilation_info = self.compilation_info.merge(
                 ExternalCompilationInfo(
@@ -253,7 +209,7 @@ class RegisterOs(BaseLazyRegistering):
             res = rffi.cast(rffi.SIGNED, c_func(arg))
             if res == -1:
                 raise OSError(rposix.get_errno(), "%s failed" % name)
-        
+
         c_func_llimpl.func_name = name + '_llimpl'
 
         return extdef([int], None, llimpl=c_func_llimpl,
@@ -265,11 +221,11 @@ class RegisterOs(BaseLazyRegistering):
             res = rffi.cast(rffi.SIGNED, c_func(arg, arg2))
             if res == -1:
                 raise OSError(rposix.get_errno(), "%s failed" % name)
-        
+
         c_func_llimpl.func_name = name + '_llimpl'
 
         return extdef([int, int], None, llimpl=c_func_llimpl,
-                      export_name='ll_os.ll_os_' + name)        
+                      export_name='ll_os.ll_os_' + name)
 
     def extdef_for_os_function_accepting_0int(self, name, **kwds):
         c_func = self.llexternal(name, [], rffi.INT, **kwds)
@@ -277,11 +233,11 @@ class RegisterOs(BaseLazyRegistering):
             res = rffi.cast(rffi.SIGNED, c_func())
             if res == -1:
                 raise OSError(rposix.get_errno(), "%s failed" % name)
-        
+
         c_func_llimpl.func_name = name + '_llimpl'
 
         return extdef([], None, llimpl=c_func_llimpl,
-                      export_name='ll_os.ll_os_' + name)        
+                      export_name='ll_os.ll_os_' + name)
 
     def extdef_for_os_function_int_to_int(self, name, **kwds):
         c_func = self.llexternal(name, [rffi.INT], rffi.INT, **kwds)
@@ -290,7 +246,7 @@ class RegisterOs(BaseLazyRegistering):
             if res == -1:
                 raise OSError(rposix.get_errno(), "%s failed" % name)
             return res
-        
+
         c_func_llimpl.func_name = name + '_llimpl'
 
         return extdef([int], int, llimpl=c_func_llimpl,
@@ -403,9 +359,8 @@ class RegisterOs(BaseLazyRegistering):
             if newfd == -1:
                 raise OSError(rposix.get_errno(), "dup failed")
             return newfd
-        
-        return extdef([int], int, llimpl=dup_llimpl,
-                      export_name="ll_os.ll_os_dup", oofakeimpl=os.dup)
+
+        return extdef([int], int, llimpl=dup_llimpl, export_name="ll_os.ll_os_dup")
 
     @registering(os.dup2)
     def register_os_dup2(self):
@@ -424,7 +379,7 @@ class RegisterOs(BaseLazyRegistering):
 
     @registering_if(os, "getlogin", condition=not _WIN32)
     def register_os_getlogin(self):
-        os_getlogin = self.llexternal('getlogin', [], rffi.CCHARP)
+        os_getlogin = self.llexternal('getlogin', [], rffi.CCHARP, threadsafe=False)
 
         def getlogin_llimpl():
             result = os_getlogin()
@@ -577,7 +532,7 @@ class RegisterOs(BaseLazyRegistering):
                 return result
             self.register(os.times, [], (float, float, float, float, float),
                           "ll_os.ll_times", llimpl=times_lltypeimpl)
-            return            
+            return
 
         TMSP = lltype.Ptr(self.TMS)
         os_times = self.llexternal('times', [TMSP], self.CLOCK_T)
@@ -726,7 +681,7 @@ class RegisterOs(BaseLazyRegistering):
 
     @registering_if(os, 'getpid')
     def register_os_getpid(self):
-        return self.extdef_for_os_function_returning_int('getpid')
+        return self.extdef_for_os_function_returning_int('getpid', threadsafe=False)
 
     @registering_if(os, 'getgid')
     def register_os_getgid(self):
@@ -831,11 +786,8 @@ class RegisterOs(BaseLazyRegistering):
                 raise OSError(rposix.get_errno(), "os_open failed")
             return result
 
-        def os_open_oofakeimpl(path, flags, mode):
-            return os.open(OOSupport.from_rstr(path), flags, mode)
-
         return extdef([traits.str0, int, int], int, traits.ll_os_name('open'),
-                      llimpl=os_open_llimpl, oofakeimpl=os_open_oofakeimpl)
+                      llimpl=os_open_llimpl)
 
     @registering_if(os, 'getloadavg')
     def register_os_getloadavg(self):
@@ -900,13 +852,9 @@ class RegisterOs(BaseLazyRegistering):
                 return rffi.str_from_buffer(raw_buf, gc_buf, count, got)
             finally:
                 rffi.keep_buffer_alive_until_here(raw_buf, gc_buf)
-            
-        def os_read_oofakeimpl(fd, count):
-            return OOSupport.to_rstr(os.read(fd, count))
 
         return extdef([int, int], SomeString(can_be_None=True),
-                      "ll_os.ll_os_read",
-                      llimpl=os_read_llimpl, oofakeimpl=os_read_oofakeimpl)
+                      "ll_os.ll_os_read", llimpl=os_read_llimpl)
 
     @registering(os.write)
     def register_os_write(self):
@@ -928,18 +876,14 @@ class RegisterOs(BaseLazyRegistering):
                 rffi.free_nonmovingbuffer(data, buf)
             return written
 
-        def os_write_oofakeimpl(fd, data):
-            return os.write(fd, OOSupport.from_rstr(data))
-
         return extdef([int, str], SomeInteger(nonneg=True),
-                      "ll_os.ll_os_write", llimpl=os_write_llimpl,
-                      oofakeimpl=os_write_oofakeimpl)
+                      "ll_os.ll_os_write", llimpl=os_write_llimpl)
 
     @registering(os.close)
     def register_os_close(self):
         os_close = self.llexternal(underscore_on_windows+'close', [rffi.INT],
                                    rffi.INT, threadsafe=False)
-        
+
         def close_llimpl(fd):
             rposix.validate_fd(fd)
             error = rffi.cast(lltype.Signed, os_close(rffi.cast(rffi.INT, fd)))
@@ -947,7 +891,7 @@ class RegisterOs(BaseLazyRegistering):
                 raise OSError(rposix.get_errno(), "close failed")
 
         return extdef([int], s_None, llimpl=close_llimpl,
-                      export_name="ll_os.ll_os_close", oofakeimpl=os.close)
+                      export_name="ll_os.ll_os_close")
 
     @registering(os.lseek)
     def register_os_lseek(self):
@@ -987,15 +931,10 @@ class RegisterOs(BaseLazyRegistering):
                 raise OSError(rposix.get_errno(), "os_lseek failed")
             return res
 
-        def os_lseek_oofakeimpl(fd, pos, how):
-            res = os.lseek(fd, pos, how)
-            return r_longlong(res)
-
         return extdef([int, r_longlong, int],
                       r_longlong,
                       llimpl = lseek_llimpl,
-                      export_name = "ll_os.ll_os_lseek",
-                      oofakeimpl = os_lseek_oofakeimpl)
+                      export_name = "ll_os.ll_os_lseek")
 
     @registering_if(os, 'ftruncate')
     def register_os_ftruncate(self):
@@ -1073,12 +1012,8 @@ class RegisterOs(BaseLazyRegistering):
                 error = rffi.cast(lltype.Signed, os_access(path, mode))
                 return error == 0
 
-        def os_access_oofakeimpl(path, mode):
-            return os.access(OOSupport.from_rstr(path), mode)
-
         return extdef([traits.str0, int], s_Bool, llimpl=access_llimpl,
-                      export_name=traits.ll_os_name("access"),
-                      oofakeimpl=os_access_oofakeimpl)
+                      export_name=traits.ll_os_name("access"))
 
     @registering_str_unicode(getattr(posix, '_getfullpathname', None),
                              condition=sys.platform=='win32')
@@ -1118,12 +1053,8 @@ class RegisterOs(BaseLazyRegistering):
             lltype.free(buf, flavor='raw')
             return result
 
-        def os_getcwd_oofakeimpl():
-            return OOSupport.to_rstr(os.getcwd())
-
         return extdef([], str0,
-                      "ll_os.ll_os_getcwd", llimpl=os_getcwd_llimpl,
-                      oofakeimpl=os_getcwd_oofakeimpl)
+                      "ll_os.ll_os_getcwd", llimpl=os_getcwd_llimpl)
 
     @registering(os.getcwdu, condition=sys.platform=='win32')
     def register_os_getcwdu(self):
@@ -1187,9 +1118,9 @@ class RegisterOs(BaseLazyRegistering):
                 dirp = os_opendir(path)
                 if not dirp:
                     raise OSError(rposix.get_errno(), "os_opendir failed")
-                rposix.set_errno(0)
                 result = []
                 while True:
+                    rposix.set_errno(0)
                     direntp = os_readdir(dirp)
                     if not direntp:
                         error = rposix.get_errno()
@@ -1392,7 +1323,7 @@ class RegisterOs(BaseLazyRegistering):
 
     @registering(os.strerror)
     def register_os_strerror(self):
-        os_strerror = self.llexternal('strerror', [rffi.INT], rffi.CCHARP)
+        os_strerror = self.llexternal('strerror', [rffi.INT], rffi.CCHARP, threadsafe=False)
 
         def strerror_llimpl(errnum):
             res = os_strerror(rffi.cast(rffi.INT, errnum))
@@ -1742,6 +1673,18 @@ class RegisterOs(BaseLazyRegistering):
         from rpython.rtyper.module import ll_os_stat
         return ll_os_stat.register_stat_variant('lstat', traits)
 
+    @registering_if(os, 'fstatvfs')
+    def register_os_fstatvfs(self):
+        from rpython.rtyper.module import ll_os_stat
+        return ll_os_stat.register_statvfs_variant('fstatvfs', StringTraits())
+
+    if hasattr(os, 'statvfs'):
+        @registering_str_unicode(os.statvfs)
+        def register_os_statvfs(self, traits):
+            from rpython.rtyper.module import ll_os_stat
+            return ll_os_stat.register_statvfs_variant('statvfs', traits)
+
+
     # ------------------------------- os.W* ---------------------------------
 
     w_star = ['WCOREDUMP', 'WIFCONTINUED', 'WIFSTOPPED',
@@ -1764,7 +1707,7 @@ class RegisterOs(BaseLazyRegistering):
         os_c_func = self.llexternal("pypy_macro_wrapper_" + name,
                                     [lltype.Signed], lltype.Signed,
                                     _callable=fake)
-    
+
         if name in self.w_star_returning_int:
             def llimpl(status):
                 return os_c_func(status)
@@ -1783,7 +1726,7 @@ class RegisterOs(BaseLazyRegistering):
 
     @registering_if(os, 'ttyname')
     def register_os_ttyname(self):
-        os_ttyname = self.llexternal('ttyname', [lltype.Signed], rffi.CCHARP)
+        os_ttyname = self.llexternal('ttyname', [lltype.Signed], rffi.CCHARP, threadsafe=False)
 
         def ttyname_llimpl(fd):
             l_name = os_ttyname(fd)
@@ -1837,5 +1780,4 @@ if sys.platform == 'win32':
         def register_rwin32_FormatError(self):
             return extdef([lltype.Signed], str,
                           "rwin32_FormatError",
-                          llimpl=rwin32.llimpl_FormatError,
-                          ooimpl=rwin32.fake_FormatError)
+                          llimpl=rwin32.llimpl_FormatError)

@@ -1,14 +1,14 @@
-from rpython.tool.pairtype import pairtype
 from rpython.annotator import model as annmodel
-from rpython.rtyper.lltypesystem.lltype import Signed, Unsigned, Bool, Float
 from rpython.rtyper.error import TyperError
-from rpython.rtyper.rmodel import IntegerRepr, BoolRepr
-from rpython.rtyper.rmodel import log
+from rpython.rtyper.lltypesystem.lltype import Signed, Unsigned, Bool, Float
+from rpython.rtyper.rmodel import IntegerRepr, BoolRepr, log
+from rpython.tool.pairtype import pairtype
 
 
 class __extend__(annmodel.SomeBool):
     def rtyper_makerepr(self, rtyper):
         return bool_repr
+
     def rtyper_makekey(self):
         return self.__class__,
 

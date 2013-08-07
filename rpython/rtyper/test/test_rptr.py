@@ -336,6 +336,21 @@ def test_interior_ptr_with_index():
     res = interpret(f, [])
     assert res == 1
 
+def test_interior_ptr_convert():
+    S = lltype.Struct("S", ("x", lltype.Signed))
+    T = lltype.GcArray(S)
+    def f(i):
+        t = lltype.malloc(T, 2)
+        if i:
+            x = t[0]
+        else:
+            x = t[1]
+        x.x = 3
+        return t[0].x
+
+    res = interpret(f, [13])
+    assert res == 3
+
 def test_interior_ptr_with_field_and_index():
     S = lltype.Struct("S", ('x', lltype.Signed))
     T = lltype.GcStruct("T", ('items', lltype.Array(S)))

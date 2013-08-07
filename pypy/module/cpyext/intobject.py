@@ -69,6 +69,7 @@ def PyInt_AsUnsignedLong(space, w_obj):
                              space.wrap("an integer is required, got NULL"))
     return space.uint_w(space.int(w_obj))
 
+
 @cpython_api([PyObject], rffi.ULONG, error=-1)
 def PyInt_AsUnsignedLongMask(space, w_obj):
     """Will first attempt to cast the object to a PyIntObject or
@@ -79,6 +80,7 @@ def PyInt_AsUnsignedLongMask(space, w_obj):
     num = space.bigint_w(w_int)
     return num.uintmask()
 
+
 @cpython_api([PyObject], rffi.ULONGLONG, error=-1)
 def PyInt_AsUnsignedLongLongMask(space, w_obj):
     """Will first attempt to cast the object to a PyIntObject or
@@ -86,7 +88,7 @@ def PyInt_AsUnsignedLongLongMask(space, w_obj):
     unsigned long long, without checking for overflow.
     """
     w_int = space.int(w_obj)
-    if space.is_true(space.isinstance(w_int, space.w_int)):
+    if space.isinstance_w(w_int, space.w_int):
         num = space.int_w(w_int)
         return r_ulonglong(num)
     else:

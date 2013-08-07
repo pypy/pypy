@@ -18,7 +18,7 @@ extern char _LLstacktoobig_report_error;
 char LL_stack_too_big_slowpath(long);    /* returns 0 (ok) or 1 (too big) */
 void LL_stack_set_length_fraction(double);
 
-/* some macros referenced from pypy.rlib.rstack */
+/* some macros referenced from rpython.rlib.rstack */
 #define LL_stack_get_end() ((long)_LLstacktoobig_stack_end)
 #define LL_stack_get_length() _LLstacktoobig_stack_length
 #define LL_stack_get_end_adr()    ((long)&_LLstacktoobig_stack_end)   /* JIT */

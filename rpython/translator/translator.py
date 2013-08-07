@@ -4,15 +4,16 @@ The Translator is a glue class putting together the various pieces of the
 translation-related code.  It can be used for interactive testing of the
 translator; see pypy/bin/translatorshell.py.
 """
-import os, sys, types, copy
+import sys
+import types
 
 from rpython.translator import simplify
 from rpython.flowspace.model import FunctionGraph, checkgraph, Block
-from rpython.flowspace.objspace import FlowObjSpace
+from rpython.flowspace.objspace import build_flow
 from rpython.tool.ansi_print import ansi_log
 from rpython.tool.sourcetools import nice_repr_for_func
-from rpython.config.translationoption import get_combined_translation_config
 from rpython.config.translationoption import get_platform
+
 import py
 log = py.log.Producer("flowgraph")
 py.log.setconsumer("flowgraph", ansi_log)
@@ -20,7 +21,6 @@ py.log.setconsumer("flowgraph", ansi_log)
 class TranslationContext(object):
     FLOWING_FLAGS = {
         'verbose': False,
-        'simplifying': True,
         'list_comprehension_operations': False,   # True, - not super-tested
         }
 
@@ -29,8 +29,7 @@ class TranslationContext(object):
             from rpython.config.translationoption import get_combined_translation_config
             config = get_combined_translation_config(translating=True)
         # ZZZ should go away in the end
-        for attr in ['verbose', 'simplifying',
-                     'list_comprehension_operations']:
+        for attr in ['verbose', 'list_comprehension_operations']:
             if attr in flowing_flags:
                 setattr(config.translation, attr, flowing_flags[attr])
         self.config = config
@@ -52,10 +51,8 @@ class TranslationContext(object):
         else:
             if self.config.translation.verbose:
                 log.start(nice_repr_for_func(func))
-            space = FlowObjSpace()
-            graph = space.build_flow(func)
-            if self.config.translation.simplifying:
-                simplify.simplify_graph(graph)
+            graph = build_flow(func)
+            simplify.simplify_graph(graph)
             if self.config.translation.list_comprehension_operations:
                 simplify.detect_list_comprehension(graph)
             if self.config.translation.verbose:

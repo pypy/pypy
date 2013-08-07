@@ -188,7 +188,7 @@ The two large parts of PyPy, the Python interpreter and the `RPython
 toolchain`_ 
 toolchain, have two separate sets of options. The translation toolchain options
 can be found on the ``config`` attribute of all ``TranslationContext``
-instances and are described in `pypy/config/translationoption.py`_. The interpreter options
+instances and are described in `rpython/config/translationoption.py`_. The interpreter options
 are attached to the object space, also under the name ``config`` and are
 described in `pypy/config/pypyoption.py`_.
 

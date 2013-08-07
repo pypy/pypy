@@ -1,6 +1,7 @@
 from __future__ import absolute_import
 
 import types
+
 from rpython.tool.ansi_print import ansi_log
 from rpython.tool.pairtype import pair
 from rpython.tool.error import (format_blocked_annotation_error,
@@ -10,19 +11,19 @@ from rpython.flowspace.model import (Variable, Constant, FunctionGraph,
 from rpython.translator import simplify, transform
 from rpython.annotator import model as annmodel, signature, unaryop, binaryop
 from rpython.annotator.bookkeeper import Bookkeeper
+
 import py
 log = py.log.Producer("annrpython")
 py.log.setconsumer("annrpython", ansi_log)
 
-
 FAIL = object()
+
 
 class RPythonAnnotator(object):
     """Block annotator for RPython.
     See description in doc/translation.txt."""
 
     def __init__(self, translator=None, policy=None, bookkeeper=None):
-        import rpython.rtyper.ootypesystem.ooregistry # has side effects
         import rpython.rtyper.extfuncregistry # has side effects
         import rpython.rlib.nonconst # has side effects
 
@@ -136,10 +137,10 @@ class RPythonAnnotator(object):
         checkgraph(flowgraph)
 
         nbarg = len(flowgraph.getargs())
-        if len(inputcells) != nbarg: 
-            raise TypeError("%s expects %d args, got %d" %(       
+        if len(inputcells) != nbarg:
+            raise TypeError("%s expects %d args, got %d" %(
                             flowgraph, nbarg, len(inputcells)))
-        
+
         # register the entry point
         self.addpendinggraph(flowgraph, inputcells)
         # recursively proceed until no more pending block is left
@@ -178,13 +179,11 @@ class RPythonAnnotator(object):
             # a graph that has already been rtyped.  Safety-check the new
             # annotations that are passed in, and don't annotate the old
             # graph -- it's already low-level operations!
-            for a, s_newarg in zip(graph.getargs(), cells):
+            for a, s_newarg in zip(block.inputargs, cells):
                 s_oldarg = self.binding(a)
                 assert annmodel.unionof(s_oldarg, s_newarg) == s_oldarg
         else:
             assert not self.frozen
-            for a in cells:
-                assert isinstance(a, annmodel.SomeObject)
             if block not in self.annotated:
                 self.bindinputargs(graph, block, cells)
             else:
@@ -192,12 +191,15 @@ class RPythonAnnotator(object):
             if not self.annotated[block]:
                 self.pendingblocks[block] = graph
 
+    def complete_pending_blocks(self):
+        while self.pendingblocks:
+            block, graph = self.pendingblocks.popitem()
+            self.processblock(graph, block)
+
     def complete(self):
         """Process pending blocks until none is left."""
         while True:
-            while self.pendingblocks:
-                block, graph = self.pendingblocks.popitem()
-                self.processblock(graph, block)
+            self.complete_pending_blocks()
             self.policy.no_more_blocks_to_annotate(self)
             if not self.pendingblocks:
                 break   # finished
@@ -264,7 +266,7 @@ class RPythonAnnotator(object):
                 pos = '?'
         if pos != '?':
             pos = self.whereami(pos)
- 
+
         log.WARNING("%s/ %s" % (pos, msg))
 
 
@@ -294,7 +296,7 @@ class RPythonAnnotator(object):
         v = graph.getreturnvar()
         try:
             return self.bindings[v]
-        except KeyError: 
+        except KeyError:
             # the function didn't reach any return statement so far.
             # (some functions actually never do, they always raise exceptions)
             return annmodel.s_ImpossibleValue

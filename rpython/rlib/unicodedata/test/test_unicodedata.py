@@ -1,9 +1,11 @@
+# encoding: utf-8
 import random
 import unicodedata
 
 import py
 
-from rpython.rlib.unicodedata import unicodedb_3_2_0, unicodedb_5_2_0
+from rpython.rlib.unicodedata import (
+    unicodedb_3_2_0, unicodedb_5_2_0, unicodedb_6_0_0)
 
 
 class TestUnicodeData(object):
@@ -51,6 +53,8 @@ class TestUnicodeData(object):
         assert unicodedb_5_2_0.isxidcontinue(ord('_'))
         assert unicodedb_5_2_0.isxidcontinue(ord('0'))
         assert not unicodedb_5_2_0.isxidcontinue(ord('('))
+        oc = ord(u'日')
+        assert unicodedb_5_2_0.isxidstart(oc)
 
     def test_compare_functions(self):
         def getX(fun, code):
@@ -95,3 +99,22 @@ class TestUnicodeData(object):
         assert unicodedb_5_2_0.lookup('BENZENE RING WITH CIRCLE') == 9187
         py.test.raises(KeyError, unicodedb_3_2_0.lookup, 'BENZENE RING WITH CIRCLE')
         py.test.raises(KeyError, unicodedb_3_2_0.name, 9187)
+
+
+class TestUnicodeData600(object):
+
+    def test_some_additions(self):
+        additions = {
+            ord(u"\u20B9"): 'INDIAN RUPEE SIGN',
+            # u'\U0001F37A'
+            127866: 'BEER MUG',
+            # u'\U0001F37B'
+            127867: 'CLINKING BEER MUGS',
+            # u"\U0001F0AD"
+            127149: 'PLAYING CARD QUEEN OF SPADES',
+            # u"\U0002B740"
+            177984: "CJK UNIFIED IDEOGRAPH-2B740",
+            }
+        for un, name in additions.iteritems():
+            assert unicodedb_6_0_0.name(un) == name
+            assert unicodedb_6_0_0.isprintable(un)

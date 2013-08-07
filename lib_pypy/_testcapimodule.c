@@ -1479,7 +1479,7 @@ static PyObject *
 unicode_transformdecimaltoascii(PyObject *self, PyObject *args)
 {
     Py_UNICODE *unicode;
-    Py_ssize_t length;
+    Py_ssize_t length = 0;
     if (!PyArg_ParseTuple(args, "u#|s", &unicode, &length))
         return NULL;
     return PyUnicode_TransformDecimalToASCII(unicode, length);

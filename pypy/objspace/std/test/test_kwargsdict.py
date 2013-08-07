@@ -146,4 +146,18 @@ class AppTestKwargsDictStrategy(object):
             return args
 
         assert dict.fromkeys(f(a=2, b=3)) == {"a": None, "b": None}
-        assert sorted(f(a=2, b=3).itervalues()) == [2, 3]
+        assert sorted(f(a=2, b=3).values()) == [2, 3]
+
+    def test_setdefault(self):
+        py3k_skip("XXX: strategies are currently broken")
+        def f(**args):
+            return args
+        d = f(a=1, b=2)
+        a = d.setdefault("a", 0)
+        assert a == 1
+        a = d.setdefault("b", 0)
+        assert a == 2
+        a = d.setdefault("c", 3)
+        assert a == 3
+        assert "KwargsDictStrategy" in self.get_strategy(d)
+

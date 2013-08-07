@@ -55,6 +55,11 @@ def _my_unctrl(c, u=_make_unctrl_map()):
         else:
             return c
 
+if 'a'[0] == 'a':
+    # When running tests with python2, bytes characters are bytes.
+    def _my_unctrl(c, uc=_my_unctrl):
+        return uc(ord(c))
+
 
 def disp_str(buffer, join=''.join, uc=_my_unctrl):
     """ disp_str(buffer:string) -> (string, [int])
@@ -519,7 +524,7 @@ feeling more loquacious than I am now."""
 
     def do_cmd(self, cmd):
         #print cmd
-        if isinstance(cmd[0], str):
+        if isinstance(cmd[0], (str, unicode)):
             cmd = self.commands.get(cmd[0],
                                     commands.invalid_command)(self, *cmd)
         elif isinstance(cmd[0], type):

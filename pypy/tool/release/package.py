@@ -3,7 +3,7 @@
 It uses 'pypy/goal/pypy-c' and parts of the rest of the working
 copy.  Usage:
 
-    package.py root-pypy-dir [--nostrip] [name-of-archive] [name-of-pypy-c] [destination-for-tarball] [pypy-c-path]
+    package.py root-pypy-dir [--nostrip] [--without-tk] [name-of-archive] [name-of-pypy-c] [destination-for-tarball] [pypy-c-path]
 
 Usually you would do:   package.py ../../.. pypy-VER-PLATFORM
 The output is found in the directory /tmp/usession-YOURNAME/build/.
@@ -17,12 +17,13 @@ sys.path.insert(0,os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirnam
 import py
 import fnmatch
 from rpython.tool.udir import udir
+import subprocess
 
 if sys.version_info < (2,6): py.test.skip("requires 2.6 so far")
 
 USE_ZIPFILE_MODULE = sys.platform == 'win32'
 
-STDLIB_VER = "3.2"
+STDLIB_VER = "3"
 
 def ignore_patterns(*patterns):
     """Function that can be used as copytree() ignore parameter.
@@ -42,9 +43,11 @@ class PyPyCNotFound(Exception):
 def fix_permissions(basedir):
     if sys.platform != 'win32':
         os.system("chmod -R a+rX %s" % basedir)
+        os.system("chmod -R g-w %s" % basedir)
 
 def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
-            copy_to_dir = None, override_pypy_c = None, nostrip=False):
+            copy_to_dir=None, override_pypy_c=None, nostrip=False,
+            withouttk=False):
     basedir = py.path.local(basedir)
     if override_pypy_c is None:
         basename = 'pypy-c'
@@ -64,28 +67,55 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
             raise PyPyCNotFound(
                 'Bogus path: %r does not exist (see docstring for more info)'
                 % (os.path.dirname(str(pypy_c)),))
+    subprocess.check_call([str(pypy_c), '-c', 'import _sqlite3'])
+    if not sys.platform == 'win32':
+        subprocess.check_call([str(pypy_c), '-c', 'import _curses'])
+        subprocess.check_call([str(pypy_c), '-c', 'import syslog'])
+        if not withouttk:
+            try:
+                subprocess.check_call([str(pypy_c), '-c', 'import _tkinter'])
+            except subprocess.CalledProcessError:
+                print >>sys.stderr, """Building Tk bindings failed.
+You can either install Tk development headers package or
+add --without-tk option to skip packaging binary CFFI extension."""
+                sys.exit(1)
     if sys.platform == 'win32' and not rename_pypy_c.lower().endswith('.exe'):
         rename_pypy_c += '.exe'
     binaries = [(pypy_c, rename_pypy_c)]
     #
+    builddir = udir.ensure("build", dir=True)
+    pypydir = builddir.ensure(name, dir=True)
+    includedir = basedir.join('include')
+    pypydir.ensure('include', dir=True)
+
     if sys.platform == 'win32':
         #Don't include a mscvrXX.dll, users should get their own.
         #Instructions are provided on the website.
 
         # Can't rename a DLL: it is always called 'libpypy-c.dll'
-        
+
         for extra in ['libpypy-c.dll',
-                      'libexpat.dll', 'sqlite3.dll', 
+                      'libexpat.dll', 'sqlite3.dll',
                       'libeay32.dll', 'ssleay32.dll']:
             p = pypy_c.dirpath().join(extra)
             if not p.check():
                 p = py.path.local.sysfind(extra)
-                assert p, "%s not found" % (extra,)
+                if not p:
+                    print "%s not found, expect trouble if this is a shared build" % (extra,)
+                    continue
             print "Picking %s" % p
             binaries.append((p, p.basename))
-    #
-    builddir = udir.ensure("build", dir=True)
-    pypydir = builddir.ensure(name, dir=True)
+        if pypy_c.dirpath().join("libpypy-c.lib").check():
+            shutil.copyfile(str(pypy_c.dirpath().join("libpypy-c.lib")),
+                        str(pypydir.join('include/python27.lib')))
+            print "Picking %s as %s" % (pypy_c.dirpath().join("libpypy-c.lib"),
+                        pypydir.join('include/python27.lib'))
+        else:
+            pass
+            # XXX users will complain that they cannot compile cpyext
+            # modules for windows, has the lib moved or are there no
+            # exported functions in the dll so no import library is created?
+
     # Careful: to copy lib_pypy, copying just the svn-tracked files
     # would not be enough: there are also ctypes_config_cache/_*_cache.py.
     shutil.copytree(str(basedir.join('lib-python').join(STDLIB_VER)),
@@ -93,18 +123,14 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
                     ignore=ignore_patterns('.svn', 'py', '*.pyc', '*~'))
     shutil.copytree(str(basedir.join('lib_pypy')),
                     str(pypydir.join('lib_pypy')),
-                    ignore=ignore_patterns('.svn', 'py', '*.pyc', '*~'))
+                    ignore=ignore_patterns('.svn', 'py', '*.pyc', '*~',
+                                           '*.c', '*.o'))
     for file in ['LICENSE', 'README.rst']:
         shutil.copy(str(basedir.join(file)), str(pypydir))
-    pypydir.ensure('include', dir=True)
-    if sys.platform == 'win32':
-        shutil.copyfile(str(pypy_c.dirpath().join("libpypy-c.lib")),
-                        str(pypydir.join('include/python27.lib')))
-    # we want to put there all *.h and *.inl from trunk/include
-    # and from pypy/_interfaces
-    includedir = basedir.join('include')
     headers = includedir.listdir('*.h') + includedir.listdir('*.inl')
     for n in headers:
+        # we want to put there all *.h and *.inl from trunk/include
+        # and from pypy/_interfaces
         shutil.copy(str(n), str(pypydir.join('include')))
     #
     spdir = pypydir.ensure('site-packages', dir=True)
@@ -146,6 +172,10 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
         else:
             archive = str(builddir.join(name + '.tar.bz2'))
             if sys.platform == 'darwin' or sys.platform.startswith('freebsd'):
+                print >>sys.stderr, """Warning: tar on current platform does not suport overriding the uid and gid
+for its contents. The tarball will contain your uid and gid. If you are
+building the actual release for the PyPy website, you may want to be
+using another platform..."""
                 e = os.system('tar --numeric-owner -cvjf ' + archive + " " + name)
             elif sys.platform == 'cygwin':
                 e = os.system('tar --owner=Administrator --group=Administrators --numeric-owner -cvjf ' + archive + " " + name)
@@ -162,14 +192,28 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
         print "Ready in %s" % (builddir,)
     return builddir # for tests
 
+
+def print_usage():
+    print >>sys.stderr, __doc__
+    sys.exit(1)
+
+
 if __name__ == '__main__':
     if len(sys.argv) == 1:
-        print >>sys.stderr, __doc__
-        sys.exit(1)
-    else:
-        args = sys.argv[1:]
-        kw = {}
-        if args[0] == '--nostrip':
+        print_usage()
+
+    args = sys.argv[1:]
+    kw = {}
+
+    for i, arg in enumerate(args):
+        if arg == '--nostrip':
             kw['nostrip'] = True
-            args = args[1:]
-        package(*args, **kw)
+        elif arg == '--without-tk':
+            kw['withouttk'] = True
+        elif not arg.startswith('--'):
+            break
+        else:
+            print_usage()
+
+    args = args[i:]
+    package(*args, **kw)

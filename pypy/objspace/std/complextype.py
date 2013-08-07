@@ -2,11 +2,12 @@ from rpython.tool.sourcetools import with_unicode_literals
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.objspace.std.register_all import register_all
-from pypy.objspace.std.strutil import string_to_float, ParseStringError
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.stdtypedef import GetSetProperty, StdTypeDef
 from pypy.objspace.std.stdtypedef import StdObjSpaceMultiMethod
 from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
+from rpython.rlib.rfloat import string_to_float
+from rpython.rlib.rstring import ParseStringError
 
 # ERRORCODES
 
@@ -71,10 +72,7 @@ def _split_complex(s):
                 imagpart = '-1.0'
             else:
                 imagpart = s[realstart:newstop]
-            if imagpart[0] == '-':
-                return '-0.0', imagpart
-            else:
-                return '0.0', imagpart
+            return '0.0', imagpart
         else:
             return s[realstart:realstop], '0.0'
 
@@ -215,8 +213,8 @@ def unpackcomplex(space, w_complex, strict_typing=True):
     if (space.isinstance_w(w_complex, space.w_str) or
         space.isinstance_w(w_complex, space.w_unicode)):
         raise operationerrfmt(space.w_TypeError,
-                              "complex number expected, got '%s'",
-                              space.type(w_complex).getname(space))
+                              "complex number expected, got '%T'",
+                              w_complex)
     #
     return (space.float_w(space.float(w_complex)), 0.0)
 

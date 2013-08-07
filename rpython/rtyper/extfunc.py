@@ -1,7 +1,6 @@
 from rpython.rtyper import extregistry
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.lltypesystem.lltype import typeOf
-from rpython.flowspace.model import Constant
 from rpython.annotator import model as annmodel
 from rpython.annotator.signature import annotation
 
@@ -29,14 +28,9 @@ def lazy_register(func_or_list, register_func):
             register_external(funcs[0], *val.def_args, **val.def_kwds)
             return
         return val
-    except (SystemExit, MemoryError, KeyboardInterrupt), e:
+    except (SystemExit, MemoryError, KeyboardInterrupt):
         raise
     except:
-        if 0:
-            import traceback
-            print >> sys.stderr, 'WARNING: cannot register', func_or_list, ':'
-            traceback.print_exc()
-            import pdb; pdb.set_trace()
         exc, exc_inst, tb = sys.exc_info()
         for func in funcs:
             # if the function has already been registered and we got
@@ -125,23 +119,6 @@ class BaseLazyRegistering(object):
     def _freeze_(self):
         return True
 
-class genericcallable(object):
-    """ A way to specify the callable annotation, but deferred until
-    we have bookkeeper
-    """
-    def __init__(self, args, result=None):
-        self.args = args
-        self.result = result
-
-class _ext_callable(ExtRegistryEntry):
-    _type_ = genericcallable
-    # we defer a bit annotation here
-
-    def compute_result_annotation(self):
-        return annmodel.SomeGenericCallable([annotation(i, self.bookkeeper)
-                                             for i in self.instance.args],
-                           annotation(self.instance.result, self.bookkeeper))
-
 class ExtFuncEntry(ExtRegistryEntry):
     safe_not_sandboxed = False
 
@@ -186,7 +163,7 @@ class ExtFuncEntry(ExtRegistryEntry):
         fakeimpl = getattr(self, fake_method_name, self.instance)
         if impl:
             if hasattr(self, fake_method_name):
-                # If we have both an {ll,oo}impl and a {ll,oo}fakeimpl,
+                # If we have both an llimpl and an llfakeimpl,
                 # we need a wrapper that selects the proper one and calls it
                 from rpython.tool.sourcetools import func_with_new_name
                 # Using '*args' is delicate because this wrapper is also
@@ -237,19 +214,17 @@ class ExtFuncEntry(ExtRegistryEntry):
         return hop.genop('direct_call', vlist, r_result)
 
 def register_external(function, args, result=None, export_name=None,
-                       llimpl=None, ooimpl=None,
-                       llfakeimpl=None, oofakeimpl=None,
-                       sandboxsafe=False):
+                       llimpl=None, llfakeimpl=None, sandboxsafe=False):
     """
     function: the RPython function that will be rendered as an external function (e.g.: math.floor)
     args: a list containing the annotation of the arguments
     result: surprisingly enough, the annotation of the result
     export_name: the name of the function as it will be seen by the backends
-    llimpl, ooimpl: optional; if provided, these RPython functions are called instead of the target function
-    llfakeimpl, oofakeimpl: optional; if provided, they are called by the llinterpreter
+    llimpl: optional; if provided, this RPython function is called instead of the target function
+    llfakeimpl: optional; if provided, called by the llinterpreter
     sandboxsafe: use True if the function performs no I/O (safe for --sandbox)
     """
-    
+
     if export_name is None:
         export_name = function.__name__
 
@@ -267,15 +242,11 @@ def register_external(function, args, result=None, export_name=None,
             signature_args = args
 
         signature_result = annotation(result, None)
-        name=export_name
+        name = export_name
         if llimpl:
             lltypeimpl = staticmethod(llimpl)
-        if ooimpl:
-            ootypeimpl = staticmethod(ooimpl)
         if llfakeimpl:
             lltypefakeimpl = staticmethod(llfakeimpl)
-        if oofakeimpl:
-            ootypefakeimpl = staticmethod(oofakeimpl)
 
     if export_name:
         FunEntry.__name__ = export_name

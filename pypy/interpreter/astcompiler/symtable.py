@@ -42,6 +42,7 @@ class Scope(object):
         self.has_free = False
         self.child_has_free = False
         self.nested = False
+        self.doc_removable = False
 
     def lookup(self, name):
         """Find the scope of identifier 'name'."""

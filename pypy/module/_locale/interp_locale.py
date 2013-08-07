@@ -93,6 +93,7 @@ def localeconv(space):
 
 _wcscoll = rlocale.external('wcscoll', [rffi.CWCHARP, rffi.CWCHARP], rffi.INT)
 
+
 def strcoll(space, w_s1, w_s2):
     "string,string -> int. Compares two strings according to the locale."
 

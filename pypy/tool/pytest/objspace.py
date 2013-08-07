@@ -39,7 +39,6 @@ def maketestobjspace(config=None):
     space.setitem(space.builtin.w_dict, space.wrap('py3k_skip'),
                   space.wrap(appsupport.app_py3k_skip))
     space.raises_w = appsupport.raises_w.__get__(space)
-    space.eq_w = appsupport.eq_w.__get__(space)
     return space
 
 
@@ -65,13 +64,15 @@ class TinyObjSpace(object):
                 continue
             if info is None:
                 py.test.skip("cannot runappdirect this test on top of CPython")
+            if ('translation.' + key) in info:
+                key = 'translation.' + key
             has = info.get(key, None)
             if has != value:
                 #print sys.pypy_translation_info
                 py.test.skip("cannot runappdirect test: space needs %s = %s, "\
                     "while pypy-c was built with %s" % (key, value, has))
 
-        for name in ('int', 'long', 'str', 'unicode', 'None', 'ValueError',
+        for name in ('int', 'long', 'str', 'unicode', 'list', 'None', 'ValueError',
                 'OverflowError'):
             setattr(self, 'w_' + name, eval(name))
         import __builtin__ as __builtin__
@@ -86,6 +87,13 @@ class TinyObjSpace(object):
     def wrap(self, obj):
         if isinstance(obj, str):
             return obj.decode('utf-8')
+        if isinstance(obj, dict):
+            return dict((self.wrap(k), self.wrap(v))
+                        for k, v in obj.iteritems())
+        if isinstance(obj, tuple):
+            return tuple(self.wrap(item) for item in obj)
+        if isinstance(obj, list):
+            return list(self.wrap(item) for item in obj)
         return obj
 
     def wrapbytes(self, obj):
@@ -97,8 +105,14 @@ class TinyObjSpace(object):
     def is_true(self, obj):
         return bool(obj)
 
+    def is_none(self, obj):
+        return obj is None
+
     def str_w(self, w_str):
         return w_str
+
+    def bytes_w(self, w_bytes):
+        return w_bytes
 
     def newdict(self, module=None):
         return {}

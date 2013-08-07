@@ -1,4 +1,5 @@
 import struct, sys
+from rpython.jit.backend.x86.rx86 import R
 from rpython.jit.backend.x86.regloc import *
 from rpython.jit.backend.x86.test.test_rx86 import CodeBuilder32, CodeBuilder64, assert_encodes_as
 from rpython.jit.backend.x86.assembler import heap
@@ -15,36 +16,49 @@ class LocationCodeBuilder64(CodeBuilder64, LocationCodeBuilder):
 cb32 = LocationCodeBuilder32
 cb64 = LocationCodeBuilder64
 
+def test_mov_8():
+    assert_encodes_as(cb32, "MOV8_ri", (R.cl, 25), '\xB1\x19')
+
 def test_mov_16():
+    # only 'MOV16_*r' and 'MOV16_*i' are supported
     # 32-bit
     assert_encodes_as(cb32, "MOV16", (ecx, ebx), '\x66\x89\xD9')
-    assert_encodes_as(cb32, "MOV16", (ecx, ImmedLoc(12345)), '\x66\xB9\x39\x30')
-
+    assert_encodes_as(cb32, "MOV16",
+                      (AddressLoc(ecx, ImmedLoc(16), 0, 0), ebx),
+                      '\x66\x89\x59\x10')
     # 64-bit
     assert_encodes_as(cb64, "MOV16", (r8, ebx), '\x66\x41\x89\xD8')  # 11 011 000
     assert_encodes_as(cb64, "MOV16", (ebx, r8), '\x66\x44\x89\xC3')  # 11 000 011
-    assert_encodes_as(cb64, "MOV16", (ecx, ebx), '\x66\x40\x89\xD9')
-    assert_encodes_as(cb64, "MOV16", (ecx, ImmedLoc(12345)), '\x66\xB9\x39\x30')
+    assert_encodes_as(cb64, "MOV16", (ecx, ebx), '\x66\x89\xD9')
     # for the next case we don't pick the most efficient encoding, but well
-    expected = '\x66\x40\xC7\xC1\xC7\xCF'  # could be '\x66\xB9\xC7\xCF'
+    expected = '\x66\xC7\xC1\x39\x30'      # could be '\x66\xB9\x39\x30'
+    assert_encodes_as(cb64, "MOV16", (ecx, ImmedLoc(12345)), expected)
+    # for the next case we don't pick the most efficient encoding, but well
+    expected = '\x66\xC7\xC1\xC7\xCF'      # could be '\x66\xB9\xC7\xCF'
     assert_encodes_as(cb64, "MOV16", (ecx, ImmedLoc(-12345)), expected)
-    assert_encodes_as(cb64, "MOV16", (r9, ImmedLoc(12345)), '\x66\x41\xB9\x39\x30')
+    # for the next case we don't pick the most efficient encoding, but well
+    expected = '\x66\x41\xC7\xC1\x39\x30'  # could be '\x66\x41\xB9\x39\x30'
+    assert_encodes_as(cb64, "MOV16", (r9, ImmedLoc(12345)), expected)
     # for the next case we don't pick the most efficient encoding, but well
     expected = '\x66\x41\xC7\xC1\xC7\xCF'  # could be '\x66\x41\xB9\xC7\xCF'
     assert_encodes_as(cb64, "MOV16", (r9, ImmedLoc(-12345)), expected)
-    assert_encodes_as(cb64, "MOV16", (AddressLoc(r13, ImmedLoc(0), 0, 0), ImmedLoc(12345)), '\x66\x41\xC7\x45\x00\x39\x30')
+    assert_encodes_as(cb64, "MOV16",
+                      (AddressLoc(r13, ImmedLoc(0), 0, 0), ImmedLoc(12345)),
+                      '\x66\x41\xC7\x45\x00\x39\x30')
 
 def test_cmp_16():
+    # only 'CMP16_mi' is supported
     # 32-bit
-    assert_encodes_as(cb32, "CMP16", (ecx, ebx), '\x66\x39\xD9')
-    assert_encodes_as(cb32, "CMP16", (ecx, ImmedLoc(12345)), '\x66\x81\xF9\x39\x30')
-
+    assert_encodes_as(cb32, "CMP16",
+                      (AddressLoc(ecx, ImmedLoc(0), 0, 0), ImmedLoc(21324)),
+                      '\x66\x81\x39\x4c\x53')
+    assert_encodes_as(cb32, "CMP16",
+                      (AddressLoc(esi, ImmedLoc(2), 0, 0), ImmedLoc(-12345)),
+                      '\x66\x81\x7e\x02\xc7\xcf')
     # 64-bit
-    assert_encodes_as(cb64, "CMP16", (r8, ebx), '\x66\x41\x39\xD8')  # 11 011 000
-    assert_encodes_as(cb64, "CMP16", (ebx, r8), '\x66\x44\x39\xC3')  # 11 000 011
-    assert_encodes_as(cb64, "CMP16", (ecx, ebx), '\x66\x40\x39\xD9')
-    assert_encodes_as(cb64, "CMP16", (ecx, ImmedLoc(12345)), '\x66\x40\x81\xF9\x39\x30')
-    assert_encodes_as(cb64, "CMP16", (AddressLoc(r13, ImmedLoc(0), 0, 0), ImmedLoc(12345)), '\x66\x41\x81\x7D\x00\x39\x30')
+    assert_encodes_as(cb64, "CMP16",
+                      (AddressLoc(r13, ImmedLoc(0), 0, 0), ImmedLoc(12345)),
+                      '\x66\x41\x81\x7D\x00\x39\x30')
 
 def test_relocation():
     from rpython.rtyper.lltypesystem import lltype, rffi

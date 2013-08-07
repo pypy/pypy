@@ -5,18 +5,15 @@ Unary operations on SomeValues.
 from __future__ import absolute_import
 
 from types import MethodType
-from rpython.annotator.model import \
-     SomeObject, SomeInteger, SomeBool, SomeString, SomeChar, SomeList, \
-     SomeDict, SomeTuple, SomeImpossibleValue, SomeUnicodeCodePoint, \
-     SomeInstance, SomeBuiltin, SomeFloat, SomeIterator, SomePBC, \
-     SomeExternalObject, SomeTypedAddressAccess, SomeAddress, SomeType, \
-     s_ImpossibleValue, s_Bool, s_None, \
-     unionof, missing_operation, add_knowntypedata, HarmlesslyBlocked, \
-     SomeGenericCallable, SomeWeakRef, SomeUnicodeString
+from rpython.annotator.model import (SomeObject, SomeInteger, SomeBool,
+    SomeString, SomeChar, SomeList, SomeDict, SomeTuple, SomeImpossibleValue,
+    SomeUnicodeCodePoint, SomeInstance, SomeBuiltin, SomeFloat, SomeIterator,
+    SomePBC, SomeTypedAddressAccess, SomeAddress, SomeType, s_ImpossibleValue,
+    s_Bool, s_None, unionof, missing_operation, add_knowntypedata,
+    HarmlesslyBlocked, SomeWeakRef, SomeUnicodeString)
 from rpython.annotator.bookkeeper import getbookkeeper
 from rpython.annotator import builtin
 from rpython.annotator.binaryop import _clone ## XXX where to put this?
-from rpython.rtyper import extregistry
 from rpython.tool.error import AnnotatorError
 
 # convenience only!
@@ -40,15 +37,10 @@ class __extend__(SomeObject):
 
     def type(obj, *moreargs):
         if moreargs:
-            raise Exception, 'type() called with more than one argument'
+            raise Exception('type() called with more than one argument')
         r = SomeType()
         bk = getbookkeeper()
-        fn, block, i = bk.position_key
-        annotator = bk.annotator
-        op = block.operations[i]
-        assert op.opname == "type"
-        assert len(op.args) == 1
-        assert annotator.binding(op.args[0]) == obj
+        op = bk._find_current_op(opname="type", arity=1, pos=0, s_type=obj)
         r.is_type_of = [op.args[0]]
         return r
 
@@ -79,10 +71,7 @@ class __extend__(SomeObject):
 
         bk = getbookkeeper()
         knowntypedata = {}
-        fn, block, i = bk.position_key
-        op = block.operations[i]
-        assert op.opname == "is_true" or op.opname == "nonzero"
-        assert len(op.args) == 1
+        op = bk._find_current_op(opname=("is_true", "nonzero"), arity=1)
         arg = op.args[0]
         s_nonnone_obj = s_obj
         if s_obj.can_be_none():
@@ -328,7 +317,6 @@ class __extend__(SomeList):
             s_iterable = args_s[0]
             if isinstance(s_iterable, (SomeList, SomeDict)):
                 lst = SomeList(lst.listdef) # create a fresh copy
-                lst.known_maxlength = True
                 lst.listdef.resize()
                 lst.listdef.listitem.hint_maxlength = True
         elif 'fence' in hints:
@@ -366,7 +354,7 @@ class __extend__(SomeDict):
         s_value = dct.dictdef.read_value()
         return (isinstance(s_key, SomeImpossibleValue) or
                 isinstance(s_value, SomeImpossibleValue))
-        
+
     def len(dct):
         if dct._is_empty():
             return immutablevalue(0)
@@ -438,7 +426,7 @@ class __extend__(SomeDict):
         return dct.dictdef.read_value()
 
     def _can_only_throw(dic, *ignore):
-        if dic1.dictdef.dictkey.custom_eq_hash:
+        if dic.dictdef.dictkey.custom_eq_hash:
             return None    # r_dict: can throw anything
         return []          # else: no possible exception
 
@@ -504,7 +492,11 @@ class __extend__(SomeString,
 
     def method_split(str, patt, max=-1):
         getbookkeeper().count("str_split", str, patt)
-        s_item = str.basestringclass(no_nul=str.no_nul)
+        if max == -1 and patt.is_constant() and patt.const == "\0":
+            no_nul = True
+        else:
+            no_nul = str.no_nul
+        s_item = str.basestringclass(no_nul=no_nul)
         return getbookkeeper().newlist(s_item)
 
     def method_rsplit(str, patt, max=-1):
@@ -520,6 +512,20 @@ class __extend__(SomeString,
         result = str.basestringclass(no_nul=str.no_nul)
         return result
 
+    def op_contains(str, s_element):
+        if s_element.is_constant() and s_element.const == "\0":
+            r = SomeBool()
+            bk = getbookkeeper()
+            op = bk._find_current_op(opname="contains", arity=2, pos=0, s_type=str)
+            knowntypedata = {}
+            add_knowntypedata(knowntypedata, False, [op.args[0]], str.nonnulify())
+            r.set_knowntypedata(knowntypedata)
+            return r
+        else:
+            return SomeObject.op_contains(str, s_element)
+    op_contains.can_only_throw = []
+
+
 class __extend__(SomeUnicodeString):
     def method_encode(uni, s_enc):
         if not s_enc.is_constant():
@@ -532,10 +538,13 @@ class __extend__(SomeUnicodeString):
 
 
 class __extend__(SomeString):
-    def method_isdigit(chr):
+    def method_isdigit(str):
         return s_Bool
 
-    def method_isalpha(chr):
+    def method_isalpha(str):
+        return s_Bool
+
+    def method_isalnum(str):
         return s_Bool
 
     def method_upper(str):
@@ -604,7 +613,10 @@ class __extend__(SomeIterator):
         if itr.variant == ("enumerate",):
             s_item = itr.s_container.getanyitem()
             return SomeTuple((SomeInteger(nonneg=True), s_item))
-        return itr.s_container.getanyitem(*itr.variant)
+        variant = itr.variant
+        if variant == ("reversed",):
+            variant = ()
+        return itr.s_container.getanyitem(*variant)
     next.can_only_throw = _can_only_throw
     method_next = next
 
@@ -741,37 +753,8 @@ class __extend__(SomePBC):
         else:
             return SomeObject()    # len() on a pbc? no chance
 
-class __extend__(SomeGenericCallable):
-    def call(self, args):
-        bookkeeper = getbookkeeper()
-        for arg, expected in zip(args.unpack()[0], self.args_s):
-            assert expected.contains(arg)
-        
-        return self.s_result
-
-class __extend__(SomeExternalObject):
-    def getattr(p, s_attr):
-        if s_attr.is_constant() and isinstance(s_attr.const, str):
-            attr = s_attr.const
-            entry = extregistry.lookup_type(p.knowntype)
-            s_value = entry.get_field_annotation(p.knowntype, attr)
-            return s_value
-        else:
-            return SomeObject()
-    getattr.can_only_throw = []
-    
-    def setattr(p, s_attr, s_value):
-        assert s_attr.is_constant()
-        attr = s_attr.const
-        entry = extregistry.lookup_type(p.knowntype)
-        entry.set_field_annotation(p.knowntype, attr, s_value)
-    
-    def is_true(p):
-        return s_Bool
-
 # annotation of low-level types
 from rpython.annotator.model import SomePtr, SomeLLADTMeth
-from rpython.annotator.model import SomeOOInstance, SomeOOBoundMeth, SomeOOStaticMeth
 from rpython.annotator.model import ll_to_annotation, lltype_to_annotation, annotation_to_lltype
 
 class __extend__(SomePtr):
@@ -825,56 +808,6 @@ class __extend__(SomeLLADTMeth):
         bookkeeper = getbookkeeper()
         s_func = bookkeeper.immutablevalue(adtmeth.func)
         return s_func.call(args.prepend(lltype_to_annotation(adtmeth.ll_ptrtype)))
-
-from rpython.rtyper.ootypesystem import ootype
-class __extend__(SomeOOInstance):
-    def getattr(r, s_attr):
-        assert s_attr.is_constant(), "getattr on ref %r with non-constant field-name" % r.ootype
-        v = getattr(r.ootype._example(), s_attr.const)
-        if isinstance(v, ootype._bound_meth):
-            return SomeOOBoundMeth(r.ootype, s_attr.const)
-        return ll_to_annotation(v)
-
-    def setattr(r, s_attr, s_value): 
-        assert s_attr.is_constant(), "setattr on ref %r with non-constant field-name" % r.ootype
-        v = annotation_to_lltype(s_value)
-        example = r.ootype._example()
-        if example is not None:
-            setattr(r.ootype._example(), s_attr.const, v._example())
-
-    def is_true(p):
-        return s_Bool
-
-class __extend__(SomeOOBoundMeth):
-    def simple_call(m, *args_s):
-        _, meth = m.ootype._lookup(m.name)
-        if isinstance(meth, ootype._overloaded_meth):
-            return meth._resolver.annotate(args_s)
-        else:
-            METH = ootype.typeOf(meth)
-            return lltype_to_annotation(METH.RESULT)
-
-    def call(m, args):
-        args_s, kwds_s = args.unpack()
-        if kwds_s:
-            raise Exception("keyword arguments to call to a low-level bound method")
-        inst = m.ootype._example()
-        _, meth = ootype.typeOf(inst)._lookup(m.name)
-        METH = ootype.typeOf(meth)
-        return lltype_to_annotation(METH.RESULT)
-
-
-class __extend__(SomeOOStaticMeth):
-
-    def call(m, args):
-        args_s, kwds_s = args.unpack()
-        if kwds_s:
-            raise Exception("keyword arguments to call to a low-level static method")
-        info = 'argument to ll static method call'
-        llargs = [annotation_to_lltype(s_arg, info)._defl() for s_arg in args_s]
-        v = m.method._example()(*llargs)
-        return ll_to_annotation(v)
-
 
 #_________________________________________
 # weakrefs

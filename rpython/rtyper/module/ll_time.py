@@ -41,7 +41,7 @@ class CConfig:
         RUSAGE = platform.Struct('struct rusage', [('ru_utime', TIMEVAL),
                                                    ('ru_stime', TIMEVAL)])
 
-if sys.platform.startswith('freebsd'):
+if sys.platform.startswith('freebsd') or sys.platform.startswith('netbsd'):
     libraries = ['compat']
 else:
     libraries = []

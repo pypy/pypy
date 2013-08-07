@@ -23,6 +23,7 @@ except ImportError:
         def __init__(self, name, command_class):
             pass
 
+MAX_DISPLAY_LENGTH = 100 # maximum number of characters displayed in rpy_string
 
 def find_field_with_suffix(val, suffix):
     """
@@ -75,18 +76,22 @@ class RPyType(Command):
 
     def invoke(self, arg, from_tty):
         # some magic code to automatically reload the python file while developing
-        ## from pypy.tool import gdb_pypy
-        ## reload(gdb_pypy)
-        ## gdb_pypy.RPyType.prog2typeids = self.prog2typeids # persist the cache
-        ## self.__class__ = gdb_pypy.RPyType
+        from pypy.tool import gdb_pypy
+        reload(gdb_pypy)
+        gdb_pypy.RPyType.prog2typeids = self.prog2typeids # persist the cache
+        self.__class__ = gdb_pypy.RPyType
         print self.do_invoke(arg, from_tty)
 
     def do_invoke(self, arg, from_tty):
-        obj = self.gdb.parse_and_eval(arg)
-        hdr = lookup(obj, '_gcheader')
-        tid = hdr['h_tid']
-        offset = tid & 0xFFFFFFFF # 64bit only
-        offset = int(offset) # convert from gdb.Value to python int
+        try:
+            offset = int(arg)
+        except ValueError:
+            obj = self.gdb.parse_and_eval(arg)
+            hdr = lookup(obj, '_gcheader')
+            tid = hdr['h_tid']
+            offset = tid & 0xFFFFFFFF # 64bit only
+            offset = int(offset) # convert from gdb.Value to python int
+
         typeids = self.get_typeids()
         if offset in typeids:
             return typeids[offset]
@@ -152,7 +157,15 @@ class RPyStringPrinter(object):
         chars = self.val['rs_chars']
         length = int(chars['length'])
         items = chars['items']
-        res = [chr(items[i]) for i in range(length)]
+        res = []
+        for i in range(min(length, MAX_DISPLAY_LENGTH)):
+            try:
+                res.append(chr(items[i]))
+            except ValueError:
+                # it's a gdb.Value so it has "121 'y'" as repr
+                res.append(chr(int(str(items[0]).split(" ")[0])))
+        if length > MAX_DISPLAY_LENGTH:
+            res.append('...')
         string = ''.join(res)
         return 'r' + repr(string)
 

@@ -4,25 +4,21 @@ Function pointers.
 
 import sys
 from pypy.interpreter.error import OperationError, operationerrfmt
-from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
-from rpython.rlib import jit, clibffi, jit_libffi
-from rpython.rlib.jit_libffi import CIF_DESCRIPTION, CIF_DESCRIPTION_P
-from rpython.rlib.jit_libffi import FFI_TYPE, FFI_TYPE_P, FFI_TYPE_PP
-from rpython.rlib.jit_libffi import SIZE_OF_FFI_ARG
-from rpython.rlib.objectmodel import we_are_translated, instantiate
-from rpython.rlib.objectmodel import keepalive_until_here
 
+from rpython.rlib import jit, clibffi, jit_libffi
+from rpython.rlib.jit_libffi import (CIF_DESCRIPTION, CIF_DESCRIPTION_P,
+    FFI_TYPE, FFI_TYPE_P, FFI_TYPE_PP, SIZE_OF_FFI_ARG)
+from rpython.rlib.objectmodel import we_are_translated, instantiate
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+
+from pypy.module._cffi_backend import ctypearray, cdataobj, cerrno
 from pypy.module._cffi_backend.ctypeobj import W_CType
 from pypy.module._cffi_backend.ctypeptr import W_CTypePtrBase, W_CTypePointer
 from pypy.module._cffi_backend.ctypevoid import W_CTypeVoid
 from pypy.module._cffi_backend.ctypestruct import W_CTypeStruct
-from pypy.module._cffi_backend.ctypestruct import W_CTypeStructOrUnion
-from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveSigned
-from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveUnsigned
-from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveCharOrUniChar
-from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveFloat
-from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveLongDouble
-from pypy.module._cffi_backend import ctypearray, cdataobj, cerrno
+from pypy.module._cffi_backend.ctypeprim import (W_CTypePrimitiveSigned,
+    W_CTypePrimitiveUnsigned, W_CTypePrimitiveCharOrUniChar,
+    W_CTypePrimitiveFloat, W_CTypePrimitiveLongDouble)
 
 
 class W_CTypeFunc(W_CTypePtrBase):
@@ -58,8 +54,8 @@ class W_CTypeFunc(W_CTypePtrBase):
             else:
                 raise operationerrfmt(space.w_TypeError,
                              "argument %d passed in the variadic part "
-                             "needs to be a cdata object (got %s)",
-                             i + 1, space.type(w_obj).getname(space))
+                             "needs to be a cdata object (got %T)",
+                             i + 1, w_obj)
             fvarargs[i] = ct
         ctypefunc = instantiate(W_CTypeFunc)
         ctypefunc.space = space
@@ -96,7 +92,6 @@ class W_CTypeFunc(W_CTypePtrBase):
         if attrchar == 'A':    # abi
             return self.space.wrap(clibffi.FFI_DEFAULT_ABI)     # XXX
         return W_CTypePtrBase._fget(self, attrchar)
-
 
     def call(self, funcaddr, args_w):
         if self.cif_descr:
@@ -270,7 +265,6 @@ class CifDescrBuilder(object):
             self.bufferp = rffi.ptradd(result, size)
             return result
 
-
     def fb_fill_type(self, ctype, is_result_type):
         return ctype._get_ffi_type(self, is_result_type)
 
@@ -295,16 +289,6 @@ class CifDescrBuilder(object):
                "with verify() (see pypy/module/_cffi_backend/ctypefunc.py "
                "for details)"))
 
-        if USE_C_LIBFFI_MSVC and is_result_type:
-            # MSVC returns small structures in registers.  Pretend int32 or
-            # int64 return type.  This is needed as a workaround for what
-            # is really a bug of libffi_msvc seen as an independent library
-            # (ctypes has a similar workaround).
-            if ctype.size <= 4:
-                return clibffi.ffi_type_sint32
-            if ctype.size <= 8:
-                return clibffi.ffi_type_sint64
-
         # walk the fields, expanding arrays into repetitions; first,
         # only count how many flattened fields there are
         nflat = 0
@@ -323,6 +307,16 @@ class CifDescrBuilder(object):
                     space.wrap("cannot pass as argument or return value "
                                "a struct with a zero-length array"))
             nflat += flat
+
+        if USE_C_LIBFFI_MSVC and is_result_type:
+            # MSVC returns small structures in registers.  Pretend int32 or
+            # int64 return type.  This is needed as a workaround for what
+            # is really a bug of libffi_msvc seen as an independent library
+            # (ctypes has a similar workaround).
+            if ctype.size <= 4:
+                return clibffi.ffi_type_sint32
+            if ctype.size <= 8:
+                return clibffi.ffi_type_sint64
 
         # allocate an array of (nflat + 1) ffi_types
         elements = self.fb_alloc(rffi.sizeof(FFI_TYPE_P) * (nflat + 1))
@@ -357,7 +351,6 @@ class CifDescrBuilder(object):
 
         return ffistruct
 
-
     def fb_build(self):
         # Build a CIF_DESCRIPTION.  Actually this computes the size and
         # allocates a larger amount of data.  It starts with a
@@ -386,7 +379,6 @@ class CifDescrBuilder(object):
             atype = self.fb_fill_type(farg, False)
             if self.atypes:
                 self.atypes[i] = atype
-
 
     def align_arg(self, n):
         return (n + 7) & ~7

@@ -173,3 +173,10 @@ class AppTestOperator:
         assert methodcaller("method", 4)(x) == (4, 3)
         assert methodcaller("method", 4, 5)(x) == (4, 5)
         assert methodcaller("method", 4, arg2=42)(x) == (4, 42)
+
+    def test_indexOf(self):
+        import operator
+        raises(TypeError, operator.indexOf)
+        raises(TypeError, operator.indexOf, None, None)
+        assert operator.indexOf([4, 3, 2, 1], 3) == 1
+        raises(ValueError, operator.indexOf, [4, 3, 2, 1], 0)

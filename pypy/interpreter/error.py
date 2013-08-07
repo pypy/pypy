@@ -1,8 +1,15 @@
-import os, sys
+import cStringIO
 import itertools
+import os
+import sys
+import traceback
+from errno import EINTR
+
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import we_are_translated
-from errno import EINTR
+
+from pypy.interpreter import debug
+
 
 AUTO_DEBUG = os.getenv('PYPY_DEBUG')
 RECORD_INTERPLEVEL_TRACEBACK = True
@@ -23,16 +30,48 @@ class OperationError(Exception):
     w_cause = None
 
     def __init__(self, w_type, w_value, tb=None, w_cause=None):
-        assert w_type is not None
-        self.setup(w_type)
-        self._w_value = w_value
+        self.setup(w_type, w_value)
         self._application_traceback = tb
         self.w_cause = w_cause
 
-    def setup(self, w_type):
+    def setup(self, w_type, w_value=None):
+        assert w_type is not None
+        from pypy.objspace.std.typeobject import W_TypeObject
         self.w_type = w_type
+        self._w_value = w_value
+        # HACK: isinstance(w_type, W_TypeObject) won't translate under
+        # the fake objspace, but w_type.__class__ is W_TypeObject does
+        # and short circuits to a False constant there, causing the
+        # isinstance to be ignored =[
+        if (w_type is not None and w_type.__class__ is W_TypeObject and
+            isinstance(w_type, W_TypeObject)):
+            self.setup_context(w_type.space)
         if not we_are_translated():
             self.debug_excs = []
+
+    def setup_context(self, space):
+        # Implicit exception chaining
+        last_operror = space.getexecutioncontext().sys_exc_info()
+        if last_operror is None:
+            return
+
+        # We must normalize the value right now to check for cycles
+        self.normalize_exception(space)
+        w_value = self.get_w_value(space)
+        w_last_value = last_operror.get_w_value(space)
+        if not space.is_w(w_value, w_last_value):
+            # Avoid reference cycles through the context chain. This is
+            # O(chain length) but context chains are usually very short.
+            w_obj = w_last_value
+            while True:
+                w_context = space.getattr(w_obj, space.wrap('__context__'))
+                if space.is_w(w_context, space.w_None):
+                    break
+                if space.is_w(w_context, w_value):
+                    space.setattr(w_obj, space.wrap('__context__'), space.w_None)
+                    break
+                w_obj = w_context
+            space.setattr(w_value, space.wrap('__context__'), w_last_value)
 
     def clear(self, space):
         self.w_type = space.w_None
@@ -54,7 +93,9 @@ class OperationError(Exception):
         "NOT_RPYTHON: Convenience for tracebacks."
         s = self._w_value
         if self.__class__ is not OperationError and s is None:
-            s = self._compute_value()
+            space = getattr(self.w_type, 'space')
+            if space is not None:
+                s = self._compute_value(space)
         return '[%s: %s]' % (self.w_type, s)
 
     def __repr__(self):
@@ -67,7 +108,7 @@ class OperationError(Exception):
         if space is None:
             # this part NOT_RPYTHON
             exc_typename = str(self.w_type)
-            exc_value    = str(w_value)
+            exc_value = str(w_value)
         else:
             w = space.wrap
             if space.is_w(space.type(self.w_type), space.w_text):
@@ -101,7 +142,8 @@ class OperationError(Exception):
 
     def print_application_traceback(self, space, file=None):
         "NOT_RPYTHON: Dump a standard application-level traceback."
-        if file is None: file = sys.stderr
+        if file is None:
+            file = sys.stderr
         self.print_app_tb_only(file)
         print >> file, self.errorstr(space)
 
@@ -136,8 +178,8 @@ class OperationError(Exception):
     def print_detailed_traceback(self, space=None, file=None):
         """NOT_RPYTHON: Dump a nice detailed interpreter- and
         application-level traceback, useful to debug the interpreter."""
-        import traceback, cStringIO
-        if file is None: file = sys.stderr
+        if file is None:
+            file = sys.stderr
         f = cStringIO.StringIO()
         for i in range(len(self.debug_excs)-1, -1, -1):
             print >> f, "Traceback (interpreter-level):"
@@ -150,7 +192,6 @@ class OperationError(Exception):
         self.print_app_tb_only(file)
         print >> file, '(application-level)', self.errorstr(space)
         if AUTO_DEBUG:
-            import debug
             debug.fire(self)
 
     @jit.unroll_safe
@@ -164,26 +205,19 @@ class OperationError(Exception):
         #
         # In the following table, 'Class' means a subclass of BaseException
         # and 'inst' is an instance of either 'Class' or a subclass of it.
-        # Or 'Class' can also be an old-style class and 'inst' an old-style
-        # instance of it.
         #
-        # The flow object space only deals with non-advanced case. Old-style
-        # classes and instances *are* advanced.
+        # The flow object space only deals with non-advanced case.
         #
         #  input (w_type, w_value)... becomes...                advanced case?
         # ---------------------------------------------------------------------
-        #  (tuple, w_value)           (tuple[0], w_value)             yes
         #  (Class, None)              (Class, Class())                no
         #  (Class, inst)              (inst.__class__, inst)          no
         #  (Class, tuple)             (Class, Class(*tuple))          yes
         #  (Class, x)                 (Class, Class(x))               no
-        #  ("string", ...)            ("string", ...)              deprecated
         #  (inst, None)               (inst.__class__, inst)          no
         #
-        w_type  = self.w_type
+        w_type = self.w_type
         w_value = self.get_w_value(space)
-        while space.is_true(space.isinstance(w_type, space.w_tuple)):
-            w_type = space.getitem(w_type, space.wrap(0))
 
         if space.exception_is_valid_obj_as_class_w(w_type):
             # this is for all cases of the form (Class, something)
@@ -197,7 +231,7 @@ class OperationError(Exception):
                     # raise Type, Instance: let etype be the exact type of value
                     w_type = w_valuetype
                 else:
-                    if space.is_true(space.isinstance(w_value, space.w_tuple)):
+                    if space.isinstance_w(w_value, space.w_tuple):
                         # raise Type, tuple: assume the tuple contains the
                         #                    constructor args
                         w_value = space.call(w_type, w_value)
@@ -206,8 +240,21 @@ class OperationError(Exception):
                         w_value = space.call_function(w_type, w_value)
                     w_type = self._exception_getclass(space, w_value)
             if self.w_cause:
+                # ensure w_cause is of a valid type
+                self._exception_getclass(space, self.w_cause, "exception causes")
                 space.setattr(w_value, space.wrap("__cause__"), self.w_cause)
-
+            if self._application_traceback:
+                from pypy.interpreter.pytraceback import PyTraceback
+                from pypy.module.exceptions.interp_exceptions import W_BaseException
+                tb = self._application_traceback
+                if (isinstance(w_value, W_BaseException) and
+                    isinstance(tb, PyTraceback)):
+                    # traceback hasn't escaped yet
+                    w_value.w_traceback = tb
+                else:
+                    # traceback has escaped
+                    space.setattr(w_value, space.wrap("__traceback__"),
+                                  space.wrap(self.get_traceback()))
         else:
             # the only case left here is (inst, None), from a 'raise inst'.
             w_inst = w_type
@@ -219,16 +266,14 @@ class OperationError(Exception):
             w_value = w_inst
             w_type = w_instclass
 
-        self.w_type   = w_type
+        self.w_type = w_type
         self._w_value = w_value
 
-    def _exception_getclass(self, space, w_inst):
+    def _exception_getclass(self, space, w_inst, what="exceptions"):
         w_type = space.exception_getclass(w_inst)
         if not space.exception_is_valid_class_w(w_type):
-            typename = w_type.getname(space)
-            msg = ("exceptions must be classes or instances deriving from "
-                   "BaseException, not %s")
-            raise operationerrfmt(space.w_TypeError, msg, typename)
+            msg = "%s must derive from BaseException, not %N"
+            raise operationerrfmt(space.w_TypeError, msg, what, w_type)
         return w_type
 
     def write_unraisable(self, space, where, w_object=None,
@@ -243,6 +288,10 @@ class OperationError(Exception):
         #
         try:
             if with_traceback:
+                try:
+                    self.normalize_exception(space)
+                except OperationError:
+                    pass
                 w_t = self.w_type
                 w_v = self.get_w_value(space)
                 w_tb = space.wrap(self.get_traceback())
@@ -268,11 +317,11 @@ class OperationError(Exception):
     def get_w_value(self, space):
         w_value = self._w_value
         if w_value is None:
-            value = self._compute_value()
+            value = self._compute_value(space)
             self._w_value = w_value = space.wrap(value)
         return w_value
 
-    def _compute_value(self):
+    def _compute_value(self, space):
         raise NotImplementedError
 
     def get_traceback(self):
@@ -297,8 +346,6 @@ class OperationError(Exception):
         only if the exception really propagates out of this frame, by
         executioncontext.leave() being called with got_exception=True.
         """
-        from pypy.interpreter.pytraceback import PyTraceback
-        assert isinstance(traceback, PyTraceback)
         self._application_traceback = traceback
 
 # ____________________________________________________________
@@ -308,6 +355,7 @@ class OperationError(Exception):
 
 _fmtcache = {}
 _fmtcache2 = {}
+_FMTS = tuple('8NRTds')
 
 def decompose_valuefmt(valuefmt):
     """Returns a tuple of string parts extracted from valuefmt,
@@ -316,8 +364,7 @@ def decompose_valuefmt(valuefmt):
     parts = valuefmt.split('%')
     i = 1
     while i < len(parts):
-        if (parts[i].startswith('s') or parts[i].startswith('d') or
-            parts[i].startswith('8')):
+        if parts[i].startswith(_FMTS):
             formats.append(parts[i][0])
             parts[i] = parts[i][1:]
             i += 1
@@ -325,12 +372,13 @@ def decompose_valuefmt(valuefmt):
             parts[i-1] += '%' + parts[i+1]
             del parts[i:i+2]
         else:
-            raise ValueError("invalid format string (only %s, %d or %8 supported)")
+            fmts = '%%%s or %%%s' % (', %'.join(_FMTS[:-1]), _FMTS[-1])
+            raise ValueError("invalid format string (only %s supported)" %
+                             fmts)
     assert len(formats) > 0, "unsupported: no % command found"
     return tuple(parts), tuple(formats)
 
 def get_operrcls2(valuefmt):
-    from rpython.rlib.runicode import str_decode_utf_8
     valuefmt = valuefmt.decode('ascii')
     strings, formats = decompose_valuefmt(valuefmt)
     assert len(strings) == len(formats) + 1
@@ -340,33 +388,50 @@ def get_operrcls2(valuefmt):
         from rpython.rlib.unroll import unrolling_iterable
         attrs = ['x%d' % i for i in range(len(formats))]
         entries = unrolling_iterable(zip(itertools.count(), formats, attrs))
-        #
+
         class OpErrFmt(OperationError):
             def __init__(self, w_type, strings, *args):
-                self.setup(w_type)
                 assert len(args) == len(strings) - 1
                 self.xstrings = strings
-                for i, fmt, attr in entries:
+                for i, _, attr in entries:
                     setattr(self, attr, args[i])
-                assert w_type is not None
-            def _compute_value(self):
+                self.setup(w_type)
+
+            def _compute_value(self, space):
                 lst = [None] * (len(formats) + len(formats) + 1)
                 for i, fmt, attr in entries:
-                    string = self.xstrings[i]
+                    lst[i + i] = self.xstrings[i]
                     value = getattr(self, attr)
-                    lst[i+i] = string
                     if fmt == 'd':
-                        lst[i+i+1] = str(value).decode('ascii')
+                        result = str(value).decode('ascii')
                     elif fmt == '8':
-                        univalue, _ = str_decode_utf_8(value, len(value), 'strict')
-                        lst[i+i+1] = univalue
+                        result = value.decode('utf-8')
+                    elif fmt == 'R':
+                        result = space.unicode_w(space.repr(value))
+                    elif fmt in 'NT':
+                        if fmt == 'T':
+                            value = space.type(value)
+                        result = value.getname(space)
                     else:
-                        lst[i+i+1] = unicode(value)
+                        result = unicode(value)
+                    lst[i + i + 1] = result
                 lst[-1] = self.xstrings[-1]
                 return u''.join(lst)
         #
         _fmtcache2[formats] = OpErrFmt
     return OpErrFmt, strings
+
+class OpErrFmtNoArgs(OperationError):
+
+    def __init__(self, w_type, value):
+        self.setup(w_type)
+        self._value = value
+
+    def get_w_value(self, space):
+        w_value = self._w_value
+        if w_value is None:
+            self._w_value = w_value = space.wrap(self._value)
+        return w_value
 
 def get_operationerr_class(valuefmt):
     try:
@@ -379,11 +444,19 @@ get_operationerr_class._annspecialcase_ = 'specialize:memo'
 def operationerrfmt(w_type, valuefmt, *args):
     """Equivalent to OperationError(w_type, space.wrap(valuefmt % args)).
     More efficient in the (common) case where the value is not actually
-    needed.
-    Note that:
-      1. in the py3k branch the exception message will always be unicode
-      2. only %s and %d are supported
+    needed. Note that in the py3k branch the exception message will
+    always be unicode.
+
+    Supports the standard %s and %d formats, plus the following:
+
+    %8 - The result of arg.decode('utf-8')
+    %N - The result of w_arg.getname(space)
+    %R - The result of space.unicode_w(space.repr(w_arg))
+    %T - The result of space.type(w_arg).getname(space)
+
     """
+    if not len(args):
+        return OpErrFmtNoArgs(w_type, valuefmt)
     OpErrFmt, strings = get_operationerr_class(valuefmt)
     return OpErrFmt(w_type, strings, *args)
 operationerrfmt._annspecialcase_ = 'specialize:arg(1)'
@@ -492,7 +565,3 @@ def new_exception_class(space, name, w_bases=None, w_dict=None):
     if module:
         space.setattr(w_exc, space.wrap("__module__"), space.wrap(module))
     return w_exc
-
-def typed_unwrap_error_msg(space, expected, w_obj):
-    type_name = space.type(w_obj).getname(space)
-    return space.wrap("expected %s, got %s object" % (expected, type_name))

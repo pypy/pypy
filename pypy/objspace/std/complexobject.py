@@ -9,7 +9,7 @@ from rpython.rlib.rbigint import rbigint
 from rpython.rlib.rfloat import (
     formatd, DTSF_STR_PRECISION, isinf, isnan, copysign)
 from rpython.rlib import jit, rcomplex
-from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.rarithmetic import intmask, r_ulonglong
 
 import math
 
@@ -43,7 +43,7 @@ class W_AbstractComplexObject(W_Object):
         real = space.float_w(space.getattr(self, space.wrap("real")))
         imag = space.float_w(space.getattr(self, space.wrap("imag")))
         real_b = rbigint.fromrarith_int(float2longlong(real))
-        imag_b = rbigint.fromrarith_int(float2longlong(imag))
+        imag_b = rbigint.fromrarith_int(r_ulonglong(float2longlong(imag)))
         val = real_b.lshift(64).or_(imag_b).lshift(3).or_(rbigint.fromint(tag))
         return space.newlong_from_rbigint(val)
 
@@ -104,6 +104,9 @@ class W_ComplexObject(W_AbstractComplexObject):
 
         return w_result
 
+    def int(self, space):
+        raise OperationError(space.w_TypeError, space.wrap("can't convert complex to int; use int(abs(z))"))
+
 registerimplementation(W_ComplexObject)
 
 w_one = W_ComplexObject(1, 0)
@@ -116,10 +119,7 @@ def delegate_Int2Complex(space, w_int):
     return W_ComplexObject(w_int.intval, 0.0)
 
 def delegate_Long2Complex(space, w_long):
-    try:
-        dval =  w_long.tofloat()
-    except OverflowError, e:
-        raise OperationError(space.w_OverflowError, space.wrap(str(e)))
+    dval = w_long.tofloat(space)
     return W_ComplexObject(dval, 0.0)
 
 def delegate_Float2Complex(space, w_float):
@@ -129,7 +129,7 @@ def hash__Complex(space, w_value):
     hashreal = _hash_float(space, w_value.realval)
     hashimg = _hash_float(space, w_value.imagval)
     combined = intmask(hashreal + HASH_IMAG * hashimg)
-    return space.newint(combined)
+    return space.newint(-2 if combined == -1 else combined)
 
 def add__Complex_Complex(space, w_complex1, w_complex2):
     return W_ComplexObject(w_complex1.realval + w_complex2.realval,
@@ -215,9 +215,6 @@ def nonzero__Complex(space, w_complex):
 
 def float__Complex(space, w_complex):
     raise OperationError(space.w_TypeError, space.wrap("can't convert complex to float; use abs(z)"))
-
-def int__Complex(space, w_complex):
-    raise OperationError(space.w_TypeError, space.wrap("can't convert complex to int; use int(abs(z))"))
 
 def complex_conjugate__Complex(space, w_self):
     #w_real = space.call_function(space.w_float,space.wrap(w_self.realval))

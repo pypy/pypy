@@ -65,7 +65,8 @@ class BaseTest(unittest.TestCase):
             self.saved_handlers = logging._handlers.copy()
             self.saved_handler_list = logging._handlerList[:]
             self.saved_loggers = logger_dict.copy()
-            self.saved_level_names = logging._levelNames.copy()
+            self.saved_name_to_level = logging._nameToLevel.copy()
+            self.saved_level_to_name = logging._levelToName.copy()
         finally:
             logging._releaseLock()
 
@@ -97,8 +98,10 @@ class BaseTest(unittest.TestCase):
         self.root_logger.setLevel(self.original_logging_level)
         logging._acquireLock()
         try:
-            logging._levelNames.clear()
-            logging._levelNames.update(self.saved_level_names)
+            logging._levelToName.clear()
+            logging._levelToName.update(self.saved_level_to_name)
+            logging._nameToLevel.clear()
+            logging._nameToLevel.update(self.saved_name_to_level)
             logging._handlers.clear()
             logging._handlers.update(self.saved_handlers)
             logging._handlerList[:] = self.saved_handler_list
@@ -274,6 +277,24 @@ class BuiltinLevelsTest(BaseTest):
 
     def test_invalid_name(self):
         self.assertRaises(TypeError, logging.getLogger, any)
+
+    def test_get_level_name(self):
+        """Test getLevelName returns level constant."""
+        # NOTE(flaper87): Bug #1517
+        self.assertEqual(logging.getLevelName('NOTSET'), 0)
+        self.assertEqual(logging.getLevelName('DEBUG'), 10)
+        self.assertEqual(logging.getLevelName('INFO'), 20)
+        self.assertEqual(logging.getLevelName('WARN'), 30)
+        self.assertEqual(logging.getLevelName('WARNING'), 30)
+        self.assertEqual(logging.getLevelName('ERROR'), 40)
+        self.assertEqual(logging.getLevelName('CRITICAL'), 50)
+
+        self.assertEqual(logging.getLevelName(0), 'NOTSET')
+        self.assertEqual(logging.getLevelName(10), 'DEBUG')
+        self.assertEqual(logging.getLevelName(20), 'INFO')
+        self.assertEqual(logging.getLevelName(30), 'WARNING')
+        self.assertEqual(logging.getLevelName(40), 'ERROR')
+        self.assertEqual(logging.getLevelName(50), 'CRITICAL')
 
 class BasicFilterTest(BaseTest):
 

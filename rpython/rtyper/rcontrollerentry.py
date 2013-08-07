@@ -1,7 +1,7 @@
-from rpython.tool.pairtype import pairtype
 from rpython.flowspace.model import Constant
-from rpython.rtyper.rmodel import Repr
 from rpython.rtyper.error import TyperError
+from rpython.rtyper.rmodel import Repr
+from rpython.tool.pairtype import pairtype
 
 
 class ControlledInstanceRepr(Repr):

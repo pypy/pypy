@@ -22,7 +22,7 @@ class TestArray(BaseTestPyPyC):
             guard_true(i7, descr=...)
             i9 = int_add(i5, 1)
             --TICK--
-            jump(p0, p1, p2, p3, p4, i9, i6, descr=...)
+            jump(..., descr=...)
         """)
 
     def test_array_sum(self):
@@ -39,7 +39,7 @@ class TestArray(BaseTestPyPyC):
         assert log.result == 19507200
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
-            guard_not_invalidated(descr=...)
+            guard_not_invalidated?
             i13 = int_lt(i7, i9)
             guard_true(i13, descr=...)
             i15 = getarrayitem_raw(i10, i7, descr=<ArrayS .>)
@@ -47,7 +47,7 @@ class TestArray(BaseTestPyPyC):
             guard_no_overflow(descr=...)
             i18 = int_add(i7, 1)
             --TICK--
-            jump(p0, p1, p2, p3, p4, p5, i18, i16, p8, i9, i10, descr=...)
+            jump(..., descr=...)
         """)
 
     def test_array_intimg(self):
@@ -85,7 +85,7 @@ class TestArray(BaseTestPyPyC):
             setarrayitem_raw(i11, i8, _, descr=<ArrayS .>)
             i28 = int_add(i8, 1)
             --TICK--
-            jump(p0, p1, p2, p3, p4, p5, p6, i28, i15, p9, i10, i11, descr=...)
+            jump(..., descr=...)
         """)
 
     def test_array_of_doubles(self):
@@ -116,9 +116,15 @@ class TestArray(BaseTestPyPyC):
             i20 = int_add(i6, 1)
             --TICK--
             jump(..., descr=...)
-        """)
+        """, ignore_ops=['guard_not_invalidated'])
 
     def test_array_of_floats(self):
+        try:
+            from __pypy__ import jit_backend_features
+            if 'singlefloats' not in jit_backend_features:
+                py.test.skip("test requres singlefloats support from the JIT backend")
+        except ImportError:
+            pass
         def main():
             from array import array
             img = array('f', [21.5]*1000)
@@ -149,7 +155,7 @@ class TestArray(BaseTestPyPyC):
             i23 = int_add(i6, 1)
             --TICK--
             jump(..., descr=...)
-        """)
+        """, ignore_ops=['guard_not_invalidated'])
 
 
     def test_zeropadded(self):

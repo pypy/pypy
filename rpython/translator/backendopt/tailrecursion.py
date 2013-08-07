@@ -1,4 +1,3 @@
-from rpython.translator.simplify import get_graph
 from rpython.flowspace.model import mkentrymap, checkgraph
 
 # this transformation is very academical -- I had too much time

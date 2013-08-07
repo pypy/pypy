@@ -15,11 +15,8 @@ class State:
     def init_filters(self, space):
         filters_w = []
 
-        if (not space.sys.get_flag('py3k_warning') and
-            not space.sys.get_flag('division_warning')):
-            filters_w.append(create_filter(
-                space, space.w_DeprecationWarning, "ignore"))
-
+        filters_w.append(create_filter(
+            space, space.w_DeprecationWarning, "ignore"))
         filters_w.append(create_filter(
             space, space.w_PendingDeprecationWarning, "ignore"))
         filters_w.append(create_filter(
@@ -34,6 +31,9 @@ class State:
             action = "default"
         filters_w.append(create_filter(
             space, space.w_BytesWarning, action))
+
+        filters_w.append(create_filter(
+            space, space.w_ResourceWarning, "ignore"))
 
         self.w_filters = space.newlist(filters_w)
 
@@ -190,7 +190,6 @@ def normalize_module(space, w_filename):
         return space.wrap("<unknown>")
 
     filename = space.str_w(w_filename)
-    length = len(filename)
     if filename.endswith(".py"):
         n = len(filename) - 3
         assert n >= 0

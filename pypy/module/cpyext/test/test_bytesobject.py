@@ -77,7 +77,7 @@ class AppTestBytesObject(AppTestCpythonExtensionBase):
             ])
         s = module.getbytes()
         assert len(s) == 4
-        assert s == 'ab\x00c'
+        assert s == b'ab\x00c'
 
 
 

@@ -117,9 +117,6 @@ def new_buffersize(fd, currentsize):
             return currentsize + BIGCHUNK
     return currentsize + SMALLCHUNK
 
-def verify_fd(fd):
-    return
-
 class W_FileIO(W_RawIOBase):
     def __init__(self, space):
         W_RawIOBase.__init__(self, space)
@@ -156,7 +153,6 @@ class W_FileIO(W_RawIOBase):
         fd_is_own = False
         try:
             if fd >= 0:
-                verify_fd(fd)
                 try:
                     os.fstat(fd)
                 except OSError, e:
@@ -233,7 +229,6 @@ class W_FileIO(W_RawIOBase):
         self.fd = -1
 
         try:
-            verify_fd(fd)
             os.close(fd)
         except OSError, e:
             raise wrap_oserror(space, e,
@@ -249,14 +244,9 @@ class W_FileIO(W_RawIOBase):
     def _dealloc_warn_w(self, space, w_source):
         if self.fd >= 0 and self.closefd:
             try:
-                r = space.unicode_w(space.repr(w_source))
-                # TODO: space.warn is currently typed to str
-                #space.warn(u"unclosed file %s" % r, space.w_ResourceWarning)
-                msg = u"unclosed file %s" % r
-                space.appexec([space.wrap(msg), space.w_ResourceWarning],
-                              """(msg, warningcls):
-                import _warnings
-                _warnings.warn(msg, warningcls, stacklevel=2)""")
+                msg = (u"unclosed file %s" %
+                       space.unicode_w(space.repr(w_source)))
+                space.warn(space.wrap(msg), space.w_ResourceWarning)
             except OperationError as e:
                 # Spurious errors can appear at shutdown
                 if e.match(space, space.w_Warning):
@@ -307,7 +297,7 @@ class W_FileIO(W_RawIOBase):
         self._check_closed(space)
         if self.seekable < 0:
             try:
-                pos = os.lseek(self.fd, 0, os.SEEK_CUR)
+                os.lseek(self.fd, 0, os.SEEK_CUR)
             except OSError:
                 self.seekable = 0
             else:
@@ -441,6 +431,7 @@ class W_FileIO(W_RawIOBase):
 
 W_FileIO.typedef = TypeDef(
     'FileIO', W_RawIOBase.typedef,
+    __module__ = "_io",
     __new__  = interp2app(W_FileIO.descr_new.im_func),
     __init__  = interp2app(W_FileIO.descr_init),
     __repr__ = interp2app(W_FileIO.repr_w),

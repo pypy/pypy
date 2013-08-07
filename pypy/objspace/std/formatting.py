@@ -43,7 +43,7 @@ class BaseStringFormatter(object):
                space.wrap('not all arguments converted '
                             'during string formatting'))
 
-    def std_wp_int(self, r, prefix='', keep_zero=False):
+    def std_wp_int(self, r, prefix=''):
         # use self.prec to add some '0' on the left of the number
         if self.prec >= 0:
             if self.prec > 1000:
@@ -57,8 +57,6 @@ class BaseStringFormatter(object):
                     r = '-' + '0'*padding + r[1:]
                 else:
                     r = '0'*padding + r
-            elif self.prec == 0 and r == '0' and not keep_zero:
-                r = ''
         self.std_wp_number(r, prefix)
 
     def fmt_d(self, w_value):
@@ -91,7 +89,7 @@ class BaseStringFormatter(object):
             prefix = '0o'
         else:
             prefix = ''
-        self.std_wp_int(r, prefix, keep_zero=True)
+        self.std_wp_int(r, prefix)
 
     fmt_i = fmt_d
     fmt_u = fmt_d
@@ -349,9 +347,8 @@ def make_formatter_subclass(do_unicode):
         def std_wp(self, r):
             length = len(r)
             if do_unicode and isinstance(r, str):
-                # convert string to unicode explicitely here
-                from pypy.objspace.std.unicodetype import plain_str2unicode
-                r = plain_str2unicode(self.space, r)
+                # convert string to unicode using the default encoding
+                r = self.space.unicode_w(self.space.wrap(r))
             prec = self.prec
             if prec == -1 and self.width == 0:
                 # fast path
@@ -510,12 +507,10 @@ def format(space, w_fmt, values_w, w_valuedict, do_unicode):
             result = formatter.format()
         except NeedUnicodeFormattingError:
             # fall through to the unicode case
-            from pypy.objspace.std.unicodetype import plain_str2unicode
-            fmt = plain_str2unicode(space, fmt)
+            pass
         else:
             return space.wrap(result)
-    else:
-        fmt = space.unicode_w(w_fmt)
+    fmt = space.unicode_w(w_fmt)
     formatter = UnicodeFormatter(space, fmt, values_w, w_valuedict)
     result = formatter.format()
     return space.wrap(result)

@@ -1,4 +1,6 @@
 from __future__ import with_statement
+import py
+import sys
 from pypy.module.thread.test.support import GenericTestThread
 from rpython.translator.c.test.test_genc import compile
 
@@ -145,3 +147,118 @@ class AppTestRLock(GenericTestThread):
         assert lock.acquire() is True
         assert lock.acquire(False) is True
         assert lock.acquire(True, timeout=.1) is True
+
+
+class AppTestLockSignals(GenericTestThread):
+    pytestmark = py.test.mark.skipif("sys.platform != 'posix'")
+
+    def setup_class(cls):
+        cls.w_using_pthread_cond = cls.space.wrap(sys.platform == 'freebsd6')
+
+    def w_acquire_retries_on_intr(self, lock):
+        import _thread, os, signal, time
+        self.sig_recvd = False
+        def my_handler(signal, frame):
+            self.sig_recvd = True
+        old_handler = signal.signal(signal.SIGUSR1, my_handler)
+        try:
+            def other_thread():
+                # Acquire the lock in a non-main thread, so this test works for
+                # RLocks.
+                lock.acquire()
+                # Wait until the main thread is blocked in the lock acquire, and
+                # then wake it up with this.
+                time.sleep(0.5)
+                os.kill(os.getpid(), signal.SIGUSR1)
+                # Let the main thread take the interrupt, handle it, and retry
+                # the lock acquisition.  Then we'll let it run.
+                time.sleep(0.5)
+                lock.release()
+            _thread.start_new_thread(other_thread, ())
+            # Wait until we can't acquire it without blocking...
+            while lock.acquire(blocking=False):
+                lock.release()
+                time.sleep(0.01)
+            result = lock.acquire()  # Block while we receive a signal.
+            assert self.sig_recvd
+            assert result
+        finally:
+            signal.signal(signal.SIGUSR1, old_handler)
+
+    def test_lock_acquire_retries_on_intr(self):
+        import _thread
+        self.acquire_retries_on_intr(_thread.allocate_lock())
+
+    def test_rlock_acquire_retries_on_intr(self):
+        import _thread
+        self.acquire_retries_on_intr(_thread.RLock())
+
+    def w_alarm_interrupt(self, sig, frame):
+        raise KeyboardInterrupt
+
+    def test_lock_acquire_interruption(self):
+        if self.using_pthread_cond:
+            skip('POSIX condition variables cannot be interrupted')
+        import _thread, signal, time
+        # Mimic receiving a SIGINT (KeyboardInterrupt) with SIGALRM while stuck
+        # in a deadlock.
+        # XXX this test can fail when the legacy (non-semaphore) implementation
+        # of locks is used in thread_pthread.h, see issue #11223.
+        oldalrm = signal.signal(signal.SIGALRM, self.alarm_interrupt)
+        try:
+            lock = _thread.allocate_lock()
+            lock.acquire()
+            signal.alarm(1)
+            t1 = time.time()
+            # XXX: raises doesn't work here?
+            #raises(KeyboardInterrupt, lock.acquire, timeout=5)
+            try:
+                lock.acquire(timeout=5)
+            except KeyboardInterrupt:
+                pass
+            else:
+                assert False, 'Expected KeyboardInterrupt'
+            dt = time.time() - t1
+            # Checking that KeyboardInterrupt was raised is not sufficient.
+            # We want to assert that lock.acquire() was interrupted because
+            # of the signal, not that the signal handler was called immediately
+            # after timeout return of lock.acquire() (which can fool assertRaises).
+            assert dt < 3.0
+        finally:
+            signal.signal(signal.SIGALRM, oldalrm)
+
+    def test_rlock_acquire_interruption(self):
+        if self.using_pthread_cond:
+            skip('POSIX condition variables cannot be interrupted')
+        import _thread, signal, time
+        # Mimic receiving a SIGINT (KeyboardInterrupt) with SIGALRM while stuck
+        # in a deadlock.
+        # XXX this test can fail when the legacy (non-semaphore) implementation
+        # of locks is used in thread_pthread.h, see issue #11223.
+        oldalrm = signal.signal(signal.SIGALRM, self.alarm_interrupt)
+        try:
+            rlock = _thread.RLock()
+            # For reentrant locks, the initial acquisition must be in another
+            # thread.
+            def other_thread():
+                rlock.acquire()
+            _thread.start_new_thread(other_thread, ())
+            # Wait until we can't acquire it without blocking...
+            while rlock.acquire(blocking=False):
+                rlock.release()
+                time.sleep(0.01)
+            signal.alarm(1)
+            t1 = time.time()
+            #raises(KeyboardInterrupt, rlock.acquire, timeout=5)
+            try:
+                rlock.acquire(timeout=5)
+            except KeyboardInterrupt:
+                pass
+            else:
+                assert False, 'Expected KeyboardInterrupt'
+            dt = time.time() - t1
+            # See rationale above in test_lock_acquire_interruption
+            assert dt < 3.0
+        finally:
+            signal.signal(signal.SIGALRM, oldalrm)
+

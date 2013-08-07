@@ -1,7 +1,7 @@
 import py
 from rpython.jit.backend.llsupport.symbolic import *
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rtyper.memory.lltypelayout import convert_offset_to_int
+from rpython.memory.lltypelayout import convert_offset_to_int
 
 
 WORD = rffi.sizeof(lltype.Signed)

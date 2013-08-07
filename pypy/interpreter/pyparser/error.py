@@ -12,11 +12,19 @@ class SyntaxError(Exception):
         self.lastlineno = lastlineno
 
     def wrap_info(self, space):
+        w_text = w_filename = space.w_None
+        if self.text is not None:
+            from rpython.rlib.runicode import str_decode_utf_8
+            # self.text may not be UTF-8 in case of decoding errors
+            w_text = space.wrap(str_decode_utf_8(self.text, len(self.text),
+                                                 'replace')[0])
+        if self.filename is not None:
+            w_filename = space.fsdecode(space.wrapbytes(self.filename))
         return space.newtuple([space.wrap(self.msg),
-                               space.newtuple([space.wrap(self.filename),
+                               space.newtuple([w_filename,
                                                space.wrap(self.lineno),
                                                space.wrap(self.offset),
-                                               space.wrap(self.text),
+                                               w_text,
                                                space.wrap(self.lastlineno)])])
 
     def __str__(self):

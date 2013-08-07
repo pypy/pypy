@@ -1,7 +1,7 @@
 
 import _rawffi, sys
 try:
-    from thread import _local as local
+    from _thread import _local as local
 except ImportError:
     class local(object):    # no threads
         pass

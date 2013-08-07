@@ -26,6 +26,14 @@ class AppTestTextIO:
         assert t.readable()
         assert t.seekable()
 
+    def test_default_implementations(self):
+        import _io
+        file = _io._TextIOBase()
+        raises(_io.UnsupportedOperation, file.read)
+        raises(_io.UnsupportedOperation, file.seek, 0)
+        raises(_io.UnsupportedOperation, file.readline)
+        raises(_io.UnsupportedOperation, file.detach)
+
     def test_isatty(self):
         import _io
         class Tty(_io.BytesIO):
@@ -41,6 +49,21 @@ class AppTestTextIO:
                 return False
         txt = _io.TextIOWrapper(UnReadable())
         raises(IOError, txt.read)
+
+    def test_unwritable(self):
+        import _io
+        class UnWritable(_io.BytesIO):
+            def writable(self):
+                return False
+        txt = _io.TextIOWrapper(UnWritable())
+        raises(_io.UnsupportedOperation, txt.write, "blah")
+        raises(_io.UnsupportedOperation, txt.writelines, ["blah\n"])
+
+    def test_invalid_seek(self):
+        import _io
+        t = _io.TextIOWrapper(_io.BytesIO(b"\xc3\xa9\n\n"))
+        raises(_io.UnsupportedOperation, t.seek, 1, 1)
+        raises(_io.UnsupportedOperation, t.seek, 1, 2)
 
     def test_unseekable(self):
         import _io
@@ -416,3 +439,14 @@ class AppTestIncrementalNewlineDecoder:
         _check(dec)
         dec = _io.IncrementalNewlineDecoder(None, translate=True)
         _check(dec)
+
+    def test_device_encoding(self):
+        import os
+        import sys
+        encoding = os.device_encoding(sys.stderr.fileno())
+        if not encoding:
+            skip("Requires a result from "
+                 "os.device_encoding(sys.stderr.fileno())")
+        import _io
+        f = _io.TextIOWrapper(sys.stderr.buffer)
+        assert f.encoding == encoding

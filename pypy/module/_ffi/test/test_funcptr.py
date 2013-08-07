@@ -46,6 +46,7 @@ class BaseAppTestFFI(object):
         libm = CDLL(libm_name)
         pow = libm.getpointer('pow', [], types.void)
         pow_addr = rffi.cast(rffi.LONG, pow.funcsym)
+        cls._libm = libm     # otherwise it gets unloaded - argh!
         cls.w_pow_addr = space.wrap(pow_addr)
 
 class AppTestFFI(BaseAppTestFFI):
@@ -74,9 +75,9 @@ class AppTestFFI(BaseAppTestFFI):
         from _ffi import CDLL, types
         # this should return *all* loaded libs, dlopen(NULL)
         dll = CDLL(None)
-        # Assume CPython, or PyPy compiled with cpyext
-        res = dll.getfunc('Py_IsInitialized', [], types.slong)()
-        assert res == 1
+        # libm should be loaded
+        res = dll.getfunc('sqrt', [types.double], types.double)(1.0)
+        assert res == 1.0
 
     def test_callfunc(self):
         from _ffi import CDLL, types
@@ -84,12 +85,14 @@ class AppTestFFI(BaseAppTestFFI):
         pow = libm.getfunc('pow', [types.double, types.double], types.double)
         assert pow(2, 3) == 8
 
+    @py.test.mark.skipif("py.test.config.option.runappdirect")
     def test_getaddr(self):
         from _ffi import CDLL, types
         libm = CDLL(self.libm_name)
         pow = libm.getfunc('pow', [types.double, types.double], types.double)
         assert pow.getaddr() == self.pow_addr
 
+    @py.test.mark.skipif("py.test.config.option.runappdirect")
     def test_getaddressindll(self):
         import sys
         from _ffi import CDLL
@@ -113,7 +116,6 @@ class AppTestFFI(BaseAppTestFFI):
                 return x+y;
             }
         """
-        py3k_skip('missing support for longs')
         import sys
         from _ffi import CDLL, types
         libfoo = CDLL(self.libfoo_name)
@@ -138,7 +140,7 @@ class AppTestFFI(BaseAppTestFFI):
 
     def test_pointer_args(self):
         """
-            extern int dummy; // defined in test_void_result 
+            extern int dummy; // defined in test_void_result
             DLLEXPORT int* get_dummy_ptr() { return &dummy; }
             DLLEXPORT void set_val_to_ptr(int* ptr, int val) { *ptr = val; }
         """
@@ -157,7 +159,7 @@ class AppTestFFI(BaseAppTestFFI):
 
     def test_convert_pointer_args(self):
         """
-            extern int dummy; // defined in test_void_result 
+            extern int dummy; // defined in test_void_result
             DLLEXPORT int* get_dummy_ptr(); // defined in test_pointer_args
             DLLEXPORT void set_val_to_ptr(int* ptr, int val); // ditto
         """
@@ -169,7 +171,7 @@ class AppTestFFI(BaseAppTestFFI):
             def _as_ffi_pointer_(self, ffitype):
                 assert ffitype is types.void_p
                 return self.value
-        
+
         libfoo = CDLL(self.libfoo_name)
         get_dummy = libfoo.getfunc('get_dummy', [], types.sint)
         get_dummy_ptr = libfoo.getfunc('get_dummy_ptr', [], types.void_p)
@@ -195,17 +197,16 @@ class AppTestFFI(BaseAppTestFFI):
                 return len;
             }
         """
-        py3k_skip('missing support for unicode')
         from _ffi import CDLL, types
         import _rawffi
         libfoo = CDLL(self.libfoo_name)
         mystrlen = libfoo.getfunc('mystrlen', [types.char_p], types.slong)
         #
         # first, try automatic conversion from a string
-        assert mystrlen('foobar') == 6
+        assert mystrlen(b'foobar') == 6
         # then, try to pass an explicit pointer
         CharArray = _rawffi.Array('c')
-        mystr = CharArray(7, 'foobar')
+        mystr = CharArray(7, b'foobar')
         assert mystrlen(mystr.buffer) == 6
         mystr.free()
         mystrlen.free_temp_buffers()
@@ -246,21 +247,20 @@ class AppTestFFI(BaseAppTestFFI):
                 return s;
             }
         """
-        py3k_skip('missing support for unicode')
         from _ffi import CDLL, types
         import _rawffi
         libfoo = CDLL(self.libfoo_name)
         do_nothing = libfoo.getfunc('do_nothing', [types.char_p], types.char_p)
         CharArray = _rawffi.Array('c')
         #
-        ptr = do_nothing('foobar')
+        ptr = do_nothing(b'foobar')
         array = CharArray.fromaddress(ptr, 7)
-        assert list(array) == list('foobar\00')
+        assert bytes(array) == b'foobar\00'
         do_nothing.free_temp_buffers()
 
     def test_typed_pointer_args(self):
         """
-            extern int dummy; // defined in test_void_result 
+            extern int dummy; // defined in test_void_result
             DLLEXPORT int* get_dummy_ptr(); // defined in test_pointer_args
             DLLEXPORT void set_val_to_ptr(int* ptr, int val); // ditto
         """
@@ -295,7 +295,6 @@ class AppTestFFI(BaseAppTestFFI):
                 return x+y;
             }
         """
-        py3k_skip('missing support for longs')
         import sys
         from _ffi import CDLL, types
         libfoo = CDLL(self.libfoo_name)
@@ -438,7 +437,6 @@ class AppTestFFI(BaseAppTestFFI):
                 return x+y;
             }
         """
-        py3k_skip('missing support for ulonglong')
         from _ffi import CDLL, types
         maxint64 = 9223372036854775807 # maxint64+1 does not fit into a
                                        # longlong, but it does into a
@@ -554,7 +552,7 @@ class AppTestFFI(BaseAppTestFFI):
         from _ffi import CDLL, types
         libfoo = CDLL(self.libfoo_name)
         raises(TypeError, "libfoo.getfunc('sum_xy', [types.void], types.sint)")
-        
+
     def test_OSError_loading(self):
         from _ffi import CDLL, types
         raises(OSError, "CDLL('I do not exist')")
@@ -577,7 +575,7 @@ class AppTestFFI(BaseAppTestFFI):
         try:
             pow(2, 3)
         except ValueError as e:
-            assert e.message.startswith('Procedure called with')
+            assert str(e).startswith('Procedure called with')
         else:
             assert 0, 'test must assert, wrong calling convention'
 
@@ -598,7 +596,7 @@ class AppTestFFI(BaseAppTestFFI):
         try:
             wrong_sleep(10)
         except ValueError as e:
-            assert e.message.startswith('Procedure called with')
+            assert str(e).startswith('Procedure called with')
         else:
             assert 0, 'test must assert, wrong calling convention'
 
@@ -609,12 +607,12 @@ class AppTestFFI(BaseAppTestFFI):
         from _rawffi import FUNCFLAG_STDCALL
         libm = CDLL(self.libm_name)
         pow_addr = libm.getaddressindll('pow')
-        wrong_pow = FuncPtr.fromaddr(pow_addr, 'pow', 
+        wrong_pow = FuncPtr.fromaddr(pow_addr, 'pow',
                 [types.double, types.double], types.double, FUNCFLAG_STDCALL)
         try:
             wrong_pow(2, 3) == 8
         except ValueError as e:
-            assert e.message.startswith('Procedure called with')
+            assert str(e).startswith('Procedure called with')
         else:
             assert 0, 'test must assert, wrong calling convention'
 
@@ -625,7 +623,7 @@ class AppTestFFI(BaseAppTestFFI):
         from _rawffi import FUNCFLAG_STDCALL
         kernel = WinDLL('Kernel32.dll')
         sleep_addr = kernel.getaddressindll('Sleep')
-        sleep = FuncPtr.fromaddr(sleep_addr, 'sleep', [types.uint], 
+        sleep = FuncPtr.fromaddr(sleep_addr, 'sleep', [types.uint],
                             types.void, FUNCFLAG_STDCALL)
         sleep(10)
 

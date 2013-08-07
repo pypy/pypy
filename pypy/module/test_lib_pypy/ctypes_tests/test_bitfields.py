@@ -66,6 +66,10 @@ class TestBitField:
         x.a, x.b, x.c = -1, 7, -1
         assert (x.a, x.b, x.c) == (-1, 7, -1)
 
+        x = X()
+        x.a, x.b, x.c = -1, -7, -1
+        assert (x.a, x.b, x.c) == (-1, -7, -1)
+
     def test_ulonglong(self):
         class X(Structure):
             _fields_ = [("a", c_ulonglong, 1),
@@ -75,8 +79,8 @@ class TestBitField:
         assert sizeof(X) == sizeof(c_longlong)
         x = X()
         assert (x.a, x.b, x.c) == (0, 0, 0)
-        x.a, x.b, x.c = 7, 7, 7
-        assert (x.a, x.b, x.c) == (1, 7, 1)
+        x.a, x.b, x.c = 7, 2305843009213693953, 7
+        assert (x.a, x.b, x.c) == (1, 2305843009213693953, 1)
 
     def test_signed(self):
         for c_typ in signed_int_types:

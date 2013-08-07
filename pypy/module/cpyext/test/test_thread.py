@@ -9,7 +9,7 @@ class AppTestThread(AppTestCpythonExtensionBase):
             ("get_thread_ident", "METH_NOARGS",
              """
                  /* Use the 'PyPy' prefix to ensure we access our functions */
-                 return PyInt_FromLong(PyPyThread_get_thread_ident());
+                 return PyLong_FromLong(PyPyThread_get_thread_ident());
              """),
             ])
         import threading
@@ -72,11 +72,11 @@ class AppTestThread(AppTestCpythonExtensionBase):
         module = self.import_extension('foo', [
             ("create_key", "METH_NOARGS",
              """
-                 return PyInt_FromLong(PyThread_create_key());
+                 return PyLong_FromLong(PyThread_create_key());
              """),
             ("test_key", "METH_O",
              """
-                 int key = PyInt_AsLong(args);
+                 int key = PyLong_AsLong(args);
                  if (PyThread_get_key_value(key) != NULL) {
                      PyErr_SetNone(PyExc_ValueError);
                      return NULL;

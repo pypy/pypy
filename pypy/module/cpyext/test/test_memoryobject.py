@@ -36,5 +36,20 @@ class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
                  """)])
         result = module.fillinfo()
         assert b"hello, world." == result
+        del result
 
-
+    def test_fill_from_NULL_pointer(self):
+        module = self.import_extension('foo', [
+                ("fillinfo_NULL", "METH_VARARGS",
+                 """
+                 Py_buffer info;
+                 if (PyBuffer_FillInfo(&info, NULL, NULL, 1, 1,
+                                       PyBUF_FULL_RO) < 0) {
+                     return NULL;
+                 }
+                 return PyMemoryView_FromBuffer(&info);
+                 """)])
+        exc = raises(ValueError, module.fillinfo_NULL)
+        expected = ("cannot make memory view from a buffer with a NULL data "
+                    "pointer")
+        assert str(exc.value) == expected

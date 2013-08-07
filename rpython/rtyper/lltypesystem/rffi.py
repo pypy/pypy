@@ -62,8 +62,8 @@ def llexternal(name, args, result, _callable=None,
                compilation_info=ExternalCompilationInfo(),
                sandboxsafe=False, threadsafe='auto',
                _nowrapper=False, calling_conv='c',
-               oo_primitive=None, elidable_function=False,
-               macro=None, random_effects_on_gcobjs='auto'):
+               elidable_function=False, macro=None,
+               random_effects_on_gcobjs='auto'):
     """Build an external function that will invoke the C function 'name'
     with the given 'args' types and 'result' type.
 
@@ -97,8 +97,6 @@ def llexternal(name, args, result, _callable=None,
     if elidable_function:
         _callable._elidable_function_ = True
     kwds = {}
-    if oo_primitive:
-        kwds['oo_primitive'] = oo_primitive
 
     has_callback = False
     for ARG in args:
@@ -282,13 +280,13 @@ def _make_wrapper_for(TP, callable, callbackholder=None, aroundstate=None):
     args = ', '.join(['a%d' % i for i in range(len(TP.TO.ARGS))])
     source = py.code.Source(r"""
         def wrapper(%(args)s):    # no *args - no GIL for mallocing the tuple
-            llop.gc_stack_bottom(lltype.Void)   # marker for trackgcroot.py
             if aroundstate is not None:
                 after = aroundstate.after
                 if after:
                     after()
             # from now on we hold the GIL
             stackcounter.stacks_counter += 1
+            llop.gc_stack_bottom(lltype.Void)   # marker for trackgcroot.py
             try:
                 result = callable(%(args)s)
             except Exception, e:
@@ -329,8 +327,9 @@ aroundstate._cleanup_()
 
 class StackCounter:
     def _cleanup_(self):
-        self.stacks_counter = 1     # number of "stack pieces": callbacks
+        self.stacks_counter = 0     # number of "stack pieces": callbacks
                                     # and threads increase it by one
+
 stackcounter = StackCounter()
 stackcounter._cleanup_()
 
@@ -446,7 +445,7 @@ try:
     TYPES += ['__int128_t']
 except CompilationError:
     pass
-    
+
 _TYPES_ARE_UNSIGNED = set(['size_t', 'uintptr_t'])   # plus "unsigned *"
 if os.name != 'nt':
     TYPES.append('mode_t')
@@ -650,6 +649,10 @@ VOIDPP = CArrayPtr(VOIDP)
 # char *
 CCHARP = lltype.Ptr(lltype.Array(lltype.Char, hints={'nolength': True}))
 
+# const char *
+CONST_CCHARP = lltype.Ptr(lltype.Array(lltype.Char, hints={'nolength': True,
+                                       'render_as_const': True}))
+
 # wchar_t *
 CWCHARP = lltype.Ptr(lltype.Array(lltype.UniChar, hints={'nolength': True}))
 
@@ -676,7 +679,8 @@ SIGNEDP = lltype.Ptr(lltype.Array(SIGNED, hints={'nolength': True}))
 def make_string_mappings(strtype):
 
     if strtype is str:
-        from rpython.rtyper.lltypesystem.rstr import STR as STRTYPE
+        from rpython.rtyper.lltypesystem.rstr import (STR as STRTYPE,
+                                                      copy_string_to_raw)
         from rpython.rtyper.annlowlevel import llstr as llstrtype
         from rpython.rtyper.annlowlevel import hlstr as hlstrtype
         TYPEP = CCHARP
@@ -684,7 +688,9 @@ def make_string_mappings(strtype):
         lastchar = '\x00'
         builder_class = StringBuilder
     else:
-        from rpython.rtyper.lltypesystem.rstr import UNICODE as STRTYPE
+        from rpython.rtyper.lltypesystem.rstr import (
+            UNICODE as STRTYPE,
+            copy_unicode_to_raw as copy_string_to_raw)
         from rpython.rtyper.annlowlevel import llunicode as llstrtype
         from rpython.rtyper.annlowlevel import hlunicode as hlstrtype
         TYPEP = CWCHARP
@@ -693,21 +699,25 @@ def make_string_mappings(strtype):
         builder_class = UnicodeBuilder
 
     # str -> char*
-    def str2charp(s):
+    def str2charp(s, track_allocation=True):
         """ str -> char*
         """
-        array = lltype.malloc(TYPEP.TO, len(s) + 1, flavor='raw')
+        if track_allocation:
+            array = lltype.malloc(TYPEP.TO, len(s) + 1, flavor='raw', track_allocation=True)
+        else:
+            array = lltype.malloc(TYPEP.TO, len(s) + 1, flavor='raw', track_allocation=False)
         i = len(s)
+        ll_s = llstrtype(s)
+        copy_string_to_raw(ll_s, array, 0, i)
         array[i] = lastchar
-        i -= 1
-        while i >= 0:
-            array[i] = s[i]
-            i -= 1
         return array
-    str2charp._annenforceargs_ = [strtype]
+    str2charp._annenforceargs_ = [strtype, bool]
 
-    def free_charp(cp):
-        lltype.free(cp, flavor='raw')
+    def free_charp(cp, track_allocation=True):
+        if track_allocation:
+            lltype.free(cp, flavor='raw', track_allocation=True)
+        else:
+            lltype.free(cp, flavor='raw', track_allocation=False)
 
     # char* -> str
     # doesn't free char*
@@ -732,14 +742,14 @@ def make_string_mappings(strtype):
         string is already nonmovable.  Must be followed by a
         free_nonmovingbuffer call.
         """
+        lldata = llstrtype(data)
         if rgc.can_move(data):
             count = len(data)
             buf = lltype.malloc(TYPEP.TO, count, flavor='raw')
-            for i in range(count):
-                buf[i] = data[i]
+            copy_string_to_raw(lldata, buf, 0, count)
             return buf
         else:
-            data_start = cast_ptr_to_adr(llstrtype(data)) + \
+            data_start = cast_ptr_to_adr(lldata) + \
                 offsetof(STRTYPE, 'chars') + itemoffsetof(STRTYPE.chars, 0)
             return cast(TYPEP, data_start)
     get_nonmovingbuffer._annenforceargs_ = [strtype]
@@ -934,10 +944,8 @@ def sizeof(tp):
     if tp is lltype.SingleFloat:
         return 4
     if tp is lltype.LongFloat:
-        if globals()['r_void*'].BITS == 32:
-            return 12
-        else:
-            return 16
+        # :-/
+        return sizeof_c_type("long double")
     assert isinstance(tp, lltype.Number)
     if tp is lltype.Signed:
         return LONG_BIT/8
@@ -1061,6 +1069,7 @@ class scoped_str2charp:
             self.buf = str2charp(value)
         else:
             self.buf = lltype.nullptr(CCHARP.TO)
+    __init__._annenforceargs_ = [None, annmodel.SomeString(can_be_None=True)]
     def __enter__(self):
         return self.buf
     def __exit__(self, *args):
@@ -1074,6 +1083,8 @@ class scoped_unicode2wcharp:
             self.buf = unicode2wcharp(value)
         else:
             self.buf = lltype.nullptr(CWCHARP.TO)
+    __init__._annenforceargs_ = [None,
+                                 annmodel.SomeUnicodeString(can_be_None=True)]
     def __enter__(self):
         return self.buf
     def __exit__(self, *args):

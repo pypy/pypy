@@ -105,10 +105,12 @@ class W_BufferedIOBase(W_IOBase):
         return space.wrap(len(data))
 
     def _complain_about_max_buffer_size(self, space):
-        space.warn("max_buffer_size is deprecated", space.w_DeprecationWarning)
+        space.warn(space.wrap("max_buffer_size is deprecated"),
+                   space.w_DeprecationWarning)
 
 W_BufferedIOBase.typedef = TypeDef(
-    '_io._BufferedIOBase', W_IOBase.typedef,
+    '_BufferedIOBase', W_IOBase.typedef,
+    __module__ = "_io",
     __new__ = generic_new_descr(W_BufferedIOBase),
     read = interp2app(W_BufferedIOBase.read_w),
     read1 = interp2app(W_BufferedIOBase.read1_w),
@@ -225,16 +227,16 @@ class BufferedMixin:
 
     def repr_w(self, space):
         typename = space.type(self).getname(space)
-        module = space.str_w(space.type(self).get_module())
+        module = space.unicode_w(space.type(self).get_module())
         try:
             w_name = space.getattr(self, space.wrap("name"))
         except OperationError, e:
             if not e.match(space, space.w_AttributeError):
                 raise
-            return space.wrap("<%s.%s>" % (module, typename,))
+            return space.wrap(u"<%s.%s>" % (module, typename,))
         else:
-            name_repr = space.str_w(space.repr(w_name))
-            return space.wrap("<%s.%s name=%s>" % (module, typename, name_repr))
+            name_repr = space.unicode_w(space.repr(w_name))
+            return space.wrap(u"<%s.%s name=%s>" % (module, typename, name_repr))
 
     # ______________________________________________
 
@@ -264,6 +266,7 @@ class BufferedMixin:
             raise operationerrfmt(space.w_ValueError,
                 "whence must be between 0 and 2, not %d", whence)
         self._check_closed(space, "seek of closed file")
+        check_seekable_w(space, self.w_raw)
         if whence != 2 and self.readable:
             # Check if seeking leaves us inside the current buffer, so as to
             # return quickly if possible. Also, we needn't take the lock in
@@ -538,7 +541,7 @@ class BufferedMixin:
                 raise
             else:
                 break
-                
+
         if space.is_w(w_size, space.w_None):
             raise BlockingIOError()
         size = space.int_w(w_size)
@@ -571,7 +574,6 @@ class BufferedMixin:
         result_buffer = ['\0'] * n
         remaining = n
         written = 0
-        data = None
         if current_size:
             for i in range(current_size):
                 result_buffer[written + i] = self.buffer[self.pos + i]
@@ -637,6 +639,72 @@ class BufferedMixin:
             self.pos = endpos
             return res
         return None
+
+    def readline_w(self, space, w_limit=None):
+        self._check_init(space)
+        self._check_closed(space, "readline of closed file")
+
+        limit = convert_size(space, w_limit)
+
+        # First, try to find a line in the buffer. This can run
+        # unlocked because the calls to the C API are simple enough
+        # that they can't trigger any thread switch.
+        have = self._readahead()
+        if limit >= 0 and have > limit:
+            have = limit
+        for pos in range(self.pos, self.pos+have):
+            if self.buffer[pos] == '\n':
+                break
+        else:
+            pos = -1
+        if pos >= 0:
+            w_res = space.wrapbytes(''.join(self.buffer[self.pos:pos+1]))
+            self.pos = pos + 1
+            return w_res
+        if have == limit:
+            w_res = space.wrapbytes(''.join(self.buffer[self.pos:self.pos+have]))
+            self.pos += have
+            return w_res
+
+        written = 0
+        with self.lock:
+            # Now we try to get some more from the raw stream
+            chunks = []
+            if have > 0:
+                chunks.extend(self.buffer[self.pos:self.pos+have])
+                written += have
+                self.pos += have
+                if limit >= 0:
+                    limit -= have
+            if self.writable:
+                self._flush_and_rewind_unlocked(space)
+
+            while True:
+                self._reader_reset_buf()
+                have = self._fill_buffer(space)
+                if have == 0:
+                    break
+                if limit >= 0 and have > limit:
+                    have = limit
+                pos = 0
+                found = False
+                while pos < have:
+                    c = self.buffer[pos]
+                    pos += 1
+                    if c == '\n':
+                        self.pos = pos
+                        found = True
+                        break
+                chunks.extend(self.buffer[0:pos])
+                if found:
+                    break
+                if have == limit:
+                    self.pos = have
+                    break
+                written += have
+                if limit >= 0:
+                    limit -= have
+            return space.wrapbytes(''.join(chunks))
 
     # ____________________________________________________
     # Write methods
@@ -803,6 +871,7 @@ W_BufferedReader.typedef = TypeDef(
     peek = interp2app(W_BufferedReader.peek_w),
     read1 = interp2app(W_BufferedReader.read1_w),
     raw = interp_attrproperty_w("w_raw", cls=W_BufferedReader),
+    readline = interp2app(W_BufferedReader.readline_w),
 
     # from the mixin class
     __repr__ = interp2app(W_BufferedReader.repr_w),
@@ -869,10 +938,6 @@ W_BufferedWriter.typedef = TypeDef(
     mode = GetSetProperty(W_BufferedWriter.mode_get_w),
 )
 
-def _forward_call(space, w_obj, method, __args__):
-    w_meth = self.getattr(w_obj, self.wrap(method))
-    return self.call_args(w_meth, __args__)
-
 def make_forwarding_method(method, writer=False, reader=False):
     @func_renamer(method + '_w')
     def method_w(self, space, __args__):
@@ -938,7 +1003,8 @@ methods = dict((method, interp2app(getattr(W_BufferedRWPair, method + '_w')))
                               'isatty'])
 
 W_BufferedRWPair.typedef = TypeDef(
-    '_io.BufferedRWPair', W_BufferedIOBase.typedef,
+    'BufferedRWPair', W_BufferedIOBase.typedef,
+    __module__ = "_io",
     __new__ = generic_new_descr(W_BufferedRWPair),
     __init__  = interp2app(W_BufferedRWPair.descr_init),
     __getstate__ = interp2app(W_BufferedRWPair.getstate_w),
@@ -978,6 +1044,7 @@ W_BufferedRandom.typedef = TypeDef(
     read = interp2app(W_BufferedRandom.read_w),
     peek = interp2app(W_BufferedRandom.peek_w),
     read1 = interp2app(W_BufferedRandom.read1_w),
+    readline = interp2app(W_BufferedRandom.readline_w),
 
     write = interp2app(W_BufferedRandom.write_w),
     flush = interp2app(W_BufferedRandom.flush_w),

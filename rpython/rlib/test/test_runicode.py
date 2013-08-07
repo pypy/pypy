@@ -728,6 +728,30 @@ class TestEncoding(UnicodeTests):
         self.checkencode(u"\N{GREEK CAPITAL LETTER PHI}", "mbcs") # a F
         self.checkencode(u"\N{GREEK CAPITAL LETTER PSI}", "mbcs") # a ?
 
+    def test_mbcs_decode_force_ignore(self):
+        if sys.platform != 'win32':
+            py.test.skip("mbcs encoding is win32-specific")
+
+        # XXX: requires a locale w/ a restrictive encoding to test
+        from rpython.rlib.rlocale import getdefaultlocale
+        if getdefaultlocale()[1] != 'cp932':
+            py.test.skip("requires cp932 locale")
+
+        s = '\xff\xf4\x8f\xbf\xbf'
+        decoder = self.getdecoder('mbcs')
+        assert decoder(s, len(s), 'strict') == (u'\U0010ffff', 5)
+        py.test.raises(UnicodeEncodeError, decoder, s, len(s), 'strict',
+                       force_ignore=False)
+
+    def test_mbcs_encode_force_replace(self):
+        if sys.platform != 'win32':
+            py.test.skip("mbcs encoding is win32-specific")
+        u = u'@test_2224_tmp-?L??\udc80'
+        encoder = self.getencoder('mbcs')
+        assert encoder(u, len(u), 'strict') == '@test_2224_tmp-?L???'
+        py.test.raises(UnicodeEncodeError, encoder, u, len(u), 'strict',
+                       force_replace=False)
+
     def test_encode_decimal(self):
         encoder = self.getencoder('decimal')
         assert encoder(u' 12, 34 ', 8, None) == ' 12, 34 '

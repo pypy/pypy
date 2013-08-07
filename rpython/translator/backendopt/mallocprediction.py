@@ -26,7 +26,7 @@ def find_malloc_creps(graph, adi, translator, malloc_graphs):
                     STRUCT)._obj.destructor_funcptr
                 if destr_ptr:
                     continue
-            except (ValueError, AttributeError), e:
+            except (ValueError, AttributeError):
                 pass
             varstate = adi.getstate(op.result)
             assert len(varstate.creation_points) == 1

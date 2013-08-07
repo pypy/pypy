@@ -1,9 +1,10 @@
 """Information about the current system."""
-from pypy.interpreter import gateway
-from rpython.rlib import rfloat, rbigint
-from rpython.rtyper.lltypesystem import rffi, lltype
-from pypy.objspace.std.floatobject import HASH_INF, HASH_NAN
 from pypy.objspace.std.complexobject import HASH_IMAG
+from pypy.objspace.std.floatobject import HASH_INF, HASH_NAN
+from pypy.objspace.std.longobject import HASH_MODULUS
+from pypy.interpreter import gateway
+from rpython.rlib import rbigint, rfloat
+from rpython.rtyper.lltypesystem import lltype, rffi
 
 
 app = gateway.applevel("""
@@ -26,7 +27,7 @@ class float_info(metaclass=structseqtype):
 class int_info(metaclass=structseqtype):
     bits_per_digit = structseqfield(0)
     sizeof_digit = structseqfield(1)
-    
+
 class hash_info(metaclass=structseqtype):
     width = structseqfield(0)
     modulus = structseqfield(1)
@@ -54,7 +55,6 @@ def get_float_info(space):
     return space.call_function(w_float_info, space.newtuple(info_w))
 
 def get_int_info(space):
-    #assert rbigint.SHIFT == 31
     bits_per_digit = rbigint.SHIFT
     sizeof_digit = rffi.sizeof(rbigint.STORE_TYPE)
     info_w = [
@@ -65,11 +65,9 @@ def get_int_info(space):
     return space.call_function(w_int_info, space.newtuple(info_w))
 
 def get_hash_info(space):
-    # XXX our _hash_float() always give values that fit in 32bit
-    modulus = (1 << 31) - 1  # Must be a prime number
     info_w = [
         space.wrap(8 * rffi.sizeof(lltype.Signed)),
-        space.wrap(modulus),
+        space.wrap(HASH_MODULUS),
         space.wrap(HASH_INF),
         space.wrap(HASH_NAN),
         space.wrap(HASH_IMAG),
@@ -78,7 +76,4 @@ def get_hash_info(space):
     return space.call_function(w_hash_info, space.newtuple(info_w))
 
 def get_float_repr_style(space):
-    if rfloat.USE_SHORT_FLOAT_REPR:
-        return space.wrap("short")
-    else:
-        return space.wrap("legacy")
+    return space.wrap("short")

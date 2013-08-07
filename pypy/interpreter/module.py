@@ -2,11 +2,12 @@
 Module objects.
 """
 
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError
 from rpython.rlib.objectmodel import we_are_translated
 
-class Module(Wrappable):
+
+class Module(W_Root):
     """A module."""
 
     _immutable_fields_ = ["w_dict?"]
@@ -80,7 +81,7 @@ class Module(Wrappable):
     def descr__reduce__(self, space):
         w_name = space.finditem(self.w_dict, space.wrap('__name__'))
         if (w_name is None or
-            not space.is_true(space.isinstance(w_name, space.w_unicode))):
+            not space.isinstance_w(w_name, space.w_unicode)):
             # maybe raise exception here (XXX this path is untested)
             return space.w_None
         w_modules = space.sys.get('modules')
@@ -111,14 +112,14 @@ class Module(Wrappable):
     def descr_module__repr__(self, space):
         from pypy.interpreter.mixedmodule import MixedModule
         if self.w_name is not None:
-            name = space.str_w(space.repr(self.w_name))
+            name = space.unicode_w(space.repr(self.w_name))
         else:
-            name = "'?'"
+            name = u"'?'"
         if isinstance(self, MixedModule):
-            return space.wrap("<module %s (built-in)>" % name)
+            return space.wrap(u"<module %s (built-in)>" % name)
         try:
             w___file__ = space.getattr(self, space.wrap('__file__'))
-            __file__ = space.str_w(space.repr(w___file__))
+            __file__ = space.unicode_w(space.repr(w___file__))
         except OperationError:
-            __file__ = '?'
-        return space.wrap("<module %s from %s>" % (name, __file__))
+            __file__ = u'?'
+        return space.wrap(u"<module %s from %s>" % (name, __file__))

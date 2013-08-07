@@ -1,4 +1,4 @@
-from rpython.flowspace.operation import FunctionByName
+from rpython.flowspace.operation import op
 from rpython.rlib import debug
 from rpython.rlib.rarithmetic import is_valid_int
 from rpython.rtyper.lltypesystem import lltype, llmemory
@@ -13,7 +13,6 @@ ops_returning_a_bool = {'gt': True, 'ge': True,
                         'lt': True, 'le': True,
                         'eq': True, 'ne': True,
                         'is_true': True}
-ops_unary = {'is_true': True, 'neg': True, 'abs': True, 'invert': True}
 
 # global synonyms for some types
 from rpython.rlib.rarithmetic import intmask
@@ -46,11 +45,13 @@ def no_op(x):
 def get_primitive_op_src(fullopname):
     assert '_' in fullopname, "%s: not a primitive op" % (fullopname,)
     typname, opname = fullopname.split('_', 1)
-    if opname not in FunctionByName and (opname + '_') in FunctionByName:
-        func = FunctionByName[opname + '_']   # or_, and_
+    if hasattr(op, opname):
+        oper = getattr(op, opname)
+    elif hasattr(op, opname + '_'):
+        oper = getattr(op, opname + '_')   # or_, and_
     else:
-        assert opname in FunctionByName, "%s: not a primitive op" % (fullopname,)
-        func = FunctionByName[opname]
+        raise ValueError("%s: not a primitive op" % (fullopname,))
+    func = oper.pyfunc
 
     if typname == 'char':
         # char_lt, char_eq, ...
@@ -72,7 +73,7 @@ def get_primitive_op_src(fullopname):
             fullopname,)
         argtype = argtype_by_name[typname]
 
-        if opname in ops_unary:
+        if oper.arity == 1:
             def op_function(x):
                 if not isinstance(x, argtype):
                     raise TypeError("%r arg must be %s, got %r instead" % (
@@ -451,10 +452,6 @@ op_cast_adr_to_ptr.need_result_type = True
 def op_cast_int_to_adr(int):
     return llmemory.cast_int_to_adr(int)
 
-##def op_cast_int_to_adr(x):
-##    assert type(x) is int
-##    return llmemory.cast_int_to_adr(x)
-
 def op_convert_float_bytes_to_longlong(a):
     from rpython.rlib.longlong2float import float2longlong
     return float2longlong(a)
@@ -524,9 +521,12 @@ def op_gc_writebarrier_before_copy(source, dest,
                                    source_start, dest_start, length):
     A = lltype.typeOf(source)
     assert A == lltype.typeOf(dest)
-    assert isinstance(A.TO, lltype.GcArray)
-    assert isinstance(A.TO.OF, lltype.Ptr)
-    assert A.TO.OF.TO._gckind == 'gc'
+    if isinstance(A.TO, lltype.GcArray):
+        assert isinstance(A.TO.OF, lltype.Ptr)
+        assert A.TO.OF.TO._gckind == 'gc'
+    else:
+        assert isinstance(A.TO, lltype.GcStruct)
+        assert A.TO._arrayfld is not None
     assert type(source_start) is int
     assert type(dest_start) is int
     assert type(length) is int
@@ -549,8 +549,7 @@ def op_getarrayitem(p, index):
 def _normalize(x):
     if not isinstance(x, str):
         TYPE = lltype.typeOf(x)
-        if (isinstance(TYPE, lltype.Ptr) and TYPE.TO._name == 'rpy_string'
-            or getattr(TYPE, '_name', '') == 'String'):    # ootype
+        if isinstance(TYPE, lltype.Ptr) and TYPE.TO._name == 'rpy_string':
             from rpython.rtyper.annlowlevel import hlstr
             return hlstr(x)
     return x
@@ -592,6 +591,9 @@ def op_jit_force_quasi_immutable(*args):
     pass
 
 def op_jit_record_known_class(x, y):
+    pass
+
+def op_jit_ffi_save_result(*args):
     pass
 
 def op_get_group_member(TYPE, grpptr, memberoffset):
@@ -644,15 +646,19 @@ def op_get_member_index(memberoffset):
 def op_gc_assume_young_pointers(addr):
     pass
 
-def op_gc_set_extra_threshold(threshold):
-    pass
-
 def op_shrink_array(array, smallersize):
     return False
 
 def op_ll_read_timestamp():
     from rpython.rlib.rtimer import read_timestamp
     return read_timestamp()
+
+def op_debug_fatalerror(ll_msg):
+    from rpython.rtyper.lltypesystem import lltype, rstr
+    from rpython.rtyper.llinterp import LLFatalError
+    assert lltype.typeOf(ll_msg) == lltype.Ptr(rstr.STR)
+    msg = ''.join(ll_msg.chars)
+    raise LLFatalError(msg)
 
 # ____________________________________________________________
 

@@ -72,7 +72,7 @@ class AppTestNestedScope:
 
         def f():
             def f(y):
-                  return x + y
+                return x + y
             return f
             x = 1
 
@@ -84,7 +84,7 @@ class AppTestNestedScope:
             if n:
                 x = n
             def f(y):
-                  return x + y
+                return x + y
             return f
 
         empty_cell_1 = f(0).__closure__[0]

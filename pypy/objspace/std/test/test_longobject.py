@@ -16,6 +16,15 @@ class TestW_LongObject:
         w_obj = space.wrap(123.456)
         space.raises_w(space.w_TypeError, space.bigint_w, w_obj)
 
+        w_obj = fromlong(42)
+        assert space.unwrap(w_obj) == 42
+
+    def test_overflow_error(self):
+        space = self.space
+        fromlong = lobj.W_LongObject.fromlong
+        w_big = fromlong(10**900)
+        space.raises_w(space.w_OverflowError, space.float_w, w_big)
+
     def test_rint_variants(self):
         py.test.skip("XXX broken!")
         from rpython.rtyper.tool.rfficache import platform
@@ -218,24 +227,33 @@ class AppTestLong:
         assert x ^ 0x555555555 == 0x5FFFFFFFF
 
     def test_hash(self):
-        # ints have the same hash as equal longs
-        for i in range(-4, 14):
-            assert hash(i) == hash(int(i))
-        # might check too much -- it's ok to change the hashing algorithm
-        assert hash(123456789) == 123456789
-        assert hash(1234567890123456789) in (
-            -1895067127,            # with 32-bit platforms
-            1234567890123456789)    # with 64-bit platforms
+        import sys
+        modulus = sys.hash_info.modulus
+        for x in (list(range(200)) +
+                  [1234567890123456789, 18446743523953737727,
+                   987685321987685321987685321987685321987685321]):
+            y = x % modulus
+            assert hash(x) == hash(y)
+            assert hash(-x) == hash(-y)
+        assert hash(modulus - 1) == modulus - 1
+        assert hash(modulus) == 0
+        assert hash(modulus + 1) == 1
+
+        assert hash(-1) == -2
+        value = -(modulus + 1)
+        assert hash(value) == -2
+        assert hash(value * 2 + 1) == -2
+        assert hash(value * 4 + 3) == -2
 
     def test_math_log(self):
         import math
-        raises(ValueError, math.log, 0) 
-        raises(ValueError, math.log, -1) 
-        raises(ValueError, math.log, -2) 
+        raises(ValueError, math.log, 0)
+        raises(ValueError, math.log, -1)
+        raises(ValueError, math.log, -2)
         raises(ValueError, math.log, -(1 << 10000))
-        #raises(ValueError, math.log, 0) 
-        raises(ValueError, math.log, -1) 
-        raises(ValueError, math.log, -2) 
+        #raises(ValueError, math.log, 0)
+        raises(ValueError, math.log, -1)
+        raises(ValueError, math.log, -2)
 
     def test_long(self):
         import sys
@@ -337,6 +355,28 @@ class AppTestLong:
         try:
             int('hello àèìò')
         except ValueError as e:
-            assert 'hello àèìò' in e.message
+            assert 'hello àèìò' in str(e)
         else:
             assert False, 'did not raise'
+
+    def test_base_overflow(self):
+        raises(ValueError, int, '42', 2**63)
+
+    def test_long_real(self):
+        class A(int): pass
+        b = A(5).real
+        assert type(b) is int
+
+    def test__int__(self):
+        class A(int):
+            def __int__(self):
+                return 42
+
+        assert int(int(3)) == int(3)
+        assert int(A(13)) == 42
+
+    def test_large_identity(self):
+        import sys
+        a = sys.maxsize + 1
+        b = sys.maxsize + 2
+        assert a is not b

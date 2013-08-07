@@ -58,32 +58,6 @@ class TestExtFuncEntry:
         res = interpret(f, [])
         assert res == 7
 
-    def test_callback(self):
-        """
-        Verify annotation when a callback function is in the arguments list.
-        """
-        def d(y):
-            return eval("y()")
-
-        class DTestFuncEntry(ExtFuncEntry):
-            _about_ = d
-            name = 'd'
-            signature_args = [annmodel.SomeGenericCallable(args=[], result=
-                                                           annmodel.SomeFloat())]
-            signature_result = annmodel.SomeFloat()
-
-        def callback():
-            return 2.5
-
-        def f():
-            return d(callback)
-
-        policy = AnnotatorPolicy()
-        a = RPythonAnnotator(policy=policy)
-        s = a.build_types(f, [])
-        assert isinstance(s, annmodel.SomeFloat)
-        assert a.translator._graphof(callback)
-
     def test_register_external_signature(self):
         """
         Test the standard interface for external functions.
@@ -198,5 +172,5 @@ class TestExtFuncEntry:
             return os_execve(l)
         py.test.raises(Exception, a.build_types, g, [[str]])
         a.build_types(g, [[str0]])  # Does not raise
-        
+
 

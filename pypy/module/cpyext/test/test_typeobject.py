@@ -48,7 +48,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         obj.int_member = 42
         raises(TypeError, "obj.int_member = 'not a number'")
         raises(TypeError, "del obj.int_member")
-        raises(TypeError, "obj.int_member_readonly = 42")
+        raises(AttributeError, "obj.int_member_readonly = 42")
         exc = raises(TypeError, "del obj.int_member_readonly")
         assert "readonly" in str(exc.value)
         raises(SystemError, "obj.broken_member")
@@ -217,11 +217,6 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
 
         assert cmpr.__le__(4) is NotImplemented
 
-    def test_tpcompare(self):
-        module = self.import_module("comparisons")
-        cmpr = module.OldCmpType()
-        assert cmpr < cmpr
-
     def test_hash(self):
         module = self.import_module("comparisons")
         cmpr = module.CmpType()
@@ -285,7 +280,38 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         class C(object):
             pass
         assert module.name_by_heaptype(C) == "C"
-        
+
+    def test_type_dict(self):
+        foo = self.import_module("foo")
+        module = self.import_extension('test', [
+           ("hack_tp_dict", "METH_O",
+            '''
+                 PyTypeObject *type = args->ob_type;
+                 PyObject *a1 = PyLong_FromLong(1);
+                 PyObject *a2 = PyLong_FromLong(2);
+                 PyObject *value;
+
+                 if (PyDict_SetItemString(type->tp_dict, "a",
+                         a1) < 0)
+                     return NULL;
+                 Py_DECREF(a1);
+                 PyType_Modified(type);
+                 value = PyObject_GetAttrString(type, "a");
+                 Py_DECREF(value);
+
+                 if (PyDict_SetItemString(type->tp_dict, "a",
+                         a2) < 0)
+                     return NULL;
+                 Py_DECREF(a2);
+                 PyType_Modified(type);
+                 value = PyObject_GetAttrString(type, "a");
+                 return value;
+             '''
+             )
+            ])
+        obj = foo.new()
+        assert module.hack_tp_dict(obj) == 2
+
 
 class TestTypes(BaseApiTest):
     def test_type_attributes(self, space, api):
@@ -323,7 +349,7 @@ class TestTypes(BaseApiTest):
         w_obj = api._PyType_Lookup(w_type, space.wrap("__invalid"))
         assert w_obj is None
         assert api.PyErr_Occurred() is None
-    
+
 class AppTestSlots(AppTestCpythonExtensionBase):
     def test_some_slots(self):
         module = self.import_extension('foo', [
@@ -418,7 +444,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             static int
             mp_ass_subscript(PyObject *self, PyObject *key, PyObject *value)
             {
-                if (PyInt_Check(key)) {
+                if (PyLong_Check(key)) {
                     PyErr_SetNone(PyExc_ZeroDivisionError);
                     return -1;
                 }

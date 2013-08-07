@@ -1,6 +1,6 @@
 from rpython.translator.platform import platform
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.module._rawffi.interp_rawffi import TYPEMAP
+from pypy.module._rawffi.interp_rawffi import TYPEMAP, TYPEMAP_FLOAT_LETTERS
 from pypy.module._rawffi.tracker import Tracker
 
 import os, sys, py
@@ -48,12 +48,12 @@ class AppTestFfi:
             free(x1->next);
             free(x1);
         }
-        
+
         const char *static_str = "xxxxxx";
         long static_int = 42;
         double static_double = 42.42;
         long double static_longdouble = 42.42;
-        
+
         unsigned short add_shorts(short one, short two)
         {
            return one + two;
@@ -175,7 +175,7 @@ class AppTestFfi:
             inp.y = inp.x * 100;
             return inp;
         }
-        
+
         '''))
         symbols = """get_char char_check get_raw_pointer
                      add_shorts
@@ -194,7 +194,7 @@ class AppTestFfi:
         eci = ExternalCompilationInfo(export_symbols=symbols)
         return str(platform.compile([c_file], eci, 'x', standalone=False))
     prepare_c_example = staticmethod(prepare_c_example)
-    
+
     def setup_class(cls):
         space = cls.space
         from rpython.rlib.clibffi import get_libc_name
@@ -211,6 +211,7 @@ class AppTestFfi:
         cls.w_platform = space.wrap(platform.name)
         cls.w_sizes_and_alignments = space.wrap(dict(
             [(k, (v.c_size, v.c_alignment)) for k,v in TYPEMAP.iteritems()]))
+        cls.w_float_typemap = space.wrap(TYPEMAP_FLOAT_LETTERS)
 
     def test_libload(self):
         import _rawffi
@@ -222,7 +223,8 @@ class AppTestFfi:
             _rawffi.CDLL("xxxxx_this_name_does_not_exist_xxxxx")
         except OSError as e:
             print(e)
-            assert str(e).startswith("xxxxx_this_name_does_not_exist_xxxxx: ")
+            assert str(e).startswith(
+                "Cannot load library xxxxx_this_name_does_not_exist_xxxxx: ")
         else:
             raise AssertionError("did not fail??")
 
@@ -232,9 +234,9 @@ class AppTestFfi:
         import _rawffi
         # this should return *all* loaded libs, dlopen(NULL)
         dll = _rawffi.CDLL(None)
-        # Assume CPython, or PyPy compiled with cpyext
-        res = dll.ptr('Py_IsInitialized', [], 'l')()
-        assert res[0] == 1
+        func = dll.ptr('rand', [], 'i')
+        res = func()
+        assert res[0] != 0
 
     def test_libc_load(self):
         import _rawffi
@@ -260,7 +262,6 @@ class AppTestFfi:
         assert lib.ptr(1, [], 'i')()[0] == 42
 
     def test_getchar(self):
-        py3k_skip('bytes vs unicode')
         import _rawffi
         lib = _rawffi.CDLL(self.lib_name)
         get_char = lib.ptr('get_char', ['P', 'H'], 'c')
@@ -272,7 +273,8 @@ class AppTestFfi:
             intptr = B(1)
             intptr[0] = i
             res = get_char(dupaptr, intptr)
-            assert res[0] == 'dupa'[i:i+1]
+            char = b'dupa'[i:i+1]
+            assert res[0] == char
             intptr.free()
         dupaptr.free()
         dupa.free()
@@ -282,14 +284,13 @@ class AppTestFfi:
         import _rawffi
         A = _rawffi.Array('c')
         buf = A(10, autofree=True)
-        buf[0] = ord('*')
+        buf[0] = b'*'
         assert buf[1:5] == b'\x00' * 4
         buf[7:] = b'abc'
-        assert buf[9] == ord('c')
+        assert buf[9] == b'c'
         assert buf[:8] == b'*' + b'\x00'*6 + b'a'
 
     def test_returning_str(self):
-        py3k_skip('bytes vs unicode')
         import _rawffi
         lib = _rawffi.CDLL(self.lib_name)
         char_check = lib.ptr('char_check', ['c', 'c'], 's')
@@ -440,7 +441,7 @@ class AppTestFfi:
         arg.free()
         assert t.tm_year == 70
         assert t.tm_sec == 1
-        assert t.tm_min == 2      
+        assert t.tm_min == 2
         x.free()
 
     def test_nested_structures(self):
@@ -450,13 +451,13 @@ class AppTestFfi:
         X = _rawffi.Structure([('x1', 'i'), ('x2', 'h'), ('x3', 'c'), ('next', 'P')])
         next = X()
         next.next = 0
-        next.x3 = ord('x')
+        next.x3 = b'x'
         x = X()
         x.next = next
         x.x1 = 1
         x.x2 = 2
-        x.x3 = ord('x')
-        assert X.fromaddress(x.next).x3 == ord('x')
+        x.x3 = b'x'
+        assert X.fromaddress(x.next).x3 == b'x'
         x.free()
         next.free()
         create_double_struct = lib.ptr("create_double_struct", [], 'P')
@@ -465,6 +466,20 @@ class AppTestFfi:
         assert X.fromaddress(x.next).x2 == 3
         free_double_struct = lib.ptr("free_double_struct", ['P'], None)
         free_double_struct(res)
+
+    def test_structure_bitfields_char(self):
+        import _rawffi
+        X = _rawffi.Structure([('A', 'B', 1),
+                               ('B', 'B', 6),
+                               ('C', 'B', 1)])
+        x = X()
+        x.A = 0xf
+        x.B = 0xff
+        x.C = 0xf
+        assert x.A == 1
+        assert x.B == 63
+        assert x.C == 1
+        x.free()
 
     def test_structure_bitfields(self):
         import _rawffi
@@ -486,6 +501,60 @@ class AppTestFfi:
         y = Y()
         y.a, y.b, y.c = -1, -7, 0
         assert (y.a, y.b, y.c) == (-1, -7, 0)
+        y.free()
+
+    def test_structure_bitfields_longlong(self):
+        import _rawffi
+        Z = _rawffi.Structure([('a', 'Q', 1),
+                               ('b', 'Q', 62),
+                               ('c', 'Q', 1)])
+        z = Z()
+        z.a, z.b, z.c = 7, 0x1000000000000001, 7
+        assert (z.a, z.b, z.c) == (1, 0x1000000000000001, 1)
+        z.free()
+
+    def test_structure_ulonglong_bitfields(self):
+        import _rawffi
+        X = _rawffi.Structure([('A', 'Q', 1),
+                               ('B', 'Q', 62),
+                               ('C', 'Q', 1)])
+        x = X()
+        x.A, x.B, x.C = 7, 0x1000000000000001, 7
+        assert x.A == 1
+        assert x.B == 0x1000000000000001
+        assert x.C == 1
+        x.free()
+
+    def test_structure_longlong_bitfields(self):
+        import _rawffi
+        Y = _rawffi.Structure([('a', 'q', 1),
+                               ('b', 'q', 61),
+                               ('c', 'q', 1)])
+        y = Y()
+        y.a, y.b, y.c = 0, -7, 0
+        assert (y.a, y.b, y.c) == (0, -7, 0)
+        y.free()
+
+    def test_structure_ulonglong_bitfields(self):
+        import _rawffi
+        X = _rawffi.Structure([('A', 'Q', 1),
+                               ('B', 'Q', 62),
+                               ('C', 'Q', 1)])
+        x = X()
+        x.A, x.B, x.C = 7, 0x1000000000000001, 7
+        assert x.A == 1
+        assert x.B == 0x1000000000000001
+        assert x.C == 1
+        x.free()
+
+    def test_structure_longlong_bitfields(self):
+        import _rawffi
+        Y = _rawffi.Structure([('a', 'q', 1),
+                               ('b', 'q', 61),
+                               ('c', 'q', 1)])
+        y = Y()
+        y.a, y.b, y.c = 0, -7, 0
+        assert (y.a, y.b, y.c) == (0, -7, 0)
         y.free()
 
     def test_invalid_bitfields(self):
@@ -558,7 +627,6 @@ class AppTestFfi:
         raises(ValueError, "_rawffi.Array('xx')")
 
     def test_longs_ulongs(self):
-        py3k_skip('fails on 32bit')
         import _rawffi
         lib = _rawffi.CDLL(self.lib_name)
         some_huge_value = lib.ptr('some_huge_value', [], 'q')
@@ -573,7 +641,7 @@ class AppTestFfi:
         res = pass_ll(arg1)
         assert res[0] == 1<<42
         arg1.free()
-    
+
     def test_callback(self):
         import _rawffi
         import struct
@@ -611,7 +679,6 @@ class AppTestFfi:
         cb.free()
 
     def test_another_callback(self):
-        py3k_skip('fails on 32bit')
         import _rawffi
         lib = _rawffi.CDLL(self.lib_name)
         runcallback = lib.ptr('runcallback', ['P'], 'q')
@@ -682,9 +749,19 @@ class AppTestFfi:
 
     def test_sizes_and_alignments(self):
         import _rawffi
-        for k, (s, a) in self.sizes_and_alignments.iteritems():
+        for k, (s, a) in self.sizes_and_alignments.items():
             assert _rawffi.sizeof(k) == s
             assert _rawffi.alignment(k) == a
+
+    def test_unaligned(self):
+        import _rawffi
+        for k in self.float_typemap:
+            S = _rawffi.Structure([('pad', 'c'), ('value', k)], pack=1)
+            s = S()
+            s.value = 4
+            assert s.value == 4
+            s.free()
+
 
     def test_array_addressof(self):
         import _rawffi
@@ -777,7 +854,6 @@ class AppTestFfi:
         a.free()
 
     def test_truncate(self):
-        py3k_skip('int vs long')
         import _rawffi, struct
         a = _rawffi.Array('b')(1)
         a[0] = -5
@@ -887,7 +963,7 @@ class AppTestFfi:
         try:
             f()
         except ValueError as e:
-            assert "Procedure called with not enough arguments" in e.message
+            assert "Procedure called with not enough arguments" in str(e)
         else:
             assert 0, "Did not raise"
 
@@ -898,7 +974,7 @@ class AppTestFfi:
         try:
             f(arg)
         except ValueError as e:
-            assert "Procedure called with too many arguments" in e.message
+            assert "Procedure called with too many arguments" in str(e)
         else:
             assert 0, "Did not raise"
         arg.free()
@@ -968,7 +1044,7 @@ class AppTestFfi:
         assert res.y == 33
         assert s2h.x == 7
         assert s2h.y == 11
-        
+
         s2h.free()
 
     def test_ret_struct_containing_array(self):
@@ -997,15 +1073,15 @@ class AppTestFfi:
 
         A = _rawffi.Array('c')
         a = A(10, autofree=True)
-        a[3] = ord('x')
+        a[3] = b'x'
         b = memoryview(a)
         assert len(b) == 10
         assert b[3] == b'x'
         b[6] = b'y'
-        assert a[6] == ord('y')
+        assert a[6] == b'y'
         b[3:5] = b'zt'
-        assert a[3] == ord('z')
-        assert a[4] == ord('t')
+        assert a[3] == b'z'
+        assert a[4] == b't'
 
     def test_union(self):
         import _rawffi
@@ -1025,9 +1101,28 @@ class AppTestFfi:
         S2E = _rawffi.Structure([('bah', (EMPTY, 1))])
         S2E.get_ffi_type()     # does not hang
 
+    def test_overflow_error(self):
+        import _rawffi
+        A = _rawffi.Array('d')
+        arg1 = A(1)
+        raises(OverflowError, "arg1[0] = 10**900")
+        arg1.free()
+
+    def test_char_array_int(self):
+        import _rawffi
+        A = _rawffi.Array('c')
+        a = A(1)
+        a[0] = b'a'
+        assert a[0] == b'a'
+        # also accept int but return bytestring
+        a[0] = 100
+        assert a[0] == b'd'
+        a.free()
+
+
 class AppTestAutoFree:
     spaceconfig = dict(usemodules=['_rawffi', 'struct'])
-    
+
     def setup_class(cls):
         cls.w_sizes_and_alignments = cls.space.wrap(dict(
             [(k, (v.c_size, v.c_alignment)) for k,v in TYPEMAP.iteritems()]))

@@ -1,7 +1,7 @@
-from rpython.rtyper.rmodel import Repr
-from rpython.rtyper.lltypesystem import lltype
-from rpython.rlib.rstring import INIT_SIZE
 from rpython.annotator.model import SomeChar, SomeUnicodeCodePoint
+from rpython.rlib.rstring import INIT_SIZE
+from rpython.rtyper.lltypesystem import lltype
+from rpython.rtyper.rmodel import Repr
 
 
 class AbstractStringBuilderRepr(Repr):

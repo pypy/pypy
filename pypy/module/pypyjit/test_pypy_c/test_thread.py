@@ -46,5 +46,5 @@ class TestThread(BaseTestPyPyC):
             guard_no_overflow(descr=...)
             --TICK--
             i58 = arraylen_gc(p43, descr=...)
-            jump(p0, p1, p3, p5, p10, p12, p14, i54, i27, i47, p45, p43, descr=...)
+            jump(..., descr=...)
         """)

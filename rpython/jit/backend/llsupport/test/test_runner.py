@@ -22,6 +22,6 @@ class TestAbstractLLCPU(LLtypeBackendTest):
 
     # for the individual tests see
     # ====> ../../test/runner_test.py
-    
-    def setup_class(cls):
-        cls.cpu = MyLLCPU(rtyper=None, stats=FakeStats(), opts=None)
+
+    def get_cpu(self):
+        return MyLLCPU(rtyper=None, stats=FakeStats(), opts=None)

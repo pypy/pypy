@@ -175,7 +175,8 @@ class BaseStringFormatTests:
 class AppTestUnicodeFormat(BaseStringFormatTests):
 
     def setup_class(cls):
-        cls.w_s = cls.space.w_unicode
+        cls.w_s = cls.space.appexec(
+            [], """(): return str""")
 
     def test_string_conversion(self):
         class x(object):
@@ -284,7 +285,8 @@ class BaseIntegralFormattingTest:
 class AppTestIntFormatting(BaseIntegralFormattingTest):
 
     def setup_class(cls):
-        cls.w_i = cls.space.w_int
+        cls.w_i = cls.space.appexec(
+            [], """(): return int""")
 
 
 class AppTestFloatFormatting:

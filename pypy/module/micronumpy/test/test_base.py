@@ -17,7 +17,6 @@ class BaseNumpyAppTest(object):
             if '__pypy__' not in sys.builtin_module_names:
                 import numpy
                 sys.modules['numpypy'] = numpy
-                sys.modules['_numpypy'] = numpy
         cls.w_non_native_prefix = cls.space.wrap(nonnative_byteorder_prefix)
         cls.w_native_prefix = cls.space.wrap(byteorder_prefix)
 
@@ -76,8 +75,8 @@ class TestUfuncCoerscion(object):
 
         # Coerce to floats, some of these will eventually be float16, or
         # whatever our smallest float type is.
-        assert find_unaryop_result_dtype(space, bool_dtype, promote_to_float=True) is float16_dtype 
-        assert find_unaryop_result_dtype(space, int8_dtype, promote_to_float=True) is float16_dtype 
+        assert find_unaryop_result_dtype(space, bool_dtype, promote_to_float=True) is float16_dtype
+        assert find_unaryop_result_dtype(space, int8_dtype, promote_to_float=True) is float16_dtype
         assert find_unaryop_result_dtype(space, uint8_dtype, promote_to_float=True) is float16_dtype
         assert find_unaryop_result_dtype(space, int16_dtype, promote_to_float=True) is float32_dtype
         assert find_unaryop_result_dtype(space, uint16_dtype, promote_to_float=True) is float32_dtype

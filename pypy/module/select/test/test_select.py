@@ -193,28 +193,11 @@ class _AppTestSelect:
         readend, writeend = self.getpair()
         readend.close()
         try:
-            iwtd, owtd, ewtd = select.select([], [writeend], [])
-            assert owtd == [writeend]
-            assert iwtd == ewtd == []
+            iwtd, owtd, ewtd = select.select([writeend], [writeend], [writeend])
+            assert iwtd == owtd == [writeend]
+            assert ewtd == []
         finally:
             writeend.close()
-
-    def test_select_bug(self):
-        import select, os
-        if not hasattr(os, 'fork'):
-            skip("no fork() on this platform")
-        read, write = os.pipe()
-        pid = os.fork()
-        if pid == 0:
-            os._exit(0)
-        else:
-            os.close(read)
-        os.waitpid(pid, 0)
-        res = select.select([write], [write], [write])
-        assert len(res[0]) == 1
-        assert len(res[1]) == 1
-        assert len(res[2]) == 0
-        assert res[0][0] == res[1][0]
 
     def test_poll(self):
         import select
@@ -267,33 +250,29 @@ class AppTestSelectWithSockets(_AppTestSelect):
         "usemodules": ["select", "_socket", "rctime", "thread"],
     }
 
-    def setup_class(cls):
-        space = cls.space
-        w_import = space.getattr(space.builtin, space.wrap("__import__"))
-        w_socketmod = space.call_function(w_import, space.wrap("socket"))
-        cls.w_sock = cls.space.call_method(w_socketmod, "socket")
-        cls.w_sock_err = space.getattr(w_socketmod, space.wrap("error"))
-
-        try_ports = [1023] + range(20000, 30000, 437)
+    def w_make_server(self):
+        import socket
+        if hasattr(self, 'sock'):
+            return self.sock
+        self.sock = socket.socket()
+        try_ports = [1023] + list(range(20000, 30000, 437))
         for port in try_ports:
-            print 'binding to port %d:' % (port,),
-            cls.w_sockaddress = space.wrap(('127.0.0.1', port))
+            print('binding to port %d:' % (port,))
+            self.sockaddress = ('127.0.0.1', port)
             try:
-                space.call_method(cls.w_sock, "bind", cls.w_sockaddress)
+                self.sock.bind(self.sockaddress)
                 break
-            except OperationError, e:   # should get a "Permission denied"
-                if not e.match(space, space.getattr(w_socketmod, space.wrap("error"))):
-                    raise
-                print e
-            except cls.w_sock_err, e:   # should get a "Permission denied"
-                print e
+            except socket.error as e:   # should get a "Permission denied"
+                print(e)
             else:
-                raise e
+                raise(e)
 
     def w_getpair(self):
         """Helper method which returns a pair of connected sockets."""
         import socket
         import _thread
+
+        self.make_server()
 
         self.sock.listen(1)
         s2 = socket.socket()

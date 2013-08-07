@@ -8,12 +8,16 @@ class AppTestReferents(object):
         cls._backup = [rgc.get_rpy_roots]
         w = cls.space.wrap
         space = cls.space
-        class RandomRPythonObject(object):
-            pass
+        if option.runappdirect:
+            ro = None
+        else:
+            class RandomRPythonObject(object):
+                pass
+            ro = RandomRPythonObject()
         l4 = space.newlist([w(4)])
         l2 = space.newlist([w(2)])
         l7 = space.newlist([w(7)])
-        cls.ALL_ROOTS = [l4, space.newlist([l2, l7]), RandomRPythonObject(),
+        cls.ALL_ROOTS = [l4, space.newlist([l2, l7]), ro,
                          space.newtuple([l7])]
         cls.w_ALL_ROOTS = cls.space.newlist(cls.ALL_ROOTS)
         rgc.get_rpy_roots = lambda: (
@@ -115,4 +119,5 @@ class AppTestReferents(object):
             if x is l7t:
                 break   # found
         else:
-            assert 0, "the tuple (7,) is not found as gc.get_referrers(7)"
+            if i7 is self.ALL_ROOTS[3][0]: # not the case under runappdirect
+                assert 0, "the tuple (7,) is not found as gc.get_referrers(7)"

@@ -12,22 +12,6 @@ def wrapunicode(space, uni):
     from pypy.objspace.std.unicodeobject import W_UnicodeObject
     return W_UnicodeObject(uni)
 
-def plain_str2unicode(space, s):
-    try:
-        return unicode(s)
-    except UnicodeDecodeError:
-        for i in range(len(s)):
-            if ord(s[i]) > 127:
-                raise OperationError(
-                    space.w_UnicodeDecodeError,
-                    space.newtuple([
-                    space.wrap('ascii'),
-                    space.wrapbytes(s),
-                    space.wrap(i),
-                    space.wrap(i+1),
-                    space.wrap("ordinal not in range(128)")]))
-        assert False, "unreachable"
-
 
 unicode_capitalize = SMM('capitalize', 1,
                          doc='S.capitalize() -> unicode\n\nReturn a'
@@ -64,6 +48,8 @@ unicode_expandtabs = SMM('expandtabs', 2, defaults=(8,),
                              ' size of 8 characters is assumed.')
 unicode_format     = SMM('format', 1, general__args__=True,
                          doc='S.format() -> new style formating')
+unicode_format_map = SMM('format_map', 2,
+                         doc='S.format_map(mapping) -> str')
 unicode_isalnum    = SMM('isalnum', 1,
                          doc='S.isalnum() -> bool\n\nReturn True if all'
                              ' characters in S are alphanumeric\nand there is'
@@ -217,9 +203,8 @@ def encode_object(space, w_object, encoding, errors):
     w_restuple = space.call_function(w_encoder, w_object, w_errors)
     w_retval = space.getitem(w_restuple, space.wrap(0))
     if not space.isinstance_w(w_retval, space.w_bytes):
-        raise operationerrfmt(space.w_TypeError,
-            "encoder did not return a bytes string (type '%s')",
-            space.type(w_retval).getname(space))
+        msg = "encoder did not return a bytes string (type '%T')"
+        raise operationerrfmt(space.w_TypeError, msg, w_retval)
     return w_retval
 
 def decode_object(space, w_obj, encoding, errors):
@@ -250,9 +235,8 @@ def decode_object(space, w_obj, encoding, errors):
 def unicode_from_encoded_object(space, w_obj, encoding, errors):
     w_retval = decode_object(space, w_obj, encoding, errors)
     if not space.isinstance_w(w_retval, space.w_unicode):
-        raise operationerrfmt(space.w_TypeError,
-            "decoder did not return an unicode object (type '%s')",
-            space.type(w_retval).getname(space))
+        msg = "decoder did not return an unicode object (type '%T')"
+        raise operationerrfmt(space.w_TypeError, msg, w_retval)
     return w_retval
 
 def unicode_from_object(space, w_obj):
@@ -346,7 +330,7 @@ def descr_maketrans(space, w_type, w_x, w_y=None, w_z=None):
                     "if you give only one argument "
                     "to maketrans it must be a dict"))
         # copy entries into the new dict, converting string keys to int keys
-        w_iter = space.call_method(w_x, "iteritems")
+        w_iter = space.iter(space.call_method(w_x, "items"))
         while True:
             try:
                 w_item = space.next(w_iter)

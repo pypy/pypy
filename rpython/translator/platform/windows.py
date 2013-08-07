@@ -28,6 +28,8 @@ def Windows(cc=None):
     return _get_compiler_type(cc, False)
 
 def Windows_x64(cc=None):
+    raise Exception("Win64 is not supported.  You must either build for Win32"
+                    " or contribute the missing support in PyPy.")
     return _get_compiler_type(cc, True)
     
 def _get_msvc_env(vsver, x64flag):
@@ -117,7 +119,7 @@ class MsvcPlatform(Platform):
         # detect version of current compiler
         returncode, stdout, stderr = _run_subprocess(self.cc, '',
                                                      env=self.c_environ)
-        r = re.match(r'Microsoft.+C/C\+\+.+\s([0-9]+)\.([0-9]+).*', stderr)
+        r = re.search(r'Microsoft.+C/C\+\+.+\s([0-9]+)\.([0-9]+).*', stderr)
         if r is not None:
             self.version = int(''.join(r.groups())) / 10 - 60
         else:
@@ -197,7 +199,7 @@ class MsvcPlatform(Platform):
         return ["@%s" % (response_file,)]
 
     def _compile_c_file(self, cc, cfile, compile_args):
-        oname = cfile.new(ext='obj')
+        oname = self._make_o_file(cfile, ext='obj')
         # notabene: (tismer)
         # This function may be called for .c but also .asm files.
         # The c compiler accepts any order of arguments, while

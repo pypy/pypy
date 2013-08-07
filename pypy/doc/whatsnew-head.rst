@@ -1,60 +1,64 @@
 ======================
-What's new in PyPy 2.0
+What's new in PyPy 2.1
 ======================
 
-.. this is a revision shortly after release-2.0-beta1
-.. startrev: 0e6161a009c6
+.. this is a revision shortly after release-2.1-beta
+.. startrev: 4eb52818e7c0
 
-.. branch: split-rpython
-Split rpython and pypy into seperate directories
+.. branch: fastjson
+Fast json decoder written in RPython, about 3-4x faster than the pure Python
+decoder which comes with the stdlib
 
-.. branch: callback-jit
-Callbacks from C are now better JITted
+.. branch: improve-str2charp
+Improve the performance of I/O writing up to 15% by using memcpy instead of
+copying char-by-char in str2charp and get_nonmovingbuffer
 
-.. branch: remove-globals-in-jit
+.. branch: flowoperators
+Simplify rpython/flowspace/ code by using more metaprogramming.  Create
+SpaceOperator class to gather static information about flow graph operations.
 
-.. branch: length-hint
-Implement __lenght_hint__ according to PEP 424
+.. branch: package-tk
+Adapt package.py script to compile CFFI tk extension. Add a --without-tk switch
+to optionally skip it.
 
-.. branch: numpypy-longdouble
-Long double support for numpypy
-.. branch: numpypy-real-as-view
-Convert real, imag from ufuncs to views. This involves the beginning of 
-view() functionality
+.. branch: distutils-cppldflags
+Copy CPython's implementation of customize_compiler, dont call split on
+environment variables, honour CFLAGS, CPPFLAGS, LDSHARED and LDFLAGS on Unices.
 
-.. branch: signatures
-Improved RPython typing
+.. branch: precise-instantiate
+When an RPython class is instantiated via an indirect call (that is, which
+class is being instantiated isn't known precisely) allow the optimizer to have
+more precise information about which functions can be called. Needed for Topaz.
 
-.. branch: rpython-bytearray
-Rudimentary support for bytearray in RPython
+.. branch: ssl_moving_write_buffer
 
-.. branches we don't care about
-.. branch: autoreds
-.. branch: reflex-support
-.. branch: kill-faking
-.. branch: improved_ebnfparse_error
-.. branch: task-decorator
-.. branch: fix-e4fa0b2
-.. branch: win32-fixes
-.. branch: fix-version-tool
-.. branch: popen2-removal
+.. branch: pythoninspect-fix
+Make PyPy respect PYTHONINSPECT variable set via os.putenv in the same process
+to start interactive prompt when the script execution finishes. This adds
+new __pypy__.os.real_getenv call that bypasses Python cache and looksup env
+in the underlying OS. Translatorshell now works on PyPy.
 
-.. branch: release-2.0-beta1
+.. branch: add-statvfs
+Added os.statvfs and os.fstatvfs
 
-.. branch: remove-PYPY_NOT_MAIN_FILE
+.. branch: statvfs_tests
+Added some addition tests for statvfs.
 
-.. branch: missing-jit-operations
+.. branch: ndarray-subtype
+Allow subclassing ndarray, i.e. matrix
 
-.. branch: fix-lookinside-iff-oopspec
-Fixed the interaction between two internal tools for controlling the JIT.
+.. branch: kill-ootype
 
-.. branch: inline-virtualref-2
-Better optimized certain types of frame accesses in the JIT, particularly
-around exceptions that escape the function they were raised in.
+.. branch: fast-slowpath
+Added an abstraction for functions with a fast and slow path in the JIT. This
+speeds up list.append() and list.pop().
 
-.. branch: missing-ndarray-attributes
-Some missing attributes from ndarrays
+.. branch: curses_fixes
 
-.. branch: cleanup-tests
-Consolidated the lib_pypy/pypy_test and pypy/module/test_lib_pypy tests into
-+one directory for reduced confusion and so they all run nightly.
+.. branch: foldable-getarrayitem-indexerror
+Constant-fold reading out of constant tuples in PyPy.
+
+.. branch: mro-reorder-numpypy-str
+No longer delegate numpy string_ methods to space.StringObject, in numpy
+this works by kind of by accident. Support for merging the refactor-str-types
+branch

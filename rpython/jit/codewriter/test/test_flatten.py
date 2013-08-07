@@ -4,6 +4,7 @@ from rpython.jit.codewriter.flatten import flatten_graph, reorder_renaming_list
 from rpython.jit.codewriter.flatten import GraphFlattener, ListOfKind, Register
 from rpython.jit.codewriter.format import assert_format
 from rpython.jit.codewriter import longlong
+from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.history import AbstractDescr
 from rpython.rtyper.lltypesystem import lltype, rclass, rstr, rffi
 from rpython.flowspace.model import SpaceOperation, Variable, Constant
@@ -47,6 +48,9 @@ class FakeDict(object):
         return c_func, lltype.Signed
 
 class FakeCPU:
+    class tracker:
+        pass
+
     def __init__(self, rtyper):
         rtyper._builtin_func_for_spec_cache = FakeDict()
         self.rtyper = rtyper
@@ -68,7 +72,8 @@ class FakeCallControl:
     callinfocollection = FakeCallInfoCollection()
     def guess_call_kind(self, op):
         return 'residual'
-    def getcalldescr(self, op, oopspecindex=None, extraeffect=None):
+    def getcalldescr(self, op, oopspecindex=EffectInfo.OS_NONE,
+                     extraeffect=None):
         try:
             name = op.args[0].value._obj._name
             if 'cannot_raise' in name or name.startswith('cast_'):
@@ -77,7 +82,7 @@ class FakeCallControl:
             pass
         return FakeDescr(oopspecindex)
     def calldescr_canraise(self, calldescr):
-        return calldescr is not self._descr_cannot_raise and calldescr.oopspecindex is None
+        return calldescr is not self._descr_cannot_raise and calldescr.oopspecindex == EffectInfo.OS_NONE
     def get_vinfo(self, VTYPEPTR):
         return None
 
@@ -90,7 +95,7 @@ class FakeCallControlWithVRefInfo:
         if op.args[0].value._obj._name == 'jit_force_virtual':
             return 'residual'
         return 'builtin'
-    def getcalldescr(self, op):
+    def getcalldescr(self, op, **kwds):
         return FakeDescr()
     def calldescr_canraise(self, calldescr):
         return False
@@ -137,7 +142,8 @@ class TestFlatten:
         if liveness:
             from rpython.jit.codewriter.liveness import compute_liveness
             compute_liveness(ssarepr)
-        assert_format(ssarepr, expected)
+        if expected is not None:
+            assert_format(ssarepr, expected)
 
     def test_simple(self):
         def f(n):
@@ -321,6 +327,15 @@ class TestFlatten:
             L6:
             int_return $54
         """)
+
+    def test_switch_longlong(self):
+        def f(n):
+            n = r_longlong(n)
+            if n == r_longlong(-5):  return 12
+            elif n == r_longlong(2): return 51
+            elif n == r_longlong(7): return 1212
+            else:                    return 42
+        self.encoding_test(f, [65], None)
 
     def test_exc_exitswitch(self):
         def g(i):
@@ -676,6 +691,7 @@ class TestFlatten:
         self.encoding_test(f, [], """
             new_with_vtable <Descr> -> %r0
             virtual_ref %r0 -> %r1
+            -live-
             residual_call_r_r $<* fn jit_force_virtual>, R[%r1], <Descr> -> %r2
             ref_return %r2
         """, transform=True, cc=FakeCallControlWithVRefInfo())

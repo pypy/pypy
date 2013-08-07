@@ -61,6 +61,12 @@ def getdefinedinteger(macro, c_header_source):
         DEFINED = DefinedConstantInteger(macro)
     return configure(CConfig)['DEFINED']
 
+def getdefinedstring(macro, c_header_source):
+    class CConfig:
+        _compilation_info_ = eci_from_header(c_header_source)
+        DEFINED = DefinedConstantString(macro)
+    return configure(CConfig)['DEFINED']
+
 def getintegerfunctionresult(function, args=None, c_header_source='', includes=[]):
     class CConfig:
         _compilation_info_ = eci_from_header(c_header_source)
@@ -721,6 +727,8 @@ def run_example_code(filepath, eci, ignore_errors=False):
     eci = eci.convert_sources_to_files()
     files = [filepath]
     output = build_executable_cache(files, eci, ignore_errors=ignore_errors)
+    if not output.startswith('-+- '):
+        raise Exception("run_example_code failed!\nlocals = %r" % (locals(),))
     section = None
     for line in output.splitlines():
         line = line.strip()

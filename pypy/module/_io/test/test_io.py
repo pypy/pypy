@@ -45,6 +45,13 @@ class AppTestIoModule:
         import _io
         e = _io.UnsupportedOperation("seek")
 
+    def test_default_implementations(self):
+        import _io
+        file = _io._IOBase()
+        raises(_io.UnsupportedOperation, file.seek, 0, 1)
+        raises(_io.UnsupportedOperation, file.fileno)
+        raises(_io.UnsupportedOperation, file.truncate)
+
     def test_blockingerror(self):
         import _io
         try:
@@ -340,6 +347,7 @@ class AppTestOpen:
 
         f = open(*args, **kwargs)
         r = repr(f)
+        gc.collect()
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter('always')
             f = None
@@ -370,3 +378,8 @@ class AppTestOpen:
             for protocol in range(pickle.HIGHEST_PROTOCOL + 1):
                 with _io.open(self.tmpfile, **kwargs) as f:
                     raises(TypeError, pickle.dumps, f, protocol)
+
+    def test_mod(self):
+        import _io
+        assert all(t.__module__ in ('io', '_io') for t in vars(_io).values()
+                   if isinstance(t, type))

@@ -1,43 +1,34 @@
 from py.test import raises
 
 class AppTest_IndexProtocol:
-    def setup_class(self):
-        w_oldstyle = self.space.appexec([], """():
+    def setup_class(cls):
+        cls.w_o = cls.space.appexec([], """():
             class oldstyle:
                 def __index__(self):
                     return self.ind
-            return oldstyle""")
+            return oldstyle()""")
 
-        w_newstyle = self.space.appexec([], """():
+        cls.w_n = cls.space.appexec([], """():
             class newstyle(object):
                 def __index__(self):
                     return self.ind
-            return newstyle""")
+            return newstyle()""")
 
-        w_oldstyle_no_index = self.space.appexec([], """():
+        cls.w_o_no_index = cls.space.appexec([], """():
             class oldstyle_no_index:
                 pass
-            return oldstyle_no_index""")
+            return oldstyle_no_index()""")
 
-        w_newstyle_no_index = self.space.appexec([], """():
+        cls.w_n_no_index = cls.space.appexec([], """():
             class newstyle_no_index(object):
                 pass
-            return newstyle_no_index""")
+            return newstyle_no_index()""")
 
-        w_TrapInt = self.space.appexec([], """(): 
+        cls.w_TrapInt = cls.space.appexec([], """(): 
             class TrapInt(int):
                 def __index__(self):
                     return self
             return TrapInt""")
-
-        self.w_oldstyle = w_oldstyle
-        self.w_o = self.space.call_function(w_oldstyle)
-        self.w_o_no_index = self.space.call_function(w_oldstyle_no_index)
-        self.w_newstyle = w_newstyle
-        self.w_n = self.space.call_function(w_newstyle)
-        self.w_n_no_index = self.space.call_function(w_newstyle_no_index)
-
-        self.w_TrapInt = w_TrapInt
 
     def test_basic(self):
         self.o.ind = -2
@@ -92,30 +83,25 @@ class SeqTestCase:
     # This test case isn't run directly. It just defines common tests
     # to the different sequence types below
     def setup_method(self, method):
-        w_oldstyle = self.space.appexec([], """():
-            class oldstyle:
-                def __index__(self):
-                    return self.ind
-            return oldstyle""")
+        for name in ('w_o', 'w_o2'):
+            setattr(self, name, self.space.appexec([], """():
+                class oldstyle:
+                    def __index__(self):
+                        return self.ind
+                return oldstyle()"""))
 
-        w_newstyle = self.space.appexec([], """():
-            class newstyle(object):
-                def __index__(self):
-                    return self.ind
-            return newstyle""")
+        for name in ('w_n', 'w_n2'):
+            setattr(self, name, self.space.appexec([], """():
+                class newstyle(object):
+                    def __index__(self):
+                        return self.ind
+                return newstyle()"""))
 
-        w_TrapInt = self.space.appexec([], """(): 
+        self.w_TrapInt = self.space.appexec([], """(): 
             class TrapInt(int):
                 def __index__(self):
                     return self
             return TrapInt""")
-
-        self.w_o = self.space.call_function(w_oldstyle)
-        self.w_n = self.space.call_function(w_newstyle)
-        self.w_o2 = self.space.call_function(w_oldstyle)
-        self.w_n2 = self.space.call_function(w_newstyle)
-
-        self.w_TrapInt = w_TrapInt
 
     def test_index(self):
         self.o.ind = -2
@@ -204,6 +190,7 @@ class AppTest_TupleTestCase(SeqTestCase):
         SeqTestCase.setup_method(self, method)
         self.w_seq = self.space.newtuple([self.space.wrap(x) for x in (0,10,20,30,40,50)])
 
+
 class StringTestCase(object):
     def test_startswith(self):
         self.o.ind = 1
@@ -257,9 +244,9 @@ class AppTest_RangeTestCase:
 
 class AppTest_OverflowTestCase:
 
-    def setup_class(self):
-        self.w_pos = self.space.wrap(2**100)
-        self.w_neg = self.space.wrap(-2**100)
+    def setup_class(cls):
+        cls.w_pos = cls.space.wrap(2**100)
+        cls.w_neg = cls.space.wrap(-2**100)
 
     def test_large_longs(self):
         assert self.pos.__index__() == self.pos

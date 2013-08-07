@@ -8,6 +8,10 @@ import sys
 
 def excepthook(exctype, value, traceback):
     """Handle an exception by displaying it with a traceback on sys.stderr."""
+    if not isinstance(value, BaseException):
+        sys.stderr.write("TypeError: print_exception(): Exception expected for "
+                         "value, {} found\n".format(type(value).__name__))
+        return
 
     # Flush stdout as well, both files may refer to the same file
     try:
@@ -29,14 +33,13 @@ def excepthook_failsafe(exctype, value):
     try:
         # first try to print the exception's class name
         stderr = sys.stderr
-        stderr.write(getattr(exctype, '__name__', exctype))
+        stderr.write(str(getattr(exctype, '__name__', exctype)))
         # then attempt to get the str() of the exception
         try:
             s = str(value)
         except:
             s = '<failure of str() on the exception instance>'
-        # then print it, and don't worry too much about the extra space
-        # between the exception class and the ':'
+        # then print it
         if s:
             stderr.write(': %s\n' % (s,))
         else:
@@ -90,20 +93,18 @@ class sysflags(metaclass=structseqtype):
     name = "sys.flags"
 
     debug = structseqfield(0)
-    py3k_warning = structseqfield(1)
-    division_warning = structseqfield(2)
-    division_new = structseqfield(3)
-    inspect = structseqfield(4)
-    interactive = structseqfield(5)
-    optimize = structseqfield(6)
-    dont_write_bytecode = structseqfield(7)
-    no_user_site = structseqfield(8)
-    no_site = structseqfield(9)
-    ignore_environment = structseqfield(10)
-    tabcheck = structseqfield(11)
-    verbose = structseqfield(12)
-    unicode = structseqfield(13)
-    bytes_warning = structseqfield(14)
-    hash_randomization = structseqfield(15)
+    division_warning = structseqfield(1)
+    inspect = structseqfield(2)
+    interactive = structseqfield(3)
+    optimize = structseqfield(4)
+    dont_write_bytecode = structseqfield(5)
+    no_user_site = structseqfield(6)
+    no_site = structseqfield(7)
+    ignore_environment = structseqfield(8)
+    verbose = structseqfield(9)
+    bytes_warning = structseqfield(10)
+    quiet = structseqfield(11)
+    hash_randomization = structseqfield(12)
 
-null_sysflags = sysflags((0,)*16)
+null_sysflags = sysflags((0,)*13)
+null__xoptions = {}

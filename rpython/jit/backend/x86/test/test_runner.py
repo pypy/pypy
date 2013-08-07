@@ -1,10 +1,10 @@
 import py
-from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rstr, rclass
-from rpython.rtyper.annlowlevel import llhelper
-from rpython.jit.metainterp.history import ResOperation, TargetToken, JitCellToken
-from rpython.jit.metainterp.history import (BoxInt, BoxPtr, ConstInt, ConstFloat,
-                                         ConstPtr, Box, BoxFloat,
-                                         BasicFailDescr)
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rstr
+from rpython.jit.metainterp.history import ResOperation, TargetToken,\
+     JitCellToken
+from rpython.jit.metainterp.history import (BoxInt, BoxPtr, ConstInt,
+                                            ConstPtr, Box,
+                                            BasicFailDescr, BasicFinalDescr)
 from rpython.jit.backend.detect_cpu import getcpuclass
 from rpython.jit.backend.x86.arch import WORD
 from rpython.jit.backend.x86.rx86 import fits_in_32bits
@@ -13,10 +13,7 @@ from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.metainterp.executor import execute
 from rpython.jit.backend.test.runner_test import LLtypeBackendTest
 from rpython.jit.tool.oparser import parse
-from rpython.tool.udir import udir
 import ctypes
-import sys
-import os
 
 CPU = getcpuclass()
 
@@ -35,14 +32,15 @@ class TestX86(LLtypeBackendTest):
 
     add_loop_instructions = ['mov', 'add', 'test', 'je', 'jmp']
     if WORD == 4:
-        bridge_loop_instructions = ['lea', 'jmp']
+        bridge_loop_instructions = ['cmp', 'jge', 'mov', 'mov', 'call', 'jmp']
     else:
-        # the 'mov' is part of the 'jmp' so far
-        bridge_loop_instructions = ['lea', 'mov', 'jmp']
+        bridge_loop_instructions = ['cmp', 'jge', 'mov', 'mov', 'mov', 'mov',
+                                    'call', 'mov', 'jmp']
 
-    def setup_method(self, meth):
-        self.cpu = CPU(rtyper=None, stats=FakeStats())
-        self.cpu.setup_once()
+    def get_cpu(self):
+        cpu = CPU(rtyper=None, stats=FakeStats())
+        cpu.setup_once()
+        return cpu
 
     def test_execute_ptr_operation(self):
         cpu = self.cpu
@@ -285,13 +283,13 @@ class TestX86(LLtypeBackendTest):
                         ResOperation(guard, [f], None,
                                      descr=BasicFailDescr()),
                         ResOperation(rop.FINISH, [ConstInt(0)], None,
-                                     descr=BasicFailDescr()),
+                                     descr=BasicFinalDescr()),
                         ]
                     ops[-2].setfailargs([i1])
                     looptoken = JitCellToken()
                     self.cpu.compile_loop([b], ops, looptoken)
                     deadframe = self.cpu.execute_token(looptoken, b.value)
-                    result = self.cpu.get_latest_value_int(deadframe, 0)
+                    result = self.cpu.get_int_value(deadframe, 0)
                     if guard == rop.GUARD_FALSE:
                         assert result == execute(self.cpu, None,
                                                  op, None, b).value
@@ -330,7 +328,7 @@ class TestX86(LLtypeBackendTest):
                         ResOperation(guard, [res], None,
                                      descr=BasicFailDescr()),
                         ResOperation(rop.FINISH, [ConstInt(0)], None,
-                                     descr=BasicFailDescr()),
+                                     descr=BasicFinalDescr()),
                         ]
                     ops[-2].setfailargs([i1])
                     inputargs = [i for i in (a, b) if isinstance(i, Box)]
@@ -338,7 +336,7 @@ class TestX86(LLtypeBackendTest):
                     self.cpu.compile_loop(inputargs, ops, looptoken)
                     inputvalues = [box.value for box in inputargs]
                     deadframe = self.cpu.execute_token(looptoken, *inputvalues)
-                    result = self.cpu.get_latest_value_int(deadframe, 0)
+                    result = self.cpu.get_int_value(deadframe, 0)
                     expected = execute(self.cpu, None, op, None, a, b).value
                     if guard == rop.GUARD_FALSE:
                         assert result == expected
@@ -382,7 +380,7 @@ class TestX86(LLtypeBackendTest):
         self.cpu.compile_loop(inputargs, operations, looptoken)
         name, loopaddress, loopsize = agent.functions[0]
         assert name == "Loop # 17: hello (loop counter 0)"
-        assert loopaddress <= looptoken._x86_loop_code
+        assert loopaddress <= looptoken._ll_loop_code
         assert loopsize >= 40 # randomish number
 
         i1b = BoxInt()
@@ -406,7 +404,7 @@ class TestX86(LLtypeBackendTest):
         deadframe = self.cpu.execute_token(looptoken, 2)
         fail = self.cpu.get_latest_descr(deadframe)
         assert fail.identifier == 2
-        res = self.cpu.get_latest_value_int(deadframe, 0)
+        res = self.cpu.get_int_value(deadframe, 0)
         assert res == 20
 
     def test_ops_offset(self):
@@ -502,7 +500,7 @@ class TestX86(LLtypeBackendTest):
             ResOperation(rop.GUARD_FALSE, [i3], None,
                          descr=BasicFailDescr(0)),
             ResOperation(rop.FINISH, [], None,
-                         descr=BasicFailDescr(1))
+                         descr=BasicFinalDescr(1))
             ]
             ops[-2].setfailargs([i3, i4, i5, i6])
             ops[1].setfailargs([])
@@ -515,10 +513,10 @@ class TestX86(LLtypeBackendTest):
             deadframe = self.cpu.execute_token(looptoken, 123450, 123408)
             fail = self.cpu.get_latest_descr(deadframe)
             assert fail.identifier == 0
-            assert self.cpu.get_latest_value_int(deadframe, 0) == 42
-            assert self.cpu.get_latest_value_int(deadframe, 1) == 42
-            assert self.cpu.get_latest_value_int(deadframe, 2) == 42
-            assert self.cpu.get_latest_value_int(deadframe, 3) == 42
+            assert self.cpu.get_int_value(deadframe, 0) == 42
+            assert self.cpu.get_int_value(deadframe, 1) == 42
+            assert self.cpu.get_int_value(deadframe, 2) == 42
+            assert self.cpu.get_int_value(deadframe, 3) == 42
 
 
 class TestDebuggingAssembler(object):
@@ -567,21 +565,3 @@ class TestDebuggingAssembler(object):
         l1 = ('debug_print', preambletoken.repr_of_descr() + ':1')
         l2 = ('debug_print', targettoken.repr_of_descr() + ':9')
         assert ('jit-backend-counts', [l0, l1, l2]) in dlog
-
-    def test_debugger_checksum(self):
-        loop = """
-        [i0]
-        label(i0, descr=targettoken)
-        debug_merge_point('xyz', 0, 0)
-        i1 = int_add(i0, 1)
-        i2 = int_ge(i1, 10)
-        guard_false(i2) []
-        jump(i1, descr=targettoken)
-        """
-        ops = parse(loop, namespace={'targettoken': TargetToken()})
-        self.cpu.assembler.set_debug(True)
-        looptoken = JitCellToken()
-        self.cpu.compile_loop(ops.inputargs, ops.operations, looptoken)
-        self.cpu.execute_token(looptoken, 0)
-        assert looptoken._x86_debug_checksum == sum([op.getopnum()
-                                                     for op in ops.operations])

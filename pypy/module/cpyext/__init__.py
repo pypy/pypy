@@ -1,8 +1,6 @@
 from pypy.interpreter.mixedmodule import MixedModule
-from rpython.rlib.objectmodel import we_are_translated
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext import api
-from rpython.rtyper.lltypesystem import rffi, lltype
 
 class Module(MixedModule):
     interpleveldefs = {
@@ -40,7 +38,6 @@ import pypy.module.cpyext.bytesobject
 import pypy.module.cpyext.tupleobject
 import pypy.module.cpyext.setobject
 import pypy.module.cpyext.dictobject
-import pypy.module.cpyext.intobject
 import pypy.module.cpyext.longobject
 import pypy.module.cpyext.listobject
 import pypy.module.cpyext.sequence

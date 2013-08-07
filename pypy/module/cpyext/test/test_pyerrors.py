@@ -69,6 +69,7 @@ class TestExceptions(BaseApiTest):
     def test_Warning(self, space, api, capfd):
         message = rffi.str2charp("this is a warning")
         api.PyErr_WarnEx(None, message, 1)
+        space.call_method(space.sys.get('stderr'), "flush")
         out, err = capfd.readouterr()
         assert ": UserWarning: this is a warning" in err
         rffi.free_charp(message)
@@ -76,6 +77,7 @@ class TestExceptions(BaseApiTest):
     def test_print_err(self, space, api, capfd):
         api.PyErr_SetObject(space.w_Exception, space.wrap("cpyext is cool"))
         api.PyErr_Print()
+        space.call_method(space.sys.get('stderr'), "flush")
         out, err = capfd.readouterr()
         assert "cpyext is cool" in err
         assert not api.PyErr_Occurred()
@@ -84,6 +86,7 @@ class TestExceptions(BaseApiTest):
         api.PyErr_SetObject(space.w_ValueError, space.wrap("message"))
         w_where = space.wrap("location")
         api.PyErr_WriteUnraisable(w_where)
+        space.call_method(space.sys.get('stderr'), "flush")
         out, err = capfd.readouterr()
         assert "Exception ValueError: 'message' in 'location' ignored" == err.strip()
 
@@ -219,8 +222,8 @@ class AppTestFetch(AppTestCpythonExtensionBase):
              Py_RETURN_NONE;
              '''),
             ])
-        import sys, StringIO
-        sys.stderr = StringIO.StringIO()
+        import io, sys
+        sys.stderr = io.StringIO()
         try:
             1 / 0
         except ZeroDivisionError:

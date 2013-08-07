@@ -184,7 +184,7 @@ class SimpleType(_CDataMeta):
 
         elif tp == 'u':
             def _setvalue(self, val):
-                if isinstance(val, str):
+                if isinstance(val, bytes):
                     val = val.decode(ConvMode.encoding, ConvMode.errors)
                 # possible if we use 'ignore'
                 if val:
@@ -195,7 +195,7 @@ class SimpleType(_CDataMeta):
 
         elif tp == 'c':
             def _setvalue(self, val):
-                if isinstance(val, unicode):
+                if isinstance(val, str):
                     val = val.encode(ConvMode.encoding, ConvMode.errors)
                 if val:
                     self._buffer[0] = val
@@ -230,8 +230,8 @@ class SimpleType(_CDataMeta):
                     return _rawffi.wcharp2rawunicode(addr, size)
 
             def _setvalue(self, value):
-                if isinstance(value, basestring):
-                    if isinstance(value, str):
+                if isinstance(value, (str, bytes)):
+                    if isinstance(value, bytes):
                         value = value.decode(ConvMode.encoding,
                                              ConvMode.errors)
                     array = _rawffi.Array('u')(len(value)+1, value)

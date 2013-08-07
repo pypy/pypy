@@ -1,6 +1,4 @@
-# Package initialisation
 from pypy.interpreter.mixedmodule import MixedModule
-import sys
 
 class Module(MixedModule):
 
@@ -31,10 +29,10 @@ class Module(MixedModule):
             getdefaulttimeout setdefaulttimeout
             """.split():
 
-            if name in ('inet_pton', 'inet_ntop', 'socketpair',
-                        ) and not hasattr(rsocket, name):
+            if (name in ('inet_pton', 'inet_ntop', 'socketpair') and
+                not hasattr(rsocket, name)):
                 continue
-            
+
             Module.interpleveldefs[name] = 'interp_func.%s' % (name, )
 
         for constant, value in rsocket.constants.iteritems():

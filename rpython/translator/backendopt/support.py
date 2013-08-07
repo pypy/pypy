@@ -59,18 +59,18 @@ def find_backedges(graph, block=None, seen=None, seeing=None):
     if block is None:
         block = graph.startblock
     if seen is None:
-        seen = {block: None}
+        seen = set([block])
     if seeing is None:
-        seeing = {}
-    seeing[block] = True
+        seeing = set()
+    seeing.add(block)
     for link in block.exits:
         if link.target in seen:
             if link.target in seeing:
                 backedges.append(link)
         else:
-            seen[link.target] = None
+            seen.add(link.target)
             backedges.extend(find_backedges(graph, link.target, seen, seeing))
-    del seeing[block]
+    seeing.remove(block)
     return backedges
 
 def compute_reachability(graph):

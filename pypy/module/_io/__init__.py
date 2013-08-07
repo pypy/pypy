@@ -1,14 +1,15 @@
 from pypy.interpreter.mixedmodule import MixedModule
-import sys
 
 class Module(MixedModule):
 
     appleveldefs = {
-        }
+    }
 
     interpleveldefs = {
         'DEFAULT_BUFFER_SIZE': 'space.wrap(interp_iobase.DEFAULT_BUFFER_SIZE)',
         'BlockingIOError': 'interp_io.W_BlockingIOError',
+        'UnsupportedOperation':
+            'space.fromcache(interp_io.Cache).w_unsupportedoperation',
         '_IOBase': 'interp_iobase.W_IOBase',
         '_RawIOBase': 'interp_iobase.W_RawIOBase',
         '_BufferedIOBase': 'interp_bufferedio.W_BufferedIOBase',
@@ -25,20 +26,9 @@ class Module(MixedModule):
 
         'open': 'interp_io.open',
         'IncrementalNewlineDecoder': 'interp_textio.W_IncrementalNewlineDecoder',
-        }
-
-    def init(self, space):
-        MixedModule.init(self, space)
-        w_UnsupportedOperation = space.call_function(
-            space.w_type,
-            space.wrap('UnsupportedOperation'),
-            space.newtuple([space.w_ValueError, space.w_IOError]),
-            space.newdict())
-        space.setattr(self, space.wrap('UnsupportedOperation'),
-                      w_UnsupportedOperation)
+    }
 
     def shutdown(self, space):
         # at shutdown, flush all open streams.  Ignore I/O errors.
-        from pypy.module._io.interp_iobase import get_autoflushher
-        get_autoflushher(space).flush_all(space)
-
+        from pypy.module._io.interp_iobase import get_autoflusher
+        get_autoflusher(space).flush_all(space)

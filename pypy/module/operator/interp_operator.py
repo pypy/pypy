@@ -54,7 +54,9 @@ def gt(space, w_a, w_b):
     'gt(a, b) -- Same as a>b.'
     return space.gt(w_a, w_b)
 
-# indexOf
+def indexOf(space, w_a, w_b):
+    'indexOf(a, b) -- Return the first index of b in a.'
+    return space.sequence_index(w_a, w_b)
 
 def inv(space, w_obj,):
     'inv(a) -- Same as ~a.'

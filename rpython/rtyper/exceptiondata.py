@@ -1,6 +1,6 @@
-from rpython.rtyper import rclass
 from rpython.annotator import model as annmodel
 from rpython.rlib import rstackovf
+from rpython.rtyper import rclass
 
 
 # the exceptions that can be implicitely raised by some operations
@@ -38,16 +38,16 @@ class AbstractExceptionData:
         r_instance = rclass.getinstancerepr(rtyper, None)
         r_type.setup()
         r_instance.setup()
-        self.r_exception_type  = r_type
+        self.r_exception_type = r_type
         self.r_exception_value = r_instance
-        self.lltype_of_exception_type  = r_type.lowleveltype
+        self.lltype_of_exception_type = r_type.lowleveltype
         self.lltype_of_exception_value = r_instance.lowleveltype
         self.rtyper = rtyper
 
     def make_standard_exceptions(self, rtyper):
         bk = rtyper.annotator.bookkeeper
         for cls in self.standardexceptions:
-            classdef = bk.getuniqueclassdef(cls)
+            bk.getuniqueclassdef(cls)
 
     def finish(self, rtyper):
         bk = rtyper.annotator.bookkeeper

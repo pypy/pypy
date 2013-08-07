@@ -1,0 +1,35 @@
+TODO for the python3 test suite:
+
+* test_memoryview
+   Needs bytes/str changes. Probably easy. Work for this has begun on
+   py3k-memoryview (by mjacob) https://bugs.pypy.org/issue1542
+
+own-tests:
+
+* module/test_lib_pypy
+  These crash the buildbots (via SyntaxErrors): others were really
+  made to run under Python 2.x and so simply fail
+
+* module.cpyext.test.test_structseq test_StructSeq
+  structseq now subclasses tuple on py3, which breaks how
+  BaseCpyTypeDescr.realize allocates it
+
+
+antocuni's older TODO:
+
+* run coverage against the parser/astbuilder/astcompiler: it's probably full of
+dead code because the grammar changed
+
+* re-enable strategies https://bugs.pypy.org/issue1540 :
+ - re-enable IntDictStrategy
+ - re-enable StdObjSpace.listview_str
+ - re-enable the kwargs dict strategy in dictmultiobject.py
+ - re-enable view_as_kwargs
+
+* unskip numpypy tests in module/test_lib_pypy/numpypy/
+
+* optimize W_UnicodeObject, right now it stores both an unicode and an utf8
+version of the same string
+
+* re-enable BUILD_LIST_FROM_ARG: see the comment in astcompiler/codegen.py in
+ast.ListComp.build_container

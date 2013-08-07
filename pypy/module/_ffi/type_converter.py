@@ -1,7 +1,6 @@
 from rpython.rlib import libffi
 from rpython.rlib import jit
-from rpython.rlib.rarithmetic import intmask, r_uint
-from rpython.rtyper.lltypesystem import rffi
+from rpython.rlib.rarithmetic import r_uint
 from pypy.interpreter.error import operationerrfmt, OperationError
 from pypy.module._rawffi.structure import W_StructureInstance, W_Structure
 from pypy.module._ffi.interp_ffitype import app_types
@@ -307,7 +306,7 @@ class ToAppLevelConverter(object):
     def get_unsigned_which_fits_into_a_signed(self, w_ffitype):
         """
         Return type: lltype.Signed.
-        
+
         We return Signed even if the input type is unsigned, because this way
         we get an app-level <int> instead of a <long>.
         """

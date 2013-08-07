@@ -1,5 +1,5 @@
 import py
-import sys
+import sys, subprocess
 
 from rpython.translator.platform import host
 from rpython.tool.udir import udir
@@ -99,6 +99,7 @@ class ExternalCompilationInfo(object):
             return platform
         return self._platform
 
+    @classmethod
     def from_compiler_flags(cls, flags):
         """Returns a new ExternalCompilationInfo instance by parsing
         the string 'flags', which is in the typical Unix compiler flags
@@ -124,8 +125,8 @@ class ExternalCompilationInfo(object):
         return cls(pre_include_bits=pre_include_bits,
                    include_dirs=include_dirs,
                    compile_extra=compile_extra)
-    from_compiler_flags = classmethod(from_compiler_flags)
 
+    @classmethod
     def from_linker_flags(cls, flags):
         """Returns a new ExternalCompilationInfo instance by parsing
         the string 'flags', which is in the typical Unix linker flags
@@ -146,8 +147,8 @@ class ExternalCompilationInfo(object):
         return cls(libraries=libraries,
                    library_dirs=library_dirs,
                    link_extra=link_extra)
-    from_linker_flags = classmethod(from_linker_flags)
 
+    @classmethod
     def from_config_tool(cls, execonfigtool):
         """Returns a new ExternalCompilationInfo instance by executing
         the 'execonfigtool' with --cflags and --libs arguments."""
@@ -156,12 +157,29 @@ class ExternalCompilationInfo(object):
             raise ImportError("cannot find %r" % (execonfigtool,))
             # we raise ImportError to be nice to the pypy.config.pypyoption
             # logic of skipping modules depending on non-installed libs
-        cflags = py.process.cmdexec('"%s" --cflags' % (str(path),))
+        return cls._run_config_tool('"%s"' % (str(path),))
+
+    @classmethod
+    def from_pkg_config(cls, pkgname):
+        """Returns a new ExternalCompilationInfo instance by executing
+        'pkg-config <pkgname>' with --cflags and --libs arguments."""
+        assert isinstance(pkgname, str)
+        try:
+            popen = subprocess.Popen(['pkg-config', pkgname, '--exists'])
+            result = popen.wait()
+        except OSError:
+            result = -1
+        if result != 0:
+            raise ImportError("failed: 'pkg-config %s --exists'" % pkgname)
+        return cls._run_config_tool('pkg-config "%s"' % pkgname)
+
+    @classmethod
+    def _run_config_tool(cls, command):
+        cflags = py.process.cmdexec('%s --cflags' % command)
         eci1 = cls.from_compiler_flags(cflags)
-        libs = py.process.cmdexec('"%s" --libs' % (str(path),))
+        libs = py.process.cmdexec('%s --libs' % command)
         eci2 = cls.from_linker_flags(libs)
         return eci1.merge(eci2)
-    from_config_tool = classmethod(from_config_tool)
 
     def _value(self):
         return tuple([getattr(self, x)

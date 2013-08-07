@@ -19,7 +19,7 @@ import py.test
 
 class BaseArrayTests:
 
-    
+
     def test_ctor(self):
         assert len(self.array('i')) == 0
 
@@ -373,7 +373,6 @@ class BaseArrayTests:
 
         a = self.array('i', [0, 0, 0])
         assert a.tobytes() == b'\x00' * 3 * a.itemsize
-
         s = self.array('i', [1, 2, 3]).tobytes()
         assert 0x00 in s
         assert 0x01 in s
@@ -484,7 +483,7 @@ class BaseArrayTests:
                 return True
         class incomparable(object):
             pass
-        
+
         for v1, v2, tt in (([1, 2, 3], [1, 3, 2], 'bhilBHIL'),
                          ('abc', 'acb', 'u')):
             for t in tt:
@@ -533,6 +532,15 @@ class BaseArrayTests:
                 assert (b >= a) is True
                 assert (a >= c) is False
                 assert (c >= a) is True
+
+        a = self.array('i', [-1, 0, 1, 42, 0x7f])
+        assert not a == 2*a
+        assert a != 2*a
+        assert a < 2*a
+        assert a <= 2*a
+        assert not a > 2*a
+        assert not a >= 2*a
+
 
     def test_reduce(self):
         import pickle
@@ -634,14 +642,14 @@ class BaseArrayTests:
         raises(TypeError, "a * 'hi'")
         raises(TypeError, "'hi' * a")
         raises(TypeError, "a *= 'hi'")
-        
+
         class mulable(object):
             def __mul__(self, other):
                 return "mul"
 
             def __rmul__(self, other):
                 return "rmul"
-        
+
         assert mulable() * self.array('i') == 'mul'
         assert self.array('i') * mulable() == 'rmul'
 
@@ -753,7 +761,7 @@ class BaseArrayTests:
 
             def __getitem__(self, i):
                 return array.__getitem__(self, self._index(i))
-            
+
             def __setitem__(self, i, val):
                 return array.__setitem__(self, self._index(i), val)
 
@@ -767,7 +775,7 @@ class BaseArrayTests:
 
         assert img[3, 25] == 3 * 9
 
-                
+
     def test_override_from(self):
         class mya(self.array):
             def fromlist(self, lst):
@@ -836,7 +844,7 @@ class BaseArrayTests:
     def test_subclass_del(self):
         import array, gc, weakref
         l = []
-        
+
         class A(array.array):
             pass
 
@@ -847,6 +855,19 @@ class BaseArrayTests:
         gc.collect(); gc.collect()   # XXX needs two of them right now...
         assert l
         assert l[0] is None or len(l[0]) == 0
+
+    def test_bytearray(self):
+        a = self.array('u', 'hi')
+        b = self.array('u')
+        b.frombytes(bytearray(a.tobytes()))
+        assert a == b
+        assert self.array('u', bytearray(a.tobytes())) == a
+
+    def test_repr(self):
+        s = '\x00="\'a\\b\x80\xff\u0000\u0001\u1234'
+        a = self.array('u', s)
+        assert repr(a) == "array('u', {!r})".format(s)
+        assert eval(repr(a), {'array': self.array}) == a
 
 
 class DontTestCPythonsOwnArray(BaseArrayTests):

@@ -40,7 +40,7 @@ def calculate_slice_strides(shape, start, strides, backstrides, chunks):
     rshape += shape[s:]
     return rshape, rstart, rstrides, rbackstrides
 
-def calculate_broadcast_strides(strides, backstrides, orig_shape, res_shape):
+def calculate_broadcast_strides(strides, backstrides, orig_shape, res_shape, backwards=False):
     rstrides = []
     rbackstrides = []
     for i in range(len(orig_shape)):
@@ -50,8 +50,12 @@ def calculate_broadcast_strides(strides, backstrides, orig_shape, res_shape):
         else:
             rstrides.append(strides[i])
             rbackstrides.append(backstrides[i])
-    rstrides = [0] * (len(res_shape) - len(orig_shape)) + rstrides
-    rbackstrides = [0] * (len(res_shape) - len(orig_shape)) + rbackstrides
+    if backwards:
+        rstrides = rstrides + [0] * (len(res_shape) - len(orig_shape))  
+        rbackstrides = rbackstrides + [0] * (len(res_shape) - len(orig_shape)) 
+    else:
+        rstrides = [0] * (len(res_shape) - len(orig_shape)) + rstrides
+        rbackstrides = [0] * (len(res_shape) - len(orig_shape)) + rbackstrides
     return rstrides, rbackstrides
 
 def is_single_elem(space, w_elem, is_rec_type):

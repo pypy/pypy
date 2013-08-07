@@ -13,12 +13,6 @@ from rpython.rlib.rstruct import ieee
 from rpython.rlib.rstruct.error import StructError, StructOverflowError
 from rpython.rlib.unroll import unrolling_iterable
 
-# In the CPython struct module, pack() unconsistently accepts inputs
-# that are out-of-range or floats instead of ints.  Should we emulate
-# this?  Let's use a flag for now:
-
-PACK_ACCEPTS_BROKEN_INPUT = True
-
 # ____________________________________________________________
 
 def pack_pad(fmtiter, count):
@@ -100,10 +94,7 @@ def min_max_acc_method(size, signed):
     return min, max, accept_method
 
 def make_int_packer(size, signed, cpython_checks_range, _memo={}):
-    if cpython_checks_range:
-        check_range = True
-    else:
-        check_range = not PACK_ACCEPTS_BROKEN_INPUT
+    check_range = True
     key = (size, signed, check_range)
     try:
         return _memo[key]

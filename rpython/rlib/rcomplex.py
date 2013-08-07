@@ -1,5 +1,5 @@
 import math
-from math import fabs, pi, e
+from math import fabs
 from rpython.rlib.rfloat import copysign, asinh, log1p, isfinite, isinf, isnan
 from rpython.rlib.constant import DBL_MIN, CM_SCALE_UP, CM_SCALE_DOWN
 from rpython.rlib.constant import CM_LARGE_DOUBLE, DBL_MANT_DIG

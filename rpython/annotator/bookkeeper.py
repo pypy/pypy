@@ -7,25 +7,23 @@ from __future__ import absolute_import
 import sys, types, inspect, weakref
 
 from rpython.flowspace.model import Constant
-from rpython.annotator.model import SomeString, SomeChar, SomeFloat, \
-     SomePtr, unionof, SomeInstance, SomeDict, SomeBuiltin, SomePBC, \
-     SomeInteger, SomeOOInstance, SomeOOObject, TLS, SomeAddress, \
-     SomeUnicodeCodePoint, SomeOOStaticMeth, s_None, s_ImpossibleValue, \
-     SomeLLADTMeth, SomeBool, SomeTuple, SomeOOClass, SomeImpossibleValue, \
-     SomeUnicodeString, SomeList, SomeObject, HarmlesslyBlocked, \
-     SomeWeakRef, lltype_to_annotation, SomeType, SomeByteArray
+from rpython.annotator.model import (
+    SomeString, SomeChar, SomeFloat, SomePtr, unionof, SomeInstance, SomeDict,
+    SomeBuiltin, SomePBC, SomeInteger, TLS, SomeAddress, SomeUnicodeCodePoint,
+    s_None, s_ImpossibleValue, SomeLLADTMeth, SomeBool, SomeTuple,
+    SomeImpossibleValue, SomeUnicodeString, SomeList, HarmlesslyBlocked,
+    SomeWeakRef, lltype_to_annotation, SomeType, SomeByteArray)
 from rpython.annotator.classdef import InstanceSource, ClassDef
 from rpython.annotator.listdef import ListDef, ListItem
 from rpython.annotator.dictdef import DictDef
 from rpython.annotator import description
 from rpython.annotator.signature import annotationoftype
-from rpython.flowspace.argument import ArgumentsForTranslation
+from rpython.annotator.argument import ArgumentsForTranslation, RPythonCallsSpace
 from rpython.rlib.objectmodel import r_dict, Symbolic
 from rpython.tool.algo.unionfind import UnionFind
 from rpython.rtyper.lltypesystem import lltype, llmemory
-from rpython.rtyper.ootypesystem import ootype
 from rpython.rtyper import extregistry
-from rpython.tool.identity_dict import identity_dict
+
 
 class Stats(object):
 
@@ -235,7 +233,7 @@ class Bookkeeper(object):
                 if s_value_or_def in seen:
                     return
                 seen.add(s_value_or_def)
-                for attr in s_value_or_def.attrs.values():
+                for attr in s_value_or_def.attrs.itervalues():
                     s_attr = attr.s_value
                     check_no_flags(s_attr)
             elif isinstance(s_value_or_def, ListItem):
@@ -426,23 +424,13 @@ class Bookkeeper(object):
         elif ishashable(x) and x in BUILTIN_ANALYZERS:
             _module = getattr(x,"__module__","unknown")
             result = SomeBuiltin(BUILTIN_ANALYZERS[x], methodname="%s.%s" % (_module, x.__name__))
-        elif extregistry.is_registered(x, self.policy):
-            entry = extregistry.lookup(x, self.policy)
+        elif extregistry.is_registered(x):
+            entry = extregistry.lookup(x)
             result = entry.compute_annotation_bk(self)
         elif isinstance(x, lltype._ptr):
             result = SomePtr(lltype.typeOf(x))
         elif isinstance(x, llmemory.fakeaddress):
             result = SomeAddress()
-        elif isinstance(x, ootype._static_meth):
-            result = SomeOOStaticMeth(ootype.typeOf(x))
-        elif isinstance(x, ootype._class):
-            result = SomeOOClass(x._INSTANCE)   # NB. can be None
-        elif isinstance(x, ootype.instance_impl): # XXX
-            result = SomeOOInstance(ootype.typeOf(x))
-        elif isinstance(x, (ootype._record, ootype._string)):
-            result = SomeOOInstance(ootype.typeOf(x))
-        elif isinstance(x, (ootype._object)):
-            result = SomeOOObject()
         elif tp is type:
             if (x is type(None) or      # add cases here if needed
                 x.__module__ == 'rpython.rtyper.lltypesystem.lltype'):
@@ -693,6 +681,20 @@ class Bookkeeper(object):
             if emulate_enter:
                 self.leave()
 
+    def _find_current_op(self, opname=None, arity=None, pos=None, s_type=None):
+        """ Find operation that is currently being annotated. Do some
+        sanity checks to see whether the correct op was found."""
+        # XXX XXX HACK HACK HACK
+        fn, block, i = self.position_key
+        op = block.operations[i]
+        if opname is not None:
+            assert op.opname == opname or op.opname in opname
+        if arity is not None:
+            assert len(op.args) == arity
+        if pos is not None:
+            assert self.annotator.binding(op.args[pos]) == s_type
+        return op
+
     def build_args(self, op, args_s):
         space = RPythonCallsSpace()
         if op == "simple_call":
@@ -734,51 +736,6 @@ def ishashable(x):
         return False
     else:
         return True
-
-# for parsing call arguments
-class RPythonCallsSpace(object):
-    """Pseudo Object Space providing almost no real operation.
-    For the Arguments class: if it really needs other operations, it means
-    that the call pattern is too complex for R-Python.
-    """
-    w_tuple = SomeTuple
-    def newtuple(self, items_s):
-        if len(items_s) == 1 and items_s[0] is Ellipsis:
-            res = SomeObject()   # hack to get a SomeObject as the *arg
-            res.from_ellipsis = True
-            return res
-        else:
-            return SomeTuple(items_s)
-
-    def newdict(self):
-        raise CallPatternTooComplex, "'**' argument"
-
-    def unpackiterable(self, s_obj, expected_length=None):
-        if isinstance(s_obj, SomeTuple):
-            if (expected_length is not None and
-                expected_length != len(s_obj.items)):
-                raise ValueError
-            return list(s_obj.items)
-        if (s_obj.__class__ is SomeObject and
-            getattr(s_obj, 'from_ellipsis', False)):    # see newtuple()
-            return [Ellipsis]
-        raise CallPatternTooComplex, "'*' argument must be SomeTuple"
-    fixedview = unpackiterable
-    listview  = unpackiterable
-
-    def is_w(self, one, other):
-        return one is other
-
-    def type(self, item):
-        return type(item)
-
-    def is_true(self, s_tup):
-        assert isinstance(s_tup, SomeTuple)
-        return bool(s_tup.items)
-
-class CallPatternTooComplex(Exception):
-    pass
-
 # get current bookkeeper
 
 def getbookkeeper():
@@ -789,9 +746,7 @@ def getbookkeeper():
     except AttributeError:
         return None
 
-
 def delayed_imports():
     # import ordering hack
     global BUILTIN_ANALYZERS
     from rpython.annotator.builtin import BUILTIN_ANALYZERS
-

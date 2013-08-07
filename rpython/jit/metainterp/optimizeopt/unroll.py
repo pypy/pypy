@@ -180,7 +180,7 @@ class UnrollOptimizer(Optimization):
 
         if self.boxes_created_this_iteration is not None:
             for box in self.inputargs:
-                self.boxes_created_this_iteration[box] = True
+                self.boxes_created_this_iteration[box] = None
 
         short_boxes = ShortBoxes(self.optimizer, inputargs,
                                  self.boxes_created_this_iteration)
@@ -241,7 +241,7 @@ class UnrollOptimizer(Optimization):
         for box in self.inputargs:
             if box in seen:
                 continue
-            seen[box] = True
+            seen[box] = None
             preamble_value = exported_state.exported_values[box]
             value = self.optimizer.getvalue(box)
             value.import_from(preamble_value, self.optimizer)
@@ -291,7 +291,7 @@ class UnrollOptimizer(Optimization):
         i = 0
         while i < len(newoperations):
             op = newoperations[i]
-            self.boxes_created_this_iteration[op.result] = True
+            self.boxes_created_this_iteration[op.result] = None
             args = op.getarglist()
             if op.is_guard():
                 args = args + op.getfailargs()
@@ -363,7 +363,7 @@ class UnrollOptimizer(Optimization):
             else:
                 op = newoperations[i]
 
-                self.boxes_created_this_iteration[op.result] = True
+                self.boxes_created_this_iteration[op.result] = None
                 args = op.getarglist()
                 if op.is_guard():
                     args = args + op.getfailargs()
@@ -471,7 +471,7 @@ class UnrollOptimizer(Optimization):
         #                self.optimizer.loop.logops.repr_of_resop(op))
 
         optimizer.send_extra_operation(op)
-        seen[op.result] = True
+        seen[op.result] = None
         if op.is_ovf():
             guard = ResOperation(rop.GUARD_NO_OVERFLOW, [], None)
             optimizer.send_extra_operation(guard)
@@ -498,7 +498,7 @@ class UnrollOptimizer(Optimization):
             value_guards = []
 
         self.short.append(op)
-        self.short_seen[op.result] = True
+        self.short_seen[op.result] = None
         if emit and self.short_inliner:
             newop = self.short_inliner.inline_op(op)
             self.optimizer.send_extra_operation(newop)

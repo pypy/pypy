@@ -9,7 +9,7 @@ from pypy.objspace.std.multimethod import FailedToImplementArgs
 from rpython.rlib.rarithmetic import r_longlong, r_int, r_uint
 from rpython.rlib.rarithmetic import intmask, LONGLONG_BIT
 from rpython.rlib.rbigint import rbigint
-from pypy.objspace.std.longobject import W_AbstractIntObject, W_LongObject
+from pypy.objspace.std.longobject import W_AbstractLongObject, W_LongObject
 from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.interpreter.error import OperationError
@@ -17,7 +17,7 @@ from pypy.interpreter.error import OperationError
 LONGLONG_MIN = r_longlong((-1) << (LONGLONG_BIT-1))
 
 
-class W_SmallLongObject(W_AbstractIntObject):
+class W_SmallLongObject(W_AbstractLongObject):
     from pypy.objspace.std.longtype import long_typedef as typedef
     _immutable_fields_ = ['longlong']
 
@@ -35,6 +35,9 @@ class W_SmallLongObject(W_AbstractIntObject):
 
     def asbigint(w_self):
         return rbigint.fromrarith_int(w_self.longlong)
+
+    def longval(self):
+        return self.longlong
 
     def __repr__(w_self):
         return '<W_SmallLongObject(%d)>' % w_self.longlong
@@ -63,6 +66,19 @@ class W_SmallLongObject(W_AbstractIntObject):
     def bigint_w(w_self, space):
         return w_self.asbigint()
 
+    def float_w(self, space):
+        return float(self.longlong)
+
+    def int(self, space):
+        # XXX: this shouldn't need an ovfcheck?
+        a = self.longlong
+        b = intmask(a)
+        if b == a:
+            return space.newint(b)
+        else:
+            return self
+
+        
 registerimplementation(W_SmallLongObject)
 
 # ____________________________________________________________
@@ -107,15 +123,6 @@ def delegate_SmallLong2Float(space, w_small):
 
 def delegate_SmallLong2Complex(space, w_small):
     return space.newcomplex(float(w_small.longlong), 0.0)
-
-
-def int__SmallLong(space, w_value):
-    a = w_value.longlong
-    b = intmask(a)
-    if b == a:
-        return space.newint(b)
-    else:
-        return w_value
 
 def index__SmallLong(space, w_value):
     return w_value

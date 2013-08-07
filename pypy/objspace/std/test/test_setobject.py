@@ -13,9 +13,6 @@ import py.test
 from pypy.objspace.std.setobject import W_SetObject, W_FrozensetObject, IntegerSetStrategy
 from pypy.objspace.std.setobject import _initialize_set
 from pypy.objspace.std.setobject import newset
-from pypy.objspace.std.setobject import and__Set_Set
-from pypy.objspace.std.setobject import set_intersection__Set
-from pypy.objspace.std.setobject import eq__Set_Set
 from pypy.objspace.std.listobject import W_ListObject
 
 letters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
@@ -37,11 +34,11 @@ class TestW_SetObject:
         t0 = W_SetObject(self.space)
         _initialize_set(self.space, t0, self.otherword)
         t1 = W_FrozensetObject(self.space, self.otherword)
-        r0 = and__Set_Set(self.space, s, t0)
-        r1 = and__Set_Set(self.space, s, t1)
-        assert eq__Set_Set(self.space, r0, r1) == self.true
-        sr = set_intersection__Set(self.space, s, [self.otherword])
-        assert eq__Set_Set(self.space, r0, sr) == self.true
+        r0 = s.descr_and(self.space, t0)
+        r1 = s.descr_and(self.space, t1)
+        assert r0.descr_eq(self.space, r1) == self.true
+        sr = s.descr_intersection(self.space, [self.otherword])
+        assert r0.descr_eq(self.space, sr) == self.true
 
     def test_compare(self):
         s = W_SetObject(self.space)
@@ -69,7 +66,7 @@ class TestW_SetObject:
         b = W_SetObject(self.space)
         _initialize_set(self.space, b, self.space.wrap("abc"))
 
-        result = set_intersection__Set(space, a, [b])
+        result = a.descr_intersection(space, [b])
         assert space.is_true(self.space.eq(result, W_SetObject(space, self.space.wrap("abc"))))
 
         c = W_SetObject(self.space)
@@ -83,10 +80,11 @@ class TestW_SetObject:
         b.get_storage_copy = None
         d.get_storage_copy = None
 
-        result = set_intersection__Set(space, a, [d,c,b])
+        result = a.descr_intersection(space, [d,c,b])
         assert space.is_true(self.space.eq(result, W_SetObject(space, self.space.wrap(""))))
 
     def test_create_set_from_list(self):
+        py.test.py3k_skip("XXX: strategies are currently broken")
         from pypy.objspace.std.setobject import ObjectSetStrategy, UnicodeSetStrategy
         from pypy.objspace.std.floatobject import W_FloatObject
         from pypy.objspace.std.model import W_Object
@@ -109,6 +107,12 @@ class TestW_SetObject:
         assert w_set.strategy is self.space.fromcache(UnicodeSetStrategy)
         assert w_set.strategy.unerase(w_set.sstorage) == {"1":None, "2":None, "3":None}
 
+        w_list = self.space.iter(W_ListObject(self.space, [w(u"1"), w(u"2"), w(u"3")]))
+        w_set = W_SetObject(self.space)
+        _initialize_set(self.space, w_set, w_list)
+        assert w_set.strategy is self.space.fromcache(UnicodeSetStrategy)
+        assert w_set.strategy.unerase(w_set.sstorage) == {u"1":None, u"2":None, u"3":None}
+
         w_list = W_ListObject(self.space, [w("1"), w(2), w("3")])
         w_set = W_SetObject(self.space)
         _initialize_set(self.space, w_set, w_list)
@@ -127,7 +131,7 @@ class TestW_SetObject:
         intstr.get_storage_from_list = tmp_func
 
     def test_listview_str_int_on_set(self):
-        py.test.skip("listview_str not supported for py3k strings (i.e., unicode)")
+        py.test.py3k_skip("XXX: strategies are currently broken")
         w = self.space.wrap
 
         w_a = W_SetObject(self.space)
@@ -380,6 +384,42 @@ class AppTestAppSetTest:
         assert (frozenset('abc') != set('abcd'))
         assert set() != set('abc')
         assert set('abc') != set('abd')
+
+    def test_compare_other(self):
+        class TestRichSetCompare:
+            def __gt__(self, some_set):
+                self.gt_called = True
+                return False
+            def __lt__(self, some_set):
+                self.lt_called = True
+                return False
+            def __ge__(self, some_set):
+                self.ge_called = True
+                return False
+            def __le__(self, some_set):
+                self.le_called = True
+                return False
+
+        # This first tries the builtin rich set comparison, which doesn't know
+        # how to handle the custom object. Upon returning NotImplemented, the
+        # corresponding comparison on the right object is invoked.
+        myset = set(range(3))
+
+        myobj = TestRichSetCompare()
+        myset < myobj
+        assert myobj.gt_called
+
+        myobj = TestRichSetCompare()
+        myset > myobj
+        assert myobj.lt_called
+
+        myobj = TestRichSetCompare()
+        myset <= myobj
+        assert myobj.ge_called
+
+        myobj = TestRichSetCompare()
+        myset >= myobj
+        assert myobj.le_called
 
     def test_libpython_equality(self):
         for thetype in [frozenset, set]:
@@ -963,14 +1003,20 @@ class AppTestAppSetTest:
 
     def test_unicodestrategy(self):
         s = 'àèìòù'
-        myset = {s}
+        myset = set([s])
         s2 = myset.pop()
         assert s2 == s
 
     def test_preserve_identity_of_strings(self):
         s = 'hello'
-        myset = {s}
+        myset = set([s])
         s2 = myset.pop()
         assert s2 == s
         assert s2 is s
         
+    def test_intersect_frozenset_set(self):
+        # worked before
+        assert type(frozenset([2]) & set([1, 2])) is frozenset
+        # did not work before because of an optimization that swaps both
+        # operands when the first set is larger than the second
+        assert type(frozenset([1, 2]) & set([2])) is frozenset

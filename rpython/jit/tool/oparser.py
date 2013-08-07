@@ -49,7 +49,9 @@ class FORCE_SPILL(UnaryOp, PlainResOp):
         return newop
 
 
-def default_fail_descr(model, fail_args=None):
+def default_fail_descr(model, opnum, fail_args=None):
+    if opnum == rop.FINISH:
+        return model.BasicFinalDescr()
     return model.BasicFailDescr()
 
 
@@ -79,18 +81,11 @@ class OpParser(object):
         if self._consts is None:
             return name
         obj = self._consts[name]
-        if self.type_system == 'lltype':
-            if typ == 'ptr':
-                return self.model.ConstPtr(obj)
-            else:
-                assert typ == 'class'
-                return self.model.ConstInt(self.model.ptr_to_int(obj))
+        if typ == 'ptr':
+            return self.model.ConstPtr(obj)
         else:
-            if typ == 'ptr':
-                return self.model.ConstObj(obj)
-            else:
-                assert typ == 'class'
-                return self.model.ConstObj(ootype.cast_to_object(obj))
+            assert typ == 'class'
+            return self.model.ConstInt(self.model.ptr_to_int(obj))
 
     def get_descr(self, poss_descr, allow_invent):
         if poss_descr.startswith('<'):
@@ -104,6 +99,8 @@ class OpParser(object):
                 tt = self.model.TargetToken(token)
                 self._consts[poss_descr] = tt
                 return tt
+            else:
+                raise
 
     def box_for_var(self, elem):
         try:
@@ -163,11 +160,9 @@ class OpParser(object):
                 return self.model.ConstFloat(self.model.convert_to_floatstorage(arg))
             if (arg.startswith('"') or arg.startswith("'") or
                 arg.startswith('s"')):
-                # XXX ootype
                 info = arg[1:].strip("'\"")
                 return self.model.get_const_ptr_for_string(info)
             if arg.startswith('u"'):
-                # XXX ootype
                 info = arg[1:].strip("'\"")
                 return self.model.get_const_ptr_for_unicode(info)
             if arg.startswith('ConstClass('):
@@ -176,10 +171,7 @@ class OpParser(object):
             elif arg == 'None':
                 return None
             elif arg == 'NULL':
-                if self.type_system == 'lltype':
-                    return self.model.ConstPtr(self.model.ConstPtr.value)
-                else:
-                    return self.model.ConstObj(self.model.ConstObj.value)
+                return self.model.ConstPtr(self.model.ConstPtr.value)
             elif arg.startswith('ConstPtr('):
                 name = arg[len('ConstPtr('):-1]
                 return self.get_const(name, 'ptr')
@@ -244,14 +236,14 @@ class OpParser(object):
                                 "Unknown var in fail_args: %s" % arg)
                     fail_args.append(fail_arg)
             if descr is None and self.invent_fail_descr:
-                descr = self.invent_fail_descr(self.model, fail_args)
+                descr = self.invent_fail_descr(self.model, opnum, fail_args)
             if hasattr(descr, '_oparser_uses_descr_of_guard'):
                 descr._oparser_uses_descr_of_guard(self, fail_args)
         else:
             fail_args = None
             if opnum == rop.FINISH:
                 if descr is None and self.invent_fail_descr:
-                    descr = self.invent_fail_descr(self.model, fail_args)
+                    descr = self.invent_fail_descr(self.model, opnum, fail_args)
             elif opnum == rop.JUMP:
                 if descr is None and self.invent_fail_descr:
                     descr = self.original_jitcell_token

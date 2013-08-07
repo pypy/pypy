@@ -65,11 +65,10 @@ class TestFile(BaseApiTest):
         api.PyFile_SetBufSize()
 
     def test_file_writestring(self, space, api, capfd):
-        s = rffi.str2charp("test\n")
-        try:
-            api.PyFile_WriteString(s, space.sys.get("stdout"))
-        finally:
-            rffi.free_charp(s)
+        w_stdout = space.sys.get("stdout")
+        with rffi.scoped_str2charp("test\n") as s:
+            api.PyFile_WriteString(s, w_stdout)
+        space.call_method(w_stdout, "flush")
         out, err = capfd.readouterr()
         out = out.replace('\r\n', '\n')
         assert out == "test\n"
@@ -83,19 +82,3 @@ class TestFile(BaseApiTest):
         out, err = capfd.readouterr()
         out = out.replace('\r\n', '\n')
         assert out == "test\n'test\\n'"
-
-    def test_file_softspace(self, space, api, capfd):
-        w_stdout = space.sys.get("stdout")
-        assert api.PyFile_SoftSpace(w_stdout, 1) == 0
-        assert api.PyFile_SoftSpace(w_stdout, 0) == 1
-        
-        api.PyFile_SoftSpace(w_stdout, 1)
-        w_ns = space.newdict()
-        space.exec_("print 1,", w_ns, w_ns)
-        space.exec_("print 2,", w_ns, w_ns)
-        api.PyFile_SoftSpace(w_stdout, 0)
-        space.exec_("print 3", w_ns, w_ns)
-        space.call_method(w_stdout, "flush")
-        out, err = capfd.readouterr()
-        out = out.replace('\r\n', '\n')
-        assert out == " 1 23\n"

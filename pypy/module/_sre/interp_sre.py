@@ -1,5 +1,5 @@
 import sys
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import GetSetProperty, TypeDef
 from pypy.interpreter.typedef import interp_attrproperty, interp_attrproperty_w
 from pypy.interpreter.typedef import make_weakref_descr
@@ -88,7 +88,7 @@ def searchcontext(space, ctx):
 #
 # SRE_Pattern class
 
-class W_SRE_Pattern(Wrappable):
+class W_SRE_Pattern(W_Root):
     _immutable_fields_ = ["code", "flags", "num_groups", "w_groupindex"]
 
     def cannot_copy_w(self):
@@ -100,24 +100,32 @@ class W_SRE_Pattern(Wrappable):
         """Make a StrMatchContext or a UnicodeMatchContext for searching
         in the given w_string object."""
         space = self.space
-        if pos < 0: pos = 0
-        if endpos < pos: endpos = pos
-        if space.is_true(space.isinstance(w_string, space.w_unicode)):
+        if pos < 0:
+            pos = 0
+        if endpos < pos:
+            endpos = pos
+        if space.isinstance_w(w_string, space.w_unicode):
             unicodestr = space.unicode_w(w_string)
-            if not space.isinstance_w(self.w_pattern, space.w_unicode):
+            if not (space.is_none(self.w_pattern) or
+                    space.isinstance_w(self.w_pattern, space.w_unicode)):
                 raise OperationError(space.w_TypeError, space.wrap(
                         "can't use a string pattern on a bytes-like object"))
-            if pos > len(unicodestr): pos = len(unicodestr)
-            if endpos > len(unicodestr): endpos = len(unicodestr)
+            if pos > len(unicodestr):
+                pos = len(unicodestr)
+            if endpos > len(unicodestr):
+                endpos = len(unicodestr)
             return rsre_core.UnicodeMatchContext(self.code, unicodestr,
                                                  pos, endpos, self.flags)
         else:
             str = space.bufferstr_w(w_string)
-            if space.isinstance_w(self.w_pattern, space.w_unicode):
+            if (not space.is_none(self.w_pattern) and
+                space.isinstance_w(self.w_pattern, space.w_unicode)):
                 raise OperationError(space.w_TypeError, space.wrap(
                         "can't use a bytes pattern on a string-like object"))
-            if pos > len(str): pos = len(str)
-            if endpos > len(str): endpos = len(str)
+            if pos > len(str):
+                pos = len(str)
+            if endpos > len(str):
+                endpos = len(str)
             return rsre_core.StrMatchContext(self.code, str,
                                              pos, endpos, self.flags)
 
@@ -217,7 +225,7 @@ class W_SRE_Pattern(Wrappable):
             w_filter = w_ptemplate
             filter_is_callable = True
         else:
-            if space.is_true(space.isinstance(w_ptemplate, space.w_unicode)):
+            if space.isinstance_w(w_ptemplate, space.w_unicode):
                 filter_as_unicode = space.unicode_w(w_ptemplate)
                 literal = u'\\' not in filter_as_unicode
             else:
@@ -272,7 +280,7 @@ class W_SRE_Pattern(Wrappable):
             sublist_w.append(slice_w(space, ctx, last_pos, ctx.end,
                                      space.w_None))
 
-        if space.is_true(space.isinstance(w_string, space.w_unicode)):
+        if space.isinstance_w(w_string, space.w_unicode):
             w_emptystr = space.wrap(u'')
         else:
             w_emptystr = space.wrapbytes('')
@@ -292,6 +300,10 @@ def SRE_Pattern__new__(space, w_subtype, w_pattern, flags, w_code,
     w_srepat = space.allocate_instance(W_SRE_Pattern, w_subtype)
     srepat = space.interp_w(W_SRE_Pattern, w_srepat)
     srepat.space = space
+    # Type check
+    if not (space.is_none(w_pattern) or
+            space.isinstance_w(w_pattern, space.w_unicode)):
+        space.bufferstr_w(w_pattern)
     srepat.w_pattern = w_pattern      # the original uncompiled pattern
     srepat.flags = flags
     srepat.code = code
@@ -320,12 +332,13 @@ W_SRE_Pattern.typedef = TypeDef(
     groups       = interp_attrproperty('num_groups', W_SRE_Pattern),
     pattern      = interp_attrproperty_w('w_pattern', W_SRE_Pattern),
 )
+W_SRE_Pattern.typedef.acceptable_as_base_class = False
 
 # ____________________________________________________________
 #
 # SRE_Match class
 
-class W_SRE_Match(Wrappable):
+class W_SRE_Match(W_Root):
     flatten_cache = None
 
     def __init__(self, srepat, ctx):
@@ -386,15 +399,15 @@ class W_SRE_Match(Wrappable):
         return space.call_method(w_re, '_expand', space.wrap(self.srepat),
                                  space.wrap(self), w_template)
 
-    @unwrap_spec(w_groupnum = WrappedDefault(0))
+    @unwrap_spec(w_groupnum=WrappedDefault(0))
     def start_w(self, w_groupnum):
         return self.space.wrap(self.do_span(w_groupnum)[0])
 
-    @unwrap_spec(w_groupnum = WrappedDefault(0))
+    @unwrap_spec(w_groupnum=WrappedDefault(0))
     def end_w(self, w_groupnum):
         return self.space.wrap(self.do_span(w_groupnum)[1])
 
-    @unwrap_spec(w_groupnum = WrappedDefault(0))
+    @unwrap_spec(w_groupnum=WrappedDefault(0))
     def span_w(self, w_groupnum):
         start, end = self.do_span(w_groupnum)
         return self.space.newtuple([self.space.wrap(start),
@@ -497,6 +510,7 @@ W_SRE_Match.typedef = TypeDef(
     lastindex    = GetSetProperty(W_SRE_Match.fget_lastindex),
     regs         = GetSetProperty(W_SRE_Match.fget_regs),
 )
+W_SRE_Match.typedef.acceptable_as_base_class = False
 
 # ____________________________________________________________
 #
@@ -504,8 +518,7 @@ W_SRE_Match.typedef = TypeDef(
 # This is mostly an internal class in CPython.
 # Our version is also directly iterable, to make finditer() easier.
 
-class W_SRE_Scanner(Wrappable):
-
+class W_SRE_Scanner(W_Root):
     def __init__(self, pattern, ctx):
         self.space = pattern.space
         self.srepat = pattern
@@ -553,3 +566,4 @@ W_SRE_Scanner.typedef = TypeDef(
     search   = interp2app(W_SRE_Scanner.search_w),
     pattern  = interp_attrproperty('srepat', W_SRE_Scanner),
 )
+W_SRE_Scanner.typedef.acceptable_as_base_class = False

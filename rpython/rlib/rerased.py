@@ -18,13 +18,11 @@ import sys
 from rpython.annotator import model as annmodel
 from rpython.tool.pairtype import pairtype
 from rpython.rtyper.extregistry import ExtRegistryEntry
-from rpython.rtyper.rclass import getinstancerepr
 from rpython.rtyper.rmodel import Repr
-from rpython.rtyper.lltypesystem.lloperation import llop
-from rpython.rtyper.lltypesystem.rclass import OBJECTPTR
 from rpython.rtyper.lltypesystem import lltype, llmemory
-from rpython.rtyper.error import TyperError
+from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib.rarithmetic import is_valid_int
+from rpython.rlib.debug import ll_assert
 
 
 def erase_int(x):
@@ -161,8 +159,6 @@ class Entry(ExtRegistryEntry):
         return hop.args_r[0].rtype_unerase_int(hop, v)
 
 def ll_unerase_int(gcref):
-    from rpython.rtyper.lltypesystem.lloperation import llop
-    from rpython.rlib.debug import ll_assert
     x = llop.cast_ptr_to_int(lltype.Signed, gcref)
     ll_assert((x&1) != 0, "unerased_int(): not an integer")
     return x >> 1
@@ -185,10 +181,7 @@ class SomeErased(annmodel.SomeObject):
         return False # cannot be None, but can contain a None
 
     def rtyper_makerepr(self, rtyper):
-        if rtyper.type_system.name == 'lltypesystem':
-            return ErasedRepr(rtyper)
-        elif rtyper.type_system.name == 'ootypesystem':
-            return OOErasedRepr(rtyper)
+        return ErasedRepr(rtyper)
 
     def rtyper_makekey(self):
         return self.__class__,
@@ -246,51 +239,3 @@ class ErasedRepr(Repr):
             return lltype.nullptr(self.lowleveltype.TO)
         v = r_obj.convert_const(value._x)
         return lltype.cast_opaque_ptr(self.lowleveltype, v)
-
-from rpython.rtyper.ootypesystem import ootype
-
-class OOErasedRepr(Repr):
-    lowleveltype = ootype.Object
-    def __init__(self, rtyper):
-        self.rtyper = rtyper
-
-    def rtype_erase(self, hop, s_obj):
-        hop.exception_cannot_occur()
-        r_obj = self.rtyper.getrepr(s_obj)
-        if r_obj.lowleveltype is lltype.Void:
-            return hop.inputconst(self.lowleveltype,
-                                  ootype.NULL)
-        [v_obj] = hop.inputargs(r_obj)
-        return hop.genop('cast_to_object', [v_obj],
-                         resulttype=self.lowleveltype)
-
-    def rtype_unerase(self, hop, s_obj):
-        [v] = hop.inputargs(hop.args_r[0])
-        return hop.genop('cast_from_object', [v], resulttype=hop.r_result)
-
-    def rtype_unerase_int(self, hop, v):
-        c_one = hop.inputconst(lltype.Signed, 1)
-        hop.exception_cannot_occur()
-        v2 = hop.genop('oounbox_int', [v], resulttype=hop.r_result)
-        return hop.genop('int_rshift', [v2, c_one], resulttype=lltype.Signed)
-
-    def rtype_erase_int(self, hop):
-        [v_value] = hop.inputargs(lltype.Signed)
-        c_one = hop.inputconst(lltype.Signed, 1)
-        hop.exception_is_here()
-        v2 = hop.genop('int_add_ovf', [v_value, v_value],
-                       resulttype = lltype.Signed)
-        v2p1 = hop.genop('int_add', [v2, c_one],
-                         resulttype = lltype.Signed)
-        return hop.genop('oobox_int', [v2p1], resulttype=hop.r_result)
-
-    def convert_const(self, value):
-        if value._identity is _identity_for_ints:
-            return value._x # FIXME: what should we do here?
-        bk = self.rtyper.annotator.bookkeeper
-        s_obj = value._identity.get_input_annotation(bk)
-        r_obj = self.rtyper.getrepr(s_obj)
-        if r_obj.lowleveltype is lltype.Void:
-            return ootype.NULL
-        v = r_obj.convert_const(value._x)
-        return ootype.cast_to_object(v)

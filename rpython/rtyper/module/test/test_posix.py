@@ -1,5 +1,5 @@
 import py
-from rpython.rtyper.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
+from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.tool.udir import udir
 from rpython.rlib.rarithmetic import is_valid_int
 
@@ -10,7 +10,7 @@ def setup_module(module):
     testf = udir.join('test.txt')
     module.path = testf.strpath
 
-class BaseTestPosix(BaseRtypingTest):
+class TestPosix(BaseRtypingTest):
 
     def setup_method(self, meth):
         # prepare/restore the file before each test
@@ -70,7 +70,7 @@ class BaseTestPosix(BaseRtypingTest):
         def f(fi, pos):
             posix.lseek(fi, pos, 0)
         fi = os.open(path, os.O_RDONLY, 0777)
-        func = self.interpret(f, [fi, 5]) 
+        func = self.interpret(f, [fi, 5])
         res = os.read(fi, 2)
         assert res =='is'
 
@@ -129,11 +129,11 @@ class BaseTestPosix(BaseRtypingTest):
                     return 1
                 except OSError:
                     return 2
-            
+
             assert self.interpret(f, []) == 1
             os.unlink(path)
             assert self.interpret(f, []) == 2
-    
+
     def test_close(self):
         def f(fi):
             return posix.close(fi)
@@ -148,7 +148,7 @@ class BaseTestPosix(BaseRtypingTest):
             def f(fi,len):
                 os.ftruncate(fi,len)
             fi = os.open(path,os.O_RDWR,0777)
-            func = self.interpret(f,[fi,6]) 
+            func = self.interpret(f,[fi,6])
             assert os.fstat(fi).st_size == 6
 
     if hasattr(os, 'getuid'):
@@ -197,9 +197,7 @@ class BaseTestPosix(BaseRtypingTest):
 
             for value in [0, 1, 127, 128, 255]:
                 res = self.interpret(fun, [value])
-                assert res == fun(value)        
-
-class TestLLtype(BaseTestPosix, LLRtypeMixin):
+                assert res == fun(value)
 
     if hasattr(os, 'getgroups'):
         def test_getgroups(self):
@@ -207,19 +205,3 @@ class TestLLtype(BaseTestPosix, LLRtypeMixin):
                 return os.getgroups()
             ll_a = self.interpret(f, [])
             assert self.ll_to_list(ll_a) == f()
-
-class TestOOtype(BaseTestPosix, OORtypeMixin):
-    def test_fstat(self):
-        py.test.skip("ootypesystem does not support os.fstat")
-
-    def test_os_chroot(self):
-        py.test.skip("ootypesystem does not support os.chroot")
-
-    def test_stat(self):
-        py.test.skip("ootypesystem does not support os.stat")
-
-    def test_stat_exception(self):
-        py.test.skip("ootypesystem does not support os.stat")
-
-    def test_chown(self):
-        py.test.skip("ootypesystem does not support os.chown")

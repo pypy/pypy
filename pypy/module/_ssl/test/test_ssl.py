@@ -185,19 +185,38 @@ class AppTestContext:
         tmpfile = udir / "cert.pem"
         tmpfile.write(SSL_CERTIFICATE)
         cls.w_cert = cls.space.wrap(str(tmpfile))
+        tmpfile = udir / "badcert.pem"
+        tmpfile.write(SSL_BADCERT)
+        cls.w_badcert = cls.space.wrap(str(tmpfile))
+        tmpfile = udir / "emptycert.pem"
+        tmpfile.write(SSL_EMPTYCERT)
+        cls.w_emptycert = cls.space.wrap(str(tmpfile))
 
     def test_load_cert_chain(self):
         import _ssl
         ctx = _ssl._SSLContext(_ssl.PROTOCOL_TLSv1)
-        raises(IOError, ctx.load_cert_chain, "inexistent.pem")
         ctx.load_cert_chain(self.keycert)
         ctx.load_cert_chain(self.cert, self.key)
+        raises(IOError, ctx.load_cert_chain, "inexistent.pem")
+        raises(_ssl.SSLError, ctx.load_cert_chain, self.badcert)
+        raises(_ssl.SSLError, ctx.load_cert_chain, self.emptycert)
 
     def test_load_verify_locations(self):
         import _ssl
         ctx = _ssl._SSLContext(_ssl.PROTOCOL_TLSv1)
         ctx.load_verify_locations(self.keycert)
         ctx.load_verify_locations(cafile=self.keycert, capath=None)
+
+    def test_constructor(self):
+        import _ssl
+        raises(ValueError, _ssl._SSLContext, -1)
+        raises(ValueError, _ssl._SSLContext, 42)
+
+    def test_options(self):
+        import _ssl
+        ctx = _ssl._SSLContext(_ssl.PROTOCOL_TLSv1)
+        assert _ssl.OP_ALL == ctx.options
+
 
 
 SSL_CERTIFICATE = """
@@ -236,3 +255,42 @@ x56qyGeZLOQlWS2JS3KJo59XuLFGqcbgN9Om9xFa41Yb4N9NvplFivsvZdw3m1Q/
 SPIXQuT8RMPDVNQ=
 -----END PRIVATE KEY-----
 """
+SSL_BADCERT = """
+-----BEGIN RSA PRIVATE KEY-----
+MIICXwIBAAKBgQC8ddrhm+LutBvjYcQlnH21PPIseJ1JVG2HMmN2CmZk2YukO+9L
+opdJhTvbGfEj0DQs1IE8M+kTUyOmuKfVrFMKwtVeCJphrAnhoz7TYOuLBSqt7lVH
+fhi/VwovESJlaBOp+WMnfhcduPEYHYx/6cnVapIkZnLt30zu2um+DzA9jQIDAQAB
+AoGBAK0FZpaKj6WnJZN0RqhhK+ggtBWwBnc0U/ozgKz2j1s3fsShYeiGtW6CK5nU
+D1dZ5wzhbGThI7LiOXDvRucc9n7vUgi0alqPQ/PFodPxAN/eEYkmXQ7W2k7zwsDA
+IUK0KUhktQbLu8qF/m8qM86ba9y9/9YkXuQbZ3COl5ahTZrhAkEA301P08RKv3KM
+oXnGU2UHTuJ1MAD2hOrPxjD4/wxA/39EWG9bZczbJyggB4RHu0I3NOSFjAm3HQm0
+ANOu5QK9owJBANgOeLfNNcF4pp+UikRFqxk5hULqRAWzVxVrWe85FlPm0VVmHbb/
+loif7mqjU8o1jTd/LM7RD9f2usZyE2psaw8CQQCNLhkpX3KO5kKJmS9N7JMZSc4j
+oog58yeYO8BBqKKzpug0LXuQultYv2K4veaIO04iL9VLe5z9S/Q1jaCHBBuXAkEA
+z8gjGoi1AOp6PBBLZNsncCvcV/0aC+1se4HxTNo2+duKSDnbq+ljqOM+E7odU+Nq
+ewvIWOG//e8fssd0mq3HywJBAJ8l/c8GVmrpFTx8r/nZ2Pyyjt3dH1widooDXYSV
+q6Gbf41Llo5sYAtmxdndTLASuHKecacTgZVhy0FryZpLKrU=
+-----END RSA PRIVATE KEY-----
+-----BEGIN CERTIFICATE-----
+Just bad cert data
+-----END CERTIFICATE-----
+-----BEGIN RSA PRIVATE KEY-----
+MIICXwIBAAKBgQC8ddrhm+LutBvjYcQlnH21PPIseJ1JVG2HMmN2CmZk2YukO+9L
+opdJhTvbGfEj0DQs1IE8M+kTUyOmuKfVrFMKwtVeCJphrAnhoz7TYOuLBSqt7lVH
+fhi/VwovESJlaBOp+WMnfhcduPEYHYx/6cnVapIkZnLt30zu2um+DzA9jQIDAQAB
+AoGBAK0FZpaKj6WnJZN0RqhhK+ggtBWwBnc0U/ozgKz2j1s3fsShYeiGtW6CK5nU
+D1dZ5wzhbGThI7LiOXDvRucc9n7vUgi0alqPQ/PFodPxAN/eEYkmXQ7W2k7zwsDA
+IUK0KUhktQbLu8qF/m8qM86ba9y9/9YkXuQbZ3COl5ahTZrhAkEA301P08RKv3KM
+oXnGU2UHTuJ1MAD2hOrPxjD4/wxA/39EWG9bZczbJyggB4RHu0I3NOSFjAm3HQm0
+ANOu5QK9owJBANgOeLfNNcF4pp+UikRFqxk5hULqRAWzVxVrWe85FlPm0VVmHbb/
+loif7mqjU8o1jTd/LM7RD9f2usZyE2psaw8CQQCNLhkpX3KO5kKJmS9N7JMZSc4j
+oog58yeYO8BBqKKzpug0LXuQultYv2K4veaIO04iL9VLe5z9S/Q1jaCHBBuXAkEA
+z8gjGoi1AOp6PBBLZNsncCvcV/0aC+1se4HxTNo2+duKSDnbq+ljqOM+E7odU+Nq
+ewvIWOG//e8fssd0mq3HywJBAJ8l/c8GVmrpFTx8r/nZ2Pyyjt3dH1widooDXYSV
+q6Gbf41Llo5sYAtmxdndTLASuHKecacTgZVhy0FryZpLKrU=
+-----END RSA PRIVATE KEY-----
+-----BEGIN CERTIFICATE-----
+Just bad cert data
+-----END CERTIFICATE-----
+"""
+SSL_EMPTYCERT = ""

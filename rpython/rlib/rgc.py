@@ -5,7 +5,6 @@ import types
 
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import we_are_translated, enforceargs, specialize
-from rpython.rlib.nonconst import NonConstant
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.lltypesystem import lltype, llmemory
 
@@ -96,11 +95,10 @@ class DumpHeapEntry(ExtRegistryEntry):
 
     def compute_result_annotation(self):
         from rpython.annotator import model as annmodel
-        from rpython.rtyper.memory.gc.base import ARRAY_TYPEID_MAP
+        from rpython.memory.gc.base import ARRAY_TYPEID_MAP
         return annmodel.SomePtr(lltype.Ptr(ARRAY_TYPEID_MAP))
 
     def specialize_call(self, hop):
-        from rpython.rtyper.memory.gc.base import ARRAY_TYPEID_MAP
         hop.exception_is_here()
         return hop.genop('gc_heap_stats', [], resulttype=hop.r_result)
 
@@ -185,6 +183,7 @@ def _contains_gcptr(TP):
             return True
     return False
 
+
 @jit.oopspec('list.ll_arraycopy(source, dest, source_start, dest_start, length)')
 @enforceargs(None, None, int, int, int)
 @specialize.ll()
@@ -231,6 +230,9 @@ def ll_arraycopy(source, dest, source_start, dest_start, length):
     keepalive_until_here(source)
     keepalive_until_here(dest)
 
+
+@jit.oopspec('rgc.ll_shrink_array(p, smallerlength)')
+@specialize.ll()
 def ll_shrink_array(p, smallerlength):
     from rpython.rtyper.lltypesystem.lloperation import llop
     from rpython.rlib.objectmodel import keepalive_until_here
@@ -251,16 +253,15 @@ def ll_shrink_array(p, smallerlength):
     ARRAY = getattr(TP, TP._arrayfld)
     offset = (llmemory.offsetof(TP, TP._arrayfld) +
               llmemory.itemoffsetof(ARRAY, 0))
-    source_addr = llmemory.cast_ptr_to_adr(p)    + offset
-    dest_addr   = llmemory.cast_ptr_to_adr(newp) + offset
+    source_addr = llmemory.cast_ptr_to_adr(p) + offset
+    dest_addr = llmemory.cast_ptr_to_adr(newp) + offset
     llmemory.raw_memcopy(source_addr, dest_addr,
                          llmemory.sizeof(ARRAY.OF) * smallerlength)
 
     keepalive_until_here(p)
     keepalive_until_here(newp)
     return newp
-ll_shrink_array._annspecialcase_ = 'specialize:ll'
-ll_shrink_array._jit_look_inside_ = False
+
 
 def no_collect(func):
     func._dont_inline_ = True
@@ -420,11 +421,11 @@ def try_cast_gcref_to_instance(Class, gcref):
     # Before translation, unwraps the RPython instance contained in a _GcRef.
     # After translation, it is a type-check performed by the GC.
     if we_are_translated():
-        from rpython.rtyper.annlowlevel import base_ptr_lltype
+        from rpython.rtyper.lltypesystem.rclass import OBJECTPTR
         from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance
         from rpython.rtyper.lltypesystem import rclass
         if _is_rpy_instance(gcref):
-            objptr = lltype.cast_opaque_ptr(base_ptr_lltype(), gcref)
+            objptr = lltype.cast_opaque_ptr(OBJECTPTR, gcref)
             if objptr.typeptr:   # may be NULL, e.g. in rdict's dummykeyobj
                 clsptr = _get_llcls_from_cls(Class)
                 if rclass.ll_isinstance(objptr, clsptr):

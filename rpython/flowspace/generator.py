@@ -1,12 +1,11 @@
 """Flow graph building for generators"""
 
-from rpython.flowspace.model import Block, Link, SpaceOperation, checkgraph
-from rpython.flowspace.model import Variable, Constant
-from rpython.translator.unsimplify import insert_empty_startblock
-from rpython.translator.unsimplify import split_block
+from rpython.flowspace.argument import Signature
+from rpython.flowspace.model import (Block, Link, SpaceOperation, Variable,
+    Constant, checkgraph)
+from rpython.translator.unsimplify import insert_empty_startblock, split_block
 from rpython.translator.simplify import eliminate_empty_blocks, simplify_graph
 from rpython.tool.sourcetools import func_with_new_name
-from rpython.flowspace.argument import Signature
 
 
 class AbstractPosition(object):
@@ -113,7 +112,8 @@ def tweak_generator_body_graph(Entry, graph):
     mappings = [Entry]
     #
     stopblock = Block([])
-    v0 = Variable(); v1 = Variable()
+    v0 = Variable()
+    v1 = Variable()
     stopblock.operations = [
         SpaceOperation('simple_call', [Constant(StopIteration)], v0),
         SpaceOperation('type', [v0], v1),

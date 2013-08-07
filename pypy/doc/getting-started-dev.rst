@@ -1,26 +1,77 @@
-===============================================================================
-Getting Started with the Translation Toolchain and Development Process
-===============================================================================
+============================
+Getting Started with RPython
+============================
 
 .. contents::
+
+.. warning::
+
+    Please `read this FAQ entry`_ first!
+
+.. _`read this FAQ entry`: http://doc.pypy.org/en/latest/faq.html#do-i-have-to-rewrite-my-programs-in-rpython
+
+RPython is a subset of Python that can be statically compiled. The PyPy
+interpreter is written mostly in RPython (with pieces in Python), while
+the RPython compiler is written in Python. The hard to understand part
+is that Python is a meta-programming language for RPython, that is,
+"being valid RPython" is a question that only makes sense on the
+live objects **after** the imports are done.
+This might require more explanation. You start writing RPython from
+``entry_point``, a good starting point is
+``rpython/translator/goal/targetnopstandalone.py``. This does not do all that
+much, but is a start. Now if code analyzed (in this case ``entry_point``)
+calls some functions, those calls will be followed. Those followed calls
+have to be RPython themselves (and everything they call etc.), however not
+entire module files. To show how you can use metaprogramming, we can do
+a silly example (note that closures are not RPython)::
+
+  def generator(operation):
+      if operation == 'add':
+         def f(a, b):
+             return a + b
+      else:
+         def f(a, b):
+             return a - b
+      return f
+
+  add = generator('add')
+  sub = generator('sub')
+
+  def entry_point(argv):
+      print add(sub(int(argv[1]), 3) 4)
+      return 0
+
+In this example ``entry_point`` is RPython,  ``add`` and ``sub`` are RPython,
+however, ``generator`` is not.
+
+The following introductory level articles are available:
+
+* Laurence Tratt -- `Fast Enough VMs in Fast Enough Time`_.
+
+* `How to write interpreters in RPython`_ and `part 2`_ by Andrew Brown.
+
+.. _`Fast Enough VMs in Fast Enough Time`: http://tratt.net/laurie/tech_articles/articles/fast_enough_vms_in_fast_enough_time
+
+.. _`How to write interpreters in RPython`: http://morepypy.blogspot.com/2011/04/tutorial-writing-interpreter-with-pypy.html
+
+.. _`part 2`: http://morepypy.blogspot.com/2011/04/tutorial-part-2-adding-jit.html
 
 .. _`try out the translator`:
 
 Trying out the translator
-------------------------- 
+-------------------------
 
 The translator is a tool based on the PyPy interpreter which can translate
 sufficiently static RPython programs into low-level code (in particular it can
 be used to translate the `full Python interpreter`_). To be able to experiment with it
-you need to:
+you need to download and install the usual (CPython) version of:
 
-  * Download and install Pygame_.
-
-  * Download and install `Dot Graphviz`_ 
+  * Pygame_
+  * `Dot Graphviz`_
 
 To start the interactive translator shell do::
 
-    cd pypy
+    cd rpython
     python bin/translatorshell.py
 
 Test snippets of translatable code are provided in the file
@@ -29,7 +80,7 @@ Test snippets of translatable code are provided in the file
 
     >>> t = Translation(snippet.is_perfect_number, [int])
     >>> t.view()
-        
+
 After that, the graph viewer pops up, that lets you interactively inspect the
 flow graph. To move around, click on something that you want to inspect.
 To get help about how to use it, press 'H'. To close it again, press 'Q'.
@@ -58,59 +109,18 @@ The first command replaces the operations with other low level versions that
 only use low level types that are available in C (e.g. int). The compiled
 version is now in a ``.so`` library. You can run it say using ctypes:
 
-   >>> from ctypes import CDLL
-   >>> f = CDLL(lib)
+   >>> f = get_c_function(lib, snippet.is_perfect_number)
    >>> f(5)
    0
    >>> f(6)
    1
-
-Translating the flow graph to CLI or JVM code
-+++++++++++++++++++++++++++++++++++++++++++++
-
-PyPy also contains a `CLI backend`_ and JVM backend which
-can translate flow graphs into .NET executables or a JVM jar
-file respectively.  Both are able to translate the entire
-interpreter.  You can try out the CLI and JVM backends
-from the interactive translator shells as follows::
-
-    >>> def myfunc(a, b): return a+b
-    ... 
-    >>> t = Translation(myfunc, [int, int])
-    >>> t.annotate()
-    >>> f = t.compile_cli() # or compile_jvm()
-    >>> f(4, 5)
-    9
-
-The object returned by ``compile_cli`` or ``compile_jvm``
-is a wrapper around the real
-executable: the parameters are passed as command line arguments, and
-the returned value is read from the standard output.  
-
-Once you have compiled the snippet, you can also try to launch the
-executable directly from the shell. You will find the 
-executable in one of the ``/tmp/usession-*`` directories::
-
-    # For CLI:
-    $ mono /tmp/usession-trunk-<username>/main.exe 4 5
-    9
-
-    # For JVM:
-    $ java -cp /tmp/usession-trunk-<username>/pypy pypy.Main 4 5
-    9
-
-To translate and run for the CLI you must have the SDK installed: Windows
-users need the `.NET Framework SDK`_, while Linux and Mac users
-can use Mono_.  To translate and run for the JVM you must have a JDK 
-installed (at least version 6) and ``java``/``javac`` on your path.
 
 A slightly larger example
 +++++++++++++++++++++++++
 
 There is a small-to-medium demo showing the translator and the annotator::
 
-    cd demo
-    ../rpython/translator/goal/translate.py --view --annotate bpnn.py
+    python bin/rpython --view --annotate translator/goal/bpnn.py
 
 This causes ``bpnn.py`` to display itself as a call graph and class
 hierarchy.  Clicking on functions shows the flow graph of the particular
@@ -121,7 +131,7 @@ instances) is computed by the annotator.
 To turn this example to C code (compiled to the executable ``bpnn-c``),
 type simply::
 
-    ../rpython/translator/goal/translate.py bpnn.py
+    python bin/rpython translator/goal/bpnn.py
 
 
 Translating Full Programs
@@ -131,8 +141,7 @@ To translate full RPython programs, there is the script ``translate.py`` in
 ``rpython/translator/goal``. Examples for this are a slightly changed version of
 Pystone::
 
-    cd rpython/translator/goal
-    python translate.py targetrpystonedalone
+    python bin/rpython translator/goal/targetrpystonedalone
 
 This will produce the executable "targetrpystonedalone-c".
 
@@ -140,23 +149,34 @@ The largest example of this process is to translate the `full Python
 interpreter`_. There is also an FAQ about how to set up this process for `your
 own interpreters`_.
 
+There are several environment variables you can find useful while playing with the RPython:
+
+``PYPY_USESSION_DIR``
+    RPython uses temporary session directories to store files that are generated during the
+    translation process(e.g., translated C files). ``PYPY_USESSION_DIR`` serves as a base directory for these session
+    dirs. The default value for this variable is the system's temporary dir.
+
+``PYPY_USESSION_KEEP``
+    By default RPython keeps only the last ``PYPY_USESSION_KEEP`` (defaults to 3) session dirs inside ``PYPY_USESSION_DIR``.
+    Increase this value if you want to preserve C files longer (useful when producing lots of lldebug builds).
+
 .. _`your own interpreters`: faq.html#how-do-i-compile-my-own-interpreters
 
-.. _`start reading sources`: 
+.. _`start reading sources`:
 
 Where to start reading the sources
----------------------------------- 
+----------------------------------
 
 PyPy is made from parts that are relatively independent of each other.
 You should start looking at the part that attracts you most (all paths are
-relative to the PyPy top level directory).  You may look at our `directory reference`_ 
+relative to the PyPy top level directory).  You may look at our `directory reference`_
 or start off at one of the following points:
 
 *  `pypy/interpreter`_ contains the bytecode interpreter: bytecode dispatcher
    in `pypy/interpreter/pyopcode.py`_, frame and code objects in `pypy/interpreter/eval.py`_ and `pypy/interpreter/pyframe.py`_,
    function objects and argument passing in `pypy/interpreter/function.py`_ and `pypy/interpreter/argument.py`_,
    the object space interface definition in `pypy/interpreter/baseobjspace.py`_, modules in
-   `pypy/interpreter/module.py`_ and `pypy/interpreter/mixedmodule.py`_.  Core types supporting the bytecode 
+   `pypy/interpreter/module.py`_ and `pypy/interpreter/mixedmodule.py`_.  Core types supporting the bytecode
    interpreter are defined in `pypy/interpreter/typedef.py`_.
 
 *  `pypy/interpreter/pyparser`_ contains a recursive descent parser,
@@ -173,28 +193,28 @@ or start off at one of the following points:
    ``xxxobject.py`` contain respectively the definition of the type and its
    (default) implementation.
 
-*  `pypy/translator`_ contains the code analysis and generation stuff.
+*  `rpython/translator`_ contains the code analysis and generation stuff.
    Start reading from translator.py, from which it should be easy to follow
    the pieces of code involved in the various translation phases.
 
-*  `pypy/annotation`_ contains the data model for the type annotation that
+*  `rpython/annotator`_ contains the data model for the type annotation that
    can be inferred about a graph.  The graph "walker" that uses this is in
-   `pypy/annotation/annrpython.py`_.
+   `rpython/annotator/annrpython.py`_.
 
-*  `pypy/rpython`_ contains the code of the RPython typer. The typer transforms
+*  `rpython/rtyper`_ contains the code of the RPython typer. The typer transforms
    annotated flow graphs in a way that makes them very similar to C code so
    that they can be easy translated. The graph transformations are controlled
-   by the code in `pypy/rpython/rtyper.py`_. The object model that is used can
-   be found in `pypy/rpython/lltypesystem/lltype.py`_. For each RPython type
+   by the code in `rpython/rtyper/rtyper.py`_. The object model that is used can
+   be found in `rpython/rtyper/lltypesystem/lltype.py`_. For each RPython type
    there is a file rxxxx.py that contains the low level functions needed for
    this type.
 
-*  `pypy/rlib`_ contains the `RPython standard library`_, things that you can
+*  `rpython/rlib`_ contains the `RPython standard library`_, things that you can
    use from rpython.
 
 .. _`RPython standard library`: rlib.html
 
-.. _optionaltool: 
+.. _optionaltool:
 
 
 Running PyPy's unit tests
@@ -225,7 +245,7 @@ and you can use shell completion to point at directories or files::
     # or for running tests of a whole subdirectory
     py.test pypy/interpreter/
 
-See `py.test usage and invocations`_ for some more generic info 
+See `py.test usage and invocations`_ for some more generic info
 on how you can run tests.
 
 Beware trying to run "all" pypy tests by pointing to the root
@@ -293,14 +313,14 @@ You may be interested in reading more about the distinction between
 
 .. _`interpreter-level and app-level`: coding-guide.html#interpreter-level
 
-.. _`trace example`: 
+.. _`trace example`:
 
 Tracing bytecode and operations on objects
-++++++++++++++++++++++++++++++++++++++++++ 
+++++++++++++++++++++++++++++++++++++++++++
 
 You can use the trace object space to monitor the interpretation
-of bytecodes in connection with object space operations.  To enable 
-it, set ``__pytrace__=1`` on the interactive PyPy console:: 
+of bytecodes in connection with object space operations.  To enable
+it, set ``__pytrace__=1`` on the interactive PyPy console::
 
     >>>> __pytrace__ = 1
     Tracing enabled
@@ -320,29 +340,29 @@ it, set ``__pytrace__=1`` on the interactive PyPy console::
 Demos
 -------
 
-The `demo/`_ directory contains examples of various aspects of PyPy,
-ranging from running regular Python programs (that we used as compliance goals) 
-over experimental distribution mechanisms to examples translating 
-sufficiently static programs into low level code. 
+The `example-interpreter`_ repository contains an example interpreter
+written using the RPython translation toolchain.
 
-Additional Tools for running (and hacking) PyPy 
+.. _`example-interpreter`: https://bitbucket.org/pypy/example-interpreter
+
+Additional Tools for running (and hacking) PyPy
 -----------------------------------------------
 
-We use some optional tools for developing PyPy. They are not required to run 
+We use some optional tools for developing PyPy. They are not required to run
 the basic tests or to get an interactive PyPy prompt but they help to
-understand  and debug PyPy especially for the translation process.  
+understand  and debug PyPy especially for the translation process.
 
 graphviz & pygame for flow graph viewing (highly recommended)
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 graphviz and pygame are both necessary if you
-want to look at generated flow graphs: 
+want to look at generated flow graphs:
 
-	graphviz: http://www.graphviz.org/Download.php 
+	graphviz: http://www.graphviz.org/Download.php
 
 	pygame: http://www.pygame.org/download.shtml
 
-py.test and the py lib 
+py.test and the py lib
 +++++++++++++++++++++++
 
 The `py.test testing tool`_ drives all our testing needs.
@@ -353,7 +373,7 @@ writing, logging and some other support  functionality.
 You don't necessarily need to install these two libraries because
 we also ship them inlined in the PyPy source tree.
 
-Getting involved 
+Getting involved
 -----------------
 
 PyPy employs an open development process.  You are invited to join our

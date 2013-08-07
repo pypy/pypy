@@ -82,22 +82,6 @@ def dir(*args):
             Dict.update(_classdir(obj.__class__))
         except AttributeError:
             pass
-
-        ## Comment from object.c:
-        ## /* Merge in __members__ and __methods__ (if any).
-        ## XXX Would like this to go away someday; for now, it's
-        ## XXX needed to get at im_self etc of method objects. */
-        for attr in ['__members__','__methods__']:
-            try:
-                l = getattr(obj, attr)
-                if not isinstance(l, list):
-                    continue
-                for item in l:
-                    if isinstance(item, types.StringTypes):
-                        Dict[item] = None
-            except (AttributeError, TypeError):
-                pass
-
         result = list(Dict.keys())
         result.sort()
         return result

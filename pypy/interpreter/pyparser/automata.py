@@ -36,6 +36,8 @@ class DFA:
         i = pos
         for i in range(pos, len(inVec)):
             item = inVec[i]
+            if ord(item) > 0x80:
+                item = "\x80"  # NON_ASCII
             # arcMap, accept = self.states[crntState]
             arcMap = self.states[crntState]
             accept = self.accepts[crntState]

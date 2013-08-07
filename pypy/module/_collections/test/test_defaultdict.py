@@ -5,6 +5,8 @@ class AppTestBasic:
     def test_basics(self):
         from _collections import defaultdict
         d = defaultdict(list)
+        assert d.default_factory is list
+        assert defaultdict.default_factory.__get__(d) is list
         l = d[5]
         d[5].append(42)
         d[5].append(43)
@@ -54,3 +56,9 @@ class AppTestBasic:
         assert len(d2) == 1
         assert d2[2] == 3
         assert d2[3] == 42
+
+    def test_reduce(self):
+        import _collections
+        d = _collections.defaultdict(None, {3: 4})
+        dict_iter = d.__reduce__()[4]
+        assert type(dict_iter) is type(iter(d.items()))

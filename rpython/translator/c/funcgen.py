@@ -29,7 +29,7 @@ class FunctionCodeGenerator(object):
         __slots__ = """graph db gcpolicy
                        exception_policy
                        more_ll_values
-                       vars all_cached_consts 
+                       vars all_cached_consts
                        illtypes
                        functionname
                        blocknum
@@ -59,7 +59,7 @@ class FunctionCodeGenerator(object):
             if isinstance(T, Ptr) and T.TO.__class__ == ForwardReference:
                 continue
             db.gettype(T)  # force the type to be considered by the database
-       
+
         self.illtypes = None
 
     def collect_var_and_types(self):
@@ -90,7 +90,7 @@ class FunctionCodeGenerator(object):
             for cleanupop in exc_cleanup_ops:
                 mix.extend(cleanupop.args)
                 mix.append(cleanupop.result)
-             
+
         uniquemix = []
         seen = identity_dict()
         for v in mix:
@@ -184,15 +184,15 @@ class FunctionCodeGenerator(object):
 
     def cfunction_declarations(self):
         # declare the local variables, excluding the function arguments
-        seen = {}
+        seen = set()
         for a in self.graph.getargs():
-            seen[a.name] = True
+            seen.add(a.name)
 
         result_by_name = []
         for v in self.allvariables():
             name = v.name
             if name not in seen:
-                seen[name] = True
+                seen.add(name)
                 result = cdecl(self.lltypename(v), LOCALVAR % name) + ';'
                 if self.lltypemap(v) is Void:
                     continue  #result = '/*%s*/' % result
@@ -264,7 +264,6 @@ class FunctionCodeGenerator(object):
                         for op in self.gen_link(link):
                             yield '\t' + op
                         # 'break;' not needed, as gen_link ends in a 'goto'
-                        
                     # Emit default case
                     yield 'default:'
                     if defaultlink is None:
@@ -371,7 +370,7 @@ class FunctionCodeGenerator(object):
 
     # the C preprocessor cannot handle operations taking a variable number
     # of arguments, so here are Python methods that do it
-    
+
     def OP_NEWLIST(self, op):
         args = [self.expr(v) for v in op.args]
         r = self.expr(op.result)
@@ -454,6 +453,9 @@ class FunctionCodeGenerator(object):
         fnaddr = op.args[0]
         fnexpr = '((%s)%s)' % (cdecl(typename, ''), self.expr(fnaddr))
         return self.generic_call(FUNC, fnexpr, op.args[1:], op.result)
+
+    def OP_JIT_CONDITIONAL_CALL(self, op):
+        return 'abort();  /* jit_conditional_call */'
 
     # low-level operations
     def generic_get(self, op, sourceexpr):
@@ -581,7 +583,7 @@ class FunctionCodeGenerator(object):
     def OP_PTR_ISZERO(self, op):
         return '%s = (%s == NULL);' % (self.expr(op.result),
                                        self.expr(op.args[0]))
-    
+
     def OP_PTR_EQ(self, op):
         return '%s = (%s == %s);' % (self.expr(op.result),
                                      self.expr(op.args[0]),
@@ -628,7 +630,7 @@ class FunctionCodeGenerator(object):
         ARRAY = self.lltypemap(op.args[0]).TO
         if ARRAY._hints.get("render_as_void"):
             return '%s = (char *)%s + %s;' % (
-                self.expr(op.result), 
+                self.expr(op.result),
                 self.expr(op.args[0]),
                 self.expr(op.args[1]))
         else:
@@ -653,7 +655,7 @@ class FunctionCodeGenerator(object):
     def OP_CAST_INT_TO_PTR(self, op):
         TYPE = self.lltypemap(op.result)
         typename = self.db.gettype(TYPE)
-        return "%s = (%s)%s;" % (self.expr(op.result), cdecl(typename, ""), 
+        return "%s = (%s)%s;" % (self.expr(op.result), cdecl(typename, ""),
                                  self.expr(op.args[0]))
 
     def OP_SAME_AS(self, op):
@@ -712,7 +714,7 @@ class FunctionCodeGenerator(object):
             val = "(unsigned char)%s" % val
         elif ORIG is UniChar:
             val = "(unsigned long)%s" % val
-        typename = cdecl(self.db.gettype(TYPE), '')        
+        typename = cdecl(self.db.gettype(TYPE), '')
         return "%(result)s = (%(typename)s)(%(val)s);" % locals()
 
     OP_FORCE_CAST = OP_CAST_PRIMITIVE   # xxx the same logic works
@@ -824,7 +826,7 @@ class FunctionCodeGenerator(object):
                                           counter_label+1)
         counter_label = self.expr(op.args[1])
         return 'PYPY_INSTRUMENT_COUNT(%s);' % counter_label
-            
+
     def OP_IS_EARLY_CONSTANT(self, op):
         return '%s = 0; /* IS_EARLY_CONSTANT */' % (self.expr(op.result),)
 
@@ -843,6 +845,9 @@ class FunctionCodeGenerator(object):
 
     def OP_JIT_FORCE_QUASI_IMMUTABLE(self, op):
         return '/* JIT_FORCE_QUASI_IMMUTABLE %s */' % op
+
+    def OP_JIT_FFI_SAVE_RESULT(self, op):
+        return '/* JIT_FFI_SAVE_RESULT %s */' % op
 
     def OP_GET_GROUP_MEMBER(self, op):
         typename = self.db.gettype(op.result.concretetype)

@@ -1,11 +1,12 @@
+from sys import maxint
+
+from rpython.rlib import jit
+from rpython.rlib.objectmodel import newlist_hint, resizelist_hint, specialize
+
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
 from pypy.objspace.std.register_all import register_all
-
-from sys import maxint
-from rpython.rlib.objectmodel import newlist_hint, resizelist_hint, specialize
-from rpython.rlib.jit import we_are_jitted
 
 def wrapstr(space, s):
     from pypy.objspace.std.stringobject import W_StringObject
@@ -26,7 +27,7 @@ def wrapstr(space, s):
 
 def wrapchar(space, c):
     from pypy.objspace.std.stringobject import W_StringObject
-    if space.config.objspace.std.withprebuiltchar and not we_are_jitted():
+    if space.config.objspace.std.withprebuiltchar and not jit.we_are_jitted():
         return W_StringObject.PREBUILT[ord(c)]
     else:
         return W_StringObject(c)
@@ -286,9 +287,8 @@ def makebytesdata_w(space, w_source):
     if w_bytes_method is not None:
         w_bytes = space.get_and_call_function(w_bytes_method, w_source)
         if not space.isinstance_w(w_bytes, space.w_bytes):
-            msg = "__bytes__ returned non-bytes (type '%s')"
-            raise operationerrfmt(space.w_TypeError, msg,
-                                  space.type(w_bytes).getname(space))
+            msg = "__bytes__ returned non-bytes (type '%T')"
+            raise operationerrfmt(space.w_TypeError, msg, w_bytes)
         return [c for c in space.bytes_w(w_bytes)]
 
     # String-like argument
@@ -394,26 +394,4 @@ str_typedef = StdTypeDef("bytes",
 
 str_typedef.registermethods(globals())
 
-# ____________________________________________________________
 
-# Helpers for several string implementations
-
-@specialize.argtype(0)
-def stringendswith(u_self, suffix, start, end):
-    begin = end - len(suffix)
-    if begin < start:
-        return False
-    for i in range(len(suffix)):
-        if u_self[begin+i] != suffix[i]:
-            return False
-    return True
-
-@specialize.argtype(0)
-def stringstartswith(u_self, prefix, start, end):
-    stop = start + len(prefix)
-    if stop > end:
-        return False
-    for i in range(len(prefix)):
-        if u_self[start+i] != prefix[i]:
-            return False
-    return True

@@ -11,21 +11,51 @@ from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from sys import platform
 import os.path
 
-_CYGWIN = platform == 'cygwin'
-_NCURSES_CURSES = os.path.isfile("/usr/include/ncurses/curses.h") 
+# We cannot trust ncurses5-config, it's broken in various ways in
+# various versions.  For example it might not list -ltinfo even though
+# it's needed, or --cflags might be completely empty.  On Ubuntu 10.04
+# it gives -I/usr/include/ncurses, which doesn't exist at all.  Crap.
 
-if _CYGWIN or _NCURSES_CURSES:
-    eci = ExternalCompilationInfo(
-        includes = ['ncurses/curses.h', 'ncurses/term.h'],
-        libraries = ['curses'],
-    )
-else:
-    eci = ExternalCompilationInfo(
-        includes = ['curses.h', 'term.h'],
-        libraries = ['curses'],
-    )
+def try_cflags():
+    yield ExternalCompilationInfo(includes=['curses.h', 'term.h'])
+    yield ExternalCompilationInfo(includes=['curses.h', 'term.h'],
+                                  include_dirs=['/usr/include/ncurses'])
+    yield ExternalCompilationInfo(includes=['ncurses/curses.h',
+                                            'ncurses/term.h'])
 
-rffi_platform.verify_eci(eci)
+def try_ldflags():
+    yield ExternalCompilationInfo(libraries=['curses'])
+    yield ExternalCompilationInfo(libraries=['curses', 'tinfo'])
+
+def try_tools():
+    try:
+        yield ExternalCompilationInfo.from_pkg_config("ncurses")
+    except Exception:
+        pass
+    try:
+        yield ExternalCompilationInfo.from_config_tool("ncurses5-config")
+    except Exception:
+        pass
+
+def try_eci():
+    for eci in try_tools():
+        yield eci.merge(ExternalCompilationInfo(includes=['curses.h',
+                                                          'term.h']))
+    for eci1 in try_cflags():
+        for eci2 in try_ldflags():
+            yield eci1.merge(eci2)
+
+def guess_eci():
+    for eci in try_eci():
+        class CConfig:
+            _compilation_info_ = eci
+            HAS = rffi_platform.Has("setupterm")
+        if rffi_platform.configure(CConfig)['HAS']:
+            return eci
+    raise ImportError("failed to guess where ncurses is installed. "
+                      "You might need to install libncurses5-dev or similar.")
+
+eci = guess_eci()
 
 
 INT = rffi.INT
@@ -35,7 +65,7 @@ c_setupterm = rffi.llexternal('setupterm', [rffi.CCHARP, INT, INTP], INT,
 c_tigetstr = rffi.llexternal('tigetstr', [rffi.CCHARP], rffi.CCHARP,
                              compilation_info=eci)
 c_tparm = rffi.llexternal('tparm', [rffi.CCHARP, INT, INT, INT, INT, INT,
-                                    INT, INT, INT, INT, INT], rffi.CCHARP,
+                                    INT, INT, INT, INT], rffi.CCHARP,
                           compilation_info=eci)
 
 ERR = rffi.CConstant('ERR', lltype.Signed)
@@ -97,13 +127,13 @@ register_external(interp_curses._curses_tigetstr, [str], str,
 
 def tparm_llimpl(s, args):
     check_setup_invoked()
-    l = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-    for i in range(min(len(args), 10)):
+    l = [0, 0, 0, 0, 0, 0, 0, 0, 0]
+    for i in range(min(len(args), 9)):
         l[i] = args[i]
     ll_s = rffi.str2charp(s)
     # XXX nasty trick stolen from CPython
     ll_res = c_tparm(ll_s, l[0], l[1], l[2], l[3], l[4], l[5], l[6],
-                     l[7], l[8], l[9])
+                     l[7], l[8])
     rffi.free_charp(ll_s)
     res = rffi.charp2str(ll_res)
     return res

@@ -5,7 +5,6 @@ RPython-compliant way.
 
 from __future__ import absolute_import
 
-import py
 import sys
 import types
 import math
@@ -153,7 +152,8 @@ def enforceargs(*types_, **kwds):
             else:
                 return type(arg)
         def typecheck(*args):
-            from rpython.annotator.model import SomeList, SomeDict, SomeChar
+            from rpython.annotator.model import SomeList, SomeDict, SomeChar,\
+                 SomeInteger
             for i, (expected_type, arg) in enumerate(zip(types, args)):
                 if expected_type is None:
                     continue
@@ -166,6 +166,9 @@ def enforceargs(*types_, **kwds):
                     continue
                 if isinstance(s_expected, SomeChar) and (
                         isinstance(arg, str) and len(arg) == 1):   # a char
+                    continue
+                if (isinstance(s_expected, SomeInteger) and
+                    isinstance(arg, s_expected.knowntype)):
                     continue
                 #
                 s_argtype = get_annotation(get_type_descr_of_argument(arg))
@@ -380,14 +383,8 @@ def compute_hash(x):
 
     Note that this can return 0 or -1 too.
 
-    Behavior across translation:
-
-      * on lltypesystem, it always returns the same number, both
-        before and after translation.  Dictionaries don't need to
-        be rehashed after translation.
-
-      * on ootypesystem, the value changes because of translation.
-        Dictionaries need to be rehashed.
+    It returns the same number, both before and after translation.
+    Dictionaries don't need to be rehashed after translation.
     """
     if isinstance(x, (str, unicode)):
         return _hash_string(x)
@@ -422,15 +419,14 @@ def compute_unique_id(x):
     object that turns into a GC object.  This operation can be very
     costly depending on the garbage collector.  To remind you of this
     fact, we don't support id(x) directly.
-    (XXX not implemented on ootype, falls back to compute_identity_hash)
     """
     return id(x)      # XXX need to return r_longlong on some platforms
 
 def current_object_addr_as_int(x):
-    """A cheap version of id(x).  The current memory location of an
-    object can change over time for moving GCs.  Also note that on
-    ootypesystem this typically doesn't return the real address but
-    just the same as compute_hash(x).
+    """A cheap version of id(x).
+
+    The current memory location of an object can change over time for moving
+    GCs.
     """
     from rpython.rlib.rarithmetic import intmask
     return intmask(id(x))
@@ -515,12 +511,8 @@ class Entry(ExtRegistryEntry):
     def specialize_call(self, hop):
         from rpython.rtyper.lltypesystem import lltype
         vobj, = hop.inputargs(hop.args_r[0])
-        if hop.rtyper.type_system.name == 'lltypesystem':
-            ok = (isinstance(vobj.concretetype, lltype.Ptr) and
-                  vobj.concretetype.TO._gckind == 'gc')
-        else:
-            from rpython.rtyper.ootypesystem import ootype
-            ok = isinstance(vobj.concretetype, ootype.OOType)
+        ok = (isinstance(vobj.concretetype, lltype.Ptr) and
+                vobj.concretetype.TO._gckind == 'gc')
         if not ok:
             from rpython.rtyper.error import TyperError
             raise TyperError("compute_identity_hash() cannot be applied to"
@@ -538,12 +530,8 @@ class Entry(ExtRegistryEntry):
     def specialize_call(self, hop):
         from rpython.rtyper.lltypesystem import lltype
         vobj, = hop.inputargs(hop.args_r[0])
-        if hop.rtyper.type_system.name == 'lltypesystem':
-            ok = (isinstance(vobj.concretetype, lltype.Ptr) and
-                  vobj.concretetype.TO._gckind == 'gc')
-        else:
-            from rpython.rtyper.ootypesystem import ootype
-            ok = isinstance(vobj.concretetype, (ootype.Instance, ootype.BuiltinType))
+        ok = (isinstance(vobj.concretetype, lltype.Ptr) and
+                vobj.concretetype.TO._gckind == 'gc')
         if not ok:
             from rpython.rtyper.error import TyperError
             raise TyperError("compute_unique_id() cannot be applied to"
@@ -561,16 +549,10 @@ class Entry(ExtRegistryEntry):
     def specialize_call(self, hop):
         vobj, = hop.inputargs(hop.args_r[0])
         hop.exception_cannot_occur()
-        if hop.rtyper.type_system.name == 'lltypesystem':
-            from rpython.rtyper.lltypesystem import lltype
-            if isinstance(vobj.concretetype, lltype.Ptr):
-                return hop.genop('cast_ptr_to_int', [vobj],
-                                 resulttype = lltype.Signed)
-        elif hop.rtyper.type_system.name == 'ootypesystem':
-            from rpython.rtyper.ootypesystem import ootype
-            if isinstance(vobj.concretetype, ootype.Instance):
-                return hop.genop('gc_identityhash', [vobj],
-                                 resulttype = ootype.Signed)
+        from rpython.rtyper.lltypesystem import lltype
+        if isinstance(vobj.concretetype, lltype.Ptr):
+            return hop.genop('cast_ptr_to_int', [vobj],
+                                resulttype = lltype.Signed)
         from rpython.rtyper.error import TyperError
         raise TyperError("current_object_addr_as_int() cannot be applied to"
                          " %r" % (vobj.concretetype,))

@@ -1135,6 +1135,30 @@ class TestAstBuilder:
         assert isinstance(s, ast.Str)
         assert space.eq_w(s.s, space.wrap(japan))
 
+    def test_name_pep3131(self):
+        assign = self.get_first_stmt("日本 = 32")
+        assert isinstance(assign, ast.Assign)
+        name = assign.targets[0]
+        assert isinstance(name, ast.Name)
+        assert name.id == u"日本".encode('utf-8')
+
+    def test_function_pep3131(self):
+        fn = self.get_first_stmt("def µ(µ='foo'): pass")
+        assert isinstance(fn, ast.FunctionDef)
+        # µ normalized to NFKC
+        expected = u'\u03bc'.encode('utf-8')
+        assert fn.name == expected
+        assert fn.args.args[0].arg == expected
+
+    def test_import_pep3131(self):
+        im = self.get_first_stmt("from packageµ import modµ as µ")
+        assert isinstance(im, ast.ImportFrom)
+        expected = u'\u03bc'.encode('utf-8')
+        assert im.module == 'package' + expected
+        alias = im.names[0]
+        assert alias.name == 'mod' + expected
+        assert alias.asname == expected
+
     def test_issue3574(self):
         space = self.space
         source = u'# coding: Latin-1\nu = "Ç"\n'
@@ -1146,7 +1170,6 @@ class TestAstBuilder:
         assert space.eq_w(s.s, space.wrap(u'Ç'))
  
     def test_string_bug(self):
-        py.test.py3k_skip('fixme')
         space = self.space
         source = '# -*- encoding: utf8 -*-\nstuff = "x \xc3\xa9 \\n"\n'
         info = pyparse.CompileInfo("<test>", "exec")
@@ -1154,8 +1177,7 @@ class TestAstBuilder:
         assert info.encoding == "utf8"
         s = ast_from_node(space, tree, info).body[0].value
         assert isinstance(s, ast.Str)
-        expected = ['x', ' ', chr(0xc3), chr(0xa9), ' ', '\n']
-        assert space.eq_w(s.s, space.wrap(''.join(expected)))
+        assert space.eq_w(s.s, space.wrap(u'x \xe9 \n'))
 
     def test_number(self):
         def get_num(s):
@@ -1178,11 +1200,6 @@ class TestAstBuilder:
         assert space.eq_w(get_num("0X53"), space.wrap(0x53))
         assert space.eq_w(get_num("0"), space.wrap(0))
         assert space.eq_w(get_num("00000"), space.wrap(0))
-        assert space.eq_w(get_num("-3"), space.wrap(-3))
-        assert space.eq_w(get_num("-0"), space.wrap(0))
-        assert space.eq_w(get_num("-0xAAAAAA"), space.wrap(-0xAAAAAAL))
-        n = get_num(str(-sys.maxint - 1))
-        assert space.is_true(space.isinstance(n, space.w_int))
         for num in ("0o53", "0O53", "0o0000053", "0O00053"):
             assert space.eq_w(get_num(num), space.wrap(053))
         for num in ("0b00101", "0B00101", "0b101", "0B101"):

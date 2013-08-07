@@ -1,13 +1,42 @@
 import random
 import py
-from rpython.jit.backend.x86.test.test_jump import MockAssembler
 from rpython.jit.backend.arm.registers import *
 from rpython.jit.backend.arm.locations import *
 from rpython.jit.backend.arm.regalloc import ARMFrameManager
 from rpython.jit.backend.arm.jump import remap_frame_layout, remap_frame_layout_mixed
 from rpython.jit.metainterp.history import INT
 
-frame_pos = ARMFrameManager.frame_pos
+fm = ARMFrameManager(0)
+frame_pos = fm.frame_pos
+
+class MockAssembler:
+    def __init__(self):
+        self.ops = []
+
+    def regalloc_mov(self, from_loc, to_loc):
+        self.ops.append(('mov', from_loc, to_loc))
+
+    def regalloc_push(self, loc):
+        self.ops.append(('push', loc))
+
+    def regalloc_pop(self, loc):
+        self.ops.append(('pop', loc))
+
+    def got(self, expected):
+        print '------------------------ comparing ---------------------------'
+        for op1, op2 in zip(self.ops, expected):
+            print '%-38s| %-38s' % (op1, op2)
+            if op1 == op2:
+                continue
+            assert len(op1) == len(op2)
+            for x, y in zip(op1, op2):
+                if isinstance(x, StackLoc) and isinstance(y, MODRM):
+                    assert x.byte == y.byte
+                    assert x.extradata == y.extradata
+                else:
+                    assert x == y
+        assert len(self.ops) == len(expected)
+        return True
 
 class TestJump(object):
     def setup_method(self, m):
@@ -226,7 +255,7 @@ def test_random_mixed():
                 else:
                     newvalue = 'value-vfp-%d' % i
                 regs2[loc.value] = newvalue
-            elif loc.is_reg():
+            elif loc.is_core_reg():
                 regs1[loc.value] = 'value-int-%d' % i
             elif loc.is_stack():
                 stack[loc.position] = 'value-width%d-%d' % (loc.width, i)
@@ -255,7 +284,7 @@ def test_random_mixed():
                 assert loc.width == expected_width*WORD
             if loc.is_vfp_reg():
                 return regs2[loc.value]
-            elif loc.is_reg():
+            elif loc.is_core_reg():
                 return regs1[loc.value]
             elif loc.is_stack():
                 got = stack[loc.position]
@@ -269,7 +298,7 @@ def test_random_mixed():
         def write(loc, newvalue):
             if loc.is_vfp_reg():
                 regs2[loc.value] = newvalue
-            elif loc.is_reg():
+            elif loc.is_core_reg():
                 regs1[loc.value] = newvalue
             elif loc.is_stack():
                 if loc.width > WORD:
@@ -288,17 +317,17 @@ def test_random_mixed():
         for op in assembler.ops:
             if op[0] == 'mov':
                 src, dst = op[1:]
-                assert src.is_reg() or src.is_vfp_reg() or src.is_stack() or src.is_imm_float() or src.is_imm()
-                assert dst.is_reg() or dst.is_vfp_reg() or dst.is_stack()
+                assert src.is_core_reg() or src.is_vfp_reg() or src.is_stack() or src.is_imm_float() or src.is_imm()
+                assert dst.is_core_reg() or dst.is_vfp_reg() or dst.is_stack()
                 assert not (src.is_stack() and dst.is_stack())
                 write(dst, read(src))
             elif op[0] == 'push':
                 src, = op[1:]
-                assert src.is_reg() or src.is_vfp_reg() or src.is_stack()
+                assert src.is_core_reg() or src.is_vfp_reg() or src.is_stack()
                 extrapushes.append(read(src))
             elif op[0] == 'pop':
                 dst, = op[1:]
-                assert dst.is_reg() or dst.is_vfp_reg() or dst.is_stack()
+                assert dst.is_core_reg() or dst.is_vfp_reg() or dst.is_stack()
                 write(dst, extrapushes.pop())
             else:
                 assert 0, "unknown op: %r" % (op,)

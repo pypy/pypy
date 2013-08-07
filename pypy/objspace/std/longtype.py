@@ -1,10 +1,10 @@
 from pypy.interpreter.error import OperationError
 from pypy.interpreter import typedef
-from pypy.interpreter.gateway import (applevel, interp2app, unwrap_spec,
-                                      WrappedDefault)
-from pypy.objspace.std.register_all import register_all
-from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
-from pypy.objspace.std.strutil import string_to_bigint, ParseStringError
+from pypy.interpreter.gateway import (
+    WrappedDefault, applevel, interp2app, interpindirect2app, unwrap_spec)
+from pypy.objspace.std.model import W_Object
+from pypy.objspace.std.stdtypedef import StdTypeDef
+from rpython.rlib.rstring import ParseStringError
 from rpython.rlib.rbigint import rbigint, InvalidEndiannessError, InvalidSignednessError
 
 def descr_conjugate(space, w_int):
@@ -48,7 +48,12 @@ def descr__new__(space, w_longtype, w_x, w_base=None):
             bigint = space.bigint_w(w_obj)
             return newbigint(space, w_longtype, bigint)
     else:
-        base = space.int_w(w_base)
+        try:
+            base = space.int_w(w_base)
+        except OperationError, e:
+            if not e.match(space, space.w_OverflowError):
+                raise
+            base = 37 # this raises the right error in string_to_bigint()
 
         if space.isinstance_w(w_value, space.w_unicode):
             from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
@@ -57,7 +62,7 @@ def descr__new__(space, w_longtype, w_x, w_base=None):
             try:
                 strval = space.bufferstr_w(w_value)
                 s = strval.decode('latin-1')
-            except OperationError, e:
+            except OperationError:
                 raise OperationError(space.w_TypeError,
                                      space.wrap("long() can't convert non-string "
                                                 "with explicit base"))
@@ -66,7 +71,7 @@ def descr__new__(space, w_longtype, w_x, w_base=None):
 
 def string_to_w_long(space, w_longtype, s, base=10):
     try:
-        bigint = string_to_bigint(s, base)
+        bigint = rbigint.fromstr(s, base)
     except ParseStringError, e:
         raise OperationError(space.w_ValueError,
                              space.wrap(e.msg))
@@ -177,8 +182,8 @@ def descr___round__(space, w_long, w_ndigits=None):
     m - divmod_near(m, 10**n)[1]
 
     """
-    from pypy.objspace.std.longobject import W_AbstractIntObject, newlong
-    assert isinstance(w_long, W_AbstractIntObject)
+    from pypy.objspace.std.longobject import newlong
+    assert isinstance(w_long, W_AbstractLongObject)
 
     if w_ndigits is None:
         return space.int(w_long)
@@ -195,6 +200,30 @@ def descr___round__(space, w_long, w_ndigits=None):
     return space.sub(w_long, w_r)
 
 # ____________________________________________________________
+
+class W_AbstractLongObject(W_Object):
+    __slots__ = ()
+
+    def is_w(self, space, w_other):
+        if not isinstance(w_other, W_AbstractLongObject):
+            return False
+        if self.user_overridden_class or w_other.user_overridden_class:
+            return self is w_other
+        return space.bigint_w(self).eq(space.bigint_w(w_other))
+
+    def immutable_unique_id(self, space):
+        if self.user_overridden_class:
+            return None
+        from pypy.objspace.std.model import IDTAG_INT as tag
+        b = space.bigint_w(self)
+        b = b.lshift(3).or_(rbigint.fromint(tag))
+        return space.newlong_from_rbigint(b)
+
+    def unwrap(w_self, space): #YYYYYY
+        return w_self.longval()
+
+    def int(self, space):
+        raise NotImplementedError
 
 long_typedef = StdTypeDef("int",
     __doc__ = '''int(x[, base]) -> integer
@@ -213,6 +242,7 @@ converting a non-string.''',
     imag = typedef.GetSetProperty(descr_get_imag),
     bit_length = interp2app(bit_length),
     from_bytes = interp2app(descr_from_bytes, as_classmethod=True),
-    to_bytes = interp2app(descr_to_bytes)
+    to_bytes = interp2app(descr_to_bytes),
+    __int__ = interpindirect2app(W_AbstractLongObject.int),
 )
 long_typedef.registermethods(globals())

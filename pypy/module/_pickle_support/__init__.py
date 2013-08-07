@@ -23,5 +23,6 @@ class Module(MixedModule):
         'builtin_code': 'maker.builtin_code',
         'builtin_function' : 'maker.builtin_function',
         'enumerate_new': 'maker.enumerate_new',
-        'reversed_new': 'maker.reversed_new'
+        'reversed_new': 'maker.reversed_new',
+        'operationerror_new': 'maker.operationerror_new',
     }

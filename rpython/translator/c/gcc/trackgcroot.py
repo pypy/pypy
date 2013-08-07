@@ -184,6 +184,8 @@ class FunctionGcRootTracker(object):
                 continue
             self.currentlineno = lineno
             insn = []
+            if line.startswith('\trep;'):
+                line = '\t'+line[5:].lstrip()
             match = self.r_insn.match(line)
 
             if self.r_bottom_marker.match(line):
@@ -342,12 +344,12 @@ class FunctionGcRootTracker(object):
 
     def walk_instructions_backwards(self, walker, initial_insn, initial_state):
         pending = []
-        seen = {}
+        seen = set()
         def schedule(insn, state):
             for previnsn in insn.previous_insns:
                 key = previnsn, state
                 if key not in seen:
-                    seen[key] = True
+                    seen.add(key)
                     pending.append(key)
         schedule(initial_insn, initial_state)
         while pending:
@@ -476,7 +478,7 @@ class FunctionGcRootTracker(object):
         'rep', 'movs', 'movhp', 'lods', 'stos', 'scas', 'cwde', 'prefetch',
         # floating-point operations cannot produce GC pointers
         'f',
-        'cvt', 'ucomi', 'comi', 'subs', 'subp' , 'adds', 'addp', 'xorp',
+        'cvt', 'ucomi', 'comi', 'subs', 'subp', 'adds', 'addp', 'xorp',
         'movap', 'movd', 'movlp', 'movup', 'sqrt', 'rsqrt', 'movhlp', 'movlhp',
         'mins', 'minp', 'maxs', 'maxp', 'unpck', 'pxor', 'por', # sse2
         'shufps', 'shufpd',
@@ -493,13 +495,15 @@ class FunctionGcRootTracker(object):
         # sign-extending moves should not produce GC pointers
         'cbtw', 'cwtl', 'cwtd', 'cltd', 'cltq', 'cqto',
         # zero-extending moves should not produce GC pointers
-        'movz', 
+        'movz',
         # locked operations should not move GC pointers, at least so far
         'lock', 'pause',
         # non-temporal moves should be reserved for areas containing
         # raw data, not GC pointers
         'movnt', 'mfence', 'lfence', 'sfence',
-        ])
+        # bit manipulations
+        'bextr',
+    ])
 
     # a partial list is hopefully good enough for now; it's all to support
     # only one corner case, tested in elf64/track_zero.s
@@ -664,6 +668,12 @@ class FunctionGcRootTracker(object):
     def visit_ret(self, line):
         return InsnRet(self.CALLEE_SAVE_REGISTERS)
 
+    def visit_rep(self, line):
+        # 'rep ret' or 'rep; ret': bad reasons for this bogus 'rep' here
+        if line.split()[:2] == ['rep', 'ret']:
+            return self.visit_ret(line)
+        return []
+
     def visit_jmp(self, line):
         tablelabels = []
         match = self.r_jmp_switch.match(line)
@@ -733,7 +743,7 @@ class FunctionGcRootTracker(object):
             # tail-calls are equivalent to RET for us
             return InsnRet(self.CALLEE_SAVE_REGISTERS)
         return InsnStop("jump")
-    
+
     def register_jump_to(self, label, lastinsn=None):
         if lastinsn is None:
             lastinsn = self.insns[-1]
@@ -1012,7 +1022,7 @@ class FunctionGcRootTracker64(FunctionGcRootTracker):
     visit_movl = visit_mov
 
     visit_xorl = _maybe_32bit_dest(FunctionGcRootTracker.binary_insn)
-    
+
     visit_pushq = FunctionGcRootTracker._visit_push
 
     visit_addq = FunctionGcRootTracker._visit_add
@@ -1099,6 +1109,7 @@ class ElfFunctionGcRootTracker32(FunctionGcRootTracker32):
         '___assert_rtn': None,
         'L___assert_rtn$stub': None,
         'L___eprintf$stub': None,
+        '__stack_chk_fail': None,
         }
     for _name in FunctionGcRootTracker.BASE_FUNCTIONS_NOT_RETURNING:
         FUNCTIONS_NOT_RETURNING[_name] = None
@@ -1160,6 +1171,7 @@ class ElfFunctionGcRootTracker64(FunctionGcRootTracker64):
         '___assert_rtn': None,
         'L___assert_rtn$stub': None,
         'L___eprintf$stub': None,
+        '__stack_chk_fail': None,
         }
     for _name in FunctionGcRootTracker.BASE_FUNCTIONS_NOT_RETURNING:
         FUNCTIONS_NOT_RETURNING[_name] = None

@@ -1,14 +1,13 @@
-import py
+# encoding: utf-8
 import sys
-from pypy.interpreter.error import OperationError
-from pypy.objspace.std.dictmultiobject import \
-     W_DictMultiObject, setitem__DictMulti_ANY_ANY, getitem__DictMulti_ANY, \
-     StringDictStrategy, ObjectDictStrategy
+import py
 
-class TestW_DictObject:
+from pypy.objspace.std.dictmultiobject import (W_DictMultiObject,
+    StringDictStrategy, ObjectDictStrategy)
 
+
+class TestW_DictObject(object):
     def test_empty(self):
-        space = self.space
         d = self.space.newdict()
         assert not self.space.is_true(d)
         assert type(d.strategy) is not ObjectDictStrategy
@@ -126,6 +125,7 @@ class TestW_DictObject:
         assert self.space.eq_w(space.call_function(get, w("33"), w(44)), w(44))
 
     def test_fromkeys_fastpath(self):
+        py.test.py3k_skip("XXX: strategies are currently broken")
         space = self.space
         w = space.wrap
         wb = space.wrapbytes
@@ -138,6 +138,7 @@ class TestW_DictObject:
         assert space.eq_w(w_d.getitem_str("b"), space.w_None)
 
     def test_listview_str_dict(self):
+        py.test.py3k_skip("XXX: strategies are currently broken")
         w = self.space.wrap
         wb = self.space.wrapbytes
         w_d = self.space.newdict()
@@ -158,6 +159,7 @@ class TestW_DictObject:
         assert self.space.listview_int(w_d) == [1, 2]
 
     def test_keys_on_string_unicode_int_dict(self, monkeypatch):
+        py.test.py3k_skip("XXX: strategies are currently broken")
         w = self.space.wrap
         wb = self.space.wrapbytes
         
@@ -236,7 +238,7 @@ class AppTest_DictObject:
     def test_iteritems(self):
         d = {1: 2, 3: 4}
         dd = d.copy()
-        for k, v in d.iteritems():
+        for k, v in d.items():
             assert v == dd[k]
             del dd[k]
         assert not dd
@@ -244,14 +246,14 @@ class AppTest_DictObject:
     def test_iterkeys(self):
         d = {1: 2, 3: 4}
         dd = d.copy()
-        for k in d.iterkeys():
+        for k in d.keys():
             del dd[k]
         assert not dd
 
     def test_itervalues(self):
         d = {1: 2, 3: 4}
         values = []
-        for k in d.itervalues():
+        for k in d.values():
             values.append(k)
         assert values == list(d.values())
 
@@ -368,6 +370,16 @@ class AppTest_DictObject:
         d.update({'foo': 'bar'}, baz=1)
         assert d == {'foo': 'bar', 'baz': 1}
 
+    def test_update_keys_method(self):
+        class Foo(object):
+            def keys(self):
+                return [4, 1]
+            def __getitem__(self, key):
+                return key * 10
+        d = {}
+        d.update(Foo())
+        assert d == {1: 10, 4: 40}
+
     def test_values(self):
         d = {1: 2, 3: 4}
         vals = list(d.values())
@@ -387,27 +399,13 @@ class AppTest_DictObject:
         bool = d1 != d3
         assert bool == True
 
-    def test_lt(self):
+    def test_richcompare(self):
+        import operator
         d1 = {1: 2, 3: 4}
-        d2 = {1: 2, 3: 4}
-        d3 = {1: 2, 3: 5}
-        d4 = {1: 2}
-        bool = d1 < d2
-        assert bool == False
-        bool = d1 < d3
-        assert bool == True
-        bool = d1 < d4
-        assert bool == False
-
-    def test_lt2(self):
-        assert {'a': 1 } < { 'a': 2 }
-        assert not {'a': 1 } > { 'a': 2 }
-        assert not {'a': 1, 'b': 0 } > { 'a': 2, 'b': 0 }
-        assert {'a': 1, 'b': 0 } < { 'a': 2, 'b': 0 }
-        assert {'a': 1, 'b': 0 } < { 'a': 1, 'b': 2 }
-        assert not {'a': 1, 'b': 0 } < { 'a': 1, 'b': -2 }
-        assert {'a': 1 } < { 'b': 1}
-        assert {'a': 1, 'x': 2 } < { 'b': 1, 'x': 2}
+        d2 = {1: 2, 3: 5}
+        for op in 'lt', 'le', 'gt', 'ge':
+            f = getattr(operator, op)
+            raises(TypeError, f, d1, d2)
 
     def test_str_repr(self):
         assert '{}' == str({})
@@ -607,7 +605,6 @@ class AppTest_DictObject:
     def test_bytes_keys(self):
         assert isinstance(list({b'a': 1})[0], bytes)
 
-
 class AppTest_DictMultiObject(AppTest_DictObject):
 
     def test_emptydict_unhashable(self):
@@ -672,6 +669,7 @@ class AppTestDictViews:
         assert keys != set([1, "b"])
         assert keys != set([1])
         assert keys != 42
+        assert not keys == 42
         assert 1 in keys
         assert "a" in keys
         assert 10 not in keys
@@ -693,6 +691,7 @@ class AppTestDictViews:
         assert items != set([(1, 10), ("a", "def")])
         assert items != set([(1, 10)])
         assert items != 42
+        assert not items == 42
         assert (1, 10) in items
         assert ("a", "ABC") in items
         assert (1, 11) not in items
@@ -717,6 +716,7 @@ class AppTestDictViews:
         values = d.values()
         assert set(values) == set([10, "ABC"])
         assert len(values) == 2
+        assert not values == 42
 
     def test_dict_repr(self):
         d = {1: 10, "a": "ABC"}
@@ -733,6 +733,8 @@ class AppTestDictViews:
         assert isinstance(r, str)
         assert (r == "dict_values(['ABC', 10])" or
                 r == "dict_values([10, 'ABC'])")
+        d = {'日本': '日本国'}
+        assert repr(d.items()) == "dict_items([('日本', '日本国')])"
 
     def test_keys_set_operations(self):
         d1 = {'a': 1, 'b': 2}
@@ -881,7 +883,7 @@ class AppTestDictViews:
         assert not frozenset({(1, 'a'), (2, 'b'), (3, 'c')}) != d.items()
         """
 
-    def test_dictviewset_unshasable_values(self):
+    def test_dictviewset_unhashable_values(self):
         class C:
             def __eq__(self, other):
                 return True
@@ -983,14 +985,14 @@ class AppTestStrategies(object):
 
     def test_iter_dict_length_change(self):
         d = {1: 2, 3: 4, 5: 6}
-        it = d.iteritems()
+        it = iter(d.items())
         d[7] = 8
         # 'd' is now length 4
-        raises(RuntimeError, it.__next__)
+        raises(RuntimeError, next, it)
 
     def test_iter_dict_strategy_only_change_1(self):
         d = {1: 2, 3: 4, 5: 6}
-        it = d.iteritems()
+        it = d.items()
         class Foo(object):
             def __eq__(self, other):
                 return False
@@ -1002,7 +1004,7 @@ class AppTestStrategies(object):
 
     def test_iter_dict_strategy_only_change_2(self):
         d = {1: 2, 3: 4, 5: 6}
-        it = d.iteritems()
+        it = d.items()
         d['foo'] = 'bar'
         del d[1]
         # on default the strategy changes and thus we get the RuntimeError
@@ -1058,6 +1060,7 @@ class FakeSpace:
             return str
         return type(w_obj)
     w_str = str
+
     def str_w(self, string):
         assert isinstance(string, str)
         return string
@@ -1069,8 +1072,9 @@ class FakeSpace:
     def wrap(self, obj):
         return obj
 
-    def isinstance(self, obj, klass):
+    def isinstance_w(self, obj, klass):
         return isinstance(obj, klass)
+    isinstance = isinstance_w
 
     def newtuple(self, l):
         return tuple(l)
@@ -1134,10 +1138,10 @@ class TestDictImplementation:
         pydict = {}
         for i in range(N):
             x = randint(-N, N)
-            setitem__DictMulti_ANY_ANY(self.space, d, x, i)
+            d.descr_setitem(self.space, x, i)
             pydict[x] = i
         for key, value in pydict.iteritems():
-            assert value == getitem__DictMulti_ANY(self.space, d, key)
+            assert value == d.descr_getitem(self.space, key)
 
 class BaseTestRDictImplementation:
 
@@ -1302,6 +1306,7 @@ class TestStrDictImplementation(BaseTestRDictImplementation):
         assert s.unwrapped
 
     def test_view_as_kwargs(self):
+        py.test.py3k_skip("XXX: strategies are currently broken")
         self.fill_impl()
         assert self.fakespace.view_as_kwargs(self.impl) == (["fish", "fish2"], [1000, 2000])
 
@@ -1322,6 +1327,7 @@ class TestDevolvedStrDictImplementation(BaseTestDevolvedDictImplementation):
 
 
 def test_module_uses_strdict():
+    py.test.py3k_skip("XXX: strategies are currently broken")
     fakespace = FakeSpace()
     d = fakespace.newdict(module=True)
     assert type(d.strategy) is StringDictStrategy

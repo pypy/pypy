@@ -1,7 +1,6 @@
-import inspect, types
 from rpython.flowspace.model import Block, Link, FunctionGraph
 from rpython.flowspace.model import safe_iterblocks, safe_iterlinks
-from rpython.translator.tool.make_dot import DotGen, make_dot, make_dot_graphs
+from rpython.translator.tool.make_dot import DotGen, make_dot_graphs
 from rpython.annotator.model import SomePBC
 from rpython.annotator.description import MethodDesc
 from rpython.annotator.classdef import ClassDef
@@ -27,7 +26,7 @@ class VariableHistoryGraphPage(GraphPage):
             label += "\\n" + self.createlink(info.origin, 'Originated at')
         if caused_by is not None:
             label += '\\n' + self.createlink(caused_by)
-        
+
         dotgen.emit_node('0', shape="box", color="red", label=label)
         for n, (data, caused_by) in zip(range(len(history)), history):
             label = nottoowide(data)
@@ -387,8 +386,6 @@ class ClassHierarchyPage(BaseTranslatorPage):
         return 'class_hierarchy'
 
     def do_compute(self, dotgen):
-        translator = self.translator
-
         # show the class hierarchy
         self.compute_class_hieararchy(dotgen)
 
@@ -425,6 +422,8 @@ def try_show(obj):
                     if block not in seen:
                         pending.append(block)
                         seen[block] = True
+                elif isinstance(y, dict):
+                    pending.append(y)   # go back from the dict to the real obj
         graph = IncompleteGraph(pending)
         SingleGraphPage(graph).display()
     else:

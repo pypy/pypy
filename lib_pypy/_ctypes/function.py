@@ -8,7 +8,6 @@ import _rawffi
 import _ffi
 import sys
 import traceback
-import warnings
 
 try: from __pypy__ import builtinify
 except ImportError: builtinify = lambda f: f
@@ -307,15 +306,20 @@ class CFuncPtr(_CData, metaclass=CFuncPtrType):
             except:
                 exc_info = sys.exc_info()
                 traceback.print_tb(exc_info[2], file=sys.stderr)
-                print >>sys.stderr, "%s: %s" % (exc_info[0].__name__, exc_info[1])
+                print("%s: %s" % (exc_info[0].__name__, exc_info[1]),
+                      file=sys.stderr)
                 return 0
             if self._restype_ is not None:
                 return res
             return
 
         if argtypes is None:
-            warnings.warn('C function without declared arguments called',
-                          RuntimeWarning, stacklevel=2)
+            # XXX this warning was originally meaning "it's going to be
+            # really slow".  Now we don't worry that much about slowness
+            # of ctypes, and it's strange to get warnings for perfectly-
+            # legal code.
+            #warnings.warn('C function without declared arguments called',
+            #              RuntimeWarning, stacklevel=2)
             argtypes = []
 
         if self._com_index:
@@ -341,6 +345,7 @@ class CFuncPtr(_CData, metaclass=CFuncPtrType):
         if not outargs:
             return result
 
+        from ctypes import c_void_p
         simple_cdata = type(c_void_p()).__bases__[0]
         outargs = [x.value if type(x).__bases__[0] is simple_cdata else x
                    for x in outargs]
@@ -555,7 +560,6 @@ class CFuncPtr(_CData, metaclass=CFuncPtrType):
                 try:
                     keepalive, newarg, newargtype = self._conv_param(argtype, args[i])
                 except (UnicodeError, TypeError, ValueError) as e:
-                    raise
                     raise ArgumentError(str(e))
                 keepalives.append(keepalive)
                 newargs.append(newarg)

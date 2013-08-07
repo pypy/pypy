@@ -4,6 +4,7 @@ Comes from standard library, modified for the purpose of having a structured
 view on things
 """
 
+from __future__ import print_function
 import sys
 import types
 import inspect
@@ -77,7 +78,7 @@ def dis(x=None):
         x = x.__code__
     if hasattr(x, '__dict__'):
         xxx
-        sorted(x.__dict__.items())
+        items = sorted(x.__dict__.items())
         for name, x1 in items:
             if type(x1) in (types.MethodType,
                             types.FunctionType,

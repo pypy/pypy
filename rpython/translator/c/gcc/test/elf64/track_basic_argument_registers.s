@@ -25,7 +25,8 @@ foobar:
 	/* GCROOT -48(%rbp) */
 	movq	-24(%rbp), %rax
 	leave
-	ret
+	; try out a "rep ret" instead of just a "ret", for bad reasons
+	rep ret
 	.cfi_endproc
 .LFE0:
 	.size	foobar, .-foobar

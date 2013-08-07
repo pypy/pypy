@@ -7,9 +7,9 @@ from __future__ import generators
 import re, os, math
 import pygame
 from pygame.locals import *
+from strunicode import forceunicode
 
 
-RAW_ENCODING = "utf-8"
 this_dir = os.path.dirname(os.path.abspath(__file__))
 FONT = os.path.join(this_dir, 'font', 'DroidSans.ttf')
 FIXEDFONT = os.path.join(this_dir, 'font', 'DroidSansMono.ttf')
@@ -51,12 +51,6 @@ def getcolor(name, default):
         return rval
     else:
         return default
-
-def forceunicode(name):
-    return name if isinstance(name, unicode) else name.decode(RAW_ENCODING)
-
-def forcestr(name):
-    return name if isinstance(name, str) else name.encode(RAW_ENCODING)
 
 
 class GraphLayout:

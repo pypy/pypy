@@ -10,6 +10,12 @@ from pypy.module._io.interp_textio import W_TextIOWrapper
 from rpython.rtyper.module.ll_os_stat import STAT_FIELD_TYPES
 
 
+class Cache:
+    def __init__(self, space):
+        self.w_unsupportedoperation = space.new_exception_class(
+            "io.UnsupportedOperation",
+            space.newtuple([space.w_ValueError, space.w_IOError]))
+
 class W_BlockingIOError(W_IOError):
     def __init__(self, space):
         W_IOError.__init__(self, space)
@@ -22,6 +28,7 @@ class W_BlockingIOError(W_IOError):
 
 W_BlockingIOError.typedef = TypeDef(
     'BlockingIOError', W_IOError.typedef,
+    __module__ = 'io',
     __doc__ = ("Exception raised when I/O would block "
                "on a non-blocking I/O stream"),
     __new__  = generic_new_descr(W_BlockingIOError),
@@ -42,9 +49,7 @@ def open(space, w_file, mode="r", buffering=-1, encoding=None, errors=None,
     if not (space.isinstance_w(w_file, space.w_unicode) or
             space.isinstance_w(w_file, space.w_str) or
             space.isinstance_w(w_file, space.w_int)):
-        raise operationerrfmt(space.w_TypeError,
-            "invalid file: %s", space.str_w(space.repr(w_file))
-        )
+        raise operationerrfmt(space.w_TypeError, "invalid file: %R", w_file)
 
     reading = writing = appending = updating = text = binary = universal = False
 

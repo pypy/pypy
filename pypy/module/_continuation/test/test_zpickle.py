@@ -6,9 +6,6 @@ class AppTestCopy:
                        continuation=True,
                        CALL_METHOD=True)
 
-    def setup_class(cls):
-        py.test.py3k_skip("_continuation not supported yet")
-
     def test_basic_setup(self):
         from _continuation import continulet
         lst = [4]
@@ -113,7 +110,6 @@ class AppTestPickle:
     }
 
     def setup_class(cls):
-        py.test.py3k_skip("_continuation not supported yet")
         cls.space.appexec([], """():
             global continulet, A, __name__
 
@@ -188,7 +184,7 @@ class AppTestPickle:
 
     def test_pickle_continulet_real(self):
         import types, sys
-        mod = types.ModuleType('test_copy_continulet_real')
+        mod = types.ModuleType('test_pickle_continulet_real')
         sys.modules['test_pickle_continulet_real'] = mod
         mod.version = self.version
         exec('''if 1:
@@ -222,7 +218,7 @@ class AppTestPickle:
 
     def test_pickle_continulet_real_subclass(self):
         import types, sys
-        mod = types.ModuleType('test_copy_continulet_real_subclass')
+        mod = types.ModuleType('test_pickle_continulet_real_subclass')
         sys.modules['test_pickle_continulet_real_subclass'] = mod
         mod.version = self.version
         exec('''if 1:

@@ -1,3 +1,4 @@
+# encoding: utf-8
 import py
 from pypy.interpreter import gateway
 from pypy.objspace.test import test_descriptor
@@ -213,6 +214,11 @@ class AppTestUserObject:
         Foo.__module__ = 'a.b.c'
         s = repr(Foo())
         assert s.startswith('<a.b.c.Foo object at ')
+
+    def test_repr_nonascii(self):
+        Japan = type('日本', (), dict(__module__='日本国'))
+        s = repr(Japan())
+        assert s.startswith('<日本国.日本 object at ')
 
     def test_del_attr(self):
         class Foo(object):

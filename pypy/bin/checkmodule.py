@@ -33,7 +33,7 @@ def main(argv):
         modname = os.path.basename(modname)
     try:
         checkmodule(modname)
-    except Exception, e:
+    except Exception:
         import traceback, pdb
         traceback.print_exc()
         pdb.post_mortem(sys.exc_info()[2])

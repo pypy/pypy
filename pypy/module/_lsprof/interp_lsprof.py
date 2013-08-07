@@ -1,8 +1,8 @@
 import py
 
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.function import Method, Function
+from pypy.interpreter.function import BuiltinFunction, Method, Function
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
                                       interp_attrproperty)
@@ -35,7 +35,7 @@ if _is_64_bit:
 else:
     timer_size_int = r_longlong
 
-class W_StatsEntry(Wrappable):
+class W_StatsEntry(W_Root):
     def __init__(self, space, frame, callcount, reccallcount, tt, it,
                  w_sublist):
         self.frame = frame
@@ -72,7 +72,7 @@ W_StatsEntry.typedef = TypeDef(
     __repr__ = interp2app(W_StatsEntry.repr),
 )
 
-class W_StatsSubEntry(Wrappable):
+class W_StatsSubEntry(W_Root):
     def __init__(self, space, frame, callcount, reccallcount, tt, it):
         self.frame = frame
         self.callcount = callcount
@@ -201,26 +201,28 @@ def create_spec_for_method(space, w_function, w_type):
         w_realclass, _ = space.lookup_in_type_where(w_type, name)
         if isinstance(w_realclass, W_TypeObject):
             class_name = w_realclass.get_module_type_name()
-    return "{method '%s' of '%s' objects}" % (name, class_name)
+    return u"{method '%s' of '%s' objects}" % (name.decode('utf-8'),
+                                               class_name)
 
 
 @jit.elidable_promote()
 def create_spec_for_function(space, w_func):
     if w_func.w_module is None:
-        module = ''
+        module = u''
     else:
-        module = space.str_w(w_func.w_module)
-        if module == 'builtins':
-            module = ''
+        module = space.unicode_w(w_func.w_module)
+        if module == u'builtins':
+            module = u''
         else:
-            module += '.'
-    return '{%s%s}' % (module, w_func.name)
+            module += u'.'
+    pre = u'built-in function ' if isinstance(w_func, BuiltinFunction) else u''
+    return u'{%s%s%s}' % (pre, module, w_func.getname(space))
 
 
 @jit.elidable_promote()
 def create_spec_for_object(space, w_obj):
     class_name = space.type(w_obj).getname(space)
-    return "{'%s' object}" % (class_name,)
+    return u"{'%s' object}" % (class_name,)
 
 
 def create_spec(space, w_arg):
@@ -253,8 +255,8 @@ def lsprof_call(space, w_self, frame, event, w_arg):
         # ignore or raise an exception???
         pass
 
-class W_Profiler(Wrappable):
 
+class W_Profiler(W_Root):
     def __init__(self, space, w_callable, time_unit, subcalls, builtins):
         self.subcalls = subcalls
         self.builtins = builtins

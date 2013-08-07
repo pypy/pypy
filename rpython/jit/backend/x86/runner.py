@@ -1,16 +1,12 @@
 import py
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
-from rpython.rtyper.lltypesystem.lloperation import llop
-from rpython.rtyper.llinterp import LLInterpreter
-from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rlib.jit_hooks import LOOP_RUN_CONTAINER
-from rpython.jit.codewriter import longlong
-from rpython.jit.metainterp import history, compile
 from rpython.jit.backend.x86.assembler import Assembler386
-from rpython.jit.backend.x86.arch import FORCE_INDEX_OFS, IS_X86_32
+from rpython.jit.backend.x86.regalloc import gpr_reg_mgr_cls, xmm_reg_mgr_cls
 from rpython.jit.backend.x86.profagent import ProfileAgent
 from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
 from rpython.jit.backend.x86 import regloc
+
 import sys
 
 from rpython.tool.ansi_print import ansi_log
@@ -25,11 +21,15 @@ class AbstractX86CPU(AbstractLLCPU):
 
     dont_keepalive_stuff = False # for tests
     with_threads = False
+    frame_reg = regloc.ebp
+
+    from rpython.jit.backend.x86.arch import JITFRAME_FIXED_SIZE
+    all_reg_indexes = gpr_reg_mgr_cls.all_reg_indexes
+    gen_regs = gpr_reg_mgr_cls.all_regs
+    float_regs = xmm_reg_mgr_cls.all_regs
 
     def __init__(self, rtyper, stats, opts=None, translate_support_code=False,
                  gcdescr=None):
-        if gcdescr is not None:
-            gcdescr.force_index_ofs = FORCE_INDEX_OFS
         AbstractLLCPU.__init__(self, rtyper, stats, opts,
                                translate_support_code, gcdescr)
 
@@ -45,10 +45,6 @@ class AbstractX86CPU(AbstractLLCPU):
 
         self.profile_agent = profile_agent
 
-        from rpython.jit.backend.llsupport import jitframe
-        self.deadframe_size_max = llmemory.sizeof(jitframe.DEADFRAME,
-                                                  self.get_failargs_limit())
-
     def set_debug(self, flag):
         return self.assembler.set_debug(flag)
 
@@ -61,10 +57,15 @@ class AbstractX86CPU(AbstractLLCPU):
     def setup(self):
         self.assembler = Assembler386(self, self.translate_support_code)
 
+    def build_regalloc(self):
+        ''' for tests'''
+        from rpython.jit.backend.x86.regalloc import RegAlloc
+        assert self.assembler is not None
+        return RegAlloc(self.assembler, False)
+
     def setup_once(self):
         self.profile_agent.startup()
         self.assembler.setup_once()
-        self.gc_set_extra_threshold()
 
     def finish_once(self):
         self.assembler.finish_once()
@@ -104,70 +105,18 @@ class AbstractX86CPU(AbstractLLCPU):
         for index in range(count):
             setitem(index, null)
 
-    def make_execute_token(self, *ARGS):
-        FUNCPTR = lltype.Ptr(lltype.FuncType(ARGS, llmemory.GCREF))
-        #
-        def execute_token(executable_token, *args):
-            clt = executable_token.compiled_loop_token
-            assert len(args) == clt._debug_nbargs
-            #
-            addr = executable_token._x86_function_addr
-            func = rffi.cast(FUNCPTR, addr)
-            #llop.debug_print(lltype.Void, ">>>> Entering", addr)
-            prev_interpreter = None   # help flow space
-            if not self.translate_support_code:
-                prev_interpreter = LLInterpreter.current_interpreter
-                LLInterpreter.current_interpreter = self.debug_ll_interpreter
-            try:
-                deadframe = func(*args)
-            finally:
-                if not self.translate_support_code:
-                    LLInterpreter.current_interpreter = prev_interpreter
-            #llop.debug_print(lltype.Void, "<<<< Back")
-            self.gc_set_extra_threshold()
-            return deadframe
-        return execute_token
-
     def cast_ptr_to_int(x):
         adr = llmemory.cast_ptr_to_adr(x)
         return CPU386.cast_adr_to_int(adr)
     cast_ptr_to_int._annspecialcase_ = 'specialize:arglltype(0)'
     cast_ptr_to_int = staticmethod(cast_ptr_to_int)
 
-    all_null_registers = lltype.malloc(rffi.LONGP.TO,
-                                       IS_X86_32 and (16+8)  # 16 + 8 regs
-                                                 or (16+16), # 16 + 16 regs
-                                       flavor='raw', zero=True,
-                                       immortal=True)
-
-    def force(self, addr_of_force_token):
-        TP = rffi.CArrayPtr(lltype.Signed)
-        addr_of_force_index = addr_of_force_token + FORCE_INDEX_OFS
-        fail_index = rffi.cast(TP, addr_of_force_index)[0]
-        assert fail_index >= 0, "already forced!"
-        faildescr = self.get_fail_descr_from_number(fail_index)
-        rffi.cast(TP, addr_of_force_index)[0] = ~fail_index
-        frb = self.assembler._find_failure_recovery_bytecode(faildescr)
-        bytecode = rffi.cast(rffi.UCHARP, frb)
-        assert (rffi.cast(lltype.Signed, bytecode[0]) ==
-                self.assembler.CODE_FORCED)
-        bytecode = rffi.ptradd(bytecode, 1)
-        deadframe = self.assembler.grab_frame_values(
-            self,
-            bytecode,
-            addr_of_force_token,
-            self.all_null_registers)
-        assert self.get_latest_descr(deadframe) is faildescr
-        self.assembler.force_token_to_dead_frame[addr_of_force_token] = (
-            deadframe)
-        return deadframe
-
     def redirect_call_assembler(self, oldlooptoken, newlooptoken):
         self.assembler.redirect_call_assembler(oldlooptoken, newlooptoken)
 
     def invalidate_loop(self, looptoken):
         from rpython.jit.backend.x86 import codebuf
-        
+
         for addr, tgt in looptoken.compiled_loop_token.invalidate_positions:
             mc = codebuf.MachineCodeBlockWrapper()
             mc.JMP_l(tgt)
@@ -185,13 +134,15 @@ class AbstractX86CPU(AbstractLLCPU):
             l[i].counter = ll_s.i
         return l
 
+
 class CPU386(AbstractX86CPU):
     backend_name = 'x86'
-    WORD = 4
     NUM_REGS = 8
     CALLEE_SAVE_REGISTERS = [regloc.ebx, regloc.esi, regloc.edi]
 
     supports_longlong = True
+
+    IS_64_BIT = False
 
     def __init__(self, *args, **kwargs):
         assert sys.maxint == (2**31 - 1)
@@ -203,12 +154,9 @@ class CPU386_NO_SSE2(CPU386):
 
 class CPU_X86_64(AbstractX86CPU):
     backend_name = 'x86_64'
-    WORD = 8
     NUM_REGS = 16
     CALLEE_SAVE_REGISTERS = [regloc.ebx, regloc.r12, regloc.r13, regloc.r14, regloc.r15]
 
-    def __init__(self, *args, **kwargs):
-        assert sys.maxint == (2**63 - 1)
-        super(CPU_X86_64, self).__init__(*args, **kwargs)
+    IS_64_BIT = True
 
 CPU = CPU386

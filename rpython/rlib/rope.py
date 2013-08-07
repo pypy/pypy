@@ -1,9 +1,9 @@
 import py
 import sys
+import math
+
 from rpython.rlib.rarithmetic import intmask, ovfcheck
 from rpython.rlib.rarithmetic import r_uint, LONG_BIT
-from rpython.rlib.objectmodel import we_are_translated
-import math
 
 LOG2 = math.log(2)
 NBITS = int(math.log(sys.maxint) / LOG2) + 2
@@ -79,7 +79,7 @@ class StringNode(object):
 
     def is_ascii(self):
         raise NotImplementedError("base class")
-        
+
     def is_bytestring(self):
         raise NotImplementedError("base class")
 
@@ -144,7 +144,7 @@ class LiteralStringNode(LiteralNode):
     def __init__(self, s):
         assert isinstance(s, str)
         self.s = s
-    
+
     def length(self):
         return len(self.s)
 
@@ -245,7 +245,7 @@ class LiteralUnicodeNode(LiteralNode):
     def __init__(self, u):
         assert isinstance(u, unicode)
         self.u = u
-    
+
     def length(self):
         return len(self.u)
 
@@ -254,7 +254,7 @@ class LiteralUnicodeNode(LiteralNode):
 
     def is_ascii(self):
         return False # usually not
-        
+
     def is_bytestring(self):
         return False
 
@@ -415,7 +415,7 @@ class BinaryConcatNode(StringNode):
     def flatten_unicode(self):
         f = fringe(self)
         return u"".join([node.flatten_unicode() for node in f])
- 
+
     def hash_part(self):
         return self.additional_info().hash
 
@@ -435,7 +435,7 @@ class BinaryConcatNode(StringNode):
             return self
         return rebalance([self], self.len)
 
-    
+
     def _concat(self, other):
         if isinstance(other, LiteralNode):
             r = self.right
@@ -696,7 +696,6 @@ def rope_from_unicode(uni):
         if i != start:
             nodelist.append(LiteralUnicodeNode(uni[start:i]))
         start = i
-        strchunk = []
         while i < length:
             c = ord(uni[i])
             if c >= 256:
@@ -947,7 +946,7 @@ class ItemIterator(object):
         self.index = 0
         if start:
             self._advance_to(start)
-    
+
     def _advance_to(self, index):
         self.index = self.iter._seekforward(index)
         self.node = self.iter.next()
@@ -973,28 +972,24 @@ class ItemIterator(object):
 
     def nextchar(self):
         node = self.getnode()
-        index = self.index
         result = node.getchar(self.index)
         self.advance_index()
         return result
 
     def nextunichar(self):
         node = self.getnode()
-        index = self.index
         result = node.getunichar(self.index)
         self.advance_index()
         return result
 
     def nextrope(self):
         node = self.getnode()
-        index = self.index
         result = node.getrope(self.index)
         self.advance_index()
         return result
 
     def nextint(self):
         node = self.getnode()
-        index = self.index
         result = node.getint(self.index)
         self.advance_index()
         return result
@@ -1064,7 +1059,6 @@ class SeekableItemIterator(object):
         assert 0 <= items < node.length()
         while isinstance(node, BinaryConcatNode):
             self.stack.append(node)
-            right = node.right
             left = node.left
             if items >= left.length():
                 items -= left.length()
@@ -1085,7 +1079,7 @@ class SeekableItemIterator(object):
         if self.index == -1:
             self.seekback(0)
         return self.node
-    
+
     nextchar = make_seekable_method("getchar")
     nextunichar = make_seekable_method("getunichar")
     nextint = make_seekable_method("getint")
@@ -1112,7 +1106,7 @@ class SeekableItemIterator(object):
             self.stack.pop()
         raise StopIteration
 
-        
+
     def seekback(self, numchars):
         if numchars <= self.index:
             self.index -= numchars
@@ -1154,7 +1148,7 @@ class FindIterator(object):
             self.stop = self.start
         else:
             self.restart_positions = construct_restart_positions_node(sub)
-    
+
     def next(self):
         if self.search_length == 0:
             if (self.stop - self.start) < 0:
@@ -1263,20 +1257,20 @@ def endswith(self, suffix, start, end):
 def strip(node, left=True, right=True, predicate=lambda i: chr(i).isspace(),
           *extraargs):
     length = node.length()
-    
+
     lpos = 0
     rpos = length
-    
+
     if left:
         iter = ItemIterator(node)
         while lpos < rpos and predicate(iter.nextint(), *extraargs):
-           lpos += 1
-       
+            lpos += 1
+
     if right:
         iter = ReverseItemIterator(node)
         while rpos > lpos and predicate(iter.nextint(), *extraargs):
-           rpos -= 1
-       
+            rpos -= 1
+
     assert rpos >= lpos
     return getslice_one(node, lpos, rpos)
 strip._annspecialcase_ = "specialize:arg(3)"
@@ -1507,10 +1501,10 @@ def _str_encode_utf_8(s):
         ch = ord(s[i])
         i += 1
         if (ch < 0x80):
-            # Encode ASCII 
+            # Encode ASCII
             result.append(chr(ch))
             continue
-        # Encode Latin-1 
+        # Encode Latin-1
         result.append(chr((0xc0 | (ch >> 6))))
         result.append(chr((0x80 | (ch & 0x3f))))
     return "".join(result)

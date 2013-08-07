@@ -1,3 +1,4 @@
+# encoding: utf-8
 import unittest
 from pypy.interpreter import eval
 from pypy.interpreter.function import Function, Method, descr_function_get
@@ -43,6 +44,17 @@ class AppTestFunctionIntrospection:
         assert f.__kwdefaults__ is None
         raises(TypeError, f)
         assert f(kw=42) == 42
+        def f(*, 日本=3): return kw
+        assert f.__kwdefaults__ == {"日本" : 3}
+        """
+
+    def test_kw_nonascii(self):
+        """
+        def f(日本: str=1):
+            return 日本
+        assert f.__annotations__ == {'日本': str}
+        assert f() == 1
+        assert f(日本='bar') == 'bar'
         """
 
     def test_code_is_ok(self):
@@ -125,6 +137,14 @@ class AppTestFunctionIntrospection:
             def f(): pass
             __name__ = "bar"
             assert f.__module__ == "foo"''')
+
+    def test_func_nonascii(self):
+        """
+        def 日本():
+            pass
+        assert repr(日本).startswith('<function 日本 at ')
+        assert 日本.__name__ == '日本'
+        """
 
 
 class AppTestFunction:
@@ -578,11 +598,11 @@ def f%s:
             assert fn.code.fast_natural_arity == i|PyCode.FLATPYCALL
             if i < 5:
 
-                 def bomb(*args):
-                     assert False, "shortcutting should have avoided this"
+                def bomb(*args):
+                    assert False, "shortcutting should have avoided this"
 
-                 code.funcrun = bomb
-                 code.funcrun_obj = bomb
+                code.funcrun = bomb
+                code.funcrun_obj = bomb
 
             args_w = map(space.wrap, range(i))
             w_res = space.call_function(fn, *args_w)
