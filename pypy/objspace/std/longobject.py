@@ -285,6 +285,14 @@ def lshift__Long_Long(space, w_long1, w_long2):
                              space.wrap("shift count too large"))
     return W_LongObject(w_long1.num.lshift(shift))
 
+def lshift__Long_Int(space, w_long1, w_int2):
+    # XXX need to replicate some of the logic, to get the errors right
+    if w_int2.intval < 0:
+        raise OperationError(space.w_ValueError,
+                             space.wrap("negative shift count"))
+
+    return W_LongObject(w_long1.num.lshift(w_int2.intval))
+
 def rshift__Long_Long(space, w_long1, w_long2):
     # XXX need to replicate some of the logic, to get the errors right
     if w_long2.num.sign < 0:
@@ -296,6 +304,14 @@ def rshift__Long_Long(space, w_long1, w_long2):
         raise OperationError(space.w_OverflowError,
                              space.wrap("shift count too large"))
     return newlong(space, w_long1.num.rshift(shift))
+
+def rshift__Long_Int(space, w_long1, w_int2):
+    # XXX need to replicate some of the logic, to get the errors right
+    if w_int2.intval < 0:
+        raise OperationError(space.w_ValueError,
+                             space.wrap("negative shift count"))
+
+    return newlong(space, w_long1.num.rshift(w_int2.intval))
 
 def and__Long_Long(space, w_long1, w_long2):
     return newlong(space, w_long1.num.and_(w_long2.num))
