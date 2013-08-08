@@ -106,6 +106,15 @@ class TestRLong(object):
                 print op1, op2
                 assert r1.tolong() == r2
 
+    def test_int_mod(self):
+        for op1 in [-50, -12, -2, -1, 1, 2, 50, 52]:
+            for op2 in [-4, -2, -1, 1, 2, 8]:
+                rl_op1 = rbigint.fromint(op1)
+                r1 = rl_op1.int_mod(op2)
+                r2 = op1 % op2
+                print op1, op2
+                assert r1.tolong() == r2
+
     def test_pow(self):
         for op1 in [-50, -12, -2, -1, 1, 2, 50, 52]:
             for op2 in [0, 1, 2, 8, 9, 10, 11]:

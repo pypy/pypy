@@ -237,6 +237,14 @@ def mod__Long_Long(space, w_long1, w_long2):
                              space.wrap("long division or modulo by zero"))
     return newlong(space, z)
 
+def mod__Long_Int(space, w_long1, w_int2):
+    try:
+        z = w_long1.num.int_mod(w_int2.intval)
+    except ZeroDivisionError:
+        raise OperationError(space.w_ZeroDivisionError,
+                             space.wrap("long division or modulo by zero"))
+    return newlong(space, z)
+
 def divmod__Long_Long(space, w_long1, w_long2):
     try:
         div, mod = w_long1.num.divmod(w_long2.num)

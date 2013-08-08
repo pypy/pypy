@@ -755,6 +755,48 @@ class rbigint(object):
         return mod
 
     @jit.elidable
+    def int_mod(self, other):
+        if self.sign == 0:
+            return NULLRBIGINT
+
+        elif not int_in_valid_range(other):
+            # Fallback to long.
+            return self.mod(rbigint.fromint(other))
+
+        elif other != 0:
+            digit = abs(other)
+            if digit == 1:
+                return NULLRBIGINT
+            elif digit == 2:
+                modm = self.digit(0) & 1
+                if modm:
+                    return ONENEGATIVERBIGINT if other < 0 else ONERBIGINT
+                return NULLRBIGINT
+            elif digit & (digit - 1) == 0:
+                mod = self.and_(rbigint([_store_digit(digit - 1)], 1, 1))
+            else:
+                # Perform
+                size = self.numdigits() - 1
+                if size > 0:
+                    rem = self.widedigit(size)
+                    size -= 1
+                    while size >= 0:
+                        rem = ((rem << SHIFT) + self.widedigit(size)) % digit
+                        size -= 1
+                else:
+                    rem = self.digit(0) % digit
+
+                if rem == 0:
+                    return NULLRBIGINT
+                mod = rbigint([_store_digit(rem)], -1 if self.sign < 0 else 1, 1)
+        else:
+            raise ZeroDivisionError("long division or modulo by zero")
+
+        if mod.sign * (-1 if other < 0 else 1) == -1:
+            mod = mod.int_add(other)
+        return mod
+
+    @jit.elidable
     def divmod(v, w):
         """
         The / and % operators are now defined in terms of divmod().
