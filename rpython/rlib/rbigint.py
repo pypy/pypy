@@ -499,9 +499,26 @@ class rbigint(object):
             i += 1
         return True
 
+    @jit.elidable
+    def int_eq(self, other):
+        """ eq with int """
+        
+        if not int_in_valid_range(other):
+            # Fallback to Long. 
+            return self.eq(rbigint.fromint(other))
+
+        if self.numdigits() > 1:
+            return False
+
+        return (self.sign * self.digit(0)) == other
+
     @jit.look_inside
     def ne(self, other):
         return not self.eq(other)
+
+    @jit.look_inside
+    def int_ne(self, other):
+        return not self.int_eq(other)
 
     @jit.elidable
     def lt(self, other):
@@ -538,17 +555,66 @@ class rbigint(object):
             i -= 1
         return False
 
+    @jit.elidable
+    def int_lt(self, other):
+        """ lt where other is an int """
+
+        if not int_in_valid_range(other):
+            # Fallback to Long.
+            return self.lt(rbigint.fromint(other))
+
+        osign = 1
+        if other == 0:
+            osign = 0
+        elif other < 0:
+            osign = -1
+ 
+        if self.sign > osign:
+            return False
+        elif self.sign < osign:
+            return True
+
+        digits = self.numdigits()
+        
+        if digits > 1:
+            if osign == 1:
+                return False
+            else:
+                return True
+
+        d1 = self.sign * self.digit(0)
+        if d1 < other:
+            return True
+        return False
+
     @jit.look_inside
     def le(self, other):
         return not other.lt(self)
+
+    @jit.look_inside
+    def int_le(self, other):
+        # Alternative that might be faster, reimplant this. as a check with other + 1. But we got to check for overflow
+        # or reduce valid range.
+
+        if self.int_eq(other):
+            return True
+        return self.int_lt(other)
 
     @jit.look_inside
     def gt(self, other):
         return other.lt(self)
 
     @jit.look_inside
+    def int_gt(self, other):
+        return not self.int_le(other)
+
+    @jit.look_inside
     def ge(self, other):
         return not self.lt(other)
+
+    @jit.look_inside
+    def int_ge(self, other):
+        return not self.int_lt(other)
 
     @jit.elidable
     def hash(self):
