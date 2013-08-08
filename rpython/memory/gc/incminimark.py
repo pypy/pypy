@@ -138,8 +138,9 @@ STATE_SCANNING = 0
 #XXX describe
 # marking of objects can be done over multiple 
 STATE_MARKING  = 1
-STATE_SWEEPING = 2
-STATE_FINALIZING = 3
+STATE_SWEEPING_RAWMALLOC = 2
+STATE_SWEEPING_ARENA = 3
+STATE_FINALIZING = 4
 
 
 
@@ -1684,16 +1685,19 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 if self.old_objects_with_light_finalizers.non_empty():
                     self.deal_with_old_objects_with_finalizers()
                 #objects_to_trace processed fully, can move on to sweeping
-                self.gc_state = STATE_SWEEPING
-                
-                #SWEEPING not yet incrementalised
-                self.major_collection_step(reserving_size)
+                self.gc_state = STATE_SWEEPING_RAWMALLOC
+                self.start_free_rawmalloc_objects()
             #END MARKING
-        elif self.gc_state == STATE_SWEEPING:
+        elif self.gc_state == STATE_SWEEPING_RAWMALLOC:
             #
             # Walk all rawmalloced objects and free the ones that don't
             # have the GCFLAG_VISITED flag.
-            self.free_unvisited_rawmalloc_objects()
+            # XXX heuristic here?
+            if self.free_unvisited_rawmalloc_objects_step(1):
+                self.gc_state = STATE_SWEEPING_ARENA
+                
+        elif self.gc_state == STATE_SWEEPING_ARENA:
+        
             #
             # Ask the ArenaCollection to visit all objects.  Free the ones
             # that have not been visited above, and reset GCFLAG_VISITED on
@@ -1804,15 +1808,22 @@ class IncrementalMiniMarkGC(MovingGCBase):
             #
             llarena.arena_free(arena)
             self.rawmalloced_total_size -= r_uint(allocsize)
-
-    def free_unvisited_rawmalloc_objects(self):
-        list = self.old_rawmalloced_objects
+    
+    def start_free_rawmalloc_objects(self):
+        self.raw_malloc_might_sweep = self.old_rawmalloced_objects
         self.old_rawmalloced_objects = self.AddressStack()
-        #
-        while list.non_empty():
-            self.free_rawmalloced_object_if_unvisited(list.pop())
-        #
-        list.delete()
+    
+    # Returns true when finished processing objects
+    def free_unvisited_rawmalloc_objects_step(self,nobjects=1):
+        
+        while nobjects > 0 and self.raw_malloc_might_sweep.non_empty():
+            self.free_rawmalloced_object_if_unvisited(
+                                             self.raw_malloc_might_sweep.pop())
+        
+        if not self.raw_malloc_might_sweep.non_empty():
+            self.raw_malloc_might_sweep.delete()
+            return True
+        return False
 
 
     def collect_roots(self):
