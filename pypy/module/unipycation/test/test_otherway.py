@@ -32,6 +32,21 @@ class AppTestCoreEngine(object):
 
         assert sol[X] == 3 * 666 + 6
 
+    def test_many_solutions_unify(self):
+        import unipycation
+        def f(x):
+            yield x + 1; yield x + 2; yield x + 3
+
+        e = unipycation.CoreEngine("""
+            f(L) :-
+                python:f(666, 668), L = 1.""",
+            {"f": f})
+        X = unipycation.Var()
+        t = unipycation.Term('f', [X])
+        sol = e.query_single(t, [X])
+
+        assert sol[X] == 1
+
     def test_pass_python_object(self):
         import unipycation
         def returnx(obj):

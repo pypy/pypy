@@ -284,7 +284,10 @@ def continue_python_iter(Choice, engine, scont, fcont, heap, resultvar, space, w
         return fcont.fail(heap) # no more solutions
     fcont = Choice(engine, scont, fcont, heap, resultvar, space, w_iter)
     heap = heap.branch()
-    resultvar.unify(conversion.p_of_w(space, w_res), heap)
+    try:
+        resultvar.unify(conversion.p_of_w(space, w_res), heap)
+    except error.UnificationFailed:
+        return fcont.fail(heap)
     return scont, fcont, heap
 
 
