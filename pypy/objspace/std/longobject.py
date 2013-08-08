@@ -192,8 +192,14 @@ def coerce__Long_Long(space, w_long1, w_long2):
 def add__Long_Long(space, w_long1, w_long2):
     return W_LongObject(w_long1.num.add(w_long2.num))
 
+def add__Long_Int(space, w_long1, w_int2):
+    return W_LongObject(w_long1.num.int_add(w_int2.intval))
+
 def sub__Long_Long(space, w_long1, w_long2):
     return W_LongObject(w_long1.num.sub(w_long2.num))
+
+def sub__Long_Int(space, w_long1, w_int2):
+    return W_LongObject(w_long1.num.int_sub(w_int2.intval))
 
 def mul__Long_Long(space, w_long1, w_long2):
     return W_LongObject(w_long1.num.mul(w_long2.num))

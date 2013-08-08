@@ -237,6 +237,16 @@ class Test_rbigint(object):
                 result = f1.add(f2)
                 assert result.tolong() == x * i + y * j
 
+    def test_int_add(self):
+        x = 123456789123456789000000L
+        y = 9999
+        for i in [-1, 1]:
+            for j in [-1, 1]:
+                f1 = rbigint.fromlong(x * i)
+                f2 = y * j
+                result = f1.int_add(f2)
+                assert result.tolong() == x * i + y * j
+
     def test_sub(self):
         x = 12378959520302182384345L
         y = 88961284756491823819191823L
@@ -245,6 +255,16 @@ class Test_rbigint(object):
                 f1 = rbigint.fromlong(x * i)
                 f2 = rbigint.fromlong(y * j)
                 result = f1.sub(f2)
+                assert result.tolong() == x * i - y * j
+
+    def test_int_sub(self):
+        x = 12378959520302182384345L
+        y = 8888
+        for i in [-1, 1]:
+            for j in [-1, 1]:
+                f1 = rbigint.fromlong(x * i)
+                f2 = y * j
+                result = f1.int_sub(f2)
                 assert result.tolong() == x * i - y * j
 
     def test_subzz(self):

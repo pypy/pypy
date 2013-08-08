@@ -44,6 +44,23 @@ else:
 MASK = int((1 << SHIFT) - 1)
 FLOAT_MULTIPLIER = float(1 << SHIFT)
 
+# For BIGINT and INT mix.
+#
+# The VALID range of an int is different than a valid range of a bigint of length one.
+# -1 << LONG_BIT is actually TWO digits, because they are stored without the sign.
+if SHIFT == LONG_BIT - 1:
+    MIN_INT_VALUE = -1 << SHIFT
+    def int_in_valid_range(x):
+        if x == MIN_INT_VALUE:
+            return False
+        return True
+else:
+    # Means we don't have INT128 on 64bit.
+    def int_in_valid_range(x):
+        if x > MASK or x < -MASK:
+            return False
+        return True
+
 # Debugging digit array access.
 #
 # False == no checking at all
@@ -551,6 +568,25 @@ class rbigint(object):
         return result
 
     @jit.elidable
+    def int_add(self, other):
+        if not int_in_valid_range(other):
+            # Fallback to long.
+            return self.add(rbigint.fromint(other))
+        elif self.sign == 0:
+            return rbigint.fromint(other)
+        elif other == 0:
+            return self
+
+        sign = -1 if other < 0 else 1
+        if self.sign == sign:
+            result = _x_int_add(self, other)
+        else:
+            result = _x_int_sub(self, other)
+            result.sign *= -1
+        result.sign *= sign
+        return result
+
+    @jit.elidable
     def sub(self, other):
         if other.sign == 0:
             return self
@@ -560,6 +596,22 @@ class rbigint(object):
             result = _x_sub(self, other)
         else:
             result = _x_add(self, other)
+        result.sign *= self.sign
+        return result
+
+    @jit.elidable
+    def int_sub(self, other):
+        if not int_in_valid_range(other):
+            # Fallback to long.
+            return self.sub(rbigint.fromint(other))
+        elif other == 0:
+            return self
+        elif self.sign == 0:
+            return rbigint.fromint(-other)
+        elif self.sign == (-1 if other < 0 else 1):
+            result = _x_int_sub(self, other)
+        else:
+            result = _x_int_add(self, other)
         result.sign *= self.sign
         return result
 
@@ -1129,6 +1181,25 @@ def _x_add(a, b):
     z._normalize()
     return z
 
+def _x_int_add(a, b):
+    """ Add the absolute values of one bigint and one integer. """
+    size_a = a.numdigits()
+
+    z = rbigint([NULLDIGIT] * (size_a + 1), 1)
+    i = UDIGIT_TYPE(1)
+    carry = a.udigit(0) + abs(b)
+    z.setdigit(0, carry)
+    carry >>= SHIFT
+
+    while i < size_a:
+        carry += a.udigit(i)
+        z.setdigit(i, carry)
+        carry >>= SHIFT
+        i += 1
+    z.setdigit(i, carry)
+    z._normalize()
+    return z
+
 def _x_sub(a, b):
     """ Subtract the absolute values of two integers. """
 
@@ -1164,6 +1235,42 @@ def _x_sub(a, b):
         borrow >>= SHIFT
         #borrow &= 1 # Keep only one sign bit
         i += 1
+    while i < size_a:
+        borrow = a.udigit(i) - borrow
+        z.setdigit(i, borrow)
+        borrow >>= SHIFT
+        #borrow &= 1
+        i += 1
+
+    assert borrow == 0
+    z._normalize()
+    return z
+
+def _x_int_sub(a, b):
+    """ Subtract the absolute values of two integers. """
+
+    size_a = a.numdigits()
+
+    bdigit = abs(b)
+
+    if size_a == 1:
+        # Find highest digit where a and b differ:
+        adigit = a.digit(0)
+
+        if adigit == bdigit:
+            return NULLRBIGINT
+    
+        return rbigint.fromint(adigit - bdigit)
+
+    z = rbigint([NULLDIGIT] * size_a, 1, size_a)
+    i = _load_unsigned_digit(1)
+    # The following assumes unsigned arithmetic
+    # works modulo 2**N for some N>SHIFT.
+    borrow = a.udigit(0) - bdigit
+    z.setdigit(0, borrow)
+    borrow >>= SHIFT
+    #borrow &= 1 # Keep only one sign bit
+
     while i < size_a:
         borrow = a.udigit(i) - borrow
         z.setdigit(i, borrow)
