@@ -1039,6 +1039,7 @@ class Assembler386(BaseAssembler):
     def genop_ptr_eq(self, op, arglocs, result_loc):
         if not self.cpu.gc_ll_descr.stm:
             self.genop_int_eq(op, arglocs, result_loc)
+            return
         assert self.cpu.gc_ll_descr.stm
         rl = result_loc.lowest8bits()
         self._stm_ptr_eq_fastpath(self.mc, arglocs, result_loc)
@@ -1048,6 +1049,7 @@ class Assembler386(BaseAssembler):
     def genop_ptr_ne(self, op, arglocs, result_loc):
         if not self.cpu.gc_ll_descr.stm:
             self.genop_int_ne(op, arglocs, result_loc)
+            return
         assert self.cpu.gc_ll_descr.stm
         rl = result_loc.lowest8bits()
         self._stm_ptr_eq_fastpath(self.mc, arglocs, result_loc)
@@ -1059,26 +1061,30 @@ class Assembler386(BaseAssembler):
         if not self.cpu.gc_ll_descr.stm:
             self.genop_guard_int_eq(op, guard_op, guard_token,
                                     arglocs, result_loc)
+            return
         assert self.cpu.gc_ll_descr.stm
         guard_opnum = guard_op.getopnum()
         self._stm_ptr_eq_fastpath(self.mc, arglocs, result_loc)
         if guard_opnum == rop.GUARD_FALSE:
-            self.implement_guard(guard_token, "Z")
-        else:
+            # jump to failure-code if ptrs are equal
             self.implement_guard(guard_token, "NZ")
+        else:
+            # jump to failure-code if ptrs are not equal
+            self.implement_guard(guard_token, "Z")
 
     def genop_guard_ptr_ne(self, op, guard_op, guard_token, 
                            arglocs, result_loc):
         if not self.cpu.gc_ll_descr.stm:
             self.genop_guard_int_ne(op, guard_op, guard_token,
                                     arglocs, result_loc)
+            return
         assert self.cpu.gc_ll_descr.stm
         guard_opnum = guard_op.getopnum()
         self._stm_ptr_eq_fastpath(self.mc, arglocs, result_loc)
         if guard_opnum == rop.GUARD_FALSE:
-            self.implement_guard(guard_token, "NZ")
+            self.implement_guard(guard_token, "Z")
         else:
-            self.implement_guard(guard_token, "Z")        
+            self.implement_guard(guard_token, "NZ")        
         
     def _cmpop(cond, rev_cond):
         def genop_cmp(self, op, arglocs, result_loc):

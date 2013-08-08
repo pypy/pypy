@@ -414,6 +414,7 @@ class RegAlloc(BaseRegalloc):
             # We force immed64 into registers here.
             x = self.make_sure_var_in_reg(args[0], args, selected_reg=ecx)
             y = self.make_sure_var_in_reg(args[1], args, selected_reg=eax)
+            self.rm.possibly_free_var(args[1])
         else:
             x = self.make_sure_var_in_reg(args[0], args)
             y = self.loc(args[1])

@@ -441,14 +441,16 @@ class STMReadBarrierDescr(STMBarrierDescr):
     def __init__(self, gc_ll_descr, stmcat):
         assert stmcat == 'P2R'
         STMBarrierDescr.__init__(self, gc_ll_descr, stmcat,
-                                 'stm_DirectReadBarrier')
+                                 'stm_read_barrier') 
+        # XXX: implement fastpath then change to stm_DirectReadBarrier
 
         
 class STMWriteBarrierDescr(STMBarrierDescr):
     def __init__(self, gc_ll_descr, stmcat):
         assert stmcat in ['P2W']
         STMBarrierDescr.__init__(self, gc_ll_descr, stmcat,
-                                 'stm_WriteBarrier')
+                                 'stm_write_barrier')
+        # XXX: implement fastpath, then change to stm_WriteBarrier
     
         
 class GcLLDescr_framework(GcLLDescription):
@@ -560,6 +562,8 @@ class GcLLDescr_framework(GcLLDescription):
         @specialize.argtype(0)
         def do_stm_barrier(gcref, cat):
             if lltype.typeOf(gcref) is lltype.Signed:   # ignore if 'raw'
+                # we are inevitable already because llmodel
+                # does everything with raw-references
                 return gcref
             if cat == 'W':
                 descr = self.P2Wdescr

@@ -114,8 +114,9 @@ def load_symbols(filename):
     p = subprocess.Popen(symbollister % filename, shell=True,
                          stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout, stderr = p.communicate()
-    assert not p.returncode, ('Encountered an error running nm: %s' %
-                              stderr)
+    if not p.returncode:
+        raise Exception('Encountered an error running nm: %s' %
+                        stderr)
     for line in stdout.splitlines(True):
         match = re_symbolentry.match(line)
         if match:
@@ -274,7 +275,10 @@ class World(object):
             elif line.startswith('SYS_EXECUTABLE '):
                 filename = line[len('SYS_EXECUTABLE '):].strip()
                 if filename != self.executable_name and filename != '??':
-                    self.symbols.update(load_symbols(filename))
+                    try:
+                        self.symbols.update(load_symbols(filename))
+                    except Exception as e:
+                        print e
                     self.executable_name = filename
 
     def find_cross_references(self):

@@ -41,6 +41,8 @@ class AbstractLLCPU(AbstractCPU):
         if translator and translator.config.translation.gcremovetypeptr:
             self.vtable_offset = None
         else:
+            assert not self.gc_ll_descr.stm, """doesn't work in stm
+                because it would need a read barrier when reading typeptr"""
             self.vtable_offset, _ = symbolic.get_field_token(rclass.OBJECT,
                                                              'typeptr',
                                                         translate_support_code)
@@ -403,6 +405,7 @@ class AbstractLLCPU(AbstractCPU):
             raise NotImplementedError("size = %d" % size)
 
     def read_ref_at_mem(self, gcref, ofs):
+        gcref = self.gc_ll_descr.do_stm_barrier(gcref, 'R')
         # --- start of GC unsafe code (no GC operation!) ---
         items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
         items = rffi.cast(rffi.CArrayPtr(lltype.Signed), items)
@@ -411,7 +414,7 @@ class AbstractLLCPU(AbstractCPU):
         return pval
 
     def write_ref_at_mem(self, gcref, ofs, newvalue):
-        self.gc_ll_descr.do_write_barrier(gcref, newvalue)
+        gcref = self.gc_ll_descr.do_stm_barrier(gcref, 'W')
         # --- start of GC unsafe code (no GC operation!) ---
         items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
         items = rffi.cast(rffi.CArrayPtr(lltype.Signed), items)
@@ -420,6 +423,7 @@ class AbstractLLCPU(AbstractCPU):
 
     @specialize.argtype(1)
     def read_float_at_mem(self, gcref, ofs):
+        gcref = self.gc_ll_descr.do_stm_barrier(gcref, 'R')
         # --- start of GC unsafe code (no GC operation!) ---
         items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
         items = rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), items)
@@ -429,6 +433,7 @@ class AbstractLLCPU(AbstractCPU):
 
     @specialize.argtype(1)
     def write_float_at_mem(self, gcref, ofs, newvalue):
+        gcref = self.gc_ll_descr.do_stm_barrier(gcref, 'W')
         # --- start of GC unsafe code (no GC operation!) ---
         items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
         items = rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), items)
@@ -590,7 +595,7 @@ class AbstractLLCPU(AbstractCPU):
         ofs, size, _ = self.unpack_arraydescr_size(arraydescr)
         ofs += descr.fielddescr.offset
         gcref = self.gc_ll_descr.do_stm_barrier(gcref, 'W')
-        self.gc_ll_descr.do_write_barrier(gcref, newvalue)
+        #self.gc_ll_descr.do_write_barrier(gcref, newvalue)
         # --- start of GC unsafe code (no GC operation!) ---
         items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref),
                             ofs + size * itemindex)
@@ -698,7 +703,7 @@ class AbstractLLCPU(AbstractCPU):
         assert lltype.typeOf(struct) is not lltype.Signed, (
             "can't handle write barriers for setfield_raw")
         struct = self.gc_ll_descr.do_stm_barrier(struct, 'W')
-        self.gc_ll_descr.do_write_barrier(struct, newvalue)
+        #self.gc_ll_descr.do_write_barrier(struct, newvalue)
         # --- start of GC unsafe code (no GC operation!) ---
         fieldptr = rffi.ptradd(rffi.cast(rffi.CCHARP, struct), ofs)
         fieldptr = rffi.cast(rffi.CArrayPtr(lltype.Signed), fieldptr)

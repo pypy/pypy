@@ -16,6 +16,7 @@ __thread struct _RPyString_dump_t {
 
 char *RPyString_AsCharP(RPyString *rps)
 {
+	rps = (RPyString *)stm_read_barrier((gcptr)rps);
 	Signed len = RPyString_Size(rps);
 	struct _RPyString_dump_t *dump = \
 			malloc(sizeof(struct _RPyString_dump_t) + len);

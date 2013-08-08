@@ -395,15 +395,19 @@ def import_log(logname, ParserCls=SimpleParser):
             addr = int(m.group(1), 16)
         addrs.setdefault(addr, []).append(name)
     dumps = {}
-    executables = set(["??"])
+    executables = set(["??",])
     symbols = {}
     for entry in extract_category(log, 'jit-backend-dump'):
         entry = purge_thread_numbers(entry)
         backend, executable, dump, _ = entry.split("\n")
-        _, executable = executable.split(" ")
-        if executable not in executables:
-            symbols.update(load_symbols(executable))
-            executables.add(executable)
+        if "(out of memory!)" not in executable:
+            _, executable = executable.split(" ")
+            if executable not in executables:
+                try:
+                    symbols.update(load_symbols(executable))
+                except Exception as e:
+                    print e
+                executables.add(executable)
         _, addr, _, data = re.split(" +", dump)
         backend_name = backend.split(" ")[1]
         addr = int(addr[1:], 16)
