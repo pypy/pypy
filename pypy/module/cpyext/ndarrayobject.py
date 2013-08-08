@@ -8,11 +8,38 @@ from pypy.module.cpyext.api import cpython_api, Py_ssize_t, CANNOT_FAIL
 from pypy.module.cpyext.pyobject import PyObject
 from pypy.module.micronumpy.interp_numarray import W_NDimArray, convert_to_array, wrap_impl
 from pypy.module.micronumpy.interp_dtype import get_dtype_cache
+from pypy.module.micronumpy.arrayimpl.concrete import ConcreteArray
 from pypy.module.micronumpy.arrayimpl.scalar import Scalar
 from rpython.rlib.rawstorage import RAW_STORAGE_PTR
 
-NPY_FORTRAN = 0x0002
-NPY_OWNDATA = 0x0004
+NPY_C_CONTIGUOUS   = 0x0001
+NPY_F_CONTIGUOUS   = 0x0002
+NPY_OWNDATA        = 0x0004
+NPY_FORCECAST      = 0x0010
+NPY_ENSURECOPY     = 0x0020
+NPY_ENSUREARRAY    = 0x0040
+NPY_ELEMENTSTRIDES = 0x0080
+NPY_ALIGNED        = 0x0100
+NPY_NOTSWAPPED     = 0x0200
+NPY_WRITEABLE      = 0x0400
+NPY_UPDATEIFCOPY   = 0x1000
+
+NPY_BEHAVED      = NPY_ALIGNED | NPY_WRITEABLE
+NPY_BEHAVED_NS   = NPY_ALIGNED | NPY_WRITEABLE | NPY_NOTSWAPPED
+NPY_CARRAY       = NPY_C_CONTIGUOUS | NPY_BEHAVED
+NPY_CARRAY_RO    = NPY_C_CONTIGUOUS | NPY_ALIGNED
+NPY_FARRAY       = NPY_F_CONTIGUOUS | NPY_BEHAVED
+NPY_FARRAY_RO    = NPY_F_CONTIGUOUS | NPY_ALIGNED
+NPY_DEFAULT      = NPY_CARRAY
+NPY_IN           = NPY_CARRAY_RO
+NPY_OUT          = NPY_CARRAY
+NPY_INOUT        = NPY_CARRAY | NPY_UPDATEIFCOPY
+NPY_IN_FARRAY    = NPY_FARRAY_RO
+NPY_OUT_FARRAY   = NPY_FARRAY
+NPY_INOUT_FARRAY = NPY_FARRAY | NPY_UPDATEIFCOPY
+NPY_CONTIGUOUS   = NPY_C_CONTIGUOUS | NPY_F_CONTIGUOUS
+NPY_UPDATE_ALL   = NPY_CONTIGUOUS | NPY_ALIGNED
+
 
 # the asserts are needed, otherwise the translation fails
 
@@ -29,12 +56,19 @@ def _PyArray_CheckExact(space, w_obj):
     w_type = space.gettypeobject(W_NDimArray.typedef)
     return space.is_w(w_obj_type, w_type)
 
-
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def _PyArray_ISCONTIGUOUS(space, w_array):
+def _PyArray_FLAGS(space, w_array):
     assert isinstance(w_array, W_NDimArray)
-    return w_array.implementation.order == 'C'
-
+    flags = NPY_BEHAVED_NS
+    if isinstance(w_array.implementation, ConcreteArray):
+        flags |= NPY_OWNDATA
+    if len(w_array.get_shape()) < 2:
+        flags |= NPY_CONTIGUOUS
+    elif w_array.implementation.order == 'C':
+        flags |= NPY_C_CONTIGUOUS
+    else:
+        flags |= NPY_F_CONTIGUOUS
+    return flags
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def _PyArray_NDIM(space, w_array):
@@ -157,7 +191,7 @@ def _PyArray_New(space, subtype, nd, dims, typenum, strides, data, itemsize, fla
         raise OperationError(space.w_NotImplementedError, 
                              space.wrap("strides must be NULL"))
 
-    order = 'F' if flags & NPY_FORTRAN else 'C'
+    order = 'C' if flags & NPY_C_CONTIGUOUS else 'F'
     owning = True if flags & NPY_OWNDATA else False
     w_subtype = None
 

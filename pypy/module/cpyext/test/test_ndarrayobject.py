@@ -32,11 +32,16 @@ class TestNDArrayObject(BaseApiTest):
         assert not api._PyArray_Check(x)
         assert not api._PyArray_CheckExact(x)
 
-    def test_ISCONTIGUOUS(self, space, api):
-        a = array(space, [10, 5, 3], order='C')
+    def test_FLAGS(self, space, api):
+        s = array(space, [10])
+        c = array(space, [10, 5, 3], order='C')
         f = array(space, [10, 5, 3], order='F')
-        assert api._PyArray_ISCONTIGUOUS(a) == 1
-        assert api._PyArray_ISCONTIGUOUS(f) == 0
+        assert api._PyArray_FLAGS(s) & 0x0001
+        assert api._PyArray_FLAGS(s) & 0x0002
+        assert api._PyArray_FLAGS(c) & 0x0001
+        assert api._PyArray_FLAGS(f) & 0x0002
+        assert not api._PyArray_FLAGS(c) & 0x0002
+        assert not api._PyArray_FLAGS(f) & 0x0001
         
     def test_NDIM(self, space, api):
         a = array(space, [10, 5, 3])

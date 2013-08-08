@@ -10,12 +10,15 @@ extern "C" {
 #include "old_defines.h"
 
 #define NPY_INLINE
+#define NPY_UNUSED(x) x
+#define PyArray_MAX(a,b) (((a)>(b))?(a):(b))
+#define PyArray_MIN(a,b) (((a)<(b))?(a):(b))
 
 /* fake PyArrayObject so that code that doesn't do direct field access works */
 #define PyArrayObject PyObject
 #define PyArray_Descr PyObject
 
-PyTypeObject PyArray_Type;
+//PyTypeObject PyArray_Type;
 
 typedef unsigned char npy_bool;
 typedef unsigned char npy_uint8;
@@ -95,35 +98,79 @@ enum NPY_TYPES {    NPY_BOOL=0,
 #define PyArray_ISCOMPLEX(arr) (PyTypeNum_ISCOMPLEX(PyArray_TYPE(arr)))
 
 
-/* selection of flags */
-#define NPY_CONTIGUOUS      0x0001
-#define NPY_FORTRAN         0x0002
-#define NPY_OWNDATA         0x0004
-#define NPY_FORCECAST       0x0010
-#define NPY_ALIGNED         0x0100
-#define NPY_NOTSWAPPED      0x0200
-#define NPY_WRITEABLE       0x0400
-#define NPY_C_CONTIGUOUS    NPY_CONTIGUOUS
-#define NPY_F_CONTIGUOUS    NPY_FORTRAN
-#define NPY_IN_ARRAY       (NPY_C_CONTIGUOUS | NPY_ALIGNED)
-#define NPY_BEHAVED        (NPY_ALIGNED | NPY_WRITEABLE)
-#define NPY_CARRAY         (NPY_CONTIGUOUS | NPY_BEHAVED)
-#define NPY_FARRAY         (NPY_FORTRAN | NPY_BEHAVED)
-#define NPY_DEFAULT         NPY_CARRAY
+/* flags */
+#define NPY_ARRAY_C_CONTIGUOUS    0x0001
+#define NPY_ARRAY_F_CONTIGUOUS    0x0002
+#define NPY_ARRAY_OWNDATA         0x0004
+#define NPY_ARRAY_FORCECAST       0x0010
+#define NPY_ARRAY_ENSURECOPY      0x0020
+#define NPY_ARRAY_ENSUREARRAY     0x0040
+#define NPY_ARRAY_ELEMENTSTRIDES  0x0080
+#define NPY_ARRAY_ALIGNED         0x0100
+#define NPY_ARRAY_NOTSWAPPED      0x0200
+#define NPY_ARRAY_WRITEABLE       0x0400
+#define NPY_ARRAY_UPDATEIFCOPY    0x1000
+
+#define NPY_ARRAY_BEHAVED      (NPY_ARRAY_ALIGNED | \
+                                NPY_ARRAY_WRITEABLE)
+#define NPY_ARRAY_BEHAVED_NS   (NPY_ARRAY_ALIGNED | \
+                                NPY_ARRAY_WRITEABLE | \
+                                NPY_ARRAY_NOTSWAPPED)
+#define NPY_ARRAY_CARRAY       (NPY_ARRAY_C_CONTIGUOUS | \
+                                NPY_ARRAY_BEHAVED)
+#define NPY_ARRAY_CARRAY_RO    (NPY_ARRAY_C_CONTIGUOUS | \
+                                NPY_ARRAY_ALIGNED)
+#define NPY_ARRAY_FARRAY       (NPY_ARRAY_F_CONTIGUOUS | \
+                                NPY_ARRAY_BEHAVED)
+#define NPY_ARRAY_FARRAY_RO    (NPY_ARRAY_F_CONTIGUOUS | \
+                                NPY_ARRAY_ALIGNED)
+#define NPY_ARRAY_DEFAULT      (NPY_ARRAY_CARRAY)
+#define NPY_ARRAY_IN_ARRAY     (NPY_ARRAY_CARRAY_RO)
+#define NPY_ARRAY_OUT_ARRAY    (NPY_ARRAY_CARRAY)
+#define NPY_ARRAY_INOUT_ARRAY  (NPY_ARRAY_CARRAY | \
+                                NPY_ARRAY_UPDATEIFCOPY)
+#define NPY_ARRAY_IN_FARRAY    (NPY_ARRAY_FARRAY_RO)
+#define NPY_ARRAY_OUT_FARRAY   (NPY_ARRAY_FARRAY)
+#define NPY_ARRAY_INOUT_FARRAY (NPY_ARRAY_FARRAY | \
+                                NPY_ARRAY_UPDATEIFCOPY)
+
+#define NPY_ARRAY_UPDATE_ALL   (NPY_ARRAY_C_CONTIGUOUS | \
+                                NPY_ARRAY_F_CONTIGUOUS | \
+                                NPY_ARRAY_ALIGNED)
+
+#define NPY_FARRAY NPY_ARRAY_FARRAY
+#define NPY_CARRAY NPY_ARRAY_CARRAY
+
+#define PyArray_CHKFLAGS(m, flags) (PyArray_FLAGS(m) & (flags))
+
+#define PyArray_ISCONTIGUOUS(m) PyArray_CHKFLAGS(m, NPY_ARRAY_C_CONTIGUOUS)
+#define PyArray_ISWRITEABLE(m) PyArray_CHKFLAGS(m, NPY_ARRAY_WRITEABLE)
+#define PyArray_ISALIGNED(m) PyArray_CHKFLAGS(m, NPY_ARRAY_ALIGNED)
+
+#define PyArray_IS_C_CONTIGUOUS(m) PyArray_CHKFLAGS(m, NPY_ARRAY_C_CONTIGUOUS)
+#define PyArray_IS_F_CONTIGUOUS(m) PyArray_CHKFLAGS(m, NPY_ARRAY_F_CONTIGUOUS)
+
+#define PyArray_FLAGSWAP(m, flags) (PyArray_CHKFLAGS(m, flags) &&       \
+                                    PyArray_ISNOTSWAPPED(m))
+
+#define PyArray_ISCARRAY(m) PyArray_FLAGSWAP(m, NPY_ARRAY_CARRAY)
+#define PyArray_ISCARRAY_RO(m) PyArray_FLAGSWAP(m, NPY_ARRAY_CARRAY_RO)
+#define PyArray_ISFARRAY(m) PyArray_FLAGSWAP(m, NPY_ARRAY_FARRAY)
+#define PyArray_ISFARRAY_RO(m) PyArray_FLAGSWAP(m, NPY_ARRAY_FARRAY_RO)
+#define PyArray_ISBEHAVED(m) PyArray_FLAGSWAP(m, NPY_ARRAY_BEHAVED)
+#define PyArray_ISBEHAVED_RO(m) PyArray_FLAGSWAP(m, NPY_ARRAY_ALIGNED)
+
+#define PyArray_ISONESEGMENT(arr)  (1)
+#define PyArray_ISNOTSWAPPED(arr)  (1)
+#define PyArray_ISBYTESWAPPED(arr) (0)
+
 
 /* functions */
 #ifndef PyArray_NDIM
 
 #define PyArray_Check      _PyArray_Check
 #define PyArray_CheckExact _PyArray_CheckExact
-
-#define PyArray_ISONESEGMENT(arr) (1)
-#define PyArray_FLAGS(arr)        (0)
-
-#define PyArray_ISCONTIGUOUS _PyArray_ISCONTIGUOUS
-
-#define PyArray_ISCARRAY(arr)   PyArray_ISCONTIGUOUS(arr)
-#define PyArray_ISFARRAY(arr) (!PyArray_ISCONTIGUOUS(arr))
+#define PyArray_FLAGS      _PyArray_FLAGS
 
 #define PyArray_NDIM       _PyArray_NDIM
 #define PyArray_DIM        _PyArray_DIM
