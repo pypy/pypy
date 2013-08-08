@@ -16,13 +16,12 @@ op = _OpHolder()
 func2op = {}
 
 class SpaceOperator(object):
-    def __init__(self, name, arity, symbol, pyfunc, pure=False,
-            can_overflow=False):
+    pure = False
+    def __init__(self, name, arity, symbol, pyfunc, can_overflow=False):
         self.name = name
         self.arity = arity
         self.symbol = symbol
         self.pyfunc = pyfunc
-        self.pure = pure
         self.can_overflow = can_overflow
         self.canraise = []
 
@@ -41,10 +40,14 @@ class SpaceOperator(object):
             return getattr(space, self.name)(*args_w)
         return sc_operator
 
+class PureOperator(SpaceOperator):
+    pure = True
+
 
 def add_operator(name, arity, symbol, pyfunc=None, pure=False, ovf=False):
     operator_func = getattr(operator, name, None)
-    oper = SpaceOperator(name, arity, symbol, pyfunc, pure, can_overflow=ovf)
+    cls = PureOperator if pure else SpaceOperator
+    oper = cls(name, arity, symbol, pyfunc, can_overflow=ovf)
     setattr(op, name, oper)
     if pyfunc is not None:
         func2op[pyfunc] = oper
