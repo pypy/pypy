@@ -212,7 +212,18 @@ class W_CoreEngine(W_Root):
                     space.wrap("no python namespace given in CoreEngine constructor"))
         names_w, p_term = self._unwrap_name_chain(p_term)
         args_w, returnarg = self._prepare_python_call_args(p_term)
-        w_obj = space.getitem(self.w_python_namespace, names_w[0])
+        try:
+            w_obj = space.getitem(self.w_python_namespace, names_w[0])
+        except OperationError, e:
+            if not e.match(space, space.w_KeyError):
+                raise
+            # try builtins
+            w_obj = space.findattr(space.builtin, names_w[0])
+            if w_obj is None:
+                w_obj = space.findattr(space.getbuiltinmodule('operator'), names_w[0])
+                if w_obj is None:
+                    raise
+
         for i in range(1, len(names_w)):
             w_name = names_w[i]
             w_obj = space.getattr(w_obj, w_name)

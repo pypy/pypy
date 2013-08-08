@@ -111,3 +111,28 @@ class AppTestCoreEngine(object):
         sol = e.query_single(t, [X])
 
         assert sol[X] == 17
+
+
+    def test_builtins_and_operator(self):
+        import unipycation
+        def returnx(obj):
+            return obj.x
+
+        class A(object):
+            def f(self):
+                return self.x + 1
+
+        a = A()
+        a.a = a
+        a.x = 16
+
+        e = unipycation.CoreEngine("""
+            method(D) :-
+                python:dict(D), python:setitem(D, a, 3, _).
+                """,
+            {"a": a})
+        X = unipycation.Var()
+        t = unipycation.Term('method', [X])
+        sol = e.query_single(t, [X])
+
+        assert sol[X] == {'a': 3}
