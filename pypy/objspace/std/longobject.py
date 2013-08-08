@@ -204,6 +204,9 @@ def sub__Long_Int(space, w_long1, w_int2):
 def mul__Long_Long(space, w_long1, w_long2):
     return W_LongObject(w_long1.num.mul(w_long2.num))
 
+def mul__Long_Int(space, w_long1, w_int2):
+    return W_LongObject(w_long1.num.int_mul(w_int2.intval))
+
 def truediv__Long_Long(space, w_long1, w_long2):
     try:
         f = w_long1.num.truediv(w_long2.num)

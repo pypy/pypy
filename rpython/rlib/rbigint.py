@@ -661,6 +661,37 @@ class rbigint(object):
         return result
 
     @jit.elidable
+    def int_mul(self, b):
+        if not int_in_valid_range(b):
+            # Fallback to long.
+            return self.mul(rbigint.fromint(b))
+
+        asize = self.numdigits()
+        digit = abs(b)
+        bsign = -1 if b < 0 else 1
+
+        if self.sign == 0 or b == 0:
+            return NULLRBIGINT
+
+        if digit == 1:
+            return rbigint(self._digits[:self.size], self.sign * bsign, asize)
+        elif asize == 1:
+            res = self.widedigit(0) * digit
+            carry = res >> SHIFT
+            if carry:
+                return rbigint([_store_digit(res & MASK), _store_digit(carry)], self.sign * bsign, 2)
+            else:
+                return rbigint([_store_digit(res & MASK)], self.sign * bsign, 1)
+
+        elif digit & (digit - 1) == 0:
+            result = self.lqshift(ptwotable[digit])
+        else:
+            result = _muladd1(self, digit)
+
+        result.sign = self.sign * bsign
+        return result
+
+    @jit.elidable
     def truediv(self, other):
         div = _bigint_true_divide(self, other)
         return div

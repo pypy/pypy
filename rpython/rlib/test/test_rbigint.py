@@ -282,6 +282,17 @@ class Test_rbigint(object):
         result = f1.mul(f1)
         assert result.tolong() == x * x
 
+    def test_int_mul(self):
+        x = -1238585838347L
+        y = 3
+        for i in [-1, 1]:
+            for j in [-1, 1]:
+                f1 = rbigint.fromlong(x * i)
+                f2 = y * j
+                result = f1.int_mul(f2)
+                assert result.tolong() == (x * i) * (y * j)
+                
+
     def test_tofloat(self):
         x = 12345678901234567890L ** 10
         f1 = rbigint.fromlong(x)
