@@ -19,6 +19,7 @@ from rpython.jit.backend.llsupport.gc import (
 from rpython.jit.backend.llsupport.test.test_gc_integration import (
     GCDescrShadowstackDirect, BaseTestRegalloc)
 from rpython.jit.backend.llsupport import jitframe
+from rpython.memory.gc.stmgc import StmGC
 import ctypes
 
 CPU = getcpuclass()
@@ -130,17 +131,16 @@ class GCDescrStm(GCDescrShadowstackDirect):
                                RESULT=lltype.Bool)
         self.generate_function('stm_ptr_ne', ptr_ne, [llmemory.GCREF] * 2,
                                RESULT=lltype.Bool)
-
+        
     def get_malloc_slowpath_addr(self):
         return None
 
+    def clear_barrier_lists(self):
+        self.rb_called_on[:] = []
+        self.wb_called_on[:] = []
+
 
 class TestGcStm(BaseTestRegalloc):
-    def get_priv_rev_num(self):
-        return rffi.cast(lltype.Signed, self.priv_rev_num)
-
-    def get_read_cache(self):
-        return rffi.cast(lltype.Signed, self.read_cache_adr)
     
     def setup_method(self, meth):
         cpu = CPU(None, None)
@@ -150,18 +150,16 @@ class TestGcStm(BaseTestRegalloc):
 
         TP = rffi.CArray(lltype.Signed)
         self.priv_rev_num = lltype.malloc(TP, 1, flavor='raw')
-        self.read_cache = lltype.malloc(TP, n=65536 / WORD, flavor='raw')
-        self.read_cache_adr = lltype.malloc(TP, 1, flavor='raw')
-        self.read_cache_adr[0] = rffi.cast(lltype.Signed, self.read_cache)
+        self.clear_read_cache()
         
         cpu.assembler._get_stm_private_rev_num_addr = self.get_priv_rev_num
         cpu.assembler._get_stm_read_barrier_cache_addr = self.get_read_cache
         
         S = lltype.GcForwardReference()
         S.become(lltype.GcStruct(
-            'S', ('h_tid', lltype.Signed),
+            'S', ('h_tid', lltype.Unsigned),
             ('h_revision', lltype.Signed),
-            ('h_original', lltype.Signed)))
+            ('h_original', lltype.Unsigned)))
         cpu.gc_ll_descr.fielddescr_tid = None # not needed
         # = cpu.fielddescrof(S, 'h_tid')
         self.S = S
@@ -170,40 +168,82 @@ class TestGcStm(BaseTestRegalloc):
     def teardown_method(self, meth):
         rffi.aroundstate._cleanup_()
         
-    def assert_in_read_barrier(self, *args):
-        rb_called_on = self.cpu.gc_ll_descr.rb_called_on
+    def assert_in(self, called_on, *args):
         for i, ref in enumerate(args):
-            assert rffi.cast_ptr_to_adr(ref) == rb_called_on[i]
-    def assert_not_in_read_barrier(self, *args):
-        rb_called_on = self.cpu.gc_ll_descr.rb_called_on
+            assert rffi.cast_ptr_to_adr(ref) == called_on[i]
+            
+    def assert_not_in(self, called_on, *args):
         for ref in args:
-            assert not rffi.cast_ptr_to_adr(ref) in rb_called_on
+            assert rffi.cast_ptr_to_adr(ref) not in called_on
+
+    def get_priv_rev_num(self):
+        return rffi.cast(lltype.Signed, self.priv_rev_num)
+
+    def get_read_cache(self):
+        return rffi.cast(lltype.Signed, self.read_cache_adr)
+
+    def clear_read_cache(self):
+        TP = rffi.CArray(lltype.Signed)
+        entries = (StmGC.FX_MASK + 1) / WORD
+        self.read_cache = lltype.malloc(TP, n=entries, flavor='raw',
+                                        track_allocation=False, zero=True)
+        self.read_cache_adr = lltype.malloc(TP, 1, flavor='raw',
+                                            track_allocation=False)
+        self.read_cache_adr[0] = rffi.cast(lltype.Signed, self.read_cache)
+
+    def set_cache_item(self, obj):
+        obj_int = rffi.cast(lltype.Signed, obj)
+        idx = (obj_int & StmGC.FX_MASK) / WORD
+        self.read_cache[idx] = obj_int
+
+    def allocate_prebuilt_s(self, tid=66):
+        s = lltype.malloc(self.S, zero=True)
+        s.h_tid = rffi.cast(lltype.Unsigned, StmGC.PREBUILT_FLAGS | tid)
+        s.h_revision = rffi.cast(lltype.Signed, StmGC.PREBUILT_REVISION)
+        return s
         
     def test_read_barrier_fastpath(self):
         cpu = self.cpu
         cpu.setup_once()
-        PRIV_REV = 3
+        PRIV_REV = rffi.cast(lltype.Signed, StmGC.PREBUILT_REVISION)
         self.priv_rev_num[0] = PRIV_REV
-        for rev in [PRIV_REV, PRIV_REV+1]:
-            s = lltype.malloc(self.S)
+        called_on = cpu.gc_ll_descr.rb_called_on
+        for rev in [PRIV_REV+4, PRIV_REV]:
+            cpu.gc_ll_descr.clear_barrier_lists()
+            self.clear_read_cache()
+            
+            s = self.allocate_prebuilt_s()
             sgcref = lltype.cast_opaque_ptr(llmemory.GCREF, s)
-            s.h_tid = 0
             s.h_revision = rev
+            
             p0 = BoxPtr()
             operations = [
-                ResOperation(rop.COND_CALL_STM_B, [p0,], None,
+                ResOperation(rop.COND_CALL_STM_B, [p0], None,
                              descr=self.p2rd),
-                ResOperation(rop.FINISH, [p0], None, descr=BasicFinalDescr(0)),
+                ResOperation(rop.FINISH, [p0], None, 
+                             descr=BasicFinalDescr(0)),
                 ]
             inputargs = [p0]
             looptoken = JitCellToken()
             cpu.compile_loop(inputargs, operations, looptoken)
             self.cpu.execute_token(looptoken, sgcref)
+            
+            # check if rev-fastpath worked
             if rev == PRIV_REV:
                 # fastpath
-                self.assert_not_in_read_barrier(sgcref)
+                assert not called_on
             else:
-                self.assert_in_read_barrier(sgcref)
+                self.assert_in(called_on, sgcref)
+
+            # now add it to the read-cache and check
+            # that it will never call the read_barrier
+            cpu.gc_ll_descr.clear_barrier_lists()
+            self.set_cache_item(sgcref)
+            
+            self.cpu.execute_token(looptoken, sgcref)
+            # not called:
+            assert not called_on
+            
 
 
         

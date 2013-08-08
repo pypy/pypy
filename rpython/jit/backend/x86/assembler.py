@@ -2364,7 +2364,8 @@ class Assembler386(BaseAssembler):
                 mc.ADD_rj(X86_64_SCRATCH_REG.value, rbc)
             else: # testing:
                 mc.PUSH_r(eax.value)
-                mc.MOV(eax, heap(rbc))
+                mc.MOV_ri(eax.value, rbc)
+                mc.MOV_rm(eax.value, (eax.value, 0))
                 mc.ADD(X86_64_SCRATCH_REG, eax)
                 mc.POP_r(eax.value)
             mc.CMP_rm(loc_base.value, (X86_64_SCRATCH_REG.value, 0))
