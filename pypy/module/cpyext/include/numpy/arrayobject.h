@@ -18,7 +18,7 @@ extern "C" {
 #define PyArrayObject PyObject
 #define PyArray_Descr PyObject
 
-//PyTypeObject PyArray_Type;
+extern PyTypeObject PyArray_Type;
 
 typedef unsigned char npy_bool;
 typedef unsigned char npy_uint8;
