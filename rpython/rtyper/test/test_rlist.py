@@ -190,7 +190,7 @@ class Freezing:
         return True
 
 
-class BaseTestRlist(BaseRtypingTest):
+class TestRlist(BaseRtypingTest):
     type_system = 'lltype'
     rlist = ll_rlist
 
