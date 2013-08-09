@@ -1003,6 +1003,7 @@ def conditional_call(condition, function, *args):
     else:
         if condition:
             function(*args)
+conditional_call._annenforceargs_ = [bool, None, None]
 
 class ConditionalCallEntry(ExtRegistryEntry):
     _about_ = _jit_conditional_call
