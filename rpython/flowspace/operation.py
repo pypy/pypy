@@ -7,7 +7,8 @@ import __builtin__
 import __future__
 import operator
 from rpython.tool.sourcetools import compile2
-from rpython.flowspace.model import Constant, WrapException, const, Variable
+from rpython.flowspace.model import (Constant, WrapException, const, Variable,
+                                     SpaceOperation)
 from rpython.flowspace.specialcase import register_flow_sc
 
 class _OpHolder(object): pass
@@ -15,55 +16,50 @@ op = _OpHolder()
 
 func2op = {}
 
-class SpaceOperator(object):
+class HLOperation(SpaceOperation):
     pure = False
-    def __init__(self, name, arity, symbol, pyfunc, can_overflow=False):
-        self.name = name
-        self.arity = arity
-        self.symbol = symbol
-        self.pyfunc = pyfunc
-        self.can_overflow = can_overflow
-        self.canraise = []
+    def __init__(self, *args):
+        self.args = list(args)
+        self.result = Variable()
+        self.offset = -1
 
-    def make_sc(self):
+    @classmethod
+    def make_sc(cls):
         def sc_operator(space, args_w):
-            if len(args_w) != self.arity:
-                if self is op.pow and len(args_w) == 2:
+            if len(args_w) != cls.arity:
+                if cls is op.pow and len(args_w) == 2:
                     args_w = args_w + [Constant(None)]
-                elif self is op.getattr and len(args_w) == 3:
+                elif cls is op.getattr and len(args_w) == 3:
                     return space.frame.do_operation('simple_call', Constant(getattr), *args_w)
                 else:
                     raise Exception("should call %r with exactly %d arguments" % (
-                        self.name, self.arity))
+                        cls.opname, cls.arity))
             # completely replace the call with the underlying
             # operation and its limited implicit exceptions semantic
-            return getattr(space, self.name)(*args_w)
+            return getattr(space, cls.opname)(*args_w)
         return sc_operator
 
-    def eval(self, frame, *args_w):
-        if len(args_w) != self.arity:
-            raise TypeError(self.name + " got the wrong number of arguments")
-        return frame.do_op(self, *args_w)
+    def eval(self, frame):
+        if len(self.args) != self.arity:
+            raise TypeError(self.opname + " got the wrong number of arguments")
+        return frame.do_op(self)
 
-    def __call__(self, *args_w):
-        return SpaceOperation(self.name, args_w, Variable())
-
-class PureOperator(SpaceOperator):
+class PureOperation(HLOperation):
     pure = True
 
-    def eval(self, frame, *args_w):
-        if len(args_w) != self.arity:
-            raise TypeError(self.name + " got the wrong number of arguments")
+    def eval(self, frame):
+        if len(self.args) != self.arity:
+            raise TypeError(self.opname + " got the wrong number of arguments")
         args = []
-        if all(w_arg.foldable() for w_arg in args_w):
-            args = [w_arg.value for w_arg in args_w]
+        if all(w_arg.foldable() for w_arg in self.args):
+            args = [w_arg.value for w_arg in self.args]
             # All arguments are constants: call the operator now
             try:
                 result = self.pyfunc(*args)
             except Exception as e:
                 from rpython.flowspace.flowcontext import FlowingError
                 msg = "%s%r always raises %s: %s" % (
-                    self.name, tuple(args), type(e), e)
+                    self.opname, tuple(args), type(e), e)
                 raise FlowingError(frame, msg)
             else:
                 # don't try to constant-fold operations giving a 'long'
@@ -73,7 +69,7 @@ class PureOperator(SpaceOperator):
                 if self.can_overflow and type(result) is long:
                     pass
                 # don't constant-fold getslice on lists, either
-                elif self.name == 'getslice' and type(result) is list:
+                elif self.opname == 'getslice' and type(result) is list:
                     pass
                 # otherwise, fine
                 else:
@@ -83,23 +79,26 @@ class PureOperator(SpaceOperator):
                         # type cannot sanely appear in flow graph,
                         # store operation with variable result instead
                         pass
-        return frame.do_op(self, *args_w)
+        return frame.do_op(self)
 
 
 def add_operator(name, arity, symbol, pyfunc=None, pure=False, ovf=False):
     operator_func = getattr(operator, name, None)
-    cls = PureOperator if pure else SpaceOperator
-    oper = cls(name, arity, symbol, pyfunc, can_overflow=ovf)
-    setattr(op, name, oper)
+    base_cls = PureOperation if pure else HLOperation
+    cls = type(name, (base_cls,), {'opname': name, 'arity': arity,
+                                   'can_overflow': ovf, 'canraise': []})
+    setattr(op, name, cls)
     if pyfunc is not None:
-        func2op[pyfunc] = oper
+        func2op[pyfunc] = cls
     if operator_func:
-        func2op[operator_func] = oper
-        if pyfunc is None:
-            oper.pyfunc = operator_func
+        func2op[operator_func] = cls
+    if pyfunc is not None:
+        cls.pyfunc = staticmethod(pyfunc)
+    elif operator_func is not None:
+        cls.pyfunc = staticmethod(operator_func)
     if ovf:
         from rpython.rlib.rarithmetic import ovfcheck
-        ovf_func = lambda *args: ovfcheck(oper.pyfunc(*args))
+        ovf_func = lambda *args: ovfcheck(cls.pyfunc(*args))
         add_operator(name + '_ovf', arity, symbol, pyfunc=ovf_func)
 
 # ____________________________________________________________
@@ -315,7 +314,7 @@ def _add_exceptions(names, exc):
         oper = getattr(op, name)
         lis = oper.canraise
         if exc in lis:
-            raise ValueError, "your list is causing duplication!"
+            raise ValueError("your list is causing duplication!")
         lis.append(exc)
         assert exc in op_appendices
 

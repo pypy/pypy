@@ -247,7 +247,7 @@ class FlowObjSpace(object):
         if w_obj in self.not_really_const:
             const_w = self.not_really_const[w_obj]
             if w_name not in const_w:
-                return self.frame.do_op(op.getattr, w_obj, w_name)
+                return self.frame.do_op(op.getattr(w_obj, w_name))
         if w_obj.foldable() and w_name.foldable():
             obj, name = w_obj.value, w_name.value
             try:
@@ -261,7 +261,7 @@ class FlowObjSpace(object):
                 return const(result)
             except WrapException:
                 pass
-        return self.frame.do_op(op.getattr, w_obj, w_name)
+        return self.frame.do_op(op.getattr(w_obj, w_name))
 
     def isinstance_w(self, w_obj, w_type):
         return self.is_true(self.isinstance(w_obj, w_type))
@@ -280,7 +280,7 @@ class FlowObjSpace(object):
         if w_module in self.not_really_const:
             const_w = self.not_really_const[w_module]
             if w_name not in const_w:
-                return self.frame.do_op(op.getattr, w_module, w_name)
+                return self.frame.do_op(op.getattr(w_module, w_name))
         try:
             return const(getattr(w_module.value, w_name.value))
         except AttributeError:
@@ -355,14 +355,14 @@ class FlowObjSpace(object):
                 raise FlowingError(self.frame, const(message))
         return const(value)
 
-def make_op(oper):
+def make_op(cls):
     def generic_operator(self, *args):
-        return oper.eval(self.frame, *args)
+        return cls(*args).eval(self.frame)
     return generic_operator
 
-for oper in op.__dict__.values():
-    if getattr(FlowObjSpace, oper.name, None) is None:
-        setattr(FlowObjSpace, oper.name, make_op(oper))
+for cls in op.__dict__.values():
+    if getattr(FlowObjSpace, cls.opname, None) is None:
+        setattr(FlowObjSpace, cls.opname, make_op(cls))
 
 
 def build_flow(func, space=FlowObjSpace()):

@@ -451,11 +451,10 @@ class FlowSpaceFrame(object):
         spaceop.offset = self.last_instr
         recorder.append(spaceop)
 
-    def do_op(self, operator, *args_w):
-        op = operator(*args_w)
+    def do_op(self, op):
         self.record(op)
-        if operator.canraise:
-            self.guessexception(operator.canraise)
+        if op.canraise:
+            self.guessexception(op.canraise)
         return op.result
 
     def guessexception(self, exceptions):
