@@ -3954,8 +3954,12 @@ class LLtypeBackendTest(BaseBackendTest):
             p = rawstorage.alloc_raw_storage(31)
             for i in range(31):
                 p[i] = '\xDD'
-            value = rffi.cast(T, 0x4243444546474849)
+            value = rffi.cast(T, -0x4243444546474849)
             rawstorage.raw_storage_setitem(p, 16, value)
+            got = self.cpu.bh_raw_load_i(rffi.cast(lltype.Signed, p), 16,
+                                         arraydescr)
+            assert got == rffi.cast(lltype.Signed, value)
+            #
             loop = parse(ops, self.cpu, namespace=locals())
             looptoken = JitCellToken()
             self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
@@ -3981,6 +3985,11 @@ class LLtypeBackendTest(BaseBackendTest):
                 p[i] = '\xDD'
             value = rffi.cast(T, 1.12e20)
             rawstorage.raw_storage_setitem(p, 16, value)
+            got = self.cpu.bh_raw_load_f(rffi.cast(lltype.Signed, p), 16,
+                                         arraydescr)
+            got = longlong.getrealfloat(got)
+            assert got == rffi.cast(lltype.Float, value)
+            #
             loop = parse(ops, self.cpu, namespace=locals())
             looptoken = JitCellToken()
             self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
