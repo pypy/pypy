@@ -996,14 +996,14 @@ class Entry(ExtRegistryEntry):
 def _jit_conditional_call(condition, function, *args):
     pass
 
-@specialize.ll_and_arg(1)
+@specialize.call_location()
 def conditional_call(condition, function, *args):
     if we_are_jitted():
         _jit_conditional_call(condition, function, *args)
     else:
         if condition:
             function(*args)
-conditional_call._annenforceargs_ = [bool, None, None]
+conditional_call._always_inline_ = True
 
 class ConditionalCallEntry(ExtRegistryEntry):
     _about_ = _jit_conditional_call
