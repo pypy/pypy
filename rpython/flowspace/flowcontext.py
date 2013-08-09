@@ -453,10 +453,11 @@ class FlowSpaceFrame(object):
 
     def do_op(self, operator, *args_w):
         w_result = self.do_operation(operator.name, *args_w)
-        self.handle_implicit_exceptions(operator.canraise)
+        if operator.canraise:
+            self.guessexception(operator.canraise)
         return w_result
 
-    def handle_implicit_exceptions(self, exceptions):
+    def guessexception(self, exceptions):
         """
         Catch possible exceptions implicitly.
 
@@ -465,9 +466,7 @@ class FlowSpaceFrame(object):
         even if the interpreter re-raises the exception, it will not be the
         same ImplicitOperationError instance internally.
         """
-        if not exceptions:
-            return
-        return self.recorder.guessexception(self, *exceptions)
+        self.recorder.guessexception(self, *exceptions)
 
     def build_flow(self):
         graph = self.graph

@@ -265,7 +265,7 @@ class FlowObjSpace(object):
                     frame.replace_in_stack(it, next_unroller)
                     return const(v)
         w_item = frame.do_operation("next", w_iter)
-        frame.handle_implicit_exceptions([StopIteration, RuntimeError])
+        frame.guessexception([StopIteration, RuntimeError])
         return w_item
 
 
@@ -365,10 +365,10 @@ class FlowObjSpace(object):
                                types.TypeType)) and
                   c.__module__ in ['__builtin__', 'exceptions']):
                 if c in builtins_exceptions:
-                    self.frame.handle_implicit_exceptions(builtins_exceptions[c])
+                    self.frame.guessexception(builtins_exceptions[c])
                 return w_res
         # *any* exception for non-builtins
-        self.frame.handle_implicit_exceptions([Exception])
+        self.frame.guessexception([Exception])
         return w_res
 
     def find_global(self, w_globals, varname):
