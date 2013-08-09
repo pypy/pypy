@@ -2,6 +2,7 @@ from rpython.jit.backend.llsupport.rewrite import GcRewriterAssembler
 from rpython.jit.metainterp.resoperation import ResOperation, rop
 from rpython.jit.metainterp.history import BoxPtr, ConstPtr, ConstInt
 from rpython.rlib.objectmodel import specialize
+from rpython.rlib.objectmodel import we_are_translated
 
 #
 # STM Support
@@ -43,6 +44,11 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
         # overridden method from parent class
         #
         for op in operations:
+            if not we_are_translated():
+                # only possible in tests:
+                if op.getopnum() in (rop.COND_CALL_STM_B,):
+                    self.newops.append(op)
+                    continue
             if op.getopnum() == rop.DEBUG_MERGE_POINT:
                 continue
             if op.getopnum() == rop.INCREMENT_DEBUG_COUNTER:
