@@ -42,12 +42,18 @@ class HLOperation(SpaceOperation):
         return sc_operator
 
     def eval(self, frame):
+        result = self.constfold()
+        if result is not None:
+            return result
         return frame.do_op(self)
+
+    def constfold(self):
+        return None
 
 class PureOperation(HLOperation):
     pure = True
 
-    def eval(self, frame):
+    def constfold(self):
         args = []
         if all(w_arg.foldable() for w_arg in self.args):
             args = [w_arg.value for w_arg in self.args]
@@ -77,7 +83,6 @@ class PureOperation(HLOperation):
                         # type cannot sanely appear in flow graph,
                         # store operation with variable result instead
                         pass
-        return frame.do_op(self)
 
 
 def add_operator(name, arity, symbol, pyfunc=None, pure=False, ovf=False):
