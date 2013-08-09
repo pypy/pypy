@@ -19,6 +19,8 @@ func2op = {}
 class HLOperation(SpaceOperation):
     pure = False
     def __init__(self, *args):
+        if len(args) != self.arity:
+            raise TypeError(self.opname + " got the wrong number of arguments")
         self.args = list(args)
         self.result = Variable()
         self.offset = -1
@@ -40,16 +42,12 @@ class HLOperation(SpaceOperation):
         return sc_operator
 
     def eval(self, frame):
-        if len(self.args) != self.arity:
-            raise TypeError(self.opname + " got the wrong number of arguments")
         return frame.do_op(self)
 
 class PureOperation(HLOperation):
     pure = True
 
     def eval(self, frame):
-        if len(self.args) != self.arity:
-            raise TypeError(self.opname + " got the wrong number of arguments")
         args = []
         if all(w_arg.foldable() for w_arg in self.args):
             args = [w_arg.value for w_arg in self.args]
