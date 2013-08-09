@@ -118,6 +118,8 @@ class GcLLDescription(GcCache):
             if we_are_translated():
                 # tests don't allow this
                 op.setdescr(new_d)
+            else:
+                assert new_d is descr
             gcrefs_output_list.append(new_llref)
 
     def rewrite_assembler(self, cpu, operations, gcrefs_output_list):

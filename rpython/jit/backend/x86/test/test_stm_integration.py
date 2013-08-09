@@ -13,11 +13,10 @@ from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.metainterp.executor import execute
 from rpython.jit.backend.test.runner_test import LLtypeBackendTest
 from rpython.jit.tool.oparser import parse
-from rpython.rtyper.annlowlevel import llhelper, llhelper_args
-from rpython.jit.backend.llsupport.gc import (
-    GcRootMap_stm, BarrierDescr)
+from rpython.rtyper.annlowlevel import llhelper
+from rpython.jit.backend.llsupport.gc import BarrierDescr
 from rpython.jit.backend.llsupport.test.test_gc_integration import (
-    GCDescrShadowstackDirect, BaseTestRegalloc)
+    GCDescrShadowstackDirect, BaseTestRegalloc, JitFrameDescrs)
 from rpython.jit.backend.llsupport import jitframe
 from rpython.memory.gc.stmgc import StmGC
 import itertools
@@ -61,15 +60,19 @@ class FakeSTMBarrier(BarrierDescr):
 
 
 def jitframe_allocate(frame_info):
+    import sys
     frame = lltype.malloc(JITFRAME, frame_info.jfi_frame_depth, zero=True)
+    frame.h_tid = rffi.cast(lltype.Unsigned, 
+                            StmGC.GCFLAG_OLD|StmGC.GCFLAG_WRITE_BARRIER | 123)
+    frame.h_revision = rffi.cast(lltype.Signed, -sys.maxint)
     frame.jf_frame_info = frame_info
     return frame
 
 JITFRAME = lltype.GcStruct(
     'JITFRAME',
-    ('h_tid', lltype.Signed),
+    ('h_tid', lltype.Unsigned),
     ('h_revision', lltype.Signed),
-    ('h_original', lltype.Signed),
+    ('h_original', lltype.Unsigned),
     ('jf_frame_info', lltype.Ptr(jitframe.JITFRAMEINFO)),
     ('jf_descr', llmemory.GCREF),
     ('jf_force_descr', llmemory.GCREF),
@@ -84,9 +87,10 @@ JITFRAME = lltype.GcStruct(
 )
 
 JITFRAMEPTR = lltype.Ptr(JITFRAME)
+
 class FakeGCHeaderBuilder:
     size_gc_header = WORD
-        
+
 
 class GCDescrStm(GCDescrShadowstackDirect):
     def __init__(self):
@@ -133,6 +137,25 @@ class GCDescrStm(GCDescrShadowstackDirect):
         self.generate_function('stm_ptr_eq', ptr_eq, [llmemory.GCREF] * 2,
                                RESULT=lltype.Bool)
 
+    def malloc_jitframe(self, frame_info):
+        """ Allocate a new frame, overwritten by tests
+        """
+        frame = JITFRAME.allocate(frame_info)
+        self.frames.append(frame)
+        return frame
+
+    def getframedescrs(self, cpu):
+        descrs = JitFrameDescrs()
+        descrs.arraydescr = cpu.arraydescrof(JITFRAME)
+        for name in ['jf_descr', 'jf_guard_exc', 'jf_force_descr',
+                     'jf_frame_info', 'jf_gcmap', 'jf_extra_stack_depth']:
+            setattr(descrs, name, cpu.fielddescrof(JITFRAME, name))
+        descrs.jfi_frame_depth = cpu.fielddescrof(jitframe.JITFRAMEINFO,
+                                                  'jfi_frame_depth')
+        descrs.jfi_frame_size = cpu.fielddescrof(jitframe.JITFRAMEINFO,
+                                                  'jfi_frame_size')
+        return descrs
+        
     def get_malloc_slowpath_addr(self):
         return None
 
@@ -291,6 +314,7 @@ class TestGcStm(BaseTestRegalloc):
         called_on = cpu.gc_ll_descr.ptr_eq_called_on
 
         i0 = BoxInt()
+        i1 = BoxInt()
         sa, sb = (rffi.cast(llmemory.GCREF, self.allocate_prebuilt_s()),
                   rffi.cast(llmemory.GCREF, self.allocate_prebuilt_s()))
         ss = [sa, sa, sb, sb,
@@ -302,31 +326,65 @@ class TestGcStm(BaseTestRegalloc):
                   ConstPtr(s1),
                   ConstPtr(s2)]
             for p1, p2 in itertools.combinations(ps, 2):
-                cpu.gc_ll_descr.clear_lists()
-                
-                operations = [
-                    ResOperation(rop.PTR_EQ, [p1, p2], i0),
-                    ResOperation(rop.FINISH, [i0], None, 
-                                 descr=BasicFinalDescr(0)),
-                    ]
-                inputargs = [p for p in (p1, p2) if not isinstance(p, Const)]
-                looptoken = JitCellToken()
-                c_loop = cpu.compile_loop(inputargs, operations, looptoken)
-                args = [s for i, s in enumerate((s1, s2))
-                        if not isinstance((p1, p2)[i], Const)]
-                self.cpu.execute_token(looptoken, *args)
+                for guard in [None, rop.GUARD_TRUE, rop.GUARD_FALSE]:
+                    cpu.gc_ll_descr.clear_lists()
 
-                a, b = s1, s2
-                if isinstance(p1, Const):
-                    s1 = p1.value
-                if isinstance(p2, Const):
-                    s2 = p2.value
+                    i = i0
+                    operations = [ResOperation(rop.PTR_EQ, [p1, p2], i0)]
+                    if guard is not None:
+                        gop = ResOperation(guard, [i0], None, 
+                                           BasicFailDescr())
+                        gop.setfailargs([])
+                        operations.append(gop)
+                        i = i1
+                    # finish must depend on result of ptr_eq if no guard
+                    # is inbetween (otherwise ptr_eq gets deleted)
+                    # if there is a guard, the result of ptr_eq must not
+                    # be used after it again... -> i
+                    operations.append(
+                        ResOperation(rop.FINISH, [i], None, 
+                                     descr=BasicFinalDescr())
+                        )
                     
-                if s1 == s2 or \
-                  rffi.cast(lltype.Signed, s1) == 0 or \
-                  rffi.cast(lltype.Signed, s2) == 0:
-                    assert (s1, s2) not in called_on
-                else:
-                    assert [(s1, s2)] == called_on
+                    inputargs = [p for p in (p1, p2) if not isinstance(p, Const)]
+                    looptoken = JitCellToken()
+                    c_loop = cpu.compile_loop(inputargs + [i1], operations, looptoken)
+                    print c_loop
+                    args = [s for i, s in enumerate((s1, s2))
+                            if not isinstance((p1, p2)[i], Const)] + [1]
+                    frame = self.cpu.execute_token(looptoken, *args)
+                    frame = rffi.cast(JITFRAMEPTR, frame)
+                    if frame.jf_descr is operations[-1].getdescr():
+                        guard_failed = False
+                    else:
+                        guard_failed = True
+                    
+                    a, b = s1, s2
+                    if isinstance(p1, Const):
+                        s1 = p1.value
+                    if isinstance(p2, Const):
+                        s2 = p2.value
+                        
+                    if s1 == s2 or \
+                      rffi.cast(lltype.Signed, s1) == 0 or \
+                      rffi.cast(lltype.Signed, s2) == 0:
+                        assert (s1, s2) not in called_on
+                    else:
+                        assert [(s1, s2)] == called_on
+
+                    if guard is not None:
+                        if s1 == s2:
+                            if guard == rop.GUARD_TRUE:
+                                assert not guard_failed
+                            else:
+                                assert guard_failed
+                        elif guard == rop.GUARD_FALSE:
+                            assert not guard_failed
+                        else:
+                            assert guard_failed
+
+
+                        
+
 
         

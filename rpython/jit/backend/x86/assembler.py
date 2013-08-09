@@ -1070,6 +1070,7 @@ class Assembler386(BaseAssembler):
         assert self.cpu.gc_ll_descr.stm
         guard_opnum = guard_op.getopnum()
         self._stm_ptr_eq_fastpath(self.mc, arglocs, result_loc)
+        # p1==p2 -> NZ
         if guard_opnum == rop.GUARD_FALSE:
             # jump to failure-code if ptrs are equal
             self.implement_guard(guard_token, "NZ")
