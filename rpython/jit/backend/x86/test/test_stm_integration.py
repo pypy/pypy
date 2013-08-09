@@ -19,7 +19,7 @@ from rpython.jit.backend.llsupport.test.test_gc_integration import (
     GCDescrShadowstackDirect, BaseTestRegalloc, JitFrameDescrs)
 from rpython.jit.backend.llsupport import jitframe
 from rpython.memory.gc.stmgc import StmGC
-import itertools
+import itertools, sys
 import ctypes
 
 CPU = getcpuclass()
@@ -58,13 +58,16 @@ class FakeSTMBarrier(BarrierDescr):
 
 # ____________________________________________________________
 
+def allocate_protected(TP, tid=123, n=1, zero=True):
+    obj = lltype.malloc(TP, n=n, zero=zero)
+    obj.h_tid = rffi.cast(lltype.Unsigned, 
+                            StmGC.GCFLAG_OLD|StmGC.GCFLAG_WRITE_BARRIER | tid)
+    obj.h_revision = rffi.cast(lltype.Signed, -sys.maxint)
+    return obj
 
 def jitframe_allocate(frame_info):
-    import sys
-    frame = lltype.malloc(JITFRAME, frame_info.jfi_frame_depth, zero=True)
-    frame.h_tid = rffi.cast(lltype.Unsigned, 
-                            StmGC.GCFLAG_OLD|StmGC.GCFLAG_WRITE_BARRIER | 123)
-    frame.h_revision = rffi.cast(lltype.Signed, -sys.maxint)
+    frame = allocate_protected(JITFRAME,
+                               frame_info.jfi_frame_depth, zero=True)
     frame.jf_frame_info = frame_info
     return frame
 
@@ -329,11 +332,14 @@ class TestGcStm(BaseTestRegalloc):
                 for guard in [None, rop.GUARD_TRUE, rop.GUARD_FALSE]:
                     cpu.gc_ll_descr.clear_lists()
 
+                    # BUILD OPERATIONS:
                     i = i0
+                    guarddescr = BasicFailDescr()
+                    finaldescr = BasicFinalDescr()
                     operations = [ResOperation(rop.PTR_EQ, [p1, p2], i0)]
                     if guard is not None:
                         gop = ResOperation(guard, [i0], None, 
-                                           BasicFailDescr())
+                                           descr=guarddescr)
                         gop.setfailargs([])
                         operations.append(gop)
                         i = i1
@@ -343,22 +349,24 @@ class TestGcStm(BaseTestRegalloc):
                     # be used after it again... -> i
                     operations.append(
                         ResOperation(rop.FINISH, [i], None, 
-                                     descr=BasicFinalDescr())
+                                     descr=finaldescr)
                         )
-                    
-                    inputargs = [p for p in (p1, p2) if not isinstance(p, Const)]
+
+                    # COMPILE & EXECUTE LOOP:
+                    inputargs = [p for p in (p1, p2) 
+                                 if not isinstance(p, Const)]
                     looptoken = JitCellToken()
-                    c_loop = cpu.compile_loop(inputargs + [i1], operations, looptoken)
+                    c_loop = cpu.compile_loop(inputargs + [i1], operations, 
+                                              looptoken)
                     print c_loop
                     args = [s for i, s in enumerate((s1, s2))
                             if not isinstance((p1, p2)[i], Const)] + [1]
+                    
                     frame = self.cpu.execute_token(looptoken, *args)
                     frame = rffi.cast(JITFRAMEPTR, frame)
-                    if frame.jf_descr is operations[-1].getdescr():
-                        guard_failed = False
-                    else:
-                        guard_failed = True
+                    guard_failed = frame.jf_descr is not finaldescr
                     
+                    # CHECK:
                     a, b = s1, s2
                     if isinstance(p1, Const):
                         s1 = p1.value
