@@ -25,7 +25,7 @@ def PyNumber_Float(space, w_obj):
     """
     Returns the o converted to a float object on success, or NULL on failure.
     This is the equivalent of the Python expression float(o)."""
-    return space.call_function(space.w_float, w_obj)
+    return space.float(w_obj)
 
 @cpython_api([PyObject, rffi.CCHARPP], PyObject)
 def PyFloat_FromString(space, w_obj, _):
