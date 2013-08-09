@@ -351,12 +351,14 @@ class Assembler386(BaseAssembler):
         # eax has result
         if IS_X86_32:
             # ||val2|val1|retaddr|x||x|x|val2|val1|
-            mc.MOV_sr(7 * WORD, eax.value)
-            # ||result|val1|retaddr|x||x|x|val2|val1|
+            mc.ADD_ri(esp.value, 5 * WORD)
+            # ||val2|val1|retaddr|
         else:
             # ||val2|val1||retaddr|x||
-            mc.MOV_sr(3 * WORD, eax.value)
-            # ||result|val1||retaddr|x||
+            mc.ADD_ri(esp.value, WORD)
+            # ||val2|val1||retaddr|
+        mc.MOV_sr(2 * WORD, eax.value)
+        # ||result|val1|retaddr|
         #
         self._pop_all_regs_from_frame(mc, [], withfloats=False,
                                       callee_only=True)
@@ -2218,18 +2220,28 @@ class Assembler386(BaseAssembler):
             #      the explicit MOV before it (CMP(a_base, b_base))
             sl = X86_64_SCRATCH_REG.lowest8bits()
             mc.MOV(X86_64_SCRATCH_REG, a_base)
-            mc.CMP(X86_64_SCRATCH_REG, b_base)
+            if isinstance(b_base, ImmedLoc) \
+              and rx86.fits_in_32bits(b_base.value):
+                mc.CMP_ri(X86_64_SCRATCH_REG.value, b_base.value)
+            elif not isinstance(b_base, ImmedLoc):
+                mc.CMP(X86_64_SCRATCH_REG, b_base)
+            else:
+                # imm64, need another temporary reg :(
+                mc.PUSH_r(eax.value)
+                mc.MOV_ri64(eax.value, b_base.value)
+                mc.CMP_rr(X86_64_SCRATCH_REG.value, eax.value)
+                mc.POP_r(eax.value)
+            # reverse flags: if p1==p2, set NZ
             mc.SET_ir(rx86.Conditions['Z'], sl.value)
-            mc.MOVZX8_rr(X86_64_SCRATCH_REG.value, sl.value)
-            # mc.TEST8_rr() without movzx8
-            mc.TEST_rr(X86_64_SCRATCH_REG.value, X86_64_SCRATCH_REG.value)
+            mc.AND8_rr(sl.value, sl.value)
             mc.J_il8(rx86.Conditions['NZ'], 0)
             j_ok1 = mc.get_relative_pos()
 
         # a == 0 || b == 0 -> SET Z
         if isinstance(a_base, ImmedLoc):
             if a_base.getint() == 0:
-                # Z flag still set from above
+                # set Z flag:
+                mc.XOR(X86_64_SCRATCH_REG, X86_64_SCRATCH_REG)
                 mc.JMP_l8(0)
                 j_ok2 = mc.get_relative_pos()
             else:
@@ -2264,7 +2276,7 @@ class Assembler386(BaseAssembler):
         # result still on stack
         mc.POP_r(X86_64_SCRATCH_REG.value)
         # set flags:
-        mc.TEST(X86_64_SCRATCH_REG, X86_64_SCRATCH_REG)
+        mc.TEST_rr(X86_64_SCRATCH_REG.value, X86_64_SCRATCH_REG.value)
         #
         # END SLOWPATH
         #

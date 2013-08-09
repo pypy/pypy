@@ -3,7 +3,7 @@ from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rstr
 from rpython.jit.metainterp.history import ResOperation, TargetToken,\
      JitCellToken
 from rpython.jit.metainterp.history import (BoxInt, BoxPtr, ConstInt,
-                                            ConstPtr, Box,
+                                            ConstPtr, Box, Const,
                                             BasicFailDescr, BasicFinalDescr)
 from rpython.jit.backend.detect_cpu import getcpuclass
 from rpython.jit.backend.x86.arch import WORD
@@ -20,6 +20,7 @@ from rpython.jit.backend.llsupport.test.test_gc_integration import (
     GCDescrShadowstackDirect, BaseTestRegalloc)
 from rpython.jit.backend.llsupport import jitframe
 from rpython.memory.gc.stmgc import StmGC
+import itertools
 import ctypes
 
 CPU = getcpuclass()
@@ -96,6 +97,7 @@ class GCDescrStm(GCDescrShadowstackDirect):
         self.llop1 = None
         self.rb_called_on = []
         self.wb_called_on = []
+        self.ptr_eq_called_on = []
         self.stm = True
 
         def read_barrier(obj):
@@ -125,19 +127,19 @@ class GCDescrStm(GCDescrShadowstackDirect):
         self.generate_function('stm_try_inevitable',
                                inevitable, [],
                                RESULT=lltype.Void)
-        def ptr_eq(x, y): return x == y
-        def ptr_ne(x, y): return x != y
+        def ptr_eq(x, y):
+            self.ptr_eq_called_on.append((x, y))
+            return x == y
         self.generate_function('stm_ptr_eq', ptr_eq, [llmemory.GCREF] * 2,
                                RESULT=lltype.Bool)
-        self.generate_function('stm_ptr_ne', ptr_ne, [llmemory.GCREF] * 2,
-                               RESULT=lltype.Bool)
-        
+
     def get_malloc_slowpath_addr(self):
         return None
 
-    def clear_barrier_lists(self):
+    def clear_lists(self):
         self.rb_called_on[:] = []
         self.wb_called_on[:] = []
+        self.ptr_eq_called_on[:] = []
 
 
 class TestGcStm(BaseTestRegalloc):
@@ -209,7 +211,7 @@ class TestGcStm(BaseTestRegalloc):
         self.priv_rev_num[0] = PRIV_REV
         called_on = cpu.gc_ll_descr.rb_called_on
         for rev in [PRIV_REV+4, PRIV_REV]:
-            cpu.gc_ll_descr.clear_barrier_lists()
+            cpu.gc_ll_descr.clear_lists()
             self.clear_read_cache()
             
             s = self.allocate_prebuilt_s()
@@ -237,7 +239,7 @@ class TestGcStm(BaseTestRegalloc):
 
             # now add it to the read-cache and check
             # that it will never call the read_barrier
-            cpu.gc_ll_descr.clear_barrier_lists()
+            cpu.gc_ll_descr.clear_lists()
             self.set_cache_item(sgcref)
             
             self.cpu.execute_token(looptoken, sgcref)
@@ -252,8 +254,7 @@ class TestGcStm(BaseTestRegalloc):
         called_on = cpu.gc_ll_descr.wb_called_on
         
         for rev in [PRIV_REV+4, PRIV_REV]:
-            cpu.gc_ll_descr.clear_barrier_lists()
-            assert not called_on
+            cpu.gc_ll_descr.clear_lists()
             
             s = self.allocate_prebuilt_s()
             sgcref = lltype.cast_opaque_ptr(llmemory.GCREF, s)
@@ -279,11 +280,53 @@ class TestGcStm(BaseTestRegalloc):
                 self.assert_in(called_on, [sgcref])
 
             # now set WRITE_BARRIER -> always call slowpath
-            cpu.gc_ll_descr.clear_barrier_lists()
-            assert not called_on
+            cpu.gc_ll_descr.clear_lists()
             s.h_tid |= StmGC.GCFLAG_WRITE_BARRIER
             self.cpu.execute_token(looptoken, sgcref)
             self.assert_in(called_on, [sgcref])
 
+    def test_ptr_eq_fastpath(self):
+        cpu = self.cpu
+        cpu.setup_once()
+        called_on = cpu.gc_ll_descr.ptr_eq_called_on
+
+        i0 = BoxInt()
+        sa, sb = (rffi.cast(llmemory.GCREF, self.allocate_prebuilt_s()),
+                  rffi.cast(llmemory.GCREF, self.allocate_prebuilt_s()))
+        ss = [sa, sa, sb, sb,
+              lltype.nullptr(llmemory.GCREF.TO),
+              lltype.nullptr(llmemory.GCREF.TO),
+              ]
+        for s1, s2 in itertools.combinations(ss, 2):
+            ps = [BoxPtr(), BoxPtr(),
+                  ConstPtr(s1),
+                  ConstPtr(s2)]
+            for p1, p2 in itertools.combinations(ps, 2):
+                cpu.gc_ll_descr.clear_lists()
+                
+                operations = [
+                    ResOperation(rop.PTR_EQ, [p1, p2], i0),
+                    ResOperation(rop.FINISH, [i0], None, 
+                                 descr=BasicFinalDescr(0)),
+                    ]
+                inputargs = [p for p in (p1, p2) if not isinstance(p, Const)]
+                looptoken = JitCellToken()
+                c_loop = cpu.compile_loop(inputargs, operations, looptoken)
+                args = [s for i, s in enumerate((s1, s2))
+                        if not isinstance((p1, p2)[i], Const)]
+                self.cpu.execute_token(looptoken, *args)
+
+                a, b = s1, s2
+                if isinstance(p1, Const):
+                    s1 = p1.value
+                if isinstance(p2, Const):
+                    s2 = p2.value
+                    
+                if s1 == s2 or \
+                  rffi.cast(lltype.Signed, s1) == 0 or \
+                  rffi.cast(lltype.Signed, s2) == 0:
+                    assert (s1, s2) not in called_on
+                else:
+                    assert [(s1, s2)] == called_on
 
         
