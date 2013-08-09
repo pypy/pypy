@@ -1064,8 +1064,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
             ll_assert(self._debug_objects_to_trace_dict.contains(obj),
                         "gray object not in pending trace list.")
         else:
-            ll_assert(not self._debug_objects_to_trace_dict.contains(obj),
-                "non gray object in pending trace list.")
+            #if not gray and not black
+            if self.header(obj).tid & GCFLAG_VISITED == 0:
+                if self.header(obj).tid & GCFLAG_NO_HEAP_PTRS == 0:
+                    ll_assert(not self._debug_objects_to_trace_dict.contains(obj),
+                        "white object in pending trace list.")
     
     def _debug_check_not_white(self, root, ignored):
         obj = root.address[0]
@@ -1739,7 +1742,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
         elif self.gc_state == STATE_MARKING:
             # XXX need a heuristic to tell how many objects to mark.
             # Maybe based on previous mark time average
-            self.debug_check_consistency()
             self.visit_all_objects_step(1)
             
             # XXX A simplifying assumption that should be checked, 
@@ -1747,7 +1749,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # they do not need a seperate state and do not need to be 
             # made incremental.
             if not self.objects_to_trace.non_empty(): 
-                
                 if self.objects_with_finalizers.non_empty():
                     self.deal_with_objects_with_finalizers()
                 
@@ -1761,6 +1762,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
                     self.deal_with_old_objects_with_finalizers()
                 #objects_to_trace processed fully, can move on to sweeping
                 self.gc_state = STATE_SWEEPING_RAWMALLOC
+                #prepare for the next state
                 self.start_free_rawmalloc_objects()
             #END MARKING
         elif self.gc_state == STATE_SWEEPING_RAWMALLOC:
@@ -1819,8 +1821,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # so should we make the calling incremental? or leave as is
              
             # Must be ready to start another scan
-            self.gc_state = STATE_SCANNING
             # just in case finalizer calls collect again.
+            self.gc_state = STATE_SCANNING
+            
             self.execute_finalizers()
             self.num_major_collects += 1
             #END FINALIZING
@@ -1846,19 +1849,19 @@ class IncrementalMiniMarkGC(MovingGCBase):
         size_gc_header = self.gcheaderbuilder.size_gc_header
         obj = hdr + size_gc_header
         if self.header(obj).tid & GCFLAG_VISITED:
-            self.header(obj).tid &= ~GCFLAG_VISITED
+            self.header(obj).tid &= ~(GCFLAG_VISITED|GCFLAG_GRAY)
             return False     # survives
         return True      # dies
 
     def _reset_gcflag_visited(self, obj, ignored):
-        self.header(obj).tid &= ~GCFLAG_VISITED
+        self.header(obj).tid &= ~(GCFLAG_VISITED|GCFLAG_GRAY)
 
     def _set_gcflag_gray(self, obj, ignored):
         self.header(obj).tid |= GCFLAG_GRAY
 
     def free_rawmalloced_object_if_unvisited(self, obj):
         if self.header(obj).tid & GCFLAG_VISITED:
-            self.header(obj).tid &= ~GCFLAG_VISITED   # survives
+            self.header(obj).tid &= ~(GCFLAG_VISITED|GCFLAG_GRAY)   # survives
             self.old_rawmalloced_objects.append(obj)
         else:
             size_gc_header = self.gcheaderbuilder.size_gc_header
@@ -1949,8 +1952,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
         pending = self.objects_to_trace
         while nobjects > 0 and pending.non_empty():
             obj = pending.pop()
-            ll_assert(self.header(obj).tid & GCFLAG_GRAY == 0,
-                        "non gray object being traced")
+            ll_assert(self.header(obj).tid & 
+                        (GCFLAG_GRAY|GCFLAG_VISITED|GCFLAG_NO_HEAP_PTRS) != 0,
+                        "non gray or black object being traced")
             self.visit(obj)
             nobjects -= 1
     
@@ -1966,13 +1970,14 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # and the GCFLAG_VISITED will be reset at the end of the
         # collection.
         hdr = self.header(obj)
+        # visited objects are no longer grey
+        hdr.tid &= ~GCFLAG_GRAY
         if hdr.tid & (GCFLAG_VISITED | GCFLAG_NO_HEAP_PTRS):
             return
         #
         # It's the first time.  We set the flag.
         hdr.tid |= GCFLAG_VISITED
-        # visited objects are no longer grey
-        hdr.tid &= ~GCFLAG_GRAY
+
         
         if not self.has_gcptr(llop.extract_ushort(llgroup.HALFWORD, hdr.tid)):
             return
