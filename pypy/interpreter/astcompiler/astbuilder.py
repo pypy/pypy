@@ -4,7 +4,6 @@ from pypy.interpreter import error
 from pypy.interpreter.pyparser.pygram import syms, tokens
 from pypy.interpreter.pyparser.error import SyntaxError
 from pypy.interpreter.pyparser import parsestring
-from rpython.rlib.objectmodel import specialize
 
 
 def ast_from_node(space, node, compile_info):
@@ -1231,7 +1230,6 @@ class ASTBuilder(object):
                 return count
             iter_node = first_child.children[2]
 
-    @specialize.arg(2)
     def comprehension_helper(self, comp_node,
                              for_type=syms.comp_for, if_type=syms.comp_if,
                              iter_type=syms.comp_iter,
