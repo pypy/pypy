@@ -1230,8 +1230,7 @@ class ASTBuilder(object):
                 return count
             iter_node = first_child.children[2]
 
-    def comprehension_helper(self, comp_node,
-                             comp_fix_unamed_tuple_location=False):
+    def comprehension_helper(self, comp_node):
         fors_count = self.count_comp_fors(comp_node)
         comps = []
         for i in range(fors_count):
@@ -1242,14 +1241,12 @@ class ASTBuilder(object):
             if len(for_node.children) == 1:
                 comp = ast.comprehension(for_targets[0], expr, None)
             else:
-                col = comp_node.column
-                line = comp_node.lineno
                 # Modified in python2.7, see http://bugs.python.org/issue6704
-                if comp_fix_unamed_tuple_location:
-                    expr_node = for_targets[0]
-                    assert isinstance(expr_node, ast.expr)
-                    col = expr_node.col_offset
-                    line = expr_node.lineno
+                # Fixing unamed tuple location
+                expr_node = for_targets[0]
+                assert isinstance(expr_node, ast.expr)
+                col = expr_node.col_offset
+                line = expr_node.lineno
                 target = ast.Tuple(for_targets, ast.Store, line, col)
                 comp = ast.comprehension(target, expr, None)
             if len(comp_node.children) == 5:
@@ -1272,29 +1269,26 @@ class ASTBuilder(object):
 
     def handle_genexp(self, genexp_node):
         elt = self.handle_expr(genexp_node.children[0])
-        comps = self.comprehension_helper(genexp_node.children[1],
-                                          comp_fix_unamed_tuple_location=True)
+        comps = self.comprehension_helper(genexp_node.children[1])
         return ast.GeneratorExp(elt, comps, genexp_node.lineno,
                                 genexp_node.column)
 
     def handle_listcomp(self, listcomp_node):
         elt = self.handle_expr(listcomp_node.children[0])
-        comps = self.comprehension_helper(listcomp_node.children[1],
-                                          comp_fix_unamed_tuple_location=True)
+        comps = self.comprehension_helper(listcomp_node.children[1])
         return ast.ListComp(elt, comps, listcomp_node.lineno,
                             listcomp_node.column)
 
     def handle_setcomp(self, set_maker):
         elt = self.handle_expr(set_maker.children[0])
-        comps = self.comprehension_helper(set_maker.children[1],
-                                          comp_fix_unamed_tuple_location=True)
-        return ast.SetComp(elt, comps, set_maker.lineno, set_maker.column)
+        comps = self.comprehension_helper(set_maker.children[1])
+        return ast.SetComp(elt, comps, set_maker.lineno,
+                           set_maker.column)
 
     def handle_dictcomp(self, dict_maker):
         key = self.handle_expr(dict_maker.children[0])
         value = self.handle_expr(dict_maker.children[2])
-        comps = self.comprehension_helper(dict_maker.children[3],
-                                          comp_fix_unamed_tuple_location=True)
+        comps = self.comprehension_helper(dict_maker.children[3])
         return ast.DictComp(key, value, comps, dict_maker.lineno,
                             dict_maker.column)
 
