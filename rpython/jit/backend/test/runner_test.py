@@ -4000,6 +4000,35 @@ class LLtypeBackendTest(BaseBackendTest):
             assert result == rffi.cast(lltype.Float, value)
             rawstorage.free_raw_storage(p)
 
+    def test_raw_load_singlefloat(self):
+        if not self.cpu.supports_singlefloats:
+            py.test.skip("requires singlefloats")
+        from rpython.rlib import rawstorage
+        for T in [rffi.FLOAT]:
+            ops = """
+            [i0, i1]
+            i2 = raw_load(i0, i1, descr=arraydescr)
+            finish(i2)
+            """
+            arraydescr = self.cpu.arraydescrof(rffi.CArray(T))
+            p = rawstorage.alloc_raw_storage(31)
+            for i in range(31):
+                p[i] = '\xDD'
+            value = rffi.cast(T, 1.12e20)
+            rawstorage.raw_storage_setitem(p, 16, value)
+            got = self.cpu.bh_raw_load_i(rffi.cast(lltype.Signed, p), 16,
+                                         arraydescr)
+            assert got == longlong.singlefloat2int(value)
+            #
+            loop = parse(ops, self.cpu, namespace=locals())
+            looptoken = JitCellToken()
+            self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+            deadframe = self.cpu.execute_token(looptoken,
+                                               rffi.cast(lltype.Signed, p), 16)
+            result = self.cpu.get_int_value(deadframe, 0)
+            assert result == longlong.singlefloat2int(value)
+            rawstorage.free_raw_storage(p)
+
     def test_raw_store_int(self):
         from rpython.rlib import rawstorage
         for T in [rffi.UCHAR, rffi.SIGNEDCHAR,
