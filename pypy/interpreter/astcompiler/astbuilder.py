@@ -1197,7 +1197,7 @@ class ASTBuilder(object):
             return self.handle_genexp(gexp_node)
         return self.handle_testlist(gexp_node)
 
-    def count_comp_fors(self, comp_node, for_type, if_type):
+    def count_comp_fors(self, comp_node):
         count = 0
         current_for = comp_node
         while True:
@@ -1208,10 +1208,10 @@ class ASTBuilder(object):
                 return count
             while True:
                 first_child = current_iter.children[0]
-                if first_child.type == for_type:
+                if first_child.type == syms.comp_for:
                     current_for = current_iter.children[0]
                     break
-                elif first_child.type == if_type:
+                elif first_child.type == syms.comp_if:
                     if len(first_child.children) == 3:
                         current_iter = first_child.children[2]
                     else:
@@ -1219,11 +1219,11 @@ class ASTBuilder(object):
                 else:
                     raise AssertionError("should not reach here")
 
-    def count_comp_ifs(self, iter_node, for_type):
+    def count_comp_ifs(self, iter_node):
         count = 0
         while True:
             first_child = iter_node.children[0]
-            if first_child.type == for_type:
+            if first_child.type == syms.comp_for:
                 return count
             count += 1
             if len(first_child.children) == 2:
@@ -1231,10 +1231,8 @@ class ASTBuilder(object):
             iter_node = first_child.children[2]
 
     def comprehension_helper(self, comp_node,
-                             for_type=syms.comp_for, if_type=syms.comp_if,
-                             iter_type=syms.comp_iter,
                              comp_fix_unamed_tuple_location=False):
-        fors_count = self.count_comp_fors(comp_node, for_type, if_type)
+        fors_count = self.count_comp_fors(comp_node)
         comps = []
         for i in range(fors_count):
             for_node = comp_node.children[1]
@@ -1256,8 +1254,8 @@ class ASTBuilder(object):
                 comp = ast.comprehension(target, expr, None)
             if len(comp_node.children) == 5:
                 comp_node = comp_iter = comp_node.children[4]
-                assert comp_iter.type == iter_type
-                ifs_count = self.count_comp_ifs(comp_iter, for_type)
+                assert comp_iter.type == syms.comp_iter
+                ifs_count = self.count_comp_ifs(comp_iter)
                 if ifs_count:
                     ifs = []
                     for j in range(ifs_count):
@@ -1266,7 +1264,7 @@ class ASTBuilder(object):
                         if len(comp_if.children) == 3:
                             comp_node = comp_iter = comp_if.children[2]
                     comp.ifs = ifs
-                if comp_node.type == iter_type:
+                if comp_node.type == syms.comp_iter:
                     comp_node = comp_node.children[0]
             assert isinstance(comp, ast.comprehension)
             comps.append(comp)
@@ -1282,8 +1280,6 @@ class ASTBuilder(object):
     def handle_listcomp(self, listcomp_node):
         elt = self.handle_expr(listcomp_node.children[0])
         comps = self.comprehension_helper(listcomp_node.children[1],
-                                          syms.comp_for, syms.comp_if,
-                                          syms.comp_iter,
                                           comp_fix_unamed_tuple_location=True)
         return ast.ListComp(elt, comps, listcomp_node.lineno,
                             listcomp_node.column)
