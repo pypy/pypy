@@ -4035,16 +4035,23 @@ class LLtypeBackendTest(BaseBackendTest):
                   rffi.USHORT, rffi.SHORT,
                   rffi.UINT, rffi.INT,
                   rffi.ULONG, rffi.LONG]:
+            arraydescr = self.cpu.arraydescrof(rffi.CArray(T))
+            p = rawstorage.alloc_raw_storage(31)
+            value = (-0x4243444546474849) & sys.maxint
+            self.cpu.bh_raw_store_i(rffi.cast(lltype.Signed, p), 16, value,
+                                    arraydescr)
+            result = rawstorage.raw_storage_getitem(T, p, 16)
+            assert result == rffi.cast(T, value)
+            rawstorage.free_raw_storage(p)
+            #
             ops = """
             [i0, i1, i2]
             raw_store(i0, i1, i2, descr=arraydescr)
             finish()
             """
-            arraydescr = self.cpu.arraydescrof(rffi.CArray(T))
             p = rawstorage.alloc_raw_storage(31)
             for i in range(31):
                 p[i] = '\xDD'
-            value = 0x4243444546474849 & sys.maxint
             loop = parse(ops, self.cpu, namespace=locals())
             looptoken = JitCellToken()
             self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
@@ -4059,16 +4066,24 @@ class LLtypeBackendTest(BaseBackendTest):
             py.test.skip("requires floats")
         from rpython.rlib import rawstorage
         for T in [rffi.DOUBLE]:
+            arraydescr = self.cpu.arraydescrof(rffi.CArray(T))
+            p = rawstorage.alloc_raw_storage(31)
+            value = 1.23e20
+            self.cpu.bh_raw_store_f(rffi.cast(lltype.Signed, p), 16,
+                                    longlong.getfloatstorage(value),
+                                    arraydescr)
+            result = rawstorage.raw_storage_getitem(T, p, 16)
+            assert result == rffi.cast(T, value)
+            rawstorage.free_raw_storage(p)
+            #
             ops = """
             [i0, i1, f2]
             raw_store(i0, i1, f2, descr=arraydescr)
             finish()
             """
-            arraydescr = self.cpu.arraydescrof(rffi.CArray(T))
             p = rawstorage.alloc_raw_storage(31)
             for i in range(31):
                 p[i] = '\xDD'
-            value = 1.23e20
             loop = parse(ops, self.cpu, namespace=locals())
             looptoken = JitCellToken()
             self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
@@ -4077,6 +4092,41 @@ class LLtypeBackendTest(BaseBackendTest):
                                    longlong.getfloatstorage(value))
             result = rawstorage.raw_storage_getitem(T, p, 16)
             assert result == rffi.cast(T, value)
+            rawstorage.free_raw_storage(p)
+
+    def test_raw_store_singlefloat(self):
+        if not self.cpu.supports_singlefloats:
+            py.test.skip("requires singlefloats")
+        from rpython.rlib import rawstorage
+        for T in [rffi.FLOAT]:
+            arraydescr = self.cpu.arraydescrof(rffi.CArray(T))
+            p = rawstorage.alloc_raw_storage(31)
+            value = rffi.cast(T, 1.23e20)
+            self.cpu.bh_raw_store_i(rffi.cast(lltype.Signed, p), 16,
+                                    longlong.singlefloat2int(value),
+                                    arraydescr)
+            result = rawstorage.raw_storage_getitem(T, p, 16)
+            assert (rffi.cast(lltype.Float, result) ==
+                    rffi.cast(lltype.Float, value))
+            rawstorage.free_raw_storage(p)
+            #
+            ops = """
+            [i0, i1, i2]
+            raw_store(i0, i1, i2, descr=arraydescr)
+            finish()
+            """
+            p = rawstorage.alloc_raw_storage(31)
+            for i in range(31):
+                p[i] = '\xDD'
+            loop = parse(ops, self.cpu, namespace=locals())
+            looptoken = JitCellToken()
+            self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+            self.cpu.execute_token(looptoken,
+                                   rffi.cast(lltype.Signed, p), 16,
+                                   longlong.singlefloat2int(value))
+            result = rawstorage.raw_storage_getitem(T, p, 16)
+            assert (rffi.cast(lltype.Float, result) ==
+                    rffi.cast(lltype.Float, value))
             rawstorage.free_raw_storage(p)
 
     def test_forcing_op_with_fail_arg_in_reg(self):
