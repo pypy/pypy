@@ -19,6 +19,7 @@ from rpython.jit.backend.llsupport.test.test_gc_integration import (
     GCDescrShadowstackDirect, BaseTestRegalloc, JitFrameDescrs)
 from rpython.jit.backend.llsupport import jitframe
 from rpython.memory.gc.stmgc import StmGC
+from rpython.jit.metainterp import history
 import itertools, sys
 import ctypes
 
@@ -373,7 +374,8 @@ class TestGcStm(BaseTestRegalloc):
                     
                     frame = self.cpu.execute_token(looptoken, *args)
                     frame = rffi.cast(JITFRAMEPTR, frame)
-                    guard_failed = frame.jf_descr is not finaldescr
+                    frame_adr = rffi.cast(lltype.Signed, frame.jf_descr)
+                    guard_failed = frame_adr != id(finaldescr)
 
                     # CHECK:
                     a, b = s1, s2

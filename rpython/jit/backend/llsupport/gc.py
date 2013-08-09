@@ -5,7 +5,8 @@ from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rclass, rstr
 from rpython.rtyper.lltypesystem import llgroup
 from rpython.rtyper.lltypesystem.lloperation import llop
-from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_gcref
+from rpython.rtyper.annlowlevel import (llhelper, cast_instance_to_gcref,
+                                        cast_base_ptr_to_instance)
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.jit.codewriter import heaptracker
 from rpython.jit.metainterp.history import ConstPtr, AbstractDescr
@@ -110,16 +111,14 @@ class GcLLDescription(GcCache):
             # the only ops with descrs that get recorded in a trace
             from rpython.jit.metainterp.history import AbstractDescr
             descr = op.getdescr()
-            if not we_are_translated() and descr is None:
-                return
-            llref = rgc.cast_instance_to_gcref(descr)
+            llref = cast_instance_to_gcref(descr)
             new_llref = rgc._make_sure_does_not_move(llref)
-            new_d = rgc.try_cast_gcref_to_instance(AbstractDescr, new_llref)
             if we_are_translated():
-                # tests don't allow this
+                new_d = cast_base_ptr_to_instance(AbstractDescr, new_llref)
+                # tests don't allow this:
                 op.setdescr(new_d)
             else:
-                assert new_d is descr
+                assert llref == new_llref
             gcrefs_output_list.append(new_llref)
 
     def rewrite_assembler(self, cpu, operations, gcrefs_output_list):
