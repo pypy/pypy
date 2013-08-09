@@ -1,3 +1,5 @@
+from rpython.flowspace.model import Constant
+
 SPECIAL_CASES = {}
 
 def register_flow_sc(func):
@@ -14,7 +16,8 @@ def register_flow_sc(func):
 @register_flow_sc(__import__)
 def sc_import(space, args_w):
     assert len(args_w) > 0 and len(args_w) <= 5, 'import needs 1 to 5 arguments'
-    args = [space.unwrap(arg) for arg in args_w]
+    assert all(isinstance(arg, Constant) for arg in args_w)
+    args = [arg.value for arg in args_w]
     return space.import_name(*args)
 
 @register_flow_sc(locals)

@@ -20,7 +20,6 @@ from rpython.flowspace.pygraph import PyGraph
 from rpython.flowspace.specialcase import SPECIAL_CASES
 from rpython.rlib.unroll import unrolling_iterable, _unroller
 from rpython.rlib import rstackovf
-from rpython.rlib.rarithmetic import is_valid_int
 
 
 # the following gives us easy access to declare more for applications:
@@ -68,7 +67,6 @@ class FlowObjSpace(object):
     (the bytecode of) some function.
     """
     w_None = Constant(None)
-    builtin = Constant(__builtin__)
     sys = Constant(sys)
     w_False = Constant(False)
     w_True = Constant(True)
@@ -120,13 +118,12 @@ class FlowObjSpace(object):
             return self.w_False
 
     def newfunction(self, w_code, w_globals, defaults_w):
-        try:
-            code = self.unwrap(w_code)
-            globals = self.unwrap(w_globals)
-            defaults = tuple([self.unwrap(value) for value in defaults_w])
-        except UnwrapException:
+        if not all(isinstance(value, Constant) for value in defaults_w):
             raise FlowingError(self.frame, "Dynamically created function must"
                     " have constant default values.")
+        code = w_code.value
+        globals = w_globals.value
+        defaults = tuple([default.value for default in defaults_w])
         fn = types.FunctionType(code, globals, code.co_name, defaults)
         return Constant(fn)
 
@@ -135,39 +132,14 @@ class FlowObjSpace(object):
         w_type = const(type(exc))
         return FSException(w_type, w_value)
 
-    def int_w(self, w_obj):
-        if isinstance(w_obj, Constant):
-            val = w_obj.value
-            if not is_valid_int(val):
-                raise TypeError("expected integer: " + repr(w_obj))
-            return val
-        return self.unwrap(w_obj)
-
-    def str_w(self, w_obj):
-        if isinstance(w_obj, Constant):
-            val = w_obj.value
-            if type(val) is not str:
-                raise TypeError("expected string: " + repr(w_obj))
-            return val
-        return self.unwrap(w_obj)
-
-    def unwrap(self, w_obj):
-        if isinstance(w_obj, Variable):
-            raise UnwrapException
-        elif isinstance(w_obj, Constant):
-            return w_obj.value
-        else:
-            raise TypeError("not wrapped: " + repr(w_obj))
-
     def exception_issubclass_w(self, w_cls1, w_cls2):
         return self.is_true(self.issubtype(w_cls1, w_cls2))
 
     def exception_match(self, w_exc_type, w_check_class):
         """Checks if the given exception type matches 'w_check_class'."""
-        try:
-            check_class = self.unwrap(w_check_class)
-        except UnwrapException:
+        if not isinstance(w_check_class, Constant):
             raise FlowingError(self.frame, "Non-constant except guard.")
+        check_class = w_check_class.value
         if check_class in (NotImplementedError, AssertionError):
             raise FlowingError(self.frame,
                 "Catching %s is not valid in RPython" % check_class.__name__)
@@ -221,7 +193,7 @@ class FlowObjSpace(object):
 
     def unpack_sequence(self, w_iterable, expected_length):
         if isinstance(w_iterable, Constant):
-            l = list(self.unwrap(w_iterable))
+            l = list(w_iterable.value)
             if len(l) != expected_length:
                 raise ValueError
             return [const(x) for x in l]
@@ -373,11 +345,11 @@ class FlowObjSpace(object):
 
     def find_global(self, w_globals, varname):
         try:
-            value = self.unwrap(w_globals)[varname]
+            value = w_globals.value[varname]
         except KeyError:
             # not in the globals, now look in the built-ins
             try:
-                value = getattr(self.unwrap(self.builtin), varname)
+                value = getattr(__builtin__, varname)
             except AttributeError:
                 message = "global name '%s' is not defined" % varname
                 raise FlowingError(self.frame, const(message))

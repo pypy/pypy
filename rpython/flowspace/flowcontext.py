@@ -662,8 +662,8 @@ class FlowSpaceFrame(object):
     def IMPORT_NAME(self, nameindex, next_instr):
         space = self.space
         modulename = self.getname_u(nameindex)
-        glob = space.unwrap(self.w_globals)
-        fromlist = space.unwrap(self.popvalue())
+        glob = self.w_globals.value
+        fromlist = self.popvalue().value
         level = self.popvalue().value
         w_obj = space.import_name(modulename, glob, None, fromlist, level)
         self.pushvalue(w_obj)
@@ -941,7 +941,7 @@ class FlowSpaceFrame(object):
         for _ in range(n_keywords):
             w_value = self.popvalue()
             w_key = self.popvalue()
-            key = self.space.str_w(w_key)
+            key = w_key.value
             keywords[key] = w_value
         arguments = self.popvalues(n_arguments)
         args = CallSpec(arguments, keywords, w_star, w_starstar)
