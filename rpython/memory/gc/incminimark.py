@@ -1003,14 +1003,88 @@ class IncrementalMiniMarkGC(MovingGCBase):
              (self.card_page_shift + 3)))
 
     def debug_check_consistency(self):
+        
         if self.DEBUG:
-            ll_assert(not self.young_rawmalloced_objects,
-                      "young raw-malloced objects in a major collection")
-            ll_assert(not self.young_objects_with_weakrefs.non_empty(),
-                      "young objects with weakrefs in a major collection")
-            MovingGCBase.debug_check_consistency(self)
+            
+            # somewhat of a hack
+            # some states require custom prep and cleanup
+            # before calling the check_object functions
+            already_checked = False
+            
+            if self.gc_state == STATE_SCANNING:
+                # We are just starting a scan. Same as a non incremental here.
+                ll_assert(not self.young_rawmalloced_objects,
+                          "young raw-malloced objects in a major collection")
+                ll_assert(not self.young_objects_with_weakrefs.non_empty(),
+                          "young objects with weakrefs in a major collection")   
+            elif self.gc_state == STATE_MARKING:
+                self._debug_objects_to_trace_dict = \
+                                            self.objects_to_trace.stack2dict()
+                MovingGCBase.debug_check_consistency(self)
+                self._debug_objects_to_trace_dict.delete()
+                already_checked = True
+            elif self.gc_state == STATE_SWEEPING_RAWMALLOC:
+                pass
+            elif self.gc_state == STATE_SWEEPING_ARENA:
+                pass
+            elif self.gc_state == STATE_FINALIZING:
+                pass
+            else:
+                ll_assert(False,"uknown gc_state value")
+            
+            if not already_checked:
+                MovingGCBase.debug_check_consistency(self)
 
+    
     def debug_check_object(self, obj):
+        
+        ll_assert((self.header(obj).tid & GCFLAG_GRAY != 0 
+                    and self.header(obj).tid & GCFLAG_VISITED != 0) == False,
+                    "object gray and visited at the same time." )
+        
+        if self.gc_state == STATE_SCANNING:
+            self._debug_check_object_scanning(obj)
+        elif self.gc_state == STATE_MARKING:
+            self._debug_check_object_marking(obj)
+        elif self.gc_state == STATE_SWEEPING_RAWMALLOC:
+            self._debug_check_object_sweeping_rawmalloc(obj)
+        elif self.gc_state == STATE_SWEEPING_ARENA:
+            self._debug_check_object_sweeping_arena(obj)
+        elif self.gc_state == STATE_FINALIZING:
+            self._debug_check_object_finalizing(obj)
+        else:
+            ll_assert(False,"uknown gc_state value")
+    
+    def _debug_check_object_marking(self, obj):
+        if self.header(obj).tid & GCFLAG_VISITED != 0:
+            # Visited, should NEVER point to a white object.
+            self.trace(obj,self._debug_check_not_white,None)
+        
+        if self.header(obj).tid & GCFLAG_GRAY != 0:
+            ll_assert(self._debug_objects_to_trace_dict.contains(obj),
+                        "gray object not in pending trace list.")
+        else:
+            ll_assert(not self._debug_objects_to_trace_dict.contains(obj),
+                "non gray object in pending trace list.")
+    
+    def _debug_check_not_white(self, root, ignored):
+        obj = root.address[0]
+        ll_assert(self.header(obj).tid & (GCFLAG_GRAY | GCFLAG_VISITED) != 0,
+                  "visited object points to unprocessed (white) object." )
+     
+    def _debug_check_object_sweeping_rawmalloc(self, obj):
+        pass
+        
+    def _debug_check_object_sweeping_arena(self, obj):
+        pass
+    
+    def _debug_check_object_finalizing(self,obj):
+        pass
+    
+    def _debug_check_object_scanning(self, obj):
+        # This check is called before scanning starts.
+        # scanning is done in a single step.
+        
         # after a minor or major collection, no object should be in the nursery
         ll_assert(not self.is_in_nursery(obj),
                   "object in nursery after collection")
@@ -1024,7 +1098,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         ll_assert(self.header(obj).tid & GCFLAG_VISITED == 0,
                   "unexpected GCFLAG_VISITED")
         
-        # the GCFLAG_VISITED should never be set at the start of a collection
+        # the GCFLAG_GRAY should never be set at the start of a collection
         ll_assert(self.header(obj).tid & GCFLAG_GRAY == 0,
           "unexpected GCFLAG_GRAY")
         
@@ -1650,6 +1724,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # Debugging checks
         ll_assert(self.nursery_free == self.nursery,
                   "nursery not empty in major_collection_step()")
+        self.debug_check_consistency()
         
         
         # XXX currently very course increments, get this working then split
@@ -1662,9 +1737,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
             self.gc_state = STATE_MARKING
             #END SCANNING
         elif self.gc_state == STATE_MARKING:
-            
             # XXX need a heuristic to tell how many objects to mark.
             # Maybe based on previous mark time average
+            self.debug_check_consistency()
             self.visit_all_objects_step(1)
             
             # XXX A simplifying assumption that should be checked, 
@@ -1692,12 +1767,12 @@ class IncrementalMiniMarkGC(MovingGCBase):
             #
             # Walk all rawmalloced objects and free the ones that don't
             # have the GCFLAG_VISITED flag.
-            # XXX heuristic here?
+            # XXX heuristic here to decide nobjects.
             if self.free_unvisited_rawmalloc_objects_step(1):
+                #malloc objects freed
                 self.gc_state = STATE_SWEEPING_ARENA
                 
         elif self.gc_state == STATE_SWEEPING_ARENA:
-        
             #
             # Ask the ArenaCollection to visit all objects.  Free the ones
             # that have not been visited above, and reset GCFLAG_VISITED on
@@ -1761,9 +1836,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # We start in scanning state
         ll_assert(self.gc_state == STATE_SCANNING,
                     "Scan start state incorrect")
-        self.debug_check_consistency()
         self.major_collection_step(reserving_size)
-        ll_assert(self.gc_state == STATE_MARKING, "Initial Scan did not complete")
+        ll_assert(self.gc_state == STATE_MARKING, "initial scan did not complete")
         
         while self.gc_state != STATE_SCANNING:
             self.major_collection_step(reserving_size)
@@ -1858,7 +1932,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
         self.objects_to_trace.append(obj)
 
     def _collect_ref_rec(self, root, ignored):
-        self.objects_to_trace.append(root.address[0])
+        obj = root.address[0]
+        if self.header(obj).tid & GCFLAG_VISITED != 0:
+            return
+        self.header(obj).tid |= GCFLAG_GRAY
+        self.objects_to_trace.append(obj)
 
     def visit_all_objects(self):
         pending = self.objects_to_trace
@@ -1867,10 +1945,12 @@ class IncrementalMiniMarkGC(MovingGCBase):
             self.visit(obj)
     
     def visit_all_objects_step(self,nobjects=1):
-        # Objects can be added to pending by visit_step
+        # Objects can be added to pending by visit
         pending = self.objects_to_trace
         while nobjects > 0 and pending.non_empty():
             obj = pending.pop()
+            ll_assert(self.header(obj).tid & GCFLAG_GRAY == 0,
+                        "non gray object being traced")
             self.visit(obj)
             nobjects -= 1
     
@@ -1891,8 +1971,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
         #
         # It's the first time.  We set the flag.
         hdr.tid |= GCFLAG_VISITED
-        #visited objects are no longer grey
+        # visited objects are no longer grey
         hdr.tid &= ~GCFLAG_GRAY
+        
         if not self.has_gcptr(llop.extract_ushort(llgroup.HALFWORD, hdr.tid)):
             return
         #
