@@ -18,9 +18,7 @@ from rpython.flowspace.specialcase import (rpython_print_item,
 
 class FlowingError(Exception):
     """ Signals invalid RPython in the function being analysed"""
-    def __init__(self, frame, msg):
-        super(FlowingError, self).__init__(msg)
-        self.frame = frame
+    frame = None
 
     def __str__(self):
         msg = ['-+' * 30]
@@ -307,7 +305,7 @@ _unsupported_ops = [
 
 def unsupportedoperation(OPCODE, msg):
     def UNSUPPORTED(self, *ignored):
-        raise FlowingError(self, "%s is not RPython" % (msg,))
+        raise FlowingError("%s is not RPython" % (msg,))
     UNSUPPORTED.func_name = OPCODE
     return UNSUPPORTED
 
@@ -510,6 +508,11 @@ class FlowSpaceFrame(object):
             link = Link([w_result], self.graph.returnblock)
             self.recorder.crnt_block.closeblock(link)
 
+        except FlowingError as exc:
+            if exc.frame is None:
+                exc.frame = self
+            raise
+
         self.recorder = None
 
     def mergeblock(self, currentblock, currentstate):
@@ -588,7 +591,7 @@ class FlowSpaceFrame(object):
         return Constant(self.pycode.names[index])
 
     def BAD_OPCODE(self, _):
-        raise FlowingError(self, "This operation is not RPython")
+        raise FlowingError("This operation is not RPython")
 
     def BREAK_LOOP(self, oparg):
         return SBreakLoop.singleton.unroll(self)
@@ -836,7 +839,7 @@ class FlowSpaceFrame(object):
     def LOAD_FAST(self, varindex):
         w_value = self.locals_stack_w[varindex]
         if w_value is None:
-            raise FlowingError(self, "Local variable referenced before assignment")
+            raise FlowingError("Local variable referenced before assignment")
         self.pushvalue(w_value)
 
     def LOAD_CONST(self, constindex):
@@ -866,8 +869,8 @@ class FlowSpaceFrame(object):
 
     def STORE_GLOBAL(self, nameindex):
         varname = self.getname_u(nameindex)
-        raise FlowingError(self,
-                "Attempting to modify global variable  %r." % (varname))
+        raise FlowingError(
+            "Attempting to modify global variable  %r." % (varname))
 
     def POP_TOP(self, oparg):
         self.popvalue()
@@ -927,7 +930,7 @@ class FlowSpaceFrame(object):
 
     def call_function(self, oparg, w_star=None, w_starstar=None):
         if w_starstar is not None:
-            raise FlowingError(self, "Dict-unpacking is not RPython")
+            raise FlowingError("Dict-unpacking is not RPython")
         n_arguments = oparg & 0xff
         n_keywords = (oparg >> 8) & 0xff
         keywords = {}

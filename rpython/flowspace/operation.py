@@ -58,7 +58,7 @@ class PureOperation(HLOperation):
                 from rpython.flowspace.flowcontext import FlowingError
                 msg = "%s%r always raises %s: %s" % (
                     self.opname, tuple(args), type(e), e)
-                raise FlowingError(frame, msg)
+                raise FlowingError(msg)
             else:
                 # don't try to constant-fold operations giving a 'long'
                 # result.  The result is probably meant to be sent to

@@ -119,7 +119,7 @@ class FlowObjSpace(object):
 
     def newfunction(self, w_code, w_globals, defaults_w):
         if not all(isinstance(value, Constant) for value in defaults_w):
-            raise FlowingError(self.frame, "Dynamically created function must"
+            raise FlowingError("Dynamically created function must"
                     " have constant default values.")
         code = w_code.value
         globals = w_globals.value
@@ -138,10 +138,10 @@ class FlowObjSpace(object):
     def exception_match(self, w_exc_type, w_check_class):
         """Checks if the given exception type matches 'w_check_class'."""
         if not isinstance(w_check_class, Constant):
-            raise FlowingError(self.frame, "Non-constant except guard.")
+            raise FlowingError("Non-constant except guard.")
         check_class = w_check_class.value
         if check_class in (NotImplementedError, AssertionError):
-            raise FlowingError(self.frame,
+            raise FlowingError(
                 "Catching %s is not valid in RPython" % check_class.__name__)
         if not isinstance(check_class, tuple):
             # the simple case
@@ -256,7 +256,7 @@ class FlowObjSpace(object):
                 etype = e.__class__
                 msg = "getattr(%s, %s) always raises %s: %s" % (
                     obj, name, etype, e)
-                raise FlowingError(self.frame, msg)
+                raise FlowingError(msg)
             try:
                 return const(result)
             except WrapException:
@@ -351,8 +351,7 @@ class FlowObjSpace(object):
             try:
                 value = getattr(__builtin__, varname)
             except AttributeError:
-                message = "global name '%s' is not defined" % varname
-                raise FlowingError(self.frame, const(message))
+                raise FlowingError("global name '%s' is not defined" % varname)
         return const(value)
 
 def make_op(cls):
