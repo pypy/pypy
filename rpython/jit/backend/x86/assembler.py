@@ -2313,9 +2313,11 @@ class Assembler386(BaseAssembler):
     def _stm_barrier_fastpath(self, mc, descr, arglocs, is_frame=False,
                               align_stack=False):
         assert self.cpu.gc_ll_descr.stm
-        #from rpython.jit.backend.llsupport.gc import (
-        #    STMBarrierDescr, STMReadBarrierDescr, STMWriteBarrierDescr)
-        #assert isinstance(descr, STMBarrierDescr)
+        from rpython.jit.backend.llsupport.gc import (
+            STMBarrierDescr, STMReadBarrierDescr, STMWriteBarrierDescr)
+        if we_are_translated():
+            # tests use a a mock class, but translation needs it
+            assert isinstance(descr, STMBarrierDescr)
         assert descr.returns_modified_object
         loc_base = arglocs[0]
         assert isinstance(loc_base, RegLoc)

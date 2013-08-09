@@ -58,16 +58,22 @@ class FakeSTMBarrier(BarrierDescr):
 
 # ____________________________________________________________
 
-def allocate_protected(TP, tid=123, n=1, zero=True):
+def allocate_protected(TP, n=1, zero=True, tid=124):
     obj = lltype.malloc(TP, n=n, zero=zero)
-    obj.h_tid = rffi.cast(lltype.Unsigned, 
-                            StmGC.GCFLAG_OLD|StmGC.GCFLAG_WRITE_BARRIER | tid)
+    obj.h_tid = rffi.cast(lltype.Unsigned,
+                          StmGC.GCFLAG_OLD|StmGC.GCFLAG_WRITE_BARRIER | tid)
     obj.h_revision = rffi.cast(lltype.Signed, -sys.maxint)
     return obj
 
+def allocate_prebuilt(TP, n=1, zero=True, tid=123):
+    obj = lltype.malloc(TP, n=n, zero=zero)
+    obj.h_tid = rffi.cast(lltype.Unsigned, StmGC.PREBUILT_FLAGS | tid)
+    obj.h_revision = rffi.cast(lltype.Signed, StmGC.PREBUILT_REVISION)
+    return obj
+
 def jitframe_allocate(frame_info):
-    frame = allocate_protected(JITFRAME,
-                               frame_info.jfi_frame_depth, zero=True)
+    frame = allocate_protected(JITFRAME, n=frame_info.jfi_frame_depth, 
+                               zero=True)
     frame.jf_frame_info = frame_info
     return frame
 
@@ -232,6 +238,7 @@ class TestGcStm(BaseTestRegalloc):
         
     def test_read_barrier_fastpath(self):
         cpu = self.cpu
+        cpu.gc_ll_descr.init_nursery(100)
         cpu.setup_once()
         PRIV_REV = rffi.cast(lltype.Signed, StmGC.PREBUILT_REVISION)
         self.priv_rev_num[0] = PRIV_REV
@@ -274,6 +281,7 @@ class TestGcStm(BaseTestRegalloc):
 
     def test_write_barrier_fastpath(self):
         cpu = self.cpu
+        cpu.gc_ll_descr.init_nursery(100)
         cpu.setup_once()
         PRIV_REV = rffi.cast(lltype.Signed, StmGC.PREBUILT_REVISION)
         self.priv_rev_num[0] = PRIV_REV
@@ -313,6 +321,7 @@ class TestGcStm(BaseTestRegalloc):
 
     def test_ptr_eq_fastpath(self):
         cpu = self.cpu
+        cpu.gc_ll_descr.init_nursery(100)
         cpu.setup_once()
         called_on = cpu.gc_ll_descr.ptr_eq_called_on
 
@@ -360,12 +369,12 @@ class TestGcStm(BaseTestRegalloc):
                                               looptoken)
                     print c_loop
                     args = [s for i, s in enumerate((s1, s2))
-                            if not isinstance((p1, p2)[i], Const)] + [1]
+                            if not isinstance((p1, p2)[i], Const)] + [7]
                     
                     frame = self.cpu.execute_token(looptoken, *args)
                     frame = rffi.cast(JITFRAMEPTR, frame)
                     guard_failed = frame.jf_descr is not finaldescr
-                    
+
                     # CHECK:
                     a, b = s1, s2
                     if isinstance(p1, Const):
