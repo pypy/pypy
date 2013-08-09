@@ -43,8 +43,7 @@ class SpaceOperator(object):
     def eval(self, frame, *args_w):
         if len(args_w) != self.arity:
             raise TypeError(self.name + " got the wrong number of arguments")
-        w_result = frame.do_operation_with_implicit_exceptions(self.name, *args_w)
-        return w_result
+        return frame.do_op(self, *args_w)
 
 class PureOperator(SpaceOperator):
     pure = True
@@ -81,8 +80,7 @@ class PureOperator(SpaceOperator):
                         # type cannot sanely appear in flow graph,
                         # store operation with variable result instead
                         pass
-        w_result = frame.do_operation_with_implicit_exceptions(self.name, *args_w)
-        return w_result
+        return frame.do_op(self, *args_w)
 
 
 def add_operator(name, arity, symbol, pyfunc=None, pure=False, ovf=False):

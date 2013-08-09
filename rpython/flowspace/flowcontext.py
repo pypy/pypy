@@ -14,7 +14,6 @@ from rpython.flowspace.framestate import (FrameState, recursively_unflatten,
     recursively_flatten)
 from rpython.flowspace.specialcase import (rpython_print_item,
     rpython_print_newline)
-from rpython.flowspace.operation import op
 
 
 class FlowingError(Exception):
@@ -449,10 +448,9 @@ class FlowSpaceFrame(object):
         recorder.append(spaceop)
         return spaceop.result
 
-    def do_operation_with_implicit_exceptions(self, name, *args_w):
-        w_result = self.do_operation(name, *args_w)
-        oper = getattr(op, name)
-        self.handle_implicit_exceptions(oper.canraise)
+    def do_op(self, operator, *args_w):
+        w_result = self.do_operation(operator.name, *args_w)
+        self.handle_implicit_exceptions(operator.canraise)
         return w_result
 
     def handle_implicit_exceptions(self, exceptions):
