@@ -355,6 +355,21 @@ class WrapException(Exception):
     during its construction"""
 
 
+# method-wrappers have not enough introspection in CPython
+if hasattr(complex.real.__get__, 'im_self'):
+    type_with_bad_introspection = None     # on top of PyPy
+else:
+    type_with_bad_introspection = type(complex.real.__get__)
+
+def const(obj):
+    if isinstance(obj, (Variable, Constant)):
+        raise TypeError("already wrapped: " + repr(obj))
+    # method-wrapper have ill-defined comparison and introspection
+    # to appear in a flow graph
+    if type(obj) is type_with_bad_introspection:
+        raise WrapException
+    return Constant(obj)
+
 class SpaceOperation(object):
     __slots__ = "opname args result offset".split()
 

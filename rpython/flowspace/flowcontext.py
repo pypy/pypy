@@ -9,7 +9,7 @@ from rpython.tool.error import source_lines
 from rpython.tool.stdlib_opcode import host_bytecode_spec
 from rpython.flowspace.argument import CallSpec
 from rpython.flowspace.model import (Constant, Variable, Block, Link,
-    c_last_exception, SpaceOperation)
+    c_last_exception, SpaceOperation, const)
 from rpython.flowspace.framestate import (FrameState, recursively_unflatten,
     recursively_flatten)
 from rpython.flowspace.specialcase import (rpython_print_item,
@@ -350,7 +350,7 @@ class FlowSpaceFrame(object):
         if closure is None:
             self.closure = []
         else:
-            self.closure = [self.space.wrap(c.cell_contents) for c in closure]
+            self.closure = [const(c.cell_contents) for c in closure]
         assert len(self.closure) == len(self.pycode.co_freevars)
 
     def init_locals_stack(self, code):
@@ -420,13 +420,13 @@ class FlowSpaceFrame(object):
         else:
             data.append(self.last_exception.w_type)
             data.append(self.last_exception.w_value)
-        recursively_flatten(self.space, data)
+        recursively_flatten(data)
         return FrameState(data, self.blockstack[:], self.last_instr)
 
     def setstate(self, state):
         """ Reset the frame to the given state. """
         data = state.mergeable[:]
-        recursively_unflatten(self.space, data)
+        recursively_unflatten(data)
         self.restore_locals_stack(data[:-2])  # Nones == undefined locals
         if data[-2] == Constant(None):
             assert data[-1] == Constant(None)
@@ -578,7 +578,7 @@ class FlowSpaceFrame(object):
         return self.pycode.co_varnames[index]
 
     def getconstant_w(self, index):
-        return self.space.wrap(self.pycode.consts[index])
+        return const(self.pycode.consts[index])
 
     def getname_u(self, index):
         return self.pycode.names[index]
@@ -811,7 +811,7 @@ class FlowSpaceFrame(object):
         # directly call manager.__enter__(), don't use special lookup functions
         # which don't make sense on the RPython type system.
         w_manager = self.peekvalue()
-        w_exit = self.space.getattr(w_manager, self.space.wrap("__exit__"))
+        w_exit = self.space.getattr(w_manager, const("__exit__"))
         self.settopvalue(w_exit)
         w_result = self.space.call_method(w_manager, "__enter__")
         block = WithBlock(self, next_instr + offsettoend)
@@ -1174,11 +1174,11 @@ class SReturnValue(SuspendedUnroller):
     def nomoreblocks(self):
         raise Return(self.w_returnvalue)
 
-    def state_unpack_variables(self, space):
+    def state_unpack_variables(self):
         return [self.w_returnvalue]
 
     @staticmethod
-    def state_pack_variables(space, w_returnvalue):
+    def state_pack_variables(w_returnvalue):
         return SReturnValue(w_returnvalue)
 
 class SApplicationException(SuspendedUnroller):
@@ -1191,21 +1191,21 @@ class SApplicationException(SuspendedUnroller):
     def nomoreblocks(self):
         raise self.operr
 
-    def state_unpack_variables(self, space):
+    def state_unpack_variables(self):
         return [self.operr.w_type, self.operr.w_value]
 
     @staticmethod
-    def state_pack_variables(space, w_type, w_value):
+    def state_pack_variables(w_type, w_value):
         return SApplicationException(FSException(w_type, w_value))
 
 class SBreakLoop(SuspendedUnroller):
     """Signals a 'break' statement."""
 
-    def state_unpack_variables(self, space):
+    def state_unpack_variables(self):
         return []
 
     @staticmethod
-    def state_pack_variables(space):
+    def state_pack_variables():
         return SBreakLoop.singleton
 
 SBreakLoop.singleton = SBreakLoop()
@@ -1217,12 +1217,12 @@ class SContinueLoop(SuspendedUnroller):
     def __init__(self, jump_to):
         self.jump_to = jump_to
 
-    def state_unpack_variables(self, space):
-        return [space.wrap(self.jump_to)]
+    def state_unpack_variables(self):
+        return [const(self.jump_to)]
 
     @staticmethod
-    def state_pack_variables(space, w_jump_to):
-        return SContinueLoop(space.int_w(w_jump_to))
+    def state_pack_variables(w_jump_to):
+        return SContinueLoop(w_jump_to.value)
 
 
 class FrameBlock(object):

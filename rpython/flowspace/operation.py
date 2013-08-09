@@ -8,7 +8,7 @@ import __future__
 import operator
 from rpython.tool.sourcetools import compile2
 from rpython.rlib.rarithmetic import ovfcheck
-from rpython.flowspace.model import Constant
+from rpython.flowspace.model import Constant, const
 
 class _OpHolder(object): pass
 op = _OpHolder()
