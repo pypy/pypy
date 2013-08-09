@@ -168,17 +168,17 @@ def ge__Long_Int(space, w_long1, w_int2):
     return space.newbool(w_long1.num.int_ge(w_int2.intval))
 
 def lt__Int_Long(space, w_int1, w_long2):
-    return space.newbool(rbigint.fromint(w_int1.intval).lt(w_long2.num))
+    return space.newbool(w_long2.num.int_gt(w_int1.intval))
 def le__Int_Long(space, w_int1, w_long2):
-    return space.newbool(rbigint.fromint(w_int1.intval).le(w_long2.num))
+    return space.newbool(w_long2.num.int_ge(w_int1.intval))
 def eq__Int_Long(space, w_int1, w_long2):
-    return space.newbool(rbigint.fromint(w_int1.intval).eq(w_long2.num))
+    return space.newbool(w_long2.num.int_eq(w_int1.intval))
 def ne__Int_Long(space, w_int1, w_long2):
-    return space.newbool(rbigint.fromint(w_int1.intval).ne(w_long2.num))
+    return space.newbool(w_long2.num.int_ne(w_int1.intval))
 def gt__Int_Long(space, w_int1, w_long2):
-    return space.newbool(rbigint.fromint(w_int1.intval).gt(w_long2.num))
+    return space.newbool(w_long2.num.int_lt(w_int1.intval))
 def ge__Int_Long(space, w_int1, w_long2):
-    return space.newbool(rbigint.fromint(w_int1.intval).ge(w_long2.num))
+    return space.newbool(w_long2.num.int_le(w_int1.intval))
 
 
 def hash__Long(space, w_value):
@@ -333,11 +333,20 @@ def rshift__Long_Int(space, w_long1, w_int2):
 def and__Long_Long(space, w_long1, w_long2):
     return newlong(space, w_long1.num.and_(w_long2.num))
 
+def and__Long_Int(space, w_long1, w_int2):
+    return newlong(space, w_long1.num.int_and_(w_int2.intval))
+
 def xor__Long_Long(space, w_long1, w_long2):
     return W_LongObject(w_long1.num.xor(w_long2.num))
 
+def xor__Long_Int(space, w_long1, w_int2):
+    return W_LongObject(w_long1.num.int_xor(w_int2.intval))
+
 def or__Long_Long(space, w_long1, w_long2):
     return W_LongObject(w_long1.num.or_(w_long2.num))
+
+def or__Long_Int(space, w_long1, w_int2):
+    return W_LongObject(w_long1.num.int_or_(w_int2.intval))
 
 def oct__Long(space, w_long1):
     return space.wrap(w_long1.num.oct())
@@ -356,8 +365,22 @@ def recover_with_smalllong(space):
     return (space.config.objspace.std.withsmalllong and
             sys.maxint == 2147483647)
 
-# binary ops
-for opname in ['add', 'sub', 'mul', 'div', 'floordiv', 'truediv', 'mod', 'divmod', 'lshift']:
+# binary ops with fast way to handle ints.
+for opname in ['add', 'sub', 'mul', 'mod', 'lshift']:
+    exec compile("""
+def %(opname)s_ovr__Int_Int(space, w_int1, w_int2):
+    if recover_with_smalllong(space) and %(opname)r != 'truediv':
+        from pypy.objspace.std.smalllongobject import %(opname)s_ovr
+        return %(opname)s_ovr(space, w_int1, w_int2)
+    w_long1 = delegate_Int2Long(space, w_int1)
+    return %(opname)s__Long_Int(space, w_long1, w_int2)
+""" % {'opname': opname}, '', 'exec')
+
+    getattr(model.MM, opname).register(globals()['%s_ovr__Int_Int' % opname],
+                                       W_IntObject, W_IntObject, order=1)
+
+# binary ops without fast way to handle ints.
+for opname in ['div', 'floordiv', 'truediv', 'divmod']:
     exec compile("""
 def %(opname)s_ovr__Int_Int(space, w_int1, w_int2):
     if recover_with_smalllong(space) and %(opname)r != 'truediv':

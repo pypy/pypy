@@ -61,6 +61,8 @@ else:
             return False
         return True
 
+int_in_valid_range._always_inline_ = True
+
 # Debugging digit array access.
 #
 # False == no checking at all
@@ -656,9 +658,9 @@ class rbigint(object):
     def sub(self, other):
         if other.sign == 0:
             return self
-        if self.sign == 0:
+        elif self.sign == 0:
             return rbigint(other._digits[:other.size], -other.sign, other.size)
-        if self.sign == other.sign:
+        elif self.sign == other.sign:
             result = _x_sub(self, other)
         else:
             result = _x_add(self, other)
@@ -732,12 +734,12 @@ class rbigint(object):
             # Fallback to long.
             return self.mul(rbigint.fromint(b))
 
+        if self.sign == 0 or b == 0:
+            return NULLRBIGINT
+
         asize = self.numdigits()
         digit = abs(b)
         bsign = -1 if b < 0 else 1
-
-        if self.sign == 0 or b == 0:
-            return NULLRBIGINT
 
         if digit == 1:
             return rbigint(self._digits[:self.size], self.sign * bsign, asize)
@@ -775,7 +777,7 @@ class rbigint(object):
         if mod.sign * other.sign == -1:
             if div.sign == 0:
                 return ONENEGATIVERBIGINT
-            div = div.sub(ONERBIGINT)
+            div = div.int_sub(1)
 
         return div
 
@@ -798,7 +800,7 @@ class rbigint(object):
                     return ONENEGATIVERBIGINT if other.sign == -1 else ONERBIGINT
                 return NULLRBIGINT
             elif digit & (digit - 1) == 0:
-                mod = self.and_(rbigint([_store_digit(digit - 1)], 1, 1))
+                mod = self.int_and_(digit - 1)
             else:
                 # Perform
                 size = self.numdigits() - 1
@@ -839,7 +841,7 @@ class rbigint(object):
                     return ONENEGATIVERBIGINT if other < 0 else ONERBIGINT
                 return NULLRBIGINT
             elif digit & (digit - 1) == 0:
-                mod = self.and_(rbigint([_store_digit(digit - 1)], 1, 1))
+                mod = self.int_and_(digit - 1)
             else:
                 # Perform
                 size = self.numdigits() - 1
@@ -885,7 +887,7 @@ class rbigint(object):
             mod = mod.add(w)
             if div.sign == 0:
                 return ONENEGATIVERBIGINT, mod
-            div = div.sub(ONERBIGINT)
+            div = div.int_sub(1)
         return div, mod
 
     @jit.elidable
@@ -1037,7 +1039,7 @@ class rbigint(object):
         if self.sign == 0:
             return ONENEGATIVERBIGINT
 
-        ret = self.add(ONERBIGINT)
+        ret = self.int_add(1)
         ret.sign = -ret.sign
         return ret
 
@@ -1135,12 +1137,24 @@ class rbigint(object):
         return _bitwise(self, '&', other)
 
     @jit.elidable
+    def int_and_(self, other):
+        return _int_bitwise(self, '&', other)
+
+    @jit.elidable
     def xor(self, other):
         return _bitwise(self, '^', other)
 
     @jit.elidable
+    def int_xor(self, other):
+        return _int_bitwise(self, '^', other)
+
+    @jit.elidable
     def or_(self, other):
         return _bitwise(self, '|', other)
+
+    @jit.elidable
+    def int_or_(self, other):
+        return _int_bitwise(self, '|', other)
 
     @jit.elidable
     def oct(self):
@@ -2496,6 +2510,89 @@ def _bitwise(a, op, b): # '&', '|', '^'
     return z.invert()
 _bitwise._annspecialcase_ = "specialize:arg(1)"
 
+def _int_bitwise(a, op, b): # '&', '|', '^'
+    """ Bitwise and/or/xor operations """
+
+    if not int_in_valid_range(b):
+        # Fallback to long.
+        return _bitwise(a, op, rbigint.fromint(b))
+
+    if a.sign < 0:
+        a = a.invert()
+        maska = MASK
+    else:
+        maska = 0
+    if b < 0:
+        b = ~b
+        maskb = MASK
+    else:
+        maskb = 0
+
+    negz = 0
+    if op == '^':
+        if maska != maskb:
+            maska ^= MASK
+            negz = -1
+    elif op == '&':
+        if maska and maskb:
+            op = '|'
+            maska ^= MASK
+            maskb ^= MASK
+            negz = -1
+    elif op == '|':
+        if maska or maskb:
+            op = '&'
+            maska ^= MASK
+            maskb ^= MASK
+            negz = -1
+
+    # JRH: The original logic here was to allocate the result value (z)
+    # as the longer of the two operands.  However, there are some cases
+    # where the result is guaranteed to be shorter than that: AND of two
+    # positives, OR of two negatives: use the shorter number.  AND with
+    # mixed signs: use the positive number.  OR with mixed signs: use the
+    # negative number.  After the transformations above, op will be '&'
+    # iff one of these cases applies, and mask will be non-0 for operands
+    # whose length should be ignored.
+
+    size_a = a.numdigits()
+    if op == '&':
+        if maska:
+            size_z = 1
+        else:
+            if maskb:
+                size_z = size_a
+            else:
+                size_z = 1
+    else:
+        size_z = size_a
+
+    z = rbigint([NULLDIGIT] * size_z, 1, size_z)
+    i = 0
+    while i < size_z:
+        if i < size_a:
+            diga = a.digit(i) ^ maska
+        else:
+            diga = maska
+        if i == 0:
+            digb = b ^ maskb
+        else:
+            digb = maskb
+
+        if op == '&':
+            z.setdigit(i, diga & digb)
+        elif op == '|':
+            z.setdigit(i, diga | digb)
+        elif op == '^':
+            z.setdigit(i, diga ^ digb)
+        i += 1
+
+    z._normalize()
+    if negz == 0:
+        return z
+
+    return z.invert()
+_int_bitwise._annspecialcase_ = "specialize:arg(1)"
 
 ULONGLONG_BOUND = r_ulonglong(1L << (r_longlong.BITS-1))
 LONGLONG_MIN = r_longlong(-(1L << (r_longlong.BITS-1)))

@@ -550,6 +550,15 @@ class Test_rbigint(object):
                     res2 = getattr(operator, mod)(x, y)
                     assert res1 == res2
 
+    def test_int_bitwise(self):
+        for x in gen_signs([0, 1, 5, 11, 42, 43, 2 ** 30]):
+            for y in gen_signs([0, 1, 5, 11, 42, 43, 3 ** 30, 2 ** 31]):
+                lx = rbigint.fromlong(x)
+                for mod in "xor and_ or_".split():
+                    res1 = getattr(lx, 'int_' + mod)(y).tolong()
+                    res2 = getattr(operator, mod)(x, y)
+                    assert res1 == res2
+
     def test_mul_eq_shift(self):
         p2 = rbigint.fromlong(1).lshift(63)
         f1 = rbigint.fromlong(0).lshift(63)
