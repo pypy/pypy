@@ -386,61 +386,14 @@ class FlowObjSpace(object):
                 raise FlowingError(self.frame, const(message))
         return const(value)
 
-def make_impure_op(oper):
-    def generic_operator(self, *args_w):
-        if len(args_w) != oper.arity:
-            raise TypeError(oper.name + " got the wrong number of arguments")
-        w_result = self.frame.do_operation_with_implicit_exceptions(oper.name, *args_w)
-        return w_result
-    return generic_operator
-
 def make_op(oper):
-    """Add function operation to the flow space."""
-    name = oper.name
-    func = oper.pyfunc
-
-    def generic_operator(self, *args_w):
-        assert len(args_w) == oper.arity, name + " got the wrong number of arguments"
-        args = []
-        if all(w_arg.foldable() for w_arg in args_w):
-            args = [w_arg.value for w_arg in args_w]
-            # All arguments are constants: call the operator now
-            try:
-                result = func(*args)
-            except Exception, e:
-                etype = e.__class__
-                msg = "%s%r always raises %s: %s" % (
-                    name, tuple(args), etype, e)
-                raise FlowingError(self.frame, msg)
-            else:
-                # don't try to constant-fold operations giving a 'long'
-                # result.  The result is probably meant to be sent to
-                # an intmask(), but the 'long' constant confuses the
-                # annotator a lot.
-                if oper.can_overflow and type(result) is long:
-                    pass
-                # don't constant-fold getslice on lists, either
-                elif name == 'getslice' and type(result) is list:
-                    pass
-                # otherwise, fine
-                else:
-                    try:
-                        return self.wrap(result)
-                    except WrapException:
-                        # type cannot sanely appear in flow graph,
-                        # store operation with variable result instead
-                        pass
-        w_result = self.frame.do_operation_with_implicit_exceptions(name, *args_w)
-        return w_result
+    def generic_operator(self, *args):
+        return oper.eval(self.frame, *args)
     return generic_operator
 
 for oper in operation.op.__dict__.values():
     if getattr(FlowObjSpace, oper.name, None) is None:
-        if oper.pure:
-            op_method = make_op(oper)
-        else:
-            op_method = make_impure_op(oper)
-        setattr(FlowObjSpace, oper.name, op_method)
+        setattr(FlowObjSpace, oper.name, make_op(oper))
 
 
 def build_flow(func, space=FlowObjSpace()):

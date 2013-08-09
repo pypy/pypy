@@ -8,7 +8,7 @@ import __future__
 import operator
 from rpython.tool.sourcetools import compile2
 from rpython.rlib.rarithmetic import ovfcheck
-from rpython.flowspace.model import Constant, const
+from rpython.flowspace.model import Constant, WrapException, const
 
 class _OpHolder(object): pass
 op = _OpHolder()
@@ -40,8 +40,49 @@ class SpaceOperator(object):
             return getattr(space, self.name)(*args_w)
         return sc_operator
 
+    def eval(self, frame, *args_w):
+        if len(args_w) != self.arity:
+            raise TypeError(self.name + " got the wrong number of arguments")
+        w_result = frame.do_operation_with_implicit_exceptions(self.name, *args_w)
+        return w_result
+
 class PureOperator(SpaceOperator):
     pure = True
+
+    def eval(self, frame, *args_w):
+        if len(args_w) != self.arity:
+            raise TypeError(self.name + " got the wrong number of arguments")
+        args = []
+        if all(w_arg.foldable() for w_arg in args_w):
+            args = [w_arg.value for w_arg in args_w]
+            # All arguments are constants: call the operator now
+            try:
+                result = self.pyfunc(*args)
+            except Exception as e:
+                from rpython.flowspace.flowcontext import FlowingError
+                msg = "%s%r always raises %s: %s" % (
+                    self.name, tuple(args), type(e), e)
+                raise FlowingError(frame, msg)
+            else:
+                # don't try to constant-fold operations giving a 'long'
+                # result.  The result is probably meant to be sent to
+                # an intmask(), but the 'long' constant confuses the
+                # annotator a lot.
+                if self.can_overflow and type(result) is long:
+                    pass
+                # don't constant-fold getslice on lists, either
+                elif self.name == 'getslice' and type(result) is list:
+                    pass
+                # otherwise, fine
+                else:
+                    try:
+                        return const(result)
+                    except WrapException:
+                        # type cannot sanely appear in flow graph,
+                        # store operation with variable result instead
+                        pass
+        w_result = frame.do_operation_with_implicit_exceptions(self.name, *args_w)
+        return w_result
 
 
 def add_operator(name, arity, symbol, pyfunc=None, pure=False, ovf=False):
