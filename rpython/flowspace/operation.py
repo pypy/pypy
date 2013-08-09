@@ -7,7 +7,7 @@ import __builtin__
 import __future__
 import operator
 from rpython.tool.sourcetools import compile2
-from rpython.flowspace.model import Constant, WrapException, const
+from rpython.flowspace.model import Constant, WrapException, const, Variable
 from rpython.flowspace.specialcase import register_flow_sc
 
 class _OpHolder(object): pass
@@ -44,6 +44,9 @@ class SpaceOperator(object):
         if len(args_w) != self.arity:
             raise TypeError(self.name + " got the wrong number of arguments")
         return frame.do_op(self, *args_w)
+
+    def __call__(self, *args_w):
+        return SpaceOperation(self.name, args_w, Variable())
 
 class PureOperator(SpaceOperator):
     pure = True

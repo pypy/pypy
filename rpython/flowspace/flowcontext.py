@@ -452,10 +452,11 @@ class FlowSpaceFrame(object):
         recorder.append(spaceop)
 
     def do_op(self, operator, *args_w):
-        w_result = self.do_operation(operator.name, *args_w)
+        op = operator(*args_w)
+        self.record(op)
         if operator.canraise:
             self.guessexception(operator.canraise)
-        return w_result
+        return op.result
 
     def guessexception(self, exceptions):
         """
