@@ -1,6 +1,6 @@
 import new
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.gateway import interp2app
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import GetSetProperty, descr_get_dict, descr_set_dict
@@ -106,8 +106,8 @@ class W_ClassObject(W_Root):
                 return w_result
         return None
 
-    def descr_getattribute(self, space, w_attr):
-        name = space.str_w(w_attr)
+    @unwrap_spec(name=str)
+    def descr_getattribute(self, space, name):
         if name and name[0] == "_":
             if name == "__dict__":
                 return self.w_dict
@@ -175,7 +175,7 @@ class W_ClassObject(W_Root):
 
     def get_module_string(self, space):
         try:
-            w_mod = self.descr_getattribute(space, space.wrap("__module__"))
+            w_mod = self.descr_getattribute(space, "__module__")
         except OperationError, e:
             if not e.match(space, space.w_AttributeError):
                 raise
@@ -360,8 +360,8 @@ class W_InstanceObject(W_Root):
         else:
             return None
 
-    def descr_getattribute(self, space, w_attr):
-        name = space.str_w(w_attr)
+    @unwrap_spec(name=str)
+    def descr_getattribute(self, space, name):
         if len(name) >= 8 and name[0] == '_':
             if name == "__dict__":
                 return self.getdict(space)
