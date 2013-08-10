@@ -13,15 +13,6 @@ def raise_type_err(space, argument, expected, w_obj):
     raise operationerrfmt(space.w_TypeError, "argument %s must be %s, not %T",
                           argument, expected, w_obj)
 
-def unwrap_attr(space, w_attr):
-    try:
-        return space.str_w(w_attr)
-    except OperationError, e:
-        if not e.match(space, space.w_TypeError):
-            raise
-        return "?"    # any string different from "__dict__" & co. is fine
-        # XXX it's not clear that we have to catch the TypeError...
-
 def descr_classobj_new(space, w_subtype, w_name, w_bases, w_dict):
     if not space.isinstance_w(w_bases, space.w_tuple):
         raise_type_err(space, 'bases', 'tuple', w_bases)
@@ -116,10 +107,7 @@ class W_ClassObject(W_Root):
         return None
 
     def descr_getattribute(self, space, w_attr):
-        if not space.isinstance_w(w_attr, space.w_str):
-            msg = "attribute name must be a string"
-            raise OperationError(space.w_TypeError, space.wrap(msg))
-        name = unwrap_attr(space, w_attr)
+        name = space.str_w(w_attr)
         if name and name[0] == "_":
             if name == "__dict__":
                 return self.w_dict
@@ -140,10 +128,7 @@ class W_ClassObject(W_Root):
         return space.call_function(w_descr_get, w_value, space.w_None, self)
 
     def descr_setattr(self, space, w_attr, w_value):
-        if not space.isinstance_w(w_attr, space.w_str):
-            msg = "attribute name must be a string"
-            raise OperationError(space.w_TypeError, space.wrap(msg))
-        name = unwrap_attr(space, w_attr)
+        name = space.str_w(w_attr)
         if name and name[0] == "_":
             if name == "__dict__":
                 self.setdict(space, w_value)
@@ -162,7 +147,7 @@ class W_ClassObject(W_Root):
         space.setitem(self.w_dict, w_attr, w_value)
 
     def descr_delattr(self, space, w_attr):
-        name = unwrap_attr(space, w_attr)
+        name = space.str_w(w_attr)
         if name in ("__dict__", "__name__", "__bases__"):
             raise operationerrfmt(
                 space.w_TypeError,
@@ -376,9 +361,6 @@ class W_InstanceObject(W_Root):
             return None
 
     def descr_getattribute(self, space, w_attr):
-        if not space.isinstance_w(w_attr, space.w_str):
-            msg = "attribute name must be a string"
-            raise OperationError(space.w_TypeError, space.wrap(msg))
         name = space.str_w(w_attr)
         if len(name) >= 8 and name[0] == '_':
             if name == "__dict__":
@@ -388,10 +370,7 @@ class W_InstanceObject(W_Root):
         return self.getattr(space, name)
 
     def descr_setattr(self, space, w_name, w_value):
-        if not space.isinstance_w(w_name, space.w_str):
-            msg = "attribute name must be a string"
-            raise OperationError(space.w_TypeError, space.wrap(msg))
-        name = unwrap_attr(space, w_name)
+        name = space.str_w(w_name)
         w_meth = self.getattr_from_class(space, '__setattr__')
         if name and name[0] == "_":
             if name == '__dict__':
@@ -413,7 +392,7 @@ class W_InstanceObject(W_Root):
             self.setdictvalue(space, name, w_value)
 
     def descr_delattr(self, space, w_name):
-        name = unwrap_attr(space, w_name)
+        name = space.str_w(w_name)
         if name and name[0] == "_":
             if name == '__dict__':
                 # use setdict to raise the error

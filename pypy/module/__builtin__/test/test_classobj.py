@@ -1085,6 +1085,14 @@ class AppTestOldStyleClassStrDict(object):
             raises(TypeError, type(c).__getattribute__, c, [])
             raises(TypeError, type(c).__setattr__, c, [], [])
 
+    def test_attr_unicode(self):
+        class C:
+            pass
+        c = C()
+        setattr(c, u"x", 1)
+        assert getattr(c, u"x") == 1
+
+
 class AppTestOldStyleMapDict(AppTestOldstyle):
     spaceconfig = {"objspace.std.withmapdict": True}
 
