@@ -131,13 +131,8 @@ else:
 
 # ---------- Linux2 ----------
 
-try:
-    ARCH = os.uname()[4]  # machine
-except (OSError, AttributeError):
-    ARCH = ''
-
 def get_L2cache_linux2():
-    arch = ARCH      # precomputed; the call to os.uname() is not translated
+    arch = os.uname()[4]  # machine
     if arch.endswith('86') or arch == 'x86_64':
         return get_L2cache_linux2_cpuinfo()
     if arch in ('alpha', 'ppc', 'ppc64'):
