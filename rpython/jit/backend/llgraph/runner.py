@@ -502,6 +502,8 @@ class LLGraphCPU(model.AbstractCPU):
     def bh_raw_store_i(self, struct, offset, newvalue, descr):
         ll_p = rffi.cast(rffi.CCHARP, struct)
         ll_p = rffi.cast(lltype.Ptr(descr.A), rffi.ptradd(ll_p, offset))
+        if descr.A.OF == lltype.SingleFloat:
+            newvalue = longlong.int2singlefloat(newvalue)
         ll_p[0] = rffi.cast(descr.A.OF, newvalue)
 
     def bh_raw_store_f(self, struct, offset, newvalue, descr):
