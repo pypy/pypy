@@ -87,6 +87,7 @@ class W_NDimArray(W_Root):
 
 
 def convert_to_array(space, w_obj):
+    #XXX: This whole routine should very likely simply be array()
     from pypy.module.micronumpy.interp_numarray import array
     from pypy.module.micronumpy import interp_ufuncs
 

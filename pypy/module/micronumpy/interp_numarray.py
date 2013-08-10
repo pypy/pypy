@@ -418,7 +418,7 @@ class __extend__(W_NDimArray):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "non-int arg not supported"))
 
-    def descr___array__(self, space):
+    def descr___array__(self, space, w_dtype=None):
         # stub implementation of __array__()
         return self
 
@@ -1113,13 +1113,27 @@ W_NDimArray.typedef = TypeDef(
 @unwrap_spec(ndmin=int, copy=bool, subok=bool)
 def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
           ndmin=0):
+    # for anything that isn't already an array, try __array__ method first
+    if not isinstance(w_object, W_NDimArray):
+        w___array__ = space.lookup(w_object, "__array__")
+        if w___array__ is not None:
+            w_array = space.get_and_call_function(w___array__, w_object, w_dtype)
+            if isinstance(w_array, W_NDimArray):
+                # feed w_array back into array() for other properties
+                return array(space, w_array, w_dtype, False, w_order, subok, ndmin)
+            else:
+                raise operationerrfmt(space.w_ValueError, 
+                        "object __array__ method not producing an array")
+
+    # scalars and strings w/o __array__ method
     isstr = space.isinstance_w(w_object, space.w_str)
     if not issequence_w(space, w_object) or isstr:
         if space.is_none(w_dtype) or isstr:
             w_dtype = interp_ufuncs.find_dtype_for_scalar(space, w_object)
-        dtype = space.interp_w(interp_dtype.W_Dtype,
-          space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype))
+        dtype = space.interp_w(interp_dtype.W_Dtype, 
+                space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype))
         return W_NDimArray.new_scalar(space, dtype, w_object)
+    
     if space.is_none(w_order):
         order = 'C'
     else:
@@ -1128,6 +1142,7 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
             raise operationerrfmt(space.w_ValueError, "Unknown order: %s",
                                   order)
 
+    # arrays with correct dtype
     dtype = interp_dtype.decode_w_dtype(space, w_dtype)
     if isinstance(w_object, W_NDimArray) and \
         (space.is_none(w_dtype) or w_object.get_dtype() is dtype):
@@ -1144,6 +1159,8 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
             w_ret.implementation = w_ret.implementation.set_shape(space,
                                             w_ret, shape)
         return w_ret
+    
+    # not an array or incorrect dtype
     shape, elems_w = find_shape_and_elems(space, w_object, dtype)
     if dtype is None or (
                  dtype.is_str_or_unicode() and dtype.itemtype.get_size() < 1):
