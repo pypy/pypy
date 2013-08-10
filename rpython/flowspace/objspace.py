@@ -196,7 +196,7 @@ class FlowObjSpace(object):
         else:
             w_len = self.len(w_iterable)
             w_correct = self.eq(w_len, const(expected_length))
-            if not self.frame.guessbool(self.is_true(w_correct)):
+            if not self.frame.guessbool(self.bool(w_correct)):
                 e = self.exc_from_raise(self.w_ValueError, self.w_None)
                 raise e
             return [self.frame.do_operation('getitem', w_iterable, const(i))
@@ -204,13 +204,7 @@ class FlowObjSpace(object):
 
     # ____________________________________________________________
     def not_(self, w_obj):
-        return const(not self.frame.guessbool(self.is_true(w_obj)))
-
-    def is_true(self, w_obj):
-        if w_obj.foldable():
-            return const(bool(w_obj.value))
-        w_truthvalue = self.frame.do_operation('bool', w_obj)
-        return w_truthvalue
+        return const(not self.frame.guessbool(self.bool(w_obj)))
 
     def iter(self, w_iterable):
         if isinstance(w_iterable, Constant):

@@ -740,34 +740,34 @@ class FlowSpaceFrame(object):
     def JUMP_IF_FALSE(self, target):
         # Python <= 2.6 only
         w_cond = self.peekvalue()
-        if not self.guessbool(self.space.is_true(w_cond)):
+        if not self.guessbool(self.space.bool(w_cond)):
             return target
 
     def JUMP_IF_TRUE(self, target):
         # Python <= 2.6 only
         w_cond = self.peekvalue()
-        if self.guessbool(self.space.is_true(w_cond)):
+        if self.guessbool(self.space.bool(w_cond)):
             return target
 
     def POP_JUMP_IF_FALSE(self, target):
         w_value = self.popvalue()
-        if not self.guessbool(self.space.is_true(w_value)):
+        if not self.guessbool(self.space.bool(w_value)):
             return target
 
     def POP_JUMP_IF_TRUE(self, target):
         w_value = self.popvalue()
-        if self.guessbool(self.space.is_true(w_value)):
+        if self.guessbool(self.space.bool(w_value)):
             return target
 
     def JUMP_IF_FALSE_OR_POP(self, target):
         w_value = self.peekvalue()
-        if not self.guessbool(self.space.is_true(w_value)):
+        if not self.guessbool(self.space.bool(w_value)):
             return target
         self.popvalue()
 
     def JUMP_IF_TRUE_OR_POP(self, target):
         w_value = self.peekvalue()
-        if self.guessbool(self.space.is_true(w_value)):
+        if self.guessbool(self.space.bool(w_value)):
             return target
         self.popvalue()
 
