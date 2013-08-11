@@ -59,7 +59,7 @@ class BaseCompiledMixin(object):
 
         t.buildannotator().build_types(function, [int] * len(args),
                                        main_entry_point=True)
-        t.buildrtyper(type_system=self.type_system).specialize()
+        t.buildrtyper().specialize()
         warmrunnerdesc = WarmRunnerDesc(t, translate_support_code=True,
                                         CPUClass=self.CPUClass,
                                         **kwds)

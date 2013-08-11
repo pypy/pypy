@@ -61,7 +61,7 @@ def _b2a_read(bin, i):
         return ord(bin[i])
     except IndexError:
         return 0
-_a2b_read._always_inline_ = True
+_b2a_read._always_inline_ = True
 
 @unwrap_spec(bin='bufferstr')
 def b2a_uu(space, bin):

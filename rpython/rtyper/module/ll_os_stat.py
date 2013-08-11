@@ -13,7 +13,7 @@ from rpython.rtyper import extregistry
 from rpython.rtyper.annlowlevel import hlstr
 from rpython.rtyper.extfunc import extdef
 from rpython.rtyper.lltypesystem import rffi, lltype
-from rpython.rtyper.lltypesystem.rtupletype import TUPLE_TYPE
+from rpython.rtyper.rtuple import TUPLE_TYPE
 from rpython.rtyper.tool import rffi_platform as platform
 from rpython.tool.pairtype import pairtype
 from rpython.tool.sourcetools import func_renamer

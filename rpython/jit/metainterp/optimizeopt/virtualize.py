@@ -484,6 +484,8 @@ class VRawSliceValue(AbstractVirtualValue):
 class OptVirtualize(optimizer.Optimization):
     "Virtualize objects until they escape."
 
+    _last_guard_not_forced_2 = None
+
     def new(self):
         return OptVirtualize()
 
@@ -527,11 +529,34 @@ class OptVirtualize(optimizer.Optimization):
             return
         self.emit_operation(op)
 
+    def optimize_GUARD_NOT_FORCED_2(self, op):
+        self._last_guard_not_forced_2 = op
+
+    def optimize_FINISH(self, op):
+        if self._last_guard_not_forced_2 is not None:
+            guard_op = self._last_guard_not_forced_2
+            self.emit_operation(op)
+            guard_op = self.optimizer.store_final_boxes_in_guard(guard_op, [])
+            i = len(self.optimizer._newoperations) - 1
+            assert i >= 0
+            self.optimizer._newoperations.insert(i, guard_op)
+        else:
+            self.emit_operation(op)
+
     def optimize_CALL_MAY_FORCE(self, op):
         effectinfo = op.getdescr().get_extra_info()
         oopspecindex = effectinfo.oopspecindex
         if oopspecindex == EffectInfo.OS_JIT_FORCE_VIRTUAL:
             if self._optimize_JIT_FORCE_VIRTUAL(op):
+                return
+        self.emit_operation(op)
+
+    def optimize_COND_CALL(self, op):
+        effectinfo = op.getdescr().get_extra_info()
+        oopspecindex = effectinfo.oopspecindex
+        if oopspecindex == EffectInfo.OS_JIT_FORCE_VIRTUALIZABLE:
+            value = self.getvalue(op.getarg(2))
+            if value.is_virtual():
                 return
         self.emit_operation(op)
 
@@ -657,6 +682,11 @@ class OptVirtualize(optimizer.Optimization):
             self.do_RAW_MALLOC_VARSIZE_CHAR(op)
         elif effectinfo.oopspecindex == EffectInfo.OS_RAW_FREE:
             self.do_RAW_FREE(op)
+        elif effectinfo.oopspecindex == EffectInfo.OS_JIT_FORCE_VIRTUALIZABLE:
+            # we might end up having CALL here instead of COND_CALL
+            value = self.getvalue(op.getarg(1))
+            if value.is_virtual():
+                return
         else:
             self.emit_operation(op)
 

@@ -3088,7 +3088,7 @@ class TestAnnotateTestCase:
         from rpython.rlib.jit import hint
 
         class A:
-            _virtualizable2_ = []
+            _virtualizable_ = []
         class B(A):
             def meth(self):
                 return self
@@ -3128,7 +3128,7 @@ class TestAnnotateTestCase:
         from rpython.rlib.jit import hint
 
         class A:
-            _virtualizable2_ = []
+            _virtualizable_ = []
 
         class I:
             pass
@@ -3716,6 +3716,24 @@ class TestAnnotateTestCase:
 
         a = self.RPythonAnnotator()
         a.build_types(f, [int])
+
+    def test_immutable_field_subclass(self):
+        class Root:
+            pass
+        class A(Root):
+            _immutable_fields_ = '_my_lst[*]'
+            def __init__(self, lst):
+                self._my_lst = lst
+        def foo(x):
+            return len(x._my_lst)
+
+        def f(n):
+            foo(A([2, n]))
+            foo(Root())
+
+        a = self.RPythonAnnotator()
+        e = py.test.raises(Exception, a.build_types, f, [int])
+        assert "field '_my_lst' was migrated" in str(e.value)
 
     def test_call_classes_with_noarg_init(self):
         class A:

@@ -2,7 +2,7 @@ import sys
 
 from rpython.annotator import model as annmodel
 from rpython.flowspace.operation import op_appendices
-from rpython.rlib import objectmodel
+from rpython.rlib import objectmodel, jit
 from rpython.rlib.rarithmetic import intmask, r_int, r_longlong
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.lltypesystem.lltype import (Signed, Unsigned, Bool, Float,
@@ -365,25 +365,24 @@ class __extend__(IntegerRepr):
         hop.exception_cannot_occur()
         return vlist[0]
 
-    # version picked by specialisation based on which
-    # type system rtyping is using, from <type_system>.ll_str module
+    @jit.elidable
     def ll_str(self, i):
-        raise NotImplementedError
-    ll_str._annspecialcase_ = "specialize:ts('ll_str.ll_int_str')"
+        from rpython.rtyper.lltypesystem.ll_str import ll_int2dec
+        return ll_int2dec(i)
 
     def rtype_hex(self, hop):
+        from rpython.rtyper.lltypesystem.ll_str import ll_int2hex
         self = self.as_int
         varg = hop.inputarg(self, 0)
         true = inputconst(Bool, True)
-        fn = hop.rtyper.type_system.ll_str.ll_int2hex
-        return hop.gendirectcall(fn, varg, true)
+        return hop.gendirectcall(ll_int2hex, varg, true)
 
     def rtype_oct(self, hop):
+        from rpython.rtyper.lltypesystem.ll_str import ll_int2oct
         self = self.as_int
         varg = hop.inputarg(self, 0)
         true = inputconst(Bool, True)
-        fn = hop.rtyper.type_system.ll_str.ll_int2oct
-        return hop.gendirectcall(fn, varg, true)
+        return hop.gendirectcall(ll_int2oct, varg, true)
 
 def ll_hash_int(n):
     return intmask(n)
