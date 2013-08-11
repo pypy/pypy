@@ -521,9 +521,6 @@ class FlowContext(object):
     def getlocalvarname(self, index):
         return self.pycode.co_varnames[index]
 
-    def getconstant_w(self, index):
-        return const(self.pycode.consts[index])
-
     def getname_u(self, index):
         return self.pycode.names[index]
 
@@ -850,8 +847,8 @@ class FlowContext(object):
             raise FlowingError("Local variable referenced before assignment")
         self.pushvalue(w_value)
 
-    def LOAD_CONST(self, constindex):
-        w_const = self.getconstant_w(constindex)
+    def LOAD_CONST(self, constant):
+        w_const = const(constant)
         self.pushvalue(w_const)
 
     def find_global(self, w_globals, varname):

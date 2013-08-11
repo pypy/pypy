@@ -155,5 +155,16 @@ class BCInstruction(object):
 def register_opcode(cls):
     """Class decorator: register opcode class as real Python opcode"""
     name = cls.__name__
-    cls.num = Opcode.register_name(name, cls)
+    cls.name = name
+    cls.num = BCInstruction.register_name(name, cls)
     return cls
+
+@register_opcode
+class LOAD_CONST(BCInstruction):
+    def __init__(self, arg, offset=-1):
+        self.arg = arg
+        self.offset = offset
+
+    @staticmethod
+    def decode(arg, offset, code):
+        return LOAD_CONST(code.consts[arg], offset)
