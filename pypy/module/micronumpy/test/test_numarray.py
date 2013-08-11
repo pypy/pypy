@@ -2300,6 +2300,13 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert (arange(6).reshape(2, 3).ravel() == arange(6)).all()
         assert (arange(6).reshape(2, 3).T.ravel() == [0, 3, 1, 4, 2, 5]).all()
 
+    def test_nonzero(self):
+        from numpypy import array
+        a = array([[1, 0, 3], [2, 0, 4]])
+        nz = a.nonzero()
+        assert (nz[0] == array([0, 0, 1, 1])).all()
+        assert (nz[1] == array([0, 2, 0, 2])).all()
+
     def test_take(self):
         from numpypy import arange
         try:
