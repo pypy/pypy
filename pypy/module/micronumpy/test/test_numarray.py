@@ -2302,8 +2302,13 @@ class AppTestMultiDim(BaseNumpyAppTest):
 
     def test_nonzero(self):
         from numpypy import array
-        a = array([[1, 0, 3], [2, 0, 4]])
-        nz = a.nonzero()
+        nz = array(0).nonzero()
+        assert nz[0].size == 0
+
+        nz = array(2).nonzero()
+        assert (nz[0] == array([0])).all()
+
+        nz = array([[1, 0, 3], [2, 0, 4]]).nonzero()
         assert (nz[0] == array([0, 0, 1, 1])).all()
         assert (nz[1] == array([0, 2, 0, 2])).all()
 

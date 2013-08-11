@@ -352,15 +352,21 @@ class __extend__(W_NDimArray):
         return self.descr_reshape(space, [space.wrap(-1)])
 
     def descr_nonzero(self, space):
+        s = loop.count_all_true(self)
+        index_type = interp_dtype.get_dtype_cache(space).w_int64dtype
+        box = index_type.itemtype.box
+        
+        if self.is_scalar():
+            w_res = W_NDimArray.from_shape(space, [s], index_type)
+            if s == 1:
+                w_res.implementation.setitem(0, box(0))
+            return space.newtuple([w_res])
+
         impl = self.implementation
         arr_iter = iter.MultiDimViewIterator(impl, impl.dtype, 0, 
                 impl.strides, impl.backstrides, impl.shape)
         
-        index_type = interp_dtype.get_dtype_cache(space).w_int64dtype
-        box = index_type.itemtype.box
-
         nd = len(impl.shape)
-        s = loop.count_all_true(self)
         w_res = W_NDimArray.from_shape(space, [s, nd], index_type)        
         res_iter = w_res.create_iter()
 
