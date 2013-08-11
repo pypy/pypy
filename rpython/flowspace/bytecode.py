@@ -5,6 +5,7 @@ from rpython.tool.stdlib_opcode import host_bytecode_spec
 from opcode import EXTENDED_ARG, HAVE_ARGUMENT
 import opcode
 from rpython.flowspace.argument import Signature
+from rpython.flowspace.model import const
 
 CO_GENERATOR = 0x0020
 CO_VARARGS = 0x0004
@@ -59,19 +60,11 @@ class HostCode(object):
     def _from_code(cls, code):
         """Initialize the code object from a real (CPython) one.
         """
-        return cls(code.co_argcount,
-                   code.co_nlocals,
-                   code.co_stacksize,
-                   code.co_flags,
-                   code.co_code,
-                   list(code.co_consts),
-                   list(code.co_names),
-                   list(code.co_varnames),
-                   code.co_filename,
-                   code.co_name,
-                   code.co_firstlineno,
-                   code.co_lnotab,
-                   list(code.co_freevars))
+        return cls(code.co_argcount, code.co_nlocals, code.co_stacksize,
+                code.co_flags, code.co_code, list(code.co_consts),
+                list(code.co_names), list(code.co_varnames), code.co_filename,
+                code.co_name, code.co_firstlineno, code.co_lnotab,
+                list(code.co_freevars))
 
     @property
     def formalargcount(self):
@@ -113,7 +106,7 @@ class HostCode(object):
         try:
             op = BCInstruction.num2op[opnum].decode(oparg, offset, self)
         except KeyError:
-            op = BCInstruction(opnum, oparg, offset)
+            op = GenericOpcode(opnum, oparg, offset)
         return next_offset, op
 
     @property
@@ -129,9 +122,7 @@ class BCInstruction(object):
     """
     num2op = {}
 
-    def __init__(self, opcode, arg, offset=-1):
-        self.name = OPNAMES[opcode]
-        self.num = opcode
+    def __init__(self, arg, offset=-1):
         self.arg = arg
         self.offset = offset
 
@@ -140,7 +131,7 @@ class BCInstruction(object):
         return cls(arg, offset)
 
     def eval(self, ctx):
-        return getattr(ctx, self.name)(self.arg)
+        pass
 
     @classmethod
     def register_name(cls, name, op_class):
@@ -154,6 +145,17 @@ class BCInstruction(object):
     def __repr__(self):
         return "%s(%s)" % (self.name, self.arg)
 
+class GenericOpcode(BCInstruction):
+    def __init__(self, opcode, arg, offset=-1):
+        self.name = OPNAMES[opcode]
+        self.num = opcode
+        self.arg = arg
+        self.offset = offset
+
+    def eval(self, ctx):
+        return getattr(ctx, self.name)(self.arg)
+
+
 def register_opcode(cls):
     """Class decorator: register opcode class as real Python opcode"""
     name = cls.__name__
@@ -163,10 +165,9 @@ def register_opcode(cls):
 
 @register_opcode
 class LOAD_CONST(BCInstruction):
-    def __init__(self, arg, offset=-1):
-        self.arg = arg
-        self.offset = offset
-
     @staticmethod
     def decode(arg, offset, code):
         return LOAD_CONST(code.consts[arg], offset)
+
+    def eval(self, ctx):
+        ctx.pushvalue(const(self.arg))
