@@ -27,12 +27,15 @@ def unpack_prolog_list(obj):
         result.append(curr[0])
         curr = curr[1]
 
-class Engine(object):
-    """ A wrapper around unipycation.CoreEngine. """
-    def __init__(self, db_str, ns=None):
+class Engine(CoreEngine):
+    """ A subclass of unipycation.CoreEngine adding .db and .terms convenience
+    features. """
+    def __new__(cls, db_str, ns=None):
         if ns is None:
             ns = sys._getframe(1).f_globals
-        self.engine = CoreEngine(db_str, ns)
+        return CoreEngine.__new__(cls, db_str, ns)
+
+    def __init__(self, db_str, ns=None):
         self.db = Database(self)
         self.terms = TermPool()
 
@@ -91,7 +94,7 @@ class Predicate(object):
         return self._actual_call(t, vs)
 
     def _actual_call(self, t, vs):
-        sol = self.engine.engine.query_single(t, vs)
+        sol = self.engine.query_single(t, vs)
 
         if sol is None:
             return None # contradiction
@@ -108,7 +111,7 @@ class Predicate(object):
 
 class IterPredicate(Predicate):
     def _actual_call(self, t, vs):
-        it = self.engine.engine.query_iter(t, vs)
+        it = self.engine.query_iter(t, vs)
         return SolutionIterator(it)
 
     @property

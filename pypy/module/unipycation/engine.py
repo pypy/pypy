@@ -161,7 +161,8 @@ W_Solution.typedef.acceptable_as_base_class = False
 
 @unwrap_spec(prolog_code=str)
 def engine_new__(space, w_subtype, prolog_code, w_namespace=None):
-    e = W_CoreEngine(space, prolog_code, w_namespace)
+    e = space.allocate_instance(W_CoreEngine, w_subtype)
+    W_CoreEngine.__init__(e, space, prolog_code, w_namespace)
     return space.wrap(e)
 
 class W_CoreEngine(W_Root):
@@ -298,4 +299,3 @@ W_CoreEngine.typedef = TypeDef("CoreEngine",
     query_single = interp2app(W_CoreEngine.query_single),
 )
 
-W_CoreEngine.typedef.acceptable_as_base_class = False
