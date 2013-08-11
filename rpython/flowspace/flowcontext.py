@@ -565,7 +565,7 @@ class FlowSpaceFrame(object):
     def handle_bytecode(self, next_instr):
         next_instr, methodname, oparg = self.pycode.read(next_instr)
         try:
-            res = getattr(self, methodname)(oparg, next_instr)
+            res = getattr(self, methodname)(oparg)
             return res if res is not None else next_instr
         except FSException, operr:
             return self.handle_operation_error(operr)
@@ -586,13 +586,13 @@ class FlowSpaceFrame(object):
     def getname_w(self, index):
         return Constant(self.pycode.names[index])
 
-    def BAD_OPCODE(self, _, next_instr):
+    def BAD_OPCODE(self, _):
         raise FlowingError(self, "This operation is not RPython")
 
-    def BREAK_LOOP(self, oparg, next_instr):
+    def BREAK_LOOP(self, oparg):
         return SBreakLoop.singleton.unroll(self)
 
-    def CONTINUE_LOOP(self, startofloop, next_instr):
+    def CONTINUE_LOOP(self, startofloop):
         unroller = SContinueLoop(startofloop)
         return unroller.unroll(self)
 
@@ -629,13 +629,13 @@ class FlowSpaceFrame(object):
     def cmp_exc_match(self, w_1, w_2):
         return self.space.newbool(self.space.exception_match(w_1, w_2))
 
-    def COMPARE_OP(self, testnum, next_instr):
+    def COMPARE_OP(self, testnum):
         w_2 = self.popvalue()
         w_1 = self.popvalue()
         w_result = getattr(self, compare_method[testnum])(w_1, w_2)
         self.pushvalue(w_result)
 
-    def RAISE_VARARGS(self, nbargs, next_instr):
+    def RAISE_VARARGS(self, nbargs):
         space = self.space
         if nbargs == 0:
             if self.last_exception is not None:
@@ -659,7 +659,7 @@ class FlowSpaceFrame(object):
         operror = space.exc_from_raise(w_type, w_value)
         raise operror
 
-    def IMPORT_NAME(self, nameindex, next_instr):
+    def IMPORT_NAME(self, nameindex):
         space = self.space
         modulename = self.getname_u(nameindex)
         glob = self.w_globals.value
@@ -668,17 +668,17 @@ class FlowSpaceFrame(object):
         w_obj = space.import_name(modulename, glob, None, fromlist, level)
         self.pushvalue(w_obj)
 
-    def IMPORT_FROM(self, nameindex, next_instr):
+    def IMPORT_FROM(self, nameindex):
         w_name = self.getname_w(nameindex)
         w_module = self.peekvalue()
         self.pushvalue(self.space.import_from(w_module, w_name))
 
-    def RETURN_VALUE(self, oparg, next_instr):
+    def RETURN_VALUE(self, oparg):
         w_returnvalue = self.popvalue()
         unroller = SReturnValue(w_returnvalue)
         return unroller.unroll(self)
 
-    def END_FINALLY(self, oparg, next_instr):
+    def END_FINALLY(self, oparg):
         # unlike CPython, there are two statically distinct cases: the
         # END_FINALLY might be closing an 'except' block or a 'finally'
         # block.  In the first case, the stack contains three items:
@@ -701,14 +701,14 @@ class FlowSpaceFrame(object):
             unroller = self.popvalue()
             return unroller.unroll(self)
 
-    def POP_BLOCK(self, oparg, next_instr):
+    def POP_BLOCK(self, oparg):
         block = self.blockstack.pop()
         block.cleanupstack(self)  # the block knows how to clean up the value stack
 
-    def JUMP_ABSOLUTE(self, jumpto, next_instr):
+    def JUMP_ABSOLUTE(self, jumpto):
         return jumpto
 
-    def YIELD_VALUE(self, _, next_instr):
+    def YIELD_VALUE(self, _):
         assert self.pycode.is_generator
         w_result = self.popvalue()
         self.do_operation('yield', w_result)
@@ -720,67 +720,60 @@ class FlowSpaceFrame(object):
     PRINT_ITEM_TO = BAD_OPCODE
     PRINT_NEWLINE_TO = BAD_OPCODE
 
-    def PRINT_ITEM(self, oparg, next_instr):
+    def PRINT_ITEM(self, oparg):
         w_item = self.popvalue()
         w_s = self.do_operation('str', w_item)
         self.space.appcall(rpython_print_item, w_s)
 
-    def PRINT_NEWLINE(self, oparg, next_instr):
+    def PRINT_NEWLINE(self, oparg):
         self.space.appcall(rpython_print_newline)
 
-    def JUMP_FORWARD(self, jumpby, next_instr):
-        next_instr += jumpby
-        return next_instr
+    def JUMP_FORWARD(self, target):
+        return target
 
-    def JUMP_IF_FALSE(self, stepby, next_instr):
+    def JUMP_IF_FALSE(self, target):
         # Python <= 2.6 only
         w_cond = self.peekvalue()
         if not self.space.is_true(w_cond):
-            next_instr += stepby
-        return next_instr
+            return target
 
-    def JUMP_IF_TRUE(self, stepby, next_instr):
+    def JUMP_IF_TRUE(self, target):
         # Python <= 2.6 only
         w_cond = self.peekvalue()
         if self.space.is_true(w_cond):
-            next_instr += stepby
-        return next_instr
+            return target
 
-    def POP_JUMP_IF_FALSE(self, target, next_instr):
+    def POP_JUMP_IF_FALSE(self, target):
         w_value = self.popvalue()
         if not self.space.is_true(w_value):
             return target
-        return next_instr
 
-    def POP_JUMP_IF_TRUE(self, target, next_instr):
+    def POP_JUMP_IF_TRUE(self, target):
         w_value = self.popvalue()
         if self.space.is_true(w_value):
             return target
-        return next_instr
 
-    def JUMP_IF_FALSE_OR_POP(self, target, next_instr):
+    def JUMP_IF_FALSE_OR_POP(self, target):
         w_value = self.peekvalue()
         if not self.space.is_true(w_value):
             return target
         self.popvalue()
-        return next_instr
 
-    def JUMP_IF_TRUE_OR_POP(self, target, next_instr):
+    def JUMP_IF_TRUE_OR_POP(self, target):
         w_value = self.peekvalue()
         if self.space.is_true(w_value):
             return target
         self.popvalue()
-        return next_instr
 
-    def JUMP_IF_NOT_DEBUG(self, target, next_instr):
-        return next_instr
+    def JUMP_IF_NOT_DEBUG(self, target):
+        pass
 
-    def GET_ITER(self, oparg, next_instr):
+    def GET_ITER(self, oparg):
         w_iterable = self.popvalue()
         w_iterator = self.space.iter(w_iterable)
         self.pushvalue(w_iterator)
 
-    def FOR_ITER(self, jumpby, next_instr):
+    def FOR_ITER(self, target):
         w_iterator = self.peekvalue()
         try:
             w_nextitem = self.space.next(w_iterator)
@@ -789,24 +782,23 @@ class FlowSpaceFrame(object):
                 raise
             # iterator exhausted
             self.popvalue()
-            next_instr += jumpby
+            return target
         else:
             self.pushvalue(w_nextitem)
-        return next_instr
 
-    def SETUP_LOOP(self, offsettoend, next_instr):
-        block = LoopBlock(self, next_instr + offsettoend)
+    def SETUP_LOOP(self, target):
+        block = LoopBlock(self, target)
         self.blockstack.append(block)
 
-    def SETUP_EXCEPT(self, offsettoend, next_instr):
-        block = ExceptBlock(self, next_instr + offsettoend)
+    def SETUP_EXCEPT(self, target):
+        block = ExceptBlock(self, target)
         self.blockstack.append(block)
 
-    def SETUP_FINALLY(self, offsettoend, next_instr):
-        block = FinallyBlock(self, next_instr + offsettoend)
+    def SETUP_FINALLY(self, target):
+        block = FinallyBlock(self, target)
         self.blockstack.append(block)
 
-    def SETUP_WITH(self, offsettoend, next_instr):
+    def SETUP_WITH(self, target):
         # A simpler version than the 'real' 2.7 one:
         # directly call manager.__enter__(), don't use special lookup functions
         # which don't make sense on the RPython type system.
@@ -814,11 +806,11 @@ class FlowSpaceFrame(object):
         w_exit = self.space.getattr(w_manager, const("__exit__"))
         self.settopvalue(w_exit)
         w_result = self.space.call_method(w_manager, "__enter__")
-        block = WithBlock(self, next_instr + offsettoend)
+        block = WithBlock(self, target)
         self.blockstack.append(block)
         self.pushvalue(w_result)
 
-    def WITH_CLEANUP(self, oparg, next_instr):
+    def WITH_CLEANUP(self, oparg):
         # Note: RPython context managers receive None in lieu of tracebacks
         # and cannot suppress the exception.
         # This opcode changed a lot between CPython versions
@@ -840,22 +832,22 @@ class FlowSpaceFrame(object):
         else:
             self.space.call_function(w_exitfunc, w_None, w_None, w_None)
 
-    def LOAD_FAST(self, varindex, next_instr):
+    def LOAD_FAST(self, varindex):
         w_value = self.locals_stack_w[varindex]
         if w_value is None:
             raise FlowingError(self, "Local variable referenced before assignment")
         self.pushvalue(w_value)
 
-    def LOAD_CONST(self, constindex, next_instr):
+    def LOAD_CONST(self, constindex):
         w_const = self.getconstant_w(constindex)
         self.pushvalue(w_const)
 
-    def LOAD_GLOBAL(self, nameindex, next_instr):
+    def LOAD_GLOBAL(self, nameindex):
         w_result = self.space.find_global(self.w_globals, self.getname_u(nameindex))
         self.pushvalue(w_result)
     LOAD_NAME = LOAD_GLOBAL
 
-    def LOAD_ATTR(self, nameindex, next_instr):
+    def LOAD_ATTR(self, nameindex):
         "obj.attributename"
         w_obj = self.popvalue()
         w_attributename = self.getname_w(nameindex)
@@ -863,29 +855,29 @@ class FlowSpaceFrame(object):
         self.pushvalue(w_value)
     LOOKUP_METHOD = LOAD_ATTR
 
-    def LOAD_DEREF(self, varindex, next_instr):
+    def LOAD_DEREF(self, varindex):
         self.pushvalue(self.closure[varindex])
 
-    def STORE_FAST(self, varindex, next_instr):
+    def STORE_FAST(self, varindex):
         w_newvalue = self.popvalue()
         assert w_newvalue is not None
         self.locals_stack_w[varindex] = w_newvalue
 
-    def STORE_GLOBAL(self, nameindex, next_instr):
+    def STORE_GLOBAL(self, nameindex):
         varname = self.getname_u(nameindex)
         raise FlowingError(self,
                 "Attempting to modify global variable  %r." % (varname))
 
-    def POP_TOP(self, oparg, next_instr):
+    def POP_TOP(self, oparg):
         self.popvalue()
 
-    def ROT_TWO(self, oparg, next_instr):
+    def ROT_TWO(self, oparg):
         w_1 = self.popvalue()
         w_2 = self.popvalue()
         self.pushvalue(w_1)
         self.pushvalue(w_2)
 
-    def ROT_THREE(self, oparg, next_instr):
+    def ROT_THREE(self, oparg):
         w_1 = self.popvalue()
         w_2 = self.popvalue()
         w_3 = self.popvalue()
@@ -893,7 +885,7 @@ class FlowSpaceFrame(object):
         self.pushvalue(w_3)
         self.pushvalue(w_2)
 
-    def ROT_FOUR(self, oparg, next_instr):
+    def ROT_FOUR(self, oparg):
         w_1 = self.popvalue()
         w_2 = self.popvalue()
         w_3 = self.popvalue()
@@ -903,11 +895,11 @@ class FlowSpaceFrame(object):
         self.pushvalue(w_3)
         self.pushvalue(w_2)
 
-    def DUP_TOP(self, oparg, next_instr):
+    def DUP_TOP(self, oparg):
         w_1 = self.peekvalue()
         self.pushvalue(w_1)
 
-    def DUP_TOPX(self, itemcount, next_instr):
+    def DUP_TOPX(self, itemcount):
         delta = itemcount - 1
         while True:
             itemcount -= 1
@@ -925,7 +917,7 @@ class FlowSpaceFrame(object):
     for OPCODE, op in _unsupported_ops:
         locals()[OPCODE] = unsupportedoperation(OPCODE, op)
 
-    def BUILD_LIST_FROM_ARG(self, _, next_instr):
+    def BUILD_LIST_FROM_ARG(self, _):
         # This opcode was added with pypy-1.8.  Here is a simpler
         # version, enough for annotation.
         last_val = self.popvalue()
@@ -949,37 +941,37 @@ class FlowSpaceFrame(object):
         w_result = self.space.call_args(w_function, args)
         self.pushvalue(w_result)
 
-    def CALL_FUNCTION(self, oparg, next_instr):
+    def CALL_FUNCTION(self, oparg):
         self.call_function(oparg)
     CALL_METHOD = CALL_FUNCTION
 
-    def CALL_FUNCTION_VAR(self, oparg, next_instr):
+    def CALL_FUNCTION_VAR(self, oparg):
         w_varargs = self.popvalue()
         self.call_function(oparg, w_varargs)
 
-    def CALL_FUNCTION_KW(self, oparg, next_instr):
+    def CALL_FUNCTION_KW(self, oparg):
         w_varkw = self.popvalue()
         self.call_function(oparg, None, w_varkw)
 
-    def CALL_FUNCTION_VAR_KW(self, oparg, next_instr):
+    def CALL_FUNCTION_VAR_KW(self, oparg):
         w_varkw = self.popvalue()
         w_varargs = self.popvalue()
         self.call_function(oparg, w_varargs, w_varkw)
 
-    def MAKE_FUNCTION(self, numdefaults, next_instr):
+    def MAKE_FUNCTION(self, numdefaults):
         w_codeobj = self.popvalue()
         defaults = self.popvalues(numdefaults)
         fn = self.space.newfunction(w_codeobj, self.w_globals, defaults)
         self.pushvalue(fn)
 
-    def STORE_ATTR(self, nameindex, next_instr):
+    def STORE_ATTR(self, nameindex):
         "obj.attributename = newvalue"
         w_attributename = self.getname_w(nameindex)
         w_obj = self.popvalue()
         w_newvalue = self.popvalue()
         self.space.setattr(w_obj, w_attributename, w_newvalue)
 
-    def UNPACK_SEQUENCE(self, itemcount, next_instr):
+    def UNPACK_SEQUENCE(self, itemcount):
         w_iterable = self.popvalue()
         items = self.space.unpack_sequence(w_iterable, itemcount)
         for w_item in reversed(items):
@@ -990,18 +982,18 @@ class FlowSpaceFrame(object):
         w_result = self.space.getslice(w_obj, w_start, w_end)
         self.pushvalue(w_result)
 
-    def SLICE_0(self, oparg, next_instr):
+    def SLICE_0(self, oparg):
         self.slice(self.space.w_None, self.space.w_None)
 
-    def SLICE_1(self, oparg, next_instr):
+    def SLICE_1(self, oparg):
         w_start = self.popvalue()
         self.slice(w_start, self.space.w_None)
 
-    def SLICE_2(self, oparg, next_instr):
+    def SLICE_2(self, oparg):
         w_end = self.popvalue()
         self.slice(self.space.w_None, w_end)
 
-    def SLICE_3(self, oparg, next_instr):
+    def SLICE_3(self, oparg):
         w_end = self.popvalue()
         w_start = self.popvalue()
         self.slice(w_start, w_end)
@@ -1011,18 +1003,18 @@ class FlowSpaceFrame(object):
         w_newvalue = self.popvalue()
         self.space.setslice(w_obj, w_start, w_end, w_newvalue)
 
-    def STORE_SLICE_0(self, oparg, next_instr):
+    def STORE_SLICE_0(self, oparg):
         self.storeslice(self.space.w_None, self.space.w_None)
 
-    def STORE_SLICE_1(self, oparg, next_instr):
+    def STORE_SLICE_1(self, oparg):
         w_start = self.popvalue()
         self.storeslice(w_start, self.space.w_None)
 
-    def STORE_SLICE_2(self, oparg, next_instr):
+    def STORE_SLICE_2(self, oparg):
         w_end = self.popvalue()
         self.storeslice(self.space.w_None, w_end)
 
-    def STORE_SLICE_3(self, oparg, next_instr):
+    def STORE_SLICE_3(self, oparg):
         w_end = self.popvalue()
         w_start = self.popvalue()
         self.storeslice(w_start, w_end)
@@ -1031,23 +1023,23 @@ class FlowSpaceFrame(object):
         w_obj = self.popvalue()
         self.space.delslice(w_obj, w_start, w_end)
 
-    def DELETE_SLICE_0(self, oparg, next_instr):
+    def DELETE_SLICE_0(self, oparg):
         self.deleteslice(self.space.w_None, self.space.w_None)
 
-    def DELETE_SLICE_1(self, oparg, next_instr):
+    def DELETE_SLICE_1(self, oparg):
         w_start = self.popvalue()
         self.deleteslice(w_start, self.space.w_None)
 
-    def DELETE_SLICE_2(self, oparg, next_instr):
+    def DELETE_SLICE_2(self, oparg):
         w_end = self.popvalue()
         self.deleteslice(self.space.w_None, w_end)
 
-    def DELETE_SLICE_3(self, oparg, next_instr):
+    def DELETE_SLICE_3(self, oparg):
         w_end = self.popvalue()
         w_start = self.popvalue()
         self.deleteslice(w_start, w_end)
 
-    def LIST_APPEND(self, oparg, next_instr):
+    def LIST_APPEND(self, oparg):
         w = self.popvalue()
         if sys.version_info < (2, 7):
             v = self.popvalue()
@@ -1055,27 +1047,27 @@ class FlowSpaceFrame(object):
             v = self.peekvalue(oparg - 1)
         self.space.call_method(v, 'append', w)
 
-    def DELETE_FAST(self, varindex, next_instr):
+    def DELETE_FAST(self, varindex):
         if self.locals_stack_w[varindex] is None:
             varname = self.getlocalvarname(varindex)
             message = "local variable '%s' referenced before assignment"
             raise UnboundLocalError(message, varname)
         self.locals_stack_w[varindex] = None
 
-    def STORE_MAP(self, oparg, next_instr):
+    def STORE_MAP(self, oparg):
         w_key = self.popvalue()
         w_value = self.popvalue()
         w_dict = self.peekvalue()
         self.space.setitem(w_dict, w_key, w_value)
 
-    def STORE_SUBSCR(self, oparg, next_instr):
+    def STORE_SUBSCR(self, oparg):
         "obj[subscr] = newvalue"
         w_subscr = self.popvalue()
         w_obj = self.popvalue()
         w_newvalue = self.popvalue()
         self.space.setitem(w_obj, w_subscr, w_newvalue)
 
-    def BUILD_SLICE(self, numargs, next_instr):
+    def BUILD_SLICE(self, numargs):
         if numargs == 3:
             w_step = self.popvalue()
         elif numargs == 2:
@@ -1087,23 +1079,23 @@ class FlowSpaceFrame(object):
         w_slice = self.space.newslice(w_start, w_end, w_step)
         self.pushvalue(w_slice)
 
-    def DELETE_SUBSCR(self, oparg, next_instr):
+    def DELETE_SUBSCR(self, oparg):
         "del obj[subscr]"
         w_subscr = self.popvalue()
         w_obj = self.popvalue()
         self.space.delitem(w_obj, w_subscr)
 
-    def BUILD_TUPLE(self, itemcount, next_instr):
+    def BUILD_TUPLE(self, itemcount):
         items = self.popvalues(itemcount)
         w_tuple = self.space.newtuple(items)
         self.pushvalue(w_tuple)
 
-    def BUILD_LIST(self, itemcount, next_instr):
+    def BUILD_LIST(self, itemcount):
         items = self.popvalues(itemcount)
         w_list = self.space.newlist(items)
         self.pushvalue(w_list)
 
-    def BUILD_MAP(self, itemcount, next_instr):
+    def BUILD_MAP(self, itemcount):
         w_dict = self.space.newdict()
         self.pushvalue(w_dict)
 
@@ -1114,15 +1106,15 @@ class FlowSpaceFrame(object):
 
     # Set literals, set comprehensions
 
-    def BUILD_SET(self, oparg, next_instr):
+    def BUILD_SET(self, oparg):
         raise NotImplementedError("BUILD_SET")
 
-    def SET_ADD(self, oparg, next_instr):
+    def SET_ADD(self, oparg):
         raise NotImplementedError("SET_ADD")
 
     # Dict comprehensions
 
-    def MAP_ADD(self, oparg, next_instr):
+    def MAP_ADD(self, oparg):
         raise NotImplementedError("MAP_ADD")
 
     # Closures
