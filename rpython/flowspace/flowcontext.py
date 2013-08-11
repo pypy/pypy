@@ -665,9 +665,6 @@ class FlowContext(object):
         block = self.blockstack.pop()
         block.cleanupstack(self)  # the block knows how to clean up the value stack
 
-    def JUMP_ABSOLUTE(self, jumpto):
-        pass
-
     def YIELD_VALUE(self, _):
         assert self.pycode.is_generator
         w_result = self.popvalue()
@@ -687,9 +684,6 @@ class FlowContext(object):
 
     def PRINT_NEWLINE(self, oparg):
         self.appcall(rpython_print_newline)
-
-    def JUMP_FORWARD(self, target):
-        pass
 
     def JUMP_IF_FALSE(self, target):
         # Python <= 2.6 only
@@ -792,10 +786,6 @@ class FlowContext(object):
         if w_value is None:
             raise FlowingError("Local variable referenced before assignment")
         self.pushvalue(w_value)
-
-    def LOAD_CONST(self, constant):
-        w_const = const(constant)
-        self.pushvalue(w_const)
 
     def find_global(self, w_globals, varname):
         try:
