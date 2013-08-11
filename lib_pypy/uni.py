@@ -52,7 +52,6 @@ class Predicate(object):
 
     def __init__(self, engine, name):
         self.engine = engine
-        self.many_solutions = False
         self.name = name
 
     @staticmethod
@@ -89,17 +88,32 @@ class Predicate(object):
             return self._convert_to_prolog(e)
         term_args = unrolling_map(_convert_arg, args)
         t = Term(self.name, term_args)
+        return self._actual_call(t, vs)
 
-        if self.many_solutions:
-            it = self.engine.engine.query_iter(t, vs)
-            return SolutionIterator(it)
+    def _actual_call(self, t, vs):
+        sol = self.engine.engine.query_single(t, vs)
+
+        if sol is None:
+            return None # contradiction
         else:
-            sol = self.engine.engine.query_single(t, vs)
+            return Predicate._make_result_tuple(sol)
 
-            if sol is None:
-                return None # contradiction
-            else:
-                return Predicate._make_result_tuple(sol)
+    @property
+    def iter(self):
+        return IterPredicate(self.engine, self.name)
+
+    @property
+    def many_solutions(self):
+        raise NotImplementedError("deprecated")
+
+class IterPredicate(Predicate):
+    def _actual_call(self, t, vs):
+        it = self.engine.engine.query_iter(t, vs)
+        return SolutionIterator(it)
+
+    @property
+    def iter(self):
+        return self
 
 class Database(object):
     """ A class that represents the predicates exposed by a prolog engine """

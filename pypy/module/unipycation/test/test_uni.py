@@ -30,33 +30,30 @@ class AppTestHighLevelInterface(object):
         sol = e.db.f(2)
         assert sol == None
 
-    def test_many_solutions1(self):
+    def test_iter1(self):
         import uni
         e = uni.Engine("f(1). f(2). f(3).")
-        e.db.f.many_solutions = True
 
         expect = 1
-        for (x, ) in e.db.f(None):
+        for (x, ) in e.db.f.iter(None):
             assert x == expect
             expect += 1
 
-    def test_many_solutions2(self):
+    def test_iter2(self):
         import uni
         e = uni.Engine("f(1, 2). f(2, 3). f(3, 4).")
-        e.db.f.many_solutions = True
 
         xe = 1; ye = 2
-        for (x, y) in e.db.f(None, None):
+        for (x, y) in e.db.f.iter(None, None):
             assert (x, y) == (xe, ye)
             xe += 1
             ye += 1
 
-    def test_many_solutions3(self):
+    def test_iter3(self):
         import uni
         e = uni.Engine("f(card(5, d)). f(card(6, c)).")
-        e.db.f.many_solutions = True
 
-        sols = [ x for (x, ) in e.db.f(None) ]
+        sols = [ x for (x, ) in e.db.f.iter(None) ]
         expect = [ e.terms.card(5, "d"), e.terms.card(6, "c") ]
 
         assert sols == expect
@@ -113,11 +110,10 @@ class AppTestHighLevelInterface(object):
     def test_undefined_list_tail(self):
         import uni
         e = uni.Engine("app([], X, X). app([H | T1], T2, [H | T3]).")
-        e.db.app.many_solutions = True
 
         def should_fail(e):
             # the second solution will have a list like [1|_G0]
-            for (x, y) in e.db.app(None, None, [1, 2, 3, 4, 5]): pass
+            for (x, y) in e.db.app.iter(None, None, [1, 2, 3, 4, 5]): pass
 
         raises(uni.InstantiationError, lambda : should_fail(e))
 
@@ -134,9 +130,8 @@ class AppTestHighLevelInterface(object):
             app([], X, X).
             app([H | T1], T2, [H | T3]) :- app(T1, T2, T3).
         """)
-        e.db.app.many_solutions = True
 
-        for (x, y) in e.db.app(None, None, [1, 2, 3, 4, 5]):
+        for (x, y) in e.db.app.iter(None, None, [1, 2, 3, 4, 5]):
             assert(type(x) == list)
             assert(type(y) == list)
             assert x + y == [1, 2, 3, 4, 5]
