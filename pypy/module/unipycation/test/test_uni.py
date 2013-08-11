@@ -175,6 +175,41 @@ class AppTestHighLevelInterface(object):
         x, = e.db.f(None)
         assert x == 16
 
+    def test_paper_cls_example(self):
+        import uni
+
+        e = uni.Engine("""
+        baseclass(A, A).
+        baseclass(A, B) :-
+            python:getattr(A, '__base__', Base),
+            baseclass(Base, B).
+
+        hasmethod(A, Method) :-
+            A:'__dict__':iterkeys(Method).
+
+        baseclass_defining_method(A, Method, Base) :-
+            baseclass(A, Base),
+            hasmethod(Base, Method).
+
+        """)
+
+            #python:getattr(A, '__dict__', Dict),
+            #contains(Dict, Method).
+
+        class A(object):
+            def f(self):
+                pass
+
+        class B(A):
+            def g(self):
+                pass
+
+        class C(A):
+            def f(self):
+                pass
+
+        assert e.db.baseclass_defining_method(B, 'f', None) == (A, )
+
     # XXX Lists inside terms need to be converted.
     def test_list_in_term(self):
         import uni
