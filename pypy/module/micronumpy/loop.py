@@ -9,7 +9,8 @@ from pypy.interpreter.error import OperationError
 from rpython.rlib import jit
 from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.module.micronumpy.base import W_NDimArray
-from pypy.module.micronumpy.iter import PureShapeIterator
+from pypy.module.micronumpy.iter import PureShapeIterator, OneDimViewIterator, \
+        MultiDimViewIterator
 from pypy.module.micronumpy import constants
 from pypy.module.micronumpy.support import int_w
 
@@ -323,18 +324,60 @@ count_all_true_driver = jit.JitDriver(name = 'numpy_count',
                                       greens = ['shapelen', 'dtype'],
                                       reds = 'auto')
 
-def count_all_true(arr):
+def count_all_true_concrete(impl):
     s = 0
-    if arr.is_scalar():
-        return arr.get_dtype().itemtype.bool(arr.get_scalar_value())
-    iter = arr.create_iter()
-    shapelen = len(arr.get_shape())
-    dtype = arr.get_dtype()
+    iter = impl.create_iter()
+    shapelen = len(impl.shape)
+    dtype = impl.dtype
     while not iter.done():
         count_all_true_driver.jit_merge_point(shapelen=shapelen, dtype=dtype)
         s += iter.getitem_bool()
         iter.next()
     return s
+
+def count_all_true(arr):
+    if arr.is_scalar():
+        return arr.get_dtype().itemtype.bool(arr.get_scalar_value())
+    else:
+        return count_all_true_concrete(arr.implementation)
+
+nonzero_driver_onedim = jit.JitDriver(name = 'numpy_nonzero_onedim',
+                                      greens = ['shapelen', 'dtype'],
+                                      reds = 'auto')
+
+def nonzero_onedim(res, arr, box):
+    res_iter = res.create_iter()
+    arr_iter = OneDimViewIterator(arr, arr.dtype, 0, 
+            arr.strides, arr.shape)
+    shapelen = 1
+    dtype = arr.dtype
+    while not arr_iter.done():
+        nonzero_driver_onedim.jit_merge_point(shapelen=shapelen, dtype=dtype)
+        if arr_iter.getitem_bool():
+            res_iter.setitem(box(arr_iter.index))
+            res_iter.next()
+        arr_iter.next()
+    return res
+
+nonzero_driver_multidim = jit.JitDriver(name = 'numpy_nonzero_onedim',
+                                        greens = ['shapelen', 'dims', 'dtype'],
+                                        reds = 'auto')
+
+def nonzero_multidim(res, arr, box):
+    res_iter = res.create_iter()
+    arr_iter = MultiDimViewIterator(arr, arr.dtype, 0, 
+        arr.strides, arr.backstrides, arr.shape)
+    shapelen = len(arr.shape)
+    dtype = arr.dtype
+    dims = range(shapelen)
+    while not arr_iter.done():
+        nonzero_driver_multidim.jit_merge_point(shapelen=shapelen, dims=dims, dtype=dtype)
+        if arr_iter.getitem_bool():
+            for d in dims:
+                res_iter.setitem(box(arr_iter.indexes[d]))
+                res_iter.next()
+        arr_iter.next()
+    return res
 
 getitem_filter_driver = jit.JitDriver(name = 'numpy_getitem_bool',
                                       greens = ['shapelen', 'arr_dtype',

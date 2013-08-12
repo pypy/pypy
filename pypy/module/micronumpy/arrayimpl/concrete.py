@@ -279,6 +279,22 @@ class BaseConcreteArray(base.BaseArrayImplementation):
         return W_NDimArray.new_slice(space, self.start, strides,
                                      backstrides, shape, self, orig_arr)
 
+    def nonzero(self, space, index_type):
+        s = loop.count_all_true_concrete(self)
+        box = index_type.itemtype.box
+        nd = len(self.shape)
+        
+        if nd == 1:
+            w_res = W_NDimArray.from_shape(space, [s], index_type)        
+            loop.nonzero_onedim(w_res, self, box)
+            return space.newtuple([w_res])
+        else:
+            w_res = W_NDimArray.from_shape(space, [s, nd], index_type)        
+            loop.nonzero_multidim(w_res, self, box)
+            w_res = w_res.implementation.swapaxes(space, w_res, 0, 1)
+            l_w = [w_res.descr_getitem(space, space.wrap(d)) for d in range(nd)]
+            return space.newtuple(l_w)
+
     def get_storage_as_int(self, space):
         return rffi.cast(lltype.Signed, self.storage) + self.start
 

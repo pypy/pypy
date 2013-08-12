@@ -1348,7 +1348,7 @@ class AppTestNumArray(BaseNumpyAppTest):
             for i in xrange(5):
                 assert c[i] == func(b[i], 3)
 
-    def test_nonzero(self):
+    def test___nonzero__(self):
         from numpypy import array
         a = array([1, 2])
         raises(ValueError, bool, a)
@@ -2306,11 +2306,14 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert nz[0].size == 0
 
         nz = array(2).nonzero()
-        assert (nz[0] == array([0])).all()
+        assert (nz[0] == [0]).all()
+
+        nz = array([1, 0, 3]).nonzero()
+        assert (nz[0] == [0, 2]).all()
 
         nz = array([[1, 0, 3], [2, 0, 4]]).nonzero()
-        assert (nz[0] == array([0, 0, 1, 1])).all()
-        assert (nz[1] == array([0, 2, 0, 2])).all()
+        assert (nz[0] == [0, 0, 1, 1]).all()
+        assert (nz[1] == [0, 2, 0, 2]).all()
 
     def test_take(self):
         from numpypy import arange

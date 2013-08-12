@@ -332,6 +332,10 @@ class __extend__(W_NDimArray):
             return self
         return self.implementation.swapaxes(space, self, axis1, axis2)
 
+    def descr_nonzero(self, space):
+        index_type = interp_dtype.get_dtype_cache(space).w_int64dtype
+        return self.implementation.nonzero(space, index_type)
+        
     def descr_tolist(self, space):
         if len(self.get_shape()) == 0:
             return self.get_scalar_value().item(space)
@@ -350,37 +354,6 @@ class __extend__(W_NDimArray):
             raise OperationError(space.w_NotImplementedError, space.wrap(
                 "order not implemented"))
         return self.descr_reshape(space, [space.wrap(-1)])
-
-    def descr_nonzero(self, space):
-        s = loop.count_all_true(self)
-        index_type = interp_dtype.get_dtype_cache(space).w_int64dtype
-        box = index_type.itemtype.box
-        
-        if self.is_scalar():
-            w_res = W_NDimArray.from_shape(space, [s], index_type)
-            if s == 1:
-                w_res.implementation.setitem(0, box(0))
-            return space.newtuple([w_res])
-
-        impl = self.implementation
-        arr_iter = iter.MultiDimViewIterator(impl, impl.dtype, 0, 
-                impl.strides, impl.backstrides, impl.shape)
-        
-        nd = len(impl.shape)
-        w_res = W_NDimArray.from_shape(space, [s, nd], index_type)        
-        res_iter = w_res.create_iter()
-
-        dims = range(nd)
-        while not arr_iter.done():
-            if arr_iter.getitem_bool():
-                for d in dims:
-                    res_iter.setitem(box(arr_iter.indexes[d]))
-                    res_iter.next()
-            arr_iter.next()
-
-        w_res = w_res.implementation.swapaxes(space, w_res, 0, 1)
-        l_w = [w_res.descr_getitem(space, space.wrap(d)) for d in dims]
-        return space.newtuple(l_w)
 
     def descr_take(self, space, w_obj, w_axis=None, w_out=None):
         # if w_axis is None and w_out is Nont this is an equivalent to
@@ -1101,11 +1074,11 @@ W_NDimArray.typedef = TypeDef(
     tolist = interp2app(W_NDimArray.descr_tolist),
     flatten = interp2app(W_NDimArray.descr_flatten),
     ravel = interp2app(W_NDimArray.descr_ravel),
-    nonzero = interp2app(W_NDimArray.descr_nonzero),
     take = interp2app(W_NDimArray.descr_take),
     compress = interp2app(W_NDimArray.descr_compress),
     repeat = interp2app(W_NDimArray.descr_repeat),
     swapaxes = interp2app(W_NDimArray.descr_swapaxes),
+    nonzero = interp2app(W_NDimArray.descr_nonzero),
     flat = GetSetProperty(W_NDimArray.descr_get_flatiter),
     item = interp2app(W_NDimArray.descr_item),
     real = GetSetProperty(W_NDimArray.descr_get_real,
