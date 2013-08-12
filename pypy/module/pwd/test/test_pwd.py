@@ -25,6 +25,8 @@ class AppTestPwd:
         # should be out of uid_t range
         raises(KeyError, pwd.getpwuid, 2**128)
         raises(KeyError, pwd.getpwuid, -2**128)
+        raises(KeyError, pwd.getpwuid, (1<<32))
+        raises(KeyError, pwd.getpwuid, -(1<<32))
 
     def test_getpwnam(self):
         import pwd
