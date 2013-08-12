@@ -240,7 +240,7 @@ class World(object):
         self.backend_name = None
         self.executable_name = None
 
-    def parse(self, f, textonly=True):
+    def parse(self, f, textonly=True, load_symbols=True, truncate_addr=True):
         for line in f:
             if line.startswith('BACKEND '):
                 self.backend_name = line.split(' ')[1].strip()
@@ -250,7 +250,11 @@ class World(object):
                 assert pieces[2].startswith('+')
                 if len(pieces) == 3:
                     continue     # empty line
-                baseaddr = long(pieces[1][1:], 16) & 0xFFFFFFFFL
+                baseaddr = long(pieces[1][1:], 16)
+                if truncate_addr:
+                    baseaddr &= 0xFFFFFFFFL
+                elif baseaddr < 0:
+                    baseaddr += (2 * sys.maxint + 2)
                 offset = int(pieces[2][1:])
                 addr = baseaddr + offset
                 data = pieces[3].replace(':', '').decode('hex')
@@ -268,11 +272,17 @@ class World(object):
                 pieces = line.split(None, 3)
                 assert pieces[1].startswith('@')
                 assert pieces[2].startswith('+')
-                baseaddr = long(pieces[1][1:], 16) & 0xFFFFFFFFL
+                baseaddr = long(pieces[1][1:], 16)
+                if truncate_addr:
+                    baseaddr &= 0xFFFFFFFFL
+                elif baseaddr < 0:
+                    baseaddr += (2 * sys.maxint + 2)
                 offset = int(pieces[2][1:])
                 addr = baseaddr + offset
                 self.logentries[addr] = pieces[3]
             elif line.startswith('SYS_EXECUTABLE '):
+                if not load_symbols:
+                    continue
                 filename = line[len('SYS_EXECUTABLE '):].strip()
                 if filename != self.executable_name and filename != '??':
                     self.symbols.update(load_symbols(filename))

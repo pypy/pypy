@@ -379,17 +379,17 @@ def import_log(logname, ParserCls=SimpleParser):
             name = entry[:entry.find('(') - 1].lower()
             addr = int(m.group(1), 16)
         addrs.setdefault(addr, []).append(name)
-    dumps = {}
+    from rpython.jit.backend.tool.viewcode import World
+    world = World()
     for entry in extract_category(log, 'jit-backend-dump'):
-        backend, _, dump, _ = entry.split("\n")
-        _, addr, _, data = re.split(" +", dump)
-        backend_name = backend.split(" ")[1]
-        addr = int(addr[1:], 16)
-        if addr < 0:
-            addr += (2 * sys.maxint + 2)
-        if addr in addrs and addrs[addr]:
-            name = addrs[addr].pop(0) # they should come in order
-            dumps[name] = (backend_name, addr, data)
+        world.parse(entry.splitlines(True), load_symbols=False,
+                    truncate_addr=False)
+    dumps = {}
+    for r in world.ranges:
+        if r.addr in addrs and addrs[r.addr]:
+            name = addrs[r.addr].pop(0) # they should come in order
+            data = r.data.encode('hex')       # backward compatibility
+            dumps[name] = (world.backend_name, r.addr, data)
     loops = []
     for entry in extract_category(log, 'jit-log-opt'):
         parser = ParserCls(entry, None, {}, 'lltype', None,
