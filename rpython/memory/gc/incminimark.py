@@ -139,8 +139,9 @@ STATE_SCANNING = 0
 # marking of objects can be done over multiple 
 STATE_MARKING  = 1
 STATE_SWEEPING_RAWMALLOC = 2
-STATE_SWEEPING_ARENA = 3
-STATE_FINALIZING = 4
+STATE_SWEEPING_ARENA_1 = 3
+STATE_SWEEPING_ARENA_2 = 4
+STATE_FINALIZING = 5
 
 
 
@@ -292,6 +293,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
             from rpython.memory.gc import minimarkpage
             ArenaCollectionClass = minimarkpage.ArenaCollection
         self.ac = ArenaCollectionClass(arena_size, page_size,
+                                       small_request_threshold)
+        self.ac_alternate = ArenaCollectionClass(arena_size, page_size,
                                        small_request_threshold)
         #
         # Used by minor collection: a list of (mostly non-young) objects that
@@ -982,7 +985,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
         """Return the total memory used, not counting any object in the
         nursery: only objects in the ArenaCollection or raw-malloced.
         """
-        return self.ac.total_memory_used + self.rawmalloced_total_size
+        return self.ac.total_memory_used + self.ac_alternate.total_memory_used \
+                    + self.rawmalloced_total_size
+                    
 
     def card_marking_words_for_length(self, length):
         # --- Unoptimized version:
@@ -1025,7 +1030,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 already_checked = True
             elif self.gc_state == STATE_SWEEPING_RAWMALLOC:
                 pass
-            elif self.gc_state == STATE_SWEEPING_ARENA:
+            elif self.gc_state == STATE_SWEEPING_ARENA_1:
+                pass
+            elif self.gc_state == STATE_SWEEPING_ARENA_2:
                 pass
             elif self.gc_state == STATE_FINALIZING:
                 pass
@@ -1048,7 +1055,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
             self._debug_check_object_marking(obj)
         elif self.gc_state == STATE_SWEEPING_RAWMALLOC:
             self._debug_check_object_sweeping_rawmalloc(obj)
-        elif self.gc_state == STATE_SWEEPING_ARENA:
+        elif self.gc_state == STATE_SWEEPING_ARENA_1:
+            self._debug_check_object_sweeping_arena(obj)
+        elif self.gc_state == STATE_SWEEPING_ARENA_2:
             self._debug_check_object_sweeping_arena(obj)
         elif self.gc_state == STATE_FINALIZING:
             self._debug_check_object_finalizing(obj)
@@ -1772,14 +1781,24 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # XXX heuristic here to decide nobjects.
             if self.free_unvisited_rawmalloc_objects_step(1):
                 #malloc objects freed
-                self.gc_state = STATE_SWEEPING_ARENA
-                
-        elif self.gc_state == STATE_SWEEPING_ARENA:
+                self.gc_state = STATE_SWEEPING_ARENA_1
+                    
+        elif self.gc_state == STATE_SWEEPING_ARENA_1:
             #
             # Ask the ArenaCollection to visit all objects.  Free the ones
             # that have not been visited above, and reset GCFLAG_VISITED on
             # the others.
-            self.ac.mass_free(self._free_if_unvisited)
+            self.ac_alternate.mass_free(self._free_if_unvisited)
+            self.gc_state = STATE_SWEEPING_ARENA_2
+            #swap arenas and start clearing the other one
+            self.ac,self.ac_alternate = self.ac_alternate,self.ac
+            
+        elif self.gc_state == STATE_SWEEPING_ARENA_2:
+        
+            self.ac_alternate.mass_free(self._free_if_unvisited)
+            
+            self.num_major_collects += 1
+            
             #
             # We also need to reset the GCFLAG_VISITED on prebuilt GC objects.
             self.prebuilt_root_objects.foreach(self._reset_gcflag_visited, None)
@@ -1810,12 +1829,13 @@ class IncrementalMiniMarkGC(MovingGCBase):
                                           "Using too much memory, aborting")
                 self.max_heap_size_already_raised = True
                 raise MemoryError
+            
             self.gc_state = STATE_FINALIZING
-            # END SWEEPING
             # FINALIZING not yet incrementalised
             # but it seems safe to allow mutator to run after sweeping and
             # before finalizers are called. This is because run_finalizers
             # is a different list to objects_with_finalizers.
+            # END SWEEPING    
         elif self.gc_state == STATE_FINALIZING:
             # XXX This is considered rare, 
             # so should we make the calling incremental? or leave as is
@@ -1825,7 +1845,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
             self.gc_state = STATE_SCANNING
             
             self.execute_finalizers()
-            self.num_major_collects += 1
             #END FINALIZING
         else:
             pass #XXX which exception to raise here. Should be unreachable.
