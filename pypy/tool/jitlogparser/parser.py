@@ -398,8 +398,7 @@ def import_log(logname, ParserCls=SimpleParser):
     world = World()
     for entry in extract_category(log, 'jit-backend-dump'):
         entry = purge_thread_numbers(entry)
-        world.parse(entry.splitlines(True), load_symbols=False,
-                    truncate_addr=False)
+        world.parse(entry.splitlines(True), truncate_addr=False)
     dumps = {}
     symbols = world.symbols
     for r in world.ranges:

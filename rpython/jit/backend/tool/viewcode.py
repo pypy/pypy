@@ -239,7 +239,7 @@ class World(object):
         self.backend_name = None
         self.executable_name = None
 
-    def parse(self, f, textonly=True, load_symbols=True, truncate_addr=True):
+    def parse(self, f, textonly=True, truncate_addr=True):
         for line in f:
             line = line[line.find('#') + 1:].strip()
             if line.startswith('BACKEND '):
@@ -281,8 +281,6 @@ class World(object):
                 addr = baseaddr + offset
                 self.logentries[addr] = pieces[3]
             elif line.startswith('SYS_EXECUTABLE '):
-                if not load_symbols:
-                    continue
                 filename = line[len('SYS_EXECUTABLE '):].strip()
                 if filename != self.executable_name and filename != '??':
                     try:
