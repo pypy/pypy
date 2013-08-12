@@ -127,7 +127,6 @@ class Database(object):
     def __getattr__(self, name):
         """ Predicates are called by db.name and are resolved dynamically """
         pred = Predicate(self.engine, name)
-        setattr(self, name, pred)
         return pred
 
 class TermPool(object):
