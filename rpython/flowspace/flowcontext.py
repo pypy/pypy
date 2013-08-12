@@ -411,16 +411,16 @@ class FlowSpaceFrame(object):
         self.locals_stack_w[:len(items_w)] = items_w
         self.dropvaluesuntil(len(items_w))
 
-    def unrollstack(self, unroller_kind):
+    def unrollstack(self, unroller):
         while self.blockstack:
             block = self.blockstack.pop()
-            if (block.handling_mask & unroller_kind) != 0:
+            if isinstance(unroller, block.handles):
                 return block
             block.cleanupstack(self)
         return None
 
     def unrollstack_and_jump(self, unroller):
-        block = self.unrollstack(unroller.kind)
+        block = self.unrollstack(unroller)
         if block is None:
             raise BytecodeCorruption("misplaced bytecode - should not return")
         return block.handle(self, unroller)
@@ -585,11 +585,11 @@ class FlowSpaceFrame(object):
             return self.handle_operation_error(operr)
 
     def handle_operation_error(self, operr):
-        block = self.unrollstack(SApplicationException.kind)
+        unroller = SApplicationException(operr)
+        block = self.unrollstack(unroller)
         if block is None:
             raise operr
         else:
-            unroller = SApplicationException(operr)
             next_instr = block.handle(self, unroller)
             return next_instr
 
@@ -694,11 +694,11 @@ class FlowSpaceFrame(object):
 
     def RETURN_VALUE(self, oparg, next_instr):
         w_returnvalue = self.popvalue()
-        block = self.unrollstack(SReturnValue.kind)
+        unroller = SReturnValue(w_returnvalue)
+        block = self.unrollstack(unroller)
         if block is None:
             raise Return(w_returnvalue)
         else:
-            unroller = SReturnValue(w_returnvalue)
             next_instr = block.handle(self, unroller)
             return next_instr    # now inside a 'finally' block
 
@@ -727,7 +727,7 @@ class FlowSpaceFrame(object):
 
     def unroll_finally(self, unroller):
         # go on unrolling the stack
-        block = self.unrollstack(unroller.kind)
+        block = self.unrollstack(unroller)
         if block is None:
             unroller.nomoreblocks()
         else:
@@ -1191,7 +1191,6 @@ class SuspendedUnroller(object):
 class SReturnValue(SuspendedUnroller):
     """Signals a 'return' statement.
     Argument is the wrapped object to return."""
-    kind = 0x01
 
     def __init__(self, w_returnvalue):
         self.w_returnvalue = w_returnvalue
@@ -1209,7 +1208,6 @@ class SReturnValue(SuspendedUnroller):
 class SApplicationException(SuspendedUnroller):
     """Signals an application-level exception
     (i.e. an OperationException)."""
-    kind = 0x02
 
     def __init__(self, operr):
         self.operr = operr
@@ -1226,7 +1224,6 @@ class SApplicationException(SuspendedUnroller):
 
 class SBreakLoop(SuspendedUnroller):
     """Signals a 'break' statement."""
-    kind = 0x04
 
     def state_unpack_variables(self, space):
         return []
@@ -1240,7 +1237,6 @@ SBreakLoop.singleton = SBreakLoop()
 class SContinueLoop(SuspendedUnroller):
     """Signals a 'continue' statement.
     Argument is the bytecode position of the beginning of the loop."""
-    kind = 0x08
 
     def __init__(self, jump_to):
         self.jump_to = jump_to
@@ -1281,8 +1277,7 @@ class FrameBlock(object):
 class LoopBlock(FrameBlock):
     """A loop block.  Stores the end-of-loop pointer in case of 'break'."""
 
-    _opname = 'SETUP_LOOP'
-    handling_mask = SBreakLoop.kind | SContinueLoop.kind
+    handles = (SBreakLoop, SContinueLoop)
 
     def handle(self, frame, unroller):
         if isinstance(unroller, SContinueLoop):
@@ -1299,8 +1294,7 @@ class LoopBlock(FrameBlock):
 class ExceptBlock(FrameBlock):
     """An try:except: block.  Stores the position of the exception handler."""
 
-    _opname = 'SETUP_EXCEPT'
-    handling_mask = SApplicationException.kind
+    handles = SApplicationException
 
     def handle(self, frame, unroller):
         # push the exception to the value stack for inspection by the
@@ -1320,8 +1314,7 @@ class ExceptBlock(FrameBlock):
 class FinallyBlock(FrameBlock):
     """A try:finally: block.  Stores the position of the exception handler."""
 
-    _opname = 'SETUP_FINALLY'
-    handling_mask = -1     # handles every kind of SuspendedUnroller
+    handles = SuspendedUnroller
 
     def handle(self, frame, unroller):
         # any abnormal reason for unrolling a finally: triggers the end of
