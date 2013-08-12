@@ -382,8 +382,7 @@ def import_log(logname, ParserCls=SimpleParser):
     from rpython.jit.backend.tool.viewcode import World
     world = World()
     for entry in extract_category(log, 'jit-backend-dump'):
-        world.parse(entry.splitlines(True), load_symbols=False,
-                    truncate_addr=False)
+        world.parse(entry.splitlines(True), truncate_addr=False)
     dumps = {}
     for r in world.ranges:
         if r.addr in addrs and addrs[r.addr]:

@@ -240,7 +240,7 @@ class World(object):
         self.backend_name = None
         self.executable_name = None
 
-    def parse(self, f, textonly=True, load_symbols=True, truncate_addr=True):
+    def parse(self, f, textonly=True, truncate_addr=True):
         for line in f:
             if line.startswith('BACKEND '):
                 self.backend_name = line.split(' ')[1].strip()
@@ -281,11 +281,12 @@ class World(object):
                 addr = baseaddr + offset
                 self.logentries[addr] = pieces[3]
             elif line.startswith('SYS_EXECUTABLE '):
-                if not load_symbols:
-                    continue
                 filename = line[len('SYS_EXECUTABLE '):].strip()
                 if filename != self.executable_name and filename != '??':
-                    self.symbols.update(load_symbols(filename))
+                    try:
+                        self.symbols.update(load_symbols(filename))
+                    except Exception as e:
+                        print e
                     self.executable_name = filename
 
     def find_cross_references(self):
