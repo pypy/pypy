@@ -320,6 +320,7 @@ class TestGcStm(BaseTestRegalloc):
             self.cpu.execute_token(looptoken, sgcref)
             self.assert_in(called_on, [sgcref])
 
+            
     def test_ptr_eq_fastpath(self):
         cpu = self.cpu
         cpu.gc_ll_descr.init_nursery(100)
@@ -339,20 +340,28 @@ class TestGcStm(BaseTestRegalloc):
                   ConstPtr(s1),
                   ConstPtr(s2)]
             for p1, p2 in itertools.combinations(ps, 2):
-                for guard in [None, rop.GUARD_TRUE, rop.GUARD_FALSE]:
+                for guard in [None, rop.GUARD_TRUE, rop.GUARD_FALSE,
+                              rop.GUARD_VALUE]:
                     cpu.gc_ll_descr.clear_lists()
 
                     # BUILD OPERATIONS:
                     i = i0
                     guarddescr = BasicFailDescr()
                     finaldescr = BasicFinalDescr()
-                    operations = [ResOperation(rop.PTR_EQ, [p1, p2], i0)]
-                    if guard is not None:
-                        gop = ResOperation(guard, [i0], None, 
+                    if guard == rop.GUARD_VALUE:
+                        gop = ResOperation(rop.GUARD_VALUE, [p1, p2], None,
                                            descr=guarddescr)
                         gop.setfailargs([])
-                        operations.append(gop)
+                        operations = [gop]
                         i = i1
+                    else:
+                        operations = [ResOperation(rop.PTR_EQ, [p1, p2], i0)]
+                        if guard is not None:
+                            gop = ResOperation(guard, [i0], None, 
+                                               descr=guarddescr)
+                            gop.setfailargs([])
+                            operations.append(gop)
+                            i = i1
                     # finish must depend on result of ptr_eq if no guard
                     # is inbetween (otherwise ptr_eq gets deleted)
                     # if there is a guard, the result of ptr_eq must not
@@ -393,7 +402,7 @@ class TestGcStm(BaseTestRegalloc):
 
                     if guard is not None:
                         if s1 == s2:
-                            if guard == rop.GUARD_TRUE:
+                            if guard in (rop.GUARD_TRUE, rop.GUARD_VALUE):
                                 assert not guard_failed
                             else:
                                 assert guard_failed
