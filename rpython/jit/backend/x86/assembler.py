@@ -260,6 +260,21 @@ class Assembler386(BaseAssembler):
         self.propagate_exception_path = rawstart
         self.mc = None
 
+    def _get_stm_tl(self, adr):
+        """Makes 'adr' relative to threadlocal-base if we run in STM. 
+        Before using such a relative address, call 
+        self._stm_tl_segment_prefix_if_necessary."""
+        if self.cpu.gc_ll_descr.stm and we_are_translated():
+            # also not during tests
+            result = adr - stmtlocal.threadlocal_base()
+            assert rx86.fits_in_32bits(result)
+            return result
+        return adr
+
+    def _stm_tl_segment_prefix_if_necessary(self, mc):
+        if self.cpu.gc_ll_descr.stm and we_are_translated():
+            stmtlocal.tl_segment_prefix(mc)
+        
     def _build_stack_check_slowpath(self):
         _, _, slowpathaddr = self.cpu.insert_stack_check()
         if slowpathaddr == 0 or not self.cpu.propagate_exception_descr:
@@ -294,7 +309,9 @@ class Assembler386(BaseAssembler):
         else:
             mc.ADD_ri(esp.value, WORD)
         #
-        mc.MOV(eax, heap(self.cpu.pos_exception()))
+        ea = self._get_stm_tl(self.cpu.pos_exception())
+        self._stm_tl_segment_prefix_if_necessary(mc)
+        mc.MOV(eax, heap(ea))
         mc.TEST_rr(eax.value, eax.value)
         mc.J_il8(rx86.Conditions['NZ'], 0)
         jnz_location = mc.get_relative_pos()
@@ -1740,7 +1757,9 @@ class Assembler386(BaseAssembler):
 
     def genop_guard_guard_no_exception(self, ign_1, guard_op, guard_token,
                                        locs, ign_2):
-        self.mc.CMP(heap(self.cpu.pos_exception()), imm0)
+        ea = self._get_stm_tl(self.cpu.pos_exception())
+        self._stm_tl_segment_prefix_if_necessary(self.mc)
+        self.mc.CMP(heap(ea), imm0)
         self.implement_guard(guard_token, 'NZ')
 
     def genop_guard_guard_not_invalidated(self, ign_1, guard_op, guard_token,
@@ -1753,7 +1772,9 @@ class Assembler386(BaseAssembler):
                                     locs, resloc):
         loc = locs[0]
         loc1 = locs[1]
-        self.mc.MOV(loc1, heap(self.cpu.pos_exception()))
+        ea = self._get_stm_tl(self.cpu.pos_exception())
+        self._stm_tl_segment_prefix_if_necessary(self.mc)
+        self.mc.MOV(loc1, heap(ea))
         self.mc.CMP(loc1, loc)
         self.implement_guard(guard_token, 'NE')
         self._store_and_reset_exception(self.mc, resloc)
@@ -1763,30 +1784,43 @@ class Assembler386(BaseAssembler):
         """ Resest the exception. If excvalloc is None, then store it on the
         frame in jf_guard_exc
         """
+        eva = self._get_stm_tl(self.cpu.pos_exc_value())
+        ea = self._get_stm_tl(self.cpu.pos_exception())
+        #
+        self._stm_tl_segment_prefix_if_necessary(mc)
         if excvalloc is not None:
             assert excvalloc.is_core_reg()
-            mc.MOV(excvalloc, heap(self.cpu.pos_exc_value()))
+            mc.MOV(excvalloc, heap(eva))
         elif tmploc is not None: # if both are None, just ignore
             ofs = self.cpu.get_ofs_of_frame_field('jf_guard_exc')
-            mc.MOV(tmploc, heap(self.cpu.pos_exc_value()))
+            mc.MOV(tmploc, heap(eva))
             mc.MOV(RawEbpLoc(ofs), tmploc)
+        #
         if exctploc is not None:
             assert exctploc.is_core_reg()
-            mc.MOV(exctploc, heap(self.cpu.pos_exception()))
-
-        mc.MOV(heap(self.cpu.pos_exception()), imm0)
-        mc.MOV(heap(self.cpu.pos_exc_value()), imm0)
+            self._stm_tl_segment_prefix_if_necessary(mc)
+            mc.MOV(exctploc, heap(ea))
+        #
+        self._stm_tl_segment_prefix_if_necessary(mc)
+        mc.MOV(heap(ea), imm0)
+        self._stm_tl_segment_prefix_if_necessary(mc)
+        mc.MOV(heap(eva), imm0)
 
     def _restore_exception(self, mc, excvalloc, exctploc, tmploc=None):
+        eva = self._get_stm_tl(self.cpu.pos_exc_value())
+        ea = self._get_stm_tl(self.cpu.pos_exception())
         if excvalloc is not None:
-            mc.MOV(heap(self.cpu.pos_exc_value()), excvalloc)
+            self._stm_tl_segment_prefix_if_necessary(mc)
+            mc.MOV(heap(eva), excvalloc)
         else:
             assert tmploc is not None
             ofs = self.cpu.get_ofs_of_frame_field('jf_guard_exc')
             mc.MOV(tmploc, RawEbpLoc(ofs))
             mc.MOV_bi(ofs, 0)
-            mc.MOV(heap(self.cpu.pos_exc_value()), tmploc)
-        mc.MOV(heap(self.cpu.pos_exception()), exctploc)
+            self._stm_tl_segment_prefix_if_necessary(mc)
+            mc.MOV(heap(eva), tmploc)
+        self._stm_tl_segment_prefix_if_necessary(mc)
+        mc.MOV(heap(ea), exctploc)
 
     def _gen_guard_overflow(self, guard_op, guard_token):
         guard_opnum = guard_op.getopnum()
@@ -1983,9 +2017,14 @@ class Assembler386(BaseAssembler):
 
         if exc:
             # We might have an exception pending.  Load it into ebx...
-            mc.MOV(ebx, heap(self.cpu.pos_exc_value()))
-            mc.MOV(heap(self.cpu.pos_exception()), imm0)
-            mc.MOV(heap(self.cpu.pos_exc_value()), imm0)
+            eva = self._get_stm_tl(self.cpu.pos_exc_value())
+            ea = self._get_stm_tl(self.cpu.pos_exception())
+            self._stm_tl_segment_prefix_if_necessary(mc)
+            mc.MOV(ebx, heap(eva))
+            self._stm_tl_segment_prefix_if_necessary(mc)
+            mc.MOV(heap(ea), imm0)
+            self._stm_tl_segment_prefix_if_necessary(mc)
+            mc.MOV(heap(eva), imm0)
             # ...and save ebx into 'jf_guard_exc'
             offset = self.cpu.get_ofs_of_frame_field('jf_guard_exc')
             mc.MOV_br(offset, ebx.value)
