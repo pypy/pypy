@@ -419,12 +419,6 @@ class FlowSpaceFrame(object):
             block.cleanupstack(self)
         return None
 
-    def unrollstack_and_jump(self, unroller):
-        block = self.unrollstack(unroller)
-        if block is None:
-            raise BytecodeCorruption("misplaced bytecode - should not return")
-        return block.handle(self, unroller)
-
     def getstate(self):
         # getfastscope() can return real None, for undefined locals
         data = self.save_locals_stack()
@@ -586,12 +580,7 @@ class FlowSpaceFrame(object):
 
     def handle_operation_error(self, operr):
         unroller = SApplicationException(operr)
-        block = self.unrollstack(unroller)
-        if block is None:
-            raise operr
-        else:
-            next_instr = block.handle(self, unroller)
-            return next_instr
+        return unroller.unroll(self)
 
     def getlocalvarname(self, index):
         return self.pycode.co_varnames[index]
@@ -609,11 +598,11 @@ class FlowSpaceFrame(object):
         raise FlowingError(self, "This operation is not RPython")
 
     def BREAK_LOOP(self, oparg, next_instr):
-        return self.unrollstack_and_jump(SBreakLoop.singleton)
+        return SBreakLoop.singleton.unroll(self)
 
     def CONTINUE_LOOP(self, startofloop, next_instr):
         unroller = SContinueLoop(startofloop)
-        return self.unrollstack_and_jump(unroller)
+        return unroller.unroll(self)
 
     def cmp_lt(self, w_1, w_2):
         return self.space.lt(w_1, w_2)
@@ -695,12 +684,7 @@ class FlowSpaceFrame(object):
     def RETURN_VALUE(self, oparg, next_instr):
         w_returnvalue = self.popvalue()
         unroller = SReturnValue(w_returnvalue)
-        block = self.unrollstack(unroller)
-        if block is None:
-            raise Return(w_returnvalue)
-        else:
-            next_instr = block.handle(self, unroller)
-            return next_instr    # now inside a 'finally' block
+        return unroller.unroll(self)
 
     def END_FINALLY(self, oparg, next_instr):
         # unlike CPython, there are two statically distinct cases: the
@@ -718,20 +702,12 @@ class FlowSpaceFrame(object):
             return
         elif isinstance(w_top, SuspendedUnroller):
             # case of a finally: block
-            return self.unroll_finally(w_top)
+            return w_top.unroll(self)
         else:
             # case of an except: block.  We popped the exception type
             self.popvalue()        #     Now we pop the exception value
             unroller = self.popvalue()
-            return self.unroll_finally(unroller)
-
-    def unroll_finally(self, unroller):
-        # go on unrolling the stack
-        block = self.unrollstack(unroller)
-        if block is None:
-            unroller.nomoreblocks()
-        else:
-            return block.handle(self, unroller)
+            return unroller.unroll(self)
 
     def POP_BLOCK(self, oparg, next_instr):
         block = self.blockstack.pop()
@@ -1181,6 +1157,13 @@ class SuspendedUnroller(object):
                 WHY_CONTINUE,   SContinueLoop
                 WHY_YIELD       not needed
     """
+    def unroll(self, frame):
+        block = frame.unrollstack(self)
+        if block is None:
+            return self.nomoreblocks()
+        else:
+            return block.handle(frame, self)
+
     def nomoreblocks(self):
         raise BytecodeCorruption("misplaced bytecode - should not return")
 
