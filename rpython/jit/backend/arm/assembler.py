@@ -62,7 +62,8 @@ class AssemblerARM(ResOpAssembler):
         self.current_clt = looptoken.compiled_loop_token
         self.mc = InstrBuilder(self.cpu.cpuinfo.arch_version)
         self.pending_guards = []
-        assert self.datablockwrapper is None
+        #assert self.datablockwrapper is None --- but obscure case
+        # possible, e.g. getting MemoryError and continuing
         allblocks = self.get_asmmemmgr_blocks(looptoken)
         self.datablockwrapper = MachineDataBlockWrapper(self.cpu.asmmemmgr,
                                                         allblocks)
@@ -76,7 +77,6 @@ class AssemblerARM(ResOpAssembler):
         self._regalloc = None
         self.mc = None
         self.pending_guards = None
-        assert self.datablockwrapper is None
 
     def setup_failure_recovery(self):
         self.failure_recovery_code = [0, 0, 0, 0]
