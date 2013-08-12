@@ -59,7 +59,7 @@ def machine_code_dump(data, originaddr, backend_name, label_list=None):
         'arm_32': 'arm',
     }
     cmd = find_objdump()
-    objdump = ('%(command)s -M %(backend)s -b binary -m %(machine)s '
+    objdump = ('%(command)s -w -M %(backend)s -b binary -m %(machine)s '
                '--disassembler-options=intel-mnemonics '
                '--adjust-vma=%(origin)d -D %(file)s')
     #
