@@ -205,7 +205,7 @@ class AppTestHighLevelInterface(object):
 
         assert e.db.baseclass_defining_method(B, 'f', None) == (A, )
 
-    # XXX Lists inside terms need to be converted.
+    @pytest.mark.xfail
     def test_list_in_term(self):
         import uni
 
