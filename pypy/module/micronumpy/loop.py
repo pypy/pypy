@@ -9,8 +9,7 @@ from pypy.interpreter.error import OperationError
 from rpython.rlib import jit
 from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.module.micronumpy.base import W_NDimArray
-from pypy.module.micronumpy.iter import PureShapeIterator, OneDimViewIterator, \
-        MultiDimViewIterator
+from pypy.module.micronumpy.iter import PureShapeIterator
 from pypy.module.micronumpy import constants
 from pypy.module.micronumpy.support import int_w
 
@@ -341,40 +340,21 @@ def count_all_true(arr):
     else:
         return count_all_true_concrete(arr.implementation)
 
-nonzero_driver_onedim = jit.JitDriver(name = 'numpy_nonzero_onedim',
-                                      greens = ['shapelen', 'dtype'],
-                                      reds = 'auto')
+nonzero_driver = jit.JitDriver(name = 'numpy_nonzero',
+                               greens = ['shapelen', 'dims', 'dtype'],
+                               reds = 'auto')
 
-def nonzero_onedim(res, arr, box):
+def nonzero(res, arr, box):
     res_iter = res.create_iter()
-    arr_iter = OneDimViewIterator(arr, arr.dtype, 0, 
-            arr.strides, arr.shape)
-    shapelen = 1
-    dtype = arr.dtype
-    while not arr_iter.done():
-        nonzero_driver_onedim.jit_merge_point(shapelen=shapelen, dtype=dtype)
-        if arr_iter.getitem_bool():
-            res_iter.setitem(box(arr_iter.index))
-            res_iter.next()
-        arr_iter.next()
-    return res
-
-nonzero_driver_multidim = jit.JitDriver(name = 'numpy_nonzero_onedim',
-                                        greens = ['shapelen', 'dims', 'dtype'],
-                                        reds = 'auto')
-
-def nonzero_multidim(res, arr, box):
-    res_iter = res.create_iter()
-    arr_iter = MultiDimViewIterator(arr, arr.dtype, 0, 
-        arr.strides, arr.backstrides, arr.shape)
+    arr_iter = arr.create_iter(require_index=True)
     shapelen = len(arr.shape)
     dtype = arr.dtype
     dims = range(shapelen)
     while not arr_iter.done():
-        nonzero_driver_multidim.jit_merge_point(shapelen=shapelen, dims=dims, dtype=dtype)
+        nonzero_driver.jit_merge_point(shapelen=shapelen, dims=dims, dtype=dtype)
         if arr_iter.getitem_bool():
             for d in dims:
-                res_iter.setitem(box(arr_iter.indexes[d]))
+                res_iter.setitem(box(arr_iter.get_index(d)))
                 res_iter.next()
         arr_iter.next()
     return res

@@ -45,7 +45,7 @@ class Scalar(base.BaseArrayImplementation):
     def get_backstrides(self):
         return []
 
-    def create_iter(self, shape=None, backward_broadcast=False):
+    def create_iter(self, shape=None, backward_broadcast=False, require_index=False):
         return ScalarIterator(self)
 
     def get_scalar_value(self):

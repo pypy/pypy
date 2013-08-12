@@ -19,7 +19,7 @@ class FakeArrayImplementation(BaseArrayImplementation):
     def get_shape(self):
         return self.shape
 
-    def create_iter(self, shape=None, backward_broadcast=False):
+    def create_iter(self, shape=None, backward_broadcast=False, require_index=False):
         assert isinstance(self.base(), W_NDimArray)
         return self.base().create_iter()
 
