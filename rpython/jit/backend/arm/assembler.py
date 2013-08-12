@@ -69,6 +69,7 @@ class AssemblerARM(ResOpAssembler):
         self.mc.datablockwrapper = self.datablockwrapper
         self.target_tokens_currently_compiling = {}
         self.frame_depth_to_patch = []
+        self._finish_gcmap = lltype.nullptr(jitframe.GCMAP)
 
     def teardown(self):
         self.current_clt = None
@@ -889,7 +890,7 @@ class AssemblerARM(ResOpAssembler):
             relative_offset = tok.pos_recovery_stub - tok.offset
             guard_pos = block_start + tok.offset
             if not tok.is_guard_not_invalidated:
-                # patch the guard jumpt to the stub
+                # patch the guard jump to the stub
                 # overwrite the generate NOP with a B_offs to the pos of the
                 # stub
                 mc = InstrBuilder(self.cpu.cpuinfo.arch_version)
