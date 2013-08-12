@@ -385,6 +385,8 @@ def import_log(logname, ParserCls=SimpleParser):
         _, addr, _, data = re.split(" +", dump)
         backend_name = backend.split(" ")[1]
         addr = int(addr[1:], 16)
+        if addr < 0:
+            addr += (2 * sys.maxint + 2)
         if addr in addrs and addrs[addr]:
             name = addrs[addr].pop(0) # they should come in order
             dumps[name] = (backend_name, addr, data)
