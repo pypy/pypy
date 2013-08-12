@@ -90,7 +90,7 @@ class SimpleParser(OpParser):
                 v = elem   # --- more compactly:  " ".join(e[2:])
                 if not start:
                     start = int(adr.strip(":"), 16)
-                ofs = int(adr.strip(":"), 16) - start
+                ofs = int(adr.strip(":"), 16)
                 # add symbols to addresses:
                 for addr in lineaddresses(v):
                     sym = symbols.get(addr)
@@ -100,6 +100,7 @@ class SimpleParser(OpParser):
                 if ofs >= 0:
                     asm.append((ofs, v.strip("\n")))
             #
+            prefix = hex(dump_start)[:-8]
             asm_index = 0
             for i, op in enumerate(loop.operations):
                 end = 0
@@ -113,12 +114,14 @@ class SimpleParser(OpParser):
                     else:
                         end = loop.operations[j].offset
                 if op.offset is not None:
-                    while asm[asm_index][0] < op.offset:
+                    while asm[asm_index][0] - start < op.offset:
                         asm_index += 1
                     end_index = asm_index
-                    while asm[end_index][0] < end and end_index < len(asm) - 1:
+                    while asm[end_index][0] - start < end and end_index < len(asm) - 1:
                         end_index += 1
-                    op.asm = '\n'.join([asm[i][1] for i in range(asm_index, end_index)])
+                    op.asm = '\n'.join([
+                        prefix+hex(asm[i][0])[2:] + ": " + asm[i][1] 
+                        for i in range(asm_index, end_index)])
         return loop
 
     def _asm_disassemble(self, d, origin_addr, tp):

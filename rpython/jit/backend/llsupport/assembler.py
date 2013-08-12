@@ -172,10 +172,8 @@ class BaseAssembler(object):
                 break
         exc = guardtok.exc
         target = self.failure_recovery_code[exc + 2 * withfloats]
-        fail_descr = rgc.cast_instance_to_gcref(guardtok.faildescr)
-        # already done by gc.py record_constptrs, just to be safe:
-        fail_descr = rgc._make_sure_does_not_move(fail_descr)
-        fail_descr = rgc.cast_gcref_to_int(fail_descr)
+        fail_descr = cast_instance_to_gcref(guardtok.faildescr)
+        fail_descr = rffi.cast(lltype.Signed, fail_descr)
         base_ofs = self.cpu.get_baseofs_of_frame_field()
         positions = [0] * len(guardtok.fail_locs)
         for i, loc in enumerate(guardtok.fail_locs):
@@ -228,10 +226,10 @@ class BaseAssembler(object):
             else:
                 raise AssertionError(kind)
 
-        gcref = rgc.cast_instance_to_gcref(value)
+        import pdb;pdb.set_trace()
+        gcref = cast_instance_to_gcref(value)
         gcref = rgc._make_sure_does_not_move(gcref)
-        value = rgc.cast_gcref_to_int(gcref)
-        
+        value = rffi.cast(lltype.Signed, gcref)
         je_location = self._call_assembler_check_descr(value, tmploc)
         #
         # Path A: use assembler_helper_adr
