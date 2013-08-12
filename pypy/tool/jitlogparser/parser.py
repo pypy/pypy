@@ -85,7 +85,7 @@ class SimpleParser(OpParser):
                     continue
                 e = elem.split("\t")
                 adr = e[0]
-                v = " ".join(e[2:])
+                v = elem   # --- more compactly:  " ".join(e[2:])
                 if not start:
                     start = int(adr.strip(":"), 16)
                 ofs = int(adr.strip(":"), 16) - start
