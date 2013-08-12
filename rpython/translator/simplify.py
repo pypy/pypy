@@ -57,17 +57,6 @@ def replace_exitswitch_by_constant(block, const):
 
 # ____________________________________________________________
 
-def desugar_isinstance(graph):
-    """Replace isinstance operation with a call to isinstance."""
-    constant_isinstance = Constant(isinstance)
-    for block in graph.iterblocks():
-        for i in range(len(block.operations) - 1, -1, -1):
-            op = block.operations[i]
-            if op.opname == "isinstance":
-                args = [constant_isinstance, op.args[0], op.args[1]]
-                new_op = SpaceOperation("simple_call", args, op.result)
-                block.operations[i] = new_op
-
 def eliminate_empty_blocks(graph):
     """Eliminate basic blocks that do not contain any operations.
     When this happens, we need to replace the preceeding link with the
@@ -975,7 +964,6 @@ class ListComprehensionDetector(object):
 # ____ all passes & simplify_graph
 
 all_passes = [
-    desugar_isinstance,
     eliminate_empty_blocks,
     remove_assertion_errors,
     join_blocks,

@@ -158,7 +158,8 @@ class FlowObjSpace(object):
         Returns an FSException object whose w_value is an instance of w_type.
         """
         frame = self.frame
-        if frame.guessbool(self.isinstance(w_arg1, self.w_type)):
+        if frame.guessbool(self.call_function(const(isinstance), w_arg1,
+                self.w_type)):
             # this is for all cases of the form (Class, something)
             if frame.guessbool(self.is_(w_arg2, self.w_None)):
                 # raise Type: we assume we have to instantiate Type

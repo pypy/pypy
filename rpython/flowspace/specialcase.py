@@ -1,4 +1,4 @@
-from rpython.flowspace.model import Constant
+from rpython.flowspace.model import Constant, const
 
 SPECIAL_CASES = {}
 
@@ -29,6 +29,14 @@ def sc_locals(space, args):
         "mode is getting in the way.  You should copy the file "
         "pytest.ini from the root of the PyPy repository into your "
         "own project.")
+
+@register_flow_sc(isinstance)
+def sc_isinstance(space, args):
+    w_instance, w_type = args
+    if w_instance.foldable() and w_type.foldable():
+        return const(isinstance(w_instance.value, w_type.value))
+    return space.frame.do_operation('simple_call', const(isinstance),
+            w_instance, w_type)
 
 # _________________________________________________________________________
 # a simplified version of the basic printing routines, for RPython programs

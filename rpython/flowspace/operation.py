@@ -211,7 +211,6 @@ def unsupported(*args):
 add_operator('is_', 2, 'is', pure=True)
 add_operator('id', 1, 'id', pyfunc=id)
 add_operator('type', 1, 'type', pyfunc=new_style_type, pure=True)
-add_operator('isinstance', 2, 'isinstance', pyfunc=isinstance, pure=True)
 add_operator('issubtype', 2, 'issubtype', pyfunc=issubclass, pure=True)  # not for old-style classes
 add_operator('repr', 1, 'repr', pyfunc=repr, pure=True)
 add_operator('str', 1, 'str', pyfunc=str, pure=True)
@@ -232,7 +231,7 @@ add_operator('pos', 1, 'pos', pure=True)
 add_operator('neg', 1, 'neg', pure=True, ovf=True)
 add_operator('bool', 1, 'truth', pyfunc=bool, pure=True)
 op.is_true = op.nonzero = op.bool  # for llinterp
-add_operator('abs' , 1, 'abs', pyfunc=abs, pure=True, ovf=True)
+add_operator('abs', 1, 'abs', pyfunc=abs, pure=True, ovf=True)
 add_operator('hex', 1, 'hex', pyfunc=hex, pure=True)
 add_operator('oct', 1, 'oct', pyfunc=oct, pure=True)
 add_operator('ord', 1, 'ord', pyfunc=ord, pure=True)
