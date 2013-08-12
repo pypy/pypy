@@ -228,7 +228,7 @@ class FlowObjSpace(object):
                     frame.replace_in_stack(it, next_unroller)
                     return const(v)
         w_item = frame.do_operation("next", w_iter)
-        frame.guessexception([StopIteration, RuntimeError])
+        frame.guessexception([StopIteration, RuntimeError], force=True)
         return w_item
 
 

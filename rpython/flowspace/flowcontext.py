@@ -456,7 +456,7 @@ class FlowSpaceFrame(object):
             self.guessexception(op.canraise)
         return op.result
 
-    def guessexception(self, exceptions):
+    def guessexception(self, exceptions, force=False):
         """
         Catch possible exceptions implicitly.
 
@@ -465,6 +465,11 @@ class FlowSpaceFrame(object):
         even if the interpreter re-raises the exception, it will not be the
         same ImplicitOperationError instance internally.
         """
+        if not force and not any(isinstance(block, (ExceptBlock, FinallyBlock))
+                for block in self.blockstack):
+            # The implicit exception wouldn't be caught and would later get
+            # removed, so don't bother creating it.
+            return
         self.recorder.guessexception(self, *exceptions)
 
     def build_flow(self):
