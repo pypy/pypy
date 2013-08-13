@@ -255,6 +255,22 @@ class AppTestUfuncs(BaseNumpyAppTest):
         for i in range(3):
             assert c[i] == a[i] * b[i]
 
+    def test_rint(self):
+        from numpypy import array, complex, rint, isnan
+
+        nnan, nan, inf, ninf = float('-nan'), float('nan'), float('inf'), float('-inf')
+
+        reference = array([ninf, -2., -1., -0., 0., 0., 0., 1., 2., inf])
+        a = array([ninf, -1.5, -1., -0.5, -0., 0., 0.5, 1., 1.5, inf])
+        b = rint(a)
+        for i in range(len(a)):
+            assert b[i] == reference[i]
+        assert isnan(rint(nan))
+        assert isnan(rint(nnan))
+
+        assert rint(complex(inf, 1.5)) == complex(inf, 2.)
+        assert rint(complex(0.5, inf)) == complex(0., inf)
+
     def test_sign(self):
         from numpypy import array, sign, dtype
 

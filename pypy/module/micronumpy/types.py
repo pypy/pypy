@@ -307,6 +307,13 @@ class Primitive(object):
     def min(self, v1, v2):
         return min(v1, v2)
 
+    @simple_unary_op
+    def rint(self, v):
+        if isfinite(v):
+            return rfloat.round_double(v, 0, half_even=True)
+        else:
+            return v
+
 class NonNativePrimitive(Primitive):
     _mixin_ = True
 
@@ -1333,6 +1340,15 @@ class ComplexFloating(object):
     #def copysign(self, v1, v2):
     #    return (rfloat.copysign(v1[0], v2[0]),
     #           rfloat.copysign(v1[1], v2[1]))
+
+    @specialize.argtype(1)
+    def rint(self, v):
+        ans = list(self.for_computation(self.unbox(v)))
+        if isfinite(ans[0]):
+            ans[0] = rfloat.round_double(ans[0], 0, half_even=True)
+        if isfinite(ans[1]):
+            ans[1] = rfloat.round_double(ans[1], 0, half_even=True)
+        return self.box_complex(ans[0], ans[1])
 
     @complex_unary_op
     def sign(self, v):
