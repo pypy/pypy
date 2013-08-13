@@ -140,6 +140,7 @@ class UMathModule(MixedModule):
         ("deg2rad", "radians"),
         ("rad2deg", "degrees"),
         ("reciprocal", "reciprocal"),
+        ("rint", "rint"),
         ("sign", "sign"),
         ("signbit", "signbit"),
         ("sin", "sin"),
