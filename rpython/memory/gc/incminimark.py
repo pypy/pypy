@@ -1183,7 +1183,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         
         if self.gc_state == STATE_MARKING:
             if self.header(addr_struct).tid & GCFLAG_VISITED:
-                self.write_to_visited_object_forward(addr_struct,new_value)
+                self.write_to_visited_object_forward(addr_struct,newvalue)
 
     
     def write_barrier_from_array(self, newvalue, addr_array, index):
@@ -1196,7 +1196,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         
         if self.gc_state == STATE_MARKING:
             if self.header(addr_struct).tid & GCFLAG_VISITED:
-                self.write_to_visited_object_backward(addr_struct,new_value)
+                self.write_to_visited_object_backward(addr_struct,newvalue)
                 
 
     def _init_writebarrier_logic(self):
@@ -1775,7 +1775,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             self.minor_collection()
             self.major_collection_step()
     
-    def debug_gc_step_n(self,n):
+    def debug_gc_step(self,n=1):
         while n > 0:
             self.minor_collection()
             self.major_collection_step()

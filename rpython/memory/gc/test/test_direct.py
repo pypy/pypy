@@ -587,11 +587,63 @@ class TestMiniMarkGCFull(DirectGCTest):
 class TestIncrementalMiniMarkGCSimple(TestMiniMarkGCSimple):
     from rpython.memory.gc.incminimark import IncrementalMiniMarkGC as GCClass
     
-    
-    
-    def test_write_barrier(self):
-        pass
+    def test_write_barrier_marking_simple(self):
+        from rpython.memory.gc import incminimark
         
+        for i in range(2):
+            curobj = self.malloc(S)
+            curobj.x = i
+            self.stackroots.append(curobj)
+            
+        
+        oldobj = self.stackroots[-1]
+        oldhdr = self.gc.header(llmemory.cast_ptr_to_adr(oldobj))
+        
+        assert oldhdr.tid & incminimark.GCFLAG_VISITED == 0
+        self.gc.debug_gc_step_until(incminimark.STATE_MARKING)
+        oldobj = self.stackroots[-1]
+        # object shifted by minor collect
+        oldhdr = self.gc.header(llmemory.cast_ptr_to_adr(oldobj))
+        assert oldhdr.tid & incminimark.GCFLAG_VISITED == 0
+        #process one object
+        self.gc.debug_gc_step()
+        
+        assert oldhdr.tid & incminimark.GCFLAG_VISITED
+        
+        #at this point the first object should have been processed
+        newobj = self.malloc(S)
+        self.write(oldobj,'next',newobj)
+        #the barrier should have made the object gray
+        newhdr = self.gc.header(llmemory.cast_ptr_to_adr(newobj))
+        assert newhdr.tid & incminimark.GCFLAG_GRAY
+        #checks gray object is in objects_to_trace
+        self.gc.debug_check_consistency() 
+
+    def test_sweeping_simple(self):
+        from rpython.memory.gc import incminimark
+        
+        assert self.gc.gc_state == incminimark.STATE_SCANNING
+        
+        for i in range(2):
+            curobj = self.malloc(S)
+            curobj.x = i
+            self.stackroots.append(curobj)
+        
+        self.gc.debug_gc_step_until(incminimark.STATE_SWEEPING_RAWMALLOC)
+        oldobj = self.stackroots[-1]
+        oldhdr = self.gc.header(llmemory.cast_ptr_to_adr(oldobj))
+        assert oldhdr.tid & incminimark.GCFLAG_VISITED
+        
+        newobj1 = self.malloc(S)
+        newobj2 = self.malloc(S)
+        newobj1.x = 1337
+        newobj2.x = 1338
+        self.write(oldobj,'next',newobj)
+        newhdr = self.gc.header(llmemory.cast_ptr_to_adr(newobj))
+        #checks gray object is in objects_to_trace
+        self.gc.debug_gc_step_until(incminimark.STATE_SCANNING)
+        #should not be cleared even though it was allocated while sweeping
+        assert newobj.x == 1337
 
 class TestIncrementalMiniMarkGCFull(TestMiniMarkGCFull):
     from rpython.memory.gc.incminimark import IncrementalMiniMarkGC as GCClass
