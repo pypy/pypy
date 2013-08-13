@@ -4,7 +4,6 @@ from pypy.interpreter import error
 from pypy.interpreter.pyparser.pygram import syms, tokens
 from pypy.interpreter.pyparser.error import SyntaxError
 from pypy.interpreter.pyparser import parsestring
-from rpython.rlib.objectmodel import specialize
 
 
 def ast_from_node(space, node, compile_info):
@@ -1198,7 +1197,7 @@ class ASTBuilder(object):
             return self.handle_genexp(gexp_node)
         return self.handle_testlist(gexp_node)
 
-    def count_comp_fors(self, comp_node, for_type, if_type):
+    def count_comp_fors(self, comp_node):
         count = 0
         current_for = comp_node
         while True:
@@ -1209,10 +1208,10 @@ class ASTBuilder(object):
                 return count
             while True:
                 first_child = current_iter.children[0]
-                if first_child.type == for_type:
+                if first_child.type == syms.comp_for:
                     current_for = current_iter.children[0]
                     break
-                elif first_child.type == if_type:
+                elif first_child.type == syms.comp_if:
                     if len(first_child.children) == 3:
                         current_iter = first_child.children[2]
                     else:
@@ -1220,48 +1219,40 @@ class ASTBuilder(object):
                 else:
                     raise AssertionError("should not reach here")
 
-    def count_comp_ifs(self, iter_node, for_type):
+    def count_comp_ifs(self, iter_node):
         count = 0
         while True:
             first_child = iter_node.children[0]
-            if first_child.type == for_type:
+            if first_child.type == syms.comp_for:
                 return count
             count += 1
             if len(first_child.children) == 2:
                 return count
             iter_node = first_child.children[2]
 
-    @specialize.arg(2)
-    def comprehension_helper(self, comp_node,
-                             handle_source_expr_meth="handle_expr",
-                             for_type=syms.comp_for, if_type=syms.comp_if,
-                             iter_type=syms.comp_iter,
-                             comp_fix_unamed_tuple_location=False):
-        handle_source_expression = getattr(self, handle_source_expr_meth)
-        fors_count = self.count_comp_fors(comp_node, for_type, if_type)
+    def comprehension_helper(self, comp_node):
+        fors_count = self.count_comp_fors(comp_node)
         comps = []
         for i in range(fors_count):
             for_node = comp_node.children[1]
             for_targets = self.handle_exprlist(for_node, ast.Store)
-            expr = handle_source_expression(comp_node.children[3])
+            expr = self.handle_expr(comp_node.children[3])
             assert isinstance(expr, ast.expr)
             if len(for_node.children) == 1:
                 comp = ast.comprehension(for_targets[0], expr, None)
             else:
-                col = comp_node.column
-                line = comp_node.lineno
                 # Modified in python2.7, see http://bugs.python.org/issue6704
-                if comp_fix_unamed_tuple_location:
-                    expr_node = for_targets[0]
-                    assert isinstance(expr_node, ast.expr)
-                    col = expr_node.col_offset
-                    line = expr_node.lineno
+                # Fixing unamed tuple location
+                expr_node = for_targets[0]
+                assert isinstance(expr_node, ast.expr)
+                col = expr_node.col_offset
+                line = expr_node.lineno
                 target = ast.Tuple(for_targets, ast.Store, line, col)
                 comp = ast.comprehension(target, expr, None)
             if len(comp_node.children) == 5:
                 comp_node = comp_iter = comp_node.children[4]
-                assert comp_iter.type == iter_type
-                ifs_count = self.count_comp_ifs(comp_iter, for_type)
+                assert comp_iter.type == syms.comp_iter
+                ifs_count = self.count_comp_ifs(comp_iter)
                 if ifs_count:
                     ifs = []
                     for j in range(ifs_count):
@@ -1270,7 +1261,7 @@ class ASTBuilder(object):
                         if len(comp_if.children) == 3:
                             comp_node = comp_iter = comp_if.children[2]
                     comp.ifs = ifs
-                if comp_node.type == iter_type:
+                if comp_node.type == syms.comp_iter:
                     comp_node = comp_node.children[0]
             assert isinstance(comp, ast.comprehension)
             comps.append(comp)
@@ -1278,32 +1269,26 @@ class ASTBuilder(object):
 
     def handle_genexp(self, genexp_node):
         elt = self.handle_expr(genexp_node.children[0])
-        comps = self.comprehension_helper(genexp_node.children[1],
-                                          comp_fix_unamed_tuple_location=True)
+        comps = self.comprehension_helper(genexp_node.children[1])
         return ast.GeneratorExp(elt, comps, genexp_node.lineno,
                                 genexp_node.column)
 
     def handle_listcomp(self, listcomp_node):
         elt = self.handle_expr(listcomp_node.children[0])
-        comps = self.comprehension_helper(listcomp_node.children[1],
-                                          "handle_testlist",
-                                          syms.comp_for, syms.comp_if,
-                                          syms.comp_iter,
-                                          comp_fix_unamed_tuple_location=True)
+        comps = self.comprehension_helper(listcomp_node.children[1])
         return ast.ListComp(elt, comps, listcomp_node.lineno,
                             listcomp_node.column)
 
     def handle_setcomp(self, set_maker):
         elt = self.handle_expr(set_maker.children[0])
-        comps = self.comprehension_helper(set_maker.children[1],
-                                          comp_fix_unamed_tuple_location=True)
-        return ast.SetComp(elt, comps, set_maker.lineno, set_maker.column)
+        comps = self.comprehension_helper(set_maker.children[1])
+        return ast.SetComp(elt, comps, set_maker.lineno,
+                           set_maker.column)
 
     def handle_dictcomp(self, dict_maker):
         key = self.handle_expr(dict_maker.children[0])
         value = self.handle_expr(dict_maker.children[2])
-        comps = self.comprehension_helper(dict_maker.children[3],
-                                          comp_fix_unamed_tuple_location=True)
+        comps = self.comprehension_helper(dict_maker.children[3])
         return ast.DictComp(key, value, comps, dict_maker.lineno,
                             dict_maker.column)
 
