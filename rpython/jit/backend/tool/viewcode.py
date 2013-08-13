@@ -51,34 +51,29 @@ def find_objdump():
     raise ObjdumpNotFound('(g)objdump was not found in PATH')
 
 def machine_code_dump(data, originaddr, backend_name, label_list=None):
-    objdump_backend_option = {
+    objdump_machine_option = {
         'x86': 'i386',
         'x86-without-sse2': 'i386',
         'x86_32': 'i386',
-        'x86_64': 'x86-64',
-        'x86-64': 'x86-64',
+        'x86_64': 'i386:x86-64',
+        'x86-64': 'i386:x86-64',
         'i386': 'i386',
         'arm': 'arm',
         'arm_32': 'arm',
     }
-    backend_to_machine = {
-        'x86-64': 'i386:x86-64',
-    }
     cmd = find_objdump()
-    objdump = ('%(command)s -M %(backend)s -b binary -m %(machine)s '
+    objdump = ('%(command)s -b binary -m %(machine)s '
                '--disassembler-options=intel-mnemonics '
                '--adjust-vma=%(origin)d -D %(file)s')
     #
     f = open(tmpfile, 'wb')
     f.write(data)
     f.close()
-    backend = objdump_backend_option[backend_name]
     p = subprocess.Popen(objdump % {
         'command': cmd,
         'file': tmpfile,
         'origin': originaddr,
-        'backend': backend,
-        'machine': backend_to_machine.get(backend, backend),
+        'machine': objdump_machine_option[backend_name],
     }, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout, stderr = p.communicate()
     assert not p.returncode, ('Encountered an error running objdump: %s' %
