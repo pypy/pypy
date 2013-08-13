@@ -1,11 +1,6 @@
 from rpython.rlib.rarithmetic import LONG_BIT
 
-from rpython.memory.test import test_semispace_gc
+from rpython.memory.test import test_minimark_gc
 
-WORD = LONG_BIT // 8
-
-class TestIncrementalMiniMarkGC(test_semispace_gc.TestSemiSpaceGC):
+class TestIncrementalMiniMarkGC(test_minimark_gc.TestMiniMarkGC):
     from rpython.memory.gc.incminimark import IncrementalMiniMarkGC as GCClass
-    GC_CAN_SHRINK_BIG_ARRAY = False
-    GC_CAN_MALLOC_NONMOVABLE = True
-    BUT_HOW_BIG_IS_A_BIG_STRING = 11*WORD

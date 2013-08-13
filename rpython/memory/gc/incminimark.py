@@ -133,15 +133,19 @@ GCFLAG_GRAY = first_gcflag << 8
 
 # The scanning phase, next step call will scan the current roots
 # This state must complete in a single step
-STATE_SCANNING = 0
+STATE_SCANNING = 1 << 0
 
 #XXX describe
 # marking of objects can be done over multiple 
-STATE_MARKING  = 1
-STATE_SWEEPING_RAWMALLOC = 2
-STATE_SWEEPING_ARENA_1 = 3
-STATE_SWEEPING_ARENA_2 = 4
-STATE_FINALIZING = 5
+STATE_MARKING  = 1 << 1
+STATE_SWEEPING_RAWMALLOC = 1 << 2
+STATE_SWEEPING_ARENA_1 = 1 << 3
+STATE_SWEEPING_ARENA_2 = 1 << 4
+STATE_FINALIZING = 1 << 5
+
+MASK_SWEEPING = (STATE_SWEEPING_RAWMALLOC | 
+                    STATE_SWEEPING_ARENA_1 |
+                    STATE_SWEEPING_ARENA_2)
 
 
 
@@ -333,7 +337,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         self.rawmalloced_total_size = r_uint(0)
         
         self.gc_state = r_uint(0) #XXX Only really needs to be a byte
-        
+        self.gc_state = STATE_SCANNING
         #
         # A list of all objects with finalizers (these are never young).
         self.objects_with_finalizers = self.AddressDeque()
@@ -1176,13 +1180,24 @@ class IncrementalMiniMarkGC(MovingGCBase):
     def write_barrier(self, newvalue, addr_struct):
         if self.header(addr_struct).tid & GCFLAG_TRACK_YOUNG_PTRS:
             self.remember_young_pointer(addr_struct, newvalue)
+        
+        if self.gc_state == STATE_MARKING:
+            if self.header(addr_struct).tid & GCFLAG_VISITED:
+                self.write_to_visited_object_forward(addr_struct,new_value)
 
+    
     def write_barrier_from_array(self, newvalue, addr_array, index):
+        
         if self.header(addr_array).tid & GCFLAG_TRACK_YOUNG_PTRS:
             if self.card_page_indices > 0:     # <- constant-folded
                 self.remember_young_pointer_from_array2(addr_array, index)
             else:
                 self.remember_young_pointer(addr_array, newvalue)
+        
+        if self.gc_state == STATE_MARKING:
+            if self.header(addr_struct).tid & GCFLAG_VISITED:
+                self.write_to_visited_object_backward(addr_struct,new_value)
+                
 
     def _init_writebarrier_logic(self):
         DEBUG = self.DEBUG
@@ -1190,6 +1205,33 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # instead of keeping it as a regular method is to
         # make the code in write_barrier() marginally smaller
         # (which is important because it is inlined *everywhere*).
+        
+        # move marking process forward
+        def write_to_visited_object_forward(addr_struct, new_value):
+            ll_assert(self.gc_state == STATE_MARKING,"expected MARKING state")
+            if  self.header(new_value).tid & (GCFLAG_GRAY | GCFLAG_VISITED) == 0:
+                # writing a white object into black, make new object gray and
+                # add to objects_to_trace
+                #
+                self.header(new_value).tid |= GCFLAG_GRAY
+                self.objects_to_trace.append(new_value)
+        write_to_visited_object_forward._dont_inline_ = True
+        self.write_to_visited_object_forward = write_to_visited_object_forward
+        
+        # move marking process backward
+        def write_to_visited_object_backward(addr_struct, new_value):
+            ll_assert(self.gc_state == STATE_MARKING,"expected MARKING state")
+            if  self.header(new_value).tid & (GCFLAG_GRAY | GCFLAG_VISITED) == 0:
+                # writing a white object into black, make black gray and
+                # readd to objects_to_trace
+                # this is useful for arrays because it stops the writebarrier
+                # from being re-triggered on successive writes
+                self.header(addr_struct).tid &= ~GCFLAG_VISITED
+                self.header(addr_struct).tid |= GCFLAG_GRAY
+                self.objects_to_trace.append(addr_struct)
+        write_to_visited_object_backward._dont_inline_ = True
+        self.write_to_visited_object_backward = write_to_visited_object_backward
+        
         def remember_young_pointer(addr_struct, newvalue):
             # 'addr_struct' is the address of the object in which we write.
             # 'newvalue' is the address that we are going to write in there.
@@ -1728,9 +1770,20 @@ class IncrementalMiniMarkGC(MovingGCBase):
             old.append(new.pop())
         new.delete()
     
+    def debug_gc_step_until(self,state):
+        while self.gc_state != state:
+            self.minor_collection()
+            self.major_collection_step()
+    
+    def debug_gc_step_n(self,n):
+        while n > 0:
+            self.minor_collection()
+            self.major_collection_step()
+            n -= 1
+    
     # Note - minor collections seem fast enough so that one
     # is done before every major collection step
-    def major_collection_step(self,reserving_size):
+    def major_collection_step(self,reserving_size=0):
         debug_start("gc-collect-step")
         debug_print("stating gc state: ",self.gc_state)
         # Debugging checks
