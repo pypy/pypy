@@ -69,11 +69,20 @@ def stm_barrier(funcgen, op):
         funcname, arg)
 
 def stm_ptr_eq(funcgen, op):
-    arg0 = funcgen.expr(op.args[0])
-    arg1 = funcgen.expr(op.args[1])
+    args = [funcgen.expr(v) for v in op.args]
     result = funcgen.expr(op.result)
+    # check for prebuilt arguments
+    for i, j in [(0, 1), (1, 0)]:
+        if isinstance(op.args[j], Constant):
+            if op.args[j].value:     # non-NULL
+                return ('%s = stm_pointer_equal_prebuilt((gcptr)%s, (gcptr)%s);'
+                        % (result, args[i], args[j]))
+            else:
+                # this case might be unreachable, but better safe than sorry
+                return '%s = (%s == NULL);' % (result, args[i])
+    #
     return '%s = stm_pointer_equal((gcptr)%s, (gcptr)%s);' % (
-        result, arg0, arg1)
+        result, args[0], args[1])
 
 def stm_become_inevitable(funcgen, op):
     try:
