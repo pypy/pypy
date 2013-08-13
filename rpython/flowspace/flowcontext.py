@@ -486,7 +486,18 @@ class FlowContext(object):
                 break
         else:
             newstate = currentstate.copy()
-            block = None
+            newblock = SpamBlock(newstate)
+            varnames = self.pycode.co_varnames
+            for name, w_value in zip(varnames, newstate.mergeable):
+                if isinstance(w_value, Variable):
+                    w_value.rename(name)
+            # unconditionally link the current block to the newblock
+            outputargs = currentstate.getoutputargs(newstate)
+            link = Link(outputargs, newblock)
+            currentblock.closeblock(link)
+            candidates.insert(0, newblock)
+            self.pendingblocks.append(newblock)
+            return
 
         newblock = SpamBlock(newstate)
         varnames = self.pycode.co_varnames
@@ -498,15 +509,15 @@ class FlowContext(object):
         link = Link(outputargs, newblock)
         currentblock.closeblock(link)
 
-        if block is not None:
-            # to simplify the graph, we patch the old block to point
-            # directly at the new block which is its generalization
-            block.dead = True
-            block.operations = ()
-            block.exitswitch = None
-            outputargs = block.framestate.getoutputargs(newstate)
-            block.recloseblock(Link(outputargs, newblock))
-            candidates.remove(block)
+        # to simplify the graph, we patch the old block to point
+        # directly at the new block which is its generalization
+        block.dead = True
+        block.operations = ()
+        block.exitswitch = None
+        outputargs = block.framestate.getoutputargs(newstate)
+        block.recloseblock(Link(outputargs, newblock))
+        candidates.remove(block)
+
         candidates.insert(0, newblock)
         self.pendingblocks.append(newblock)
 
