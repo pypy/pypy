@@ -1341,15 +1341,6 @@ class ComplexFloating(object):
     #    return (rfloat.copysign(v1[0], v2[0]),
     #           rfloat.copysign(v1[1], v2[1]))
 
-    @specialize.argtype(1)
-    def rint(self, v):
-        ans = list(self.for_computation(self.unbox(v)))
-        if isfinite(ans[0]):
-            ans[0] = rfloat.round_double(ans[0], 0, half_even=True)
-        if isfinite(ans[1]):
-            ans[1] = rfloat.round_double(ans[1], 0, half_even=True)
-        return self.box_complex(ans[0], ans[1])
-
     @complex_unary_op
     def sign(self, v):
         '''
@@ -1408,10 +1399,13 @@ class ComplexFloating(object):
     def round(self, v, decimals=0):
         ans = list(self.for_computation(self.unbox(v)))
         if isfinite(ans[0]):
-            ans[0] = rfloat.round_double(ans[0], decimals,  half_even=True)
+            ans[0] = rfloat.round_double(ans[0], decimals, half_even=True)
         if isfinite(ans[1]):
-            ans[1] = rfloat.round_double(ans[1], decimals,  half_even=True)
+            ans[1] = rfloat.round_double(ans[1], decimals, half_even=True)
         return self.box_complex(ans[0], ans[1])
+
+    def rint(self, v):
+        return self.round(v)
 
     # No floor, ceil, trunc in numpy for complex
     #@simple_unary_op
