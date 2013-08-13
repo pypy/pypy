@@ -140,6 +140,42 @@ class W_UnicodeObject(W_Root, StringMethods):
     def _newlist_unwrapped(self, space, lst):
         return space.newlist_unicode(lst)
 
+    @staticmethod
+    @unwrap_spec(w_string = WrappedDefault(""))
+    def descr_new(space, w_unicodetype, w_string, w_encoding=None,
+                  w_errors=None):
+        # NB. the default value of w_obj is really a *wrapped* empty string:
+        #     there is gateway magic at work
+        w_obj = w_string
+
+        encoding, errors = _get_encoding_and_errors(space, w_encoding, w_errors)
+        # convoluted logic for the case when unicode subclass has a __unicode__
+        # method, we need to call this method
+        is_precisely_unicode = space.is_w(space.type(w_obj), space.w_unicode)
+        if (is_precisely_unicode or
+            (space.isinstance_w(w_obj, space.w_unicode) and
+             space.findattr(w_obj, space.wrap('__unicode__')) is None)):
+            if encoding is not None or errors is not None:
+                raise OperationError(space.w_TypeError, space.wrap(
+                    'decoding Unicode is not supported'))
+            if (is_precisely_unicode and
+                space.is_w(w_unicodetype, space.w_unicode)):
+                return w_obj
+            w_value = w_obj
+        else:
+            if encoding is None and errors is None:
+                w_value = unicode_from_object(space, w_obj)
+            else:
+                w_value = unicode_from_encoded_object(space, w_obj,
+                                                      encoding, errors)
+            if space.is_w(w_unicodetype, space.w_unicode):
+                return w_value
+
+        assert isinstance(w_value, W_UnicodeObject)
+        w_newobj = space.allocate_instance(W_UnicodeObject, w_unicodetype)
+        W_UnicodeObject.__init__(w_newobj, w_value._value)
+        return w_newobj
+
     def descr_repr(self, space):
         chars = self._value
         size = len(chars)
@@ -375,44 +411,11 @@ def unicode_from_string(space, w_str):
         return unicode_from_encoded_object(space, w_str, "ascii", "strict")
 
 
-@unwrap_spec(w_string = WrappedDefault(""))
-def descr_new_(space, w_unicodetype, w_string, w_encoding=None, w_errors=None):
-    # NB. the default value of w_obj is really a *wrapped* empty string:
-    #     there is gateway magic at work
-    w_obj = w_string
-
-    encoding, errors = _get_encoding_and_errors(space, w_encoding, w_errors)
-    # convoluted logic for the case when unicode subclass has a __unicode__
-    # method, we need to call this method
-    is_precisely_unicode = space.is_w(space.type(w_obj), space.w_unicode)
-    if (is_precisely_unicode or
-        (space.isinstance_w(w_obj, space.w_unicode) and
-         space.findattr(w_obj, space.wrap('__unicode__')) is None)):
-        if encoding is not None or errors is not None:
-            raise OperationError(space.w_TypeError,
-                                 space.wrap('decoding Unicode is not supported'))
-        if is_precisely_unicode and space.is_w(w_unicodetype, space.w_unicode):
-            return w_obj
-        w_value = w_obj
-    else:
-        if encoding is None and errors is None:
-            w_value = unicode_from_object(space, w_obj)
-        else:
-            w_value = unicode_from_encoded_object(space, w_obj,
-                                                  encoding, errors)
-        if space.is_w(w_unicodetype, space.w_unicode):
-            return w_value
-
-    assert isinstance(w_value, W_UnicodeObject)
-    w_newobj = space.allocate_instance(W_UnicodeObject, w_unicodetype)
-    W_UnicodeObject.__init__(w_newobj, w_value._value)
-    return w_newobj
-
 # ____________________________________________________________
 
 W_UnicodeObject.typedef = StdTypeDef(
     "unicode", basestring_typedef,
-    __new__ = interp2app(descr_new_),
+    __new__ = interp2app(W_UnicodeObject.descr_new),
     __doc__ = '''unicode(string [, encoding[, errors]]) -> object
 
 Create a new Unicode object from the given encoded string.

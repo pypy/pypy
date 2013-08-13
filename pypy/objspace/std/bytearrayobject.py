@@ -108,6 +108,57 @@ class W_BytearrayObject(W_Root, StringMethods):
             raise operationerrfmt(space.w_TypeError, msg, len(self.data))
         return space.wrap(ord(self.data[0]))
 
+    @staticmethod
+    def descr_new(space, w_bytearraytype, __args__):
+        return new_bytearray(space, w_bytearraytype, [])
+
+    def descr_reduce(self, space):
+        assert isinstance(self, W_BytearrayObject)
+        w_dict = self.getdict(space)
+        if w_dict is None:
+            w_dict = space.w_None
+        return space.newtuple([
+            space.type(self), space.newtuple([
+                space.wrap(''.join(self.data).decode('latin-1')),
+                space.wrap('latin-1')]),
+            w_dict])
+
+    @staticmethod
+    def descr_fromhex(space, w_bytearraytype, w_hexstring):
+        "bytearray.fromhex(string) -> bytearray\n"
+        "\n"
+        "Create a bytearray object from a string of hexadecimal numbers.\n"
+        "Spaces between two numbers are accepted.\n"
+        "Example: bytearray.fromhex('B9 01EF') -> bytearray(b'\\xb9\\x01\\xef')."
+        hexstring = space.str_w(w_hexstring)
+        hexstring = hexstring.lower()
+        data = []
+        length = len(hexstring)
+        i = -2
+        while True:
+            i += 2
+            while i < length and hexstring[i] == ' ':
+                i += 1
+            if i >= length:
+                break
+            if i+1 == length:
+                raise OperationError(space.w_ValueError, space.wrap(
+                    "non-hexadecimal number found in fromhex() arg at position %d" % i))
+
+            top = _hex_digit_to_int(hexstring[i])
+            if top == -1:
+                raise OperationError(space.w_ValueError, space.wrap(
+                    "non-hexadecimal number found in fromhex() arg at position %d" % i))
+            bot = _hex_digit_to_int(hexstring[i+1])
+            if bot == -1:
+                raise OperationError(space.w_ValueError, space.wrap(
+                    "non-hexadecimal number found in fromhex() arg at position %d" % (i+1,)))
+            data.append(chr(top*16 + bot))
+
+        # in CPython bytearray.fromhex is a staticmethod, so
+        # we ignore w_type and always return a bytearray
+        return new_bytearray(space, space.w_bytearray, data)
+
     def descr_init(self, space, __args__):
         # this is on the silly side
         w_source, w_encoding, w_errors = __args__.parse_obj(
@@ -294,10 +345,6 @@ def new_bytearray(space, w_bytearraytype, data):
     return w_obj
 
 
-def descr__new__(space, w_bytearraytype, __args__):
-    return new_bytearray(space,w_bytearraytype, [])
-
-
 def makebytearraydata_w(space, w_source):
     # String-like argument
     try:
@@ -327,17 +374,6 @@ def makebytearraydata_w(space, w_source):
         resizelist_hint(data, extended)
     return data
 
-def descr_bytearray__reduce__(space, w_self):
-    assert isinstance(w_self, W_BytearrayObject)
-    w_dict = w_self.getdict(space)
-    if w_dict is None:
-        w_dict = space.w_None
-    return space.newtuple([
-        space.type(w_self), space.newtuple([
-            space.wrap(''.join(w_self.data).decode('latin-1')),
-            space.wrap('latin-1')]),
-        w_dict])
-
 def _hex_digit_to_int(d):
     val = ord(d)
     if 47 < val < 58:
@@ -346,42 +382,6 @@ def _hex_digit_to_int(d):
         return val - 87
     return -1
 
-def descr_fromhex(space, w_type, w_hexstring):
-    "bytearray.fromhex(string) -> bytearray\n"
-    "\n"
-    "Create a bytearray object from a string of hexadecimal numbers.\n"
-    "Spaces between two numbers are accepted.\n"
-    "Example: bytearray.fromhex('B9 01EF') -> bytearray(b'\\xb9\\x01\\xef')."
-    hexstring = space.str_w(w_hexstring)
-    hexstring = hexstring.lower()
-    data = []
-    length = len(hexstring)
-    i = -2
-    while True:
-        i += 2
-        while i < length and hexstring[i] == ' ':
-            i += 1
-        if i >= length:
-            break
-        if i+1 == length:
-            raise OperationError(space.w_ValueError, space.wrap(
-                "non-hexadecimal number found in fromhex() arg at position %d" % i))
-
-        top = _hex_digit_to_int(hexstring[i])
-        if top == -1:
-            raise OperationError(space.w_ValueError, space.wrap(
-                "non-hexadecimal number found in fromhex() arg at position %d" % i))
-        bot = _hex_digit_to_int(hexstring[i+1])
-        if bot == -1:
-            raise OperationError(space.w_ValueError, space.wrap(
-                "non-hexadecimal number found in fromhex() arg at position %d" % (i+1,)))
-        data.append(chr(top*16 + bot))
-
-    # in CPython bytearray.fromhex is a staticmethod, so
-    # we ignore w_type and always return a bytearray
-    return new_bytearray(space, space.w_bytearray, data)
-
-# ____________________________________________________________
 
 W_BytearrayObject.typedef = StdTypeDef(
     "bytearray",
@@ -389,10 +389,10 @@ W_BytearrayObject.typedef = StdTypeDef(
 bytearray(sequence) -> bytearray initialized from sequence\'s items
 
 If the argument is a bytearray, the return value is the same object.''',
-    __new__ = interp2app(descr__new__),
+    __new__ = interp2app(W_BytearrayObject.descr_new),
     __hash__ = None,
-    __reduce__ = interp2app(descr_bytearray__reduce__),
-    fromhex = interp2app(descr_fromhex, as_classmethod=True),
+    __reduce__ = interp2app(W_BytearrayObject.descr_reduce),
+    fromhex = interp2app(W_BytearrayObject.descr_fromhex, as_classmethod=True),
 
     __repr__ = interp2app(W_BytearrayObject.descr_repr),
     __str__ = interp2app(W_BytearrayObject.descr_str),
