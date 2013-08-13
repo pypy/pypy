@@ -61,6 +61,9 @@ def machine_code_dump(data, originaddr, backend_name, label_list=None):
         'arm': 'arm',
         'arm_32': 'arm',
     }
+    backend_to_machine = {
+        'x86-64': 'i386:x86-64',
+    }
     cmd = find_objdump()
     objdump = ('%(command)s -M %(backend)s -b binary -m %(machine)s '
                '--disassembler-options=intel-mnemonics '
@@ -69,12 +72,13 @@ def machine_code_dump(data, originaddr, backend_name, label_list=None):
     f = open(tmpfile, 'wb')
     f.write(data)
     f.close()
+    backend = objdump_backend_option[backend_name]
     p = subprocess.Popen(objdump % {
         'command': cmd,
         'file': tmpfile,
         'origin': originaddr,
-        'backend': objdump_backend_option[backend_name],
-        'machine': 'i386' if not backend_name.startswith('arm') else 'arm',
+        'backend': backend,
+        'machine': backend_to_machine.get(backend, backend),
     }, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout, stderr = p.communicate()
     assert not p.returncode, ('Encountered an error running objdump: %s' %
@@ -240,7 +244,7 @@ class World(object):
         self.backend_name = None
         self.executable_name = None
 
-    def parse(self, f, textonly=True, truncate_addr=True):
+    def parse(self, f, textonly=True):
         for line in f:
             if line.startswith('BACKEND '):
                 self.backend_name = line.split(' ')[1].strip()
@@ -251,9 +255,7 @@ class World(object):
                 if len(pieces) == 3:
                     continue     # empty line
                 baseaddr = long(pieces[1][1:], 16)
-                if truncate_addr:
-                    baseaddr &= 0xFFFFFFFFL
-                elif baseaddr < 0:
+                if baseaddr < 0:
                     baseaddr += (2 * sys.maxint + 2)
                 offset = int(pieces[2][1:])
                 addr = baseaddr + offset
@@ -273,9 +275,7 @@ class World(object):
                 assert pieces[1].startswith('@')
                 assert pieces[2].startswith('+')
                 baseaddr = long(pieces[1][1:], 16)
-                if truncate_addr:
-                    baseaddr &= 0xFFFFFFFFL
-                elif baseaddr < 0:
+                if baseaddr < 0:
                     baseaddr += (2 * sys.maxint + 2)
                 offset = int(pieces[2][1:])
                 addr = baseaddr + offset
