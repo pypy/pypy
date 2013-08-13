@@ -100,7 +100,7 @@ class SimpleParser(OpParser):
                 if ofs >= 0:
                     asm.append((ofs, v.strip("\n")))
             #
-            prefix = hex(dump_start)[:-8]
+            prefix = hex(dump_start)[:-9]
             asm_index = 0
             for i, op in enumerate(loop.operations):
                 end = 0

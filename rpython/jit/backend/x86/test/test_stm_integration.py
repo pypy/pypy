@@ -20,6 +20,7 @@ from rpython.jit.backend.llsupport.test.test_gc_integration import (
 from rpython.jit.backend.llsupport import jitframe
 from rpython.memory.gc.stmgc import StmGC
 from rpython.jit.metainterp import history
+from rpython.jit.codewriter.effectinfo import EffectInfo
 import itertools, sys
 import ctypes
 
@@ -101,6 +102,11 @@ JITFRAMEPTR = lltype.Ptr(JITFRAME)
 class FakeGCHeaderBuilder:
     size_gc_header = WORD
 
+GCPTR = lltype.Ptr(lltype.GcStruct(
+            'GCPTR', ('h_tid', lltype.Unsigned),
+            ('h_revision', lltype.Signed),
+            ('h_original', lltype.Unsigned)))
+HDRSIZE = 3 * WORD
 
 class GCDescrStm(GCDescrShadowstackDirect):
     def __init__(self):
@@ -147,6 +153,21 @@ class GCDescrStm(GCDescrShadowstackDirect):
         self.generate_function('stm_ptr_eq', ptr_eq, [llmemory.GCREF] * 2,
                                RESULT=lltype.Bool)
 
+        def malloc_big_fixedsize(size, tid):
+            entries = size + HDRSIZE
+            TP = rffi.CArray(lltype.Char)
+            obj = lltype.malloc(TP, n=entries, flavor='raw',
+                                            track_allocation=False, zero=True)
+            objptr = rffi.cast(GCPTR, obj)
+            objptr.h_tid = rffi.cast(lltype.Unsigned,
+                                  StmGC.GCFLAG_OLD|StmGC.GCFLAG_WRITE_BARRIER
+                                  | tid)
+            objptr.h_revision = rffi.cast(lltype.Signed, -sys.maxint)
+            return rffi.cast(llmemory.GCREF, objptr)
+        self.generate_function('malloc_big_fixedsize', malloc_big_fixedsize,
+                               [lltype.Signed] * 2)
+
+        
     def malloc_jitframe(self, frame_info):
         """ Allocate a new frame, overwritten by tests
         """
@@ -180,6 +201,7 @@ class TestGcStm(BaseTestRegalloc):
     def setup_method(self, meth):
         cpu = CPU(None, None)
         cpu.gc_ll_descr = GCDescrStm()
+
         self.p2wd = cpu.gc_ll_descr.P2Wdescr
         self.p2rd = cpu.gc_ll_descr.P2Rdescr
 
@@ -205,7 +227,7 @@ class TestGcStm(BaseTestRegalloc):
         
     def assert_in(self, called_on, args):
         for i, ref in enumerate(args):
-            assert rffi.cast_ptr_to_adr(ref) == called_on[i]
+            assert rffi.cast_ptr_to_adr(ref) in called_on
             
     def assert_not_in(self, called_on, args):
         for ref in args:
@@ -267,7 +289,7 @@ class TestGcStm(BaseTestRegalloc):
             # check if rev-fastpath worked
             if rev == PRIV_REV:
                 # fastpath
-                assert not called_on
+                self.assert_not_in(called_on, [sgcref])
             else:
                 self.assert_in(called_on, [sgcref])
 
@@ -310,7 +332,7 @@ class TestGcStm(BaseTestRegalloc):
             # check if rev-fastpath worked
             if rev == PRIV_REV:
                 # fastpath and WRITE_BARRIER not set
-                assert not called_on
+                self.assert_not_in(called_on, [sgcref])
             else:
                 self.assert_in(called_on, [sgcref])
 
@@ -410,6 +432,70 @@ class TestGcStm(BaseTestRegalloc):
                             assert not guard_failed
                         else:
                             assert guard_failed
+
+
+    
+        
+    def test_assembler_call(self):
+        cpu = self.cpu
+        cpu.gc_ll_descr.init_nursery(100)
+        cpu.setup_once()
+        
+        called = []
+        def assembler_helper(deadframe, virtualizable):
+            frame = rffi.cast(JITFRAMEPTR, deadframe)
+            frame_adr = rffi.cast(lltype.Signed, frame.jf_descr)
+            called.append(frame_adr)
+            return 4 + 9
+
+        FUNCPTR = lltype.Ptr(lltype.FuncType([llmemory.GCREF,
+                                              llmemory.GCREF],
+                                             lltype.Signed))
+        class FakeJitDriverSD:
+            index_of_virtualizable = -1
+            _assembler_helper_ptr = llhelper(FUNCPTR, assembler_helper)
+            assembler_helper_adr = llmemory.cast_ptr_to_adr(
+                _assembler_helper_ptr)
+
+        ops = '''
+        [i0, i1, i2, i3, i4, i5, i6, i7, i8, i9]
+        i10 = int_add(i0, i1)
+        i11 = int_add(i10, i2)
+        i12 = int_add(i11, i3)
+        i13 = int_add(i12, i4)
+        i14 = int_add(i13, i5)
+        i15 = int_add(i14, i6)
+        i16 = int_add(i15, i7)
+        i17 = int_add(i16, i8)
+        i18 = int_add(i17, i9)
+        finish(i18)'''
+        loop = parse(ops)
+        looptoken = JitCellToken()
+        looptoken.outermost_jitdriver_sd = FakeJitDriverSD()
+        finish_descr = loop.operations[-1].getdescr()
+        self.cpu.done_with_this_frame_descr_int = BasicFinalDescr()
+        self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+        ARGS = [lltype.Signed] * 10
+        RES = lltype.Signed
+        FakeJitDriverSD.portal_calldescr = self.cpu.calldescrof(
+            lltype.Ptr(lltype.FuncType(ARGS, RES)), ARGS, RES,
+            EffectInfo.MOST_GENERAL)
+        args = [i+1 for i in range(10)]
+        deadframe = self.cpu.execute_token(looptoken, *args)
+        
+        ops = '''
+        [i0, i1, i2, i3, i4, i5, i6, i7, i8, i9]
+        i10 = int_add(i0, 42)
+        i11 = call_assembler(i10, i1, i2, i3, i4, i5, i6, i7, i8, i9, descr=looptoken)
+        guard_not_forced()[]
+        finish(i11)
+        '''
+        loop = parse(ops, namespace=locals())
+        othertoken = JitCellToken()
+        self.cpu.compile_loop(loop.inputargs, loop.operations, othertoken)
+        args = [i+1 for i in range(10)]
+        deadframe = self.cpu.execute_token(othertoken, *args)
+        assert called == [id(finish_descr)]
 
 
                         

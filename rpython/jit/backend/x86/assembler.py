@@ -876,6 +876,19 @@ class Assembler386(BaseAssembler):
         return rst
 
     def _call_header_shadowstack(self, gcrootmap):
+        # do a write-barrier on ebp / frame for stm
+        # XXX: may not be necessary if we are sure that we only get
+        #      freshly allocated frames or already write-ready frames
+        #      from the caller...
+        gc_ll_descr = self.cpu.gc_ll_descr
+        gcrootmap = gc_ll_descr.gcrootmap
+        if gcrootmap and gcrootmap.is_stm:
+            if not hasattr(gc_ll_descr, 'P2Wdescr'):
+                raise Exception("unreachable code")
+            wbdescr = gc_ll_descr.P2Wdescr
+            self._stm_barrier_fastpath(self.mc, wbdescr, [ebp], is_frame=True)
+
+        # put the frame in ebp on the shadowstack for the GC to find
         rst = self._load_shadowstack_top_in_ebx(self.mc, gcrootmap)
         self.mc.MOV_mr((ebx.value, 0), ebp.value)      # MOV [ebx], ebp
         self.mc.ADD_ri(ebx.value, WORD)

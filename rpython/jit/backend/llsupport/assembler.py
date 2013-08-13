@@ -226,7 +226,6 @@ class BaseAssembler(object):
             else:
                 raise AssertionError(kind)
 
-        import pdb;pdb.set_trace()
         gcref = cast_instance_to_gcref(value)
         gcref = rgc._make_sure_does_not_move(gcref)
         value = rffi.cast(lltype.Signed, gcref)

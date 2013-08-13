@@ -172,8 +172,8 @@ class GcRewriterAssembler(object):
                                size_box,
                                descr=descrs.jfi_frame_size)
             self.newops.append(op0)
-            self.gen_malloc_nursery_varsize_frame(size_box, frame)
-            self.gen_initialize_tid(frame, descrs.arraydescr.tid)
+            self.gen_malloc_nursery_varsize_frame(size_box, frame,
+                                                  descrs.arraydescr.tid)
             length_box = history.BoxInt()
             op1 = ResOperation(rop.GETFIELD_GC, [history.ConstInt(frame_info)],
                                length_box,
@@ -321,7 +321,7 @@ class GcRewriterAssembler(object):
         self.recent_mallocs[v_result] = None
         return True
 
-    def gen_malloc_nursery_varsize_frame(self, sizebox, v_result):
+    def gen_malloc_nursery_varsize_frame(self, sizebox, v_result, tid):
         """ Generate CALL_MALLOC_NURSERY_VARSIZE_FRAME
         """
         self.emitting_an_operation_that_can_collect()
@@ -331,6 +331,8 @@ class GcRewriterAssembler(object):
 
         self.newops.append(op)
         self.recent_mallocs[v_result] = None
+
+        self.gen_initialize_tid(v_result, tid)
 
     def gen_malloc_nursery(self, size, v_result):
         """Try to generate or update a CALL_MALLOC_NURSERY.
