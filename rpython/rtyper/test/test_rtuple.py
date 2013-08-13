@@ -1,15 +1,15 @@
-from rpython.rtyper.lltypesystem import rtupletype
+from rpython.rtyper.rtuple import TUPLE_TYPE, TupleRepr
 from rpython.rtyper.lltypesystem.lltype import Signed, Bool
 from rpython.rtyper.rbool import bool_repr
 from rpython.rtyper.rint import signed_repr
 from rpython.rtyper.test.tool import BaseRtypingTest
+from rpython.rlib.objectmodel import compute_hash
 from rpython.translator.translator import TranslationContext
 
 
 def test_rtuple():
-    from rpython.rtyper.lltypesystem.rtuple import TupleRepr
     rtuple = TupleRepr(None, [signed_repr, bool_repr])
-    assert rtuple.lowleveltype == rtupletype.TUPLE_TYPE([Signed, Bool])
+    assert rtuple.lowleveltype == TUPLE_TYPE([Signed, Bool])
 
 # ____________________________________________________________
 
@@ -159,7 +159,7 @@ class TestRtuple(BaseRtypingTest):
 
         t = TranslationContext()
         s = t.buildannotator().build_types(f, [])
-        rtyper = t.buildrtyper(type_system=self.type_system)
+        rtyper = t.buildrtyper()
         rtyper.specialize()
 
         s_AB_tup = s.items[0]
@@ -171,7 +171,6 @@ class TestRtuple(BaseRtypingTest):
         assert r_AB_tup.lowleveltype == r_BA_tup.lowleveltype
 
     def test_tuple_hash(self):
-        from rpython.rlib.objectmodel import compute_hash
         def f(i, j):
             return compute_hash((i, j))
 
@@ -180,7 +179,6 @@ class TestRtuple(BaseRtypingTest):
         assert res1 != res2
 
     def test_constant_tuple_hash_str(self):
-        from rpython.rlib.objectmodel import compute_hash
         def f(i):
             if i:
                 t = (None, "abc")
@@ -312,7 +310,6 @@ class TestRtuple(BaseRtypingTest):
         assert res is True
 
     def test_tuple_hash_2(self):
-        from rpython.rlib.objectmodel import compute_hash
         def f(n):
             return compute_hash((n, 6)) == compute_hash((3, n*2))
         res = self.interpret(f, [3])

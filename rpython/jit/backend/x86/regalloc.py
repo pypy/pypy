@@ -22,7 +22,7 @@ from rpython.jit.codewriter import longlong
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.history import (Box, Const, ConstInt, ConstPtr,
     ConstFloat, BoxInt, BoxFloat, INT, REF, FLOAT, TargetToken)
-from rpython.jit.metainterp.resoperation import rop
+from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.rlib import rgc
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import r_longlong, r_uint
@@ -1331,6 +1331,13 @@ class RegAlloc(BaseRegalloc):
         #jump_op = self.final_jump_op
         #if jump_op is not None and jump_op.getdescr() is descr:
         #    self._compute_hint_frame_locations_from_descr(descr)
+
+    def consider_guard_not_forced_2(self, op):
+        self.rm.before_call(op.getfailargs(), save_all_regs=True)
+        fail_locs = [self.loc(v) for v in op.getfailargs()]
+        self.assembler.store_force_descr(op, fail_locs,
+                                         self.fm.get_frame_depth())
+        self.possibly_free_vars(op.getfailargs())
 
     def consider_keepalive(self, op):
         pass

@@ -37,6 +37,7 @@ class AppTestThreadSignal(GenericTestThread):
             except BaseException, e:
                 interrupted.append(e)
             finally:
+                print 'subthread stops, interrupted=%r' % (interrupted,)
                 done.append(None)
 
         # This is normally called by app_main.py
@@ -52,11 +53,13 @@ class AppTestThreadSignal(GenericTestThread):
             try:
                 done = []
                 interrupted = []
+                print '--- start ---'
                 thread.start_new_thread(subthread, ())
                 for j in range(10):
                     if len(done): break
                     print '.'
                     time.sleep(0.1)
+                print 'main thread loop done'
                 assert len(done) == 1
                 assert len(interrupted) == 1
                 assert 'KeyboardInterrupt' in interrupted[0].__class__.__name__

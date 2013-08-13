@@ -6,6 +6,7 @@ from rpython.flowspace.model import Block, Constant, Variable, Link, \
     c_last_exception, SpaceOperation, FunctionGraph, mkentrymap
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.lltypesystem import lloperation
+from rpython.rtyper.lltypesystem.rclass import ll_inst_type
 from rpython.rtyper import rtyper
 from rpython.rtyper.rmodel import inputconst
 from rpython.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
@@ -49,13 +50,12 @@ class ExceptionTransformer(object):
     def __init__(self, translator):
         self.translator = translator
         self.raise_analyzer = canraise.RaiseAnalyzer(translator)
-        edata = translator.rtyper.getexceptiondata()
+        edata = translator.rtyper.exceptiondata
         self.lltype_of_exception_value = edata.lltype_of_exception_value
         self.lltype_of_exception_type = edata.lltype_of_exception_type
         self.mixlevelannotator = MixLevelHelperAnnotator(translator.rtyper)
         exc_data, null_type, null_value = self.setup_excdata()
 
-        rclass = translator.rtyper.type_system.rclass
         (assertion_error_ll_exc_type,
          assertion_error_ll_exc) = self.get_builtin_exception(AssertionError)
         (n_i_error_ll_exc_type,
@@ -105,7 +105,7 @@ class ExceptionTransformer(object):
 
         def rpyexc_restore_exception(evalue):
             if evalue:
-                exc_data.exc_type = rclass.ll_inst_type(evalue)
+                exc_data.exc_type = ll_inst_type(evalue)
                 exc_data.exc_value = evalue
 
         self.rpyexc_occured_ptr = self.build_func(
@@ -169,13 +169,12 @@ class ExceptionTransformer(object):
                                   exception_policy="exc_helper", **kwds)
 
     def get_builtin_exception(self, Class):
-        edata = self.translator.rtyper.getexceptiondata()
-        rclass = self.translator.rtyper.type_system.rclass
+        edata = self.translator.rtyper.exceptiondata
         bk = self.translator.annotator.bookkeeper
         error_def = bk.getuniqueclassdef(Class)
         error_ll_exc = edata.get_standard_ll_exc_instance(
             self.translator.rtyper, error_def)
-        error_ll_exc_type = rclass.ll_inst_type(error_ll_exc)
+        error_ll_exc_type = ll_inst_type(error_ll_exc)
         return error_ll_exc_type, error_ll_exc
 
     def transform_completely(self):

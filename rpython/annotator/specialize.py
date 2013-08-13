@@ -379,4 +379,4 @@ def specialize_arglistitemtype(funcdesc, args_s, i):
 
 def specialize_call_location(funcdesc, args_s, op):
     assert op is not None
-    return maybe_star_args(funcdesc, op, args_s)
+    return maybe_star_args(funcdesc, (op,), args_s)

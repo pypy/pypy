@@ -62,50 +62,6 @@ def test_register_type_with_callable():
     s = a.build_types(func, [])
     assert isinstance(s, annmodel.SomeInteger)
 
-def test_register_metatype():
-    class MetaType(type):
-        pass
-
-    class RealClass(object):
-        __metaclass__ = MetaType
-
-    real_class = RealClass()
-
-    def func():
-        return real_class
-
-    class Entry(ExtRegistryEntry):
-        _metatype_ = MetaType
-        def compute_annotation(self):
-            assert self.type is RealClass
-            assert self.instance is real_class
-            return annmodel.SomeInteger()
-
-    a = RPythonAnnotator()
-    s = a.build_types(func, [])
-    assert isinstance(s, annmodel.SomeInteger)
-
-def test_register_metatype_2():
-    class MetaType(type):
-        pass
-
-    class RealClass(object):
-        __metaclass__ = MetaType
-
-    def func(real_class):
-        return real_class
-
-    class Entry(ExtRegistryEntry):
-        _metatype_ = MetaType
-        def compute_annotation(self):
-            assert self.type is RealClass
-            assert self.instance is None
-            return annmodel.SomeInteger()
-
-    a = RPythonAnnotator()
-    s = a.build_types(func, [RealClass])
-    assert isinstance(s, annmodel.SomeInteger)
-
 def test_register_value_with_specialization():
     def dummy_func():
         raiseNameError

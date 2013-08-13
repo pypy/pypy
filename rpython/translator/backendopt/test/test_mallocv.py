@@ -37,7 +37,7 @@ class TestMallocRemoval(object):
         t = TranslationContext()
         self.translator = t
         t.buildannotator().build_types(fn, signature)
-        t.buildrtyper(type_system=self.type_system).specialize()
+        t.buildrtyper().specialize()
         graph = graphof(t, fn)
         if option.view:
             t.view()

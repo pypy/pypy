@@ -789,6 +789,49 @@ class AppTestNumArray(BaseNumpyAppTest):
         r = [1, 2] + array([1, 2])
         assert (r == [2, 4]).all()
 
+    def test_inline_op_scalar(self):
+        from numpypy import array
+        for op in [
+                '__iadd__',
+                '__isub__',
+                '__imul__',
+                '__idiv__',
+                '__ifloordiv__',
+                '__imod__',
+                '__ipow__',
+                '__ilshift__',
+                '__irshift__',
+                '__iand__',
+                '__ior__',
+                '__ixor__']:
+            a = b = array(range(3))
+            getattr(a, op).__call__(2)
+            assert id(a) == id(b)
+
+    def test_inline_op_array(self):
+        from numpypy import array
+        for op in [
+                '__iadd__',
+                '__isub__',
+                '__imul__',
+                '__idiv__',
+                '__ifloordiv__',
+                '__imod__',
+                '__ipow__',
+                '__ilshift__',
+                '__irshift__',
+                '__iand__',
+                '__ior__',
+                '__ixor__']:
+            a = b = array(range(5))
+            c = array(range(5))
+            d = array(5 * [2])
+            getattr(a, op).__call__(d)
+            assert id(a) == id(b)
+            reg_op = op.replace('__i', '__')
+            for i in range(5):
+                assert a[i] == getattr(c[i], reg_op).__call__(d[i])
+
     def test_add_list(self):
         from numpypy import array, ndarray
         a = array(range(5))

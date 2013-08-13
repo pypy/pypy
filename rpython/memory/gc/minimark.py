@@ -124,7 +124,7 @@ GCFLAG_CARDS_SET    = first_gcflag << 7     # <- at least one card bit is set
 # note that GCFLAG_CARDS_SET is the most significant bit of a byte:
 # this is required for the JIT (x86)
 
-TID_MASK            = (first_gcflag << 8) - 1
+_GCFLAG_FIRST_UNUSED = first_gcflag << 8    # the first unused bit
 
 
 FORWARDSTUB = lltype.GcStruct('forwarding_stub',
@@ -944,7 +944,7 @@ class MiniMarkGC(MovingGCBase):
             ll_assert(tid == -42, "bogus header for young obj")
         else:
             ll_assert(bool(tid), "bogus header (1)")
-            ll_assert(tid & ~TID_MASK == 0, "bogus header (2)")
+            ll_assert(tid & -_GCFLAG_FIRST_UNUSED == 0, "bogus header (2)")
         return result
 
     def get_forwarding_address(self, obj):
@@ -2046,6 +2046,8 @@ class MiniMarkGC(MovingGCBase):
     # The code relies on the fact that no weakref can be an old object
     # weakly pointing to a young object.  Indeed, weakrefs are immutable
     # so they cannot point to an object that was created after it.
+    # Thanks to this, during a minor collection, we don't have to fix
+    # or clear the address stored in old weakrefs.
     def invalidate_young_weakrefs(self):
         """Called during a nursery collection."""
         # walk over the list of objects that contain weakrefs and are in the
