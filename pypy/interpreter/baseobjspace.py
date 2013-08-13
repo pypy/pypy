@@ -231,18 +231,6 @@ class W_Root(object):
         msg = "__int__ returned non-int (type '%T')"
         raise operationerrfmt(space.w_TypeError, msg, w_result)
 
-    def long(self, space):
-        w_impl = space.lookup(self, '__long__')
-        if w_impl is None:
-            raise operationerrfmt(space.w_TypeError,
-                  "unsupported operand type for long(): '%T'", self)
-        w_result = space.get_and_call_function(w_impl, self)
-
-        if space.isinstance_w(w_result, space.w_long):
-            return w_result
-        msg = "__long__ returned non-long (type '%T')"
-        raise operationerrfmt(space.w_TypeError, msg, w_result)
-
     def __spacebind__(self, space):
         return self
 
