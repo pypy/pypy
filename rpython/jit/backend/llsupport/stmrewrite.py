@@ -143,7 +143,7 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
                 self.known_category[v] = 'P'
 
     def gen_malloc_nursery_varsize_frame(self, sizebox, v_result, tid):
-        """ Generate CALL_MALLOC_NURSERY_VARSIZE_FRAME
+        """ For now don't generate CALL_MALLOC_NURSERY_VARSIZE_FRAME
         """
         addr = self.gc_ll_descr.get_malloc_fn_addr('malloc_big_fixedsize')
         args = [ConstInt(addr), sizebox, ConstInt(tid)]

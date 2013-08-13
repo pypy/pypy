@@ -442,16 +442,52 @@ class STMReadBarrierDescr(STMBarrierDescr):
     def __init__(self, gc_ll_descr, stmcat):
         assert stmcat == 'P2R'
         STMBarrierDescr.__init__(self, gc_ll_descr, stmcat,
-                                 'stm_read_barrier') 
+                                 'stm_DirectReadBarrier') 
         # XXX: implement fastpath then change to stm_DirectReadBarrier
+
+    @specialize.arg(2)
+    def _do_barrier(self, gcref_struct, returns_modified_object):
+        assert returns_modified_object
+        from rpython.memory.gc.stmgc import get_hdr_revision
+        objadr = llmemory.cast_ptr_to_adr(gcref_struct)
+
+        # if h_revision == privat_rev of transaction
+        rev = get_hdr_revision(objadr)
+        priv_rev = self.llop1.stm_get_adr_of_private_rev_num(rffi.SIGNEDP)
+        if rev[0] == priv_rev[0]:
+            return gcref_struct
+
+        # XXX: readcache!
+        funcptr = self.get_barrier_funcptr(returns_modified_object)
+        res = funcptr(objadr)
+        return llmemory.cast_adr_to_ptr(res, llmemory.GCREF)
 
         
 class STMWriteBarrierDescr(STMBarrierDescr):
     def __init__(self, gc_ll_descr, stmcat):
         assert stmcat in ['P2W']
         STMBarrierDescr.__init__(self, gc_ll_descr, stmcat,
-                                 'stm_write_barrier')
-        # XXX: implement fastpath, then change to stm_WriteBarrier
+                                 'stm_WriteBarrier')
+
+    @specialize.arg(2)
+    def _do_barrier(self, gcref_struct, returns_modified_object):
+        assert returns_modified_object
+        from rpython.memory.gc.stmgc import (StmGC, get_hdr_revision,
+                                             get_hdr_tid)
+        objadr = llmemory.cast_ptr_to_adr(gcref_struct)
+
+        # if h_revision == privat_rev of transaction
+        rev = get_hdr_revision(objadr)
+        priv_rev = self.llop1.stm_get_adr_of_private_rev_num(rffi.SIGNEDP)
+        if rev[0] == priv_rev[0]:
+            # also WRITE_BARRIER not set?
+            tid = get_hdr_tid(objadr)[0]
+            if not (tid & StmGC.GCFLAG_WRITE_BARRIER):
+                return gcref_struct
+        
+        funcptr = self.get_barrier_funcptr(returns_modified_object)
+        res = funcptr(objadr)
+        return llmemory.cast_adr_to_ptr(res, llmemory.GCREF)
     
         
 class GcLLDescr_framework(GcLLDescription):

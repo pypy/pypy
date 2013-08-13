@@ -15,6 +15,18 @@ NULL = llmemory.NULL
 first_gcflag = 1 << (LONG_BIT//2)
 
 
+
+
+def get_hdr_tid(addr):
+    return llmemory.cast_adr_to_ptr(addr + StmGC.H_TID, rffi.SIGNEDP)
+
+def get_hdr_revision(addr):
+    return llmemory.cast_adr_to_ptr(addr + StmGC.H_REVISION, rffi.SIGNEDP)
+
+def get_hdr_original(addr):
+    return llmemory.cast_adr_to_ptr(addr + StmGC.H_ORIGINAL, rffi.SIGNEDP)
+
+
 class StmGC(MovingGCBase):
     _alloc_flavor_ = "raw"
     inline_simple_malloc = True
@@ -58,6 +70,8 @@ class StmGC(MovingGCBase):
     
     FX_MASK = 65535
 
+    def get_type_id(self, obj):
+        return llop.stm_get_tid(llgroup.HALFWORD, obj)
 
     def setup(self):
         # Hack: MovingGCBase.setup() sets up stuff related to id(), which
@@ -67,24 +81,12 @@ class StmGC(MovingGCBase):
         llop.stm_initialize(lltype.Void)
 
 
-    def get_type_id(self, obj):
-        return llop.stm_get_tid(llgroup.HALFWORD, obj)
-
-    def get_hdr_tid(self, addr):
-        return llmemory.cast_adr_to_ptr(addr + self.H_TID, rffi.SIGNEDP)
-
-    def get_hdr_revision(self, addr):
-        return llmemory.cast_adr_to_ptr(addr + self.H_REVISION, rffi.SIGNEDP)
-
-    def get_hdr_original(self, addr):
-        return llmemory.cast_adr_to_ptr(addr + self.H_ORIGINAL, rffi.SIGNEDP)
-
     def get_original_copy(self, obj):
         addr = llmemory.cast_ptr_to_adr(obj)
-        if bool(self.get_hdr_tid(addr)[0] & self.GCFLAG_PREBUILT_ORIGINAL):
+        if bool(get_hdr_tid(addr)[0] & StmGC.GCFLAG_PREBUILT_ORIGINAL):
             return obj
         #
-        orig = self.get_hdr_original(addr)[0]
+        orig = get_hdr_original(addr)[0]
         if orig == 0:
             return obj
         #
@@ -127,11 +129,12 @@ class StmGC(MovingGCBase):
         return llop.stm_weakref_allocate(llmemory.GCREF, size,
                                          typeid16, obj)
 
+
     def can_move(self, obj):
         """Means the reference will stay valid, except if not
         seen by the GC, then it can get collected."""
-        tid = self.get_hdr_tid(obj)[0]
-        if bool(tid & self.GCFLAG_OLD):
+        tid = get_hdr_tid(obj)[0]
+        if bool(tid & StmGC.GCFLAG_OLD):
             return False    # XXX wrong so far.  We should add a flag to the
                             # object that means "don't ever kill this copy"
         return True
@@ -157,7 +160,7 @@ class StmGC(MovingGCBase):
                                  source_start, dest_start, length):
         ll_assert(False, 'XXX')
         return False
-
+        
     def id(self, gcobj):
         return llop.stm_id(lltype.Signed, gcobj)
 

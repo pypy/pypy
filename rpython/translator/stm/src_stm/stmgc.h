@@ -167,23 +167,6 @@ extern __thread char *stm_read_barrier_cache;
 
 #define UNLIKELY(test)  __builtin_expect(test, 0)
 
-
-static inline gcptr stm_read_barrier(gcptr obj) {
-    /* XXX optimize to get the smallest code */
-    if (UNLIKELY((obj->h_revision != stm_private_rev_num) &&
-                 (FXCACHE_AT(obj) != obj)))
-        obj = stm_DirectReadBarrier(obj);
-    return obj;
-}
- 
-static inline gcptr stm_write_barrier(gcptr obj) {
-    if (UNLIKELY((obj->h_revision != stm_private_rev_num) |
-                 ((obj->h_tid & GCFLAG_WRITE_BARRIER) != 0)))
-        obj = stm_WriteBarrier(obj);
-    return obj;
-}
-
-#if 0
 #define stm_read_barrier(obj)                                   \
     (UNLIKELY(((obj)->h_revision != stm_private_rev_num) &&     \
               (FXCACHE_AT(obj) != (obj))) ?                     \
@@ -195,6 +178,6 @@ static inline gcptr stm_write_barrier(gcptr obj) {
               (((obj)->h_tid & GCFLAG_WRITE_BARRIER) != 0)) ?   \
         stm_WriteBarrier(obj)                                   \
      :  (obj))
-#endif
+
 
 #endif
