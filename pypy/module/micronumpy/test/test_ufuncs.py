@@ -955,4 +955,14 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert logaddexp2(float('inf'), float('-inf')) == float('inf')
         assert logaddexp2(float('inf'), float('inf')) == float('inf')
 
+    def test_ones_like(self):
+        from numpypy import array, complex, ones_like
 
+        assert ones_like(2) == array(1)
+        assert ones_like(complex(2)) == array(complex(1))
+
+    def test_zeros_like(self):
+        from numpypy import array, complex, zeros_like
+
+        assert zeros_like(2) == array(0)
+        assert zeros_like(complex(2)) == array(complex(0))

@@ -314,6 +314,15 @@ class Primitive(object):
         else:
             return v
 
+    @simple_unary_op
+    def ones_like(self, v):
+        return 1
+
+    @simple_unary_op
+    def zeros_like(self, v):
+        return 0
+
+
 class NonNativePrimitive(Primitive):
     _mixin_ = True
 
@@ -1608,6 +1617,15 @@ class ComplexFloating(object):
             return -rfloat.INFINITY, 0
         except ValueError:
             return rfloat.NAN, rfloat.NAN
+
+    @complex_unary_op
+    def ones_like(self, v):
+        return 1, 0
+
+    @complex_unary_op
+    def zeros_like(self, v):
+        return 0, 0
+
 
 class Complex64(ComplexFloating, BaseType):
     _attrs_ = ()
