@@ -1618,6 +1618,7 @@ class RegisterOs(BaseLazyRegistering):
             compilation_info=ExternalCompilationInfo(libraries=['util']))
         def forkpty_llimpl():
             master_p = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
+            master_p[0] = rffi.cast(rffi.INT, -1)
             opaqueaddr = rthread.gc_thread_before_fork()
             childpid = rffi.cast(lltype.Signed,
                                  os_forkpty(master_p, None, None, None))
