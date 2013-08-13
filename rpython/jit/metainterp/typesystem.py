@@ -52,7 +52,10 @@ class LLTypeHelper(TypeSystemHelper):
         return FUNCTYPE, FUNCPTRTYPE
 
     def get_superclass(self, TYPE):
-        return lltype.Ptr(TYPE.TO._first_struct()[1])
+        SUPER = TYPE.TO._first_struct()[1]
+        if SUPER is None:
+            return None
+        return lltype.Ptr(SUPER)
 
     def cast_to_instance_maybe(self, TYPE, instance):
         return lltype.cast_pointer(TYPE, instance)
