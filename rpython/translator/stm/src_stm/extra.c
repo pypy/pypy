@@ -154,6 +154,19 @@ _Bool stm_pointer_equal(gcptr p1, gcptr p2)
     return (p1 == p2);
 }
 
+_Bool stm_pointer_equal_prebuilt(gcptr p1, gcptr p2)
+{
+    assert(p2 != NULL);
+    assert(p2->h_tid & GCFLAG_PREBUILT_ORIGINAL);
+
+    if (p1 == p2)
+        return 1;
+
+    /* the only possible case to still get True is if p2 == p1->h_original */
+    return (p1 != NULL) && (p1->h_original == p2) &&
+        !(p1->h_tid & GCFLAG_PREBUILT_ORIGINAL);
+}
+
 /************************************************************/
 
 void stm_abort_info_push(gcptr obj, long fieldoffsets[])
@@ -205,7 +218,7 @@ size_t stm_decode_abort_info(struct tx_descriptor *d, long long elapsed_time,
     WRITE_BUF(buffer, res_size);
     WRITE('e');
     for (i=0; i<d->abortinfo.size; i+=2) {
-        char *object = (char *)stm_RepeatReadBarrier(d->abortinfo.items[i+0]);
+        char *object = (char*)stm_repeat_read_barrier(d->abortinfo.items[i+0]);
         long *fieldoffsets = (long*)d->abortinfo.items[i+1];
         long kind, offset;
         size_t rps_size;

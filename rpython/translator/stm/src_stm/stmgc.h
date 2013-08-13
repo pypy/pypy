@@ -42,6 +42,7 @@ revision_t stm_id(gcptr);
 /* returns nonzero if the two object-copy pointers belong to the
 same original object */
 _Bool stm_pointer_equal(gcptr, gcptr);
+_Bool stm_pointer_equal_prebuilt(gcptr, gcptr); /* 2nd arg is known prebuilt */
 
 /* to push/pop objects into the local shadowstack */
 #if 0     // (optimized version below)
@@ -59,7 +60,7 @@ void stm_finalize(void);
 int stm_enter_callback_call(void);
 void stm_leave_callback_call(int);
 
-/* read/write barriers (the most general versions only for now).
+/* read/write barriers.
 
    - the read barrier must be applied before reading from an object.
      the result is valid as long as we're in the same transaction,
@@ -69,10 +70,28 @@ void stm_leave_callback_call(int);
      the result is valid for a shorter period of time: we have to
      do stm_write_barrier() again if we ended the transaction, or
      if we did a potential collection (e.g. stm_allocate()).
+
+   - as an optimization, stm_repeat_read_barrier() can be used
+     instead of stm_read_barrier() if the object was already
+     obtained by a stm_read_barrier() in the same transaction.
+     The only thing that may have occurred is that a
+     stm_write_barrier() on the same object could have made it
+     invalid.
+
+   - a different optimization is to read immutable fields: in order
+     to do that, use stm_immut_read_barrier(), which only activates
+     on stubs.
+
+   - stm_repeat_write_barrier() can be used on an object on which
+     we already did stm_write_barrier(), but a potential collection
+     can have occurred.
 */
 #if 0     // (optimized version below)
 gcptr stm_read_barrier(gcptr);
 gcptr stm_write_barrier(gcptr);
+gcptr stm_repeat_read_barrier(gcptr);
+gcptr stm_immut_read_barrier(gcptr);
+gcptr stm_repeat_write_barrier(gcptr);   /* <= always returns its argument */
 #endif
 
 /* start a new transaction, calls callback(), and when it returns
@@ -159,7 +178,10 @@ extern __thread gcptr *stm_shadowstack;
 extern __thread revision_t stm_private_rev_num;
 gcptr stm_DirectReadBarrier(gcptr);
 gcptr stm_WriteBarrier(gcptr);
+static const revision_t GCFLAG_PUBLIC_TO_PRIVATE = STM_FIRST_GCFLAG << 4;
 static const revision_t GCFLAG_WRITE_BARRIER = STM_FIRST_GCFLAG << 5;
+static const revision_t GCFLAG_MOVED = STM_FIRST_GCFLAG << 6;
+static const revision_t GCFLAG_STUB = STM_FIRST_GCFLAG << 8;
 extern __thread char *stm_read_barrier_cache;
 #define FX_MASK 65535
 #define FXCACHE_AT(obj)  \
@@ -167,23 +189,6 @@ extern __thread char *stm_read_barrier_cache;
 
 #define UNLIKELY(test)  __builtin_expect(test, 0)
 
-
-static inline gcptr stm_read_barrier(gcptr obj) {
-    /* XXX optimize to get the smallest code */
-    if (UNLIKELY((obj->h_revision != stm_private_rev_num) &&
-                 (FXCACHE_AT(obj) != obj)))
-        obj = stm_DirectReadBarrier(obj);
-    return obj;
-}
- 
-static inline gcptr stm_write_barrier(gcptr obj) {
-    if (UNLIKELY((obj->h_revision != stm_private_rev_num) |
-                 ((obj->h_tid & GCFLAG_WRITE_BARRIER) != 0)))
-        obj = stm_WriteBarrier(obj);
-    return obj;
-}
-
-#if 0
 #define stm_read_barrier(obj)                                   \
     (UNLIKELY(((obj)->h_revision != stm_private_rev_num) &&     \
               (FXCACHE_AT(obj) != (obj))) ?                     \
@@ -195,6 +200,21 @@ static inline gcptr stm_write_barrier(gcptr obj) {
               (((obj)->h_tid & GCFLAG_WRITE_BARRIER) != 0)) ?   \
         stm_WriteBarrier(obj)                                   \
      :  (obj))
-#endif
+
+#define stm_repeat_read_barrier(obj)                            \
+    (UNLIKELY((obj)->h_tid & (GCFLAG_PUBLIC_TO_PRIVATE | GCFLAG_MOVED)) ? \
+        stm_RepeatReadBarrier(obj)                              \
+     :  (obj))
+
+#define stm_immut_read_barrier(obj)                             \
+    (UNLIKELY((obj)->h_tid & GCFLAG_STUB) ?                     \
+        stm_ImmutReadBarrier(obj)                               \
+     :  (obj))
+
+#define stm_repeat_write_barrier(obj)                           \
+    (UNLIKELY((obj)->h_tid & GCFLAG_WRITE_BARRIER) ?            \
+        stm_RepeatWriteBarrier(obj)                             \
+     :  (obj))
+
 
 #endif

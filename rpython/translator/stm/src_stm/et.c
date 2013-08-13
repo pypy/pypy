@@ -7,6 +7,7 @@
  */
 #include "stmimpl.h"
 
+#ifdef _GC_DEBUG
 char tmp_buf[128];
 char* stm_dbg_get_hdr_str(gcptr obj)
 {
@@ -26,6 +27,7 @@ char* stm_dbg_get_hdr_str(gcptr obj)
     cur += sprintf(cur, "tid=%ld", stm_get_tid(obj));
     return tmp_buf;
 }
+#endif
 
 
 
@@ -275,29 +277,81 @@ gcptr stm_RepeatReadBarrier(gcptr P)
   /* Version of stm_DirectReadBarrier() that doesn't abort and assumes
    * that 'P' was already an up-to-date result of a previous
    * stm_DirectReadBarrier().  We only have to check if we did in the
-   * meantime a stm_write_barrier().
+   * meantime a stm_write_barrier().  Should only be called if we
+   * have the flag PUBLIC_TO_PRIVATE or on MOVED objects.  This version
+   * should never abort (it is used in stm_decode_abort_info()).
    */
-  if (P->h_tid & GCFLAG_PUBLIC)
-    {
-      if (P->h_tid & GCFLAG_MOVED)
-        {
-          P = (gcptr)P->h_revision;
-          assert(P->h_tid & GCFLAG_PUBLIC);
-        }
-      if (P->h_tid & GCFLAG_PUBLIC_TO_PRIVATE)
-        {
-          struct tx_descriptor *d = thread_descriptor;
-          wlog_t *item;
-          G2L_FIND(d->public_to_private, P, item, goto no_private_obj);
+  assert(P->h_tid & GCFLAG_PUBLIC);
+  assert(!(P->h_tid & GCFLAG_STUB));
 
-          P = item->val;
-          assert(!(P->h_tid & GCFLAG_PUBLIC));
-        no_private_obj:
-          ;
+  if (P->h_tid & GCFLAG_MOVED)
+    {
+      dprintf(("repeat_read_barrier: %p -> %p moved\n", P,
+               (gcptr)P->h_revision));
+      P = (gcptr)P->h_revision;
+      assert(P->h_tid & GCFLAG_PUBLIC);
+      assert(!(P->h_tid & GCFLAG_STUB));
+      assert(!(P->h_tid & GCFLAG_MOVED));
+      if (!(P->h_tid & GCFLAG_PUBLIC_TO_PRIVATE))
+        return P;
+    }
+  assert(P->h_tid & GCFLAG_PUBLIC_TO_PRIVATE);
+
+  struct tx_descriptor *d = thread_descriptor;
+  wlog_t *item;
+  G2L_FIND(d->public_to_private, P, item, goto no_private_obj);
+
+  /* We have a key in 'public_to_private'.  The value is the
+     corresponding private object. */
+  dprintf(("repeat_read_barrier: %p -> %p public_to_private\n", P, item->val));
+  P = item->val;
+  assert(!(P->h_tid & GCFLAG_PUBLIC));
+  assert(!(P->h_tid & GCFLAG_STUB));
+  assert(is_private(P));
+  return P;
+
+ no_private_obj:
+  /* Key not found.  It should not be waiting in 'stolen_objects',
+     because this case from steal.c applies to objects to were originally
+     backup objects.  'P' cannot be a backup object if it was obtained
+     earlier as a result of stm_read_barrier().
+  */
+  return P;
+}
+
+gcptr stm_ImmutReadBarrier(gcptr P)
+{
+  assert(P->h_tid & GCFLAG_STUB);
+  assert(P->h_tid & GCFLAG_PUBLIC);
+
+  revision_t v = ACCESS_ONCE(P->h_revision);
+  assert(IS_POINTER(v));  /* "is a pointer", "has a more recent revision" */
+
+  if (!(v & 2))
+    {
+      P = (gcptr)v;
+    }
+  else
+    {
+      /* follow a stub reference */
+      struct tx_descriptor *d = thread_descriptor;
+      struct tx_public_descriptor *foreign_pd = STUB_THREAD(P);
+      if (foreign_pd == d->public_descriptor)
+        {
+          /* Same thread: dereference the pointer directly. */
+          dprintf(("immut_read_barrier: %p -> %p via stub\n  ", P,
+                   (gcptr)(v - 2)));
+          P = (gcptr)(v - 2);
+        }
+      else
+        {
+          /* stealing: needed because accessing v - 2 from this thread
+             is forbidden (the target might disappear under our feet) */
+          dprintf(("immut_read_barrier: %p -> stealing...\n  ", P));
+          stm_steal_stub(P);
         }
     }
-  assert(!(P->h_tid & GCFLAG_STUB));
-  return P;
+  return stm_immut_read_barrier(P);   /* retry */
 }
 
 static gcptr _match_public_to_private(gcptr P, gcptr pubobj, gcptr privobj,
@@ -563,6 +617,16 @@ static inline void record_write_barrier(gcptr P)
       P->h_tid &= ~GCFLAG_WRITE_BARRIER;
       gcptrlist_insert(&thread_descriptor->old_objects_to_trace, P);
     }
+}
+
+gcptr stm_RepeatWriteBarrier(gcptr P)
+{
+  assert(!(P->h_tid & GCFLAG_IMMUTABLE));
+  assert(is_private(P));
+  assert(P->h_tid & GCFLAG_WRITE_BARRIER);
+  P->h_tid &= ~GCFLAG_WRITE_BARRIER;
+  gcptrlist_insert(&thread_descriptor->old_objects_to_trace, P);
+  return P;
 }
 
 gcptr stm_WriteBarrier(gcptr P)
