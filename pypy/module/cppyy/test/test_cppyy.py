@@ -1,7 +1,8 @@
 import py, os, sys
 
+isdummy = ''
 if py.path.local.sysfind('genreflex') is None:
-    py.test.skip("genreflex is not installed")
+    isdummy = 'DUMMY=t'
 
 from pypy.module.cppyy import interp_cppyy, executor
 
@@ -12,7 +13,7 @@ test_dct = str(currpath.join("example01Dict.so"))
 def setup_module(mod):
     if sys.platform == 'win32':
         py.test.skip("win32 not supported so far")
-    err = os.system("cd '%s' && make example01Dict.so" % currpath)
+    err = os.system("cd '%s' && make %s example01Dict.so" % (currpath, isdummy))
     if err:
         raise OSError("'make' failed (see stderr)")
 
