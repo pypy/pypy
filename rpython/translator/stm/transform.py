@@ -11,6 +11,7 @@ class STMTransformer(object):
 
     def __init__(self, translator):
         self.translator = translator
+        self.barrier_counts = {}
 
     def transform(self):
         assert not hasattr(self.translator, 'stm_transformation_applied')
@@ -30,6 +31,8 @@ class STMTransformer(object):
         self.collect_analyzer = CollectAnalyzer(self.translator)
         for graph in self.translator.graphs:
             insert_stm_barrier(self, graph)
+        for key, value in sorted(self.barrier_counts.items()):
+            log("%s: %d barriers" % (key, value[0]))
         del self.write_analyzer
         del self.collect_analyzer
 

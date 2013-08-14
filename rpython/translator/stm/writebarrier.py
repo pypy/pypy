@@ -9,15 +9,6 @@ MALLOCS = set([
     'malloc_nonmovable', 'malloc_nonmovable_varsize',
     ])
 
-NEEDS_BARRIER = {
-    ('P', 'R'): True,
-    ('P', 'W'): True,
-    ('R', 'R'): False,
-    ('R', 'W'): True,
-    ('W', 'R'): False,
-    ('W', 'W'): False,
-    }
-
 def unwraplist(list_v):
     for v in list_v: 
         if isinstance(v, Constant):
@@ -42,23 +33,32 @@ def is_immutable(op):
         return OUTER._immutable_interiorfield(unwraplist(op.args[1:-1]))
     raise AssertionError(op)
 
+def needs_barrier(frm, to):
+    return to > frm
+
 
 def insert_stm_barrier(stmtransformer, graph):
     """This function uses the following characters for 'categories':
 
-           * 'P': a general pointer
+           * 'A': any general pointer
+           * 'I': not a stub (immut_read_barrier was applied)
+           * 'Q': same as R, except needs a repeat_read_barrier
            * 'R': the read barrier was applied
+           * 'V': same as W, except needs a repeat_write_barrier
            * 'W': the write barrier was applied
+
+       The letters are chosen so that a barrier is needed to change a
+       pointer from category x to category y if and only if y > x.
     """
     graphinfo = stmtransformer.write_analyzer.compute_graph_info(graph)
 
     def get_category(v):
-        return category.get(v, 'P')
+        return category.get(v, 'A')
 
     def get_category_or_null(v):
         if isinstance(v, Constant) and not v.value:
-            return 'N'
-        return category.get(v, 'P')
+            return None
+        return category.get(v, 'A')
 
     def renamings_get(v):
         if v not in renamings:
@@ -77,26 +77,31 @@ def insert_stm_barrier(stmtransformer, graph):
         wants_a_barrier = {}
         expand_comparison = set()
         for op in block.operations:
-            # [1] XXX we can't leave getarraysize or the immutable getfields
-            #     fully unmodified.  We'd need at least some lightweight
-            #     read barrier to detect stubs.  For now we just put a
-            #     regular read barrier.
-            if (op.opname in ('getfield', 'getarrayitem',
-                              'getinteriorfield',
-                              'getarraysize', 'getinteriorarraysize', # XXX [1]
-                              ) and
-                  op.result.concretetype is not lltype.Void and
-                  op.args[0].concretetype.TO._gckind == 'gc' and
-                  True): #not is_immutable(op)): XXX see [1]
+            is_getter = (op.opname in ('getfield', 'getarrayitem',
+                                       'getinteriorfield') and
+                         op.result.concretetype is not lltype.Void and
+                         op.args[0].concretetype.TO._gckind == 'gc')
+            if (op.opname in ('getarraysize', 'getinteriorarraysize')
+                or (is_getter and is_immutable(op))):
+                # we can't leave getarraysize or the immutable getfields
+                # fully unmodified: we need at least immut_read_barrier
+                # to detect stubs.
+                wants_a_barrier[op] = 'I'
+
+            elif is_getter:
+                # the non-immutable getfields need a regular read barrier
                 wants_a_barrier[op] = 'R'
+
             elif (op.opname in ('setfield', 'setarrayitem',
                                 'setinteriorfield') and
                   op.args[-1].concretetype is not lltype.Void and
-                  op.args[0].concretetype.TO._gckind == 'gc' and
-                  not is_immutable(op)):
+                  op.args[0].concretetype.TO._gckind == 'gc'):
+                # setfields need a regular write barrier
                 wants_a_barrier[op] = 'W'
+
             elif (op.opname in ('ptr_eq', 'ptr_ne') and
                   op.args[0].concretetype.TO._gckind == 'gc'):
+                # GC pointer comparison might need special care
                 expand_comparison.add(op)
         #
         if wants_a_barrier or expand_comparison:
@@ -119,22 +124,20 @@ def insert_stm_barrier(stmtransformer, graph):
                     v_holder = renamings.setdefault(v, [v])
                     v = v_holder[0]
                     frm = get_category(v)
-                    if NEEDS_BARRIER[frm, to]:
-                        c_info = Constant('%s2%s' % (frm, to), lltype.Void)
+                    if needs_barrier(frm, to):
+                        try:
+                            b = stmtransformer.barrier_counts[frm, to]
+                        except KeyError:
+                            c_info = Constant('%s2%s' % (frm, to), lltype.Void)
+                            b = [0, c_info]
+                            stmtransformer.barrier_counts[frm, to] = b
+                        b[0] += 1
+                        c_info = b[1]
                         w = varoftype(v.concretetype)
                         newop = SpaceOperation('stm_barrier', [c_info, v], w)
                         newoperations.append(newop)
                         v_holder[0] = w
                         category[w] = to
-                        if to == 'W':
-                            # if any of the other vars in the same path
-                            # points to the same object, they must lose
-                            # their read-status now
-                            for u in block.getvariables():
-                                if get_category(u) == 'R' \
-                                  and u.concretetype == v.concretetype:
-                                    category[u] = 'P'
-                            
                 #
                 newop = SpaceOperation(op.opname,
                                        [renamings_get(v) for v in op.args],
@@ -144,7 +147,7 @@ def insert_stm_barrier(stmtransformer, graph):
                 if op in expand_comparison:
                     cats = (get_category_or_null(newop.args[0]),
                             get_category_or_null(newop.args[1]))
-                    if 'N' not in cats and cats != ('W', 'W'):
+                    if None not in cats and (cats[0] < 'V' or cats[1] < 'V'):
                         if newop.opname == 'ptr_ne':
                             v = varoftype(lltype.Bool)
                             negop = SpaceOperation('bool_not', [v],
@@ -155,28 +158,30 @@ def insert_stm_barrier(stmtransformer, graph):
 
                 if stmtransformer.collect_analyzer.analyze(op):
                     # this operation can collect: we bring all 'W'
-                    # categories back to 'R', because we would need
-                    # another stm_write_barrier on them afterwards
+                    # categories back to 'V', because we would need
+                    # a repeat_write_barrier on them afterwards
                     for v, cat in category.items():
                         if cat == 'W':
-                            category[v] = 'R'
+                            category[v] = 'V'
 
                 effectinfo = stmtransformer.write_analyzer.analyze(
                     op, graphinfo=graphinfo)
                 if effectinfo:
                     if effectinfo is top_set:
                         # this operation can perform random writes: any
-                        # 'R'-category object falls back to 'P' because
-                        # we would need another stm_read_barrier()
+                        # 'R'-category object falls back to 'Q' because
+                        # we would need a repeat_read_barrier()
                         for v, cat in category.items():
                             if cat == 'R':
-                                category[v] = 'P'
+                                category[v] = 'Q'
                     else:
                         # the same, but only on objects of the right types
                         types = set([entry[1] for entry in effectinfo])
                         for v in category.keys():
                             if v.concretetype in types and category[v] == 'R':
-                                category[v] = 'P'
+                                category[v] = 'Q'
+                        # XXX this is likely not general enough: we need
+                        # to consider 'types' or any base type
 
                 if op.opname in MALLOCS:
                     category[op.result] = 'W'

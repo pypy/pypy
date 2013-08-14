@@ -2,7 +2,7 @@ from rpython.rtyper.lltypesystem import lltype, opimpl
 from rpython.rtyper.llinterp import LLFrame
 from rpython.rtyper.test.test_llinterp import get_interpreter, clear_tcache
 from rpython.translator.stm.transform import STMTransformer
-from rpython.translator.stm.writebarrier import NEEDS_BARRIER
+from rpython.translator.stm.writebarrier import needs_barrier
 from rpython.conftest import option
 
 
@@ -33,9 +33,9 @@ class BaseTestTransform(object):
         if isinstance(p, _stmptr):
             return p._category
         if not p:
-            return 'N'
+            return None
         if p._solid:
-            return 'P'     # allocated with immortal=True
+            return 'A'     # allocated with immortal=True
         raise AssertionError("unknown category on %r" % (p,))
 
     def interpret(self, fn, args):
@@ -76,14 +76,16 @@ class LLSTMFrame(LLFrame):
 
     def check_category(self, p, expected):
         cat = self.get_category_or_null(p)
-        assert cat in 'NPRW'
+        assert cat in 'AQRVW' or cat is None
+        if expected is not None:
+            assert cat is not None and cat >= expected
         return cat
 
     def op_stm_barrier(self, kind, obj):
         frm, middledigit, to = kind
         assert middledigit == '2'
         cat = self.check_category(obj, frm)
-        if not NEEDS_BARRIER[cat, to]:
+        if not needs_barrier(cat, to):
             # a barrier, but with no effect
             self.llinterpreter.tester.barriers.append(kind.lower())
             return obj
@@ -96,32 +98,38 @@ class LLSTMFrame(LLFrame):
             return ptr2
 
     def op_stm_ptr_eq(self, obj1, obj2):
-        self.check_category(obj1, 'P')
-        self.check_category(obj2, 'P')
+        self.check_category(obj1, None)
+        self.check_category(obj2, None)
         self.llinterpreter.tester.barriers.append('=')
         return obj1 == obj2
 
     def op_getfield(self, obj, field):
-        if not obj._TYPE.TO._immutable_field(field):
-            self.check_category(obj, 'R')
+        if obj._TYPE.TO._immutable_field(field):
+            expected = 'I'
+        else:
+            expected = 'R'
+        self.check_category(obj, expected)
         return LLFrame.op_getfield(self, obj, field)
 
     def op_setfield(self, obj, fieldname, fieldvalue):
-        if not obj._TYPE.TO._immutable_field(fieldname):
-            self.check_category(obj, 'W')
-            # convert R -> P all other pointers to the same object we can find
-            for p in self.all_stm_ptrs():
-                if p._category == 'R' and p._T == obj._T and p == obj:
-                    _stmptr._category.__set__(p, 'P')
+        self.check_category(obj, 'W')
+        # convert R -> Q all other pointers to the same object we can find
+        for p in self.all_stm_ptrs():
+            if p._category == 'R' and p._T == obj._T and p == obj:
+                _stmptr._category.__set__(p, 'Q')
         return LLFrame.op_setfield(self, obj, fieldname, fieldvalue)
 
     def op_cast_pointer(self, RESTYPE, obj):
-        cat = self.check_category(obj, 'P')
+        cat = self.check_category(obj, None)
         p = opimpl.op_cast_pointer(RESTYPE, obj)
         return _stmptr(p, cat)
     op_cast_pointer.need_result_type = True
 
     def op_malloc(self, obj, flags):
+        # convert all existing pointers W -> V
+        for p in self.all_stm_ptrs():
+            if p._category == 'W':
+                _stmptr._category.__set__(p, 'V')
         p = LLFrame.op_malloc(self, obj, flags)
         ptr2 = _stmptr(p, 'W')
         self.llinterpreter.tester.writemode.add(ptr2._obj)

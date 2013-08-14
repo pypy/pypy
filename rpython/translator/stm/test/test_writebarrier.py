@@ -24,7 +24,7 @@ class TestTransform(BaseTestTransform):
         res = self.interpret(f1, [-5])
         assert res == 42
         assert len(self.writemode) == 0
-        assert self.barriers == ['P2R']
+        assert self.barriers == ['A2R']
 
     def test_simple_write(self):
         X = lltype.GcStruct('X', ('foo', lltype.Signed))
@@ -37,7 +37,7 @@ class TestTransform(BaseTestTransform):
         self.interpret(f1, [4])
         assert x1.foo == 4
         assert len(self.writemode) == 1
-        assert self.barriers == ['P2W']
+        assert self.barriers == ['A2W']
 
     def test_multiple_reads(self):
         X = lltype.GcStruct('X', ('foo', lltype.Signed),
@@ -58,7 +58,7 @@ class TestTransform(BaseTestTransform):
         res = self.interpret(f1, [4])
         assert res == -81
         assert len(self.writemode) == 0
-        assert self.barriers == ['P2R']
+        assert self.barriers == ['A2R']
 
     def test_malloc(self):
         X = lltype.GcStruct('X', ('foo', lltype.Signed))
@@ -81,7 +81,7 @@ class TestTransform(BaseTestTransform):
 
         self.interpret(f1, [4])
         assert len(self.writemode) == 2
-        assert self.barriers == ['P2W', 'r2w']
+        assert self.barriers == ['A2W', 'V2W']
 
     def test_repeat_read_barrier_after_malloc(self):
         X = lltype.GcStruct('X', ('foo', lltype.Signed))
@@ -95,7 +95,7 @@ class TestTransform(BaseTestTransform):
 
         self.interpret(f1, [4])
         assert len(self.writemode) == 1
-        assert self.barriers == ['P2R']
+        assert self.barriers == ['A2R']
 
     def test_write_may_alias(self):
         X = lltype.GcStruct('X', ('foo', lltype.Signed))
@@ -109,10 +109,10 @@ class TestTransform(BaseTestTransform):
         y = lltype.malloc(X, immortal=True)
         res = self.interpret(f1, [x, y])
         assert res == 36
-        assert self.barriers == ['P2R', 'P2W', 'p2r']
+        assert self.barriers == ['A2R', 'A2W', 'q2r']
         res = self.interpret(f1, [x, x])
         assert res == 42
-        assert self.barriers == ['P2R', 'P2W', 'P2R']
+        assert self.barriers == ['A2R', 'A2W', 'Q2R']
 
     def test_write_cannot_alias(self):
         X = lltype.GcStruct('X', ('foo', lltype.Signed))
@@ -127,7 +127,7 @@ class TestTransform(BaseTestTransform):
         y = lltype.malloc(Y, immortal=True)
         res = self.interpret(f1, [x, y])
         assert res == 36
-        assert self.barriers == ['P2R', 'P2W']
+        assert self.barriers == ['A2R', 'A2W']
 
     def test_call_external_random_effects(self):
         X = lltype.GcStruct('X', ('foo', lltype.Signed))
@@ -140,7 +140,7 @@ class TestTransform(BaseTestTransform):
         x = lltype.malloc(X, immortal=True); x.foo = 6
         res = self.interpret(f1, [x])
         assert res == 36
-        assert self.barriers == ['P2R', 'p2r']
+        assert self.barriers == ['A2R', 'a2r']
 
     def test_call_external_no_random_effects(self):
         X = lltype.GcStruct('X', ('foo', lltype.Signed))
@@ -157,7 +157,7 @@ class TestTransform(BaseTestTransform):
         x = lltype.malloc(X, immortal=True); x.foo = 6
         res = self.interpret(f1, [x])
         assert res == 36
-        assert self.barriers == ['P2R']
+        assert self.barriers == ['A2R']
 
     def test_pointer_compare_0(self):
         X = lltype.GcStruct('X', ('foo', lltype.Signed))
@@ -190,10 +190,10 @@ class TestTransform(BaseTestTransform):
         y = lltype.malloc(X, immortal=True)
         res = self.interpret(f1, [x, y])
         assert res == 0
-        assert self.barriers == ['P2W', '=']
+        assert self.barriers == ['A2W', '=']
         res = self.interpret(f1, [x, x])
         assert res == 1
-        assert self.barriers == ['P2W', '=']
+        assert self.barriers == ['A2W', '=']
 
     def test_pointer_compare_3(self):
         X = lltype.GcStruct('X', ('foo', lltype.Signed))
@@ -204,10 +204,10 @@ class TestTransform(BaseTestTransform):
         y = lltype.malloc(X, immortal=True)
         res = self.interpret(f1, [x, y])
         assert res == 1
-        assert self.barriers == ['P2W', '=']
+        assert self.barriers == ['A2W', '=']
         res = self.interpret(f1, [x, x])
         assert res == 0
-        assert self.barriers == ['P2W', '=']
+        assert self.barriers == ['A2W', '=']
 
     def test_pointer_compare_4(self):
         X = lltype.GcStruct('X', ('foo', lltype.Signed))
@@ -219,10 +219,10 @@ class TestTransform(BaseTestTransform):
         y = lltype.malloc(X, immortal=True)
         res = self.interpret(f1, [x, y])
         assert res == 1
-        assert self.barriers == ['P2W', 'P2W']
+        assert self.barriers == ['A2W', 'A2W']
         res = self.interpret(f1, [x, x])
         assert res == 0
-        assert self.barriers == ['P2W', 'P2W']
+        assert self.barriers == ['A2W', 'A2W']
 
     def test_simple_loop(self):
         X = lltype.GcStruct('X', ('foo', lltype.Signed))
@@ -235,7 +235,7 @@ class TestTransform(BaseTestTransform):
         res = self.interpret(f1, [x, 5])
         assert res == 0
         # for now we get this.  Later, we could probably optimize it
-        assert self.barriers == ['P2W', 'p2w', 'p2w', 'p2w', 'p2w']
+        assert self.barriers == ['A2W', 'a2w', 'a2w', 'a2w', 'a2w']
 
     def test_subclassing(self):
         class X:
@@ -261,11 +261,11 @@ class TestTransform(BaseTestTransform):
 
         res = self.interpret(f1, [10])
         assert res == 42 + 10
-        assert self.barriers == ['p2r', 'p2r', 'p2r'] # from 3 blocks (could be
+        assert self.barriers == ['a2r', 'a2r', 'a2r'] # from 3 blocks (could be
                                                       # optimized later)
         res = self.interpret(f1, [-10])
         assert res == 815
-        assert self.barriers == ['p2r', 'p2r']
+        assert self.barriers == ['a2r', 'a2r']
 
     def test_write_barrier_repeated(self):
         class X:
@@ -278,7 +278,7 @@ class TestTransform(BaseTestTransform):
             return y
 
         res = self.interpret(f1, [10])
-        assert self.barriers == ['P2W', 'r2w']
+        assert self.barriers == ['A2W', 'r2w']
 
 
 external_stuff = rffi.llexternal('external_stuff', [], lltype.Void,
