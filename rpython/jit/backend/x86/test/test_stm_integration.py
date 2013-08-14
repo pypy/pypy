@@ -35,9 +35,6 @@ class MockSTMRootMap(object):
         self.stack_addr = lltype.malloc(TP, 1,
                                         flavor='raw')
         self.stack_addr[0] = rffi.cast(lltype.Signed, self.stack)
-    def __del__(self):
-        lltype.free(self.stack_addr, flavor='raw')
-        lltype.free(self.stack, flavor='raw')
     def register_asm_addr(self, start, mark):
         pass
     def get_root_stack_top_addr(self):
@@ -104,12 +101,29 @@ class FakeGCHeaderBuilder:
 
 class fakellop:
     PRIV_REV = 66
+    def __init__(self):
+        self.TP = rffi.CArray(lltype.Signed)
+        self.privrevp = lltype.malloc(self.TP, n=1, flavor='raw', 
+                                      track_allocation=False, zero=True)
+        self.privrevp[0] = fakellop.PRIV_REV
+
+        entries = (StmGC.FX_MASK + 1) / WORD
+        self.read_cache = lltype.malloc(self.TP, n=entries, flavor='raw',
+                                        track_allocation=False, zero=True)
+        self.read_cache_adr = lltype.malloc(self.TP, 1, flavor='raw',
+                                            track_allocation=False)
+        self.read_cache_adr[0] = rffi.cast(lltype.Signed, self.read_cache)
+        
+    def set_cache_item(self, obj, value):
+        obj_int = rffi.cast(lltype.Signed, obj)
+        idx = (obj_int & StmGC.FX_MASK) / WORD
+        self.read_cache[idx] = rffi.cast(lltype.Signed, value)
+        
     def stm_get_adr_of_private_rev_num(self, _):
-        TP = rffi.CArray(lltype.Signed)
-        p = lltype.malloc(TP, n=1, flavor='raw', 
-                          track_allocation=False, zero=True)
-        p[0] = fakellop.PRIV_REV
-        return p
+        return self.privrevp
+
+    def stm_get_adr_of_read_barrier_cache(self, _):
+        return self.read_cache_adr
 
 class GCDescrStm(GCDescrShadowstackDirect):
     def __init__(self):
@@ -296,11 +310,15 @@ class TestGcStm(BaseTestRegalloc):
                 self.assert_not_in(called, [sgcref])
             else:
                 self.assert_in(called, [sgcref])
-                
-            # XXX: read_cache test!
-            # # now add it to the read-cache and check
-            # # that it will never call the read_barrier
-            # assert not called_on
+
+            # now check if sgcref in readcache:
+            called[:] = []
+            descr.llop1.set_cache_item(sgcref, sgcref)
+            descr._do_barrier(sgcref,
+                              returns_modified_object=True)
+            self.assert_not_in(called, [sgcref])
+            descr.llop1.set_cache_item(sgcref, 0)
+
 
     def test_gc_write_barrier_fastpath(self):
         from rpython.jit.backend.llsupport.gc import STMWriteBarrierDescr

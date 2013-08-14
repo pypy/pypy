@@ -456,7 +456,16 @@ class STMReadBarrierDescr(STMBarrierDescr):
         priv_rev = self.llop1.stm_get_adr_of_private_rev_num(rffi.SIGNEDP)
         if objhdr.h_revision == priv_rev[0]:
             return gcref_struct
-
+        
+        read_cache = self.llop1.stm_get_adr_of_read_barrier_cache(rffi.SIGNEDP)
+        objint = llmemory.cast_adr_to_int(objadr)
+        assert WORD == 8, "check for 32bit compatibility"
+        index = (objint & StmGC.FX_MASK) / WORD
+        CP = lltype.Ptr(rffi.CArray(lltype.Signed))
+        rcp = rffi.cast(CP, read_cache[0])
+        if rcp[index] == objint:
+            return gcref_struct
+        
         # XXX: readcache!
         funcptr = self.get_barrier_funcptr(returns_modified_object)
         res = funcptr(objadr)
