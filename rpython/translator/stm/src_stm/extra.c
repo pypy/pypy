@@ -163,7 +163,7 @@ _Bool stm_pointer_equal_prebuilt(gcptr p1, gcptr p2)
         return 1;
 
     /* the only possible case to still get True is if p2 == p1->h_original */
-    return (p1 != NULL) && (p1->h_original == p2) &&
+    return (p1 != NULL) && (p1->h_original == (revision_t)p2) &&
         !(p1->h_tid & GCFLAG_PREBUILT_ORIGINAL);
 }
 
