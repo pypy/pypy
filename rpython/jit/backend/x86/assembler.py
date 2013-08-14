@@ -249,8 +249,9 @@ class Assembler386(BaseAssembler):
         self._store_and_reset_exception(self.mc, eax)
         ofs = self.cpu.get_ofs_of_frame_field('jf_guard_exc')
         self.mc.MOV_br(ofs, eax.value)
-        propagate_exception_descr = rffi.cast(lltype.Signed,
-                  cast_instance_to_gcref(self.cpu.propagate_exception_descr))
+        propagate_exception_descr = rgc.cast_gcref_to_int(
+            rgc._make_sure_does_not_move(
+                rgc.cast_instance_to_gcref(self.cpu.propagate_exception_descr)))
         ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
         self.mc.MOV(RawEbpLoc(ofs), imm(propagate_exception_descr))
         self.mc.MOV_rr(eax.value, ebp.value)
@@ -2202,6 +2203,15 @@ class Assembler386(BaseAssembler):
 
     def _call_assembler_check_descr(self, value, tmploc):
         ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
+
+        if self.cpu.gc_ll_descr.stm:
+            # value is non-moving, but jf_descr may have a changed
+            # descr -> different copy
+            self._stm_ptr_eq_fastpath(self.mc, [mem(eax, ofs), imm(value)],
+                                      tmploc)
+            self.mc.J_il8(rx86.Conditions['NZ'], 0)
+            return self.mc.get_relative_pos()
+        
         self.mc.CMP(mem(eax, ofs), imm(value))
         # patched later
         self.mc.J_il8(rx86.Conditions['E'], 0) # goto B if we get 'done_with_this_frame'

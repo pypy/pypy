@@ -102,19 +102,23 @@ class GcLLDescription(GcCache):
         for i in range(op.numargs()):
             v = op.getarg(i)
             if isinstance(v, ConstPtr) and bool(v.value):
-                p = v.value
+                p = rgc.cast_instance_to_gcref(v.value)
                 new_p = rgc._make_sure_does_not_move(p)
-                v.value = new_p
+                if we_are_translated():
+                    v.value = new_p
+                else:
+                    assert p == new_p
                 gcrefs_output_list.append(new_p)
                 
         if op.is_guard() or op.getopnum() == rop.FINISH:
             # the only ops with descrs that get recorded in a trace
             from rpython.jit.metainterp.history import AbstractDescr
             descr = op.getdescr()
-            llref = cast_instance_to_gcref(descr)
+            llref = rgc.cast_instance_to_gcref(descr)
             new_llref = rgc._make_sure_does_not_move(llref)
             if we_are_translated():
-                new_d = cast_base_ptr_to_instance(AbstractDescr, new_llref)
+                new_d = rgc.try_cast_gcref_to_instance(AbstractDescr,
+                                                       new_llref)
                 # tests don't allow this:
                 op.setdescr(new_d)
             else:

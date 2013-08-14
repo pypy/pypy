@@ -172,8 +172,6 @@ class BaseAssembler(object):
                 break
         exc = guardtok.exc
         target = self.failure_recovery_code[exc + 2 * withfloats]
-        fail_descr = cast_instance_to_gcref(guardtok.faildescr)
-        fail_descr = rffi.cast(lltype.Signed, fail_descr)
         base_ofs = self.cpu.get_baseofs_of_frame_field()
         positions = [0] * len(guardtok.fail_locs)
         for i, loc in enumerate(guardtok.fail_locs):
@@ -196,6 +194,11 @@ class BaseAssembler(object):
         guardtok.faildescr.rd_locs = positions
         # we want the descr to keep alive
         guardtok.faildescr.rd_loop_token = self.current_clt
+        fail_descr = rgc.cast_instance_to_gcref(guardtok.faildescr)
+        if self.cpu.gc_ll_descr.stm:
+            # only needed with STM, I think..
+            fail_descr = rgc._make_sure_does_not_move(fail_descr)
+        fail_descr = rgc.cast_gcref_to_int(fail_descr)
         return fail_descr, target
 
     def call_assembler(self, op, guard_op, argloc, vloc, result_loc, tmploc):
@@ -226,9 +229,9 @@ class BaseAssembler(object):
             else:
                 raise AssertionError(kind)
 
-        gcref = cast_instance_to_gcref(value)
+        gcref = rgc.cast_instance_to_gcref(value)
         gcref = rgc._make_sure_does_not_move(gcref)
-        value = rffi.cast(lltype.Signed, gcref)
+        value = rgc.cast_gcref_to_int(gcref)
         je_location = self._call_assembler_check_descr(value, tmploc)
         #
         # Path A: use assembler_helper_adr

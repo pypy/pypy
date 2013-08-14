@@ -539,6 +539,7 @@ class AbstractX86CodeBuilder(object):
 
     PUSH_r = insn(rex_nw, register(1), '\x50')
     PUSH_b = insn(rex_nw, '\xFF', orbyte(6<<3), stack_bp(1))
+    PUSH_m = insn(rex_nw, '\xFF', orbyte(6<<3), mem_reg_plus_const(1))
     PUSH_i8 = insn('\x6A', immediate(1, 'b'))
     PUSH_i32 = insn('\x68', immediate(1, 'i'))
     def PUSH_i(mc, immed):
@@ -549,6 +550,7 @@ class AbstractX86CodeBuilder(object):
 
     POP_r = insn(rex_nw, register(1), '\x58')
     POP_b = insn(rex_nw, '\x8F', orbyte(0<<3), stack_bp(1))
+    POP_m = insn(rex_nw, '\x8F', orbyte(0<<3), mem_reg_plus_const(1))
 
     LEA_rb = insn(rex_w, '\x8D', register(1,8), stack_bp(2))
     LEA_rs = insn(rex_w, '\x8D', register(1,8), stack_sp(2))

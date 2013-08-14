@@ -1,5 +1,5 @@
 import py
-from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rstr
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rstr, rclass
 from rpython.jit.metainterp.history import ResOperation, TargetToken,\
      JitCellToken
 from rpython.jit.metainterp.history import (BoxInt, BoxPtr, ConstInt,
@@ -21,6 +21,7 @@ from rpython.jit.backend.llsupport import jitframe
 from rpython.memory.gc.stmgc import StmGC
 from rpython.jit.metainterp import history
 from rpython.jit.codewriter.effectinfo import EffectInfo
+from rpython.rtyper.llinterp import LLException
 import itertools, sys
 import ctypes
 
@@ -218,6 +219,17 @@ class TestGcStm(BaseTestRegalloc):
     def setup_method(self, meth):
         cpu = CPU(None, None)
         cpu.gc_ll_descr = GCDescrStm()
+
+        def latest_descr(self, deadframe):
+            deadframe = lltype.cast_opaque_ptr(JITFRAMEPTR, deadframe)
+            descr = deadframe.jf_descr
+            res = history.AbstractDescr.show(self, descr)
+            assert isinstance(res, history.AbstractFailDescr)
+            return res
+        import types
+        cpu.get_latest_descr = types.MethodType(latest_descr, cpu,
+                                                cpu.__class__)
+        
 
         self.p2wd = cpu.gc_ll_descr.P2Wdescr
         self.p2rd = cpu.gc_ll_descr.P2Rdescr
