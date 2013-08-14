@@ -102,6 +102,7 @@ GCFLAG_NO_HEAP_PTRS = first_gcflag << 1
 # and on surviving raw-malloced young objects during a minor collection.
 GCFLAG_VISITED      = first_gcflag << 2
 
+
 # The following flag is set on nursery objects of which we asked the id
 # or the identityhash.  It means that a space of the size of the object
 # has already been allocated in the nonmovable part.  The same flag is
@@ -129,6 +130,14 @@ GCFLAG_CARDS_SET    = first_gcflag << 7     # <- at least one card bit is set
 # by the incremental collection
 GCFLAG_GRAY = first_gcflag << 8
 
+# The following flag is just an alias for the gray flag. It
+# is only used by major collections, it is set on objects 
+# which are allocated during the sweeping and finalization states
+# it has different meaning outside of the sweeping state.
+# This flag should not be reset by any minor collection operation
+GCFLAG_NOSWEEP      = first_gcflag << 8
+
+
 # States for the incremental GC
 
 # The scanning phase, next step call will scan the current roots
@@ -139,13 +148,10 @@ STATE_SCANNING = 1 << 0
 # marking of objects can be done over multiple 
 STATE_MARKING  = 1 << 1
 STATE_SWEEPING_RAWMALLOC = 1 << 2
-STATE_SWEEPING_ARENA_1 = 1 << 3
-STATE_SWEEPING_ARENA_2 = 1 << 4
-STATE_FINALIZING = 1 << 5
+STATE_SWEEPING_ARENA = 1 << 3
+STATE_FINALIZING = 1 << 4
 
-MASK_SWEEPING = (STATE_SWEEPING_RAWMALLOC | 
-                    STATE_SWEEPING_ARENA_1 |
-                    STATE_SWEEPING_ARENA_2)
+MASK_SWEEPING = (STATE_SWEEPING_RAWMALLOC | STATE_SWEEPING_ARENA)
 
 
 
@@ -1034,9 +1040,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 already_checked = True
             elif self.gc_state == STATE_SWEEPING_RAWMALLOC:
                 pass
-            elif self.gc_state == STATE_SWEEPING_ARENA_1:
-                pass
-            elif self.gc_state == STATE_SWEEPING_ARENA_2:
+            elif self.gc_state == STATE_SWEEPING_ARENA:
                 pass
             elif self.gc_state == STATE_FINALIZING:
                 pass
@@ -1059,9 +1063,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             self._debug_check_object_marking(obj)
         elif self.gc_state == STATE_SWEEPING_RAWMALLOC:
             self._debug_check_object_sweeping_rawmalloc(obj)
-        elif self.gc_state == STATE_SWEEPING_ARENA_1:
-            self._debug_check_object_sweeping_arena(obj)
-        elif self.gc_state == STATE_SWEEPING_ARENA_2:
+        elif self.gc_state == STATE_SWEEPING_ARENA:
             self._debug_check_object_sweeping_arena(obj)
         elif self.gc_state == STATE_FINALIZING:
             self._debug_check_object_finalizing(obj)
@@ -1184,6 +1186,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         if self.gc_state == STATE_MARKING:
             if self.header(addr_struct).tid & GCFLAG_VISITED:
                 self.write_to_visited_object_forward(addr_struct,newvalue)
+        
 
     
     def write_barrier_from_array(self, newvalue, addr_array, index):
@@ -1689,6 +1692,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
         if self.has_gcptr(typeid):
             # we only have to do it if we have any gcptrs
             self.old_objects_pointing_to_young.append(newobj)
+        
+        
+            
     _trace_drag_out._always_inline_ = True
 
     def _visit_young_rawmalloced_object(self, obj):
@@ -1834,24 +1840,16 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # XXX heuristic here to decide nobjects.
             if self.free_unvisited_rawmalloc_objects_step(1):
                 #malloc objects freed
-                self.gc_state = STATE_SWEEPING_ARENA_1
+                self.gc_state = STATE_SWEEPING_ARENA
                     
-        elif self.gc_state == STATE_SWEEPING_ARENA_1:
+        elif self.gc_state == STATE_SWEEPING_ARENA:
             #
             # Ask the ArenaCollection to visit all objects.  Free the ones
             # that have not been visited above, and reset GCFLAG_VISITED on
             # the others.
-            self.ac_alternate.mass_free(self._free_if_unvisited)
-            self.gc_state = STATE_SWEEPING_ARENA_2
-            #swap arenas and start clearing the other one
-            self.ac,self.ac_alternate = self.ac_alternate,self.ac
-            
-        elif self.gc_state == STATE_SWEEPING_ARENA_2:
-        
-            self.ac_alternate.mass_free(self._free_if_unvisited)
-            
+            # XXX make incremental...
+            self.ac.mass_free(self._free_if_unvisited)
             self.num_major_collects += 1
-            
             #
             # We also need to reset the GCFLAG_VISITED on prebuilt GC objects.
             self.prebuilt_root_objects.foreach(self._reset_gcflag_visited, None)
@@ -2008,7 +2006,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
 
     def _collect_ref_rec(self, root, ignored):
         obj = root.address[0]
-        if self.header(obj).tid & GCFLAG_VISITED != 0:
+        if self.header(obj).tid & (GCFLAG_VISITED|GCFLAG_GRAY) != 0:
             return
         self.header(obj).tid |= GCFLAG_GRAY
         self.objects_to_trace.append(obj)
@@ -2024,7 +2022,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
         pending = self.objects_to_trace
         while nobjects > 0 and pending.non_empty():
             obj = pending.pop()
-            ll_assert(self.header(obj).tid & 
+            #XXX can black objects even get into this list?
+            #XXX tighten this assertion
+            ll_assert(self.header(obj).tid &  
                         (GCFLAG_GRAY|GCFLAG_VISITED|GCFLAG_NO_HEAP_PTRS) != 0,
                         "non gray or black object being traced")
             self.visit(obj)

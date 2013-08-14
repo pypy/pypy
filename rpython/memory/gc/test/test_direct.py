@@ -608,6 +608,9 @@ class TestIncrementalMiniMarkGCSimple(TestMiniMarkGCSimple):
         #process one object
         self.gc.debug_gc_step()
         
+        self.gc.minor_collection()
+        # make sure minor collect doesnt interfere with visited flag on
+        # old object
         assert oldhdr.tid & incminimark.GCFLAG_VISITED
         
         #at this point the first object should have been processed
@@ -617,7 +620,7 @@ class TestIncrementalMiniMarkGCSimple(TestMiniMarkGCSimple):
         newhdr = self.gc.header(llmemory.cast_ptr_to_adr(newobj))
         assert newhdr.tid & incminimark.GCFLAG_GRAY
         #checks gray object is in objects_to_trace
-        self.gc.debug_check_consistency() 
+        self.gc.debug_check_consistency()
 
     def test_sweeping_simple(self):
         from rpython.memory.gc import incminimark
@@ -637,13 +640,24 @@ class TestIncrementalMiniMarkGCSimple(TestMiniMarkGCSimple):
         newobj1 = self.malloc(S)
         newobj2 = self.malloc(S)
         newobj1.x = 1337
-        newobj2.x = 1338
-        self.write(oldobj,'next',newobj)
-        newhdr = self.gc.header(llmemory.cast_ptr_to_adr(newobj))
-        #checks gray object is in objects_to_trace
+        #newobj2.x = 1338
+        self.write(oldobj,'next',newobj1)
         self.gc.debug_gc_step_until(incminimark.STATE_SCANNING)
         #should not be cleared even though it was allocated while sweeping
-        assert newobj.x == 1337
+        assert newobj1.x == 1337
+        #assert newobj2.x == 1338
+
+    def test_new_marking_write_sweeping(self):
+        
+        assert False
+    
+    def test_finalizing_new_object(self):
+        # Must test an object with a finalizer
+        # being added just before finalizers start being called
+        # must test this new objects finalizer is not called
+        # XXX maybe cant do this in test_direct and need test_transformed
+        assert False
+   
 
 class TestIncrementalMiniMarkGCFull(TestMiniMarkGCFull):
     from rpython.memory.gc.incminimark import IncrementalMiniMarkGC as GCClass
