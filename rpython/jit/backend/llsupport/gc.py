@@ -448,13 +448,13 @@ class STMReadBarrierDescr(STMBarrierDescr):
     @specialize.arg(2)
     def _do_barrier(self, gcref_struct, returns_modified_object):
         assert returns_modified_object
-        from rpython.memory.gc.stmgc import get_hdr_revision
+        from rpython.memory.gc.stmgc import StmGC
         objadr = llmemory.cast_ptr_to_adr(gcref_struct)
+        objhdr = rffi.cast(StmGC.GCHDRP, gcref_struct)
 
         # if h_revision == privat_rev of transaction
-        rev = get_hdr_revision(objadr)
         priv_rev = self.llop1.stm_get_adr_of_private_rev_num(rffi.SIGNEDP)
-        if rev[0] == priv_rev[0]:
+        if objhdr.h_revision == priv_rev[0]:
             return gcref_struct
 
         # XXX: readcache!
@@ -472,17 +472,15 @@ class STMWriteBarrierDescr(STMBarrierDescr):
     @specialize.arg(2)
     def _do_barrier(self, gcref_struct, returns_modified_object):
         assert returns_modified_object
-        from rpython.memory.gc.stmgc import (StmGC, get_hdr_revision,
-                                             get_hdr_tid)
+        from rpython.memory.gc.stmgc import StmGC
         objadr = llmemory.cast_ptr_to_adr(gcref_struct)
-
+        objhdr = rffi.cast(StmGC.GCHDRP, gcref_struct)
+        
         # if h_revision == privat_rev of transaction
-        rev = get_hdr_revision(objadr)
         priv_rev = self.llop1.stm_get_adr_of_private_rev_num(rffi.SIGNEDP)
-        if rev[0] == priv_rev[0]:
+        if objhdr.h_revision == priv_rev[0]:
             # also WRITE_BARRIER not set?
-            tid = get_hdr_tid(objadr)[0]
-            if not (tid & StmGC.GCFLAG_WRITE_BARRIER):
+            if not (objhdr.h_tid & StmGC.GCFLAG_WRITE_BARRIER):
                 return gcref_struct
         
         funcptr = self.get_barrier_funcptr(returns_modified_object)

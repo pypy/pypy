@@ -36,10 +36,19 @@ class StmGC(MovingGCBase):
     malloc_zero_filled = True
     #gcflag_extra = GCFLAG_EXTRA
 
+
+    GCHDR = lltype.GcStruct(
+        'GCPTR',
+        ('h_tid', lltype.Unsigned),
+        ('h_revision', lltype.Signed),
+        ('h_original', lltype.Unsigned))
+    GCHDRP = lltype.Ptr(GCHDR)
+    GCHDRSIZE = 3 * WORD
+
     HDR = rffi.COpaque('struct stm_object_s')
     H_TID = 0
     H_REVISION = WORD
-    H_ORIGINAL = WORD + WORD
+    H_ORIGINAL = WORD * 2
     typeid_is_in_field = None
 
     VISIT_FPTR = lltype.Ptr(lltype.FuncType([llmemory.Address], lltype.Void))

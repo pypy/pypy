@@ -102,11 +102,14 @@ JITFRAMEPTR = lltype.Ptr(JITFRAME)
 class FakeGCHeaderBuilder:
     size_gc_header = WORD
 
-GCPTR = lltype.Ptr(lltype.GcStruct(
-            'GCPTR', ('h_tid', lltype.Unsigned),
-            ('h_revision', lltype.Signed),
-            ('h_original', lltype.Unsigned)))
-HDRSIZE = 3 * WORD
+class fakellop:
+    PRIV_REV = 66
+    def stm_get_adr_of_private_rev_num(self, _):
+        TP = rffi.CArray(lltype.Signed)
+        p = lltype.malloc(TP, n=1, flavor='raw', 
+                          track_allocation=False, zero=True)
+        p[0] = fakellop.PRIV_REV
+        return p
 
 class GCDescrStm(GCDescrShadowstackDirect):
     def __init__(self):
@@ -154,11 +157,11 @@ class GCDescrStm(GCDescrShadowstackDirect):
                                RESULT=lltype.Bool)
 
         def malloc_big_fixedsize(size, tid):
-            entries = size + HDRSIZE
+            entries = size + StmGC.GCHDRSIZE
             TP = rffi.CArray(lltype.Char)
             obj = lltype.malloc(TP, n=entries, flavor='raw',
                                             track_allocation=False, zero=True)
-            objptr = rffi.cast(GCPTR, obj)
+            objptr = rffi.cast(StmGC.GCHDRP, obj)
             objptr.h_tid = rffi.cast(lltype.Unsigned,
                                   StmGC.GCFLAG_OLD|StmGC.GCFLAG_WRITE_BARRIER
                                   | tid)
@@ -259,6 +262,8 @@ class TestGcStm(BaseTestRegalloc):
         s.h_revision = rffi.cast(lltype.Signed, StmGC.PREBUILT_REVISION)
         return s
 
+    
+        
     def test_gc_read_barrier_fastpath(self):
         from rpython.jit.backend.llsupport.gc import STMReadBarrierDescr
         descr = STMReadBarrierDescr(self.cpu.gc_ll_descr, 'P2R')
@@ -268,15 +273,6 @@ class TestGcStm(BaseTestRegalloc):
             called.append(obj)
             return obj
 
-        PRIV_REV = 66
-        class fakellop:
-            def stm_get_adr_of_private_rev_num(self, _):
-                TP = rffi.SIGNEDP
-                p = lltype.malloc(TP, n=1, flavor='raw', 
-                                  track_allocation=False, zero=True)
-                p[0] = PRIV_REV
-                return rffi.cast(llmemory.Address, p)
-        
         functype = lltype.Ptr(lltype.FuncType(
             [llmemory.Address], llmemory.Address))
         funcptr = llhelper(functype, read)
@@ -284,27 +280,67 @@ class TestGcStm(BaseTestRegalloc):
         descr.llop1 = fakellop()
 
         # -------- TEST --------
-        for rev in [PRIV_REV+4, PRIV_REV]:
+        for rev in [fakellop.PRIV_REV+4, fakellop.PRIV_REV]:
             called[:] = []
             
             s = self.allocate_prebuilt_s()
             sgcref = lltype.cast_opaque_ptr(llmemory.GCREF, s)
             s.h_revision = rev
 
-            descr._do_barrier(llmemory.AddressAsInt(sgcref),
+            descr._do_barrier(sgcref,
                               returns_modified_object=True)
                         
             # check if rev-fastpath worked
-            if rev == PRIV_REV:
+            if rev == fakellop.PRIV_REV:
                 # fastpath
-                assert sgcref not in called
+                self.assert_not_in(called, [sgcref])
             else:
-                assert sgcref in called
+                self.assert_in(called, [sgcref])
                 
             # XXX: read_cache test!
             # # now add it to the read-cache and check
             # # that it will never call the read_barrier
             # assert not called_on
+
+    def test_gc_write_barrier_fastpath(self):
+        from rpython.jit.backend.llsupport.gc import STMWriteBarrierDescr
+        descr = STMWriteBarrierDescr(self.cpu.gc_ll_descr, 'P2W')
+
+        called = []
+        def write(obj):
+            called.append(obj)
+            return obj
+
+        functype = lltype.Ptr(lltype.FuncType(
+            [llmemory.Address], llmemory.Address))
+        funcptr = llhelper(functype, write)
+        descr.b_failing_case_ptr = funcptr
+        descr.llop1 = fakellop()
+
+        # -------- TEST --------
+        for rev in [fakellop.PRIV_REV+4, fakellop.PRIV_REV]:
+            called[:] = []
+            
+            s = self.allocate_prebuilt_s()
+            sgcref = lltype.cast_opaque_ptr(llmemory.GCREF, s)
+            s.h_revision = rev
+
+            descr._do_barrier(sgcref,
+                              returns_modified_object=True)
+                        
+            # check if rev-fastpath worked
+            if rev == fakellop.PRIV_REV:
+                # fastpath
+                self.assert_not_in(called, [sgcref])
+            else:
+                self.assert_in(called, [sgcref])
+                
+            # now set WRITE_BARRIER -> always call slowpath
+            called[:] = []
+            s.h_tid |= StmGC.GCFLAG_WRITE_BARRIER
+            descr._do_barrier(sgcref, 
+                              returns_modified_object=True)
+            self.assert_in(called, [sgcref])
 
         
         
