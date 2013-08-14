@@ -36,6 +36,9 @@ class AppTestCPPYY:
     spaceconfig = dict(usemodules=['cppyy', '_rawffi', '_ffi', 'itertools'])
 
     def setup_class(cls):
+        if isdummy:
+            py.test.skip('skipping further tests in dummy mode')
+
         cls.w_example01, cls.w_payload = cls.space.unpackiterable(cls.space.appexec([], """():
             import cppyy
             cppyy.load_reflection_info(%r)
