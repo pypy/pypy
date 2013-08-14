@@ -78,7 +78,7 @@ class __extend__(PyFrame):
                 next_instr = self.handle_bytecode(co_code, next_instr, ec)
                 is_being_profiled = self.is_being_profiled
         except Yield:
-            self.last_exception = None
+            # preserve self.last_exception between generator yields
             w_result = self.popvalue()
             jit.hint(self, force_virtualizable=True)
             return w_result
