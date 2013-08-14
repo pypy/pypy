@@ -362,7 +362,8 @@ class SomeStringBuilder(SomeObject):
         return SomeString()
 
     def rtyper_makerepr(self, rtyper):
-        return rtyper.type_system.rbuilder.stringbuilder_repr
+        from rpython.rtyper.lltypesystem.rbuilder import stringbuilder_repr
+        return stringbuilder_repr
 
     def rtyper_makekey(self):
         return self.__class__,
@@ -398,7 +399,8 @@ class SomeUnicodeBuilder(SomeObject):
         return SomeUnicodeString()
 
     def rtyper_makerepr(self, rtyper):
-        return rtyper.type_system.rbuilder.unicodebuilder_repr
+        from rpython.rtyper.lltypesystem.rbuilder import unicodebuilder_repr
+        return unicodebuilder_repr
 
     def rtyper_makekey(self):
         return self.__class__,

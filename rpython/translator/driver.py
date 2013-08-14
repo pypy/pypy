@@ -346,7 +346,7 @@ class TranslationDriver(SimpleTaskEngine):
     def task_rtype_lltype(self):
         """ RTyping - lltype version
         """
-        rtyper = self.translator.buildrtyper(type_system='lltype')
+        rtyper = self.translator.buildrtyper()
         rtyper.specialize(dont_simplify_again=True)
 
     @taskdef([RTYPE], "JIT compiler generation")

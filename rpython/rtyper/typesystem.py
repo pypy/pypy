@@ -9,27 +9,6 @@ from rpython.rtyper.error import TyperError
 class TypeSystem(object):
     __metaclass__ = extendabletype
 
-    offers_exceptiondata = True
-
-    def __getattr__(self, name):
-        """Lazy import to avoid circular dependencies."""
-        def load(modname):
-            try:
-                return __import__("rpython.rtyper.%s.%s" % (self.name, modname),
-                                  None, None, ['__doc__'])
-            except ImportError:
-                return None
-        if name in ('rclass', 'rpbc', 'rbuiltin', 'rtuple', 'rlist',
-                    'rslice', 'rdict', 'rrange', 'rstr',
-                    'll_str', 'rbuilder', 'rvirtualizable2', 'rbytearray',
-                    'exceptiondata'):
-            mod = load(name)
-            if mod is not None:
-                setattr(self, name, mod)
-                return mod
-
-        raise AttributeError(name)
-
     def derefType(self, T):
         raise NotImplementedError()
 
@@ -92,13 +71,6 @@ class TypeSystem(object):
 in a graph."""
         raise NotImplementedError()
 
-    def perform_normalizations(self, rtyper):
-        """Prepare the annotator's internal data structures for rtyping
-        with the specified type system.
-        """
-        # default implementation
-        from rpython.rtyper.normalizecalls import perform_normalizations
-        perform_normalizations(rtyper)
 
 class LowLevelTypeSystem(TypeSystem):
     name = "lltypesystem"
@@ -145,17 +117,3 @@ class LowLevelTypeSystem(TypeSystem):
 LowLevelTypeSystem.instance = LowLevelTypeSystem()
 
 getfunctionptr = LowLevelTypeSystem.instance.getcallable
-
-# Multiple dispatch on type system and high-level annotation
-
-from rpython.tool.pairtype import pairtype
-from rpython.annotator.model import SomeObject
-
-class __extend__(pairtype(TypeSystem, SomeObject)):
-    def rtyper_makerepr((ts, s_obj), rtyper):
-        return s_obj.rtyper_makerepr(rtyper)
-
-    def rtyper_makekey((ts, s_obj), rtyper):
-        if hasattr(s_obj, "rtyper_makekey_ex"):
-            return s_obj.rtyper_makekey_ex(rtyper)
-        return s_obj.rtyper_makekey()

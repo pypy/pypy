@@ -185,7 +185,7 @@ def test_make_jitdriver_callbacks_1():
     state.jit_getter = jit_getter
     state.make_jitdriver_callbacks()
     res = state.get_location_str([ConstInt(5), constfloat(42.5)])
-    assert res == '(no jitdriver.get_printable_location!)'
+    assert res == '(<unknown jitdriver>: no get_printable_location)'
 
 def test_make_jitdriver_callbacks_3():
     def get_location(x, y):

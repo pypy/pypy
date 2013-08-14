@@ -34,7 +34,7 @@ class TestMallocRemoval(object):
         remover = self.MallocRemover()
         t = TranslationContext()
         t.buildannotator().build_types(fn, signature)
-        t.buildrtyper(type_system='lltype').specialize()
+        t.buildrtyper().specialize()
         graph = graphof(t, fn)
         if inline is not None:
             from rpython.translator.backendopt.inline import auto_inline_graphs

@@ -1320,6 +1320,10 @@ class BlackholeInterpreter(object):
         from rpython.jit.metainterp import quasiimmut
         quasiimmut.do_force_quasi_immutable(cpu, struct, mutatefielddescr)
 
+    @arguments("r")
+    def bhimpl_hint_force_virtualizable(r):
+        pass
+
     @arguments("cpu", "d", returns="r")
     def bhimpl_new(cpu, descr):
         return cpu.bh_new(descr)

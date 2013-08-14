@@ -307,6 +307,22 @@ class Primitive(object):
     def min(self, v1, v2):
         return min(v1, v2)
 
+    @simple_unary_op
+    def rint(self, v):
+        if isfinite(v):
+            return rfloat.round_double(v, 0, half_even=True)
+        else:
+            return v
+
+    @simple_unary_op
+    def ones_like(self, v):
+        return 1
+
+    @simple_unary_op
+    def zeros_like(self, v):
+        return 0
+
+
 class NonNativePrimitive(Primitive):
     _mixin_ = True
 
@@ -1392,10 +1408,13 @@ class ComplexFloating(object):
     def round(self, v, decimals=0):
         ans = list(self.for_computation(self.unbox(v)))
         if isfinite(ans[0]):
-            ans[0] = rfloat.round_double(ans[0], decimals,  half_even=True)
+            ans[0] = rfloat.round_double(ans[0], decimals, half_even=True)
         if isfinite(ans[1]):
-            ans[1] = rfloat.round_double(ans[1], decimals,  half_even=True)
+            ans[1] = rfloat.round_double(ans[1], decimals, half_even=True)
         return self.box_complex(ans[0], ans[1])
+
+    def rint(self, v):
+        return self.round(v)
 
     # No floor, ceil, trunc in numpy for complex
     #@simple_unary_op
@@ -1598,6 +1617,15 @@ class ComplexFloating(object):
             return -rfloat.INFINITY, 0
         except ValueError:
             return rfloat.NAN, rfloat.NAN
+
+    @complex_unary_op
+    def ones_like(self, v):
+        return 1, 0
+
+    @complex_unary_op
+    def zeros_like(self, v):
+        return 0, 0
+
 
 class Complex64(ComplexFloating, BaseType):
     _attrs_ = ()

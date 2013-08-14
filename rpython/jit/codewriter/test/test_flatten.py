@@ -125,8 +125,8 @@ def test_repr():
 
 class TestFlatten:
 
-    def make_graphs(self, func, values, type_system='lltype'):
-        self.rtyper = support.annotate(func, values, type_system=type_system)
+    def make_graphs(self, func, values):
+        self.rtyper = support.annotate(func, values)
         return self.rtyper.annotator.translator.graphs
 
     def encoding_test(self, func, args, expected,
