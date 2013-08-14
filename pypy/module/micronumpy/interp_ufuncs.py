@@ -615,6 +615,7 @@ class UfuncState(object):
             ("positive", "pos", 1),
             ("negative", "neg", 1),
             ("absolute", "abs", 1, {"complex_to_float": True}),
+            ("rint", "rint", 1),
             ("sign", "sign", 1, {"promote_bools": True}),
             ("signbit", "signbit", 1, {"bool_result": True,
                                        "allow_complex": False}),
@@ -670,6 +671,8 @@ class UfuncState(object):
                                        "allow_complex": False}),
             ("logaddexp2", "logaddexp2", 2, {"promote_to_float": True,
                                        "allow_complex": False}),
+            ("ones_like", "ones_like", 1),
+            ("zeros_like", "zeros_like", 1),
         ]:
             self.add_ufunc(space, *ufunc_def)
 

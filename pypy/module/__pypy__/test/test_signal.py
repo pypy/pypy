@@ -28,6 +28,7 @@ class AppTestThreadSignal(GenericTestThread):
         import __pypy__, _thread, signal, time, sys
 
         def subthread():
+            print('subthread started')
             try:
                 with __pypy__.thread.signals_enabled:
                     _thread.interrupt_main()

@@ -2046,6 +2046,8 @@ class MiniMarkGC(MovingGCBase):
     # The code relies on the fact that no weakref can be an old object
     # weakly pointing to a young object.  Indeed, weakrefs are immutable
     # so they cannot point to an object that was created after it.
+    # Thanks to this, during a minor collection, we don't have to fix
+    # or clear the address stored in old weakrefs.
     def invalidate_young_weakrefs(self):
         """Called during a nursery collection."""
         # walk over the list of objects that contain weakrefs and are in the
