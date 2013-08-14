@@ -1,3 +1,4 @@
+from rpython.rlib.rstm import register_invoke_around_extcall
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.translator.stm.test.transform_support import BaseTestTransform
 
@@ -129,28 +130,40 @@ class TestTransform(BaseTestTransform):
         assert res == 36
         assert self.barriers == ['A2R', 'A2W']
 
-    def test_call_external_random_effects(self):
+    def test_call_external_release_gil(self):
         X = lltype.GcStruct('X', ('foo', lltype.Signed))
         def f1(p):
+            register_invoke_around_extcall()
             x1 = p.foo
-            external_stuff()
+            external_release_gil()
             x2 = p.foo
             return x1 * x2
 
         x = lltype.malloc(X, immortal=True); x.foo = 6
         res = self.interpret(f1, [x])
         assert res == 36
-        assert self.barriers == ['A2R', 'a2r']
+        assert self.barriers == ['A2R', 'I2R']
 
-    def test_call_external_no_random_effects(self):
+    def test_call_external_any_gcobj(self):
         X = lltype.GcStruct('X', ('foo', lltype.Signed))
-        external_stuff = rffi.llexternal('external_stuff2', [], lltype.Void,
-                                         _callable=lambda: None,
-                                         random_effects_on_gcobjs=False,
-                                         threadsafe=False)
         def f1(p):
+            register_invoke_around_extcall()
             x1 = p.foo
-            external_stuff()
+            external_any_gcobj()
+            x2 = p.foo
+            return x1 * x2
+
+        x = lltype.malloc(X, immortal=True); x.foo = 6
+        res = self.interpret(f1, [x])
+        assert res == 36
+        assert self.barriers == ['A2R', 'q2r']
+
+    def test_call_external_safest(self):
+        X = lltype.GcStruct('X', ('foo', lltype.Signed))
+        def f1(p):
+            register_invoke_around_extcall()
+            x1 = p.foo
+            external_safest()
             x2 = p.foo
             return x1 * x2
 
@@ -253,7 +266,7 @@ class TestTransform(BaseTestTransform):
                 x = Z()
                 x.foo = 815
                 x.zbar = 'A'
-            external_stuff()
+            external_any_gcobj()
             result = x.foo          # 1
             if isinstance(x, Y):    # 2
                 result += x.ybar    # 3
@@ -261,11 +274,11 @@ class TestTransform(BaseTestTransform):
 
         res = self.interpret(f1, [10])
         assert res == 42 + 10
-        assert self.barriers == ['a2r', 'a2r', 'a2r'] # from 3 blocks (could be
+        assert self.barriers == ['a2r', 'a2i', 'a2r'] # from 3 blocks (could be
                                                       # optimized later)
         res = self.interpret(f1, [-10])
         assert res == 815
-        assert self.barriers == ['a2r', 'a2r']
+        assert self.barriers == ['a2r', 'a2i']
 
     def test_write_barrier_repeated(self):
         class X:
@@ -278,10 +291,18 @@ class TestTransform(BaseTestTransform):
             return y
 
         res = self.interpret(f1, [10])
-        assert self.barriers == ['A2W', 'r2w']
+        assert self.barriers == ['A2W', 'V2W']
 
 
-external_stuff = rffi.llexternal('external_stuff', [], lltype.Void,
-                                 _callable=lambda: None,
-                                 random_effects_on_gcobjs=True,
-                                 threadsafe=False)
+external_release_gil = rffi.llexternal('external_release_gil', [], lltype.Void,
+                                       _callable=lambda: None,
+                                       random_effects_on_gcobjs=True,
+                                       threadsafe=True)   # GIL is released
+external_any_gcobj = rffi.llexternal('external_any_gcobj', [], lltype.Void,
+                                     _callable=lambda: None,
+                                     random_effects_on_gcobjs=True,
+                                     threadsafe=False)   # GIL is not released
+external_safest = rffi.llexternal('external_safest', [], lltype.Void,
+                                  _callable=lambda: None,
+                                  random_effects_on_gcobjs=False,
+                                  threadsafe=False)   # GIL is not released

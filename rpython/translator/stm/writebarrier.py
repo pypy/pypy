@@ -156,6 +156,15 @@ def insert_stm_barrier(stmtransformer, graph):
                             newop.result = v
                         newop.opname = 'stm_ptr_eq'
 
+                if stmtransformer.break_analyzer.analyze(op):
+                    # this operation can perform a transaction break:
+                    # all pointers are lowered to 'I', because a non-
+                    # stub cannot suddenly point to a stub, but we
+                    # cannot guarantee anything more
+                    for v, cat in category.items():
+                        if cat > 'I':
+                            category[v] = 'I'
+
                 if stmtransformer.collect_analyzer.analyze(op):
                     # this operation can collect: we bring all 'W'
                     # categories back to 'V', because we would need

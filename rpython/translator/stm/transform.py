@@ -3,6 +3,7 @@ from rpython.translator.stm.writebarrier import insert_stm_barrier
 from rpython.translator.stm.inevitable import insert_turn_inevitable
 from rpython.translator.stm.jitdriver import reorganize_around_jit_driver
 from rpython.translator.stm.threadlocalref import transform_tlref
+from rpython.translator.stm.breakfinder import TransactionBreakAnalyzer
 from rpython.translator.c.support import log
 from rpython.memory.gctransform.framework import CollectAnalyzer
 
@@ -29,12 +30,14 @@ class STMTransformer(object):
     def transform_write_barrier(self):
         self.write_analyzer = WriteAnalyzer(self.translator)
         self.collect_analyzer = CollectAnalyzer(self.translator)
+        self.break_analyzer = TransactionBreakAnalyzer(self.translator)
         for graph in self.translator.graphs:
             insert_stm_barrier(self, graph)
         for key, value in sorted(self.barrier_counts.items()):
             log("%s: %d barriers" % (key, value[0]))
         del self.write_analyzer
         del self.collect_analyzer
+        del self.break_analyzer
 
     def transform_turn_inevitable(self):
         for graph in self.translator.graphs:
