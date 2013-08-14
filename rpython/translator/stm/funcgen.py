@@ -48,19 +48,24 @@ def stm_initialize(funcgen, op):
 def stm_finalize(funcgen, op):
     return 'stm_finalize();'
 
-_STM_BARRIER_FUNCS = {   # XXX try to see if some combinations can be shorter
-    'P2R': 'stm_read_barrier',
-    'G2R': 'stm_read_barrier',
-    'O2R': 'stm_read_barrier',
-    'P2W': 'stm_write_barrier',
-    'G2W': 'stm_write_barrier',
-    'O2W': 'stm_write_barrier',
-    'R2W': 'stm_write_barrier',
-    }
-
 def stm_barrier(funcgen, op):
     category_change = op.args[0].value
-    funcname = _STM_BARRIER_FUNCS[category_change]
+    frm, middle, to = category_change
+    assert middle == '2'
+    if to == 'W':
+        if frm >= 'V':
+            funcname = 'stm_repeat_write_barrier'
+        else:
+            funcname = 'stm_write_barrier'
+    elif to == 'R':
+        if frm >= 'Q':
+            funcname = 'stm_repeat_read_barrier'
+        else:
+            funcname = 'stm_read_barrier'
+    elif to == 'I':
+        funcname = 'stm_immut_read_barrier'
+    else:
+        raise AssertionError(category_change)
     assert op.args[1].concretetype == op.result.concretetype
     arg = funcgen.expr(op.args[1])
     result = funcgen.expr(op.result)
