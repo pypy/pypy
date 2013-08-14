@@ -121,6 +121,7 @@ class BaseLazyRegistering(object):
 
 class ExtFuncEntry(ExtRegistryEntry):
     safe_not_sandboxed = False
+    transactionsafe = False
 
     # common case: args is a list of annotation or types
     def normalize_args(self, *args_s):
@@ -198,6 +199,7 @@ class ExtFuncEntry(ExtRegistryEntry):
             impl._llfnobjattrs_ = {
                 '_name': self.name,
                 '_safe_not_sandboxed': self.safe_not_sandboxed,
+                'transactionsafe': self.transactionsafe
                 }
             obj = rtyper.getannmixlevel().delayedfunction(
                 impl, signature_args, hop.s_result)
@@ -208,7 +210,8 @@ class ExtFuncEntry(ExtRegistryEntry):
             #    print '<<<<<<<<<<<<<-----------------------------------'
             obj = rtyper.type_system.getexternalcallable(args_ll, ll_result,
                                  name, _external_name=self.name, _callable=fakeimpl,
-                                 _safe_not_sandboxed=self.safe_not_sandboxed)
+                                 _safe_not_sandboxed=self.safe_not_sandboxed,
+                                 transactionsafe=self.transactionsafe)
         vlist = [hop.inputconst(typeOf(obj), obj)] + hop.inputargs(*args_r)
         hop.exception_is_here()
         return hop.genop('direct_call', vlist, r_result)
@@ -216,7 +219,7 @@ class ExtFuncEntry(ExtRegistryEntry):
 def register_external(function, args, result=None, export_name=None,
                        llimpl=None, ooimpl=None,
                        llfakeimpl=None, oofakeimpl=None,
-                       sandboxsafe=False):
+                       sandboxsafe=False, _transactionsafe=False):
     """
     function: the RPython function that will be rendered as an external function (e.g.: math.floor)
     args: a list containing the annotation of the arguments
@@ -225,6 +228,7 @@ def register_external(function, args, result=None, export_name=None,
     llimpl, ooimpl: optional; if provided, these RPython functions are called instead of the target function
     llfakeimpl, oofakeimpl: optional; if provided, they are called by the llinterpreter
     sandboxsafe: use True if the function performs no I/O (safe for --sandbox)
+    _transactionsafe: use True if the llimpl is transactionsafe (see rffi.llexternal)
     """
 
     if export_name is None:
@@ -233,6 +237,7 @@ def register_external(function, args, result=None, export_name=None,
     class FunEntry(ExtFuncEntry):
         _about_ = function
         safe_not_sandboxed = sandboxsafe
+        transactionsafe = _transactionsafe
 
         if args is None:
             def normalize_args(self, *args_s):

@@ -600,12 +600,14 @@ llimpl_round_up_for_allocation = rffi.llexternal('ROUND_UP_FOR_ALLOCATION',
                                                 [lltype.Signed, lltype.Signed],
                                                  lltype.Signed,
                                                  sandboxsafe=True,
-                                                 _nowrapper=True)
+                                                 _nowrapper=True,
+                                                 transactionsafe=True)
 register_external(_round_up_for_allocation, [int, int], int,
                   'll_arena.round_up_for_allocation',
                   llimpl=llimpl_round_up_for_allocation,
                   llfakeimpl=round_up_for_allocation,
-                  sandboxsafe=True)
+                  sandboxsafe=True,
+                  _transactionsafe=True)
 
 def llimpl_arena_new_view(addr):
     return addr
