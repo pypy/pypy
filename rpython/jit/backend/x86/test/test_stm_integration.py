@@ -601,9 +601,40 @@ class TestGcStm(BaseTestRegalloc):
         args = [i+1 for i in range(10)]
         deadframe = self.cpu.execute_token(othertoken, *args)
         assert called == [id(finish_descr)]
+        del called[:]
+        
+        # compile a replacement
+        ops = '''
+        [i0, i1, i2, i3, i4, i5, i6, i7, i8, i9]
+        i10 = int_sub(i0, i1)
+        i11 = int_sub(i10, i2)
+        i12 = int_sub(i11, i3)
+        i13 = int_sub(i12, i4)
+        i14 = int_sub(i13, i5)
+        i15 = int_sub(i14, i6)
+        i16 = int_sub(i15, i7)
+        i17 = int_sub(i16, i8)
+        i18 = int_sub(i17, i9)
+        finish(i18)'''
+        loop2 = parse(ops)
+        looptoken2 = JitCellToken()
+        looptoken2.outermost_jitdriver_sd = FakeJitDriverSD()
+        self.cpu.compile_loop(loop2.inputargs, loop2.operations, looptoken2)
+        finish_descr2 = loop2.operations[-1].getdescr()
+
+        # install it
+        self.cpu.redirect_call_assembler(looptoken, looptoken2)
+
+        # now call_assembler should go to looptoken2
+        args = [i+1 for i in range(10)]
+        deadframe = self.cpu.execute_token(othertoken, *args)
+        assert called == [id(finish_descr2)]
+
+    
+        
 
 
-                        
+        
 
 
         
