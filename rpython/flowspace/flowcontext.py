@@ -8,6 +8,7 @@ import __builtin__
 
 from rpython.tool.error import source_lines
 from rpython.translator.backendopt.ssa import SSA_to_SSI
+from rpython.translator.simplify import eliminate_empty_blocks
 from rpython.rlib import rstackovf
 from rpython.flowspace.argument import CallSpec
 from rpython.flowspace.model import (Constant, Variable, Block, Link,
@@ -17,6 +18,7 @@ from rpython.flowspace.framestate import (FrameState, recursively_unflatten,
 from rpython.flowspace.specialcase import (rpython_print_item,
     rpython_print_newline)
 from rpython.flowspace.operation import op
+from rpython.flowspace.bytecode import BytecodeCorruption
 
 w_None = const(None)
 
@@ -31,11 +33,10 @@ class FlowingError(Exception):
         msg += source_lines(self.ctx.graph, None, offset=self.ctx.last_instr)
         return "\n".join(msg)
 
+
 class StopFlowing(Exception):
     pass
 
-class BytecodeCorruption(Exception):
-    pass
 
 class SpamBlock(Block):
     def __init__(self, framestate):
@@ -87,6 +88,7 @@ def fixeggblocks(graph):
                 if isinstance(w_value, Variable):
                     w_value.rename(name)
             del block.framestate     # memory saver
+    eliminate_empty_blocks(graph)
     SSA_to_SSI(graph)
 
 # ____________________________________________________________

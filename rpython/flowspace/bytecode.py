@@ -5,7 +5,6 @@ from rpython.tool.stdlib_opcode import host_bytecode_spec
 from opcode import EXTENDED_ARG, HAVE_ARGUMENT
 import opcode
 from rpython.flowspace.argument import Signature
-from rpython.flowspace.flowcontext import BytecodeCorruption
 
 CO_GENERATOR = 0x0020
 CO_VARARGS = 0x0004
@@ -26,6 +25,11 @@ def cpython_code_signature(code):
     else:
         kwargname = None
     return Signature(argnames, varargname, kwargname)
+
+
+class BytecodeCorruption(Exception):
+    pass
+
 
 class HostCode(object):
     """
