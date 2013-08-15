@@ -141,11 +141,9 @@ def mkinsideentrymap(graph_or_blocks):
         return entrymap
 
 def variables_created_in(block):
-    result = {}
-    for v in block.inputargs:
-        result[v] = True
+    result = set(block.inputargs)
     for op in block.operations:
-        result[op.result] = True
+        result.add(op.result)
     return result
 
 
@@ -158,28 +156,34 @@ def SSA_to_SSI(graph_or_blocks, annotator=None):
     'graph_or_blocks' can be a graph, or just a dict that lists some blocks
     from a graph, as follows: {block: reachable-from-outside-flag}.
     """
+    seen = set()
+    for link in graph_or_blocks.iterlinks():
+        mapping = {}
+        seen.update(link.args)
+        for arg in link.target.inputargs:
+            if arg in seen and isinstance(arg, Variable):
+                mapping[arg] = Variable(arg)
+        link.target.renamevariables(mapping)
+
     entrymap = mkinsideentrymap(graph_or_blocks)
     builder = DataFlowFamilyBuilder(graph_or_blocks)
     variable_families = builder.get_variable_families()
     del builder
 
     pending = []     # list of (block, var-used-but-not-defined)
-
     for block in entrymap:
         variables_created = variables_created_in(block)
-        variables_used = {}
+        variables_used = set()
         for op in block.operations:
-            for v in op.args:
-                variables_used[v] = True
-        variables_used[block.exitswitch] = True
+            variables_used.update(op.args)
+        variables_used.add(block.exitswitch)
         for link in block.exits:
-            for v in link.args:
-                variables_used[v] = True
+            variables_used.update(link.args)
 
         for v in variables_used:
-            if isinstance(v, Variable):
-                if v not in variables_created:
-                    pending.append((block, v))
+            if (isinstance(v, Variable) and v not in variables_created and
+                    v._name not in ('last_exception_', 'last_exc_value_')):
+                pending.append((block, v))
 
     while pending:
         block, v = pending.pop()
@@ -190,8 +194,7 @@ def SSA_to_SSI(graph_or_blocks, annotator=None):
         for w in variables_created:
             w_rep = variable_families.find_rep(w)
             if v_rep is w_rep:
-                # 'w' is in the same family as 'v', so we can simply
-                # reuse its value for 'v'
+                # 'w' is in the same family as 'v', so we can reuse it
                 block.renamevariables({v: w})
                 break
         else:

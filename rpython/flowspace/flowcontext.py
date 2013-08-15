@@ -7,6 +7,7 @@ import types
 import __builtin__
 
 from rpython.tool.error import source_lines
+from rpython.translator.backendopt.ssa import SSA_to_SSI
 from rpython.rlib import rstackovf
 from rpython.flowspace.argument import CallSpec
 from rpython.flowspace.model import (Constant, Variable, Block, Link,
@@ -86,27 +87,7 @@ def fixeggblocks(graph):
                 if isinstance(w_value, Variable):
                     w_value.rename(name)
             del block.framestate     # memory saver
-
-    # EggBlocks reuse the variables of their previous block,
-    # which is deemed not acceptable for simplicity of the operations
-    # that will be performed later on the flow graph.
-    for link in list(graph.iterlinks()):
-        block = link.target
-        if isinstance(block, EggBlock):
-            if (not block.operations and len(block.exits) == 1 and
-                link.args == block.inputargs):   # not renamed
-                # if the variables are not renamed across this link
-                # (common case for EggBlocks) then it's easy enough to
-                # get rid of the empty EggBlock.
-                link2 = block.exits[0]
-                link.args = list(link2.args)
-                link.target = link2.target
-                assert link2.exitcase is None
-            else:
-                mapping = {}
-                for a in block.inputargs:
-                    mapping[a] = Variable(a)
-                block.renamevariables(mapping)
+    SSA_to_SSI(graph)
 
 # ____________________________________________________________
 
