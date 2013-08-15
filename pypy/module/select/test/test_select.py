@@ -213,6 +213,20 @@ class _AppTestSelect:
             readend.close()
             writeend.close()
 
+    def test_poll_int_overflow(self):
+        import select
+
+        pollster = select.poll()
+        pollster.register(1)
+
+        raises(OverflowError, pollster.poll, 1L << 64)
+
+        pollster = select.poll()
+        raises(OverflowError, pollster.register, 0, 32768) # SHRT_MAX + 1
+        raises(OverflowError, pollster.register, 0, 65535) # USHRT_MAX + 1
+        raises(OverflowError, pollster.poll, 2147483648) # INT_MAX +  1
+        raises(OverflowError, pollster.poll, 4294967296) # UINT_MAX + 1
+
 
 class AppTestSelectWithPipes(_AppTestSelect):
     "Use a pipe to get pairs of file descriptors"
