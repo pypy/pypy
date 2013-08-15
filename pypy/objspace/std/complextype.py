@@ -194,7 +194,7 @@ def unpackcomplex(space, w_complex, strict_typing=True):
     if w_z is not None:
         # __complex__() must return a complex or (float,int,long) object
         # (XXX should not use isinstance here)
-        if not strict_typing and (space.isinstance_w(w_z, space.w_int) or 
+        if not strict_typing and (space.isinstance_w(w_z, space.w_int) or
                                   space.isinstance_w(w_z, space.w_float)):
             return (space.float_w(w_z), 0.0)
         elif isinstance(w_z, W_ComplexObject):
@@ -206,8 +206,10 @@ def unpackcomplex(space, w_complex, strict_typing=True):
     #
     # no '__complex__' method, so we assume it is a float,
     # unless it is an instance of some subclass of complex.
-    if isinstance(w_complex, W_ComplexObject):
-        return (w_complex.realval, w_complex.imagval)
+    if space.isinstance_w(w_complex, space.gettypefor(W_ComplexObject)):
+        real = space.float(space.getattr(w_complex, space.wrap("real")))
+        imag = space.float(space.getattr(w_complex, space.wrap("imag")))
+        return (space.float_w(real), space.float_w(imag))
     #
     # Check that it is not a string (on which space.float() would succeed).
     if (space.isinstance_w(w_complex, space.w_str) or

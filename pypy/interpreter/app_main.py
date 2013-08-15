@@ -114,13 +114,12 @@ def display_exception(e):
     except BaseException as e:
         try:
             stderr = sys.stderr
-        except AttributeError:
-            pass   # too bad
-        else:
             print('Error calling sys.excepthook:', file=stderr)
             originalexcepthook(type(e), e, e.__traceback__)
             print(file=stderr)
             print('Original exception was:', file=stderr)
+        except:
+            pass   # too bad
 
     # we only get here if sys.excepthook didn't do its job
     originalexcepthook(etype, evalue, etraceback)
