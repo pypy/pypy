@@ -16,7 +16,9 @@ class DataFlowFamilyBuilder:
         # [Block, blockvar, linkvar, linkvar, linkvar...]
         opportunities = []
         opportunities_with_const = []
-        for block, links in mkinsideentrymap(graph).items():
+        entrymap = mkentrymap(graph)
+        del entrymap[graph.startblock]
+        for block, links in entrymap.items():
             assert links
             for n, inputvar in enumerate(block.inputargs):
                 vars = [block, inputvar]
@@ -123,23 +125,6 @@ def SSI_to_SSA(graph):
 
 # ____________________________________________________________
 
-def mkinsideentrymap(graph_or_blocks):
-    # graph_or_blocks can be a full FunctionGraph, or a mapping
-    # {block: reachable-from-outside-flag}.
-    if isinstance(graph_or_blocks, dict):
-        blocks = graph_or_blocks
-        entrymap = {}
-        for block in blocks:
-            for link in block.exits:
-                if link.target in blocks and not blocks[link.target]:
-                    entrymap.setdefault(link.target, []).append(link)
-        return entrymap
-    else:
-        graph = graph_or_blocks
-        entrymap = mkentrymap(graph)
-        del entrymap[graph.startblock]
-        return entrymap
-
 def variables_created_in(block):
     result = set(block.inputargs)
     for op in block.operations:
@@ -147,17 +132,14 @@ def variables_created_in(block):
     return result
 
 
-def SSA_to_SSI(graph_or_blocks, annotator=None):
+def SSA_to_SSI(graph, annotator=None):
     """Turn a number of blocks belonging to a flow graph into valid (i.e. SSI)
     form, assuming that they are only in SSA form (i.e. they can use each
     other's variables directly, without having to pass and rename them along
     links).
-
-    'graph_or_blocks' can be a graph, or just a dict that lists some blocks
-    from a graph, as follows: {block: reachable-from-outside-flag}.
     """
     seen = set()
-    for link in graph_or_blocks.iterlinks():
+    for link in graph.iterlinks():
         mapping = {}
         seen.update(link.args)
         for arg in link.target.inputargs:
@@ -165,8 +147,9 @@ def SSA_to_SSI(graph_or_blocks, annotator=None):
                 mapping[arg] = Variable(arg)
         link.target.renamevariables(mapping)
 
-    entrymap = mkinsideentrymap(graph_or_blocks)
-    builder = DataFlowFamilyBuilder(graph_or_blocks)
+    entrymap = mkentrymap(graph)
+    del entrymap[graph.startblock]
+    builder = DataFlowFamilyBuilder(graph)
     variable_families = builder.get_variable_families()
     del builder
 
