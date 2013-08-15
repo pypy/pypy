@@ -75,10 +75,12 @@ def eliminate_empty_blocks(graph):
                 outputargs = []
                 for v in exit.args:
                     if isinstance(v, Variable):
-                        # this variable is valid in the context of block1
-                        # but it must come from 'link'
-                        i = block1.inputargs.index(v)
-                        v = link.args[i]
+                        try:
+                            i = block1.inputargs.index(v)
+                            v = link.args[i]
+                        except ValueError:
+                            # the variable was passed implicitly to block1
+                            pass
                     outputargs.append(v)
                 link.args = outputargs
                 link.target = exit.target

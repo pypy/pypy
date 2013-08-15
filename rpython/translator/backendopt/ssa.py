@@ -138,15 +138,6 @@ def SSA_to_SSI(graph, annotator=None):
     other's variables directly, without having to pass and rename them along
     links).
     """
-    seen = set()
-    for link in graph.iterlinks():
-        mapping = {}
-        seen.update(link.args)
-        for arg in link.target.inputargs:
-            if arg in seen and isinstance(arg, Variable):
-                mapping[arg] = Variable(arg)
-        link.target.renamevariables(mapping)
-
     entrymap = mkentrymap(graph)
     del entrymap[graph.startblock]
     builder = DataFlowFamilyBuilder(graph)

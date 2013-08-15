@@ -111,12 +111,11 @@ class BlockRecorder(Recorder):
 
     def guessbool(self, ctx, w_condition):
         block = self.crnt_block
-        vars = block.getvariables()
         links = []
         for case in [False, True]:
-            egg = EggBlock(vars, block, case)
+            egg = EggBlock([], block, case)
             ctx.pendingblocks.append(egg)
-            link = Link(vars, egg, case)
+            link = Link([], egg, case)
             links.append(link)
 
         block.exitswitch = w_condition
@@ -133,16 +132,16 @@ class BlockRecorder(Recorder):
         links = []
         for case in [None] + list(cases):
             if case is not None:
-                assert block.operations[-1].result is bvars[-1]
-                vars = bvars[:-1]
-                vars2 = bvars[:-1]
                 if case is Exception:
                     last_exc = Variable('last_exception')
                 else:
                     last_exc = Constant(case)
                 last_exc_value = Variable('last_exc_value')
-                vars.extend([last_exc, last_exc_value])
-                vars2.extend([Variable(), Variable()])
+                vars = [last_exc, last_exc_value]
+                vars2 = [Variable(), Variable()]
+            else:
+                vars = []
+                vars2 = []
             egg = EggBlock(vars2, block, case)
             ctx.pendingblocks.append(egg)
             link = Link(vars, egg, case)
