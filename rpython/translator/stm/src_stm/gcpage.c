@@ -497,6 +497,14 @@ static void mark_all_stack_roots(void)
         visit_take_protected(d->thread_local_obj_ref);
         visit_take_protected(&d->old_thread_local_obj);
 
+        /* the abortinfo objects */
+        long i, size = d->abortinfo.size;
+        gcptr *items = d->abortinfo.items;
+        for (i = 0; i < size; i += 2) {
+            visit_take_protected(&items[i]);
+            /* items[i+1] is not a gc ptr */
+        }
+
         /* the current transaction's private copies of public objects */
         wlog_t *item;
         G2L_LOOP_FORWARD(d->public_to_private, item) {
@@ -528,8 +536,8 @@ static void mark_all_stack_roots(void)
         } G2L_LOOP_END;
 
         /* reinsert to real pub_to_priv */
-        long i, size = new_public_to_private.size;
-        gcptr *items = new_public_to_private.items;
+        size = new_public_to_private.size;
+        items = new_public_to_private.items;
         for (i = 0; i < size; i += 2) {
             g2l_insert(&d->public_to_private, items[i], items[i + 1]);
         }
