@@ -38,7 +38,7 @@ class BaseTestTransform(object):
             return 'I'     # allocated with immortal=True
         raise AssertionError("unknown category on %r" % (p,))
 
-    def interpret(self, fn, args):
+    def interpret(self, fn, args, gcremovetypeptr=False):
         self.build_state()
         clear_tcache()
         interp, self.graph = get_interpreter(fn, args, view=False)
@@ -46,6 +46,7 @@ class BaseTestTransform(object):
         interp.frame_class = LLSTMFrame
         #
         self.translator = interp.typer.annotator.translator
+        self.translator.config.translation.gcremovetypeptr = gcremovetypeptr
         self.stmtransformer = STMTransformer(self.translator)
         if self.do_jit_driver:
             self.stmtransformer.transform_jit_driver()

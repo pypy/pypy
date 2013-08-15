@@ -325,6 +325,42 @@ class TestTransform(BaseTestTransform):
         assert res == 81
         assert self.barriers == []
 
+    def test_isinstance(self):
+        class Base: pass
+        class A(Base): pass
+
+        def f1(n):
+            if n > 1:
+                x = Base()
+            else:
+                x = A()
+            return isinstance(x, A)
+
+        res = self.interpret(f1, [5])
+        assert res == False
+        assert self.barriers == ['a2i']
+        res = self.interpret(f1, [-5])
+        assert res == True
+        assert self.barriers == ['a2i']
+
+    def test_isinstance_gcremovetypeptr(self):
+        class Base: pass
+        class A(Base): pass
+
+        def f1(n):
+            if n > 1:
+                x = Base()
+            else:
+                x = A()
+            return isinstance(x, A)
+
+        res = self.interpret(f1, [5], gcremovetypeptr=True)
+        assert res == False
+        assert self.barriers == []
+        res = self.interpret(f1, [-5], gcremovetypeptr=True)
+        assert res == True
+        assert self.barriers == []
+
 
 external_release_gil = rffi.llexternal('external_release_gil', [], lltype.Void,
                                        _callable=lambda: None,

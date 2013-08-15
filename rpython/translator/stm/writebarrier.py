@@ -51,6 +51,8 @@ def insert_stm_barrier(stmtransformer, graph):
        pointer from category x to category y if and only if y > x.
     """
     graphinfo = stmtransformer.write_analyzer.compute_graph_info(graph)
+    gcremovetypeptr = (
+        stmtransformer.translator.config.translation.gcremovetypeptr)
 
     def get_category(v):
         if isinstance(v, Constant):
@@ -85,7 +87,15 @@ def insert_stm_barrier(stmtransformer, graph):
                                        'getinteriorfield') and
                          op.result.concretetype is not lltype.Void and
                          op.args[0].concretetype.TO._gckind == 'gc')
-            if (op.opname in ('getarraysize', 'getinteriorarraysize')
+
+            if (gcremovetypeptr and op.opname in ('getfield', 'setfield') and
+                op.args[1].value == 'typeptr' and
+                op.args[0].concretetype.TO._hints.get('typeptr')):
+                # if gcremovetypeptr, we can access directly the typeptr
+                # field even on a stub
+                pass
+
+            elif (op.opname in ('getarraysize', 'getinteriorarraysize')
                 or (is_getter and is_immutable(op))):
                 # we can't leave getarraysize or the immutable getfields
                 # fully unmodified: we need at least immut_read_barrier
