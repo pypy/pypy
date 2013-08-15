@@ -35,7 +35,7 @@ class BaseTestTransform(object):
         if not p:
             return None
         if p._solid:
-            return 'A'     # allocated with immortal=True
+            return 'I'     # allocated with immortal=True
         raise AssertionError("unknown category on %r" % (p,))
 
     def interpret(self, fn, args):

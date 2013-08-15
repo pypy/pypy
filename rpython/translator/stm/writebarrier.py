@@ -53,7 +53,11 @@ def insert_stm_barrier(stmtransformer, graph):
     graphinfo = stmtransformer.write_analyzer.compute_graph_info(graph)
 
     def get_category(v):
-        return category.get(v, 'A')
+        if isinstance(v, Constant):
+            default = 'I'    # prebuilt objects cannot be stubs
+        else:
+            default = 'A'
+        return category.get(v, default)
 
     def get_category_or_null(v):
         if isinstance(v, Constant) and not v.value:

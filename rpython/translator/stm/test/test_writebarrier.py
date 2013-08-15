@@ -25,7 +25,7 @@ class TestTransform(BaseTestTransform):
         res = self.interpret(f1, [-5])
         assert res == 42
         assert len(self.writemode) == 0
-        assert self.barriers == ['A2R']
+        assert self.barriers == ['I2R']
 
     def test_simple_write(self):
         X = lltype.GcStruct('X', ('foo', lltype.Signed))
@@ -38,7 +38,7 @@ class TestTransform(BaseTestTransform):
         self.interpret(f1, [4])
         assert x1.foo == 4
         assert len(self.writemode) == 1
-        assert self.barriers == ['A2W']
+        assert self.barriers == ['I2W']
 
     def test_multiple_reads(self):
         X = lltype.GcStruct('X', ('foo', lltype.Signed),
@@ -59,7 +59,7 @@ class TestTransform(BaseTestTransform):
         res = self.interpret(f1, [4])
         assert res == -81
         assert len(self.writemode) == 0
-        assert self.barriers == ['A2R']
+        assert self.barriers == ['I2R']
 
     def test_malloc(self):
         X = lltype.GcStruct('X', ('foo', lltype.Signed))
@@ -82,7 +82,7 @@ class TestTransform(BaseTestTransform):
 
         self.interpret(f1, [4])
         assert len(self.writemode) == 2
-        assert self.barriers == ['A2W', 'V2W']
+        assert self.barriers == ['I2W', 'V2W']
 
     def test_repeat_read_barrier_after_malloc(self):
         X = lltype.GcStruct('X', ('foo', lltype.Signed))
@@ -96,7 +96,7 @@ class TestTransform(BaseTestTransform):
 
         self.interpret(f1, [4])
         assert len(self.writemode) == 1
-        assert self.barriers == ['A2R']
+        assert self.barriers == ['I2R']
 
     def test_write_may_alias(self):
         X = lltype.GcStruct('X', ('foo', lltype.Signed))
@@ -291,7 +291,39 @@ class TestTransform(BaseTestTransform):
             return y
 
         res = self.interpret(f1, [10])
-        assert self.barriers == ['A2W', 'V2W']
+        assert self.barriers == ['I2W', 'V2W']
+
+    def test_read_immutable(self):
+        class Foo:
+            _immutable_ = True
+
+        def f1(n):
+            x = Foo()
+            if n > 1:
+                x.foo = n
+            return x.foo
+
+        res = self.interpret(f1, [4])
+        assert res == 4
+        assert self.barriers == ['a2w', 'a2i']
+
+    def test_read_immutable_prebuilt(self):
+        class Foo:
+            _immutable_ = True
+        x1 = Foo()
+        x1.foo = 42
+        x2 = Foo()
+        x2.foo = 81
+
+        def f1(n):
+            if n > 1:
+                return x2.foo
+            else:
+                return x1.foo
+
+        res = self.interpret(f1, [4])
+        assert res == 81
+        assert self.barriers == []
 
 
 external_release_gil = rffi.llexternal('external_release_gil', [], lltype.Void,
