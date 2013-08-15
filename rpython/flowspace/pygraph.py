@@ -13,7 +13,7 @@ class PyGraph(FunctionGraph):
         from rpython.flowspace.flowcontext import SpamBlock
         data = [None] * code.co_nlocals
         for i in range(code.formalargcount):
-            data[i] = Variable()
+            data[i] = Variable(code.co_varnames[i])
         state = FrameState(data + [Constant(None), Constant(None)], [], 0)
         initialblock = SpamBlock(state)
         super(PyGraph, self).__init__(self._sanitize_funcname(func), initialblock)

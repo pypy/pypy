@@ -81,12 +81,8 @@ class EggBlock(Block):
         self.last_exception = last_exception
 
 def fixeggblocks(graph):
-    varnames = graph.func.func_code.co_varnames
     for block in graph.iterblocks():
         if isinstance(block, SpamBlock):
-            for name, w_value in zip(varnames, block.framestate.mergeable):
-                if isinstance(w_value, Variable):
-                    w_value.rename(name)
             del block.framestate     # memory saver
     eliminate_empty_blocks(graph)
     SSA_to_SSI(graph)
@@ -494,6 +490,10 @@ class FlowContext(object):
             block = None
 
         newblock = SpamBlock(newstate)
+        varnames = self.pycode.co_varnames
+        for name, w_value in zip(varnames, newstate.mergeable):
+            if isinstance(w_value, Variable):
+                w_value.rename(name)
         # unconditionally link the current block to the newblock
         outputargs = currentstate.getoutputargs(newstate)
         link = Link(outputargs, newblock)
