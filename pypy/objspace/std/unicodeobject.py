@@ -411,82 +411,532 @@ def unicode_from_string(space, w_str):
         return unicode_from_encoded_object(space, w_str, "ascii", "strict")
 
 
-# ____________________________________________________________
+class UnicodeDocstrings:
+    """unicode(object='') -> unicode object
+    unicode(string[, encoding[, errors]]) -> unicode object
+
+    Create a new Unicode object from the given encoded string.
+    encoding defaults to the current default string encoding.
+    errors can be 'strict', 'replace' or 'ignore' and defaults to 'strict'.
+
+    """
+
+    def __add__():
+        """x.__add__(y) <==> x+y"""
+
+    def __contains__():
+        """x.__contains__(y) <==> y in x"""
+
+    def __eq__():
+        """x.__eq__(y) <==> x==y"""
+
+    def __format__():
+        """S.__format__(format_spec) -> unicode
+
+        Return a formatted version of S as described by format_spec.
+        """
+
+    def __ge__():
+        """x.__ge__(y) <==> x>=y"""
+
+    def __getattribute__():
+        """x.__getattribute__('name') <==> x.name"""
+
+    def __getitem__():
+        """x.__getitem__(y) <==> x[y]"""
+
+    def __getnewargs__():
+        """"""
+
+    def __getslice__():
+        """x.__getslice__(i, j) <==> x[i:j]
+
+        Use of negative indices is not supported.
+        """
+
+    def __gt__():
+        """x.__gt__(y) <==> x>y"""
+
+    def __hash__():
+        """x.__hash__() <==> hash(x)"""
+
+    def __le__():
+        """x.__le__(y) <==> x<=y"""
+
+    def __len__():
+        """x.__len__() <==> len(x)"""
+
+    def __lt__():
+        """x.__lt__(y) <==> x<y"""
+
+    def __mod__():
+        """x.__mod__(y) <==> x%y"""
+
+    def __mul__():
+        """x.__mul__(n) <==> x*n"""
+
+    def __ne__():
+        """x.__ne__(y) <==> x!=y"""
+
+    def __repr__():
+        """x.__repr__() <==> repr(x)"""
+
+    def __rmod__():
+        """x.__rmod__(y) <==> y%x"""
+
+    def __rmul__():
+        """x.__rmul__(n) <==> n*x"""
+
+    def __sizeof__():
+        """S.__sizeof__() -> size of S in memory, in bytes"""
+
+    def __str__():
+        """x.__str__() <==> str(x)"""
+
+    def capitalize():
+        """S.capitalize() -> unicode
+
+        Return a capitalized version of S, i.e. make the first character
+        have upper case and the rest lower case.
+        """
+
+    def center():
+        """S.center(width[, fillchar]) -> unicode
+
+        Return S centered in a Unicode string of length width. Padding is
+        done using the specified fill character (default is a space).
+        """
+
+    def count():
+        """S.count(sub[, start[, end]]) -> int
+
+        Return the number of non-overlapping occurrences of substring sub in
+        Unicode string S[start:end].  Optional arguments start and end are
+        interpreted as in slice notation.
+        """
+
+    def decode():
+        """S.decode(encoding=None, errors='strict') -> string or unicode
+
+        Decode S using the codec registered for encoding. encoding defaults
+        to the default encoding. errors may be given to set a different error
+        handling scheme. Default is 'strict' meaning that encoding errors raise
+        a UnicodeDecodeError. Other possible values are 'ignore' and 'replace'
+        as well as any other name registered with codecs.register_error that is
+        able to handle UnicodeDecodeErrors.
+        """
+
+    def encode():
+        """S.encode(encoding=None, errors='strict') -> string or unicode
+
+        Encode S using the codec registered for encoding. encoding defaults
+        to the default encoding. errors may be given to set a different error
+        handling scheme. Default is 'strict' meaning that encoding errors raise
+        a UnicodeEncodeError. Other possible values are 'ignore', 'replace' and
+        'xmlcharrefreplace' as well as any other name registered with
+        codecs.register_error that can handle UnicodeEncodeErrors.
+        """
+
+    def endswith():
+        """S.endswith(suffix[, start[, end]]) -> bool
+
+        Return True if S ends with the specified suffix, False otherwise.
+        With optional start, test S beginning at that position.
+        With optional end, stop comparing S at that position.
+        suffix can also be a tuple of strings to try.
+        """
+
+    def expandtabs():
+        """S.expandtabs([tabsize]) -> unicode
+
+        Return a copy of S where all tab characters are expanded using spaces.
+        If tabsize is not given, a tab size of 8 characters is assumed.
+        """
+
+    def find():
+        """S.find(sub[, start[, end]]) -> int
+
+        Return the lowest index in S where substring sub is found,
+        such that sub is contained within S[start:end].  Optional
+        arguments start and end are interpreted as in slice notation.
+
+        Return -1 on failure.
+        """
+
+    def format():
+        """S.format(*args, **kwargs) -> unicode
+
+        Return a formatted version of S, using substitutions from args and kwargs.
+        The substitutions are identified by braces ('{' and '}').
+        """
+
+    def index():
+        """S.index(sub[, start[, end]]) -> int
+
+        Like S.find() but raise ValueError when the substring is not found.
+        """
+
+    def isalnum():
+        """S.isalnum() -> bool
+
+        Return True if all characters in S are alphanumeric
+        and there is at least one character in S, False otherwise.
+        """
+
+    def isalpha():
+        """S.isalpha() -> bool
+
+        Return True if all characters in S are alphabetic
+        and there is at least one character in S, False otherwise.
+        """
+
+    def isdecimal():
+        """S.isdecimal() -> bool
+
+        Return True if there are only decimal characters in S,
+        False otherwise.
+        """
+
+    def isdigit():
+        """S.isdigit() -> bool
+
+        Return True if all characters in S are digits
+        and there is at least one character in S, False otherwise.
+        """
+
+    def islower():
+        """S.islower() -> bool
+
+        Return True if all cased characters in S are lowercase and there is
+        at least one cased character in S, False otherwise.
+        """
+
+    def isnumeric():
+        """S.isnumeric() -> bool
+
+        Return True if there are only numeric characters in S,
+        False otherwise.
+        """
+
+    def isspace():
+        """S.isspace() -> bool
+
+        Return True if all characters in S are whitespace
+        and there is at least one character in S, False otherwise.
+        """
+
+    def istitle():
+        """S.istitle() -> bool
+
+        Return True if S is a titlecased string and there is at least one
+        character in S, i.e. upper- and titlecase characters may only
+        follow uncased characters and lowercase characters only cased ones.
+        Return False otherwise.
+        """
+
+    def isupper():
+        """S.isupper() -> bool
+
+        Return True if all cased characters in S are uppercase and there is
+        at least one cased character in S, False otherwise.
+        """
+
+    def join():
+        """S.join(iterable) -> unicode
+
+        Return a string which is the concatenation of the strings in the
+        iterable.  The separator between elements is S.
+        """
+
+    def ljust():
+        """S.ljust(width[, fillchar]) -> int
+
+        Return S left-justified in a Unicode string of length width. Padding is
+        done using the specified fill character (default is a space).
+        """
+
+    def lower():
+        """S.lower() -> unicode
+
+        Return a copy of the string S converted to lowercase.
+        """
+
+    def lstrip():
+        """S.lstrip([chars]) -> unicode
+
+        Return a copy of the string S with leading whitespace removed.
+        If chars is given and not None, remove characters in chars instead.
+        If chars is a str, it will be converted to unicode before stripping
+        """
+
+    def partition():
+        """S.partition(sep) -> (head, sep, tail)
+
+        Search for the separator sep in S, and return the part before it,
+        the separator itself, and the part after it.  If the separator is not
+        found, return S and two empty strings.
+        """
+
+    def replace():
+        """S.replace(old, new[, count]) -> unicode
+
+        Return a copy of S with all occurrences of substring
+        old replaced by new.  If the optional argument count is
+        given, only the first count occurrences are replaced.
+        """
+
+    def rfind():
+        """S.rfind(sub[, start[, end]]) -> int
+
+        Return the highest index in S where substring sub is found,
+        such that sub is contained within S[start:end].  Optional
+        arguments start and end are interpreted as in slice notation.
+
+        Return -1 on failure.
+        """
+
+    def rindex():
+        """S.rindex(sub[, start[, end]]) -> int
+
+        Like S.rfind() but raise ValueError when the substring is not found.
+        """
+
+    def rjust():
+        """S.rjust(width[, fillchar]) -> unicode
+
+        Return S right-justified in a Unicode string of length width. Padding is
+        done using the specified fill character (default is a space).
+        """
+
+    def rpartition():
+        """S.rpartition(sep) -> (head, sep, tail)
+
+        Search for the separator sep in S, starting at the end of S, and return
+        the part before it, the separator itself, and the part after it.  If the
+        separator is not found, return two empty strings and S.
+        """
+
+    def rsplit():
+        """S.rsplit(sep=None, maxsplit=-1) -> list of strings
+
+        Return a list of the words in S, using sep as the
+        delimiter string, starting at the end of the string and
+        working to the front.  If maxsplit is given, at most maxsplit
+        splits are done. If sep is not specified, any whitespace string
+        is a separator.
+        """
+
+    def rstrip():
+        """S.rstrip([chars]) -> unicode
+
+        Return a copy of the string S with trailing whitespace removed.
+        If chars is given and not None, remove characters in chars instead.
+        If chars is a str, it will be converted to unicode before stripping
+        """
+
+    def split():
+        """S.split(sep=None, maxsplit=-1) -> list of strings
+
+        Return a list of the words in S, using sep as the
+        delimiter string.  If maxsplit is given, at most maxsplit
+        splits are done. If sep is not specified or is None, any
+        whitespace string is a separator and empty strings are
+        removed from the result.
+        """
+
+    def splitlines():
+        """S.splitlines(keepends=False) -> list of strings
+
+        Return a list of the lines in S, breaking at line boundaries.
+        Line breaks are not included in the resulting list unless keepends
+        is given and true.
+        """
+
+    def startswith():
+        """S.startswith(prefix[, start[, end]]) -> bool
+
+        Return True if S starts with the specified prefix, False otherwise.
+        With optional start, test S beginning at that position.
+        With optional end, stop comparing S at that position.
+        prefix can also be a tuple of strings to try.
+        """
+
+    def strip():
+        """S.strip([chars]) -> unicode
+
+        Return a copy of the string S with leading and trailing
+        whitespace removed.
+        If chars is given and not None, remove characters in chars instead.
+        If chars is a str, it will be converted to unicode before stripping
+        """
+
+    def swapcase():
+        """S.swapcase() -> unicode
+
+        Return a copy of S with uppercase characters converted to lowercase
+        and vice versa.
+        """
+
+    def title():
+        """S.title() -> unicode
+
+        Return a titlecased version of S, i.e. words start with title case
+        characters, all remaining cased characters have lower case.
+        """
+
+    def translate():
+        """S.translate(table) -> unicode
+
+        Return a copy of the string S, where all characters have been mapped
+        through the given translation table, which must be a mapping of
+        Unicode ordinals to Unicode ordinals, Unicode strings or None.
+        Unmapped characters are left untouched. Characters mapped to None
+        are deleted.
+        """
+
+    def upper():
+        """S.upper() -> unicode
+
+        Return a copy of S converted to uppercase.
+        """
+
+    def zfill():
+        """S.zfill(width) -> unicode
+
+        Pad a numeric string S with zeros on the left, to fill a field
+        of the specified width. The string S is never truncated.
+        """
+
 
 W_UnicodeObject.typedef = StdTypeDef(
     "unicode", basestring_typedef,
     __new__ = interp2app(W_UnicodeObject.descr_new),
-    __doc__ = '''unicode(string [, encoding[, errors]]) -> object
+    __doc__ = UnicodeDocstrings.__doc__,
 
-Create a new Unicode object from the given encoded string.
-encoding defaults to the current default string encoding.
-errors can be 'strict', 'replace' or 'ignore' and defaults to 'strict'.''',
+    __repr__ = interp2app(W_UnicodeObject.descr_repr,
+                          doc=UnicodeDocstrings.__repr__.__doc__),
+    __str__ = interp2app(W_UnicodeObject.descr_str,
+                         doc=UnicodeDocstrings.__str__.__doc__),
+    __hash__ = interp2app(W_UnicodeObject.descr_hash,
+                          doc=UnicodeDocstrings.__hash__.__doc__),
 
-    __repr__ = interp2app(W_UnicodeObject.descr_repr),
-    __str__ = interp2app(W_UnicodeObject.descr_str),
-    __hash__ = interp2app(W_UnicodeObject.descr_hash),
+    __eq__ = interp2app(W_UnicodeObject.descr_eq,
+                        doc=UnicodeDocstrings.__eq__.__doc__),
+    __ne__ = interp2app(W_UnicodeObject.descr_ne,
+                        doc=UnicodeDocstrings.__ne__.__doc__),
+    __lt__ = interp2app(W_UnicodeObject.descr_lt,
+                        doc=UnicodeDocstrings.__lt__.__doc__),
+    __le__ = interp2app(W_UnicodeObject.descr_le,
+                        doc=UnicodeDocstrings.__le__.__doc__),
+    __gt__ = interp2app(W_UnicodeObject.descr_gt,
+                        doc=UnicodeDocstrings.__gt__.__doc__),
+    __ge__ = interp2app(W_UnicodeObject.descr_ge,
+                        doc=UnicodeDocstrings.__ge__.__doc__),
 
-    __eq__ = interp2app(W_UnicodeObject.descr_eq),
-    __ne__ = interp2app(W_UnicodeObject.descr_ne),
-    __lt__ = interp2app(W_UnicodeObject.descr_lt),
-    __le__ = interp2app(W_UnicodeObject.descr_le),
-    __gt__ = interp2app(W_UnicodeObject.descr_gt),
-    __ge__ = interp2app(W_UnicodeObject.descr_ge),
+    __len__ = interp2app(W_UnicodeObject.descr_len,
+                         doc=UnicodeDocstrings.__len__.__doc__),
+    __contains__ = interp2app(W_UnicodeObject.descr_contains,
+                              doc=UnicodeDocstrings.__contains__.__doc__),
 
-    __len__ = interp2app(W_UnicodeObject.descr_len),
-    __contains__ = interp2app(W_UnicodeObject.descr_contains),
+    __add__ = interp2app(W_UnicodeObject.descr_add,
+                         doc=UnicodeDocstrings.__add__.__doc__),
+    __mul__ = interp2app(W_UnicodeObject.descr_mul,
+                         doc=UnicodeDocstrings.__mul__.__doc__),
+    __rmul__ = interp2app(W_UnicodeObject.descr_mul,
+                          doc=UnicodeDocstrings.__rmul__.__doc__),
 
-    __add__ = interp2app(W_UnicodeObject.descr_add),
-    __mul__ = interp2app(W_UnicodeObject.descr_mul),
-    __rmul__ = interp2app(W_UnicodeObject.descr_mul),
+    __getitem__ = interp2app(W_UnicodeObject.descr_getitem,
+                             doc=UnicodeDocstrings.__getitem__.__doc__),
+    __getslice__ = interp2app(W_UnicodeObject.descr_getslice,
+                              doc=UnicodeDocstrings.__getslice__.__doc__),
 
-    __getitem__ = interp2app(W_UnicodeObject.descr_getitem),
-    __getslice__ = interp2app(W_UnicodeObject.descr_getslice),
+    capitalize = interp2app(W_UnicodeObject.descr_capitalize,
+                            doc=UnicodeDocstrings.capitalize.__doc__),
+    center = interp2app(W_UnicodeObject.descr_center,
+                        doc=UnicodeDocstrings.center.__doc__),
+    count = interp2app(W_UnicodeObject.descr_count,
+                       doc=UnicodeDocstrings.count.__doc__),
+    decode = interp2app(W_UnicodeObject.descr_decode,
+                        doc=UnicodeDocstrings.decode.__doc__),
+    encode = interp2app(W_UnicodeObject.descr_encode,
+                        doc=UnicodeDocstrings.encode.__doc__),
+    expandtabs = interp2app(W_UnicodeObject.descr_expandtabs,
+                            doc=UnicodeDocstrings.expandtabs.__doc__),
+    find = interp2app(W_UnicodeObject.descr_find,
+                      doc=UnicodeDocstrings.find.__doc__),
+    rfind = interp2app(W_UnicodeObject.descr_rfind,
+                       doc=UnicodeDocstrings.rfind.__doc__),
+    index = interp2app(W_UnicodeObject.descr_index,
+                       doc=UnicodeDocstrings.index.__doc__),
+    rindex = interp2app(W_UnicodeObject.descr_rindex,
+                        doc=UnicodeDocstrings.rindex.__doc__),
+    isalnum = interp2app(W_UnicodeObject.descr_isalnum,
+                         doc=UnicodeDocstrings.isalnum.__doc__),
+    isalpha = interp2app(W_UnicodeObject.descr_isalpha,
+                         doc=UnicodeDocstrings.isalpha.__doc__),
+    isdecimal = interp2app(W_UnicodeObject.descr_isdecimal,
+                           doc=UnicodeDocstrings.isdecimal.__doc__),
+    isdigit = interp2app(W_UnicodeObject.descr_isdigit,
+                         doc=UnicodeDocstrings.isdigit.__doc__),
+    islower = interp2app(W_UnicodeObject.descr_islower,
+                         doc=UnicodeDocstrings.islower.__doc__),
+    isnumeric = interp2app(W_UnicodeObject.descr_isnumeric,
+                           doc=UnicodeDocstrings.isnumeric.__doc__),
+    isspace = interp2app(W_UnicodeObject.descr_isspace,
+                         doc=UnicodeDocstrings.isspace.__doc__),
+    istitle = interp2app(W_UnicodeObject.descr_istitle,
+                         doc=UnicodeDocstrings.istitle.__doc__),
+    isupper = interp2app(W_UnicodeObject.descr_isupper,
+                         doc=UnicodeDocstrings.isupper.__doc__),
+    join = interp2app(W_UnicodeObject.descr_join,
+                      doc=UnicodeDocstrings.join.__doc__),
+    ljust = interp2app(W_UnicodeObject.descr_ljust,
+                       doc=UnicodeDocstrings.ljust.__doc__),
+    rjust = interp2app(W_UnicodeObject.descr_rjust,
+                       doc=UnicodeDocstrings.rjust.__doc__),
+    lower = interp2app(W_UnicodeObject.descr_lower,
+                       doc=UnicodeDocstrings.lower.__doc__),
+    partition = interp2app(W_UnicodeObject.descr_partition,
+                           doc=UnicodeDocstrings.partition.__doc__),
+    rpartition = interp2app(W_UnicodeObject.descr_rpartition,
+                            doc=UnicodeDocstrings.rpartition.__doc__),
+    replace = interp2app(W_UnicodeObject.descr_replace,
+                         doc=UnicodeDocstrings.replace.__doc__),
+    split = interp2app(W_UnicodeObject.descr_split,
+                       doc=UnicodeDocstrings.split.__doc__),
+    rsplit = interp2app(W_UnicodeObject.descr_rsplit,
+                        doc=UnicodeDocstrings.rsplit.__doc__),
+    splitlines = interp2app(W_UnicodeObject.descr_splitlines,
+                            doc=UnicodeDocstrings.splitlines.__doc__),
+    startswith = interp2app(W_UnicodeObject.descr_startswith,
+                            doc=UnicodeDocstrings.startswith.__doc__),
+    endswith = interp2app(W_UnicodeObject.descr_endswith,
+                          doc=UnicodeDocstrings.endswith.__doc__),
+    strip = interp2app(W_UnicodeObject.descr_strip,
+                       doc=UnicodeDocstrings.strip.__doc__),
+    lstrip = interp2app(W_UnicodeObject.descr_lstrip,
+                        doc=UnicodeDocstrings.lstrip.__doc__),
+    rstrip = interp2app(W_UnicodeObject.descr_rstrip,
+                        doc=UnicodeDocstrings.rstrip.__doc__),
+    swapcase = interp2app(W_UnicodeObject.descr_swapcase,
+                          doc=UnicodeDocstrings.swapcase.__doc__),
+    title = interp2app(W_UnicodeObject.descr_title,
+                       doc=UnicodeDocstrings.title.__doc__),
+    translate = interp2app(W_UnicodeObject.descr_translate,
+                           doc=UnicodeDocstrings.translate.__doc__),
+    upper = interp2app(W_UnicodeObject.descr_upper,
+                       doc=UnicodeDocstrings.upper.__doc__),
+    zfill = interp2app(W_UnicodeObject.descr_zfill,
+                       doc=UnicodeDocstrings.zfill.__doc__),
 
-    capitalize = interp2app(W_UnicodeObject.descr_capitalize),
-    center = interp2app(W_UnicodeObject.descr_center),
-    count = interp2app(W_UnicodeObject.descr_count),
-    decode = interp2app(W_UnicodeObject.descr_decode),
-    encode = interp2app(W_UnicodeObject.descr_encode),
-    expandtabs = interp2app(W_UnicodeObject.descr_expandtabs),
-    find = interp2app(W_UnicodeObject.descr_find),
-    rfind = interp2app(W_UnicodeObject.descr_rfind),
-    index = interp2app(W_UnicodeObject.descr_index),
-    rindex = interp2app(W_UnicodeObject.descr_rindex),
-    isalnum = interp2app(W_UnicodeObject.descr_isalnum),
-    isalpha = interp2app(W_UnicodeObject.descr_isalpha),
-    isdecimal = interp2app(W_UnicodeObject.descr_isdecimal),
-    isdigit = interp2app(W_UnicodeObject.descr_isdigit),
-    islower = interp2app(W_UnicodeObject.descr_islower),
-    isnumeric = interp2app(W_UnicodeObject.descr_isnumeric),
-    isspace = interp2app(W_UnicodeObject.descr_isspace),
-    istitle = interp2app(W_UnicodeObject.descr_istitle),
-    isupper = interp2app(W_UnicodeObject.descr_isupper),
-    join = interp2app(W_UnicodeObject.descr_join),
-    ljust = interp2app(W_UnicodeObject.descr_ljust),
-    rjust = interp2app(W_UnicodeObject.descr_rjust),
-    lower = interp2app(W_UnicodeObject.descr_lower),
-    partition = interp2app(W_UnicodeObject.descr_partition),
-    rpartition = interp2app(W_UnicodeObject.descr_rpartition),
-    replace = interp2app(W_UnicodeObject.descr_replace),
-    split = interp2app(W_UnicodeObject.descr_split),
-    rsplit = interp2app(W_UnicodeObject.descr_rsplit),
-    splitlines = interp2app(W_UnicodeObject.descr_splitlines),
-    startswith = interp2app(W_UnicodeObject.descr_startswith),
-    endswith = interp2app(W_UnicodeObject.descr_endswith),
-    strip = interp2app(W_UnicodeObject.descr_strip),
-    lstrip = interp2app(W_UnicodeObject.descr_lstrip),
-    rstrip = interp2app(W_UnicodeObject.descr_rstrip),
-    swapcase = interp2app(W_UnicodeObject.descr_swapcase),
-    title = interp2app(W_UnicodeObject.descr_title),
-    translate = interp2app(W_UnicodeObject.descr_translate),
-    upper = interp2app(W_UnicodeObject.descr_upper),
-    zfill = interp2app(W_UnicodeObject.descr_zfill),
-
-    format = interp2app(W_UnicodeObject.descr_format),
-    __format__ = interp2app(W_UnicodeObject.descr__format__),
-    __mod__ = interp2app(W_UnicodeObject.descr_mod),
-    __getnewargs__ = interp2app(W_UnicodeObject.descr_getnewargs),
+    format = interp2app(W_UnicodeObject.descr_format,
+                        doc=UnicodeDocstrings.format.__doc__),
+    __format__ = interp2app(W_UnicodeObject.descr__format__,
+                            doc=UnicodeDocstrings.__format__.__doc__),
+    __mod__ = interp2app(W_UnicodeObject.descr_mod,
+                         doc=UnicodeDocstrings.__mod__.__doc__),
+    __getnewargs__ = interp2app(W_UnicodeObject.descr_getnewargs,
+                                doc=UnicodeDocstrings.__getnewargs__.__doc__),
     _formatter_parser = interp2app(W_UnicodeObject.descr_formatter_parser),
     _formatter_field_name_split =
         interp2app(W_UnicodeObject.descr_formatter_field_name_split),
