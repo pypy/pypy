@@ -8,9 +8,10 @@ def build_prolog_list(elems):
     # Iterative, to avoid list slicing (linear in list size)
     n_elems = len(elems)
     e = "[]"
-    for i in xrange(n_elems - 1, -1, -1):
+    i = n_elems - 1
+    while i >= 0:
         e = Term(".", [elems[i], e])
-
+        i -= 1
     return e
 
 def unpack_prolog_list(obj):
