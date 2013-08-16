@@ -487,10 +487,6 @@ class FlowContext(object):
         else:
             newstate = currentstate.copy()
             newblock = SpamBlock(newstate)
-            varnames = self.pycode.co_varnames
-            for name, w_value in zip(varnames, newstate.mergeable):
-                if isinstance(w_value, Variable):
-                    w_value.rename(name)
             # unconditionally link the current block to the newblock
             outputargs = currentstate.getoutputargs(newstate)
             link = Link(outputargs, newblock)
@@ -929,6 +925,8 @@ class FlowContext(object):
         w_newvalue = self.popvalue()
         assert w_newvalue is not None
         self.locals_stack_w[varindex] = w_newvalue
+        if isinstance(w_newvalue, Variable):
+            w_newvalue.rename(self.getlocalvarname(varindex))
 
     def STORE_GLOBAL(self, nameindex):
         varname = self.getname_u(nameindex)

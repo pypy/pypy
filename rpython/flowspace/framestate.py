@@ -13,7 +13,7 @@ class FrameState(object):
         newstate = []
         for w in self.mergeable:
             if isinstance(w, Variable):
-                w = Variable()
+                w = Variable(w)
             newstate.append(w)
         return FrameState(newstate, self.blocklist, self.next_instr)
 
@@ -66,14 +66,14 @@ class UnionError(Exception):
 
 def union(w1, w2):
     "Union of two variables or constants."
+    if w1 == w2:
+        return w1
     if w1 is None or w2 is None:
         return None  # if w1 or w2 is an undefined local, we "kill" the value
                      # coming from the other path and return an undefined local
     if isinstance(w1, Variable) or isinstance(w2, Variable):
         return Variable()  # new fresh Variable
     if isinstance(w1, Constant) and isinstance(w2, Constant):
-        if w1 == w2:
-            return w1
         # FlowSignal represent stack unrollers in the stack.
         # They should not be merged because they will be unwrapped.
         # This is needed for try:except: and try:finally:, though
