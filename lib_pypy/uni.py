@@ -40,6 +40,13 @@ class Engine(CoreEngine):
         self.db = Database(self)
         self.terms = TermPool()
 
+    @classmethod
+    def from_file(cls, filename, ns=None):
+        with file(filename) as f:
+            content = f.read()
+        return cls(content, ns)
+
+
 class SolutionIterator(object):
     """ A wrapper around unipycation.CoreSolutionIterator. """
     def __init__(self, it):
