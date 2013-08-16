@@ -4,7 +4,6 @@ from pypy.interpreter.buffer import StringBuffer
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.objspace.std import newformat, slicetype
 from pypy.objspace.std.formatting import mod_format
-from pypy.objspace.std.inttype import wrapint
 from pypy.objspace.std.model import W_Object, registerimplementation
 from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.objspace.std.noneobject import W_NoneObject
@@ -589,7 +588,7 @@ def str_center__String_ANY_ANY(space, w_self, w_arg, w_fillchar):
 
 def str_count__String_String_ANY_ANY(space, w_self, w_arg, w_start, w_end):
     u_self, u_start, u_end = _convert_idx_params(space, w_self, w_start, w_end)
-    return wrapint(space, u_self.count(w_arg._value, u_start, u_end))
+    return space.newint(u_self.count(w_arg._value, u_start, u_end))
 
 def str_endswith__String_String_ANY_ANY(space, w_self, w_suffix, w_start, w_end):
     (u_self, start, end) = _convert_idx_params(space, w_self, w_start,
@@ -709,7 +708,7 @@ def str_zfill__String_ANY(space, w_self, w_width):
 def hash__String(space, w_str):
     s = w_str._value
     x = compute_hash(s)
-    return wrapint(space, x)
+    return space.newint(x)
 
 def lt__String_String(space, w_str1, w_str2):
     s1 = w_str1._value
