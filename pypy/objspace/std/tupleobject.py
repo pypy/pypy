@@ -7,7 +7,6 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import (
     WrappedDefault, interp2app, interpindirect2app, unwrap_spec)
 from pypy.objspace.std import slicetype
-from pypy.objspace.std.inttype import wrapint
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std.stdtypedef import StdTypeDef
 from pypy.objspace.std.util import negate
@@ -56,7 +55,7 @@ class W_AbstractTupleObject(W_Root):
 
     def descr_len(self, space):
         result = self.length()
-        return wrapint(space, result)
+        return space.newint(result)
 
     def descr_iter(self, space):
         from pypy.objspace.std import iterobject
