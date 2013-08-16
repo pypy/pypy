@@ -20,13 +20,11 @@ class FrameState(object):
     def getvariables(self):
         return [w for w in self.mergeable if isinstance(w, Variable)]
 
-    def __eq__(self, other):
-        """Two states are equal
-        if they only use different Variables at the same place"""
+    def matches(self, other):
+        """Two states match if they only differ by using different Variables
+        at the same place"""
         # safety check, don't try to compare states with different
         # nonmergeable states
-        assert isinstance(other, FrameState)
-        assert len(self.mergeable) == len(other.mergeable)
         assert self.blocklist == other.blocklist
         assert self.next_instr == other.next_instr
         for w1, w2 in zip(self.mergeable, other.mergeable):
@@ -34,9 +32,6 @@ class FrameState(object):
                                  isinstance(w2, Variable))):
                 return False
         return True
-
-    def __ne__(self, other):
-        return not (self == other)
 
     def union(self, other):
         """Compute a state that is at least as general as both self and other.

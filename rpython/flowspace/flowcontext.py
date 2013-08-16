@@ -476,13 +476,7 @@ class FlowContext(object):
         candidates = self.joinpoints.setdefault(next_instr, [])
         for block in candidates:
             newstate = block.framestate.union(currentstate)
-            if newstate is None:
-                continue
-            elif newstate == block.framestate:
-                outputargs = currentstate.getoutputargs(newstate)
-                currentblock.closeblock(Link(outputargs, block))
-                return
-            else:
+            if newstate is not None:
                 break
         else:
             newstate = currentstate.copy()
@@ -493,6 +487,11 @@ class FlowContext(object):
             currentblock.closeblock(link)
             candidates.insert(0, newblock)
             self.pendingblocks.append(newblock)
+            return
+
+        if newstate.matches(block.framestate):
+            outputargs = currentstate.getoutputargs(newstate)
+            currentblock.closeblock(Link(outputargs, block))
             return
 
         newblock = SpamBlock(newstate)
