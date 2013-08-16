@@ -223,8 +223,10 @@ class _AppTestSelect:
 
         pollster = select.poll()
         raises(OverflowError, pollster.register, 0, 32768) # SHRT_MAX + 1
+        raises(OverflowError, pollster.register, 0, -32768 - 1)
         raises(OverflowError, pollster.register, 0, 65535) # USHRT_MAX + 1
         raises(OverflowError, pollster.poll, 2147483648) # INT_MAX +  1
+        raises(OverflowError, pollster.poll, -2147483648 - 1)
         raises(OverflowError, pollster.poll, 4294967296) # UINT_MAX + 1
 
 

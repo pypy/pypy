@@ -22,9 +22,10 @@ class Poll(W_Root):
 
     @unwrap_spec(events=int)
     def register(self, space, w_fd, events=defaultevents):
-        if events > 32767:
-            msg = "signed short integer is greater than maximum"
-            raise OperationError(space.w_OverflowError, space.wrap(msg))
+        if not -32767 - 1 <= events <= 32767:
+            m = ("signed short integer is " +
+                 "greater than maximum" if events > 0 else "less than minimum")
+            raise OperationError(space.w_OverflowError, space.wrap(m))
         fd = space.c_filedescriptor_w(w_fd)
         self.fddict[fd] = events
 
@@ -58,7 +59,7 @@ class Poll(W_Root):
                 raise OperationError(space.w_ValueError,
                                      space.wrap("math range error"))
 
-        if timeout > 2147483647:
+        if not -2147483647 - 1 <= timeout <= 2147483647:
             msg = "Python int too large to convert to C int"
             raise OperationError(space.w_OverflowError, space.wrap(msg))
 
