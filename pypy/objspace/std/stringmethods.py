@@ -1,7 +1,6 @@
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
 from pypy.objspace.std import slicetype
-from pypy.objspace.std.inttype import wrapint
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import specialize
@@ -205,7 +204,7 @@ class StringMethods(object):
     @specialize.argtype(0)
     def descr_count(self, space, w_sub, w_start=None, w_end=None):
         value, start, end = self._convert_idx_params(space, w_start, w_end)
-        return wrapint(space, value.count(self._op_val(space, w_sub), start, end))
+        return space.newint(value.count(self._op_val(space, w_sub), start, end))
 
     @specialize.argtype(0)
     def descr_decode(self, space, w_encoding=None, w_errors=None):

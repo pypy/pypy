@@ -20,7 +20,6 @@ from pypy.objspace.std import slicetype
 from pypy.objspace.std.bytesobject import W_BytesObject
 from pypy.objspace.std.floatobject import W_FloatObject
 from pypy.objspace.std.intobject import W_IntObject
-from pypy.objspace.std.inttype import wrapint
 from pypy.objspace.std.iterobject import (W_FastListIterObject,
     W_ReverseSeqIterObject)
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
@@ -427,7 +426,7 @@ class W_ListObject(W_Root):
 
     def descr_len(self, space):
         result = self.length()
-        return wrapint(space, result)
+        return space.newint(result)
 
     def descr_iter(self, space):
         return W_FastListIterObject(self)
