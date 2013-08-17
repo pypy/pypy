@@ -561,8 +561,8 @@ class TestFramework(RewriteTests):
             jump()
         """, """
             [p1, p2]
-            cond_call_gc_wb(p1, p2, descr=wbdescr)
-            setfield_raw(p1, p2, descr=tzdescr)
+            cond_call_gc_wb(p1, descr=wbdescr)
+            setfield_gc(p1, p2, descr=tzdescr)
             jump()
         """)
 
@@ -575,8 +575,8 @@ class TestFramework(RewriteTests):
             jump()
         """, """
             [p1, i2, p3]
-            cond_call_gc_wb(p1, p3, descr=wbdescr)
-            setarrayitem_raw(p1, i2, p3, descr=cdescr)
+            cond_call_gc_wb(p1, descr=wbdescr)
+            setarrayitem_gc(p1, i2, p3, descr=cdescr)
             jump()
         """)
 
@@ -595,8 +595,8 @@ class TestFramework(RewriteTests):
             setfield_gc(p1, 8111, descr=tiddescr)
             setfield_gc(p1, 129, descr=clendescr)
             call(123456)
-            cond_call_gc_wb(p1, p3, descr=wbdescr)
-            setarrayitem_raw(p1, i2, p3, descr=cdescr)
+            cond_call_gc_wb(p1, descr=wbdescr)
+            setarrayitem_gc(p1, i2, p3, descr=cdescr)
             jump()
         """)
 
@@ -616,8 +616,8 @@ class TestFramework(RewriteTests):
             setfield_gc(p1, 8111, descr=tiddescr)
             setfield_gc(p1, 130, descr=clendescr)
             call(123456)
-            cond_call_gc_wb_array(p1, i2, p3, descr=wbdescr)
-            setarrayitem_raw(p1, i2, p3, descr=cdescr)
+            cond_call_gc_wb_array(p1, i2, descr=wbdescr)
+            setarrayitem_gc(p1, i2, p3, descr=cdescr)
             jump()
         """)
 
@@ -628,8 +628,8 @@ class TestFramework(RewriteTests):
             jump()
         """, """
             [p1, i2, p3]
-            cond_call_gc_wb_array(p1, i2, p3, descr=wbdescr)
-            setarrayitem_raw(p1, i2, p3, descr=cdescr)
+            cond_call_gc_wb_array(p1, i2, descr=wbdescr)
+            setarrayitem_gc(p1, i2, p3, descr=cdescr)
             jump()
         """)
 
@@ -647,8 +647,8 @@ class TestFramework(RewriteTests):
             setfield_gc(p1, 8111, descr=tiddescr)
             setfield_gc(p1, 5, descr=clendescr)
             label(p1, i2, p3)
-            cond_call_gc_wb_array(p1, i2, p3, descr=wbdescr)
-            setarrayitem_raw(p1, i2, p3, descr=cdescr)
+            cond_call_gc_wb_array(p1, i2, descr=wbdescr)
+            setarrayitem_gc(p1, i2, p3, descr=cdescr)
             jump()
         """)
 
@@ -666,8 +666,8 @@ class TestFramework(RewriteTests):
             jump(p1, p2)
         """, """
             [p1, p2]
-            cond_call_gc_wb(p1, p2, descr=wbdescr)
-            setinteriorfield_raw(p1, 0, p2, descr=interiorzdescr)
+            cond_call_gc_wb(p1, descr=wbdescr)
+            setinteriorfield_gc(p1, 0, p2, descr=interiorzdescr)
             jump(p1, p2)
         """, interiorzdescr=interiorzdescr)
 
@@ -733,8 +733,8 @@ class TestFramework(RewriteTests):
             p1 = call_malloc_nursery_varsize(1, 1, i0, \
                                 descr=strdescr)
             setfield_gc(p1, i0, descr=strlendescr)
-            cond_call_gc_wb(p0, p1, descr=wbdescr)
-            setfield_raw(p0, p1, descr=tzdescr)
+            cond_call_gc_wb(p0, descr=wbdescr)
+            setfield_gc(p0, p1, descr=tzdescr)
             jump()
         """)
 
@@ -750,9 +750,23 @@ class TestFramework(RewriteTests):
             p0 = call_malloc_nursery(%(tdescr.size)d)
             setfield_gc(p0, 5678, descr=tiddescr)
             label(p0, p1)
-            cond_call_gc_wb(p0, p1, descr=wbdescr)
-            setfield_raw(p0, p1, descr=tzdescr)
+            cond_call_gc_wb(p0, descr=wbdescr)
+            setfield_gc(p0, p1, descr=tzdescr)
             jump()
+        """)
+
+    def test_multiple_writes(self):
+        self.check_rewrite("""
+            [p0, p1, p2]
+            setfield_gc(p0, p1, descr=tzdescr)
+            setfield_gc(p0, p2, descr=tzdescr)
+            jump(p1, p2, p0)
+        """, """
+            [p0, p1, p2]
+            cond_call_gc_wb(p0, descr=wbdescr)
+            setfield_gc(p0, p1, descr=tzdescr)
+            setfield_gc(p0, p2, descr=tzdescr)
+            jump(p1, p2, p0)
         """)
 
     def test_rewrite_call_assembler(self):
