@@ -2140,11 +2140,9 @@ class LLtypeBackendTest(BaseBackendTest):
             s = lltype.malloc(S)
             s.tid = value
             sgcref = lltype.cast_opaque_ptr(llmemory.GCREF, s)
-            t = lltype.malloc(S)
-            tgcref = lltype.cast_opaque_ptr(llmemory.GCREF, t)
             del record[:]
             self.execute_operation(rop.COND_CALL_GC_WB,
-                                   [BoxPtr(sgcref), ConstPtr(tgcref)],
+                                   [BoxPtr(sgcref)],
                                    'void', descr=WriteBarrierDescr())
             if cond:
                 assert record == [rffi.cast(lltype.Signed, sgcref)]
@@ -2179,7 +2177,7 @@ class LLtypeBackendTest(BaseBackendTest):
             sgcref = lltype.cast_opaque_ptr(llmemory.GCREF, s)
             del record[:]
             self.execute_operation(rop.COND_CALL_GC_WB_ARRAY,
-                       [BoxPtr(sgcref), ConstInt(123), BoxPtr(sgcref)],
+                       [BoxPtr(sgcref), ConstInt(123)],
                        'void', descr=WriteBarrierDescr())
             if cond:
                 assert record == [rffi.cast(lltype.Signed, sgcref)]
@@ -2244,7 +2242,7 @@ class LLtypeBackendTest(BaseBackendTest):
                 del record[:]
                 box_index = BoxIndexCls((9<<7) + 17)
                 self.execute_operation(rop.COND_CALL_GC_WB_ARRAY,
-                           [BoxPtr(sgcref), box_index, BoxPtr(sgcref)],
+                           [BoxPtr(sgcref), box_index],
                            'void', descr=WriteBarrierDescr())
                 if cond in [0, 1]:
                     assert record == [rffi.cast(lltype.Signed, s.data)]
