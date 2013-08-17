@@ -17,6 +17,10 @@ class Logger(object):
             debug_start("jit-log-noopt-loop")
             logops = self._log_operations(inputargs, operations, ops_offset)
             debug_stop("jit-log-noopt-loop")
+        elif type == "rewritten":
+            debug_start("jit-log-rewritten-loop")
+            logops = self._log_operations(inputargs, operations, ops_offset)
+            debug_stop("jit-log-rewritten-loop")
         elif number == -2:
             debug_start("jit-log-compiling-loop")
             logops = self._log_operations(inputargs, operations, ops_offset)
@@ -35,6 +39,10 @@ class Logger(object):
             debug_start("jit-log-noopt-bridge")
             logops = self._log_operations(inputargs, operations, ops_offset)
             debug_stop("jit-log-noopt-bridge")
+        elif extra == "rewritten":
+            debug_start("jit-log-rewritten-bridge")
+            logops = self._log_operations(inputargs, operations, ops_offset)
+            debug_stop("jit-log-rewritten-bridge")            
         elif extra == "compiling":
             debug_start("jit-log-compiling-bridge")
             logops = self._log_operations(inputargs, operations, ops_offset)
