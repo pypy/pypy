@@ -130,6 +130,14 @@ class LLSTMFrame(LLFrame):
         return LLFrame.op_cast_pointer(self, RESTYPE, obj)
     op_cast_pointer.need_result_type = True
 
+    def op_cast_opaque_ptr(self, RESTYPE, obj):
+        if obj._TYPE.TO._gckind == 'gc':
+            cat = self.check_category(obj, None)
+            p = lltype.cast_opaque_ptr(RESTYPE, obj)
+            return _stmptr(p, cat)
+        return LLFrame.op_cast_opaque_ptr(self, RESTYPE, obj)
+    op_cast_opaque_ptr.need_result_type = True
+
     def op_malloc(self, obj, flags):
         assert flags['flavor'] == 'gc'
         # convert all existing pointers W -> V

@@ -1,5 +1,5 @@
 from rpython.rlib.rstm import register_invoke_around_extcall
-from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.translator.stm.test.transform_support import BaseTestTransform
 
 
@@ -323,6 +323,32 @@ class TestTransform(BaseTestTransform):
         res = self.interpret(f1, [10])
         assert res == 84
         assert self.barriers == ['a2r', 'a2r', 'r2w', 'q2r']
+
+    def test_subclassing_gcref(self):
+        Y = lltype.GcStruct('Y', ('foo', lltype.Signed),
+                                 ('ybar', lltype.Signed))
+        YPTR = lltype.Ptr(Y)
+        #
+        def handle(y):
+            y.ybar += 1
+        def f1(i):
+            if i > 5:
+                y = lltype.malloc(Y); y.foo = 52 - i; y.ybar = i
+                x = lltype.cast_opaque_ptr(llmemory.GCREF, y)
+            else:
+                y = lltype.nullptr(Y)
+                x = lltype.cast_opaque_ptr(llmemory.GCREF, y)
+            external_any_gcobj()
+            prev = lltype.cast_opaque_ptr(YPTR, x).foo           # a2r
+            handle(y)                            # inside handle(): a2r, r2w
+            return prev + lltype.cast_opaque_ptr(YPTR, x).ybar   # q2r?
+
+        res = self.interpret(f1, [10])
+        assert res == 42 + 11
+        assert self.barriers == ['a2r', 'a2r', 'r2w', 'a2r']
+        # Ideally we should get [... 'q2r'] but getting 'a2r' is not wrong
+        # either.  This is because from a GCREF the only thing we can do is
+        # cast_opaque_ptr, which is not special-cased in writebarrier.py.
 
     def test_write_barrier_repeated(self):
         class X:
