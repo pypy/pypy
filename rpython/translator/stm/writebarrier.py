@@ -199,12 +199,19 @@ def insert_stm_barrier(stmtransformer, graph):
                                 category[v] = 'Q'
                     else:
                         # the same, but only on objects of the right types
-                        types = set([entry[1] for entry in effectinfo])
+                        # -- we need to consider 'types' or any base type
+                        types = set()
+                        for entry in effectinfo:
+                            TYPE = entry[1].TO
+                            while TYPE is not None:
+                                types.add(TYPE)
+                                if not isinstance(TYPE, lltype.Struct):
+                                    break
+                                _, TYPE = TYPE._first_struct()
                         for v in category.keys():
-                            if v.concretetype in types and category[v] == 'R':
+                            if (v.concretetype.TO in types and
+                                   category[v] == 'R'):
                                 category[v] = 'Q'
-                        # XXX this is likely not general enough: we need
-                        # to consider 'types' or any base type
 
                 if op.opname in MALLOCS:
                     category[op.result] = 'W'
