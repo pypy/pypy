@@ -3,7 +3,7 @@
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.buffer import StringBuffer
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
+from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault, interpindirect2app
 from pypy.objspace.std import newformat
 from pypy.objspace.std.basestringtype import basestring_typedef
 from pypy.objspace.std.formatting import mod_format
@@ -43,8 +43,388 @@ class W_AbstractBytesObject(W_Root):
             return space.unicode_w(unicode_from_string(space, self))
         return space.unicode_w(decode_object(space, self, encoding, errors))
 
+    def descr_add(self, space, w_other):
+        """x.__add__(y) <==> x+y"""
 
-class W_BytesObject(W_AbstractBytesObject, StringMethods):
+    def descr_contains(self, space, w_sub):
+        """x.__contains__(y) <==> y in x"""
+
+    def descr_eq(self, space, w_other):
+        """x.__eq__(y) <==> x==y"""
+
+    def descr__format__(self, space, w_format_spec):
+        """S.__format__(format_spec) -> string
+
+        Return a formatted version of S as described by format_spec.
+        """
+
+    def descr_ge(self, space, w_other):
+        """x.__ge__(y) <==> x>=y"""
+
+    def descr_getitem(self, space, w_index):
+        """x.__getitem__(y) <==> x[y]"""
+
+    def descr_getnewargs(self, space):
+        """"""
+
+    def descr_getslice(self, space, w_start, w_stop):
+        """x.__getslice__(i, j) <==> x[i:j]
+
+        Use of negative indices is not supported.
+        """
+
+    def descr_gt(self, space, w_other):
+        """x.__gt__(y) <==> x>y"""
+
+    def descr_hash(self, space):
+        """x.__hash__() <==> hash(x)"""
+
+    def descr_le(self, space, w_other):
+        """x.__le__(y) <==> x<=y"""
+
+    def descr_len(self, space):
+        """x.__len__() <==> len(x)"""
+
+    def descr_lt(self, space, w_other):
+        """x.__lt__(y) <==> x<y"""
+
+    def descr_mod(self, space, w_values):
+        """x.__mod__(y) <==> x%y"""
+
+    def descr_mul(self, space, w_times):
+        """x.__mul__(n) <==> x*n"""
+
+    def descr_ne(self, space, w_other):
+        """x.__ne__(y) <==> x!=y"""
+
+    def descr_repr(self, space):
+        """x.__repr__() <==> repr(x)"""
+
+    def descr_rmod(self, space, w_values):
+        """x.__rmod__(y) <==> y%x"""
+
+    def descr_rmul(self, space, w_times):
+        """x.__rmul__(n) <==> n*x"""
+
+    def descr_str(self, space):
+        """x.__str__() <==> str(x)"""
+
+    def descr_capitalize(self, space):
+        """S.capitalize() -> string
+
+        Return a capitalized version of S, i.e. make the first character
+        have upper case and the rest lower case.
+        """
+
+    @unwrap_spec(width=int, w_fillchar=WrappedDefault(' '))
+    def descr_center(self, space, width, w_fillchar):
+        """S.center(width[, fillchar]) -> string
+
+        Return S centered in a string of length width. Padding is
+        done using the specified fill character (default is a space).
+        """
+
+    def descr_count(self, space, w_sub, w_start=None, w_end=None):
+        """S.count(sub[, start[, end]]) -> int
+
+        Return the number of non-overlapping occurrences of substring sub in
+        string S[start:end].  Optional arguments start and end are interpreted
+        as in slice notation.
+        """
+
+    def descr_decode(self, space, w_encoding=None, w_errors=None):
+        """S.decode(encoding=None, errors='strict') -> object
+
+        Decode S using the codec registered for encoding. encoding defaults
+        to the default encoding. errors may be given to set a different error
+        handling scheme. Default is 'strict' meaning that encoding errors raise
+        a UnicodeDecodeError. Other possible values are 'ignore' and 'replace'
+        as well as any other name registered with codecs.register_error that is
+        able to handle UnicodeDecodeErrors.
+        """
+
+    def descr_encode(self, space, w_encoding=None, w_errors=None):
+        """S.encode(encoding=None, errors='strict') -> object
+
+        Encode S using the codec registered for encoding. encoding defaults
+        to the default encoding. errors may be given to set a different error
+        handling scheme. Default is 'strict' meaning that encoding errors raise
+        a UnicodeEncodeError. Other possible values are 'ignore', 'replace' and
+        'xmlcharrefreplace' as well as any other name registered with
+        codecs.register_error that is able to handle UnicodeEncodeErrors.
+        """
+
+    def descr_endswith(self, space, w_suffix, w_start=None, w_end=None):
+        """S.endswith(suffix[, start[, end]]) -> bool
+
+        Return True if S ends with the specified suffix, False otherwise.
+        With optional start, test S beginning at that position.
+        With optional end, stop comparing S at that position.
+        suffix can also be a tuple of strings to try.
+        """
+
+    @unwrap_spec(tabsize=int)
+    def descr_expandtabs(self, space, tabsize=8):
+        """S.expandtabs([tabsize]) -> string
+
+        Return a copy of S where all tab characters are expanded using spaces.
+        If tabsize is not given, a tab size of 8 characters is assumed.
+        """
+
+    def descr_find(self, space, w_sub, w_start=None, w_end=None):
+        """S.find(sub[, start[, end]]) -> int
+
+        Return the lowest index in S where substring sub is found,
+        such that sub is contained within S[start:end].  Optional
+        arguments start and end are interpreted as in slice notation.
+
+        Return -1 on failure.
+        """
+
+    def descr_format(self, space, __args__):
+        """S.format(*args, **kwargs) -> string
+
+        Return a formatted version of S, using substitutions from args and kwargs.
+        The substitutions are identified by braces ('{' and '}').
+        """
+
+    def descr_index(self, space, w_sub, w_start=None, w_end=None):
+        """S.index(sub[, start[, end]]) -> int
+
+        Like S.find() but raise ValueError when the substring is not found.
+        """
+
+    def descr_isalnum(self, space):
+        """S.isalnum() -> bool
+
+        Return True if all characters in S are alphanumeric
+        and there is at least one character in S, False otherwise.
+        """
+
+    def descr_isalpha(self, space):
+        """S.isalpha() -> bool
+
+        Return True if all characters in S are alphabetic
+        and there is at least one character in S, False otherwise.
+        """
+
+    def descr_isdigit(self, space):
+        """S.isdigit() -> bool
+
+        Return True if all characters in S are digits
+        and there is at least one character in S, False otherwise.
+        """
+
+    def descr_islower(self, space):
+        """S.islower() -> bool
+
+        Return True if all cased characters in S are lowercase and there is
+        at least one cased character in S, False otherwise.
+        """
+
+    def descr_isspace(self, space):
+        """S.isspace() -> bool
+
+        Return True if all characters in S are whitespace
+        and there is at least one character in S, False otherwise.
+        """
+
+    def descr_istitle(self, space):
+        """S.istitle() -> bool
+
+        Return True if S is a titlecased string and there is at least one
+        character in S, i.e. uppercase characters may only follow uncased
+        characters and lowercase characters only cased ones. Return False
+        otherwise.
+        """
+
+    def descr_isupper(self, space):
+        """S.isupper() -> bool
+
+        Return True if all cased characters in S are uppercase and there is
+        at least one cased character in S, False otherwise.
+        """
+
+    def descr_join(self, space, w_list):
+        """S.join(iterable) -> string
+
+        Return a string which is the concatenation of the strings in the
+        iterable.  The separator between elements is S.
+        """
+
+    @unwrap_spec(width=int, w_fillchar=WrappedDefault(' '))
+    def descr_ljust(self, space, width, w_fillchar):
+        """S.ljust(width[, fillchar]) -> string
+
+        Return S left-justified in a string of length width. Padding is
+        done using the specified fill character (default is a space).
+        """
+
+    def descr_lower(self, space):
+        """S.lower() -> string
+
+        Return a copy of the string S converted to lowercase.
+        """
+
+    def descr_lstrip(self, space, w_chars=None):
+        """S.lstrip([chars]) -> string or unicode
+
+        Return a copy of the string S with leading whitespace removed.
+        If chars is given and not None, remove characters in chars instead.
+        If chars is unicode, S will be converted to unicode before stripping
+        """
+
+    def descr_partition(self, space, w_sub):
+        """S.partition(sep) -> (head, sep, tail)
+
+        Search for the separator sep in S, and return the part before it,
+        the separator itself, and the part after it.  If the separator is not
+        found, return S and two empty strings.
+        """
+
+    @unwrap_spec(count=int)
+    def descr_replace(self, space, w_old, w_new, count=-1):
+        """S.replace(old, new[, count]) -> string
+
+        Return a copy of string S with all occurrences of substring
+        old replaced by new.  If the optional argument count is
+        given, only the first count occurrences are replaced.
+        """
+
+    def descr_rfind(self, space, w_sub, w_start=None, w_end=None):
+        """S.rfind(sub[, start[, end]]) -> int
+
+        Return the highest index in S where substring sub is found,
+        such that sub is contained within S[start:end].  Optional
+        arguments start and end are interpreted as in slice notation.
+
+        Return -1 on failure.
+        """
+
+    def descr_rindex(self, space, w_sub, w_start=None, w_end=None):
+        """S.rindex(sub[, start[, end]]) -> int
+
+        Like S.rfind() but raise ValueError when the substring is not found.
+        """
+
+    @unwrap_spec(width=int, w_fillchar=WrappedDefault(' '))
+    def descr_rjust(self, space, width, w_fillchar):
+        """S.rjust(width[, fillchar]) -> string
+
+        Return S right-justified in a string of length width. Padding is
+        done using the specified fill character (default is a space).
+        """
+
+    def descr_rpartition(self, space, w_sub):
+        """S.rpartition(sep) -> (head, sep, tail)
+
+        Search for the separator sep in S, starting at the end of S, and return
+        the part before it, the separator itself, and the part after it.  If the
+        separator is not found, return two empty strings and S.
+        """
+
+    @unwrap_spec(maxsplit=int)
+    def descr_rsplit(self, space, w_sep=None, maxsplit=-1):
+        """S.rsplit(sep=None, maxsplit=-1) -> list of strings
+
+        Return a list of the words in the string S, using sep as the
+        delimiter string, starting at the end of the string and working
+        to the front.  If maxsplit is given, at most maxsplit splits are
+        done. If sep is not specified or is None, any whitespace string
+        is a separator.
+        """
+
+    def descr_rstrip(self, space, w_chars=None):
+        """S.rstrip([chars]) -> string or unicode
+
+        Return a copy of the string S with trailing whitespace removed.
+        If chars is given and not None, remove characters in chars instead.
+        If chars is unicode, S will be converted to unicode before stripping
+        """
+
+    @unwrap_spec(maxsplit=int)
+    def descr_split(self, space, w_sep=None, maxsplit=-1):
+        """S.split(sep=None, maxsplit=-1) -> list of strings
+
+        Return a list of the words in the string S, using sep as the
+        delimiter string.  If maxsplit is given, at most maxsplit
+        splits are done. If sep is not specified or is None, any
+        whitespace string is a separator and empty strings are removed
+        from the result.
+        """
+
+    @unwrap_spec(keepends=bool)
+    def descr_splitlines(self, space, keepends=False):
+        """S.splitlines(keepends=False) -> list of strings
+
+        Return a list of the lines in S, breaking at line boundaries.
+        Line breaks are not included in the resulting list unless keepends
+        is given and true.
+        """
+
+    def descr_startswith(self, space, w_prefix, w_start=None, w_end=None):
+        """S.startswith(prefix[, start[, end]]) -> bool
+
+        Return True if S starts with the specified prefix, False otherwise.
+        With optional start, test S beginning at that position.
+        With optional end, stop comparing S at that position.
+        prefix can also be a tuple of strings to try.
+        """
+
+    def descr_strip(self, space, w_chars=None):
+        """S.strip([chars]) -> string or unicode
+
+        Return a copy of the string S with leading and trailing
+        whitespace removed.
+        If chars is given and not None, remove characters in chars instead.
+        If chars is unicode, S will be converted to unicode before stripping
+        """
+
+    def descr_swapcase(self, space):
+        """S.swapcase() -> string
+
+        Return a copy of the string S with uppercase characters
+        converted to lowercase and vice versa.
+        """
+
+    def descr_title(self, space):
+        """S.title() -> string
+
+        Return a titlecased version of S, i.e. words start with uppercase
+        characters, all remaining cased characters have lowercase.
+        """
+
+    @unwrap_spec(w_deletechars=WrappedDefault(''))
+    def descr_translate(self, space, w_table, w_deletechars):
+        """S.translate(table[, deletechars]) -> string
+
+        Return a copy of the string S, where all characters occurring
+        in the optional argument deletechars are removed, and the
+        remaining characters have been mapped through the given
+        translation table, which must be a string of length 256 or None.
+        If the table argument is None, no translation is applied and
+        the operation simply removes the characters in deletechars.
+        """
+
+    def descr_upper(self, space):
+        """S.upper() -> string
+
+        Return a copy of the string S converted to uppercase.
+        """
+
+    @unwrap_spec(width=int)
+    def descr_zfill(self, space, width):
+        """S.zfill(width) -> string
+
+        Pad a numeric string S with zeros on the left, to fill a field
+        of the specified width. The string S is never truncated.
+        """
+
+    def descr_buffer(self, space):
+        pass
+
+
+class W_BytesObject(StringMethods, W_AbstractBytesObject):
     _immutable_fields_ = ['_value']
 
     def __init__(self, str):
@@ -195,6 +575,12 @@ class W_BytesObject(W_AbstractBytesObject, StringMethods):
             from .bytearrayobject import W_BytearrayObject, _make_data
             self_as_bytearray = W_BytearrayObject(_make_data(self._value))
             return space.add(self_as_bytearray, w_other)
+        if space.config.objspace.std.withstrbuf:
+            from pypy.objspace.std.strbufobject import W_StringBufferObject
+            builder = StringBuilder()
+            builder.append(self._value)
+            builder.append(w_other._value)
+            return W_StringBufferObject(builder)
         return StringMethods.descr_add(self, space, w_other)
 
     def _startswith(self, space, value, w_prefix, start, end):
@@ -300,514 +686,79 @@ def wrapchar(space, c):
         return W_BytesObject(c)
 
 
-class BytesDocstrings:
-    """str(object='') -> string
-
-    Return a nice string representation of the object.
-    If the argument is a string, the return value is the same object.
-
-    """
-
-    def __add__():
-        """x.__add__(y) <==> x+y"""
-
-    def __contains__():
-        """x.__contains__(y) <==> y in x"""
-
-    def __eq__():
-        """x.__eq__(y) <==> x==y"""
-
-    def __format__():
-        """S.__format__(format_spec) -> string
-
-        Return a formatted version of S as described by format_spec.
-        """
-
-    def __ge__():
-        """x.__ge__(y) <==> x>=y"""
-
-    def __getattribute__():
-        """x.__getattribute__('name') <==> x.name"""
-
-    def __getitem__():
-        """x.__getitem__(y) <==> x[y]"""
-
-    def __getnewargs__():
-        """"""
-
-    def __getslice__():
-        """x.__getslice__(i, j) <==> x[i:j]
-
-        Use of negative indices is not supported.
-        """
-
-    def __gt__():
-        """x.__gt__(y) <==> x>y"""
-
-    def __hash__():
-        """x.__hash__() <==> hash(x)"""
-
-    def __le__():
-        """x.__le__(y) <==> x<=y"""
-
-    def __len__():
-        """x.__len__() <==> len(x)"""
-
-    def __lt__():
-        """x.__lt__(y) <==> x<y"""
-
-    def __mod__():
-        """x.__mod__(y) <==> x%y"""
-
-    def __mul__():
-        """x.__mul__(n) <==> x*n"""
-
-    def __ne__():
-        """x.__ne__(y) <==> x!=y"""
-
-    def __repr__():
-        """x.__repr__() <==> repr(x)"""
-
-    def __rmod__():
-        """x.__rmod__(y) <==> y%x"""
-
-    def __rmul__():
-        """x.__rmul__(n) <==> n*x"""
-
-    def __sizeof__():
-        """S.__sizeof__() -> size of S in memory, in bytes"""
-
-    def __str__():
-        """x.__str__() <==> str(x)"""
-
-    def capitalize():
-        """S.capitalize() -> string
-
-        Return a capitalized version of S, i.e. make the first character
-        have upper case and the rest lower case.
-        """
-
-    def center():
-        """S.center(width[, fillchar]) -> string
-
-        Return S centered in a string of length width. Padding is
-        done using the specified fill character (default is a space).
-        """
-
-    def count():
-        """S.count(sub[, start[, end]]) -> int
-
-        Return the number of non-overlapping occurrences of substring sub in
-        string S[start:end].  Optional arguments start and end are interpreted
-        as in slice notation.
-        """
-
-    def decode():
-        """S.decode(encoding=None, errors='strict') -> object
-
-        Decode S using the codec registered for encoding. encoding defaults
-        to the default encoding. errors may be given to set a different error
-        handling scheme. Default is 'strict' meaning that encoding errors raise
-        a UnicodeDecodeError. Other possible values are 'ignore' and 'replace'
-        as well as any other name registered with codecs.register_error that is
-        able to handle UnicodeDecodeErrors.
-        """
-
-    def encode():
-        """S.encode(encoding=None, errors='strict') -> object
-
-        Encode S using the codec registered for encoding. encoding defaults
-        to the default encoding. errors may be given to set a different error
-        handling scheme. Default is 'strict' meaning that encoding errors raise
-        a UnicodeEncodeError. Other possible values are 'ignore', 'replace' and
-        'xmlcharrefreplace' as well as any other name registered with
-        codecs.register_error that is able to handle UnicodeEncodeErrors.
-        """
-
-    def endswith():
-        """S.endswith(suffix[, start[, end]]) -> bool
-
-        Return True if S ends with the specified suffix, False otherwise.
-        With optional start, test S beginning at that position.
-        With optional end, stop comparing S at that position.
-        suffix can also be a tuple of strings to try.
-        """
-
-    def expandtabs():
-        """S.expandtabs([tabsize]) -> string
-
-        Return a copy of S where all tab characters are expanded using spaces.
-        If tabsize is not given, a tab size of 8 characters is assumed.
-        """
-
-    def find():
-        """S.find(sub[, start[, end]]) -> int
-
-        Return the lowest index in S where substring sub is found,
-        such that sub is contained within S[start:end].  Optional
-        arguments start and end are interpreted as in slice notation.
-
-        Return -1 on failure.
-        """
-
-    def format():
-        """S.format(*args, **kwargs) -> string
-
-        Return a formatted version of S, using substitutions from args and kwargs.
-        The substitutions are identified by braces ('{' and '}').
-        """
-
-    def index():
-        """S.index(sub[, start[, end]]) -> int
-
-        Like S.find() but raise ValueError when the substring is not found.
-        """
-
-    def isalnum():
-        """S.isalnum() -> bool
-
-        Return True if all characters in S are alphanumeric
-        and there is at least one character in S, False otherwise.
-        """
-
-    def isalpha():
-        """S.isalpha() -> bool
-
-        Return True if all characters in S are alphabetic
-        and there is at least one character in S, False otherwise.
-        """
-
-    def isdigit():
-        """S.isdigit() -> bool
-
-        Return True if all characters in S are digits
-        and there is at least one character in S, False otherwise.
-        """
-
-    def islower():
-        """S.islower() -> bool
-
-        Return True if all cased characters in S are lowercase and there is
-        at least one cased character in S, False otherwise.
-        """
-
-    def isspace():
-        """S.isspace() -> bool
-
-        Return True if all characters in S are whitespace
-        and there is at least one character in S, False otherwise.
-        """
-
-    def istitle():
-        """S.istitle() -> bool
-
-        Return True if S is a titlecased string and there is at least one
-        character in S, i.e. uppercase characters may only follow uncased
-        characters and lowercase characters only cased ones. Return False
-        otherwise.
-        """
-
-    def isupper():
-        """S.isupper() -> bool
-
-        Return True if all cased characters in S are uppercase and there is
-        at least one cased character in S, False otherwise.
-        """
-
-    def join():
-        """S.join(iterable) -> string
-
-        Return a string which is the concatenation of the strings in the
-        iterable.  The separator between elements is S.
-        """
-
-    def ljust():
-        """S.ljust(width[, fillchar]) -> string
-
-        Return S left-justified in a string of length width. Padding is
-        done using the specified fill character (default is a space).
-        """
-
-    def lower():
-        """S.lower() -> string
-
-        Return a copy of the string S converted to lowercase.
-        """
-
-    def lstrip():
-        """S.lstrip([chars]) -> string or unicode
-
-        Return a copy of the string S with leading whitespace removed.
-        If chars is given and not None, remove characters in chars instead.
-        If chars is unicode, S will be converted to unicode before stripping
-        """
-
-    def partition():
-        """S.partition(sep) -> (head, sep, tail)
-
-        Search for the separator sep in S, and return the part before it,
-        the separator itself, and the part after it.  If the separator is not
-        found, return S and two empty strings.
-        """
-
-    def replace():
-        """S.replace(old, new[, count]) -> string
-
-        Return a copy of string S with all occurrences of substring
-        old replaced by new.  If the optional argument count is
-        given, only the first count occurrences are replaced.
-        """
-
-    def rfind():
-        """S.rfind(sub[, start[, end]]) -> int
-
-        Return the highest index in S where substring sub is found,
-        such that sub is contained within S[start:end].  Optional
-        arguments start and end are interpreted as in slice notation.
-
-        Return -1 on failure.
-        """
-
-    def rindex():
-        """S.rindex(sub[, start[, end]]) -> int
-
-        Like S.rfind() but raise ValueError when the substring is not found.
-        """
-
-    def rjust():
-        """S.rjust(width[, fillchar]) -> string
-
-        Return S right-justified in a string of length width. Padding is
-        done using the specified fill character (default is a space).
-        """
-
-    def rpartition():
-        """S.rpartition(sep) -> (head, sep, tail)
-
-        Search for the separator sep in S, starting at the end of S, and return
-        the part before it, the separator itself, and the part after it.  If the
-        separator is not found, return two empty strings and S.
-        """
-
-    def rsplit():
-        """S.rsplit(sep=None, maxsplit=-1) -> list of strings
-
-        Return a list of the words in the string S, using sep as the
-        delimiter string, starting at the end of the string and working
-        to the front.  If maxsplit is given, at most maxsplit splits are
-        done. If sep is not specified or is None, any whitespace string
-        is a separator.
-        """
-
-    def rstrip():
-        """S.rstrip([chars]) -> string or unicode
-
-        Return a copy of the string S with trailing whitespace removed.
-        If chars is given and not None, remove characters in chars instead.
-        If chars is unicode, S will be converted to unicode before stripping
-        """
-
-    def split():
-        """S.split(sep=None, maxsplit=-1) -> list of strings
-
-        Return a list of the words in the string S, using sep as the
-        delimiter string.  If maxsplit is given, at most maxsplit
-        splits are done. If sep is not specified or is None, any
-        whitespace string is a separator and empty strings are removed
-        from the result.
-        """
-
-    def splitlines():
-        """S.splitlines(keepends=False) -> list of strings
-
-        Return a list of the lines in S, breaking at line boundaries.
-        Line breaks are not included in the resulting list unless keepends
-        is given and true.
-        """
-
-    def startswith():
-        """S.startswith(prefix[, start[, end]]) -> bool
-
-        Return True if S starts with the specified prefix, False otherwise.
-        With optional start, test S beginning at that position.
-        With optional end, stop comparing S at that position.
-        prefix can also be a tuple of strings to try.
-        """
-
-    def strip():
-        """S.strip([chars]) -> string or unicode
-
-        Return a copy of the string S with leading and trailing
-        whitespace removed.
-        If chars is given and not None, remove characters in chars instead.
-        If chars is unicode, S will be converted to unicode before stripping
-        """
-
-    def swapcase():
-        """S.swapcase() -> string
-
-        Return a copy of the string S with uppercase characters
-        converted to lowercase and vice versa.
-        """
-
-    def title():
-        """S.title() -> string
-
-        Return a titlecased version of S, i.e. words start with uppercase
-        characters, all remaining cased characters have lowercase.
-        """
-
-    def translate():
-        """S.translate(table[, deletechars]) -> string
-
-        Return a copy of the string S, where all characters occurring
-        in the optional argument deletechars are removed, and the
-        remaining characters have been mapped through the given
-        translation table, which must be a string of length 256 or None.
-        If the table argument is None, no translation is applied and
-        the operation simply removes the characters in deletechars.
-        """
-
-    def upper():
-        """S.upper() -> string
-
-        Return a copy of the string S converted to uppercase.
-        """
-
-    def zfill():
-        """S.zfill(width) -> string
-
-        Pad a numeric string S with zeros on the left, to fill a field
-        of the specified width. The string S is never truncated.
-        """
-
-
 W_BytesObject.typedef = StdTypeDef(
     "str", basestring_typedef,
     __new__ = interp2app(W_BytesObject.descr_new),
-    __doc__ = BytesDocstrings.__doc__,
+    __doc__ = """str(object='') -> string
 
-    __repr__ = interp2app(W_BytesObject.descr_repr,
-                          doc=BytesDocstrings.__repr__.__doc__),
-    __str__ = interp2app(W_BytesObject.descr_str,
-                         doc=BytesDocstrings.__str__.__doc__),
-    __hash__ = interp2app(W_BytesObject.descr_hash,
-                          doc=BytesDocstrings.__hash__.__doc__),
+    Return a nice string representation of the object.
+    If the argument is a string, the return value is the same object.
+    """,
 
-    __eq__ = interp2app(W_BytesObject.descr_eq,
-                        doc=BytesDocstrings.__eq__.__doc__),
-    __ne__ = interp2app(W_BytesObject.descr_ne,
-                        doc=BytesDocstrings.__ne__.__doc__),
-    __lt__ = interp2app(W_BytesObject.descr_lt,
-                        doc=BytesDocstrings.__lt__.__doc__),
-    __le__ = interp2app(W_BytesObject.descr_le,
-                        doc=BytesDocstrings.__le__.__doc__),
-    __gt__ = interp2app(W_BytesObject.descr_gt,
-                        doc=BytesDocstrings.__gt__.__doc__),
-    __ge__ = interp2app(W_BytesObject.descr_ge,
-                        doc=BytesDocstrings.__ge__.__doc__),
+    __repr__ = interpindirect2app(W_AbstractBytesObject.descr_repr),
+    __str__ = interpindirect2app(W_AbstractBytesObject.descr_str),
+    __hash__ = interpindirect2app(W_AbstractBytesObject.descr_hash),
 
-    __len__ = interp2app(W_BytesObject.descr_len,
-                         doc=BytesDocstrings.__len__.__doc__),
-    __contains__ = interp2app(W_BytesObject.descr_contains,
-                              doc=BytesDocstrings.__contains__.__doc__),
+    __eq__ = interpindirect2app(W_AbstractBytesObject.descr_eq),
+    __ne__ = interpindirect2app(W_AbstractBytesObject.descr_ne),
+    __lt__ = interpindirect2app(W_AbstractBytesObject.descr_lt),
+    __le__ = interpindirect2app(W_AbstractBytesObject.descr_le),
+    __gt__ = interpindirect2app(W_AbstractBytesObject.descr_gt),
+    __ge__ = interpindirect2app(W_AbstractBytesObject.descr_ge),
 
-    __add__ = interp2app(W_BytesObject.descr_add,
-                         doc=BytesDocstrings.__add__.__doc__),
-    __mul__ = interp2app(W_BytesObject.descr_mul,
-                         doc=BytesDocstrings.__mul__.__doc__),
-    __rmul__ = interp2app(W_BytesObject.descr_mul,
-                          doc=BytesDocstrings.__rmul__.__doc__),
+    __len__ = interpindirect2app(W_AbstractBytesObject.descr_len),
+    __contains__ = interpindirect2app(W_AbstractBytesObject.descr_contains),
 
-    __getitem__ = interp2app(W_BytesObject.descr_getitem,
-                             doc=BytesDocstrings.__getitem__.__doc__),
-    __getslice__ = interp2app(W_BytesObject.descr_getslice,
-                              doc=BytesDocstrings.__getslice__.__doc__),
+    __add__ = interpindirect2app(W_AbstractBytesObject.descr_add),
+    __mul__ = interpindirect2app(W_AbstractBytesObject.descr_mul),
+    __rmul__ = interpindirect2app(W_AbstractBytesObject.descr_rmul),
 
-    capitalize = interp2app(W_BytesObject.descr_capitalize,
-                            doc=BytesDocstrings.capitalize.__doc__),
-    center = interp2app(W_BytesObject.descr_center,
-                        doc=BytesDocstrings.center.__doc__),
-    count = interp2app(W_BytesObject.descr_count,
-                       doc=BytesDocstrings.count.__doc__),
-    decode = interp2app(W_BytesObject.descr_decode,
-                        doc=BytesDocstrings.decode.__doc__),
-    encode = interp2app(W_BytesObject.descr_encode,
-                        doc=BytesDocstrings.encode.__doc__),
-    expandtabs = interp2app(W_BytesObject.descr_expandtabs,
-                            doc=BytesDocstrings.expandtabs.__doc__),
-    find = interp2app(W_BytesObject.descr_find,
-                      doc=BytesDocstrings.find.__doc__),
-    rfind = interp2app(W_BytesObject.descr_rfind,
-                       doc=BytesDocstrings.rfind.__doc__),
-    index = interp2app(W_BytesObject.descr_index,
-                       doc=BytesDocstrings.index.__doc__),
-    rindex = interp2app(W_BytesObject.descr_rindex,
-                        doc=BytesDocstrings.rindex.__doc__),
-    isalnum = interp2app(W_BytesObject.descr_isalnum,
-                         doc=BytesDocstrings.isalnum.__doc__),
-    isalpha = interp2app(W_BytesObject.descr_isalpha,
-                         doc=BytesDocstrings.isalpha.__doc__),
-    isdigit = interp2app(W_BytesObject.descr_isdigit,
-                         doc=BytesDocstrings.isdigit.__doc__),
-    islower = interp2app(W_BytesObject.descr_islower,
-                         doc=BytesDocstrings.islower.__doc__),
-    isspace = interp2app(W_BytesObject.descr_isspace,
-                         doc=BytesDocstrings.isspace.__doc__),
-    istitle = interp2app(W_BytesObject.descr_istitle,
-                         doc=BytesDocstrings.istitle.__doc__),
-    isupper = interp2app(W_BytesObject.descr_isupper,
-                         doc=BytesDocstrings.isupper.__doc__),
-    join = interp2app(W_BytesObject.descr_join,
-                      doc=BytesDocstrings.join.__doc__),
-    ljust = interp2app(W_BytesObject.descr_ljust,
-                       doc=BytesDocstrings.ljust.__doc__),
-    rjust = interp2app(W_BytesObject.descr_rjust,
-                       doc=BytesDocstrings.rjust.__doc__),
-    lower = interp2app(W_BytesObject.descr_lower,
-                       doc=BytesDocstrings.lower.__doc__),
-    partition = interp2app(W_BytesObject.descr_partition,
-                           doc=BytesDocstrings.partition.__doc__),
-    rpartition = interp2app(W_BytesObject.descr_rpartition,
-                            doc=BytesDocstrings.rpartition.__doc__),
-    replace = interp2app(W_BytesObject.descr_replace,
-                         doc=BytesDocstrings.replace.__doc__),
-    split = interp2app(W_BytesObject.descr_split,
-                       doc=BytesDocstrings.split.__doc__),
-    rsplit = interp2app(W_BytesObject.descr_rsplit,
-                        doc=BytesDocstrings.rsplit.__doc__),
-    splitlines = interp2app(W_BytesObject.descr_splitlines,
-                            doc=BytesDocstrings.splitlines.__doc__),
-    startswith = interp2app(W_BytesObject.descr_startswith,
-                            doc=BytesDocstrings.startswith.__doc__),
-    endswith = interp2app(W_BytesObject.descr_endswith,
-                          doc=BytesDocstrings.endswith.__doc__),
-    strip = interp2app(W_BytesObject.descr_strip,
-                       doc=BytesDocstrings.strip.__doc__),
-    lstrip = interp2app(W_BytesObject.descr_lstrip,
-                        doc=BytesDocstrings.lstrip.__doc__),
-    rstrip = interp2app(W_BytesObject.descr_rstrip,
-                        doc=BytesDocstrings.rstrip.__doc__),
-    swapcase = interp2app(W_BytesObject.descr_swapcase,
-                          doc=BytesDocstrings.swapcase.__doc__),
-    title = interp2app(W_BytesObject.descr_title,
-                       doc=BytesDocstrings.title.__doc__),
-    translate = interp2app(W_BytesObject.descr_translate,
-                           doc=BytesDocstrings.translate.__doc__),
-    upper = interp2app(W_BytesObject.descr_upper,
-                       doc=BytesDocstrings.upper.__doc__),
-    zfill = interp2app(W_BytesObject.descr_zfill,
-                       doc=BytesDocstrings.zfill.__doc__),
+    __getitem__ = interpindirect2app(W_AbstractBytesObject.descr_getitem),
+    __getslice__ = interpindirect2app(W_AbstractBytesObject.descr_getslice),
 
-    format = interp2app(W_BytesObject.descr_format,
-                        doc=BytesDocstrings.format.__doc__),
-    __format__ = interp2app(W_BytesObject.descr__format__,
-                            doc=BytesDocstrings.__format__.__doc__),
-    __mod__ = interp2app(W_BytesObject.descr_mod,
-                         doc=BytesDocstrings.__mod__.__doc__),
-    __buffer__ = interp2app(W_BytesObject.descr_buffer),
-    __getnewargs__ = interp2app(W_BytesObject.descr_getnewargs,
-                                doc=BytesDocstrings.__getnewargs__.__doc__),
+    capitalize = interpindirect2app(W_AbstractBytesObject.descr_capitalize),
+    center = interpindirect2app(W_AbstractBytesObject.descr_center),
+    count = interpindirect2app(W_AbstractBytesObject.descr_count),
+    decode = interpindirect2app(W_AbstractBytesObject.descr_decode),
+    encode = interpindirect2app(W_AbstractBytesObject.descr_encode),
+    expandtabs = interpindirect2app(W_AbstractBytesObject.descr_expandtabs),
+    find = interpindirect2app(W_AbstractBytesObject.descr_find),
+    rfind = interpindirect2app(W_AbstractBytesObject.descr_rfind),
+    index = interpindirect2app(W_AbstractBytesObject.descr_index),
+    rindex = interpindirect2app(W_AbstractBytesObject.descr_rindex),
+    isalnum = interpindirect2app(W_AbstractBytesObject.descr_isalnum),
+    isalpha = interpindirect2app(W_AbstractBytesObject.descr_isalpha),
+    isdigit = interpindirect2app(W_AbstractBytesObject.descr_isdigit),
+    islower = interpindirect2app(W_AbstractBytesObject.descr_islower),
+    isspace = interpindirect2app(W_AbstractBytesObject.descr_isspace),
+    istitle = interpindirect2app(W_AbstractBytesObject.descr_istitle),
+    isupper = interpindirect2app(W_AbstractBytesObject.descr_isupper),
+    join = interpindirect2app(W_AbstractBytesObject.descr_join),
+    ljust = interpindirect2app(W_AbstractBytesObject.descr_ljust),
+    rjust = interpindirect2app(W_AbstractBytesObject.descr_rjust),
+    lower = interpindirect2app(W_AbstractBytesObject.descr_lower),
+    partition = interpindirect2app(W_AbstractBytesObject.descr_partition),
+    rpartition = interpindirect2app(W_AbstractBytesObject.descr_rpartition),
+    replace = interpindirect2app(W_AbstractBytesObject.descr_replace),
+    split = interpindirect2app(W_AbstractBytesObject.descr_split),
+    rsplit = interpindirect2app(W_AbstractBytesObject.descr_rsplit),
+    splitlines = interpindirect2app(W_AbstractBytesObject.descr_splitlines),
+    startswith = interpindirect2app(W_AbstractBytesObject.descr_startswith),
+    endswith = interpindirect2app(W_AbstractBytesObject.descr_endswith),
+    strip = interpindirect2app(W_AbstractBytesObject.descr_strip),
+    lstrip = interpindirect2app(W_AbstractBytesObject.descr_lstrip),
+    rstrip = interpindirect2app(W_AbstractBytesObject.descr_rstrip),
+    swapcase = interpindirect2app(W_AbstractBytesObject.descr_swapcase),
+    title = interpindirect2app(W_AbstractBytesObject.descr_title),
+    translate = interpindirect2app(W_AbstractBytesObject.descr_translate),
+    upper = interpindirect2app(W_AbstractBytesObject.descr_upper),
+    zfill = interpindirect2app(W_AbstractBytesObject.descr_zfill),
+
+    format = interpindirect2app(W_BytesObject.descr_format),
+    __format__ = interpindirect2app(W_BytesObject.descr__format__),
+    __mod__ = interpindirect2app(W_BytesObject.descr_mod),
+    __buffer__ = interpindirect2app(W_AbstractBytesObject.descr_buffer),
+    __getnewargs__ = interpindirect2app(W_AbstractBytesObject.descr_getnewargs),
     _formatter_parser = interp2app(W_BytesObject.descr_formatter_parser),
     _formatter_field_name_split =
         interp2app(W_BytesObject.descr_formatter_field_name_split),
