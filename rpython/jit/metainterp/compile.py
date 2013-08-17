@@ -934,7 +934,7 @@ def compile_tmp_callback(cpu, jitdriver_sd, greenboxes, redargtypes,
     ]
     operations[1].setfailargs([])
     operations = get_deep_immutable_oplist(operations)
-    cpu.compile_loop(inputargs, operations, jitcell_token, log=False)
+    cpu.compile_loop(None, inputargs, operations, jitcell_token, log=False)
     if memory_manager is not None:    # for tests
         memory_manager.keep_loop_alive(jitcell_token)
     return jitcell_token
