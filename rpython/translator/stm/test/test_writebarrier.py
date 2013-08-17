@@ -280,6 +280,50 @@ class TestTransform(BaseTestTransform):
         assert res == 815
         assert self.barriers == ['a2r', 'a2i']
 
+    def test_no_subclasses_2(self):
+        class Y(object):
+            pass
+        def handle(y):
+            y.ybar += 1
+        def make_y(i):
+            y = Y(); y.foo = 42; y.ybar = i
+            return y
+        def f1(i):
+            y = make_y(i)
+            external_any_gcobj()
+            prev = y.ybar          # a2r
+            handle(y)              # inside handle(): a2r, r2w
+            return prev + y.ybar   # q2r
+
+        res = self.interpret(f1, [10])
+        assert res == 21
+        assert self.barriers == ['a2r', 'a2r', 'r2w', 'q2r']
+
+    def test_subclassing_2(self):
+        class X:
+            __slots__ = ['foo']
+        class Y(X):
+            pass
+        class Z(X):
+            pass
+        def handle(y):
+            y.ybar += 1
+        def f1(i):
+            if i > 5:
+                y = Y(); y.foo = 42; y.ybar = i
+                x = y
+            else:
+                x = Z(); x.foo = 815; x.zbar = 'A'
+                y = Y(); y.foo = -13; y.ybar = i
+            external_any_gcobj()
+            prev = x.foo           # a2r
+            handle(y)              # inside handle(): a2r, r2w
+            return prev + x.foo    # q2r
+
+        res = self.interpret(f1, [10])
+        assert res == 84
+        assert self.barriers == ['a2r', 'a2r', 'r2w', 'q2r']
+
     def test_write_barrier_repeated(self):
         class X:
             pass
