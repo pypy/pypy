@@ -411,14 +411,6 @@ class FlowSpaceFrame(object):
         self.locals_stack_w[:len(items_w)] = items_w
         self.dropvaluesuntil(len(items_w))
 
-    def unrollstack(self, unroller):
-        while self.blockstack:
-            block = self.blockstack.pop()
-            if isinstance(unroller, block.handles):
-                return block
-            block.cleanupstack(self)
-        return None
-
     def getstate(self):
         # getfastscope() can return real None, for undefined locals
         data = self.save_locals_stack()
@@ -1158,11 +1150,12 @@ class SuspendedUnroller(object):
                 WHY_YIELD       not needed
     """
     def unroll(self, frame):
-        block = frame.unrollstack(self)
-        if block is None:
-            return self.nomoreblocks()
-        else:
-            return block.handle(frame, self)
+        while frame.blockstack:
+            block = frame.blockstack.pop()
+            if isinstance(self, block.handles):
+                return block.handle(frame, self)
+            block.cleanupstack(frame)
+        return self.nomoreblocks()
 
     def nomoreblocks(self):
         raise BytecodeCorruption("misplaced bytecode - should not return")
