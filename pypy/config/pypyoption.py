@@ -35,7 +35,7 @@ working_modules.update(dict.fromkeys(
      "thread", "itertools", "pyexpat", "_ssl", "cpyext", "array",
      "binascii", "_multiprocessing", '_warnings',
      "_collections", "_multibytecodec", "micronumpy", "_ffi",
-     "_continuation", "_cffi_backend", "_csv", "cppyy"]
+     "_continuation", "_cffi_backend", "_csv", "cppyy", "_pypyjson"]
 ))
 
 translation_modules = default_modules.copy()
@@ -47,11 +47,6 @@ translation_modules.update(dict.fromkeys(
      # interactive prompt/pdb)
      "termios", "_minimal_curses",
      ]))
-
-working_oo_modules = default_modules.copy()
-working_oo_modules.update(dict.fromkeys(
-    ["_md5", "_sha", "cStringIO", "itertools"]
-))
 
 # XXX this should move somewhere else, maybe to platform ("is this posixish"
 #     check or something)
@@ -144,7 +139,7 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                    requires=module_dependencies.get(modname, []),
                    suggests=module_suggests.get(modname, []),
                    negation=modname not in essential_modules,
-                   validator=get_module_validator(modname))
+                   ) #validator=get_module_validator(modname))
         for modname in all_modules]),
 
     BoolOption("allworkingmodules", "use as many working modules as possible",
@@ -340,10 +335,6 @@ def set_pypy_opt_level(config, level):
         if not IS_64_BITS:
             config.objspace.std.suggest(withsmalllong=True)
 
-    # some optimizations have different effects depending on the typesystem
-    if type_system == 'ootype':
-        config.objspace.std.suggest(multimethods="doubledispatch")
-
     # extra optimizations with the JIT
     if level == 'jit':
         config.objspace.std.suggest(withcelldict=True)
@@ -351,10 +342,7 @@ def set_pypy_opt_level(config, level):
 
 
 def enable_allworkingmodules(config):
-    if config.translation.type_system == 'ootype':
-        modules = working_oo_modules
-    else:
-        modules = working_modules
+    modules = working_modules
     if config.translation.sandbox:
         modules = default_modules
     # ignore names from 'essential_modules', notably 'exceptions', which

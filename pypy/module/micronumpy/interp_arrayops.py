@@ -65,7 +65,7 @@ def where(space, w_arr, w_x=None, w_y=None):
            [ 3.,  4., -1.],
            [-1., -1., -1.]])
 
-    
+
     NOTE: support for not passing x and y is unsupported
     """
     if space.is_none(w_y):
@@ -88,7 +88,7 @@ def where(space, w_arr, w_x=None, w_y=None):
                                                   y.get_dtype())
     shape = shape_agreement(space, arr.get_shape(), x)
     shape = shape_agreement(space, shape, y)
-    out = W_NDimArray.from_shape(shape, dtype)
+    out = W_NDimArray.from_shape(space, shape, dtype)
     return loop.where(out, shape, arr, x, y, dtype)
 
 def dot(space, w_obj1, w_obj2):
@@ -122,16 +122,17 @@ def concatenate(space, w_args, axis=0):
             for f in dtype.fields:
                 if f not in a_dt.fields or \
                              dtype.fields[f] != a_dt.fields[f]:
-                    raise OperationError(space.w_TypeError, 
+                    raise OperationError(space.w_TypeError,
                                space.wrap("record type mismatch"))
         elif dtype.is_record_type() or a_dt.is_record_type():
-            raise OperationError(space.w_TypeError, 
+            raise OperationError(space.w_TypeError,
                         space.wrap("invalid type promotion"))
         dtype = interp_ufuncs.find_binop_result_dtype(space, dtype,
                                                       arr.get_dtype())
         if _axis < 0 or len(arr.get_shape()) <= _axis:
             raise operationerrfmt(space.w_IndexError, "axis %d out of bounds [0, %d)", axis, len(shape))
-    res = W_NDimArray.from_shape(shape, dtype, 'C')
+    # concatenate does not handle ndarray subtypes, it always returns a ndarray
+    res = W_NDimArray.from_shape(space, shape, dtype, 'C')
     chunks = [Chunk(0, i, 1, i) for i in shape]
     axis_start = 0
     for arr in args_w:
@@ -139,7 +140,7 @@ def concatenate(space, w_args, axis=0):
             continue
         chunks[_axis] = Chunk(axis_start, axis_start + arr.get_shape()[_axis], 1,
                              arr.get_shape()[_axis])
-        Chunks(chunks).apply(res).implementation.setslice(space, arr)
+        Chunks(chunks).apply(space, res).implementation.setslice(space, arr)
         axis_start += arr.get_shape()[_axis]
     return res
 
@@ -150,22 +151,22 @@ def repeat(space, w_arr, repeats, w_axis):
         arr = arr.descr_flatten(space)
         orig_size = arr.get_shape()[0]
         shape = [arr.get_shape()[0] * repeats]
-        res = W_NDimArray.from_shape(shape, arr.get_dtype())
+        w_res = W_NDimArray.from_shape(space, shape, arr.get_dtype(), w_instance=arr)
         for i in range(repeats):
             Chunks([Chunk(i, shape[0] - repeats + i, repeats,
-                          orig_size)]).apply(res).implementation.setslice(space, arr)
+                 orig_size)]).apply(space, w_res).implementation.setslice(space, arr)
     else:
         axis = space.int_w(w_axis)
         shape = arr.get_shape()[:]
         chunks = [Chunk(0, i, 1, i) for i in shape]
         orig_size = shape[axis]
         shape[axis] *= repeats
-        res = W_NDimArray.from_shape(shape, arr.get_dtype())
+        w_res = W_NDimArray.from_shape(space, shape, arr.get_dtype(), w_instance=arr)
         for i in range(repeats):
             chunks[axis] = Chunk(i, shape[axis] - repeats + i, repeats,
                                  orig_size)
-            Chunks(chunks).apply(res).implementation.setslice(space, arr)
-    return res
+            Chunks(chunks).apply(space, w_res).implementation.setslice(space, arr)
+    return w_res
 
 def count_nonzero(space, w_obj):
     return space.wrap(loop.count_all_true(convert_to_array(space, w_obj)))
@@ -192,6 +193,61 @@ def choose(space, w_arr, w_choices, w_out, mode):
     loop.choose(space, arr, choices, shape, dtype, out, MODES[mode])
     return out
 
+
+@unwrap_spec(mode=str)
+def put(space, w_arr, w_indices, w_values, mode='raise'):
+    from pypy.module.micronumpy import constants
+    from pypy.module.micronumpy.support import int_w
+
+    arr = convert_to_array(space, w_arr)
+
+    if mode not in constants.MODES:
+        raise OperationError(space.w_ValueError,
+                             space.wrap("mode %s not known" % (mode,)))
+    if not w_indices:
+        raise OperationError(space.w_ValueError,
+                             space.wrap("indice list cannot be empty"))
+    if not w_values:
+        raise OperationError(space.w_ValueError,
+                             space.wrap("value list cannot be empty"))
+
+    dtype = arr.get_dtype()
+
+    if space.isinstance_w(w_indices, space.w_list):
+        indices = space.listview(w_indices)
+    else:
+        indices = [w_indices]
+
+    if space.isinstance_w(w_values, space.w_list):
+        values = space.listview(w_values)
+    else:
+        values = [w_values]
+
+    v_idx = 0
+    for idx in indices:
+        index = int_w(space, idx)
+
+        if index < 0 or index >= arr.get_size():
+            if constants.MODES[mode] == constants.MODE_RAISE:
+                raise OperationError(space.w_ValueError, space.wrap(
+                    "invalid entry in choice array"))
+            elif constants.MODES[mode] == constants.MODE_WRAP:
+                index = index % arr.get_size()
+            else:
+                assert constants.MODES[mode] == constants.MODE_CLIP
+                if index < 0:
+                    index = 0
+                else:
+                    index = arr.get_size() - 1
+
+        value = values[v_idx]
+
+        if v_idx + 1 < len(values):
+            v_idx += 1
+
+        arr.setitem(space, [index], dtype.coerce(space, value))
+
+
 def diagonal(space, arr, offset, axis1, axis2):
     shape = arr.get_shape()
     shapelen = len(shape)
@@ -206,7 +262,7 @@ def diagonal(space, arr, offset, axis1, axis2):
     else:
         shape = (shape[:axis2] + shape[axis2 + 1:axis1] +
                  shape[axis1 + 1:] + [size])
-    out = W_NDimArray.from_shape(shape, dtype)
+    out = W_NDimArray.from_shape(space, shape, dtype)
     if size == 0:
         return out
     if shapelen == 2:

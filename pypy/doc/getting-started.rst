@@ -53,10 +53,10 @@ Installing PyPy
 PyPy is ready to be executed as soon as you unpack the tarball or the zip
 file, with no need to install it in any specific location::
 
-    $ tar xf pypy-2.0.tar.bz2
-    $ ./pypy-2.0/bin/pypy
-    Python 2.7.3 (7e4f0faa3d51, Nov 22 2012, 10:35:18)
-    [PyPy 2.0.0 with GCC 4.7.1] on linux2
+    $ tar xf pypy-2.1.tar.bz2
+    $ ./pypy-2.1/bin/pypy
+    Python 2.7.3 (480845e6b1dd, Jul 31 2013, 11:05:31)
+    [PyPy 2.1.0 with GCC 4.4.3] on linux2
     Type "help", "copyright", "credits" or "license" for more information.
     And now for something completely different: ``PyPy is an exciting technology
     that lets you to write fast, portable, multi-platform interpreters with less
@@ -75,14 +75,14 @@ install distribute_ and pip_:
 
     $ curl -O https://raw.github.com/pypa/pip/master/contrib/get-pip.py
 
-    $ ./pypy-2.0/bin/pypy distribute_setup.py
+    $ ./pypy-2.1/bin/pypy distribute_setup.py
 
-    $ ./pypy-2.0/bin/pypy get-pip.py
+    $ ./pypy-2.1/bin/pypy get-pip.py
 
-    $ ./pypy-2.0/bin/pip install pygments  # for example
+    $ ./pypy-2.1/bin/pip install pygments  # for example
 
-3rd party libraries will be installed in ``pypy-2.0/site-packages``, and
-the scripts in ``pypy-2.0/bin``.
+3rd party libraries will be installed in ``pypy-2.1/site-packages``, and
+the scripts in ``pypy-2.1/bin``.
 
 Installing using virtualenv
 ---------------------------

@@ -881,21 +881,36 @@ class AppTestCompiler:
         assert "0 ('hi')" not in output.getvalue()
 
     def test_print_to(self):
-         exec """if 1:
-         from StringIO import StringIO
-         s = StringIO()
-         print >> s, "hi", "lovely!"
-         assert s.getvalue() == "hi lovely!\\n"
-         s = StringIO()
-         print >> s, "hi", "lovely!",
-         assert s.getvalue() == "hi lovely!"
-         """ in {}
+        exec """if 1:
+        from StringIO import StringIO
+        s = StringIO()
+        print >> s, "hi", "lovely!"
+        assert s.getvalue() == "hi lovely!\\n"
+        s = StringIO()
+        print >> s, "hi", "lovely!",
+        assert s.getvalue() == "hi lovely!"
+        """ in {}
 
     def test_assert_with_tuple_arg(self):
         try:
             assert False, (3,)
         except AssertionError, e:
             assert str(e) == "(3,)"
+
+    # BUILD_LIST_FROM_ARG is PyPy specific
+    @py.test.mark.skipif('config.option.runappdirect')
+    def test_build_list_from_arg_length_hint(self):
+        hint_called = [False]
+        class Foo(object):
+            def __length_hint__(self):
+                hint_called[0] = True
+                return 5
+            def __iter__(self):
+                for i in range(5):
+                    yield i
+        l = [a for a in Foo()]
+        assert hint_called[0]
+        assert l == list(range(5))
         
 
 class TestOptimizations:

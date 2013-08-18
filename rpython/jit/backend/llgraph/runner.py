@@ -101,6 +101,9 @@ class FieldDescr(AbstractDescr):
         self.fieldname = fieldname
         self.FIELD = getattr(S, fieldname)
 
+    def get_vinfo(self):
+        return self.vinfo
+
     def __repr__(self):
         return 'FieldDescr(%r, %r)' % (self.S, self.fieldname)
 
@@ -170,7 +173,7 @@ class LLGraphCPU(model.AbstractCPU):
     translate_support_code = False
     is_llgraph = True
 
-    def __init__(self, rtyper, stats=None, *ignored_args, **ignored_kwds):
+    def __init__(self, rtyper, stats=None, *ignored_args, **kwds):
         model.AbstractCPU.__init__(self)
         self.rtyper = rtyper
         self.llinterp = LLInterpreter(rtyper)
@@ -178,6 +181,7 @@ class LLGraphCPU(model.AbstractCPU):
         class MiniStats:
             pass
         self.stats = stats or MiniStats()
+        self.vinfo_for_tests = kwds.get('vinfo_for_tests', None)
 
     def compile_loop(self, inputargs, operations, looptoken, log=True, name=''):
         clt = model.CompiledLoopToken(self, looptoken.number)
@@ -286,7 +290,7 @@ class LLGraphCPU(model.AbstractCPU):
     def get_savedata_ref(self, deadframe):
         assert deadframe._saved_data is not None
         return deadframe._saved_data
-    
+
     # ------------------------------------------------------------
 
     def calldescrof(self, FUNC, ARGS, RESULT, effect_info):
@@ -316,6 +320,8 @@ class LLGraphCPU(model.AbstractCPU):
         except KeyError:
             descr = FieldDescr(S, fieldname)
             self.descrs[key] = descr
+            if self.vinfo_for_tests is not None:
+                descr.vinfo = self.vinfo_for_tests
             return descr
 
     def arraydescrof(self, A):
@@ -334,7 +340,7 @@ class LLGraphCPU(model.AbstractCPU):
         except KeyError:
             descr = InteriorFieldDescr(A, fieldname)
             self.descrs[key] = descr
-            return descr        
+            return descr
 
     def _calldescr_dynamic_for_tests(self, atypes, rtype,
                                      abiname='FFI_DEFAULT_ABI'):
@@ -496,6 +502,8 @@ class LLGraphCPU(model.AbstractCPU):
     def bh_raw_store_i(self, struct, offset, newvalue, descr):
         ll_p = rffi.cast(rffi.CCHARP, struct)
         ll_p = rffi.cast(lltype.Ptr(descr.A), rffi.ptradd(ll_p, offset))
+        if descr.A.OF == lltype.SingleFloat:
+            newvalue = longlong.int2singlefloat(newvalue)
         ll_p[0] = rffi.cast(descr.A.OF, newvalue)
 
     def bh_raw_store_f(self, struct, offset, newvalue, descr):
@@ -600,6 +608,7 @@ class LLFrame(object):
     forced_deadframe = None
     overflow_flag = False
     last_exception = None
+    force_guard_op = None
 
     def __init__(self, cpu, argboxes, args):
         self.env = {}
@@ -766,6 +775,8 @@ class LLFrame(object):
         if self.forced_deadframe is not None:
             saved_data = self.forced_deadframe._saved_data
             self.fail_guard(descr, saved_data)
+        self.force_guard_op = self.current_op
+    execute_guard_not_forced_2 = execute_guard_not_forced
 
     def execute_guard_not_invalidated(self, descr):
         if self.lltrace.invalid:
@@ -802,7 +813,7 @@ class LLFrame(object):
         else:
             ovf = False
         self.overflow_flag = ovf
-        return z        
+        return z
 
     def execute_guard_no_overflow(self, descr):
         if self.overflow_flag:
@@ -820,6 +831,12 @@ class LLFrame(object):
         y = support.cast_from_floatstorage(lltype.Float, value)
         x = math.sqrt(y)
         return support.cast_to_floatstorage(x)
+
+    def execute_cond_call(self, calldescr, cond, func, *args):
+        if not cond:
+            return
+        # cond_call can't have a return value
+        self.execute_call(calldescr, func, *args)
 
     def execute_call(self, calldescr, func, *args):
         effectinfo = calldescr.get_extra_info()
@@ -881,7 +898,6 @@ class LLFrame(object):
         #     res = CALL assembler_call_helper(pframe)
         #     jmp @done
         #   @fastpath:
-        #     RESET_VABLE
         #     res = GETFIELD(pframe, 'result')
         #   @done:
         #
@@ -901,25 +917,17 @@ class LLFrame(object):
             vable = lltype.nullptr(llmemory.GCREF.TO)
         #
         # Emulate the fast path
-        def reset_vable(jd, vable):
-            if jd.index_of_virtualizable != -1:
-                fielddescr = jd.vable_token_descr
-                NULL = lltype.nullptr(llmemory.GCREF.TO)
-                self.cpu.bh_setfield_gc(vable, NULL, fielddescr)
+        #
         faildescr = self.cpu.get_latest_descr(pframe)
         if faildescr == self.cpu.done_with_this_frame_descr_int:
-            reset_vable(jd, vable)
             return self.cpu.get_int_value(pframe, 0)
         elif faildescr == self.cpu.done_with_this_frame_descr_ref:
-            reset_vable(jd, vable)
             return self.cpu.get_ref_value(pframe, 0)
         elif faildescr == self.cpu.done_with_this_frame_descr_float:
-            reset_vable(jd, vable)
             return self.cpu.get_float_value(pframe, 0)
         elif faildescr == self.cpu.done_with_this_frame_descr_void:
-            reset_vable(jd, vable)
             return None
-        #
+
         assembler_helper_ptr = jd.assembler_helper_adr.ptr  # fish
         try:
             result = assembler_helper_ptr(pframe, vable)

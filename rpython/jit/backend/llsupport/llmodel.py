@@ -21,8 +21,6 @@ from rpython.rlib.unroll import unrolling_iterable
 class AbstractLLCPU(AbstractCPU):
     from rpython.jit.metainterp.typesystem import llhelper as ts
 
-    can_inline_varsize_malloc = False
-
     def __init__(self, rtyper, stats, opts, translate_support_code=False,
                  gcdescr=None):
         assert type(opts) is not bool
@@ -723,12 +721,8 @@ class AbstractLLCPU(AbstractCPU):
 
     def bh_raw_load_i(self, addr, offset, descr):
         ofs, size, sign = self.unpack_arraydescr_size(descr)
-        items = addr + offset
-        for TYPE, _, itemsize in unroll_basic_sizes:
-            if size == itemsize:
-                items = rffi.cast(rffi.CArrayPtr(TYPE), items)
-                return rffi.cast(lltype.Signed, items[0])
-        assert False # unreachable code
+        assert ofs == 0     # otherwise, 'descr' is not a raw length-less array
+        return self.read_int_at_mem(addr, offset, size, sign)
 
     def bh_raw_load_f(self, addr, offset, descr):
         items = rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), addr + offset)

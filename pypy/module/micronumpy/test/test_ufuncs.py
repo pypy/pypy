@@ -255,6 +255,22 @@ class AppTestUfuncs(BaseNumpyAppTest):
         for i in range(3):
             assert c[i] == a[i] * b[i]
 
+    def test_rint(self):
+        from numpypy import array, complex, rint, isnan
+
+        nnan, nan, inf, ninf = float('-nan'), float('nan'), float('inf'), float('-inf')
+
+        reference = array([ninf, -2., -1., -0., 0., 0., 0., 1., 2., inf])
+        a = array([ninf, -1.5, -1., -0.5, -0., 0., 0.5, 1., 1.5, inf])
+        b = rint(a)
+        for i in range(len(a)):
+            assert b[i] == reference[i]
+        assert isnan(rint(nan))
+        assert isnan(rint(nnan))
+
+        assert rint(complex(inf, 1.5)) == complex(inf, 2.)
+        assert rint(complex(0.5, inf)) == complex(0., inf)
+
     def test_sign(self):
         from numpypy import array, sign, dtype
 
@@ -286,7 +302,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
         skip('sign of nan is non-determinant')
         assert (signbit([float('nan'), float('-nan'), -float('nan')]) ==
-            [False, True, True]).all()    
+            [False, True, True]).all()
 
     def test_reciprocal(self):
         from numpypy import array, reciprocal, complex64, complex128
@@ -334,6 +350,23 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert all([math.copysign(1, f(abs(float("nan")))) == 1 for f in floor, ceil, trunc])
         assert all([math.copysign(1, f(-abs(float("nan")))) == -1 for f in floor, ceil, trunc])
 
+    def test_round(self):
+        from numpypy import array, dtype
+        ninf, inf = float("-inf"), float("inf")
+        a = array([ninf, -1.4, -1.5, -1.0, 0.0, 1.0, 1.4, 0.5, inf])
+        assert ([ninf, -1.0, -2.0, -1.0, 0.0, 1.0, 1.0, 0.0, inf] == a.round()).all()
+        i = array([-1000, -100, -1, 0, 1, 111, 1111, 11111], dtype=int)
+        assert (i == i.round()).all()
+        assert (i.round(decimals=4) == i).all()
+        assert (i.round(decimals=-4) == [0, 0, 0, 0, 0, 0, 0, 10000]).all()
+        b = array([True, False], dtype=bool)
+        bround = b.round()
+        assert (bround == [1., 0.]).all()
+        assert bround.dtype is dtype('float16')
+        c = array([10.5+11.5j, -15.2-100.3456j, 0.2343+11.123456j])
+        assert (c.round(0) == [10.+12.j, -15-100j, 0+11j]).all()
+
+
     def test_copysign(self):
         from numpypy import array, copysign
 
@@ -364,7 +397,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert b[i] == res
 
     def test_exp2(self):
-        import math 
+        import math
         from numpypy import array, exp2
         inf = float('inf')
         ninf = -float('inf')
@@ -759,8 +792,8 @@ class AppTestUfuncs(BaseNumpyAppTest):
              complex(inf, inf), complex(inf, ninf), complex(0, inf),
              complex(ninf, ninf), complex(nan, 0), complex(0, nan),
              complex(nan, nan)]
-        assert (isfinite(a) == [True, True, False, False, False, 
-                        False, False, False, False, False]).all() 
+        assert (isfinite(a) == [True, True, False, False, False,
+                        False, False, False, False, False]).all()
 
     def test_logical_ops(self):
         from numpypy import logical_and, logical_or, logical_xor, logical_not
@@ -864,7 +897,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         #numpy returns (a.real*b.real + a.imag*b.imag) / abs(b)**2
         expect = [3., -23., 1.]
         for i in range(len(a)):
-            assert b[i] == expect[i] 
+            assert b[i] == expect[i]
         b = floor_divide(a[0], 0.)
         assert math.isnan(b.real)
         assert b.imag == 0.
@@ -922,4 +955,18 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert logaddexp2(float('inf'), float('-inf')) == float('inf')
         assert logaddexp2(float('inf'), float('inf')) == float('inf')
 
+    def test_ones_like(self):
+        from numpypy import array, ones_like
 
+        assert ones_like(False) == array(True)
+        assert ones_like(2) == array(1)
+        assert ones_like(2.) == array(1.)
+        assert ones_like(complex(2)) == array(complex(1))
+
+    def test_zeros_like(self):
+        from numpypy import array, zeros_like
+
+        assert zeros_like(True) == array(False)
+        assert zeros_like(2) == array(0)
+        assert zeros_like(2.) == array(0.)
+        assert zeros_like(complex(2)) == array(complex(0))

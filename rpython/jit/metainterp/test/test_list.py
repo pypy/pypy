@@ -1,7 +1,7 @@
 import py
 from rpython.rlib.objectmodel import newlist_hint
 from rpython.rlib.jit import JitDriver, promote
-from rpython.jit.metainterp.test.support import LLJitMixin, OOJitMixin
+from rpython.jit.metainterp.test.support import LLJitMixin
 
 
 class ListTests:
@@ -288,9 +288,6 @@ class ListTests:
         self.check_resops(call=0)
 
 
-class TestOOtype(ListTests, OOJitMixin):
-    pass
-
 class TestLLtype(ListTests, LLJitMixin):
     def test_listops_dont_invalidate_caches(self):
         class A(object):
@@ -318,4 +315,34 @@ class TestLLtype(ListTests, LLJitMixin):
         assert res == f(37)
         # There is the one actual field on a, plus several fields on the list
         # itself
-        self.check_resops(getfield_gc=10)
+        self.check_resops(getfield_gc=7)
+
+    def test_conditional_call_append(self):
+        jitdriver = JitDriver(greens = [], reds = 'auto')
+
+        def f(n):
+            l = []
+            while n > 0:
+                jitdriver.jit_merge_point()
+                l.append(n)
+                n -= 1
+            return len(l)
+
+        res = self.meta_interp(f, [10])
+        assert res == 10
+        self.check_resops(call=0, cond_call=2)
+
+    def test_conditional_call_pop(self):
+        jitdriver = JitDriver(greens = [], reds = 'auto')
+
+        def f(n):
+            l = range(n)
+            while n > 0:
+                jitdriver.jit_merge_point()
+                l.pop()
+                n -= 1
+            return len(l)
+
+        res = self.meta_interp(f, [10])
+        assert res == 0
+        self.check_resops(call=0, cond_call=2)

@@ -1,7 +1,6 @@
 from rpython.flowspace.model import Variable, Constant, SpaceOperation
 from rpython.tool.algo.unionfind import UnionFind
 from rpython.rtyper.lltypesystem import lltype
-from rpython.rtyper.ootypesystem import ootype
 from rpython.translator import simplify
 from rpython.translator.backendopt import removenoops
 from rpython.translator.backendopt.support import log
@@ -537,90 +536,8 @@ class LLTypeMallocRemover(BaseMallocRemover):
             raise AssertionError(op.opname)
 
 
-class OOTypeMallocRemover(BaseMallocRemover):
-
-    IDENTITY_OPS = ('same_as', 'ooupcast', 'oodowncast')
-    SUBSTRUCT_OPS = ()
-    MALLOC_OP = 'new'
-    FIELD_ACCESS = dict.fromkeys(["oogetfield",
-                                  "oosetfield",
-                                  "oononnull",
-                                  "ooisnull",
-                                  #"oois",  # ???
-                                  #"instanceof", # ???
-                                  ])
-    SUBSTRUCT_ACCESS = {}
-    CHECK_ARRAY_INDEX = {}
-
-    def get_STRUCT(self, TYPE):
-        return TYPE
-
-    def union_wrapper(self, S):
-        return False
-
-    def RTTI_dtor(self, STRUCT):
-        return False
-
-    def inline_type(self, TYPE):
-        return isinstance(TYPE, (ootype.Record, ootype.Instance))
-
-    def _get_fields(self, TYPE):
-        if isinstance(TYPE, ootype.Record):
-            return TYPE._fields
-        elif isinstance(TYPE, ootype.Instance):
-            return TYPE._allfields()
-        else:
-            assert False
-
-    def flatten(self, TYPE):
-        for name, (FIELDTYPE, default) in self._get_fields(TYPE).iteritems():
-            key = self.key_for_field_access(TYPE, name)
-            constant = Constant(default)
-            constant.concretetype = FIELDTYPE
-            self.flatconstants[key] = constant
-            self.flatnames.append(key)
-            self.newvarstype[key] = FIELDTYPE
-
-    def key_for_field_access(self, S, fldname):
-        CLS, TYPE = S._lookup_field(fldname)
-        return CLS, fldname
-
-    def flowin_op(self, op, vars, newvarsmap):
-        if op.opname == "oogetfield":
-            S = op.args[0].concretetype
-            fldname = op.args[1].value
-            key = self.key_for_field_access(S, fldname)
-            newop = SpaceOperation("same_as",
-                                   [newvarsmap[key]],
-                                   op.result)
-            self.newops.append(newop)
-        elif op.opname == "oosetfield":
-            S = op.args[0].concretetype
-            fldname = op.args[1].value
-            key = self.key_for_field_access(S, fldname)
-            assert key in newvarsmap
-            newvarsmap[key] = op.args[2]
-        elif op.opname in ("same_as", "oodowncast", "ooupcast"):
-            vars[op.result] = True
-            # Consider the two pointers (input and result) as
-            # equivalent.  We can, and indeed must, use the same
-            # flattened list of variables for both, as a "setfield"
-            # via one pointer must be reflected in the other.
-        elif op.opname in ("ooisnull", "oononnull"):
-            # we know the pointer is not NULL if it comes from
-            # a successful malloc
-            c = Constant(op.opname == "oononnull", lltype.Bool)
-            newop = SpaceOperation('same_as', [c], op.result)
-            self.newops.append(newop)
-        else:
-            raise AssertionError(op.opname)
-
-
 def remove_simple_mallocs(graph, type_system='lltypesystem', verbose=True):
-    if type_system == 'lltypesystem':
-        remover = LLTypeMallocRemover(verbose)
-    else:
-        remover = OOTypeMallocRemover(verbose)
+    remover = LLTypeMallocRemover(verbose)
     return remover.remove_simple_mallocs(graph)
 
 

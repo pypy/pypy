@@ -4,6 +4,7 @@ from rpython.jit.codewriter.flatten import flatten_graph, reorder_renaming_list
 from rpython.jit.codewriter.flatten import GraphFlattener, ListOfKind, Register
 from rpython.jit.codewriter.format import assert_format
 from rpython.jit.codewriter import longlong
+from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.history import AbstractDescr
 from rpython.rtyper.lltypesystem import lltype, rclass, rstr, rffi
 from rpython.flowspace.model import SpaceOperation, Variable, Constant
@@ -49,7 +50,7 @@ class FakeDict(object):
 class FakeCPU:
     class tracker:
         pass
-    
+
     def __init__(self, rtyper):
         rtyper._builtin_func_for_spec_cache = FakeDict()
         self.rtyper = rtyper
@@ -71,7 +72,8 @@ class FakeCallControl:
     callinfocollection = FakeCallInfoCollection()
     def guess_call_kind(self, op):
         return 'residual'
-    def getcalldescr(self, op, oopspecindex=None, extraeffect=None):
+    def getcalldescr(self, op, oopspecindex=EffectInfo.OS_NONE,
+                     extraeffect=None):
         try:
             name = op.args[0].value._obj._name
             if 'cannot_raise' in name or name.startswith('cast_'):
@@ -80,7 +82,7 @@ class FakeCallControl:
             pass
         return FakeDescr(oopspecindex)
     def calldescr_canraise(self, calldescr):
-        return calldescr is not self._descr_cannot_raise and calldescr.oopspecindex is None
+        return calldescr is not self._descr_cannot_raise and calldescr.oopspecindex == EffectInfo.OS_NONE
     def get_vinfo(self, VTYPEPTR):
         return None
 
@@ -93,7 +95,7 @@ class FakeCallControlWithVRefInfo:
         if op.args[0].value._obj._name == 'jit_force_virtual':
             return 'residual'
         return 'builtin'
-    def getcalldescr(self, op):
+    def getcalldescr(self, op, **kwds):
         return FakeDescr()
     def calldescr_canraise(self, calldescr):
         return False
@@ -123,8 +125,8 @@ def test_repr():
 
 class TestFlatten:
 
-    def make_graphs(self, func, values, type_system='lltype'):
-        self.rtyper = support.annotate(func, values, type_system=type_system)
+    def make_graphs(self, func, values):
+        self.rtyper = support.annotate(func, values)
         return self.rtyper.annotator.translator.graphs
 
     def encoding_test(self, func, args, expected,

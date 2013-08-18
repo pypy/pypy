@@ -8,10 +8,9 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault,\
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
-from pypy.objspace.std.strutil import ParseStringError
-from pypy.objspace.std.strutil import string_to_float
 from pypy.objspace.std.model import W_Object
 from rpython.rlib.rbigint import rbigint
+from rpython.rlib.rstring import ParseStringError
 
 
 float_as_integer_ratio = SMM("as_integer_ratio", 1)
@@ -41,7 +40,7 @@ def descr__new__(space, w_floattype, w_x):
           space.isinstance_w(w_value, space.w_bytearray)):
         strvalue = space.bufferstr_w(w_value)
         try:
-            value = string_to_float(strvalue)
+            value = rfloat.string_to_float(strvalue)
         except ParseStringError, e:
             raise OperationError(space.w_ValueError,
                                  space.wrap(e.msg))
@@ -49,7 +48,7 @@ def descr__new__(space, w_floattype, w_x):
         from unicodeobject import unicode_to_decimal_w
         strvalue = unicode_to_decimal_w(space, w_value)
         try:
-            value = string_to_float(strvalue)
+            value = rfloat.string_to_float(strvalue)
         except ParseStringError, e:
             raise OperationError(space.w_ValueError,
                                  space.wrap(e.msg))

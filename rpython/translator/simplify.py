@@ -4,7 +4,6 @@
 
 simplify_graph() applies all simplifications defined in this file.
 """
-
 import py
 
 from rpython.flowspace import operation
@@ -14,32 +13,17 @@ from rpython.rlib import rarithmetic
 from rpython.translator import unsimplify
 from rpython.translator.backendopt import ssa
 from rpython.rtyper.lltypesystem import lloperation, lltype
-from rpython.rtyper.ootypesystem import ootype
-
-def get_funcobj(func):
-    """
-    Return an object which is supposed to have attributes such as graph and
-    _callable
-    """
-    if hasattr(func, '_obj'):
-        return func._obj # lltypesystem
-    else:
-        return func # ootypesystem
-
-def get_functype(TYPE):
-    if isinstance(TYPE, lltype.Ptr):
-        return TYPE.TO
-    elif isinstance(TYPE, (ootype.StaticMethod, ootype.ForwardReference)):
-        return TYPE
-    assert False
 
 def get_graph(arg, translator):
     if isinstance(arg, Variable):
         return None
     f = arg.value
-    if not isinstance(f, lltype._ptr) and not isinstance(f, ootype._callable):
+    if not isinstance(f, lltype._ptr):
         return None
-    funcobj = get_funcobj(f)
+    try:
+        funcobj = f._getobj()
+    except lltype.DelayedPointer:
+        return None
     try:
         callable = funcobj._callable
     except (AttributeError, KeyError, AssertionError):
@@ -120,7 +104,8 @@ def transform_ovfcheck(graph):
     covf = Constant(rarithmetic.ovfcheck)
 
     def check_syntax(opname):
-        exlis = operation.implicit_exceptions.get("%s_ovf" % (opname,), [])
+        oper = getattr(operation.op, opname + "_ovf")
+        exlis = oper.canraise
         if OverflowError not in exlis:
             raise Exception("ovfcheck in %s: Operation %s has no"
                             " overflow variant" % (graph.name, opname))
@@ -495,11 +480,11 @@ def transform_dead_op_vars_in_blocks(blocks, graphs, translator=None):
         # look for removable operations whose result is never used
         for i in range(len(block.operations)-1, -1, -1):
             op = block.operations[i]
-            if op.result not in read_vars: 
+            if op.result not in read_vars:
                 if canremove(op, block):
                     del block.operations[i]
-                elif op.opname == 'simple_call': 
-                    # XXX we want to have a more effective and safe 
+                elif op.opname == 'simple_call':
+                    # XXX we want to have a more effective and safe
                     # way to check if this operation has side effects
                     # ...
                     if op.args and isinstance(op.args[0], Constant):
@@ -626,7 +611,7 @@ def coalesce_is_true(graph):
 
     while candidates:
         cand, tgts = candidates.pop()
-        newexits = list(cand.exits) 
+        newexits = list(cand.exits)
         for case, tgt in tgts:
             exit = cand.exits[case]
             rrenaming = dict(zip(tgt.inputargs,exit.args))

@@ -966,7 +966,7 @@ def color_content(color):
     r, g, b = ffi.new("short *"), ffi.new("short *"), ffi.new("short *")
     if lib.color_content(color, r, g, b) == lib.ERR:
         raise error("Argument 1 was out of range. Check value of COLORS.")
-    return (r, g, b)
+    return (r[0], g[0], b[0])
 
 
 def color_pair(n):
@@ -1121,6 +1121,7 @@ def setupterm(term=None, fd=-1):
         term = ffi.NULL
     err = ffi.new("int *")
     if lib.setupterm(term, fd, err) == lib.ERR:
+        err = err[0]
         if err == 0:
             raise error("setupterm: could not find terminal")
         elif err == -1:

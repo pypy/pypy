@@ -154,6 +154,15 @@ def lstat(path):
     else:
         return os.lstat(path.as_bytes())
 
+
+@specialize.argtype(0)
+def statvfs(path):
+    if isinstance(path, str):
+        return os.statvfs(path)
+    else:
+        return os.statvfs(path.as_bytes())
+
+
 @specialize.argtype(0)
 def unlink(path):
     if isinstance(path, str):

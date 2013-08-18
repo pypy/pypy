@@ -84,11 +84,11 @@ class TestRegallocGcIntegration(BaseTestRegalloc):
         nos.reverse()
         if self.cpu.backend_name.startswith('x86'):
             if self.cpu.IS_64_BIT:
-                assert nos == [11, 12, 31]
+                assert nos == [0, 1, 31]
             else:
-                assert nos ==  [4, 5, 25]
+                assert nos ==  [0, 1, 25]
         elif self.cpu.backend_name.startswith('arm'):
-            assert nos == [9, 10, 47]
+            assert nos == [0, 1, 47]
         else:
             raise Exception("write the data here")
         assert frame.jf_frame[nos[0]]
@@ -689,6 +689,36 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         assert gcmap[0] < self.cpu.JITFRAME_FIXED_SIZE
         item = rffi.cast(lltype.Ptr(S), frame.jf_frame[gcmap[0]])
         assert item == new_items[2]
+
+    def test_shadowstack_cond_call(self):
+        cpu = self.cpu
+        cpu.gc_ll_descr.init_nursery(100)
+        cpu.setup_once()
+
+        def check(i, frame):
+            frame = lltype.cast_opaque_ptr(JITFRAMEPTR, frame)
+            assert frame.jf_gcmap[0] # is not empty is good enough
+
+        CHECK = lltype.FuncType([lltype.Signed, llmemory.GCREF], lltype.Void)
+        checkptr = llhelper(lltype.Ptr(CHECK), check)
+        checkdescr = cpu.calldescrof(CHECK, CHECK.ARGS, CHECK.RESULT,
+                                     EffectInfo.MOST_GENERAL)
+
+        loop = self.parse("""
+        [i0, p0]
+        p = force_token()
+        cond_call(i0, ConstClass(funcptr), i0, p, descr=calldescr)
+        guard_true(i0, descr=faildescr) [p0]
+        """, namespace={
+            'faildescr': BasicFailDescr(),
+            'funcptr': checkptr,
+            'calldescr': checkdescr,
+        })
+        token = JitCellToken()
+        cpu.compile_loop(loop.inputargs, loop.operations, token)
+        S = self.S
+        s = lltype.malloc(S)
+        cpu.execute_token(token, 1, s)
 
     def test_shadowstack_collecting_call_float(self):
         cpu = self.cpu

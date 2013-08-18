@@ -1,6 +1,6 @@
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std import newformat
-from pypy.objspace.std.inttype import wrapint, W_AbstractIntObject
+from pypy.objspace.std.inttype import W_AbstractIntObject
 from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.multimethod import FailedToImplementArgs
 from pypy.objspace.std.noneobject import W_NoneObject
@@ -55,14 +55,9 @@ class W_IntObject(W_AbstractIntObject):
         if space.is_w(space.type(self), space.w_int):
             return self
         a = self.intval
-        return wrapint(space, a)
+        return space.newint(a)
 
 registerimplementation(W_IntObject)
-
-# NB: This code is shared by smallintobject.py, and thus no other Int
-# multimethods should be invoked from these implementations. Instead, add an
-# alias and then teach copy_multimethods in smallintobject.py to override
-# it. See int__Int for example.
 
 def repr__Int(space, w_int1):
     a = w_int1.intval
@@ -109,7 +104,7 @@ def add__Int_Int(space, w_int1, w_int2):
     except OverflowError:
         raise FailedToImplementArgs(space.w_OverflowError,
                                 space.wrap("integer addition"))
-    return wrapint(space, z)
+    return space.newint(z)
 
 def sub__Int_Int(space, w_int1, w_int2):
     x = w_int1.intval
@@ -119,7 +114,7 @@ def sub__Int_Int(space, w_int1, w_int2):
     except OverflowError:
         raise FailedToImplementArgs(space.w_OverflowError,
                                 space.wrap("integer substraction"))
-    return wrapint(space, z)
+    return space.newint(z)
 
 def mul__Int_Int(space, w_int1, w_int2):
     x = w_int1.intval
@@ -129,7 +124,7 @@ def mul__Int_Int(space, w_int1, w_int2):
     except OverflowError:
         raise FailedToImplementArgs(space.w_OverflowError,
                                 space.wrap("integer multiplication"))
-    return wrapint(space, z)
+    return space.newint(z)
 
 def floordiv__Int_Int(space, w_int1, w_int2):
     x = w_int1.intval
@@ -142,7 +137,7 @@ def floordiv__Int_Int(space, w_int1, w_int2):
     except OverflowError:
         raise FailedToImplementArgs(space.w_OverflowError,
                                 space.wrap("integer division"))
-    return wrapint(space, z)
+    return space.newint(z)
 div__Int_Int = floordiv__Int_Int
 
 def truediv__Int_Int(space, w_int1, w_int2):
@@ -163,7 +158,7 @@ def mod__Int_Int(space, w_int1, w_int2):
     except OverflowError:
         raise FailedToImplementArgs(space.w_OverflowError,
                                 space.wrap("integer modulo"))
-    return wrapint(space, z)
+    return space.newint(z)
 
 def divmod__Int_Int(space, w_int1, w_int2):
     x = w_int1.intval
@@ -236,7 +231,7 @@ def neg__Int(space, w_int1):
     except OverflowError:
         raise FailedToImplementArgs(space.w_OverflowError,
                                 space.wrap("integer negation"))
-    return wrapint(space, x)
+    return space.newint(x)
 get_negint = neg__Int
 
 
@@ -252,7 +247,7 @@ def nonzero__Int(space, w_int1):
 def invert__Int(space, w_int1):
     x = w_int1.intval
     a = ~x
-    return wrapint(space, a)
+    return space.newint(a)
 
 def lshift__Int_Int(space, w_int1, w_int2):
     a = w_int1.intval
@@ -263,7 +258,7 @@ def lshift__Int_Int(space, w_int1, w_int2):
         except OverflowError:
             raise FailedToImplementArgs(space.w_OverflowError,
                                     space.wrap("integer left shift"))
-        return wrapint(space, c)
+        return space.newint(c)
     if b < 0:
         raise OperationError(space.w_ValueError,
                              space.wrap("negative shift count"))
@@ -289,25 +284,25 @@ def rshift__Int_Int(space, w_int1, w_int2):
                 a = 0
     else:
         a = a >> b
-    return wrapint(space, a)
+    return space.newint(a)
 
 def and__Int_Int(space, w_int1, w_int2):
     a = w_int1.intval
     b = w_int2.intval
     res = a & b
-    return wrapint(space, res)
+    return space.newint(res)
 
 def xor__Int_Int(space, w_int1, w_int2):
     a = w_int1.intval
     b = w_int2.intval
     res = a ^ b
-    return wrapint(space, res)
+    return space.newint(res)
 
 def or__Int_Int(space, w_int1, w_int2):
     a = w_int1.intval
     b = w_int2.intval
     res = a | b
-    return wrapint(space, res)
+    return space.newint(res)
 
 def pos__Int(self, space):
     return self.int(space)
@@ -328,7 +323,7 @@ def hex__Int(space, w_int1):
     return space.wrap(hex(w_int1.intval))
 
 def getnewargs__Int(space, w_int1):
-    return space.newtuple([wrapint(space, w_int1.intval)])
+    return space.newtuple([space.newint(w_int1.intval)])
 
 
 register_all(vars())

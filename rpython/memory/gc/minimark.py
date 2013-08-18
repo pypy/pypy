@@ -57,8 +57,8 @@ from rpython.memory.support import mangle_hash
 from rpython.rlib.rarithmetic import ovfcheck, LONG_BIT, intmask, r_uint
 from rpython.rlib.rarithmetic import LONG_BIT_SHIFT
 from rpython.rlib.debug import ll_assert, debug_print, debug_start, debug_stop
-from rpython.rlib.objectmodel import we_are_translated
-from rpython.tool.sourcetools import func_with_new_name
+from rpython.rlib.objectmodel import specialize
+
 
 #
 # Handles the objects in 2 generations:
@@ -124,7 +124,7 @@ GCFLAG_CARDS_SET    = first_gcflag << 7     # <- at least one card bit is set
 # note that GCFLAG_CARDS_SET is the most significant bit of a byte:
 # this is required for the JIT (x86)
 
-TID_MASK            = (first_gcflag << 8) - 1
+_GCFLAG_FIRST_UNUSED = first_gcflag << 8    # the first unused bit
 
 
 FORWARDSTUB = lltype.GcStruct('forwarding_stub',
@@ -944,7 +944,7 @@ class MiniMarkGC(MovingGCBase):
             ll_assert(tid == -42, "bogus header for young obj")
         else:
             ll_assert(bool(tid), "bogus header (1)")
-            ll_assert(tid & ~TID_MASK == 0, "bogus header (2)")
+            ll_assert(tid & -_GCFLAG_FIRST_UNUSED == 0, "bogus header (2)")
         return result
 
     def get_forwarding_address(self, obj):
@@ -991,9 +991,12 @@ class MiniMarkGC(MovingGCBase):
         # after a minor or major collection, no object should be in the nursery
         ll_assert(not self.is_in_nursery(obj),
                   "object in nursery after collection")
-        # similarily, all objects should have this flag:
-        ll_assert(self.header(obj).tid & GCFLAG_TRACK_YOUNG_PTRS != 0,
-                  "missing GCFLAG_TRACK_YOUNG_PTRS")
+        # similarily, all objects should have this flag, except if they
+        # don't have any GC pointer
+        typeid = self.get_type_id(obj)
+        if self.has_gcptr(typeid):
+            ll_assert(self.header(obj).tid & GCFLAG_TRACK_YOUNG_PTRS != 0,
+                      "missing GCFLAG_TRACK_YOUNG_PTRS")
         # the GCFLAG_VISITED should not be set between collections
         ll_assert(self.header(obj).tid & GCFLAG_VISITED == 0,
                   "unexpected GCFLAG_VISITED")
@@ -1511,6 +1514,7 @@ class MiniMarkGC(MovingGCBase):
         # replace the old object's content with the target address.
         # A bit of no-ops to convince llarena that we are changing
         # the layout, in non-translated versions.
+        typeid = self.get_type_id(obj)
         obj = llarena.getfakearenaaddress(obj)
         llarena.arena_reset(obj - size_gc_header, totalsize, 0)
         llarena.arena_reserve(obj - size_gc_header,
@@ -1526,7 +1530,9 @@ class MiniMarkGC(MovingGCBase):
         # because it can contain further pointers to other young objects.
         # We will fix such references to point to the copy of the young
         # objects when we walk 'old_objects_pointing_to_young'.
-        self.old_objects_pointing_to_young.append(newobj)
+        if self.has_gcptr(typeid):
+            # we only have to do it if we have any gcptrs
+            self.old_objects_pointing_to_young.append(newobj)
     _trace_drag_out._always_inline_ = True
 
     def _visit_young_rawmalloced_object(self, obj):
@@ -1815,6 +1821,8 @@ class MiniMarkGC(MovingGCBase):
         #
         # It's the first time.  We set the flag.
         hdr.tid |= GCFLAG_VISITED
+        if not self.has_gcptr(llop.extract_ushort(llgroup.HALFWORD, hdr.tid)):
+            return
         #
         # Trace the content of the object and put all objects it references
         # into the 'objects_to_trace' list.
@@ -1824,6 +1832,48 @@ class MiniMarkGC(MovingGCBase):
     # ----------
     # id() and identityhash() support
 
+    def _allocate_shadow(self, obj):
+        size_gc_header = self.gcheaderbuilder.size_gc_header
+        size = self.get_size(obj)
+        shadowhdr = self._malloc_out_of_nursery(size_gc_header +
+                                                size)
+        # Initialize the shadow enough to be considered a
+        # valid gc object.  If the original object stays
+        # alive at the next minor collection, it will anyway
+        # be copied over the shadow and overwrite the
+        # following fields.  But if the object dies, then
+        # the shadow will stay around and only be freed at
+        # the next major collection, at which point we want
+        # it to look valid (but ready to be freed).
+        shadow = shadowhdr + size_gc_header
+        self.header(shadow).tid = self.header(obj).tid
+        typeid = self.get_type_id(obj)
+        if self.is_varsize(typeid):
+            lenofs = self.varsize_offset_to_length(typeid)
+            (shadow + lenofs).signed[0] = (obj + lenofs).signed[0]
+        #
+        self.header(obj).tid |= GCFLAG_HAS_SHADOW
+        self.nursery_objects_shadows.setitem(obj, shadow)
+        return shadow
+
+    def _find_shadow(self, obj):
+        #
+        # The object is not a tagged pointer, and it is still in the
+        # nursery.  Find or allocate a "shadow" object, which is
+        # where the object will be moved by the next minor
+        # collection
+        if self.header(obj).tid & GCFLAG_HAS_SHADOW:
+            shadow = self.nursery_objects_shadows.get(obj)
+            ll_assert(shadow != NULL,
+                      "GCFLAG_HAS_SHADOW but no shadow found")
+        else:
+            shadow = self._allocate_shadow(obj)
+        #
+        # The answer is the address of the shadow.
+        return shadow
+    _find_shadow._dont_inline_ = True
+
+    @specialize.arg(2)
     def id_or_identityhash(self, gcobj, is_hash):
         """Implement the common logic of id() and identityhash()
         of an object, given as a GCREF.
@@ -1832,41 +1882,7 @@ class MiniMarkGC(MovingGCBase):
         #
         if self.is_valid_gc_object(obj):
             if self.is_in_nursery(obj):
-                #
-                # The object is not a tagged pointer, and it is still in the
-                # nursery.  Find or allocate a "shadow" object, which is
-                # where the object will be moved by the next minor
-                # collection
-                if self.header(obj).tid & GCFLAG_HAS_SHADOW:
-                    shadow = self.nursery_objects_shadows.get(obj)
-                    ll_assert(shadow != NULL,
-                              "GCFLAG_HAS_SHADOW but no shadow found")
-                else:
-                    size_gc_header = self.gcheaderbuilder.size_gc_header
-                    size = self.get_size(obj)
-                    shadowhdr = self._malloc_out_of_nursery(size_gc_header +
-                                                            size)
-                    # Initialize the shadow enough to be considered a
-                    # valid gc object.  If the original object stays
-                    # alive at the next minor collection, it will anyway
-                    # be copied over the shadow and overwrite the
-                    # following fields.  But if the object dies, then
-                    # the shadow will stay around and only be freed at
-                    # the next major collection, at which point we want
-                    # it to look valid (but ready to be freed).
-                    shadow = shadowhdr + size_gc_header
-                    self.header(shadow).tid = self.header(obj).tid
-                    typeid = self.get_type_id(obj)
-                    if self.is_varsize(typeid):
-                        lenofs = self.varsize_offset_to_length(typeid)
-                        (shadow + lenofs).signed[0] = (obj + lenofs).signed[0]
-                    #
-                    self.header(obj).tid |= GCFLAG_HAS_SHADOW
-                    self.nursery_objects_shadows.setitem(obj, shadow)
-                #
-                # The answer is the address of the shadow.
-                obj = shadow
-                #
+                obj = self._find_shadow(obj)
             elif is_hash:
                 if self.header(obj).tid & GCFLAG_HAS_SHADOW:
                     #
@@ -1884,6 +1900,7 @@ class MiniMarkGC(MovingGCBase):
         if is_hash:
             i = mangle_hash(i)
         return i
+    id_or_identityhash._always_inline_ = True
 
     def id(self, gcobj):
         return self.id_or_identityhash(gcobj, False)
@@ -2029,6 +2046,8 @@ class MiniMarkGC(MovingGCBase):
     # The code relies on the fact that no weakref can be an old object
     # weakly pointing to a young object.  Indeed, weakrefs are immutable
     # so they cannot point to an object that was created after it.
+    # Thanks to this, during a minor collection, we don't have to fix
+    # or clear the address stored in old weakrefs.
     def invalidate_young_weakrefs(self):
         """Called during a nursery collection."""
         # walk over the list of objects that contain weakrefs and are in the

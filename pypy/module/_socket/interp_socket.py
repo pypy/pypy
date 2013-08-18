@@ -473,7 +473,7 @@ class W_RSocket(W_Root, RSocket):
                     option_ptr = rffi.cast(rffi.INTP, value_ptr)
                     option_ptr[0] = space.int_w(w_option)
                 elif cmd == _c.SIO_KEEPALIVE_VALS:
-                    w_onoff, w_time, w_interval = space.unpackiterable(w_option)
+                    w_onoff, w_time, w_interval = space.unpackiterable(w_option, 3)
                     option_ptr = rffi.cast(lltype.Ptr(_c.tcp_keepalive), value_ptr)
                     option_ptr.c_onoff = space.uint_w(w_onoff)
                     option_ptr.c_keepalivetime = space.uint_w(w_time)

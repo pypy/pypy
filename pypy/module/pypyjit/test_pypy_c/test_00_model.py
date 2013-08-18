@@ -548,10 +548,10 @@ class TestRunPyPyC(BaseTestPyPyC):
         log = self.run(f, import_site=True)
         loop, = log.loops_by_id('ntohs')
         assert loop.match_by_id('ntohs', """
-            guard_not_invalidated(descr=...)
             p12 = call(ConstClass(ntohs), 1, descr=...)
             guard_no_exception(descr=...)
-        """)
+        """,
+        include_guard_not_invalidated=False)
         #
         py.test.raises(InvalidMatch, loop.match_by_id, 'ntohs', """
             guard_not_invalidated(descr=...)

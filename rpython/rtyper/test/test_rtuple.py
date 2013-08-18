@@ -1,19 +1,19 @@
-from rpython.rtyper.lltypesystem import rtupletype
+from rpython.rtyper.rtuple import TUPLE_TYPE, TupleRepr
 from rpython.rtyper.lltypesystem.lltype import Signed, Bool
 from rpython.rtyper.rbool import bool_repr
 from rpython.rtyper.rint import signed_repr
-from rpython.rtyper.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
+from rpython.rtyper.test.tool import BaseRtypingTest
+from rpython.rlib.objectmodel import compute_hash
 from rpython.translator.translator import TranslationContext
 
 
 def test_rtuple():
-    from rpython.rtyper.lltypesystem.rtuple import TupleRepr
     rtuple = TupleRepr(None, [signed_repr, bool_repr])
-    assert rtuple.lowleveltype == rtupletype.TUPLE_TYPE([Signed, Bool])
+    assert rtuple.lowleveltype == TUPLE_TYPE([Signed, Bool])
 
 # ____________________________________________________________
 
-class BaseTestRtuple(BaseRtypingTest):
+class TestRtuple(BaseRtypingTest):
 
     def test_simple(self):
         def dummyfn(x):
@@ -54,32 +54,32 @@ class BaseTestRtuple(BaseRtypingTest):
         res = self.interpret(f, [2])
         assert res == 123
 
-    def test_constant_tuple_contains(self): 
-        def f(i): 
+    def test_constant_tuple_contains(self):
+        def f(i):
             t1 = (1, 2, 3, 4)
-            return i in t1 
+            return i in t1
         res = self.interpret(f, [3])
-        assert res is True 
+        assert res is True
         res = self.interpret(f, [0])
-        assert res is False 
+        assert res is False
 
     def test_constant_tuple_contains2(self):
         def t1():
             return (1,2,3,4)
-        def f(i): 
+        def f(i):
             return i in t1()
         res = self.interpret(f, [3])
-        assert res is True 
+        assert res is True
         res = self.interpret(f, [0])
-        assert res is False 
+        assert res is False
 
     def test_constant_unichar_tuple_contains(self):
         def f(i):
             return unichr(i) in (u'1', u'9')
         res = self.interpret(f, [49])
-        assert res is True 
+        assert res is True
         res = self.interpret(f, [50])
-        assert res is False 
+        assert res is False
 
     def test_conv(self):
         def t0():
@@ -123,10 +123,10 @@ class BaseTestRtuple(BaseRtypingTest):
             else:
                 x = (1, B())
             return x[1]
-        
+
         res = self.interpret(f, [0])
         assert self.class_name(res) == "B"
-        
+
     def test_inst_tuple_add_getitem(self):
         class A:
             pass
@@ -141,13 +141,13 @@ class BaseTestRtuple(BaseRtypingTest):
             else:
                 z = y + x
             return z[1]
-        
+
         res = self.interpret(f, [1])
         assert self.class_name(res) == "A"
 
         res = self.interpret(f, [0])
         assert self.class_name(res) == "B"
-        
+
     def test_type_erase(self):
         class A(object):
             pass
@@ -159,19 +159,18 @@ class BaseTestRtuple(BaseRtypingTest):
 
         t = TranslationContext()
         s = t.buildannotator().build_types(f, [])
-        rtyper = t.buildrtyper(type_system=self.type_system)
+        rtyper = t.buildrtyper()
         rtyper.specialize()
 
         s_AB_tup = s.items[0]
         s_BA_tup = s.items[1]
-        
+
         r_AB_tup = rtyper.getrepr(s_AB_tup)
         r_BA_tup = rtyper.getrepr(s_AB_tup)
 
         assert r_AB_tup.lowleveltype == r_BA_tup.lowleveltype
 
     def test_tuple_hash(self):
-        from rpython.rlib.objectmodel import compute_hash
         def f(i, j):
             return compute_hash((i, j))
 
@@ -180,7 +179,6 @@ class BaseTestRtuple(BaseRtypingTest):
         assert res1 != res2
 
     def test_constant_tuple_hash_str(self):
-        from rpython.rlib.objectmodel import compute_hash
         def f(i):
             if i:
                 t = (None, "abc")
@@ -312,7 +310,6 @@ class BaseTestRtuple(BaseRtypingTest):
         assert res is True
 
     def test_tuple_hash_2(self):
-        from rpython.rlib.objectmodel import compute_hash
         def f(n):
             return compute_hash((n, 6)) == compute_hash((3, n*2))
         res = self.interpret(f, [3])
@@ -325,10 +322,3 @@ class BaseTestRtuple(BaseRtypingTest):
             assert str((n, 6)) == "(%d, 6)" % n
             assert str(((n,),)) == "((%d,),)" % n
         self.interpret(f, [3])
-
-class TestLLtype(BaseTestRtuple, LLRtypeMixin):
-    pass
-
-class TestOOtype(BaseTestRtuple, OORtypeMixin):
-    pass
-

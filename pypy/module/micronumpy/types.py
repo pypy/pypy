@@ -37,7 +37,7 @@ def simple_unary_op(func):
         return self.box(
             func(
                 self,
-                self.for_computation(raw)
+                self.for_computation(raw),
             )
         )
     return dispatcher
@@ -307,6 +307,22 @@ class Primitive(object):
     def min(self, v1, v2):
         return min(v1, v2)
 
+    @simple_unary_op
+    def rint(self, v):
+        if isfinite(v):
+            return rfloat.round_double(v, 0, half_even=True)
+        else:
+            return v
+
+    @simple_unary_op
+    def ones_like(self, v):
+        return 1
+
+    @simple_unary_op
+    def zeros_like(self, v):
+        return 0
+
+
 class NonNativePrimitive(Primitive):
     _mixin_ = True
 
@@ -520,6 +536,23 @@ class Integer(Primitive):
         if abs(v) == 1:
             return v
         return 0
+
+    @specialize.argtype(1)
+    def round(self, v, decimals=0):
+        raw = self.for_computation(self.unbox(v))
+        if decimals < 0:
+            # No ** in rpython
+            factor = 1
+            for i in xrange(-decimals):
+                factor *=10
+            #int does floor division, we want toward zero
+            if raw < 0:
+                ans = - (-raw / factor * factor)
+            else:
+                ans = raw / factor * factor
+        else:
+            ans = raw
+        return self.box(ans)
 
     @raw_unary_op
     def signbit(self, v):
@@ -798,6 +831,16 @@ class Float(Primitive):
     def ceil(self, v):
         return math.ceil(v)
 
+    @specialize.argtype(1)
+    def round(self, v, decimals=0):
+        raw = self.for_computation(self.unbox(v))
+        if rfloat.isinf(raw):
+            return v
+        elif rfloat.isnan(raw):
+            return v
+        ans = rfloat.round_double(raw, decimals, half_even=True)
+        return self.box(ans)
+
     @simple_unary_op
     def trunc(self, v):
         if v < 0:
@@ -1072,6 +1115,13 @@ class ComplexFloating(object):
         real_str = str_format(real)
         op = '+' if imag >= 0 else ''
         return ''.join(['(', real_str, op, imag_str, ')'])
+
+    def fill(self, storage, width, box, start, stop, offset):
+        real, imag = self.unbox(box)
+        for i in xrange(start, stop, width):
+            raw_storage_setitem(storage, i+offset, real)
+            raw_storage_setitem(storage,
+                    i+offset+rffi.sizeof(self.T), imag)
 
     @staticmethod
     def for_computation(v):
@@ -1354,6 +1404,18 @@ class ComplexFloating(object):
         except ZeroDivisionError:
             return rfloat.NAN, rfloat.NAN
 
+    @specialize.argtype(1)
+    def round(self, v, decimals=0):
+        ans = list(self.for_computation(self.unbox(v)))
+        if isfinite(ans[0]):
+            ans[0] = rfloat.round_double(ans[0], decimals, half_even=True)
+        if isfinite(ans[1]):
+            ans[1] = rfloat.round_double(ans[1], decimals, half_even=True)
+        return self.box_complex(ans[0], ans[1])
+
+    def rint(self, v):
+        return self.round(v)
+
     # No floor, ceil, trunc in numpy for complex
     #@simple_unary_op
     #def floor(self, v):
@@ -1556,6 +1618,15 @@ class ComplexFloating(object):
         except ValueError:
             return rfloat.NAN, rfloat.NAN
 
+    @complex_unary_op
+    def ones_like(self, v):
+        return 1, 0
+
+    @complex_unary_op
+    def zeros_like(self, v):
+        return 0, 0
+
+
 class Complex64(ComplexFloating, BaseType):
     _attrs_ = ()
 
@@ -1646,6 +1717,22 @@ class BaseStringType(object):
     def get_size(self):
         return self.size
 
+def str_unary_op(func):
+    specialize.argtype(1)(func)
+    @functools.wraps(func)
+    def dispatcher(self, v1):
+        return func(self, self.to_str(v1))
+    return dispatcher
+
+def str_binary_op(func):
+    specialize.argtype(1, 2)(func)
+    @functools.wraps(func)
+    def dispatcher(self, v1, v2):
+        return func(self,
+            self.to_str(v1),
+            self.to_str(v2)
+        )
+    return dispatcher
 
 class StringType(BaseType, BaseStringType):
     T = lltype.Char
@@ -1653,6 +1740,8 @@ class StringType(BaseType, BaseStringType):
     @jit.unroll_safe
     def coerce(self, space, dtype, w_item):
         from pypy.module.micronumpy.interp_dtype import new_string_dtype
+        if isinstance(w_item, interp_boxes.W_StringBox):
+            return w_item
         arg = space.str_w(space.str(w_item))
         arr = VoidBoxStorage(len(arg), new_string_dtype(space, len(arg)))
         for i in range(len(arg)):
@@ -1662,6 +1751,7 @@ class StringType(BaseType, BaseStringType):
     @jit.unroll_safe
     def store(self, arr, i, offset, box):
         assert isinstance(box, interp_boxes.W_StringBox)
+        # XXX simplify to range(box.dtype.get_size()) ?
         for k in range(min(self.size, box.arr.size-offset)):
             arr.storage[k + i] = box.arr.storage[k + offset]
 
@@ -1675,7 +1765,7 @@ class StringType(BaseType, BaseStringType):
         builder = StringBuilder()
         assert isinstance(item, interp_boxes.W_StringBox)
         i = item.ofs
-        end = i+self.size
+        end = i + item.dtype.get_size()
         while i < end:
             assert isinstance(item.arr.storage[i], str)
             if item.arr.storage[i] == '\x00':
@@ -1691,9 +1781,52 @@ class StringType(BaseType, BaseStringType):
         builder.append("'")
         return builder.build()
 
-    # XXX move to base class when UnicodeType is supported
+    # XXX move the rest of this to base class when UnicodeType is supported
     def to_builtin_type(self, space, box):
         return space.wrap(self.to_str(box))
+
+    @str_binary_op
+    def eq(self, v1, v2):
+        return v1 == v2
+
+    @str_binary_op
+    def ne(self, v1, v2):
+        return v1 != v2
+
+    @str_binary_op
+    def lt(self, v1, v2):
+        return v1 < v2
+
+    @str_binary_op
+    def le(self, v1, v2):
+        return v1 <= v2
+
+    @str_binary_op
+    def gt(self, v1, v2):
+        return v1 > v2
+
+    @str_binary_op
+    def ge(self, v1, v2):
+        return v1 >= v2
+
+    @str_binary_op
+    def logical_and(self, v1, v2):
+        return bool(v1) and bool(v2)
+
+    @str_binary_op
+    def logical_or(self, v1, v2):
+        return bool(v1) or bool(v2)
+
+    @str_unary_op
+    def logical_not(self, v):
+        return not bool(v)
+
+    @str_binary_op
+    def logical_xor(self, v1, v2):
+        return bool(v1) ^ bool(v2)
+
+    def bool(self, v):
+        return bool(self.to_str(v))
 
     def build_and_convert(self, space, mydtype, box):
         assert isinstance(box, interp_boxes.W_GenericBox)
@@ -1709,6 +1842,13 @@ class StringType(BaseType, BaseStringType):
         for j in range(i + 1, self.size):
             arr.storage[j] = '\x00'
         return interp_boxes.W_StringBox(arr,  0, arr.dtype)
+
+NonNativeStringType = StringType
+
+class UnicodeType(BaseType, BaseStringType):
+    T = lltype.UniChar
+
+NonNativeUnicodeType = UnicodeType
 
 class VoidType(BaseType, BaseStringType):
     T = lltype.Char
@@ -1755,12 +1895,6 @@ class VoidType(BaseType, BaseStringType):
         return W_NDimArray(implementation)
 
 NonNativeVoidType = VoidType
-NonNativeStringType = StringType
-
-class UnicodeType(BaseType, BaseStringType):
-    T = lltype.UniChar
-
-NonNativeUnicodeType = UnicodeType
 
 class RecordType(BaseType):
 

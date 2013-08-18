@@ -62,11 +62,7 @@ def delegate_Int2Float(space, w_intobj):
 
 # long-to-float delegation
 def delegate_Long2Float(space, w_longobj):
-    try:
-        return W_FloatObject(w_longobj.tofloat())
-    except OverflowError:
-        raise OperationError(space.w_OverflowError,
-                             space.wrap("long int too large to convert to float"))
+    return W_FloatObject(w_longobj.tofloat(space))
 
 
 # float__Float is supposed to do nothing, unless it has

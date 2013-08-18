@@ -41,7 +41,7 @@ def dtype_agreement(space, w_arr_list, shape, out=None):
     dtype = w_arr_list[0].get_dtype()
     for w_arr in w_arr_list[1:]:
         dtype = find_binop_result_dtype(space, dtype, w_arr.get_dtype())
-    out = base.W_NDimArray.from_shape(shape, dtype)
+    out = base.W_NDimArray.from_shape(space, shape, dtype)
     return out
 
 
@@ -234,6 +234,9 @@ class W_Dtype(W_Root):
     def is_record_type(self):
         return self.fields is not None
 
+    def is_str_type(self):
+        return self.num == 18
+
     def is_str_or_unicode(self):
         return (self.num == 18 or self.num == 19)
 
@@ -318,7 +321,7 @@ def dtype_from_list(space, w_lst):
             if not base.issequence_w(space, w_shape):
                 w_shape = space.newtuple([w_shape,])
         else:
-            w_fldname, w_flddesc = space.fixedview(w_elem)
+            w_fldname, w_flddesc = space.fixedview(w_elem, 2)
         subdtype = descr__new__(space, space.gettypefor(W_Dtype), w_flddesc, w_shape=w_shape)
         fldname = space.str_w(w_fldname)
         if fldname in fields:

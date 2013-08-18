@@ -5,29 +5,25 @@ from rpython.rtyper.lltypesystem import lltype
 
 class __extend__(annmodel.SomeDict):
     def rtyper_makerepr(self, rtyper):
-        dictkey   = self.dictdef.dictkey
+        from rpython.rtyper.lltypesystem.rdict import DictRepr
+        dictkey = self.dictdef.dictkey
         dictvalue = self.dictdef.dictvalue
-        s_key     = dictkey  .s_value
-        s_value   = dictvalue.s_value
+        s_key = dictkey.s_value
+        s_value = dictvalue.s_value
         force_non_null = self.dictdef.force_non_null
         if dictkey.custom_eq_hash:
             custom_eq_hash = lambda: (rtyper.getrepr(dictkey.s_rdict_eqfn),
                                       rtyper.getrepr(dictkey.s_rdict_hashfn))
         else:
             custom_eq_hash = None
-        return rtyper.type_system.rdict.DictRepr(rtyper,
-                                                 lambda: rtyper.getrepr(s_key),
-                                                 lambda: rtyper.getrepr(s_value),
-                                                 dictkey,
-                                                 dictvalue,
-                                                 custom_eq_hash,
-                                                 force_non_null)
+        return DictRepr(rtyper, lambda: rtyper.getrepr(s_key),
+                        lambda: rtyper.getrepr(s_value), dictkey, dictvalue,
+                        custom_eq_hash, force_non_null)
 
     def rtyper_makekey(self):
         self.dictdef.dictkey  .dont_change_any_more = True
         self.dictdef.dictvalue.dont_change_any_more = True
         return (self.__class__, self.dictdef.dictkey, self.dictdef.dictvalue)
-
 
 
 class AbstractDictRepr(rmodel.Repr):
@@ -41,7 +37,8 @@ class AbstractDictRepr(rmodel.Repr):
     pickkeyrepr = pickrepr
 
     def compact_repr(self):
-        return 'DictR %s %s' % (self.key_repr.compact_repr(), self.value_repr.compact_repr())
+        return 'DictR %s %s' % (self.key_repr.compact_repr(),
+                                self.value_repr.compact_repr())
 
     def recast_value(self, llops, v):
         return llops.convertvar(v, self.value_repr, self.external_value_repr)
@@ -51,10 +48,11 @@ class AbstractDictRepr(rmodel.Repr):
 
 
 def rtype_newdict(hop):
+    from rpython.rtyper.lltypesystem.rdict import ll_newdict
     hop.inputargs()    # no arguments expected
     r_dict = hop.r_result
     cDICT = hop.inputconst(lltype.Void, r_dict.DICT)
-    v_result = hop.gendirectcall(hop.rtyper.type_system.rdict.ll_newdict, cDICT)
+    v_result = hop.gendirectcall(ll_newdict, cDICT)
     return v_result
 
 

@@ -164,7 +164,11 @@ class CoreRegisterManager(ARMRegisterManager):
 
     def get_scratch_reg(self, type=INT, forbidden_vars=[], selected_reg=None):
         assert type == INT or type == REF
-        box = TempBox()
+        box = None
+        if type == INT:
+            box = TempInt()
+        else:
+            box = TempPtr()
         self.temp_boxes.append(box)
         reg = self.force_allocate_reg(box, forbidden_vars=forbidden_vars,
                                                     selected_reg=selected_reg)
@@ -1126,6 +1130,24 @@ class Regalloc(BaseRegalloc):
 
     prepare_op_cond_call_gc_wb_array = prepare_op_cond_call_gc_wb
 
+    def prepare_op_cond_call(self, op, fcond):
+        assert op.result is None
+        assert 2 <= op.numargs() <= 4 + 2
+        tmpreg = self.get_scratch_reg(INT, selected_reg=r.r4)
+        v = op.getarg(1)
+        assert isinstance(v, Const)
+        imm = self.rm.convert_to_imm(v)
+        self.assembler.regalloc_mov(imm, tmpreg)
+        args_so_far = []
+        for i in range(2, op.numargs()):
+            reg = r.argument_regs[i - 2]
+            arg = op.getarg(i)
+            self.make_sure_var_in_reg(arg, args_so_far, selected_reg=reg)
+            args_so_far.append(arg)
+        loc_cond = self.make_sure_var_in_reg(op.getarg(0), args_so_far)
+        gcmap = self.get_gcmap([tmpreg])
+        self.assembler.cond_call(op, gcmap, loc_cond, tmpreg, fcond)
+
     def prepare_op_force_token(self, op, fcond):
         # XXX for now we return a regular reg
         res_loc = self.force_allocate_reg(op.result)
@@ -1171,6 +1193,12 @@ class Regalloc(BaseRegalloc):
         #if jump_op is not None and jump_op.getdescr() is descr:
         #    self._compute_hint_frame_locations_from_descr(descr)
         return []
+
+    def prepare_op_guard_not_forced_2(self, op, fcond):
+        self.rm.before_call(op.getfailargs(), save_all_regs=True)
+        fail_locs = self._prepare_guard(op)
+        self.assembler.store_force_descr(op, fail_locs[1:], fail_locs[0].value)
+        self.possibly_free_vars(op.getfailargs())
 
     def prepare_guard_call_may_force(self, op, guard_op, fcond):
         args = self._prepare_call(op, save_all_regs=True)

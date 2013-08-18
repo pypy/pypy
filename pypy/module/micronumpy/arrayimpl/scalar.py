@@ -13,6 +13,9 @@ class ScalarIterator(base.BaseArrayIterator):
     def next(self):
         self.called_once = True
 
+    def next_skip_x(self, n):
+        self.called_once = True
+
     def getitem(self):
         return self.v.get_scalar_value()
 
@@ -62,6 +65,11 @@ class Scalar(base.BaseArrayImplementation):
 
     def transpose(self, _):
         return self
+
+    def get_view(self, orig_array, dtype, new_shape):
+        scalar = Scalar(dtype)
+        scalar.value = self.value.convert_to(dtype)
+        return scalar
 
     def get_real(self, orig_array):
         if self.dtype.is_complex_type():
@@ -131,7 +139,7 @@ class Scalar(base.BaseArrayImplementation):
         if not new_shape:
             return self
         if support.product(new_shape) == 1:
-            arr = W_NDimArray.from_shape(new_shape, self.dtype)
+            arr = W_NDimArray.from_shape(space, new_shape, self.dtype)
             arr_iter = arr.create_iter(new_shape)
             arr_iter.setitem(self.value)
             return arr.implementation
@@ -144,7 +152,7 @@ class Scalar(base.BaseArrayImplementation):
     def create_axis_iter(self, shape, dim, cum):
         raise Exception("axis iter should not happen on scalar")
 
-    def swapaxes(self, orig_array, axis1, axis2):
+    def swapaxes(self, space, orig_array, axis1, axis2):
         raise Exception("should not be called")
 
     def fill(self, w_value):
@@ -158,7 +166,7 @@ class Scalar(base.BaseArrayImplementation):
         return space.wrap(0)
 
     def astype(self, space, dtype):
-        return W_NDimArray.new_scalar(space, dtype, self.value)
+        raise Exception("should not be called")
 
     def base(self):
         return None
