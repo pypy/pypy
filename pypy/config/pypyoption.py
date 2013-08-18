@@ -3,7 +3,7 @@ import sys
 import py
 
 from rpython.config.config import (OptionDescription, BoolOption, IntOption,
-  ChoiceOption, StrOption, to_optparse, ConflictConfigError)
+  ChoiceOption, StrOption, to_optparse)
 from rpython.config.translationoption import IS_64_BITS
 
 
