@@ -960,10 +960,10 @@ class LLFrame(object):
     def execute_force_token(self, _):
         return self
 
-    def execute_cond_call_gc_wb(self, descr, a, b):
+    def execute_cond_call_gc_wb(self, descr, a):
         py.test.skip("cond_call_gc_wb not supported")
 
-    def execute_cond_call_gc_wb_array(self, descr, a, b, c):
+    def execute_cond_call_gc_wb_array(self, descr, a, b):
         py.test.skip("cond_call_gc_wb_array not supported")
 
     def execute_keepalive(self, descr, x):
