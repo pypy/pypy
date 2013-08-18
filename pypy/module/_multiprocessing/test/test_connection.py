@@ -100,7 +100,7 @@ class AppTestSocketConnection(BaseConnectionTest):
     spaceconfig = {
         "usemodules": [
             '_multiprocessing', 'thread', 'signal', 'struct', 'array',
-            'itertools', '_socket', 'binascii',
+            'itertools', '_socket', 'binascii', 'select', 'fcntl',
         ]
     }
 
