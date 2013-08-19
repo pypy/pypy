@@ -437,14 +437,14 @@ optimizations previously implemented in the xreadlines module.""")
         return self.getrepr(self.space, info)
 
     def getdisplayname(self):
+        space = self.space
         w_name = self.w_name
         if w_name is None:
             return '?'
-        elif self.space.is_true(self.space.isinstance(w_name,
-                                                      self.space.w_str)):
-            return "'%s'" % self.space.str_w(w_name)
+        elif space.isinstance_w(w_name, space.w_str):
+            return "'%s'" % space.str_w(w_name)
         else:
-            return self.space.str_w(self.space.repr(w_name))
+            return space.str_w(space.repr(w_name))
 
     def file_writelines(self, w_lines):
         """writelines(sequence_of_strings) -> None.  Write the strings to the file.

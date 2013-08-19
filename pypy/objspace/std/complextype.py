@@ -214,7 +214,7 @@ def unpackcomplex(space, w_complex, strict_typing=True):
     #
     # no '__complex__' method, so we assume it is a float,
     # unless it is an instance of some subclass of complex.
-    if space.is_true(space.isinstance(w_complex, space.gettypefor(W_ComplexObject))):
+    if space.isinstance_w(w_complex, space.gettypefor(W_ComplexObject)):
         real = space.float(space.getattr(w_complex, space.wrap("real")))
         imag = space.float(space.getattr(w_complex, space.wrap("imag")))
         return (space.float_w(real), space.float_w(imag))

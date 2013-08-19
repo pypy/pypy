@@ -20,9 +20,13 @@ class Stat(object):
         for obj in self.walk(a):
             self.add_object_summary(obj[2], obj[3])
 
-    def load_typeids(self, filename):
+    def load_typeids(self, filename_or_iter):
         self.typeids = Stat.typeids.copy()
-        for num, line in enumerate(open(filename)):
+        if isinstance(filename_or_iter, str):
+            iter = open(filename_or_iter)
+        else:
+            iter = filename_or_iter
+        for num, line in enumerate(iter):
             if num == 0:
                 continue
             words = line.split()
@@ -92,5 +96,8 @@ if __name__ == '__main__':
         typeid_name = os.path.join(os.path.dirname(sys.argv[1]), 'typeids.txt')
     if os.path.isfile(typeid_name):
         stat.load_typeids(typeid_name)
+    else:
+        import zlib, gc
+        stat.load_typeids(zlib.decompress(gc.get_typeids_z()).split("\n"))
     #
     stat.print_summary()
