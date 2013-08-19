@@ -228,8 +228,3 @@ def test_get_memory_usage():
     x1 = X()
     n = rgc.get_rpy_memory_usage(rgc.cast_instance_to_gcref(x1))
     assert n >= 8 and n <= 64
-
-def test_cast_gcref_to_int():
-    from rpython.rtyper.lltypesystem import rffi
-    x = rffi.cast(llmemory.GCREF, 123456)
-    assert rgc.cast_gcref_to_int(x) == 123456

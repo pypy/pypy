@@ -343,13 +343,12 @@ def get_rpy_type_index(gcref):
     return intmask(id(Class))
 
 def cast_gcref_to_int(gcref):
+    # This is meant to be used on cast_instance_to_gcref results.
+    # Don't use this on regular gcrefs obtained e.g. with
+    # lltype.cast_opaque_ptr().
     if we_are_translated():
         return lltype.cast_ptr_to_int(gcref)
     else:
-        from rpython.rtyper.lltypesystem.ll2ctypes import _llgcopaque
-        if isinstance(gcref._obj, _llgcopaque):
-            from rpython.rtyper.lltypesystem import rffi
-            return rffi.cast(lltype.Signed, gcref)
         return id(gcref._x)
 
 def dump_rpy_heap(fd):
