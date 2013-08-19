@@ -586,6 +586,7 @@ class AbstractX86CodeBuilder(object):
     TEST8_mi = insn(rex_nw, '\xF6', orbyte(0<<3), mem_reg_plus_const(1), immediate(2, 'b'))
     TEST8_bi = insn(rex_nw, '\xF6', orbyte(0<<3), stack_bp(1), immediate(2, 'b'))
     TEST8_ji = insn(rex_nw, '\xF6', orbyte(0<<3), abs_(1), immediate(2, 'b'))
+    TEST8_rr = insn(rex_fw, '\x84', byte_register(2,8), byte_register(1),'\xC0')
     TEST_rr = insn(rex_w, '\x85', register(2,8), register(1), '\xC0')
 
     BTS_mr = insn(rex_w, '\x0F\xAB', register(2,8), mem_reg_plus_const(1))
