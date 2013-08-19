@@ -8,7 +8,7 @@ from rpython.jit.metainterp.history import (Box, Const, ConstInt, ConstPtr,
                                             BoxFloat, INT, REF, FLOAT,
                                             TargetToken)
 from rpython.jit.backend.x86.regloc import *
-from rpython.rtyper.lltypesystem import lltype, rffi, rstr
+from rpython.rtyper.lltypesystem import lltype, rffi, rstr, llmemory
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib import rgc
@@ -45,9 +45,11 @@ class X86RegisterManager(RegisterManager):
         if isinstance(c, ConstInt):
             return imm(c.value)
         elif isinstance(c, ConstPtr):
-            if we_are_translated() and c.value and rgc.can_move(c.value):
+            # if we_are_translated() and c.value and rgc.can_move(c.value):
+            #     not_implemented("convert_to_imm: ConstPtr needs special care")
+            if c.value and not c.imm_value:
                 not_implemented("convert_to_imm: ConstPtr needs special care")
-            return imm(rffi.cast(lltype.Signed, c.value))
+            return imm(c.get_imm_value())
         else:
             not_implemented("convert_to_imm: got a %s" % c)
 
@@ -369,7 +371,6 @@ class RegAlloc(BaseRegalloc):
         fail_descr = rgc.cast_instance_to_gcref(descr)
         # we know it does not move, but well
         fail_descr = rgc._make_sure_does_not_move(fail_descr)
-        fail_descr = rgc.cast_gcref_to_int(fail_descr)
         if op.numargs() == 1:
             loc = self.make_sure_var_in_reg(op.getarg(0))
             locs = [loc, imm(fail_descr)]

@@ -103,27 +103,19 @@ class GcLLDescription(GcCache):
             v = op.getarg(i)
             if isinstance(v, ConstPtr) and bool(v.value):
                 p = rgc.cast_instance_to_gcref(v.value)
-                new_p = rgc._make_sure_does_not_move(p)
-                if we_are_translated():
-                    v.value = new_p
-                else:
-                    assert p == new_p
-                gcrefs_output_list.append(new_p)
-                
+                v.imm_value = rgc._make_sure_does_not_move(p)
+                # XXX: fix for stm, record imm_values and unregister
+                # them again (below too):
+                gcrefs_output_list.append(p)
+
+        if self.stm:
+            return # for descr, we do it on the fly in assembler.py
         if op.is_guard() or op.getopnum() == rop.FINISH:
             # the only ops with descrs that get recorded in a trace
-            from rpython.jit.metainterp.history import AbstractDescr
             descr = op.getdescr()
             llref = rgc.cast_instance_to_gcref(descr)
-            new_llref = rgc._make_sure_does_not_move(llref)
-            if we_are_translated():
-                new_d = rgc.try_cast_gcref_to_instance(AbstractDescr,
-                                                       new_llref)
-                # tests don't allow this:
-                op.setdescr(new_d)
-            else:
-                assert llref == new_llref
-            gcrefs_output_list.append(new_llref)
+            rgc._make_sure_does_not_move(llref)
+            gcrefs_output_list.append(llref)
 
     def rewrite_assembler(self, cpu, operations, gcrefs_output_list):
         if not self.stm:
@@ -711,6 +703,12 @@ class GcLLDescr_framework(GcLLDescription):
         if self.stm:
             # XXX remove the indirections in the following calls
             from rpython.rlib import rstm
+            def stm_allocate_nonmovable_int_adr(obj):
+                return llop1.stm_allocate_nonmovable_int_adr(
+                    lltype.Signed, obj)
+            self.generate_function('stm_allocate_nonmovable_int_adr',
+                                   stm_allocate_nonmovable_int_adr,
+                                   [llmemory.GCREF], RESULT=lltype.Signed)
             self.generate_function('stm_try_inevitable',
                                    rstm.become_inevitable, [],
                                    RESULT=lltype.Void)

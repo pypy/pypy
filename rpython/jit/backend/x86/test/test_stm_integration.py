@@ -21,9 +21,13 @@ from rpython.jit.backend.llsupport import jitframe
 from rpython.memory.gc.stmgc import StmGC
 from rpython.jit.metainterp import history
 from rpython.jit.codewriter.effectinfo import EffectInfo
+from rpython.rlib import rgc
 from rpython.rtyper.llinterp import LLException
 import itertools, sys
 import ctypes
+
+def cast_to_int(obj):
+    return rgc.cast_gcref_to_int(rgc.cast_instance_to_gcref(obj))
 
 CPU = getcpuclass()
 
@@ -170,6 +174,14 @@ class GCDescrStm(GCDescrShadowstackDirect):
             return x == y
         self.generate_function('stm_ptr_eq', ptr_eq, [llmemory.GCREF] * 2,
                                RESULT=lltype.Bool)
+
+        def stm_allocate_nonmovable_int_adr(obj):
+            assert False # should not be reached
+            return rgc.cast_gcref_to_int(obj)
+        self.generate_function('stm_allocate_nonmovable_int_adr', 
+                               stm_allocate_nonmovable_int_adr, 
+                               [llmemory.GCREF],
+                               RESULT=lltype.Signed)
 
         def malloc_big_fixedsize(size, tid):
             entries = size + StmGC.GCHDRSIZE

@@ -195,10 +195,7 @@ class BaseAssembler(object):
         # we want the descr to keep alive
         guardtok.faildescr.rd_loop_token = self.current_clt
         fail_descr = rgc.cast_instance_to_gcref(guardtok.faildescr)
-        if self.cpu.gc_ll_descr.stm:
-            # only needed with STM, I think..
-            fail_descr = rgc._make_sure_does_not_move(fail_descr)
-        fail_descr = rgc.cast_gcref_to_int(fail_descr)
+        fail_descr = rgc._make_sure_does_not_move(fail_descr)
         return fail_descr, target
 
     def call_assembler(self, op, guard_op, argloc, vloc, result_loc, tmploc):
@@ -230,8 +227,7 @@ class BaseAssembler(object):
                 raise AssertionError(kind)
 
         gcref = rgc.cast_instance_to_gcref(value)
-        gcref = rgc._make_sure_does_not_move(gcref)
-        value = rgc.cast_gcref_to_int(gcref)
+        value = rgc._make_sure_does_not_move(gcref)
         je_location = self._call_assembler_check_descr(value, tmploc)
         #
         # Path A: use assembler_helper_adr

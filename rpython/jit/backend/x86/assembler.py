@@ -249,9 +249,8 @@ class Assembler386(BaseAssembler):
         self._store_and_reset_exception(self.mc, eax)
         ofs = self.cpu.get_ofs_of_frame_field('jf_guard_exc')
         self.mc.MOV_br(ofs, eax.value)
-        propagate_exception_descr = rgc.cast_gcref_to_int(
-            rgc._make_sure_does_not_move(
-                rgc.cast_instance_to_gcref(self.cpu.propagate_exception_descr)))
+        propagate_exception_descr = rgc._make_sure_does_not_move(
+                rgc.cast_instance_to_gcref(self.cpu.propagate_exception_descr))
         ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
         self.mc.MOV(RawEbpLoc(ofs), imm(propagate_exception_descr))
         self.mc.MOV_rr(eax.value, ebp.value)
@@ -2122,10 +2121,10 @@ class Assembler386(BaseAssembler):
             cb.emit()
 
     def _store_force_index(self, guard_op):
-        faildescr = guard_op.getdescr()
+        faildescr = rgc._make_sure_does_not_move(
+            rgc.cast_instance_to_gcref(guard_op.getdescr()))
         ofs = self.cpu.get_ofs_of_frame_field('jf_force_descr')
-        self.mc.MOV(raw_stack(ofs), imm(rffi.cast(lltype.Signed,
-                                 cast_instance_to_gcref(faildescr))))
+        self.mc.MOV(raw_stack(ofs), imm(faildescr))
 
     def _emit_guard_not_forced(self, guard_token):
         ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
