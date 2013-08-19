@@ -2337,8 +2337,9 @@ class Assembler386(BaseAssembler):
         mc.CALL(imm(func))
         # result still on stack
         mc.POP_r(X86_64_SCRATCH_REG.value)
-        # set flags:
-        mc.TEST_rr(X86_64_SCRATCH_REG.value, X86_64_SCRATCH_REG.value)
+        # _Bool return type only sets lower 8 bits of return value
+        sl = X86_64_SCRATCH_REG.lowest8bits()
+        mc.CMP8_ri(sl.value, 0)
         #
         # END SLOWPATH
         #
