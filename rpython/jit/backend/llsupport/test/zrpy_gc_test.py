@@ -795,6 +795,7 @@ class CompileFrameworkTests(BaseFrameworkTests):
 
     def define_compile_framework_ptr_eq(cls):
         # test ptr_eq
+        @dont_look_inside
         def raiseassert(cond):
             if not bool(cond):
                 raise AssertionError
@@ -812,14 +813,17 @@ class CompileFrameworkTests(BaseFrameworkTests):
             raiseassert(x0 == ptrs[1])
             raiseassert(x0 != ptrs[2])
             raiseassert(x0 != ptrs[3])
+            
             raiseassert(x1 != ptrs[0])
             raiseassert(x1 != ptrs[1])
             raiseassert(x1 == ptrs[2])
             raiseassert(x1 != ptrs[3])
+            
             raiseassert(x2 == ptrs[0])
             raiseassert(x2 != ptrs[1])
             raiseassert(x2 != ptrs[2])
             raiseassert(x2 != ptrs[3])
+            
             raiseassert(ptrs[0] is None)
             raiseassert(ptrs[1] is not None)
             raiseassert(ptrs[2] is not None)
