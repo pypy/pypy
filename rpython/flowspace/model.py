@@ -8,7 +8,6 @@ import py
 
 from rpython.tool.uid import uid, Hashable
 from rpython.tool.sourcetools import PY_IDENTIFIER, nice_repr_for_func
-from rpython.rlib.rarithmetic import is_valid_int, r_longlong, r_ulonglong, r_uint
 
 
 """
@@ -504,7 +503,8 @@ def checkgraph(graph):
     if not __debug__:
         return
     try:
-
+        from rpython.rlib.rarithmetic import (is_valid_int, r_longlong,
+            r_ulonglong, r_uint)
         vars_previous_blocks = {}
 
         exitblocks = {graph.returnblock: 1,   # retval

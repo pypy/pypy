@@ -7,8 +7,8 @@ import __builtin__
 import __future__
 import operator
 from rpython.tool.sourcetools import compile2
-from rpython.rlib.rarithmetic import ovfcheck
 from rpython.flowspace.model import Constant, WrapException, const
+from rpython.flowspace.specialcase import register_flow_sc
 
 class _OpHolder(object): pass
 op = _OpHolder()
@@ -97,6 +97,7 @@ def add_operator(name, arity, symbol, pyfunc=None, pure=False, ovf=False):
         if pyfunc is None:
             oper.pyfunc = operator_func
     if ovf:
+        from rpython.rlib.rarithmetic import ovfcheck
         ovf_func = lambda *args: ovfcheck(oper.pyfunc(*args))
         add_operator(name + '_ovf', arity, symbol, pyfunc=ovf_func)
 
@@ -287,6 +288,9 @@ func2op[type] = op.type
 func2op[operator.truth] = op.nonzero
 if hasattr(__builtin__, 'next'):
     func2op[__builtin__.next] = op.next
+
+for fn, oper in func2op.items():
+    register_flow_sc(fn)(oper.make_sc())
 
 
 op_appendices = {
