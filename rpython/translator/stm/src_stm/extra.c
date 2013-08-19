@@ -24,6 +24,53 @@ void stm_clear_on_abort(void *start, size_t bytes)
     stm_bytes_to_clear_on_abort = bytes;
 }
 
+
+intptr_t stm_allocate_public_integer_address(gcptr obj)
+{
+    struct tx_descriptor *d = thread_descriptor;
+    gcptr stub;
+    intptr_t result;
+    /* plan: we allocate a small stub whose reference
+       we never give to the caller except in the form 
+       of an integer.
+       During major collections, we visit them and update
+       their references. */
+
+    /* we don't want to deal with young objs */
+    if (!(obj->h_tid & GCFLAG_OLD)) {
+        stm_push_root(obj);
+        stm_minor_collect();
+        obj = stm_pop_root();
+    }
+    
+    spinlock_acquire(d->public_descriptor->collection_lock, 'P');
+
+    stub = stm_stub_malloc(d->public_descriptor, 0);
+    stub->h_tid = (obj->h_tid & STM_USER_TID_MASK)
+        | GCFLAG_PUBLIC | GCFLAG_STUB | GCFLAG_SMALLSTUB
+        | GCFLAG_OLD;
+
+    stub->h_revision = ((revision_t)obj) | 2;
+    if (!(obj->h_tid & GCFLAG_PREBUILT_ORIGINAL) && obj->h_original) {
+        stub->h_original = obj->h_original;
+    }
+    else {
+        stub->h_original = (revision_t)obj;
+    }
+
+    result = (intptr_t)stub;
+    spinlock_release(d->public_descriptor->collection_lock);
+    stm_register_integer_address(result);
+
+    dprintf(("allocate_public_int_adr(%p): %p", obj, stub));
+    return result;
+}
+
+
+
+
+
+
 /************************************************************/
 /* Each object has a h_original pointer to an old copy of 
    the same object (e.g. an old revision), the "original". 
@@ -92,6 +139,8 @@ revision_t stm_id(gcptr p)
             return (revision_t)p;
         }
 
+        assert(p->h_original != (revision_t)p);
+
         dprintf(("stm_id(%p) has orig fst: %p\n", 
                  p, (gcptr)p->h_original));
         return p->h_original;
@@ -154,6 +203,19 @@ _Bool stm_pointer_equal(gcptr p1, gcptr p2)
     return (p1 == p2);
 }
 
+_Bool stm_pointer_equal_prebuilt(gcptr p1, gcptr p2)
+{
+    assert(p2 != NULL);
+    assert(p2->h_tid & GCFLAG_PREBUILT_ORIGINAL);
+
+    if (p1 == p2)
+        return 1;
+
+    /* the only possible case to still get True is if p2 == p1->h_original */
+    return (p1 != NULL) && (p1->h_original == (revision_t)p2) &&
+        !(p1->h_tid & GCFLAG_PREBUILT_ORIGINAL);
+}
+
 /************************************************************/
 
 void stm_abort_info_push(gcptr obj, long fieldoffsets[])
@@ -205,7 +267,7 @@ size_t stm_decode_abort_info(struct tx_descriptor *d, long long elapsed_time,
     WRITE_BUF(buffer, res_size);
     WRITE('e');
     for (i=0; i<d->abortinfo.size; i+=2) {
-        char *object = (char *)stm_RepeatReadBarrier(d->abortinfo.items[i+0]);
+        char *object = (char*)stm_repeat_read_barrier(d->abortinfo.items[i+0]);
         long *fieldoffsets = (long*)d->abortinfo.items[i+1];
         long kind, offset;
         size_t rps_size;

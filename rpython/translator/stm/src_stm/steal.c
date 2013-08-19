@@ -20,6 +20,59 @@ struct tx_steal_data {
 };
 static __thread struct tx_steal_data *steal_data;
 
+static void replace_ptr_to_immutable_with_stub(gcptr * pobj)
+{
+    gcptr stub, obj = *pobj;
+    assert(obj->h_tid & GCFLAG_IMMUTABLE);
+    assert(!(obj->h_tid & GCFLAG_PRIVATE_FROM_PROTECTED));
+    if (obj->h_tid & GCFLAG_PUBLIC) {
+        /* young public, replace with stolen old copy */
+        assert(obj->h_tid & GCFLAG_MOVED);
+        assert(IS_POINTER(obj->h_revision));
+        stub = (gcptr)obj->h_revision;
+        assert(!IS_POINTER(stub->h_revision)); /* not outdated */
+        goto done;
+    }
+
+    /* old or young protected! mark as PUBLIC */
+    if (!(obj->h_tid & GCFLAG_OLD)) {
+        /* young protected */
+        gcptr O;
+
+        if (obj->h_tid & GCFLAG_HAS_ID) {
+            /* use id-copy for us */
+            O = (gcptr)obj->h_original;
+            obj->h_tid &= ~GCFLAG_HAS_ID;
+            stm_copy_to_old_id_copy(obj, O);
+            O->h_original = 0;
+        } else {
+            O = stmgc_duplicate_old(obj);
+
+            /* young and without original? */
+            if (!(obj->h_original))
+                obj->h_original = (revision_t)O;
+        }
+        obj->h_tid |= (GCFLAG_MOVED | GCFLAG_PUBLIC);
+        obj->h_revision = (revision_t)O;
+
+        O->h_tid |= GCFLAG_PUBLIC;
+        /* here it is fine if it stays in read caches because
+           the object is immutable anyway and there are no
+           write_barriers allowed. */
+        dprintf(("steal prot immutable -> public: %p -> %p\n", obj, O));
+        stub = O;
+        goto done;
+    }
+    /* old protected: */
+    dprintf(("prot immutable -> public: %p\n", obj));
+    obj->h_tid |= GCFLAG_PUBLIC;
+
+    return;
+ done:
+    *pobj = stub;
+    dprintf(("  stolen: fixing *%p: %p -> %p\n", pobj, obj, stub));
+}
+
 static void replace_ptr_to_protected_with_stub(gcptr *pobj)
 {
     gcptr stub, obj = *pobj;
@@ -28,49 +81,7 @@ static void replace_ptr_to_protected_with_stub(gcptr *pobj)
         return;
 
     if (obj->h_tid & GCFLAG_IMMUTABLE) {
-        assert(!(obj->h_tid & GCFLAG_PRIVATE_FROM_PROTECTED));
-        if (obj->h_tid & GCFLAG_PUBLIC) {
-            /* young public, replace with stolen old copy */
-            assert(obj->h_tid & GCFLAG_MOVED);
-            assert(IS_POINTER(obj->h_revision));
-            stub = (gcptr)obj->h_revision;
-            assert(!IS_POINTER(stub->h_revision)); /* not outdated */
-            goto done;
-        }
-
-        /* old or young protected! mark as PUBLIC */
-        if (!(obj->h_tid & GCFLAG_OLD)) {
-            /* young protected */
-            gcptr O;
-            
-            if (obj->h_tid & GCFLAG_HAS_ID) {
-                /* use id-copy for us */
-                O = (gcptr)obj->h_original;
-                obj->h_tid &= ~GCFLAG_HAS_ID;
-                stm_copy_to_old_id_copy(obj, O);
-                O->h_original = 0;
-            } else {
-                O = stmgc_duplicate_old(obj);
-                
-                /* young and without original? */
-                if (!(obj->h_original))
-                    obj->h_original = (revision_t)O;
-            }
-            obj->h_tid |= (GCFLAG_MOVED | GCFLAG_PUBLIC);
-            obj->h_revision = (revision_t)O;
-            
-            O->h_tid |= GCFLAG_PUBLIC;
-            /* here it is fine if it stays in read caches because
-               the object is immutable anyway and there are no
-               write_barriers allowed. */
-            dprintf(("steal prot immutable -> public: %p -> %p\n", obj, O));
-            stub = O;
-            goto done;
-        }
-        /* old protected: */
-        dprintf(("prot immutable -> public: %p\n", obj));
-        obj->h_tid |= GCFLAG_PUBLIC;
-        
+        replace_ptr_to_immutable_with_stub(pobj);
         return;
     }
     

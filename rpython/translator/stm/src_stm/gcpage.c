@@ -23,6 +23,9 @@ static size_t count_global_pages;
 /* Only computed during a major collection */
 static size_t mc_total_in_use, mc_total_reserved;
 
+/* keeps track of registered smallstubs that will survive unless unregistered */
+static struct G2L registered_stubs;
+
 /* For tests */
 long stmgcpage_count(int quantity)
 {
@@ -63,6 +66,8 @@ static void init_global_data(void)
         nblocks_for_size[i] =
             (GC_PAGE_SIZE - sizeof(page_header_t)) / (WORD * i);
     }
+
+    memset(&registered_stubs, 0, sizeof(registered_stubs));
 }
 
 void stmgcpage_init_tls(void)
@@ -207,6 +212,34 @@ void stmgcpage_free(gcptr obj)
         stm_free(obj, size);
     }
 }
+
+
+/***** registering of small stubs as integer addresses *****/
+
+void stm_register_integer_address(intptr_t adr)
+{
+    gcptr obj = (gcptr)adr;
+    assert(obj->h_tid & GCFLAG_SMALLSTUB);
+    assert(obj->h_tid & GCFLAG_PUBLIC);
+
+    stmgcpage_acquire_global_lock();
+    g2l_insert(&registered_stubs, obj, NULL);
+    stmgcpage_release_global_lock();
+    dprintf(("registered %p\n", obj));
+}
+
+void stm_unregister_integer_address(intptr_t adr)
+{
+    gcptr obj = (gcptr)adr;
+    assert(obj->h_tid & GCFLAG_SMALLSTUB);
+    assert(obj->h_tid & GCFLAG_PUBLIC);
+
+    stmgcpage_acquire_global_lock();
+    g2l_delete_item(&registered_stubs, obj);
+    stmgcpage_release_global_lock();
+    dprintf(("unregistered %p\n", obj));
+}
+
 
 
 /***** Major collections: marking *****/
@@ -460,6 +493,27 @@ static void mark_prebuilt_roots(void)
     }
 }
 
+static void mark_registered_stubs(void)
+{
+    wlog_t *item;
+    G2L_LOOP_FORWARD(registered_stubs, item) {
+        gcptr R = item->addr;
+        assert(R->h_tid & GCFLAG_SMALLSTUB);
+
+        R->h_tid |= (GCFLAG_MARKED | GCFLAG_VISITED);
+
+        gcptr L = (gcptr)(R->h_revision - 2);
+        L = stmgcpage_visit(L);
+        R->h_revision = ((revision_t)L) | 2;
+
+        /* h_original will be kept up-to-date because
+           it is either == L or L's h_original. And
+           h_originals don't move */
+    } G2L_LOOP_END;
+
+}
+
+
 static void mark_roots(gcptr *root, gcptr *end)
 {
     assert(*root == END_MARKER_ON);
@@ -497,6 +551,14 @@ static void mark_all_stack_roots(void)
         visit_take_protected(d->thread_local_obj_ref);
         visit_take_protected(&d->old_thread_local_obj);
 
+        /* the abortinfo objects */
+        long i, size = d->abortinfo.size;
+        gcptr *items = d->abortinfo.items;
+        for (i = 0; i < size; i += 2) {
+            visit_take_protected(&items[i]);
+            /* items[i+1] is not a gc ptr */
+        }
+
         /* the current transaction's private copies of public objects */
         wlog_t *item;
         G2L_LOOP_FORWARD(d->public_to_private, item) {
@@ -528,8 +590,8 @@ static void mark_all_stack_roots(void)
         } G2L_LOOP_END;
 
         /* reinsert to real pub_to_priv */
-        long i, size = new_public_to_private.size;
-        gcptr *items = new_public_to_private.items;
+        size = new_public_to_private.size;
+        items = new_public_to_private.items;
         for (i = 0; i < size; i += 2) {
             g2l_insert(&d->public_to_private, items[i], items[i + 1]);
         }
@@ -890,6 +952,7 @@ static void major_collect(void)
 
     assert(gcptrlist_size(&objects_to_trace) == 0);
     mark_prebuilt_roots();
+    mark_registered_stubs();
     mark_all_stack_roots();
     do {
         visit_all_objects();

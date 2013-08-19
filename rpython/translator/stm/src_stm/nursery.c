@@ -176,6 +176,7 @@ static void visit_if_young(gcptr *root)
 
             stm_copy_to_old_id_copy(obj, id_obj);
             fresh_old_copy = id_obj;
+            fresh_old_copy->h_original = 0;
             obj->h_tid &= ~GCFLAG_HAS_ID;
         } 
         else {
@@ -437,6 +438,19 @@ static void teardown_minor_collect(struct tx_descriptor *d)
     spinlock_release(d->public_descriptor->collection_lock);
 }
 
+static void mark_extra_stuff(struct tx_descriptor *d)
+{
+    visit_if_young(d->thread_local_obj_ref);
+    visit_if_young(&d->old_thread_local_obj);
+
+    long i, size = d->abortinfo.size;
+    gcptr *items = d->abortinfo.items;
+    for (i = 0; i < size; i += 2) {
+        visit_if_young(&items[i]);
+        /* items[i+1] is not a gc ptr */
+    }
+}
+
 static void minor_collect(struct tx_descriptor *d)
 {
     dprintf(("minor collection [%p to %p]\n",
@@ -452,8 +466,7 @@ static void minor_collect(struct tx_descriptor *d)
 
     mark_young_roots(d);
 
-    visit_if_young(d->thread_local_obj_ref);
-    visit_if_young(&d->old_thread_local_obj);
+    mark_extra_stuff(d);
 
     mark_stolen_young_stubs(d);
 

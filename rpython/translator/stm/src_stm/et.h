@@ -70,11 +70,11 @@ static const revision_t GCFLAG_OLD                    = STM_FIRST_GCFLAG << 0;
 static const revision_t GCFLAG_VISITED                = STM_FIRST_GCFLAG << 1;
 static const revision_t GCFLAG_PUBLIC                 = STM_FIRST_GCFLAG << 2;
 static const revision_t GCFLAG_PREBUILT_ORIGINAL      = STM_FIRST_GCFLAG << 3;
-static const revision_t GCFLAG_PUBLIC_TO_PRIVATE      = STM_FIRST_GCFLAG << 4;
+// in stmgc.h:          GCFLAG_PUBLIC_TO_PRIVATE      = STM_FIRST_GCFLAG << 4;
 // in stmgc.h:          GCFLAG_WRITE_BARRIER          = STM_FIRST_GCFLAG << 5;
-static const revision_t GCFLAG_MOVED                  = STM_FIRST_GCFLAG << 6;
+// in stmgc.h:          GCFLAG_MOVED                  = STM_FIRST_GCFLAG << 6;
 static const revision_t GCFLAG_BACKUP_COPY  /*debug*/ = STM_FIRST_GCFLAG << 7;
-static const revision_t GCFLAG_STUB         /*debug*/ = STM_FIRST_GCFLAG << 8;
+// in stmgc.h:          GCFLAG_STUB                   = STM_FIRST_GCFLAG << 8;
 static const revision_t GCFLAG_PRIVATE_FROM_PROTECTED = STM_FIRST_GCFLAG << 9;
 static const revision_t GCFLAG_HAS_ID                 = STM_FIRST_GCFLAG << 10;
 static const revision_t GCFLAG_IMMUTABLE              = STM_FIRST_GCFLAG << 11;
@@ -196,8 +196,10 @@ void AbortNowIfDelayed(void);
 void SpinLoop(int);
 
 gcptr stm_DirectReadBarrier(gcptr);
-gcptr stm_RepeatReadBarrier(gcptr);
 gcptr stm_WriteBarrier(gcptr);
+gcptr stm_RepeatReadBarrier(gcptr);
+gcptr stm_ImmutReadBarrier(gcptr);
+gcptr stm_RepeatWriteBarrier(gcptr);
 gcptr _stm_nonrecord_barrier(gcptr);  /* debugging: read barrier, but
                                          not recording anything */
 int _stm_is_private(gcptr);  /* debugging */
