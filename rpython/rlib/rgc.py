@@ -346,6 +346,10 @@ def cast_gcref_to_int(gcref):
     if we_are_translated():
         return lltype.cast_ptr_to_int(gcref)
     else:
+        from rpython.rtyper.lltypesystem.ll2ctypes import _llgcopaque
+        if isinstance(gcref._obj, _llgcopaque):
+            from rpython.rtyper.lltypesystem import rffi
+            return rffi.cast(lltype.Signed, gcref)
         return id(gcref._x)
 
 def dump_rpy_heap(fd):
