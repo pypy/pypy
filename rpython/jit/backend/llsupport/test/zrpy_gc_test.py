@@ -8,7 +8,7 @@ import weakref
 import os
 from rpython.rlib import rgc
 from rpython.rtyper.lltypesystem import lltype
-from rpython.rlib.jit import JitDriver, dont_look_inside
+from rpython.rlib.jit import JitDriver, dont_look_inside, promote
 from rpython.rlib.jit import elidable, unroll_safe
 from rpython.jit.backend.llsupport.gc import GcLLDescr_framework
 from rpython.tool.udir import udir
@@ -809,6 +809,12 @@ class CompileFrameworkTests(BaseFrameworkTests):
             
         @unroll_safe
         def f(n, x, x0, x1, x2, x3, x4, x5, x6, x7, ptrs, s):
+            if n % 3 == 0:
+                x0 = promote(x0)
+            elif n % 3 == 1:
+                x1 = promote(x1)
+            else:
+                x2 = promote(x2)
             raiseassert(x0 != ptrs[0])
             raiseassert(x0 == ptrs[1])
             raiseassert(x0 != ptrs[2])
