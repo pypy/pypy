@@ -170,7 +170,12 @@ class GCDescrStm(GCDescrShadowstackDirect):
                                inevitable, [],
                                RESULT=lltype.Void)
         def ptr_eq(x, y):
-            self.ptr_eq_called_on.append((x, y))
+            print "=== ptr_eq", x, y
+            print "=== ptr_eq", hex(rffi.cast(lltype.Signed, x)), hex(rffi.cast(lltype.Signed, y))
+                        
+            import pdb;pdb.set_trace()
+            self.ptr_eq_called_on.append((rffi.cast(lltype.Signed, x),
+                                          rffi.cast(lltype.Signed, y)))
             return x == y
         self.generate_function('stm_ptr_eq', ptr_eq, [llmemory.GCREF] * 2,
                                RESULT=lltype.Bool)
@@ -528,10 +533,13 @@ class TestGcStm(BaseTestRegalloc):
                     looptoken = JitCellToken()
                     c_loop = cpu.compile_loop(inputargs + [i1], operations, 
                                               looptoken)
-                    print c_loop
+
                     args = [s for i, s in enumerate((s1, s2))
                             if not isinstance((p1, p2)[i], Const)] + [7]
-                    
+                    print "======"
+                    print "inputargs:", inputargs+[i1], args
+                    print "\n".join(map(str,c_loop[1]))
+                                        
                     frame = self.cpu.execute_token(looptoken, *args)
                     frame = rffi.cast(JITFRAMEPTR, frame)
                     frame_adr = rffi.cast(lltype.Signed, frame.jf_descr)
@@ -540,19 +548,19 @@ class TestGcStm(BaseTestRegalloc):
                     # CHECK:
                     a, b = s1, s2
                     if isinstance(p1, Const):
-                        s1 = p1.value
+                        a = p1.value
                     if isinstance(p2, Const):
-                        s2 = p2.value
+                        b = p2.value
                         
-                    if s1 == s2 or \
-                      rffi.cast(lltype.Signed, s1) == 0 or \
-                      rffi.cast(lltype.Signed, s2) == 0:
-                        assert (s1, s2) not in called_on
+                    if a == b or \
+                      rffi.cast(lltype.Signed, a) == 0 or \
+                      rffi.cast(lltype.Signed, b) == 0:
+                        assert (a, b) not in called_on
                     else:
-                        assert [(s1, s2)] == called_on
+                        assert [(a, b)] == called_on
 
                     if guard is not None:
-                        if s1 == s2:
+                        if a == b:
                             if guard in (rop.GUARD_TRUE, rop.GUARD_VALUE):
                                 assert not guard_failed
                             else:
