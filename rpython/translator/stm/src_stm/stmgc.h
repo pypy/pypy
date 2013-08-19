@@ -216,17 +216,18 @@ extern __thread char *stm_read_barrier_cache;
      :  (obj))
 
 #define stm_repeat_read_barrier(obj)                            \
-    (UNLIKELY((obj)->h_tid & (GCFLAG_PUBLIC_TO_PRIVATE | GCFLAG_MOVED)) ? \
+    (UNLIKELY(((obj)->h_tid & (GCFLAG_PUBLIC_TO_PRIVATE |       \
+                               GCFLAG_MOVED)) != 0) ?           \
         stm_RepeatReadBarrier(obj)                              \
      :  (obj))
 
 #define stm_immut_read_barrier(obj)                             \
-    (UNLIKELY((obj)->h_tid & GCFLAG_STUB) ?                     \
+    (UNLIKELY(((obj)->h_tid & GCFLAG_STUB) != 0) ?              \
         stm_ImmutReadBarrier(obj)                               \
      :  (obj))
 
 #define stm_repeat_write_barrier(obj)                           \
-    (UNLIKELY((obj)->h_tid & GCFLAG_WRITE_BARRIER) ?            \
+    (UNLIKELY(((obj)->h_tid & GCFLAG_WRITE_BARRIER) != 0) ?     \
         stm_RepeatWriteBarrier(obj)                             \
      :  (obj))
 
