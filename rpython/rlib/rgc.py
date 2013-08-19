@@ -99,7 +99,11 @@ def _make_sure_does_not_move(p):
     on objects that are already a bit old, so have a chance to be
     already non-movable."""
     if not we_are_translated():
-        return cast_gcref_to_int(p)
+        if isinstance(p, _GcRef):
+            return cast_gcref_to_int(p)
+        else:
+            from rpython.rtyper.lltypesystem import rffi
+            return rffi.cast(lltype.Signed, p)
     
     if stm_is_enabled():
         from rpython.rtyper.lltypesystem.lloperation import llop
@@ -392,10 +396,6 @@ def cast_gcref_to_int(gcref):
     if we_are_translated():
         return lltype.cast_ptr_to_int(gcref)
     else:
-        from rpython.rtyper.lltypesystem.ll2ctypes import _llgcopaque
-        if isinstance(gcref._obj, _llgcopaque):
-            from rpython.rtyper.lltypesystem import rffi
-            return rffi.cast(lltype.Signed, gcref)
         return id(gcref._x)
 
 def dump_rpy_heap(fd):

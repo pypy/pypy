@@ -27,7 +27,10 @@ import itertools, sys
 import ctypes
 
 def cast_to_int(obj):
-    return rgc.cast_gcref_to_int(rgc.cast_instance_to_gcref(obj))
+    if isinstance(obj, rgc._GcRef):
+        return rgc.cast_gcref_to_int(obj)
+    else:
+        return rffi.cast(lltype.Signed, obj)
 
 CPU = getcpuclass()
 
@@ -170,12 +173,8 @@ class GCDescrStm(GCDescrShadowstackDirect):
                                inevitable, [],
                                RESULT=lltype.Void)
         def ptr_eq(x, y):
-            print "=== ptr_eq", x, y
-            print "=== ptr_eq", hex(rffi.cast(lltype.Signed, x)), hex(rffi.cast(lltype.Signed, y))
-                        
-            import pdb;pdb.set_trace()
-            self.ptr_eq_called_on.append((rffi.cast(lltype.Signed, x),
-                                          rffi.cast(lltype.Signed, y)))
+            print "=== ptr_eq", hex(cast_to_int(x)), hex(cast_to_int(y))
+            self.ptr_eq_called_on.append((cast_to_int(x), cast_to_int(y)))
             return x == y
         self.generate_function('stm_ptr_eq', ptr_eq, [llmemory.GCREF] * 2,
                                RESULT=lltype.Bool)
@@ -546,15 +545,13 @@ class TestGcStm(BaseTestRegalloc):
                     guard_failed = frame_adr != id(finaldescr)
 
                     # CHECK:
-                    a, b = s1, s2
+                    a, b = cast_to_int(s1), cast_to_int(s2)
                     if isinstance(p1, Const):
-                        a = p1.value
+                        a = cast_to_int(p1.value)
                     if isinstance(p2, Const):
-                        b = p2.value
+                        b = cast_to_int(p2.value)
                         
-                    if a == b or \
-                      rffi.cast(lltype.Signed, a) == 0 or \
-                      rffi.cast(lltype.Signed, b) == 0:
+                    if a == b or a == 0 or b == 0:
                         assert (a, b) not in called_on
                     else:
                         assert [(a, b)] == called_on

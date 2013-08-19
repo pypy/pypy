@@ -102,11 +102,10 @@ class GcLLDescription(GcCache):
         for i in range(op.numargs()):
             v = op.getarg(i)
             if isinstance(v, ConstPtr) and bool(v.value):
-                p = rgc.cast_instance_to_gcref(v.value)
-                v.imm_value = rgc._make_sure_does_not_move(p)
+                v.imm_value = rgc._make_sure_does_not_move(v.value)
                 # XXX: fix for stm, record imm_values and unregister
                 # them again (below too):
-                gcrefs_output_list.append(p)
+                gcrefs_output_list.append(v.value)
 
         if self.stm:
             return # for descr, we do it on the fly in assembler.py
