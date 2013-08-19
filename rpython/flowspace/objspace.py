@@ -213,7 +213,7 @@ class FlowObjSpace(object):
     def is_true(self, w_obj):
         if w_obj.foldable():
             return bool(w_obj.value)
-        w_truthvalue = self.frame.do_operation('is_true', w_obj)
+        w_truthvalue = self.frame.do_operation('bool', w_obj)
         return self.frame.guessbool(w_truthvalue)
 
     def iter(self, w_iterable):

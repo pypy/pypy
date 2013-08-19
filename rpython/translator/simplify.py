@@ -389,9 +389,9 @@ def transform_dead_op_vars(graph, translator=None):
 # (they have no side effects, at least in R-Python)
 CanRemove = {}
 for _op in '''
-        newtuple newlist newdict is_true
+        newtuple newlist newdict bool
         is_ id type issubtype repr str len hash getattr getitem
-        pos neg nonzero abs hex oct ord invert add sub mul
+        pos neg abs hex oct ord invert add sub mul
         truediv floordiv div mod divmod pow lshift rshift and_ or_
         xor int float long lt le eq ne gt ge cmp coerce contains
         iter get'''.split():
@@ -580,14 +580,14 @@ def remove_identical_vars(graph):
                     del link.args[i]
 
 
-def coalesce_is_true(graph):
-    """coalesce paths that go through an is_true and a directly successive
-       is_true both on the same value, transforming the link into the
-       second is_true from the first to directly jump to the correct
+def coalesce_bool(graph):
+    """coalesce paths that go through an bool and a directly successive
+       bool both on the same value, transforming the link into the
+       second bool from the first to directly jump to the correct
        target out of the second."""
     candidates = []
 
-    def has_is_true_exitpath(block):
+    def has_bool_exitpath(block):
         tgts = []
         start_op = block.operations[-1]
         cond_v = start_op.args[0]
@@ -597,15 +597,15 @@ def coalesce_is_true(graph):
                 if tgt == block:
                     continue
                 rrenaming = dict(zip(tgt.inputargs,exit.args))
-                if len(tgt.operations) == 1 and tgt.operations[0].opname == 'is_true':
+                if len(tgt.operations) == 1 and tgt.operations[0].opname == 'bool':
                     tgt_op = tgt.operations[0]
                     if tgt.exitswitch == tgt_op.result and rrenaming.get(tgt_op.args[0]) == cond_v:
                         tgts.append((exit.exitcase, tgt))
         return tgts
 
     for block in graph.iterblocks():
-        if block.operations and block.operations[-1].opname == 'is_true':
-            tgts = has_is_true_exitpath(block)
+        if block.operations and block.operations[-1].opname == 'bool':
+            tgts = has_bool_exitpath(block)
             if tgts:
                 candidates.append((block, tgts))
 
@@ -621,7 +621,7 @@ def coalesce_is_true(graph):
             newlink = tgt.exits[case].copy(rename)
             newexits[case] = newlink
         cand.recloseblock(*newexits)
-        newtgts = has_is_true_exitpath(cand)
+        newtgts = has_bool_exitpath(cand)
         if newtgts:
             candidates.append((cand, newtgts))
 
@@ -979,7 +979,7 @@ all_passes = [
     eliminate_empty_blocks,
     remove_assertion_errors,
     join_blocks,
-    coalesce_is_true,
+    coalesce_bool,
     transform_dead_op_vars,
     remove_identical_vars,
     transform_ovfcheck,

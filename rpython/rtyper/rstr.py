@@ -137,7 +137,7 @@ class __extend__(AbstractStringRepr):
         v_str, = hop.inputargs(string_repr)
         return hop.gendirectcall(self.ll.ll_strlen, v_str)
 
-    def rtype_is_true(self, hop):
+    def rtype_bool(self, hop):
         s_str = hop.args_s[0]
         if s_str.can_be_None:
             string_repr = hop.args_r[0].repr
@@ -145,7 +145,7 @@ class __extend__(AbstractStringRepr):
             return hop.gendirectcall(self.ll.ll_str_is_true, v_str)
         else:
             # defaults to checking the length
-            return super(AbstractStringRepr, self).rtype_is_true(hop)
+            return super(AbstractStringRepr, self).rtype_bool(hop)
 
     def rtype_method_startswith(self, hop):
         str1_repr = hop.args_r[0].repr
@@ -595,7 +595,7 @@ class __extend__(AbstractCharRepr,
     def rtype_len(_, hop):
         return hop.inputconst(Signed, 1)
 
-    def rtype_is_true(_, hop):
+    def rtype_bool(_, hop):
         assert not hop.args_s[0].can_be_None
         return hop.inputconst(Bool, True)
 

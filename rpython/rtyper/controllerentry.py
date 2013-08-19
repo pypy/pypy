@@ -126,12 +126,12 @@ class Controller(object):
         from rpython.rtyper.rcontrollerentry import rtypedelegate
         return rtypedelegate(self.delitem, hop)
 
-    def ctrl_is_true(self, s_obj):
-        return delegate(self.is_true, s_obj)
+    def ctrl_bool(self, s_obj):
+        return delegate(self.bool, s_obj)
 
-    def rtype_is_true(self, hop):
+    def rtype_bool(self, hop):
         from rpython.rtyper.rcontrollerentry import rtypedelegate
-        return rtypedelegate(self.is_true, hop)
+        return rtypedelegate(self.bool, hop)
 
     def ctrl_call(self, s_obj, *args_s):
         return delegate(self.call, s_obj, *args_s)
@@ -236,7 +236,7 @@ class __extend__(SomeControlledInstance):
         assert s_attr.is_constant()
         s_cin.controller.ctrl_setattr(s_cin.s_real_obj, s_attr, s_value)
 
-    def is_true(s_cin):
+    def bool(s_cin):
         return s_cin.controller.ctrl_is_true(s_cin.s_real_obj)
 
     def simple_call(s_cin, *args_s):

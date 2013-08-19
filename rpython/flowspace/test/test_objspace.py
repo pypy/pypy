@@ -104,7 +104,7 @@ class TestFlowObjSpace(Base):
     def test_loop(self):
         graph = self.codetest(self.loop)
         assert self.all_operations(graph) == {'abs': 1,
-                                              'is_true': 1,
+                                              'bool': 1,
                                               'sub': 1}
 
     #__________________________________________________________
@@ -532,7 +532,7 @@ class TestFlowObjSpace(Base):
         def f(x):
             return not ~-x
         graph = self.codetest(f)
-        assert self.all_operations(graph) == {'is_true': 1, 'invert': 1, 'neg': 1}
+        assert self.all_operations(graph) == {'bool': 1, 'invert': 1, 'neg': 1}
 
     #__________________________________________________________
 

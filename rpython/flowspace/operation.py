@@ -230,8 +230,8 @@ add_operator('delslice', 3, 'delslice', pyfunc=do_delslice)
 add_operator('trunc', 1, 'trunc', pyfunc=unsupported)
 add_operator('pos', 1, 'pos', pure=True)
 add_operator('neg', 1, 'neg', pure=True, ovf=True)
-add_operator('nonzero', 1, 'truth', pyfunc=bool, pure=True)
-op.is_true = op.nonzero
+add_operator('bool', 1, 'truth', pyfunc=bool, pure=True)
+op.is_true = op.nonzero = op.bool  # for llinterp
 add_operator('abs' , 1, 'abs', pyfunc=abs, pure=True, ovf=True)
 add_operator('hex', 1, 'hex', pyfunc=hex, pure=True)
 add_operator('oct', 1, 'oct', pyfunc=oct, pure=True)
@@ -288,7 +288,7 @@ add_operator('buffer', 1, 'buffer', pyfunc=buffer, pure=True)   # see buffer.py
 
 # Other functions that get directly translated to SpaceOperators
 func2op[type] = op.type
-func2op[operator.truth] = op.nonzero
+func2op[operator.truth] = op.bool
 if hasattr(__builtin__, 'next'):
     func2op[__builtin__.next] = op.next
 

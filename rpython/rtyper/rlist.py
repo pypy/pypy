@@ -129,7 +129,7 @@ class AbstractBaseListRepr(Repr):
             ll_func = ll_len_foldable
         return hop.gendirectcall(ll_func, v_lst)
 
-    def rtype_is_true(self, hop):
+    def rtype_bool(self, hop):
         v_lst, = hop.inputargs(self)
         if hop.args_s[0].listdef.listitem.resized:
             ll_func = ll_list_is_true

@@ -12,7 +12,7 @@ from rpython.tool.sourcetools import func_with_new_name
 ops_returning_a_bool = {'gt': True, 'ge': True,
                         'lt': True, 'le': True,
                         'eq': True, 'ne': True,
-                        'is_true': True}
+                        'bool': True, 'is_true':True}
 
 # global synonyms for some types
 from rpython.rlib.rarithmetic import intmask

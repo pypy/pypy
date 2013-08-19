@@ -385,7 +385,7 @@ class AbstractInstanceRepr(Repr):
     def rtype_setattr(self, hop):
         raise NotImplementedError
 
-    def rtype_is_true(self, hop):
+    def rtype_bool(self, hop):
         raise NotImplementedError
 
     def _emulate_call(self, hop, meth_name):

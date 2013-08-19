@@ -28,8 +28,8 @@ class ControlledInstanceRepr(Repr):
     def rtype_setattr(self, hop):
         return self.controller.rtype_setattr(hop)
 
-    def rtype_is_true(self, hop):
-        return self.controller.rtype_is_true(hop)
+    def rtype_bool(self, hop):
+        return self.controller.rtype_bool(hop)
 
     def rtype_simple_call(self, hop):
         return self.controller.rtype_call(hop)

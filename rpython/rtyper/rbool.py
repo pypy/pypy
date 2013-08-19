@@ -22,7 +22,7 @@ class __extend__(BoolRepr):
             raise TyperError("not a bool: %r" % (value,))
         return value
 
-    def rtype_is_true(_, hop):
+    def rtype_bool(_, hop):
         vlist = hop.inputargs(Bool)
         return vlist[0]
 
