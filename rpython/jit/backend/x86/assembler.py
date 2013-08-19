@@ -434,7 +434,8 @@ class Assembler386(BaseAssembler):
         else:
             self.wb_slowpath[withcards + 2 * withfloats] = rawstart
 
-    def assemble_loop(self, loopname, inputargs, operations, looptoken, log):
+    def assemble_loop(self, logger, loopname, inputargs, operations, looptoken,
+                      log):
         '''adds the following attributes to looptoken:
                _ll_function_addr    (address of the generated func, as an int)
                _ll_loop_code       (debug: addr of the start of the ResOps)
@@ -467,8 +468,8 @@ class Assembler386(BaseAssembler):
         #
         self._call_header_with_stack_check()
         self._check_frame_depth_debug(self.mc)
-        operations = regalloc.prepare_loop(inputargs, operations, looptoken,
-                                           clt.allgcrefs)
+        operations = regalloc.prepare_loop(inputargs, operations,
+                                           looptoken, clt.allgcrefs)
         looppos = self.mc.get_relative_pos()
         frame_depth_no_fixed_size = self._assemble(regalloc, inputargs,
                                                    operations)
@@ -498,6 +499,9 @@ class Assembler386(BaseAssembler):
             looptoken._x86_fullsize = full_size
             looptoken._x86_ops_offset = ops_offset
         looptoken._ll_function_addr = rawstart
+        if logger:
+            logger.log_loop(inputargs, operations, 0, "rewritten",
+                            name=loopname, ops_offset=ops_offset)
 
         self.fixup_target_tokens(rawstart)
         self.teardown()
@@ -509,7 +513,7 @@ class Assembler386(BaseAssembler):
         return AsmInfo(ops_offset, rawstart + looppos,
                        size_excluding_failure_stuff - looppos)
 
-    def assemble_bridge(self, faildescr, inputargs, operations,
+    def assemble_bridge(self, logger, faildescr, inputargs, operations,
                         original_loop_token, log):
         if not we_are_translated():
             # Arguments should be unique
@@ -544,6 +548,9 @@ class Assembler386(BaseAssembler):
         ops_offset = self.mc.ops_offset
         frame_depth = max(self.current_clt.frame_info.jfi_frame_depth,
                           frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE)
+        if logger:
+            logger.log_bridge(inputargs, operations, "rewritten",
+                              ops_offset=ops_offset)
         self.fixup_target_tokens(rawstart)
         self.update_frame_depth(frame_depth)
         self.teardown()
