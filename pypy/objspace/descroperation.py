@@ -121,7 +121,7 @@ contains_jitdriver = jit.JitDriver(name='contains',
         greens=['w_type'], reds='auto')
 
 class DescrOperation(object):
-    _mixin_ = True
+    # This is meant to be a *mixin*.
 
     def is_data_descr(space, w_obj):
         return space.lookup(w_obj, '__set__') is not None
@@ -867,12 +867,12 @@ for _name, _symbol, _arity, _specialnames in ObjSpace.MethodTable:
         elif _arity == 2 and len(_specialnames) == 2:
             #print "binop", _specialnames
             _impl_maker = _make_binop_impl
-        elif _arity == 1 and len(_specialnames) == 1:
+        elif _arity == 1 and len(_specialnames) == 1 and _name != 'int':
             #print "unaryop", _specialnames
             _impl_maker = _make_unaryop_impl
         if _impl_maker:
             setattr(DescrOperation,_name,_impl_maker(_symbol,_specialnames))
-        elif _name not in ['is_', 'id','type','issubtype',
+        elif _name not in ['is_', 'id','type','issubtype', 'int',
                            # not really to be defined in DescrOperation
                            'ord', 'unichr', 'unicode']:
             raise Exception, "missing def for operation %s" % _name
