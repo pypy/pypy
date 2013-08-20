@@ -9,7 +9,7 @@ import sys
 import types
 import math
 import inspect
-from rpython.tool.sourcetools import rpython_wrapper
+from rpython.tool.sourcetools import rpython_wrapper, func_with_new_name
 
 # specialize is a decorator factory for attaching _annspecialcase_
 # attributes to functions: for example
@@ -720,3 +720,32 @@ class _r_dictkey_with_hash(_r_dictkey):
         self.dic = dic
         self.key = key
         self.hash = hash
+
+# ____________________________________________________________
+
+def import_from_mixin(M):
+    flatten = {}
+    for base in inspect.getmro(M):
+        for key, value in base.__dict__.items():
+            if key in ('__module__', '__name__', '__dict__',
+                       '__doc__', '__weakref__'):
+                continue
+            if key in flatten:
+                continue
+            if isinstance(value, types.FunctionType):
+                value = func_with_new_name(value, value.__name__)
+            elif isinstance(value, staticmethod):
+                func = value.__get__(42)
+                func = func_with_new_name(func, func.__name__)
+                value = staticmethod(func)
+            elif isinstance(value, classmethod):
+                raise AssertionError("classmethods not supported "
+                                     "in 'import_from_mixin'")
+            flatten[key] = value
+    #
+    target = sys._getframe(1).f_locals
+    for key, value in flatten.items():
+        if key in target:
+            raise Exception("import_from_mixin: would overwrite the value "
+                            "already defined locally for %r" % (key,))
+        target[key] = value
