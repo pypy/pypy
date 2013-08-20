@@ -115,7 +115,10 @@ def category_dispatch(category_code, char_code):
     for function, negate in category_dispatch_unroll:
         if category_code == i:
             result = function(char_code)
-            return result ^ negate
+            if negate:
+                return not result # XXX this might lead to a guard
+            else:
+                return result
         i = i + 1
     else:
         return False
@@ -157,7 +160,9 @@ def check_charset(pattern, ppos, char_code):
                 ppos += 1
             else:
                 return False
-    return result ^ negated
+    if negated:
+        return not result
+    return result
 
 def set_literal(pat, index, char_code):
     # <LITERAL> <code>
