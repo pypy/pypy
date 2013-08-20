@@ -612,12 +612,3 @@ def test_import_from_mixin():
         import_from_mixin(M, special_methods=['__str__'])
     assert str(A()).startswith('<')
     assert str(B()) == "m!"
-
-    class M(object):
-        pass
-    class A(object):
-        def __init__(self):
-            self.foo = 42
-    class B(A):
-        import_from_mixin(M)
-    assert B().foo == 42

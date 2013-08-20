@@ -121,7 +121,7 @@ contains_jitdriver = jit.JitDriver(name='contains',
         greens=['w_type'], reds='auto')
 
 class DescrOperation(object):
-    # This is meant to be a *mixin*.
+    _mixin_ = True
 
     def is_data_descr(space, w_obj):
         return space.lookup(w_obj, '__set__') is not None

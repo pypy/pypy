@@ -737,8 +737,6 @@ def import_from_mixin(M, special_methods=['__init__', '__del__']):
     """
     flatten = {}
     for base in inspect.getmro(M):
-        if base is object:
-            continue
         for key, value in base.__dict__.items():
             if key.startswith('__') and key.endswith('__'):
                 if key not in special_methods:
