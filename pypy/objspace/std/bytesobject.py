@@ -567,6 +567,7 @@ class W_BytesObject(W_AbstractBytesObject):
 
     # auto-conversion fun
 
+    _StringMethods_descr_add = descr_add
     def descr_add(self, space, w_other):
         if space.isinstance_w(w_other, space.w_unicode):
             self_as_unicode = unicode_from_encoded_object(space, self, None, None)
@@ -582,28 +583,32 @@ class W_BytesObject(W_AbstractBytesObject):
             builder.append(self._value)
             builder.append(w_other._value)
             return W_StringBufferObject(builder)
-        return StringMethods.descr_add(self, space, w_other)
+        return self._StringMethods_descr_add(space, w_other)
 
+    _StringMethods__startswith = _startswith
     def _startswith(self, space, value, w_prefix, start, end):
         if space.isinstance_w(w_prefix, space.w_unicode):
             self_as_unicode = unicode_from_encoded_object(space, self, None, None)
             return self_as_unicode._startswith(space, self_as_unicode._value, w_prefix, start, end)
-        return StringMethods._startswith(self, space, value, w_prefix, start, end)
+        return self._StringMethods__startswith(space, value, w_prefix, start, end)
 
+    _StringMethods__endswith = _endswith
     def _endswith(self, space, value, w_suffix, start, end):
         if space.isinstance_w(w_suffix, space.w_unicode):
             self_as_unicode = unicode_from_encoded_object(space, self, None, None)
             return self_as_unicode._endswith(space, self_as_unicode._value, w_suffix, start, end)
-        return StringMethods._endswith(self, space, value, w_suffix, start, end)
+        return self._StringMethods__endswith(space, value, w_suffix, start, end)
 
+    _StringMethods_descr_contains = descr_contains
     def descr_contains(self, space, w_sub):
         if space.isinstance_w(w_sub, space.w_unicode):
             from pypy.objspace.std.unicodeobject import W_UnicodeObject
             assert isinstance(w_sub, W_UnicodeObject)
             self_as_unicode = unicode_from_encoded_object(space, self, None, None)
             return space.newbool(self_as_unicode._value.find(w_sub._value) >= 0)
-        return StringMethods.descr_contains(self, space, w_sub)
+        return self._StringMethods_descr_contains(space, w_sub)
 
+    _StringMethods_descr_replace = descr_replace
     @unwrap_spec(count=int)
     def descr_replace(self, space, w_old, w_new, count=-1):
         old_is_unicode = space.isinstance_w(w_old, space.w_unicode)
@@ -623,7 +628,7 @@ class W_BytesObject(W_AbstractBytesObject):
                 raise OperationError(space.w_OverflowError,
                                      space.wrap("replace string is too long"))
             return self_as_uni._new(res)
-        return StringMethods.descr_replace(self, space, w_old, w_new, count)
+        return self._StringMethods_descr_replace(space, w_old, w_new, count)
 
     def _join_return_one(self, space, w_obj):
         return (space.is_w(space.type(w_obj), space.w_str) or
