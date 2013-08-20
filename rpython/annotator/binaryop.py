@@ -78,46 +78,39 @@ class __extend__(pairtype(SomeObject, SomeObject)):
         if obj1.is_immutable_constant() and obj2.is_immutable_constant():
             return immutablevalue(obj1.const < obj2.const)
         else:
-            getbookkeeper().count("non_int_comp", obj1, obj2)
             return s_Bool
 
     def le((obj1, obj2)):
         if obj1.is_immutable_constant() and obj2.is_immutable_constant():
             return immutablevalue(obj1.const <= obj2.const)
         else:
-            getbookkeeper().count("non_int_comp", obj1, obj2)
             return s_Bool
 
     def eq((obj1, obj2)):
         if obj1.is_immutable_constant() and obj2.is_immutable_constant():
             return immutablevalue(obj1.const == obj2.const)
         else:
-            getbookkeeper().count("non_int_eq", obj1, obj2)
             return s_Bool
 
     def ne((obj1, obj2)):
         if obj1.is_immutable_constant() and obj2.is_immutable_constant():
             return immutablevalue(obj1.const != obj2.const)
         else:
-            getbookkeeper().count("non_int_eq", obj1, obj2)
             return s_Bool
 
     def gt((obj1, obj2)):
         if obj1.is_immutable_constant() and obj2.is_immutable_constant():
             return immutablevalue(obj1.const > obj2.const)
         else:
-            getbookkeeper().count("non_int_comp", obj1, obj2)
             return s_Bool
 
     def ge((obj1, obj2)):
         if obj1.is_immutable_constant() and obj2.is_immutable_constant():
             return immutablevalue(obj1.const >= obj2.const)
         else:
-            getbookkeeper().count("non_int_comp", obj1, obj2)
             return s_Bool
 
     def cmp((obj1, obj2)):
-        getbookkeeper().count("cmp", obj1, obj2)
         if obj1.is_immutable_constant() and obj2.is_immutable_constant():
             return immutablevalue(cmp(obj1.const, obj2.const))
         else:
@@ -163,11 +156,9 @@ class __extend__(pairtype(SomeObject, SomeObject)):
         return r
 
     def divmod((obj1, obj2)):
-        getbookkeeper().count("divmod", obj1, obj2)
         return SomeTuple([pair(obj1, obj2).div(), pair(obj1, obj2).mod()])
 
     def coerce((obj1, obj2)):
-        getbookkeeper().count("coerce", obj1, obj2)
         return pair(obj1, obj2).union()   # reasonable enough
 
     # approximation of an annotation intersection, the result should be the annotation obj or
@@ -472,7 +463,6 @@ class __extend__(pairtype(SomeString, SomeTuple),
                                                   SomeUnicodeString))):
                 raise AnnotatorError(
                     "string formatting mixing strings and unicode not supported")
-        getbookkeeper().count('strformat', s_string, s_tuple)
         no_nul = s_string.no_nul
         for s_item in s_tuple.items:
             if isinstance(s_item, SomeFloat):
@@ -490,7 +480,6 @@ class __extend__(pairtype(SomeString, SomeObject),
                  pairtype(SomeUnicodeString, SomeObject)):
 
     def mod((s_string, args)):
-        getbookkeeper().count('strformat', s_string, args)
         return s_string.__class__()
 
 class __extend__(pairtype(SomeFloat, SomeFloat)):
@@ -592,19 +581,16 @@ class __extend__(pairtype(SomeDict, SomeObject)):
         return [KeyError]
 
     def getitem((dic1, obj2)):
-        getbookkeeper().count("dict_getitem", dic1)
         dic1.dictdef.generalize_key(obj2)
         return dic1.dictdef.read_value()
     getitem.can_only_throw = _can_only_throw
 
     def setitem((dic1, obj2), s_value):
-        getbookkeeper().count("dict_setitem", dic1)
         dic1.dictdef.generalize_key(obj2)
         dic1.dictdef.generalize_value(s_value)
     setitem.can_only_throw = _can_only_throw
 
     def delitem((dic1, obj2)):
-        getbookkeeper().count("dict_delitem", dic1)
         dic1.dictdef.generalize_key(obj2)
     delitem.can_only_throw = _can_only_throw
 
@@ -618,7 +604,6 @@ class __extend__(pairtype(SomeTuple, SomeInteger)):
             except IndexError:
                 return s_ImpossibleValue
         else:
-            getbookkeeper().count("tuple_random_getitem", tup1)
             return unionof(*tup1.items)
     getitem.can_only_throw = [IndexError]
 
@@ -629,74 +614,63 @@ class __extend__(pairtype(SomeList, SomeInteger)):
         return lst1.listdef.offspring()
 
     def getitem((lst1, int2)):
-        getbookkeeper().count("list_getitem", int2)
         return lst1.listdef.read_item()
     getitem.can_only_throw = []
 
     getitem_key = getitem
 
     def getitem_idx((lst1, int2)):
-        getbookkeeper().count("list_getitem", int2)
         return lst1.listdef.read_item()
     getitem_idx.can_only_throw = [IndexError]
 
     getitem_idx_key = getitem_idx
 
     def setitem((lst1, int2), s_value):
-        getbookkeeper().count("list_setitem", int2)
         lst1.listdef.mutate()
         lst1.listdef.generalize(s_value)
     setitem.can_only_throw = [IndexError]
 
     def delitem((lst1, int2)):
-        getbookkeeper().count("list_delitem", int2)
         lst1.listdef.resize()
     delitem.can_only_throw = [IndexError]
 
 class __extend__(pairtype(SomeString, SomeInteger)):
 
     def getitem((str1, int2)):
-        getbookkeeper().count("str_getitem", int2)
         return SomeChar(no_nul=str1.no_nul)
     getitem.can_only_throw = []
 
     getitem_key = getitem
 
     def getitem_idx((str1, int2)):
-        getbookkeeper().count("str_getitem", int2)
         return SomeChar(no_nul=str1.no_nul)
     getitem_idx.can_only_throw = [IndexError]
 
     getitem_idx_key = getitem_idx
 
     def mul((str1, int2)): # xxx do we want to support this
-        getbookkeeper().count("str_mul", str1, int2)
         return SomeString(no_nul=str1.no_nul)
 
 class __extend__(pairtype(SomeUnicodeString, SomeInteger)):
     def getitem((str1, int2)):
-        getbookkeeper().count("str_getitem", int2)
         return SomeUnicodeCodePoint()
     getitem.can_only_throw = []
 
     getitem_key = getitem
 
     def getitem_idx((str1, int2)):
-        getbookkeeper().count("str_getitem", int2)
         return SomeUnicodeCodePoint()
     getitem_idx.can_only_throw = [IndexError]
 
     getitem_idx_key = getitem_idx
 
     def mul((str1, int2)): # xxx do we want to support this
-        getbookkeeper().count("str_mul", str1, int2)
         return SomeUnicodeString()
 
 class __extend__(pairtype(SomeInteger, SomeString),
                  pairtype(SomeInteger, SomeUnicodeString)):
 
     def mul((int1, str2)): # xxx do we want to support this
-        getbookkeeper().count("str_mul", str2, int1)
         return str2.basestringclass()
 
 class __extend__(pairtype(SomeUnicodeCodePoint, SomeUnicodeString),

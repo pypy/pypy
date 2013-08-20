@@ -613,7 +613,6 @@ class RPythonAnnotator(object):
 
     # XXX "contains" clash with SomeObject method
     def consider_op_contains(self, seq, elem):
-        self.bookkeeper.count("contains", seq)
         return seq.op_contains(elem)
 
     def consider_op_newtuple(self, *args):

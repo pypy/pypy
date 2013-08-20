@@ -84,23 +84,18 @@ class __extend__(SomeObject):
         raise AnnotatorError("cannot use hash() in RPython")
 
     def str(self):
-        getbookkeeper().count('str', self)
         return SomeString()
 
     def unicode(self):
-        getbookkeeper().count('unicode', self)
         return SomeUnicodeString()
 
     def repr(self):
-        getbookkeeper().count('repr', self)
         return SomeString()
 
     def hex(self):
-        getbookkeeper().count('hex', self)
         return SomeString()
 
     def oct(self):
-        getbookkeeper().count('oct', self)
         return SomeString()
 
     def id(self):
@@ -237,7 +232,6 @@ class __extend__(SomeTuple):
         return immutablevalue(len(self.items))
 
     def iter(self):
-        getbookkeeper().count("tuple_iter", self)
         return SomeIterator(self)
     iter.can_only_throw = []
 
@@ -281,7 +275,6 @@ class __extend__(SomeList):
     method_pop.can_only_throw = [IndexError]
 
     def method_index(self, s_value):
-        getbookkeeper().count("list_index")
         self.listdef.generalize(s_value)
         return SomeInteger(nonneg=True)
 
@@ -472,7 +465,6 @@ class __extend__(SomeString,
     def method_join(self, s_list):
         if s_None.contains(s_list):
             return SomeImpossibleValue()
-        getbookkeeper().count("str_join", self)
         s_item = s_list.listdef.read_item()
         if s_None.contains(s_item):
             if isinstance(self, SomeUnicodeString):
@@ -489,7 +481,6 @@ class __extend__(SomeString,
         return self.basecharclass()
 
     def method_split(self, patt, max=-1):
-        getbookkeeper().count("str_split", self, patt)
         if max == -1 and patt.is_constant() and patt.const == "\0":
             no_nul = True
         else:
@@ -498,7 +489,6 @@ class __extend__(SomeString,
         return getbookkeeper().newlist(s_item)
 
     def method_rsplit(self, patt, max=-1):
-        getbookkeeper().count("str_rsplit", self, patt)
         s_item = self.basestringclass(no_nul=self.no_nul)
         return getbookkeeper().newlist(s_item)
 
@@ -709,8 +699,6 @@ class __extend__(SomeBuiltin):
         if self.s_self is not None:
             return self.analyser(self.s_self, *args)
         else:
-            if self.methodname:
-                getbookkeeper().count(self.methodname.replace('.', '_'), *args)
             return self.analyser(*args)
     simple_call.can_only_throw = _can_only_throw
 
