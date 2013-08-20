@@ -304,7 +304,7 @@ class FlowObjSpace(object):
                     args_w = args.arguments_w + self.unpackiterable(args.w_stararg)
                 else:
                     args_w = args.arguments_w
-                return sc(self, args_w)
+                return sc(self, *args_w)
 
         if args.keywords or isinstance(args.w_stararg, Variable):
             shape, args_w = args.flatten()

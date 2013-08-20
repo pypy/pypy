@@ -14,14 +14,14 @@ def register_flow_sc(func):
     return decorate
 
 @register_flow_sc(__import__)
-def sc_import(space, args_w):
+def sc_import(space, *args_w):
     assert len(args_w) > 0 and len(args_w) <= 5, 'import needs 1 to 5 arguments'
     assert all(isinstance(arg, Constant) for arg in args_w)
     args = [arg.value for arg in args_w]
     return space.import_name(*args)
 
 @register_flow_sc(locals)
-def sc_locals(space, args):
+def sc_locals(_, *args):
     raise Exception(
         "A function calling locals() is not RPython.  "
         "Note that if you're translating code outside the PyPy "
@@ -31,8 +31,7 @@ def sc_locals(space, args):
         "own project.")
 
 @register_flow_sc(isinstance)
-def sc_isinstance(space, args):
-    w_instance, w_type = args
+def sc_isinstance(space, w_instance, w_type):
     if w_instance.foldable() and w_type.foldable():
         return const(isinstance(w_instance.value, w_type.value))
     return space.frame.do_operation('simple_call', const(isinstance),

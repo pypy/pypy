@@ -27,10 +27,10 @@ class HLOperation(SpaceOperation):
 
     @classmethod
     def make_sc(cls):
-        def sc_operator(space, args_w):
+        def sc_operator(space, *args_w):
             if len(args_w) != cls.arity:
                 if cls is op.pow and len(args_w) == 2:
-                    args_w = args_w + [Constant(None)]
+                    args_w = list(args_w) + [Constant(None)]
                 elif cls is op.getattr and len(args_w) == 3:
                     return space.frame.do_operation('simple_call', Constant(getattr), *args_w)
                 else:
