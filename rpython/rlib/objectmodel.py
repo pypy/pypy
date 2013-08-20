@@ -723,13 +723,24 @@ class _r_dictkey_with_hash(_r_dictkey):
 
 # ____________________________________________________________
 
-def import_from_mixin(M):
+def import_from_mixin(M, special_methods=['__init__', '__del__']):
+    """Copy all methods and class attributes from the class M into
+    the current scope.  Should be called when defining a class body.
+    Function and staticmethod objects are duplicated, which means
+    that annotation will not consider them as identical to another
+    copy in another unrelated class.
+    
+    By default, "special" methods and class attributes, with a name
+    like "__xxx__", are not copied unless they are "__init__" or
+    "__del__".  The list can be changed with the optional second
+    argument.
+    """
     flatten = {}
     for base in inspect.getmro(M):
         for key, value in base.__dict__.items():
-            if key in ('__module__', '__name__', '__dict__',
-                       '__doc__', '__weakref__'):
-                continue
+            if key.startswith('__') and key.endswith('__'):
+                if key not in special_methods:
+                    continue
             if key in flatten:
                 continue
             if isinstance(value, types.FunctionType):

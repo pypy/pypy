@@ -602,3 +602,13 @@ def test_import_from_mixin():
                 in str(e))
     else:
         raise AssertionError("failed to detect overwritten attribute")
+
+    class M(object):
+        def __str__(self):
+            return "m!"
+    class A(object):
+        import_from_mixin(M)
+    class B(object):
+        import_from_mixin(M, special_methods=['__str__'])
+    assert str(A()).startswith('<')
+    assert str(B()) == "m!"
