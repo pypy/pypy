@@ -118,6 +118,8 @@ class StringMethods(object):
             return self._new(self._val(space)[0] * times)
         return self._new(self._val(space) * times)
 
+    descr_rmul = descr_mul
+
     def descr_getitem(self, space, w_index):
         if isinstance(w_index, W_SliceObject):
             selfvalue = self._val(space)
