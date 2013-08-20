@@ -74,3 +74,4 @@ a bit
 .. branch: dotviewer-linewidth
 .. branch: reflex-support
 .. branch: numpypy-inplace-op
+.. branch: rewritten-loop-logging
