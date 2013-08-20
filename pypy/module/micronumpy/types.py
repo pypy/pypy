@@ -309,8 +309,8 @@ class Primitive(object):
 
     @simple_unary_op
     def rint(self, v):
-        if isfinite(v):
-            return rfloat.round_double(v, 0, half_even=True)
+        if isfinite(float(v)):
+            return rfloat.round_double(float(v), 0, half_even=True)
         else:
             return v
 
