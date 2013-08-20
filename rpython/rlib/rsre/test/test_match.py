@@ -1,4 +1,4 @@
-import re
+import re, random
 from rpython.rlib.rsre import rsre_core
 from rpython.rlib.rsre.rpy import get_code
 
@@ -241,3 +241,19 @@ class TestMatch:
     def test_match_bug3(self):
         r = get_code(r'([ax]*?x*)?$')
         assert rsre_core.match(r, "aaxaa")
+
+    def test_bigcharset(self):
+        for i in range(100):
+            chars = [unichr(random.randrange(0x100, 0xD000))
+                         for n in range(random.randrange(1, 25))]
+            pattern = u'[%s]' % (u''.join(chars),)
+            r = get_code(pattern)
+            for c in chars:
+                assert rsre_core.match(r, c)
+            for i in range(200):
+                c = unichr(random.randrange(0x0, 0xD000))
+                res = rsre_core.match(r, c)
+                if c in chars:
+                    assert res is not None
+                else:
+                    assert res is None
