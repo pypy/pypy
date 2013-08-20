@@ -10,7 +10,7 @@ from pypy.objspace.descroperation import DescrOperation, raiseattrerror
 from rpython.rlib.objectmodel import instantiate, specialize, is_annotation_constant
 from rpython.rlib.debug import make_sure_not_resized
 from rpython.rlib.rarithmetic import base_int, widen, is_valid_int
-from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import we_are_translated, import_from_mixin
 from rpython.rlib import jit
 
 # Object imports
@@ -37,9 +37,10 @@ from pypy.objspace.std.inttype import wrapint
 from pypy.objspace.std.stringtype import wrapstr
 from pypy.objspace.std.unicodetype import wrapunicode
 
-class StdObjSpace(ObjSpace, DescrOperation):
+class StdObjSpace(ObjSpace):
     """The standard object space, implementing a general-purpose object
     library in Restricted Python."""
+    import_from_mixin(DescrOperation)
 
     def initialize(self):
         "NOT_RPYTHON: only for initializing the space."
