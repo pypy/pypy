@@ -9,14 +9,16 @@ from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.objspace.std.stdtypedef import StdTypeDef
 from pypy.objspace.std.stringmethods import StringMethods
 from pypy.objspace.std.util import get_positive_index
-from rpython.rlib.objectmodel import newlist_hint, resizelist_hint
+from rpython.rlib.objectmodel import newlist_hint, resizelist_hint, import_from_mixin
 from rpython.rlib.rstring import StringBuilder
 
 
 def _make_data(s):
     return [s[i] for i in range(len(s))]
 
-class W_BytearrayObject(W_Root, StringMethods):
+class W_BytearrayObject(W_Root):
+    import_from_mixin(StringMethods)
+
     def __init__(w_self, data):
         w_self.data = data
 

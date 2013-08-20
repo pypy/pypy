@@ -12,7 +12,7 @@ from pypy.objspace.std.stringmethods import StringMethods
 from pypy.objspace.std.unicodeobject import (unicode_from_string,
     decode_object, unicode_from_encoded_object, _get_encoding_and_errors)
 from rpython.rlib.jit import we_are_jitted
-from rpython.rlib.objectmodel import compute_hash, compute_unique_id
+from rpython.rlib.objectmodel import compute_hash, compute_unique_id, import_from_mixin
 from rpython.rlib.rstring import StringBuilder, replace
 
 
@@ -424,7 +424,8 @@ class W_AbstractBytesObject(W_Root):
         pass
 
 
-class W_BytesObject(StringMethods, W_AbstractBytesObject):
+class W_BytesObject(W_AbstractBytesObject):
+    import_from_mixin(StringMethods)
     _immutable_fields_ = ['_value']
 
     def __init__(self, str):

@@ -10,7 +10,7 @@ from pypy.objspace.std.basestringtype import basestring_typedef
 from pypy.objspace.std.formatting import mod_format
 from pypy.objspace.std.stdtypedef import StdTypeDef
 from pypy.objspace.std.stringmethods import StringMethods
-from rpython.rlib.objectmodel import compute_hash, compute_unique_id
+from rpython.rlib.objectmodel import compute_hash, compute_unique_id, import_from_mixin
 from rpython.rlib.rstring import UnicodeBuilder
 from rpython.rlib.runicode import (str_decode_utf_8, str_decode_ascii,
     unicode_encode_utf_8, unicode_encode_ascii, make_unicode_escape_function)
@@ -20,7 +20,8 @@ __all__ = ['W_UnicodeObject', 'wrapunicode', 'plain_str2unicode',
            'unicode_from_string', 'unicode_to_decimal_w']
 
 
-class W_UnicodeObject(W_Root, StringMethods):
+class W_UnicodeObject(W_Root):
+    import_from_mixin(StringMethods)
     _immutable_fields_ = ['_value']
 
     def __init__(w_self, unistr):
