@@ -257,6 +257,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
     def test_rint(self):
         from numpypy import array, complex, rint, isnan
+        import sys
 
         nnan, nan, inf, ninf = float('-nan'), float('nan'), float('inf'), float('-inf')
 
@@ -270,6 +271,8 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
         assert rint(complex(inf, 1.5)) == complex(inf, 2.)
         assert rint(complex(0.5, inf)) == complex(0., inf)
+
+        assert rint(sys.maxint) == sys.maxint
 
     def test_sign(self):
         from numpypy import array, sign, dtype
