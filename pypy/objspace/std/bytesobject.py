@@ -611,7 +611,7 @@ class W_BytesObject(W_AbstractBytesObject):
             from pypy.objspace.std.strbufobject import W_StringBufferObject
             builder = StringBuilder()
             builder.append(self._value)
-            builder.append(w_other._value)
+            builder.append(self._op_val(space, w_other))
             return W_StringBufferObject(builder)
         return self._StringMethods_descr_add(space, w_other)
 
