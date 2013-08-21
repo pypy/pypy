@@ -294,6 +294,10 @@ number and ``sys.maxint`` be 2**63-1.  This might be easier, and work as
 long as you don't try too hard to crash it because of the precision loss
 that undoubtedly occurs everywhere.  Running the translation with such a
 hacked CPython would give the same effect as running it on top of the
-minimal PyPy described above.
+minimal PyPy described above.  (Note that it's ok to do that: once we get
+a full PyPy, we can simply tell people that future translations must be
+run on top of that.  We end up with a strange kind of dependency, but
+I believe it's ok here, as Windows executables are supposed to never be
+broken by newer versions of Windows.)
 
 Happy hacking :-)
