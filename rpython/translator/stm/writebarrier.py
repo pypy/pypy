@@ -186,6 +186,8 @@ def insert_stm_barrier(stmtransformer, graph):
                     for v, cat in category.items():
                         if cat == 'W':
                             category[v] = 'V'
+                    # XXX the V2W barrier is only necessary when we're
+                    # writing pointers, not if we're writing ints
 
                 effectinfo = stmtransformer.write_analyzer.analyze(
                     op, graphinfo=graphinfo)
