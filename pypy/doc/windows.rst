@@ -268,7 +268,11 @@ might need a similar review too, like ``rpython/rlib/``.  Important: at
 this point the goal would not be to run the tests in these directories!
 Doing so would create more confusion to work around.  Instead, the goal
 would be to fix some ``LONG-versus-Signed`` issues, and if necessary
-make sure that the tests still run fine e.g. on Win32.
+make sure that the tests still run fine e.g. on Win32.  There was some
+early work done notably in ``rpython/rlib/rarithmetic`` with the goal of
+running all the tests on Win64, but I think by now that it's a bad idea:
+again, we should only make sure that the tests work on Win32, and that
+PyPy translates on Win64 and then run the (standard lib-python) tests.
 
 This should get you a translation of PyPy with ``-O2``, i.e. without the
 JIT.  Check carefully the warnings of the C compiler at the end.  I
