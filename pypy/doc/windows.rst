@@ -262,10 +262,9 @@ These two types have corresponding RPython types: ``rffi.LONG`` and
 casted to one type or the other really have 32 and 64 bits respectively,
 on Win64.
 
-Once these basic tests work, you need to review ``pypy/module/*/`` for
-usages of ``rffi.LONG`` versus ``lltype.Signed``.  Some other places
-might need a similar review too, like ``rpython/rlib/``.  Important: at
-this point the goal would not be to run the tests in these directories!
+Once these basic tests work, you need to review ``rpython/rlib/`` for
+usages of ``rffi.LONG`` versus ``lltype.Signed``.  Important: at this
+point the goal would not be to run the tests in these directories!
 Doing so would create more confusion to work around.  Instead, the goal
 would be to fix some ``LONG-versus-Signed`` issues, and if necessary
 make sure that the tests still run fine e.g. on Win32.  There was some
@@ -274,9 +273,27 @@ running all the tests on Win64, but I think by now that it's a bad idea:
 again, we should only make sure that the tests work on Win32, and that
 PyPy translates on Win64 and then run the (standard lib-python) tests.
 
-This should get you a translation of PyPy with ``-O2``, i.e. without the
-JIT.  Check carefully the warnings of the C compiler at the end.  I
-think that MSVC is "nice" in the sense that by default a lot of
-mismatches of integer sizes are reported as warnings.
+The goal here is to get a translation of PyPy with ``-O2`` with a
+minimal set of modules, starting with ``--no-allworkingmodules``.  Check
+carefully the warnings of the C compiler at the end.  I think that MSVC
+is "nice" in the sense that by default a lot of mismatches of integer
+sizes are reported as warnings.
 
-This should be your first long-term goal.  Happy hacking :-)
+Why first try to translate when the modules ``pypy/module/*/`` may need
+fixes too?  The idea is that you really need to get a minimal translated
+PyPy, with the minimal amount of modules (this used to be with the
+``--translationmodules`` option, if it still works).  Then we have a
+Python interpreter, namely this minimal PyPy, which can run a full
+translation and which has the "correct" setting of ``sys.maxint`` and
+64-bit integers.  So once we get this minimal PyPy we can use it to
+translate a complete PyPy with less troubles.  (We still need to review
+e.g. ``rffi.LONG`` / ``lltype.Signed`` issues, obviously.)
+
+Alternatively, you might try to hack CPython to have ints store a 64-bit
+number and ``sys.maxint`` be 2**63-1.  This might be easier, and work as
+long as you don't try too hard to crash it because of the precision loss
+that undoubtedly occurs everywhere.  Running the translation with such a
+hacked CPython would give the same effect as running it on top of the
+minimal PyPy described above.
+
+Happy hacking :-)
