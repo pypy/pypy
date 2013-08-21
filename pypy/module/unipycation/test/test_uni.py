@@ -1,8 +1,15 @@
 import pytest
+import tempfile
 
 class AppTestHighLevelInterface(object):
     """ Tests the Highlevel uni.py API sugar """
     spaceconfig = dict(usemodules=('unipycation', ))
+
+    def setup_class(cls):
+        space = cls.space
+        (fd, fname) = tempfile.mkstemp(prefix="unipycation-")
+        cls.w_fd = space.wrap(fd)
+        cls.w_fname = space.wrap(fname)
 
     def test_basic(self):
         import uni
@@ -15,6 +22,21 @@ class AppTestHighLevelInterface(object):
 
         e = uni.Engine("f(1, 2, 4, 8).")
         assert e.db.f(1, None, 4, None) == (2, 8)
+
+    def test_from_file(self):
+        import uni
+        import os
+        fd = self.fd
+        fname = self.fname
+
+        os.write(fd, "f(1,2,3).")
+        os.close(fd)
+
+        e = uni.Engine.from_file(fname)
+        os.unlink(fname)
+
+        sol = e.db.f(None, None, None)
+        assert sol == (1, 2, 3)
 
     def test_tautology(self):
         import uni

@@ -278,7 +278,7 @@ class W_CoreEngine(W_Root):
 @continuation.make_failure_continuation
 def continue_python_iter(Choice, engine, scont, fcont, heap, resultvar, space, w_iter):
     try:
-        w_res = space.next(w_iter)
+        w_res = _call_next_maybe_hidden(space, w_iter)
     except OperationError, e:
         if not e.match(space, space.w_StopIteration):
             raise
@@ -290,6 +290,18 @@ def continue_python_iter(Choice, engine, scont, fcont, heap, resultvar, space, w
     except error.UnificationFailed:
         return fcont.fail(heap)
     return scont, fcont, heap
+
+def _call_next_maybe_hidden(space, w_iter):
+    from pypy.interpreter import generator
+    if isinstance(w_iter, generator.GeneratorIterator):
+        # GeneratorIterator triggers weird JIT behaviour, hide it for now
+        return _call_next_hidden(space, w_iter)
+    else:
+        return space.next(w_iter)
+
+@jit.dont_look_inside
+def _call_next_hidden(space, w_iter):
+    return w_iter.descr_next()
 
 
 W_CoreEngine.typedef = TypeDef("CoreEngine",
