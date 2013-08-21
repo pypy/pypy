@@ -6,6 +6,10 @@ PyPy is supported on Windows platforms, starting with Windows 2000.
 The following text gives some hints about how to translate the PyPy
 interpreter.
 
+PyPy supports only being translated as a 32bit program, even on
+64bit Windows.  See at the end of this page for what is missing
+for a full 64bit translation.
+
 To build pypy-c you need a C compiler.  Microsoft Visual Studio is
 preferred, but can also use the mingw32 port of gcc.
 
@@ -63,7 +67,7 @@ directory is ``d:\pypy``. You must then set the
 INCLUDE, LIB and PATH (for DLLs) environment variables appropriately.
 
 Abridged method (for -Ojit builds using Visual Studio 2008)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Download the versions of all the external packages
 from 
 https://bitbucket.org/pypy/pypy/downloads/local.zip
@@ -112,13 +116,14 @@ the base directory.  Then compile::
     nmake -f makefile.msc
     
 The sqlite3 database library
-~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Download http://www.sqlite.org/2013/sqlite-amalgamation-3071601.zip and extract
 it into a directory under the base directory. Also get 
 http://www.sqlite.org/2013/sqlite-dll-win32-x86-3071601.zip and extract the dll
 into the bin directory, and the sqlite3.def into the sources directory.
 Now build the import library so cffi can use the header and dll::
+
     lib /DEF:sqlite3.def" /OUT:sqlite3.lib"
     copy sqlite3.lib path\to\libs
 
@@ -206,8 +211,68 @@ the mingw compiler when hacking (as opposed to translating). As of
 March 2012, --cc is not a valid option for pytest.py. However if you set an
 environment variable CC to the compliter exe, testing will use it.
 
-.. _'mingw32 build': http://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win32/Automated%20Builds
+.. _`mingw32 build`: http://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win32/Automated%20Builds
 .. _`mingw64 build`: http://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win64/Automated%20Builds
 .. _`msys for mingw`: http://sourceforge.net/projects/mingw-w64/files/External%20binary%20packages%20%28Win64%20hosted%29/MSYS%20%2832-bit%29   
 .. _`libffi source files`: http://sourceware.org/libffi/
 .. _`RPython translation toolchain`: translation.html
+
+
+What is missing for a full 64-bit translation
+---------------------------------------------
+
+The main blocker is that we assume that the integer type of RPython is
+large enough to (occasionally) contain a pointer value cast to an
+integer.  The simplest fix is to make sure that it is so, but it will
+give the following incompatibility between CPython and PyPy on Win64:
+  
+CPython: ``sys.maxint == 2**32-1, sys.maxsize == 2**64-1``
+
+PyPy: ``sys.maxint == sys.maxsize == 2**64-1``
+
+...and, correspondingly, PyPy supports ints up to the larger value of
+sys.maxint before they are converted to ``long``.  The first decision
+that someone needs to make is if this incompatibility is reasonable.
+
+Assuming that it is, the fixes are probably not too much work if the
+goal is only to get a translated PyPy executable and to run tests with
+it --- and not care about running all the tests of PyPy before
+translation.  To do that, the only tests that you should run (and start
+with) are some tests in rpython/translator/c/test/, like
+``test_standalone.py`` and ``test_newgc.py``.  Keep in mind that this
+runs small translations, and some details may go wrong, running on top
+of CPython Win64; notably, constant integer values should be allowed up
+to ``2**63-1``, but any value larger than ``2**32-1`` will be considered
+out of bound.  To fix this, you need to explicitly wrap such large
+integers e.g. in the class ``r_longlong`` of rpython.rlib.rarithmetic.
+This makes the translation toolchain handle them as longlong, which
+have the correct range, even though in the end it is the same type,
+i.e. a 64-bit integer.
+
+What is really needed is to review all the C files in
+rpython/translator/c/src for the word ``long``, because this means a
+32-bit integer even on Win64.  Replace it with ``Signed``, and check the
+definition of ``Signed``: it should be equal to ``long`` on every other
+platforms (so you can replace one with the other without breaking
+anything on other platforms), and on Win64 it should be something like
+``long long``.
+
+These two types have corresponding RPython types: ``rffi.LONG`` and
+``lltype.Signed`` respectively.  Add tests that check that integers
+casted to one type or the other really have 32 and 64 bits respectively,
+on Win64.
+
+Once these basic tests work, you need to review ``pypy/module/*/`` for
+usages of ``rffi.LONG`` versus ``lltype.Signed``.  Some other places
+might need a similar review too, like ``rpython/rlib/``.  Important: at
+this point the goal would not be to run the tests in these directories!
+Doing so would create more confusion to work around.  Instead, the goal
+would be to fix some ``LONG-versus-Signed`` issues, and if necessary
+make sure that the tests still run fine e.g. on Win32.
+
+This should get you a translation of PyPy with ``-O2``, i.e. without the
+JIT.  Check carefully the warnings of the C compiler at the end.  I
+think that MSVC is "nice" in the sense that by default a lot of
+mismatches of integer sizes are reported as warnings.
+
+This should be your first long-term goal.  Happy hacking :-)
