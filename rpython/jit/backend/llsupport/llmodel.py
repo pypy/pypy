@@ -52,6 +52,10 @@ class AbstractLLCPU(AbstractCPU):
             self._setup_exception_handling_untranslated()
         self.asmmemmgr = AsmMemoryManager()
         self._setup_frame_realloc(translate_support_code)
+        self._setup_descrs()
+        self.setup()
+
+    def _setup_descrs(self):
         ad = self.gc_ll_descr.getframedescrs(self).arraydescr
         self.signedarraydescr = ad
         # the same as normal JITFRAME, however with an array of pointers
@@ -63,7 +67,6 @@ class AbstractLLCPU(AbstractCPU):
         else:
             self.floatarraydescr = ArrayDescr(ad.basesize, ad.itemsize,
                                               ad.lendescr, FLAG_FLOAT)
-        self.setup()
 
     def getarraydescr_for_frame(self, type):
         if type == history.FLOAT:
@@ -475,6 +478,7 @@ class AbstractLLCPU(AbstractCPU):
 
     def bh_arraylen_gc(self, array, arraydescr):
         assert isinstance(arraydescr, ArrayDescr)
+        array = self.gc_ll_descr.do_stm_barrier(array, 'R')
         ofs = arraydescr.lendescr.offset
         return rffi.cast(rffi.CArrayPtr(lltype.Signed), array)[ofs/WORD]
 
@@ -617,18 +621,22 @@ class AbstractLLCPU(AbstractCPU):
         # --- end of GC unsafe code ---
 
     def bh_strlen(self, string):
+        string = self.gc_ll_descr.do_stm_barrier(string, 'R')
         s = lltype.cast_opaque_ptr(lltype.Ptr(rstr.STR), string)
         return len(s.chars)
 
     def bh_unicodelen(self, string):
+        string = self.gc_ll_descr.do_stm_barrier(string, 'R')
         u = lltype.cast_opaque_ptr(lltype.Ptr(rstr.UNICODE), string)
         return len(u.chars)
 
     def bh_strgetitem(self, string, index):
+        string = self.gc_ll_descr.do_stm_barrier(string, 'R')
         s = lltype.cast_opaque_ptr(lltype.Ptr(rstr.STR), string)
         return ord(s.chars[index])
 
     def bh_unicodegetitem(self, string, index):
+        string = self.gc_ll_descr.do_stm_barrier(string, 'R')
         u = lltype.cast_opaque_ptr(lltype.Ptr(rstr.UNICODE), string)
         return ord(u.chars[index])
 
@@ -759,6 +767,8 @@ class AbstractLLCPU(AbstractCPU):
     def bh_new_with_vtable(self, vtable, sizedescr):
         res = self.gc_ll_descr.gc_malloc(sizedescr)
         if self.vtable_offset is not None:
+            assert not self.gc_ll_descr.stm
+            res = self.gc_ll_descr.do_stm_barrier(res, 'W')
             as_array = rffi.cast(rffi.CArrayPtr(lltype.Signed), res)
             as_array[self.vtable_offset/WORD] = vtable
         return res
@@ -767,6 +777,7 @@ class AbstractLLCPU(AbstractCPU):
         return lltype.malloc(rffi.CCHARP.TO, size, flavor='raw')
 
     def bh_classof(self, struct):
+        struct = self.gc_ll_descr.do_stm_barrier(struct, 'R')
         struct = lltype.cast_opaque_ptr(rclass.OBJECTPTR, struct)
         result_adr = llmemory.cast_ptr_to_adr(struct.typeptr)
         return heaptracker.adr2int(result_adr)
@@ -781,19 +792,25 @@ class AbstractLLCPU(AbstractCPU):
         return self.gc_ll_descr.gc_malloc_unicode(length)
 
     def bh_strsetitem(self, string, index, newvalue):
+        string = self.gc_ll_descr.do_stm_barrier(string, 'W')
         s = lltype.cast_opaque_ptr(lltype.Ptr(rstr.STR), string)
         s.chars[index] = chr(newvalue)
 
     def bh_unicodesetitem(self, string, index, newvalue):
+        string = self.gc_ll_descr.do_stm_barrier(string, 'W')
         u = lltype.cast_opaque_ptr(lltype.Ptr(rstr.UNICODE), string)
         u.chars[index] = unichr(newvalue)
 
     def bh_copystrcontent(self, src, dst, srcstart, dststart, length):
+        src = self.gc_ll_descr.do_stm_barrier(src, 'R')
+        dst = self.gc_ll_descr.do_stm_barrier(dst, 'W')
         src = lltype.cast_opaque_ptr(lltype.Ptr(rstr.STR), src)
         dst = lltype.cast_opaque_ptr(lltype.Ptr(rstr.STR), dst)
         rstr.copy_string_contents(src, dst, srcstart, dststart, length)
 
     def bh_copyunicodecontent(self, src, dst, srcstart, dststart, length):
+        src = self.gc_ll_descr.do_stm_barrier(src, 'R')
+        dst = self.gc_ll_descr.do_stm_barrier(dst, 'W')
         src = lltype.cast_opaque_ptr(lltype.Ptr(rstr.UNICODE), src)
         dst = lltype.cast_opaque_ptr(lltype.Ptr(rstr.UNICODE), dst)
         rstr.copy_unicode_contents(src, dst, srcstart, dststart, length)

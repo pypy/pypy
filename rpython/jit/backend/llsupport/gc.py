@@ -426,8 +426,8 @@ class STMBarrierDescr(BarrierDescr):
 
     @specialize.arg(2)
     def _do_barrier(self, gcref_struct, returns_modified_object):
+        raise NotImplementedError("implement in subclasses!")
         assert self.returns_modified_object == returns_modified_object
-        # XXX: fastpath for Read and Write variants
         funcptr = self.get_barrier_funcptr(returns_modified_object)
         res = funcptr(llmemory.cast_ptr_to_adr(gcref_struct))
         return llmemory.cast_adr_to_ptr(res, llmemory.GCREF)
@@ -451,7 +451,8 @@ class STMReadBarrierDescr(STMBarrierDescr):
         priv_rev = self.llop1.stm_get_adr_of_private_rev_num(rffi.SIGNEDP)
         if objhdr.h_revision == priv_rev[0]:
             return gcref_struct
-        
+
+        # readcache[obj] == obj
         read_cache = self.llop1.stm_get_adr_of_read_barrier_cache(rffi.SIGNEDP)
         objint = llmemory.cast_adr_to_int(objadr)
         assert WORD == 8, "check for 32bit compatibility"
@@ -461,7 +462,6 @@ class STMReadBarrierDescr(STMBarrierDescr):
         if rcp[index] == objint:
             return gcref_struct
         
-        # XXX: readcache!
         funcptr = self.get_barrier_funcptr(returns_modified_object)
         res = funcptr(objadr)
         return llmemory.cast_adr_to_ptr(res, llmemory.GCREF)

@@ -188,15 +188,21 @@ class GCDescrStm(GCDescrShadowstackDirect):
                                RESULT=lltype.Signed)
 
         def malloc_big_fixedsize(size, tid):
+            print "malloc:", size, tid
+            if size > sys.maxint / 2:
+                # for testing exception
+                return lltype.nullptr(llmemory.GCREF.TO)
+            
             entries = size + StmGC.GCHDRSIZE
             TP = rffi.CArray(lltype.Char)
             obj = lltype.malloc(TP, n=entries, flavor='raw',
-                                            track_allocation=False, zero=True)
+                                track_allocation=False, zero=True)
             objptr = rffi.cast(StmGC.GCHDRP, obj)
             objptr.h_tid = rffi.cast(lltype.Unsigned,
-                                  StmGC.GCFLAG_OLD|StmGC.GCFLAG_WRITE_BARRIER
-                                  | tid)
+                                     StmGC.GCFLAG_OLD
+                                     | StmGC.GCFLAG_WRITE_BARRIER | tid)
             objptr.h_revision = rffi.cast(lltype.Signed, -sys.maxint)
+            print "return:", obj, objptr
             return rffi.cast(llmemory.GCREF, objptr)
         self.generate_function('malloc_big_fixedsize', malloc_big_fixedsize,
                                [lltype.Signed] * 2)
@@ -658,6 +664,108 @@ class TestGcStm(BaseTestRegalloc):
         args = [i+1 for i in range(10)]
         deadframe = self.cpu.execute_token(othertoken, *args)
         assert called == [id(finish_descr2)]
+
+
+    def test_call_malloc_gc(self):
+        cpu = self.cpu
+        cpu.gc_ll_descr.init_nursery(100)
+        cpu.setup_once()
+
+        size = WORD*3
+        addr = cpu.gc_ll_descr.get_malloc_fn_addr('malloc_big_fixedsize')
+        typeid = 11
+        descr = cpu.gc_ll_descr.malloc_big_fixedsize_descr
+
+        p0 = BoxPtr()
+        ops1 = [ResOperation(rop.CALL_MALLOC_GC, 
+                             [ConstInt(addr), ConstInt(size), ConstInt(typeid)],
+                             p0, descr),
+                ResOperation(rop.FINISH, [p0], None, 
+                             descr=BasicFinalDescr(0)),
+                ]
+
+        inputargs = []
+        looptoken = JitCellToken()
+        c_loop = cpu.compile_loop(inputargs, ops1, 
+                                  looptoken)
+        
+        args = []
+        print "======"
+        print "inputargs:", inputargs, args
+        print "\n".join(map(str,c_loop[1]))
+        
+        frame = self.cpu.execute_token(looptoken, *args)
+
+
+    def test_assembler_call_propagate_exc(self):
+        cpu = self.cpu
+        cpu._setup_descrs()
+        cpu.gc_ll_descr.init_nursery(100)
+
+        excdescr = BasicFailDescr(666)
+        cpu.propagate_exception_descr = excdescr
+        cpu.setup_once()    # xxx redo it, because we added
+                            # propagate_exception
+
+        def assembler_helper(deadframe, virtualizable):
+            #assert cpu.get_latest_descr(deadframe) is excdescr
+            # let's assume we handled that
+            return 3
+
+        FUNCPTR = lltype.Ptr(lltype.FuncType([llmemory.GCREF,
+                                              llmemory.GCREF],
+                                             lltype.Signed))
+        class FakeJitDriverSD:
+            index_of_virtualizable = -1
+            _assembler_helper_ptr = llhelper(FUNCPTR, assembler_helper)
+            assembler_helper_adr = llmemory.cast_ptr_to_adr(
+                _assembler_helper_ptr)
+
+
+
+        addr = cpu.gc_ll_descr.get_malloc_fn_addr('malloc_big_fixedsize')
+        typeid = 11
+        descr = cpu.gc_ll_descr.malloc_big_fixedsize_descr
+
+        p0 = BoxPtr()
+        i0 = BoxInt()
+        ops = [ResOperation(rop.CALL_MALLOC_GC, 
+                            [ConstInt(addr), i0, ConstInt(typeid)],
+                            p0, descr),
+               ResOperation(rop.FINISH, [p0], None, 
+                            descr=BasicFinalDescr(0)),
+               ]
+
+        inputargs = [i0]
+        looptoken = JitCellToken()
+        looptoken.outermost_jitdriver_sd = FakeJitDriverSD()
+        c_loop = cpu.compile_loop(inputargs, ops, looptoken)
+        
+        
+        ARGS = [lltype.Signed] * 10
+        RES = lltype.Signed
+        FakeJitDriverSD.portal_calldescr = cpu.calldescrof(
+            lltype.Ptr(lltype.FuncType(ARGS, RES)), ARGS, RES,
+            EffectInfo.MOST_GENERAL)
+        i1 = ConstInt(sys.maxint - 1)
+        i2 = BoxInt()
+        finaldescr = BasicFinalDescr(1)
+        not_forced = ResOperation(rop.GUARD_NOT_FORCED, [], None,
+                                  descr=BasicFailDescr(1))
+        not_forced.setfailargs([])
+        ops = [ResOperation(rop.CALL_ASSEMBLER, [i1], i2, descr=looptoken),
+               not_forced,
+               ResOperation(rop.FINISH, [i1], None, descr=finaldescr),
+               ]
+        othertoken = JitCellToken()
+        cpu.done_with_this_frame_descr_int = BasicFinalDescr()
+        loop = cpu.compile_loop([], ops, othertoken)
+        
+        deadframe = cpu.execute_token(othertoken)
+        frame = rffi.cast(JITFRAMEPTR, deadframe)
+        frame_adr = rffi.cast(lltype.Signed, frame.jf_descr)
+        assert frame_adr != id(finaldescr)
+
 
     
         
