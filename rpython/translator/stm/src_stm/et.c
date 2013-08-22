@@ -1006,6 +1006,7 @@ long stm_atomic(long delta)
 
 static void init_transaction(struct tx_descriptor *d)
 {
+  assert(d->atomic == 0);
   assert(d->active == 0);
   stm_start_sharedlock();
   assert(d->active == 0);

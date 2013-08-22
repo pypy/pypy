@@ -164,6 +164,7 @@ void stm_perform_transaction(gcptr arg, int (*callback)(gcptr, int))
     stm_shadowstack = v_saved_value + 2;   /*skip the two values pushed above*/
 
     do {
+        v_atomic = d->atomic;
         v_counter = counter + 1;
         /* If counter==0, initialize 'reads_size_limit_nonatomic' from the
            configured length limit.  If counter>0, we did an abort, which
@@ -193,7 +194,6 @@ void stm_perform_transaction(gcptr arg, int (*callback)(gcptr, int))
         result = callback(arg, counter);
         assert(stm_shadowstack == v_saved_value + 2);
 
-        v_atomic = d->atomic;
         if (!d->atomic)
             CommitTransaction();
 
