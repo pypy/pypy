@@ -77,7 +77,7 @@ class LLSTMFrame(LLFrame):
 
     def check_category(self, p, expected):
         cat = self.get_category_or_null(p)
-        assert cat in 'AIQRVW' or cat is None
+        assert cat is None or cat in 'AIQRVW'
         if expected is not None:
             assert cat is not None and cat >= expected
         return cat

@@ -1,5 +1,6 @@
 from rpython.rlib.rstm import register_invoke_around_extcall
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.translator.stm.test.transform_support import BaseTestTransform
 
 
@@ -294,16 +295,15 @@ class TestTransform(BaseTestTransform):
                 x = Z()
                 x.foo = 815
                 x.zbar = 'A'
-            external_any_gcobj()
+            llop.debug_stm_flush_barrier(lltype.Void)
             result = x.foo          # 1
             if isinstance(x, Y):    # 2
-                result += x.ybar    # 3
+                result += x.ybar    # 3: optimized
             return result
 
         res = self.interpret(f1, [10])
         assert res == 42 + 10
-        assert self.barriers == ['a2r', 'a2i', 'a2r'] # from 3 blocks (could be
-                                                      # optimized later)
+        assert self.barriers == ['a2r', 'a2i']
         res = self.interpret(f1, [-10])
         assert res == 815
         assert self.barriers == ['a2r', 'a2i']
@@ -318,7 +318,7 @@ class TestTransform(BaseTestTransform):
             return y
         def f1(i):
             y = make_y(i)
-            external_any_gcobj()
+            llop.debug_stm_flush_barrier(lltype.Void)
             prev = y.ybar          # a2r
             handle(y)              # inside handle(): a2r, r2v
             return prev + y.ybar   # q2r
@@ -343,7 +343,7 @@ class TestTransform(BaseTestTransform):
             else:
                 x = Z(); x.foo = 815; x.zbar = 'A'
                 y = Y(); y.foo = -13; y.ybar = i
-            external_any_gcobj()
+            llop.debug_stm_flush_barrier(lltype.Void)
             prev = x.foo           # a2r
             handle(y)              # inside handle(): a2r, r2v
             return prev + x.foo    # q2r
@@ -366,7 +366,7 @@ class TestTransform(BaseTestTransform):
             else:
                 y = lltype.nullptr(Y)
                 x = lltype.cast_opaque_ptr(llmemory.GCREF, y)
-            external_any_gcobj()
+            llop.debug_stm_flush_barrier(lltype.Void)
             prev = lltype.cast_opaque_ptr(YPTR, x).foo           # a2r
             handle(y)                            # inside handle(): a2r, r2v
             return prev + lltype.cast_opaque_ptr(YPTR, x).ybar   # q2r?
@@ -387,7 +387,7 @@ class TestTransform(BaseTestTransform):
         def f1(i):
             x.a = x2  # write barrier
             y = X()   # malloc
-            x.a = x3  # write barrier again
+            x.a = x3  # repeat write barrier
             return y
 
         res = self.interpret(f1, [10])
@@ -399,8 +399,10 @@ class TestTransform(BaseTestTransform):
 
         def f1(n):
             x = Foo()
+            llop.debug_stm_flush_barrier(lltype.Void)
             if n > 1:
                 x.foo = n
+            llop.debug_stm_flush_barrier(lltype.Void)
             return x.foo
 
         res = self.interpret(f1, [4])

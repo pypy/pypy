@@ -1,6 +1,6 @@
 from rpython.flowspace.model import SpaceOperation, Constant, Variable
-from rpython.flowspace.model import mkentrymap
 from rpython.translator.unsimplify import varoftype, insert_empty_block
+from rpython.translator.unsimplify import insert_empty_startblock
 from rpython.rtyper.lltypesystem import lltype
 from rpython.translator.backendopt.writeanalyze import top_set
 
@@ -38,15 +38,21 @@ def needs_barrier(frm, to):
     return to > frm
 
 
+class Renaming(object):
+    def __init__(self, newvar, category):
+        self.newvar = newvar        # a Variable or a Constant
+        self.TYPE = newvar.concretetype
+        self.category = category
+
+
 class BlockTransformer(object):
 
-    def __init__(self, stmtransformer, block, entrylinks):
+    def __init__(self, stmtransformer, block):
         self.stmtransformer = stmtransformer
         self.block = block
-        self.inputargs_category = {}
         self.patch = None
-        for link in entrylinks:
-            self.inputargs_category[link] = ['A'] * len(link.args)
+        self.inputargs_category = [None] * len(block.inputargs)
+        self.inputargs_category_per_link = {}
 
 
     def analyze_inside_block(self):
@@ -98,54 +104,71 @@ class BlockTransformer(object):
         #
         self.wants_a_barrier = wants_a_barrier
         self.expand_comparison = expand_comparison
-        return bool(wants_a_barrier or expand_comparison)
 
 
     def flow_through_block(self, graphinfo):
 
-        def get_category(v):
-            if isinstance(v, Constant):
-                default = 'I'    # prebuilt objects cannot be stubs
-            else:
-                default = 'A'
-            return category.get(v, default)
+        def renfetch(v):
+            try:
+                return renamings[v]
+            except KeyError:
+                if isinstance(v, Variable):
+                    ren = Renaming(v, 'A')
+                else:
+                    ren = Renaming(v, 'I')  # prebuilt objects cannot be stubs
+                renamings[v] = ren
+                return ren
 
         def get_category_or_null(v):
-            if isinstance(v, Constant) and not v.value:
+            # 'v' is an original variable here, or a constant
+            if isinstance(v, Constant) and not v.value:    # a NULL constant
                 return None
-            return category.get(v, 'A')
+            if v in renamings:
+                return renamings[v].category
+            if isinstance(v, Constant):
+                return 'I'
+            else:
+                return 'A'
 
         def renamings_get(v):
-            if v not in renamings:
-                return v
-            v2 = renamings[v][0]
+            try:
+                ren = renamings[v]
+            except KeyError:
+                return v       # unmodified
+            v2 = ren.newvar
             if v2.concretetype == v.concretetype:
                 return v2
             v3 = varoftype(v.concretetype)
             newoperations.append(SpaceOperation('cast_pointer', [v2], v3))
+            if lltype.castable(ren.TYPE, v3.concretetype) > 0:
+                ren.TYPE = v3.concretetype
             return v3
 
         # note: 'renamings' maps old vars to new vars, but cast_pointers
         # are done lazily.  It means that the two vars may not have
         # exactly the same type.
-        renamings = {}   # {original-var: [var-in-newoperations] (len 1)}
-        category = {}    # {var-in-newoperations: LETTER}
+        renamings = {}   # {original-var: Renaming(newvar, category)}
         newoperations = []
         stmtransformer = self.stmtransformer
 
+        # make the initial trivial renamings needed to have some precise
+        # categories for the input args
+        for v, cat in zip(self.block.inputargs, self.inputargs_category):
+            if (cat is not None and
+                    isinstance(v.concretetype, lltype.Ptr) and
+                    v.concretetype.TO._gckind == 'gc'):
+                renamings[v] = Renaming(v, cat)
+
         for op in self.block.operations:
             #
-            if op.opname == 'cast_pointer':
-                v = op.args[0]
-                renamings[op.result] = renamings.setdefault(v, [v])
+            if op.opname in ('cast_pointer', 'same_as'):
+                renamings[op.result] = renfetch(op.args[0])
                 continue
             #
             to = self.wants_a_barrier.get(op)
             if to is not None:
-                v = op.args[0]
-                v_holder = renamings.setdefault(v, [v])
-                v = v_holder[0]
-                frm = get_category(v)
+                ren = renfetch(op.args[0])
+                frm = ren.category
                 if needs_barrier(frm, to):
                     try:
                         b = stmtransformer.barrier_counts[frm, to]
@@ -155,11 +178,12 @@ class BlockTransformer(object):
                         stmtransformer.barrier_counts[frm, to] = b
                     b[0] += 1
                     c_info = b[1]
+                    v = ren.newvar
                     w = varoftype(v.concretetype)
                     newop = SpaceOperation('stm_barrier', [c_info, v], w)
                     newoperations.append(newop)
-                    v_holder[0] = w
-                    category[w] = to
+                    ren.newvar = w
+                    ren.category = to
             #
             newop = SpaceOperation(op.opname,
                                    [renamings_get(v) for v in op.args],
@@ -167,8 +191,8 @@ class BlockTransformer(object):
             newoperations.append(newop)
             #
             if op in self.expand_comparison:
-                cats = (get_category_or_null(newop.args[0]),
-                        get_category_or_null(newop.args[1]))
+                cats = (get_category_or_null(op.args[0]),
+                        get_category_or_null(op.args[1]))
                 if None not in cats and (cats[0] < 'V' or cats[1] < 'V'):
                     if newop.opname == 'ptr_ne':
                         v = varoftype(lltype.Bool)
@@ -183,17 +207,21 @@ class BlockTransformer(object):
                 # all pointers are lowered to 'I', because a non-
                 # stub cannot suddenly point to a stub, but we
                 # cannot guarantee anything more
-                for v, cat in category.items():
-                    if cat > 'I':
-                        category[v] = 'I'
+                for ren in renamings.values():
+                    if ren.category > 'I':
+                        ren.category = 'I'
+
+            if op.opname == 'debug_stm_flush_barrier':
+                for ren in renamings.values():
+                    ren.category = 'A'
 
             if stmtransformer.collect_analyzer.analyze(op):
                 # this operation can collect: we bring all 'W'
                 # categories back to 'V', because we would need
                 # a repeat_write_barrier on them afterwards
-                for v, cat in category.items():
-                    if cat == 'W':
-                        category[v] = 'V'
+                for ren in renamings.values():
+                    if ren.category == 'W':
+                        ren.category = 'V'
 
             effectinfo = stmtransformer.write_analyzer.analyze(
                 op, graphinfo=graphinfo)
@@ -202,9 +230,9 @@ class BlockTransformer(object):
                     # this operation can perform random writes: any
                     # 'R'-category object falls back to 'Q' because
                     # we would need a repeat_read_barrier()
-                    for v, cat in category.items():
-                        if cat == 'R':
-                            category[v] = 'Q'
+                    for ren in renamings.values():
+                        if ren.category == 'R':
+                            ren.category = 'Q'
                 else:
                     # the same, but only on objects of the right types
                     # -- we need to consider 'types' or any base type
@@ -216,34 +244,82 @@ class BlockTransformer(object):
                             if not isinstance(TYPE, lltype.Struct):
                                 break
                             _, TYPE = TYPE._first_struct()
-                    for v in category.keys():
-                        if (v.concretetype.TO in types and
-                               category[v] == 'R'):
-                            category[v] = 'Q'
+                    for ren in renamings.values():
+                        if ren.TYPE.TO in types and ren.category == 'R':
+                            ren.category = 'Q'
 
             if op.opname in MALLOCS:
-                category[op.result] = 'W'
+                assert op.result not in renamings
+                renamings[op.result] = Renaming(op.result, 'W')
 
+        if isinstance(self.block.exitswitch, Variable):
+            switchv = renamings_get(self.block.exitswitch)
+        else:
+            switchv = None
         blockoperations = newoperations
         linkoperations = []
         for link in self.block.exits:
+            output_categories = []
+            for v in link.args:
+                if (isinstance(v.concretetype, lltype.Ptr) and
+                        v.concretetype.TO._gckind == 'gc'):
+                    cat = get_category_or_null(v)
+                else:
+                    cat = None
+                output_categories.append(cat)
             newoperations = []
             newargs = [renamings_get(v) for v in link.args]
-            linkoperations.append((newargs, newoperations))
+            linkoperations.append((newargs, newoperations, output_categories))
         #
         # Record how we'd like to patch the block, but don't do any
         # patching yet
-        self.patch = (blockoperations, linkoperations)
+        self.patch = (blockoperations, switchv, linkoperations)
+
+
+    def update_targets(self, block_transformers):
+        (_, _, linkoperations) = self.patch
+        assert len(linkoperations) == len(self.block.exits)
+        targetbts = []
+        for link, (_, _, output_categories) in zip(self.block.exits,
+                                                   linkoperations):
+            targetblock = link.target
+            if targetblock not in block_transformers:
+                continue      # ignore the exit block
+            targetbt = block_transformers[targetblock]
+            targetbt.inputargs_category_per_link[link] = output_categories
+            if targetbt.update_inputargs_category():
+                targetbts.append(targetbt)
+        return set(targetbts)
+
+    def update_inputargs_category(self):
+        values = self.inputargs_category_per_link.values()
+        newcats = []
+        for i in range(len(self.block.inputargs)):
+            cat = None
+            for output_categories in values:
+                cat2 = output_categories[i]
+                if cat is None:
+                    cat = cat2
+                elif cat2 is not None:
+                    cat = min(cat, cat2)
+            newcats.append(cat)
+        if newcats != self.inputargs_category:
+            self.inputargs_category = newcats
+            return True
+        else:
+            return False
 
 
     def patch_now(self):
         if self.patch is None:
             return
-        newoperations, linkoperations = self.patch
+        newoperations, switchv, linkoperations = self.patch
         self.block.operations = newoperations
+        if switchv is not None:
+            self.block.exitswitch = switchv
         assert len(linkoperations) == len(self.block.exits)
-        for link, (newargs, newoperations) in zip(self.block.exits,
-                                                  linkoperations):
+        for link, (newargs, newoperations, _) in zip(self.block.exits,
+                                                     linkoperations):
             link.args[:] = newargs
             if newoperations:
                 # must put them in a fresh block along the link
@@ -266,22 +342,24 @@ def insert_stm_barrier(stmtransformer, graph):
        pointer from category x to category y if and only if y > x.
     """
     graphinfo = stmtransformer.write_analyzer.compute_graph_info(graph)
+    annotator = stmtransformer.translator.annotator
+    insert_empty_startblock(annotator, graph)
 
     block_transformers = {}
-    entrymap = mkentrymap(graph)
     pending = set()
 
     for block in graph.iterblocks():
         if block.operations == ():
             continue
-        bt = BlockTransformer(stmtransformer, block, entrymap[block])
-        if bt.analyze_inside_block():
-            pending.add(bt)
+        bt = BlockTransformer(stmtransformer, block)
+        bt.analyze_inside_block()
         block_transformers[block] = bt
+        pending.add(bt)
 
     while pending:
         bt = pending.pop()
         bt.flow_through_block(graphinfo)
+        pending |= bt.update_targets(block_transformers)
 
     for bt in block_transformers.values():
         bt.patch_now()

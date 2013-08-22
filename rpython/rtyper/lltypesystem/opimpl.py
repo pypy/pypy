@@ -673,6 +673,9 @@ def op_debug_fatalerror(ll_msg):
 def op_nop(x):
     pass
 
+def op_debug_stm_flush_barrier():
+    pass
+
 # ____________________________________________________________
 
 def get_op_impl(opname):
