@@ -84,6 +84,13 @@ int stm_enter_callback_call(void)
     dprintf(("enter_callback_call(tok=%d)\n", token));
     if (token == 1) {
         stmgcpage_acquire_global_lock();
+#ifdef STM_BARRIER_COUNT
+        static int seen = 0;
+        if (!seen) {
+            seen = 1;
+            atexit(&stm_print_barrier_count);
+        }
+#endif
         DescriptorInit();
         stmgc_init_nursery();
         init_shadowstack();
