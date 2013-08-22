@@ -136,12 +136,11 @@ void stm_perform_transaction(gcptr arg, int (*callback)(gcptr, int))
     jmp_buf _jmpbuf;
     long volatile v_counter = 0;
     gcptr *volatile v_saved_value = stm_shadowstack;
-    long volatile v_atomic;
 
     stm_push_root(arg);
     stm_push_root(END_MARKER_OFF);
 
-    if (!(v_atomic = thread_descriptor->atomic))
+    if (!thread_descriptor->atomic)
         CommitTransaction();
 
 #ifdef _GC_ON_CPYTHON
@@ -160,11 +159,9 @@ void stm_perform_transaction(gcptr arg, int (*callback)(gcptr, int))
     struct tx_descriptor *d = thread_descriptor;
     long counter, result;
     counter = v_counter;
-    d->atomic = v_atomic;
     stm_shadowstack = v_saved_value + 2;   /*skip the two values pushed above*/
 
     do {
-        v_atomic = d->atomic;
         v_counter = counter + 1;
         /* If counter==0, initialize 'reads_size_limit_nonatomic' from the
            configured length limit.  If counter>0, we did an abort, which
@@ -186,6 +183,7 @@ void stm_perform_transaction(gcptr arg, int (*callback)(gcptr, int))
             /* atomic transaction: a common case is that callback() returned
                even though we are atomic because we need a major GC.  For
                that case, release and reaquire the rw lock here. */
+            assert(d->active >= 1);
             stm_possible_safe_point();
         }
 

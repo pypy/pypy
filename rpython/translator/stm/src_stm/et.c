@@ -958,6 +958,7 @@ void AbortTransaction(int num)
   SpinLoop(SPLP_ABORT);
   // jump back to the setjmp_buf (this call does not return)
   d->active = 0;
+  d->atomic = 0;
   stm_stop_sharedlock();
   longjmp(*d->setjmp_buf, 1);
 }
@@ -1362,6 +1363,7 @@ void CommitTransaction(void)
   revision_t cur_time;
   struct tx_descriptor *d = thread_descriptor;
   assert(d->active >= 1);
+  assert(d->atomic == 0);
   dprintf(("CommitTransaction(%p)\n", d));
   spinlock_acquire(d->public_descriptor->collection_lock, 'C');  /*committing*/
   if (d->public_descriptor->stolen_objects.size != 0)
