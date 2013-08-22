@@ -102,24 +102,19 @@ class GcLLDescription(GcCache):
         for i in range(op.numargs()):
             v = op.getarg(i)
             if isinstance(v, ConstPtr) and bool(v.value):
-                p = v.value
-                new_p = rgc._make_sure_does_not_move(p)
-                v.value = new_p
-                gcrefs_output_list.append(new_p)
-                
+                v.imm_value = rgc._make_sure_does_not_move(v.value)
+                # XXX: fix for stm, record imm_values and unregister
+                # them again (below too):
+                gcrefs_output_list.append(v.value)
+
+        if self.stm:
+            return # for descr, we do it on the fly in assembler.py
         if op.is_guard() or op.getopnum() == rop.FINISH:
             # the only ops with descrs that get recorded in a trace
-            from rpython.jit.metainterp.history import AbstractDescr
             descr = op.getdescr()
-            llref = cast_instance_to_gcref(descr)
-            new_llref = rgc._make_sure_does_not_move(llref)
-            if we_are_translated():
-                new_d = cast_base_ptr_to_instance(AbstractDescr, new_llref)
-                # tests don't allow this:
-                op.setdescr(new_d)
-            else:
-                assert llref == new_llref
-            gcrefs_output_list.append(new_llref)
+            llref = rgc.cast_instance_to_gcref(descr)
+            rgc._make_sure_does_not_move(llref)
+            gcrefs_output_list.append(llref)
 
     def rewrite_assembler(self, cpu, operations, gcrefs_output_list):
         if not self.stm:
@@ -431,8 +426,8 @@ class STMBarrierDescr(BarrierDescr):
 
     @specialize.arg(2)
     def _do_barrier(self, gcref_struct, returns_modified_object):
+        raise NotImplementedError("implement in subclasses!")
         assert self.returns_modified_object == returns_modified_object
-        # XXX: fastpath for Read and Write variants
         funcptr = self.get_barrier_funcptr(returns_modified_object)
         res = funcptr(llmemory.cast_ptr_to_adr(gcref_struct))
         return llmemory.cast_adr_to_ptr(res, llmemory.GCREF)
@@ -442,16 +437,59 @@ class STMReadBarrierDescr(STMBarrierDescr):
     def __init__(self, gc_ll_descr, stmcat):
         assert stmcat == 'P2R'
         STMBarrierDescr.__init__(self, gc_ll_descr, stmcat,
-                                 'stm_read_barrier') 
+                                 'stm_DirectReadBarrier') 
         # XXX: implement fastpath then change to stm_DirectReadBarrier
+
+    @specialize.arg(2)
+    def _do_barrier(self, gcref_struct, returns_modified_object):
+        assert returns_modified_object
+        from rpython.memory.gc.stmgc import StmGC
+        objadr = llmemory.cast_ptr_to_adr(gcref_struct)
+        objhdr = rffi.cast(StmGC.GCHDRP, gcref_struct)
+
+        # if h_revision == privat_rev of transaction
+        priv_rev = self.llop1.stm_get_adr_of_private_rev_num(rffi.SIGNEDP)
+        if objhdr.h_revision == priv_rev[0]:
+            return gcref_struct
+
+        # readcache[obj] == obj
+        read_cache = self.llop1.stm_get_adr_of_read_barrier_cache(rffi.SIGNEDP)
+        objint = llmemory.cast_adr_to_int(objadr)
+        assert WORD == 8, "check for 32bit compatibility"
+        index = (objint & StmGC.FX_MASK) / WORD
+        CP = lltype.Ptr(rffi.CArray(lltype.Signed))
+        rcp = rffi.cast(CP, read_cache[0])
+        if rcp[index] == objint:
+            return gcref_struct
+        
+        funcptr = self.get_barrier_funcptr(returns_modified_object)
+        res = funcptr(objadr)
+        return llmemory.cast_adr_to_ptr(res, llmemory.GCREF)
 
         
 class STMWriteBarrierDescr(STMBarrierDescr):
     def __init__(self, gc_ll_descr, stmcat):
         assert stmcat in ['P2W']
         STMBarrierDescr.__init__(self, gc_ll_descr, stmcat,
-                                 'stm_write_barrier')
-        # XXX: implement fastpath, then change to stm_WriteBarrier
+                                 'stm_WriteBarrier')
+
+    @specialize.arg(2)
+    def _do_barrier(self, gcref_struct, returns_modified_object):
+        assert returns_modified_object
+        from rpython.memory.gc.stmgc import StmGC
+        objadr = llmemory.cast_ptr_to_adr(gcref_struct)
+        objhdr = rffi.cast(StmGC.GCHDRP, gcref_struct)
+        
+        # if h_revision == privat_rev of transaction
+        priv_rev = self.llop1.stm_get_adr_of_private_rev_num(rffi.SIGNEDP)
+        if objhdr.h_revision == priv_rev[0]:
+            # also WRITE_BARRIER not set?
+            if not (objhdr.h_tid & StmGC.GCFLAG_WRITE_BARRIER):
+                return gcref_struct
+        
+        funcptr = self.get_barrier_funcptr(returns_modified_object)
+        res = funcptr(objadr)
+        return llmemory.cast_adr_to_ptr(res, llmemory.GCREF)
     
         
 class GcLLDescr_framework(GcLLDescription):
@@ -664,6 +702,12 @@ class GcLLDescr_framework(GcLLDescription):
         if self.stm:
             # XXX remove the indirections in the following calls
             from rpython.rlib import rstm
+            def stm_allocate_nonmovable_int_adr(obj):
+                return llop1.stm_allocate_nonmovable_int_adr(
+                    lltype.Signed, obj)
+            self.generate_function('stm_allocate_nonmovable_int_adr',
+                                   stm_allocate_nonmovable_int_adr,
+                                   [llmemory.GCREF], RESULT=lltype.Signed)
             self.generate_function('stm_try_inevitable',
                                    rstm.become_inevitable, [],
                                    RESULT=lltype.Void)

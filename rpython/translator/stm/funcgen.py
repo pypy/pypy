@@ -134,6 +134,11 @@ def stm_weakref_allocate(funcgen, op):
     result = funcgen.expr(op.result)
     return '%s = stm_weakref_allocate(%s, %s, %s);' % (result, arg0, 
                                                        arg1, arg2)
+
+def stm_allocate_nonmovable_int_adr(funcgen, op):
+    arg0 = funcgen.expr(op.args[0])
+    result = funcgen.expr(op.result)
+    return '%s = stm_allocate_public_integer_address(%s);' % (result, arg0)
     
 def stm_allocate(funcgen, op):
     arg0 = funcgen.expr(op.args[0])

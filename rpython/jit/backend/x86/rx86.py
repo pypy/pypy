@@ -539,6 +539,7 @@ class AbstractX86CodeBuilder(object):
 
     PUSH_r = insn(rex_nw, register(1), '\x50')
     PUSH_b = insn(rex_nw, '\xFF', orbyte(6<<3), stack_bp(1))
+    PUSH_m = insn(rex_nw, '\xFF', orbyte(6<<3), mem_reg_plus_const(1))
     PUSH_i8 = insn('\x6A', immediate(1, 'b'))
     PUSH_i32 = insn('\x68', immediate(1, 'i'))
     def PUSH_i(mc, immed):
@@ -549,6 +550,7 @@ class AbstractX86CodeBuilder(object):
 
     POP_r = insn(rex_nw, register(1), '\x58')
     POP_b = insn(rex_nw, '\x8F', orbyte(0<<3), stack_bp(1))
+    POP_m = insn(rex_nw, '\x8F', orbyte(0<<3), mem_reg_plus_const(1))
 
     LEA_rb = insn(rex_w, '\x8D', register(1,8), stack_bp(2))
     LEA_rs = insn(rex_w, '\x8D', register(1,8), stack_sp(2))
@@ -584,6 +586,7 @@ class AbstractX86CodeBuilder(object):
     TEST8_mi = insn(rex_nw, '\xF6', orbyte(0<<3), mem_reg_plus_const(1), immediate(2, 'b'))
     TEST8_bi = insn(rex_nw, '\xF6', orbyte(0<<3), stack_bp(1), immediate(2, 'b'))
     TEST8_ji = insn(rex_nw, '\xF6', orbyte(0<<3), abs_(1), immediate(2, 'b'))
+    TEST8_rr = insn(rex_fw, '\x84', byte_register(2,8), byte_register(1),'\xC0')
     TEST_rr = insn(rex_w, '\x85', register(2,8), register(1), '\xC0')
 
     BTS_mr = insn(rex_w, '\x0F\xAB', register(2,8), mem_reg_plus_const(1))

@@ -249,8 +249,8 @@ class Assembler386(BaseAssembler):
         self._store_and_reset_exception(self.mc, eax)
         ofs = self.cpu.get_ofs_of_frame_field('jf_guard_exc')
         self.mc.MOV_br(ofs, eax.value)
-        propagate_exception_descr = rffi.cast(lltype.Signed,
-                  cast_instance_to_gcref(self.cpu.propagate_exception_descr))
+        propagate_exception_descr = rgc._make_sure_does_not_move(
+                rgc.cast_instance_to_gcref(self.cpu.propagate_exception_descr))
         ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
         self.mc.MOV(RawEbpLoc(ofs), imm(propagate_exception_descr))
         self.mc.MOV_rr(eax.value, ebp.value)
@@ -876,6 +876,19 @@ class Assembler386(BaseAssembler):
         return rst
 
     def _call_header_shadowstack(self, gcrootmap):
+        # do a write-barrier on ebp / frame for stm
+        # XXX: may not be necessary if we are sure that we only get
+        #      freshly allocated frames or already write-ready frames
+        #      from the caller...
+        gc_ll_descr = self.cpu.gc_ll_descr
+        gcrootmap = gc_ll_descr.gcrootmap
+        if gcrootmap and gcrootmap.is_stm:
+            if not hasattr(gc_ll_descr, 'P2Wdescr'):
+                raise Exception("unreachable code")
+            wbdescr = gc_ll_descr.P2Wdescr
+            self._stm_barrier_fastpath(self.mc, wbdescr, [ebp], is_frame=True)
+
+        # put the frame in ebp on the shadowstack for the GC to find
         rst = self._load_shadowstack_top_in_ebx(self.mc, gcrootmap)
         self.mc.MOV_mr((ebx.value, 0), ebp.value)      # MOV [ebx], ebp
         self.mc.ADD_ri(ebx.value, WORD)
@@ -2108,10 +2121,10 @@ class Assembler386(BaseAssembler):
             cb.emit()
 
     def _store_force_index(self, guard_op):
-        faildescr = guard_op.getdescr()
+        faildescr = rgc._make_sure_does_not_move(
+            rgc.cast_instance_to_gcref(guard_op.getdescr()))
         ofs = self.cpu.get_ofs_of_frame_field('jf_force_descr')
-        self.mc.MOV(raw_stack(ofs), imm(rffi.cast(lltype.Signed,
-                                 cast_instance_to_gcref(faildescr))))
+        self.mc.MOV(raw_stack(ofs), imm(faildescr))
 
     def _emit_guard_not_forced(self, guard_token):
         ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
@@ -2189,6 +2202,15 @@ class Assembler386(BaseAssembler):
 
     def _call_assembler_check_descr(self, value, tmploc):
         ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
+
+        if self.cpu.gc_ll_descr.stm:
+            # value is non-moving, but jf_descr may have a changed
+            # descr -> different copy
+            self._stm_ptr_eq_fastpath(self.mc, [mem(eax, ofs), imm(value)],
+                                      tmploc)
+            self.mc.J_il8(rx86.Conditions['NZ'], 0)
+            return self.mc.get_relative_pos()
+        
         self.mc.CMP(mem(eax, ofs), imm(value))
         # patched later
         self.mc.J_il8(rx86.Conditions['E'], 0) # goto B if we get 'done_with_this_frame'
@@ -2315,8 +2337,9 @@ class Assembler386(BaseAssembler):
         mc.CALL(imm(func))
         # result still on stack
         mc.POP_r(X86_64_SCRATCH_REG.value)
-        # set flags:
-        mc.TEST_rr(X86_64_SCRATCH_REG.value, X86_64_SCRATCH_REG.value)
+        # _Bool return type only sets lower 8 bits of return value
+        sl = X86_64_SCRATCH_REG.lowest8bits()
+        mc.TEST8_rr(sl.value, sl.value)
         #
         # END SLOWPATH
         #

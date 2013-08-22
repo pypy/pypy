@@ -1,9 +1,34 @@
 from rpython.jit.backend.llsupport.descr import *
 from rpython.jit.backend.llsupport.gc import *
 from rpython.jit.metainterp.gc import get_description
+from rpython.jit.metainterp import resoperation
 from rpython.jit.backend.llsupport.test.test_rewrite import (
     RewriteTests, BaseFakeCPU)
 from rpython.rtyper.lltypesystem import lltype, rclass, rffi, llmemory
+
+
+def test_all_operations_with_gc_in_their_name():
+    # hack, but will fail if we add a new ResOperation called .._GC_..
+    import os, re
+    r_gc = re.compile(r"(^|_)GC(_|$)")
+    with open(os.path.join(os.path.dirname(
+          os.path.dirname(os.path.abspath(__file__))), 'stmrewrite.py')) as f:
+        source = f.read()
+        words = re.split("\W", source)
+    # extra op names with GC in their name but where it's ok if stmrewrite
+    # doesn't mention them:
+    words.append('CALL_MALLOC_GC')
+    words.append('COND_CALL_GC_WB')
+    words.append('COND_CALL_GC_WB_ARRAY')
+    #
+    words = set(words)
+    missing = []
+    for name in sorted(resoperation.opname.values()):
+        if r_gc.search(name):
+            if name not in words:
+                missing.append(name)
+    assert not missing
+
 
 class TestStm(RewriteTests):
     def setup_method(self, meth):

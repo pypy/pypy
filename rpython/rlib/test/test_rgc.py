@@ -228,3 +228,5 @@ def test_get_memory_usage():
     x1 = X()
     n = rgc.get_rpy_memory_usage(rgc.cast_instance_to_gcref(x1))
     assert n >= 8 and n <= 64
+
+

@@ -626,7 +626,7 @@ class Regalloc(BaseRegalloc):
         # the frame is in fp, but we have to point where in the frame is
         # the potential argument to FINISH
         descr = op.getdescr()
-        fail_descr = cast_instance_to_gcref(descr)
+        fail_descr = rgc.cast_instance_to_gcref(descr)
         # we know it does not move, but well
         fail_descr = rgc._make_sure_does_not_move(fail_descr)
         fail_descr = rgc.cast_gcref_to_int(fail_descr)

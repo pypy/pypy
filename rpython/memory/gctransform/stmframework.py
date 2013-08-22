@@ -99,6 +99,7 @@ class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
 
     gct_stm_become_inevitable   = _gct_with_roots_pushed
     gct_stm_perform_transaction = _gct_with_roots_pushed
+    gct_stm_allocate_nonmovable_int_adr = _gct_with_roots_pushed
 
 
 class StmRootWalker(BaseRootWalker):

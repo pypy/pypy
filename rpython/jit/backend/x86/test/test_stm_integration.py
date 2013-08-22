@@ -1,5 +1,5 @@
 import py
-from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rstr
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rstr, rclass
 from rpython.jit.metainterp.history import ResOperation, TargetToken,\
      JitCellToken
 from rpython.jit.metainterp.history import (BoxInt, BoxPtr, ConstInt,
@@ -20,8 +20,17 @@ from rpython.jit.backend.llsupport.test.test_gc_integration import (
 from rpython.jit.backend.llsupport import jitframe
 from rpython.memory.gc.stmgc import StmGC
 from rpython.jit.metainterp import history
+from rpython.jit.codewriter.effectinfo import EffectInfo
+from rpython.rlib import rgc
+from rpython.rtyper.llinterp import LLException
 import itertools, sys
 import ctypes
+
+def cast_to_int(obj):
+    if isinstance(obj, rgc._GcRef):
+        return rgc.cast_gcref_to_int(obj)
+    else:
+        return rffi.cast(lltype.Signed, obj)
 
 CPU = getcpuclass()
 
@@ -34,9 +43,6 @@ class MockSTMRootMap(object):
         self.stack_addr = lltype.malloc(TP, 1,
                                         flavor='raw')
         self.stack_addr[0] = rffi.cast(lltype.Signed, self.stack)
-    def __del__(self):
-        lltype.free(self.stack_addr, flavor='raw')
-        lltype.free(self.stack, flavor='raw')
     def register_asm_addr(self, start, mark):
         pass
     def get_root_stack_top_addr(self):
@@ -101,6 +107,31 @@ JITFRAMEPTR = lltype.Ptr(JITFRAME)
 class FakeGCHeaderBuilder:
     size_gc_header = WORD
 
+class fakellop:
+    PRIV_REV = 66
+    def __init__(self):
+        self.TP = rffi.CArray(lltype.Signed)
+        self.privrevp = lltype.malloc(self.TP, n=1, flavor='raw', 
+                                      track_allocation=False, zero=True)
+        self.privrevp[0] = fakellop.PRIV_REV
+
+        entries = (StmGC.FX_MASK + 1) / WORD
+        self.read_cache = lltype.malloc(self.TP, n=entries, flavor='raw',
+                                        track_allocation=False, zero=True)
+        self.read_cache_adr = lltype.malloc(self.TP, 1, flavor='raw',
+                                            track_allocation=False)
+        self.read_cache_adr[0] = rffi.cast(lltype.Signed, self.read_cache)
+        
+    def set_cache_item(self, obj, value):
+        obj_int = rffi.cast(lltype.Signed, obj)
+        idx = (obj_int & StmGC.FX_MASK) / WORD
+        self.read_cache[idx] = rffi.cast(lltype.Signed, value)
+        
+    def stm_get_adr_of_private_rev_num(self, _):
+        return self.privrevp
+
+    def stm_get_adr_of_read_barrier_cache(self, _):
+        return self.read_cache_adr
 
 class GCDescrStm(GCDescrShadowstackDirect):
     def __init__(self):
@@ -142,11 +173,41 @@ class GCDescrStm(GCDescrShadowstackDirect):
                                inevitable, [],
                                RESULT=lltype.Void)
         def ptr_eq(x, y):
-            self.ptr_eq_called_on.append((x, y))
+            print "=== ptr_eq", hex(cast_to_int(x)), hex(cast_to_int(y))
+            self.ptr_eq_called_on.append((cast_to_int(x), cast_to_int(y)))
             return x == y
         self.generate_function('stm_ptr_eq', ptr_eq, [llmemory.GCREF] * 2,
                                RESULT=lltype.Bool)
 
+        def stm_allocate_nonmovable_int_adr(obj):
+            assert False # should not be reached
+            return rgc.cast_gcref_to_int(obj)
+        self.generate_function('stm_allocate_nonmovable_int_adr', 
+                               stm_allocate_nonmovable_int_adr, 
+                               [llmemory.GCREF],
+                               RESULT=lltype.Signed)
+
+        def malloc_big_fixedsize(size, tid):
+            print "malloc:", size, tid
+            if size > sys.maxint / 2:
+                # for testing exception
+                return lltype.nullptr(llmemory.GCREF.TO)
+            
+            entries = size + StmGC.GCHDRSIZE
+            TP = rffi.CArray(lltype.Char)
+            obj = lltype.malloc(TP, n=entries, flavor='raw',
+                                track_allocation=False, zero=True)
+            objptr = rffi.cast(StmGC.GCHDRP, obj)
+            objptr.h_tid = rffi.cast(lltype.Unsigned,
+                                     StmGC.GCFLAG_OLD
+                                     | StmGC.GCFLAG_WRITE_BARRIER | tid)
+            objptr.h_revision = rffi.cast(lltype.Signed, -sys.maxint)
+            print "return:", obj, objptr
+            return rffi.cast(llmemory.GCREF, objptr)
+        self.generate_function('malloc_big_fixedsize', malloc_big_fixedsize,
+                               [lltype.Signed] * 2)
+
+        
     def malloc_jitframe(self, frame_info):
         """ Allocate a new frame, overwritten by tests
         """
@@ -180,6 +241,18 @@ class TestGcStm(BaseTestRegalloc):
     def setup_method(self, meth):
         cpu = CPU(None, None)
         cpu.gc_ll_descr = GCDescrStm()
+
+        def latest_descr(self, deadframe):
+            deadframe = lltype.cast_opaque_ptr(JITFRAMEPTR, deadframe)
+            descr = deadframe.jf_descr
+            res = history.AbstractDescr.show(self, descr)
+            assert isinstance(res, history.AbstractFailDescr)
+            return res
+        import types
+        cpu.get_latest_descr = types.MethodType(latest_descr, cpu,
+                                                cpu.__class__)
+        
+
         self.p2wd = cpu.gc_ll_descr.P2Wdescr
         self.p2rd = cpu.gc_ll_descr.P2Rdescr
 
@@ -205,7 +278,7 @@ class TestGcStm(BaseTestRegalloc):
         
     def assert_in(self, called_on, args):
         for i, ref in enumerate(args):
-            assert rffi.cast_ptr_to_adr(ref) == called_on[i]
+            assert rffi.cast_ptr_to_adr(ref) in called_on
             
     def assert_not_in(self, called_on, args):
         for ref in args:
@@ -236,6 +309,94 @@ class TestGcStm(BaseTestRegalloc):
         s.h_tid = rffi.cast(lltype.Unsigned, StmGC.PREBUILT_FLAGS | tid)
         s.h_revision = rffi.cast(lltype.Signed, StmGC.PREBUILT_REVISION)
         return s
+
+    
+        
+    def test_gc_read_barrier_fastpath(self):
+        from rpython.jit.backend.llsupport.gc import STMReadBarrierDescr
+        descr = STMReadBarrierDescr(self.cpu.gc_ll_descr, 'P2R')
+
+        called = []
+        def read(obj):
+            called.append(obj)
+            return obj
+
+        functype = lltype.Ptr(lltype.FuncType(
+            [llmemory.Address], llmemory.Address))
+        funcptr = llhelper(functype, read)
+        descr.b_failing_case_ptr = funcptr
+        descr.llop1 = fakellop()
+
+        # -------- TEST --------
+        for rev in [fakellop.PRIV_REV+4, fakellop.PRIV_REV]:
+            called[:] = []
+            
+            s = self.allocate_prebuilt_s()
+            sgcref = lltype.cast_opaque_ptr(llmemory.GCREF, s)
+            s.h_revision = rev
+
+            descr._do_barrier(sgcref,
+                              returns_modified_object=True)
+                        
+            # check if rev-fastpath worked
+            if rev == fakellop.PRIV_REV:
+                # fastpath
+                self.assert_not_in(called, [sgcref])
+            else:
+                self.assert_in(called, [sgcref])
+
+            # now check if sgcref in readcache:
+            called[:] = []
+            descr.llop1.set_cache_item(sgcref, sgcref)
+            descr._do_barrier(sgcref,
+                              returns_modified_object=True)
+            self.assert_not_in(called, [sgcref])
+            descr.llop1.set_cache_item(sgcref, 0)
+
+
+    def test_gc_write_barrier_fastpath(self):
+        from rpython.jit.backend.llsupport.gc import STMWriteBarrierDescr
+        descr = STMWriteBarrierDescr(self.cpu.gc_ll_descr, 'P2W')
+
+        called = []
+        def write(obj):
+            called.append(obj)
+            return obj
+
+        functype = lltype.Ptr(lltype.FuncType(
+            [llmemory.Address], llmemory.Address))
+        funcptr = llhelper(functype, write)
+        descr.b_failing_case_ptr = funcptr
+        descr.llop1 = fakellop()
+
+        # -------- TEST --------
+        for rev in [fakellop.PRIV_REV+4, fakellop.PRIV_REV]:
+            called[:] = []
+            
+            s = self.allocate_prebuilt_s()
+            sgcref = lltype.cast_opaque_ptr(llmemory.GCREF, s)
+            s.h_revision = rev
+
+            descr._do_barrier(sgcref,
+                              returns_modified_object=True)
+                        
+            # check if rev-fastpath worked
+            if rev == fakellop.PRIV_REV:
+                # fastpath
+                self.assert_not_in(called, [sgcref])
+            else:
+                self.assert_in(called, [sgcref])
+                
+            # now set WRITE_BARRIER -> always call slowpath
+            called[:] = []
+            s.h_tid |= StmGC.GCFLAG_WRITE_BARRIER
+            descr._do_barrier(sgcref, 
+                              returns_modified_object=True)
+            self.assert_in(called, [sgcref])
+
+        
+        
+        
         
     def test_read_barrier_fastpath(self):
         cpu = self.cpu
@@ -267,7 +428,7 @@ class TestGcStm(BaseTestRegalloc):
             # check if rev-fastpath worked
             if rev == PRIV_REV:
                 # fastpath
-                assert not called_on
+                self.assert_not_in(called_on, [sgcref])
             else:
                 self.assert_in(called_on, [sgcref])
 
@@ -310,7 +471,7 @@ class TestGcStm(BaseTestRegalloc):
             # check if rev-fastpath worked
             if rev == PRIV_REV:
                 # fastpath and WRITE_BARRIER not set
-                assert not called_on
+                self.assert_not_in(called_on, [sgcref])
             else:
                 self.assert_in(called_on, [sgcref])
 
@@ -377,31 +538,32 @@ class TestGcStm(BaseTestRegalloc):
                     looptoken = JitCellToken()
                     c_loop = cpu.compile_loop(inputargs + [i1], operations, 
                                               looptoken)
-                    print c_loop
+
                     args = [s for i, s in enumerate((s1, s2))
                             if not isinstance((p1, p2)[i], Const)] + [7]
-                    
+                    print "======"
+                    print "inputargs:", inputargs+[i1], args
+                    print "\n".join(map(str,c_loop[1]))
+                                        
                     frame = self.cpu.execute_token(looptoken, *args)
                     frame = rffi.cast(JITFRAMEPTR, frame)
                     frame_adr = rffi.cast(lltype.Signed, frame.jf_descr)
                     guard_failed = frame_adr != id(finaldescr)
 
                     # CHECK:
-                    a, b = s1, s2
+                    a, b = cast_to_int(s1), cast_to_int(s2)
                     if isinstance(p1, Const):
-                        s1 = p1.value
+                        a = cast_to_int(p1.value)
                     if isinstance(p2, Const):
-                        s2 = p2.value
+                        b = cast_to_int(p2.value)
                         
-                    if s1 == s2 or \
-                      rffi.cast(lltype.Signed, s1) == 0 or \
-                      rffi.cast(lltype.Signed, s2) == 0:
-                        assert (s1, s2) not in called_on
+                    if a == b or a == 0 or b == 0:
+                        assert (a, b) not in called_on
                     else:
-                        assert [(s1, s2)] == called_on
+                        assert [(a, b)] == called_on
 
                     if guard is not None:
-                        if s1 == s2:
+                        if a == b:
                             if guard in (rop.GUARD_TRUE, rop.GUARD_VALUE):
                                 assert not guard_failed
                             else:
@@ -412,7 +574,204 @@ class TestGcStm(BaseTestRegalloc):
                             assert guard_failed
 
 
-                        
+    
+        
+    def test_assembler_call(self):
+        cpu = self.cpu
+        cpu.gc_ll_descr.init_nursery(100)
+        cpu.setup_once()
+        
+        called = []
+        def assembler_helper(deadframe, virtualizable):
+            frame = rffi.cast(JITFRAMEPTR, deadframe)
+            frame_adr = rffi.cast(lltype.Signed, frame.jf_descr)
+            called.append(frame_adr)
+            return 4 + 9
+
+        FUNCPTR = lltype.Ptr(lltype.FuncType([llmemory.GCREF,
+                                              llmemory.GCREF],
+                                             lltype.Signed))
+        class FakeJitDriverSD:
+            index_of_virtualizable = -1
+            _assembler_helper_ptr = llhelper(FUNCPTR, assembler_helper)
+            assembler_helper_adr = llmemory.cast_ptr_to_adr(
+                _assembler_helper_ptr)
+
+        ops = '''
+        [i0, i1, i2, i3, i4, i5, i6, i7, i8, i9]
+        i10 = int_add(i0, i1)
+        i11 = int_add(i10, i2)
+        i12 = int_add(i11, i3)
+        i13 = int_add(i12, i4)
+        i14 = int_add(i13, i5)
+        i15 = int_add(i14, i6)
+        i16 = int_add(i15, i7)
+        i17 = int_add(i16, i8)
+        i18 = int_add(i17, i9)
+        finish(i18)'''
+        loop = parse(ops)
+        looptoken = JitCellToken()
+        looptoken.outermost_jitdriver_sd = FakeJitDriverSD()
+        finish_descr = loop.operations[-1].getdescr()
+        self.cpu.done_with_this_frame_descr_int = BasicFinalDescr()
+        self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+        ARGS = [lltype.Signed] * 10
+        RES = lltype.Signed
+        FakeJitDriverSD.portal_calldescr = self.cpu.calldescrof(
+            lltype.Ptr(lltype.FuncType(ARGS, RES)), ARGS, RES,
+            EffectInfo.MOST_GENERAL)
+        args = [i+1 for i in range(10)]
+        deadframe = self.cpu.execute_token(looptoken, *args)
+        
+        ops = '''
+        [i0, i1, i2, i3, i4, i5, i6, i7, i8, i9]
+        i10 = int_add(i0, 42)
+        i11 = call_assembler(i10, i1, i2, i3, i4, i5, i6, i7, i8, i9, descr=looptoken)
+        guard_not_forced()[]
+        finish(i11)
+        '''
+        loop = parse(ops, namespace=locals())
+        othertoken = JitCellToken()
+        self.cpu.compile_loop(loop.inputargs, loop.operations, othertoken)
+        args = [i+1 for i in range(10)]
+        deadframe = self.cpu.execute_token(othertoken, *args)
+        assert called == [id(finish_descr)]
+        del called[:]
+        
+        # compile a replacement
+        ops = '''
+        [i0, i1, i2, i3, i4, i5, i6, i7, i8, i9]
+        i10 = int_sub(i0, i1)
+        i11 = int_sub(i10, i2)
+        i12 = int_sub(i11, i3)
+        i13 = int_sub(i12, i4)
+        i14 = int_sub(i13, i5)
+        i15 = int_sub(i14, i6)
+        i16 = int_sub(i15, i7)
+        i17 = int_sub(i16, i8)
+        i18 = int_sub(i17, i9)
+        finish(i18)'''
+        loop2 = parse(ops)
+        looptoken2 = JitCellToken()
+        looptoken2.outermost_jitdriver_sd = FakeJitDriverSD()
+        self.cpu.compile_loop(loop2.inputargs, loop2.operations, looptoken2)
+        finish_descr2 = loop2.operations[-1].getdescr()
+
+        # install it
+        self.cpu.redirect_call_assembler(looptoken, looptoken2)
+
+        # now call_assembler should go to looptoken2
+        args = [i+1 for i in range(10)]
+        deadframe = self.cpu.execute_token(othertoken, *args)
+        assert called == [id(finish_descr2)]
+
+
+    def test_call_malloc_gc(self):
+        cpu = self.cpu
+        cpu.gc_ll_descr.init_nursery(100)
+        cpu.setup_once()
+
+        size = WORD*3
+        addr = cpu.gc_ll_descr.get_malloc_fn_addr('malloc_big_fixedsize')
+        typeid = 11
+        descr = cpu.gc_ll_descr.malloc_big_fixedsize_descr
+
+        p0 = BoxPtr()
+        ops1 = [ResOperation(rop.CALL_MALLOC_GC, 
+                             [ConstInt(addr), ConstInt(size), ConstInt(typeid)],
+                             p0, descr),
+                ResOperation(rop.FINISH, [p0], None, 
+                             descr=BasicFinalDescr(0)),
+                ]
+
+        inputargs = []
+        looptoken = JitCellToken()
+        c_loop = cpu.compile_loop(inputargs, ops1, 
+                                  looptoken)
+        
+        args = []
+        print "======"
+        print "inputargs:", inputargs, args
+        print "\n".join(map(str,c_loop[1]))
+        
+        frame = self.cpu.execute_token(looptoken, *args)
+
+
+    def test_assembler_call_propagate_exc(self):
+        cpu = self.cpu
+        cpu._setup_descrs()
+        cpu.gc_ll_descr.init_nursery(100)
+
+        excdescr = BasicFailDescr(666)
+        cpu.propagate_exception_descr = excdescr
+        cpu.setup_once()    # xxx redo it, because we added
+                            # propagate_exception
+
+        def assembler_helper(deadframe, virtualizable):
+            #assert cpu.get_latest_descr(deadframe) is excdescr
+            # let's assume we handled that
+            return 3
+
+        FUNCPTR = lltype.Ptr(lltype.FuncType([llmemory.GCREF,
+                                              llmemory.GCREF],
+                                             lltype.Signed))
+        class FakeJitDriverSD:
+            index_of_virtualizable = -1
+            _assembler_helper_ptr = llhelper(FUNCPTR, assembler_helper)
+            assembler_helper_adr = llmemory.cast_ptr_to_adr(
+                _assembler_helper_ptr)
+
+
+
+        addr = cpu.gc_ll_descr.get_malloc_fn_addr('malloc_big_fixedsize')
+        typeid = 11
+        descr = cpu.gc_ll_descr.malloc_big_fixedsize_descr
+
+        p0 = BoxPtr()
+        i0 = BoxInt()
+        ops = [ResOperation(rop.CALL_MALLOC_GC, 
+                            [ConstInt(addr), i0, ConstInt(typeid)],
+                            p0, descr),
+               ResOperation(rop.FINISH, [p0], None, 
+                            descr=BasicFinalDescr(0)),
+               ]
+
+        inputargs = [i0]
+        looptoken = JitCellToken()
+        looptoken.outermost_jitdriver_sd = FakeJitDriverSD()
+        c_loop = cpu.compile_loop(inputargs, ops, looptoken)
+        
+        
+        ARGS = [lltype.Signed] * 10
+        RES = lltype.Signed
+        FakeJitDriverSD.portal_calldescr = cpu.calldescrof(
+            lltype.Ptr(lltype.FuncType(ARGS, RES)), ARGS, RES,
+            EffectInfo.MOST_GENERAL)
+        i1 = ConstInt(sys.maxint - 1)
+        i2 = BoxInt()
+        finaldescr = BasicFinalDescr(1)
+        not_forced = ResOperation(rop.GUARD_NOT_FORCED, [], None,
+                                  descr=BasicFailDescr(1))
+        not_forced.setfailargs([])
+        ops = [ResOperation(rop.CALL_ASSEMBLER, [i1], i2, descr=looptoken),
+               not_forced,
+               ResOperation(rop.FINISH, [i1], None, descr=finaldescr),
+               ]
+        othertoken = JitCellToken()
+        cpu.done_with_this_frame_descr_int = BasicFinalDescr()
+        loop = cpu.compile_loop([], ops, othertoken)
+        
+        deadframe = cpu.execute_token(othertoken)
+        frame = rffi.cast(JITFRAMEPTR, deadframe)
+        frame_adr = rffi.cast(lltype.Signed, frame.jf_descr)
+        assert frame_adr != id(finaldescr)
+
+
+    
+        
+
+
+        
 
 
         
