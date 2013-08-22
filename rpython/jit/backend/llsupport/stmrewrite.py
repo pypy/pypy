@@ -67,6 +67,15 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
                 # uses h_tid which doesn't need a read-barrier
                 self.newops.append(op)
                 continue
+            # ----------  pure operations needing read-barrier  ----------
+            if op.getopnum() in (rop.GETFIELD_GC_PURE,
+                                 rop.GETARRAYITEM_GC_PURE,
+                                 rop.ARRAYLEN_GC,):
+                # e.g. getting inst_intval of a W_IntObject that is
+                # currently only a stub needs to first resolve to a 
+                # real object
+                self.handle_category_operations(op, 'R')
+                continue
             # ----------  pure operations, guards  ----------
             if op.is_always_pure() or op.is_guard() or op.is_ovf():
                 self.newops.append(op)

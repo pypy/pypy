@@ -813,7 +813,7 @@ class CompileFrameworkTests(BaseFrameworkTests):
                 x0 = promote(x0)
             elif n % 3 == 1:
                 x1 = promote(x1)
-            else:
+            else: # None
                 x2 = promote(x2)
             raiseassert(x0 != ptrs[0])
             raiseassert(x0 == ptrs[1])
@@ -849,3 +849,29 @@ class CompileFrameworkTests(BaseFrameworkTests):
 
     def test_compile_framework_ptr_eq(self):
         self.run('compile_framework_ptr_eq')
+
+    def define_compile_framework_call_assembler2(self):
+        S = lltype.GcStruct('S', ('i', lltype.Signed),
+                            ('v', lltype.Signed))
+        driver = JitDriver(greens = [], 
+                           reds = ['a'])
+
+        def inner(a):
+            while a.i:
+                driver.jit_merge_point(a=a)
+                a.i -= 1
+            print a.v
+        
+        def f(n, x, x0, x1, x2, x3, x4, x5, x6, x7, l, s):
+            u = lltype.malloc(S)
+            u.i = 10000
+            u.v = n
+            inner(u)
+                
+            return n - 1, x, x0, x1, x2, x3, x4, x5, x6, x7, l, s
+
+        return None, f, None
+
+    def test_compile_framework_call_assembler2(self):
+        self.run('compile_framework_call_assembler2')
+
