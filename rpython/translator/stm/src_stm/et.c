@@ -7,7 +7,6 @@
  */
 #include "stmimpl.h"
 
-#ifdef _GC_DEBUG
 char tmp_buf[128];
 char* stm_dbg_get_hdr_str(gcptr obj)
 {
@@ -27,7 +26,6 @@ char* stm_dbg_get_hdr_str(gcptr obj)
     cur += sprintf(cur, "tid=%ld", stm_get_tid(obj));
     return tmp_buf;
 }
-#endif
 
 
 

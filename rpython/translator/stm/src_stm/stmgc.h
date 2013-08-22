@@ -29,11 +29,20 @@ typedef struct stm_object_s {
 #define PREBUILT_REVISION          1
 
 
+/* push roots around allocating functions! */
+
 /* allocate an object out of the local nursery */
 gcptr stm_allocate(size_t size, unsigned long tid);
 /* allocate an object that is be immutable. it cannot be changed with
    a stm_write_barrier() or after the next commit */
 gcptr stm_allocate_immutable(size_t size, unsigned long tid);
+
+/* allocates a public reference to the object that will 
+   not be freed until stm_unregister_integer_address is 
+   called on the result */
+intptr_t stm_allocate_public_integer_address(gcptr);
+void stm_unregister_integer_address(intptr_t);
+
 
 /* returns a never changing hash for the object */
 revision_t stm_hash(gcptr);
@@ -172,6 +181,8 @@ void stm_clear_on_abort(void *start, size_t bytes);
 extern __thread void *stm_to_clear_on_abort;
 extern __thread size_t stm_bytes_to_clear_on_abort;
 
+/* only user currently is stm_allocate_public_integer_address() */
+void stm_register_integer_address(intptr_t);
 
 /* macro functionality */
 
