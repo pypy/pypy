@@ -38,7 +38,7 @@ class BaseTestTransform(object):
             return 'I'     # allocated with immortal=True
         raise AssertionError("unknown category on %r" % (p,))
 
-    def interpret(self, fn, args, gcremovetypeptr=False):
+    def interpret(self, fn, args, gcremovetypeptr=False, run=True):
         self.build_state()
         clear_tcache()
         interp, self.graph = get_interpreter(fn, args, view=False)
@@ -60,8 +60,9 @@ class BaseTestTransform(object):
         if self.do_jit_driver:
             import py
             py.test.skip("XXX how to test?")
-        result = interp.eval_graph(self.graph, args)
-        return result
+        if run:
+            result = interp.eval_graph(self.graph, args)
+            return result
 
 
 class LLSTMFrame(LLFrame):
@@ -131,7 +132,7 @@ class LLSTMFrame(LLFrame):
             cat = self.check_category(obj, None)
             p = opimpl.op_cast_pointer(RESTYPE, obj)
             return _stmptr(p, cat)
-        return LLFrame.op_cast_pointer(self, RESTYPE, obj)
+        return lltype.cast_pointer(RESTYPE, obj)
     op_cast_pointer.need_result_type = True
 
     def op_cast_opaque_ptr(self, RESTYPE, obj):

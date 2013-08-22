@@ -358,7 +358,11 @@ def insert_stm_barrier(stmtransformer, graph):
         pending.add(bt)
 
     while pending:
-        bt = pending.pop()
+        # XXX sadly, this seems to be order-dependent.  Picking the minimum
+        # of the blocks seems to be necessary, too, to avoid the situation
+        # of two blocks chasing each other around a loop :-(
+        bt = min(pending)
+        pending.remove(bt)
         bt.flow_through_block(graphinfo)
         pending |= bt.update_targets(block_transformers)
 

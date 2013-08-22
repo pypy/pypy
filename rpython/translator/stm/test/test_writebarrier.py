@@ -463,6 +463,32 @@ class TestTransform(BaseTestTransform):
         assert res == True
         assert self.barriers == []
 
+    def test_infinite_loop_bug(self):
+        class A(object):
+            user_overridden_class = False
+
+            def stuff(self):
+                return 12.3
+
+            def immutable_unique_id(self):
+                if self.user_overridden_class:
+                    return None
+                from rpython.rlib.longlong2float import float2longlong
+                from rpython.rlib.rarithmetic import r_ulonglong
+                from rpython.rlib.rbigint import rbigint
+                real = self.stuff()
+                imag = self.stuff()
+                real_b = rbigint.fromrarith_int(float2longlong(real))
+                imag_b = rbigint.fromrarith_int(r_ulonglong(float2longlong(imag)))
+                val = real_b.lshift(64).or_(imag_b).lshift(3)
+                return val
+
+        def f():
+            return A().immutable_unique_id()
+
+        for i in range(10):
+            self.interpret(f, [], run=False)
+
 
 external_release_gil = rffi.llexternal('external_release_gil', [], lltype.Void,
                                        _callable=lambda: None,
