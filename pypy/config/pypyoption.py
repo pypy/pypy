@@ -347,11 +347,13 @@ def set_pypy_opt_level(config, level):
     # extra optimizations with the JIT
     if level == 'jit':
         config.objspace.std.suggest(withcelldict=True)
-        config.objspace.std.suggest(withmapdict=True)
+        if not config.translation.stm:
+            config.objspace.std.suggest(withmapdict=True)
 
     # tweaks some parameters with STM
     if config.translation.stm:
         config.objspace.std.suggest(methodcachesizeexp=9)
+        # XXX try at some point to see if withmapdict=True would make sense
 
 
 def enable_allworkingmodules(config):
