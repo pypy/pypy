@@ -37,6 +37,9 @@ def is_immutable(op):
 def needs_barrier(frm, to):
     return to > frm
 
+def is_gc_ptr(T):
+    return isinstance(T, lltype.Ptr) and T.TO._gckind == 'gc'
+
 
 class Renaming(object):
     def __init__(self, newvar, category):
@@ -64,7 +67,7 @@ class BlockTransformer(object):
             is_getter = (op.opname in ('getfield', 'getarrayitem',
                                        'getinteriorfield') and
                          op.result.concretetype is not lltype.Void and
-                         op.args[0].concretetype.TO._gckind == 'gc')
+                         is_gc_ptr(op.args[0].concretetype))
 
             if (gcremovetypeptr and op.opname in ('getfield', 'setfield') and
                 op.args[1].value == 'typeptr' and
@@ -87,10 +90,10 @@ class BlockTransformer(object):
             elif (op.opname in ('setfield', 'setarrayitem',
                                 'setinteriorfield') and
                   op.args[-1].concretetype is not lltype.Void and
-                  op.args[0].concretetype.TO._gckind == 'gc'):
+                  is_gc_ptr(op.args[0].concretetype)):
                 # setfields need a regular write barrier
                 T = op.args[-1].concretetype
-                if isinstance(T, lltype.Ptr) and T.TO._gckind == 'gc':
+                if is_gc_ptr(T):
                     wants_a_barrier[op] = 'W'
                 else:
                     # a write of a non-gc pointer doesn't need to check for
@@ -98,7 +101,7 @@ class BlockTransformer(object):
                     wants_a_barrier[op] = 'V'
 
             elif (op.opname in ('ptr_eq', 'ptr_ne') and
-                  op.args[0].concretetype.TO._gckind == 'gc'):
+                  is_gc_ptr(op.args[0].concretetype)):
                 # GC pointer comparison might need special care
                 expand_comparison.add(op)
         #
@@ -154,14 +157,13 @@ class BlockTransformer(object):
         # make the initial trivial renamings needed to have some precise
         # categories for the input args
         for v, cat in zip(self.block.inputargs, self.inputargs_category):
-            if (cat is not None and
-                    isinstance(v.concretetype, lltype.Ptr) and
-                    v.concretetype.TO._gckind == 'gc'):
+            if cat is not None and is_gc_ptr(v.concretetype):
                 renamings[v] = Renaming(v, cat)
 
         for op in self.block.operations:
             #
-            if op.opname in ('cast_pointer', 'same_as'):
+            if (op.opname in ('cast_pointer', 'same_as') and
+                    is_gc_ptr(op.result.concretetype)):
                 renamings[op.result] = renfetch(op.args[0])
                 continue
             #
@@ -261,8 +263,7 @@ class BlockTransformer(object):
         for link in self.block.exits:
             output_categories = []
             for v in link.args:
-                if (isinstance(v.concretetype, lltype.Ptr) and
-                        v.concretetype.TO._gckind == 'gc'):
+                if is_gc_ptr(v.concretetype):
                     cat = get_category_or_null(v)
                 else:
                     cat = None
