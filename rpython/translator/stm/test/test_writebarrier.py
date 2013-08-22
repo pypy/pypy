@@ -38,6 +38,20 @@ class TestTransform(BaseTestTransform):
         self.interpret(f1, [4])
         assert x1.foo == 4
         assert len(self.writemode) == 1
+        assert self.barriers == ['I2V']
+
+    def test_simple_write_pointer(self):
+        T = lltype.GcStruct('T')
+        X = lltype.GcStruct('X', ('foo', lltype.Ptr(T)))
+        t1 = lltype.malloc(T, immortal=True)
+        x1 = lltype.malloc(X, immortal=True, zero=True)
+
+        def f1(n):
+            x1.foo = t1
+
+        self.interpret(f1, [4])
+        assert x1.foo == t1
+        assert len(self.writemode) == 1
         assert self.barriers == ['I2W']
 
     def test_multiple_reads(self):
@@ -71,14 +85,28 @@ class TestTransform(BaseTestTransform):
         assert len(self.writemode) == 1
         assert self.barriers == []
 
-    def test_repeat_write_barrier_after_malloc(self):
+    def test_dont_repeat_write_barrier_after_malloc_if_not_a_ptr(self):
         X = lltype.GcStruct('X', ('foo', lltype.Signed))
-        x1 = lltype.malloc(X, immortal=True)
-        x1.foo = 6
+        x1 = lltype.malloc(X, immortal=True, zero=True)
         def f1(n):
             x1.foo = n
             lltype.malloc(X)
             x1.foo = x1.foo + n
+
+        self.interpret(f1, [4])
+        assert len(self.writemode) == 2
+        assert self.barriers == ['I2V']
+
+    def test_repeat_write_barrier_after_malloc(self):
+        T = lltype.GcStruct('T')
+        X = lltype.GcStruct('X', ('foo', lltype.Ptr(T)))
+        t1 = lltype.malloc(T, immortal=True)
+        t2 = lltype.malloc(T, immortal=True)
+        x1 = lltype.malloc(X, immortal=True, zero=True)
+        def f1(n):
+            x1.foo = t1
+            lltype.malloc(X)
+            x1.foo = t2
 
         self.interpret(f1, [4])
         assert len(self.writemode) == 2
@@ -110,10 +138,10 @@ class TestTransform(BaseTestTransform):
         y = lltype.malloc(X, immortal=True)
         res = self.interpret(f1, [x, y])
         assert res == 36
-        assert self.barriers == ['A2R', 'A2W', 'q2r']
+        assert self.barriers == ['A2R', 'A2V', 'q2r']
         res = self.interpret(f1, [x, x])
         assert res == 42
-        assert self.barriers == ['A2R', 'A2W', 'Q2R']
+        assert self.barriers == ['A2R', 'A2V', 'Q2R']
 
     def test_write_cannot_alias(self):
         X = lltype.GcStruct('X', ('foo', lltype.Signed))
@@ -128,7 +156,7 @@ class TestTransform(BaseTestTransform):
         y = lltype.malloc(Y, immortal=True)
         res = self.interpret(f1, [x, y])
         assert res == 36
-        assert self.barriers == ['A2R', 'A2W']
+        assert self.barriers == ['A2R', 'A2V']
 
     def test_call_external_release_gil(self):
         X = lltype.GcStruct('X', ('foo', lltype.Signed))
@@ -203,10 +231,10 @@ class TestTransform(BaseTestTransform):
         y = lltype.malloc(X, immortal=True)
         res = self.interpret(f1, [x, y])
         assert res == 0
-        assert self.barriers == ['A2W', '=']
+        assert self.barriers == ['A2V', '=']
         res = self.interpret(f1, [x, x])
         assert res == 1
-        assert self.barriers == ['A2W', '=']
+        assert self.barriers == ['A2V', '=']
 
     def test_pointer_compare_3(self):
         X = lltype.GcStruct('X', ('foo', lltype.Signed))
@@ -217,10 +245,10 @@ class TestTransform(BaseTestTransform):
         y = lltype.malloc(X, immortal=True)
         res = self.interpret(f1, [x, y])
         assert res == 1
-        assert self.barriers == ['A2W', '=']
+        assert self.barriers == ['A2V', '=']
         res = self.interpret(f1, [x, x])
         assert res == 0
-        assert self.barriers == ['A2W', '=']
+        assert self.barriers == ['A2V', '=']
 
     def test_pointer_compare_4(self):
         X = lltype.GcStruct('X', ('foo', lltype.Signed))
@@ -232,10 +260,10 @@ class TestTransform(BaseTestTransform):
         y = lltype.malloc(X, immortal=True)
         res = self.interpret(f1, [x, y])
         assert res == 1
-        assert self.barriers == ['A2W', 'A2W']
+        assert self.barriers == ['A2V', 'A2V']
         res = self.interpret(f1, [x, x])
         assert res == 0
-        assert self.barriers == ['A2W', 'A2W']
+        assert self.barriers == ['A2V', 'A2V']
 
     def test_simple_loop(self):
         X = lltype.GcStruct('X', ('foo', lltype.Signed))
@@ -248,7 +276,7 @@ class TestTransform(BaseTestTransform):
         res = self.interpret(f1, [x, 5])
         assert res == 0
         # for now we get this.  Later, we could probably optimize it
-        assert self.barriers == ['A2W', 'a2w', 'a2w', 'a2w', 'a2w']
+        assert self.barriers == ['A2V', 'a2v', 'a2v', 'a2v', 'a2v']
 
     def test_subclassing(self):
         class X:
@@ -292,12 +320,12 @@ class TestTransform(BaseTestTransform):
             y = make_y(i)
             external_any_gcobj()
             prev = y.ybar          # a2r
-            handle(y)              # inside handle(): a2r, r2w
+            handle(y)              # inside handle(): a2r, r2v
             return prev + y.ybar   # q2r
 
         res = self.interpret(f1, [10])
         assert res == 21
-        assert self.barriers == ['a2r', 'a2r', 'r2w', 'q2r']
+        assert self.barriers == ['a2r', 'a2r', 'r2v', 'q2r']
 
     def test_subclassing_2(self):
         class X:
@@ -317,12 +345,12 @@ class TestTransform(BaseTestTransform):
                 y = Y(); y.foo = -13; y.ybar = i
             external_any_gcobj()
             prev = x.foo           # a2r
-            handle(y)              # inside handle(): a2r, r2w
+            handle(y)              # inside handle(): a2r, r2v
             return prev + x.foo    # q2r
 
         res = self.interpret(f1, [10])
         assert res == 84
-        assert self.barriers == ['a2r', 'a2r', 'r2w', 'q2r']
+        assert self.barriers == ['a2r', 'a2r', 'r2v', 'q2r']
 
     def test_subclassing_gcref(self):
         Y = lltype.GcStruct('Y', ('foo', lltype.Signed),
@@ -340,12 +368,12 @@ class TestTransform(BaseTestTransform):
                 x = lltype.cast_opaque_ptr(llmemory.GCREF, y)
             external_any_gcobj()
             prev = lltype.cast_opaque_ptr(YPTR, x).foo           # a2r
-            handle(y)                            # inside handle(): a2r, r2w
+            handle(y)                            # inside handle(): a2r, r2v
             return prev + lltype.cast_opaque_ptr(YPTR, x).ybar   # q2r?
 
         res = self.interpret(f1, [10])
         assert res == 42 + 11
-        assert self.barriers == ['a2r', 'a2r', 'r2w', 'a2r']
+        assert self.barriers == ['a2r', 'a2r', 'r2v', 'a2r']
         # Ideally we should get [... 'q2r'] but getting 'a2r' is not wrong
         # either.  This is because from a GCREF the only thing we can do is
         # cast_opaque_ptr, which is not special-cased in writebarrier.py.
@@ -354,10 +382,12 @@ class TestTransform(BaseTestTransform):
         class X:
             pass
         x = X()
+        x2 = X()
+        x3 = X()
         def f1(i):
-            x.a = i   # write barrier
+            x.a = x2  # write barrier
             y = X()   # malloc
-            x.a += 1  # write barrier again
+            x.a = x3  # write barrier again
             return y
 
         res = self.interpret(f1, [10])
@@ -375,7 +405,7 @@ class TestTransform(BaseTestTransform):
 
         res = self.interpret(f1, [4])
         assert res == 4
-        assert self.barriers == ['a2w', 'a2i']
+        assert self.barriers == ['a2v', 'a2i']
 
     def test_read_immutable_prebuilt(self):
         class Foo:

@@ -176,11 +176,23 @@ static void visit_if_young(gcptr *root)
 
             stm_copy_to_old_id_copy(obj, id_obj);
             fresh_old_copy = id_obj;
+            fresh_old_copy->h_original = 0;
             obj->h_tid &= ~GCFLAG_HAS_ID;
+
+            /* priv_from_prot's backup->h_originals already point
+               to id_obj */
         } 
         else {
             /* make a copy of it outside */
             fresh_old_copy = create_old_object_copy(obj);
+
+            if (obj->h_tid & GCFLAG_PRIVATE_FROM_PROTECTED
+                && !(obj->h_original)) {
+                /* the object's backup copy still has 
+                   a h_original that is NULL*/
+                gcptr B = (gcptr)obj->h_revision;
+                B->h_original = (revision_t)fresh_old_copy;
+            }
         }
         
         obj->h_tid |= GCFLAG_MOVED;

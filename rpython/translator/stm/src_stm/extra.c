@@ -92,6 +92,8 @@ revision_t stm_id(gcptr p)
             return (revision_t)p;
         }
 
+        assert(p->h_original != (revision_t)p);
+
         dprintf(("stm_id(%p) has orig fst: %p\n", 
                  p, (gcptr)p->h_original));
         return p->h_original;

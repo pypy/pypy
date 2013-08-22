@@ -85,6 +85,10 @@ void stm_leave_callback_call(int);
    - stm_repeat_write_barrier() can be used on an object on which
      we already did stm_write_barrier(), but a potential collection
      can have occurred.
+
+   - stm_write_barrier_noptr() is a slightly cheaper version of
+     stm_write_barrier(), for when we are going to write
+     non-gc-pointers into the object.
 */
 #if 0     // (optimized version below)
 gcptr stm_read_barrier(gcptr);
@@ -92,6 +96,7 @@ gcptr stm_write_barrier(gcptr);
 gcptr stm_repeat_read_barrier(gcptr);
 gcptr stm_immut_read_barrier(gcptr);
 gcptr stm_repeat_write_barrier(gcptr);   /* <= always returns its argument */
+gcptr stm_write_barrier_noptr(gcptr);
 #endif
 
 /* start a new transaction, calls callback(), and when it returns
@@ -205,18 +210,24 @@ extern __thread char *stm_read_barrier_cache;
      :  (obj))
 
 #define stm_repeat_read_barrier(obj)                            \
-    (UNLIKELY((obj)->h_tid & (GCFLAG_PUBLIC_TO_PRIVATE | GCFLAG_MOVED)) ? \
+    (UNLIKELY(((obj)->h_tid & (GCFLAG_PUBLIC_TO_PRIVATE |       \
+                               GCFLAG_MOVED)) != 0) ?           \
         stm_RepeatReadBarrier(obj)                              \
      :  (obj))
 
 #define stm_immut_read_barrier(obj)                             \
-    (UNLIKELY((obj)->h_tid & GCFLAG_STUB) ?                     \
+    (UNLIKELY(((obj)->h_tid & GCFLAG_STUB) != 0) ?              \
         stm_ImmutReadBarrier(obj)                               \
      :  (obj))
 
 #define stm_repeat_write_barrier(obj)                           \
-    (UNLIKELY((obj)->h_tid & GCFLAG_WRITE_BARRIER) ?            \
+    (UNLIKELY(((obj)->h_tid & GCFLAG_WRITE_BARRIER) != 0) ?     \
         stm_RepeatWriteBarrier(obj)                             \
+     :  (obj))
+
+#define stm_write_barrier_noptr(obj)                            \
+    (UNLIKELY((obj)->h_revision != stm_private_rev_num) ?       \
+        stm_WriteBarrier(obj)                                   \
      :  (obj))
 
 

@@ -52,11 +52,14 @@ def stm_barrier(funcgen, op):
     category_change = op.args[0].value
     frm, middle, to = category_change
     assert middle == '2'
+    assert frm < to
     if to == 'W':
         if frm >= 'V':
             funcname = 'stm_repeat_write_barrier'
         else:
             funcname = 'stm_write_barrier'
+    elif to == 'V':
+        funcname = 'stm_write_barrier_noptr'
     elif to == 'R':
         if frm >= 'Q':
             funcname = 'stm_repeat_read_barrier'

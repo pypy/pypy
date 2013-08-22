@@ -1340,9 +1340,13 @@ void AbortPrivateFromProtected(struct tx_descriptor *d)
              and then free B, which will not be used any more. */
           size_t size = stmgc_size(B);
           assert(B->h_tid & GCFLAG_BACKUP_COPY);
+          /* if h_original was 0, it must stay that way and not point
+             to itself. (B->h_original may point to P) */
+          revision_t h_original = P->h_original;
           memcpy(((char *)P) + offsetof(struct stm_object_s, h_revision),
                  ((char *)B) + offsetof(struct stm_object_s, h_revision),
                  size - offsetof(struct stm_object_s, h_revision));
+          P->h_original = h_original;
           assert(!(P->h_tid & GCFLAG_BACKUP_COPY));
           stmgcpage_free(B);
           dprintf(("abort: free backup at %p\n", B));

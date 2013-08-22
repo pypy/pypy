@@ -111,7 +111,13 @@ def insert_stm_barrier(stmtransformer, graph):
                   op.args[-1].concretetype is not lltype.Void and
                   op.args[0].concretetype.TO._gckind == 'gc'):
                 # setfields need a regular write barrier
-                wants_a_barrier[op] = 'W'
+                T = op.args[-1].concretetype
+                if isinstance(T, lltype.Ptr) and T.TO._gckind == 'gc':
+                    wants_a_barrier[op] = 'W'
+                else:
+                    # a write of a non-gc pointer doesn't need to check for
+                    # the GCFLAG_WRITEBARRIER
+                    wants_a_barrier[op] = 'V'
 
             elif (op.opname in ('ptr_eq', 'ptr_ne') and
                   op.args[0].concretetype.TO._gckind == 'gc'):
@@ -186,8 +192,6 @@ def insert_stm_barrier(stmtransformer, graph):
                     for v, cat in category.items():
                         if cat == 'W':
                             category[v] = 'V'
-                    # XXX the V2W barrier is only necessary when we're
-                    # writing pointers, not if we're writing ints
 
                 effectinfo = stmtransformer.write_analyzer.analyze(
                     op, graphinfo=graphinfo)

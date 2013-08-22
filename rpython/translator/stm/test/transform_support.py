@@ -93,7 +93,7 @@ class LLSTMFrame(LLFrame):
         else:
             # a barrier, calling a helper
             ptr2 = _stmptr(obj, to)
-            if to == 'W':
+            if to >= 'V':
                 self.llinterpreter.tester.writemode.add(ptr2._obj)
             self.llinterpreter.tester.barriers.append(kind)
             return ptr2
@@ -115,7 +115,11 @@ class LLSTMFrame(LLFrame):
 
     def op_setfield(self, obj, fieldname, fieldvalue):
         if obj._TYPE.TO._gckind == 'gc':
-            self.check_category(obj, 'W')
+            T = lltype.typeOf(fieldvalue)
+            if isinstance(T, lltype.Ptr) and T.TO._gckind == 'gc':
+                self.check_category(obj, 'W')
+            else:
+                self.check_category(obj, 'V')
             # convert R -> Q all other pointers to the same object we can find
             for p in self.all_stm_ptrs():
                 if p._category == 'R' and p._T == obj._T and p == obj:
