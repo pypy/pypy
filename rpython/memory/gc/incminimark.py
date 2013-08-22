@@ -130,13 +130,24 @@ GCFLAG_CARDS_SET    = first_gcflag << 7     # <- at least one card bit is set
 # by the incremental collection
 GCFLAG_GRAY = first_gcflag << 8
 
-# The following flag is just an alias for the gray flag. It
-# is only used by major collections, it is set on objects 
-# which are allocated during the sweeping and finalization states
-# it has different meaning outside of the sweeping state.
-# This flag should not be reset by any minor collection operation
-GCFLAG_NOSWEEP      = first_gcflag << 8
+# This flag allows sweeping to be incrementalised.
+# it is set when an object would be swept, but isnt
+# because this flag was not set. The point of this
+# flag is to make sure an object has survived through
+# at least one major collection so we are sure
+# it is unreachable. It is needed because a write
+# barrier has no way of knowing which objects are truly
+# unvisited, or they were simply already reset by
+# a sweep.
+GCFLAG_CANSWEEP      = first_gcflag << 9
 
+# Flag indicates object is old. It is needed by the
+# write barrier code so that we can track when a young
+# reference is written into a black object.
+# we must make a shadow and prevent such an object from being freed by
+# the next minor collection so that we dont get dead objects in
+# objects_to_trace during marking.
+GCFLAG_OLD      = first_gcflag << 10
 
 # States for the incremental GC
 
@@ -155,7 +166,7 @@ MASK_SWEEPING = (STATE_SWEEPING_RAWMALLOC | STATE_SWEEPING_ARENA)
 
 
 
-TID_MASK            = (first_gcflag << 9) - 1
+TID_MASK            = (first_gcflag << 11) - 1
 
 
 FORWARDSTUB = lltype.GcStruct('forwarding_stub',
@@ -1636,6 +1647,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 self._visit_young_rawmalloced_object(obj)
             return
         #
+        
+        # Do this after check we are old to avoid cache misses like
+        # In the comment above.
+        self.header(obj).tid |= GCFLAG_OLD
+        
         size_gc_header = self.gcheaderbuilder.size_gc_header
         if self.header(obj).tid & GCFLAG_HAS_SHADOW == 0:
             #
@@ -1708,7 +1724,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         hdr = self.header(obj)
         if hdr.tid & GCFLAG_VISITED:
             return
-        hdr.tid |= GCFLAG_VISITED
+        hdr.tid |= (GCFLAG_VISITED|GCFLAG_OLD)        
         #
         # we just made 'obj' old, so we need to add it to the correct lists
         added_somewhere = False
@@ -1931,6 +1947,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
 
     def free_rawmalloced_object_if_unvisited(self, obj):
         if self.header(obj).tid & GCFLAG_VISITED:
+            self.header(obj).tid |= GCFLAG_OLD
             self.header(obj).tid &= ~(GCFLAG_VISITED|GCFLAG_GRAY)   # survives
             self.old_rawmalloced_objects.append(obj)
         else:
