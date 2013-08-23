@@ -9,10 +9,7 @@ def negate(f):
         tmp = f(self, space, w_other)
         if tmp is space.w_NotImplemented:
             return space.w_NotImplemented
-        elif tmp is space.w_False:
-            return space.w_True
-        else:
-            return space.w_False
+        return space.newbool(tmp is space.w_False)
     _negator.func_name = 'negate-%s' % f.func_name
     return _negator
 

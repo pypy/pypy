@@ -308,13 +308,6 @@ class Primitive(object):
         return min(v1, v2)
 
     @simple_unary_op
-    def rint(self, v):
-        if isfinite(float(v)):
-            return rfloat.round_double(float(v), 0, half_even=True)
-        else:
-            return v
-
-    @simple_unary_op
     def ones_like(self, v):
         return 1
 
@@ -322,6 +315,10 @@ class Primitive(object):
     def zeros_like(self, v):
         return 0
 
+    @raw_unary_op
+    def rint(self, v):
+        float64 = Float64()
+        return float64.rint(float64.box(v))
 
 class NonNativePrimitive(Primitive):
     _mixin_ = True
@@ -1035,6 +1032,25 @@ class Float(Primitive):
             return v2 + self.npy_log2_1p(math.pow(2, tmp))
         else:
             return v1 + v2
+
+    @simple_unary_op
+    def rint(self, v):
+        x = float(v)
+        if isfinite(x):
+            import math
+            y = math.floor(x)
+            r = x - y
+
+            if r > 0.5:
+                y += 1.0
+
+            if r == 0.5:
+                r = y - 2.0 * math.floor(0.5 * y)
+                if r == 1.0:
+                    y += 1.0
+            return y
+        else:
+            return x
 
 class NonNativeFloat(NonNativePrimitive, Float):
     _mixin_ = True
