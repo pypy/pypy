@@ -218,11 +218,12 @@ void stm_steal_stub(gcptr P)
             dprintf(("already stolen: %p -> %p\n", P, L));
 
             /* note that we should follow h_revision at least one more
-               step: it is necessary if L is public but young (and then
-               has GCFLAG_MOVED), but it is fine to do it more
-               generally. */
-            v = ACCESS_ONCE(L->h_revision);
-            if (IS_POINTER(v)) {
+               step: in the case where L is public but young (and then
+               has GCFLAG_MOVED).  Don't do it generally!  L might be
+               a stub again. */
+            if (L->h_tid & GCFLAG_MOVED) {
+                v = ACCESS_ONCE(L->h_revision);
+                assert(IS_POINTER(v));
                 L = (gcptr)v;
                 dprintf(("\t---> %p\n", L));
             }
