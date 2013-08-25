@@ -566,49 +566,55 @@ class W_BytesObject(W_AbstractBytesObject):
         return space.wrap(StringBuffer(self._value))
 
     def descr_eq(self, space, w_other):
-        from pypy.objspace.std.strbufobject import W_StringBufferObject
-        if isinstance(w_other, W_StringBufferObject):
-            return space.newbool(self._value == w_other.force())
+        if space.config.objspace.std.withstrbuf:
+            from pypy.objspace.std.strbufobject import W_StringBufferObject
+            if isinstance(w_other, W_StringBufferObject):
+                return space.newbool(self._value == w_other.force())
         if not isinstance(w_other, W_BytesObject):
             return space.w_NotImplemented
         return space.newbool(self._value == w_other._value)
 
     def descr_ne(self, space, w_other):
-        from pypy.objspace.std.strbufobject import W_StringBufferObject
-        if isinstance(w_other, W_StringBufferObject):
-            return space.newbool(self._value != w_other.force())
+        if space.config.objspace.std.withstrbuf:
+            from pypy.objspace.std.strbufobject import W_StringBufferObject
+            if isinstance(w_other, W_StringBufferObject):
+                return space.newbool(self._value != w_other.force())
         if not isinstance(w_other, W_BytesObject):
             return space.w_NotImplemented
         return space.newbool(self._value != w_other._value)
 
     def descr_lt(self, space, w_other):
-        from pypy.objspace.std.strbufobject import W_StringBufferObject
-        if isinstance(w_other, W_StringBufferObject):
-            return space.newbool(self._value < w_other.force())
+        if space.config.objspace.std.withstrbuf:
+            from pypy.objspace.std.strbufobject import W_StringBufferObject
+            if isinstance(w_other, W_StringBufferObject):
+                return space.newbool(self._value < w_other.force())
         if not isinstance(w_other, W_BytesObject):
             return space.w_NotImplemented
         return space.newbool(self._value < w_other._value)
 
     def descr_le(self, space, w_other):
-        from pypy.objspace.std.strbufobject import W_StringBufferObject
-        if isinstance(w_other, W_StringBufferObject):
-            return space.newbool(self._value <= w_other.force())
+        if space.config.objspace.std.withstrbuf:
+            from pypy.objspace.std.strbufobject import W_StringBufferObject
+            if isinstance(w_other, W_StringBufferObject):
+                return space.newbool(self._value <= w_other.force())
         if not isinstance(w_other, W_BytesObject):
             return space.w_NotImplemented
         return space.newbool(self._value <= w_other._value)
 
     def descr_gt(self, space, w_other):
-        from pypy.objspace.std.strbufobject import W_StringBufferObject
-        if isinstance(w_other, W_StringBufferObject):
-            return space.newbool(self._value > w_other.force())
+        if space.config.objspace.std.withstrbuf:
+            from pypy.objspace.std.strbufobject import W_StringBufferObject
+            if isinstance(w_other, W_StringBufferObject):
+                return space.newbool(self._value > w_other.force())
         if not isinstance(w_other, W_BytesObject):
             return space.w_NotImplemented
         return space.newbool(self._value > w_other._value)
 
     def descr_ge(self, space, w_other):
-        from pypy.objspace.std.strbufobject import W_StringBufferObject
-        if isinstance(w_other, W_StringBufferObject):
-            return space.newbool(self._value >= w_other.force())
+        if space.config.objspace.std.withstrbuf:
+            from pypy.objspace.std.strbufobject import W_StringBufferObject
+            if isinstance(w_other, W_StringBufferObject):
+                return space.newbool(self._value >= w_other.force())
         if not isinstance(w_other, W_BytesObject):
             return space.w_NotImplemented
         return space.newbool(self._value >= w_other._value)
