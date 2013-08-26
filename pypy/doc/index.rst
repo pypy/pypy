@@ -31,7 +31,6 @@ User documentation
    cppyy
    objspace-proxies
    sandbox
-   clr-module
 
 
 Development documentation
