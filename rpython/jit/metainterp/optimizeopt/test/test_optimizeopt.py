@@ -3263,6 +3263,20 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
+    def test_fold_partially_constant_xor(self):
+        ops = """
+        [i0, i1]
+        i2 = int_xor(i0, 23)
+        i3 = int_xor(i1, 0)
+        jump(i2, i3)
+        """
+        expected = """
+        [i0, i1]
+        i2 = int_xor(i0, 23)
+        jump(i2, i1)
+        """
+        self.optimize_loop(ops, expected)
+
     # ----------
 
     def test_residual_call_does_not_invalidate_caches(self):
@@ -7083,6 +7097,19 @@ class OptimizeOptTest(BaseTestWithUnroll):
         guard_true(i2) [p0]
         setarrayitem_gc(p0, 2, p0, descr=arraydescr)
         jump(i0, i1)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_force_virtualizable_virtual(self):
+        ops = """
+        [i0]
+        p1 = new_with_vtable(ConstClass(node_vtable))
+        cond_call(1, 123, p1, descr=clear_vable)
+        jump(i0)
+        """
+        expected = """
+        [i0]
+        jump(i0)
         """
         self.optimize_loop(ops, expected)
 

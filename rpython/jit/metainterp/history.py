@@ -151,6 +151,8 @@ class AbstractDescr(AbstractValue):
         descr_ptr = cpu.ts.cast_to_baseclass(descr_gcref)
         return cast_base_ptr_to_instance(AbstractDescr, descr_ptr)
 
+    def get_vinfo(self):
+        raise NotImplementedError
 
 class AbstractFailDescr(AbstractDescr):
     index = -1

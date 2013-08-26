@@ -50,7 +50,7 @@ class TestLLType(object):
         opts = {'translation.list_comprehension_operations': True}
         t.config.set(**opts)
         t.buildannotator().build_types(func, sig)
-        t.buildrtyper(type_system=self.type_system).specialize()
+        t.buildrtyper().specialize()
         if option.view:
             t.view()
         backend_optimizations(t, **optflags)
@@ -267,7 +267,7 @@ class TestLLType(object):
 
         t = TranslationContext()
         t.buildannotator().build_types(main, [int])
-        t.buildrtyper(type_system='lltype').specialize()
+        t.buildrtyper().specialize()
         exctransformer = t.getexceptiontransformer()
         exctransformer.create_exception_handling(graphof(t, common))
         from rpython.annotator import model as annmodel

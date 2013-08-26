@@ -270,6 +270,8 @@ class MockHTTPResponse:
         self.reason = reason
     def read(self):
         return ''
+    def _reuse(self): pass
+    def _drop(self): pass
 
 class MockHTTPClass:
     def __init__(self):

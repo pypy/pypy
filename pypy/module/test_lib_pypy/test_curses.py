@@ -1,6 +1,15 @@
+import pytest
+
+# Check that lib_pypy.cffi finds the correct version of _cffi_backend.
+# Otherwise, the test is skipped.  It should never be skipped when run
+# with "pypy py.test -A".
+try:
+    from lib_pypy import cffi; cffi.FFI()
+except (ImportError, AssertionError), e:
+    pytest.skip("no cffi module or wrong version (%s)" % (e,))
+
 from lib_pypy import _curses
 
-import pytest
 
 lib = _curses.lib
 
