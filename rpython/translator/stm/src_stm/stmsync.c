@@ -84,6 +84,13 @@ int stm_enter_callback_call(void)
     dprintf(("enter_callback_call(tok=%d)\n", token));
     if (token == 1) {
         stmgcpage_acquire_global_lock();
+#ifdef STM_BARRIER_COUNT
+        static int seen = 0;
+        if (!seen) {
+            seen = 1;
+            atexit(&stm_print_barrier_count);
+        }
+#endif
         DescriptorInit();
         stmgc_init_nursery();
         init_shadowstack();
@@ -129,12 +136,11 @@ void stm_perform_transaction(gcptr arg, int (*callback)(gcptr, int))
     jmp_buf _jmpbuf;
     long volatile v_counter = 0;
     gcptr *volatile v_saved_value = stm_shadowstack;
-    long volatile v_atomic;
 
     stm_push_root(arg);
     stm_push_root(END_MARKER_OFF);
 
-    if (!(v_atomic = thread_descriptor->atomic))
+    if (!thread_descriptor->atomic)
         CommitTransaction();
 
 #ifdef _GC_ON_CPYTHON
@@ -153,7 +159,6 @@ void stm_perform_transaction(gcptr arg, int (*callback)(gcptr, int))
     struct tx_descriptor *d = thread_descriptor;
     long counter, result;
     counter = v_counter;
-    d->atomic = v_atomic;
     stm_shadowstack = v_saved_value + 2;   /*skip the two values pushed above*/
 
     do {
@@ -178,6 +183,7 @@ void stm_perform_transaction(gcptr arg, int (*callback)(gcptr, int))
             /* atomic transaction: a common case is that callback() returned
                even though we are atomic because we need a major GC.  For
                that case, release and reaquire the rw lock here. */
+            assert(d->active >= 1);
             stm_possible_safe_point();
         }
 
@@ -186,7 +192,6 @@ void stm_perform_transaction(gcptr arg, int (*callback)(gcptr, int))
         result = callback(arg, counter);
         assert(stm_shadowstack == v_saved_value + 2);
 
-        v_atomic = d->atomic;
         if (!d->atomic)
             CommitTransaction();
 

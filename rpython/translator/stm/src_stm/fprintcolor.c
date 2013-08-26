@@ -58,3 +58,25 @@ int threadcolor_printf(const char *format, ...)
 }
 
 #endif
+
+
+#ifdef STM_BARRIER_COUNT
+long stm_barriercount[STM_BARRIER_NUMBERS];
+
+void stm_print_barrier_count(void)
+{
+    static char names[] = STM_BARRIER_NAMES;
+    char *p = names;
+    char *q;
+    int i;
+    fprintf(stderr, "** Summary of the barrier calls **\n");
+    for (i = 0; i < STM_BARRIER_NUMBERS; i += 2) {
+        q = strchr(p, '\n');
+        *q = '\0';
+        fprintf(stderr, "%12ld  %s\n", stm_barriercount[i], p);
+        *q = '\n';
+        fprintf(stderr, "%12ld  \\ fast path\n", stm_barriercount[i + 1]);
+        p = q + 1;
+    }
+}
+#endif

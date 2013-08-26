@@ -94,6 +94,10 @@ void stm_leave_callback_call(int);
    - stm_repeat_write_barrier() can be used on an object on which
      we already did stm_write_barrier(), but a potential collection
      can have occurred.
+
+   - stm_write_barrier_noptr() is a slightly cheaper version of
+     stm_write_barrier(), for when we are going to write
+     non-gc-pointers into the object.
 */
 #if 0     // (optimized version below)
 gcptr stm_read_barrier(gcptr);
@@ -101,6 +105,7 @@ gcptr stm_write_barrier(gcptr);
 gcptr stm_repeat_read_barrier(gcptr);
 gcptr stm_immut_read_barrier(gcptr);
 gcptr stm_repeat_write_barrier(gcptr);   /* <= always returns its argument */
+gcptr stm_write_barrier_noptr(gcptr);
 #endif
 
 /* start a new transaction, calls callback(), and when it returns
@@ -203,33 +208,52 @@ extern __thread char *stm_read_barrier_cache;
 
 #define UNLIKELY(test)  __builtin_expect(test, 0)
 
+#ifdef STM_BARRIER_COUNT
+# define STM_BARRIER_NUMBERS  12
+# define STM_BARRIER_NAMES "stm_read_barrier\n"         \
+                           "stm_write_barrier\n"        \
+                           "stm_repeat_read_barrier\n"  \
+                           "stm_immut_read_barrier\n"   \
+                           "stm_repeat_write_barrier\n" \
+                           "stm_write_barrier_noptr\n"
+# define STM_COUNT(id, x)  (stm_barriercount[id]++, x)
+extern long stm_barriercount[STM_BARRIER_NUMBERS];
+#else
+# define STM_COUNT(id, x)  (x)
+#endif
+
 #define stm_read_barrier(obj)                                   \
     (UNLIKELY(((obj)->h_revision != stm_private_rev_num) &&     \
               (FXCACHE_AT(obj) != (obj))) ?                     \
-        stm_DirectReadBarrier(obj)                              \
-     :  (obj))
+        STM_COUNT(0, stm_DirectReadBarrier(obj))                \
+     :  STM_COUNT(1, obj))
 
 #define stm_write_barrier(obj)                                  \
     (UNLIKELY(((obj)->h_revision != stm_private_rev_num) ||     \
               (((obj)->h_tid & GCFLAG_WRITE_BARRIER) != 0)) ?   \
-        stm_WriteBarrier(obj)                                   \
-     :  (obj))
+        STM_COUNT(2, stm_WriteBarrier(obj))                     \
+     :  STM_COUNT(3, obj))
 
 #define stm_repeat_read_barrier(obj)                            \
     (UNLIKELY(((obj)->h_tid & (GCFLAG_PUBLIC_TO_PRIVATE |       \
                                GCFLAG_MOVED)) != 0) ?           \
-        stm_RepeatReadBarrier(obj)                              \
-     :  (obj))
+        STM_COUNT(4, stm_RepeatReadBarrier(obj))                \
+     :  STM_COUNT(5, obj))
 
 #define stm_immut_read_barrier(obj)                             \
     (UNLIKELY(((obj)->h_tid & GCFLAG_STUB) != 0) ?              \
-        stm_ImmutReadBarrier(obj)                               \
-     :  (obj))
+        STM_COUNT(6, stm_ImmutReadBarrier(obj))                 \
+     :  STM_COUNT(7, obj))
 
 #define stm_repeat_write_barrier(obj)                           \
     (UNLIKELY(((obj)->h_tid & GCFLAG_WRITE_BARRIER) != 0) ?     \
-        stm_RepeatWriteBarrier(obj)                             \
-     :  (obj))
+        STM_COUNT(8, stm_RepeatWriteBarrier(obj))               \
+     :  STM_COUNT(9, obj))
+
+#define stm_write_barrier_noptr(obj)                            \
+    (UNLIKELY((obj)->h_revision != stm_private_rev_num) ?       \
+        STM_COUNT(10, stm_WriteBarrier(obj))                    \
+     :  STM_COUNT(11, obj))
 
 
 #endif

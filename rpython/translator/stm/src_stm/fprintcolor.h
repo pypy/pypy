@@ -21,3 +21,8 @@ int threadcolor_printf(const char *format, ...)
 #define dprintfcolor()  0
 
 #endif
+
+
+#ifdef STM_BARRIER_COUNT
+void stm_print_barrier_count(void);
+#endif

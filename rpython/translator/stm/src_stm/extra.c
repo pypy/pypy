@@ -301,15 +301,16 @@ size_t stm_decode_abort_info(struct tx_descriptor *d, long long elapsed_time,
             case 3:    /* a string of bytes from the target object */
                 rps = *(char **)(object + offset);
                 offset = *fieldoffsets++;
-                if (rps) {
+                /* XXX think of a different hack: this one doesn't really
+                   work if we see stubs! */
+                if (rps && !(((gcptr)rps)->h_tid & GCFLAG_STUB)) {
                     /* xxx a bit ad-hoc: it's a string whose length is a
                      * long at 'offset', following immediately the offset */
                     rps_size = *(long *)(rps + offset);
-                    offset += sizeof(long);
                     assert(rps_size >= 0);
                     res_size = sprintf(buffer, "%zu:", rps_size);
                     WRITE_BUF(buffer, res_size);
-                    WRITE_BUF(rps + offset, rps_size);
+                    WRITE_BUF(rps + offset + sizeof(long), rps_size);
                 }
                 else {
                     WRITE_BUF("0:", 2);
