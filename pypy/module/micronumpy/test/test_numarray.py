@@ -1922,6 +1922,12 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = numpy.arange(10.).reshape((5, 2))[::2]
         assert (loads(dumps(a)) == a).all()
 
+    def test_string_filling(self):
+        import numpypy as numpy
+        a = numpy.empty((10,10), dtype='c1')
+        a.fill(12)
+        assert (a == '1').all()
+
 class AppTestMultiDim(BaseNumpyAppTest):
     def test_init(self):
         import numpypy
