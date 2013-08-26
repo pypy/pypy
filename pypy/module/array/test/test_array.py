@@ -919,6 +919,14 @@ class BaseArrayTests:
             raises(TypeError, a.__setitem__, Silly())
             raises(TypeError, a.__setitem__, OldSilly())
             
+        a = array('c', 'hi')
+        a[0] = 'b'
+        assert a[0] == 'b'
+            
+        a = array('u', u'hi')
+        a[0] = u'b'
+        assert a[0] == u'b'
+        
     def test_bytearray(self):
         a = self.array('u', 'hi')
         b = self.array('u')

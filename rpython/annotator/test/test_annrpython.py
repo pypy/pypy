@@ -2539,6 +2539,27 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [])
         assert s.const == 2
 
+    def test_import_from_mixin(self):
+        class M(object):
+            def f(self):
+                return self.a
+        class I(object):
+            objectmodel.import_from_mixin(M)
+            def __init__(self, i):
+                self.a = i
+        class S(object):
+            objectmodel.import_from_mixin(M)
+            def __init__(self, s):
+                self.a = s
+        def f(n):
+            return (I(n).f(), S("a" * n).f())
+
+        assert f(3) == (3, "aaa")
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int])
+        assert isinstance(s.items[0], annmodel.SomeInteger)
+        assert isinstance(s.items[1], annmodel.SomeString)
+
     def test___class___attribute(self):
         class Base(object): pass
         class A(Base): pass

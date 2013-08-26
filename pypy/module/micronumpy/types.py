@@ -308,13 +308,6 @@ class Primitive(object):
         return min(v1, v2)
 
     @simple_unary_op
-    def rint(self, v):
-        if isfinite(v):
-            return rfloat.round_double(v, 0, half_even=True)
-        else:
-            return v
-
-    @simple_unary_op
     def ones_like(self, v):
         return 1
 
@@ -322,6 +315,10 @@ class Primitive(object):
     def zeros_like(self, v):
         return 0
 
+    @raw_unary_op
+    def rint(self, v):
+        float64 = Float64()
+        return float64.rint(float64.box(v))
 
 class NonNativePrimitive(Primitive):
     _mixin_ = True
@@ -1036,6 +1033,25 @@ class Float(Primitive):
         else:
             return v1 + v2
 
+    @simple_unary_op
+    def rint(self, v):
+        x = float(v)
+        if isfinite(x):
+            import math
+            y = math.floor(x)
+            r = x - y
+
+            if r > 0.5:
+                y += 1.0
+
+            if r == 0.5:
+                r = y - 2.0 * math.floor(0.5 * y)
+                if r == 1.0:
+                    y += 1.0
+            return y
+        else:
+            return x
+
 class NonNativeFloat(NonNativePrimitive, Float):
     _mixin_ = True
 
@@ -1748,12 +1764,16 @@ class StringType(BaseType, BaseStringType):
             arr.storage[i] = arg[i]
         return interp_boxes.W_StringBox(arr,  0, arr.dtype)
 
-    @jit.unroll_safe
     def store(self, arr, i, offset, box):
         assert isinstance(box, interp_boxes.W_StringBox)
         # XXX simplify to range(box.dtype.get_size()) ?
+        return self._store(arr.storage, i, offset, box)
+
+    @jit.unroll_safe
+    def _store(self, storage, i, offset, box):
+        assert isinstance(box, interp_boxes.W_StringBox)
         for k in range(min(self.size, box.arr.size-offset)):
-            arr.storage[k + i] = box.arr.storage[k + offset]
+            storage[k + i] = box.arr.storage[k + offset]
 
     def read(self, arr, i, offset, dtype=None):
         if dtype is None:
@@ -1842,6 +1862,11 @@ class StringType(BaseType, BaseStringType):
         for j in range(i + 1, self.size):
             arr.storage[j] = '\x00'
         return interp_boxes.W_StringBox(arr,  0, arr.dtype)
+
+    def fill(self, storage, width, box, start, stop, offset):
+        from pypy.module.micronumpy.arrayimpl.concrete import ConcreteArrayNotOwning
+        for i in xrange(start, stop, width):
+            self._store(storage, i, offset, box)
 
 NonNativeStringType = StringType
 

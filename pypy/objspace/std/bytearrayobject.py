@@ -4,7 +4,6 @@ from pypy.interpreter.buffer import RWBuffer
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.objspace.std import stringobject
 from pypy.objspace.std.bytearraytype import new_bytearray
-from pypy.objspace.std.inttype import wrapint
 from pypy.objspace.std.longobject import W_LongObject
 from pypy.objspace.std.model import W_Object, registerimplementation
 from pypy.objspace.std.multimethod import FailedToImplement
@@ -31,7 +30,7 @@ registerimplementation(W_BytearrayObject)
 
 def len__Bytearray(space, w_bytearray):
     result = len(w_bytearray.data)
-    return wrapint(space, result)
+    return space.newint(result)
 
 def ord__Bytearray(space, w_bytearray):
     if len(w_bytearray.data) != 1:

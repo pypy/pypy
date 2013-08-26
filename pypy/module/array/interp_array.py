@@ -10,7 +10,7 @@ from rpython.rlib.rarithmetic import ovfcheck, widen
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rtyper.lltypesystem import lltype, rffi
-
+from pypy.objspace.std.floatobject import W_FloatObject
 
 @unwrap_spec(typecode=str)
 def w_array(space, w_cls, typecode, __args__):
@@ -571,7 +571,7 @@ W_ArrayBase.typedef = TypeDef(
 
 
 class TypeCode(object):
-    def __init__(self, itemtype, unwrap, canoverflow=False, signed=False):
+    def __init__(self, itemtype, unwrap, canoverflow=False, signed=False, method='__int__'):
         self.itemtype = itemtype
         self.bytes = rffi.sizeof(itemtype)
         self.arraytype = lltype.Array(itemtype, hints={'nolength': True})
@@ -579,6 +579,7 @@ class TypeCode(object):
         self.signed = signed
         self.canoverflow = canoverflow
         self.w_class = None
+        self.method = method
 
         if self.canoverflow:
             assert self.bytes <= rffi.sizeof(rffi.ULONG)
@@ -597,7 +598,7 @@ class TypeCode(object):
 
 
 types = {
-    'u': TypeCode(lltype.UniChar,     'unicode_w'),
+    'u': TypeCode(lltype.UniChar,     'unicode_w', method=''),
     'b': TypeCode(rffi.SIGNEDCHAR,    'int_w', True, True),
     'B': TypeCode(rffi.UCHAR,         'int_w', True),
     'h': TypeCode(rffi.SHORT,         'int_w', True, True),
@@ -609,8 +610,8 @@ types = {
                                                     # rbigint.touint() which
                                                     # corresponds to the
                                                     # C-type unsigned long
-    'f': TypeCode(lltype.SingleFloat, 'float_w'),
-    'd': TypeCode(lltype.Float,       'float_w'),
+    'f': TypeCode(lltype.SingleFloat, 'float_w', method='__float__'),
+    'd': TypeCode(lltype.Float,       'float_w', method='__float__'),
     }
 for k, v in types.items():
     v.typecode = k
@@ -674,7 +675,19 @@ def make_array(mytype):
         def item_w(self, w_item):
             space = self.space
             unwrap = getattr(space, mytype.unwrap)
-            item = unwrap(w_item)
+            try:
+                item = unwrap(w_item)
+            except OperationError, e:
+                if isinstance(w_item, W_FloatObject): # Odd special case from cpython
+                    raise
+                if mytype.method != '' and e.match(space, space.w_TypeError):
+                    try:
+                        item = unwrap(space.call_method(w_item, mytype.method))
+                    except OperationError:
+                        msg = 'array item must be ' + mytype.unwrap[:-2]
+                        raise OperationError(space.w_TypeError, space.wrap(msg))                        
+                else:
+                    raise
             if mytype.unwrap == 'bigint_w':
                 try:
                     item = item.touint()

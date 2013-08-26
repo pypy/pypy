@@ -571,7 +571,8 @@ class AssemblerARM(ResOpAssembler):
             self.mc.BL(self.stack_check_slowpath, c=c.HI)      # call if ip > lr
 
     # cpu interface
-    def assemble_loop(self, loopname, inputargs, operations, looptoken, log):
+    def assemble_loop(self, logger, loopname, inputargs, operations, looptoken,
+                      log):
         clt = CompiledLoopToken(self.cpu, looptoken.number)
         looptoken.compiled_loop_token = clt
         clt._debug_nbargs = len(inputargs)
@@ -620,6 +621,9 @@ class AssemblerARM(ResOpAssembler):
                     'loop.asm')
 
         ops_offset = self.mc.ops_offset
+        if logger is not None:
+            logger.log_loop(inputargs, operations, 0, "rewritten",
+                            name=loopname, ops_offset=ops_offset)
         self.teardown()
 
         debug_start("jit-backend-addr")
@@ -644,8 +648,8 @@ class AssemblerARM(ResOpAssembler):
             frame_depth = max(frame_depth, target_frame_depth)
         return frame_depth
 
-    def assemble_bridge(self, faildescr, inputargs, operations,
-                                                    original_loop_token, log):
+    def assemble_bridge(self, logger, faildescr, inputargs, operations,
+                        original_loop_token, log):
         if not we_are_translated():
             # Arguments should be unique
             assert len(set(inputargs)) == len(inputargs)
@@ -694,6 +698,9 @@ class AssemblerARM(ResOpAssembler):
                           frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE)
         self.fixup_target_tokens(rawstart)
         self.update_frame_depth(frame_depth)
+        if logger:
+            logger.log_bridge(inputargs, operations, "rewritten",
+                              ops_offset=ops_offset)
         self.teardown()
 
         debug_bridge(descr_number, rawstart, codeendpos)

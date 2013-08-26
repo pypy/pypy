@@ -126,6 +126,7 @@ def install_is_true(space, mm_nonzero, mm_len):
                 w_obj = w_res
 
         # general case fallback
-        return DescrOperation.is_true(space, w_obj)
+        return _DescrOperation_is_true(space, w_obj)
 
+    _DescrOperation_is_true = DescrOperation.is_true.im_func
     space.is_true = is_true
