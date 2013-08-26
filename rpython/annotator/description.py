@@ -148,7 +148,7 @@ class Desc(object):
     def mergecallfamilies(self, *others):
         """Merge the call families of the given Descs into one."""
         if not others:
-            return
+            return False
         call_families = self.bookkeeper.pbc_maximal_call_families
         changed, rep, callfamily = call_families.find(self.rowkey())
         for desc in others:
