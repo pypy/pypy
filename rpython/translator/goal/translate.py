@@ -19,7 +19,7 @@ except Exception:
 from rpython.config.config import (to_optparse, OptionDescription, BoolOption,
     ArbitraryOption, StrOption, IntOption, Config, ChoiceOption, OptHelpFormatter)
 from rpython.config.translationoption import (get_combined_translation_config,
-    set_opt_level, final_check_config, OPT_LEVELS, DEFAULT_OPT_LEVEL, set_platform)
+    set_opt_level, OPT_LEVELS, DEFAULT_OPT_LEVEL, set_platform)
 
 
 GOALS = [
@@ -180,9 +180,6 @@ def parse_options_and_load_target():
     if 'handle_config' in targetspec_dic:
         targetspec_dic['handle_config'](config, translateconfig)
 
-    # perform checks (if any) on the final config
-    final_check_config(config)
-
     return targetspec_dic, translateconfig, config, args
 
 def show_help(translateconfig, opt_parser, targetspec_dic, config):
@@ -287,8 +284,6 @@ def main():
                                                        default_goal='compile')
         log_config(translateconfig, "translate.py configuration")
         if config.translation.jit:
-            if 'jitpolicy' not in targetspec_dic:
-                raise Exception('target has no jitpolicy defined.')
             if (translateconfig.goals != ['annotate'] and
                 translateconfig.goals != ['rtype']):
                 drv.set_extra_goals(['pyjitpl'])

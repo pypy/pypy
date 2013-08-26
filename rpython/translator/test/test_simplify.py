@@ -164,7 +164,7 @@ def test_get_graph():
         return l[j]
     def external_function():
         return os.system("ls")
-    graph, t = translate(list_basic_ops, [int, int], False) 
+    graph, t = translate(list_basic_ops, [int, int], False)
     for block in graph.iterblocks():
         for op in block.operations:
             if op.opname == "direct_call":
@@ -175,7 +175,7 @@ def test_get_graph():
     # a call to a wrapper function which itself contains the
     # real call to a graph-less external ll function, so
     # we check recursively
-    graph, t = translate(external_function, [], False) 
+    graph, t = translate(external_function, [], False)
     found = []
     def walkgraph(graph):
         for block in graph.iterblocks():
@@ -196,7 +196,7 @@ def addone(x):
 def test_huge_func():
     g = None
     gstring = "def g(x):\n%s%s" % ("    x = x + 1\n" * 1000, "    return x\n")
-    exec gstring 
+    exec gstring
     assert g(1) == 1001
     # does not crash: previously join_blocks would barf on this
     graph, t = translate(g, [int])
@@ -308,7 +308,7 @@ class TestDetectListComprehension:
     def test_iterate_over_list(self):
         def wrap(elem):
             return elem
-        
+
         def f(i):
             new_l = []
             l = range(4)
@@ -324,7 +324,7 @@ class TestDetectListComprehension:
             'getattr': 1,
             'simple_call': 3,
             })
-            
+
 
 class TestLLSpecializeListComprehension:
     typesystem = 'lltype'
@@ -335,7 +335,7 @@ class TestLLSpecializeListComprehension:
         t.buildannotator().build_types(func, argtypes)
         if option.view:
             t.view()
-        t.buildrtyper(self.typesystem).specialize()
+        t.buildrtyper().specialize()
         backend_optimizations(t)
         if option.view:
             t.view()
@@ -442,7 +442,3 @@ class TestLLSpecializeListComprehension:
         interp, graph = self.specialize(main, [int])
         res = interp.eval_graph(graph, [10])
         assert res == 5 * 17
-
-
-class TestOOSpecializeListComprehension(TestLLSpecializeListComprehension):
-   typesystem = 'ootype'

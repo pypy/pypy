@@ -874,6 +874,77 @@ class BaseArrayTests:
         assert l
         assert l[0] is None or len(l[0]) == 0
 
+    def test_assign_object_with_special_methods(self):
+        from array import array
+        
+        class Num(object):
+            def __float__(self):
+                return 5.25
+                
+            def __int__(self):
+                return 7
+                
+        class NotNum(object):
+            pass
+        
+        class Silly(object):
+            def __float__(self):
+                return None
+                
+            def __int__(self):
+                return None         
+
+        class OldNum:
+            def __float__(self):
+                return 6.25
+                
+            def __int__(self):
+                return 8
+                
+        class OldNotNum:
+            pass
+        
+        class OldSilly:
+            def __float__(self):
+                return None
+                
+            def __int__(self):
+                return None
+                
+        for tc in 'bBhHiIlL':
+            a = array(tc, [0])
+            raises(TypeError, a.__setitem__, 0, 1.0)
+            a[0] = 1
+            a[0] = Num()
+            assert a[0] == 7
+            raises(TypeError, a.__setitem__, NotNum())
+            a[0] = OldNum()
+            assert a[0] == 8
+            raises(TypeError, a.__setitem__, OldNotNum())
+            raises(TypeError, a.__setitem__, Silly())
+            raises(TypeError, a.__setitem__, OldSilly())
+
+        for tc in 'fd':
+            a = array(tc, [0])
+            a[0] = 1.0
+            a[0] = 1
+            a[0] = Num()        
+            assert a[0] == 5.25
+            raises(TypeError, a.__setitem__, NotNum())
+            a[0] = OldNum()
+            assert a[0] == 6.25
+            raises(TypeError, a.__setitem__, OldNotNum())
+            raises(TypeError, a.__setitem__, Silly())
+            raises(TypeError, a.__setitem__, OldSilly())
+            
+        a = array('c', 'hi')
+        a[0] = 'b'
+        assert a[0] == 'b'
+            
+        a = array('u', u'hi')
+        a[0] = u'b'
+        assert a[0] == u'b'
+        
 
 class TestCPythonsOwnArray(BaseArrayTests):
 

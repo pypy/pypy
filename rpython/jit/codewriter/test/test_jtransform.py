@@ -35,7 +35,7 @@ class FakeRTyper:
 class FakeCPU:
     class tracker:
         pass
-    
+
     rtyper = FakeRTyper()
     def calldescrof(self, FUNC, ARGS, RESULT):
         return ('calldescr', FUNC, ARGS, RESULT)
@@ -60,7 +60,7 @@ class FakeLink:
 class FakeResidualCallControl:
     def guess_call_kind(self, op):
         return 'residual'
-    def getcalldescr(self, op):
+    def getcalldescr(self, op, **kwds):
         return 'calldescr'
     def calldescr_canraise(self, calldescr):
         return True
@@ -77,7 +77,7 @@ class FakeRegularCallControl:
 class FakeResidualIndirectCallControl:
     def guess_call_kind(self, op):
         return 'residual'
-    def getcalldescr(self, op):
+    def getcalldescr(self, op, **kwds):
         return 'calldescr'
     def calldescr_canraise(self, calldescr):
         return True
@@ -87,7 +87,7 @@ class FakeRegularIndirectCallControl:
         return 'regular'
     def graphs_from(self, op):
         return ['somegraph1', 'somegraph2']
-    def getcalldescr(self, op):
+    def getcalldescr(self, op, **kwds):
         return 'calldescr'
     def get_jitcode(self, graph, called_from=None):
         assert graph in ('somegraph1', 'somegraph2')

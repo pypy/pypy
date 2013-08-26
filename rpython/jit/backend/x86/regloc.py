@@ -45,7 +45,7 @@ class AssemblerLocation(object):
     def is_stack(self):
         return False
 
-    def is_reg(self):
+    def is_core_reg(self):
         return False
 
     def get_position(self):
@@ -89,8 +89,8 @@ class RawEspLoc(AssemblerLocation):
     _location_code = 's'
 
     def __init__(self, value, type):
-        assert value >= 0
-        self.value = value
+        assert value >= 0     # accessing values < 0 is forbidden on x86-32.
+        self.value = value    # (on x86-64 we could allow values down to -128)
         self.type = type
 
     def _getregkey(self):
@@ -169,7 +169,7 @@ class RegLoc(AssemblerLocation):
     def is_float(self):
         return self.is_xmm
 
-    def is_reg(self):
+    def is_core_reg(self):
         return True
 
 class ImmediateAssemblerLocation(AssemblerLocation):
@@ -370,8 +370,8 @@ _missing_binary_insn._dont_inline_ = True
 class LocationCodeBuilder(object):
     _mixin_ = True
 
-    _reuse_scratch_register = False
-    _scratch_register_known = False
+    _reuse_scratch_register = False   # for now, this is always False
+    _scratch_register_known = False   # for now, this is always False
     _scratch_register_value = 0
 
     def _binaryop(name):
@@ -576,6 +576,7 @@ class LocationCodeBuilder(object):
         self.MOV_ri(X86_64_SCRATCH_REG.value, value)
 
     def begin_reuse_scratch_register(self):
+        # --NEVER CALLED (only from a specific test)--
         # Flag the beginning of a block where it is okay to reuse the value
         # of the scratch register. In theory we shouldn't have to do this if
         # we were careful to mark all possible targets of a jump or call, and

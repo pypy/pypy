@@ -44,4 +44,9 @@ Glossary
       It is the :ref:`subsystem implementing the Python language <python-interpreter>`, composed
       of the bytecode interpreter and of the standard objectspace.
 
+    prebuilt constant
+       In :term:`RPython` module globals are considered constants.  Moreover,
+       global (i.e. prebuilt) lists and dictionaries are supposed to be
+       immutable ("prebuilt constant" is sometimes abbreviated to "pbc").
+
 .. _PSF: http://www.python.org/psf/

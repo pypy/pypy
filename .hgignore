@@ -6,6 +6,7 @@ syntax: glob
 .idea
 .project
 .pydevproject
+__pycache__
 
 syntax: regexp
 ^testresult$

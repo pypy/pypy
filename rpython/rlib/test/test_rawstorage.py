@@ -1,8 +1,8 @@
 
-from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.rawstorage import alloc_raw_storage, free_raw_storage,\
      raw_storage_setitem, raw_storage_getitem
-from rpython.rtyper.test.tool import BaseRtypingTest, LLRtypeMixin
+from rpython.rtyper.test.tool import BaseRtypingTest
 
 def test_untranslated_storage():
     r = alloc_raw_storage(15)
@@ -11,7 +11,7 @@ def test_untranslated_storage():
     free_raw_storage(r)
     assert res == 1<<30
 
-class TestRawStorage(BaseRtypingTest, LLRtypeMixin):
+class TestRawStorage(BaseRtypingTest):
     def test_storage_int(self):
         def f(i):
             r = alloc_raw_storage(24)

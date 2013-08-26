@@ -1,10 +1,10 @@
+from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp import history
 from rpython.jit.metainterp.typesystem import deref, fieldType, arrayItem
 from rpython.jit.metainterp.warmstate import wrap, unwrap
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rtyper import rvirtualizable2
+from rpython.rtyper import rvirtualizable
 from rpython.rtyper.lltypesystem import lltype, llmemory
-from rpython.rtyper.ootypesystem import ootype
 from rpython.rtyper.rclass import IR_IMMUTABLE_ARRAY, IR_IMMUTABLE
 
 
@@ -14,19 +14,22 @@ class VirtualizableInfo(object):
     def __init__(self, warmrunnerdesc, VTYPEPTR):
         self.warmrunnerdesc = warmrunnerdesc
         cpu = warmrunnerdesc.cpu
-        if cpu.ts.name == 'ootype':
-            import py
-            py.test.skip("ootype: fix virtualizables")
         self.cpu = cpu
         self.BoxArray = cpu.ts.BoxRef
         #
-        while 'virtualizable2_accessor' not in deref(VTYPEPTR)._hints:
+        VTYPEPTR1 = VTYPEPTR
+        while 'virtualizable_accessor' not in deref(VTYPEPTR)._hints:
             VTYPEPTR = cpu.ts.get_superclass(VTYPEPTR)
+            assert VTYPEPTR is not None, (
+                "%r is listed in the jit driver's 'virtualizables', "
+                "but that class doesn't have a '_virtualizable_' attribute "
+                "(if it has _virtualizable2_, rename it to _virtualizable_)"
+                % (VTYPEPTR1,))
         self.VTYPEPTR = VTYPEPTR
         self.VTYPE = VTYPE = deref(VTYPEPTR)
         self.vable_token_descr = cpu.fielddescrof(VTYPE, 'vable_token')
         #
-        accessor = VTYPE._hints['virtualizable2_accessor']
+        accessor = VTYPE._hints['virtualizable_accessor']
         all_fields = accessor.fields
         static_fields = []
         array_fields = []
@@ -45,8 +48,8 @@ class VirtualizableInfo(object):
         for name in array_fields:
             ARRAYPTR = fieldType(VTYPE, name)
             ARRAY = deref(ARRAYPTR)
-            assert isinstance(ARRAYPTR, (lltype.Ptr, ootype.Array))
-            assert isinstance(ARRAY, (lltype.GcArray, ootype.Array))
+            assert isinstance(ARRAYPTR, lltype.Ptr)
+            assert isinstance(ARRAY, lltype.GcArray)
             ARRAYITEMTYPES.append(arrayItem(ARRAY))
         self.array_descrs = [cpu.arraydescrof(deref(fieldType(VTYPE, name)))
                              for name in array_fields]
@@ -65,6 +68,12 @@ class VirtualizableInfo(object):
                                     for name in static_fields]
         self.array_field_descrs = [cpu.fielddescrof(VTYPE, name)
                                    for name in array_fields]
+
+        for descr in self.static_field_descrs:
+            descr.vinfo = self
+        for descr in self.array_field_descrs:
+            descr.vinfo = self
+
         self.static_field_by_descrs = dict(
             [(descr, i) for (i, descr) in enumerate(self.static_field_descrs)])
         self.array_field_by_descrs = dict(
@@ -213,10 +222,6 @@ class VirtualizableInfo(object):
             return lltype.cast_opaque_ptr(VTYPEPTR, virtualizable)
         self.cast_gcref_to_vtype = cast_gcref_to_vtype
 
-        def reset_vable_token(virtualizable):
-            virtualizable.vable_token = TOKEN_NONE
-        self.reset_vable_token = reset_vable_token
-
         def clear_vable_token(virtualizable):
             virtualizable = cast_gcref_to_vtype(virtualizable)
             if virtualizable.vable_token:
@@ -272,6 +277,10 @@ class VirtualizableInfo(object):
             virtualizable.vable_token = TOKEN_NONE
         self.reset_token_gcref = reset_token_gcref
 
+        def reset_vable_token(virtualizable):
+            virtualizable.vable_token = TOKEN_NONE
+        self.reset_vable_token = reset_vable_token
+
     def _freeze_(self):
         return True
 
@@ -287,14 +296,24 @@ class VirtualizableInfo(object):
         (_, FUNCPTR) = ts.get_FuncType([self.VTYPEPTR], lltype.Void)
         funcptr = self.warmrunnerdesc.helper_func(
             FUNCPTR, force_virtualizable_if_necessary)
-        rvirtualizable2.replace_force_virtualizable_with_call(
+        rvirtualizable.replace_force_virtualizable_with_call(
             all_graphs, self.VTYPEPTR, funcptr)
+        (_, FUNCPTR) = ts.get_FuncType([llmemory.GCREF], lltype.Void)
+        self.clear_vable_ptr = self.warmrunnerdesc.helper_func(
+            FUNCPTR, self.clear_vable_token)
+        FUNC = FUNCPTR.TO
+        ei = EffectInfo([], [], [], [], EffectInfo.EF_CANNOT_RAISE,
+                        can_invalidate=False,
+                        oopspecindex=EffectInfo.OS_JIT_FORCE_VIRTUALIZABLE)
+
+        self.clear_vable_descr = self.cpu.calldescrof(FUNC, FUNC.ARGS,
+                                                      FUNC.RESULT, ei)
 
     def unwrap_virtualizable_box(self, virtualizable_box):
         return virtualizable_box.getref(llmemory.GCREF)
 
     def is_vtypeptr(self, TYPE):
-        return rvirtualizable2.match_virtualizable_type(TYPE, self.VTYPEPTR)
+        return TYPE == self.VTYPEPTR
 
 # ____________________________________________________________
 #

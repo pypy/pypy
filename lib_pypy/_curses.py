@@ -476,6 +476,15 @@ def _mk_w_return_val(method_name):
 def _chtype(ch):
     return int(ffi.cast("chtype", ch))
 
+def _texttype(text):
+    if isinstance(text, str):
+        return text
+    elif isinstance(text, unicode):
+        return str(text)   # default encoding
+    else:
+        raise TypeError("str or unicode expected, got a '%s' object"
+                        % (type(text).__name__,))
+
 
 def _extract_yx(args):
     if len(args) >= 2:
@@ -589,6 +598,7 @@ class Window(object):
 
     @_argspec(1, 1, 2)
     def addstr(self, y, x, text, attr=None):
+        text = _texttype(text)
         if attr is not None:
             attr_old = lib.getattrs(self._win)
             lib.wattrset(self._win, attr)
@@ -602,6 +612,7 @@ class Window(object):
 
     @_argspec(2, 1, 2)
     def addnstr(self, y, x, text, n, attr=None):
+        text = _texttype(text)
         if attr is not None:
             attr_old = lib.getattrs(self._win)
             lib.wattrset(self._win, attr)
@@ -780,6 +791,7 @@ class Window(object):
 
     @_argspec(1, 1, 2)
     def insstr(self, y, x, text, attr=None):
+        text = _texttype(text)
         if attr is not None:
             attr_old = lib.getattrs(self._win)
             lib.wattrset(self._win, attr)
@@ -793,6 +805,7 @@ class Window(object):
 
     @_argspec(2, 1, 2)
     def insnstr(self, y, x, text, n, attr=None):
+        text = _texttype(text)
         if attr is not None:
             attr_old = lib.getattrs(self._win)
             lib.wattrset(self._win, attr)
@@ -953,7 +966,7 @@ def color_content(color):
     r, g, b = ffi.new("short *"), ffi.new("short *"), ffi.new("short *")
     if lib.color_content(color, r, g, b) == lib.ERR:
         raise error("Argument 1 was out of range. Check value of COLORS.")
-    return (r, g, b)
+    return (r[0], g[0], b[0])
 
 
 def color_pair(n):
@@ -1108,6 +1121,7 @@ def setupterm(term=None, fd=-1):
         term = ffi.NULL
     err = ffi.new("int *")
     if lib.setupterm(term, fd, err) == lib.ERR:
+        err = err[0]
         if err == 0:
             raise error("setupterm: could not find terminal")
         elif err == -1:
@@ -1197,6 +1211,7 @@ def pair_number(pairvalue):
 
 
 def putp(text):
+    text = _texttype(text)
     return _check_ERR(lib.putp(text), "putp")
 
 

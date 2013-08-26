@@ -740,6 +740,35 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [B])
         assert s.classdef is a.bookkeeper.getuniqueclassdef(C)
 
+    def test_union_type_some_pbc(self):
+        py.test.skip("is there a point? f() can return self.__class__ instead")
+        class A(object):
+            name = "A"
+
+            def f(self):
+                return type(self)
+
+        class B(A):
+            name = "B"
+
+        def f(tp):
+            return tp
+
+        def main(n):
+            if n:
+                if n == 1:
+                    inst = A()
+                else:
+                    inst = B()
+                arg = inst.f()
+            else:
+                arg = B
+            return f(arg).name
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(main, [int])
+        assert isinstance(s, annmodel.SomeString)
+
     def test_ann_assert(self):
         def assert_(x):
             assert x,"XXX"
@@ -2510,6 +2539,27 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [])
         assert s.const == 2
 
+    def test_import_from_mixin(self):
+        class M(object):
+            def f(self):
+                return self.a
+        class I(object):
+            objectmodel.import_from_mixin(M)
+            def __init__(self, i):
+                self.a = i
+        class S(object):
+            objectmodel.import_from_mixin(M)
+            def __init__(self, s):
+                self.a = s
+        def f(n):
+            return (I(n).f(), S("a" * n).f())
+
+        assert f(3) == (3, "aaa")
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int])
+        assert isinstance(s.items[0], annmodel.SomeInteger)
+        assert isinstance(s.items[1], annmodel.SomeString)
+
     def test___class___attribute(self):
         class Base(object): pass
         class A(Base): pass
@@ -3059,7 +3109,7 @@ class TestAnnotateTestCase:
         from rpython.rlib.jit import hint
 
         class A:
-            _virtualizable2_ = []
+            _virtualizable_ = []
         class B(A):
             def meth(self):
                 return self
@@ -3099,7 +3149,7 @@ class TestAnnotateTestCase:
         from rpython.rlib.jit import hint
 
         class A:
-            _virtualizable2_ = []
+            _virtualizable_ = []
 
         class I:
             pass
@@ -3687,6 +3737,24 @@ class TestAnnotateTestCase:
 
         a = self.RPythonAnnotator()
         a.build_types(f, [int])
+
+    def test_immutable_field_subclass(self):
+        class Root:
+            pass
+        class A(Root):
+            _immutable_fields_ = '_my_lst[*]'
+            def __init__(self, lst):
+                self._my_lst = lst
+        def foo(x):
+            return len(x._my_lst)
+
+        def f(n):
+            foo(A([2, n]))
+            foo(Root())
+
+        a = self.RPythonAnnotator()
+        e = py.test.raises(Exception, a.build_types, f, [int])
+        assert "field '_my_lst' was migrated" in str(e.value)
 
     def test_call_classes_with_noarg_init(self):
         class A:

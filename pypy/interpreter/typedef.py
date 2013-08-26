@@ -329,10 +329,6 @@ def _builduserclswithfeature(config, supercls, *features):
                     instance=True)
                 base_user_setup(self, space, w_subtype)
 
-            def setclass(self, space, w_subtype):
-                # only used by descr_set___class__
-                self.w__class__ = w_subtype
-
         add(Proto)
 
     subcls = type(name, (supercls,), body)
@@ -553,9 +549,9 @@ class Member(W_Root):
 
     def typecheck(self, space, w_obj):
         if not space.isinstance_w(w_obj, self.w_cls):
-            m = "descriptor '%s' for '%s' objects doesn't apply to '%T' object"
+            m = "descriptor '%N' for '%N' objects doesn't apply to '%T' object"
             raise operationerrfmt(space.w_TypeError, m,
-                                  self.name, self.w_cls.name, w_obj)
+                                  self, self.w_cls, w_obj)
 
     def descr_member_get(self, space, w_obj, w_cls=None):
         """member.__get__(obj[, type]) -> value

@@ -28,8 +28,8 @@ Translating the PyPy Python interpreter
 .. note:: For some hints on how to translate the Python interpreter under
           Windows, see the :doc:`windows document <rpython:windows>`.
 
-You can translate the whole of PyPy's Python interpreter to low level C code,
-or `CLI code`_.  If you intend to build using gcc, check to make sure that
+You can translate the whole of PyPy's Python interpreter to low level C code.
+If you intend to build using gcc, check to make sure that
 the version you have is not 4.2 or you will run into `this bug`_.
 
 .. _this bug: https://bugs.launchpad.net/ubuntu/+source/gcc-4.2/+bug/187391
@@ -53,6 +53,12 @@ the version you have is not 4.2 or you will run into `this bug`_.
      gcc make python-devel libffi-devel lib-sqlite3-devel pkgconfig \
      zlib-devel bzip2-devel ncurses-devel expat-devel \
      openssl-devel gc-devel python-sphinx python-greenlet
+
+   On SLES11:
+
+     $ sudo zypper install gcc make python-devel pkg-config \
+     zlib-devel libopenssl-devel libbz2-devel sqlite3-devel \
+     libexpat-devel libffi-devel python-curses
 
    The above command lines are split with continuation characters, giving the necessary dependencies first, then the optional ones.
 
@@ -88,8 +94,8 @@ the version you have is not 4.2 or you will run into `this bug`_.
      python ../../rpython/bin/rpython --opt=jit targetpypystandalone.py
 
    possibly replacing ``--opt=jit`` with another :doc:`optimization level <config/opt>`
-   of your choice like ``--opt=2`` if you do not want to include the JIT
-   compiler, which makes the Python interpreter much slower.
+   of your choice.  Typical example: ``--opt=2`` gives a good (but of
+   course slower) Python interpreter without the JIT.
 
 If everything works correctly this will create an executable
 ``pypy-c`` in the current directory.  Type ``pypy-c --help``
@@ -99,8 +105,8 @@ translation options that where used to produce this particular
 executable. The executable behaves mostly like a normal Python interpreter::
 
     $ ./pypy-c
-    Python 2.7.3 (7e4f0faa3d51, Nov 22 2012, 10:35:18)
-    [PyPy 2.0.0 with GCC 4.7.1] on linux2
+    Python 2.7.3 (480845e6b1dd, Jul 31 2013, 11:05:31)
+    [PyPy 2.1.0 with GCC 4.7.1] on linux2
     Type "help", "copyright", "credits" or "license" for more information.
     And now for something completely different: ``RPython magically makes you rich
     and famous (says so on the tin)''
@@ -135,74 +141,6 @@ but they are not really tested any more.  Look, for example, at the
 :doc:`objspace proxies <objspace-proxies>` document.
 
 
-.. _CLI code:
-
-Translating using the CLI backend
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. note:: The CLI backend is no longer maintained.
-
-To create a standalone .NET executable using the :doc:`CLI backend <rpython:cli-backend>`::
-
-    ./translate.py --backend=cli targetpypystandalone.py
-
-The executable and all its dependencies will be stored in the
-./pypy-cli-data directory. To run pypy.NET, you can run
-./pypy-cli-data/main.exe. If you are using Linux or Mac, you can use
-the convenience ./pypy-cli script::
-
-    $ ./pypy-cli
-    Python 2.7.0 (61ef2a11b56a, Mar 02 2011, 03:00:11)
-    [PyPy 1.6.0] on linux2
-    Type "help", "copyright", "credits" or "license" for more information.
-    And now for something completely different: ``distopian and utopian chairs''
-    >>>>
-
-Moreover, at the moment it's not possible to do the full translation
-using only the tools provided by the Microsoft .NET SDK, since
-``ilasm`` crashes when trying to assemble the pypy-cli code due to its
-size.  Microsoft .NET SDK 2.0.50727.42 is affected by this bug; other
-versions could be affected as well: if you find a version of the SDK
-that works, please tell us.
-
-Windows users that want to compile their own pypy-cli can install
-Mono_: if a Mono installation is detected the translation toolchain
-will automatically use its ``ilasm2`` tool to assemble the
-executables.
-
-To try out the experimental .NET integration, check the documentation of the
-:doc:`clr <clr-module>` module.
-
-.. _Mono: http://www.mono-project.com/Main_Page
-
-
-.. _JVM code:
-
-Translating using the JVM backend
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. note:: The JVM backend is no longer maintained.
-
-To create a standalone JVM executable::
-
-    ./translate.py --backend=jvm targetpypystandalone.py
-
-This will create a jar file ``pypy-jvm.jar`` as well as a convenience
-script ``pypy-jvm`` for executing it.  To try it out, simply run
-``./pypy-jvm``::
-
-    $ ./pypy-jvm
-    Python 2.7.0 (61ef2a11b56a, Mar 02 2011, 03:00:11)
-    [PyPy 1.6.0] on linux2
-    Type "help", "copyright", "credits" or "license" for more information.
-    And now for something completely different: ``# assert did not crash''
-    >>>>
-
-Alternatively, you can run it using ``java -jar pypy-jvm.jar``. At the moment
-the executable does not provide any interesting features, like integration with
-Java.
-
-
 Installation
 ~~~~~~~~~~~~
 
@@ -232,7 +170,7 @@ correct hierarchy, so to run PyPy it's enough to unpack the archive, and run
 the ``bin/pypy`` executable.
 
 To install PyPy system wide on unix-like systems, it is recommended to put the
-whole hierarchy alone (e.g. in ``/opt/pypy2.0``) and put a symlink to the
+whole hierarchy alone (e.g. in ``/opt/pypy2.1``) and put a symlink to the
 ``pypy`` executable into ``/usr/bin`` or ``/usr/local/bin``
 
 If the executable fails to find suitable libraries, it will report

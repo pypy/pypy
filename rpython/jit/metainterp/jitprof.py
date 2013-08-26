@@ -18,7 +18,7 @@ class BaseProfiler(object):
 
 class EmptyProfiler(BaseProfiler):
     initialized = True
-    
+
     def start(self):
         pass
 
@@ -96,7 +96,7 @@ class Profiler(BaseProfiler):
     def end_backend(self):     self._end  (Counters.BACKEND)
 
     def count(self, kind, inc=1):
-        self.counters[kind] += inc        
+        self.counters[kind] += inc
 
     def get_counter(self, num):
         if num == Counters.TOTAL_COMPILED_LOOPS:
@@ -112,7 +112,7 @@ class Profiler(BaseProfiler):
     def count_ops(self, opnum, kind=Counters.OPS):
         from rpython.jit.metainterp.resoperation import rop
         self.counters[kind] += 1
-        if opnum == rop.CALL and kind == Counters.RECORDED_OPS:# or opnum == rop.OOSEND:
+        if opnum == rop.CALL and kind == Counters.RECORDED_OPS:
             self.calls += 1
 
     def print_stats(self):

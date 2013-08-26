@@ -20,12 +20,13 @@ from rpython.annotator.annrpython import FAIL
 from rpython.flowspace.model import Variable, Constant, SpaceOperation, c_last_exception
 from rpython.rtyper.annlowlevel import annotate_lowlevel_helper, LowLevelAnnotatorPolicy
 from rpython.rtyper.error import TyperError
+from rpython.rtyper.exceptiondata import ExceptionData
 from rpython.rtyper.lltypesystem.lltype import (Signed, Void, LowLevelType,
     Ptr, ContainerType, FuncType, functionptr, typeOf, RuntimeTypeInfo,
     attachRuntimeTypeInfo, Primitive)
-from rpython.rtyper.ootypesystem import ootype
 from rpython.rtyper.rmodel import Repr, inputconst, BrokenReprTyperError
-from rpython.rtyper.typesystem import LowLevelTypeSystem, ObjectOrientedTypeSystem
+from rpython.rtyper.typesystem import LowLevelTypeSystem
+from rpython.rtyper.normalizecalls import perform_normalizations
 from rpython.tool.pairtype import pair
 from rpython.translator.unsimplify import insert_empty_block
 
@@ -33,21 +34,10 @@ from rpython.translator.unsimplify import insert_empty_block
 class RPythonTyper(object):
     from rpython.rtyper.rmodel import log
 
-    def __init__(self, annotator, type_system="lltype"):
+    def __init__(self, annotator):
         self.annotator = annotator
-
         self.lowlevel_ann_policy = LowLevelAnnotatorPolicy(self)
-
-        if isinstance(type_system, str):
-            if type_system == "lltype":
-                self.type_system = LowLevelTypeSystem.instance
-            elif type_system == "ootype":
-                self.type_system = ObjectOrientedTypeSystem.instance
-            else:
-                raise TyperError("Unknown type system %r!" % type_system)
-        else:
-            self.type_system = type_system
-        self.type_system_deref = self.type_system.deref
+        self.type_system = LowLevelTypeSystem.instance
         self.reprs = {}
         self._reprs_must_call_setup = []
         self._seen_reprs_must_call_setup = {}
@@ -61,17 +51,13 @@ class RPythonTyper(object):
         self.classdef_to_pytypeobject = {}
         self.concrete_calltables = {}
         self.class_pbc_attributes = {}
-        self.oo_meth_impls = {}
         self.cache_dummy_values = {}
         self.lltype2vtable = {}
         self.typererrors = []
         self.typererror_count = 0
         # make the primitive_to_repr constant mapping
         self.primitive_to_repr = {}
-        if self.type_system.offers_exceptiondata:
-            self.exceptiondata = self.type_system.exceptiondata.ExceptionData(self)
-        else:
-            self.exceptiondata = None
+        self.exceptiondata = ExceptionData(self)
 
         try:
             self.seed = int(os.getenv('RTYPERSEED'))
@@ -80,14 +66,6 @@ class RPythonTyper(object):
         except:
             self.seed = 0
         self.order = None
-        # the following code would invoke translator.goal.order, which is
-        # not up-to-date any more:
-##        RTYPERORDER = os.getenv('RTYPERORDER')
-##        if RTYPERORDER:
-##            order_module = RTYPERORDER.split(',')[0]
-##            self.order = __import__(order_module, {}, {},  ['*']).order
-##            s = 'Using %s.%s for order' % (self.order.__module__, self.order.__name__)
-##            self.log.info(s)
 
     def getconfig(self):
         return self.annotator.translator.config
@@ -119,9 +97,6 @@ class RPythonTyper(object):
             return
         self._reprs_must_call_setup.append(repr)
         self._seen_reprs_must_call_setup[repr] = True
-
-    def getexceptiondata(self):
-        return self.exceptiondata    # built at the end of specialize()
 
     def lltype_to_classdef_mapping(self):
         result = {}
@@ -160,10 +135,9 @@ class RPythonTyper(object):
         raise KeyError(search)
 
     def makekey(self, s_obj):
-        return pair(self.type_system, s_obj).rtyper_makekey(self)
-
-    def _makerepr(self, s_obj):
-        return pair(self.type_system, s_obj).rtyper_makerepr(self)
+        if hasattr(s_obj, "rtyper_makekey_ex"):
+            return s_obj.rtyper_makekey_ex(self)
+        return s_obj.rtyper_makekey()
 
     def getrepr(self, s_obj):
         # s_objs are not hashable... try hard to find a unique key anyway
@@ -173,7 +147,7 @@ class RPythonTyper(object):
             result = self.reprs[key]
         except KeyError:
             self.reprs[key] = None
-            result = self._makerepr(s_obj)
+            result = s_obj.rtyper_makerepr(self)
             assert not isinstance(result.lowleveltype, ContainerType), (
                 "missing a Ptr in the type specification "
                 "of %s:\n%r" % (s_obj, result.lowleveltype))
@@ -198,18 +172,16 @@ class RPythonTyper(object):
 
         # first make sure that all functions called in a group have exactly
         # the same signature, by hacking their flow graphs if needed
-        self.type_system.perform_normalizations(self)
+        perform_normalizations(self)
         self.exceptiondata.finish(self)
+
         # new blocks can be created as a result of specialize_block(), so
         # we need to be careful about the loop here.
         self.already_seen = {}
-
         self.specialize_more_blocks()
         if self.exceptiondata is not None:
             self.exceptiondata.make_helpers(self)
             self.specialize_more_blocks()   # for the helpers just made
-        if self.type_system.name == 'ootypesystem':
-            self.attach_methods_to_subclasses()
 
     def getannmixlevel(self):
         if self.annmixlevel is not None:
@@ -274,40 +246,6 @@ class RPythonTyper(object):
         del self.annmixlevel
         if annmixlevel is not None:
             annmixlevel.finish()
-
-    def attach_methods_to_subclasses(self):
-        # in ootype, it might happen that a method is defined in the
-        # superclass but the annotator discovers that it's always called
-        # through instances of a subclass (e.g. because of specialization, see
-        # test_rclass.test_method_specialized_with_subclass).  In that cases,
-        # we copy the method also in the ootype.Instance of the subclass, so
-        # that the type of v_self coincides with the type returned by
-        # _lookup().
-        assert self.type_system.name == 'ootypesystem'
-        def allclasses(TYPE, seen):
-            '''Yield TYPE and all its subclasses'''
-            if TYPE in seen:
-                return
-            seen.add(TYPE)
-            yield TYPE
-            for SUB in TYPE._subclasses:
-                for T in allclasses(SUB, seen):
-                    yield T
-
-        for TYPE in allclasses(ootype.ROOT, set()):
-            for methname, meth in TYPE._methods.iteritems():
-                try:
-                    graph = meth.graph
-                except AttributeError:
-                    continue
-                SELF = graph.getargs()[0].concretetype
-                if TYPE != SELF and ootype.isSubclass(SELF, TYPE):
-                    # the annotator found that this method has a more precise
-                    # type. Attach it to the proper subclass, so that the type
-                    # of 'self' coincides with the type returned by _lookup(),
-                    # else we might have type errors
-                    if methname not in SELF._methods:
-                        ootype.addMethods(SELF, {methname: meth})
 
     def dump_typererrors(self, num=None, minimize=True, to_log=False):
         c = 0
@@ -640,7 +578,8 @@ class RPythonTyper(object):
         return pair(r_arg1, r_arg2).rtype_extend_with_char_count(hop)
 
     def translate_op_newtuple(self, hop):
-        return self.type_system.rtuple.rtype_newtuple(hop)
+        from rpython.rtyper.rtuple import rtype_newtuple
+        return rtype_newtuple(hop)
 
     def translate_op_instantiate1(self, hop):
         from rpython.rtyper.lltypesystem import rclass
@@ -980,7 +919,7 @@ class LowLevelOpList(list):
         # build the 'direct_call' operation
         f = self.rtyper.getcallable(graph)
         c = inputconst(typeOf(f), f)
-        fobj = self.rtyper.type_system_deref(f)
+        fobj = self.rtyper.type_system.deref(f)
         return self.genop('direct_call', [c]+newargs_v,
                           resulttype = typeOf(fobj).RESULT)
 
@@ -1015,4 +954,3 @@ from rpython.rtyper import rclass, rbuiltin, rpbc
 from rpython.rtyper import rptr
 from rpython.rtyper import rweakref
 from rpython.rtyper import raddress # memory addresses
-from rpython.rtyper.ootypesystem import rootype

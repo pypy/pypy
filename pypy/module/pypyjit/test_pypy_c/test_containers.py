@@ -87,7 +87,7 @@ class TestDicts(BaseTestPyPyC):
             i8 = int_lt(i5, i7)
             guard_true(i8, descr=...)
             guard_not_invalidated(descr=...)
-            p10 = call(ConstClass(ll_int_str), i5, descr=<Callr . i EF=3>)
+            p10 = call(ConstClass(ll_str__IntegerR_SignedConst_Signed), i5, descr=<Callr . i EF=3>)
             guard_no_exception(descr=...)
             i12 = call(ConstClass(ll_strhash), p10, descr=<Calli . r EF=0>)
             p13 = new(descr=...)
@@ -201,10 +201,43 @@ class TestDicts(BaseTestPyPyC):
         def main(n):
             i = 0
             while i < n:
-                s = set([1,2,3])
+                s = set([1, 2, 3])
                 i += 1
         log = self.run(main, [1000])
         assert log.result == main(1000)
         loop, = log.loops_by_filename(self.filepath)
         opnames = log.opnames(loop.allops())
         assert opnames.count('new_with_vtable') == 0
+
+    def test_constfold_tuple(self):
+        code = """if 1:
+        tup = tuple(range(10000))
+        l = [1, 2, 3, 4, 5, 6, "a"]
+        def main(n):
+            while n > 0:
+                sub = tup[1]  # ID: getitem
+                l[1] = n # kill cache of tup[1]
+                n -= sub
+        """
+        log = self.run(code, [1000])
+        loop, = log.loops_by_filename(self.filepath)
+        ops = loop.ops_by_id('getitem', include_guard_not_invalidated=False)
+        assert log.opnames(ops) == []
+
+
+    def test_specialised_tuple(self):
+        def main(n):
+            import pypyjit
+
+            f = lambda: None
+            tup = (n, n)
+            while n > 0:
+                tup[0]  # ID: getitem
+                pypyjit.residual_call(f)
+                n -= 1
+
+        log = self.run(main, [1000])
+        assert log.result == main(1000)
+        loop, = log.loops_by_filename(self.filepath)
+        ops = loop.ops_by_id('getitem', include_guard_not_invalidated=False)
+        assert log.opnames(ops) == []

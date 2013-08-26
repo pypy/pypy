@@ -13,12 +13,12 @@ You should start looking at the part that attracts you most (all paths are
 relative to the PyPy top level directory).  You may look at our :doc:`directory reference <dir-reference>`
 or start off at one of the following points:
 
-*  :source:`pypy/interpreter` contains the bytecode interpreter: bytecode dispatcher
-   in :source:`pypy/interpreter/pyopcode.py`, frame and code objects in :source:`pypy/interpreter/eval.py` and :source:`pypy/interpreter/pyframe.py`,
-   function objects and argument passing in :source:`pypy/interpreter/function.py` and :source:`pypy/interpreter/argument.py`,
-   the object space interface definition in :source:`pypy/interpreter/baseobjspace.py`, modules in
-   :source:`pypy/interpreter/module.py` and :source:`pypy/interpreter/mixedmodule.py`.  Core types supporting the bytecode
-   interpreter are defined in :source:`pypy/interpreter/typedef.py`.
+*  `pypy/interpreter`_ contains the bytecode interpreter: bytecode dispatcher
+   in `pypy/interpreter/pyopcode.py`_, frame and code objects in `pypy/interpreter/eval.py`_ and `pypy/interpreter/pyframe.py`_,
+   function objects and argument passing in `pypy/interpreter/function.py`_ and `pypy/interpreter/argument.py`_,
+   the object space interface definition in `pypy/interpreter/baseobjspace.py`_, modules in
+   `pypy/interpreter/module.py`_ and `pypy/interpreter/mixedmodule.py`_.  Core types supporting the bytecode
+   interpreter are defined in `pypy/interpreter/typedef.py`_.
 
 *  :source:`pypy/interpreter/pyparser` contains a recursive descent parser,
    and grammar files that allow it to parse the syntax of various Python

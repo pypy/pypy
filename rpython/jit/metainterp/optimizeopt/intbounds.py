@@ -1,13 +1,12 @@
 import sys
-from rpython.jit.metainterp.optimizeopt.optimizer import Optimization, CONST_1, CONST_0, \
-                                                  MODE_ARRAY, MODE_STR, MODE_UNICODE
 from rpython.jit.metainterp.history import ConstInt
+from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.optimizeopt.intutils import (IntBound, IntLowerBound,
     IntUpperBound)
+from rpython.jit.metainterp.optimizeopt.optimizer import (Optimization, CONST_1,
+    CONST_0, MODE_ARRAY, MODE_STR, MODE_UNICODE)
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.resoperation import rop
-from rpython.jit.metainterp.optimize import InvalidLoop
-from rpython.rlib.rarithmetic import LONG_BIT
 
 
 class OptIntBounds(Optimization):
@@ -23,7 +22,6 @@ class OptIntBounds(Optimization):
     def opt_default(self, op):
         assert not op.is_ovf()
         self.emit_operation(op)
-
 
     def propagate_bounds_backward(self, box):
         # FIXME: This takes care of the instruction where box is the reuslt
@@ -68,11 +66,11 @@ class OptIntBounds(Optimization):
         if v2.is_constant():
             val = v2.box.getint()
             if val >= 0:
-                r.intbound.intersect(IntBound(0,val))
+                r.intbound.intersect(IntBound(0, val))
         elif v1.is_constant():
             val = v1.box.getint()
             if val >= 0:
-                r.intbound.intersect(IntBound(0,val))
+                r.intbound.intersect(IntBound(0, val))
 
     def optimize_INT_SUB(self, op):
         v1 = self.getvalue(op.getarg(0))
@@ -111,7 +109,7 @@ class OptIntBounds(Optimization):
     def optimize_INT_MOD(self, op):
         v1 = self.getvalue(op.getarg(0))
         v2 = self.getvalue(op.getarg(1))
-        known_nonneg = (v1.intbound.known_ge(IntBound(0, 0)) and 
+        known_nonneg = (v1.intbound.known_ge(IntBound(0, 0)) and
                         v2.intbound.known_ge(IntBound(0, 0)))
         if known_nonneg and v2.is_constant():
             val = v2.box.getint()
@@ -197,7 +195,7 @@ class OptIntBounds(Optimization):
         if opnum not in (rop.INT_ADD_OVF, rop.INT_SUB_OVF, rop.INT_MUL_OVF):
             raise InvalidLoop('An INT_xxx_OVF was proven not to overflow but' +
                               'guarded with GUARD_OVERFLOW')
-                             
+
         self.emit_operation(op)
 
     def optimize_INT_ADD_OVF(self, op):
@@ -299,7 +297,7 @@ class OptIntBounds(Optimization):
 
     def optimize_ARRAYLEN_GC(self, op):
         self.emit_operation(op)
-        array  = self.getvalue(op.getarg(0))
+        array = self.getvalue(op.getarg(0))
         result = self.getvalue(op.result)
         array.make_len_gt(MODE_ARRAY, op.getdescr(), -1)
         array.lenbound.bound.intersect(result.intbound)
@@ -307,7 +305,7 @@ class OptIntBounds(Optimization):
 
     def optimize_STRLEN(self, op):
         self.emit_operation(op)
-        array  = self.getvalue(op.getarg(0))
+        array = self.getvalue(op.getarg(0))
         result = self.getvalue(op.result)
         array.make_len_gt(MODE_STR, op.getdescr(), -1)
         array.lenbound.bound.intersect(result.intbound)
@@ -315,7 +313,7 @@ class OptIntBounds(Optimization):
 
     def optimize_UNICODELEN(self, op):
         self.emit_operation(op)
-        array  = self.getvalue(op.getarg(0))
+        array = self.getvalue(op.getarg(0))
         result = self.getvalue(op.result)
         array.make_len_gt(MODE_UNICODE, op.getdescr(), -1)
         array.lenbound.bound.intersect(result.intbound)
@@ -470,9 +468,9 @@ class OptIntBounds(Optimization):
         if v1.intbound.intersect(b):
             self.propagate_bounds_backward(op.getarg(0))
 
-    propagate_bounds_INT_ADD_OVF  = propagate_bounds_INT_ADD
-    propagate_bounds_INT_SUB_OVF  = propagate_bounds_INT_SUB
-    propagate_bounds_INT_MUL_OVF  = propagate_bounds_INT_MUL
+    propagate_bounds_INT_ADD_OVF = propagate_bounds_INT_ADD
+    propagate_bounds_INT_SUB_OVF = propagate_bounds_INT_SUB
+    propagate_bounds_INT_MUL_OVF = propagate_bounds_INT_MUL
 
 
 dispatch_opt = make_dispatcher_method(OptIntBounds, 'optimize_',

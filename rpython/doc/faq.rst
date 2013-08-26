@@ -100,7 +100,7 @@ Do I have to rewrite my programs in RPython?
 
 No, and you shouldn't try.  First and foremost, RPython is a language
 designed for writing interpreters. It is a restricted subset of
-Python.  If you program is not an interpreter but tries to do "real
+Python.  If your program is not an interpreter but tries to do "real
 things", like use *any* part of the standard Python library or *any*
 3rd-party library, then it is not RPython to start with.  You should
 only look at RPython if you try to `write your own interpreter`__.
@@ -116,15 +116,42 @@ if you manage to.
 Yes, it is possible with enough effort to compile small self-contained
 pieces of RPython code doing a few performance-sensitive things.  But
 this case is not interesting for us.  If you needed to rewrite the code
-in RPython, you could as well have rewritten it in C for example.  The
-latter is a much more supported, much more documented language `:-)`
+in RPython, you could as well have rewritten it in C or C++ or Java for
+example.  These are much more supported, much more documented languages
+`:-)`
+
+  *The above paragraphs are not the whole truth.  It* is *true that there
+  are cases where writing a program as RPython gives you substantially
+  better speed than running it on top of PyPy.  However, the attitude of
+  the core group of people behind PyPy is to answer: "then report it as a
+  performance bug against PyPy!".*
+
+  *Here is a more diluted way to put it.  The "No, don't!" above is a
+  general warning we give to new people.  They are likely to need a lot
+  of help from* some *source, because RPython is not so simple nor
+  extensively documented; but at the same time, we, the pypy core group
+  of people, are not willing to invest time in supporting 3rd-party
+  projects that do very different things than interpreters for dynamic
+  languages --- just because we have other interests and there are only
+  so many hours a day.  So as a summary I believe it is only fair to
+  attempt to point newcomers at existing alternatives, which are more
+  mainstream and where they will get help from many people.*
+
+  *If anybody seriously wants to promote RPython anyway, he is welcome
+  to: we won't actively resist such a plan.  There are a lot of things
+  that could be done to make RPython a better Java-ish language for
+  example, starting with supporting non-GIL-based multithreading, but we
+  don't implement them because they have little relevance to us.  This
+  is open source, which means that anybody is free to promote and
+  develop anything; but it also means that you must let us choose* not
+  *to go into that direction ourselves.*
 
 
 Which backends are there for the RPython toolchain?
 ---------------------------------------------------
 
-Currently, there are backends for :ref:`C <genc>`, the :ref:`CLI <gencli>`, and the :ref:`JVM <genjvm>`.
-All of these can translate the entire PyPy interpreter.
+Currently, the only backend is :ref:`C <genc>`.
+It can translate the entire PyPy interpreter.
 To learn more about backends take a look at the :doc:`translation document <translation>`.
 
 

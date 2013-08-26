@@ -1,8 +1,9 @@
-import sys, py
+import sys
+
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rtyper.lltypesystem import lltype, llmemory
-from rpython.rtyper.annlowlevel import llhelper, MixLevelHelperAnnotator,\
-     cast_base_ptr_to_instance, hlstr
+from rpython.rtyper.annlowlevel import (llhelper, MixLevelHelperAnnotator,
+    cast_base_ptr_to_instance, hlstr)
 from rpython.annotator import model as annmodel
 from rpython.rtyper.llinterp import LLException
 from rpython.rtyper.test.test_llinterp import get_interpreter, clear_tcache
@@ -12,7 +13,6 @@ from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.debug import fatalerror
 from rpython.rlib.rstackovf import StackOverflow
-from rpython.translator.simplify import get_functype
 from rpython.translator.backendopt import removenoops
 from rpython.translator.unsimplify import call_final_function
 
@@ -20,10 +20,11 @@ from rpython.jit.metainterp import history, pyjitpl, gc, memmgr, jitexc
 from rpython.jit.metainterp.pyjitpl import MetaInterpStaticData
 from rpython.jit.metainterp.jitprof import Profiler, EmptyProfiler
 from rpython.jit.metainterp.jitdriver import JitDriverStaticData
-from rpython.jit.codewriter import support, codewriter, longlong
+from rpython.jit.codewriter import support, codewriter
 from rpython.jit.codewriter.policy import JitPolicy
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.optimizeopt import ALL_OPTS_NAMES
+
 
 # ____________________________________________________________
 # Bootstrapping
@@ -39,8 +40,8 @@ def apply_jit(translator, backend_name="auto", inline=False,
     warmrunnerdesc = WarmRunnerDesc(translator,
                                     translate_support_code=True,
                                     listops=True,
-                                    no_stats = True,
-                                    ProfilerClass = ProfilerClass,
+                                    no_stats=True,
+                                    ProfilerClass=ProfilerClass,
                                     **kwds)
     for jd in warmrunnerdesc.jitdrivers_sd:
         jd.warmstate.set_param_inlining(inline)
@@ -245,7 +246,7 @@ class WarmRunnerDesc(object):
         test_ajit::test_inline_jit_merge_point
         """
         from rpython.translator.backendopt.inline import (
-            get_funcobj, inlinable_static_callers, auto_inlining)
+            inlinable_static_callers, auto_inlining)
 
         jmp_calls = {}
         def get_jmp_call(graph, _inline_jit_merge_point_):
@@ -275,7 +276,7 @@ class WarmRunnerDesc(object):
             msg = ("The first operation of an _inline_jit_merge_point_ graph must be "
                    "a direct_call to the function passed to @jitdriver.inline()")
             assert op_jmp_call.opname == 'direct_call', msg
-            jmp_funcobj = get_funcobj(op_jmp_call.args[0].value)
+            jmp_funcobj = op_jmp_call.args[0].value._obj
             assert jmp_funcobj._callable is _inline_jit_merge_point_, msg
             jmp_block.operations.remove(op_jmp_call)
             return op_jmp_call, jmp_funcobj.graph
@@ -335,7 +336,6 @@ class WarmRunnerDesc(object):
             new_driver = driver.clone()
             c_new_driver = Constant(new_driver, v_driver.concretetype)
             op.args[1] = c_new_driver
-
 
     def find_portals(self):
         self.jitdrivers_sd = []
@@ -419,9 +419,12 @@ class WarmRunnerDesc(object):
             self.annhelper = MixLevelHelperAnnotator(self.translator.rtyper)
         cpu = CPUClass(self.translator.rtyper, self.stats, self.opt,
                        translate_support_code, gcdescr=self.gcdescr)
-        if not supports_floats:       cpu.supports_floats       = False
-        if not supports_longlong:     cpu.supports_longlong     = False
-        if not supports_singlefloats: cpu.supports_singlefloats = False
+        if not supports_floats:
+            cpu.supports_floats = False
+        if not supports_longlong:
+            cpu.supports_longlong = False
+        if not supports_singlefloats:
+            cpu.supports_singlefloats = False
         self.cpu = cpu
 
     def build_meta_interp(self, ProfilerClass):
@@ -657,7 +660,7 @@ class WarmRunnerDesc(object):
     def helper_func(self, FUNCPTR, func):
         if not self.cpu.translate_support_code:
             return llhelper(FUNCPTR, func)
-        FUNC = get_functype(FUNCPTR)
+        FUNC = FUNCPTR.TO
         args_s = [annmodel.lltype_to_annotation(ARG) for ARG in FUNC.ARGS]
         s_result = annmodel.lltype_to_annotation(FUNC.RESULT)
         graph = self.annhelper.getgraph(func, args_s, s_result)
@@ -677,6 +680,7 @@ class WarmRunnerDesc(object):
             # get special treatment since we rewrite it to a call that accepts
             # jit driver
             func = func_with_new_name(func, func.func_name + '_compiled')
+
             def new_func(ignored, *args):
                 return func(self, *args)
             ARGS = [lltype.Void] + [arg.concretetype for arg in op.args[3:]]
@@ -734,7 +738,7 @@ class WarmRunnerDesc(object):
         from rpython.jit.metainterp.warmstate import specialize_value
         from rpython.jit.metainterp.warmstate import unspecialize_value
         portal_ptr = self.cpu.ts.functionptr(PORTALFUNC, 'portal',
-                                         graph = portalgraph)
+                                         graph=portalgraph)
         jd._portal_ptr = portal_ptr
         #
         portalfunc_ARGS = []
@@ -758,7 +762,6 @@ class WarmRunnerDesc(object):
         ts = self.cpu.ts
         state = jd.warmstate
         maybe_compile_and_run = jd._maybe_compile_and_run_fn
-        cpu = jd.warmstate.cpu
 
         def ll_portal_runner(*args):
             start = True
@@ -855,10 +858,6 @@ class WarmRunnerDesc(object):
 
         def assembler_call_helper(deadframe, virtualizableref):
             fail_descr = self.cpu.get_latest_descr(deadframe)
-            if vinfo is not None:
-                virtualizable = lltype.cast_opaque_ptr(
-                    vinfo.VTYPEPTR, virtualizableref)
-                vinfo.reset_vable_token(virtualizable)
             try:
                 fail_descr.handle_fail(deadframe, self.metainterp_sd, jd)
             except jitexc.JitException, e:
@@ -920,7 +919,7 @@ class WarmRunnerDesc(object):
 
         if self.cpu.translate_support_code:
             call_final_function(self.translator, finish,
-                                annhelper = self.annhelper)
+                                annhelper=self.annhelper)
 
     def rewrite_set_param_and_get_stats(self):
         from rpython.rtyper.lltypesystem.rstr import STR
@@ -952,7 +951,7 @@ class WarmRunnerDesc(object):
             return Constant(funcptr, TP)
         #
         for graph, block, i in find_set_param(graphs):
-            
+
             op = block.operations[i]
             if op.args[1].value is not None:
                 for jd in self.jitdrivers_sd:
@@ -971,8 +970,6 @@ class WarmRunnerDesc(object):
             op.args[:3] = [closures[key]]
 
     def rewrite_force_virtual(self, vrefinfo):
-        if self.cpu.ts.name != 'lltype':
-            py.test.skip("rewrite_force_virtual: port it to ootype")
         all_graphs = self.translator.graphs
         vrefinfo.replace_force_virtual_with_call(all_graphs)
 

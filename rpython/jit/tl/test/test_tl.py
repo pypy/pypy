@@ -79,10 +79,10 @@ class TestTL(test_boehm.AbstractGCTestClass):
           ]
 
     def test_ops(self):
-          for insn, pyop, values in self.ops:
-              for first, second in values:
-                  code = [PUSH, first, PUSH, second, insn]
-                  assert self.interp(list2bytecode(code)) == pyop(first, second)
+        for insn, pyop, values in self.ops:
+            for first, second in values:
+                code = [PUSH, first, PUSH, second, insn]
+                assert self.interp(list2bytecode(code)) == pyop(first, second)
 
 
     def test_branch_forward(self):

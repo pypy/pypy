@@ -22,15 +22,15 @@ def test_sub():
             ((10, -3), (-5, 7), (15, -10)),
             ((42, 0.3), (42, 0.3), (0, 0))
         ]:
-            assert c.c_sub(c1, c2) == result 
+            assert c.c_sub(c1, c2) == result
 
 def test_mul():
-   for c1, c2, result in [
+    for c1, c2, result in [
             ((0, 0), (0, 0), (0, 0)),
             ((1, 0), (2, 0), (2, 0)),
             ((0, 3), (0, 2), (-6, 0)),
             ((0, -3), (-5, 0), (0, 15)),
-        ]:
+    ]:
             assert c.c_mul(c1, c2) == result
 
 def test_div():
@@ -65,7 +65,7 @@ def parse_testfile2(fname):
                         struct.pack('l',int(rhs_pieces[i])))
                 else:
                     rhs_pieces[i] = float(rhs_pieces[i])
-            #id, fn, arg1_real, arg1_imag arg2_real, arg2_imag = 
+            #id, fn, arg1_real, arg1_imag arg2_real, arg2_imag =
             #exp_real, exp_imag = rhs_pieces[0], rhs_pieces[1]
             flags = rhs_pieces[2:]
             id_f, fn = lhs_pieces[:2]
@@ -108,7 +108,7 @@ def args_to_str(args):
              (args[0][0], args[0][1], args[1][0], args[1][1])
     else:
         return '(complex(%r, %r))' % (args[0], args[1])
-            
+
 def rAssertAlmostEqual(a, b, rel_err = 2e-15, abs_err = 5e-323, msg=''):
     """Fail if the two floating-point numbers are not almost equal.
 

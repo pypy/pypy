@@ -3,6 +3,12 @@ Getting Started with RPython
 
 .. contents::
 
+.. warning::
+
+    Please `read this FAQ entry`_ first!
+
+.. _`read this FAQ entry`: http://doc.pypy.org/en/latest/faq.html#do-i-have-to-rewrite-my-programs-in-rpython
+
 RPython is a subset of Python that can be statically compiled. The PyPy
 interpreter is written mostly in RPython (with pieces in Python), while
 the RPython compiler is written in Python. The hard to understand part
@@ -112,50 +118,6 @@ version is now in a ``.so`` library. You can run it say using ctypes:
    0
    >>> f(6)
    1
-
-
-Translating the flow graph to CLI or JVM code
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-PyPy also contains a :ref:`CLI backend <gencli>` and :ref:`JVM backend <genjvm>` which
-can translate flow graphs into .NET executables or a JVM jar
-file respectively.  Both are able to translate the entire
-interpreter.  You can try out the CLI and JVM backends
-from the interactive translator shells as follows::
-
-    >>> def myfunc(a, b): return a+b
-    ...
-    >>> t = Translation(myfunc, [int, int])
-    >>> t.annotate()
-    >>> f = t.compile_cli() # or compile_jvm()
-    >>> f(4, 5)
-    9
-
-The object returned by ``compile_cli`` or ``compile_jvm``
-is a wrapper around the real
-executable: the parameters are passed as command line arguments, and
-the returned value is read from the standard output.
-
-Once you have compiled the snippet, you can also try to launch the
-executable directly from the shell. You will find the
-executable in one of the ``/tmp/usession-*`` directories::
-
-    # For CLI:
-    $ mono /tmp/usession-trunk-<username>/main.exe 4 5
-    9
-
-    # For JVM:
-    $ java -cp /tmp/usession-trunk-<username>/pypy pypy.Main 4 5
-    9
-
-To translate and run for the CLI you must have the SDK installed: Windows
-users need the `.NET Framework SDK`_, while Linux and Mac users
-can use Mono_.  To translate and run for the JVM you must have a JDK
-installed (at least version 6) and ``java``/``javac`` on your path.
-
-.. _CLI backend: cli-backend.html
-.. _.NET Framework SDK: http://msdn.microsoft.com/netframework/
-.. _Mono: http://www.mono-project.com/Main_Page
 
 
 A slightly larger example

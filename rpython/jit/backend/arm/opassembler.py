@@ -33,6 +33,7 @@ from rpython.rlib.objectmodel import we_are_translated
 from rpython.rtyper.lltypesystem import rstr, rffi, lltype
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.jit.backend.arm import callbuilder
+from rpython.rlib.rarithmetic import r_uint
 
 
 class ArmGuardToken(GuardToken):
@@ -190,7 +191,7 @@ class ResOpAssembler(BaseAssembler):
         self.mc.RSB_ri(resloc.value, l0.value, imm=0)
         return fcond
 
-    def _emit_guard(self, op, arglocs, fcond, save_exc,
+    def build_guard_token(self, op, frame_depth, arglocs, offset, fcond, save_exc,
                                     is_guard_not_invalidated=False,
                                     is_guard_not_forced=False):
         assert isinstance(save_exc, bool)
@@ -198,7 +199,27 @@ class ResOpAssembler(BaseAssembler):
         descr = op.getdescr()
         assert isinstance(descr, AbstractFailDescr)
 
+        gcmap = allocate_gcmap(self, frame_depth, JITFRAME_FIXED_SIZE)
+        token = ArmGuardToken(self.cpu, gcmap,
+                                    descr,
+                                    failargs=op.getfailargs(),
+                                    fail_locs=arglocs,
+                                    offset=offset,
+                                    exc=save_exc,
+                                    frame_depth=frame_depth,
+                                    is_guard_not_invalidated=is_guard_not_invalidated,
+                                    is_guard_not_forced=is_guard_not_forced,
+                                    fcond=fcond)
+        return token
+
+    def _emit_guard(self, op, arglocs, fcond, save_exc,
+                                    is_guard_not_invalidated=False,
+                                    is_guard_not_forced=False):
         pos = self.mc.currpos()
+        token = self.build_guard_token(op, arglocs[0].value, arglocs[1:], pos, fcond, save_exc,
+                                        is_guard_not_invalidated,
+                                        is_guard_not_forced)
+        self.pending_guards.append(token)
         # For all guards that are not GUARD_NOT_INVALIDATED we emit a
         # breakpoint to ensure the location is patched correctly. In the case
         # of GUARD_NOT_INVALIDATED we use just a NOP, because it is only
@@ -207,17 +228,6 @@ class ResOpAssembler(BaseAssembler):
             self.mc.NOP()
         else:
             self.mc.BKPT()
-        gcmap = allocate_gcmap(self, arglocs[0].value, JITFRAME_FIXED_SIZE)
-        self.pending_guards.append(ArmGuardToken(self.cpu, gcmap,
-                                    descr,
-                                    failargs=op.getfailargs(),
-                                    fail_locs=arglocs[1:],
-                                    offset=pos,
-                                    exc=save_exc,
-                                    frame_depth=arglocs[0].value,
-                                    is_guard_not_invalidated=is_guard_not_invalidated,
-                                    is_guard_not_forced=is_guard_not_forced,
-                                    fcond=fcond))
         return c.AL
 
     def _emit_guard_overflow(self, guard, failargs, fcond):
@@ -248,7 +258,7 @@ class ResOpAssembler(BaseAssembler):
         l1 = arglocs[1]
         failargs = arglocs[2:]
 
-        if l0.is_reg():
+        if l0.is_core_reg():
             if l1.is_imm():
                 self.mc.CMP_ri(l0.value, l1.getint())
             else:
@@ -301,6 +311,32 @@ class ResOpAssembler(BaseAssembler):
         self._check_frame_depth_debug(self.mc)
         return fcond
 
+    def cond_call(self, op, gcmap, cond_loc, call_loc, fcond):
+        assert call_loc is r.r4
+        self.mc.TST_rr(cond_loc.value, cond_loc.value)
+        jmp_adr = self.mc.currpos()
+        self.mc.BKPT()  # patched later
+        #
+        self.push_gcmap(self.mc, gcmap, store=True)
+        #
+        callee_only = False
+        floats = False
+        if self._regalloc is not None:
+            for reg in self._regalloc.rm.reg_bindings.values():
+                if reg not in self._regalloc.rm.save_around_call_regs:
+                    break
+            else:
+                callee_only = True
+            if self._regalloc.vfprm.reg_bindings:
+                floats = True
+        cond_call_adr = self.cond_call_slowpath[floats * 2 + callee_only]
+        self.mc.BL(cond_call_adr)
+        self.pop_gcmap(self.mc)
+        # never any result value
+        pmc = OverwritingBuilder(self.mc, jmp_adr, WORD)
+        pmc.B_offs(self.mc.currpos(), c.EQ)  # equivalent to 0 as result of TST above
+        return fcond
+
     def emit_op_jump(self, op, arglocs, regalloc, fcond):
         target_token = op.getdescr()
         assert isinstance(target_token, TargetToken)
@@ -325,7 +361,11 @@ class ResOpAssembler(BaseAssembler):
         # XXX self.mov(fail_descr_loc, RawStackLoc(ofs))
         self.store_reg(self.mc, r.ip, r.fp, ofs, helper=r.lr)
         if op.numargs() > 0 and op.getarg(0).type == REF:
-            gcmap = self.gcmap_for_finish
+            if self._finish_gcmap:
+                self._finish_gcmap[0] |= r_uint(0) # r0
+                gcmap = self._finish_gcmap
+            else:
+                gcmap = self.gcmap_for_finish
             self.push_gcmap(self.mc, gcmap, store=True)
         else:
             # note that the 0 here is redundant, but I would rather
@@ -412,7 +452,7 @@ class ResOpAssembler(BaseAssembler):
         # Write code equivalent to write_barrier() in the GC: it checks
         # a flag in the object at arglocs[0], and if set, it calls a
         # helper piece of assembler.  The latter saves registers as needed
-        # and call the function jit_remember_young_pointer() from the GC.
+        # and call the function remember_young_pointer() from the GC.
         if we_are_translated():
             cls = self.cpu.gc_ll_descr.has_write_barrier_class()
             assert cls is not None and isinstance(descr, cls)
@@ -488,7 +528,7 @@ class ResOpAssembler(BaseAssembler):
             # case GCFLAG_CARDS_SET: emit a few instructions to do
             # directly the card flag setting
             loc_index = arglocs[1]
-            assert loc_index.is_reg()
+            assert loc_index.is_core_reg()
             # must save the register loc_index before it is mutated
             mc.PUSH([loc_index.value])
             tmp1 = loc_index
@@ -588,7 +628,7 @@ class ResOpAssembler(BaseAssembler):
 
     def emit_op_setarrayitem_gc(self, op, arglocs, regalloc, fcond):
         value_loc, base_loc, ofs_loc, scale, ofs = arglocs
-        assert ofs_loc.is_reg()
+        assert ofs_loc.is_core_reg()
         if scale.value > 0:
             self.mc.LSL_ri(r.ip.value, ofs_loc.value, scale.value)
             ofs_loc = r.ip
@@ -606,7 +646,7 @@ class ResOpAssembler(BaseAssembler):
             # vstr only supports imm offsets
             # so if the ofset is too large we add it to the base and use an
             # offset of 0
-            if ofs_loc.is_reg():
+            if ofs_loc.is_core_reg():
                 tmploc, save = self.get_tmp_reg([value_loc, base_loc, ofs_loc])
                 assert not save
                 self.mc.ADD_rr(tmploc.value, base_loc.value, ofs_loc.value)
@@ -644,13 +684,13 @@ class ResOpAssembler(BaseAssembler):
 
     def emit_op_raw_store(self, op, arglocs, regalloc, fcond):
         value_loc, base_loc, ofs_loc, scale, ofs = arglocs
-        assert ofs_loc.is_reg()
+        assert ofs_loc.is_core_reg()
         self._write_to_mem(value_loc, base_loc, ofs_loc, scale, fcond)
         return fcond
 
     def emit_op_getarrayitem_gc(self, op, arglocs, regalloc, fcond):
         res_loc, base_loc, ofs_loc, scale, ofs = arglocs
-        assert ofs_loc.is_reg()
+        assert ofs_loc.is_core_reg()
         signed = op.getdescr().is_item_signed()
 
         # scale the offset as required
@@ -672,7 +712,7 @@ class ResOpAssembler(BaseAssembler):
             # vldr only supports imm offsets
             # if the offset is in a register we add it to the base and use a
             # tmp reg
-            if ofs_loc.is_reg():
+            if ofs_loc.is_core_reg():
                 tmploc, save = self.get_tmp_reg([base_loc, ofs_loc])
                 assert not save
                 self.mc.ADD_rr(tmploc.value, base_loc.value, ofs_loc.value)
@@ -727,7 +767,7 @@ class ResOpAssembler(BaseAssembler):
 
     def emit_op_raw_load(self, op, arglocs, regalloc, fcond):
         res_loc, base_loc, ofs_loc, scale, ofs = arglocs
-        assert ofs_loc.is_reg()
+        assert ofs_loc.is_core_reg()
         # no base offset
         assert ofs.value == 0
         signed = op.getdescr().is_item_signed()
@@ -805,10 +845,10 @@ class ResOpAssembler(BaseAssembler):
             bytes_box = TempBox()
             bytes_loc = regalloc.rm.force_allocate_reg(bytes_box, forbidden_vars)
             scale = self._get_unicode_item_scale()
-            if not length_loc.is_reg():
+            if not length_loc.is_core_reg():
                 self.regalloc_mov(length_loc, bytes_loc)
                 length_loc = bytes_loc
-            assert length_loc.is_reg()
+            assert length_loc.is_core_reg()
             self.mc.MOV_ri(r.ip.value, 1 << scale)
             self.mc.MUL(bytes_loc.value, r.ip.value, length_loc.value)
             length_box = bytes_box
@@ -835,8 +875,8 @@ class ResOpAssembler(BaseAssembler):
 
    # result = base_loc  + (scaled_loc << scale) + static_offset
     def _gen_address(self, result, base_loc, scaled_loc, scale=0, static_offset=0):
-        assert scaled_loc.is_reg()
-        assert base_loc.is_reg()
+        assert scaled_loc.is_core_reg()
+        assert base_loc.is_core_reg()
         assert check_imm_arg(scale)
         assert check_imm_arg(static_offset)
         if scale > 0:
@@ -886,6 +926,14 @@ class ResOpAssembler(BaseAssembler):
 
         return fcond
 
+    def store_force_descr(self, op, fail_locs, frame_depth):
+        pos = self.mc.currpos()
+        guard_token = self.build_guard_token(op, frame_depth, fail_locs, pos, c.AL, True, False, True)
+        #self.pending_guards.append(guard_token)
+        self._finish_gcmap = guard_token.gcmap
+        self._store_force_index(op)
+        self.store_info_on_descr(pos, guard_token)
+
     def emit_op_force_token(self, op, arglocs, regalloc, fcond):
         # XXX kill me
         res_loc = arglocs[0]
@@ -932,16 +980,6 @@ class ResOpAssembler(BaseAssembler):
         pmc = OverwritingBuilder(self.mc, jmp_location, WORD)
         pmc.B_offs(self.mc.currpos(), c.EQ)
         return pos
-
-    def _call_assembler_reset_vtoken(self, jd, vloc):
-        from rpython.jit.backend.llsupport.descr import FieldDescr
-        fielddescr = jd.vable_token_descr
-        assert isinstance(fielddescr, FieldDescr)
-        ofs = fielddescr.offset
-        tmploc = self._regalloc.get_scratch_reg(INT)
-        self.mov_loc_loc(vloc, r.ip)
-        self.mc.MOV_ri(tmploc.value, 0)
-        self.mc.STR_ri(tmploc.value, r.ip.value, ofs)
 
     def _call_assembler_load_result(self, op, result_loc):
         if op.result is not None:
@@ -1063,7 +1101,7 @@ class ResOpAssembler(BaseAssembler):
     def emit_op_cast_float_to_int(self, op, arglocs, regalloc, fcond):
         arg, res = arglocs
         assert arg.is_vfp_reg()
-        assert res.is_reg()
+        assert res.is_core_reg()
         self.mc.VCVT_float_to_int(r.vfp_ip.value, arg.value)
         self.mc.VMOV_rc(res.value, r.ip.value, r.vfp_ip.value)
         return fcond
@@ -1071,7 +1109,7 @@ class ResOpAssembler(BaseAssembler):
     def emit_op_cast_int_to_float(self, op, arglocs, regalloc, fcond):
         arg, res = arglocs
         assert res.is_vfp_reg()
-        assert arg.is_reg()
+        assert arg.is_core_reg()
         self.mc.MOV_ri(r.ip.value, 0)
         self.mc.VMOV_cr(res.value, arg.value, r.ip.value)
         self.mc.VCVT_int_to_float(res.value, res.value)
@@ -1087,7 +1125,7 @@ class ResOpAssembler(BaseAssembler):
         loc = arglocs[0]
         res = arglocs[1]
         assert loc.is_vfp_reg()
-        assert res.is_reg()
+        assert res.is_core_reg()
         self.mc.VMOV_rc(res.value, r.ip.value, loc.value)
         return fcond
 
@@ -1108,7 +1146,7 @@ class ResOpAssembler(BaseAssembler):
     def emit_op_cast_float_to_singlefloat(self, op, arglocs, regalloc, fcond):
         arg, res = arglocs
         assert arg.is_vfp_reg()
-        assert res.is_reg()
+        assert res.is_core_reg()
         self.mc.VCVT_f64_f32(r.vfp_ip.value, arg.value)
         self.mc.VMOV_rc(res.value, r.ip.value, r.vfp_ip.value)
         return fcond
@@ -1116,7 +1154,7 @@ class ResOpAssembler(BaseAssembler):
     def emit_op_cast_singlefloat_to_float(self, op, arglocs, regalloc, fcond):
         arg, res = arglocs
         assert res.is_vfp_reg()
-        assert arg.is_reg()
+        assert arg.is_core_reg()
         self.mc.MOV_ri(r.ip.value, 0)
         self.mc.VMOV_cr(res.value, arg.value, r.ip.value)
         self.mc.VCVT_f32_f64(res.value, res.value)

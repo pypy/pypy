@@ -9,18 +9,19 @@ from rpython.conftest import option
 from rpython.tool.sourcetools import func_with_new_name
 
 from rpython.jit.metainterp.resoperation import ResOperation, rop, get_deep_immutable_oplist
-from rpython.jit.metainterp.history import TreeLoop, Box, JitCellToken, TargetToken
-from rpython.jit.metainterp.history import AbstractFailDescr, BoxInt
-from rpython.jit.metainterp.history import BoxPtr, BoxFloat, ConstInt
-from rpython.jit.metainterp import history, resume, jitexc
+from rpython.jit.metainterp.history import (TreeLoop, Box, JitCellToken,
+    TargetToken, AbstractFailDescr, BoxInt, BoxPtr, BoxFloat, ConstInt)
+from rpython.jit.metainterp import history, jitexc
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.inliner import Inliner
 from rpython.jit.metainterp.resume import NUMBERING, PENDINGFIELDSP, ResumeDataDirectReader
 from rpython.jit.codewriter import heaptracker, longlong
 
+
 def giveup():
     from rpython.jit.metainterp.pyjitpl import SwitchToBlackhole
     raise SwitchToBlackhole(Counters.ABORT_BRIDGE)
+
 
 def show_procedures(metainterp_sd, procedure=None, error=None):
     # debugging
@@ -301,14 +302,16 @@ def do_compile_loop(metainterp_sd, inputargs, operations, looptoken,
                     log=True, name=''):
     metainterp_sd.logger_ops.log_loop(inputargs, operations, -2,
                                       'compiling', name=name)
-    return metainterp_sd.cpu.compile_loop(inputargs, operations, looptoken,
+    return metainterp_sd.cpu.compile_loop(metainterp_sd.logger_ops,
+                                          inputargs, operations, looptoken,
                                           log=log, name=name)
 
 def do_compile_bridge(metainterp_sd, faildescr, inputargs, operations,
                       original_loop_token, log=True):
     metainterp_sd.logger_ops.log_bridge(inputargs, operations, "compiling")
     assert isinstance(faildescr, AbstractFailDescr)
-    return metainterp_sd.cpu.compile_bridge(faildescr, inputargs, operations,
+    return metainterp_sd.cpu.compile_bridge(metainterp_sd.logger_ops,
+                                            faildescr, inputargs, operations,
                                             original_loop_token, log=log)
 
 def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type):
@@ -657,16 +660,20 @@ class ResumeAtPositionDescr(ResumeGuardDescr):
 class AllVirtuals:
     llopaque = True
     cache = None
+
     def __init__(self, cache):
         self.cache = cache
+
     def hide(self, cpu):
         ptr = cpu.ts.cast_instance_to_base_ref(self)
         return cpu.ts.cast_to_ref(ptr)
+
     @staticmethod
     def show(cpu, gcref):
         from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance
         ptr = cpu.ts.cast_to_baseclass(gcref)
         return cast_base_ptr_to_instance(AllVirtuals, ptr)
+
 
 class ResumeGuardForcedDescr(ResumeGuardDescr):
 
@@ -703,6 +710,8 @@ class ResumeGuardForcedDescr(ResumeGuardDescr):
         rstack._stack_criticalcode_start()
         try:
             deadframe = cpu.force(token)
+            # this should set descr to ResumeGuardForceDescr, if it
+            # was not that already
             faildescr = cpu.get_latest_descr(deadframe)
             assert isinstance(faildescr, ResumeGuardForcedDescr)
             faildescr.handle_async_forcing(deadframe)
@@ -710,12 +719,18 @@ class ResumeGuardForcedDescr(ResumeGuardDescr):
             rstack._stack_criticalcode_stop()
 
     def handle_async_forcing(self, deadframe):
-        from rpython.jit.metainterp.resume import force_from_resumedata
+        from rpython.jit.metainterp.resume import (force_from_resumedata,
+                                                   AlreadyForced)
         metainterp_sd = self.metainterp_sd
         vinfo = self.jitdriver_sd.virtualizable_info
         ginfo = self.jitdriver_sd.greenfield_info
-        all_virtuals = force_from_resumedata(metainterp_sd, self, deadframe,
-                                             vinfo, ginfo)
+        # there is some chance that this is already forced. In this case
+        # the virtualizable would have a token = NULL
+        try:
+            all_virtuals = force_from_resumedata(metainterp_sd, self, deadframe,
+                                                 vinfo, ginfo)
+        except AlreadyForced:
+            return
         # The virtualizable data was stored on the real virtualizable above.
         # Handle all_virtuals: keep them for later blackholing from the
         # future failure of the GUARD_NOT_FORCED
@@ -762,9 +777,12 @@ def _see(self, newvalue):
     b = c = -1
     for i in range(1, 5):
         if self.counters[i] > self.counters[a]:
-            c = b; b = a; a = i
+            c = b
+            b = a
+            a = i
         elif b < 0 or self.counters[i] > self.counters[b]:
-            c = b; b = i
+            c = b
+            b = i
         elif c < 0 or self.counters[i] > self.counters[c]:
             c = i
     self.counters[c] = 1
@@ -878,10 +896,14 @@ def compile_tmp_callback(cpu, jitdriver_sd, greenboxes, redargtypes,
     assert len(redargtypes) == nb_red_args
     inputargs = []
     for kind in redargtypes:
-        if   kind == history.INT:   box = BoxInt()
-        elif kind == history.REF:   box = BoxPtr()
-        elif kind == history.FLOAT: box = BoxFloat()
-        else: raise AssertionError
+        if kind == history.INT:
+            box = BoxInt()
+        elif kind == history.REF:
+            box = BoxPtr()
+        elif kind == history.FLOAT:
+            box = BoxFloat()
+        else:
+            raise AssertionError
         inputargs.append(box)
     k = jitdriver_sd.portal_runner_adr
     funcbox = history.ConstInt(heaptracker.adr2int(k))
@@ -909,10 +931,10 @@ def compile_tmp_callback(cpu, jitdriver_sd, greenboxes, redargtypes,
         ResOperation(rop.CALL, callargs, result, descr=jd.portal_calldescr),
         ResOperation(rop.GUARD_NO_EXCEPTION, [], None, descr=faildescr),
         ResOperation(rop.FINISH, finishargs, None, descr=jd.portal_finishtoken)
-        ]
+    ]
     operations[1].setfailargs([])
     operations = get_deep_immutable_oplist(operations)
-    cpu.compile_loop(inputargs, operations, jitcell_token, log=False)
+    cpu.compile_loop(None, inputargs, operations, jitcell_token, log=False)
     if memory_manager is not None:    # for tests
         memory_manager.keep_loop_alive(jitcell_token)
     return jitcell_token

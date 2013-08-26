@@ -299,10 +299,6 @@ class BaseFrameworkGCTransformer(GCTransformer):
         else:
             malloc_fixedsize_meth = None
             self.malloc_fixedsize_ptr = self.malloc_fixedsize_clear_ptr
-##         self.malloc_varsize_ptr = getfn(
-##             GCClass.malloc_varsize.im_func,
-##             [s_gc] + [annmodel.SomeInteger(nonneg=True) for i in range(5)]
-##             + [annmodel.SomeBool()], s_gcref)
         self.malloc_varsize_clear_ptr = getfn(
             GCClass.malloc_varsize_clear.im_func,
             [s_gc, s_typeid16]
@@ -320,13 +316,6 @@ class BaseFrameworkGCTransformer(GCTransformer):
                  annmodel.SomeInteger(nonneg=True)], annmodel.s_Bool)
         else:
             self.shrink_array_ptr = None
-
-        if hasattr(GCClass, 'assume_young_pointers'):
-            # xxx should really be a noop for gcs without generations
-            self.assume_young_pointers_ptr = getfn(
-                GCClass.assume_young_pointers.im_func,
-                [s_gc, annmodel.SomeAddress()],
-                annmodel.s_None)
 
         if hasattr(GCClass, 'heap_stats'):
             self.heap_stats_ptr = getfn(GCClass.heap_stats.im_func,
@@ -424,7 +413,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
         self.identityhash_ptr = getfn(GCClass.identityhash.im_func,
                                       [s_gc, s_gcref],
                                       annmodel.SomeInteger(),
-                                      minimal_transform=False)
+                                      minimal_transform=False, inline=True)
         if getattr(GCClass, 'obtain_free_space', False):
             self.obtainfreespace_ptr = getfn(GCClass.obtain_free_space.im_func,
                                              [s_gc, annmodel.SomeInteger()],
@@ -433,7 +422,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
         if GCClass.moving_gc:
             self.id_ptr = getfn(GCClass.id.im_func,
                                 [s_gc, s_gcref], annmodel.SomeInteger(),
-                                inline = False,
+                                inline = True,
                                 minimal_transform = False)
         else:
             self.id_ptr = None
@@ -478,11 +467,10 @@ class BaseFrameworkGCTransformer(GCTransformer):
         if GCClass.needs_write_barrier:
             self.write_barrier_ptr = getfn(GCClass.write_barrier.im_func,
                                            [s_gc,
-                                            annmodel.SomeAddress(),
                                             annmodel.SomeAddress()],
                                            annmodel.s_None,
                                            inline=True)
-            func = getattr(gcdata.gc, 'jit_remember_young_pointer', None)
+            func = getattr(gcdata.gc, 'remember_young_pointer', None)
             if func is not None:
                 # func should not be a bound method, but a real function
                 assert isinstance(func, types.FunctionType)
@@ -493,7 +481,6 @@ class BaseFrameworkGCTransformer(GCTransformer):
             if func is not None:
                 self.write_barrier_from_array_ptr = getfn(func.im_func,
                                            [s_gc,
-                                            annmodel.SomeAddress(),
                                             annmodel.SomeAddress(),
                                             annmodel.SomeInteger()],
                                            annmodel.s_None,
@@ -744,15 +731,15 @@ class BaseFrameworkGCTransformer(GCTransformer):
                                   v_addr, v_length],
                   resultvar=op.result)
 
-    def gct_gc_assume_young_pointers(self, hop):
-        if not hasattr(self, 'assume_young_pointers_ptr'):
+    def gct_gc_writebarrier(self, hop):
+        if self.write_barrier_ptr is None:
             return
         op = hop.spaceop
         v_addr = op.args[0]
         if v_addr.concretetype != llmemory.Address:
             v_addr = hop.genop('cast_ptr_to_adr',
                                [v_addr], resulttype=llmemory.Address)
-        hop.genop("direct_call", [self.assume_young_pointers_ptr,
+        hop.genop("direct_call", [self.write_barrier_ptr,
                                   self.c_const_gc, v_addr])
 
     def gct_gc_heap_stats(self, hop):
@@ -1124,8 +1111,6 @@ class BaseFrameworkGCTransformer(GCTransformer):
             and not isinstance(v_newvalue, Constant)
             and v_struct.concretetype.TO._gckind == "gc"
             and hop.spaceop not in self.clean_sets):
-            v_newvalue = hop.genop("cast_ptr_to_adr", [v_newvalue],
-                                   resulttype = llmemory.Address)
             v_structaddr = hop.genop("cast_ptr_to_adr", [v_struct],
                                      resulttype = llmemory.Address)
             if (self.write_barrier_from_array_ptr is not None and
@@ -1135,14 +1120,12 @@ class BaseFrameworkGCTransformer(GCTransformer):
                 assert v_index.concretetype == lltype.Signed
                 hop.genop("direct_call", [self.write_barrier_from_array_ptr,
                                           self.c_const_gc,
-                                          v_newvalue,
                                           v_structaddr,
                                           v_index])
             else:
                 self.write_barrier_calls += 1
                 hop.genop("direct_call", [self.write_barrier_ptr,
                                           self.c_const_gc,
-                                          v_newvalue,
                                           v_structaddr])
         hop.rename('bare_' + opname)
 

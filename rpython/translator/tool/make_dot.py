@@ -143,13 +143,13 @@ class FlowGraphDotGen(DotGen):
         color = "black"
         fillcolor = getattr(block, "blockcolor", "white")
         if not numblocks:
-           shape = "box"
-           if len(block.inputargs) == 1:
-               lines[-1] += 'return %s' % tuple(block.inputargs)
-               fillcolor= RETURN_COLOR
-           elif len(block.inputargs) == 2:
-               lines[-1] += 'raise %s, %s' % tuple(block.inputargs)
-               fillcolor= EXCEPT_COLOR
+            shape = "box"
+            if len(block.inputargs) == 1:
+                lines[-1] += 'return %s' % tuple(block.inputargs)
+                fillcolor = RETURN_COLOR
+            elif len(block.inputargs) == 2:
+                lines[-1] += 'raise %s, %s' % tuple(block.inputargs)
+                fillcolor = EXCEPT_COLOR
         elif numblocks == 1:
             shape = "box"
         else:

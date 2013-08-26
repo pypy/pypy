@@ -14,8 +14,7 @@ Glossary
 
    backend
       Code generator that converts an :doc:`rpython` program to a :ref:`target
-      language <try-out-the-translator>` using the :term:`RPython toolchain`. A backend uses either the
-      :term:`lltypesystem` or the :term:`ootypesystem`.
+      language <try-out-the-translator>` using the :term:`RPython toolchain`.
 
    compile-time
       In the context of the :term:`JIT`, compile time is when the JIT is

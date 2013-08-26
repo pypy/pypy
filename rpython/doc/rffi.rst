@@ -63,9 +63,3 @@ with such a call. For this, there is a `register_external` routine,
 located in :source:`extfunc.py <rpython/rtyper/extfunc.py>`, which provides nice API for declaring such a
 functions, passing llimpl as an argument and eventually llfakeimpl
 as a fake low-level implementation for tests performed by an llinterp.
-
-
-OO backends
------------
-
-XXX to be written
