@@ -1,0 +1,22 @@
+- test array.nonzero()
+- test "from numpypy import *" esp. get_include()
+- test "import numpy" emitting warning not error
+- test all *.h files under pypy/module/cpyext/include/numpy
+- make sure all cpyext changes are tested:
+    PyBoolObject (new)
+    PyComplexFromCComplex() (changed, problematic)
+    PyFunctionType (new)
+    PyMethodType (new)
+    PyRangeType (new)
+    PyTracebackType (new)
+    _PyPackageContext (new)
+    Py*Flag (most new, some changed) in pythonrun.h
+    all ndarrayobject.c
+    copy_header_files() in api.py (changed)
+    all ndarrayobject.py (new)
+    PyNumberCoerceEx() (new)
+    PyNumberCoerce() (new)
+- test require_index in create_iter, get_index in iter
+- test use of __array__() and friends
+- test complex data types in dtypes_by_num
+-    
