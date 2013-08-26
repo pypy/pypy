@@ -680,6 +680,33 @@ class UnionError(Exception):
     """Signals an suspicious attempt at taking the union of
     deeply incompatible SomeXxx instances."""
 
+    def __init__(self, s_obj1, s_obj2, msg=None):
+        """
+        This exception expresses the fact that s_obj1 and s_obj2 cannot be unified.
+        The msg paramter is appended to a generic message. This can be used to
+        give the user a little more information.
+        """
+        self.s_obj1 = s_obj1
+        self.s_obj2 = s_obj2
+        self.msg = msg
+        self.source = None
+
+    def __str__(self):
+        s = "\n\n"
+
+        if self.msg is not None:
+            s += "%s\n\n" % self.msg
+
+        s += "Offending annotations:\n"
+        s += "%s\n%s\n\n" % (self.s_obj1, self.s_obj2)
+
+        if self.source is not None:
+            s += self.source
+
+        return s
+
+    def __repr__(self):
+        return str(self)
 
 def unionof(*somevalues):
     "The most precise SomeValue instance that contains all the values."
