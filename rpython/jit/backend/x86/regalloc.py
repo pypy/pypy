@@ -807,7 +807,21 @@ class RegAlloc(BaseRegalloc):
                    for i in range(N)]
         self.perform_discard(op, arglocs)
 
-    consider_cond_call_stm_b = consider_cond_call_gc_wb
+    def consider_cond_call_stm_b(self, op):
+        assert op.result is None
+        # we force all arguments in a reg (unless they are Consts),
+        # because it will be needed anyway by the following setfield_gc
+        # or setarrayitem_gc. It avoids loading it twice from the memory.
+        arg = op.getarg(0)
+        argloc = self.rm.make_sure_var_in_reg(arg)
+        self.perform_discard(op, [argloc])
+
+        spilled_loc = self.rm.frame_manager.get(arg)
+        if spilled_loc:
+            # spilled var, make sure it gets updated in the frame too
+            self.assembler.regalloc_mov(argloc, spilled_loc)
+
+
     consider_cond_call_gc_wb_array = consider_cond_call_gc_wb
 
     def consider_call_malloc_nursery(self, op):

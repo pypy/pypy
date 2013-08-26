@@ -767,6 +767,58 @@ class TestGcStm(BaseTestRegalloc):
         assert frame_adr != id(finaldescr)
 
 
+    def test_write_barrier_on_spilled(self):
+        cpu = self.cpu
+
+        PRIV_REV = rffi.cast(lltype.Signed, StmGC.PREBUILT_REVISION)
+        self.priv_rev_num[0] = PRIV_REV
+
+        s = self.allocate_prebuilt_s()
+        other_s = self.allocate_prebuilt_s()
+        sgcref = lltype.cast_opaque_ptr(llmemory.GCREF, s)
+        other_sgcref = lltype.cast_opaque_ptr(llmemory.GCREF, other_s)
+        s.h_revision = PRIV_REV+4
+        other_s.h_revision = PRIV_REV+4
+
+        called_on = []
+        def write_barrier(obj):
+            called_on.append(obj)
+            if llmemory.cast_ptr_to_adr(sgcref) == obj:
+                return rffi.cast(llmemory.Address, other_sgcref)
+            return obj
+        P2W = FakeSTMBarrier(cpu.gc_ll_descr, 'P2W', write_barrier)
+        old_p2w = cpu.gc_ll_descr.P2Wdescr
+        cpu.gc_ll_descr.P2Wdescr = P2W
+
+        cpu.gc_ll_descr.init_nursery(100)
+        cpu.setup_once()
+
+        
+        from rpython.jit.tool.oparser import FORCE_SPILL
+        p0 = BoxPtr()
+        spill = FORCE_SPILL(None)
+        spill.initarglist([p0])
+        operations = [
+            ResOperation(rop.COND_CALL_STM_B, [p0], None,
+                         descr=P2W),
+            spill,
+            ResOperation(rop.COND_CALL_STM_B, [p0], None,
+                         descr=P2W),
+            ResOperation(rop.FINISH, [p0], None, 
+                             descr=BasicFinalDescr(0)),
+            ]
+        inputargs = [p0]
+        looptoken = JitCellToken()
+        print cpu.compile_loop(inputargs, operations, looptoken)
+        cpu.execute_token(looptoken, sgcref)
+
+        # the second write-barrier must see the result of the
+        # first one
+        self.assert_in(called_on, [sgcref, other_sgcref])
+
+        # for other tests:
+        cpu.gc_ll_descr.P2Wdescr = old_p2w
+
     
         
 
