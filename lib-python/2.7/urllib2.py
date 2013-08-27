@@ -1193,6 +1193,8 @@ class AbstractHTTPHandler(BaseHandler):
         # out of socket._fileobject() and into a base class.
 
         r.recv = r.read
+        r._reuse = lambda: None
+        r._drop = lambda: None
         fp = socket._fileobject(r, close=True)
 
         resp = addinfourl(fp, r.msg, req.get_full_url())

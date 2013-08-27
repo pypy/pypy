@@ -52,3 +52,26 @@ Allow subclassing ndarray, i.e. matrix
 .. branch: fast-slowpath
 Added an abstraction for functions with a fast and slow path in the JIT. This
 speeds up list.append() and list.pop().
+
+.. branch: curses_fixes
+
+.. branch: foldable-getarrayitem-indexerror
+Constant-fold reading out of constant tuples in PyPy.
+
+.. branch: mro-reorder-numpypy-str
+No longer delegate numpy string_ methods to space.StringObject, in numpy
+this works by kind of by accident. Support for merging the refactor-str-types
+branch
+
+.. branch: kill-typesystem
+Remove the "type system" abstraction, now that there is only ever one kind of
+type system used.
+
+.. branch: kill-gen-store-back-in
+Kills gen_store_back_in_virtualizable - should improve non-inlined calls by
+a bit
+
+.. branch: dotviewer-linewidth
+.. branch: reflex-support
+.. branch: numpypy-inplace-op
+.. branch: rewritten-loop-logging

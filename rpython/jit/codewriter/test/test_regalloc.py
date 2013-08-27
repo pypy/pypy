@@ -13,8 +13,8 @@ from rpython.rlib.rarithmetic import ovfcheck
 
 class TestRegAlloc:
 
-    def make_graphs(self, func, values, type_system='lltype'):
-        self.rtyper = support.annotate(func, values, type_system=type_system)
+    def make_graphs(self, func, values):
+        self.rtyper = support.annotate(func, values)
         return self.rtyper.annotator.translator.graphs
 
     def check_assembler(self, graph, expected, transform=False,

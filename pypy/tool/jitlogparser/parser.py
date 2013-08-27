@@ -85,7 +85,7 @@ class SimpleParser(OpParser):
                     continue
                 e = elem.split("\t")
                 adr = e[0]
-                v = " ".join(e[2:])
+                v = elem   # --- more compactly:  " ".join(e[2:])
                 if not start:
                     start = int(adr.strip(":"), 16)
                 ofs = int(adr.strip(":"), 16) - start
@@ -379,17 +379,23 @@ def import_log(logname, ParserCls=SimpleParser):
             name = entry[:entry.find('(') - 1].lower()
             addr = int(m.group(1), 16)
         addrs.setdefault(addr, []).append(name)
-    dumps = {}
+    from rpython.jit.backend.tool.viewcode import World
+    world = World()
     for entry in extract_category(log, 'jit-backend-dump'):
-        backend, _, dump, _ = entry.split("\n")
-        _, addr, _, data = re.split(" +", dump)
-        backend_name = backend.split(" ")[1]
-        addr = int(addr[1:], 16)
-        if addr in addrs and addrs[addr]:
-            name = addrs[addr].pop(0) # they should come in order
-            dumps[name] = (backend_name, addr, data)
+        world.parse(entry.splitlines(True))
+    dumps = {}
+    for r in world.ranges:
+        if r.addr in addrs and addrs[r.addr]:
+            name = addrs[r.addr].pop(0) # they should come in order
+            data = r.data.encode('hex')       # backward compatibility
+            dumps[name] = (world.backend_name, r.addr, data)
     loops = []
-    for entry in extract_category(log, 'jit-log-opt'):
+    cat = extract_category(log, 'jit-log-opt')
+    if not cat:
+        extract_category(log, 'jit-log-rewritten')
+    if not cat:
+        extract_category(log, 'jit-log-noopt')        
+    for entry in cat:
         parser = ParserCls(entry, None, {}, 'lltype', None,
                            nonstrict=True)
         loop = parser.parse()

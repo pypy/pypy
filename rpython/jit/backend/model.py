@@ -6,7 +6,7 @@ class CPUTotalTracker(object):
     total_compiled_loops = 0
     total_compiled_bridges = 0
     total_freed_loops = 0
-    total_freed_bridges = 0    
+    total_freed_bridges = 0
 
     # for heaptracker
     # _all_size_descrs_with_vtable = None
@@ -51,7 +51,8 @@ class AbstractCPU(object):
         """
         return False
 
-    def compile_loop(self, inputargs, operations, looptoken, log=True, name=''):
+    def compile_loop(self, logger, inputargs, operations, looptoken,
+                     log=True, name=''):
         """Assemble the given loop.
         Should create and attach a fresh CompiledLoopToken to
         looptoken.compiled_loop_token and stick extra attributes
@@ -67,7 +68,7 @@ class AbstractCPU(object):
         """
         raise NotImplementedError
 
-    def compile_bridge(self, faildescr, inputargs, operations,
+    def compile_bridge(self, logger, faildescr, inputargs, operations,
                        original_loop_token, log=True):
         """Assemble the bridge.
         The FailDescr is the descr of the original guard that failed.
@@ -182,13 +183,9 @@ class AbstractCPU(object):
     def arraydescrof(self, A):
         raise NotImplementedError
 
-    def calldescrof(self, FUNC, ARGS, RESULT):
+    def calldescrof(self, FUNC, ARGS, RESULT, extrainfo):
         # FUNC is the original function type, but ARGS is a list of types
         # with Voids removed
-        raise NotImplementedError
-
-    def methdescrof(self, SELFTYPE, methname):
-        # must return a subclass of history.AbstractMethDescr
         raise NotImplementedError
 
     def typedescrof(self, TYPE):
@@ -297,7 +294,6 @@ class AbstractCPU(object):
         raise NotImplementedError
     def bh_copyunicodecontent(self, src, dst, srcstart, dststart, length):
         raise NotImplementedError
-
 
 class CompiledLoopToken(object):
     asmmemmgr_blocks = None

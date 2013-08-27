@@ -961,6 +961,10 @@ class TestCompiler:
                              None).value
         assert exc.msg == "too many expressions in star-unpacking assignment"
 
+    def test_list_compr_or(self):
+        yield self.st, 'x = list(d for d in [1] or [])', 'x', [1]
+        yield self.st, 'y = [d for d in [1] or []]', 'y', [1]
+
 
 class AppTestCompiler:
 

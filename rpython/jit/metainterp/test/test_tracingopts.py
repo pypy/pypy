@@ -344,7 +344,7 @@ class TestLLtype(LLJitMixin):
                                     virtualizables = ['frame'])
 
         class Frame(object):
-            _virtualizable2_ = ['l[*]', 's']
+            _virtualizable_ = ['l[*]', 's']
 
             def __init__(self, a, s):
                 self = jit.hint(self, access_directly=True, fresh_virtualizable=True)

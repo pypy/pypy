@@ -7,6 +7,7 @@ from rpython.annotator import model as annmodel
 from rpython.annotator.policy import AnnotatorPolicy
 from rpython.annotator.signature import Sig
 from rpython.annotator.specialize import flatten_star_args
+from rpython.rtyper.normalizecalls import perform_normalizations
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.flowspace.model import Constant
 from rpython.rlib.objectmodel import specialize
@@ -72,16 +73,6 @@ class LowLevelAnnotatorPolicy(AnnotatorPolicy):
     def default_specialize(funcdesc, args_s):
         return LowLevelAnnotatorPolicy.lowlevelspecialize(funcdesc, args_s, {})
     default_specialize = staticmethod(default_specialize)
-
-    def specialize__ts(pol, funcdesc, args_s, ref):
-        ts = pol.rtyper.type_system
-        ref = ref.split('.')
-        x = ts
-        for part in ref:
-            x = getattr(x, part)
-        bk = pol.rtyper.annotator.bookkeeper
-        funcdesc2 = bk.getdesc(x)
-        return pol.default_specialize(funcdesc2, args_s)
 
     def specialize__semierased(funcdesc, args_s):
         a2l = annmodel.annotation_to_lltype
@@ -261,7 +252,7 @@ class MixLevelHelperAnnotator(object):
         rtyper = self.rtyper
         translator = rtyper.annotator.translator
         original_graph_count = len(translator.graphs)
-        rtyper.type_system.perform_normalizations(rtyper)
+        perform_normalizations(rtyper)
         for r in self.delayedreprs:
             r.set_setup_delayed(False)
         rtyper.call_all_setups()

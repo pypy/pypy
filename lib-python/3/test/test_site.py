@@ -223,6 +223,10 @@ class HelperFunctionsTests(unittest.TestCase):
             self.assertEqual(len(dirs), 1)
             wanted = os.path.join('xoxo', 'Lib', 'site-packages')
             self.assertEqual(dirs[0], wanted)
+        elif '__pypy__' in sys.builtin_module_names:
+            self.assertEquals(len(dirs), 1)
+            wanted = os.path.join('xoxo', 'site-packages')
+            self.assertEquals(dirs[0], wanted)
         elif (sys.platform == "darwin" and
             sysconfig.get_config_var("PYTHONFRAMEWORK")):
             # OS X framework builds

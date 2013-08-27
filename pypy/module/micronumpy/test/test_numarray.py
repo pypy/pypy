@@ -264,6 +264,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a.dtype is dtype(int)
         a = ndarray([], dtype=float)
         assert a.shape == ()
+        # test uninitialized value crash?
+        assert len(str(a)) > 0
 
     def test_ndmin(self):
         from numpypy import array
@@ -786,6 +788,49 @@ class AppTestNumArray(BaseNumpyAppTest):
             assert r[i] == i + 3
         r = [1, 2] + array([1, 2])
         assert (r == [2, 4]).all()
+
+    def test_inline_op_scalar(self):
+        from numpypy import array
+        for op in [
+                '__iadd__',
+                '__isub__',
+                '__imul__',
+                '__idiv__',
+                '__ifloordiv__',
+                '__imod__',
+                '__ipow__',
+                '__ilshift__',
+                '__irshift__',
+                '__iand__',
+                '__ior__',
+                '__ixor__']:
+            a = b = array(range(3))
+            getattr(a, op).__call__(2)
+            assert id(a) == id(b)
+
+    def test_inline_op_array(self):
+        from numpypy import array
+        for op in [
+                '__iadd__',
+                '__isub__',
+                '__imul__',
+                '__idiv__',
+                '__ifloordiv__',
+                '__imod__',
+                '__ipow__',
+                '__ilshift__',
+                '__irshift__',
+                '__iand__',
+                '__ior__',
+                '__ixor__']:
+            a = b = array(range(5))
+            c = array(range(5))
+            d = array(5 * [2])
+            getattr(a, op).__call__(d)
+            assert id(a) == id(b)
+            reg_op = op.replace('__i', '__')
+            for i in range(5):
+                assert a[i] == getattr(c[i], reg_op).__call__(d[i])
 
     def test_add_list(self):
         from numpypy import array, ndarray
@@ -1877,6 +1922,12 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = numpy.arange(10.).reshape((5, 2))[::2]
         assert (loads(dumps(a)) == a).all()
 
+    def test_string_filling(self):
+        import numpypy as numpy
+        a = numpy.empty((10,10), dtype='c1')
+        a.fill(12)
+        assert (a == '1').all()
+
 class AppTestMultiDim(BaseNumpyAppTest):
     def test_init(self):
         import numpypy
@@ -2754,6 +2805,19 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         assert a[2] == 'ab'
         raises(TypeError, a, 'sum')
         raises(TypeError, 'a+a')
+        b = array(['abcdefg', 'ab', 'cd'])
+        assert a[2] == b[1]
+        assert bool(a[1])
+        c = array(['ab','cdefg','hi','jk'])
+        # not implemented yet
+        #c[0] += c[3]
+        #assert c[0] == 'abjk'
+
+    def test_to_str(self):
+        from numpypy import array
+        a = array(['abc','abc', 'def', 'ab'], 'S3')
+        b = array(['mnopqr','abcdef', 'ab', 'cd'])
+        assert b[1] != a[1]
 
     def test_string_scalar(self):
         from numpypy import array
@@ -2765,8 +2829,7 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         assert str(a.dtype) == '|S1'
         a = array('x', dtype='c')
         assert str(a.dtype) == '|S1'
-        # XXX can sort flexible types, why not comparison?
-        #assert a == 'x'
+        assert a == 'x'
 
     def test_flexible_repr(self):
         from numpypy import array

@@ -391,6 +391,7 @@ class ClassDesc(Desc):
     instance_level = False
     all_enforced_attrs = None   # or a set
     settled = False
+    _detect_invalid_attrs = None
 
     def __init__(self, bookkeeper, pyobj=None,
                  name=None, basedesc=None, classdict=None,
@@ -714,6 +715,10 @@ class ClassDesc(Desc):
         # by changing the result's annotation (but not, of course, doing an
         # actual copy in the rtyper).  Tested in rpython.rtyper.test.test_rlist,
         # test_immutable_list_out_of_instance.
+        if self._detect_invalid_attrs and attr in self._detect_invalid_attrs:
+            raise Exception("field %r was migrated to %r from a subclass in "
+                            "which it was declared as _immutable_fields_" %
+                            (attr, self.pyobj))
         search1 = '%s[*]' % (attr,)
         search2 = '%s?[*]' % (attr,)
         cdesc = self
@@ -724,6 +729,14 @@ class ClassDesc(Desc):
                     s_result.listdef.never_resize()
                     s_copy = s_result.listdef.offspring()
                     s_copy.listdef.mark_as_immutable()
+                    #
+                    cdesc = cdesc.basedesc
+                    while cdesc is not None:
+                        if cdesc._detect_invalid_attrs is None:
+                            cdesc._detect_invalid_attrs = set()
+                        cdesc._detect_invalid_attrs.add(attr)
+                        cdesc = cdesc.basedesc
+                    #
                     return s_copy
             cdesc = cdesc.basedesc
         return s_result     # common case

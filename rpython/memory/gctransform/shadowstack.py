@@ -304,12 +304,12 @@ class ShadowStackPool(object):
                   "save_current_state_away: broken shadowstack")
         #shadowstackref.fullstack = True
         #
-        # cannot use llop.gc_assume_young_pointers() here, because
+        # cannot use llop.gc_writebarrier() here, because
         # we are in a minimally-transformed GC helper :-/
         gc = self.gcdata.gc
-        if hasattr(gc.__class__, 'assume_young_pointers'):
+        if hasattr(gc.__class__, 'write_barrier'):
             shadowstackadr = llmemory.cast_ptr_to_adr(shadowstackref)
-            gc.assume_young_pointers(shadowstackadr)
+            gc.write_barrier(shadowstackadr)
         #
         self.gcdata.root_stack_top = llmemory.NULL  # to detect missing restore
 

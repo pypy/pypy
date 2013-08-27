@@ -5101,6 +5101,15 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         }
         self.optimize_loop(ops, expected, call_pure_results)
 
+    def test_guard_not_forced_2_virtual(self):
+        ops = """
+        [i0]
+        p0 = new_array(3, descr=arraydescr)
+        guard_not_forced_2() [p0]
+        finish(p0)
+        """
+        self.optimize_loop(ops, ops)
+
 
 class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
     pass

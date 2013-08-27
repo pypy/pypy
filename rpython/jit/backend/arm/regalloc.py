@@ -1194,6 +1194,12 @@ class Regalloc(BaseRegalloc):
         #    self._compute_hint_frame_locations_from_descr(descr)
         return []
 
+    def prepare_op_guard_not_forced_2(self, op, fcond):
+        self.rm.before_call(op.getfailargs(), save_all_regs=True)
+        fail_locs = self._prepare_guard(op)
+        self.assembler.store_force_descr(op, fail_locs[1:], fail_locs[0].value)
+        self.possibly_free_vars(op.getfailargs())
+
     def prepare_guard_call_may_force(self, op, guard_op, fcond):
         args = self._prepare_call(op, save_all_regs=True)
         return self._prepare_guard(guard_op, args)

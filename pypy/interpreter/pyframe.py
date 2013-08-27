@@ -123,8 +123,8 @@ class PyFrame(eval.Frame):
         # CO_OPTIMIZED: no locals dict needed at all
         # NB: this method is overridden in nestedscope.py
         flags = code.co_flags
-        if flags & pycode.CO_OPTIMIZED: 
-            return 
+        if flags & pycode.CO_OPTIMIZED:
+            return
         if flags & pycode.CO_NEWLOCALS:
             self.w_locals = self.space.newdict(module=True)
         else:
@@ -179,11 +179,10 @@ class PyFrame(eval.Frame):
                 executioncontext.return_trace(self, self.space.w_None)
                 raise
             executioncontext.return_trace(self, w_exitvalue)
-            # clean up the exception, might be useful for not
-            # allocating exception objects in some cases
-            # if it's a generator, we have to preserve the exception state
-            if not self.is_generator():
-                self.last_exception = None
+            # it used to say self.last_exception = None
+            # this is now done by the code in pypyjit module
+            # since we don't want to invalidate the virtualizable
+            # for no good reason
             got_exception = False
         finally:
             executioncontext.leave(self, w_exitvalue, got_exception)
@@ -265,7 +264,7 @@ class PyFrame(eval.Frame):
                 break
             w_value = self.peekvalue(delta)
             self.pushvalue(w_value)
-        
+
     def peekvalue(self, index_from_top=0):
         # NOTE: top of the stack is peekvalue(0).
         # Contrast this with CPython where it's PEEK(-1).
@@ -335,7 +334,7 @@ class PyFrame(eval.Frame):
         nlocals = self.pycode.co_nlocals
         values_w = self.locals_stack_w[nlocals:self.valuestackdepth]
         w_valuestack = maker.slp_into_tuple_with_nulls(space, values_w)
-        
+
         w_blockstack = nt([block._get_state_(space) for block in self.get_blocklist()])
         w_fastlocals = maker.slp_into_tuple_with_nulls(
             space, self.locals_stack_w[:nlocals])
@@ -345,7 +344,7 @@ class PyFrame(eval.Frame):
         else:
             w_exc_value = self.last_exception.get_w_value(space)
             w_tb = w(self.last_exception.get_traceback())
-        
+
         tup_state = [
             w(self.f_backref()),
             w(self.get_builtin()),
@@ -360,7 +359,7 @@ class PyFrame(eval.Frame):
             w(f_lineno),
             w_fastlocals,
             space.w_None,           #XXX placeholder for f_locals
-            
+
             #f_restricted requires no additional data!
             space.w_None, ## self.w_f_trace,  ignore for now
 
@@ -394,7 +393,7 @@ class PyFrame(eval.Frame):
             ncellvars = len(pycode.co_cellvars)
             cellvars = cells[:ncellvars]
             closure = cells[ncellvars:]
-        
+
         # do not use the instance's __init__ but the base's, because we set
         # everything like cells from here
         # XXX hack
@@ -481,7 +480,7 @@ class PyFrame(eval.Frame):
 
     ### line numbers ###
 
-    def fget_f_lineno(self, space): 
+    def fget_f_lineno(self, space):
         "Returns the line number of the instruction currently being executed."
         if self.w_f_trace is None:
             return space.wrap(self.get_last_lineno())
@@ -495,7 +494,7 @@ class PyFrame(eval.Frame):
         except OperationError, e:
             raise OperationError(space.w_ValueError,
                                  space.wrap("lineno must be an integer"))
-            
+
         if self.w_f_trace is None:
             raise OperationError(space.w_ValueError,
                   space.wrap("f_lineno can only be set by a trace function."))
@@ -527,7 +526,7 @@ class PyFrame(eval.Frame):
         if ord(code[new_lasti]) in (DUP_TOP, POP_TOP):
             raise OperationError(space.w_ValueError,
                   space.wrap("can't jump to 'except' line as there's no exception"))
-            
+
         # Don't jump into or out of a finally block.
         f_lasti_setup_addr = -1
         new_lasti_setup_addr = -1
@@ -558,12 +557,12 @@ class PyFrame(eval.Frame):
                         if addr == self.last_instr:
                             f_lasti_setup_addr = setup_addr
                         break
-                    
+
             if op >= HAVE_ARGUMENT:
                 addr += 3
             else:
                 addr += 1
-                
+
         assert len(blockstack) == 0
 
         if new_lasti_setup_addr != f_lasti_setup_addr:
@@ -614,10 +613,10 @@ class PyFrame(eval.Frame):
             block = self.pop_block()
             block.cleanup(self)
             f_iblock -= 1
-            
+
         self.f_lineno = new_lineno
         self.last_instr = new_lasti
-            
+
     def get_last_lineno(self):
         "Returns the line number of the instruction currently being executed."
         return pytraceback.offset2lineno(self.pycode, self.last_instr)
@@ -643,8 +642,8 @@ class PyFrame(eval.Frame):
             self.f_lineno = self.get_last_lineno()
             space.frame_trace_action.fire()
 
-    def fdel_f_trace(self, space): 
-        self.w_f_trace = None 
+    def fdel_f_trace(self, space):
+        self.w_f_trace = None
 
     def fget_f_exc_type(self, space):
         if self.last_exception is not None:
@@ -654,7 +653,7 @@ class PyFrame(eval.Frame):
             if f is not None:
                 return f.last_exception.w_type
         return space.w_None
-         
+
     def fget_f_exc_value(self, space):
         if self.last_exception is not None:
             f = self.f_backref()
@@ -672,7 +671,7 @@ class PyFrame(eval.Frame):
             if f is not None:
                 return space.wrap(f.last_exception.get_traceback())
         return space.w_None
-         
+
     def fget_f_restricted(self, space):
         if space.config.objspace.honor__builtins__:
             return space.wrap(self.builtin is not space.builtin)

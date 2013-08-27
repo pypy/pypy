@@ -303,7 +303,7 @@ class StackletGcRootFinder(object):
         self.suspstack = NULL_SUSPSTACK
         ll_assert(bool(s.anchor), "s.anchor should not be null")
         s.handle = handle
-        llop.gc_assume_young_pointers(lltype.Void, llmemory.cast_ptr_to_adr(s))
+        llop.gc_writebarrier(lltype.Void, llmemory.cast_ptr_to_adr(s))
         return s
 
     def get_result_suspstack(self, h):

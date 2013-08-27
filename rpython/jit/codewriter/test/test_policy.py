@@ -131,7 +131,7 @@ def test_str_join():
 
 def test_access_directly_but_not_seen():
     class X:
-        _virtualizable2_ = ["a"]
+        _virtualizable_ = ["a"]
     def h(x, y):
         w = 0
         for i in range(y):

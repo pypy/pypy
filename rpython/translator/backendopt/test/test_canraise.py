@@ -7,7 +7,7 @@ class TestCanRaise(object):
     def translate(self, func, sig):
         t = TranslationContext()
         t.buildannotator().build_types(func, sig)
-        t.buildrtyper(type_system='lltype').specialize()
+        t.buildrtyper().specialize()
         if option.view:
             t.view()
         return t, RaiseAnalyzer(t)

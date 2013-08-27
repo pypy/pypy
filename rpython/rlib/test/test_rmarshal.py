@@ -9,6 +9,7 @@ types_that_can_be_none = [
     [int],
     annmodel.SomeString(can_be_None=True),
     annmodel.s_None,
+    {int: int},
     ]
 
 
@@ -57,6 +58,10 @@ def test_marshaller():
     buf = []
     get_marshaller((int, float, (str, ())))(buf, (7, -1.5, ("foo", ())))
     assert marshal.loads(''.join(buf)) == (7, -1.5, ("foo", ()))
+
+    buf = []
+    get_marshaller({int: str})(buf, {2: "foo", -3: "bar"})
+    assert marshal.loads(''.join(buf)) == {2: "foo", -3: "bar"}
 
     for typ in types_that_can_be_none:
         buf = []
@@ -110,6 +115,11 @@ def test_unmarshaller():
            's\x03\x00\x00\x00foo(\x00\x00\x00\x00')
     res = get_unmarshaller((int, (str, ())))(buf)
     assert res == (7, ("foo", ()))
+
+    buf = ('{i\xfb\xff\xff\xffs\x03\x00\x00\x00bar'
+           'i\x06\x00\x00\x00s\x00\x00\x00\x000')
+    res = get_unmarshaller({int: str})(buf)
+    assert res == {-5: "bar", 6: ""}
 
     for typ in types_that_can_be_none:
         buf = 'N'
