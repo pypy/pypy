@@ -32,7 +32,9 @@ endif
 
 ifeq ($(DUMMY),t)
   cppflags2=-O3 -fPIC -rdynamic
-else ifeq ($(CINT),)
+else ifeq ($(CINT),t)
+  cppflags2=-O3 -fPIC -rdynamic
+else
   ifeq ($(shell $(genreflex) --help | grep -- --with-methptrgetter),)
     genreflexflags=
     cppflags2=-O3 -fPIC
