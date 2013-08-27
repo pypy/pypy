@@ -1928,6 +1928,22 @@ class AppTestNumArray(BaseNumpyAppTest):
         a.fill(12)
         assert (a == '1').all()
 
+    def test_boolean_indexing(self):
+        import numpypy as np
+        a = np.zeros((1, 3))
+        b = np.array([True])
+
+        assert (a[b] == a).all()
+
+        a[b] = 1.
+
+        assert (a == [[1., 1., 1.]]).all()
+
+    def test_boolean_array(self):
+        import numpypy as np
+        a = np.ndarray([1], dtype=bool)
+        assert a[0] == True
+
 class AppTestMultiDim(BaseNumpyAppTest):
     def test_init(self):
         import numpypy
