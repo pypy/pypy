@@ -2351,6 +2351,15 @@ class AppTestMultiDim(BaseNumpyAppTest):
         a[a & 1 == 0] = 15
         assert (a == [[15, 1], [15, 5], [15, 9]]).all()
 
+    def test_array_indexing_bool_specialcases(self):
+        from numpypy import arange, array
+        a = arange(6)
+        a[a > 3] = array([15])
+        assert (a == [0, 1, 2, 3, 15, 15]).all()
+        a = arange(6).reshape(3, 2)
+        a[a & 1 == 1] = []  # here, Numpy sticks garbage into the array
+        assert a.shape == (3, 2)
+
     def test_copy_kwarg(self):
         from numpypy import array
         x = array([1, 2, 3])
