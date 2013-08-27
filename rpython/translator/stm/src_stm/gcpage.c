@@ -496,15 +496,24 @@ static void mark_prebuilt_roots(void)
 static void mark_registered_stubs(void)
 {
     wlog_t *item;
+    gcptr L;
+
     G2L_LOOP_FORWARD(registered_stubs, item) {
         gcptr R = item->addr;
         assert(R->h_tid & GCFLAG_SMALLSTUB);
 
         R->h_tid |= (GCFLAG_MARKED | GCFLAG_VISITED);
 
-        gcptr L = (gcptr)(R->h_revision - 2);
-        L = stmgcpage_visit(L);
-        R->h_revision = ((revision_t)L) | 2;
+        if (R->h_revision & 2) {
+            L = (gcptr)(R->h_revision - 2);
+            L = stmgcpage_visit(L);
+            R->h_revision = ((revision_t)L) | 2;
+        }
+        else {
+            L = (gcptr)R->h_revision;
+            L = stmgcpage_visit(L);
+            R->h_revision = (revision_t)L;
+        }
 
         /* h_original will be kept up-to-date because
            it is either == L or L's h_original. And
