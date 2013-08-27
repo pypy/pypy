@@ -399,6 +399,13 @@ class RegisterManager(object):
                 self.reg_bindings[v] = loc
                 return loc
 
+    def update_spill_loc_if_necessary(self, var, current_loc):
+        """if variable var is in two locations (spilled and current_loc),
+        update spilled location with current_loc"""
+        spill_loc = self.frame_manager.get(var)
+        if spill_loc:
+            self.assembler.regalloc_mov(current_loc, spill_loc)
+
     def _spill_var(self, v, forbidden_vars, selected_reg,
                    need_lower_byte=False):
         v_to_spill = self._pick_variable_to_spill(v, forbidden_vars,

@@ -816,10 +816,10 @@ class RegAlloc(BaseRegalloc):
         argloc = self.rm.make_sure_var_in_reg(arg)
         self.perform_discard(op, [argloc])
 
-        spilled_loc = self.rm.frame_manager.get(arg)
-        if spilled_loc:
-            # spilled var, make sure it gets updated in the frame too
-            self.assembler.regalloc_mov(argloc, spilled_loc)
+        # if 'arg' is in two locations (once in argloc and once spilled
+        # on the frame), we need to ensure that both locations are
+        # updated with the possibly changed reference.
+        self.rm.update_spill_loc_if_necessary(arg, argloc)
 
 
     consider_cond_call_gc_wb_array = consider_cond_call_gc_wb
