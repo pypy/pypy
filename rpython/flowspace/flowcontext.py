@@ -24,8 +24,9 @@ class FlowingError(Exception):
         self.frame = frame
 
     def __str__(self):
-        msg = ['-+' * 30]
+        msg = ["\n"]
         msg += map(str, self.args)
+        msg += [""]
         msg += source_lines(self.frame.graph, None, offset=self.frame.last_instr)
         return "\n".join(msg)
 
