@@ -2354,6 +2354,12 @@ class AppTestMultiDim(BaseNumpyAppTest):
     def test_array_indexing_bool_specialcases(self):
         from numpypy import arange, array
         a = arange(6)
+        try:
+            a[a < 3] = [1, 2]
+            assert False, "Should not work"
+        except ValueError:
+            pass
+        a = arange(6)
         a[a > 3] = array([15])
         assert (a == [0, 1, 2, 3, 15, 15]).all()
         a = arange(6).reshape(3, 2)
