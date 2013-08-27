@@ -293,7 +293,7 @@ def binaryoperation(OPCODE, op):
 
 _unsupported_ops = [
     ('BINARY_POWER', "a ** b"),
-    ('BUILD_CLASS', 'creating new classes'),
+    ('BUILD_CLASS', 'defining classes inside functions'),
     ('EXEC_STMT', 'exec statement'),
     ('STOP_CODE', '???'),
     ('STORE_NAME', 'modifying globals'),
