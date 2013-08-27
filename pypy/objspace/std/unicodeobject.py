@@ -190,6 +190,68 @@ class W_UnicodeObject(W_Root):
         x = compute_hash(self._value)
         return space.wrap(x)
 
+    def descr_eq(self, space, w_other):
+        try:
+            return space.newbool(self._val(space) == self._op_val(space, w_other))
+        except OperationError, e:
+            if e.match(space, space.w_TypeError):
+                return space.w_NotImplemented
+            if (e.match(space, space.w_UnicodeDecodeError) or
+                e.match(space, space.w_UnicodeEncodeError)):
+                msg = ("Unicode equal comparison failed to convert both "
+                       "arguments to Unicode - interpreting them as being "
+                       "unequal")
+                space.warn(space.wrap(msg), space.w_UnicodeWarning)
+                return space.w_False
+            raise
+
+    def descr_ne(self, space, w_other):
+        try:
+            return space.newbool(self._val(space) != self._op_val(space, w_other))
+        except OperationError, e:
+            if e.match(space, space.w_TypeError):
+                return space.w_NotImplemented
+            if (e.match(space, space.w_UnicodeDecodeError) or
+                e.match(space, space.w_UnicodeEncodeError)):
+                msg = ("Unicode unequal comparison failed to convert both "
+                       "arguments to Unicode - interpreting them as being "
+                       "unequal")
+                space.warn(space.wrap(msg), space.w_UnicodeWarning)
+                return space.w_True
+            raise
+
+    def descr_lt(self, space, w_other):
+        try:
+            return space.newbool(self._val(space) < self._op_val(space, w_other))
+        except OperationError, e:
+            if e.match(space, space.w_TypeError):
+                return space.w_NotImplemented
+            raise
+
+    def descr_le(self, space, w_other):
+        try:
+            return space.newbool(self._val(space) <= self._op_val(space, w_other))
+        except OperationError, e:
+            if e.match(space, space.w_TypeError):
+                return space.w_NotImplemented
+            raise
+
+    def descr_gt(self, space, w_other):
+        try:
+            return space.newbool(self._val(space) > self._op_val(space, w_other))
+        except OperationError, e:
+            if e.match(space, space.w_TypeError):
+                return space.w_NotImplemented
+            raise
+
+    def descr_ge(self, space, w_other):
+        try:
+            return space.newbool(self._val(space) >= self._op_val(space, w_other))
+        except OperationError, e:
+            if e.match(space, space.w_TypeError):
+                return space.w_NotImplemented
+            raise
+
     def descr_format(self, space, __args__):
         return newformat.format_method(space, self, __args__, is_unicode=True)
 

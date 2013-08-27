@@ -24,64 +24,6 @@ class StringMethods(object):
                 space, lenself, w_start, w_end, upper_bound=upper_bound)
         return (value, start, end)
 
-    def descr_eq(self, space, w_other):
-        try:
-            return space.newbool(self._val(space) == self._op_val(space, w_other))
-        except OperationError, e:
-            if e.match(space, space.w_TypeError):
-                return space.w_NotImplemented
-            if (e.match(space, space.w_UnicodeDecodeError) or
-                e.match(space, space.w_UnicodeEncodeError)):
-                msg = ("Unicode equal comparison failed to convert both "
-                       "arguments to Unicode - interpreting them as being "
-                       "unequal")
-                space.warn(space.wrap(msg), space.w_UnicodeWarning)
-                return space.w_False
-            raise
-
-    def descr_ne(self, space, w_other):
-        try:
-            return space.newbool(self._val(space) != self._op_val(space, w_other))
-        except OperationError, e:
-            if e.match(space, space.w_TypeError):
-                return space.w_NotImplemented
-            if (e.match(space, space.w_UnicodeDecodeError) or
-                e.match(space, space.w_UnicodeEncodeError)):
-                msg = ("Unicode unequal comparison failed to convert both "
-                       "arguments to Unicode - interpreting them as being "
-                       "unequal")
-                space.warn(space.wrap(msg), space.w_UnicodeWarning)
-                return space.w_True
-            raise
-
-    def descr_lt(self, space, w_other):
-        try:
-            return space.newbool(self._val(space) < self._op_val(space, w_other))
-        except OperationError, e:
-            if e.match(space, space.w_TypeError):
-                return space.w_NotImplemented
-
-    def descr_le(self, space, w_other):
-        try:
-            return space.newbool(self._val(space) <= self._op_val(space, w_other))
-        except OperationError, e:
-            if e.match(space, space.w_TypeError):
-                return space.w_NotImplemented
-
-    def descr_gt(self, space, w_other):
-        try:
-            return space.newbool(self._val(space) > self._op_val(space, w_other))
-        except OperationError, e:
-            if e.match(space, space.w_TypeError):
-                return space.w_NotImplemented
-
-    def descr_ge(self, space, w_other):
-        try:
-            return space.newbool(self._val(space) >= self._op_val(space, w_other))
-        except OperationError, e:
-            if e.match(space, space.w_TypeError):
-                return space.w_NotImplemented
-
     def descr_len(self, space):
         return space.wrap(self._len())
 

@@ -236,6 +236,54 @@ class W_BytearrayObject(W_Root):
     def descr_str(self, space):
         return space.wrap(''.join(self.data))
 
+    def descr_eq(self, space, w_other):
+        try:
+            return space.newbool(self._val(space) == self._op_val(space, w_other))
+        except OperationError, e:
+            if e.match(space, space.w_TypeError):
+                return space.w_NotImplemented
+            raise
+
+    def descr_ne(self, space, w_other):
+        try:
+            return space.newbool(self._val(space) != self._op_val(space, w_other))
+        except OperationError, e:
+            if e.match(space, space.w_TypeError):
+                return space.w_NotImplemented
+            raise
+
+    def descr_lt(self, space, w_other):
+        try:
+            return space.newbool(self._val(space) < self._op_val(space, w_other))
+        except OperationError, e:
+            if e.match(space, space.w_TypeError):
+                return space.w_NotImplemented
+            raise
+
+    def descr_le(self, space, w_other):
+        try:
+            return space.newbool(self._val(space) <= self._op_val(space, w_other))
+        except OperationError, e:
+            if e.match(space, space.w_TypeError):
+                return space.w_NotImplemented
+            raise
+
+    def descr_gt(self, space, w_other):
+        try:
+            return space.newbool(self._val(space) > self._op_val(space, w_other))
+        except OperationError, e:
+            if e.match(space, space.w_TypeError):
+                return space.w_NotImplemented
+            raise
+
+    def descr_ge(self, space, w_other):
+        try:
+            return space.newbool(self._val(space) >= self._op_val(space, w_other))
+        except OperationError, e:
+            if e.match(space, space.w_TypeError):
+                return space.w_NotImplemented
+            raise
+
     def descr_buffer(self, space):
         return BytearrayBuffer(self.data)
 
