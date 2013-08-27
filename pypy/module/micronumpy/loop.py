@@ -370,7 +370,7 @@ setitem_filter_driver = jit.JitDriver(name = 'numpy_setitem_bool',
 
 def setitem_filter(arr, index, value):
     arr_iter = arr.create_iter()
-    index_iter = index.create_iter()
+    index_iter = index.create_iter(arr.get_shape())
     value_iter = value.create_iter()
     shapelen = len(arr.get_shape())
     index_dtype = index.get_dtype()
