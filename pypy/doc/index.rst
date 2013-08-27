@@ -2,28 +2,41 @@ Welcome to PyPy's documentation!
 ================================
 
 Welcome to the documentation for PyPy, a fast_, compliant alternative
-implementation of the Python_ language. If you don't know what PyPy is,
-consult the `PyPy website`_.
+implementation of the Python_ language.
 
-PyPy is written using the RPython toolchain. RPython enables writing dynamic
-language interpreters in a subset of Python which can be translated to C code
-including an automatically generated JIT for the implemented language. If you
-want to learn more about RPython, see the `RPython website`_.
+* If you want to find out more about what PyPy is, have a look at our :doc:`introduction <introduction>`
+  or consult the `PyPy website`_.
+
+* If you're interested in trying PyPy out, check out the :doc:`installation instructions <install>`.
+
+* If you want to help develop PyPy, please have a look at :doc:`how to contribute <how-to-contribute>`
+  and get in touch (:ref:`contact`)!
+
+All of the documentation and source code is available under the MIT license,
+unless otherwise specified. Consult :source:`LICENSE`.
 
 .. _fast: http://speed.pypy.org
 .. _Python: http://python.org/
 .. _PyPy website: http://pypy.org/
-.. _RPython website: http://rpython.readthedocs.org/
 
 
-User documentation
-------------------
+Getting Started
+---------------
 
 .. toctree::
    :maxdepth: 1
 
+   introduction
    install
    build
+   faq
+
+Using PyPy
+----------
+
+.. toctree::
+   :maxdepth: 1
+
    cpython_differences
    gc_info
    jit-hooks
@@ -37,15 +50,28 @@ Development documentation
 -------------------------
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
+
+   how-to-contribute
+   project-ideas
+   project-documentation
+.. TODO: audit ^^
+
+
+.. TODO: Fill this in
 
 
 Academical stuff
 ----------------
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
+   extradoc
+.. TODO: Remove this? Or fill it with links to papers?
+
+
+.. _contact:
 
 Contact
 -------
@@ -83,4 +109,3 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
-

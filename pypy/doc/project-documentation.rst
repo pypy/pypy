@@ -79,11 +79,3 @@ allow you to customize PyPy.
    config/index
    commandline_ref
    dir-reference
-
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`search`
-* :ref:`glossary`
