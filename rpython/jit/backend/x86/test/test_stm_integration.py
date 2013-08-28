@@ -191,7 +191,7 @@ class GCDescrStm(GCDescrShadowstackDirect):
             print "malloc:", size, tid
             if size > sys.maxint / 2:
                 # for testing exception
-                return lltype.nullptr(llmemory.GCREF.TO)
+                raise Exception()
             
             entries = size + StmGC.GCHDRSIZE
             TP = rffi.CArray(lltype.Char)
@@ -740,7 +740,7 @@ class TestGcStm(BaseTestRegalloc):
         looptoken = JitCellToken()
         looptoken.outermost_jitdriver_sd = FakeJitDriverSD()
         c_loop = cpu.compile_loop(inputargs, ops, looptoken)
-        
+        print "\n".join(map(str,c_loop[1]))
         
         ARGS = [lltype.Signed] * 10
         RES = lltype.Signed
@@ -753,18 +753,23 @@ class TestGcStm(BaseTestRegalloc):
         not_forced = ResOperation(rop.GUARD_NOT_FORCED, [], None,
                                   descr=BasicFailDescr(1))
         not_forced.setfailargs([])
+        no_exception = ResOperation(rop.GUARD_NO_EXCEPTION, [], None,
+                                    descr=BasicFailDescr(2))
+        no_exception.setfailargs([])
         ops = [ResOperation(rop.CALL_ASSEMBLER, [i1], i2, descr=looptoken),
                not_forced,
+               no_exception,
                ResOperation(rop.FINISH, [i1], None, descr=finaldescr),
                ]
         othertoken = JitCellToken()
         cpu.done_with_this_frame_descr_int = BasicFinalDescr()
-        loop = cpu.compile_loop([], ops, othertoken)
+        c_loop = cpu.compile_loop([], ops, othertoken)
+        print "\n".join(map(str,c_loop[1]))
         
         deadframe = cpu.execute_token(othertoken)
         frame = rffi.cast(JITFRAMEPTR, deadframe)
-        frame_adr = rffi.cast(lltype.Signed, frame.jf_descr)
-        assert frame_adr != id(finaldescr)
+        descr = rffi.cast(lltype.Signed, frame.jf_descr)
+        assert descr != id(finaldescr)
 
 
     def test_write_barrier_on_spilled(self):
