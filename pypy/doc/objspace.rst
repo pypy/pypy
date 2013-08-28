@@ -10,22 +10,14 @@ The Object Space
 Introduction
 ------------
 
-The object space creates all objects and knows how to perform operations
-on the objects. You may think of an object space as being a library
-offering a fixed API, a set of *operations*, with implementations that
-correspond to the known semantics of Python objects.  An example of an
-operation is *add*: add's implementations are, for example, responsible
-for performing numeric addition when add works on numbers, concatenation
-when add works on built-in sequences.
+The object space creates all objects in PyPy, and knows how to perform operations
+on them. It may be helpful to think of an object space as being a library
+offering a fixed API: a set of *operations*, along with implementations that
+correspond to the known semantics of Python objects.
 
-All object-space operations take and return :ref:`application-level <application-level>` objects.
-There are only a few, very simple, object-space operations which allow the
-bytecode interpreter to gain some knowledge about the value of an
-application-level object.
-The most important one is ``is_true()``, which returns a boolean
-interpreter-level value.  This is necessary to implement, for example,
-if-statements (or rather, to be pedantic, to implement the
-conditional-branching bytecodes into which if-statements get compiled).
+For example, :py:func:`add` is an operation, with implementations in the object
+space that perform numeric addition (when :py:func:`add` is operating on numbers),
+concatenation (when :py:func:`add` is operating on sequences), and so on.
 
 We have some working object spaces which can be plugged into
 the bytecode interpreter:
@@ -36,8 +28,8 @@ the bytecode interpreter:
   implementation.  Internally, it is a set of :ref:`interpreter-level <interpreter-level>` classes
   implementing the various :ref:`application-level <application-level>` objects -- integers, strings,
   lists, types, etc.  To draw a comparison with CPython, the Standard Object
-  Space provides the equivalent of the C structures ``PyIntObject``,
-  ``PyListObject``, etc.
+  Space provides the equivalent of the C structures :c:type:`PyIntObject`,
+  :c:type:`PyListObject`, etc.
 
 - various `Object Space proxies`_ wrap another object space (e.g. the standard
   one) and adds new capabilities, like lazily computed objects (computed only
@@ -48,34 +40,49 @@ The present document gives a description of the above object spaces.
 The sources of PyPy contain the various object spaces in the directory
 :source:`pypy/objspace/`.
 
+.. TODO: what to do with these paragraphs?
+
+All object-space operations take and return :ref:`application-level <application-level>` objects.
+There are only a few, very simple, object-space operations which allow the
+bytecode interpreter to gain some knowledge about the value of an
+application-level object.
+
+The most important one is :py:func:`is_true`, which returns a boolean
+interpreter-level value.  This is necessary to implement, for example,
+if-statements (or rather, to be pedantic, to implement the
+conditional-branching bytecodes into which if-statements get compiled).
+
+.. TODO: audit ^^
 
 .. _objspace-interface:
 
 Object Space Interface
 ----------------------
 
-This is the public API that all Object Spaces implement.
+This is the public API that all Object Spaces implement:
 
 
 Administrative Functions
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-``getexecutioncontext():``
-  Return current active execution context
+.. py:function:: getexecutioncontext()
+
+  Return the currently active execution context.
   (:source:`pypy/interpreter/executioncontext.py`).
 
-``getbuiltinmodule(name):``
-  Return a Module object for the built-in module given by name
+.. py:function:: getbuiltinmodule(name)
+
+  Return a :py:class:`Module` object for the built-in module given by ``name``.
   (:source:`pypy/interpreter/module.py`).
 
 
 Operations on Objects in the Object Space
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-These functions both take and return "wrapped" objects.
+These functions both take and return "wrapped" (i.e. :ref:`application-level <application-level>`) objects.
 
-The following functions implement operations with a straightforward
-semantic - they directly correspond to language-level constructs:
+The following functions implement operations with straightforward semantics -
+they directly correspond to language-level constructs:
 
    ``id, type, issubtype, iter, next, repr, str, len, hash,``
 
@@ -93,188 +100,270 @@ semantic - they directly correspond to language-level constructs:
 
    ``get, set, delete, userdel``
 
-``call(w_callable, w_args, w_kwds):``
-  Call a function with the given args and keywords.
+.. py:function:: call(w_callable, w_args, w_kwds)
 
-``index(w_obj):``
-  Implements the index lookup (new in CPython 2.5) on 'w_obj'. Will return a
-  wrapped integer or long, or raise a TypeError if the object doesn't have an
-  ``__index__`` special method.
+  Calls a function with the given positional (``w_args``) and keyword (``w_kwds``)
+  arguments.
 
-``is_(w_x, w_y):``
-  Implements 'w_x is w_y'. (Returns a wrapped result too!)
+.. py:function:: index(w_obj)
 
-``isinstance(w_obj, w_type):``
-  Implements 'issubtype(type(w_obj), w_type)'. (Returns a wrapped result too!)
+  Implements index lookup (`as introduced in CPython 2.5`_) using ``w_obj``. Will return a
+  wrapped integer or long, or raise a :py:exc:`TypeError` if the object doesn't have an
+  :py:func:`__index__` special method.
 
-``exception_match(w_exc_type, w_check_class):``
-  Checks if the given exception type matches 'w_check_class'. Used in matching the actual exception raised with the list of those to catch in an except clause. (Returns a wrapped result too!)
+.. _as introduced in CPython 2.5: http://www.python.org/dev/peps/pep-0357/
+
+.. py:function:: is_(w_x, w_y)
+
+  Implements ``w_x is w_y``.
+
+.. py:function:: isinstance(w_obj, w_type)
+
+  Implements :py:func:`issubtype` with ``type(w_obj)`` and ``w_type`` as arguments.
+
+.. py:function::exception_match(w_exc_type, w_check_class)
+
+  Checks if the given exception type matches :py:obj:`w_check_class`. Used in
+  matching the actual exception raised with the list of those to catch in an
+  except clause.
 
 
 Convenience Functions
 ~~~~~~~~~~~~~~~~~~~~~
 
-The following functions are part of the object space interface but would not be
-strictly necessary because they can be expressed using several other object
-space methods. However, they are used so often that it seemed worthwhile to
-introduce them as shortcuts.
+The following functions are used so often that it seemed worthwhile to introduce
+them as shortcuts -- however, they are not strictly necessary since they can be
+expressed using several other object space methods.
 
-``eq_w(w_obj1, w_obj2):``
-  Returns true when w_obj1 and w_obj2 are equal. Shortcut for
-  space.is_true(space.eq(w_obj1, w_obj2))
+.. py:function:: eq_w(w_obj1, w_obj2)
 
-``is_w(w_obj1, w_obj2):``
-  Shortcut for space.is_true(space.is_(w_obj1, w_obj2))
+  Returns :py:const:`True` when :py:obj:`w_obj1` and :py:obj:`w_obj2` are equal.
+  Shortcut for ``space.is_true(space.eq(w_obj1, w_obj2))``.
 
-``hash_w(w_obj):``
-  Shortcut for space.int_w(space.hash(w_obj))
+.. py:function:: is_w(w_obj1, w_obj2)
 
-``len_w(w_obj):``
-  Shortcut for space.int_w(space.len(w_obj))
+  Shortcut for ``space.is_true(space.is_(w_obj1, w_obj2))``.
 
-``not_(w_obj):``
-  Shortcut for space.newbool(not space.is_true(w_obj))
+.. py:function:: hash_w(w_obj)
 
-``finditem(w_obj, w_key):``
-  Equivalent to ``getitem(w_obj, w_key)`` but returns an interp-level None
+  Shortcut for ``space.int_w(space.hash(w_obj))``.
+
+.. py:function:: len_w(w_obj)
+
+  Shortcut for ``space.int_w(space.len(w_obj))``.
+
+*NOTE* that the above four functions return :ref:`interpreter-level <interpreter-level>`
+objects, not :ref:`application-level <application-level>` ones!
+
+.. py:function:: not_(w_obj)
+
+  Shortcut for ``space.newbool(not space.is_true(w_obj))``.
+
+.. py:function:: finditem(w_obj, w_key)
+
+  Equivalent to ``getitem(w_obj, w_key)`` but returns an **interpreter-level** None
   instead of raising a KeyError if the key is not found.
 
-``call_function(w_callable, *args_w, **kw_w):``
-  Convenience function that collects the arguments in a wrapped tuple and dict
-  and invokes 'space.call(w_callable, ...)'.
+.. py:function:: call_function(w_callable, *args_w, **kw_w)
 
-``call_method(w_object, 'method', ...):``
-   uses ``space.getattr()`` to get the method object, and then
-   ``space.call_function()`` to invoke it.
+  Collects the arguments in a wrapped tuple and dict and invokes
+  ``space.call(w_callable, ...)``.
 
-``unpackiterable(w_iterable, expected_length=-1):``
-  this helper iterates ``w_x``
-  (using ``space.iter()`` and ``space.next()``) and collects
-  the resulting wrapped objects in a list. If ``expected_length`` is given and
-  the length does not match, an exception is raised.  Of course, in cases where
-  iterating directly is better than collecting the elements in a list first,
-  you should use ``space.iter()`` and ``space.next()`` directly.
+.. py:function:: call_method(w_object, 'method', ...)
 
-``unpacktuple(w_tuple, expected_length=None):``
-  Same as unpackiterable(), but only for tuples.
+  Uses :py:meth:`space.getattr` to get the method object, and then :py:meth:`space.call_function` to invoke it.
 
-``callable(w_obj):``
-  implements the built-in ``callable()``.  Returns a wrapped True or False.
+.. py:function:: unpackiterable(w_iterable[, expected_length=-1])
+
+  Iterates over :py:obj:`w_x` (using :py:meth:`space.iter` and :py:meth:`space.next()`)
+  and collects the resulting wrapped objects in a list. If ``expected_length`` is
+  given and the length does not match, raises an exception.
+
+  Of course, in cases where iterating directly is better than collecting the
+  elements in a list first, you should use :py:meth:`space.iter` and :py:meth:`space.next`
+  directly.
+
+.. py:function:: unpacktuple(w_tuple[, expected_length=None])
+
+  Equivalent to :py:func:`unpackiterable`, but only for tuples.
+
+.. py:function:: callable(w_obj)
+
+  Implements the built-in :py:func:`callable`.
 
 
 Creation of Application Level objects
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-``wrap(x):``
+.. py:function:: wrap(x)
+
   Returns a wrapped object that is a reference to the interpreter-level object
-  x. This can be used either on simple immutable objects (integers,
-  strings...) to create a new wrapped object, or on instances of ``W_Root``
+  :py:obj:`x`. This can be used either on simple immutable objects (integers,
+  strings, etc) to create a new wrapped object, or on instances of :py:class:`W_Root`
   to obtain an application-level-visible reference to them.  For example,
-  most classes of the bytecode interpreter subclass ``W_Root`` and can
+  most classes of the bytecode interpreter subclass :py:class:`W_Root` and can
   be directly exposed to app-level in this way - functions, frames, code
   objects, etc.
 
-``newbool(b):``
-  Creates a wrapped bool object from an interpreter level object.
+.. py:function:: newbool(b)
 
-``newtuple([w_x, w_y, w_z, ...]):``
-  Makes a new wrapped tuple out of an interpreter level list of wrapped objects.
+  Creates a wrapped :py:class:`bool` object from an :ref:`interpreter-level <interpreter-level>` object.
 
-``newlist([..]):``
-  Takes an interpreter level list of wrapped objects.
+.. py:function:: newtuple([w_x, w_y, w_z, ...])
 
-``newdict():``
+  Creates a new wrapped tuple out of an interpreter-level list of wrapped objects.
+
+.. py:function:: newlist([..])
+
+  Creates a wrapped :py:class:`list` from an interpreter-level list of wrapped objects.
+
+.. py:function:: newdict
+
   Returns a new empty dictionary.
 
-``newslice(w_start, w_end, w_step):``
-  Makes a new slice object.
+.. py:function:: newslice(w_start, w_end, w_step)
 
-``newstring(asciilist):``
-  Creates a string from a list of wrapped integers.  Note that this
-  is not a very useful method; usually you can just say
-  space.wrap("mystring").
+  Creates a new slice object.
 
-``newunicode(codelist):``
-  Creates a unicode string from a list of integers.
+.. py:function:: newstring(asciilist)
+
+  Creates a string from a list of wrapped integers. Note that this may not be
+  a very useful method; usually you can just say ``space.wrap("mystring")``.
+
+.. py:function:: newunicode(codelist)
+
+  Creates a Unicode string from a list of integers (code points).
 
 
 Conversions from Application Level to Interpreter Level
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-``unwrap(w_x):``
-  Return the Interpreter Level equivalent of w_x.  DO NOT USE!
-  Only for testing.  Use the functions described below instead.
+.. py:function:: unwrap(w_x)
 
-``is_true(w_x):``
-  Return a interpreter level bool (True or False) that gives the truth
-  value of the wrapped object w_x.
+  Returns the interpreter-level equivalent of :py:obj:`w_x` -- use this **ONLY** for
+  testing! In most circumstances you should use the functions described below instead.
 
-``int_w(w_x):``
-  If w_x is an application-level integer or long which can be converted without
-  overflow to an integer, return an interpreter-level integer.
-  Otherwise raise TypeError or OverflowError.
+.. py:function:: is_true(w_x)
 
-``bigint_w(w_x):``
-  If w_x is an application-level integer or long, return an interpreter-level rbigint.
-  Otherwise raise TypeError.
+  Returns a interpreter-level boolean (:py:const:`True` or :py:const:`False`) that
+  gives the truth value of the wrapped object :py:obj:`w_x`.
 
-``str_w(w_x):``
-  If w_x is an application-level string, return an interpreter-level string.
-  Otherwise raise TypeError.
+.. py:function:: int_w(w_x)
 
-``float_w(w_x):``
-  If w_x is an application-level float, integer or long, return interpreter-level float.
-  Otherwise raise TypeError or OverflowError in case of very large longs.
+  If :py:obj:`w_x` is an application-level integer or long which can be converted
+  without overflow to an integer, return an interpreter-level integer. Otherwise
+  raise :py:exc:`TypeError` or :py:exc:`OverflowError`.
 
-``getindex_w(w_obj, w_exception=None):``
-  Call `index(w_obj)`. If the resulting integer or long object can be converted
-  to an interpreter-level int, return that. If not, return a clamped result if
-  `w_exception` is None, otherwise raise that exception on application-level.
-  (If w_obj can't be converted to an index, `index()` will raise an
-  application-level TypeError.)
+.. py:function:: bigint_w(w_x)
 
-``interp_w(RequiredClass, w_x, can_be_None=False):``
-  If w_x is a wrapped instance of the given bytecode interpreter class,
-  unwrap it and return it.  If can_be_None is True, a wrapped None is also
-  accepted and returns an interp-level None.  Otherwise, raises an
-  OperationError encapsulating a TypeError with a nice error message.
+  If :py:obj:`w_x` is an application-level integer or long, return an interpreter-level
+  :py:class:`rbigint`. Otherwise raise :py:exc:`TypeError`.
 
-``interpclass_w(w_x):``
-  If w_x is a wrapped instance of an bytecode interpreter class -- for example
-  Function, Frame, Cell, etc. -- return it unwrapped.  Otherwise return None.
+.. py:function:: str_w(w_x)
+
+  If :py:obj:`w_x` is an application-level string, return an interpreter-level string.
+  Otherwise raise :py:exc:`TypeError`.
+
+.. py:function:: float_w(w_x)
+
+  If :py:obj:`w_x` is an application-level float, integer or long, return interpreter-level
+  float. Otherwise raise :py:exc:`TypeError` (or :py:exc:`OverflowError` in case
+  of very large longs).
+
+.. py:function:: getindex_w(w_obj[, w_exception=None])
+
+  Call ``index(w_obj)``. If the resulting integer or long object can be converted
+  to an interpreter-level :py:class:`int`, return that. If not, return a clamped
+  result if :py:obj:`w_exception` is None, otherwise raise that exception at the
+  application level.
+
+  (If :py:obj:`w_obj` can't be converted to an index, :py:func:`index` will raise an
+  application-level :py:exc:`TypeError`.)
+
+.. py:function:: interp_w(RequiredClass, w_x[, can_be_None=False])
+
+  If :py:obj:`w_x` is a wrapped instance of the given bytecode interpreter class,
+  unwrap it and return it.  If :py:obj:`can_be_None` is :py:const:`True`, a wrapped
+  :py:const:`None` is also accepted and returns an interpreter-level :py:const:`None`.
+  Otherwise, raises an :py:exc:`OperationError` encapsulating a :py:exc:`TypeError`
+  with a nice error message.
+
+.. py:function:: interpclass_w(w_x)
+
+  If :py:obj:`w_x` is a wrapped instance of an bytecode interpreter class -- for
+  example :py:class:`Function`, :py:class:`Frame`, :py:class:`Cell`, etc. -- return
+  it unwrapped.  Otherwise return :py:const:`None`.
 
 
 Data Members
 ~~~~~~~~~~~~
 
-+ space.builtin: The Module containing the builtins
-+ space.sys: The 'sys' Module
-+ space.w_None: The ObjSpace's None
-+ space.w_True: The ObjSpace's True
-+ space.w_False: The ObjSpace's False
-+ space.w_Ellipsis: The ObjSpace's Ellipsis
-+ space.w_NotImplemented: The ObjSpace's NotImplemented
-+ space.w_int, w_float, w_long, w_tuple, w_str, w_unicode, w_type,
-  w_instance, w_slice: Python's most common type objects
+.. py:data:: space.builtin
 
-+ space.w_XxxError`` for each exception class ``XxxError``
-  (e.g. ``space.w_KeyError``, ``space.w_IndexError``, etc.).
+  The :py:class:`Module` containing the builtins.
 
-+ ObjSpace.MethodTable:
-   List of tuples (method name, symbol, number of arguments, list of special names) for the regular part of the interface. (Tuples are interpreter level.)
+.. py:data:: space.sys
 
-+ ObjSpace.BuiltinModuleTable:
-   List of names of built-in modules.
+ The ``sys`` :py:class:`Module`.
 
-+ ObjSpace.ConstantTable:
-   List of names of the constants that the object space should define
+.. py:data:: space.w_None
 
-+ ObjSpace.ExceptionTable:
-   List of names of exception classes.
+  The ObjSpace's instance of :py:const:`None`.
 
-+ ObjSpace.IrregularOpTable:
-   List of names of methods that have an irregular API (take and/or return
-   non-wrapped objects).
+.. py:data:: space.w_True
+
+  The ObjSpace's instance of :py:const:`True`.
+
+.. py:data:: space.w_False
+
+  The ObjSpace's instance of :py:const:`False`.
+
+.. py:data:: space.w_Ellipsis
+
+  The ObjSpace's instance of :py:const:`Ellipsis`.
+
+.. py:data:: space.w_NotImplemented
+
+  The ObjSpace's instance of :py:const:`NotImplemented`.
+
+.. py:data:: space.w_int
+             space.w_float
+             space.w_long
+             space.w_tuple
+             space.w_str
+             space.w_unicode
+             space.w_type
+             space.w_instance
+             space.w_slice
+
+  Python's most common type objects.
+
+.. py:data:: space.w_[XYZ]Error
+
+  Python's built-in exception classes (:py:class:`KeyError`, :py:class:`IndexError`,
+  etc)
+
+.. py:data:: ObjSpace.MethodTable
+
+  List of tuples containing ``(method_name, symbol, number_of_arguments, list_of_special_names)``
+  for the regular part of the interface. **NOTE** that tuples are interpreter-level.
+
+.. py:data:: ObjSpace.BuiltinModuleTable
+
+  List of names of built-in modules.
+
+.. py:data:: ObjSpace.ConstantTable
+
+  List of names of the constants that the object space should define.
+
+.. py:data:: ObjSpace.ExceptionTable
+
+  List of names of exception classes.
+
+.. py:data:: ObjSpace.IrregularOpTable
+
+  List of names of methods that have an irregular API (take and/or return
+  non-wrapped objects).
 
 
 .. _standard-object-space:
@@ -285,21 +374,23 @@ The Standard Object Space
 Introduction
 ~~~~~~~~~~~~
 
-The Standard Object Space (:source:`pypy/objspace/std/`) is the direct equivalent of CPython's
-object library (the "Objects/" subdirectory in the distribution). It is an
-implementation of the common Python types in a lower-level language.
+The Standard Object Space (:source:`pypy/objspace/std/`) is the direct equivalent
+ of CPython's object library (the ``Objects/`` subdirectory in the distribution).
+It is an implementation of the common Python types in a lower-level language.
 
-The Standard Object Space defines an abstract parent class, W_Object, and a
-bunch of subclasses like W_IntObject, W_ListObject, and so on. A wrapped
-object (a "black box" for the bytecode interpreter main loop) is thus an
-instance of one of these classes. When the main loop invokes an operation, say
-the addition, between two wrapped objects w1 and w2, the Standard Object Space
-does some internal dispatching (similar to "Object/abstract.c" in CPython) and
-invokes a method of the proper W_XyzObject class that can do the
-operation. The operation itself is done with the primitives allowed by
-RPython. The result is constructed as a wrapped object again. For
-example, compare the following implementation of integer addition with the
-function "int_add()" in "Object/intobject.c": ::
+The Standard Object Space defines an abstract parent class, :py:class:`W_Object`
+as well as subclasses like :py:class:`W_IntObject`, :py:class:`W_ListObject`,
+and so on. A wrapped object (a "black box" for the bytecode interpreter's main
+loop) is an instance of one of these classes. When the main loop invokes an
+operation (for example: addition), between two wrapped objects :py:obj:`w1` and
+:py:obj:`w2`, the Standard Object Space does some internal dispatching (similar
+to ``Object/abstract.c`` in CPython) and invokes a method of the proper
+:py:class:`W_XYZObject` class that can perform the operation.
+
+The operation itself is done with the primitives allowed by RPython, and the
+result is constructed as a wrapped object. For example, compare the following
+implementation of integer addition with the function :c:func:`int_add()` in
+``Object/intobject.c``: ::
 
     def add__Int_Int(space, w_int1, w_int2):
         x = w_int1.intval
@@ -310,6 +401,8 @@ function "int_add()" in "Object/intobject.c": ::
             raise FailedToImplementArgs(space.w_OverflowError,
                                     space.wrap("integer addition"))
         return W_IntObject(space, z)
+
+.. TODO: Rewrite the below
 
 Why such a burden just for integer objects? Why did we have to wrap them into
 W_IntObject instances? For them it seems it would have been sufficient just to
@@ -333,43 +426,44 @@ around.
 Object types
 ~~~~~~~~~~~~
 
-The larger part of the :source:`pypy/objspace/std/` package defines and implements the
-library of Python's standard built-in object types.  Each type (int, float,
-list, tuple, str, type, etc.) is typically implemented by two modules:
+The largest part of the :source:`pypy/objspace/std` package defines and implements
+the library of Python's built-in object types.  Each type (:py:class:`int`,
+:py:class:`float`, :py:class:`list`, :py:class:`tuple`, :py:class:`str`, :py:class:`type`,
+etc.) is typically implemented by two modules:
 
-* the *type specification* module, which for a type ``xxx`` is called ``xxxtype.py``;
+* the *type specification* module, which for a type ``xyz`` is called ``xyztype.py``;
 
-* the *implementation* module, called ``xxxobject.py``.
+* the *implementation* module, called ``xyzobject.py``.
 
-The ``xxxtype.py`` module basically defines the type object itself.  For
-example, :source:`pypy/objspace/std/listtype.py` contains the specification of the object you get when
-you type ``list`` in a PyPy prompt.  :source:`pypy/objspace/std/listtype.py` enumerates the methods
-specific to lists, like ``append()``.
+The ``xyztype.py`` module defines the type object itself.  For example,
+:source:`pypy/objspace/std/listtype.py` contains the specification of the object
+you get when you type :py:class:`list` in a PyPy prompt, and enumerates the
+methods specific to lists, like :py:meth:`append`.
 
-A particular method implemented by all types is the ``__new__()`` special
+A particular method implemented by all types is the :py:meth:`__new__` special
 method, which in Python's new-style-classes world is responsible for creating
-an instance of the type.  In PyPy, ``__new__()`` locates and imports the module
-implementing *instances* of the type, and creates such an instance based on the
-arguments the user supplied to the constructor.  For example, :source:`pypy/objspace/std/tupletype.py`
-defines ``__new__()`` to import the class ``W_TupleObject`` from
-:source:`pypy/objspace/std/tupleobject.py` and instantiate it.  The :source:`pypy/objspace/std/tupleobject.py` then contains a
-"real" implementation of tuples: the way the data is stored in the
-``W_TupleObject`` class, how the operations work, etc.
+an instance of the type. In PyPy, :py:meth:`__new__` locates and imports the
+module implementing *instances* of the type, and creates such an instance based
+on the arguments the user supplied to the constructor.  For example, :source:`pypy/objspace/std/tupletype.py`
+defines :py:meth:`__new__` to import the class :py:class:`W_TupleObject` from
+:source:`pypy/objspace/std/tupleobject.py` and instantiate it.  The :source:`pypy/objspace/std/tupleobject.py` contains a
+"real" implementation of tuples: the way the data is stored in the :py:class:`W_TupleObject`
+class, how the operations work, etc.
 
 The goal of the above module layout is to cleanly separate the Python
 type object, visible to the user, and the actual implementation of its
 instances.  It is possible to provide *several* implementations of the
-instances of the same Python type, by writing several ``W_XxxObject``
+instances of the same Python type, by writing several :py:class:`W_XyzObject`
 classes.  Every place that instantiates a new object of that Python type
-can decide which ``W_XxxObject`` class to instantiate.
+can decide which :py:class:`W_XyzObject` class to instantiate.
 
-From the user's point of view, the multiple internal ``W_XxxObject``
+From the user's point of view, the multiple internal :py:class:`W_XyzObject`
 classes are not visible: they are still all instances of exactly the
 same Python type.  PyPy knows that (e.g.) the application-level type of
-its interpreter-level ``W_StringObject`` instances is str because
-there is a ``typedef`` class attribute in ``W_StringObject`` which
-points back to the string type specification from :source:`pypy/objspace/std/stringtype.py`; all
-other implementations of strings use the same ``typedef`` from
+its interpreter-level :py:class:`W_StringObject` instances is :py:class:`str`
+because there is a ``typedef`` class attribute in :py:class:`W_StringObject`
+which points back to the string type specification from :source:`pypy/objspace/std/stringtype.py`;
+all other implementations of strings use the same ``typedef`` from
 :source:`pypy/objspace/std/stringtype.py`.
 
 For other examples of multiple implementations of the same Python type,
@@ -382,30 +476,36 @@ Multimethods
 The Standard Object Space allows multiple object implementations per
 Python type - this is based on multimethods_.  For a description of the
 multimethod variant that we implemented and which features it supports,
-see the comment at the start of :source:`pypy/objspace/std/multimethod.py`.  However, multimethods
-alone are not enough for the Standard Object Space: the complete picture
-spans several levels in order to emulate the exact Python semantics.
+see the comments at the start of :source:`pypy/objspace/std/multimethod.py`.
+However, multimethods alone are not enough for the Standard Object Space: the
+complete picture spans several levels in order to emulate the exact Python
+semantics.
 
 Consider the example of the ``space.getitem(w_a, w_b)`` operation,
 corresponding to the application-level syntax ``a[b]``.  The Standard
 Object Space contains a corresponding ``getitem`` multimethod and a
 family of functions that implement the multimethod for various
 combination of argument classes - more precisely, for various
-combinations of the *interpreter-level* classes of the arguments.  Here
-are some examples of functions implementing the ``getitem``
+combinations of the :ref:`interpreter-level <interpreter-level>` classes of
+the arguments.  Here are some examples of functions implementing the ``getitem``
 multimethod:
 
-* ``getitem__Tuple_ANY``: called when the first argument is a
-  W_TupleObject, this function converts its second argument to an
-  integer and performs tuple indexing.
+.. py:function:: getitem__Tuple_ANY
 
-* ``getitem__Tuple_Slice``: called when the first argument is a
-  W_TupleObject and the second argument is a W_SliceObject.  This
-  version takes precedence over the previous one if the indexing is
-  done with a slice object, and performs tuple slicing instead.
+  Called when the first argument is a :py:class:`W_TupleObject`, this function
+  converts its second argument to an integer and performs tuple indexing.
 
-* ``getitem__String_Slice``: called when the first argument is a
-  W_StringObject and the second argument is a slice object.
+.. py:function:: getitem__Tuple_Slice
+
+  Called when the first argument is a :py:class:`W_TupleObject` and the second
+  argument is a :py:class:`W_SliceObject`.  This version takes precedence over
+  the previous one if the indexing is done with a slice object, and performs
+  tuple slicing instead.
+
+.. py:function:: getitem__String_Slice
+
+  Called when the first argument is a :py:class:`W_StringObject` and the second
+  argument is a slice object.
 
 Note how the multimethod dispatch logic helps writing new object
 implementations without having to insert hooks into existing code.  Note
@@ -424,11 +524,11 @@ orthogonally-defined implementation for each combination.
 The multimethods mechanism also supports delegate functions, which are
 converters between two object implementations.  The dispatch logic knows
 how to insert calls to delegates if it encounters combinations of
-interp-level classes which is not directly implemented.  For example, we
+interpreter-level classes which is not directly implemented.  For example, we
 have no specific implementation for the concatenation of a basic string
 and a StringSlice object; when the user adds two such strings, then the
 StringSlice object is converted to a basic string (that is, a
-temporarily copy is built), and the concatenation is performed on the
+temporary copy is built), and the concatenation is performed on the
 resulting pair of basic strings.  This is similar to the C++ method
 overloading resolution mechanism (but occurs at runtime).
 
@@ -439,11 +539,13 @@ Multimethod slicing
 ~~~~~~~~~~~~~~~~~~~
 
 The complete picture is more complicated because the Python object model
-is based on *descriptors*: the types ``int``, ``str``, etc. must have
-methods ``__add__``, ``__mul__``, etc. that take two arguments including
-the ``self``.  These methods must perform the operation or return
-``NotImplemented`` if the second argument is not of a type that it
-doesn't know how to handle.
+is based on descriptors_: the types :py:class:`int`, :py:class:`str`, etc. must
+have methods :py:meth:`__add__`, :py:meth:`__mul__`, etc. that take two
+arguments including the :py:obj:`self`.  These methods must perform the
+operation or return :py:exc:`NotImplemented` if the second argument is not of
+a type that it knows how to handle.
+
+.. _descriptors: http://docs.python.org/2/howto/descriptor.html
 
 The Standard Object Space creates these methods by *slicing* the
 multimethod tables.  Each method is automatically generated from a
@@ -452,28 +554,28 @@ multimethod.  This slicing is performed on the first argument, in order
 to keep only the implementations whose first argument's
 interpreter-level class matches the declared Python-level type.
 
-For example, in a baseline PyPy, ``int.__add__`` is just calling the
-function ``add__Int_Int``, which is the only registered implementation
-for ``add`` whose first argument is an implementation of the ``int``
+For example, in a baseline PyPy, :py:meth:`int.__add__` just calls the
+function :py:func:`add__Int_Int`, which is the only registered implementation
+for :py:func:`add` whose first argument is an implementation of the :py:class:`int`
 Python type.  On the other hand, if we enable integers implemented as
 tagged pointers, then there is another matching implementation:
-``add__SmallInt_SmallInt``.  In this case, the Python-level method
-``int.__add__`` is implemented by trying to dispatch between these two
-functions based on the interp-level type of the two arguments.
+:py:func:`add__SmallInt_SmallInt`.  In this case, the Python-level method
+:py:meth:`int.__add__` is implemented by trying to dispatch between these two
+functions based on the interpreter-level type of the two arguments.
 
-Similarly, the reverse methods (``__radd__`` and others) are obtained by
+Similarly, the reverse methods (:py:meth:`__radd__` and others) are obtained by
 slicing the multimethod tables to keep only the functions whose *second*
 argument has the correct Python-level type.
 
 Slicing is actually a good way to reproduce the details of the object
-model as seen in CPython: slicing is attempted for every Python types
-for every multimethod, but the ``__xyz__`` Python methods are only put
+model as seen in CPython: slicing is attempted for every Python type
+for every multimethod, but the :py:meth:`__xyz__` Python methods are only put
 into the Python type when the resulting slices are not empty.  This is
-how our ``int`` type has no ``__getitem__`` method, for example.
+how our :py:class:`int` type has no :py:meth:`__getitem__` method, for example.
 Additionally, slicing ensures that ``5 .__add__(6L)`` correctly returns
-``NotImplemented`` (because this particular slice does not include
-``add__Long_Long`` and there is no ``add__Int_Long``), which leads to
-``6L.__radd__(5)`` being called, as in CPython.
+:py:exc:`NotImplemented` (because this particular slice does not include
+:py:func:`add__Long_Long` and there is no :py:func:`add__Int_Long`), which leads to
+'`6L.__radd__(5)`` being called, as in CPython.
 
 
 Object Space proxies
