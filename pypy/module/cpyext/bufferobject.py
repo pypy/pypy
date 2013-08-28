@@ -3,9 +3,10 @@ from pypy.module.cpyext.api import (
     cpython_api, Py_ssize_t, cpython_struct, bootstrap_function,
     PyObjectFields, PyObject)
 from pypy.module.cpyext.pyobject import make_typedescr, Py_DecRef, make_ref
-from pypy.interpreter.buffer import Buffer, StringBuffer, SubBuffer
+from pypy.interpreter.buffer import StringBuffer, SubBuffer
 from pypy.interpreter.error import OperationError
 from pypy.module.array.interp_array import ArrayBuffer
+from pypy.module.__builtin__.interp_memoryview import W_Buffer
 
 
 PyBufferObjectStruct = lltype.ForwardReference()
@@ -24,7 +25,7 @@ cpython_struct("PyBufferObject", PyBufferObjectFields, PyBufferObjectStruct)
 @bootstrap_function
 def init_bufferobject(space):
     "Type description of PyBufferObject"
-    make_typedescr(space.gettypefor(Buffer).instancetypedef,
+    make_typedescr(space.gettypefor(W_Buffer).instancetypedef,
                    basestruct=PyBufferObject.TO,
                    attach=buffer_attach,
                    dealloc=buffer_dealloc,

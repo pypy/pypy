@@ -28,7 +28,7 @@ from pypy.module.cpyext.typeobjectdefs import (
     PyNumberMethods, PyMappingMethods, PySequenceMethods, PyBufferProcs)
 from pypy.module.cpyext.slotdefs import (
     slotdefs_for_tp_slots, slotdefs_for_wrappers, get_slot_tp_function)
-from pypy.interpreter.buffer import Buffer
+from pypy.module.__builtin__.interp_memoryview import W_Buffer
 from pypy.interpreter.error import OperationError
 from rpython.rlib.rstring import rsplit
 from rpython.rlib.objectmodel import specialize
@@ -509,7 +509,7 @@ def type_attach(space, py_obj, w_type):
     # buffer protocol
     if space.is_w(w_type, space.w_str):
         setup_string_buffer_procs(space, pto)
-    if space.is_w(w_type, space.gettypefor(Buffer)):
+    if space.is_w(w_type, space.gettypefor(W_Buffer)):
         setup_buffer_buffer_procs(space, pto)
 
     pto.c_tp_free = llhelper(PyObject_Del.api_func.functype,
