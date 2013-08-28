@@ -4023,6 +4023,81 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         assert not a.build_types(fn, [int]).nonneg
 
+    def test_unionerror_attrs(self):
+        def f(x):
+            if x < 10:
+                return 1
+            else:
+                return "bbb"
+        a = self.RPythonAnnotator()
+
+        with py.test.raises(annmodel.UnionError) as exc:
+            a.build_types(f, [int])
+
+        the_exc = exc.value
+        s_objs = set([type(the_exc.s_obj1), type(the_exc.s_obj2)])
+
+        assert s_objs == set([annmodel.SomeInteger, annmodel.SomeString])
+        assert the_exc.msg == None # Check that this is a generic UnionError
+
+    def test_unionerror_tuple_size(self):
+        def f(x):
+            if x < 10:
+                return (1, )
+            else:
+                return (1, 2)
+        a = self.RPythonAnnotator()
+
+        with py.test.raises(annmodel.UnionError) as exc:
+            a.build_types(f, [int])
+
+        assert exc.value.msg == "RPython cannot unify tuples of different length: 2 versus 1"
+
+    def test_unionerror_signedness(self):
+        def f(x):
+            if x < 10:
+                return r_uint(99)
+            else:
+                return -1
+        a = self.RPythonAnnotator()
+
+        with py.test.raises(annmodel.UnionError) as exc:
+            a.build_types(f, [int])
+
+        assert exc.value.msg == ("RPython cannot prove that these integers are of "
+                "the same signedness")
+
+    def test_unionerror_instance(self):
+        class A(object): pass
+        class B(object): pass
+
+        def f(x):
+            if x < 10:
+                return A()
+            else:
+                return B()
+        a = self.RPythonAnnotator()
+
+        with py.test.raises(annmodel.UnionError) as exc:
+            a.build_types(f, [int])
+
+        assert exc.value.msg == ("RPython cannot unify instances with no common base class")
+
+    def test_unionerror_iters(self):
+
+        def f(x):
+            d = { 1 : "a", 2 : "b" }
+            if x < 10:
+                return d.iterkeys()
+            else:
+                return d.itervalues()
+        a = self.RPythonAnnotator()
+
+        with py.test.raises(annmodel.UnionError) as exc:
+            a.build_types(f, [int])
+
+        assert exc.value.msg == ("RPython cannot unify incompatible iterator variants")
+
 def g(n):
     return [0, 1, 2, n]
 

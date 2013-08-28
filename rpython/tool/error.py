@@ -90,7 +90,7 @@ def gather_error(annotator, graph, block, operindex):
             format_simple_call(annotator, oper, msg)
     else:
         oper = None
-    msg.append(" " + str(oper))
+    msg.append("    %s\n" % str(oper))
     msg += source_lines(graph, block, operindex, long=True)
     if oper is not None:
         if SHOW_ANNOTATIONS:
@@ -106,7 +106,7 @@ def gather_error(annotator, graph, block, operindex):
 def format_blocked_annotation_error(annotator, blocked_blocks):
     text = []
     for block, (graph, index) in blocked_blocks.items():
-        text.append('-+' * 30)
+        text.append('\n')
         text.append("Blocked block -- operation cannot succeed")
         text.append(gather_error(annotator, graph, block, index))
     return '\n'.join(text)
