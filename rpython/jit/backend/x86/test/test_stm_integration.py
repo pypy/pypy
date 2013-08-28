@@ -191,7 +191,7 @@ class GCDescrStm(GCDescrShadowstackDirect):
             print "malloc:", size, tid
             if size > sys.maxint / 2:
                 # for testing exception
-                raise Exception()
+                raise LLException(0, 0)
             
             entries = size + StmGC.GCHDRSIZE
             TP = rffi.CArray(lltype.Char)

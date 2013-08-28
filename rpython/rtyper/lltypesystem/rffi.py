@@ -119,6 +119,7 @@ def llexternal(name, args, result, _callable=None,
         # invoke the around-handlers only for "not too small" external calls;
         # sandboxsafe is a hint for "too-small-ness" (e.g. math functions).
         invoke_around_handlers = not sandboxsafe
+        # XXX: maybe transactionsafe should imply sandboxsafe?
 
     if random_effects_on_gcobjs not in (False, True):
         random_effects_on_gcobjs = (
