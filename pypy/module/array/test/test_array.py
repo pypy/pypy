@@ -442,6 +442,11 @@ class BaseArrayTests:
         a.fromstring(b'some extra text')
         assert buf[:] == b'foobarbazsome extra text'
 
+    def test_memview_multi_tobytes(self):
+        a = self.array('i', list(b"abcdef"))
+        m = memoryview(a)
+        assert m.tobytes() == a.tobytes()
+
     def test_list_methods(self):
         assert repr(self.array('i')) == "array('i')"
         assert repr(self.array('i', [1, 2, 3])) == "array('i', [1, 2, 3])"

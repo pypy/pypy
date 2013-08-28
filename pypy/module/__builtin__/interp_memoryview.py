@@ -44,7 +44,10 @@ class W_MemoryView(W_Root):
     descr_ne = _make_descr__cmp('ne')
 
     def as_str(self):
-        return self.buf.as_str()
+        buf = self.buf
+        # copied and modified from pypy/interpreter/buffer.py
+        n_bytes = buf.getlength() * buf.itemsize
+        return buf.getslice(0, n_bytes, 1, n_bytes)
 
     def getlength(self):
         return self.buf.getlength()
@@ -102,11 +105,27 @@ class W_MemoryView(W_Root):
     def descr_setitem(self, space, w_index, newstring):
         self._check_released(space)
         buf = self.buf
-        if isinstance(buf, buffer.RWBuffer):
-            buf.descr_setitem(space, w_index, newstring)
-        else:
+        if not isinstance(buf, buffer.RWBuffer):
             raise OperationError(space.w_TypeError,
                                  space.wrap("cannot modify read-only memory"))
+
+        # copied and modified from pypy/interpreter/buffer.py
+        start, stop, step, size = space.decode_index4(w_index, self.getlength())
+        if step == 0:  # index only
+            if len(newstring) != buf.itemsize:
+                msg = 'cannot modify size of memoryview object'
+                raise OperationError(space.w_ValueError, space.wrap(msg))
+            for i in range(buf.itemsize):
+                buf.setitem(start + i, newstring[i])
+        elif step == 1:
+            if len(newstring) != size * buf.itemsize:
+                msg = 'cannot modify size of memoryview object'
+                raise OperationError(space.w_ValueError, space.wrap(msg))
+            buf.setslice(start, newstring)
+        else:
+            raise OperationError(space.w_ValueError,
+                                 space.wrap("buffer object does not support"
+                                            " slicing with a step"))
 
     def descr_len(self, space):
         self._check_released(space)
