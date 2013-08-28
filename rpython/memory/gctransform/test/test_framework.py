@@ -5,7 +5,7 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.memory.gc.semispace import SemiSpaceGC
 from rpython.memory.gctransform.framework import (CollectAnalyzer,
-     find_initializing_stores, find_clean_setarrayitems, GilAnalyzer)
+     find_initializing_stores, find_clean_setarrayitems)
 from rpython.memory.gctransform.shadowstack import (
      ShadowStackFrameworkGCTransformer)
 from rpython.memory.gctransform.test.test_transform import rtype
@@ -99,36 +99,6 @@ def test_cancollect_external():
     t = rtype(g, [])
     gg = graphof(t, g)
     assert CollectAnalyzer(t).analyze_direct_call(gg)
-
-def test_canrelease_external():
-    for ths in ['auto', True, False]:
-        for sbxs in [True, False]:
-            fext = rffi.llexternal('fext2', [], lltype.Void, 
-                                   threadsafe=ths, sandboxsafe=sbxs)
-            def g():
-                fext()
-            t = rtype(g, [])
-            gg = graphof(t, g)
-
-            releases = (ths == 'auto' and not sbxs) or ths is True
-            assert releases == GilAnalyzer(t).analyze_direct_call(gg)
-
-def test_canrelease_instantiate():
-    class O:
-        pass
-    class A(O):
-        pass
-    class B(O):
-        pass
-
-    classes = [A, B]
-    def g(i):
-        classes[i]()
-
-    t = rtype(g, [int])
-    gg = graphof(t, g)
-    assert not GilAnalyzer(t).analyze_direct_call(gg)
-
     
 def test_no_collect(gc="minimark"):
     from rpython.rlib import rgc
@@ -154,60 +124,6 @@ def test_no_collect(gc="minimark"):
 
 def test_no_collect_stm():
     test_no_collect("stmgc")
-
-def test_no_release_gil(gc="minimark"):
-    from rpython.rlib import rgc
-    from rpython.translator.c.genc import CStandaloneBuilder
-
-    @rgc.no_release_gil
-    def g():
-        return 1
-
-    assert g._dont_inline_
-    assert g._no_release_gil_
-
-    def entrypoint(argv):
-        return g() + 2
-    
-    t = rtype(entrypoint, [s_list_of_strings])
-    if gc == "stmgc":
-        t.config.translation.stm = True
-    t.config.translation.gc = gc
-    cbuild = CStandaloneBuilder(t, entrypoint, t.config,
-                                gcpolicy=FrameworkGcPolicy2)
-    db = cbuild.generate_graphs_for_llinterp()
-
-def test_no_release_gil_stm():
-    test_no_release_gil("stmgc")
-
-def test_no_release_gil_detect(gc="minimark"):
-    from rpython.rlib import rgc
-    from rpython.translator.c.genc import CStandaloneBuilder
-
-    fext1 = rffi.llexternal('fext1', [], lltype.Void, threadsafe=True)
-    @rgc.no_release_gil
-    def g():
-        fext1()
-        return 1
-
-    assert g._dont_inline_
-    assert g._no_release_gil_
-
-    def entrypoint(argv):
-        return g() + 2
-    
-    t = rtype(entrypoint, [s_list_of_strings])
-    if gc == "stmgc":
-        t.config.translation.stm = True
-    t.config.translation.gc = gc
-    cbuild = CStandaloneBuilder(t, entrypoint, t.config,
-                                gcpolicy=FrameworkGcPolicy2)
-    f = py.test.raises(Exception, cbuild.generate_graphs_for_llinterp)
-    expected = "'no_release_gil' function can release the GIL: <function g at "
-    assert str(f.value).startswith(expected)
-
-def test_no_release_gil_detect_stm():
-    test_no_release_gil_detect("stmgc")
 
 def test_no_collect_detection(gc="minimark"):
     from rpython.rlib import rgc

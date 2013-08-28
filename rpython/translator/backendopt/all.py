@@ -11,6 +11,7 @@ from rpython.translator.backendopt.removeassert import remove_asserts
 from rpython.translator.backendopt.support import log
 from rpython.translator.backendopt.checkvirtual import check_virtual_methods
 from rpython.translator.backendopt.storesink import storesink_graph
+from rpython.translator.backendopt import gilanalysis
 from rpython.flowspace.model import checkgraph
 
 INLINE_THRESHOLD_FOR_TEST = 33
@@ -141,6 +142,9 @@ def backend_optimizations(translator, graphs=None, secondary=False,
 
     for graph in graphs:
         checkgraph(graph)
+
+    gilanalysis.analyze(graphs, translator)
+
 
 def constfold(config, graphs):
     if config.constfold:
