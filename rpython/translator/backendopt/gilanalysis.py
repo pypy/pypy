@@ -1,5 +1,9 @@
 from rpython.translator.backendopt import graphanalyze        
 
+# This is not an optimization. It checks for possible releases of the
+# GIL in all graphs starting from rgc.no_release_gil.
+
+
 class GilAnalyzer(graphanalyze.BoolGraphAnalyzer):
     
     def analyze_direct_call(self, graph, seen=None):
