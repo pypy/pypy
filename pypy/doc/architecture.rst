@@ -3,8 +3,9 @@ Goals and Architecture Overview
 
 .. contents::
 
-This document gives an overview of the goals and architecture of PyPy.
-See :doc:`getting started <getting-started>` for a practical introduction and starting points.
+This document gives an overview of the goals and architecture of PyPy. If you're
+interested in :ref:`using PyPy <using-pypy>` or :ref:`hacking on it <developing-pypy>`,
+have a look at our :ref:`getting started <getting-started-index>` section.
 
 
 Mission statement
