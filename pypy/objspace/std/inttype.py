@@ -107,12 +107,11 @@ def descr__new__(space, w_inttype, w_x, w_base=None):
         else:
             # If object supports the buffer interface
             try:
-                w_buffer = space.buffer(w_value)
+                buf = space.buffer_w(w_value)
             except OperationError, e:
                 if not e.match(space, space.w_TypeError):
                     raise
             else:
-                buf = space.interp_w(Buffer, w_buffer)
                 value, w_longval = string_to_int_or_long(space, buf.as_str())
                 ok = True
 

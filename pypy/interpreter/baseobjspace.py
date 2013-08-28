@@ -196,6 +196,9 @@ class W_Root(object):
     def immutable_unique_id(self, space):
         return None
 
+    def buffer_w(self, space):
+        self._typed_unwrap_error(space, "buffer")
+
     def str_w(self, space):
         self._typed_unwrap_error(space, "string")
 
@@ -1256,10 +1259,7 @@ class ObjSpace(object):
                                            'to unsigned int'))
 
     def buffer_w(self, w_obj):
-        # returns a Buffer instance
-        from pypy.interpreter.buffer import Buffer
-        w_buffer = self.buffer(w_obj)
-        return self.interp_w(Buffer, w_buffer)
+        return w_obj.buffer_w(self)
 
     def rwbuffer_w(self, w_obj):
         # returns a RWBuffer instance
@@ -1598,7 +1598,6 @@ ObjSpace.MethodTable = [
     ('set',             'set',       3, ['__set__']),
     ('delete',          'delete',    2, ['__delete__']),
     ('userdel',         'del',       1, ['__del__']),
-    ('buffer',          'buffer',    1, ['__buffer__']),   # see buffer.py
 ]
 
 ObjSpace.BuiltinModuleTable = [

@@ -28,6 +28,9 @@ class W_BytearrayObject(W_Object):
         """ representation for debugging purposes """
         return "%s(%s)" % (w_self.__class__.__name__, ''.join(w_self.data))
 
+    def buffer_w(w_self, space):
+        return BytearrayBuffer(w_self.data)
+
 registerimplementation(W_BytearrayObject)
 
 init_signature = Signature(['source', 'encoding', 'errors'], None, None)
@@ -707,10 +710,6 @@ class BytearrayBuffer(RWBuffer):
 
     def setitem(self, index, char):
         self.data[index] = char
-
-def buffer__Bytearray(space, self):
-    b = BytearrayBuffer(self.data)
-    return space.wrap(b)
 
 from pypy.objspace.std import bytearraytype
 register_all(vars(), bytearraytype)

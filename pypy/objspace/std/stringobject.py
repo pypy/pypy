@@ -66,6 +66,9 @@ class W_StringObject(W_AbstractStringObject):
     def str_w(w_self, space):
         return w_self._value
 
+    def buffer_w(w_self, space):
+        return StringBuffer(w_self._value)
+
     def listview_str(w_self):
         return _create_list_from_string(w_self._value)
 
@@ -957,9 +960,6 @@ def format__String_ANY(space, w_string, w_format_spec):
     spec = space.str_w(w_format_spec)
     formatter = newformat.str_formatter(space, spec)
     return formatter.format_string(w_string._value)
-
-def buffer__String(space, w_string):
-    return space.wrap(StringBuffer(w_string._value))
 
 # register all methods
 from pypy.objspace.std import stringtype
