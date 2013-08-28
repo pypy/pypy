@@ -1,38 +1,7 @@
-Getting Started with PyPy's Development Process
-===============================================
+Getting Started Developing With PyPy
+====================================
 
 .. contents::
-
-.. _start-reading-sources:
-
-Where to start reading the sources
-----------------------------------
-
-PyPy is made from parts that are relatively independent of each other.
-You should start looking at the part that attracts you most (all paths are
-relative to the PyPy top level directory).  You may look at our :doc:`directory reference <dir-reference>`
-or start off at one of the following points:
-
-*  `pypy/interpreter`_ contains the bytecode interpreter: bytecode dispatcher
-   in `pypy/interpreter/pyopcode.py`_, frame and code objects in `pypy/interpreter/eval.py`_ and `pypy/interpreter/pyframe.py`_,
-   function objects and argument passing in `pypy/interpreter/function.py`_ and `pypy/interpreter/argument.py`_,
-   the object space interface definition in `pypy/interpreter/baseobjspace.py`_, modules in
-   `pypy/interpreter/module.py`_ and `pypy/interpreter/mixedmodule.py`_.  Core types supporting the bytecode
-   interpreter are defined in `pypy/interpreter/typedef.py`_.
-
-*  :source:`pypy/interpreter/pyparser` contains a recursive descent parser,
-   and grammar files that allow it to parse the syntax of various Python
-   versions. Once the grammar has been processed, the parser can be
-   translated by the above machinery into efficient code.
-
-*  :source:`pypy/interpreter/astcompiler` contains the compiler.  This
-   contains a modified version of the compiler package from CPython
-   that fixes some bugs and is translatable.
-
-*  :source:`pypy/objspace/std` contains the :ref:`Standard object space <standard-object-space>`.  The main file
-   is :source:`pypy/objspace/std/objspace.py`.  For each type, the files ``xxxtype.py`` and
-   ``xxxobject.py`` contain respectively the definition of the type and its
-   (default) implementation.
 
 
 Running PyPy's unit tests
@@ -96,9 +65,15 @@ to introspect its internals.
 Interpreter-level console
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-If you start an untranslated Python interpreter via::
+To start interpreting Python with PyPy, install a C compiler that is
+supported by distutils and use Python 2.7 or greater to run PyPy::
 
-    python pypy/bin/pyinteractive.py
+    cd pypy
+    python bin/pyinteractive.py
+
+After a few seconds (remember: this is running on top of CPython), you should
+be at the PyPy prompt, which is the same as the Python prompt, but with an
+extra ">".
 
 If you press
 <Ctrl-C> on the console you enter the interpreter-level console, a
@@ -128,6 +103,28 @@ Linux) or <Ctrl-Z>, <Enter> (under Windows).
 
 You may be interested in reading more about the distinction between
 :ref:`interpreter-level and app-level <interpreter-level>`.
+
+pyinteractive.py options
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+To list the PyPy interpreter command line options, type::
+
+    cd pypy
+    python bin/pyinteractive.py --help
+
+pyinteractive.py supports most of the options that CPython supports too (in addition to a
+large amount of options that can be used to customize pyinteractive.py).
+As an example of using PyPy from the command line, you could type::
+
+    python pyinteractive.py -c "from test import pystone; pystone.main(10)"
+
+Alternatively, as with regular Python, you can simply give a
+script name on the command line::
+
+    python pyinteractive.py ../../lib-python/2.7/test/pystone.py 10
+
+See our :doc:`configuration sections <config/index>` for details about what all the commandline
+options do.
 
 
 .. _trace example:
@@ -201,12 +198,46 @@ Getting involved
 PyPy employs an open development process.  You are invited to join our
 `pypy-dev mailing list`_ or look at the other :ref:`contact
 possibilities <contact>`.  Usually we give out commit rights fairly liberally, so if you
-want to do something with PyPy, you can become a committer. We are also doing
-coding Sprints which are
-separately announced and often happen around Python conferences such
-as EuroPython or Pycon. Upcoming events are usually announced on `the blog`_.
+want to do something with PyPy, you can become a committer. We also run frequent
+coding sprints which are separately announced and often happen around Python
+conferences such as EuroPython or PyCon. Upcoming events are usually announced
+on `the blog`_.
 
 .. _the blog: http://morepypy.blogspot.com
 .. _pypy-dev mailing list: http://python.org/mailman/listinfo/pypy-dev
 
 .. _py library: http://pylib.org
+
+
+.. _start-reading-sources:
+
+Where to start reading the sources
+----------------------------------
+
+PyPy is made from parts that are relatively independent of each other.
+You should start looking at the part that attracts you most (all paths are
+relative to the PyPy top level directory).  You may look at our :doc:`directory reference <dir-reference>`
+or start off at one of the following points:
+
+*  :source:`pypy/interpreter` contains the bytecode interpreter: bytecode dispatcher
+   in :source:`pypy/interpreter/pyopcode.py`, frame and code objects in
+   :source:`pypy/interpreter/eval.py` and :source:`pypy/interpreter/pyframe.py`,
+   function objects and argument passing in :source:`pypy/interpreter/function.py`
+   and :source:`pypy/interpreter/argument.py`, the object space interface
+   definition in :source:`pypy/interpreter/baseobjspace.py`, modules in
+   :source:`pypy/interpreter/module.py` and :source:`pypy/interpreter/mixedmodule.py`.
+   Core types supporting the bytecode interpreter are defined in :source:`pypy/interpreter/typedef.py`.
+
+*  :source:`pypy/interpreter/pyparser` contains a recursive descent parser,
+   and grammar files that allow it to parse the syntax of various Python
+   versions. Once the grammar has been processed, the parser can be
+   translated by the above machinery into efficient code.
+
+*  :source:`pypy/interpreter/astcompiler` contains the compiler.  This
+   contains a modified version of the compiler package from CPython
+   that fixes some bugs and is translatable.
+
+*  :source:`pypy/objspace/std` contains the :ref:`Standard object space <standard-object-space>`.  The main file
+   is :source:`pypy/objspace/std/objspace.py`.  For each type, the files ``xxxtype.py`` and
+   ``xxxobject.py`` contain respectively the definition of the type and its
+   (default) implementation.

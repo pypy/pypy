@@ -1,7 +1,41 @@
 Building PyPy from Source
 =========================
 
-For building PyPy, it is recommended to install a pre-build PyPy first (see
+Clone the repository
+--------------------
+
+If you prefer to compile your own PyPy, or if you want to modify it, you
+will need to obtain a copy of the sources.  This can be done either by
+`downloading them from the download page`_ or by checking them out from the
+repository using mercurial.  We suggest using mercurial if one wants to access
+the current development.
+
+.. _downloading them from the download page: http://pypy.org/download.html
+
+You must issue the following command on your
+command line, DOS box, or terminal::
+
+    hg clone http://bitbucket.org/pypy/pypy pypy
+
+This will clone the repository and place it into a directory
+named ``pypy``, and will get you the PyPy source in ``pypy/pypy`` and
+documentation files in ``pypy/pypy/doc``.
+We try to ensure that the tip is always stable, but it might
+occasionally be broken.  You may want to check out `our nightly tests`_:
+find a revision (12-chars alphanumeric string, e.g. "963e808156b3")
+that passed at least the
+``{linux32}`` tests (corresponding to a ``+`` sign on the
+line ``success``) and then, in your cloned repository, switch to this revision
+using::
+
+    hg up -r XXXXX
+
+where XXXXX is the revision id.
+
+.. _our nightly tests: http://buildbot.pypy.org/summary?branch=<trunk>
+
+
+For building PyPy, we recommend installing a pre-built PyPy first (see
 :doc:`install`). It is possible to build PyPy with CPython, but it will take a
 lot longer to run -- depending on your architecture, between two and three
 times as long.
@@ -66,7 +100,18 @@ Translate without JIT::
 
 If everything works correctly this will create an executable ``pypy-c`` in the
 current directory. The executable behaves mostly like a normal Python
-interpreter (see :doc:`cpython differences`).
+interpreter (see :doc:`cpython_differences`).
+
+
+.. _translate-pypy:
+
+Translating with non-standard options
+-------------------------------------
+
+It is possible to have non-standard features enabled for translation,
+but they are not really tested any more.  Look, for example, at the
+:doc:`objspace proxies <objspace-proxies>` document.
+
 
 
 Installation
@@ -99,3 +144,27 @@ that this is never the case.
 
 
 .. TODO windows
+
+
+Where to go from here
+---------------------
+
+Congratulations! Now that you've successfully built your own PyPy, you might
+want to `start writing a fast JITed interpreter with PyPy`_, or look at some
+:doc:`projects we need help with <project-ideas>`, or just dive deeper into
+the docs:
+
+.. toctree::
+  :maxdepth: 1
+
+  getting-started-dev
+  cpython_differences
+  gc_info
+  jit-hooks
+  stackless
+  cppyy
+  objspace-proxies
+  sandbox
+
+
+.. _start writing a fast JITed interpreter with PyPy: http://morepypy.blogspot.com/2011/04/tutorial-writing-interpreter-with-pypy.html

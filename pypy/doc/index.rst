@@ -4,7 +4,7 @@ Welcome to PyPy's documentation!
 Welcome to the documentation for PyPy, a fast_, compliant alternative
 implementation of the Python_ language.
 
-* If you want to find out more about what PyPy is, have a look at our :doc:`introduction <introduction>`
+* If you want to find out more about what PyPy is, have a look at our :doc:`introduction`
   or consult the `PyPy website`_.
 
 * If you're interested in trying PyPy out, check out the :doc:`installation instructions <install>`.
@@ -20,41 +20,51 @@ unless otherwise specified. Consult :source:`LICENSE`.
 .. _PyPy website: http://pypy.org/
 
 
+.. _getting-started-index:
+
 Getting Started
 ---------------
 
 .. toctree::
-   :maxdepth: 1
+  :maxdepth: 1
 
-   introduction
-   install
-   build
-   faq
+  introduction
+  install
+  build
+  faq
+
+
+.. _using-pypy:
 
 Using PyPy
 ----------
 
 .. toctree::
-   :maxdepth: 1
+  :maxdepth: 1
 
-   cpython_differences
-   gc_info
-   jit-hooks
-   stackless
-   cppyy
-   objspace-proxies
-   sandbox
+  cpython_differences
+  gc_info
+  jit-hooks
+  stackless
+  cppyy
+  objspace-proxies
+  sandbox
 
+
+.. _developing-pypy:
 
 Development documentation
 -------------------------
 
 .. toctree::
-   :maxdepth: 1
+  :maxdepth: 1
 
-   how-to-contribute
-   project-ideas
-   project-documentation
+  getting-started-dev
+  how-to-contribute
+  architecture
+  project-ideas
+  project-documentation
+
 .. TODO: audit ^^
 
 
@@ -65,9 +75,9 @@ Academical stuff
 ----------------
 
 .. toctree::
-   :maxdepth: 1
+  :maxdepth: 1
 
-   extradoc
+  extradoc
 .. TODO: Remove this? Or fill it with links to papers?
 
 
@@ -109,3 +119,34 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
+
+
+.. TODO figure out what to do with these!
+
+.. toctree::
+  :hidden:
+
+  configuration
+  contributor
+  cppyy_backend
+  cppyy_example
+  ctypes-implementation
+  discussion/jit-profiler
+  discussions
+  eventhistory
+  extending
+  getting-started-dev
+  how-to-release
+  release-2.0.1
+  release-2.0.2
+  release-2.1.0
+  release-2.1.0-beta1
+  release-2.1.0-beta2
+  releases/index
+  whatsnew-1.9
+  whatsnew-2.0
+  whatsnew-2.0.0-beta1
+  whatsnew-2.1
+  whatsnew-head
+  you-want-to-help
+  __pypy__-module
