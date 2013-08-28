@@ -109,7 +109,6 @@ def format_annotations(annotator, oper):
 def format_blocked_annotation_error(annotator, blocked_blocks):
     text = []
     for block, (graph, index) in blocked_blocks.items():
-        text.append('\n')
         text.append("Blocked block -- operation cannot succeed")
         text.append(gather_error(annotator, graph, block, index))
     return '\n'.join(text)

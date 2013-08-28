@@ -602,6 +602,10 @@ class RPythonAnnotator(object):
                 raise BlockedInference(self, op, opindex)
         try:
             resultcell = consider_meth(*argcells)
+        except annmodel.AnnotatorError as e: # note that UnionError is a subclass
+            graph = self.bookkeeper.position_key[0]
+            e.source = '\n'.join(source_lines(graph, block, opindex, long=True))
+            raise
         except Exception, e:
             graph = self.bookkeeper.position_key[0]
             e.args = e.args + (
