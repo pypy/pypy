@@ -68,9 +68,6 @@ def source_lines(graph, *args, **kwds):
     lines = source_lines1(graph, *args, **kwds)
     return ['In %r:' % (graph,)] + lines
 
-class AnnotatorError(Exception):
-    pass
-
 class NoSuchAttrError(Exception):
     pass
 
@@ -79,7 +76,7 @@ class ErrorWrapper(object):
         self.msg = msg
 
     def __repr__(self):
-        return '<%s>' % (self.msg,)
+        return '%s' % (self.msg,)
 
 def gather_error(annotator, graph, block, operindex):
     msg = [""]

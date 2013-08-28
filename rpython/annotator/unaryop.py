@@ -14,7 +14,7 @@ from rpython.annotator.model import (SomeObject, SomeInteger, SomeBool,
 from rpython.annotator.bookkeeper import getbookkeeper
 from rpython.annotator import builtin
 from rpython.annotator.binaryop import _clone ## XXX where to put this?
-from rpython.tool.error import AnnotatorError
+from rpython.annotator.model import AnnotatorError
 
 # convenience only!
 def immutablevalue(x):

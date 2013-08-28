@@ -676,6 +676,10 @@ def ll_to_annotation(v):
 
 # ____________________________________________________________
 
+
+class AnnotatorError(Exception):
+    pass
+
 class UnionError(Exception):
     """Signals an suspicious attempt at taking the union of
     deeply incompatible SomeXxx instances."""

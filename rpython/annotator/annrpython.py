@@ -5,7 +5,7 @@ import types
 from rpython.tool.ansi_print import ansi_log
 from rpython.tool.pairtype import pair
 from rpython.tool.error import (format_blocked_annotation_error,
-                             AnnotatorError, gather_error, ErrorWrapper, source_lines)
+                             gather_error, ErrorWrapper, source_lines)
 from rpython.flowspace.model import (Variable, Constant, FunctionGraph,
                                       c_last_exception, checkgraph)
 from rpython.translator import simplify, transform
@@ -17,7 +17,6 @@ log = py.log.Producer("annrpython")
 py.log.setconsumer("annrpython", ansi_log)
 
 FAIL = object()
-
 
 class RPythonAnnotator(object):
     """Block annotator for RPython.
@@ -221,7 +220,7 @@ class RPythonAnnotator(object):
 
             text = format_blocked_annotation_error(self, self.blocked_blocks)
             #raise SystemExit()
-            raise AnnotatorError(text)
+            raise annmodel.AnnotatorError(text)
         for graph in newgraphs:
             v = graph.getreturnvar()
             if v not in self.bindings:
