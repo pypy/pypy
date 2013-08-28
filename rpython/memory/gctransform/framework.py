@@ -59,8 +59,9 @@ class GilAnalyzer(graphanalyze.BoolGraphAnalyzer):
             if getattr(func, '_transaction_break_', False):
                 return True
       
-        return graphanalyze.BoolGraphAnalyzer.analyze_direct_call(self, graph,
-                                                                  seen)
+        return graphanalyze.BoolGraphAnalyzer.analyze_direct_call(
+            self, graph, seen)
+
     def analyze_external_call(self, op, seen=None):
         funcobj = op.args[0].value._obj
         if getattr(funcobj, 'transactionsafe', False):
@@ -68,6 +69,9 @@ class GilAnalyzer(graphanalyze.BoolGraphAnalyzer):
         else:
             return False
 
+    def analyze_instantiate_call(self, seen=None):
+        return False
+                
     def analyze_simple_operation(self, op, graphinfo):
         return False
 

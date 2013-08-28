@@ -112,7 +112,22 @@ def test_canrelease_external():
 
             releases = (ths == 'auto' and not sbxs) or ths is True
             assert releases == GilAnalyzer(t).analyze_direct_call(gg)
-    return
+
+def test_canrelease_instantiate():
+    class O:
+        pass
+    class A(O):
+        pass
+    class B(O):
+        pass
+
+    classes = [A, B]
+    def g(i):
+        classes[i]()
+
+    t = rtype(g, [int])
+    gg = graphof(t, g)
+    assert not GilAnalyzer(t).analyze_direct_call(gg)
 
     
 def test_no_collect(gc="minimark"):
