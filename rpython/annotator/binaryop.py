@@ -457,7 +457,7 @@ class __extend__(pairtype(SomeUnicodeCodePoint, SomeUnicodeCodePoint)):
 class __extend__(pairtype(SomeString, SomeUnicodeString),
                  pairtype(SomeUnicodeString, SomeString)):
     def mod((str, unistring)):
-        raise NotImplementedError(
+        raise AnnotatorError(
             "string formatting mixing strings and unicode not supported")
 
 
@@ -471,7 +471,7 @@ class __extend__(pairtype(SomeString, SomeTuple),
             if (is_unicode and isinstance(s_item, (SomeChar, SomeString)) or
                 is_string and isinstance(s_item, (SomeUnicodeCodePoint,
                                                   SomeUnicodeString))):
-                raise NotImplementedError(
+                raise AnnotatorError(
                     "string formatting mixing strings and unicode not supported")
         getbookkeeper().count('strformat', s_string, s_tuple)
         no_nul = s_string.no_nul

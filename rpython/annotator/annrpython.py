@@ -5,7 +5,7 @@ import types
 from rpython.tool.ansi_print import ansi_log
 from rpython.tool.pairtype import pair
 from rpython.tool.error import (format_blocked_annotation_error,
-                             gather_error, ErrorWrapper, source_lines)
+                             gather_error, source_lines)
 from rpython.flowspace.model import (Variable, Constant, FunctionGraph,
                                       c_last_exception, checkgraph)
 from rpython.translator import simplify, transform
@@ -136,9 +136,7 @@ class RPythonAnnotator(object):
         checkgraph(flowgraph)
 
         nbarg = len(flowgraph.getargs())
-        if len(inputcells) != nbarg:
-            raise TypeError("%s expects %d args, got %d" %(
-                            flowgraph, nbarg, len(inputcells)))
+        assert len(inputcells) == nbarg # wrong number of args
 
         # register the entry point
         self.addpendinggraph(flowgraph, inputcells)
@@ -159,7 +157,7 @@ class RPythonAnnotator(object):
             else:
                 return object
         else:
-            raise TypeError, ("Variable or Constant instance expected, "
+            raise TypeError("Variable or Constant instance expected, "
                               "got %r" % (variable,))
 
     def getuserclassdefinitions(self):
@@ -243,7 +241,7 @@ class RPythonAnnotator(object):
             #    return annmodel.s_ImpossibleValue
             return self.bookkeeper.immutableconstant(arg)
         else:
-            raise TypeError, 'Variable or Constant expected, got %r' % (arg,)
+            raise TypeError('Variable or Constant expected, got %r' % (arg,))
 
     def typeannotation(self, t):
         return signature.annotation(t, self.bookkeeper)
@@ -604,12 +602,7 @@ class RPythonAnnotator(object):
             resultcell = consider_meth(*argcells)
         except annmodel.AnnotatorError as e: # note that UnionError is a subclass
             graph = self.bookkeeper.position_key[0]
-            e.source = '\n'.join(source_lines(graph, block, opindex, long=True))
-            raise
-        except Exception, e:
-            graph = self.bookkeeper.position_key[0]
-            e.args = e.args + (
-                ErrorWrapper(gather_error(self, graph, block, opindex)),)
+            e.source = gather_error(self, graph, block, opindex)
             raise
         if resultcell is None:
             resultcell = self.noreturnvalue(op)

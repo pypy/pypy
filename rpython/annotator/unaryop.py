@@ -84,8 +84,7 @@ class __extend__(SomeObject):
         return obj.is_true()
 
     def hash(obj):
-        raise TypeError, ("cannot use hash() in RPython; "
-                          "see objectmodel.compute_xxx()")
+        raise AnnotatorError("cannot use hash() in RPython")
 
     def str(obj):
         getbookkeeper().count('str', obj)
@@ -341,10 +340,10 @@ class __extend__(SomeList):
 
 def check_negative_slice(s_start, s_stop):
     if isinstance(s_start, SomeInteger) and not s_start.nonneg:
-        raise TypeError("slicing: not proven to have non-negative start")
+        raise AnnotatorError("slicing: not proven to have non-negative start")
     if isinstance(s_stop, SomeInteger) and not s_stop.nonneg and \
            getattr(s_stop, 'const', 0) != -1:
-        raise TypeError("slicing: not proven to have non-negative stop")
+        raise AnnotatorError("slicing: not proven to have non-negative stop")
 
 
 class __extend__(SomeDict):
@@ -529,10 +528,10 @@ class __extend__(SomeString,
 class __extend__(SomeUnicodeString):
     def method_encode(uni, s_enc):
         if not s_enc.is_constant():
-            raise TypeError("Non-constant encoding not supported")
+            raise AnnotatorError("Non-constant encoding not supported")
         enc = s_enc.const
         if enc not in ('ascii', 'latin-1', 'utf-8'):
-            raise TypeError("Encoding %s not supported for unicode" % (enc,))
+            raise AnnotatorError("Encoding %s not supported for unicode" % (enc,))
         return SomeString()
     method_encode.can_only_throw = [UnicodeEncodeError]
 
@@ -562,10 +561,10 @@ class __extend__(SomeString):
 
     def method_decode(str, s_enc):
         if not s_enc.is_constant():
-            raise TypeError("Non-constant encoding not supported")
+            raise AnnotatorError("Non-constant encoding not supported")
         enc = s_enc.const
         if enc not in ('ascii', 'latin-1', 'utf-8'):
-            raise TypeError("Encoding %s not supported for strings" % (enc,))
+            raise AnnotatorError("Encoding %s not supported for strings" % (enc,))
         return SomeUnicodeString()
     method_decode.can_only_throw = [UnicodeDecodeError]
 

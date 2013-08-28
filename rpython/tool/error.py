@@ -68,16 +68,6 @@ def source_lines(graph, *args, **kwds):
     lines = source_lines1(graph, *args, **kwds)
     return ['In %r:' % (graph,)] + lines
 
-class NoSuchAttrError(Exception):
-    pass
-
-class ErrorWrapper(object):
-    def __init__(self, msg):
-        self.msg = msg
-
-    def __repr__(self):
-        return '%s' % (self.msg,)
-
 def gather_error(annotator, graph, block, operindex):
     msg = [""]
 
