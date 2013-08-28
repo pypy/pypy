@@ -624,6 +624,7 @@ LL_OPERATIONS = {
     'debug_reraise_traceback': LLOp(),
     'debug_print_traceback':   LLOp(),
     'debug_nonnull_pointer':   LLOp(canrun=True),
+    'debug_stm_flush_barrier': LLOp(canrun=True),
 
     # __________ instrumentation _________
     'instrument_count':     LLOp(),

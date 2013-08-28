@@ -1,8 +1,6 @@
-import py
 from rpython.rlib import rstm, rgc, objectmodel
-from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rclass
+from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
-from rpython.rtyper.annlowlevel import cast_instance_to_base_ptr
 from rpython.translator.stm.test.support import CompiledSTMTests
 from rpython.translator.stm.test import targetdemo2
 
@@ -302,4 +300,32 @@ class TestSTMTranslated(CompiledSTMTests):
 
         t, cbuilder = self.compile(main)
         data = cbuilder.cmdexec('a b')
+        assert 'test ok\n' in data
+
+    def test_stm_pointer_equal(self):
+        class Foo:
+            pass
+        prebuilt_foo = Foo()
+        def make(n):
+            foo1 = Foo()
+            foo2 = Foo()
+            if n < 100:
+                return foo1, foo2, foo1, None
+            return None, None, None, foo1     # to annotate as "can be none"
+        def main(argv):
+            foo1, foo2, foo3, foo4 = make(len(argv))
+            assert foo1 is not prebuilt_foo
+            assert foo1 is not foo2
+            assert foo1 is foo3
+            assert foo4 is None
+            assert foo1 is not None
+            assert prebuilt_foo is not foo1
+            assert None is not foo1
+            assert None is foo4
+            print 'test ok'
+            return 0
+
+        main([])
+        t, cbuilder = self.compile(main)
+        data = cbuilder.cmdexec('')
         assert 'test ok\n' in data

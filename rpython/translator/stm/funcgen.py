@@ -48,19 +48,27 @@ def stm_initialize(funcgen, op):
 def stm_finalize(funcgen, op):
     return 'stm_finalize();'
 
-_STM_BARRIER_FUNCS = {   # XXX try to see if some combinations can be shorter
-    'P2R': 'stm_read_barrier',
-    'G2R': 'stm_read_barrier',
-    'O2R': 'stm_read_barrier',
-    'P2W': 'stm_write_barrier',
-    'G2W': 'stm_write_barrier',
-    'O2W': 'stm_write_barrier',
-    'R2W': 'stm_write_barrier',
-    }
-
 def stm_barrier(funcgen, op):
     category_change = op.args[0].value
-    funcname = _STM_BARRIER_FUNCS[category_change]
+    frm, middle, to = category_change
+    assert middle == '2'
+    assert frm < to
+    if to == 'W':
+        if frm >= 'V':
+            funcname = 'stm_repeat_write_barrier'
+        else:
+            funcname = 'stm_write_barrier'
+    elif to == 'V':
+        funcname = 'stm_write_barrier_noptr'
+    elif to == 'R':
+        if frm >= 'Q':
+            funcname = 'stm_repeat_read_barrier'
+        else:
+            funcname = 'stm_read_barrier'
+    elif to == 'I':
+        funcname = 'stm_immut_read_barrier'
+    else:
+        raise AssertionError(category_change)
     assert op.args[1].concretetype == op.result.concretetype
     arg = funcgen.expr(op.args[1])
     result = funcgen.expr(op.result)
@@ -69,11 +77,20 @@ def stm_barrier(funcgen, op):
         funcname, arg)
 
 def stm_ptr_eq(funcgen, op):
-    arg0 = funcgen.expr(op.args[0])
-    arg1 = funcgen.expr(op.args[1])
+    args = [funcgen.expr(v) for v in op.args]
     result = funcgen.expr(op.result)
+    # check for prebuilt arguments
+    for i, j in [(0, 1), (1, 0)]:
+        if isinstance(op.args[j], Constant):
+            if op.args[j].value:     # non-NULL
+                return ('%s = stm_pointer_equal_prebuilt((gcptr)%s, (gcptr)%s);'
+                        % (result, args[i], args[j]))
+            else:
+                # this case might be unreachable, but better safe than sorry
+                return '%s = (%s == NULL);' % (result, args[i])
+    #
     return '%s = stm_pointer_equal((gcptr)%s, (gcptr)%s);' % (
-        result, arg0, arg1)
+        result, args[0], args[1])
 
 def stm_become_inevitable(funcgen, op):
     try:
