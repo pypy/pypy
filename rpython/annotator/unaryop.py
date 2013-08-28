@@ -728,7 +728,7 @@ class __extend__(SomePBC):
 
     def setattr(pbc, s_attr, s_value):
         if not pbc.isNone():
-            raise AnnotatorError("setattr on %r" % pbc)
+            raise AnnotatorError("Cannot modify attribute of a pre-built constant")
 
     def call(pbc, args):
         bookkeeper = getbookkeeper()
