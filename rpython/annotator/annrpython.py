@@ -5,7 +5,7 @@ import types
 from rpython.tool.ansi_print import ansi_log
 from rpython.tool.pairtype import pair
 from rpython.tool.error import (format_blocked_annotation_error,
-                             AnnotatorError, gather_error, ErrorWrapper)
+                             AnnotatorError, gather_error, ErrorWrapper, source_lines)
 from rpython.flowspace.model import (Variable, Constant, FunctionGraph,
                                       c_last_exception, checkgraph)
 from rpython.translator import simplify, transform
@@ -383,8 +383,8 @@ class RPythonAnnotator(object):
         try:
             unions = [annmodel.unionof(c1,c2) for c1, c2 in zip(oldcells,inputcells)]
         except annmodel.UnionError, e:
-            e.args = e.args + (
-                ErrorWrapper(gather_error(self, graph, block, None)),)
+            # Add source code to the UnionError
+            e.source = '\n'.join(source_lines(graph, block, None, long=True))
             raise
         # if the merged cells changed, we must redo the analysis
         if unions != oldcells:
