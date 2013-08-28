@@ -173,7 +173,7 @@ experimental "Thunk" object space (supporting lazy computed objects)
 with its features preserved.
 
 See the :doc:`release 0.8 announcement <releases/0.8.0>` for further details about the release and
-the :doc:`getting started <getting-started>` document for instructions about downloading it and
+the :doc:`getting started <getting-started-index>` document for instructions about downloading it and
 trying it out.  There is also a short :doc:`FAQ <faq>`.  *(11/03/2005)*
 
 
