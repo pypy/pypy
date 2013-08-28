@@ -318,22 +318,26 @@ def multidim_dot(space, left, right, result, dtype, right_critical_dim):
         lefti.next()
     return result
 
-count_all_true_driver = jit.JitDriver(name = 'numpy_count',
-                                      greens = ['shapelen', 'dtype'],
-                                      reds = 'auto')
 
 def count_all_true(arr):
-    s = 0
     if arr.is_scalar():
         return arr.get_dtype().itemtype.bool(arr.get_scalar_value())
     iter = arr.create_iter()
-    shapelen = len(arr.get_shape())
-    dtype = arr.get_dtype()
+    return count_all_true_iter(iter, arr.get_shape(), arr.get_dtype())
+
+count_all_true_iter_driver = jit.JitDriver(name = 'numpy_count',
+                                      greens = ['shapelen', 'dtype'],
+                                      reds = 'auto')
+def count_all_true_iter(iter, shape, dtype):
+    s = 0
+    shapelen = len(shape)
+    dtype = dtype
     while not iter.done():
-        count_all_true_driver.jit_merge_point(shapelen=shapelen, dtype=dtype)
+        count_all_true_iter_driver.jit_merge_point(shapelen=shapelen, dtype=dtype)
         s += iter.getitem_bool()
         iter.next()
     return s
+
 
 getitem_filter_driver = jit.JitDriver(name = 'numpy_getitem_bool',
                                       greens = ['shapelen', 'arr_dtype',
@@ -370,7 +374,7 @@ setitem_filter_driver = jit.JitDriver(name = 'numpy_setitem_bool',
 
 def setitem_filter(arr, index, value):
     arr_iter = arr.create_iter()
-    index_iter = index.create_iter()
+    index_iter = index.create_iter(arr.get_shape())
     value_iter = value.create_iter()
     shapelen = len(arr.get_shape())
     index_dtype = index.get_dtype()
