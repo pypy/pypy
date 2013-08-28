@@ -94,14 +94,20 @@ def gather_error(annotator, graph, block, operindex):
     msg += source_lines(graph, block, operindex, long=True)
     if oper is not None:
         if SHOW_ANNOTATIONS:
-            msg.append("Known variable annotations:")
-            for arg in oper.args + [oper.result]:
-                if isinstance(arg, Variable):
-                    try:
-                        msg.append(" " + str(arg) + " = " + str(annotator.binding(arg)))
-                    except KeyError:
-                        pass
+            msg += format_annotations(annotator, oper)
+            msg += ['']
     return "\n".join(msg)
+
+def format_annotations(annotator, oper):
+    msg = []
+    msg.append("Known variable annotations:")
+    for arg in oper.args + [oper.result]:
+        if isinstance(arg, Variable):
+            try:
+                msg.append(" " + str(arg) + " = " + str(annotator.binding(arg)))
+            except KeyError:
+                pass
+    return msg
 
 def format_blocked_annotation_error(annotator, blocked_blocks):
     text = []
