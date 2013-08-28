@@ -676,7 +676,21 @@ def ll_to_annotation(v):
 
 # ____________________________________________________________
 
-class UnionError(Exception):
+
+class AnnotatorError(Exception):
+    def __init__(self, msg=None):
+        self.msg = msg
+        self.source = None
+
+    def __str__(self):
+        s = "\n\n%s" % self.msg
+        if self.source is not None:
+            s += "\n\n"
+            s += self.source
+
+        return s
+
+class UnionError(AnnotatorError):
     """Signals an suspicious attempt at taking the union of
     deeply incompatible SomeXxx instances."""
 
@@ -686,24 +700,15 @@ class UnionError(Exception):
         The msg paramter is appended to a generic message. This can be used to
         give the user a little more information.
         """
+        s = ""
+        if msg is not None:
+            s += "%s\n\n" % msg
+        s += "Offending annotations:\n"
+        s += "  %s\n  %s" % (s_obj1, s_obj2)
         self.s_obj1 = s_obj1
         self.s_obj2 = s_obj2
-        self.msg = msg
+        self.msg = s
         self.source = None
-
-    def __str__(self):
-        s = "\n\n"
-
-        if self.msg is not None:
-            s += "%s\n\n" % self.msg
-
-        s += "Offending annotations:\n"
-        s += "%s\n%s\n\n" % (self.s_obj1, self.s_obj2)
-
-        if self.source is not None:
-            s += self.source
-
-        return s
 
     def __repr__(self):
         return str(self)

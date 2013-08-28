@@ -68,19 +68,6 @@ def source_lines(graph, *args, **kwds):
     lines = source_lines1(graph, *args, **kwds)
     return ['In %r:' % (graph,)] + lines
 
-class AnnotatorError(Exception):
-    pass
-
-class NoSuchAttrError(Exception):
-    pass
-
-class ErrorWrapper(object):
-    def __init__(self, msg):
-        self.msg = msg
-
-    def __repr__(self):
-        return '<%s>' % (self.msg,)
-
 def gather_error(annotator, graph, block, operindex):
     msg = [""]
 
@@ -94,19 +81,24 @@ def gather_error(annotator, graph, block, operindex):
     msg += source_lines(graph, block, operindex, long=True)
     if oper is not None:
         if SHOW_ANNOTATIONS:
-            msg.append("Known variable annotations:")
-            for arg in oper.args + [oper.result]:
-                if isinstance(arg, Variable):
-                    try:
-                        msg.append(" " + str(arg) + " = " + str(annotator.binding(arg)))
-                    except KeyError:
-                        pass
+            msg += format_annotations(annotator, oper)
+            msg += ['']
     return "\n".join(msg)
+
+def format_annotations(annotator, oper):
+    msg = []
+    msg.append("Known variable annotations:")
+    for arg in oper.args + [oper.result]:
+        if isinstance(arg, Variable):
+            try:
+                msg.append(" " + str(arg) + " = " + str(annotator.binding(arg)))
+            except KeyError:
+                pass
+    return msg
 
 def format_blocked_annotation_error(annotator, blocked_blocks):
     text = []
     for block, (graph, index) in blocked_blocks.items():
-        text.append('\n')
         text.append("Blocked block -- operation cannot succeed")
         text.append(gather_error(annotator, graph, block, index))
     return '\n'.join(text)
