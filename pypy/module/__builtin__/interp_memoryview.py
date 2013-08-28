@@ -173,6 +173,9 @@ class W_MemoryView(W_Root):
     def __init__(self, buf):
         self.buf = buf
 
+    def buffer_w(self, space):
+        return self.buf
+
     @staticmethod
     def descr_new(space, w_subtype, w_object):
         w_memoryview = W_MemoryView(space.buffer_w(w_object))
