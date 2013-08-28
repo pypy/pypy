@@ -575,7 +575,7 @@ how our :py:class:`int` type has no :py:meth:`__getitem__` method, for example.
 Additionally, slicing ensures that ``5 .__add__(6L)`` correctly returns
 :py:exc:`NotImplemented` (because this particular slice does not include
 :py:func:`add__Long_Long` and there is no :py:func:`add__Int_Long`), which leads to
-'`6L.__radd__(5)`` being called, as in CPython.
+``6L.__radd__(5)`` being called, as in CPython.
 
 
 Object Space proxies
