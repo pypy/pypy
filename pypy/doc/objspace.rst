@@ -36,23 +36,13 @@ the bytecode interpreter:
   when an operation is performed on them), security-checking objects,
   distributed objects living on several machines, etc.
 
-The present document gives a description of the above object spaces.
-The sources of PyPy contain the various object spaces in the directory
-:source:`pypy/objspace/`.
+The various object spaces documented here can be found in :source:`pypy/objspace`.
 
-.. TODO: what to do with these paragraphs?
-
-All object-space operations take and return :ref:`application-level <application-level>` objects.
-There are only a few, very simple, object-space operations which allow the
+Note that most object-space operations take and return
+:ref:`application-level <application-level>` objects, which are treated as
+opaque "black boxes" by the interpreter. Only a very few operations allow the
 bytecode interpreter to gain some knowledge about the value of an
 application-level object.
-
-The most important one is :py:func:`is_true`, which returns a boolean
-interpreter-level value.  This is necessary to implement, for example,
-if-statements (or rather, to be pedantic, to implement the
-conditional-branching bytecodes into which if-statements get compiled).
-
-.. TODO: audit ^^
 
 .. _objspace-interface:
 
@@ -81,8 +71,8 @@ Operations on Objects in the Object Space
 
 These functions both take and return "wrapped" (i.e. :ref:`application-level <application-level>`) objects.
 
-The following functions implement operations with straightforward semantics -
-they directly correspond to language-level constructs:
+The following functions implement operations with straightforward semantics that
+directly correspond to language-level constructs:
 
    ``id, type, issubtype, iter, next, repr, str, len, hash,``
 
@@ -131,7 +121,7 @@ they directly correspond to language-level constructs:
 Convenience Functions
 ~~~~~~~~~~~~~~~~~~~~~
 
-The following functions are used so often that it seemed worthwhile to introduce
+The following functions are used so often that it was worthwhile to introduce
 them as shortcuts -- however, they are not strictly necessary since they can be
 expressed using several other object space methods.
 
@@ -171,11 +161,12 @@ objects, not :ref:`application-level <application-level>` ones!
 
 .. py:function:: call_method(w_object, 'method', ...)
 
-  Uses :py:meth:`space.getattr` to get the method object, and then :py:meth:`space.call_function` to invoke it.
+  Uses :py:meth:`space.getattr` to get the method object, and then :py:meth:`space.call_function`
+  to invoke it.
 
 .. py:function:: unpackiterable(w_iterable[, expected_length=-1])
 
-  Iterates over :py:obj:`w_x` (using :py:meth:`space.iter` and :py:meth:`space.next()`)
+  Iterates over :py:obj:`w_x` (using :py:meth:`space.iter` and :py:meth:`space.next`)
   and collects the resulting wrapped objects in a list. If ``expected_length`` is
   given and the length does not match, raises an exception.
 
@@ -202,12 +193,13 @@ Creation of Application Level objects
   strings, etc) to create a new wrapped object, or on instances of :py:class:`W_Root`
   to obtain an application-level-visible reference to them.  For example,
   most classes of the bytecode interpreter subclass :py:class:`W_Root` and can
-  be directly exposed to app-level in this way - functions, frames, code
-  objects, etc.
+  be directly exposed to application-level code in this way - functions, frames,
+  code objects, etc.
 
 .. py:function:: newbool(b)
 
-  Creates a wrapped :py:class:`bool` object from an :ref:`interpreter-level <interpreter-level>` object.
+  Creates a wrapped :py:class:`bool` object from an :ref:`interpreter-level <interpreter-level>`
+  object.
 
 .. py:function:: newtuple([w_x, w_y, w_z, ...])
 
@@ -228,7 +220,7 @@ Creation of Application Level objects
 .. py:function:: newstring(asciilist)
 
   Creates a string from a list of wrapped integers. Note that this may not be
-  a very useful method; usually you can just say ``space.wrap("mystring")``.
+  a very useful method; usually you can just write ``space.wrap("mystring")``.
 
 .. py:function:: newunicode(codelist)
 
@@ -248,6 +240,11 @@ Conversions from Application Level to Interpreter Level
   Returns a interpreter-level boolean (:py:const:`True` or :py:const:`False`) that
   gives the truth value of the wrapped object :py:obj:`w_x`.
 
+  This is a particularly important operation because it is necessary to implement,
+  for example, if-statements in the language (or rather, to be pedantic, to
+  implement the conditional-branching bytecodes into which if-statements are
+  compiled).
+
 .. py:function:: int_w(w_x)
 
   If :py:obj:`w_x` is an application-level integer or long which can be converted
@@ -266,15 +263,15 @@ Conversions from Application Level to Interpreter Level
 
 .. py:function:: float_w(w_x)
 
-  If :py:obj:`w_x` is an application-level float, integer or long, return interpreter-level
-  float. Otherwise raise :py:exc:`TypeError` (or :py:exc:`OverflowError` in case
-  of very large longs).
+  If :py:obj:`w_x` is an application-level float, integer or long, return an
+  interpreter-level float. Otherwise raise :py:exc:`TypeError` (or:py:exc:`OverflowError`
+  in the case of very large longs).
 
 .. py:function:: getindex_w(w_obj[, w_exception=None])
 
   Call ``index(w_obj)``. If the resulting integer or long object can be converted
   to an interpreter-level :py:class:`int`, return that. If not, return a clamped
-  result if :py:obj:`w_exception` is None, otherwise raise that exception at the
+  result if :py:obj:`w_exception` is None, otherwise raise the exception at the
   application level.
 
   (If :py:obj:`w_obj` can't be converted to an index, :py:func:`index` will raise an
@@ -336,17 +333,21 @@ Data Members
              space.w_instance
              space.w_slice
 
-  Python's most common type objects.
+  Python's most common basic type objects.
 
 .. py:data:: space.w_[XYZ]Error
 
   Python's built-in exception classes (:py:class:`KeyError`, :py:class:`IndexError`,
-  etc)
+  etc).
+
+.. TODO: is it worth listing out all ~50 builtin exception types (http://docs.python.org/2/library/exceptions.html)?
 
 .. py:data:: ObjSpace.MethodTable
 
   List of tuples containing ``(method_name, symbol, number_of_arguments, list_of_special_names)``
-  for the regular part of the interface. **NOTE** that tuples are interpreter-level.
+  for the regular part of the interface.
+
+  *NOTE* that tuples are interpreter-level.
 
 .. py:data:: ObjSpace.BuiltinModuleTable
 
@@ -375,14 +376,14 @@ Introduction
 ~~~~~~~~~~~~
 
 The Standard Object Space (:source:`pypy/objspace/std/`) is the direct equivalent
- of CPython's object library (the ``Objects/`` subdirectory in the distribution).
+of CPython's object library (the ``Objects/`` subdirectory in the distribution).
 It is an implementation of the common Python types in a lower-level language.
 
 The Standard Object Space defines an abstract parent class, :py:class:`W_Object`
 as well as subclasses like :py:class:`W_IntObject`, :py:class:`W_ListObject`,
 and so on. A wrapped object (a "black box" for the bytecode interpreter's main
 loop) is an instance of one of these classes. When the main loop invokes an
-operation (for example: addition), between two wrapped objects :py:obj:`w1` and
+operation (such as addition), between two wrapped objects :py:obj:`w1` and
 :py:obj:`w2`, the Standard Object Space does some internal dispatching (similar
 to ``Object/abstract.c`` in CPython) and invokes a method of the proper
 :py:class:`W_XYZObject` class that can perform the operation.
@@ -402,25 +403,13 @@ implementation of integer addition with the function :c:func:`int_add()` in
                                     space.wrap("integer addition"))
         return W_IntObject(space, z)
 
-.. TODO: Rewrite the below
+This may seem like a lot of work just for integer objects (why wrap them into
+:py:class:`W_IntObject` instances instead of using plain integers?), but the
+code is kept simple and readable by wrapping all objects (from simple integers
+to more complex types) in the same way.
 
-Why such a burden just for integer objects? Why did we have to wrap them into
-W_IntObject instances? For them it seems it would have been sufficient just to
-use plain Python integers. But this argumentation fails just like it fails for
-more complex kind of objects. Wrapping them just like everything else is the
-cleanest solution. You could introduce case testing wherever you use a wrapped
-object, to know if it is a plain integer or an instance of (a subclass of)
-W_Object. But that makes the whole program more complicated. The equivalent in
-CPython would be to use PyObject* pointers all around except when the object is
-an integer (after all, integers are directly available in C too). You could
-represent small integers as odd-valuated pointers. But it puts extra burden on
-the whole C code, so the CPython team avoided it.  (In our case it is an
-optimization that we eventually made, but not hard-coded at this level -
-see :doc:`interpreter-optimizations`.)
-
-So in summary: wrapping integers as instances is the simple path, while
-using plain integers instead is the complex path, not the other way
-around.
+(Interestingly, the obvious optimization above has actually been made in PyPy,
+but isn't hard-coded at this level -- see :doc:`interpreter-optimizations`.)
 
 
 Object types
@@ -429,7 +418,7 @@ Object types
 The largest part of the :source:`pypy/objspace/std` package defines and implements
 the library of Python's built-in object types.  Each type (:py:class:`int`,
 :py:class:`float`, :py:class:`list`, :py:class:`tuple`, :py:class:`str`, :py:class:`type`,
-etc.) is typically implemented by two modules:
+and so on) is typically implemented by two modules:
 
 * the *type specification* module, which for a type ``xyz`` is called ``xyztype.py``;
 
@@ -450,12 +439,12 @@ defines :py:meth:`__new__` to import the class :py:class:`W_TupleObject` from
 "real" implementation of tuples: the way the data is stored in the :py:class:`W_TupleObject`
 class, how the operations work, etc.
 
-The goal of the above module layout is to cleanly separate the Python
-type object, visible to the user, and the actual implementation of its
-instances.  It is possible to provide *several* implementations of the
-instances of the same Python type, by writing several :py:class:`W_XyzObject`
-classes.  Every place that instantiates a new object of that Python type
-can decide which :py:class:`W_XyzObject` class to instantiate.
+The above module layout cleanly separates the Python type object, visible to
+the user, and the actual implementation of its instances.  It is possible to
+provide *several* implementations of the instances of the same Python type by
+writing several :py:class:`W_XyzObject` classes.  Every place that instantiates
+a new object of that Python type can decide which :py:class:`W_XyzObject` class
+to instantiate.
 
 From the user's point of view, the multiple internal :py:class:`W_XyzObject`
 classes are not visible: they are still all instances of exactly the
@@ -567,21 +556,20 @@ Similarly, the reverse methods (:py:meth:`__radd__` and others) are obtained by
 slicing the multimethod tables to keep only the functions whose *second*
 argument has the correct Python-level type.
 
-Slicing is actually a good way to reproduce the details of the object
-model as seen in CPython: slicing is attempted for every Python type
-for every multimethod, but the :py:meth:`__xyz__` Python methods are only put
-into the Python type when the resulting slices are not empty.  This is
-how our :py:class:`int` type has no :py:meth:`__getitem__` method, for example.
-Additionally, slicing ensures that ``5 .__add__(6L)`` correctly returns
-:py:exc:`NotImplemented` (because this particular slice does not include
-:py:func:`add__Long_Long` and there is no :py:func:`add__Int_Long`), which leads to
-``6L.__radd__(5)`` being called, as in CPython.
+Slicing accurately reproduces the details of the object model as seen in CPython:
+slicing is attempted for every Python type for every multimethod, but the
+:py:meth:`__xyz__` Python methods are only put into the Python type when the
+resulting slices are non-empty.  This is how our :py:class:`int` type has no
+:py:meth:`__getitem__` method, for example. Additionally, slicing ensures that
+``5 .__add__(6L)`` correctly returns :py:exc:`NotImplemented` (because this
+particular slice does not include :py:func:`add__Long_Long` and there is no
+:py:func:`add__Int_Long`) and leads to ``6L.__radd__(5)`` being called, as in
+CPython.
 
 
 Object Space proxies
 --------------------
 
-We have implemented several *proxy object spaces* which wrap another
-space (typically the standard one) and add some capability to all
-objects.  These object spaces are documented in a separate page:
-:doc:`objspace-proxies`
+We have implemented several *proxy object spaces*, which wrap another object
+space (typically the standard one) and add some capabilities to all objects. To
+find out more, see :doc:`objspace-proxies`.
