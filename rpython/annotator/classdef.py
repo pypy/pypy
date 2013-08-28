@@ -429,7 +429,6 @@ class InstanceSource(object):
                         result.extend(slots)
         return result
 
-#class NoSuchAttrError(Exception):
 class NoSuchAttrError(AnnotatorError):
     """Raised when an attribute is found on a class where __slots__
      or _attrs_ forbits it."""
