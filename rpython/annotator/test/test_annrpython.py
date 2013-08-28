@@ -4099,6 +4099,25 @@ class TestAnnotateTestCase:
         assert ("RPython cannot unify incompatible iterator variants" in 
                 exc.value.msg)
 
+    def test_variable_getattr(self):
+        class A(object): pass
+        def f(y):
+            a = A()
+            return getattr(a, y)
+        a = self.RPythonAnnotator()
+        with py.test.raises(annmodel.AnnotatorError) as exc:
+            a.build_types(f, [str])
+        assert ("variable argument to getattr" in exc.value.msg)
+
+    def test_bad_call(self):
+        def f(x):
+            return x()
+        a = self.RPythonAnnotator()
+        with py.test.raises(annmodel.AnnotatorError) as exc:
+            a.build_types(f, [str])
+        assert ("Cannot prove that the object is callable" in exc.value.msg)
+
+
 def g(n):
     return [0, 1, 2, n]
 

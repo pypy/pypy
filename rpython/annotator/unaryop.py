@@ -157,9 +157,7 @@ class __extend__(SomeObject):
         return obj.call(getbookkeeper().build_args("call_args", args_s))
 
     def call(obj, args, implicit_init=False):
-        #raise Exception, "cannot follow call_args%r" % ((obj, args),)
-        getbookkeeper().warning("cannot follow call(%r, %r)" % (obj, args))
-        return SomeObject()
+        raise AnnotatorError("Cannot prove that the object is callable")
 
     def op_contains(obj, s_element):
         return s_Bool
@@ -652,7 +650,7 @@ class __extend__(SomeInstance):
         if s_attr.is_constant() and isinstance(s_attr.const, str):
             attr = s_attr.const
             return ins._true_getattr(attr)
-        return SomeObject()
+        raise AnnotatorError("A variable argument to getattr is not RPython")
     getattr.can_only_throw = []
 
     def setattr(ins, s_attr, s_value):
@@ -750,7 +748,8 @@ class __extend__(SomePBC):
             # whose length is the constant 0; so let's tentatively answer 0.
             return immutablevalue(0)
         else:
-            return SomeObject()    # len() on a pbc? no chance
+            # This should probably never happen
+            raise AnnotatorError("Cannot call len on a pbc")
 
 # annotation of low-level types
 from rpython.annotator.model import SomePtr, SomeLLADTMeth
