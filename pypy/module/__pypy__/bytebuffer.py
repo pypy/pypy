@@ -4,6 +4,7 @@
 
 from pypy.interpreter.buffer import RWBuffer
 from pypy.interpreter.gateway import unwrap_spec
+from pypy.module.__builtin__.interp_memoryview import W_Buffer
 
 
 class ByteBuffer(RWBuffer):
@@ -23,4 +24,4 @@ class ByteBuffer(RWBuffer):
 
 @unwrap_spec(length=int)
 def bytebuffer(space, length):
-    return space.wrap(ByteBuffer(length))
+    return W_Buffer(ByteBuffer(length))
