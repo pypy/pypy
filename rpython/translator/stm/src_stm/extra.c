@@ -58,6 +58,8 @@ intptr_t stm_allocate_public_integer_address(gcptr obj)
         stub->h_original = (revision_t)obj;
     }
 
+    STUB_THREAD(stub) = d->public_descriptor;
+
     result = (intptr_t)stub;
     spinlock_release(d->public_descriptor->collection_lock);
     stm_register_integer_address(result);

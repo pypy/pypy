@@ -589,6 +589,7 @@ static gcptr LocalizePublic(struct tx_descriptor *d, gcptr R)
   assert(!(L->h_tid & GCFLAG_STUB));
   assert(!(L->h_tid & GCFLAG_PRIVATE_FROM_PROTECTED));
   L->h_tid &= ~(GCFLAG_VISITED           |
+                GCFLAG_MARKED            |
                 GCFLAG_PUBLIC            |
                 GCFLAG_PREBUILT_ORIGINAL |
                 GCFLAG_PUBLIC_TO_PRIVATE |
