@@ -512,6 +512,7 @@ class Assembler386(BaseAssembler):
         else:
             descr.set_b_slowpath(withcards + 2 * withfloats, rawstart)
 
+    @rgc.no_release_gil
     def assemble_loop(self, loopname, inputargs, operations, looptoken, log,
                       logger=None):
         '''adds the following attributes to looptoken:
@@ -591,6 +592,7 @@ class Assembler386(BaseAssembler):
         return AsmInfo(ops_offset, rawstart + looppos,
                        size_excluding_failure_stuff - looppos), operations
 
+    @rgc.no_release_gil
     def assemble_bridge(self, faildescr, inputargs, operations,
                         original_loop_token, log, logger=None):
         if not we_are_translated():
@@ -2818,7 +2820,9 @@ def heap(addr):
     return AddressLoc(ImmedLoc(addr), imm0, 0, 0)
 
 def not_implemented(msg):
-    os.write(2, '[x86/asm] %s\n' % msg)
+    msg = '[x86/asm] %s\n' % msg
+    if we_are_translated():
+        llop.debug_print(lltype.Void, msg)
     raise NotImplementedError(msg)
 
 class BridgeAlreadyCompiled(Exception):

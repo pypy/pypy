@@ -29,6 +29,7 @@ from rpython.jit.backend.x86.arch import WORD, JITFRAME_FIXED_SIZE
 from rpython.jit.backend.x86.arch import IS_X86_32, IS_X86_64
 from rpython.jit.backend.x86 import rx86
 from rpython.rlib.rarithmetic import r_longlong, r_uint
+from rpython.rtyper.lltypesystem.lloperation import llop
 
 class X86RegisterManager(RegisterManager):
 
@@ -1390,7 +1391,9 @@ def get_ebp_ofs(base_ofs, position):
     return base_ofs + WORD * (position + JITFRAME_FIXED_SIZE)
 
 def not_implemented(msg):
-    os.write(2, '[x86/regalloc] %s\n' % msg)
+    msg = '[x86/regalloc] %s\n' % msg
+    if we_are_translated():
+        llop.debug_print(lltype.Void, msg)
     raise NotImplementedError(msg)
 
 # xxx hack: set a default value for TargetToken._ll_loop_code.
