@@ -22,7 +22,9 @@ static long pypy__threadlocal_base(void)
 threadlocal_base = rffi.llexternal(
     'pypy__threadlocal_base',
     [], lltype.Signed,
-    compilation_info=eci)
+    compilation_info=eci,
+    threadsafe=False,
+    transactionsafe=True)
 
 
 def tl_segment_prefix(mc):
