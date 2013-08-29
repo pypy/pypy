@@ -6,7 +6,7 @@ from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.baseobjspace import W_Root
 
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
-from rpython.rtyper.lltypesystem import rffi
+from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib import libffi, rdynload
 
 
@@ -19,7 +19,7 @@ incpath = pkgpath.join("include")
 if os.environ.get("ROOTSYS"):
     import commands
     (stat, incdir) = commands.getstatusoutput("root-config --incdir")
-    if stat != 0:        # presumably Reflex-only
+    if stat != 0:
         rootincpath = [os.path.join(os.environ["ROOTSYS"], "include")]
         rootlibpath = [os.path.join(os.environ["ROOTSYS"], "lib64"), os.path.join(os.environ["ROOTSYS"], "lib")]
     else:
@@ -310,3 +310,18 @@ def pythonize(space, name, w_pycppclass):
 
     elif name[0:8] == "TVectorT":    # TVectorT<> template
         _method_alias(space, w_pycppclass, "__len__", "GetNoElements")
+
+
+# destruction callback (needs better solution, but this is for CINT
+# only and should not appear outside of ROOT-specific uses)
+from pypy.module.cpyext.api import cpython_api, CANNOT_FAIL
+
+@cpython_api([rffi.VOIDP], lltype.Void, error=CANNOT_FAIL)
+def cppyy_recursive_remove(space, cppobject):
+    from pypy.module.cppyy.interp_cppyy import memory_regulator
+    from pypy.module.cppyy.capi import C_OBJECT, C_NULL_OBJECT
+
+    obj = memory_regulator.retrieve(rffi.cast(C_OBJECT, cppobject))
+    if obj is not None:
+        memory_regulator.unregister(obj)
+        obj._rawobject = C_NULL_OBJECT
