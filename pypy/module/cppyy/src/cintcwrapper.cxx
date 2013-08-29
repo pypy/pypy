@@ -132,7 +132,7 @@ public:
     }
 };
 
-static const char* appname = "pypy-cppyy";
+static const char* appname = "PyPyROOT";
 
 class ApplicationStarter {
 public:
