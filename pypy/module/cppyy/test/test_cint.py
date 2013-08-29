@@ -576,3 +576,17 @@ class AppTestSURPLUS:
         assert None != l3                 # id.
         assert l3 != l5
         assert l5 != l3
+
+    def test10_recursive_remove(self):
+        """Verify that objects are recursively removed when destroyed"""
+
+        import cppyy
+
+        c = cppyy.gbl.TClass.GetClass("TObject")
+
+        o = cppyy.gbl.TObject()
+        assert o
+
+        o.SetBit(cppyy.gbl.TObject.kMustCleanup)
+        c.Destructor(o)
+        assert not o

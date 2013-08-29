@@ -57,6 +57,16 @@ public:
     TList*             fAllPubMethod;   //all public methods (including from base classes)
 };
 
+// memory regulation (cppyy_recursive_remove is generated a la cpyext capi calls)
+extern "C" void cppyy_recursive_remove(void*);
+
+class Cppyy_MemoryRegulator : public TObject {
+public:
+    virtual void RecursiveRemove(TObject* object) {
+        cppyy_recursive_remove((void*)object);
+    }
+};
+
 } // unnamed namespace
 
 
@@ -81,6 +91,8 @@ static InterpretedFuncs_t g_interpreted;
 
 /* initialization of the ROOT system (debatable ... ) --------------------- */
 namespace {
+
+static Cppyy_MemoryRegulator s_memreg;
 
 class TCppyyApplication : public TApplication {
 public:
@@ -114,6 +126,9 @@ public:
 
         // enable auto-loader
         gInterpreter->EnableAutoLoading();
+
+        // enable memory regulation
+        gROOT->GetListOfCleanups()->Add(&s_memreg);
     }
 };
 
