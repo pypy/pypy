@@ -552,10 +552,3 @@ def c_assign2stdstring(space, cppobject, svalue):
     charp = rffi.str2charp(svalue)
     _c_assign2stdstring(cppobject, charp)
     rffi.free_charp(charp)
-_c_free_stdstring = rffi.llexternal(
-    "cppyy_free_stdstring",
-    [C_OBJECT], lltype.Void,
-    threadsafe=ts_helper,
-    compilation_info=backend.eci)
-def c_free_stdstring(space, cppobject):
-    _c_free_stdstring(cppobject)

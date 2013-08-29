@@ -624,7 +624,3 @@ cppyy_object_t cppyy_stdstring2stdstring(cppyy_object_t ptr) {
 void cppyy_assign2stdstring(cppyy_object_t ptr, const char* str) {
     *((std::string*)ptr) = str;
 }
-
-void cppyy_free_stdstring(cppyy_object_t ptr) {
-    delete (std::string*)ptr;
-}

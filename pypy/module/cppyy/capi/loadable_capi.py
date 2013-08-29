@@ -215,7 +215,6 @@ class State(object):
             'charp2stdstring'          : ([c_ccharp],                 c_object),
             'stdstring2stdstring'      : ([c_object],                 c_object),
             'assign2stdstring'         : ([c_object, c_ccharp],       c_void),
-            'free_stdstring'           : ([c_object],                 c_void),
         }
 
 def load_reflection_library(space):
@@ -507,8 +506,6 @@ def c_stdstring2stdstring(space, cppobject):
 def c_assign2stdstring(space, cppobject, svalue):
     args = [_Arg(l=cppobject), _Arg(s=svalue)]
     call_capi(space, 'assign2stdstring', args)
-def c_free_stdstring(space, cppobject):
-    call_capi(space, 'free_stdstring', [_Arg(l=cppobject)])
 
 # loadable-capi-specific pythonizations (none, as the capi isn't known until runtime)
 def register_pythonizations(space):
