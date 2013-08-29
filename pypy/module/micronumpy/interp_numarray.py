@@ -20,6 +20,7 @@ from rpython.tool.sourcetools import func_with_new_name
 from rpython.rlib import jit
 from rpython.rlib.rstring import StringBuilder
 from pypy.module.micronumpy.arrayimpl.base import BaseArrayImplementation
+from pypy.module.__builtin__.interp_memoryview import W_Buffer
 
 def _find_shape(space, w_size, dtype):
     if space.is_none(w_size):
@@ -509,7 +510,7 @@ class __extend__(W_NDimArray):
             "ctypes not implemented yet"))
 
     def descr_get_data(self, space):
-        return self.implementation.get_buffer(space)
+        return W_Buffer(self.implementation.get_buffer(space))
 
     @unwrap_spec(offset=int, axis1=int, axis2=int)
     def descr_diagonal(self, space, offset=0, axis1=0, axis2=1):
