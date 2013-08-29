@@ -501,7 +501,6 @@ class InstancePtrPtrConverter(InstancePtrConverter):
 
 
 class StdStringConverter(InstanceConverter):
-    _immutable_fields_ = ['cppclass']
 
     def __init__(self, space, extra):
         from pypy.module.cppyy import interp_cppyy
@@ -509,21 +508,19 @@ class StdStringConverter(InstanceConverter):
         InstanceConverter.__init__(self, space, cppclass)
 
     def _unwrap_object(self, space, w_obj):
-        try:
-            return capi.c_charp2stdstring(space, space.str_w(w_obj))
-        except Exception, e:
+        from pypy.module.cppyy.interp_cppyy import W_CPPInstance
+        if isinstance(w_obj, W_CPPInstance):
             arg = InstanceConverter._unwrap_object(self, space, w_obj)
-            result = capi.c_stdstring2stdstring(space, arg)
-            return result
+            return capi.c_stdstring2stdstring(space, arg)
+        else:
+            return capi.c_charp2stdstring(space, space.str_w(w_obj))
 
     def to_memory(self, space, w_obj, w_value, offset):
         try:
             address = rffi.cast(capi.C_OBJECT, self._get_raw_address(space, w_obj, offset))
             capi.c_assign2stdstring(space, address, space.str_w(w_value))
-            return
         except Exception:
-            pass
-        return InstanceConverter.to_memory(self, space, w_obj, w_value, offset)
+            InstanceConverter.to_memory(self, space, w_obj, w_value, offset)
 
     def free_argument(self, space, arg, call_local):
         capi.c_free_stdstring(space, rffi.cast(capi.C_OBJECT, rffi.cast(rffi.VOIDPP, arg)[0]))
