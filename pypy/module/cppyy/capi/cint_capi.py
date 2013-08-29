@@ -288,7 +288,11 @@ def _method_alias(space, w_pycppclass, m1, m2):
 # callback coming in when app-level bound classes have been created
 def pythonize(space, name, w_pycppclass):
 
-    if name == "TFile":
+    if name == "TCollection":
+        _method_alias(space, w_pycppclass, "append", "Add")
+        _method_alias(space, w_pycppclass, "__len__", "GetSize")
+
+    elif name == "TFile":
         _method_alias(space, w_pycppclass, "__getattr__", "Get")
 
     elif name == "TObjString":
