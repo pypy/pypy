@@ -1,7 +1,7 @@
 from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.stringobject import W_AbstractStringObject
-from pypy.objspace.std.stringobject import W_StringObject
+from pypy.objspace.std.stringobject import W_StringObject, StringBuffer
 from pypy.objspace.std.unicodeobject import delegate_String2Unicode
 from rpython.rlib.rstring import StringBuilder
 from pypy.interpreter.buffer import Buffer
@@ -35,6 +35,9 @@ class W_StringBufferObject(W_AbstractStringObject):
 
     def str_w(self, space):
         return self.force()
+
+    def buffer_w(self, space):
+        return StringBuffer(self.force())
 
 registerimplementation(W_StringBufferObject)
 
