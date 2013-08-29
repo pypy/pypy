@@ -96,14 +96,14 @@ the :doc:`__pypy__ <__pypy__-module>` module provides the following builtins:
 
 .. py:function:: tproxy(type, controller)
 
-  Returns a proxy object representing the given type and forwarding all
-  operations on this type to the controller.  On each operation,
-  ``controller(opname, *args, **kwargs)`` will be called.
+   Returns a proxy object representing the given type and forwarding all
+   operations on this type to the controller.  On each operation,
+   ``controller(opname, *args, **kwargs)`` will be called.
 
 .. py:function:: get_tproxy_controller(obj)
 
-  Returns the responsible controller for a given object.  For non-proxied
-  objects :py:const:`None` is returned.
+   Returns the responsible controller for a given object.  For non-proxied
+   objects :py:const:`None` is returned.
 
 .. _--objspace-std-withtproxy: config/objspace.std.withtproxy.html
 
@@ -117,41 +117,41 @@ The :source:`lib_pypy/tputil.py` module provides:
 
 .. py:function:: make_proxy(controller, type, obj)
 
-  Creates a transparent proxy controlled by the given :py:obj:`controller`
-  callable.  The proxy will appear as a completely regular instance of the given
-  type, but all operations on it are sent to the specified controller - which
-  receives a :py:class:`ProxyOperation` instance on each operation. If :py:obj:`type`
-  is not specified, it defaults to ``type(obj)`` if :py:obj:`obj` is specified.
+   Creates a transparent proxy controlled by the given :py:obj:`controller`
+   callable.  The proxy will appear as a completely regular instance of the given
+   type, but all operations on it are sent to the specified controller - which
+   receives a :py:class:`ProxyOperation` instance on each operation. If :py:obj:`type`
+   is not specified, it defaults to ``type(obj)`` if :py:obj:`obj` is specified.
 
-  ProxyOperation instances have the following attributes:
+   ProxyOperation instances have the following attributes:
 
-  .. py:attribute:: proxyobj
+   .. py:attribute:: proxyobj
 
-    The transparent proxy object of this operation.
+      The transparent proxy object of this operation.
 
-  .. py:attribute:: opname
+   .. py:attribute:: opname
 
-    The name of this operation.
+      The name of this operation.
 
-  .. py:attribute:: args
+   .. py:attribute:: args
 
-    Any positional arguments for this operation.
+      Any positional arguments for this operation.
 
-  .. py:attribute:: kwargs
+   .. py:attribute:: kwargs
 
-    Any keyword arguments for this operation.
+      Any keyword arguments for this operation.
 
-  .. py:attribute:: obj
+   .. py:attribute:: obj
 
-    (Only if provided to :py:func:`make_proxy`)
+      (Only if provided to :py:func:`make_proxy`)
 
-    A concrete object.
+      A concrete object.
 
-  .. py:method:: delegate
+   .. py:method:: delegate
 
-    If a concrete object instance :py:obj:`obj` was specified in the call to
-    :py:func:`make_proxy`, then :py:meth:`proxyoperation.delegate` can be called
-    to delegate the operation to the object instance.
+      If a concrete object instance :py:obj:`obj` was specified in the call to
+      :py:func:`make_proxy`, then :py:meth:`proxyoperation.delegate` can be called
+      to delegate the operation to the object instance.
 
 
 Further points of interest

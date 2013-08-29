@@ -57,13 +57,13 @@ Administrative Functions
 
 .. py:function:: getexecutioncontext()
 
-  Return the currently active execution context.
-  (:source:`pypy/interpreter/executioncontext.py`).
+   Return the currently active execution context.
+   (:source:`pypy/interpreter/executioncontext.py`).
 
 .. py:function:: getbuiltinmodule(name)
 
-  Return a :py:class:`Module` object for the built-in module given by ``name``.
-  (:source:`pypy/interpreter/module.py`).
+   Return a :py:class:`Module` object for the built-in module given by ``name``.
+   (:source:`pypy/interpreter/module.py`).
 
 
 Operations on Objects in the Object Space
@@ -92,30 +92,30 @@ directly correspond to language-level constructs:
 
 .. py:function:: call(w_callable, w_args, w_kwds)
 
-  Calls a function with the given positional (``w_args``) and keyword (``w_kwds``)
-  arguments.
+   Calls a function with the given positional (``w_args``) and keyword (``w_kwds``)
+   arguments.
 
 .. py:function:: index(w_obj)
 
-  Implements index lookup (`as introduced in CPython 2.5`_) using ``w_obj``. Will return a
-  wrapped integer or long, or raise a :py:exc:`TypeError` if the object doesn't have an
-  :py:func:`__index__` special method.
+   Implements index lookup (`as introduced in CPython 2.5`_) using ``w_obj``. Will return a
+   wrapped integer or long, or raise a :py:exc:`TypeError` if the object doesn't have an
+   :py:func:`__index__` special method.
 
 .. _as introduced in CPython 2.5: http://www.python.org/dev/peps/pep-0357/
 
 .. py:function:: is_(w_x, w_y)
 
-  Implements ``w_x is w_y``.
+   Implements ``w_x is w_y``.
 
 .. py:function:: isinstance(w_obj, w_type)
 
-  Implements :py:func:`issubtype` with ``type(w_obj)`` and ``w_type`` as arguments.
+   Implements :py:func:`issubtype` with ``type(w_obj)`` and ``w_type`` as arguments.
 
 .. py:function::exception_match(w_exc_type, w_check_class)
 
-  Checks if the given exception type matches :py:obj:`w_check_class`. Used in
-  matching the actual exception raised with the list of those to catch in an
-  except clause.
+   Checks if the given exception type matches :py:obj:`w_check_class`. Used in
+   matching the actual exception raised with the list of those to catch in an
+   except clause.
 
 
 Convenience Functions
@@ -127,60 +127,60 @@ expressed using several other object space methods.
 
 .. py:function:: eq_w(w_obj1, w_obj2)
 
-  Returns :py:const:`True` when :py:obj:`w_obj1` and :py:obj:`w_obj2` are equal.
-  Shortcut for ``space.is_true(space.eq(w_obj1, w_obj2))``.
+   Returns :py:const:`True` when :py:obj:`w_obj1` and :py:obj:`w_obj2` are equal.
+   Shortcut for ``space.is_true(space.eq(w_obj1, w_obj2))``.
 
 .. py:function:: is_w(w_obj1, w_obj2)
 
-  Shortcut for ``space.is_true(space.is_(w_obj1, w_obj2))``.
+   Shortcut for ``space.is_true(space.is_(w_obj1, w_obj2))``.
 
 .. py:function:: hash_w(w_obj)
 
-  Shortcut for ``space.int_w(space.hash(w_obj))``.
+   Shortcut for ``space.int_w(space.hash(w_obj))``.
 
 .. py:function:: len_w(w_obj)
 
-  Shortcut for ``space.int_w(space.len(w_obj))``.
+   Shortcut for ``space.int_w(space.len(w_obj))``.
 
 *NOTE* that the above four functions return :ref:`interpreter-level <interpreter-level>`
 objects, not :ref:`application-level <application-level>` ones!
 
 .. py:function:: not_(w_obj)
 
-  Shortcut for ``space.newbool(not space.is_true(w_obj))``.
+   Shortcut for ``space.newbool(not space.is_true(w_obj))``.
 
 .. py:function:: finditem(w_obj, w_key)
 
-  Equivalent to ``getitem(w_obj, w_key)`` but returns an **interpreter-level** None
-  instead of raising a KeyError if the key is not found.
+   Equivalent to ``getitem(w_obj, w_key)`` but returns an **interpreter-level** None
+   instead of raising a KeyError if the key is not found.
 
 .. py:function:: call_function(w_callable, *args_w, **kw_w)
 
-  Collects the arguments in a wrapped tuple and dict and invokes
-  ``space.call(w_callable, ...)``.
+   Collects the arguments in a wrapped tuple and dict and invokes
+   ``space.call(w_callable, ...)``.
 
 .. py:function:: call_method(w_object, 'method', ...)
 
-  Uses :py:meth:`space.getattr` to get the method object, and then :py:meth:`space.call_function`
-  to invoke it.
+   Uses :py:meth:`space.getattr` to get the method object, and then :py:meth:`space.call_function`
+   to invoke it.
 
 .. py:function:: unpackiterable(w_iterable[, expected_length=-1])
 
-  Iterates over :py:obj:`w_x` (using :py:meth:`space.iter` and :py:meth:`space.next`)
-  and collects the resulting wrapped objects in a list. If ``expected_length`` is
-  given and the length does not match, raises an exception.
+   Iterates over :py:obj:`w_x` (using :py:meth:`space.iter` and :py:meth:`space.next`)
+   and collects the resulting wrapped objects in a list. If ``expected_length`` is
+   given and the length does not match, raises an exception.
 
-  Of course, in cases where iterating directly is better than collecting the
-  elements in a list first, you should use :py:meth:`space.iter` and :py:meth:`space.next`
-  directly.
+   Of course, in cases where iterating directly is better than collecting the
+   elements in a list first, you should use :py:meth:`space.iter` and :py:meth:`space.next`
+   directly.
 
 .. py:function:: unpacktuple(w_tuple[, expected_length=None])
 
-  Equivalent to :py:func:`unpackiterable`, but only for tuples.
+   Equivalent to :py:func:`unpackiterable`, but only for tuples.
 
 .. py:function:: callable(w_obj)
 
-  Implements the built-in :py:func:`callable`.
+   Implements the built-in :py:func:`callable`.
 
 
 Creation of Application Level objects
@@ -188,43 +188,43 @@ Creation of Application Level objects
 
 .. py:function:: wrap(x)
 
-  Returns a wrapped object that is a reference to the interpreter-level object
-  :py:obj:`x`. This can be used either on simple immutable objects (integers,
-  strings, etc) to create a new wrapped object, or on instances of :py:class:`W_Root`
-  to obtain an application-level-visible reference to them.  For example,
-  most classes of the bytecode interpreter subclass :py:class:`W_Root` and can
-  be directly exposed to application-level code in this way - functions, frames,
-  code objects, etc.
+   Returns a wrapped object that is a reference to the interpreter-level object
+   :py:obj:`x`. This can be used either on simple immutable objects (integers,
+   strings, etc) to create a new wrapped object, or on instances of :py:class:`W_Root`
+   to obtain an application-level-visible reference to them.  For example,
+   most classes of the bytecode interpreter subclass :py:class:`W_Root` and can
+   be directly exposed to application-level code in this way - functions, frames,
+   code objects, etc.
 
 .. py:function:: newbool(b)
 
-  Creates a wrapped :py:class:`bool` object from an :ref:`interpreter-level <interpreter-level>`
-  object.
+   Creates a wrapped :py:class:`bool` object from an :ref:`interpreter-level <interpreter-level>`
+   object.
 
 .. py:function:: newtuple([w_x, w_y, w_z, ...])
 
-  Creates a new wrapped tuple out of an interpreter-level list of wrapped objects.
+   Creates a new wrapped tuple out of an interpreter-level list of wrapped objects.
 
 .. py:function:: newlist([..])
 
-  Creates a wrapped :py:class:`list` from an interpreter-level list of wrapped objects.
+   Creates a wrapped :py:class:`list` from an interpreter-level list of wrapped objects.
 
 .. py:function:: newdict
 
-  Returns a new empty dictionary.
+   Returns a new empty dictionary.
 
 .. py:function:: newslice(w_start, w_end, w_step)
 
-  Creates a new slice object.
+   Creates a new slice object.
 
 .. py:function:: newstring(asciilist)
 
-  Creates a string from a list of wrapped integers. Note that this may not be
-  a very useful method; usually you can just write ``space.wrap("mystring")``.
+   Creates a string from a list of wrapped integers. Note that this may not be
+   a very useful method; usually you can just write ``space.wrap("mystring")``.
 
 .. py:function:: newunicode(codelist)
 
-  Creates a Unicode string from a list of integers (code points).
+   Creates a Unicode string from a list of integers (code points).
 
 
 Conversions from Application Level to Interpreter Level
@@ -232,64 +232,64 @@ Conversions from Application Level to Interpreter Level
 
 .. py:function:: unwrap(w_x)
 
-  Returns the interpreter-level equivalent of :py:obj:`w_x` -- use this **ONLY** for
-  testing! In most circumstances you should use the functions described below instead.
+   Returns the interpreter-level equivalent of :py:obj:`w_x` -- use this **ONLY** for
+   testing! In most circumstances you should use the functions described below instead.
 
 .. py:function:: is_true(w_x)
 
-  Returns a interpreter-level boolean (:py:const:`True` or :py:const:`False`) that
-  gives the truth value of the wrapped object :py:obj:`w_x`.
+   Returns a interpreter-level boolean (:py:const:`True` or :py:const:`False`) that
+   gives the truth value of the wrapped object :py:obj:`w_x`.
 
-  This is a particularly important operation because it is necessary to implement,
-  for example, if-statements in the language (or rather, to be pedantic, to
-  implement the conditional-branching bytecodes into which if-statements are
-  compiled).
+   This is a particularly important operation because it is necessary to implement,
+   for example, if-statements in the language (or rather, to be pedantic, to
+   implement the conditional-branching bytecodes into which if-statements are
+   compiled).
 
 .. py:function:: int_w(w_x)
 
-  If :py:obj:`w_x` is an application-level integer or long which can be converted
-  without overflow to an integer, return an interpreter-level integer. Otherwise
-  raise :py:exc:`TypeError` or :py:exc:`OverflowError`.
+   If :py:obj:`w_x` is an application-level integer or long which can be converted
+   without overflow to an integer, return an interpreter-level integer. Otherwise
+   raise :py:exc:`TypeError` or :py:exc:`OverflowError`.
 
 .. py:function:: bigint_w(w_x)
 
-  If :py:obj:`w_x` is an application-level integer or long, return an interpreter-level
-  :py:class:`rbigint`. Otherwise raise :py:exc:`TypeError`.
+   If :py:obj:`w_x` is an application-level integer or long, return an interpreter-level
+   :py:class:`rbigint`. Otherwise raise :py:exc:`TypeError`.
 
 .. py:function:: str_w(w_x)
 
-  If :py:obj:`w_x` is an application-level string, return an interpreter-level string.
-  Otherwise raise :py:exc:`TypeError`.
+   If :py:obj:`w_x` is an application-level string, return an interpreter-level string.
+   Otherwise raise :py:exc:`TypeError`.
 
 .. py:function:: float_w(w_x)
 
-  If :py:obj:`w_x` is an application-level float, integer or long, return an
-  interpreter-level float. Otherwise raise :py:exc:`TypeError` (or:py:exc:`OverflowError`
-  in the case of very large longs).
+   If :py:obj:`w_x` is an application-level float, integer or long, return an
+   interpreter-level float. Otherwise raise :py:exc:`TypeError` (or:py:exc:`OverflowError`
+   in the case of very large longs).
 
 .. py:function:: getindex_w(w_obj[, w_exception=None])
 
-  Call ``index(w_obj)``. If the resulting integer or long object can be converted
-  to an interpreter-level :py:class:`int`, return that. If not, return a clamped
-  result if :py:obj:`w_exception` is None, otherwise raise the exception at the
-  application level.
+   Call ``index(w_obj)``. If the resulting integer or long object can be converted
+   to an interpreter-level :py:class:`int`, return that. If not, return a clamped
+   result if :py:obj:`w_exception` is None, otherwise raise the exception at the
+   application level.
 
-  (If :py:obj:`w_obj` can't be converted to an index, :py:func:`index` will raise an
-  application-level :py:exc:`TypeError`.)
+   (If :py:obj:`w_obj` can't be converted to an index, :py:func:`index` will raise an
+   application-level :py:exc:`TypeError`.)
 
 .. py:function:: interp_w(RequiredClass, w_x[, can_be_None=False])
 
-  If :py:obj:`w_x` is a wrapped instance of the given bytecode interpreter class,
-  unwrap it and return it.  If :py:obj:`can_be_None` is :py:const:`True`, a wrapped
-  :py:const:`None` is also accepted and returns an interpreter-level :py:const:`None`.
-  Otherwise, raises an :py:exc:`OperationError` encapsulating a :py:exc:`TypeError`
-  with a nice error message.
+   If :py:obj:`w_x` is a wrapped instance of the given bytecode interpreter class,
+   unwrap it and return it.  If :py:obj:`can_be_None` is :py:const:`True`, a wrapped
+   :py:const:`None` is also accepted and returns an interpreter-level :py:const:`None`.
+   Otherwise, raises an :py:exc:`OperationError` encapsulating a :py:exc:`TypeError`
+   with a nice error message.
 
 .. py:function:: interpclass_w(w_x)
 
-  If :py:obj:`w_x` is a wrapped instance of an bytecode interpreter class -- for
-  example :py:class:`Function`, :py:class:`Frame`, :py:class:`Cell`, etc. -- return
-  it unwrapped.  Otherwise return :py:const:`None`.
+   If :py:obj:`w_x` is a wrapped instance of an bytecode interpreter class -- for
+   example :py:class:`Function`, :py:class:`Frame`, :py:class:`Cell`, etc. -- return
+   it unwrapped.  Otherwise return :py:const:`None`.
 
 
 Data Members
@@ -297,31 +297,31 @@ Data Members
 
 .. py:data:: space.builtin
 
-  The :py:class:`Module` containing the builtins.
+   The :py:class:`Module` containing the builtins.
 
 .. py:data:: space.sys
 
- The ``sys`` :py:class:`Module`.
+   The ``sys`` :py:class:`Module`.
 
 .. py:data:: space.w_None
 
-  The ObjSpace's instance of :py:const:`None`.
+   The ObjSpace's instance of :py:const:`None`.
 
 .. py:data:: space.w_True
 
-  The ObjSpace's instance of :py:const:`True`.
+   The ObjSpace's instance of :py:const:`True`.
 
 .. py:data:: space.w_False
 
-  The ObjSpace's instance of :py:const:`False`.
+   The ObjSpace's instance of :py:const:`False`.
 
 .. py:data:: space.w_Ellipsis
 
-  The ObjSpace's instance of :py:const:`Ellipsis`.
+   The ObjSpace's instance of :py:const:`Ellipsis`.
 
 .. py:data:: space.w_NotImplemented
 
-  The ObjSpace's instance of :py:const:`NotImplemented`.
+   The ObjSpace's instance of :py:const:`NotImplemented`.
 
 .. py:data:: space.w_int
              space.w_float
@@ -333,38 +333,38 @@ Data Members
              space.w_instance
              space.w_slice
 
-  Python's most common basic type objects.
+   Python's most common basic type objects.
 
 .. py:data:: space.w_[XYZ]Error
 
-  Python's built-in exception classes (:py:class:`KeyError`, :py:class:`IndexError`,
-  etc).
+   Python's built-in exception classes (:py:class:`KeyError`, :py:class:`IndexError`,
+   etc).
 
 .. TODO: is it worth listing out all ~50 builtin exception types (http://docs.python.org/2/library/exceptions.html)?
 
 .. py:data:: ObjSpace.MethodTable
 
-  List of tuples containing ``(method_name, symbol, number_of_arguments, list_of_special_names)``
-  for the regular part of the interface.
+   List of tuples containing ``(method_name, symbol, number_of_arguments, list_of_special_names)``
+   for the regular part of the interface.
 
-  *NOTE* that tuples are interpreter-level.
+   *NOTE* that tuples are interpreter-level.
 
 .. py:data:: ObjSpace.BuiltinModuleTable
 
-  List of names of built-in modules.
+   List of names of built-in modules.
 
 .. py:data:: ObjSpace.ConstantTable
 
-  List of names of the constants that the object space should define.
+   List of names of the constants that the object space should define.
 
 .. py:data:: ObjSpace.ExceptionTable
 
-  List of names of exception classes.
+   List of names of exception classes.
 
 .. py:data:: ObjSpace.IrregularOpTable
 
-  List of names of methods that have an irregular API (take and/or return
-  non-wrapped objects).
+   List of names of methods that have an irregular API (take and/or return
+   non-wrapped objects).
 
 
 .. _standard-object-space:
@@ -481,20 +481,20 @@ multimethod:
 
 .. py:function:: getitem__Tuple_ANY
 
-  Called when the first argument is a :py:class:`W_TupleObject`, this function
-  converts its second argument to an integer and performs tuple indexing.
+   Called when the first argument is a :py:class:`W_TupleObject`, this function
+   converts its second argument to an integer and performs tuple indexing.
 
 .. py:function:: getitem__Tuple_Slice
 
-  Called when the first argument is a :py:class:`W_TupleObject` and the second
-  argument is a :py:class:`W_SliceObject`.  This version takes precedence over
-  the previous one if the indexing is done with a slice object, and performs
-  tuple slicing instead.
+   Called when the first argument is a :py:class:`W_TupleObject` and the second
+   argument is a :py:class:`W_SliceObject`.  This version takes precedence over
+   the previous one if the indexing is done with a slice object, and performs
+   tuple slicing instead.
 
 .. py:function:: getitem__String_Slice
 
-  Called when the first argument is a :py:class:`W_StringObject` and the second
-  argument is a slice object.
+   Called when the first argument is a :py:class:`W_StringObject` and the second
+   argument is a slice object.
 
 Note how the multimethod dispatch logic helps writing new object
 implementations without having to insert hooks into existing code.  Note
