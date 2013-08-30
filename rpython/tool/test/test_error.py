@@ -7,6 +7,13 @@ from rpython.annotator.model import UnionError
 
 import py
 
+def compile_function(function, annotation=[]):
+    t = TranslationContext()
+    t.buildannotator().build_types(function, annotation)
+
+class AAA(object):
+    pass
+
 def test_someobject():
     def someobject_degeneration(n):
         if n == 3:

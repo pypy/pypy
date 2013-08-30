@@ -132,7 +132,7 @@ def setslice_build_and_convert(space, shape, target, source):
 
 reduce_driver = jit.JitDriver(name='numpy_reduce',
                               greens = ['shapelen', 'func', 'done_func',
-                                        'calc_dtype', 'identity'],
+                                        'calc_dtype'],
                               reds = 'auto')
 
 def compute_reduce(obj, calc_dtype, func, done_func, identity):
@@ -146,7 +146,7 @@ def compute_reduce(obj, calc_dtype, func, done_func, identity):
     while not obj_iter.done():
         reduce_driver.jit_merge_point(shapelen=shapelen, func=func,
                                       done_func=done_func,
-                                      calc_dtype=calc_dtype, identity=identity,
+                                      calc_dtype=calc_dtype,
                                       )
         rval = obj_iter.getitem().convert_to(calc_dtype)
         if done_func is not None and done_func(calc_dtype, rval):
