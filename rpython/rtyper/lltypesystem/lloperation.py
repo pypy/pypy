@@ -446,6 +446,7 @@ LL_OPERATIONS = {
     'jit_force_quasi_immutable': LLOp(canrun=True),
     'jit_record_known_class'  : LLOp(canrun=True),
     'jit_ffi_save_result':  LLOp(canrun=True),
+    'jit_conditional_call': LLOp(),
     'get_exception_addr':   LLOp(),
     'get_exc_value_addr':   LLOp(),
     'do_malloc_fixedsize_clear':LLOp(canmallocgc=True),
@@ -476,7 +477,7 @@ LL_OPERATIONS = {
     'gc_thread_die'       : LLOp(),
     'gc_thread_before_fork':LLOp(),   # returns an opaque address
     'gc_thread_after_fork': LLOp(),   # arguments: (result_of_fork, opaqueaddr)
-    'gc_assume_young_pointers': LLOp(canrun=True),
+    'gc_writebarrier':      LLOp(canrun=True),
     'gc_writebarrier_before_copy': LLOp(canrun=True),
     'gc_heap_stats'       : LLOp(canmallocgc=True),
 

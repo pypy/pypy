@@ -58,7 +58,7 @@ class ListItem(object):
     def merge(self, other):
         if self is not other:
             if getattr(TLS, 'no_side_effects_in_union', 0):
-                raise UnionError("merging list/dict items")
+                raise UnionError(self, other)
 
             if other.dont_change_any_more:
                 if self.dont_change_any_more:

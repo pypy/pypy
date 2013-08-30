@@ -335,7 +335,7 @@ class TestLLSpecializeListComprehension:
         t.buildannotator().build_types(func, argtypes)
         if option.view:
             t.view()
-        t.buildrtyper(self.typesystem).specialize()
+        t.buildrtyper().specialize()
         backend_optimizations(t)
         if option.view:
             t.view()

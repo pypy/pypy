@@ -1276,10 +1276,7 @@ class SetLikeDictView(object):
             return _all_contained_in(space, self, w_other)
         return space.w_False
 
-    def descr_ne(self, space, w_other):
-        if not _is_set_like(w_other):
-            return space.w_NotImplemented
-        return space.not_(space.eq(self, w_other))
+    descr_ne = negate(descr_eq)
 
     def descr_lt(self, space, w_other):
         if not _is_set_like(w_other):

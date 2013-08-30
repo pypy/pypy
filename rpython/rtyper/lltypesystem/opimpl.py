@@ -452,10 +452,6 @@ op_cast_adr_to_ptr.need_result_type = True
 def op_cast_int_to_adr(int):
     return llmemory.cast_int_to_adr(int)
 
-##def op_cast_int_to_adr(x):
-##    assert type(x) is int
-##    return llmemory.cast_int_to_adr(x)
-
 def op_convert_float_bytes_to_longlong(a):
     from rpython.rlib.longlong2float import float2longlong
     return float2longlong(a)
@@ -553,8 +549,7 @@ def op_getarrayitem(p, index):
 def _normalize(x):
     if not isinstance(x, str):
         TYPE = lltype.typeOf(x)
-        if (isinstance(TYPE, lltype.Ptr) and TYPE.TO._name == 'rpy_string'
-            or getattr(TYPE, '_name', '') == 'String'):    # ootype
+        if isinstance(TYPE, lltype.Ptr) and TYPE.TO._name == 'rpy_string':
             from rpython.rtyper.annlowlevel import hlstr
             return hlstr(x)
     return x
@@ -648,7 +643,7 @@ op_gc_gettypeptr_group.need_result_type = True
 def op_get_member_index(memberoffset):
     raise NotImplementedError
 
-def op_gc_assume_young_pointers(addr):
+def op_gc_writebarrier(addr):
     pass
 
 def op_shrink_array(array, smallersize):

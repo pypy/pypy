@@ -14,9 +14,9 @@ def run_child(glob, loc):
         return lltype.nullptr(T)
     interp.heap.malloc_nonmovable = returns_null     # XXX
 
-    from rpython.jit.backend.llgraph.runner import LLtypeCPU
+    from rpython.jit.backend.llgraph.runner import LLGraphCPU
     #LLtypeCPU.supports_floats = False     # for now
-    apply_jit(interp, graph, LLtypeCPU)
+    apply_jit(interp, graph, LLGraphCPU)
 
 
 def apply_jit(interp, graph, CPUClass):

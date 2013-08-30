@@ -1,7 +1,7 @@
 import py
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.test.tool import BaseRtypingTest
-from rpython.rtyper.rvirtualizable2 import replace_force_virtualizable_with_call
+from rpython.rtyper.rvirtualizable import replace_force_virtualizable_with_call
 from rpython.rlib.jit import hint
 from rpython.flowspace.model import summary
 from rpython.rtyper.llinterp import LLInterpreter
@@ -10,7 +10,7 @@ from rpython.conftest import option
 
 
 class V(object):
-    _virtualizable2_ = ['v']
+    _virtualizable_ = ['v']
     v = -12
     w = -62
 
@@ -22,12 +22,12 @@ class SubclassV(V):
     pass
 
 class VArray(object):
-    _virtualizable2_ = ['lst[*]']
+    _virtualizable_ = ['lst[*]']
 
     def __init__(self, lst):
         self.lst = lst
 class B(object):
-    _virtualizable2_ = ['v0']
+    _virtualizable_ = ['v0']
 
     x = "XX"
 
@@ -57,7 +57,7 @@ class TestVirtualizable(BaseRtypingTest):
         block = graph.startblock
         op_promote = block.operations[-2]
         op_getfield = block.operations[-1]
-        assert op_getfield.opname in ('getfield', 'oogetfield')
+        assert op_getfield.opname == 'getfield'
         v_inst = op_getfield.args[0]
         assert op_promote.opname == 'jit_force_virtualizable'
         assert op_promote.args[0] is v_inst
@@ -72,7 +72,7 @@ class TestVirtualizable(BaseRtypingTest):
         block = graph.startblock
         op_promote = block.operations[-2]
         op_getfield = block.operations[-1]
-        assert op_getfield.opname in ('getfield', 'oogetfield')
+        assert op_getfield.opname == 'getfield'
         v_inst = op_getfield.args[0]
         assert op_promote.opname == 'jit_force_virtualizable'
         assert op_promote.args[0] is v_inst
@@ -86,7 +86,7 @@ class TestVirtualizable(BaseRtypingTest):
         block = graph.startblock
         op_getfield = block.operations[-1]
         op_call = block.operations[-2]
-        assert op_getfield.opname in ('getfield', 'oogetfield')
+        assert op_getfield.opname == 'getfield'
         assert op_call.opname == 'direct_call'    # to V.__init__
 
     def test_generate_force_virtualizable_array(self):
@@ -99,7 +99,7 @@ class TestVirtualizable(BaseRtypingTest):
         op_getfield = block.operations[-2]
         op_getarrayitem = block.operations[-1]
         assert op_getarrayitem.opname == 'direct_call'  # to ll_getitem_xxx
-        assert op_getfield.opname in ('getfield', 'oogetfield')
+        assert op_getfield.opname == 'getfield'
         v_inst = op_getfield.args[0]
         assert op_promote.opname == 'jit_force_virtualizable'
         assert op_promote.args[0] is v_inst
@@ -109,7 +109,7 @@ class TestVirtualizable(BaseRtypingTest):
         class Base(object):
             pass
         class V(Base):
-            _virtualizable2_ = ['v1', 'v2[*]']
+            _virtualizable_ = ['v1', 'v2[*]']
         class W(V):
             pass
         #
@@ -122,7 +122,7 @@ class TestVirtualizable(BaseRtypingTest):
         _, _, graph = self.gengraph(fn1, [int])
         v_inst = graph.getreturnvar()
         TYPE = self.gettype(v_inst)
-        accessor = TYPE._hints['virtualizable2_accessor']
+        accessor = TYPE._hints['virtualizable_accessor']
         assert accessor.TYPE == TYPE
         assert accessor.fields == {self.prefix + 'v1': IR_IMMUTABLE,
                                    self.prefix + 'v2': IR_IMMUTABLE_ARRAY}
@@ -136,7 +136,7 @@ class TestVirtualizable(BaseRtypingTest):
         _, _, graph = self.gengraph(fn2, [int])
         w_inst = graph.getreturnvar()
         TYPE = self.gettype(w_inst)
-        assert 'virtualizable2_accessor' not in TYPE._hints
+        assert 'virtualizable_accessor' not in TYPE._hints
 
     def replace_force_virtualizable(self, rtyper, graphs):
         from rpython.annotator import model as annmodel
@@ -168,13 +168,13 @@ class TestVirtualizable(BaseRtypingTest):
         _, rtyper, graph = self.gengraph(fn, [int])
         block = graph.startblock
         op_getfield = block.operations[-1]
-        assert op_getfield.opname in ('getfield', 'oogetfield')
+        assert op_getfield.opname == 'getfield'
         funcptr = self.replace_force_virtualizable(rtyper, [graph])
         if getattr(option, 'view', False):
             graph.show()
         op_promote = block.operations[-2]
         op_getfield = block.operations[-1]
-        assert op_getfield.opname in ('getfield', 'oogetfield')
+        assert op_getfield.opname == 'getfield'
         assert op_promote.opname == 'direct_call'
         assert op_promote.args[0].value == funcptr
         assert op_promote.args[1] == op_getfield.args[0]
@@ -292,7 +292,7 @@ class TestVirtualizable(BaseRtypingTest):
 
     def test_access_directly_method(self):
         class A:
-            _virtualizable2_ = ['v0']
+            _virtualizable_ = ['v0']
 
             def __init__(self, v):
                 self.v0 = v
@@ -322,7 +322,7 @@ class TestVirtualizable(BaseRtypingTest):
         from rpython.rlib.jit import dont_look_inside
 
         class A:
-            _virtualizable2_ = ['x']
+            _virtualizable_ = ['x']
 
         def h(a):
             g(a)
@@ -339,7 +339,7 @@ class TestVirtualizable(BaseRtypingTest):
             g(a)
 
         t, typer, graph = self.gengraph(f, [])
-        deref = typer.type_system_deref
+        deref = typer.type_system.deref
 
         desc = typer.annotator.bookkeeper.getdesc(g)
         g_graphs = desc._cache.items()

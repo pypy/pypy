@@ -203,6 +203,8 @@ def encode_type_shape(builder, info, TYPE, index):
     offsets = offsets_to_gc_pointers(TYPE)
     infobits = index
     info.ofstoptrs = builder.offsets2table(offsets, TYPE)
+    if len(offsets) > 0:
+        infobits |= T_HAS_GCPTR
     #
     fptrs = builder.special_funcptr_for_type(TYPE)
     if fptrs:
@@ -216,7 +218,7 @@ def encode_type_shape(builder, info, TYPE, index):
             infobits |= T_HAS_FINALIZER | T_HAS_LIGHTWEIGHT_FINALIZER
         if "custom_trace" in fptrs:
             extra.customtracer = fptrs["custom_trace"]
-            infobits |= T_HAS_CUSTOM_TRACE
+            infobits |= T_HAS_CUSTOM_TRACE | T_HAS_GCPTR
         info.extra = extra
     #
     if not TYPE._is_varsize():
@@ -249,15 +251,13 @@ def encode_type_shape(builder, info, TYPE, index):
         else:
             offsets = ()
         if len(offsets) > 0:
-            infobits |= T_HAS_GCPTR_IN_VARSIZE
+            infobits |= T_HAS_GCPTR_IN_VARSIZE | T_HAS_GCPTR
         varinfo.varofstoptrs = builder.offsets2table(offsets, ARRAY.OF)
         varinfo.varitemsize = llmemory.sizeof(ARRAY.OF)
     if builder.is_weakref_type(TYPE):
         infobits |= T_IS_WEAKREF
     if is_subclass_of_object(TYPE):
         infobits |= T_IS_RPYTHON_INSTANCE
-    if infobits | T_HAS_GCPTR_IN_VARSIZE or offsets:
-        infobits |= T_HAS_GCPTR
     info.infobits = infobits | T_KEY_VALUE
 
 # ____________________________________________________________

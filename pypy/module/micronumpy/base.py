@@ -37,7 +37,8 @@ class W_NDimArray(W_Root):
         from pypy.module.micronumpy.arrayimpl import concrete, scalar
 
         if not shape:
-            impl = scalar.Scalar(dtype.base)
+            w_val = dtype.base.coerce(space, space.wrap(0))
+            impl = scalar.Scalar(dtype.base, w_val)
         else:
             strides, backstrides = calc_strides(shape, dtype.base, order)
             impl = concrete.ConcreteArray(shape, dtype.base, order, strides,
@@ -79,6 +80,8 @@ class W_NDimArray(W_Root):
 
         if w_val is not None:
             w_val = dtype.coerce(space, w_val)
+        else:
+            w_val = dtype.coerce(space, space.wrap(0))
         return W_NDimArray(scalar.Scalar(dtype, w_val))
 
 

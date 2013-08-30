@@ -140,6 +140,7 @@ class UMathModule(MixedModule):
         ("deg2rad", "radians"),
         ("rad2deg", "degrees"),
         ("reciprocal", "reciprocal"),
+        ("rint", "rint"),
         ("sign", "sign"),
         ("signbit", "signbit"),
         ("sin", "sin"),
@@ -175,6 +176,8 @@ class UMathModule(MixedModule):
         ('logaddexp2', 'logaddexp2'),
         ('real', 'real'),
         ('imag', 'imag'),
+        ('ones_like', 'ones_like'),
+        ('zeros_like', 'zeros_like'),
     ]:
         interpleveldefs[exposed] = "interp_ufuncs.get(space).%s" % impl
 

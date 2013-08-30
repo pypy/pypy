@@ -723,11 +723,16 @@ def run_fork_hooks(where, space):
     for hook in get_fork_hooks(where):
         hook(space)
 
-def fork(space):
+def _run_forking_function(space, kind):
     run_fork_hooks('before', space)
-
     try:
-        pid = os.fork()
+        if kind == "F":
+            pid = os.fork()
+            master_fd = -1
+        elif kind == "P":
+            pid, master_fd = os.forkpty()
+        else:
+            raise AssertionError
     except OSError, e:
         try:
             run_fork_hooks('parent', space)
@@ -735,12 +740,14 @@ def fork(space):
             # Don't clobber the OSError if the fork failed
             pass
         raise wrap_oserror(space, e)
-
     if pid == 0:
         run_fork_hooks('child', space)
     else:
         run_fork_hooks('parent', space)
+    return pid, master_fd
 
+def fork(space):
+    pid, irrelevant = _run_forking_function(space, "F")
     return space.wrap(pid)
 
 def openpty(space):
@@ -752,10 +759,7 @@ def openpty(space):
     return space.newtuple([space.wrap(master_fd), space.wrap(slave_fd)])
 
 def forkpty(space):
-    try:
-        pid, master_fd = os.forkpty()
-    except OSError, e:
-        raise wrap_oserror(space, e)
+    pid, master_fd = _run_forking_function(space, "P")
     return space.newtuple([space.wrap(pid),
                            space.wrap(master_fd)])
 

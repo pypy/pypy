@@ -286,7 +286,7 @@ class LLFrame(object):
             rtyper = self.llinterpreter.typer
             bk = rtyper.annotator.bookkeeper
             classdef = bk.getuniqueclassdef(rstackovf._StackOverflow)
-            exdata = rtyper.getexceptiondata()
+            exdata = rtyper.exceptiondata
             evalue = exdata.get_standard_ll_exc_instance(rtyper, classdef)
             etype = exdata.fn_type_of_exc_inst(evalue)
             e = LLException(etype, evalue)
@@ -335,7 +335,7 @@ class LLFrame(object):
         elif catch_exception:
             link = block.exits[0]
             if e:
-                exdata = self.llinterpreter.typer.getexceptiondata()
+                exdata = self.llinterpreter.typer.exceptiondata
                 cls = e.args[0]
                 inst = e.args[1]
                 for link in block.exits[1:]:
@@ -440,7 +440,7 @@ class LLFrame(object):
         else:
             extraargs = ()
         typer = self.llinterpreter.typer
-        exdata = typer.getexceptiondata()
+        exdata = typer.exceptiondata
         if isinstance(exc, OSError):
             self.op_direct_call(exdata.fn_raise_OSError, exc.errno)
             assert False, "op_direct_call above should have raised"
@@ -528,6 +528,9 @@ class LLFrame(object):
 
     def op_jit_record_known_class(self, *args):
         pass
+
+    def op_jit_conditional_call(self, *args):
+        raise NotImplementedError("should not be called while not jitted")
 
     def op_get_exception_addr(self, *args):
         raise NotImplementedError

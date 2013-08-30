@@ -88,13 +88,27 @@ class __extend__(W_NDimArray):
         w_res = W_NDimArray.from_shape(space, res_shape, self.get_dtype(), w_instance=self)
         return loop.getitem_filter(w_res, self, arr)
 
-    def setitem_filter(self, space, idx, val):
+    def setitem_filter(self, space, idx, value):
+        from pypy.module.micronumpy.interp_boxes import Box
+        val = value
         if len(idx.get_shape()) > 1 and idx.get_shape() != self.get_shape():
             raise OperationError(space.w_ValueError,
                                  space.wrap("boolean index array should have 1 dimension"))
         if idx.get_size() > self.get_size():
             raise OperationError(space.w_ValueError,
                                  space.wrap("index out of range for array"))
+        idx_iter = idx.create_iter(self.get_shape())
+        size = loop.count_all_true_iter(idx_iter, self.get_shape(), idx.get_dtype())
+        if len(val.get_shape()) > 0 and val.get_shape()[0] > 1 and size > val.get_shape()[0]:
+            raise OperationError(space.w_ValueError, space.wrap("NumPy boolean array indexing assignment "
+                                                                "cannot assign %d input values to "
+                                                                "the %d output values where the mask is true" % (val.get_shape()[0],size)))
+        if val.get_shape() == [1]:
+            box = val.descr_getitem(space, space.wrap(0))
+            assert isinstance(box, Box)
+            val = W_NDimArray(scalar.Scalar(val.get_dtype(), box))
+        elif val.get_shape() == [0]:
+            val.implementation.dtype = self.implementation.dtype
         loop.setitem_filter(self, idx, val)
 
     def _prepare_array_index(self, space, w_index):
@@ -737,6 +751,27 @@ class __extend__(W_NDimArray):
     descr_gt = _binop_comp_impl(_binop_impl("greater"))
     descr_ge = _binop_comp_impl(_binop_impl("greater_equal"))
 
+    def _binop_inplace_impl(ufunc_name):
+        def impl(self, space, w_other):
+            w_out = self
+            ufunc = getattr(interp_ufuncs.get(space), ufunc_name)
+            return ufunc.call(space, [self, w_other, w_out])
+        return func_with_new_name(impl, "binop_inplace_%s_impl" % ufunc_name)
+
+    descr_iadd = _binop_inplace_impl("add")
+    descr_isub = _binop_inplace_impl("subtract")
+    descr_imul = _binop_inplace_impl("multiply")
+    descr_idiv = _binop_inplace_impl("divide")
+    descr_itruediv = _binop_inplace_impl("true_divide")
+    descr_ifloordiv = _binop_inplace_impl("floor_divide")
+    descr_imod = _binop_inplace_impl("mod")
+    descr_ipow = _binop_inplace_impl("power")
+    descr_ilshift = _binop_inplace_impl("left_shift")
+    descr_irshift = _binop_inplace_impl("right_shift")
+    descr_iand = _binop_inplace_impl("bitwise_and")
+    descr_ior = _binop_inplace_impl("bitwise_or")
+    descr_ixor = _binop_inplace_impl("bitwise_xor")
+
     def _binop_right_impl(ufunc_name):
         def impl(self, space, w_other, w_out=None):
             w_other = convert_to_array(space, w_other)
@@ -1006,6 +1041,20 @@ W_NDimArray.typedef = TypeDef(
     __rand__ = interp2app(W_NDimArray.descr_rand),
     __ror__ = interp2app(W_NDimArray.descr_ror),
     __rxor__ = interp2app(W_NDimArray.descr_rxor),
+
+    __iadd__ = interp2app(W_NDimArray.descr_iadd),
+    __isub__ = interp2app(W_NDimArray.descr_isub),
+    __imul__ = interp2app(W_NDimArray.descr_imul),
+    __idiv__ = interp2app(W_NDimArray.descr_idiv),
+    __itruediv__ = interp2app(W_NDimArray.descr_itruediv),
+    __ifloordiv__ = interp2app(W_NDimArray.descr_ifloordiv),
+    __imod__ = interp2app(W_NDimArray.descr_imod),
+    __ipow__ = interp2app(W_NDimArray.descr_ipow),
+    __ilshift__ = interp2app(W_NDimArray.descr_ilshift),
+    __irshift__ = interp2app(W_NDimArray.descr_irshift),
+    __iand__ = interp2app(W_NDimArray.descr_iand),
+    __ior__ = interp2app(W_NDimArray.descr_ior),
+    __ixor__ = interp2app(W_NDimArray.descr_ixor),
 
     __eq__ = interp2app(W_NDimArray.descr_eq),
     __ne__ = interp2app(W_NDimArray.descr_ne),

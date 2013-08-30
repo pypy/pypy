@@ -210,8 +210,6 @@ def builtin_hasattr(s_obj, s_attr):
             r.const, = answers
     return r
 
-##def builtin_callable(s_obj):
-##    return SomeBool()
 
 def builtin_tuple(s_iterable):
     if isinstance(s_iterable, SomeTuple):
@@ -339,7 +337,7 @@ def llmemory_cast_int_to_adr(s):
     return SomeAddress()
 
 def unicodedata_decimal(s_uchr):
-    raise TypeError, "unicodedate.decimal() calls should not happen at interp-level"
+    raise TypeError("unicodedate.decimal() calls should not happen at interp-level")
 
 def test(*args):
     return s_Bool

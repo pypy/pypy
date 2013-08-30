@@ -1568,7 +1568,7 @@ class RegisterOs(BaseLazyRegistering):
 
     @registering_if(os, 'fork')
     def register_os_fork(self):
-        from rpython.rlib import rthread
+        from rpython.rlib import debug, rthread
         eci = self.gcc_profiling_bug_workaround('pid_t _noprof_fork(void)',
                                                 'return fork();')
         os_fork = self.llexternal('_noprof_fork', [], rffi.PID_T,
@@ -1576,11 +1576,15 @@ class RegisterOs(BaseLazyRegistering):
                                   _nowrapper = True)
 
         def fork_llimpl():
+            # NB. keep forkpty() up-to-date, too
+            ofs = debug.debug_offset()
             opaqueaddr = rthread.gc_thread_before_fork()
             childpid = rffi.cast(lltype.Signed, os_fork())
             rthread.gc_thread_after_fork(childpid, opaqueaddr)
             if childpid == -1:
                 raise OSError(rposix.get_errno(), "os_fork failed")
+            if childpid == 0:
+                debug.debug_forked(ofs)
             return rffi.cast(lltype.Signed, childpid)
 
         return extdef([], int, llimpl=fork_llimpl,
@@ -1611,6 +1615,7 @@ class RegisterOs(BaseLazyRegistering):
 
     @registering_if(os, 'forkpty')
     def register_os_forkpty(self):
+        from rpython.rlib import debug, rthread
         os_forkpty = self.llexternal(
             'forkpty',
             [rffi.INTP, rffi.VOIDP, rffi.VOIDP, rffi.VOIDP],
@@ -1618,11 +1623,18 @@ class RegisterOs(BaseLazyRegistering):
             compilation_info=ExternalCompilationInfo(libraries=['util']))
         def forkpty_llimpl():
             master_p = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
-            childpid = os_forkpty(master_p, None, None, None)
+            master_p[0] = rffi.cast(rffi.INT, -1)
+            ofs = debug.debug_offset()
+            opaqueaddr = rthread.gc_thread_before_fork()
+            childpid = rffi.cast(lltype.Signed,
+                                 os_forkpty(master_p, None, None, None))
+            rthread.gc_thread_after_fork(childpid, opaqueaddr)
             master_fd = master_p[0]
             lltype.free(master_p, flavor='raw')
             if childpid == -1:
                 raise OSError(rposix.get_errno(), "os_forkpty failed")
+            if childpid == 0:
+                debug.debug_forked(ofs)
             return (rffi.cast(lltype.Signed, childpid),
                     rffi.cast(lltype.Signed, master_fd))
 

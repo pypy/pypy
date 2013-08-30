@@ -69,13 +69,13 @@ uint2singlefloat = rffi.llexternal(
     "pypy__uint2singlefloat", [rffi.UINT], rffi.FLOAT,
     _callable=uint2singlefloat_emulator, compilation_info=eci,
     _nowrapper=True, elidable_function=True, sandboxsafe=True,
-    oo_primitive="pypy__uint2singlefloat", llvm_wrapper=True)
+    llvm_wrapper=True)
 
 singlefloat2uint = rffi.llexternal(
     "pypy__singlefloat2uint", [rffi.FLOAT], rffi.UINT,
     _callable=singlefloat2uint_emulator, compilation_info=eci,
     _nowrapper=True, elidable_function=True, sandboxsafe=True,
-    oo_primitive="pypy__singlefloat2uint", llvm_wrapper=True)
+    llvm_wrapper=True)
 
 
 class Float2LongLongEntry(ExtRegistryEntry):

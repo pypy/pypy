@@ -181,9 +181,6 @@ class SmallFunctionSetPBCRepr(Repr):
         funcdesc = self.rtyper.annotator.bookkeeper.getdesc(value)
         return self.convert_desc(funcdesc)
 
-##     def convert_to_concrete_llfn(self, v, shape, index, llop):
-##         return v
-
     def rtype_simple_call(self, hop):
         return self.call('simple_call', hop)
 
@@ -321,15 +318,6 @@ class __extend__(pairtype(SmallFunctionSetPBCRepr, SmallFunctionSetPBCRepr)):
         c_table = conversion_table(r_from, r_to)
         if c_table:
             assert v.concretetype is Char
-##             from rpython.rtyper.lltypesystem.rstr import string_repr
-##             s = repr(llops.rtyper.annotator.annotated.get(llops.originalblock))
-##             if 'LOAD_GLOBAL' in s:
-##                 import pdb; pdb.set_trace()
-##             print >> myf, 'static small conv', s
-##             print 'static small conv', s
-##             llops.genop('debug_print',
-##                         [Constant(string_repr.convert_const("dynamic small conv" + s),
-##                                   string_repr.lowleveltype)])
             v_int = llops.genop('cast_char_to_int', [v],
                                 resulttype=Signed)
             return llops.genop('getarrayitem', [c_table, v_int],

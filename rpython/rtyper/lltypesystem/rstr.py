@@ -317,7 +317,7 @@ class LLHelpers(AbstractLLHelpers):
 
     def ll_str2bytearray(str):
         from rpython.rtyper.lltypesystem.rbytearray import BYTEARRAY
-        
+
         lgt = len(str.chars)
         b = malloc(BYTEARRAY, lgt)
         for i in range(lgt):
@@ -974,7 +974,7 @@ class LLHelpers(AbstractLLHelpers):
 
         argsiter = iter(sourcevarsrepr)
 
-        InstanceRepr = hop.rtyper.type_system.rclass.InstanceRepr
+        from rpython.rtyper.lltypesystem.rclass import InstanceRepr
         for i, thing in enumerate(things):
             if isinstance(thing, tuple):
                 code = thing[0]
@@ -1007,7 +1007,6 @@ class LLHelpers(AbstractLLHelpers):
                 else:
                     raise TyperError("%%%s is not RPython" % (code,))
             else:
-                from rpython.rtyper.lltypesystem.rstr import string_repr, unicode_repr
                 if is_unicode:
                     vchunk = inputconst(unicode_repr, thing)
                 else:

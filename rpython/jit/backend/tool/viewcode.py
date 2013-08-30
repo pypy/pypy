@@ -51,18 +51,18 @@ def find_objdump():
     raise ObjdumpNotFound('(g)objdump was not found in PATH')
 
 def machine_code_dump(data, originaddr, backend_name, label_list=None):
-    objdump_backend_option = {
+    objdump_machine_option = {
         'x86': 'i386',
         'x86-without-sse2': 'i386',
         'x86_32': 'i386',
-        'x86_64': 'x86-64',
-        'x86-64': 'x86-64',
+        'x86_64': 'i386:x86-64',
+        'x86-64': 'i386:x86-64',
         'i386': 'i386',
         'arm': 'arm',
         'arm_32': 'arm',
     }
     cmd = find_objdump()
-    objdump = ('%(command)s -M %(backend)s -b binary -m %(machine)s '
+    objdump = ('%(command)s -b binary -m %(machine)s '
                '--disassembler-options=intel-mnemonics '
                '--adjust-vma=%(origin)d -D %(file)s')
     #
@@ -73,8 +73,7 @@ def machine_code_dump(data, originaddr, backend_name, label_list=None):
         'command': cmd,
         'file': tmpfile,
         'origin': originaddr,
-        'backend': objdump_backend_option[backend_name],
-        'machine': 'i386' if not backend_name.startswith('arm') else 'arm',
+        'machine': objdump_machine_option[backend_name],
     }, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout, stderr = p.communicate()
     assert not p.returncode, ('Encountered an error running objdump: %s' %
@@ -250,7 +249,9 @@ class World(object):
                 assert pieces[2].startswith('+')
                 if len(pieces) == 3:
                     continue     # empty line
-                baseaddr = long(pieces[1][1:], 16) & 0xFFFFFFFFL
+                baseaddr = long(pieces[1][1:], 16)
+                if baseaddr < 0:
+                    baseaddr += (2 * sys.maxint + 2)
                 offset = int(pieces[2][1:])
                 addr = baseaddr + offset
                 data = pieces[3].replace(':', '').decode('hex')
@@ -268,14 +269,19 @@ class World(object):
                 pieces = line.split(None, 3)
                 assert pieces[1].startswith('@')
                 assert pieces[2].startswith('+')
-                baseaddr = long(pieces[1][1:], 16) & 0xFFFFFFFFL
+                baseaddr = long(pieces[1][1:], 16)
+                if baseaddr < 0:
+                    baseaddr += (2 * sys.maxint + 2)
                 offset = int(pieces[2][1:])
                 addr = baseaddr + offset
                 self.logentries[addr] = pieces[3]
             elif line.startswith('SYS_EXECUTABLE '):
                 filename = line[len('SYS_EXECUTABLE '):].strip()
                 if filename != self.executable_name and filename != '??':
-                    self.symbols.update(load_symbols(filename))
+                    try:
+                        self.symbols.update(load_symbols(filename))
+                    except Exception as e:
+                        print e
                     self.executable_name = filename
 
     def find_cross_references(self):

@@ -77,10 +77,6 @@ class TestArgumentsForTranslation(object):
         new_args = args.unmatch_signature(sig, data)
         assert args.unpack() == new_args.unpack()
 
-        args = make_arguments_for_translation(space, [1], {'c': 5, 'd': 7})
-        sig = Signature(['a', 'b', 'c'], None, 'kw')
-        py.test.raises(TypeError, args.match_signature, sig, [2, 3])
-
     def test_rawshape(self):
         space = DummySpace()
         args = make_arguments_for_translation(space, [1,2,3])

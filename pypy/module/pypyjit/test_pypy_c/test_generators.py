@@ -19,6 +19,7 @@ class TestGenerators(BaseTestPyPyC):
         log = self.run(main, [500])
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match_by_id("generator", """
+            cond_call(..., descr=...)
             i16 = force_token()
             p45 = new_with_vtable(ConstClass(W_IntObject))
             setfield_gc(p45, i29, descr=<FieldS .*>)

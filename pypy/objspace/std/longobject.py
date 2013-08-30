@@ -1,13 +1,17 @@
+"""The builtin long implementation"""
+
 import sys
+
+from rpython.rlib.rbigint import rbigint
+
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std import model, newformat
-from pypy.objspace.std.model import registerimplementation, W_Object
-from pypy.objspace.std.register_all import register_all
-from pypy.objspace.std.multimethod import FailedToImplementArgs
 from pypy.objspace.std.intobject import W_IntObject
+from pypy.objspace.std.longtype import W_AbstractLongObject, long_typedef
+from pypy.objspace.std.model import W_Object, registerimplementation
+from pypy.objspace.std.multimethod import FailedToImplementArgs
 from pypy.objspace.std.noneobject import W_NoneObject
-from rpython.rlib.rbigint import rbigint
-from pypy.objspace.std.longtype import long_typedef, W_AbstractLongObject
+from pypy.objspace.std.register_all import register_all
 
 
 class W_LongObject(W_AbstractLongObject):
@@ -16,8 +20,8 @@ class W_LongObject(W_AbstractLongObject):
 
     typedef = long_typedef
 
-    def __init__(w_self, l):
-        w_self.num = l # instance of rbigint
+    def __init__(self, l):
+        self.num = l # instance of rbigint
 
     def fromint(space, intval):
         return W_LongObject(rbigint.fromint(intval))
@@ -49,16 +53,16 @@ class W_LongObject(W_AbstractLongObject):
     fromrarith_int._annspecialcase_ = "specialize:argtype(0)"
     fromrarith_int = staticmethod(fromrarith_int)
 
-    def int_w(w_self, space):
+    def int_w(self, space):
         try:
-            return w_self.num.toint()
+            return self.num.toint()
         except OverflowError:
             raise OperationError(space.w_OverflowError, space.wrap(
                 "long int too large to convert to int"))
 
-    def uint_w(w_self, space):
+    def uint_w(self, space):
         try:
-            return w_self.num.touint()
+            return self.num.touint()
         except ValueError:
             raise OperationError(space.w_ValueError, space.wrap(
                 "cannot convert negative integer to unsigned int"))
@@ -66,8 +70,8 @@ class W_LongObject(W_AbstractLongObject):
             raise OperationError(space.w_OverflowError, space.wrap(
                 "long int too large to convert to unsigned int"))
 
-    def bigint_w(w_self, space):
-        return w_self.num
+    def bigint_w(self, space):
+        return self.num
 
     def float_w(self, space):
         return self.tofloat(space)
@@ -324,7 +328,8 @@ def recover_with_smalllong(space):
             sys.maxint == 2147483647)
 
 # binary ops
-for opname in ['add', 'sub', 'mul', 'div', 'floordiv', 'truediv', 'mod', 'divmod', 'lshift']:
+for opname in ['add', 'sub', 'mul', 'div', 'floordiv', 'truediv', 'mod',
+               'divmod', 'lshift']:
     exec compile("""
 def %(opname)s_ovr__Int_Int(space, w_int1, w_int2):
     if recover_with_smalllong(space) and %(opname)r != 'truediv':

@@ -14,7 +14,7 @@ class BaseTest(object):
     def translate(self, func, sig):
         t = TranslationContext()
         t.buildannotator().build_types(func, sig)
-        t.buildrtyper(type_system=self.type_system).specialize()
+        t.buildrtyper().specialize()
         if option.view:
             t.view()
         return t, self.Analyzer(t)

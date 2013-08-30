@@ -66,6 +66,9 @@ def hint(x, **kwds):
                             Useful in say Frame.__init__ when we do want
                             to store things directly on it. Has to come with
                             access_directly=True
+    * force_virtualizable - a performance hint to force the virtualizable early
+                            (useful e.g. for python generators that are going
+                            to be read later anyway)
     """
     return x
 
@@ -232,7 +235,7 @@ class Entry(ExtRegistryEntry):
             if isinstance(s_x, annmodel.SomeInstance):
                 from rpython.flowspace.model import Constant
                 classdesc = s_x.classdef.classdesc
-                virtualizable = classdesc.read_attribute('_virtualizable2_',
+                virtualizable = classdesc.read_attribute('_virtualizable_',
                                                          Constant(None)).value
                 if virtualizable is not None:
                     flags = s_x.flags.copy()
@@ -989,6 +992,34 @@ class Entry(ExtRegistryEntry):
         v_cls = hop.inputarg(classrepr, arg=1)
         return hop.genop('jit_record_known_class', [v_inst, v_cls],
                          resulttype=lltype.Void)
+
+def _jit_conditional_call(condition, function, *args):
+    pass
+
+@specialize.call_location()
+def conditional_call(condition, function, *args):
+    if we_are_jitted():
+        _jit_conditional_call(condition, function, *args)
+    else:
+        if condition:
+            function(*args)
+conditional_call._always_inline_ = True
+
+class ConditionalCallEntry(ExtRegistryEntry):
+    _about_ = _jit_conditional_call
+
+    def compute_result_annotation(self, *args_s):
+        self.bookkeeper.emulate_pbc_call(self.bookkeeper.position_key,
+                                         args_s[1], args_s[2:])
+
+    def specialize_call(self, hop):
+        from rpython.rtyper.lltypesystem import lltype
+
+        args_v = hop.inputargs(lltype.Bool, lltype.Void, *hop.args_r[2:])
+        args_v[1] = hop.args_r[1].get_concrete_llfn(hop.args_s[1],
+                                                    hop.args_s[2:], hop.spaceop)
+        hop.exception_is_here()
+        return hop.genop('jit_conditional_call', args_v)
 
 class Counters(object):
     counters="""

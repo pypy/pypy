@@ -40,7 +40,7 @@ _BACKEND_TO_TYPESYSTEM = {
 }
 
 def backend_to_typesystem(backend):
-    return _BACKEND_TO_TYPESYSTEM.get(backend, 'ootype')
+    return _BACKEND_TO_TYPESYSTEM[backend]
 
 # set of translation steps to profile
 PROFILE = set([])
@@ -348,7 +348,7 @@ class TranslationDriver(SimpleTaskEngine):
     def task_rtype_lltype(self):
         """ RTyping - lltype version
         """
-        rtyper = self.translator.buildrtyper(type_system='lltype')
+        rtyper = self.translator.buildrtyper()
         rtyper.specialize(dont_simplify_again=True)
 
     @taskdef([RTYPE], "JIT compiler generation")
@@ -356,8 +356,12 @@ class TranslationDriver(SimpleTaskEngine):
         """ Generate bytecodes for JIT and flow the JIT helper functions
         lltype version
         """
-        get_policy = self.extra['jitpolicy']
-        self.jitpolicy = get_policy(self)
+        from rpython.jit.codewriter.policy import JitPolicy
+        get_policy = self.extra.get('jitpolicy', None)
+        if get_policy is None:
+            self.jitpolicy = JitPolicy()
+        else:
+            self.jitpolicy = get_policy(self)
         #
         from rpython.jit.metainterp.warmspot import apply_jit
         apply_jit(self.translator, policy=self.jitpolicy,
@@ -573,9 +577,14 @@ class TranslationDriver(SimpleTaskEngine):
 
         try:
             entry_point, inputtypes, policy = spec
+        except TypeError:
+            # not a tuple at all
+            entry_point = spec
+            inputtypes = policy = None
         except ValueError:
-            entry_point, inputtypes = spec
             policy = None
+            entry_point, inputtypes = spec
+
 
         driver.setup(entry_point, inputtypes,
                      policy=policy,
@@ -587,7 +596,6 @@ class TranslationDriver(SimpleTaskEngine):
         assert 'rpython.rtyper.rmodel' not in sys.modules, (
             "cannot fork because the rtyper has already been imported")
     prereq_checkpt_rtype_lltype = prereq_checkpt_rtype
-    prereq_checkpt_rtype_ootype = prereq_checkpt_rtype
 
     # checkpointing support
     def _event(self, kind, goal, func):

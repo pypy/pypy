@@ -23,7 +23,7 @@ class TranslationTest(CCompiledMixin):
         # - floats neg and abs
 
         class Frame(object):
-            _virtualizable2_ = ['i']
+            _virtualizable_ = ['i']
 
             def __init__(self, i):
                 self.i = i
@@ -98,7 +98,7 @@ class TranslationTestCallAssembler(CCompiledMixin):
                 self.val = val
 
         class Frame(object):
-            _virtualizable2_ = ['thing']
+            _virtualizable_ = ['thing']
 
         driver = JitDriver(greens = ['codeno'], reds = ['i', 'frame'],
                            virtualizables = ['frame'],
