@@ -8,6 +8,7 @@
 
 #include "TApplication.h"
 #include "TInterpreter.h"
+#include "TVirtualMutex.h"
 #include "Getline.h"
 
 #include "TBaseClass.h"
@@ -367,6 +368,8 @@ void cppyy_destruct(cppyy_type_t handle, cppyy_object_t self) {
 /* method/function dispatching -------------------------------------------- */
 static inline G__value cppyy_call_T(cppyy_method_t method,
         cppyy_object_t self, int nargs, void* args) {
+
+    R__LOCKGUARD2(gCINTMutex);
 
     G__param* libp = (G__param*)((char*)args - offsetof(G__param, para));
     assert(libp->paran == nargs);
