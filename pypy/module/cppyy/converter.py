@@ -518,7 +518,10 @@ class StdStringConverter(InstanceConverter):
     def to_memory(self, space, w_obj, w_value, offset):
         try:
             address = rffi.cast(capi.C_OBJECT, self._get_raw_address(space, w_obj, offset))
-            capi.c_assign2stdstring(space, address, space.str_w(w_value))
+            assign = self.cppclass.get_overload("__assign__")
+            from pypy.module.cppyy import interp_cppyy
+            assign.call(
+                interp_cppyy.wrap_cppobject(space, address, self.cppclass, do_cast=False), [w_value])
         except Exception:
             InstanceConverter.to_memory(self, space, w_obj, w_value, offset)
 
@@ -652,7 +655,7 @@ _converters["void*"]                    = VoidPtrConverter
 _converters["void**"]                   = VoidPtrPtrConverter
 _converters["void*&"]                   = VoidPtrRefConverter
 
-# special cases (note: CINT backend requires the simple name 'string')
+# special cases (note: 'string' aliases added below)
 _converters["std::basic_string<char>"]           = StdStringConverter
 _converters["const std::basic_string<char>&"]    = StdStringConverter     # TODO: shouldn't copy
 _converters["std::basic_string<char>&"]          = StdStringRefConverter

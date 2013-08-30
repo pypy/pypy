@@ -249,15 +249,13 @@ class AppTestSTLSTRING:
         std = cppyy.gbl.std
         stringy_class = cppyy.gbl.stringy_class
 
-        c, s = stringy_class(""), std.string("test string")
+        c, s = stringy_class("dummy"), std.string("test string")
 
         c.m_string = "another test"
         assert c.m_string == "another test"
         assert str(c.m_string) == c.m_string
         assert c.get_string1() == "another test"
 
-        return
-        # TODO: assignment from object
         c.m_string = s
         assert str(c.m_string) == s
         assert c.m_string == s
