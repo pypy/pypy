@@ -115,9 +115,7 @@ class ArgumentsForTranslation(object):
         elif num_args > co_argcount:
             raise ArgErrCount(num_args, num_kwds, signature, defaults_w, 0)
 
-        # if a **kwargs argument is needed, explode
-        if signature.has_kwarg():
-            raise TypeError("Keyword arguments as **kwargs is not supported by RPython")
+        assert not signature.has_kwarg() # XXX should not happen?
 
         # handle keyword arguments
         num_remainingkwds = 0

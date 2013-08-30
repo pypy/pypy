@@ -21,8 +21,9 @@ class FlowingError(Exception):
     frame = None
 
     def __str__(self):
-        msg = ['-+' * 30]
+        msg = ["\n"]
         msg += map(str, self.args)
+        msg += [""]
         msg += source_lines(self.frame.graph, None, offset=self.frame.last_instr)
         return "\n".join(msg)
 
@@ -290,7 +291,7 @@ def binaryoperation(OPCODE, op):
 
 _unsupported_ops = [
     ('BINARY_POWER', "a ** b"),
-    ('BUILD_CLASS', 'creating new classes'),
+    ('BUILD_CLASS', 'defining classes inside functions'),
     ('EXEC_STMT', 'exec statement'),
     ('STOP_CODE', '???'),
     ('STORE_NAME', 'modifying globals'),

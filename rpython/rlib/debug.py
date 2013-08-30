@@ -196,6 +196,25 @@ class Entry(ExtRegistryEntry):
         return hop.genop('debug_flush', [])
 
 
+def debug_forked(original_offset):
+    """ Call after a fork(), passing as argument the result of
+        debug_offset() called before the fork.
+    """
+    pass
+
+class Entry(ExtRegistryEntry):
+    _about_ = debug_forked
+
+    def compute_result_annotation(self, s_original_offset):
+        return None
+
+    def specialize_call(self, hop):
+        from rpython.rtyper.lltypesystem import lltype
+        vlist = hop.inputargs(lltype.Signed)
+        hop.exception_cannot_occur()
+        return hop.genop('debug_forked', vlist)
+
+
 def llinterpcall(RESTYPE, pythonfunction, *args):
     """When running on the llinterp, this causes the llinterp to call to
     the provided Python function with the run-time value of the given args.

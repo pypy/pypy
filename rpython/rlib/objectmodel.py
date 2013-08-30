@@ -9,7 +9,7 @@ import sys
 import types
 import math
 import inspect
-from rpython.tool.sourcetools import rpython_wrapper
+from rpython.tool.sourcetools import rpython_wrapper, func_with_new_name
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.flowspace.specialcase import register_flow_sc
 from rpython.flowspace.model import Constant
@@ -726,3 +726,45 @@ class _r_dictkey_with_hash(_r_dictkey):
         self.dic = dic
         self.key = key
         self.hash = hash
+
+# ____________________________________________________________
+
+def import_from_mixin(M, special_methods=['__init__', '__del__']):
+    """Copy all methods and class attributes from the class M into
+    the current scope.  Should be called when defining a class body.
+    Function and staticmethod objects are duplicated, which means
+    that annotation will not consider them as identical to another
+    copy in another unrelated class.
+    
+    By default, "special" methods and class attributes, with a name
+    like "__xxx__", are not copied unless they are "__init__" or
+    "__del__".  The list can be changed with the optional second
+    argument.
+    """
+    flatten = {}
+    for base in inspect.getmro(M):
+        if base is object:
+            continue
+        for key, value in base.__dict__.items():
+            if key.startswith('__') and key.endswith('__'):
+                if key not in special_methods:
+                    continue
+            if key in flatten:
+                continue
+            if isinstance(value, types.FunctionType):
+                value = func_with_new_name(value, value.__name__)
+            elif isinstance(value, staticmethod):
+                func = value.__get__(42)
+                func = func_with_new_name(func, func.__name__)
+                value = staticmethod(func)
+            elif isinstance(value, classmethod):
+                raise AssertionError("classmethods not supported "
+                                     "in 'import_from_mixin'")
+            flatten[key] = value
+    #
+    target = sys._getframe(1).f_locals
+    for key, value in flatten.items():
+        if key in target:
+            raise Exception("import_from_mixin: would overwrite the value "
+                            "already defined locally for %r" % (key,))
+        target[key] = value

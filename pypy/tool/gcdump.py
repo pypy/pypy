@@ -29,6 +29,8 @@ class Stat(object):
         for num, line in enumerate(iter):
             if num == 0:
                 continue
+            if not line:
+                continue
             words = line.split()
             if words[0].startswith('member'):
                 del words[0]
