@@ -75,3 +75,12 @@ a bit
 .. branch: reflex-support
 .. branch: numpypy-inplace-op
 .. branch: rewritten-loop-logging
+
+.. branch: nobold-backtrace
+Work on improving UnionError messages and stack trace displays.
+
+.. branch: improve-errors-again
+More improvements and refactorings of error messages.
+
+.. branch: improve-errors-again2
+Unbreak tests in rlib.
