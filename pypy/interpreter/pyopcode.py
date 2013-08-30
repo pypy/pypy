@@ -41,23 +41,6 @@ def binaryoperation(operationname):
 
     return func_with_new_name(opimpl, "opcode_impl_for_%s" % operationname)
 
-compare_dispatch_table = [
-    "cmp_lt",   # "<"
-    "cmp_le",   # "<="
-    "cmp_eq",   # "=="
-    "cmp_ne",   # "!="
-    "cmp_gt",   # ">"
-    "cmp_ge",   # ">="
-    "cmp_in",
-    "cmp_not_in",
-    "cmp_is",
-    "cmp_is_not",
-    "cmp_exc_match",
-    ]
-
-unrolling_compare_dispatch_table = unrolling_iterable(
-    enumerate(compare_dispatch_table))
-
 
 class __extend__(pyframe.PyFrame):
     """A PyFrame that knows about interpretation of standard Python opcodes
@@ -975,11 +958,28 @@ class __extend__(pyframe.PyFrame):
     def COMPARE_OP(self, testnum, next_instr):
         w_2 = self.popvalue()
         w_1 = self.popvalue()
-        w_result = None
-        for i, attr in unrolling_compare_dispatch_table:
-            if i == testnum:
-                w_result = getattr(self, attr)(w_1, w_2)
-                break
+        if testnum == 0:
+            w_result = self.cmp_lt(w_1, w_2)
+        elif testnum == 1:
+            w_result = self.cmp_le(w_1, w_2)
+        elif testnum == 2:
+            w_result = self.cmp_eq(w_1, w_2)
+        elif testnum == 3:
+            w_result = self.cmp_ne(w_1, w_2)
+        elif testnum == 4:
+            w_result = self.cmp_gt(w_1, w_2)
+        elif testnum == 5:
+            w_result = self.cmp_ge(w_1, w_2)
+        elif testnum == 6:
+            w_result = self.cmp_in(w_1, w_2)
+        elif testnum == 7:
+            w_result = self.cmp_not_in(w_1, w_2)
+        elif testnum == 8:
+            w_result = self.cmp_is(w_1, w_2)
+        elif testnum == 9:
+            w_result = self.cmp_is_not(w_1, w_2)
+        elif testnum == 10:
+            w_result = self.cmp_exc_match(w_1, w_2)
         else:
             raise BytecodeCorruption("bad COMPARE_OP oparg")
         self.pushvalue(w_result)
