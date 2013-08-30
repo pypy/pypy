@@ -17,6 +17,9 @@ extern "C" {
 
     long long cppyy_ttree_GetEntry(void* vtree, long long entry);
 
+    cppyy_object_t cppyy_charp2TString(const char* str);
+    cppyy_object_t cppyy_TString2TString(cppyy_object_t ptr);
+
 #ifdef __cplusplus
 }
 #endif // ifdef __cplusplus

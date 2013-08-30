@@ -24,6 +24,7 @@
 // for pythonization
 #include "TTree.h"
 #include "TBranch.h"
+#include "TString.h"
 
 #include "Api.h"
 
@@ -993,4 +994,12 @@ cppyy_object_t cppyy_ttree_Branch(void* vtree, const char* branchname, const cha
 
 long long cppyy_ttree_GetEntry(void* vtree, long long entry) {
     return (long long)((TTree*)vtree)->GetEntry((Long64_t)entry);
+}
+
+cppyy_object_t cppyy_charp2TString(const char* str) {
+    return (cppyy_object_t)new TString(str);
+}
+
+cppyy_object_t cppyy_TString2TString(cppyy_object_t ptr) {
+    return (cppyy_object_t)new TString(*(TString*)ptr);
 }

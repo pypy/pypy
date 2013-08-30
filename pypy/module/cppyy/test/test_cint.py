@@ -141,6 +141,29 @@ class AppTestCINTPYTHONIZATIONS:
         for j in v:
             assert round(v[int(math.sqrt(j)+0.5)]-j, 5) == 0.
 
+    def test04_TStringTObjString(self):
+        """Test string/TString interchangebility"""
+
+        import cppyy
+
+        test = "aap noot mies"
+
+        s1 = cppyy.gbl.TString(test )
+        s2 = str(s1)
+
+        assert s1 == test
+        assert test == s2
+        assert s1 == s2
+
+        s3 = cppyy.gbl.TObjString(s2)
+        assert s3 == test
+        assert s2 == s3
+
+        # force use of: TNamed(const TString &name, const TString &title)
+        n = cppyy.gbl.TNamed(test, cppyy.gbl.TString("title"))
+        assert n.GetTitle() == "title"
+        assert n.GetName() == test
+
 
 class AppTestCINTTTREE:
     spaceconfig = dict(usemodules=['cppyy', '_rawffi', '_ffi', 'itertools'])
