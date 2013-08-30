@@ -912,36 +912,6 @@ class __extend__(pyframe.PyFrame):
         self.pushvalue(w_value)
     LOAD_ATTR._always_inline_ = True
 
-    def cmp_lt(self, w_1, w_2):
-        return self.space.lt(w_1, w_2)
-
-    def cmp_le(self, w_1, w_2):
-        return self.space.le(w_1, w_2)
-
-    def cmp_eq(self, w_1, w_2):
-        return self.space.eq(w_1, w_2)
-
-    def cmp_ne(self, w_1, w_2):
-        return self.space.ne(w_1, w_2)
-
-    def cmp_gt(self, w_1, w_2):
-        return self.space.gt(w_1, w_2)
-
-    def cmp_ge(self, w_1, w_2):
-        return self.space.ge(w_1, w_2)
-
-    def cmp_in(self, w_1, w_2):
-        return self.space.contains(w_2, w_1)
-
-    def cmp_not_in(self, w_1, w_2):
-        return self.space.not_(self.space.contains(w_2, w_1))
-
-    def cmp_is(self, w_1, w_2):
-        return self.space.is_(w_1, w_2)
-
-    def cmp_is_not(self, w_1, w_2):
-        return self.space.not_(self.space.is_(w_1, w_2))
-
     @jit.unroll_safe
     def cmp_exc_match(self, w_1, w_2):
         space = self.space
@@ -959,25 +929,25 @@ class __extend__(pyframe.PyFrame):
         w_2 = self.popvalue()
         w_1 = self.popvalue()
         if testnum == 0:
-            w_result = self.cmp_lt(w_1, w_2)
+            w_result = self.space.lt(w_1, w_2)
         elif testnum == 1:
-            w_result = self.cmp_le(w_1, w_2)
+            w_result = self.space.le(w_1, w_2)
         elif testnum == 2:
-            w_result = self.cmp_eq(w_1, w_2)
+            w_result = self.space.eq(w_1, w_2)
         elif testnum == 3:
-            w_result = self.cmp_ne(w_1, w_2)
+            w_result = self.space.ne(w_1, w_2)
         elif testnum == 4:
-            w_result = self.cmp_gt(w_1, w_2)
+            w_result = self.space.gt(w_1, w_2)
         elif testnum == 5:
-            w_result = self.cmp_ge(w_1, w_2)
+            w_result = self.space.ge(w_1, w_2)
         elif testnum == 6:
-            w_result = self.cmp_in(w_1, w_2)
+            w_result = self.space.contains(w_2, w_1)
         elif testnum == 7:
-            w_result = self.cmp_not_in(w_1, w_2)
+            w_result = self.space.not_(self.space.contains(w_2, w_1))
         elif testnum == 8:
-            w_result = self.cmp_is(w_1, w_2)
+            w_result = self.space.is_(w_1, w_2)
         elif testnum == 9:
-            w_result = self.cmp_is_not(w_1, w_2)
+            w_result = self.space.not_(self.space.is_(w_1, w_2))
         elif testnum == 10:
             w_result = self.cmp_exc_match(w_1, w_2)
         else:
