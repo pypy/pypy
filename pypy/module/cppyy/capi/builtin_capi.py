@@ -543,4 +543,3 @@ _c_stdstring2stdstring = rffi.llexternal(
     compilation_info=backend.eci)
 def c_stdstring2stdstring(space, cppobject):
     return _c_stdstring2stdstring(cppobject)
-

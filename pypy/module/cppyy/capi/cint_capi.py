@@ -324,33 +324,6 @@ def pythonize(space, name, w_pycppclass):
         _method_alias(space, w_pycppclass, "__cmp__", "CompareTo")
         _method_alias(space, w_pycppclass, "_cppyy_as_builtin", "Data")
 
-        # ROOT-specific converters (TODO: this is a general problem and would serve
-        # with its own API; problem is that constructing temporaries leads to recursive
-        # calls, as the copy-constructor takes a type of the same class, so uses the
-        # same converter)
-        from pypy.module.cppyy import converter
-        class TStringConverter(converter.InstanceConverter):
-            def __init__(self, space, extra):
-                from pypy.module.cppyy import interp_cppyy
-                cppclass = interp_cppyy.scope_byname(space, "TString")
-                converter.InstanceConverter.__init__(self, space, cppclass)
-
-            def _unwrap_object(self, space, w_obj):
-                from pypy.module.cppyy import interp_cppyy
-                if isinstance(w_obj, interp_cppyy.W_CPPInstance):
-                    arg = converter.InstanceConverter._unwrap_object(self, space, w_obj)
-                    return c_TString2TString(space, arg)
-                else:
-                    return c_charp2TString(space, space.str_w(w_obj))
-
-            def free_argument(self, space, arg, call_local):
-                from pypy.module.cppyy import interp_cppyy, capi
-                capi.c_destruct(space, self.cppclass, rffi.cast(capi.C_OBJECT, rffi.cast(rffi.VOIDPP, arg)[0]))
-
-        # TODO: make an API for this
-        converter._converters["TString"]        = TStringConverter
-        converter._converters["const TString&"] = TStringConverter
-
     elif name == "TTree":
         _method_alias(space, w_pycppclass, "_unpythonized_Branch", "Branch")
 
@@ -361,7 +334,6 @@ def pythonize(space, name, w_pycppclass):
     elif name[0:8] == "TVectorT":    # TVectorT<> template
         _method_alias(space, w_pycppclass, "__len__", "GetNoElements")
 
-   
 # destruction callback (needs better solution, but this is for CINT
 # only and should not appear outside of ROOT-specific uses)
 from pypy.module.cpyext.api import cpython_api, CANNOT_FAIL

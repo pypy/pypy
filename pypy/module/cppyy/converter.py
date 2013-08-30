@@ -777,3 +777,27 @@ def _add_aliased_converters():
     for c_type, alias in aliases:
         _converters[alias] = _converters[c_type]
 _add_aliased_converters()
+
+# ROOT-specific converters (TODO: this is a general use case and should grow
+# an API; putting it here is done only to circumvent circular imports)
+if capi.identify() == "CINT":
+
+    class TStringConverter(InstanceConverter):
+        def __init__(self, space, extra):
+            from pypy.module.cppyy import interp_cppyy
+            cppclass = interp_cppyy.scope_byname(space, "TString")
+            InstanceConverter.__init__(self, space, cppclass)
+
+        def _unwrap_object(self, space, w_obj):
+            from pypy.module.cppyy import interp_cppyy
+            if isinstance(w_obj, interp_cppyy.W_CPPInstance):
+                arg = InstanceConverter._unwrap_object(self, space, w_obj)
+                return capi.backend.c_TString2TString(space, arg)
+            else:
+                return capi.backend.c_charp2TString(space, space.str_w(w_obj))
+
+        def free_argument(self, space, arg, call_local):
+            capi.c_destruct(space, self.cppclass, rffi.cast(capi.C_OBJECT, rffi.cast(rffi.VOIDPP, arg)[0]))
+
+    _converters["TString"]        = TStringConverter
+    _converters["const TString&"] = TStringConverter
