@@ -228,7 +228,7 @@ class TestAnnotateTestCase:
         def f():
             return X().meth()
         a = self.RPythonAnnotator()
-        py.test.raises(AssertionError, a.build_types, f,  [])
+        py.test.raises(annmodel.AnnotatorError, a.build_types, f,  [])
 
     def test_methodcall1(self):
         a = self.RPythonAnnotator()
@@ -3381,22 +3381,22 @@ class TestAnnotateTestCase:
             return '%s' % unichr(x)
 
         a = self.RPythonAnnotator()
-        py.test.raises(NotImplementedError, a.build_types, f, [int])
+        py.test.raises(annmodel.AnnotatorError, a.build_types, f, [int])
         def f(x):
             return '%s' % (unichr(x) * 3)
 
         a = self.RPythonAnnotator()
-        py.test.raises(NotImplementedError, a.build_types, f, [int])
+        py.test.raises(annmodel.AnnotatorError, a.build_types, f, [int])
         def f(x):
             return '%s%s' % (1, unichr(x))
 
         a = self.RPythonAnnotator()
-        py.test.raises(NotImplementedError, a.build_types, f, [int])
+        py.test.raises(annmodel.AnnotatorError, a.build_types, f, [int])
         def f(x):
             return '%s%s' % (1, unichr(x) * 15)
 
         a = self.RPythonAnnotator()
-        py.test.raises(NotImplementedError, a.build_types, f, [int])
+        py.test.raises(annmodel.AnnotatorError, a.build_types, f, [int])
 
 
     def test_strformatting_tuple(self):
@@ -3434,7 +3434,7 @@ class TestAnnotateTestCase:
             return [1, 2, 3][s:e]
 
         a = self.RPythonAnnotator()
-        py.test.raises(TypeError, "a.build_types(f, [int, int])")
+        py.test.raises(annmodel.AnnotatorError, "a.build_types(f, [int, int])")
         a.build_types(f, [annmodel.SomeInteger(nonneg=True),
                           annmodel.SomeInteger(nonneg=True)])
         def f(x):
@@ -4038,7 +4038,6 @@ class TestAnnotateTestCase:
         s_objs = set([type(the_exc.s_obj1), type(the_exc.s_obj2)])
 
         assert s_objs == set([annmodel.SomeInteger, annmodel.SomeString])
-        assert the_exc.msg == None # Check that this is a generic UnionError
 
     def test_unionerror_tuple_size(self):
         def f(x):
@@ -4051,7 +4050,7 @@ class TestAnnotateTestCase:
         with py.test.raises(annmodel.UnionError) as exc:
             a.build_types(f, [int])
 
-        assert exc.value.msg == "RPython cannot unify tuples of different length: 2 versus 1"
+        assert "RPython cannot unify tuples of different length: 2 versus 1" in exc.value.msg
 
     def test_unionerror_signedness(self):
         def f(x):
@@ -4064,8 +4063,8 @@ class TestAnnotateTestCase:
         with py.test.raises(annmodel.UnionError) as exc:
             a.build_types(f, [int])
 
-        assert exc.value.msg == ("RPython cannot prove that these integers are of "
-                "the same signedness")
+        assert ("RPython cannot prove that these integers are of the "
+                "same signedness" in exc.value.msg)
 
     def test_unionerror_instance(self):
         class A(object): pass
@@ -4081,7 +4080,8 @@ class TestAnnotateTestCase:
         with py.test.raises(annmodel.UnionError) as exc:
             a.build_types(f, [int])
 
-        assert exc.value.msg == ("RPython cannot unify instances with no common base class")
+        assert ("RPython cannot unify instances with no common base class" 
+                in exc.value.msg)
 
     def test_unionerror_iters(self):
 
@@ -4096,7 +4096,27 @@ class TestAnnotateTestCase:
         with py.test.raises(annmodel.UnionError) as exc:
             a.build_types(f, [int])
 
-        assert exc.value.msg == ("RPython cannot unify incompatible iterator variants")
+        assert ("RPython cannot unify incompatible iterator variants" in 
+                exc.value.msg)
+
+    def test_variable_getattr(self):
+        class A(object): pass
+        def f(y):
+            a = A()
+            return getattr(a, y)
+        a = self.RPythonAnnotator()
+        with py.test.raises(annmodel.AnnotatorError) as exc:
+            a.build_types(f, [str])
+        assert ("variable argument to getattr" in exc.value.msg)
+
+    def test_bad_call(self):
+        def f(x):
+            return x()
+        a = self.RPythonAnnotator()
+        with py.test.raises(annmodel.AnnotatorError) as exc:
+            a.build_types(f, [str])
+        assert ("Cannot prove that the object is callable" in exc.value.msg)
+
 
 def g(n):
     return [0, 1, 2, n]

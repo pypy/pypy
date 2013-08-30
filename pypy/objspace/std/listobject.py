@@ -562,6 +562,8 @@ class W_ListObject(W_Root):
         'L.reverse() -- reverse *IN PLACE*'
         self.reverse()
 
+    @jit.look_inside_iff(lambda self, space, w_value:
+            jit.loop_unrolling_heuristic(self, self.length(), UNROLL_CUTOFF))
     def descr_count(self, space, w_value):
         '''L.count(value) -> integer -- return number of
         occurrences of value'''

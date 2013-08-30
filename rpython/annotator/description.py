@@ -6,6 +6,7 @@ from rpython.flowspace.bytecode import cpython_code_signature
 from rpython.annotator.argument import rawshape, ArgErr
 from rpython.tool.sourcetools import valid_identifier, func_with_new_name
 from rpython.tool.pairtype import extendabletype
+from rpython.annotator.model import AnnotatorError
 
 class CallFamily(object):
     """A family of Desc objects that could be called from common call sites.
@@ -261,7 +262,7 @@ class FunctionDesc(Desc):
         try:
             inputcells = args.match_signature(signature, defs_s)
         except ArgErr, e:
-            raise TypeError("signature mismatch: %s() %s" %
+            raise AnnotatorError("signature mismatch: %s() %s" %
                             (self.name, e.getmsg()))
         return inputcells
 
@@ -678,7 +679,7 @@ class ClassDesc(Desc):
                 value = value.__get__(42)
                 classdef = None   # don't bind
             elif isinstance(value, classmethod):
-                raise AssertionError("classmethods are not supported")
+                raise AnnotatorError("classmethods are not supported")
             s_value = self.bookkeeper.immutablevalue(value)
             if classdef is not None:
                 s_value = s_value.bind_callables_under(classdef, name)

@@ -337,7 +337,7 @@ def llmemory_cast_int_to_adr(s):
     return SomeAddress()
 
 def unicodedata_decimal(s_uchr):
-    raise TypeError, "unicodedate.decimal() calls should not happen at interp-level"
+    raise TypeError("unicodedate.decimal() calls should not happen at interp-level")
 
 def test(*args):
     return s_Bool
