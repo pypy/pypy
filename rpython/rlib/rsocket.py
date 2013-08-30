@@ -509,12 +509,13 @@ class RSocket(object):
 
     if hasattr(_c, 'fcntl'):
         def _setblocking(self, block):
-            delay_flag = intmask(_c.fcntl(self.fd, _c.F_GETFL, 0))
+            orig_delay_flag = intmask(_c.fcntl(self.fd, _c.F_GETFL, 0))
             if block:
-                delay_flag &= ~_c.O_NONBLOCK
+                delay_flag = orig_delay_flag & ~_c.O_NONBLOCK
             else:
-                delay_flag |= _c.O_NONBLOCK
-            _c.fcntl(self.fd, _c.F_SETFL, delay_flag)
+                delay_flag = orig_delay_flag | _c.O_NONBLOCK
+            if orig_delay_flag != delay_flag:
+                _c.fcntl(self.fd, _c.F_SETFL, delay_flag)
     elif hasattr(_c, 'ioctlsocket'):
         def _setblocking(self, block):
             flag = lltype.malloc(rffi.ULONGP.TO, 1, flavor='raw')
