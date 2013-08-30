@@ -175,7 +175,8 @@ char* cppyy_call_s(cppyy_method_t method, cppyy_object_t self, int nargs, void* 
     Reflex::StubFunction stub = (Reflex::StubFunction)method;
     stub(cppresult, (void*)self, arguments, NULL /* stub context */);
     char* cstr = cppstring_to_cstring(*cppresult);
-    delete cppresult;         // the stub will have performed a placement-new
+    cppresult->std::string::~string();
+    free((void*)cppresult);        // the stub will have performed a placement-new
     return cstr;
 }
 
@@ -614,11 +615,15 @@ void cppyy_free(void* ptr) {
 }
 
 cppyy_object_t cppyy_charp2stdstring(const char* str) {
-    return (cppyy_object_t)new std::string(str);
+    void* arena = new char[sizeof(std::string)];
+    new (arena) std::string(str);
+    return (cppyy_object_t)arena;
 }
 
 cppyy_object_t cppyy_stdstring2stdstring(cppyy_object_t ptr) {
-    return (cppyy_object_t)new std::string(*(std::string*)ptr);
+    void* arena = new char[sizeof(std::string)];
+    new (arena) std::string(*(std::string*)ptr);
+    return (cppyy_object_t)arena;
 }
 
 void cppyy_assign2stdstring(cppyy_object_t ptr, const char* str) {
