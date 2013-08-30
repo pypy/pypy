@@ -56,7 +56,7 @@ class BytecodeSpec(object):
         for name, index in opmap.items():
             tbl[index] = methodname = name.replace('+', '_')
             desc = OpcodeDesc(self, name, index, methodname)
-            setattr(self.opcodedesc, name, desc)
+            setattr(self.opcodedesc, methodname, desc)
             self.opdescmap[index] = desc
         # fill the ordered opdesc list
         self.ordered_opdescs = lst = self.opdescmap.values() 
