@@ -2,6 +2,7 @@ import py
 
 from rpython.annotator.model import *
 from rpython.annotator.listdef import ListDef
+from rpython.translator.translator import TranslationContext
 
 
 listdef1 = ListDef(None, SomeTuple([SomeInteger(nonneg=True), SomeString()]))
@@ -173,6 +174,28 @@ def test_nan():
     assert f1.contains(f1)
     assert f2.contains(f1)
     assert f1.contains(f2)
+
+def compile_function(function, annotation=[]):
+    t = TranslationContext()
+    t.buildannotator().build_types(function, annotation)
+
+class AAA(object):
+    pass
+
+def test_blocked_inference1():
+    def blocked_inference():
+        return AAA().m()
+
+    py.test.raises(AnnotatorError, compile_function, blocked_inference)
+
+def test_blocked_inference2():
+    def blocked_inference():
+        a = AAA()
+        b = a.x
+        return b
+
+    py.test.raises(AnnotatorError, compile_function, blocked_inference)
+
 
 if __name__ == '__main__':
     for name, value in globals().items():

@@ -1229,7 +1229,10 @@ class Statement(object):
         if cvt is not None:
             param = cvt(param)
 
-        param = adapt(param)
+        try:
+            param = adapt(param)
+        except:
+            pass  # And use previous value
 
         if param is None:
             rc = _lib.sqlite3_bind_null(self._statement, idx)

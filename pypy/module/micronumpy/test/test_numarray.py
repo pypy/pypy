@@ -1922,6 +1922,29 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = numpy.arange(10.).reshape((5, 2))[::2]
         assert (loads(dumps(a)) == a).all()
 
+    def test_string_filling(self):
+        import numpypy as numpy
+        a = numpy.empty((10,10), dtype='c1')
+        a.fill(12)
+        assert (a == '1').all()
+
+    def test_boolean_indexing(self):
+        import numpypy as np
+        a = np.zeros((1, 3))
+        b = np.array([True])
+
+        assert (a[b] == a).all()
+
+        a[b] = 1.
+
+        assert (a == [[1., 1., 1.]]).all()
+
+    @py.test.mark.xfail
+    def test_boolean_array(self):
+        import numpypy as np
+        a = np.ndarray([1], dtype=bool)
+        assert a[0] == True
+
 class AppTestMultiDim(BaseNumpyAppTest):
     def test_init(self):
         import numpypy
@@ -2328,6 +2351,21 @@ class AppTestMultiDim(BaseNumpyAppTest):
         a = a[::2]
         a[a & 1 == 0] = 15
         assert (a == [[15, 1], [15, 5], [15, 9]]).all()
+
+    def test_array_indexing_bool_specialcases(self):
+        from numpypy import arange, array
+        a = arange(6)
+        try:
+            a[a < 3] = [1, 2]
+            assert False, "Should not work"
+        except ValueError:
+            pass
+        a = arange(6)
+        a[a > 3] = array([15])
+        assert (a == [0, 1, 2, 3, 15, 15]).all()
+        a = arange(6).reshape(3, 2)
+        a[a & 1 == 1] = []  # here, Numpy sticks garbage into the array
+        assert a.shape == (3, 2)
 
     def test_copy_kwarg(self):
         from numpypy import array

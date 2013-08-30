@@ -676,10 +676,42 @@ def ll_to_annotation(v):
 
 # ____________________________________________________________
 
-class UnionError(Exception):
+
+class AnnotatorError(Exception):
+    def __init__(self, msg=None):
+        self.msg = msg
+        self.source = None
+
+    def __str__(self):
+        s = "\n\n%s" % self.msg
+        if self.source is not None:
+            s += "\n\n"
+            s += self.source
+
+        return s
+
+class UnionError(AnnotatorError):
     """Signals an suspicious attempt at taking the union of
     deeply incompatible SomeXxx instances."""
 
+    def __init__(self, s_obj1, s_obj2, msg=None):
+        """
+        This exception expresses the fact that s_obj1 and s_obj2 cannot be unified.
+        The msg paramter is appended to a generic message. This can be used to
+        give the user a little more information.
+        """
+        s = ""
+        if msg is not None:
+            s += "%s\n\n" % msg
+        s += "Offending annotations:\n"
+        s += "  %s\n  %s" % (s_obj1, s_obj2)
+        self.s_obj1 = s_obj1
+        self.s_obj2 = s_obj2
+        self.msg = s
+        self.source = None
+
+    def __repr__(self):
+        return str(self)
 
 def unionof(*somevalues):
     "The most precise SomeValue instance that contains all the values."
