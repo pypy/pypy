@@ -219,9 +219,6 @@ class __extend__(pyframe.PyFrame):
                 return self.jump_absolute(oparg, ec)
 
             for opdesc in unrolling_all_opcode_descs:
-                if not opdesc.is_enabled(space):
-                    continue
-
                 # the following "if" is part of the big switch described
                 # above.
                 if opcode == opdesc.index:
