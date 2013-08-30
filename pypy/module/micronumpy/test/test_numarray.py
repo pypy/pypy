@@ -1939,6 +1939,7 @@ class AppTestNumArray(BaseNumpyAppTest):
 
         assert (a == [[1., 1., 1.]]).all()
 
+    @py.test.mark.xfail
     def test_boolean_array(self):
         import numpypy as np
         a = np.ndarray([1], dtype=bool)
