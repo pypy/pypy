@@ -219,45 +219,27 @@ class __extend__(pyframe.PyFrame):
             if opcode == self.opcodedesc.JUMP_ABSOLUTE.index:
                 return self.jump_absolute(oparg, ec)
 
-            if we_are_translated():
-                for opdesc in unrolling_all_opcode_descs:
-                    # static checks to skip this whole case if necessary
-                    if opdesc.bytecode_spec is not self.bytecode_spec:
-                        continue
-                    if not opdesc.is_enabled(space):
-                        continue
-                    if opdesc.methodname in (
-                        'EXTENDED_ARG', 'RETURN_VALUE',
-                        'END_FINALLY', 'JUMP_ABSOLUTE'):
-                        continue   # opcodes implemented above
+            for opdesc in unrolling_all_opcode_descs:
+                # static checks to skip this whole case if necessary
+                if opdesc.bytecode_spec is not self.bytecode_spec:
+                    continue
+                if not opdesc.is_enabled(space):
+                    continue
 
-                    # the following "if" is part of the big switch described
-                    # above.
-                    if opcode == opdesc.index:
-                        # dispatch to the opcode method
-                        meth = getattr(self, opdesc.methodname)
-                        res = meth(oparg, next_instr)
-                        # !! warning, for the annotator the next line is not
-                        # comparing an int and None - you can't do that.
-                        # Instead, it's constant-folded to either True or False
-                        if res is not None:
-                            next_instr = res
-                        break
-                else:
-                    self.MISSING_OPCODE(oparg, next_instr)
-
-            else:  # when we are not translated, a list lookup is much faster
-                methodname = self.opcode_method_names[opcode]
-                try:
-                    meth = getattr(self, methodname)
-                except AttributeError:
-                    raise BytecodeCorruption("unimplemented opcode, ofs=%d, "
-                                             "code=%d, name=%s" %
-                                             (self.last_instr, opcode,
-                                              methodname))
-                res = meth(oparg, next_instr)
-                if res is not None:
-                    next_instr = res
+                # the following "if" is part of the big switch described
+                # above.
+                if opcode == opdesc.index:
+                    # dispatch to the opcode method
+                    meth = getattr(self, opdesc.methodname)
+                    res = meth(oparg, next_instr)
+                    # !! warning, for the annotator the next line is not
+                    # comparing an int and None - you can't do that.
+                    # Instead, it's constant-folded to either True or False
+                    if res is not None:
+                        next_instr = res
+                    break
+            else:
+                self.MISSING_OPCODE(oparg, next_instr)
 
             if jit.we_are_jitted():
                 return next_instr
