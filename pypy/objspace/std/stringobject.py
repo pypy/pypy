@@ -230,13 +230,13 @@ def str_capitalize__String(space, w_self):
 
     return space.wrap(builder.build())
 
-def str_title__String(space, w_self):
-    input = w_self._value
-    builder = StringBuilder(len(input))
+
+@jit.elidable
+def title(s):
+    builder = StringBuilder(len(s))
     prev_letter = ' '
 
-    for pos in range(len(input)):
-        ch = input[pos]
+    for ch in s:
         if not prev_letter.isalpha():
             ch = _upper(ch)
             builder.append(ch)
@@ -245,8 +245,12 @@ def str_title__String(space, w_self):
             builder.append(ch)
 
         prev_letter = ch
+    return builder.build()
 
-    return space.wrap(builder.build())
+
+def str_title__String(space, w_self):
+    return space.wrap(title(w_self._value))
+
 
 def str_split__String_None_ANY(space, w_self, w_none, w_maxsplit=-1):
     maxsplit = space.int_w(w_maxsplit)
