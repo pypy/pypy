@@ -72,6 +72,8 @@ class W_Buffer(W_Root):
         else:
             buf = buffer.SubBuffer(buf, offset, size)
         return W_Buffer(buf)
+    # hack to fix translation
+    descr_new.__get__('foo').__name__ = 'descr_new_buffer'
 
     def descr_len(self, space):
         return space.wrap(self.buf.getlength())
