@@ -25,7 +25,7 @@ def getsig(f, policy=None):
 
 def check_annotator_fails(caller):
     exc = py.test.raises(Exception, annotate_at, caller).value
-    assert caller.func_name in repr(exc.args)
+    assert caller.func_name in str(exc)
 
 
 def test_bookkeeping():
