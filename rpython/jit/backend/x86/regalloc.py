@@ -28,6 +28,7 @@ from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import r_longlong, r_uint
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.rtyper.lltypesystem import lltype, rffi, rstr
+from rpython.rtyper.lltypesystem.lloperation import llop
 
 
 class X86RegisterManager(RegisterManager):
@@ -1375,7 +1376,9 @@ def get_ebp_ofs(base_ofs, position):
     return base_ofs + WORD * (position + JITFRAME_FIXED_SIZE)
 
 def not_implemented(msg):
-    os.write(2, '[x86/regalloc] %s\n' % msg)
+    msg = '[x86/regalloc] %s\n' % msg
+    if we_are_translated():
+        llop.debug_print(lltype.Void, msg)
     raise NotImplementedError(msg)
 
 # xxx hack: set a default value for TargetToken._ll_loop_code.
