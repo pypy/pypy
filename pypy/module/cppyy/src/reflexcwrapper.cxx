@@ -625,7 +625,3 @@ cppyy_object_t cppyy_stdstring2stdstring(cppyy_object_t ptr) {
     new (arena) std::string(*(std::string*)ptr);
     return (cppyy_object_t)arena;
 }
-
-void cppyy_assign2stdstring(cppyy_object_t ptr, const char* str) {
-    *((std::string*)ptr) = str;
-}

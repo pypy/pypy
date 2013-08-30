@@ -543,12 +543,4 @@ _c_stdstring2stdstring = rffi.llexternal(
     compilation_info=backend.eci)
 def c_stdstring2stdstring(space, cppobject):
     return _c_stdstring2stdstring(cppobject)
-_c_assign2stdstring = rffi.llexternal(
-    "cppyy_assign2stdstring",
-    [C_OBJECT, rffi.CCHARP], lltype.Void,
-    threadsafe=ts_helper,
-    compilation_info=backend.eci)
-def c_assign2stdstring(space, cppobject, svalue):
-    charp = rffi.str2charp(svalue)
-    _c_assign2stdstring(cppobject, charp)
-    rffi.free_charp(charp)
+

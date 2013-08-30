@@ -974,10 +974,6 @@ cppyy_object_t cppyy_stdstring2stdstring(cppyy_object_t ptr) {
     return (cppyy_object_t)new std::string(*(std::string*)ptr);
 }
 
-void cppyy_assign2stdstring(cppyy_object_t ptr, const char* str) {
-   *((std::string*)ptr) = str;
-}
-
 
 void* cppyy_load_dictionary(const char* lib_name) {
     if (0 <= gSystem->Load(lib_name))
