@@ -39,6 +39,8 @@ def buffer_attach(space, py_obj, w_obj):
     py_buf.c_b_offset = 0
     rffi.setintfield(py_buf, 'c_b_readonly', 1)
     rffi.setintfield(py_buf, 'c_b_hash', -1)
+
+    assert isinstance(w_obj, W_Buffer)
     buf = w_obj.buf
 
     if isinstance(buf, SubBuffer):
