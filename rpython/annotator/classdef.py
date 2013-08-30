@@ -2,7 +2,7 @@
 Type inference for user-defined classes.
 """
 from rpython.annotator.model import SomePBC, s_ImpossibleValue, unionof
-from rpython.annotator.model import SomeInteger, SomeTuple, SomeString
+from rpython.annotator.model import SomeInteger, SomeTuple, SomeString, AnnotatorError
 from rpython.annotator import description
 
 
@@ -429,7 +429,7 @@ class InstanceSource(object):
                         result.extend(slots)
         return result
 
-class NoSuchAttrError(Exception):
+class NoSuchAttrError(AnnotatorError):
     """Raised when an attribute is found on a class where __slots__
      or _attrs_ forbits it."""
 
