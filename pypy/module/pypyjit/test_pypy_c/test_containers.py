@@ -255,8 +255,8 @@ class TestOtherContainers(BaseTestPyPyC):
         assert loop.match("""
             i7 = int_lt(i5, i6)
             guard_true(i7, descr=...)
-            guard_not_invalidated(descr=...)
             i9 = int_add(i5, 1)
+            guard_not_invalidated(descr=...)
             --TICK--
             jump(..., descr=...)
         """)
