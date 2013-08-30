@@ -1282,49 +1282,6 @@ class __extend__(pyframe.PyFrame):
         self.space.setitem(w_dict, w_key, w_value)
 
 
-class __extend__(pyframe.CPythonFrame):
-
-    def JUMP_IF_FALSE(self, stepby, next_instr):
-        w_cond = self.peekvalue()
-        if not self.space.is_true(w_cond):
-            next_instr += stepby
-        return next_instr
-
-    def JUMP_IF_TRUE(self, stepby, next_instr):
-        w_cond = self.peekvalue()
-        if self.space.is_true(w_cond):
-            next_instr += stepby
-        return next_instr
-
-    def BUILD_MAP(self, itemcount, next_instr):
-        if sys.version_info >= (2, 6):
-            # We could pre-allocate a dict here
-            # but for the moment this code is not translated.
-            pass
-        else:
-            if itemcount != 0:
-                raise BytecodeCorruption
-        w_dict = self.space.newdict()
-        self.pushvalue(w_dict)
-
-    def STORE_MAP(self, zero, next_instr):
-        if sys.version_info >= (2, 6):
-            w_key = self.popvalue()
-            w_value = self.popvalue()
-            w_dict = self.peekvalue()
-            self.space.setitem(w_dict, w_key, w_value)
-        else:
-            raise BytecodeCorruption
-
-    def LIST_APPEND(self, oparg, next_instr):
-        w = self.popvalue()
-        if sys.version_info < (2, 7):
-            v = self.popvalue()
-        else:
-            v = self.peekvalue(oparg - 1)
-        self.space.call_method(v, 'append', w)
-
-
 ### ____________________________________________________________ ###
 
 class ExitFrame(Exception):
