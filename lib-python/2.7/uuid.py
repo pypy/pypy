@@ -44,6 +44,8 @@ Typical usage:
     UUID('00010203-0405-0607-0809-0a0b0c0d0e0f')
 """
 
+import struct
+
 __author__ = 'Ka-Ping Yee <ping@zesty.ca>'
 
 RESERVED_NCS, RFC_4122, RESERVED_MICROSOFT, RESERVED_FUTURE = [
@@ -142,7 +144,8 @@ class UUID(object):
         if bytes is not None:
             if len(bytes) != 16:
                 raise ValueError('bytes is not a 16-char string')
-            int = long(('%02x'*16) % tuple(map(ord, bytes)), 16)
+            int = (struct.unpack('>Q', bytes[:8])[0] << 64 |
+                   struct.unpack('>Q', bytes[8:])[0])
         if fields is not None:
             if len(fields) != 6:
                 raise ValueError('fields is not a 6-tuple')
