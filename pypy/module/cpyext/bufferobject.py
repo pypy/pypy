@@ -39,24 +39,25 @@ def buffer_attach(space, py_obj, w_obj):
     py_buf.c_b_offset = 0
     rffi.setintfield(py_buf, 'c_b_readonly', 1)
     rffi.setintfield(py_buf, 'c_b_hash', -1)
+    buf = w_obj.buf
 
-    if isinstance(w_obj, SubBuffer):
-        py_buf.c_b_offset = w_obj.offset
-        w_obj = w_obj.buffer
+    if isinstance(buf, SubBuffer):
+        py_buf.c_b_offset = buf.offset
+        buf = buf.buffer
 
-    # If w_obj already allocated a fixed buffer, use it, and keep a
-    # reference to w_obj.
+    # If buf already allocated a fixed buffer, use it, and keep a
+    # reference to buf.
     # Otherwise, b_base stays NULL, and we own the b_ptr.
 
-    if isinstance(w_obj, StringBuffer):
+    if isinstance(buf, StringBuffer):
         py_buf.c_b_base = lltype.nullptr(PyObject.TO)
-        py_buf.c_b_ptr = rffi.cast(rffi.VOIDP, rffi.str2charp(w_obj.value))
-        py_buf.c_b_size = w_obj.getlength()
-    elif isinstance(w_obj, ArrayBuffer):
-        w_base = w_obj.array
+        py_buf.c_b_ptr = rffi.cast(rffi.VOIDP, rffi.str2charp(buf.value))
+        py_buf.c_b_size = buf.getlength()
+    elif isinstance(buf, ArrayBuffer):
+        w_base = buf.array
         py_buf.c_b_base = make_ref(space, w_base)
-        py_buf.c_b_ptr = rffi.cast(rffi.VOIDP, w_obj.array._charbuf_start())
-        py_buf.c_b_size = w_obj.getlength()
+        py_buf.c_b_ptr = rffi.cast(rffi.VOIDP, buf.array._charbuf_start())
+        py_buf.c_b_size = buf.getlength()
     else:
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "buffer flavor not supported"))
