@@ -160,7 +160,8 @@ class InstancePtrExecutor(FunctionExecutor):
         from pypy.module.cppyy import interp_cppyy
         long_result = capi.c_call_l(space, cppmethod, cppthis, num_args, args)
         ptr_result = rffi.cast(capi.C_OBJECT, long_result)
-        return interp_cppyy.wrap_cppobject(space, ptr_result, self.cppclass)
+        pyres = interp_cppyy.wrap_cppobject(space, ptr_result, self.cppclass)
+        return pyres
 
     def execute_libffi(self, space, cif_descr, funcaddr, buffer):
         jit_libffi.jit_ffi_call(cif_descr, funcaddr, buffer)
@@ -205,6 +206,13 @@ class StdStringExecutor(InstancePtrExecutor):
     def execute_libffi(self, space, cif_descr, funcaddr, buffer):
         from pypy.module.cppyy.interp_cppyy import FastCallNotPossible
         raise FastCallNotPossible
+
+class StdStringRefExecutor(InstancePtrExecutor):
+
+    def __init__(self, space, cppclass):
+        from pypy.module.cppyy import interp_cppyy
+        cppclass = interp_cppyy.scope_byname(space, capi.std_string_name)
+        InstancePtrExecutor.__init__(self, space, cppclass)
 
 
 class PyObjectExecutor(PtrTypeExecutor):
@@ -295,12 +303,12 @@ _executors["void"]                = VoidExecutor
 _executors["void*"]               = PtrTypeExecutor
 _executors["const char*"]         = CStringExecutor
 
-# special cases
+# special cases (note: 'string' aliases added below)
 _executors["constructor"]         = ConstructorExecutor
 
 _executors["std::basic_string<char>"]         = StdStringExecutor
-_executors["const std::basic_string<char>&"]  = StdStringExecutor
-_executors["std::basic_string<char>&"]        = StdStringExecutor    # TODO: shouldn't copy
+_executors["const std::basic_string<char>&"]  = StdStringRefExecutor
+_executors["std::basic_string<char>&"]        = StdStringRefExecutor
 
 _executors["PyObject*"]           = PyObjectExecutor
 
@@ -363,7 +371,11 @@ def _add_aliased_executors():
     "NOT_RPYTHON"
     aliases = (
         ("const char*",                     "char*"),
+
         ("std::basic_string<char>",         "string"),
+        ("const std::basic_string<char>&",  "const string&"),
+        ("std::basic_string<char>&",        "string&"),
+
         ("PyObject*",                       "_object*"),
     )
 
