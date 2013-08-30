@@ -63,7 +63,6 @@ class __extend__(pyframe.PyFrame):
     """A PyFrame that knows about interpretation of standard Python opcodes
     minus the ones related to nested scopes."""
 
-    bytecode_spec = bytecode_spec
     opcode_method_names = bytecode_spec.method_names
     opcodedesc = bytecode_spec.opcodedesc
     opdescmap = bytecode_spec.opdescmap
@@ -220,9 +219,6 @@ class __extend__(pyframe.PyFrame):
                 return self.jump_absolute(oparg, ec)
 
             for opdesc in unrolling_all_opcode_descs:
-                # static checks to skip this whole case if necessary
-                if opdesc.bytecode_spec is not self.bytecode_spec:
-                    continue
                 if not opdesc.is_enabled(space):
                     continue
 
