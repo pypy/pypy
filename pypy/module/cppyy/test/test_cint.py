@@ -7,6 +7,10 @@ from pypy.module.cppyy import capi
 if capi.identify() != 'CINT':
     py.test.skip("backend-specific: CINT-only tests")
 
+# load _cffi_backend early, or its global vars are counted as leaks in the
+# test (note that the module is not otherwise used in the test itself)
+from pypy.module._cffi_backend import newtype
+
 currpath = py.path.local(__file__).dirpath()
 iotypes_dct = str(currpath.join("iotypesDict.so"))
 
@@ -139,7 +143,7 @@ class AppTestCINTPYTHONIZATIONS:
 
 
 class AppTestCINTTTREE:
-    spaceconfig = dict(usemodules=['cppyy', '_rawffi', '_ffi', 'itertools', '_cffi_backend'])
+    spaceconfig = dict(usemodules=['cppyy', '_rawffi', '_ffi', 'itertools'])
 
     def setup_class(cls):
         cls.w_N = cls.space.wrap(5)
@@ -148,8 +152,7 @@ class AppTestCINTTTREE:
         cls.w_tname = cls.space.wrap("test")
         cls.w_title = cls.space.wrap("test tree")
         cls.w_iotypes = cls.space.appexec([], """():
-            import cppyy, _cffi_backend
-            _cffi_backend.new_primitive_type      # prevents leak-checking complaints on _cffi_backend
+            import cppyy
             return cppyy.load_reflection_info(%r)""" % (iotypes_dct,))
 
     def test01_write_stdvector(self):
