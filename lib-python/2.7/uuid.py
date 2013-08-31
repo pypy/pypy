@@ -127,8 +127,12 @@ class UUID(object):
         overriding the given 'hex', 'bytes', 'bytes_le', 'fields', or 'int'.
         """
 
-        if [hex, bytes, bytes_le, fields, int].count(None) != 4:
-            raise TypeError('need one of hex, bytes, bytes_le, fields, or int')
+        if (
+            ((hex is not None) + (bytes is not None) + (bytes_le is not None) +
+             (fields is not None) + (int is not None)) != 1
+        ):
+            raise TypeError('need exactly one of hex, bytes, bytes_le, fields,'
+                            ' or int')
         if hex is not None:
             hex = hex.replace('urn:', '').replace('uuid:', '')
             hex = hex.strip('{}').replace('-', '')

@@ -825,14 +825,14 @@ def _make_none_union(classname, constructor_args='', glob=None):
                 if pbc.isNone():
                     return %(classname)s(%(constructor_args)s)
                 else:
-                    return SomeObject()
+                    raise UnionError(pbc, obj)
 
         class __extend__(pairtype(SomePBC, %(classname)s)):
             def union((pbc, obj)):
                 if pbc.isNone():
                     return %(classname)s(%(constructor_args)s)
                 else:
-                    return SomeObject()
+                    raise UnionError(pbc, obj)
     """ % loc)
     exec source.compile() in glob
 

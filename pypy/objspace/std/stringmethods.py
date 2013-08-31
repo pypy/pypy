@@ -450,31 +450,7 @@ class StringMethods(object):
         value = self._val(space)
         length = len(value)
         if space.is_none(w_sep):
-            i = 0
-            while True:
-                # find the beginning of the next word
-                while i < length:
-                    if not self._isspace(value[i]):
-                        break   # found
-                    i += 1
-                else:
-                    break  # end of string, finished
-
-                # find the end of the word
-                if maxsplit == 0:
-                    j = length   # take all the rest of the string
-                else:
-                    j = i + 1
-                    while j < length and not self._isspace(value[j]):
-                        j += 1
-                    maxsplit -= 1   # NB. if it's already < 0, it stays < 0
-
-                # the word is value[i:j]
-                res.append(value[i:j])
-
-                # continue to look from the character following the space after the word
-                i = j + 1
-
+            res = split(value, maxsplit=maxsplit)
             return self._newlist_unwrapped(space, res)
 
         by = self._op_val(space, w_sep)
@@ -489,35 +465,7 @@ class StringMethods(object):
         res = []
         value = self._val(space)
         if space.is_none(w_sep):
-            i = len(value)-1
-            while True:
-                # starting from the end, find the end of the next word
-                while i >= 0:
-                    if not self._isspace(value[i]):
-                        break   # found
-                    i -= 1
-                else:
-                    break  # end of string, finished
-
-                # find the start of the word
-                # (more precisely, 'j' will be the space character before the word)
-                if maxsplit == 0:
-                    j = -1   # take all the rest of the string
-                else:
-                    j = i - 1
-                    while j >= 0 and not self._isspace(value[j]):
-                        j -= 1
-                    maxsplit -= 1   # NB. if it's already < 0, it stays < 0
-
-                # the word is value[j+1:i+1]
-                j1 = j + 1
-                assert j1 >= 0
-                res.append(value[j1:i+1])
-
-                # continue to look from the character before the space before the word
-                i = j - 1
-
-            res.reverse()
+            res = rsplit(value, maxsplit=maxsplit)
             return self._newlist_unwrapped(space, res)
 
         by = self._op_val(space, w_sep)
@@ -647,17 +595,19 @@ class StringMethods(object):
         selfval = self._val(space)
         if len(selfval) == 0:
             return self
+        return self._new(self.title(selfval))
 
-        builder = self._builder(len(selfval))
+    @jit.elidable
+    def title(self, value):
+        builder = self._builder(len(value))
         previous_is_cased = False
-        for pos in range(len(selfval)):
-            ch = selfval[pos]
+        for ch in value:
             if not previous_is_cased:
                 builder.append(self._title(ch))
             else:
                 builder.append(self._lower(ch))
             previous_is_cased = self._iscased(ch)
-        return self._new(builder.build())
+        return builder.build()
 
     DEFAULT_NOOP_TABLE = ''.join([chr(i) for i in range(256)])
 
