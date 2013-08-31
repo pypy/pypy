@@ -5,6 +5,11 @@ What's new in PyPy 2.1
 .. this is a revision shortly after release-2.1-beta
 .. startrev: 4eb52818e7c0
 
+.. branch: sanitise_bytecode_dispatch
+Make PyPy's bytecode dispatcher easy to read, and less reliant on RPython
+magic. There is no functional change, though the removal of dead code leads
+to many fewer tests to execute.
+
 .. branch: fastjson
 Fast json decoder written in RPython, about 3-4x faster than the pure Python
 decoder which comes with the stdlib
