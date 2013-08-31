@@ -104,6 +104,10 @@ class BlockTransformer(object):
                   is_gc_ptr(op.args[0].concretetype)):
                 # GC pointer comparison might need special care
                 expand_comparison.add(op)
+
+            elif op.opname == 'weakref_deref':
+                # 'weakref_deref' needs an immutable read barrier
+                wants_a_barrier[op] = 'I'
         #
         self.wants_a_barrier = wants_a_barrier
         self.expand_comparison = expand_comparison

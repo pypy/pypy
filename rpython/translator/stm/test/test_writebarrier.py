@@ -489,6 +489,20 @@ class TestTransform(BaseTestTransform):
         for i in range(10):
             self.interpret(f, [], run=False)
 
+    def test_immut_barrier_before_weakref_deref(self):
+        import weakref
+        class Foo:
+            pass
+
+        def f1():
+            x = Foo()
+            w = weakref.ref(x)
+            llop.debug_stm_flush_barrier(lltype.Void)
+            return w()
+
+        self.interpret(f1, [])
+        assert self.barriers == ['a2i']
+
 
 external_release_gil = rffi.llexternal('external_release_gil', [], lltype.Void,
                                        _callable=lambda: None,
