@@ -14,7 +14,37 @@ from rpython.rlib import jit
 # -------------- public API for string functions -----------------------
 
 @specialize.argtype(0)
-def split(value, by, maxsplit=-1):
+def split(value, by=None, maxsplit=-1):
+    if by is None:
+        length = len(value)
+        i = 0
+        res = []
+        while True:
+            # find the beginning of the next word
+            print i
+            while i < length:
+                if not value[i].isspace():
+                    break   # found
+                i += 1
+            else:
+                break  # end of string, finished
+
+            # find the end of the word
+            if maxsplit == 0:
+                j = length   # take all the rest of the string
+            else:
+                j = i + 1
+                while j < length and not value[j].isspace():
+                    j += 1
+                maxsplit -= 1   # NB. if it's already < 0, it stays < 0
+
+            # the word is value[i:j]
+            res.append(value[i:j])
+
+            # continue to look from the character following the space after the word
+            i = j + 1
+        return res
+
     if isinstance(value, str):
         assert isinstance(by, str)
     else:
