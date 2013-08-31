@@ -6,6 +6,7 @@ built-in functions (or type constructors) implementing them.
 import __builtin__
 import __future__
 import operator
+from rpython.rlib.unroll import unrolling_iterable, _unroller
 from rpython.tool.sourcetools import compile2
 from rpython.flowspace.model import (Constant, WrapException, const, Variable,
                                      SpaceOperation)
@@ -276,7 +277,6 @@ add_operator('ge', 2, '>=', pure=True)
 add_operator('cmp', 2, 'cmp', pyfunc=cmp, pure=True)   # rich cmps preferred
 add_operator('coerce', 2, 'coerce', pyfunc=coerce, pure=True)
 add_operator('contains', 2, 'contains', pure=True)
-add_operator('iter', 1, 'iter', pyfunc=iter)
 add_operator('next', 1, 'next', pyfunc=next)
 #add_operator('call', 3, 'call')
 add_operator('get', 3, 'get', pyfunc=get, pure=True)
@@ -285,9 +285,25 @@ add_operator('delete', 2, 'delete', pyfunc=delete)
 add_operator('userdel', 1, 'del', pyfunc=userdel)
 add_operator('buffer', 1, 'buffer', pyfunc=buffer, pure=True)   # see buffer.py
 
+class Iter(HLOperation):
+    opname = 'iter'
+    arity = 1
+    can_overflow = False
+    canraise = []
+    pyfunc = staticmethod(iter)
+
+    def constfold(self):
+        w_iterable, = self.args
+        if isinstance(w_iterable, Constant):
+            iterable = w_iterable.value
+            if isinstance(iterable, unrolling_iterable):
+                return const(iterable.get_unroller())
+op.iter = Iter
+
 # Other functions that get directly translated to SpaceOperators
 func2op[type] = op.type
 func2op[operator.truth] = op.bool
+func2op[__builtin__.iter] = op.iter
 if hasattr(__builtin__, 'next'):
     func2op[__builtin__.next] = op.next
 

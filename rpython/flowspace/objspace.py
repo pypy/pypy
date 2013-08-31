@@ -207,14 +207,6 @@ class FlowObjSpace(object):
     def not_(self, w_obj):
         return const(not self.frame.guessbool(self.bool(w_obj)))
 
-    def iter(self, w_iterable):
-        if isinstance(w_iterable, Constant):
-            iterable = w_iterable.value
-            if isinstance(iterable, unrolling_iterable):
-                return const(iterable.get_unroller())
-        w_iter = self.frame.do_operation("iter", w_iterable)
-        return w_iter
-
     def next(self, w_iter):
         frame = self.frame
         if isinstance(w_iter, Constant):
