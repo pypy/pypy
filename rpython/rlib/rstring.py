@@ -87,7 +87,41 @@ def split(value, by=None, maxsplit=-1):
 
 
 @specialize.argtype(0)
-def rsplit(value, by, maxsplit=-1):
+def rsplit(value, by=None, maxsplit=-1):
+    if by is None:
+        res = []
+
+        i = len(value) - 1
+        while True:
+            # starting from the end, find the end of the next word
+            while i >= 0:
+                if not value[i].isspace():
+                    break   # found
+                i -= 1
+            else:
+                break  # end of string, finished
+
+            # find the start of the word
+            # (more precisely, 'j' will be the space character before the word)
+            if maxsplit == 0:
+                j = -1   # take all the rest of the string
+            else:
+                j = i - 1
+                while j >= 0 and not value[j].isspace():
+                    j -= 1
+                maxsplit -= 1   # NB. if it's already < 0, it stays < 0
+
+            # the word is value[j+1:i+1]
+            j1 = j + 1
+            assert j1 >= 0
+            res.append(value[j1:i+1])
+
+            # continue to look from the character before the space before the word
+            i = j - 1
+
+        res.reverse()
+        return res
+
     if isinstance(value, str):
         assert isinstance(by, str)
     else:

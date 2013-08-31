@@ -42,6 +42,11 @@ def test_rsplit():
     assert rsplit('endcase test', 'test') == ['endcase ', '']
     py.test.raises(ValueError, rsplit, "abc", '')
 
+def test_rsplit_None():
+    assert rsplit("") == []
+    assert rsplit(' a\ta\na b') == ['a', 'a', 'a', 'b']
+    assert rsplit(" a a ", maxsplit=1) == [' a', 'a']
+
 def test_rsplit_unicode():
     assert rsplit(u"a", u"a", 1) == [u'', u'']
     assert rsplit(u" ", u" ", 1) == [u'', u'']
