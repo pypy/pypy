@@ -1,3 +1,47 @@
+Comments by antocuni, rguillebert
+==================================
+
+- 'import numpy' should not raise a warning if numpypy was already imported
+
+- why do we need to implement array.nonzero on this branch and it was not done
+  e.g. on default?
+
+- in cpyext/ndarrayobject.py: most functions starts with code like this:
+
+    @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
+    def _PyArray_FLAGS(space, w_array):
+        assert isinstance(w_array, W_NDimArray)
+        ...
+
+  this is very bad because if you pass something which is not a numpy array,
+  you get an RPython AssertionError instead of a nice applevel TypeError
+
+
+-   def _PyArray_FromAny(space, w_obj, dtype, min_depth, max_depth, requirements, context):
+        # ignore all additional arguments for now
+
+  this sounds bad. We think it'd be better to emit a warning/exception in case
+  we pass arguments with a non-default value. The same for _PyArray_FromObject
+
+- def get_shape_and_dtype(space, nd, dims, typenum):
+    shape = []
+    for i in range(nd):
+        # back-and-forth wrapping needed to translate
+        shape.append(space.int_w(space.wrap(dims[i])))
+
+  this looks very strange: we should probably do a proper rpython cast instead
+  of doing this strange wrap/unwrap dance
+
+- interp_numarray.py :: descr___array__: the dtype method is ignored: it's
+  fine to have a half-working implementation, but it should raise an exception
+  if it's passed
+
+
+
+
+TODO list by matti
+===================
+
 - test array.nonzero()
 - test "from numpypy import *" esp. get_include()
 - test "import numpy" emitting warning not error
