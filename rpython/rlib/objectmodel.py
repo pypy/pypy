@@ -10,6 +10,9 @@ import types
 import math
 import inspect
 from rpython.tool.sourcetools import rpython_wrapper, func_with_new_name
+from rpython.rtyper.extregistry import ExtRegistryEntry
+from rpython.flowspace.specialcase import register_flow_sc
+from rpython.flowspace.model import Constant
 
 # specialize is a decorator factory for attaching _annspecialcase_
 # attributes to functions: for example
@@ -23,7 +26,6 @@ from rpython.tool.sourcetools import rpython_wrapper, func_with_new_name
 # def f(...
 #
 
-from rpython.rtyper.extregistry import ExtRegistryEntry
 
 class _Specialize(object):
     def memo(self):
@@ -278,7 +280,11 @@ def instantiate(cls):
 
 def we_are_translated():
     return False
-# annotation -> True (replaced by the flow objspace)
+
+@register_flow_sc(we_are_translated)
+def sc_we_are_translated(space):
+    return Constant(True)
+
 
 def keepalive_until_here(*values):
     pass

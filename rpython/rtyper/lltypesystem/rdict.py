@@ -252,9 +252,9 @@ class DictRepr(AbstractDictRepr):
         v_dict, = hop.inputargs(self)
         return hop.gendirectcall(ll_dict_len, v_dict)
 
-    def rtype_is_true(self, hop):
+    def rtype_bool(self, hop):
         v_dict, = hop.inputargs(self)
-        return hop.gendirectcall(ll_dict_is_true, v_dict)
+        return hop.gendirectcall(ll_dict_bool, v_dict)
 
     def make_iterator_repr(self, *variant):
         return DictIteratorRepr(self, *variant)
@@ -440,7 +440,7 @@ def ll_keyeq_custom(d, key1, key2):
 def ll_dict_len(d):
     return d.num_items
 
-def ll_dict_is_true(d):
+def ll_dict_bool(d):
     # check if a dict is True, allowing for None
     return bool(d) and d.num_items != 0
 
