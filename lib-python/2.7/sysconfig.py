@@ -199,9 +199,170 @@ def _getuserbase():
     return env_base if env_base else joinuser("~", ".local")
 
 
+def _parse_makefile(filename, vars=None):
+    """Parse a Makefile-style file.
+
+    A dictionary containing name/value pairs is returned.  If an
+    optional dictionary is passed in as the second argument, it is
+    used instead of a new dictionary.
+    """
+    import re
+    # Regexes needed for parsing Makefile (and similar syntaxes,
+    # like old-style Setup files).
+    _variable_rx = re.compile("([a-zA-Z][a-zA-Z0-9_]+)\s*=\s*(.*)")
+    _findvar1_rx = re.compile(r"\$\(([A-Za-z][A-Za-z0-9_]*)\)")
+    _findvar2_rx = re.compile(r"\${([A-Za-z][A-Za-z0-9_]*)}")
+
+    if vars is None:
+        vars = {}
+    done = {}
+    notdone = {}
+
+    with open(filename) as f:
+        lines = f.readlines()
+
+    for line in lines:
+        if line.startswith('#') or line.strip() == '':
+            continue
+        m = _variable_rx.match(line)
+        if m:
+            n, v = m.group(1, 2)
+            v = v.strip()
+            # `$$' is a literal `$' in make
+            tmpv = v.replace('$$', '')
+
+            if "$" in tmpv:
+                notdone[n] = v
+            else:
+                try:
+                    v = int(v)
+                except ValueError:
+                    # insert literal `$'
+                    done[n] = v.replace('$$', '$')
+                else:
+                    done[n] = v
+
+    # do variable interpolation here
+    while notdone:
+        for name in notdone.keys():
+            value = notdone[name]
+            m = _findvar1_rx.search(value) or _findvar2_rx.search(value)
+            if m:
+                n = m.group(1)
+                found = True
+                if n in done:
+                    item = str(done[n])
+                elif n in notdone:
+                    # get it on a subsequent round
+                    found = False
+                elif n in os.environ:
+                    # do it like make: fall back to environment
+                    item = os.environ[n]
+                else:
+                    done[n] = item = ""
+                if found:
+                    after = value[m.end():]
+                    value = value[:m.start()] + item + after
+                    if "$" in after:
+                        notdone[name] = value
+                    else:
+                        try: value = int(value)
+                        except ValueError:
+                            done[name] = value.strip()
+                        else:
+                            done[name] = value
+                        del notdone[name]
+            else:
+                # bogus variable reference; just drop it since we can't deal
+                del notdone[name]
+    # strip spurious spaces
+    for k, v in done.items():
+        if isinstance(v, str):
+            done[k] = v.strip()
+
+    # save the results in the global dictionary
+    vars.update(done)
+    return vars
+
+
+def _get_makefile_filename():
+    if _PYTHON_BUILD:
+        return os.path.join(_PROJECT_BASE, "Makefile")
+    return os.path.join(get_path('platstdlib'), "config", "Makefile")
+
+def _generate_posix_vars():
+    """Generate the Python module containing build-time variables."""
+    import pprint
+    vars = {}
+    # load the installed Makefile:
+    makefile = _get_makefile_filename()
+    try:
+        _parse_makefile(makefile, vars)
+    except IOError, e:
+        msg = "invalid Python installation: unable to open %s" % makefile
+        if hasattr(e, "strerror"):
+            msg = msg + " (%s)" % e.strerror
+        raise IOError(msg)
+
+    # load the installed pyconfig.h:
+    config_h = get_config_h_filename()
+    try:
+        with open(config_h) as f:
+            parse_config_h(f, vars)
+    except IOError, e:
+        msg = "invalid Python installation: unable to open %s" % config_h
+        if hasattr(e, "strerror"):
+            msg = msg + " (%s)" % e.strerror
+        raise IOError(msg)
+
+    # On AIX, there are wrong paths to the linker scripts in the Makefile
+    # -- these paths are relative to the Python source, but when installed
+    # the scripts are in another directory.
+    if _PYTHON_BUILD:
+        vars['LDSHARED'] = vars['BLDSHARED']
+
+    # There's a chicken-and-egg situation on OS X with regards to the
+    # _sysconfigdata module after the changes introduced by #15298:
+    # get_config_vars() is called by get_platform() as part of the
+    # `make pybuilddir.txt` target -- which is a precursor to the
+    # _sysconfigdata.py module being constructed.  Unfortunately,
+    # get_config_vars() eventually calls _init_posix(), which attempts
+    # to import _sysconfigdata, which we won't have built yet.  In order
+    # for _init_posix() to work, if we're on Darwin, just mock up the
+    # _sysconfigdata module manually and populate it with the build vars.
+    # This is more than sufficient for ensuring the subsequent call to
+    # get_platform() succeeds.
+    name = '_sysconfigdata'
+    if 'darwin' in sys.platform:
+        import imp
+        module = imp.new_module(name)
+        module.build_time_vars = vars
+        sys.modules[name] = module
+
+    pybuilddir = 'build/lib.%s-%s' % (get_platform(), sys.version[:3])
+    if hasattr(sys, "gettotalrefcount"):
+        pybuilddir += '-pydebug'
+    try:
+        os.makedirs(pybuilddir)
+    except OSError:
+        pass
+    destfile = os.path.join(pybuilddir, name + '.py')
+
+    with open(destfile, 'wb') as f:
+        f.write('# system configuration generated and used by'
+                ' the sysconfig module\n')
+        f.write('build_time_vars = ')
+        pprint.pprint(vars, stream=f)
+
+    # Create file used for sys.path fixup -- see Modules/getpath.c
+    with open('pybuilddir.txt', 'w') as f:
+        f.write(pybuilddir)
+
 def _init_posix(vars):
     """Initialize the module as appropriate for POSIX systems."""
-    return
+    # _sysconfigdata is generated at build time, see _generate_posix_vars()
+    from _sysconfigdata import build_time_vars
+    vars.update(build_time_vars)
 
 def _init_non_posix(vars):
     """Initialize the module as appropriate for NT"""
@@ -460,3 +621,28 @@ def get_platform():
 
 def get_python_version():
     return _PY_VERSION_SHORT
+
+
+def _print_dict(title, data):
+    for index, (key, value) in enumerate(sorted(data.items())):
+        if index == 0:
+            print '%s: ' % (title)
+        print '\t%s = "%s"' % (key, value)
+
+
+def _main():
+    """Display all information sysconfig detains."""
+    if '--generate-posix-vars' in sys.argv:
+        _generate_posix_vars()
+        return
+    print 'Platform: "%s"' % get_platform()
+    print 'Python version: "%s"' % get_python_version()
+    print 'Current installation scheme: "%s"' % _get_default_scheme()
+    print
+    _print_dict('Paths', get_paths())
+    print
+    _print_dict('Variables', get_config_vars())
+
+
+if __name__ == '__main__':
+    _main()

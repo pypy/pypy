@@ -13,4 +13,3 @@ else:
 globals().update(_sysconfig_module.__dict__)
 
 _USE_CLANG = None
-

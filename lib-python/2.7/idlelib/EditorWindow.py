@@ -480,7 +480,12 @@ class EditorWindow(object):
         if iswin:
             self.text.config(cursor="arrow")
 
-        for label, eventname, verify_state in self.rmenu_specs:
+        for item in self.rmenu_specs:
+            try:
+                label, eventname, verify_state = item
+            except ValueError: # see issue1207589
+                continue
+
             if verify_state is None:
                 continue
             state = getattr(self, verify_state)()
@@ -497,7 +502,8 @@ class EditorWindow(object):
 
     def make_rmenu(self):
         rmenu = Menu(self.text, tearoff=0)
-        for label, eventname, _ in self.rmenu_specs:
+        for item in self.rmenu_specs:
+            label, eventname = item[0], item[1]
             if label is not None:
                 def command(text=self.text, eventname=eventname):
                     text.event_generate(eventname)
@@ -1425,6 +1431,7 @@ class EditorWindow(object):
     def tabify_region_event(self, event):
         head, tail, chars, lines = self.get_region()
         tabwidth = self._asktabwidth()
+        if tabwidth is None: return
         for pos in range(len(lines)):
             line = lines[pos]
             if line:
@@ -1436,6 +1443,7 @@ class EditorWindow(object):
     def untabify_region_event(self, event):
         head, tail, chars, lines = self.get_region()
         tabwidth = self._asktabwidth()
+        if tabwidth is None: return
         for pos in range(len(lines)):
             lines[pos] = lines[pos].expandtabs(tabwidth)
         self.set_region(head, tail, chars, lines)
@@ -1529,7 +1537,7 @@ class EditorWindow(object):
             parent=self.text,
             initialvalue=self.indentwidth,
             minvalue=2,
-            maxvalue=16) or self.tabwidth
+            maxvalue=16)
 
     # Guess indentwidth from text content.
     # Return guessed indentwidth.  This should not be believed unless
