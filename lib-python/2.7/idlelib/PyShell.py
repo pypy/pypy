@@ -15,6 +15,7 @@ import io
 
 import linecache
 from code import InteractiveInterpreter
+from platform import python_version
 
 try:
     from Tkinter import *
@@ -115,12 +116,13 @@ class PyShellEditorWindow(EditorWindow):
         self.breakpointPath = os.path.join(idleConf.GetUserCfgDir(),
                                            'breakpoints.lst')
         # whenever a file is changed, restore breakpoints
-        if self.io.filename: self.restore_file_breaks()
         def filename_changed_hook(old_hook=self.io.filename_change_hook,
                                   self=self):
             self.restore_file_breaks()
             old_hook()
         self.io.set_filename_change_hook(filename_changed_hook)
+        if self.io.filename:
+            self.restore_file_breaks()
 
     rmenu_specs = [
         ("Cut", "<<cut>>", "rmenu_check_cut"),
@@ -236,6 +238,9 @@ class PyShellEditorWindow(EditorWindow):
 
     def restore_file_breaks(self):
         self.text.update()   # this enables setting "BREAK" tags to be visible
+        if self.io is None:
+            # can happen if IDLE closes due to the .update() call
+            return
         filename = self.io.filename
         if filename is None:
             return
@@ -464,6 +469,7 @@ class ModifiedInterpreter(InteractiveInterpreter):
             self.display_no_subprocess_error()
             return None
         self.transfer_path(with_cwd=with_cwd)
+        console.stop_readline()
         # annotate restart in shell window and mark it
         console.text.delete("iomark", "end-1c")
         if was_executing:
@@ -821,7 +827,7 @@ class ModifiedInterpreter(InteractiveInterpreter):
 
 class PyShell(OutputWindow):
 
-    shell_title = "Python Shell"
+    shell_title = "Python " + python_version() + " Shell"
 
     # Override classes
     ColorDelegator = ModifiedColorDelegator
@@ -903,6 +909,7 @@ class PyShell(OutputWindow):
     canceled = False
     endoffile = False
     closing = False
+    _stop_readline_flag = False
 
     def set_warning_stream(self, stream):
         global warning_stream
@@ -978,8 +985,7 @@ class PyShell(OutputWindow):
                 parent=self.text)
             if response is False:
                 return "cancel"
-        if self.reading:
-            self.top.quit()
+        self.stop_readline()
         self.canceled = True
         self.closing = True
         # Wait for poll_subprocess() rescheduling to stop
@@ -1031,6 +1037,12 @@ class PyShell(OutputWindow):
         Tkinter._default_root = None # 03Jan04 KBK What's this?
         return True
 
+    def stop_readline(self):
+        if not self.reading:  # no nested mainloop to exit.
+            return
+        self._stop_readline_flag = True
+        self.top.quit()
+
     def readline(self):
         save = self.reading
         try:
@@ -1038,6 +1050,9 @@ class PyShell(OutputWindow):
             self.top.mainloop()  # nested mainloop()
         finally:
             self.reading = save
+        if self._stop_readline_flag:
+            self._stop_readline_flag = False
+            return ""
         line = self.text.get("iomark", "end-1c")
         if len(line) == 0:  # may be EOF if we quit our mainloop with Ctrl-C
             line = "\n"
@@ -1355,6 +1370,9 @@ class PseudoInputFile(PseudoFile):
         self._line_buffer = line[size:]
         return line[:size]
 
+    def close(self):
+        self.shell.close()
+
 
 usage_msg = """\
 
@@ -1413,7 +1431,7 @@ def main():
     global flist, root, use_subprocess
 
     use_subprocess = True
-    enable_shell = True
+    enable_shell = False
     enable_edit = False
     debug = False
     cmd = None
@@ -1434,7 +1452,6 @@ def main():
             enable_shell = True
         if o == '-e':
             enable_edit = True
-            enable_shell = False
         if o == '-h':
             sys.stdout.write(usage_msg)
             sys.exit()
@@ -1485,6 +1502,7 @@ def main():
     edit_start = idleConf.GetOption('main', 'General',
                                     'editor-on-startup', type='bool')
     enable_edit = enable_edit or edit_start
+    enable_shell = enable_shell or not enable_edit
     # start editor and/or shell windows:
     root = Tk(className="Idle")
 
