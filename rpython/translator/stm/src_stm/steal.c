@@ -22,10 +22,11 @@ static __thread struct tx_steal_data *steal_data;
 
 static void replace_ptr_to_immutable_with_stub(gcptr * pobj)
 {
-    gcptr stub, obj = *pobj;
+    gcptr stub = NULL, obj = *pobj;
     assert(obj->h_tid & GCFLAG_IMMUTABLE);
     assert(!(obj->h_tid & GCFLAG_PRIVATE_FROM_PROTECTED));
     if (obj->h_tid & GCFLAG_PUBLIC) {
+        assert(!(obj->h_tid & GCFLAG_OLD));
         /* young public, replace with stolen old copy */
         assert(obj->h_tid & GCFLAG_MOVED);
         assert(IS_POINTER(obj->h_revision));
@@ -63,10 +64,7 @@ static void replace_ptr_to_immutable_with_stub(gcptr * pobj)
         stub = O;
         goto done;
     }
-    /* old protected: */
-    dprintf(("prot immutable -> public: %p\n", obj));
-    obj->h_tid |= GCFLAG_PUBLIC;
-
+    /* old protected is handled in replace_ptr_to_protected_with_stub */
     return;
  done:
     *pobj = stub;
@@ -80,7 +78,9 @@ static void replace_ptr_to_protected_with_stub(gcptr *pobj)
                                      (GCFLAG_PUBLIC | GCFLAG_OLD))
         return;
 
-    if (obj->h_tid & GCFLAG_IMMUTABLE) {
+    if ((obj->h_tid & GCFLAG_IMMUTABLE)
+        && !((obj->h_tid & (GCFLAG_OLD | GCFLAG_PUBLIC)) == GCFLAG_OLD)) {
+        /* for old protected, we do the stub below */
         replace_ptr_to_immutable_with_stub(pobj);
         return;
     }

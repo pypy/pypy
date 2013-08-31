@@ -19,7 +19,7 @@ void g2l_clear(struct G2L *g2l)
 
 void g2l_delete(struct G2L *g2l)
 {
-  stm_free(g2l->raw_start, g2l->raw_end - g2l->raw_start);
+  stm_free(g2l->raw_start);
   memset(g2l, 0, sizeof(struct G2L));
 }
 
@@ -66,7 +66,7 @@ static void _g2l_grow(struct G2L *g2l, long extra)
     {
       g2l_insert(&newg2l, item->addr, item->val);
     } G2L_LOOP_END;
-  stm_free(g2l->raw_start, g2l->raw_end - g2l->raw_start);
+  stm_free(g2l->raw_start);
   *g2l = newg2l;
 }
 
@@ -152,7 +152,7 @@ void gcptrlist_delete(struct GcPtrList *gcptrlist)
     //fprintf(stderr, "list %p deleted (%ld KB)\n",
     //gcptrlist, gcptrlist->alloc * sizeof(gcptr) / 1024);
   gcptrlist->size = 0;
-  stm_free(gcptrlist->items, gcptrlist->alloc * sizeof(gcptr));
+  stm_free(gcptrlist->items);
   gcptrlist->items = NULL;
   gcptrlist->alloc = 0;
 }
@@ -183,7 +183,7 @@ void _gcptrlist_grow(struct GcPtrList *gcptrlist)
   long i;
   for (i=0; i<gcptrlist->size; i++)
     newitems[i] = gcptrlist->items[i];
-  stm_free(gcptrlist->items, gcptrlist->alloc * sizeof(gcptr));
+  stm_free(gcptrlist->items);
   gcptrlist->items = newitems;
   gcptrlist->alloc = newalloc;
 }

@@ -4,12 +4,12 @@
 
 
 #define PAGE_SIZE  4096
-
+#define MEM_SIZE(mem) (*(((size_t *)(mem)) - 1))
 
 #ifdef _GC_DEBUG
 /************************************************************/
 
-#define MMAP_TOTAL  1280*1024*1024   /* 1280MB */
+#define MMAP_TOTAL  2000*1024*1024   /* 2000MB */
 
 static pthread_mutex_t malloc_mutex = PTHREAD_MUTEX_INITIALIZER;
 static char *zone_start, *zone_current = NULL, *zone_end = NULL;
@@ -32,8 +32,10 @@ static void _stm_dbgmem(void *p, size_t sz, int prot)
 
 void *stm_malloc(size_t sz)
 {
-    pthread_mutex_lock(&malloc_mutex);
+    size_t real_sz = sz + sizeof(size_t);
 
+#ifdef _GC_MEMPROTECT
+    pthread_mutex_lock(&malloc_mutex);
     if (zone_current == NULL) {
         zone_start = mmap(NULL, MMAP_TOTAL, PROT_NONE,
                           MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
@@ -43,10 +45,11 @@ void *stm_malloc(size_t sz)
         zone_current = zone_start;
         zone_end = zone_start + MMAP_TOTAL;
         assert((MMAP_TOTAL % PAGE_SIZE) == 0);
+
         _stm_dbgmem(zone_start, MMAP_TOTAL, PROT_NONE);
     }
 
-    size_t nb_pages = (sz + PAGE_SIZE - 1) / PAGE_SIZE + 1;
+    size_t nb_pages = (real_sz + PAGE_SIZE - 1) / PAGE_SIZE + 1;
     char *result = zone_current;
     zone_current += nb_pages * PAGE_SIZE;
     if (zone_current > zone_end) {
@@ -55,50 +58,67 @@ void *stm_malloc(size_t sz)
     }
     pthread_mutex_unlock(&malloc_mutex);
 
-    result += (-sz) & (PAGE_SIZE-1);
-    assert(((intptr_t)(result + sz) & (PAGE_SIZE-1)) == 0);
-    _stm_dbgmem(result, sz, PROT_READ | PROT_WRITE);
+    result += (-real_sz) & (PAGE_SIZE-1);
+    assert(((intptr_t)(result + real_sz) & (PAGE_SIZE-1)) == 0);
+    _stm_dbgmem(result, real_sz, PROT_READ | PROT_WRITE);
 
     long i, base = (result - zone_start) / PAGE_SIZE;
     for (i = 0; i < nb_pages; i++)
         accessible_pages[base + i] = 42;
 
+    assert(((intptr_t)(result + real_sz) & (PAGE_SIZE-1)) == 0);
+#else
+    char * result = malloc(real_sz);
+#endif
+
     dprintf(("stm_malloc(%zu): %p\n", sz, result));
-    assert(((intptr_t)(result + sz) & (PAGE_SIZE-1)) == 0);
-    memset(result, 0xBB, sz);
+    memset(result, 0xBB, real_sz);
+    
+    result += sizeof(size_t);
+    MEM_SIZE(result) = real_sz;
     return result;
 }
 
-void stm_free(void *p, size_t sz)
+void stm_free(void *p)
 {
     if (p == NULL) {
-        assert(sz == 0);
         return;
     }
-    assert(((intptr_t)((char *)p + sz) & (PAGE_SIZE-1)) == 0);
+    size_t real_sz = MEM_SIZE(p);
+    void *real_p = p - sizeof(size_t);
+    assert(real_sz > 0);
 
-    size_t nb_pages = (sz + PAGE_SIZE - 1) / PAGE_SIZE + 1;
-    long i, base = ((char *)p - zone_start) / PAGE_SIZE;
+    memset(real_p, 0xDD, real_sz);
+#ifdef _GC_MEMPROTECT
+    assert(((intptr_t)((char *)real_p + real_sz) & (PAGE_SIZE-1)) == 0);
+
+    size_t nb_pages = (real_sz + PAGE_SIZE - 1) / PAGE_SIZE + 1;
+    long i, base = ((char *)real_p - zone_start) / PAGE_SIZE;
     assert(0 <= base && base < (MMAP_TOTAL / PAGE_SIZE));
     for (i = 0; i < nb_pages; i++) {
         assert(accessible_pages[base + i] == 42);
         accessible_pages[base + i] = -1;
     }
-    memset(p, 0xDD, sz);
-    _stm_dbgmem(p, sz, PROT_NONE);
+
+    _stm_dbgmem(real_p, real_sz, PROT_NONE);
+#endif
 }
 
 void *stm_realloc(void *p, size_t newsz, size_t oldsz)
 {
     void *r = stm_malloc(newsz);
     memcpy(r, p, oldsz < newsz ? oldsz : newsz);
-    stm_free(p, oldsz);
+    stm_free(p);
     return r;
 }
 
 int _stm_can_access_memory(char *p)
 {
-    long base = ((char *)p - zone_start) / PAGE_SIZE;
+#ifndef _GC_MEMPROTECT
+    assert(0);                   /* tests must use MEMPROTECT */
+#endif
+    char* real_p = p - sizeof(size_t);
+    long base = ((char *)real_p - zone_start) / PAGE_SIZE;
     assert(0 <= base && base < (MMAP_TOTAL / PAGE_SIZE));
     return accessible_pages[base] == 42;
 }

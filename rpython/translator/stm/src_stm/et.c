@@ -27,6 +27,31 @@ char* stm_dbg_get_hdr_str(gcptr obj)
     return tmp_buf;
 }
 
+void stm_dump_dbg(void)
+{
+    fprintf(stderr, "/**** stm_dump_dbg ****/\n\n");
+
+    int i;
+    for (i = 0; i < MAX_THREADS; i++) {
+        struct tx_public_descriptor *pd = stm_descriptor_array[i];
+        if (pd == NULL)
+            continue;
+        fprintf(stderr, "stm_descriptor_array[%d]\n((struct tx_public_descriptor *)%p)\n",
+                i, pd);
+
+        struct tx_descriptor *d = stm_tx_head;
+        while (d && d->public_descriptor != pd)
+            d = d->tx_next;
+        if (!d)
+            continue;
+
+        fprintf(stderr, "((struct tx_descriptor *)\033[%dm%p\033[0m)\n"
+                "pthread_self = 0x%lx\n\n", d->tcolor, d, (long)d->pthreadid);
+    }
+
+    fprintf(stderr, "/**********************/\n");
+}
+
 
 
 __thread struct tx_descriptor *thread_descriptor = NULL;
@@ -109,6 +134,7 @@ gcptr stm_DirectReadBarrier(gcptr G)
   revision_t v;
 
   d->count_reads++;
+  assert(IMPLIES(!(P->h_tid & GCFLAG_OLD), stmgc_is_in_nursery(d, P)));
 
  restart_all:
   if (P->h_tid & GCFLAG_PRIVATE_FROM_PROTECTED)
@@ -281,6 +307,9 @@ gcptr stm_RepeatReadBarrier(gcptr P)
    */
   assert(P->h_tid & GCFLAG_PUBLIC);
   assert(!(P->h_tid & GCFLAG_STUB));
+  assert(IMPLIES(!(P->h_tid & GCFLAG_OLD), 
+                 stmgc_is_in_nursery(thread_descriptor, P)));
+
 
   if (P->h_tid & GCFLAG_MOVED)
     {
@@ -321,6 +350,9 @@ gcptr stm_ImmutReadBarrier(gcptr P)
 {
   assert(P->h_tid & GCFLAG_STUB);
   assert(P->h_tid & GCFLAG_PUBLIC);
+  assert(IMPLIES(!(P->h_tid & GCFLAG_OLD), 
+                 stmgc_is_in_nursery(thread_descriptor, P)));
+
 
   revision_t v = ACCESS_ONCE(P->h_revision);
   assert(IS_POINTER(v));  /* "is a pointer", "has a more recent revision" */
@@ -569,6 +601,7 @@ static gcptr LocalizePublic(struct tx_descriptor *d, gcptr R)
  not_found:
 #endif
 
+  assert(!(R->h_tid & GCFLAG_STUB));
   R->h_tid |= GCFLAG_PUBLIC_TO_PRIVATE;
 
   /* note that stmgc_duplicate() usually returns a young object, but may
@@ -611,8 +644,12 @@ static gcptr LocalizePublic(struct tx_descriptor *d, gcptr R)
 
 static inline void record_write_barrier(gcptr P)
 {
+  assert(is_private(P));
+  assert(IMPLIES(!(P->h_tid & GCFLAG_OLD),
+                 stmgc_is_in_nursery(thread_descriptor, P)));
   if (P->h_tid & GCFLAG_WRITE_BARRIER)
     {
+      assert(P->h_tid & GCFLAG_OLD);
       P->h_tid &= ~GCFLAG_WRITE_BARRIER;
       gcptrlist_insert(&thread_descriptor->old_objects_to_trace, P);
     }
@@ -620,6 +657,9 @@ static inline void record_write_barrier(gcptr P)
 
 gcptr stm_RepeatWriteBarrier(gcptr P)
 {
+  assert(IMPLIES(!(P->h_tid & GCFLAG_OLD), 
+                 stmgc_is_in_nursery(thread_descriptor, P)));
+
   assert(!(P->h_tid & GCFLAG_IMMUTABLE));
   assert(is_private(P));
   assert(P->h_tid & GCFLAG_WRITE_BARRIER);
@@ -637,6 +677,9 @@ gcptr stm_WriteBarrier(gcptr P)
      risk of overrunning the object later in gcpage.c when copying a stub
      over it.  However such objects are so small that they contain no field
      at all, and so no write barrier should occur on them. */
+
+  assert(IMPLIES(!(P->h_tid & GCFLAG_OLD), 
+                 stmgc_is_in_nursery(thread_descriptor, P)));
 
   if (is_private(P))
     {
@@ -1674,6 +1717,8 @@ void DescriptorInit(void)
       stm_thread_local_obj = NULL;
       d->thread_local_obj_ref = &stm_thread_local_obj;
       d->max_aborts = -1;
+      d->tcolor = dprintfcolor();
+      d->pthreadid = pthread_self();
       d->tx_prev = NULL;
       d->tx_next = stm_tx_head;
       if (d->tx_next != NULL) d->tx_next->tx_prev = d;
@@ -1747,5 +1792,5 @@ void DescriptorDone(void)
     p += sprintf(p, "]\n");
     dprintf(("%s", line));
 
-    stm_free(d, sizeof(struct tx_descriptor));
+    stm_free(d);
 }

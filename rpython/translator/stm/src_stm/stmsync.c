@@ -69,7 +69,7 @@ static void done_shadowstack(void)
     assert(x == END_MARKER_ON);
     assert(stm_shadowstack == d->shadowstack);
     stm_shadowstack = NULL;
-    stm_free(d->shadowstack, sizeof(gcptr) * LENGTH_SHADOW_STACK);
+    stm_free(d->shadowstack);
 }
 
 void stm_set_max_aborts(int max_aborts)
@@ -168,7 +168,7 @@ void stm_perform_transaction(gcptr arg, int (*callback)(gcptr, int))
            has configured 'reads_size_limit_nonatomic' to a smaller value.
            When such a shortened transaction succeeds, the next one will
            see its length limit doubled, up to the maximum. */
-        if (counter == 0) {
+        if (counter == 0 && d->active != 2) {
             unsigned long limit = d->reads_size_limit_nonatomic;
             if (limit != 0 && limit < (stm_regular_length_limit >> 1))
                 limit = (limit << 1) | 1;

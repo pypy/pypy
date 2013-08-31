@@ -209,7 +209,7 @@ void stmgcpage_free(gcptr obj)
     }
     else {
         g2l_delete_item(&gcp->nonsmall_objects, obj);
-        stm_free(obj, size);
+        stm_free(obj);
     }
 }
 
@@ -416,6 +416,7 @@ static gcptr visit_public(gcptr obj, struct tx_public_descriptor *gcp)
     }
     else if (obj != original) {
         /* copy obj over original */
+        assert(obj->h_original == (revision_t)original);
         copy_over_original(obj, original);
     }
 
@@ -501,6 +502,7 @@ static void mark_registered_stubs(void)
     G2L_LOOP_FORWARD(registered_stubs, item) {
         gcptr R = item->addr;
         assert(R->h_tid & GCFLAG_SMALLSTUB);
+        assert(!(R->h_tid & (GCFLAG_VISITED | GCFLAG_MARKED)));
 
         R->h_tid |= (GCFLAG_MARKED | GCFLAG_VISITED);
 
@@ -818,7 +820,7 @@ static void sweep_pages(struct tx_public_descriptor *gcp, int size_class)
                 p = (gcptr)(((char *)p) + obj_size);
             }
 #endif
-            stm_free(lpage, GC_PAGE_SIZE);
+            stm_free(lpage);
             assert(gcp->count_pages > 0);
             assert(count_global_pages > 0);
             gcp->count_pages--;
@@ -848,7 +850,7 @@ static void free_unused_local_pages(struct tx_public_descriptor *gcp)
         }
         else {
             G2L_LOOP_DELETE(item);
-            stm_free(p, stmgc_size(p));
+            stm_free(p);
         }
 
     } G2L_LOOP_END_AND_COMPRESS;
