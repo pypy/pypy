@@ -21,7 +21,6 @@ def split(value, by=None, maxsplit=-1):
         res = []
         while True:
             # find the beginning of the next word
-            print i
             while i < length:
                 if not value[i].isspace():
                     break   # found
