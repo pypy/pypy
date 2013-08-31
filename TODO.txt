@@ -39,7 +39,7 @@ Comments by antocuni, rguillebert
 
 
 
-TODO list by matti
+TODO list by mattip
 ===================
 
 - test array.nonzero()
