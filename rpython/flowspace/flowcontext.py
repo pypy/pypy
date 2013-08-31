@@ -40,9 +40,6 @@ class FSException(Exception):
         self.w_type = w_type
         self.w_value = w_value
 
-    def get_w_value(self, _):
-        return self.w_value
-
     def __str__(self):
         return '[%s: %s]' % (self.w_type, self.w_value)
 
@@ -1286,7 +1283,7 @@ class ExceptBlock(FrameBlock):
         # instead of the traceback, we store the unroller object,
         # wrapped.
         frame.pushvalue(unroller)
-        frame.pushvalue(operationerr.get_w_value(frame.space))
+        frame.pushvalue(operationerr.w_value)
         frame.pushvalue(operationerr.w_type)
         frame.last_exception = operationerr
         return self.handlerposition   # jump to the handler
