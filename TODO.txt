@@ -1,8 +1,6 @@
 Comments by antocuni, rguillebert
 ==================================
 
-- 'import numpy' should not raise a warning if numpypy was already imported
-
 - why do we need to implement array.nonzero on this branch and it was not done
   e.g. on default?
 
