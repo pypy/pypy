@@ -84,3 +84,8 @@ More improvements and refactorings of error messages.
 
 .. branch: improve-errors-again2
 Unbreak tests in rlib.
+
+.. branch: less-stringly-ops
+Use subclasses of SpaceOperation instead of SpaceOperator objects.
+Random cleanups in flowspace.
+
