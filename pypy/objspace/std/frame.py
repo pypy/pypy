@@ -91,10 +91,9 @@ def build_frame(space):
         StdObjSpaceFrame.BINARY_ADD = int_BINARY_ADD
     if space.config.objspace.std.optimized_list_getitem:
         StdObjSpaceFrame.BINARY_SUBSCR = list_BINARY_SUBSCR
-    if space.config.objspace.opcodes.CALL_METHOD:
-        from pypy.objspace.std.callmethod import LOOKUP_METHOD, CALL_METHOD
-        StdObjSpaceFrame.LOOKUP_METHOD = LOOKUP_METHOD
-        StdObjSpaceFrame.CALL_METHOD = CALL_METHOD
+    from pypy.objspace.std.callmethod import LOOKUP_METHOD, CALL_METHOD
+    StdObjSpaceFrame.LOOKUP_METHOD = LOOKUP_METHOD
+    StdObjSpaceFrame.CALL_METHOD = CALL_METHOD
     if space.config.objspace.std.optimized_comparison_op:
         StdObjSpaceFrame.COMPARE_OP = fast_COMPARE_OP
     return StdObjSpaceFrame
