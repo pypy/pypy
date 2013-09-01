@@ -6,11 +6,28 @@ built-in functions (or type constructors) implementing them.
 import __builtin__
 import __future__
 import operator
+import sys
 from rpython.rlib.unroll import unrolling_iterable, _unroller
 from rpython.tool.sourcetools import compile2
 from rpython.flowspace.model import (Constant, WrapException, const, Variable,
                                      SpaceOperation)
 from rpython.flowspace.specialcase import register_flow_sc
+
+NOT_REALLY_CONST = {
+    Constant(sys): {
+        Constant('maxint'): True,
+        Constant('maxunicode'): True,
+        Constant('api_version'): True,
+        Constant('exit'): True,
+        Constant('exc_info'): True,
+        Constant('getrefcount'): True,
+        Constant('getdefaultencoding'): True,
+        # this is an incomplete list of true constants.
+        # if we add much more, a dedicated class
+        # might be considered for special objects.
+        }
+    }
+
 
 class _OpHolder(object): pass
 op = _OpHolder()
@@ -218,7 +235,6 @@ add_operator('str', 1, 'str', pyfunc=str, pure=True)
 add_operator('format', 2, 'format', pyfunc=unsupported)
 add_operator('len', 1, 'len', pyfunc=len, pure=True)
 add_operator('hash', 1, 'hash', pyfunc=hash)
-add_operator('getattr', 2, 'getattr', pyfunc=getattr, pure=True)
 add_operator('setattr', 3, 'setattr', pyfunc=setattr)
 add_operator('delattr', 2, 'delattr', pyfunc=delattr)
 add_operator('getitem', 2, 'getitem', pure=True)
@@ -323,13 +339,43 @@ class Next(HLOperation):
         return w_item
 op.next = Next
 
+class GetAttr(HLOperation):
+    opname = 'getattr'
+    arity = 2
+    can_overflow = False
+    canraise = []
+    pyfunc = staticmethod(getattr)
+
+    def constfold(self):
+        w_obj, w_name = self.args
+        # handling special things like sys
+        if (w_obj in NOT_REALLY_CONST and
+                w_name not in NOT_REALLY_CONST[w_obj]):
+            return
+        if w_obj.foldable() and w_name.foldable():
+            obj, name = w_obj.value, w_name.value
+            try:
+                result = getattr(obj, name)
+            except Exception as e:
+                from rpython.flowspace.flowcontext import FlowingError
+                etype = e.__class__
+                msg = "getattr(%s, %s) always raises %s: %s" % (
+                    obj, name, etype, e)
+                raise FlowingError(msg)
+            try:
+                return const(result)
+            except WrapException:
+                pass
+op.getattr = GetAttr
+
+
 
 # Other functions that get directly translated to SpaceOperators
 func2op[type] = op.type
 func2op[operator.truth] = op.bool
 func2op[__builtin__.iter] = op.iter
-if hasattr(__builtin__, 'next'):
-    func2op[__builtin__.next] = op.next
+func2op[getattr] = op.getattr
+func2op[__builtin__.next] = op.next
 
 for fn, oper in func2op.items():
     register_flow_sc(fn)(oper.make_sc())

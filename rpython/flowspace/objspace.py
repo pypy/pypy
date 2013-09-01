@@ -11,7 +11,7 @@ from rpython.flowspace.argument import CallSpec
 from rpython.flowspace.model import (Constant, Variable, WrapException,
     UnwrapException, checkgraph, const, FSException)
 from rpython.flowspace.bytecode import HostCode
-from rpython.flowspace.operation import op
+from rpython.flowspace.operation import op, NOT_REALLY_CONST
 from rpython.flowspace.flowcontext import (FlowSpaceFrame, fixeggblocks,
     FlowingError)
 from rpython.flowspace.generator import (tweak_generator_graph,
@@ -20,22 +20,6 @@ from rpython.flowspace.pygraph import PyGraph
 from rpython.flowspace.specialcase import SPECIAL_CASES
 from rpython.rlib import rstackovf
 
-
-# the following gives us easy access to declare more for applications:
-NOT_REALLY_CONST = {
-    Constant(sys): {
-        Constant('maxint'): True,
-        Constant('maxunicode'): True,
-        Constant('api_version'): True,
-        Constant('exit'): True,
-        Constant('exc_info'): True,
-        Constant('getrefcount'): True,
-        Constant('getdefaultencoding'): True,
-        # this is an incomplete list of true constants.
-        # if we add much more, a dedicated class
-        # might be considered for special objects.
-        }
-    }
 
 # built-ins that can always raise exceptions
 builtins_exceptions = {
@@ -80,10 +64,7 @@ class FlowObjSpace(object):
     # during flow graph construction
     w_NameError = 'NameError'
     w_UnboundLocalError = 'UnboundLocalError'
-
     specialcases = SPECIAL_CASES
-    # objects which should keep their SomeObjectness
-    not_really_const = NOT_REALLY_CONST
 
     def build_flow(self, func):
         return build_flow(func, self)
@@ -202,28 +183,6 @@ class FlowObjSpace(object):
         return const(not self.frame.guessbool(self.bool(w_obj)))
 
 
-    def getattr(self, w_obj, w_name):
-        # handling special things like sys
-        # unfortunately this will never vanish with a unique import logic :-(
-        if w_obj in self.not_really_const:
-            const_w = self.not_really_const[w_obj]
-            if w_name not in const_w:
-                return self.frame.do_op(op.getattr(w_obj, w_name))
-        if w_obj.foldable() and w_name.foldable():
-            obj, name = w_obj.value, w_name.value
-            try:
-                result = getattr(obj, name)
-            except Exception, e:
-                etype = e.__class__
-                msg = "getattr(%s, %s) always raises %s: %s" % (
-                    obj, name, etype, e)
-                raise FlowingError(msg)
-            try:
-                return const(result)
-            except WrapException:
-                pass
-        return self.frame.do_op(op.getattr(w_obj, w_name))
-
     def import_name(self, name, glob=None, loc=None, frm=None, level=-1):
         try:
             mod = __import__(name, glob, loc, frm, level)
@@ -235,8 +194,8 @@ class FlowObjSpace(object):
         assert isinstance(w_module, Constant)
         assert isinstance(w_name, Constant)
         # handle sys
-        if w_module in self.not_really_const:
-            const_w = self.not_really_const[w_module]
+        if w_module in NOT_REALLY_CONST:
+            const_w = NOT_REALLY_CONST[w_module]
             if w_name not in const_w:
                 return self.frame.do_op(op.getattr(w_module, w_name))
         try:
