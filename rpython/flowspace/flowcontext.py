@@ -649,14 +649,18 @@ class FlowSpaceFrame(object):
                 raise const(TypeError(
                     "raise: no active exception to re-raise"))
 
-        w_value = space.w_None
         if nbargs >= 3:
             self.popvalue()
         if nbargs >= 2:
             w_value = self.popvalue()
-        if 1:
             w_type = self.popvalue()
-        operror = space.exc_from_raise(w_type, w_value)
+            operror = space.exc_from_raise(w_type, w_value)
+        else:
+            w_type = self.popvalue()
+            if isinstance(w_type, FSException):
+                operror = w_type
+            else:
+                operror = space.exc_from_raise(w_type, space.w_None)
         raise operror
 
     def IMPORT_NAME(self, nameindex):

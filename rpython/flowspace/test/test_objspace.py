@@ -387,6 +387,16 @@ class TestFlowObjSpace(Base):
         assert x.startblock.exits[0].args == [ops[1].result, ops[0].result]
         assert x.startblock.exits[0].target is x.exceptblock
 
+    def test_simple_raise(self):
+        def f():
+            raise ValueError('ouch')
+        x = self.codetest(f)
+        simplify_graph(x)
+        self.show(x)
+        ops = x.startblock.operations
+        assert ops[0].opname == 'simple_call'
+        assert ops[0].args == [Constant(ValueError), Constant('ouch')]
+
     #__________________________________________________________
     def raise2(msg):
         raise IndexError, msg
