@@ -9,7 +9,7 @@ from rpython.tool.error import source_lines
 from rpython.tool.stdlib_opcode import host_bytecode_spec
 from rpython.flowspace.argument import CallSpec
 from rpython.flowspace.model import (Constant, Variable, Block, Link,
-    c_last_exception, SpaceOperation, const)
+    c_last_exception, SpaceOperation, const, FSException)
 from rpython.flowspace.framestate import (FrameState, recursively_unflatten,
     recursively_flatten)
 from rpython.flowspace.specialcase import (rpython_print_item,
@@ -33,15 +33,6 @@ class StopFlowing(Exception):
 class Return(Exception):
     def __init__(self, value):
         self.value = value
-
-class FSException(Exception):
-    def __init__(self, w_type, w_value):
-        assert w_type is not None
-        self.w_type = w_type
-        self.w_value = w_value
-
-    def __str__(self):
-        return '[%s: %s]' % (self.w_type, self.w_value)
 
 class ImplicitOperationError(FSException):
     pass
@@ -655,7 +646,7 @@ class FlowSpaceFrame(object):
                 self.last_exception = operr
                 raise operr
             else:
-                raise space.exc_wrap(TypeError(
+                raise const(TypeError(
                     "raise: no active exception to re-raise"))
 
         w_value = space.w_None

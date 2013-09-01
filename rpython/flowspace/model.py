@@ -346,6 +346,16 @@ class Constant(Hashable):
             return False
 
 
+class FSException(Exception):
+    def __init__(self, w_type, w_value):
+        assert w_type is not None
+        self.w_type = w_type
+        self.w_value = w_value
+
+    def __str__(self):
+        return '[%s: %s]' % (self.w_type, self.w_value)
+
+
 class UnwrapException(Exception):
     """Attempted to unwrap a Variable."""
 
@@ -367,6 +377,8 @@ def const(obj):
     # to appear in a flow graph
     if type(obj) is type_with_bad_introspection:
         raise WrapException
+    elif isinstance(obj, Exception):
+        return FSException(Constant(type(obj)), Constant(obj))
     return Constant(obj)
 
 class SpaceOperation(object):

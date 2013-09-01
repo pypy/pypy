@@ -9,11 +9,11 @@ from inspect import CO_NEWLOCALS
 
 from rpython.flowspace.argument import CallSpec
 from rpython.flowspace.model import (Constant, Variable, WrapException,
-    UnwrapException, checkgraph, const)
+    UnwrapException, checkgraph, const, FSException)
 from rpython.flowspace.bytecode import HostCode
 from rpython.flowspace.operation import op
 from rpython.flowspace.flowcontext import (FlowSpaceFrame, fixeggblocks,
-    FSException, FlowingError)
+    FlowingError)
 from rpython.flowspace.generator import (tweak_generator_graph,
         bootstrap_generator)
 from rpython.flowspace.pygraph import PyGraph
@@ -124,11 +124,6 @@ class FlowObjSpace(object):
         fn = types.FunctionType(code, globals, code.co_name, defaults)
         return Constant(fn)
 
-    def exc_wrap(self, exc):
-        w_value = const(exc)
-        w_type = const(type(exc))
-        return FSException(w_type, w_value)
-
     def exception_match(self, w_exc_type, w_check_class):
         """Checks if the given exception type matches 'w_check_class'."""
         frame = self.frame
@@ -175,7 +170,7 @@ class FlowObjSpace(object):
         else:
             # the only case left here is (inst, None), from a 'raise inst'.
             if not frame.guessbool(self.is_(w_arg2, self.w_None)):
-                raise self.exc_wrap(TypeError(
+                raise const(TypeError(
                     "instance exception may not have a separate value"))
             w_value = w_arg1
         w_type = self.type(w_value)
@@ -215,7 +210,7 @@ class FlowObjSpace(object):
                 try:
                     v, next_unroller = it.step()
                 except IndexError:
-                    raise self.exc_wrap(StopIteration())
+                    raise const(StopIteration())
                 else:
                     frame.replace_in_stack(it, next_unroller)
                     return const(v)
@@ -250,7 +245,7 @@ class FlowObjSpace(object):
         try:
             mod = __import__(name, glob, loc, frm, level)
         except ImportError as e:
-            raise self.exc_wrap(e)
+            raise const(e)
         return const(mod)
 
     def import_from(self, w_module, w_name):
@@ -264,8 +259,7 @@ class FlowObjSpace(object):
         try:
             return const(getattr(w_module.value, w_name.value))
         except AttributeError:
-            raise self.exc_wrap(ImportError(
-                "cannot import name '%s'" % w_name.value))
+            raise const(ImportError("cannot import name '%s'" % w_name.value))
 
     def call_method(self, w_obj, methname, *arg_w):
         w_meth = self.getattr(w_obj, const(methname))
