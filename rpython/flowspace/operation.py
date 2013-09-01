@@ -277,7 +277,6 @@ add_operator('ge', 2, '>=', pure=True)
 add_operator('cmp', 2, 'cmp', pyfunc=cmp, pure=True)   # rich cmps preferred
 add_operator('coerce', 2, 'coerce', pyfunc=coerce, pure=True)
 add_operator('contains', 2, 'contains', pure=True)
-add_operator('next', 1, 'next', pyfunc=next)
 #add_operator('call', 3, 'call')
 add_operator('get', 3, 'get', pyfunc=get, pure=True)
 add_operator('set', 3, 'set', pyfunc=set)
@@ -299,6 +298,31 @@ class Iter(HLOperation):
             if isinstance(iterable, unrolling_iterable):
                 return const(iterable.get_unroller())
 op.iter = Iter
+
+class Next(HLOperation):
+    opname = 'next'
+    arity = 1
+    can_overflow = False
+    canraise = []
+    pyfunc = staticmethod(next)
+
+    def eval(self, frame):
+        w_iter, = self.args
+        if isinstance(w_iter, Constant):
+            it = w_iter.value
+            if isinstance(it, _unroller):
+                try:
+                    v, next_unroller = it.step()
+                except IndexError:
+                    raise const(StopIteration())
+                else:
+                    frame.replace_in_stack(it, next_unroller)
+                    return const(v)
+        w_item = frame.do_op(self)
+        frame.guessexception([StopIteration, RuntimeError], force=True)
+        return w_item
+op.next = Next
+
 
 # Other functions that get directly translated to SpaceOperators
 func2op[type] = op.type

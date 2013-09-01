@@ -18,7 +18,6 @@ from rpython.flowspace.generator import (tweak_generator_graph,
         bootstrap_generator)
 from rpython.flowspace.pygraph import PyGraph
 from rpython.flowspace.specialcase import SPECIAL_CASES
-from rpython.rlib.unroll import unrolling_iterable, _unroller
 from rpython.rlib import rstackovf
 
 
@@ -201,22 +200,6 @@ class FlowObjSpace(object):
     # ____________________________________________________________
     def not_(self, w_obj):
         return const(not self.frame.guessbool(self.bool(w_obj)))
-
-    def next(self, w_iter):
-        frame = self.frame
-        if isinstance(w_iter, Constant):
-            it = w_iter.value
-            if isinstance(it, _unroller):
-                try:
-                    v, next_unroller = it.step()
-                except IndexError:
-                    raise const(StopIteration())
-                else:
-                    frame.replace_in_stack(it, next_unroller)
-                    return const(v)
-        w_item = frame.do_operation("next", w_iter)
-        frame.guessexception([StopIteration, RuntimeError], force=True)
-        return w_item
 
 
     def getattr(self, w_obj, w_name):
