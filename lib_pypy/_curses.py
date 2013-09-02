@@ -1,6 +1,9 @@
 """Reimplementation of the standard extension module '_curses' using cffi."""
 
 import sys
+if sys.platform == 'win32':
+    #This module does not exist in windows
+    raise ImportError('No module named _curses')
 from functools import wraps
 
 from cffi import FFI
