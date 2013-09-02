@@ -52,7 +52,7 @@ class PyFrame(eval.Frame):
 
     def __init__(self, space, code, w_globals, outer_func):
         if not we_are_translated():
-            assert type(self) in (space.FrameClass, CPythonFrame), (
+            assert type(self) == space.FrameClass, (
                 "use space.FrameClass(), not directly PyFrame()")
         self = hint(self, access_directly=True, fresh_virtualizable=True)
         assert isinstance(code, pycode.PyCode)
@@ -673,17 +673,6 @@ class PyFrame(eval.Frame):
         if space.config.objspace.honor__builtins__:
             return space.wrap(self.builtin is not space.builtin)
         return space.w_False
-
-class CPythonFrame(PyFrame):
-    """
-    Execution of host (CPython) opcodes.
-    """
-
-    bytecode_spec = host_bytecode_spec
-    opcode_method_names = host_bytecode_spec.method_names
-    opcodedesc = host_bytecode_spec.opcodedesc
-    opdescmap = host_bytecode_spec.opdescmap
-    HAVE_ARGUMENT = host_bytecode_spec.HAVE_ARGUMENT
 
 
 # ____________________________________________________________

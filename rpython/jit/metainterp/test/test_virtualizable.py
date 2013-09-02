@@ -1289,8 +1289,10 @@ class ImplicitVirtualizableTests(object):
             frame = Frame(n, 0)
             somewhere_else.top_frame = frame        # escapes
             frame = hint(frame, access_directly=True)
-            while frame.x > 0:
+            while True:
                 myjitdriver.jit_merge_point(frame=frame, fail=fail)
+                if frame.x <= 0:
+                    break
                 frame.x -= 1
                 if fail or frame.x > 2:
                     frame.y += frame.x

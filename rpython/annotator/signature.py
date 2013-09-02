@@ -5,7 +5,7 @@ import types
 from rpython.annotator.model import SomeBool, SomeInteger, SomeString,\
      SomeFloat, SomeList, SomeDict, s_None, \
      SomeObject, SomeInstance, SomeTuple, lltype_to_annotation,\
-     unionof, SomeUnicodeString, SomeType
+     unionof, SomeUnicodeString, SomeType, AnnotatorError
 from rpython.annotator.listdef import ListDef
 from rpython.annotator.dictdef import DictDef
 
@@ -118,25 +118,28 @@ class Sig(object):
             else:
                 args_s.append(annotation(argtype, bookkeeper=funcdesc.bookkeeper))
         if len(inputcells) != len(args_s):
-            raise Exception("%r: expected %d args, got %d" % (funcdesc,
+            raise SignatureError("%r: expected %d args, got %d" % (funcdesc,
                                                               len(args_s),
                                                               len(inputcells)))
         for i, (s_arg, s_input) in enumerate(zip(args_s, inputcells)):
             s_input = unionof(s_input, s_arg)
             if not s_arg.contains(s_input):
-                raise Exception("%r argument %d:\n"
+                raise SignatureError("%r argument %d:\n"
                                 "expected %s,\n"
                                 "     got %s" % (funcdesc, i+1,
                                              s_arg,
                                              s_input))
         inputcells[:] = args_s
 
+class SignatureError(AnnotatorError):
+    pass
+
 def finish_type(paramtype, bookkeeper, func):
     from rpython.rlib.types import SelfTypeMarker, AnyTypeMarker
     if isinstance(paramtype, SomeObject):
         return paramtype
     elif isinstance(paramtype, SelfTypeMarker):
-        raise Exception("%r argument declared as annotation.types.self(); class needs decorator rlib.signature.finishsigs()" % (func,))
+        raise SignatureError("%r argument declared as annotation.types.self(); class needs decorator rlib.signature.finishsigs()" % (func,))
     elif isinstance(paramtype, AnyTypeMarker):
         return None
     else:
@@ -149,7 +152,7 @@ def enforce_signature_args(funcdesc, paramtypes, actualtypes):
         if s_param is None: # can be anything
             continue
         if not s_param.contains(s_actual):
-            raise Exception("%r argument %d:\n"
+            raise SignatureError("%r argument %d:\n"
                             "expected %s,\n"
                             "     got %s" % (funcdesc, i+1, s_param, s_actual))
     for i, s_param in enumerate(params_s):
@@ -160,7 +163,7 @@ def enforce_signature_args(funcdesc, paramtypes, actualtypes):
 def enforce_signature_return(funcdesc, sigtype, inferredtype):
     s_sigret = finish_type(sigtype, funcdesc.bookkeeper, funcdesc.pyobj)
     if s_sigret is not None and not s_sigret.contains(inferredtype):
-        raise Exception("%r return value:\n"
+        raise SignatureError("%r return value:\n"
                         "expected %s,\n"
                         "     got %s" % (funcdesc, s_sigret, inferredtype))
     return s_sigret
