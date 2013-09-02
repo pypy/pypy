@@ -16,7 +16,7 @@ char* stm_dbg_get_hdr_str(gcptr obj)
 
     i = 0;
     cur = tmp_buf;
-    cur += sprintf(cur, "%p:", obj);
+    cur += sprintf(cur, "%p : ", obj);
     while (flags[i]) {
         if (obj->h_tid & (STM_FIRST_GCFLAG << i)) {
             cur += sprintf(cur, "%s|", flags[i]);
@@ -24,6 +24,8 @@ char* stm_dbg_get_hdr_str(gcptr obj)
         i++;
     }
     cur += sprintf(cur, "tid=%ld", stm_get_tid(obj));
+    cur += sprintf(cur, " : rev=%lx : orig=%lx", 
+                   obj->h_revision, obj->h_original);
     return tmp_buf;
 }
 

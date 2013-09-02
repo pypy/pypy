@@ -965,10 +965,14 @@ static void major_collect(void)
     mark_prebuilt_roots();
     mark_registered_stubs();
     mark_all_stack_roots();
+    
+    /* weakrefs: */
     do {
         visit_all_objects();
+        stm_update_old_weakrefs_lists();
         stm_visit_old_weakrefs();
     } while (gcptrlist_size(&objects_to_trace) != 0);
+    
     gcptrlist_delete(&objects_to_trace);
     clean_up_lists_of_read_objects_and_fix_outdated_flags();
     stm_clean_old_weakrefs();
