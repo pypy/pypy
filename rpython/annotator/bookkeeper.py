@@ -12,7 +12,7 @@ from rpython.annotator.model import (
     SomeBuiltin, SomePBC, SomeInteger, TLS, SomeAddress, SomeUnicodeCodePoint,
     s_None, s_ImpossibleValue, SomeLLADTMeth, SomeBool, SomeTuple,
     SomeImpossibleValue, SomeUnicodeString, SomeList, HarmlesslyBlocked,
-    SomeWeakRef, lltype_to_annotation, SomeType, SomeByteArray)
+    SomeWeakRef, lltype_to_annotation, SomeType, SomeByteArray, SomeConstantType)
 from rpython.annotator.classdef import InstanceSource, ClassDef
 from rpython.annotator.listdef import ListDef, ListItem
 from rpython.annotator.dictdef import DictDef
@@ -432,11 +432,7 @@ class Bookkeeper(object):
         elif isinstance(x, llmemory.fakeaddress):
             result = SomeAddress()
         elif tp is type:
-            if (x is type(None) or      # add cases here if needed
-                x.__module__ == 'rpython.rtyper.lltypesystem.lltype'):
-                result = SomeType()
-            else:
-                result = SomePBC([self.getdesc(x)])
+            result = SomeConstantType(x, self)
         elif callable(x):
             if hasattr(x, 'im_self') and hasattr(x, 'im_func'):
                 # on top of PyPy, for cases like 'l.append' where 'l' is a
