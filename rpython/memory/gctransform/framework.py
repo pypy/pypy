@@ -974,9 +974,6 @@ class BaseFrameworkGCTransformer(GCTransformer):
                                   self.c_const_gc,
                                   v_size])
 
-    def gct_gc_thread_prepare(self, hop):
-        pass   # no effect any more
-
     def gct_gc_thread_run(self, hop):
         assert self.translator.config.translation.thread
         if hasattr(self.root_walker, 'thread_run_ptr'):
