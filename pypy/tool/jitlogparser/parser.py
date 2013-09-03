@@ -382,7 +382,7 @@ def import_log(logname, ParserCls=SimpleParser):
     from rpython.jit.backend.tool.viewcode import World
     world = World()
     for entry in extract_category(log, 'jit-backend-dump'):
-        world.parse(entry.splitlines(True), truncate_addr=False)
+        world.parse(entry.splitlines(True))
     dumps = {}
     for r in world.ranges:
         if r.addr in addrs and addrs[r.addr]:
@@ -390,7 +390,12 @@ def import_log(logname, ParserCls=SimpleParser):
             data = r.data.encode('hex')       # backward compatibility
             dumps[name] = (world.backend_name, r.addr, data)
     loops = []
-    for entry in extract_category(log, 'jit-log-opt'):
+    cat = extract_category(log, 'jit-log-opt')
+    if not cat:
+        extract_category(log, 'jit-log-rewritten')
+    if not cat:
+        extract_category(log, 'jit-log-noopt')        
+    for entry in cat:
         parser = ParserCls(entry, None, {}, 'lltype', None,
                            nonstrict=True)
         loop = parser.parse()

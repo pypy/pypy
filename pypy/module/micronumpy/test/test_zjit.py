@@ -56,7 +56,7 @@ class TestNumpyJIt(LLJitMixin):
             elif isinstance(w_res, interp_boxes.W_BoolBox):
                 return float(w_res.value)
             raise TypeError(w_res)
-
+      
         if self.graph is None:
             interp, graph = self.meta_interp(f, [0],
                                              listops=True,
@@ -139,11 +139,17 @@ class TestNumpyJIt(LLJitMixin):
                                 'int_add': 3,
                                 })
 
+    def define_reduce():
+        return """
+        a = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        sum(a)
+        """
+
     def test_reduce_compile_only_once(self):
         self.compile_graph()
         reset_stats()
         pyjitpl._warmrunnerdesc.memory_manager.alive_loops.clear()
-        i = self.code_mapping['sum']
+        i = self.code_mapping['reduce']
         # run it twice
         retval = self.interp.eval_graph(self.graph, [i])
         retval = self.interp.eval_graph(self.graph, [i])

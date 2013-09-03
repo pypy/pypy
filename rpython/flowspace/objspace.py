@@ -9,9 +9,9 @@ from inspect import CO_NEWLOCALS
 
 from rpython.flowspace.argument import CallSpec
 from rpython.flowspace.model import (Constant, Variable, WrapException,
-    UnwrapException, checkgraph)
+    UnwrapException, checkgraph, const)
 from rpython.flowspace.bytecode import HostCode
-from rpython.flowspace import operation
+from rpython.flowspace.operation import op
 from rpython.flowspace.flowcontext import (FlowSpaceFrame, fixeggblocks,
     FSException, FlowingError)
 from rpython.flowspace.generator import (tweak_generator_graph,
@@ -20,14 +20,7 @@ from rpython.flowspace.pygraph import PyGraph
 from rpython.flowspace.specialcase import SPECIAL_CASES
 from rpython.rlib.unroll import unrolling_iterable, _unroller
 from rpython.rlib import rstackovf
-from rpython.rlib.rarithmetic import is_valid_int
 
-
-# method-wrappers have not enough introspection in CPython
-if hasattr(complex.real.__get__, 'im_self'):
-    type_with_bad_introspection = None     # on top of PyPy
-else:
-    type_with_bad_introspection = type(complex.real.__get__)
 
 # the following gives us easy access to declare more for applications:
 NOT_REALLY_CONST = {
@@ -74,7 +67,6 @@ class FlowObjSpace(object):
     (the bytecode of) some function.
     """
     w_None = Constant(None)
-    builtin = Constant(__builtin__)
     sys = Constant(sys)
     w_False = Constant(False)
     w_True = Constant(True)
@@ -96,9 +88,6 @@ class FlowObjSpace(object):
 
     def build_flow(self, func):
         return build_flow(func, self)
-
-    def is_w(self, w_one, w_two):
-        return self.is_true(self.is_(w_one, w_two))
 
     is_ = None     # real version added by add_operations()
     id  = None     # real version added by add_operations()
@@ -126,73 +115,36 @@ class FlowObjSpace(object):
             return self.w_False
 
     def newfunction(self, w_code, w_globals, defaults_w):
-        try:
-            code = self.unwrap(w_code)
-            globals = self.unwrap(w_globals)
-            defaults = tuple([self.unwrap(value) for value in defaults_w])
-        except UnwrapException:
-            raise FlowingError(self.frame, "Dynamically created function must"
+        if not all(isinstance(value, Constant) for value in defaults_w):
+            raise FlowingError("Dynamically created function must"
                     " have constant default values.")
+        code = w_code.value
+        globals = w_globals.value
+        defaults = tuple([default.value for default in defaults_w])
         fn = types.FunctionType(code, globals, code.co_name, defaults)
         return Constant(fn)
 
-    def wrap(self, obj):
-        if isinstance(obj, (Variable, Constant)):
-            raise TypeError("already wrapped: " + repr(obj))
-        # method-wrapper have ill-defined comparison and introspection
-        # to appear in a flow graph
-        if type(obj) is type_with_bad_introspection:
-            raise WrapException
-        return Constant(obj)
-
     def exc_wrap(self, exc):
-        w_value = self.wrap(exc)
-        w_type = self.wrap(type(exc))
+        w_value = const(exc)
+        w_type = const(type(exc))
         return FSException(w_type, w_value)
-
-    def int_w(self, w_obj):
-        if isinstance(w_obj, Constant):
-            val = w_obj.value
-            if not is_valid_int(val):
-                raise TypeError("expected integer: " + repr(w_obj))
-            return val
-        return self.unwrap(w_obj)
-
-    def str_w(self, w_obj):
-        if isinstance(w_obj, Constant):
-            val = w_obj.value
-            if type(val) is not str:
-                raise TypeError("expected string: " + repr(w_obj))
-            return val
-        return self.unwrap(w_obj)
-
-    def unwrap(self, w_obj):
-        if isinstance(w_obj, Variable):
-            raise UnwrapException
-        elif isinstance(w_obj, Constant):
-            return w_obj.value
-        else:
-            raise TypeError("not wrapped: " + repr(w_obj))
-
-    def exception_issubclass_w(self, w_cls1, w_cls2):
-        return self.is_true(self.issubtype(w_cls1, w_cls2))
 
     def exception_match(self, w_exc_type, w_check_class):
         """Checks if the given exception type matches 'w_check_class'."""
-        try:
-            check_class = self.unwrap(w_check_class)
-        except UnwrapException:
-            raise FlowingError(self.frame, "Non-constant except guard.")
+        frame = self.frame
+        if not isinstance(w_check_class, Constant):
+            raise FlowingError("Non-constant except guard.")
+        check_class = w_check_class.value
         if check_class in (NotImplementedError, AssertionError):
-            raise FlowingError(self.frame,
+            raise FlowingError(
                 "Catching %s is not valid in RPython" % check_class.__name__)
         if not isinstance(check_class, tuple):
             # the simple case
-            return self.exception_issubclass_w(w_exc_type, w_check_class)
+            return frame.guessbool(self.issubtype(w_exc_type, w_check_class))
         # special case for StackOverflow (see rlib/rstackovf.py)
         if check_class == rstackovf.StackOverflow:
-            w_real_class = self.wrap(rstackovf._StackOverflow)
-            return self.exception_issubclass_w(w_exc_type, w_real_class)
+            w_real_class = const(rstackovf._StackOverflow)
+            return frame.guessbool(self.issubtype(w_exc_type, w_real_class))
         # checking a tuple of classes
         for w_klass in self.unpackiterable(w_check_class):
             if self.exception_match(w_exc_type, w_klass):
@@ -205,14 +157,16 @@ class FlowObjSpace(object):
 
         Returns an FSException object whose w_value is an instance of w_type.
         """
-        if self.isinstance_w(w_arg1, self.w_type):
+        frame = self.frame
+        if frame.guessbool(self.call_function(const(isinstance), w_arg1,
+                self.w_type)):
             # this is for all cases of the form (Class, something)
-            if self.is_w(w_arg2, self.w_None):
+            if frame.guessbool(self.is_(w_arg2, self.w_None)):
                 # raise Type: we assume we have to instantiate Type
                 w_value = self.call_function(w_arg1)
             else:
                 w_valuetype = self.type(w_arg2)
-                if self.exception_issubclass_w(w_valuetype, w_arg1):
+                if frame.guessbool(self.issubtype(w_valuetype, w_arg1)):
                     # raise Type, Instance: let etype be the exact type of value
                     w_value = w_arg2
                 else:
@@ -220,7 +174,7 @@ class FlowObjSpace(object):
                     w_value = self.call_function(w_arg1, w_arg2)
         else:
             # the only case left here is (inst, None), from a 'raise inst'.
-            if not self.is_w(w_arg2, self.w_None):
+            if not frame.guessbool(self.is_(w_arg2, self.w_None)):
                 raise self.exc_wrap(TypeError(
                     "instance exception may not have a separate value"))
             w_value = w_arg1
@@ -230,40 +184,34 @@ class FlowObjSpace(object):
     def unpackiterable(self, w_iterable):
         if isinstance(w_iterable, Constant):
             l = w_iterable.value
-            return [self.wrap(x) for x in l]
+            return [const(x) for x in l]
         else:
             raise UnwrapException("cannot unpack a Variable iterable ")
 
     def unpack_sequence(self, w_iterable, expected_length):
         if isinstance(w_iterable, Constant):
-            l = list(self.unwrap(w_iterable))
+            l = list(w_iterable.value)
             if len(l) != expected_length:
                 raise ValueError
-            return [self.wrap(x) for x in l]
+            return [const(x) for x in l]
         else:
             w_len = self.len(w_iterable)
-            w_correct = self.eq(w_len, self.wrap(expected_length))
-            if not self.is_true(w_correct):
+            w_correct = self.eq(w_len, const(expected_length))
+            if not self.frame.guessbool(self.bool(w_correct)):
                 e = self.exc_from_raise(self.w_ValueError, self.w_None)
                 raise e
-            return [self.frame.do_operation('getitem', w_iterable, self.wrap(i))
+            return [self.frame.do_operation('getitem', w_iterable, const(i))
                         for i in range(expected_length)]
 
     # ____________________________________________________________
     def not_(self, w_obj):
-        return self.wrap(not self.is_true(w_obj))
-
-    def is_true(self, w_obj):
-        if w_obj.foldable():
-            return bool(w_obj.value)
-        w_truthvalue = self.frame.do_operation('is_true', w_obj)
-        return self.frame.guessbool(w_truthvalue)
+        return const(not self.frame.guessbool(self.bool(w_obj)))
 
     def iter(self, w_iterable):
         if isinstance(w_iterable, Constant):
             iterable = w_iterable.value
             if isinstance(iterable, unrolling_iterable):
-                return self.wrap(iterable.get_unroller())
+                return const(iterable.get_unroller())
         w_iter = self.frame.do_operation("iter", w_iterable)
         return w_iter
 
@@ -278,9 +226,9 @@ class FlowObjSpace(object):
                     raise self.exc_wrap(StopIteration())
                 else:
                     frame.replace_in_stack(it, next_unroller)
-                    return self.wrap(v)
+                    return const(v)
         w_item = frame.do_operation("next", w_iter)
-        frame.handle_implicit_exceptions([StopIteration, RuntimeError])
+        frame.guessexception([StopIteration, RuntimeError], force=True)
         return w_item
 
 
@@ -290,8 +238,7 @@ class FlowObjSpace(object):
         if w_obj in self.not_really_const:
             const_w = self.not_really_const[w_obj]
             if w_name not in const_w:
-                return self.frame.do_operation_with_implicit_exceptions('getattr',
-                                                                w_obj, w_name)
+                return self.frame.do_op(op.getattr(w_obj, w_name))
         if w_obj.foldable() and w_name.foldable():
             obj, name = w_obj.value, w_name.value
             try:
@@ -300,23 +247,19 @@ class FlowObjSpace(object):
                 etype = e.__class__
                 msg = "getattr(%s, %s) always raises %s: %s" % (
                     obj, name, etype, e)
-                raise FlowingError(self.frame, msg)
+                raise FlowingError(msg)
             try:
-                return self.wrap(result)
+                return const(result)
             except WrapException:
                 pass
-        return self.frame.do_operation_with_implicit_exceptions('getattr',
-                w_obj, w_name)
-
-    def isinstance_w(self, w_obj, w_type):
-        return self.is_true(self.isinstance(w_obj, w_type))
+        return self.frame.do_op(op.getattr(w_obj, w_name))
 
     def import_name(self, name, glob=None, loc=None, frm=None, level=-1):
         try:
             mod = __import__(name, glob, loc, frm, level)
         except ImportError as e:
             raise self.exc_wrap(e)
-        return self.wrap(mod)
+        return const(mod)
 
     def import_from(self, w_module, w_name):
         assert isinstance(w_module, Constant)
@@ -325,16 +268,15 @@ class FlowObjSpace(object):
         if w_module in self.not_really_const:
             const_w = self.not_really_const[w_module]
             if w_name not in const_w:
-                return self.frame.do_operation_with_implicit_exceptions('getattr',
-                                                                w_module, w_name)
+                return self.frame.do_op(op.getattr(w_module, w_name))
         try:
-            return self.wrap(getattr(w_module.value, w_name.value))
+            return const(getattr(w_module.value, w_name.value))
         except AttributeError:
             raise self.exc_wrap(ImportError(
                 "cannot import name '%s'" % w_name.value))
 
     def call_method(self, w_obj, methname, *arg_w):
-        w_meth = self.getattr(w_obj, self.wrap(methname))
+        w_meth = self.getattr(w_obj, const(methname))
         return self.call_function(w_meth, *arg_w)
 
     def call_function(self, w_func, *args_w):
@@ -343,7 +285,7 @@ class FlowObjSpace(object):
 
     def appcall(self, func, *args_w):
         """Call an app-level RPython function directly"""
-        w_func = self.wrap(func)
+        w_func = const(func)
         return self.frame.do_operation('simple_call', w_func, *args_w)
 
     def call_args(self, w_callable, args):
@@ -351,7 +293,7 @@ class FlowObjSpace(object):
             fn = w_callable.value
             if hasattr(fn, "_flowspace_rewrite_directly_as_"):
                 fn = fn._flowspace_rewrite_directly_as_
-                w_callable = self.wrap(fn)
+                w_callable = const(fn)
             try:
                 sc = self.specialcases[fn]   # TypeError if 'fn' not hashable
             except (KeyError, TypeError):
@@ -362,7 +304,7 @@ class FlowObjSpace(object):
                     args_w = args.arguments_w + self.unpackiterable(args.w_stararg)
                 else:
                     args_w = args.arguments_w
-                return sc(self, args_w)
+                return sc(self, *args_w)
 
         if args.keywords or isinstance(args.w_stararg, Variable):
             shape, args_w = args.flatten()
@@ -383,79 +325,31 @@ class FlowObjSpace(object):
                                types.TypeType)) and
                   c.__module__ in ['__builtin__', 'exceptions']):
                 if c in builtins_exceptions:
-                    self.frame.handle_implicit_exceptions(builtins_exceptions[c])
+                    self.frame.guessexception(builtins_exceptions[c])
                 return w_res
         # *any* exception for non-builtins
-        self.frame.handle_implicit_exceptions([Exception])
+        self.frame.guessexception([Exception])
         return w_res
 
     def find_global(self, w_globals, varname):
         try:
-            value = self.unwrap(w_globals)[varname]
+            value = w_globals.value[varname]
         except KeyError:
             # not in the globals, now look in the built-ins
             try:
-                value = getattr(self.unwrap(self.builtin), varname)
+                value = getattr(__builtin__, varname)
             except AttributeError:
-                message = "global name '%s' is not defined" % varname
-                raise FlowingError(self.frame, self.wrap(message))
-        return self.wrap(value)
+                raise FlowingError("global name '%s' is not defined" % varname)
+        return const(value)
 
-def make_impure_op(oper):
-    def generic_operator(self, *args_w):
-        if len(args_w) != oper.arity:
-            raise TypeError(oper.name + " got the wrong number of arguments")
-        w_result = self.frame.do_operation_with_implicit_exceptions(oper.name, *args_w)
-        return w_result
+def make_op(cls):
+    def generic_operator(self, *args):
+        return cls(*args).eval(self.frame)
     return generic_operator
 
-def make_op(oper):
-    """Add function operation to the flow space."""
-    name = oper.name
-    func = oper.pyfunc
-
-    def generic_operator(self, *args_w):
-        assert len(args_w) == oper.arity, name + " got the wrong number of arguments"
-        args = []
-        if all(w_arg.foldable() for w_arg in args_w):
-            args = [w_arg.value for w_arg in args_w]
-            # All arguments are constants: call the operator now
-            try:
-                result = func(*args)
-            except Exception, e:
-                etype = e.__class__
-                msg = "%s%r always raises %s: %s" % (
-                    name, tuple(args), etype, e)
-                raise FlowingError(self.frame, msg)
-            else:
-                # don't try to constant-fold operations giving a 'long'
-                # result.  The result is probably meant to be sent to
-                # an intmask(), but the 'long' constant confuses the
-                # annotator a lot.
-                if oper.can_overflow and type(result) is long:
-                    pass
-                # don't constant-fold getslice on lists, either
-                elif name == 'getslice' and type(result) is list:
-                    pass
-                # otherwise, fine
-                else:
-                    try:
-                        return self.wrap(result)
-                    except WrapException:
-                        # type cannot sanely appear in flow graph,
-                        # store operation with variable result instead
-                        pass
-        w_result = self.frame.do_operation_with_implicit_exceptions(name, *args_w)
-        return w_result
-    return generic_operator
-
-for oper in operation.op.__dict__.values():
-    if getattr(FlowObjSpace, oper.name, None) is None:
-        if oper.pure:
-            op_method = make_op(oper)
-        else:
-            op_method = make_impure_op(oper)
-        setattr(FlowObjSpace, oper.name, op_method)
+for cls in op.__dict__.values():
+    if getattr(FlowObjSpace, cls.opname, None) is None:
+        setattr(FlowObjSpace, cls.opname, make_op(cls))
 
 
 def build_flow(func, space=FlowObjSpace()):

@@ -178,6 +178,17 @@ class OptRewrite(Optimization):
         else:
             self.emit_operation(op)
 
+    def optimize_INT_XOR(self, op):
+        v1 = self.getvalue(op.getarg(0))
+        v2 = self.getvalue(op.getarg(1))
+
+        if v1.is_constant() and v1.box.getint() == 0:
+            self.make_equal_to(op.result, v2)
+        elif v2.is_constant() and v2.box.getint() == 0:
+            self.make_equal_to(op.result, v1)
+        else:
+            self.emit_operation(op)
+
     def optimize_FLOAT_MUL(self, op):
         arg1 = op.getarg(0)
         arg2 = op.getarg(1)

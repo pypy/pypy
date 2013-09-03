@@ -202,13 +202,11 @@ class TestFramework(object):
         rewriter = gc.GcRewriterAssembler(gc_ll_descr, None)
         newops = rewriter.newops
         v_base = BoxPtr()
-        v_value = BoxPtr()
-        rewriter.gen_write_barrier(v_base, v_value)
+        rewriter.gen_write_barrier(v_base)
         assert llop1.record == []
         assert len(newops) == 1
         assert newops[0].getopnum() == rop.COND_CALL_GC_WB
         assert newops[0].getarg(0) == v_base
-        assert newops[0].getarg(1) == v_value
         assert newops[0].result is None
         wbdescr = newops[0].getdescr()
         assert is_valid_int(wbdescr.jit_wb_if_flag)

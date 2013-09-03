@@ -199,6 +199,9 @@ class BackendTests:
         typerepr = self.TypeRepr
         ffi = FFI(backend=self.Backend())
         ffi.cdef("struct foo { short a, b, c; };")
+        p = ffi.cast("short unsigned int", 0)
+        assert repr(p) == "<cdata 'unsigned short' 0>"
+        assert repr(ffi.typeof(p)) == typerepr % "unsigned short"
         p = ffi.cast("unsigned short int", 0)
         assert repr(p) == "<cdata 'unsigned short' 0>"
         assert repr(ffi.typeof(p)) == typerepr % "unsigned short"
@@ -535,13 +538,13 @@ class BackendTests:
         for c_type, expected_size in [
             ('char', 1),
             ('unsigned int', 4),
-            ('char *', SIZE_OF_LONG),
+            ('char *', SIZE_OF_PTR),
             ('int[5]', 20),
             ('struct foo', 12),
             ('union foo', 4),
             ]:
             size = ffi.sizeof(c_type)
-            assert size == expected_size
+            assert size == expected_size, (size, expected_size, ctype)
 
     def test_sizeof_cdata(self):
         ffi = FFI(backend=self.Backend())

@@ -778,6 +778,11 @@ class AppTestStrUnicodeDtypes(BaseNumpyAppTest):
         from numpypy import unicode_
         assert isinstance(unicode_(3), unicode)
 
+    def test_character_dtype(self):
+        from numpypy import array, character
+        x = array([["A", "B"], ["C", "D"]], character)
+        assert (x == [["A", "B"], ["C", "D"]]).all()
+
 class AppTestRecordDtypes(BaseNumpyAppTest):
     spaceconfig = dict(usemodules=["micronumpy", "struct", "binascii"])
     def test_create(self):

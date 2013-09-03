@@ -685,3 +685,8 @@ class AppTestUfuncs(BaseNumpyAppTest):
                                    msg=error_message)
                 sys.stderr.write('.')
             sys.stderr.write('\n')
+
+    def test_complexbox_to_pycomplex(self):
+        from numpypy import complex128
+        x = complex128(3.4j)
+        assert complex(x) == 3.4j

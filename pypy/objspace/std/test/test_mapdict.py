@@ -656,8 +656,7 @@ class AppTestWithMapDict(object):
 
 class AppTestWithMapDictAndCounters(object):
     spaceconfig = {"objspace.std.withmapdict": True,
-                   "objspace.std.withmethodcachecounter": True,
-                   "objspace.opcodes.CALL_METHOD": True}
+                   "objspace.std.withmethodcachecounter": True}
 
     def setup_class(cls):
         from pypy.interpreter import gateway
@@ -1001,8 +1000,7 @@ class AppTestWithMapDictAndCounters(object):
 
 class AppTestGlobalCaching(AppTestWithMapDict):
     spaceconfig = {"objspace.std.withmethodcachecounter": True,
-                   "objspace.std.withmapdict": True,
-                   "objspace.opcodes.CALL_METHOD": True}
+                   "objspace.std.withmapdict": True}
 
     def test_mix_classes(self):
         import __pypy__

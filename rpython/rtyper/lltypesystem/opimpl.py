@@ -12,7 +12,7 @@ from rpython.tool.sourcetools import func_with_new_name
 ops_returning_a_bool = {'gt': True, 'ge': True,
                         'lt': True, 'le': True,
                         'eq': True, 'ne': True,
-                        'is_true': True}
+                        'bool': True, 'is_true':True}
 
 # global synonyms for some types
 from rpython.rlib.rarithmetic import intmask
@@ -643,7 +643,7 @@ op_gc_gettypeptr_group.need_result_type = True
 def op_get_member_index(memberoffset):
     raise NotImplementedError
 
-def op_gc_assume_young_pointers(addr):
+def op_gc_writebarrier(addr):
     pass
 
 def op_shrink_array(array, smallersize):

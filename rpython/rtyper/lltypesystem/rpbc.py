@@ -241,7 +241,7 @@ class SmallFunctionSetPBCRepr(Repr):
                              resulttype=rresult)
         return hop.llops.convertvar(v_result, rresult, hop.r_result)
 
-    def rtype_is_true(self, hop):
+    def rtype_bool(self, hop):
         if not self.s_pbc.can_be_None:
             return inputconst(Bool, True)
         else:
