@@ -7,7 +7,7 @@ class DummySpace(object):
     def newtuple(self, items):
         return tuple(items)
 
-    def is_true(self, obj):
+    def bool(self, obj):
         return bool(obj)
 
     def unpackiterable(self, it):

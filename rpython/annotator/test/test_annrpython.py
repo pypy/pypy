@@ -1490,7 +1490,7 @@ class TestAnnotateTestCase:
         s = a.build_types(snippet.prime, [int])
         assert s.knowntype == bool
 
-    def test_and_is_true_coalesce(self):
+    def test_and_bool_coalesce(self):
         def f(a,b,c,d,e):
             x = a and b
             if x:
@@ -1500,7 +1500,7 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [int, str, a.bookkeeper.immutablevalue(1.0), a.bookkeeper.immutablevalue('d'), a.bookkeeper.immutablevalue('e')])
         assert s == annmodel.SomeTuple([annmodel.SomeChar(), a.bookkeeper.immutablevalue(1.0)])
 
-    def test_is_true_coalesce2(self):
+    def test_bool_coalesce2(self):
         def f(a,b,a1,b1,c,d,e):
             x = (a or  b) and (a1 or b1)
             if x:
@@ -1514,7 +1514,7 @@ class TestAnnotateTestCase:
         assert s == annmodel.SomeTuple([annmodel.SomeChar(),
                                         a.bookkeeper.immutablevalue(1.0)])
 
-    def test_is_true_coalesce_sanity(self):
+    def test_bool_coalesce_sanity(self):
         def f(a):
             while a:
                 pass

@@ -295,7 +295,7 @@ class __extend__(IntegerRepr):
             hop.exception_cannot_occur()
         return hop.genop('cast_int_to_unichar', vlist, resulttype=UniChar)
 
-    def rtype_is_true(self, hop):
+    def rtype_bool(self, hop):
         assert self is self.as_int   # rtype_is_true() is overridden in BoolRepr
         vlist = hop.inputargs(self)
         return hop.genop(self.opprefix + 'is_true', vlist, resulttype=Bool)
