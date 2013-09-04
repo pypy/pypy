@@ -1,10 +1,11 @@
 """
+
 Numpy C-API for PyPy - S. H. Muller, 2013/07/26
 """
 
 from pypy.interpreter.error import OperationError
-from rpython.rtyper.lltypesystem import rffi, lltype
-from pypy.module.cpyext.api import cpython_api, Py_ssize_t, CANNOT_FAIL
+from rpython.rtyper.lltypesystem import rffi
+from pypy.module.cpyext.api import cpython_api, Py_ssize_t, CANNOT_FAIL, _NOT_SPECIFIED
 from pypy.module.cpyext.pyobject import PyObject
 from pypy.module.micronumpy.interp_numarray import W_NDimArray, convert_to_array, wrap_impl
 from pypy.module.micronumpy.interp_dtype import get_dtype_cache
@@ -56,9 +57,11 @@ def _PyArray_CheckExact(space, w_obj):
     w_type = space.gettypeobject(W_NDimArray.typedef)
     return space.is_w(w_obj_type, w_type)
 
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([PyObject], rffi.INT_real, error=-1)
 def _PyArray_FLAGS(space, w_array):
-    assert isinstance(w_array, W_NDimArray)
+    if not isinstance(w_array, W_NDimArray):
+        raise OperationError(space.w_ValueError, space.wrap(
+            '_PyArray_FLAGS(ndarray) called with non-ndarray'))
     flags = NPY_BEHAVED_NS
     if isinstance(w_array.implementation, ConcreteArray):
         flags |= NPY_OWNDATA
@@ -70,56 +73,72 @@ def _PyArray_FLAGS(space, w_array):
         flags |= NPY_F_CONTIGUOUS
     return flags
 
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([PyObject], rffi.INT_real, error=-1)
 def _PyArray_NDIM(space, w_array):
-    assert isinstance(w_array, W_NDimArray)
+    if not isinstance(w_array, W_NDimArray):
+        raise OperationError(space.w_ValueError, space.wrap(
+            '_PyArray_NDIM(ndarray) called with non-ndarray'))
     return len(w_array.get_shape())
 
-@cpython_api([PyObject, Py_ssize_t], Py_ssize_t, error=CANNOT_FAIL)
+@cpython_api([PyObject, Py_ssize_t], Py_ssize_t, error=-1)
 def _PyArray_DIM(space, w_array, n):
-    assert isinstance(w_array, W_NDimArray)
+    if not isinstance(w_array, W_NDimArray):
+        raise OperationError(space.w_ValueError, space.wrap(
+            '_PyArray_DIM called with non-ndarray'))
     return w_array.get_shape()[n]
 
-@cpython_api([PyObject, Py_ssize_t], Py_ssize_t, error=CANNOT_FAIL)
+@cpython_api([PyObject, Py_ssize_t], Py_ssize_t, error=-1)
 def _PyArray_STRIDE(space, w_array, n):
-    assert isinstance(w_array, W_NDimArray)
+    if not isinstance(w_array, W_NDimArray):
+        raise OperationError(space.w_ValueError, space.wrap(
+            '_PyArray_STRIDE called with non-ndarray'))
     return w_array.implementation.get_strides()[n]
 
-@cpython_api([PyObject], Py_ssize_t, error=CANNOT_FAIL)
+@cpython_api([PyObject], Py_ssize_t, error=-1)
 def _PyArray_SIZE(space, w_array):
-    assert isinstance(w_array, W_NDimArray)
+    if not isinstance(w_array, W_NDimArray):
+        raise OperationError(space.w_ValueError, space.wrap(
+            '_PyArray_SIZE called with non-ndarray'))
     return w_array.get_size()
 
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([PyObject], rffi.INT_real, error=-1)
 def _PyArray_ITEMSIZE(space, w_array):
-    assert isinstance(w_array, W_NDimArray)
+    if not isinstance(w_array, W_NDimArray):
+        raise OperationError(space.w_ValueError, space.wrap(
+            '_PyArray_ITEMSIZE called with non-ndarray'))
     return w_array.get_dtype().get_size()
 
-@cpython_api([PyObject], Py_ssize_t, error=CANNOT_FAIL)
+@cpython_api([PyObject], Py_ssize_t, error=-1)
 def _PyArray_NBYTES(space, w_array):
-    assert isinstance(w_array, W_NDimArray)
+    if not isinstance(w_array, W_NDimArray):
+        raise OperationError(space.w_ValueError, space.wrap(
+            '_PyArray_NBYTES called with non-ndarray'))
     return w_array.get_size() * w_array.get_dtype().get_size()
 
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([PyObject], rffi.INT_real, error=-1)
 def _PyArray_TYPE(space, w_array):
-    assert isinstance(w_array, W_NDimArray)
+    if not isinstance(w_array, W_NDimArray):
+        raise OperationError(space.w_ValueError, space.wrap(
+            '_PyArray_TYPE called with non-ndarray'))
     return w_array.get_dtype().num
 
 
-@cpython_api([PyObject], rffi.VOIDP, error=CANNOT_FAIL)
+@cpython_api([PyObject], rffi.VOIDP, error=_NOT_SPECIFIED)
 def _PyArray_DATA(space, w_array):
     # fails on scalars - see PyArray_FromAny()
-    assert isinstance(w_array, W_NDimArray)
+    if not isinstance(w_array, W_NDimArray):
+        raise OperationError(space.w_ValueError, space.wrap(
+            '_PyArray_DATA called with non-ndarray'))
     return rffi.cast(rffi.VOIDP, w_array.implementation.storage)
 
 
-@cpython_api([PyObject, rffi.VOIDP, Py_ssize_t, Py_ssize_t, Py_ssize_t, rffi.VOIDP], 
+@cpython_api([PyObject, rffi.VOIDP, Py_ssize_t, Py_ssize_t, Py_ssize_t, rffi.VOIDP],
              PyObject)
 def _PyArray_FromAny(space, w_obj, dtype, min_depth, max_depth, requirements, context):
     # ignore all additional arguments for now
     w_array = convert_to_array(space, w_obj)
     if w_array.is_scalar():
-        # since PyArray_DATA() fails on scalars, create a 1D array and set empty 
+        # since PyArray_DATA() fails on scalars, create a 1D array and set empty
         # shape. So the following combination works for *reading* scalars:
         #     PyObject *arr = PyArray_FromAny(obj);
         #     int nd = PyArray_NDIM(arr);
@@ -156,15 +175,15 @@ def simple_new(space, nd, dims, typenum,
     shape, dtype = get_shape_and_dtype(space, nd, dims, typenum)
     return W_NDimArray.from_shape(space, shape, dtype)
 
-def simple_new_from_data(space, nd, dims, typenum, data, 
+def simple_new_from_data(space, nd, dims, typenum, data,
         order='C', owning=False, w_subtype=None):
     shape, dtype = get_shape_and_dtype(space, nd, dims, typenum)
     storage = rffi.cast(RAW_STORAGE_PTR, data)
     if nd == 0:
         w_val = dtype.itemtype.box_raw_data(storage)
         return W_NDimArray(Scalar(dtype, w_val))
-    else:        
-        return W_NDimArray.from_shape_and_storage(space, shape, storage, dtype, 
+    else:
+        return W_NDimArray.from_shape_and_storage(space, shape, storage, dtype,
                 order=order, owning=owning, w_subtype=w_subtype)
 
 
@@ -188,7 +207,7 @@ def _PyArray_SimpleNewFromDataOwning(space, nd, dims, typenum, data):
     rffi.VOIDP, Py_ssize_t, Py_ssize_t, PyObject], PyObject)
 def _PyArray_New(space, subtype, nd, dims, typenum, strides, data, itemsize, flags, obj):
     if strides:
-        raise OperationError(space.w_NotImplementedError, 
+        raise OperationError(space.w_NotImplementedError,
                              space.wrap("strides must be NULL"))
 
     order = 'C' if flags & NPY_C_CONTIGUOUS else 'F'
@@ -196,11 +215,9 @@ def _PyArray_New(space, subtype, nd, dims, typenum, strides, data, itemsize, fla
     w_subtype = None
 
     if data:
-        return simple_new_from_data(space, nd, dims, typenum, data, 
+        return simple_new_from_data(space, nd, dims, typenum, data,
             order=order, owning=owning, w_subtype=w_subtype)
     else:
         return simple_new(space, nd, dims, typenum,
             order=order, owning=owning, w_subtype=w_subtype)
-
-
 

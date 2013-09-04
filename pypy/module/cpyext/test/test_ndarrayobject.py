@@ -42,7 +42,7 @@ class TestNDArrayObject(BaseApiTest):
         assert api._PyArray_FLAGS(f) & 0x0002
         assert not api._PyArray_FLAGS(c) & 0x0002
         assert not api._PyArray_FLAGS(f) & 0x0001
-        
+
     def test_NDIM(self, space, api):
         a = array(space, [10, 5, 3])
         assert api._PyArray_NDIM(a) == 3
@@ -58,7 +58,7 @@ class TestNDArrayObject(BaseApiTest):
     def test_ITEMSIZE(self, space, api):
         a = array(space, [10, 5, 3])
         assert api._PyArray_ITEMSIZE(a) == 8
-    
+
     def test_NBYTES(self, space, api):
         a = array(space, [10, 5, 3])
         assert api._PyArray_NBYTES(a) == 1200
@@ -79,7 +79,7 @@ class TestNDArrayObject(BaseApiTest):
 
         a = api._PyArray_FromAny(a0, NULL, 0, 0, 0, NULL)
         assert api._PyArray_NDIM(a) == 0
-        
+
         ptr = rffi.cast(rffi.DOUBLEP, api._PyArray_DATA(a))
         assert ptr[0] == 10.
 
@@ -112,9 +112,9 @@ class TestNDArrayObject(BaseApiTest):
     def test_SimpleNew_scalar(self, space, api):
         ptr_s = lltype.nullptr(rffi.LONGP.TO)
         a = api._PyArray_SimpleNew(0, ptr_s, 12)
-        
+
         dtype = get_dtype_cache(space).w_float64dtype
-        
+
         a.set_scalar_value(dtype.itemtype.box(10.))
         assert a.get_scalar_value().value == 10.
 
@@ -127,7 +127,7 @@ class TestNDArrayObject(BaseApiTest):
         x[0] = float(10.)
 
         ptr_s = lltype.nullptr(rffi.LONGP.TO)
-        
+
         res = api._PyArray_SimpleNewFromData(0, ptr_s, num, ptr_a)
         assert res.is_scalar()
         assert res.get_scalar_value().value == 10.
@@ -141,9 +141,9 @@ class TestNDArrayObject(BaseApiTest):
         ptr_s[0] = 10
         ptr_s[1] = 5
         ptr_s[2] = 3
-        
+
         a = api._PyArray_SimpleNew(nd, ptr_s, 12)
-        
+
         #assert list(api._PyArray_DIMS(a))[:3] == shape
 
         ptr_a = api._PyArray_DATA(a)
@@ -185,13 +185,13 @@ class TestNDArrayObject(BaseApiTest):
     def test_SimpleNewFromData_complex(self, space, api):
         a = array(space, [2])
         ptr_a = api._PyArray_DATA(a)
-        
+
         x = rffi.cast(rffi.DOUBLEP, ptr_a)
         x[0] = 3.
         x[1] = 4.
-                
+
         ptr_s = lltype.nullptr(rffi.LONGP.TO)
-        
+
         res = api._PyArray_SimpleNewFromData(0, ptr_s, 15, ptr_a)
         assert res.get_scalar_value().real == 3.
         assert res.get_scalar_value().imag == 4.
