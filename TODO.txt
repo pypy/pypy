@@ -4,17 +4,6 @@ Comments by antocuni, rguillebert
 - why do we need to implement array.nonzero on this branch and it was not done
   e.g. on default?
 
-- in cpyext/ndarrayobject.py: most functions starts with code like this:
-
-    @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-    def _PyArray_FLAGS(space, w_array):
-        assert isinstance(w_array, W_NDimArray)
-        ...
-
-  this is very bad because if you pass something which is not a numpy array,
-  you get an RPython AssertionError instead of a nice applevel TypeError
-
-
 -   def _PyArray_FromAny(space, w_obj, dtype, min_depth, max_depth, requirements, context):
         # ignore all additional arguments for now
 
