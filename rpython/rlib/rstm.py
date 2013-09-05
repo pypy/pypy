@@ -77,25 +77,29 @@ def abort_and_retry():
 
 @dont_look_inside
 def before_external_call():
-    llop.stm_commit_transaction(lltype.Void)
+    if we_are_translated():
+        llop.stm_commit_transaction(lltype.Void)
 before_external_call._dont_reach_me_in_del_ = True
 before_external_call._transaction_break_ = True
 
 @dont_look_inside
 def after_external_call():
-    llop.stm_begin_inevitable_transaction(lltype.Void)
+    if we_are_translated():
+        llop.stm_begin_inevitable_transaction(lltype.Void)
 after_external_call._dont_reach_me_in_del_ = True
 after_external_call._transaction_break_ = True
 
 @dont_look_inside
 def enter_callback_call():
-    return llop.stm_enter_callback_call(lltype.Signed)
+    if we_are_translated():
+        return llop.stm_enter_callback_call(lltype.Signed)
 enter_callback_call._dont_reach_me_in_del_ = True
 enter_callback_call._transaction_break_ = True
 
 @dont_look_inside
 def leave_callback_call(token):
-    llop.stm_leave_callback_call(lltype.Void, token)
+    if we_are_translated():
+        llop.stm_leave_callback_call(lltype.Void, token)
 leave_callback_call._dont_reach_me_in_del_ = True
 leave_callback_call._transaction_break_ = True
 
