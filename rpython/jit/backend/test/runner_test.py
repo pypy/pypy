@@ -2183,13 +2183,13 @@ class LLtypeBackendTest(BaseBackendTest):
             del record[:]
             p0 = BoxPtr()
             operations = [
-                ResOperation(rop.COND_CALL_GC_WB, [p0, ConstInt(0)], None,
+                ResOperation(rop.COND_CALL_GC_WB, [p0], None,
                              descr=WriteBarrierDescr()),
                 ResOperation(rop.FINISH, [p0], None, descr=BasicFinalDescr(0))
                 ]
             inputargs = [p0]
             looptoken = JitCellToken()
-            self.cpu.compile_loop(inputargs, operations, looptoken)
+            self.cpu.compile_loop(None, inputargs, operations, looptoken)
             fail = self.cpu.execute_token(looptoken, sgcref)
             assert fail.identifier == 1
             res = self.cpu.get_latest_value_ref(0)
