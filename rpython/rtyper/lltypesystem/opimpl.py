@@ -672,6 +672,12 @@ def op_nop(x):
 def op_debug_stm_flush_barrier():
     pass
 
+def op_stm_ptr_eq(x, y):
+    return op_ptr_eq(x, y)
+
+def op_stm_get_tid(x):
+    raise NotImplementedError
+
 # ____________________________________________________________
 
 def get_op_impl(opname):

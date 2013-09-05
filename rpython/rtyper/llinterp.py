@@ -942,9 +942,39 @@ class LLFrame(object):
 
     def _stm_not_implemented(self, *args):
         raise NotImplementedError
-    op_stm_writebarrier = _stm_not_implemented
-    op_stm_normalize_global = _stm_not_implemented
+    op_stm_initialize = _stm_not_implemented
+    op_stm_finalize = _stm_not_implemented
+    op_stm_perform_transaction = _stm_not_implemented
+    op_stm_should_break_transaction = _stm_not_implemented
+    op_stm_commit_transaction = _stm_not_implemented
+    op_stm_begin_inevitable_transaction = _stm_not_implemented
+    op_stm_barrier = _stm_not_implemented
+    op_stm_push_root = _stm_not_implemented
+    op_stm_pop_root_into = _stm_not_implemented
+    op_stm_get_adr_of_read_barrier_cache = _stm_not_implemented
+    op_stm_get_adr_of_private_rev_num = _stm_not_implemented
+    op_stm_enter_callback_call = _stm_not_implemented
+    op_stm_leave_callback_call = _stm_not_implemented
+    op_stm_get_atomic = _stm_not_implemented
+    op_stm_change_atomic = _stm_not_implemented
+    op_stm_set_transaction_length = _stm_not_implemented
+    op_stm_abort_info_push = _stm_not_implemented
+    op_stm_abort_info_pop = _stm_not_implemented
+    op_stm_inspect_abort_info = _stm_not_implemented
+    op_stm_threadlocal_get = _stm_not_implemented
+    op_stm_threadlocal_set = _stm_not_implemented
+    op_stm_threadlocalref_get = _stm_not_implemented
+    op_stm_threadlocalref_set = _stm_not_implemented
+    op_stm_hash = _stm_not_implemented
+    op_stm_id = _stm_not_implemented
+    op_stm_allocate = _stm_not_implemented
+    op_stm_weakref_allocate = _stm_not_implemented
+    op_stm_allocate_nonmovable_int_adr = _stm_not_implemented
+    op_stm_minor_collect = _stm_not_implemented
+    op_stm_major_collect = _stm_not_implemented
+    op_stm_abort_and_retry = _stm_not_implemented
     op_stm_become_inevitable = _stm_not_implemented
+    op_stm_clear_exception_data_on_abort = _stm_not_implemented
 
     # __________________________________________________________
     # operations on addresses
