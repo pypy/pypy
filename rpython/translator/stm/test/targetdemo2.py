@@ -254,7 +254,6 @@ def setup_threads():
 def start_thread(args):
     bootstrapper.acquire(args)
     try:
-        rthread.gc_thread_prepare()     # (this has no effect any more)
         ident = rthread.start_new_thread(bootstrapper.bootstrap, ())
     except Exception, e:
         bootstrapper.release()     # normally called by the new thread
