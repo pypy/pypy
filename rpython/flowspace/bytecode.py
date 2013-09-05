@@ -3,6 +3,7 @@ Bytecode handling classes and functions for use by the flow space.
 """
 from rpython.tool.stdlib_opcode import host_bytecode_spec
 from opcode import EXTENDED_ARG, HAVE_ARGUMENT
+import opcode
 from rpython.flowspace.argument import Signature
 from rpython.flowspace.flowcontext import BytecodeCorruption
 
@@ -83,10 +84,10 @@ class HostCode(object):
         Returns (next_instr, opname, oparg).
         """
         co_code = self.co_code
-        opcode = ord(co_code[pos])
+        opnum = ord(co_code[pos])
         next_instr = pos + 1
 
-        if opcode >= HAVE_ARGUMENT:
+        if opnum >= HAVE_ARGUMENT:
             lo = ord(co_code[next_instr])
             hi = ord(co_code[next_instr+1])
             next_instr += 2
@@ -94,16 +95,18 @@ class HostCode(object):
         else:
             oparg = 0
 
-        while opcode == EXTENDED_ARG:
-            opcode = ord(co_code[next_instr])
-            if opcode < HAVE_ARGUMENT:
+        while opnum == EXTENDED_ARG:
+            opnum = ord(co_code[next_instr])
+            if opnum < HAVE_ARGUMENT:
                 raise BytecodeCorruption
             lo = ord(co_code[next_instr+1])
             hi = ord(co_code[next_instr+2])
             next_instr += 3
             oparg = (oparg * 65536) | (hi * 256) | lo
 
-        opname = self.opnames[opcode]
+        if opnum in opcode.hasjrel:
+            oparg += next_instr
+        opname = self.opnames[opnum]
         return next_instr, opname, oparg
 
     @property

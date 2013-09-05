@@ -1229,7 +1229,10 @@ class Statement(object):
         if cvt is not None:
             param = cvt(param)
 
-        param = adapt(param)
+        try:
+            param = adapt(param)
+        except:
+            pass  # And use previous value
 
         if param is None:
             rc = _lib.sqlite3_bind_null(self._statement, idx)
@@ -1305,7 +1308,7 @@ class Statement(object):
         for i in xrange(_lib.sqlite3_column_count(self._statement)):
             name = _lib.sqlite3_column_name(self._statement, i)
             if name:
-                name = _ffi.string(name).decode('utf-8').split("[")[0].strip()
+                name = _ffi.string(name).split("[")[0].strip()
             desc.append((name, None, None, None, None, None, None))
         return desc
 

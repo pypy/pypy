@@ -401,7 +401,7 @@ def import_log(logname, ParserCls=SimpleParser):
     world = World()
     for entry in extract_category(log, 'jit-backend-dump'):
         entry = purge_thread_numbers(entry)
-        world.parse(entry.splitlines(True), truncate_addr=False)
+        world.parse(entry.splitlines(True))
     dumps = {}
     symbols = world.symbols
     for r in world.ranges:
@@ -410,14 +410,19 @@ def import_log(logname, ParserCls=SimpleParser):
             data = r.data.encode('hex')       # backward compatibility
             dumps[name] = (world.backend_name, r.addr, data)
     loops = []
-    for entry in extract_category(log, 'jit-log-opt'):
+    cat = extract_category(log, 'jit-log-opt')
+    if not cat:
+        extract_category(log, 'jit-log-rewritten')
+    if not cat:
+        extract_category(log, 'jit-log-noopt')        
+    for entry in cat:
         parser = ParserCls(entry, None, {}, 'lltype', None,
                            nonstrict=True)
         loop = parser.parse()
         comm = loop.comment
         comm = comm.lower()
         if comm.startswith('# bridge'):
-            m = re.search('guard (-?[\da-f]+)', comm)
+            m = re.search('guard 0x(-?[\da-f]+)', comm)
             name = 'guard ' + m.group(1)
         elif "(" in comm:
             name = comm[2:comm.find('(')-1]
@@ -483,4 +488,4 @@ def mangle_descr(descr):
 
 if __name__ == '__main__':
     import_log(sys.argv[1])
-    
+

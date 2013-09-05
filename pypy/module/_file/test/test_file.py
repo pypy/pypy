@@ -385,6 +385,24 @@ class AppTestConcurrency(object):
             raise Exception("time out")
         print 'Passed.'
 
+    def test_seek_from_cur_backwards_off_end(self):
+        import os
+
+        f = self.file(self.temppath, "w+b")
+        f.write('123456789x12345678><123456789\n')
+
+        f.seek(0, os.SEEK_END)
+        f.seek(-25, os.SEEK_CUR)
+        f.read(25)
+        f.seek(-25, os.SEEK_CUR)
+        try:
+            f.seek(-25, os.SEEK_CUR)
+        except IOError:
+            pass
+        else:
+            raise AssertionError("Didn't raise IOError")
+        assert f.tell() == 5
+
 
 class AppTestFile25:
     spaceconfig = dict(usemodules=("_file",))

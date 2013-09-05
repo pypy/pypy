@@ -120,8 +120,7 @@ def continue_after_call(frame):
     nkwds = (oparg >> 8) & 0xff
     if nkwds == 0:     # only positional arguments
         # fast paths leaves things on the stack, pop them
-        if (frame.space.config.objspace.opcodes.CALL_METHOD and
-            opcode == map['CALL_METHOD']):
+        if opcode == map['CALL_METHOD']:
             frame.dropvalues(nargs + 2)
         elif opcode == map['CALL_FUNCTION']:
             frame.dropvalues(nargs + 1)

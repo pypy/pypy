@@ -2,7 +2,7 @@ import sys, py
 from rpython.translator.translator import TranslationContext
 from rpython.annotator import unaryop, binaryop
 from rpython.rtyper.test import snippet
-from rpython.rtyper.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
+from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rlib.rarithmetic import (
     r_int, r_uint, r_longlong, r_ulonglong, r_singlefloat)
 from rpython.rlib.objectmodel import compute_hash
@@ -13,8 +13,8 @@ class TestSnippet(object):
         t = TranslationContext()
         t.buildannotator().build_types(func, types)
         t.buildrtyper().specialize()
-        t.checkgraphs()    
- 
+        t.checkgraphs()
+
     def test_not1(self):
         self._test(snippet.not1, [float])
 
@@ -37,7 +37,7 @@ class TestSnippet(object):
         for opname in binaryop.BINARY_OPERATIONS:
             print 'BINARY_OPERATIONS:', opname
 
-class BaseTestRfloat(BaseRtypingTest):
+class TestRfloat(BaseRtypingTest):
 
     inf = 'inf'
     minus_inf = '-inf'
@@ -73,9 +73,9 @@ class BaseTestRfloat(BaseRtypingTest):
 
         res = self.interpret(fn, [1.0])
         assert res == 1
-        assert type(res) is int 
+        assert type(res) is int
         res = self.interpret(fn, [2.34])
-        assert res == fn(2.34) 
+        assert res == fn(2.34)
 
     def test_longlong_conversion(self):
         def fn(f):
@@ -89,7 +89,7 @@ class BaseTestRfloat(BaseRtypingTest):
         else:
             assert self.is_of_type(res, r_longlong)
         res = self.interpret(fn, [2.34])
-        assert res == fn(2.34) 
+        assert res == fn(2.34)
         big = float(0x7fffffffffffffff)
         x = big - 1.e10
         assert x != big
@@ -178,11 +178,7 @@ class BaseTestRfloat(BaseRtypingTest):
             n1 = x * x
             n2 = y * y * y
             return rfloat.isnan(n1 / n2)
-        if self.__class__.__name__ != 'TestCliFloat':
-            # the next line currently fails on mono 2.6.7 (ubuntu 11.04), see:
-            # https://bugzilla.novell.com/show_bug.cgi?id=692493
-            assert self.interpret(fn, [1e200, 1e200])   # nan
-        #
+        assert self.interpret(fn, [1e200, 1e200])   # nan
         assert not self.interpret(fn, [1e200, 1.0])   # +inf
         assert not self.interpret(fn, [1e200, -1.0])  # -inf
         assert not self.interpret(fn, [42.5, 2.3])    # +finite
@@ -210,11 +206,7 @@ class BaseTestRfloat(BaseRtypingTest):
         assert self.interpret(fn, [42.5, -2.3])       # -finite
         assert not self.interpret(fn, [1e200, 1.0])   # +inf
         assert not self.interpret(fn, [1e200, -1.0])  # -inf
-        #
-        if self.__class__.__name__ != 'TestCliFloat':
-            # the next line currently fails on mono 2.6.7 (ubuntu 11.04), see:
-            # https://bugzilla.novell.com/show_bug.cgi?id=692493
-            assert not self.interpret(fn, [1e200, 1e200]) # nan
+        assert not self.interpret(fn, [1e200, 1e200]) # nan
 
     def test_formatd(self):
         from rpython.rlib.rfloat import formatd
@@ -249,21 +241,6 @@ class BaseTestRfloat(BaseRtypingTest):
         f = compile(func, [float])
         assert f(10/3.0) == '3.3333'
 
-    def test_parts_to_float(self):
-        from rpython.rlib.rfloat import parts_to_float, break_up_float
-        def f(x):
-            if x == 0:
-                s = '1.0'
-            else:
-                s = '1e-100'
-            sign, beforept, afterpt, expt = break_up_float(s)
-            return parts_to_float(sign, beforept, afterpt, expt)
-        res = self.interpret(f, [0])
-        assert res == 1.0
-
-        res = self.interpret(f, [1])
-        assert res == 1e-100
-
     def test_string_to_float(self):
         from rpython.rlib.rfloat import rstring_to_float
         def func(x):
@@ -276,27 +253,8 @@ class BaseTestRfloat(BaseRtypingTest):
         assert self.interpret(func, [0]) == 1e23
         assert self.interpret(func, [1]) == -1e23
 
-
-
-class TestLLtype(BaseTestRfloat, LLRtypeMixin):
-
     def test_hash(self):
         def fn(f):
             return compute_hash(f)
         res = self.interpret(fn, [1.5])
         assert res == compute_hash(1.5)
-
-
-class TestOOtype(BaseTestRfloat, OORtypeMixin):
-
-    def test_formatd(self):
-        py.test.skip('formatd is broken on ootype')
-
-    def test_formatd_repr(self):
-        py.test.skip('formatd is broken on ootype')
-
-    def test_formatd_huge(self):
-        py.test.skip('formatd is broken on ootype')
-
-    def test_parts_to_float(self):
-        py.test.skip('parts_to_float is broken on ootype')

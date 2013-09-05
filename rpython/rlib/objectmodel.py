@@ -9,7 +9,10 @@ import sys
 import types
 import math
 import inspect
-from rpython.tool.sourcetools import rpython_wrapper
+from rpython.tool.sourcetools import rpython_wrapper, func_with_new_name
+from rpython.rtyper.extregistry import ExtRegistryEntry
+from rpython.flowspace.specialcase import register_flow_sc
+from rpython.flowspace.model import Constant
 
 # specialize is a decorator factory for attaching _annspecialcase_
 # attributes to functions: for example
@@ -23,7 +26,6 @@ from rpython.tool.sourcetools import rpython_wrapper
 # def f(...
 #
 
-from rpython.rtyper.extregistry import ExtRegistryEntry
 
 class _Specialize(object):
     def memo(self):
@@ -278,7 +280,11 @@ def instantiate(cls):
 
 def we_are_translated():
     return False
-# annotation -> True (replaced by the flow objspace)
+
+@register_flow_sc(we_are_translated)
+def sc_we_are_translated(space):
+    return Constant(True)
+
 
 def keepalive_until_here(*values):
     pass
@@ -383,14 +389,8 @@ def compute_hash(x):
 
     Note that this can return 0 or -1 too.
 
-    Behavior across translation:
-
-      * on lltypesystem, it always returns the same number, both
-        before and after translation.  Dictionaries don't need to
-        be rehashed after translation.
-
-      * on ootypesystem, the value changes because of translation.
-        Dictionaries need to be rehashed.
+    It returns the same number, both before and after translation.
+    Dictionaries don't need to be rehashed after translation.
     """
     if isinstance(x, (str, unicode)):
         return _hash_string(x)
@@ -425,15 +425,14 @@ def compute_unique_id(x):
     object that turns into a GC object.  This operation can be very
     costly depending on the garbage collector.  To remind you of this
     fact, we don't support id(x) directly.
-    (XXX not implemented on ootype, falls back to compute_identity_hash)
     """
     return id(x)      # XXX need to return r_longlong on some platforms
 
 def current_object_addr_as_int(x):
-    """A cheap version of id(x).  The current memory location of an
-    object can change over time for moving GCs.  Also note that on
-    ootypesystem this typically doesn't return the real address but
-    just the same as compute_hash(x).
+    """A cheap version of id(x).
+
+    The current memory location of an object can change over time for moving
+    GCs.
     """
     from rpython.rlib.rarithmetic import intmask
     return intmask(id(x))
@@ -518,12 +517,8 @@ class Entry(ExtRegistryEntry):
     def specialize_call(self, hop):
         from rpython.rtyper.lltypesystem import lltype
         vobj, = hop.inputargs(hop.args_r[0])
-        if hop.rtyper.type_system.name == 'lltypesystem':
-            ok = (isinstance(vobj.concretetype, lltype.Ptr) and
-                  vobj.concretetype.TO._gckind == 'gc')
-        else:
-            from rpython.rtyper.ootypesystem import ootype
-            ok = isinstance(vobj.concretetype, ootype.OOType)
+        ok = (isinstance(vobj.concretetype, lltype.Ptr) and
+                vobj.concretetype.TO._gckind == 'gc')
         if not ok:
             from rpython.rtyper.error import TyperError
             raise TyperError("compute_identity_hash() cannot be applied to"
@@ -541,12 +536,8 @@ class Entry(ExtRegistryEntry):
     def specialize_call(self, hop):
         from rpython.rtyper.lltypesystem import lltype
         vobj, = hop.inputargs(hop.args_r[0])
-        if hop.rtyper.type_system.name == 'lltypesystem':
-            ok = (isinstance(vobj.concretetype, lltype.Ptr) and
-                  vobj.concretetype.TO._gckind == 'gc')
-        else:
-            from rpython.rtyper.ootypesystem import ootype
-            ok = isinstance(vobj.concretetype, (ootype.Instance, ootype.BuiltinType))
+        ok = (isinstance(vobj.concretetype, lltype.Ptr) and
+                vobj.concretetype.TO._gckind == 'gc')
         if not ok:
             from rpython.rtyper.error import TyperError
             raise TyperError("compute_unique_id() cannot be applied to"
@@ -564,16 +555,10 @@ class Entry(ExtRegistryEntry):
     def specialize_call(self, hop):
         vobj, = hop.inputargs(hop.args_r[0])
         hop.exception_cannot_occur()
-        if hop.rtyper.type_system.name == 'lltypesystem':
-            from rpython.rtyper.lltypesystem import lltype
-            if isinstance(vobj.concretetype, lltype.Ptr):
-                return hop.genop('cast_current_ptr_to_int', [vobj],
-                                 resulttype = lltype.Signed)
-        elif hop.rtyper.type_system.name == 'ootypesystem':
-            from rpython.rtyper.ootypesystem import ootype
-            if isinstance(vobj.concretetype, ootype.Instance):
-                return hop.genop('gc_identityhash', [vobj],
-                                 resulttype = ootype.Signed)
+        from rpython.rtyper.lltypesystem import lltype
+        if isinstance(vobj.concretetype, lltype.Ptr):
+            return hop.genop('cast_current_ptr_to_int', [vobj],
+                             resulttype = lltype.Signed)
         from rpython.rtyper.error import TyperError
         raise TyperError("current_object_addr_as_int() cannot be applied to"
                          " %r" % (vobj.concretetype,))
@@ -753,3 +738,45 @@ class _r_dictkey_with_hash(_r_dictkey):
         self.dic = dic
         self.key = key
         self.hash = hash
+
+# ____________________________________________________________
+
+def import_from_mixin(M, special_methods=['__init__', '__del__']):
+    """Copy all methods and class attributes from the class M into
+    the current scope.  Should be called when defining a class body.
+    Function and staticmethod objects are duplicated, which means
+    that annotation will not consider them as identical to another
+    copy in another unrelated class.
+    
+    By default, "special" methods and class attributes, with a name
+    like "__xxx__", are not copied unless they are "__init__" or
+    "__del__".  The list can be changed with the optional second
+    argument.
+    """
+    flatten = {}
+    for base in inspect.getmro(M):
+        if base is object:
+            continue
+        for key, value in base.__dict__.items():
+            if key.startswith('__') and key.endswith('__'):
+                if key not in special_methods:
+                    continue
+            if key in flatten:
+                continue
+            if isinstance(value, types.FunctionType):
+                value = func_with_new_name(value, value.__name__)
+            elif isinstance(value, staticmethod):
+                func = value.__get__(42)
+                func = func_with_new_name(func, func.__name__)
+                value = staticmethod(func)
+            elif isinstance(value, classmethod):
+                raise AssertionError("classmethods not supported "
+                                     "in 'import_from_mixin'")
+            flatten[key] = value
+    #
+    target = sys._getframe(1).f_locals
+    for key, value in flatten.items():
+        if key in target:
+            raise Exception("import_from_mixin: would overwrite the value "
+                            "already defined locally for %r" % (key,))
+        target[key] = value

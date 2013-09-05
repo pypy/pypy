@@ -223,7 +223,8 @@ class AppTestFfi:
             _rawffi.CDLL("xxxxx_this_name_does_not_exist_xxxxx")
         except OSError, e:
             print e
-            assert str(e).startswith("xxxxx_this_name_does_not_exist_xxxxx: ")
+            assert str(e).startswith(
+                "Cannot load library xxxxx_this_name_does_not_exist_xxxxx: ")
         else:
             raise AssertionError("did not fail??")
 
@@ -1106,6 +1107,14 @@ class AppTestFfi:
         EMPTY = _rawffi.Structure([])
         S2E = _rawffi.Structure([('bah', (EMPTY, 1))])
         S2E.get_ffi_type()     # does not hang
+
+    def test_overflow_error(self):
+        import _rawffi
+        A = _rawffi.Array('d')
+        arg1 = A(1)
+        raises(OverflowError, "arg1[0] = 10**900")
+        arg1.free()
+
 
 class AppTestAutoFree:
     spaceconfig = dict(usemodules=['_rawffi', 'struct'])

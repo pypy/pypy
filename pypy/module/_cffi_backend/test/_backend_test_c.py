@@ -1219,6 +1219,54 @@ def test_a_lot_of_callbacks():
     for i, f in enumerate(flist):
         assert f(-142) == -142 + i
 
+def test_callback_receiving_tiny_struct():
+    BSChar = new_primitive_type("signed char")
+    BInt = new_primitive_type("int")
+    BStruct = new_struct_type("struct foo")
+    BStructPtr = new_pointer_type(BStruct)
+    complete_struct_or_union(BStruct, [('a', BSChar, -1),
+                                       ('b', BSChar, -1)])
+    def cb(s):
+        return s.a + 10 * s.b
+    BFunc = new_function_type((BStruct,), BInt)
+    f = callback(BFunc, cb)
+    p = newp(BStructPtr, [-2, -4])
+    n = f(p[0])
+    assert n == -42
+
+def test_callback_returning_tiny_struct():
+    BSChar = new_primitive_type("signed char")
+    BInt = new_primitive_type("int")
+    BStruct = new_struct_type("struct foo")
+    BStructPtr = new_pointer_type(BStruct)
+    complete_struct_or_union(BStruct, [('a', BSChar, -1),
+                                       ('b', BSChar, -1)])
+    def cb(n):
+        return newp(BStructPtr, [-n, -3*n])[0]
+    BFunc = new_function_type((BInt,), BStruct)
+    f = callback(BFunc, cb)
+    s = f(10)
+    assert typeof(s) is BStruct
+    assert repr(s) == "<cdata 'struct foo' owning 2 bytes>"
+    assert s.a == -10
+    assert s.b == -30
+
+def test_callback_receiving_struct():
+    BSChar = new_primitive_type("signed char")
+    BInt = new_primitive_type("int")
+    BDouble = new_primitive_type("double")
+    BStruct = new_struct_type("struct foo")
+    BStructPtr = new_pointer_type(BStruct)
+    complete_struct_or_union(BStruct, [('a', BSChar, -1),
+                                       ('b', BDouble, -1)])
+    def cb(s):
+        return s.a + int(s.b)
+    BFunc = new_function_type((BStruct,), BInt)
+    f = callback(BFunc, cb)
+    p = newp(BStructPtr, [-2, 44.444])
+    n = f(p[0])
+    assert n == 42
+
 def test_callback_returning_struct():
     BSChar = new_primitive_type("signed char")
     BInt = new_primitive_type("int")
@@ -1237,6 +1285,30 @@ def test_callback_returning_struct():
                        "<cdata 'struct foo' owning 16 bytes>"]
     assert s.a == -10
     assert s.b == 1E-42
+
+def test_callback_receiving_big_struct():
+    BInt = new_primitive_type("int")
+    BStruct = new_struct_type("struct foo")
+    BStructPtr = new_pointer_type(BStruct)
+    complete_struct_or_union(BStruct, [('a', BInt, -1),
+                                       ('b', BInt, -1),
+                                       ('c', BInt, -1),
+                                       ('d', BInt, -1),
+                                       ('e', BInt, -1),
+                                       ('f', BInt, -1),
+                                       ('g', BInt, -1),
+                                       ('h', BInt, -1),
+                                       ('i', BInt, -1),
+                                       ('j', BInt, -1)])
+    def cb(s):
+        for i, name in enumerate("abcdefghij"):
+            assert getattr(s, name) == 13 - i
+        return 42
+    BFunc = new_function_type((BStruct,), BInt)
+    f = callback(BFunc, cb)
+    p = newp(BStructPtr, list(range(13, 3, -1)))
+    n = f(p[0])
+    assert n == 42
 
 def test_callback_returning_big_struct():
     BInt = new_primitive_type("int")
@@ -1444,13 +1516,18 @@ def test_struct_with_bitfields():
     d = BStruct.fields
     assert d[0][1].offset == d[1][1].offset == d[2][1].offset == 0
     assert d[3][1].offset == sizeof(BLong)
-    assert d[0][1].bitshift == 0
+    def f(m, r):
+        if sys.byteorder == 'little':
+            return r
+        else:
+            return LONGBITS - m - r
+    assert d[0][1].bitshift == f(1, 0)
     assert d[0][1].bitsize == 1
-    assert d[1][1].bitshift == 1
+    assert d[1][1].bitshift == f(2, 1)
     assert d[1][1].bitsize == 2
-    assert d[2][1].bitshift == 3
+    assert d[2][1].bitshift == f(3, 3)
     assert d[2][1].bitsize == 3
-    assert d[3][1].bitshift == 0
+    assert d[3][1].bitshift == f(LONGBITS - 5, 0)
     assert d[3][1].bitsize == LONGBITS - 5
     assert sizeof(BStruct) == 2 * sizeof(BLong)
     assert alignof(BStruct) == alignof(BLong)
@@ -2760,6 +2837,20 @@ def test_new_handle():
     assert wr() is None
     py.test.raises(RuntimeError, from_handle, cast(BCharP, 0))
 
+def test_new_handle_cycle():
+    import _weakref
+    BVoidP = new_pointer_type(new_void_type())
+    class A(object):
+        pass
+    o = A()
+    o.cycle = newp_handle(BVoidP, o)
+    wr = _weakref.ref(o)
+    del o
+    for i in range(3):
+        if wr() is not None:
+            import gc; gc.collect()
+    assert wr() is None
+
 def _test_bitfield_details(flag):
     BChar = new_primitive_type("char")
     BShort = new_primitive_type("short")
@@ -2770,13 +2861,38 @@ def _test_bitfield_details(flag):
                                        ('b1', BInt, 9),
                                        ('b2', BUInt, 7),
                                        ('c', BChar, -1)], -1, -1, -1, flag)
-    if flag % 2 == 0:   # gcc and gcc ARM
+    if flag % 2 == 0:   # gcc, any variant
         assert typeoffsetof(BStruct, 'c') == (BChar, 3)
         assert sizeof(BStruct) == 4
     else:               # msvc
         assert typeoffsetof(BStruct, 'c') == (BChar, 8)
         assert sizeof(BStruct) == 12
     assert alignof(BStruct) == 4
+    #
+    p = newp(new_pointer_type(BStruct), None)
+    p.a = b'A'
+    p.b1 = -201
+    p.b2 = 99
+    p.c = b'\x9D'
+    raw = buffer(p)[:]
+    if sys.byteorder == 'little':
+        if flag == 0 or flag == 2:  # gcc, little endian
+            assert raw == b'A7\xC7\x9D'
+        elif flag == 1: # msvc
+            assert raw == b'A\x00\x00\x007\xC7\x00\x00\x9D\x00\x00\x00'
+        elif flag == 4: # gcc, big endian
+            assert raw == b'A\xE3\x9B\x9D'
+        else:
+            raise AssertionError("bad flag")
+    else:
+        if flag == 0 or flag == 2:  # gcc
+            assert raw == b'A\xC77\x9D'
+        elif flag == 1: # msvc
+            assert raw == b'A\x00\x00\x00\x00\x00\xC77\x9D\x00\x00\x00'
+        elif flag == 4: # gcc, big endian
+            assert raw == b'A\x9B\xE3\x9D'
+        else:
+            raise AssertionError("bad flag")
     #
     BStruct = new_struct_type("struct foo2")
     complete_struct_or_union(BStruct, [('a', BChar, -1),
@@ -2789,16 +2905,21 @@ def _test_bitfield_details(flag):
     elif flag == 1: # msvc
         assert sizeof(BStruct) == 6
         assert alignof(BStruct) == 2
-    else:           # gcc ARM
+    elif flag == 2: # gcc ARM
         assert sizeof(BStruct) == 6
         assert alignof(BStruct) == 2
+    elif flag == 4: # gcc, big endian
+        assert sizeof(BStruct) == 5
+        assert alignof(BStruct) == 1
+    else:
+        raise AssertionError("bad flag")
     #
     BStruct = new_struct_type("struct foo2")
     complete_struct_or_union(BStruct, [('a', BChar, -1),
                                        ('',  BInt, 0),
                                        ('',  BInt, 0),
                                        ('c', BChar, -1)], -1, -1, -1, flag)
-    if flag == 0:   # gcc
+    if flag == 0:    # gcc
         assert typeoffsetof(BStruct, 'c') == (BChar, 4)
         assert sizeof(BStruct) == 5
         assert alignof(BStruct) == 1
@@ -2806,10 +2927,16 @@ def _test_bitfield_details(flag):
         assert typeoffsetof(BStruct, 'c') == (BChar, 1)
         assert sizeof(BStruct) == 2
         assert alignof(BStruct) == 1
-    else:            # gcc ARM
+    elif flag == 2:  # gcc ARM
         assert typeoffsetof(BStruct, 'c') == (BChar, 4)
         assert sizeof(BStruct) == 8
         assert alignof(BStruct) == 4
+    elif flag == 4:  # gcc, big endian
+        assert typeoffsetof(BStruct, 'c') == (BChar, 4)
+        assert sizeof(BStruct) == 5
+        assert alignof(BStruct) == 1
+    else:
+        raise AssertionError("bad flag")
 
 
 def test_bitfield_as_gcc():
@@ -2820,6 +2947,11 @@ def test_bitfield_as_msvc():
 
 def test_bitfield_as_arm_gcc():
     _test_bitfield_details(flag=2)
+
+def test_bitfield_as_big_endian():
+    if '__pypy__' in sys.builtin_module_names:
+        py.test.skip("no big endian machine supported on pypy for now")
+    _test_bitfield_details(flag=4)
 
 
 def test_version():

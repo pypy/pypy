@@ -133,10 +133,6 @@ class StdTypeModel:
         # when trying to dispatch multimethods.
         # XXX build these lists a bit more automatically later
 
-        if config.objspace.usemodules.micronumpy:
-            from pypy.module.micronumpy.stdobjspace import register_delegates
-            register_delegates(self.typeorder)
-
         self.typeorder[boolobject.W_BoolObject] += [
             (intobject.W_IntObject,     boolobject.delegate_Bool2IntObject),
             (floatobject.W_FloatObject, floatobject.delegate_Bool2Float),

@@ -37,7 +37,7 @@ so if we precalculate the overflow backstride as
 we can go faster.
 All the calculations happen in next()
 
-next_skip_x() tries to do the iteration for a number of steps at once,
+next_skip_x(steps) tries to do the iteration for a number of steps at once,
 but then we cannot gaurentee that we only overflow one single shape
 dimension, perhaps we could overflow times in one big step.
 """
@@ -46,6 +46,7 @@ from pypy.module.micronumpy.strides import enumerate_chunks,\
      calculate_slice_strides
 from pypy.module.micronumpy.base import W_NDimArray
 from pypy.module.micronumpy.arrayimpl import base
+from pypy.module.micronumpy.support import product
 from rpython.rlib import jit
 
 # structures to describe slicing
@@ -57,11 +58,11 @@ class RecordChunk(BaseChunk):
     def __init__(self, name):
         self.name = name
 
-    def apply(self, orig_arr):
+    def apply(self, space, orig_arr):
         arr = orig_arr.implementation
         ofs, subdtype = arr.dtype.fields[self.name]
         # strides backstrides are identical, ofs only changes start
-        return W_NDimArray.new_slice(arr.start + ofs, arr.get_strides(),
+        return W_NDimArray.new_slice(space, arr.start + ofs, arr.get_strides(),
                                      arr.get_backstrides(),
                                      arr.shape, arr, orig_arr, subdtype)
 
@@ -80,13 +81,13 @@ class Chunks(BaseChunk):
         assert s >= 0
         return shape[:] + old_shape[s:]
 
-    def apply(self, orig_arr):
+    def apply(self, space, orig_arr):
         arr = orig_arr.implementation
         shape = self.extend_shape(arr.shape)
         r = calculate_slice_strides(arr.shape, arr.start, arr.get_strides(),
                                     arr.get_backstrides(), self.l)
         _, start, strides, backstrides = r
-        return W_NDimArray.new_slice(start, strides[:], backstrides[:],
+        return W_NDimArray.new_slice(space, start, strides[:], backstrides[:],
                                      shape[:], arr, orig_arr)
 
 
@@ -225,7 +226,7 @@ class MultiDimViewIterator(ConcreteArrayIterator):
         self.shape = shape
         self.offset = start
         self.shapelen = len(shape)
-        self._done = False
+        self._done = self.shapelen == 0 or product(shape) == 0
         self.strides = strides
         self.backstrides = backstrides
         self.size = array.size
@@ -284,7 +285,7 @@ class AxisIterator(base.BaseArrayIterator):
             self.backstrides = backstrides[:dim] + [0] + backstrides[dim:]
         self.first_line = True
         self.indices = [0] * len(shape)
-        self._done = False
+        self._done = array.get_size() == 0
         self.offset = array.start
         self.dim = dim
         self.array = array

@@ -6,11 +6,8 @@ from rpython.rtyper.test import snippet
 from rpython.rlib.rarithmetic import r_int, r_uint, r_longlong, r_ulonglong
 from rpython.rlib.rarithmetic import ovfcheck, r_int64, intmask, int_between
 from rpython.rlib import objectmodel
-from rpython.rtyper.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
+from rpython.rtyper.test.tool import BaseRtypingTest
 
-from rpython.rtyper.lltypesystem import lltype
-from rpython.rtyper.ootypesystem import ootype
-from rpython.rtyper.lltypesystem.lloperation import llop
 
 class TestSnippet(object):
 
@@ -43,7 +40,7 @@ class TestSnippet(object):
             print 'BINARY_OPERATIONS:', opname
 
 
-class BaseTestRint(BaseRtypingTest):
+class TestRint(BaseRtypingTest):
 
     def test_char_constant(self):
         def dummyfn(i):
@@ -424,15 +421,3 @@ class BaseTestRint(BaseRtypingTest):
         assert not self.interpret(fn, [1, 5, 2])
         assert not self.interpret(fn, [1, 2, 2])
         assert not self.interpret(fn, [1, 1, 1])
-
-
-
-class TestLLtype(BaseTestRint, LLRtypeMixin):
-    pass
-
-class TestOOtype(BaseTestRint, OORtypeMixin):
-    def test_oobox_int(self):
-        def f():
-            x = llop.oobox_int(ootype.Object, 42)
-            return llop.oounbox_int(lltype.Signed, x)
-        assert self.interpret(f, []) == 42

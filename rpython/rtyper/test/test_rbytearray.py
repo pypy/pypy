@@ -1,9 +1,9 @@
 
-from rpython.rtyper.test.tool import BaseRtypingTest, LLRtypeMixin
+from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rtyper.lltypesystem.rbytearray import hlbytearray
 from rpython.rtyper.annlowlevel import llstr, hlstr
 
-class TestByteArray(BaseRtypingTest, LLRtypeMixin):
+class TestByteArray(BaseRtypingTest):
     def test_bytearray_creation(self):
         def f(x):
             if x:
