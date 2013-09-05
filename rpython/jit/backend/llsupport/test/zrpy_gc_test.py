@@ -860,13 +860,14 @@ class CompileFrameworkTests(BaseFrameworkTests):
             while a.i:
                 driver.jit_merge_point(a=a)
                 a.i -= 1
-            print a.v
         
         def f(n, x, x0, x1, x2, x3, x4, x5, x6, x7, l, s):
             u = lltype.malloc(S)
             u.i = 10000
             u.v = n
             inner(u)
+            assert u.i == 0
+            assert u.v == n
                 
             return n - 1, x, x0, x1, x2, x3, x4, x5, x6, x7, l, s
 
