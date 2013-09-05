@@ -2216,9 +2216,11 @@ class LLtypeBackendTest(BaseBackendTest):
             jit_wb_if_flag_byteofs = struct.pack("i", 4096).index('\x10')
             jit_wb_if_flag_singlebyte = 0x10
             jit_wb_cards_set = 0       # <= without card marking
-            def get_write_barrier_fn(self, cpu, returns_modified_object):
+            def get_barrier_fn(self, cpu, returns_modified_object):
                 assert self.returns_modified_object == returns_modified_object
                 return funcbox.getint()
+            def get_barrier_from_array_fn(self, cpu):
+                return 0
         #
         for cond in [False, True]:
             value = random.randrange(-sys.maxint, sys.maxint)
@@ -2267,7 +2269,7 @@ class LLtypeBackendTest(BaseBackendTest):
             jit_wb_cards_set_byteofs = struct.pack("i", 32768).index('\x80')
             jit_wb_cards_set_singlebyte = -0x80
             jit_wb_card_page_shift = 7
-            def get_write_barrier_from_array_fn(self, cpu):
+            def get_barrier_from_array_fn(self, cpu):
                 return funcbox.getint()
         #
         for BoxIndexCls in [BoxInt, ConstInt]*3:
