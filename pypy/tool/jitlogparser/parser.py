@@ -92,6 +92,8 @@ class SimpleParser(OpParser):
                     start = int(adr.strip(":"), 16)
                 ofs = int(adr.strip(":"), 16)
                 # add symbols to addresses:
+                if symbols is None:
+                    symbols = {}
                 for addr in lineaddresses(v):
                     sym = symbols.get(addr)
                     if sym:
