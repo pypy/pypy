@@ -3,11 +3,14 @@
 in a nicer fashion
 """
 
+import re
 from rpython.jit.tool.oparser_model import get_model
-
 from rpython.jit.metainterp.resoperation import rop, ResOperation, \
                                             ResOpWithDescr, N_aryOp, \
                                             UnaryOp, PlainResOp
+
+r_skip_thread = re.compile(r'^(\d+#)?')
+
 
 class ParseError(Exception):
     pass
@@ -297,7 +300,7 @@ class OpParser(object):
         newlines = []
         first_comment = None
         for line in lines:
-            line = line[line.find('#')+1:].strip()
+            line = r_skip_thread.sub('', line).strip()
             # for simplicity comments are not allowed on
             # debug_merge_point lines
             if '#' in line and 'debug_merge_point(' not in line:
