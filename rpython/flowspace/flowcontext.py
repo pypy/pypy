@@ -34,8 +34,9 @@ class Return(Exception):
     def __init__(self, value):
         self.value = value
 
-class ImplicitOperationError(FSException):
-    pass
+class RaiseImplicit(Exception):
+    def __init__(self, value):
+        self.value = value
 
 class BytecodeCorruption(Exception):
     pass
@@ -215,7 +216,7 @@ class Replayer(Recorder):
             if isinstance(egg.last_exception, Constant):
                 w_exc_cls = egg.last_exception
                 assert not isinstance(w_exc_cls.value, list)
-            raise ImplicitOperationError(w_exc_cls, w_exc_value)
+            raise RaiseImplicit(FSException(w_exc_cls, w_exc_value))
 
 # ____________________________________________________________
 
@@ -448,11 +449,6 @@ class FlowSpaceFrame(object):
     def guessexception(self, exceptions, force=False):
         """
         Catch possible exceptions implicitly.
-
-        If the FSException is not caught in the same function, it will
-        produce an exception-raising return block in the flow graph. Note that
-        even if the interpreter re-raises the exception, it will not be the
-        same ImplicitOperationError instance internally.
         """
         if not force and not any(isinstance(block, (ExceptBlock, FinallyBlock))
                 for block in self.blockstack):
@@ -478,9 +474,10 @@ class FlowSpaceFrame(object):
                 next_pos = self.handle_bytecode(next_pos)
                 self.recorder.final_state = self.getstate(next_pos)
 
-        except ImplicitOperationError, e:
-            if isinstance(e.w_type, Constant):
-                exc_cls = e.w_type.value
+        except RaiseImplicit as e:
+            w_exc = e.value
+            if isinstance(w_exc.w_type, Constant):
+                exc_cls = w_exc.w_type.value
             else:
                 exc_cls = Exception
             msg = "implicit %s shouldn't occur" % exc_cls.__name__
@@ -567,6 +564,8 @@ class FlowSpaceFrame(object):
         try:
             res = getattr(self, methodname)(oparg)
             return res if res is not None else next_instr
+        except RaiseImplicit as e:
+            return SImplicitException(e.value).unroll(self)
         except FSException, operr:
             return self.handle_operation_error(operr)
 
@@ -639,12 +638,7 @@ class FlowSpaceFrame(object):
         space = self.space
         if nbargs == 0:
             if self.last_exception is not None:
-                operr = self.last_exception
-                if isinstance(operr, ImplicitOperationError):
-                    # re-raising an implicit operation makes it an explicit one
-                    operr = FSException(operr.w_type, operr.w_value)
-                self.last_exception = operr
-                raise operr
+                raise self.last_exception
             else:
                 raise const(TypeError(
                     "raise: no active exception to re-raise"))
@@ -781,7 +775,15 @@ class FlowSpaceFrame(object):
         w_iterator = self.peekvalue()
         try:
             w_nextitem = self.space.next(w_iterator)
-        except FSException, e:
+        except RaiseImplicit as e:
+            w_exc = e.value
+            if not self.space.exception_match(w_exc.w_type,
+                                              self.space.w_StopIteration):
+                raise
+            # iterator exhausted
+            self.popvalue()
+            return target
+        except FSException as e:
             if not self.space.exception_match(e.w_type, self.space.w_StopIteration):
                 raise
             # iterator exhausted
@@ -1193,6 +1195,11 @@ class SApplicationException(SuspendedUnroller):
     @staticmethod
     def state_pack_variables(w_type, w_value):
         return SApplicationException(FSException(w_type, w_value))
+
+class SImplicitException(SApplicationException):
+    """Signals an exception raised implicitly"""
+    def nomoreblocks(self):
+        raise RaiseImplicit(self.operr)
 
 class SBreakLoop(SuspendedUnroller):
     """Signals a 'break' statement."""
