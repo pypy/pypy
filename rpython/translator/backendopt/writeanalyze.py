@@ -1,5 +1,6 @@
 from rpython.flowspace.model import Variable
 from rpython.translator.backendopt import graphanalyze
+from rpython.rtyper.lltypesystem import lltype
 
 top_set = object()
 empty_set = frozenset()
@@ -48,8 +49,12 @@ class WriteAnalyzer(graphanalyze.GraphAnalyzer):
         return frozenset([("array", TYPE)])
 
     def analyze_external_call(self, op, seen=None):
-        funcobj = op.args[0].value._obj
-        if getattr(funcobj, 'random_effects_on_gcobjs', False):
+        try:
+            funcobj = op.args[0].value._obj
+            random = funcobj.random_effects_on_gcobjs
+        except (AttributeError, lltype.DelayedPointer):
+            random = True
+        if random:
             return self.top_result()
         return graphanalyze.GraphAnalyzer.analyze_external_call(self, op, seen)
 
