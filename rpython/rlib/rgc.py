@@ -403,7 +403,11 @@ def cast_gcref_to_int(gcref):
     if we_are_translated():
         return lltype.cast_ptr_to_int(gcref)
     else:
-        return id(gcref._x)
+        from rpython.rtyper import annlowlevel
+        from rpython.rtyper.lltypesystem import llmemory, rffi
+        p = annlowlevel.cast_instance_to_base_ptr(gcref._x)
+        p = lltype.cast_opaque_ptr(llmemory.GCREF, p)
+        return rffi.cast(lltype.Signed, p)
 
 def dump_rpy_heap(fd):
     "NOT_RPYTHON"
