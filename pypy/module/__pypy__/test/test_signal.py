@@ -25,6 +25,9 @@ class AppTestThreadSignal(GenericTestThread):
             __pypy__.thread._signals_enter()
 
     def test_enable_signals(self):
+        if not self.run_on_pypy:
+            skip("needs non-main-thread signals")
+
         import __pypy__, thread, signal, time, sys
 
         def subthread():
