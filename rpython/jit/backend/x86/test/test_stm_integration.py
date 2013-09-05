@@ -422,7 +422,7 @@ class TestGcStm(BaseTestRegalloc):
                 ]
             inputargs = [p0]
             looptoken = JitCellToken()
-            cpu.compile_loop(inputargs, operations, looptoken)
+            cpu.compile_loop(None, inputargs, operations, looptoken)
             self.cpu.execute_token(looptoken, sgcref)
             
             # check if rev-fastpath worked
@@ -465,7 +465,7 @@ class TestGcStm(BaseTestRegalloc):
                 ]
             inputargs = [p0]
             looptoken = JitCellToken()
-            cpu.compile_loop(inputargs, operations, looptoken)
+            cpu.compile_loop(None, inputargs, operations, looptoken)
             self.cpu.execute_token(looptoken, sgcref)
             
             # check if rev-fastpath worked
@@ -536,8 +536,8 @@ class TestGcStm(BaseTestRegalloc):
                     inputargs = [p for p in (p1, p2) 
                                  if not isinstance(p, Const)]
                     looptoken = JitCellToken()
-                    c_loop = cpu.compile_loop(inputargs + [i1], operations, 
-                                              looptoken)
+                    c_loop = cpu.compile_loop(None, inputargs + [i1],
+                                              operations, looptoken)
 
                     args = [s for i, s in enumerate((s1, s2))
                             if not isinstance((p1, p2)[i], Const)] + [7]
@@ -614,7 +614,7 @@ class TestGcStm(BaseTestRegalloc):
         looptoken.outermost_jitdriver_sd = FakeJitDriverSD()
         finish_descr = loop.operations[-1].getdescr()
         self.cpu.done_with_this_frame_descr_int = BasicFinalDescr()
-        self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+        self.cpu.compile_loop(None, loop.inputargs, loop.operations, looptoken)
         ARGS = [lltype.Signed] * 10
         RES = lltype.Signed
         FakeJitDriverSD.portal_calldescr = self.cpu.calldescrof(
@@ -632,7 +632,8 @@ class TestGcStm(BaseTestRegalloc):
         '''
         loop = parse(ops, namespace=locals())
         othertoken = JitCellToken()
-        self.cpu.compile_loop(loop.inputargs, loop.operations, othertoken)
+        self.cpu.compile_loop(None, loop.inputargs, loop.operations,
+                              othertoken)
         args = [i+1 for i in range(10)]
         deadframe = self.cpu.execute_token(othertoken, *args)
         assert called == [id(finish_descr)]
@@ -654,7 +655,8 @@ class TestGcStm(BaseTestRegalloc):
         loop2 = parse(ops)
         looptoken2 = JitCellToken()
         looptoken2.outermost_jitdriver_sd = FakeJitDriverSD()
-        self.cpu.compile_loop(loop2.inputargs, loop2.operations, looptoken2)
+        self.cpu.compile_loop(None, loop2.inputargs, loop2.operations,
+                              looptoken2)
         finish_descr2 = loop2.operations[-1].getdescr()
 
         # install it
@@ -686,7 +688,7 @@ class TestGcStm(BaseTestRegalloc):
 
         inputargs = []
         looptoken = JitCellToken()
-        c_loop = cpu.compile_loop(inputargs, ops1, 
+        c_loop = cpu.compile_loop(None, inputargs, ops1, 
                                   looptoken)
         
         args = []
@@ -739,7 +741,7 @@ class TestGcStm(BaseTestRegalloc):
         inputargs = [i0]
         looptoken = JitCellToken()
         looptoken.outermost_jitdriver_sd = FakeJitDriverSD()
-        c_loop = cpu.compile_loop(inputargs, ops, looptoken)
+        c_loop = cpu.compile_loop(None, inputargs, ops, looptoken)
         print "\n".join(map(str,c_loop[1]))
         
         ARGS = [lltype.Signed] * 10
@@ -763,7 +765,7 @@ class TestGcStm(BaseTestRegalloc):
                ]
         othertoken = JitCellToken()
         cpu.done_with_this_frame_descr_int = BasicFinalDescr()
-        c_loop = cpu.compile_loop([], ops, othertoken)
+        c_loop = cpu.compile_loop(None, [], ops, othertoken)
         print "\n".join(map(str,c_loop[1]))
         
         deadframe = cpu.execute_token(othertoken)
@@ -814,7 +816,7 @@ class TestGcStm(BaseTestRegalloc):
             ]
         inputargs = [p0]
         looptoken = JitCellToken()
-        print cpu.compile_loop(inputargs, operations, looptoken)
+        print cpu.compile_loop(None, inputargs, operations, looptoken)
         cpu.execute_token(looptoken, sgcref)
 
         # the second write-barrier must see the result of the
