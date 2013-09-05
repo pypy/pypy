@@ -627,7 +627,7 @@ class Assembler386(BaseAssembler):
             self.cpu.profile_agent.native_code_written(name,
                                                        rawstart, full_size)
         return AsmInfo(ops_offset, rawstart + looppos,
-                       size_excluding_failure_stuff - looppos), operations
+                       size_excluding_failure_stuff - looppos)
 
     @rgc.no_release_gil
     def assemble_bridge(self, faildescr, inputargs, operations,
@@ -677,8 +677,7 @@ class Assembler386(BaseAssembler):
             self.cpu.profile_agent.native_code_written(name,
                                                        rawstart, fullsize)
         return AsmInfo(ops_offset, startpos + rawstart,
-                       codeendpos - startpos), operations
-        
+                       codeendpos - startpos)
 
     def write_pending_failure_recoveries(self):
         # for each pending guard, generate the code of the recovery stub
