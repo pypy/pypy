@@ -40,7 +40,7 @@ class WriteAnalyzer(graphanalyze.GraphAnalyzer):
             if graphinfo is None or not graphinfo.is_fresh_malloc(op.args[0]):
                 return frozenset([
                     ("struct", op.args[0].concretetype, op.args[1].value)])
-        elif op.opname == ("setarrayitem", "setinteriorfield"):
+        elif op.opname == "setarrayitem":
             if graphinfo is None or not graphinfo.is_fresh_malloc(op.args[0]):
                 return self._array_result(op.args[0].concretetype)
         return empty_set
