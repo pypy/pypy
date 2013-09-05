@@ -199,7 +199,7 @@ class __extend__(pyframe.PyFrame):
                     else:
                         next_instr = block.handle(self, unroller)
             elif opcode == opcodedesc.JUMP_ABSOLUTE.index:
-                next_instr = self.jump_absolute(oparg, ec)
+                return self.jump_absolute(oparg, ec)
             elif opcode == opcodedesc.BREAK_LOOP.index:
                 next_instr = self.BREAK_LOOP(oparg, next_instr)
             elif opcode == opcodedesc.CONTINUE_LOOP.index:
@@ -455,10 +455,10 @@ class __extend__(pyframe.PyFrame):
                 from rpython.rlib import rstm
                 if rstm.should_break_transaction():
                     opcode = ord(co_code[next_instr])
-                    if opcode not in (self.opcodedesc.RETURN_VALUE.index,
-                                      self.opcodedesc.POP_TOP.index,
-                                      self.opcodedesc.LOAD_CONST.index,
-                                      self.opcodedesc.LOAD_FAST.index):
+                    if opcode not in (opcodedesc.RETURN_VALUE.index,
+                                      opcodedesc.POP_TOP.index,
+                                      opcodedesc.LOAD_CONST.index,
+                                      opcodedesc.LOAD_FAST.index):
                         return next_instr
 
     @jit.unroll_safe
