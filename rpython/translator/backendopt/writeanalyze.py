@@ -49,7 +49,7 @@ class WriteAnalyzer(graphanalyze.GraphAnalyzer):
 
     def analyze_external_call(self, op, seen=None):
         funcobj = op.args[0].value._obj
-        if funcobj.random_effects_on_gcobjs:
+        if getattr(funcobj, 'random_effects_on_gcobjs', False):
             return self.top_result()
         return graphanalyze.GraphAnalyzer.analyze_external_call(self, op, seen)
 
