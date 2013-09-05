@@ -1,5 +1,4 @@
 from rpython.translator.backendopt import graphanalyze
-from rpython.translator.simplify import get_funcobj
 
 
 TRANSACTION_BREAK = set([
