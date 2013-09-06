@@ -229,15 +229,13 @@ class _ThreadPool(object):
             while True:
                 with signals_enabled:
                     with atomic:
-                        # XXX the call to report_abort_info() is disabled for
-                        # XXX now because it's buggy
-                        #info = last_abort_info()
-                        #if info is None:
+                        info = last_abort_info()
+                        if info is None:
                             if not got_exception:
                                 f(*args, **kwds)
                             # else return early if already an exc to reraise
                             return
-                #report_abort_info(info)
+                report_abort_info(info)
         except:
             got_exception[:] = sys.exc_info()
 
