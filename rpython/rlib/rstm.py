@@ -58,7 +58,6 @@ def decrement_atomic():
 def is_atomic():
     return llop.stm_get_atomic(lltype.Signed)
 
-@dont_look_inside
 def abort_info_push(instance, fieldnames):
     "Special-cased below."
 
