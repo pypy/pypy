@@ -42,8 +42,14 @@ void pypy_debug_stop(const char *category);
 long pypy_debug_offset(void);
 void pypy_debug_forked(long original_offset);
 
-extern __thread long pypy_have_debug_prints;
-extern __thread char pypy_debug_threadid[];
+#ifdef RPY_STM
+#define __thread_if_stm  __thread
+#else
+#define __thread_if_stm  /* nothing */
+#endif
+
+extern __thread_if_stm long pypy_have_debug_prints;
+extern __thread_if_stm char pypy_debug_threadid[];
 extern FILE *pypy_debug_file;
 
 #define OP_LL_READ_TIMESTAMP(val) READ_TIMESTAMP(val)
