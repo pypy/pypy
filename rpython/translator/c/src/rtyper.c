@@ -9,7 +9,13 @@
 #include <stdlib.h>
 #include <string.h>
 
-__thread struct _RPyString_dump_t {
+#ifdef RPY_STM
+#define __thread_if_stm  __thread
+#else
+#define __thread_if_stm  /* nothing */
+#endif
+
+__thread_if_stm struct _RPyString_dump_t {
 	struct _RPyString_dump_t *next;
 	char data[1];
 } *_RPyString_dump = NULL;
