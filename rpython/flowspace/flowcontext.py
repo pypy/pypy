@@ -34,9 +34,12 @@ class Return(Exception):
     def __init__(self, value):
         self.value = value
 
-class RaiseImplicit(Exception):
+class Raise(Exception):
     def __init__(self, value):
         self.value = value
+
+class RaiseImplicit(Raise):
+    pass
 
 class BytecodeCorruption(Exception):
     pass
@@ -486,11 +489,12 @@ class FlowSpaceFrame(object):
             link = Link([w_type, w_value], self.graph.exceptblock)
             self.recorder.crnt_block.closeblock(link)
 
-        except FSException, e:
-            if e.w_type == self.space.w_ImportError:
+        except Raise as e:
+            w_exc = e.value
+            if w_exc.w_type == self.space.w_ImportError:
                 msg = 'import statement always raises %s' % e
                 raise ImportError(msg)
-            link = Link([e.w_type, e.w_value], self.graph.exceptblock)
+            link = Link([w_exc.w_type, w_exc.w_value], self.graph.exceptblock)
             self.recorder.crnt_block.closeblock(link)
 
         except StopFlowing:
@@ -566,12 +570,8 @@ class FlowSpaceFrame(object):
             return res if res is not None else next_instr
         except RaiseImplicit as e:
             return SImplicitException(e.value).unroll(self)
-        except FSException, operr:
-            return self.handle_operation_error(operr)
-
-    def handle_operation_error(self, operr):
-        unroller = SApplicationException(operr)
-        return unroller.unroll(self)
+        except Raise as e:
+            return SApplicationException(e.value).unroll(self)
 
     def getlocalvarname(self, index):
         return self.pycode.co_varnames[index]
@@ -638,10 +638,11 @@ class FlowSpaceFrame(object):
         space = self.space
         if nbargs == 0:
             if self.last_exception is not None:
-                raise self.last_exception
+                w_exc = self.last_exception
             else:
-                raise const(TypeError(
+                w_exc = const(TypeError(
                     "raise: no active exception to re-raise"))
+            raise Raise(w_exc)
 
         if nbargs >= 3:
             self.popvalue()
@@ -655,7 +656,7 @@ class FlowSpaceFrame(object):
                 operror = w_type
             else:
                 operror = space.exc_from_raise(w_type, space.w_None)
-        raise operror
+        raise Raise(operror)
 
     def IMPORT_NAME(self, nameindex):
         space = self.space
@@ -775,16 +776,10 @@ class FlowSpaceFrame(object):
         w_iterator = self.peekvalue()
         try:
             w_nextitem = self.space.next(w_iterator)
-        except RaiseImplicit as e:
+        except Raise as e:
             w_exc = e.value
             if not self.space.exception_match(w_exc.w_type,
                                               self.space.w_StopIteration):
-                raise
-            # iterator exhausted
-            self.popvalue()
-            return target
-        except FSException as e:
-            if not self.space.exception_match(e.w_type, self.space.w_StopIteration):
                 raise
             # iterator exhausted
             self.popvalue()
@@ -1187,7 +1182,7 @@ class SApplicationException(SuspendedUnroller):
         self.operr = operr
 
     def nomoreblocks(self):
-        raise self.operr
+        raise Raise(self.operr)
 
     def state_unpack_variables(self):
         return [self.operr.w_type, self.operr.w_value]

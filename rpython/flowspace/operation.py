@@ -330,7 +330,8 @@ class Next(HLOperation):
                 try:
                     v, next_unroller = it.step()
                 except IndexError:
-                    raise const(StopIteration())
+                    from rpython.flowspace.flowcontext import Raise
+                    raise Raise(const(StopIteration()))
                 else:
                     frame.replace_in_stack(it, next_unroller)
                     return const(v)

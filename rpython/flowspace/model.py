@@ -346,7 +346,7 @@ class Constant(Hashable):
             return False
 
 
-class FSException(Exception):
+class FSException(object):
     def __init__(self, w_type, w_value):
         assert w_type is not None
         self.w_type = w_type

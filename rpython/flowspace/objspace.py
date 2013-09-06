@@ -13,7 +13,7 @@ from rpython.flowspace.model import (Constant, Variable, WrapException,
 from rpython.flowspace.bytecode import HostCode
 from rpython.flowspace.operation import op, NOT_REALLY_CONST
 from rpython.flowspace.flowcontext import (FlowSpaceFrame, fixeggblocks,
-    FlowingError)
+    FlowingError, Raise)
 from rpython.flowspace.generator import (tweak_generator_graph,
         bootstrap_generator)
 from rpython.flowspace.pygraph import PyGraph
@@ -150,8 +150,9 @@ class FlowObjSpace(object):
         else:
             # the only case left here is (inst, None), from a 'raise inst'.
             if not frame.guessbool(self.is_(w_arg2, self.w_None)):
-                raise const(TypeError(
-                    "instance exception may not have a separate value"))
+                exc = TypeError("instance exception may not have a "
+                                "separate value")
+                raise Raise(const(exc))
             w_value = w_arg1
         w_type = self.type(w_value)
         return FSException(w_type, w_value)
@@ -173,8 +174,8 @@ class FlowObjSpace(object):
             w_len = self.len(w_iterable)
             w_correct = self.eq(w_len, const(expected_length))
             if not self.frame.guessbool(self.bool(w_correct)):
-                e = self.exc_from_raise(self.w_ValueError, self.w_None)
-                raise e
+                w_exc = self.exc_from_raise(self.w_ValueError, self.w_None)
+                raise Raise(w_exc)
             return [self.frame.do_operation('getitem', w_iterable, const(i))
                         for i in range(expected_length)]
 
@@ -187,7 +188,7 @@ class FlowObjSpace(object):
         try:
             mod = __import__(name, glob, loc, frm, level)
         except ImportError as e:
-            raise const(e)
+            raise Raise(const(e))
         return const(mod)
 
     def import_from(self, w_module, w_name):
@@ -201,7 +202,8 @@ class FlowObjSpace(object):
         try:
             return const(getattr(w_module.value, w_name.value))
         except AttributeError:
-            raise const(ImportError("cannot import name '%s'" % w_name.value))
+            exc = ImportError("cannot import name '%s'" % w_name.value)
+            raise Raise(const(exc))
 
     def call_method(self, w_obj, methname, *arg_w):
         w_meth = self.getattr(w_obj, const(methname))
