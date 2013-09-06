@@ -155,7 +155,7 @@ extern __thread gcptr stm_thread_local_obj;
    stm_inspect_abort_info().  (XXX details not documented yet) */
 void stm_abort_info_push(gcptr obj, long fieldoffsets[]);
 void stm_abort_info_pop(long count);
-char *stm_inspect_abort_info(void);
+char *stm_inspect_abort_info(void);    /* turns inevitable */
 
 /* mostly for debugging support */
 void stm_abort_and_retry(void);
