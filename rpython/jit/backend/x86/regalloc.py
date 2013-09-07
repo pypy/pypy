@@ -28,6 +28,7 @@ from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import r_longlong, r_uint
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.lltypesystem import lltype, rffi, rstr
+from rpython.rtyper.lltypesystem.lloperation import llop
 
 
 class X86RegisterManager(RegisterManager):
