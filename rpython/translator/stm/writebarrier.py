@@ -134,7 +134,7 @@ class BlockTransformer(object):
         def get_category_or_null(v):
             # 'v' is an original variable here, or a constant
             if isinstance(v, Constant) and not v.value:    # a NULL constant
-                return None
+                return 'Z'
             if v in renamings:
                 return renamings[v].category
             if isinstance(v, Constant):
@@ -205,7 +205,7 @@ class BlockTransformer(object):
             if op in self.expand_comparison:
                 cats = (get_category_or_null(op.args[0]),
                         get_category_or_null(op.args[1]))
-                if None not in cats and (cats[0] < 'V' or cats[1] < 'V'):
+                if 'Z' not in cats and (cats[0] < 'V' or cats[1] < 'V'):
                     if newop.opname == 'ptr_ne':
                         v = varoftype(lltype.Bool)
                         negop = SpaceOperation('bool_not', [v],
@@ -346,6 +346,7 @@ def insert_stm_barrier(stmtransformer, graph):
            * 'R': the read barrier was applied
            * 'V': same as W, except needs a repeat_write_barrier
            * 'W': the write barrier was applied
+           * 'Z': the null constant
 
        The letters are chosen so that a barrier is needed to change a
        pointer from category x to category y if and only if y > x.
