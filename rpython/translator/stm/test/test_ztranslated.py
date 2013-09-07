@@ -250,12 +250,12 @@ class TestSTMTranslated(CompiledSTMTests):
                 globf.xy = 100 + retry_counter
 
         def check(_, retry_counter):
-            last = rstm.charp_inspect_abort_info()
             rstm.abort_info_push(globf, ('[', 'xy', ']', 'yx'))
             setxy(globf, retry_counter)
             if retry_counter < 3:
                 rstm.abort_and_retry()
             #
+            last = rstm.charp_inspect_abort_info()
             print rffi.charp2str(last)
             print int(bool(rstm.charp_inspect_abort_info()))
             #
