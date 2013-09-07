@@ -110,8 +110,8 @@ if sys.platform.startswith("openbsd"):
     linklibs = ['tk85', 'tcl85']
     libdirs = ['/usr/local/lib', '/usr/X11R6/lib']
 else:
-    incdirs=['/usr/include/tcl'],
-    linklibs=['tcl', 'tk'],
+    incdirs=['/usr/include/tcl']
+    linklibs=['tcl', 'tk']
     libdirs = []
 
 tklib = tkffi.verify("""
