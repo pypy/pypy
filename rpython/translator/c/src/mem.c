@@ -3,6 +3,35 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+
+#ifdef RPY_STM
+# include "src/mem.h"
+# include "src/allocator.h"
+# ifdef RPY_ASSERT
+int try_pypy_debug_alloc_stop(void *);
+# else
+#  define try_pypy_debug_alloc_stop(p)  /* nothing */
+# endif
+void _pypy_stm_free(void *ptr)
+{
+    /* This is called by src_stm/*.c when the transaction is aborted
+       and the 'ptr' was malloced but not freed.  We have first to
+       unregister the object with a tentative pypy_debug_alloc_stop(),
+       which ignores it if it was not actually registered.  Then we
+       free the object in the normal way.  Finally we increment the
+       free counter to keep it in sync. */
+    try_pypy_debug_alloc_stop(ptr);
+    PyObject_Free(ptr);
+    COUNT_FREE;
+}
+#endif
+
+
+#ifdef COUNT_OP_MALLOCS
+int count_mallocs=0, count_frees=0;
+#endif
+
+
 /***  tracking raw mallocs and frees for debugging ***/
 
 #ifdef RPY_ASSERT
@@ -35,7 +64,7 @@ void pypy_debug_alloc_start(void *addr, const char *funcname)
   spinlock_release(pypy_debug_alloc_lock);
 }
 
-void pypy_debug_alloc_stop(void *addr)
+int try_pypy_debug_alloc_stop(void *addr)
 {
   struct pypy_debug_alloc_s **p;
   spinlock_acquire(pypy_debug_alloc_lock, '-');
@@ -47,9 +76,15 @@ void pypy_debug_alloc_stop(void *addr)
         *p = dying->next;
         spinlock_release(pypy_debug_alloc_lock);
         free(dying);
-        return;
+        return 1;
       }
-  RPyAssert(0, "free() of a never-malloc()ed object");
+  return 0;
+}
+
+void pypy_debug_alloc_stop(void *addr)
+{
+  if (!try_pypy_debug_alloc_stop(addr))
+    RPyAssert(0, "free() of a never-malloc()ed object");
 }
 
 void pypy_debug_alloc_results(void)

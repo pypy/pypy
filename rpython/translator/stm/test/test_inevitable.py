@@ -114,8 +114,6 @@ class TestTransform:
 
         res = self.interpret_inevitable(f1, [])
         assert res is None
-        assert 0, """we do not turn inevitable before
-        raw-mallocs which causes leaks on aborts"""
 
     def test_raw_malloc_2(self):
         X = lltype.Struct('X', ('foo', lltype.Signed))
@@ -126,8 +124,6 @@ class TestTransform:
 
         res = self.interpret_inevitable(f1, [])
         assert res is None
-        assert 0, """we do not turn inevitable before
-        raw-mallocs which causes leaks on aborts"""
 
     def test_unknown_raw_free(self):
         X = lltype.Struct('X', ('foo', lltype.Signed))

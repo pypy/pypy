@@ -11,30 +11,26 @@
 #define OP_STACK_CURRENT(r)  r = (Signed)&r
 
 
-#define RAW_MALLOC_ZERO_FILLED 0
-
-#if RAW_MALLOC_ZERO_FILLED
-
-#define OP_RAW_MALLOC(size, r, restype)  {				\
-	r = (restype) PyObject_Malloc(size);				\
-	if (r != NULL) {						\
-	    memset((void*)r, 0, size);					\
-	    COUNT_MALLOC;						\
-	}								\
-    }
-
+#ifdef RPY_STM
+void _pypy_stm_free(void *);
+#define _OP_RAW_MALLOCED(r)         stm_call_on_abort(r, _pypy_stm_free)
+#define _OP_RAW_STM_UNREGISTER(r)   stm_call_on_abort(r, NULL)
 #else
-
-#define OP_RAW_MALLOC(size, r, restype)  {				\
-	r = (restype) PyObject_Malloc(size);				\
-	if (r != NULL) {						\
-	    COUNT_MALLOC;						\
-	}								\
-    }
-
+#define _OP_RAW_MALLOCED(r)         /* nothing */
+#define _OP_RAW_STM_UNREGISTER(r)   /* nothing */
 #endif
 
-#define OP_RAW_FREE(p, r) PyObject_Free(p); COUNT_FREE;
+
+#define OP_RAW_MALLOC(size, r, restype)  {				\
+	r = (restype) PyObject_Malloc(size);				\
+	if (r != NULL) {						\
+	    COUNT_MALLOC;						\
+            _OP_RAW_MALLOCED(r);                                        \
+	}								\
+    }
+
+#define OP_RAW_FREE(p, r) PyObject_Free(p); COUNT_FREE; \
+                          _OP_RAW_STM_UNREGISTER(p);
 
 #define OP_RAW_MEMCLEAR(p, size, r) memset((void*)p, 0, size)
 
@@ -63,7 +59,7 @@
 
 #else /* COUNT_OP_MALLOCS */
 
-static int count_mallocs=0, count_frees=0;
+extern int count_mallocs, count_frees;
 
 #define COUNT_MALLOC	count_mallocs++
 #define COUNT_FREE	count_frees++

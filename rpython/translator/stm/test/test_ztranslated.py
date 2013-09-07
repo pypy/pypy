@@ -1,5 +1,7 @@
 from rpython.rlib import rstm, rgc, objectmodel
+from rpython.rlib.debug import debug_print
 from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rtyper.lltypesystem.rclass import OBJECTPTR
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.translator.stm.test.support import CompiledSTMTests
 from rpython.translator.stm.test import targetdemo2
@@ -131,7 +133,6 @@ class TestSTMTranslated(CompiledSTMTests):
             rgc.collect(0)
             return 0
         #
-        from rpython.rtyper.lltypesystem.rclass import OBJECTPTR
         S = lltype.GcStruct('S', ('got_exception', OBJECTPTR))
         PS = lltype.Ptr(S)
         perform_transaction = rstm.make_perform_transaction(check, PS)
@@ -162,7 +163,6 @@ class TestSTMTranslated(CompiledSTMTests):
             pass
         prebuilt2 = [X2(), X2()]
         #
-        from rpython.rtyper.lltypesystem.rclass import OBJECTPTR
         S = lltype.GcStruct('S', ('got_exception', OBJECTPTR))
         PS = lltype.Ptr(S)
         perform_transaction = rstm.make_perform_transaction(check, PS)
@@ -190,7 +190,6 @@ class TestSTMTranslated(CompiledSTMTests):
     def test_prebuilt_nongc(self):
         def check(foobar, retry_counter):
             return 0    # do nothing
-        from rpython.rtyper.lltypesystem.rclass import OBJECTPTR
         from rpython.rtyper.lltypesystem import lltype
         S = lltype.GcStruct('S', ('got_exception', OBJECTPTR))
         PS = lltype.Ptr(S)
@@ -237,8 +236,6 @@ class TestSTMTranslated(CompiledSTMTests):
         assert 'ok\n' in data
 
     def test_abort_info(self):
-        from rpython.rtyper.lltypesystem.rclass import OBJECTPTR
-
         class Parent(object):
             pass
         class Foobar(Parent):
@@ -329,3 +326,35 @@ class TestSTMTranslated(CompiledSTMTests):
         t, cbuilder = self.compile(main)
         data = cbuilder.cmdexec('')
         assert 'test ok\n' in data
+
+    def test_raw_malloc_no_leak(self):
+        FOOARRAY = lltype.Array(lltype.Signed)
+
+        def check(_, retry_counter):
+            x = lltype.malloc(FOOARRAY, 100000, flavor='raw')
+            if retry_counter < 1000:
+                if (retry_counter & 3) == 0:
+                    lltype.free(x, flavor='raw')
+                debug_print(rffi.cast(lltype.Signed, x))
+                rstm.abort_and_retry()
+            lltype.free(x, flavor='raw')
+            return 0
+
+        PS = lltype.Ptr(lltype.GcStruct('S', ('got_exception', OBJECTPTR)))
+        perform_transaction = rstm.make_perform_transaction(check, PS)
+
+        def main(argv):
+            perform_transaction(lltype.nullptr(PS.TO))
+            return 0
+
+        t, cbuilder = self.compile(main)
+        data, dataerr = cbuilder.cmdexec('', err=True)
+        lines = dataerr.split('\n')
+        assert len(lines) > 1000
+        addresses = map(int, lines[:1000])
+        assert len(addresses) == 1000
+        assert len(set(addresses)) < 500    # should ideally just be a few
+        import re
+        match = re.search(r"(\d+) mallocs left", dataerr)
+        assert match
+        assert int(match.group(1)) < 20
