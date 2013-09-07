@@ -569,9 +569,17 @@ class FlowSpaceFrame(object):
             res = getattr(self, methodname)(oparg)
             return res if res is not None else next_instr
         except RaiseImplicit as e:
-            return SImplicitException(e.value).unroll(self)
+            return self.unroll(SImplicitException(e.value))
         except Raise as e:
-            return SApplicationException(e.value).unroll(self)
+            return self.unroll(SApplicationException(e.value))
+
+    def unroll(self, signal):
+        while self.blockstack:
+            block = self.blockstack.pop()
+            if isinstance(signal, block.handles):
+                return block.handle(self, signal)
+            block.cleanupstack(self)
+        return signal.nomoreblocks()
 
     def getlocalvarname(self, index):
         return self.pycode.co_varnames[index]
@@ -589,11 +597,10 @@ class FlowSpaceFrame(object):
         raise FlowingError("This operation is not RPython")
 
     def BREAK_LOOP(self, oparg):
-        return SBreakLoop.singleton.unroll(self)
+        return self.unroll(SBreakLoop.singleton)
 
     def CONTINUE_LOOP(self, startofloop):
-        unroller = SContinueLoop(startofloop)
-        return unroller.unroll(self)
+        return self.unroll(SContinueLoop(startofloop))
 
     def cmp_lt(self, w_1, w_2):
         return self.space.lt(w_1, w_2)
@@ -674,8 +681,7 @@ class FlowSpaceFrame(object):
 
     def RETURN_VALUE(self, oparg):
         w_returnvalue = self.popvalue()
-        unroller = SReturnValue(w_returnvalue)
-        return unroller.unroll(self)
+        return self.unroll(SReturnValue(w_returnvalue))
 
     def END_FINALLY(self, oparg):
         # unlike CPython, there are two statically distinct cases: the
@@ -683,22 +689,22 @@ class FlowSpaceFrame(object):
         # block.  In the first case, the stack contains three items:
         #   [exception type we are now handling]
         #   [exception value we are now handling]
-        #   [wrapped SApplicationException]
+        #   [SApplicationException]
         # In the case of a finally: block, the stack contains only one
         # item (unlike CPython which can have 1, 2 or 3 items):
-        #   [wrapped subclass of SuspendedUnroller]
+        #   [wrapped subclass of FlowSignal]
         w_top = self.popvalue()
         if w_top == self.space.w_None:
             # finally: block with no unroller active
             return
-        elif isinstance(w_top, SuspendedUnroller):
+        elif isinstance(w_top, FlowSignal):
             # case of a finally: block
-            return w_top.unroll(self)
+            return self.unroll(w_top)
         else:
             # case of an except: block.  We popped the exception type
             self.popvalue()        #     Now we pop the exception value
-            unroller = self.popvalue()
-            return unroller.unroll(self)
+            signal = self.popvalue()
+            return self.unroll(signal)
 
     def POP_BLOCK(self, oparg):
         block = self.blockstack.pop()
@@ -1126,10 +1132,9 @@ class FlowSpaceFrame(object):
 
 ### Frame blocks ###
 
-class SuspendedUnroller(object):
-    """Abstract base class for interpreter-level objects that
-    instruct the interpreter to change the control flow and the
-    block stack.
+class FlowSignal(object):
+    """Abstract base class for translator-level objects that instruct the
+    interpreter to change the control flow and the block stack.
 
     The concrete subclasses correspond to the various values WHY_XXX
     values of the why_code enumeration in ceval.c:
@@ -1142,22 +1147,11 @@ class SuspendedUnroller(object):
                 WHY_CONTINUE,   SContinueLoop
                 WHY_YIELD       not needed
     """
-    def unroll(self, frame):
-        while frame.blockstack:
-            block = frame.blockstack.pop()
-            if isinstance(self, block.handles):
-                return block.handle(frame, self)
-            block.cleanupstack(frame)
-        return self.nomoreblocks()
-
     def nomoreblocks(self):
         raise BytecodeCorruption("misplaced bytecode - should not return")
 
-    # NB. for the flow object space, the state_(un)pack_variables methods
-    # give a way to "pickle" and "unpickle" the SuspendedUnroller by
-    # enumerating the Variables it contains.
 
-class SReturnValue(SuspendedUnroller):
+class SReturnValue(FlowSignal):
     """Signals a 'return' statement.
     Argument is the wrapped object to return."""
 
@@ -1174,7 +1168,7 @@ class SReturnValue(SuspendedUnroller):
     def state_pack_variables(w_returnvalue):
         return SReturnValue(w_returnvalue)
 
-class SApplicationException(SuspendedUnroller):
+class SApplicationException(FlowSignal):
     """Signals an application-level exception
     (i.e. an OperationException)."""
 
@@ -1196,7 +1190,7 @@ class SImplicitException(SApplicationException):
     def nomoreblocks(self):
         raise RaiseImplicit(self.operr)
 
-class SBreakLoop(SuspendedUnroller):
+class SBreakLoop(FlowSignal):
     """Signals a 'break' statement."""
 
     def state_unpack_variables(self):
@@ -1208,7 +1202,7 @@ class SBreakLoop(SuspendedUnroller):
 
 SBreakLoop.singleton = SBreakLoop()
 
-class SContinueLoop(SuspendedUnroller):
+class SContinueLoop(FlowSignal):
     """Signals a 'continue' statement.
     Argument is the bytecode position of the beginning of the loop."""
 
@@ -1288,7 +1282,7 @@ class ExceptBlock(FrameBlock):
 class FinallyBlock(FrameBlock):
     """A try:finally: block.  Stores the position of the exception handler."""
 
-    handles = SuspendedUnroller
+    handles = FlowSignal
 
     def handle(self, frame, unroller):
         # any abnormal reason for unrolling a finally: triggers the end of

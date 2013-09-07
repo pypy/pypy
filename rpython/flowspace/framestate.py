@@ -74,7 +74,7 @@ def union(w1, w2):
     if isinstance(w1, Constant) and isinstance(w2, Constant):
         if w1 == w2:
             return w1
-        # SuspendedUnrollers represent stack unrollers in the stack.
+        # FlowSignal represent stack unrollers in the stack.
         # They should not be merged because they will be unwrapped.
         # This is needed for try:except: and try:finally:, though
         # it makes the control flow a bit larger by duplicating the
@@ -94,7 +94,7 @@ def union(w1, w2):
 # We have to flatten out the state of the frame into a list of
 # Variables and Constants.  This is done above by collecting the
 # locals and the items on the value stack, but the latter may contain
-# SuspendedUnroller.  We have to handle these specially, because
+# FlowSignal.  We have to handle these specially, because
 # some of them hide references to more Variables and Constants.
 # The trick is to flatten ("pickle") them into the list so that the
 # extra Variables show up directly in the list too.
@@ -107,11 +107,11 @@ UNPICKLE_TAGS = {}
 
 
 def recursively_flatten(lst):
-    from rpython.flowspace.flowcontext import SuspendedUnroller
+    from rpython.flowspace.flowcontext import FlowSignal
     i = 0
     while i < len(lst):
         unroller = lst[i]
-        if not isinstance(unroller, SuspendedUnroller):
+        if not isinstance(unroller, FlowSignal):
             i += 1
         else:
             vars = unroller.state_unpack_variables()
