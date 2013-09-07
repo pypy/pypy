@@ -305,11 +305,13 @@ class BlockTransformer(object):
     def update_inputargs_category(self):
         values = self.inputargs_category_per_link.values()
         newcats = []
-        for i in range(len(self.block.inputargs)):
-            cats = [output_categories[i] for output_categories in values]
-            if is_gc_ptr(self.block.inputargs[i]):
+        for i, v in enumerate(self.block.inputargs):
+            if is_gc_ptr(v.concretetype):
+                cats = [output_categories[i] for output_categories in values]
                 assert None not in cats
-            newcats.append(min(cats))
+                newcats.append(min(cats))
+            else:
+                newcats.append(None)
         if newcats != self.inputargs_category:
             self.inputargs_category = newcats
             return True
