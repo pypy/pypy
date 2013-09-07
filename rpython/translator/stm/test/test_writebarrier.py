@@ -28,6 +28,24 @@ class TestTransform(BaseTestTransform):
         assert len(self.writemode) == 0
         assert self.barriers == ['I2R']
 
+    def test_simple_read_2(self):
+        X = lltype.GcStruct('X', ('foo', lltype.Signed))
+        x2 = lltype.malloc(X, immortal=True)
+        x2.foo = 81
+        null = lltype.nullptr(X)
+
+        def f1(n):
+            if n < 1:
+                p = null
+            else:
+                p = x2
+            return p.foo
+
+        res = self.interpret(f1, [4])
+        assert res == 81
+        assert len(self.writemode) == 0
+        assert self.barriers == ['I2R']
+
     def test_simple_write(self):
         X = lltype.GcStruct('X', ('foo', lltype.Signed))
         x1 = lltype.malloc(X, immortal=True)
