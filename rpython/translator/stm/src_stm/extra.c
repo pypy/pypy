@@ -15,13 +15,46 @@ void stm_copy_to_old_id_copy(gcptr obj, gcptr id)
 }
 
 
-__thread void *stm_to_clear_on_abort = NULL;
-__thread size_t stm_bytes_to_clear_on_abort;
-
 void stm_clear_on_abort(void *start, size_t bytes)
 {
-    stm_to_clear_on_abort = start;
-    stm_bytes_to_clear_on_abort = bytes;
+    struct tx_descriptor *d = thread_descriptor;
+    assert(d != NULL);
+    d->mem_clear_on_abort = start;
+    d->mem_bytes_to_clear_on_abort = bytes;
+}
+
+void stm_call_on_abort(void *key, void callback(void *))
+{
+    struct tx_descriptor *d = thread_descriptor;
+    if (callback == NULL) {
+        /* ignore the return value: unregistered keys can be
+           "deleted" again */
+        g2l_delete_item(&d->callbacks_on_abort, (gcptr)key);
+    }
+    else {
+        /* double-registering the same key will crash */
+        g2l_insert(&d->callbacks_on_abort, (gcptr)key, (gcptr)callback);
+    }
+}
+
+void stm_clear_callbacks_on_abort(struct tx_descriptor *d)
+{
+    if (g2l_any_entry(&d->callbacks_on_abort))
+        g2l_clear(&d->callbacks_on_abort);
+}
+
+void stm_invoke_callbacks_on_abort(struct tx_descriptor *d)
+{
+    wlog_t *item;
+    G2L_LOOP_FORWARD(d->callbacks_on_abort, item) {
+        void *key = (void *)item->addr;
+        void (*callback)(void *) = (void(*)(void *))item->val;
+        assert(key != NULL);
+        assert(callback != NULL);
+
+        callback(key);
+
+    } G2L_LOOP_END;
 }
 
 

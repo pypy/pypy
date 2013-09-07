@@ -184,6 +184,9 @@ struct tx_descriptor {
   struct tx_descriptor *tx_prev, *tx_next;
   int tcolor;
   pthread_t pthreadid;
+  void *mem_clear_on_abort;
+  size_t mem_bytes_to_clear_on_abort;
+  struct G2L callbacks_on_abort;
 };
 
 extern __thread struct tx_descriptor *thread_descriptor;

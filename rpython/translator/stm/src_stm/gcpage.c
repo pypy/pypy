@@ -208,7 +208,8 @@ void stmgcpage_free(gcptr obj)
         //stm_dbgmem_not_used(obj, size_class * WORD, 0);
     }
     else {
-        g2l_delete_item(&gcp->nonsmall_objects, obj);
+        int deleted = g2l_delete_item(&gcp->nonsmall_objects, obj);
+        assert(deleted);
         stm_free(obj);
     }
 }
@@ -235,7 +236,8 @@ void stm_unregister_integer_address(intptr_t adr)
     assert(obj->h_tid & GCFLAG_PUBLIC);
 
     stmgcpage_acquire_global_lock();
-    g2l_delete_item(&registered_stubs, obj);
+    int deleted = g2l_delete_item(&registered_stubs, obj);
+    assert(deleted);
     stmgcpage_release_global_lock();
     dprintf(("unregistered %p\n", obj));
 }

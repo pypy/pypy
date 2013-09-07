@@ -18,5 +18,7 @@ void stm_copy_to_old_id_copy(gcptr obj, gcptr id);
 size_t stm_decode_abort_info(struct tx_descriptor *d, long long elapsed_time,
                              int abort_reason, struct tx_abort_info *output);
 void stm_visit_abort_info(struct tx_descriptor *d, void (*visit)(gcptr *));
+void stm_clear_callbacks_on_abort(struct tx_descriptor *d);
+void stm_invoke_callbacks_on_abort(struct tx_descriptor *d);
 
 #endif

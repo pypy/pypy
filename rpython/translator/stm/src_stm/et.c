@@ -987,8 +987,12 @@ void AbortTransaction(int num)
   spinlock_release(d->public_descriptor->collection_lock);
 
   /* clear memory registered by stm_clear_on_abort */
-  if (stm_to_clear_on_abort)
-    memset(stm_to_clear_on_abort, 0, stm_bytes_to_clear_on_abort);
+  if (d->mem_clear_on_abort)
+    memset(d->mem_clear_on_abort, 0, d->mem_bytes_to_clear_on_abort);
+
+  /* invoke the callbacks registered by stm_call_on_abort */
+  stm_invoke_callbacks_on_abort(d);
+  stm_clear_callbacks_on_abort(d);
 
   dprintf(("\n"
           "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n"
@@ -1483,6 +1487,10 @@ void CommitTransaction(void)
   d->num_commits++;
   d->active = 0;
   stm_stop_sharedlock();
+
+  /* clear the list of callbacks that would have been called
+     on abort */
+  stm_clear_callbacks_on_abort(d);
 }
 
 /************************************************************/

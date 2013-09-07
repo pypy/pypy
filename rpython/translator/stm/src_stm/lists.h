@@ -114,7 +114,7 @@ static inline int g2l_any_entry(struct G2L *g2l) {
 wlog_t *_g2l_find(char *entry, gcptr addr);
 void _g2l_compress(struct G2L *g2l);
 void g2l_insert(struct G2L *g2l, gcptr addr, gcptr val);
-void g2l_delete_item(struct G2L *g2l, gcptr addr);
+int g2l_delete_item(struct G2L *g2l, gcptr addr);
 
 static inline int g2l_contains(struct G2L *g2l, gcptr addr)
 {
