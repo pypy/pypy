@@ -27,6 +27,9 @@ class HeapCache(object):
         # heap array cache
         # maps descrs to {index: {from_box: to_box}} dicts
         self.heap_array_cache = {}
+        # heap array of struct cache
+        # maps descrs to {index: {descr: {from_box: to_box}}}
+        self.heap_array_struct_cache = {}
         # cache the length of arrays
         self.length_cache = {}
 

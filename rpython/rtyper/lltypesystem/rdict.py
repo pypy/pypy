@@ -536,6 +536,7 @@ def _ll_dict_del(d, i):
     # call which is opaque to the JIT when the dict isn't virtual, to
     # avoid extra branches.
 
+@jit.look_inside_iff(lambda d: jit.isvirtual(d))
 def ll_dict_resize(d):
     old_entries = d.entries
     old_size = len(old_entries)
@@ -560,7 +561,6 @@ def ll_dict_resize(d):
             ll_dict_insertclean(d, entry.key, entry.value, hash)
         i += 1
     old_entries.delete()
-ll_dict_resize.oopspec = 'dict.resize(d)'
 
 # ------- a port of CPython's dictobject.c's lookdict implementation -------
 PERTURB_SHIFT = 5
@@ -627,6 +627,7 @@ def ll_dict_lookup(d, key, hash):
             freeslot = intmask(i)
         perturb >>= PERTURB_SHIFT
 
+@jit.look_inside_iff(lambda d, hash: jit.isvirtual(d) and jit.isconstant(hash))
 def ll_dict_lookup_clean(d, hash):
     # a simplified version of ll_dict_lookup() which assumes that the
     # key is new, and the dictionary doesn't contain deleted entries.

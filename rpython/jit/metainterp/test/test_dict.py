@@ -1,7 +1,6 @@
-import py
 from rpython.jit.metainterp.test.support import LLJitMixin
+from rpython.rlib import objectmodel, jit
 from rpython.rlib.jit import JitDriver
-from rpython.rlib import objectmodel
 
 class DictTests:
 
@@ -174,6 +173,29 @@ class DictTests:
 
         res = self.meta_interp(f, [10], listops=True)
         assert res == 0
+        self.check_simple_loop({'int_sub': 1, 'int_gt': 1, 'guard_true': 1,
+                                'jump': 1})
+
+    def test_look_inside_resize(self):
+        driver = JitDriver(greens=[], reds=['n', 'j'])
+
+        def f(n, j):
+            while n > 0:
+                driver.jit_merge_point(n=n, j=j)
+                jit.promote(j)
+                d = {
+                    j: j,
+                    j + 1: j,
+                    j + 2: j,
+                    j + 3: j,
+                    j + 4: j,
+                    j + 5: j
+                }
+                n -= (len(d) - 5)
+            return n
+
+        res = self.meta_interp(f, [10, 2], listops=True)
+        assert res == f(10, 2)
         self.check_simple_loop({'int_sub': 1, 'int_gt': 1, 'guard_true': 1,
                                 'jump': 1})
 

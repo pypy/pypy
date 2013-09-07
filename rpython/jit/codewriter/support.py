@@ -522,8 +522,6 @@ class LLtypeHelpers:
         return LLtypeHelpers._dictnext_items(lltype.Ptr(RES), iter)
     _ll_1_dictiter_nextitems.need_result_type = True
 
-    _ll_1_dict_resize = ll_rdict.ll_dict_resize
-
     # ---------- strings and unicode ----------
 
     _ll_1_str_str2unicode = ll_rstr.LLHelpers.ll_str2unicode
