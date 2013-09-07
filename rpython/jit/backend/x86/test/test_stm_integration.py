@@ -531,7 +531,9 @@ class TestGcStm(BaseTestRegalloc):
                         ResOperation(rop.FINISH, [i], None, 
                                      descr=finaldescr)
                         )
+                    print operations
 
+                    
                     # COMPILE & EXECUTE LOOP:
                     inputargs = [p for p in (p1, p2) 
                                  if not isinstance(p, Const)]
@@ -541,9 +543,6 @@ class TestGcStm(BaseTestRegalloc):
 
                     args = [s for i, s in enumerate((s1, s2))
                             if not isinstance((p1, p2)[i], Const)] + [7]
-                    print "======"
-                    print "inputargs:", inputargs+[i1], args
-                    print "\n".join(map(str,c_loop[1]))
                                         
                     frame = self.cpu.execute_token(looptoken, *args)
                     frame = rffi.cast(JITFRAMEPTR, frame)
@@ -692,9 +691,6 @@ class TestGcStm(BaseTestRegalloc):
                                   looptoken)
         
         args = []
-        print "======"
-        print "inputargs:", inputargs, args
-        print "\n".join(map(str,c_loop[1]))
         
         frame = self.cpu.execute_token(looptoken, *args)
 
@@ -742,7 +738,6 @@ class TestGcStm(BaseTestRegalloc):
         looptoken = JitCellToken()
         looptoken.outermost_jitdriver_sd = FakeJitDriverSD()
         c_loop = cpu.compile_loop(None, inputargs, ops, looptoken)
-        print "\n".join(map(str,c_loop[1]))
         
         ARGS = [lltype.Signed] * 10
         RES = lltype.Signed
@@ -766,7 +761,6 @@ class TestGcStm(BaseTestRegalloc):
         othertoken = JitCellToken()
         cpu.done_with_this_frame_descr_int = BasicFinalDescr()
         c_loop = cpu.compile_loop(None, [], ops, othertoken)
-        print "\n".join(map(str,c_loop[1]))
         
         deadframe = cpu.execute_token(othertoken)
         frame = rffi.cast(JITFRAMEPTR, deadframe)

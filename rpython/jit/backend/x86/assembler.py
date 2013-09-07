@@ -37,6 +37,7 @@ from rpython.rlib.objectmodel import compute_unique_id
 from rpython.jit.backend.x86 import stmtlocal
 from rpython.rlib import rstm
 from rpython.memory.gc.stmgc import StmGC
+from rpython.jit.backend.llsupport.gc import STMBarrierDescr
 
 
 class Assembler386(BaseAssembler):
@@ -301,13 +302,15 @@ class Assembler386(BaseAssembler):
         Before using such a relative address, call 
         self._stm_tl_segment_prefix_if_necessary."""
         if self.cpu.gc_ll_descr.stm and we_are_translated():
-            # also not during tests
+            # only for STM and not during tests
             result = adr - stmtlocal.threadlocal_base()
             assert rx86.fits_in_32bits(result)
             return result
         return adr
 
-    def _stm_tl_segment_prefix_if_necessary(self, mc):
+    def _tl_segment_if_stm(self, mc):
+        """Insert segment prefix for thread-local memory if we run
+        in STM and not during testing."""
         if self.cpu.gc_ll_descr.stm and we_are_translated():
             stmtlocal.tl_segment_prefix(mc)
         
@@ -346,7 +349,7 @@ class Assembler386(BaseAssembler):
             mc.ADD_ri(esp.value, WORD)
         #
         ea = self._get_stm_tl(self.cpu.pos_exception())
-        self._stm_tl_segment_prefix_if_necessary(mc)
+        self._tl_segment_if_stm(mc)
         mc.MOV(eax, heap(ea))
         mc.TEST_rr(eax.value, eax.value)
         mc.J_il8(rx86.Conditions['NZ'], 0)
@@ -900,11 +903,9 @@ class Assembler386(BaseAssembler):
         that gives the address of the stack top.  If this integer doesn't
         fit in 32 bits, it will be loaded in r11.
         """
-        rst = self._get_root_stack_top_addr()
+        rst = self._get_stm_tl(gcrootmap.get_root_stack_top_addr())
         if rx86.fits_in_32bits(rst):
-            if gcrootmap.is_stm and we_are_translated():
-                # during testing, it will be an absolute address
-                stmtlocal.tl_segment_prefix(mc)
+            self._tl_segment_if_stm(mc)
             mc.MOV_rj(ebx.value, rst)            # MOV ebx, [rootstacktop]
         else:
             mc.MOV_ri(X86_64_SCRATCH_REG.value, rst) # MOV r11, rootstacktop
@@ -932,9 +933,7 @@ class Assembler386(BaseAssembler):
         self.mc.ADD_ri(ebx.value, WORD)
         
         if rx86.fits_in_32bits(rst):
-            if gcrootmap.is_stm and we_are_translated():
-                # during testing, it will be an absolute address
-                stmtlocal.tl_segment_prefix(self.mc)
+            self._tl_segment_if_stm(self.mc)
             self.mc.MOV_jr(rst, ebx.value)            # MOV [rootstacktop], ebx
         else:
             # The integer 'rst' doesn't fit in 32 bits, so we know that
@@ -944,12 +943,9 @@ class Assembler386(BaseAssembler):
                            ebx.value) # MOV [r11], ebx
 
     def _call_footer_shadowstack(self, gcrootmap):
-        rst = self._get_root_stack_top_addr()
-        
+        rst = self._get_stm_tl(gcrootmap.get_root_stack_top_addr())
         if rx86.fits_in_32bits(rst):
-            if gcrootmap.is_stm and we_are_translated():
-                # during testing, it will be an absolute address
-                stmtlocal.tl_segment_prefix(self.mc)
+            self._tl_segment_if_stm(self.mc)
             self.mc.SUB_ji8(rst, WORD)       # SUB [rootstacktop], WORD
         else:
             self.mc.MOV_ri(ebx.value, rst)           # MOV ebx, rootstacktop
@@ -1262,25 +1258,12 @@ class Assembler386(BaseAssembler):
         cb = callbuilder.CallBuilder(self, fnloc, arglocs)
         cb.emit_no_collect()
 
-    def _get_root_stack_top_addr(self):
-        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
-        
-        rst = gcrootmap.get_root_stack_top_addr()
-        if gcrootmap.is_stm and we_are_translated():
-            # during testing, we return an absolute address
-            rst = rst - stmtlocal.threadlocal_base()
-            assert rx86.fits_in_32bits(rst)
-        return rst
-            
     def _reload_frame_if_necessary(self, mc, align_stack=False):
         gc_ll_descr = self.cpu.gc_ll_descr
         gcrootmap = gc_ll_descr.gcrootmap
         if gcrootmap and gcrootmap.is_shadow_stack:
-            rst = self._get_root_stack_top_addr()
-
-            if gcrootmap.is_stm and we_are_translated():
-                # during testing, it will be an absolute address
-                stmtlocal.tl_segment_prefix(mc)
+            rst = self._get_stm_tl(gcrootmap.get_root_stack_top_addr())
+            self._tl_segment_if_stm(mc)
             mc.MOV(ecx, heap(rst))
             mc.MOV(ebp, mem(ecx, -WORD))
         #
@@ -1809,7 +1792,7 @@ class Assembler386(BaseAssembler):
     def genop_guard_guard_no_exception(self, ign_1, guard_op, guard_token,
                                        locs, ign_2):
         ea = self._get_stm_tl(self.cpu.pos_exception())
-        self._stm_tl_segment_prefix_if_necessary(self.mc)
+        self._tl_segment_if_stm(self.mc)
         self.mc.CMP(heap(ea), imm0)
         self.implement_guard(guard_token, 'NZ')
 
@@ -1824,7 +1807,7 @@ class Assembler386(BaseAssembler):
         loc = locs[0]
         loc1 = locs[1]
         ea = self._get_stm_tl(self.cpu.pos_exception())
-        self._stm_tl_segment_prefix_if_necessary(self.mc)
+        self._tl_segment_if_stm(self.mc)
         self.mc.MOV(loc1, heap(ea))
         self.mc.CMP(loc1, loc)
         self.implement_guard(guard_token, 'NE')
@@ -1838,7 +1821,7 @@ class Assembler386(BaseAssembler):
         eva = self._get_stm_tl(self.cpu.pos_exc_value())
         ea = self._get_stm_tl(self.cpu.pos_exception())
         #
-        self._stm_tl_segment_prefix_if_necessary(mc)
+        self._tl_segment_if_stm(mc)
         if excvalloc is not None:
             assert excvalloc.is_core_reg()
             mc.MOV(excvalloc, heap(eva))
@@ -1849,28 +1832,28 @@ class Assembler386(BaseAssembler):
         #
         if exctploc is not None:
             assert exctploc.is_core_reg()
-            self._stm_tl_segment_prefix_if_necessary(mc)
+            self._tl_segment_if_stm(mc)
             mc.MOV(exctploc, heap(ea))
         #
-        self._stm_tl_segment_prefix_if_necessary(mc)
+        self._tl_segment_if_stm(mc)
         mc.MOV(heap(ea), imm0)
-        self._stm_tl_segment_prefix_if_necessary(mc)
+        self._tl_segment_if_stm(mc)
         mc.MOV(heap(eva), imm0)
 
     def _restore_exception(self, mc, excvalloc, exctploc, tmploc=None):
         eva = self._get_stm_tl(self.cpu.pos_exc_value())
         ea = self._get_stm_tl(self.cpu.pos_exception())
         if excvalloc is not None:
-            self._stm_tl_segment_prefix_if_necessary(mc)
+            self._tl_segment_if_stm(mc)
             mc.MOV(heap(eva), excvalloc)
         else:
             assert tmploc is not None
             ofs = self.cpu.get_ofs_of_frame_field('jf_guard_exc')
             mc.MOV(tmploc, RawEbpLoc(ofs))
             mc.MOV_bi(ofs, 0)
-            self._stm_tl_segment_prefix_if_necessary(mc)
+            self._tl_segment_if_stm(mc)
             mc.MOV(heap(eva), tmploc)
-        self._stm_tl_segment_prefix_if_necessary(mc)
+        self._tl_segment_if_stm(mc)
         mc.MOV(heap(ea), exctploc)
 
     def _gen_guard_overflow(self, guard_op, guard_token):
@@ -2072,11 +2055,11 @@ class Assembler386(BaseAssembler):
             # We might have an exception pending.  Load it into ebx...
             eva = self._get_stm_tl(self.cpu.pos_exc_value())
             ea = self._get_stm_tl(self.cpu.pos_exception())
-            self._stm_tl_segment_prefix_if_necessary(mc)
+            self._tl_segment_if_stm(mc)
             mc.MOV(ebx, heap(eva))
-            self._stm_tl_segment_prefix_if_necessary(mc)
+            self._tl_segment_if_stm(mc)
             mc.MOV(heap(ea), imm0)
-            self._stm_tl_segment_prefix_if_necessary(mc)
+            self._tl_segment_if_stm(mc)
             mc.MOV(heap(eva), imm0)
             # ...and save ebx into 'jf_guard_exc'
             offset = self.cpu.get_ofs_of_frame_field('jf_guard_exc')
@@ -2394,24 +2377,14 @@ class Assembler386(BaseAssembler):
             mc.overwrite(j_ok3 - 1, chr(offset))
 
     def _get_stm_private_rev_num_addr(self):
-        assert self.cpu.gc_ll_descr.stm
-        rn = rstm.get_adr_of_private_rev_num()
-        rn = rn - stmtlocal.threadlocal_base()
-        assert rx86.fits_in_32bits(rn)
-        return rn
+        return self._get_stm_tl(rstm.get_adr_of_private_rev_num())
 
     def _get_stm_read_barrier_cache_addr(self):
-        assert self.cpu.gc_ll_descr.stm
-        rbc = rstm.get_adr_of_read_barrier_cache()
-        rbc = rbc - stmtlocal.threadlocal_base()
-        assert rx86.fits_in_32bits(rbc)
-        return rbc
+        return self._get_stm_tl(rstm.get_adr_of_read_barrier_cache())
         
     def _stm_barrier_fastpath(self, mc, descr, arglocs, is_frame=False,
                               align_stack=False):
         assert self.cpu.gc_ll_descr.stm
-        from rpython.jit.backend.llsupport.gc import (
-            STMBarrierDescr, STMReadBarrierDescr, STMWriteBarrierDescr)
         if we_are_translated():
             # tests use a a mock class, but translation needs it
             assert isinstance(descr, STMBarrierDescr)
@@ -2442,7 +2415,7 @@ class Assembler386(BaseAssembler):
         if we_are_translated():
             # during tests, _get_stm_private_rev_num_addr returns
             # an absolute address, not a tl-offset
-            stmtlocal.tl_segment_prefix(mc)
+            self._tl_segment_if_stm(mc)
             mc.MOV_rj(X86_64_SCRATCH_REG.value, rn)
         else: # testing:
             mc.MOV(X86_64_SCRATCH_REG, heap(rn))
@@ -2472,7 +2445,7 @@ class Assembler386(BaseAssembler):
             if we_are_translated():
                 # during tests, _get_stm_rbca returns
                 # an absolute address, not a tl-offset
-                stmtlocal.tl_segment_prefix(mc)
+                self._tl_segment_if_stm(mc)
                 mc.ADD_rj(X86_64_SCRATCH_REG.value, rbc)
             else: # testing:
                 mc.PUSH_r(eax.value)

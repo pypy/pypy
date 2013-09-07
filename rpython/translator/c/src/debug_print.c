@@ -19,8 +19,8 @@ __thread_if_stm long pypy_have_debug_prints = -1;
 FILE *pypy_debug_file = NULL;   /* XXX make it thread-local too? */
 static unsigned char debug_ready = 0;
 static unsigned char debug_profile = 0;
-__thread_if_stm static char debug_start_colors_1[32];
-__thread_if_stm static char debug_start_colors_2[28];
+static __thread_if_stm char debug_start_colors_1[32];
+static __thread_if_stm char debug_start_colors_2[28];
 __thread_if_stm char pypy_debug_threadid[16] = {0};
 static char *debug_stop_colors = "";
 static char *debug_prefix = NULL;
