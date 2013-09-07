@@ -54,8 +54,11 @@ class BlockTransformer(object):
         self.stmtransformer = stmtransformer
         self.block = block
         self.patch = None
-        self.inputargs_category = [None] * len(block.inputargs)
+        self.inputargs_category = None
         self.inputargs_category_per_link = {}
+
+    def init_start_block(self):
+        self.inputargs_category = [None] * len(self.block.inputargs)
 
 
     def analyze_inside_block(self):
@@ -351,7 +354,6 @@ def insert_stm_barrier(stmtransformer, graph):
     insert_empty_startblock(annotator, graph)
 
     block_transformers = {}
-    pending = set()
 
     for block in graph.iterblocks():
         if block.operations == ():
@@ -359,14 +361,13 @@ def insert_stm_barrier(stmtransformer, graph):
         bt = BlockTransformer(stmtransformer, block)
         bt.analyze_inside_block()
         block_transformers[block] = bt
-        pending.add(bt)
+
+    bt = block_transformers[graph.startblock]
+    bt.init_start_block()
+    pending = set([bt])
 
     while pending:
-        # XXX sadly, this seems to be order-dependent.  Picking the minimum
-        # of the blocks seems to be necessary, too, to avoid the situation
-        # of two blocks chasing each other around a loop :-(
-        bt = min(pending)
-        pending.remove(bt)
+        bt = pending.pop()
         bt.flow_through_block(graphinfo)
         pending |= bt.update_targets(block_transformers)
 
