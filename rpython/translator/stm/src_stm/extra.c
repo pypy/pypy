@@ -26,6 +26,9 @@ void stm_clear_on_abort(void *start, size_t bytes)
 void stm_call_on_abort(void *key, void callback(void *))
 {
     struct tx_descriptor *d = thread_descriptor;
+    if (d == NULL || d->active != 1)
+        return;   /* ignore callbacks if we're outside a transaction or
+                     in an inevitable transaction (which cannot abort) */
     if (callback == NULL) {
         /* ignore the return value: unregistered keys can be
            "deleted" again */
