@@ -18,7 +18,6 @@ ec_cache = rstm.ThreadLocalReference(ExecutionContext)
 
 def initialize_execution_context(ec):
     """Called from ExecutionContext.__init__()."""
-    rstm.clear_exception_data_on_abort()
     ec._thread_local_dicts = rweakref.RWeakKeyDictionary(STMLocal, W_Root)
     if ec.space.config.objspace.std.withmethodcache:
         from pypy.objspace.std.typeobject import MethodCache

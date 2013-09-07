@@ -15,25 +15,6 @@ def get_adr_of_read_barrier_cache():
     return rffi.cast(lltype.Signed, addr)
 
 @dont_look_inside
-def clear_exception_data_on_abort():
-    # XXX: provisional API just to be safe
-    # called by pypy/module/thread/stm:initialize_execution_context
-    pass
-
-class ClearExceptionDataOnAbort(ExtRegistryEntry):
-    _about_ = clear_exception_data_on_abort
-    
-    def compute_result_annotation(self):
-        from rpython.annotator import model as annmodel
-        return annmodel.s_None
-
-    def specialize_call(self, hop):
-        hop.exception_cannot_occur()
-        return hop.genop('stm_clear_exception_data_on_abort', [],
-                         resulttype=lltype.Void)
-
-
-@dont_look_inside
 def become_inevitable():
     llop.stm_become_inevitable(lltype.Void)
 
