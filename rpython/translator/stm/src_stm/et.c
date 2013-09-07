@@ -25,7 +25,7 @@ char* stm_dbg_get_hdr_str(gcptr obj)
     }
     cur += sprintf(cur, "tid=%ld", stm_get_tid(obj));
     cur += sprintf(cur, " : rev=%lx : orig=%lx", 
-                   (long)obj->h_revision, (long)obj->h_original);
+                   obj->h_revision, obj->h_original);
     return tmp_buf;
 }
 
@@ -951,8 +951,8 @@ void AbortTransaction(int num)
         d->longest_abort_info_time = 0;   /* out of memory! */
       else
         {
-          if (stm_decode_abort_info(d, elapsed_time, num,
-                        (struct tx_abort_info *)d->longest_abort_info) != size)
+          if (stm_decode_abort_info(d, elapsed_time,
+                                     num, d->longest_abort_info) != size)
             stm_fatalerror("during stm abort: object mutated unexpectedly\n");
 
           d->longest_abort_info_time = elapsed_time;

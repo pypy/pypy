@@ -456,7 +456,12 @@ static void mark_extra_stuff(struct tx_descriptor *d)
     visit_if_young(d->thread_local_obj_ref);
     visit_if_young(&d->old_thread_local_obj);
 
-    stm_visit_abort_info(d, &visit_if_young);
+    long i, size = d->abortinfo.size;
+    gcptr *items = d->abortinfo.items;
+    for (i = 0; i < size; i += 2) {
+        visit_if_young(&items[i]);
+        /* items[i+1] is not a gc ptr */
+    }
 }
 
 static void minor_collect(struct tx_descriptor *d)
