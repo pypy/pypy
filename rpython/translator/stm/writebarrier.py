@@ -58,7 +58,9 @@ class BlockTransformer(object):
         self.inputargs_category_per_link = {}
 
     def init_start_block(self):
-        self.inputargs_category = [None] * len(self.block.inputargs)
+        from_outside = ['A'] * len(self.block.inputargs)
+        self.inputargs_category_per_link[None] = from_outside
+        self.update_inputargs_category()
 
 
     def analyze_inside_block(self):
@@ -164,7 +166,8 @@ class BlockTransformer(object):
         # make the initial trivial renamings needed to have some precise
         # categories for the input args
         for v, cat in zip(self.block.inputargs, self.inputargs_category):
-            if cat is not None and is_gc_ptr(v.concretetype):
+            if is_gc_ptr(v.concretetype):
+                assert cat is not None
                 renamings[v] = Renaming(v, cat)
 
         for op in self.block.operations:
@@ -303,14 +306,10 @@ class BlockTransformer(object):
         values = self.inputargs_category_per_link.values()
         newcats = []
         for i in range(len(self.block.inputargs)):
-            cat = None
-            for output_categories in values:
-                cat2 = output_categories[i]
-                if cat is None:
-                    cat = cat2
-                elif cat2 is not None:
-                    cat = min(cat, cat2)
-            newcats.append(cat)
+            cats = [output_categories[i] for output_categories in values]
+            if is_gc_ptr(self.block.inputargs[i]):
+                assert None not in cats
+            newcats.append(min(cats))
         if newcats != self.inputargs_category:
             self.inputargs_category = newcats
             return True
