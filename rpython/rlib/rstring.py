@@ -149,6 +149,7 @@ def rsplit(value, by=None, maxsplit=-1):
 
 
 @specialize.argtype(0)
+@jit.elidable
 def replace(input, sub, by, maxsplit=-1):
     if isinstance(input, str):
         assert isinstance(sub, str)
