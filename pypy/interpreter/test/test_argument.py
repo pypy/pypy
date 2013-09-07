@@ -128,7 +128,7 @@ class DummySpace(object):
 
     def type(self, obj):
         class Type:
-            def getname(self, space, default='?'):
+            def getname(self, space):
                 return type(obj).__name__
         return Type()
 
