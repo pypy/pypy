@@ -467,7 +467,7 @@ class FlowSpaceFrame(object):
                 self.recorder.final_state = self.getstate(next_pos)
 
         except RaiseImplicit as e:
-            w_exc = e.operr
+            w_exc = e.w_exc
             if isinstance(w_exc.w_type, Constant):
                 exc_cls = w_exc.w_type.value
             else:
@@ -479,7 +479,7 @@ class FlowSpaceFrame(object):
             self.recorder.crnt_block.closeblock(link)
 
         except Raise as e:
-            w_exc = e.operr
+            w_exc = e.w_exc
             if w_exc.w_type == self.space.w_ImportError:
                 msg = 'import statement always raises %s' % e
                 raise ImportError(msg)
@@ -490,7 +490,7 @@ class FlowSpaceFrame(object):
             pass
 
         except Return as exc:
-            w_result = exc.w_returnvalue
+            w_result = exc.w_value
             link = Link([w_result], self.graph.returnblock)
             self.recorder.crnt_block.closeblock(link)
 
@@ -557,8 +557,8 @@ class FlowSpaceFrame(object):
         try:
             res = getattr(self, methodname)(oparg)
             return res if res is not None else next_instr
-        except Raise as e:
-            return self.unroll(e)
+        except FlowSignal as signal:
+            return self.unroll(signal)
 
     def unroll(self, signal):
         while self.blockstack:
@@ -584,10 +584,10 @@ class FlowSpaceFrame(object):
         raise FlowingError("This operation is not RPython")
 
     def BREAK_LOOP(self, oparg):
-        return self.unroll(SBreakLoop.singleton)
+        raise Break
 
     def CONTINUE_LOOP(self, startofloop):
-        return self.unroll(SContinueLoop(startofloop))
+        raise Continue(startofloop)
 
     def cmp_lt(self, w_1, w_2):
         return self.space.lt(w_1, w_2)
@@ -668,7 +668,7 @@ class FlowSpaceFrame(object):
 
     def RETURN_VALUE(self, oparg):
         w_returnvalue = self.popvalue()
-        return self.unroll(Return(w_returnvalue))
+        raise Return(w_returnvalue)
 
     def END_FINALLY(self, oparg):
         # unlike CPython, there are two statically distinct cases: the
@@ -679,19 +679,19 @@ class FlowSpaceFrame(object):
         #   [Raise]
         # In the case of a finally: block, the stack contains only one
         # item (unlike CPython which can have 1, 2 or 3 items):
-        #   [wrapped subclass of FlowSignal]
+        #   [subclass of FlowSignal]
         w_top = self.popvalue()
         if w_top == self.space.w_None:
             # finally: block with no unroller active
             return
         elif isinstance(w_top, FlowSignal):
             # case of a finally: block
-            return self.unroll(w_top)
+            raise w_top
         else:
             # case of an except: block.  We popped the exception type
             self.popvalue()        #     Now we pop the exception value
             signal = self.popvalue()
-            return self.unroll(signal)
+            raise signal
 
     def POP_BLOCK(self, oparg):
         block = self.blockstack.pop()
@@ -770,7 +770,7 @@ class FlowSpaceFrame(object):
         try:
             w_nextitem = self.space.next(w_iterator)
         except Raise as e:
-            w_exc = e.operr
+            w_exc = e.w_exc
             if not self.space.exception_match(w_exc.w_type,
                                               self.space.w_StopIteration):
                 raise
@@ -818,11 +818,11 @@ class FlowSpaceFrame(object):
 
         w_None = self.space.w_None
         if isinstance(unroller, Raise):
-            operr = unroller.operr
+            w_exc = unroller.w_exc
             # The annotator won't allow to merge exception types with None.
             # Replace it with the exception value...
             self.space.call_function(w_exitfunc,
-                    operr.w_value, operr.w_value, w_None)
+                    w_exc.w_value, w_exc.w_value, w_None)
         else:
             self.space.call_function(w_exitfunc, w_None, w_None, w_None)
 
@@ -1130,8 +1130,8 @@ class FlowSignal(Exception):
                 WHY_EXCEPTION,  Raise
                 WHY_RERAISE,    implemented differently, see Reraise
                 WHY_RETURN,     Return
-                WHY_BREAK,      SBreakLoop
-                WHY_CONTINUE,   SContinueLoop
+                WHY_BREAK,      Break
+                WHY_CONTINUE,   Continue
                 WHY_YIELD       not needed
     """
     def nomoreblocks(self):
@@ -1142,31 +1142,31 @@ class Return(FlowSignal):
     """Signals a 'return' statement.
     Argument is the wrapped object to return."""
 
-    def __init__(self, w_returnvalue):
-        self.w_returnvalue = w_returnvalue
+    def __init__(self, w_value):
+        self.w_value = w_value
 
     def nomoreblocks(self):
-        raise Return(self.w_returnvalue)
+        raise Return(self.w_value)
 
     def state_unpack_variables(self):
-        return [self.w_returnvalue]
+        return [self.w_value]
 
     @staticmethod
-    def state_pack_variables(w_returnvalue):
-        return Return(w_returnvalue)
+    def state_pack_variables(w_value):
+        return Return(w_value)
 
 class Raise(FlowSignal):
     """Signals an application-level exception
     (i.e. an OperationException)."""
 
-    def __init__(self, operr):
-        self.operr = operr
+    def __init__(self, w_exc):
+        self.w_exc = w_exc
 
     def nomoreblocks(self):
         raise self
 
     def state_unpack_variables(self):
-        return [self.operr.w_type, self.operr.w_value]
+        return [self.w_exc.w_type, self.w_exc.w_value]
 
     @staticmethod
     def state_pack_variables(w_type, w_value):
@@ -1176,7 +1176,7 @@ class RaiseImplicit(Raise):
     """Signals an exception raised implicitly"""
 
 
-class SBreakLoop(FlowSignal):
+class Break(FlowSignal):
     """Signals a 'break' statement."""
 
     def state_unpack_variables(self):
@@ -1184,11 +1184,11 @@ class SBreakLoop(FlowSignal):
 
     @staticmethod
     def state_pack_variables():
-        return SBreakLoop.singleton
+        return Break.singleton
 
-SBreakLoop.singleton = SBreakLoop()
+Break.singleton = Break()
 
-class SContinueLoop(FlowSignal):
+class Continue(FlowSignal):
     """Signals a 'continue' statement.
     Argument is the bytecode position of the beginning of the loop."""
 
@@ -1200,7 +1200,7 @@ class SContinueLoop(FlowSignal):
 
     @staticmethod
     def state_pack_variables(w_jump_to):
-        return SContinueLoop(w_jump_to.value)
+        return Continue(w_jump_to.value)
 
 
 class FrameBlock(object):
@@ -1231,10 +1231,10 @@ class FrameBlock(object):
 class LoopBlock(FrameBlock):
     """A loop block.  Stores the end-of-loop pointer in case of 'break'."""
 
-    handles = (SBreakLoop, SContinueLoop)
+    handles = (Break, Continue)
 
     def handle(self, frame, unroller):
-        if isinstance(unroller, SContinueLoop):
+        if isinstance(unroller, Continue):
             # re-push the loop block without cleaning up the value stack,
             # and jump to the beginning of the loop, stored in the
             # exception's argument
@@ -1255,14 +1255,14 @@ class ExceptBlock(FrameBlock):
         # exception handler (the code after the except:)
         self.cleanupstack(frame)
         assert isinstance(unroller, Raise)
-        operationerr = unroller.operr
+        w_exc = unroller.w_exc
         # the stack setup is slightly different than in CPython:
         # instead of the traceback, we store the unroller object,
         # wrapped.
         frame.pushvalue(unroller)
-        frame.pushvalue(operationerr.w_value)
-        frame.pushvalue(operationerr.w_type)
-        frame.last_exception = operationerr
+        frame.pushvalue(w_exc.w_value)
+        frame.pushvalue(w_exc.w_type)
+        frame.last_exception = w_exc
         return self.handlerposition   # jump to the handler
 
 class FinallyBlock(FrameBlock):
