@@ -60,7 +60,7 @@ def _PyArray_CheckExact(space, w_obj):
 @cpython_api([PyObject], rffi.INT_real, error=-1)
 def _PyArray_FLAGS(space, w_array):
     if not isinstance(w_array, W_NDimArray):
-        raise OperationError(space.w_ValueError, space.wrap(
+        raise OperationError(space.w_TypeError, space.wrap(
             '_PyArray_FLAGS(ndarray) called with non-ndarray'))
     flags = NPY_BEHAVED_NS
     if isinstance(w_array.implementation, ConcreteArray):
@@ -76,49 +76,49 @@ def _PyArray_FLAGS(space, w_array):
 @cpython_api([PyObject], rffi.INT_real, error=-1)
 def _PyArray_NDIM(space, w_array):
     if not isinstance(w_array, W_NDimArray):
-        raise OperationError(space.w_ValueError, space.wrap(
+        raise OperationError(space.w_TypeError, space.wrap(
             '_PyArray_NDIM(ndarray) called with non-ndarray'))
     return len(w_array.get_shape())
 
 @cpython_api([PyObject, Py_ssize_t], Py_ssize_t, error=-1)
 def _PyArray_DIM(space, w_array, n):
     if not isinstance(w_array, W_NDimArray):
-        raise OperationError(space.w_ValueError, space.wrap(
+        raise OperationError(space.w_TypeError, space.wrap(
             '_PyArray_DIM called with non-ndarray'))
     return w_array.get_shape()[n]
 
 @cpython_api([PyObject, Py_ssize_t], Py_ssize_t, error=-1)
 def _PyArray_STRIDE(space, w_array, n):
     if not isinstance(w_array, W_NDimArray):
-        raise OperationError(space.w_ValueError, space.wrap(
+        raise OperationError(space.w_TypeError, space.wrap(
             '_PyArray_STRIDE called with non-ndarray'))
     return w_array.implementation.get_strides()[n]
 
 @cpython_api([PyObject], Py_ssize_t, error=-1)
 def _PyArray_SIZE(space, w_array):
     if not isinstance(w_array, W_NDimArray):
-        raise OperationError(space.w_ValueError, space.wrap(
+        raise OperationError(space.w_TypeError, space.wrap(
             '_PyArray_SIZE called with non-ndarray'))
     return w_array.get_size()
 
 @cpython_api([PyObject], rffi.INT_real, error=-1)
 def _PyArray_ITEMSIZE(space, w_array):
     if not isinstance(w_array, W_NDimArray):
-        raise OperationError(space.w_ValueError, space.wrap(
+        raise OperationError(space.w_TypeError, space.wrap(
             '_PyArray_ITEMSIZE called with non-ndarray'))
     return w_array.get_dtype().get_size()
 
 @cpython_api([PyObject], Py_ssize_t, error=-1)
 def _PyArray_NBYTES(space, w_array):
     if not isinstance(w_array, W_NDimArray):
-        raise OperationError(space.w_ValueError, space.wrap(
+        raise OperationError(space.w_TypeError, space.wrap(
             '_PyArray_NBYTES called with non-ndarray'))
     return w_array.get_size() * w_array.get_dtype().get_size()
 
 @cpython_api([PyObject], rffi.INT_real, error=-1)
 def _PyArray_TYPE(space, w_array):
     if not isinstance(w_array, W_NDimArray):
-        raise OperationError(space.w_ValueError, space.wrap(
+        raise OperationError(space.w_TypeError, space.wrap(
             '_PyArray_TYPE called with non-ndarray'))
     return w_array.get_dtype().num
 
@@ -127,15 +127,53 @@ def _PyArray_TYPE(space, w_array):
 def _PyArray_DATA(space, w_array):
     # fails on scalars - see PyArray_FromAny()
     if not isinstance(w_array, W_NDimArray):
-        raise OperationError(space.w_ValueError, space.wrap(
+        raise OperationError(space.w_TypeError, space.wrap(
             '_PyArray_DATA called with non-ndarray'))
     return rffi.cast(rffi.VOIDP, w_array.implementation.storage)
 
 
 @cpython_api([PyObject, rffi.VOIDP, Py_ssize_t, Py_ssize_t, Py_ssize_t, rffi.VOIDP],
-             PyObject)
+             PyObject, error=CANNOT_FAIL)
 def _PyArray_FromAny(space, w_obj, dtype, min_depth, max_depth, requirements, context):
-    # ignore all additional arguments for now
+    """ This is the main function used to obtain an array from any nested
+         sequence, or object that exposes the array interface, op. The
+         parameters allow specification of the required dtype, the
+         minimum (min_depth) and maximum (max_depth) number of dimensions
+         acceptable, and other requirements for the array.
+
+         The dtype argument needs to be a PyArray_Descr structure indicating
+         the desired data-type (including required byteorder). The dtype
+         argument may be NULL, indicating that any data-type (and byteorder)
+         is acceptable.
+         Unless FORCECAST is present in flags, this call will generate an error
+         if the data type cannot be safely obtained from the object. If you
+         want to use NULL for the dtype and ensure the array is notswapped then
+         use PyArray_CheckFromAny.
+
+         A value of 0 for either of the depth parameters causes the parameter
+         to be ignored.
+
+         Any of the following array flags can be added (e.g. using |) to get
+         the requirements argument. If your code can handle general (e.g.
+         strided, byte-swapped, or unaligned arrays) then requirements
+         may be 0. Also, if op is not already an array (or does not expose
+         the array interface), then a new array will be created (and filled
+         from op using the sequence protocol). The new array will have
+         NPY_DEFAULT as its flags member.
+
+         The context argument is passed to the __array__ method of op and is
+         only used if the array is constructed that way. Almost always this
+         parameter is NULL.
+    """
+    if dtype:
+        raise OperationError(space.w_NotImplementedError, space.wrap(
+            '_PyArray_FromAny called with not-implemented dtype argument'))
+    if min_depth !=0 or max_depth != 0:
+        raise OperationError(space.w_NotImplementedError, space.wrap(
+            '_PyArray_FromAny called with not-implemented min_dpeth or max_depth argument'))
+    if requirements not in (0, NPY_DEFAULT):
+        raise OperationError(space.w_NotImplementedError, space.wrap(
+            '_PyArray_FromAny called with not-implemented requirements argument'))
     w_array = convert_to_array(space, w_obj)
     if w_array.is_scalar():
         # since PyArray_DATA() fails on scalars, create a 1D array and set empty
@@ -151,7 +189,9 @@ def _PyArray_FromAny(space, w_obj, dtype, min_depth, max_depth, requirements, co
 
 @cpython_api([PyObject, Py_ssize_t, Py_ssize_t, Py_ssize_t], PyObject)
 def _PyArray_FromObject(space, w_obj, typenum, min_depth, max_depth):
-    # ignore min_depth and max_depth for now
+    if min_depth !=0 or max_depth != 0:
+        raise OperationError(space.w_NotImplementedError, space.wrap(
+            '_PyArray_FromObject called with not-implemented min_dpeth or max_depth argument'))
     dtype = get_dtype_cache(space).dtypes_by_num[typenum]
     w_array = convert_to_array(space, w_obj)
     impl = w_array.implementation

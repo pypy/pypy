@@ -62,6 +62,7 @@ class TestNDArrayObject(BaseApiTest):
     def test_NBYTES(self, space, api):
         a = array(space, [10, 5, 3])
         assert api._PyArray_NBYTES(a) == 1200
+        self.raises(space, api, TypeError, api._PyArray_NBYTES, space.wrap([10]))
 
     def test_TYPE(self, space, api):
         a = array(space, [10, 5, 3])
@@ -86,6 +87,9 @@ class TestNDArrayObject(BaseApiTest):
     def test_FromAny(self, space, api):
         a = array(space, [10, 5, 3])
         assert api._PyArray_FromAny(a, NULL, 0, 0, 0, NULL) is a
+        self.raises(space, api, NotImplementedError, api._PyArray_FromAny,
+                    space.wrap(a), space.w_None, space.wrap(0),
+                    space.wrap(3), space.wrap(0), space.w_None)
 
     def test_list_from_fixedptr(self, space, api):
         A = lltype.GcArray(lltype.Float)

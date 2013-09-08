@@ -159,7 +159,7 @@ def copy_header_files(dstdir):
     numpy_headers = numpy_include_dir.listdir('*.h') + numpy_include_dir.listdir('*.inl')
     _copy_header_files(numpy_headers, numpy_dstdir)
 
-    
+
 class NotSpecified(object):
     pass
 _NOT_SPECIFIED = NotSpecified()
@@ -303,9 +303,23 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, external=True):
                         elif isinstance(input_arg, W_Root):
                             arg = input_arg
                         else:
-                            arg = from_ref(space,
+                            try:
+                                arg = from_ref(space,
                                            rffi.cast(PyObject, input_arg))
+                            except TypeError, e:
+                                err = OperationError(space.w_TypeError,
+                                         space.wrap(
+                                        "could not cast arg to PyObject"))
+                                if not catch_exception:
+                                    raise err
+                                state = space.fromcache(State)
+                                state.set_exception(err)
+                                if is_PyObject(restype):
+                                    return None
+                                else:
+                                    return api_function.error_value
                     else:
+                        # convert to a wrapped object
                         arg = input_arg
                     newargs += (arg, )
                 try:
@@ -403,13 +417,13 @@ SYMBOLS_C = [
     'PyStructSequence_InitType', 'PyStructSequence_New',
 
     'PyFunction_Type', 'PyMethod_Type', 'PyRange_Type', 'PyTraceBack_Type',
-    
+
     'PyArray_Type', '_PyArray_FILLWBYTE', '_PyArray_ZEROS', '_PyArray_CopyInto',
 
     'Py_DebugFlag', 'Py_VerboseFlag', 'Py_InteractiveFlag', 'Py_InspectFlag',
-    'Py_OptimizeFlag', 'Py_NoSiteFlag', 'Py_BytesWarningFlag', 'Py_UseClassExceptionsFlag', 
-    'Py_FrozenFlag', 'Py_TabcheckFlag', 'Py_UnicodeFlag', 'Py_IgnoreEnvironmentFlag', 
-    'Py_DivisionWarningFlag', 'Py_DontWriteBytecodeFlag', 'Py_NoUserSiteDirectory', 
+    'Py_OptimizeFlag', 'Py_NoSiteFlag', 'Py_BytesWarningFlag', 'Py_UseClassExceptionsFlag',
+    'Py_FrozenFlag', 'Py_TabcheckFlag', 'Py_UnicodeFlag', 'Py_IgnoreEnvironmentFlag',
+    'Py_DivisionWarningFlag', 'Py_DontWriteBytecodeFlag', 'Py_NoUserSiteDirectory',
     '_Py_QnewFlag', 'Py_Py3kWarningFlag', 'Py_HashRandomizationFlag', '_Py_PackageContext',
 ]
 TYPES = {}
