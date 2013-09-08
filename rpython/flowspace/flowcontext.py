@@ -30,17 +30,6 @@ class FlowingError(Exception):
 class StopFlowing(Exception):
     pass
 
-class Return(Exception):
-    def __init__(self, value):
-        self.value = value
-
-class Raise(Exception):
-    def __init__(self, value):
-        self.value = value
-
-class RaiseImplicit(Raise):
-    pass
-
 class BytecodeCorruption(Exception):
     pass
 
@@ -478,7 +467,7 @@ class FlowSpaceFrame(object):
                 self.recorder.final_state = self.getstate(next_pos)
 
         except RaiseImplicit as e:
-            w_exc = e.value
+            w_exc = e.operr
             if isinstance(w_exc.w_type, Constant):
                 exc_cls = w_exc.w_type.value
             else:
@@ -490,7 +479,7 @@ class FlowSpaceFrame(object):
             self.recorder.crnt_block.closeblock(link)
 
         except Raise as e:
-            w_exc = e.value
+            w_exc = e.operr
             if w_exc.w_type == self.space.w_ImportError:
                 msg = 'import statement always raises %s' % e
                 raise ImportError(msg)
@@ -501,7 +490,7 @@ class FlowSpaceFrame(object):
             pass
 
         except Return as exc:
-            w_result = exc.value
+            w_result = exc.w_returnvalue
             link = Link([w_result], self.graph.returnblock)
             self.recorder.crnt_block.closeblock(link)
 
@@ -568,10 +557,8 @@ class FlowSpaceFrame(object):
         try:
             res = getattr(self, methodname)(oparg)
             return res if res is not None else next_instr
-        except RaiseImplicit as e:
-            return self.unroll(SImplicitException(e.value))
         except Raise as e:
-            return self.unroll(SApplicationException(e.value))
+            return self.unroll(e)
 
     def unroll(self, signal):
         while self.blockstack:
@@ -681,7 +668,7 @@ class FlowSpaceFrame(object):
 
     def RETURN_VALUE(self, oparg):
         w_returnvalue = self.popvalue()
-        return self.unroll(SReturnValue(w_returnvalue))
+        return self.unroll(Return(w_returnvalue))
 
     def END_FINALLY(self, oparg):
         # unlike CPython, there are two statically distinct cases: the
@@ -689,7 +676,7 @@ class FlowSpaceFrame(object):
         # block.  In the first case, the stack contains three items:
         #   [exception type we are now handling]
         #   [exception value we are now handling]
-        #   [SApplicationException]
+        #   [Raise]
         # In the case of a finally: block, the stack contains only one
         # item (unlike CPython which can have 1, 2 or 3 items):
         #   [wrapped subclass of FlowSignal]
@@ -783,7 +770,7 @@ class FlowSpaceFrame(object):
         try:
             w_nextitem = self.space.next(w_iterator)
         except Raise as e:
-            w_exc = e.value
+            w_exc = e.operr
             if not self.space.exception_match(w_exc.w_type,
                                               self.space.w_StopIteration):
                 raise
@@ -830,7 +817,7 @@ class FlowSpaceFrame(object):
             unroller = self.peekvalue(0)
 
         w_None = self.space.w_None
-        if isinstance(unroller, SApplicationException):
+        if isinstance(unroller, Raise):
             operr = unroller.operr
             # The annotator won't allow to merge exception types with None.
             # Replace it with the exception value...
@@ -1132,7 +1119,7 @@ class FlowSpaceFrame(object):
 
 ### Frame blocks ###
 
-class FlowSignal(object):
+class FlowSignal(Exception):
     """Abstract base class for translator-level objects that instruct the
     interpreter to change the control flow and the block stack.
 
@@ -1140,9 +1127,9 @@ class FlowSignal(object):
     values of the why_code enumeration in ceval.c:
 
                 WHY_NOT,        OK, not this one :-)
-                WHY_EXCEPTION,  SApplicationException
+                WHY_EXCEPTION,  Raise
                 WHY_RERAISE,    implemented differently, see Reraise
-                WHY_RETURN,     SReturnValue
+                WHY_RETURN,     Return
                 WHY_BREAK,      SBreakLoop
                 WHY_CONTINUE,   SContinueLoop
                 WHY_YIELD       not needed
@@ -1151,7 +1138,7 @@ class FlowSignal(object):
         raise BytecodeCorruption("misplaced bytecode - should not return")
 
 
-class SReturnValue(FlowSignal):
+class Return(FlowSignal):
     """Signals a 'return' statement.
     Argument is the wrapped object to return."""
 
@@ -1166,9 +1153,9 @@ class SReturnValue(FlowSignal):
 
     @staticmethod
     def state_pack_variables(w_returnvalue):
-        return SReturnValue(w_returnvalue)
+        return Return(w_returnvalue)
 
-class SApplicationException(FlowSignal):
+class Raise(FlowSignal):
     """Signals an application-level exception
     (i.e. an OperationException)."""
 
@@ -1176,19 +1163,18 @@ class SApplicationException(FlowSignal):
         self.operr = operr
 
     def nomoreblocks(self):
-        raise Raise(self.operr)
+        raise self
 
     def state_unpack_variables(self):
         return [self.operr.w_type, self.operr.w_value]
 
     @staticmethod
     def state_pack_variables(w_type, w_value):
-        return SApplicationException(FSException(w_type, w_value))
+        return Raise(FSException(w_type, w_value))
 
-class SImplicitException(SApplicationException):
+class RaiseImplicit(Raise):
     """Signals an exception raised implicitly"""
-    def nomoreblocks(self):
-        raise RaiseImplicit(self.operr)
+
 
 class SBreakLoop(FlowSignal):
     """Signals a 'break' statement."""
@@ -1262,13 +1248,13 @@ class LoopBlock(FrameBlock):
 class ExceptBlock(FrameBlock):
     """An try:except: block.  Stores the position of the exception handler."""
 
-    handles = SApplicationException
+    handles = Raise
 
     def handle(self, frame, unroller):
         # push the exception to the value stack for inspection by the
         # exception handler (the code after the except:)
         self.cleanupstack(frame)
-        assert isinstance(unroller, SApplicationException)
+        assert isinstance(unroller, Raise)
         operationerr = unroller.operr
         # the stack setup is slightly different than in CPython:
         # instead of the traceback, we store the unroller object,
