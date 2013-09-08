@@ -4,12 +4,6 @@ Comments by antocuni, rguillebert
 - why do we need to implement array.nonzero on this branch and it was not done
   e.g. on default?
 
--   def _PyArray_FromAny(space, w_obj, dtype, min_depth, max_depth, requirements, context):
-        # ignore all additional arguments for now
-
-  this sounds bad. We think it'd be better to emit a warning/exception in case
-  we pass arguments with a non-default value. The same for _PyArray_FromObject
-
 - def get_shape_and_dtype(space, nd, dims, typenum):
     shape = []
     for i in range(nd):
@@ -23,9 +17,6 @@ Comments by antocuni, rguillebert
   fine to have a half-working implementation, but it should raise an exception
   if it's passed
 
-
-
-
 TODO list by mattip
 ===================
 
@@ -35,7 +26,7 @@ TODO list by mattip
 - test all *.h files under pypy/module/cpyext/include/numpy
 - make sure all cpyext changes are tested:
     PyBoolObject (new)
-    PyComplexFromCComplex() (changed, problematic)
+    PyComplexFromCComplex() (changed, problematic for c++?)
     PyFunctionType (new)
     PyMethodType (new)
     PyRangeType (new)
@@ -49,5 +40,3 @@ TODO list by mattip
     PyNumberCoerce() (new)
 - test require_index in create_iter, get_index in iter
 - test use of __array__() and friends
-- test complex data types in dtypes_by_num
--    
