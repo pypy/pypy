@@ -521,6 +521,15 @@ class TestTransform(BaseTestTransform):
         self.interpret(f1, [])
         assert self.barriers == ['a2i']
 
+    def test_llop_gc_writebarrier(self):
+        FOO = lltype.GcStruct('FOO')
+        x = lltype.malloc(FOO, immortal=True)
+        def f1():
+            llop.gc_writebarrier(lltype.Void, x)
+
+        self.interpret(f1, [])
+        assert self.barriers == ['I2W']
+
 
 external_release_gil = rffi.llexternal('external_release_gil', [], lltype.Void,
                                        _callable=lambda: None,

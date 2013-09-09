@@ -165,3 +165,9 @@ class LLSTMFrame(LLFrame):
 
     def op_stm_begin_inevitable_transaction(self):
         self.transaction_break()
+
+    def op_gc_writebarrier(self, p):
+        raise Exception("should have been removed")
+
+    def op_gc_writebarrier_before_copy(self, p):
+        raise Exception("should not be produced at all")

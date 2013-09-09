@@ -113,6 +113,9 @@ class BlockTransformer(object):
             elif op.opname == 'weakref_deref':
                 # 'weakref_deref' needs an immutable read barrier
                 wants_a_barrier[op] = 'I'
+
+            elif op.opname == 'gc_writebarrier':
+                wants_a_barrier[op] = 'W'
         #
         self.wants_a_barrier = wants_a_barrier
         self.expand_comparison = expand_comparison
@@ -196,6 +199,8 @@ class BlockTransformer(object):
                     newoperations.append(newop)
                     ren.newvar = w
                     ren.category = to
+                if op.opname == 'gc_writebarrier':
+                    continue   # remove after inserting 'stm_barrier'
             #
             newop = SpaceOperation(op.opname,
                                    [renamings_get(v) for v in op.args],
