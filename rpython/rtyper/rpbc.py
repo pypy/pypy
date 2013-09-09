@@ -594,6 +594,9 @@ class NoneFrozenPBCRepr(Repr):
     def ll_str(self, none):
         return llstr("None")
 
+    def get_ll_eq_function(self):
+        return None
+
     def get_ll_hash_function(self):
         return ll_none_hash
 
