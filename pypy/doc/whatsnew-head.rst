@@ -80,6 +80,7 @@ a bit
 .. branch: reflex-support
 .. branch: numpypy-inplace-op
 .. branch: rewritten-loop-logging
+.. branch: no-release-gil
 
 .. branch: nobold-backtrace
 Work on improving UnionError messages and stack trace displays.

@@ -65,11 +65,6 @@ class GcLLDescription(GcCache):
         return True
     def initialize(self):
         pass
-    @specialize.argtype(1)
-    def do_stm_barrier(self, gcref, cat):
-        return gcref
-    def do_write_barrier(self, gcref_struct, gcref_newptr):
-        pass
     def can_use_nursery_malloc(self, size):
         return False
     def has_write_barrier_class(self):
@@ -150,9 +145,7 @@ class GcLLDescription(GcCache):
     def malloc_jitframe(self, frame_info):
         """ Allocate a new frame, overwritten by tests
         """
-        frame = jitframe.JITFRAME.allocate(frame_info)
-        llop.gc_writebarrier(lltype.Void, frame)
-        return frame
+        return jitframe.JITFRAME.allocate(frame_info)
 
 class JitFrameDescrs:
     def _freeze_(self):
@@ -585,30 +578,11 @@ class GcLLDescr_framework(GcLLDescription):
 
     def _setup_write_barrier(self):
         if self.stm:
-            self._setup_barriers_for_stm()
+            self.P2Rdescr = STMReadBarrierDescr(self, 'P2R')
+            self.P2Wdescr = STMWriteBarrierDescr(self, 'P2W')
+            self.write_barrier_descr = "wbdescr: do not use"
         else:
             self.write_barrier_descr = WriteBarrierDescr(self)
-            def do_write_barrier(gcref_struct, gcref_newptr):
-                self.write_barrier_descr._do_barrier(gcref_struct, False)
-            self.do_write_barrier = do_write_barrier
-
-    def _setup_barriers_for_stm(self):
-        self.P2Rdescr = STMReadBarrierDescr(self, 'P2R')
-        self.P2Wdescr = STMWriteBarrierDescr(self, 'P2W')
-        self.write_barrier_descr = "wbdescr: do not use"
-        #
-        @specialize.argtype(0)
-        def do_stm_barrier(gcref, cat):
-            if lltype.typeOf(gcref) is lltype.Signed:   # ignore if 'raw'
-                # we are inevitable already because llmodel
-                # does everything with raw-references
-                return gcref
-            if cat == 'W':
-                descr = self.P2Wdescr
-            else:
-                descr = self.P2Rdescr
-            return descr._do_barrier(gcref, True)
-        self.do_stm_barrier = do_stm_barrier
 
     def _make_functions(self, really_not_translated):
         from rpython.memory.gctypelayout import check_typeid

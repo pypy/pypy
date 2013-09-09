@@ -264,8 +264,6 @@ class AbstractCPU(object):
 
     def bh_setfield_raw_i(self, struct, newvalue, fielddescr):
         raise NotImplementedError
-    def bh_setfield_raw_r(self, struct, newvalue, fielddescr):
-        raise NotImplementedError
     def bh_setfield_raw_f(self, struct, newvalue, fielddescr):
         raise NotImplementedError
 
