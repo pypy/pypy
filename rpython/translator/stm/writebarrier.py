@@ -201,8 +201,6 @@ class BlockTransformer(object):
                     newoperations.append(newop)
                     ren.newvar = w
                     ren.category = to
-                if op.opname == 'gc_writebarrier':
-                    continue   # remove after inserting 'stm_barrier'
             #
             newop = SpaceOperation(op.opname,
                                    [renamings_get(v) for v in op.args],

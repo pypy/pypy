@@ -18,7 +18,7 @@ ALWAYS_ALLOW_OPERATIONS = set([
     'weakref_create', 'weakref_deref',
     'stm_threadlocalref_get', 'stm_threadlocalref_set',
     'stm_threadlocalref_count', 'stm_threadlocalref_addr',
-    'jit_assembler_call',
+    'jit_assembler_call', 'gc_writebarrier',
     ])
 ALWAYS_ALLOW_OPERATIONS |= set(lloperation.enum_tryfold_ops())
 

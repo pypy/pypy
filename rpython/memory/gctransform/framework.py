@@ -745,9 +745,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
                   resultvar=op.result)
 
     def gct_gc_writebarrier(self, hop):
-        # this operation is removed by stm/writebarrier.py
-        assert not self.translator.config.translation.stm
-        if self.write_barrier_ptr is None:
+        if self.write_barrier_ptr is None:   # incl. in case of stm
             return
         op = hop.spaceop
         v_addr = op.args[0]
