@@ -133,9 +133,7 @@ class GcLLDescription(GcCache):
     def malloc_jitframe(self, frame_info):
         """ Allocate a new frame, overwritten by tests
         """
-        frame = jitframe.JITFRAME.allocate(frame_info)
-        llop.gc_writebarrier(lltype.Void, frame)
-        return frame
+        return jitframe.JITFRAME.allocate(frame_info)
 
 class JitFrameDescrs:
     def _freeze_(self):

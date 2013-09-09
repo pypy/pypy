@@ -247,6 +247,7 @@ class AbstractLLCPU(AbstractCPU):
                     else:
                         assert kind == history.REF
                         self.set_ref_value(ll_frame, num, arg)
+                llop.gc_writebarrier(lltype.Void, ll_frame)
                 ll_frame = func(ll_frame)
             finally:
                 if not self.translate_support_code:
