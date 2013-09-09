@@ -496,7 +496,7 @@ class W_TypeObject(W_Object):
         name = w_self.name
         if name is None:
             name = '?'
-        return name
+        return name.decode('utf-8')
 
     def add_subclass(w_self, w_subclass):
         space = w_self.space
