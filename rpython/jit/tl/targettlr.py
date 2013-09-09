@@ -12,12 +12,20 @@ def entry_point(args):
     # viewcode.py to know the executable whose symbols it should display)
     highleveljitinfo.sys_executable = args[0]
     if len(args) < 3:
-        print "Usage: %s filename x" % (args[0],)
+        print "Usage: %s filename x (repetition)" % (args[0],)
         return 2
     filename = args[1]
     x = int(args[2])
+    if len(args) == 3:
+        repetition = 1
+    else:
+        repetition = int(args[3])
     bytecode = load_bytecode(filename)
-    res = interpret(bytecode, x)
+    while True:
+        res = interpret(bytecode, x)
+        repetition -= 1
+        if repetition <= 0:
+            break
     print res
     return 0
 
