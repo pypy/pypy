@@ -14,7 +14,7 @@ int try_pypy_debug_alloc_stop(void *);
 # endif
 void _pypy_stm_free(void *ptr)
 {
-    /* This is called by src_stm/*.c when the transaction is aborted
+    /* This is called by src_stm/et.c when the transaction is aborted
        and the 'ptr' was malloced but not freed.  We have first to
        unregister the object with a tentative pypy_debug_alloc_stop(),
        which ignores it if it was not actually registered.  Then we
