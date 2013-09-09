@@ -25,8 +25,8 @@ for opname, opdesc in lloperation.LL_OPERATIONS.iteritems():
     if opname.startswith('stm_'):
         ALWAYS_ALLOW_OPERATIONS.add(opname)
 
-GETTERS = set(['getfield', 'getarrayitem', 'getinteriorfield'])
-SETTERS = set(['setfield', 'setarrayitem', 'setinteriorfield'])
+GETTERS = set(['getfield', 'getarrayitem', 'getinteriorfield', 'raw_load'])
+SETTERS = set(['setfield', 'setarrayitem', 'setinteriorfield', 'raw_store'])
 MALLOCS = set(['malloc', 'malloc_varsize',
                'malloc_nonmovable', 'malloc_nonmovable_varsize'])
 # ____________________________________________________________

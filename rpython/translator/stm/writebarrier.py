@@ -23,7 +23,7 @@ def is_immutable(op):
     if op.opname in ('getfield', 'setfield'):
         STRUCT = op.args[0].concretetype.TO
         return STRUCT._immutable_field(op.args[1].value)
-    if op.opname in ('getarrayitem', 'setarrayitem'):
+    if op.opname in ('getarrayitem', 'setarrayitem', 'raw_load', 'raw_store'):
         ARRAY = op.args[0].concretetype.TO
         return ARRAY._immutable_field()
     if op.opname == 'getinteriorfield':
@@ -70,7 +70,7 @@ class BlockTransformer(object):
         expand_comparison = set()
         for op in self.block.operations:
             is_getter = (op.opname in ('getfield', 'getarrayitem',
-                                       'getinteriorfield') and
+                                       'getinteriorfield', 'raw_load') and
                          op.result.concretetype is not lltype.Void and
                          is_gc_ptr(op.args[0].concretetype))
 
@@ -93,7 +93,7 @@ class BlockTransformer(object):
                 wants_a_barrier[op] = 'R'
 
             elif (op.opname in ('setfield', 'setarrayitem',
-                                'setinteriorfield') and
+                                'setinteriorfield', 'raw_store') and
                   op.args[-1].concretetype is not lltype.Void and
                   is_gc_ptr(op.args[0].concretetype)):
                 # setfields need a regular write barrier
