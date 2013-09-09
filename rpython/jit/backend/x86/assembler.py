@@ -2406,7 +2406,8 @@ class Assembler386(BaseAssembler):
         # read_barrier:
         # (obj->h_revision != stm_private_rev_num)
         #     && (FXCACHE_AT(obj) != obj)))
-        assert not IS_X86_32 # XXX: todo
+        if IS_X86_32:   # XXX: todo
+            todo()
         jz_location = 0
         jz_location2 = 0
         jnz_location = 0
@@ -2888,6 +2889,9 @@ def not_implemented(msg):
     raise NotImplementedError(msg)
 
 cond_call_register_arguments = [edi, esi, edx, ecx]
+
+def todo():
+    CRASH   # not done yet
 
 class BridgeAlreadyCompiled(Exception):
     pass
