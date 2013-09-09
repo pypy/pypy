@@ -368,68 +368,42 @@ class AbstractLLCPU(AbstractCPU):
 
     @specialize.argtype(1)
     def read_int_at_mem(self, gcref, ofs, size, sign):
-        # --- start of GC unsafe code (no GC operation!) ---
-        items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
         for STYPE, UTYPE, itemsize in unroll_basic_sizes:
             if size == itemsize:
                 if sign:
-                    items = rffi.cast(rffi.CArrayPtr(STYPE), items)
-                    val = items[0]
+                    val = llop.raw_load(STYPE, gcref, ofs)
                     val = rffi.cast(lltype.Signed, val)
                 else:
-                    items = rffi.cast(rffi.CArrayPtr(UTYPE), items)
-                    val = items[0]
+                    val = llop.raw_load(UTYPE, gcref, ofs)
                     val = rffi.cast(lltype.Signed, val)
-                # --- end of GC unsafe code ---
                 return val
         else:
             raise NotImplementedError("size = %d" % size)
 
     @specialize.argtype(1)
     def write_int_at_mem(self, gcref, ofs, size, newvalue):
-        # --- start of GC unsafe code (no GC operation!) ---
-        items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
         for TYPE, _, itemsize in unroll_basic_sizes:
             if size == itemsize:
-                items = rffi.cast(rffi.CArrayPtr(TYPE), items)
-                items[0] = rffi.cast(TYPE, newvalue)
-                # --- end of GC unsafe code ---
+                newvalue = rffi.cast(TYPE, newvalue)
+                llop.raw_store(lltype.Void, gcref, ofs, newvalue)
                 return
         else:
             raise NotImplementedError("size = %d" % size)
 
     def read_ref_at_mem(self, gcref, ofs):
-        # --- start of GC unsafe code (no GC operation!) ---
-        items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
-        items = rffi.cast(rffi.CArrayPtr(lltype.Signed), items)
-        pval = self._cast_int_to_gcref(items[0])
-        # --- end of GC unsafe code ---
-        return pval
+        return llop.raw_load(llmemory.GCREF, gcref, ofs)
 
     def write_ref_at_mem(self, gcref, ofs, newvalue):
-        self.gc_ll_descr.do_write_barrier(gcref, newvalue)
-        # --- start of GC unsafe code (no GC operation!) ---
-        items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
-        items = rffi.cast(rffi.CArrayPtr(lltype.Signed), items)
-        items[0] = self.cast_gcref_to_int(newvalue)
-        # --- end of GC unsafe code ---
+        llop.raw_store(lltype.Void, gcref, ofs, newvalue)
+        # the write barrier is implied above
 
     @specialize.argtype(1)
     def read_float_at_mem(self, gcref, ofs):
-        # --- start of GC unsafe code (no GC operation!) ---
-        items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
-        items = rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), items)
-        fval = items[0]
-        # --- end of GC unsafe code ---
-        return fval
+        return llop.raw_load(longlong.FLOATSTORAGE, gcref, ofs)
 
     @specialize.argtype(1)
     def write_float_at_mem(self, gcref, ofs, newvalue):
-        # --- start of GC unsafe code (no GC operation!) ---
-        items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
-        items = rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), items)
-        items[0] = newvalue
-        # --- end of GC unsafe code ---
+        llop.raw_store(lltype.Void, gcref, ofs, newvalue)
 
     # ____________________________________________________________
 
