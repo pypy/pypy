@@ -36,7 +36,10 @@ def should_turn_inevitable_getter_setter(op, fresh_mallocs):
     # If it is a RAW pointer, and it is a read from a non-immutable place,
     # and it doesn't use the hint 'stm_dont_track_raw_accesses', then they
     # turn inevitable.
-    S = op.args[0].concretetype.TO
+    TYPE = op.args[0].concretetype
+    if not isinstance(TYPE, lltype.Ptr):
+        return True     # raw_load or raw_store with a number or address
+    S = TYPE.TO
     if S._gckind == 'gc':
         return False
     if is_immutable(op):
