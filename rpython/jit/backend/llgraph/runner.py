@@ -418,7 +418,6 @@ class LLGraphCPU(model.AbstractCPU):
 
     bh_setfield_raw   = bh_setfield_gc
     bh_setfield_raw_i = bh_setfield_raw
-    bh_setfield_raw_r = bh_setfield_raw
     bh_setfield_raw_f = bh_setfield_raw
 
     def bh_arraylen_gc(self, a, descr):

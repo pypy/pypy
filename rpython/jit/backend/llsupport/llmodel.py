@@ -390,9 +390,11 @@ class AbstractLLCPU(AbstractCPU):
         else:
             raise NotImplementedError("size = %d" % size)
 
+    @specialize.argtype(1)
     def read_ref_at_mem(self, gcref, ofs):
         return llop.raw_load(llmemory.GCREF, gcref, ofs)
 
+    # non-@specialized: must only be called with llmemory.GCREF
     def write_ref_at_mem(self, gcref, ofs, newvalue):
         llop.raw_store(lltype.Void, gcref, ofs, newvalue)
         # the write barrier is implied above
@@ -541,6 +543,7 @@ class AbstractLLCPU(AbstractCPU):
         ofs, size, sign = self.unpack_fielddescr_size(fielddescr)
         return self.read_int_at_mem(struct, ofs, size, sign)
 
+    @specialize.argtype(1)
     def bh_getfield_gc_r(self, struct, fielddescr):
         ofs = self.unpack_fielddescr(fielddescr)
         return self.read_ref_at_mem(struct, ofs)
@@ -551,6 +554,7 @@ class AbstractLLCPU(AbstractCPU):
         return self.read_float_at_mem(struct, ofs)
 
     bh_getfield_raw_i = bh_getfield_gc_i
+    bh_getfield_raw_r = bh_getfield_gc_r
     bh_getfield_raw_f = bh_getfield_gc_f
 
     @specialize.argtype(1)
