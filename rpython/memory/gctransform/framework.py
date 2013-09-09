@@ -745,7 +745,8 @@ class BaseFrameworkGCTransformer(GCTransformer):
                   resultvar=op.result)
 
     def gct_gc_writebarrier(self, hop):
-        assert not self.translator.config.stm  # removed by stm/writebarrier.py
+        # this operation is removed by stm/writebarrier.py
+        assert not self.translator.config.translation.stm
         if self.write_barrier_ptr is None:
             return
         op = hop.spaceop
@@ -898,7 +899,8 @@ class BaseFrameworkGCTransformer(GCTransformer):
             gen_zero_gc_pointers(TYPE, v_ob, hop.llops)
 
     def gct_gc_writebarrier_before_copy(self, hop):
-        assert not self.translator.config.stm  # should not be produced if stm
+        # this operation should not be produced if stm
+        assert not self.translator.config.translation.stm
         op = hop.spaceop
         if not hasattr(self, 'wb_before_copy_ptr'):
             # no write barrier needed in that case
