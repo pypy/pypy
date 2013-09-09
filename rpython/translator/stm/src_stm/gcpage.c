@@ -504,7 +504,9 @@ static void mark_registered_stubs(void)
     G2L_LOOP_FORWARD(registered_stubs, item) {
         gcptr R = item->addr;
         assert(R->h_tid & GCFLAG_SMALLSTUB);
-        assert(!(R->h_tid & (GCFLAG_VISITED | GCFLAG_MARKED)));
+        /* The following assert can fail if we have a stub pointing to
+           a stub and both are registered_stubs.  This case is benign. */
+        //assert(!(R->h_tid & (GCFLAG_VISITED | GCFLAG_MARKED)));
 
         R->h_tid |= (GCFLAG_MARKED | GCFLAG_VISITED);
 
