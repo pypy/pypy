@@ -698,6 +698,9 @@ def op_raw_load(TVAL, p, ofs):
     return p[0]
 op_raw_load.need_result_type = True
 
+def op_jit_assembler_call(funcptr, *args):
+    return funcptr(*args)
+
 # ____________________________________________________________
 
 def get_op_impl(opname):

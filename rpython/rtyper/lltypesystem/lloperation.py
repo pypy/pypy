@@ -507,6 +507,7 @@ LL_OPERATIONS = {
     'get_write_barrier_from_array_failing_case': LLOp(sideeffects=False),
     'gc_get_type_info_group': LLOp(sideeffects=False),
     'll_read_timestamp': LLOp(canrun=True),
+    'jit_assembler_call': LLOp(canrun=True),   # similar to an 'indirect_call'
 
     # __________ GC operations __________
 

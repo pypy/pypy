@@ -252,7 +252,13 @@ class AbstractLLCPU(AbstractCPU):
                     else:
                         assert kind == history.REF
                         self.set_ref_value(ll_frame, num, arg)
-                ll_frame = func(ll_frame)
+                # This is the line that calls the assembler code.
+                # 'func(ll_frame)' would work here too, producing an
+                # indirect_call(func, ll_frame, None).  The main difference
+                # is that 'jit_assembler_call' is a hint to STM to not
+                # force the transaction to become inevitable.
+                ll_frame = llop.jit_assembler_call(llmemory.GCREF, func,
+                                                   ll_frame)
             finally:
                 if not self.translate_support_code:
                     LLInterpreter.current_interpreter = prev_interpreter
