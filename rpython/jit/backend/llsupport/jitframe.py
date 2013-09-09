@@ -3,6 +3,7 @@ from rpython.rtyper.annlowlevel import llhelper
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.debug import ll_assert
 from rpython.rlib.objectmodel import enforceargs
+from rpython.rlib.rgc import stm_is_enabled
 
 SIZEOFSIGNED = rffi.sizeof(lltype.Signed)
 IS_32BIT = (SIZEOFSIGNED == 4)
@@ -16,6 +17,22 @@ NULLGCMAP = lltype.nullptr(GCMAP)
 
 @enforceargs(None, int, int)
 def jitframeinfo_update_depth(jfi, base_ofs, new_depth):
+    #
+    if stm_is_enabled():
+        from rpython.rlib.atomic_ops import bool_cas
+        # careful here, 'jfi' has 'stm_dont_track_raw_accesses'
+        while True:
+            old_depth = jfi.jfi_frame_depth
+            if new_depth <= old_depth:
+                break    # only ever increase the depth
+            if bool_cas(rffi.cast(llmemory.Address, jfi),
+                        rffi.cast(llmemory.Address, old_depth),
+                        rffi.cast(llmemory.Address, new_depth)):
+                break
+        # note that we don't set jfi_frame_size at all if STM,
+        # to avoid concurrency issues
+        return
+    #
     if new_depth > jfi.jfi_frame_depth:
         jfi.jfi_frame_depth = new_depth
         jfi.jfi_frame_size = base_ofs + new_depth * SIZEOFSIGNED
@@ -31,11 +48,12 @@ JITFRAMEINFO = lltype.Struct(
     # the depth of the frame
     ('jfi_frame_depth', lltype.Signed),
     # the total size of the frame, in bytes
-    ('jfi_frame_size', lltype.Signed),
+    ('jfi_frame_size', lltype.Signed),      # <- not set if STM
     adtmeths = {
         'update_frame_depth': jitframeinfo_update_depth,
         'clear': jitframeinfo_clear,
     },
+    hints = {'stm_dont_track_raw_accesses': True},
 )
 
 NULLFRAMEINFO = lltype.nullptr(JITFRAMEINFO)
