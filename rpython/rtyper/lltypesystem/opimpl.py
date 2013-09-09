@@ -662,7 +662,6 @@ def op_debug_fatalerror(ll_msg):
 
 def op_raw_store(p, ofs, newvalue):
     from rpython.rtyper.lltypesystem import rffi
-    TP = lltype.typeOf(p)
     p = rffi.cast(llmemory.Address, p)
     TVAL = lltype.typeOf(newvalue)
     p = rffi.cast(rffi.CArrayPtr(TVAL), p + ofs)
@@ -670,7 +669,6 @@ def op_raw_store(p, ofs, newvalue):
 
 def op_raw_load(TVAL, p, ofs):
     from rpython.rtyper.lltypesystem import rffi
-    TP = lltype.typeOf(p)
     p = rffi.cast(llmemory.Address, p)
     p = rffi.cast(rffi.CArrayPtr(TVAL), p + ofs)
     return p[0]
