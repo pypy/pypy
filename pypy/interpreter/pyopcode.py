@@ -219,8 +219,6 @@ class __extend__(pyframe.PyFrame):
                 self.BINARY_ADD(oparg, next_instr)
             elif opcode == opcodedesc.BINARY_AND.index:
                 self.BINARY_AND(oparg, next_instr)
-            elif opcode == opcodedesc.BINARY_DIVIDE.index:
-                self.BINARY_DIVIDE(oparg, next_instr)
             elif opcode == opcodedesc.BINARY_FLOOR_DIVIDE.index:
                 self.BINARY_FLOOR_DIVIDE(oparg, next_instr)
             elif opcode == opcodedesc.BINARY_LSHIFT.index:
@@ -243,8 +241,6 @@ class __extend__(pyframe.PyFrame):
                 self.BINARY_TRUE_DIVIDE(oparg, next_instr)
             elif opcode == opcodedesc.BINARY_XOR.index:
                 self.BINARY_XOR(oparg, next_instr)
-            elif opcode == opcodedesc.BUILD_CLASS.index:
-                self.BUILD_CLASS(oparg, next_instr)
             elif opcode == opcodedesc.BUILD_LIST.index:
                 self.BUILD_LIST(oparg, next_instr)
             elif opcode == opcodedesc.BUILD_LIST_FROM_ARG.index:
@@ -271,28 +267,20 @@ class __extend__(pyframe.PyFrame):
                 self.COMPARE_OP(oparg, next_instr)
             elif opcode == opcodedesc.DELETE_ATTR.index:
                 self.DELETE_ATTR(oparg, next_instr)
+            elif opcode == opcodedesc.DELETE_DEREF.index:
+                self.DELETE_DEREF(oparg, next_instr)
             elif opcode == opcodedesc.DELETE_FAST.index:
                 self.DELETE_FAST(oparg, next_instr)
             elif opcode == opcodedesc.DELETE_GLOBAL.index:
                 self.DELETE_GLOBAL(oparg, next_instr)
             elif opcode == opcodedesc.DELETE_NAME.index:
                 self.DELETE_NAME(oparg, next_instr)
-            elif opcode == opcodedesc.DELETE_SLICE_0.index:
-                self.DELETE_SLICE_0(oparg, next_instr)
-            elif opcode == opcodedesc.DELETE_SLICE_1.index:
-                self.DELETE_SLICE_1(oparg, next_instr)
-            elif opcode == opcodedesc.DELETE_SLICE_2.index:
-                self.DELETE_SLICE_2(oparg, next_instr)
-            elif opcode == opcodedesc.DELETE_SLICE_3.index:
-                self.DELETE_SLICE_3(oparg, next_instr)
             elif opcode == opcodedesc.DELETE_SUBSCR.index:
                 self.DELETE_SUBSCR(oparg, next_instr)
             elif opcode == opcodedesc.DUP_TOP.index:
                 self.DUP_TOP(oparg, next_instr)
-            elif opcode == opcodedesc.DUP_TOPX.index:
-                self.DUP_TOPX(oparg, next_instr)
-            elif opcode == opcodedesc.EXEC_STMT.index:
-                self.EXEC_STMT(oparg, next_instr)
+            elif opcode == opcodedesc.DUP_TOP_TWO.index:
+                self.DUP_TOP_TWO(oparg, next_instr)
             elif opcode == opcodedesc.GET_ITER.index:
                 self.GET_ITER(oparg, next_instr)
             elif opcode == opcodedesc.IMPORT_FROM.index:
@@ -305,8 +293,6 @@ class __extend__(pyframe.PyFrame):
                 self.INPLACE_ADD(oparg, next_instr)
             elif opcode == opcodedesc.INPLACE_AND.index:
                 self.INPLACE_AND(oparg, next_instr)
-            elif opcode == opcodedesc.INPLACE_DIVIDE.index:
-                self.INPLACE_DIVIDE(oparg, next_instr)
             elif opcode == opcodedesc.INPLACE_FLOOR_DIVIDE.index:
                 self.INPLACE_FLOOR_DIVIDE(oparg, next_instr)
             elif opcode == opcodedesc.INPLACE_LSHIFT.index:
@@ -331,6 +317,8 @@ class __extend__(pyframe.PyFrame):
                 self.LIST_APPEND(oparg, next_instr)
             elif opcode == opcodedesc.LOAD_ATTR.index:
                 self.LOAD_ATTR(oparg, next_instr)
+            elif opcode == opcodedesc.LOAD_BUILD_CLASS.index:
+                self.LOAD_BUILD_CLASS(oparg, next_instr)
             elif opcode == opcodedesc.LOAD_CLOSURE.index:
                 self.LOAD_CLOSURE(oparg, next_instr)
             elif opcode == opcodedesc.LOAD_CONST.index:
@@ -341,8 +329,6 @@ class __extend__(pyframe.PyFrame):
                 self.LOAD_FAST(oparg, next_instr)
             elif opcode == opcodedesc.LOAD_GLOBAL.index:
                 self.LOAD_GLOBAL(oparg, next_instr)
-            elif opcode == opcodedesc.LOAD_LOCALS.index:
-                self.LOAD_LOCALS(oparg, next_instr)
             elif opcode == opcodedesc.LOAD_NAME.index:
                 self.LOAD_NAME(oparg, next_instr)
             elif opcode == opcodedesc.LOOKUP_METHOD.index:
@@ -357,22 +343,14 @@ class __extend__(pyframe.PyFrame):
                 self.NOP(oparg, next_instr)
             elif opcode == opcodedesc.POP_BLOCK.index:
                 self.POP_BLOCK(oparg, next_instr)
+            elif opcode == opcodedesc.POP_EXCEPT.index:
+                self.POP_EXCEPT(oparg, next_instr)
             elif opcode == opcodedesc.POP_TOP.index:
                 self.POP_TOP(oparg, next_instr)
             elif opcode == opcodedesc.PRINT_EXPR.index:
                 self.PRINT_EXPR(oparg, next_instr)
-            elif opcode == opcodedesc.PRINT_ITEM.index:
-                self.PRINT_ITEM(oparg, next_instr)
-            elif opcode == opcodedesc.PRINT_ITEM_TO.index:
-                self.PRINT_ITEM_TO(oparg, next_instr)
-            elif opcode == opcodedesc.PRINT_NEWLINE.index:
-                self.PRINT_NEWLINE(oparg, next_instr)
-            elif opcode == opcodedesc.PRINT_NEWLINE_TO.index:
-                self.PRINT_NEWLINE_TO(oparg, next_instr)
             elif opcode == opcodedesc.RAISE_VARARGS.index:
                 self.RAISE_VARARGS(oparg, next_instr)
-            elif opcode == opcodedesc.ROT_FOUR.index:
-                self.ROT_FOUR(oparg, next_instr)
             elif opcode == opcodedesc.ROT_THREE.index:
                 self.ROT_THREE(oparg, next_instr)
             elif opcode == opcodedesc.ROT_TWO.index:
@@ -387,14 +365,6 @@ class __extend__(pyframe.PyFrame):
                 self.SETUP_WITH(oparg, next_instr)
             elif opcode == opcodedesc.SET_ADD.index:
                 self.SET_ADD(oparg, next_instr)
-            elif opcode == opcodedesc.SLICE_0.index:
-                self.SLICE_0(oparg, next_instr)
-            elif opcode == opcodedesc.SLICE_1.index:
-                self.SLICE_1(oparg, next_instr)
-            elif opcode == opcodedesc.SLICE_2.index:
-                self.SLICE_2(oparg, next_instr)
-            elif opcode == opcodedesc.SLICE_3.index:
-                self.SLICE_3(oparg, next_instr)
             elif opcode == opcodedesc.STOP_CODE.index:
                 self.STOP_CODE(oparg, next_instr)
             elif opcode == opcodedesc.STORE_ATTR.index:
@@ -405,22 +375,14 @@ class __extend__(pyframe.PyFrame):
                 self.STORE_FAST(oparg, next_instr)
             elif opcode == opcodedesc.STORE_GLOBAL.index:
                 self.STORE_GLOBAL(oparg, next_instr)
+            elif opcode == opcodedesc.STORE_LOCALS.index:
+                self.STORE_LOCALS(oparg, next_instr)
             elif opcode == opcodedesc.STORE_MAP.index:
                 self.STORE_MAP(oparg, next_instr)
             elif opcode == opcodedesc.STORE_NAME.index:
                 self.STORE_NAME(oparg, next_instr)
-            elif opcode == opcodedesc.STORE_SLICE_0.index:
-                self.STORE_SLICE_0(oparg, next_instr)
-            elif opcode == opcodedesc.STORE_SLICE_1.index:
-                self.STORE_SLICE_1(oparg, next_instr)
-            elif opcode == opcodedesc.STORE_SLICE_2.index:
-                self.STORE_SLICE_2(oparg, next_instr)
-            elif opcode == opcodedesc.STORE_SLICE_3.index:
-                self.STORE_SLICE_3(oparg, next_instr)
             elif opcode == opcodedesc.STORE_SUBSCR.index:
                 self.STORE_SUBSCR(oparg, next_instr)
-            elif opcode == opcodedesc.UNARY_CONVERT.index:
-                self.UNARY_CONVERT(oparg, next_instr)
             elif opcode == opcodedesc.UNARY_INVERT.index:
                 self.UNARY_INVERT(oparg, next_instr)
             elif opcode == opcodedesc.UNARY_NEGATIVE.index:
@@ -429,6 +391,8 @@ class __extend__(pyframe.PyFrame):
                 self.UNARY_NOT(oparg, next_instr)
             elif opcode == opcodedesc.UNARY_POSITIVE.index:
                 self.UNARY_POSITIVE(oparg, next_instr)
+            elif opcode == opcodedesc.UNPACK_EX.index:
+                self.UNPACK_EX(oparg, next_instr)
             elif opcode == opcodedesc.UNPACK_SEQUENCE.index:
                 self.UNPACK_SEQUENCE(oparg, next_instr)
             elif opcode == opcodedesc.WITH_CLEANUP.index:
