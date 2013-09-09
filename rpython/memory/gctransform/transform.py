@@ -330,6 +330,7 @@ class BaseGCTransformer(object):
             hop.rename('bare_' + hop.spaceop.opname)
     gct_setarrayitem = gct_setfield
     gct_setinteriorfield = gct_setfield
+    gct_raw_store = gct_setfield
 
     gct_getfield = default
 

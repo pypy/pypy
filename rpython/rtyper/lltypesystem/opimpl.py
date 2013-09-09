@@ -678,6 +678,26 @@ def op_stm_ptr_eq(x, y):
 def op_stm_get_tid(x):
     raise NotImplementedError
 
+def op_raw_store(p, ofs, newvalue):
+    from rpython.rtyper.lltypesystem import rffi
+    TP = lltype.typeOf(p)
+    if TP != llmemory.Address:
+        assert TP == llmemory.GCREF
+        p = rffi.cast(llmemory.Address, p)
+    TVAL = lltype.typeOf(newvalue)
+    p = rffi.cast(rffi.CArrayPtr(TVAL), p + ofs)
+    p[0] = newvalue
+
+def op_raw_load(TVAL, p, ofs):
+    from rpython.rtyper.lltypesystem import rffi
+    TP = lltype.typeOf(p)
+    if TP != llmemory.Address:
+        assert TP == llmemory.GCREF
+        p = rffi.cast(llmemory.Address, p)
+    p = rffi.cast(rffi.CArrayPtr(TVAL), p + ofs)
+    return p[0]
+op_raw_load.need_result_type = True
+
 # ____________________________________________________________
 
 def get_op_impl(opname):
