@@ -62,7 +62,6 @@ class TestNDArrayObject(BaseApiTest):
     def test_NBYTES(self, space, api):
         a = array(space, [10, 5, 3])
         assert api._PyArray_NBYTES(a) == 1200
-        self.raises(space, api, TypeError, api._PyArray_NBYTES, space.wrap([10]))
 
     def test_TYPE(self, space, api):
         a = array(space, [10, 5, 3])

@@ -5,7 +5,7 @@ Numpy C-API for PyPy - S. H. Muller, 2013/07/26
 
 from pypy.interpreter.error import OperationError
 from rpython.rtyper.lltypesystem import rffi
-from pypy.module.cpyext.api import cpython_api, Py_ssize_t, CANNOT_FAIL, _NOT_SPECIFIED
+from pypy.module.cpyext.api import cpython_api, Py_ssize_t, CANNOT_FAIL
 from pypy.module.cpyext.pyobject import PyObject
 from pypy.module.micronumpy.interp_numarray import W_NDimArray, convert_to_array, wrap_impl
 from pypy.module.micronumpy.interp_dtype import get_dtype_cache
@@ -57,11 +57,9 @@ def _PyArray_CheckExact(space, w_obj):
     w_type = space.gettypeobject(W_NDimArray.typedef)
     return space.is_w(w_obj_type, w_type)
 
-@cpython_api([PyObject], rffi.INT_real, error=-1)
+@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def _PyArray_FLAGS(space, w_array):
-    if not isinstance(w_array, W_NDimArray):
-        raise OperationError(space.w_TypeError, space.wrap(
-            '_PyArray_FLAGS(ndarray) called with non-ndarray'))
+    assert isinstance(w_array, W_NDimArray)
     flags = NPY_BEHAVED_NS
     if isinstance(w_array.implementation, ConcreteArray):
         flags |= NPY_OWNDATA
@@ -73,67 +71,51 @@ def _PyArray_FLAGS(space, w_array):
         flags |= NPY_F_CONTIGUOUS
     return flags
 
-@cpython_api([PyObject], rffi.INT_real, error=-1)
+@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def _PyArray_NDIM(space, w_array):
-    if not isinstance(w_array, W_NDimArray):
-        raise OperationError(space.w_TypeError, space.wrap(
-            '_PyArray_NDIM(ndarray) called with non-ndarray'))
+    assert isinstance(w_array, W_NDimArray)
     return len(w_array.get_shape())
 
-@cpython_api([PyObject, Py_ssize_t], Py_ssize_t, error=-1)
+@cpython_api([PyObject, Py_ssize_t], Py_ssize_t, error=CANNOT_FAIL)
 def _PyArray_DIM(space, w_array, n):
-    if not isinstance(w_array, W_NDimArray):
-        raise OperationError(space.w_TypeError, space.wrap(
-            '_PyArray_DIM called with non-ndarray'))
+    assert isinstance(w_array, W_NDimArray)
     return w_array.get_shape()[n]
 
-@cpython_api([PyObject, Py_ssize_t], Py_ssize_t, error=-1)
+@cpython_api([PyObject, Py_ssize_t], Py_ssize_t, error=CANNOT_FAIL)
 def _PyArray_STRIDE(space, w_array, n):
-    if not isinstance(w_array, W_NDimArray):
-        raise OperationError(space.w_TypeError, space.wrap(
-            '_PyArray_STRIDE called with non-ndarray'))
+    assert isinstance(w_array, W_NDimArray)
     return w_array.implementation.get_strides()[n]
 
-@cpython_api([PyObject], Py_ssize_t, error=-1)
+@cpython_api([PyObject], Py_ssize_t, error=CANNOT_FAIL)
 def _PyArray_SIZE(space, w_array):
-    if not isinstance(w_array, W_NDimArray):
-        raise OperationError(space.w_TypeError, space.wrap(
-            '_PyArray_SIZE called with non-ndarray'))
+    assert isinstance(w_array, W_NDimArray)
     return w_array.get_size()
 
-@cpython_api([PyObject], rffi.INT_real, error=-1)
+@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def _PyArray_ITEMSIZE(space, w_array):
-    if not isinstance(w_array, W_NDimArray):
-        raise OperationError(space.w_TypeError, space.wrap(
-            '_PyArray_ITEMSIZE called with non-ndarray'))
+    assert isinstance(w_array, W_NDimArray)
     return w_array.get_dtype().get_size()
 
-@cpython_api([PyObject], Py_ssize_t, error=-1)
+@cpython_api([PyObject], Py_ssize_t, error=CANNOT_FAIL)
 def _PyArray_NBYTES(space, w_array):
-    if not isinstance(w_array, W_NDimArray):
-        raise OperationError(space.w_TypeError, space.wrap(
-            '_PyArray_NBYTES called with non-ndarray'))
+    assert isinstance(w_array, W_NDimArray)
     return w_array.get_size() * w_array.get_dtype().get_size()
 
-@cpython_api([PyObject], rffi.INT_real, error=-1)
+@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def _PyArray_TYPE(space, w_array):
-    if not isinstance(w_array, W_NDimArray):
-        raise OperationError(space.w_TypeError, space.wrap(
-            '_PyArray_TYPE called with non-ndarray'))
+    assert isinstance(w_array, W_NDimArray)
     return w_array.get_dtype().num
 
 
-@cpython_api([PyObject], rffi.VOIDP, error=_NOT_SPECIFIED)
+@cpython_api([PyObject], rffi.VOIDP, error=CANNOT_FAIL)
 def _PyArray_DATA(space, w_array):
     # fails on scalars - see PyArray_FromAny()
-    if not isinstance(w_array, W_NDimArray):
-        raise OperationError(space.w_TypeError, space.wrap(
-            '_PyArray_DATA called with non-ndarray'))
+    assert isinstance(w_array, W_NDimArray)
     return rffi.cast(rffi.VOIDP, w_array.implementation.storage)
 
 
 @cpython_api([PyObject, rffi.VOIDP, Py_ssize_t, Py_ssize_t, Py_ssize_t, rffi.VOIDP],
-             PyObject, error=CANNOT_FAIL)
+             PyObject)
 def _PyArray_FromAny(space, w_obj, dtype, min_depth, max_depth, requirements, context):
     """ This is the main function used to obtain an array from any nested
          sequence, or object that exposes the array interface, op. The
