@@ -228,3 +228,18 @@ def test_issue1573(con):
     cur = con.cursor()
     cur.execute(u'SELECT 1 as méil')
     assert cur.description[0][0] == u"méil".encode('utf-8')
+
+def test_adapter_exception(con):
+    def cast(obj):
+        raise ZeroDivisionError
+
+    _sqlite3.register_adapter(int, cast)
+    try:
+        cur = con.cursor()
+        cur.execute("select ?", (4,))
+        val = cur.fetchone()[0]
+        # Adapter error is ignored, and parameter is passed as is.
+        assert val == 4
+        assert type(val) is int
+    finally:
+        del _sqlite3.adapters[(int, _sqlite3.PrepareProtocol)]

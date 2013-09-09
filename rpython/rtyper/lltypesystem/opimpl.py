@@ -12,7 +12,7 @@ from rpython.tool.sourcetools import func_with_new_name
 ops_returning_a_bool = {'gt': True, 'ge': True,
                         'lt': True, 'le': True,
                         'eq': True, 'ne': True,
-                        'is_true': True}
+                        'bool': True, 'is_true':True}
 
 # global synonyms for some types
 from rpython.rlib.rarithmetic import intmask
@@ -659,6 +659,20 @@ def op_debug_fatalerror(ll_msg):
     assert lltype.typeOf(ll_msg) == lltype.Ptr(rstr.STR)
     msg = ''.join(ll_msg.chars)
     raise LLFatalError(msg)
+
+def op_raw_store(p, ofs, newvalue):
+    from rpython.rtyper.lltypesystem import rffi
+    p = rffi.cast(llmemory.Address, p)
+    TVAL = lltype.typeOf(newvalue)
+    p = rffi.cast(rffi.CArrayPtr(TVAL), p + ofs)
+    p[0] = newvalue
+
+def op_raw_load(TVAL, p, ofs):
+    from rpython.rtyper.lltypesystem import rffi
+    p = rffi.cast(llmemory.Address, p)
+    p = rffi.cast(rffi.CArrayPtr(TVAL), p + ofs)
+    return p[0]
+op_raw_load.need_result_type = True
 
 # ____________________________________________________________
 

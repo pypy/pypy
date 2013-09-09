@@ -844,9 +844,6 @@ y = a.m(33)
         assert len(called) == 1
         assert isinstance(called[0], argument.Arguments)
 
-class TestPassThroughArguments_CALL_METHOD(TestPassThroughArguments):
-    spaceconfig = {"objspace.opcodes.CALL_METHOD": True}
-
 
 class AppTestKeywordsToBuiltinSanity(object):
 

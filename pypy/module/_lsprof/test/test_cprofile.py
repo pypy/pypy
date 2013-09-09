@@ -191,11 +191,6 @@ class AppTestCProfile(object):
             sys.path.pop(0)
 
 
-class AppTestWithDifferentBytecodes(AppTestCProfile):
-    spaceconfig = AppTestCProfile.spaceconfig.copy()
-    spaceconfig['objspace.opcodes.CALL_METHOD'] = True
-
-
 expected_output = {}
 expected_output['print_stats'] = """\
          119 function calls (99 primitive calls) in 1.000 seconds

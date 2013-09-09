@@ -974,9 +974,6 @@ class BaseFrameworkGCTransformer(GCTransformer):
                                   self.c_const_gc,
                                   v_size])
 
-    def gct_gc_thread_prepare(self, hop):
-        pass   # no effect any more
-
     def gct_gc_thread_run(self, hop):
         assert self.translator.config.translation.thread
         if hasattr(self.root_walker, 'thread_run_ptr'):
@@ -1103,7 +1100,8 @@ class BaseFrameworkGCTransformer(GCTransformer):
         opname = hop.spaceop.opname
         v_struct = hop.spaceop.args[0]
         v_newvalue = hop.spaceop.args[-1]
-        assert opname in ('setfield', 'setarrayitem', 'setinteriorfield')
+        assert opname in ('setfield', 'setarrayitem', 'setinteriorfield',
+                          'raw_store')
         assert isinstance(v_newvalue.concretetype, lltype.Ptr)
         # XXX for some GCs the skipping if the newvalue is a constant won't be
         # ok

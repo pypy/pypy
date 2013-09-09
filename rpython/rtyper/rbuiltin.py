@@ -195,7 +195,7 @@ def get_builtin_method_self(x):
 def rtype_builtin_bool(hop):
     # not called any more?
     assert hop.nb_args == 1
-    return hop.args_r[0].rtype_is_true(hop)
+    return hop.args_r[0].rtype_bool(hop)
 
 def rtype_builtin_int(hop):
     if isinstance(hop.args_s[0], annmodel.SomeString):

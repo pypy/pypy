@@ -94,7 +94,7 @@ def builtin_reversed(s_obj):
 
 
 def builtin_bool(s_obj):
-    return s_obj.is_true()
+    return s_obj.bool()
 
 def builtin_int(s_obj, s_base=None):
     if isinstance(s_obj, SomeInteger):
@@ -337,7 +337,7 @@ def llmemory_cast_int_to_adr(s):
     return SomeAddress()
 
 def unicodedata_decimal(s_uchr):
-    raise TypeError, "unicodedate.decimal() calls should not happen at interp-level"
+    raise TypeError("unicodedate.decimal() calls should not happen at interp-level")
 
 def test(*args):
     return s_Bool

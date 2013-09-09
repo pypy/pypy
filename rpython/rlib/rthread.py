@@ -205,18 +205,7 @@ def release_NOAUTO(ll_lock):
 # ____________________________________________________________
 #
 # Thread integration.
-# These are six completely ad-hoc operations at the moment.
-
-@jit.dont_look_inside
-def gc_thread_prepare():
-    """To call just before thread.start_new_thread().  This
-    allocates a new shadow stack to be used by the future
-    thread.  If memory runs out, this raises a MemoryError
-    (which can be handled by the caller instead of just getting
-    ignored if it was raised in the newly starting thread).
-    """
-    if we_are_translated():
-        llop.gc_thread_prepare(lltype.Void)
+# These are five completely ad-hoc operations at the moment.
 
 @jit.dont_look_inside
 def gc_thread_run():

@@ -2386,6 +2386,7 @@ class BasicTests:
                 if i >= len(bytecode):
                     break
                 op = bytecode[i]
+                i += 1
                 if op == 'j':
                     j += 1
                 elif op == 'c':
@@ -2415,7 +2416,6 @@ class BasicTests:
 
                 else:
                     return ord(op)
-                i += 1
             return 42
         assert f() == 42
         def g():

@@ -77,13 +77,12 @@ class W_Root(object):
         raise NotImplementedError("only for interp-level user subclasses "
                                   "from typedef.py")
 
-    def getname(self, space, default=u'?'):
+    def getname(self, space):
         try:
             return space.unicode_w(space.getattr(self, space.wrap('__name__')))
         except OperationError, e:
-            if (e.match(space, space.w_TypeError) or
-                e.match(space, space.w_AttributeError)):
-                return default
+            if e.match(space, space.w_TypeError) or e.match(space, space.w_AttributeError):
+                return '?'
             raise
 
     def getaddrstring(self, space):

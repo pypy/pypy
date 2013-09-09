@@ -3,8 +3,7 @@ import py
 
 class AppTestCopy:
     spaceconfig = dict(usemodules=['_continuation'],
-                       continuation=True,
-                       CALL_METHOD=True)
+                       continuation=True)
 
     def test_basic_setup(self):
         from _continuation import continulet
@@ -106,7 +105,6 @@ class AppTestPickle:
     spaceconfig = {
         "usemodules": ['_continuation', 'struct', 'binascii'],
         "continuation": True,
-        "CALL_METHOD": True,
     }
 
     def setup_class(cls):

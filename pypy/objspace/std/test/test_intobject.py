@@ -476,6 +476,3 @@ class AppTestInt:
 
 class AppTestIntOptimizedAdd(AppTestInt):
     spaceconfig = {"objspace.std.optimized_int_add": True}
-
-class AppTestIntOptimizedComp(AppTestInt):
-    spaceconfig = {"objspace.std.optimized_comparison_op": True}
