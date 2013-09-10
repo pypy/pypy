@@ -315,6 +315,8 @@ class Assembler386(BaseAssembler):
             stmtlocal.tl_segment_prefix(mc)
         
     def _build_stack_check_slowpath(self):
+        if self.cpu.gc_ll_descr.stm:
+            return      # XXX no stack check on STM for now
         _, _, slowpathaddr = self.cpu.insert_stack_check()
         if slowpathaddr == 0 or not self.cpu.propagate_exception_descr:
             return      # no stack check (for tests, or non-translated)
