@@ -103,7 +103,10 @@ class LowLevelType(object):
     def __ne__(self, other):
         return not (self == other)
 
-    _is_compatible = __eq__
+    def _is_convertible_from(self, other):
+        if self == other:
+            return True
+        return remove_const(self) == other
 
     def __setattr__(self, attr, nvalue):
         try:
@@ -766,6 +769,15 @@ class Ptr(LowLevelType):
                          hints={'interior_ptr_type':True})
         return R
 
+    def union(self, other):
+        if self == other:
+            return self
+        if remove_const(self) == remove_const(other):
+            return add_const(self)
+        raise AssertionError(
+            "mixing of incompatible pointer types: %r, %r" % (self, other))
+
+
 class InteriorPtr(LowLevelType):
     def __init__(self, PARENTTYPE, TO, offsets):
         self.PARENTTYPE = PARENTTYPE
@@ -984,14 +996,29 @@ def remove_const(T):
     "The same type as T, but with any top level const-qualifier removed."
     if isinstance(T, Ptr):
         return Ptr(remove_const(T.TO))
+    if not isinstance(T, (Array, Struct)):
+        return T
     if not T._hints.get('render_as_const'):
         return T
-    hints = T._hints.copy()
-    del hints['render_as_const']
     T2 = object.__new__(type(T))
     T2.__dict__.update(T.__dict__)
-    T2._hints = T2._hints.copy()
-    del T2._hints['render_as_const']
+    hints = T2._hints.copy()
+    del hints['render_as_const']
+    T2._hints = frozendict(hints)
+    return T2
+
+def add_const(T):
+    "The same type as T, but with any top level const-qualifier removed."
+    if isinstance(T, Ptr):
+        return Ptr(add_const(T.TO))
+    assert isinstance(T, (Array, Struct))
+    if T._hints.get('render_as_const'):
+        return T
+    T2 = object.__new__(type(T))
+    T2.__dict__.update(T.__dict__)
+    hints = T2._hints.copy()
+    hints['render_as_const'] = True
+    T2._hints = frozendict(hints)
     return T2
 
 def direct_fieldptr(structptr, fieldname):
@@ -1212,7 +1239,7 @@ class _abstract_ptr(object):
             if isinstance(T1, ContainerType):
                 raise TypeError("cannot directly assign to container array items")
             T2 = typeOf(val)
-            if T2 != T1:
+            if not isConvertibleFrom(T1, T2):
                 from rpython.rtyper.lltypesystem import rffi
                 if T1 is rffi.VOIDP and isinstance(T2, Ptr):
                     # Any pointer is convertible to void*
@@ -1262,7 +1289,7 @@ class _abstract_ptr(object):
             if len(args) != len(self._T.ARGS):
                 raise TypeError,"calling %r with wrong argument number: %r" % (self._T, args)
             for i, a, ARG in zip(range(len(self._T.ARGS)), args, self._T.ARGS):
-                if typeOf(a) != remove_const(ARG):
+                if not isConvertibleFrom(ARG, typeOf(a)):
                     # ARG could be Void
                     if ARG == Void:
                         try:
@@ -2134,8 +2161,8 @@ def init_identity_hash(p, value):
         raise ValueError("init_identity_hash(): not for varsized types")
     p._obj._hash_cache_ = intmask(value)
 
-def isCompatibleType(TYPE1, TYPE2):
-    return TYPE1._is_compatible(TYPE2)
+def isConvertibleFrom(TYPE1, TYPE2):
+    return TYPE1._is_convertible_from(TYPE2)
 
 def enforce(TYPE, value):
     return TYPE._enforce(value)

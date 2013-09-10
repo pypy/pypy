@@ -57,7 +57,7 @@ class BaseTestRffi:
 
     def test_string(self):
         eci = ExternalCompilationInfo(includes=['string.h'])
-        z = llexternal('strlen', [CCHARP], Signed, compilation_info=eci)
+        z = llexternal('strlen', [CONST_CCHARP], Signed, compilation_info=eci)
 
         def f():
             s = str2charp("xxx")
@@ -70,7 +70,7 @@ class BaseTestRffi:
 
     def test_unicode(self):
         eci = ExternalCompilationInfo(includes=['string.h'])
-        z = llexternal('wcslen', [CWCHARP], Signed, compilation_info=eci)
+        z = llexternal('wcslen', [CONST_CWCHARP], Signed, compilation_info=eci)
 
         def f():
             s = unicode2wcharp(u"xxx\xe9")
@@ -87,7 +87,7 @@ class BaseTestRffi:
         #include <src/allocator.h>
         #include <src/mem.h>
 
-        char *f(char* arg)
+        char *f(const char* arg)
         {
             char *ret;
             /* lltype.free uses OP_RAW_FREE, we must allocate
@@ -99,8 +99,8 @@ class BaseTestRffi:
         }
         """)
         eci = ExternalCompilationInfo(separate_module_sources=[c_source],
-                                      post_include_bits=['char *f(char*);'])
-        z = llexternal('f', [CCHARP], CCHARP, compilation_info=eci)
+                                      post_include_bits=['char *f(const char*);'])
+        z = llexternal('f', [CONST_CCHARP], CCHARP, compilation_info=eci)
 
         def f():
             s = str2charp("xxx")
@@ -117,7 +117,7 @@ class BaseTestRffi:
         c_source = """
         #include <string.h>
 
-        int f(char *args[]) {
+        int f(const char *args[]) {
             char **p = args;
             int l = 0;
             while (*p) {
@@ -128,11 +128,11 @@ class BaseTestRffi:
         }
         """
         eci = ExternalCompilationInfo(separate_module_sources=[c_source])
-        z = llexternal('f', [CCHARPP], Signed, compilation_info=eci)
+        z = llexternal('f', [CONST_CCHARPP], Signed, compilation_info=eci)
 
         def f():
             l = ["xxx", "x", "xxxx"]
-            ss = liststr2charpp(l)
+            ss = liststr2charpp(cast(CONST_CCHARPP, l))
             result = z(ss)
             free_charpp(ss)
             return result
@@ -617,14 +617,14 @@ class TestRffiInternals:
 
     def test_stringpolicy1(self):
         eci = ExternalCompilationInfo(includes=['string.h'])
-        strlen = llexternal('strlen', [CCHARP], SIZE_T, compilation_info=eci)
+        strlen = llexternal('strlen', [CONST_CCHARP], SIZE_T, compilation_info=eci)
         def f():
             return cast(SIGNED, strlen("Xxx"))
         assert interpret(f, [], backendopt=True) == 3
 
     def test_stringpolicy3(self):
         eci = ExternalCompilationInfo(includes=['string.h'])
-        strlen = llexternal('strlen', [CCHARP], INT, compilation_info=eci)
+        strlen = llexternal('strlen', [CONST_CCHARP], INT, compilation_info=eci)
         def f():
             ll_str = str2charp("Xxx")
             res = strlen(ll_str)
@@ -635,7 +635,7 @@ class TestRffiInternals:
 
     def test_stringpolicy_mixed(self):
         eci = ExternalCompilationInfo(includes=['string.h'])
-        strlen = llexternal('strlen', [CCHARP], SIZE_T,
+        strlen = llexternal('strlen', [CONST_CCHARP], SIZE_T,
                             compilation_info=eci)
         def f():
             res1 = strlen("abcd")

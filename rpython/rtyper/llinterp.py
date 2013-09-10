@@ -636,7 +636,7 @@ class LLFrame(object):
         if len(ARGS) != len(args_v):
             raise TypeError("graph with %d args called with wrong func ptr type: %r" %(len(args_v), ARGS))
         for T, v in zip(ARGS, args_v):
-            if not lltype.isCompatibleType(T, v.concretetype):
+            if not lltype.isConvertibleFrom(T, v.concretetype):
                 raise TypeError("graph with %r args called with wrong func ptr type: %r" %
                                 (tuple([v.concretetype for v in args_v]), ARGS))
         frame = self.newsubframe(graph, args)

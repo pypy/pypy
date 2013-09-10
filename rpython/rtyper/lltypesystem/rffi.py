@@ -650,11 +650,13 @@ VOIDPP = CArrayPtr(VOIDP)
 CCHARP = lltype.Ptr(lltype.Array(lltype.Char, hints={'nolength': True}))
 
 # const char *
-CONST_CCHARP = lltype.Ptr(lltype.Array(lltype.Char, hints={'nolength': True,
-                                       'render_as_const': True}))
+CONST_CCHARP = lltype.add_const(CCHARP)
 
 # wchar_t *
 CWCHARP = lltype.Ptr(lltype.Array(lltype.UniChar, hints={'nolength': True}))
+
+# const wchar_t *
+CONST_CWCHARP = lltype.add_const(CWCHARP)
 
 # int *, unsigned int *, etc.
 #INTP = ...    see setup() above
@@ -684,6 +686,7 @@ def make_string_mappings(strtype):
         from rpython.rtyper.annlowlevel import llstr as llstrtype
         from rpython.rtyper.annlowlevel import hlstr as hlstrtype
         TYPEP = CCHARP
+        CONST_TYPEP = CONST_CCHARP
         ll_char_type = lltype.Char
         lastchar = '\x00'
         builder_class = StringBuilder
@@ -694,6 +697,7 @@ def make_string_mappings(strtype):
         from rpython.rtyper.annlowlevel import llunicode as llstrtype
         from rpython.rtyper.annlowlevel import hlunicode as hlstrtype
         TYPEP = CWCHARP
+        CONST_TYPEP = CONST_CWCHARP
         ll_char_type = lltype.UniChar
         lastchar = u'\x00'
         builder_class = UnicodeBuilder
@@ -710,7 +714,7 @@ def make_string_mappings(strtype):
         ll_s = llstrtype(s)
         copy_string_to_raw(ll_s, array, 0, i)
         array[i] = lastchar
-        return array
+        return cast(CONST_TYPEP, array)
     str2charp._annenforceargs_ = [strtype, bool]
 
     def free_charp(cp, track_allocation=True):
@@ -867,6 +871,7 @@ def make_string_mappings(strtype):
 
 # char**
 CCHARPP = lltype.Ptr(lltype.Array(CCHARP, hints={'nolength': True}))
+CONST_CCHARPP = lltype.Ptr(lltype.Array(CONST_CCHARP, hints={'nolength': True}))
 
 def liststr2charpp(l):
     """ list[str] -> char**, NULL terminated

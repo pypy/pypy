@@ -874,9 +874,7 @@ from rpython.annotator.model import ll_to_annotation, annotation_to_lltype
 
 class __extend__(pairtype(SomePtr, SomePtr)):
     def union((p1, p2)):
-        assert p1.ll_ptrtype == p2.ll_ptrtype,("mixing of incompatible pointer types: %r, %r" %
-                                               (p1.ll_ptrtype, p2.ll_ptrtype))
-        return SomePtr(p1.ll_ptrtype)
+        return SomePtr(p1.ll_ptrtype.union(p2.ll_ptrtype))
 
 class __extend__(pairtype(SomePtr, SomeInteger)):
 

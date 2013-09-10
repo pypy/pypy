@@ -115,13 +115,13 @@ def r_getenv(name):
 def r_putenv(name, value):
     just_a_placeholder
 
-os_getenv = rffi.llexternal('getenv', [rffi.CCHARP], rffi.CCHARP,
+os_getenv = rffi.llexternal('getenv', [rffi.CONST_CCHARP], rffi.CCHARP,
                             threadsafe=False)
-os_putenv = rffi.llexternal('putenv', [rffi.CCHARP], rffi.INT)
+os_putenv = rffi.llexternal('putenv', [rffi.CONST_CCHARP], rffi.INT)
 if _WIN32:
-    _wgetenv = rffi.llexternal('_wgetenv', [rffi.CWCHARP], rffi.CWCHARP,
+    _wgetenv = rffi.llexternal('_wgetenv', [rffi.CONST_CWCHARP], rffi.CWCHARP,
                                compilation_info=eci, threadsafe=False)
-    _wputenv = rffi.llexternal('_wputenv', [rffi.CWCHARP], rffi.INT,
+    _wputenv = rffi.llexternal('_wputenv', [rffi.CONST_CWCHARP], rffi.INT,
                                compilation_info=eci)
 
 class EnvKeepalive:

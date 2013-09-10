@@ -66,7 +66,7 @@ def llvalue_from_constant(c):
         # check.  Something else will blow up instead, probably
         # very confusingly.
         if not is_pointer_to_forward_ref(ACTUAL_TYPE):
-            assert ACTUAL_TYPE == T
+            assert lltype.isConvertibleFrom(T, ACTUAL_TYPE)
         return c.value
 
 

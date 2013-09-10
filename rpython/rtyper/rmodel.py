@@ -3,7 +3,7 @@ from rpython.flowspace.model import Constant
 from rpython.rtyper.error import TyperError, MissingRTypeOperation
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem.lltype import (Void, Bool, Float, typeOf,
-    LowLevelType, isCompatibleType)
+    LowLevelType, isConvertibleFrom)
 from rpython.tool.pairtype import pairtype, extendabletype, pair
 
 
@@ -125,7 +125,7 @@ class Repr(object):
                 realtype = typeOf(value)
             except (AssertionError, AttributeError, TypeError):
                 realtype = '???'
-            if realtype != self.lowleveltype:
+            if realtype != lltype.remove_const(self.lowleveltype):
                 raise TyperError("convert_const(self = %r, value = %r)" % (
                     self, value))
         return value
@@ -400,7 +400,7 @@ def inputconst(reqtype, value):
             realtype = typeOf(value)
         except (AssertionError, AttributeError):
             realtype = '???'
-        if not isCompatibleType(realtype, lltype):
+        if not isConvertibleFrom(lltype, realtype):
             raise TyperError("inputconst(reqtype = %s, value = %s):\n"
                              "expected a %r,\n"
                              "     got a %r" % (reqtype, value,
