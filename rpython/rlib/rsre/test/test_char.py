@@ -48,7 +48,7 @@ def test_is_word():
     assert not rsre_char.is_uni_word(ord(','))
 
 def test_category():
-    from sre_constants import CHCODES
+    from rpython.rlib.rsre.rpy.sre_constants import CHCODES
     cat = rsre_char.category_dispatch
     #
     assert     cat(CHCODES["category_digit"], ord('1'))
