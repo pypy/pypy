@@ -320,7 +320,7 @@ def register_stat_variant(name, traits):
     if name != 'fstat':
         arg_is_path = True
         s_arg = traits.str0
-        ARG1 = traits.CCHARP
+        ARG1 = traits.CONST_CCHARP
     else:
         arg_is_path = False
         s_arg = int
@@ -389,7 +389,7 @@ def register_statvfs_variant(name, traits):
     if name != 'fstatvfs':
         arg_is_path = True
         s_arg = traits.str0
-        ARG1 = traits.CCHARP
+        ARG1 = traits.CONST_CCHARP
     else:
         arg_is_path = False
         s_arg = int

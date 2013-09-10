@@ -255,10 +255,10 @@ class RegisterOs(BaseLazyRegistering):
     @registering_if(os, 'execv')
     def register_os_execv(self):
         eci = self.gcc_profiling_bug_workaround(
-            'int _noprof_execv(char *path, char *argv[])',
+            'int _noprof_execv(const char *path, char *argv[])',
             'return execv(path, argv);')
         os_execv = self.llexternal('_noprof_execv',
-                                   [rffi.CCHARP, rffi.CCHARPP],
+                                   [rffi.CONST_CCHARP, rffi.CCHARPP],
                                    rffi.INT, compilation_info = eci)
 
         def execv_llimpl(path, args):
@@ -274,10 +274,10 @@ class RegisterOs(BaseLazyRegistering):
     @registering_if(os, 'execve')
     def register_os_execve(self):
         eci = self.gcc_profiling_bug_workaround(
-            'int _noprof_execve(char *filename, char *argv[], char *envp[])',
+            'int _noprof_execve(const char *filename, const char *argv[], const char *envp[])',
             'return execve(filename, argv, envp);')
         os_execve = self.llexternal(
-            '_noprof_execve', [rffi.CCHARP, rffi.CCHARPP, rffi.CCHARPP],
+            '_noprof_execve', [rffi.CONST_CCHARP, rffi.CONST_CCHARPP, rffi.CONST_CCHARPP],
             rffi.INT, compilation_info = eci)
 
         def execve_llimpl(path, args, env):
@@ -579,7 +579,7 @@ class RegisterOs(BaseLazyRegistering):
 
     @registering_if(os, 'chroot')
     def register_os_chroot(self):
-        os_chroot = self.llexternal('chroot', [rffi.CCHARP], rffi.INT)
+        os_chroot = self.llexternal('chroot', [rffi.CONST_CCHARP], rffi.INT)
         def chroot_llimpl(arg):
             result = os_chroot(arg)
             if result == -1:
@@ -778,7 +778,7 @@ class RegisterOs(BaseLazyRegistering):
     @registering_str_unicode(os.open)
     def register_os_open(self, traits):
         os_open = self.llexternal(traits.posix_function_name('open'),
-                                  [traits.CCHARP, rffi.INT, rffi.MODE_T],
+                                  [traits.CONST_CCHARP, rffi.INT, rffi.MODE_T],
                                   rffi.INT)
         def os_open_llimpl(path, flags, mode):
             result = rffi.cast(lltype.Signed, os_open(path, flags, mode))
@@ -998,7 +998,7 @@ class RegisterOs(BaseLazyRegistering):
     @registering_str_unicode(os.access)
     def register_os_access(self, traits):
         os_access = self.llexternal(traits.posix_function_name('access'),
-                                    [traits.CCHARP, rffi.INT],
+                                    [traits.CONST_CCHARP, rffi.INT],
                                     rffi.INT)
 
         if sys.platform.startswith('win'):
@@ -1193,7 +1193,7 @@ class RegisterOs(BaseLazyRegistering):
 
     @registering_if(os, 'chown')
     def register_os_chown(self):
-        os_chown = self.llexternal('chown', [rffi.CCHARP, rffi.INT, rffi.INT],
+        os_chown = self.llexternal('chown', [rffi.CONST_CCHARP, rffi.INT, rffi.INT],
                                    rffi.INT)
 
         def os_chown_llimpl(path, uid, gid):
@@ -1336,7 +1336,7 @@ class RegisterOs(BaseLazyRegistering):
 
     @registering(os.system)
     def register_os_system(self):
-        os_system = self.llexternal('system', [rffi.CCHARP], rffi.INT)
+        os_system = self.llexternal('system', [rffi.CONST_CCHARP], rffi.INT)
 
         def system_llimpl(command):
             res = os_system(command)
@@ -1370,7 +1370,7 @@ class RegisterOs(BaseLazyRegistering):
     @registering_str_unicode(os.chdir)
     def register_os_chdir(self, traits):
         os_chdir = self.llexternal(traits.posix_function_name('chdir'),
-                                   [traits.CCHARP], rffi.INT)
+                                   [traits.CONST_CCHARP], rffi.INT)
 
         def os_chdir_llimpl(path):
             res = rffi.cast(lltype.Signed, os_chdir(path))
@@ -1388,7 +1388,7 @@ class RegisterOs(BaseLazyRegistering):
     @registering_str_unicode(os.mkdir)
     def register_os_mkdir(self, traits):
         os_mkdir = self.llexternal(traits.posix_function_name('mkdir'),
-                                   [traits.CCHARP, rffi.MODE_T], rffi.INT)
+                                   [traits.CONST_CCHARP, rffi.MODE_T], rffi.INT)
 
         if sys.platform == 'win32':
             from rpython.rtyper.module.ll_win32file import make_win32_traits

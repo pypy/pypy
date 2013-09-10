@@ -190,18 +190,20 @@ def llexternal(name, args, result, _callable=None,
         for i, TARGET in unrolling_arg_tps:
             arg = args[i]
             freeme = None
-            if TARGET == CCHARP:
+            if TARGET == CCHARP and isinstance(arg, str):
+                raise AssertionError("Strings should be converted to CONST_CCHARP")
+            if TARGET == CONST_CCHARP:
                 if arg is None:
-                    arg = lltype.nullptr(CCHARP.TO)   # None => (char*)NULL
+                    arg = lltype.nullptr(CONST_CCHARP.TO)   # None => (const char*)NULL
                     freeme = arg
                 elif isinstance(arg, str):
                     arg = str2charp(arg)
                     # XXX leaks if a str2charp() fails with MemoryError
                     # and was not the first in this function
                     freeme = arg
-            elif TARGET == CWCHARP:
+            elif TARGET == CONST_CWCHARP:
                 if arg is None:
-                    arg = lltype.nullptr(CWCHARP.TO)   # None => (wchar_t*)NULL
+                    arg = lltype.nullptr(CONST_CWCHARP.TO)   # None => (wchar_t*)NULL
                     freeme = arg
                 elif isinstance(arg, unicode):
                     arg = unicode2wcharp(arg)
@@ -876,10 +878,10 @@ CONST_CCHARPP = lltype.Ptr(lltype.Array(CONST_CCHARP, hints={'nolength': True}))
 def liststr2charpp(l):
     """ list[str] -> char**, NULL terminated
     """
-    array = lltype.malloc(CCHARPP.TO, len(l) + 1, flavor='raw')
+    array = lltype.malloc(CONST_CCHARPP.TO, len(l) + 1, flavor='raw')
     for i in range(len(l)):
         array[i] = str2charp(l[i])
-    array[len(l)] = lltype.nullptr(CCHARP.TO)
+    array[len(l)] = lltype.nullptr(CONST_CCHARP.TO)
     return array
 liststr2charpp._annenforceargs_ = [[annmodel.s_Str0]]  # List of strings
 # Make a copy for the ll_os.py module

@@ -196,7 +196,7 @@ def r_unsetenv(name):
     r_putenv(name, '')
 
 if hasattr(__import__(os.name), 'unsetenv'):
-    os_unsetenv = rffi.llexternal('unsetenv', [rffi.CCHARP], rffi.INT)
+    os_unsetenv = rffi.llexternal('unsetenv', [rffi.CONST_CCHARP], rffi.INT)
 
     def unsetenv_llimpl(name):
         with rffi.scoped_str2charp(name) as l_name:

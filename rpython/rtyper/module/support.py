@@ -48,6 +48,7 @@ class StringTraits:
     str0 = annmodel.s_Str0
     CHAR = rffi.CHAR
     CCHARP = rffi.CCHARP
+    CONST_CCHARP = rffi.CONST_CCHARP
     charp2str = staticmethod(rffi.charp2str)
     scoped_str2charp = staticmethod(rffi.scoped_str2charp)
     str2charp = staticmethod(rffi.str2charp)
@@ -67,6 +68,7 @@ class UnicodeTraits:
     str0 = annmodel.s_Unicode0
     CHAR = rffi.WCHAR_T
     CCHARP = rffi.CWCHARP
+    CONST_CCHARP = rffi.CONST_CWCHARP
     charp2str = staticmethod(rffi.wcharp2unicode)
     str2charp = staticmethod(rffi.unicode2wcharp)
     scoped_str2charp = staticmethod(rffi.scoped_unicode2wcharp)
