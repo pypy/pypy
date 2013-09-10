@@ -15,12 +15,7 @@ def descr__repr__(space, w_obj):
             if not e.match(space, space.w_TypeError):
                 raise
         else:
-            try:
-                classname = u'%s.%s' % (modulename, classname)
-            except:
-                try: from nose.tools import set_trace
-                except ImportError: from pdb import set_trace
-                set_trace()
+            classname = u'%s.%s' % (modulename, classname)
     return w_obj.getrepr(space, u'%s object' % (classname,))
 
 def descr__str__(space, w_obj):
