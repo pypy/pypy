@@ -210,6 +210,17 @@ def test_cast_pointer():
     assert p1b == cast_pointer(Ptr(S1bis), p3)
     py.test.raises(RuntimeError, "cast_pointer(Ptr(S1), p3)")
 
+def test_remove_const():
+    T = Ptr(GcArray(('v', Signed), hints={'render_as_const': True, 'y': 2}))
+    T2 = remove_const(T)
+    assert T2 != T
+    assert T2 == Ptr(GcArray(('v', Signed), hints={'y': 2}))
+    S = Ptr(Struct("s2", ('a', Signed), hints={'render_as_const': True}))
+    S2 = remove_const(S)
+    assert S2 != S
+    assert S2 == Ptr(Struct("s2", ('a', Signed)))
+    
+
 def test_best_effort_gced_parent_detection():
     py.test.skip("test not relevant any more")
     S2 = Struct("s2", ('a', Signed))

@@ -954,7 +954,7 @@ class TestLowLevelType(object):
             s = malloc(rffi.CCHARP.TO, 2, flavor='raw')
             s[0] = '9'
             s[1] = '\0'
-            res = atoi(rffi.cast(rffi.CONST_CCHARP, s))
+            res = atoi(s)
             free(s, flavor='raw')
             return res
 

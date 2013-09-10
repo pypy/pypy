@@ -980,6 +980,20 @@ def cast_opaque_ptr(PTRTYPE, ptr):
         raise TypeError("invalid cast_opaque_ptr(): %r -> %r" %
                         (CURTYPE, PTRTYPE))
 
+def remove_const(T):
+    "The same type as T, but with any top level const-qualifier removed."
+    if isinstance(T, Ptr):
+        return Ptr(remove_const(T.TO))
+    if not T._hints.get('render_as_const'):
+        return T
+    hints = T._hints.copy()
+    del hints['render_as_const']
+    T2 = object.__new__(type(T))
+    T2.__dict__.update(T.__dict__)
+    T2._hints = T2._hints.copy()
+    del T2._hints['render_as_const']
+    return T2
+
 def direct_fieldptr(structptr, fieldname):
     """Get a pointer to a field in the struct.  The resulting
     pointer is actually of type Ptr(FixedSizeArray(FIELD, 1)).
@@ -1248,7 +1262,7 @@ class _abstract_ptr(object):
             if len(args) != len(self._T.ARGS):
                 raise TypeError,"calling %r with wrong argument number: %r" % (self._T, args)
             for i, a, ARG in zip(range(len(self._T.ARGS)), args, self._T.ARGS):
-                if typeOf(a) != ARG:
+                if typeOf(a) != remove_const(ARG):
                     # ARG could be Void
                     if ARG == Void:
                         try:
