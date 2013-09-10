@@ -64,8 +64,6 @@ class GcLLDescription(GcCache):
         return True
     def initialize(self):
         pass
-    def do_write_barrier(self, gcref_struct, gcref_newptr):
-        pass
     def can_use_nursery_malloc(self, size):
         return False
     def has_write_barrier_class(self):
@@ -135,9 +133,7 @@ class GcLLDescription(GcCache):
     def malloc_jitframe(self, frame_info):
         """ Allocate a new frame, overwritten by tests
         """
-        frame = jitframe.JITFRAME.allocate(frame_info)
-        llop.gc_writebarrier(lltype.Void, frame)
-        return frame
+        return jitframe.JITFRAME.allocate(frame_info)
 
 class JitFrameDescrs:
     def _freeze_(self):
@@ -546,17 +542,6 @@ class GcLLDescr_framework(GcLLDescription):
         hdr_addr -= self.gcheaderbuilder.size_gc_header
         hdr = llmemory.cast_adr_to_ptr(hdr_addr, self.HDRPTR)
         hdr.tid = tid
-
-    def do_write_barrier(self, gcref_struct, gcref_newptr):
-        hdr_addr = llmemory.cast_ptr_to_adr(gcref_struct)
-        hdr_addr -= self.gcheaderbuilder.size_gc_header
-        hdr = llmemory.cast_adr_to_ptr(hdr_addr, self.HDRPTR)
-        if hdr.tid & self.GCClass.JIT_WB_IF_FLAG:
-            # get a pointer to the 'remember_young_pointer' function from
-            # the GC, and call it immediately
-            llop1 = self.llop1
-            funcptr = llop1.get_write_barrier_failing_case(self.WB_FUNCPTR)
-            funcptr(llmemory.cast_ptr_to_adr(gcref_struct))
 
     def can_use_nursery_malloc(self, size):
         return size < self.max_size_of_young_obj
