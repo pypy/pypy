@@ -89,10 +89,12 @@ public:
     double* get_double_array();
     double* get_double_array2();
 
-    cppyy_test_pod get_pod_val();
-    cppyy_test_pod* get_pod_ptr();
-    cppyy_test_pod& get_pod_ref();
+    cppyy_test_pod get_pod_val();                 // for m_pod
+    cppyy_test_pod* get_pod_val_ptr();
+    cppyy_test_pod& get_pod_val_ref();
     cppyy_test_pod*& get_pod_ptrref();
+
+    cppyy_test_pod* get_pod_ptr();                // for m_ppod
 
 // setters
     void set_bool(bool b);
@@ -120,7 +122,7 @@ public:
     void set_double_c(const double& d);
     void set_enum(what w);
 
-    void set_pod_val(cppyy_test_pod);
+    void set_pod_val(cppyy_test_pod);             // for m_pod
     void set_pod_ptr_in(cppyy_test_pod*);
     void set_pod_ptr_out(cppyy_test_pod*);
     void set_pod_ref(const cppyy_test_pod&);
@@ -128,6 +130,8 @@ public:
     void set_pod_void_ptrptr_in(void**);
     void set_pod_ptrptr_out(cppyy_test_pod**);
     void set_pod_void_ptrptr_out(void**);
+
+    void set_pod_ptr(cppyy_test_pod*);            // for m_ppod
 
 // passers
     short*          pass_array(short*);

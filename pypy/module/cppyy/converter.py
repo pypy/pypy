@@ -47,21 +47,22 @@ def get_rawobject_nonnull(space, w_obj):
         return rawobject
     return capi.C_NULL_OBJECT
 
+def is_nullpointer_specialcase(space, w_obj):
+    # special case: allow integer 0 as (void*)0
+    try:
+        return space.int_w(w_obj) == 0
+    except Exception:
+        pass
+    # special case: allow None as (void*)0
+    return space.is_true(space.is_(w_obj, space.w_None))
+
 def get_rawbuffer(space, w_obj):
     try:
         buf = space.buffer_w(w_obj)
         return rffi.cast(rffi.VOIDP, buf.get_raw_address())
     except Exception:
         pass
-    # special case: allow integer 0 as NULL
-    try:
-        buf = space.int_w(w_obj)
-        if buf == 0:
-            return rffi.cast(rffi.VOIDP, 0)
-    except Exception:
-        pass
-    # special case: allow None as NULL
-    if space.is_true(space.is_(w_obj, space.w_None)):
+    if is_nullpointer_specialcase(space, w_obj):
         return rffi.cast(rffi.VOIDP, 0)
     raise TypeError("not an addressable buffer")
 
@@ -412,7 +413,7 @@ class VoidPtrRefConverter(VoidPtrPtrConverter):
     _immutable_fields_ = ['uses_local']
     uses_local = True
 
-class InstancePtrConverter(TypeConverter):
+class InstanceRefConverter(TypeConverter):
     _immutable_fields_ = ['libffitype', 'cppclass']
 
     libffitype  = jit_libffi.types.pointer
@@ -444,17 +445,7 @@ class InstancePtrConverter(TypeConverter):
         x = rffi.cast(rffi.VOIDPP, address)
         x[0] = rffi.cast(rffi.VOIDP, self._unwrap_object(space, w_obj))
 
-    def from_memory(self, space, w_obj, w_pycppclass, offset):
-        address = rffi.cast(capi.C_OBJECT, self._get_raw_address(space, w_obj, offset))
-        from pypy.module.cppyy import interp_cppyy
-        return interp_cppyy.wrap_cppobject(space, address, self.cppclass,
-                                           do_cast=False, is_ref=True)
-
-    def to_memory(self, space, w_obj, w_value, offset):
-        address = rffi.cast(rffi.VOIDPP, self._get_raw_address(space, w_obj, offset))
-        address[0] = rffi.cast(rffi.VOIDP, self._unwrap_object(space, w_value))
-
-class InstanceConverter(InstancePtrConverter):
+class InstanceConverter(InstanceRefConverter):
 
     def convert_argument_libffi(self, space, w_obj, address, call_local):
         from pypy.module.cppyy.interp_cppyy import FastCallNotPossible
@@ -467,6 +458,28 @@ class InstanceConverter(InstancePtrConverter):
 
     def to_memory(self, space, w_obj, w_value, offset):
         self._is_abstract(space)
+
+
+class InstancePtrConverter(InstanceRefConverter):
+
+    def _unwrap_object(self, space, w_obj):
+        try:
+            return InstanceRefConverter._unwrap_object(self, space, w_obj)
+        except OperationError, e:
+            # if not instance, allow certain special cases
+            if is_nullpointer_specialcase(space, w_obj):
+                return capi.C_NULL_OBJECT
+            raise e
+
+    def from_memory(self, space, w_obj, w_pycppclass, offset):
+        address = rffi.cast(capi.C_OBJECT, self._get_raw_address(space, w_obj, offset))
+        from pypy.module.cppyy import interp_cppyy
+        return interp_cppyy.wrap_cppobject(space, address, self.cppclass,
+                                           do_cast=False, is_ref=True)
+
+    def to_memory(self, space, w_obj, w_value, offset):
+        address = rffi.cast(rffi.VOIDPP, self._get_raw_address(space, w_obj, offset))
+        address[0] = rffi.cast(rffi.VOIDP, self._unwrap_object(space, w_value))
 
 class InstancePtrPtrConverter(InstancePtrConverter):
     _immutable_fields_ = ['uses_local']
@@ -486,12 +499,6 @@ class InstancePtrPtrConverter(InstancePtrConverter):
         # TODO: finalize_call not yet called for fast call (see interp_cppyy.py)
         from pypy.module.cppyy.interp_cppyy import FastCallNotPossible
         raise FastCallNotPossible
-
-    def from_memory(self, space, w_obj, w_pycppclass, offset):
-        self._is_abstract(space)
-
-    def to_memory(self, space, w_obj, w_value, offset):
-        self._is_abstract(space)
 
     def finalize_call(self, space, w_obj, call_local):
         from pypy.module.cppyy.interp_cppyy import W_CPPInstance
@@ -628,8 +635,10 @@ def get_converter(space, name, default):
         # type check for the benefit of the annotator
         from pypy.module.cppyy.interp_cppyy import W_CPPClass
         cppclass = space.interp_w(W_CPPClass, cppclass, can_be_None=False)
-        if compound == "*" or compound == "&":
+        if compound == "*":
             return InstancePtrConverter(space, cppclass)
+        elif compound == "&":
+            return InstanceRefConverter(space, cppclass)
         elif compound == "**":
             return InstancePtrPtrConverter(space, cppclass)
         elif compound == "":

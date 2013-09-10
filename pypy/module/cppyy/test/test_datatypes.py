@@ -514,15 +514,15 @@ class AppTestDATATYPES:
         assert pod.m_int == 888
         assert pod.m_double == 3.14
 
-        assert c.get_pod_ptr().m_int == 888
-        assert c.get_pod_ptr().m_double == 3.14
-        c.get_pod_ptr().m_int = 777
-        assert c.get_pod_ptr().m_int == 777
+        assert c.get_pod_val_ptr().m_int == 888
+        assert c.get_pod_val_ptr().m_double == 3.14
+        c.get_pod_val_ptr().m_int = 777
+        assert c.get_pod_val_ptr().m_int == 777
 
-        assert c.get_pod_ref().m_int == 777
-        assert c.get_pod_ref().m_double == 3.14
-        c.get_pod_ref().m_int = 666
-        assert c.get_pod_ref().m_int == 666
+        assert c.get_pod_val_ref().m_int == 777
+        assert c.get_pod_val_ref().m_double == 3.14
+        c.get_pod_val_ref().m_int = 666
+        assert c.get_pod_val_ref().m_int == 666
 
         assert c.get_pod_ptrref().m_int == 666
         assert c.get_pod_ptrref().m_double == 3.14
@@ -595,7 +595,22 @@ class AppTestDATATYPES:
         assert p.m_int == 888
         assert p.m_double == 3.14
 
-    def test16_respect_privacy(self):
+    def test16_nullptr_passing(self):
+        """Integer 0 ('NULL') and None allowed to pass through instance*"""
+
+        import cppyy
+
+        for o in (0, None):
+            c = cppyy.gbl.cppyy_test_data()
+            assert c.m_pod.m_int == 888
+            assert c.m_pod.m_double == 3.14
+            assert not not c.m_ppod
+
+            c.set_pod_ptr(o)
+            assert not c.m_ppod
+            assert not c.get_pod_ptr()
+
+    def test17_respect_privacy(self):
         """Test that privacy settings are respected"""
 
         import cppyy
@@ -608,7 +623,7 @@ class AppTestDATATYPES:
 
         c.destruct()
 
-    def test17_object_and_pointer_comparisons(self):
+    def test18_object_and_pointer_comparisons(self):
         """Verify object and pointer comparisons"""
     
         import cppyy 
@@ -645,7 +660,7 @@ class AppTestDATATYPES:
         assert l3 != l5
         assert l5 != l3
 
-    def test18_object_validity(self):
+    def test19_object_validity(self):
         """Test object validity checking"""
         
         from cppyy import gbl
@@ -659,7 +674,7 @@ class AppTestDATATYPES:
 
         assert not d2
 
-    def test19_buffer_reshaping(self):
+    def test20_buffer_reshaping(self):
         """Test usage of buffer sizing"""
 
         import cppyy
