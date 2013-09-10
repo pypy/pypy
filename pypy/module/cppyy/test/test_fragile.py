@@ -190,7 +190,7 @@ class AppTestFRAGILE:
             assert "fragile::D::overload()" in str(e)
             assert "TypeError: wrong number of arguments" in str(e)
             assert "fragile::D::overload(fragile::no_such_class*)" in str(e)
-            assert "TypeError: no converter available for type \"fragile::no_such_class*\"" in str(e)
+            assert "TypeError: no converter available for 'fragile::no_such_class*'" in str(e)
             assert "fragile::D::overload(char, int)" in str(e)
             assert "TypeError: expected string, got NoneType object" in str(e)
             assert "fragile::D::overload(int, fragile::no_such_class*)" in str(e)

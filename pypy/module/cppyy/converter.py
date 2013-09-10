@@ -262,8 +262,7 @@ class VoidConverter(TypeConverter):
         self.name = name
 
     def convert_argument(self, space, w_obj, address, call_local):
-        raise OperationError(space.w_TypeError,
-                             space.wrap('no converter available for type "%s"' % self.name))
+        self._is_abstract(space)
 
 
 class BoolConverter(ffitypes.typeid(bool), TypeConverter):
