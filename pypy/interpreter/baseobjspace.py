@@ -82,7 +82,7 @@ class W_Root(object):
             return space.unicode_w(space.getattr(self, space.wrap('__name__')))
         except OperationError, e:
             if e.match(space, space.w_TypeError) or e.match(space, space.w_AttributeError):
-                return '?'
+                return u'?'
             raise
 
     def getaddrstring(self, space):
