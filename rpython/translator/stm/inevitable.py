@@ -29,7 +29,11 @@ for opname, opdesc in lloperation.LL_OPERATIONS.iteritems():
 GETTERS = set(['getfield', 'getarrayitem', 'getinteriorfield', 'raw_load'])
 SETTERS = set(['setfield', 'setarrayitem', 'setinteriorfield', 'raw_store'])
 MALLOCS = set(['malloc', 'malloc_varsize',
-               'malloc_nonmovable', 'malloc_nonmovable_varsize'])
+               'malloc_nonmovable', 'malloc_nonmovable_varsize',
+               'raw_malloc',
+               'do_malloc_fixedsize_clear', 'do_malloc_varsize_clear'])
+FREES   = set(['free', 'raw_free'])
+
 # ____________________________________________________________
 
 def should_turn_inevitable_getter_setter(op, fresh_mallocs):
@@ -66,22 +70,14 @@ def should_turn_inevitable(op, block, fresh_mallocs):
     #
     # Mallocs & Frees
     if op.opname in MALLOCS:
-        # flags = op.args[1].value
-        # return flags['flavor'] != 'gc'
-        return False # XXX: Produces memory leaks on aborts
-    if op.opname == 'free':
+        return False
+    if op.opname in FREES:
         # We can only run a CFG in non-inevitable mode from start
         # to end in one transaction (every free gets called once
         # for every fresh malloc). No need to turn inevitable.
         # If the transaction is splitted, the remaining parts of the
         # CFG will always run in inevitable mode anyways.
         return not fresh_mallocs.is_fresh_malloc(op.args[0])
-    #
-    if op.opname == 'raw_malloc':
-        return False # XXX: Produces memory leaks on aborts
-    if op.opname == 'raw_free':
-        return not fresh_mallocs.is_fresh_malloc(op.args[0])
-
     #
     # Function calls
     if op.opname == 'direct_call':
