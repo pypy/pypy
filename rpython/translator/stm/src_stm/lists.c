@@ -91,7 +91,6 @@ void g2l_insert(struct G2L *g2l, gcptr addr, gcptr val)
   int shift = 0;
   char *p = (char *)(g2l->toplevel.items);
   char *entry;
-  assert((key & (sizeof(void*)-1)) == 0);   /* only for aligned keys */
   while (1)
     {
       p += (key >> shift) & TREE_MASK;
