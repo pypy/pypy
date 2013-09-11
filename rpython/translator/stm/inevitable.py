@@ -96,14 +96,6 @@ def should_turn_inevitable(op, block, fresh_mallocs):
         if tographs is not None:
             # Set of RPython functions
             return False
-        # special-case to detect 'instantiate'
-        v_func = op.args[0]
-        for op1 in block.operations:
-            if (v_func is op1.result and
-                op1.opname == 'getfield' and
-                op1.args[0].concretetype == rclass.CLASSTYPE and
-                op1.args[1].value == 'instantiate'):
-                return False
         # unknown function
         return True
 
