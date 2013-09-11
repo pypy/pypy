@@ -7,7 +7,9 @@ from rpython.translator.unsimplify import varoftype
 ALWAYS_ALLOW_OPERATIONS = set([
     'force_cast', 'keepalive', 'cast_ptr_to_adr',
     'cast_adr_to_int',
-    'debug_print', 'debug_assert', 'cast_opaque_ptr', 'hint',
+    'debug_print', 'debug_assert',
+    'debug_start', 'debug_stop', 'have_debug_prints',
+    'cast_opaque_ptr', 'hint',
     'stack_current', 'gc_stack_bottom',
     'cast_current_ptr_to_int',   # this variant of 'cast_ptr_to_int' is ok
     'jit_force_virtual', 'jit_force_virtualizable',
@@ -53,6 +55,29 @@ def should_turn_inevitable_getter_setter(op, fresh_mallocs):
         return False
     return not fresh_mallocs.is_fresh_malloc(op.args[0])
 
+def should_turn_inevitable_call(op):
+    if op.opname == 'direct_call':
+        funcptr = op.args[0].value._obj
+        if not hasattr(funcptr, "external"):
+            return False
+        if getattr(funcptr, "transactionsafe", False):
+            return False
+        try:
+            return funcptr._name + '()'
+        except AttributeError:
+            return True
+        
+    elif op.opname == 'indirect_call':
+        tographs = op.args[-1].value
+        if tographs is not None:
+            # Set of RPython functions
+            return False
+        # unknown function
+        return True
+        
+    assert False
+    
+    
 def should_turn_inevitable(op, block, fresh_mallocs):
     # Always-allowed operations never cause a 'turn inevitable'
     if op.opname in ALWAYS_ALLOW_OPERATIONS:
@@ -80,25 +105,8 @@ def should_turn_inevitable(op, block, fresh_mallocs):
         return not fresh_mallocs.is_fresh_malloc(op.args[0])
     #
     # Function calls
-    if op.opname == 'direct_call':
-        funcptr = op.args[0].value._obj
-        if not hasattr(funcptr, "external"):
-            return False
-        if getattr(funcptr, "transactionsafe", False):
-            return False
-        try:
-            return funcptr._name + '()'
-        except AttributeError:
-            return True
-
-    if op.opname == 'indirect_call':
-        tographs = op.args[-1].value
-        if tographs is not None:
-            # Set of RPython functions
-            return False
-        # unknown function
-        return True
-
+    if op.opname == 'direct_call' or op.opname == 'indirect_call':
+        return should_turn_inevitable_call(op)
     #
     # Entirely unsupported operations cause a 'turn inevitable'
     return True

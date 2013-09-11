@@ -1,4 +1,5 @@
 from rpython.jit.backend.llsupport.rewrite import GcRewriterAssembler
+from rpython.jit.backend.llsupport.descr import CallDescr
 from rpython.jit.metainterp.resoperation import ResOperation, rop
 from rpython.jit.metainterp.history import BoxPtr, ConstPtr, ConstInt
 from rpython.rlib.objectmodel import specialize
@@ -108,7 +109,13 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
                 elif op.getopnum() == rop.CALL_ASSEMBLER:
                     self.handle_call_assembler(op)
                 else:
-                    self.newops.append(op)
+                    descr = op.getdescr()
+                    assert not descr or isinstance(descr, CallDescr)
+                    if descr and descr.get_extra_info() and \
+                      descr.get_extra_info().call_needs_inevitable():
+                        self.fallback_inevitable(op)
+                    else:
+                        self.newops.append(op)
                 self.known_category.clear()
                 continue
             # ----------  copystrcontent  ----------

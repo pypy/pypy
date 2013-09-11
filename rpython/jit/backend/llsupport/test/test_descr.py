@@ -353,6 +353,32 @@ def test_repr_of_descr():
     descr5f = get_call_descr(c0, [lltype.Char], lltype.SingleFloat)
     assert repr_of_descr(descr5f) == '<CallS 4 i>'
 
+
+def test_call_stubs_inevitable():
+    for inev in (True, False):
+        class fakeextrainfo:
+            def call_needs_inevitable(self):
+                return inev
+        class fakertyper:
+            class annotator:
+                class translator:
+                    class config:
+                        class translation:
+                            stm = True
+
+        c0 = GcCache(False, rtyper=fakertyper())
+        ARGS = [lltype.Char, lltype.Signed]
+        RES = lltype.Char
+        descr1 = get_call_descr(c0, ARGS, RES, extrainfo=fakeextrainfo())
+        def f(a, b):
+            return 'c'
+
+        fnptr = llhelper(lltype.Ptr(lltype.FuncType(ARGS, RES)), f)
+
+        res = descr1.call_stub_i(rffi.cast(lltype.Signed, fnptr),
+                                 [1, 2], None, None)
+        assert res == ord('c')
+    
 def test_call_stubs_1():
     c0 = GcCache(False)
     ARGS = [lltype.Char, lltype.Signed]
