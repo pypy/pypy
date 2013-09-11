@@ -226,6 +226,51 @@ def test_call_needs_inevitable():
         needs_inev = not transactionsafe
         assert call_descr.extrainfo.call_needs_inevitable() is needs_inev
 
+def test_call_needs_not_inevitable():
+    from rpython.jit.backend.llgraph.runner import LLGraphCPU
+
+    def g():
+        pass
+    
+    @jit.dont_look_inside
+    def f():
+        return g()
+    
+    rtyper = support.annotate(f, [])
+    jitdriver_sd = FakeJitDriverSD(rtyper.annotator.translator.graphs[0])
+    cc = CallControl(LLGraphCPU(rtyper), jitdrivers_sd=[jitdriver_sd])
+    res = cc.find_all_graphs(FakePolicy())
+    [f_graph] = [x for x in res if x.func is f]
+    [block, _] = list(f_graph.iterblocks())
+    [op] = block.operations
+    call_descr = cc.getcalldescr(op)
+    
+    assert call_descr.extrainfo.call_needs_inevitable() is False
+
+def test_call_needs_not_inevitable2():
+    from rpython.jit.backend.llgraph.runner import LLGraphCPU
+
+    def g():
+        pass
+    def u():
+        pass
+    funcs = [g, u]
+    @jit.dont_look_inside
+    def f(i):
+        return funcs[i]()
+    
+    rtyper = support.annotate(f, [1])
+    jitdriver_sd = FakeJitDriverSD(rtyper.annotator.translator.graphs[0])
+    cc = CallControl(LLGraphCPU(rtyper), jitdrivers_sd=[jitdriver_sd])
+    res = cc.find_all_graphs(FakePolicy())
+    [f_graph] = [x for x in res if x.func is f]
+    [block, _] = list(f_graph.iterblocks())
+    [_, op] = block.operations
+    call_descr = cc.getcalldescr(op)
+    
+    assert call_descr.extrainfo.call_needs_inevitable() is False
+
+        
 def test_call_release_gil():
     from rpython.jit.backend.llgraph.runner import LLGraphCPU
 
