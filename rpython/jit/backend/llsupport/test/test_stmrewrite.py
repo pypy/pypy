@@ -62,6 +62,29 @@ class TestStm(RewriteTests):
         RewriteTests.check_rewrite(self, frm_operations, to_operations,
                                    **namespace)
 
+    def test_inevitable_calls(self):
+        c1 = GcCache(True)
+        T = lltype.GcStruct('T')
+        U = lltype.GcStruct('U', ('x', lltype.Signed))
+        for inev in (True, False):
+            class fakeextrainfo:
+                def call_needs_inevitable(self):
+                    return inev
+        
+            calldescr = get_call_descr(c1, [lltype.Ptr(T)], lltype.Ptr(U), 
+                                       fakeextrainfo())
+            
+            self.check_rewrite("""
+                []
+                call(123, descr=cd)
+                jump()
+            ""","""
+                []
+                %s
+                call(123, descr=cd)
+                jump()
+            """ % ("$INEV" if inev else "",), cd=calldescr)
+    
     def test_rewrite_one_setfield_gc(self):
         self.check_rewrite("""
             [p1, p2]

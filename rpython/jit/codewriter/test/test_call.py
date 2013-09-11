@@ -198,6 +198,33 @@ def test_releases_gil_analyzer():
     call_descr = cc.getcalldescr(op)
     assert call_descr.extrainfo.has_random_effects()
     assert call_descr.extrainfo.is_call_release_gil() is False
+    assert call_descr.extrainfo.call_needs_inevitable() is False
+
+def test_releases_gil_analyzer_needs_inevitable():
+    from rpython.jit.backend.llgraph.runner import LLGraphCPU
+
+    for transactionsafe in (True, False):
+        T = rffi.CArrayPtr(rffi.TIME_T)
+        external = rffi.llexternal("time", [T], rffi.TIME_T, 
+                                    _nowrapper=True,
+                                    threadsafe=False,
+                                    transactionsafe=transactionsafe)
+
+        @jit.dont_look_inside
+        def f():
+            return external(lltype.nullptr(T.TO))
+
+        rtyper = support.annotate(f, [])
+        jitdriver_sd = FakeJitDriverSD(rtyper.annotator.translator.graphs[0])
+        cc = CallControl(LLGraphCPU(rtyper), jitdrivers_sd=[jitdriver_sd])
+        res = cc.find_all_graphs(FakePolicy())
+        [f_graph] = [x for x in res if x.func is f]
+        [block, _] = list(f_graph.iterblocks())
+        [op] = block.operations
+        call_descr = cc.getcalldescr(op)
+        assert call_descr.extrainfo.is_call_release_gil() is False
+        needs_inev = not transactionsafe
+        assert call_descr.extrainfo.call_needs_inevitable() is needs_inev
 
 def test_call_release_gil():
     from rpython.jit.backend.llgraph.runner import LLGraphCPU

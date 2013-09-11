@@ -404,12 +404,27 @@ class CallDescr(AbstractDescr):
             category = 'i'
         else:
             assert 0
-        source = py.code.Source("""
-        def call_stub(func, args_i, args_r, args_f):
-            fnptr = rffi.cast(lltype.Ptr(FUNC), func)
-            res = support.maybe_on_top_of_llinterp(rtyper, fnptr)(%(args)s)
-            return %(result)s
-        """ % locals())
+
+        llop1 = llop
+        if not stm or (
+                self.extrainfo and self.extrainfo.call_needs_inevitable()):
+            source = py.code.Source("""
+            def call_stub(func, args_i, args_r, args_f):
+                fnptr = rffi.cast(lltype.Ptr(FUNC), func)
+                res = support.maybe_on_top_of_llinterp(rtyper, fnptr)(%(args)s)
+                return %(result)s
+            """ % locals())
+        else:
+            # the above 'source' works on STM too, but always forces
+            # the transaction to become inevitable. Using jit_assembler_call
+            # in cases where it is not needed avoids that.
+            source = py.code.Source("""
+            def call_stub(func, args_i, args_r, args_f):
+                fnptr = rffi.cast(lltype.Ptr(FUNC), func)
+                fun = support.maybe_on_top_of_llinterp(rtyper, fnptr)
+                res = llop1.jit_assembler_call(RESULT, fun, %(args)s)
+                return %(result)s
+            """ % locals())
         ARGS = [TYPE(arg) for arg in self.arg_classes]
         FUNC = lltype.FuncType(ARGS, RESULT)
         d = globals().copy()

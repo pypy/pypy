@@ -196,6 +196,12 @@ class CallControl(object):
         elidable = False
         loopinvariant = False
         call_release_gil_target = llmemory.NULL
+        needs_inevitable = False
+        if op.opname == 'indirect_call' or op.opname == 'direct_call':
+            from rpython.translator.stm.inevitable import (
+                should_turn_inevitable_call)
+            needs_inevitable = bool(should_turn_inevitable_call(op))
+        
         if op.opname == "direct_call":
             funcobj = op.args[0].value._obj
             assert getattr(funcobj, 'calling_conv', 'c') == 'c', (
@@ -206,7 +212,8 @@ class CallControl(object):
             if loopinvariant:
                 assert not NON_VOID_ARGS, ("arguments not supported for "
                                            "loop-invariant function!")
-            if getattr(func, "_call_aroundstate_target_", None):
+            funcptr = getattr(func, "_call_aroundstate_target_", None)
+            if funcptr:
                 call_release_gil_target = func._call_aroundstate_target_
                 call_release_gil_target = llmemory.cast_ptr_to_adr(
                     call_release_gil_target)
@@ -234,6 +241,7 @@ class CallControl(object):
         effectinfo = effectinfo_from_writeanalyze(
             self.readwrite_analyzer.analyze(op), self.cpu, extraeffect,
             oopspecindex, can_invalidate, call_release_gil_target,
+            needs_inevitable
         )
         #
         assert effectinfo is not None
