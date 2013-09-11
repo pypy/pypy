@@ -26,9 +26,6 @@ class GilAnalyzer(graphanalyze.BoolGraphAnalyzer):
             return False
         else:
             return False
-
-    def analyze_instantiate_call(self, seen=None):
-        return False
                 
     def analyze_simple_operation(self, op, graphinfo):
         return False

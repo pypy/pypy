@@ -92,17 +92,6 @@ class CallControl(object):
         else:
             assert op.opname == 'indirect_call'
             graphs = op.args[-1].value
-            if graphs is None:
-                # special case: handle the indirect call that goes to
-                # the 'instantiate' methods.  This check is a bit imprecise
-                # but it's not too bad if we mistake a random indirect call
-                # for the one to 'instantiate'.
-                from rpython.rtyper.lltypesystem import rclass
-                CALLTYPE = op.args[0].concretetype
-                if (op.opname == 'indirect_call' and len(op.args) == 2 and
-                    CALLTYPE == rclass.OBJECT_VTABLE.instantiate):
-                    graphs = list(self._graphs_of_all_instantiate())
-            #
             if graphs is not None:
                 result = []
                 for graph in graphs:
@@ -113,11 +102,6 @@ class CallControl(object):
                                    # and ignore the others if there are any
         # residual call case: we don't need to look into any graph
         return None
-
-    def _graphs_of_all_instantiate(self):
-        for vtable in self.rtyper.lltype2vtable.values():
-            if vtable.instantiate:
-                yield vtable.instantiate._obj.graph
 
     def guess_call_kind(self, op, is_candidate=None):
         if op.opname == 'direct_call':
