@@ -328,7 +328,7 @@ class W_CTypePointer(W_CTypePtrBase):
 # ____________________________________________________________
 
 
-rffi_fdopen = rffi.llexternal("fdopen", [rffi.INT, rffi.CCHARP], rffi.CCHARP)
+rffi_fdopen = rffi.llexternal("fdopen", [rffi.INT, rffi.CONST_CCHARP], rffi.CCHARP)
 rffi_setbuf = rffi.llexternal("setbuf", [rffi.CCHARP, rffi.CCHARP], lltype.Void)
 rffi_fclose = rffi.llexternal("fclose", [rffi.CCHARP], rffi.INT)
 

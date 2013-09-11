@@ -105,7 +105,7 @@ def write_raw_longdouble_data(target, source):
 # ____________________________________________________________
 
 sprintf_longdouble = rffi.llexternal(
-    "sprintf", [rffi.CCHARP, rffi.CCHARP, rffi.LONGDOUBLE], lltype.Void,
+    "sprintf", [rffi.CCHARP, rffi.CONST_CCHARP, rffi.LONGDOUBLE], lltype.Void,
     _nowrapper=True, sandboxsafe=True)
 
 FORMAT_LONGDOUBLE = rffi.str2charp("%LE")

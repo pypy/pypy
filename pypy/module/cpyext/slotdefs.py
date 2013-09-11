@@ -74,7 +74,7 @@ def wrap_getattr(space, w_self, w_args, func):
     func_target = rffi.cast(getattrfunc, func)
     check_num_args(space, w_args, 1)
     args_w = space.fixedview(w_args)
-    name_ptr = rffi.str2charp(space.str_w(args_w[0]))
+    name_ptr = rffi.cast(rffi.CCHARP, rffi.str2charp(space.str_w(args_w[0])))
     try:
         return generic_cpy_call(space, func_target, w_self, name_ptr)
     finally:

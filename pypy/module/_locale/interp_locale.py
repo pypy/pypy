@@ -115,8 +115,8 @@ def localeconv(space):
 
     return w_result
 
-_strcoll = rlocale.external('strcoll', [rffi.CCHARP, rffi.CCHARP], rffi.INT)
-_wcscoll = rlocale.external('wcscoll', [rffi.CWCHARP, rffi.CWCHARP], rffi.INT)
+_strcoll = rlocale.external('strcoll', [rffi.CONST_CCHARP, rffi.CONST_CCHARP], rffi.INT)
+_wcscoll = rlocale.external('wcscoll', [rffi.CONST_CWCHARP, rffi.CONST_CWCHARP], rffi.INT)
 
 
 def strcoll(space, w_s1, w_s2):
@@ -147,7 +147,7 @@ def strcoll(space, w_s1, w_s2):
     return space.wrap(result)
 
 _strxfrm = rlocale.external('strxfrm',
-                    [rffi.CCHARP, rffi.CCHARP, rffi.SIZE_T], rffi.SIZE_T)
+                    [rffi.CCHARP, rffi.CONST_CCHARP, rffi.SIZE_T], rffi.SIZE_T)
 
 @unwrap_spec(s=str)
 def strxfrm(space, s):
@@ -193,7 +193,7 @@ if rlocale.HAVE_LANGINFO:
 # HAVE_LIBINTL dependence
 
 if rlocale.HAVE_LIBINTL:
-    _gettext = rlocale.external('gettext', [rffi.CCHARP], rffi.CCHARP)
+    _gettext = rlocale.external('gettext', [rffi.CONST_CCHARP], rffi.CCHARP)
 
     @unwrap_spec(msg=str)
     def gettext(space, msg):
@@ -205,7 +205,7 @@ if rlocale.HAVE_LIBINTL:
         finally:
             rffi.free_charp(msg_c)
 
-    _dgettext = rlocale.external('dgettext', [rffi.CCHARP, rffi.CCHARP], rffi.CCHARP)
+    _dgettext = rlocale.external('dgettext', [rffi.CONST_CCHARP, rffi.CONST_CCHARP], rffi.CCHARP)
 
     @unwrap_spec(msg=str)
     def dgettext(space, w_domain, msg):
@@ -238,7 +238,7 @@ if rlocale.HAVE_LIBINTL:
 
         return space.wrap(result)
 
-    _dcgettext = rlocale.external('dcgettext', [rffi.CCHARP, rffi.CCHARP, rffi.INT],
+    _dcgettext = rlocale.external('dcgettext', [rffi.CONST_CCHARP, rffi.CONST_CCHARP, rffi.INT],
                                                                 rffi.CCHARP)
 
     @unwrap_spec(msg=str, category=int)
@@ -275,7 +275,7 @@ if rlocale.HAVE_LIBINTL:
         return space.wrap(result)
 
 
-    _textdomain = rlocale.external('textdomain', [rffi.CCHARP], rffi.CCHARP)
+    _textdomain = rlocale.external('textdomain', [rffi.CONST_CCHARP], rffi.CCHARP)
 
     def textdomain(space, w_domain):
         """textdomain(domain) -> string
@@ -299,7 +299,7 @@ if rlocale.HAVE_LIBINTL:
 
         return space.wrap(result)
 
-    _bindtextdomain = rlocale.external('bindtextdomain', [rffi.CCHARP, rffi.CCHARP],
+    _bindtextdomain = rlocale.external('bindtextdomain', [rffi.CONST_CCHARP, rffi.CONST_CCHARP],
                                                                 rffi.CCHARP)
 
     @unwrap_spec(domain=str)
@@ -330,7 +330,7 @@ if rlocale.HAVE_LIBINTL:
         return space.wrap(rffi.charp2str(dirname))
 
     _bind_textdomain_codeset = rlocale.external('bind_textdomain_codeset',
-                                    [rffi.CCHARP, rffi.CCHARP], rffi.CCHARP)
+                                    [rffi.CONST_CCHARP, rffi.CONST_CCHARP], rffi.CCHARP)
 
     if rlocale.HAVE_BIND_TEXTDOMAIN_CODESET:
         @unwrap_spec(domain=str)

@@ -109,7 +109,7 @@ def fcntl(space, w_fd, op, w_arg):
         if not e.match(space, space.w_TypeError):
             raise
     else:
-        ll_arg = rffi.str2charp(arg)
+        ll_arg = rffi.cast(rffi.CCHARP, rffi.str2charp(arg))
         rv = fcntl_str(fd, op, ll_arg)
         arg = rffi.charpsize2str(ll_arg, len(arg))
         lltype.free(ll_arg, flavor='raw')
@@ -217,7 +217,7 @@ def ioctl(space, w_fd, op, w_arg, mutate_flag=-1):
                 raise
         else:
             arg = rwbuffer.as_str()
-            ll_arg = rffi.str2charp(arg)
+            ll_arg = rffi.cast(rffi.CCHARP, rffi.str2charp(arg))
             rv = ioctl_str(fd, op, ll_arg)
             arg = rffi.charpsize2str(ll_arg, len(arg))
             lltype.free(ll_arg, flavor='raw')
@@ -244,7 +244,7 @@ def ioctl(space, w_fd, op, w_arg, mutate_flag=-1):
         if not e.match(space, space.w_TypeError):
             raise
     else:
-        ll_arg = rffi.str2charp(arg)
+        ll_arg = rffi.cast(rffi.CCHARP, rffi.str2charp(arg))
         rv = ioctl_str(fd, op, ll_arg)
         arg = rffi.charpsize2str(ll_arg, len(arg))
         lltype.free(ll_arg, flavor='raw')

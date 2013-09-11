@@ -352,9 +352,9 @@ XML_SetUnknownEncodingHandler = expat_external(
 # Declarations of external functions
 
 XML_ParserCreate = expat_external(
-    'XML_ParserCreate', [rffi.CCHARP], XML_Parser)
+    'XML_ParserCreate', [rffi.CONST_CCHARP], XML_Parser)
 XML_ParserCreateNS = expat_external(
-    'XML_ParserCreateNS', [rffi.CCHARP, rffi.CHAR], XML_Parser)
+    'XML_ParserCreateNS', [rffi.CONST_CCHARP, rffi.CHAR], XML_Parser)
 XML_ParserFree = expat_external(
     'XML_ParserFree', [XML_Parser], lltype.Void, threadsafe=False)
 XML_SetUserData = expat_external(
@@ -363,7 +363,7 @@ def XML_GetUserData(parser):
     # XXX is this always true?
     return rffi.cast(rffi.VOIDPP, parser)[0]
 XML_Parse = expat_external(
-    'XML_Parse', [XML_Parser, rffi.CCHARP, rffi.INT, rffi.INT], rffi.INT)
+    'XML_Parse', [XML_Parser, rffi.CONST_CCHARP, rffi.INT, rffi.INT], rffi.INT)
 XML_StopParser = expat_external(
     'XML_StopParser', [XML_Parser, rffi.INT], lltype.Void)
 
@@ -374,7 +374,7 @@ XML_GetSpecifiedAttributeCount = expat_external(
 XML_SetParamEntityParsing = expat_external(
     'XML_SetParamEntityParsing', [XML_Parser, rffi.INT], lltype.Void)
 XML_SetBase = expat_external(
-    'XML_SetBase', [XML_Parser, rffi.CCHARP], lltype.Void)
+    'XML_SetBase', [XML_Parser, rffi.CONST_CCHARP], lltype.Void)
 if XML_COMBINED_VERSION >= 19505:
     XML_UseForeignDTD = expat_external(
         'XML_UseForeignDTD', [XML_Parser, rffi.INT], lltype.Void)
@@ -383,7 +383,7 @@ XML_GetErrorCode = expat_external(
     'XML_GetErrorCode', [XML_Parser], rffi.INT)
 XML_ErrorString = expat_external(
     'XML_ErrorString', [rffi.INT],
-    rffi.CCHARP)
+    rffi.CONST_CCHARP)
 XML_GetCurrentLineNumber = expat_external(
     'XML_GetCurrentLineNumber', [XML_Parser], rffi.INT)
 XML_GetErrorLineNumber = XML_GetCurrentLineNumber
@@ -397,11 +397,11 @@ XML_GetErrorByteIndex = XML_GetCurrentByteIndex
 XML_FreeContentModel = expat_external(
     'XML_FreeContentModel', [XML_Parser, lltype.Ptr(XML_Content)], lltype.Void)
 XML_ExternalEntityParserCreate = expat_external(
-    'XML_ExternalEntityParserCreate', [XML_Parser, rffi.CCHARP, rffi.CCHARP],
+    'XML_ExternalEntityParserCreate', [XML_Parser, rffi.CONST_CCHARP, rffi.CONST_CCHARP],
     XML_Parser)
 
 XML_ExpatVersion = expat_external(
-    'XML_ExpatVersion', [], rffi.CCHARP)
+    'XML_ExpatVersion', [], rffi.CONST_CCHARP)
 
 def get_expat_version(space):
     return space.wrap(rffi.charp2str(XML_ExpatVersion()))

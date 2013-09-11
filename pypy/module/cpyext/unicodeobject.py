@@ -208,7 +208,8 @@ def PyUnicode_AS_UNICODE(space, ref):
         # Copy unicode buffer
         w_unicode = from_ref(space, ref)
         u = space.unicode_w(w_unicode)
-        ref_unicode.c_buffer = rffi.unicode2wcharp(u)
+        # remove 'const' modifier
+        ref_unicode.c_buffer = rffi.cast(rffi.CWCHARP, rffi.unicode2wcharp(u))
     return ref_unicode.c_buffer
 
 @cpython_api([PyObject], rffi.CWCHARP)

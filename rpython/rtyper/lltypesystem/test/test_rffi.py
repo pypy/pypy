@@ -767,11 +767,11 @@ ARRAY_OF_CHAR = lltype.Array(CHAR, hints={'nolength': True})
 
 def test_ptradd():
     data = "hello, world!"
-    a = lltype.malloc(ARRAY_OF_CHAR, len(data), flavor='raw')
+    a = lltype.malloc(CONST_CCHARP.TO, len(data), flavor='raw')
     for i in xrange(len(data)):
         a[i] = data[i]
     a2 = ptradd(a, 2)
-    assert lltype.typeOf(a2) == lltype.typeOf(a) == lltype.Ptr(ARRAY_OF_CHAR)
+    assert lltype.typeOf(a2) == lltype.typeOf(a) == CONST_CCHARP
     for i in xrange(len(data) - 2):
         assert a2[i] == a[i + 2]
     lltype.free(a, flavor='raw')

@@ -153,5 +153,5 @@ def PyInt_FromString(space, str, pend, base):
     w_str = space.wrap(s)
     w_base = space.wrap(rffi.cast(lltype.Signed, base))
     if pend:
-        pend[0] = rffi.ptradd(str, len(s))
+        pend[0] = rffi.cast(rffi.CCHARP, rffi.ptradd(str, len(s)))
     return space.call_function(space.w_int, w_str, w_base)

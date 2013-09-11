@@ -39,6 +39,6 @@ def test_numeric_formatting():
 def test_libintl():
     if sys.platform != "darwin" or not sys.platform.startswith("linux"):
         py.test.skip("there is (maybe) no libintl here")
-    _gettext = external('gettext', [rffi.CCHARP], rffi.CCHARP)
+    _gettext = external('gettext', [rffi.CONST_CCHARP], rffi.CCHARP)
     res = _gettext("1234")
     assert rffi.charp2str(res) == "1234"
