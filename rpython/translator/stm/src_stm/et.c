@@ -983,6 +983,13 @@ void AbortTransaction(int num)
   stm_thread_local_obj = d->old_thread_local_obj;
   d->old_thread_local_obj = NULL;
 
+  // notifies the CPU that we're potentially in a spin loop
+  SpinLoop(SPLP_ABORT);
+
+  /* make the transaction no longer active */
+  d->active = 0;
+  d->atomic = 0;
+
   /* release the lock */
   spinlock_release(d->public_descriptor->collection_lock);
 
@@ -1004,11 +1011,7 @@ void AbortTransaction(int num)
   if (num != ABRT_MANUAL && d->max_aborts >= 0 && !d->max_aborts--)
     stm_fatalerror("unexpected abort!\n");
 
-  // notifies the CPU that we're potentially in a spin loop
-  SpinLoop(SPLP_ABORT);
   // jump back to the setjmp_buf (this call does not return)
-  d->active = 0;
-  d->atomic = 0;
   stm_stop_sharedlock();
   longjmp(*d->setjmp_buf, 1);
 }

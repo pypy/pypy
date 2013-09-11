@@ -49,12 +49,16 @@ void stm_clear_callbacks_on_abort(struct tx_descriptor *d)
 void stm_invoke_callbacks_on_abort(struct tx_descriptor *d)
 {
     wlog_t *item;
+    assert(d->active == 0);
+
     G2L_LOOP_FORWARD(d->callbacks_on_abort, item) {
         void *key = (void *)item->addr;
         void (*callback)(void *) = (void(*)(void *))item->val;
         assert(key != NULL);
         assert(callback != NULL);
 
+        /* The callback may call stm_call_on_abort(key, NULL).
+           It is ignored, because we're no longer active. */
         callback(key);
 
     } G2L_LOOP_END;
