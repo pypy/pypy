@@ -1212,7 +1212,7 @@ class _abstract_ptr(object):
             if field_name in self._T._flds:
                 T1 = self._T._flds[field_name]
                 T2 = typeOf(val)
-                if T1 == T2:
+                if isConvertibleFrom(T1, T2):
                     setattr(self._obj, field_name, val)
                 else:
                     raise TypeError("%r instance field %r:\n"

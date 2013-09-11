@@ -140,7 +140,8 @@ def PyString_AsString(space, ref):
         # copy string buffer
         w_str = from_ref(space, ref)
         s = space.str_w(w_str)
-        ref_str.c_buffer = rffi.str2charp(s)
+        # remove 'const' modifier
+        ref_str.c_buffer = rffi.cast(rffi.CCHARP, rffi.str2charp(s))
     return ref_str.c_buffer
 
 @cpython_api([PyObject, rffi.CCHARPP, rffi.CArrayPtr(Py_ssize_t)], rffi.INT_real, error=-1)
@@ -153,7 +154,8 @@ def PyString_AsStringAndSize(space, ref, buffer, length):
         # copy string buffer
         w_str = from_ref(space, ref)
         s = space.str_w(w_str)
-        ref_str.c_buffer = rffi.str2charp(s)
+        # remove 'const' modifier
+        ref_str.c_buffer = rffi.cast(rffi.CCHARP, rffi.str2charp(s))
     buffer[0] = ref_str.c_buffer
     if length:
         length[0] = ref_str.c_size

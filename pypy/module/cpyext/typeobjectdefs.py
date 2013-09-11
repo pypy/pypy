@@ -160,7 +160,7 @@ PyMemberDef = cpython_struct("PyMemberDef", (
 PyTypeObjectFields = []
 PyTypeObjectFields.extend(PyVarObjectFields)
 PyTypeObjectFields.extend([
-    ("tp_name", rffi.CCHARP), #E For printing, in format "<module>.<name>"
+    ("tp_name", rffi.CONST_CCHARP), #E For printing, in format "<module>.<name>"
     ("tp_basicsize", Py_ssize_t), #E  For allocation
     ("tp_itemsize", Py_ssize_t),  #E       "
 

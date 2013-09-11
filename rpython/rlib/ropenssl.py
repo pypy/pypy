@@ -185,9 +185,9 @@ ssl_external('CRYPTO_set_id_callback',
              lltype.Void)
 
 if HAVE_OPENSSL_RAND:
-    ssl_external('RAND_add', [rffi.CCHARP, rffi.INT, rffi.DOUBLE], lltype.Void)
+    ssl_external('RAND_add', [rffi.CONST_CCHARP, rffi.INT, rffi.DOUBLE], lltype.Void)
     ssl_external('RAND_status', [], rffi.INT)
-    ssl_external('RAND_egd', [rffi.CCHARP], rffi.INT)
+    ssl_external('RAND_egd', [rffi.CONST_CCHARP], rffi.INT)
 ssl_external('SSL_CTX_new', [SSL_METHOD], SSL_CTX)
 ssl_external('SSL_get_SSL_CTX', [SSL], SSL_CTX)
 ssl_external('TLSv1_method', [], SSL_METHOD)
@@ -289,7 +289,7 @@ ssl_external('SSL_CTX_free', [SSL_CTX], lltype.Void, threadsafe=False)
 ssl_external('CRYPTO_free', [rffi.VOIDP], lltype.Void)
 libssl_OPENSSL_free = libssl_CRYPTO_free
 
-ssl_external('SSL_write', [SSL, rffi.CCHARP, rffi.INT], rffi.INT)
+ssl_external('SSL_write', [SSL, rffi.CONST_CCHARP, rffi.INT], rffi.INT)
 ssl_external('SSL_pending', [SSL], rffi.INT)
 ssl_external('SSL_read', [SSL, rffi.CCHARP, rffi.INT], rffi.INT)
 
@@ -312,7 +312,7 @@ OpenSSL_add_all_digests = external(
     'OpenSSL_add_all_digests', [], lltype.Void)
 EVP_get_digestbyname = external(
     'EVP_get_digestbyname',
-    [rffi.CCHARP], EVP_MD)
+    [rffi.CONST_CCHARP], EVP_MD)
 EVP_DigestInit = external(
     'EVP_DigestInit',
     [EVP_MD_CTX, EVP_MD], rffi.INT)

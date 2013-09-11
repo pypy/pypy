@@ -326,6 +326,7 @@ def get_ctypes_array_of_size(FIELDTYPE, max_n):
         return get_ctypes_type(FIELDTYPE)
 
 def get_ctypes_type(T, delayed_builders=None, cannot_delay=False):
+    T = lltype.remove_const(T)  # XXX Do we care?
     # Check delayed builders
     if cannot_delay and delayed_builders:
         for T2, builder in delayed_builders:

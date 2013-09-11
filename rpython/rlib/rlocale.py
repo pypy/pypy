@@ -182,7 +182,7 @@ register_external(numeric_formatting, [], (str, str, str),
                   sandboxsafe=True)
 
 
-_setlocale = external('setlocale', [rffi.INT, rffi.CCHARP], rffi.CCHARP)
+_setlocale = external('setlocale', [rffi.INT, rffi.CONST_CCHARP], rffi.CCHARP)
 
 def setlocale(category, locale):
     if cConfig.LC_MAX is not None:

@@ -128,7 +128,7 @@ _deflateInit2_ = zlib_external(
      rffi.INT, # window bits
      rffi.INT, # mem level
      rffi.INT, # strategy
-     rffi.CCHARP, # version
+     rffi.CONST_CCHARP, # version
      rffi.INT], # stream size
     rffi.INT)
 _deflate = zlib_external('deflate', [z_stream_p, rffi.INT], rffi.INT)
@@ -147,7 +147,7 @@ _inflateInit2_ = zlib_external(
     'inflateInit2_',
     [z_stream_p, # stream
      rffi.INT, # window bits
-     rffi.CCHARP, # version
+     rffi.CONST_CCHARP, # version
      rffi.INT], # stream size
     rffi.INT)
 _inflate = zlib_external('inflate', [z_stream_p, rffi.INT], rffi.INT)
