@@ -1534,8 +1534,8 @@ void BecomeInevitable(const char *why)
                 (XXX statically we should know when we're outside
                 a transaction) */
 
-  fprintf(stderr, "[%lx] inevitable: %s\n",
-           (long)d->public_descriptor_index, why);
+  dprintf(("[%lx] inevitable: %s\n",
+           (long)d->public_descriptor_index, why));
 
   cur_time = acquire_inev_mutex_and_mark_global_cur_time(d);
   if (d->start_time != cur_time)

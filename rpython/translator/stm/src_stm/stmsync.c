@@ -219,6 +219,8 @@ void stm_commit_transaction(void)
     struct tx_descriptor *d = thread_descriptor;
     if (!d->atomic)
         CommitTransaction();
+    else
+        BecomeInevitable("stm_commit_transaction but atomic");
 }
 
 void stm_begin_inevitable_transaction(void)
