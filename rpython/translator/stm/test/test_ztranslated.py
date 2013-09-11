@@ -376,3 +376,17 @@ class TestSTMTranslated(CompiledSTMTests):
         data, dataerr = cbuilder.cmdexec('', err=True)
         lines = dataerr.split('\n')
         assert lines[0] == lines[1]
+
+    def test_dtoa(self):
+        def main(argv):
+            a = len(argv) * 0.2
+            b = len(argv) * 0.6
+            debug_print(str(a))
+            debug_print(str(b))
+            return 0
+
+        t, cbuilder = self.compile(main)
+        data, dataerr = cbuilder.cmdexec('a', err=True)
+        lines = dataerr.split('\n')
+        assert lines[0] == ' 0.400000'
+        assert lines[1] == ' 1.200000'
