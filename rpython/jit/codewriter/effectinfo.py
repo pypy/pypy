@@ -166,9 +166,6 @@ def frozenset_or_none(x):
 EffectInfo.MOST_GENERAL = EffectInfo(None, None, None, None,
                                      EffectInfo.EF_RANDOM_EFFECTS,
                                      can_invalidate=True)
-EffectInfo.LEAST_GENERAL = EffectInfo([], [], [], [],
-                                      EffectInfo.EF_ELIDABLE_CANNOT_RAISE,
-                                      can_invalidate=False)
 
 
 def effectinfo_from_writeanalyze(effects, cpu,
