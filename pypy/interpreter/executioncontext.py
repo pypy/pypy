@@ -60,6 +60,7 @@ class ExecutionContext(object):
 
     def enter(self, frame):
         if self.space.config.translation.stm:
+          if not self.space.config.translation.jit:  # XXX
             from pypy.module.thread.stm import enter_frame
             enter_frame(self, frame)
         frame.f_backref = self.topframeref
@@ -87,6 +88,7 @@ class ExecutionContext(object):
             self.space.frame_trace_action.fire()
 
         if self.space.config.translation.stm:
+          if not self.space.config.translation.jit:  # XXX
             from pypy.module.thread.stm import leave_frame
             leave_frame(self, frame)
 
