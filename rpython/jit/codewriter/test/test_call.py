@@ -200,14 +200,14 @@ def test_releases_gil_analyzer():
     assert call_descr.extrainfo.is_call_release_gil() is False
     assert call_descr.extrainfo.call_needs_inevitable() is False
 
-def test_releases_gil_analyzer_needs_inevitable():
+def test_call_needs_inevitable():
     from rpython.jit.backend.llgraph.runner import LLGraphCPU
 
     for transactionsafe in (True, False):
         T = rffi.CArrayPtr(rffi.TIME_T)
         external = rffi.llexternal("time", [T], rffi.TIME_T, 
                                     _nowrapper=True,
-                                    threadsafe=False,
+                                    threadsafe=True,
                                     transactionsafe=transactionsafe)
 
         @jit.dont_look_inside
