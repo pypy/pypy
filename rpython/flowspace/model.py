@@ -355,6 +355,18 @@ class FSException(object):
     def __str__(self):
         return '[%s: %s]' % (self.w_type, self.w_value)
 
+class ConstException(Constant, FSException):
+    def foldable(self):
+        return True
+
+    @property
+    def w_type(self):
+        return Constant(type(self.value))
+
+    @property
+    def w_value(self):
+        return Constant(self.value)
+
 
 class UnwrapException(Exception):
     """Attempted to unwrap a Variable."""
@@ -378,7 +390,7 @@ def const(obj):
     if type(obj) is type_with_bad_introspection:
         raise WrapException
     elif isinstance(obj, Exception):
-        return FSException(Constant(type(obj)), Constant(obj))
+        return ConstException(obj)
     return Constant(obj)
 
 class SpaceOperation(object):

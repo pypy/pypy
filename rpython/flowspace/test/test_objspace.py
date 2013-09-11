@@ -3,7 +3,8 @@ import new
 import py
 from contextlib import contextmanager
 
-from rpython.flowspace.model import Constant, mkentrymap, c_last_exception
+from rpython.flowspace.model import (
+    Constant, mkentrymap, c_last_exception, const)
 from rpython.translator.simplify import simplify_graph
 from rpython.flowspace.objspace import build_flow
 from rpython.flowspace.flowcontext import FlowingError, FlowSpaceFrame
@@ -396,6 +397,18 @@ class TestFlowObjSpace(Base):
         ops = x.startblock.operations
         assert ops[0].opname == 'simple_call'
         assert ops[0].args == [Constant(ValueError), Constant('ouch')]
+
+    def test_raise_prebuilt(self):
+        error = ValueError('ouch')
+        def g(x): return x
+        def f():
+            raise g(error)
+        x = self.codetest(f)
+        simplify_graph(x)
+        self.show(x)
+        ops = x.startblock.operations
+        assert ops[0].opname == 'simple_call'
+        assert ops[0].args == [const(g), const(error)]
 
     #__________________________________________________________
     def raise2(msg):
