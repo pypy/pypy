@@ -187,8 +187,7 @@ def _PyArray_FromObject(space, w_obj, typenum, min_depth, max_depth):
 def get_shape_and_dtype(space, nd, dims, typenum):
     shape = []
     for i in range(nd):
-        # back-and-forth wrapping needed to translate
-        shape.append(space.int_w(space.wrap(dims[i])))
+        shape.append(rffi.cast(rffi.LONG, dims[i]))
     dtype = get_dtype_cache(space).dtypes_by_num[typenum]
     return shape, dtype
 
