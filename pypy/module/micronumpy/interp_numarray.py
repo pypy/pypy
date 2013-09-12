@@ -336,7 +336,7 @@ class __extend__(W_NDimArray):
     def descr_nonzero(self, space):
         index_type = interp_dtype.get_dtype_cache(space).w_int64dtype
         return self.implementation.nonzero(space, index_type)
-        
+
     def descr_tolist(self, space):
         if len(self.get_shape()) == 0:
             return self.get_scalar_value().item(space)
@@ -424,6 +424,9 @@ class __extend__(W_NDimArray):
             "non-int arg not supported"))
 
     def descr___array__(self, space, w_dtype=None):
+        if not space.is_none(w_dtype):
+            raise OperationError(space.w_NotImplementedError, space.wrap(
+                "__array__(dtype) not implemented"))
         # stub implementation of __array__()
         return self
 
@@ -1123,12 +1126,14 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
     if not isinstance(w_object, W_NDimArray):
         w___array__ = space.lookup(w_object, "__array__")
         if w___array__ is not None:
+            if space.is_none(w_dtype):
+                w_dtype = space.w_None
             w_array = space.get_and_call_function(w___array__, w_object, w_dtype)
             if isinstance(w_array, W_NDimArray):
                 # feed w_array back into array() for other properties
                 return array(space, w_array, w_dtype, False, w_order, subok, ndmin)
             else:
-                raise operationerrfmt(space.w_ValueError, 
+                raise operationerrfmt(space.w_ValueError,
                         "object __array__ method not producing an array")
 
     # scalars and strings w/o __array__ method
@@ -1136,10 +1141,10 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
     if not issequence_w(space, w_object) or isstr:
         if space.is_none(w_dtype) or isstr:
             w_dtype = interp_ufuncs.find_dtype_for_scalar(space, w_object)
-        dtype = space.interp_w(interp_dtype.W_Dtype, 
+        dtype = space.interp_w(interp_dtype.W_Dtype,
                 space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype))
         return W_NDimArray.new_scalar(space, dtype, w_object)
-    
+
     if space.is_none(w_order):
         order = 'C'
     else:
@@ -1165,7 +1170,7 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
             w_ret.implementation = w_ret.implementation.set_shape(space,
                                             w_ret, shape)
         return w_ret
-    
+
     # not an array or incorrect dtype
     shape, elems_w = find_shape_and_elems(space, w_object, dtype)
     if dtype is None or (
