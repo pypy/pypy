@@ -9,13 +9,11 @@ TODO list by mattip
 
 - test "from numpypy import *" esp. get_include()
 - test all *.h files under pypy/module/cpyext/include/numpy
-- make sure all cpyext changes are tested:
-    PyComplexFromCComplex() (changed, problematic for c++?)
-    _PyPackageContext (new)
+- make sure meaningful cpyext changes are tested:
     all ndarrayobject.c
     copy_header_files() in api.py (changed)
     all ndarrayobject.py (new)
-    PyNumberCoerceEx() (new)
-    PyNumberCoerce() (new)
+    PyNumber_CoerceEx() (new)
+    PyNumber_Coerce() (new)
 - test, implement use of __array_prepare__()
 - test, implement use of __array_wrap__()

@@ -43,7 +43,7 @@ class TestIterator(BaseApiTest):
         ppf = lltype.malloc(PyObjectP.TO, 1, flavor='raw')
         ppl[0] = pl
         ppf[0] = pf
-        
+
         ret = api.PyNumber_CoerceEx(ppl, ppf)
         assert ret == 0
 
@@ -55,7 +55,7 @@ class TestIterator(BaseApiTest):
         Py_DecRef(space, ppf[0])
         lltype.free(ppl, flavor='raw')
         lltype.free(ppf, flavor='raw')
-       
+
     def test_numbermethods(self, space, api):
         assert "ab" == space.unwrap(
             api.PyNumber_Add(space.wrap("a"), space.wrap("b")))
