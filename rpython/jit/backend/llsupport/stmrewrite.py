@@ -111,8 +111,8 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
                 else:
                     descr = op.getdescr()
                     assert not descr or isinstance(descr, CallDescr)
-                    if descr and descr.get_extra_info() and \
-                      descr.get_extra_info().call_needs_inevitable():
+                    if not descr or not descr.get_extra_info() \
+                      or descr.get_extra_info().call_needs_inevitable():
                         self.fallback_inevitable(op)
                     else:
                         self.newops.append(op)

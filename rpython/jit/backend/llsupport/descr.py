@@ -406,8 +406,7 @@ class CallDescr(AbstractDescr):
             assert 0
 
         llop1 = llop
-        if not stm or (
-                self.extrainfo and self.extrainfo.call_needs_inevitable()):
+        if not stm or not self.extrainfo or self.extrainfo.call_needs_inevitable():
             source = py.code.Source("""
             def call_stub(func, args_i, args_r, args_f):
                 fnptr = rffi.cast(lltype.Ptr(FUNC), func)
