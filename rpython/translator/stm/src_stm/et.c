@@ -903,6 +903,7 @@ void AbortPrivateFromProtected(struct tx_descriptor *d);
 
 void AbortTransaction(int num)
 {
+  static const char *abort_names[] = ABORT_NAMES;
   struct tx_descriptor *d = thread_descriptor;
   unsigned long limit;
   struct timespec now;
@@ -1001,13 +1002,15 @@ void AbortTransaction(int num)
   stm_invoke_callbacks_on_abort(d);
   stm_clear_callbacks_on_abort(d);
 
+  fprintf(stderr, "[%lx] abort %s\n",
+          (long)d->public_descriptor_index, abort_names[num]);
   dprintf(("\n"
           "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n"
           "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n"
-          "!!!!!!!!!!!!!!!!!!!!!  [%lx] abort %d\n"
+          "!!!!!!!!!!!!!!!!!!!!!  [%lx] abort %s\n"
           "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n"
           "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n"
-          "\n", (long)d->public_descriptor_index, num));
+          "\n", (long)d->public_descriptor_index, abort_names[num]));
   if (num != ABRT_MANUAL && d->max_aborts >= 0 && !d->max_aborts--)
     stm_fatalerror("unexpected abort!\n");
 
@@ -1534,8 +1537,8 @@ void BecomeInevitable(const char *why)
                 (XXX statically we should know when we're outside
                 a transaction) */
 
-  fprintf(stderr, "[%lx] inevitable: %s\n",
-           (long)d->public_descriptor_index, why);
+  dprintf(("[%lx] inevitable: %s\n",
+           (long)d->public_descriptor_index, why));
 
   cur_time = acquire_inev_mutex_and_mark_global_cur_time(d);
   if (d->start_time != cur_time)

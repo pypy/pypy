@@ -125,6 +125,15 @@ static const revision_t GCFLAG_WEAKREF                = STM_FIRST_GCFLAG << 14;
 #define ABRT_COLLECT_MINOR        6
 #define ABRT_COLLECT_MAJOR        7
 #define ABORT_REASONS         8
+#define ABORT_NAMES      { "MANUAL",            \
+                           "COMMIT",            \
+                           "STOLEN_MODIFIED",   \
+                           "VALIDATE_INFLIGHT", \
+                           "VALIDATE_COMMIT",   \
+                           "VALIDATE_INEV",     \
+                           "COLLECT_MINOR",     \
+                           "COLLECT_MAJOR",     \
+                         }
 
 #define SPLP_ABORT                0
 #define SPLP_LOCKED_INFLIGHT      1
