@@ -1002,6 +1002,7 @@ void AbortTransaction(int num)
   stm_invoke_callbacks_on_abort(d);
   stm_clear_callbacks_on_abort(d);
 
+  /* XXX */
   fprintf(stderr, "[%lx] abort %s\n",
           (long)d->public_descriptor_index, abort_names[num]);
   dprintf(("\n"
@@ -1537,6 +1538,9 @@ void BecomeInevitable(const char *why)
                 (XXX statically we should know when we're outside
                 a transaction) */
 
+  /* XXX */
+  fprintf(stderr, "[%lx] inevitable: %s\n",
+           (long)d->public_descriptor_index, why);
   dprintf(("[%lx] inevitable: %s\n",
            (long)d->public_descriptor_index, why));
 
