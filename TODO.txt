@@ -10,14 +10,8 @@ TODO list by mattip
 - test "from numpypy import *" esp. get_include()
 - test all *.h files under pypy/module/cpyext/include/numpy
 - make sure all cpyext changes are tested:
-    PyBoolObject (new)
     PyComplexFromCComplex() (changed, problematic for c++?)
-    PyFunctionType (new)
-    PyMethodType (new)
-    PyRangeType (new)
-    PyTracebackType (new)
     _PyPackageContext (new)
-    Py*Flag (most new, some changed) in pythonrun.h
     all ndarrayobject.c
     copy_header_files() in api.py (changed)
     all ndarrayobject.py (new)
