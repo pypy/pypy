@@ -4,16 +4,10 @@ Comments by antocuni, rguillebert
 - why do we need to implement array.nonzero on this branch and it was not done
   e.g. on default?
 
-- interp_numarray.py :: descr___array__: the dtype method is ignored: it's
-  fine to have a half-working implementation, but it should raise an exception
-  if it's passed
-
 TODO list by mattip
 ===================
 
-- test array.nonzero()
 - test "from numpypy import *" esp. get_include()
-- test "import numpy" emitting warning not error
 - test all *.h files under pypy/module/cpyext/include/numpy
 - make sure all cpyext changes are tested:
     PyBoolObject (new)
@@ -29,5 +23,5 @@ TODO list by mattip
     all ndarrayobject.py (new)
     PyNumberCoerceEx() (new)
     PyNumberCoerce() (new)
-- test require_index in create_iter, get_index in iter
-- test use of __array__() and friends
+- test, implement use of __array_prepare__()
+- test, implement use of __array_wrap__()
