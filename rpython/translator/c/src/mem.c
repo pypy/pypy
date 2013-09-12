@@ -78,6 +78,7 @@ int try_pypy_debug_alloc_stop(void *addr)
         free(dying);
         return 1;
       }
+  spinlock_release(pypy_debug_alloc_lock);
   return 0;
 }
 
