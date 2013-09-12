@@ -112,7 +112,7 @@ class PtrRepr(Repr):
 
 class __extend__(pairtype(PtrRepr, PtrRepr)):
     def convert_from_to((r_ptr1, r_ptr2), v, llop):
-        assert r_ptr1.lowleveltype == r_ptr2.lowleveltype
+        assert lltype.isConvertibleFrom(r_ptr2.lowleveltype, r_ptr1.lowleveltype)
         return v
 
 

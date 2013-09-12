@@ -125,7 +125,7 @@ class Repr(object):
                 realtype = typeOf(value)
             except (AssertionError, AttributeError, TypeError):
                 realtype = '???'
-            if realtype != lltype.remove_const(self.lowleveltype):
+            if not lltype.isConvertibleFrom(self.lowleveltype, realtype):
                 raise TyperError("convert_const(self = %r, value = %r)" % (
                     self, value))
         return value

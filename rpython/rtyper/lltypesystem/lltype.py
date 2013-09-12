@@ -104,6 +104,8 @@ class LowLevelType(object):
         return not (self == other)
 
     def _is_convertible_from(self, other):
+        # Sometimes this function is called with something completely
+        # different, for example the string "??".
         if self == other:
             return True
         return remove_const(self) == other

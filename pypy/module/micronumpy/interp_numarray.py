@@ -930,6 +930,7 @@ class __extend__(W_NDimArray):
 
     def descr_setstate(self, space, w_state):
         from rpython.rtyper.lltypesystem import rffi
+        from rpython.rlib.rawstorage import RAW_STORAGE_PTR
 
         shape = space.getitem(w_state, space.wrap(1))
         dtype = space.getitem(w_state, space.wrap(2))
@@ -937,9 +938,11 @@ class __extend__(W_NDimArray):
         isfortran = space.getitem(w_state, space.wrap(3))
         storage = space.getitem(w_state, space.wrap(4))
 
+        raw_storage = rffi.str2charp(space.str_w(storage), track_allocation=False)
+        raw_storage = rffi.cast(RAW_STORAGE_PTR, raw_storage)
         self.implementation = W_NDimArray.from_shape_and_storage(space,
                 [space.int_w(i) for i in space.listview(shape)],
-                rffi.str2charp(space.str_w(storage), track_allocation=False),
+                raw_storage,
                 dtype, owning=True).implementation
 
     def descr___array_finalize__(self, space, w_obj):

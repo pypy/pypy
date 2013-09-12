@@ -23,7 +23,7 @@ from rpython.rtyper.error import TyperError
 from rpython.rtyper.exceptiondata import ExceptionData
 from rpython.rtyper.lltypesystem.lltype import (Signed, Void, LowLevelType,
     Ptr, ContainerType, FuncType, functionptr, typeOf, RuntimeTypeInfo,
-    attachRuntimeTypeInfo, Primitive)
+    attachRuntimeTypeInfo, Primitive, isConvertibleFrom)
 from rpython.rtyper.rmodel import Repr, inputconst, BrokenReprTyperError
 from rpython.rtyper.typesystem import LowLevelTypeSystem
 from rpython.rtyper.normalizecalls import perform_normalizations
@@ -861,7 +861,7 @@ class LowLevelOpList(list):
             if v is NotImplemented:
                 raise TyperError("don't know how to convert from %r to %r" %
                                  (r_from, r_to))
-            if v.concretetype != r_to.lowleveltype:
+            if not isConvertibleFrom(r_to.lowleveltype, v.concretetype):
                 raise TyperError("bug in conversion from %r to %r: "
                                  "returned a %r" % (r_from, r_to,
                                                     v.concretetype))
