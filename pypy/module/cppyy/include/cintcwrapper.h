@@ -11,6 +11,8 @@ extern "C" {
     void* cppyy_load_dictionary(const char* lib_name);
 
     /* pythonization helpers */
+   long cppyy_tfn_install(const char* funcname, int npar);
+
     cppyy_object_t cppyy_ttree_Branch(
         void* vtree, const char* branchname, const char* classname,
         void* addobj, int bufsize, int splitlevel);

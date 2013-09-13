@@ -430,6 +430,84 @@ class AppTestCINTREGRESSION:
         hello.AddText( 'Hello, World!' )
 
 
+class AppTestCINTFUNCTION:
+    spaceconfig = dict(usemodules=['cppyy', '_rawffi', '_ffi', 'itertools'])
+
+    # test the function callbacks; this does not work with Reflex, as it can
+    # not generate functions on the fly (it might with cffi?)
+
+    def test01_global_function_callback(self):
+        """Test callback of a python global function"""
+
+        import cppyy
+        TF1 = cppyy.gbl.TF1
+
+        def identity(x):
+            return x[0]
+
+        f = TF1("pyf1", identity, -1., 1., 0)
+
+        assert f.Eval(0.5)  == 0.5
+        assert f.Eval(-10.) == -10.
+        assert f.Eval(1.0)  == 1.0
+
+        # check proper propagation of default value
+        f = TF1("pyf1d", identity, -1., 1.)
+
+        assert f.Eval(0.5) == 0.5
+
+    def test02_callable_object_callback(self):
+        """Test callback of a python callable object"""
+
+        import cppyy
+        TF1 = cppyy.gbl.TF1
+
+        class Linear:
+            def __call__(self, x, par):
+                return par[0] + x[0]*par[1]
+
+        f = TF1("pyf2", Linear(), -1., 1., 2)
+        f.SetParameters(5., 2.)
+
+        assert f.Eval(-0.1) == 4.8
+        assert f.Eval(1.3)  == 7.6
+
+    def test03_fit_with_python_gaussian(self):
+        """Test fitting with a python global function"""
+
+        # note: this function is dread-fully slow when running testing un-translated
+
+        import cppyy, math
+        TF1, TH1F = cppyy.gbl.TF1, cppyy.gbl.TH1F
+
+        def pygaus(x, par):
+            arg1 = 0
+            scale1 =0
+            ddx = 0.01
+
+            if (par[2] != 0.0):
+                arg1 = (x[0]-par[1])/par[2]
+                scale1 = (ddx*0.39894228)/par[2]
+                h1 = par[0]/(1+par[3])
+
+                gauss = h1*scale1*math.exp(-0.5*arg1*arg1)
+            else:
+                gauss = 0.
+            return gauss
+
+        f = TF1("pygaus", pygaus, -4, 4, 4)
+        f.SetParameters(600, 0.43, 0.35, 600)
+
+        h = TH1F("h", "test", 100, -4, 4)
+        h.FillRandom("gaus", 200000)
+        h.Fit(f, "0Q")
+
+        assert f.GetNDF() == 96
+        result = f.GetParameters()
+        assert round(result[1] - 0., 1) == 0  # mean
+        assert round(result[2] - 1., 1) == 0  # s.d.
+
+
 class AppTestSURPLUS:
     spaceconfig = dict(usemodules=['cppyy', '_rawffi', '_ffi', 'itertools'])
 

@@ -372,7 +372,12 @@ class VoidPtrConverter(TypeConverter):
         try:
             obj = get_rawbuffer(space, w_obj)
         except TypeError:
-            obj = rffi.cast(rffi.VOIDP, get_rawobject(space, w_obj))
+            try:
+                # TODO: accept a 'capsule' rather than naked int
+                # (do accept int(0), though)
+                obj = rffi.cast(rffi.VOIDP, space.int_w(w_obj))
+            except Exception:
+                obj = rffi.cast(rffi.VOIDP, get_rawobject(space, w_obj))
         return obj
 
     def convert_argument(self, space, w_obj, address, call_local):

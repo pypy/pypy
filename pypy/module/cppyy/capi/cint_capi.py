@@ -99,6 +99,55 @@ def _get_string_data(space, w_obj, m1, m2 = None):
         return w_1
     return obj.space.call_method(w_1, m2)
 
+### TF1 ----------------------------------------------------------------------
+tfn_pyfuncs = {}
+
+_tfn_install = rffi.llexternal(
+    "cppyy_tfn_install",
+    [rffi.CCHARP, rffi.INT], rffi.LONG,
+    threadsafe=False,
+    compilation_info=eci)
+
+@unwrap_spec(args_w='args_w')
+def tf1_tf1(space, w_self, args_w):
+    """Pythonized version of TF1 constructor:
+    takes functions and callable objects, and allows a callback into them."""
+
+    from pypy.module.cppyy import interp_cppyy
+    tf1_class = interp_cppyy.scope_byname(space, "TF1")
+
+    # expected signature:
+    #  1. (char* name, pyfunc, double xmin, double xmax, int npar = 0)
+    argc = len(args_w)
+
+    try:
+        # Note: argcount is +1 for the class (== w_self)
+        if argc < 5 or 6 < argc:
+            raise TypeError("wrong number of arguments")
+
+        # second argument must be a name
+        funcname = space.str_w(args_w[1])
+
+        # last (optional) argument is number of parameters
+        npar = 0
+        if argc == 6: npar = space.int_w(args_w[5])
+
+        # third argument must be a callable python object
+        pyfunc = args_w[2]
+        if not space.is_true(space.callable(pyfunc)):
+            raise TypeError("2nd argument is not a valid python callable")
+
+        fid = _tfn_install(funcname, npar)
+        tfn_pyfuncs[fid] = pyfunc
+        newargs_w = (args_w[1], space.wrap(fid), args_w[3], args_w[4], space.wrap(npar))
+    except (OperationError, TypeError, IndexError):
+        newargs_w = args_w[1:]     # drop class
+        pass
+
+    # return control back to the original, unpythonized overload
+    ol = tf1_class.get_overload("TF1")
+    return ol.call(None, newargs_w)
+
 ### TTree --------------------------------------------------------------------
 _ttree_Branch = rffi.llexternal(
     "cppyy_ttree_Branch",
@@ -293,6 +342,9 @@ def register_pythonizations(space):
 
     allfuncs = [
 
+        ### TF1
+        tf1_tf1,
+
         ### TTree
         ttree_Branch, ttree_iter, ttree_getattr,
     ]
@@ -310,6 +362,9 @@ def pythonize(space, name, w_pycppclass):
     if name == "TCollection":
         _method_alias(space, w_pycppclass, "append", "Add")
         _method_alias(space, w_pycppclass, "__len__", "GetSize")
+
+    elif name == "TF1":
+        space.setattr(w_pycppclass, space.wrap("__new__"), _pythonizations["tf1_tf1"])
 
     elif name == "TFile":
         _method_alias(space, w_pycppclass, "__getattr__", "Get")
@@ -347,3 +402,26 @@ def cppyy_recursive_remove(space, cppobject):
     if obj is not None:
         memory_regulator.unregister(obj)
         obj._rawobject = C_NULL_OBJECT
+
+# TFn callback (as above: needs better solution, but this is for CINT only)
+# TODO: it actually can fail ...
+@cpython_api([rffi.LONG, rffi.INT, rffi.DOUBLEP, rffi.DOUBLEP], rffi.DOUBLE, error=CANNOT_FAIL)
+def cppyy_tfn_callback(space, idx, npar, a0, a1):
+    pyfunc = tfn_pyfuncs[idx]
+
+    from pypy.module._rawffi.interp_rawffi import unpack_simple_shape
+    from pypy.module._rawffi.array import W_Array, W_ArrayInstance
+    arr = space.interp_w(W_Array, unpack_simple_shape(space, space.wrap('d')))
+    address = rffi.cast(rffi.ULONG, a0)
+    arg0 = arr.fromaddress(space, address, 4)
+    try:
+        if npar != 0:
+            address = rffi.cast(rffi.ULONG, a1)
+            arg1 = arr.fromaddress(space, address, npar)
+            result = space.call_function(pyfunc, arg0, arg1)
+        else:
+            result = space.call_function(pyfunc, arg0)
+    except Exception:
+        # TODO: error handling here ..
+        return -1.
+    return space.float_w(result)

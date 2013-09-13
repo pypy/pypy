@@ -62,6 +62,9 @@ public:
 // memory regulation (cppyy_recursive_remove is generated a la cpyext capi calls)
 extern "C" void cppyy_recursive_remove(void*);
 
+// TFN callback helper (generated a la cpyext capi calls)
+extern "C" double cppyy_tfn_callback(long, int, double*, double*);
+
 class Cppyy_MemoryRegulator : public TObject {
 public:
     virtual void RecursiveRemove(TObject* object) {
@@ -987,6 +990,61 @@ void* cppyy_load_dictionary(const char* lib_name) {
 
 
 /* pythonization helpers -------------------------------------------------- */
+static std::map<long, std::pair<long, int> > s_tagnum2fid;
+
+static int TFNPyCallback(G__value* res, G__CONST char*, struct G__param* libp, int hash) {
+    // This is a generic CINT-installable TFN (with N=1,2,3) callback (used to factor
+    // out some common code), to allow TFN to call back into python.
+
+    std::pair<long, int> fid_and_npar = s_tagnum2fid[G__value_get_tagnum(res)];
+
+    // callback (defined in cint_capi.py)
+    double d = cppyy_tfn_callback(fid_and_npar.first, fid_and_npar.second,
+       (double*)G__int(libp->para[0]), fid_and_npar.second ? (double*)G__int(libp->para[1]) : NULL);
+
+    // translate result (TODO: error checking)
+    G__letdouble( res, 100, d );
+    return ( 1 || hash || res || libp );
+}
+
+long cppyy_tfn_install(const char* funcname, int npar) {
+    // make a new function placeholder known to CINT
+    static Long_t s_fid = (Long_t)cppyy_tfn_install;
+    ++s_fid;
+
+    const char* signature = "D - - 0 - - D - - 0 - -";
+
+    // create a return type (typically masked/wrapped by a TPyReturn) for the method
+    G__linked_taginfo pti;
+    pti.tagnum = -1;
+    pti.tagtype = 'c';
+    std::string tagname("::py_");                 // used as a buffer
+    tagname += funcname;
+    pti.tagname = tagname.c_str();
+    int tagnum = G__get_linked_tagnum(&pti);      // creates entry for new names
+
+    // for free functions, add to global scope and add lookup through tp2f 
+    // setup a connection between the pointer and the name
+    Long_t hash = 0, len = 0;
+    G__hash(funcname, hash, len);
+    G__lastifuncposition();
+    G__memfunc_setup(funcname, hash, (G__InterfaceMethod)&TFNPyCallback,
+                     tagnum, tagnum, tagnum, 0, 2, 0, 1, 0, signature,
+                     (char*)0, (void*)s_fid, 0);
+    G__resetifuncposition();
+
+    // setup a name in the global namespace (does not result in calls, so the signature
+    // does not matter; but it makes subsequent GetMethod() calls work)
+    G__MethodInfo meth = G__ClassInfo().AddMethod(
+        funcname, funcname, signature, 1, 0, (void*)&TFNPyCallback);
+
+    // store mapping so that the callback can find it
+    s_tagnum2fid[tagnum] = std::make_pair(s_fid, npar);
+
+    // hard to check result ... assume ok
+    return s_fid;
+}
+
 cppyy_object_t cppyy_ttree_Branch(void* vtree, const char* branchname, const char* classname,
         void* addobj, int bufsize, int splitlevel) {
     // this little song-and-dance is to by-pass the handwritten Branch methods
