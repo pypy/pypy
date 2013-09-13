@@ -258,7 +258,7 @@ class RegisterOs(BaseLazyRegistering):
             'int _noprof_execv(const char *path, char *argv[])',
             'return execv(path, argv);')
         os_execv = self.llexternal('_noprof_execv',
-                                   [rffi.CONST_CCHARP, rffi.CCHARPP],
+                                   [rffi.CONST_CCHARP, rffi.CONST_CCHARPP],
                                    rffi.INT, compilation_info = eci)
 
         def execv_llimpl(path, args):
@@ -394,7 +394,7 @@ class RegisterOs(BaseLazyRegistering):
     @registering_str_unicode(os.utime)
     def register_os_utime(self, traits):
         UTIMBUFP = lltype.Ptr(self.UTIMBUF)
-        os_utime = self.llexternal('utime', [rffi.CCHARP, UTIMBUFP], rffi.INT)
+        os_utime = self.llexternal('utime', [rffi.CONST_CCHARP, UTIMBUFP], rffi.INT)
 
         if not _WIN32:
             includes = ['sys/time.h']
@@ -425,7 +425,7 @@ class RegisterOs(BaseLazyRegistering):
             config = platform.configure(CConfig)
             TIMEVAL = config['TIMEVAL']
             TIMEVAL2P = rffi.CArrayPtr(TIMEVAL)
-            os_utimes = self.llexternal('utimes', [rffi.CCHARP, TIMEVAL2P],
+            os_utimes = self.llexternal('utimes', [rffi.CONST_CCHARP, TIMEVAL2P],
                                         rffi.INT, compilation_info=CConfig._compilation_info_)
 
             def os_utime_platform(path, actime, modtime):
@@ -1104,7 +1104,7 @@ class RegisterOs(BaseLazyRegistering):
             config = platform.configure(CConfig)
             DIRENT = config['DIRENT']
             DIRENTP = lltype.Ptr(DIRENT)
-            os_opendir = self.llexternal('opendir', [rffi.CCHARP], DIRP,
+            os_opendir = self.llexternal('opendir', [rffi.CONST_CCHARP], DIRP,
                                          compilation_info=compilation_info)
             # XXX macro=True is hack to make sure we get the correct kind of
             # dirent struct (which depends on defines)
@@ -1206,7 +1206,7 @@ class RegisterOs(BaseLazyRegistering):
 
     @registering_if(os, 'lchown')
     def register_os_lchown(self):
-        os_lchown = self.llexternal('lchown',[rffi.CCHARP, rffi.INT, rffi.INT],
+        os_lchown = self.llexternal('lchown',[rffi.CONST_CCHARP, rffi.INT, rffi.INT],
                                     rffi.INT)
 
         def os_lchown_llimpl(path, uid, gid):
@@ -1233,7 +1233,7 @@ class RegisterOs(BaseLazyRegistering):
     @registering_if(os, 'readlink')
     def register_os_readlink(self):
         os_readlink = self.llexternal('readlink',
-                                   [rffi.CCHARP, rffi.CCHARP, rffi.SIZE_T],
+                                   [rffi.CONST_CCHARP, rffi.CCHARP, rffi.SIZE_T],
                                    rffi.INT)
         # XXX SSIZE_T in POSIX.1-2001
 
@@ -1411,7 +1411,7 @@ class RegisterOs(BaseLazyRegistering):
     @registering_str_unicode(os.rmdir)
     def register_os_rmdir(self, traits):
         os_rmdir = self.llexternal(traits.posix_function_name('rmdir'),
-                                   [traits.CCHARP], rffi.INT)
+                                   [traits.CONST_CCHARP], rffi.INT)
 
         def rmdir_llimpl(pathname):
             res = rffi.cast(lltype.Signed, os_rmdir(pathname))
@@ -1424,7 +1424,7 @@ class RegisterOs(BaseLazyRegistering):
     @registering_str_unicode(os.chmod)
     def register_os_chmod(self, traits):
         os_chmod = self.llexternal(traits.posix_function_name('chmod'),
-                                   [traits.CCHARP, rffi.MODE_T], rffi.INT)
+                                   [traits.CONST_CCHARP, rffi.MODE_T], rffi.INT)
 
         def chmod_llimpl(path, mode):
             res = rffi.cast(lltype.Signed, os_chmod(path, rffi.cast(rffi.MODE_T, mode)))
@@ -1455,7 +1455,7 @@ class RegisterOs(BaseLazyRegistering):
     @registering_str_unicode(os.rename)
     def register_os_rename(self, traits):
         os_rename = self.llexternal(traits.posix_function_name('rename'),
-                                    [traits.CCHARP, traits.CCHARP], rffi.INT)
+                                    [traits.CONST_CCHARP, traits.CONST_CCHARP], rffi.INT)
 
         def rename_llimpl(oldpath, newpath):
             res = rffi.cast(lltype.Signed, os_rename(oldpath, newpath))
@@ -1477,7 +1477,7 @@ class RegisterOs(BaseLazyRegistering):
     @registering_str_unicode(getattr(os, 'mkfifo', None))
     def register_os_mkfifo(self, traits):
         os_mkfifo = self.llexternal(traits.posix_function_name('mkfifo'),
-                                    [traits.CCHARP, rffi.MODE_T], rffi.INT)
+                                    [traits.CONST_CCHARP, rffi.MODE_T], rffi.INT)
 
         def mkfifo_llimpl(path, mode):
             res = rffi.cast(lltype.Signed, os_mkfifo(path, mode))
@@ -1490,7 +1490,7 @@ class RegisterOs(BaseLazyRegistering):
     @registering_str_unicode(getattr(os, 'mknod', None))
     def register_os_mknod(self, traits):
         os_mknod = self.llexternal(traits.posix_function_name('mknod'),
-                                   [traits.CCHARP, rffi.MODE_T, rffi.INT],
+                                   [traits.CONST_CCHARP, rffi.MODE_T, rffi.INT],
                                    rffi.INT)      # xxx: actually ^^^ dev_t
 
         def mknod_llimpl(path, mode, dev):
@@ -1540,7 +1540,7 @@ class RegisterOs(BaseLazyRegistering):
 
     @registering_if(os, 'link')
     def register_os_link(self):
-        os_link = self.llexternal('link', [rffi.CCHARP, rffi.CCHARP],
+        os_link = self.llexternal('link', [rffi.CONST_CCHARP, rffi.CONST_CCHARP],
                                   rffi.INT)
 
         def link_llimpl(oldpath, newpath):
@@ -1553,7 +1553,7 @@ class RegisterOs(BaseLazyRegistering):
 
     @registering_if(os, 'symlink')
     def register_os_symlink(self):
-        os_symlink = self.llexternal('symlink', [rffi.CCHARP, rffi.CCHARP],
+        os_symlink = self.llexternal('symlink', [rffi.CONST_CCHARP, rffi.CONST_CCHARP],
                                      rffi.INT)
 
         def symlink_llimpl(oldpath, newpath):

@@ -80,11 +80,11 @@ else:
                                compilation_info=eci, **kwargs)
 
     _sem_open = external('sem_open',
-                         [rffi.CCHARP, rffi.INT, rffi.INT, rffi.UINT],
+                         [rffi.CONST_CCHARP, rffi.INT, rffi.INT, rffi.UINT],
                          SEM_T)
     # tread sem_close as not threadsafe for now to be able to use the __del__
     _sem_close = external('sem_close', [SEM_T], rffi.INT, threadsafe=False)
-    _sem_unlink = external('sem_unlink', [rffi.CCHARP], rffi.INT)
+    _sem_unlink = external('sem_unlink', [rffi.CONST_CCHARP], rffi.INT)
     _sem_wait = external('sem_wait', [SEM_T], rffi.INT)
     _sem_trywait = external('sem_trywait', [SEM_T], rffi.INT)
     _sem_post = external('sem_post', [SEM_T], rffi.INT)

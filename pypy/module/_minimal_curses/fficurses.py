@@ -63,11 +63,11 @@ eci = guess_eci()
 
 INT = rffi.INT
 INTP = lltype.Ptr(lltype.Array(INT, hints={'nolength':True}))
-c_setupterm = rffi.llexternal('setupterm', [rffi.CCHARP, INT, INTP], INT,
+c_setupterm = rffi.llexternal('setupterm', [rffi.CONST_CCHARP, INT, INTP], INT,
                               compilation_info=eci)
-c_tigetstr = rffi.llexternal('tigetstr', [rffi.CCHARP], rffi.CCHARP,
+c_tigetstr = rffi.llexternal('tigetstr', [rffi.CONST_CCHARP], rffi.CCHARP,
                              compilation_info=eci)
-c_tparm = rffi.llexternal('tparm', [rffi.CCHARP, INT, INT, INT, INT, INT,
+c_tparm = rffi.llexternal('tparm', [rffi.CONST_CCHARP, INT, INT, INT, INT, INT,
                                     INT, INT, INT, INT], rffi.CCHARP,
                           compilation_info=eci)
 

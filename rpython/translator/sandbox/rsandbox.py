@@ -31,12 +31,12 @@ ll_read_not_sandboxed = rffi.llexternal('read',
                                         sandboxsafe=True)
 
 ll_write_not_sandboxed = rffi.llexternal('write',
-                                         [rffi.INT, rffi.CCHARP, rffi.SIZE_T],
+                                         [rffi.INT, rffi.CONST_CCHARP, rffi.SIZE_T],
                                          rffi.SIZE_T,
                                          sandboxsafe=True)
 
 
-@signature(types.int(), types.ptr(rffi.CCHARP.TO), types.int(), returns=types.none())
+@signature(types.int(), types.ptr(rffi.CONST_CCHARP.TO), types.int(), returns=types.none())
 def writeall_not_sandboxed(fd, buf, length):
     while length > 0:
         size = rffi.cast(rffi.SIZE_T, length)

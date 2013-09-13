@@ -20,7 +20,7 @@ class ReleaseGILTests(BaseFrameworkTests):
         glob = Glob()
         #
 
-        c_strchr = rffi.llexternal('strchr', [rffi.CCHARP, lltype.Signed],
+        c_strchr = rffi.llexternal('strchr', [rffi.CONST_CCHARP, lltype.Signed],
                                    rffi.CCHARP)
 
         def func():
