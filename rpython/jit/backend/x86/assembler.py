@@ -2313,50 +2313,49 @@ class Assembler386(BaseAssembler):
             mc.J_il8(rx86.Conditions['NZ'], 0)
             j_ok1 = mc.get_relative_pos()
 
+        skip = False
         # a == 0 || b == 0 -> SET Z
+        j_ok2 = 0
         if isinstance(a_base, ImmedLoc):
             if a_base.getint() == 0:
                 # set Z flag:
                 mc.XOR(X86_64_SCRATCH_REG, X86_64_SCRATCH_REG)
-                mc.JMP_l8(0)
-                j_ok2 = mc.get_relative_pos()
-            else:
-                j_ok2 = 0
+                skip = True
         else:
             mc.CMP(a_base, imm(0))
             mc.J_il8(rx86.Conditions['Z'], 0)
             j_ok2 = mc.get_relative_pos()
         #
-        if isinstance(b_base, ImmedLoc):
-            if b_base.getint() == 0:
-                # set Z flag:
-                mc.XOR(X86_64_SCRATCH_REG, X86_64_SCRATCH_REG)
-                mc.JMP_l8(0)
-                j_ok3 = mc.get_relative_pos()
+        j_ok3 = 0
+        if not skip:
+            if isinstance(b_base, ImmedLoc):
+                if b_base.getint() == 0:
+                    # set Z flag:
+                    mc.XOR(X86_64_SCRATCH_REG, X86_64_SCRATCH_REG)
+                    skip = True
             else:
-                j_ok3 = 0
-        else:
-            mc.CMP(b_base, imm(0))
-            mc.J_il8(rx86.Conditions['Z'], 0)
-            j_ok3 = mc.get_relative_pos()
-        # a.type != b.type
-        # XXX: todo, if it ever happens..
-        
-        #
-        # SLOWPATH
-        #
-        mc.PUSH(b_base)
-        mc.PUSH(a_base)
-        func = self.ptr_eq_slowpath
-        mc.CALL(imm(func))
-        # result still on stack
-        mc.POP_r(X86_64_SCRATCH_REG.value)
-        # _Bool return type only sets lower 8 bits of return value
-        sl = X86_64_SCRATCH_REG.lowest8bits()
-        mc.TEST8_rr(sl.value, sl.value)
-        #
-        # END SLOWPATH
-        #
+                mc.CMP(b_base, imm(0))
+                mc.J_il8(rx86.Conditions['Z'], 0)
+                j_ok3 = mc.get_relative_pos()
+            # a.type != b.type
+            # XXX: todo, if it ever happens..
+
+            #
+            # SLOWPATH
+            #
+            if not skip:
+                mc.PUSH(b_base)
+                mc.PUSH(a_base)
+                func = self.ptr_eq_slowpath
+                mc.CALL(imm(func))
+                # result still on stack
+                mc.POP_r(X86_64_SCRATCH_REG.value)
+                # _Bool return type only sets lower 8 bits of return value
+                sl = X86_64_SCRATCH_REG.lowest8bits()
+                mc.TEST8_rr(sl.value, sl.value)
+            #
+            # END SLOWPATH
+            #
         
         # OK: flags already set
         if j_ok1:
