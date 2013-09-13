@@ -54,6 +54,13 @@ class W_CDataCallback(W_CData):
         if rffi.cast(lltype.Signed, res) != clibffi.FFI_OK:
             raise OperationError(space.w_SystemError,
                 space.wrap("libffi failed to build this callback"))
+        #
+        # We must setup the GIL here, in case the callback is invoked in
+        # some other non-Pythonic thread.  This is the same as cffi on
+        # CPython.
+        if space.config.translation.thread:
+            from pypy.module.thread.os_thread import setup_threads
+            setup_threads(space)
 
     def get_closure(self):
         return rffi.cast(clibffi.FFI_CLOSUREP, self._cdata)

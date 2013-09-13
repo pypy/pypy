@@ -128,7 +128,7 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
         return ll_builder.buf
 
     @classmethod
-    def ll_is_true(cls, ll_builder):
+    def ll_bool(cls, ll_builder):
         return ll_builder != nullptr(cls.lowleveltype.TO)
 
 class StringBuilderRepr(BaseStringBuilderRepr):

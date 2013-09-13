@@ -78,6 +78,19 @@ def test_jitdriver_clone():
     assert driver2.foo == 'bar'
 
 
+def test_merge_enter_different():
+    myjitdriver = JitDriver(greens=[], reds=['n'])
+    def fn(n):
+        while n > 0:
+            myjitdriver.jit_merge_point(n=n)
+            myjitdriver.can_enter_jit(n=n)
+            n -= 1
+        return n
+    py.test.raises(JitHintError, fn, 100)
+
+    myjitdriver = JitDriver(greens=['n'], reds=[])
+    py.test.raises(JitHintError, fn, 100)
+
 class TestJIT(BaseRtypingTest):
     def test_hint(self):
         def f():

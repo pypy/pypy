@@ -241,7 +241,6 @@ def PyThreadState_New(space, interp):
     it is necessary to serialize calls to this function."""
     if not space.config.translation.thread:
         raise NoThreads
-    rthread.gc_thread_prepare()
     # PyThreadState_Get will allocate a new execution context,
     # we need to protect gc and other globals with the GIL.
     rffi.aroundstate.after()

@@ -643,7 +643,6 @@ class MIFrame(object):
     def _opimpl_getfield_raw_any(self, box, fielddescr):
         return self.execute_with_descr(rop.GETFIELD_RAW, fielddescr, box)
     opimpl_getfield_raw_i = _opimpl_getfield_raw_any
-    opimpl_getfield_raw_r = _opimpl_getfield_raw_any
     opimpl_getfield_raw_f = _opimpl_getfield_raw_any
 
     @arguments("box", "descr")
@@ -657,7 +656,6 @@ class MIFrame(object):
     def _opimpl_setfield_raw_any(self, box, valuebox, fielddescr):
         self.execute_with_descr(rop.SETFIELD_RAW, fielddescr, box, valuebox)
     opimpl_setfield_raw_i = _opimpl_setfield_raw_any
-    opimpl_setfield_raw_r = _opimpl_setfield_raw_any
     opimpl_setfield_raw_f = _opimpl_setfield_raw_any
 
     @arguments("box", "box", "box", "descr")

@@ -710,7 +710,3 @@ class AppTestSysExcInfoDirect:
         except:
             assert g() is e
     test_call_in_subfunction.expected = 'n'
-
-
-class AppTestSysExcInfoDirectCallMethod(AppTestSysExcInfoDirect):
-    spaceconfig = {"objspace.opcodes.CALL_METHOD": True}

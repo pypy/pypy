@@ -688,7 +688,7 @@ class Bookkeeper(object):
         fn, block, i = self.position_key
         op = block.operations[i]
         if opname is not None:
-            assert op.opname == opname or op.opname in opname
+            assert op.opname == opname
         if arity is not None:
             assert len(op.args) == arity
         if pos is not None:

@@ -2,6 +2,8 @@ import os
 from rpython.jit.metainterp.history import Const, Box, REF, JitCellToken
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.jit.metainterp.resoperation import rop
+from rpython.rtyper.lltypesystem import lltype
+from rpython.rtyper.lltypesystem.lloperation import llop
 
 try:
     from collections import OrderedDict
@@ -753,5 +755,7 @@ def get_scale(size):
 
 
 def not_implemented(msg):
-    os.write(2, '[llsupport/regalloc] %s\n' % msg)
+    msg = '[llsupport/regalloc] %s\n' % msg
+    if we_are_translated():
+        llop.debug_print(lltype.Void, msg)
     raise NotImplementedError(msg)

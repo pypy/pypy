@@ -1,6 +1,7 @@
 import py
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rlib.jit_hooks import LOOP_RUN_CONTAINER
+from rpython.rlib import rgc
 from rpython.jit.backend.x86.assembler import Assembler386
 from rpython.jit.backend.x86.regalloc import gpr_reg_mgr_cls, xmm_reg_mgr_cls
 from rpython.jit.backend.x86.profagent import ProfileAgent
@@ -63,10 +64,12 @@ class AbstractX86CPU(AbstractLLCPU):
         assert self.assembler is not None
         return RegAlloc(self.assembler, False)
 
+    @rgc.no_release_gil
     def setup_once(self):
         self.profile_agent.startup()
         self.assembler.setup_once()
 
+    @rgc.no_release_gil
     def finish_once(self):
         self.assembler.finish_once()
         self.profile_agent.shutdown()

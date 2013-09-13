@@ -241,22 +241,3 @@ class TestOtherContainers(BaseTestPyPyC):
         loop, = log.loops_by_filename(self.filepath)
         ops = loop.ops_by_id('getitem', include_guard_not_invalidated=False)
         assert log.opnames(ops) == []
-
-    def test_list_count_virtual_list(self):
-        def main(n):
-            i = 0
-            while i < n:
-                i += [n].count(n)
-            return i
-
-        log = self.run(main, [1000])
-        assert log.result == main(1000)
-        loop, = log.loops_by_filename(self.filepath)
-        assert loop.match("""
-            i7 = int_lt(i5, i6)
-            guard_true(i7, descr=...)
-            i9 = int_add(i5, 1)
-            guard_not_invalidated(descr=...)
-            --TICK--
-            jump(..., descr=...)
-        """)
