@@ -12,6 +12,7 @@
 #pragma link C++ class z_;
 
 #pragma link C++ function globalAddOneToInt(int);
+#pragma link C++ function installableAddOneToInt(example01&, int);
 
 #pragma link C++ namespace ns_example01;
 #pragma link C++ function ns_example01::globalAddOneToInt(int);

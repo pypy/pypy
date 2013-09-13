@@ -327,6 +327,17 @@ class AppTestPYTHONIFY:
         e = cppyy.gbl.example01(2)
         assert 5 == meth(e, 3)
 
+    def test01_installable_function(self):
+       """Test installing and calling global C++ function as python method"""
+
+       import cppyy
+
+       cppyy.gbl.example01.fresh = cppyy.gbl.installableAddOneToInt
+
+       e =  cppyy.gbl.example01(0)
+       assert 2 == e.fresh(1)
+       assert 3 == e.fresh(2)
+
 
 class AppTestPYTHONIFY_UI:
     spaceconfig = dict(usemodules=['cppyy', '_rawffi', '_ffi', 'itertools'])

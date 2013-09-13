@@ -156,6 +156,10 @@ int ns_example01::globalAddOneToInt(int a) {
    return ::globalAddOneToInt(a);
 }
 
+int installableAddOneToInt(example01& e, int a) {
+   return e.staticAddOneToInt(a);
+}
+
 int ns_example01::gMyGlobalInt = 99;
 
 
