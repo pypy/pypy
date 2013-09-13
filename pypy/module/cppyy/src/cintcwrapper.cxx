@@ -277,7 +277,7 @@ char* cppyy_resolve_name(const char* cppitem_name) {
     if (ti.Property() & G__BIT_ISENUM)
         return cppstring_to_cstring("unsigned int");
 
-    // actual typedef resolution; add back array declartion portion, if needed
+    // actual typedef resolution; add back array declaration portion, if needed
     std::string rt = ti.TrueName();
 
     // builtin STL types have fake typedefs :/
