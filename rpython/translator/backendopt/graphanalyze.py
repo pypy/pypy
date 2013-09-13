@@ -68,9 +68,6 @@ class GraphAnalyzer(object):
                         result, self.analyze_direct_call(graph, seen))
         return result
 
-    def analyze_instantiate_call(self, seen=None):
-        return self.top_result()
-
     def analyze_link(self, graph, link):
         return self.bottom_result()
 
@@ -79,7 +76,7 @@ class GraphAnalyzer(object):
     def compute_graph_info(self, graph):
         return None
 
-    def analyze(self, op, seen=None, graphinfo=None, block=None):
+    def analyze(self, op, seen=None, graphinfo=None):
         if op.opname == "direct_call":
             graph = get_graph(op.args[0], self.translator)
             if graph is None:
@@ -94,18 +91,6 @@ class GraphAnalyzer(object):
         elif op.opname == "indirect_call":
             graphs = op.args[-1].value
             if graphs is None:
-                if block is not None:
-                    v_func = op.args[0]
-                    for op1 in block.operations:
-                        if (v_func is op1.result and
-                            op1.opname == 'getfield' and
-                            op1.args[0].concretetype == rclass.CLASSTYPE and
-                            op1.args[1].value == 'instantiate'):
-                            x = self.analyze_instantiate_call(seen)
-                            if self.verbose and x:
-                                self.dump_info('analyze_instantiate(%s): %r' % (
-                                    graphs, x))
-                            return x
                 if self.verbose:
                     self.dump_info('%s to unknown' % (op,))
                 return self.top_result()
@@ -143,7 +128,7 @@ class GraphAnalyzer(object):
                 for op in block.operations:
                     result = self.add_to_result(
                         result,
-                        self.analyze(op, seen, graphinfo, block=block)
+                        self.analyze(op, seen, graphinfo)
                     )
                     if self.is_top_result(result):
                         break
@@ -177,7 +162,7 @@ class GraphAnalyzer(object):
             graphs = self.translator.graphs
         for graph in graphs:
             for block, op in graph.iterblockops():
-                self.analyze(op, block=block)
+                self.analyze(op)
 
 
 class Dependency(object):
