@@ -1762,7 +1762,7 @@ class _array(_parentable):
         return v
 
     def setitem(self, index, value):
-        assert typeOf(value) == self._TYPE.OF
+        assert isConvertibleFrom(self._TYPE.OF, typeOf(value))
         self.items[index] = value
 
 assert not '__dict__' in dir(_array)
