@@ -58,8 +58,9 @@ def PyNumber_Index(space, w_obj):
 
 @cpython_api([PyObjectP, PyObjectP], rffi.INT_real, error=-1)
 def PyNumber_CoerceEx(space, pp1, pp2):
-    """
-    """
+    """This function is similar to PyNumber_Coerce(), except that it returns
+    1 when the conversion is not possible and when no error is raised.
+    Reference counts are still not increased in this case."""
     w_obj1 = from_ref(space, pp1[0])
     w_obj2 = from_ref(space, pp2[0])
     w_res = space.try_coerce(w_obj1, w_obj2)
@@ -74,13 +75,19 @@ def PyNumber_CoerceEx(space, pp1, pp2):
 
 @cpython_api([PyObjectP, PyObjectP], rffi.INT_real, error=-1)
 def PyNumber_Coerce(space, pp1, pp2):
-    """
-    """
+    """This function takes the addresses of two variables of type PyObject*.  If
+    the objects pointed to by *p1 and *p2 have the same type, increment their
+    reference count and return 0 (success). If the objects can be converted to a
+    common numeric type, replace *p1 and *p2 by their converted value (with
+    'new' reference counts), and return 0. If no conversion is possible, or if
+    some other error occurs, return -1 (failure) and don't increment the
+    reference counts.  The call PyNumber_Coerce(&o1, &o2) is equivalent to the
+    Python statement o1, o2 = coerce(o1, o2)."""
     w_obj1 = from_ref(space, pp1[0])
     w_obj2 = from_ref(space, pp2[0])
     w_res = space.coerce(w_obj1, w_obj2)
     if w_res is None:
-        return 1
+        return -1
     else:
         Py_DecRef(space, pp1[0])
         Py_DecRef(space, pp2[0])
