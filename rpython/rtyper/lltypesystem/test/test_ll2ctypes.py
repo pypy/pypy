@@ -229,7 +229,7 @@ class TestLL2Ctypes(object):
 
     def test_strlen(self):
         eci = ExternalCompilationInfo(includes=['string.h'])
-        strlen = rffi.llexternal('strlen', [rffi.CCHARP], rffi.SIZE_T,
+        strlen = rffi.llexternal('strlen', [rffi.CONST_CCHARP], rffi.SIZE_T,
                                  compilation_info=eci)
         s = rffi.str2charp("xxx")
         res = strlen(s)
@@ -323,7 +323,7 @@ class TestLL2Ctypes(object):
 
     def test_strchr(self):
         eci = ExternalCompilationInfo(includes=['string.h'])
-        strchr = rffi.llexternal('strchr', [rffi.CCHARP, rffi.INT],
+        strchr = rffi.llexternal('strchr', [rffi.CONST_CCHARP, rffi.INT],
                                  rffi.CCHARP, compilation_info=eci)
         s = rffi.str2charp("hello world")
         res = strchr(s, ord('r'))
@@ -390,7 +390,8 @@ class TestLL2Ctypes(object):
 
     def test_opaque_obj_2(self):
         FILEP = rffi.COpaquePtr('FILE')
-        fopen = rffi.llexternal('fopen', [rffi.CCHARP, rffi.CCHARP], FILEP)
+        fopen = rffi.llexternal('fopen',
+                                [rffi.CONST_CCHARP, rffi.CONST_CCHARP], FILEP)
         fclose = rffi.llexternal('fclose', [FILEP], rffi.INT)
         tmppath = udir.join('test_ll2ctypes.test_opaque_obj_2')
         ll_file = fopen(str(tmppath), "w")
@@ -479,7 +480,7 @@ class TestLL2Ctypes(object):
         assert not ALLOCATED     # detects memory leaks in the test
 
     def test_funcptr2(self):
-        FUNCTYPE = lltype.FuncType([rffi.CCHARP], rffi.LONG)
+        FUNCTYPE = lltype.FuncType([rffi.CONST_CCHARP], rffi.LONG)
         cstrlen = standard_c_lib.strlen
         llstrlen = ctypes2lltype(lltype.Ptr(FUNCTYPE), cstrlen)
         assert lltype.typeOf(llstrlen) == lltype.Ptr(FUNCTYPE)
@@ -755,7 +756,7 @@ class TestLL2Ctypes(object):
             ctypes.windll.kernel32.SetErrorMode(new_err_mode)
         else:
             underscore_on_windows = ''
-        strlen = rffi.llexternal('strlen', [rffi.CCHARP], rffi.SIZE_T,
+        strlen = rffi.llexternal('strlen', [rffi.CONST_CCHARP], rffi.SIZE_T,
                                  compilation_info=eci)
         os_write = rffi.llexternal(underscore_on_windows+'write',
                                    [rffi.INT, rffi.CCHARP, rffi.SIZE_T],
@@ -827,7 +828,7 @@ class TestLL2Ctypes(object):
             py.test.skip("No fcntl on win32")
         fcntl_int = rffi.llexternal('fcntl', [rffi.INT, rffi.INT, rffi.INT],
                                     rffi.INT)
-        fcntl_str = rffi.llexternal('fcntl', [rffi.INT, rffi.INT, rffi.CCHARP],
+        fcntl_str = rffi.llexternal('fcntl', [rffi.INT, rffi.INT, rffi.CONST_CCHARP],
                                     rffi.INT)
         fcntl_int(12345, 1, 0)
         fcntl_str(12345, 3, "xxx")
@@ -889,7 +890,7 @@ class TestLL2Ctypes(object):
             return one + rffi.cast(rffi.LONG, get_y())
 
         def g():
-            l = rffi.liststr2charpp(["a", "b", "c"])
+            l = rffi.cast(rffi.CCHARPP, rffi.liststr2charpp(["a", "b", "c"]))
             try:
                 set_z(l)
                 return rffi.charp2str(get_z()[2])
