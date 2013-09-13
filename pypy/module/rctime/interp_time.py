@@ -194,7 +194,7 @@ if _WIN:
     c_get_daylight = external('pypy_get_daylight', [], rffi.INT, win_eci)
     c_get_tzname = external('pypy_get_tzname', [], rffi.CCHARPP, win_eci)
 
-c_strftime = external('strftime', [rffi.CCHARP, rffi.SIZE_T, rffi.CCHARP, TM_P],
+c_strftime = external('strftime', [rffi.CCHARP, rffi.SIZE_T, rffi.CONST_CCHARP, TM_P],
                       rffi.SIZE_T)
 
 def _init_accept2dyear(space):

@@ -33,7 +33,7 @@ def external(name, args, result, **kwargs):
     return rffi.llexternal(name, args, result, compilation_info=eci, **kwargs)
 
 c_getpwuid = external("getpwuid", [uid_t], passwd_p)
-c_getpwnam = external("getpwnam", [rffi.CCHARP], passwd_p)
+c_getpwnam = external("getpwnam", [rffi.CONST_CCHARP], passwd_p)
 c_setpwent = external("setpwent", [], lltype.Void)
 c_getpwent = external("getpwent", [], passwd_p)
 c_endpwent = external("endpwent", [], lltype.Void)
