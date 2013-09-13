@@ -128,7 +128,7 @@ class LowLevelType(object):
         object.__setattr__(self, attr, nvalue)
 
     def _enforce(self, value):
-        if typeOf(value) != self:
+        if not isConvertibleFrom(self, typeOf(value)):
             raise TypeError
         return value
 
