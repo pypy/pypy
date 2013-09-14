@@ -139,7 +139,7 @@ def tf1_tf1(space, w_self, args_w):
 
         fid = _tfn_install(funcname, npar)
         tfn_pyfuncs[fid] = pyfunc
-        newargs_w = (args_w[1], space.wrap(fid), args_w[3], args_w[4], space.wrap(npar))
+        newargs_w = [args_w[1], space.wrap(fid), args_w[3], args_w[4], space.wrap(npar)]
     except (OperationError, TypeError, IndexError):
         newargs_w = args_w[1:]     # drop class
         pass
@@ -408,6 +408,7 @@ def cppyy_recursive_remove(space, cppobject):
 @cpython_api([rffi.LONG, rffi.INT, rffi.DOUBLEP, rffi.DOUBLEP], rffi.DOUBLE, error=CANNOT_FAIL)
 def cppyy_tfn_callback(space, idx, npar, a0, a1):
     pyfunc = tfn_pyfuncs[idx]
+    npar = int(npar)
 
     from pypy.module._rawffi.interp_rawffi import unpack_simple_shape
     from pypy.module._rawffi.array import W_Array, W_ArrayInstance
