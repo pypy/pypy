@@ -118,10 +118,16 @@ def external(name, args, result, **kwargs):
     return unsafe, safe
 
 def winexternal(name, args, result, **kwargs):
-    return rffi.llexternal(name, args, result,
+    unsafe = rffi.llexternal(name, args, result,
                            compilation_info=CConfig._compilation_info_,
                            calling_conv='win',
                            **kwargs)
+    safe = rffi.llexternal(name, args, result,
+                           compilation_info=CConfig._compilation_info_,
+                           calling_conv='win',
+                           sandboxsafe=True, threadsafe=False,
+                           **kwargs)
+    return unsafe, safe
 
 PTR = rffi.CCHARP
 
@@ -188,32 +194,34 @@ elif _MS_WINDOWS:
     SYSTEM_INFO = config['SYSTEM_INFO']
     SYSTEM_INFO_P = lltype.Ptr(SYSTEM_INFO)
 
-    GetSystemInfo = winexternal('GetSystemInfo', [SYSTEM_INFO_P], lltype.Void)
-    GetFileSize = winexternal('GetFileSize', [HANDLE, LPDWORD], DWORD)
-    GetCurrentProcess = winexternal('GetCurrentProcess', [], HANDLE)
-    DuplicateHandle = winexternal('DuplicateHandle', [HANDLE, HANDLE, HANDLE, LPHANDLE, DWORD, BOOL, DWORD], BOOL)
-    CreateFileMapping = winexternal('CreateFileMappingA', [HANDLE, rwin32.LPSECURITY_ATTRIBUTES, DWORD, DWORD, DWORD, LPCSTR], HANDLE)
-    MapViewOfFile = winexternal('MapViewOfFile', [HANDLE, DWORD, DWORD, DWORD, SIZE_T], LPCSTR)##!!LPVOID)
-    UnmapViewOfFile = winexternal('UnmapViewOfFile', [LPCSTR], BOOL,
-                                  threadsafe=False)
-    FlushViewOfFile = winexternal('FlushViewOfFile', [LPCSTR, SIZE_T], BOOL)
-    SetFilePointer = winexternal('SetFilePointer', [HANDLE, LONG, PLONG, DWORD], DWORD)
-    SetEndOfFile = winexternal('SetEndOfFile', [HANDLE], BOOL)
-    VirtualAlloc = winexternal('VirtualAlloc',
+    GetSystemInfo, _ = winexternal('GetSystemInfo', [SYSTEM_INFO_P], lltype.Void)
+    GetFileSize, _ = winexternal('GetFileSize', [HANDLE, LPDWORD], DWORD)
+    GetCurrentProcess, _ = winexternal('GetCurrentProcess', [], HANDLE)
+    DuplicateHandle, _ = winexternal('DuplicateHandle', [HANDLE, HANDLE, HANDLE, LPHANDLE, DWORD, BOOL, DWORD], BOOL)
+    CreateFileMapping, _ = winexternal('CreateFileMappingA', [HANDLE, rwin32.LPSECURITY_ATTRIBUTES, DWORD, DWORD, DWORD, LPCSTR], HANDLE)
+    MapViewOfFile, _ = winexternal('MapViewOfFile', [HANDLE, DWORD, DWORD, DWORD, SIZE_T], LPCSTR)##!!LPVOID)
+    _, UnmapViewOfFile = winexternal('UnmapViewOfFile', [LPCSTR], BOOL)
+    FlushViewOfFile, _ = winexternal('FlushViewOfFile', [LPCSTR, SIZE_T], BOOL)
+    SetFilePointer, _ = winexternal('SetFilePointer', [HANDLE, LONG, PLONG, DWORD], DWORD)
+    SetEndOfFile, _ = winexternal('SetEndOfFile', [HANDLE], BOOL)
+    VirtualAlloc, VirtualAlloc_safe = winexternal('VirtualAlloc',
                                [rffi.VOIDP, rffi.SIZE_T, DWORD, DWORD],
                                rffi.VOIDP)
     # VirtualProtect is used in llarena and should not release the GIL
-    _VirtualProtect = winexternal('VirtualProtect',
+    _VirtualProtect, _ = winexternal('VirtualProtect',
                                   [rffi.VOIDP, rffi.SIZE_T, DWORD, LPDWORD],
                                   BOOL,
                                   _nowrapper=True)
+    _, VirtualProtect_safe = winexternal('VirtualProtect',
+                                  [rffi.VOIDP, rffi.SIZE_T, DWORD, LPDWORD],
+                                  BOOL)
     def VirtualProtect(addr, size, mode, oldmode_ptr):
         return _VirtualProtect(addr,
                                rffi.cast(rffi.SIZE_T, size),
                                rffi.cast(DWORD, mode),
                                oldmode_ptr)
     VirtualProtect._annspecialcase_ = 'specialize:ll'
-    VirtualFree = winexternal('VirtualFree',
+    VirtualFree, VirtualFree_safe = winexternal('VirtualFree',
                               [rffi.VOIDP, rffi.SIZE_T, DWORD], BOOL)
 
     def _get_page_size():
@@ -846,18 +854,18 @@ elif _MS_WINDOWS:
         case of a sandboxed process
         """
         null = lltype.nullptr(rffi.VOIDP.TO)
-        res = VirtualAlloc(null, map_size, MEM_COMMIT | MEM_RESERVE,
+        res = VirtualAlloc_safe(null, map_size, MEM_COMMIT | MEM_RESERVE,
                            PAGE_EXECUTE_READWRITE)
         if not res:
             raise MemoryError
         arg = lltype.malloc(LPDWORD.TO, 1, zero=True, flavor='raw')
-        VirtualProtect(res, map_size, PAGE_EXECUTE_READWRITE, arg)
+        VirtualProtect_safe(res, map_size, PAGE_EXECUTE_READWRITE, arg)
         lltype.free(arg, flavor='raw')
         # ignore errors, just try
         return res
     alloc._annenforceargs_ = (int,)
 
     def free(ptr, map_size):
-        VirtualFree(ptr, 0, MEM_RELEASE)
+        VirtualFree_safe(ptr, 0, MEM_RELEASE)
 
 # register_external here?
