@@ -1141,7 +1141,7 @@ def wrap_cppobject(space, rawobject, cppclass,
                    do_cast=True, python_owns=False, is_ref=False, fresh=False):
     rawobject = rffi.cast(capi.C_OBJECT, rawobject)
 
-    # cast to actual cast if requested and possible
+    # cast to actual if requested and possible
     w_pycppclass = space.w_None
     if do_cast and rawobject:
         actual = capi.c_actual_class(space, cppclass, rawobject)
