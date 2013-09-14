@@ -583,6 +583,7 @@ class MMap(object):
 
     def getitem(self, index):
         # simplified version, for rpython
+        self.check_valid()
         if index < 0:
             index += self.size
         return self.data[index]
