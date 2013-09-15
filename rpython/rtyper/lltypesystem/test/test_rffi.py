@@ -810,3 +810,12 @@ def test_force_cast_unichar():
         assert cast(LONG, x) == 65535
     else:
         assert cast(LONG, cast(INT, x)) == -1
+
+def test_c_memcpy():
+    p1 = str2charp("hello")
+    p2 = str2charp("WORLD")
+    c_memcpy(cast(VOIDP, p2), cast(VOIDP, p1), cast(SIZE_T, 3))
+    assert charp2str(p1) == "hello"
+    assert charp2str(p2) == "helLD"
+    free_charp(p1)
+    free_charp(p2)

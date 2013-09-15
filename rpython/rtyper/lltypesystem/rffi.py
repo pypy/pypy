@@ -1138,6 +1138,6 @@ class scoped_alloc_unicodebuffer:
 c_memcpy = llexternal("memcpy",
             [VOIDP, VOIDP, SIZE_T],
             lltype.Void,
-            threadsafe=False
+            _nowrapper=True, releasegil=False
         )
 
