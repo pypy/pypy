@@ -271,6 +271,20 @@ class GenericOpcode(BCInstruction):
         return getattr(ctx, self.name)(self.arg)
 
 
+def flow_opcode(func):
+    name = func.__name__
+    class Op(BCInstruction):
+        def __init__(self, arg=0, offset=-1):
+            self.arg = arg
+            self.offset = offset
+
+        def eval(self, ctx):
+            pass
+    Op.__name__ = Op.name = name
+    Op.bc_flow = func
+    bc_reader.register_opcode(Op)
+    return Op
+
 @bc_reader.register_opcode
 class LOAD_CONST(BCInstruction):
     @staticmethod
@@ -279,6 +293,16 @@ class LOAD_CONST(BCInstruction):
 
     def eval(self, ctx):
         ctx.pushvalue(const(self.arg))
+
+@flow_opcode
+def JUMP_ABSOLUTE(self, block, graph):
+    target_block, _ = graph.pos_index[self.arg]
+    graph.add_jump(block, target_block)
+
+@flow_opcode
+def JUMP_FORWARD(self, block, graph):
+    target_block, _ = graph.pos_index[self.arg]
+    graph.add_jump(block, target_block)
 
 _unary_ops = [
     ('UNARY_POSITIVE', op.pos),

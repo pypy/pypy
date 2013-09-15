@@ -666,7 +666,7 @@ class FlowContext(object):
         block.cleanupstack(self)  # the block knows how to clean up the value stack
 
     def JUMP_ABSOLUTE(self, jumpto):
-        return jumpto
+        pass
 
     def YIELD_VALUE(self, _):
         assert self.pycode.is_generator
@@ -689,7 +689,7 @@ class FlowContext(object):
         self.appcall(rpython_print_newline)
 
     def JUMP_FORWARD(self, target):
-        return target
+        pass
 
     def JUMP_IF_FALSE(self, target):
         # Python <= 2.6 only
