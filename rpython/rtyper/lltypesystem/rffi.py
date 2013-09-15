@@ -60,7 +60,7 @@ class _IsLLPtrEntry(ExtRegistryEntry):
 
 def llexternal(name, args, result, _callable=None,
                compilation_info=ExternalCompilationInfo(),
-               sandboxsafe=False, threadsafe='auto',
+               sandboxsafe=False, releasegil='auto',
                _nowrapper=False, calling_conv='c',
                elidable_function=False, macro=None,
                random_effects_on_gcobjs='auto'):
@@ -77,7 +77,7 @@ def llexternal(name, args, result, _callable=None,
     as constant RPython functions.  We don't support yet C functions that
     invoke callbacks passed otherwise (e.g. set by a previous C call).
 
-    threadsafe: whether it's ok to release the GIL around the call.
+    releasegil: whether it's ok to release the GIL around the call.
                 Default is yes, unless sandboxsafe is set, in which case
                 we consider that the function is really short-running and
                 don't bother releasing the GIL.  An explicit True or False
@@ -107,10 +107,10 @@ def llexternal(name, args, result, _callable=None,
     else:
         callbackholder = None
 
-    if threadsafe in (False, True):
+    if releasegil in (False, True):
         # invoke the around-handlers, which release the GIL, if and only if
         # the C function is thread-safe.
-        invoke_around_handlers = threadsafe
+        invoke_around_handlers = releasegil
     else:
         # default case:
         # invoke the around-handlers only for "not too small" external calls;
@@ -1132,11 +1132,3 @@ class scoped_alloc_unicodebuffer:
         keep_unicodebuffer_alive_until_here(self.raw, self.gc_buf)
     def str(self, length):
         return unicode_from_buffer(self.raw, self.gc_buf, self.size, length)
-
-# You would have to have a *huge* amount of data for this to block long enough
-# to be worth it to release the GIL.
-c_memcpy = llexternal("memcpy",
-    [VOIDP, VOIDP, SIZE_T],
-    lltype.Void,
-    threadsafe=False
-)

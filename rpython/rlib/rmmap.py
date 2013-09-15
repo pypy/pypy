@@ -113,7 +113,7 @@ def external(name, args, result, **kwargs):
                              **kwargs)
     safe = rffi.llexternal(name, args, result,
                            compilation_info=CConfig._compilation_info_,
-                           sandboxsafe=True, threadsafe=False,
+                           sandboxsafe=True, releasegil=False,
                            **kwargs)
     return unsafe, safe
 
@@ -125,7 +125,7 @@ def winexternal(name, args, result, **kwargs):
     safe = rffi.llexternal(name, args, result,
                            compilation_info=CConfig._compilation_info_,
                            calling_conv='win',
-                           sandboxsafe=True, threadsafe=False,
+                           sandboxsafe=True, releasegil=False,
                            **kwargs)
     return unsafe, safe
 
