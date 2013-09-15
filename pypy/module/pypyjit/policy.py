@@ -109,7 +109,8 @@ class PyPyJitPolicy(JitPolicy):
                        'posix', '_socket', '_sre', '_lsprof', '_weakref',
                        '__pypy__', 'cStringIO', '_collections', 'struct',
                        'mmap', 'marshal', '_codecs', 'rctime', 'cppyy',
-                       '_cffi_backend', 'pyexpat', '_continuation', '_io']:
+                       '_cffi_backend', 'pyexpat', '_continuation', '_io',
+                       'thread']:
             if modname == 'pypyjit' and 'interp_resop' in rest:
                 return False
             return True

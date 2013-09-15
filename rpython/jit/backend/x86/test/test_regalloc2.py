@@ -32,7 +32,7 @@ def test_bug_rshift():
     cpu = CPU(None, None)
     cpu.setup_once()
     looptoken = JitCellToken()
-    cpu.compile_loop(None, inputargs, operations, looptoken)
+    cpu.compile_loop(inputargs, operations, looptoken)
     deadframe = cpu.execute_token(looptoken, 9)
     assert cpu.get_int_value(deadframe, 0) == (9 >> 3)
     assert cpu.get_int_value(deadframe, 1) == (~18)
@@ -58,7 +58,7 @@ def test_bug_int_is_true_1():
     cpu = CPU(None, None)
     cpu.setup_once()
     looptoken = JitCellToken()
-    cpu.compile_loop(None, inputargs, operations, looptoken)
+    cpu.compile_loop(inputargs, operations, looptoken)
     deadframe = cpu.execute_token(looptoken, -10)
     assert cpu.get_int_value(deadframe, 0) == 0
     assert cpu.get_int_value(deadframe, 1) == -1000
@@ -159,7 +159,7 @@ def test_bug_0():
     cpu = CPU(None, None)
     cpu.setup_once()
     looptoken = JitCellToken()
-    cpu.compile_loop(None, inputargs, operations, looptoken)
+    cpu.compile_loop(inputargs, operations, looptoken)
     deadframe = cpu.execute_token(looptoken, -13, 10, 10, 8, -8,
                                   -16, -18, 46, -12, 26)
     assert cpu.get_int_value(deadframe, 0) == 0
@@ -271,7 +271,7 @@ def test_bug_1():
     cpu = CPU(None, None)
     cpu.setup_once()
     looptoken = JitCellToken()
-    cpu.compile_loop(None, inputargs, operations, looptoken)
+    cpu.compile_loop(inputargs, operations, looptoken)
     deadframe = cpu.execute_token(looptoken, 17, -20, -6, 6, 1,
                                   13, 13, 9, 49, 8)
     assert cpu.get_int_value(deadframe, 0) == 0
@@ -386,7 +386,7 @@ def test_bug_2():
     operations[4].setfailargs([v4, v8, v10, v2, v9, v7, v6, v1])
     operations[8].setfailargs([v3, v9, v2, v6, v4])
     looptoken = JitCellToken()
-    cpu.compile_loop(None, inputargs, operations, looptoken)
+    cpu.compile_loop(inputargs, operations, looptoken)
     loop_args = [1, -39, 46, 21, 16, 6, -4611686018427387905, 12, 14, 2]
     frame = cpu.execute_token(looptoken, *loop_args)
     assert cpu.get_int_value(frame, 0) == 46
@@ -493,7 +493,7 @@ def test_bug_2():
     operations[16].setfailargs([v5, v9])
     operations[34].setfailargs([])
     operations[37].setfailargs([v12, v19, v10, v7, v4, v8, v18, v15, v9])
-    cpu.compile_bridge(None, faildescr1, inputargs, operations, looptoken)
+    cpu.compile_bridge(faildescr1, inputargs, operations, looptoken)
     frame = cpu.execute_token(looptoken, *loop_args)
     #assert cpu.get_int_value(frame, 0) == -9223372036854775766
     assert cpu.get_int_value(frame, 1) == 0
@@ -583,7 +583,7 @@ def test_bug_2():
     operations[0].setfailargs([])
     operations[8].setfailargs([tmp23, v5, v3, v11, v6])
     operations[30].setfailargs([v6])
-    cpu.compile_bridge(None, faildescr6, inputargs, operations, looptoken)
+    cpu.compile_bridge(faildescr6, inputargs, operations, looptoken)
     frame = cpu.execute_token(looptoken, *loop_args)
     #assert cpu.get_int_value(frame, 0) == -9223372036854775808
     v1 = BoxInt()
@@ -607,6 +607,6 @@ def test_bug_2():
         ResOperation(rop.FINISH, [], None, descr=finishdescr13),
         ]
     operations[4].setfailargs([v2])
-    cpu.compile_bridge(None, faildescr10, inputargs, operations, looptoken)
+    cpu.compile_bridge(faildescr10, inputargs, operations, looptoken)
     frame = cpu.execute_token(looptoken, *loop_args)
     #assert cpu.get_int_value(frame, 0) == 10

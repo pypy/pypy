@@ -1,6 +1,7 @@
 import py
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rlib.jit_hooks import LOOP_RUN_CONTAINER
+from rpython.rlib import rgc
 from rpython.jit.backend.x86.assembler import Assembler386
 from rpython.jit.backend.x86.regalloc import gpr_reg_mgr_cls, xmm_reg_mgr_cls
 from rpython.jit.backend.x86.profagent import ProfileAgent
@@ -63,10 +64,12 @@ class AbstractX86CPU(AbstractLLCPU):
         assert self.assembler is not None
         return RegAlloc(self.assembler, False)
 
+    @rgc.no_release_gil
     def setup_once(self):
         self.profile_agent.startup()
         self.assembler.setup_once()
 
+    @rgc.no_release_gil
     def finish_once(self):
         self.assembler.finish_once()
         self.profile_agent.shutdown()
@@ -88,13 +91,13 @@ class AbstractX86CPU(AbstractLLCPU):
         lines = machine_code_dump(data, addr, self.backend_name, label_list)
         print ''.join(lines)
 
-    def compile_loop(self, logger, inputargs, operations, looptoken, log=True,
-                     name=''):
+    def compile_loop(self, inputargs, operations, looptoken, log=True,
+                     name='', logger=None):
         return self.assembler.assemble_loop(logger, name, inputargs, operations,
                                             looptoken, log=log)
 
-    def compile_bridge(self, logger, faildescr, inputargs, operations,
-                       original_loop_token, log=True):
+    def compile_bridge(self, faildescr, inputargs, operations,
+                       original_loop_token, log=True, logger=None):
         clt = original_loop_token.compiled_loop_token
         clt.compiling_a_bridge()
         return self.assembler.assemble_bridge(logger, faildescr, inputargs,

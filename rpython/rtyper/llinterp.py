@@ -969,6 +969,10 @@ class LLFrame(object):
     op_raw_load.need_result_type = True
 
     def op_raw_store(self, addr, offset, value):
+        # XXX handle the write barrier by delegating to self.heap instead
+        self.op_bare_raw_store(addr, offset, value)
+
+    def op_bare_raw_store(self, addr, offset, value):
         checkadr(addr)
         ARGTYPE = lltype.typeOf(value)
         if isinstance(offset, int):

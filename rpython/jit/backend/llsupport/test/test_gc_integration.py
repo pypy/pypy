@@ -676,7 +676,7 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
                         'checkdescr': checkdescr,
                         'fielddescr': cpu.fielddescrof(S, 'x')})
         token = JitCellToken()
-        cpu.compile_loop(None, loop.inputargs, loop.operations, token)
+        cpu.compile_loop(loop.inputargs, loop.operations, token)
         p0 = lltype.malloc(S, zero=True)
         p1 = lltype.malloc(S)
         p2 = lltype.malloc(S)
@@ -715,7 +715,7 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
             'calldescr': checkdescr,
         })
         token = JitCellToken()
-        cpu.compile_loop(None, loop.inputargs, loop.operations, token)
+        cpu.compile_loop(loop.inputargs, loop.operations, token)
         S = self.S
         s = lltype.malloc(S)
         cpu.execute_token(token, 1, s)
@@ -743,7 +743,7 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         token = JitCellToken()
         cpu.gc_ll_descr.init_nursery(20)
         cpu.setup_once()
-        cpu.compile_loop(None, loop.inputargs, loop.operations, token)
+        cpu.compile_loop(loop.inputargs, loop.operations, token)
         arg = longlong.getfloatstorage(2.3)
         frame = cpu.execute_token(token, arg)
         ofs = cpu.get_baseofs_of_frame_field()
@@ -770,7 +770,7 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         cpu.gc_ll_descr.collections = [[0, sizeof.size]]
         cpu.gc_ll_descr.init_nursery(2 * sizeof.size)
         cpu.setup_once()
-        cpu.compile_loop(None, loop.inputargs, loop.operations, token)
+        cpu.compile_loop(loop.inputargs, loop.operations, token)
         frame = cpu.execute_token(token)
         # now we should be able to track everything from the frame
         frame = lltype.cast_opaque_ptr(JITFRAMEPTR, frame)
@@ -821,7 +821,7 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         token = JitCellToken()
         cpu.gc_ll_descr.init_nursery(100)
         cpu.setup_once()
-        cpu.compile_loop(None, loop.inputargs, loop.operations, token)
+        cpu.compile_loop(loop.inputargs, loop.operations, token)
         args = [lltype.nullptr(llmemory.GCREF.TO) for i in range(7)]
         frame = cpu.execute_token(token, 1, *args)
         frame = rffi.cast(JITFRAMEPTR, frame)
@@ -867,7 +867,7 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         token = JitCellToken()
         cpu.gc_ll_descr.init_nursery(100)
         cpu.setup_once()
-        cpu.compile_loop(None, loop.inputargs, loop.operations, token)
+        cpu.compile_loop(loop.inputargs, loop.operations, token)
         frame = lltype.cast_opaque_ptr(JITFRAMEPTR,
                                        cpu.execute_token(token, 1, a))
 
@@ -911,7 +911,7 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         token = JitCellToken()
         cpu.gc_ll_descr.init_nursery(100)
         cpu.setup_once()
-        cpu.compile_loop(None, loop.inputargs, loop.operations, token)
+        cpu.compile_loop(loop.inputargs, loop.operations, token)
         frame = lltype.cast_opaque_ptr(JITFRAMEPTR,
                                        cpu.execute_token(token, 1, a))
         assert getmap(frame).count('1') == 4

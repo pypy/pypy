@@ -62,7 +62,7 @@ eci = ExternalCompilationInfo(
 _c_load_dictionary = rffi.llexternal(
     "cppyy_load_dictionary",
     [rffi.CCHARP], rdynload.DLLHANDLE,
-    threadsafe=False,
+    releasegil=False,
     compilation_info=eci)
 
 def c_load_dictionary(name):
@@ -76,7 +76,7 @@ def c_load_dictionary(name):
 _c_charp2TString = rffi.llexternal(
     "cppyy_charp2TString",
     [rffi.CCHARP], C_OBJECT,
-    threadsafe=ts_helper,
+    releasegil=ts_helper,
     compilation_info=eci)
 def c_charp2TString(space, svalue):
     charp = rffi.str2charp(svalue)
@@ -86,7 +86,7 @@ def c_charp2TString(space, svalue):
 _c_TString2TString = rffi.llexternal(
     "cppyy_TString2TString",
     [C_OBJECT], C_OBJECT,
-    threadsafe=ts_helper,
+    releasegil=ts_helper,
     compilation_info=eci)
 def c_TString2TString(space, cppobject):
     return _c_TString2TString(cppobject)
@@ -105,7 +105,7 @@ tfn_pyfuncs = {}
 _tfn_install = rffi.llexternal(
     "cppyy_tfn_install",
     [rffi.CCHARP, rffi.INT], rffi.LONG,
-    threadsafe=False,
+    releasegil=False,
     compilation_info=eci)
 
 @unwrap_spec(args_w='args_w')
@@ -152,7 +152,7 @@ def tf1_tf1(space, w_self, args_w):
 _ttree_Branch = rffi.llexternal(
     "cppyy_ttree_Branch",
     [rffi.VOIDP, rffi.CCHARP, rffi.CCHARP, rffi.VOIDP, rffi.INT, rffi.INT], rffi.LONG,
-    threadsafe=False,
+    releasegil=False,
     compilation_info=eci)
 
 @unwrap_spec(args_w='args_w')
@@ -226,7 +226,7 @@ def activate_branch(space, w_branch):
 c_ttree_GetEntry = rffi.llexternal(
     "cppyy_ttree_GetEntry",
     [rffi.VOIDP, rffi.LONGLONG], rffi.LONGLONG,
-    threadsafe=False,
+    releasegil=False,
     compilation_info=eci)
 
 @unwrap_spec(args_w='args_w')

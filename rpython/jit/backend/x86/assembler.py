@@ -434,6 +434,7 @@ class Assembler386(BaseAssembler):
         else:
             self.wb_slowpath[withcards + 2 * withfloats] = rawstart
 
+    @rgc.no_release_gil
     def assemble_loop(self, logger, loopname, inputargs, operations, looptoken,
                       log):
         '''adds the following attributes to looptoken:
@@ -513,6 +514,7 @@ class Assembler386(BaseAssembler):
         return AsmInfo(ops_offset, rawstart + looppos,
                        size_excluding_failure_stuff - looppos)
 
+    @rgc.no_release_gil
     def assemble_bridge(self, logger, faildescr, inputargs, operations,
                         original_loop_token, log):
         if not we_are_translated():
@@ -619,7 +621,7 @@ class Assembler386(BaseAssembler):
         for ofs in self.frame_depth_to_patch:
             self._patch_frame_depth(ofs + rawstart, framedepth)
 
-    def _check_frame_depth(self, mc, gcmap, expected_size=-1):
+    def _check_frame_depth(self, mc, gcmap):
         """ check if the frame is of enough depth to follow this bridge.
         Otherwise reallocate the frame in a helper.
         There are other potential solutions
@@ -627,17 +629,11 @@ class Assembler386(BaseAssembler):
         """
         descrs = self.cpu.gc_ll_descr.getframedescrs(self.cpu)
         ofs = self.cpu.unpack_fielddescr(descrs.arraydescr.lendescr)
-        if expected_size == -1:
-            mc.CMP_bi(ofs, 0xffffff)
-        else:
-            mc.CMP_bi(ofs, expected_size)
+        mc.CMP_bi(ofs, 0xffffff)     # force writing 32 bit
         stack_check_cmp_ofs = mc.get_relative_pos() - 4
         mc.J_il8(rx86.Conditions['GE'], 0)
         jg_location = mc.get_relative_pos()
-        if expected_size == -1:
-            mc.MOV_si(WORD, 0xffffff)
-        else:
-            mc.MOV_si(WORD, expected_size)
+        mc.MOV_si(WORD, 0xffffff)     # force writing 32 bit
         ofs2 = mc.get_relative_pos() - 4
         self.push_gcmap(mc, gcmap, mov=True)
         mc.CALL(imm(self._frame_realloc_slowpath))
@@ -2388,7 +2384,9 @@ def heap(addr):
     return AddressLoc(ImmedLoc(addr), imm0, 0, 0)
 
 def not_implemented(msg):
-    os.write(2, '[x86/asm] %s\n' % msg)
+    msg = '[x86/asm] %s\n' % msg
+    if we_are_translated():
+        llop.debug_print(lltype.Void, msg)
     raise NotImplementedError(msg)
 
 cond_call_register_arguments = [edi, esi, edx, ecx]

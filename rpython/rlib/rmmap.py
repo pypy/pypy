@@ -113,7 +113,7 @@ def external(name, args, result, **kwargs):
                              **kwargs)
     safe = rffi.llexternal(name, args, result,
                            compilation_info=CConfig._compilation_info_,
-                           sandboxsafe=True, threadsafe=False,
+                           sandboxsafe=True, releasegil=False,
                            **kwargs)
     return unsafe, safe
 
@@ -195,7 +195,7 @@ elif _MS_WINDOWS:
     CreateFileMapping = winexternal('CreateFileMappingA', [HANDLE, rwin32.LPSECURITY_ATTRIBUTES, DWORD, DWORD, DWORD, LPCSTR], HANDLE)
     MapViewOfFile = winexternal('MapViewOfFile', [HANDLE, DWORD, DWORD, DWORD, SIZE_T], LPCSTR)##!!LPVOID)
     UnmapViewOfFile = winexternal('UnmapViewOfFile', [LPCSTR], BOOL,
-                                  threadsafe=False)
+                                  releasegil=False)
     FlushViewOfFile = winexternal('FlushViewOfFile', [LPCSTR, SIZE_T], BOOL)
     SetFilePointer = winexternal('SetFilePointer', [HANDLE, LONG, PLONG, DWORD], DWORD)
     SetEndOfFile = winexternal('SetEndOfFile', [HANDLE], BOOL)
