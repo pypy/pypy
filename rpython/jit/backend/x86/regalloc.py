@@ -1197,7 +1197,6 @@ class RegAlloc(BaseRegalloc):
         # optimization only: fill in the 'hint_frame_locations' dictionary
         # of 'fm' based on the JUMP at the end of the loop, by looking
         # at where we would like the boxes to be after the jump.
-        return # XXX disabled for now
         op = operations[-1]
         if op.getopnum() != rop.JUMP:
             return
@@ -1223,7 +1222,7 @@ class RegAlloc(BaseRegalloc):
             if isinstance(box, Box):
                 loc = arglocs[i]
                 if isinstance(loc, FrameLoc):
-                    self.fm.hint_frame_locations[box] = loc
+                    self.fm.hint_frame_pos[box] = self.fm.get_loc_index(loc)
 
     def consider_jump(self, op):
         assembler = self.assembler
@@ -1325,13 +1324,9 @@ class RegAlloc(BaseRegalloc):
         # end of the same loop, i.e. if what we are compiling is a single
         # loop that ends up jumping to this LABEL, then we can now provide
         # the hints about the expected position of the spilled variables.
-
-        # XXX we never compile code like that?
-        # YYY of course, because compute_hint_frame_locations() is disabled.
-        #     re-enable this once we re-enable it!
-        #jump_op = self.final_jump_op
-        #if jump_op is not None and jump_op.getdescr() is descr:
-        #    self._compute_hint_frame_locations_from_descr(descr)
+        jump_op = self.final_jump_op
+        if jump_op is not None and jump_op.getdescr() is descr:
+            self._compute_hint_frame_locations_from_descr(descr)
 
     def consider_guard_not_forced_2(self, op):
         self.rm.before_call(op.getfailargs(), save_all_regs=True)
