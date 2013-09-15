@@ -200,27 +200,16 @@ elif _MS_WINDOWS:
     DuplicateHandle, _ = winexternal('DuplicateHandle', [HANDLE, HANDLE, HANDLE, LPHANDLE, DWORD, BOOL, DWORD], BOOL)
     CreateFileMapping, _ = winexternal('CreateFileMappingA', [HANDLE, rwin32.LPSECURITY_ATTRIBUTES, DWORD, DWORD, DWORD, LPCSTR], HANDLE)
     MapViewOfFile, _ = winexternal('MapViewOfFile', [HANDLE, DWORD, DWORD, DWORD, SIZE_T], LPCSTR)##!!LPVOID)
-    _, UnmapViewOfFile = winexternal('UnmapViewOfFile', [LPCSTR], BOOL)
+    _, UnmapViewOfFile_safe = winexternal('UnmapViewOfFile', [LPCSTR], BOOL)
     FlushViewOfFile, _ = winexternal('FlushViewOfFile', [LPCSTR, SIZE_T], BOOL)
     SetFilePointer, _ = winexternal('SetFilePointer', [HANDLE, LONG, PLONG, DWORD], DWORD)
     SetEndOfFile, _ = winexternal('SetEndOfFile', [HANDLE], BOOL)
     VirtualAlloc, VirtualAlloc_safe = winexternal('VirtualAlloc',
                                [rffi.VOIDP, rffi.SIZE_T, DWORD, DWORD],
                                rffi.VOIDP)
-    # VirtualProtect is used in llarena and should not release the GIL
-    _VirtualProtect, _ = winexternal('VirtualProtect',
-                                  [rffi.VOIDP, rffi.SIZE_T, DWORD, LPDWORD],
-                                  BOOL,
-                                  _nowrapper=True)
     _, VirtualProtect_safe = winexternal('VirtualProtect',
                                   [rffi.VOIDP, rffi.SIZE_T, DWORD, LPDWORD],
                                   BOOL)
-    def VirtualProtect(addr, size, mode, oldmode_ptr):
-        return _VirtualProtect(addr,
-                               rffi.cast(rffi.SIZE_T, size),
-                               rffi.cast(DWORD, mode),
-                               oldmode_ptr)
-    VirtualProtect._annspecialcase_ = 'specialize:ll'
     VirtualFree, VirtualFree_safe = winexternal('VirtualFree',
                               [rffi.VOIDP, rffi.SIZE_T, DWORD], BOOL)
 
@@ -308,7 +297,7 @@ class MMap(object):
 
     def unmap(self):
         if _MS_WINDOWS:
-            UnmapViewOfFile(self.getptr(0))
+            UnmapViewOfFile_safe(self.getptr(0))
         elif _POSIX:
             self.unmap_range(0, self.size)
 

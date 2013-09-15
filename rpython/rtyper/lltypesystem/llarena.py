@@ -529,13 +529,14 @@ if os.name == "posix":
 
 elif os.name == 'nt':
     def llimpl_protect(addr, size, inaccessible):
-        from rpython.rlib.rmmap import VirtualProtect, LPDWORD
+        from rpython.rlib.rmmap import VirtualProtect_safe, LPDWORD
         if inaccessible:
             from rpython.rlib.rmmap import PAGE_NOACCESS as newprotect
         else:
             from rpython.rlib.rmmap import PAGE_READWRITE as newprotect
         arg = lltype.malloc(LPDWORD.TO, 1, zero=True, flavor='raw')
-        VirtualProtect(rffi.cast(rffi.VOIDP, addr),
+        #does not release the GIL
+        VirtualProtect_safe(rffi.cast(rffi.VOIDP, addr),
                        size, newprotect, arg)
         # ignore potential errors
         lltype.free(arg, flavor='raw')
