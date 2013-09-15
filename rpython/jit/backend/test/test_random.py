@@ -239,9 +239,9 @@ class OperationBuilder(object):
                 print >>s, '    operations[%d].setfailargs([%s])' % (i, fa)
         if fail_descr is None:
             print >>s, '    looptoken = JitCellToken()'
-            print >>s, '    cpu.compile_loop(None, inputargs, operations, looptoken)'
+            print >>s, '    cpu.compile_loop(inputargs, operations, looptoken)'
         else:
-            print >>s, '    cpu.compile_bridge(None, %s, inputargs, operations, looptoken)' % self.descr_counters[fail_descr]
+            print >>s, '    cpu.compile_bridge(%s, inputargs, operations, looptoken)' % self.descr_counters[fail_descr]
         if hasattr(self.loop, 'inputargs'):
             vals = []
             for i, v in enumerate(self.loop.inputargs):
@@ -643,7 +643,7 @@ class RandomLoop(object):
         self.builder = builder
         self.loop = loop
         dump(loop)
-        cpu.compile_loop(None, loop.inputargs, loop.operations, loop._jitcelltoken)
+        cpu.compile_loop(loop.inputargs, loop.operations, loop._jitcelltoken)
         if self.output:
             builder.print_loop(self.output)
 
@@ -715,7 +715,7 @@ class RandomLoop(object):
                 if box not in self.loop.inputargs:
                     box = box.constbox()
                 args.append(box)
-            self.cpu.compile_loop(None, self.loop.inputargs,
+            self.cpu.compile_loop(self.loop.inputargs,
                                   [ResOperation(rop.JUMP, args, None,
                                                 descr=self.loop._targettoken)],
                                   self._initialjumploop_celltoken)
@@ -851,7 +851,7 @@ class RandomLoop(object):
         if r.random() < .05:
             return False
         dump(subloop)
-        self.builder.cpu.compile_bridge(None, fail_descr, fail_args,
+        self.builder.cpu.compile_bridge(fail_descr, fail_args,
                                         subloop.operations,
                                         self.loop._jitcelltoken)
 

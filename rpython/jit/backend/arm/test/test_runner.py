@@ -75,7 +75,7 @@ class TestARM(LLtypeBackendTest):
             ResOperation(rop.FINISH, [inp[1]], None, descr=BasicFinalDescr(1)),
             ]
         operations[-2].setfailargs(out)
-        cpu.compile_loop(None, inp, operations, looptoken)
+        cpu.compile_loop(inp, operations, looptoken)
         args = [i for i in range(1, 15)]
         deadframe = self.cpu.execute_token(looptoken, *args)
         output = [self.cpu.get_int_value(deadframe, i - 1) for i in range(1, 15)]
@@ -117,9 +117,9 @@ class TestARM(LLtypeBackendTest):
         i1 = int_sub(i0, 1)
         finish(i1)
         ''')
-        self.cpu.compile_loop(None, loop2.inputargs, loop2.operations, lt2)
-        self.cpu.compile_loop(None, loop3.inputargs, loop3.operations, lt3)
-        self.cpu.compile_loop(None, loop1.inputargs, loop1.operations, lt1)
+        self.cpu.compile_loop(loop2.inputargs, loop2.operations, lt2)
+        self.cpu.compile_loop(loop3.inputargs, loop3.operations, lt3)
+        self.cpu.compile_loop(loop1.inputargs, loop1.operations, lt1)
         df = self.cpu.execute_token(lt1, 10)
         assert self.cpu.get_int_value(df, 0) == 7
 
@@ -214,7 +214,7 @@ class TestARM(LLtypeBackendTest):
             ops = "".join(ops)
             loop = parse(ops)
             looptoken = JitCellToken()
-            self.cpu.compile_loop(None, loop.inputargs, loop.operations, looptoken)
+            self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
             ARGS = [lltype.Signed] * numargs
             RES = lltype.Signed
             args = [i+1 for i in range(numargs)]
@@ -246,7 +246,7 @@ class TestARM(LLtypeBackendTest):
         try:
             self.cpu.assembler.set_debug(True)
             looptoken = JitCellToken()
-            self.cpu.compile_loop(None, ops.inputargs, ops.operations, looptoken)
+            self.cpu.compile_loop(ops.inputargs, ops.operations, looptoken)
             self.cpu.execute_token(looptoken, 0)
             # check debugging info
             struct = self.cpu.assembler.loop_run_counters[0]
@@ -280,7 +280,7 @@ class TestARM(LLtypeBackendTest):
         faildescr = BasicFailDescr(2)
         loop = parse(ops, self.cpu, namespace=locals())
         looptoken = JitCellToken()
-        info = self.cpu.compile_loop(None, loop.inputargs, loop.operations, looptoken)
+        info = self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
         ops2 = """
         [i0, f1]
         i1 = same_as(i0)
@@ -293,7 +293,7 @@ class TestARM(LLtypeBackendTest):
         """
         loop2 = parse(ops2, self.cpu, namespace=locals())
         looptoken2 = JitCellToken()
-        info = self.cpu.compile_loop(None, loop2.inputargs, loop2.operations, looptoken2)
+        info = self.cpu.compile_loop(loop2.inputargs, loop2.operations, looptoken2)
 
         deadframe = self.cpu.execute_token(looptoken, -9, longlong.getfloatstorage(-13.5))
         res = longlong.getrealfloat(self.cpu.get_float_value(deadframe, 0))

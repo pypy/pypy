@@ -302,17 +302,17 @@ def do_compile_loop(metainterp_sd, inputargs, operations, looptoken,
                     log=True, name=''):
     metainterp_sd.logger_ops.log_loop(inputargs, operations, -2,
                                       'compiling', name=name)
-    return metainterp_sd.cpu.compile_loop(metainterp_sd.logger_ops,
-                                          inputargs, operations, looptoken,
-                                          log=log, name=name)
+    return metainterp_sd.cpu.compile_loop(inputargs, operations, looptoken,
+                                          log=log, name=name,
+                                          logger=metainterp_sd.logger_ops)
 
 def do_compile_bridge(metainterp_sd, faildescr, inputargs, operations,
                       original_loop_token, log=True):
     metainterp_sd.logger_ops.log_bridge(inputargs, operations, "compiling")
     assert isinstance(faildescr, AbstractFailDescr)
-    return metainterp_sd.cpu.compile_bridge(metainterp_sd.logger_ops,
-                                            faildescr, inputargs, operations,
-                                            original_loop_token, log=log)
+    return metainterp_sd.cpu.compile_bridge(faildescr, inputargs, operations,
+                                            original_loop_token, log=log,
+                                            logger=metainterp_sd.logger_ops)
 
 def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type):
     vinfo = jitdriver_sd.virtualizable_info
@@ -934,7 +934,7 @@ def compile_tmp_callback(cpu, jitdriver_sd, greenboxes, redargtypes,
     ]
     operations[1].setfailargs([])
     operations = get_deep_immutable_oplist(operations)
-    cpu.compile_loop(None, inputargs, operations, jitcell_token, log=False)
+    cpu.compile_loop(inputargs, operations, jitcell_token, log=False)
     if memory_manager is not None:    # for tests
         memory_manager.keep_loop_alive(jitcell_token)
     return jitcell_token
