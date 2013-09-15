@@ -19,7 +19,7 @@ void g2l_clear(struct G2L *g2l)
 
 void g2l_delete(struct G2L *g2l)
 {
-  stm_free(g2l->raw_start, g2l->raw_end - g2l->raw_start);
+  stm_free(g2l->raw_start);
   memset(g2l, 0, sizeof(struct G2L));
 }
 
@@ -66,7 +66,7 @@ static void _g2l_grow(struct G2L *g2l, long extra)
     {
       g2l_insert(&newg2l, item->addr, item->val);
     } G2L_LOOP_END;
-  stm_free(g2l->raw_start, g2l->raw_end - g2l->raw_start);
+  stm_free(g2l->raw_start);
   *g2l = newg2l;
 }
 
@@ -91,7 +91,6 @@ void g2l_insert(struct G2L *g2l, gcptr addr, gcptr val)
   int shift = 0;
   char *p = (char *)(g2l->toplevel.items);
   char *entry;
-  assert((key & (sizeof(void*)-1)) == 0);   /* only for aligned keys */
   while (1)
     {
       p += (key >> shift) & TREE_MASK;
@@ -133,15 +132,15 @@ void g2l_insert(struct G2L *g2l, gcptr addr, gcptr val)
   *(char **)p = (char *)wlog;
 }
 
-void g2l_delete_item(struct G2L *g2l, gcptr addr)
+int g2l_delete_item(struct G2L *g2l, gcptr addr)
 {
     wlog_t *entry;
     G2L_FIND(*g2l, addr, entry, goto missing);
     entry->addr = NULL;
-    return;
+    return 1;
 
  missing:
-    stm_fatalerror("g2l_delete_item: item %p not in dict", addr);
+    return 0;
 }
 
 /************************************************************/
@@ -152,7 +151,7 @@ void gcptrlist_delete(struct GcPtrList *gcptrlist)
     //fprintf(stderr, "list %p deleted (%ld KB)\n",
     //gcptrlist, gcptrlist->alloc * sizeof(gcptr) / 1024);
   gcptrlist->size = 0;
-  stm_free(gcptrlist->items, gcptrlist->alloc * sizeof(gcptr));
+  stm_free(gcptrlist->items);
   gcptrlist->items = NULL;
   gcptrlist->alloc = 0;
 }
@@ -183,7 +182,7 @@ void _gcptrlist_grow(struct GcPtrList *gcptrlist)
   long i;
   for (i=0; i<gcptrlist->size; i++)
     newitems[i] = gcptrlist->items[i];
-  stm_free(gcptrlist->items, gcptrlist->alloc * sizeof(gcptr));
+  stm_free(gcptrlist->items);
   gcptrlist->items = newitems;
   gcptrlist->alloc = newalloc;
 }

@@ -208,8 +208,9 @@ void stmgcpage_free(gcptr obj)
         //stm_dbgmem_not_used(obj, size_class * WORD, 0);
     }
     else {
-        g2l_delete_item(&gcp->nonsmall_objects, obj);
-        stm_free(obj, size);
+        int deleted = g2l_delete_item(&gcp->nonsmall_objects, obj);
+        assert(deleted);
+        stm_free(obj);
     }
 }
 
@@ -235,7 +236,8 @@ void stm_unregister_integer_address(intptr_t adr)
     assert(obj->h_tid & GCFLAG_PUBLIC);
 
     stmgcpage_acquire_global_lock();
-    g2l_delete_item(&registered_stubs, obj);
+    int deleted = g2l_delete_item(&registered_stubs, obj);
+    assert(deleted);
     stmgcpage_release_global_lock();
     dprintf(("unregistered %p\n", obj));
 }
@@ -416,6 +418,7 @@ static gcptr visit_public(gcptr obj, struct tx_public_descriptor *gcp)
     }
     else if (obj != original) {
         /* copy obj over original */
+        assert(obj->h_original == (revision_t)original);
         copy_over_original(obj, original);
     }
 
@@ -496,15 +499,27 @@ static void mark_prebuilt_roots(void)
 static void mark_registered_stubs(void)
 {
     wlog_t *item;
+    gcptr L;
+
     G2L_LOOP_FORWARD(registered_stubs, item) {
         gcptr R = item->addr;
         assert(R->h_tid & GCFLAG_SMALLSTUB);
+        /* The following assert can fail if we have a stub pointing to
+           a stub and both are registered_stubs.  This case is benign. */
+        //assert(!(R->h_tid & (GCFLAG_VISITED | GCFLAG_MARKED)));
 
         R->h_tid |= (GCFLAG_MARKED | GCFLAG_VISITED);
 
-        gcptr L = (gcptr)(R->h_revision - 2);
-        L = stmgcpage_visit(L);
-        R->h_revision = ((revision_t)L) | 2;
+        if (R->h_revision & 2) {
+            L = (gcptr)(R->h_revision - 2);
+            L = stmgcpage_visit(L);
+            R->h_revision = ((revision_t)L) | 2;
+        }
+        else {
+            L = (gcptr)R->h_revision;
+            L = stmgcpage_visit(L);
+            R->h_revision = (revision_t)L;
+        }
 
         /* h_original will be kept up-to-date because
            it is either == L or L's h_original. And
@@ -552,12 +567,7 @@ static void mark_all_stack_roots(void)
         visit_take_protected(&d->old_thread_local_obj);
 
         /* the abortinfo objects */
-        long i, size = d->abortinfo.size;
-        gcptr *items = d->abortinfo.items;
-        for (i = 0; i < size; i += 2) {
-            visit_take_protected(&items[i]);
-            /* items[i+1] is not a gc ptr */
-        }
+        stm_visit_abort_info(d, &visit_take_protected);
 
         /* the current transaction's private copies of public objects */
         wlog_t *item;
@@ -590,8 +600,8 @@ static void mark_all_stack_roots(void)
         } G2L_LOOP_END;
 
         /* reinsert to real pub_to_priv */
-        size = new_public_to_private.size;
-        items = new_public_to_private.items;
+        long i, size = new_public_to_private.size;
+        gcptr *items = new_public_to_private.items;
         for (i = 0; i < size; i += 2) {
             g2l_insert(&d->public_to_private, items[i], items[i + 1]);
         }
@@ -809,7 +819,7 @@ static void sweep_pages(struct tx_public_descriptor *gcp, int size_class)
                 p = (gcptr)(((char *)p) + obj_size);
             }
 #endif
-            stm_free(lpage, GC_PAGE_SIZE);
+            stm_free(lpage);
             assert(gcp->count_pages > 0);
             assert(count_global_pages > 0);
             gcp->count_pages--;
@@ -839,7 +849,7 @@ static void free_unused_local_pages(struct tx_public_descriptor *gcp)
         }
         else {
             G2L_LOOP_DELETE(item);
-            stm_free(p, stmgc_size(p));
+            stm_free(p);
         }
 
     } G2L_LOOP_END_AND_COMPRESS;
@@ -954,10 +964,14 @@ static void major_collect(void)
     mark_prebuilt_roots();
     mark_registered_stubs();
     mark_all_stack_roots();
+    
+    /* weakrefs: */
     do {
         visit_all_objects();
+        stm_update_old_weakrefs_lists();
         stm_visit_old_weakrefs();
     } while (gcptrlist_size(&objects_to_trace) != 0);
+    
     gcptrlist_delete(&objects_to_trace);
     clean_up_lists_of_read_objects_and_fix_outdated_flags();
     stm_clean_old_weakrefs();

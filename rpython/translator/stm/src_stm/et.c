@@ -16,7 +16,7 @@ char* stm_dbg_get_hdr_str(gcptr obj)
 
     i = 0;
     cur = tmp_buf;
-    cur += sprintf(cur, "%p:", obj);
+    cur += sprintf(cur, "%p : ", obj);
     while (flags[i]) {
         if (obj->h_tid & (STM_FIRST_GCFLAG << i)) {
             cur += sprintf(cur, "%s|", flags[i]);
@@ -24,7 +24,34 @@ char* stm_dbg_get_hdr_str(gcptr obj)
         i++;
     }
     cur += sprintf(cur, "tid=%ld", stm_get_tid(obj));
+    cur += sprintf(cur, " : rev=%lx : orig=%lx", 
+                   (long)obj->h_revision, (long)obj->h_original);
     return tmp_buf;
+}
+
+void stm_dump_dbg(void)
+{
+    fprintf(stderr, "/**** stm_dump_dbg ****/\n\n");
+
+    int i;
+    for (i = 0; i < MAX_THREADS; i++) {
+        struct tx_public_descriptor *pd = stm_descriptor_array[i];
+        if (pd == NULL)
+            continue;
+        fprintf(stderr, "stm_descriptor_array[%d]\n((struct tx_public_descriptor *)%p)\n",
+                i, pd);
+
+        struct tx_descriptor *d = stm_tx_head;
+        while (d && d->public_descriptor != pd)
+            d = d->tx_next;
+        if (!d)
+            continue;
+
+        fprintf(stderr, "((struct tx_descriptor *)\033[%dm%p\033[0m)\n"
+                "pthread_self = 0x%lx\n\n", d->tcolor, d, (long)d->pthreadid);
+    }
+
+    fprintf(stderr, "/**********************/\n");
 }
 
 
@@ -109,6 +136,7 @@ gcptr stm_DirectReadBarrier(gcptr G)
   revision_t v;
 
   d->count_reads++;
+  assert(IMPLIES(!(P->h_tid & GCFLAG_OLD), stmgc_is_in_nursery(d, P)));
 
  restart_all:
   if (P->h_tid & GCFLAG_PRIVATE_FROM_PROTECTED)
@@ -281,6 +309,9 @@ gcptr stm_RepeatReadBarrier(gcptr P)
    */
   assert(P->h_tid & GCFLAG_PUBLIC);
   assert(!(P->h_tid & GCFLAG_STUB));
+  assert(IMPLIES(!(P->h_tid & GCFLAG_OLD), 
+                 stmgc_is_in_nursery(thread_descriptor, P)));
+
 
   if (P->h_tid & GCFLAG_MOVED)
     {
@@ -321,6 +352,9 @@ gcptr stm_ImmutReadBarrier(gcptr P)
 {
   assert(P->h_tid & GCFLAG_STUB);
   assert(P->h_tid & GCFLAG_PUBLIC);
+  assert(IMPLIES(!(P->h_tid & GCFLAG_OLD), 
+                 stmgc_is_in_nursery(thread_descriptor, P)));
+
 
   revision_t v = ACCESS_ONCE(P->h_revision);
   assert(IS_POINTER(v));  /* "is a pointer", "has a more recent revision" */
@@ -569,6 +603,7 @@ static gcptr LocalizePublic(struct tx_descriptor *d, gcptr R)
  not_found:
 #endif
 
+  assert(!(R->h_tid & GCFLAG_STUB));
   R->h_tid |= GCFLAG_PUBLIC_TO_PRIVATE;
 
   /* note that stmgc_duplicate() usually returns a young object, but may
@@ -589,6 +624,7 @@ static gcptr LocalizePublic(struct tx_descriptor *d, gcptr R)
   assert(!(L->h_tid & GCFLAG_STUB));
   assert(!(L->h_tid & GCFLAG_PRIVATE_FROM_PROTECTED));
   L->h_tid &= ~(GCFLAG_VISITED           |
+                GCFLAG_MARKED            |
                 GCFLAG_PUBLIC            |
                 GCFLAG_PREBUILT_ORIGINAL |
                 GCFLAG_PUBLIC_TO_PRIVATE |
@@ -610,8 +646,12 @@ static gcptr LocalizePublic(struct tx_descriptor *d, gcptr R)
 
 static inline void record_write_barrier(gcptr P)
 {
+  assert(is_private(P));
+  assert(IMPLIES(!(P->h_tid & GCFLAG_OLD),
+                 stmgc_is_in_nursery(thread_descriptor, P)));
   if (P->h_tid & GCFLAG_WRITE_BARRIER)
     {
+      assert(P->h_tid & GCFLAG_OLD);
       P->h_tid &= ~GCFLAG_WRITE_BARRIER;
       gcptrlist_insert(&thread_descriptor->old_objects_to_trace, P);
     }
@@ -619,6 +659,9 @@ static inline void record_write_barrier(gcptr P)
 
 gcptr stm_RepeatWriteBarrier(gcptr P)
 {
+  assert(IMPLIES(!(P->h_tid & GCFLAG_OLD), 
+                 stmgc_is_in_nursery(thread_descriptor, P)));
+
   assert(!(P->h_tid & GCFLAG_IMMUTABLE));
   assert(is_private(P));
   assert(P->h_tid & GCFLAG_WRITE_BARRIER);
@@ -636,6 +679,9 @@ gcptr stm_WriteBarrier(gcptr P)
      risk of overrunning the object later in gcpage.c when copying a stub
      over it.  However such objects are so small that they contain no field
      at all, and so no write barrier should occur on them. */
+
+  assert(IMPLIES(!(P->h_tid & GCFLAG_OLD), 
+                 stmgc_is_in_nursery(thread_descriptor, P)));
 
   if (is_private(P))
     {
@@ -857,6 +903,7 @@ void AbortPrivateFromProtected(struct tx_descriptor *d);
 
 void AbortTransaction(int num)
 {
+  static const char *abort_names[] = ABORT_NAMES;
   struct tx_descriptor *d = thread_descriptor;
   unsigned long limit;
   struct timespec now;
@@ -905,8 +952,8 @@ void AbortTransaction(int num)
         d->longest_abort_info_time = 0;   /* out of memory! */
       else
         {
-          if (stm_decode_abort_info(d, elapsed_time,
-                                     num, d->longest_abort_info) != size)
+          if (stm_decode_abort_info(d, elapsed_time, num,
+                        (struct tx_abort_info *)d->longest_abort_info) != size)
             stm_fatalerror("during stm abort: object mutated unexpectedly\n");
 
           d->longest_abort_info_time = elapsed_time;
@@ -937,28 +984,38 @@ void AbortTransaction(int num)
   stm_thread_local_obj = d->old_thread_local_obj;
   d->old_thread_local_obj = NULL;
 
+  // notifies the CPU that we're potentially in a spin loop
+  SpinLoop(SPLP_ABORT);
+
+  /* make the transaction no longer active */
+  d->active = 0;
+  d->atomic = 0;
+
   /* release the lock */
   spinlock_release(d->public_descriptor->collection_lock);
 
   /* clear memory registered by stm_clear_on_abort */
-  if (stm_to_clear_on_abort)
-    memset(stm_to_clear_on_abort, 0, stm_bytes_to_clear_on_abort);
+  if (d->mem_clear_on_abort)
+    memset(d->mem_clear_on_abort, 0, d->mem_bytes_to_clear_on_abort);
 
+  /* invoke the callbacks registered by stm_call_on_abort */
+  stm_invoke_callbacks_on_abort(d);
+  stm_clear_callbacks_on_abort(d);
+
+  /* XXX */
+  fprintf(stderr, "[%lx] abort %s\n",
+          (long)d->public_descriptor_index, abort_names[num]);
   dprintf(("\n"
           "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n"
           "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n"
-          "!!!!!!!!!!!!!!!!!!!!!  [%lx] abort %d\n"
+          "!!!!!!!!!!!!!!!!!!!!!  [%lx] abort %s\n"
           "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n"
           "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n"
-          "\n", (long)d->public_descriptor_index, num));
+          "\n", (long)d->public_descriptor_index, abort_names[num]));
   if (num != ABRT_MANUAL && d->max_aborts >= 0 && !d->max_aborts--)
     stm_fatalerror("unexpected abort!\n");
 
-  // notifies the CPU that we're potentially in a spin loop
-  SpinLoop(SPLP_ABORT);
   // jump back to the setjmp_buf (this call does not return)
-  d->active = 0;
-  d->atomic = 0;
   stm_stop_sharedlock();
   longjmp(*d->setjmp_buf, 1);
 }
@@ -1437,6 +1494,10 @@ void CommitTransaction(void)
   d->num_commits++;
   d->active = 0;
   stm_stop_sharedlock();
+
+  /* clear the list of callbacks that would have been called
+     on abort */
+  stm_clear_callbacks_on_abort(d);
 }
 
 /************************************************************/
@@ -1477,6 +1538,9 @@ void BecomeInevitable(const char *why)
                 (XXX statically we should know when we're outside
                 a transaction) */
 
+  /* XXX */
+  fprintf(stderr, "[%lx] inevitable: %s\n",
+           (long)d->public_descriptor_index, why);
   dprintf(("[%lx] inevitable: %s\n",
            (long)d->public_descriptor_index, why));
 
@@ -1673,6 +1737,8 @@ void DescriptorInit(void)
       stm_thread_local_obj = NULL;
       d->thread_local_obj_ref = &stm_thread_local_obj;
       d->max_aborts = -1;
+      d->tcolor = dprintfcolor();
+      d->pthreadid = pthread_self();
       d->tx_prev = NULL;
       d->tx_next = stm_tx_head;
       if (d->tx_next != NULL) d->tx_next->tx_prev = d;
@@ -1746,5 +1812,5 @@ void DescriptorDone(void)
     p += sprintf(p, "]\n");
     dprintf(("%s", line));
 
-    stm_free(d, sizeof(struct tx_descriptor));
+    stm_free(d);
 }

@@ -65,6 +65,10 @@
  * 
  * GCFLAG_HAS_ID is set on young objects that have an old reserved
  * memory to be copied to in minor collections (obj->h_original)
+ * 
+ * GCFLAG_WEAKREF is set on weakrefs. Only needed so that we can trace
+ * the weakptr when stealing a weakref. Maybe a better solution is to
+ * check the typeid?
  */
 static const revision_t GCFLAG_OLD                    = STM_FIRST_GCFLAG << 0;
 static const revision_t GCFLAG_VISITED                = STM_FIRST_GCFLAG << 1;
@@ -80,6 +84,7 @@ static const revision_t GCFLAG_HAS_ID                 = STM_FIRST_GCFLAG << 10;
 static const revision_t GCFLAG_IMMUTABLE              = STM_FIRST_GCFLAG << 11;
 static const revision_t GCFLAG_SMALLSTUB    /*debug*/ = STM_FIRST_GCFLAG << 12;
 static const revision_t GCFLAG_MARKED                 = STM_FIRST_GCFLAG << 13;
+static const revision_t GCFLAG_WEAKREF                = STM_FIRST_GCFLAG << 14;
 /* warning, the last flag available is "<< 15" on 32-bit */
 
 
@@ -104,6 +109,7 @@ static const revision_t GCFLAG_MARKED                 = STM_FIRST_GCFLAG << 13;
                          "IMMUTABLE",         \
                          "SMALLSTUB",         \
                          "MARKED",            \
+                         "WEAKREF",           \
                          NULL }
 
 #define IS_POINTER(v)    (!((v) & 1))   /* even-valued number */
@@ -119,6 +125,15 @@ static const revision_t GCFLAG_MARKED                 = STM_FIRST_GCFLAG << 13;
 #define ABRT_COLLECT_MINOR        6
 #define ABRT_COLLECT_MAJOR        7
 #define ABORT_REASONS         8
+#define ABORT_NAMES      { "MANUAL",            \
+                           "COMMIT",            \
+                           "STOLEN_MODIFIED",   \
+                           "VALIDATE_INFLIGHT", \
+                           "VALIDATE_COMMIT",   \
+                           "VALIDATE_INEV",     \
+                           "COLLECT_MINOR",     \
+                           "COLLECT_MAJOR",     \
+                         }
 
 #define SPLP_ABORT                0
 #define SPLP_LOCKED_INFLIGHT      1
@@ -176,6 +191,11 @@ struct tx_descriptor {
   struct FXCache recent_reads_cache;
   char **read_barrier_cache_ref;
   struct tx_descriptor *tx_prev, *tx_next;
+  int tcolor;
+  pthread_t pthreadid;
+  void *mem_clear_on_abort;
+  size_t mem_bytes_to_clear_on_abort;
+  struct G2L callbacks_on_abort;
 };
 
 extern __thread struct tx_descriptor *thread_descriptor;

@@ -50,7 +50,7 @@ void stmgc_done_nursery(void)
        updatechainheads() -> stub_malloc() -> ...): */
     assert(!minor_collect_anything_to_do(d)
            || d->nursery_current == d->nursery_end);
-    stm_free(d->nursery_base, GC_NURSERY);
+    stm_free(d->nursery_base);
 
     gcptrlist_delete(&d->old_objects_to_trace);
     gcptrlist_delete(&d->public_with_young_copy);
@@ -95,6 +95,7 @@ gcptr stm_allocate(size_t size, unsigned long tid)
 {
     /* XXX inline the fast path */
     assert(tid == (tid & STM_USER_TID_MASK));
+    assert(thread_descriptor->active > 0);
     gcptr P = allocate_nursery(size, tid);
     P->h_revision = stm_private_rev_num;
     assert(P->h_original == 0);  /* null-initialized already */
@@ -156,6 +157,7 @@ static void visit_if_young(gcptr *root)
     struct tx_descriptor *d = thread_descriptor;
 
     if (!stmgc_is_in_nursery(d, obj)) {
+        assert(IMPLIES(obj, obj->h_tid & GCFLAG_OLD));
         /* not a nursery object */
     }
     else {
@@ -454,12 +456,7 @@ static void mark_extra_stuff(struct tx_descriptor *d)
     visit_if_young(d->thread_local_obj_ref);
     visit_if_young(&d->old_thread_local_obj);
 
-    long i, size = d->abortinfo.size;
-    gcptr *items = d->abortinfo.items;
-    for (i = 0; i < size; i += 2) {
-        visit_if_young(&items[i]);
-        /* items[i+1] is not a gc ptr */
-    }
+    stm_visit_abort_info(d, &visit_if_young);
 }
 
 static void minor_collect(struct tx_descriptor *d)
@@ -524,7 +521,7 @@ static void minor_collect(struct tx_descriptor *d)
 #if defined(_GC_DEBUG) && _GC_DEBUG >= 2
     if (d->nursery_cleared == NC_ALREADY_CLEARED)
         assert_cleared(d->nursery_base, GC_NURSERY);
-    stm_free(d->nursery_base, GC_NURSERY);
+    stm_free(d->nursery_base);
     d->nursery_base = stm_malloc(GC_NURSERY);
     d->nursery_end = d->nursery_base + GC_NURSERY;
     dprintf(("minor: nursery moved to [%p to %p]\n", d->nursery_base,

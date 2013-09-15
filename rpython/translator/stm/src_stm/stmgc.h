@@ -155,7 +155,7 @@ extern __thread gcptr stm_thread_local_obj;
    stm_inspect_abort_info().  (XXX details not documented yet) */
 void stm_abort_info_push(gcptr obj, long fieldoffsets[]);
 void stm_abort_info_pop(long count);
-char *stm_inspect_abort_info(void);
+char *stm_inspect_abort_info(void);    /* turns inevitable */
 
 /* mostly for debugging support */
 void stm_abort_and_retry(void);
@@ -176,10 +176,14 @@ gcptr stm_weakref_allocate(size_t size, unsigned long tid, gcptr obj);
 
 /* Clear some memory when aborting a transaction in the current
    thread. This is a provisional API. The information is stored
-   thread-locally and belongs to the current thread. */
+   in the current tx_descriptor. */
 void stm_clear_on_abort(void *start, size_t bytes);
-extern __thread void *stm_to_clear_on_abort;
-extern __thread size_t stm_bytes_to_clear_on_abort;
+
+/* If the current transaction aborts later, invoke 'callback(key)'.
+   If the current transaction commits, then the callback is forgotten.
+   You can only register one callback per key.  You can call
+   'stm_call_on_abort(key, NULL)' to cancel an existing callback. */
+void stm_call_on_abort(void *key, void callback(void *));
 
 /* only user currently is stm_allocate_public_integer_address() */
 void stm_register_integer_address(intptr_t);
