@@ -8,7 +8,6 @@ from rpython.jit.codewriter.jitcode import JitCode
 from rpython.jit.codewriter.effectinfo import (VirtualizableAnalyzer,
     QuasiImmutAnalyzer, RandomEffectsAnalyzer, effectinfo_from_writeanalyze,
     EffectInfo, CallInfoCollection)
-from rpython.translator.simplify import get_funcobj, get_functype
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.translator.backendopt.canraise import RaiseAnalyzer
 from rpython.translator.backendopt.writeanalyze import ReadWriteAnalyzer
@@ -66,7 +65,7 @@ class CallControl(object):
         while todo:
             top_graph = todo.pop()
             for _, op in top_graph.iterblockops():
-                if op.opname not in ("direct_call", "indirect_call", "oosend"):
+                if op.opname not in ("direct_call", "indirect_call"):
                     continue
                 kind = self.guess_call_kind(op, is_candidate)
                 # use callers() to view the calling chain in pdb
@@ -86,29 +85,13 @@ class CallControl(object):
         if is_candidate is None:
             is_candidate = self.is_candidate
         if op.opname == 'direct_call':
-            funcobj = get_funcobj(op.args[0].value)
+            funcobj = op.args[0].value._obj
             graph = funcobj.graph
             if is_candidate(graph):
                 return [graph]     # common case: look inside this graph
         else:
-            assert op.opname in ('indirect_call', 'oosend')
-            if op.opname == 'indirect_call':
-                graphs = op.args[-1].value
-            else:
-                v_obj = op.args[1].concretetype
-                graphs = v_obj._lookup_graphs(op.args[0].value)
-            #
-            if graphs is None:
-                # special case: handle the indirect call that goes to
-                # the 'instantiate' methods.  This check is a bit imprecise
-                # but it's not too bad if we mistake a random indirect call
-                # for the one to 'instantiate'.
-                from rpython.rtyper.lltypesystem import rclass
-                CALLTYPE = op.args[0].concretetype
-                if (op.opname == 'indirect_call' and len(op.args) == 2 and
-                    CALLTYPE == rclass.OBJECT_VTABLE.instantiate):
-                    graphs = list(self._graphs_of_all_instantiate())
-            #
+            assert op.opname == 'indirect_call'
+            graphs = op.args[-1].value
             if graphs is not None:
                 result = []
                 for graph in graphs:
@@ -120,17 +103,12 @@ class CallControl(object):
         # residual call case: we don't need to look into any graph
         return None
 
-    def _graphs_of_all_instantiate(self):
-        for vtable in self.rtyper.lltype2vtable.values():
-            if vtable.instantiate:
-                yield vtable.instantiate._obj.graph
-
     def guess_call_kind(self, op, is_candidate=None):
         if op.opname == 'direct_call':
             funcptr = op.args[0].value
             if self.jitdriver_sd_from_portal_runner_ptr(funcptr) is not None:
                 return 'recursive'
-            funcobj = get_funcobj(funcptr)
+            funcobj = funcptr._obj
             if getattr(funcobj, 'graph', None) is None:
                 return 'residual'
             targetgraph = funcobj.graph
@@ -142,10 +120,6 @@ class CallControl(object):
                     return 'residual'
                 if hasattr(targetgraph.func, 'oopspec'):
                     return 'builtin'
-        elif op.opname == 'oosend':
-            SELFTYPE, methname, opargs = support.decompose_oosend(op)
-            if SELFTYPE.oopspec_name is not None:
-                return 'builtin'
         if self.graphs_from(op, is_candidate) is None:
             return 'residual'
         return 'regular'
@@ -191,7 +165,7 @@ class CallControl(object):
         interp to really do the call corresponding to 'inline_call' ops.
         """
         fnptr = self.rtyper.type_system.getcallable(graph)
-        FUNC = get_functype(lltype.typeOf(fnptr))
+        FUNC = lltype.typeOf(fnptr).TO
         assert self.rtyper.type_system.name == "lltypesystem"
         fnaddr = llmemory.cast_ptr_to_adr(fnptr)
         NON_VOID_ARGS = [ARG for ARG in FUNC.ARGS if ARG is not lltype.Void]
@@ -213,7 +187,7 @@ class CallControl(object):
                                         if x.concretetype is not lltype.Void]
         RESULT = op.result.concretetype
         # check the number and type of arguments
-        FUNC = get_functype(op.args[0].concretetype)
+        FUNC = op.args[0].concretetype.TO
         ARGS = FUNC.ARGS
         assert NON_VOID_ARGS == [T for T in ARGS if T is not lltype.Void]
         assert RESULT == FUNC.RESULT
@@ -222,8 +196,14 @@ class CallControl(object):
         elidable = False
         loopinvariant = False
         call_release_gil_target = llmemory.NULL
+        needs_inevitable = False
+        if op.opname == 'indirect_call' or op.opname == 'direct_call':
+            from rpython.translator.stm.inevitable import (
+                should_turn_inevitable_call)
+            needs_inevitable = bool(should_turn_inevitable_call(op))
+        
         if op.opname == "direct_call":
-            funcobj = get_funcobj(op.args[0].value)
+            funcobj = op.args[0].value._obj
             assert getattr(funcobj, 'calling_conv', 'c') == 'c', (
                 "%r: getcalldescr() with a non-default call ABI" % (op,))
             func = getattr(funcobj, '_callable', None)
@@ -232,7 +212,8 @@ class CallControl(object):
             if loopinvariant:
                 assert not NON_VOID_ARGS, ("arguments not supported for "
                                            "loop-invariant function!")
-            if getattr(func, "_call_aroundstate_target_", None):
+            funcptr = getattr(func, "_call_aroundstate_target_", None)
+            if funcptr:
                 call_release_gil_target = func._call_aroundstate_target_
                 call_release_gil_target = llmemory.cast_ptr_to_adr(
                     call_release_gil_target)
@@ -259,7 +240,9 @@ class CallControl(object):
         #
         effectinfo = effectinfo_from_writeanalyze(
             self.readwrite_analyzer.analyze(op), self.cpu, extraeffect,
-            oopspecindex, can_invalidate, call_release_gil_target)
+            oopspecindex, can_invalidate, call_release_gil_target,
+            needs_inevitable
+        )
         #
         assert effectinfo is not None
         if elidable or loopinvariant:

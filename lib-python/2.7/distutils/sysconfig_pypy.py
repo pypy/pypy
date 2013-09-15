@@ -12,6 +12,7 @@ __revision__ = "$Id: sysconfig.py 85358 2010-10-10 09:54:59Z antoine.pitrou $"
 
 import sys
 import os
+import shlex
 
 from distutils.errors import DistutilsPlatformError
 
@@ -124,11 +125,19 @@ def customize_compiler(compiler):
     if compiler.compiler_type == "unix":
         compiler.compiler_so.extend(['-O2', '-fPIC', '-Wimplicit'])
         compiler.shared_lib_extension = get_config_var('SO')
+        if "CPPFLAGS" in os.environ:
+            cppflags = shlex.split(os.environ["CPPFLAGS"])
+            compiler.compiler.extend(cppflags)
+            compiler.compiler_so.extend(cppflags)
+            compiler.linker_so.extend(cppflags)
         if "CFLAGS" in os.environ:
-            cflags = os.environ["CFLAGS"].split()
+            cflags = shlex.split(os.environ["CFLAGS"])
             compiler.compiler.extend(cflags)
             compiler.compiler_so.extend(cflags)
             compiler.linker_so.extend(cflags)
+        if "LDFLAGS" in os.environ:
+            ldflags = shlex.split(os.environ["LDFLAGS"])
+            compiler.linker_so.extend(ldflags)
 
 
 from sysconfig_cpython import (

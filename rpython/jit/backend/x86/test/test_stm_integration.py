@@ -191,7 +191,7 @@ class GCDescrStm(GCDescrShadowstackDirect):
             print "malloc:", size, tid
             if size > sys.maxint / 2:
                 # for testing exception
-                return lltype.nullptr(llmemory.GCREF.TO)
+                raise LLException(0, 0)
             
             entries = size + StmGC.GCHDRSIZE
             TP = rffi.CArray(lltype.Char)
@@ -422,7 +422,7 @@ class TestGcStm(BaseTestRegalloc):
                 ]
             inputargs = [p0]
             looptoken = JitCellToken()
-            cpu.compile_loop(inputargs, operations, looptoken)
+            cpu.compile_loop(None, inputargs, operations, looptoken)
             self.cpu.execute_token(looptoken, sgcref)
             
             # check if rev-fastpath worked
@@ -465,7 +465,7 @@ class TestGcStm(BaseTestRegalloc):
                 ]
             inputargs = [p0]
             looptoken = JitCellToken()
-            cpu.compile_loop(inputargs, operations, looptoken)
+            cpu.compile_loop(None, inputargs, operations, looptoken)
             self.cpu.execute_token(looptoken, sgcref)
             
             # check if rev-fastpath worked
@@ -531,19 +531,18 @@ class TestGcStm(BaseTestRegalloc):
                         ResOperation(rop.FINISH, [i], None, 
                                      descr=finaldescr)
                         )
+                    print operations
 
+                    
                     # COMPILE & EXECUTE LOOP:
                     inputargs = [p for p in (p1, p2) 
                                  if not isinstance(p, Const)]
                     looptoken = JitCellToken()
-                    c_loop = cpu.compile_loop(inputargs + [i1], operations, 
-                                              looptoken)
+                    c_loop = cpu.compile_loop(None, inputargs + [i1],
+                                              operations, looptoken)
 
                     args = [s for i, s in enumerate((s1, s2))
                             if not isinstance((p1, p2)[i], Const)] + [7]
-                    print "======"
-                    print "inputargs:", inputargs+[i1], args
-                    print "\n".join(map(str,c_loop[1]))
                                         
                     frame = self.cpu.execute_token(looptoken, *args)
                     frame = rffi.cast(JITFRAMEPTR, frame)
@@ -614,7 +613,7 @@ class TestGcStm(BaseTestRegalloc):
         looptoken.outermost_jitdriver_sd = FakeJitDriverSD()
         finish_descr = loop.operations[-1].getdescr()
         self.cpu.done_with_this_frame_descr_int = BasicFinalDescr()
-        self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+        self.cpu.compile_loop(None, loop.inputargs, loop.operations, looptoken)
         ARGS = [lltype.Signed] * 10
         RES = lltype.Signed
         FakeJitDriverSD.portal_calldescr = self.cpu.calldescrof(
@@ -632,7 +631,8 @@ class TestGcStm(BaseTestRegalloc):
         '''
         loop = parse(ops, namespace=locals())
         othertoken = JitCellToken()
-        self.cpu.compile_loop(loop.inputargs, loop.operations, othertoken)
+        self.cpu.compile_loop(None, loop.inputargs, loop.operations,
+                              othertoken)
         args = [i+1 for i in range(10)]
         deadframe = self.cpu.execute_token(othertoken, *args)
         assert called == [id(finish_descr)]
@@ -654,7 +654,8 @@ class TestGcStm(BaseTestRegalloc):
         loop2 = parse(ops)
         looptoken2 = JitCellToken()
         looptoken2.outermost_jitdriver_sd = FakeJitDriverSD()
-        self.cpu.compile_loop(loop2.inputargs, loop2.operations, looptoken2)
+        self.cpu.compile_loop(None, loop2.inputargs, loop2.operations,
+                              looptoken2)
         finish_descr2 = loop2.operations[-1].getdescr()
 
         # install it
@@ -686,13 +687,10 @@ class TestGcStm(BaseTestRegalloc):
 
         inputargs = []
         looptoken = JitCellToken()
-        c_loop = cpu.compile_loop(inputargs, ops1, 
+        c_loop = cpu.compile_loop(None, inputargs, ops1, 
                                   looptoken)
         
         args = []
-        print "======"
-        print "inputargs:", inputargs, args
-        print "\n".join(map(str,c_loop[1]))
         
         frame = self.cpu.execute_token(looptoken, *args)
 
@@ -739,8 +737,7 @@ class TestGcStm(BaseTestRegalloc):
         inputargs = [i0]
         looptoken = JitCellToken()
         looptoken.outermost_jitdriver_sd = FakeJitDriverSD()
-        c_loop = cpu.compile_loop(inputargs, ops, looptoken)
-        
+        c_loop = cpu.compile_loop(None, inputargs, ops, looptoken)
         
         ARGS = [lltype.Signed] * 10
         RES = lltype.Signed
@@ -753,19 +750,75 @@ class TestGcStm(BaseTestRegalloc):
         not_forced = ResOperation(rop.GUARD_NOT_FORCED, [], None,
                                   descr=BasicFailDescr(1))
         not_forced.setfailargs([])
+        no_exception = ResOperation(rop.GUARD_NO_EXCEPTION, [], None,
+                                    descr=BasicFailDescr(2))
+        no_exception.setfailargs([])
         ops = [ResOperation(rop.CALL_ASSEMBLER, [i1], i2, descr=looptoken),
                not_forced,
+               no_exception,
                ResOperation(rop.FINISH, [i1], None, descr=finaldescr),
                ]
         othertoken = JitCellToken()
         cpu.done_with_this_frame_descr_int = BasicFinalDescr()
-        loop = cpu.compile_loop([], ops, othertoken)
+        c_loop = cpu.compile_loop(None, [], ops, othertoken)
         
         deadframe = cpu.execute_token(othertoken)
         frame = rffi.cast(JITFRAMEPTR, deadframe)
-        frame_adr = rffi.cast(lltype.Signed, frame.jf_descr)
-        assert frame_adr != id(finaldescr)
+        descr = rffi.cast(lltype.Signed, frame.jf_descr)
+        assert descr != id(finaldescr)
 
+
+    def test_write_barrier_on_spilled(self):
+        cpu = self.cpu
+
+        PRIV_REV = rffi.cast(lltype.Signed, StmGC.PREBUILT_REVISION)
+        self.priv_rev_num[0] = PRIV_REV
+
+        s = self.allocate_prebuilt_s()
+        other_s = self.allocate_prebuilt_s()
+        sgcref = lltype.cast_opaque_ptr(llmemory.GCREF, s)
+        other_sgcref = lltype.cast_opaque_ptr(llmemory.GCREF, other_s)
+        s.h_revision = PRIV_REV+4
+        other_s.h_revision = PRIV_REV+4
+
+        called_on = []
+        def write_barrier(obj):
+            called_on.append(obj)
+            if llmemory.cast_ptr_to_adr(sgcref) == obj:
+                return rffi.cast(llmemory.Address, other_sgcref)
+            return obj
+        P2W = FakeSTMBarrier(cpu.gc_ll_descr, 'P2W', write_barrier)
+        old_p2w = cpu.gc_ll_descr.P2Wdescr
+        cpu.gc_ll_descr.P2Wdescr = P2W
+
+        cpu.gc_ll_descr.init_nursery(100)
+        cpu.setup_once()
+
+        
+        from rpython.jit.tool.oparser import FORCE_SPILL
+        p0 = BoxPtr()
+        spill = FORCE_SPILL(None)
+        spill.initarglist([p0])
+        operations = [
+            ResOperation(rop.COND_CALL_STM_B, [p0], None,
+                         descr=P2W),
+            spill,
+            ResOperation(rop.COND_CALL_STM_B, [p0], None,
+                         descr=P2W),
+            ResOperation(rop.FINISH, [p0], None, 
+                             descr=BasicFinalDescr(0)),
+            ]
+        inputargs = [p0]
+        looptoken = JitCellToken()
+        print cpu.compile_loop(None, inputargs, operations, looptoken)
+        cpu.execute_token(looptoken, sgcref)
+
+        # the second write-barrier must see the result of the
+        # first one
+        self.assert_in(called_on, [sgcref, other_sgcref])
+
+        # for other tests:
+        cpu.gc_ll_descr.P2Wdescr = old_p2w
 
     
         

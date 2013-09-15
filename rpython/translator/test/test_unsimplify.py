@@ -11,7 +11,7 @@ def translate(func, argtypes, type_system="lltype"):
     t = TranslationContext()
     t.buildannotator().build_types(func, argtypes)
     t.entry_point_graph = graphof(t, func)
-    t.buildrtyper(type_system=type_system).specialize()
+    t.buildrtyper().specialize()
     return graphof(t, func), t
 
 def test_split_blocks_simple():
@@ -26,7 +26,7 @@ def test_split_blocks_simple():
         interp = LLInterpreter(t.rtyper)
         result = interp.eval_graph(graph, [1, 2])
         assert result == 5
-    
+
 def test_split_blocks_conditional():
     for i in range(3):
         def f(x, y):
@@ -73,38 +73,38 @@ def test_split_block_exceptions():
 
 def test_call_initial_function():
     tmpfile = str(udir.join('test_call_initial_function'))
-    for type_system in ['lltype', 'ootype']:
-        def f(x):
-            return x * 6
-        def hello_world():
-            if we_are_translated():
-                fd = os.open(tmpfile, os.O_WRONLY | os.O_CREAT, 0644)
-                os.close(fd)
-        graph, t = translate(f, [int], type_system)
-        call_initial_function(t, hello_world)
-        #
-        if os.path.exists(tmpfile):
-            os.unlink(tmpfile)
-        interp = LLInterpreter(t.rtyper)
-        result = interp.eval_graph(graph, [7])
-        assert result == 42
-        assert os.path.isfile(tmpfile)
+    type_system = 'lltype'
+    def f(x):
+        return x * 6
+    def hello_world():
+        if we_are_translated():
+            fd = os.open(tmpfile, os.O_WRONLY | os.O_CREAT, 0644)
+            os.close(fd)
+    graph, t = translate(f, [int], type_system)
+    call_initial_function(t, hello_world)
+    #
+    if os.path.exists(tmpfile):
+        os.unlink(tmpfile)
+    interp = LLInterpreter(t.rtyper)
+    result = interp.eval_graph(graph, [7])
+    assert result == 42
+    assert os.path.isfile(tmpfile)
 
 def test_call_final_function():
     tmpfile = str(udir.join('test_call_final_function'))
-    for type_system in ['lltype', 'ootype']:
-        def f(x):
-            return x * 6
-        def goodbye_world():
-            if we_are_translated():
-                fd = os.open(tmpfile, os.O_WRONLY | os.O_CREAT, 0644)
-                os.close(fd)
-        graph, t = translate(f, [int], type_system)
-        call_final_function(t, goodbye_world)
-        #
-        if os.path.exists(tmpfile):
-            os.unlink(tmpfile)
-        interp = LLInterpreter(t.rtyper)
-        result = interp.eval_graph(graph, [7])
-        assert result == 42
-        assert os.path.isfile(tmpfile)
+    type_system = 'lltype'
+    def f(x):
+        return x * 6
+    def goodbye_world():
+        if we_are_translated():
+            fd = os.open(tmpfile, os.O_WRONLY | os.O_CREAT, 0644)
+            os.close(fd)
+    graph, t = translate(f, [int], type_system)
+    call_final_function(t, goodbye_world)
+    #
+    if os.path.exists(tmpfile):
+        os.unlink(tmpfile)
+    interp = LLInterpreter(t.rtyper)
+    result = interp.eval_graph(graph, [7])
+    assert result == 42
+    assert os.path.isfile(tmpfile)

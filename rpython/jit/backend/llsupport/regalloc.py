@@ -2,6 +2,8 @@ import os
 from rpython.jit.metainterp.history import Const, Box, REF, JitCellToken
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.jit.metainterp.resoperation import rop
+from rpython.rtyper.lltypesystem import lltype
+from rpython.rtyper.lltypesystem.lloperation import llop
 
 try:
     from collections import OrderedDict
@@ -78,7 +80,7 @@ class LinkedList(object):
 
     def _candidate(self, node):
         return (node.val & 1 == 0) and (node.val + 1 == node.next.val)
-        
+
     def _pop_two(self, tp):
         node = self.master_node
         if node is None or node.next is None:
@@ -281,6 +283,7 @@ class RegisterManager(object):
 
     def __init__(self, longevity, frame_manager=None, assembler=None):
         self.free_regs = self.all_regs[:]
+        self.free_regs.reverse()
         self.longevity = longevity
         self.temp_boxes = []
         if not we_are_translated():
@@ -381,7 +384,7 @@ class RegisterManager(object):
             loc = self.reg_bindings.get(v, None)
             if loc is not None and loc not in self.no_lower_byte_regs:
                 return loc
-            for i in range(len(self.free_regs)):
+            for i in range(len(self.free_regs) - 1, -1, -1):
                 reg = self.free_regs[i]
                 if reg not in self.no_lower_byte_regs:
                     if loc is not None:
@@ -398,6 +401,13 @@ class RegisterManager(object):
                 loc = self.free_regs.pop()
                 self.reg_bindings[v] = loc
                 return loc
+
+    def update_spill_loc_if_necessary(self, var, current_loc):
+        """if variable var is in two locations (spilled and current_loc),
+        update spilled location with current_loc"""
+        spill_loc = self.frame_manager.get(var)
+        if spill_loc:
+            self.assembler.regalloc_mov(current_loc, spill_loc)
 
     def _spill_var(self, v, forbidden_vars, selected_reg,
                    need_lower_byte=False):
@@ -752,5 +762,7 @@ def get_scale(size):
 
 
 def not_implemented(msg):
-    os.write(2, '[llsupport/regalloc] %s\n' % msg)
+    msg = '[llsupport/regalloc] %s\n' % msg
+    if we_are_translated():
+        llop.debug_print(lltype.Void, msg)
     raise NotImplementedError(msg)

@@ -2,62 +2,96 @@
 What's new in PyPy 2.1
 ======================
 
-.. this is a revision shortly after release-2.0
-.. startrev: a13c07067613
+.. this is a revision shortly after release-2.1-beta
+.. startrev: 4eb52818e7c0
 
-.. branch: numpy-pickle
-Pickling of numpy arrays and dtypes (including record dtypes)
+.. branch: sanitise_bytecode_dispatch
+Make PyPy's bytecode dispatcher easy to read, and less reliant on RPython
+magic. There is no functional change, though the removal of dead code leads
+to many fewer tests to execute.
 
-.. branch: remove-array-smm
-Remove multimethods in the arraymodule
+.. branch: fastjson
+Fast json decoder written in RPython, about 3-4x faster than the pure Python
+decoder which comes with the stdlib
 
-.. branch: callback-stacklet
-Fixed bug when switching stacklets from a C callback
+.. branch: improve-str2charp
+Improve the performance of I/O writing up to 15% by using memcpy instead of
+copying char-by-char in str2charp and get_nonmovingbuffer
 
-.. branch: remove-set-smm
-Remove multi-methods on sets
+.. branch: flowoperators
+Simplify rpython/flowspace/ code by using more metaprogramming.  Create
+SpaceOperator class to gather static information about flow graph operations.
 
-.. branch: numpy-subarrays
-Implement subarrays for numpy
+.. branch: package-tk
+Adapt package.py script to compile CFFI tk extension. Add a --without-tk switch
+to optionally skip it.
 
-.. branch: remove-dict-smm
-Remove multi-methods on dict
+.. branch: distutils-cppldflags
+Copy CPython's implementation of customize_compiler, dont call split on
+environment variables, honour CFLAGS, CPPFLAGS, LDSHARED and LDFLAGS on Unices.
 
-.. branch: remove-list-smm-2
-Remove remaining multi-methods on list
+.. branch: precise-instantiate
+When an RPython class is instantiated via an indirect call (that is, which
+class is being instantiated isn't known precisely) allow the optimizer to have
+more precise information about which functions can be called. Needed for Topaz.
 
-.. branch: arm-stacklet
-Stacklet support for ARM, enables _continuation support
+.. branch: ssl_moving_write_buffer
 
-.. branch: remove-tuple-smm
-Remove multi-methods on tuple
+.. branch: pythoninspect-fix
+Make PyPy respect PYTHONINSPECT variable set via os.putenv in the same process
+to start interactive prompt when the script execution finishes. This adds
+new __pypy__.os.real_getenv call that bypasses Python cache and looksup env
+in the underlying OS. Translatorshell now works on PyPy.
 
-.. branch: remove-iter-smm
-Remove multi-methods on iterators
+.. branch: add-statvfs
+Added os.statvfs and os.fstatvfs
 
-.. branch: emit-call-x86
-.. branch: emit-call-arm
+.. branch: statvfs_tests
+Added some addition tests for statvfs.
 
-.. branch: on-abort-resops
-Added list of resops to the pypyjit on_abort hook.
+.. branch: ndarray-subtype
+Allow subclassing ndarray, i.e. matrix
 
-.. branch: logging-perf
-Speeds up the stdlib logging module
+.. branch: kill-ootype
 
-.. branch: operrfmt-NT
-Adds a couple convenient format specifiers to operationerrfmt
+.. branch: fast-slowpath
+Added an abstraction for functions with a fast and slow path in the JIT. This
+speeds up list.append() and list.pop().
 
-.. branch: win32-fixes3
-Skip and fix some non-translated (own) tests for win32 builds
+.. branch: curses_fixes
 
-.. branch: ctypes-byref
-Add the '_obj' attribute on ctypes pointer() and byref() objects
+.. branch: foldable-getarrayitem-indexerror
+Constant-fold reading out of constant tuples in PyPy.
 
-.. branch: argsort-segfault
-Fix a segfault in argsort when sorting by chunks on multidim numpypy arrays (mikefc)
+.. branch: mro-reorder-numpypy-str
+No longer delegate numpy string_ methods to space.StringObject, in numpy
+this works by kind of by accident. Support for merging the refactor-str-types
+branch
 
-.. branch: dtype-isnative
-.. branch: ndarray-round
+.. branch: kill-typesystem
+Remove the "type system" abstraction, now that there is only ever one kind of
+type system used.
 
-.. branch: faster-str-of-bigint
-Improve performance of str(long).
+.. branch: kill-gen-store-back-in
+Kills gen_store_back_in_virtualizable - should improve non-inlined calls by
+a bit
+
+.. branch: dotviewer-linewidth
+.. branch: reflex-support
+.. branch: numpypy-inplace-op
+.. branch: rewritten-loop-logging
+.. branch: no-release-gil
+
+.. branch: nobold-backtrace
+Work on improving UnionError messages and stack trace displays.
+
+.. branch: improve-errors-again
+More improvements and refactorings of error messages.
+
+.. branch: improve-errors-again2
+Unbreak tests in rlib.
+
+.. branch: less-stringly-ops
+Use subclasses of SpaceOperation instead of SpaceOperator objects.
+Random cleanups in flowspace.
+

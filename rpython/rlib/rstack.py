@@ -23,6 +23,7 @@ compilation_info = ExternalCompilationInfo(
 def llexternal(name, args, res, _callable=None, **kwds):
     return rffi.llexternal(name, args, res, compilation_info=compilation_info,
                            sandboxsafe=True, _nowrapper=True,
+                           transactionsafe=True,
                            _callable=_callable, **kwds)
 
 _stack_get_end = llexternal('LL_stack_get_end', [], lltype.Signed,
@@ -34,24 +35,30 @@ _stack_set_length_fraction = llexternal('LL_stack_set_length_fraction',
                                         lambda frac: None)
 _stack_too_big_slowpath = llexternal('LL_stack_too_big_slowpath',
                                      [lltype.Signed], lltype.Char,
-                                     lambda cur: '\x00',
-                                     transactionsafe=True)
+                                     lambda cur: '\x00')
 # the following is used by the JIT
 _stack_get_end_adr   = llexternal('LL_stack_get_end_adr',   [], lltype.Signed)
 _stack_get_length_adr= llexternal('LL_stack_get_length_adr',[], lltype.Signed)
 
 # the following is also used by the JIT: "critical code" paths are paths in
 # which we should not raise StackOverflow at all, but just ignore the stack limit
-_stack_criticalcode_start = llexternal('LL_stack_criticalcode_start', [],
-                                       lltype.Void, lambda: None)
-_stack_criticalcode_stop = llexternal('LL_stack_criticalcode_stop', [],
-                                      lltype.Void, lambda: None)
+_LL_stack_criticalcode_start = llexternal('LL_stack_criticalcode_start', [],
+                                          lltype.Void)
+_LL_stack_criticalcode_stop = llexternal('LL_stack_criticalcode_stop', [],
+                                         lltype.Void)
+def _stack_criticalcode_start():
+    if we_are_translated() and not rgc.stm_is_enabled():
+        _LL_stack_criticalcode_start()
+def _stack_criticalcode_stop():
+    if we_are_translated() and not rgc.stm_is_enabled():
+        _LL_stack_criticalcode_stop()
+
 
 def stack_check():
     if not we_are_translated():
         return
-    # XXX --- custom version for STM ---
-    return  # ignore
+    if rgc.stm_is_enabled():
+        return  # XXX ignore if we use STM
     #
     # Load the "current" stack position, or at least some address that
     # points close to the current stack head

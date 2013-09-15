@@ -3,17 +3,16 @@ import py
 from rpython.translator.translator import TranslationContext, graphof
 from rpython.translator.backendopt.storesink import storesink_graph
 from rpython.translator.backendopt import removenoops
-from rpython.flowspace.model import last_exception, checkgraph
+from rpython.flowspace.model import checkgraph
 from rpython.conftest import option
 
 class TestStoreSink(object):
-    # not sure if it makes any sense on ootype, maybe worth trying
     type_system = 'lltype'
-    
+
     def translate(self, func, argtypes):
         t = TranslationContext()
         t.buildannotator().build_types(func, argtypes)
-        t.buildrtyper(type_system=self.type_system).specialize()
+        t.buildrtyper().specialize()
         return t
 
     def check(self, f, argtypes, no_getfields=0):
@@ -37,7 +36,7 @@ class TestStoreSink(object):
     def test_infrastructure(self):
         class A(object):
             pass
-        
+
         def f(i):
             a = A()
             a.x = i
@@ -55,7 +54,7 @@ class TestStoreSink(object):
             return a.x + a.x
 
         self.check(f, [int], 1)
-                
+
     def test_irrelevant_setfield(self):
         class A(object):
             pass

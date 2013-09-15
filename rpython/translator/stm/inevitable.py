@@ -2,13 +2,14 @@ from rpython.rtyper.lltypesystem import lltype, lloperation, rclass
 from rpython.translator.stm.writebarrier import is_immutable
 from rpython.flowspace.model import SpaceOperation, Constant
 from rpython.translator.unsimplify import varoftype
-from rpython.translator.simplify import get_funcobj
 
 
 ALWAYS_ALLOW_OPERATIONS = set([
     'force_cast', 'keepalive', 'cast_ptr_to_adr',
     'cast_adr_to_int',
-    'debug_print', 'debug_assert', 'cast_opaque_ptr', 'hint',
+    'debug_print', 'debug_assert',
+    'debug_start', 'debug_stop', 'have_debug_prints',
+    'cast_opaque_ptr', 'hint',
     'stack_current', 'gc_stack_bottom',
     'cast_current_ptr_to_int',   # this variant of 'cast_ptr_to_int' is ok
     'jit_force_virtual', 'jit_force_virtualizable',
@@ -19,6 +20,7 @@ ALWAYS_ALLOW_OPERATIONS = set([
     'weakref_create', 'weakref_deref',
     'stm_threadlocalref_get', 'stm_threadlocalref_set',
     'stm_threadlocalref_count', 'stm_threadlocalref_addr',
+    'jit_assembler_call', 'gc_writebarrier',
     ])
 ALWAYS_ALLOW_OPERATIONS |= set(lloperation.enum_tryfold_ops())
 
@@ -26,10 +28,14 @@ for opname, opdesc in lloperation.LL_OPERATIONS.iteritems():
     if opname.startswith('stm_'):
         ALWAYS_ALLOW_OPERATIONS.add(opname)
 
-GETTERS = set(['getfield', 'getarrayitem', 'getinteriorfield'])
-SETTERS = set(['setfield', 'setarrayitem', 'setinteriorfield'])
+GETTERS = set(['getfield', 'getarrayitem', 'getinteriorfield', 'raw_load'])
+SETTERS = set(['setfield', 'setarrayitem', 'setinteriorfield', 'raw_store'])
 MALLOCS = set(['malloc', 'malloc_varsize',
-               'malloc_nonmovable', 'malloc_nonmovable_varsize'])
+               'malloc_nonmovable', 'malloc_nonmovable_varsize',
+               'raw_malloc',
+               'do_malloc_fixedsize_clear', 'do_malloc_varsize_clear'])
+FREES   = set(['free', 'raw_free'])
+
 # ____________________________________________________________
 
 def should_turn_inevitable_getter_setter(op, fresh_mallocs):
@@ -37,7 +43,10 @@ def should_turn_inevitable_getter_setter(op, fresh_mallocs):
     # If it is a RAW pointer, and it is a read from a non-immutable place,
     # and it doesn't use the hint 'stm_dont_track_raw_accesses', then they
     # turn inevitable.
-    S = op.args[0].concretetype.TO
+    TYPE = op.args[0].concretetype
+    if not isinstance(TYPE, lltype.Ptr):
+        return True     # raw_load or raw_store with a number or address
+    S = TYPE.TO
     if S._gckind == 'gc':
         return False
     if is_immutable(op):
@@ -46,6 +55,29 @@ def should_turn_inevitable_getter_setter(op, fresh_mallocs):
         return False
     return not fresh_mallocs.is_fresh_malloc(op.args[0])
 
+def should_turn_inevitable_call(op):
+    if op.opname == 'direct_call':
+        funcptr = op.args[0].value._obj
+        if not hasattr(funcptr, "external"):
+            return False
+        if getattr(funcptr, "transactionsafe", False):
+            return False
+        try:
+            return funcptr._name + '()'
+        except AttributeError:
+            return True
+        
+    elif op.opname == 'indirect_call':
+        tographs = op.args[-1].value
+        if tographs is not None:
+            # Set of RPython functions
+            return False
+        # unknown function
+        return True
+        
+    assert False
+    
+    
 def should_turn_inevitable(op, block, fresh_mallocs):
     # Always-allowed operations never cause a 'turn inevitable'
     if op.opname in ALWAYS_ALLOW_OPERATIONS:
@@ -63,10 +95,8 @@ def should_turn_inevitable(op, block, fresh_mallocs):
     #
     # Mallocs & Frees
     if op.opname in MALLOCS:
-        # flags = op.args[1].value
-        # return flags['flavor'] != 'gc'
-        return False # XXX: Produces memory leaks on aborts
-    if op.opname == 'free':
+        return False
+    if op.opname in FREES:
         # We can only run a CFG in non-inevitable mode from start
         # to end in one transaction (every free gets called once
         # for every fresh malloc). No need to turn inevitable.
@@ -74,40 +104,9 @@ def should_turn_inevitable(op, block, fresh_mallocs):
         # CFG will always run in inevitable mode anyways.
         return not fresh_mallocs.is_fresh_malloc(op.args[0])
     #
-    if op.opname == 'raw_malloc':
-        return False # XXX: Produces memory leaks on aborts
-    if op.opname == 'raw_free':
-        return not fresh_mallocs.is_fresh_malloc(op.args[0])
-
-    #
     # Function calls
-    if op.opname == 'direct_call':
-        funcptr = get_funcobj(op.args[0].value)
-        if not hasattr(funcptr, "external"):
-            return False
-        if getattr(funcptr, "transactionsafe", False):
-            return False
-        try:
-            return funcptr._name + '()'
-        except AttributeError:
-            return True
-
-    if op.opname == 'indirect_call':
-        tographs = op.args[-1].value
-        if tographs is not None:
-            # Set of RPython functions
-            return False
-        # special-case to detect 'instantiate'
-        v_func = op.args[0]
-        for op1 in block.operations:
-            if (v_func is op1.result and
-                op1.opname == 'getfield' and
-                op1.args[0].concretetype == rclass.CLASSTYPE and
-                op1.args[1].value == 'instantiate'):
-                return False
-        # unknown function
-        return True
-
+    if op.opname == 'direct_call' or op.opname == 'indirect_call':
+        return should_turn_inevitable_call(op)
     #
     # Entirely unsupported operations cause a 'turn inevitable'
     return True

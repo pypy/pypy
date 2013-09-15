@@ -1,7 +1,6 @@
 
 import py, sys
 from rpython.rtyper.lltypesystem import lltype, llmemory
-from rpython.rtyper.ootypesystem import ootype
 from rpython.jit.backend.llgraph import runner
 from rpython.jit.metainterp.warmspot import ll_meta_interp, get_stats
 from rpython.jit.metainterp.warmstate import unspecialize_value
@@ -13,7 +12,7 @@ from rpython.rlib.rfloat import isnan
 from rpython.translator.backendopt.all import backend_optimizations
 
 
-def _get_jitcodes(testself, CPUClass, func, values, type_system,
+def _get_jitcodes(testself, CPUClass, func, values,
                   supports_floats=True,
                   supports_longlong=False,
                   supports_singlefloats=False,
@@ -51,7 +50,7 @@ def _get_jitcodes(testself, CPUClass, func, values, type_system,
         FakeWarmRunnerState.enable_opts = {}
 
     func._jit_unroll_safe_ = True
-    rtyper = support.annotate(func, values, type_system=type_system,
+    rtyper = support.annotate(func, values,
                               translationoptions=translationoptions)
     graphs = rtyper.annotator.translator.graphs
     testself.all_graphs = graphs
@@ -211,7 +210,7 @@ class JitMixin:
 
     def interp_operations(self, f, args, **kwds):
         # get the JitCodes for the function f
-        _get_jitcodes(self, self.CPUClass, f, args, self.type_system, **kwds)
+        _get_jitcodes(self, self.CPUClass, f, args, **kwds)
         # try to run it with blackhole.py
         result1 = _run_with_blackhole(self, args)
         # try to run it with pyjitpl.py
@@ -263,39 +262,6 @@ class LLJitMixin(JitMixin):
         NODE.become(lltype.GcStruct('NODE', ('value', lltype.Signed),
                                             ('next', lltype.Ptr(NODE))))
         return NODE
-    
-class OOJitMixin(JitMixin):
-    type_system = 'ootype'
-    #CPUClass = runner.OOtypeCPU
-
-    def setup_class(cls):
-        py.test.skip("ootype tests skipped for now")
-
-    @staticmethod
-    def Ptr(T):
-        return T
-
-    @staticmethod
-    def GcStruct(name, *fields, **kwds):
-        if 'hints' in kwds:
-            kwds['_hints'] = kwds['hints']
-            del kwds['hints']
-        I = ootype.Instance(name, ootype.ROOT, dict(fields), **kwds)
-        return I
-
-    malloc = staticmethod(ootype.new)
-    nullptr = staticmethod(ootype.null)
-
-    @staticmethod
-    def malloc_immortal(T):
-        return ootype.new(T)
-
-    def _get_NODE(self):
-        NODE = ootype.Instance('NODE', ootype.ROOT, {})
-        NODE._add_fields({'value': ootype.Signed,
-                          'next': NODE})
-        return NODE
-
 # ____________________________________________________________
 
 class _Foo:

@@ -9,14 +9,22 @@
 #include <stdlib.h>
 #include <string.h>
 
-__thread struct _RPyString_dump_t {
+#ifdef RPY_STM
+#define __thread_if_stm  __thread
+#else
+#define __thread_if_stm  /* nothing */
+#endif
+
+__thread_if_stm struct _RPyString_dump_t {
 	struct _RPyString_dump_t *next;
 	char data[1];
 } *_RPyString_dump = NULL;
 
 char *RPyString_AsCharP(RPyString *rps)
 {
+#ifdef RPY_STM
 	rps = (RPyString *)stm_read_barrier((gcptr)rps);
+#endif
 	Signed len = RPyString_Size(rps);
 	struct _RPyString_dump_t *dump = \
 			malloc(sizeof(struct _RPyString_dump_t) + len);

@@ -7,6 +7,8 @@ import sys
 import optparse
 import re
 
+r_skip_thread = re.compile(r'^(\d+#)?')
+
 def get_timestamp(line):
     match = re.match(r'\[([0-9a-f]*)\] .*', line)
     return int(match.group(1), 16)
@@ -17,13 +19,13 @@ def count_loops_and_bridges(log):
     time0 = None
     lines = iter(log)
     for line in lines:
-        line = line[line.find("#") + 1:].strip()
+        line = r_skip_thread.sub('', line).strip()
         if time0 is None and line.startswith('['):
             time0 = get_timestamp(line)
         if '{jit-mem-looptoken-' in line:
             time_now = get_timestamp(line) - time0
             text = lines.next()
-            text = text[text.find("#") + 1:].strip()
+            text = r_skip_thread.sub('', text).strip()
             if text.startswith('allocating Loop #'):
                 loops += 1
             elif text.startswith('allocating Bridge #'):

@@ -1,15 +1,17 @@
-from pypy.interpreter.gateway import unwrap_spec
+import os
+import sys
+
 from rpython.rlib import rposix, objectmodel, rurandom
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import r_longlong
 from rpython.rlib.unroll import unrolling_iterable
-from pypy.interpreter.error import OperationError, wrap_oserror, wrap_oserror2
-from rpython.rtyper.module.ll_os import RegisterOs
 from rpython.rtyper.module import ll_os_stat
+from rpython.rtyper.module.ll_os import RegisterOs
+
+from pypy.interpreter.gateway import unwrap_spec
+from pypy.interpreter.error import OperationError, wrap_oserror, wrap_oserror2
 from pypy.module.sys.interp_encoding import getfilesystemencoding
 
-import os
-import sys
 
 _WIN32 = sys.platform == 'win32'
 if _WIN32:
@@ -208,17 +210,12 @@ opened on a directory, not a file."""
 
 # ____________________________________________________________
 
-# For LL backends, expose all fields.
-# For OO backends, only the portable fields (the first 10).
 STAT_FIELDS = unrolling_iterable(enumerate(ll_os_stat.STAT_FIELDS))
-PORTABLE_STAT_FIELDS = unrolling_iterable(
-                                 enumerate(ll_os_stat.PORTABLE_STAT_FIELDS))
+
+STATVFS_FIELDS = unrolling_iterable(enumerate(ll_os_stat.STATVFS_FIELDS))
 
 def build_stat_result(space, st):
-    if space.config.translation.type_system == 'ootype':
-        FIELDS = PORTABLE_STAT_FIELDS
-    else:
-        FIELDS = STAT_FIELDS    # also when not translating at all
+    FIELDS = STAT_FIELDS    # also when not translating at all
     lst = [None] * ll_os_stat.N_INDEXABLE_FIELDS
     w_keywords = space.newdict()
     stat_float_times = space.fromcache(StatState).stat_float_times
@@ -252,6 +249,16 @@ def build_stat_result(space, st):
     w_stat_result = space.getattr(space.getbuiltinmodule(os.name),
                                   space.wrap('stat_result'))
     return space.call_function(w_stat_result, w_tuple, w_keywords)
+
+
+def build_statvfs_result(space, st):
+    vals_w = [None] * len(ll_os_stat.STATVFS_FIELDS)
+    for i, (name, _) in STATVFS_FIELDS:
+        vals_w[i] = space.wrap(getattr(st, name))
+    w_tuple = space.newtuple(vals_w)
+    w_statvfs_result = space.getattr(space.getbuiltinmodule(os.name), space.wrap('statvfs_result'))
+    return space.call_function(w_statvfs_result, w_tuple)
+
 
 @unwrap_spec(fd=c_int)
 def fstat(space, fd):
@@ -313,6 +320,26 @@ If newval is omitted, return the current setting.
         return space.wrap(state.stat_float_times)
     else:
         state.stat_float_times = space.bool_w(w_value)
+
+
+@unwrap_spec(fd=c_int)
+def fstatvfs(space, fd):
+    try:
+        st = os.fstatvfs(fd)
+    except OSError as e:
+        raise wrap_oserror(space, e)
+    else:
+        return build_statvfs_result(space, st)
+
+
+def statvfs(space, w_path):
+    try:
+        st = dispatch_filename(rposix.statvfs)(space, w_path)
+    except OSError as e:
+        raise wrap_oserror2(space, e, w_path)
+    else:
+        return build_statvfs_result(space, st)
+
 
 @unwrap_spec(fd=c_int)
 def dup(space, fd):
@@ -480,11 +507,7 @@ def getlogin(space):
 def getstatfields(space):
     # for app_posix.py: export the list of 'st_xxx' names that we know
     # about at RPython level
-    if space.config.translation.type_system == 'ootype':
-        FIELDS = PORTABLE_STAT_FIELDS
-    else:
-        FIELDS = STAT_FIELDS    # also when not translating at all
-    return space.newlist([space.wrap(name) for _, (name, _) in FIELDS])
+    return space.newlist([space.wrap(name) for _, (name, _) in STAT_FIELDS])
 
 
 class State:
@@ -700,11 +723,16 @@ def run_fork_hooks(where, space):
     for hook in get_fork_hooks(where):
         hook(space)
 
-def fork(space):
+def _run_forking_function(space, kind):
     run_fork_hooks('before', space)
-
     try:
-        pid = os.fork()
+        if kind == "F":
+            pid = os.fork()
+            master_fd = -1
+        elif kind == "P":
+            pid, master_fd = os.forkpty()
+        else:
+            raise AssertionError
     except OSError, e:
         try:
             run_fork_hooks('parent', space)
@@ -712,12 +740,14 @@ def fork(space):
             # Don't clobber the OSError if the fork failed
             pass
         raise wrap_oserror(space, e)
-
     if pid == 0:
         run_fork_hooks('child', space)
     else:
         run_fork_hooks('parent', space)
+    return pid, master_fd
 
+def fork(space):
+    pid, irrelevant = _run_forking_function(space, "F")
     return space.wrap(pid)
 
 def openpty(space):
@@ -729,10 +759,7 @@ def openpty(space):
     return space.newtuple([space.wrap(master_fd), space.wrap(slave_fd)])
 
 def forkpty(space):
-    try:
-        pid, master_fd = os.forkpty()
-    except OSError, e:
-        raise wrap_oserror(space, e)
+    pid, master_fd = _run_forking_function(space, "P")
     return space.newtuple([space.wrap(pid),
                            space.wrap(master_fd)])
 

@@ -1,7 +1,7 @@
 import gc
 import time
 import thread
-import os
+import os, sys
 import errno
 
 from pypy.interpreter.gateway import interp2app, unwrap_spec
@@ -60,6 +60,7 @@ class GenericTestThread:
             def py_timeout_killer(self, *args, **kwargs):
                 timeout_killer(*args, **kwargs)
             cls.w_timeout_killer = cls.space.wrap(py_timeout_killer)
+            run_on_pypy = True
         else:
             @unwrap_spec(delay=int)
             def py_waitfor(space, w_condition, delay=1):
@@ -75,8 +76,10 @@ class GenericTestThread:
                 ])
                 timeout_killer(*args, **kwargs)
             cls.w_timeout_killer = cls.space.wrap(interp2app(py_timeout_killer))
+            run_on_pypy = '__pypy__' in sys.builtin_module_names
 
         cls.w_busywait = cls.space.appexec([], """():
             import time
             return time.sleep
         """)
+        cls.w_run_on_pypy = cls.space.wrap(run_on_pypy)

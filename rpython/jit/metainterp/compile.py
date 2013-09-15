@@ -302,18 +302,17 @@ def do_compile_loop(metainterp_sd, inputargs, operations, looptoken,
                     log=True, name=''):
     metainterp_sd.logger_ops.log_loop(inputargs, operations, -2,
                                       'compiling', name=name)
-    return metainterp_sd.cpu.compile_loop(inputargs, operations, looptoken,
-                                          log=log, name=name,
-                                          logger=metainterp_sd.logger_ops)
+    return metainterp_sd.cpu.compile_loop(metainterp_sd.logger_ops,
+                                          inputargs, operations, looptoken,
+                                          log=log, name=name)
 
 def do_compile_bridge(metainterp_sd, faildescr, inputargs, operations,
                       original_loop_token, log=True):
     metainterp_sd.logger_ops.log_bridge(inputargs, operations, "compiling")
     assert isinstance(faildescr, AbstractFailDescr)
-    return metainterp_sd.cpu.compile_bridge(faildescr, inputargs, operations,
-                                            original_loop_token, log=log,
-                                            logger=metainterp_sd.logger_ops)
-                                            
+    return metainterp_sd.cpu.compile_bridge(metainterp_sd.logger_ops,
+                                            faildescr, inputargs, operations,
+                                            original_loop_token, log=log)
 
 def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type):
     vinfo = jitdriver_sd.virtualizable_info
@@ -343,9 +342,9 @@ def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type):
     metainterp_sd.profiler.start_backend()
     debug_start("jit-backend")
     try:
-        asminfo, new_ops = do_compile_loop(metainterp_sd, loop.inputargs,
-                                           operations, original_jitcell_token,
-                                           name=loopname)
+        asminfo = do_compile_loop(metainterp_sd, loop.inputargs,
+                                  operations, original_jitcell_token,
+                                  name=loopname)
     finally:
         debug_stop("jit-backend")
     metainterp_sd.profiler.end_backend()
@@ -361,7 +360,7 @@ def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type):
         ops_offset = asminfo.ops_offset
     else:
         ops_offset = None
-    metainterp_sd.logger_ops.log_loop(loop.inputargs, new_ops, n,
+    metainterp_sd.logger_ops.log_loop(loop.inputargs, loop.operations, n,
                                       type, ops_offset,
                                       name=loopname)
     #
@@ -387,9 +386,9 @@ def send_bridge_to_backend(jitdriver_sd, metainterp_sd, faildescr, inputargs,
     metainterp_sd.profiler.start_backend()
     debug_start("jit-backend")
     try:
-        asminfo, new_ops = do_compile_bridge(metainterp_sd, faildescr,
-                                             inputargs, operations,
-                                             original_loop_token)
+        asminfo = do_compile_bridge(metainterp_sd, faildescr,
+                                    inputargs, operations,
+                                    original_loop_token)
     finally:
         debug_stop("jit-backend")
     metainterp_sd.profiler.end_backend()
@@ -404,7 +403,7 @@ def send_bridge_to_backend(jitdriver_sd, metainterp_sd, faildescr, inputargs,
         ops_offset = asminfo.ops_offset
     else:
         ops_offset = None
-    metainterp_sd.logger_ops.log_bridge(inputargs, new_ops, None, faildescr,
+    metainterp_sd.logger_ops.log_bridge(inputargs, operations, None, faildescr,
                                         ops_offset)
     #
     #if metainterp_sd.warmrunnerdesc is not None:    # for tests
@@ -711,6 +710,8 @@ class ResumeGuardForcedDescr(ResumeGuardDescr):
         rstack._stack_criticalcode_start()
         try:
             deadframe = cpu.force(token)
+            # this should set descr to ResumeGuardForceDescr, if it
+            # was not that already
             faildescr = cpu.get_latest_descr(deadframe)
             assert isinstance(faildescr, ResumeGuardForcedDescr)
             faildescr.handle_async_forcing(deadframe)
@@ -718,12 +719,18 @@ class ResumeGuardForcedDescr(ResumeGuardDescr):
             rstack._stack_criticalcode_stop()
 
     def handle_async_forcing(self, deadframe):
-        from rpython.jit.metainterp.resume import force_from_resumedata
+        from rpython.jit.metainterp.resume import (force_from_resumedata,
+                                                   AlreadyForced)
         metainterp_sd = self.metainterp_sd
         vinfo = self.jitdriver_sd.virtualizable_info
         ginfo = self.jitdriver_sd.greenfield_info
-        all_virtuals = force_from_resumedata(metainterp_sd, self, deadframe,
-                                             vinfo, ginfo)
+        # there is some chance that this is already forced. In this case
+        # the virtualizable would have a token = NULL
+        try:
+            all_virtuals = force_from_resumedata(metainterp_sd, self, deadframe,
+                                                 vinfo, ginfo)
+        except AlreadyForced:
+            return
         # The virtualizable data was stored on the real virtualizable above.
         # Handle all_virtuals: keep them for later blackholing from the
         # future failure of the GUARD_NOT_FORCED
@@ -927,7 +934,7 @@ def compile_tmp_callback(cpu, jitdriver_sd, greenboxes, redargtypes,
     ]
     operations[1].setfailargs([])
     operations = get_deep_immutable_oplist(operations)
-    cpu.compile_loop(inputargs, operations, jitcell_token, log=False)
+    cpu.compile_loop(None, inputargs, operations, jitcell_token, log=False)
     if memory_manager is not None:    # for tests
         memory_manager.keep_loop_alive(jitcell_token)
     return jitcell_token

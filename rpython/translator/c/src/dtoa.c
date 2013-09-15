@@ -325,11 +325,13 @@ Bigint {
 
 typedef struct Bigint Bigint;
 
+#ifdef RPY_STM
 #define Py_USING_MEMORY_DEBUGGER /* Set to use thread-safe malloc, free */
 #undef MALLOC
 #undef FREE
 #define MALLOC malloc /* use thread-safe malloc/free */
 #define FREE free
+#endif
 
 #ifndef Py_USING_MEMORY_DEBUGGER
 
@@ -2966,11 +2968,17 @@ char * _PyPy_dg_dtoa(double dd, int mode, int ndigits,
     _PyPy_SET_53BIT_PRECISION_START;
     result = __Py_dg_dtoa(dd, mode, ndigits, decpt, sign, rve);
     _PyPy_SET_53BIT_PRECISION_END;
+#ifdef RPY_STM
+    stm_call_on_abort(result, _PyPy_dg_freedtoa);
+#endif
     return result;
 }
 
 void _PyPy_dg_freedtoa(char *s)
 {
+#ifdef RPY_STM
+    stm_call_on_abort(s, NULL);
+#endif
     __Py_dg_freedtoa(s);
 }
 /* End PYPY hacks */

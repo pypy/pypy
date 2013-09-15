@@ -11,7 +11,7 @@ def char2int(c):
     return t
 
 class Stack(object):
-    _virtualizable2_ = ['stackpos', 'stack[*]']
+    _virtualizable_ = ['stackpos', 'stack[*]']
 
     def __init__(self, size):
         self = hint(self, access_directly=True, fresh_virtualizable=True)
@@ -77,9 +77,13 @@ def make_interp(supports_call):
 
         stack = hint(stack, access_directly=True)
 
-        while pc < len(code):
+        while True:
             myjitdriver.jit_merge_point(pc=pc, code=code,
                                         stack=stack, inputarg=inputarg)
+
+            if pc >= len(code):
+                break
+
             opcode = ord(code[pc])
             stack.stackpos = promote(stack.stackpos)
             pc += 1

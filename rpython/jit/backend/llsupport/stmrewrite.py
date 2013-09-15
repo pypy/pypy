@@ -1,4 +1,5 @@
 from rpython.jit.backend.llsupport.rewrite import GcRewriterAssembler
+from rpython.jit.backend.llsupport.descr import CallDescr
 from rpython.jit.metainterp.resoperation import ResOperation, rop
 from rpython.jit.metainterp.history import BoxPtr, ConstPtr, ConstInt
 from rpython.rlib.objectmodel import specialize
@@ -47,7 +48,8 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
         for op in operations:
             if not we_are_translated():
                 # only possible in tests:
-                if op.getopnum() in (rop.COND_CALL_STM_B,):
+                if op.getopnum() in (rop.COND_CALL_STM_B, 
+                                     -124): # FORCE_SPILL
                     self.newops.append(op)
                     continue
             if op.getopnum() == rop.DEBUG_MERGE_POINT:
@@ -66,6 +68,15 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
                 # requires gcremovetypeptr translation option
                 # uses h_tid which doesn't need a read-barrier
                 self.newops.append(op)
+                continue
+            # ----------  pure operations needing read-barrier  ----------
+            if op.getopnum() in (rop.GETFIELD_GC_PURE,
+                                 rop.GETARRAYITEM_GC_PURE,
+                                 rop.ARRAYLEN_GC,):
+                # e.g. getting inst_intval of a W_IntObject that is
+                # currently only a stub needs to first resolve to a 
+                # real object
+                self.handle_category_operations(op, 'R')
                 continue
             # ----------  pure operations, guards  ----------
             if op.is_always_pure() or op.is_guard() or op.is_ovf():
@@ -98,7 +109,13 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
                 elif op.getopnum() == rop.CALL_ASSEMBLER:
                     self.handle_call_assembler(op)
                 else:
-                    self.newops.append(op)
+                    descr = op.getdescr()
+                    assert not descr or isinstance(descr, CallDescr)
+                    if not descr or not descr.get_extra_info() \
+                      or descr.get_extra_info().call_needs_inevitable():
+                        self.fallback_inevitable(op)
+                    else:
+                        self.newops.append(op)
                 self.known_category.clear()
                 continue
             # ----------  copystrcontent  ----------
@@ -142,13 +159,13 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
             if c == 'R':
                 self.known_category[v] = 'P'
 
-    def gen_malloc_nursery_varsize_frame(self, sizebox, v_result, tid):
-        """ For now don't generate CALL_MALLOC_NURSERY_VARSIZE_FRAME
-        """
-        addr = self.gc_ll_descr.get_malloc_fn_addr('malloc_big_fixedsize')
-        args = [ConstInt(addr), sizebox, ConstInt(tid)]
-        descr = self.gc_ll_descr.malloc_big_fixedsize_descr
-        self._gen_call_malloc_gc(args, v_result, descr)
+##    def gen_malloc_nursery_varsize_frame(self, sizebox, v_result, tid):
+##        """ For now don't generate CALL_MALLOC_NURSERY_VARSIZE_FRAME
+##        """
+##        addr = self.gc_ll_descr.get_malloc_fn_addr('malloc_big_fixedsize')
+##        args = [ConstInt(addr), sizebox, ConstInt(tid)]
+##        descr = self.gc_ll_descr.malloc_big_fixedsize_descr
+##        self._gen_call_malloc_gc(args, v_result, descr)
                 
     def gen_write_barrier(self, v):
         raise NotImplementedError

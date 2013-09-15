@@ -359,11 +359,11 @@ def _strip(space, w_self, w_chars, left, right):
 
     if left:
         while lpos < rpos and u_self[lpos] in u_chars:
-           lpos += 1
+            lpos += 1
 
     if right:
         while rpos > lpos and u_self[rpos - 1] in u_chars:
-           rpos -= 1
+            rpos -= 1
 
     assert rpos >= 0
     result = u_self[lpos: rpos]
@@ -378,11 +378,11 @@ def _strip_none(space, w_self, left, right):
 
     if left:
         while lpos < rpos and _isspace(u_self[lpos]):
-           lpos += 1
+            lpos += 1
 
     if right:
         while rpos > lpos and _isspace(u_self[rpos - 1]):
-           rpos -= 1
+            rpos -= 1
 
     assert rpos >= 0
     result = u_self[lpos: rpos]
@@ -493,9 +493,6 @@ def unicode_endswith__Unicode_Unicode_ANY_ANY(space, w_self, w_substr, w_start, 
 
 def unicode_startswith__Unicode_Unicode_ANY_ANY(space, w_self, w_substr, w_start, w_end):
     self, start, end = _convert_idx_params(space, w_self, w_start, w_end, True)
-    # XXX this stuff can be waaay better for ootypebased backends if
-    #     we re-use more of our rpython machinery (ie implement startswith
-    #     with additional parameters as rpython)
     return space.newbool(startswith(self, w_substr._value, start, end))
 
 def unicode_startswith__Unicode_ANY_ANY_ANY(space, w_unistr, w_prefixes,

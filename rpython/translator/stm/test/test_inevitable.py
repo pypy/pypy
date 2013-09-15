@@ -1,4 +1,5 @@
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.llinterp import LLFrame
 from rpython.rtyper.test import test_llinterp
 from rpython.rtyper.test.test_llinterp import get_interpreter, clear_tcache
@@ -11,6 +12,12 @@ class LLSTMInevFrame(LLFrame):
         assert info is not None
         if self.llinterpreter.inevitable_cause is None:
             self.llinterpreter.inevitable_cause = info
+
+    def op_do_malloc_fixedsize_clear(self):
+        pass   # just to check that it doesn't turn inevitable
+
+    def op_do_malloc_varsize_clear(self):
+        pass   # just to check that it doesn't turn inevitable
 
 
 class TestTransform:
@@ -114,8 +121,6 @@ class TestTransform:
 
         res = self.interpret_inevitable(f1, [])
         assert res is None
-        assert 0, """we do not turn inevitable before
-        raw-mallocs which causes leaks on aborts"""
 
     def test_raw_malloc_2(self):
         X = lltype.Struct('X', ('foo', lltype.Signed))
@@ -126,8 +131,6 @@ class TestTransform:
 
         res = self.interpret_inevitable(f1, [])
         assert res is None
-        assert 0, """we do not turn inevitable before
-        raw-mallocs which causes leaks on aborts"""
 
     def test_unknown_raw_free(self):
         X = lltype.Struct('X', ('foo', lltype.Signed))
@@ -243,3 +246,12 @@ class TestTransform:
         res = self.interpret_inevitable(f, [2])
         assert res == 'free' # not setfield or getfield
 
+    def test_do_malloc_llops(self):
+        def f(i):
+            # just to check that it doesn't turn inevitable
+            llop.do_malloc_fixedsize_clear(lltype.Void)
+            llop.do_malloc_varsize_clear(lltype.Void)
+            return i
+
+        res = self.interpret_inevitable(f, [2])
+        assert res is None

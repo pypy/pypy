@@ -6,7 +6,7 @@ from rpython.annotator import model as annmodel
 from rpython.annotator.signature import annotation
 from rpython.annotator.listdef import ListDef, TooLateForChange
 from rpython.tool.pairtype import pair, pairtype
-from rpython.rlib.rarithmetic import r_longlong, intmask, LONG_BIT
+from rpython.rlib.rarithmetic import r_longlong, intmask, LONG_BIT, ovfcheck
 from rpython.rlib.rfloat import formatd, rstring_to_float
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.rstring import assert_str0
@@ -77,6 +77,7 @@ TYPE_FLOAT    = 'f'
 TYPE_STRING   = 's'
 TYPE_TUPLE    = '('
 TYPE_LIST     = '['
+TYPE_DICT     = '{'
 
 dumpers = []
 loaders = []
@@ -288,7 +289,10 @@ def readstr(loader, count):
     if count < 0:
         raise ValueError("negative count")
     pos = loader.pos
-    end = pos + count
+    try:
+        end = ovfcheck(pos + count)
+    except OverflowError:
+        raise ValueError("cannot decode count: value too big")
     while end > len(loader.buf):
         loader.need_more_data()
     loader.pos = end
@@ -300,6 +304,12 @@ def readchr(loader):
     while pos >= len(loader.buf):
         loader.need_more_data()
     loader.pos = pos + 1
+    return loader.buf[pos]
+
+def peekchr(loader):
+    pos = loader.pos
+    while pos >= len(loader.buf):
+        loader.need_more_data()
     return loader.buf[pos]
 
 def readlong(loader):
@@ -398,6 +408,51 @@ class __extend__(pairtype(MTag, annmodel.SomeList)):
         add_loader(s_list, load_list_or_none)
 
 
+class __extend__(pairtype(MTag, annmodel.SomeDict)):
+
+    def install_marshaller((tag, s_dict)):
+        def dump_dict_or_none(buf, x):
+            if x is None:
+                dump_none(buf, x)
+            else:
+                buf.append(TYPE_DICT)
+                for key, value in x.items():
+                    keydumper(buf, key)
+                    valuedumper(buf, value)
+                buf.append('0')    # end of dict
+
+        keydumper = get_marshaller(s_dict.dictdef.dictkey.s_value)
+        valuedumper = get_marshaller(s_dict.dictdef.dictvalue.s_value)
+        if (s_dict.dictdef.dictkey.dont_change_any_more or
+            s_dict.dictdef.dictvalue.dont_change_any_more):
+            s_general_dict = s_dict
+        else:
+            s_key = get_dumper_annotation(keydumper)
+            s_value = get_dumper_annotation(valuedumper)
+            s_general_dict = annotation({s_key: s_value})
+        add_dumper(s_general_dict, dump_dict_or_none)
+
+    def install_unmarshaller((tag, s_dict)):
+        def load_dict_or_none(loader):
+            t = readchr(loader)
+            if t == TYPE_DICT:
+                result = {}
+                while peekchr(loader) != '0':
+                    key = keyloader(loader)
+                    value = valueloader(loader)
+                    result[key] = value
+                readchr(loader)   # consume the final '0'
+                return result
+            elif t == TYPE_NONE:
+                return None
+            else:
+                raise ValueError("expected a dict or None")
+
+        keyloader = get_loader(s_dict.dictdef.dictkey.s_value)
+        valueloader = get_loader(s_dict.dictdef.dictvalue.s_value)
+        add_loader(s_dict, load_dict_or_none)
+
+
 class __extend__(pairtype(MTag, annmodel.SomeTuple)):
 
     def install_marshaller((tag, s_tuple)):
@@ -429,26 +484,3 @@ class __extend__(pairtype(MTag, annmodel.SomeTuple)):
         expected_length = len(itemloaders)
         unroll_item_loaders = unrolling_iterable(enumerate(itemloaders))
         add_loader(s_tuple, load_tuple)
-
-
-## -- not used any more right now --
-##class __extend__(pairtype(MTag, controllerentry.SomeControlledInstance)):
-##    # marshal a ControlledInstance by marshalling the underlying object
-
-##    def install_marshaller((tag, s_obj)):
-##        def dump_controlled_instance(buf, x):
-##            real_obj = controllerentry.controlled_instance_unbox(controller, x)
-##            realdumper(buf, real_obj)
-
-##        controller = s_obj.controller
-##        realdumper = get_marshaller(s_obj.s_real_obj)
-##        add_dumper(s_obj, dump_controlled_instance)
-
-##    def install_unmarshaller((tag, s_obj)):
-##        def load_controlled_instance(loader):
-##            real_obj = realloader(loader)
-##            return controllerentry.controlled_instance_box(controller,
-##                                                           real_obj)
-##        controller = s_obj.controller
-##        realloader = get_loader(s_obj.s_real_obj)
-##        add_loader(s_obj, load_controlled_instance)

@@ -99,7 +99,7 @@ def test_cancollect_external():
     t = rtype(g, [])
     gg = graphof(t, g)
     assert CollectAnalyzer(t).analyze_direct_call(gg)
-
+    
 def test_no_collect(gc="minimark"):
     from rpython.rlib import rgc
     from rpython.translator.c.genc import CStandaloneBuilder

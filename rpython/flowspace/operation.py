@@ -7,94 +7,102 @@ import __builtin__
 import __future__
 import operator
 from rpython.tool.sourcetools import compile2
-from rpython.rlib.rarithmetic import ovfcheck
+from rpython.flowspace.model import (Constant, WrapException, const, Variable,
+                                     SpaceOperation)
+from rpython.flowspace.specialcase import register_flow_sc
 
-# this is a copy that should be shared with standard objspace
+class _OpHolder(object): pass
+op = _OpHolder()
 
-MethodTable = [
-# method name # symbol # number of arguments # special method name(s)
-    ('is_',             'is',        2, []),
-    ('id',              'id',        1, []),
-    ('type',            'type',      1, []),
-    ('isinstance',      'isinstance', 2, ['__instancecheck__']),
-    ('issubtype',       'issubtype', 2, ['__subclasscheck__']),  # not for old-style classes
-    ('repr',            'repr',      1, ['__repr__']),
-    ('str',             'str',       1, ['__str__']),
-    ('format',          'format',    2, ['__format__']),
-    ('len',             'len',       1, ['__len__']),
-    ('hash',            'hash',      1, ['__hash__']),
-    ('getattr',         'getattr',   2, ['__getattribute__']),
-    ('setattr',         'setattr',   3, ['__setattr__']),
-    ('delattr',         'delattr',   2, ['__delattr__']),
-    ('getitem',         'getitem',   2, ['__getitem__']),
-    ('setitem',         'setitem',   3, ['__setitem__']),
-    ('delitem',         'delitem',   2, ['__delitem__']),
-    ('getslice',        'getslice',  3, ['__getslice__']),
-    ('setslice',        'setslice',  4, ['__setslice__']),
-    ('delslice',        'delslice',  3, ['__delslice__']),
-    ('trunc',           'trunc',     1, ['__trunc__']),
-    ('pos',             'pos',       1, ['__pos__']),
-    ('neg',             'neg',       1, ['__neg__']),
-    ('nonzero',         'truth',     1, ['__nonzero__']),
-    ('abs' ,            'abs',       1, ['__abs__']),
-    ('hex',             'hex',       1, ['__hex__']),
-    ('oct',             'oct',       1, ['__oct__']),
-    ('ord',             'ord',       1, []),
-    ('invert',          '~',         1, ['__invert__']),
-    ('add',             '+',         2, ['__add__', '__radd__']),
-    ('sub',             '-',         2, ['__sub__', '__rsub__']),
-    ('mul',             '*',         2, ['__mul__', '__rmul__']),
-    ('truediv',         '/',         2, ['__truediv__', '__rtruediv__']),
-    ('floordiv',        '//',        2, ['__floordiv__', '__rfloordiv__']),
-    ('div',             'div',       2, ['__div__', '__rdiv__']),
-    ('mod',             '%',         2, ['__mod__', '__rmod__']),
-    ('divmod',          'divmod',    2, ['__divmod__', '__rdivmod__']),
-    ('pow',             '**',        3, ['__pow__', '__rpow__']),
-    ('lshift',          '<<',        2, ['__lshift__', '__rlshift__']),
-    ('rshift',          '>>',        2, ['__rshift__', '__rrshift__']),
-    ('and_',            '&',         2, ['__and__', '__rand__']),
-    ('or_',             '|',         2, ['__or__', '__ror__']),
-    ('xor',             '^',         2, ['__xor__', '__rxor__']),
-    ('int',             'int',       1, ['__int__']),
-    ('index',           'index',     1, ['__index__']),
-    ('float',           'float',     1, ['__float__']),
-    ('long',            'long',      1, ['__long__']),
-    ('inplace_add',     '+=',        2, ['__iadd__']),
-    ('inplace_sub',     '-=',        2, ['__isub__']),
-    ('inplace_mul',     '*=',        2, ['__imul__']),
-    ('inplace_truediv', '/=',        2, ['__itruediv__']),
-    ('inplace_floordiv','//=',       2, ['__ifloordiv__']),
-    ('inplace_div',     'div=',      2, ['__idiv__']),
-    ('inplace_mod',     '%=',        2, ['__imod__']),
-    ('inplace_pow',     '**=',       2, ['__ipow__']),
-    ('inplace_lshift',  '<<=',       2, ['__ilshift__']),
-    ('inplace_rshift',  '>>=',       2, ['__irshift__']),
-    ('inplace_and',     '&=',        2, ['__iand__']),
-    ('inplace_or',      '|=',        2, ['__ior__']),
-    ('inplace_xor',     '^=',        2, ['__ixor__']),
-    ('lt',              '<',         2, ['__lt__', '__gt__']),
-    ('le',              '<=',        2, ['__le__', '__ge__']),
-    ('eq',              '==',        2, ['__eq__', '__eq__']),
-    ('ne',              '!=',        2, ['__ne__', '__ne__']),
-    ('gt',              '>',         2, ['__gt__', '__lt__']),
-    ('ge',              '>=',        2, ['__ge__', '__le__']),
-    ('cmp',             'cmp',       2, ['__cmp__']),   # rich cmps preferred
-    ('coerce',          'coerce',    2, ['__coerce__', '__coerce__']),
-    ('contains',        'contains',  2, ['__contains__']),
-    ('iter',            'iter',      1, ['__iter__']),
-    ('next',            'next',      1, ['next']),
-#    ('call',            'call',      3, ['__call__']),
-    ('get',             'get',       3, ['__get__']),
-    ('set',             'set',       3, ['__set__']),
-    ('delete',          'delete',    2, ['__delete__']),
-    ('userdel',         'del',       1, ['__del__']),
-    ('buffer',          'buffer',    1, ['__buffer__']),   # see buffer.py
-    ]
+func2op = {}
+
+class HLOperation(SpaceOperation):
+    pure = False
+    def __init__(self, *args):
+        if len(args) != self.arity:
+            raise TypeError(self.opname + " got the wrong number of arguments")
+        self.args = list(args)
+        self.result = Variable()
+        self.offset = -1
+
+    @classmethod
+    def make_sc(cls):
+        def sc_operator(space, *args_w):
+            if len(args_w) != cls.arity:
+                if cls is op.pow and len(args_w) == 2:
+                    args_w = list(args_w) + [Constant(None)]
+                elif cls is op.getattr and len(args_w) == 3:
+                    return space.frame.do_operation('simple_call', Constant(getattr), *args_w)
+                else:
+                    raise Exception("should call %r with exactly %d arguments" % (
+                        cls.opname, cls.arity))
+            # completely replace the call with the underlying
+            # operation and its limited implicit exceptions semantic
+            return getattr(space, cls.opname)(*args_w)
+        return sc_operator
+
+    def eval(self, frame):
+        result = self.constfold()
+        if result is not None:
+            return result
+        return frame.do_op(self)
+
+    def constfold(self):
+        return None
+
+class PureOperation(HLOperation):
+    pure = True
+
+    def constfold(self):
+        args = []
+        if all(w_arg.foldable() for w_arg in self.args):
+            args = [w_arg.value for w_arg in self.args]
+            # All arguments are constants: call the operator now
+            try:
+                result = self.pyfunc(*args)
+            except Exception as e:
+                from rpython.flowspace.flowcontext import FlowingError
+                msg = "%s%r always raises %s: %s" % (
+                    self.opname, tuple(args), type(e), e)
+                raise FlowingError(msg)
+            else:
+                # don't try to constant-fold operations giving a 'long'
+                # result.  The result is probably meant to be sent to
+                # an intmask(), but the 'long' constant confuses the
+                # annotator a lot.
+                if self.can_overflow and type(result) is long:
+                    pass
+                # don't constant-fold getslice on lists, either
+                elif self.opname == 'getslice' and type(result) is list:
+                    pass
+                # otherwise, fine
+                else:
+                    try:
+                        return const(result)
+                    except WrapException:
+                        # type cannot sanely appear in flow graph,
+                        # store operation with variable result instead
+                        pass
 
 
-FunctionByName = {}   # dict {"operation_name": <built-in function>}
-OperationName  = {}   # dict {<built-in function>: "operation_name"}
-Arity          = {}   # dict {"operation name": number of arguments}
+def add_operator(name, arity, symbol, pyfunc=None, pure=False, ovf=False):
+    operator_func = getattr(operator, name, None)
+    base_cls = PureOperation if pure else HLOperation
+    cls = type(name, (base_cls,), {'opname': name, 'arity': arity,
+                                   'can_overflow': ovf, 'canraise': []})
+    setattr(op, name, cls)
+    if pyfunc is not None:
+        func2op[pyfunc] = cls
+    if operator_func:
+        func2op[operator_func] = cls
+    if pyfunc is not None:
+        cls.pyfunc = staticmethod(pyfunc)
+    elif operator_func is not None:
+        cls.pyfunc = staticmethod(operator_func)
+    if ovf:
+        from rpython.rlib.rarithmetic import ovfcheck
+        ovf_func = lambda *args: ovfcheck(cls.pyfunc(*args))
+        add_operator(name + '_ovf', arity, symbol, pyfunc=ovf_func)
 
 # ____________________________________________________________
 
@@ -186,33 +194,6 @@ def delete(x, y):
 def userdel(x):
     x.__del__()
 
-def neg_ovf(x):
-    return ovfcheck(-x)
-
-def abs_ovf(x):
-    return ovfcheck(abs(x))
-
-def add_ovf(x, y):
-    return ovfcheck(x + y)
-
-def sub_ovf(x, y):
-    return ovfcheck(x - y)
-
-def mul_ovf(x, y):
-    return ovfcheck(x * y)
-
-def floordiv_ovf(x, y):
-    return ovfcheck(operator.floordiv(x, y))
-
-def div_ovf(x, y):
-    return ovfcheck(operator.div(x, y))
-
-def mod_ovf(x, y):
-    return ovfcheck(x % y)
-
-def lshift_ovf(x, y):
-    return ovfcheck(x << y)
-
 # slicing: operator.{get,set,del}slice() don't support b=None or c=None
 def do_getslice(a, b, c):
     return a[b:c]
@@ -226,101 +207,93 @@ def do_delslice(a, b, c):
 def unsupported(*args):
     raise ValueError("this is not supported")
 
-# ____________________________________________________________
 
-# The following table can list several times the same operation name,
-# if multiple built-in functions correspond to it.  The first one should
-# be picked, though, as the best built-in for the given operation name.
-# Lines ('name', operator.name) are added automatically.
+add_operator('is_', 2, 'is', pure=True)
+add_operator('id', 1, 'id', pyfunc=id)
+add_operator('type', 1, 'type', pyfunc=new_style_type, pure=True)
+add_operator('issubtype', 2, 'issubtype', pyfunc=issubclass, pure=True)  # not for old-style classes
+add_operator('repr', 1, 'repr', pyfunc=repr, pure=True)
+add_operator('str', 1, 'str', pyfunc=str, pure=True)
+add_operator('format', 2, 'format', pyfunc=unsupported)
+add_operator('len', 1, 'len', pyfunc=len, pure=True)
+add_operator('hash', 1, 'hash', pyfunc=hash)
+add_operator('getattr', 2, 'getattr', pyfunc=getattr, pure=True)
+add_operator('setattr', 3, 'setattr', pyfunc=setattr)
+add_operator('delattr', 2, 'delattr', pyfunc=delattr)
+add_operator('getitem', 2, 'getitem', pure=True)
+add_operator('setitem', 3, 'setitem')
+add_operator('delitem', 2, 'delitem')
+add_operator('getslice', 3, 'getslice', pyfunc=do_getslice, pure=True)
+add_operator('setslice', 4, 'setslice', pyfunc=do_setslice)
+add_operator('delslice', 3, 'delslice', pyfunc=do_delslice)
+add_operator('trunc', 1, 'trunc', pyfunc=unsupported)
+add_operator('pos', 1, 'pos', pure=True)
+add_operator('neg', 1, 'neg', pure=True, ovf=True)
+add_operator('bool', 1, 'truth', pyfunc=bool, pure=True)
+op.is_true = op.nonzero = op.bool  # for llinterp
+add_operator('abs', 1, 'abs', pyfunc=abs, pure=True, ovf=True)
+add_operator('hex', 1, 'hex', pyfunc=hex, pure=True)
+add_operator('oct', 1, 'oct', pyfunc=oct, pure=True)
+add_operator('ord', 1, 'ord', pyfunc=ord, pure=True)
+add_operator('invert', 1, '~', pure=True)
+add_operator('add', 2, '+', pure=True, ovf=True)
+add_operator('sub', 2, '-', pure=True, ovf=True)
+add_operator('mul', 2, '*', pure=True, ovf=True)
+add_operator('truediv', 2, '/', pure=True)
+add_operator('floordiv', 2, '//', pure=True, ovf=True)
+add_operator('div', 2, 'div', pure=True, ovf=True)
+add_operator('mod', 2, '%', pure=True, ovf=True)
+add_operator('divmod', 2, 'divmod', pyfunc=divmod, pure=True)
+add_operator('pow', 3, '**', pyfunc=pow, pure=True)
+add_operator('lshift', 2, '<<', pure=True, ovf=True)
+add_operator('rshift', 2, '>>', pure=True)
+add_operator('and_', 2, '&', pure=True)
+add_operator('or_', 2, '|', pure=True)
+add_operator('xor', 2, '^', pure=True)
+add_operator('int', 1, 'int', pyfunc=do_int, pure=True)
+add_operator('index', 1, 'index', pyfunc=do_index, pure=True)
+add_operator('float', 1, 'float', pyfunc=do_float, pure=True)
+add_operator('long', 1, 'long', pyfunc=do_long, pure=True)
+add_operator('inplace_add', 2, '+=', pyfunc=inplace_add)
+add_operator('inplace_sub', 2, '-=', pyfunc=inplace_sub)
+add_operator('inplace_mul', 2, '*=', pyfunc=inplace_mul)
+add_operator('inplace_truediv', 2, '/=', pyfunc=inplace_truediv)
+add_operator('inplace_floordiv', 2, '//=', pyfunc=inplace_floordiv)
+add_operator('inplace_div', 2, 'div=', pyfunc=inplace_div)
+add_operator('inplace_mod', 2, '%=', pyfunc=inplace_mod)
+add_operator('inplace_pow', 2, '**=', pyfunc=inplace_pow)
+add_operator('inplace_lshift', 2, '<<=', pyfunc=inplace_lshift)
+add_operator('inplace_rshift', 2, '>>=', pyfunc=inplace_rshift)
+add_operator('inplace_and', 2, '&=', pyfunc=inplace_and)
+add_operator('inplace_or', 2, '|=', pyfunc=inplace_or)
+add_operator('inplace_xor', 2, '^=', pyfunc=inplace_xor)
+add_operator('lt', 2, '<', pure=True)
+add_operator('le', 2, '<=', pure=True)
+add_operator('eq', 2, '==', pure=True)
+add_operator('ne', 2, '!=', pure=True)
+add_operator('gt', 2, '>', pure=True)
+add_operator('ge', 2, '>=', pure=True)
+add_operator('cmp', 2, 'cmp', pyfunc=cmp, pure=True)   # rich cmps preferred
+add_operator('coerce', 2, 'coerce', pyfunc=coerce, pure=True)
+add_operator('contains', 2, 'contains', pure=True)
+add_operator('iter', 1, 'iter', pyfunc=iter)
+add_operator('next', 1, 'next', pyfunc=next)
+#add_operator('call', 3, 'call')
+add_operator('get', 3, 'get', pyfunc=get, pure=True)
+add_operator('set', 3, 'set', pyfunc=set)
+add_operator('delete', 2, 'delete', pyfunc=delete)
+add_operator('userdel', 1, 'del', pyfunc=userdel)
+add_operator('buffer', 1, 'buffer', pyfunc=buffer, pure=True)   # see buffer.py
 
-# INTERNAL ONLY, use the dicts declared at the top of the file.
-Table = [
-    ('id',              id),
-    ('type',            new_style_type),
-    ('type',            type),
-    ('isinstance',      isinstance),
-    ('issubtype',       issubclass),
-    ('repr',            repr),
-    ('str',             str),
-    ('format',          unsupported),
-    ('len',             len),
-    ('hash',            hash),
-    ('getattr',         getattr),
-    ('setattr',         setattr),
-    ('delattr',         delattr),
-    ('nonzero',         bool),
-    ('nonzero',         operator.truth),
-    ('is_true',         bool),
-    ('is_true',         operator.truth),
-    ('trunc',           unsupported),
-    ('abs' ,            abs),
-    ('hex',             hex),
-    ('oct',             oct),
-    ('ord',             ord),
-    ('divmod',          divmod),
-    ('pow',             pow),
-    ('int',             do_int),
-    ('index',           do_index),
-    ('float',           do_float),
-    ('long',            do_long),
-    ('inplace_add',     inplace_add),
-    ('inplace_sub',     inplace_sub),
-    ('inplace_mul',     inplace_mul),
-    ('inplace_truediv', inplace_truediv),
-    ('inplace_floordiv',inplace_floordiv),
-    ('inplace_div',     inplace_div),
-    ('inplace_mod',     inplace_mod),
-    ('inplace_pow',     inplace_pow),
-    ('inplace_lshift',  inplace_lshift),
-    ('inplace_rshift',  inplace_rshift),
-    ('inplace_and',     inplace_and),
-    ('inplace_or',      inplace_or),
-    ('inplace_xor',     inplace_xor),
-    ('cmp',             cmp),
-    ('coerce',          coerce),
-    ('iter',            iter),
-    ('next',            next),
-    ('get',             get),
-    ('set',             set),
-    ('delete',          delete),
-    ('userdel',         userdel),
-    ('buffer',          buffer),
-    ('getslice',        do_getslice),
-    ('setslice',        do_setslice),
-    ('delslice',        do_delslice),
-    # --- operations added by graph transformations ---
-    ('neg_ovf',         neg_ovf),
-    ('abs_ovf',         abs_ovf),
-    ('add_ovf',         add_ovf),
-    ('sub_ovf',         sub_ovf),
-    ('mul_ovf',         mul_ovf),
-    ('floordiv_ovf',    floordiv_ovf),
-    ('div_ovf',         div_ovf),
-    ('mod_ovf',         mod_ovf),
-    ('lshift_ovf',      lshift_ovf),
-]
+# Other functions that get directly translated to SpaceOperators
+func2op[type] = op.type
+func2op[operator.truth] = op.bool
 if hasattr(__builtin__, 'next'):
-    Table.append(('next', __builtin__.next))
+    func2op[__builtin__.next] = op.next
 
-def setup():
-    # insert all operators
-    for line in MethodTable:
-        name = line[0]
-        if hasattr(operator, name):
-            Table.append((name, getattr(operator, name)))
-    # build the dictionaries
-    for name, func in Table:
-        if name not in FunctionByName:
-            FunctionByName[name] = func
-        if func not in OperationName:
-            OperationName[func] = name
-    # check that the result is complete
-    for line in MethodTable:
-        name = line[0]
-        Arity[name] = line[2]
-        assert name in FunctionByName
-setup()
-del Table, setup # INTERNAL ONLY, use the dicts declared at the top of the file
+for fn, oper in func2op.items():
+    register_flow_sc(fn)(oper.make_sc())
+
 
 op_appendices = {
     OverflowError: 'ovf',
@@ -330,38 +303,33 @@ op_appendices = {
     ValueError: 'val',
     }
 
-implicit_exceptions = {
-    int: [ValueError],      # built-ins that can always raise exceptions
-    float: [ValueError],
-    chr: [ValueError],
-    unichr: [ValueError],
-    unicode: [UnicodeDecodeError],
-    # specifying IndexError, and KeyError beyond Exception,
-    # allows the annotator to be more precise, see test_reraiseAnything/KeyError in
-    # the annotator tests
-    'getitem': [IndexError, KeyError, Exception],
-    'setitem': [IndexError, KeyError, Exception],
-    'delitem': [IndexError, KeyError, Exception],
-    'contains': [Exception],    # from an r_dict
-    }
+# specifying IndexError, and KeyError beyond Exception,
+# allows the annotator to be more precise, see test_reraiseAnything/KeyError in
+# the annotator tests
+op.getitem.canraise = [IndexError, KeyError, Exception]
+op.setitem.canraise = [IndexError, KeyError, Exception]
+op.delitem.canraise = [IndexError, KeyError, Exception]
+op.contains.canraise = [Exception]    # from an r_dict
 
 def _add_exceptions(names, exc):
     for name in names.split():
-        lis = implicit_exceptions.setdefault(name, [])
+        oper = getattr(op, name)
+        lis = oper.canraise
         if exc in lis:
-            raise ValueError, "your list is causing duplication!"
+            raise ValueError("your list is causing duplication!")
         lis.append(exc)
         assert exc in op_appendices
 
 def _add_except_ovf(names):
     # duplicate exceptions and add OverflowError
     for name in names.split():
-        lis = implicit_exceptions.setdefault(name, [])[:]
-        lis.append(OverflowError)
-        implicit_exceptions[name+"_ovf"] = lis
+        oper = getattr(op, name)
+        oper_ovf = getattr(op, name+'_ovf')
+        oper_ovf.canraise = list(oper.canraise)
+        oper_ovf.canraise.append(OverflowError)
 
 _add_exceptions("""div mod divmod truediv floordiv pow
-                   inplace_div inplace_mod inplace_divmod inplace_truediv
+                   inplace_div inplace_mod inplace_truediv
                    inplace_floordiv inplace_pow""", ZeroDivisionError)
 _add_exceptions("""pow inplace_pow lshift inplace_lshift rshift
                    inplace_rshift""", ValueError)
@@ -370,7 +338,7 @@ _add_exceptions("""truediv divmod
                    inplace_floordiv inplace_div inplace_mod inplace_pow
                    inplace_lshift""", OverflowError) # without a _ovf version
 _add_except_ovf("""neg abs add sub mul
-                   floordiv div mod pow lshift""")   # with a _ovf version
+                   floordiv div mod lshift""")   # with a _ovf version
 _add_exceptions("""pow""",
                 OverflowError) # for the float case
 del _add_exceptions, _add_except_ovf

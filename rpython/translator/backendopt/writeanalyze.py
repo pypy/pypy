@@ -1,7 +1,6 @@
 from rpython.flowspace.model import Variable
 from rpython.translator.backendopt import graphanalyze
-from rpython.rtyper.ootypesystem import ootype
-from rpython.translator.simplify import get_funcobj
+from rpython.rtyper.lltypesystem import lltype
 
 top_set = object()
 empty_set = frozenset()
@@ -37,11 +36,11 @@ class WriteAnalyzer(graphanalyze.GraphAnalyzer):
         return result1.union(result2)
 
     def analyze_simple_operation(self, op, graphinfo):
-        if op.opname in ("setfield", "oosetfield"):
+        if op.opname == "setfield":
             if graphinfo is None or not graphinfo.is_fresh_malloc(op.args[0]):
                 return frozenset([
                     ("struct", op.args[0].concretetype, op.args[1].value)])
-        elif op.opname == ("setarrayitem", "setinteriorfield"):
+        elif op.opname == "setarrayitem":
             if graphinfo is None or not graphinfo.is_fresh_malloc(op.args[0]):
                 return self._array_result(op.args[0].concretetype)
         return empty_set
@@ -50,20 +49,14 @@ class WriteAnalyzer(graphanalyze.GraphAnalyzer):
         return frozenset([("array", TYPE)])
 
     def analyze_external_call(self, op, seen=None):
-        funcobj = get_funcobj(op.args[0].value)
-        if funcobj.random_effects_on_gcobjs:
+        try:
+            funcobj = op.args[0].value._obj
+            random = funcobj.random_effects_on_gcobjs
+        except (AttributeError, lltype.DelayedPointer):
+            random = True
+        if random:
             return self.top_result()
         return graphanalyze.GraphAnalyzer.analyze_external_call(self, op, seen)
-
-    def analyze_external_method(self, op, TYPE, meth):
-        # XXX random_effects_on_gcobjs
-        if isinstance(TYPE, ootype.Array):
-            methname = op.args[0].value
-            if methname == 'll_setitem_fast':
-                return self._array_result(op.args[1].concretetype)
-            elif methname in ('ll_getitem_fast', 'll_length'):
-                return self.bottom_result()
-        return graphanalyze.GraphAnalyzer.analyze_external_method(self, op, TYPE, meth)
 
     def compute_graph_info(self, graph):
         return FreshMallocs(graph)

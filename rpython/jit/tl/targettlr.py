@@ -12,12 +12,20 @@ def entry_point(args):
     # viewcode.py to know the executable whose symbols it should display)
     highleveljitinfo.sys_executable = args[0]
     if len(args) < 3:
-        print "Usage: %s filename x" % (args[0],)
+        print "Usage: %s filename x (repetition)" % (args[0],)
         return 2
     filename = args[1]
     x = int(args[2])
+    if len(args) == 3:
+        repetition = 1
+    else:
+        repetition = int(args[3])
     bytecode = load_bytecode(filename)
-    res = interpret(bytecode, x)
+    while True:
+        res = interpret(bytecode, x)
+        repetition -= 1
+        if repetition <= 0:
+            break
     print res
     return 0
 
@@ -29,14 +37,9 @@ def load_bytecode(filename):
     return bytecode
 
 def target(driver, args):
-    return entry_point, None
+    return entry_point
 
 # ____________________________________________________________
-
-from rpython.jit.codewriter.policy import JitPolicy
-
-def jitpolicy(driver):
-    return JitPolicy()
 
 if __name__ == '__main__':
     import sys

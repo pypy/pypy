@@ -3,11 +3,14 @@
 in a nicer fashion
 """
 
+import re
 from rpython.jit.tool.oparser_model import get_model
-
 from rpython.jit.metainterp.resoperation import rop, ResOperation, \
                                             ResOpWithDescr, N_aryOp, \
                                             UnaryOp, PlainResOp
+
+r_skip_thread = re.compile(r'^(\d+#)?')
+
 
 class ParseError(Exception):
     pass
@@ -81,18 +84,11 @@ class OpParser(object):
         if self._consts is None:
             return name
         obj = self._consts[name]
-        if self.type_system == 'lltype':
-            if typ == 'ptr':
-                return self.model.ConstPtr(obj)
-            else:
-                assert typ == 'class'
-                return self.model.ConstInt(self.model.ptr_to_int(obj))
+        if typ == 'ptr':
+            return self.model.ConstPtr(obj)
         else:
-            if typ == 'ptr':
-                return self.model.ConstObj(obj)
-            else:
-                assert typ == 'class'
-                return self.model.ConstObj(ootype.cast_to_object(obj))
+            assert typ == 'class'
+            return self.model.ConstInt(self.model.ptr_to_int(obj))
 
     def get_descr(self, poss_descr, allow_invent):
         if poss_descr.startswith('<'):
@@ -167,11 +163,9 @@ class OpParser(object):
                 return self.model.ConstFloat(self.model.convert_to_floatstorage(arg))
             if (arg.startswith('"') or arg.startswith("'") or
                 arg.startswith('s"')):
-                # XXX ootype
                 info = arg[1:].strip("'\"")
                 return self.model.get_const_ptr_for_string(info)
             if arg.startswith('u"'):
-                # XXX ootype
                 info = arg[1:].strip("'\"")
                 return self.model.get_const_ptr_for_unicode(info)
             if arg.startswith('ConstClass('):
@@ -180,10 +174,7 @@ class OpParser(object):
             elif arg == 'None':
                 return None
             elif arg == 'NULL':
-                if self.type_system == 'lltype':
-                    return self.model.ConstPtr(self.model.ConstPtr.value)
-                else:
-                    return self.model.ConstObj(self.model.ConstObj.value)
+                return self.model.ConstPtr(self.model.ConstPtr.value)
             elif arg.startswith('ConstPtr('):
                 name = arg[len('ConstPtr('):-1]
                 return self.get_const(name, 'ptr')
@@ -309,7 +300,7 @@ class OpParser(object):
         newlines = []
         first_comment = None
         for line in lines:
-            line = line[line.find('#')+1:].strip()
+            line = r_skip_thread.sub('', line).strip()
             # for simplicity comments are not allowed on
             # debug_merge_point lines
             if '#' in line and 'debug_merge_point(' not in line:

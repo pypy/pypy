@@ -43,7 +43,10 @@ class StmHeader_OpaqueNode(ContainerNode):
 
 
 def stm_initialize(funcgen, op):
-    return 'stm_initialize();'
+    return '''stm_initialize();
+    stm_clear_on_abort(&pypy_g_ExcData.ed_exc_type,
+                       sizeof(struct pypy_object0 *));
+    '''
 
 def stm_finalize(funcgen, op):
     return 'stm_finalize();'
@@ -227,13 +230,6 @@ def stm_minor_collect(funcgen, op):
 def stm_major_collect(funcgen, op):
     return 'stm_major_collect();'
 
-def stm_clear_exception_data_on_abort(funcgen, op):
-    return """
-    stm_clear_on_abort(&pypy_g_ExcData.ed_exc_type,
-                       sizeof(struct pypy_object0 *));
-    """
-
-    
 
 def op_stm(funcgen, op):
     func = globals()[op.opname]

@@ -145,6 +145,8 @@ def get_L2cache_linux2():
         return get_L2cache_linux2_sparc()
     return -1
 
+get_L2cache_linux3 = get_L2cache_linux2
+
 
 def get_L2cache_linux2_cpuinfo(filename="/proc/cpuinfo", label='cache size'):
     debug_start("gc-hardware")

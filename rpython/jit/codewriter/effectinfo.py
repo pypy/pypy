@@ -1,7 +1,6 @@
 from rpython.jit.metainterp.typesystem import deref, fieldType, arrayItem
 from rpython.rtyper.lltypesystem.rclass import OBJECT
 from rpython.rtyper.lltypesystem import lltype, llmemory
-from rpython.rtyper.ootypesystem import ootype
 from rpython.translator.backendopt.graphanalyze import BoolGraphAnalyzer
 
 
@@ -79,8 +78,12 @@ class EffectInfo(object):
     #
     OS_RAW_MALLOC_VARSIZE_CHAR  = 110
     OS_RAW_FREE                 = 111
+    #
+    OS_STR_COPY_TO_RAW          = 112
+    OS_UNI_COPY_TO_RAW          = 113
 
     OS_JIT_FORCE_VIRTUAL        = 120
+    OS_JIT_FORCE_VIRTUALIZABLE  = 121
 
     # for debugging:
     _OS_CANRAISE = set([
@@ -93,14 +96,16 @@ class EffectInfo(object):
                 extraeffect=EF_CAN_RAISE,
                 oopspecindex=OS_NONE,
                 can_invalidate=False,
-                call_release_gil_target=llmemory.NULL):
+                call_release_gil_target=llmemory.NULL,
+                needs_inevitable=False):
         key = (frozenset_or_none(readonly_descrs_fields),
                frozenset_or_none(readonly_descrs_arrays),
                frozenset_or_none(write_descrs_fields),
                frozenset_or_none(write_descrs_arrays),
                extraeffect,
                oopspecindex,
-               can_invalidate)
+               can_invalidate,
+               needs_inevitable)
         if call_release_gil_target:
             key += (object(),)    # don't care about caching in this case
         if key in cls._cache:
@@ -128,6 +133,7 @@ class EffectInfo(object):
             result.write_descrs_arrays = write_descrs_arrays
         result.extraeffect = extraeffect
         result.can_invalidate = can_invalidate
+        result.needs_inevitable = needs_inevitable
         result.oopspecindex = oopspecindex
         result.call_release_gil_target = call_release_gil_target
         if result.check_can_raise():
@@ -154,6 +160,9 @@ class EffectInfo(object):
     def is_call_release_gil(self):
         return bool(self.call_release_gil_target)
 
+    def call_needs_inevitable(self):
+        return self.needs_inevitable
+
 
 def frozenset_or_none(x):
     if x is None:
@@ -169,7 +178,8 @@ def effectinfo_from_writeanalyze(effects, cpu,
                                  extraeffect=EffectInfo.EF_CAN_RAISE,
                                  oopspecindex=EffectInfo.OS_NONE,
                                  can_invalidate=False,
-                                 call_release_gil_target=llmemory.NULL):
+                                 call_release_gil_target=llmemory.NULL,
+                                 needs_inevitable=False):
     from rpython.translator.backendopt.writeanalyze import top_set
     if effects is top_set or extraeffect == EffectInfo.EF_RANDOM_EFFECTS:
         readonly_descrs_fields = None
@@ -218,13 +228,12 @@ def effectinfo_from_writeanalyze(effects, cpu,
                       extraeffect,
                       oopspecindex,
                       can_invalidate,
-                      call_release_gil_target)
+                      call_release_gil_target,
+                      needs_inevitable)
 
 def consider_struct(TYPE, fieldname):
     if fieldType(TYPE, fieldname) is lltype.Void:
         return False
-    if isinstance(TYPE, ootype.OOType):
-        return True
     if not isinstance(TYPE, lltype.GcStruct): # can be a non-GC-struct
         return False
     if fieldname == "typeptr" and TYPE is OBJECT:
@@ -237,8 +246,6 @@ def consider_struct(TYPE, fieldname):
 def consider_array(ARRAY):
     if arrayItem(ARRAY) is lltype.Void:
         return False
-    if isinstance(ARRAY, ootype.Array):
-        return True
     if not isinstance(ARRAY, lltype.GcArray): # can be a non-GC-array
         return False
     return True

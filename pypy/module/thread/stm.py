@@ -18,7 +18,6 @@ ec_cache = rstm.ThreadLocalReference(ExecutionContext)
 
 def initialize_execution_context(ec):
     """Called from ExecutionContext.__init__()."""
-    rstm.clear_exception_data_on_abort()
     ec._thread_local_dicts = rweakref.RWeakKeyDictionary(STMLocal, W_Root)
     if ec.space.config.objspace.std.withmethodcache:
         from pypy.objspace.std.typeobject import MethodCache
@@ -28,6 +27,7 @@ def _fill_untranslated(ec):
     if not we_are_translated() and not hasattr(ec, '_thread_local_dicts'):
         initialize_execution_context(ec)
 
+@jit.dont_look_inside # XXX: handle abort_info_push in JIT
 def enter_frame(ec, frame):
     """Called from ExecutionContext.enter()."""
     if frame.hide():

@@ -9,8 +9,8 @@ from rpython.translator import simplify
 from rpython.translator.backendopt import mallocprediction
 from rpython.translator.backendopt.removeassert import remove_asserts
 from rpython.translator.backendopt.support import log
-from rpython.translator.backendopt.checkvirtual import check_virtual_methods
 from rpython.translator.backendopt.storesink import storesink_graph
+from rpython.translator.backendopt import gilanalysis
 from rpython.flowspace.model import checkgraph
 
 INLINE_THRESHOLD_FOR_TEST = 33
@@ -53,9 +53,6 @@ def backend_optimizations(translator, graphs=None, secondary=False,
     if config.raisingop2direct_call:
         raisingop2direct_call(translator, graphs)
 
-    if translator.rtyper.type_system.name == 'ootypesystem':
-        check_virtual_methods()
-
     if config.remove_asserts:
         constfold(config, graphs)
         remove_asserts(translator, graphs)
@@ -93,7 +90,7 @@ def backend_optimizations(translator, graphs=None, secondary=False,
 
     if config.clever_malloc_removal:
         threshold = config.clever_malloc_removal_threshold
-        heuristic = get_function(config.clever_malloc_removal_heuristic)        
+        heuristic = get_function(config.clever_malloc_removal_heuristic)
         log.inlineandremove("phase with threshold factor: %s" % threshold)
         log.inlineandremove("heuristic: %s.%s" % (heuristic.__module__,
                                                   heuristic.__name__))
@@ -105,7 +102,7 @@ def backend_optimizations(translator, graphs=None, secondary=False,
         constfold(config, graphs)
         if config.print_statistics:
             print "after clever inlining and malloc removal"
-            print_statistics(translator.graphs[0], translator)        
+            print_statistics(translator.graphs[0], translator)
 
     if config.storesink:
         for graph in graphs:
@@ -142,10 +139,13 @@ def backend_optimizations(translator, graphs=None, secondary=False,
     for graph in graphs:
         checkgraph(graph)
 
+    gilanalysis.analyze(graphs, translator)
+
+
 def constfold(config, graphs):
     if config.constfold:
         for graph in graphs:
-            constant_fold_graph(graph)    
+            constant_fold_graph(graph)
 
 def inline_malloc_removal_phase(config, translator, graphs, inline_threshold,
                                 inline_heuristic,
@@ -175,4 +175,4 @@ def inline_malloc_removal_phase(config, translator, graphs, inline_threshold,
 
         if config.print_statistics:
             print "after malloc removal:"
-            print_statistics(translator.graphs[0], translator)    
+            print_statistics(translator.graphs[0], translator)

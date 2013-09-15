@@ -17,14 +17,14 @@ class Logger(object):
             debug_start("jit-log-noopt-loop")
             logops = self._log_operations(inputargs, operations, ops_offset)
             debug_stop("jit-log-noopt-loop")
+        elif type == "rewritten":
+            debug_start("jit-log-rewritten-loop")
+            logops = self._log_operations(inputargs, operations, ops_offset)
+            debug_stop("jit-log-rewritten-loop")
         elif number == -2:
             debug_start("jit-log-compiling-loop")
             logops = self._log_operations(inputargs, operations, ops_offset)
             debug_stop("jit-log-compiling-loop")
-        elif number == -3:
-            debug_start("jit-log-rewritten-loop")
-            logops = self._log_operations(inputargs, operations, ops_offset)
-            debug_stop("jit-log-rewritten-loop")
         else:
             debug_start("jit-log-opt-loop")
             debug_print("# Loop", number, '(%s)' % name, ":", type,
@@ -103,7 +103,6 @@ class LogOperations(object):
         elif isinstance(arg, BoxInt):
             return 'i' + str(mv)
         elif isinstance(arg, self.ts.ConstRef):
-            # XXX for ootype, this should also go through get_name_from_address
             return 'ConstPtr(ptr' + str(mv) + ')'
         elif isinstance(arg, self.ts.BoxRef):
             return 'p' + str(mv)

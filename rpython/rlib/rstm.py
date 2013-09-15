@@ -15,25 +15,6 @@ def get_adr_of_read_barrier_cache():
     return rffi.cast(lltype.Signed, addr)
 
 @dont_look_inside
-def clear_exception_data_on_abort():
-    # XXX: provisional API just to be safe
-    # called by pypy/module/thread/stm:initialize_execution_context
-    pass
-
-class ClearExceptionDataOnAbort(ExtRegistryEntry):
-    _about_ = clear_exception_data_on_abort
-    
-    def compute_result_annotation(self):
-        from rpython.annotator import model as annmodel
-        return annmodel.s_None
-
-    def specialize_call(self, hop):
-        hop.exception_cannot_occur()
-        return hop.genop('stm_clear_exception_data_on_abort', [],
-                         resulttype=lltype.Void)
-
-
-@dont_look_inside
 def become_inevitable():
     llop.stm_become_inevitable(lltype.Void)
 
@@ -58,7 +39,6 @@ def decrement_atomic():
 def is_atomic():
     return llop.stm_get_atomic(lltype.Signed)
 
-@dont_look_inside
 def abort_info_push(instance, fieldnames):
     "Special-cased below."
 
@@ -77,25 +57,29 @@ def abort_and_retry():
 
 @dont_look_inside
 def before_external_call():
-    llop.stm_commit_transaction(lltype.Void)
+    if we_are_translated():
+        llop.stm_commit_transaction(lltype.Void)
 before_external_call._dont_reach_me_in_del_ = True
 before_external_call._transaction_break_ = True
 
 @dont_look_inside
 def after_external_call():
-    llop.stm_begin_inevitable_transaction(lltype.Void)
+    if we_are_translated():
+        llop.stm_begin_inevitable_transaction(lltype.Void)
 after_external_call._dont_reach_me_in_del_ = True
 after_external_call._transaction_break_ = True
 
 @dont_look_inside
 def enter_callback_call():
-    return llop.stm_enter_callback_call(lltype.Signed)
+    if we_are_translated():
+        return llop.stm_enter_callback_call(lltype.Signed)
 enter_callback_call._dont_reach_me_in_del_ = True
 enter_callback_call._transaction_break_ = True
 
 @dont_look_inside
 def leave_callback_call(token):
-    llop.stm_leave_callback_call(lltype.Void, token)
+    if we_are_translated():
+        llop.stm_leave_callback_call(lltype.Void, token)
 leave_callback_call._dont_reach_me_in_del_ = True
 leave_callback_call._transaction_break_ = True
 

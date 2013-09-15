@@ -39,9 +39,6 @@ class KwargsDictStrategy(DictStrategy):
     def _never_equal_to(self, w_lookup_type):
         return False
 
-    def w_keys(self, w_dict):
-        return self.space.newlist([self.space.wrap(key) for key in self.unerase(w_dict.dstorage)[0]])
-
     def setitem(self, w_dict, w_key, w_value):
         if self.is_correct_type(w_key):
             self.setitem_str(w_dict, self.unwrap(w_key), w_value)
@@ -57,7 +54,6 @@ class KwargsDictStrategy(DictStrategy):
             jit.isconstant(self.length(w_dict)) and jit.isconstant(key))
     def _setitem_str_indirection(self, w_dict, key, w_value):
         keys, values_w = self.unerase(w_dict.dstorage)
-        result = []
         for i in range(len(keys)):
             if keys[i] == key:
                 values_w[i] = w_value
@@ -72,7 +68,6 @@ class KwargsDictStrategy(DictStrategy):
                 values_w.append(w_value)
 
     def setdefault(self, w_dict, w_key, w_default):
-        space = self.space
         if self.is_correct_type(w_key):
             key = self.unwrap(w_key)
             w_result = self.getitem_str(w_dict, key)
@@ -99,7 +94,6 @@ class KwargsDictStrategy(DictStrategy):
             jit.isconstant(self.length(w_dict)) and jit.isconstant(key))
     def _getitem_str_indirection(self, w_dict, key):
         keys, values_w = self.unerase(w_dict.dstorage)
-        result = []
         for i in range(len(keys)):
             if keys[i] == key:
                 return values_w[i]
@@ -164,13 +158,17 @@ class KwargsDictStrategy(DictStrategy):
 
     def getiterkeys(self, w_dict):
         return iter(self.unerase(w_dict.dstorage)[0])
+
     def getitervalues(self, w_dict):
         return iter(self.unerase(w_dict.dstorage)[1])
+
     def getiteritems(self, w_dict):
         keys = self.unerase(w_dict.dstorage)[0]
         return iter(range(len(keys)))
+
     def wrapkey(space, key):
         return space.wrap(key)
+
 
 def next_item(self):
     strategy = self.strategy

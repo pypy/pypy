@@ -708,7 +708,7 @@ class MapDictStrategy(DictStrategy):
         return MapDictIteratorValues(self.space, self, w_dict)
     def iteritems(self, w_dict):
         return MapDictIteratorItems(self.space, self, w_dict)
-    
+
 
 def materialize_r_dict(space, obj, dict_w):
     map = obj._get_mapdict_map()
@@ -716,69 +716,69 @@ def materialize_r_dict(space, obj, dict_w):
     _become(obj, new_obj)
 
 class MapDictIteratorKeys(BaseKeyIterator):
-     def __init__(self, space, strategy, dictimplementation):
-         BaseKeyIterator.__init__(
-             self, space, strategy, dictimplementation)
-         w_obj = strategy.unerase(dictimplementation.dstorage)
-         self.w_obj = w_obj
-         self.orig_map = self.curr_map = w_obj._get_mapdict_map()
+    def __init__(self, space, strategy, dictimplementation):
+        BaseKeyIterator.__init__(self, space, strategy, dictimplementation)
+        w_obj = strategy.unerase(dictimplementation.dstorage)
+        self.w_obj = w_obj
+        self.orig_map = self.curr_map = w_obj._get_mapdict_map()
 
-     def next_key_entry(self):
-         implementation = self.dictimplementation
-         assert isinstance(implementation.strategy, MapDictStrategy)
-         if self.orig_map is not self.w_obj._get_mapdict_map():
-             return None
-         if self.curr_map:
-             curr_map = self.curr_map.search(DICT)
-             if curr_map:
-                 self.curr_map = curr_map.back
-                 attr = curr_map.selector[0]
-                 w_attr = self.space.wrap(attr)
-                 return w_attr
-         return None
+    def next_key_entry(self):
+        implementation = self.dictimplementation
+        assert isinstance(implementation.strategy, MapDictStrategy)
+        if self.orig_map is not self.w_obj._get_mapdict_map():
+            return None
+        if self.curr_map:
+            curr_map = self.curr_map.search(DICT)
+            if curr_map:
+                self.curr_map = curr_map.back
+                attr = curr_map.selector[0]
+                w_attr = self.space.wrap(attr)
+                return w_attr
+        return None
+
 
 class MapDictIteratorValues(BaseValueIterator):
-     def __init__(self, space, strategy, dictimplementation):
-         BaseValueIterator.__init__(
-             self, space, strategy, dictimplementation)
-         w_obj = strategy.unerase(dictimplementation.dstorage)
-         self.w_obj = w_obj
-         self.orig_map = self.curr_map = w_obj._get_mapdict_map()
+    def __init__(self, space, strategy, dictimplementation):
+        BaseValueIterator.__init__(self, space, strategy, dictimplementation)
+        w_obj = strategy.unerase(dictimplementation.dstorage)
+        self.w_obj = w_obj
+        self.orig_map = self.curr_map = w_obj._get_mapdict_map()
 
-     def next_value_entry(self):
-         implementation = self.dictimplementation
-         assert isinstance(implementation.strategy, MapDictStrategy)
-         if self.orig_map is not self.w_obj._get_mapdict_map():
-             return None
-         if self.curr_map:
-             curr_map = self.curr_map.search(DICT)
-             if curr_map:
-                 self.curr_map = curr_map.back
-                 attr = curr_map.selector[0]
-                 return self.w_obj.getdictvalue(self.space, attr)
-         return None
+    def next_value_entry(self):
+        implementation = self.dictimplementation
+        assert isinstance(implementation.strategy, MapDictStrategy)
+        if self.orig_map is not self.w_obj._get_mapdict_map():
+            return None
+        if self.curr_map:
+            curr_map = self.curr_map.search(DICT)
+            if curr_map:
+                self.curr_map = curr_map.back
+                attr = curr_map.selector[0]
+                return self.w_obj.getdictvalue(self.space, attr)
+        return None
+
 
 class MapDictIteratorItems(BaseItemIterator):
-     def __init__(self, space, strategy, dictimplementation):
-         BaseItemIterator.__init__(
-             self, space, strategy, dictimplementation)
-         w_obj = strategy.unerase(dictimplementation.dstorage)
-         self.w_obj = w_obj
-         self.orig_map = self.curr_map = w_obj._get_mapdict_map()
+    def __init__(self, space, strategy, dictimplementation):
+        BaseItemIterator.__init__(self, space, strategy, dictimplementation)
+        w_obj = strategy.unerase(dictimplementation.dstorage)
+        self.w_obj = w_obj
+        self.orig_map = self.curr_map = w_obj._get_mapdict_map()
 
-     def next_item_entry(self):
-         implementation = self.dictimplementation
-         assert isinstance(implementation.strategy, MapDictStrategy)
-         if self.orig_map is not self.w_obj._get_mapdict_map():
-             return None, None
-         if self.curr_map:
-             curr_map = self.curr_map.search(DICT)
-             if curr_map:
-                 self.curr_map = curr_map.back
-                 attr = curr_map.selector[0]
-                 w_attr = self.space.wrap(attr)
-                 return w_attr, self.w_obj.getdictvalue(self.space, attr)
-         return None, None
+    def next_item_entry(self):
+        implementation = self.dictimplementation
+        assert isinstance(implementation.strategy, MapDictStrategy)
+        if self.orig_map is not self.w_obj._get_mapdict_map():
+            return None, None
+        if self.curr_map:
+            curr_map = self.curr_map.search(DICT)
+            if curr_map:
+                self.curr_map = curr_map.back
+                attr = curr_map.selector[0]
+                w_attr = self.space.wrap(attr)
+                return w_attr, self.w_obj.getdictvalue(self.space, attr)
+        return None, None
+
 
 # ____________________________________________________________
 # Magic caching
@@ -860,7 +860,7 @@ def LOAD_ATTR_slowpath(pycode, w_obj, nameindex, map):
             #
             selector = ("", INVALID)
             if w_descr is None:
-                selector = (name, DICT) #common case: no such attr in the class
+                selector = (name, DICT) # common case: no such attr in the class
             elif isinstance(w_descr, TypeCell):
                 pass              # we have a TypeCell in the class: give up
             elif space.is_data_descr(w_descr):
@@ -890,7 +890,6 @@ def LOAD_ATTR_slowpath(pycode, w_obj, nameindex, map):
 LOAD_ATTR_slowpath._dont_inline_ = True
 
 def LOOKUP_METHOD_mapdict(f, nameindex, w_obj):
-    space = f.space
     pycode = f.getcode()
     entry = pycode._mapdict_caches[nameindex]
     if entry.is_valid_for_obj(w_obj):

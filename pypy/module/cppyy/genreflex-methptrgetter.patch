@@ -10,7 +10,7 @@ Index: cint/reflex/python/genreflex/gendict.py
      # The next is to avoid a known problem with gccxml that it generates a
      # references to id equal '_0' which is not defined anywhere
      self.xref['_0'] = {'elem':'Unknown', 'attrs':{'id':'_0','name':''}, 'subelems':[]}
-@@ -1306,6 +1307,8 @@
+@@ -1328,6 +1329,8 @@
      bases = self.getBases( attrs['id'] )
      if inner and attrs.has_key('demangled') and self.isUnnamedType(attrs['demangled']) :
        cls = attrs['demangled']
@@ -19,7 +19,7 @@ Index: cint/reflex/python/genreflex/gendict.py
        clt = ''
      else:
        cls = self.genTypeName(attrs['id'],const=True,colon=True)
-@@ -1343,7 +1346,7 @@
+@@ -1365,7 +1368,7 @@
        # Inner class/struct/union/enum.
        for m in memList :
          member = self.xref[m]
@@ -28,7 +28,7 @@ Index: cint/reflex/python/genreflex/gendict.py
             and member['attrs'].get('access') in ('private','protected') \
             and not self.isUnnamedType(member['attrs'].get('demangled')):
            cmem = self.genTypeName(member['attrs']['id'],const=True,colon=True)
-@@ -1981,8 +1984,15 @@
+@@ -2003,8 +2006,15 @@
      else    : params  = '0'
      s = '  .AddFunctionMember(%s, Reflex::Literal("%s"), %s%s, 0, %s, %s)' % (self.genTypeID(id), name, type, id, params, mod)
      s += self.genCommentProperty(attrs)
@@ -44,7 +44,7 @@ Index: cint/reflex/python/genreflex/gendict.py
    def genMCODef(self, type, name, attrs, args):
      id       = attrs['id']
      cl       = self.genTypeName(attrs['context'],colon=True)
-@@ -2049,8 +2059,44 @@
+@@ -2071,8 +2081,44 @@
            if returns == 'void' : body += '  }\n'
            else :                 body += '  }\n'
      body += '}\n'
@@ -105,17 +105,16 @@ Index: cint/reflex/python/genreflex/genreflex.py
        -h, --help
           Print this help\n
       """ 
-@@ -127,7 +131,8 @@
-       opts, args = getopt.getopt(options, 'ho:s:c:I:U:D:PC', \
+@@ -128,7 +132,7 @@
        ['help','debug=', 'output=','selection_file=','pool','dataonly','interpreteronly','deep','gccxmlpath=',
         'capabilities=','rootmap=','rootmap-lib=','comments','iocomments','no_membertypedefs',
--       'fail_on_warnings', 'quiet', 'gccxmlopt=', 'reflex', 'split=','no_templatetypedefs','gccxmlpost='])
-+       'fail_on_warnings', 'quiet', 'gccxmlopt=', 'reflex', 'split=','no_templatetypedefs','gccxmlpost=',
-+       'with-methptrgetter'])
+        'fail_on_warnings', 'quiet', 'gccxmlopt=', 'reflex', 'split=','no_templatetypedefs','gccxmlpost=',
+-       'library='])
++       'library=', 'with-methptrgetter'])
      except getopt.GetoptError, e:
        print "--->> genreflex: ERROR:",e
        self.usage(2)
-@@ -186,6 +191,8 @@
+@@ -187,6 +191,8 @@
          self.rootmap = a
        if o in ('--rootmap-lib',):
          self.rootmaplib = a

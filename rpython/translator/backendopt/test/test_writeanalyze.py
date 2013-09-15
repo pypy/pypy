@@ -1,8 +1,5 @@
-import py
 from rpython.rtyper.lltypesystem import lltype
-from rpython.rtyper.ootypesystem import ootype
 from rpython.translator.translator import TranslationContext, graphof
-from rpython.translator.simplify import get_funcobj
 from rpython.translator.backendopt.writeanalyze import WriteAnalyzer, top_set
 from rpython.translator.backendopt.writeanalyze import ReadWriteAnalyzer
 from rpython.translator.backendopt.all import backend_optimizations
@@ -11,19 +8,19 @@ from rpython.conftest import option
 
 class BaseTest(object):
 
-    type_system = None
+    type_system = 'lltype'
     Analyzer = WriteAnalyzer
-    
+
     def translate(self, func, sig):
         t = TranslationContext()
         t.buildannotator().build_types(func, sig)
-        t.buildrtyper(type_system=self.type_system).specialize()
+        t.buildrtyper().specialize()
         if option.view:
             t.view()
         return t, self.Analyzer(t)
 
 
-class BaseTestWriteAnalyze(BaseTest):
+class TestWriteAnalyze(BaseTest):
 
     def test_writes_simple(self):
         def g(x):
@@ -149,7 +146,7 @@ class BaseTestWriteAnalyze(BaseTest):
                 obj = B()
             f(obj)
             m(obj)
-        
+
         t, wa = self.translate(h, [int])
         hgraph = graphof(t, h)
         # fiiiish :-(
@@ -160,7 +157,7 @@ class BaseTestWriteAnalyze(BaseTest):
         # check that we fished the expected ops
         def check_call(op, fname):
             assert op.opname == "direct_call"
-            assert get_funcobj(op.args[0].value)._name == fname
+            assert op.args[0].value._obj._name == fname
         check_call(op_call_f, "f")
         check_call(op_call_m, "m")
 
@@ -172,11 +169,9 @@ class BaseTestWriteAnalyze(BaseTest):
         assert not wa.analyze(op_call_m)
 
     def test_instantiate(self):
-        # instantiate is interesting, because it leads to one of the few cases of
-        # an indirect call without a list of graphs
         from rpython.rlib.objectmodel import instantiate
         class A:
-            pass 
+            pass
         class B(A):
             pass
         def g(x):
@@ -190,14 +185,10 @@ class BaseTestWriteAnalyze(BaseTest):
         t, wa = self.translate(f, [int])
         fgraph = graphof(t, f)
         result = wa.analyze(fgraph.startblock.operations[0])
-        if self.type_system == 'lltype':
-            assert result is top_set
-        else:
-            assert not result # ootype is more precise in this case
+        assert not result
 
     def test_llexternal(self):
         from rpython.rtyper.lltypesystem.rffi import llexternal
-        from rpython.rtyper.lltypesystem import lltype
         z = llexternal('z', [lltype.Signed], lltype.Signed)
         def f(x):
             return z(x)
@@ -223,10 +214,6 @@ class BaseTestWriteAnalyze(BaseTest):
 
         result = wa.analyze(ggraph.startblock.operations[-1])
         assert not result
-
-
-class TestLLtype(BaseTestWriteAnalyze):
-    type_system = 'lltype'
 
     def test_list(self):
         def g(x, y, z):
@@ -284,46 +271,8 @@ class TestLLtype(BaseTestWriteAnalyze):
         assert name.endswith("foobar")
 
 
-class TestOOtype(BaseTestWriteAnalyze):
-    type_system = 'ootype'
-    
-    def test_array(self):
-        def g(x, y, z):
-            return f(x, y, z)
-        def f(x, y, z):
-            l = [0] * x
-            l[1] = 42
-            return len(l) + z
-
-        t, wa = self.translate(g, [int, int, int])
-        ggraph = graphof(t, g)
-        assert ggraph.startblock.operations[0].opname == 'direct_call'
-
-        result = sorted(wa.analyze(ggraph.startblock.operations[0]))
-        assert len(result) == 1
-        array, A = result[0]
-        assert array == 'array'
-        assert A.ITEM is ootype.Signed
-        
-    def test_list(self):
-        def g(x, y, z):
-            return f(x, y, z)
-        def f(x, y, z):
-            l = [0] * x
-            l.append(z)
-            return len(l) + z
-
-        t, wa = self.translate(g, [int, int, int])
-        ggraph = graphof(t, g)
-        assert ggraph.startblock.operations[0].opname == 'direct_call'
-
-        result = wa.analyze(ggraph.startblock.operations[0])
-        assert result is top_set
-
-
 class TestLLtypeReadWriteAnalyze(BaseTest):
     Analyzer = ReadWriteAnalyzer
-    type_system = 'lltype'
 
     def test_read_simple(self):
         def g(x):
@@ -346,14 +295,14 @@ class TestLLtypeReadWriteAnalyze(BaseTest):
         def h(flag):
             obj = A(flag)
             return obj.f()
-        
+
         t, wa = self.translate(h, [int])
         hgraph = graphof(t, h)
         op_call_f = hgraph.startblock.operations[-1]
 
         # check that we fished the expected ops
         assert op_call_f.opname == "direct_call"
-        assert get_funcobj(op_call_f.args[0].value)._name == 'A.f'
+        assert op_call_f.args[0].value._obj._name == 'A.f'
 
         result = wa.analyze(op_call_f)
         assert len(result) == 2

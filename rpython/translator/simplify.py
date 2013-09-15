@@ -4,7 +4,6 @@
 
 simplify_graph() applies all simplifications defined in this file.
 """
-
 import py
 
 from rpython.flowspace import operation
@@ -14,32 +13,17 @@ from rpython.rlib import rarithmetic
 from rpython.translator import unsimplify
 from rpython.translator.backendopt import ssa
 from rpython.rtyper.lltypesystem import lloperation, lltype
-from rpython.rtyper.ootypesystem import ootype
-
-def get_funcobj(func):
-    """
-    Return an object which is supposed to have attributes such as graph and
-    _callable
-    """
-    try:
-        return func._obj # lltypesystem
-    except AttributeError:
-        return func # ootypesystem
-
-def get_functype(TYPE):
-    if isinstance(TYPE, lltype.Ptr):
-        return TYPE.TO
-    elif isinstance(TYPE, (ootype.StaticMethod, ootype.ForwardReference)):
-        return TYPE
-    assert False
 
 def get_graph(arg, translator):
     if isinstance(arg, Variable):
         return None
     f = arg.value
-    if not isinstance(f, lltype._ptr) and not isinstance(f, ootype._callable):
+    if not isinstance(f, lltype._ptr):
         return None
-    funcobj = get_funcobj(f)
+    try:
+        funcobj = f._getobj()
+    except lltype.DelayedPointer:
+        return None
     try:
         callable = funcobj._callable
     except (AttributeError, KeyError, AssertionError):
@@ -72,17 +56,6 @@ def replace_exitswitch_by_constant(block, const):
     return newexits
 
 # ____________________________________________________________
-
-def desugar_isinstance(graph):
-    """Replace isinstance operation with a call to isinstance."""
-    constant_isinstance = Constant(isinstance)
-    for block in graph.iterblocks():
-        for i in range(len(block.operations) - 1, -1, -1):
-            op = block.operations[i]
-            if op.opname == "isinstance":
-                args = [constant_isinstance, op.args[0], op.args[1]]
-                new_op = SpaceOperation("simple_call", args, op.result)
-                block.operations[i] = new_op
 
 def eliminate_empty_blocks(graph):
     """Eliminate basic blocks that do not contain any operations.
@@ -120,7 +93,8 @@ def transform_ovfcheck(graph):
     covf = Constant(rarithmetic.ovfcheck)
 
     def check_syntax(opname):
-        exlis = operation.implicit_exceptions.get("%s_ovf" % (opname,), [])
+        oper = getattr(operation.op, opname + "_ovf")
+        exlis = oper.canraise
         if OverflowError not in exlis:
             raise Exception("ovfcheck in %s: Operation %s has no"
                             " overflow variant" % (graph.name, opname))
@@ -404,9 +378,9 @@ def transform_dead_op_vars(graph, translator=None):
 # (they have no side effects, at least in R-Python)
 CanRemove = {}
 for _op in '''
-        newtuple newlist newdict is_true
+        newtuple newlist newdict bool
         is_ id type issubtype repr str len hash getattr getitem
-        pos neg nonzero abs hex oct ord invert add sub mul
+        pos neg abs hex oct ord invert add sub mul
         truediv floordiv div mod divmod pow lshift rshift and_ or_
         xor int float long lt le eq ne gt ge cmp coerce contains
         iter get'''.split():
@@ -495,11 +469,11 @@ def transform_dead_op_vars_in_blocks(blocks, graphs, translator=None):
         # look for removable operations whose result is never used
         for i in range(len(block.operations)-1, -1, -1):
             op = block.operations[i]
-            if op.result not in read_vars: 
+            if op.result not in read_vars:
                 if canremove(op, block):
                     del block.operations[i]
-                elif op.opname == 'simple_call': 
-                    # XXX we want to have a more effective and safe 
+                elif op.opname == 'simple_call':
+                    # XXX we want to have a more effective and safe
                     # way to check if this operation has side effects
                     # ...
                     if op.args and isinstance(op.args[0], Constant):
@@ -595,14 +569,14 @@ def remove_identical_vars(graph):
                     del link.args[i]
 
 
-def coalesce_is_true(graph):
-    """coalesce paths that go through an is_true and a directly successive
-       is_true both on the same value, transforming the link into the
-       second is_true from the first to directly jump to the correct
+def coalesce_bool(graph):
+    """coalesce paths that go through an bool and a directly successive
+       bool both on the same value, transforming the link into the
+       second bool from the first to directly jump to the correct
        target out of the second."""
     candidates = []
 
-    def has_is_true_exitpath(block):
+    def has_bool_exitpath(block):
         tgts = []
         start_op = block.operations[-1]
         cond_v = start_op.args[0]
@@ -612,21 +586,21 @@ def coalesce_is_true(graph):
                 if tgt == block:
                     continue
                 rrenaming = dict(zip(tgt.inputargs,exit.args))
-                if len(tgt.operations) == 1 and tgt.operations[0].opname == 'is_true':
+                if len(tgt.operations) == 1 and tgt.operations[0].opname == 'bool':
                     tgt_op = tgt.operations[0]
                     if tgt.exitswitch == tgt_op.result and rrenaming.get(tgt_op.args[0]) == cond_v:
                         tgts.append((exit.exitcase, tgt))
         return tgts
 
     for block in graph.iterblocks():
-        if block.operations and block.operations[-1].opname == 'is_true':
-            tgts = has_is_true_exitpath(block)
+        if block.operations and block.operations[-1].opname == 'bool':
+            tgts = has_bool_exitpath(block)
             if tgts:
                 candidates.append((block, tgts))
 
     while candidates:
         cand, tgts = candidates.pop()
-        newexits = list(cand.exits) 
+        newexits = list(cand.exits)
         for case, tgt in tgts:
             exit = cand.exits[case]
             rrenaming = dict(zip(tgt.inputargs,exit.args))
@@ -636,7 +610,7 @@ def coalesce_is_true(graph):
             newlink = tgt.exits[case].copy(rename)
             newexits[case] = newlink
         cand.recloseblock(*newexits)
-        newtgts = has_is_true_exitpath(cand)
+        newtgts = has_bool_exitpath(cand)
         if newtgts:
             candidates.append((cand, newtgts))
 
@@ -990,11 +964,10 @@ class ListComprehensionDetector(object):
 # ____ all passes & simplify_graph
 
 all_passes = [
-    desugar_isinstance,
     eliminate_empty_blocks,
     remove_assertion_errors,
     join_blocks,
-    coalesce_is_true,
+    coalesce_bool,
     transform_dead_op_vars,
     remove_identical_vars,
     transform_ovfcheck,

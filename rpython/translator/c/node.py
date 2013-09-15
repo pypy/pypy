@@ -358,6 +358,8 @@ class BareBoneArrayDefNode(NodeWithDependencies):
             self.fullptrtypename = 'void *@'
         else:
             self.fullptrtypename = self.itemtypename.replace('@', '*@')
+            if ARRAY._hints.get("render_as_const"):
+                self.fullptrtypename = 'const ' + self.fullptrtypename
 
     def setup(self):
         """Array loops are forbidden by ForwardReference.become() because

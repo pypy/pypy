@@ -62,6 +62,29 @@ class TestStm(RewriteTests):
         RewriteTests.check_rewrite(self, frm_operations, to_operations,
                                    **namespace)
 
+    def test_inevitable_calls(self):
+        c1 = GcCache(True)
+        T = lltype.GcStruct('T')
+        U = lltype.GcStruct('U', ('x', lltype.Signed))
+        for inev in (True, False):
+            class fakeextrainfo:
+                def call_needs_inevitable(self):
+                    return inev
+        
+            calldescr = get_call_descr(c1, [lltype.Ptr(T)], lltype.Ptr(U), 
+                                       fakeextrainfo())
+            
+            self.check_rewrite("""
+                []
+                call(123, descr=cd)
+                jump()
+            ""","""
+                []
+                %s
+                call(123, descr=cd)
+                jump()
+            """ % ("$INEV" if inev else "",), cd=calldescr)
+    
     def test_rewrite_one_setfield_gc(self):
         self.check_rewrite("""
             [p1, p2]
@@ -446,21 +469,27 @@ class TestStm(RewriteTests):
     def test_rewrite_getfield_gc_on_future_local_after_call(self):
         # XXX could detect CALLs that cannot interrupt the transaction
         # and/or could use the L category
+        class fakeextrainfo:
+            def call_needs_inevitable(self):
+                return False
+        T = rffi.CArrayPtr(rffi.TIME_T)
+        calldescr1 = get_call_descr(self.gc_ll_descr, [T], rffi.TIME_T,
+                                    fakeextrainfo())
         self.check_rewrite("""
             [p1]
             p2 = getfield_gc(p1, descr=tzdescr)
-            call(p2)
+            call(p2, descr=calldescr1)
             setfield_gc(p1, 5, descr=tydescr)
             jump(p2)
         """, """
             [p1]
             cond_call_stm_b(p1, descr=P2Rdescr)
             p2 = getfield_gc(p1, descr=tzdescr)
-            call(p2)
+            call(p2, descr=calldescr1)
             cond_call_stm_b(p1, descr=P2Wdescr)
             setfield_gc(p1, 5, descr=tydescr)
             jump(p2)
-        """)
+        """, calldescr1=calldescr1)
 
     def test_getfield_raw(self):
         self.check_rewrite("""
@@ -635,8 +664,12 @@ class TestStm(RewriteTests):
             """ % op)
 
     def test_call_force(self):
+        class fakeextrainfo:
+            def call_needs_inevitable(self):
+                return False
         T = rffi.CArrayPtr(rffi.TIME_T)
-        calldescr2 = get_call_descr(self.gc_ll_descr, [T], rffi.TIME_T)
+        calldescr2 = get_call_descr(self.gc_ll_descr, [T], rffi.TIME_T,
+                                    fakeextrainfo())
         for op in ["call(123, descr=calldescr2)",
                    "call_assembler(123, descr=casmdescr)",
                    "call_may_force(123, descr=calldescr2)",

@@ -1,6 +1,5 @@
 from rpython.rtyper.test.test_llinterp import interpret
 from rpython.rtyper.lltypesystem import lltype, llmemory, rstr, rffi
-from rpython.rtyper.ootypesystem import ootype
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.jit.metainterp.warmstate import wrap, unwrap, specialize_value
 from rpython.jit.metainterp.warmstate import equal_whatever, hash_whatever
@@ -76,16 +75,6 @@ def test_hash_equal_whatever_lltype():
         assert equal_whatever(lltype.typeOf(s1), s1, s2)
     fn(42)
     interpret(fn, [42], type_system='lltype')
-
-def test_hash_equal_whatever_ootype():
-    def fn(c):
-        s1 = ootype.oostring("xy", -1)
-        s2 = ootype.oostring("x" + chr(c), -1)
-        assert (hash_whatever(ootype.typeOf(s1), s1) ==
-                hash_whatever(ootype.typeOf(s2), s2))
-        assert equal_whatever(ootype.typeOf(s1), s1, s2)
-    fn(ord('y'))
-    interpret(fn, [ord('y')], type_system='ootype')
 
 
 def test_make_jitcell_getter_default():
@@ -196,7 +185,7 @@ def test_make_jitdriver_callbacks_1():
     state.jit_getter = jit_getter
     state.make_jitdriver_callbacks()
     res = state.get_location_str([ConstInt(5), constfloat(42.5)])
-    assert res == '(no jitdriver.get_printable_location!)'
+    assert res == '(<unknown jitdriver>: no get_printable_location)'
 
 def test_make_jitdriver_callbacks_3():
     def get_location(x, y):

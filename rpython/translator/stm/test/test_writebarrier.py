@@ -28,6 +28,24 @@ class TestTransform(BaseTestTransform):
         assert len(self.writemode) == 0
         assert self.barriers == ['I2R']
 
+    def test_simple_read_2(self):
+        X = lltype.GcStruct('X', ('foo', lltype.Signed))
+        x2 = lltype.malloc(X, immortal=True)
+        x2.foo = 81
+        null = lltype.nullptr(X)
+
+        def f1(n):
+            if n < 1:
+                p = null
+            else:
+                p = x2
+            return p.foo
+
+        res = self.interpret(f1, [4])
+        assert res == 81
+        assert len(self.writemode) == 0
+        assert self.barriers == ['I2R']
+
     def test_simple_write(self):
         X = lltype.GcStruct('X', ('foo', lltype.Signed))
         x1 = lltype.malloc(X, immortal=True)
@@ -488,6 +506,29 @@ class TestTransform(BaseTestTransform):
 
         for i in range(10):
             self.interpret(f, [], run=False)
+
+    def test_immut_barrier_before_weakref_deref(self):
+        import weakref
+        class Foo:
+            pass
+
+        def f1():
+            x = Foo()
+            w = weakref.ref(x)
+            llop.debug_stm_flush_barrier(lltype.Void)
+            return w()
+
+        self.interpret(f1, [])
+        assert self.barriers == ['a2i']
+
+    def test_llop_gc_writebarrier(self):
+        FOO = lltype.GcStruct('FOO')
+        x = lltype.malloc(FOO, immortal=True)
+        def f1():
+            llop.gc_writebarrier(lltype.Void, x)
+
+        self.interpret(f1, [])
+        assert self.barriers == ['I2W']
 
 
 external_release_gil = rffi.llexternal('external_release_gil', [], lltype.Void,
