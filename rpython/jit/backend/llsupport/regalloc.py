@@ -77,6 +77,11 @@ class LinkedList(object):
         node = self.master_node
         #
         if hint >= 0:
+            # Look for and remove the Node with the .val matching 'hint'.
+            # If not found, fall back to removing the first Node.
+            # Note that the loop below ignores the first Node, but
+            # even if by chance it is the one with the correct .val,
+            # it will be the one we remove at the end anyway.
             prev_node = node
             while prev_node.next:
                 if prev_node.next.val == hint:
