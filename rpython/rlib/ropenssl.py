@@ -242,7 +242,7 @@ ssl_external('X509_NAME_get_entry', [X509_NAME, rffi.INT], X509_NAME_ENTRY)
 ssl_external('X509_NAME_ENTRY_get_object', [X509_NAME_ENTRY], ASN1_OBJECT)
 ssl_external('X509_NAME_ENTRY_get_data', [X509_NAME_ENTRY], ASN1_STRING)
 ssl_external('i2d_X509', [X509, rffi.CCHARPP], rffi.INT)
-ssl_external('X509_free', [X509], lltype.Void, threadsafe=False)
+ssl_external('X509_free', [X509], lltype.Void, releasegil=False)
 ssl_external('X509_get_notBefore', [X509], ASN1_TIME, macro=True)
 ssl_external('X509_get_notAfter', [X509], ASN1_TIME, macro=True)
 ssl_external('X509_get_serialNumber', [X509], ASN1_INTEGER)
@@ -282,10 +282,10 @@ ssl_external('ERR_peek_last_error', [], rffi.INT)
 ssl_external('ERR_error_string', [rffi.ULONG, rffi.CCHARP], rffi.CCHARP)
 ssl_external('ERR_clear_error', [], lltype.Void)
 
-# 'threadsafe=False' here indicates that this function will be called
+# 'releasegil=False' here indicates that this function will be called
 # with the GIL held, and so is allowed to run in a RPython __del__ method.
-ssl_external('SSL_free', [SSL], lltype.Void, threadsafe=False)
-ssl_external('SSL_CTX_free', [SSL_CTX], lltype.Void, threadsafe=False)
+ssl_external('SSL_free', [SSL], lltype.Void, releasegil=False)
+ssl_external('SSL_CTX_free', [SSL_CTX], lltype.Void, releasegil=False)
 ssl_external('CRYPTO_free', [rffi.VOIDP], lltype.Void)
 libssl_OPENSSL_free = libssl_CRYPTO_free
 
@@ -325,7 +325,7 @@ EVP_DigestFinal = external(
 EVP_MD_CTX_copy = external(
     'EVP_MD_CTX_copy', [EVP_MD_CTX, EVP_MD_CTX], rffi.INT)
 EVP_MD_CTX_cleanup = external(
-    'EVP_MD_CTX_cleanup', [EVP_MD_CTX], rffi.INT, threadsafe=False)
+    'EVP_MD_CTX_cleanup', [EVP_MD_CTX], rffi.INT, releasegil=False)
 
 OBJ_NAME_CALLBACK = lltype.Ptr(lltype.FuncType(
         [OBJ_NAME, rffi.VOIDP], lltype.Void))
