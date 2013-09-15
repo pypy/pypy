@@ -70,7 +70,7 @@ class LinkedList(object):
 
     def pop(self, size, tp, hint=-1):
         if size == 2:
-            return self._pop_two(tp)
+            return self._pop_two(tp)   # 'hint' ignored for floats on 32-bit
         assert size == 1
         if not self.master_node:
             return None
