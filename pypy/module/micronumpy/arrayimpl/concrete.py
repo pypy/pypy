@@ -317,7 +317,7 @@ class ConcreteArrayNotOwning(BaseConcreteArray):
 
     def create_iter(self, shape=None, backward_broadcast=False):
         if shape is None or \
-           support.product(shape) == support.product(self.get_shape()):
+           support.product(shape) <= support.product(self.get_shape()):
             return iter.ConcreteArrayIterator(self)
         r = calculate_broadcast_strides(self.get_strides(),
                                         self.get_backstrides(),
@@ -387,7 +387,7 @@ class SliceArray(BaseConcreteArray):
 
     def create_iter(self, shape=None, backward_broadcast=False):
         if shape is not None and shape != self.get_shape() and \
-           support.product(shape) != support.product(self.get_shape()):
+           support.product(shape) > support.product(self.get_shape()):
             r = calculate_broadcast_strides(self.get_strides(),
                                             self.get_backstrides(),
                                             self.get_shape(), shape,
