@@ -1003,8 +1003,8 @@ static int TFNPyCallback(G__value* res, G__CONST char*, struct G__param* libp, i
        (double*)G__int(libp->para[0]), fid_and_npar.second ? (double*)G__int(libp->para[1]) : NULL);
 
     // translate result (TODO: error checking)
-    G__letdouble( res, 100, d );
-    return ( 1 || hash || res || libp );
+    G__letdouble(res, 100, d);
+    return (1 || hash || res || libp);
 }
 
 long cppyy_tfn_install(const char* funcname, int npar) {
