@@ -207,9 +207,15 @@ elif _MS_WINDOWS:
     VirtualAlloc, VirtualAlloc_safe = winexternal('VirtualAlloc',
                                [rffi.VOIDP, rffi.SIZE_T, DWORD, DWORD],
                                rffi.VOIDP)
-    _, VirtualProtect_safe = winexternal('VirtualProtect',
+    _, _VirtualProtect_safe = winexternal('VirtualProtect',
                                   [rffi.VOIDP, rffi.SIZE_T, DWORD, LPDWORD],
                                   BOOL)
+    def VirtualProtect(addr, size, mode, oldmode_ptr):
+        return _VirtualProtect_safe(addr,
+                               rffi.cast(rffi.SIZE_T, size),
+                               rffi.cast(DWORD, mode),
+                               oldmode_ptr)
+    VirtualProtect._annspecialcase_ = 'specialize:ll'
     VirtualFree, VirtualFree_safe = winexternal('VirtualFree',
                               [rffi.VOIDP, rffi.SIZE_T, DWORD], BOOL)
 
@@ -849,7 +855,7 @@ elif _MS_WINDOWS:
         if not res:
             raise MemoryError
         arg = lltype.malloc(LPDWORD.TO, 1, zero=True, flavor='raw')
-        VirtualProtect_safe(res, map_size, PAGE_EXECUTE_READWRITE, arg)
+        VirtualProtect(res, map_size, PAGE_EXECUTE_READWRITE, arg)
         lltype.free(arg, flavor='raw')
         # ignore errors, just try
         return res
