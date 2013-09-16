@@ -386,7 +386,8 @@ class SliceArray(BaseConcreteArray):
         loop.fill(self, box.convert_to(self.dtype))
 
     def create_iter(self, shape=None, backward_broadcast=False):
-        if shape is not None and shape != self.get_shape():
+        if shape is not None and shape != self.get_shape() and \
+           support.product(shape) != support.product(self.get_shape()):
             r = calculate_broadcast_strides(self.get_strides(),
                                             self.get_backstrides(),
                                             self.get_shape(), shape,

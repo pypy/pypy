@@ -2360,6 +2360,11 @@ class AppTestMultiDim(BaseNumpyAppTest):
         b = arange(4).reshape(2, 2) + 10
         a[a < 4] = b
         assert (a == [10, 11, 12, 13, 4, 5]).all()
+        b += 10
+        c = arange(8).reshape(2, 2, 2)
+        a[a > 9] = c[:, :, 1]
+        assert (c[:, :, 1] == [[1, 3], [5, 7]]).all()
+        assert (a == [1, 3, 5, 7, 4, 5]).all()
         a = arange(6)
         a[a > 3] = array([15])
         assert (a == [0, 1, 2, 3, 15, 15]).all()
