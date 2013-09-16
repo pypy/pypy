@@ -118,7 +118,7 @@ if WIN32:
     INVALID_HANDLE_VALUE = rffi.cast(HANDLE, -1)
     PFILETIME = rffi.CArrayPtr(FILETIME)
 
-    _GetLastError = winexternal('GetLastError', [], DWORD, threadsafe=False)
+    _GetLastError = winexternal('GetLastError', [], DWORD, releasegil=False)
     _SetLastError = winexternal('SetLastError', [DWORD], lltype.Void)
 
     def GetLastError():
@@ -134,10 +134,10 @@ if WIN32:
     GetProcAddress = winexternal('GetProcAddress',
                                  [HMODULE, rffi.CCHARP],
                                  rffi.VOIDP)
-    FreeLibrary = winexternal('FreeLibrary', [HMODULE], BOOL, threadsafe=False)
+    FreeLibrary = winexternal('FreeLibrary', [HMODULE], BOOL, releasegil=False)
 
     LocalFree = winexternal('LocalFree', [HLOCAL], DWORD)
-    CloseHandle = winexternal('CloseHandle', [HANDLE], BOOL, threadsafe=False)
+    CloseHandle = winexternal('CloseHandle', [HANDLE], BOOL, releasegil=False)
 
     FormatMessage = winexternal(
         'FormatMessageA',

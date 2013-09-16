@@ -3232,7 +3232,7 @@ class BaseLLtypeTests(BasicTests):
             py.test.skip("needs 'time'")
         T = rffi.CArrayPtr(rffi.TIME_T)
 
-        external = rffi.llexternal("time", [T], rffi.TIME_T, threadsafe=True)
+        external = rffi.llexternal("time", [T], rffi.TIME_T, releasegil=True)
         # Not a real lock, has all the same properties with respect to GIL
         # release though, so good for this test.
         class Lock(object):
