@@ -88,9 +88,7 @@ class __extend__(W_NDimArray):
         w_res = W_NDimArray.from_shape(space, res_shape, self.get_dtype(), w_instance=self)
         return loop.getitem_filter(w_res, self, arr)
 
-    def setitem_filter(self, space, idx, value):
-        from pypy.module.micronumpy.interp_boxes import Box
-        val = value
+    def setitem_filter(self, space, idx, val):
         if len(idx.get_shape()) > 1 and idx.get_shape() != self.get_shape():
             raise OperationError(space.w_ValueError,
                                  space.wrap("boolean index array should have 1 dimension"))
@@ -103,11 +101,7 @@ class __extend__(W_NDimArray):
             raise OperationError(space.w_ValueError, space.wrap("NumPy boolean array indexing assignment "
                                                                 "cannot assign %d input values to "
                                                                 "the %d output values where the mask is true" % (val.get_shape()[0],size)))
-        if val.get_shape() == [1]:
-            box = val.descr_getitem(space, space.wrap(0))
-            assert isinstance(box, Box)
-            val = W_NDimArray(scalar.Scalar(val.get_dtype(), box))
-        elif val.get_shape() == [0]:
+        if val.get_shape() == [0]:
             val.implementation.dtype = self.implementation.dtype
         loop.setitem_filter(self, idx, val)
 
