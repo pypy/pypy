@@ -1,8 +1,6 @@
-from rpython.rtyper.lltypesystem import rffi, lltype
-from pypy.interpreter.error import OperationError
+from rpython.rtyper.lltypesystem import lltype
 from pypy.module.cpyext.test.test_api import BaseApiTest
-from pypy.module.cpyext import sequence
-from pypy.module.cpyext.pyobject import PyObject, PyObjectP, from_ref, make_ref, Py_DecRef
+from pypy.module.cpyext.pyobject import PyObjectP, from_ref, make_ref, Py_DecRef
 
 class TestIterator(BaseApiTest):
     def test_check(self, space, api):
@@ -35,6 +33,24 @@ class TestIterator(BaseApiTest):
         w_l = api.PyNumber_Index(space.wrap(42.3))
         assert w_l is None
         api.PyErr_Clear()
+
+    def test_coerce(self, space, api):
+        w_obj1 = space.wrap(123)
+        w_obj2 = space.wrap(456.789)
+        pp1 = lltype.malloc(PyObjectP.TO, 1, flavor='raw')
+        pp1[0] = make_ref(space, w_obj1)
+        pp2 = lltype.malloc(PyObjectP.TO, 1, flavor='raw')
+        pp2[0] = make_ref(space, w_obj2)
+        assert api.PyNumber_Coerce(pp1, pp2) == 0
+        assert space.str_w(space.repr(from_ref(space, pp1[0]))) == '123.0'
+        assert space.str_w(space.repr(from_ref(space, pp2[0]))) == '456.789'
+        Py_DecRef(space, pp1[0])
+        Py_DecRef(space, pp2[0])
+        # Yes, decrement twice.
+        Py_DecRef(space, w_obj1)
+        Py_DecRef(space, w_obj2)
+        lltype.free(pp1, flavor='raw')
+        lltype.free(pp2, flavor='raw')
 
     def test_number_coerce_ex(self, space, api):
         pl = make_ref(space, space.wrap(123))
