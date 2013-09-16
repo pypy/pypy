@@ -316,7 +316,8 @@ class ConcreteArrayNotOwning(BaseConcreteArray):
         self.storage = storage
 
     def create_iter(self, shape=None, backward_broadcast=False):
-        if shape is None or shape == self.get_shape():
+        if shape is None or \
+           support.product(shape) == support.product(self.get_shape()):
             return iter.ConcreteArrayIterator(self)
         r = calculate_broadcast_strides(self.get_strides(),
                                         self.get_backstrides(),
