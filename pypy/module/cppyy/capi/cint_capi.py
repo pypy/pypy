@@ -100,7 +100,9 @@ def _get_string_data(space, w_obj, m1, m2 = None):
     return obj.space.call_method(w_1, m2)
 
 ### TF1 ----------------------------------------------------------------------
-tfn_pyfuncs = {}
+class State(object):
+    def __init__(self, space):
+        self.tfn_pyfuncs = {}
 
 _tfn_install = rffi.llexternal(
     "cppyy_tfn_install",
@@ -138,11 +140,11 @@ def tf1_tf1(space, w_self, args_w):
             raise TypeError("2nd argument is not a valid python callable")
 
         fid = _tfn_install(funcname, npar)
-        tfn_pyfuncs[fid] = pyfunc
+        state = space.fromcache(State)
+        state.tfn_pyfuncs[fid] = pyfunc
         newargs_w = [args_w[1], space.wrap(fid), args_w[3], args_w[4], space.wrap(npar)]
     except (OperationError, TypeError, IndexError):
         newargs_w = args_w[1:]     # drop class
-        pass
 
     # return control back to the original, unpythonized overload
     ol = tf1_class.get_overload("TF1")
@@ -407,11 +409,12 @@ def cppyy_recursive_remove(space, cppobject):
 # TODO: it actually can fail ...
 @cpython_api([rffi.LONG, rffi.INT, rffi.DOUBLEP, rffi.DOUBLEP], rffi.DOUBLE, error=CANNOT_FAIL)
 def cppyy_tfn_callback(space, idx, npar, a0, a1):
-    pyfunc = tfn_pyfuncs[idx]
+    state = space.fromcache(State)
+    pyfunc = state.tfn_pyfuncs[idx]
     npar = int(npar)
 
     from pypy.module._rawffi.interp_rawffi import unpack_simple_shape
-    from pypy.module._rawffi.array import W_Array, W_ArrayInstance
+    from pypy.module._rawffi.array import W_Array
     arr = space.interp_w(W_Array, unpack_simple_shape(space, space.wrap('d')))
     address = rffi.cast(rffi.ULONG, a0)
     arg0 = arr.fromaddress(space, address, 4)
@@ -422,7 +425,7 @@ def cppyy_tfn_callback(space, idx, npar, a0, a1):
             result = space.call_function(pyfunc, arg0, arg1)
         else:
             result = space.call_function(pyfunc, arg0)
+        dresult = space.float_w(result)
     except Exception:
-        # TODO: error handling here ..
-        return -1.
-    return space.float_w(result)
+        dresult = -1.;            # TODO: error handling here ..
+    return dresult
