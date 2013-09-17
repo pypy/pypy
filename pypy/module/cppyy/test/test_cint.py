@@ -482,7 +482,7 @@ class AppTestCINTFUNCTION:
 
         def pygaus(x, par):
             arg1 = 0
-            scale1 =0
+            scale1 = 0
             ddx = 0.01
 
             if (par[2] != 0.0):
