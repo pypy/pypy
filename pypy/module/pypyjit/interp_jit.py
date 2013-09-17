@@ -31,10 +31,7 @@ def get_printable_location(next_instr, is_being_profiled, bytecode):
     from pypy.tool.stdlib_opcode import opcode_method_names
     from rpython.rlib.runicode import unicode_encode_utf_8
     name = opcode_method_names[ord(bytecode.co_code[next_instr])]
-    repru = bytecode.get_repr()
-    # XXX: lame
-    reprs = unicode_encode_utf_8(repru, len(repru), "replace")
-    return '%s #%d %s' % (reprs, next_instr, name)
+    return '%s #%d %s' % (bytecode.get_repr(), next_instr, name)
 
 def get_jitcell_at(next_instr, is_being_profiled, bytecode):
     # use only uints as keys in the jit_cells dict, rather than
