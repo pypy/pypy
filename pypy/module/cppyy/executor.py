@@ -190,7 +190,7 @@ class InstanceExecutor(InstancePtrExecutor):
         long_result = capi.c_call_o(space, cppmethod, cppthis, num_args, args, self.cppclass)
         ptr_result = rffi.cast(capi.C_OBJECT, long_result)
         return interp_cppyy.wrap_cppobject(space, ptr_result, self.cppclass,
-                                           do_cast=False, python_owns=True)
+                                           do_cast=False, python_owns=True, fresh=True)
 
     def execute_libffi(self, space, cif_descr, funcaddr, buffer):
         from pypy.module.cppyy.interp_cppyy import FastCallNotPossible
