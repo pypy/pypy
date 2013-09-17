@@ -372,8 +372,6 @@ void cppyy_destruct(cppyy_type_t handle, cppyy_object_t self) {
 static inline G__value cppyy_call_T(cppyy_method_t method,
         cppyy_object_t self, int nargs, void* args) {
 
-    R__LOCKGUARD2(gCINTMutex);
-
     G__param* libp = (G__param*)((char*)args - offsetof(G__param, para));
     assert(libp->paran == nargs);
     fixup_args(libp);
@@ -1009,7 +1007,7 @@ static int TFNPyCallback(G__value* res, G__CONST char*, struct G__param* libp, i
 
 long cppyy_tfn_install(const char* funcname, int npar) {
     // make a new function placeholder known to CINT
-    static Long_t s_fid = (Long_t)cppyy_tfn_install;
+    static Long_t s_fid = (Long_t)cppyy_tfn_install;   // ensures no user function lives there
     ++s_fid;
 
     const char* signature = "D - - 0 - - D - - 0 - -";

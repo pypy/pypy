@@ -1142,7 +1142,7 @@ def wrap_cppobject(space, rawobject, cppclass,
     rawobject = rffi.cast(capi.C_OBJECT, rawobject)
 
     # cast to actual if requested and possible
-    w_pycppclass = space.w_None
+    w_pycppclass = None
     if do_cast and rawobject:
         actual = capi.c_actual_class(space, cppclass, rawobject)
         if actual != cppclass.handle:
@@ -1158,7 +1158,7 @@ def wrap_cppobject(space, rawobject, cppclass,
                 # the variables are re-assigned yet)
                 pass
 
-    if space.is_w(w_pycppclass, space.w_None):
+    if w_pycppclass is None:
         w_pycppclass = get_pythonized_cppclass(space, cppclass.handle)
 
     # try to recycle existing object if this one is not newly created
