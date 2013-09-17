@@ -44,17 +44,17 @@ c_child_exec = rffi.llexternal(
      lltype.Ptr(lltype.FuncType([rffi.VOIDP], rffi.INT)), rffi.VOIDP],
     lltype.Void,
     compilation_info=eci,
-    threadsafe=True)
+    releasegil=True)
 c_cloexec_pipe = rffi.llexternal(
     'pypy_subprocess_cloexec_pipe',
     [rffi.CArrayPtr(rffi.INT)], rffi.INT,
     compilation_info=eci,
-    threadsafe=True)
+    releasegil=True)
 c_init = rffi.llexternal(
     'pypy_subprocess_init',
     [], lltype.Void,
     compilation_info=eci,
-    threadsafe=True)
+    releasegil=True)
 
 
 class PreexecCallback:
