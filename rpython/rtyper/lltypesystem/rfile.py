@@ -16,19 +16,21 @@ FILE_WRAPPER = lltype.GcStruct("FileWrapper", ('file', lltype.Ptr(FILE)))
 
 eci = ExternalCompilationInfo(includes=['stdio.h'])
 
-c_open = rffi.llexternal('fopen', [rffi.CCHARP, rffi.CCHARP],
-                          lltype.Ptr(FILE), compilation_info=eci)
-c_close = rffi.llexternal('fclose', [lltype.Ptr(FILE)], rffi.INT,
-                          compilation_info=eci)
-c_write = rffi.llexternal('fwrite', [rffi.CCHARP, rffi.SIZE_T, rffi.SIZE_T,
+def llexternal(*args):
+    return rffi.llexternal(*args, compilation_info=eci)
+
+c_open = llexternal('fopen', [rffi.CCHARP, rffi.CCHARP], lltype.Ptr(FILE))
+c_close = llexternal('fclose', [lltype.Ptr(FILE)], rffi.INT)
+c_write = llexternal('fwrite', [rffi.CCHARP, rffi.SIZE_T, rffi.SIZE_T,
                                      lltype.Ptr(FILE)], rffi.SIZE_T)
-c_read = rffi.llexternal('fread', [rffi.CCHARP, rffi.SIZE_T, rffi.SIZE_T,
+c_read = llexternal('fread', [rffi.CCHARP, rffi.SIZE_T, rffi.SIZE_T,
                                    lltype.Ptr(FILE)], rffi.SIZE_T)
-c_feof = rffi.llexternal('feof', [lltype.Ptr(FILE)], rffi.INT)
-c_ferror = rffi.llexternal('ferror', [lltype.Ptr(FILE)], rffi.INT)
-c_clearerror = rffi.llexternal('clearerr', [lltype.Ptr(FILE)], lltype.Void)
-c_fseek = rffi.llexternal('fseek', [lltype.Ptr(FILE), rffi.LONG, rffi.INT],
+c_feof = llexternal('feof', [lltype.Ptr(FILE)], rffi.INT)
+c_ferror = llexternal('ferror', [lltype.Ptr(FILE)], rffi.INT)
+c_clearerror = llexternal('clearerr', [lltype.Ptr(FILE)], lltype.Void)
+c_fseek = llexternal('fseek', [lltype.Ptr(FILE), rffi.LONG, rffi.INT],
                           rffi.INT)
+c_tmpfile = llexternal('tmpfile', [], lltype.Ptr(FILE))
 
 def ll_open(name, mode):
     file_wrapper = lltype.malloc(FILE_WRAPPER)
@@ -43,6 +45,15 @@ def ll_open(name, mode):
     finally:
         lltype.free(ll_name, flavor='raw')
         lltype.free(ll_mode, flavor='raw')
+    return file_wrapper
+
+def ll_tmpfile():
+    file_wrapper = lltype.malloc(FILE_WRAPPER)
+    res = c_tmpfile()
+    if not res:
+        errno = rposix.get_errno()
+        raise OSError(errno, os.strerror(errno))
+    file_wrapper.file = res
     return file_wrapper
 
 def ll_write(file_wrapper, value):
@@ -113,7 +124,7 @@ def ll_seek(file_wrapper, pos, whence):
     res = c_fseek(ll_file, pos, whence)
     if res == -1:
         errno = rposix.get_errno()
-        raise OSError(errno, os.strerror(errno))        
+        raise OSError(errno, os.strerror(errno))
 
 def ll_close(file_wrapper):
     if file_wrapper.file:
@@ -145,6 +156,14 @@ class FileRepr(Repr):
         return hop.genop('direct_call', [v_open, arg_0, arg_1],
                          resulttype=self)
 
+    def rtype_tempfile(self, hop):
+        tmpfile = hop.rtyper.getannmixlevel().delayedfunction(
+            ll_tmpfile, [], annmodel.SomePtr(self.lowleveltype))
+        v_tmpfile = hop.inputconst(lltype.typeOf(tmpfile), tmpfile)
+        hop.exception_is_here()
+        return hop.genop('direct_call', [v_tmpfile], resulttype=self)
+
+
     def rtype_method_write(self, hop):
         args_v = hop.inputargs(self, string_repr)
         hop.exception_is_here()
@@ -173,3 +192,4 @@ class FileRepr(Repr):
             arg_2 = hop.inputarg(lltype.Signed, 2)
         hop.exception_is_here()
         return hop.gendirectcall(ll_seek, r_self, arg_1, arg_2)
+

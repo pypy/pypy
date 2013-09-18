@@ -44,7 +44,12 @@ class FileEntry(ExtRegistryEntry):
     def specialize_call(self, hop):
         return hop.r_result.rtype_constructor(hop)
 
-    #def ll_os_tmpfile():
-    #pass
+class OSTempfileEntry(ExtRegistryEntry):
+    _about_ = os.tmpfile
 
-    #register_external(os.tmpfile, [], SomeFile(), llimpl=ll_os_tmpfile)
+    def compute_result_annotation(self):
+        return SomeFile()
+
+    def specialize_call(self, hop):
+        return hop.r_result.rtype_tempfile(hop)
+

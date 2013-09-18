@@ -1,4 +1,5 @@
 
+import os
 from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.tool.udir import udir
 from rpython.rlib import rfile
@@ -59,6 +60,17 @@ class TestFile(BaseRtypingTest):
 
         def f():
             f = open(fname, "w+")
+            f.write("xxx")
+            f.seek(0)
+            assert f.read() == "xxx"
+            f.close()
+
+        f()
+        self.interpret(f, [])
+
+    def test_tempfile(self):
+        def f():
+            f = os.tmpfile()
             f.write("xxx")
             f.seek(0)
             assert f.read() == "xxx"
