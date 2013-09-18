@@ -105,10 +105,14 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
             # ----------  calls  ----------
             if op.is_call():
                 if op.getopnum() == rop.CALL_RELEASE_GIL:
-                    self.fallback_inevitable(op)
+                    # self.fallback_inevitable(op)
+                    # done by assembler._release_gil_shadowstack()
+                    self.newops.append(op)
                 elif op.getopnum() == rop.CALL_ASSEMBLER:
                     self.handle_call_assembler(op)
                 else:
+                    # only insert become_inevitable if calling a
+                    # non-transactionsafe and non-releasegil function
                     descr = op.getdescr()
                     assert not descr or isinstance(descr, CallDescr)
                     if not descr or not descr.get_extra_info() \
