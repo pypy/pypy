@@ -1,9 +1,6 @@
 Comments by antocuni, rguillebert
 ==================================
 
-- why do we need to implement array.nonzero on this branch and it was not done
-  e.g. on default?
-
 TODO list by mattip
 ===================
 
