@@ -341,3 +341,8 @@ class AppTestLong:
 
         assert int(long(3)) == long(3)
         assert int(A(13)) == 42
+
+    def test_coerce(self):
+        assert 3L.__coerce__(4L) == (3L, 4L)
+        assert 3L.__coerce__(4) == (3, 4)
+        assert 3L.__coerce__(object()) == NotImplemented

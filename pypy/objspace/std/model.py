@@ -32,8 +32,6 @@ class StdTypeModel:
         # All the Python types that we want to provide in this StdObjSpace
         class result:
             from pypy.objspace.std.objecttype import object_typedef
-            from pypy.objspace.std.booltype   import bool_typedef
-            from pypy.objspace.std.inttype    import int_typedef
             from pypy.objspace.std.floattype  import float_typedef
             from pypy.objspace.std.complextype  import complex_typedef
             from pypy.objspace.std.basestringtype import basestring_typedef
@@ -81,6 +79,8 @@ class StdTypeModel:
         self.pythontypes.append(setobject.W_SetObject.typedef)
         self.pythontypes.append(setobject.W_FrozensetObject.typedef)
         self.pythontypes.append(iterobject.W_AbstractSeqIterObject.typedef)
+        self.pythontypes.append(intobject.W_IntObject.typedef)
+        self.pythontypes.append(boolobject.W_BoolObject.typedef)
 
         # the set of implementation types
         self.typeorder = {
@@ -134,7 +134,7 @@ class StdTypeModel:
         # XXX build these lists a bit more automatically later
 
         self.typeorder[boolobject.W_BoolObject] += [
-            (intobject.W_IntObject,     boolobject.delegate_Bool2IntObject),
+#            (intobject.W_IntObject,     boolobject.delegate_Bool2IntObject),
             (floatobject.W_FloatObject, floatobject.delegate_Bool2Float),
             (longobject.W_LongObject,   longobject.delegate_Bool2Long),
             (complexobject.W_ComplexObject, complexobject.delegate_Bool2Complex),

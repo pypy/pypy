@@ -1,14 +1,13 @@
-from rpython.rlib.rbigint import rbigint
 from rpython.rlib.rarithmetic import r_uint
-from pypy.interpreter.error import OperationError
-from pypy.objspace.std import newformat
-from pypy.objspace.std.model import registerimplementation, W_Object
-from pypy.objspace.std.register_all import register_all
-from pypy.objspace.std.intobject import W_IntObject
+from rpython.rlib.rbigint import rbigint
+
+from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
+from pypy.objspace.std.intobject import W_AbstractIntObject, W_IntObject
+from pypy.objspace.std.stdtypedef import StdTypeDef
 
 
-class W_BoolObject(W_Object):
-    from pypy.objspace.std.booltype import bool_typedef as typedef
+class W_BoolObject(W_AbstractIntObject):
+
     _immutable_fields_ = ['boolval']
 
     def __init__(self, boolval):
@@ -40,40 +39,48 @@ class W_BoolObject(W_Object):
     def int(self, space):
         return space.newint(int(self.boolval))
 
-registerimplementation(W_BoolObject)
+    def descr_repr(self, space):
+        return space.wrap('True' if self.boolval else 'False')
+
+    descr_str = descr_repr
+
+    def descr_nonzero(self, space):
+        return self
+
+    def descr_and(self, space, w_other):
+        if not isinstance(w_other, W_BoolObject):
+            return W_AbstractIntObject.descr_and(self, space, w_other)
+        return space.newbool(self.boolval & w_other.boolval)
+
+    def descr_or(self, space, w_other):
+        if not isinstance(w_other, W_BoolObject):
+            return W_AbstractIntObject.descr_or(self, space, w_other)
+        return space.newbool(self.boolval | w_other.boolval)
+
+    def descr_xor(self, space, w_other):
+        if not isinstance(w_other, W_BoolObject):
+            return W_AbstractIntObject.descr_xor(self, space, w_other)
+        return space.newbool(self.boolval ^ w_other.boolval)
 
 W_BoolObject.w_False = W_BoolObject(False)
 W_BoolObject.w_True  = W_BoolObject(True)
 
-# bool-to-int delegation requires translating the .boolvar attribute
-# to an .intval one
-def delegate_Bool2IntObject(space, w_bool):
-    return W_IntObject(int(w_bool.boolval))
+@unwrap_spec(w_obj=WrappedDefault(False))
+def descr__new__(space, w_booltype, w_obj):
+    space.w_bool.check_user_subclass(w_booltype)
+    return space.newbool(space.is_true(w_obj)) # XXX: method call?
 
+# ____________________________________________________________
 
-def nonzero__Bool(space, w_bool):
-    return w_bool
+W_BoolObject.typedef = StdTypeDef("bool", W_IntObject.typedef,
+    __doc__ = """bool(x) -> bool
 
-def repr__Bool(space, w_bool):
-    if w_bool.boolval:
-        return space.wrap('True')
-    else:
-        return space.wrap('False')
-
-def and__Bool_Bool(space, w_bool1, w_bool2):
-    return space.newbool(w_bool1.boolval & w_bool2.boolval)
-
-def or__Bool_Bool(space, w_bool1, w_bool2):
-    return space.newbool(w_bool1.boolval | w_bool2.boolval)
-
-def xor__Bool_Bool(space, w_bool1, w_bool2):
-    return space.newbool(w_bool1.boolval ^ w_bool2.boolval)
-
-str__Bool = repr__Bool
-
-def format__Bool_ANY(space, w_bool, w_format_spec):
-    return newformat.run_formatter(
-            space, w_format_spec, "format_int_or_long", w_bool,
-            newformat.INT_KIND)
-
-register_all(vars())
+Returns True when the argument x is true, False otherwise.
+The builtins True and False are the only two instances of the class bool.
+The class bool is a subclass of the class int, and cannot be subclassed.""",
+    __new__ = interp2app(descr__new__),
+    __repr__ = interp2app(W_BoolObject.descr_repr),
+    __str__ = interp2app(W_BoolObject.descr_str),
+                                  # XXX: might as well declare interp2app directly here for nonzero/and/etc
+    )
+W_BoolObject.typedef.acceptable_as_base_class = False

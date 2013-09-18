@@ -28,9 +28,8 @@ def int_BINARY_ADD(f, oparg, next_instr):
     w_1 = f.popvalue()
     if (type(w_1) is intobject.W_IntObject and
         type(w_2) is intobject.W_IntObject):
-        try:
-            w_result = intobject.add__Int_Int(f.space, w_1, w_2)
-        except FailedToImplement:
+        w_result = w_1.descr_add(f.space, w_2)
+        if f.space.is_w(w_result, f.space.w_NotImplemented):
             w_result = f.space.add(w_1, w_2)
     else:
         w_result = f.space.add(w_1, w_2)

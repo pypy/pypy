@@ -33,7 +33,7 @@ from pypy.objspace.std.tupleobject import W_AbstractTupleObject
 from pypy.objspace.std.typeobject import W_TypeObject
 
 # types
-from pypy.objspace.std.inttype import wrapint
+from pypy.objspace.std.intobject import wrapint
 from pypy.objspace.std.stringtype import wrapstr
 from pypy.objspace.std.unicodetype import wrapunicode
 
