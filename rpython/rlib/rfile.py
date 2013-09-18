@@ -2,8 +2,10 @@
 """ This file makes open() and friends RPython
 """
 
+import os
 from rpython.annotator.model import SomeObject, SomeString, SomeInteger
 from rpython.rtyper.extregistry import ExtRegistryEntry
+from rpython.rtyper.extfunc import register_external
 
 class SomeFile(SomeObject):
     def method_write(self, s_arg):
@@ -16,6 +18,11 @@ class SomeFile(SomeObject):
 
     def method_close(self):
         pass
+
+    def method_seek(self, s_arg, s_whence=None):
+        assert isinstance(s_arg, SomeInteger)
+        if s_whence is not None:
+            assert isinstance(s_whence, SomeInteger)
 
     def rtyper_makekey(self):
         return self.__class__,
@@ -36,3 +43,8 @@ class FileEntry(ExtRegistryEntry):
 
     def specialize_call(self, hop):
         return hop.r_result.rtype_constructor(hop)
+
+    #def ll_os_tmpfile():
+    #pass
+
+    #register_external(os.tmpfile, [], SomeFile(), llimpl=ll_os_tmpfile)

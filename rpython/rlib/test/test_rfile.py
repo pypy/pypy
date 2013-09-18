@@ -53,3 +53,16 @@ class TestFile(BaseRtypingTest):
             assert e == ""
 
         self.interpret(f, [])
+
+    def test_seek(self):
+        fname = str(self.tmpdir.join('file_4'))
+
+        def f():
+            f = open(fname, "w+")
+            f.write("xxx")
+            f.seek(0)
+            assert f.read() == "xxx"
+            f.close()
+
+        f()
+        self.interpret(f, [])

@@ -27,6 +27,8 @@ c_read = rffi.llexternal('fread', [rffi.CCHARP, rffi.SIZE_T, rffi.SIZE_T,
 c_feof = rffi.llexternal('feof', [lltype.Ptr(FILE)], rffi.INT)
 c_ferror = rffi.llexternal('ferror', [lltype.Ptr(FILE)], rffi.INT)
 c_clearerror = rffi.llexternal('clearerr', [lltype.Ptr(FILE)], lltype.Void)
+c_fseek = rffi.llexternal('fseek', [lltype.Ptr(FILE), rffi.LONG, rffi.INT],
+                          rffi.INT)
 
 def ll_open(name, mode):
     file_wrapper = lltype.malloc(FILE_WRAPPER)
@@ -104,6 +106,14 @@ def ll_read(file_wrapper, size):
         finally:
             rffi.keep_buffer_alive_until_here(raw_buf, gc_buf)
         return s
+def ll_seek(file_wrapper, pos, whence):
+    ll_file = file_wrapper.file
+    if not ll_file:
+        raise ValueError("I/O operation on closed file")
+    res = c_fseek(ll_file, pos, whence)
+    if res == -1:
+        errno = rposix.get_errno()
+        raise OSError(errno, os.strerror(errno))        
 
 def ll_close(file_wrapper):
     if file_wrapper.file:
@@ -153,3 +163,13 @@ class FileRepr(Repr):
             arg_1 = hop.inputarg(lltype.Signed, 1)
         hop.exception_is_here()
         return hop.gendirectcall(ll_read, r_self, arg_1)
+
+    def rtype_method_seek(self, hop):
+        r_self = hop.inputarg(self, 0)
+        arg_1 = hop.inputarg(lltype.Signed, 1)
+        if len(hop.args_v) != 3:
+            arg_2 = hop.inputconst(lltype.Signed, os.SEEK_SET)
+        else:
+            arg_2 = hop.inputarg(lltype.Signed, 2)
+        hop.exception_is_here()
+        return hop.gendirectcall(ll_seek, r_self, arg_1, arg_2)
