@@ -13,7 +13,5 @@ TODO list by mattip
     all ndarrayobject.c
     copy_header_files() in api.py (changed)
     all ndarrayobject.py (new)
-    PyNumber_CoerceEx() (new)
-    PyNumber_Coerce() (new)
 - test, implement use of __array_prepare__()
 - test, implement use of __array_wrap__()
