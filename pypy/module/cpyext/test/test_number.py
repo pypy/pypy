@@ -1,6 +1,7 @@
 from rpython.rtyper.lltypesystem import lltype
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.pyobject import PyObjectP, from_ref, make_ref, Py_DecRef
+from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 
 class TestIterator(BaseApiTest):
     def test_check(self, space, api):
@@ -46,10 +47,10 @@ class TestIterator(BaseApiTest):
         assert space.str_w(space.repr(from_ref(space, pp2[0]))) == '456.789'
         Py_DecRef(space, pp1[0])
         Py_DecRef(space, pp2[0])
-        # Yes, decrement twice.
+        lltype.free(pp1, flavor='raw')
+        # Yes, decrement twice since we decoupled between w_obj* and pp*[0].
         Py_DecRef(space, w_obj1)
         Py_DecRef(space, w_obj2)
-        lltype.free(pp1, flavor='raw')
         lltype.free(pp2, flavor='raw')
 
     def test_number_coerce_ex(self, space, api):
@@ -67,6 +68,8 @@ class TestIterator(BaseApiTest):
 
         assert api.PyFloat_Check(w_res)
         assert space.unwrap(w_res) == 123.
+        Py_DecRef(space, pl)
+        Py_DecRef(space, pf)
         Py_DecRef(space, ppl[0])
         Py_DecRef(space, ppf[0])
         lltype.free(ppl, flavor='raw')
@@ -97,3 +100,40 @@ class TestIterator(BaseApiTest):
             api.PyNumber_Power(space.wrap(3), space.wrap(2), space.wrap(5)))
         assert 9 == space.unwrap(
             api.PyNumber_InPlacePower(space.wrap(3), space.wrap(2), space.w_None))
+
+class AppTestCNumber(AppTestCpythonExtensionBase):
+    def test_app_coerce(self):
+        mod = self.import_extension('foo', [
+            ("test_fail", "METH_NOARGS",
+             '''
+                PyObject * hello = PyString_FromString("hello");
+                PyObject * float1 = PyFloat_FromDouble(1.0);
+                int retVal = PyNumber_Coerce(&hello, &float1);
+                Py_DECREF(hello);
+                Py_DECREF(float1);
+                return PyInt_FromLong(retVal);
+            '''),
+            ("test", "METH_NOARGS",
+             '''
+                PyObject * float1p = PyFloat_FromDouble(1.0);
+                PyObject * int3p   = PyInt_FromLong(3);
+                PyObject * tupl = PyTuple_New(2);
+                PyObject float1 = *float1p;
+                PyObject int3 = *int3p;
+                int retVal = PyNumber_CoerceEx(&int3p, &float1p);
+                if (retVal == 0)
+                {
+                    PyTuple_SET_ITEM(tupl, 0, int3p);
+                    PyTuple_SET_ITEM(tupl, 1, float1p);
+                }
+                Py_DECREF(&int3);
+                Py_DECREF(&float1);
+                Py_DECREF(int3p);
+                Py_DECREF(float1p);
+                return tupl;
+            ''')])
+        assert mod.test_fail() == -1
+        '''tupl = mod.test()
+        assert tupl[0] == 3.
+        assert tupl[1] == 1.
+        assert isinstance(tupl[0], float)'''

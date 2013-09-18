@@ -338,7 +338,7 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, external=True):
                             return api_function.error_value
                     if not we_are_translated():
                         got_integer = isinstance(res, (int, long, float))
-                        assert got_integer == expect_integer
+                        assert got_integer == expect_integer,'got %r not integer' % res
                     if res is None:
                         return None
                     elif isinstance(res, Reference):

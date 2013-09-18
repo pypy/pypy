@@ -3,6 +3,7 @@ from pypy.module.cpyext.api import cpython_api, CANNOT_FAIL, Py_ssize_t
 from pypy.module.cpyext.pyobject import PyObject, PyObjectP, from_ref, make_ref, Py_DecRef
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.tool.sourcetools import func_with_new_name
+from pypy.module.cpyext.state import State
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyIndex_Check(space, w_obj):
@@ -56,24 +57,17 @@ def PyNumber_Index(space, w_obj):
     """
     return space.index(w_obj)
 
-@cpython_api([PyObjectP, PyObjectP], rffi.INT_real, error=-1)
+@cpython_api([PyObjectP, PyObjectP], rffi.INT_real, error=CANNOT_FAIL)
 def PyNumber_CoerceEx(space, pp1, pp2):
     """This function is similar to PyNumber_Coerce(), except that it returns
     1 when the conversion is not possible and when no error is raised.
     Reference counts are still not increased in this case."""
-    w_obj1 = from_ref(space, pp1[0])
-    w_obj2 = from_ref(space, pp2[0])
-    w_res = space.try_coerce(w_obj1, w_obj2)
-    if w_res is None:
+    retVal = PyNumber_Coerce(space, pp1, pp2)
+    if retVal != 0:
         return 1
-    else:
-        Py_DecRef(space, pp1[0])
-        Py_DecRef(space, pp2[0])
-        pp1[0] = make_ref(space, space.getitem(w_res, space.wrap(0)))
-        pp2[0] = make_ref(space, space.getitem(w_res, space.wrap(1)))
-        return 0
+    return 0
 
-@cpython_api([PyObjectP, PyObjectP], rffi.INT_real, error=-1)
+@cpython_api([PyObjectP, PyObjectP], rffi.INT_real, error=CANNOT_FAIL)
 def PyNumber_Coerce(space, pp1, pp2):
     """This function takes the addresses of two variables of type PyObject*.  If
     the objects pointed to by *p1 and *p2 have the same type, increment their
@@ -85,15 +79,16 @@ def PyNumber_Coerce(space, pp1, pp2):
     Python statement o1, o2 = coerce(o1, o2)."""
     w_obj1 = from_ref(space, pp1[0])
     w_obj2 = from_ref(space, pp2[0])
-    w_res = space.coerce(w_obj1, w_obj2)
-    if w_res is None:
+    try:
+        w_res = space.coerce(w_obj1, w_obj2)
+    except (TypeError, OperationError):
+        state = space.fromcache(State)
+        state.clear_exception()
         return -1
-    else:
-        Py_DecRef(space, pp1[0])
-        Py_DecRef(space, pp2[0])
-        pp1[0] = make_ref(space, space.getitem(w_res, space.wrap(0)))
-        pp2[0] = make_ref(space, space.getitem(w_res, space.wrap(1)))
-        return 0
+    w_res1, w_res2 = space.unpackiterable(w_res, 2)
+    pp1[0] = make_ref(space, w_res1)
+    pp2[0] = make_ref(space, w_res2)
+    return 0
 
 def func_rename(newname):
     return lambda func: func_with_new_name(func, newname)
