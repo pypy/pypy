@@ -4,7 +4,8 @@ from rpython.jit.codewriter import heaptracker
 from rpython.jit.codewriter.policy import StopAtXPolicy
 from rpython.jit.metainterp.optimizeopt.test.test_util import LLtypeMixin
 from rpython.jit.metainterp.test.support import LLJitMixin
-from rpython.jit.metainterp.warmspot import get_translator
+from rpython.jit.metainterp.warmspot import get_translator, get_stats
+from rpython.jit.metainterp.resoperation import rop
 from rpython.rlib.jit import JitDriver, hint, dont_look_inside, promote, virtual_ref
 from rpython.rlib.rarithmetic import intmask
 from rpython.rtyper.annlowlevel import hlstr
@@ -26,7 +27,6 @@ class Entry(ExtRegistryEntry):
         return lltype_to_annotation(lltype.Void)
 
     def specialize_call(self, hop):
-        op = self.instance    # the LLOp object that was called
         args_v = [hop.inputarg(hop.args_r[0], 0),
                   hop.inputconst(lltype.Void, hop.args_v[1].value),
                   hop.inputconst(lltype.Void, {})]
@@ -46,8 +46,8 @@ class ExplicitVirtualizableTests:
         ('vable_token', llmemory.GCREF),
         ('inst_x', lltype.Signed),
         ('inst_node', lltype.Ptr(LLtypeMixin.NODE)),
-        hints = {'virtualizable2_accessor': FieldListAccessor()})
-    XY._hints['virtualizable2_accessor'].initialize(
+        hints = {'virtualizable_accessor': FieldListAccessor()})
+    XY._hints['virtualizable_accessor'].initialize(
         XY, {'inst_x': IR_IMMUTABLE, 'inst_node': IR_IMMUTABLE})
 
     xy_vtable = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
@@ -141,11 +141,13 @@ class ExplicitVirtualizableTests:
                 n -= 1
         def f(n):
             xy = self.setup()
+            promote_virtualizable(xy, 'inst_x')
             xy.inst_x = 10000
             m = 10
             while m > 0:
                 g(xy, n)
                 m -= 1
+            promote_virtualizable(xy, 'inst_x')
             return xy.inst_x
         res = self.meta_interp(f, [18])
         assert res == 10180
@@ -200,8 +202,8 @@ class ExplicitVirtualizableTests:
             return xy.inst_x
         res = self.meta_interp(f, [20])
         assert res == 134
-        self.check_simple_loop(setfield_gc=1, getfield_gc=0)
-        self.check_resops(setfield_gc=2, getfield_gc=3)
+        self.check_simple_loop(setfield_gc=1, getfield_gc=0, cond_call=1)
+        self.check_resops(setfield_gc=2, getfield_gc=4)
 
     # ------------------------------
 
@@ -212,8 +214,8 @@ class ExplicitVirtualizableTests:
         ('inst_x', lltype.Signed),
         ('inst_l1', lltype.Ptr(lltype.GcArray(lltype.Signed))),
         ('inst_l2', lltype.Ptr(lltype.GcArray(lltype.Signed))),
-        hints = {'virtualizable2_accessor': FieldListAccessor()})
-    XY2._hints['virtualizable2_accessor'].initialize(
+        hints = {'virtualizable_accessor': FieldListAccessor()})
+    XY2._hints['virtualizable_accessor'].initialize(
         XY2, {'inst_x': IR_IMMUTABLE,
               'inst_l1': IR_IMMUTABLE_ARRAY, 'inst_l2': IR_IMMUTABLE_ARRAY})
 
@@ -278,6 +280,7 @@ class ExplicitVirtualizableTests:
             while m > 0:
                 g(xy2, n)
                 m -= 1
+            promote_virtualizable(xy2, 'inst_l2')
             return xy2.inst_l2[0]
         assert f(18) == 10360
         res = self.meta_interp(f, [18])
@@ -381,7 +384,7 @@ class ExplicitVirtualizableTests:
         res = self.meta_interp(f, [20], enable_opts='')
         assert res == expected
         self.check_simple_loop(setarrayitem_gc=1, setfield_gc=0,
-                               getarrayitem_gc=1, arraylen_gc=1, getfield_gc=1)
+                               getarrayitem_gc=1, arraylen_gc=1, getfield_gc=2)
 
     # ------------------------------
 
@@ -424,7 +427,9 @@ class ExplicitVirtualizableTests:
             while m > 0:
                 g(xy2, n)
                 m -= 1
-            return xy2.parent.inst_l2[0]
+            parent = xy2.parent
+            promote_virtualizable(parent, 'inst_l2')
+            return parent.inst_l2[0]
         assert f(18) == 10360
         res = self.meta_interp(f, [18])
         assert res == 10360
@@ -440,7 +445,7 @@ class ImplicitVirtualizableTests(object):
                                 virtualizables = ['frame'])
 
         class Frame(object):
-            _virtualizable2_ = ['x', 'y']
+            _virtualizable_ = ['x', 'y']
 
             def __init__(self, x, y):
                 self.x = x
@@ -469,7 +474,7 @@ class ImplicitVirtualizableTests(object):
                                 virtualizables = ['frame'])
 
         class Frame(object):
-            _virtualizable2_ = ['l[*]', 's']
+            _virtualizable_ = ['l[*]', 's']
 
             def __init__(self, l, s):
                 self.l = l
@@ -504,7 +509,7 @@ class ImplicitVirtualizableTests(object):
                                 virtualizables = ['frame'])
 
         class Frame(object):
-            _virtualizable2_ = ['x', 'y']
+            _virtualizable_ = ['x', 'y']
 
             def __init__(self, x, y):
                 self.x = x
@@ -532,7 +537,7 @@ class ImplicitVirtualizableTests(object):
                               virtualizables = ['frame'])
 
         class BaseFrame(object):
-            _virtualizable2_ = ['x[*]']
+            _virtualizable_ = ['x[*]']
 
             def __init__(self, x):
                 self.x = x
@@ -563,7 +568,7 @@ class ImplicitVirtualizableTests(object):
                               virtualizables = ['frame'])
 
         class Frame(object):
-            _virtualizable2_ = ['x', 'y']
+            _virtualizable_ = ['x', 'y']
 
         class SomewhereElse:
             pass
@@ -596,7 +601,7 @@ class ImplicitVirtualizableTests(object):
                               virtualizables = ['frame'])
 
         class Frame(object):
-            _virtualizable2_ = ['x', 'y']
+            _virtualizable_ = ['x', 'y']
 
         class SomewhereElse:
             pass
@@ -636,7 +641,7 @@ class ImplicitVirtualizableTests(object):
                               virtualizables = ['frame'])
 
         class Frame(object):
-            _virtualizable2_ = ['x', 'y']
+            _virtualizable_ = ['x', 'y']
 
         class SomewhereElse:
             pass
@@ -669,7 +674,7 @@ class ImplicitVirtualizableTests(object):
                               virtualizables = ['frame'])
 
         class Frame(object):
-            _virtualizable2_ = ['x', 'y']
+            _virtualizable_ = ['x', 'y']
 
         class SomewhereElse:
             pass
@@ -706,7 +711,7 @@ class ImplicitVirtualizableTests(object):
                               virtualizables = ['frame'])
 
         class Frame(object):
-            _virtualizable2_ = ['x', 'y']
+            _virtualizable_ = ['x', 'y']
 
         class Y:
             pass
@@ -751,7 +756,7 @@ class ImplicitVirtualizableTests(object):
                               virtualizables = ['frame'])
 
         class Frame(object):
-            _virtualizable2_ = ['x', 'y']
+            _virtualizable_ = ['x', 'y']
 
         class Y:
             pass
@@ -801,7 +806,7 @@ class ImplicitVirtualizableTests(object):
                               virtualizables = ['frame'])
 
         class Frame(object):
-            _virtualizable2_ = ['x', 'y']
+            _virtualizable_ = ['x', 'y']
 
         class FooBarError(Exception):
             pass
@@ -845,7 +850,7 @@ class ImplicitVirtualizableTests(object):
                               virtualizables = ['frame'])
 
         class Frame(object):
-            _virtualizable2_ = ['x', 'y']
+            _virtualizable_ = ['x', 'y']
 
         class SomewhereElse:
             pass
@@ -882,7 +887,7 @@ class ImplicitVirtualizableTests(object):
                               virtualizables = ['frame'])
 
         class Frame(object):
-            _virtualizable2_ = ['x', 'y']
+            _virtualizable_ = ['x', 'y']
 
         class SomewhereElse:
             pass
@@ -934,7 +939,7 @@ class ImplicitVirtualizableTests(object):
                               virtualizables = ['frame'])
 
         class Frame(object):
-            _virtualizable2_ = ['x', 'y']
+            _virtualizable_ = ['x', 'y']
 
         class SomewhereElse:
             pass
@@ -971,7 +976,7 @@ class ImplicitVirtualizableTests(object):
                               virtualizables = ['frame'])
 
         class Frame(object):
-            _virtualizable2_ = ['x', 'y']
+            _virtualizable_ = ['x', 'y']
 
         class SomewhereElse:
             pass
@@ -1005,7 +1010,7 @@ class ImplicitVirtualizableTests(object):
                               virtualizables = ['frame'])
 
         class Frame(object):
-            _virtualizable2_ = ['stackpos', 'stack[*]']
+            _virtualizable_ = ['stackpos', 'stack[*]']
 
         def f(n):
             frame = Frame()
@@ -1034,7 +1039,7 @@ class ImplicitVirtualizableTests(object):
                                 virtualizables = ['frame'])
 
         class Frame(object):
-            _virtualizable2_ = ['x', 'y']
+            _virtualizable_ = ['x', 'y']
 
             def __init__(self, x, y):
                 self = hint(self, access_directly=True)
@@ -1069,7 +1074,7 @@ class ImplicitVirtualizableTests(object):
                                        if getattr(graph, 'func', None) is f]
         init_graph = t._graphof(Frame.__init__.im_func)
 
-        deref = t.rtyper.type_system_deref
+        deref = t.rtyper.type_system.deref
 
         def direct_calls(graph):
             return [deref(op.args[0].value)._callable.func_name
@@ -1088,7 +1093,7 @@ class ImplicitVirtualizableTests(object):
                                 virtualizables = ['frame'])
 
         class Frame(object):
-            _virtualizable2_ = ['x', 'y']
+            _virtualizable_ = ['x', 'y']
 
             def __init__(self, x, y):
                 self = hint(self, access_directly=True)
@@ -1120,7 +1125,7 @@ class ImplicitVirtualizableTests(object):
                                 virtualizables = ['frame'])
 
         class Frame(object):
-            _virtualizable2_ = ['x', 'y', 'z']
+            _virtualizable_ = ['x', 'y', 'z']
 
             def __init__(self, x, y, z=1):
                 self = hint(self, access_directly=True)
@@ -1155,7 +1160,7 @@ class ImplicitVirtualizableTests(object):
                                 virtualizables = ['frame'])
 
         class Frame(object):
-            _virtualizable2_ = ['x[*]']
+            _virtualizable_ = ['x[*]']
 
             def __init__(self, x, y):
                 self = hint(self, access_directly=True,
@@ -1187,7 +1192,7 @@ class ImplicitVirtualizableTests(object):
                                 virtualizables = ['frame'])
 
         class Frame(object):
-            _virtualizable2_ = ['x', 'y']
+            _virtualizable_ = ['x', 'y']
 
             def __init__(self, x, y):
                 self = hint(self, access_directly=True)
@@ -1226,7 +1231,7 @@ class ImplicitVirtualizableTests(object):
                                 virtualizables = ['frame'])
 
         class Frame(object):
-            _virtualizable2_ = ['x', 'y']
+            _virtualizable_ = ['x', 'y']
 
             def __init__(self, x, y):
                 self.x = x
@@ -1266,7 +1271,7 @@ class ImplicitVirtualizableTests(object):
                                 virtualizables = ['frame'])
 
         class Frame(object):
-            _virtualizable2_ = ['x', 'y']
+            _virtualizable_ = ['x', 'y']
 
             def __init__(self, x, y):
                 self = hint(self, access_directly=True)
@@ -1284,8 +1289,10 @@ class ImplicitVirtualizableTests(object):
             frame = Frame(n, 0)
             somewhere_else.top_frame = frame        # escapes
             frame = hint(frame, access_directly=True)
-            while frame.x > 0:
+            while True:
                 myjitdriver.jit_merge_point(frame=frame, fail=fail)
+                if frame.x <= 0:
+                    break
                 frame.x -= 1
                 if fail or frame.x > 2:
                     frame.y += frame.x
@@ -1310,7 +1317,7 @@ class ImplicitVirtualizableTests(object):
 
     def test_inlining(self):
         class Frame(object):
-            _virtualizable2_ = ['x', 'next']
+            _virtualizable_ = ['x', 'next']
 
             def __init__(self, x):
                 self = hint(self, access_directly=True)
@@ -1345,7 +1352,7 @@ class ImplicitVirtualizableTests(object):
     def test_guard_failure_in_inlined_function(self):
 
         class Frame(object):
-            _virtualizable2_ = ['n', 'next']
+            _virtualizable_ = ['n', 'next']
 
             def __init__(self, n):
                 self = hint(self, access_directly=True)
@@ -1399,7 +1406,7 @@ class ImplicitVirtualizableTests(object):
                 self.val = val
 
         class Frame(object):
-            _virtualizable2_ = ['thing']
+            _virtualizable_ = ['thing']
 
         driver = JitDriver(greens = ['codeno'], reds = ['i', 'frame'],
                            virtualizables = ['frame'],
@@ -1450,7 +1457,7 @@ class ImplicitVirtualizableTests(object):
         )
 
         class Frame(object):
-            _virtualizable2_ = ['x']
+            _virtualizable_ = ['x']
 
         def main(n):
             f = Frame()
@@ -1469,6 +1476,113 @@ class ImplicitVirtualizableTests(object):
             "int_add": 2, "jump": 1
         })
 
+    def test_frame_nonstandard_no_virtualizable(self):
+
+        driver1 = JitDriver(greens=[], reds=['i', 's', 'frame'])
+        driver2 = JitDriver(greens=[], reds=['frame'],
+                            virtualizables=['frame'])
+
+        class Frame(object):
+            _virtualizable_ = ['x']
+
+        def g(frame):
+            driver2.jit_merge_point(frame=frame)
+            frame.x += 1
+            return frame
+
+        def f():
+            i = 0
+            s = 0
+            frame = Frame()
+            frame.x = 0
+            g(frame)
+            while i < 10:
+                driver1.jit_merge_point(frame=frame, s=s, i=i)
+                frame = g(frame)
+                s += frame.x
+                i += 1
+            return s
+
+        def main():
+            res = 0
+            for i in range(10):
+                res += f()
+            return res
+
+        res = self.meta_interp(main, [])
+        assert res == main()
+
+    def test_two_virtualizables_mixed(self):
+        driver1 = JitDriver(greens=[], reds=['i', 's', 'frame',
+                                             'subframe'])
+        driver2 = JitDriver(greens=[], reds=['subframe'],
+                            virtualizables=['subframe'])
+
+        class Frame(object):
+            _virtualizable_ = ['x']
+
+        class SubFrame(object):
+            _virtualizable_ = ['x']
+
+        def g(subframe):
+            driver2.jit_merge_point(subframe=subframe)
+            subframe.x += 1
+
+        def f():
+            i = 0
+            frame = Frame()
+            frame.x = 0
+            subframe = SubFrame()
+            subframe.x = 0
+            s = 0
+            while i < 10:
+                driver1.jit_merge_point(frame=frame, subframe=subframe, i=i,
+                                        s=s)
+                g(subframe)
+                s += subframe.x
+                i += 1
+            return s
+
+        res = self.meta_interp(f, [])
+        assert res == f()
+
+    def test_force_virtualizable_by_hint(self):
+        class Frame(object):
+            _virtualizable_ = ['x']
+
+        driver = JitDriver(greens = [], reds = ['i', 'frame'],
+                           virtualizables = ['frame'])
+
+        def f(frame, i):
+            while i > 0:
+                driver.jit_merge_point(i=i, frame=frame)
+                i -= 1
+                frame.x += 1
+            hint(frame, force_virtualizable=True)
+
+        def main():
+            frame = Frame()
+            frame.x = 0
+            s = 0
+            for i in range(20):
+                f(frame, 4)
+                s += frame.x
+            return s
+
+        r = self.meta_interp(main, [])
+        assert r == main()
+        # fish the bridge
+        loop = get_stats().get_all_loops()[0]
+        d = loop.operations[-3].getdescr()
+        bridge = getattr(d, '_llgraph_bridge', None)
+        if bridge is not None:
+            l = [op for op in
+                 bridge.operations if op.getopnum() == rop.SETFIELD_GC]
+            assert "'inst_x'" in str(l[0].getdescr().realdescrref())
+            assert len(l) == 2 # vable token set to null
+            l = [op for op in bridge.operations if
+                 op.getopnum() == rop.GUARD_NOT_FORCED_2]
+            assert len(l) == 0
 
 class TestLLtype(ExplicitVirtualizableTests,
                  ImplicitVirtualizableTests,

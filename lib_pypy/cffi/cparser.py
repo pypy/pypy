@@ -290,13 +290,26 @@ class Parser(object):
                 # assume a primitive type.  get it from .names, but reduce
                 # synonyms to a single chosen combination
                 names = list(type.names)
-                if names == ['signed'] or names == ['unsigned']:
-                    names.append('int')
-                if names[0] == 'signed' and names != ['signed', 'char']:
-                    names.pop(0)
-                if (len(names) > 1 and names[-1] == 'int'
-                        and names != ['unsigned', 'int']):
-                    names.pop()
+                if names != ['signed', 'char']:    # keep this unmodified
+                    prefixes = {}
+                    while names:
+                        name = names[0]
+                        if name in ('short', 'long', 'signed', 'unsigned'):
+                            prefixes[name] = prefixes.get(name, 0) + 1
+                            del names[0]
+                        else:
+                            break
+                    # ignore the 'signed' prefix below, and reorder the others
+                    newnames = []
+                    for prefix in ('unsigned', 'short', 'long'):
+                        for i in range(prefixes.get(prefix, 0)):
+                            newnames.append(prefix)
+                    if not names:
+                        names = ['int']    # implicitly
+                    if names == ['int']:   # but kill it if 'short' or 'long'
+                        if 'short' in prefixes or 'long' in prefixes:
+                            names = []
+                    names = newnames + names
                 ident = ' '.join(names)
                 if ident == 'void':
                     return model.void_type
@@ -500,8 +513,8 @@ class Parser(object):
                 self._partial_length = True
                 return None
         #
-        raise api.FFIError("unsupported non-constant or "
-                           "not immediately constant expression")
+        raise api.FFIError("unsupported expression: expected a "
+                           "simple numeric constant")
 
     def _build_enum_type(self, explicit_name, decls):
         if decls is not None:

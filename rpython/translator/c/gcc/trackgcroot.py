@@ -489,7 +489,7 @@ class FunctionGcRootTracker(object):
         'pabs', 'pack', 'padd', 'palign', 'pand', 'pavg', 'pcmp', 'pextr',
         'phadd', 'phsub', 'pinsr', 'pmadd', 'pmax', 'pmin', 'pmovmsk',
         'pmul', 'por', 'psadb', 'pshuf', 'psign', 'psll', 'psra', 'psrl',
-        'psub', 'punpck', 'pxor',
+        'psub', 'punpck', 'pxor', 'pmovzx', 'pmovsx', 'pblend',
         # all vectors don't produce pointers
         'v',
         # sign-extending moves should not produce GC pointers

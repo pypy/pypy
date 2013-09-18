@@ -5,6 +5,11 @@ What's new in PyPy 2.1
 .. this is a revision shortly after release-2.1-beta
 .. startrev: 4eb52818e7c0
 
+.. branch: sanitise_bytecode_dispatch
+Make PyPy's bytecode dispatcher easy to read, and less reliant on RPython
+magic. There is no functional change, though the removal of dead code leads
+to many fewer tests to execute.
+
 .. branch: fastjson
 Fast json decoder written in RPython, about 3-4x faster than the pure Python
 decoder which comes with the stdlib
@@ -62,3 +67,33 @@ Constant-fold reading out of constant tuples in PyPy.
 No longer delegate numpy string_ methods to space.StringObject, in numpy
 this works by kind of by accident. Support for merging the refactor-str-types
 branch
+
+.. branch: kill-typesystem
+Remove the "type system" abstraction, now that there is only ever one kind of
+type system used.
+
+.. branch: kill-gen-store-back-in
+Kills gen_store_back_in_virtualizable - should improve non-inlined calls by
+a bit
+
+.. branch: dotviewer-linewidth
+.. branch: reflex-support
+.. branch: numpypy-inplace-op
+.. branch: rewritten-loop-logging
+.. branch: no-release-gil
+.. branch: safe-win-mmap
+.. branch: boolean-indexing-cleanup
+
+.. branch: nobold-backtrace
+Work on improving UnionError messages and stack trace displays.
+
+.. branch: improve-errors-again
+More improvements and refactorings of error messages.
+
+.. branch: improve-errors-again2
+Unbreak tests in rlib.
+
+.. branch: less-stringly-ops
+Use subclasses of SpaceOperation instead of SpaceOperator objects.
+Random cleanups in flowspace.
+

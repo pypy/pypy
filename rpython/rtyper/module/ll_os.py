@@ -379,7 +379,7 @@ class RegisterOs(BaseLazyRegistering):
 
     @registering_if(os, "getlogin", condition=not _WIN32)
     def register_os_getlogin(self):
-        os_getlogin = self.llexternal('getlogin', [], rffi.CCHARP, threadsafe=False)
+        os_getlogin = self.llexternal('getlogin', [], rffi.CCHARP, releasegil=False)
 
         def getlogin_llimpl():
             result = os_getlogin()
@@ -681,7 +681,7 @@ class RegisterOs(BaseLazyRegistering):
 
     @registering_if(os, 'getpid')
     def register_os_getpid(self):
-        return self.extdef_for_os_function_returning_int('getpid', threadsafe=False)
+        return self.extdef_for_os_function_returning_int('getpid', releasegil=False)
 
     @registering_if(os, 'getgid')
     def register_os_getgid(self):
@@ -882,7 +882,7 @@ class RegisterOs(BaseLazyRegistering):
     @registering(os.close)
     def register_os_close(self):
         os_close = self.llexternal(underscore_on_windows+'close', [rffi.INT],
-                                   rffi.INT, threadsafe=False)
+                                   rffi.INT, releasegil=False)
 
         def close_llimpl(fd):
             rposix.validate_fd(fd)
@@ -1323,7 +1323,7 @@ class RegisterOs(BaseLazyRegistering):
 
     @registering(os.strerror)
     def register_os_strerror(self):
-        os_strerror = self.llexternal('strerror', [rffi.INT], rffi.CCHARP, threadsafe=False)
+        os_strerror = self.llexternal('strerror', [rffi.INT], rffi.CCHARP, releasegil=False)
 
         def strerror_llimpl(errnum):
             res = os_strerror(rffi.cast(rffi.INT, errnum))
@@ -1566,7 +1566,7 @@ class RegisterOs(BaseLazyRegistering):
 
     @registering_if(os, 'fork')
     def register_os_fork(self):
-        from rpython.rlib import rthread
+        from rpython.rlib import debug, rthread
         eci = self.gcc_profiling_bug_workaround('pid_t _noprof_fork(void)',
                                                 'return fork();')
         os_fork = self.llexternal('_noprof_fork', [], rffi.PID_T,
@@ -1574,11 +1574,15 @@ class RegisterOs(BaseLazyRegistering):
                                   _nowrapper = True)
 
         def fork_llimpl():
+            # NB. keep forkpty() up-to-date, too
+            ofs = debug.debug_offset()
             opaqueaddr = rthread.gc_thread_before_fork()
             childpid = rffi.cast(lltype.Signed, os_fork())
             rthread.gc_thread_after_fork(childpid, opaqueaddr)
             if childpid == -1:
                 raise OSError(rposix.get_errno(), "os_fork failed")
+            if childpid == 0:
+                debug.debug_forked(ofs)
             return rffi.cast(lltype.Signed, childpid)
 
         return extdef([], int, llimpl=fork_llimpl,
@@ -1609,6 +1613,7 @@ class RegisterOs(BaseLazyRegistering):
 
     @registering_if(os, 'forkpty')
     def register_os_forkpty(self):
+        from rpython.rlib import debug, rthread
         os_forkpty = self.llexternal(
             'forkpty',
             [rffi.INTP, rffi.VOIDP, rffi.VOIDP, rffi.VOIDP],
@@ -1616,11 +1621,18 @@ class RegisterOs(BaseLazyRegistering):
             compilation_info=ExternalCompilationInfo(libraries=['util']))
         def forkpty_llimpl():
             master_p = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
-            childpid = os_forkpty(master_p, None, None, None)
+            master_p[0] = rffi.cast(rffi.INT, -1)
+            ofs = debug.debug_offset()
+            opaqueaddr = rthread.gc_thread_before_fork()
+            childpid = rffi.cast(lltype.Signed,
+                                 os_forkpty(master_p, None, None, None))
+            rthread.gc_thread_after_fork(childpid, opaqueaddr)
             master_fd = master_p[0]
             lltype.free(master_p, flavor='raw')
             if childpid == -1:
                 raise OSError(rposix.get_errno(), "os_forkpty failed")
+            if childpid == 0:
+                debug.debug_forked(ofs)
             return (rffi.cast(lltype.Signed, childpid),
                     rffi.cast(lltype.Signed, master_fd))
 
@@ -1655,6 +1667,16 @@ class RegisterOs(BaseLazyRegistering):
 
         return extdef([int], int, llimpl=nice_llimpl,
                       export_name="ll_os.ll_os_nice")
+
+    @registering_if(os, 'ctermid')
+    def register_os_ctermid(self):
+        os_ctermid = self.llexternal('ctermid', [rffi.CCHARP], rffi.CCHARP)
+
+        def ctermid_llimpl():
+            return rffi.charp2str(os_ctermid(lltype.nullptr(rffi.CCHARP.TO)))
+
+        return extdef([], str, llimpl=ctermid_llimpl,
+                      export_name="ll_os.ll_os_ctermid")
 
 # --------------------------- os.stat & variants ---------------------------
 
@@ -1726,7 +1748,7 @@ class RegisterOs(BaseLazyRegistering):
 
     @registering_if(os, 'ttyname')
     def register_os_ttyname(self):
-        os_ttyname = self.llexternal('ttyname', [lltype.Signed], rffi.CCHARP, threadsafe=False)
+        os_ttyname = self.llexternal('ttyname', [lltype.Signed], rffi.CCHARP, releasegil=False)
 
         def ttyname_llimpl(fd):
             l_name = os_ttyname(fd)

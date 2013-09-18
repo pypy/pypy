@@ -370,8 +370,8 @@ _missing_binary_insn._dont_inline_ = True
 class LocationCodeBuilder(object):
     _mixin_ = True
 
-    _reuse_scratch_register = False
-    _scratch_register_known = False
+    _reuse_scratch_register = False   # for now, this is always False
+    _scratch_register_known = False   # for now, this is always False
     _scratch_register_value = 0
 
     def _binaryop(name):
@@ -576,6 +576,7 @@ class LocationCodeBuilder(object):
         self.MOV_ri(X86_64_SCRATCH_REG.value, value)
 
     def begin_reuse_scratch_register(self):
+        # --NEVER CALLED (only from a specific test)--
         # Flag the beginning of a block where it is okay to reuse the value
         # of the scratch register. In theory we shouldn't have to do this if
         # we were careful to mark all possible targets of a jump or call, and

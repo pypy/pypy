@@ -98,8 +98,6 @@
 .. _`rpython/rtyper/memory/gc/hybrid.py`: https://bitbucket.org/pypy/pypy/src/default/rpython/rtyper/memory/gc/hybrid.py
 .. _`rpython/rtyper/memory/gc/minimarkpage.py`: https://bitbucket.org/pypy/pypy/src/default/rpython/rtyper/memory/gc/minimarkpage.py
 .. _`rpython/rtyper/memory/gc/semispace.py`: https://bitbucket.org/pypy/pypy/src/default/rpython/rtyper/memory/gc/semispace.py
-.. _`rpython/rtyper/ootypesystem/`: https://bitbucket.org/pypy/pypy/src/default/rpython/rtyper/ootypesystem/
-.. _`rpython/rtyper/ootypesystem/ootype.py`: https://bitbucket.org/pypy/pypy/src/default/rpython/rtyper/ootypesystem/ootype.py
 .. _`rpython/rtyper/rint.py`: https://bitbucket.org/pypy/pypy/src/default/rpython/rtyper/rint.py
 .. _`rpython/rtyper/rlist.py`: https://bitbucket.org/pypy/pypy/src/default/rpython/rtyper/rlist.py
 .. _`rpython/rtyper/rmodel.py`: https://bitbucket.org/pypy/pypy/src/default/rpython/rtyper/rmodel.py

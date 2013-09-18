@@ -356,7 +356,7 @@ XML_ParserCreate = expat_external(
 XML_ParserCreateNS = expat_external(
     'XML_ParserCreateNS', [rffi.CCHARP, rffi.CHAR], XML_Parser)
 XML_ParserFree = expat_external(
-    'XML_ParserFree', [XML_Parser], lltype.Void, threadsafe=False)
+    'XML_ParserFree', [XML_Parser], lltype.Void, releasegil=False)
 XML_SetUserData = expat_external(
     'XML_SetUserData', [XML_Parser, rffi.VOIDP], lltype.Void)
 def XML_GetUserData(parser):

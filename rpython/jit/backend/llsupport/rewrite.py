@@ -26,10 +26,11 @@ class GcRewriterAssembler(object):
      - Add COND_CALLs to the write barrier before SETFIELD_GC and
        SETARRAYITEM_GC operations.
 
-    recent_mallocs contains a dictionary of variable -> None. If a variable
-    is in the dictionary, next setfields can be called without a write barrier,
-    because the variable got allocated after the last potentially collecting
-    resop
+    'write_barrier_applied' contains a dictionary of variable -> None.
+    If a variable is in the dictionary, next setfields can be called without
+    a write barrier.  The idea is that an object that was freshly allocated
+    or already write_barrier'd don't need another write_barrier if there
+    was no potentially collecting resop inbetween.
     """
 
     _previous_size = -1
@@ -42,7 +43,7 @@ class GcRewriterAssembler(object):
         self.cpu = cpu
         self.newops = []
         self.known_lengths = {}
-        self.recent_mallocs = {}
+        self.write_barrier_applied = {}
 
     def rewrite(self, operations):
         # we can only remember one malloc since the next malloc can possibly
@@ -221,18 +222,18 @@ class GcRewriterAssembler(object):
     def emitting_an_operation_that_can_collect(self):
         # must be called whenever we emit an operation that can collect:
         # forgets the previous MALLOC_NURSERY, if any; and empty the
-        # set 'recent_mallocs', so that future SETFIELDs will generate
+        # set 'write_barrier_applied', so that future SETFIELDs will generate
         # a write barrier as usual.
         self._op_malloc_nursery = None
-        self.recent_mallocs.clear()
+        self.write_barrier_applied.clear()
 
     def _gen_call_malloc_gc(self, args, v_result, descr):
         """Generate a CALL_MALLOC_GC with the given args."""
         self.emitting_an_operation_that_can_collect()
         op = ResOperation(rop.CALL_MALLOC_GC, args, v_result, descr)
         self.newops.append(op)
-        # mark 'v_result' as freshly malloced
-        self.recent_mallocs[v_result] = None
+        # mark 'v_result' as freshly malloced, so not needing a write barrier
+        self.write_barrier_applied[v_result] = None
 
     def gen_malloc_fixedsize(self, size, typeid, v_result):
         """Generate a CALL_MALLOC_GC(malloc_fixedsize_fn, ...).
@@ -315,7 +316,7 @@ class GcRewriterAssembler(object):
                           [ConstInt(kind), ConstInt(itemsize), v_length],
                           v_result, descr=arraydescr)
         self.newops.append(op)
-        self.recent_mallocs[v_result] = None
+        self.write_barrier_applied[v_result] = None
         return True
 
     def gen_malloc_nursery_varsize_frame(self, sizebox, v_result):
@@ -327,7 +328,7 @@ class GcRewriterAssembler(object):
                           v_result)
 
         self.newops.append(op)
-        self.recent_mallocs[v_result] = None
+        self.write_barrier_applied[v_result] = None
 
     def gen_malloc_nursery(self, size, v_result):
         """Try to generate or update a CALL_MALLOC_NURSERY.
@@ -360,7 +361,7 @@ class GcRewriterAssembler(object):
         self.newops.append(op)
         self._previous_size = size
         self._v_last_malloced_nursery = v_result
-        self.recent_mallocs[v_result] = None
+        self.write_barrier_applied[v_result] = None
         return True
 
     def gen_initialize_tid(self, v_newgcobj, tid):
@@ -382,45 +383,42 @@ class GcRewriterAssembler(object):
 
     def handle_write_barrier_setfield(self, op):
         val = op.getarg(0)
-        # no need for a write barrier in the case of previous malloc
-        if val not in self.recent_mallocs:
+        if val not in self.write_barrier_applied:
             v = op.getarg(1)
             if isinstance(v, BoxPtr) or (isinstance(v, ConstPtr) and
                                          bool(v.value)): # store a non-NULL
-                self.gen_write_barrier(op.getarg(0), v)
-                op = op.copy_and_change(rop.SETFIELD_RAW)
+                self.gen_write_barrier(val)
+                #op = op.copy_and_change(rop.SETFIELD_RAW)
         self.newops.append(op)
 
     def handle_write_barrier_setinteriorfield(self, op):
         val = op.getarg(0)
-        # no need for a write barrier in the case of previous malloc
-        if val not in self.recent_mallocs:
+        if val not in self.write_barrier_applied:
             v = op.getarg(2)
             if isinstance(v, BoxPtr) or (isinstance(v, ConstPtr) and
                                          bool(v.value)): # store a non-NULL
-                self.gen_write_barrier(op.getarg(0), v)
-                op = op.copy_and_change(rop.SETINTERIORFIELD_RAW)
+                self.gen_write_barrier(val)
+                #op = op.copy_and_change(rop.SETINTERIORFIELD_RAW)
         self.newops.append(op)
 
     def handle_write_barrier_setarrayitem(self, op):
         val = op.getarg(0)
-        # no need for a write barrier in the case of previous malloc
-        if val not in self.recent_mallocs:
+        if val not in self.write_barrier_applied:
             v = op.getarg(2)
             if isinstance(v, BoxPtr) or (isinstance(v, ConstPtr) and
                                          bool(v.value)): # store a non-NULL
-                self.gen_write_barrier_array(op.getarg(0),
-                                             op.getarg(1), v)
-                op = op.copy_and_change(rop.SETARRAYITEM_RAW)
+                self.gen_write_barrier_array(val, op.getarg(1))
+                #op = op.copy_and_change(rop.SETARRAYITEM_RAW)
         self.newops.append(op)
 
-    def gen_write_barrier(self, v_base, v_value):
+    def gen_write_barrier(self, v_base):
         write_barrier_descr = self.gc_ll_descr.write_barrier_descr
-        args = [v_base, v_value]
+        args = [v_base]
         self.newops.append(ResOperation(rop.COND_CALL_GC_WB, args, None,
                                         descr=write_barrier_descr))
+        self.write_barrier_applied[v_base] = None
 
-    def gen_write_barrier_array(self, v_base, v_index, v_value):
+    def gen_write_barrier_array(self, v_base, v_index):
         write_barrier_descr = self.gc_ll_descr.write_barrier_descr
         if write_barrier_descr.has_write_barrier_from_array(self.cpu):
             # If we know statically the length of 'v', and it is not too
@@ -430,13 +428,15 @@ class GcRewriterAssembler(object):
             length = self.known_lengths.get(v_base, LARGE)
             if length >= LARGE:
                 # unknown or too big: produce a write_barrier_from_array
-                args = [v_base, v_index, v_value]
+                args = [v_base, v_index]
                 self.newops.append(
                     ResOperation(rop.COND_CALL_GC_WB_ARRAY, args, None,
                                  descr=write_barrier_descr))
+                # a WB_ARRAY is not enough to prevent any future write
+                # barriers, so don't add to 'write_barrier_applied'!
                 return
         # fall-back case: produce a write_barrier
-        self.gen_write_barrier(v_base, v_value)
+        self.gen_write_barrier(v_base)
 
     def round_up_for_allocation(self, size):
         if not self.gc_ll_descr.round_up:

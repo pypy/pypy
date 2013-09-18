@@ -286,7 +286,7 @@ class LLFrame(object):
             rtyper = self.llinterpreter.typer
             bk = rtyper.annotator.bookkeeper
             classdef = bk.getuniqueclassdef(rstackovf._StackOverflow)
-            exdata = rtyper.getexceptiondata()
+            exdata = rtyper.exceptiondata
             evalue = exdata.get_standard_ll_exc_instance(rtyper, classdef)
             etype = exdata.fn_type_of_exc_inst(evalue)
             e = LLException(etype, evalue)
@@ -335,7 +335,7 @@ class LLFrame(object):
         elif catch_exception:
             link = block.exits[0]
             if e:
-                exdata = self.llinterpreter.typer.getexceptiondata()
+                exdata = self.llinterpreter.typer.exceptiondata
                 cls = e.args[0]
                 inst = e.args[1]
                 for link in block.exits[1:]:
@@ -440,7 +440,7 @@ class LLFrame(object):
         else:
             extraargs = ()
         typer = self.llinterpreter.typer
-        exdata = typer.getexceptiondata()
+        exdata = typer.exceptiondata
         if isinstance(exc, OSError):
             self.op_direct_call(exdata.fn_raise_OSError, exc.errno)
             assert False, "op_direct_call above should have raised"
@@ -784,9 +784,6 @@ class LLFrame(object):
         addr = llmemory.cast_ptr_to_adr(ptr)
         return self.heap.can_move(addr)
 
-    def op_gc_thread_prepare(self):
-        self.heap.thread_prepare()
-
     def op_gc_thread_run(self):
         self.heap.thread_run()
 
@@ -972,6 +969,10 @@ class LLFrame(object):
     op_raw_load.need_result_type = True
 
     def op_raw_store(self, addr, offset, value):
+        # XXX handle the write barrier by delegating to self.heap instead
+        self.op_bare_raw_store(addr, offset, value)
+
+    def op_bare_raw_store(self, addr, offset, value):
         checkadr(addr)
         ARGTYPE = lltype.typeOf(value)
         if isinstance(offset, int):

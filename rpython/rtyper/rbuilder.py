@@ -49,10 +49,10 @@ class AbstractStringBuilderRepr(Repr):
         hop.exception_cannot_occur()
         return hop.gendirectcall(self.ll_build, *vlist)
 
-    def rtype_is_true(self, hop):
+    def rtype_bool(self, hop):
         vlist = hop.inputargs(self)
         hop.exception_cannot_occur()
-        return hop.gendirectcall(self.ll_is_true, *vlist)
+        return hop.gendirectcall(self.ll_bool, *vlist)
 
     def convert_const(self, value):
         if not value is None:

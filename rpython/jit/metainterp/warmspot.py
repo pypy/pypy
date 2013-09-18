@@ -858,10 +858,6 @@ class WarmRunnerDesc(object):
 
         def assembler_call_helper(deadframe, virtualizableref):
             fail_descr = self.cpu.get_latest_descr(deadframe)
-            if vinfo is not None:
-                virtualizable = lltype.cast_opaque_ptr(
-                    vinfo.VTYPEPTR, virtualizableref)
-                vinfo.reset_vable_token(virtualizable)
             try:
                 fail_descr.handle_fail(deadframe, self.metainterp_sd, jd)
             except jitexc.JitException, e:

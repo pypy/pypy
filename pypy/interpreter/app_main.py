@@ -119,13 +119,12 @@ def display_exception():
     except:
         try:
             stderr = sys.stderr
-        except AttributeError:
-            pass   # too bad
-        else:
             print >> stderr, 'Error calling sys.excepthook:'
             originalexcepthook(*sys.exc_info())
             print >> stderr
             print >> stderr, 'Original exception was:'
+        except:
+            pass   # too bad
 
     # we only get here if sys.excepthook didn't do its job
     originalexcepthook(etype, evalue, etraceback)

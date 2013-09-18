@@ -61,27 +61,3 @@ for module, methods in _register:
                           sandboxsafe=True,
                           llimpl=getattr(ll_math, method_name))
 
-# ___________________________
-# os.path functions
-
-from rpython.tool.sourcetools import func_with_new_name
-import os.path
-
-# os.path.join is RPython, but we don't want to compile it directly
-# because it's platform dependant. This is ok for lltype where the
-# execution platform is the same as the translation platform, but not
-# for ootype where the executable produced by some backends (e.g. CLI,
-# JVM) are expected to run everywhere.  Thus, we register it as an
-# external function, but we provide a clone for lltype using
-# func_with_new_name.
-
-path_functions = [
-    ('join',     [ll_os.str0, ll_os.str0], ll_os.str0),
-    ('dirname',  [ll_os.str0], ll_os.str0),
-    ]
-
-for name, args, res in path_functions:
-    func = getattr(os.path, name)
-    llimpl = func_with_new_name(func, name)
-    register_external(func, args, res, 'll_os_path.ll_%s' % name,
-                      llimpl=llimpl, sandboxsafe=True)

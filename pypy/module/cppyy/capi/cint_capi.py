@@ -60,7 +60,7 @@ eci = ExternalCompilationInfo(
 _c_load_dictionary = rffi.llexternal(
     "cppyy_load_dictionary",
     [rffi.CCHARP], rdynload.DLLHANDLE,
-    threadsafe=False,
+    releasegil=False,
     compilation_info=eci)
 
 def c_load_dictionary(name):
@@ -84,7 +84,7 @@ def _get_string_data(space, w_obj, m1, m2 = None):
 _ttree_Branch = rffi.llexternal(
     "cppyy_ttree_Branch",
     [rffi.VOIDP, rffi.CCHARP, rffi.CCHARP, rffi.VOIDP, rffi.INT, rffi.INT], rffi.LONG,
-    threadsafe=False,
+    releasegil=False,
     compilation_info=eci)
 
 @unwrap_spec(args_w='args_w')
@@ -158,7 +158,7 @@ def activate_branch(space, w_branch):
 c_ttree_GetEntry = rffi.llexternal(
     "cppyy_ttree_GetEntry",
     [rffi.VOIDP, rffi.LONGLONG], rffi.LONGLONG,
-    threadsafe=False,
+    releasegil=False,
     compilation_info=eci)
 
 @unwrap_spec(args_w='args_w')

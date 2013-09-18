@@ -45,6 +45,10 @@ def test_io():
     from pypy.module._io.interp_bytesio import W_BytesIO
     assert pypypolicy.look_inside_function(W_BytesIO.seek_w.im_func)
 
+def test_thread():
+    from pypy.module.thread.os_lock import Lock
+    assert pypypolicy.look_inside_function(Lock.descr_lock_acquire.im_func)
+
 def test_pypy_module():
     from pypy.module._collections.interp_deque import W_Deque
     from pypy.module._random.interp_random import W_Random

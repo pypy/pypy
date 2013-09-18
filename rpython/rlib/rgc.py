@@ -262,7 +262,11 @@ def ll_shrink_array(p, smallerlength):
     keepalive_until_here(newp)
     return newp
 
-
+def no_release_gil(func):
+    func._dont_inline_ = True
+    func._no_release_gil_ = True
+    return func
+    
 def no_collect(func):
     func._dont_inline_ = True
     func._gc_no_collect_ = True
@@ -343,6 +347,9 @@ def get_rpy_type_index(gcref):
     return intmask(id(Class))
 
 def cast_gcref_to_int(gcref):
+    # This is meant to be used on cast_instance_to_gcref results.
+    # Don't use this on regular gcrefs obtained e.g. with
+    # lltype.cast_opaque_ptr().
     if we_are_translated():
         return lltype.cast_ptr_to_int(gcref)
     else:

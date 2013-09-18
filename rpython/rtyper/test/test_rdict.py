@@ -91,7 +91,7 @@ class TestRdict(BaseRtypingTest):
         res = self.interpret(func, [6])
         assert res == 1
 
-    def test_dict_is_true(self):
+    def test_dict_bool(self):
         def func(i):
             if i:
                 d = {}

@@ -242,7 +242,7 @@ class AsmStackRootWalker(BaseRootWalker):
             return llmemory.cast_int_to_adr(rthread.get_ident())
 
         def thread_start():
-            value = llop.stack_current(llmemory.Address)
+            value = llmemory.cast_int_to_adr(llop.stack_current(lltype.Signed))
             gcdata.aid2stack.setitem(get_aid(), value)
         thread_start._always_inline_ = True
 
@@ -269,7 +269,8 @@ class AsmStackRootWalker(BaseRootWalker):
             stack_start = gcdata.aid2stack.get(get_aid(), llmemory.NULL)
             ll_assert(stack_start != llmemory.NULL,
                       "current thread not found in gcdata.aid2stack!")
-            stack_stop  = llop.stack_current(llmemory.Address)
+            stack_stop = llmemory.cast_int_to_adr(
+                             llop.stack_current(lltype.Signed))
             return (stack_start <= framedata <= stack_stop or
                     stack_start >= framedata >= stack_stop)
         self.belongs_to_current_thread = belongs_to_current_thread

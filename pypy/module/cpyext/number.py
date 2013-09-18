@@ -42,13 +42,13 @@ def PyNumber_AsSsize_t(space, w_obj, w_exc):
 def PyNumber_Int(space, w_obj):
     """Returns the o converted to an integer object on success, or NULL on failure.
     This is the equivalent of the Python expression int(o)."""
-    return space.int(w_obj)
+    return space.call_function(space.w_int, w_obj)
 
 @cpython_api([PyObject], PyObject)
 def PyNumber_Long(space, w_obj):
     """Returns the o converted to a long integer object on success, or NULL on
     failure.  This is the equivalent of the Python expression long(o)."""
-    return space.long(w_obj)
+    return space.call_function(space.w_long, w_obj)
 
 @cpython_api([PyObject], PyObject)
 def PyNumber_Index(space, w_obj):

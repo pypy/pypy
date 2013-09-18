@@ -685,7 +685,7 @@ class DtypeCache(object):
             name='string',
             char='S',
             w_box_type = space.gettypefor(interp_boxes.W_StringBox),
-            alternate_constructors=[space.w_str],
+            alternate_constructors=[space.w_str, space.gettypefor(interp_boxes.W_CharacterBox)],
             aliases=["str"],
         )
         self.w_unicodedtype = W_Dtype(

@@ -253,10 +253,6 @@ class TestExecutionContext:
         """)
 
 
-class TestExecutionContextWithCallMethod(TestExecutionContext):
-    spaceconfig ={'objspace.opcodes.CALL_METHOD': True}
-
-
 class AppTestDelNotBlocked:
 
     def setup_method(self, meth):

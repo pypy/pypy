@@ -12,7 +12,7 @@ class TestStoreSink(object):
     def translate(self, func, argtypes):
         t = TranslationContext()
         t.buildannotator().build_types(func, argtypes)
-        t.buildrtyper(type_system=self.type_system).specialize()
+        t.buildrtyper().specialize()
         return t
 
     def check(self, f, argtypes, no_getfields=0):

@@ -329,10 +329,6 @@ def _builduserclswithfeature(config, supercls, *features):
                     instance=True)
                 base_user_setup(self, space, w_subtype)
 
-            def setclass(self, space, w_subtype):
-                # only used by descr_set___class__
-                self.w__class__ = w_subtype
-
         add(Proto)
 
     subcls = type(name, (supercls,), body)

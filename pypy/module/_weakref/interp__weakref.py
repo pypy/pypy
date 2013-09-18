@@ -175,8 +175,8 @@ class W_WeakrefBase(W_Root):
             state = '; dead'
         else:
             typename = space.type(w_obj).getname(space)
-            objname = w_obj.getname(space, '')
-            if objname:
+            objname = w_obj.getname(space)
+            if objname and objname != '?':
                 state = "; to '%s' (%s)" % (typename, objname)
             else:
                 state = "; to '%s'" % (typename,)

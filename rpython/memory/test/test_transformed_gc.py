@@ -1186,7 +1186,7 @@ class TestHybridGC(TestGenerationGC):
         res = run([100, 100])
         assert res == 200
 
-    def define_assume_young_pointers(cls):
+    def define_write_barrier_direct(cls):
         from rpython.rlib import rgc
         S = lltype.GcForwardReference()
         S.become(lltype.GcStruct('S',
@@ -1198,8 +1198,7 @@ class TestHybridGC(TestGenerationGC):
             s = lltype.malloc(S)
             s.x = 42
             llop.bare_setfield(lltype.Void, s0, void('next'), s)
-            llop.gc_assume_young_pointers(lltype.Void,
-                                          llmemory.cast_ptr_to_adr(s0))
+            llop.gc_writebarrier(lltype.Void, llmemory.cast_ptr_to_adr(s0))
             rgc.collect(0)
             return s0.next.x
 
@@ -1208,8 +1207,8 @@ class TestHybridGC(TestGenerationGC):
 
         return f, cleanup, None
 
-    def test_assume_young_pointers(self):
-        run = self.runner("assume_young_pointers")
+    def test_write_barrier_direct(self):
+        run = self.runner("write_barrier_direct")
         res = run([])
         assert res == 42
 

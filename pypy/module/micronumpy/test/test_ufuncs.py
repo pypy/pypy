@@ -255,6 +255,25 @@ class AppTestUfuncs(BaseNumpyAppTest):
         for i in range(3):
             assert c[i] == a[i] * b[i]
 
+    def test_rint(self):
+        from numpypy import array, complex, rint, isnan
+        import sys
+
+        nnan, nan, inf, ninf = float('-nan'), float('nan'), float('inf'), float('-inf')
+
+        reference = array([ninf, -2., -1., -0., 0., 0., 0., 1., 2., inf])
+        a = array([ninf, -1.5, -1., -0.5, -0., 0., 0.5, 1., 1.5, inf])
+        b = rint(a)
+        for i in range(len(a)):
+            assert b[i] == reference[i]
+        assert isnan(rint(nan))
+        assert isnan(rint(nnan))
+
+        assert rint(complex(inf, 1.5)) == complex(inf, 2.)
+        assert rint(complex(0.5, inf)) == complex(0., inf)
+
+        assert rint(sys.maxint) > 0.0
+
     def test_sign(self):
         from numpypy import array, sign, dtype
 
@@ -939,4 +958,18 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert logaddexp2(float('inf'), float('-inf')) == float('inf')
         assert logaddexp2(float('inf'), float('inf')) == float('inf')
 
+    def test_ones_like(self):
+        from numpypy import array, ones_like
 
+        assert ones_like(False) == array(True)
+        assert ones_like(2) == array(1)
+        assert ones_like(2.) == array(1.)
+        assert ones_like(complex(2)) == array(complex(1))
+
+    def test_zeros_like(self):
+        from numpypy import array, zeros_like
+
+        assert zeros_like(True) == array(False)
+        assert zeros_like(2) == array(0)
+        assert zeros_like(2.) == array(0.)
+        assert zeros_like(complex(2)) == array(complex(0))

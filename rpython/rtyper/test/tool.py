@@ -8,7 +8,7 @@ class BaseRtypingTest(object):
 
     def gengraph(self, func, argtypes=[], viewbefore='auto', policy=None,
              backendopt=False, config=None):
-        return gengraph(func, argtypes, viewbefore, policy, type_system=self.type_system,
+        return gengraph(func, argtypes, viewbefore, policy,
                         backendopt=backendopt, config=config)
 
     def interpret(self, fn, args, **kwds):

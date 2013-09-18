@@ -992,6 +992,7 @@ class TestPycStuff:
         assert ret == 42
 
     def test_pyc_magic_changes(self):
+        py.test.skip("For now, PyPy generates only one kind of .pyc files")
         # test that the pyc files produced by a space are not reimportable
         # from another, if they differ in what opcodes they support
         allspaces = [self.space]
