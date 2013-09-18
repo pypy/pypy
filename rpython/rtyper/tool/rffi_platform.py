@@ -844,6 +844,10 @@ def configure_boehm(platform=None):
             library_dir = ''
             libraries = ['gc64_dll']
             includes = ['gc.h']
+        # since config_external_library does not use a platform kwarg,
+        # somehow using a platform kw arg make the merge fail in
+        # config_external_library
+        platform = None    
     else:
         library_dir = ''
         libraries = ['gc', 'dl']

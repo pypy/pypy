@@ -356,7 +356,7 @@ example.  These are much more supported, much more documented languages
   attempt to point newcomers at existing alternatives, which are more
   mainstream and where they will get help from many people.*
 
-  *If anybody seriously wants to promote RPython anyway, he is welcome
+  *If anybody seriously wants to promote RPython anyway, they are welcome
   to: we won't actively resist such a plan.  There are a lot of things
   that could be done to make RPython a better Java-ish language for
   example, starting with supporting non-GIL-based multithreading, but we
@@ -396,8 +396,8 @@ well --- but again we made an attempt, and it failed: LLVM has no way to
 patch the generated machine code.
 
 So the position of the core PyPy developers is that if anyone wants to
-make an N+1'th attempt with LLVM, he is welcome, and he will receive a
-bit of help on the IRC channel, but he is left with the burden of proof
+make an N+1'th attempt with LLVM, they are welcome, and will be happy to
+provide help in the IRC channel, but they are left with the burden of proof
 that it works.
 
 ----------------------
