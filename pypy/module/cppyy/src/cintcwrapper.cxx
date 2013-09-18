@@ -994,11 +994,18 @@ static int TFNPyCallback(G__value* res, G__CONST char*, struct G__param* libp, i
     // This is a generic CINT-installable TFN (with N=1,2,3) callback (used to factor
     // out some common code), to allow TFN to call back into python.
 
-    std::pair<long, int> fid_and_npar = s_tagnum2fid[G__value_get_tagnum(res)];
+    std::map<long, std::pair<long, int> >::iterator it = s_tagnum2fid.find(G__value_get_tagnum(res));
+    if (it == s_tagnum2fid.end()) {
+        // TODO: report error here
+        return 0;
+    }
+
+    const std::pair<long, int>& fid_and_npar = it->second;
 
     // callback (defined in cint_capi.py)
-    double d = cppyy_tfn_callback(fid_and_npar.first, fid_and_npar.second,
-       (double*)G__int(libp->para[0]), fid_and_npar.second ? (double*)G__int(libp->para[1]) : NULL);
+    double* a0 = (double*)G__int(libp->para[0]);
+    double* a1 = (double*)(fid_and_npar.second ? G__int(libp->para[1]) : 0);
+    double d = cppyy_tfn_callback(fid_and_npar.first, fid_and_npar.second, a0, a1);
 
     // translate result (TODO: error checking)
     G__letdouble(res, 100, d);
