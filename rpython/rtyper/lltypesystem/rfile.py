@@ -4,6 +4,7 @@ from rpython.rlib import rposix
 from rpython.rlib.rarithmetic import r_uint
 from rpython.annotator import model as annmodel
 from rpython.rtyper.rtyper import Repr
+from rpython.rlib.rstring import StringBuilder
 from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 from rpython.rtyper.lltypesystem.rstr import string_repr, STR
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
@@ -21,6 +22,11 @@ c_close = rffi.llexternal('fclose', [lltype.Ptr(FILE)], rffi.INT,
                           compilation_info=eci)
 c_write = rffi.llexternal('fwrite', [rffi.CCHARP, rffi.SIZE_T, rffi.SIZE_T,
                                      lltype.Ptr(FILE)], rffi.SIZE_T)
+c_read = rffi.llexternal('fread', [rffi.CCHARP, rffi.SIZE_T, rffi.SIZE_T,
+                                   lltype.Ptr(FILE)], rffi.SIZE_T)
+c_feof = rffi.llexternal('feof', [lltype.Ptr(FILE)], rffi.INT)
+c_ferror = rffi.llexternal('ferror', [lltype.Ptr(FILE)], rffi.INT)
+c_clearerror = rffi.llexternal('clearerr', [lltype.Ptr(FILE)], lltype.Void)
 
 def ll_open(name, mode):
     file_wrapper = lltype.malloc(FILE_WRAPPER)
@@ -39,11 +45,14 @@ def ll_open(name, mode):
 
 def ll_write(file_wrapper, value):
     ll_file = file_wrapper.file
+    if not ll_file:
+        raise ValueError("I/O operation on closed file")
     value = hlstr(value)
     assert value is not None
     ll_value = rffi.get_nonmovingbuffer(value)
     try:
-        # NO GC OPERATIONS HERE
+        # note that since we got a nonmoving buffer, it is either raw
+        # or already cannot move, so the arithmetics below are fine
         total_bytes = 0
         ll_current = ll_value
         while total_bytes < len(value):
@@ -58,6 +67,43 @@ def ll_write(file_wrapper, value):
                                    total_bytes)
     finally:
         rffi.free_nonmovingbuffer(value, ll_value)
+
+BASE_BUF_SIZE = 4096
+
+def ll_read(file_wrapper, size):
+    ll_file = file_wrapper.file
+    if not ll_file:
+        raise ValueError("I/O operation on closed file")
+    if size < 0:
+        # read the entire contents
+        buf = lltype.malloc(rffi.CCHARP.TO, BASE_BUF_SIZE, flavor='raw')
+        try:
+            s = StringBuilder()
+            while True:
+                returned_size = c_read(buf, 1, BASE_BUF_SIZE, ll_file)
+                if returned_size == 0:
+                    if c_feof(ll_file):
+                        # ok, finished
+                        return s.build()
+                    errno = c_ferror(ll_file)
+                    c_clearerror(ll_file)
+                    raise OSError(errno, os.strerror(errno))
+                s.append_charpsize(buf, returned_size)
+        finally:
+            lltype.free(buf, flavor='raw')
+    else:
+        raw_buf, gc_buf = rffi.alloc_buffer(size)
+        try:
+            returned_size = c_read(raw_buf, 1, size, ll_file)
+            if returned_size == 0:
+                if not c_feof(ll_file):
+                    errno = c_ferror(ll_file)
+                    raise OSError(errno, os.strerror(errno))
+            s = rffi.str_from_buffer(raw_buf, gc_buf, size,
+                                     rffi.cast(lltype.Signed, returned_size))
+        finally:
+            rffi.keep_buffer_alive_until_here(raw_buf, gc_buf)
+        return s
 
 def ll_close(file_wrapper):
     if file_wrapper.file:
@@ -77,7 +123,10 @@ class FileRepr(Repr):
     def rtype_constructor(self, hop):
         repr = hop.rtyper.getrepr(annmodel.SomeString())
         arg_0 = hop.inputarg(repr, 0)
-        arg_1 = hop.inputarg(repr, 1)
+        if len(hop.args_v) == 1:
+            arg_1 = hop.inputconst(string_repr, "r")
+        else:
+            arg_1 = hop.inputarg(repr, 1)
         hop.exception_is_here()
         open = hop.rtyper.getannmixlevel().delayedfunction(
             ll_open, [annmodel.SomeString()] * 2,
@@ -95,3 +144,12 @@ class FileRepr(Repr):
         r_self = hop.inputarg(self, 0)
         hop.exception_is_here()
         return hop.gendirectcall(ll_close, r_self)
+
+    def rtype_method_read(self, hop):
+        r_self = hop.inputarg(self, 0)
+        if len(hop.args_v) != 2:
+            arg_1 = hop.inputconst(lltype.Signed, -1)
+        else:
+            arg_1 = hop.inputarg(lltype.Signed, 1)
+        hop.exception_is_here()
+        return hop.gendirectcall(ll_read, r_self, arg_1)
