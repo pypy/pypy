@@ -171,17 +171,7 @@ def _PyArray_FromAny(space, w_obj, dtype, min_depth, max_depth, requirements, co
 
 @cpython_api([PyObject, Py_ssize_t, Py_ssize_t, Py_ssize_t], PyObject)
 def _PyArray_FromObject(space, w_obj, typenum, min_depth, max_depth):
-    if min_depth !=0 or max_depth != 0:
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            '_PyArray_FromObject called with not-implemented min_dpeth or max_depth argument'))
-    dtype = get_dtype_cache(space).dtypes_by_num[typenum]
-    w_array = convert_to_array(space, w_obj)
-    impl = w_array.implementation
-    if w_array.is_scalar():
-        return W_NDimArray.new_scalar(space, dtype, impl.value)
-    else:
-        new_impl = impl.astype(space, dtype)
-        return wrap_impl(space, space.type(w_array), w_array, new_impl)
+    return _PyArray_FromAny(space, w_obj, typenum, min_depth, max_depth, NPY_BEHAVED);
 
 
 def get_shape_and_dtype(space, nd, dims, typenum):

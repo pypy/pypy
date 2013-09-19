@@ -51,6 +51,10 @@ class TestNDArrayObject(BaseApiTest):
         a = array(space, [10, 5, 3])
         assert api._PyArray_DIM(a, 1) == 5
 
+    def test_STRIDE(self, space, api):
+        a = array(space, [10, 5, 3], )
+        assert api._PyArray_STRIDE(a, 1) == a.implementation.get_strides()[1]
+
     def test_SIZE(self, space, api):
         a = array(space, [10, 5, 3])
         assert api._PyArray_SIZE(a) == 150
@@ -87,6 +91,13 @@ class TestNDArrayObject(BaseApiTest):
         a = array(space, [10, 5, 3])
         assert api._PyArray_FromAny(a, NULL, 0, 0, 0, NULL) is a
         self.raises(space, api, NotImplementedError, api._PyArray_FromAny,
+                    space.wrap(a), space.w_None, space.wrap(0),
+                    space.wrap(3), space.wrap(0), space.w_None)
+
+    def test_FromObject(self, space, api):
+        a = array(space, [10, 5, 3])
+        assert api._PyArray_FromObject(a, NULL, 0, 0, 0, NULL) is a
+        self.raises(space, api, NotImplementedError, api._PyArray_FromObject,
                     space.wrap(a), space.w_None, space.wrap(0),
                     space.wrap(3), space.wrap(0), space.w_None)
 
@@ -184,6 +195,11 @@ class TestNDArrayObject(BaseApiTest):
         ptr_r = rffi.cast(rffi.DOUBLEP, api._PyArray_DATA(res))
         for i in range(150):
             assert ptr_r[i] == float(i)
+        res = api._PyArray_SimpleNewFromDataOwning(nd, ptr_s, num, ptr_a)
+        x = rffi.cast(rffi.DOUBLEP, ptr_a)
+        ptr_r = rffi.cast(rffi.DOUBLEP, api._PyArray_DATA(res))
+        x[20] = -100.
+        assert ptr_r[20] == -100.
 
     def test_SimpleNewFromData_complex(self, space, api):
         a = array(space, [2])
