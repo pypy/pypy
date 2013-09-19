@@ -283,7 +283,7 @@ class BaseConcreteArray(base.BaseArrayImplementation):
         s = loop.count_all_true_concrete(self)
         box = index_type.itemtype.box
         nd = len(self.get_shape())
-        w_res = W_NDimArray.from_shape(space, [s, nd], index_type)        
+        w_res = W_NDimArray.from_shape(space, [s, nd], index_type)
         loop.nonzero(w_res, self, box)
         w_res = w_res.implementation.swapaxes(space, w_res, 0, 1)
         l_w = [w_res.descr_getitem(space, space.wrap(d)) for d in range(nd)]
@@ -326,17 +326,18 @@ class ConcreteArrayNotOwning(BaseConcreteArray):
         self.storage = storage
 
     def create_iter(self, shape=None, backward_broadcast=False, require_index=False):
-        if shape is not None and support.product(shape) > support.product(self.get_shape()):
+        if shape is not None and \
+                support.product(shape) > support.product(self.get_shape()):
             r = calculate_broadcast_strides(self.get_strides(),
                                             self.get_backstrides(),
                                             self.get_shape(), shape, backward_broadcast)
             return iter.MultiDimViewIterator(self, self.dtype, self.start, r[0], r[1], shape)
-        
+
         if not require_index:
             return iter.ConcreteArrayIterator(self)
         else:
             if len(self.get_shape()) == 1:
-                return iter.OneDimViewIterator(self, self.dtype, self.start, 
+                return iter.OneDimViewIterator(self, self.dtype, self.start,
                         self.get_strides(), self.get_shape())
             else:
                 return iter.MultiDimViewIterator(self, self.dtype, self.start,
@@ -404,7 +405,8 @@ class SliceArray(BaseConcreteArray):
         loop.fill(self, box.convert_to(self.dtype))
 
     def create_iter(self, shape=None, backward_broadcast=False, require_index=False):
-        if shape is not None and ssupport.product(shape) > support.prodduct(self.get_shape()):
+        if shape is not None and \
+                support.product(shape) > support.product(self.get_shape()):
             r = calculate_broadcast_strides(self.get_strides(),
                                             self.get_backstrides(),
                                             self.get_shape(), shape,
