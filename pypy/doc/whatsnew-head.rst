@@ -81,6 +81,8 @@ a bit
 .. branch: numpypy-inplace-op
 .. branch: rewritten-loop-logging
 .. branch: no-release-gil
+.. branch: safe-win-mmap
+.. branch: boolean-indexing-cleanup
 
 .. branch: nobold-backtrace
 Work on improving UnionError messages and stack trace displays.

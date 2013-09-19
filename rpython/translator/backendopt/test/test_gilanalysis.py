@@ -7,16 +7,16 @@ from rpython.memory.gctransform.test.test_transform import rtype
 from rpython.translator.translator import graphof
 
 def test_canrelease_external():
-    for ths in ['auto', True, False]:
+    for rel in ['auto', True, False]:
         for sbxs in [True, False]:
             fext = rffi.llexternal('fext2', [], lltype.Void, 
-                                   threadsafe=ths, sandboxsafe=sbxs)
+                                   releasegil=rel, sandboxsafe=sbxs)
             def g():
                 fext()
             t = rtype(g, [])
             gg = graphof(t, g)
 
-            releases = (ths == 'auto' and not sbxs) or ths is True
+            releases = (rel == 'auto' and not sbxs) or rel is True
             assert releases == gilanalysis.GilAnalyzer(t).analyze_direct_call(gg)
 
 def test_canrelease_instantiate():
@@ -58,7 +58,7 @@ def test_no_release_gil():
 def test_no_release_gil_detect(gc="minimark"):
     from rpython.rlib import rgc
 
-    fext1 = rffi.llexternal('fext1', [], lltype.Void, threadsafe=True)
+    fext1 = rffi.llexternal('fext1', [], lltype.Void, releasegil=True)
     @rgc.no_release_gil
     def g():
         fext1()
@@ -74,7 +74,3 @@ def test_no_release_gil_detect(gc="minimark"):
     f = py.test.raises(Exception, gilanalysis.analyze, t.graphs, t)
     expected = "'no_release_gil' function can release the GIL: <function g at "
     assert str(f.value).startswith(expected)
-
-
-
-
