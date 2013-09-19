@@ -1,13 +1,9 @@
-Comments by antocuni, rguillebert
-==================================
-
 TODO list by mattip
 ===================
 
 - test "from numpypy import *" esp. get_include()
 - test all *.h files under pypy/module/cpyext/include/numpy
 - make sure meaningful cpyext changes are tested:
-    all ndarrayobject.c
     copy_header_files() in api.py (changed)
     all ndarrayobject.py (new)
 - test, implement use of __array_prepare__()

@@ -1,7 +1,7 @@
 import py
 
-from pypy.module.cpyext.pyobject import PyObject
 from pypy.module.cpyext.test.test_api import BaseApiTest
+from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from rpython.rtyper.lltypesystem import rffi, lltype
 
 from pypy.module.micronumpy.interp_numarray import W_NDimArray
@@ -199,3 +199,42 @@ class TestNDArrayObject(BaseApiTest):
         assert res.get_scalar_value().real == 3.
         assert res.get_scalar_value().imag == 4.
 
+class AppTestCNumber(AppTestCpythonExtensionBase):
+    def test_ndarray_object_c(self):
+        mod = self.import_extension('foo', [
+                ("test_simplenew", "METH_NOARGS",
+                '''
+                npy_intp dims[2] ={2, 3};
+                PyObject * obj = PyArray_SimpleNew(2, dims, 11);
+                return obj;
+                '''
+                ),
+                ("test_fill", "METH_NOARGS",
+                '''
+                npy_intp dims[2] ={2, 3};
+                PyObject * obj = PyArray_SimpleNew(2, dims, 1);
+                PyArray_FILLWBYTE(obj, 42);
+                return obj;
+                '''
+                ),
+                ("test_copy", "METH_NOARGS",
+                '''
+                npy_intp dims1[2] ={2, 3};
+                npy_intp dims2[2] ={3, 2};
+                PyObject * obj1 = PyArray_ZEROS(2, dims1, 11, 0);
+                PyObject * obj2 = PyArray_ZEROS(2, dims2, 11, 0);
+                PyArray_FILLWBYTE(obj2, 42);
+                PyArray_CopyInto(obj2, obj1);
+                return obj2;
+                '''
+                ),
+                ], prologue='#include <numpy/arrayobject.h>')
+        arr = mod.test_simplenew()
+        assert arr.shape == (2, 3)
+        assert arr.dtype.num == 11 #float32 dtype
+        arr = mod.test_fill()
+        assert arr.shape == (2, 3)
+        assert arr.dtype.num == 1 #int8 dtype
+        assert (arr == 42).all()
+        arr = mod.test_copy()
+        assert (arr == 0).all()
