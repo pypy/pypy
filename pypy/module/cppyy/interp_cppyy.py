@@ -43,6 +43,7 @@ class State(object):
         self.cpptemplate_cache = {}
         self.cppclass_registry = {}
         self.w_clgen_callback = None
+        self.w_fngen_callback = None
 
 @unwrap_spec(name=str)
 def resolve_name(space, name):
