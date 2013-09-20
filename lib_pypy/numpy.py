@@ -7,5 +7,6 @@ if 'numpypy' not in sys.modules:
         UserWarning) # XXX is this the best warning type?
 
 from numpypy import *
-
-
+import numpypy
+__all__ = numpypy.__all__
+del numpypy

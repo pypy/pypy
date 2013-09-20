@@ -1,7 +1,6 @@
 TODO list by mattip
 ===================
 
-- test "from numpypy import *" esp. get_include()
 - test all *.h files under pypy/module/cpyext/include/numpy
 - make sure copy_header_files() in api.py is used in package.py
 - test, implement use of __array_prepare__()

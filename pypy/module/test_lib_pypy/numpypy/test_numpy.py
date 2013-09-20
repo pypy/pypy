@@ -31,7 +31,9 @@ class AppTestNumpyImport2(object):
         import sys
         from warnings import catch_warnings
         # XXX why are numpypy and numpy modules already imported?
-        print sys.modules.keys()
+        mods = [d for d in sys.modules.keys() if d.find('numpy') >= 0]
+        if mods:
+            skip('%s already imported' % mods)
 
         with catch_warnings(record=True) as w:
             import numpy
@@ -91,3 +93,14 @@ class AppTestNumpy(BaseNumpyAppTest):
         assert numpypy.PZERO == numpypy.NZERO == 0.0
         assert math.isinf(numpypy.inf)
         assert math.isnan(numpypy.nan)
+
+    def test___all__(self):
+        import numpy
+        assert '__all__' in numpy
+        assert 'numpypy' not in dir(numpy)
+
+    def test_get_include(self):
+        import numpy, os
+        assert 'get_include' in dir(numpy)
+        path = numpy.get_include()
+        assert os.path.exists(path + '/numpy/arrayobject.h')
