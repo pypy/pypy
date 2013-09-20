@@ -260,17 +260,16 @@ class AppTestSupport(BaseNumpyAppTest):
         assert type(x) == ndarray
         assert a.called_wrap
 
-    def test___array_prepare__1(self):
+    def test___array_prepare__2arg(self):
         from numpypy import ndarray, array, add, ones
         class with_prepare(ndarray):
-            called_prepare = False
             def __array_prepare__(self, arr, context):
-                self.called_prepare = True
-                return array(arr).view(type=with_prepare)
+                retVal = array(arr).view(type=with_prepare)
+                retVal.called_prepare = True
+                return retVal
         class with_prepare_fail(ndarray):
             called_prepare = False
             def __array_prepare__(self, arr, context):
-                self.called_prepare = True
                 return array(arr[0]).view(type=with_prepare)
         a = array(1)
         b = array(1).view(type=with_prepare)
@@ -288,17 +287,42 @@ class AppTestSupport(BaseNumpyAppTest):
         assert x.called_prepare
         raises(TypeError, add, a, b, out=c)
 
-    def test___array_prepare__2(self):
+    def test___array_prepare__1arg(self):
+        from numpypy import ndarray, array, log, ones
+        class with_prepare(ndarray):
+            def __array_prepare__(self, arr, context):
+                retVal = array(arr).view(type=with_prepare)
+                retVal.called_prepare = True
+                return retVal
+        class with_prepare_fail(ndarray):
+            def __array_prepare__(self, arr, context):
+                return array(arr[0]).view(type=with_prepare)
+        a = array(1)
+        b = array(1).view(type=with_prepare)
+        x = log(a, out=b)
+        assert x == 0
+        assert type(x) == with_prepare
+        assert x.called_prepare
+        x.called_prepare = False
+        a = ones((3, 2)).view(type=with_prepare)
+        b = ones((3, 2))
+        c = ones((3, 2)).view(type=with_prepare_fail)
+        x = log(a)
+        assert (x == 0).all()
+        assert type(x) == with_prepare
+        assert x.called_prepare
+        raises(TypeError, log, a, out=c)
+
+
+    def test___array_prepare__nocall(self):
         from numpypy import ndarray, array, sum, ones, add
         class with_prepare(ndarray):
             def __array_prepare__(self, arr, context):
                 x = array(arr).view(type=with_prepare)
                 x.called_prepare = True
-                xxx
                 print 'called_prepare',arr
                 return x
         a = ones(2).view(type=with_prepare)
-        b = ones((3, 2))
         x = sum(a, axis=0)
         assert type(x) == with_prepare
         # reduce functions do not call prepare?
