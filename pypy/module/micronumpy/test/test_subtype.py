@@ -260,7 +260,7 @@ class AppTestSupport(BaseNumpyAppTest):
         assert type(x) == ndarray
         assert a.called_wrap
 
-    def test___array_prepare__(self):
+    def test___array_prepare__1(self):
         from numpypy import ndarray, array, add, ones
         class with_prepare(ndarray):
             called_prepare = False
@@ -288,3 +288,21 @@ class AppTestSupport(BaseNumpyAppTest):
         assert x.called_prepare
         raises(TypeError, add, a, b, out=c)
 
+    def test___array_prepare__2(self):
+        from numpypy import ndarray, array, sum, ones, add
+        class with_prepare(ndarray):
+            def __array_prepare__(self, arr, context):
+                x = array(arr).view(type=with_prepare)
+                x.called_prepare = True
+                xxx
+                print 'called_prepare',arr
+                return x
+        a = ones(2).view(type=with_prepare)
+        b = ones((3, 2))
+        x = sum(a, axis=0)
+        assert type(x) == with_prepare
+        # reduce functions do not call prepare?
+        assert not getattr(x, 'called_prepare',False)
+        x = add.reduce(a)
+        assert type(x) == with_prepare
+        assert not getattr(x, 'called_prepare',False)
