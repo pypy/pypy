@@ -437,7 +437,7 @@ class __extend__(W_NDimArray):
         # stub implementation of __array__()
         return self
 
-    def descr___array_prepare__(self, space, w_array):
+    def descr___array_prepare__(self, space, w_array, w_context):
         # stub implementation of __array_prepare__()
         if isinstance(w_array, W_NDimArray):
             return w_array

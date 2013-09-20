@@ -86,7 +86,7 @@ class W_NDimArray(W_Root):
         return W_NDimArray(scalar.Scalar(dtype, w_val))
 
 
-def convert_to_array(space, w_obj):
+def convert_to_array(space, w_obj, use_prepare=False):
     #XXX: This whole routine should very likely simply be array()
     from pypy.module.micronumpy.interp_numarray import array
     from pypy.module.micronumpy import interp_ufuncs
@@ -101,7 +101,7 @@ def convert_to_array(space, w_obj):
             if isinstance(w_result, W_NDimArray):
                 return w_result
             else:
-                raise OperationError(space.w_ValueError, 
+                raise OperationError(space.w_ValueError,
                         space.wrap("object __array__ method not producing an array"))
         elif issequence_w(space, w_obj):
             # Convert to array.

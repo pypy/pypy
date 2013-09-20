@@ -319,6 +319,22 @@ class W_Ufunc2(W_Ufunc):
         else:
             self.done_func = None
 
+    def call_prepare(self, space, w_out, w_obj, w_result):
+        if isinstance(w_out, W_NDimArray):
+            w_array = space.lookup(w_out, "__array_prepare__")
+            w_caller = w_out
+        else:
+            w_array = space.lookup(w_obj, "__array_prepare__")
+            w_caller = w_obj
+        if w_array:
+            w_result = space.get_and_call_function(w_array, w_caller, w_result, None)
+            if not isinstance(w_result, W_NDimArray):
+                raise OperationError(space.w_ValueError,
+                        space.wrap("object __array_prepare__ method not"
+                                   " producing an array"))
+        return w_result
+
+
     @jit.unroll_safe
     def call(self, space, args_w):
         if len(args_w) > 2:
@@ -351,11 +367,11 @@ class W_Ufunc2(W_Ufunc):
                 "ufunc '%s' not supported for the input types" % self.name))
         if space.is_none(w_out):
             out = None
-        elif not isinstance(w_out, W_NDimArray):
-            raise OperationError(space.w_TypeError, space.wrap(
-                    'output must be an array'))
+        #elif not isinstance(w_out, W_NDimArray):
+        #    raise OperationError(space.w_TypeError, space.wrap(
+        #            'output must be an array'))
         else:
-            out = w_out
+            out = convert_to_array(space, w_out)
             calc_dtype = out.get_dtype()
         if self.comparison_func:
             res_dtype = interp_dtype.get_dtype_cache(space).w_booldtype
@@ -371,14 +387,13 @@ class W_Ufunc2(W_Ufunc):
                     out.set_scalar_value(arr)
                 else:
                     out.fill(arr)
-            else:
-                out = arr
-            return out
+            return self.call_prepare(space, out, w_lhs, arr)
         new_shape = shape_agreement(space, w_lhs.get_shape(), w_rhs)
         new_shape = shape_agreement(space, new_shape, out, broadcast_down=False)
-        return loop.call2(space, new_shape, self.func, calc_dtype,
+        w_result = loop.call2(space, new_shape, self.func, calc_dtype,
                           res_dtype, w_lhs, w_rhs, out)
-
+        # XXX handle array_priority
+        return self.call_prepare(space, out, w_lhs, w_result)
 
 W_Ufunc.typedef = TypeDef("ufunc",
     __module__ = "numpypy",

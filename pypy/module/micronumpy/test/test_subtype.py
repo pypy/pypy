@@ -267,8 +267,24 @@ class AppTestSupport(BaseNumpyAppTest):
             def __array_prepare__(self, arr, context):
                 self.called_prepare = True
                 return array(arr).view(type=with_prepare)
-        a = array(1).view(type=with_prepare)
-        x = add(a, a)
+        class with_prepare_fail(ndarray):
+            called_prepare = False
+            def __array_prepare__(self, arr, context):
+                self.called_prepare = True
+                return array(arr[0]).view(type=with_prepare)
+        a = array(1)
+        b = array(1).view(type=with_prepare)
+        x = add(a, a, out=b)
         assert x == 2
         assert type(x) == with_prepare
-        assert a.called_prepare
+        assert x.called_prepare
+        b.called_prepare = False
+        a = ones((3, 2)).view(type=with_prepare)
+        b = ones((3, 2))
+        c = ones((3, 2)).view(type=with_prepare_fail)
+        x = add(a, b, out=a)
+        assert (x == 2).all()
+        assert type(x) == with_prepare
+        assert x.called_prepare
+        raises(TypeError, add, a, b, out=c)
+
