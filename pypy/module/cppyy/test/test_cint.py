@@ -456,6 +456,8 @@ class AppTestCINTFUNCTION:
 
         assert f.Eval(0.5) == 0.5
 
+        del f      # force here, to prevent leak-check complaints
+
     def test02_callable_object_callback(self):
         """Test callback of a python callable object"""
 
@@ -471,6 +473,8 @@ class AppTestCINTFUNCTION:
 
         assert f.Eval(-0.1) == 4.8
         assert f.Eval(1.3)  == 7.6
+
+        del f      # force here, to prevent leak-check complaints
 
     def test03_fit_with_python_gaussian(self):
         """Test fitting with a python global function"""
@@ -506,6 +510,8 @@ class AppTestCINTFUNCTION:
         result = f.GetParameters()
         assert round(result[1] - 0., 1) == 0  # mean
         assert round(result[2] - 1., 1) == 0  # s.d.
+
+        del f      # force here, to prevent leak-check complaints
 
 
 class AppTestSURPLUS:

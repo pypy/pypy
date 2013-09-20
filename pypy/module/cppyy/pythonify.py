@@ -55,6 +55,19 @@ class CppyyTemplateType(object):
 def clgen_callback(name):
     return get_pycppclass(name)
 
+def fngen_callback(func, npar): # todo, some kind of arg transform spec
+    if npar == 0:
+        def wrapper(a0, a1):
+            la0 = [a0[0], a0[1], a0[2], a0[3]]
+            return func(la0)
+        return wrapper
+    else:
+        def wrapper(a0, a1):
+            la0 = [a0[0], a0[1], a0[2], a0[3]]
+            la1 = [a1[i] for i in range(npar)]
+            return func(la0, la1)
+        return wrapper
+
 
 def make_static_function(func_name, cppol):
     def function(*args):
@@ -415,6 +428,9 @@ def _init_pythonify():
 
     # class generator callback
     cppyy._set_class_generator(clgen_callback)
+
+    # function generator callback
+    cppyy._set_function_generator(fngen_callback)
 
     # user interface objects (note the two-step of not calling scope_byname here:
     # creation of global functions may cause the creation of classes in the global

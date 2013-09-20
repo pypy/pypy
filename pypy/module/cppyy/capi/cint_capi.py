@@ -34,8 +34,8 @@ else:
 def identify():
     return 'CINT'
 
-ts_reflect = False
-ts_call    = False
+ts_reflect = True
+ts_call    = True
 ts_memory  = False
 ts_helper  = False
 
@@ -49,13 +49,15 @@ with rffi.scoped_str2charp('libCint.so') as ll_libname:
     _cintdll = rdynload.dlopen(ll_libname, rdynload.RTLD_GLOBAL | rdynload.RTLD_NOW)
 with rffi.scoped_str2charp('libCore.so') as ll_libname:
     _coredll = rdynload.dlopen(ll_libname, rdynload.RTLD_GLOBAL | rdynload.RTLD_NOW)
+with rffi.scoped_str2charp('libHist.so') as ll_libname:
+    _coredll = rdynload.dlopen(ll_libname, rdynload.RTLD_GLOBAL | rdynload.RTLD_NOW)
 
 eci = ExternalCompilationInfo(
     separate_module_files=[srcpath.join("cintcwrapper.cxx")],
     include_dirs=[incpath] + rootincpath,
     includes=["cintcwrapper.h"],
     library_dirs=rootlibpath,
-    libraries=["Core", "Cint"],
+    libraries=["Hist", "Core", "Cint"],
     use_cpp_linker=True,
 )
 
@@ -102,11 +104,12 @@ def _get_string_data(space, w_obj, m1, m2 = None):
 ### TF1 ----------------------------------------------------------------------
 class State(object):
     def __init__(self, space):
-        self.tfn_pyfuncs = {}
+        self.tfn_pyfuncs = []
+        self.tfn_callbacks = []
 
-_tfn_install = rffi.llexternal(
-    "cppyy_tfn_install",
-    [rffi.CCHARP, rffi.INT], rffi.LONG,
+_create_tf1 = rffi.llexternal(
+    "cppyy_create_tf1",
+    [rffi.CCHARP, rffi.ULONG, rffi.DOUBLE, rffi.DOUBLE, rffi.INT], C_OBJECT,
     releasegil=False,
     compilation_info=eci)
 
@@ -135,15 +138,38 @@ def tf1_tf1(space, w_self, args_w):
         if argc == 6: npar = space.int_w(args_w[5])
 
         # third argument must be a callable python object
-        pyfunc = args_w[2]
-        if not space.is_true(space.callable(pyfunc)):
+        w_callable = args_w[2]
+        if not space.is_true(space.callable(w_callable)):
             raise TypeError("2nd argument is not a valid python callable")
 
-        fid = _tfn_install(funcname, npar)
-        state = space.fromcache(State)
-        state.tfn_pyfuncs[fid] = pyfunc
-        newargs_w = [args_w[1], space.wrap(fid), args_w[3], args_w[4], space.wrap(npar)]
-    except (OperationError, TypeError, IndexError):
+        # generate a pointer to function
+        from pypy.module._cffi_backend import newtype, ctypefunc, func
+
+        c_double  = newtype.new_primitive_type(space, 'double')
+        c_doublep = newtype.new_pointer_type(space, c_double)
+
+        # wrap the callable as the signature needs modifying
+        w_ifunc = interp_cppyy.get_interface_func(space, w_callable, npar)
+
+        w_cfunc = ctypefunc.W_CTypeFunc(space, [c_doublep, c_doublep], c_double, False)
+        w_callback = func.callback(space, w_cfunc, w_ifunc, None)
+        funcaddr = rffi.cast(rffi.ULONG, w_callback.get_closure())
+
+        # so far, so good; leaves on issue: CINT is expecting a wrapper, but
+        # we need the overload that takes a function pointer, which is not in
+        # the dictionary, hence this helper:
+        newinst = _create_tf1(space.str_w(args_w[1]), funcaddr,
+                      space.float_w(args_w[3]), space.float_w(args_w[4]), npar)
+ 
+        from pypy.module.cppyy import interp_cppyy
+        w_instance = interp_cppyy.wrap_cppobject(space, newinst, tf1_class,
+                                      do_cast=False, python_owns=True, fresh=True)
+
+        # tie all the life times to the TF1 instance
+        space.setattr(w_instance, space.wrap('_callback'), w_callback)
+
+        return w_instance
+    except (OperationError, TypeError, IndexError), e:
         newargs_w = args_w[1:]     # drop class
 
     # return control back to the original, unpythonized overload
@@ -404,28 +430,3 @@ def cppyy_recursive_remove(space, cppobject):
     if obj is not None:
         memory_regulator.unregister(obj)
         obj._rawobject = C_NULL_OBJECT
-
-# TFn callback (as above: needs better solution, but this is for CINT only)
-# TODO: it actually can fail ...
-@cpython_api([rffi.LONG, rffi.INT, rffi.DOUBLEP, rffi.DOUBLEP], rffi.DOUBLE, error=CANNOT_FAIL)
-def cppyy_tfn_callback(space, idx, npar, a0, a1):
-    state = space.fromcache(State)
-    pyfunc = state.tfn_pyfuncs[idx]
-    npar = int(npar)
-
-    from pypy.module._rawffi.interp_rawffi import unpack_simple_shape
-    from pypy.module._rawffi.array import W_Array
-    arr = space.interp_w(W_Array, unpack_simple_shape(space, space.wrap('d')))
-    address = rffi.cast(rffi.ULONG, a0)
-    arg0 = arr.fromaddress(space, address, 4)
-    try:
-        if npar != 0:
-            address = rffi.cast(rffi.ULONG, a1)
-            arg1 = arr.fromaddress(space, address, npar)
-            result = space.call_function(pyfunc, arg0, arg1)
-        else:
-            result = space.call_function(pyfunc, arg0)
-        dresult = space.float_w(result)
-    except Exception:
-        dresult = -1.;            # TODO: error handling here ..
-    return dresult

@@ -101,6 +101,11 @@ def set_class_generator(space, w_callback):
     state = space.fromcache(State)
     state.w_clgen_callback = w_callback
 
+@unwrap_spec(w_callback=W_Root)
+def set_function_generator(space, w_callback):
+    state = space.fromcache(State)
+    state.w_fngen_callback = w_callback
+
 def register_class(space, w_pycppclass):
     w_cppclass = space.findattr(w_pycppclass, space.wrap("_cpp_proxy"))
     cppclass = space.interp_w(W_CPPClass, w_cppclass, can_be_None=False)
@@ -1136,6 +1141,10 @@ def get_pythonized_cppclass(space, handle):
         # the callback will cache the class by calling register_class
         w_pycppclass = space.call_function(state.w_clgen_callback, space.wrap(final_name))
     return w_pycppclass
+
+def get_interface_func(space, w_callable, npar):
+    state = space.fromcache(State)
+    return space.call_function(state.w_fngen_callback, w_callable, space.wrap(npar))
 
 def wrap_cppobject(space, rawobject, cppclass,
                    do_cast=True, python_owns=False, is_ref=False, fresh=False):

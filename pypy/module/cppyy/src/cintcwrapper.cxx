@@ -25,6 +25,7 @@
 // for pythonization
 #include "TTree.h"
 #include "TBranch.h"
+#include "TF1.h"
 #include "TString.h"
 
 #include "Api.h"
@@ -59,11 +60,8 @@ public:
     TList*             fAllPubMethod;   //all public methods (including from base classes)
 };
 
-// memory regulation (cppyy_recursive_remove is generated a la cpyext capi calls)
+// memory regulation (cppyy_recursive_remove is generated as a cpyext capi call)
 extern "C" void cppyy_recursive_remove(void*);
-
-// TFN callback helper (generated a la cpyext capi calls)
-extern "C" double cppyy_tfn_callback(long, int, double*, double*);
 
 class Cppyy_MemoryRegulator : public TObject {
 public:
@@ -240,6 +238,7 @@ static inline void fixup_args(G__param* libp) {
 
 /* name to opaque C++ scope representation -------------------------------- */
 int cppyy_num_scopes(cppyy_scope_t handle) {
+    R__LOCKGUARD2(gCINTMutex);
     TClassRef& cr = type_from_handle(handle);
     if (cr.GetClass()) {
         /* not supported as CINT does not store classes hierarchically */
@@ -249,6 +248,7 @@ int cppyy_num_scopes(cppyy_scope_t handle) {
 }
 
 char* cppyy_scope_name(cppyy_scope_t handle, int iscope) {
+    R__LOCKGUARD2(gCINTMutex);
     TClassRef& cr = type_from_handle(handle);
     if (cr.GetClass()) {
         /* not supported as CINT does not store classes hierarchically */
@@ -262,6 +262,7 @@ char* cppyy_scope_name(cppyy_scope_t handle, int iscope) {
 }
 
 char* cppyy_resolve_name(const char* cppitem_name) {
+    R__LOCKGUARD2(gCINTMutex);
     std::string tname = cppitem_name;
 
     // global namespace?
@@ -294,6 +295,8 @@ char* cppyy_resolve_name(const char* cppitem_name) {
 }
 
 cppyy_scope_t cppyy_get_scope(const char* scope_name) {
+    R__LOCKGUARD2(gCINTMutex);
+
     // CINT still has trouble with std:: sometimes ... 
     if (strncmp(scope_name, "std::", 5) == 0)
         scope_name = &scope_name[5];
@@ -323,6 +326,8 @@ cppyy_scope_t cppyy_get_scope(const char* scope_name) {
 }
 
 cppyy_type_t cppyy_get_template(const char* template_name) {
+    R__LOCKGUARD2(gCINTMutex);
+
     ClassRefIndices_t::iterator icr = g_classref_indices.find(template_name);
     if (icr != g_classref_indices.end())
         return (cppyy_type_t)icr->second;
@@ -342,6 +347,7 @@ cppyy_type_t cppyy_get_template(const char* template_name) {
 }
 
 cppyy_type_t cppyy_actual_class(cppyy_type_t klass, cppyy_object_t obj) {
+    R__LOCKGUARD2(gCINTMutex);
     TClassRef& cr = type_from_handle(klass);
     TClass* clActual = cr->GetActualClass( (void*)obj );
     if (clActual && clActual != cr.GetClass()) {
@@ -354,6 +360,7 @@ cppyy_type_t cppyy_actual_class(cppyy_type_t klass, cppyy_object_t obj) {
 
 /* memory management ------------------------------------------------------ */
 cppyy_object_t cppyy_allocate(cppyy_type_t handle) {
+    R__LOCKGUARD2(gCINTMutex);
     TClassRef& cr = type_from_handle(handle);
     return (cppyy_object_t)malloc(cr->Size());
 }
@@ -363,6 +370,7 @@ void cppyy_deallocate(cppyy_type_t /*handle*/, cppyy_object_t instance) {
 }
 
 void cppyy_destruct(cppyy_type_t handle, cppyy_object_t self) {
+    R__LOCKGUARD2(gCINTMutex);
     TClassRef& cr = type_from_handle(handle);
     cr->Destructor((void*)self, true);
 }
@@ -371,6 +379,8 @@ void cppyy_destruct(cppyy_type_t handle, cppyy_object_t self) {
 /* method/function dispatching -------------------------------------------- */
 static inline G__value cppyy_call_T(cppyy_method_t method,
         cppyy_object_t self, int nargs, void* args) {
+
+    R__LOCKGUARD2(gCINTMutex);
 
     G__param* libp = (G__param*)((char*)args - offsetof(G__param, para));
     assert(libp->paran == nargs);
@@ -469,6 +479,7 @@ void* cppyy_call_r(cppyy_method_t method, cppyy_object_t self, int nargs, void* 
 }
 
 char* cppyy_call_s(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
+    R__LOCKGUARD2(gCINTMutex);
     G__value result = cppyy_call_T(method, self, nargs, args);
     G__pop_tempobject_nodel();
     if (result.ref && *(long*)result.ref) {
@@ -480,6 +491,7 @@ char* cppyy_call_s(cppyy_method_t method, cppyy_object_t self, int nargs, void* 
 }
 
 cppyy_object_t cppyy_constructor(cppyy_method_t method, cppyy_type_t handle, int nargs, void* args) {
+    R__LOCKGUARD2(gCINTMutex);
     cppyy_object_t self = (cppyy_object_t)NULL;
     if ((InterpretedFuncs_t::size_type)method >= g_interpreted.size()) {
         G__setgvp((long)G__PVOID);
@@ -496,6 +508,7 @@ cppyy_object_t cppyy_constructor(cppyy_method_t method, cppyy_type_t handle, int
 
 cppyy_object_t cppyy_call_o(cppyy_type_t method, cppyy_object_t self, int nargs, void* args,
                   cppyy_type_t /*result_type*/ ) {
+    R__LOCKGUARD2(gCINTMutex);
     G__value result = cppyy_call_T(method, self, nargs, args);
     G__pop_tempobject_nodel();
     return G__int(result);
@@ -532,6 +545,7 @@ size_t cppyy_function_arg_typeoffset() {
 
 /* scope reflection information ------------------------------------------- */
 int cppyy_is_namespace(cppyy_scope_t handle) {
+    R__LOCKGUARD2(gCINTMutex);
     TClassRef& cr = type_from_handle(handle);
     if (cr.GetClass() && cr->GetClassInfo())
         return cr->Property() & G__BIT_ISNAMESPACE;
@@ -541,6 +555,7 @@ int cppyy_is_namespace(cppyy_scope_t handle) {
 }
 
 int cppyy_is_enum(const char* type_name) {
+    R__LOCKGUARD2(gCINTMutex);
     G__TypeInfo ti(type_name);
     return (ti.Property() & G__BIT_ISENUM);
 }
@@ -548,6 +563,7 @@ int cppyy_is_enum(const char* type_name) {
 
 /* type/class reflection information -------------------------------------- */
 char* cppyy_final_name(cppyy_type_t handle) {
+    R__LOCKGUARD2(gCINTMutex);
     TClassRef& cr = type_from_handle(handle);
     if (cr.GetClass() && cr->GetClassInfo()) {
         std::string true_name = G__TypeInfo(cr->GetName()).TrueName();
@@ -560,6 +576,7 @@ char* cppyy_final_name(cppyy_type_t handle) {
 }
 
 char* cppyy_scoped_final_name(cppyy_type_t handle) {
+    R__LOCKGUARD2(gCINTMutex);
     TClassRef& cr = type_from_handle(handle);
     if (cr.GetClass() && cr->GetClassInfo()) {
         std::string true_name = G__TypeInfo(cr->GetName()).TrueName();
@@ -575,6 +592,7 @@ int cppyy_has_complex_hierarchy(cppyy_type_t handle) {
 }
 
 int cppyy_num_bases(cppyy_type_t handle) {
+    R__LOCKGUARD2(gCINTMutex);
     TClassRef& cr = type_from_handle(handle);
     if (cr.GetClass() && cr->GetListOfBases() != 0)
         return cr->GetListOfBases()->GetSize();
@@ -582,12 +600,14 @@ int cppyy_num_bases(cppyy_type_t handle) {
 }
 
 char* cppyy_base_name(cppyy_type_t handle, int base_index) {
+    R__LOCKGUARD2(gCINTMutex);
     TClassRef& cr = type_from_handle(handle);
     TBaseClass* b = (TBaseClass*)cr->GetListOfBases()->At(base_index);
     return type_cppstring_to_cstring(b->GetName());
 }
 
 int cppyy_is_subtype(cppyy_type_t derived_handle, cppyy_type_t base_handle) {
+    R__LOCKGUARD2(gCINTMutex);
     TClassRef& derived_type = type_from_handle(derived_handle);
     TClassRef& base_type = type_from_handle(base_handle);
     return derived_type->GetBaseClass(base_type) != 0;
@@ -595,6 +615,8 @@ int cppyy_is_subtype(cppyy_type_t derived_handle, cppyy_type_t base_handle) {
 
 size_t cppyy_base_offset(cppyy_type_t derived_handle, cppyy_type_t base_handle,
                        cppyy_object_t address, int /* direction */) {
+    R__LOCKGUARD2(gCINTMutex);
+
     // WARNING: CINT can not handle actual dynamic casts!
     TClassRef& derived_type = type_from_handle(derived_handle);
     TClassRef& base_type = type_from_handle(base_handle);
@@ -626,6 +648,7 @@ size_t cppyy_base_offset(cppyy_type_t derived_handle, cppyy_type_t base_handle,
 
 /* method/function reflection information --------------------------------- */
 int cppyy_num_methods(cppyy_scope_t handle) {
+    R__LOCKGUARD2(gCINTMutex);
     TClassRef& cr = type_from_handle(handle);
     if (cr.GetClass() && cr->GetListOfMethods())
         return cr->GetListOfMethods()->GetSize();
@@ -648,6 +671,7 @@ int cppyy_num_methods(cppyy_scope_t handle) {
 }
 
 cppyy_index_t cppyy_method_index_at(cppyy_scope_t handle, int imeth) {
+    R__LOCKGUARD2(gCINTMutex);
     TClassRef& cr = type_from_handle(handle);
     if (cr.GetClass())
         return (cppyy_index_t)imeth;
@@ -655,6 +679,8 @@ cppyy_index_t cppyy_method_index_at(cppyy_scope_t handle, int imeth) {
 }
 
 cppyy_index_t* cppyy_method_indices_from_name(cppyy_scope_t handle, const char* name) {
+    R__LOCKGUARD2(gCINTMutex);
+
     std::vector<cppyy_index_t> result;
     TClassRef& cr = type_from_handle(handle);
     if (cr.GetClass()) {
@@ -694,6 +720,7 @@ cppyy_index_t* cppyy_method_indices_from_name(cppyy_scope_t handle, const char* 
 
 
 char* cppyy_method_name(cppyy_scope_t handle, cppyy_index_t idx) {
+    R__LOCKGUARD2(gCINTMutex);
     TFunction* f = type_get_method(handle, idx);
     std::string name = f->GetName();
     TClassRef& cr = type_from_handle(handle);
@@ -705,6 +732,7 @@ char* cppyy_method_name(cppyy_scope_t handle, cppyy_index_t idx) {
 }
 
 char* cppyy_method_result_type(cppyy_scope_t handle, cppyy_index_t idx) {
+    R__LOCKGUARD2(gCINTMutex);
     TClassRef& cr = type_from_handle(handle);
     if (cr.GetClass() && cppyy_is_constructor(handle, idx))
         return cppstring_to_cstring("constructor");
@@ -713,16 +741,19 @@ char* cppyy_method_result_type(cppyy_scope_t handle, cppyy_index_t idx) {
 }
 
 int cppyy_method_num_args(cppyy_scope_t handle, cppyy_index_t idx) {
+    R__LOCKGUARD2(gCINTMutex);
     TFunction* f = type_get_method(handle, idx);
     return f->GetNargs();
 }
 
 int cppyy_method_req_args(cppyy_scope_t handle, cppyy_index_t idx) {
+    R__LOCKGUARD2(gCINTMutex);
     TFunction* f = type_get_method(handle, idx);
     return f->GetNargs() - f->GetNargsOpt();
 }
 
 char* cppyy_method_arg_type(cppyy_scope_t handle, cppyy_index_t idx, int arg_index) {
+    R__LOCKGUARD2(gCINTMutex);
     TFunction* f = type_get_method(handle, idx);
     TMethodArg* arg = (TMethodArg*)f->GetListOfMethodArgs()->At(arg_index);
     return type_cppstring_to_cstring(arg->GetFullTypeName());
@@ -734,6 +765,7 @@ char* cppyy_method_arg_default(cppyy_scope_t /*handle*/, cppyy_index_t /*idx*/, 
 }
 
 char* cppyy_method_signature(cppyy_scope_t handle, cppyy_index_t idx) {
+    R__LOCKGUARD2(gCINTMutex);
     TClassRef& cr = type_from_handle(handle);
     TFunction* f = type_get_method(handle, idx);
     std::ostringstream sig;
@@ -753,6 +785,7 @@ char* cppyy_method_signature(cppyy_scope_t handle, cppyy_index_t idx) {
 
 
 int cppyy_method_is_template(cppyy_scope_t handle, cppyy_index_t idx) {
+    R__LOCKGUARD2(gCINTMutex);
     TClassRef& cr = type_from_handle(handle);
     TFunction* f = type_get_method(handle, idx);
     std::string name = f->GetName();
@@ -766,6 +799,7 @@ int cppyy_method_num_template_args(cppyy_scope_t /*handle*/, cppyy_index_t /*idx
 
 char* cppyy_method_template_arg_name(
         cppyy_scope_t handle, cppyy_index_t idx, cppyy_index_t /*iarg*/) {
+    R__LOCKGUARD2(gCINTMutex);
 // TODO: return only the name for the requested arg
     TClassRef& cr = type_from_handle(handle);
     TFunction* f = type_get_method(handle, idx);
@@ -776,6 +810,8 @@ char* cppyy_method_template_arg_name(
 
 
 cppyy_method_t cppyy_get_method(cppyy_scope_t handle, cppyy_index_t idx) {
+    R__LOCKGUARD2(gCINTMutex);
+
     TClassRef& cr = type_from_handle(handle);
     TFunction* f = type_get_method(handle, idx);
     if (cr && cr.GetClass() && !cr->IsLoaded()) {
@@ -800,6 +836,8 @@ cppyy_method_t cppyy_get_method(cppyy_scope_t handle, cppyy_index_t idx) {
 }
 
 cppyy_index_t cppyy_get_global_operator(cppyy_scope_t scope, cppyy_scope_t lc, cppyy_scope_t rc, const char* op) {
+    R__LOCKGUARD2(gCINTMutex);
+
     TClassRef& lccr = type_from_handle(lc);
     TClassRef& rccr = type_from_handle(rc);
 
@@ -831,12 +869,14 @@ cppyy_index_t cppyy_get_global_operator(cppyy_scope_t scope, cppyy_scope_t lc, c
 
 /* method properties -----------------------------------------------------  */
 int cppyy_is_constructor(cppyy_type_t handle, cppyy_index_t idx) {
+    R__LOCKGUARD2(gCINTMutex);
     TClassRef& cr = type_from_handle(handle);
     TMethod* m = (TMethod*)cr->GetListOfMethods()->At(idx);
     return strcmp(m->GetName(), ((G__ClassInfo*)cr->GetClassInfo())->Name()) == 0;
 }
 
 int cppyy_is_staticmethod(cppyy_type_t handle, cppyy_index_t idx) {
+    R__LOCKGUARD2(gCINTMutex);
     TClassRef& cr = type_from_handle(handle);
     TMethod* m = (TMethod*)cr->GetListOfMethods()->At(idx);
     return m->Property() & G__BIT_ISSTATIC;
@@ -845,6 +885,8 @@ int cppyy_is_staticmethod(cppyy_type_t handle, cppyy_index_t idx) {
 
 /* data member reflection information ------------------------------------- */
 int cppyy_num_datamembers(cppyy_scope_t handle) {
+    R__LOCKGUARD2(gCINTMutex);
+
     TClassRef& cr = type_from_handle(handle);
     if (cr.GetClass() && cr->GetListOfDataMembers())
         return cr->GetListOfDataMembers()->GetSize();
@@ -867,6 +909,8 @@ int cppyy_num_datamembers(cppyy_scope_t handle) {
 }
 
 char* cppyy_datamember_name(cppyy_scope_t handle, int datamember_index) {
+    R__LOCKGUARD2(gCINTMutex);
+
     TClassRef& cr = type_from_handle(handle);
     if (cr.GetClass()) {
         TDataMember* m = (TDataMember*)cr->GetListOfDataMembers()->At(datamember_index);
@@ -877,6 +921,8 @@ char* cppyy_datamember_name(cppyy_scope_t handle, int datamember_index) {
 }
 
 char* cppyy_datamember_type(cppyy_scope_t handle, int datamember_index) {
+    R__LOCKGUARD2(gCINTMutex);
+
     TClassRef& cr = type_from_handle(handle);
     if (cr.GetClass())  {
         TDataMember* m = (TDataMember*)cr->GetListOfDataMembers()->At(datamember_index);
@@ -895,6 +941,7 @@ char* cppyy_datamember_type(cppyy_scope_t handle, int datamember_index) {
 }
 
 size_t cppyy_datamember_offset(cppyy_scope_t handle, int datamember_index) {
+    R__LOCKGUARD2(gCINTMutex);
     TClassRef& cr = type_from_handle(handle);
     if (cr.GetClass()) {
         TDataMember* m = (TDataMember*)cr->GetListOfDataMembers()->At(datamember_index);
@@ -905,6 +952,8 @@ size_t cppyy_datamember_offset(cppyy_scope_t handle, int datamember_index) {
 }
 
 int cppyy_datamember_index(cppyy_scope_t handle, const char* name) {
+    R__LOCKGUARD2(gCINTMutex);
+
     TClassRef& cr = type_from_handle(handle);
     if (cr.GetClass()) {
         // called from updates; add a hard reset as the code itself caches in
@@ -940,6 +989,7 @@ int cppyy_datamember_index(cppyy_scope_t handle, const char* name) {
 
 /* data member properties ------------------------------------------------  */
 int cppyy_is_publicdata(cppyy_scope_t handle, int datamember_index) {
+    R__LOCKGUARD2(gCINTMutex);
     TClassRef& cr = type_from_handle(handle);
     if (cr.GetClass()) {
         TDataMember* m = (TDataMember*)cr->GetListOfDataMembers()->At(datamember_index);
@@ -949,6 +999,7 @@ int cppyy_is_publicdata(cppyy_scope_t handle, int datamember_index) {
 }
 
 int cppyy_is_staticdata(cppyy_scope_t handle, int datamember_index) {
+    R__LOCKGUARD2(gCINTMutex);
     TClassRef& cr = type_from_handle(handle);
     if (cr.GetClass()) {
         TDataMember* m = (TDataMember*)cr->GetListOfDataMembers()->At(datamember_index);
@@ -981,6 +1032,7 @@ cppyy_object_t cppyy_stdstring2stdstring(cppyy_object_t ptr) {
 
 
 void* cppyy_load_dictionary(const char* lib_name) {
+    R__LOCKGUARD2(gCINTMutex);
     if (0 <= gSystem->Load(lib_name))
         return (void*)1;
     return (void*)0;
@@ -988,66 +1040,11 @@ void* cppyy_load_dictionary(const char* lib_name) {
 
 
 /* pythonization helpers -------------------------------------------------- */
-static std::map<long, std::pair<long, int> > s_tagnum2fid;
+typedef double (*tfn_callback)(double*, double*);
 
-static int TFNPyCallback(G__value* res, G__CONST char*, struct G__param* libp, int hash) {
-    // This is a generic CINT-installable TFN (with N=1,2,3) callback (used to factor
-    // out some common code), to allow TFN to call back into python.
-
-    std::map<long, std::pair<long, int> >::iterator it = s_tagnum2fid.find(G__value_get_tagnum(res));
-    if (it == s_tagnum2fid.end()) {
-        // TODO: report error here
-        return 0;
-    }
-
-    const std::pair<long, int>& fid_and_npar = it->second;
-
-    // callback (defined in cint_capi.py)
-    double* a0 = (double*)G__int(libp->para[0]);
-    double* a1 = (double*)(fid_and_npar.second ? G__int(libp->para[1]) : 0);
-    double d = cppyy_tfn_callback(fid_and_npar.first, fid_and_npar.second, a0, a1);
-
-    // translate result (TODO: error checking)
-    G__letdouble(res, 100, d);
-    return (1 || hash || res || libp);
-}
-
-long cppyy_tfn_install(const char* funcname, int npar) {
-    // make a new function placeholder known to CINT
-    static Long_t s_fid = (Long_t)cppyy_tfn_install;   // ensures no user function lives there
-    ++s_fid;
-
-    const char* signature = "D - - 0 - - D - - 0 - -";
-
-    // create a return type (typically masked/wrapped by a TPyReturn) for the method
-    G__linked_taginfo pti;
-    pti.tagnum = -1;
-    pti.tagtype = 'c';
-    std::string tagname("::py_");                 // used as a buffer
-    tagname += funcname;
-    pti.tagname = tagname.c_str();
-    int tagnum = G__get_linked_tagnum(&pti);      // creates entry for new names
-
-    // for free functions, add to global scope and add lookup through tp2f 
-    // setup a connection between the pointer and the name
-    Long_t hash = 0, len = 0;
-    G__hash(funcname, hash, len);
-    G__lastifuncposition();
-    G__memfunc_setup(funcname, hash, (G__InterfaceMethod)&TFNPyCallback,
-                     tagnum, tagnum, tagnum, 0, 2, 0, 1, 0, signature,
-                     (char*)0, (void*)s_fid, 0);
-    G__resetifuncposition();
-
-    // setup a name in the global namespace (does not result in calls, so the signature
-    // does not matter; but it makes subsequent GetMethod() calls work)
-    G__MethodInfo meth = G__ClassInfo().AddMethod(
-        funcname, funcname, signature, 1, 0, (void*)&TFNPyCallback);
-
-    // store mapping so that the callback can find it
-    s_tagnum2fid[tagnum] = std::make_pair(s_fid, npar);
-
-    // hard to check result ... assume ok
-    return s_fid;
+cppyy_object_t cppyy_create_tf1(const char* funcname, unsigned long address,
+        double xmin, double xmax, int npar) {
+    return (cppyy_object_t)new TF1(funcname, (tfn_callback)address, xmin, xmax, npar);
 }
 
 cppyy_object_t cppyy_ttree_Branch(void* vtree, const char* branchname, const char* classname,
