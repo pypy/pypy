@@ -1,5 +1,0 @@
-TODO list by mattip
-===================
-
-- test, implement use of __array_prepare__()
-- test, implement use of __array_wrap__()
