@@ -144,7 +144,7 @@ class W_Ufunc(W_Root):
                            w_dtype)
 
     def reduce(self, space, w_obj, multidim, promote_to_largest, w_axis,
-               keepdims=False, out=None, dtype=None, cumultative=False):
+               keepdims=False, out=None, dtype=None, cumulative=False):
         if self.argcount != 2:
             raise OperationError(space.w_ValueError, space.wrap("reduce only "
                 "supported for binary functions"))
@@ -176,7 +176,7 @@ class W_Ufunc(W_Root):
                     "%s.reduce without identity", self.name)
         if shapelen > 1 and axis < shapelen:
             temp = None
-            if cumultative:
+            if cumulative:
                 shape = obj_shape[:]
                 temp_shape = obj_shape[:axis] + obj_shape[axis + 1:]
                 if out:
@@ -210,8 +210,8 @@ class W_Ufunc(W_Root):
             else:
                 out = W_NDimArray.from_shape(space, shape, dtype, w_instance=obj)
             return loop.do_axis_reduce(shape, self.func, obj, dtype, axis, out,
-                                       self.identity, cumultative, temp)
-        if cumultative:
+                                       self.identity, cumulative, temp)
+        if cumulative:
             if out:
                 if out.get_shape() != [obj.get_size()]:
                     raise OperationError(space.w_ValueError, space.wrap(
@@ -232,9 +232,11 @@ class W_Ufunc(W_Root):
         if out:
             out.set_scalar_value(res)
             return out
-        if space.type(obj) != W_NDimArray:
+        if not type(obj) == W_NDimArray:
             #If obj is a subtype of W_NDimArray, return a empty-shape instance
-            return W_NDimArray.from_shape(space, [], dtype, w_instance=obj)
+            out = W_NDimArray.from_shape(space, [], dtype, w_instance=obj)
+            out.set_scalar_value(res)
+            return out
         return res
 
     def call_prepare(self, space, w_out, w_obj, w_result):

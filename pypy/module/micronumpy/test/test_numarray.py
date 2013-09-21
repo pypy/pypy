@@ -1342,7 +1342,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = array(range(5))
         assert a.all() == False
         a[0] = 3.0
-        assert a.all() == True
+        b = a.all()
+        assert b == True
         b = array([])
         assert b.all() == True
 
@@ -2138,7 +2139,8 @@ class AppTestMultiDim(BaseNumpyAppTest):
         b = a[1:, 1::2]
         c = b + b
         assert c.sum() == (6 + 8 + 10 + 12) * 2
-        assert isinstance(c.sum(dtype='f8'), float)
+        d = c.sum(dtype='f8')
+        assert isinstance(d, float)
 
     def test_transpose(self):
         from numpypy import array
