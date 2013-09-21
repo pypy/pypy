@@ -437,22 +437,6 @@ class __extend__(W_NDimArray):
         # stub implementation of __array__()
         return self
 
-    def descr___array_prepare__(self, space, w_array):
-        # stub implementation of __array_prepare__()
-        if isinstance(w_array, W_NDimArray):
-            return w_array
-        else:
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("can only be called with ndarray object"))
-
-    def descr___array_wrap__(self, space, w_array):
-        # stub implementation of __array_wrap__()
-        if isinstance(w_array, W_NDimArray):
-            return w_array
-        else:
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("can only be called with ndarray object"))
-
     def descr_array_iface(self, space):
         addr = self.implementation.get_storage_as_int(space)
         # will explode if it can't
@@ -1157,8 +1141,6 @@ W_NDimArray.typedef = TypeDef(
     __array_finalize__ = interp2app(W_NDimArray.descr___array_finalize__),
 
     __array__         = interp2app(W_NDimArray.descr___array__),
-    __array_prepare__ = interp2app(W_NDimArray.descr___array_prepare__),
-    __array_wrap__    = interp2app(W_NDimArray.descr___array_wrap__),
 )
 
 @unwrap_spec(ndmin=int, copy=bool, subok=bool)

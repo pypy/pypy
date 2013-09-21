@@ -245,30 +245,3 @@ class AppTestSupport(BaseNumpyAppTest):
         c = array(a, float)
         assert c.dtype is dtype(float)
 
-    def test___array_wrap__(self):
-        from numpypy import ndarray, add, ones
-        class with_wrap(object):
-            called_wrap = False
-            def __array__(self):
-                return ones(1)
-            def __array_wrap__(self, arr, context):
-                self.called_wrap = True
-                return arr
-        a = with_wrap()
-        x = add(a, a)
-        assert x == 2
-        assert type(x) == ndarray
-        assert a.called_wrap
-
-    def test___array_prepare__(self):
-        from numpypy import ndarray, array, add, ones
-        class with_prepare(ndarray):
-            called_prepare = False
-            def __array_prepare__(self, arr, context):
-                self.called_prepare = True
-                return array(arr).view(type=with_prepare)
-        a = array(1).view(type=with_prepare)
-        x = add(a, a)
-        assert x == 2
-        assert type(x) == with_prepare
-        assert a.called_prepare
