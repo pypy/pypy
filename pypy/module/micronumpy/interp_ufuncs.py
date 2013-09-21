@@ -232,7 +232,7 @@ class W_Ufunc(W_Root):
         if out:
             out.set_scalar_value(res)
             return out
-        if not type(obj) == W_NDimArray:
+        if type(obj) is not W_NDimArray:
             #If obj is a subtype of W_NDimArray, return a empty-shape instance
             out = W_NDimArray.from_shape(space, [], dtype, w_instance=obj)
             out.set_scalar_value(res)
@@ -240,6 +240,7 @@ class W_Ufunc(W_Root):
         return res
 
     def call_prepare(self, space, w_out, w_obj, w_result):
+        assert isinstance(w_result, W_NDimArray)
         if isinstance(w_out, W_NDimArray):
             w_array = space.lookup(w_out, "__array_prepare__")
             w_caller = w_out
@@ -248,7 +249,8 @@ class W_Ufunc(W_Root):
             w_caller = w_obj
         if w_array:
             w_retVal = space.get_and_call_function(w_array, w_caller, w_result, None)
-            if not isinstance(w_retVal, (W_NDimArray, interp_boxes.Box)):
+            if not isinstance(w_retVal, W_NDimArray) and \
+               not isinstance(w_retVal, interp_boxes.Box):
                 raise OperationError(space.w_ValueError,
                     space.wrap( "__array_prepare__ must return an "
                                 "ndarray or subclass thereof"))

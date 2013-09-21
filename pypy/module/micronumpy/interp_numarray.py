@@ -439,7 +439,8 @@ class __extend__(W_NDimArray):
 
     def descr___array_prepare__(self, space, w_array, w_context):
         # stub implementation of __array_prepare__()
-        if isinstance(w_array, (W_NDimArray, interp_boxes.Box)):
+        if isinstance(w_array, W_NDimArray) or \
+           isinstance(w_array, interp_boxes.Box):
             return w_array
         else:
             raise OperationError(space.w_TypeError,
