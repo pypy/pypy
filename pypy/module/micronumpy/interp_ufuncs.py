@@ -232,6 +232,9 @@ class W_Ufunc(W_Root):
         if out:
             out.set_scalar_value(res)
             return out
+        if space.type(obj) != W_NDimArray:
+            #If obj is a subtype of W_NDimArray, return a empty-shape instance
+            return W_NDimArray.from_shape(space, [], dtype, w_instance=obj)
         return res
 
     def call_prepare(self, space, w_out, w_obj, w_result):
