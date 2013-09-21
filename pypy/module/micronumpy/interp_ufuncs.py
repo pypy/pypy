@@ -325,15 +325,17 @@ class W_Ufunc1(W_Ufunc):
                               w_obj.get_scalar_value().convert_to(calc_dtype))
             if out is None:
                 return w_val
-            if out.is_scalar():
-                out.set_scalar_value(w_val)
-            else:
-                out.fill(res_dtype.coerce(space, w_val))
-            return out
+            if isinstance(out, W_NDimArray):
+                if out.is_scalar():
+                    out.set_scalar_value(w_val)
+                else:
+                    out.fill(res_dtype.coerce(space, w_val))
+            return self.call_prepare(space, out, w_obj, w_val)
         shape = shape_agreement(space, w_obj.get_shape(), out,
                                 broadcast_down=False)
-        return loop.call1(space, shape, self.func, calc_dtype, res_dtype,
+        w_result = loop.call1(space, shape, self.func, calc_dtype, res_dtype,
                           w_obj, out)
+        return self.call_prepare(space, out, w_obj, w_result)
 
 
 class W_Ufunc2(W_Ufunc):
@@ -408,6 +410,7 @@ class W_Ufunc2(W_Ufunc):
                 else:
                     out.fill(arr)
                 arr = out
+            # XXX handle array_priority
             return self.call_prepare(space, out, w_lhs, arr)
         new_shape = shape_agreement(space, w_lhs.get_shape(), w_rhs)
         new_shape = shape_agreement(space, new_shape, out, broadcast_down=False)

@@ -299,8 +299,11 @@ class AppTestSupport(BaseNumpyAppTest):
                 return array(arr[0]).view(type=with_prepare)
         a = array(1)
         b = array(1).view(type=with_prepare)
+        print 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
         x = log(a, out=b)
+        print 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
         assert x == 0
+        print 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
         assert type(x) == with_prepare
         assert x.called_prepare
         x.called_prepare = False
