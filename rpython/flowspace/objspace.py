@@ -272,14 +272,9 @@ class FlowObjSpace(object):
                 raise FlowingError("global name '%s' is not defined" % varname)
         return const(value)
 
-def make_op(cls):
-    def generic_operator(self, *args):
-        return cls(*args).eval(self.frame)
-    return generic_operator
-
 for cls in op.__dict__.values():
     if getattr(FlowObjSpace, cls.opname, None) is None:
-        setattr(FlowObjSpace, cls.opname, make_op(cls))
+        setattr(FlowObjSpace, cls.opname, cls.make_sc())
 
 
 def build_flow(func, space=FlowObjSpace()):

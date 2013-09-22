@@ -25,8 +25,8 @@ NOT_REALLY_CONST = {
         # this is an incomplete list of true constants.
         # if we add much more, a dedicated class
         # might be considered for special objects.
-        }
     }
+}
 
 
 class _OpHolder(object): pass
@@ -36,6 +36,7 @@ func2op = {}
 
 class HLOperation(SpaceOperation):
     pure = False
+
     def __init__(self, *args):
         if len(args) != self.arity:
             raise TypeError(self.opname + " got the wrong number of arguments")
@@ -54,9 +55,7 @@ class HLOperation(SpaceOperation):
                 else:
                     raise Exception("should call %r with exactly %d arguments" % (
                         cls.opname, cls.arity))
-            # completely replace the call with the underlying
-            # operation and its limited implicit exceptions semantic
-            return getattr(space, cls.opname)(*args_w)
+            return cls(*args_w).eval(space.frame)
         return sc_operator
 
     def eval(self, frame):
