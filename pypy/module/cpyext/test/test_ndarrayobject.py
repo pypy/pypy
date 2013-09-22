@@ -242,6 +242,7 @@ class AppTestCNumber(AppTestCpythonExtensionBase):
                 PyObject * obj2 = PyArray_ZEROS(2, dims2, 11, 0);
                 PyArray_FILLWBYTE(obj2, 42);
                 PyArray_CopyInto(obj2, obj1);
+                Py_DECREF(obj1);
                 return obj2;
                 '''
                 ),
