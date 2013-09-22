@@ -4,11 +4,11 @@ Numpy C-API for PyPy - S. H. Muller, 2013/07/26
 """
 
 from pypy.interpreter.error import OperationError
-from rpython.rtyper.lltypesystem import rffi
+from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import cpython_api, Py_ssize_t, CANNOT_FAIL
-from pypy.module.cpyext.pyobject import PyObject
+from pypy.module.cpyext.api import PyObject
 from pypy.module.micronumpy.interp_numarray import W_NDimArray, array
-from pypy.module.micronumpy.interp_dtype import get_dtype_cache
+from pypy.module.micronumpy.interp_dtype import get_dtype_cache, W_Dtype
 from pypy.module.micronumpy.arrayimpl.concrete import ConcreteArray
 from pypy.module.micronumpy.arrayimpl.scalar import Scalar
 from rpython.rlib.rawstorage import RAW_STORAGE_PTR
@@ -113,10 +113,12 @@ def _PyArray_DATA(space, w_array):
     assert isinstance(w_array, W_NDimArray)
     return rffi.cast(rffi.VOIDP, w_array.implementation.storage)
 
+PyArray_Descr = PyObject
+NULL = lltype.nullptr(rffi.VOIDP.TO)
 
-@cpython_api([PyObject, rffi.VOIDP, Py_ssize_t, Py_ssize_t, Py_ssize_t, rffi.VOIDP],
+@cpython_api([PyObject, PyArray_Descr, Py_ssize_t, Py_ssize_t, Py_ssize_t, rffi.VOIDP],
              PyObject)
-def _PyArray_FromAny(space, w_obj, dtype, min_depth, max_depth, requirements, context):
+def _PyArray_FromAny(space, w_obj, w_dtype, min_depth, max_depth, requirements, context):
     """ This is the main function used to obtain an array from any nested
          sequence, or object that exposes the array interface, op. The
          parameters allow specification of the required dtype, the
@@ -153,10 +155,7 @@ def _PyArray_FromAny(space, w_obj, dtype, min_depth, max_depth, requirements, co
     if requirements not in (0, NPY_DEFAULT):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             '_PyArray_FromAny called with not-implemented requirements argument'))
-    if not dtype:
-        w_array = array(space, w_obj, copy=False)
-    else:
-        w_array = array(space, w_obj, w_dtype=dtype, copy=False)
+    w_array = array(space, w_obj, w_dtype=w_dtype, copy=False)
     if w_array.is_scalar():
         # since PyArray_DATA() fails on scalars, create a 1D array and set empty
         # shape. So the following combination works for *reading* scalars:
@@ -175,14 +174,14 @@ def _PyArray_FromObject(space, w_obj, typenum, min_depth, max_depth):
         dtype = get_dtype_cache(space).dtypes_by_num[typenum]
     except KeyError:
         raise OperationError(space.w_ValueError, space.wrap(
-            '_PyArray_FromObject called with invalid dtype %r' % typenum))
+            '_PyArray_FromObject called with invalid dtype %d' % typenum))
     try:
         return _PyArray_FromAny(space, w_obj, dtype, min_depth, max_depth,
-                            0, None);
+                            0, NULL);
     except OperationError, e:
         if e.match(space, space.w_NotImplementedError):
             errstr = space.str_w(e.get_w_value(space))
-            errstr = errstr.replace('FromAny','FromObject')
+            errstr = '_PyArray_FromObject' + errstr[16:]
             raise OperationError(space.w_NotImplementedError, space.wrap(
                 errstr))
         raise

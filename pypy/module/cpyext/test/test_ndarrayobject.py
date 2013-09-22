@@ -244,6 +244,26 @@ class AppTestCNumber(AppTestCpythonExtensionBase):
                 return obj2;
                 '''
                 ),
+                ("test_FromAny", "METH_NOARGS",
+                '''
+                npy_intp dims[2] ={2, 3};
+                PyObject * obj1 = PyArray_SimpleNew(2, dims, 1);
+                PyArray_FILLWBYTE(obj1, 42);
+                PyObject * obj2 = _PyArray_FromAny(obj1, NULL, 0, 0, 0, NULL);
+                Py_DECREF(obj1);
+                return obj2;
+                '''
+                ),
+                 ("test_FromObject", "METH_NOARGS",
+                '''
+                npy_intp dims[2] ={2, 3};
+                PyObject * obj1 = PyArray_SimpleNew(2, dims, 1);
+                PyArray_FILLWBYTE(obj1, 42);
+                PyObject * obj2 = _PyArray_FromObject(obj1, 12, 0, 0);
+                Py_DECREF(obj1);
+                return obj2;
+                '''
+                ),
                 ], prologue='#include <numpy/arrayobject.h>')
         arr = mod.test_simplenew()
         assert arr.shape == (2, 3)
@@ -254,3 +274,6 @@ class AppTestCNumber(AppTestCpythonExtensionBase):
         assert (arr == 42).all()
         arr = mod.test_copy()
         assert (arr == 0).all()
+        #Make sure these work without errors
+        arr = mod.test_FromAny()
+        arr = mod.test_FromObject()
