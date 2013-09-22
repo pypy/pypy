@@ -171,8 +171,16 @@ def _PyArray_FromAny(space, w_obj, dtype, min_depth, max_depth, requirements, co
 
 @cpython_api([PyObject, Py_ssize_t, Py_ssize_t, Py_ssize_t], PyObject)
 def _PyArray_FromObject(space, w_obj, typenum, min_depth, max_depth):
-    return _PyArray_FromAny(space, w_obj, typenum, min_depth, max_depth, NPY_BEHAVED);
-
+    try:
+        return _PyArray_FromAny(space, w_obj, typenum, min_depth, max_depth,
+                            0, None);
+    except OperationError, e:
+        if e.match(space, space.w_NotImplementedError):
+            errstr = space.str_w(e.get_w_value(space))
+            errstr = errstr.replace('FromAny','FromObject')
+            raise OperationError(space.w_NotImplementedError, space.wrap(
+                errstr))
+        raise
 
 def get_shape_and_dtype(space, nd, dims, typenum):
     shape = []
