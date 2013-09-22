@@ -37,6 +37,14 @@ def sc_isinstance(space, w_instance, w_type):
     return space.frame.do_operation('simple_call', const(isinstance),
             w_instance, w_type)
 
+@register_flow_sc(getattr)
+def sc_getattr(space, w_obj, w_index, w_default=None):
+    if w_default is not None:
+        return space.frame.do_operation('simple_call', const(getattr), w_obj,
+                                        w_index, w_default)
+    else:
+        return space.getattr(w_obj, w_index)
+
 # _________________________________________________________________________
 # a simplified version of the basic printing routines, for RPython programs
 class StdOutBuffer:

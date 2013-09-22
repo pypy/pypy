@@ -47,14 +47,6 @@ class HLOperation(SpaceOperation):
     @classmethod
     def make_sc(cls):
         def sc_operator(space, *args_w):
-            if len(args_w) != cls.arity:
-                if cls is op.pow and len(args_w) == 2:
-                    args_w = list(args_w) + [Constant(None)]
-                elif cls is op.getattr and len(args_w) == 3:
-                    return space.frame.do_operation('simple_call', Constant(getattr), *args_w)
-                else:
-                    raise Exception("should call %r with exactly %d arguments" % (
-                        cls.opname, cls.arity))
             return cls(*args_w).eval(space.frame)
         return sc_operator
 
@@ -260,7 +252,6 @@ add_operator('floordiv', 2, pure=True, ovf=True)
 add_operator('div', 2, pure=True, ovf=True)
 add_operator('mod', 2, pure=True, ovf=True)
 add_operator('divmod', 2, pyfunc=divmod, pure=True)
-add_operator('pow', 3, pyfunc=pow, pure=True)
 add_operator('lshift', 2, pure=True, ovf=True)
 add_operator('rshift', 2, pure=True)
 add_operator('and_', 2, pure=True)
@@ -297,6 +288,20 @@ add_operator('set', 3, pyfunc=set)
 add_operator('delete', 2, pyfunc=delete)
 add_operator('userdel', 1, pyfunc=userdel)
 add_operator('buffer', 1, pyfunc=buffer, pure=True)   # see buffer.py
+
+class Pow(PureOperation):
+    opname = 'pow'
+    arity = 3
+    can_overflow = False
+    canraise = []
+    pyfunc = pow
+
+    def __init__(self, w_base, w_exponent, w_mod=const(None)):
+        self.args = [w_base, w_exponent, w_mod]
+        self.result = Variable()
+        self.offset = -1
+op.pow = Pow
+
 
 class Iter(HLOperation):
     opname = 'iter'
@@ -372,6 +377,8 @@ op.getattr = GetAttr
 # Other functions that get directly translated to SpaceOperators
 func2op[type] = op.type
 func2op[operator.truth] = op.bool
+func2op[pow] = op.pow
+func2op[operator.pow] = op.pow
 func2op[__builtin__.iter] = op.iter
 func2op[getattr] = op.getattr
 func2op[__builtin__.next] = op.next
