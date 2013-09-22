@@ -42,7 +42,14 @@ op = _OpHolder()
 
 func2op = {}
 
+class HLOperationMeta(type):
+    def __init__(cls, name, bases, attrdict):
+        type.__init__(cls, name, bases, attrdict)
+        if hasattr(cls, 'opname'):
+            setattr(op, cls.opname, cls)
+
 class HLOperation(SpaceOperation):
+    __metaclass__ = HLOperationMeta
     pure = False
 
     def __init__(self, *args):
@@ -103,9 +110,8 @@ class PureOperation(HLOperation):
 def add_operator(name, arity, pyfunc=None, pure=False, ovf=False):
     operator_func = getattr(operator, name, None)
     base_cls = PureOperation if pure else HLOperation
-    cls = type(name, (base_cls,), {'opname': name, 'arity': arity,
+    cls = HLOperationMeta(name, (base_cls,), {'opname': name, 'arity': arity,
                                    'can_overflow': ovf, 'canraise': []})
-    setattr(op, name, cls)
     if pyfunc is not None:
         func2op[pyfunc] = cls
     if operator_func:
@@ -306,7 +312,6 @@ class Pow(PureOperation):
         self.args = [w_base, w_exponent, w_mod]
         self.result = Variable()
         self.offset = -1
-op.pow = Pow
 
 
 class Iter(HLOperation):
@@ -322,7 +327,6 @@ class Iter(HLOperation):
             iterable = w_iterable.value
             if isinstance(iterable, unrolling_iterable):
                 return const(iterable.get_unroller())
-op.iter = Iter
 
 class Next(HLOperation):
     opname = 'next'
@@ -347,7 +351,6 @@ class Next(HLOperation):
         w_item = frame.do_op(self)
         frame.guessexception([StopIteration, RuntimeError], force=True)
         return w_item
-op.next = Next
 
 class GetAttr(HLOperation):
     opname = 'getattr'
@@ -376,7 +379,6 @@ class GetAttr(HLOperation):
                 return const(result)
             except WrapException:
                 pass
-op.getattr = GetAttr
 
 class CallOp(HLOperation):
     @property
@@ -395,12 +397,9 @@ class CallOp(HLOperation):
 
 class SimpleCall(CallOp):
     opname = 'simple_call'
-op.simple_call = SimpleCall
-
 
 class CallArgs(CallOp):
     opname = 'call_args'
-op.call_args = CallArgs
 
 # Other functions that get directly translated to SpaceOperators
 func2op[type] = op.type

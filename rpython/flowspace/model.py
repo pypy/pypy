@@ -394,7 +394,6 @@ def const(obj):
     return Constant(obj)
 
 class SpaceOperation(object):
-    __slots__ = "opname args result offset".split()
 
     def __init__(self, opname, args, result, offset=-1):
         self.opname = intern(opname)      # operation name
