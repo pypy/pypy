@@ -379,7 +379,7 @@ class RegisterOs(BaseLazyRegistering):
 
     @registering_if(os, "getlogin", condition=not _WIN32)
     def register_os_getlogin(self):
-        os_getlogin = self.llexternal('getlogin', [], rffi.CCHARP, threadsafe=False)
+        os_getlogin = self.llexternal('getlogin', [], rffi.CCHARP, releasegil=False)
 
         def getlogin_llimpl():
             result = os_getlogin()
@@ -681,7 +681,7 @@ class RegisterOs(BaseLazyRegistering):
 
     @registering_if(os, 'getpid')
     def register_os_getpid(self):
-        return self.extdef_for_os_function_returning_int('getpid', threadsafe=False)
+        return self.extdef_for_os_function_returning_int('getpid', releasegil=False)
 
     @registering_if(os, 'getgid')
     def register_os_getgid(self):
@@ -882,7 +882,7 @@ class RegisterOs(BaseLazyRegistering):
     @registering(os.close)
     def register_os_close(self):
         os_close = self.llexternal(underscore_on_windows+'close', [rffi.INT],
-                                   rffi.INT, threadsafe=False)
+                                   rffi.INT, releasegil=False)
 
         def close_llimpl(fd):
             rposix.validate_fd(fd)
@@ -1323,7 +1323,7 @@ class RegisterOs(BaseLazyRegistering):
 
     @registering(os.strerror)
     def register_os_strerror(self):
-        os_strerror = self.llexternal('strerror', [rffi.INT], rffi.CCHARP, threadsafe=False)
+        os_strerror = self.llexternal('strerror', [rffi.INT], rffi.CCHARP, releasegil=False)
 
         def strerror_llimpl(errnum):
             res = os_strerror(rffi.cast(rffi.INT, errnum))
@@ -1668,6 +1668,16 @@ class RegisterOs(BaseLazyRegistering):
         return extdef([int], int, llimpl=nice_llimpl,
                       export_name="ll_os.ll_os_nice")
 
+    @registering_if(os, 'ctermid')
+    def register_os_ctermid(self):
+        os_ctermid = self.llexternal('ctermid', [rffi.CCHARP], rffi.CCHARP)
+
+        def ctermid_llimpl():
+            return rffi.charp2str(os_ctermid(lltype.nullptr(rffi.CCHARP.TO)))
+
+        return extdef([], str, llimpl=ctermid_llimpl,
+                      export_name="ll_os.ll_os_ctermid")
+
 # --------------------------- os.stat & variants ---------------------------
 
     @registering(os.fstat)
@@ -1738,7 +1748,7 @@ class RegisterOs(BaseLazyRegistering):
 
     @registering_if(os, 'ttyname')
     def register_os_ttyname(self):
-        os_ttyname = self.llexternal('ttyname', [lltype.Signed], rffi.CCHARP, threadsafe=False)
+        os_ttyname = self.llexternal('ttyname', [lltype.Signed], rffi.CCHARP, releasegil=False)
 
         def ttyname_llimpl(fd):
             l_name = os_ttyname(fd)

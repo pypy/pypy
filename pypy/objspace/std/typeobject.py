@@ -494,6 +494,12 @@ class W_TypeObject(W_Object):
         else:
             return w_self.name
 
+    def getname(w_self, space):
+        name = w_self.name
+        if name is None:
+            name = '?'
+        return name
+
     def add_subclass(w_self, w_subclass):
         space = w_self.space
         if not space.config.translation.rweakref:

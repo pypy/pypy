@@ -651,10 +651,10 @@ class TreeLoop(object):
         _list_all_operations(result, self.operations, omit_finish)
         return result
 
-    def summary(self, adding_insns={}):    # for debugging
+    def summary(self, adding_insns={}, omit_finish=True):    # for debugging
         "NOT_RPYTHON"
         insns = adding_insns.copy()
-        for op in self._all_operations(omit_finish=True):
+        for op in self._all_operations(omit_finish=omit_finish):
             opname = op.getopname()
             insns[opname] = insns.get(opname, 0) + 1
         return insns
@@ -895,10 +895,10 @@ class Stats(object):
                 "found %d %r, expected %d" % (found, insn, expected_count))
         return insns
 
-    def check_resops(self, expected=None, **check):
+    def check_resops(self, expected=None, omit_finish=True, **check):
         insns = {}
         for loop in self.get_all_loops():
-            insns = loop.summary(adding_insns=insns)
+            insns = loop.summary(adding_insns=insns, omit_finish=omit_finish)
         return self._check_insns(insns, expected, check)
 
     def _check_insns(self, insns, expected, check):

@@ -246,7 +246,8 @@ class TestDecoding(UnicodeTests):
         assert decode('+3AE-', 5, None) == (u'\uDC01', 5)
         assert decode('+3AE-x', 6, None) == (u'\uDC01x', 6)
 
-        assert encode(u'\uD801\U000abcde', 2, None) == '+2AHab9ze-'
+        u = u'\uD801\U000abcde'
+        assert encode(u, len(u), None) == '+2AHab9ze-'
         assert decode('+2AHab9ze-', 10, None) == (u'\uD801\U000abcde', 10)
 
 

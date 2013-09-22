@@ -128,10 +128,10 @@ class UUID(object):
         """
 
         if hex is not None:
-            if (bytes is not None or bytes_le is not None or fields is not None
-                    or int is not None):
-                raise TypeError('if the hex argument is given, bytes, bytes_le, fields,'
-                                ' and int need to be None')
+            if (bytes is not None or bytes_le is not None or
+                    fields is not None or int is not None):
+                raise TypeError('if the hex argument is given, bytes,'
+                                ' bytes_le, fields,  and int need to be None')
             hex = hex.replace('urn:', '').replace('uuid:', '')
             hex = hex.strip('{}').replace('-', '')
             if len(hex) != 32:
@@ -139,8 +139,8 @@ class UUID(object):
             int = long(hex, 16)
         elif bytes_le is not None:
             if bytes is not None or fields is not None or int is not None:
-                raise TypeError('if the bytes_le argument is given, bytes, fields,'
-                                ' and int need to be None')
+                raise TypeError('if the bytes_le argument is given, bytes,'
+                                ' fields, and int need to be None')
             if len(bytes_le) != 16:
                 raise ValueError('bytes_le is not a 16-char string')
             bytes = (bytes_le[3] + bytes_le[2] + bytes_le[1] + bytes_le[0] +
@@ -150,15 +150,16 @@ class UUID(object):
                    struct.unpack('>Q', bytes[8:])[0])
         elif bytes is not None:
             if fields is not None or int is not None:
-                raise TypeError('if the bytes argument is given, fields'
-                                ' and int need to be None')
+                raise TypeError('if the bytes argument is given, fields '
+                                'and int need to be None')
             if len(bytes) != 16:
                 raise ValueError('bytes is not a 16-char string')
             int = (struct.unpack('>Q', bytes[:8])[0] << 64 |
                    struct.unpack('>Q', bytes[8:])[0])
         elif fields is not None:
             if int is not None:
-                raise TypeError('if the fields argument is given, int needs to be None')
+                raise TypeError('if the fields argument is given, int needs'
+                                ' to be None')
             if len(fields) != 6:
                 raise ValueError('fields is not a 6-tuple')
             (time_low, time_mid, time_hi_version,

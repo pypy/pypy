@@ -705,10 +705,6 @@ def rtype_builtin_isinstance(hop):
     assert isinstance(hop.args_r[0], rclass.InstanceRepr)
     return hop.args_r[0].rtype_isinstance(hop)
 
-def ll_instantiate(typeptr):   # NB. used by rpbc.ClassesPBCRepr as well
-    my_instantiate = typeptr.instantiate
-    return my_instantiate()
-
 def rtype_instantiate(hop):
     hop.exception_cannot_occur()
     s_class = hop.args_s[0]
@@ -716,10 +712,9 @@ def rtype_instantiate(hop):
     if len(s_class.descriptions) != 1:
         # instantiate() on a variable class
         vtypeptr, = hop.inputargs(rclass.get_type_repr(hop.rtyper))
-        v_inst = hop.gendirectcall(ll_instantiate, vtypeptr)
-        return hop.genop('cast_pointer', [v_inst],    # v_type implicit in r_result
-                         resulttype = hop.r_result.lowleveltype)
-
+        r_class = hop.args_r[0]
+        return r_class._instantiate_runtime_class(hop, vtypeptr,
+                                                  hop.r_result.lowleveltype)
     classdef = s_class.any_description().getuniqueclassdef()
     return rclass.rtype_new_instance(hop.rtyper, classdef, hop.llops)
 

@@ -481,9 +481,9 @@ if _POSIX:
 socket = external('socket', [rffi.INT, rffi.INT, rffi.INT], socketfd_type)
 
 if WIN32:
-    socketclose = external('closesocket', [socketfd_type], rffi.INT, threadsafe=False)
+    socketclose = external('closesocket', [socketfd_type], rffi.INT, releasegil=False)
 else:
-    socketclose = external('close', [socketfd_type], rffi.INT, threadsafe=False)
+    socketclose = external('close', [socketfd_type], rffi.INT, releasegil=False)
 
 socketconnect = external('connect', [socketfd_type, sockaddr_ptr, socklen_t], rffi.INT)
 
@@ -494,10 +494,10 @@ freeaddrinfo = external('freeaddrinfo', [addrinfo_ptr], lltype.Void)
 getnameinfo = external('getnameinfo', [sockaddr_ptr, socklen_t, CCHARP,
                        size_t, CCHARP, size_t, rffi.INT], rffi.INT)
 
-htonl = external('htonl', [rffi.UINT], rffi.UINT, threadsafe=False)
-htons = external('htons', [rffi.USHORT], rffi.USHORT, threadsafe=False)
-ntohl = external('ntohl', [rffi.UINT], rffi.UINT, threadsafe=False)
-ntohs = external('ntohs', [rffi.USHORT], rffi.USHORT, threadsafe=False)
+htonl = external('htonl', [rffi.UINT], rffi.UINT, releasegil=False)
+htons = external('htons', [rffi.USHORT], rffi.USHORT, releasegil=False)
+ntohl = external('ntohl', [rffi.UINT], rffi.UINT, releasegil=False)
+ntohs = external('ntohs', [rffi.USHORT], rffi.USHORT, releasegil=False)
 
 if _POSIX:
     inet_aton = external('inet_aton', [CCHARP, lltype.Ptr(in_addr)],

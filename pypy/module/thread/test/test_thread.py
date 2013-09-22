@@ -187,9 +187,12 @@ class AppTestThread(GenericTestThread):
             skip("this OS supports too many threads to check (> 1000)")
         lock = thread.allocate_lock()
         lock.acquire()
+        count = [0]
         def f():
+            count[0] += 1
             lock.acquire()
             lock.release()
+            count[0] -= 1
         try:
             try:
                 for i in range(1000):
@@ -197,11 +200,15 @@ class AppTestThread(GenericTestThread):
             finally:
                 lock.release()
                 # wait a bit to allow most threads to finish now
-                self.busywait(2.0)
+                while count[0] > 10:
+                    print count[0]     # <- releases the GIL
+                print "ok."
         except (thread.error, MemoryError):
             pass
         else:
             raise Exception("could unexpectedly start 1000 threads")
+        # safety: check that we can start a new thread here
+        thread.start_new_thread(lambda: None, ())
 
     def test_stack_size(self):
         import thread
