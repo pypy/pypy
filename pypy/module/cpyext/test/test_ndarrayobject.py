@@ -91,15 +91,13 @@ class TestNDArrayObject(BaseApiTest):
         a = array(space, [10, 5, 3])
         assert api._PyArray_FromAny(a, NULL, 0, 0, 0, NULL) is a
         self.raises(space, api, NotImplementedError, api._PyArray_FromAny,
-                    space.wrap(a), space.w_None, space.wrap(0),
-                    space.wrap(3), space.wrap(0), space.w_None)
+                    a, NULL, 0, 3, 0, NULL)
 
     def test_FromObject(self, space, api):
         a = array(space, [10, 5, 3])
-        assert api._PyArray_FromObject(a, None, 0, 0) is a
+        assert api._PyArray_FromObject(a, a.get_dtype().num, 0, 0) is a
         exc = self.raises(space, api, NotImplementedError, api._PyArray_FromObject,
-                    space.wrap(a), space.wrap(11), space.wrap(0),
-                    space.wrap(3) )
+                    a, 11, 0, 3)
         assert exc.errorstr(space).find('FromObject') >= 0
 
     def test_list_from_fixedptr(self, space, api):

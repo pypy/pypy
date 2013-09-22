@@ -7,7 +7,7 @@ from pypy.interpreter.error import OperationError
 from rpython.rtyper.lltypesystem import rffi
 from pypy.module.cpyext.api import cpython_api, Py_ssize_t, CANNOT_FAIL
 from pypy.module.cpyext.pyobject import PyObject
-from pypy.module.micronumpy.interp_numarray import W_NDimArray, convert_to_array, wrap_impl
+from pypy.module.micronumpy.interp_numarray import W_NDimArray, array
 from pypy.module.micronumpy.interp_dtype import get_dtype_cache
 from pypy.module.micronumpy.arrayimpl.concrete import ConcreteArray
 from pypy.module.micronumpy.arrayimpl.scalar import Scalar
@@ -147,16 +147,16 @@ def _PyArray_FromAny(space, w_obj, dtype, min_depth, max_depth, requirements, co
          only used if the array is constructed that way. Almost always this
          parameter is NULL.
     """
-    if dtype:
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            '_PyArray_FromAny called with not-implemented dtype argument'))
     if min_depth !=0 or max_depth != 0:
         raise OperationError(space.w_NotImplementedError, space.wrap(
             '_PyArray_FromAny called with not-implemented min_dpeth or max_depth argument'))
     if requirements not in (0, NPY_DEFAULT):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             '_PyArray_FromAny called with not-implemented requirements argument'))
-    w_array = convert_to_array(space, w_obj)
+    if not dtype:
+        w_array = array(space, w_obj, copy=False)
+    else:
+        w_array = array(space, w_obj, w_dtype=dtype, copy=False)
     if w_array.is_scalar():
         # since PyArray_DATA() fails on scalars, create a 1D array and set empty
         # shape. So the following combination works for *reading* scalars:
@@ -172,7 +172,12 @@ def _PyArray_FromAny(space, w_obj, dtype, min_depth, max_depth, requirements, co
 @cpython_api([PyObject, Py_ssize_t, Py_ssize_t, Py_ssize_t], PyObject)
 def _PyArray_FromObject(space, w_obj, typenum, min_depth, max_depth):
     try:
-        return _PyArray_FromAny(space, w_obj, typenum, min_depth, max_depth,
+        dtype = get_dtype_cache(space).dtypes_by_num[typenum]
+    except KeyError:
+        raise OperationError(space.w_ValueError, space.wrap(
+            '_PyArray_FromObject called with invalid dtype %r' % typenum))
+    try:
+        return _PyArray_FromAny(space, w_obj, dtype, min_depth, max_depth,
                             0, None);
     except OperationError, e:
         if e.match(space, space.w_NotImplementedError):
