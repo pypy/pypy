@@ -7,6 +7,7 @@ import __builtin__
 import __future__
 import operator
 import sys
+import types
 from rpython.rlib.unroll import unrolling_iterable, _unroller
 from rpython.tool.sourcetools import compile2
 from rpython.flowspace.model import (Constant, WrapException, const, Variable,
@@ -28,6 +29,13 @@ NOT_REALLY_CONST = {
     }
 }
 
+# built-ins that can always raise exceptions
+builtins_exceptions = {
+    chr: [ValueError],
+    unichr: [ValueError],
+    unicode: [UnicodeDecodeError],
+}
+
 
 class _OpHolder(object): pass
 op = _OpHolder()
@@ -38,8 +46,6 @@ class HLOperation(SpaceOperation):
     pure = False
 
     def __init__(self, *args):
-        if len(args) != self.arity:
-            raise TypeError(self.opname + " got the wrong number of arguments")
         self.args = list(args)
         self.result = Variable()
         self.offset = -1
@@ -372,7 +378,29 @@ class GetAttr(HLOperation):
                 pass
 op.getattr = GetAttr
 
+class CallOp(HLOperation):
+    @property
+    def canraise(self):
+        w_callable = self.args[0]
+        if isinstance(w_callable, Constant):
+            c = w_callable.value
+            if (isinstance(c, (types.BuiltinFunctionType,
+                               types.BuiltinMethodType,
+                               types.ClassType,
+                               types.TypeType)) and
+                  c.__module__ in ['__builtin__', 'exceptions']):
+                return builtins_exceptions.get(c, [])
+        # *any* exception for non-builtins
+        return [Exception]
 
+class SimpleCall(CallOp):
+    opname = 'simple_call'
+op.simple_call = SimpleCall
+
+
+class CallArgs(CallOp):
+    opname = 'call_args'
+op.call_args = CallArgs
 
 # Other functions that get directly translated to SpaceOperators
 func2op[type] = op.type

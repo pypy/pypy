@@ -21,15 +21,6 @@ from rpython.flowspace.specialcase import SPECIAL_CASES
 from rpython.rlib import rstackovf
 
 
-# built-ins that can always raise exceptions
-builtins_exceptions = {
-    int: [ValueError],
-    float: [ValueError],
-    chr: [ValueError],
-    unichr: [ValueError],
-    unicode: [UnicodeDecodeError],
-}
-
 
 def _assert_rpythonic(func):
     """Raise ValueError if ``func`` is obviously not RPython"""
@@ -203,14 +194,14 @@ class FlowObjSpace(object):
 
     def call_function(self, w_func, *args_w):
         args = CallSpec(list(args_w))
-        return self.call_args(w_func, args)
+        return self.call(w_func, args)
 
     def appcall(self, func, *args_w):
         """Call an app-level RPython function directly"""
         w_func = const(func)
         return self.frame.do_operation('simple_call', w_func, *args_w)
 
-    def call_args(self, w_callable, args):
+    def call(self, w_callable, args):
         if isinstance(w_callable, Constant):
             fn = w_callable.value
             if hasattr(fn, "_flowspace_rewrite_directly_as_"):
@@ -228,25 +219,10 @@ class FlowObjSpace(object):
 
         if args.keywords or isinstance(args.w_stararg, Variable):
             shape, args_w = args.flatten()
-            w_res = self.frame.do_operation('call_args', w_callable,
-                    Constant(shape), *args_w)
+            hlop = op.call_args(w_callable, Constant(shape), *args_w)
         else:
-            w_res = self.frame.do_operation(
-                    'simple_call', w_callable, *args.as_list())
-        self.frame.guessexception(self._callable_exceptions(w_callable))
-        return w_res
-
-    def _callable_exceptions(self, w_callable):
-        if isinstance(w_callable, Constant):
-            c = w_callable.value
-            if (isinstance(c, (types.BuiltinFunctionType,
-                               types.BuiltinMethodType,
-                               types.ClassType,
-                               types.TypeType)) and
-                  c.__module__ in ['__builtin__', 'exceptions']):
-                return builtins_exceptions.get(c, [])
-        # *any* exception for non-builtins
-        return [Exception]
+            hlop = op.simple_call(w_callable, *args.as_list())
+        return self.frame.do_op(hlop)
 
     def find_global(self, w_globals, varname):
         try:

@@ -933,7 +933,7 @@ class FlowSpaceFrame(object):
         arguments = self.popvalues(n_arguments)
         args = CallSpec(arguments, keywords, w_star, w_starstar)
         w_function = self.popvalue()
-        w_result = self.space.call_args(w_function, args)
+        w_result = self.space.call(w_function, args)
         self.pushvalue(w_result)
 
     def CALL_FUNCTION(self, oparg):
