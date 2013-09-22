@@ -434,14 +434,15 @@ class FlowSpaceFrame(object):
 
     def do_op(self, op):
         self.record(op)
-        if op.canraise:
-            self.guessexception(op.canraise)
+        self.guessexception(op.canraise)
         return op.result
 
     def guessexception(self, exceptions, force=False):
         """
         Catch possible exceptions implicitly.
         """
+        if not exceptions:
+            return
         if not force and not any(isinstance(block, (ExceptBlock, FinallyBlock))
                 for block in self.blockstack):
             # The implicit exception wouldn't be caught and would later get
