@@ -246,7 +246,10 @@ class FlowObjSpace(object):
             else:
                 args_w = args.arguments_w
             w_res = self.frame.do_operation('simple_call', w_callable, *args_w)
+        self.frame.guessexception(self._callable_exceptions(w_callable))
+        return w_res
 
+    def _callable_exceptions(self, w_callable):
         if isinstance(w_callable, Constant):
             c = w_callable.value
             if (isinstance(c, (types.BuiltinFunctionType,
@@ -254,12 +257,10 @@ class FlowObjSpace(object):
                                types.ClassType,
                                types.TypeType)) and
                   c.__module__ in ['__builtin__', 'exceptions']):
-                if c in builtins_exceptions:
-                    self.frame.guessexception(builtins_exceptions[c])
-                return w_res
+                return builtins_exceptions.get(c, [])
         # *any* exception for non-builtins
-        self.frame.guessexception([Exception])
-        return w_res
+        return [Exception]
+
 
     def find_global(self, w_globals, varname):
         try:
