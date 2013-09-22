@@ -8,8 +8,8 @@ import types
 from inspect import CO_NEWLOCALS
 
 from rpython.flowspace.argument import CallSpec
-from rpython.flowspace.model import (Constant, Variable, WrapException,
-    UnwrapException, checkgraph, const, FSException)
+from rpython.flowspace.model import (Constant, Variable, checkgraph, const,
+    FSException)
 from rpython.flowspace.bytecode import HostCode
 from rpython.flowspace.operation import op, NOT_REALLY_CONST
 from rpython.flowspace.flowcontext import (FlowSpaceFrame, fixeggblocks,
@@ -121,8 +121,8 @@ class FlowObjSpace(object):
             w_real_class = const(rstackovf._StackOverflow)
             return frame.guessbool(self.issubtype(w_exc_type, w_real_class))
         # checking a tuple of classes
-        for w_klass in self.unpackiterable(w_check_class):
-            if self.exception_match(w_exc_type, w_klass):
+        for klass in w_check_class.value:
+            if self.exception_match(w_exc_type, const(klass)):
                 return True
         return False
 
@@ -157,13 +157,6 @@ class FlowObjSpace(object):
         w_type = self.type(w_value)
         return FSException(w_type, w_value)
 
-    def unpackiterable(self, w_iterable):
-        if isinstance(w_iterable, Constant):
-            l = w_iterable.value
-            return [const(x) for x in l]
-        else:
-            raise UnwrapException("cannot unpack a Variable iterable ")
-
     def unpack_sequence(self, w_iterable, expected_length):
         if isinstance(w_iterable, Constant):
             l = list(w_iterable.value)
@@ -182,7 +175,6 @@ class FlowObjSpace(object):
     # ____________________________________________________________
     def not_(self, w_obj):
         return const(not self.frame.guessbool(self.bool(w_obj)))
-
 
     def import_name(self, name, glob=None, loc=None, frm=None, level=-1):
         try:
@@ -229,23 +221,18 @@ class FlowObjSpace(object):
             except (KeyError, TypeError):
                 pass
             else:
-                assert args.keywords == {}, "should not call %r with keyword arguments" % (fn,)
-                if args.w_stararg is not None:
-                    args_w = args.arguments_w + self.unpackiterable(args.w_stararg)
-                else:
-                    args_w = args.arguments_w
-                return sc(self, *args_w)
+                if args.keywords:
+                    raise FlowingError(
+                        "should not call %r with keyword arguments" % (fn,))
+                return sc(self, *args.as_list())
 
         if args.keywords or isinstance(args.w_stararg, Variable):
             shape, args_w = args.flatten()
             w_res = self.frame.do_operation('call_args', w_callable,
                     Constant(shape), *args_w)
         else:
-            if args.w_stararg is not None:
-                args_w = args.arguments_w + self.unpackiterable(args.w_stararg)
-            else:
-                args_w = args.arguments_w
-            w_res = self.frame.do_operation('simple_call', w_callable, *args_w)
+            w_res = self.frame.do_operation(
+                    'simple_call', w_callable, *args.as_list())
         self.frame.guessexception(self._callable_exceptions(w_callable))
         return w_res
 
@@ -260,7 +247,6 @@ class FlowObjSpace(object):
                 return builtins_exceptions.get(c, [])
         # *any* exception for non-builtins
         return [Exception]
-
 
     def find_global(self, w_globals, varname):
         try:

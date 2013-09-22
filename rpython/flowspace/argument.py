@@ -1,7 +1,7 @@
 """
 Arguments objects.
 """
-
+from rpython.flowspace.model import const
 
 class Signature(object):
     _immutable_ = True
@@ -95,3 +95,10 @@ class CallSpec(object):
         if shape_star:
             data_w.append(self.w_stararg)
         return (shape_cnt, shape_keys, shape_star, shape_stst), data_w
+
+    def as_list(self):
+        assert not self.keywords
+        if self.w_stararg is None:
+            return self.arguments_w
+        else:
+            return self.arguments_w + [const(x) for x in self.w_stararg.value]
