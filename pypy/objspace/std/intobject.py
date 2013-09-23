@@ -204,7 +204,7 @@ class W_AbstractIntObject(W_Object):
         y = space.int_w(w_exponent)
         try:
             return space.wrap(_pow_impl(space, x, y, z))
-        except NotImplementedError:
+        except ValueError:
             return self._delegate2longpow(space, w_exponent, w_modulus)
 
     def _delegate2longpow(self, space, w_exponent, w_modulus):
@@ -414,7 +414,7 @@ def _pow_impl(space, iv, iw, iz):
                    "specified")
             raise operationerrfmt(space.w_TypeError, msg)
         ## bounce it, since it always returns float
-        raise NotImplementedError
+        raise ValueError
     temp = iv
     ix = 1
     try:
@@ -432,7 +432,7 @@ def _pow_impl(space, iv, iw, iz):
         if iz:
             ix = ix % iz
     except OverflowError:
-        raise NotImplementedError
+        raise ValueError
     return ix
 
 # ____________________________________________________________
