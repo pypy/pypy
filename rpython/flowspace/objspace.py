@@ -160,7 +160,7 @@ class FlowObjSpace(object):
             if not self.frame.guessbool(self.bool(w_correct)):
                 w_exc = self.exc_from_raise(self.w_ValueError, self.w_None)
                 raise Raise(w_exc)
-            return [self.frame.do_operation('getitem', w_iterable, const(i))
+            return [self.getitem(w_iterable, const(i))
                         for i in range(expected_length)]
 
     # ____________________________________________________________
@@ -199,7 +199,7 @@ class FlowObjSpace(object):
     def appcall(self, func, *args_w):
         """Call an app-level RPython function directly"""
         w_func = const(func)
-        return self.frame.do_operation('simple_call', w_func, *args_w)
+        return op.simple_call(w_func, *args_w).eval(self.frame)
 
     def call(self, w_callable, args):
         if isinstance(w_callable, Constant):

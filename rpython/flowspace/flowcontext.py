@@ -715,7 +715,7 @@ class FlowSpaceFrame(object):
 
     def PRINT_ITEM(self, oparg):
         w_item = self.popvalue()
-        w_s = self.do_operation('str', w_item)
+        w_s = self.space.str(w_item)
         self.space.appcall(rpython_print_item, w_s)
 
     def PRINT_NEWLINE(self, oparg):

@@ -34,14 +34,12 @@ def sc_locals(_, *args):
 def sc_isinstance(space, w_instance, w_type):
     if w_instance.foldable() and w_type.foldable():
         return const(isinstance(w_instance.value, w_type.value))
-    return space.frame.do_operation('simple_call', const(isinstance),
-            w_instance, w_type)
+    return space.appcall(isinstance, w_instance, w_type)
 
 @register_flow_sc(getattr)
 def sc_getattr(space, w_obj, w_index, w_default=None):
     if w_default is not None:
-        return space.frame.do_operation('simple_call', const(getattr), w_obj,
-                                        w_index, w_default)
+        return space.appcall(getattr, w_obj, w_index, w_default)
     else:
         return space.getattr(w_obj, w_index)
 
