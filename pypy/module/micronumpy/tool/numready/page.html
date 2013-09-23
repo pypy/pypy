@@ -3,9 +3,11 @@
     <head>
         <title>NumPyPy Status</title>
         <meta http-equiv="content-type" content="text/html; charset=utf-8">
+        <meta name="description" content="How much of numpy exists in pypy?" >
         <style type="text/css">
             body {
                 font-family: 'Consolas', 'Bitstream Vera Sans Mono', monospace;
+                border: 8px
             }
             h1 {
                 text-align: center;
@@ -33,8 +35,10 @@
         </style>
     </head>
     <body>
-        <h1>NumPyPy Status</h1>
+        <h1>NumPyPy Status: how much of numpy can you use in pypy?</h1>
         <h3>Version: {{ ver }}</h3>
+        <h3>numpy compatability test results, generated automatically by running</br>
+        <code>pypy/module/micronumpy/tool/numready/main.py &ltpath-to-latest-pypy&gt</code></h3>
         <h3>Overall: {{ msg }}</h3>
         <table>
             <thead>
