@@ -46,7 +46,7 @@ class BaseApiTest(LeakCheckingTest):
             raise Exception("DID NOT RAISE")
         if getattr(space, 'w_' + expected_exc.__name__) is not operror.w_type:
             raise Exception("Wrong exception")
-        state.clear_exception()
+        return state.clear_exception()
 
     def setup_method(self, func):
         freeze_refcnts(self)

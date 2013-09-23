@@ -52,6 +52,10 @@ Added some addition tests for statvfs.
 .. branch: ndarray-subtype
 Allow subclassing ndarray, i.e. matrix
 
+.. branch: pypy-pyarray
+Implement much of numpy's c api in cpyext, allows (slow) access to ndarray
+from c
+
 .. branch: kill-ootype
 
 .. branch: fast-slowpath

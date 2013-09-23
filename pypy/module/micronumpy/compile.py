@@ -47,6 +47,9 @@ class W_TypeObject(W_Root):
     def __init__(self, name):
         self.name = name
 
+    def lookup(self, name):
+        return self.getdictvalue(self, name)
+
 class FakeSpace(object):
     w_ValueError = W_TypeObject("ValueError")
     w_TypeError = W_TypeObject("TypeError")
@@ -203,6 +206,10 @@ class FakeSpace(object):
             if isinstance(w_obj, W_NDimArray):
                 return W_NDimArray
             return self.w_None
+
+    def lookup(self, w_obj, name):
+        w_type = self.type(w_obj)
+        return w_type.lookup(name)
 
     def gettypefor(self, w_obj):
         return None

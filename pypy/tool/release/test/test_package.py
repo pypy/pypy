@@ -3,7 +3,7 @@ import py
 from pypy.conftest import pypydir
 from pypy.tool.release import package
 from pypy.module.sys.version import  CPYTHON_VERSION
-import tarfile, zipfile, os, sys
+import tarfile, zipfile, sys
 
 def test_dir_structure(test='test'):
     # make sure we have sort of pypy-c
@@ -61,9 +61,12 @@ def test_dir_structure(test='test'):
                     assert zh.open(member)
                 else:
                     assert th.getmember(member)
+            else:
+                print 'include file "%s" not found, are we translated?' % includedir.join(name)
         check_include('Python.h')
         check_include('modsupport.h')
         check_include('pypy_decl.h')
+        check_include('numpy/arrayobject.h')
     finally:
         if fake_pypy_c:
             pypy_c.remove()
