@@ -60,25 +60,6 @@ class FlowObjSpace(object):
     def build_flow(self, func):
         return build_flow(func, self)
 
-    is_ = None     # real version added by add_operations()
-    id  = None     # real version added by add_operations()
-
-    def newdict(self, module="ignored"):
-        return self.frame.do_operation('newdict')
-
-    def newtuple(self, args_w):
-        if all(isinstance(w_arg, Constant) for w_arg in args_w):
-            content = [w_arg.value for w_arg in args_w]
-            return Constant(tuple(content))
-        else:
-            return self.frame.do_operation('newtuple', *args_w)
-
-    def newlist(self, args_w, sizehint=None):
-        return self.frame.do_operation('newlist', *args_w)
-
-    def newslice(self, w_start, w_stop, w_step):
-        return self.frame.do_operation('newslice', w_start, w_stop, w_step)
-
     def newbool(self, b):
         if b:
             return self.w_True

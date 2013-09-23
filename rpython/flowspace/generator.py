@@ -128,7 +128,7 @@ def tweak_generator_body_graph(Entry, graph):
         assert block is not stopblock
         for index in range(len(block.operations)-1, -1, -1):
             op = block.operations[index]
-            if op.opname == 'yield':
+            if op.opname == 'yield_':
                 [v_yielded_value] = op.args
                 del block.operations[index]
                 newlink = split_block(None, block, index)

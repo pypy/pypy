@@ -300,6 +300,12 @@ add_operator('set', 3, pyfunc=set)
 add_operator('delete', 2, pyfunc=delete)
 add_operator('userdel', 1, pyfunc=userdel)
 add_operator('buffer', 1, pyfunc=buffer, pure=True)   # see buffer.py
+add_operator('yield_', 1)
+add_operator('newdict', 0)
+add_operator('newtuple', None, pure=True, pyfunc=lambda *args:args)
+add_operator('newlist', None)
+add_operator('newslice', 3)
+
 
 class Pow(PureOperation):
     opname = 'pow'

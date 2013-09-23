@@ -419,11 +419,6 @@ class FlowSpaceFrame(object):
             return w_condition.value
         return self.recorder.guessbool(self, w_condition)
 
-    def do_operation(self, name, *args_w):
-        spaceop = SpaceOperation(name, args_w, Variable())
-        self.record(spaceop)
-        return spaceop.result
-
     def record(self, spaceop):
         recorder = self.recorder
         if getattr(recorder, 'final_state', None) is not None:
@@ -704,7 +699,7 @@ class FlowSpaceFrame(object):
     def YIELD_VALUE(self, _):
         assert self.pycode.is_generator
         w_result = self.popvalue()
-        self.do_operation('yield', w_result)
+        self.space.yield_(w_result)
         # XXX yield expressions not supported. This will blow up if the value
         # isn't popped straightaway.
         self.pushvalue(None)
@@ -916,7 +911,7 @@ class FlowSpaceFrame(object):
         # This opcode was added with pypy-1.8.  Here is a simpler
         # version, enough for annotation.
         last_val = self.popvalue()
-        self.pushvalue(self.space.newlist([]))
+        self.pushvalue(self.space.newlist())
         self.pushvalue(last_val)
 
     def call_function(self, oparg, w_star=None, w_starstar=None):
@@ -1082,12 +1077,12 @@ class FlowSpaceFrame(object):
 
     def BUILD_TUPLE(self, itemcount):
         items = self.popvalues(itemcount)
-        w_tuple = self.space.newtuple(items)
+        w_tuple = self.space.newtuple(*items)
         self.pushvalue(w_tuple)
 
     def BUILD_LIST(self, itemcount):
         items = self.popvalues(itemcount)
-        w_list = self.space.newlist(items)
+        w_list = self.space.newlist(*items)
         self.pushvalue(w_list)
 
     def BUILD_MAP(self, itemcount):
