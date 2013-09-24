@@ -2023,6 +2023,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
 
     def _collect_ref_rec(self, root, ignored):
         obj = root.address[0]
+        # XXX minimark.py doesn't read anything from 'obj' here.
+        # Can this lead to seriously more cache pressure?
         if self.header(obj).tid & (GCFLAG_VISITED|GCFLAG_GRAY) != 0:
             return
         self.header(obj).tid |= GCFLAG_GRAY
