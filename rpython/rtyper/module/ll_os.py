@@ -1689,6 +1689,9 @@ class RegisterOs(BaseLazyRegistering):
             finally:
                 lltype.free(buf, flavor='raw')
 
+        return extdef([str], None, llimpl=tmpnam_llimpl,
+                      export_name="ll_os.ll_os_tmpnam")
+
 # --------------------------- os.stat & variants ---------------------------
 
     @registering(os.fstat)
