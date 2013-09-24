@@ -31,6 +31,8 @@ NOT_REALLY_CONST = {
 
 # built-ins that can always raise exceptions
 builtins_exceptions = {
+    int: [ValueError],
+    float: [ValueError],
     chr: [ValueError],
     unichr: [ValueError],
     unicode: [UnicodeDecodeError],
