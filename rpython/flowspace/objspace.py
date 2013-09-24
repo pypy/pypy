@@ -158,14 +158,9 @@ class FlowObjSpace(object):
     def import_from(self, w_module, w_name):
         assert isinstance(w_module, Constant)
         assert isinstance(w_name, Constant)
-        # handle sys
-        if w_module in NOT_REALLY_CONST:
-            const_w = NOT_REALLY_CONST[w_module]
-            if w_name not in const_w:
-                return self.frame.do_op(op.getattr(w_module, w_name))
         try:
-            return const(getattr(w_module.value, w_name.value))
-        except AttributeError:
+            return self.getattr(w_module, w_name)
+        except FlowingError:
             exc = ImportError("cannot import name '%s'" % w_name.value)
             raise Raise(const(exc))
 
