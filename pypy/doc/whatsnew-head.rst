@@ -101,3 +101,5 @@ Unbreak tests in rlib.
 Use subclasses of SpaceOperation instead of SpaceOperator objects.
 Random cleanups in flowspace.
 
+.. branch: file-support-in-rpython
+make open() and friends rpython
