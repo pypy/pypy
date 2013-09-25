@@ -86,7 +86,7 @@ class StdTypeModel:
         self.typeorder = {
             objectobject.W_ObjectObject: [],
             boolobject.W_BoolObject: [],
-            intobject.W_IntObject: [],
+            intobject.W_IntObject: [], # XXX: (And self.typeorder[intobject] below)
             floatobject.W_FloatObject: [],
             stringobject.W_StringObject: [],
             bytearrayobject.W_BytearrayObject: [],

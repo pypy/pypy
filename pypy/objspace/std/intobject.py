@@ -29,6 +29,10 @@ class W_AbstractIntObject(W_Object):
     def int(self, space):
         raise NotImplementedError
 
+    def descr_long(self, space):
+        from pypy.objspace.std.longobject import W_LongObject
+        return W_LongObject.fromint(space, self.int_w(space))
+
     def descr_format(self, space, w_format_spec):
         return newformat.run_formatter(space, w_format_spec,
                                        "format_int_or_long", self,
@@ -44,9 +48,6 @@ class W_AbstractIntObject(W_Object):
     def descr_coerce(self, space, w_other):
         if not space.isinstance_w(w_other, space.w_int):
             return space.w_NotImplemented
-        # XXX: have to call space.int on w_other: 2
-        # .__coerce__(True) -> (2, 1): actually cpython doesn't do
-        # this, so i don't care!
         return space.newtuple([self, w_other])
 
     def _make_descr_binop(opname):
@@ -337,6 +338,40 @@ class W_AbstractIntObject(W_Object):
     def descr_getnewargs(self, space):
         return space.newtuple([wrapint(space, space.int_w(self))])
 
+    def descr_conjugate(self, space):
+        "Returns self, the complex conjugate of any int."
+        return space.int(self)
+
+    def descr_bit_length(self, space):
+        """int.bit_length() -> int
+
+        Number of bits necessary to represent self in binary.
+        >>> bin(37)
+        '0b100101'
+        >>> (37).bit_length()
+        6
+        """
+        val = space.int_w(self)
+        if val < 0:
+            val = -val
+        bits = 0
+        while val:
+            bits += 1
+            val >>= 1
+        return space.wrap(bits)
+
+    def descr_get_numerator(self, space):
+        return space.int(self)
+
+    def descr_get_denominator(self, space):
+        return space.wrap(1)
+
+    def descr_get_real(self, space):
+        return space.int(self)
+
+    def descr_get_imag(self, space):
+        return space.wrap(0)
+
 
 class W_IntObject(W_AbstractIntObject):
     __slots__ = 'intval'
@@ -436,29 +471,6 @@ def _pow_impl(space, iv, iw, iz):
     return ix
 
 # ____________________________________________________________
-
-def descr_conjugate(space, w_int):
-    "Returns self, the complex conjugate of any int."
-    return space.int(w_int)
-
-def descr_bit_length(space, w_int):
-    """int.bit_length() -> int
-
-    Number of bits necessary to represent self in binary.
-    >>> bin(37)
-    '0b100101'
-    >>> (37).bit_length()
-    6
-    """
-    val = space.int_w(w_int)
-    if val < 0:
-        val = -val
-    bits = 0
-    while val:
-        bits += 1
-        val >>= 1
-    return space.wrap(bits)
-
 
 def wrapint(space, x):
     if space.config.objspace.std.withprebuiltint:
@@ -589,18 +601,6 @@ def descr__new__(space, w_inttype, w_x, w_base=None):
         W_IntObject.__init__(w_obj, value)
         return w_obj
 
-def descr_get_numerator(space, w_obj):
-    return space.int(w_obj)
-
-def descr_get_denominator(space, w_obj):
-    return space.wrap(1)
-
-def descr_get_real(space, w_obj):
-    return space.int(w_obj)
-
-def descr_get_imag(space, w_obj):
-    return space.wrap(0)
-
 # ____________________________________________________________
 
 
@@ -615,13 +615,14 @@ non-string. If the argument is outside the integer range a long object
 will be returned instead.''',
     __new__ = interp2app(descr__new__),
 
-    conjugate = interp2app(descr_conjugate),
-    bit_length = interp2app(descr_bit_length),
-    numerator = typedef.GetSetProperty(descr_get_numerator),
-    denominator = typedef.GetSetProperty(descr_get_denominator),
-    real = typedef.GetSetProperty(descr_get_real),
-    imag = typedef.GetSetProperty(descr_get_imag),
+    conjugate = interpindirect2app(W_AbstractIntObject.descr_conjugate),
+    bit_length = interpindirect2app(W_AbstractIntObject.descr_bit_length),
+    numerator = typedef.GetSetProperty(W_AbstractIntObject.descr_get_numerator),
+    denominator = typedef.GetSetProperty(W_AbstractIntObject.descr_get_denominator),
+    real = typedef.GetSetProperty(W_AbstractIntObject.descr_get_real),
+    imag = typedef.GetSetProperty(W_AbstractIntObject.descr_get_imag),
     __int__ = interpindirect2app(W_AbstractIntObject.int),
+    __long__ = interpindirect2app(W_AbstractIntObject.descr_long),
 
     __format__ = interpindirect2app(W_AbstractIntObject.descr_format),
     __hash__ = interpindirect2app(W_AbstractIntObject.descr_hash),
