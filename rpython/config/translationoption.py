@@ -76,7 +76,9 @@ translation_optiondescription = OptionDescription(
                      "none": [("translation.gcrootfinder", "n/a"),
                               ("translation.gcremovetypeptr", False)],
                  }),
-    BoolOption("gcremovetypeptr", "Remove the typeptr from every object",
+    BoolOption("gcremovetypeptr",
+               "Remove the typeptr from every object. " +
+               "Note: on 32-bits this only works with gcc for now.",
                default=IS_64_BITS, cmdline="--gcremovetypeptr"),
     ChoiceOption("gcrootfinder",
                  "Strategy for finding GC Roots (framework GCs only)",
