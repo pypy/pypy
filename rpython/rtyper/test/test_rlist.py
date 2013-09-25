@@ -1592,3 +1592,30 @@ class TestRlist(BaseRtypingTest):
             assert res == sum(map(ord, 'abcdef'))
         finally:
             rlist.ll_getitem_foldable_nonneg = prev
+
+    def test_extend_was_not_overallocating(self):
+        from rpython.rlib import rgc
+        from rpython.rlib.objectmodel import resizelist_hint
+        from rpython.rtyper.lltypesystem import lltype
+        old_arraycopy = rgc.ll_arraycopy
+        try:
+            GLOB = lltype.GcStruct('GLOB', ('seen', lltype.Signed))
+            glob = lltype.malloc(GLOB, immortal=True)
+            glob.seen = 0
+            def my_arraycopy(*args):
+                glob.seen += 1
+                return old_arraycopy(*args)
+            rgc.ll_arraycopy = my_arraycopy
+            def dummyfn():
+                lst = []
+                i = 0
+                while i < 30:
+                    i += 1
+                    resizelist_hint(lst, i)
+                    lst.append(i)
+                return glob.seen
+            res = self.interpret(dummyfn, [])
+        finally:
+            rgc.ll_arraycopy = old_arraycopy
+        #
+        assert 2 <= res <= 10
