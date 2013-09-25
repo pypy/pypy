@@ -1669,7 +1669,7 @@ class Assembler386(BaseAssembler):
             #     64-bits)
             #   - keep the lower half of what is read there (i.e.
             #     truncate to an unsigned 'N / 2' bytes value)
-            #   - multiply by 4 (on 32-bits only) and use it as an
+            #   - multiply by 8 (on 32-bits only) and use it as an
             #     offset in type_info_group
             #   - add 16/32 bytes, to go past the TYPE_INFO structure
             loc = locs[1]
@@ -1685,7 +1685,8 @@ class Assembler386(BaseAssembler):
             type_info_group = rffi.cast(lltype.Signed, type_info_group)
             expected_typeid = classptr - sizeof_ti - type_info_group
             if IS_X86_32:
-                expected_typeid >>= 2
+                assert (expected_typeid & 7) == 0
+                expected_typeid >>= 3
                 self.mc.CMP16(mem(locs[0], 0), ImmedLoc(expected_typeid))
             elif IS_X86_64:
                 self.mc.CMP32_mi((locs[0].value, 0), expected_typeid)

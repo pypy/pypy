@@ -723,7 +723,7 @@ class Regalloc(BaseRegalloc):
             # we use the following algorithm:
             #   - read the typeid from mem(locs[0]), i.e. at offset 0
             #   - keep the lower 16 bits read there
-            #   - multiply by 4 and use it as an offset in type_info_group
+            #   - multiply by 8 and use it as an offset in type_info_group
             #   - add 16 bytes, to go past the TYPE_INFO structure
             classptr = y_val
             # here, we have to go back from 'classptr' to the value expected
@@ -733,7 +733,8 @@ class Regalloc(BaseRegalloc):
             type_info_group = llop.gc_get_type_info_group(llmemory.Address)
             type_info_group = rffi.cast(lltype.Signed, type_info_group)
             expected_typeid = classptr - sizeof_ti - type_info_group
-            expected_typeid >>= 2
+            assert (expected_typeid & 7) == 0
+            expected_typeid >>= 3
             if check_imm_arg(expected_typeid):
                 arglocs[1] = imm(expected_typeid)
             else:
