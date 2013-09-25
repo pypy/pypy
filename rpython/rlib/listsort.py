@@ -8,7 +8,7 @@ from rpython.rlib.rarithmetic import ovfcheck
 ##         Adapted from CPython, original code and algorithms by Tim Peters
 
 def make_timsort_class(getitem=None, setitem=None, length=None,
-                       getitem_slice=None, lt=None, base_class=object):
+                       getitem_slice=None, lt=None):
 
     if getitem is None:
         def getitem(list, item):
@@ -30,7 +30,7 @@ def make_timsort_class(getitem=None, setitem=None, length=None,
         def lt(a, b):
             return a < b
 
-    class TimSort(base_class):
+    class TimSort(object):
         """TimSort(list).sort()
 
         Sorts the list in-place, using the overridable method lt() for comparison.
