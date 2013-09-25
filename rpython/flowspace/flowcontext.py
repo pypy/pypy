@@ -9,7 +9,7 @@ from rpython.tool.error import source_lines
 from rpython.tool.stdlib_opcode import host_bytecode_spec
 from rpython.flowspace.argument import CallSpec
 from rpython.flowspace.model import (Constant, Variable, Block, Link,
-    c_last_exception, SpaceOperation, const, FSException)
+    c_last_exception, const, FSException)
 from rpython.flowspace.framestate import (FrameState, recursively_unflatten,
     recursively_flatten)
 from rpython.flowspace.specialcase import (rpython_print_item,
