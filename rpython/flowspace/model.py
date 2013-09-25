@@ -417,6 +417,11 @@ class SpaceOperation(object):
         return "%r = %s(%s)" % (self.result, self.opname,
                                 ", ".join(map(repr, self.args)))
 
+    def replace(self, mapping):
+        newargs = [mapping.get(arg, arg) for arg in self.args]
+        newresult = mapping.get(self.result, self.result)
+        return type(self)(self.opname, newargs, newresult, self.offset)
+
 class Atom(object):
     def __init__(self, name):
         self.__name__ = name # make save_global happy

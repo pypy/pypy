@@ -265,8 +265,7 @@ def join_blocks(graph):
             def rename(v):
                 return renaming.get(v, v)
             def rename_op(op):
-                args = [rename(a) for a in op.args]
-                op = SpaceOperation(op.opname, args, rename(op.result), op.offset)
+                op = op.replace(renaming)
                 # special case...
                 if op.opname == 'indirect_call':
                     if isinstance(op.args[0], Constant):

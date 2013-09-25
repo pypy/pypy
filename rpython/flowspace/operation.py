@@ -59,6 +59,14 @@ class HLOperation(SpaceOperation):
         self.result = Variable()
         self.offset = -1
 
+    def replace(self, mapping):
+        newargs = [mapping.get(arg, arg) for arg in self.args]
+        newresult = mapping.get(self.result, self.result)
+        newop = type(self)(*newargs)
+        newop.result = newresult
+        newop.offset = self.offset
+        return newop
+
     @classmethod
     def make_sc(cls):
         def sc_operator(space, *args_w):
