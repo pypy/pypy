@@ -1678,6 +1678,20 @@ class RegisterOs(BaseLazyRegistering):
         return extdef([], str, llimpl=ctermid_llimpl,
                       export_name="ll_os.ll_os_ctermid")
 
+    @registering_if(os, 'tmpnam')
+    def register_os_tmpnam(self):
+        os_tmpnam = self.llexternal('tmpnam', [rffi.CCHARP], rffi.CCHARP)
+
+        def tmpnam_llimpl(name):
+            buf = rffi.str2charp(name)
+            try:
+                return rffi.charp2str(os_tmpnam(buf))
+            finally:
+                lltype.free(buf, flavor='raw')
+
+        return extdef([str], None, llimpl=tmpnam_llimpl,
+                      export_name="ll_os.ll_os_tmpnam")
+
 # --------------------------- os.stat & variants ---------------------------
 
     @registering(os.fstat)

@@ -215,6 +215,9 @@ class OneDimViewIterator(ConcreteArrayIterator):
     def reset(self):
         self.offset %= self.size
 
+    def get_index(self, d):
+        return self.index
+
 class MultiDimViewIterator(ConcreteArrayIterator):
     ''' The view iterator dtype can be different from the
     array.dtype, this is what makes it a View
@@ -267,6 +270,9 @@ class MultiDimViewIterator(ConcreteArrayIterator):
 
     def reset(self):
         self.offset %= self.size
+
+    def get_index(self, d):
+        return self.indexes[d]
 
 class AxisIterator(base.BaseArrayIterator):
     def __init__(self, array, shape, dim, cumultative):

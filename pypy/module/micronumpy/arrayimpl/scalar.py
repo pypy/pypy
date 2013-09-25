@@ -45,7 +45,7 @@ class Scalar(base.BaseArrayImplementation):
     def get_backstrides(self):
         return []
 
-    def create_iter(self, shape=None, backward_broadcast=False):
+    def create_iter(self, shape=None, backward_broadcast=False, require_index=False):
         return ScalarIterator(self)
 
     def get_scalar_value(self):
@@ -154,6 +154,13 @@ class Scalar(base.BaseArrayImplementation):
 
     def swapaxes(self, space, orig_array, axis1, axis2):
         raise Exception("should not be called")
+
+    def nonzero(self, space, index_type):
+        s = self.dtype.itemtype.bool(self.value)
+        w_res = W_NDimArray.from_shape(space, [s], index_type)
+        if s == 1:
+            w_res.implementation.setitem(0, index_type.itemtype.box(0)) 
+        return space.newtuple([w_res])
 
     def fill(self, w_value):
         self.value = w_value

@@ -318,25 +318,45 @@ def multidim_dot(space, left, right, result, dtype, right_critical_dim):
         lefti.next()
     return result
 
+count_all_true_driver = jit.JitDriver(name = 'numpy_count',
+                                      greens = ['shapelen', 'dtype'],
+                                      reds = 'auto')
+
+def count_all_true_concrete(impl):
+    s = 0
+    iter = impl.create_iter()
+    shapelen = len(impl.shape)
+    dtype = impl.dtype
+    while not iter.done():
+        count_all_true_driver.jit_merge_point(shapelen=shapelen, dtype=dtype)
+        s += iter.getitem_bool()
+        iter.next()
+    return s
 
 def count_all_true(arr):
     if arr.is_scalar():
         return arr.get_dtype().itemtype.bool(arr.get_scalar_value())
-    iter = arr.create_iter()
-    return count_all_true_iter(iter, arr.get_shape(), arr.get_dtype())
+    else:
+        return count_all_true_concrete(arr.implementation)
 
-count_all_true_iter_driver = jit.JitDriver(name = 'numpy_count',
-                                      greens = ['shapelen', 'dtype'],
-                                      reds = 'auto')
-def count_all_true_iter(iter, shape, dtype):
-    s = 0
-    shapelen = len(shape)
-    dtype = dtype
-    while not iter.done():
-        count_all_true_iter_driver.jit_merge_point(shapelen=shapelen, dtype=dtype)
-        s += iter.getitem_bool()
-        iter.next()
-    return s
+nonzero_driver = jit.JitDriver(name = 'numpy_nonzero',
+                               greens = ['shapelen', 'dims', 'dtype'],
+                               reds = 'auto')
+
+def nonzero(res, arr, box):
+    res_iter = res.create_iter()
+    arr_iter = arr.create_iter(require_index=True)
+    shapelen = len(arr.shape)
+    dtype = arr.dtype
+    dims = range(shapelen)
+    while not arr_iter.done():
+        nonzero_driver.jit_merge_point(shapelen=shapelen, dims=dims, dtype=dtype)
+        if arr_iter.getitem_bool():
+            for d in dims:
+                res_iter.setitem(box(arr_iter.get_index(d)))
+                res_iter.next()
+        arr_iter.next()
+    return res
 
 
 getitem_filter_driver = jit.JitDriver(name = 'numpy_getitem_bool',
@@ -374,9 +394,12 @@ setitem_filter_driver = jit.JitDriver(name = 'numpy_setitem_bool',
 
 def setitem_filter(arr, index, value, size):
     arr_iter = arr.create_iter()
-    index_iter = index.create_iter(arr.get_shape())
-    value_iter = value.create_iter([size])
     shapelen = len(arr.get_shape())
+    if shapelen > 1 and len(index.get_shape()) < 2:
+        index_iter = index.create_iter(arr.get_shape(), backward_broadcast=True)
+    else:
+        index_iter = index.create_iter()
+    value_iter = value.create_iter([size])
     index_dtype = index.get_dtype()
     arr_dtype = arr.get_dtype()
     while not index_iter.done():
