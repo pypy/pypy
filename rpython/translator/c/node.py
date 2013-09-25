@@ -500,6 +500,7 @@ class ContainerNode(Node):
                         _funccodegen_owner
                         globalcontainer""".split()
     eci_name = '_compilation_info'
+    force_aligned = ''
 
     def __init__(self, db, T, obj):
         Node.__init__(self, db)
@@ -563,8 +564,9 @@ class ContainerNode(Node):
         if name != self.name:
             lines[0] = '{ ' + lines[0]    # extra braces around the 'a' part
             lines[-1] += ' }'             # of the union
-        lines[0] = '%s = %s' % (
+        lines[0] = '%s%s = %s' % (
             cdecl(type, name, self.is_thread_local()),
+            self.force_aligned,
             lines[0])
         lines[-1] += ';'
         return lines
@@ -1027,6 +1029,7 @@ def weakrefnode_factory(db, T, obj):
 class GroupNode(ContainerNode):
     nodekind = 'group'
     count_members = None
+    force_aligned = ' PYPY_GROUP_ALIGNMENT'
 
     def __init__(self, *args):
         ContainerNode.__init__(self, *args)
@@ -1057,13 +1060,18 @@ class GroupNode(ContainerNode):
         ctype = ['%s {' % cdecl(self.implementationtypename, '')]
         for i, member in enumerate(self.obj.members):
             structtypename = self.db.gettype(typeOf(member))
-            ctype.append('\t%s;' % cdecl(structtypename, 'member%d' % i))
+            if i in self.obj.force_aligned:
+                alignment = self.force_aligned
+            else:
+                alignment = ''
+            ctype.append('\t%s%s;' % (cdecl(structtypename, 'member%d' % i),
+                                      alignment))
         ctype.append('} @')
         ctype = '\n'.join(ctype)
+        yield '#include "src/llgroup.h"'
         yield '%s;' % (
             forward_cdecl(ctype, self.name, self.db.standalone,
                           self.is_thread_local()))
-        yield '#include "src/llgroup.h"'
         yield 'PYPY_GROUP_CHECK_SIZE(%s)' % (self.name,)
         for i, member in enumerate(self.obj.members):
             structnode = self.db.getcontainernode(member)

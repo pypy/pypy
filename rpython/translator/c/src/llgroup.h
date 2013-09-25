@@ -6,30 +6,34 @@
 
 #if PYPY_LONG_BIT == 32 /************************************/
 /* On 32-bit platforms, a CombinedSymbolic is two USHORTs, and the
-   lower one stores the offset inside the group, divided by 4.  The
-   limitation is to have at most 256KB of data in the whole group. */
+   lower one stores the offset inside the group, divided by 8.  The
+   limitation is to have at most 512KB of data in the whole group. */
+
+#define PYPY_GROUP_ALIGNMENT  __attribute__((aligned(8)))
 
 typedef unsigned short pypy_halfword_t;
 
 #define GROUP_MEMBER_OFFSET(grouptype, membername)  \
-  ((unsigned short)(((long)&((grouptype*)NULL)->membername) / 4))
+  ((unsigned short)(((long)&((grouptype*)NULL)->membername) / 8))
 
 #define _OP_GET_GROUP_MEMBER(groupptr, compactoffset)  \
-  (((char*)groupptr) + ((long)compactoffset)*4)
+  (((char*)groupptr) + ((long)compactoffset)*8)
 
 #define _OP_GET_NEXT_GROUP_MEMBER(groupptr, compactoffset, skipoffset)  \
-  ((((char*)groupptr) + skipoffset) + ((long)compactoffset)*4)
+  ((((char*)groupptr) + skipoffset) + ((long)compactoffset)*8)
 
 /* A macro to crash at compile-time if sizeof(group) is too large.
    Uses a hack that I've found on some random forum.  Haaaaaaaaaackish. */
 #define PYPY_GROUP_CHECK_SIZE(groupname)   \
   typedef char group_##groupname##_is_too_large[   \
-	2*(sizeof(groupname) <= 65536*4)-1];
+	2*(sizeof(groupname) <= 65536*8)-1];
 
 
 #else /******************************************************/
 /* On 64-bit platforms, a CombinedSymbolic is two UINTs, and the lower
    one is an 32-bit offset from the start of the group. */
+
+#define PYPY_GROUP_ALIGNMENT  /* nothing */
 
 typedef unsigned int pypy_halfword_t;
 

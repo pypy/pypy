@@ -311,7 +311,7 @@ class TypeLayoutBuilder(object):
                 fullinfo = lltype.malloc(GCData.VARSIZE_TYPE_INFO,
                                          immortal=True, zero=True)
                 info = fullinfo.header
-            type_id = self.type_info_group.add_member(fullinfo)
+            type_id = self.type_info_group.add_member(fullinfo, align=8)
             if self.can_encode_type_shape:
                 encode_type_shape(self, info, TYPE, type_id.index)
             else:

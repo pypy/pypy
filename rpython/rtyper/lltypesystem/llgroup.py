@@ -27,8 +27,9 @@ class group(lltype._container):
     def __init__(self, name):
         self.name = name
         self.members = []
+        self.force_aligned = set()
 
-    def add_member(self, structptr):
+    def add_member(self, structptr, align=1):
         TYPE = lltype.typeOf(structptr)
         assert isinstance(TYPE.TO, lltype.Struct)
         assert TYPE.TO._gckind == 'raw'
@@ -40,6 +41,9 @@ class group(lltype._container):
         assert struct._parentstructure() is None
         index = len(self.members)
         self.members.append(struct)
+        assert align in (1, 8)
+        if align == 8:
+            self.force_aligned.add(index)
         _membership[struct] = self
         return GroupMemberOffset(self, index)
 
