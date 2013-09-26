@@ -24,9 +24,10 @@ extern struct pypysig_long_struct pypysig_counter;
    use macros when compiling as a stand-alone program, but still
    export a function with the correct name for testing */
 void *pypysig_getaddr_occurred(void);
+long pypysig_get_occurred(void);
+void pypysig_set_occurred(long);
 #define pypysig_getaddr_occurred()   ((void *)(&pypysig_counter))
-
-static long pypysig_get_occurred(void) { return pypysig_counter.value; }
-static void pypysig_set_occurred(long value) { pypysig_counter.value = value; }
+#define pypysig_get_occurred()       (pypysig_counter.value)
+#define pypysig_set_occurred(nv)     (pypysig_counter.value = nv)
 
 #endif

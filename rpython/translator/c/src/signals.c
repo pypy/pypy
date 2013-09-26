@@ -43,6 +43,19 @@ void *pypysig_getaddr_occurred(void)
     return (void *)(&pypysig_counter); 
 }
 
+#undef pypysig_get_occurred
+long pypysig_get_occurred(void)
+{
+    return pypysig_counter.value;
+}
+
+#undef pypysig_set_occurred
+void pypysig_set_occurred(long nvalue)
+{
+    pypysig_counter.value = nvalue;
+}
+
+
 void pypysig_ignore(int signum)
 {
 #ifdef SA_RESTART
