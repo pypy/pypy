@@ -16,6 +16,8 @@ else:
 #        +--------------------+    <== aligned to 16 bytes
 #        |   return address   |
 #        +--------------------+
+#        |   STM resume buf   |    (4 extra words, only with STM)
+#        +--------------------+
 #        |    saved regs      |
 #        +--------------------+
 #        |   scratch          |
@@ -42,3 +44,5 @@ else:
     JITFRAME_FIXED_SIZE = 28 # 13 GPR + 15 XMM
 
 assert PASS_ON_MY_FRAME >= 12       # asmgcc needs at least JIT_USE_WORDS + 3
+
+STM_RESUME_BUF = 4

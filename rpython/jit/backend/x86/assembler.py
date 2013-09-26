@@ -18,7 +18,7 @@ from rpython.jit.backend.x86.regalloc import (RegAlloc, get_ebp_ofs,
 from rpython.jit.backend.llsupport.regalloc import (get_scale, valid_addressing_size)
 from rpython.jit.backend.x86.arch import (FRAME_FIXED_SIZE, WORD, IS_X86_64,
                                        JITFRAME_FIXED_SIZE, IS_X86_32,
-                                       PASS_ON_MY_FRAME)
+                                       PASS_ON_MY_FRAME, STM_RESUME_BUF)
 from rpython.jit.backend.x86.regloc import (eax, ecx, edx, ebx, esp, ebp, esi,
     xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7, r8, r9, r10, r11, edi,
     r12, r13, r14, r15, X86_64_SCRATCH_REG, X86_64_XMM_SCRATCH_REG,
@@ -290,7 +290,6 @@ class Assembler386(BaseAssembler):
                 rgc.cast_instance_to_gcref(self.cpu.propagate_exception_descr))
         ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
         self.mc.MOV(RawEbpLoc(ofs), imm(propagate_exception_descr))
-        self.mc.MOV_rr(eax.value, ebp.value)
         #
         self._call_footer()
         rawstart = self.mc.materialize(self.cpu.asmmemmgr, [])
@@ -299,8 +298,7 @@ class Assembler386(BaseAssembler):
 
     def _get_stm_tl(self, adr):
         """Makes 'adr' relative to threadlocal-base if we run in STM. 
-        Before using such a relative address, call 
-        self._stm_tl_segment_prefix_if_necessary."""
+        Before using such a relative address, call _tl_segment_if_stm()."""
         if self.cpu.gc_ll_descr.stm and we_are_translated():
             # only for STM and not during tests
             result = adr - stmtlocal.threadlocal_base()
@@ -313,7 +311,7 @@ class Assembler386(BaseAssembler):
         in STM and not during testing."""
         if self.cpu.gc_ll_descr.stm and we_are_translated():
             stmtlocal.tl_segment_prefix(mc)
-        
+
     def _build_stack_check_slowpath(self):
         if self.cpu.gc_ll_descr.stm:
             return      # XXX no stack check on STM for now
@@ -552,6 +550,34 @@ class Assembler386(BaseAssembler):
             descr.set_b_slowpath(4, rawstart)
         else:
             descr.set_b_slowpath(withcards + 2 * withfloats, rawstart)
+
+
+    def _build_stm_longjmp_callback(self):
+        assert self.cpu.gc_ll_descr.stm
+        if not we_are_translated():
+            return    # tests only
+        #
+        # make the stm_longjmp_callback() function, with signature
+        #     void (*longjmp_callback)(void *stm_resume_buffer)
+        mc = codebuf.MachineCodeBlockWrapper()
+        #
+        # 'edi' contains the stm resume buffer, so the new stack
+        # location that we have to enforce is 'edi - FRAME_FIXED_SIZE * WORD'.
+        if IS_X86_32:
+            mc.MOV_rs(edi.value, WORD)      # first argument
+        mc.MOV_rr(esp.value, edi.value)
+        mc.SUB_ri(esp.value, FRAME_FIXED_SIZE * WORD)
+        #
+        # must restore 'ebp' from its saved value in the shadowstack
+        self._reload_frame_if_necessary(mc)
+        #
+        # jump to the place saved in the stm_resume_buffer
+        # (to "HERE" in genop_stm_transaction_break())
+        mc.MOV_rs(eax.value, FRAME_FIXED_SIZE * WORD)
+        mc.PUSH_r(eax.value)
+        mc.JMP_r(eax.value)
+        self.stm_longjmp_callback_addr = mc.materialize(self.cpu.asmmemmgr, [])
+
 
     @rgc.no_release_gil
     def assemble_loop(self, loopname, inputargs, operations, looptoken, log,
@@ -848,13 +874,19 @@ class Assembler386(BaseAssembler):
             frame_depth = max(frame_depth, target_frame_depth)
         return frame_depth
 
+    def _get_whole_frame_size(self):
+        frame_size = FRAME_FIXED_SIZE
+        if self.cpu.gc_ll_descr.stm:
+            frame_size += STM_RESUME_BUF
+        return frame_size
+
     def _call_header(self):
-        self.mc.SUB_ri(esp.value, FRAME_FIXED_SIZE * WORD)
+        self.mc.SUB_ri(esp.value, self._get_whole_frame_size() * WORD)
         self.mc.MOV_sr(PASS_ON_MY_FRAME * WORD, ebp.value)
         if IS_X86_64:
             self.mc.MOV_rr(ebp.value, edi.value)
         else:
-            self.mc.MOV_rs(ebp.value, (FRAME_FIXED_SIZE + 1) * WORD)
+            self.mc.MOV_rs(ebp.value, (self._get_whole_frame_size() + 1) * WORD)
 
         for i, loc in enumerate(self.cpu.CALLEE_SAVE_REGISTERS):
             self.mc.MOV_sr((PASS_ON_MY_FRAME + i + 1) * WORD, loc.value)
@@ -882,6 +914,18 @@ class Assembler386(BaseAssembler):
             #
 
     def _call_footer(self):
+        if self.cpu.gc_ll_descr.stm and we_are_translated():
+            # call stm_invalidate_jmp_buf(), in case we called
+            # stm_transaction_break() earlier
+            assert IS_X86_64
+            # load the address of the STM_RESUME_BUF
+            self.mc.LEA_rs(edi.value, FRAME_FIXED_SIZE * WORD)
+            fn = stmtlocal.stm_invalidate_jmp_buf_fn
+            self.mc.CALL(imm(self.cpu.cast_ptr_to_int(fn)))
+
+        # the return value is the jitframe
+        self.mc.MOV_rr(eax.value, ebp.value)
+
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap and gcrootmap.is_shadow_stack:
             self._call_footer_shadowstack(gcrootmap)
@@ -891,7 +935,7 @@ class Assembler386(BaseAssembler):
                            (i + 1 + PASS_ON_MY_FRAME) * WORD)
 
         self.mc.MOV_rs(ebp.value, PASS_ON_MY_FRAME * WORD)
-        self.mc.ADD_ri(esp.value, FRAME_FIXED_SIZE * WORD)
+        self.mc.ADD_ri(esp.value, self._get_whole_frame_size() * WORD)
         self.mc.RET()
 
     def _load_shadowstack_top_in_ebx(self, mc, gcrootmap):
@@ -2071,8 +2115,6 @@ class Assembler386(BaseAssembler):
         mc.MOV_br(ofs2, eax.value)
         mc.POP(eax)
         mc.MOV_br(ofs, eax.value)
-        # the return value is the jitframe
-        mc.MOV_rr(eax.value, ebp.value)
 
         self._call_footer()
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
@@ -2832,6 +2874,41 @@ class Assembler386(BaseAssembler):
         # XXX kill me
         assert isinstance(reg, RegLoc)
         self.mc.MOV_rr(reg.value, ebp.value)
+
+    def genop_stm_transaction_break(self, op, arglocs, result_loc):
+        assert self.cpu.gc_ll_descr.stm
+        if not we_are_translated():
+            return     # tests only
+        # "if stm_should_break_transaction()"
+        mc = self.mc
+        fn = stmtlocal.stm_should_break_transaction_fn
+        mc.CALL(imm(self.cpu.cast_ptr_to_int(fn)))
+        mc.TEST8_rr(eax.value, eax.value)
+        mc.J_il8(rx86.Conditions['Z'], 0)
+        jz_location = mc.get_relative_pos()
+        #
+        # call stm_transaction_break() with the address of the
+        # STM_RESUME_BUF and the custom longjmp function
+        mc.LEA_rs(edi.value, FRAME_FIXED_SIZE * WORD)
+        mc.MOV_ri(esi.value, self.stm_longjmp_callback_addr)
+        fn = stmtlocal.stm_transaction_break_fn
+        mc.CALL(imm(self.cpu.cast_ptr_to_int(fn)))
+        #
+        # Fill the stm resume buffer.  Don't do it before the call!
+        # The previous transaction may still be aborted during the call
+        # above, so we need the old content of the buffer!
+        # For now the buffer only contains the address of the resume
+        # point in this piece of code (at "HERE").
+        mc.CALL_l(0)
+        # "HERE"
+        mc.POP_r(eax.value)
+        mc.MOV_sr(FRAME_FIXED_SIZE * WORD, eax.value)
+        #
+        # patch the JZ above
+        offset = mc.get_relative_pos() - jz_location
+        assert 0 < offset <= 127
+        mc.overwrite(jz_location-1, chr(offset))
+
 
 genop_discard_list = [Assembler386.not_implemented_op_discard] * rop._LAST
 genop_list = [Assembler386.not_implemented_op] * rop._LAST

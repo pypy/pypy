@@ -137,9 +137,14 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
                 self.always_inevitable = False
                 self.newops.append(op)
                 continue
-            # ----------  jump, finish, other ignored ops  ----------
-            if op.getopnum() in (rop.JUMP,
-                                 rop.FINISH,
+            # ----------  jumps  ----------
+            if op.getopnum() == rop.JUMP:
+                self.newops.append(
+                    ResOperation(rop.STM_TRANSACTION_BREAK, [], None))
+                self.newops.append(op)
+                continue
+            # ----------  finish, other ignored ops  ----------
+            if op.getopnum() in (rop.FINISH,
                                  rop.FORCE_TOKEN,
                                  rop.READ_TIMESTAMP,
                                  rop.MARK_OPAQUE_PTR,

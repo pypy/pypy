@@ -347,6 +347,7 @@ def _make_execute_list():
                          rop.CALL_MALLOC_NURSERY_VARSIZE,
                          rop.CALL_MALLOC_NURSERY_VARSIZE_FRAME,
                          rop.LABEL,
+                         rop.STM_TRANSACTION_BREAK,
                          ):      # list of opcodes never executed by pyjitpl
                 continue
             raise AssertionError("missing %r" % (key,))

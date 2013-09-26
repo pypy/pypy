@@ -11,7 +11,7 @@ from rpython.jit.backend.llsupport.regalloc import (FrameManager, BaseRegalloc,
      RegisterManager, TempBox, compute_vars_longevity, is_comparison_or_ovf_op)
 from rpython.jit.backend.x86 import rx86
 from rpython.jit.backend.x86.arch import (WORD, JITFRAME_FIXED_SIZE, IS_X86_32,
-    IS_X86_64)
+    IS_X86_64, FRAME_FIXED_SIZE)
 from rpython.jit.backend.x86.jump import remap_frame_layout_mixed
 from rpython.jit.backend.x86.regloc import (FrameLoc, RegLoc, ConstFloatLoc,
     FloatImmedLoc, ImmedLoc, imm, imm0, imm1, ecx, eax, edx, ebx, esi, edi,
@@ -1266,6 +1266,13 @@ class RegAlloc(BaseRegalloc):
                 loc = arglocs[i]
                 if isinstance(loc, FrameLoc):
                     self.fm.hint_frame_locations[box] = loc
+
+    def consider_stm_transaction_break(self, op):
+        # XXX use the extra 3 words in the stm resume buffer to save
+        # up to 3 registers, too.  For now we just flush them all.
+        self.xrm.before_call(save_all_regs=1)
+        self.rm.before_call(save_all_regs=1)
+        self.perform(op, [], None)
 
     def consider_jump(self, op):
         assembler = self.assembler
