@@ -127,6 +127,10 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
                                  rop.COPYUNICODECONTENT):
                 self.handle_copystrcontent(op)
                 continue
+            # ----------  raw getfields and setfields  ----------
+            if op.getopnum() in (rop.GETFIELD_RAW, rop.SETFIELD_RAW):
+                if self.maybe_handle_raw_accesses(op):
+                    continue
             # ----------  labels  ----------
             if op.getopnum() == rop.LABEL:
                 self.known_category.clear()
@@ -241,3 +245,12 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
 
     def handle_ptr_eq(self, op):
         self.newops.append(op)
+
+    def maybe_handle_raw_accesses(self, op):
+        from rpython.jit.backend.llsupport.descr import FieldDescr
+        descr = op.getdescr()
+        assert isinstance(descr, FieldDescr)
+        if descr.stm_dont_track_raw_accesses:
+            self.newops.append(op)
+            return True
+        return False

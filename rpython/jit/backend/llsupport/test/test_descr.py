@@ -118,6 +118,16 @@ def test_get_field_descr_longlong():
     assert descr.flag == FLAG_FLOAT
     assert descr.field_size == 8
 
+def test_get_field_descr_stm_dont_track_raw_accesses():
+    c2 = GcCache(True)
+    S = lltype.Struct('S', ('x', lltype.Signed))
+    T = lltype.Struct('T', ('y', lltype.Signed),
+                      hints={'stm_dont_track_raw_accesses': True})
+    descr_x = get_field_descr(c2, S, 'x')
+    descr_y = get_field_descr(c2, T, 'y')
+    assert descr_x.stm_dont_track_raw_accesses == False
+    assert descr_y.stm_dont_track_raw_accesses == True
+
 
 def test_get_array_descr():
     U = lltype.Struct('U')

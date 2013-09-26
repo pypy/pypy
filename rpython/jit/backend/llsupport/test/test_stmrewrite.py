@@ -507,6 +507,21 @@ class TestStm(RewriteTests):
             jump(i3, i4)
         """)
 
+    def test_getfield_raw_stm_dont_track_raw_accesses(self):
+        c1 = GcCache(True)
+        F = lltype.Struct('F', ('x', lltype.Signed),
+                          hints={'stm_dont_track_raw_accesses': True})
+        fdescr = get_field_descr(c1, F, 'x')
+        self.check_rewrite("""
+            [i1]
+            i2 = getfield_raw(i1, descr=fdescr)
+            jump(i2)
+        """, """
+            [i1]
+            i2 = getfield_raw(i1, descr=fdescr)
+            jump(i2)
+        """, fdescr=fdescr)
+
     def test_getfield_raw_over_label(self):
         self.check_rewrite("""
             [i1, i2]

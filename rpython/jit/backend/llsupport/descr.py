@@ -87,12 +87,15 @@ class FieldDescr(ArrayOrFieldDescr):
     offset = 0      # help translation
     field_size = 0
     flag = '\x00'
+    stm_dont_track_raw_accesses = False
 
-    def __init__(self, name, offset, field_size, flag):
+    def __init__(self, name, offset, field_size, flag,
+                 stm_dont_track_raw_accesses=False):
         self.name = name
         self.offset = offset
         self.field_size = field_size
         self.flag = flag
+        self.stm_dont_track_raw_accesses = stm_dont_track_raw_accesses
 
     def is_pointer_field(self):
         return self.flag == FLAG_POINTER
@@ -120,7 +123,10 @@ def get_field_descr(gccache, STRUCT, fieldname):
         FIELDTYPE = getattr(STRUCT, fieldname)
         flag = get_type_flag(FIELDTYPE)
         name = '%s.%s' % (STRUCT._name, fieldname)
-        fielddescr = FieldDescr(name, offset, size, flag)
+        stm_dont_track_raw_accesses = STRUCT._hints.get(
+            'stm_dont_track_raw_accesses', False)
+        fielddescr = FieldDescr(name, offset, size, flag,
+                                stm_dont_track_raw_accesses)
         cachedict = cache.setdefault(STRUCT, {})
         cachedict[fieldname] = fielddescr
         return fielddescr
