@@ -86,20 +86,20 @@ pypysig_pushback = external('pypysig_pushback', [rffi.INT], lltype.Void,
 
 # don't use rffi.LONGP because the JIT doesn't support raw arrays so far
 struct_name = 'pypysig_long_struct'
-LONG_STRUCT = lltype.Struct(struct_name, ('c_value', lltype.Signed),
-                            hints={'c_name' : struct_name, 'external' : 'C'})
+_LONG_STRUCT = lltype.Struct(struct_name, ('c_value', lltype.Signed),
+                             hints={'c_name' : struct_name, 'external' : 'C',
+                                    'stm_dont_track_raw_accesses': True})
 del struct_name
 
 pypysig_getaddr_occurred = external('pypysig_getaddr_occurred', [],
-                                    lltype.Ptr(LONG_STRUCT), _nowrapper=True,
+                                    lltype.Ptr(_LONG_STRUCT), _nowrapper=True,
                                     transactionsafe=True,
                                     elidable_function=True)
 pypysig_get_occurred = external('pypysig_get_occurred', [], lltype.Signed,
                                 _nowrapper=True,
                                 transactionsafe=True)
 pypysig_set_occurred = external('pypysig_set_occurred', [lltype.Signed],
-                                lltype.Void, _nowrapper=True,
-                                transactionsafe=True)
+                                lltype.Void, _nowrapper=True)
 c_alarm = external('alarm', [rffi.INT], rffi.INT)
 c_pause = external('pause', [], rffi.INT, threadsafe=True)
 c_siginterrupt = external('siginterrupt', [rffi.INT, rffi.INT], rffi.INT)

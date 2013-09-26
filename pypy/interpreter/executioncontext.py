@@ -345,7 +345,7 @@ class AbstractActionFlag(object):
             self.fired_actions.append(action)
             # set the ticker to -1 in order to force action_dispatcher()
             # to run at the next possible bytecode
-            self.reset_ticker(-1)
+            self.rearm_ticker()
 
     def register_periodic_action(self, action, use_bytecode_counter):
         """NOT_RPYTHON:
@@ -378,7 +378,7 @@ class AbstractActionFlag(object):
         elif interval > MAX:
             interval = MAX
         self.checkinterval_scaled = interval * TICK_COUNTER_STEP
-        self.reset_ticker(-1)
+        self.rearm_ticker()
         if self.setcheckinterval_callback is not None:
             self.setcheckinterval_callback()
 
@@ -414,6 +414,9 @@ class ActionFlag(AbstractActionFlag):
 
     def reset_ticker(self, value):
         self._ticker = value
+
+    def rearm_ticker(self):
+        self._ticker = -1
 
     def decrement_ticker(self, by):
         value = self._ticker

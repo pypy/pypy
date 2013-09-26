@@ -46,10 +46,5 @@ class Module(MixedModule):
         space.check_signal_action = interp_signal.CheckSignalAction(space)
         space.actionflag.register_periodic_action(space.check_signal_action,
                                                   use_bytecode_counter=False)
-        #
-        if space.config.translation.stm:
-            from pypy.module.signal.stmactionflag import SignalActionFlag
-        else:
-            from pypy.module.signal.actionflag import SignalActionFlag
-        space.actionflag.__class__ = SignalActionFlag
+        space.actionflag.__class__ = interp_signal.SignalActionFlag
         # xxx yes I know the previous line is a hack
