@@ -15,6 +15,7 @@ static pthread_mutex_t malloc_mutex = PTHREAD_MUTEX_INITIALIZER;
 static char *zone_start, *zone_current = NULL, *zone_end = NULL;
 static signed char accessible_pages[MMAP_TOTAL / PAGE_SIZE] = {0};
 
+int stm_use_mprotect = 1;
 
 static void _stm_dbgmem(void *p, size_t sz, int prot)
 {
@@ -25,9 +26,11 @@ static void _stm_dbgmem(void *p, size_t sz, int prot)
     intptr_t align = ((intptr_t)p) & (PAGE_SIZE-1);
     p = ((char *)p) - align;
     sz += align;
-    dprintf(("dbgmem: %p, %ld, %d\n", p, (long)sz, prot));
-    int err = mprotect(p, sz, prot);
-    assert(err == 0);
+    if (stm_use_mprotect) {
+        dprintf(("dbgmem: %p, %ld, %d\n", p, (long)sz, prot));
+        int err = mprotect(p, sz, prot);
+        assert(err == 0);
+    }
 }
 
 void *stm_malloc(size_t sz)
@@ -37,7 +40,7 @@ void *stm_malloc(size_t sz)
 #ifdef _GC_MEMPROTECT
     pthread_mutex_lock(&malloc_mutex);
     if (zone_current == NULL) {
-        zone_start = mmap(NULL, MMAP_TOTAL, PROT_NONE,
+        zone_start = mmap(NULL, MMAP_TOTAL, PROT_READ | PROT_WRITE,
                           MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
         if (zone_start == NULL || zone_start == MAP_FAILED) {
             stm_fatalerror("not enough memory: mmap() failed\n");

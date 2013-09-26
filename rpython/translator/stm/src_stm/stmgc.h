@@ -122,6 +122,12 @@ void stm_commit_transaction(void);
 void stm_begin_inevitable_transaction(void);
 void stm_become_inevitable(const char *reason);
 
+/* specialized usage: for custom setjmp/longjmp implementation.
+   Must save roots around calls. */
+void stm_begin_transaction(void *buf, void (*longjmp_callback)(void *));
+void stm_transaction_break(void *buf, void (*longjmp_callback)(void *));
+void stm_invalidate_jmp_buf(void *buf);
+
 /* debugging: check if we're currently running a transaction or not. */
 int stm_in_transaction(void);
 

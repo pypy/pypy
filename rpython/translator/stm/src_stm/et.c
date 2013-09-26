@@ -1017,7 +1017,12 @@ void AbortTransaction(int num)
 
   // jump back to the setjmp_buf (this call does not return)
   stm_stop_sharedlock();
-  longjmp(*d->setjmp_buf, 1);
+  if (d->longjmp_callback != NULL)
+    d->longjmp_callback(d->setjmp_buf);
+  else
+    longjmp(*(jmp_buf *)d->setjmp_buf, 1);
+
+  stm_fatalerror("longjmp() call should not return");
 }
 
 void AbortTransactionAfterCollect(struct tx_descriptor *d, int reason)
@@ -1084,12 +1089,13 @@ static void init_transaction(struct tx_descriptor *d)
   gcptrlist_clear(&d->abortinfo);
 }
 
-void BeginTransaction(jmp_buf* buf)
+void stm_begin_transaction(void *buf, void (*longjmp_callback)(void *))
 {
   struct tx_descriptor *d = thread_descriptor;
   init_transaction(d);
   d->active = 1;
   d->setjmp_buf = buf;
+  d->longjmp_callback = longjmp_callback;
   d->old_thread_local_obj = stm_thread_local_obj;
   d->start_time = GetGlobalCurTime(d);
   update_reads_size_limit(d);

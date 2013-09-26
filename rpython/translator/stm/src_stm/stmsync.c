@@ -177,7 +177,7 @@ void stm_perform_transaction(gcptr arg, int (*callback)(gcptr, int))
             d->reads_size_limit_nonatomic = limit;
         }
         if (!d->atomic) {
-            BeginTransaction(&_jmpbuf);
+            stm_begin_transaction(&_jmpbuf, NULL);
         }
         else {
             /* atomic transaction: a common case is that callback() returned
@@ -212,6 +212,35 @@ void stm_perform_transaction(gcptr arg, int (*callback)(gcptr, int))
     assert(x == END_MARKER_OFF || x == END_MARKER_ON);
     stm_pop_root();             /* pop the 'arg' */
     assert(stm_shadowstack == v_saved_value);
+}
+
+void stm_transaction_break(void *buf, void (*longjmp_callback)(void *))
+{   /* must save roots around this call */
+    struct tx_descriptor *d = thread_descriptor;
+    if (d->atomic) {
+        assert(d->active >= 1);
+        stm_possible_safe_point();
+    }
+    else {
+        CommitTransaction();
+        if (d->active != 2) {
+            unsigned long limit = d->reads_size_limit_nonatomic;
+            if (limit != 0 && limit < (stm_regular_length_limit >> 1))
+                limit = (limit << 1) | 1;
+            else
+                limit = stm_regular_length_limit;
+            d->reads_size_limit_nonatomic = limit;
+        }
+        stm_begin_transaction(buf, longjmp_callback);
+    }
+}
+
+void stm_invalidate_jmp_buf(void *buf)
+{   /* must save roots around this call */
+    struct tx_descriptor *d = thread_descriptor;
+    if (d->setjmp_buf == buf) {
+        BecomeInevitable("stm_invalidate_jmp_buf with atomic");
+    }
 }
 
 void stm_commit_transaction(void)
