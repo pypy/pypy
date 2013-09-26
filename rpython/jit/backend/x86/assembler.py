@@ -2883,7 +2883,7 @@ class Assembler386(BaseAssembler):
         mc = self.mc
         fn = stmtlocal.stm_should_break_transaction_fn
         mc.CALL(imm(self.cpu.cast_ptr_to_int(fn)))
-        mc.TEST8_rr(eax.value, eax.value)
+        mc.TEST8(eax.lowest8bits(), eax.lowest8bits())
         mc.J_il8(rx86.Conditions['Z'], 0)
         jz_location = mc.get_relative_pos()
         #
