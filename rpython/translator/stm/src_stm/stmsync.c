@@ -239,7 +239,7 @@ void stm_invalidate_jmp_buf(void *buf)
 {   /* must save roots around this call */
     struct tx_descriptor *d = thread_descriptor;
     if (d->setjmp_buf == buf) {
-        BecomeInevitable("stm_invalidate_jmp_buf with atomic");
+        BecomeInevitable("stm_invalidate_jmp_buf");
     }
 }
 
