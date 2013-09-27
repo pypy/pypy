@@ -2891,7 +2891,7 @@ class Assembler386(BaseAssembler):
         fn = stmtlocal.stm_should_break_transaction_fn
         mc.CALL(imm(self.cpu.cast_ptr_to_int(fn)))
         mc.TEST8(eax.lowest8bits(), eax.lowest8bits())
-        mc.J_il8(rx86.Conditions['Z'], 0)
+        mc.J_il(rx86.Conditions['Z'], 0xfffff)    # patched later
         jz_location = mc.get_relative_pos()
         #
         # call stm_transaction_break() with the address of the
@@ -2917,8 +2917,7 @@ class Assembler386(BaseAssembler):
         #
         # patch the JZ above
         offset = mc.get_relative_pos() - jz_location
-        assert 0 < offset <= 127
-        mc.overwrite(jz_location-1, chr(offset))
+        mc.overwrite32(jz_location-4, offset)
 
 
 genop_discard_list = [Assembler386.not_implemented_op_discard] * rop._LAST
