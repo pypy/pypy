@@ -422,7 +422,7 @@ def _setup():
                 del sys.__raw_input__
             except AttributeError:
                 pass
-            return raw_input(prompt)
+            return input(prompt)
         sys.__raw_input__ = _wrapper.raw_input
 
     else:
