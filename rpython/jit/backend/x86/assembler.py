@@ -2897,9 +2897,10 @@ class Assembler386(BaseAssembler):
         # call stm_transaction_break() with the address of the
         # STM_RESUME_BUF and the custom longjmp function
         mc.LEA_rs(edi.value, FRAME_FIXED_SIZE * WORD)
-        mc.MOV_ri(esi.value, self.stm_longjmp_callback_addr)
         fn = stmtlocal.stm_transaction_break_fn
-        mc.CALL(imm(self.cpu.cast_ptr_to_int(fn)))
+        self.simple_call(imm(self.cpu.cast_ptr_to_int(fn)),
+                         [edi, imm(self.stm_longjmp_callback_addr)],
+                         None)
         #
         # Fill the stm resume buffer.  Don't do it before the call!
         # The previous transaction may still be aborted during the call
