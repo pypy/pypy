@@ -177,9 +177,9 @@ class W_CoreEngine(W_Root):
 
         try:
             e.runstring(prolog_code)# Load the database with the first arg
-        except parsing.ParseError as e:
+        except error.PrologParseError as e:
             w_ParseError = util.get_from_module(self.space, "unipycation", "ParseError")
-            raise OperationError(w_ParseError, self.space.wrap(e.nice_error_message()))
+            raise OperationError(w_ParseError, self.space.wrap(e.message))
 
     @staticmethod
     def from_file(space, w_cls, w_filename):
