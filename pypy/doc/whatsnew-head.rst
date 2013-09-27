@@ -52,6 +52,10 @@ Added some addition tests for statvfs.
 .. branch: ndarray-subtype
 Allow subclassing ndarray, i.e. matrix
 
+.. branch: pypy-pyarray
+Implement much of numpy's c api in cpyext, allows (slow) access to ndarray
+from c
+
 .. branch: kill-ootype
 
 .. branch: fast-slowpath
@@ -82,7 +86,7 @@ a bit
 .. branch: rewritten-loop-logging
 .. branch: no-release-gil
 .. branch: safe-win-mmap
-.. branch: boolean-index-cleanup
+.. branch: boolean-indexing-cleanup
 
 .. branch: nobold-backtrace
 Work on improving UnionError messages and stack trace displays.
@@ -97,3 +101,5 @@ Unbreak tests in rlib.
 Use subclasses of SpaceOperation instead of SpaceOperator objects.
 Random cleanups in flowspace.
 
+.. branch: file-support-in-rpython
+make open() and friends rpython

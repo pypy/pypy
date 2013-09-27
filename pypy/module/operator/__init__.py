@@ -45,6 +45,7 @@ class Module(MixedModule):
         '__and__' : 'and_',
         '__concat__' : 'concat',
         '__contains__' : 'contains',
+        '__index__' : 'index',
         '__delitem__' : 'delitem',
         '__eq__' : 'eq',
         '__floordiv__' : 'floordiv',

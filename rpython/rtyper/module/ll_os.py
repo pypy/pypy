@@ -1668,6 +1668,26 @@ class RegisterOs(BaseLazyRegistering):
         return extdef([int], int, llimpl=nice_llimpl,
                       export_name="ll_os.ll_os_nice")
 
+    @registering_if(os, 'ctermid')
+    def register_os_ctermid(self):
+        os_ctermid = self.llexternal('ctermid', [rffi.CCHARP], rffi.CCHARP)
+
+        def ctermid_llimpl():
+            return rffi.charp2str(os_ctermid(lltype.nullptr(rffi.CCHARP.TO)))
+
+        return extdef([], str, llimpl=ctermid_llimpl,
+                      export_name="ll_os.ll_os_ctermid")
+
+    @registering_if(os, 'tmpnam')
+    def register_os_tmpnam(self):
+        os_tmpnam = self.llexternal('tmpnam', [rffi.CCHARP], rffi.CCHARP)
+
+        def tmpnam_llimpl():
+            return rffi.charp2str(os_tmpnam(lltype.nullptr(rffi.CCHARP.TO)))
+
+        return extdef([], None, llimpl=tmpnam_llimpl,
+                      export_name="ll_os.ll_os_tmpnam")
+
 # --------------------------- os.stat & variants ---------------------------
 
     @registering(os.fstat)

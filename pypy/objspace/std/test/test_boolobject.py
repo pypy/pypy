@@ -44,6 +44,13 @@ class AppTestAppBoolTest:
     def test_bool_int(self):
         assert int(True) is 1
         assert int(False) is 0
+        # XXX: broken
+        #assert True.__int__() is 1
+
+    def test_bool_long(self):
+        assert long(True) is 1L
+        assert long(False) is 0L
+        assert True.__long__() is 1L
 
     def test_bool_ops(self):
         assert True + True == 2

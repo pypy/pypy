@@ -606,7 +606,7 @@ class SSLSocket(W_Root):
 
         proto = libssl_SSL_CIPHER_get_version(current)
         if proto:
-            w_proto = space.wrap(rffi.charp2str(name))
+            w_proto = space.wrap(rffi.charp2str(proto))
         else:
             w_proto = space.w_None
 
@@ -683,15 +683,15 @@ def _decode_certificate(space, certificate, verbose=False):
                 w_serial = space.wrap(rffi.charpsize2str(buf, length))
             space.setitem(w_retval, space.wrap("serialNumber"), w_serial)
 
-            libssl_BIO_reset(biobuf)
-            notBefore = libssl_X509_get_notBefore(certificate)
-            libssl_ASN1_TIME_print(biobuf, notBefore)
-            with lltype.scoped_alloc(rffi.CCHARP.TO, 100) as buf:
-                length = libssl_BIO_gets(biobuf, buf, 99)
-                if length < 0:
-                    raise _ssl_seterror(space, None, length)
-                w_date = space.wrap(rffi.charpsize2str(buf, length))
-            space.setitem(w_retval, space.wrap("notBefore"), w_date)
+        libssl_BIO_reset(biobuf)
+        notBefore = libssl_X509_get_notBefore(certificate)
+        libssl_ASN1_TIME_print(biobuf, notBefore)
+        with lltype.scoped_alloc(rffi.CCHARP.TO, 100) as buf:
+            length = libssl_BIO_gets(biobuf, buf, 99)
+            if length < 0:
+                raise _ssl_seterror(space, None, length)
+            w_date = space.wrap(rffi.charpsize2str(buf, length))
+        space.setitem(w_retval, space.wrap("notBefore"), w_date)
 
         libssl_BIO_reset(biobuf)
         notAfter = libssl_X509_get_notAfter(certificate)
