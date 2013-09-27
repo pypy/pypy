@@ -1018,7 +1018,10 @@ void AbortTransaction(int num)
   // jump back to the setjmp_buf (this call does not return)
   stm_stop_sharedlock();
   if (d->longjmp_callback != NULL)
-    d->longjmp_callback(d->setjmp_buf);
+    {
+      stm_begin_transaction(d->setjmp_buf, d->longjmp_callback);
+      d->longjmp_callback(d->setjmp_buf);
+    }
   else
     longjmp(*(jmp_buf *)d->setjmp_buf, 1);
 
