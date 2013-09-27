@@ -109,7 +109,7 @@ class AppTestHighLevelInterface(object):
     def test_undefined_goal(self):
         import uni
         e = uni.Engine("f(1,2,3).")
-        raises(uni.PrologError, lambda : e.db.g(666))
+        info = raises(uni.PrologError, lambda : e.db.g(666))
 
     def test_append(self):
         import uni
@@ -175,11 +175,13 @@ class AppTestHighLevelInterface(object):
         assert len(sol[0].args) == 1
         assert type(sol[0].args[0]) == uni.Var
 
-    def test_pass_up_prolog_error_string(self):
+    def test_pass_up_prolog_error(self):
         import uni
 
         e = uni.Engine("f(X) :- willsmith(1, [1,2,3], X).")
         info = raises(uni.PrologError, e.db.f, None)
+        assert str(info.value.term) == "error(existence_error(procedure, willsmith/3))"
+        # check error string
         assert str(info.value) == "Undefined procedure: willsmith/3"
 
     def test_call_python(self):

@@ -93,8 +93,11 @@ class W_CoreSolutionIterator(W_Root):
             raise OperationError(self.space.w_StopIteration, self.space.w_None)
         except (error.CatchableError, error.UncaughtError) as ex:
             w_PrologError = util.get_from_module(self.space, "unipycation", "PrologError")
+            w_term = conversion.w_of_p(self.space, ex.term)
             engine = self.w_engine.engine
-            raise OperationError(w_PrologError, self.space.wrap(ex.get_errstr(engine)))
+            w_str = self.space.wrap(ex.get_errstr(engine))
+            w_ex = self.space.call_function(w_PrologError, w_str, w_term)
+            raise OperationError(w_PrologError, w_ex)
 
         return self._create_result()
 
