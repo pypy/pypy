@@ -569,6 +569,7 @@ class Assembler386(BaseAssembler):
         mc.SUB_ri(esp.value, FRAME_FIXED_SIZE * WORD)
         #
         # restore the shadowstack pointer from stm_resume_buffer[1]
+        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         rst = self._get_stm_tl(gcrootmap.get_root_stack_top_addr())
         mc.MOV_rs(eax.value, (FRAME_FIXED_SIZE + 1) * WORD)
         self._tl_segment_if_stm(mc)
