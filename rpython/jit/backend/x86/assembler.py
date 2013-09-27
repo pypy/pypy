@@ -568,12 +568,18 @@ class Assembler386(BaseAssembler):
         mc.MOV_rr(esp.value, edi.value)
         mc.SUB_ri(esp.value, FRAME_FIXED_SIZE * WORD)
         #
+        # restore the shadowstack pointer from stm_resume_buffer[1]
+        rst = self._get_stm_tl(gcrootmap.get_root_stack_top_addr())
+        mc.MOV_rs(eax.value, (FRAME_FIXED_SIZE + 1) * WORD)
+        self._tl_segment_if_stm(mc)
+        mc.MOV_jr(rst, eax.value)
+        #
         # must restore 'ebp' from its saved value in the shadowstack
         self._reload_frame_if_necessary(mc)
         #
-        # jump to the place saved in the stm_resume_buffer
+        # jump to the place saved in stm_resume_buffer[0]
         # (to "HERE" in genop_stm_transaction_break())
-        mc.MOV_rs(eax.value, FRAME_FIXED_SIZE * WORD)
+        mc.MOV_rs(eax.value, (FRAME_FIXED_SIZE + 0) * WORD)
         mc.PUSH_r(eax.value)
         mc.JMP_r(eax.value)
         self.stm_longjmp_callback_addr = mc.materialize(self.cpu.asmmemmgr, [])
@@ -2897,12 +2903,15 @@ class Assembler386(BaseAssembler):
         # Fill the stm resume buffer.  Don't do it before the call!
         # The previous transaction may still be aborted during the call
         # above, so we need the old content of the buffer!
-        # For now the buffer only contains the address of the resume
-        # point in this piece of code (at "HERE").
+        # The buffer contains the address of the resume point in this
+        # piece of code (at "HERE") at offset 0, and at offset WORD it
+        # contains a copy of the current shadowstack pointer.
+        self._load_shadowstack_top_in_ebx(mc, self.cpu.gc_ll_descr.gcrootmap)
+        mc.MOV_sr((FRAME_FIXED_SIZE + 1) * WORD, ebx.value)
         mc.CALL_l(0)
         # "HERE"
         mc.POP_r(eax.value)
-        mc.MOV_sr(FRAME_FIXED_SIZE * WORD, eax.value)
+        mc.MOV_sr((FRAME_FIXED_SIZE + 0) * WORD, eax.value)
         #
         # patch the JZ above
         offset = mc.get_relative_pos() - jz_location

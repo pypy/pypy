@@ -16,7 +16,7 @@ else:
 #        +--------------------+    <== aligned to 16 bytes
 #        |   return address   |
 #        +--------------------+
-#        |   STM resume buf   |    (4 extra words, only with STM)
+#        |   STM resume buf   |    (16 extra bytes, only with STM)
 #        +--------------------+
 #        |    saved regs      |
 #        +--------------------+
@@ -45,4 +45,4 @@ else:
 
 assert PASS_ON_MY_FRAME >= 12       # asmgcc needs at least JIT_USE_WORDS + 3
 
-STM_RESUME_BUF = 4
+STM_RESUME_BUF = 16 / WORD
