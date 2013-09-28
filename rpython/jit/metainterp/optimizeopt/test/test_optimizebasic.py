@@ -3735,6 +3735,18 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_sub_identity(self):
+        ops = """
+        [i0]
+        i1 = int_sub(i0, i0)
+        jump(i1)
+        """
+        expected = """
+        [i0]
+        jump(0)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_bound_and(self):
         ops = """
         [i0]

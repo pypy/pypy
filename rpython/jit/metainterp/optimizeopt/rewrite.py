@@ -107,6 +107,8 @@ class OptRewrite(Optimization):
         v2 = self.getvalue(op.getarg(1))
         if v2.is_constant() and v2.box.getint() == 0:
             self.make_equal_to(op.result, v1)
+        elif v1 is v2:
+            self.make_constant_int(op.result, 0)
         else:
             self.emit_operation(op)
             # Synthesize the reverse ops for optimize_default to reuse
