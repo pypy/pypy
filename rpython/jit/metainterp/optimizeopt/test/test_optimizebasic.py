@@ -3739,11 +3739,13 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         ops = """
         [i0]
         i1 = int_sub(i0, i0)
-        jump(i1)
+        i2 = int_sub(i1, i0)
+        jump(i1, i2)
         """
         expected = """
         [i0]
-        jump(0)
+        i2 = int_neg(i0)
+        jump(0, i2)
         """
         self.optimize_loop(ops, expected)
 
