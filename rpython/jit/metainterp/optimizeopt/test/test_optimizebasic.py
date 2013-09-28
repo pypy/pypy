@@ -3749,6 +3749,19 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_shift_zero(self):
+        ops = """
+        [i0]
+        i1 = int_lshift(0, i0)
+        i2 = int_rshift(0, i0)
+        jump(i1, i2)
+        """
+        expected = """
+        [i0]
+        jump(0, 0)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_bound_and(self):
         ops = """
         [i0]
