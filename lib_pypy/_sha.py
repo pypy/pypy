@@ -118,7 +118,7 @@ class sha:
     "An implementation of the SHA hash function in pure Python."
 
     digest_size = digestsize = 20
-    block_size = 1
+    block_size = 512 // 8
 
     def __init__(self):
         "Initialisation."
