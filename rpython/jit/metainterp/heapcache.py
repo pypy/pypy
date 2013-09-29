@@ -122,7 +122,7 @@ class HeapCache(object):
                     len(effectinfo.write_descrs_arrays) == 1
                 ):
                     # Fish the descr out of the effectinfo
-                    cache = self.heap_array_cache.get(effectinfo.write_descrs_arrays[0])
+                    cache = self.heap_array_cache.get(effectinfo.write_descrs_arrays[0], None)
                     if cache is not None:
                         # XXX: in theory the indices of the copy could be
                         # looked at
