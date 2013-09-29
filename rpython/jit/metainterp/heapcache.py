@@ -87,9 +87,11 @@ class HeapCache(object):
     def _escape(self, box):
         if box in self.new_boxes:
             self.new_boxes[box] = False
-        if box in self.dependencies:
-            deps = self.dependencies[box]
-            del self.dependencies[box]
+        try:
+            deps = self.dependencies.pop(box)
+        except KeyError:
+            pass
+        else:
             for dep in deps:
                 self._escape(dep)
 
