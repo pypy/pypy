@@ -117,12 +117,15 @@ class HeapCache(object):
             # effects are so well defined.
             elif effectinfo.oopspecindex == effectinfo.OS_ARRAYCOPY:
                 # The destination box
-                if argboxes[2] in self.new_boxes:
-                    # XXX: no descr here so we invalidate any of them, not just
-                    # of the correct type
-                    # XXX: in theory the indices of the copy could be looked at
-                    # as well
-                    for descr, cache in self.heap_array_cache.iteritems():
+                if (
+                    argboxes[2] in self.new_boxes and
+                    len(effectinfo.write_descrs_arrays) == 1
+                ):
+                    # Fish the descr out of the effectinfo
+                    cache = self.heap_array_cache.get(effectinfo.write_descrs_arrays[0])
+                    if cache is not None:
+                        # XXX: in theory the indices of the copy could be
+                        # looked at
                         for idx, cache in cache.iteritems():
                             for frombox in cache.keys():
                                 if not self.is_unescaped(frombox):
