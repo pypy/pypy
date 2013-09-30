@@ -114,7 +114,7 @@ class Frame(W_Root):
                 try:
                     self.space.delitem(self.w_locals, w_name)
                 except OperationError as e:
-                    if not e.maches(self.space.w_KeyError):
+                    if not e.match(self.space, self.space.w_KeyError):
                         raise
 
     def locals2fast(self):
