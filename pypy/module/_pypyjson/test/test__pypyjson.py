@@ -185,4 +185,8 @@ class AppTest(object):
         res = _pypyjson.loads('"z\\ud834\\udd20x"')
         assert res == expected
 
-
+    def test_tab_in_string_should_fail(self):
+        import _pypyjson
+        # http://json.org/JSON_checker/test/fail25.json
+        s = '["\ttab\tcharacter\tin\tstring\t"]'
+        raises(ValueError, "_pypyjson.loads(s)")

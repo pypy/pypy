@@ -317,6 +317,8 @@ class JSONDecoder(object):
                 return self.decode_string_escaped(start, content_so_far)
             elif ch == '\0':
                 self._raise("Unterminated string starting at char %d", start)
+            elif ch < '\x20' or ch == '\x7f':
+                self._raise("Invalid control character at char %d", self.pos-1)
 
 
     def decode_string_escaped(self, start, content_so_far):
