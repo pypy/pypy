@@ -83,10 +83,21 @@ class AppTestBuiltinApp:
     def test_locals(self):
         def f():
             return locals()
+
         def g(c=0, b=0, a=0):
             return locals()
+
         assert f() == {}
-        assert g() == {'a':0, 'b':0, 'c':0}
+        assert g() == {'a': 0, 'b': 0, 'c': 0}
+
+    def test_locals_deleted_local(self):
+        def f():
+            a = 3
+            locals()
+            del a
+            return locals()
+
+        assert f() == {}
 
     def test_dir(self):
         def f():
