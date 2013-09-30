@@ -80,7 +80,7 @@ class TestThread(BaseTestPyPyC):
         guard_false(i63, descr=...)
         p64 = force_token()
         setfield_gc(p0, p64, descr=<FieldP pypy.interpreter.pyframe.PyFrame.vable_token .*>)
-        call_release_gil(4312494624, i36, descr=<Callv 0 i EF=6>)
+        call_release_gil(..., i36, descr=<Callv 0 i EF=6>)
         guard_not_forced(descr=...)
         guard_no_exception(descr=...)
         guard_not_invalidated(descr=...)
