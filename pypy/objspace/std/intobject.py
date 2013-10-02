@@ -360,6 +360,7 @@ class W_AbstractIntObject(W_Object):
             val >>= 1
         return space.wrap(bits)
 
+    """
     def descr_get_numerator(self, space):
         return space.int(self)
 
@@ -371,6 +372,20 @@ class W_AbstractIntObject(W_Object):
 
     def descr_get_imag(self, space):
         return space.wrap(0)
+        """
+
+# XXX:
+def descr_get_numerator(space, w_obj):
+    return space.int(w_obj)
+
+def descr_get_denominator(space, w_obj):
+    return space.wrap(1)
+
+def descr_get_real(space, w_obj):
+    return space.int(w_obj)
+
+def descr_get_imag(space, w_obj):
+    return space.wrap(0)
 
 
 class W_IntObject(W_AbstractIntObject):
@@ -617,10 +632,15 @@ will be returned instead.''',
 
     conjugate = interpindirect2app(W_AbstractIntObject.descr_conjugate),
     bit_length = interpindirect2app(W_AbstractIntObject.descr_bit_length),
-    numerator = typedef.GetSetProperty(W_AbstractIntObject.descr_get_numerator),
-    denominator = typedef.GetSetProperty(W_AbstractIntObject.descr_get_denominator),
-    real = typedef.GetSetProperty(W_AbstractIntObject.descr_get_real),
-    imag = typedef.GetSetProperty(W_AbstractIntObject.descr_get_imag),
+    # XXX: need a GetSetIndirectProperty
+    #numerator = typedef.GetSetProperty(W_IntObject.descr_get_numerator),
+    #denominator = typedef.GetSetProperty(W_IntObject.descr_get_denominator),
+    #real = typedef.GetSetProperty(W_IntObject.descr_get_real),
+    #imag = typedef.GetSetProperty(W_IntObject.descr_get_imag),
+    numerator = typedef.GetSetProperty(descr_get_numerator),
+    denominator = typedef.GetSetProperty(descr_get_denominator),
+    real = typedef.GetSetProperty(descr_get_real),
+    imag = typedef.GetSetProperty(descr_get_imag),
     __int__ = interpindirect2app(W_AbstractIntObject.int),
     __long__ = interpindirect2app(W_AbstractIntObject.descr_long),
 
