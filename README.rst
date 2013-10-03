@@ -16,7 +16,7 @@ Building
 
 Check out pyrolog somewhere::
 
-    $ hg clone https://vext01@bitbucket.org/cfbolz/pyrolog-unipycation
+    $ hg clone https://bitbucket.org/cfbolz/pyrolog-unipycation
 
 Add pyrolog to the PYTHONPATH::
 
@@ -24,7 +24,7 @@ Add pyrolog to the PYTHONPATH::
 
 Get the unipycation sources::
 
-    $ hg clone https://vext01@bitbucket.org/vext01/pypy
+    $ hg clone https://bitbucket.org/vext01/pypy
 
 Switch into the unipycation branch::
 
