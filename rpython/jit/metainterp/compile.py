@@ -1,9 +1,9 @@
 import weakref
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
-from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import we_are_translated, stm_ignored
 from rpython.rlib.debug import debug_start, debug_stop, debug_print
-from rpython.rlib import rstack
+from rpython.rlib import rstack, rgc
 from rpython.rlib.jit import JitDebugInfo, Counters, dont_look_inside
 from rpython.conftest import option
 from rpython.tool.sourcetools import func_with_new_name
@@ -512,6 +512,8 @@ class ResumeGuardDescr(ResumeDescr):
         self.guard_opnum = guard_op.getopnum()
 
     def make_a_counter_per_value(self, guard_value_op):
+        if rgc.stm_is_enabled():
+            return    # XXX don't use the special counters in stm mode for now
         assert guard_value_op.getopnum() == rop.GUARD_VALUE
         box = guard_value_op.getarg(0)
         try:
@@ -557,21 +559,35 @@ class ResumeGuardDescr(ResumeDescr):
     _trace_and_compile_from_bridge._dont_inline_ = True
 
     def must_compile(self, deadframe, metainterp_sd, jitdriver_sd):
+        ok = self.must_compile_approx(deadframe, metainterp_sd, jitdriver_sd)
+        if not rgc.stm_is_enabled():
+            return ok
+        else:
+            # in stm mode, the return value may (rarely) be True even if a
+            # real, stm-protected read of self._counter says "busy".
+            return ok and not (self._counter & self.CNT_BUSY_FLAG)
+
+    def must_compile_approx(self, deadframe, metainterp_sd, jitdriver_sd):
         trace_eagerness = jitdriver_sd.warmstate.trace_eagerness
         #
-        if self._counter <= self.CNT_BASE_MASK:
+        with stm_ignored:
+            approx_counter = self._counter
+        if approx_counter <= self.CNT_BASE_MASK:
             # simple case: just counting from 0 to trace_eagerness
-            self._counter += 1
-            return self._counter >= trace_eagerness
+            approx_counter += 1
+            with stm_ignored:
+                self._counter = approx_counter
+            return approx_counter >= trace_eagerness
         #
         # do we have the BUSY flag?  If so, we're tracing right now, e.g. in an
         # outer invocation of the same function, so don't trace again for now.
-        elif self._counter & self.CNT_BUSY_FLAG:
+        elif approx_counter & self.CNT_BUSY_FLAG:
             return False
         #
         else: # we have a GUARD_VALUE that fails.  Make a _counters instance
             # (only now, when the guard is actually failing at least once),
             # and use it to record some statistics about the failing values.
+            assert not rgc.stm_is_enabled(), "XXX"
             index = self._counter & self.CNT_BASE_MASK
             typetag = self._counter & self.CNT_TYPE_MASK
             counters = self._counters
