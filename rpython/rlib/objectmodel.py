@@ -788,22 +788,8 @@ class _StmIgnored:
         "NOT_RPYTHON"
     def __exit__(self, *args):
         "NOT_RPYTHON"
-
-class Entry(ExtRegistryEntry):
-    _about_ = _StmIgnored.__enter__.im_func
-    def compute_result_annotation(self, *args_s):
-        return None
-    def specialize_call(self, hop):
-        hop.exception_cannot_occur()
-        hop.genop('stm_ignored_start', [])
-
-class Entry(ExtRegistryEntry):
-    _about_ = _StmIgnored.__exit__.im_func
-    def compute_result_annotation(self, *args_s):
-        return None
-    def specialize_call(self, hop):
-        hop.exception_cannot_occur()
-        hop.genop('stm_ignored_stop', [])
+    def _freeze_(self):
+        return True
 
 # Use "with stm_ignored:" around simple field read/write operations
 # that should not be tracked by the STM machinery.  They are always
@@ -814,3 +800,24 @@ class Entry(ExtRegistryEntry):
 # XXX but it should replace 'stm_dont_track_raw_accesses' too
 # XXX DON'T USE for *writes* of a GC pointer into an object
 stm_ignored = _StmIgnored()
+
+
+# RPython hacks
+def _stm_ignored_start(): "NOT_RPYTHON"
+def _stm_ignored_stop(exc, val, tb): "NOT_RPYTHON"
+stm_ignored.__enter__ = _stm_ignored_start
+stm_ignored.__exit__ = _stm_ignored_stop
+class Entry(ExtRegistryEntry):
+    _about_ = _stm_ignored_start
+    def compute_result_annotation(self, *args_s):
+        return None
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        hop.genop('stm_ignored_start', [])
+class Entry(ExtRegistryEntry):
+    _about_ = _stm_ignored_stop
+    def compute_result_annotation(self, *args_s):
+        return None
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        hop.genop('stm_ignored_stop', [])
