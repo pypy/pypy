@@ -7,6 +7,7 @@ from rpython.rlib.debug import debug_start, debug_stop, debug_print
 from rpython.rlib.jit import PARAMETERS, BaseJitCell
 from rpython.rlib.nonconst import NonConstant
 from rpython.rlib.objectmodel import specialize, we_are_translated, r_dict
+from rpython.rlib.objectmodel import stm_ignored
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.annlowlevel import (hlstr, cast_base_ptr_to_instance,
@@ -326,8 +327,8 @@ class WarmEnterState(object):
                 return
             # start tracing
             from rpython.jit.metainterp.pyjitpl import MetaInterp
-            metainterp = MetaInterp(metainterp_sd, jitdriver_sd)
             cell.mode = MODE_TRACING
+            metainterp = MetaInterp(metainterp_sd, jitdriver_sd)
             try:
                 metainterp.compile_and_run_once(jitdriver_sd, *args)
             finally:
@@ -346,9 +347,13 @@ class WarmEnterState(object):
 
             if mode == MODE_COUNTING:
                 # update the profiling counter
-                n = cell.counter + threshold
+                # use stm_ignored because keeping the absolutely exact value
+                # is not important, but avoiding pointless conflicts is
+                with stm_ignored:
+                    n = cell.counter + threshold
                 if n <= self.THRESHOLD_LIMIT:       # bound not reached
-                    cell.counter = n
+                    with stm_ignored:
+                        cell.counter = n
                     return
                 else:
                     bound_reached(cell, *args)
