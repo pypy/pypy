@@ -449,6 +449,9 @@ LL_OPERATIONS = {
     'stm_get_adr_of_private_rev_num':LLOp(),
     'stm_get_adr_of_read_barrier_cache':LLOp(),
 
+    'stm_ignored_start':      LLOp(canrun=True),
+    'stm_ignored_stop':       LLOp(canrun=True),
+
     # __________ address operations __________
 
     'boehm_malloc':         LLOp(),

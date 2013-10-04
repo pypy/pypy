@@ -618,6 +618,12 @@ class FunctionCodeGenerator(object):
     OP_STM_CLEAR_EXCEPTION_DATA_ON_ABORT= _OP_STM
     OP_STM_ALLOCATE_NONMOVABLE_INT_ADR  = _OP_STM
 
+    def OP_STM_IGNORED_START(self, op):
+        return '/* stm_ignored_start */'
+
+    def OP_STM_IGNORED_STOP(self, op):
+        return '/* stm_ignored_stop */'
+
 
     def OP_PTR_NONZERO(self, op):
         return '%s = (%s != NULL);' % (self.expr(op.result),

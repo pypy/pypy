@@ -530,6 +530,31 @@ class TestTransform(BaseTestTransform):
         self.interpret(f1, [])
         assert self.barriers == ['I2W']
 
+    def test_stm_ignored_1(self):
+        from rpython.rlib.objectmodel import stm_ignored
+        class Foo:
+            bar = 0
+        x = Foo()
+        def f1():
+            with stm_ignored:
+                x.bar += 2
+
+        self.interpret(f1, [])
+        assert self.barriers == []
+
+    def test_stm_ignored_2(self):
+        from rpython.rlib.objectmodel import stm_ignored
+        class Foo:
+            bar = 0
+        def f1():
+            y = Foo()
+            llop.debug_stm_flush_barrier(lltype.Void)
+            with stm_ignored:
+                y.bar += 2
+
+        self.interpret(f1, [])
+        assert self.barriers == ['a2i']
+
 
 external_release_gil = rffi.llexternal('external_release_gil', [], lltype.Void,
                                        _callable=lambda: None,

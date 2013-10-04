@@ -918,6 +918,16 @@ class TestStandalone(StandaloneTests):
         self.compile(entry_point)
         # assert did not explode
 
+    def test_ignore_stm_ignored(self):
+        from rpython.rlib.objectmodel import stm_ignored
+        def entry_point(argv):
+            with stm_ignored:
+                return len(argv)
+
+        self.compile(entry_point)
+        # assert did not explode
+
+
 class TestMaemo(TestStandalone):
     def setup_class(cls):
         py.test.skip("TestMaemo: tests skipped for now")

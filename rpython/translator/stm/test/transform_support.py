@@ -66,6 +66,7 @@ class BaseTestTransform(object):
 
 
 class LLSTMFrame(LLFrame):
+    stm_ignored = False
 
     def all_stm_ptrs(self):
         for frame in self.llinterpreter.frame_stack:
@@ -80,6 +81,11 @@ class LLSTMFrame(LLFrame):
         cat = self.get_category_or_null(p)
         assert cat is None or cat in 'AIQRVW'
         if expected is not None:
+            if self.stm_ignored:
+                if expected >= 'W':
+                    raise AssertionError("should not be seen in 'stm_ignored'")
+                if expected > 'I':
+                    expected = 'I'
             assert cat is not None and cat >= expected
         return cat
 
@@ -98,6 +104,14 @@ class LLSTMFrame(LLFrame):
                 self.llinterpreter.tester.writemode.add(ptr2._obj)
             self.llinterpreter.tester.barriers.append(kind)
             return ptr2
+
+    def op_stm_ignored_start(self):
+        assert self.stm_ignored == False
+        self.stm_ignored = True
+
+    def op_stm_ignored_stop(self):
+        assert self.stm_ignored == True
+        self.stm_ignored = False
 
     def op_stm_ptr_eq(self, obj1, obj2):
         self.check_category(obj1, None)

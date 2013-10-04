@@ -780,3 +780,37 @@ def import_from_mixin(M, special_methods=['__init__', '__del__']):
             raise Exception("import_from_mixin: would overwrite the value "
                             "already defined locally for %r" % (key,))
         target[key] = value
+
+# ____________________________________________________________
+
+class _StmIgnored:
+    def __enter__(self):
+        "NOT_RPYTHON"
+    def __exit__(self, *args):
+        "NOT_RPYTHON"
+
+class Entry(ExtRegistryEntry):
+    _about_ = _StmIgnored.__enter__.im_func
+    def compute_result_annotation(self, *args_s):
+        return None
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        hop.genop('stm_ignored_start', [])
+
+class Entry(ExtRegistryEntry):
+    _about_ = _StmIgnored.__exit__.im_func
+    def compute_result_annotation(self, *args_s):
+        return None
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        hop.genop('stm_ignored_stop', [])
+
+# Use "with stm_ignored:" around simple field read/write operations
+# that should not be tracked by the STM machinery.  They are always
+# simply performed instead.  It is useful for read/writes that don't
+# need to give a really consistent operation, when an approximative
+# behavior is fine, like incrementing some global counter.
+# XXX only for GC objects for now
+# XXX but it should replace 'stm_dont_track_raw_accesses' too
+# XXX DON'T USE for *writes* of a GC pointer into an object
+stm_ignored = _StmIgnored()

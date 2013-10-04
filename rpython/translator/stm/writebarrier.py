@@ -3,6 +3,7 @@ from rpython.translator.unsimplify import varoftype, insert_empty_block
 from rpython.translator.unsimplify import insert_empty_startblock
 from rpython.rtyper.lltypesystem import lltype
 from rpython.translator.backendopt.writeanalyze import top_set
+from rpython.translator.simplify import join_blocks
 
 
 MALLOCS = set([
@@ -65,11 +66,12 @@ class BlockTransformer(object):
         self.update_inputargs_category()
 
 
-    def analyze_inside_block(self):
+    def analyze_inside_block(self, graph):
         gcremovetypeptr = (
             self.stmtransformer.translator.config.translation.gcremovetypeptr)
         wants_a_barrier = {}
         expand_comparison = set()
+        stm_ignored = False
         for op in self.block.operations:
             is_getter = (op.opname in ('getfield', 'getarrayitem',
                                        'getinteriorfield', 'raw_load') and
@@ -118,7 +120,26 @@ class BlockTransformer(object):
 
             elif op.opname == 'gc_writebarrier':
                 wants_a_barrier[op] = 'W'
+
+            elif op.opname == 'stm_ignored_start':
+                assert not stm_ignored, "nested 'with stm_ignored'"
+                stm_ignored = True
+
+            elif op.opname == 'stm_ignored_stop':
+                assert stm_ignored, "stm_ignored_stop without start?"
+                stm_ignored = False
+
+            if stm_ignored and op in wants_a_barrier:
+                if wants_a_barrier[op] == 'W':
+                    raise Exception(
+                        "%r: 'with stm_ignored:' contains unsupported "
+                        "operation %r writing a GC pointer" % (graph, op))
+                assert 'I' <= wants_a_barrier[op] < 'W'
+                wants_a_barrier[op] = 'I'
         #
+        if stm_ignored:
+            raise Exception("%r: 'with stm_ignored:' code body too complex"
+                            % (graph,))
         self.wants_a_barrier = wants_a_barrier
         self.expand_comparison = expand_comparison
 
@@ -356,6 +377,7 @@ def insert_stm_barrier(stmtransformer, graph):
        The letters are chosen so that a barrier is needed to change a
        pointer from category x to category y if and only if y > x.
     """
+    join_blocks(graph)
     graphinfo = stmtransformer.write_analyzer.compute_graph_info(graph)
     annotator = stmtransformer.translator.annotator
     insert_empty_startblock(annotator, graph)
@@ -366,7 +388,7 @@ def insert_stm_barrier(stmtransformer, graph):
         if block.operations == ():
             continue
         bt = BlockTransformer(stmtransformer, block)
-        bt.analyze_inside_block()
+        bt.analyze_inside_block(graph)
         block_transformers[block] = bt
 
     bt = block_transformers[graph.startblock]
