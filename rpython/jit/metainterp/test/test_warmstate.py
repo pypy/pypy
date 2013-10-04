@@ -4,6 +4,7 @@ from rpython.rtyper.annlowlevel import llhelper
 from rpython.jit.metainterp.warmstate import wrap, unwrap, specialize_value
 from rpython.jit.metainterp.warmstate import equal_whatever, hash_whatever
 from rpython.jit.metainterp.warmstate import WarmEnterState, JitCell
+from rpython.jit.metainterp.warmstate import MODE_HAVE_PROC, MODE_TRACING
 from rpython.jit.metainterp.history import BoxInt, BoxFloat, BoxPtr
 from rpython.jit.metainterp.history import ConstInt, ConstFloat, ConstPtr
 from rpython.jit.codewriter import longlong
@@ -162,7 +163,7 @@ def test_attach_unoptimized_bridge_from_interp():
                                       constfloat(2.25)],
                                      looptoken)
     cell1 = get_jitcell(True, 5, 2.25)
-    assert cell1.counter < 0
+    assert cell1.mode == MODE_HAVE_PROC
     assert cell1.get_procedure_token() is looptoken
 
 def test_make_jitdriver_callbacks_1():
@@ -299,17 +300,17 @@ def test_cleanup_jitcell_dict():
     #
     for i in range(1, 20005):
         cell = get_jitcell(True, i)
-        cell.counter = -1
+        cell.mode = MODE_HAVE_PROC
         cell.wref_procedure_token = None    # or a dead weakref, equivalently
         assert len(warmstate._jitcell_dict) == (i % 20000) + 1
     #
-    # Same test, with counter == -2 (rare case, kept alive)
+    # Same test, with mode == MODE_TRACING (rare case, kept alive)
     warmstate = WarmEnterState(None, FakeJitDriverSD())
     get_jitcell = warmstate._make_jitcell_getter_default()
     cell = get_jitcell(True, -1)
-    cell.counter = -2
+    cell.mode = MODE_TRACING
     #
     for i in range(1, 20005):
         cell = get_jitcell(True, i)
-        cell.counter = -2
+        cell.mode = MODE_TRACING
         assert len(warmstate._jitcell_dict) == i + 1
