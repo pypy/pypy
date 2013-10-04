@@ -124,12 +124,13 @@ def hash_whatever(TYPE, x):
         return rffi.cast(lltype.Signed, x)
 
 
+MODE_COUNTING  = '\x00'   # not yet traced, wait till threshold is reached
+MODE_TRACING   = 'T'      # tracing is currently going on for this cell
+MODE_HAVE_PROC = 'P'      # there is an entry bridge for this cell
+
 class JitCell(BaseJitCell):
-    # the counter can mean the following things:
-    #     counter >=  0: not yet traced, wait till threshold is reached
-    #     counter == -1: there is an entry bridge for this cell
-    #     counter == -2: tracing is currently going on for this cell
-    counter = 0
+    counter = 0    # when THRESHOLD_LIMIT is reached, start tracing
+    mode = MODE_COUNTING
     dont_trace_here = False
     extra_delay = chr(0)
     wref_procedure_token = None
@@ -241,7 +242,7 @@ class WarmEnterState(object):
         cell = self.jit_cell_at_key(greenkey)
         old_token = cell.get_procedure_token()
         cell.set_procedure_token(procedure_token)
-        cell.counter = -1       # valid procedure bridge attached
+        cell.mode = MODE_HAVE_PROC       # valid procedure bridge attached
         if old_token is not None:
             self.cpu.redirect_call_assembler(old_token, procedure_token)
             # procedure_token is also kept alive by any loop that used
@@ -320,19 +321,19 @@ class WarmEnterState(object):
                 cell.extra_delay = curgen
                 return
             #
+            cell.counter = 0
             if not confirm_enter_jit(*args):
-                cell.counter = 0
                 return
             # start tracing
             from rpython.jit.metainterp.pyjitpl import MetaInterp
             metainterp = MetaInterp(metainterp_sd, jitdriver_sd)
-            # set counter to -2, to mean "tracing in effect"
-            cell.counter = -2
+            cell.mode = MODE_TRACING
             try:
                 metainterp.compile_and_run_once(jitdriver_sd, *args)
             finally:
-                if cell.counter == -2:
+                if cell.mode == MODE_TRACING:
                     cell.counter = 0
+                    cell.mode = MODE_COUNTING
 
         def maybe_compile_and_run(threshold, *args):
             """Entry point to the JIT.  Called at the point with the
@@ -341,8 +342,9 @@ class WarmEnterState(object):
             # look for the cell corresponding to the current greenargs
             greenargs = args[:num_green_args]
             cell = get_jitcell(True, *greenargs)
+            mode = cell.mode
 
-            if cell.counter >= 0:
+            if mode == MODE_COUNTING:
                 # update the profiling counter
                 n = cell.counter + threshold
                 if n <= self.THRESHOLD_LIMIT:       # bound not reached
@@ -351,9 +353,10 @@ class WarmEnterState(object):
                 else:
                     bound_reached(cell, *args)
                     return
+
             else:
-                if cell.counter != -1:
-                    assert cell.counter == -2
+                if mode != MODE_HAVE_PROC:
+                    assert mode == MODE_TRACING
                     # tracing already happening in some outer invocation of
                     # this function. don't trace a second time.
                     return
@@ -363,6 +366,7 @@ class WarmEnterState(object):
                 procedure_token = cell.get_procedure_token()
                 if procedure_token is None:   # it was a weakref that has been freed
                     cell.counter = 0
+                    cell.mode = MODE_COUNTING
                     return
                 # extract and unspecialize the red arguments to pass to
                 # the assembler
@@ -459,11 +463,11 @@ class WarmEnterState(object):
             minimum = self.THRESHOLD_LIMIT // 20     # minimum 5%
             killme = []
             for key, cell in jitcell_dict.iteritems():
-                if cell.counter >= 0:
+                if cell.mode == MODE_COUNTING:
                     cell.counter = int(cell.counter * 0.92)
                     if cell.counter < minimum:
                         killme.append(key)
-                elif (cell.counter == -1
+                elif (cell.mode == MODE_HAVE_PROC
                       and cell.get_procedure_token() is None):
                     killme.append(key)
             for key in killme:
@@ -589,8 +593,11 @@ class WarmEnterState(object):
             procedure_token = cell.get_procedure_token()
             if procedure_token is None:
                 from rpython.jit.metainterp.compile import compile_tmp_callback
-                if cell.counter == -1:    # used to be a valid entry bridge,
-                    cell.counter = 0      # but was freed in the meantime.
+                if cell.mode == MODE_HAVE_PROC:
+                    # used to be a valid entry bridge,
+                    # but was freed in the meantime.
+                    cell.counter = 0
+                    cell.mode = MODE_COUNTING
                 memmgr = warmrunnerdesc.memory_manager
                 procedure_token = compile_tmp_callback(cpu, jd, greenkey,
                                                        redargtypes, memmgr)
