@@ -4,7 +4,7 @@ from rpython.annotator import model as annmodel
 from rpython.rlib import jit, types, rgc
 from rpython.rlib.debug import ll_assert
 from rpython.rlib.objectmodel import (malloc_zero_filled, we_are_translated,
-    _hash_string, keepalive_until_here, specialize)
+    _hash_string, keepalive_until_here, specialize, stm_ignored)
 from rpython.rlib.signature import signature
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rtyper.error import TyperError
@@ -342,12 +342,14 @@ class LLHelpers(AbstractLLHelpers):
         # special non-computed-yet value.
         if not s:
             return 0
-        x = s.hash
+        with stm_ignored:
+            x = s.hash
         if x == 0:
             x = _hash_string(s.chars)
             if x == 0:
                 x = 29872897
-            s.hash = x
+            with stm_ignored:
+                s.hash = x
         return x
 
     def ll_length(s):
