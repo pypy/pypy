@@ -498,6 +498,9 @@ class ResumeGuardDescr(ResumeDescr):
     rd_virtuals = None
     rd_pendingfields = lltype.nullptr(PENDINGFIELDSP.TO)
 
+    rd_stm_busy = False       # same as CNT_BUSY_FLAG, in a different field,
+                              # only for stm
+
     CNT_BASE_MASK  =  0x0FFFFFFF     # the base counter value
     CNT_BUSY_FLAG  =  0x10000000     # if set, busy tracing from the guard
     CNT_TYPE_MASK  =  0x60000000     # mask for the type
@@ -559,35 +562,35 @@ class ResumeGuardDescr(ResumeDescr):
     _trace_and_compile_from_bridge._dont_inline_ = True
 
     def must_compile(self, deadframe, metainterp_sd, jitdriver_sd):
-        ok = self.must_compile_approx(deadframe, metainterp_sd, jitdriver_sd)
-        if not rgc.stm_is_enabled():
-            return ok
+        if rgc.stm_is_enabled():
+            method = self.must_compile_stm
         else:
-            # in stm mode, the return value may (rarely) be True even if a
-            # real, stm-protected read of self._counter says "busy".
-            return ok and not (self._counter & self.CNT_BUSY_FLAG)
+            method = self.must_compile_nonstm
+        return method(deadframe, metainterp_sd, jitdriver_sd)
 
-    def must_compile_approx(self, deadframe, metainterp_sd, jitdriver_sd):
+    def must_compile_stm(self, deadframe, metainterp_sd, jitdriver_sd):
+        trace_eagerness = jitdriver_sd.warmstate.trace_eagerness
+        with stm_ignored:
+            approx_counter = self._counter + 1
+            self._counter = approx_counter
+        return approx_counter >= trace_eagerness and not self.rd_stm_busy
+
+    def must_compile_nonstm(self, deadframe, metainterp_sd, jitdriver_sd):
         trace_eagerness = jitdriver_sd.warmstate.trace_eagerness
         #
-        with stm_ignored:
-            approx_counter = self._counter
-        if approx_counter <= self.CNT_BASE_MASK:
+        if self._counter <= self.CNT_BASE_MASK:
             # simple case: just counting from 0 to trace_eagerness
-            approx_counter += 1
-            with stm_ignored:
-                self._counter = approx_counter
-            return approx_counter >= trace_eagerness
+            self._counter += 1
+            return self._counter >= trace_eagerness
         #
         # do we have the BUSY flag?  If so, we're tracing right now, e.g. in an
         # outer invocation of the same function, so don't trace again for now.
-        elif approx_counter & self.CNT_BUSY_FLAG:
+        elif self._counter & self.CNT_BUSY_FLAG:
             return False
         #
         else: # we have a GUARD_VALUE that fails.  Make a _counters instance
             # (only now, when the guard is actually failing at least once),
             # and use it to record some statistics about the failing values.
-            assert not rgc.stm_is_enabled(), "XXX"
             index = self._counter & self.CNT_BASE_MASK
             typetag = self._counter & self.CNT_TYPE_MASK
             counters = self._counters
@@ -621,7 +624,10 @@ class ResumeGuardDescr(ResumeDescr):
 
     def start_compiling(self):
         # start tracing and compiling from this guard.
-        self._counter |= self.CNT_BUSY_FLAG
+        if rgc.stm_is_enabled():
+            self.rd_stm_busy = True
+        else:
+            self._counter |= self.CNT_BUSY_FLAG
 
     def done_compiling(self):
         # done tracing and compiling from this guard.  Either the bridge has
@@ -629,8 +635,12 @@ class ResumeGuardDescr(ResumeDescr):
         # in self._counter will not be seen any more, or not, in which case
         # we should reset the counter to 0, in order to wait a bit until the
         # next attempt.
-        if self._counter >= 0:
+        if rgc.stm_is_enabled():
+            self.rd_stm_busy = False
             self._counter = 0
+        else:
+            if self._counter >= 0:
+                self._counter = 0
         self._counters = None
 
     def compile_and_attach(self, metainterp, new_loop):
