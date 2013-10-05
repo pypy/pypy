@@ -734,7 +734,9 @@ class rbigint(object):
             # if base < 0:
             #     base = base % modulus
             # Having the base positive just makes things easier.
-            if a.sign < 0:
+            # As a (very good) optimization, we also reduce 'base' here
+            # if it is much bigger than the modulus.
+            if a.sign < 0 or a.numdigits() > c.numdigits():
                 a = a.mod(c)
 
         elif b.sign == 0:
