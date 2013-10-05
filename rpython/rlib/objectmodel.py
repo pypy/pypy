@@ -798,7 +798,7 @@ class _StmIgnored:
 # behavior is fine, like incrementing some global counter.
 # XXX only for GC objects for now
 # XXX but it should replace 'stm_dont_track_raw_accesses' too
-# XXX DON'T USE for *writes* of a GC pointer into an object
+# XXX only for reads and writes of non-GC pointers
 stm_ignored = _StmIgnored()
 
 

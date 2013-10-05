@@ -134,6 +134,11 @@ class BlockTransformer(object):
                     raise Exception(
                         "%r: 'with stm_ignored:' contains unsupported "
                         "operation %r writing a GC pointer" % (graph, op))
+                if wants_a_barrier[op] == 'R' and is_getter and (
+                        is_gc_ptr(op.result.concretetype)):
+                    raise Exception(
+                        "%r: 'with stm_ignored:' contains unsupported "
+                        "operation %r reading a GC pointer" % (graph, op))
                 assert 'I' <= wants_a_barrier[op] < 'W'
                 wants_a_barrier[op] = 'I'
         #
