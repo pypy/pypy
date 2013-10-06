@@ -133,17 +133,17 @@ class FfiCallTests(object):
             self.check_operations_history(call_may_force=0,
                                           call_release_gil=expected_call_release_gil)
 
-        ##################################################
-        driver = jit.JitDriver(reds=['i'], greens=[])
-        def main():
-            i = 0
-            while 1:
-                driver.jit_merge_point(i=i)
-                res = f(i)
-                i += 1
-                if i == 12:
-                    return res
-        self.meta_interp(main, [])
+            ##################################################
+            driver = jit.JitDriver(reds=['i'], greens=[])
+            def main():
+                i = 0
+                while 1:
+                    driver.jit_merge_point(i=i)
+                    res = f(i)
+                    i += 1
+                    if i == 12:
+                        return res
+            self.meta_interp(main, [])
 
 
     def test_simple_call_int(self):
