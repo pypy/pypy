@@ -315,9 +315,7 @@ class JSONDecoder(object):
                 content_so_far = self.getslice(start, i-1)
                 self.pos = i-1
                 return self.decode_string_escaped(start, content_so_far)
-            elif ch == '\0':
-                self._raise("Unterminated string starting at char %d", start)
-            elif ch < '\x20' or ch == '\x7f':
+            elif ch < '\x20':
                 self._raise("Invalid control character at char %d", self.pos-1)
 
 
