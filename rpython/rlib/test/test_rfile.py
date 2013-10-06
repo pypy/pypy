@@ -78,3 +78,31 @@ class TestFile(BaseRtypingTest):
 
         f()
         self.interpret(f, [])
+
+    def test_fileno(self):
+        fname = str(self.tmpdir.join('file_5'))
+
+        def f():
+            f = open(fname, "w")
+            try:
+                return f.fileno()
+            finally:
+                f.close()
+
+        res = self.interpret(f, [])
+        assert res > 2
+
+    def test_tell(self):
+        fname = str(self.tmpdir.join('file_tell'))
+
+        def f():
+            f = open(fname, "w")
+            f.write("xyz")
+            try:
+                return f.tell()
+            finally:
+                f.close()
+
+        res = self.interpret(f, [])
+        assert res == 3
+
