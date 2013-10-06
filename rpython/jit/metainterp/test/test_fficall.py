@@ -93,7 +93,7 @@ class FfiCallTests(object):
             targetptr = rffi.ptradd(exbuf, 16)
             for avalue in unroll_avalues:
                 TYPE = rffi.CArray(lltype.typeOf(avalue))
-                if i == 9:    # a guard that can fail
+                if i >= 9:    # a guard that can fail
                     pass
                 rffi.cast(lltype.Ptr(TYPE), targetptr)[0] = avalue
                 targetptr = rffi.ptradd(targetptr, 16)

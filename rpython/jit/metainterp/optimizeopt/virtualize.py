@@ -483,6 +483,15 @@ class VRawSliceValue(AbstractVirtualValue):
     def getitem_raw(self, offset, length, descr):
         return self.rawbuffer_value.getitem_raw(self.offset+offset, length, descr)
 
+    def _get_args_for_fail(self, modifier):
+        box = self.rawbuffer_value.get_key_box()
+        modifier.register_virtual_fields(self.keybox, [box])
+        self.rawbuffer_value.get_args_for_fail(modifier)
+
+    def _make_virtual(self, modifier):
+        return modifier.make_vrawslice(self.offset)
+
+
 class OptVirtualize(optimizer.Optimization):
     "Virtualize objects until they escape."
 
