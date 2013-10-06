@@ -45,6 +45,15 @@ class AbstractVirtualValue(optimizer.OptValue):
             return value
         return OptValue(self.force_box(optforce))
 
+    def get_args_for_fail(self, modifier):
+        # checks for recursion: it is False unless
+        # we have already seen the very same keybox
+        if self.box is None and not modifier.already_seen_virtual(self.keybox):
+            self._get_args_for_fail(modifier)
+
+    def _get_args_for_fail(self, modifier):
+        raise NotImplementedError("abstract base")
+
     def make_virtual_info(self, modifier, fieldnums):
         if fieldnums is None:
             return self._make_virtual(modifier)
@@ -193,16 +202,13 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
             self._cached_sorted_fields = lst
         return lst
 
-    def get_args_for_fail(self, modifier):
-        if self.box is None and not modifier.already_seen_virtual(self.keybox):
-            # checks for recursion: it is False unless
-            # we have already seen the very same keybox
-            lst = self._get_field_descr_list()
-            fieldboxes = [self._fields[ofs].get_key_box() for ofs in lst]
-            modifier.register_virtual_fields(self.keybox, fieldboxes)
-            for ofs in lst:
-                fieldvalue = self._fields[ofs]
-                fieldvalue.get_args_for_fail(modifier)
+    def _get_args_for_fail(self, modifier):
+        lst = self._get_field_descr_list()
+        fieldboxes = [self._fields[ofs].get_key_box() for ofs in lst]
+        modifier.register_virtual_fields(self.keybox, fieldboxes)
+        for ofs in lst:
+            fieldvalue = self._fields[ofs]
+            fieldvalue.get_args_for_fail(modifier)
 
 class VirtualValue(AbstractVirtualStructValue):
     level = optimizer.LEVEL_KNOWNCLASS
@@ -254,18 +260,15 @@ class AbstractVArrayValue(AbstractVirtualValue):
     def set_item_value(self, i, newval):
         raise NotImplementedError
 
-    def get_args_for_fail(self, modifier):
-        if self.box is None and not modifier.already_seen_virtual(self.keybox):
-            # checks for recursion: it is False unless
-            # we have already seen the very same keybox
-            itemboxes = []
-            for i in range(self.getlength()):
-                itemvalue = self.get_item_value(i)
-                itemboxes.append(itemvalue.get_key_box())
-            modifier.register_virtual_fields(self.keybox, itemboxes)
-            for i in range(self.getlength()):
-                itemvalue = self.get_item_value(i)
-                itemvalue.get_args_for_fail(modifier)
+    def _get_args_for_fail(self, modifier):
+        itemboxes = []
+        for i in range(self.getlength()):
+            itemvalue = self.get_item_value(i)
+            itemboxes.append(itemvalue.get_key_box())
+        modifier.register_virtual_fields(self.keybox, itemboxes)
+        for i in range(self.getlength()):
+            itemvalue = self.get_item_value(i)
+            itemvalue.get_args_for_fail(modifier)
 
 
 class VArrayValue(AbstractVArrayValue):
@@ -370,17 +373,16 @@ class VArrayStructValue(AbstractVirtualValue):
             descrs.append(item_descrs)
         return descrs
 
-    def get_args_for_fail(self, modifier):
-        if self.box is None and not modifier.already_seen_virtual(self.keybox):
-            itemdescrs = self._get_list_of_descrs()
-            itemboxes = []
-            for i in range(len(self._items)):
-                for descr in itemdescrs[i]:
-                    itemboxes.append(self._items[i][descr].get_key_box())
-            modifier.register_virtual_fields(self.keybox, itemboxes)
-            for i in range(len(self._items)):
-                for descr in itemdescrs[i]:
-                    self._items[i][descr].get_args_for_fail(modifier)
+    def _get_args_for_fail(self, modifier):
+        itemdescrs = self._get_list_of_descrs()
+        itemboxes = []
+        for i in range(len(self._items)):
+            for descr in itemdescrs[i]:
+                itemboxes.append(self._items[i][descr].get_key_box())
+        modifier.register_virtual_fields(self.keybox, itemboxes)
+        for i in range(len(self._items)):
+            for descr in itemdescrs[i]:
+                self._items[i][descr].get_args_for_fail(modifier)
 
     def force_at_end_of_preamble(self, already_forced, optforce):
         if self in already_forced:
