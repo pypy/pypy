@@ -783,6 +783,7 @@ class AbstractResumeDataReader(object):
         v = self.virtuals_cache.get_int(index)
         if not v:
             v = self.rd_virtuals[index]
+            ll_assert(bool(v), "resume.py: null rd_virtuals[index]")
             assert v.is_about_raw and isinstance(v, VRawBufferStateInfo)
             v = v.allocate_int(self, index)
             ll_assert(v == self.virtuals_cache.get_int(index), "resume.py: bad cache")
