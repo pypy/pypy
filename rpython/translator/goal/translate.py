@@ -11,10 +11,10 @@ from rpython.conftest import cache_dir
 
 import py
 # clean up early rpython/_cache
-try:
-    py.path.local(cache_dir).remove()
-except Exception:
-    pass
+#try:
+#    py.path.local(cache_dir).remove()
+#except Exception:
+#    pass
 
 from rpython.config.config import (to_optparse, OptionDescription, BoolOption,
     ArbitraryOption, StrOption, IntOption, Config, ChoiceOption, OptHelpFormatter)

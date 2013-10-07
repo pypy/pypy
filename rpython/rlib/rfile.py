@@ -156,3 +156,16 @@ class RFile(object):
                 raise OSError(errno, os.strerror(errno))
             return res
         raise ValueError("I/O operation on closed file")
+
+    def flush(self):
+        if self.ll_file:
+            res = c_fflush(self.ll_file)
+            if res != 0:
+                errno = rposix.get_errno()
+                raise OSError(errno, os.strerror(errno))
+            return
+        raise ValueError("I/O operation on closed file")
+
+    def __del__(self):
+        self.close()
+
