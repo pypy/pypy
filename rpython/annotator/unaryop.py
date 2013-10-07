@@ -10,7 +10,7 @@ from rpython.annotator.model import (SomeObject, SomeInteger, SomeBool,
     SomeUnicodeCodePoint, SomeInstance, SomeBuiltin, SomeFloat, SomeIterator,
     SomePBC, SomeTypedAddressAccess, SomeAddress, SomeType, s_ImpossibleValue,
     s_Bool, s_None, unionof, missing_operation, add_knowntypedata,
-    HarmlesslyBlocked, SomeWeakRef, SomeUnicodeString)
+    HarmlesslyBlocked, SomeWeakRef, SomeUnicodeString, SomeByteArray)
 from rpython.annotator.bookkeeper import getbookkeeper
 from rpython.annotator import builtin
 from rpython.annotator.binaryop import _clone ## XXX where to put this?
@@ -519,6 +519,11 @@ class __extend__(SomeString,
             return SomeObject.op_contains(str, s_element)
     op_contains.can_only_throw = []
 
+
+class __extend__(SomeByteArray):
+    def getslice(ba, s_start, s_stop):
+        check_negative_slice(s_start, s_stop)
+        return SomeByteArray()
 
 class __extend__(SomeUnicodeString):
     def method_encode(uni, s_enc):
