@@ -129,10 +129,21 @@ class AppTestBuiltinApp:
     def test_locals(self):
         def f():
             return locals()
+
         def g(c=0, b=0, a=0):
             return locals()
+
         assert f() == {}
-        assert g() == {'a':0, 'b':0, 'c':0}
+        assert g() == {'a': 0, 'b': 0, 'c': 0}
+
+    def test_locals_deleted_local(self):
+        def f():
+            a = 3
+            locals()
+            del a
+            return locals()
+
+        assert f() == {}
 
     def test_dir(self):
         def f():
@@ -298,22 +309,6 @@ class AppTestBuiltinApp:
         assert next(x) == 3
 
     def test_range_args(self):
-##        # range() attributes are deprecated and were removed in Python 2.3.
-##        x = range(2)
-##        assert x.start == 0
-##        assert x.stop == 2
-##        assert x.step == 1
-
-##        x = range(2,10,2)
-##        assert x.start == 2
-##        assert x.stop == 10
-##        assert x.step == 2
-
-##        x = range(2.3, 10.5, 2.4)
-##        assert x.start == 2
-##        assert x.stop == 10
-##        assert x.step == 2
-
         raises(ValueError, range, 0, 1, 0)
 
     def test_range_repr(self):
@@ -374,7 +369,7 @@ class AppTestBuiltinApp:
         raises(TypeError, range, 1, 3+2j)
         raises(TypeError, range, 1, 2, '1')
         raises(TypeError, range, 1, 2, 3+2j)
-    
+
     def test_sorted(self):
         l = []
         sorted_l = sorted(l)
@@ -393,7 +388,7 @@ class AppTestBuiltinApp:
         assert sorted_l is not l
         assert sorted_l == ['C', 'b', 'a']
         raises(TypeError, sorted, [], reverse=None)
-        
+
     def test_reversed_simple_sequences(self):
         l = range(5)
         rev = reversed(l)
@@ -409,7 +404,7 @@ class AppTestBuiltinApp:
                 return 42
         obj = SomeClass()
         assert reversed(obj) == 42
-    
+
     def test_return_None(self):
         class X(object): pass
         x = X()
@@ -465,7 +460,7 @@ class AppTestBuiltinApp:
         assert eval("1+2") == 3
         assert eval(" \t1+2\n") == 3
         assert eval("len([])") == 0
-        assert eval("len([])", {}) == 0        
+        assert eval("len([])", {}) == 0
         # cpython 2.4 allows this (raises in 2.3)
         assert eval("3", None, None) == 3
         i = 4

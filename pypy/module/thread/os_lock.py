@@ -75,6 +75,8 @@ def acquire_timed(space, lock, microseconds):
 class Lock(W_Root):
     "A wrappable box around an interp-level lock object."
 
+    _immutable_fields_ = ["lock"]
+
     def __init__(self, space):
         self.space = space
         try:

@@ -363,9 +363,11 @@ class NotSupportedError(DatabaseError):
     pass
 
 
-def connect(database, **kwargs):
-    factory = kwargs.get("factory", Connection)
-    return factory(database, **kwargs)
+def connect(database, timeout=5.0, detect_types=0, isolation_level="",
+                 check_same_thread=True, factory=None, cached_statements=100):
+    factory = Connection if not factory else factory
+    return factory(database, timeout, detect_types, isolation_level,
+                    check_same_thread, factory, cached_statements)
 
 
 def _unicode_text_factory(x):

@@ -31,6 +31,12 @@ def test_list_ddl(con):
     result = list(cursor)
     assert result == [(42,)]
 
+def test_connect_takes_same_positional_args_as_Connection(con):
+    from inspect import getargspec
+    clsargs = getargspec(_sqlite3.Connection.__init__).args[1:]  # ignore self
+    conargs = getargspec(_sqlite3.connect).args
+    assert clsargs == conargs
+
 def test_total_changes_after_close(con):
     con.close()
     pytest.raises(_sqlite3.ProgrammingError, "con.total_changes")

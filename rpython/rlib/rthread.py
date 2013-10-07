@@ -117,6 +117,8 @@ class Lock(object):
     """ Container for low-level implementation
     of a lock object
     """
+    _immutable_fields_ = ["_lock"]
+
     def __init__(self, ll_lock):
         self._lock = ll_lock
 
