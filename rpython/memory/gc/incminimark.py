@@ -153,24 +153,24 @@ GCFLAG_OLD      = first_gcflag << 10
 
 # The scanning phase, next step call will scan the current roots
 # This state must complete in a single step
-STATE_SCANNING = 1 << 0
+STATE_SCANNING = 0
 
 # The marking phase. We walk the list of all grey objects and mark
 # all of the things they point to grey. This step lasts until there are no
 # gray objects
-STATE_MARKING  = 1 << 1
+STATE_MARKING  = 1
 
 # here we kill all the unvisited rawmalloc objects
-STATE_SWEEPING_RAWMALLOC = 1 << 2
+STATE_SWEEPING_RAWMALLOC = 2
 
 # here we kill all the unvisited arena objects
-STATE_SWEEPING_ARENA = 1 << 3
+STATE_SWEEPING_ARENA = 3
 
 # here we call all the finalizers
-STATE_FINALIZING = 1 << 4
+STATE_FINALIZING = 4
 
-MASK_SWEEPING = (STATE_SWEEPING_RAWMALLOC | STATE_SWEEPING_ARENA)
-
+GC_STATES = ['SCANNING', 'MARKING', 'SWEEPING_RAWMALLOC', 'SWEEPING_ARENA',
+             'FINALIZING']
 
 
 TID_MASK            = (first_gcflag << 11) - 1
@@ -360,7 +360,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
         self.old_rawmalloced_objects = self.AddressStack()
         self.rawmalloced_total_size = r_uint(0)
 
-        self.gc_state = r_uint(0) #XXX Only really needs to be a byte
         self.gc_state = STATE_SCANNING
         #
         # A list of all objects with finalizers (these are never young).
@@ -1197,17 +1196,17 @@ class IncrementalMiniMarkGC(MovingGCBase):
     def JIT_minimal_size_in_nursery(cls):
         return cls.minimal_size_in_nursery
 
-    def write_barrier(self, newvalue, addr_struct):
+    def write_barrier(self, addr_struct):
         if self.header(addr_struct).tid & (GCFLAG_TRACK_YOUNG_PTRS
                                            | GCFLAG_VISITED):
-            self.write_barrier_slowpath(addr_struct, newvalue)
+            self.write_barrier_slowpath(addr_struct)
 
-    def write_barrier_slowpath(self, addr_struct, newvalue):
+    def write_barrier_slowpath(self, addr_struct):
         if self.header(addr_struct).tid & GCFLAG_TRACK_YOUNG_PTRS:
-            self.remember_young_pointer(addr_struct, newvalue)
+            self.remember_young_pointer(addr_struct)
         if self.header(addr_struct).tid & GCFLAG_VISITED:
             if self.gc_state == STATE_MARKING:
-                self.write_to_visited_object_forward(addr_struct, newvalue)
+                self.write_to_visited_object_backward(addr_struct)
     write_barrier_slowpath._dont_inline_ = True
 
     def write_barrier_from_array(self, newvalue, addr_array, index):
@@ -1243,22 +1242,20 @@ class IncrementalMiniMarkGC(MovingGCBase):
         self.write_to_visited_object_forward = write_to_visited_object_forward
 
         # move marking process backward
-        def write_to_visited_object_backward(addr_struct, new_value):
+        def write_to_visited_object_backward(addr_struct):
             ll_assert(self.gc_state == STATE_MARKING,"expected MARKING state")
-            if  self.header(new_value).tid & (GCFLAG_GRAY | GCFLAG_VISITED) == 0:
-                # writing a white object into black, make black gray and
-                # readd to objects_to_trace
-                # this is useful for arrays because it stops the writebarrier
-                # from being re-triggered on successive writes
-                self.header(addr_struct).tid &= ~GCFLAG_VISITED
-                self.header(addr_struct).tid |= GCFLAG_GRAY
-                self.objects_to_trace.append(addr_struct)
+            # writing a white object into black, make black gray and
+            # readd to objects_to_trace
+            # this is useful for arrays because it stops the writebarrier
+            # from being re-triggered on successive writes
+            self.header(addr_struct).tid &= ~GCFLAG_VISITED
+            self.header(addr_struct).tid |= GCFLAG_GRAY
+            self.objects_to_trace.append(addr_struct)
         write_to_visited_object_backward._dont_inline_ = True
         self.write_to_visited_object_backward = write_to_visited_object_backward
 
-        def remember_young_pointer(addr_struct, newvalue):
+        def remember_young_pointer(addr_struct):
             # 'addr_struct' is the address of the object in which we write.
-            # 'newvalue' is the address that we are going to write in there.
             # We know that 'addr_struct' has GCFLAG_TRACK_YOUNG_PTRS so far.
             #
             if DEBUG:   # note: PYPY_GC_DEBUG=1 does not enable this
@@ -1266,22 +1263,25 @@ class IncrementalMiniMarkGC(MovingGCBase):
                           self.header(addr_struct).tid & GCFLAG_HAS_CARDS != 0,
                       "young object with GCFLAG_TRACK_YOUNG_PTRS and no cards")
             #
-            # If it seems that what we are writing is a pointer to a young obj
-            # (as checked with appears_to_be_young()), then we need
-            # to remove the flag GCFLAG_TRACK_YOUNG_PTRS and add the object
-            # to the list 'old_objects_pointing_to_young'.  We know that
-            # 'addr_struct' cannot be in the nursery, because nursery objects
-            # never have the flag GCFLAG_TRACK_YOUNG_PTRS to start with.
+            # We need to remove the flag GCFLAG_TRACK_YOUNG_PTRS and add
+            # the object to the list 'old_objects_pointing_to_young'.
+            # We know that 'addr_struct' cannot be in the nursery,
+            # because nursery objects never have the flag
+            # GCFLAG_TRACK_YOUNG_PTRS to start with.  Note that in
+            # theory we don't need to do that if the pointer that we're
+            # writing into the object isn't pointing to a young object.
+            # However, it isn't really a win, because then sometimes
+            # we're going to call this function a lot of times for the
+            # same object; moreover we'd need to pass the 'newvalue' as
+            # an argument here.  The JIT has always called a
+            # 'newvalue'-less version, too.
+            self.old_objects_pointing_to_young.append(addr_struct)
             objhdr = self.header(addr_struct)
-            if self.appears_to_be_young(newvalue):
-                self.old_objects_pointing_to_young.append(addr_struct)
-                objhdr.tid &= ~GCFLAG_TRACK_YOUNG_PTRS
+            objhdr.tid &= ~GCFLAG_TRACK_YOUNG_PTRS
             #
             # Second part: if 'addr_struct' is actually a prebuilt GC
             # object and it's the first time we see a write to it, we
-            # add it to the list 'prebuilt_root_objects'.  Note that we
-            # do it even in the (rare?) case of 'addr' being NULL or another
-            # prebuilt object, to simplify code.
+            # add it to the list 'prebuilt_root_objects'.
             if objhdr.tid & GCFLAG_NO_HEAP_PTRS:
                 objhdr.tid &= ~GCFLAG_NO_HEAP_PTRS
                 self.prebuilt_root_objects.append(addr_struct)
@@ -1822,7 +1822,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
     # is done before every major collection step
     def major_collection_step(self,reserving_size=0):
         debug_start("gc-collect-step")
-        debug_print("stating gc state: ",self.gc_state)
+        debug_print("stating gc state: ", GC_STATES[self.gc_state])
         # Debugging checks
         ll_assert(self.nursery_free == self.nursery,
                   "nursery not empty in major_collection_step()")
@@ -1840,9 +1840,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
             self.gc_state = STATE_MARKING
             #END SCANNING
         elif self.gc_state == STATE_MARKING:
-            # XXX need a heuristic to tell how many objects to mark.
-            # Maybe based on previous mark time average
-            self.visit_all_objects_step(1)
+            debug_print("number of objects to mark",
+                        self.objects_to_trace.length())
+
+            estimate = 2000
+            self.visit_all_objects_step(estimate)
 
             # XXX A simplifying assumption that should be checked,
             # finalizers/weak references are rare and short which means that
@@ -2051,13 +2053,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
             obj = pending.pop()
             self.visit(obj)
 
-    def visit_all_objects_step(self,nobjects=1):
+    def visit_all_objects_step(self, nobjects):
         # Objects can be added to pending by visit
         pending = self.objects_to_trace
         while nobjects > 0 and pending.non_empty():
             obj = pending.pop()
-            #XXX can black objects even get into this list?
-            #XXX tighten this assertion
             ll_assert(self.header(obj).tid &
                         (GCFLAG_GRAY|GCFLAG_VISITED|GCFLAG_NO_HEAP_PTRS) != 0,
                         "non gray or black object being traced")
