@@ -601,12 +601,10 @@ class TestIncrementalMiniMarkGCSimple(TestMiniMarkGCSimple):
         # object shifted by minor collect
         oldhdr = self.gc.header(llmemory.cast_ptr_to_adr(oldobj))
         assert oldhdr.tid & incminimark.GCFLAG_VISITED == 0
-        #process one object
-        self.gc.debug_gc_step()
 
         self.gc.minor_collection()
-        # make sure minor collect doesnt interfere with visited flag on
-        # old object
+        self.gc.visit_all_objects_step(1)
+
         assert oldhdr.tid & incminimark.GCFLAG_VISITED
 
         #at this point the first object should have been processed
@@ -614,7 +612,8 @@ class TestIncrementalMiniMarkGCSimple(TestMiniMarkGCSimple):
         self.write(oldobj,'next',newobj)
         #the barrier should have made the object gray
         newhdr = self.gc.header(llmemory.cast_ptr_to_adr(newobj))
-        assert newhdr.tid & incminimark.GCFLAG_GRAY
+        assert oldhdr.tid & incminimark.GCFLAG_GRAY
+        assert newhdr.tid & (incminimark.GCFLAG_VISITED | incminimark.GCFLAG_GRAY) == 0
         #checks gray object is in objects_to_trace
         self.gc.debug_check_consistency()
 
@@ -657,8 +656,8 @@ class TestIncrementalMiniMarkGCSimple(TestMiniMarkGCSimple):
 
         self.gc.debug_gc_step_until(incminimark.STATE_MARKING)
 
-        #process one object
-        self.gc.debug_gc_step()
+        self.gc.minor_collection()
+        self.gc.visit_all_objects_step(1)
 
         oldobj = self.stackroots[-1]
 
@@ -668,19 +667,17 @@ class TestIncrementalMiniMarkGCSimple(TestMiniMarkGCSimple):
         self.write(oldobj,'next',newobj)
         #the barrier should have made the object gray
         newhdr = self.gc.header(llmemory.cast_ptr_to_adr(newobj))
-        assert newhdr.tid & incminimark.GCFLAG_GRAY
+        assert newhdr.tid & incminimark.GCFLAG_GRAY == 0
+        assert (self.gc.header(llmemory.cast_ptr_to_adr(oldobj)).tid &
+                incminimark.GCFLAG_GRAY)
 
+        assert self.gc.gc_state == incminimark.STATE_MARKING
         # make newobj unreachable again
         self.write(oldobj,'next',oldobj)
 
         #complete collection
         self.gc.debug_gc_step_until(incminimark.STATE_SCANNING)
         self.gc.debug_check_consistency()
-
-        # object cant be collected in this case, must be made old.
-        assert newobj.x == 5
-
-        self.gc.debug_gc_step_until(incminimark.STATE_SCANNING)
 
         # now object is collected
         assert py.test.raises(RuntimeError,"newobj.x")
@@ -700,8 +697,6 @@ class TestIncrementalMiniMarkGCSimple(TestMiniMarkGCSimple):
             self.stackroots.append(curobj)
             assert self.gc.is_in_nursery(llmemory.cast_ptr_to_adr(curobj))
 
-        reachableroot = curobj
-
         for i in range(5):
             curobj = self.malloc(VAR, largeobj_size)
             self.stackroots.append(curobj)
@@ -709,6 +704,8 @@ class TestIncrementalMiniMarkGCSimple(TestMiniMarkGCSimple):
 
         assert self.gc.gc_state == incminimark.STATE_SCANNING
 
+        self.gc.debug_gc_step()   # this reads self.stackroots
+        reachableroot = self.stackroots[4]
 
         nallocated = {}
 

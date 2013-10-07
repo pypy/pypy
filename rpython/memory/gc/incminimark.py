@@ -298,6 +298,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
         self.max_heap_size_already_raised = False
         self.max_delta = float(r_uint(-1))
         #
+        if card_page_indices != 0:
+            import py
+            py.test.skip("cards unsupported")
         self.card_page_indices = card_page_indices
         if self.card_page_indices > 0:
             self.card_page_shift = 0
@@ -696,21 +699,21 @@ class IncrementalMiniMarkGC(MovingGCBase):
             self.move_nursery_top(totalsize)
             return prev_result
         self.minor_collection()
+        self.major_collection_step()
         #
-        if self.get_total_memory_used() > self.next_major_collection_threshold:
-            self.major_collection()
+
+        #
+        # The nursery might not be empty now, because of
+        # execute_finalizers().  If it is almost full again,
+        # we need to fix it with another call to minor_collection().
+        if self.nursery_free + totalsize > self.nursery_top:
             #
-            # The nursery might not be empty now, because of
-            # execute_finalizers().  If it is almost full again,
-            # we need to fix it with another call to minor_collection().
-            if self.nursery_free + totalsize > self.nursery_top:
-                #
-                if self.nursery_free + totalsize > self.nursery_real_top:
-                    self.minor_collection()
-                    # then the nursery is empty
-                else:
-                    # we just need to clean up a bit more of the nursery
-                    self.move_nursery_top(totalsize)
+            if self.nursery_free + totalsize > self.nursery_real_top:
+                self.minor_collection()
+                # then the nursery is empty
+            else:
+                # we just need to clean up a bit more of the nursery
+                self.move_nursery_top(totalsize)
         #
         result = self.nursery_free
         self.nursery_free = result + totalsize
@@ -1209,18 +1212,10 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 self.write_to_visited_object_backward(addr_struct)
     write_barrier_slowpath._dont_inline_ = True
 
-    def write_barrier_from_array(self, newvalue, addr_array, index):
-
-        if self.header(addr_array).tid & GCFLAG_TRACK_YOUNG_PTRS:
-            if self.card_page_indices > 0:     # <- constant-folded
-                self.remember_young_pointer_from_array2(addr_array, index)
-            else:
-                self.remember_young_pointer(addr_array, newvalue)
-
-        if self.gc_state == STATE_MARKING:
-            if self.header(addr_struct).tid & GCFLAG_VISITED:
-                self.write_to_visited_object_backward(addr_struct,newvalue)
-
+    def write_barrier_from_array(self, addr_array, index):
+        if self.header(addr_array).tid & (GCFLAG_TRACK_YOUNG_PTRS |
+                                          GCFLAG_VISITED):
+            self.write_barrier_slowpath(addr_array)
 
     def _init_writebarrier_logic(self):
         DEBUG = self.DEBUG
@@ -1812,7 +1807,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             self.minor_collection()
             self.major_collection_step()
 
-    def debug_gc_step(self,n=1):
+    def debug_gc_step(self, n=1):
         while n > 0:
             self.minor_collection()
             self.major_collection_step()
@@ -1935,7 +1930,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
 
         debug_stop("gc-collect-step")
 
-    def major_collection(self,reserving_size=0):
+    def major_collection(self, reserving_size=0):
         # For now keep things compatible with the existing GC
         # and do all steps in a loop
 
