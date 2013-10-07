@@ -17,6 +17,9 @@ from rpython.rtyper.lltypesystem.rclass import OBJECTPTR
 # because it needs to support optimize.py which encodes virtuals with
 # arbitrary cycles and also to compress the information
 
+class AlreadyForced(Exception):
+    pass
+
 class Snapshot(object):
     __slots__ = ('prev', 'boxes')
 
@@ -51,20 +54,24 @@ def _ensure_parent_resumedata(framestack, n):
 
 def capture_resumedata(framestack, virtualizable_boxes, virtualref_boxes,
                        storage):
-    n = len(framestack)-1
-    top = framestack[n]
-    _ensure_parent_resumedata(framestack, n)
-    frame_info_list = FrameInfo(top.parent_resumedata_frame_info_list,
-                                top.jitcode, top.pc)
-    storage.rd_frame_info_list = frame_info_list
-    snapshot = Snapshot(top.parent_resumedata_snapshot,
-                        top.get_list_of_active_boxes(False))
+    n = len(framestack) - 1
     if virtualizable_boxes is not None:
         boxes = virtualref_boxes + virtualizable_boxes
     else:
         boxes = virtualref_boxes[:]
-    snapshot = Snapshot(snapshot, boxes)
-    storage.rd_snapshot = snapshot
+    if n >= 0:
+        top = framestack[n]
+        _ensure_parent_resumedata(framestack, n)
+        frame_info_list = FrameInfo(top.parent_resumedata_frame_info_list,
+                                    top.jitcode, top.pc)
+        storage.rd_frame_info_list = frame_info_list
+        snapshot = Snapshot(top.parent_resumedata_snapshot,
+                            top.get_list_of_active_boxes(False))
+        snapshot = Snapshot(snapshot, boxes)
+        storage.rd_snapshot = snapshot
+    else:
+        storage.rd_frame_info_list = None
+        storage.rd_snapshot = Snapshot(None, boxes)
 
 #
 # The following is equivalent to the RPython-level declaration:
@@ -277,7 +284,10 @@ class ResumeDataVirtualAdder(object):
         return VArrayStructInfo(arraydescr, fielddescrs)
 
     def make_vrawbuffer(self, size, offsets, descrs):
-        return VRawBufferStateInfo(size, offsets, descrs)
+        return VRawBufferInfo(size, offsets, descrs)
+
+    def make_vrawslice(self, offset):
+        return VRawSliceInfo(offset)
 
     def make_vstrplain(self, is_unicode=False):
         if is_unicode:
@@ -547,9 +557,12 @@ class VArrayInfo(AbstractVirtualInfo):
             debug_print("\t\t", str(untag(i)))
 
 
-class VRawBufferStateInfo(AbstractVirtualInfo):
+class VAbstractRawInfo(AbstractVirtualInfo):
     kind = INT
     is_about_raw = True
+
+
+class VRawBufferInfo(VAbstractRawInfo):
 
     def __init__(self, size, offsets, descrs):
         self.size = size
@@ -569,6 +582,25 @@ class VRawBufferStateInfo(AbstractVirtualInfo):
 
     def debug_prints(self):
         debug_print("\tvrawbufferinfo", " at ",  compute_unique_id(self))
+        for i in self.fieldnums:
+            debug_print("\t\t", str(untag(i)))
+
+
+class VRawSliceInfo(VAbstractRawInfo):
+
+    def __init__(self, offset):
+        self.offset = offset
+
+    @specialize.argtype(1)
+    def allocate_int(self, decoder, index):
+        assert len(self.fieldnums) == 1
+        base_buffer = decoder.decode_int(self.fieldnums[0])
+        buffer = decoder.int_add_const(base_buffer, self.offset)
+        decoder.virtuals_cache.set_int(index, buffer)
+        return buffer
+
+    def debug_prints(self):
+        debug_print("\tvrawsliceinfo", " at ",  compute_unique_id(self))
         for i in self.fieldnums:
             debug_print("\t\t", str(untag(i)))
 
@@ -776,7 +808,8 @@ class AbstractResumeDataReader(object):
         v = self.virtuals_cache.get_int(index)
         if not v:
             v = self.rd_virtuals[index]
-            assert v.is_about_raw and isinstance(v, VRawBufferStateInfo)
+            ll_assert(bool(v), "resume.py: null rd_virtuals[index]")
+            assert v.is_about_raw and isinstance(v, VAbstractRawInfo)
             v = v.allocate_int(self, index)
             ll_assert(v == self.virtuals_cache.get_int(index), "resume.py: bad cache")
         return v
@@ -1109,6 +1142,10 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
     def write_a_float(self, index, box):
         self.boxes_f[index] = box
 
+    def int_add_const(self, intbox, offset):
+        return self.metainterp.execute_and_record(rop.INT_ADD, None, intbox,
+                                                  ConstInt(offset))
+
 # ---------- when resuming for blackholing, get direct values ----------
 
 def blackhole_from_resumedata(blackholeinterpbuilder, jitdriver_sd, storage,
@@ -1214,16 +1251,8 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
             return len(numb.nums)
         index = len(numb.nums) - 1
         virtualizable = self.decode_ref(numb.nums[index])
-        if self.resume_after_guard_not_forced == 1:
-            # in the middle of handle_async_forcing()
-            assert vinfo.is_token_nonnull_gcref(virtualizable)
-            vinfo.reset_token_gcref(virtualizable)
-        else:
-            # just jumped away from assembler (case 4 in the comment in
-            # virtualizable.py) into tracing (case 2); check that vable_token
-            # is and stays NULL.  Note the call to reset_vable_token() in
-            # warmstate.py.
-            assert not vinfo.is_token_nonnull_gcref(virtualizable)
+        # just reset the token, we'll force it later
+        vinfo.reset_token_gcref(virtualizable)
         return vinfo.write_from_resume_data_partial(virtualizable, self, numb)
 
     def load_value_of_type(self, TYPE, tagged):
@@ -1407,6 +1436,9 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
 
     def write_a_float(self, index, float):
         self.blackholeinterp.setarg_f(index, float)
+
+    def int_add_const(self, base, offset):
+        return base + offset
 
 # ____________________________________________________________
 

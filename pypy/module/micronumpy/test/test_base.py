@@ -11,10 +11,13 @@ class BaseNumpyAppTest(object):
 
     @classmethod
     def setup_class(cls):
+        isNumpy = False
         if option.runappdirect:
             if '__pypy__' not in sys.builtin_module_names:
                 import numpy
                 sys.modules['numpypy'] = numpy
+                isNumpy = True
+        cls.w_isNumpy = cls.space.wrap(isNumpy)
         cls.w_non_native_prefix = cls.space.wrap(nonnative_byteorder_prefix)
         cls.w_native_prefix = cls.space.wrap(byteorder_prefix)
 

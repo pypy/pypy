@@ -48,3 +48,42 @@ class TestThread(BaseTestPyPyC):
             i58 = arraylen_gc(p43, descr=...)
             jump(..., descr=...)
         """)
+
+    def test_lock_acquire_release(self):
+        def main(n):
+            import threading
+            lock = threading.Lock()
+            while n > 0:
+                with lock:
+                    n -= 1
+        log = self.run(main, [500])
+        assert log.result == main(500)
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+        i55 = int_gt(i43, 0)
+        guard_true(i55, descr=...)
+        p56 = force_token()
+        setfield_gc(p0, p56, descr=<FieldP pypy.interpreter.pyframe.PyFrame.vable_token .*>)
+        i57 = call_release_gil(..., i36, 1, descr=<Calli 4 ii EF=6>)
+        guard_not_forced(descr=...)
+        guard_no_exception(descr=...)
+        i58 = int_is_true(i57)
+        guard_true(i58, descr=...)
+        i59 = int_sub(i43, 1)
+        guard_not_invalidated(descr=...)
+        p61 = force_token()
+        setfield_gc(p0, p61, descr=<FieldP pypy.interpreter.pyframe.PyFrame.vable_token .*>)
+        i62 = call_release_gil(..., i36, 0, descr=<Calli 4 ii EF=6>)
+        guard_not_forced(descr=...)
+        guard_no_exception(descr=...)
+        i63 = int_is_true(i62)
+        guard_false(i63, descr=...)
+        p64 = force_token()
+        setfield_gc(p0, p64, descr=<FieldP pypy.interpreter.pyframe.PyFrame.vable_token .*>)
+        call_release_gil(..., i36, descr=<Callv 0 i EF=6>)
+        guard_not_forced(descr=...)
+        guard_no_exception(descr=...)
+        guard_not_invalidated(descr=...)
+        --TICK--
+        jump(..., descr=...)
+        """)

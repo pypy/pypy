@@ -789,6 +789,49 @@ class AppTestNumArray(BaseNumpyAppTest):
         r = [1, 2] + array([1, 2])
         assert (r == [2, 4]).all()
 
+    def test_inline_op_scalar(self):
+        from numpypy import array
+        for op in [
+                '__iadd__',
+                '__isub__',
+                '__imul__',
+                '__idiv__',
+                '__ifloordiv__',
+                '__imod__',
+                '__ipow__',
+                '__ilshift__',
+                '__irshift__',
+                '__iand__',
+                '__ior__',
+                '__ixor__']:
+            a = b = array(range(3))
+            getattr(a, op).__call__(2)
+            assert id(a) == id(b)
+
+    def test_inline_op_array(self):
+        from numpypy import array
+        for op in [
+                '__iadd__',
+                '__isub__',
+                '__imul__',
+                '__idiv__',
+                '__ifloordiv__',
+                '__imod__',
+                '__ipow__',
+                '__ilshift__',
+                '__irshift__',
+                '__iand__',
+                '__ior__',
+                '__ixor__']:
+            a = b = array(range(5))
+            c = array(range(5))
+            d = array(5 * [2])
+            getattr(a, op).__call__(d)
+            assert id(a) == id(b)
+            reg_op = op.replace('__i', '__')
+            for i in range(5):
+                assert a[i] == getattr(c[i], reg_op).__call__(d[i])
+
     def test_add_list(self):
         from numpypy import array, ndarray
         a = array(range(5))
@@ -1348,7 +1391,7 @@ class AppTestNumArray(BaseNumpyAppTest):
             for i in xrange(5):
                 assert c[i] == func(b[i], 3)
 
-    def test_nonzero(self):
+    def test___nonzero__(self):
         from numpypy import array
         a = array([1, 2])
         raises(ValueError, bool, a)
@@ -1879,6 +1922,29 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = numpy.arange(10.).reshape((5, 2))[::2]
         assert (loads(dumps(a)) == a).all()
 
+    def test_string_filling(self):
+        import numpypy as numpy
+        a = numpy.empty((10,10), dtype='c1')
+        a.fill(12)
+        assert (a == '1').all()
+
+    def test_boolean_indexing(self):
+        import numpypy as np
+        a = np.zeros((1, 3))
+        b = np.array([True])
+
+        assert (a[b] == a).all()
+
+        a[b] = 1.
+
+        assert (a == [[1., 1., 1.]]).all()
+
+    @py.test.mark.xfail
+    def test_boolean_array(self):
+        import numpypy as np
+        a = np.ndarray([1], dtype=bool)
+        assert a[0] == True
+
 class AppTestMultiDim(BaseNumpyAppTest):
     def test_init(self):
         import numpypy
@@ -2286,6 +2352,26 @@ class AppTestMultiDim(BaseNumpyAppTest):
         a[a & 1 == 0] = 15
         assert (a == [[15, 1], [15, 5], [15, 9]]).all()
 
+    def test_array_indexing_bool_specialcases(self):
+        from numpypy import arange, array
+        a = arange(6)
+        exc = raises(ValueError,'a[a < 3] = [1, 2]')
+        assert exc.value[0].find('cannot assign') >= 0
+        b = arange(4).reshape(2, 2) + 10
+        a[a < 4] = b
+        assert (a == [10, 11, 12, 13, 4, 5]).all()
+        b += 10
+        c = arange(8).reshape(2, 2, 2)
+        a[a > 9] = c[:, :, 1]
+        assert (c[:, :, 1] == [[1, 3], [5, 7]]).all()
+        assert (a == [1, 3, 5, 7, 4, 5]).all()
+        a = arange(6)
+        a[a > 3] = array([15])
+        assert (a == [0, 1, 2, 3, 15, 15]).all()
+        a = arange(6).reshape(3, 2)
+        a[a & 1 == 1] = []  # here, Numpy sticks garbage into the array
+        assert a.shape == (3, 2)
+
     def test_copy_kwarg(self):
         from numpypy import array
         x = array([1, 2, 3])
@@ -2299,6 +2385,21 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert (arange(3).ravel() == arange(3)).all()
         assert (arange(6).reshape(2, 3).ravel() == arange(6)).all()
         assert (arange(6).reshape(2, 3).T.ravel() == [0, 3, 1, 4, 2, 5]).all()
+
+    def test_nonzero(self):
+        from numpypy import array
+        nz = array(0).nonzero()
+        assert nz[0].size == 0
+
+        nz = array(2).nonzero()
+        assert (nz[0] == [0]).all()
+
+        nz = array([1, 0, 3]).nonzero()
+        assert (nz[0] == [0, 2]).all()
+
+        nz = array([[1, 0, 3], [2, 0, 4]]).nonzero()
+        assert (nz[0] == [0, 0, 1, 1]).all()
+        assert (nz[1] == [0, 2, 0, 2]).all()
 
     def test_take(self):
         from numpypy import arange
@@ -2755,6 +2856,19 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         assert a[2] == 'ab'
         raises(TypeError, a, 'sum')
         raises(TypeError, 'a+a')
+        b = array(['abcdefg', 'ab', 'cd'])
+        assert a[2] == b[1]
+        assert bool(a[1])
+        c = array(['ab','cdefg','hi','jk'])
+        # not implemented yet
+        #c[0] += c[3]
+        #assert c[0] == 'abjk'
+
+    def test_to_str(self):
+        from numpypy import array
+        a = array(['abc','abc', 'def', 'ab'], 'S3')
+        b = array(['mnopqr','abcdef', 'ab', 'cd'])
+        assert b[1] != a[1]
 
     def test_string_scalar(self):
         from numpypy import array
@@ -2766,8 +2880,7 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         assert str(a.dtype) == '|S1'
         a = array('x', dtype='c')
         assert str(a.dtype) == '|S1'
-        # XXX can sort flexible types, why not comparison?
-        #assert a == 'x'
+        assert a == 'x'
 
     def test_flexible_repr(self):
         from numpypy import array
@@ -2851,6 +2964,12 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         a = array([([1, 2, 3], [0.5, 1.5, 2.5, 3.5, 4.5]), ([4, 5, 6], [5.5, 6.5, 7.5, 8.5, 9.5])], dtype=d)
 
         assert len(list(a[0])) == 2
+
+    def test_issue_1589(self):
+        import numpypy as numpy
+        c = numpy.array([[(1, 2, 'a'), (3, 4, 'b')], [(5, 6, 'c'), (7, 8, 'd')]],
+                        dtype=[('bg', 'i8'), ('fg', 'i8'), ('char', 'S1')])
+        assert c[0][0]["char"] == 'a'
 
 class AppTestPyPy(BaseNumpyAppTest):
     def setup_class(cls):

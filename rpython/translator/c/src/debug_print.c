@@ -23,16 +23,12 @@ static char *debug_start_colors_1 = "";
 static char *debug_start_colors_2 = "";
 static char *debug_stop_colors = "";
 static char *debug_prefix = NULL;
+static char *debug_filename = NULL;
+static char *debug_filename_with_fork = NULL;
 
 static void pypy_debug_open(void)
 {
   char *filename = getenv("PYPYLOG");
-  if (filename)
-#ifndef _WIN32
-    unsetenv("PYPYLOG");   /* don't pass it to subprocesses */
-#else
-    putenv("PYPYLOG=");    /* don't pass it to subprocesses */
-#endif
   if (filename && filename[0])
     {
       char *colon = strchr(filename, ':');
@@ -52,7 +48,10 @@ static void pypy_debug_open(void)
           filename = colon + 1;
         }
       if (strcmp(filename, "-") != 0)
-        pypy_debug_file = fopen(filename, "w");
+        {
+          debug_filename = strdup(filename);
+          pypy_debug_file = fopen(filename, "w");
+        }
     }
   if (!pypy_debug_file)
     {
@@ -64,6 +63,12 @@ static void pypy_debug_open(void)
           debug_stop_colors = "\033[0m";
         }
     }
+  if (filename)
+#ifndef _WIN32
+    unsetenv("PYPYLOG");   /* don't pass it to subprocesses */
+#else
+    putenv("PYPYLOG=");    /* don't pass it to subprocesses */
+#endif
   debug_ready = 1;
 }
 
@@ -73,6 +78,7 @@ long pypy_debug_offset(void)
     return -1;
   // note that we deliberately ignore errno, since -1 is fine
   // in case this is not a real file
+  fflush(pypy_debug_file);
   return ftell(pypy_debug_file);
 }
 
@@ -80,6 +86,26 @@ void pypy_debug_ensure_opened(void)
 {
   if (!debug_ready)
     pypy_debug_open();
+}
+
+void pypy_debug_forked(long original_offset)
+{
+  if (debug_filename != NULL)
+    {
+      char *filename = malloc(strlen(debug_filename) + 32);
+      fclose(pypy_debug_file);
+      pypy_debug_file = NULL;
+      if (filename == NULL)
+        return;   /* bah */
+      sprintf(filename, "%s.fork%ld", debug_filename, (long)getpid());
+      pypy_debug_file = fopen(filename, "w");
+      if (pypy_debug_file)
+        fprintf(pypy_debug_file, "FORKED: %ld %s\n", original_offset,
+                debug_filename_with_fork ? debug_filename_with_fork
+                                         : debug_filename);
+      free(debug_filename_with_fork);
+      debug_filename_with_fork = filename;
+    }
 }
 
 

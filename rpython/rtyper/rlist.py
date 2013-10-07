@@ -23,11 +23,11 @@ ADTIFixedList = ADTInterface(None, {
 ADTIList = ADTInterface(ADTIFixedList, {
     # grow the length if needed, overallocating a bit
     '_ll_resize_ge':   (['self', Signed        ], Void),
-    # shrink the length, keeping it overallocated if useful
+    # shrink the length; if reallocating, don't keep any overallocation
     '_ll_resize_le':   (['self', Signed        ], Void),
-    # resize to exactly the given size
+    # resize to exactly the given size; no overallocation
     '_ll_resize':      (['self', Signed        ], Void),
-    # realloc the underlying list
+    # give a hint about the size; does overallocation if growing
     '_ll_resize_hint': (['self', Signed        ], Void),
 })
 
@@ -41,17 +41,18 @@ class __extend__(annmodel.SomeList):
         listitem = self.listdef.listitem
         s_value = listitem.s_value
         if (listitem.range_step is not None and not listitem.mutated and
-            not isinstance(s_value, annmodel.SomeImpossibleValue)):
-            return rtyper.type_system.rrange.RangeRepr(listitem.range_step)
+                not isinstance(s_value, annmodel.SomeImpossibleValue)):
+            from rpython.rtyper.lltypesystem.rrange import RangeRepr
+            return RangeRepr(listitem.range_step)
         else:
             # cannot do the rtyper.getrepr() call immediately, for the case
             # of recursive structures -- i.e. if the listdef contains itself
-            rlist = rtyper.type_system.rlist
+            from rpython.rtyper.lltypesystem.rlist import ListRepr, FixedSizeListRepr
             item_repr = lambda: rtyper.getrepr(listitem.s_value)
             if self.listdef.listitem.resized:
-                return rlist.ListRepr(rtyper, item_repr, listitem)
+                return ListRepr(rtyper, item_repr, listitem)
             else:
-                return rlist.FixedSizeListRepr(rtyper, item_repr, listitem)
+                return FixedSizeListRepr(rtyper, item_repr, listitem)
 
     def rtyper_makekey(self):
         self.listdef.listitem.dont_change_any_more = True
@@ -128,7 +129,7 @@ class AbstractBaseListRepr(Repr):
             ll_func = ll_len_foldable
         return hop.gendirectcall(ll_func, v_lst)
 
-    def rtype_is_true(self, hop):
+    def rtype_bool(self, hop):
         v_lst, = hop.inputargs(self)
         if hop.args_s[0].listdef.listitem.resized:
             ll_func = ll_list_is_true
@@ -247,27 +248,22 @@ class __extend__(pairtype(AbstractBaseListRepr, IntegerRepr)):
         v_lst, v_index = hop.inputargs(r_lst, Signed)
         if checkidx:
             hop.exception_is_here()
+            spec = dum_checkidx
         else:
+            spec = dum_nocheck
             hop.exception_cannot_occur()
-        if hop.args_s[0].listdef.listitem.mutated or checkidx:
-            if hop.args_s[1].nonneg:
-                llfn = ll_getitem_nonneg
-            else:
-                llfn = ll_getitem
-            if checkidx:
-                spec = dum_checkidx
-            else:
-                spec = dum_nocheck
-            c_func_marker = hop.inputconst(Void, spec)
-            v_res = hop.gendirectcall(llfn, c_func_marker, v_lst, v_index)
+        if hop.args_s[0].listdef.listitem.mutated:
+            basegetitem = ll_getitem_fast
         else:
-            # this is the 'foldable' version, which is not used when
-            # we check for IndexError
-            if hop.args_s[1].nonneg:
-                llfn = ll_getitem_foldable_nonneg
-            else:
-                llfn = ll_getitem_foldable
-            v_res = hop.gendirectcall(llfn, v_lst, v_index)
+            basegetitem = ll_getitem_foldable_nonneg
+
+        if hop.args_s[1].nonneg:
+            llfn = ll_getitem_nonneg
+        else:
+            llfn = ll_getitem
+        c_func_marker = hop.inputconst(Void, spec)
+        c_basegetitem = hop.inputconst(Void, basegetitem)
+        v_res = hop.gendirectcall(llfn, c_func_marker, c_basegetitem, v_lst, v_index)
         return r_lst.recast(hop.llops, v_res)
 
     rtype_getitem_key = rtype_getitem
@@ -339,12 +335,12 @@ class __extend__(pairtype(AbstractBaseListRepr, AbstractBaseListRepr)):
 
 
 def rtype_newlist(hop, v_sizehint=None):
+    from rpython.rtyper.lltypesystem.rlist import newlist
     nb_args = hop.nb_args
     r_list = hop.r_result
     r_listitem = r_list.item_repr
     items_v = [hop.inputarg(r_listitem, arg=i) for i in range(nb_args)]
-    return hop.rtyper.type_system.rlist.newlist(hop.llops, r_list, items_v,
-                                                v_sizehint=v_sizehint)
+    return newlist(hop.llops, r_list, items_v, v_sizehint=v_sizehint)
 
 def rtype_alloc_and_set(hop):
     r_list = hop.r_result
@@ -382,10 +378,10 @@ class __extend__(pairtype(AbstractListRepr, AbstractStringRepr)):
         return v_lst1
 
     def rtype_extend_with_str_slice((r_lst1, r_str2), hop):
+        from rpython.rtyper.lltypesystem.rstr import string_repr
         if r_lst1.item_repr.lowleveltype not in (Char, UniChar):
             raise TyperError('"lst += string" only supported with a list '
                              'of chars or unichars')
-        string_repr = r_lst1.rtyper.type_system.rstr.string_repr
         v_lst1 = hop.inputarg(r_lst1, arg=0)
         v_str2 = hop.inputarg(string_repr, arg=3)
         kind, vlist = hop.decompose_slice_args()
@@ -398,10 +394,10 @@ class __extend__(pairtype(AbstractListRepr, AbstractStringRepr)):
 class __extend__(pairtype(AbstractListRepr, AbstractCharRepr)):
 
     def rtype_extend_with_char_count((r_lst1, r_chr2), hop):
+        from rpython.rtyper.lltypesystem.rstr import char_repr
         if r_lst1.item_repr.lowleveltype not in (Char, UniChar):
             raise TyperError('"lst += string" only supported with a list '
                              'of chars or unichars')
-        char_repr = r_lst1.rtyper.type_system.rstr.char_repr
         v_lst1, v_chr, v_count = hop.inputargs(r_lst1, char_repr, Signed)
         hop.gendirectcall(ll_extend_with_char_count, v_lst1, v_chr, v_count)
         return v_lst1
@@ -654,16 +650,16 @@ def ll_reverse(l):
         i += 1
         length_1_i -= 1
 
-def ll_getitem_nonneg(func, l, index):
+def ll_getitem_nonneg(func, basegetitem, l, index):
     ll_assert(index >= 0, "unexpectedly negative list getitem index")
     if func is dum_checkidx:
         if index >= l.ll_length():
             raise IndexError
-    return l.ll_getitem_fast(index)
+    return basegetitem(l, index)
 ll_getitem_nonneg._always_inline_ = True
 # no oopspec -- the function is inlined by the JIT
 
-def ll_getitem(func, l, index):
+def ll_getitem(func, basegetitem, l, index):
     if func is dum_checkidx:
         length = l.ll_length()    # common case: 0 <= index < length
         if r_uint(index) >= r_uint(length):
@@ -680,20 +676,17 @@ def ll_getitem(func, l, index):
         if index < 0:
             index += l.ll_length()
             ll_assert(index >= 0, "negative list getitem index out of bound")
-    return l.ll_getitem_fast(index)
+    return basegetitem(l, index)
 # no oopspec -- the function is inlined by the JIT
+
+def ll_getitem_fast(l, index):
+    return l.ll_getitem_fast(index)
+ll_getitem_fast._always_inline_ = True
 
 def ll_getitem_foldable_nonneg(l, index):
     ll_assert(index >= 0, "unexpectedly negative list getitem index")
     return l.ll_getitem_fast(index)
 ll_getitem_foldable_nonneg.oopspec = 'list.getitem_foldable(l, index)'
-
-def ll_getitem_foldable(l, index):
-    if index < 0:
-        index += l.ll_length()
-    return ll_getitem_foldable_nonneg(l, index)
-ll_getitem_foldable._always_inline_ = True
-# no oopspec -- the function is inlined by the JIT
 
 def ll_setitem_nonneg(func, l, index, newitem):
     ll_assert(index >= 0, "unexpectedly negative list setitem index")

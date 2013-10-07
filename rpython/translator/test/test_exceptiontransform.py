@@ -36,7 +36,7 @@ class TestExceptionTransform:
     def transform_func(self, fn, inputtypes, backendopt=False):
         t = TranslationContext()
         t.buildannotator().build_types(fn, inputtypes)
-        t.buildrtyper(type_system=self.type_system).specialize()
+        t.buildrtyper().specialize()
         if option.view:
             t.view()
         if backendopt:
@@ -158,7 +158,7 @@ class TestExceptionTransform:
             return x + 1
         t = TranslationContext()
         t.buildannotator().build_types(f, [int])
-        t.buildrtyper(type_system=self.type_system).specialize()
+        t.buildrtyper().specialize()
         g = graphof(t, f)
         etrafo = exceptiontransform.ExceptionTransformer(t)
         etrafo.create_exception_handling(g)
@@ -170,7 +170,7 @@ class TestExceptionTransform:
             raise ValueError
         t = TranslationContext()
         t.buildannotator().build_types(f, [int])
-        t.buildrtyper(type_system=self.type_system).specialize()
+        t.buildrtyper().specialize()
         g = graphof(t, f)
         etrafo = exceptiontransform.ExceptionTransformer(t)
         etrafo.create_exception_handling(g)
@@ -233,7 +233,7 @@ class TestExceptionTransform:
             return s.x
         t = TranslationContext()
         t.buildannotator().build_types(f, [int])
-        t.buildrtyper(type_system=self.type_system).specialize()
+        t.buildrtyper().specialize()
         g = graphof(t, f)
         etrafo = exceptiontransform.ExceptionTransformer(t)
         etrafo.create_exception_handling(g)

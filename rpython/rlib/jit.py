@@ -66,6 +66,9 @@ def hint(x, **kwds):
                             Useful in say Frame.__init__ when we do want
                             to store things directly on it. Has to come with
                             access_directly=True
+    * force_virtualizable - a performance hint to force the virtualizable early
+                            (useful e.g. for python generators that are going
+                            to be read later anyway)
     """
     return x
 
@@ -179,7 +182,6 @@ def look_inside_iff(predicate):
                 else:
                     return trampoline(%(arguments)s)
             f.__name__ = func.__name__ + "_look_inside_iff"
-            f._always_inline = True
         """ % {"arguments": ", ".join(args)}).compile() in d
         return d["f"]
     return inner
@@ -232,7 +234,7 @@ class Entry(ExtRegistryEntry):
             if isinstance(s_x, annmodel.SomeInstance):
                 from rpython.flowspace.model import Constant
                 classdesc = s_x.classdef.classdesc
-                virtualizable = classdesc.read_attribute('_virtualizable2_',
+                virtualizable = classdesc.read_attribute('_virtualizable_',
                                                          Constant(None)).value
                 if virtualizable is not None:
                     flags = s_x.flags.copy()
@@ -476,6 +478,7 @@ class JitDriver(object):
     virtualizables = []
     name = 'jitdriver'
     inline_jit_merge_point = False
+    _store_last_enter_jit = None
 
     def __init__(self, greens=None, reds=None, virtualizables=None,
                  get_jitcell_at=None, set_jitcell_at=None,
@@ -521,14 +524,14 @@ class JitDriver(object):
     def _freeze_(self):
         return True
 
-    def _check_arguments(self, livevars):
+    def _check_arguments(self, livevars, is_merge_point):
         assert set(livevars) == self._somelivevars
         # check heuristically that 'reds' and 'greens' are ordered as
         # the JIT will need them to be: first INTs, then REFs, then
         # FLOATs.
         if len(self._heuristic_order) < len(livevars):
             from rpython.rlib.rarithmetic import (r_singlefloat, r_longlong,
-                                               r_ulonglong, r_uint)
+                                                  r_ulonglong, r_uint)
             added = False
             for var, value in livevars.items():
                 if var not in self._heuristic_order:
@@ -569,17 +572,27 @@ class JitDriver(object):
                         "must be INTs, REFs, FLOATs; got %r" %
                         (color, allkinds))
 
+        if is_merge_point:
+            if self._store_last_enter_jit:
+                if livevars != self._store_last_enter_jit:
+                    raise JitHintError(
+                        "Bad can_enter_jit() placement: there should *not* "
+                        "be any code in between can_enter_jit() -> jit_merge_point()" )
+                self._store_last_enter_jit = None
+        else:
+            self._store_last_enter_jit = livevars
+
     def jit_merge_point(_self, **livevars):
         # special-cased by ExtRegistryEntry
         if _self.check_untranslated:
-            _self._check_arguments(livevars)
+            _self._check_arguments(livevars, True)
 
     def can_enter_jit(_self, **livevars):
         if _self.autoreds:
             raise TypeError, "Cannot call can_enter_jit on a driver with reds='auto'"
         # special-cased by ExtRegistryEntry
         if _self.check_untranslated:
-            _self._check_arguments(livevars)
+            _self._check_arguments(livevars, False)
 
     def loop_header(self):
         # special-cased by ExtRegistryEntry
@@ -993,13 +1006,14 @@ class Entry(ExtRegistryEntry):
 def _jit_conditional_call(condition, function, *args):
     pass
 
-@specialize.ll_and_arg(1)
+@specialize.call_location()
 def conditional_call(condition, function, *args):
     if we_are_jitted():
         _jit_conditional_call(condition, function, *args)
     else:
         if condition:
             function(*args)
+conditional_call._always_inline_ = True
 
 class ConditionalCallEntry(ExtRegistryEntry):
     _about_ = _jit_conditional_call

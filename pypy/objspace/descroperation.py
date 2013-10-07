@@ -121,7 +121,7 @@ contains_jitdriver = jit.JitDriver(name='contains',
         greens=['w_type'], reds='auto')
 
 class DescrOperation(object):
-    _mixin_ = True
+    # This is meant to be a *mixin*.
 
     def is_data_descr(space, w_obj):
         return space.lookup(w_obj, '__set__') is not None
@@ -472,6 +472,14 @@ class DescrOperation(object):
         return space.wrap(1)
 
     def coerce(space, w_obj1, w_obj2):
+        w_res = space.try_coerce(w_obj1, w_obj2)
+        if w_res is None:
+            raise OperationError(space.w_TypeError,
+                                 space.wrap("coercion failed"))
+        return w_res
+
+    def try_coerce(space, w_obj1, w_obj2):
+        """Returns a wrapped 2-tuple or a real None if it failed."""
         w_typ1 = space.type(w_obj1)
         w_typ2 = space.type(w_obj2)
         w_left_src, w_left_impl = space.lookup_in_type_where(w_typ1, '__coerce__')
@@ -488,8 +496,7 @@ class DescrOperation(object):
         if w_res is None or space.is_w(w_res, space.w_None):
             w_res = _invoke_binop(space, w_right_impl, w_obj2, w_obj1)
             if w_res is None  or space.is_w(w_res, space.w_None):
-                raise OperationError(space.w_TypeError,
-                                     space.wrap("coercion failed"))
+                return None
             if (not space.isinstance_w(w_res, space.w_tuple) or
                 space.len_w(w_res) != 2):
                 raise OperationError(space.w_TypeError,
@@ -590,8 +597,8 @@ def _cmp(space, w_obj1, w_obj2, symbol):
         if num1 != num2:
             lt = num1      # if obj1 is a number, it is Lower Than obj2
         else:
-            name1 = w_typ1.getname(space, "")
-            name2 = w_typ2.getname(space, "")
+            name1 = w_typ1.getname(space)
+            name2 = w_typ2.getname(space)
             if name1 != name2:
                 lt = name1 < name2
             else:
@@ -860,12 +867,12 @@ for _name, _symbol, _arity, _specialnames in ObjSpace.MethodTable:
         elif _arity == 2 and len(_specialnames) == 2:
             #print "binop", _specialnames
             _impl_maker = _make_binop_impl
-        elif _arity == 1 and len(_specialnames) == 1:
+        elif _arity == 1 and len(_specialnames) == 1 and _name != 'int':
             #print "unaryop", _specialnames
             _impl_maker = _make_unaryop_impl
         if _impl_maker:
             setattr(DescrOperation,_name,_impl_maker(_symbol,_specialnames))
-        elif _name not in ['is_', 'id','type','issubtype',
+        elif _name not in ['is_', 'id','type','issubtype', 'int',
                            # not really to be defined in DescrOperation
                            'ord', 'unichr', 'unicode']:
             raise Exception, "missing def for operation %s" % _name

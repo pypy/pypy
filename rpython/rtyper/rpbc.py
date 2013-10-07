@@ -12,8 +12,7 @@ from rpython.tool.pairtype import pair, pairtype
 
 
 def small_cand(rtyper, s_pbc):
-    if 1 < len(s_pbc.descriptions) < rtyper.getconfig().translation.withsmallfuncsets and \
-           hasattr(rtyper.type_system.rpbc, 'SmallFunctionSetPBCRepr'):
+    if 1 < len(s_pbc.descriptions) < rtyper.getconfig().translation.withsmallfuncsets:
         callfamily = s_pbc.any_description().getcallfamily()
         concretetable, uniquerows = get_concrete_calltable(rtyper, callfamily)
         if len(uniquerows) == 1 and (not s_pbc.subset_of or small_cand(rtyper, s_pbc.subset_of)):
@@ -22,6 +21,9 @@ def small_cand(rtyper, s_pbc):
 
 class __extend__(annmodel.SomePBC):
     def rtyper_makerepr(self, rtyper):
+        from rpython.rtyper.lltypesystem.rpbc import (FunctionsPBCRepr,
+            SmallFunctionSetPBCRepr, ClassesPBCRepr, MethodsPBCRepr,
+            MethodOfFrozenPBCRepr)
         if self.isNone():
             return none_frozen_pbc_repr
         kind = self.getKind()
@@ -32,20 +34,20 @@ class __extend__(annmodel.SomePBC):
                 if sample.overridden:
                     getRepr = OverriddenFunctionPBCRepr
                 else:
-                    getRepr = rtyper.type_system.rpbc.FunctionsPBCRepr
+                    getRepr = FunctionsPBCRepr
                     if small_cand(rtyper, self):
-                        getRepr = rtyper.type_system.rpbc.SmallFunctionSetPBCRepr
+                        getRepr = SmallFunctionSetPBCRepr
             else:
                 getRepr = getFrozenPBCRepr
         elif issubclass(kind, description.ClassDesc):
             # user classes
-            getRepr = rtyper.type_system.rpbc.ClassesPBCRepr
+            getRepr = ClassesPBCRepr
         elif issubclass(kind, description.MethodDesc):
-            getRepr = rtyper.type_system.rpbc.MethodsPBCRepr
+            getRepr = MethodsPBCRepr
         elif issubclass(kind, description.FrozenDesc):
             getRepr = getFrozenPBCRepr
         elif issubclass(kind, description.MethodOfFrozenDesc):
-            getRepr = rtyper.type_system.rpbc.MethodOfFrozenPBCRepr
+            getRepr = MethodOfFrozenPBCRepr
         else:
             raise TyperError("unexpected PBC kind %r" % (kind,))
 
@@ -350,6 +352,8 @@ class OverriddenFunctionPBCRepr(Repr):
         return rtype_call_specialcase(hop)
 
 def getFrozenPBCRepr(rtyper, s_pbc):
+    from rpython.rtyper.lltypesystem.rpbc import (
+        MultipleUnrelatedFrozenPBCRepr, MultipleFrozenPBCRepr)
     descs = list(s_pbc.descriptions)
     assert len(descs) >= 1
     if len(descs) == 1 and not s_pbc.can_be_None:
@@ -362,15 +366,13 @@ def getFrozenPBCRepr(rtyper, s_pbc):
                 try:
                     return rtyper.pbc_reprs['unrelated']
                 except KeyError:
-                    rpbc = rtyper.type_system.rpbc
-                    result = rpbc.MultipleUnrelatedFrozenPBCRepr(rtyper)
+                    result = MultipleUnrelatedFrozenPBCRepr(rtyper)
                     rtyper.pbc_reprs['unrelated'] = result
                     return result
         try:
             return rtyper.pbc_reprs[access]
         except KeyError:
-            result = rtyper.type_system.rpbc.MultipleFrozenPBCRepr(rtyper,
-                                                                   access)
+            result = MultipleFrozenPBCRepr(rtyper, access)
             rtyper.pbc_reprs[access] = result
             rtyper.add_pendingsetup(result)
             return result
@@ -585,7 +587,7 @@ class __extend__(pairtype(MethodOfFrozenPBCRepr, MethodOfFrozenPBCRepr)):
 class NoneFrozenPBCRepr(Repr):
     lowleveltype = Void
 
-    def rtype_is_true(self, hop):
+    def rtype_bool(self, hop):
         return Constant(False, Bool)
 
     def none_call(self, hop):
@@ -593,6 +595,9 @@ class NoneFrozenPBCRepr(Repr):
 
     def ll_str(self, none):
         return llstr("None")
+
+    def get_ll_eq_function(self):
+        return None
 
     def get_ll_hash_function(self):
         return ll_none_hash
@@ -612,9 +617,10 @@ class __extend__(pairtype(Repr, NoneFrozenPBCRepr)):
         return inputconst(Void, None)
 
     def rtype_is_((robj1, rnone2), hop):
+        from rpython.rtyper.lltypesystem.rpbc import rtype_is_None
         if hop.s_result.is_constant():
             return hop.inputconst(Bool, hop.s_result.const)
-        return hop.rtyper.type_system.rpbc.rtype_is_None(robj1, rnone2, hop)
+        return rtype_is_None(robj1, rnone2, hop)
 
 class __extend__(pairtype(NoneFrozenPBCRepr, Repr)):
 
@@ -622,10 +628,10 @@ class __extend__(pairtype(NoneFrozenPBCRepr, Repr)):
         return inputconst(r_to, None)
 
     def rtype_is_((rnone1, robj2), hop):
+        from rpython.rtyper.lltypesystem.rpbc import rtype_is_None
         if hop.s_result.is_constant():
             return hop.inputconst(Bool, hop.s_result.const)
-        return hop.rtyper.type_system.rpbc.rtype_is_None(
-                                                robj2, rnone1, hop, pos=1)
+        return rtype_is_None(robj2, rnone1, hop, pos=1)
 
 # ____________________________________________________________
 

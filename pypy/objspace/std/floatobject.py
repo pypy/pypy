@@ -424,21 +424,24 @@ def pow__Float_Float_ANY(space, w_float1, w_float2, thirdArg):
     x = w_float1.floatval
     y = w_float2.floatval
 
+    return W_FloatObject(_pow(space, x, y))
+
+def _pow(space, x, y):
     # Sort out special cases here instead of relying on pow()
-    if y == 2.0:                      # special case for performance:
-        return W_FloatObject(x * x)   # x * x is always correct
+    if y == 2.0:       # special case for performance:
+        return x * x   # x * x is always correct
     if y == 0.0:
         # x**0 is 1, even 0**0
-        return W_FloatObject(1.0)
+        return 1.0
     if isnan(x):
         # nan**y = nan, unless y == 0
-        return W_FloatObject(x)
+        return x
     if isnan(y):
         # x**nan = nan, unless x == 1; x**nan = x
         if x == 1.0:
-            return W_FloatObject(1.0)
+            return 1.0
         else:
-            return W_FloatObject(y)
+            return y
     if isinf(y):
         # x**inf is: 0.0 if abs(x) < 1; 1.0 if abs(x) == 1; inf if
         # abs(x) > 1 (including case where x infinite)
@@ -447,11 +450,11 @@ def pow__Float_Float_ANY(space, w_float1, w_float2, thirdArg):
         # abs(x) > 1 (including case where v infinite)
         x = abs(x)
         if x == 1.0:
-            return W_FloatObject(1.0)
+            return 1.0
         elif (y > 0.0) == (x > 1.0):
-            return W_FloatObject(INFINITY)
+            return INFINITY
         else:
-            return W_FloatObject(0.0)
+            return 0.0
     if isinf(x):
         # (+-inf)**w is: inf for w positive, 0 for w negative; in oth
         # cases, we need to add the appropriate sign if w is an odd
@@ -459,14 +462,14 @@ def pow__Float_Float_ANY(space, w_float1, w_float2, thirdArg):
         y_is_odd = math.fmod(abs(y), 2.0) == 1.0
         if y > 0.0:
             if y_is_odd:
-                return W_FloatObject(x)
+                return x
             else:
-                return W_FloatObject(abs(x))
+                return abs(x)
         else:
             if y_is_odd:
-                return W_FloatObject(copysign(0.0, x))
+                return copysign(0.0, x)
             else:
-                return W_FloatObject(0.0)
+                return 0.0
 
     if x == 0.0:
         if y < 0.0:
@@ -480,7 +483,7 @@ def pow__Float_Float_ANY(space, w_float1, w_float2, thirdArg):
     # -           pipermail/python-bugs-list/2003-March/016795.html
     if x < 0.0:
         if isnan(y):
-            return W_FloatObject(NAN)
+            return NAN
         if math.floor(y) != y:
             raise OperationError(space.w_ValueError,
                                  space.wrap("negative number cannot be "
@@ -494,9 +497,9 @@ def pow__Float_Float_ANY(space, w_float1, w_float2, thirdArg):
     if x == 1.0:
         # (-1) ** large_integer also ends up here
         if negate_result:
-            return W_FloatObject(-1.0)
+            return -1.0
         else:
-            return W_FloatObject(1.0)
+            return 1.0
 
     try:
         # We delegate to our implementation of math.pow() the error detection.
@@ -510,7 +513,7 @@ def pow__Float_Float_ANY(space, w_float1, w_float2, thirdArg):
 
     if negate_result:
         z = -z
-    return W_FloatObject(z)
+    return z
 
 
 def neg__Float(space, w_float1):

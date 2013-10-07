@@ -19,7 +19,7 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError
-from rpython.rlib.objectmodel import compute_hash
+from rpython.rlib.objectmodel import compute_hash, import_from_mixin
 from rpython.rlib.rstring import StringBuilder
 
 
@@ -272,8 +272,6 @@ class StringLikeBuffer(Buffer):
 # ____________________________________________________________
 
 class SubBufferMixin(object):
-    _mixin_ = True
-
     def __init__(self, buffer, offset, size):
         self.buffer = buffer
         self.offset = offset
@@ -297,10 +295,11 @@ class SubBufferMixin(object):
                           # out of bounds
         return self.buffer.getslice(self.offset + start, self.offset + stop, step, size)
 
-class SubBuffer(SubBufferMixin, Buffer):
-    pass
+class SubBuffer(Buffer):
+    import_from_mixin(SubBufferMixin)
 
-class RWSubBuffer(SubBufferMixin, RWBuffer):
+class RWSubBuffer(RWBuffer):
+    import_from_mixin(SubBufferMixin)
 
     def setitem(self, index, char):
         self.buffer.setitem(self.offset + index, char)

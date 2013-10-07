@@ -258,16 +258,17 @@ def memo(funcdesc, arglist_s):
             assert not s.can_be_None, "memo call: cannot mix None and PBCs"
             for desc in s.descriptions:
                 if desc.pyobj is None:
-                    raise Exception("memo call with a class or PBC that has no "
-                                   "corresponding Python object (%r)" % (desc,))
+                    raise annmodel.AnnotatorError(
+                        "memo call with a class or PBC that has no "
+                        "corresponding Python object (%r)" % (desc,))
                 values.append(desc.pyobj)
         elif isinstance(s, SomeImpossibleValue):
             return s    # we will probably get more possible args later
         elif isinstance(s, SomeBool):
             values = [False, True]
         else:
-            raise Exception("memo call: argument must be a class or a frozen "
-                            "PBC, got %r" % (s,))
+            raise annmodel.AnnotatorError("memo call: argument must be a class"
+                                          "or a frozen PBC, got %r" % (s,))
         argvalues.append(values)
     # the list of all possible tuples of arguments to give to the memo function
     possiblevalues = cartesian_product(argvalues)
@@ -280,8 +281,8 @@ def memo(funcdesc, arglist_s):
     except KeyError:
         func = funcdesc.pyobj
         if func is None:
-            raise Exception("memo call: no Python function object to call "
-                            "(%r)" % (funcdesc,))
+            raise annmodel.AnnotatorError("memo call: no Python function object"
+                                          "to call (%r)" % (funcdesc,))
 
         def compute_one_result(args):
             value = func(*args)
@@ -344,8 +345,8 @@ def specialize_argvalue(funcdesc, args_s, *argindices):
             desc, = s.descriptions
             key.append(desc)
         else:
-            raise Exception("specialize:arg(%d): argument not constant: %r"
-                            % (i, s))
+            raise annmodel.AnnotatorError("specialize:arg(%d): argument not "
+                                          "constant: %r" % (i, s))
     key = tuple(key)
     return maybe_star_args(funcdesc, key, args_s)
 
@@ -379,4 +380,4 @@ def specialize_arglistitemtype(funcdesc, args_s, i):
 
 def specialize_call_location(funcdesc, args_s, op):
     assert op is not None
-    return maybe_star_args(funcdesc, op, args_s)
+    return maybe_star_args(funcdesc, (op,), args_s)

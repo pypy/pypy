@@ -79,6 +79,7 @@ class Assembler386(BaseAssembler):
                                                         allblocks)
         self.target_tokens_currently_compiling = {}
         self.frame_depth_to_patch = []
+        self._finish_gcmap = lltype.nullptr(jitframe.GCMAP)
 
     def teardown(self):
         self.pending_guard_tokens = None
@@ -433,7 +434,9 @@ class Assembler386(BaseAssembler):
         else:
             self.wb_slowpath[withcards + 2 * withfloats] = rawstart
 
-    def assemble_loop(self, loopname, inputargs, operations, looptoken, log):
+    @rgc.no_release_gil
+    def assemble_loop(self, logger, loopname, inputargs, operations, looptoken,
+                      log):
         '''adds the following attributes to looptoken:
                _ll_function_addr    (address of the generated func, as an int)
                _ll_loop_code       (debug: addr of the start of the ResOps)
@@ -466,8 +469,8 @@ class Assembler386(BaseAssembler):
         #
         self._call_header_with_stack_check()
         self._check_frame_depth_debug(self.mc)
-        operations = regalloc.prepare_loop(inputargs, operations, looptoken,
-                                           clt.allgcrefs)
+        operations = regalloc.prepare_loop(inputargs, operations,
+                                           looptoken, clt.allgcrefs)
         looppos = self.mc.get_relative_pos()
         frame_depth_no_fixed_size = self._assemble(regalloc, inputargs,
                                                    operations)
@@ -497,6 +500,9 @@ class Assembler386(BaseAssembler):
             looptoken._x86_fullsize = full_size
             looptoken._x86_ops_offset = ops_offset
         looptoken._ll_function_addr = rawstart
+        if logger:
+            logger.log_loop(inputargs, operations, 0, "rewritten",
+                            name=loopname, ops_offset=ops_offset)
 
         self.fixup_target_tokens(rawstart)
         self.teardown()
@@ -508,7 +514,8 @@ class Assembler386(BaseAssembler):
         return AsmInfo(ops_offset, rawstart + looppos,
                        size_excluding_failure_stuff - looppos)
 
-    def assemble_bridge(self, faildescr, inputargs, operations,
+    @rgc.no_release_gil
+    def assemble_bridge(self, logger, faildescr, inputargs, operations,
                         original_loop_token, log):
         if not we_are_translated():
             # Arguments should be unique
@@ -543,6 +550,9 @@ class Assembler386(BaseAssembler):
         ops_offset = self.mc.ops_offset
         frame_depth = max(self.current_clt.frame_info.jfi_frame_depth,
                           frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE)
+        if logger:
+            logger.log_bridge(inputargs, operations, "rewritten",
+                              ops_offset=ops_offset)
         self.fixup_target_tokens(rawstart)
         self.update_frame_depth(frame_depth)
         self.teardown()
@@ -611,7 +621,7 @@ class Assembler386(BaseAssembler):
         for ofs in self.frame_depth_to_patch:
             self._patch_frame_depth(ofs + rawstart, framedepth)
 
-    def _check_frame_depth(self, mc, gcmap, expected_size=-1):
+    def _check_frame_depth(self, mc, gcmap):
         """ check if the frame is of enough depth to follow this bridge.
         Otherwise reallocate the frame in a helper.
         There are other potential solutions
@@ -619,17 +629,11 @@ class Assembler386(BaseAssembler):
         """
         descrs = self.cpu.gc_ll_descr.getframedescrs(self.cpu)
         ofs = self.cpu.unpack_fielddescr(descrs.arraydescr.lendescr)
-        if expected_size == -1:
-            mc.CMP_bi(ofs, 0xffffff)
-        else:
-            mc.CMP_bi(ofs, expected_size)
+        mc.CMP_bi(ofs, 0xffffff)     # force writing 32 bit
         stack_check_cmp_ofs = mc.get_relative_pos() - 4
         mc.J_il8(rx86.Conditions['GE'], 0)
         jg_location = mc.get_relative_pos()
-        if expected_size == -1:
-            mc.MOV_si(WORD, 0xffffff)
-        else:
-            mc.MOV_si(WORD, expected_size)
+        mc.MOV_si(WORD, 0xffffff)     # force writing 32 bit
         ofs2 = mc.get_relative_pos() - 4
         self.push_gcmap(mc, gcmap, mov=True)
         mc.CALL(imm(self._frame_realloc_slowpath))
@@ -1846,7 +1850,11 @@ class Assembler386(BaseAssembler):
         self.mov(fail_descr_loc, RawEbpLoc(ofs))
         arglist = op.getarglist()
         if arglist and arglist[0].type == REF:
-            gcmap = self.gcmap_for_finish
+            if self._finish_gcmap:
+                self._finish_gcmap[0] |= r_uint(1) # rax
+                gcmap = self._finish_gcmap
+            else:
+                gcmap = self.gcmap_for_finish
             self.push_gcmap(self.mc, gcmap, store=True)
         else:
             # note that the 0 here is redundant, but I would rather
@@ -1991,15 +1999,6 @@ class Assembler386(BaseAssembler):
         #
         return jmp_location
 
-    def _call_assembler_reset_vtoken(self, jd, vloc):
-        from rpython.jit.backend.llsupport.descr import FieldDescr
-        fielddescr = jd.vable_token_descr
-        assert isinstance(fielddescr, FieldDescr)
-        vtoken_ofs = fielddescr.offset
-        self.mc.MOV(edx, vloc) # we know vloc is on the current frame
-        self.mc.MOV_mi((edx.value, vtoken_ofs), 0)
-        # in the line above, TOKEN_NONE = 0
-
     def _call_assembler_load_result(self, op, result_loc):
         if op.result is not None:
             # load the return value from the dead frame's value index 0
@@ -2026,7 +2025,7 @@ class Assembler386(BaseAssembler):
         # Write code equivalent to write_barrier() in the GC: it checks
         # a flag in the object at arglocs[0], and if set, it calls a
         # helper piece of assembler.  The latter saves registers as needed
-        # and call the function jit_remember_young_pointer() from the GC.
+        # and call the function remember_young_pointer() from the GC.
         if we_are_translated():
             cls = self.cpu.gc_ll_descr.has_write_barrier_class()
             assert cls is not None and isinstance(descr, cls)
@@ -2326,6 +2325,15 @@ class Assembler386(BaseAssembler):
         assert 0 < offset <= 127
         self.mc.overwrite(jmp_location - 1, chr(offset))
 
+    def store_force_descr(self, op, fail_locs, frame_depth):
+        guard_token = self.implement_guard_recovery(op.opnum,
+                                                    op.getdescr(),
+                                                    op.getfailargs(),
+                                                    fail_locs, frame_depth)
+        self._finish_gcmap = guard_token.gcmap
+        self._store_force_index(op)
+        self.store_info_on_descr(0, guard_token)
+
     def force_token(self, reg):
         # XXX kill me
         assert isinstance(reg, RegLoc)
@@ -2376,7 +2384,9 @@ def heap(addr):
     return AddressLoc(ImmedLoc(addr), imm0, 0, 0)
 
 def not_implemented(msg):
-    os.write(2, '[x86/asm] %s\n' % msg)
+    msg = '[x86/asm] %s\n' % msg
+    if we_are_translated():
+        llop.debug_print(lltype.Void, msg)
     raise NotImplementedError(msg)
 
 cond_call_register_arguments = [edi, esi, edx, ecx]

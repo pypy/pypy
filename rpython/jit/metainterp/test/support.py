@@ -12,7 +12,7 @@ from rpython.rlib.rfloat import isnan
 from rpython.translator.backendopt.all import backend_optimizations
 
 
-def _get_jitcodes(testself, CPUClass, func, values, type_system,
+def _get_jitcodes(testself, CPUClass, func, values,
                   supports_floats=True,
                   supports_longlong=False,
                   supports_singlefloats=False,
@@ -50,7 +50,7 @@ def _get_jitcodes(testself, CPUClass, func, values, type_system,
         FakeWarmRunnerState.enable_opts = {}
 
     func._jit_unroll_safe_ = True
-    rtyper = support.annotate(func, values, type_system=type_system,
+    rtyper = support.annotate(func, values,
                               translationoptions=translationoptions)
     graphs = rtyper.annotator.translator.graphs
     testself.all_graphs = graphs
@@ -210,7 +210,7 @@ class JitMixin:
 
     def interp_operations(self, f, args, **kwds):
         # get the JitCodes for the function f
-        _get_jitcodes(self, self.CPUClass, f, args, self.type_system, **kwds)
+        _get_jitcodes(self, self.CPUClass, f, args, **kwds)
         # try to run it with blackhole.py
         result1 = _run_with_blackhole(self, args)
         # try to run it with pyjitpl.py

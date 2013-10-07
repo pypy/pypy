@@ -61,7 +61,9 @@ class VGenericEngine(object):
     def load_library(self):
         # import it with the CFFI backend
         backend = self.ffi._backend
-        module = backend.load_library(self.verifier.modulefilename)
+        # needs to make a path that contains '/', on Posix
+        filename = os.path.join(os.curdir, self.verifier.modulefilename)
+        module = backend.load_library(filename)
         #
         # call loading_gen_struct() to get the struct layout inferred by
         # the C compiler

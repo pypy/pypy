@@ -410,8 +410,9 @@ LL_OPERATIONS = {
     'raw_memclear':         LLOp(),
     'raw_memcopy':          LLOp(),
     'raw_memmove':          LLOp(),
-    'raw_load':             LLOp(sideeffects=False),
-    'raw_store':            LLOp(),
+    'raw_load':             LLOp(sideeffects=False, canrun=True),
+    'raw_store':            LLOp(canrun=True),
+    'bare_raw_store':       LLOp(),
     'stack_malloc':         LLOp(), # mmh
     'track_alloc_start':    LLOp(),
     'track_alloc_stop':     LLOp(),
@@ -471,13 +472,12 @@ LL_OPERATIONS = {
     'gc_obtain_free_space': LLOp(),
     'gc_set_max_heap_size': LLOp(),
     'gc_can_move'         : LLOp(sideeffects=False),
-    'gc_thread_prepare'   : LLOp(canmallocgc=True),
     'gc_thread_run'       : LLOp(),
     'gc_thread_start'     : LLOp(),
     'gc_thread_die'       : LLOp(),
     'gc_thread_before_fork':LLOp(),   # returns an opaque address
     'gc_thread_after_fork': LLOp(),   # arguments: (result_of_fork, opaqueaddr)
-    'gc_assume_young_pointers': LLOp(canrun=True),
+    'gc_writebarrier':      LLOp(canrun=True),
     'gc_writebarrier_before_copy': LLOp(canrun=True),
     'gc_heap_stats'       : LLOp(canmallocgc=True),
 

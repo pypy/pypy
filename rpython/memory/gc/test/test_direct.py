@@ -87,19 +87,17 @@ class BaseDirectGCTest(object):
 
     def write(self, p, fieldname, newvalue):
         if self.gc.needs_write_barrier:
-            newaddr = llmemory.cast_ptr_to_adr(newvalue)
             addr_struct = llmemory.cast_ptr_to_adr(p)
-            self.gc.write_barrier(newaddr, addr_struct)
+            self.gc.write_barrier(addr_struct)
         setattr(p, fieldname, newvalue)
 
     def writearray(self, p, index, newvalue):
         if self.gc.needs_write_barrier:
-            newaddr = llmemory.cast_ptr_to_adr(newvalue)
             addr_struct = llmemory.cast_ptr_to_adr(p)
             if hasattr(self.gc, 'write_barrier_from_array'):
-                self.gc.write_barrier_from_array(newaddr, addr_struct, index)
+                self.gc.write_barrier_from_array(addr_struct, index)
             else:
-                self.gc.write_barrier(newaddr, addr_struct)
+                self.gc.write_barrier(addr_struct)
         p[index] = newvalue
 
     def malloc(self, TYPE, n=None):
@@ -416,13 +414,13 @@ class TestGenerationGC(TestSemiSpaceGC):
         assert calls == ['semispace_collect']
         calls = []
 
-    def test_assume_young_pointers(self):
+    def test_write_barrier_direct(self):
         s0 = lltype.malloc(S, immortal=True)
         self.consider_constant(s0)
         s = self.malloc(S)
         s.x = 1
         s0.next = s
-        self.gc.assume_young_pointers(llmemory.cast_ptr_to_adr(s0))
+        self.gc.write_barrier(llmemory.cast_ptr_to_adr(s0))
 
         self.gc.collect(0)
 
@@ -558,12 +556,10 @@ class TestMiniMarkGCSimple(DirectGCTest):
         assert hdr_src.tid & minimark.GCFLAG_HAS_CARDS
         assert hdr_dst.tid & minimark.GCFLAG_HAS_CARDS
         #
-        young_p = self.malloc(S)
-        self.gc.write_barrier_from_array(young_p, addr_src, 0)
+        self.gc.write_barrier_from_array(addr_src, 0)
         index_in_third_page = int(2.5 * self.gc.card_page_indices)
         assert index_in_third_page < largeobj_size
-        self.gc.write_barrier_from_array(young_p, addr_src,
-                                         index_in_third_page)
+        self.gc.write_barrier_from_array(addr_src, index_in_third_page)
         #
         assert hdr_src.tid & minimark.GCFLAG_CARDS_SET
         addr_byte = self.gc.get_card(addr_src, 0)

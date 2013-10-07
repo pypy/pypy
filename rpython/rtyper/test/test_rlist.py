@@ -14,15 +14,19 @@ from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.translator.translator import TranslationContext
 
 
-# undo the specialization parameter
+# undo the specialization parameters
 for n1 in 'get set del'.split():
+    if n1 == "get":
+        extraarg = "ll_getitem_fast, "
+    else:
+        extraarg = ""
     for n2 in '', '_nonneg':
         name = 'll_%sitem%s' % (n1, n2)
         globals()['_' + name] = globals()[name]
         exec """if 1:
             def %s(*args):
-                return _%s(dum_checkidx, *args)
-""" % (name, name)
+                return _%s(dum_checkidx, %s*args)
+""" % (name, name, extraarg)
 del n1, n2, name
 
 
@@ -186,7 +190,7 @@ class Freezing:
         return True
 
 
-class BaseTestRlist(BaseRtypingTest):
+class TestRlist(BaseRtypingTest):
     type_system = 'lltype'
     rlist = ll_rlist
 
@@ -1400,7 +1404,7 @@ class BaseTestRlist(BaseRtypingTest):
             block = graph.startblock
             op = block.operations[-1]
             assert op.opname == 'direct_call'
-            func = op.args[0].value._obj._callable
+            func = op.args[2].value
             assert ('foldable' in func.func_name) == \
                    ("y[*]" in immutable_fields)
 
@@ -1439,7 +1443,7 @@ class BaseTestRlist(BaseRtypingTest):
 
         t = TranslationContext()
         s = t.buildannotator().build_types(f, [])
-        rtyper = t.buildrtyper(type_system=self.type_system)
+        rtyper = t.buildrtyper()
         rtyper.specialize()
 
         s_A_list = s.items[0]
@@ -1467,7 +1471,7 @@ class BaseTestRlist(BaseRtypingTest):
 
         t = TranslationContext()
         s = t.buildannotator().build_types(f, [])
-        rtyper = t.buildrtyper(type_system=self.type_system)
+        rtyper = t.buildrtyper()
         rtyper.specialize()
 
         s_A_list = s.items[0]
@@ -1511,8 +1515,8 @@ class BaseTestRlist(BaseRtypingTest):
         block = graph.startblock
         lst1_getitem_op = block.operations[-3]     # XXX graph fishing
         lst2_getitem_op = block.operations[-2]
-        func1 = lst1_getitem_op.args[0].value._obj._callable
-        func2 = lst2_getitem_op.args[0].value._obj._callable
+        func1 = lst1_getitem_op.args[2].value
+        func2 = lst2_getitem_op.args[2].value
         assert func1.oopspec == 'list.getitem_foldable(l, index)'
         assert not hasattr(func2, 'oopspec')
 
@@ -1588,3 +1592,30 @@ class BaseTestRlist(BaseRtypingTest):
             assert res == sum(map(ord, 'abcdef'))
         finally:
             rlist.ll_getitem_foldable_nonneg = prev
+
+    def test_extend_was_not_overallocating(self):
+        from rpython.rlib import rgc
+        from rpython.rlib.objectmodel import resizelist_hint
+        from rpython.rtyper.lltypesystem import lltype
+        old_arraycopy = rgc.ll_arraycopy
+        try:
+            GLOB = lltype.GcStruct('GLOB', ('seen', lltype.Signed))
+            glob = lltype.malloc(GLOB, immortal=True)
+            glob.seen = 0
+            def my_arraycopy(*args):
+                glob.seen += 1
+                return old_arraycopy(*args)
+            rgc.ll_arraycopy = my_arraycopy
+            def dummyfn():
+                lst = []
+                i = 0
+                while i < 30:
+                    i += 1
+                    resizelist_hint(lst, i)
+                    lst.append(i)
+                return glob.seen
+            res = self.interpret(dummyfn, [])
+        finally:
+            rgc.ll_arraycopy = old_arraycopy
+        #
+        assert 2 <= res <= 10

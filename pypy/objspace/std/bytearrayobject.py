@@ -7,7 +7,6 @@ from pypy.objspace.std import stringobject
 from pypy.objspace.std.bytearraytype import (
     getbytevalue, makebytearraydata_w, new_bytearray)
 from pypy.objspace.std.intobject import W_IntObject
-from pypy.objspace.std.inttype import wrapint
 from pypy.objspace.std.model import W_Object, registerimplementation
 from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.objspace.std.noneobject import W_NoneObject
@@ -76,7 +75,7 @@ def init__Bytearray(space, w_bytearray, __args__):
 
 def len__Bytearray(space, w_bytearray):
     result = len(w_bytearray.data)
-    return wrapint(space, result)
+    return space.newint(result)
 
 def ord__Bytearray(space, w_bytearray):
     if len(w_bytearray.data) != 1:

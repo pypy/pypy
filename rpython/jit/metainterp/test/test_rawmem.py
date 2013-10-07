@@ -58,5 +58,18 @@ class RawMemTests(object):
                                        'raw_store': 1, 'raw_load': 1,
                                        'finish': 1})
 
+    def test_raw_storage_byte(self):
+        def f():
+            p = alloc_raw_storage(15)
+            raw_storage_setitem(p, 5, rffi.cast(rffi.UCHAR, 254))
+            res = raw_storage_getitem(rffi.UCHAR, p, 5)
+            free_raw_storage(p)
+            return rffi.cast(lltype.Signed, res)
+        res = self.interp_operations(f, [])
+        assert res == 254
+        self.check_operations_history({'call': 2, 'guard_no_exception': 1,
+                                       'raw_store': 1, 'raw_load': 1,
+                                       'finish': 1})
+
 class TestRawMem(RawMemTests, LLJitMixin):
     pass

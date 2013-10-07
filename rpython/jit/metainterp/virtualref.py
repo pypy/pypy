@@ -39,7 +39,7 @@ class VirtualRefInfo:
         return True
 
     def replace_force_virtual_with_call(self, graphs):
-        # similar to rvirtualizable2.replace_force_virtualizable_with_call().
+        # similar to rvirtualizable.replace_force_virtualizable_with_call().
         c_force_virtual_ptr = None
         c_is_virtual_ptr = None
         force_virtual_count = 0

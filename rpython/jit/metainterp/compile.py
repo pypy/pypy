@@ -303,14 +303,16 @@ def do_compile_loop(metainterp_sd, inputargs, operations, looptoken,
     metainterp_sd.logger_ops.log_loop(inputargs, operations, -2,
                                       'compiling', name=name)
     return metainterp_sd.cpu.compile_loop(inputargs, operations, looptoken,
-                                          log=log, name=name)
+                                          log=log, name=name,
+                                          logger=metainterp_sd.logger_ops)
 
 def do_compile_bridge(metainterp_sd, faildescr, inputargs, operations,
                       original_loop_token, log=True):
     metainterp_sd.logger_ops.log_bridge(inputargs, operations, "compiling")
     assert isinstance(faildescr, AbstractFailDescr)
     return metainterp_sd.cpu.compile_bridge(faildescr, inputargs, operations,
-                                            original_loop_token, log=log)
+                                            original_loop_token, log=log,
+                                            logger=metainterp_sd.logger_ops)
 
 def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type):
     vinfo = jitdriver_sd.virtualizable_info
@@ -708,6 +710,8 @@ class ResumeGuardForcedDescr(ResumeGuardDescr):
         rstack._stack_criticalcode_start()
         try:
             deadframe = cpu.force(token)
+            # this should set descr to ResumeGuardForceDescr, if it
+            # was not that already
             faildescr = cpu.get_latest_descr(deadframe)
             assert isinstance(faildescr, ResumeGuardForcedDescr)
             faildescr.handle_async_forcing(deadframe)
@@ -715,12 +719,18 @@ class ResumeGuardForcedDescr(ResumeGuardDescr):
             rstack._stack_criticalcode_stop()
 
     def handle_async_forcing(self, deadframe):
-        from rpython.jit.metainterp.resume import force_from_resumedata
+        from rpython.jit.metainterp.resume import (force_from_resumedata,
+                                                   AlreadyForced)
         metainterp_sd = self.metainterp_sd
         vinfo = self.jitdriver_sd.virtualizable_info
         ginfo = self.jitdriver_sd.greenfield_info
-        all_virtuals = force_from_resumedata(metainterp_sd, self, deadframe,
-                                             vinfo, ginfo)
+        # there is some chance that this is already forced. In this case
+        # the virtualizable would have a token = NULL
+        try:
+            all_virtuals = force_from_resumedata(metainterp_sd, self, deadframe,
+                                                 vinfo, ginfo)
+        except AlreadyForced:
+            return
         # The virtualizable data was stored on the real virtualizable above.
         # Handle all_virtuals: keep them for later blackholing from the
         # future failure of the GUARD_NOT_FORCED

@@ -482,17 +482,16 @@ class Method(W_Root):
                 space.abstract_isinstance_w(w_firstarg, self.w_class)):
             pass  # ok
         else:
-            clsdescr = self.w_class.getname(space, "")
-            if clsdescr:
+            clsdescr = self.w_class.getname(space)
+            if clsdescr and clsdescr != '?':
                 clsdescr += " instance"
             else:
                 clsdescr = "instance"
             if w_firstarg is None:
                 instdescr = "nothing"
             else:
-                instname = space.abstract_getclass(w_firstarg).getname(space,
-                                                                       "")
-                if instname:
+                instname = space.abstract_getclass(w_firstarg).getname(space)
+                if instname and instname != '?':
                     instdescr = instname + " instance"
                 else:
                     instdescr = "instance"

@@ -26,6 +26,9 @@ def try_cflags():
 def try_ldflags():
     yield ExternalCompilationInfo(libraries=['curses'])
     yield ExternalCompilationInfo(libraries=['curses', 'tinfo'])
+    yield ExternalCompilationInfo(libraries=['ncurses'])
+    yield ExternalCompilationInfo(libraries=['ncurses'],
+                                  library_dirs=['/usr/lib64'])
 
 def try_tools():
     try:

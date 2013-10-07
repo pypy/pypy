@@ -412,7 +412,6 @@ class RecursiveTests:
                 self.i8 = i8
                 self.i9 = i9
 
-
         def loop(n):
             i = 0
             o = A(0, 1, 2, 3, 4, 5, 6, 7, 8, 9)
@@ -444,7 +443,6 @@ class RecursiveTests:
                 self.i7 = i7
                 self.i8 = i8
                 self.i9 = i9
-
 
         def loop(n):
             i = 0
@@ -643,7 +641,7 @@ class RecursiveTests:
         # exactly the same logic as the previous test, but with 'frame.j'
         # instead of just 'j'
         class Frame(object):
-            _virtualizable2_ = ['j']
+            _virtualizable_ = ['j']
             def __init__(self, j):
                 self.j = j
 
@@ -767,9 +765,9 @@ class RecursiveTests:
                 self.val = val
 
         class Frame(object):
-            _virtualizable2_ = ['thing']
+            _virtualizable_ = ['thing']
 
-        driver = JitDriver(greens = ['codeno'], reds = ['i', 'frame'],
+        driver = JitDriver(greens = ['codeno'], reds = ['i', 's', 'frame'],
                            virtualizables = ['frame'],
                            get_printable_location = lambda codeno : str(codeno))
 
@@ -781,22 +779,26 @@ class RecursiveTests:
 
         def portal(codeno, frame):
             i = 0
+            s = 0
             while i < 10:
-                driver.can_enter_jit(frame=frame, codeno=codeno, i=i)
-                driver.jit_merge_point(frame=frame, codeno=codeno, i=i)
+                driver.can_enter_jit(frame=frame, codeno=codeno, i=i, s=s)
+                driver.jit_merge_point(frame=frame, codeno=codeno, i=i, s=s)
                 nextval = frame.thing.val
                 if codeno == 0:
                     subframe = Frame()
                     subframe.thing = Thing(nextval)
                     nextval = portal(1, subframe)
+                    s += subframe.thing.val
                 frame.thing = Thing(nextval + 1)
                 i += 1
             return frame.thing.val
 
         res = self.meta_interp(main, [0], inline=True)
+        self.check_resops(call=0, cond_call=0) # got removed by optimization
         assert res == main(0)
 
     def test_directly_call_assembler_virtualizable_reset_token(self):
+        py.test.skip("not applicable any more, I think")
         from rpython.rtyper.lltypesystem import lltype
         from rpython.rlib.debug import llinterpcall
 
@@ -805,7 +807,7 @@ class RecursiveTests:
                 self.val = val
 
         class Frame(object):
-            _virtualizable2_ = ['thing']
+            _virtualizable_ = ['thing']
 
         driver = JitDriver(greens = ['codeno'], reds = ['i', 'frame'],
                            virtualizables = ['frame'],
@@ -856,7 +858,7 @@ class RecursiveTests:
                 self.val = val
 
         class Frame(object):
-            _virtualizable2_ = ['thing']
+            _virtualizable_ = ['thing']
 
         driver = JitDriver(greens = ['codeno'], reds = ['i', 'frame'],
                            virtualizables = ['frame'],
@@ -907,7 +909,7 @@ class RecursiveTests:
                                 virtualizables = ['frame'])
 
         class Frame(object):
-            _virtualizable2_ = ['l[*]', 's']
+            _virtualizable_ = ['l[*]', 's']
 
             def __init__(self, l, s):
                 self = hint(self, access_directly=True,
@@ -950,7 +952,7 @@ class RecursiveTests:
                 self.val = val
 
         class Frame(object):
-            _virtualizable2_ = ['thing']
+            _virtualizable_ = ['thing']
 
         driver = JitDriver(greens = ['codeno'], reds = ['i', 'frame'],
                            virtualizables = ['frame'],

@@ -8,7 +8,7 @@ import py
 
 # ====> test_rstr.py
 
-class BaseTestRUnicode(AbstractTestRstr, BaseRtypingTest):
+class TestRUnicode(AbstractTestRstr, BaseRtypingTest):
     const = unicode
     constchar = unichr
 

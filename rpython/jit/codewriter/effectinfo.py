@@ -83,6 +83,7 @@ class EffectInfo(object):
     OS_UNI_COPY_TO_RAW          = 113
 
     OS_JIT_FORCE_VIRTUAL        = 120
+    OS_JIT_FORCE_VIRTUALIZABLE  = 121
 
     # for debugging:
     _OS_CANRAISE = set([

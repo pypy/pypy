@@ -106,7 +106,7 @@ PICKLE_TAGS = {}
 UNPICKLE_TAGS = {}
 
 
-def recursively_flatten(space, lst):
+def recursively_flatten(lst):
     from rpython.flowspace.flowcontext import SuspendedUnroller
     i = 0
     while i < len(lst):
@@ -114,7 +114,7 @@ def recursively_flatten(space, lst):
         if not isinstance(unroller, SuspendedUnroller):
             i += 1
         else:
-            vars = unroller.state_unpack_variables(space)
+            vars = unroller.state_unpack_variables()
             key = unroller.__class__, len(vars)
             try:
                 tag = PICKLE_TAGS[key]
@@ -124,12 +124,12 @@ def recursively_flatten(space, lst):
             lst[i:i + 1] = [tag] + vars
 
 
-def recursively_unflatten(space, lst):
+def recursively_unflatten(lst):
     for i in xrange(len(lst) - 1, -1, -1):
         item = lst[i]
         if item in UNPICKLE_TAGS:
             unrollerclass, argcount = UNPICKLE_TAGS[item]
             arguments = lst[i + 1:i + 1 + argcount]
             del lst[i + 1:i + 1 + argcount]
-            unroller = unrollerclass.state_pack_variables(space, *arguments)
+            unroller = unrollerclass.state_pack_variables(*arguments)
             lst[i] = unroller

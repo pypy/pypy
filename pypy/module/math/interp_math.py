@@ -334,9 +334,8 @@ def fsum(space, w_iterable):
             v = hi
         del partials[added:]
         if v != 0.0:
-            if rfloat.isinf(v) or rfloat.isnan(v):
-                if (not rfloat.isinf(original) and
-                    not rfloat.isnan(original)):
+            if not rfloat.isfinite(v):
+                if rfloat.isfinite(original):
                     raise OperationError(space.w_OverflowError,
                                          space.wrap("intermediate overflow"))
                 if rfloat.isinf(original):

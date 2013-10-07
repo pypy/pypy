@@ -14,7 +14,7 @@ class BaseTest(object):
     def translate(self, func, sig):
         t = TranslationContext()
         t.buildannotator().build_types(func, sig)
-        t.buildrtyper(type_system=self.type_system).specialize()
+        t.buildrtyper().specialize()
         if option.view:
             t.view()
         return t, self.Analyzer(t)
@@ -169,8 +169,6 @@ class TestWriteAnalyze(BaseTest):
         assert not wa.analyze(op_call_m)
 
     def test_instantiate(self):
-        # instantiate is interesting, because it leads to one of the few cases of
-        # an indirect call without a list of graphs
         from rpython.rlib.objectmodel import instantiate
         class A:
             pass
@@ -187,7 +185,7 @@ class TestWriteAnalyze(BaseTest):
         t, wa = self.translate(f, [int])
         fgraph = graphof(t, f)
         result = wa.analyze(fgraph.startblock.operations[0])
-        assert result is top_set
+        assert not result
 
     def test_llexternal(self):
         from rpython.rtyper.lltypesystem.rffi import llexternal

@@ -3735,6 +3735,33 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_sub_identity(self):
+        ops = """
+        [i0]
+        i1 = int_sub(i0, i0)
+        i2 = int_sub(i1, i0)
+        jump(i1, i2)
+        """
+        expected = """
+        [i0]
+        i2 = int_neg(i0)
+        jump(0, i2)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_shift_zero(self):
+        ops = """
+        [i0]
+        i1 = int_lshift(0, i0)
+        i2 = int_rshift(0, i0)
+        jump(i1, i2)
+        """
+        expected = """
+        [i0]
+        jump(0, 0)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_bound_and(self):
         ops = """
         [i0]
@@ -5100,6 +5127,15 @@ class BaseTestOptimizeBasic(BaseTestBasic):
             (ConstInt(123), get_const_ptr_for_string("abc"),): ConstInt(5),
         }
         self.optimize_loop(ops, expected, call_pure_results)
+
+    def test_guard_not_forced_2_virtual(self):
+        ops = """
+        [i0]
+        p0 = new_array(3, descr=arraydescr)
+        guard_not_forced_2() [p0]
+        finish(p0)
+        """
+        self.optimize_loop(ops, ops)
 
 
 class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):

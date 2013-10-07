@@ -4,7 +4,6 @@ from rpython.rtyper import rint
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.lltypesystem.lltype import Signed, Bool, Void, UniChar
 from rpython.rtyper.rmodel import IntegerRepr, IteratorRepr, inputconst, Repr
-from rpython.rtyper.rtuple import AbstractTupleRepr
 from rpython.tool.pairtype import pairtype, pair
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.tool.staticmethods import StaticMethods
@@ -88,26 +87,33 @@ class AbstractUnicodeRepr(AbstractStringRepr):
 
 class __extend__(annmodel.SomeString):
     def rtyper_makerepr(self, rtyper):
-        return rtyper.type_system.rstr.string_repr
+        from rpython.rtyper.lltypesystem.rstr import string_repr
+        return string_repr
+
     def rtyper_makekey(self):
         return self.__class__,
 
 class __extend__(annmodel.SomeUnicodeString):
     def rtyper_makerepr(self, rtyper):
-        return rtyper.type_system.rstr.unicode_repr
+        from rpython.rtyper.lltypesystem.rstr import unicode_repr
+        return unicode_repr
 
     def rtyper_makekey(self):
         return self.__class__,
 
 class __extend__(annmodel.SomeChar):
     def rtyper_makerepr(self, rtyper):
-        return rtyper.type_system.rstr.char_repr
+        from rpython.rtyper.lltypesystem.rstr import char_repr
+        return char_repr
+
     def rtyper_makekey(self):
         return self.__class__,
 
 class __extend__(annmodel.SomeUnicodeCodePoint):
     def rtyper_makerepr(self, rtyper):
-        return rtyper.type_system.rstr.unichar_repr
+        from rpython.rtyper.lltypesystem.rstr import unichar_repr
+        return unichar_repr
+
     def rtyper_makekey(self):
         return self.__class__,
 
@@ -131,7 +137,7 @@ class __extend__(AbstractStringRepr):
         v_str, = hop.inputargs(string_repr)
         return hop.gendirectcall(self.ll.ll_strlen, v_str)
 
-    def rtype_is_true(self, hop):
+    def rtype_bool(self, hop):
         s_str = hop.args_s[0]
         if s_str.can_be_None:
             string_repr = hop.args_r[0].repr
@@ -139,7 +145,7 @@ class __extend__(AbstractStringRepr):
             return hop.gendirectcall(self.ll.ll_str_is_true, v_str)
         else:
             # defaults to checking the length
-            return super(AbstractStringRepr, self).rtype_is_true(hop)
+            return super(AbstractStringRepr, self).rtype_bool(hop)
 
     def rtype_method_startswith(self, hop):
         str1_repr = hop.args_r[0].repr
@@ -271,12 +277,14 @@ class __extend__(AbstractStringRepr):
         raise NotImplementedError
 
     def rtype_method_join(self, hop):
+        from rpython.rtyper.lltypesystem.rlist import BaseListRepr
+        from rpython.rtyper.lltypesystem.rstr import char_repr, unichar_repr
         hop.exception_cannot_occur()
         rstr = hop.args_r[0]
         if hop.s_result.is_constant():
             return inputconst(rstr.repr, hop.s_result.const)
         r_lst = hop.args_r[1]
-        if not isinstance(r_lst, hop.rtyper.type_system.rlist.BaseListRepr):
+        if not isinstance(r_lst, BaseListRepr):
             raise TyperError("string.join of non-list: %r" % r_lst)
         v_str, v_lst = hop.inputargs(rstr.repr, r_lst)
         v_length, v_items = self._list_length_items(hop, v_lst, r_lst.lowleveltype)
@@ -284,8 +292,8 @@ class __extend__(AbstractStringRepr):
         if hop.args_s[0].is_constant() and hop.args_s[0].const == '':
             if r_lst.item_repr == rstr.repr:
                 llfn = self.ll.ll_join_strs
-            elif (r_lst.item_repr == hop.rtyper.type_system.rstr.char_repr or
-                  r_lst.item_repr == hop.rtyper.type_system.rstr.unichar_repr):
+            elif (r_lst.item_repr == char_repr or
+                  r_lst.item_repr == unichar_repr):
                 v_tp = hop.inputconst(Void, self.lowleveltype)
                 return hop.gendirectcall(self.ll.ll_join_chars, v_length,
                                          v_items, v_tp)
@@ -555,18 +563,6 @@ class __extend__(pairtype(AbstractStringRepr, AbstractCharRepr),
         hop.exception_cannot_occur()
         return hop.gendirectcall(r_str.ll.ll_contains, v_str, v_chr)
 
-class __extend__(pairtype(AbstractStringRepr, AbstractTupleRepr)):
-    def rtype_mod((r_str, r_tuple), hop):
-        r_tuple = hop.args_r[1]
-        v_tuple = hop.args_v[1]
-
-        sourcevars = []
-        for i, r_arg in enumerate(r_tuple.external_items_r):
-            v_item = r_tuple.getitem(hop.llops, v_tuple, i)
-            sourcevars.append((v_item, r_arg))
-
-        return r_str.ll.do_stringformat(hop, sourcevars)
-
 
 class __extend__(AbstractCharRepr):
     def ll_str(self, ch):
@@ -599,7 +595,7 @@ class __extend__(AbstractCharRepr,
     def rtype_len(_, hop):
         return hop.inputconst(Signed, 1)
 
-    def rtype_is_true(_, hop):
+    def rtype_bool(_, hop):
         assert not hop.args_s[0].can_be_None
         return hop.inputconst(Bool, True)
 
@@ -655,8 +651,8 @@ class __extend__(pairtype(AbstractCharRepr, AbstractCharRepr)):
 #Helper functions for comparisons
 
 def _rtype_compare_template(hop, func):
-    rstr = hop.rtyper.type_system.rstr
-    vlist = hop.inputargs(rstr.char_repr, rstr.char_repr)
+    from rpython.rtyper.lltypesystem.rstr import char_repr
+    vlist = hop.inputargs(char_repr, char_repr)
     return hop.genop('char_' + func, vlist, resulttype=Bool)
 
 class __extend__(AbstractUniCharRepr):
@@ -677,8 +673,8 @@ class __extend__(AbstractUniCharRepr):
     get_ll_fasthash_function = get_ll_hash_function
 
     def rtype_ord(_, hop):
-        rstr = hop.rtyper.type_system.rstr
-        vlist = hop.inputargs(rstr.unichar_repr)
+        from rpython.rtyper.lltypesystem.rstr import unichar_repr
+        vlist = hop.inputargs(unichar_repr)
         return hop.genop('cast_unichar_to_int', vlist, resulttype=Signed)
 
 
@@ -691,8 +687,8 @@ class __extend__(pairtype(AbstractUniCharRepr, AbstractUniCharRepr),
 #Helper functions for comparisons
 
 def _rtype_unchr_compare_template(hop, func):
-    rstr = hop.rtyper.type_system.rstr
-    vlist = hop.inputargs(rstr.unichar_repr, rstr.unichar_repr)
+    from rpython.rtyper.lltypesystem.rstr import unichar_repr
+    vlist = hop.inputargs(unichar_repr, unichar_repr)
     return hop.genop('unichar_' + func, vlist, resulttype=Bool)
 
 
@@ -702,16 +698,17 @@ def _rtype_unchr_compare_template(hop, func):
 class __extend__(pairtype(AbstractCharRepr, AbstractStringRepr),
                  pairtype(AbstractUniCharRepr, AbstractUnicodeRepr)):
     def convert_from_to((r_from, r_to), v, llops):
-        rstr = llops.rtyper.type_system.rstr
-        if (r_from == rstr.char_repr and r_to == rstr.string_repr) or\
-           (r_from == rstr.unichar_repr and r_to == rstr.unicode_repr):
+        from rpython.rtyper.lltypesystem.rstr import (
+            string_repr, unicode_repr, char_repr, unichar_repr)
+        if (r_from == char_repr and r_to == string_repr) or\
+           (r_from == unichar_repr and r_to == unicode_repr):
             return llops.gendirectcall(r_from.ll.ll_chr2str, v)
         return NotImplemented
 
 class __extend__(pairtype(AbstractStringRepr, AbstractCharRepr)):
     def convert_from_to((r_from, r_to), v, llops):
-        rstr = llops.rtyper.type_system.rstr
-        if r_from == rstr.string_repr and r_to == rstr.char_repr:
+        from rpython.rtyper.lltypesystem.rstr import string_repr, char_repr
+        if r_from == string_repr and r_to == char_repr:
             c_zero = inputconst(Signed, 0)
             return llops.gendirectcall(r_from.ll.ll_stritem_nonneg, v, c_zero)
         return NotImplemented
