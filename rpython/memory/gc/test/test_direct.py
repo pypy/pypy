@@ -586,19 +586,19 @@ class TestMiniMarkGCFull(DirectGCTest):
 
 class TestIncrementalMiniMarkGCSimple(TestMiniMarkGCSimple):
     from rpython.memory.gc.incminimark import IncrementalMiniMarkGC as GCClass
-    
+
     def test_write_barrier_marking_simple(self):
         from rpython.memory.gc import incminimark
-        
+
         for i in range(2):
             curobj = self.malloc(S)
             curobj.x = i
             self.stackroots.append(curobj)
-            
-        
+
+
         oldobj = self.stackroots[-1]
         oldhdr = self.gc.header(llmemory.cast_ptr_to_adr(oldobj))
-        
+
         assert oldhdr.tid & incminimark.GCFLAG_VISITED == 0
         self.gc.debug_gc_step_until(incminimark.STATE_MARKING)
         oldobj = self.stackroots[-1]
@@ -607,12 +607,12 @@ class TestIncrementalMiniMarkGCSimple(TestMiniMarkGCSimple):
         assert oldhdr.tid & incminimark.GCFLAG_VISITED == 0
         #process one object
         self.gc.debug_gc_step()
-        
+
         self.gc.minor_collection()
         # make sure minor collect doesnt interfere with visited flag on
         # old object
         assert oldhdr.tid & incminimark.GCFLAG_VISITED
-        
+
         #at this point the first object should have been processed
         newobj = self.malloc(S)
         self.write(oldobj,'next',newobj)
@@ -624,19 +624,19 @@ class TestIncrementalMiniMarkGCSimple(TestMiniMarkGCSimple):
 
     def test_sweeping_simple(self):
         from rpython.memory.gc import incminimark
-        
+
         assert self.gc.gc_state == incminimark.STATE_SCANNING
-        
+
         for i in range(2):
             curobj = self.malloc(S)
             curobj.x = i
             self.stackroots.append(curobj)
-        
+
         self.gc.debug_gc_step_until(incminimark.STATE_SWEEPING_RAWMALLOC)
         oldobj = self.stackroots[-1]
         oldhdr = self.gc.header(llmemory.cast_ptr_to_adr(oldobj))
         assert oldhdr.tid & incminimark.GCFLAG_VISITED
-        
+
         newobj1 = self.malloc(S)
         newobj2 = self.malloc(S)
         newobj1.x = 1337
@@ -644,40 +644,28 @@ class TestIncrementalMiniMarkGCSimple(TestMiniMarkGCSimple):
         self.write(oldobj,'next',newobj1)
         self.gc.debug_gc_step_until(incminimark.STATE_SCANNING)
         #should not be cleared even though it was allocated while sweeping
+        newobj1 = oldobj.next
         assert newobj1.x == 1337
-        # XXX find appropriate exception type
-        assert py.test.raises(RuntimeError,"newobj2.x")
 
-    #def test_new_marking_write_sweeping(self):
-    #    
-    #    assert False
-    
-    #def test_finalizing_new_object(self):
-        # Must test an object with a finalizer
-        # being added just before finalizers start being called
-        # must test this new objects finalizer is not called
-        # XXX maybe cant do this in test_direct and need test_transformed
-    #    assert False
-   
     def test_young_gray_collected(self):
         from rpython.memory.gc import incminimark
-        
+
         # Test the write barrier triggers on a young object
         # but doesnt crash when that object is collected
-        
+
         for i in range(2):
             curobj = self.malloc(S)
             curobj.x = i
             self.stackroots.append(curobj)
 
-        
+
         self.gc.debug_gc_step_until(incminimark.STATE_MARKING)
-        
+
         #process one object
         self.gc.debug_gc_step()
-        
+
         oldobj = self.stackroots[-1]
-        
+
         newobj = self.malloc(S)
         newobj.x = 5
         # make newobj gray
@@ -685,57 +673,57 @@ class TestIncrementalMiniMarkGCSimple(TestMiniMarkGCSimple):
         #the barrier should have made the object gray
         newhdr = self.gc.header(llmemory.cast_ptr_to_adr(newobj))
         assert newhdr.tid & incminimark.GCFLAG_GRAY
-        
+
         # make newobj unreachable again
         self.write(oldobj,'next',oldobj)
-        
+
         #complete collection
         self.gc.debug_gc_step_until(incminimark.STATE_SCANNING)
         self.gc.debug_check_consistency()
-        
+
         # object cant be collected in this case, must be made old.
         assert newobj.x == 5
-        
+
         self.gc.debug_gc_step_until(incminimark.STATE_SCANNING)
-        
+
         # now object is collected
         assert py.test.raises(RuntimeError,"newobj.x")
-   
+
     # Test trying to be a bit comprehensive about
     # states and types of objects
     def test_allocate_states(self):
         from rpython.memory.gc import incminimark
         largeobj_size =  self.gc.nonlarge_max + 1
-        
+
         assert self.gc.gc_state == incminimark.STATE_SCANNING
         assert self.gc.get_total_memory_used() == 0
-        
+
         for i in range(5):
             curobj = self.malloc(S)
             curobj.x = i
             self.stackroots.append(curobj)
             assert self.gc.is_in_nursery(llmemory.cast_ptr_to_adr(curobj))
-        
+
         reachableroot = curobj
-        
+
         for i in range(5):
             curobj = self.malloc(VAR, largeobj_size)
             self.stackroots.append(curobj)
             assert not self.gc.is_in_nursery(llmemory.cast_ptr_to_adr(curobj))
-        
+
         assert self.gc.gc_state == incminimark.STATE_SCANNING
-        
-        
-        nallocated = {}        
-        
+
+
+        nallocated = {}
+
         reachable = []
         unreachable = []
-        
+
         while True:
-            
+
             if self.gc.gc_state not in nallocated:
                 nallocated[self.gc.gc_state] = 0
-            
+
             if nallocated[self.gc.gc_state] < 1:
                 unreachableobj = self.malloc(S)
                 reachableobj = self.malloc(S)
@@ -745,42 +733,42 @@ class TestIncrementalMiniMarkGCSimple(TestMiniMarkGCSimple):
                 unreachableobj.x = 150
                 reachableobj.x = 150
                 reachableviayoungobj.x = 150
-                
+
                 self.write(reachableroot,'next',reachableobj)
                 reachableroot = reachableobj
-                
+
                 unreachable.append(unreachableobj)
                 reachable.append(reachableobj)
                 reachable.append(reachableviayoungobj)
-                
+
                 nallocated[self.gc.gc_state] += 1
-            
+
             if self.gc.gc_state == incminimark.STATE_SCANNING:
-                pass        
+                pass
             elif self.gc.gc_state == incminimark.STATE_MARKING:
                 pass
             elif self.gc.gc_state == incminimark.STATE_SWEEPING_RAWMALLOC:
                 pass
             elif self.gc.gc_state == incminimark.STATE_SWEEPING_ARENA:
                 pass
-            elif self.gc.gc_state == incminimark.STATE_FINALIZING: 
+            elif self.gc.gc_state == incminimark.STATE_FINALIZING:
                 # ASSUMPTION finalizing is atomic
                 #
                 #complete collection
                 self.gc.debug_gc_step()
-                assert self.gc.gc_state == incminimark.STATE_SCANNING 
+                assert self.gc.gc_state == incminimark.STATE_SCANNING
                 break
             else:
                 raise Exception("unreachable")
-            
+
             self.gc.debug_gc_step()
-        
+
         #complete the next collection cycle
         self.gc.debug_gc_step_until(incminimark.STATE_SCANNING)
-        
+
         for obj in reachable:
             assert obj.x == 150
-        
+
         for obj in unreachable:
             assert py.test.raises(RuntimeError,"obj.x")
 

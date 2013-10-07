@@ -155,11 +155,18 @@ GCFLAG_OLD      = first_gcflag << 10
 # This state must complete in a single step
 STATE_SCANNING = 1 << 0
 
-#XXX describe
-# marking of objects can be done over multiple 
+# The marking phase. We walk the list of all grey objects and mark
+# all of the things they point to grey. This step lasts until there are no
+# gray objects
 STATE_MARKING  = 1 << 1
+
+# here we kill all the unvisited rawmalloc objects
 STATE_SWEEPING_RAWMALLOC = 1 << 2
+
+# here we kill all the unvisited arena objects
 STATE_SWEEPING_ARENA = 1 << 3
+
+# here we call all the finalizers
 STATE_FINALIZING = 1 << 4
 
 MASK_SWEEPING = (STATE_SWEEPING_RAWMALLOC | STATE_SWEEPING_ARENA)
@@ -352,7 +359,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         self.young_rawmalloced_objects = self.null_address_dict()
         self.old_rawmalloced_objects = self.AddressStack()
         self.rawmalloced_total_size = r_uint(0)
-        
+
         self.gc_state = r_uint(0) #XXX Only really needs to be a byte
         self.gc_state = STATE_SCANNING
         #
@@ -1008,7 +1015,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         """
         return self.ac.total_memory_used + self.ac_alternate.total_memory_used \
                     + self.rawmalloced_total_size
-                    
+
 
     def card_marking_words_for_length(self, length):
         # --- Unoptimized version:
@@ -1029,20 +1036,20 @@ class IncrementalMiniMarkGC(MovingGCBase):
              (self.card_page_shift + 3)))
 
     def debug_check_consistency(self):
-        
+
         if self.DEBUG:
-            
+
             # somewhat of a hack
             # some states require custom prep and cleanup
             # before calling the check_object functions
             already_checked = False
-            
+
             if self.gc_state == STATE_SCANNING:
                 # We are just starting a scan. Same as a non incremental here.
                 ll_assert(not self.young_rawmalloced_objects,
                           "young raw-malloced objects in a major collection")
                 ll_assert(not self.young_objects_with_weakrefs.non_empty(),
-                          "young objects with weakrefs in a major collection")   
+                          "young objects with weakrefs in a major collection")
             elif self.gc_state == STATE_MARKING:
                 self._debug_objects_to_trace_dict = \
                                             self.objects_to_trace.stack2dict()
@@ -1057,17 +1064,17 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 pass
             else:
                 ll_assert(False,"uknown gc_state value")
-            
+
             if not already_checked:
                 MovingGCBase.debug_check_consistency(self)
 
-    
+
     def debug_check_object(self, obj):
-        
-        ll_assert((self.header(obj).tid & GCFLAG_GRAY != 0 
+
+        ll_assert((self.header(obj).tid & GCFLAG_GRAY != 0
                     and self.header(obj).tid & GCFLAG_VISITED != 0) == False,
                     "object gray and visited at the same time." )
-        
+
         if self.gc_state == STATE_SCANNING:
             self._debug_check_object_scanning(obj)
         elif self.gc_state == STATE_MARKING:
@@ -1080,12 +1087,12 @@ class IncrementalMiniMarkGC(MovingGCBase):
             self._debug_check_object_finalizing(obj)
         else:
             ll_assert(False,"uknown gc_state value")
-    
+
     def _debug_check_object_marking(self, obj):
         if self.header(obj).tid & GCFLAG_VISITED != 0:
             # Visited, should NEVER point to a white object.
             self.trace(obj,self._debug_check_not_white,None)
-        
+
         if self.header(obj).tid & GCFLAG_GRAY != 0:
             ll_assert(self._debug_objects_to_trace_dict.contains(obj),
                         "gray object not in pending trace list.")
@@ -1095,25 +1102,25 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 if self.header(obj).tid & GCFLAG_NO_HEAP_PTRS == 0:
                     ll_assert(not self._debug_objects_to_trace_dict.contains(obj),
                         "white object in pending trace list.")
-    
+
     def _debug_check_not_white(self, root, ignored):
         obj = root.address[0]
         ll_assert(self.header(obj).tid & (GCFLAG_GRAY | GCFLAG_VISITED) != 0,
                   "visited object points to unprocessed (white) object." )
-     
+
     def _debug_check_object_sweeping_rawmalloc(self, obj):
         pass
-        
+
     def _debug_check_object_sweeping_arena(self, obj):
         pass
-    
+
     def _debug_check_object_finalizing(self,obj):
         pass
-    
+
     def _debug_check_object_scanning(self, obj):
         # This check is called before scanning starts.
         # scanning is done in a single step.
-        
+
         # after a minor or major collection, no object should be in the nursery
         ll_assert(not self.is_in_nursery(obj),
                   "object in nursery after collection")
@@ -1126,11 +1133,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # the GCFLAG_VISITED should not be set between collections
         ll_assert(self.header(obj).tid & GCFLAG_VISITED == 0,
                   "unexpected GCFLAG_VISITED")
-        
+
         # the GCFLAG_GRAY should never be set at the start of a collection
         ll_assert(self.header(obj).tid & GCFLAG_GRAY == 0,
           "unexpected GCFLAG_GRAY")
-        
+
         # the GCFLAG_FINALIZATION_ORDERING should not be set between coll.
         ll_assert(self.header(obj).tid & GCFLAG_FINALIZATION_ORDERING == 0,
                   "unexpected GCFLAG_FINALIZATION_ORDERING")
@@ -1191,27 +1198,30 @@ class IncrementalMiniMarkGC(MovingGCBase):
         return cls.minimal_size_in_nursery
 
     def write_barrier(self, newvalue, addr_struct):
+        if self.header(addr_struct).tid & (GCFLAG_TRACK_YOUNG_PTRS
+                                           | GCFLAG_VISITED):
+            self.write_barrier_slowpath(addr_struct, newvalue)
+
+    def write_barrier_slowpath(self, addr_struct, newvalue):
         if self.header(addr_struct).tid & GCFLAG_TRACK_YOUNG_PTRS:
             self.remember_young_pointer(addr_struct, newvalue)
-        
-        if self.gc_state == STATE_MARKING:
-            if self.header(addr_struct).tid & GCFLAG_VISITED:
-                self.write_to_visited_object_forward(addr_struct,newvalue)
-        
+        if self.header(addr_struct).tid & GCFLAG_VISITED:
+            if self.gc_state == STATE_MARKING:
+                self.write_to_visited_object_forward(addr_struct, newvalue)
+    write_barrier_slowpath._dont_inline_ = True
 
-    
     def write_barrier_from_array(self, newvalue, addr_array, index):
-        
+
         if self.header(addr_array).tid & GCFLAG_TRACK_YOUNG_PTRS:
             if self.card_page_indices > 0:     # <- constant-folded
                 self.remember_young_pointer_from_array2(addr_array, index)
             else:
                 self.remember_young_pointer(addr_array, newvalue)
-        
+
         if self.gc_state == STATE_MARKING:
             if self.header(addr_struct).tid & GCFLAG_VISITED:
                 self.write_to_visited_object_backward(addr_struct,newvalue)
-                
+
 
     def _init_writebarrier_logic(self):
         DEBUG = self.DEBUG
@@ -1219,7 +1229,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # instead of keeping it as a regular method is to
         # make the code in write_barrier() marginally smaller
         # (which is important because it is inlined *everywhere*).
-        
+
         # move marking process forward
         def write_to_visited_object_forward(addr_struct, new_value):
             ll_assert(self.gc_state == STATE_MARKING,"expected MARKING state")
@@ -1231,7 +1241,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 self.objects_to_trace.append(new_value)
         write_to_visited_object_forward._dont_inline_ = True
         self.write_to_visited_object_forward = write_to_visited_object_forward
-        
+
         # move marking process backward
         def write_to_visited_object_backward(addr_struct, new_value):
             ll_assert(self.gc_state == STATE_MARKING,"expected MARKING state")
@@ -1245,7 +1255,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 self.objects_to_trace.append(addr_struct)
         write_to_visited_object_backward._dont_inline_ = True
         self.write_to_visited_object_backward = write_to_visited_object_backward
-        
+
         def remember_young_pointer(addr_struct, newvalue):
             # 'addr_struct' is the address of the object in which we write.
             # 'newvalue' is the address that we are going to write in there.
@@ -1647,11 +1657,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 self._visit_young_rawmalloced_object(obj)
             return
         #
-        
+
         # Do this after check we are old to avoid cache misses like
         # In the comment above.
         self.header(obj).tid |= GCFLAG_OLD
-        
+
         size_gc_header = self.gcheaderbuilder.size_gc_header
         if self.header(obj).tid & GCFLAG_HAS_SHADOW == 0:
             #
@@ -1684,6 +1694,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # Copy it.  Note that references to other objects in the
         # nursery are kept unchanged in this step.
         llmemory.raw_memcopy(obj - size_gc_header, newhdr, totalsize)
+        # if the current state is sweeping or later,
+        # then all new objects surviving
+        # minor collection should be marked as visited
+        if self.gc_state >= STATE_SWEEPING_RAWMALLOC:
+            self.header(newhdr + size_gc_header).tid |= GCFLAG_VISITED
         #
         # Set the old object's tid to -42 (containing all flags) and
         # replace the old object's content with the target address.
@@ -1708,9 +1723,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
         if self.has_gcptr(typeid):
             # we only have to do it if we have any gcptrs
             self.old_objects_pointing_to_young.append(newobj)
-        
-        
-            
+
+
+
     _trace_drag_out._always_inline_ = True
 
     def _visit_young_rawmalloced_object(self, obj):
@@ -1724,7 +1739,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         hdr = self.header(obj)
         if hdr.tid & GCFLAG_VISITED:
             return
-        hdr.tid |= (GCFLAG_VISITED|GCFLAG_OLD)        
+        hdr.tid |= (GCFLAG_VISITED|GCFLAG_OLD)
         #
         # we just made 'obj' old, so we need to add it to the correct lists
         added_somewhere = False
@@ -1791,18 +1806,18 @@ class IncrementalMiniMarkGC(MovingGCBase):
         while new.non_empty():
             old.append(new.pop())
         new.delete()
-    
+
     def debug_gc_step_until(self,state):
         while self.gc_state != state:
             self.minor_collection()
             self.major_collection_step()
-    
+
     def debug_gc_step(self,n=1):
         while n > 0:
             self.minor_collection()
             self.major_collection_step()
             n -= 1
-    
+
     # Note - minor collections seem fast enough so that one
     # is done before every major collection step
     def major_collection_step(self,reserving_size=0):
@@ -1812,12 +1827,13 @@ class IncrementalMiniMarkGC(MovingGCBase):
         ll_assert(self.nursery_free == self.nursery,
                   "nursery not empty in major_collection_step()")
         self.debug_check_consistency()
-        
-        
+
+
         # XXX currently very course increments, get this working then split
         # to smaller increments using stacks for resuming
         if self.gc_state == STATE_SCANNING:
             self.objects_to_trace = self.AddressStack()
+            # XXX do it in one step
             self.collect_roots()
             #set all found roots to gray before entering marking state
             self.objects_to_trace.foreach(self._set_gcflag_gray,None)
@@ -1827,17 +1843,17 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # XXX need a heuristic to tell how many objects to mark.
             # Maybe based on previous mark time average
             self.visit_all_objects_step(1)
-            
-            # XXX A simplifying assumption that should be checked, 
+
+            # XXX A simplifying assumption that should be checked,
             # finalizers/weak references are rare and short which means that
-            # they do not need a seperate state and do not need to be 
+            # they do not need a seperate state and do not need to be
             # made incremental.
-            if not self.objects_to_trace.non_empty(): 
+            if not self.objects_to_trace.non_empty():
                 if self.objects_with_finalizers.non_empty():
                     self.deal_with_objects_with_finalizers()
-                
+
                 self.objects_to_trace.delete()
-                
+
                 #
                 # Weakref support: clear the weak pointers to dying objects
                 if self.old_objects_with_weakrefs.non_empty():
@@ -1857,13 +1873,12 @@ class IncrementalMiniMarkGC(MovingGCBase):
             if self.free_unvisited_rawmalloc_objects_step(1):
                 #malloc objects freed
                 self.gc_state = STATE_SWEEPING_ARENA
-                    
+
         elif self.gc_state == STATE_SWEEPING_ARENA:
             #
             # Ask the ArenaCollection to visit all objects.  Free the ones
             # that have not been visited above, and reset GCFLAG_VISITED on
             # the others.
-            # XXX make incremental...
             self.ac.mass_free(self._free_if_unvisited)
             self.num_major_collects += 1
             #
@@ -1896,38 +1911,38 @@ class IncrementalMiniMarkGC(MovingGCBase):
                                           "Using too much memory, aborting")
                 self.max_heap_size_already_raised = True
                 raise MemoryError
-            
+
             self.gc_state = STATE_FINALIZING
             # FINALIZING not yet incrementalised
             # but it seems safe to allow mutator to run after sweeping and
             # before finalizers are called. This is because run_finalizers
             # is a different list to objects_with_finalizers.
-            # END SWEEPING    
+            # END SWEEPING
         elif self.gc_state == STATE_FINALIZING:
-            # XXX This is considered rare, 
+            # XXX This is considered rare,
             # so should we make the calling incremental? or leave as is
-             
+
             # Must be ready to start another scan
             # just in case finalizer calls collect again.
             self.gc_state = STATE_SCANNING
-            
+
             self.execute_finalizers()
             #END FINALIZING
         else:
             pass #XXX which exception to raise here. Should be unreachable.
-        
+
         debug_stop("gc-collect-step")
-    
+
     def major_collection(self,reserving_size=0):
         # For now keep things compatible with the existing GC
         # and do all steps in a loop
-        
+
         # We start in scanning state
         ll_assert(self.gc_state == STATE_SCANNING,
                     "Scan start state incorrect")
         self.major_collection_step(reserving_size)
         ll_assert(self.gc_state == STATE_MARKING, "initial scan did not complete")
-        
+
         while self.gc_state != STATE_SCANNING:
             self.major_collection_step(reserving_size)
 
@@ -1972,18 +1987,18 @@ class IncrementalMiniMarkGC(MovingGCBase):
             #
             llarena.arena_free(arena)
             self.rawmalloced_total_size -= r_uint(allocsize)
-    
+
     def start_free_rawmalloc_objects(self):
         self.raw_malloc_might_sweep = self.old_rawmalloced_objects
         self.old_rawmalloced_objects = self.AddressStack()
-    
+
     # Returns true when finished processing objects
     def free_unvisited_rawmalloc_objects_step(self,nobjects=1):
-        
+
         while nobjects > 0 and self.raw_malloc_might_sweep.non_empty():
             self.free_rawmalloced_object_if_unvisited(
                                              self.raw_malloc_might_sweep.pop())
-        
+
         if not self.raw_malloc_might_sweep.non_empty():
             self.raw_malloc_might_sweep.delete()
             return True
@@ -2035,7 +2050,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         while pending.non_empty():
             obj = pending.pop()
             self.visit(obj)
-    
+
     def visit_all_objects_step(self,nobjects=1):
         # Objects can be added to pending by visit
         pending = self.objects_to_trace
@@ -2043,12 +2058,12 @@ class IncrementalMiniMarkGC(MovingGCBase):
             obj = pending.pop()
             #XXX can black objects even get into this list?
             #XXX tighten this assertion
-            ll_assert(self.header(obj).tid &  
+            ll_assert(self.header(obj).tid &
                         (GCFLAG_GRAY|GCFLAG_VISITED|GCFLAG_NO_HEAP_PTRS) != 0,
                         "non gray or black object being traced")
             self.visit(obj)
             nobjects -= 1
-    
+
     def visit(self, obj):
         #
         # 'obj' is a live object.  Check GCFLAG_VISITED to know if we
@@ -2069,7 +2084,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # It's the first time.  We set the flag.
         hdr.tid |= GCFLAG_VISITED
 
-        
+
         if not self.has_gcptr(llop.extract_ushort(llgroup.HALFWORD, hdr.tid)):
             return
         #
