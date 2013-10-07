@@ -72,7 +72,14 @@ class W_Term(W_Root):
         # TermFormatter needs an engine, so we just make a new one.
         tmp_engine = pcont.Engine()
         fmtr = pfmt.TermFormatter(tmp_engine)
-        return self.space.wrap(fmtr.format(self.p_term))
+        return space.wrap(fmtr.format(self.p_term))
+
+    def descr_repr(self, space):
+        name = space.str_w(space.repr(space.wrap(self.p_term.signature().name)))
+        argsstr = space.str_w(space.repr(space.call_function(space.w_list, self)))
+        res = "%s(%s, %s)" % (space.type(self).getname(space), name, argsstr)
+        return space.wrap(res)
+
 
 W_Term.typedef = TypeDef("Term",
     __eq__ = interp2app(W_Term.descr_eq),
@@ -81,6 +88,7 @@ W_Term.typedef = TypeDef("Term",
     __ne__ = interp2app(W_Term.descr_ne),
     __new__ = interp2app(term_new__),
     __str__ = interp2app(W_Term.descr_str),
+    __repr__ = interp2app(W_Term.descr_repr),
     args = GetSetProperty(W_Term.prop_getargs),
     name = GetSetProperty(W_Term.prop_getname),
 )

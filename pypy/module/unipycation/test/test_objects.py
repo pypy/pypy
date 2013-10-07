@@ -92,6 +92,17 @@ class AppTestObjects(object):
         t = u.Term("x", [1, 2, t2])
         assert str(t) == "x(1, 2, y(blah, 123, bobbins))"
 
+    def test_term_repr(self):
+        import unipycation as u
+        t = u.Term("x", [1,2,666])
+        assert repr(t) == "Term('x', [1, 2, 666])"
+
+    def test_nested_term_repr(self):
+        import unipycation as u
+        t2 = u.Term("y", ["blah", "123", "bobbins"])
+        t = u.Term("x", [1, 2, t2])
+        assert repr(t) == "Term('x', [1, 2, Term('y', ['blah', '123', 'bobbins'])])"
+
     def test_term_indexing(self):
         import unipycation
 
