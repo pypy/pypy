@@ -629,9 +629,15 @@ class __extend__(W_NDimArray):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "setflags not implemented yet"))
 
-    def descr_sort(self, space, w_axis=-1, w_kind='quicksort', w_order=None):
+    @unwrap_spec(kind=str)
+    def descr_sort(self, space, w_axis=None, kind='quicksort', w_order=None):
+        # happily ignore the kind
+        # modify the array in-place
+        if self.is_scalar():
+            return
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "sort not implemented yet"))
+        return self.implementation.sort(space, w_axis, w_order)
 
     def descr_squeeze(self, space):
         raise OperationError(space.w_NotImplementedError, space.wrap(
@@ -1118,6 +1124,7 @@ W_NDimArray.typedef = TypeDef(
     conj = interp2app(W_NDimArray.descr_conj),
 
     argsort  = interp2app(W_NDimArray.descr_argsort),
+    sort  = interp2app(W_NDimArray.descr_sort),
     astype   = interp2app(W_NDimArray.descr_astype),
     base     = GetSetProperty(W_NDimArray.descr_get_base),
     byteswap = interp2app(W_NDimArray.descr_byteswap),

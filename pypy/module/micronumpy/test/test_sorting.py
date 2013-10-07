@@ -68,18 +68,22 @@ class AppTestSupport(BaseNumpyAppTest):
         # test doubles and complex doubles as the logic is the same.
 
         # check doubles
-        from numpypy import array, nan, zeros, complex128, arange, empty, dtype
-        msg = "Test real sort order with nans"
+        from numpypy import array, nan, zeros, complex128, arange, dtype
+        from numpy import isnan
         a = array([nan, 1, 0])
-        b = a.sort()
-        assert (b == a[::-1]).all(), msg
+        b = a.copy()
+        b.sort()
+        assert (isnan(b) == isnan(a[::-1])).all()
+        assert (b[:2] == a[::-1][:2]).all()
+
         # check complex
-        msg = "Test complex sort order with nans"
         a = zeros(9, dtype=complex128)
         a.real += [nan, nan, nan, 1, 0, 1, 1, 0, 0]
         a.imag += [nan, 1, 0, nan, nan, 1, 0, 1, 0]
-        b = a.sort()
-        assert (b == a[::-1]).all(), msg
+        b = a.copy()
+        b.sort()
+        assert (isnan(b) == isnan(a[::-1])).all()
+        assert (b[:4] == a[::-1][:4]).all()
 
         # all c scalar sorts use the same code with different types
         # so it suffices to run a quick check with one type. The number
@@ -93,7 +97,6 @@ class AppTestSupport(BaseNumpyAppTest):
             c = a.copy();
             c.sort(kind=kind)
             assert (c == a).all(), msg
-            self.assert_equal(c, a, msg)
             c = b.copy();
             c.sort(kind=kind)
             assert (c == a).all(), msg
@@ -229,28 +232,31 @@ class AppTestSupport(BaseNumpyAppTest):
             assert (c == a).all(), msg
 
     def test_sort_order(self):
-        from numpypy import array
+        from numpypy import array, zeros
         from sys import byteorder
         # Test sorting an array with fields
         x1 = array([21, 32, 14])
         x2 = array(['my', 'first', 'name'])
         x3=array([3.1, 4.5, 6.2])
-        r=array([x1, x2, x3], dtype=[('id','i'),('word','S'),('number','f')])
+        r=zeros(3, dtype=[('id','i'),('word','S5'),('number','f')])
+        r['id'] = x1
+        r['word'] = x2
+        r['number'] = x3
 
         r.sort(order=['id'])
         assert (r['id'] == [14, 21, 32]).all()
         assert (r['word'] == ['name', 'my', 'first']).all()
-        assert (r['number'] == [6.2, 3.1, 4.5]).all()
+        assert max(abs(r['number'] - [6.2, 3.1, 4.5])) < 1e-6
 
         r.sort(order=['word'])
         assert (r['id'] == [32, 21, 14]).all()
         assert (r['word'] == ['first', 'my', 'name']).all()
-        assert (r['number'] == [4.5, 3.1, 6.2]).all()
+        assert max(abs(r['number'] - [4.5, 3.1, 6.2])) < 1e-6
 
         r.sort(order=['number'])
         assert (r['id'] == [21, 32, 14]).all()
         assert (r['word'] == ['my', 'first', 'name']).all()
-        assert (r['number'] == [3.1, 4.5, 6.2]).all()
+        assert max(abs(r['number'] - [3.1, 4.5, 6.2])) < 1e-6
 
         if byteorder == 'little':
             strtype = '>i2'
@@ -273,11 +279,12 @@ class AppTestSupport(BaseNumpyAppTest):
         a = array(range(11),dtype='float64')
         c = a.astype(dtype('<f8'))
         c.sort()
-        assert (a-c).abs().max() < 1e-32
+        assert max(abs(a-c)) < 1e-32
 
     def test_string_sort_with_zeros(self):
         from numpypy import fromstring
         """Check sort for strings containing zeros."""
         x = fromstring("\x00\x02\x00\x01", dtype="S2")
         y = fromstring("\x00\x01\x00\x02", dtype="S2")
-        assert all(x.sort(kind="q") == y)
+        x.sort(kind='q')
+        assert (x == y).all()
