@@ -176,7 +176,7 @@ class AppTestCoreEngine(object):
     def test_type_error_passed_up(self):
         import unipycation
 
-        e = unipycation.CoreEngine("test(X) :- X is sqrt(9).")
+        e = unipycation.CoreEngine("test(X) :- X is unlikely_to_ever_exist_ever(9).")
         X = unipycation.Var()
         t = unipycation.Term('test', [X])
         raises(unipycation.PrologError, lambda : e.query_single(t, [X]))
