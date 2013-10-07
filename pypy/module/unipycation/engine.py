@@ -70,20 +70,19 @@ class W_CoreSolutionIterator(W_Root):
     def next_w(self):
         """ Obtain the next solution (if there is one) """
 
-        p_goal_term = cur_mod = cont = None
+        p_goal_term = cont = None
 
         first_iteration = self.continuation_holder.fcont is None
         if first_iteration:
             # The first iteration is special. Here we set up the continuation
             # for subsequent iterations.
-            cur_mod = self.w_engine.engine.modulewrapper.current_module
             cont = UnipycationContinuation(
                     self.w_engine, self.continuation_holder)
             p_goal_term = self.w_goal_term.p_term
             self.w_goal_term = None # allow GC
         try:
             if first_iteration:
-                r = self.w_engine.engine.run(p_goal_term, cur_mod, cont)
+                r = self.w_engine.engine.run_query_in_current(p_goal_term, cont)
             else:
                 fcont = self.continuation_holder.fcont
                 heap = self.continuation_holder.heap
