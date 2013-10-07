@@ -76,7 +76,7 @@ class W_Term(W_Root):
 
     def descr_repr(self, space):
         name = space.str_w(space.repr(space.wrap(self.p_term.signature().name)))
-        argsstr = space.str_w(space.repr(space.call_function(space.w_list, self)))
+        argsstr = space.str_w(space.repr(self.prop_getargs(space)))
         res = "%s(%s, %s)" % (space.type(self).getname(space), name, argsstr)
         return space.wrap(res)
 
