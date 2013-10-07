@@ -21,7 +21,10 @@ def term_new__(space, w_subtype, name, w_args):
     p_sig = psig.Signature.getsignature(name, len(term_args))
     p_term = pterm.Callable.build(name, term_args, p_sig)
 
-    return W_Term(space, p_term)
+    w_t = space.allocate_instance(W_Term, w_subtype)
+    W_Term.__init__(w_t, space, p_term)
+
+    return w_t
 
 class W_Term(W_Root):
     """
@@ -58,7 +61,7 @@ class W_Term(W_Root):
     def descr_eq(self, space, w_other):
         #w_Term = util.get_from_module(self.space, "unipycation", "Term")
 
-        if not isinstance(w_other, W_Term):
+        if not space.eq_w(space.type(self), space.type(w_other)):
             return space.w_False
 
         eq = self.p_term.cmp_standard_order(w_other.p_term, None)
@@ -80,6 +83,14 @@ class W_Term(W_Root):
         res = "%s(%s, %s)" % (space.type(self).getname(space), name, argsstr)
         return space.wrap(res)
 
+    @staticmethod
+    def _from_term(space, w_subtype, w_t):
+        if not isinstance(w_t, W_Term):
+            raise OperationError(space.w_TypeError, space.wrap("need a Term"))
+        w_result = space.allocate_instance(W_Term, w_subtype)
+        W_Term.__init__(w_result, space, w_t.p_term)
+        return w_result
+
 
 W_Term.typedef = TypeDef("Term",
     __eq__ = interp2app(W_Term.descr_eq),
@@ -91,9 +102,9 @@ W_Term.typedef = TypeDef("Term",
     __repr__ = interp2app(W_Term.descr_repr),
     args = GetSetProperty(W_Term.prop_getargs),
     name = GetSetProperty(W_Term.prop_getname),
+    _from_term = interp2app(W_Term._from_term, as_classmethod=True),
 )
 
-W_Term.typedef.acceptable_as_base_class = False
 
 # ---
 

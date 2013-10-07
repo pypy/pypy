@@ -1,7 +1,17 @@
 import sys
-from unipycation import Term, Var, CoreEngine, PrologError
+from unipycation import Term as _Term, Var, CoreEngine, PrologError
 
 class InstantiationError(Exception): pass
+
+class Term(_Term):
+    def __getitem__(self, i):
+        res = _Term.__getitem__(self, i)
+        return Predicate._back_to_py(res)
+
+    def _getargs(self):
+        return [Predicate._back_to_py(o) for o in _Term.args.__get__(self)]
+    args = property(_getargs)
+
 
 def build_prolog_list(elems):
     """ Converts a Python list into a cons chain """
@@ -23,9 +33,11 @@ def unpack_prolog_list(obj):
             raise InstantiationError("The tail of a list was undefined")
         if curr == "[]": # end of list
             return result
-        if not isinstance(curr, Term) or not curr.name == ".":
-            return obj # malformed list, just return it unconverted
-        result.append(curr[0])
+        if not isinstance(curr, _Term) or not curr.name == ".":
+            assert not isinstance(curr, Term) # should not see high-level term
+            # malformed list, just return it unconverted
+            return Term._from_term(obj)
+        result.append(Predicate._back_to_py(curr[0]))
         curr = curr[1]
 
 class Engine(CoreEngine):
@@ -70,13 +82,13 @@ class Predicate(object):
     def _back_to_py(e):
         if e == "[]":
             return []
-        if (not isinstance(e, Term)):
+        if (not isinstance(e, _Term)):
             return e
         elif e.name == ".":
             return unpack_prolog_list(e)
         else:
             # is a Term
-            return e
+            return Term._from_term(e)
 
     @staticmethod
     def _make_result_tuple(sol):

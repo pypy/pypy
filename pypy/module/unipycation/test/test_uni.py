@@ -229,7 +229,6 @@ class AppTestHighLevelInterface(object):
 
         assert e.db.baseclass_defining_method(B, 'f', None) == (A, )
 
-    @pytest.mark.xfail
     def test_list_in_term(self):
         import uni
 
@@ -238,4 +237,5 @@ class AppTestHighLevelInterface(object):
         assert isinstance(g, uni.Term)
         assert g.name == "g"
         assert len(g) == 1
-        assert isinstance(g.args[0], list) # BELCH! XXX
+        assert g[0] == [uni.Term('c', [0, 0])]
+        assert isinstance(g.args[0], list)
