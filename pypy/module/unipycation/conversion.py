@@ -43,7 +43,7 @@ def p_atom_of_w_str(space, w_str):
     return term.Atom(val)
 
 def p_term_of_w_term(space, w_term):
-    assert isinstance(w_term, objects.W_Term)
+    assert isinstance(w_term, objects.W_CoreTerm)
     return w_term.p_term
 
 def p_var_of_w_var(space, w_var):
@@ -51,7 +51,7 @@ def p_var_of_w_var(space, w_var):
     return w_var.p_var
 
 def p_of_w(space, w_anything):
-    w_Term = util.get_from_module(space, "unipycation", "Term")
+    w_CoreTerm = util.get_from_module(space, "unipycation", "CoreTerm")
     w_Var = util.get_from_module(space, "unipycation", "Var")
 
     assert(isinstance(w_anything, W_Root))
@@ -64,7 +64,7 @@ def p_of_w(space, w_anything):
         return p_bigint_of_w_long(space, w_anything)
     elif space.is_true(space.isinstance(w_anything, space.w_str)):
         return p_atom_of_w_str(space, w_anything)
-    elif space.is_true(space.isinstance(w_anything, w_Term)):
+    elif space.is_true(space.isinstance(w_anything, w_CoreTerm)):
         return p_term_of_w_term(space, w_anything)
     elif space.is_true(space.isinstance(w_anything, w_Var)):
         return p_var_of_w_var(space, w_anything)
@@ -88,7 +88,7 @@ def w_str_of_p_atom(space, p_atom):
     return space.wrap(helper.unwrap_atom(p_atom))
 
 def w_term_of_p_callable(space, p_callable):
-    return objects.W_Term(space, p_callable)
+    return objects.W_CoreTerm(space, p_callable)
 
 def w_whatever_of_p_bindingvar(space, p_bindingvar):
     if p_bindingvar.binding is None:

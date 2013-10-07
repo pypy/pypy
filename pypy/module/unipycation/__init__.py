@@ -10,6 +10,6 @@ class Module(MixedModule):
 
     interpleveldefs = {
         'CoreEngine'    : 'engine.W_CoreEngine',
-        'Term'          : 'objects.W_Term',
+        'CoreTerm'      : 'objects.W_CoreTerm',
         'Var'           : 'objects.W_Var',
     }

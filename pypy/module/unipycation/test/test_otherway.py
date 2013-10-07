@@ -11,7 +11,7 @@ class AppTestCoreEngine(object):
 
         e = unipycation.CoreEngine("f(X) :- python:f(666, X).", {"f": f})
         X = unipycation.Var()
-        t = unipycation.Term('f', [X])
+        t = unipycation.CoreTerm('f', [X])
         sol = e.query_single(t, [X])
 
         assert sol[X] == 667
@@ -27,7 +27,7 @@ class AppTestCoreEngine(object):
                 L is A + B + C.""",
             {"f": f})
         X = unipycation.Var()
-        t = unipycation.Term('f', [X])
+        t = unipycation.CoreTerm('f', [X])
         sol = e.query_single(t, [X])
 
         assert sol[X] == 3 * 666 + 6
@@ -42,7 +42,7 @@ class AppTestCoreEngine(object):
                 python:f(666, 668), L = 1.""",
             {"f": f})
         X = unipycation.Var()
-        t = unipycation.Term('f', [X])
+        t = unipycation.CoreTerm('f', [X])
         sol = e.query_single(t, [X])
 
         assert sol[X] == 1
@@ -67,13 +67,13 @@ class AppTestCoreEngine(object):
                 """,
             {"f": returnx})
         X = unipycation.Var()
-        t = unipycation.Term('f', [a, X])
+        t = unipycation.CoreTerm('f', [a, X])
         sol = e.query_single(t, [X])
 
         assert sol[X] == 16
 
         X = unipycation.Var()
-        t = unipycation.Term('method', [a, X])
+        t = unipycation.CoreTerm('method', [a, X])
         sol = e.query_single(t, [X])
 
         assert sol[X] == 17
@@ -98,7 +98,7 @@ class AppTestCoreEngine(object):
                 """,
             {"f": returnx})
         X = unipycation.Var()
-        t = unipycation.Term('method', [a, X])
+        t = unipycation.CoreTerm('method', [a, X])
         sol = e.query_single(t, [X])
 
         assert sol[X] == 17
@@ -122,7 +122,7 @@ class AppTestCoreEngine(object):
                 """,
             {"a": a})
         X = unipycation.Var()
-        t = unipycation.Term('method', [X])
+        t = unipycation.CoreTerm('method', [X])
         sol = e.query_single(t, [X])
 
         assert sol[X] == 17
@@ -147,7 +147,7 @@ class AppTestCoreEngine(object):
                 """,
             {"a": a})
         X = unipycation.Var()
-        t = unipycation.Term('method', [X])
+        t = unipycation.CoreTerm('method', [X])
         sol = e.query_single(t, [X])
 
         assert sol[X] == {'a': 3}

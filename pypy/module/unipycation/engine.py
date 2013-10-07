@@ -51,7 +51,7 @@ class W_CoreSolutionIterator(W_Root):
         self.unroll_result_creation = unroll
         self.unbound_vars_w = _typecheck_list_of_vars(space, list_w, unroll)
 
-        w_goal_term = space.interp_w(objects.W_Term, w_goal_term)
+        w_goal_term = space.interp_w(objects.W_CoreTerm, w_goal_term)
         self.w_goal_term = w_goal_term
 
         self.space = space

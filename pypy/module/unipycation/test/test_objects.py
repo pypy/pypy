@@ -14,7 +14,7 @@ class AppTestObjects(object):
 
         e = u.CoreEngine("f([w, x]).")
         X = u.Var()
-        t = u.Term("f", [X])
+        t = u.CoreTerm("f", [X])
         x_val = e.query_single(t, [X])[X]
 
         assert x_val.name == "."
@@ -29,7 +29,7 @@ class AppTestObjects(object):
         e = u.CoreEngine("f(g(a, b, c, d)).")
         X = u.Var()
         
-        t = u.Term("f", [X])
+        t = u.CoreTerm("f", [X])
         x_val = e.query_single(t, [X])[X]
 
         assert len(x_val) == 4 and \
@@ -41,7 +41,7 @@ class AppTestObjects(object):
     def test_term_builder(self):
         import unipycation
 
-        t = unipycation.Term("myterm", ["e1", "e2", "e3"])
+        t = unipycation.CoreTerm("myterm", ["e1", "e2", "e3"])
         elems = [ t[x] for x in range(len(t)) ]
 
         assert elems == ["e1", "e2", "e3" ]
@@ -49,22 +49,22 @@ class AppTestObjects(object):
     def test_term_builder_wrong_arguments(self):
         import unipycation
 
-        raises(TypeError, unipycation.Term, "myterm", a=1)
-        raises(TypeError, unipycation.Term, "myterm", 1, 2, 3)
+        raises(TypeError, unipycation.CoreTerm, "myterm", a=1)
+        raises(TypeError, unipycation.CoreTerm, "myterm", 1, 2, 3)
 
     def test_nest_term_builder(self):
         import unipycation
 
         def nest_many(count):
             if count < 10:
-                return unipycation.Term("myterm", [count, nest_many(count + 1)])
+                return unipycation.CoreTerm("myterm", [count, nest_many(count + 1)])
             else:
                 return 666
 
         def unnest_many(term, count):
             assert len(term) == 2
             assert term[0] == count
-            if isinstance(term[1], unipycation.Term):
+            if isinstance(term[1], unipycation.CoreTerm):
                 assert term.name == "myterm"
                 assert term[1].name == "myterm"
                 unnest_many(term[1], count + 1)
@@ -77,35 +77,35 @@ class AppTestObjects(object):
 
     def test_term_str(self):
         import unipycation as u
-        t = u.Term("x", [1,2,666])
+        t = u.CoreTerm("x", [1,2,666])
         assert str(t) == "x(1, 2, 666)"
 
     def test_term_str_with_var(self):
         import unipycation as u
         vs = [X, Y, Z] = [ u.Var() for i in range(3) ]
-        t = u.Term("x", vs)
+        t = u.CoreTerm("x", vs)
         assert str(t) == ("x(_G0, _G1, _G2)")
 
     def test_nested_term_str(self):
         import unipycation as u
-        t2 = u.Term("y", ["blah", "123", "bobbins"])
-        t = u.Term("x", [1, 2, t2])
+        t2 = u.CoreTerm("y", ["blah", "123", "bobbins"])
+        t = u.CoreTerm("x", [1, 2, t2])
         assert str(t) == "x(1, 2, y(blah, 123, bobbins))"
 
     def test_term_repr(self):
         import unipycation as u
-        t = u.Term("x", [1,2,666])
-        assert repr(t) == "Term('x', [1, 2, 666])"
+        t = u.CoreTerm("x", [1,2,666])
+        assert repr(t) == "CoreTerm('x', [1, 2, 666])"
 
     def test_nested_term_repr(self):
         import unipycation as u
-        t2 = u.Term("y", ["blah", "123", "bobbins"])
-        t = u.Term("x", [1, 2, t2])
-        assert repr(t) == "Term('x', [1, 2, Term('y', ['blah', '123', 'bobbins'])])"
+        t2 = u.CoreTerm("y", ["blah", "123", "bobbins"])
+        t = u.CoreTerm("x", [1, 2, t2])
+        assert repr(t) == "CoreTerm('x', [1, 2, CoreTerm('y', ['blah', '123', 'bobbins'])])"
 
     def test_term_indexing(self):
         import unipycation
 
-        t = unipycation.Term("f", [1, "abc"])
+        t = unipycation.CoreTerm("f", [1, "abc"])
         assert list(t) == [1, "abc"]
         assert t[-1] == "abc"

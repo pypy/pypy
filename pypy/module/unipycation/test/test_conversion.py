@@ -122,7 +122,7 @@ class TestTypeConversion(object):
         unwrap2 = [ space.str_w(w_term.descr_getitem(space, space.newint(x))) \
                 for x in range(term_len) ]
 
-        assert isinstance(w_term, objects.W_Term) and \
+        assert isinstance(w_term, objects.W_CoreTerm) and \
                 space.is_true(space.eq(w_term.descr_len(space), space.wrap(3))) and \
                 space.is_true(space.eq(w_term.prop_getname(space), space.wrap("someterm"))) and \
                 unwrap == ["x", "y", "z"] == unwrap2

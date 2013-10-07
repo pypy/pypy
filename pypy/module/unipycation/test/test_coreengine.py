@@ -16,7 +16,7 @@ class AppTestCoreEngine(object):
 
         e = u.CoreEngine("f(666).")
         X = u.Var()
-        t = u.Term('f', [X])
+        t = u.CoreTerm('f', [X])
         sol = e.query_single(t, [X])
 
         assert sol[X] == 666
@@ -35,7 +35,7 @@ class AppTestCoreEngine(object):
 
         vs = [X, Y, Z] = [ u.Var() for x in range(3) ]
 
-        t = u.Term('f', vs)
+        t = u.CoreTerm('f', vs)
         sol = e.query_single(t, vs)
 
         assert sol[X] == 1
@@ -52,7 +52,7 @@ class AppTestCoreEngine(object):
         e = u.CoreEngine("f(666, 667). f(222, 334). f(777, 778).")
         vs = [X, Y] = [u.Var(), u.Var()]
 
-        t = u.Term('f', vs)
+        t = u.CoreTerm('f', vs)
         it = e.query_iter(t, vs)
 
         s1 = it.next()
@@ -70,12 +70,12 @@ class AppTestCoreEngine(object):
         e = u.CoreEngine("f(a(1, 2), b(3, 4)).")
         vs = [X, Y] = [u.Var(), u.Var()]
 
-        t1 = u.Term('a', [1, X])
-        t = u.Term('f', [t1, Y])
+        t1 = u.CoreTerm('a', [1, X])
+        t = u.CoreTerm('f', [t1, Y])
 
         sol = e.query_single(t, vs)
-        expect_y = u.Term('b', [3, 4])
-        not_expect_y = u.Term('zzz', ["oh", "no"])
+        expect_y = u.CoreTerm('b', [3, 4])
+        not_expect_y = u.CoreTerm('zzz', ["oh", "no"])
 
         assert sol[X] == 2
         assert sol[Y]  == expect_y
@@ -87,7 +87,7 @@ class AppTestCoreEngine(object):
 
         e = u.CoreEngine("eat(cheese, bread). eat(egg, salad).")
 
-        t = u.Term('eat', ['cheese', 'bread'])
+        t = u.CoreTerm('eat', ['cheese', 'bread'])
         sol = e.query_single(t, [])
 
         assert len(sol) == 0
@@ -96,7 +96,7 @@ class AppTestCoreEngine(object):
         import unipycation as u
 
         e = u.CoreEngine("eat(cheese, bread). eat(egg, salad).")
-        t = u.Term('eat', ['cheese', 'egg'])
+        t = u.CoreTerm('eat', ['cheese', 'egg'])
         res = e.query_single(t, [])
         assert res is None
 
@@ -104,7 +104,7 @@ class AppTestCoreEngine(object):
         import unipycation as u
 
         e = u.CoreEngine("eat(cheese, bread). eat(egg, salad).")
-        t = u.Term('eat', ['cheese', 'bread'])
+        t = u.CoreTerm('eat', ['cheese', 'bread'])
         it = e.query_iter(t, [])
         sols = [ x for x in it ]
         sol, = sols
@@ -114,7 +114,7 @@ class AppTestCoreEngine(object):
         import unipycation as u
 
         e = u.CoreEngine("eat(cheese, bread). eat(egg, salad).")
-        t = u.Term('eat', ['cheese', 'egg'])
+        t = u.CoreTerm('eat', ['cheese', 'egg'])
         it = e.query_iter(t, [])
         raises(StopIteration, lambda : it.next())
 
@@ -127,7 +127,7 @@ class AppTestCoreEngine(object):
         """)
 
         X = u.Var()
-        t = u.Term('f', [X])
+        t = u.CoreTerm('f', [X])
         it = e.query_iter(t, [X])
 
         first_ten = []
@@ -141,7 +141,7 @@ class AppTestCoreEngine(object):
 
         e = u.CoreEngine("f(666). f(667). f(668).")
         X = u.Var()
-        t = u.Term("g", [X])
+        t = u.CoreTerm("g", [X])
 
         raises(u.PrologError, lambda: e.query_single(t, [X]))
 
@@ -150,7 +150,7 @@ class AppTestCoreEngine(object):
 
         e = u.CoreEngine("f(666). f(667). f(668).")
         X = u.Var()
-        t = u.Term("g", [X])
+        t = u.CoreTerm("g", [X])
 
         raises(u.PrologError, lambda: e.query_iter(t, [X]).next())
 
@@ -170,7 +170,7 @@ class AppTestCoreEngine(object):
         import unipycation
 
         e = unipycation.CoreEngine("eat(cheese, bread). eat(egg, salad).")
-        t = unipycation.Term('eat', ['cheese', 'bread'])
+        t = unipycation.CoreTerm('eat', ['cheese', 'bread'])
         raises(TypeError, lambda : e.query_single(t, [t]))
 
     def test_type_error_passed_up(self):
@@ -178,7 +178,7 @@ class AppTestCoreEngine(object):
 
         e = unipycation.CoreEngine("test(X) :- X is unlikely_to_ever_exist_ever(9).")
         X = unipycation.Var()
-        t = unipycation.Term('test', [X])
+        t = unipycation.CoreTerm('test', [X])
         raises(unipycation.PrologError, lambda : e.query_single(t, [X]))
 
     # (Pdb) p exc
@@ -196,11 +196,11 @@ class AppTestCoreEngine(object):
 
         e = u.CoreEngine("f(1). g(2).")
         X = u.Var()
-        t = u.Term('f', [X])
+        t = u.CoreTerm('f', [X])
         sol = e.query_single(t, [X])
         assert sol[X] == 1
 
-        t = u.Term('g', [X])
+        t = u.CoreTerm('g', [X])
         sol = e.query_single(t, [X])
         assert sol == None # because X retains it's binding of 1
 
@@ -209,8 +209,8 @@ class AppTestCoreEngine(object):
 
         e = u.CoreEngine("f(X) :- X = g(_).")
         X = u.Var()
-        t = u.Term('f', [X])
+        t = u.CoreTerm('f', [X])
         sol = e.query_single(t, [X])
-        assert type(sol[X] == u.Term)
+        assert type(sol[X] == u.CoreTerm)
         assert len(sol[X].args) == 1
         assert type(sol[X].args[0] == u.Var)
