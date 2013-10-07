@@ -107,7 +107,7 @@ class TestFile(BaseRtypingTest):
         assert res == 3
 
     def test_flush(self):
-        fname = str(self.tmpdir.join('file_trunc'))
+        fname = str(self.tmpdir.join('file_flush'))
 
         def f():
             f = open(fname, "w")
@@ -118,4 +118,20 @@ class TestFile(BaseRtypingTest):
             f2.close()
             f.close()
 
+        self.interpret(f, [])
+
+    def test_truncate(self):
+        fname = str(self.tmpdir.join('file_trunc'))
+
+        def f():
+            f = open(fname, "w")
+            f.write("xyz")
+            f.seek(0)
+            f.truncate(2)
+            f.close()
+            f2 = open(fname)
+            assert f2.read() == "xy"
+            f2.close()
+
+        f()
         self.interpret(f, [])

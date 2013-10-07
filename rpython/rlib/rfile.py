@@ -6,17 +6,26 @@ python builtin open()
 
 import os
 from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rtyper.tool import rffi_platform as platform
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rlib import rposix
 from rpython.rlib.rstring import StringBuilder
 
-eci = ExternalCompilationInfo(includes=['stdio.h'])
+eci = ExternalCompilationInfo(includes=['stdio.h', 'unistd.h', 'sys/types.h'])
 
 def llexternal(*args):
     return rffi.llexternal(*args, compilation_info=eci)
 
 FILE = lltype.Struct('FILE') # opaque type maybe
+
+class CConfig(object):
+    _compilation_info_ = eci
+
+    off_t = platform.SimpleType('off_t')
+
+CC = platform.configure(CConfig)
+OFF_T = CC['off_t']
 
 c_open = llexternal('fopen', [rffi.CCHARP, rffi.CCHARP], lltype.Ptr(FILE))
 c_close = llexternal('fclose', [lltype.Ptr(FILE)], rffi.INT)
@@ -32,7 +41,8 @@ c_fseek = llexternal('fseek', [lltype.Ptr(FILE), rffi.LONG, rffi.INT],
 c_tmpfile = llexternal('tmpfile', [], lltype.Ptr(FILE))
 c_fileno = llexternal('fileno', [lltype.Ptr(FILE)], rffi.INT)
 c_ftell = llexternal('ftell', [lltype.Ptr(FILE)], lltype.Signed)
-c_fflush = llexternal('fflush', [lltype.Ptr(FILE)], lltype.Signed)
+c_fflush = llexternal('fflush', [lltype.Ptr(FILE)], rffi.INT)
+c_ftruncate = llexternal('ftruncate', [rffi.INT, OFF_T], rffi.INT)
 
 BASE_BUF_SIZE = 4096
 
@@ -161,6 +171,17 @@ class RFile(object):
         if self.ll_file:
             res = c_fflush(self.ll_file)
             if res != 0:
+                errno = rposix.get_errno()
+                raise OSError(errno, os.strerror(errno))
+            return
+        raise ValueError("I/O operation on closed file")
+
+    def truncate(self, arg=-1):
+        if self.ll_file:
+            if arg == -1:
+                arg = self.tell()
+            res = c_ftruncate(self.fileno(), arg)
+            if res == -1:
                 errno = rposix.get_errno()
                 raise OSError(errno, os.strerror(errno))
             return
