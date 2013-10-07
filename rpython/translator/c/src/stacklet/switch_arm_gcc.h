@@ -1,3 +1,10 @@
+#if __ARM_ARCH__ >= 5
+# define call_reg(x) "blx " #x "\n"
+#elif defined (__ARM_ARCH_4T__)
+# define call_reg(x) "mov lr, pc ; bx " #x "\n"
+#else
+# define call_reg(x) "mov lr, pc ; mov pc, " #x "\n"
+#endif
 
 static void __attribute__((optimize("O3"))) *slp_switch(void *(*save_state)(void*, void*),
                         void *(*restore_state)(void*, void*),
@@ -11,7 +18,7 @@ static void __attribute__((optimize("O3"))) *slp_switch(void *(*save_state)(void
     "mov r5, %[extra]\n"
     "mov r0, sp\n"        	/* arg 1: current (old) stack pointer */
     "mov r1, r5\n"        	/* arg 2: extra                       */
-    "blx r3\n"				/* call save_state()                  */
+    call_reg(r3)		/* call save_state()                  */
 
     /* skip the rest if the return value is null */
     "cmp r0, #0\n"
@@ -23,7 +30,7 @@ static void __attribute__((optimize("O3"))) *slp_switch(void *(*save_state)(void
 	stack is not restored yet.  It contains only garbage here. */
     "mov r1, r5\n"       	/* arg 2: extra                       */
    	 						/* arg 1: current (new) stack pointer is already in r0*/
-    "blx r4\n"           	/* call restore_state()               */
+    call_reg(r4)		/* call restore_state()               */
 
     /* The stack's content is now restored. */
     "zero:\n"

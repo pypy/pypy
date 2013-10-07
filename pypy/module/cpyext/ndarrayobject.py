@@ -149,14 +149,17 @@ def _PyArray_FromAny(space, w_obj, w_dtype, min_depth, max_depth, requirements, 
          only used if the array is constructed that way. Almost always this
          parameter is NULL.
     """
-    if min_depth !=0 or max_depth != 0:
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            '_PyArray_FromAny called with not-implemented min_dpeth or max_depth argument'))
     if requirements not in (0, NPY_DEFAULT):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             '_PyArray_FromAny called with not-implemented requirements argument'))
     w_array = array(space, w_obj, w_dtype=w_dtype, copy=False)
-    if w_array.is_scalar():
+    if min_depth !=0 and len(w_array.get_shape()) < min_depth:
+        raise OperationError(space.w_ValueError, space.wrap(
+            'object of too small depth for desired array'))
+    elif max_depth !=0 and len(w_array.get_shape()) > max_depth:
+        raise OperationError(space.w_ValueError, space.wrap(
+            'object of too deep for desired array'))
+    elif w_array.is_scalar():
         # since PyArray_DATA() fails on scalars, create a 1D array and set empty
         # shape. So the following combination works for *reading* scalars:
         #     PyObject *arr = PyArray_FromAny(obj);
