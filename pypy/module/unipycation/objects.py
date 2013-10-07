@@ -63,6 +63,7 @@ class W_CoreTerm(W_Root):
 
         if not space.eq_w(space.type(self), space.type(w_other)):
             return space.w_False
+        w_other = space.interp_w(W_CoreTerm, w_other)
 
         eq = self.p_term.cmp_standard_order(w_other.p_term, None)
         return space.wrap(eq == 0)
