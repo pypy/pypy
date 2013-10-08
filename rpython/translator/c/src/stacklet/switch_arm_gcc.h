@@ -1,9 +1,8 @@
-#if __ARM_ARCH__ >= 5
-# define call_reg(x) "blx " #x "\n"
-#elif defined (__ARM_ARCH_4T__)
+#if defined(__ARM_ARCH_4__) || defined (__ARM_ARCH_4T__)
 # define call_reg(x) "mov lr, pc ; bx " #x "\n"
 #else
-# define call_reg(x) "mov lr, pc ; mov pc, " #x "\n"
+/* ARM >= 5 */
+# define call_reg(x) "blx " #x "\n"
 #endif
 
 static void __attribute__((optimize("O3"))) *slp_switch(void *(*save_state)(void*, void*),
