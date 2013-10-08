@@ -147,23 +147,24 @@ class TestDirect:
         j = 0
         expected = []
         with open(fname, 'w') as f:
-            for i in range(150):
+            for i in range(250):
                 s = ''.join([chr(32+(k&63)) for k in range(j, j + i)])
                 j += 1
                 print >> f, s
         expected = open(fname).readlines()
         expected += ['', '']
-        assert len(expected) == 152
+        assert len(expected) == 252
 
         f = rfile.create_file(fname, 'r')
-        for j in range(152):
+        for j in range(252):
             got = f.readline()
             assert got == expected[j]
         f.close()
 
     def test_readline_without_eol_at_the_end(self):
         fname = str(self.tmpdir.join('file_readline_without_eol_at_the_end'))
-        for n in [1, 10, 97, 98, 99, 100, 101, 102, 103, 150]:
+        for n in [1, 10, 97, 98, 99, 100, 101, 102, 103, 150,
+                  196, 197, 198, 199, 200, 201, 202, 203, 204, 250]:
             s = ''.join([chr(32+(k&63)) for k in range(n)])
             with open(fname, 'wb') as f:
                 f.write(s)
