@@ -669,10 +669,17 @@ class IncrementalMiniMarkGC(MovingGCBase):
 
 
     def collect(self, gen=1):
-        """Do a minor (gen=0) or major (gen>0) collection."""
+        """Do a minor (gen=0) or full major (gen>0) collection."""
         self.minor_collection()
         if gen > 0:
-            self.major_collection()
+            #
+            # First, finish the current major gc, if there is one in progress.
+            # This is a no-op if the gc_state is already STATE_SCANNING.
+            self.gc_step_until(STATE_SCANNING)
+            #
+            # Then do a complete collection again.
+            self.gc_step_until(STATE_MARKING)
+            self.gc_step_until(STATE_SCANNING)
 
     def move_nursery_top(self, totalsize):
         size = self.nursery_cleanup
@@ -1796,10 +1803,12 @@ class IncrementalMiniMarkGC(MovingGCBase):
             old.append(new.pop())
         new.delete()
 
-    def debug_gc_step_until(self,state):
+    def gc_step_until(self,state):
         while self.gc_state != state:
             self.minor_collection()
             self.major_collection_step()
+
+    debug_gc_step_until = gc_step_until   # xxx
 
     def debug_gc_step(self, n=1):
         while n > 0:
@@ -1926,19 +1935,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
             pass #XXX which exception to raise here. Should be unreachable.
 
         debug_stop("gc-collect-step")
-
-    def major_collection(self, reserving_size=0):
-        # For now keep things compatible with the existing GC
-        # and do all steps in a loop
-
-        # We start in scanning state
-        ll_assert(self.gc_state == STATE_SCANNING,
-                    "Scan start state incorrect")
-        self.major_collection_step(reserving_size)
-        ll_assert(self.gc_state == STATE_MARKING, "initial scan did not complete")
-
-        while self.gc_state != STATE_SCANNING:
-            self.major_collection_step(reserving_size)
 
     def _free_if_unvisited(self, hdr):
         size_gc_header = self.gcheaderbuilder.size_gc_header
