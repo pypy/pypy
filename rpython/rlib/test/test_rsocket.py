@@ -301,6 +301,8 @@ def test_getaddrinfo_http():
             addr.get_port() == 80):
             found = True
     assert found, lst
+    # The following might fail if the DNS redirects failed requests to a
+    # catch-all address (i.e. opendns).
     e = py.test.raises(GAIError, getaddrinfo, 'www.very-invalidaddress.com', None)
     assert isinstance(e.value.get_msg(), str)
 
