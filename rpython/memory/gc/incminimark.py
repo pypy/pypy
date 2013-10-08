@@ -766,10 +766,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
         #
         # If somebody calls this function a lot, we must eventually
         # force a full collection.
-        if (float(self.get_total_memory_used()) + raw_malloc_usage(totalsize) >
-                self.next_major_collection_threshold):
-            self.minor_collection()
-            self.major_collection(raw_malloc_usage(totalsize))
+        # XXX REDO
+##        if (float(self.get_total_memory_used()) + raw_malloc_usage(totalsize) >
+##                self.next_major_collection_threshold):
+##            self.minor_collection()
+##            self.major_collection(raw_malloc_usage(totalsize))
         #
         # Check if the object would fit in the ArenaCollection.
         if raw_malloc_usage(totalsize) <= self.small_request_threshold:

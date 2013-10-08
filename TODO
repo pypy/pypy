@@ -11,3 +11,6 @@
 * maybe make incremental: dealing with old_objects_with_weakrefs
   and old_objects_with_light_finalizers and
   deal_with_objects_with_finalizers()
+
+* REDO external_malloc(): if somebody calls this function a lot, we must
+  eventually force a full collection.
