@@ -1187,7 +1187,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
     # for the JIT: a minimal description of the write_barrier() method
     # (the JIT assumes it is of the shape
     #  "if addr_struct.int0 & JIT_WB_IF_FLAG: remember_young_pointer()")
-    JIT_WB_IF_FLAG = GCFLAG_TRACK_YOUNG_PTRS
+    JIT_WB_IF_FLAG = GCFLAG_TRACK_YOUNG_PTRS | GCFLAG_VISITED
 
     # for the JIT to generate custom code corresponding to the array
     # write barrier for the simplest case of cards.  If JIT_CARDS_SET
@@ -1214,20 +1214,27 @@ class IncrementalMiniMarkGC(MovingGCBase):
     def write_barrier(self, addr_struct):
         if self.header(addr_struct).tid & (GCFLAG_TRACK_YOUNG_PTRS
                                            | GCFLAG_VISITED):
-            self.write_barrier_slowpath(addr_struct)
-
-    def write_barrier_slowpath(self, addr_struct):
-        if self.header(addr_struct).tid & GCFLAG_TRACK_YOUNG_PTRS:
             self.remember_young_pointer(addr_struct)
-        if self.header(addr_struct).tid & GCFLAG_VISITED:
-            if self.gc_state == STATE_MARKING:
-                self.write_to_visited_object_backward(addr_struct)
-    write_barrier_slowpath._dont_inline_ = True
 
     def write_barrier_from_array(self, addr_array, index):
         if self.header(addr_array).tid & (GCFLAG_TRACK_YOUNG_PTRS |
                                           GCFLAG_VISITED):
-            self.write_barrier_slowpath(addr_array)
+            self.remember_young_pointer(addr_array)
+
+    def write_to_visited_object_backward(self, addr_struct):
+        """Call during the marking phase only, when writing into an object
+        that is 'black' in terms of the classical tri-color GC, i.e. that
+        has the GCFLAG_VISITED.  This implements a 'backward' write barrier,
+        i.e. it turns the object back from 'black' to 'gray'.
+        """
+        ll_assert(self.gc_state == STATE_MARKING,"expected MARKING state")
+        # writing a white object into black, make black gray and
+        # readd to objects_to_trace
+        # this is useful for arrays because it stops the writebarrier
+        # from being re-triggered on successive writes
+        self.header(addr_struct).tid &= ~GCFLAG_VISITED
+        self.header(addr_struct).tid |= GCFLAG_GRAY
+        self.objects_to_trace.append(addr_struct)
 
     def _init_writebarrier_logic(self):
         DEBUG = self.DEBUG
@@ -1235,32 +1242,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # instead of keeping it as a regular method is to
         # make the code in write_barrier() marginally smaller
         # (which is important because it is inlined *everywhere*).
-
-        # move marking process forward
-        def write_to_visited_object_forward(addr_struct, new_value):
-            ll_assert(self.gc_state == STATE_MARKING,"expected MARKING state")
-            if  self.header(new_value).tid & (GCFLAG_GRAY | GCFLAG_VISITED) == 0:
-                # writing a white object into black, make new object gray and
-                # add to objects_to_trace
-                #
-                self.header(new_value).tid |= GCFLAG_GRAY
-                self.objects_to_trace.append(new_value)
-        write_to_visited_object_forward._dont_inline_ = True
-        self.write_to_visited_object_forward = write_to_visited_object_forward
-
-        # move marking process backward
-        def write_to_visited_object_backward(addr_struct):
-            ll_assert(self.gc_state == STATE_MARKING,"expected MARKING state")
-            # writing a white object into black, make black gray and
-            # readd to objects_to_trace
-            # this is useful for arrays because it stops the writebarrier
-            # from being re-triggered on successive writes
-            self.header(addr_struct).tid &= ~GCFLAG_VISITED
-            self.header(addr_struct).tid |= GCFLAG_GRAY
-            self.objects_to_trace.append(addr_struct)
-        write_to_visited_object_backward._dont_inline_ = True
-        self.write_to_visited_object_backward = write_to_visited_object_backward
-
         def remember_young_pointer(addr_struct):
             # 'addr_struct' is the address of the object in which we write.
             # We know that 'addr_struct' has GCFLAG_TRACK_YOUNG_PTRS so far.
@@ -1269,6 +1250,14 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 ll_assert(self.debug_is_old_object(addr_struct) or
                           self.header(addr_struct).tid & GCFLAG_HAS_CARDS != 0,
                       "young object with GCFLAG_TRACK_YOUNG_PTRS and no cards")
+            #
+            # This is the write barrier of incremental GC
+            tid = self.header(addr_struct).tid
+            if tid & GCFLAG_VISITED:
+                if self.gc_state == STATE_MARKING:
+                    self.write_to_visited_object_backward(addr_struct)
+                if tid & GCFLAG_TRACK_YOUNG_PTRS == 0:
+                    return    # done
             #
             # We need to remove the flag GCFLAG_TRACK_YOUNG_PTRS and add
             # the object to the list 'old_objects_pointing_to_young'.
@@ -1295,17 +1284,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
 
         remember_young_pointer._dont_inline_ = True
         self.remember_young_pointer = remember_young_pointer
-        #
-        def jit_remember_young_pointer(addr_struct):
-            # minimal version of the above, with just one argument,
-            # called by the JIT when GCFLAG_TRACK_YOUNG_PTRS is set
-            self.old_objects_pointing_to_young.append(addr_struct)
-            objhdr = self.header(addr_struct)
-            objhdr.tid &= ~GCFLAG_TRACK_YOUNG_PTRS
-            if objhdr.tid & GCFLAG_NO_HEAP_PTRS:
-                objhdr.tid &= ~GCFLAG_NO_HEAP_PTRS
-                self.prebuilt_root_objects.append(addr_struct)
-        self.jit_remember_young_pointer = jit_remember_young_pointer
         #
         if self.card_page_indices > 0:
             self._init_writebarrier_with_card_marker()
@@ -1366,13 +1344,13 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # called by the JIT when GCFLAG_TRACK_YOUNG_PTRS is set
             # but GCFLAG_CARDS_SET is cleared.  This tries to set
             # GCFLAG_CARDS_SET if possible; otherwise, it falls back
-            # to jit_remember_young_pointer().
+            # to remember_young_pointer().
             objhdr = self.header(addr_array)
             if objhdr.tid & GCFLAG_HAS_CARDS:
                 self.old_objects_with_cards_set.append(addr_array)
                 objhdr.tid |= GCFLAG_CARDS_SET
             else:
-                self.jit_remember_young_pointer(addr_array)
+                self.remember_young_pointer(addr_array)
 
         self.jit_remember_young_pointer_from_array = (
             jit_remember_young_pointer_from_array)
@@ -1410,7 +1388,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # ^^^ a fast path of write-barrier
         #
         if source_hdr.tid & GCFLAG_HAS_CARDS != 0:
-            assert self.card_page_indices > 0
+            if self.card_page_indices == 0:
+                return False     # shouldn't have GCFLAG_HAS_CARDS then...
             #
             if source_hdr.tid & GCFLAG_TRACK_YOUNG_PTRS == 0:
                 # The source object may have random young pointers.
