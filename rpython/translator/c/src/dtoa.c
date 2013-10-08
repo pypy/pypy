@@ -2969,7 +2969,7 @@ char * _PyPy_dg_dtoa(double dd, int mode, int ndigits,
     result = __Py_dg_dtoa(dd, mode, ndigits, decpt, sign, rve);
     _PyPy_SET_53BIT_PRECISION_END;
 #ifdef RPY_STM
-    stm_call_on_abort(result, _PyPy_dg_freedtoa);
+    stm_call_on_abort(result, (void(*)(void *))_PyPy_dg_freedtoa);
 #endif
     return result;
 }
