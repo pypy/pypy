@@ -791,6 +791,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # is for large objects, bigger than the 'large_objects' threshold,
             # which are raw-malloced but still young.
             extra_flags = GCFLAG_TRACK_YOUNG_PTRS
+            can_make_young = False
             #
         else:
             # No, so proceed to allocate it externally with raw_malloc().
@@ -862,7 +863,13 @@ class IncrementalMiniMarkGC(MovingGCBase):
         if self.is_varsize(typeid):
             offset_to_length = self.varsize_offset_to_length(typeid)
             (result + size_gc_header + offset_to_length).signed[0] = length
-        return result + size_gc_header
+        newobj = result + size_gc_header
+        #
+        # If we are in STATE_MARKING, then the new object must be made gray.
+        if not can_make_young and self.gc_state == STATE_MARKING:
+            self.write_to_visited_object_backward(newobj)
+        #
+        return newobj
 
 
     # ----------
@@ -1789,7 +1796,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
     def _free_young_rawmalloced_obj(self, obj, ignored1, ignored2):
         # If 'obj' has GCFLAG_VISITED, it was seen by _trace_drag_out
         # and survives.  Otherwise, it dies.
-        self.free_rawmalloced_object_if_unvisited(obj)
+        if not self.free_rawmalloced_object_if_unvisited(obj):
+            if self.gc_state == STATE_MARKING:
+                self.write_to_visited_object_backward(obj)
 
     def remove_young_arrays_from_old_objects_pointing_to_young(self):
         old = self.old_objects_pointing_to_young
@@ -1935,6 +1944,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         else:
             pass #XXX which exception to raise here. Should be unreachable.
 
+        debug_print("stopping, now in gc state: ", GC_STATES[self.gc_state])
         debug_stop("gc-collect-step")
 
     def _free_if_unvisited(self, hdr):
@@ -1956,6 +1966,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             self.header(obj).tid |= GCFLAG_OLD
             self.header(obj).tid &= ~(GCFLAG_VISITED|GCFLAG_GRAY)   # survives
             self.old_rawmalloced_objects.append(obj)
+            return False
         else:
             size_gc_header = self.gcheaderbuilder.size_gc_header
             totalsize = size_gc_header + self.get_size(obj)
@@ -1978,6 +1989,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             #
             llarena.arena_free(arena)
             self.rawmalloced_total_size -= r_uint(allocsize)
+            return True
 
     def start_free_rawmalloc_objects(self):
         self.raw_malloc_might_sweep = self.old_rawmalloced_objects
