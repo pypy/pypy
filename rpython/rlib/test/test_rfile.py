@@ -135,3 +135,27 @@ class TestFile(BaseRtypingTest):
 
         f()
         self.interpret(f, [])
+
+
+class TestDirect:
+    def setup_class(cls):
+        cls.tmpdir = udir.join('test_rfile_direct')
+        cls.tmpdir.ensure(dir=True)
+
+    def test_readline(self):
+        fname = str(self.tmpdir.join('file_readline'))
+        j = 0
+        expected = []
+        with open(fname, 'w') as f:
+            for i in range(50):
+                s = ''.join([chr(32+(k&63)) for k in range(j, j + i*7)])
+                print >> f, s
+            f.write('no newline')
+        expected = open(fname).readlines()
+
+        f = rfile.create_file(fname, 'r')
+        got = []
+        for j in range(53):
+            got.append(f.readline())
+        f.close()
+        assert got == expected + ['', '']
