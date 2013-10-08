@@ -135,3 +135,42 @@ class TestFile(BaseRtypingTest):
 
         f()
         self.interpret(f, [])
+
+
+class TestDirect:
+    def setup_class(cls):
+        cls.tmpdir = udir.join('test_rfile_direct')
+        cls.tmpdir.ensure(dir=True)
+
+    def test_readline(self):
+        fname = str(self.tmpdir.join('file_readline'))
+        j = 0
+        expected = []
+        with open(fname, 'w') as f:
+            for i in range(150):
+                s = ''.join([chr(32+(k&63)) for k in range(j, j + i)])
+                j += 1
+                print >> f, s
+        expected = open(fname).readlines()
+        expected += ['', '']
+        assert len(expected) == 152
+
+        f = rfile.create_file(fname, 'r')
+        for j in range(152):
+            got = f.readline()
+            assert got == expected[j]
+        f.close()
+
+    def test_readline_without_eol_at_the_end(self):
+        fname = str(self.tmpdir.join('file_readline_without_eol_at_the_end'))
+        for n in [1, 10, 97, 98, 99, 100, 101, 102, 103, 150]:
+            s = ''.join([chr(32+(k&63)) for k in range(n)])
+            with open(fname, 'wb') as f:
+                f.write(s)
+
+            f = rfile.create_file(fname, 'r')
+            got = f.readline()
+            assert got == s
+            got = f.readline()
+            assert got == ''
+            f.close()

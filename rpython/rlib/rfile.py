@@ -43,8 +43,11 @@ c_fileno = llexternal('fileno', [lltype.Ptr(FILE)], rffi.INT)
 c_ftell = llexternal('ftell', [lltype.Ptr(FILE)], lltype.Signed)
 c_fflush = llexternal('fflush', [lltype.Ptr(FILE)], rffi.INT)
 c_ftruncate = llexternal('ftruncate', [rffi.INT, OFF_T], rffi.INT)
+c_fgets = llexternal('fgets', [rffi.CCHARP, rffi.INT, lltype.Ptr(FILE)],
+                     rffi.CCHARP)
 
 BASE_BUF_SIZE = 4096
+BASE_LINE_SIZE = 100
 
 def create_file(filename, mode="r", buffering=-1):
     assert buffering == -1
@@ -110,6 +113,7 @@ class RFile(object):
                 raise OSError(errno, os.strerror(errno))
 
     def read(self, size=-1):
+        # XXX CPython uses a more delicate logic here
         ll_file = self.ll_file
         if not ll_file:
             raise ValueError("I/O operation on closed file")
@@ -190,3 +194,48 @@ class RFile(object):
     def __del__(self):
         self.close()
 
+    def _readline1(self, raw_buf):
+        result = c_fgets(raw_buf, BASE_LINE_SIZE, self.ll_file)
+        if not result:
+            if c_feof(self.ll_file):   # ok
+                return 0
+            errno = c_ferror(self.ll_file)
+            raise OSError(errno, os.strerror(errno))
+        #
+        # Assume that fgets() works as documented, and additionally
+        # never writes beyond the final \0, which the CPython
+        # fileobject.c says appears to be the case everywhere.
+        # The only case where the buffer was not big enough is the
+        # case where the buffer is full, ends with \0, and doesn't
+        # end with \n\0.
+        strlen = 0
+        while raw_buf[strlen] != '\0':
+            strlen += 1
+        if (strlen == BASE_LINE_SIZE - 1 and
+              raw_buf[BASE_LINE_SIZE - 2] != '\n'):
+            return -1    # overflow!
+        # common case
+        return strlen
+
+    def readline(self):
+        if self.ll_file:
+            raw_buf, gc_buf = rffi.alloc_buffer(BASE_LINE_SIZE)
+            try:
+                c = self._readline1(raw_buf)
+                if c >= 0:
+                    return rffi.str_from_buffer(raw_buf, gc_buf,
+                                                BASE_LINE_SIZE, c)
+                #
+                # this is the rare case: the line is longer than BASE_LINE_SIZE
+                s = StringBuilder()
+                while True:
+                    s.append_charpsize(raw_buf, BASE_LINE_SIZE - 1)
+                    c = self._readline1(raw_buf)
+                    if c >= 0:
+                        break
+                #
+                s.append_charpsize(raw_buf, c)
+                return s.build()
+            finally:
+                rffi.keep_buffer_alive_until_here(raw_buf, gc_buf)
+        raise ValueError("I/O operation on closed file")
