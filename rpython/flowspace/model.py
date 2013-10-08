@@ -257,7 +257,7 @@ class Block(object):
         pending = [self]   # pending blocks
         seen = {self: True, None: True}
         for x in pending:
-            for y in gc.get_referrers(self):
+            for y in gc.get_referrers(x):
                 if isinstance(y, FunctionGraph):
                     return y
                 elif isinstance(y, Link):
