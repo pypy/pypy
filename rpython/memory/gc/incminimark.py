@@ -1861,7 +1861,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # Walk all rawmalloced objects and free the ones that don't
             # have the GCFLAG_VISITED flag.
             # XXX heuristic here to decide nobjects.
-            if self.free_unvisited_rawmalloc_objects_step(1):
+            nobjects = self.nursery_size // self.ac.page_size  # XXX
+            if self.free_unvisited_rawmalloc_objects_step(nobjects):
                 #malloc objects freed
                 self.gc_state = STATE_SWEEPING_ARENA
 
