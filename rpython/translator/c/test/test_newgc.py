@@ -1468,72 +1468,9 @@ class TestMiniMarkGC(TestSemiSpaceGC):
         res = self.run("nongc_opaque_attached_to_gc")
         assert res == 0
 
-class TestIncrementalMiniMarkGC(TestSemiSpaceGC):
+
+class TestIncrementalMiniMarkGC(TestMiniMarkGC):
     gcpolicy = "incminimark"
-    should_be_moving = True
-    GC_CAN_MALLOC_NONMOVABLE = True
-    GC_CAN_SHRINK_ARRAY = True
-
-    def test_gc_heap_stats(self):
-        py.test.skip("not implemented")
-
-    def define_nongc_attached_to_gc(cls):
-        from rpython.rtyper.lltypesystem import rffi
-        ARRAY = rffi.CArray(rffi.INT)
-        class A:
-            def __init__(self, n):
-                self.buf = lltype.malloc(ARRAY, n, flavor='raw',
-                                         add_memory_pressure=True)
-            def __del__(self):
-                lltype.free(self.buf, flavor='raw')
-        A(6)
-        def f():
-            # allocate a total of ~77GB, but if the automatic gc'ing works,
-            # it should never need more than a few MBs at once
-            am1 = am2 = am3 = None
-            res = 0
-            for i in range(1, 100001):
-                if am3 is not None:
-                    res += rffi.cast(lltype.Signed, am3.buf[0])
-                am3 = am2
-                am2 = am1
-                am1 = A(i * 4)
-                am1.buf[0] = rffi.cast(rffi.INT, i - 50000)
-            return res
-        return f
-
-    def test_nongc_attached_to_gc(self):
-        res = self.run("nongc_attached_to_gc")
-        assert res == -99997
-
-    def define_nongc_opaque_attached_to_gc(cls):
-        from rpython.rlib import rgc, ropenssl
-
-        class A:
-            def __init__(self):
-                self.ctx = lltype.malloc(ropenssl.EVP_MD_CTX.TO,
-                    flavor='raw')
-                digest = ropenssl.EVP_get_digestbyname('sha1')
-                ropenssl.EVP_DigestInit(self.ctx, digest)
-                rgc.add_memory_pressure(ropenssl.HASH_MALLOC_SIZE + 64)
-
-            def __del__(self):
-                ropenssl.EVP_MD_CTX_cleanup(self.ctx)
-                lltype.free(self.ctx, flavor='raw')
-        #A() --- can't call it here?? get glibc crashes on tannit64
-        def f():
-            am1 = am2 = am3 = None
-            for i in range(100000):
-                am3 = am2
-                am2 = am1
-                am1 = A()
-            # what can we use for the res?
-            return 0
-        return f
-
-    def test_nongc_opaque_attached_to_gc(self):
-        res = self.run("nongc_opaque_attached_to_gc")
-        assert res == 0
 
 
 # ____________________________________________________________________

@@ -256,7 +256,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # value of 128 means that card pages are 512 bytes (1024 on 64-bits)
         # in regular arrays of pointers; more in arrays whose items are
         # larger.  A value of 0 disables card marking.
-        "card_page_indices": 128,
+        "card_page_indices": 0,   # XXX was 128,
 
         # Objects whose total size is at least 'large_object' bytes are
         # allocated out of the nursery immediately, as old objects.  The
@@ -1410,6 +1410,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # ^^^ a fast path of write-barrier
         #
         if source_hdr.tid & GCFLAG_HAS_CARDS != 0:
+            assert self.card_page_indices > 0
             #
             if source_hdr.tid & GCFLAG_TRACK_YOUNG_PTRS == 0:
                 # The source object may have random young pointers.
