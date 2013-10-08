@@ -513,6 +513,9 @@ static void minor_collect(struct tx_descriptor *d)
     }
     else {
         d->nursery_cleared = NC_REGULAR;
+#if defined(_GC_DEBUG)
+        memset(d->nursery_current, 0xEE, d->nursery_end - d->nursery_current);
+#endif
     }
 
     /* if in debugging mode, we allocate a different nursery and make

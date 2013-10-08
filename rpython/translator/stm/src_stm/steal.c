@@ -194,6 +194,7 @@ void stm_steal_stub(gcptr P)
             if (L->h_tid & GCFLAG_HAS_ID) {
                 /* use id-copy for us */
                 O = (gcptr)L->h_original;
+                assert(O != L);
                 L->h_tid &= ~GCFLAG_HAS_ID;
                 stm_copy_to_old_id_copy(L, O);
                 O->h_original = 0;
@@ -201,6 +202,7 @@ void stm_steal_stub(gcptr P)
                 /* Copy the object out of the other thread's nursery, 
                    if needed */
                 O = stmgc_duplicate_old(L);
+                assert(O != L);
 
                 /* young and without original? */
                 if (!(L->h_original))

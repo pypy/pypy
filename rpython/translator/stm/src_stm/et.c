@@ -7,9 +7,9 @@
  */
 #include "stmimpl.h"
 
-char tmp_buf[128];
 char* stm_dbg_get_hdr_str(gcptr obj)
 {
+    static char tmp_buf[128];
     char *cur;
     char *flags[] = GC_FLAG_NAMES;
     int i;
@@ -44,8 +44,10 @@ void stm_dump_dbg(void)
         struct tx_descriptor *d = stm_tx_head;
         while (d && d->public_descriptor != pd)
             d = d->tx_next;
-        if (!d)
+        if (!d) {
+            fprintf(stderr, "\n");
             continue;
+        }
 
         fprintf(stderr, "((struct tx_descriptor *)\033[%dm%p\033[0m)\n"
                 "pthread_self = 0x%lx\n\n", d->tcolor, d, (long)d->pthreadid);
