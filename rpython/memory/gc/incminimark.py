@@ -325,8 +325,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
             ArenaCollectionClass = minimarkpage.ArenaCollection
         self.ac = ArenaCollectionClass(arena_size, page_size,
                                        small_request_threshold)
-        self.ac_alternate = ArenaCollectionClass(arena_size, page_size,
-                                       small_request_threshold)
         #
         # Used by minor collection: a list of (mostly non-young) objects that
         # (may) contain a pointer to a young object.  Populated by
@@ -1015,8 +1013,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         """Return the total memory used, not counting any object in the
         nursery: only objects in the ArenaCollection or raw-malloced.
         """
-        return self.ac.total_memory_used + self.ac_alternate.total_memory_used \
-                    + self.rawmalloced_total_size
+        return self.ac.total_memory_used + self.rawmalloced_total_size
 
 
     def card_marking_words_for_length(self, length):
@@ -1689,11 +1686,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # Copy it.  Note that references to other objects in the
         # nursery are kept unchanged in this step.
         llmemory.raw_memcopy(obj - size_gc_header, newhdr, totalsize)
-        # if the current state is sweeping or later,
-        # then all new objects surviving
-        # minor collection should be marked as visited
-        if self.gc_state >= STATE_SWEEPING_RAWMALLOC:
-            self.header(newhdr + size_gc_header).tid |= GCFLAG_VISITED
         #
         # Set the old object's tid to -42 (containing all flags) and
         # replace the old object's content with the target address.
@@ -1718,8 +1710,10 @@ class IncrementalMiniMarkGC(MovingGCBase):
         if self.has_gcptr(typeid):
             # we only have to do it if we have any gcptrs
             self.old_objects_pointing_to_young.append(newobj)
-
-
+        #
+        # If we are in STATE_MARKING, then the new object must be made gray.
+        if self.gc_state == STATE_MARKING:
+            self.write_to_visited_object_backward(newobj)
 
     _trace_drag_out._always_inline_ = True
 
@@ -1838,7 +1832,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             debug_print("number of objects to mark",
                         self.objects_to_trace.length())
 
-            estimate = 2000
+            estimate = self.nursery_size    # XXX
             self.visit_all_objects_step(estimate)
 
             # XXX A simplifying assumption that should be checked,
@@ -1860,6 +1854,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 #objects_to_trace processed fully, can move on to sweeping
                 self.gc_state = STATE_SWEEPING_RAWMALLOC
                 #prepare for the next state
+                self.ac.mass_free_prepare()
                 self.start_free_rawmalloc_objects()
             #END MARKING
         elif self.gc_state == STATE_SWEEPING_RAWMALLOC:
@@ -1876,40 +1871,42 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # Ask the ArenaCollection to visit all objects.  Free the ones
             # that have not been visited above, and reset GCFLAG_VISITED on
             # the others.
-            self.ac.mass_free(self._free_if_unvisited)
-            self.num_major_collects += 1
-            #
-            # We also need to reset the GCFLAG_VISITED on prebuilt GC objects.
-            self.prebuilt_root_objects.foreach(self._reset_gcflag_visited, None)
-            #
-            # Set the threshold for the next major collection to be when we
-            # have allocated 'major_collection_threshold' times more than
-            # we currently have -- but no more than 'max_delta' more than
-            # we currently have.
-            total_memory_used = float(self.get_total_memory_used())
-            bounded = self.set_major_threshold_from(
-                min(total_memory_used * self.major_collection_threshold,
-                    total_memory_used + self.max_delta),
-                reserving_size)
-            #
-            # Max heap size: gives an upper bound on the threshold.  If we
-            # already have at least this much allocated, raise MemoryError.
-            if bounded and (float(self.get_total_memory_used()) + reserving_size >=
-                            self.next_major_collection_initial):
+            max_pages = 3 * (self.nursery_size // self.ac.page_size)  # XXX
+            if self.ac.mass_free_incremental(self._free_if_unvisited,
+                                             max_pages):
+                self.num_major_collects += 1
                 #
-                # First raise MemoryError, giving the program a chance to
-                # quit cleanly.  It might still allocate in the nursery,
-                # which might eventually be emptied, triggering another
-                # major collect and (possibly) reaching here again with an
-                # even higher memory consumption.  To prevent it, if it's
-                # the second time we are here, then abort the program.
-                if self.max_heap_size_already_raised:
-                    llop.debug_fatalerror(lltype.Void,
-                                          "Using too much memory, aborting")
-                self.max_heap_size_already_raised = True
-                raise MemoryError
+                # We also need to reset the GCFLAG_VISITED on prebuilt GC objects.
+                self.prebuilt_root_objects.foreach(self._reset_gcflag_visited, None)
+                #
+                # Set the threshold for the next major collection to be when we
+                # have allocated 'major_collection_threshold' times more than
+                # we currently have -- but no more than 'max_delta' more than
+                # we currently have.
+                total_memory_used = float(self.get_total_memory_used())
+                bounded = self.set_major_threshold_from(
+                    min(total_memory_used * self.major_collection_threshold,
+                        total_memory_used + self.max_delta),
+                    reserving_size)
+                #
+                # Max heap size: gives an upper bound on the threshold.  If we
+                # already have at least this much allocated, raise MemoryError.
+                if bounded and (float(self.get_total_memory_used()) + reserving_size >=
+                                self.next_major_collection_initial):
+                    #
+                    # First raise MemoryError, giving the program a chance to
+                    # quit cleanly.  It might still allocate in the nursery,
+                    # which might eventually be emptied, triggering another
+                    # major collect and (possibly) reaching here again with an
+                    # even higher memory consumption.  To prevent it, if it's
+                    # the second time we are here, then abort the program.
+                    if self.max_heap_size_already_raised:
+                        llop.debug_fatalerror(lltype.Void,
+                                              "Using too much memory, aborting")
+                    self.max_heap_size_already_raised = True
+                    raise MemoryError
 
-            self.gc_state = STATE_FINALIZING
+                self.gc_state = STATE_FINALIZING
             # FINALIZING not yet incrementalised
             # but it seems safe to allow mutator to run after sweeping and
             # before finalizers are called. This is because run_finalizers
@@ -1995,6 +1992,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         while nobjects > 0 and self.raw_malloc_might_sweep.non_empty():
             self.free_rawmalloced_object_if_unvisited(
                                              self.raw_malloc_might_sweep.pop())
+            nobjects -= 1
 
         if not self.raw_malloc_might_sweep.non_empty():
             self.raw_malloc_might_sweep.delete()

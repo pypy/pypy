@@ -280,7 +280,7 @@ class ArenaCollection(object):
         #
         # Maybe we are incrementally collecting, in which case an arena
         # could have more free pages thrown into it than arenas_lists[]
-        # account for.  Rehash and retry.
+        # accounts for.  Rehash and retry.
         self._rehash_arenas_lists()
         if self._pick_next_arena():
             return
