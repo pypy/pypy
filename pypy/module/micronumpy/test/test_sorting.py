@@ -60,8 +60,23 @@ class AppTestSupport(BaseNumpyAppTest):
         assert (a.argsort(axis=0) == [[1, 0, 0], [0, 1, 1]]).all()
         assert (a.argsort(axis=1) == [[2, 1, 0], [0, 1, 2]]).all()
 
+    def test_sort_dtypes(self):
+        from numpypy import array, arange
+        nnp = self.non_native_prefix
+        for dtype in ['int', 'float', 'int16', 'float32', 'uint64',
+                        nnp + 'i2', complex]:
+            a = array([6, 4, -1, 3, 8, 3, 256+20, 100, 101], dtype=dtype)
+            c = a.copy()
+            a.sort()
+            assert (a == [-1, 3, 3, 4, 6, 8, 100, 101, 256+20]).all(), \
+                'a,orig,dtype %r,%r,%r' % (a,c,dtype)
+            a = arange(100)
+            c = a.copy()
+            assert (a.sort() == c).all()
+
+
 # tests from numpy/tests/test_multiarray.py
-    def test_sort(self):
+    def test_sort_corner_cases(self):
         # test ordering for floats and complex containing nans. It is only
         # necessary to check the lessthan comparison, so sorts that
         # only follow the insertion sort path are sufficient. We only
