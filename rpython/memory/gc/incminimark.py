@@ -704,21 +704,27 @@ class IncrementalMiniMarkGC(MovingGCBase):
             self.move_nursery_top(totalsize)
             return prev_result
         self.minor_collection()
-        self.major_collection_step()
         #
-
-        #
-        # The nursery might not be empty now, because of
-        # execute_finalizers().  If it is almost full again,
-        # we need to fix it with another call to minor_collection().
-        if self.nursery_free + totalsize > self.nursery_top:
+        # If the gc_state is not STATE_SCANNING, we're in the middle of
+        # an incremental major collection.  In this case, always progress
+        # one step.  If the gc_state is STATE_SCANNING, wait until there
+        # is too much garbage before starting the next major collection.
+        if (self.gc_state != STATE_SCANNING or
+                    self.get_total_memory_used() >
+                    self.next_major_collection_threshold):
+            self.major_collection_step()
             #
-            if self.nursery_free + totalsize > self.nursery_real_top:
-                self.minor_collection()
-                # then the nursery is empty
-            else:
-                # we just need to clean up a bit more of the nursery
-                self.move_nursery_top(totalsize)
+            # The nursery might not be empty now, because of
+            # execute_finalizers().  If it is almost full again,
+            # we need to fix it with another call to minor_collection().
+            if self.nursery_free + totalsize > self.nursery_top:
+                #
+                if self.nursery_free + totalsize > self.nursery_real_top:
+                    self.minor_collection()
+                    # then the nursery is empty
+                else:
+                    # we just need to clean up a bit more of the nursery
+                    self.move_nursery_top(totalsize)
         #
         result = self.nursery_free
         self.nursery_free = result + totalsize
