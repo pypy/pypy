@@ -398,9 +398,9 @@ def pow__Float_Float_ANY(space, w_float1, w_float2, thirdArg):
     x = w_float1.floatval
     y = w_float2.floatval
 
-    return W_FloatObject(_pow(space, x, y))
+    return W_FloatObject(_pow(space, x, y, thirdArg))
 
-def _pow(space, x, y):
+def _pow(space, x, y, thirdArg):
     # Sort out special cases here instead of relying on pow()
     if y == 2.0:       # special case for performance:
         return x * x   # x * x is always correct
