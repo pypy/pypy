@@ -1,4 +1,4 @@
-from rpython.rlib.rarray import copy_list_to_raw_array
+from rpython.rlib.rarray import copy_list_to_raw_array, populate_list_from_raw_array
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.test.tool import BaseRtypingTest
 
@@ -35,4 +35,30 @@ class TestRArray(BaseRtypingTest):
             lltype.free(buf, flavor='raw')
             lltype.free(buf2, flavor='raw')
         self.interpret(fn, [])
-    
+
+    def test_new_list_from_raw_array(self):
+        INTARRAY = rffi.CArray(lltype.Signed)
+        buf = lltype.malloc(INTARRAY, 4, flavor='raw')
+        buf[0] = 1
+        buf[1] = 2
+        buf[2] = 3
+        buf[3] = 4
+        lst = []
+        populate_list_from_raw_array(lst, buf, 4)
+        assert lst == [1, 2, 3, 4]
+        lltype.free(buf, flavor='raw')
+
+    def test_new_list_from_raw_array_rtyped(self):
+        INTARRAY = rffi.CArray(lltype.Signed)
+        def fn():
+            buf = lltype.malloc(INTARRAY, 4, flavor='raw')
+            buf[0] = 1
+            buf[1] = 2
+            buf[2] = 3
+            buf[3] = 4
+            lst = []
+            populate_list_from_raw_array(lst, buf, 4)
+            assert lst == [1, 2, 3, 4]
+            lltype.free(buf, flavor='raw')
+        #
+        self.interpret(fn, [])
