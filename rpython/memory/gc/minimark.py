@@ -1201,6 +1201,7 @@ class MiniMarkGC(MovingGCBase):
         # ^^^ a fast path of write-barrier
         #
         if source_hdr.tid & GCFLAG_HAS_CARDS != 0:
+            assert self.card_page_indices > 0
             #
             if source_hdr.tid & GCFLAG_TRACK_YOUNG_PTRS == 0:
                 # The source object may have random young pointers.

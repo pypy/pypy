@@ -319,6 +319,15 @@ class W_Ufunc2(W_Ufunc):
         else:
             self.done_func = None
 
+    def are_common_types(self, dtype1, dtype2):
+        if dtype1.is_complex_type() and dtype2.is_complex_type():
+            return True
+        elif not (dtype1.is_complex_type() or dtype2.is_complex_type()) and \
+                (dtype1.is_int_type() and dtype2.is_int_type() or dtype1.is_float_type() and dtype2.is_float_type()) and \
+                not (dtype1.is_bool_type() or dtype2.is_bool_type()):
+            return True
+        return False
+
     @jit.unroll_safe
     def call(self, space, args_w):
         if len(args_w) > 2:
@@ -339,6 +348,12 @@ class W_Ufunc2(W_Ufunc):
                  'unsupported operand dtypes %s and %s for "%s"' % \
                  (w_rdtype.get_name(), w_ldtype.get_name(),
                   self.name)))
+
+        if self.are_common_types(w_ldtype, w_rdtype):
+            if not w_lhs.is_scalar() and w_rhs.is_scalar():
+                w_rdtype = w_ldtype
+            elif w_lhs.is_scalar() and not w_rhs.is_scalar():
+                w_ldtype = w_rdtype
         calc_dtype = find_binop_result_dtype(space,
             w_ldtype, w_rdtype,
             int_only=self.int_only,

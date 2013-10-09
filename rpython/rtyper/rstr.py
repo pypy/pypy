@@ -187,13 +187,15 @@ class __extend__(AbstractStringRepr):
         if hop.nb_args > 2:
             v_start = hop.inputarg(Signed, arg=2)
             if not hop.args_s[2].nonneg:
-                raise TyperError("str.find() start must be proven non-negative")
+                raise TyperError("str.%s() start must be proven non-negative"
+                                 % (reverse and 'rfind' or 'find',))
         else:
             v_start = hop.inputconst(Signed, 0)
         if hop.nb_args > 3:
             v_end = hop.inputarg(Signed, arg=3)
             if not hop.args_s[3].nonneg:
-                raise TyperError("str.find() end must be proven non-negative")
+                raise TyperError("str.%s() end must be proven non-negative"
+                                 % (reverse and 'rfind' or 'find',))
         else:
             v_end = hop.gendirectcall(self.ll.ll_strlen, v_str)
         hop.exception_cannot_occur()

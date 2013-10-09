@@ -1685,7 +1685,7 @@ class RegisterOs(BaseLazyRegistering):
         def tmpnam_llimpl():
             return rffi.charp2str(os_tmpnam(lltype.nullptr(rffi.CCHARP.TO)))
 
-        return extdef([], None, llimpl=tmpnam_llimpl,
+        return extdef([], str, llimpl=tmpnam_llimpl,
                       export_name="ll_os.ll_os_tmpnam")
 
 # --------------------------- os.stat & variants ---------------------------

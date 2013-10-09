@@ -1221,6 +1221,13 @@ def urandom(space, n):
     except OSError, e:
         raise wrap_oserror(space, e)
 
+def ctermid(space):
+    """ctermid() -> string
+
+    Return the name of the controlling terminal for this process.
+    """
+    return space.wrap(os.ctermid())
+
 @unwrap_spec(fd=int)
 def device_encoding(space, fd):
     """device_encoding(fd) -> str

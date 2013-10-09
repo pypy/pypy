@@ -354,6 +354,9 @@ def PyUnicode_Decode(space, s, size, encoding, errors):
     in the unicode() built-in function.  The codec to be used is looked up
     using the Python codec registry.  Return NULL if an exception was raised by
     the codec."""
+    if not encoding:
+        # This tracks CPython 2.7, in CPython 3.4 'utf-8' is hardcoded instead
+        encoding = PyUnicode_GetDefaultEncoding(space)
     w_str = space.wrapbytes(rffi.charpsize2str(s, size))
     w_encoding = space.wrap(rffi.charp2str(encoding))
     if errors:
@@ -383,6 +386,9 @@ def PyUnicode_FromEncodedObject(space, w_obj, encoding, errors):
 
     All other objects, including Unicode objects, cause a TypeError to be
     set."""
+    if not encoding:
+        raise OperationError(space.w_TypeError,
+                             space.wrap("decoding Unicode is not supported"))
     w_encoding = space.wrap(rffi.charp2str(encoding))
     if errors:
         w_errors = space.wrap(rffi.charp2str(errors))
