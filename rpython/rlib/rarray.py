@@ -58,19 +58,16 @@ class Entry(ExtRegistryEntry):
 
 
 def ll_populate_list_from_raw_array(ll_list, src_ptr, length):
-    PTR_ITEMS = lltype.typeOf(ll_list.items)
-    new_items = lltype.malloc(PTR_ITEMS.TO, length)
+    ll_list._ll_resize(length)
+    ll_items = ll_list.ll_items()
     #
     # start of no-GC section
     src_adr = llmemory.cast_ptr_to_adr(src_ptr)
     src_adr += llmemory.itemoffsetof(lltype.typeOf(src_ptr).TO, 0)
-    dst_adr = llmemory.cast_ptr_to_adr(new_items)
-    dst_adr += llmemory.itemoffsetof(lltype.typeOf(new_items).TO, 0) # skip the GC header
+    dst_adr = llmemory.cast_ptr_to_adr(ll_items)
+    dst_adr += llmemory.itemoffsetof(lltype.typeOf(ll_items).TO, 0) # skip the GC header
     #
     ITEM = lltype.typeOf(src_ptr).TO.OF
     size = llmemory.sizeof(ITEM) * length
     llmemory.raw_memcopy(src_adr, dst_adr, size)
     # end of no-GC section
-    #
-    ll_list.items = new_items
-    ll_list.length = length
