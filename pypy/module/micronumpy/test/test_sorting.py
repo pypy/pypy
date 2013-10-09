@@ -62,17 +62,30 @@ class AppTestSupport(BaseNumpyAppTest):
 
     def test_sort_dtypes(self):
         from numpypy import array, arange
-        nnp = self.non_native_prefix
         for dtype in ['int', 'float', 'int16', 'float32', 'uint64',
-                        nnp + 'i2', complex]:
+                        'i2', complex]:
             a = array([6, 4, -1, 3, 8, 3, 256+20, 100, 101], dtype=dtype)
+            b = array([-1, 3, 3, 4, 6, 8, 100, 101, 256+20], dtype=dtype)
             c = a.copy()
             a.sort()
-            assert (a == [-1, 3, 3, 4, 6, 8, 100, 101, 256+20]).all(), \
+            assert (a == b).all(), \
                 'a,orig,dtype %r,%r,%r' % (a,c,dtype)
-            a = arange(100)
+        a = arange(100)
+        c = a.copy()
+        a.sort()
+        assert (a == c).all()
+
+    def test_sort_dtypesi_nonnative(self):
+        from numpypy import array
+        nnp = self.non_native_prefix
+        for dtype in [ nnp + 'i2']:
+            a = array([6, 4, -1, 3, 8, 3, 256+20, 100, 101], dtype=dtype)
+            b = array([-1, 3, 3, 4, 6, 8, 100, 101, 256+20], dtype=dtype)
             c = a.copy()
-            assert (a.sort() == c).all()
+            exc = raises(NotImplementedError, a.sort)
+            assert exc.value[0].find('supported') >= 0
+            #assert (a == b).all(), \
+            #    'a,orig,dtype %r,%r,%r' % (a,c,dtype)
 
 
 # tests from numpy/tests/test_multiarray.py
@@ -284,8 +297,6 @@ class AppTestSupport(BaseNumpyAppTest):
         assert (r['col2'] == [1, 3, 255, 258]).all()
         assert (r == array([('a', 1), ('c', 3), ('b', 255), ('d', 258)],
                                  dtype=mydtype)).all()
-
-
 
 
 # tests from numpy/tests/test_regression.py

@@ -635,8 +635,6 @@ class __extend__(W_NDimArray):
         # modify the array in-place
         if self.is_scalar():
             return
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            "sort not implemented yet"))
         return self.implementation.sort(space, w_axis, w_order)
 
     def descr_squeeze(self, space):

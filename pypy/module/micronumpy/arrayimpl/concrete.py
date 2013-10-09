@@ -356,6 +356,10 @@ class ConcreteArrayNotOwning(BaseConcreteArray):
         from pypy.module.micronumpy.arrayimpl.sort import argsort_array
         return argsort_array(self, space, w_axis)
 
+    def sort(self, space, w_axis, w_order):
+        from pypy.module.micronumpy.arrayimpl.sort import sort_array
+        return sort_array(self, space, w_axis, w_order)
+
     def base(self):
         return None
 
