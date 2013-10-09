@@ -193,7 +193,7 @@ class W_CoreEngine(W_Root):
         db = hndl.readall()
         hndl.close()
 
-        return space.call_function(w_cls, space.wrap(db), None, w_filename)
+        return space.call_function(w_cls, space.wrap(db), space.w_None, w_filename)
 
     def query_iter(self, w_goal_term, w_unbound_vars):
         """ Returns an iterator by which to acquire multiple solutions """

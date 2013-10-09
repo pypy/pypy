@@ -43,12 +43,12 @@ def unpack_prolog_list(obj):
 class Engine(CoreEngine):
     """ A subclass of unipycation.CoreEngine adding .db and .terms convenience
     features. """
-    def __new__(cls, db_str, ns=None):
+    def __new__(cls, db_str, ns=None, filename=None):
         if ns is None:
             ns = sys._getframe(1).f_globals
-        return CoreEngine.__new__(cls, db_str, ns)
+        return CoreEngine.__new__(cls, db_str, ns, filename)
 
-    def __init__(self, db_str, ns=None):
+    def __init__(self, db_str, ns=None, filename=None):
         self.db = Database(self)
         self.terms = TermPool()
 
