@@ -4,7 +4,7 @@ import sys
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.annlowlevel import llhelper
 from pypy.interpreter.baseobjspace import W_Root, DescrMismatch
-from pypy.objspace.std.typeobject import W_TypeObject
+from pypy.objspace.std.typeobject import W_TypeObject, find_best_base
 from pypy.interpreter.typedef import GetSetProperty
 from pypy.module.cpyext.api import (
     cpython_api, cpython_struct, bootstrap_function, Py_ssize_t, Py_ssize_tP,
@@ -575,6 +575,7 @@ def best_base(space, bases_w):
     if not bases_w:
         return None
 
+    return find_best_base(space, bases_w)
     w_winner = None
     w_base = None
     for w_base_i in bases_w:
