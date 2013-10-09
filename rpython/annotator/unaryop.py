@@ -333,12 +333,13 @@ class __extend__(SomeList):
         check_negative_slice(s_start, s_stop)
         lst.listdef.resize()
 
-def check_negative_slice(s_start, s_stop):
+def check_negative_slice(s_start, s_stop, error="slicing"):
     if isinstance(s_start, SomeInteger) and not s_start.nonneg:
-        raise AnnotatorError("slicing: not proven to have non-negative start")
+        raise AnnotatorError("%s: not proven to have non-negative start" %
+                             error)
     if isinstance(s_stop, SomeInteger) and not s_stop.nonneg and \
            getattr(s_stop, 'const', 0) != -1:
-        raise AnnotatorError("slicing: not proven to have non-negative stop")
+        raise AnnotatorError("%s: not proven to have non-negative stop" % error)
 
 
 class __extend__(SomeDict):
@@ -448,12 +449,15 @@ class __extend__(SomeString,
         return s_Bool
 
     def method_find(str, frag, start=None, end=None):
+        check_negative_slice(start, end, "find")
         return SomeInteger()
 
     def method_rfind(str, frag, start=None, end=None):
+        check_negative_slice(start, end, "rfind")
         return SomeInteger()
 
     def method_count(str, frag, start=None, end=None):
+        check_negative_slice(start, end, "count")
         return SomeInteger(nonneg=True)
 
     def method_strip(str, chr):
