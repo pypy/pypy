@@ -28,10 +28,9 @@ class AppTestCoreEngine(object):
         fname = self.fname
 
         os.write(fd, "f(1,2,3).")
-        os.close(fd)
+        os.fsync(fd)
 
         e = u.CoreEngine.from_file(fname)
-        os.unlink(fname)
 
         vs = [X, Y, Z] = [ u.Var() for x in range(3) ]
 
@@ -41,6 +40,15 @@ class AppTestCoreEngine(object):
         assert sol[X] == 1
         assert sol[Y] == 2
         assert sol[Z] == 3
+
+        # check parse error has file information
+        os.write(fd, "\nf(1,2,3).\nf(1 + + - ^")
+        os.close(fd)
+
+        info = raises(u.ParseError, u.CoreEngine.from_file, fname)
+        assert fname in str(info.value)
+        os.unlink(fname)
+
 
     def test_from_file_nul(self):
         import unipycation

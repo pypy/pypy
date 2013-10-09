@@ -161,24 +161,25 @@ W_Solution.typedef.acceptable_as_base_class = False
 
 # ---
 
-@unwrap_spec(prolog_code=str)
-def engine_new__(space, w_subtype, prolog_code, w_namespace=None):
+@unwrap_spec(prolog_code=str, filename='str_or_None')
+def engine_new__(space, w_subtype, prolog_code, w_namespace=None, filename=None):
     e = space.allocate_instance(W_CoreEngine, w_subtype)
-    W_CoreEngine.__init__(e, space, prolog_code, w_namespace)
+    W_CoreEngine.__init__(e, space, prolog_code, w_namespace, filename)
     return space.wrap(e)
 
 class W_CoreEngine(W_Root):
 
     _immutable_fields_ = ["engine"]
 
-    def __init__(self, space, prolog_code, w_python_namespace=None):
+    def __init__(self, space, prolog_code,
+                 w_python_namespace=None, filename=None):
         self.space = space                      # Stash space
         self.engine = e = continuation.Engine(load_system=True) # We embed an instance of prolog
         e.modulewrapper.python_engine = self
         self.w_python_namespace = w_python_namespace
 
         try:
-            e.runstring(prolog_code)# Load the database with the first arg
+            e.runstring(prolog_code, filename)# Load the database with the first arg
         except error.PrologParseError as e:
             w_ParseError = util.get_from_module(self.space, "unipycation", "ParseError")
             raise OperationError(w_ParseError, self.space.wrap(e.message))
@@ -192,7 +193,7 @@ class W_CoreEngine(W_Root):
         db = hndl.readall()
         hndl.close()
 
-        return space.call_function(w_cls, space.wrap(db))
+        return space.call_function(w_cls, space.wrap(db), None, w_filename)
 
     def query_iter(self, w_goal_term, w_unbound_vars):
         """ Returns an iterator by which to acquire multiple solutions """
