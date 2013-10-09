@@ -137,8 +137,8 @@ def make_argsort_function(space, itemtype, comp_type, count=1):
         else:
             shape = arr.get_shape()
             if axis < 0:
-                axis = len(shape) + axis - 1
-            if axis < 0 or axis > len(shape):
+                axis = len(shape) + axis
+            if axis < 0 or axis >= len(shape):
                 raise OperationError(space.w_IndexError, space.wrap(
                                                     "Wrong axis %d" % axis))
             iterable_shape = shape[:axis] + [0] + shape[axis + 1:]
@@ -270,7 +270,7 @@ def make_sort_function(space, itemtype, comp_type, count=1):
 
     def sort(arr, space, w_axis, itemsize):
         if w_axis is space.w_None:
-            # note that it's fine ot pass None here as we're not going
+            # note that it's fine to pass None here as we're not going
             # to pass the result around (None is the link to base in slices)
             arr = arr.reshape(space, None, [arr.get_size()])
             axis = 0
@@ -286,8 +286,8 @@ def make_sort_function(space, itemtype, comp_type, count=1):
         else:
             shape = arr.get_shape()
             if axis < 0:
-                axis = len(shape) + axis - 1
-            if axis < 0 or axis > len(shape):
+                axis = len(shape) + axis
+            if axis < 0 or axis >= len(shape):
                 raise OperationError(space.w_IndexError, space.wrap(
                                                     "Wrong axis %d" % axis))
             iterable_shape = shape[:axis] + [0] + shape[axis + 1:]

@@ -96,7 +96,7 @@ class AppTestSupport(BaseNumpyAppTest):
         # test doubles and complex doubles as the logic is the same.
 
         # check doubles
-        from numpypy import array, nan, zeros, complex128, arange, dtype
+        from numpypy import array, nan, zeros, complex128, arange
         from numpy import isnan
         a = array([nan, 1, 0])
         b = a.copy()
@@ -152,19 +152,6 @@ class AppTestSupport(BaseNumpyAppTest):
             c.sort(kind=kind)
             assert (c == ai).all(), msg
 
-        # test string sorts.
-        s = 'aaaaaaaa'
-        a = array([s + chr(i) for i in range(101)])
-        b = a[::-1].copy()
-        for kind in ['q', 'm', 'h'] :
-            msg = "string sort, kind=%s" % kind
-            c = a.copy();
-            c.sort(kind=kind)
-            assert (c == a).all(), msg
-            c = b.copy();
-            c.sort(kind=kind)
-            assert (c == a).all(), msg
-
         # check axis handling. This should be the same for all type
         # specific sorts, so we only check it for one type and one kind
         a = array([[3, 2], [1, 0]])
@@ -179,6 +166,22 @@ class AppTestSupport(BaseNumpyAppTest):
         d = a.copy()
         d.sort()
         assert (d == c).all(), "test sort with default axis"
+
+    def test_sort_corner_cases_string_records(self):
+        skip('not implemented yet')
+        from numpypy import array, dtype
+        # test string sorts.
+        s = 'aaaaaaaa'
+        a = array([s + chr(i) for i in range(101)])
+        b = a[::-1].copy()
+        for kind in ['q', 'm', 'h'] :
+            msg = "string sort, kind=%s" % kind
+            c = a.copy();
+            c.sort(kind=kind)
+            assert (c == a).all(), msg
+            c = b.copy();
+            c.sort(kind=kind)
+            assert (c == a).all(), msg
 
 
         # test record array sorts.
@@ -263,6 +266,7 @@ class AppTestSupport(BaseNumpyAppTest):
         from numpypy import array, zeros
         from sys import byteorder
         # Test sorting an array with fields
+        skip('not implemented yet')
         x1 = array([21, 32, 14])
         x2 = array(['my', 'first', 'name'])
         x3=array([3.1, 4.5, 6.2])
@@ -301,6 +305,7 @@ class AppTestSupport(BaseNumpyAppTest):
 
 # tests from numpy/tests/test_regression.py
     def test_sort_bigendian(self):
+        skip('not implemented yet')
         from numpypy import array, dtype
         a = array(range(11),dtype='float64')
         c = a.astype(dtype('<f8'))
@@ -308,6 +313,7 @@ class AppTestSupport(BaseNumpyAppTest):
         assert max(abs(a-c)) < 1e-32
 
     def test_string_sort_with_zeros(self):
+        skip('not implemented yet')
         from numpypy import fromstring
         """Check sort for strings containing zeros."""
         x = fromstring("\x00\x02\x00\x01", dtype="S2")
