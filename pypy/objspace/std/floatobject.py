@@ -1,5 +1,5 @@
 import operator
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.objspace.std import model, newformat
 from pypy.objspace.std.floattype import float_typedef, W_AbstractFloatObject
 from pypy.objspace.std.multimethod import FailedToImplementArgs
@@ -424,7 +424,16 @@ def pow__Float_Float_ANY(space, w_float1, w_float2, thirdArg):
     x = w_float1.floatval
     y = w_float2.floatval
 
-    return W_FloatObject(_pow(space, x, y))
+    try:
+        result = _pow(space, x, y)
+    except PowDomainError:
+        raise operationerrfmt(space.w_ValueError,
+                             "negative number cannot be raised to a "
+                              "fractional power")
+    return W_FloatObject(result)
+
+class PowDomainError(ValueError):
+    """Signals a negative number raised to a fractional power"""
 
 def _pow(space, x, y):
     # Sort out special cases here instead of relying on pow()
@@ -478,16 +487,14 @@ def _pow(space, x, y):
                                             "a negative power"))
 
     negate_result = False
-    # special case: "(-1.0) ** bignum" should not raise ValueError,
+    # special case: "(-1.0) ** bignum" should not raise PowDomainError,
     # unlike "math.pow(-1.0, bignum)".  See http://mail.python.org/
     # -           pipermail/python-bugs-list/2003-March/016795.html
     if x < 0.0:
         if isnan(y):
             return NAN
         if math.floor(y) != y:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("negative number cannot be "
-                                            "raised to a fractional power"))
+            raise PowDomainError
         # y is an exact integer, albeit perhaps a very large one.
         # Replace x by its absolute value and remember to negate the
         # pow result if y is odd.
