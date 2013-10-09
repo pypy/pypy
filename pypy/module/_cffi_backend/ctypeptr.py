@@ -58,19 +58,44 @@ class W_CTypePtrOrArray(W_CType):
             value = rffi.cast(rffi.CCHARP, value)
         return cdataobj.W_CData(space, value, self)
 
+    def _convert_array_from_list_strategy_maybe(self, cdata, w_ob):
+        from rpython.rlib.rarray import copy_list_to_raw_array
+        from pypy.objspace.std.listobject import W_ListObject, IntegerListStrategy
+        if not isinstance(w_ob, W_ListObject):
+            return False
+        #
+        int_stragegy = self.space.fromcache(IntegerListStrategy)
+
+        if w_ob.strategy is int_stragegy and self.ctitem.is_long():
+            int_list = w_ob.strategy.unerase(w_ob.lstorage)
+            cdata = rffi.cast(rffi.LONGP, cdata)
+            copy_list_to_raw_array(int_list, cdata)
+            return True
+
+        return False
+
+    def _convert_array_from_listview(self, cdata, w_ob):
+        space = self.space
+        lst_w = space.listview(w_ob)
+        if self.length >= 0 and len(lst_w) > self.length:
+            raise operationerrfmt(space.w_IndexError,
+                "too many initializers for '%s' (got %d)",
+                                  self.name, len(lst_w))
+        ctitem = self.ctitem
+        for i in range(len(lst_w)):
+            ctitem.convert_from_object(cdata, lst_w[i])
+            cdata = rffi.ptradd(cdata, ctitem.size)
+
     def convert_array_from_object(self, cdata, w_ob):
         space = self.space
+        if self._convert_array_from_list_strategy_maybe(cdata, w_ob):
+            # the fast path worked, we are done now
+            return
+        #
+        # continue with the slow path
         if (space.isinstance_w(w_ob, space.w_list) or
             space.isinstance_w(w_ob, space.w_tuple)):
-            lst_w = space.listview(w_ob)
-            if self.length >= 0 and len(lst_w) > self.length:
-                raise operationerrfmt(space.w_IndexError,
-                    "too many initializers for '%s' (got %d)",
-                                      self.name, len(lst_w))
-            ctitem = self.ctitem
-            for i in range(len(lst_w)):
-                ctitem.convert_from_object(cdata, lst_w[i])
-                cdata = rffi.ptradd(cdata, ctitem.size)
+            self._convert_array_from_listview(cdata, w_ob)
         elif (self.can_cast_anything or
               (self.ctitem.is_primitive_integer and
                self.ctitem.size == rffi.sizeof(lltype.Char))):

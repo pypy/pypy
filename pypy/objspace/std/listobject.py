@@ -139,6 +139,8 @@ def list_unroll_condition(w_list1, space, w_list2):
 
 class W_ListObject(W_Root):
 
+    strategy = None
+
     def __init__(self, space, wrappeditems, sizehint=-1):
         assert isinstance(wrappeditems, list)
         self.space = space
