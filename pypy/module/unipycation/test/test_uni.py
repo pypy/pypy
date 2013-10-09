@@ -180,9 +180,14 @@ class AppTestHighLevelInterface(object):
 
         e = uni.Engine("f(X) :- willsmith(1, [1,2,3], X).")
         info = raises(uni.PrologError, e.db.f, None)
+        e.db.f(None)
         assert str(info.value.term) == "error(existence_error(procedure, willsmith/3))"
         # check error string
-        assert str(info.value) == "Undefined procedure: willsmith/3"
+        assert str(info.value) == """\
+PROLOG: Traceback (most recent call last):
+  File "<unknown>" line 0 in user:f/1
+    f(X) :- willsmith(1, [1,2,3], X).
+Undefined procedure: willsmith/3"""
 
     def test_call_python(self):
         import uni
