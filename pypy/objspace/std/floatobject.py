@@ -428,7 +428,7 @@ def pow__Float_Float_ANY(space, w_float1, w_float2, thirdArg):
         result = _pow(space, x, y)
     except PowDomainError:
         raise operationerrfmt(space.w_ValueError,
-                             "negative number cannot be raised to a "
+                              "negative number cannot be raised to a "
                               "fractional power")
     return W_FloatObject(result)
 
