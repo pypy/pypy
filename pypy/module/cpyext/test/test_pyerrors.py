@@ -70,9 +70,10 @@ class TestExceptions(BaseApiTest):
         api.PyErr_Clear()
 
     def test_BadArgument(self, space, api):
-        api.PyErr_BadArgument()
+        ret = api.PyErr_BadArgument()
         state = space.fromcache(State)
         assert space.eq_w(state.operror.w_type, space.w_TypeError)
+        assert ret == 0
         api.PyErr_Clear()
 
     def test_Warning(self, space, api, capfd):

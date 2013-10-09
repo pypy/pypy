@@ -110,7 +110,7 @@ class PyPyJitPolicy(JitPolicy):
                        '__pypy__', 'cStringIO', '_collections', 'struct',
                        'mmap', 'marshal', '_codecs', 'rctime', 'cppyy',
                        '_cffi_backend', 'pyexpat', '_continuation', '_io',
-                       'thread']:
+                       'thread', 'select']:
             if modname == 'pypyjit' and 'interp_resop' in rest:
                 return False
             return True
