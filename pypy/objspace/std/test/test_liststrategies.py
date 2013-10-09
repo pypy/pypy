@@ -225,6 +225,15 @@ class TestW_ListStrategies(TestW_ListObject):
         l.setslice(0, 1, 2, W_ListObject(space, [w('a'), w(2), w(3)]))
         assert isinstance(l.strategy, ObjectListStrategy)
 
+    def test_setslice_int_range(self):
+        space = self.space
+        w = space.wrap
+        l = W_ListObject(space, [w(1), w(2), w(3)])
+        assert isinstance(l.strategy, IntegerListStrategy)
+        l.setslice(0, 1, 2, make_range_list(space, 5, 1, 4))
+        assert isinstance(l.strategy, IntegerListStrategy)
+
+
     def test_setslice_List(self):
         space = self.space
 

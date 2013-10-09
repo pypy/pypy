@@ -1328,7 +1328,6 @@ class AbstractUnwrappedStrategy(object):
 
     def setslice(self, w_list, start, step, slicelength, w_other):
         assert slicelength >= 0
-        items = self.unerase(w_list.lstorage)
 
         if self is self.space.fromcache(ObjectListStrategy):
             w_other = w_other._temporarily_as_objects()
@@ -1340,6 +1339,7 @@ class AbstractUnwrappedStrategy(object):
             w_list.setslice(start, step, slicelength, w_other_as_object)
             return
 
+        items = self.unerase(w_list.lstorage)
         oldsize = len(items)
         len2 = w_other.length()
         if step == 1:  # Support list resizing for non-extended slices
@@ -1534,6 +1534,15 @@ class IntegerListStrategy(ListStrategy):
             return
         return self._base_extend_from_list(w_list, w_other)
 
+
+    _base_setslice = setslice
+
+    def setslice(self, w_list, start, step, slicelength, w_other):
+        if w_other.strategy is self.space.fromcache(RangeListStrategy):
+            storage = self.erase(w_other.getitems_int())
+            w_other = W_ListObject.from_storage_and_strategy(
+                    self.space, storage, self)
+        return self._base_setslice(w_list, start, step, slicelength, w_other)
 
 class FloatListStrategy(ListStrategy):
     import_from_mixin(AbstractUnwrappedStrategy)
