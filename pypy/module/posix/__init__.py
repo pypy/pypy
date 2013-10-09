@@ -50,6 +50,7 @@ corresponding Unix manual entries for more information on calls."""
         'lstat': 'interp_posix.lstat',
         'stat_float_times': 'interp_posix.stat_float_times',
 
+        'ctermid': 'interp_posix.ctermid',
         'dup': 'interp_posix.dup',
         'dup2': 'interp_posix.dup2',
         'access': 'interp_posix.access',
