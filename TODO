@@ -17,3 +17,8 @@
 
 * REDO card marking, starting with "card_page_indices": 128 in
   TRANSLATION_PARAMS
+
+* write barrier: avoid the case when during sweeping we have GCFLAG_VISITED
+  on an object, so we call the slow path, but the slow path doesn't do
+  anything, and we still have GCFLAG_VISITED so we will keep calling it
+  on the same object
