@@ -2922,6 +2922,11 @@ class AppTestRecordDtype(BaseNumpyAppTest):
                         dtype=[('bg', 'i8'), ('fg', 'i8'), ('char', 'S1')])
         assert c[0][0]["char"] == 'a'
 
+    def test_scalar_coercion(self):
+        import numpypy as np
+        a = np.array([1,2,3], dtype=np.int16)
+        assert (a * 2).dtype == np.int16
+
 class AppTestPyPy(BaseNumpyAppTest):
     def setup_class(cls):
         if option.runappdirect and '__pypy__' not in sys.builtin_module_names:

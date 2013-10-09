@@ -1218,3 +1218,10 @@ def urandom(space, n):
         return space.wrap(rurandom.urandom(context, n))
     except OSError, e:
         raise wrap_oserror(space, e)
+
+def ctermid(space):
+    """ctermid() -> string
+
+    Return the name of the controlling terminal for this process.
+    """
+    return space.wrap(os.ctermid())

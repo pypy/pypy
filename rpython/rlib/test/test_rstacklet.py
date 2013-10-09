@@ -1,5 +1,6 @@
 import gc, sys
 import py
+import platform
 from rpython.rtyper.tool.rffi_platform import CompilationError
 try:
     from rpython.rlib import rstacklet
@@ -331,6 +332,10 @@ class DONTTestStackletBoehm(BaseTestStacklet):
 class TestStackletAsmGcc(BaseTestStacklet):
     gc = 'minimark'
     gcrootfinder = 'asmgcc'
+
+    @py.test.mark.skipif("sys.platform != 'linux2' or platform.machine().startswith('arm')")
+    def test_demo1(self):
+        BaseTestStacklet.test_demo1(self)
 
 class TestStackletShadowStack(BaseTestStacklet):
     gc = 'minimark'

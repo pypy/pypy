@@ -3442,6 +3442,29 @@ class TestAnnotateTestCase:
 
         a.build_types(f, [str])
 
+    def test_negative_number_find(self):
+        def f(s, e):
+            return "xyz".find("x", s, e)
+
+        a = self.RPythonAnnotator()
+        py.test.raises(annmodel.AnnotatorError, "a.build_types(f, [int, int])")
+        a.build_types(f, [annmodel.SomeInteger(nonneg=True),
+                          annmodel.SomeInteger(nonneg=True)])
+        def f(s, e):
+            return "xyz".rfind("x", s, e)
+
+        py.test.raises(annmodel.AnnotatorError, "a.build_types(f, [int, int])")
+        a.build_types(f, [annmodel.SomeInteger(nonneg=True),
+                          annmodel.SomeInteger(nonneg=True)])
+
+        def f(s, e):
+            return "xyz".count("x", s, e)
+
+        py.test.raises(annmodel.AnnotatorError, "a.build_types(f, [int, int])")
+        a.build_types(f, [annmodel.SomeInteger(nonneg=True),
+                          annmodel.SomeInteger(nonneg=True)])
+        
+
     def test_setslice(self):
         def f():
             lst = [2, 5, 7]
@@ -4080,7 +4103,7 @@ class TestAnnotateTestCase:
         with py.test.raises(annmodel.UnionError) as exc:
             a.build_types(f, [int])
 
-        assert ("RPython cannot unify instances with no common base class" 
+        assert ("RPython cannot unify instances with no common base class"
                 in exc.value.msg)
 
     def test_unionerror_iters(self):
@@ -4096,7 +4119,7 @@ class TestAnnotateTestCase:
         with py.test.raises(annmodel.UnionError) as exc:
             a.build_types(f, [int])
 
-        assert ("RPython cannot unify incompatible iterator variants" in 
+        assert ("RPython cannot unify incompatible iterator variants" in
                 exc.value.msg)
 
     def test_variable_getattr(self):

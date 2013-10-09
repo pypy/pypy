@@ -416,6 +416,14 @@ class AbstractTestRstr(BaseRtypingTest):
             res = self.interpret(f, [i])
             assert res == expected
 
+    def test_rfind_error_message(self):
+        const = self.const
+        def f(i):
+            return const("abc").rfind(const(''), i)
+        e = py.test.raises(TyperError, self.interpret, f, [-5])
+        assert str(e.value).startswith(
+            'str.rfind() start must be proven non-negative')
+
     def test_find_char(self):
         const = self.const
         def fn(ch):
