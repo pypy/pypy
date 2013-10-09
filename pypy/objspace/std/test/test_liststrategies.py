@@ -467,6 +467,12 @@ class TestW_ListStrategies(TestW_ListObject):
         l4 = W_ListObject(self.space, [self.space.wrap(1), self.space.wrap(2), self.space.wrap(3), self.space.wrap(1), self.space.wrap(2), self.space.wrap(3)])
         assert self.space.eq_w(l3, l4)
 
+    def test_add_of_range_and_int(self):
+        l1 = make_range_list(self.space, 0, 1, 100)
+        l2 = W_ListObject(self.space, [self.space.wrap(1), self.space.wrap(2), self.space.wrap(3)])
+        l3 = self.space.add(l2, l1)
+        assert l3.strategy is l2.strategy
+
     def test_mul(self):
         l1 = W_ListObject(self.space, [self.space.wrap(1), self.space.wrap(2), self.space.wrap(3)])
         l2 = l1.mul(2)

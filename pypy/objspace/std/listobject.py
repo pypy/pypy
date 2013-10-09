@@ -30,7 +30,7 @@ from pypy.objspace.std.util import get_positive_index, negate
 from rpython.rlib import debug, jit, rerased
 from rpython.rlib.listsort import make_timsort_class
 from rpython.rlib.objectmodel import (
-    instantiate, newlist_hint, resizelist_hint, specialize)
+    instantiate, newlist_hint, resizelist_hint, specialize, import_from_mixin)
 from rpython.tool.sourcetools import func_with_new_name
 
 __all__ = ['W_ListObject', 'make_range_list', 'make_empty_list_with_size']
@@ -1170,7 +1170,6 @@ class RangeListStrategy(ListStrategy):
 
 
 class AbstractUnwrappedStrategy(object):
-    _mixin_ = True
 
     def wrap(self, unwrapped):
         raise NotImplementedError
@@ -1456,7 +1455,9 @@ class AbstractUnwrappedStrategy(object):
         self.unerase(w_list.lstorage).reverse()
 
 
-class ObjectListStrategy(AbstractUnwrappedStrategy, ListStrategy):
+class ObjectListStrategy(ListStrategy):
+    import_from_mixin(AbstractUnwrappedStrategy)
+
     _none_value = None
     _applevel_repr = "object"
 
@@ -1489,7 +1490,9 @@ class ObjectListStrategy(AbstractUnwrappedStrategy, ListStrategy):
         return self.unerase(w_list.lstorage)
 
 
-class IntegerListStrategy(AbstractUnwrappedStrategy, ListStrategy):
+class IntegerListStrategy(ListStrategy):
+    import_from_mixin(AbstractUnwrappedStrategy)
+
     _none_value = 0
     _applevel_repr = "int"
 
@@ -1520,7 +1523,21 @@ class IntegerListStrategy(AbstractUnwrappedStrategy, ListStrategy):
         return self.unerase(w_list.lstorage)
 
 
-class FloatListStrategy(AbstractUnwrappedStrategy, ListStrategy):
+    _base_extend_from_list = _extend_from_list
+
+    def _extend_from_list(self, w_list, w_other):
+        if w_other.strategy is self.space.fromcache(RangeListStrategy):
+            l = self.unerase(w_list.lstorage)
+            other = w_other.getitems_int()
+            assert other is not None
+            l += other
+            return
+        return self._base_extend_from_list(w_list, w_other)
+
+
+class FloatListStrategy(ListStrategy):
+    import_from_mixin(AbstractUnwrappedStrategy)
+
     _none_value = 0.0
     _applevel_repr = "float"
 
@@ -1548,7 +1565,9 @@ class FloatListStrategy(AbstractUnwrappedStrategy, ListStrategy):
             l.reverse()
 
 
-class StringListStrategy(AbstractUnwrappedStrategy, ListStrategy):
+class StringListStrategy(ListStrategy):
+    import_from_mixin(AbstractUnwrappedStrategy)
+
     _none_value = None
     _applevel_repr = "str"
 
@@ -1579,7 +1598,9 @@ class StringListStrategy(AbstractUnwrappedStrategy, ListStrategy):
         return self.unerase(w_list.lstorage)
 
 
-class UnicodeListStrategy(AbstractUnwrappedStrategy, ListStrategy):
+class UnicodeListStrategy(ListStrategy):
+    import_from_mixin(AbstractUnwrappedStrategy)
+
     _none_value = None
     _applevel_repr = "unicode"
 
