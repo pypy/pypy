@@ -253,7 +253,12 @@ def make_sort_function(space, itemtype, comp_type, count=1):
     else:
         def arg_lt(a, b):
             for i in range(count):
-                if a[i] < b[i] or b != b and a == a:
+                if b[i] != b[i] and a[i] == a[i]:
+                    return True
+                elif b[i] == b[i] and a[i] != a[i]:
+                    return False
+            for i in range(count):
+                if a[i] < b[i]:
                     return True
                 elif a[i] > b[i]:
                     return False
