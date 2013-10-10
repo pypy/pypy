@@ -2965,6 +2965,17 @@ class AppTestRecordDtype(BaseNumpyAppTest):
 
         assert len(list(a[0])) == 2
 
+    def test_issue_1589(self):
+        import numpypy as numpy
+        c = numpy.array([[(1, 2, 'a'), (3, 4, 'b')], [(5, 6, 'c'), (7, 8, 'd')]],
+                        dtype=[('bg', 'i8'), ('fg', 'i8'), ('char', 'S1')])
+        assert c[0][0]["char"] == 'a'
+
+    def test_scalar_coercion(self):
+        import numpypy as np
+        a = np.array([1,2,3], dtype=np.int16)
+        assert (a * 2).dtype == np.int16
+
 class AppTestPyPy(BaseNumpyAppTest):
     def setup_class(cls):
         if option.runappdirect and '__pypy__' not in sys.builtin_module_names:

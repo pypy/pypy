@@ -26,6 +26,8 @@ from pypy.interpreter.typedef import TypeDef
 class Lock(W_Root):
     "A box around an interp-level lock object."
 
+    _immutable_fields_ = ["lock"]
+
     def __init__(self, space):
         self.space = space
         try:

@@ -78,3 +78,100 @@ class TestFile(BaseRtypingTest):
 
         f()
         self.interpret(f, [])
+
+    def test_fileno(self):
+        fname = str(self.tmpdir.join('file_5'))
+
+        def f():
+            f = open(fname, "w")
+            try:
+                return f.fileno()
+            finally:
+                f.close()
+
+        res = self.interpret(f, [])
+        assert res > 2
+
+    def test_tell(self):
+        fname = str(self.tmpdir.join('file_tell'))
+
+        def f():
+            f = open(fname, "w")
+            f.write("xyz")
+            try:
+                return f.tell()
+            finally:
+                f.close()
+
+        res = self.interpret(f, [])
+        assert res == 3
+
+    def test_flush(self):
+        fname = str(self.tmpdir.join('file_flush'))
+
+        def f():
+            f = open(fname, "w")
+            f.write("xyz")
+            f.flush()
+            f2 = open(fname)
+            assert f2.read() == "xyz"
+            f2.close()
+            f.close()
+
+        self.interpret(f, [])
+
+    def test_truncate(self):
+        fname = str(self.tmpdir.join('file_trunc'))
+
+        def f():
+            f = open(fname, "w")
+            f.write("xyz")
+            f.seek(0)
+            f.truncate(2)
+            f.close()
+            f2 = open(fname)
+            assert f2.read() == "xy"
+            f2.close()
+
+        f()
+        self.interpret(f, [])
+
+
+class TestDirect:
+    def setup_class(cls):
+        cls.tmpdir = udir.join('test_rfile_direct')
+        cls.tmpdir.ensure(dir=True)
+
+    def test_readline(self):
+        fname = str(self.tmpdir.join('file_readline'))
+        j = 0
+        expected = []
+        with open(fname, 'w') as f:
+            for i in range(250):
+                s = ''.join([chr(32+(k&63)) for k in range(j, j + i)])
+                j += 1
+                print >> f, s
+        expected = open(fname).readlines()
+        expected += ['', '']
+        assert len(expected) == 252
+
+        f = rfile.create_file(fname, 'r')
+        for j in range(252):
+            got = f.readline()
+            assert got == expected[j]
+        f.close()
+
+    def test_readline_without_eol_at_the_end(self):
+        fname = str(self.tmpdir.join('file_readline_without_eol_at_the_end'))
+        for n in [1, 10, 97, 98, 99, 100, 101, 102, 103, 150,
+                  196, 197, 198, 199, 200, 201, 202, 203, 204, 250]:
+            s = ''.join([chr(32+(k&63)) for k in range(n)])
+            with open(fname, 'wb') as f:
+                f.write(s)
+
+            f = rfile.create_file(fname, 'r')
+            got = f.readline()
+            assert got == s
+            got = f.readline()
+            assert got == ''
+            f.close()

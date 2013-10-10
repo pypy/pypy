@@ -60,7 +60,8 @@ class LexerError(Exception):
         self.args = (input, state, source_pos)
 
     def nice_error_message(self, filename="<unknown>"):
-        result = ["  File %s, line %s" % (filename, self.source_pos.lineno)]
+        # + 1 is because source_pos is 0-based and humans 1-based
+        result = ["  File %s, line %s" % (filename, self.source_pos.lineno + 1)]
         result.append(self.input.split("\n")[self.source_pos.lineno])
         result.append(" " * self.source_pos.columnno + "^")
         result.append("LexerError")

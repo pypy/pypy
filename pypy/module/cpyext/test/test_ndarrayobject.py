@@ -90,15 +90,16 @@ class TestNDArrayObject(BaseApiTest):
     def test_FromAny(self, space, api):
         a = array(space, [10, 5, 3])
         assert api._PyArray_FromAny(a, NULL, 0, 0, 0, NULL) is a
-        self.raises(space, api, NotImplementedError, api._PyArray_FromAny,
-                    a, NULL, 0, 3, 0, NULL)
+        assert api._PyArray_FromAny(a, NULL, 1, 4, 0, NULL) is a
+        self.raises(space, api, ValueError, api._PyArray_FromAny,
+                    a, NULL, 4, 5, 0, NULL)
 
     def test_FromObject(self, space, api):
         a = array(space, [10, 5, 3])
         assert api._PyArray_FromObject(a, a.get_dtype().num, 0, 0) is a
-        exc = self.raises(space, api, NotImplementedError, api._PyArray_FromObject,
-                    a, 11, 0, 3)
-        assert exc.errorstr(space).find('FromObject') >= 0
+        exc = self.raises(space, api, ValueError, api._PyArray_FromObject,
+                    a, 11, 4, 5)
+        assert exc.errorstr(space).find('desired') >= 0
 
     def test_list_from_fixedptr(self, space, api):
         A = lltype.GcArray(lltype.Float)

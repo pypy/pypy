@@ -113,7 +113,7 @@ class TestString(BaseTestPyPyC):
             i13 = strgetitem(p9, 0)
             i15 = int_eq(i13, 45)
             guard_false(i15, descr=...)
-            i17 = int_sub(0, i10)
+            i17 = int_neg(i10)
             i19 = int_gt(i10, 23)
             guard_false(i19, descr=...)
             p21 = newstr(23)

@@ -94,6 +94,18 @@ class TestAddressStack(object):
             assert a == addrs[i]
         assert not ll.non_empty()
 
+    def test_length(self):
+        AddressStack = get_address_stack(10)
+        ll = AddressStack()
+        a = raw_malloc(llmemory.sizeof(lltype.Signed))
+        for i in range(42):
+            assert ll.length() == i
+            ll.append(a)
+        for i in range(42-1, -1, -1):
+            b = ll.pop()
+            assert b == a
+            assert ll.length() == i
+
 
 class TestAddressDeque:
     def test_big_access(self):

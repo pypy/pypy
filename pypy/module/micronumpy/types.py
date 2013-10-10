@@ -1766,14 +1766,14 @@ class StringType(BaseType, BaseStringType):
 
     def store(self, arr, i, offset, box):
         assert isinstance(box, interp_boxes.W_StringBox)
-        # XXX simplify to range(box.dtype.get_size()) ?
         return self._store(arr.storage, i, offset, box)
 
     @jit.unroll_safe
     def _store(self, storage, i, offset, box):
         assert isinstance(box, interp_boxes.W_StringBox)
-        for k in range(min(self.size, box.arr.size-offset)):
-            storage[k + i] = box.arr.storage[k + offset]
+        # XXX simplify to range(box.dtype.get_size()) ?
+        for k in range(min(self.size, box.arr.size-box.ofs)):
+            storage[k + offset + i] = box.arr.storage[k + box.ofs]
 
     def read(self, arr, i, offset, dtype=None):
         if dtype is None:
