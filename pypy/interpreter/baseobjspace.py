@@ -895,6 +895,20 @@ class ObjSpace(object):
         """
         return None
 
+    def listview_int(self, w_list):
+        """ Return a list of unwrapped int out of a list of int. If the
+        argument is not a list or does not contain only int, return None.
+        May return None anyway.
+        """
+        return None
+
+    def listview_float(self, w_list):
+        """ Return a list of unwrapped float out of a list of float. If the
+        argument is not a list or does not contain only float, return None.
+        May return None anyway.
+        """
+        return None
+
     def view_as_kwargs(self, w_dict):
         """ if w_dict is a kwargs-dict, return two lists, one of unwrapped
         strings and one of wrapped values. otherwise return (None, None)
