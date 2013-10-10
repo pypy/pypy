@@ -283,7 +283,10 @@ class W_CData(W_Root):
         return self.ctype.iter(self)
 
     def unpackiterable_int(self, space):
-        return self.ctype.unpackiterable_int(self)
+        return self.ctype.aslist_int(self)
+
+    def unpackiterable_float(self, space):
+        return self.ctype.aslist_float(self)
 
     @specialize.argtype(1)
     def write_raw_signed_data(self, source):

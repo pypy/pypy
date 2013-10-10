@@ -105,11 +105,21 @@ class W_CTypeArray(W_CTypePtrOrArray):
     def iter(self, cdata):
         return W_CDataIter(self.space, self.ctitem, cdata)
 
-    def unpackiterable_int(self, cdata):
+    def aslist_int(self, cdata):
         from rpython.rlib.rarray import populate_list_from_raw_array
         if self.ctitem.is_long():
             res = []
             buf = rffi.cast(rffi.LONGP, cdata._cdata)
+            length = cdata.get_array_length()
+            populate_list_from_raw_array(res, buf, length)
+            return res
+        return None
+
+    def aslist_float(self, cdata):
+        from rpython.rlib.rarray import populate_list_from_raw_array
+        if self.ctitem.is_double():
+            res = []
+            buf = rffi.cast(rffi.DOUBLEP, cdata._cdata)
             length = cdata.get_array_length()
             populate_list_from_raw_array(res, buf, length)
             return res

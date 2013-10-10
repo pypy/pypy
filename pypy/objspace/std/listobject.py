@@ -949,13 +949,16 @@ class EmptyListStrategy(ListStrategy):
             w_list.__init__(space, w_iterable.getitems_copy())
             return
 
-        intlist = space.listview_int(w_iterable)
-        if intlist is None:
-            intlist = space.unpackiterable_int(w_iterable)
+        intlist = space.unpackiterable_int(w_iterable)
         if intlist is not None:
             w_list.strategy = strategy = space.fromcache(IntegerListStrategy)
-            # need to copy because intlist can share with w_iterable
-            w_list.lstorage = strategy.erase(intlist[:])
+            w_list.lstorage = strategy.erase(intlist)
+            return
+
+        floatlist = space.unpackiterable_float(w_iterable)
+        if floatlist is not None:
+            w_list.strategy = strategy = space.fromcache(FloatListStrategy)
+            w_list.lstorage = strategy.erase(floatlist)
             return
 
         strlist = space.listview_str(w_iterable)

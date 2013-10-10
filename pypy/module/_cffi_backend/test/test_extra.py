@@ -71,3 +71,16 @@ class AppTest_fast_path_to_list(object):
         lst = list(buf)
         assert lst == [1, 2, 3]
         assert self.get_count() == 1
+
+    def test_list_float(self):
+        import _cffi_backend
+        DOUBLE = _cffi_backend.new_primitive_type('double')
+        P_DOUBLE = _cffi_backend.new_pointer_type(DOUBLE)
+        DOUBLE_ARRAY = _cffi_backend.new_array_type(P_DOUBLE, 3)
+        buf = _cffi_backend.newp(DOUBLE_ARRAY)
+        buf[0] = 1.1
+        buf[1] = 2.2
+        buf[2] = 3.3
+        lst = list(buf)
+        assert lst == [1.1, 2.2, 3.3]
+        assert self.get_count() == 1
