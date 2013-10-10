@@ -60,22 +60,15 @@ class W_CTypePtrOrArray(W_CType):
 
     def _convert_array_from_list_strategy_maybe(self, cdata, w_ob):
         from rpython.rlib.rarray import copy_list_to_raw_array
-        from pypy.objspace.std.listobject import (W_ListObject,
-                                                  IntegerListStrategy, FloatListStrategy)
-        if not isinstance(w_ob, W_ListObject):
-            return False
+        int_list = self.space.listview_int(w_ob)
+        float_list = self.space.listview_float(w_ob)
         #
-        int_stragegy = self.space.fromcache(IntegerListStrategy)
-        float_strategy = self.space.fromcache(FloatListStrategy)
-        #
-        if w_ob.strategy is int_stragegy and self.ctitem.is_long():
-            int_list = IntegerListStrategy.unerase(w_ob.lstorage)
+        if self.ctitem.is_long() and int_list is not None:
             cdata = rffi.cast(rffi.LONGP, cdata)
             copy_list_to_raw_array(int_list, cdata)
             return True
         #
-        if w_ob.strategy is float_strategy and self.ctitem.is_double():
-            float_list = FloatListStrategy.unerase(w_ob.lstorage)
+        if self.ctitem.is_double() and float_list is not None:
             cdata = rffi.cast(rffi.DOUBLEP, cdata)
             copy_list_to_raw_array(float_list, cdata)
             return True
