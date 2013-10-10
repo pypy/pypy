@@ -472,6 +472,15 @@ class StdObjSpace(ObjSpace):
             return w_obj.getitems_int()
         return None
 
+    def listview_float(self, w_obj):
+        if type(w_obj) is W_ListObject:
+            return w_obj.getitems_float()
+        # dict and set don't have FloatStrategy, so we can just ignore them
+        # for now
+        if isinstance(w_obj, W_ListObject) and self._uses_list_iter(w_obj):
+            return w_obj.getitems_float()
+        return None
+
     def view_as_kwargs(self, w_dict):
         if type(w_dict) is W_DictMultiObject:
             return w_dict.view_as_kwargs()

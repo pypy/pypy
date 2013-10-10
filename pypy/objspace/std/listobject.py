@@ -292,6 +292,11 @@ class W_ListObject(W_Root):
         """Return the items in the list as unwrapped ints. If the list does not
         use the list strategy, return None."""
         return self.strategy.getitems_int(self)
+
+    def getitems_float(self):
+        """Return the items in the list as unwrapped floats. If the list does not
+        use the list strategy, return None."""
+        return self.strategy.getitems_float(self)
     # ___________________________________________________
 
     def mul(self, times):
@@ -755,6 +760,9 @@ class ListStrategy(object):
         return None
 
     def getitems_int(self, w_list):
+        return None
+
+    def getitems_float(self, w_list):
         return None
 
     def getstorage_copy(self, w_list):
@@ -1574,6 +1582,9 @@ class FloatListStrategy(ListStrategy):
         sorter.sort()
         if reverse:
             l.reverse()
+
+    def getitems_float(self, w_list):
+        return self.unerase(w_list.lstorage)
 
 
 class StringListStrategy(ListStrategy):
