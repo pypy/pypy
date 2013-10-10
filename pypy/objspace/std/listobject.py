@@ -950,6 +950,8 @@ class EmptyListStrategy(ListStrategy):
             return
 
         intlist = space.listview_int(w_iterable)
+        if intlist is None:
+            intlist = space.unpackiterable_int(w_iterable)
         if intlist is not None:
             w_list.strategy = strategy = space.fromcache(IntegerListStrategy)
             # need to copy because intlist can share with w_iterable

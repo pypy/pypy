@@ -282,6 +282,9 @@ class W_CData(W_Root):
     def iter(self):
         return self.ctype.iter(self)
 
+    def unpackiterable_int(self, space):
+        return self.ctype.unpackiterable_int(self)
+
     @specialize.argtype(1)
     def write_raw_signed_data(self, source):
         misc.write_raw_signed_data(self._cdata, source, self.ctype.size)

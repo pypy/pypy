@@ -163,6 +163,9 @@ class W_CType(W_Root):
                               "cdata '%s' does not support iteration",
                               self.name)
 
+    def unpackiterable_int(self, cdata):
+        return None
+
     def get_vararg_type(self):
         return self
 
