@@ -69,13 +69,13 @@ class W_CTypePtrOrArray(W_CType):
         float_strategy = self.space.fromcache(FloatListStrategy)
         #
         if w_ob.strategy is int_stragegy and self.ctitem.is_long():
-            int_list = w_ob.strategy.unerase(w_ob.lstorage)
+            int_list = IntegerListStrategy.unerase(w_ob.lstorage)
             cdata = rffi.cast(rffi.LONGP, cdata)
             copy_list_to_raw_array(int_list, cdata)
             return True
         #
         if w_ob.strategy is float_strategy and self.ctitem.is_double():
-            float_list = w_ob.strategy.unerase(w_ob.lstorage)
+            float_list = FloatListStrategy.unerase(w_ob.lstorage)
             cdata = rffi.cast(rffi.DOUBLEP, cdata)
             copy_list_to_raw_array(float_list, cdata)
             return True
