@@ -8,8 +8,8 @@ for overflows, something CPython does not do anymore.
 from rpython.rlib import jit
 from rpython.rlib.rarithmetic import (
     LONG_BIT, is_valid_int, ovfcheck, string_to_int, r_uint)
-from rpython.rlib.rbigint import rbigint
 from rpython.rlib.objectmodel import instantiate
+from rpython.rlib.rbigint import rbigint
 from rpython.rlib.rstring import ParseStringError, ParseStringOverflowError
 from rpython.tool.sourcetools import func_with_new_name
 
@@ -186,7 +186,7 @@ class W_AbstractIntObject(W_Object):
         return space.newtuple([w(z), w(m)])
 
     @unwrap_spec(w_modulus=WrappedDefault(None))
-    def descr_pow(self, space, w_exponent, w_modulus):
+    def descr_pow(self, space, w_exponent, w_modulus=None):
         if not space.isinstance_w(w_exponent, space.w_int):
             return space.w_NotImplemented
         if space.is_none(w_modulus):
@@ -217,10 +217,11 @@ class W_AbstractIntObject(W_Object):
         return space.pow(w_long1, w_exponent, w_modulus)
 
     @unwrap_spec(w_modulus=WrappedDefault(None))
-    def descr_rpow(self, space, w_base, w_modulus):
+    def descr_rpow(self, space, w_base, w_modulus=None):
         if not space.isinstance_w(w_base, space.w_int):
             return space.w_NotImplemented
-        # XXX: this seems like trouble?
+        # XXX: this seems like trouble?  very likely trouble with int
+        # subclasses implementing __pow__
         return space.pow(w_base, self, w_modulus)
 
     def descr_neg(self, space):
@@ -658,6 +659,7 @@ will be returned instead.''',
     __gt__ = interpindirect2app(W_AbstractIntObject.descr_gt),
     __ge__ = interpindirect2app(W_AbstractIntObject.descr_ge),
 
+    # XXX: rtruediv
     __floordiv__ = interpindirect2app(W_AbstractIntObject.descr_floordiv),
     __div__ = interpindirect2app(W_AbstractIntObject.descr_div),
     __truediv__ = interpindirect2app(W_AbstractIntObject.descr_truediv),

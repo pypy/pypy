@@ -39,7 +39,7 @@ class StdTypeModel:
             from pypy.objspace.std.bytearraytype import bytearray_typedef
             from pypy.objspace.std.typeobject   import type_typedef
             from pypy.objspace.std.slicetype  import slice_typedef
-            from pypy.objspace.std.longtype   import long_typedef
+            #from pypy.objspace.std.longtype   import long_typedef
             from pypy.objspace.std.unicodetype import unicode_typedef
             from pypy.objspace.std.nonetype import none_typedef
         self.pythontypes = [value for key, value in result.__dict__.items()
@@ -81,6 +81,7 @@ class StdTypeModel:
         self.pythontypes.append(iterobject.W_AbstractSeqIterObject.typedef)
         self.pythontypes.append(intobject.W_IntObject.typedef)
         self.pythontypes.append(boolobject.W_BoolObject.typedef)
+        self.pythontypes.append(longobject.W_LongObject.typedef)
 
         # the set of implementation types
         self.typeorder = {
@@ -107,6 +108,7 @@ class StdTypeModel:
             if option.startswith("with") and option in option_to_typename:
                 for classname in option_to_typename[option]:
                     modname = classname[:classname.index('.')]
+                    if modname == 'smalllongobject': continue # XXX:
                     classname = classname[classname.index('.')+1:]
                     d = {}
                     exec "from pypy.objspace.std.%s import %s" % (
@@ -136,7 +138,7 @@ class StdTypeModel:
         self.typeorder[boolobject.W_BoolObject] += [
 #            (intobject.W_IntObject,     boolobject.delegate_Bool2IntObject),
             (floatobject.W_FloatObject, floatobject.delegate_Bool2Float),
-            (longobject.W_LongObject,   longobject.delegate_Bool2Long),
+#            (longobject.W_LongObject,   longobject.delegate_Bool2Long),
             (complexobject.W_ComplexObject, complexobject.delegate_Bool2Complex),
             ]
         self.typeorder[intobject.W_IntObject] += [
@@ -144,7 +146,7 @@ class StdTypeModel:
             (longobject.W_LongObject,   longobject.delegate_Int2Long),
             (complexobject.W_ComplexObject, complexobject.delegate_Int2Complex),
             ]
-        if config.objspace.std.withsmalllong:
+        if False and config.objspace.std.withsmalllong:
             from pypy.objspace.std import smalllongobject
             self.typeorder[boolobject.W_BoolObject] += [
                 (smalllongobject.W_SmallLongObject, smalllongobject.delegate_Bool2SmallLong),
