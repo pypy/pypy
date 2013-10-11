@@ -42,8 +42,8 @@ class W_CoreSolutionIterator(W_Root):
     An interface that allows retrieval of multiple solutions
     """
 
-    def __init__(self, space, w_unbound_vars, w_goal_term, w_engine):
-        self.w_engine = w_engine
+    def __init__(self, space, w_unbound_vars, w_goal_term, p_engine):
+        self.p_engine = p_engine
         self.w_unbound_vars = w_unbound_vars
 
         list_w = space.listview(w_unbound_vars)
@@ -69,7 +69,6 @@ class W_CoreSolutionIterator(W_Root):
 
     def next_w(self):
         """ Obtain the next solution (if there is one) """
-
         p_goal_term = cont = None
 
         first_iteration = self.continuation_holder.fcont is None
@@ -77,12 +76,12 @@ class W_CoreSolutionIterator(W_Root):
             # The first iteration is special. Here we set up the continuation
             # for subsequent iterations.
             cont = UnipycationContinuation(
-                    self.w_engine, self.continuation_holder)
+                    self.p_engine, self.continuation_holder)
             p_goal_term = self.w_goal_term.p_term
             self.w_goal_term = None # allow GC
         try:
             if first_iteration:
-                r = self.w_engine.engine.run_query_in_current(p_goal_term, cont)
+                r = self.p_engine.run_query_in_current(p_goal_term, cont)
             else:
                 fcont = self.continuation_holder.fcont
                 heap = self.continuation_holder.heap
@@ -93,8 +92,7 @@ class W_CoreSolutionIterator(W_Root):
         except error.UncaughtError as ex:
             w_PrologError = util.get_from_module(self.space, "unipycation", "PrologError")
             w_term = conversion.w_of_p(self.space, ex.term)
-            engine = self.w_engine.engine
-            w_str = self.space.wrap("PROLOG: %s" % ex.format_traceback(engine))
+            w_str = self.space.wrap("PROLOG: %s" % ex.format_traceback(self.p_engine))
             w_ex = self.space.call_function(w_PrologError, w_str, w_term)
             raise OperationError(w_PrologError, w_ex)
 
@@ -110,14 +108,12 @@ W_CoreSolutionIterator.typedef.acceptable_as_base_class = False
 # ---
 
 class UnipycationContinuation(continuation.Continuation):
-    def __init__(self, w_engine, continuation_holder):
-        p_engine = w_engine.engine
+    def __init__(self, p_engine, continuation_holder):
 
         continuation.Continuation.__init__(self,
                 p_engine, continuation.DoneSuccessContinuation(p_engine))
 
         # stash
-        self.w_engine = w_engine
         self.continuation_holder = continuation_holder
 
     def activate(self, fcont, heap):
@@ -197,7 +193,7 @@ class W_CoreEngine(W_Root):
 
     def query_iter(self, w_goal_term, w_unbound_vars):
         """ Returns an iterator by which to acquire multiple solutions """
-        return W_CoreSolutionIterator(self.space, w_unbound_vars, w_goal_term, self)
+        return W_CoreSolutionIterator(self.space, w_unbound_vars, w_goal_term, self.engine)
 
     def query_single(self, w_goal_term, w_unbound_vars):
         try:
