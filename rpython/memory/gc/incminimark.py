@@ -1020,42 +1020,29 @@ class IncrementalMiniMarkGC(MovingGCBase):
              (self.card_page_shift + 3)))
 
     def debug_check_consistency(self):
-
         if self.DEBUG:
+            ll_assert(not self.young_rawmalloced_objects,
+                      "young raw-malloced objects in a major collection")
+            ll_assert(not self.young_objects_with_weakrefs.non_empty(),
+                      "young objects with weakrefs in a major collection")
 
-            # somewhat of a hack
-            # some states require custom prep and cleanup
-            # before calling the check_object functions
-            already_checked = False
+            if self.raw_malloc_might_sweep.non_empty():
+                ll_assert(self.gc_state == STATE_SWEEPING,
+                      "raw_malloc_might_sweep must be empty outside SWEEPING")
 
-            if self.gc_state == STATE_SCANNING:
-                # We are just starting a scan. Same as a non incremental here.
-                ll_assert(not self.young_rawmalloced_objects,
-                          "young raw-malloced objects in a major collection")
-                ll_assert(not self.young_objects_with_weakrefs.non_empty(),
-                          "young objects with weakrefs in a major collection")
-            elif self.gc_state == STATE_MARKING:
+            if self.gc_state == STATE_MARKING:
                 self._debug_objects_to_trace_dict = \
                                             self.objects_to_trace.stack2dict()
                 MovingGCBase.debug_check_consistency(self)
                 self._debug_objects_to_trace_dict.delete()
-                already_checked = True
-            elif self.gc_state == STATE_SWEEPING:
-                pass
-            elif self.gc_state == STATE_FINALIZING:
-                pass
             else:
-                ll_assert(False,"uknown gc_state value")
-
-            if not already_checked:
                 MovingGCBase.debug_check_consistency(self)
 
-
     def debug_check_object(self, obj):
-
-        ll_assert((self.header(obj).tid & GCFLAG_GRAY != 0
-                    and self.header(obj).tid & GCFLAG_VISITED != 0) == False,
-                    "object gray and visited at the same time." )
+        # We are after a minor collection, and possibly after a major
+        # collection step.  No object should be in the nursery
+        ll_assert(not self.is_in_nursery(obj),
+                  "object in nursery after collection")
 
         if self.gc_state == STATE_SCANNING:
             self._debug_check_object_scanning(obj)
@@ -1066,60 +1053,39 @@ class IncrementalMiniMarkGC(MovingGCBase):
         elif self.gc_state == STATE_FINALIZING:
             self._debug_check_object_finalizing(obj)
         else:
-            ll_assert(False,"uknown gc_state value")
+            ll_assert(False, "unknown gc_state value")
 
     def _debug_check_object_marking(self, obj):
         if self.header(obj).tid & GCFLAG_VISITED != 0:
-            # Visited, should NEVER point to a white object.
-            self.trace(obj,self._debug_check_not_white,None)
+            # A black object.  Should NEVER point to a white object.
+            self.trace(obj, self._debug_check_not_white, None)
             # During marking, all visited (black) objects should always have
             # the GCFLAG_TRACK_YOUNG_PTRS flag set, for the write barrier to
-            # trigger
-            ll_assert(self.header(obj).tid & GCFLAG_TRACK_YOUNG_PTRS != 0,
-                      "black object without GCFLAG_TRACK_YOUNG_PTRS")
-
-        if self.header(obj).tid & GCFLAG_GRAY != 0:
-            ll_assert(self._debug_objects_to_trace_dict.contains(obj),
-                        "gray object not in pending trace list.")
-        else:
-            #if not gray and not black
-            if self.header(obj).tid & GCFLAG_VISITED == 0:
-                if self.header(obj).tid & GCFLAG_NO_HEAP_PTRS == 0:
-                    ll_assert(not self._debug_objects_to_trace_dict.contains(obj),
-                        "white object in pending trace list.")
+            # trigger --- at least if they contain any gc ptr
+            typeid = self.get_type_id(obj)
+            if self.has_gcptr(typeid):
+                ll_assert(self.header(obj).tid & GCFLAG_TRACK_YOUNG_PTRS != 0,
+                          "black object without GCFLAG_TRACK_YOUNG_PTRS")
 
     def _debug_check_not_white(self, root, ignored):
         obj = root.address[0]
-        ll_assert(self.header(obj).tid & (GCFLAG_GRAY | GCFLAG_VISITED) != 0,
-                  "visited object points to unprocessed (white) object." )
+        if self.header(obj).tid & GCFLAG_VISITED != 0:
+            pass    # black -> black
+        elif self._debug_objects_to_trace_dict.contains(obj):
+            pass    # black -> gray
+        else:
+            ll_assert(False, "black -> white pointer found")
 
     def _debug_check_object_sweeping(self, obj):
-        pass
+        # We see only reachable objects here.  They all start as VISITED
+        # but this flag is progressively removed in the sweeping phase.
 
-    def _debug_check_object_finalizing(self,obj):
-        pass
-
-    def _debug_check_object_scanning(self, obj):
-        # This check is called before scanning starts.
-        # scanning is done in a single step.
-
-        # after a minor or major collection, no object should be in the nursery
-        ll_assert(not self.is_in_nursery(obj),
-                  "object in nursery after collection")
-        # similarily, all objects should have this flag, except if they
+        # All objects should have this flag, except if they
         # don't have any GC pointer
         typeid = self.get_type_id(obj)
         if self.has_gcptr(typeid):
             ll_assert(self.header(obj).tid & GCFLAG_TRACK_YOUNG_PTRS != 0,
                       "missing GCFLAG_TRACK_YOUNG_PTRS")
-        # the GCFLAG_VISITED should not be set between collections
-        ll_assert(self.header(obj).tid & GCFLAG_VISITED == 0,
-                  "unexpected GCFLAG_VISITED")
-
-        # the GCFLAG_GRAY should never be set at the start of a collection
-        ll_assert(self.header(obj).tid & GCFLAG_GRAY == 0,
-          "unexpected GCFLAG_GRAY")
-
         # the GCFLAG_FINALIZATION_ORDERING should not be set between coll.
         ll_assert(self.header(obj).tid & GCFLAG_FINALIZATION_ORDERING == 0,
                   "unexpected GCFLAG_FINALIZATION_ORDERING")
@@ -1148,6 +1114,22 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 ll_assert(p.char[0] == '\x00',
                           "the card marker bits are not cleared")
                 i -= 1
+
+    def _debug_check_object_finalizing(self, obj):
+        # Same invariants as STATE_SCANNING.
+        self._debug_check_object_scanning(obj)
+
+    def _debug_check_object_scanning(self, obj):
+        # This check is called before scanning starts.
+        # Scanning is done in a single step.
+        # the GCFLAG_VISITED should not be set between collections
+        ll_assert(self.header(obj).tid & GCFLAG_VISITED == 0,
+                  "unexpected GCFLAG_VISITED")
+
+        # All other invariants from the sweeping phase should still be
+        # satisfied.
+        self._debug_check_object_sweeping(obj)
+
 
     # ----------
     # Write barrier
@@ -1767,10 +1749,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # to smaller increments using stacks for resuming
         if self.gc_state == STATE_SCANNING:
             self.objects_to_trace = self.AddressStack()
-            # XXX do it in one step
             self.collect_roots()
-            #set all found roots to gray before entering marking state
-            self.objects_to_trace.foreach(self._set_gcflag_gray, None)
             self.gc_state = STATE_MARKING
             #END SCANNING
         elif self.gc_state == STATE_MARKING:
@@ -1797,10 +1776,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 if self.old_objects_with_light_finalizers.non_empty():
                     self.deal_with_old_objects_with_finalizers()
                 #objects_to_trace processed fully, can move on to sweeping
-                self.gc_state = STATE_SWEEPING
-                #prepare for the next state
                 self.ac.mass_free_prepare()
                 self.start_free_rawmalloc_objects()
+                self.gc_state = STATE_SWEEPING
             #END MARKING
         elif self.gc_state == STATE_SWEEPING:
             #
@@ -1883,9 +1861,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
     def _reset_gcflag_visited(self, obj, ignored):
         self.header(obj).tid &= ~(GCFLAG_VISITED|GCFLAG_GRAY)
 
-    def _set_gcflag_gray(self, obj, ignored):
-        self.header(obj).tid |= GCFLAG_GRAY
-
     def free_rawmalloced_object_if_unvisited(self, obj):
         if self.header(obj).tid & GCFLAG_VISITED:
             self.header(obj).tid &= ~(GCFLAG_VISITED|GCFLAG_GRAY)   # survives
@@ -1962,19 +1937,13 @@ class IncrementalMiniMarkGC(MovingGCBase):
         self.objects_to_trace.append(root.address[0])
 
     def visit_all_objects(self):
-        pending = self.objects_to_trace
-        while pending.non_empty():
-            obj = pending.pop()
-            self.visit(obj)
+        self.visit_all_objects_step(sys.maxint)
 
     def visit_all_objects_step(self, nobjects):
         # Objects can be added to pending by visit
         pending = self.objects_to_trace
         while nobjects > 0 and pending.non_empty():
             obj = pending.pop()
-            ll_assert(self.header(obj).tid &
-                        (GCFLAG_GRAY|GCFLAG_VISITED|GCFLAG_NO_HEAP_PTRS) != 0,
-                        "non gray or black object being traced")
             self.visit(obj)
             nobjects -= 1
 
@@ -1990,14 +1959,12 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # and the GCFLAG_VISITED will be reset at the end of the
         # collection.
         hdr = self.header(obj)
-        # visited objects are no longer grey
-        hdr.tid &= ~GCFLAG_GRAY
         if hdr.tid & (GCFLAG_VISITED | GCFLAG_NO_HEAP_PTRS):
             return
         #
-        # It's the first time.  We set the flag.
+        # It's the first time.  We set the flag VISITED.  The trick is
+        # to also set TRACK_YOUNG_PTRS here, for the write barrier.
         hdr.tid |= GCFLAG_VISITED | GCFLAG_TRACK_YOUNG_PTRS
-
 
         if not self.has_gcptr(llop.extract_ushort(llgroup.HALFWORD, hdr.tid)):
             return
