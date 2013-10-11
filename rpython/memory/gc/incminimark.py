@@ -85,7 +85,7 @@ first_gcflag = 1 << (LONG_BIT//2)
 # on young objects (unless they are large arrays, see below), and we
 # simply assume that any young object can point to any other young object.
 # For old and prebuilt objects, the flag is usually set, and is cleared
-# when we write a young pointer to it.  For large arrays with
+# when we write any pointer to it.  For large arrays with
 # GCFLAG_HAS_CARDS, we rely on card marking to track where the
 # young pointers are; the flag GCFLAG_TRACK_YOUNG_PTRS is set in this
 # case too, to speed up the write barrier.
@@ -101,7 +101,6 @@ GCFLAG_NO_HEAP_PTRS = first_gcflag << 1
 # The following flag is set on surviving objects during a major collection,
 # and on surviving raw-malloced young objects during a minor collection.
 GCFLAG_VISITED      = first_gcflag << 2
-
 
 # The following flag is set on nursery objects of which we asked the id
 # or the identityhash.  It means that a space of the size of the object
@@ -128,26 +127,10 @@ GCFLAG_CARDS_SET    = first_gcflag << 7     # <- at least one card bit is set
 # This flag is used by the tri color algorithm. An object which
 # has the gray bit set has been marked reachable, but not yet walked
 # by the incremental collection
-GCFLAG_GRAY = first_gcflag << 8
+GCFLAG_GRAY         = first_gcflag << 8
 
-# This flag allows sweeping to be incrementalised.
-# it is set when an object would be swept, but isnt
-# because this flag was not set. The point of this
-# flag is to make sure an object has survived through
-# at least one major collection so we are sure
-# it is unreachable. It is needed because a write
-# barrier has no way of knowing which objects are truly
-# unvisited, or they were simply already reset by
-# a sweep.
-GCFLAG_CANSWEEP      = first_gcflag << 9
+_GCFLAG_FIRST_UNUSED = first_gcflag << 9    # the first unused bit
 
-# Flag indicates object is old. It is needed by the
-# write barrier code so that we can track when a young
-# reference is written into a black object.
-# we must make a shadow and prevent such an object from being freed by
-# the next minor collection so that we dont get dead objects in
-# objects_to_trace during marking.
-GCFLAG_OLD      = first_gcflag << 10
 
 # States for the incremental GC
 
@@ -171,9 +154,6 @@ STATE_FINALIZING = 4
 
 GC_STATES = ['SCANNING', 'MARKING', 'SWEEPING_RAWMALLOC', 'SWEEPING_ARENA',
              'FINALIZING']
-
-
-TID_MASK            = (first_gcflag << 11) - 1
 
 
 FORWARDSTUB = lltype.GcStruct('forwarding_stub',
@@ -797,7 +777,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # is for large objects, bigger than the 'large_objects' threshold,
             # which are raw-malloced but still young.
             extra_flags = GCFLAG_TRACK_YOUNG_PTRS
-            can_make_young = False
             #
         else:
             # No, so proceed to allocate it externally with raw_malloc().
@@ -869,13 +848,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         if self.is_varsize(typeid):
             offset_to_length = self.varsize_offset_to_length(typeid)
             (result + size_gc_header + offset_to_length).signed[0] = length
-        newobj = result + size_gc_header
-        #
-        # If we are in STATE_MARKING, then the new object must be made gray.
-        if not can_make_young and self.gc_state == STATE_MARKING:
-            self.write_to_visited_object_backward(newobj)
-        #
-        return newobj
+        return result + size_gc_header
 
 
     # ----------
@@ -1019,7 +992,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             ll_assert(tid == -42, "bogus header for young obj")
         else:
             ll_assert(bool(tid), "bogus header (1)")
-            ll_assert(tid & ~TID_MASK == 0, "bogus header (2)")
+            ll_assert(tid & -_GCFLAG_FIRST_UNUSED == 0, "bogus header (2)")
         return result
 
     def get_forwarding_address(self, obj):
@@ -1112,6 +1085,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
         if self.header(obj).tid & GCFLAG_VISITED != 0:
             # Visited, should NEVER point to a white object.
             self.trace(obj,self._debug_check_not_white,None)
+            # During marking, all visited (black) objects should always have
+            # the GCFLAG_TRACK_YOUNG_PTRS flag set, for the write barrier to
+            # trigger
+            ll_assert(self.header(obj).tid & GCFLAG_TRACK_YOUNG_PTRS != 0,
+                      "black object without GCFLAG_TRACK_YOUNG_PTRS")
 
         if self.header(obj).tid & GCFLAG_GRAY != 0:
             ll_assert(self._debug_objects_to_trace_dict.contains(obj),
@@ -1193,7 +1171,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
     # for the JIT: a minimal description of the write_barrier() method
     # (the JIT assumes it is of the shape
     #  "if addr_struct.int0 & JIT_WB_IF_FLAG: remember_young_pointer()")
-    JIT_WB_IF_FLAG = GCFLAG_TRACK_YOUNG_PTRS | GCFLAG_VISITED
+    JIT_WB_IF_FLAG = GCFLAG_TRACK_YOUNG_PTRS
 
     # for the JIT to generate custom code corresponding to the array
     # write barrier for the simplest case of cards.  If JIT_CARDS_SET
@@ -1218,13 +1196,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
         return cls.minimal_size_in_nursery
 
     def write_barrier(self, addr_struct):
-        if self.header(addr_struct).tid & (GCFLAG_TRACK_YOUNG_PTRS
-                                           | GCFLAG_VISITED):
+        if self.header(addr_struct).tid & GCFLAG_TRACK_YOUNG_PTRS:
             self.remember_young_pointer(addr_struct)
 
     def write_barrier_from_array(self, addr_array, index):
-        if self.header(addr_array).tid & (GCFLAG_TRACK_YOUNG_PTRS |
-                                          GCFLAG_VISITED):
+        if self.header(addr_array).tid & GCFLAG_TRACK_YOUNG_PTRS:
             self.remember_young_pointer(addr_array)
 
     def write_to_visited_object_backward(self, addr_struct):
@@ -1256,14 +1232,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 ll_assert(self.debug_is_old_object(addr_struct) or
                           self.header(addr_struct).tid & GCFLAG_HAS_CARDS != 0,
                       "young object with GCFLAG_TRACK_YOUNG_PTRS and no cards")
-            #
-            # This is the write barrier of incremental GC
-            tid = self.header(addr_struct).tid
-            if tid & GCFLAG_VISITED:
-                if self.gc_state == STATE_MARKING:
-                    self.write_to_visited_object_backward(addr_struct)
-                if tid & GCFLAG_TRACK_YOUNG_PTRS == 0:
-                    return    # done
             #
             # We need to remove the flag GCFLAG_TRACK_YOUNG_PTRS and add
             # the object to the list 'old_objects_pointing_to_young'.
@@ -1593,6 +1561,13 @@ class IncrementalMiniMarkGC(MovingGCBase):
 
 
     def collect_oldrefs_to_nursery(self):
+        if self.gc_state == STATE_MARKING:
+            self._collect_oldrefs_to_nursery(True)
+        else:
+            self._collect_oldrefs_to_nursery(False)
+
+    @specialize.arg(1)
+    def _collect_oldrefs_to_nursery(self, state_is_marking):
         # Follow the old_objects_pointing_to_young list and move the
         # young objects they point to out of the nursery.
         oldlist = self.old_objects_pointing_to_young
@@ -1608,6 +1583,14 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # Add the flag GCFLAG_TRACK_YOUNG_PTRS.  All live objects should
             # have this flag set after a nursery collection.
             self.header(obj).tid |= GCFLAG_TRACK_YOUNG_PTRS
+            #
+            # If the incremental major collection is currently at
+            # STATE_MARKING, then we must add to 'objects_to_trace' all
+            # black objects that go through 'old_objects_pointing_to_young'.
+            if state_is_marking and self.header(obj).tid & GCFLAG_VISITED != 0:
+                self.header(obj).tid &= ~GCFLAG_VISITED
+                self.header(obj).tid |= GCFLAG_GRAY
+                self.objects_to_trace.append(obj)
             #
             # Trace the 'obj' to replace pointers to nursery with pointers
             # outside the nursery, possibly forcing nursery objects out
@@ -1650,11 +1633,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 self._visit_young_rawmalloced_object(obj)
             return
         #
-
-        # Do this after check we are old to avoid cache misses like
-        # In the comment above.
-        self.header(obj).tid |= GCFLAG_OLD
-
         size_gc_header = self.gcheaderbuilder.size_gc_header
         if self.header(obj).tid & GCFLAG_HAS_SHADOW == 0:
             #
@@ -1711,10 +1689,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
         if self.has_gcptr(typeid):
             # we only have to do it if we have any gcptrs
             self.old_objects_pointing_to_young.append(newobj)
-        #
-        # If we are in STATE_MARKING, then the new object must be made gray.
-        if self.gc_state == STATE_MARKING:
-            self.write_to_visited_object_backward(newobj)
 
     _trace_drag_out._always_inline_ = True
 
@@ -1729,7 +1703,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         hdr = self.header(obj)
         if hdr.tid & GCFLAG_VISITED:
             return
-        hdr.tid |= (GCFLAG_VISITED|GCFLAG_OLD)
+        hdr.tid |= GCFLAG_VISITED
         #
         # we just made 'obj' old, so we need to add it to the correct lists
         added_somewhere = False
@@ -1782,9 +1756,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
     def _free_young_rawmalloced_obj(self, obj, ignored1, ignored2):
         # If 'obj' has GCFLAG_VISITED, it was seen by _trace_drag_out
         # and survives.  Otherwise, it dies.
-        if not self.free_rawmalloced_object_if_unvisited(obj):
-            if self.gc_state == STATE_MARKING:
-                self.write_to_visited_object_backward(obj)
+        self.free_rawmalloced_object_if_unvisited(obj)
 
     def remove_young_arrays_from_old_objects_pointing_to_young(self):
         old = self.old_objects_pointing_to_young
@@ -1799,7 +1771,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             old.append(new.pop())
         new.delete()
 
-    def gc_step_until(self,state):
+    def gc_step_until(self, state):
         while self.gc_state != state:
             self.minor_collection()
             self.major_collection_step()
@@ -1814,7 +1786,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
 
     # Note - minor collections seem fast enough so that one
     # is done before every major collection step
-    def major_collection_step(self,reserving_size=0):
+    def major_collection_step(self, reserving_size=0):
         debug_start("gc-collect-step")
         debug_print("stating gc state: ", GC_STATES[self.gc_state])
         # Debugging checks
@@ -1830,7 +1802,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # XXX do it in one step
             self.collect_roots()
             #set all found roots to gray before entering marking state
-            self.objects_to_trace.foreach(self._set_gcflag_gray,None)
+            self.objects_to_trace.foreach(self._set_gcflag_gray, None)
             self.gc_state = STATE_MARKING
             #END SCANNING
         elif self.gc_state == STATE_MARKING:
@@ -1950,10 +1922,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
 
     def free_rawmalloced_object_if_unvisited(self, obj):
         if self.header(obj).tid & GCFLAG_VISITED:
-            self.header(obj).tid |= GCFLAG_OLD
             self.header(obj).tid &= ~(GCFLAG_VISITED|GCFLAG_GRAY)   # survives
             self.old_rawmalloced_objects.append(obj)
-            return False
         else:
             size_gc_header = self.gcheaderbuilder.size_gc_header
             totalsize = size_gc_header + self.get_size(obj)
@@ -1976,7 +1946,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
             #
             llarena.arena_free(arena)
             self.rawmalloced_total_size -= r_uint(allocsize)
-            return True
 
     def start_free_rawmalloc_objects(self):
         self.raw_malloc_might_sweep = self.old_rawmalloced_objects
@@ -2071,7 +2040,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             return
         #
         # It's the first time.  We set the flag.
-        hdr.tid |= GCFLAG_VISITED
+        hdr.tid |= GCFLAG_VISITED | GCFLAG_TRACK_YOUNG_PTRS
 
 
         if not self.has_gcptr(llop.extract_ushort(llgroup.HALFWORD, hdr.tid)):
