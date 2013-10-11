@@ -98,8 +98,7 @@ GCFLAG_TRACK_YOUNG_PTRS = first_gcflag << 0
 # 'prebuilt_root_objects'.
 GCFLAG_NO_HEAP_PTRS = first_gcflag << 1
 
-# The following flag is set on surviving objects during a major collection,
-# and on surviving raw-malloced young objects during a minor collection.
+# The following flag is set on surviving objects during a major collection.
 GCFLAG_VISITED      = first_gcflag << 2
 
 # The following flag is set on nursery objects of which we asked the id
@@ -124,7 +123,11 @@ GCFLAG_CARDS_SET    = first_gcflag << 7     # <- at least one card bit is set
 # note that GCFLAG_CARDS_SET is the most significant bit of a byte:
 # this is required for the JIT (x86)
 
-_GCFLAG_FIRST_UNUSED = first_gcflag << 8    # the first unused bit
+# The following flag is set on surviving raw-malloced young objects during
+# a minor collection.
+GCFLAG_VISITED_RMY   = first_gcflag << 8
+
+_GCFLAG_FIRST_UNUSED = first_gcflag << 9    # the first unused bit
 
 
 # States for the incremental GC
@@ -734,7 +737,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             raise MemoryError
         #
         # If somebody calls this function a lot, we must eventually
-        # force a full collection.
+        # force a full collection.  XXX make this more incremental!
         if (float(self.get_total_memory_used()) + raw_malloc_usage(totalsize) >
                 self.next_major_collection_threshold):
             self.gc_step_until(STATE_SWEEPING)
@@ -1033,6 +1036,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # collection step.  No object should be in the nursery
         ll_assert(not self.is_in_nursery(obj),
                   "object in nursery after collection")
+        ll_assert(self.header(obj).tid & GCFLAG_VISITED_RMY == 0,
+                  "GCFLAG_VISITED_RMY after collection")
 
         if self.gc_state == STATE_SCANNING:
             self._debug_check_object_scanning(obj)
@@ -1365,7 +1370,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         #
         # First, find the roots that point to young objects.  All nursery
         # objects found are copied out of the nursery, and the occasional
-        # young raw-malloced object is flagged with GCFLAG_VISITED.
+        # young raw-malloced object is flagged with GCFLAG_VISITED_RMY.
         # Note that during this step, we ignore references to further
         # young objects; only objects directly referenced by roots
         # are copied out or flagged.  They are also added to the list
@@ -1381,7 +1386,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # Now trace objects from 'old_objects_pointing_to_young'.
             # All nursery objects they reference are copied out of the
             # nursery, and again added to 'old_objects_pointing_to_young'.
-            # All young raw-malloced object found are flagged GCFLAG_VISITED.
+            # All young raw-malloced object found are flagged
+            # GCFLAG_VISITED_RMY.
             # We proceed until 'old_objects_pointing_to_young' is empty.
             self.collect_oldrefs_to_nursery()
             #
@@ -1555,7 +1561,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         #print '_trace_drag_out(%x: %r)' % (hash(obj.ptr._obj), obj)
         #
         # If 'obj' is not in the nursery, nothing to change -- expect
-        # that we must set GCFLAG_VISITED on young raw-malloced objects.
+        # that we must set GCFLAG_VISITED_RMY on young raw-malloced objects.
         if not self.is_in_nursery(obj):
             # cache usage trade-off: I think that it is a better idea to
             # check if 'obj' is in young_rawmalloced_objects with an access
@@ -1628,15 +1634,15 @@ class IncrementalMiniMarkGC(MovingGCBase):
     def _visit_young_rawmalloced_object(self, obj):
         # 'obj' points to a young, raw-malloced object.
         # Any young rawmalloced object never seen by the code here
-        # will end up without GCFLAG_VISITED, and be freed at the
+        # will end up without GCFLAG_VISITED_RMY, and be freed at the
         # end of the current minor collection.  Note that there was
         # a bug in which dying young arrays with card marks would
         # still be scanned before being freed, keeping a lot of
         # objects unnecessarily alive.
         hdr = self.header(obj)
-        if hdr.tid & GCFLAG_VISITED:
+        if hdr.tid & GCFLAG_VISITED_RMY:
             return
-        hdr.tid |= GCFLAG_VISITED
+        hdr.tid |= GCFLAG_VISITED_RMY
         #
         # we just made 'obj' old, so we need to add it to the correct lists
         added_somewhere = False
@@ -1687,9 +1693,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
         self.young_rawmalloced_objects = self.null_address_dict()
 
     def _free_young_rawmalloced_obj(self, obj, ignored1, ignored2):
-        # If 'obj' has GCFLAG_VISITED, it was seen by _trace_drag_out
+        # If 'obj' has GCFLAG_VISITED_RMY, it was seen by _trace_drag_out
         # and survives.  Otherwise, it dies.
-        self.free_rawmalloced_object_if_unvisited(obj)
+        self.free_rawmalloced_object_if_unvisited(obj, GCFLAG_VISITED_RMY)
 
     def remove_young_arrays_from_old_objects_pointing_to_young(self):
         old = self.old_objects_pointing_to_young
@@ -1853,9 +1859,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
     def _reset_gcflag_visited(self, obj, ignored):
         self.header(obj).tid &= ~GCFLAG_VISITED
 
-    def free_rawmalloced_object_if_unvisited(self, obj):
-        if self.header(obj).tid & GCFLAG_VISITED:
-            self.header(obj).tid &= ~GCFLAG_VISITED   # survives
+    def free_rawmalloced_object_if_unvisited(self, obj, check_flag):
+        if self.header(obj).tid & check_flag:
+            self.header(obj).tid &= ~check_flag   # survives
             self.old_rawmalloced_objects.append(obj)
         else:
             size_gc_header = self.gcheaderbuilder.size_gc_header
@@ -1890,7 +1896,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
     def free_unvisited_rawmalloc_objects_step(self, nobjects):
         while self.raw_malloc_might_sweep.non_empty() and nobjects > 0:
             obj = self.raw_malloc_might_sweep.pop()
-            self.free_rawmalloced_object_if_unvisited(obj)
+            self.free_rawmalloced_object_if_unvisited(obj, GCFLAG_VISITED)
             nobjects -= 1
 
         return nobjects
@@ -2210,7 +2216,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             elif (bool(self.young_rawmalloced_objects) and
                   self.young_rawmalloced_objects.contains(pointing_to)):
                 # young weakref to a young raw-malloced object
-                if self.header(pointing_to).tid & GCFLAG_VISITED:
+                if self.header(pointing_to).tid & GCFLAG_VISITED_RMY:
                     pass    # survives, but does not move
                 else:
                     (obj + offset).address[0] = llmemory.NULL
