@@ -43,6 +43,12 @@ class W_CType(W_Root):
     def is_unichar_ptr_or_array(self):
         return False
 
+    def is_long(self):
+        return False
+
+    def is_double(self):
+        return False
+
     def newp(self, w_init):
         space = self.space
         raise operationerrfmt(space.w_TypeError,

@@ -85,12 +85,6 @@ class W_CTypePrimitive(W_CType):
             return self.space.wrap(s)
         return W_CType.string(self, cdataobj, maxlen)
 
-    def is_long(self):
-        return False
-
-    def is_double(self):
-        return False
-
 class W_CTypePrimitiveCharOrUniChar(W_CTypePrimitive):
     _attrs_ = []
     is_primitive_integer = True
