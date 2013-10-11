@@ -75,6 +75,16 @@ class AppTest_fast_path_to_list(object):
         if not self.runappdirect:
             assert self.get_count() == 1
 
+    def test_TypeError_if_no_length(self):
+        import _cffi_backend
+        LONG = _cffi_backend.new_primitive_type('long')
+        P_LONG = _cffi_backend.new_pointer_type(LONG)
+        LONG_ARRAY = _cffi_backend.new_array_type(P_LONG, 3)
+        buf = _cffi_backend.newp(LONG_ARRAY)
+        pbuf = _cffi_backend.cast(P_LONG, buf)
+        raises(TypeError, "list(pbuf)")
+
+
     def test_list_float(self):
         import _cffi_backend
         DOUBLE = _cffi_backend.new_primitive_type('double')

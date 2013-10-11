@@ -42,6 +42,12 @@ class W_CTypePtrOrArray(W_CType):
     def is_char_or_unichar_ptr_or_array(self):
         return isinstance(self.ctitem, ctypeprim.W_CTypePrimitiveCharOrUniChar)
 
+    def aslist_int(self, cdata):
+        return None
+
+    def aslist_float(self, cdata):
+        return None
+
     def cast(self, w_ob):
         # cast to a pointer, to a funcptr, or to an array.
         # Note that casting to an array is an extension to the C language,
