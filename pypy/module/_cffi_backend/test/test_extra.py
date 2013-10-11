@@ -53,6 +53,8 @@ class AppTest_fast_path_to_list(object):
             return original(*args)
         self._original = original
         rarray.populate_list_from_raw_array = populate_list_from_raw_array
+        #
+        self.w_runappdirect = self.space.wrap(self.runappdirect)
 
 
     def teardown_method(self, meth):
@@ -70,7 +72,8 @@ class AppTest_fast_path_to_list(object):
         buf[2] = 3
         lst = list(buf)
         assert lst == [1, 2, 3]
-        assert self.get_count() == 1
+        if not self.runappdirect:
+            assert self.get_count() == 1
 
     def test_list_float(self):
         import _cffi_backend
@@ -83,4 +86,5 @@ class AppTest_fast_path_to_list(object):
         buf[2] = 3.3
         lst = list(buf)
         assert lst == [1.1, 2.2, 3.3]
-        assert self.get_count() == 1
+        if not self.runappdirect:
+            assert self.get_count() == 1
