@@ -3,6 +3,7 @@ import random
 import py
 
 from rpython.flowspace.model import summary
+from rpython.annotator.model import AnnotatorError
 from rpython.rtyper.lltypesystem.lltype import typeOf, Signed, malloc
 from rpython.rtyper.lltypesystem.rstr import LLHelpers, STR
 from rpython.rtyper.rstr import AbstractLLHelpers
@@ -361,16 +362,16 @@ class AbstractTestRstr(BaseRtypingTest):
             res = self.interpret(fn, [i, j])
             assert res == fn(i, j)
 
-    def test_find_TyperError(self):
+    def test_find_AnnotatorError(self):
         const = self.const
         def f():
             s = const('abc')
             s.find(s, 0, -10)
-        py.test.raises(TyperError, self.interpret, f, ())
+        py.test.raises(AnnotatorError, self.interpret, f, ())
         def f():
             s = const('abc')
             s.find(s, -10)
-        py.test.raises(TyperError, self.interpret, f, ())
+        py.test.raises(AnnotatorError, self.interpret, f, ())
 
     def test_find_empty_string(self):
         const = self.const
@@ -420,9 +421,8 @@ class AbstractTestRstr(BaseRtypingTest):
         const = self.const
         def f(i):
             return const("abc").rfind(const(''), i)
-        e = py.test.raises(TyperError, self.interpret, f, [-5])
-        assert str(e.value).startswith(
-            'str.rfind() start must be proven non-negative')
+        e = py.test.raises(AnnotatorError, self.interpret, f, [-5])
+        assert "rfind: not proven to have non-negative start" in str(e.value)
 
     def test_find_char(self):
         const = self.const
@@ -900,16 +900,16 @@ class AbstractTestRstr(BaseRtypingTest):
         res = self.interpret(fn, [])
         assert res == 1
 
-    def test_count_TyperError(self):
+    def test_count_AnnotatorError(self):
         const = self.const
         def f():
             s = const('abc')
             s.count(s, 0, -10)
-        py.test.raises(TyperError, self.interpret, f, ())
+        py.test.raises(AnnotatorError, self.interpret, f, ())
         def f():
             s = const('abc')
             s.count(s, -10)
-        py.test.raises(TyperError, self.interpret, f, ())
+        py.test.raises(AnnotatorError, self.interpret, f, ())
 
     def test_getitem_exc(self):
         const = self.const

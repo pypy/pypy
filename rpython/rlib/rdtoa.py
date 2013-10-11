@@ -217,13 +217,13 @@ def format_number(digits, buflen, sign, decpt, code, precision, flags, upper):
 
         if exp >= 0:
             exp_str = str(exp)
-            if len(exp_str) < 2:
+            if len(exp_str) < 2 and not (flags & rfloat.DTSF_CUT_EXP_0):
                 s += e + '+0' + exp_str
             else:
                 s += e + '+' + exp_str
         else:
             exp_str = str(-exp)
-            if len(exp_str) < 2:
+            if len(exp_str) < 2 and not (flags & rfloat.DTSF_CUT_EXP_0):
                 s += e + '-0' + exp_str
             else:
                 s += e + '-' + exp_str
