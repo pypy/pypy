@@ -1190,7 +1190,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # we're going to call this function a lot of times for the
             # same object; moreover we'd need to pass the 'newvalue' as
             # an argument here.  The JIT has always called a
-            # 'newvalue'-less version, too.
+            # 'newvalue'-less version, too.  Moreover, the incremental
+            # GC nowadays relies on this fact.
             self.old_objects_pointing_to_young.append(addr_struct)
             objhdr = self.header(addr_struct)
             objhdr.tid &= ~GCFLAG_TRACK_YOUNG_PTRS
@@ -1518,9 +1519,10 @@ class IncrementalMiniMarkGC(MovingGCBase):
             #
             # If the incremental major collection is currently at
             # STATE_MARKING, then we must add to 'objects_to_trace' all
-            # black objects that go through 'old_objects_pointing_to_young'.
-            # This basically turns them gray again.
-            if state_is_marking and self.header(obj).tid & GCFLAG_VISITED != 0:
+            # objects that go through 'old_objects_pointing_to_young'.
+            # This basically turns black objects gray again, but also
+            # makes sure that we see otherwise-white objects.
+            if state_is_marking:
                 self.header(obj).tid &= ~GCFLAG_VISITED
                 self.objects_to_trace.append(obj)
             #
@@ -1728,7 +1730,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
     # is done before every major collection step
     def major_collection_step(self, reserving_size=0):
         debug_start("gc-collect-step")
-        debug_print("stating gc state: ", GC_STATES[self.gc_state])
+        debug_print("starting gc state: ", GC_STATES[self.gc_state])
         # Debugging checks
         ll_assert(self.nursery_free == self.nursery,
                   "nursery not empty in major_collection_step()")
