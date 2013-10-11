@@ -227,7 +227,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # value of 128 means that card pages are 512 bytes (1024 on 64-bits)
         # in regular arrays of pointers; more in arrays whose items are
         # larger.  A value of 0 disables card marking.
-        "card_page_indices": 0,   # XXX was 128,
+        "card_page_indices": 128,
 
         # Objects whose total size is at least 'large_object' bytes are
         # allocated out of the nursery immediately, as old objects.  The
@@ -269,9 +269,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
         self.max_heap_size_already_raised = False
         self.max_delta = float(r_uint(-1))
         #
-        if card_page_indices != 0:
-            import py
-            py.test.skip("cards unsupported")
         self.card_page_indices = card_page_indices
         if self.card_page_indices > 0:
             self.card_page_shift = 0
@@ -642,16 +639,10 @@ class IncrementalMiniMarkGC(MovingGCBase):
 
     def collect(self, gen=1):
         """Do a minor (gen=0) or full major (gen>0) collection."""
-        self.minor_collection()
         if gen > 0:
-            #
-            # First, finish the current major gc, if there is one in progress.
-            # This is a no-op if the gc_state is already STATE_SCANNING.
-            self.gc_step_until(STATE_SCANNING)
-            #
-            # Then do a complete collection again.
-            self.gc_step_until(STATE_MARKING)
-            self.gc_step_until(STATE_SCANNING)
+            self.minor_and_major_collection()
+        else:
+            self.minor_collection()
 
     def move_nursery_top(self, totalsize):
         size = self.nursery_cleanup
@@ -1000,7 +991,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
         """
         return self.ac.total_memory_used + self.rawmalloced_total_size
 
-
     def card_marking_words_for_length(self, length):
         # --- Unoptimized version:
         #num_bits = ((length-1) >> self.card_page_shift) + 1
@@ -1061,7 +1051,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
             self.trace(obj, self._debug_check_not_white, None)
             # During marking, all visited (black) objects should always have
             # the GCFLAG_TRACK_YOUNG_PTRS flag set, for the write barrier to
-            # trigger --- at least if they contain any gc ptr
+            # trigger --- at least if they contain any gc ptr.  We are just
+            # after a minor or major collection here, so we can't see the
+            # object state VISITED & ~WRITE_BARRIER.
             typeid = self.get_type_id(obj)
             if self.has_gcptr(typeid):
                 ll_assert(self.header(obj).tid & GCFLAG_TRACK_YOUNG_PTRS != 0,
@@ -1167,7 +1159,10 @@ class IncrementalMiniMarkGC(MovingGCBase):
 
     def write_barrier_from_array(self, addr_array, index):
         if self.header(addr_array).tid & GCFLAG_TRACK_YOUNG_PTRS:
-            self.remember_young_pointer(addr_array)
+            if self.card_page_indices > 0:
+                self.remember_young_pointer_from_array2(addr_array, index)
+            else:
+                self.remember_young_pointer(addr_array)
 
     def _init_writebarrier_logic(self):
         DEBUG = self.DEBUG
@@ -1286,19 +1281,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
         return llarena.getfakearenaaddress(addr_byte) + (~byteindex)
 
 
-    def assume_young_pointers(self, addr_struct):
-        """Called occasionally by the JIT to mean ``assume that 'addr_struct'
-        may now contain young pointers.''
-        """
-        objhdr = self.header(addr_struct)
-        if objhdr.tid & GCFLAG_TRACK_YOUNG_PTRS:
-            self.old_objects_pointing_to_young.append(addr_struct)
-            objhdr.tid &= ~GCFLAG_TRACK_YOUNG_PTRS
-            #
-            if objhdr.tid & GCFLAG_NO_HEAP_PTRS:
-                objhdr.tid &= ~GCFLAG_NO_HEAP_PTRS
-                self.prebuilt_root_objects.append(addr_struct)
-
     def writebarrier_before_copy(self, source_addr, dest_addr,
                                  source_start, dest_start, length):
         """ This has the same effect as calling writebarrier over
@@ -1313,8 +1295,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # ^^^ a fast path of write-barrier
         #
         if source_hdr.tid & GCFLAG_HAS_CARDS != 0:
-            if self.card_page_indices == 0:
-                return False     # shouldn't have GCFLAG_HAS_CARDS then...
             #
             if source_hdr.tid & GCFLAG_TRACK_YOUNG_PTRS == 0:
                 # The source object may have random young pointers.
@@ -1349,6 +1329,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
 
     def manually_copy_card_bits(self, source_addr, dest_addr, length):
         # manually copy the individual card marks from source to dest
+        assert self.card_page_indices > 0
         bytes = self.card_marking_bytes_for_length(length)
         #
         anybyte = 0
@@ -1538,9 +1519,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # If the incremental major collection is currently at
             # STATE_MARKING, then we must add to 'objects_to_trace' all
             # black objects that go through 'old_objects_pointing_to_young'.
+            # This basically turns them gray again.
             if state_is_marking and self.header(obj).tid & GCFLAG_VISITED != 0:
                 self.header(obj).tid &= ~GCFLAG_VISITED
-                self.header(obj).tid |= GCFLAG_GRAY
                 self.objects_to_trace.append(obj)
             #
             # Trace the 'obj' to replace pointers to nursery with pointers
@@ -1721,6 +1702,15 @@ class IncrementalMiniMarkGC(MovingGCBase):
             old.append(new.pop())
         new.delete()
 
+    def minor_and_major_collection(self):
+        # First, finish the current major gc, if there is one in progress.
+        # This is a no-op if the gc_state is already STATE_SCANNING.
+        self.gc_step_until(STATE_SCANNING)
+        #
+        # Then do a complete collection again.
+        self.gc_step_until(STATE_MARKING)
+        self.gc_step_until(STATE_SCANNING)
+
     def gc_step_until(self, state, reserving_size=0):
         while self.gc_state != state:
             self.minor_collection()
@@ -1854,16 +1844,16 @@ class IncrementalMiniMarkGC(MovingGCBase):
         size_gc_header = self.gcheaderbuilder.size_gc_header
         obj = hdr + size_gc_header
         if self.header(obj).tid & GCFLAG_VISITED:
-            self.header(obj).tid &= ~(GCFLAG_VISITED|GCFLAG_GRAY)
+            self.header(obj).tid &= ~GCFLAG_VISITED
             return False     # survives
         return True      # dies
 
     def _reset_gcflag_visited(self, obj, ignored):
-        self.header(obj).tid &= ~(GCFLAG_VISITED|GCFLAG_GRAY)
+        self.header(obj).tid &= ~GCFLAG_VISITED
 
     def free_rawmalloced_object_if_unvisited(self, obj):
         if self.header(obj).tid & GCFLAG_VISITED:
-            self.header(obj).tid &= ~(GCFLAG_VISITED|GCFLAG_GRAY)   # survives
+            self.header(obj).tid &= ~GCFLAG_VISITED   # survives
             self.old_rawmalloced_objects.append(obj)
         else:
             size_gc_header = self.gcheaderbuilder.size_gc_header
@@ -1889,14 +1879,16 @@ class IncrementalMiniMarkGC(MovingGCBase):
             self.rawmalloced_total_size -= r_uint(allocsize)
 
     def start_free_rawmalloc_objects(self):
+        ll_assert(not self.raw_malloc_might_sweep.non_empty(),
+                  "raw_malloc_might_sweep must be empty")
         (self.raw_malloc_might_sweep, self.old_rawmalloced_objects) = (
             self.old_rawmalloced_objects, self.raw_malloc_might_sweep)
 
     # Returns true when finished processing objects
     def free_unvisited_rawmalloc_objects_step(self, nobjects):
         while self.raw_malloc_might_sweep.non_empty() and nobjects > 0:
-            self.free_rawmalloced_object_if_unvisited(
-                                             self.raw_malloc_might_sweep.pop())
+            obj = self.raw_malloc_might_sweep.pop()
+            self.free_rawmalloced_object_if_unvisited(obj)
             nobjects -= 1
 
         return nobjects
@@ -2191,6 +2183,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
     # The code relies on the fact that no weakref can be an old object
     # weakly pointing to a young object.  Indeed, weakrefs are immutable
     # so they cannot point to an object that was created after it.
+    # Thanks to this, during a minor collection, we don't have to fix
+    # or clear the address stored in old weakrefs.
     def invalidate_young_weakrefs(self):
         """Called during a nursery collection."""
         # walk over the list of objects that contain weakrefs and are in the
