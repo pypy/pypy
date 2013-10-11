@@ -654,7 +654,7 @@ class Assembler386(BaseAssembler):
             looptoken._x86_ops_offset = ops_offset
         looptoken._ll_function_addr = rawstart
         if logger:
-            logger.log_loop(inputargs, operations, 0, "rewritten",
+            logger.log_loop(inputargs, operations, looptoken.number, "rewritten",
                             name=loopname, ops_offset=ops_offset)
 
         self.fixup_target_tokens(rawstart)

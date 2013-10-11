@@ -623,7 +623,7 @@ class AssemblerARM(ResOpAssembler):
 
         ops_offset = self.mc.ops_offset
         if logger is not None:
-            logger.log_loop(inputargs, operations, 0, "rewritten",
+            logger.log_loop(inputargs, operations, looptoken.number, "rewritten",
                             name=loopname, ops_offset=ops_offset)
         self.teardown()
 
