@@ -80,8 +80,6 @@ class BaseAssembler(object):
         else:
             self.gc_size_of_header = WORD # for tests
         self.memcpy_addr = self.cpu.cast_ptr_to_int(memcpy_fn)
-        self._build_failure_recovery(False, withfloats=False)
-        self._build_failure_recovery(True, withfloats=False)
         if gc_ll_descr.stm:
             descrs = [gc_ll_descr.P2Rdescr, gc_ll_descr.P2Wdescr]
         else:
@@ -90,6 +88,9 @@ class BaseAssembler(object):
             self._build_b_slowpath(d, False)
             self._build_b_slowpath(d, True)
             self._build_b_slowpath(d, False, for_frame=True)
+        # building the barriers needs to happen before these:
+        self._build_failure_recovery(False, withfloats=False)
+        self._build_failure_recovery(True, withfloats=False)
         # only for stm:
         if gc_ll_descr.stm:
             self._build_ptr_eq_slowpath()

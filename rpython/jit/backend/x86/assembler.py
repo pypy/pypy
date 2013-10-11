@@ -439,6 +439,7 @@ class Assembler386(BaseAssembler):
         if not withcards:
             func = descr.get_barrier_fn(self.cpu, 
                                         returns_modified_object=is_stm)
+            assert func is not None
         else:
             assert not is_stm
             if descr.jit_wb_cards_set == 0:
@@ -929,6 +930,8 @@ class Assembler386(BaseAssembler):
             self.mc.LEA_rs(edi.value, FRAME_FIXED_SIZE * WORD)
             fn = stmtlocal.stm_invalidate_jmp_buf_fn
             self.mc.CALL(imm(self.cpu.cast_ptr_to_int(fn)))
+            # there could have been a collection in invalidate_jmp_buf()
+            self._reload_frame_if_necessary(self.mc)
 
         # the return value is the jitframe
         self.mc.MOV_rr(eax.value, ebp.value)
@@ -2531,6 +2534,7 @@ class Assembler386(BaseAssembler):
             mc.SUB_ri(esp.value, 16 - WORD) # erase the return address
             # ||retadr|...||
         func = descr.get_b_slowpath(helper_num)
+        assert func != 0
         mc.CALL(imm(func))
         # get result:
         if is_frame:
