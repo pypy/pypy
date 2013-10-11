@@ -1629,6 +1629,13 @@ class IncrementalMiniMarkGC(MovingGCBase):
         if self.has_gcptr(typeid):
             # we only have to do it if we have any gcptrs
             self.old_objects_pointing_to_young.append(newobj)
+        else:
+            # we don't need to add this to 'old_objects_pointing_to_young',
+            # but in the STATE_MARKING phase we still need this bit...
+            if self.gc_state == STATE_MARKING:
+                self.header(newobj).tid &= ~GCFLAG_VISITED
+                self.objects_to_trace.append(newobj)
+
     _trace_drag_out._always_inline_ = True
 
     def _visit_young_rawmalloced_object(self, obj):
