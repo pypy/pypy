@@ -130,11 +130,7 @@ udir.join('pypy_decl.h').write("/* Will be filled later */\n")
 udir.join('pypy_macros.h').write("/* Will be filled later */\n")
 globals().update(rffi_platform.configure(CConfig_constants))
 
-def copy_header_files(dstdir):
-    assert dstdir.check(dir=True)
-    headers = include_dir.listdir('*.h') + include_dir.listdir('*.inl')
-    for name in ("pypy_decl.h", "pypy_macros.h"):
-        headers.append(udir.join(name))
+def _copy_header_files(headers, dstdir):
     for header in headers:
         target = dstdir.join(header.basename)
         try:
@@ -144,6 +140,25 @@ def copy_header_files(dstdir):
             header.copy(dstdir)
         target.chmod(0444) # make the file read-only, to make sure that nobody
                            # edits it by mistake
+
+def copy_header_files(dstdir):
+    # XXX: 20 lines of code to recursively copy a directory, really??
+    assert dstdir.check(dir=True)
+    headers = include_dir.listdir('*.h') + include_dir.listdir('*.inl')
+    for name in ("pypy_decl.h", "pypy_macros.h"):
+        headers.append(udir.join(name))
+    _copy_header_files(headers, dstdir)
+
+    try:
+        dstdir.mkdir('numpy')
+    except py.error.EEXIST:
+        pass
+    numpy_dstdir = dstdir / 'numpy'
+
+    numpy_include_dir = include_dir / 'numpy'
+    numpy_headers = numpy_include_dir.listdir('*.h') + numpy_include_dir.listdir('*.inl')
+    _copy_header_files(numpy_headers, numpy_dstdir)
+
 
 class NotSpecified(object):
     pass
@@ -288,9 +303,23 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, external=True):
                         elif isinstance(input_arg, W_Root):
                             arg = input_arg
                         else:
-                            arg = from_ref(space,
+                            try:
+                                arg = from_ref(space,
                                            rffi.cast(PyObject, input_arg))
+                            except TypeError, e:
+                                err = OperationError(space.w_TypeError,
+                                         space.wrap(
+                                        "could not cast arg to PyObject"))
+                                if not catch_exception:
+                                    raise err
+                                state = space.fromcache(State)
+                                state.set_exception(err)
+                                if is_PyObject(restype):
+                                    return None
+                                else:
+                                    return api_function.error_value
                     else:
+                        # convert to a wrapped object
                         arg = input_arg
                     newargs += (arg, )
                 try:
@@ -309,7 +338,7 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, external=True):
                             return api_function.error_value
                     if not we_are_translated():
                         got_integer = isinstance(res, (int, long, float))
-                        assert got_integer == expect_integer
+                        assert got_integer == expect_integer,'got %r not integer' % res
                     if res is None:
                         return None
                     elif isinstance(res, Reference):
@@ -386,6 +415,16 @@ SYMBOLS_C = [
     'PyThread_ReInitTLS',
 
     'PyStructSequence_InitType', 'PyStructSequence_New',
+
+    'PyFunction_Type', 'PyMethod_Type', 'PyRange_Type', 'PyTraceBack_Type',
+
+    'PyArray_Type', '_PyArray_FILLWBYTE', '_PyArray_ZEROS', '_PyArray_CopyInto',
+
+    'Py_DebugFlag', 'Py_VerboseFlag', 'Py_InteractiveFlag', 'Py_InspectFlag',
+    'Py_OptimizeFlag', 'Py_NoSiteFlag', 'Py_BytesWarningFlag', 'Py_UseClassExceptionsFlag',
+    'Py_FrozenFlag', 'Py_TabcheckFlag', 'Py_UnicodeFlag', 'Py_IgnoreEnvironmentFlag',
+    'Py_DivisionWarningFlag', 'Py_DontWriteBytecodeFlag', 'Py_NoUserSiteDirectory',
+    '_Py_QnewFlag', 'Py_Py3kWarningFlag', 'Py_HashRandomizationFlag', '_Py_PackageContext',
 ]
 TYPES = {}
 GLOBALS = { # this needs to include all prebuilt pto, otherwise segfaults occur
@@ -975,6 +1014,8 @@ def build_eci(building_bridge, export_symbols, code):
                                source_dir / "capsule.c",
                                source_dir / "pysignals.c",
                                source_dir / "pythread.c",
+                               source_dir / "ndarrayobject.c",
+                               source_dir / "missing.c",
                                ],
         separate_module_sources=separate_module_sources,
         export_symbols=export_symbols_eci,

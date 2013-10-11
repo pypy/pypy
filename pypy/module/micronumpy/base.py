@@ -1,4 +1,5 @@
 
+from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import W_Root
 from rpython.tool.pairtype import extendabletype
 from pypy.module.micronumpy.support import calc_strides
@@ -86,15 +87,26 @@ class W_NDimArray(W_Root):
 
 
 def convert_to_array(space, w_obj):
+    #XXX: This whole routine should very likely simply be array()
     from pypy.module.micronumpy.interp_numarray import array
     from pypy.module.micronumpy import interp_ufuncs
 
     if isinstance(w_obj, W_NDimArray):
         return w_obj
-    elif issequence_w(space, w_obj):
-        # Convert to array.
-        return array(space, w_obj, w_order=None)
     else:
-        # If it's a scalar
-        dtype = interp_ufuncs.find_dtype_for_scalar(space, w_obj)
-        return W_NDimArray.new_scalar(space, dtype, w_obj)
+        # Use __array__() method if it exists
+        w_array = space.lookup(w_obj, "__array__")
+        if w_array is not None:
+            w_result = space.get_and_call_function(w_array, w_obj)
+            if isinstance(w_result, W_NDimArray):
+                return w_result
+            else:
+                raise OperationError(space.w_ValueError, 
+                        space.wrap("object __array__ method not producing an array"))
+        elif issequence_w(space, w_obj):
+            # Convert to array.
+            return array(space, w_obj, w_order=None)
+        else:
+            # If it's a scalar
+            dtype = interp_ufuncs.find_dtype_for_scalar(space, w_obj)
+            return W_NDimArray.new_scalar(space, dtype, w_obj)

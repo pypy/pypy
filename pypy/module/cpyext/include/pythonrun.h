@@ -6,14 +6,32 @@
 extern "C" {
 #endif
 
-  void Py_FatalError(const char *msg);
+void Py_FatalError(const char *msg);
 
-/* the -3 option will probably not be implemented */
-#define Py_Py3kWarningFlag 0
+/* taken from Python-2.7.3/Include/pydebug.h */
+PyAPI_DATA(int) Py_DebugFlag;
+PyAPI_DATA(int) Py_VerboseFlag;
+PyAPI_DATA(int) Py_InteractiveFlag;
+PyAPI_DATA(int) Py_InspectFlag;
+PyAPI_DATA(int) Py_OptimizeFlag;
+PyAPI_DATA(int) Py_NoSiteFlag;
+PyAPI_DATA(int) Py_BytesWarningFlag;
+PyAPI_DATA(int) Py_UseClassExceptionsFlag;
+PyAPI_DATA(int) Py_FrozenFlag;
+PyAPI_DATA(int) Py_TabcheckFlag;
+PyAPI_DATA(int) Py_UnicodeFlag;
+PyAPI_DATA(int) Py_IgnoreEnvironmentFlag;
+PyAPI_DATA(int) Py_DivisionWarningFlag;
+PyAPI_DATA(int) Py_DontWriteBytecodeFlag;
+PyAPI_DATA(int) Py_NoUserSiteDirectory;
+/* _XXX Py_QnewFlag should go away in 3.0.  It's true iff -Qnew is passed,
+ *   on the command line, and is used in 2.2 by ceval.c to make all "/" divisions
+ *     true divisions (which they will be in 3.0). */
+PyAPI_DATA(int) _Py_QnewFlag;
+/* Warn about 3.x issues */
+PyAPI_DATA(int) Py_Py3kWarningFlag;
+PyAPI_DATA(int) Py_HashRandomizationFlag;
 
-#define Py_FrozenFlag 0
-#define Py_VerboseFlag 0
-#define Py_DebugFlag 1
 
 typedef struct {
     int cf_flags;  /* bitmask of CO_xxx flags relevant to future */

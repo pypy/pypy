@@ -99,7 +99,7 @@ def freeze_refcnts(self):
 class LeakCheckingTest(object):
     """Base class for all cpyext tests."""
     spaceconfig = dict(usemodules=['cpyext', 'thread', '_rawffi', 'array',
-                                   'itertools', 'rctime', 'binascii'])
+                                   'itertools', 'rctime', 'binascii', 'micronumpy'])
     spaceconfig['std.withmethodcache'] = True
 
     enable_leak_checking = True
@@ -196,7 +196,7 @@ class AppTestApi(LeakCheckingTest):
         assert PyUnicode_GetDefaultEncoding() == 'ascii'
 
 class AppTestCpythonExtensionBase(LeakCheckingTest):
-    
+
     def setup_class(cls):
         cls.space.getbuiltinmodule("cpyext")
         from pypy.module.imp.importing import importhook

@@ -50,3 +50,10 @@ class TestByteArray(BaseRtypingTest):
 
         ll_res = self.interpret(f, [123])
         assert hlstr(ll_res) == "123"
+
+    def test_getslice(self):
+        def f(x):
+            return str(bytearray(str(x))[1:2])
+
+        ll_res = self.interpret(f, [123])
+        assert hlstr(ll_res) == "2"

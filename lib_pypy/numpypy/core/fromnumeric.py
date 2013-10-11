@@ -1133,7 +1133,13 @@ def nonzero(a):
     (array([1, 1, 1, 2, 2, 2]), array([0, 1, 2, 0, 1, 2]))
 
     """
-    raise NotImplementedError('Waiting on interp level method')
+    try:
+        nonzero = a.nonzero
+    except AttributeError:
+        res = _wrapit(a, 'nonzero')
+    else:
+        res = nonzero()
+    return res
 
 
 def shape(a):

@@ -820,8 +820,9 @@ def ll_update(dic1, dic2):
             entry = entries[i]
             hash = entries.hash(i)
             key = entry.key
+            value = entry.value
             j = ll_dict_lookup(dic1, key, hash)
-            _ll_dict_setitem_lookup_done(dic1, key, entry.value, hash, j)
+            _ll_dict_setitem_lookup_done(dic1, key, value, hash, j)
         i += 1
 ll_update.oopspec = 'dict.update(dic1, dic2)'
 

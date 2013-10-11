@@ -2441,6 +2441,32 @@ class LLtypeBackendTest(BaseBackendTest):
         assert values == [1, 10]
         assert self.cpu.get_savedata_ref(deadframe) == random_gcref
 
+    def test_guard_not_forced_2(self):
+        cpu = self.cpu
+        i0 = BoxInt()
+        i1 = BoxInt()
+        tok = BoxPtr()
+        faildescr = BasicFailDescr(1)
+        ops = [
+        ResOperation(rop.INT_ADD, [i0, ConstInt(10)], i1),
+        ResOperation(rop.FORCE_TOKEN, [], tok),
+        ResOperation(rop.GUARD_NOT_FORCED_2, [], None, descr=faildescr),
+        ResOperation(rop.FINISH, [tok], None, descr=BasicFinalDescr(0))
+        ]
+        ops[-2].setfailargs([i1])
+        looptoken = JitCellToken()
+        self.cpu.compile_loop([i0], ops, looptoken)
+        deadframe = self.cpu.execute_token(looptoken, 20)
+        fail = self.cpu.get_latest_descr(deadframe)
+        assert fail.identifier == 0
+        frame = self.cpu.get_ref_value(deadframe, 0)
+        # actually, we should get the same pointer in 'frame' and 'deadframe'
+        # but it is not the case on LLGraph
+        if not getattr(self.cpu, 'is_llgraph', False):
+            assert frame == deadframe
+        deadframe2 = self.cpu.force(frame)
+        assert self.cpu.get_int_value(deadframe2, 0) == 30
+
     def test_call_to_c_function(self):
         from rpython.rlib.libffi import CDLL, types, ArgChain, FUNCFLAG_CDECL
         from rpython.rtyper.lltypesystem.ll2ctypes import libc_name

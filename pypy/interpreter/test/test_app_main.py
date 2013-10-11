@@ -954,6 +954,8 @@ class AppTestAppMain:
 
         sys.path.append(self.goal_dir)
         # make sure cwd does not contain a stdlib
+        if self.tmp_dir.startswith(self.trunkdir):
+            skip('TMPDIR is inside the PyPy source')
         os.chdir(self.tmp_dir)
         tmp_pypy_c = os.path.join(self.tmp_dir, 'pypy-c')
         try:

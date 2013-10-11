@@ -221,3 +221,27 @@ class AppTestSupport(BaseNumpyAppTest):
         b = a.reshape(3, 4)
         assert b.called_finalize == True
 
+    def test___array__(self):
+        from numpypy import ndarray, array, dtype
+        class D(ndarray):
+            def __new__(subtype, shape, dtype):
+                self = ndarray.__new__(subtype, shape, dtype)
+                self.id = 'subtype'
+                return self
+        class C(object):
+            def __init__(self, val, dtype):
+                self.val = val
+                self.dtype = dtype
+            def __array__(self, dtype=None):
+                retVal = D(self.val, dtype)
+                return retVal
+
+        a = C([2, 2], int)
+        b = array(a)
+        assert b.shape == (2, 2)
+        if not self.isNumpy:
+            assert b.id == 'subtype'
+            assert isinstance(b, D)
+        c = array(a, float)
+        assert c.dtype is dtype(float)
+
