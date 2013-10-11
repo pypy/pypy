@@ -489,7 +489,6 @@ def _pow_impl(space, iv, iw, iz):
 
 def wrapint(space, x):
     if space.config.objspace.std.withprebuiltint:
-        from pypy.objspace.std.intobject import W_IntObject
         lower = space.config.objspace.std.prebuiltintfrom
         upper =  space.config.objspace.std.prebuiltintto
         # use r_uint to perform a single comparison (this whole function
@@ -507,7 +506,6 @@ def wrapint(space, x):
         w_res.intval = x
         return w_res
     else:
-        from pypy.objspace.std.intobject import W_IntObject
         return W_IntObject(x)
 
 # ____________________________________________________________
@@ -534,9 +532,8 @@ def retry_to_w_long(space, parser):
                              space.wrap(e.msg))
     return space.newlong_from_rbigint(bigint)
 
-@unwrap_spec(w_x = WrappedDefault(0))
+@unwrap_spec(w_x=WrappedDefault(0))
 def descr__new__(space, w_inttype, w_x, w_base=None):
-    from pypy.objspace.std.intobject import W_IntObject
     w_longval = None
     w_value = w_x     # 'x' is the keyword argument name in CPython
     value = 0
