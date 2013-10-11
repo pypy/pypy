@@ -357,7 +357,10 @@ class ArenaCollection(object):
             #
             size_class -= 1
         #
-        self._rehash_arenas_lists()
+        if size_class >= 0:
+            self._rehash_arenas_lists()
+            self.size_class_with_old_pages = -1
+        #
         return True
 
 
