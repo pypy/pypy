@@ -1785,7 +1785,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
                                                  2 * limit + remaining)
             # XXX tweak the limits above
             #
-            if remaining == 0 and done:
+            if remaining > 0 and done:
                 self.num_major_collects += 1
                 #
                 # We also need to reset the GCFLAG_VISITED on prebuilt GC objects.
