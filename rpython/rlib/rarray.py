@@ -1,6 +1,7 @@
 from rpython.annotator import model as annmodel
 from rpython.annotator.listdef import ListDef
 from rpython.rlib.objectmodel import specialize
+from rpython.rlib import jit
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.tool.pairtype import pair
@@ -48,6 +49,7 @@ def get_raw_buf(ptr):
 get_raw_buf._always_inline_ = True
 
 
+@jit.dont_look_inside
 def ll_copy_list_to_raw_array(ll_list, dst_ptr):
     # this code is delicate: we must ensure that there are no GC operations
     # around the call to raw_memcopy
@@ -61,6 +63,7 @@ def ll_copy_list_to_raw_array(ll_list, dst_ptr):
     # end of no-GC section
 
 
+@jit.dont_look_inside
 def ll_populate_list_from_raw_array(ll_list, src_ptr, length):
     ITEM = lltype.typeOf(src_ptr).TO.OF
     size = llmemory.sizeof(ITEM) * length
