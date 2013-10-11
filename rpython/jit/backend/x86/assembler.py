@@ -705,7 +705,7 @@ class Assembler386(BaseAssembler):
                           frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE)
         if logger:
             logger.log_bridge(inputargs, operations, "rewritten",
-                              ops_offset=ops_offset)
+                              ops_offset=ops_offset, descr=faildescr)
         self.fixup_target_tokens(rawstart)
         self.update_frame_depth(frame_depth)
         self.teardown()
