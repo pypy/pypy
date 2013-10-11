@@ -374,19 +374,16 @@ def adjust_bridges(loop, bridges):
             i += 1
     return res
 
-def purge_thread_numbers(entry):
-    result = []
-    for line in entry.split('\n'):
-        line = line[line.find('#')+2:]
-        result.append(line)
-    return '\n'.join(result)
+r_skip_thread = re.compile(r'^(\d+#)?')
+def skip_thread_numbers(entry):
+    return r_skip_thread.sub('', entry).strip()
     
 def import_log(logname, ParserCls=SimpleParser):
     log = parse_log_file(logname)
     hex_re = '0x(-?[\da-f]+)'
     addrs = {}
     for entry in extract_category(log, 'jit-backend-addr'):
-        entry = purge_thread_numbers(entry)
+        entry = skip_thread_numbers(entry)
         m = re.search('bootstrap ' + hex_re, entry)
         if not m:
             # a bridge
@@ -402,7 +399,7 @@ def import_log(logname, ParserCls=SimpleParser):
     from rpython.jit.backend.tool.viewcode import World
     world = World()
     for entry in extract_category(log, 'jit-backend-dump'):
-        entry = purge_thread_numbers(entry)
+        entry = skip_thread_numbers(entry)
         world.parse(entry.splitlines(True))
     dumps = {}
     symbols = world.symbols
@@ -414,9 +411,9 @@ def import_log(logname, ParserCls=SimpleParser):
     loops = []
     cat = extract_category(log, 'jit-log-opt')
     if not cat:
-        extract_category(log, 'jit-log-rewritten')
+        cat = extract_category(log, 'jit-log-rewritten')
     if not cat:
-        extract_category(log, 'jit-log-noopt')        
+        cat = extract_category(log, 'jit-log-noopt')        
     for entry in cat:
         parser = ParserCls(entry, None, {}, 'lltype', None,
                            nonstrict=True)
@@ -473,7 +470,7 @@ def parse_log_counts(input, loops):
         mapping[loop.descr] = loop
     for line in lines:
         if line:
-            line = purge_thread_numbers(line)
+            line = skip_thread_numbers(line)
             num, count = line.split(':', 2)
             mapping[num].count = int(count)
 

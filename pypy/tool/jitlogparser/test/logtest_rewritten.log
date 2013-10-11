@@ -115,7 +115,7 @@
 0# CODE_DUMP @7f5514b31e74 +0  55010000
 0# [1cffd9b1e3b8] jit-backend-dump}
 0# [1cffd9b1f0b2] jit-backend}
-0# [1cffd9b20d9f] {jit-log-opt-loop
+0# [1cffd9b20d9f] {jit-log-rewritten-loop
 0# # Loop 0 (<code object g, file 'x.py', line 8> #9 LOAD_FAST) : loop with 59 ops
 0# [p0, p1]
 0# +110: p2 = getfield_gc(p0, descr=<FieldP pypy.interpreter.pyframe.PyFrame.inst_w_f_trace 128>)
@@ -178,7 +178,7 @@
 0# debug_merge_point(0, 0, '<code object g. file 'x.py'. line 8> #9 LOAD_FAST')
 0# +408: jump(p0, p1, p2, p3, p6, i33, descr=TargetToken(140003404595320))
 0# +416: --end of the loop--
-0# [1cffd9ba83b9] jit-log-opt-loop}
+0# [1cffd9ba83b9] jit-log-rewritten-loop}
 0# [1cffd9d7af1e] {jit-backend
 0# [1cffd9ea4873] {jit-backend-dump
 0# BACKEND x86_64
@@ -259,7 +259,7 @@
 0# CODE_DUMP @7f5514b3244f +0  48020000
 0# [1cffd9eceab8] jit-backend-dump}
 0# [1cffd9ecf545] jit-backend}
-0# [1cffd9ed0c35] {jit-log-opt-loop
+0# [1cffd9ed0c35] {jit-log-rewritten-loop
 0# # Loop 1 (<code object h, file 'x.py', line 14> #13 FOR_ITER) : loop with 82 ops
 0# [p0, p1]
 0# +110: p2 = getfield_gc(p0, descr=<FieldP pypy.interpreter.pyframe.PyFrame.inst_w_f_trace 128>)
@@ -345,7 +345,7 @@
 0# debug_merge_point(0, 0, '<code object h. file 'x.py'. line 14> #13 FOR_ITER')
 0# +811: jump(p0, p1, p2, p3, p6, i55, p13, p15, i56, i28, i27, i26, p39, descr=TargetToken(140003443320312))
 0# +840: --end of the loop--
-0# [1cffd9f27224] jit-log-opt-loop}
+0# [1cffd9f27224] jit-log-rewritten-loop}
 0# [1cffd9f6f244] {jit-backend-counts
 0# entry 0:1
 0# TargetToken(140003404595232):1

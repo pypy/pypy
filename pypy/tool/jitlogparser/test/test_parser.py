@@ -289,6 +289,26 @@ def test_import_log_2():
         loop.force_asm()
     assert 'cmp' in loops[1].operations[2].asm
 
+def test_import_log_rewritten():
+    if not autodetect().startswith('x86'):
+        py.test.skip('x86 only test')
+    _, loops = import_log(str(py.path.local(__file__).join(
+        '..', 'logtest_rewritten.log')))
+    for loop in loops:
+        loop.force_asm()
+    assert 'cmp' in loops[1].operations[2].asm
+
+def test_import_log_noopt():
+    if not autodetect().startswith('x86'):
+        py.test.skip('x86 only test')
+    _, loops = import_log(str(py.path.local(__file__).join(
+        '..', 'logtest_noopt.log')))
+    for loop in loops:
+        loop.force_asm()
+    assert 'cmp' in loops[1].operations[2].asm
+
+    
+
 def test_Op_repr_is_pure():
     op = Op('foobar', ['a', 'b'], 'c', 'mydescr')
     myrepr = 'c = foobar(a, b, descr=mydescr)'
