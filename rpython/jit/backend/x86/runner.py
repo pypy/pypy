@@ -104,6 +104,11 @@ class AbstractX86CPU(AbstractLLCPU):
                                               original_loop_token, log=log,
                                               logger=logger)
 
+    def guard_already_patched(self, faildescr):
+        # only needed for STM so far
+        return faildescr._x86_adr_jump_offset == 0
+
+        
     def clear_latest_values(self, count):
         setitem = self.assembler.fail_boxes_ptr.setitem
         null = lltype.nullptr(llmemory.GCREF.TO)

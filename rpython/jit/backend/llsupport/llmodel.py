@@ -205,6 +205,13 @@ class AbstractLLCPU(AbstractCPU):
         deadframe = lltype.cast_opaque_ptr(jitframe.JITFRAMEPTR, deadframe)
         return deadframe.jf_savedata
 
+    def guard_already_patched(self, faildescr):
+        # returns True if the guard jump target is already patched
+        # to point to a bridge
+        raise NotImplemented
+
+
+
     def free_loop_and_bridges(self, compiled_loop_token):
         AbstractCPU.free_loop_and_bridges(self, compiled_loop_token)
         blocks = compiled_loop_token.asmmemmgr_blocks

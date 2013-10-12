@@ -573,7 +573,16 @@ class ResumeGuardDescr(ResumeDescr):
         with stm_ignored:
             approx_counter = self._counter + 1
             self._counter = approx_counter
-        return approx_counter >= trace_eagerness and not self.rd_stm_busy
+
+        # The call to guard_already_patched is necessary because it is 
+        # possible that the current transaction didn't see the 
+        # patched JMP yet, but already sees rd_stm_busy as False (because
+        # the patching is in raw-memory).
+        # Thus it may try to compile a trace too and also patch the assembler.
+        # However, this would trigger the assertion in 
+        #     x86.assembler.patch_jump_for_descr.
+        return (approx_counter >= trace_eagerness and not self.rd_stm_busy
+                and not metainterp_sd.cpu.guard_already_patched(self))
 
     def must_compile_nonstm(self, deadframe, metainterp_sd, jitdriver_sd):
         trace_eagerness = jitdriver_sd.warmstate.trace_eagerness
