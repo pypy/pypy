@@ -3,6 +3,8 @@
  * for supporting Python 2 and Python 3 in the same code base.
  *
  * PyPy uses it as a convenient place to add compatability declarations
+ * It will be copied by numpy/core/setup.py by install_data to
+ * site-packages/numpy/core/includes/numpy 
  */
 
 #ifndef _NPY_3KCOMPAT_H_
