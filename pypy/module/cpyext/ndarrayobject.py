@@ -171,6 +171,15 @@ def _PyArray_FromAny(space, w_obj, w_dtype, min_depth, max_depth, requirements, 
         w_array.implementation.shape = []
     return w_array
 
+@cpython_api([rffi.INT_real], PyObject)
+def _PyArray_DescrFromType(space, typenum):
+    try:
+        dtype = get_dtype_cache(space).dtypes_by_num[typenum]
+        return dtype
+    except KeyError:
+        raise OperationError(space.w_ValueError, space.wrap(
+            '_PyArray_DescrFromType called with invalid dtype %d' % typenum))
+
 @cpython_api([PyObject, Py_ssize_t, Py_ssize_t, Py_ssize_t], PyObject)
 def _PyArray_FromObject(space, w_obj, typenum, min_depth, max_depth):
     try:
