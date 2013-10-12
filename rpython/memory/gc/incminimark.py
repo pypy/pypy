@@ -1761,7 +1761,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             debug_print("number of objects to mark",
                         self.objects_to_trace.length())
 
-            estimate = self.nursery_size    # XXX
+            estimate = self.nursery_size // 10    # XXX
             self.visit_all_objects_step(estimate)
 
             # XXX A simplifying assumption that should be checked,
