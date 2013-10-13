@@ -162,6 +162,9 @@ class DictRepr(AbstractDictRepr):
                 fasthashfn = None
             else:
                 fasthashfn = self.key_repr.get_ll_fasthash_function()
+                if getattr(self.key_repr.get_ll_eq_function(),
+                           'no_direct_compare', False):
+                    entrymeths['no_direct_compare'] = True
             if fasthashfn is None:
                 entryfields.append(("f_hash", lltype.Signed))
                 entrymeths['hash'] = ll_hash_from_cache

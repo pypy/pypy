@@ -999,6 +999,16 @@ class TestRdict(BaseRtypingTest):
         res = f()
         assert res == 1
 
+    def test_dict_with_SHORT_keys(self):
+        def func(x):
+            d = {}
+            d[rffi.cast(rffi.SHORT, 42)] = 123
+            d[rffi.cast(rffi.SHORT, -43)] = 321
+            return d[rffi.cast(rffi.SHORT, x)]
+
+        assert self.interpret(func, [42]) == 123
+        assert self.interpret(func, [2**16 - 43]) == 321
+
     def test_nonnull_hint(self):
         def eq(a, b):
             return a == b
