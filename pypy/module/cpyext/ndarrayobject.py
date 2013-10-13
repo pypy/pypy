@@ -171,7 +171,7 @@ def _PyArray_FromAny(space, w_obj, w_dtype, min_depth, max_depth, requirements, 
         w_array.implementation.shape = []
     return w_array
 
-@cpython_api([rffi.INT_real], PyObject)
+@cpython_api([Py_ssize_t], PyObject)
 def _PyArray_DescrFromType(space, typenum):
     try:
         dtype = get_dtype_cache(space).dtypes_by_num[typenum]
