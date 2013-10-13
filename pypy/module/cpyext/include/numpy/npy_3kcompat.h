@@ -4,8 +4,8 @@
  *
  * PyPy uses it as a convenient place to add compatability declarations
  * It will be copied by numpy/core/setup.py by install_data to
- * site-packages/numpy/core/includes/numpy 
- */
+ * site-packages/numpy/core/includes/numpy  
+*/
 
 #ifndef _NPY_3KCOMPAT_H_
 #define _NPY_3KCOMPAT_H_
@@ -38,4 +38,4 @@ npy_PyFile_CloseFile(PyObject *file)
     Py_DECREF(ret);
     return 0;
 }
-
+#endif
