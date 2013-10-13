@@ -155,7 +155,10 @@ class HeapCache(object):
                             else:
                                 cache[dststart + i].clear()
                     return
-                elif argboxes[2] in self.new_boxes:
+                elif (
+                    argboxes[2] in self.new_boxes and
+                    len(effectinfo.write_descrs_arrays) == 1
+                ):
                     # Fish the descr out of the effectinfo
                     cache = self.heap_array_cache.get(effectinfo.write_descrs_arrays[0], None)
                     if cache is not None:
