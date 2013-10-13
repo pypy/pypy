@@ -251,7 +251,7 @@ class __extend__(IntegerRepr):
         raise TyperError("not an integer: %r" % (value,))
 
     def get_ll_eq_function(self):
-        if self._opprefix is None:
+        if getattr(self, '_opprefix', '?') is None:
             return ll_eq_shortint
         return None
 

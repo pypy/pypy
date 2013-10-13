@@ -1009,6 +1009,16 @@ class TestRdict(BaseRtypingTest):
         assert self.interpret(func, [42]) == 123
         assert self.interpret(func, [2**16 - 43]) == 321
 
+    def test_dict_with_bool_keys(self):
+        def func(x):
+            d = {}
+            d[False] = 123
+            d[True] = 321
+            return d[x == 42]
+
+        assert self.interpret(func, [5]) == 123
+        assert self.interpret(func, [42]) == 321
+
     def test_nonnull_hint(self):
         def eq(a, b):
             return a == b
