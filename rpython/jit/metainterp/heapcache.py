@@ -155,6 +155,15 @@ class HeapCache(object):
                             else:
                                 cache[dststart + i].clear()
                     return
+                elif argboxes[2] in self.new_boxes:
+                    # Fish the descr out of the effectinfo
+                    cache = self.heap_array_cache.get(effectinfo.write_descrs_arrays[0], None)
+                    if cache is not None:
+                        for idx, cache in cache.iteritems():
+                            for frombox in cache.keys():
+                                if not self.is_unescaped(frombox):
+                                    del cache[frombox]
+                    return
             else:
                 # Only invalidate things that are either escaped or arguments
                 for descr, boxes in self.heap_cache.iteritems():
