@@ -372,22 +372,22 @@ class TestHeapCache(object):
         h.invalidate_caches(
             rop.CALL,
             FakeCallDescr(FakeEffectinfo.EF_CANNOT_RAISE, FakeEffectinfo.OS_ARRAYCOPY, write_descrs_arrays=[descr1]),
-            [None, None, box2, None, None]
+            [None, box5, box2, index1, index1, index1]
         )
         assert h.getarrayitem(box1, index1, descr1) is box2
         h.invalidate_caches(
             rop.CALL,
             FakeCallDescr(FakeEffectinfo.EF_CANNOT_RAISE, FakeEffectinfo.OS_ARRAYCOPY, write_descrs_arrays=[descr1]),
-            [None, None, box3, None, None]
+            [None, box5, box3, index1, index1, index1]
         )
-        assert h.getarrayitem(box1, index1, descr1) is None
+        assert h.getarrayitem(box1, index1, descr1) is box2
 
         h.setarrayitem(box4, index1, box2, descr1)
         assert h.getarrayitem(box4, index1, descr1) is box2
         h.invalidate_caches(
             rop.CALL,
             FakeCallDescr(FakeEffectinfo.EF_CANNOT_RAISE, FakeEffectinfo.OS_ARRAYCOPY, write_descrs_arrays=[descr1]),
-            [None, None, box2, None, None]
+            [None, box3, box5, index1, index1, index2]
         )
         assert h.getarrayitem(box4, index1, descr1) is None
 
@@ -399,10 +399,29 @@ class TestHeapCache(object):
         h.invalidate_caches(
             rop.CALL,
             FakeCallDescr(FakeEffectinfo.EF_CANNOT_RAISE, FakeEffectinfo.OS_ARRAYCOPY, write_descrs_arrays=[descr2]),
-            [None, None, box2, None, None]
+            [None, box3, box2, index1, index1, index2]
         )
         assert h.getarrayitem(box1, index1, descr1) is box2
 
+    def test_ll_arraycopy_result_propogated(self):
+        h = HeapCache()
+        h.setarrayitem(box1, index1, box2, descr1)
+        h.invalidate_caches(
+            rop.CALL,
+            FakeCallDescr(FakeEffectinfo.EF_CANNOT_RAISE, FakeEffectinfo.OS_ARRAYCOPY, write_descrs_arrays=[descr1]),
+            [None, box1, box3, index1, index1, index2]
+        )
+        assert h.getarrayitem(box3, index1, descr1) is box2
+
+    def test_ll_arraycopy_dest_new(self):
+        h = HeapCache()
+        h.new_array(box1, lengthbox1)
+        h.setarrayitem(box3, index1, box4, descr1)
+        h.invalidate_caches(
+            rop.CALL,
+            FakeCallDescr(FakeEffectinfo.EF_CANNOT_RAISE, FakeEffectinfo.OS_ARRAYCOPY, write_descrs_arrays=[descr1]),
+            [None, box2, box1, index1, index1, index2]
+        )
 
     def test_unescaped(self):
         h = HeapCache()
