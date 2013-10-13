@@ -51,10 +51,10 @@ class HeapCache(object):
         return self.output_indirections.get(box, box)
 
     def invalidate_caches(self, opnum, descr, argboxes):
-        self.mark_escaped(opnum, argboxes)
+        self.mark_escaped(opnum, descr, argboxes)
         self.clear_caches(opnum, descr, argboxes)
 
-    def mark_escaped(self, opnum, argboxes):
+    def mark_escaped(self, opnum, descr, argboxes):
         if opnum == rop.SETFIELD_GC:
             assert len(argboxes) == 2
             box, valuebox = argboxes
@@ -69,6 +69,15 @@ class HeapCache(object):
                 self.dependencies.setdefault(box, []).append(valuebox)
             else:
                 self._escape(valuebox)
+        elif (opnum == rop.CALL and
+              descr.get_extra_info().oopspecindex == descr.get_extra_info().OS_ARRAYCOPY and
+              isinstance(argboxes[3], ConstInt) and
+              isinstance(argboxes[4], ConstInt) and
+              isinstance(argboxes[5], ConstInt) and
+              len(descr.get_extra_info().write_descrs_arrays) == 1):
+            # ARRAYCOPY with constant starts and constant length doesn't escape
+            # its argument
+            pass
         # GETFIELD_GC, MARK_OPAQUE_PTR, PTR_EQ, and PTR_NE don't escape their
         # arguments
         elif (opnum != rop.GETFIELD_GC and

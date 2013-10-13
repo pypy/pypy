@@ -1,6 +1,6 @@
 from rpython.jit.metainterp.heapcache import HeapCache
 from rpython.jit.metainterp.resoperation import rop
-from rpython.jit.metainterp.history import ConstInt
+from rpython.jit.metainterp.history import ConstInt, BoxInt
 
 box1 = "box1"
 box2 = "box2"
@@ -72,7 +72,6 @@ class TestHeapCache(object):
         h.reset()
         assert not h.is_nonstandard_virtualizable(1)
         assert not h.is_nonstandard_virtualizable(2)
-
 
     def test_heapcache_fields(self):
         h = HeapCache()
@@ -278,7 +277,6 @@ class TestHeapCache(object):
         assert h.getarrayitem(box1, index1, descr1) is None
         assert h.getarrayitem(box1, index2, descr1) is None
 
-
     def test_replace_box(self):
         h = HeapCache()
         h.setfield(box1, box2, descr1)
@@ -422,6 +420,25 @@ class TestHeapCache(object):
             FakeCallDescr(FakeEffectinfo.EF_CANNOT_RAISE, FakeEffectinfo.OS_ARRAYCOPY, write_descrs_arrays=[descr1]),
             [None, box2, box1, index1, index1, index2]
         )
+
+    def test_ll_arraycopy_doesnt_escape_arrays(self):
+        h = HeapCache()
+        h.new_array(box1, lengthbox1)
+        h.new_array(box2, lengthbox2)
+        h.invalidate_caches(
+            rop.CALL,
+            FakeCallDescr(FakeEffectinfo.EF_CANNOT_RAISE, FakeEffectinfo.OS_ARRAYCOPY, write_descrs_arrays=[descr1]),
+            [None, box2, box1, index1, index1, index2]
+        )
+        assert h.is_unescaped(box1)
+        assert h.is_unescaped(box2)
+        h.invalidate_caches(
+            rop.CALL,
+            FakeCallDescr(FakeEffectinfo.EF_CANNOT_RAISE, FakeEffectinfo.OS_ARRAYCOPY, write_descrs_arrays=[descr1]),
+            [None, box2, box1, index1, index1, BoxInt()]
+        )
+        assert not h.is_unescaped(box1)
+        assert not h.is_unescaped(box2)
 
     def test_unescaped(self):
         h = HeapCache()
