@@ -1083,6 +1083,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
             pass    # black -> black
         elif self._debug_objects_to_trace_dict.contains(obj):
             pass    # black -> gray
+        elif self.header(obj).tid & GCFLAG_NO_HEAP_PTRS != 0:
+            pass    # black -> white-but-prebuilt-so-dont-care
         else:
             ll_assert(False, "black -> white pointer found")
 
