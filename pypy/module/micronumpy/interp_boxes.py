@@ -136,6 +136,11 @@ class W_GenericBox(W_Root):
         assert isinstance(box, W_LongBox)
         return space.wrap(box.value)
 
+    def descr_long(self, space):
+        box = self.convert_to(W_Int64Box._get_dtype(space))
+        assert isinstance(box, W_Int64Box)
+        return space.wrap(box.value)
+
     def descr_float(self, space):
         box = self.convert_to(W_Float64Box._get_dtype(space))
         assert isinstance(box, W_Float64Box)
@@ -470,6 +475,7 @@ W_GenericBox.typedef = TypeDef("generic",
     __repr__ = interp2app(W_GenericBox.descr_str),
     __format__ = interp2app(W_GenericBox.descr_format),
     __int__ = interp2app(W_GenericBox.descr_int),
+    __long__ = interp2app(W_GenericBox.descr_long),
     __float__ = interp2app(W_GenericBox.descr_float),
     __nonzero__ = interp2app(W_GenericBox.descr_nonzero),
 
