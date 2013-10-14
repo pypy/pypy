@@ -10,6 +10,12 @@ Environment variables can be used to fine-tune the following parameters:
                          be smaller than the nursery size and bigger than the
                          biggest object we can allotate in the nursery.
 
+ PYPY_GC_INCREMENT_STEP  The size of memory marked during the marking step.
+                         Default is size of nursery * 2. If you mark it too high
+                         your GC is not incremental at all. The minimum is set
+                         to size that survives minor collection * 1.5 so we
+                         reclaim anything all the time.
+
  PYPY_GC_MAJOR_COLLECT   Major collection memory factor.  Default is '1.82',
                          which means trigger a major collection when the
                          memory consumed equals 1.82 times the memory
@@ -358,6 +364,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # allocate the nursery of the final size.
         if not self.read_from_env:
             self.allocate_nursery()
+            self.gc_increment_step = self.nursery_size * 4
         else:
             #
             defaultsize = self.nursery_size
@@ -411,6 +418,12 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 self.max_delta = float(max_delta)
             else:
                 self.max_delta = 0.125 * env.get_total_memory()
+
+            gc_increment_step = env.read_uint_from_env('PYPY_GC_INCREMENT_STEP')
+            if gc_increment_step > 0:
+                self.gc_increment_step = gc_increment_step
+            else:
+                self.gc_increment_step = newsize * 4
             #
             self.minor_collection()    # to empty the nursery
             llarena.arena_free(self.nursery)
@@ -1375,6 +1388,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # young objects; only objects directly referenced by roots
         # are copied out or flagged.  They are also added to the list
         # 'old_objects_pointing_to_young'.
+        self.nursery_surviving_size = 0
         self.collect_roots_in_nursery()
         #
         while True:
@@ -1581,6 +1595,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # HAS_SHADOW flag either.  We must move it out of the nursery,
             # into a new nonmovable location.
             totalsize = size_gc_header + self.get_size(obj)
+            self.nursery_surviving_size += raw_malloc_usage(totalsize)
             newhdr = self._malloc_out_of_nursery(totalsize)
             #
         elif self.is_forwarded(obj):
@@ -1760,8 +1775,10 @@ class IncrementalMiniMarkGC(MovingGCBase):
         elif self.gc_state == STATE_MARKING:
             debug_print("number of objects to mark",
                         self.objects_to_trace.length())
-
-            estimate = self.nursery_size // 10    # XXX
+            estimate = self.gc_increment_step
+            estimate_from_nursery = self.nursery_surviving_size * 2
+            if estimate_from_nursery > estimate:
+                estimate = estimate_from_nursery
             self.visit_all_objects_step(estimate)
 
             # XXX A simplifying assumption that should be checked,
@@ -1946,13 +1963,15 @@ class IncrementalMiniMarkGC(MovingGCBase):
     def visit_all_objects(self):
         self.visit_all_objects_step(sys.maxint)
 
-    def visit_all_objects_step(self, nobjects):
+    def visit_all_objects_step(self, size_to_track):
         # Objects can be added to pending by visit
         pending = self.objects_to_trace
-        while nobjects > 0 and pending.non_empty():
+        size_gc_header = self.gcheaderbuilder.size_gc_header
+        while size_to_track > 0 and pending.non_empty():
             obj = pending.pop()
             self.visit(obj)
-            nobjects -= 1
+            totalsize = size_gc_header + self.get_size(obj)
+            size_to_track -= raw_malloc_usage(totalsize)
 
     def visit(self, obj):
         #
