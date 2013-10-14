@@ -606,7 +606,7 @@ def identity(n, dtype=None):
            [ 0.,  0.,  1.]])
 
     """
-    from numpy import eye
+    from .. import eye
     return eye(n, dtype=dtype)
 
 Inf = inf = infty = Infinity = PINF
