@@ -78,9 +78,16 @@ class W_Ufunc(W_Root):
     def descr_accumulate(self, space, w_obj, w_axis=None, w_dtype=None, w_out=None):
         if space.is_none(w_axis) or w_axis is None:
             w_axis = space.wrap(0)
+        if space.is_none(w_out):
+            out = None
+        elif not isinstance(w_out, W_NDimArray):
+            raise OperationError(space.w_TypeError, space.wrap(
+                                                'output must be an array'))
+        else:
+            out = w_out
         return self.reduce(space, w_obj, False, #do not promote_to_largest
                     w_axis, True, #keepdims must be true
-                    w_out, w_dtype, cumultative=True)
+                    out, w_dtype, cumultative=True)
 
     @unwrap_spec(skipna=bool, keepdims=bool)
     def descr_reduce(self, space, w_obj, w_axis=None, w_dtype=None,

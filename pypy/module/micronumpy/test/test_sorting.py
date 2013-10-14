@@ -97,11 +97,11 @@ class AppTestSupport(BaseNumpyAppTest):
 
         # check doubles
         from numpypy import array, nan, zeros, complex128, arange
-        from numpy import isnan
+        from math import isnan
         a = array([nan, 1, 0])
         b = a.copy()
         b.sort()
-        assert (isnan(b) == isnan(a[::-1])).all()
+        assert [isnan(bb) for bb in b] == [isnan(aa) for aa in a[::-1]]
         assert (b[:2] == a[::-1][:2]).all()
 
         # check complex
@@ -110,7 +110,7 @@ class AppTestSupport(BaseNumpyAppTest):
         a.imag += [nan, 1, 0, nan, nan, 1, 0, 1, 0]
         b = a.copy()
         b.sort()
-        assert (isnan(b) == isnan(a[::-1])).all()
+        assert [isnan(bb) for bb in b] == [isnan(aa) for aa in a[::-1]]
         assert (b[:4] == a[::-1][:4]).all()
 
         # all c scalar sorts use the same code with different types
