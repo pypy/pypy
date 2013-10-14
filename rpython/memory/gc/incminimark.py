@@ -1779,7 +1779,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             estimate_from_nursery = self.nursery_surviving_size * 2
             if estimate_from_nursery > estimate:
                 estimate = estimate_from_nursery
-            self.visit_all_objects_step(estimate)
+            self.visit_all_objects_step(intmask(estimate))
 
             # XXX A simplifying assumption that should be checked,
             # finalizers/weak references are rare and short which means that
