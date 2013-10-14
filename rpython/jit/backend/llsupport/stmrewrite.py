@@ -45,6 +45,7 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
     def rewrite(self, operations):
         # overridden method from parent class
         #
+        insert_transaction_break = False
         for op in operations:
             if not we_are_translated():
                 # only possible in tests:
@@ -81,6 +82,19 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
             # ----------  pure operations, guards  ----------
             if op.is_always_pure() or op.is_guard() or op.is_ovf():
                 self.newops.append(op)
+
+                # insert a transaction break after call_release_gil
+                # in order to commit the inevitable transaction following
+                # it immediately
+                if (op.getopnum() == rop.GUARD_NOT_FORCED
+                    and insert_transaction_break):
+                    # insert transaction_break after GUARD after call
+                    self.newops.append(
+                        ResOperation(rop.STM_TRANSACTION_BREAK, [], None))
+                    insert_transaction_break = False
+                else:
+                    assert insert_transaction_break is False
+
                 continue
             # ----------  getfields  ----------
             if op.getopnum() in (rop.GETFIELD_GC,
@@ -104,9 +118,17 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
                 continue
             # ----------  calls  ----------
             if op.is_call():
+                if (op.getopnum() == rop.CALL_MAY_FORCE or
+                    op.getopnum() == rop.CALL_ASSEMBLER or
+                    op.getopnum() == rop.CALL_RELEASE_GIL):
+                    # insert more transaction breaks after function
+                    # calls since they are likely to return as
+                    # inevitable transactions
+                    insert_transaction_break = True
+                    
                 if op.getopnum() == rop.CALL_RELEASE_GIL:
                     # self.fallback_inevitable(op)
-                    # done by assembler._release_gil_shadowstack()
+                    # is done by assembler._release_gil_shadowstack()
                     self.newops.append(op)
                 elif op.getopnum() == rop.CALL_ASSEMBLER:
                     self.handle_call_assembler(op)
@@ -158,6 +180,9 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
             # ----------  fall-back  ----------
             self.fallback_inevitable(op)
             #
+
+        # call_XX without guard_not_forced?
+        assert not insert_transaction_break
         return self.newops
 
     def write_to_read_categories(self):
