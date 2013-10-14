@@ -18,15 +18,20 @@ def main(arg):
             start = entry[1]
             end = entry[2]
             all.append(float(end - start) / 1000000)
+    format_output(all)
+
+def format_output(all):
     avg = sum(all) / len(all)
     max_t = max(all)
-    print "AVG:", "%.1fms" % avg, "MAX:", "%.1fms" % max_t
-    buckets = [0] * (NO_BUCKETS + 1)
+    print "AVG:", "%.1fms" % avg, "MAX:", "%.1fms" % max_t, "TOTAL:" , "%.1fms" % sum(all)
+    buckets = [0] * NO_BUCKETS
     for item in all:
         bucket = int(item / max_t * NO_BUCKETS)
+        if bucket == len(buckets):
+            bucket = len(buckets) - 1
         buckets[bucket] += 1
     l1 = ["%.1fms" % ((i + 1) * max_t / NO_BUCKETS) for i in range(NO_BUCKETS)]
-    l2 = [str(i) for i in buckets[1:]]
+    l2 = [str(i) for i in buckets]
     for i, elem in enumerate(l1):
         l2[i] += " " * (len(elem) - len(l2[i]))
     print " ".join(l1)
