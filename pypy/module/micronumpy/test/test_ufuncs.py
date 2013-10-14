@@ -712,7 +712,8 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
     def test_comparisons(self):
         import operator
-        from numpypy import equal, not_equal, less, less_equal, greater, greater_equal
+        from numpypy import (equal, not_equal, less, less_equal, greater,
+                            greater_equal, arange)
 
         for ufunc, func in [
             (equal, operator.eq),
@@ -735,7 +736,9 @@ class AppTestUfuncs(BaseNumpyAppTest):
                 (3, 3.5),
             ]:
                 assert ufunc(a, b) == func(a, b)
-
+        c = arange(10)
+        val = c == 'abcdefg'
+        assert val == False
 
     def test_count_nonzero(self):
         from numpypy import count_nonzero

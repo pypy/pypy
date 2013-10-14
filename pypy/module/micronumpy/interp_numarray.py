@@ -954,6 +954,13 @@ class __extend__(W_NDimArray):
     def descr___array_finalize__(self, space, w_obj):
         pass
 
+    def descr___array_wrap__(self, space, w_obj, w_context=None):
+        return w_obj
+
+    def descr___array_prepare__(self, space, w_obj, w_context=None):
+        return w_obj
+        pass
+
 @unwrap_spec(offset=int, order=str)
 def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
                     offset=0, w_strides=None, order='C'):
@@ -1144,7 +1151,8 @@ W_NDimArray.typedef = TypeDef(
     __reduce__ = interp2app(W_NDimArray.descr_reduce),
     __setstate__ = interp2app(W_NDimArray.descr_setstate),
     __array_finalize__ = interp2app(W_NDimArray.descr___array_finalize__),
-
+    __array_prepare__ = interp2app(W_NDimArray.descr___array_prepare__),
+    __array_wrap__ = interp2app(W_NDimArray.descr___array_wrap__),
     __array__         = interp2app(W_NDimArray.descr___array__),
 )
 
