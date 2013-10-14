@@ -122,7 +122,6 @@ class TestString(BaseTestPyPyC):
             i26 = int_gt(i25, 23)
             guard_false(i26, descr=...)
             strsetitem(p21, i10, 32)
-            i29 = int_add(i10, 1)
             i30 = int_add(i10, i25)
             i31 = int_gt(i30, 23)
             guard_false(i31, descr=...)
