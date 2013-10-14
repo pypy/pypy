@@ -976,3 +976,21 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert zeros_like(2) == array(0)
         assert zeros_like(2.) == array(0.)
         assert zeros_like(complex(2)) == array(complex(0))
+
+    def test_accumulate(self):
+        from numpypy import add, multiply, arange
+        assert (add.accumulate([2, 3, 5]) == [2, 5, 10]).all()
+        assert (multiply.accumulate([2, 3, 5]) == [2, 6, 30]).all()
+        a = arange(4).reshape(2,2)
+        b = add.accumulate(a, axis=0)
+        assert (b == [[0, 1], [2, 4]]).all()
+        b = add.accumulate(a, 1)
+        assert (b == [[0, 1], [2, 5]]).all()
+        b = add.accumulate(a) #default axis is 0
+        assert (b == [[0, 1], [2, 4]]).all()
+        # dtype
+        a = arange(0, 3, 0.5).reshape(2, 3)
+        b = add.accumulate(a, dtype=int, axis=1)
+        print b
+        assert (b == [[0, 0, 1], [1, 3, 5]]).all()
+        assert b.dtype == int
