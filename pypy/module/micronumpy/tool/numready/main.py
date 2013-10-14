@@ -93,7 +93,7 @@ def split(lst):
                 l[i].append(lst[k * lgt + i])
     return l
 
-SPECIAL_NAMES = ["ndarray", "dtype", "generic", "flatiter"]
+SPECIAL_NAMES = ["ndarray", "dtype", "generic", "flatiter", "ufunc"]
 
 def main(argv):
     cpy_items = find_numpy_items("/usr/bin/python")
