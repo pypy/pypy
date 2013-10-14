@@ -894,6 +894,15 @@ class __extend__(W_NDimArray):
             return space.int(self.descr_getitem(space, space.wrap(0)))
         raise OperationError(space.w_TypeError, space.wrap("only length-1 arrays can be converted to Python scalars"))
 
+    def descr_long(self, space):
+        shape = self.get_shape()
+        if len(shape) == 0:
+            assert isinstance(self.implementation, scalar.Scalar)
+            return space.long(space.wrap(self.implementation.get_scalar_value()))
+        if shape == [1]:
+            return space.int(self.descr_getitem(space, space.wrap(0)))
+        raise OperationError(space.w_TypeError, space.wrap("only length-1 arrays can be converted to Python scalars"))
+
     def descr_float(self, space):
         shape = self.get_shape()
         if len(shape) == 0:
@@ -1020,6 +1029,7 @@ W_NDimArray.typedef = TypeDef(
     __repr__ = interp2app(W_NDimArray.descr_repr),
     __str__ = interp2app(W_NDimArray.descr_str),
     __int__ = interp2app(W_NDimArray.descr_int),
+    __long__ = interp2app(W_NDimArray.descr_long),
     __float__ = interp2app(W_NDimArray.descr_float),
 
     __pos__ = interp2app(W_NDimArray.descr_pos),
