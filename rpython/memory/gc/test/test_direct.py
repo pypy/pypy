@@ -618,11 +618,10 @@ class TestIncrementalMiniMarkGCSimple(TestMiniMarkGCSimple):
         #at this point the first object should have been processed
         newobj = self.malloc(S)
         self.write(oldobj,'next',newobj)
-        #the barrier should have made the object gray
-        newhdr = self.gc.header(llmemory.cast_ptr_to_adr(newobj))
-        assert oldhdr.tid & incminimark.GCFLAG_GRAY
-        assert newhdr.tid & (incminimark.GCFLAG_VISITED | incminimark.GCFLAG_GRAY) == 0
-        #checks gray object is in objects_to_trace
+
+        assert self.gc.header(self.gc.old_objects_pointing_to_young.tolist()[0]) == oldhdr
+
+        self.gc.minor_collection()
         self.gc.debug_check_consistency()
 
     def test_sweeping_simple(self):
@@ -635,7 +634,7 @@ class TestIncrementalMiniMarkGCSimple(TestMiniMarkGCSimple):
             curobj.x = i
             self.stackroots.append(curobj)
 
-        self.gc.debug_gc_step_until(incminimark.STATE_SWEEPING_RAWMALLOC)
+        self.gc.debug_gc_step_until(incminimark.STATE_SWEEPING)
         oldobj = self.stackroots[-1]
         oldhdr = self.gc.header(llmemory.cast_ptr_to_adr(oldobj))
         assert oldhdr.tid & incminimark.GCFLAG_VISITED
@@ -649,46 +648,6 @@ class TestIncrementalMiniMarkGCSimple(TestMiniMarkGCSimple):
         #should not be cleared even though it was allocated while sweeping
         newobj1 = oldobj.next
         assert newobj1.x == 1337
-
-    def test_young_gray_collected(self):
-        from rpython.memory.gc import incminimark
-
-        # Test the write barrier triggers on a young object
-        # but doesnt crash when that object is collected
-
-        for i in range(2):
-            curobj = self.malloc(S)
-            curobj.x = i
-            self.stackroots.append(curobj)
-
-
-        self.gc.debug_gc_step_until(incminimark.STATE_MARKING)
-
-        self.gc.minor_collection()
-        self.gc.visit_all_objects_step(1)
-
-        oldobj = self.stackroots[-1]
-
-        newobj = self.malloc(S)
-        newobj.x = 5
-        # make newobj gray
-        self.write(oldobj,'next',newobj)
-        #the barrier should have made the object gray
-        newhdr = self.gc.header(llmemory.cast_ptr_to_adr(newobj))
-        assert newhdr.tid & incminimark.GCFLAG_GRAY == 0
-        assert (self.gc.header(llmemory.cast_ptr_to_adr(oldobj)).tid &
-                incminimark.GCFLAG_GRAY)
-
-        assert self.gc.gc_state == incminimark.STATE_MARKING
-        # make newobj unreachable again
-        self.write(oldobj,'next',oldobj)
-
-        #complete collection
-        self.gc.debug_gc_step_until(incminimark.STATE_SCANNING)
-        self.gc.debug_check_consistency()
-
-        # now object is collected
-        assert py.test.raises(RuntimeError,"newobj.x")
 
     # Test trying to be a bit comprehensive about
     # states and types of objects
@@ -722,7 +681,7 @@ class TestIncrementalMiniMarkGCSimple(TestMiniMarkGCSimple):
         unreachable = []
 
         while True:
-
+            
             if self.gc.gc_state not in nallocated:
                 nallocated[self.gc.gc_state] = 0
 
