@@ -342,6 +342,9 @@ class W_Ufunc2(W_Ufunc):
         if w_ldtype.is_str_type() and w_rdtype.is_str_type() and \
            self.comparison_func:
             pass
+        elif (w_ldtype.is_str_type() or w_rdtype.is_str_type()) and \
+            self.comparison_func and w_out is None:
+            return space.wrap(False)
         elif (w_ldtype.is_flexible_type() or \
                 w_rdtype.is_flexible_type()):
             raise OperationError(space.w_TypeError, space.wrap(
