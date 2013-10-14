@@ -850,7 +850,7 @@ class __extend__(W_NDimArray):
             else:
                 out = w_out
             return getattr(interp_ufuncs.get(space), ufunc_name).reduce(
-                space, self, True, promote_to_largest, w_axis,
+                space, self, promote_to_largest, w_axis,
                 False, out, w_dtype, cumultative=cumultative)
         return func_with_new_name(impl, "reduce_%s_impl_%d_%d" % (ufunc_name,
                     promote_to_largest, cumultative))
