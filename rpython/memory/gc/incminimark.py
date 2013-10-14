@@ -1513,6 +1513,13 @@ class IncrementalMiniMarkGC(MovingGCBase):
                         interval_start = interval_stop
                         cardbyte >>= 1
                     interval_start = next_byte_start
+                #
+                # If we're incrementally marking right now, sorry, we also
+                # need to add the object to 'objects_to_trace' and have it
+                # fully traced very soon.
+                if self.gc_state == STATE_MARKING:
+                    self.header(obj).tid &= ~GCFLAG_VISITED
+                    self.objects_to_trace.append(obj)
 
 
     def collect_oldrefs_to_nursery(self):
