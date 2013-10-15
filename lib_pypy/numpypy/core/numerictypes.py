@@ -1,5 +1,6 @@
 from _numpypy.numerictypes import *
-from _numpypy.multiarray import dtype
+
+from .multiarray import dtype
 
 def issubclass_(arg1, arg2):
     """
