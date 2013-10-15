@@ -846,7 +846,7 @@ class __extend__(W_NDimArray):
 
     def _reduce_ufunc_impl(ufunc_name, promote_to_largest=False,
                            cumultative=False):
-        def impl(self, space, w_axis=None, w_out=None, w_dtype=None):
+        def impl(self, space, w_axis=None, w_dtype=None, w_out=None):
             if space.is_none(w_out):
                 out = None
             elif not isinstance(w_out, W_NDimArray):
