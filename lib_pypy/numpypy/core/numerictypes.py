@@ -1,5 +1,5 @@
 from _numpypy.numerictypes import *
-import numpypy
+from _numpypy.multiarray import dtype
 
 def issubclass_(arg1, arg2):
     """
@@ -66,10 +66,10 @@ def issubdtype(arg1, arg2):
 
     """
     if issubclass_(arg2, generic):
-        return issubclass(numpypy.dtype(arg1).type, arg2)
-    mro = numpypy.dtype(arg2).type.mro()
+        return issubclass(dtype(arg1).type, arg2)
+    mro = dtype(arg2).type.mro()
     if len(mro) > 1:
         val = mro[1]
     else:
         val = mro[0]
-    return issubclass(numpypy.dtype(arg1).type, val)
+    return issubclass(dtype(arg1).type, val)

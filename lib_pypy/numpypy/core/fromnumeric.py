@@ -1,11 +1,11 @@
-######################################################################    
+######################################################################
 # This is a copy of numpy/core/fromnumeric.py modified for numpypy
 ######################################################################
-# Each name in __all__ was a function in  'numeric' that is now 
+# Each name in __all__ was a function in  'numeric' that is now
 # a method in 'numpy'.
 # When the corresponding method is added to numpypy BaseArray
-# each function should be added as a module function 
-# at the applevel 
+# each function should be added as a module function
+# at the applevel
 # This can be as simple as doing the following
 #
 # def func(a, ...):
@@ -15,8 +15,8 @@
 #
 ######################################################################
 
-import numpypy
 import _numpypy
+from _numpypy.multiarray import array as numpyarray
 
 # Module containing non-deprecated functions borrowed from Numeric.
 __docformat__ = "restructuredtext en"
@@ -152,7 +152,7 @@ def reshape(a, newshape, order='C'):
     """
     assert order == 'C'
     if not hasattr(a, 'reshape'):
-       a = numpypy.array(a)
+       a = numpyarray(a)
     return a.reshape(newshape)
 
 
@@ -457,7 +457,7 @@ def transpose(a, axes=None):
     if axes is not None:
         raise NotImplementedError('No "axes" arg yet.')
     if not hasattr(a, 'T'):
-        a = numpypy.array(a)
+        a = numpyarray(a)
     return a.T
 
 def sort(a, axis=-1, kind='quicksort', order=None):
@@ -695,7 +695,7 @@ def argmax(a, axis=None):
     """
     assert axis is None
     if not hasattr(a, 'argmax'):
-        a = numpypy.array(a)
+        a = numpyarray(a)
     return a.argmax()
 
 
@@ -711,7 +711,7 @@ def argmin(a, axis=None):
     """
     assert axis is None
     if not hasattr(a, 'argmin'):
-        a = numpypy.array(a)
+        a = numpyarray(a)
     return a.argmin()
 
 
@@ -1057,7 +1057,7 @@ def ravel(a, order='C'):
 
     """
     if not hasattr(a, 'ravel'):
-        a = numpypy.array(a)
+        a = numpyarray(a)
     return a.ravel(order=order)
 
 def nonzero(a):
@@ -1181,7 +1181,7 @@ def shape(a):
 
     """
     if not hasattr(a, 'shape'):
-        a = numpypy.array(a)
+        a = numpyarray(a)
     return a.shape
 
 
@@ -1298,7 +1298,7 @@ def clip(a, a_min, a_max, out=None):
 
     """
     if not hasattr(a, 'clip'):
-        a = numpypy.array(a)
+        a = numpyarray(a)
     return a.clip(a_min, a_max, out=out)
 
 
@@ -1370,7 +1370,7 @@ def sum(a, axis=None, dtype=None, out=None):
     """
     assert dtype is None
     if not hasattr(a, "sum"):
-        a = numpypy.array(a)
+        a = numpyarray(a)
     return a.sum(axis=axis, out=out)
 
 
@@ -1400,7 +1400,7 @@ def sometrue(a, axis=None, out=None):
     assert axis is None
     assert out is None
     if not hasattr(a, 'any'):
-        a = numpypy.array(a)
+        a = numpyarray(a)
     return a.any()
 
 
@@ -1416,7 +1416,7 @@ def alltrue (a, axis=None, out=None):
     assert axis is None
     assert out is None
     if not hasattr(a, 'all'):
-        a = numpypy.array(a)
+        a = numpyarray(a)
     return a.all()
 
 def any(a,axis=None, out=None):
@@ -1486,7 +1486,7 @@ def any(a,axis=None, out=None):
     assert axis is None
     assert out is None
     if not hasattr(a, 'any'):
-        a = numpypy.array(a)
+        a = numpyarray(a)
     return a.any()
 
 
@@ -1550,7 +1550,7 @@ def all(a,axis=None, out=None):
     assert axis is None
     assert out is None
     if not hasattr(a, 'all'):
-        a = numpypy.array(a)
+        a = numpyarray(a)
     return a.all()
 
 
@@ -1729,9 +1729,9 @@ def amax(a, axis=None, out=None):
 
     """
     if not hasattr(a, "max"):
-        a = numpypy.array(a)
+        a = numpyarray(a)
     if a.size < 1:
-        return numpypy.array([])
+        return numpyarray([])
     return a.max(axis=axis, out=out)
 
 
@@ -1791,9 +1791,9 @@ def amin(a, axis=None, out=None):
 
     """
     if not hasattr(a, 'min'):
-        a = numpypy.array(a)
+        a = numpyarray(a)
     if a.size < 1:
-        return numpypy.array([])
+        return numpyarray([])
     return a.min(axis=axis, out=out)
 
 def alen(a):
@@ -1824,7 +1824,7 @@ def alen(a):
 
     """
     if not hasattr(a, 'shape'):
-        a = numpypy.array(a)
+        a = numpyarray(a)
     return a.shape[0]
 
 
@@ -2000,7 +2000,7 @@ def ndim(a):
 
     """
     if not hasattr(a, 'ndim'):
-        a = numpypy.array(a)
+        a = numpyarray(a)
     return a.ndim
 
 
@@ -2045,7 +2045,7 @@ def rank(a):
 
     """
     if not hasattr(a, 'ndim'):
-        a = numpypy.array(a)
+        a = numpyarray(a)
     return a.ndim
 
 
@@ -2243,7 +2243,7 @@ def mean(a, axis=None, dtype=None, out=None):
     assert dtype is None
     assert out is None
     if not hasattr(a, "mean"):
-        a = numpypy.array(a)
+        a = numpyarray(a)
     return a.mean(axis=axis)
 
 
@@ -2337,7 +2337,7 @@ def std(a, axis=None, dtype=None, out=None, ddof=0):
     assert out is None
     assert ddof == 0
     if not hasattr(a, "std"):
-        a = numpypy.array(a)
+        a = numpyarray(a)
     return a.std(axis=axis)
 
 
@@ -2433,5 +2433,6 @@ def var(a, axis=None, dtype=None, out=None, ddof=0):
     assert out is None
     assert ddof == 0
     if not hasattr(a, "var"):
-        a = numpypy.array(a)
+        a = numpyarray(a)
     return a.var(axis=axis)
+

@@ -28,9 +28,10 @@ def get_include():
         ...
 
     """
-    import numpy
-    if getattr(numpy, 'show_config', None) is None:
-        # running from numpy source directory
+    try:
+        import numpy
+    except:
+        # running from pypy source directory
         head, tail = os.path.split(os.path.dirname(os.path.abspath(__file__)))
         return os.path.join(head, '../include')
     else:
@@ -44,7 +45,6 @@ def get_include():
 __all__ = ['__version__', 'get_include']
 __all__ += core.__all__
 __all__ += lib.__all__
-
 #import sys
 #sys.modules.setdefault('numpy', sys.modules['numpypy'])
 
