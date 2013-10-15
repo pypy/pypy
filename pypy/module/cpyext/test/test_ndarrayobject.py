@@ -286,3 +286,21 @@ class AppTestCNumber(AppTestCpythonExtensionBase):
         arr = mod.test_FromObject()
         dt = mod.test_DescrFromType(11)
         assert dt.num == 11
+
+    def test_int_cast(self):
+        mod = self.import_extension('foo', [
+                #prove it works for ints
+                ("test_int", "METH_NOARGS",
+                """
+                PyIntObject * obj = PyInt_FromLong(42);
+                if ( PyInt_Check(obj))
+                    return obj;
+                PyObject * val = PyInt_FromLong(obj->ob_ival);
+                Py_DECREF(obj);
+                return val;
+                """
+                ),
+                ], prologue='#include <numpy/arrayobject.h>')
+        i = mod.test_int()
+        assert isinstance(i, int)
+        assert i == 42
