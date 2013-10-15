@@ -399,6 +399,10 @@ class __extend__(W_NDimArray):
     def descr_repeat(self, space, repeats, w_axis=None):
         return repeat(space, self, repeats, w_axis)
 
+    def descr_set_flatiter(self, space, w_obj):
+        arr = convert_to_array(space, w_obj)
+        loop.flatiter_setitem(space, self, arr, 0, 1, self.get_size())
+
     def descr_get_flatiter(self, space):
         return space.wrap(W_FlatIterator(self))
 
@@ -629,9 +633,13 @@ class __extend__(W_NDimArray):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "setflags not implemented yet"))
 
-    def descr_sort(self, space, w_axis=-1, w_kind='quicksort', w_order=None):
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            "sort not implemented yet"))
+    @unwrap_spec(kind=str)
+    def descr_sort(self, space, w_axis=None, kind='quicksort', w_order=None):
+        # happily ignore the kind
+        # modify the array in-place
+        if self.is_scalar():
+            return
+        return self.implementation.sort(space, w_axis, w_order)
 
     def descr_squeeze(self, space):
         raise OperationError(space.w_NotImplementedError, space.wrap(
@@ -846,7 +854,7 @@ class __extend__(W_NDimArray):
             else:
                 out = w_out
             return getattr(interp_ufuncs.get(space), ufunc_name).reduce(
-                space, self, True, promote_to_largest, w_axis,
+                space, self, promote_to_largest, w_axis,
                 False, out, w_dtype, cumultative=cumultative)
         return func_with_new_name(impl, "reduce_%s_impl_%d_%d" % (ufunc_name,
                     promote_to_largest, cumultative))
@@ -886,6 +894,15 @@ class __extend__(W_NDimArray):
         if len(shape) == 0:
             assert isinstance(self.implementation, scalar.Scalar)
             return space.int(space.wrap(self.implementation.get_scalar_value()))
+        if shape == [1]:
+            return space.int(self.descr_getitem(space, space.wrap(0)))
+        raise OperationError(space.w_TypeError, space.wrap("only length-1 arrays can be converted to Python scalars"))
+
+    def descr_long(self, space):
+        shape = self.get_shape()
+        if len(shape) == 0:
+            assert isinstance(self.implementation, scalar.Scalar)
+            return space.long(space.wrap(self.implementation.get_scalar_value()))
         if shape == [1]:
             return space.int(self.descr_getitem(space, space.wrap(0)))
         raise OperationError(space.w_TypeError, space.wrap("only length-1 arrays can be converted to Python scalars"))
@@ -950,6 +967,13 @@ class __extend__(W_NDimArray):
     def descr___array_finalize__(self, space, w_obj):
         pass
 
+    def descr___array_wrap__(self, space, w_obj, w_context=None):
+        return w_obj
+
+    def descr___array_prepare__(self, space, w_obj, w_context=None):
+        return w_obj
+        pass
+
 @unwrap_spec(offset=int, order=str)
 def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
                     offset=0, w_strides=None, order='C'):
@@ -1009,6 +1033,7 @@ W_NDimArray.typedef = TypeDef(
     __repr__ = interp2app(W_NDimArray.descr_repr),
     __str__ = interp2app(W_NDimArray.descr_str),
     __int__ = interp2app(W_NDimArray.descr_int),
+    __long__ = interp2app(W_NDimArray.descr_long),
     __float__ = interp2app(W_NDimArray.descr_float),
 
     __pos__ = interp2app(W_NDimArray.descr_pos),
@@ -1109,7 +1134,8 @@ W_NDimArray.typedef = TypeDef(
     repeat = interp2app(W_NDimArray.descr_repeat),
     swapaxes = interp2app(W_NDimArray.descr_swapaxes),
     nonzero = interp2app(W_NDimArray.descr_nonzero),
-    flat = GetSetProperty(W_NDimArray.descr_get_flatiter),
+    flat = GetSetProperty(W_NDimArray.descr_get_flatiter,
+                          W_NDimArray.descr_set_flatiter),
     item = interp2app(W_NDimArray.descr_item),
     real = GetSetProperty(W_NDimArray.descr_get_real,
                           W_NDimArray.descr_set_real),
@@ -1118,6 +1144,7 @@ W_NDimArray.typedef = TypeDef(
     conj = interp2app(W_NDimArray.descr_conj),
 
     argsort  = interp2app(W_NDimArray.descr_argsort),
+    sort  = interp2app(W_NDimArray.descr_sort),
     astype   = interp2app(W_NDimArray.descr_astype),
     base     = GetSetProperty(W_NDimArray.descr_get_base),
     byteswap = interp2app(W_NDimArray.descr_byteswap),
@@ -1139,7 +1166,8 @@ W_NDimArray.typedef = TypeDef(
     __reduce__ = interp2app(W_NDimArray.descr_reduce),
     __setstate__ = interp2app(W_NDimArray.descr_setstate),
     __array_finalize__ = interp2app(W_NDimArray.descr___array_finalize__),
-
+    __array_prepare__ = interp2app(W_NDimArray.descr___array_prepare__),
+    __array_wrap__ = interp2app(W_NDimArray.descr___array_wrap__),
     __array__         = interp2app(W_NDimArray.descr___array__),
 )
 

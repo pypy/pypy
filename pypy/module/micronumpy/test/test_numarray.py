@@ -1896,6 +1896,15 @@ class AppTestNumArray(BaseNumpyAppTest):
         b = array([1, 2, 3, 4])
         assert (a == b) == False
 
+    def test__long__(self):
+        from numpypy import array
+        assert long(array(1)) == 1
+        assert long(array([1])) == 1
+        assert isinstance(long(array([1])), long)
+        assert isinstance(long(array([1, 2][0])), long)
+        assert raises(TypeError, "long(array([1, 2]))")
+        assert long(array([1.5])) == 1
+
     def test__int__(self):
         from numpypy import array
         assert int(array(1)) == 1
@@ -2263,6 +2272,24 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert len(arange(10).reshape(2, 5).flat) == 10
         assert len(arange(10)[:2].flat) == 2
         assert len((arange(2) + arange(2)).flat) == 2
+
+    def test_flatiter_setter(self):
+        from numpypy import arange, array
+        a = arange(24).reshape(2, 3, 4)
+        a.flat = [4, 5]
+        assert (a.flatten() == [4, 5]*12).all()
+        a.flat = [[4, 5, 6, 7, 8], [4, 5, 6, 7, 8]]
+        assert (a.flatten() == ([4, 5, 6, 7, 8]*5)[:24]).all()
+        exc = raises(ValueError, 'a.flat = [[4, 5, 6, 7, 8], [4, 5, 6]]')
+        assert str(exc.value).find("sequence") > 0
+        b = a[::-1, :, ::-1]
+        b.flat = range(24)
+        assert (a.flatten() == [15, 14 ,13, 12, 19, 18, 17, 16, 23, 22,
+                                21, 20, 3, 2, 1, 0, 7, 6, 5, 4,
+                                11, 10, 9, 8]).all()
+        c = array(['abc'] * 10).reshape(2, 5)
+        c.flat = ['defgh', 'ijklmnop']
+        assert (c.flatten() == ['def', 'ijk']*5).all()
 
     def test_slice_copy(self):
         from numpypy import zeros
@@ -2651,55 +2678,6 @@ class AppTestSupport(BaseNumpyAppTest):
         assert array([1, 2, 3], '<i2')[::2].tostring() == '\x01\x00\x03\x00'
         assert array([1, 2, 3], '>i2')[::2].tostring() == '\x00\x01\x00\x03'
         assert array(0, dtype='i2').tostring() == '\x00\x00'
-
-    def test_argsort_dtypes(self):
-        from numpypy import array, arange
-        assert array(2.0).argsort() == 0
-        nnp = self.non_native_prefix
-        for dtype in ['int', 'float', 'int16', 'float32', 'uint64',
-                        nnp + 'i2', complex]:
-            a = array([6, 4, -1, 3, 8, 3, 256+20, 100, 101], dtype=dtype)
-            c = a.copy()
-            res = a.argsort()
-            assert (res == [2, 3, 5, 1, 0, 4, 7, 8, 6]).all(), \
-                'a,res,dtype %r,%r,%r' % (a,res,dtype)
-            assert (a == c).all() # not modified
-            a = arange(100)
-            assert (a.argsort() == a).all()
-        raises(NotImplementedError, 'arange(10,dtype="float16").argsort()')
-
-    def test_argsort_nd(self):
-        from numpypy import array
-        a = array([[4, 2], [1, 3]])
-        assert (a.argsort() == [[1, 0], [0, 1]]).all()
-        a = array(range(10) + range(10) + range(10))
-        b = a.argsort()
-        assert (b[:3] == [0, 10, 20]).all()
-        #trigger timsort 'run' mode which calls arg_getitem_slice
-        a = array(range(100) + range(100) + range(100))
-        b = a.argsort()
-        assert (b[:3] == [0, 100, 200]).all()
-        a = array([[[]]]).reshape(3,4,0)
-        b = a.argsort()
-        assert b.size == 0
-
-    def test_argsort_random(self):
-        from numpypy import array
-        from _random import Random
-        rnd = Random(1)
-        a = array([rnd.random() for i in range(512*2)]).reshape(512,2)
-        a.argsort()
-
-    def test_argsort_axis(self):
-        from numpypy import array
-        a = array([[4, 2], [1, 3]])
-        assert (a.argsort(axis=None) == [2, 1, 3, 0]).all()
-        assert (a.argsort(axis=-1) == [[1, 0], [0, 1]]).all()
-        assert (a.argsort(axis=0) == [[1, 0], [0, 1]]).all()
-        assert (a.argsort(axis=1) == [[1, 0], [0, 1]]).all()
-        a = array([[3, 2, 1], [1, 2, 3]])
-        assert (a.argsort(axis=0) == [[1, 0, 0], [0, 1, 1]]).all()
-        assert (a.argsort(axis=1) == [[2, 1, 0], [0, 1, 2]]).all()
 
 
 class AppTestRanges(BaseNumpyAppTest):

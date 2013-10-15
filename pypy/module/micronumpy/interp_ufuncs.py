@@ -75,6 +75,20 @@ class W_Ufunc(W_Root):
                                             'output must be an array'))
         return self.call(space, args_w)
 
+    def descr_accumulate(self, space, w_obj, w_axis=None, w_dtype=None, w_out=None):
+        if space.is_none(w_axis):
+            w_axis = space.wrap(0)
+        if space.is_none(w_out):
+            out = None
+        elif not isinstance(w_out, W_NDimArray):
+            raise OperationError(space.w_TypeError, space.wrap(
+                                                'output must be an array'))
+        else:
+            out = w_out
+        return self.reduce(space, w_obj, False, #do not promote_to_largest
+                    w_axis, True, #keepdims must be true
+                    out, w_dtype, cumultative=True)
+
     @unwrap_spec(skipna=bool, keepdims=bool)
     def descr_reduce(self, space, w_obj, w_axis=None, w_dtype=None,
                      skipna=False, keepdims=False, w_out=None):
@@ -140,10 +154,11 @@ class W_Ufunc(W_Root):
                                                 'output must be an array'))
         else:
             out = w_out
-        return self.reduce(space, w_obj, False, False, w_axis, keepdims, out,
+        promote_to_largest = False
+        return self.reduce(space, w_obj, promote_to_largest, w_axis, keepdims, out,
                            w_dtype)
 
-    def reduce(self, space, w_obj, multidim, promote_to_largest, w_axis,
+    def reduce(self, space, w_obj, promote_to_largest, w_axis,
                keepdims=False, out=None, dtype=None, cumultative=False):
         if self.argcount != 2:
             raise OperationError(space.w_ValueError, space.wrap("reduce only "
@@ -171,9 +186,12 @@ class W_Ufunc(W_Root):
                     promote_to_largest=promote_to_largest,
                     promote_bools=True
                 )
-        if self.identity is None and size == 0:
-            raise operationerrfmt(space.w_ValueError, "zero-size array to "
-                    "%s.reduce without identity", self.name)
+        if self.identity is None:
+            for i in range(shapelen):
+                if space.is_none(w_axis) or i == axis:
+                    if obj_shape[i] == 0:
+                        raise operationerrfmt(space.w_ValueError, "zero-size array to "
+                                "%s.reduce without identity", self.name)
         if shapelen > 1 and axis < shapelen:
             temp = None
             if cumultative:
@@ -342,6 +360,9 @@ class W_Ufunc2(W_Ufunc):
         if w_ldtype.is_str_type() and w_rdtype.is_str_type() and \
            self.comparison_func:
             pass
+        elif (w_ldtype.is_str_type() or w_rdtype.is_str_type()) and \
+            self.comparison_func and w_out is None:
+            return space.wrap(False)
         elif (w_ldtype.is_flexible_type() or \
                 w_rdtype.is_flexible_type()):
             raise OperationError(space.w_TypeError, space.wrap(
@@ -402,6 +423,7 @@ W_Ufunc.typedef = TypeDef("ufunc",
     __repr__ = interp2app(W_Ufunc.descr_repr),
 
     identity = GetSetProperty(W_Ufunc.descr_get_identity),
+    accumulate = interp2app(W_Ufunc.descr_accumulate),
     nin = interp_attrproperty("argcount", cls=W_Ufunc),
 
     reduce = interp2app(W_Ufunc.descr_reduce),

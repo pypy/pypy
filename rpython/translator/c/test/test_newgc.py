@@ -1468,6 +1468,11 @@ class TestMiniMarkGC(TestSemiSpaceGC):
         res = self.run("nongc_opaque_attached_to_gc")
         assert res == 0
 
+
+class TestIncrementalMiniMarkGC(TestMiniMarkGC):
+    gcpolicy = "incminimark"
+
+
 # ____________________________________________________________________
 
 class TaggedPointersTest(object):
@@ -1559,4 +1564,7 @@ class TestHybridTaggedPointers(TaggedPointersTest, TestHybridGC):
 
 
 class TestMiniMarkGCMostCompact(TaggedPointersTest, TestMiniMarkGC):
+    removetypeptr = True
+
+class TestIncrementalMiniMarkGCMostCompact(TaggedPointersTest, TestIncrementalMiniMarkGC):
     removetypeptr = True
