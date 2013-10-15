@@ -653,12 +653,15 @@ class IncrementalMiniMarkGC(MovingGCBase):
         return llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
 
 
-    def collect(self, gen=1):
-        """Do a minor (gen=0) or full major (gen>0) collection."""
-        if gen > 0:
-            self.minor_and_major_collection()
-        else:
+    def collect(self, gen=2):
+        """Do a minor (gen=0), start a major (gen=1), or do a full
+        major (gen>=2) collection."""
+        if gen <= 1:
             self.minor_collection()
+            if gen == 1 or self.gc_state != STATE_SCANNING:
+                self.major_collection_step()
+        else:
+            self.minor_and_major_collection()
 
     def move_nursery_top(self, totalsize):
         size = self.nursery_cleanup
