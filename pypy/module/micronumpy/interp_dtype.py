@@ -816,14 +816,14 @@ class DtypeCache(object):
             #'OBJECT',
             'ULONGLONG': self.w_uint64dtype,
             'STRING': self.w_stringdtype,
-            'CDOUBLE': self.w_complex64dtype,
+            'CFLOAT': self.w_complex64dtype,
+            'CDOUBLE': self.w_complex128dtype,
             #'DATETIME',
             'UINT': self.w_uint32dtype,
             'INTP': self.w_intpdtype,
             'UINTP': self.w_uintpdtype,
             #'HALF',
             'BYTE': self.w_int8dtype,
-            #'CFLOAT': ,
             #'TIMEDELTA',
             'INT': self.w_int32dtype,
             'DOUBLE': self.w_float64dtype,
@@ -856,7 +856,7 @@ class DtypeCache(object):
                        space.wrap(dtype.num),
                        space.wrap(itemsize * 8), # in case of changing
                        # number of bits per byte in the future
-                       space.wrap(itemsize or 1)]
+                       space.wrap(itemsize / (2 if dtype.kind == COMPLEXLTR else 1) or 1)]
             if dtype.is_int_type():
                 if dtype.kind == BOOLLTR:
                     w_maxobj = space.wrap(1)

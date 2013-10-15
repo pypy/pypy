@@ -903,12 +903,14 @@ class AppTestPyPyOnly(BaseNumpyAppTest):
         BaseNumpyAppTest.setup_class.im_func(cls)
 
     def test_typeinfo(self):
-        from numpypy import void, number, int64, bool_
+        from numpypy import void, number, int64, bool_, complex64, complex128
         from numpypy.core.multiarray import typeinfo
         assert typeinfo['Number'] == number
         assert typeinfo['LONGLONG'] == ('q', 9, 64, 8, 9223372036854775807L, -9223372036854775808L, int64)
         assert typeinfo['VOID'] == ('V', 20, 0, 1, void)
         assert typeinfo['BOOL'] == ('?', 0, 8, 1, 1, 0, bool_)
+        assert typeinfo['CFLOAT'] == ('F', 14, 64, 4, complex64)
+        assert typeinfo['CDOUBLE'] == ('D', 15, 128, 8, complex128)
 
 class AppTestNoLongDoubleDtypes(BaseNumpyAppTest):
     def setup_class(cls):
