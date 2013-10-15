@@ -4,7 +4,7 @@ __all__ = [
            'newaxis', 'ufunc',
            'asarray', 'asanyarray', 'base_repr',
            'array_repr', 'array_str', 'set_string_function',
-           'array_equal', 'outer', 'vdot', 'identity', 'little_endian',
+           'array_equal', 'array_equiv', 'outer', 'vdot', 'identity', 'little_endian',
            'Inf', 'inf', 'infty', 'Infinity', 'nan', 'NaN', 'False_', 'True_',
            'seterr',
           ]
@@ -452,6 +452,50 @@ def array_equal(a1, a2):
     if a1.shape != a2.shape:
         return False
     return bool((a1 == a2).all())
+
+def array_equiv(a1, a2):
+    """
+    Returns True if input arrays are shape consistent and all elements equal.
+
+    Shape consistent means they are either the same shape, or one input array
+    can be broadcasted to create the same shape as the other one.
+
+    Parameters
+    ----------
+    a1, a2 : array_like
+        Input arrays.
+
+    Returns
+    -------
+    out : bool
+        True if equivalent, False otherwise.
+
+    Examples
+    --------
+    >>> np.array_equiv([1, 2], [1, 2])
+    True
+    >>> np.array_equiv([1, 2], [1, 3])
+    False
+
+    Showing the shape equivalence:
+
+    >>> np.array_equiv([1, 2], [[1, 2], [1, 2]])
+    True
+    >>> np.array_equiv([1, 2], [[1, 2, 1, 2], [1, 2, 1, 2]])
+    False
+
+    >>> np.array_equiv([1, 2], [[1, 2], [1, 3]])
+    False
+
+    """
+    try:
+        a1, a2 = asarray(a1), asarray(a2)
+    except:
+        return False
+    try:
+        return bool(asarray(a1 == a2).all())
+    except ValueError:
+        return False
 
 def outer(a,b):
     """

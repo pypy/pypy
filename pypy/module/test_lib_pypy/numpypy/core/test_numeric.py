@@ -177,6 +177,15 @@ class AppTestRepr(BaseNumpyAppTest):
         assert not array_equal(array(a), b)
         assert not array_equal(array(a), array(b))
 
+    def test_equiv(self):
+        import numpypy as np
+
+        assert np.array_equiv([1, 2], [1, 2])
+        assert not np.array_equiv([1, 2], [1, 3])
+        assert np.array_equiv([1, 2], [[1, 2], [1, 2]])
+        assert not np.array_equiv([1, 2], [[1, 2, 1, 2], [1, 2, 1, 2]])
+        assert not np.array_equiv([1, 2], [[1, 2], [1, 3]])
+
 
 class AppTestNumeric(BaseNumpyAppTest):
     def test_outer(self):
