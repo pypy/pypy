@@ -117,11 +117,7 @@ class UMathModule(MixedModule):
 class Module(MixedModule):
     applevel_name = '_numpypy'
     appleveldefs = {}
-    interpleveldefs = {
-        'choose': 'interp_arrayops.choose',
-        'put': 'interp_arrayops.put',
-        'repeat': 'interp_arrayops.repeat',
-    }
+    interpleveldefs = {}
     submodules = {
         'multiarray': MultiArrayModule,
         'umath': UMathModule,
