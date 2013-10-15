@@ -2273,6 +2273,24 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert len(arange(10)[:2].flat) == 2
         assert len((arange(2) + arange(2)).flat) == 2
 
+    def test_flatiter_setter(self):
+        from numpypy import arange, array
+        a = arange(24).reshape(2, 3, 4)
+        a.flat = [4, 5]
+        assert (a.flatten() == [4, 5]*12).all()
+        a.flat = [[4, 5, 6, 7, 8], [4, 5, 6, 7, 8]]
+        assert (a.flatten() == ([4, 5, 6, 7, 8]*5)[:24]).all()
+        exc = raises(ValueError, 'a.flat = [[4, 5, 6, 7, 8], [4, 5, 6]]')
+        assert str(exc.value).find("sequence") > 0
+        b = a[::-1, :, ::-1]
+        b.flat = range(24)
+        assert (a.flatten() == [15, 14 ,13, 12, 19, 18, 17, 16, 23, 22,
+                                21, 20, 3, 2, 1, 0, 7, 6, 5, 4,
+                                11, 10, 9, 8]).all()
+        c = array(['abc'] * 10).reshape(2, 5)
+        c.flat = ['defgh', 'ijklmnop']
+        assert (c.flatten() == ['def', 'ijk']*5).all()
+
     def test_slice_copy(self):
         from numpypy import zeros
         a = zeros((10, 10))

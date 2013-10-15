@@ -399,6 +399,10 @@ class __extend__(W_NDimArray):
     def descr_repeat(self, space, repeats, w_axis=None):
         return repeat(space, self, repeats, w_axis)
 
+    def descr_set_flatiter(self, space, w_obj):
+        arr = convert_to_array(space, w_obj)
+        loop.flatiter_setitem(space, self, arr, 0, 1, self.get_size())
+
     def descr_get_flatiter(self, space):
         return space.wrap(W_FlatIterator(self))
 
@@ -1130,7 +1134,8 @@ W_NDimArray.typedef = TypeDef(
     repeat = interp2app(W_NDimArray.descr_repeat),
     swapaxes = interp2app(W_NDimArray.descr_swapaxes),
     nonzero = interp2app(W_NDimArray.descr_nonzero),
-    flat = GetSetProperty(W_NDimArray.descr_get_flatiter),
+    flat = GetSetProperty(W_NDimArray.descr_get_flatiter,
+                          W_NDimArray.descr_set_flatiter),
     item = interp2app(W_NDimArray.descr_item),
     real = GetSetProperty(W_NDimArray.descr_get_real,
                           W_NDimArray.descr_set_real),
