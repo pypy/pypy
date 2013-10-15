@@ -9,7 +9,8 @@ from .fromnumeric import *
 from . import shape_base
 from .shape_base import *
 
-from .fromnumeric import amax as max, amin as min
+from .fromnumeric import amax as max, amin as min, \
+    round_ as round
 from .numeric import absolute as abs
 
 __all__ = []
