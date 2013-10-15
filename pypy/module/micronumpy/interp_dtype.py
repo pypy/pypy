@@ -822,7 +822,7 @@ class DtypeCache(object):
             'UINT': self.w_uint32dtype,
             'INTP': self.w_intpdtype,
             'UINTP': self.w_uintpdtype,
-            #'HALF',
+            'HALF': self.w_float16dtype,
             'BYTE': self.w_int8dtype,
             #'TIMEDELTA',
             'INT': self.w_int32dtype,
