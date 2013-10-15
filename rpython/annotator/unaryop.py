@@ -10,7 +10,7 @@ from rpython.annotator.model import (SomeObject, SomeInteger, SomeBool,
     SomeUnicodeCodePoint, SomeInstance, SomeBuiltin, SomeFloat, SomeIterator,
     SomePBC, SomeTypedAddressAccess, SomeAddress, SomeType, s_ImpossibleValue,
     s_Bool, s_None, unionof, missing_operation, add_knowntypedata,
-    HarmlesslyBlocked, SomeWeakRef, SomeUnicodeString)
+    HarmlesslyBlocked, SomeWeakRef, SomeUnicodeString, SomeByteArray)
 from rpython.annotator.bookkeeper import getbookkeeper
 from rpython.annotator import builtin
 from rpython.annotator.binaryop import _clone ## XXX where to put this?
@@ -20,10 +20,10 @@ from rpython.annotator.model import AnnotatorError
 def immutablevalue(x):
     return getbookkeeper().immutablevalue(x)
 
-UNARY_OPERATIONS = set(['len', 'is_true', 'getattr', 'setattr', 'delattr',
+UNARY_OPERATIONS = set(['len', 'bool', 'getattr', 'setattr', 'delattr',
                         'simple_call', 'call_args', 'str', 'repr',
                         'iter', 'next', 'invert', 'type', 'issubtype',
-                        'pos', 'neg', 'nonzero', 'abs', 'hex', 'oct',
+                        'pos', 'neg', 'abs', 'hex', 'oct',
                         'ord', 'int', 'float', 'long',
                         'hash', 'id',    # <== not supported any more
                         'getslice', 'setslice', 'delslice',
@@ -57,7 +57,7 @@ class __extend__(SomeObject):
     def len(obj):
         return SomeInteger(nonneg=True)
 
-    def is_true_behavior(obj, s):
+    def bool_behavior(obj, s):
         if obj.is_immutable_constant():
             s.const = bool(obj.const)
         else:
@@ -65,13 +65,13 @@ class __extend__(SomeObject):
             if s_len.is_immutable_constant():
                 s.const = s_len.const > 0
 
-    def is_true(s_obj):
+    def bool(s_obj):
         r = SomeBool()
-        s_obj.is_true_behavior(r)
+        s_obj.bool_behavior(r)
 
         bk = getbookkeeper()
         knowntypedata = {}
-        op = bk._find_current_op(opname=("is_true", "nonzero"), arity=1)
+        op = bk._find_current_op(opname="bool", arity=1)
         arg = op.args[0]
         s_nonnone_obj = s_obj
         if s_obj.can_be_none():
@@ -79,9 +79,6 @@ class __extend__(SomeObject):
         add_knowntypedata(knowntypedata, True, [arg], s_nonnone_obj)
         r.set_knowntypedata(knowntypedata)
         return r
-
-    def nonzero(obj):
-        return obj.is_true()
 
     def hash(obj):
         raise AnnotatorError("cannot use hash() in RPython")
@@ -176,7 +173,7 @@ class __extend__(SomeFloat):
 
     abs = neg
 
-    def is_true(self):
+    def bool(self):
         if self.is_immutable_constant():
             return getbookkeeper().immutablevalue(bool(self.const))
         return s_Bool
@@ -208,7 +205,7 @@ class __extend__(SomeInteger):
     abs_ovf = _clone(abs, [OverflowError])
 
 class __extend__(SomeBool):
-    def is_true(self):
+    def bool(self):
         return self
 
     def invert(self):
@@ -336,12 +333,13 @@ class __extend__(SomeList):
         check_negative_slice(s_start, s_stop)
         lst.listdef.resize()
 
-def check_negative_slice(s_start, s_stop):
+def check_negative_slice(s_start, s_stop, error="slicing"):
     if isinstance(s_start, SomeInteger) and not s_start.nonneg:
-        raise AnnotatorError("slicing: not proven to have non-negative start")
+        raise AnnotatorError("%s: not proven to have non-negative start" %
+                             error)
     if isinstance(s_stop, SomeInteger) and not s_stop.nonneg and \
            getattr(s_stop, 'const', 0) != -1:
-        raise AnnotatorError("slicing: not proven to have non-negative stop")
+        raise AnnotatorError("%s: not proven to have non-negative stop" % error)
 
 
 class __extend__(SomeDict):
@@ -451,12 +449,15 @@ class __extend__(SomeString,
         return s_Bool
 
     def method_find(str, frag, start=None, end=None):
+        check_negative_slice(start, end, "find")
         return SomeInteger()
 
     def method_rfind(str, frag, start=None, end=None):
+        check_negative_slice(start, end, "rfind")
         return SomeInteger()
 
     def method_count(str, frag, start=None, end=None):
+        check_negative_slice(start, end, "count")
         return SomeInteger(nonneg=True)
 
     def method_strip(str, chr):
@@ -522,6 +523,11 @@ class __extend__(SomeString,
             return SomeObject.op_contains(str, s_element)
     op_contains.can_only_throw = []
 
+
+class __extend__(SomeByteArray):
+    def getslice(ba, s_start, s_stop):
+        check_negative_slice(s_start, s_stop)
+        return SomeByteArray()
 
 class __extend__(SomeUnicodeString):
     def method_encode(uni, s_enc):
@@ -667,7 +673,7 @@ class __extend__(SomeInstance):
             # create or update the attribute in clsdef
             clsdef.generalize_attr(attr, s_value)
 
-    def is_true_behavior(ins, s):
+    def bool_behavior(ins, s):
         if not ins.can_be_None:
             s.const = True
 
@@ -736,7 +742,7 @@ class __extend__(SomePBC):
         d = [desc.bind_under(classdef, name) for desc in pbc.descriptions]
         return SomePBC(d, can_be_None=pbc.can_be_None)
 
-    def is_true_behavior(pbc, s):
+    def bool_behavior(pbc, s):
         if pbc.isNone():
             s.const = False
         elif not pbc.can_be_None:
@@ -797,7 +803,7 @@ class __extend__(SomePtr):
         v = p.ll_ptrtype._example()(*llargs)
         return ll_to_annotation(v)
 
-    def is_true(p):
+    def bool(p):
         return s_Bool
 
 class __extend__(SomeLLADTMeth):
@@ -831,5 +837,5 @@ class __extend__(SomeAddress):
             llmemory.supported_access_types[s_attr.const])
     getattr.can_only_throw = []
 
-    def is_true(s_addr):
+    def bool(s_addr):
         return s_Bool

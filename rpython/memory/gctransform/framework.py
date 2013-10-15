@@ -871,8 +871,9 @@ class BaseFrameworkGCTransformer(GCTransformer):
 
     def gct_get_write_barrier_from_array_failing_case(self, hop):
         op = hop.spaceop
-        v = getattr(self, 'write_barrier_from_array_failing_case_ptr',
-                    lltype.nullptr(op.result.concretetype.TO))
+        null = lltype.nullptr(op.result.concretetype.TO)
+        c_null = rmodel.inputconst(op.result.concretetype, null)
+        v = getattr(self, 'write_barrier_from_array_failing_case_ptr', c_null)
         hop.genop("same_as", [v], resultvar=op.result)
 
     def gct_zero_gc_pointers_inside(self, hop):
@@ -973,9 +974,6 @@ class BaseFrameworkGCTransformer(GCTransformer):
         hop.genop("direct_call", [self.set_max_heap_size_ptr,
                                   self.c_const_gc,
                                   v_size])
-
-    def gct_gc_thread_prepare(self, hop):
-        pass   # no effect any more
 
     def gct_gc_thread_run(self, hop):
         assert self.translator.config.translation.thread
@@ -1103,7 +1101,8 @@ class BaseFrameworkGCTransformer(GCTransformer):
         opname = hop.spaceop.opname
         v_struct = hop.spaceop.args[0]
         v_newvalue = hop.spaceop.args[-1]
-        assert opname in ('setfield', 'setarrayitem', 'setinteriorfield')
+        assert opname in ('setfield', 'setarrayitem', 'setinteriorfield',
+                          'raw_store')
         assert isinstance(v_newvalue.concretetype, lltype.Ptr)
         # XXX for some GCs the skipping if the newvalue is a constant won't be
         # ok

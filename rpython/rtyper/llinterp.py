@@ -784,9 +784,6 @@ class LLFrame(object):
         addr = llmemory.cast_ptr_to_adr(ptr)
         return self.heap.can_move(addr)
 
-    def op_gc_thread_prepare(self):
-        self.heap.thread_prepare()
-
     def op_gc_thread_run(self):
         self.heap.thread_run()
 
@@ -972,6 +969,10 @@ class LLFrame(object):
     op_raw_load.need_result_type = True
 
     def op_raw_store(self, addr, offset, value):
+        # XXX handle the write barrier by delegating to self.heap instead
+        self.op_bare_raw_store(addr, offset, value)
+
+    def op_bare_raw_store(self, addr, offset, value):
         checkadr(addr)
         ARGTYPE = lltype.typeOf(value)
         if isinstance(offset, int):

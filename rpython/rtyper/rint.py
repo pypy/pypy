@@ -251,14 +251,15 @@ class __extend__(IntegerRepr):
         raise TyperError("not an integer: %r" % (value,))
 
     def get_ll_eq_function(self):
+        if getattr(self, '_opprefix', '?') is None:
+            return ll_eq_shortint
         return None
-    get_ll_gt_function = get_ll_eq_function
-    get_ll_lt_function = get_ll_eq_function
-    get_ll_ge_function = get_ll_eq_function
-    get_ll_le_function = get_ll_eq_function
 
     def get_ll_ge_function(self):
         return None
+    get_ll_gt_function = get_ll_ge_function
+    get_ll_lt_function = get_ll_ge_function
+    get_ll_le_function = get_ll_ge_function
 
     def get_ll_hash_function(self):
         if (sys.maxint == 2147483647 and
@@ -295,7 +296,7 @@ class __extend__(IntegerRepr):
             hop.exception_cannot_occur()
         return hop.genop('cast_int_to_unichar', vlist, resulttype=UniChar)
 
-    def rtype_is_true(self, hop):
+    def rtype_bool(self, hop):
         assert self is self.as_int   # rtype_is_true() is overridden in BoolRepr
         vlist = hop.inputargs(self)
         return hop.genop(self.opprefix + 'is_true', vlist, resulttype=Bool)
@@ -389,6 +390,10 @@ def ll_hash_int(n):
 
 def ll_hash_long_long(n):
     return intmask(intmask(n) + 9 * intmask(n >> 32))
+
+def ll_eq_shortint(n, m):
+    return intmask(n) == intmask(m)
+ll_eq_shortint.no_direct_compare = True
 
 def ll_check_chr(n):
     if 0 <= n <= 255:

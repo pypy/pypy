@@ -688,6 +688,10 @@ class Transformer(object):
         kind = getkind(RESULT)[0]
         op1 = SpaceOperation('getfield_%s_%s%s' % (argname, kind, pure),
                              [v_inst, descr], op.result)
+        if op1.opname == 'getfield_raw_r':
+            # note: 'getfield_raw_r_pure' is used e.g. to load class
+            # attributes that are GC objects, so that one is supported.
+            raise Exception("getfield_raw_r (without _pure) not supported")
         #
         if immut in (IR_QUASIIMMUTABLE, IR_QUASIIMMUTABLE_ARRAY):
             descr1 = self.cpu.fielddescrof(
@@ -720,6 +724,8 @@ class Transformer(object):
         descr = self.cpu.fielddescrof(v_inst.concretetype.TO,
                                       c_fieldname.value)
         kind = getkind(RESULT)[0]
+        if argname == 'raw' and kind == 'r':
+            raise Exception("setfield_raw_r not supported")
         return SpaceOperation('setfield_%s_%s' % (argname, kind),
                               [v_inst, v_value, descr],
                               None)

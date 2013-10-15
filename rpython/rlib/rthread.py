@@ -44,7 +44,7 @@ def _emulated_start_new_thread(func):
 CALLBACK = lltype.Ptr(lltype.FuncType([], lltype.Void))
 c_thread_start = llexternal('RPyThreadStart', [CALLBACK], rffi.LONG,
                             _callable=_emulated_start_new_thread,
-                            threadsafe=True)  # release the GIL, but most
+                            releasegil=True)  # release the GIL, but most
                                               # importantly, reacquire it
                                               # around the callback
 c_thread_get_ident = llexternal('RPyThreadGetIdent', [], rffi.LONG,
@@ -54,19 +54,19 @@ TLOCKP = rffi.COpaquePtr('struct RPyOpaque_ThreadLock',
                           compilation_info=eci)
 TLOCKP_SIZE = rffi_platform.sizeof('struct RPyOpaque_ThreadLock', eci)
 c_thread_lock_init = llexternal('RPyThreadLockInit', [TLOCKP], rffi.INT,
-                                threadsafe=False)   # may add in a global list
+                                releasegil=False)   # may add in a global list
 c_thread_lock_dealloc_NOAUTO = llexternal('RPyOpaqueDealloc_ThreadLock',
                                           [TLOCKP], lltype.Void,
                                           _nowrapper=True)
 c_thread_acquirelock = llexternal('RPyThreadAcquireLock', [TLOCKP, rffi.INT],
                                   rffi.INT,
-                                  threadsafe=True)    # release the GIL
+                                  releasegil=True)    # release the GIL
 c_thread_acquirelock_timed = llexternal('RPyThreadAcquireLockTimed', 
                                         [TLOCKP, rffi.LONGLONG, rffi.INT],
                                         rffi.INT,
-                                        threadsafe=True)    # release the GIL
+                                        releasegil=True)    # release the GIL
 c_thread_releaselock = llexternal('RPyThreadReleaseLock', [TLOCKP], lltype.Void,
-                                  threadsafe=True)    # release the GIL
+                                  releasegil=True)    # release the GIL
 
 # another set of functions, this time in versions that don't cause the
 # GIL to be released.  To use to handle the GIL lock itself.
@@ -117,6 +117,8 @@ class Lock(object):
     """ Container for low-level implementation
     of a lock object
     """
+    _immutable_fields_ = ["_lock"]
+
     def __init__(self, ll_lock):
         self._lock = ll_lock
 
@@ -205,18 +207,7 @@ def release_NOAUTO(ll_lock):
 # ____________________________________________________________
 #
 # Thread integration.
-# These are six completely ad-hoc operations at the moment.
-
-@jit.dont_look_inside
-def gc_thread_prepare():
-    """To call just before thread.start_new_thread().  This
-    allocates a new shadow stack to be used by the future
-    thread.  If memory runs out, this raises a MemoryError
-    (which can be handled by the caller instead of just getting
-    ignored if it was raised in the newly starting thread).
-    """
-    if we_are_translated():
-        llop.gc_thread_prepare(lltype.Void)
+# These are five completely ad-hoc operations at the moment.
 
 @jit.dont_look_inside
 def gc_thread_run():

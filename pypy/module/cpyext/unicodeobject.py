@@ -273,6 +273,8 @@ def PyUnicode_GetDefaultEncoding(space):
 def PyUnicode_SetDefaultEncoding(space, encoding):
     """Sets the currently active default encoding. Returns 0 on
     success, -1 in case of an error."""
+    if not encoding:
+        PyErr_BadArgument(space)
     w_encoding = space.wrap(rffi.charp2str(encoding))
     setdefaultencoding(space, w_encoding)
     default_encoding[0] = '\x00'
@@ -350,8 +352,11 @@ def PyUnicode_Decode(space, s, size, encoding, errors):
     in the unicode() built-in function.  The codec to be used is looked up
     using the Python codec registry.  Return NULL if an exception was raised by
     the codec."""
-    w_str = space.wrap(rffi.charpsize2str(s, size))
+    if not encoding:
+        # This tracks CPython 2.7, in CPython 3.4 'utf-8' is hardcoded instead
+        encoding = PyUnicode_GetDefaultEncoding(space)
     w_encoding = space.wrap(rffi.charp2str(encoding))
+    w_str = space.wrap(rffi.charpsize2str(s, size))
     if errors:
         w_errors = space.wrap(rffi.charp2str(errors))
     else:
@@ -379,6 +384,9 @@ def PyUnicode_FromEncodedObject(space, w_obj, encoding, errors):
 
     All other objects, including Unicode objects, cause a TypeError to be
     set."""
+    if not encoding:
+        raise OperationError(space.w_TypeError,
+                             space.wrap("decoding Unicode is not supported"))
     w_encoding = space.wrap(rffi.charp2str(encoding))
     if errors:
         w_errors = space.wrap(rffi.charp2str(errors))

@@ -1,7 +1,9 @@
+from __future__ import division, absolute_import, print_function
+
 __all__ = ['atleast_1d', 'atleast_2d', 'atleast_3d', 'vstack', 'hstack']
 
-import numeric as _nx
-from numeric import array, asanyarray, newaxis
+from . import numeric as _nx
+from .numeric import array, asanyarray, newaxis
 
 def atleast_1d(*arys):
     """
@@ -55,7 +57,6 @@ def atleast_1d(*arys):
     else:
         return res
 
-
 def atleast_2d(*arys):
     """
     View inputs as arrays with at least two dimensions.
@@ -99,7 +100,7 @@ def atleast_2d(*arys):
         if len(ary.shape) == 0 :
             result = ary.reshape(1, 1)
         elif len(ary.shape) == 1 :
-            result = ary[newaxis, :]
+            result = ary[newaxis,:]
         else :
             result = ary
         res.append(result)
@@ -161,11 +162,11 @@ def atleast_3d(*arys):
     for ary in arys:
         ary = asanyarray(ary)
         if len(ary.shape) == 0:
-            result = ary.reshape(1,1,1)
+            result = ary.reshape(1, 1, 1)
         elif len(ary.shape) == 1:
-            result = ary[newaxis,:,newaxis]
+            result = ary[newaxis,:, newaxis]
         elif len(ary.shape) == 2:
-            result = ary[:,:,newaxis]
+            result = ary[:,:, newaxis]
         else:
             result = ary
         res.append(result)
@@ -173,6 +174,7 @@ def atleast_3d(*arys):
         return res[0]
     else:
         return res
+
 
 def vstack(tup):
     """
@@ -223,7 +225,7 @@ def vstack(tup):
            [4]])
 
     """
-    return _nx.concatenate(map(atleast_2d,tup),0)
+    return _nx.concatenate([atleast_2d(_m) for _m in tup], 0)
 
 def hstack(tup):
     """
@@ -267,7 +269,7 @@ def hstack(tup):
            [3, 4]])
 
     """
-    arrs = map(atleast_1d,tup)
+    arrs = [atleast_1d(_m) for _m in tup]
     # As a special case, dimension 0 of 1-dimensional arrays is "horizontal"
     if arrs[0].ndim == 1:
         return _nx.concatenate(arrs, 0)

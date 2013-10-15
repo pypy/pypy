@@ -50,38 +50,6 @@ def list_BINARY_SUBSCR(f, oparg, next_instr):
         w_result = f.space.getitem(w_1, w_2)
     f.pushvalue(w_result)
 
-compare_table = [
-    "lt",   # "<"
-    "le",   # "<="
-    "eq",   # "=="
-    "ne",   # "!="
-    "gt",   # ">"
-    "ge",   # ">="
-    ]
-unrolling_compare_ops = unrolling_iterable(enumerate(compare_table))
-
-def fast_COMPARE_OP(f, testnum, next_instr):
-    w_2 = f.popvalue()
-    w_1 = f.popvalue()
-    w_result = None
-    if (type(w_2) is intobject.W_IntObject and
-        type(w_1) is intobject.W_IntObject and
-        testnum < len(compare_table)):
-        for i, attr in unrolling_compare_ops:
-            if i == testnum:
-                op = getattr(operator, attr)
-                w_result = f.space.newbool(op(w_1.intval,
-                                              w_2.intval))
-                break
-    else:
-        for i, attr in pyopcode.unrolling_compare_dispatch_table:
-            if i == testnum:
-                w_result = getattr(f, attr)(w_1, w_2)
-                break
-        else:
-            raise pyopcode.BytecodeCorruption, "bad COMPARE_OP oparg"
-    f.pushvalue(w_result)
-
 
 def build_frame(space):
     """Consider the objspace config and return a patched frame object."""
@@ -91,10 +59,7 @@ def build_frame(space):
         StdObjSpaceFrame.BINARY_ADD = int_BINARY_ADD
     if space.config.objspace.std.optimized_list_getitem:
         StdObjSpaceFrame.BINARY_SUBSCR = list_BINARY_SUBSCR
-    if space.config.objspace.opcodes.CALL_METHOD:
-        from pypy.objspace.std.callmethod import LOOKUP_METHOD, CALL_METHOD
-        StdObjSpaceFrame.LOOKUP_METHOD = LOOKUP_METHOD
-        StdObjSpaceFrame.CALL_METHOD = CALL_METHOD
-    if space.config.objspace.std.optimized_comparison_op:
-        StdObjSpaceFrame.COMPARE_OP = fast_COMPARE_OP
+    from pypy.objspace.std.callmethod import LOOKUP_METHOD, CALL_METHOD
+    StdObjSpaceFrame.LOOKUP_METHOD = LOOKUP_METHOD
+    StdObjSpaceFrame.CALL_METHOD = CALL_METHOD
     return StdObjSpaceFrame

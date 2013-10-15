@@ -8,28 +8,12 @@
 #define OP_STACK_CURRENT(r)  r = (Signed)&r
 
 
-#define RAW_MALLOC_ZERO_FILLED 0
-
-#if RAW_MALLOC_ZERO_FILLED
-
-#define OP_RAW_MALLOC(size, r, restype)  {				\
-	r = (restype) PyObject_Malloc(size);				\
-	if (r != NULL) {						\
-	    memset((void*)r, 0, size);					\
-	    COUNT_MALLOC;						\
-	}								\
-    }
-
-#else
-
 #define OP_RAW_MALLOC(size, r, restype)  {				\
 	r = (restype) PyObject_Malloc(size);				\
 	if (r != NULL) {						\
 	    COUNT_MALLOC;						\
 	}								\
     }
-
-#endif
 
 #define OP_RAW_FREE(p, r) PyObject_Free(p); COUNT_FREE;
 

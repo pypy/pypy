@@ -25,7 +25,7 @@ class RPythonCallsSpace(object):
             return [Ellipsis]
         raise CallPatternTooComplex("'*' argument must be SomeTuple")
 
-    def is_true(self, s_tup):
+    def bool(self, s_tup):
         assert isinstance(s_tup, SomeTuple)
         return bool(s_tup.items)
 
@@ -208,7 +208,7 @@ class ArgumentsForTranslation(object):
             args_w = data_args_w[:need_cnt]
             for argname, w_arg in zip(argnames[need_cnt:], data_args_w[need_cnt:]):
                 unfiltered_kwds_w[argname] = w_arg
-            assert not space.is_true(data_w_stararg)
+            assert not space.bool(data_w_stararg)
         else:
             stararg_w = space.unpackiterable(data_w_stararg)
             args_w = data_args_w + stararg_w

@@ -595,10 +595,7 @@ class StdObjSpace(ObjSpace):
         return unicode_from_object(self, w_obj)
 
     def call_method(self, w_obj, methname, *arg_w):
-        if self.config.objspace.opcodes.CALL_METHOD:
-            return callmethod.call_method_opt(self, w_obj, methname, *arg_w)
-        else:
-            return ObjSpace.call_method(self, w_obj, methname, *arg_w)
+        return callmethod.call_method_opt(self, w_obj, methname, *arg_w)
 
     def _type_issubtype(self, w_sub, w_type):
         if isinstance(w_sub, W_TypeObject) and isinstance(w_type, W_TypeObject):

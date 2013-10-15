@@ -1411,7 +1411,6 @@ class BasicTests:
         self.check_resops(call=2)
 
     def test_merge_guardclass_guardvalue(self):
-        from rpython.rlib.objectmodel import instantiate
         myjitdriver = JitDriver(greens = [], reds = ['x', 'l'])
 
         class A(object):
@@ -1438,7 +1437,6 @@ class BasicTests:
         self.check_resops(guard_class=0, guard_value=6)
 
     def test_merge_guardnonnull_guardclass(self):
-        from rpython.rlib.objectmodel import instantiate
         myjitdriver = JitDriver(greens = [], reds = ['x', 'l'])
 
         class A(object):
@@ -1468,7 +1466,6 @@ class BasicTests:
 
 
     def test_merge_guardnonnull_guardvalue(self):
-        from rpython.rlib.objectmodel import instantiate
         myjitdriver = JitDriver(greens = [], reds = ['x', 'l'])
 
         class A(object):
@@ -1497,7 +1494,6 @@ class BasicTests:
 
 
     def test_merge_guardnonnull_guardvalue_2(self):
-        from rpython.rlib.objectmodel import instantiate
         myjitdriver = JitDriver(greens = [], reds = ['x', 'l'])
 
         class A(object):
@@ -1526,7 +1522,6 @@ class BasicTests:
 
 
     def test_merge_guardnonnull_guardclass_guardvalue(self):
-        from rpython.rlib.objectmodel import instantiate
         myjitdriver = JitDriver(greens = [], reds = ['x', 'l'])
 
         class A(object):
@@ -2386,6 +2381,7 @@ class BasicTests:
                 if i >= len(bytecode):
                     break
                 op = bytecode[i]
+                i += 1
                 if op == 'j':
                     j += 1
                 elif op == 'c':
@@ -2415,7 +2411,6 @@ class BasicTests:
 
                 else:
                     return ord(op)
-                i += 1
             return 42
         assert f() == 42
         def g():
@@ -3237,7 +3232,7 @@ class BaseLLtypeTests(BasicTests):
             py.test.skip("needs 'time'")
         T = rffi.CArrayPtr(rffi.TIME_T)
 
-        external = rffi.llexternal("time", [T], rffi.TIME_T, threadsafe=True)
+        external = rffi.llexternal("time", [T], rffi.TIME_T, releasegil=True)
         # Not a real lock, has all the same properties with respect to GIL
         # release though, so good for this test.
         class Lock(object):

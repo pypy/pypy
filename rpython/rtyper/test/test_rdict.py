@@ -91,7 +91,7 @@ class TestRdict(BaseRtypingTest):
         res = self.interpret(func, [6])
         assert res == 1
 
-    def test_dict_is_true(self):
+    def test_dict_bool(self):
         def func(i):
             if i:
                 d = {}
@@ -999,6 +999,26 @@ class TestRdict(BaseRtypingTest):
         res = f()
         assert res == 1
 
+    def test_dict_with_SHORT_keys(self):
+        def func(x):
+            d = {}
+            d[rffi.cast(rffi.SHORT, 42)] = 123
+            d[rffi.cast(rffi.SHORT, -43)] = 321
+            return d[rffi.cast(rffi.SHORT, x)]
+
+        assert self.interpret(func, [42]) == 123
+        assert self.interpret(func, [2**16 - 43]) == 321
+
+    def test_dict_with_bool_keys(self):
+        def func(x):
+            d = {}
+            d[False] = 123
+            d[True] = 321
+            return d[x == 42]
+
+        assert self.interpret(func, [5]) == 123
+        assert self.interpret(func, [42]) == 321
+
     def test_nonnull_hint(self):
         def eq(a, b):
             return a == b
@@ -1050,6 +1070,13 @@ class TestRdict(BaseRtypingTest):
             #
         finally:
             lltype._array._check_range = original_check_range
+
+    def test_dict_with_none_key(self):
+        def func(i):
+            d = {None: i}
+            return d[None]
+        res = self.interpret(func, [42])
+        assert res == 42
 
 
 class TestStress:

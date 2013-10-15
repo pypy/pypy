@@ -94,7 +94,7 @@ def builtin_reversed(s_obj):
 
 
 def builtin_bool(s_obj):
-    return s_obj.is_true()
+    return s_obj.bool()
 
 def builtin_int(s_obj, s_base=None):
     if isinstance(s_obj, SomeInteger):

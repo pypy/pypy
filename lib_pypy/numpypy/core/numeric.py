@@ -1,21 +1,23 @@
+from __future__ import division, absolute_import, print_function
+
 __all__ = [
            'newaxis', 'ufunc',
            'asarray', 'asanyarray', 'base_repr',
            'array_repr', 'array_str', 'set_string_function',
-           'array_equal', 'outer', 'vdot', 'identity', 'little_endian',
+           'array_equal', 'array_equiv', 'outer', 'vdot', 'identity', 'little_endian',
            'Inf', 'inf', 'infty', 'Infinity', 'nan', 'NaN', 'False_', 'True_',
            'seterr',
           ]
 
 import sys
-import multiarray
-from multiarray import *
+from . import multiarray
+from .multiarray import *
 del set_string_function
 del typeinfo
-import umath
-from umath import *
-import numerictypes
-from numerictypes import *
+from . import umath
+from .umath import *
+from . import numerictypes
+from .numerictypes import *
 
 def extend_all(module):
     adict = {}
@@ -40,6 +42,76 @@ ufunc = type(sin)
 # XXX this file to be reviewed
 def seterr(**args):
     return args
+
+def asarray(a, dtype=None, order=None):
+    """
+    Convert the input to an array.
+
+    Parameters
+    ----------
+    a : array_like
+        Input data, in any form that can be converted to an array.  This
+        includes lists, lists of tuples, tuples, tuples of tuples, tuples
+        of lists and ndarrays.
+    dtype : data-type, optional
+        By default, the data-type is inferred from the input data.
+    order : {'C', 'F'}, optional
+        Whether to use row-major ('C') or column-major ('F' for FORTRAN)
+        memory representation.  Defaults to 'C'.
+
+    Returns
+    -------
+    out : ndarray
+        Array interpretation of `a`.  No copy is performed if the input
+        is already an ndarray.  If `a` is a subclass of ndarray, a base
+        class ndarray is returned.
+
+    See Also
+    --------
+    asanyarray : Similar function which passes through subclasses.
+    ascontiguousarray : Convert input to a contiguous array.
+    asfarray : Convert input to a floating point ndarray.
+    asfortranarray : Convert input to an ndarray with column-major
+                     memory order.
+    asarray_chkfinite : Similar function which checks input for NaNs and Infs.
+    fromiter : Create an array from an iterator.
+    fromfunction : Construct an array by executing a function on grid
+                   positions.
+
+    Examples
+    --------
+    Convert a list into an array:
+
+    >>> a = [1, 2]
+    >>> np.asarray(a)
+    array([1, 2])
+
+    Existing arrays are not copied:
+
+    >>> a = np.array([1, 2])
+    >>> np.asarray(a) is a
+    True
+
+    If `dtype` is set, array is copied only if dtype does not match:
+
+    >>> a = np.array([1, 2], dtype=np.float32)
+    >>> np.asarray(a, dtype=np.float32) is a
+    True
+    >>> np.asarray(a, dtype=np.float64) is a
+    False
+
+    Contrary to `asanyarray`, ndarray subclasses are not passed through:
+
+    >>> issubclass(np.matrix, np.ndarray)
+    True
+    >>> a = np.matrix([[1, 2]])
+    >>> np.asarray(a) is a
+    False
+    >>> np.asanyarray(a) is a
+    True
+
+    """
+    return array(a, dtype, copy=False, order=order)
 
 def asanyarray(a, dtype=None, order=None):
     """
@@ -148,7 +220,7 @@ def base_repr(number, base=2, padding=0):
 
 
 #Use numarray's printing function
-from arrayprint import array2string
+from .arrayprint import array2string
 
 _typelessdata = [int_, float_]#, complex_]
 # XXX
@@ -381,75 +453,49 @@ def array_equal(a1, a2):
         return False
     return bool((a1 == a2).all())
 
-def asarray(a, dtype=None, order=None):
+def array_equiv(a1, a2):
     """
-    Convert the input to an array.
+    Returns True if input arrays are shape consistent and all elements equal.
+
+    Shape consistent means they are either the same shape, or one input array
+    can be broadcasted to create the same shape as the other one.
 
     Parameters
     ----------
-    a : array_like
-        Input data, in any form that can be converted to an array.  This
-        includes lists, lists of tuples, tuples, tuples of tuples, tuples
-        of lists and ndarrays.
-    dtype : data-type, optional
-        By default, the data-type is inferred from the input data.
-    order : {'C', 'F'}, optional
-        Whether to use row-major ('C') or column-major ('F' for FORTRAN)
-        memory representation.  Defaults to 'C'.
+    a1, a2 : array_like
+        Input arrays.
 
     Returns
     -------
-    out : ndarray
-        Array interpretation of `a`.  No copy is performed if the input
-        is already an ndarray.  If `a` is a subclass of ndarray, a base
-        class ndarray is returned.
-
-    See Also
-    --------
-    asanyarray : Similar function which passes through subclasses.
-    ascontiguousarray : Convert input to a contiguous array.
-    asfarray : Convert input to a floating point ndarray.
-    asfortranarray : Convert input to an ndarray with column-major
-                     memory order.
-    asarray_chkfinite : Similar function which checks input for NaNs and Infs.
-    fromiter : Create an array from an iterator.
-    fromfunction : Construct an array by executing a function on grid
-                   positions.
+    out : bool
+        True if equivalent, False otherwise.
 
     Examples
     --------
-    Convert a list into an array:
-
-    >>> a = [1, 2]
-    >>> np.asarray(a)
-    array([1, 2])
-
-    Existing arrays are not copied:
-
-    >>> a = np.array([1, 2])
-    >>> np.asarray(a) is a
+    >>> np.array_equiv([1, 2], [1, 2])
     True
-
-    If `dtype` is set, array is copied only if dtype does not match:
-
-    >>> a = np.array([1, 2], dtype=np.float32)
-    >>> np.asarray(a, dtype=np.float32) is a
-    True
-    >>> np.asarray(a, dtype=np.float64) is a
+    >>> np.array_equiv([1, 2], [1, 3])
     False
 
-    Contrary to `asanyarray`, ndarray subclasses are not passed through:
+    Showing the shape equivalence:
 
-    >>> issubclass(np.matrix, np.ndarray)
+    >>> np.array_equiv([1, 2], [[1, 2], [1, 2]])
     True
-    >>> a = np.matrix([[1, 2]])
-    >>> np.asarray(a) is a
+    >>> np.array_equiv([1, 2], [[1, 2, 1, 2], [1, 2, 1, 2]])
     False
-    >>> np.asanyarray(a) is a
-    True
+
+    >>> np.array_equiv([1, 2], [[1, 2], [1, 3]])
+    False
 
     """
-    return array(a, dtype, copy=False, order=order)
+    try:
+        a1, a2 = asarray(a1), asarray(a2)
+    except:
+        return False
+    try:
+        return bool(asarray(a1 == a2).all())
+    except ValueError:
+        return False
 
 def outer(a,b):
     """
@@ -606,7 +652,7 @@ def identity(n, dtype=None):
            [ 0.,  0.,  1.]])
 
     """
-    from numpy import eye
+    from .. import eye
     return eye(n, dtype=dtype)
 
 Inf = inf = infty = Infinity = PINF
@@ -614,6 +660,6 @@ nan = NaN = NAN
 False_ = bool_(False)
 True_ = bool_(True)
 
-import fromnumeric
-from fromnumeric import *
+from . import fromnumeric
+from .fromnumeric import *
 extend_all(fromnumeric)

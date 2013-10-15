@@ -262,7 +262,11 @@ def ll_shrink_array(p, smallerlength):
     keepalive_until_here(newp)
     return newp
 
-
+def no_release_gil(func):
+    func._dont_inline_ = True
+    func._no_release_gil_ = True
+    return func
+    
 def no_collect(func):
     func._dont_inline_ = True
     func._gc_no_collect_ = True

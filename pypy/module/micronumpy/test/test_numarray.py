@@ -1391,7 +1391,7 @@ class AppTestNumArray(BaseNumpyAppTest):
             for i in xrange(5):
                 assert c[i] == func(b[i], 3)
 
-    def test_nonzero(self):
+    def test___nonzero__(self):
         from numpypy import array
         a = array([1, 2])
         raises(ValueError, bool, a)
@@ -1896,6 +1896,15 @@ class AppTestNumArray(BaseNumpyAppTest):
         b = array([1, 2, 3, 4])
         assert (a == b) == False
 
+    def test__long__(self):
+        from numpypy import array
+        assert long(array(1)) == 1
+        assert long(array([1])) == 1
+        assert isinstance(long(array([1])), long)
+        assert isinstance(long(array([1, 2][0])), long)
+        assert raises(TypeError, "long(array([1, 2]))")
+        assert long(array([1.5])) == 1
+
     def test__int__(self):
         from numpypy import array
         assert int(array(1)) == 1
@@ -2355,11 +2364,16 @@ class AppTestMultiDim(BaseNumpyAppTest):
     def test_array_indexing_bool_specialcases(self):
         from numpypy import arange, array
         a = arange(6)
-        try:
-            a[a < 3] = [1, 2]
-            assert False, "Should not work"
-        except ValueError:
-            pass
+        exc = raises(ValueError,'a[a < 3] = [1, 2]')
+        assert exc.value[0].find('cannot assign') >= 0
+        b = arange(4).reshape(2, 2) + 10
+        a[a < 4] = b
+        assert (a == [10, 11, 12, 13, 4, 5]).all()
+        b += 10
+        c = arange(8).reshape(2, 2, 2)
+        a[a > 9] = c[:, :, 1]
+        assert (c[:, :, 1] == [[1, 3], [5, 7]]).all()
+        assert (a == [1, 3, 5, 7, 4, 5]).all()
         a = arange(6)
         a[a > 3] = array([15])
         assert (a == [0, 1, 2, 3, 15, 15]).all()
@@ -2380,6 +2394,21 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert (arange(3).ravel() == arange(3)).all()
         assert (arange(6).reshape(2, 3).ravel() == arange(6)).all()
         assert (arange(6).reshape(2, 3).T.ravel() == [0, 3, 1, 4, 2, 5]).all()
+
+    def test_nonzero(self):
+        from numpypy import array
+        nz = array(0).nonzero()
+        assert nz[0].size == 0
+
+        nz = array(2).nonzero()
+        assert (nz[0] == [0]).all()
+
+        nz = array([1, 0, 3]).nonzero()
+        assert (nz[0] == [0, 2]).all()
+
+        nz = array([[1, 0, 3], [2, 0, 4]]).nonzero()
+        assert (nz[0] == [0, 0, 1, 1]).all()
+        assert (nz[1] == [0, 2, 0, 2]).all()
 
     def test_take(self):
         from numpypy import arange
@@ -2631,55 +2660,6 @@ class AppTestSupport(BaseNumpyAppTest):
         assert array([1, 2, 3], '<i2')[::2].tostring() == '\x01\x00\x03\x00'
         assert array([1, 2, 3], '>i2')[::2].tostring() == '\x00\x01\x00\x03'
         assert array(0, dtype='i2').tostring() == '\x00\x00'
-
-    def test_argsort_dtypes(self):
-        from numpypy import array, arange
-        assert array(2.0).argsort() == 0
-        nnp = self.non_native_prefix
-        for dtype in ['int', 'float', 'int16', 'float32', 'uint64',
-                        nnp + 'i2', complex]:
-            a = array([6, 4, -1, 3, 8, 3, 256+20, 100, 101], dtype=dtype)
-            c = a.copy()
-            res = a.argsort()
-            assert (res == [2, 3, 5, 1, 0, 4, 7, 8, 6]).all(), \
-                'a,res,dtype %r,%r,%r' % (a,res,dtype)
-            assert (a == c).all() # not modified
-            a = arange(100)
-            assert (a.argsort() == a).all()
-        raises(NotImplementedError, 'arange(10,dtype="float16").argsort()')
-
-    def test_argsort_nd(self):
-        from numpypy import array
-        a = array([[4, 2], [1, 3]])
-        assert (a.argsort() == [[1, 0], [0, 1]]).all()
-        a = array(range(10) + range(10) + range(10))
-        b = a.argsort()
-        assert (b[:3] == [0, 10, 20]).all()
-        #trigger timsort 'run' mode which calls arg_getitem_slice
-        a = array(range(100) + range(100) + range(100))
-        b = a.argsort()
-        assert (b[:3] == [0, 100, 200]).all()
-        a = array([[[]]]).reshape(3,4,0)
-        b = a.argsort()
-        assert b.size == 0
-
-    def test_argsort_random(self):
-        from numpypy import array
-        from _random import Random
-        rnd = Random(1)
-        a = array([rnd.random() for i in range(512*2)]).reshape(512,2)
-        a.argsort()
-
-    def test_argsort_axis(self):
-        from numpypy import array
-        a = array([[4, 2], [1, 3]])
-        assert (a.argsort(axis=None) == [2, 1, 3, 0]).all()
-        assert (a.argsort(axis=-1) == [[1, 0], [0, 1]]).all()
-        assert (a.argsort(axis=0) == [[1, 0], [0, 1]]).all()
-        assert (a.argsort(axis=1) == [[1, 0], [0, 1]]).all()
-        a = array([[3, 2, 1], [1, 2, 3]])
-        assert (a.argsort(axis=0) == [[1, 0, 0], [0, 1, 1]]).all()
-        assert (a.argsort(axis=1) == [[2, 1, 0], [0, 1, 2]]).all()
 
 
 class AppTestRanges(BaseNumpyAppTest):
@@ -2944,6 +2924,17 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         a = array([([1, 2, 3], [0.5, 1.5, 2.5, 3.5, 4.5]), ([4, 5, 6], [5.5, 6.5, 7.5, 8.5, 9.5])], dtype=d)
 
         assert len(list(a[0])) == 2
+
+    def test_issue_1589(self):
+        import numpypy as numpy
+        c = numpy.array([[(1, 2, 'a'), (3, 4, 'b')], [(5, 6, 'c'), (7, 8, 'd')]],
+                        dtype=[('bg', 'i8'), ('fg', 'i8'), ('char', 'S1')])
+        assert c[0][0]["char"] == 'a'
+
+    def test_scalar_coercion(self):
+        import numpypy as np
+        a = np.array([1,2,3], dtype=np.int16)
+        assert (a * 2).dtype == np.int16
 
 class AppTestPyPy(BaseNumpyAppTest):
     def setup_class(cls):

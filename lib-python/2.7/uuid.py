@@ -127,30 +127,39 @@ class UUID(object):
         overriding the given 'hex', 'bytes', 'bytes_le', 'fields', or 'int'.
         """
 
-        if (
-            ((hex is not None) + (bytes is not None) + (bytes_le is not None) +
-             (fields is not None) + (int is not None)) != 1
-        ):
-            raise TypeError('need exactly one of hex, bytes, bytes_le, fields,'
-                            ' or int')
         if hex is not None:
+            if (bytes is not None or bytes_le is not None or
+                    fields is not None or int is not None):
+                raise TypeError('if the hex argument is given, bytes,'
+                                ' bytes_le, fields,  and int need to be None')
             hex = hex.replace('urn:', '').replace('uuid:', '')
             hex = hex.strip('{}').replace('-', '')
             if len(hex) != 32:
                 raise ValueError('badly formed hexadecimal UUID string')
             int = long(hex, 16)
-        if bytes_le is not None:
+        elif bytes_le is not None:
+            if bytes is not None or fields is not None or int is not None:
+                raise TypeError('if the bytes_le argument is given, bytes,'
+                                ' fields, and int need to be None')
             if len(bytes_le) != 16:
                 raise ValueError('bytes_le is not a 16-char string')
             bytes = (bytes_le[3] + bytes_le[2] + bytes_le[1] + bytes_le[0] +
                      bytes_le[5] + bytes_le[4] + bytes_le[7] + bytes_le[6] +
                      bytes_le[8:])
-        if bytes is not None:
+            int = (struct.unpack('>Q', bytes[:8])[0] << 64 |
+                   struct.unpack('>Q', bytes[8:])[0])
+        elif bytes is not None:
+            if fields is not None or int is not None:
+                raise TypeError('if the bytes argument is given, fields '
+                                'and int need to be None')
             if len(bytes) != 16:
                 raise ValueError('bytes is not a 16-char string')
             int = (struct.unpack('>Q', bytes[:8])[0] << 64 |
                    struct.unpack('>Q', bytes[8:])[0])
-        if fields is not None:
+        elif fields is not None:
+            if int is not None:
+                raise TypeError('if the fields argument is given, int needs'
+                                ' to be None')
             if len(fields) != 6:
                 raise ValueError('fields is not a 6-tuple')
             (time_low, time_mid, time_hi_version,
@@ -170,9 +179,12 @@ class UUID(object):
             clock_seq = (clock_seq_hi_variant << 8L) | clock_seq_low
             int = ((time_low << 96L) | (time_mid << 80L) |
                    (time_hi_version << 64L) | (clock_seq << 48L) | node)
-        if int is not None:
+        elif int is not None:
             if not 0 <= int < 1<<128L:
                 raise ValueError('int is out of range (need a 128-bit value)')
+        else:
+            raise TypeError('one of hex, bytes, bytes_le, fields,'
+                            ' or int need to be not None')
         if version is not None:
             if not 1 <= version <= 5:
                 raise ValueError('illegal version number')
@@ -182,7 +194,7 @@ class UUID(object):
             # Set the version number.
             int &= ~(0xf000 << 64L)
             int |= version << 76L
-        self.__dict__['int'] = int
+        object.__setattr__(self, 'int', int)
 
     def __cmp__(self, other):
         if isinstance(other, UUID):

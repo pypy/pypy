@@ -1070,7 +1070,6 @@ class TestThread(object):
             rthread.gc_thread_die()
 
         def new_thread():
-            rthread.gc_thread_prepare()
             ident = rthread.start_new_thread(bootstrap, ())
             time.sleep(0.5)    # enough time to start, hopefully
             return ident
@@ -1198,7 +1197,6 @@ class TestThread(object):
             rthread.gc_thread_die()
 
         def new_thread():
-            rthread.gc_thread_prepare()
             ident = rthread.start_new_thread(bootstrap, ())
             time.sleep(0.5)    # enough time to start, hopefully
             return ident

@@ -587,7 +587,7 @@ class __extend__(pairtype(MethodOfFrozenPBCRepr, MethodOfFrozenPBCRepr)):
 class NoneFrozenPBCRepr(Repr):
     lowleveltype = Void
 
-    def rtype_is_true(self, hop):
+    def rtype_bool(self, hop):
         return Constant(False, Bool)
 
     def none_call(self, hop):
@@ -595,6 +595,9 @@ class NoneFrozenPBCRepr(Repr):
 
     def ll_str(self, none):
         return llstr("None")
+
+    def get_ll_eq_function(self):
+        return None
 
     def get_ll_hash_function(self):
         return ll_none_hash

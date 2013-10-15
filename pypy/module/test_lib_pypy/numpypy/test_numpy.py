@@ -1,16 +1,8 @@
+from pypy.conftest import option
+import py, sys
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
 class AppTestNumpy(BaseNumpyAppTest):
-    spaceconfig = dict(usemodules=['micronumpy'])
-
-    def test_imports(self):
-        try:
-            import numpy   # fails if 'numpypy' was not imported so far
-        except ImportError:
-            pass
-        import numpypy
-        import numpy     # works after 'numpypy' has been imported
-
     def test_min_max_after_import(self):
         import __builtin__
         from __builtin__ import *
@@ -60,3 +52,17 @@ class AppTestNumpy(BaseNumpyAppTest):
         assert numpypy.PZERO == numpypy.NZERO == 0.0
         assert math.isinf(numpypy.inf)
         assert math.isnan(numpypy.nan)
+
+    def test___all__(self):
+        import numpypy
+        assert '__all__' in dir(numpypy)
+        assert 'numpypy' not in dir(numpypy)
+
+    def test_get_include(self):
+        import sys
+        if not hasattr(sys, 'pypy_translation_info'):
+            skip("pypy white-box test")
+        import numpypy, os
+        assert 'get_include' in dir(numpypy)
+        path = numpypy.get_include()
+        assert os.path.exists(path + '/numpy/arrayobject.h')

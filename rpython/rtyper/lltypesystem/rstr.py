@@ -577,9 +577,7 @@ class LLHelpers(AbstractLLHelpers):
             return -1
 
         m = len(s2.chars)
-        if m == 0:
-            return start
-        elif m == 1:
+        if m == 1:
             return cls.ll_find_char(s1, s2.chars[0], start, end)
 
         return cls.ll_search(s1, s2, start, end, FAST_FIND)
@@ -594,9 +592,7 @@ class LLHelpers(AbstractLLHelpers):
             return -1
 
         m = len(s2.chars)
-        if m == 0:
-            return end
-        elif m == 1:
+        if m == 1:
             return cls.ll_rfind_char(s1, s2.chars[0], start, end)
 
         return cls.ll_search(s1, s2, start, end, FAST_RFIND)
@@ -611,9 +607,7 @@ class LLHelpers(AbstractLLHelpers):
             return 0
 
         m = len(s2.chars)
-        if m == 0:
-            return end - start + 1
-        elif m == 1:
+        if m == 1:
             return cls.ll_count_char(s1, s2.chars[0], start, end)
 
         res = cls.ll_search(s1, s2, start, end, FAST_COUNT)
@@ -628,6 +622,14 @@ class LLHelpers(AbstractLLHelpers):
         count = 0
         n = end - start
         m = len(s2.chars)
+
+        if m == 0:
+            if mode == FAST_COUNT:
+                return end - start + 1
+            elif mode == FAST_RFIND:
+                return end
+            else:
+                return start
 
         w = n - m
 

@@ -1766,14 +1766,14 @@ class StringType(BaseType, BaseStringType):
 
     def store(self, arr, i, offset, box):
         assert isinstance(box, interp_boxes.W_StringBox)
-        # XXX simplify to range(box.dtype.get_size()) ?
         return self._store(arr.storage, i, offset, box)
 
     @jit.unroll_safe
     def _store(self, storage, i, offset, box):
         assert isinstance(box, interp_boxes.W_StringBox)
-        for k in range(min(self.size, box.arr.size-offset)):
-            storage[k + i] = box.arr.storage[k + offset]
+        # XXX simplify to range(box.dtype.get_size()) ?
+        for k in range(min(self.size, box.arr.size-box.ofs)):
+            storage[k + offset + i] = box.arr.storage[k + box.ofs]
 
     def read(self, arr, i, offset, dtype=None):
         if dtype is None:
@@ -1864,7 +1864,6 @@ class StringType(BaseType, BaseStringType):
         return interp_boxes.W_StringBox(arr,  0, arr.dtype)
 
     def fill(self, storage, width, box, start, stop, offset):
-        from pypy.module.micronumpy.arrayimpl.concrete import ConcreteArrayNotOwning
         for i in xrange(start, stop, width):
             self._store(storage, i, offset, box)
 
@@ -1872,6 +1871,13 @@ NonNativeStringType = StringType
 
 class UnicodeType(BaseType, BaseStringType):
     T = lltype.UniChar
+
+    @jit.unroll_safe
+    def coerce(self, space, dtype, w_item):
+        if isinstance(w_item, interp_boxes.W_UnicodeBox):
+            return w_item
+        raise OperationError(space.w_NotImplementedError, space.wrap(
+            "coerce (probably from set_item) not implemented for unicode type"))
 
 NonNativeUnicodeType = UnicodeType
 

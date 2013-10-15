@@ -731,10 +731,16 @@ class rbigint(object):
             if c.numdigits() == 1 and c._digits[0] == ONEDIGIT:
                 return NULLRBIGINT
 
-            # if base < 0:
-            #     base = base % modulus
-            # Having the base positive just makes things easier.
-            if a.sign < 0:
+            # Reduce base by modulus in some cases:
+            # 1. If base < 0.  Forcing the base non-neg makes things easier.
+            # 2. If base is obviously larger than the modulus.  The "small
+            #    exponent" case later can multiply directly by base repeatedly,
+            #    while the "large exponent" case multiplies directly by base 31
+            #    times.  It can be unboundedly faster to multiply by
+            #    base % modulus instead.
+            # We could _always_ do this reduction, but mod() isn't cheap,
+            # so we only do it when it buys something.
+            if a.sign < 0 or a.numdigits() > c.numdigits():
                 a = a.mod(c)
 
         elif b.sign == 0:

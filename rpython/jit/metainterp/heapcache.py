@@ -51,10 +51,10 @@ class HeapCache(object):
         return self.output_indirections.get(box, box)
 
     def invalidate_caches(self, opnum, descr, argboxes):
-        self.mark_escaped(opnum, argboxes)
+        self.mark_escaped(opnum, descr, argboxes)
         self.clear_caches(opnum, descr, argboxes)
 
-    def mark_escaped(self, opnum, argboxes):
+    def mark_escaped(self, opnum, descr, argboxes):
         if opnum == rop.SETFIELD_GC:
             assert len(argboxes) == 2
             box, valuebox = argboxes
@@ -69,6 +69,15 @@ class HeapCache(object):
                 self.dependencies.setdefault(box, []).append(valuebox)
             else:
                 self._escape(valuebox)
+        elif (opnum == rop.CALL and
+              descr.get_extra_info().oopspecindex == descr.get_extra_info().OS_ARRAYCOPY and
+              isinstance(argboxes[3], ConstInt) and
+              isinstance(argboxes[4], ConstInt) and
+              isinstance(argboxes[5], ConstInt) and
+              len(descr.get_extra_info().write_descrs_arrays) == 1):
+            # ARRAYCOPY with constant starts and constant length doesn't escape
+            # its argument
+            pass
         # GETFIELD_GC, MARK_OPAQUE_PTR, PTR_EQ, and PTR_NE don't escape their
         # arguments
         elif (opnum != rop.GETFIELD_GC and
@@ -87,9 +96,11 @@ class HeapCache(object):
     def _escape(self, box):
         if box in self.new_boxes:
             self.new_boxes[box] = False
-        if box in self.dependencies:
-            deps = self.dependencies[box]
-            del self.dependencies[box]
+        try:
+            deps = self.dependencies.pop(box)
+        except KeyError:
+            pass
+        else:
             for dep in deps:
                 self._escape(dep)
 
@@ -116,16 +127,53 @@ class HeapCache(object):
             # A special case for ll_arraycopy, because it is so common, and its
             # effects are so well defined.
             elif effectinfo.oopspecindex == effectinfo.OS_ARRAYCOPY:
-                # The destination box
-                if argboxes[2] in self.new_boxes:
-                    # XXX: no descr here so we invalidate any of them, not just
-                    # of the correct type
-                    # XXX: in theory the indices of the copy could be looked at
-                    # as well
-                    for descr, cache in self.heap_array_cache.iteritems():
+                if (
+                    isinstance(argboxes[3], ConstInt) and
+                    isinstance(argboxes[4], ConstInt) and
+                    isinstance(argboxes[5], ConstInt) and
+                    len(effectinfo.write_descrs_arrays) == 1
+                ):
+                    descr = effectinfo.write_descrs_arrays[0]
+                    cache = self.heap_array_cache.get(descr, None)
+                    srcstart = argboxes[3].getint()
+                    dststart = argboxes[4].getint()
+                    length = argboxes[5].getint()
+                    for i in xrange(length):
+                        value = self.getarrayitem(
+                            argboxes[1],
+                            ConstInt(srcstart + i),
+                            descr,
+                        )
+                        if value is not None:
+                            self.setarrayitem(
+                                argboxes[2],
+                                ConstInt(dststart + i),
+                                value,
+                                descr,
+                            )
+                        elif cache is not None:
+                            if argboxes[2] in self.new_boxes:
+                                try:
+                                    idx_cache = cache[dststart + i]
+                                except KeyError:
+                                    pass
+                                else:
+                                    for frombox in idx_cache.keys():
+                                        if not self.is_unescaped(frombox):
+                                            del idx_cache[frombox]
+                            else:
+                                cache[dststart + i].clear()
+                    return
+                elif (
+                    argboxes[2] in self.new_boxes and
+                    len(effectinfo.write_descrs_arrays) == 1
+                ):
+                    # Fish the descr out of the effectinfo
+                    cache = self.heap_array_cache.get(effectinfo.write_descrs_arrays[0], None)
+                    if cache is not None:
                         for idx, cache in cache.iteritems():
                             for frombox in cache.keys():
-                                if not self.new_boxes.get(frombox, False):
+                                if not self.is_unescaped(frombox):
                                     del cache[frombox]
                     return
             else:
@@ -205,9 +253,9 @@ class HeapCache(object):
         return new_d
 
     def getarrayitem(self, box, indexbox, descr):
-        box = self._input_indirection(box)
         if not isinstance(indexbox, ConstInt):
             return
+        box = self._input_indirection(box)
         index = indexbox.getint()
         cache = self.heap_array_cache.get(descr, None)
         if cache:
@@ -216,10 +264,10 @@ class HeapCache(object):
                 return self._output_indirection(indexcache.get(box, None))
 
     def getarrayitem_now_known(self, box, indexbox, valuebox, descr):
-        box = self._input_indirection(box)
-        valuebox = self._input_indirection(valuebox)
         if not isinstance(indexbox, ConstInt):
             return
+        box = self._input_indirection(box)
+        valuebox = self._input_indirection(valuebox)
         index = indexbox.getint()
         cache = self.heap_array_cache.setdefault(descr, {})
         indexcache = cache.get(index, None)

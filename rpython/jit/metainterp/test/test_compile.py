@@ -17,7 +17,8 @@ class FakeCPU(object):
     ts = typesystem.llhelper
     def __init__(self):
         self.seen = []
-    def compile_loop(self, logger, inputargs, operations, token, log=True, name=''):
+    def compile_loop(self, inputargs, operations, token, log=True, name='',
+                     logger=None):
         self.seen.append((inputargs, operations, token))
 
 class FakeLogger(object):
