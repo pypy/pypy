@@ -1465,6 +1465,14 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a[3].imag == -10
         assert a[2].imag == -5
 
+    def test_trace(self):
+        import numpypy as np
+        assert np.trace(np.eye(3)) == 3.0
+        a = np.arange(8).reshape((2,2,2))
+        assert np.array_equal(np.trace(a), [6, 8])
+        a = np.arange(24).reshape((2,2,2,3))
+        assert np.trace(a).shape == (2, 3)
+
     def test_view(self):
         from numpypy import array, int8, int16, dtype
         x = array((1, 2), dtype=int8)
@@ -2148,6 +2156,7 @@ class AppTestMultiDim(BaseNumpyAppTest):
         c = b + b
         assert c.sum() == (6 + 8 + 10 + 12) * 2
         assert isinstance(c.sum(dtype='f8'), float)
+        assert isinstance(c.sum(None, 'f8'), float)
 
     def test_transpose(self):
         from numpypy import array
