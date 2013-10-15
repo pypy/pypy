@@ -657,10 +657,14 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert b[i] == math.degrees(a[i])
 
     def test_reduce_errors(self):
-        from numpypy import sin, add
+        from numpypy import sin, add, maximum, zeros
 
         raises(ValueError, sin.reduce, [1, 2, 3])
         assert add.reduce(1) == 1
+
+        assert list(maximum.reduce(zeros((2, 0)), axis=0)) == []
+        raises(ValueError, maximum.reduce, zeros((2, 0)), axis=None)
+        raises(ValueError, maximum.reduce, zeros((2, 0)), axis=1)
 
     def test_reduce_1d(self):
         from numpypy import add, maximum, less

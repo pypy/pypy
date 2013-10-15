@@ -76,7 +76,7 @@ class W_Ufunc(W_Root):
         return self.call(space, args_w)
 
     def descr_accumulate(self, space, w_obj, w_axis=None, w_dtype=None, w_out=None):
-        if space.is_none(w_axis) or w_axis is None:
+        if space.is_none(w_axis):
             w_axis = space.wrap(0)
         if space.is_none(w_out):
             out = None
@@ -186,9 +186,12 @@ class W_Ufunc(W_Root):
                     promote_to_largest=promote_to_largest,
                     promote_bools=True
                 )
-        if self.identity is None and size == 0:
-            raise operationerrfmt(space.w_ValueError, "zero-size array to "
-                    "%s.reduce without identity", self.name)
+        if self.identity is None:
+            for i in range(shapelen):
+                if space.is_none(w_axis) or i == axis:
+                    if obj_shape[i] == 0:
+                        raise operationerrfmt(space.w_ValueError, "zero-size array to "
+                                "%s.reduce without identity", self.name)
         if shapelen > 1 and axis < shapelen:
             temp = None
             if cumultative:
