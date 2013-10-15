@@ -550,6 +550,12 @@ class __extend__(W_NDimArray):
         return interp_arrayops.diagonal(space, self.implementation, offset,
                                         axis1, axis2)
 
+    @unwrap_spec(offset=int, axis1=int, axis2=int)
+    def descr_trace(self, space, offset=0, axis1=0, axis2=1,
+                    w_dtype=None, w_out=None):
+        diag = self.descr_diagonal(space, offset, axis1, axis2)
+        return diag.descr_sum(space, w_axis=space.wrap(-1), w_dtype=w_dtype, w_out=w_out)
+
     def descr_dump(self, space, w_file):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "dump not implemented yet"))
@@ -652,11 +658,6 @@ class __extend__(W_NDimArray):
     def descr_tofile(self, space, w_fid, w_sep="", w_format="%s"):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "tofile not implemented yet"))
-
-    def descr_trace(self, space, w_offset=0, w_axis1=0, w_axis2=1,
-                    w_dtype=None, w_out=None):
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            "trace not implemented yet"))
 
     def descr_view(self, space, w_dtype=None, w_type=None) :
         if not w_type and w_dtype:
@@ -1153,6 +1154,7 @@ W_NDimArray.typedef = TypeDef(
     round    = interp2app(W_NDimArray.descr_round),
     data     = GetSetProperty(W_NDimArray.descr_get_data),
     diagonal = interp2app(W_NDimArray.descr_diagonal),
+    trace = interp2app(W_NDimArray.descr_trace),
     view = interp2app(W_NDimArray.descr_view),
 
     ctypes = GetSetProperty(W_NDimArray.descr_get_ctypes), # XXX unimplemented
