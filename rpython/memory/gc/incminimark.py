@@ -1580,6 +1580,14 @@ class IncrementalMiniMarkGC(MovingGCBase):
 
 
     def _trace_drag_out1(self, root):
+        # In the MARKING state, we must also record this old object,
+        # if it is not VISITED yet.
+        if self.gc_state == STATE_MARKING:
+            obj = root.address[0]
+            if not self.is_in_nursery(obj):
+                if not self.header(obj).tid & GCFLAG_VISITED:
+                    self.objects_to_trace.append(obj)
+        #
         self._trace_drag_out(root, None)
 
     def _trace_drag_out(self, root, ignored):
@@ -1597,9 +1605,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
             if (bool(self.young_rawmalloced_objects)
                 and self.young_rawmalloced_objects.contains(obj)):
                 self._visit_young_rawmalloced_object(obj)
-            if self.gc_state == STATE_MARKING:
-                if not self.header(obj).tid & GCFLAG_VISITED:
-                    self.objects_to_trace.append(obj)
             return
         #
         size_gc_header = self.gcheaderbuilder.size_gc_header
