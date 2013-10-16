@@ -119,10 +119,15 @@ class RPyType(Command):
             typeids_txt = os.path.join(newroot, 'typeids.txt')
         print 'loading', typeids_txt
         typeids = {}
+        if sys.maxint < 2**32:
+            TIDT = "int*"
+        else:
+            TIDT = "char*"
         with open(typeids_txt) as f:
             for line in f:
                 member, descr = map(str.strip, line.split(None, 1))
-                expr = "((char*)(&pypy_g_typeinfo.%s)) - (char*)&pypy_g_typeinfo" % member
+                expr = ("((%s)(&pypy_g_typeinfo.%s)) - (%s)&pypy_g_typeinfo"
+                           % (TIDT, member, TIDT))
                 offset = int(self.gdb.parse_and_eval(expr))
                 typeids[offset] = descr
         return typeids

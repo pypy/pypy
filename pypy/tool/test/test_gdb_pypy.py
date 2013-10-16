@@ -1,5 +1,10 @@
-import py
+import py, sys
 from pypy.tool import gdb_pypy
+
+if sys.maxint < 2**32:
+    TIDT = "int*"
+else:
+    TIDT = "char*"
 
 class FakeGdb(object):
 
@@ -108,7 +113,8 @@ member0    GcStruct xxx {}
 """.strip())
     progspace = Mock(filename=str(exe))
     exprs = {
-        '((char*)(&pypy_g_typeinfo.member0)) - (char*)&pypy_g_typeinfo': 0,
+        '((%s)(&pypy_g_typeinfo.member0)) - (%s)&pypy_g_typeinfo'
+            % (TIDT, TIDT): 0,
         }
     gdb = FakeGdb(exprs, progspace)
     cmd = gdb_pypy.RPyType(gdb)
@@ -135,9 +141,12 @@ member2    GcStruct zzz {}
     myvar = Value(d)
     exprs = {
         '*myvar': myvar,
-        '((char*)(&pypy_g_typeinfo.member0)) - (char*)&pypy_g_typeinfo': 0,
-        '((char*)(&pypy_g_typeinfo.member1)) - (char*)&pypy_g_typeinfo': 123,
-        '((char*)(&pypy_g_typeinfo.member2)) - (char*)&pypy_g_typeinfo': 456,
+        '((%s)(&pypy_g_typeinfo.member0)) - (%s)&pypy_g_typeinfo'
+            % (TIDT, TIDT): 0,
+        '((%s)(&pypy_g_typeinfo.member1)) - (%s)&pypy_g_typeinfo'
+            % (TIDT, TIDT): 123,
+        '((%s)(&pypy_g_typeinfo.member2)) - (%s)&pypy_g_typeinfo'
+            % (TIDT, TIDT): 456,
         }
     gdb = FakeGdb(exprs, progspace)
     cmd = gdb_pypy.RPyType(gdb)
