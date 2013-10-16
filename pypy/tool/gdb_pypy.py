@@ -113,24 +113,68 @@ class RPyType(Command):
         """
         exename = progspace.filename
         root = os.path.dirname(exename)
+        # XXX The same information is found in
+        # XXX   pypy_g_rpython_memory_gctypelayout_GCData.gcd_inst_typeids_z
+        # XXX Find out how to read it
         typeids_txt = os.path.join(root, 'typeids.txt')
         if not os.path.exists(typeids_txt):
             newroot = os.path.dirname(root)
             typeids_txt = os.path.join(newroot, 'typeids.txt')
         print 'loading', typeids_txt
-        typeids = {}
+        with open(typeids_txt) as f:
+            typeids = TypeIdsMap(f.readlines(), self.gdb)
+        return typeids
+
+
+class TypeIdsMap(object):
+    def __init__(self, lines, gdb):
+        self.lines = lines
+        self.gdb = gdb
+        self.line2offset = {0: 0}
+        self.offset2descr = {0: "(null typeid)"}
+
+    def __getitem__(self, key):
+        value = self.get(key)
+        if value is None:
+            raise KeyError(key)
+        return value
+
+    def __contains__(self, key):
+        return self.get(key) is not None
+
+    def _fetchline(self, linenum):
+        if linenum in self.line2offset:
+            return self.line2offset[linenum]
+        line = self.lines[linenum]
+        member, descr = map(str.strip, line.split(None, 1))
         if sys.maxint < 2**32:
             TIDT = "int*"
         else:
             TIDT = "char*"
-        with open(typeids_txt) as f:
-            for line in f:
-                member, descr = map(str.strip, line.split(None, 1))
-                expr = ("((%s)(&pypy_g_typeinfo.%s)) - (%s)&pypy_g_typeinfo"
-                           % (TIDT, member, TIDT))
-                offset = int(self.gdb.parse_and_eval(expr))
-                typeids[offset] = descr
-        return typeids
+        expr = ("((%s)(&pypy_g_typeinfo.%s)) - (%s)&pypy_g_typeinfo"
+                   % (TIDT, member, TIDT))
+        offset = int(self.gdb.parse_and_eval(expr))
+        self.line2offset[linenum] = offset
+        self.offset2descr[offset] = descr
+        return offset
+
+    def get(self, offset, default=None):
+        # binary search through the lines, asking gdb to parse stuff lazily
+        if offset in self.offset2descr:
+            return self.offset2descr[offset]
+        if not (0 < offset < sys.maxint):
+            return None
+        linerange = (0, len(self.lines))
+        while linerange[0] < linerange[1]:
+            linemiddle = (linerange[0] + linerange[1]) >> 1
+            offsetmiddle = self._fetchline(linemiddle)
+            if offsetmiddle == offset:
+                return self.offset2descr[offset]
+            elif offsetmiddle < offset:
+                linerange = (linemiddle + 1, linerange[1])
+            else:
+                linerange = (linerange[0], linemiddle)
+        return None
 
 
 def is_ptr(type, gdb):

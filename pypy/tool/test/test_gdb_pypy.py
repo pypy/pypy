@@ -1,11 +1,6 @@
 import py, sys
 from pypy.tool import gdb_pypy
 
-if sys.maxint < 2**32:
-    TIDT = "int*"
-else:
-    TIDT = "char*"
-
 class FakeGdb(object):
 
     COMMAND_NONE = -1
@@ -17,8 +12,10 @@ class FakeGdb(object):
     def __init__(self, exprs, progspace=None):
         self.exprs = exprs
         self.progspace = progspace
+        self._parsed = []
 
     def parse_and_eval(self, expr):
+        self._parsed.append(expr)
         return self.exprs[expr]
 
     def current_progspace(self):
@@ -105,29 +102,39 @@ def test_lookup():
     hdr = gdb_pypy.lookup(obj, 'gcheader')
     assert hdr['h_tid'] == 123
 
+def exprmember(n):
+    if sys.maxint < 2**32:
+        TIDT = "int*"
+    else:
+        TIDT = "char*"
+    return ('((%s)(&pypy_g_typeinfo.member%d)) - (%s)&pypy_g_typeinfo'
+            % (TIDT, n, TIDT))
+
 def test_load_typeids(tmpdir):
     exe = tmpdir.join('testing_1').join('pypy-c')
     typeids = tmpdir.join('typeids.txt')
     typeids.write("""
-member0    GcStruct xxx {}
+member0    ?
+member1    GcStruct xxx {}
 """.strip())
     progspace = Mock(filename=str(exe))
-    exprs = {
-        '((%s)(&pypy_g_typeinfo.member0)) - (%s)&pypy_g_typeinfo'
-            % (TIDT, TIDT): 0,
-        }
+    exprs = {exprmember(1): 111}
     gdb = FakeGdb(exprs, progspace)
     cmd = gdb_pypy.RPyType(gdb)
     typeids = cmd.load_typeids(progspace)
-    assert typeids[0] == 'GcStruct xxx {}'
+    assert typeids[0] == '(null typeid)'
+    assert typeids[111] == 'GcStruct xxx {}'
+    py.test.raises(KeyError, "typeids[50]")
+    py.test.raises(KeyError, "typeids[150]")
 
 def test_RPyType(tmpdir):
     exe = tmpdir.join('pypy-c')
     typeids = tmpdir.join('typeids.txt')
     typeids.write("""
-member0    GcStruct xxx {}
-member1    GcStruct yyy {}
-member2    GcStruct zzz {}
+member0    ?
+member1    GcStruct xxx {}
+member2    GcStruct yyy {}
+member3    GcStruct zzz {}
 """.strip())
     #
     progspace = Mock(filename=str(exe))
@@ -141,12 +148,9 @@ member2    GcStruct zzz {}
     myvar = Value(d)
     exprs = {
         '*myvar': myvar,
-        '((%s)(&pypy_g_typeinfo.member0)) - (%s)&pypy_g_typeinfo'
-            % (TIDT, TIDT): 0,
-        '((%s)(&pypy_g_typeinfo.member1)) - (%s)&pypy_g_typeinfo'
-            % (TIDT, TIDT): 123,
-        '((%s)(&pypy_g_typeinfo.member2)) - (%s)&pypy_g_typeinfo'
-            % (TIDT, TIDT): 456,
+        exprmember(1): 0,
+        exprmember(2): 123,
+        exprmember(3): 456,
         }
     gdb = FakeGdb(exprs, progspace)
     cmd = gdb_pypy.RPyType(gdb)
@@ -192,3 +196,23 @@ def test_pprint_list():
 
     mylist.type.target().tag = None
     assert gdb_pypy.RPyListPrinter.lookup(mylist, FakeGdb) is None
+
+def test_typeidsmap():
+    gdb = FakeGdb({exprmember(1): 111,
+                   exprmember(2): 222,
+                   exprmember(3): 333})
+    typeids = gdb_pypy.TypeIdsMap(["member0  ?\n",
+                                   "member1  FooBar\n",
+                                   "member2  Baz\n",
+                                   "member3  Bok\n"], gdb)
+    assert gdb._parsed == []
+    assert typeids.get(111) == "FooBar"
+    assert gdb._parsed == [exprmember(2), exprmember(1)]
+    assert typeids.get(222) == "Baz"
+    assert gdb._parsed == [exprmember(2), exprmember(1)]
+    assert typeids.get(333) == "Bok"
+    assert gdb._parsed == [exprmember(2), exprmember(1), exprmember(3)]
+    assert typeids.get(400) == None
+    assert typeids.get(300) == None
+    assert typeids.get(200) == None
+    assert typeids.get(100) == None
