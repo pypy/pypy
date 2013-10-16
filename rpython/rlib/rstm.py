@@ -5,6 +5,11 @@ from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rlib.jit import dont_look_inside
 
 @dont_look_inside
+def get_thread_descriptor_adr():
+    addr = llop.stm_get_adr_of_thread_descriptor(llmemory.Address)
+    return rffi.cast(lltype.Signed, addr)
+
+@dont_look_inside
 def get_adr_of_private_rev_num():
     addr = llop.stm_get_adr_of_private_rev_num(llmemory.Address)
     return rffi.cast(lltype.Signed, addr)

@@ -849,8 +849,6 @@ class RegAlloc(BaseRegalloc):
 
     def consider_call_malloc_nursery(self, op):
         gc_ll_descr = self.assembler.cpu.gc_ll_descr
-        assert gc_ll_descr.get_malloc_slowpath_addr() is not None
-        # ^^^ if this returns None, don't translate the rest of this function
         #
         size_box = op.getarg(0)
         assert isinstance(size_box, ConstInt)
@@ -865,15 +863,16 @@ class RegAlloc(BaseRegalloc):
         gcmap = self.get_gcmap([eax, edi]) # allocate the gcmap *before*
         self.rm.possibly_free_var(tmp_box)
         #
-        self.assembler.malloc_cond(
-            gc_ll_descr.get_nursery_free_addr(),
-            gc_ll_descr.get_nursery_top_addr(),
-            size, gcmap)
+        if gc_ll_descr.stm:
+            self.assembler.malloc_cond_stm(size, gcmap)
+        else:
+            self.assembler.malloc_cond(
+                gc_ll_descr.get_nursery_free_addr(),
+                gc_ll_descr.get_nursery_top_addr(),
+                size, gcmap)
 
     def consider_call_malloc_nursery_varsize_frame(self, op):
         gc_ll_descr = self.assembler.cpu.gc_ll_descr
-        assert gc_ll_descr.get_malloc_slowpath_addr() is not None
-        # ^^^ if this returns None, don't translate the rest of this function
         #
         size_box = op.getarg(0)
         assert isinstance(size_box, BoxInt) # we cannot have a const here!
@@ -889,11 +888,13 @@ class RegAlloc(BaseRegalloc):
         gcmap = self.get_gcmap([eax, edi]) # allocate the gcmap *before*
         self.rm.possibly_free_var(tmp_box)
         #
-        gc_ll_descr = self.assembler.cpu.gc_ll_descr
-        self.assembler.malloc_cond_varsize_frame(
-            gc_ll_descr.get_nursery_free_addr(),
-            gc_ll_descr.get_nursery_top_addr(),
-            sizeloc, gcmap)
+        if gc_ll_descr.stm:
+            self.assembler.malloc_cond_varsize_frame_stm(sizeloc, gcmap)
+        else:
+            self.assembler.malloc_cond_varsize_frame(
+                gc_ll_descr.get_nursery_free_addr(),
+                gc_ll_descr.get_nursery_top_addr(),
+                sizeloc, gcmap)
 
     def consider_call_malloc_nursery_varsize(self, op):
         gc_ll_descr = self.assembler.cpu.gc_ll_descr
@@ -919,11 +920,16 @@ class RegAlloc(BaseRegalloc):
         #
         itemsize = op.getarg(1).getint()
         maxlength = (gc_ll_descr.max_size_of_young_obj - WORD * 2) / itemsize
-        self.assembler.malloc_cond_varsize(
-            op.getarg(0).getint(),
-            gc_ll_descr.get_nursery_free_addr(),
-            gc_ll_descr.get_nursery_top_addr(),
-            lengthloc, itemsize, maxlength, gcmap, arraydescr)
+        if gc_ll_descr.stm:
+            self.assembler.malloc_cond_varsize_stm(
+                op.getarg(0).getint(), 
+                lengthloc, itemsize, maxlength, gcmap, arraydescr)
+        else:
+            self.assembler.malloc_cond_varsize(
+                op.getarg(0).getint(),
+                gc_ll_descr.get_nursery_free_addr(),
+                gc_ll_descr.get_nursery_top_addr(),
+                lengthloc, itemsize, maxlength, gcmap, arraydescr)
 
     def get_gcmap(self, forbidden_regs=[], noregs=False):
         frame_depth = self.fm.get_frame_depth()
@@ -1267,6 +1273,16 @@ class RegAlloc(BaseRegalloc):
                 if isinstance(loc, FrameLoc):
                     self.fm.hint_frame_locations[box] = loc
 
+    
+    def consider_stm_set_revision_gc(self, op):
+        ofs, size, _ = unpack_fielddescr(op.getdescr())
+        ofs_loc = imm(ofs)
+        size_loc = imm(size)
+        assert isinstance(size_loc, ImmedLoc)
+        args = op.getarglist()
+        base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
+        self.perform_discard(op, [base_loc, ofs_loc, size_loc])
+        
     def consider_stm_transaction_break(self, op):
         # XXX use the extra 3 words in the stm resume buffer to save
         # up to 3 registers, too.  For now we just flush them all.

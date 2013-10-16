@@ -254,11 +254,18 @@ class Assembler386(BaseAssembler):
         mc.J_il(rx86.Conditions['Z'], 0xfffff) # patched later
         jz_location = mc.get_relative_pos()
         #
-        nursery_free_adr = self.cpu.gc_ll_descr.get_nursery_free_addr()
         self._reload_frame_if_necessary(mc, align_stack=True)
         self.set_extra_stack_depth(mc, 0)
         self._pop_all_regs_from_frame(mc, [eax, edi], self.cpu.supports_floats)
-        mc.MOV(edi, heap(nursery_free_adr))   # load this in EDI
+        if self.cpu.gc_ll_descr.stm:
+            # load nursery_current into EDI
+            self._load_stm_thread_descriptor(mc, X86_64_SCRATCH_REG)
+            mc.MOV_rm(edi.value, 
+                      (X86_64_SCRATCH_REG.value, 
+                       StmGC.TD_NURSERY_CURRENT))
+        else:
+            nursery_free_adr = self.cpu.gc_ll_descr.get_nursery_free_addr()
+            mc.MOV(edi, heap(nursery_free_adr))   # load this in EDI
         # clear the gc pattern
         mc.MOV_bi(ofs, 0)
         mc.RET()
@@ -2748,6 +2755,175 @@ class Assembler386(BaseAssembler):
         # XXX if the next operation is a GUARD_NO_EXCEPTION, we should
         # somehow jump over it too in the fast path
 
+    def _load_stm_thread_descriptor(self, mc, loc):
+        assert self.cpu.gc_ll_descr.stm
+        assert isinstance(loc, RegLoc)
+        
+        td = self._get_stm_tl(rstm.get_thread_descriptor_adr())
+        self._tl_segment_if_stm(mc)
+        mc.MOV(loc, heap(td))
+        mc.MOV_rm(loc.value, (loc.value, 0))
+
+    def _cond_allocate_in_nursery_or_slowpath(self, mc, gcmap):
+        # needed for slowpath:
+        # eax = nursery_current
+        # edi = nursery_current + size
+        # needed here:
+        # X86_64_SCRATCH_REG = thread_descriptor
+        #
+        # cmp nursery_current+size > nursery_nextlimit
+        mc.CMP_rm(edi.value, (X86_64_SCRATCH_REG.value, 
+                              StmGC.TD_NURSERY_NEXTLIMIT))
+        mc.J_il8(rx86.Conditions['NA'], 0) # patched later
+        jmp_adr = mc.get_relative_pos()
+        #
+        # == SLOWPATH ==
+        # save the gcmap
+        self.push_gcmap(mc, gcmap, mov=True)
+        mc.CALL(imm(self.malloc_slowpath))
+        mc.JMP_l8(0)
+        jmp2_adr = mc.get_relative_pos()
+        #
+        # == FASTPATH ==
+        offset = mc.get_relative_pos() - jmp_adr
+        assert 0 < offset <= 127
+        mc.overwrite(jmp_adr-1, chr(offset))
+        #
+        # thread_descriptor->nursery_current = nursery_current+size
+        mc.MOV_mr((X86_64_SCRATCH_REG.value,
+                   StmGC.TD_NURSERY_CURRENT),
+                   edi.value)
+        #
+        # END
+        offset = mc.get_relative_pos() - jmp2_adr
+        assert 0 < offset <= 127
+        mc.overwrite(jmp2_adr-1, chr(offset))
+        
+    def malloc_cond_stm(self, size, gcmap):
+        assert self.cpu.gc_ll_descr.stm
+        assert size & (WORD-1) == 0     # must be correctly aligned
+        mc = self.mc
+        # load nursery_current and nursery_nextlimit
+        self._load_stm_thread_descriptor(mc, X86_64_SCRATCH_REG)
+        mc.MOV_rm(eax.value, 
+                  (X86_64_SCRATCH_REG.value,
+                   StmGC.TD_NURSERY_CURRENT))
+        mc.LEA_rm(edi.value, (eax.value, size))
+        #
+        # eax=nursery_current, edi=nursery_current+size
+        self._cond_allocate_in_nursery_or_slowpath(mc, gcmap)
+
+    def malloc_cond_varsize_frame_stm(self, sizeloc, gcmap):
+        assert self.cpu.gc_ll_descr.stm
+        mc = self.mc
+        self._load_stm_thread_descriptor(mc, X86_64_SCRATCH_REG)
+        if sizeloc is eax:
+            self.mc.MOV(edi, sizeloc)
+            sizeloc = edi
+        self.mc.MOV_rm(eax.value, (X86_64_SCRATCH_REG.value, 
+                                   StmGC.TD_NURSERY_CURRENT))
+        if sizeloc is edi:
+            self.mc.ADD_rr(edi.value, eax.value)
+        else:
+            self.mc.LEA_ra(edi.value, (eax.value, sizeloc.value, 0, 0))
+        #
+        # eax=nursery_current, edi=nursery_current+size
+        self._cond_allocate_in_nursery_or_slowpath(mc, gcmap)
+
+    def malloc_cond_varsize_stm(self, kind, lengthloc, itemsize,
+                                maxlength, gcmap, arraydescr):
+        assert self.cpu.gc_ll_descr.stm
+        from rpython.jit.backend.llsupport.descr import ArrayDescr
+        assert isinstance(arraydescr, ArrayDescr)
+
+        mc = self.mc
+        # lengthloc is the length of the array, which we must not modify!
+        assert lengthloc is not eax and lengthloc is not edi
+        if isinstance(lengthloc, RegLoc):
+            varsizeloc = lengthloc
+        else:
+            mc.MOV(edi, lengthloc)
+            varsizeloc = edi
+
+        mc.CMP(varsizeloc, imm(maxlength))
+        mc.J_il8(rx86.Conditions['A'], 0) # patched later
+        jmp_adr0 = mc.get_relative_pos()
+
+        self._load_stm_thread_descriptor(mc, X86_64_SCRATCH_REG)
+        mc.MOV_rm(eax.value, 
+                  (X86_64_SCRATCH_REG.value, 
+                   StmGC.TD_NURSERY_CURRENT))
+
+        if valid_addressing_size(itemsize):
+            shift = get_scale(itemsize)
+        else:
+            shift = self._imul_const_scaled(mc, edi.value,
+                                            varsizeloc.value, itemsize)
+            varsizeloc = edi
+        # now varsizeloc is a register != eax.  The size of
+        # the variable part of the array is (varsizeloc << shift)
+        assert arraydescr.basesize >= self.gc_minimal_size_in_nursery
+        constsize = arraydescr.basesize + self.gc_size_of_header
+        force_realignment = (itemsize % WORD) != 0
+        if force_realignment:
+            constsize += WORD - 1
+        mc.LEA_ra(edi.value, (eax.value, varsizeloc.value, shift,
+                                   constsize))
+        if force_realignment:
+            mc.AND_ri(edi.value, ~(WORD - 1))
+        # now edi contains the total size in bytes, rounded up to a multiple
+        # of WORD, plus nursery_free_adr
+        mc.CMP_rm(edi.value, (X86_64_SCRATCH_REG.value, 
+                              StmGC.TD_NURSERY_NEXTLIMIT))
+        mc.J_il8(rx86.Conditions['NA'], 0) # patched later
+        jmp_adr1 = mc.get_relative_pos()
+        #
+        # == SLOWPATH ==
+        offset = mc.get_relative_pos() - jmp_adr0
+        assert 0 < offset <= 127
+        mc.overwrite(jmp_adr0-1, chr(offset))
+        # save the gcmap
+        self.push_gcmap(mc, gcmap, mov=True)   # mov into RawEspLoc(0)
+        if kind == rewrite.FLAG_ARRAY:
+            mc.MOV_si(WORD, itemsize)
+            mc.MOV(edi, lengthloc)
+            mc.MOV_ri(eax.value, arraydescr.tid)
+            addr = self.malloc_slowpath_varsize
+        else:
+            if kind == rewrite.FLAG_STR:
+                addr = self.malloc_slowpath_str
+            else:
+                assert kind == rewrite.FLAG_UNICODE
+                addr = self.malloc_slowpath_unicode
+            mc.MOV(edi, lengthloc)
+        mc.CALL(imm(addr))
+        mc.JMP_l8(0)      # jump to done, patched later
+        jmp_location = mc.get_relative_pos()
+        #
+        # == FASTPATH ==
+        offset = mc.get_relative_pos() - jmp_adr1
+        assert 0 < offset <= 127
+        mc.overwrite(jmp_adr1-1, chr(offset))
+        #
+        # set thread_descriptor->nursery_current
+        mc.MOV_mr((X86_64_SCRATCH_REG.value,
+                   StmGC.TD_NURSERY_CURRENT),
+                   edi.value)
+        #
+        # write down the tid
+        mc.MOV(mem(eax, 0), imm(arraydescr.tid))
+        # also set private_rev_num:
+        rn = self._get_stm_private_rev_num_addr()
+        self._tl_segment_if_stm(mc)
+        mc.MOV_rj(X86_64_SCRATCH_REG.value, rn)
+        mc.MOV(mem(eax, StmGC.H_REVISION), X86_64_SCRATCH_REG)
+        #
+        # == END ==
+        offset = mc.get_relative_pos() - jmp_location
+        assert 0 < offset <= 127
+        mc.overwrite(jmp_location - 1, chr(offset))
+
+    
     def malloc_cond(self, nursery_free_adr, nursery_top_adr, size, gcmap):
         assert not self.cpu.gc_ll_descr.stm
         assert size & (WORD-1) == 0     # must be correctly aligned
@@ -2764,6 +2940,7 @@ class Assembler386(BaseAssembler):
         self.mc.overwrite(jmp_adr-1, chr(offset))
         self.mc.MOV(heap(nursery_free_adr), edi)
 
+        
     def malloc_cond_varsize_frame(self, nursery_free_adr, nursery_top_adr,
                                   sizeloc, gcmap):
         assert not self.cpu.gc_ll_descr.stm
@@ -2876,6 +3053,22 @@ class Assembler386(BaseAssembler):
         assert isinstance(reg, RegLoc)
         self.mc.MOV_rr(reg.value, ebp.value)
 
+    def genop_discard_stm_set_revision_gc(self, op, arglocs):
+        base_loc, ofs_loc, size_loc = arglocs
+        assert isinstance(size_loc, ImmedLoc)
+        mc = self.mc
+
+        if IS_X86_32:
+            todo()
+            
+        rn = self._get_stm_private_rev_num_addr()
+        self._tl_segment_if_stm(mc)
+        mc.MOV_rj(X86_64_SCRATCH_REG.value, rn)
+
+        dest_addr = AddressLoc(base_loc, ofs_loc)
+        mc.MOV(dest_addr, X86_64_SCRATCH_REG)
+
+        
     def genop_stm_transaction_break(self, op, arglocs, result_loc):
         assert self.cpu.gc_ll_descr.stm
         if not we_are_translated():

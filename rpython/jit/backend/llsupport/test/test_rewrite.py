@@ -63,6 +63,7 @@ class RewriteTests(object):
         register_known_gctype(self.cpu, o_vtable, O)
         #
         tiddescr = self.gc_ll_descr.fielddescr_tid
+        revdescr = self.gc_ll_descr.fielddescr_rev
         wbdescr = self.gc_ll_descr.write_barrier_descr
         WORD = globals()['WORD']
         #

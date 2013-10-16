@@ -88,10 +88,11 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
                 # it immediately
                 if (op.getopnum() == rop.GUARD_NOT_FORCED
                     and insert_transaction_break):
-                    # insert transaction_break after GUARD after call
+                    # insert transaction_break after GUARD after calls
                     self.newops.append(
                         ResOperation(rop.STM_TRANSACTION_BREAK, [], None))
                     insert_transaction_break = False
+                    self.emitting_an_operation_that_can_collect()
                 else:
                     assert insert_transaction_break is False
 
@@ -118,6 +119,7 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
                 continue
             # ----------  calls  ----------
             if op.is_call():
+                self.emitting_an_operation_that_can_collect()
                 if (op.getopnum() == rop.CALL_MAY_FORCE or
                     op.getopnum() == rop.CALL_ASSEMBLER or
                     op.getopnum() == rop.CALL_RELEASE_GIL):
@@ -142,7 +144,6 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
                         self.fallback_inevitable(op)
                     else:
                         self.newops.append(op)
-                self.known_category.clear()
                 continue
             # ----------  copystrcontent  ----------
             if op.getopnum() in (rop.COPYSTRCONTENT,
@@ -155,7 +156,8 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
                     continue
             # ----------  labels  ----------
             if op.getopnum() == rop.LABEL:
-                self.known_category.clear()
+                self.emitting_an_operation_that_can_collect()
+                self.known_lengths.clear()
                 self.always_inevitable = False
                 self.newops.append(op)
                 continue
@@ -163,6 +165,7 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
             if op.getopnum() == rop.JUMP:
                 self.newops.append(
                     ResOperation(rop.STM_TRANSACTION_BREAK, [], None))
+                # self.emitting_an_operation_that_can_collect()
                 self.newops.append(op)
                 continue
             # ----------  finish, other ignored ops  ----------
@@ -185,6 +188,10 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
         assert not insert_transaction_break
         return self.newops
 
+    def emitting_an_operation_that_can_collect(self):
+        GcRewriterAssembler.emitting_an_operation_that_can_collect(self)
+        self.known_category.clear()
+
     def write_to_read_categories(self):
         for v, c in self.known_category.items():
             if c == 'W':
@@ -197,13 +204,14 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
             if c == 'R':
                 self.known_category[v] = 'P'
 
-##    def gen_malloc_nursery_varsize_frame(self, sizebox, v_result, tid):
-##        """ For now don't generate CALL_MALLOC_NURSERY_VARSIZE_FRAME
-##        """
-##        addr = self.gc_ll_descr.get_malloc_fn_addr('malloc_big_fixedsize')
-##        args = [ConstInt(addr), sizebox, ConstInt(tid)]
-##        descr = self.gc_ll_descr.malloc_big_fixedsize_descr
-##        self._gen_call_malloc_gc(args, v_result, descr)
+    def gen_initialize_tid(self, v_newgcobj, tid):
+        GcRewriterAssembler.gen_initialize_tid(self, v_newgcobj, tid)
+        if self.gc_ll_descr.fielddescr_rev is not None:
+            op = ResOperation(rop.STM_SET_REVISION_GC, [v_newgcobj,], None,
+                              descr=self.gc_ll_descr.fielddescr_rev)
+            self.newops.append(op)
+            
+
                 
     def gen_write_barrier(self, v):
         raise NotImplementedError

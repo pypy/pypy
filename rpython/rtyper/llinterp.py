@@ -951,6 +951,7 @@ class LLFrame(object):
     op_stm_barrier = _stm_not_implemented
     op_stm_push_root = _stm_not_implemented
     op_stm_pop_root_into = _stm_not_implemented
+    op_stm_get_adr_of_thread_descriptor = _stm_not_implemented
     op_stm_get_adr_of_read_barrier_cache = _stm_not_implemented
     op_stm_get_adr_of_private_rev_num = _stm_not_implemented
     op_stm_enter_callback_call = _stm_not_implemented

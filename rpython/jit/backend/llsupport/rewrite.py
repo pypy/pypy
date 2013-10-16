@@ -52,6 +52,7 @@ class GcRewriterAssembler(object):
         # barriers.  We do this on each "basic block" of operations, which in
         # this case means between CALLs or unknown-size mallocs.
         #
+        # SYNC with stmrewrite.py!
         for op in operations:
             if op.getopnum() == rop.DEBUG_MERGE_POINT:
                 continue

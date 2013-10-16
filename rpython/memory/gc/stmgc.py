@@ -9,6 +9,7 @@ from rpython.rtyper.lltypesystem import rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib.debug import ll_assert
 from rpython.rlib.rarithmetic import LONG_BIT, r_uint
+from rpython.rtyper.extregistry import ExtRegistryEntry
 
 WORD = LONG_BIT // 8
 NULL = llmemory.NULL
@@ -36,8 +37,11 @@ class StmGC(MovingGCBase):
     malloc_zero_filled = True
     #gcflag_extra = GCFLAG_EXTRA
 
-
-    GCHDR = lltype.GcStruct(
+    # SYNC with et.h
+    TD_NURSERY_CURRENT = 80
+    TD_NURSERY_NEXTLIMIT = 88
+    
+    GCHDR = lltype.Struct(
         'GCPTR',
         ('h_tid', lltype.Unsigned),
         ('h_revision', lltype.Signed),
@@ -78,6 +82,13 @@ class StmGC(MovingGCBase):
     PREBUILT_REVISION = r_uint(1)
     
     FX_MASK = 65535
+
+    # keep in sync with nursery.h:
+    
+    # maximum size of object in nursery (is actually dependent on
+    # nursery size, but this should work)
+    GC_NURSERY_SECTION = 135168
+    
 
     def get_type_id(self, obj):
         return llop.stm_get_tid(llgroup.HALFWORD, obj)
@@ -151,8 +162,7 @@ class StmGC(MovingGCBase):
 
     @classmethod
     def JIT_max_size_of_young_obj(cls):
-        # XXX there is actually a maximum, check
-        return None
+        return cls.GC_NURSERY_SECTION
 
     @classmethod
     def JIT_minimal_size_in_nursery(cls):

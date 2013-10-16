@@ -114,6 +114,11 @@ def stm_pop_root_into(funcgen, op):
     return '%s = (%s)stm_pop_root();' % (
         arg0, cdecl(funcgen.lltypename(op.args[0]), ''))
 
+def stm_get_adr_of_thread_descriptor(funcgen, op):
+    result = funcgen.expr(op.result)
+    return '%s = (%s)&thread_descriptor;' % (
+        result, cdecl(funcgen.lltypename(op.result), ''))
+    
 def stm_get_root_stack_top(funcgen, op):
     result = funcgen.expr(op.result)
     return '%s = (%s)&stm_shadowstack;' % (

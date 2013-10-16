@@ -511,11 +511,7 @@ class GcLLDescr_framework(GcLLDescription):
             self._make_layoutbuilder()
             self._make_gcrootmap()
             self._setup_gcclass()
-            if not self.stm:
-                # XXX: not needed with stm/shadowstack??
-                self._setup_tid()
-            else:
-                self.fielddescr_tid = None
+            self._setup_tid()
         self._setup_write_barrier()
         self._setup_str()
         self._make_functions(really_not_translated)
@@ -534,10 +530,8 @@ class GcLLDescr_framework(GcLLDescription):
     def _initialize_for_tests(self):
         self.layoutbuilder = None
         self.fielddescr_tid = AbstractDescr()
-        if self.stm:
-            self.max_size_of_young_obj = None
-        else:
-            self.max_size_of_young_obj = 1000
+        self.fielddescr_rev = AbstractDescr()
+        self.max_size_of_young_obj = 1000
         self.GCClass = None
         self.gcheaderbuilder = None
         self.HDRPTR = None
@@ -572,7 +566,15 @@ class GcLLDescr_framework(GcLLDescription):
         assert self.GCClass.inline_simple_malloc_varsize
 
     def _setup_tid(self):
-        self.fielddescr_tid = get_field_descr(self, self.GCClass.HDR, 'tid')
+        if not self.stm:
+            self.fielddescr_tid = get_field_descr(self, self.GCClass.HDR, 'tid')
+            self.fielddescr_rev = None
+        else:
+            self.fielddescr_tid = get_field_descr(self, self.GCClass.GCHDR,
+                                                  'h_tid')
+            self.fielddescr_rev = get_field_descr(self, self.GCClass.GCHDR,
+                                                  'h_revision')
+                        
         frame_tid = self.layoutbuilder.get_type_id(jitframe.JITFRAME)
         self.translator._jit2gc['frame_tid'] = frame_tid
 
