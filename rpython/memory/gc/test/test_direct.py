@@ -652,12 +652,13 @@ class TestIncrementalMiniMarkGCSimple(TestMiniMarkGCSimple):
         self.stackroots.append(obj0)
         obj0.next = self.malloc(S)
         self.gc.debug_gc_step_until(incminimark.STATE_MARKING)
+        obj0 = self.stackroots[-1]
         obj1 = obj0.next
         obj1.x = 13
         obj0.next = lltype.nullptr(S)
         self.stackroots.append(obj1)
         self.gc.debug_gc_step_until(incminimark.STATE_SCANNING)
-        assert self.stackroots[0].x == 13
+        assert self.stackroots[1].x == 13
 
 class TestIncrementalMiniMarkGCFull(DirectGCTest):
     from rpython.memory.gc.incminimark import IncrementalMiniMarkGC as GCClass
