@@ -914,36 +914,7 @@ class AppTestPyPyOnly(BaseNumpyAppTest):
         assert typeinfo['CDOUBLE'] == ('D', 15, 128, 8, complex128)
         assert typeinfo['HALF'] == ('e', 23, 16, 2, float16)
 
-class AppTestNoLongDoubleDtypes(BaseNumpyAppTest):
-    def setup_class(cls):
-        from pypy.module.micronumpy import Module
-        if Module.interpleveldefs.get('longfloat', None):
-            py.test.skip('longdouble exists, skip these tests')
-        if option.runappdirect and '__pypy__' not in sys.builtin_module_names:
-            py.test.skip("pypy only test for no longdouble support")
-        BaseNumpyAppTest.setup_class.im_func(cls)
-
-    def test_nolongfloat(self):
-        import numpypy
-        from numpypy import dtype
-        assert not getattr(numpypy, 'longdouble', False)
-        assert not getattr(numpypy, 'float128', False)
-        assert not getattr(numpypy, 'float96', False)
-        raises(TypeError, dtype, 'longdouble')
-        raises(TypeError, dtype, 'clongdouble')
-        raises(TypeError, dtype, 'longfloat')
-        raises(TypeError, dtype, 'clongfloat')
-        raises(TypeError, dtype, 'float128')
-        raises(TypeError, dtype, 'float96')
-
 class AppTestLongDoubleDtypes(BaseNumpyAppTest):
-    def setup_class(cls):
-        from pypy.module.micronumpy import Module
-        print dir(Module.interpleveldefs)
-        if not Module.interpleveldefs.get('longfloat', None):
-            py.test.skip('no longdouble types yet')
-        BaseNumpyAppTest.setup_class.im_func(cls)
-
     def test_longfloat(self):
         import numpypy as numpy
         # it can be float96 or float128

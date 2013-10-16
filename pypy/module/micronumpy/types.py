@@ -1661,16 +1661,22 @@ class Complex128(ComplexFloating, BaseType):
 
 NonNativeComplex128 = Complex128
 
-if interp_boxes.ENABLED_LONG_DOUBLE and interp_boxes.long_double_size == 12:
-    class Float96(BaseType, Float):
+if interp_boxes.long_double_size == 8:
+    FloatLong = Float64
+    NonNativeFloatLong = NonNativeFloat64
+    ComplexLong = Complex128
+    NonNativeComplexLong = NonNativeComplex128
+
+elif interp_boxes.long_double_size in (12, 16):
+    class FloatLong(BaseType, Float):
         _attrs_ = ()
 
         T = rffi.LONGDOUBLE
-        BoxType = interp_boxes.W_Float96Box
+        BoxType = interp_boxes.W_FloatLongBox
         format_code = "q"
 
         def runpack_str(self, s):
-            assert len(s) == 12
+            assert len(s) == interp_boxes.long_double_size
             fval = unpack_float80(s, native_is_bigendian)
             return self.box(fval)
 
@@ -1680,46 +1686,17 @@ if interp_boxes.ENABLED_LONG_DOUBLE and interp_boxes.long_double_size == 12:
             pack_float80(result, value, 10, not native_is_bigendian)
             return self.box(unpack_float80(result.build(), native_is_bigendian))
 
-    NonNativeFloat96 = Float96
+    NonNativeFloatLong = FloatLong
 
-    class Complex192(ComplexFloating, BaseType):
+    class ComplexLong(ComplexFloating, BaseType):
         _attrs_ = ()
 
         T = rffi.LONGDOUBLE
-        BoxType = interp_boxes.W_Complex192Box
-        ComponentBoxType = interp_boxes.W_Float96Box
+        BoxType = interp_boxes.W_ComplexLongBox
+        ComponentBoxType = interp_boxes.W_FloatLongBox
 
-    NonNativeComplex192 = Complex192
+    NonNativeComplexLong = ComplexLong
 
-elif interp_boxes.ENABLED_LONG_DOUBLE and interp_boxes.long_double_size == 16:
-    class Float128(BaseType, Float):
-        _attrs_ = ()
-
-        T = rffi.LONGDOUBLE
-        BoxType = interp_boxes.W_Float128Box
-        format_code = "q"
-
-        def runpack_str(self, s):
-            assert len(s) == 16
-            fval = unpack_float80(s, native_is_bigendian)
-            return self.box(fval)
-
-        def byteswap(self, w_v):
-            value = self.unbox(w_v)
-            result = StringBuilder(10)
-            pack_float80(result, value, 10, not native_is_bigendian)
-            return self.box(unpack_float80(result.build(), native_is_bigendian))
-
-    NonNativeFloat128 = Float128
-
-    class Complex256(ComplexFloating, BaseType):
-        _attrs_ = ()
-
-        T = rffi.LONGDOUBLE
-        BoxType = interp_boxes.W_Complex256Box
-        ComponentBoxType = interp_boxes.W_Float128Box
-
-    NonNativeComplex256 = Complex256
 
 class BaseStringType(object):
     _mixin_ = True

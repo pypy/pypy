@@ -449,8 +449,8 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
             return interp_dtype.get_dtype_cache(space).w_complex64dtype
         elif dt2.num == 15:
             return interp_dtype.get_dtype_cache(space).w_complex128dtype
-        elif interp_boxes.ENABLED_LONG_DOUBLE and dt2.num == 16:
-            return interp_dtype.get_dtype_cache(space).w_clongdouble
+        elif dt2.num == 16:
+            return interp_dtype.get_dtype_cache(space).w_complexlongdtype
         else:
             raise OperationError(space.w_TypeError, space.wrap("Unsupported types"))
 

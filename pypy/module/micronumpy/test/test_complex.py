@@ -196,13 +196,8 @@ class AppTestUfuncs(BaseNumpyAppTest):
         raises(TypeError, signbit, complex(1,1))
 
     def test_reciprocal(self):
-        from numpypy import array, reciprocal, complex64, complex128
-        c_and_relerr = [(complex64, 2e-7), (complex128, 2e-15)]
-        try:
-            from numpypy import clongdouble
-            c_and_relerr.append((clongdouble, 2e-30))
-        except:
-            pass # no longdouble yet
+        from numpypy import array, reciprocal, complex64, complex128, clongdouble
+        c_and_relerr = [(complex64, 2e-7), (complex128, 2e-15), (clongdouble, 2e-15)]
         inf = float('inf')
         nan = float('nan')
         #complex

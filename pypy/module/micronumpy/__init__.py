@@ -1,5 +1,4 @@
 from pypy.interpreter.mixedmodule import MixedModule
-from pypy.module.micronumpy.interp_boxes import long_double_size, ENABLED_LONG_DOUBLE
 
 
 class MultiArrayModule(MixedModule):
