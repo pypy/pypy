@@ -229,8 +229,8 @@ def put(space, w_arr, w_indices, w_values, mode='raise'):
 
         if index < 0 or index >= arr.get_size():
             if constants.MODES[mode] == constants.MODE_RAISE:
-                raise OperationError(space.w_ValueError, space.wrap(
-                    "invalid entry in choice array"))
+                raise OperationError(space.w_IndexError, space.wrap(
+                    "index %d is out of bounds for axis 0 with size %d" % (index, arr.get_size())))
             elif constants.MODES[mode] == constants.MODE_WRAP:
                 index = index % arr.get_size()
             else:

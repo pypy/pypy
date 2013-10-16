@@ -153,5 +153,5 @@ class AppTestNumSupport(BaseNumpyAppTest):
         a = arange(5)
         a.put(22, -5, mode='wrap')
         assert (a == array([0, 1, -5, 3, 4])).all()
-        raises(ValueError, "arange(5).put(22, -5, mode='raise')")
+        raises(IndexError, "arange(5).put(22, -5, mode='raise')")
         raises(ValueError, "arange(5).put(22, -5, mode='wrongmode')")
