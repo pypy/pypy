@@ -223,14 +223,14 @@ void stm_transaction_break(void *buf, void (*longjmp_callback)(void *))
     }
     else {
         CommitTransaction();
-        if (d->active != 2) {
-            unsigned long limit = d->reads_size_limit_nonatomic;
-            if (limit != 0 && limit < (stm_regular_length_limit >> 1))
-                limit = (limit << 1) | 1;
-            else
-                limit = stm_regular_length_limit;
-            d->reads_size_limit_nonatomic = limit;
-        }
+
+        unsigned long limit = d->reads_size_limit_nonatomic;
+        if (limit != 0 && limit < (stm_regular_length_limit >> 1))
+            limit = (limit << 1) | 1;
+        else
+            limit = stm_regular_length_limit;
+        d->reads_size_limit_nonatomic = limit;
+
         stm_begin_transaction(buf, longjmp_callback);
     }
 }

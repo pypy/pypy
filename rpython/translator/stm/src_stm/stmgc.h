@@ -202,6 +202,7 @@ extern __thread gcptr *stm_shadowstack;
 #define stm_pop_root()      (*--stm_shadowstack)
 
 extern __thread revision_t stm_private_rev_num;
+extern __thread struct tx_descriptor *thread_descriptor; /* XXX: stm_ prefix */
 gcptr stm_DirectReadBarrier(gcptr);
 gcptr stm_WriteBarrier(gcptr);
 gcptr stm_RepeatReadBarrier(gcptr);

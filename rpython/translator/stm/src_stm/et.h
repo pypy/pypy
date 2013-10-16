@@ -168,7 +168,7 @@ struct tx_descriptor {
   gcptr **shadowstack_end_ref;
   gcptr *thread_local_obj_ref;
   gcptr old_thread_local_obj;
-
+  /* sync with pypy stmgc: */
   NURSERY_FIELDS_DECL
 
   long atomic;   /* 0 = not atomic, > 0 atomic */

@@ -24,7 +24,7 @@ char* stm_dbg_get_hdr_str(gcptr obj)
         i++;
     }
     cur += sprintf(cur, "tid=%ld", stm_get_tid(obj));
-    cur += sprintf(cur, " : rev=%lx : orig=%lx", 
+    cur += sprintf(cur, " : rev=0x%lx : orig=0x%lx", 
                    (long)obj->h_revision, (long)obj->h_original);
     return tmp_buf;
 }
