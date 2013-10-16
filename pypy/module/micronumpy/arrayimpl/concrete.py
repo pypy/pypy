@@ -126,7 +126,8 @@ class BaseConcreteArray(base.BaseArrayImplementation):
                 idx = self.get_shape()[i] + idx
             if idx < 0 or idx >= self.get_shape()[i]:
                 raise operationerrfmt(space.w_IndexError,
-                      "index (%d) out of range (0<=index<%d", i, self.get_shape()[i],
+                      "index %d is out of bounds for axis %d with size %d",
+                      idx, i, self.get_shape()[i],
                 )
             item += idx * strides[i]
         return item
@@ -142,7 +143,8 @@ class BaseConcreteArray(base.BaseArrayImplementation):
                 idx = shape[i] + idx
             if idx < 0 or idx >= shape[i]:
                 raise operationerrfmt(space.w_IndexError,
-                      "index (%d) out of range (0<=index<%d", i, shape[i],
+                      "index %d is out of bounds for axis %d with size %d",
+                      idx, i, self.get_shape()[i],
                 )
             item += idx * strides[i]
         return item
