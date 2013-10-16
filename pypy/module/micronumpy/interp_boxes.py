@@ -227,11 +227,11 @@ class W_GenericBox(W_Root):
 
     def descr_any(self, space):
         value = space.is_true(self)
-        return space.wrap(W_BoolBox(value))
+        return self.get_dtype(space).box(value)
 
     def descr_all(self, space):
         value = space.is_true(self)
-        return space.wrap(W_BoolBox(value))
+        return self.get_dtype(space).box(value)
 
     def descr_ravel(self, space):
         from pypy.module.micronumpy.base import convert_to_array

@@ -745,11 +745,11 @@ class AppTestTypes(BaseAppTestDtypes):
         x = numpy.bool_(False)
         assert not x.any()
         assert not x.all()
-        #
+        assert isinstance(x.any(), numpy.bool_)
         x = numpy.float64(0)
         assert not x.any()
         assert not x.all()
-        assert isinstance(x.any(), numpy.bool_)
+        assert isinstance(x.any(), numpy.float64)
 
     def test_ravel(self):
         from numpypy import float64, int8, array
