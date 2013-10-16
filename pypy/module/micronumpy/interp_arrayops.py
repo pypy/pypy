@@ -1,10 +1,9 @@
-
 from pypy.module.micronumpy.base import convert_to_array, W_NDimArray
-from pypy.module.micronumpy import loop, interp_dtype, interp_ufuncs
+from pypy.module.micronumpy import loop, interp_dtype, interp_ufuncs, constants
 from pypy.module.micronumpy.iter import Chunk, Chunks
 from pypy.module.micronumpy.strides import shape_agreement,\
      shape_agreement_multiple
-from pypy.module.micronumpy.constants import MODES
+from pypy.module.micronumpy.constants import clipmode_converter
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import unwrap_spec
 
@@ -171,8 +170,7 @@ def repeat(space, w_arr, repeats, w_axis):
 def count_nonzero(space, w_obj):
     return space.wrap(loop.count_all_true(convert_to_array(space, w_obj)))
 
-@unwrap_spec(mode=str)
-def choose(space, w_arr, w_choices, w_out, mode):
+def choose(space, w_arr, w_choices, w_out, w_mode):
     arr = convert_to_array(space, w_arr)
     choices = [convert_to_array(space, w_item) for w_item
                in space.listview(w_choices)]
@@ -187,23 +185,16 @@ def choose(space, w_arr, w_choices, w_out, mode):
     shape = shape_agreement_multiple(space, choices + [w_out])
     out = interp_dtype.dtype_agreement(space, choices, shape, w_out)
     dtype = out.get_dtype()
-    if mode not in MODES:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("mode %s not known" % (mode,)))
-    loop.choose(space, arr, choices, shape, dtype, out, MODES[mode])
+    mode = clipmode_converter(space, w_mode)
+    loop.choose(space, arr, choices, shape, dtype, out, mode)
     return out
 
-
-@unwrap_spec(mode=str)
-def put(space, w_arr, w_indices, w_values, mode='raise'):
-    from pypy.module.micronumpy import constants
+def put(space, w_arr, w_indices, w_values, w_mode):
     from pypy.module.micronumpy.support import int_w
 
     arr = convert_to_array(space, w_arr)
+    mode = clipmode_converter(space, w_mode)
 
-    if mode not in constants.MODES:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("mode %s not known" % (mode,)))
     if not w_indices:
         raise OperationError(space.w_ValueError,
                              space.wrap("indice list cannot be empty"))
@@ -228,13 +219,13 @@ def put(space, w_arr, w_indices, w_values, mode='raise'):
         index = int_w(space, idx)
 
         if index < 0 or index >= arr.get_size():
-            if constants.MODES[mode] == constants.MODE_RAISE:
+            if mode == constants.MODE_RAISE:
                 raise OperationError(space.w_IndexError, space.wrap(
                     "index %d is out of bounds for axis 0 with size %d" % (index, arr.get_size())))
-            elif constants.MODES[mode] == constants.MODE_WRAP:
+            elif mode == constants.MODE_WRAP:
                 index = index % arr.get_size()
             else:
-                assert constants.MODES[mode] == constants.MODE_CLIP
+                assert mode == constants.MODE_CLIP
                 if index < 0:
                     index = 0
                 else:
@@ -246,7 +237,6 @@ def put(space, w_arr, w_indices, w_values, mode='raise'):
             v_idx += 1
 
         arr.setitem(space, [index], dtype.coerce(space, value))
-
 
 def diagonal(space, arr, offset, axis1, axis2):
     shape = arr.get_shape()

@@ -154,4 +154,11 @@ class AppTestNumSupport(BaseNumpyAppTest):
         a.put(22, -5, mode='wrap')
         assert (a == array([0, 1, -5, 3, 4])).all()
         raises(IndexError, "arange(5).put(22, -5, mode='raise')")
-        raises(ValueError, "arange(5).put(22, -5, mode='wrongmode')")
+        raises(IndexError, "arange(5).put(22, -5, mode=2)")  # raise
+        a.put(22, -10, mode='wrongmode_starts_with_w_so_wrap')
+        assert (a == array([0, 1, -10, 3, 4])).all()
+        a.put(22, -15, mode='cccccccc')
+        assert (a == array([0, 1, -10, 3, -15])).all()
+        a.put(23, -1, mode=1)  # wrap
+        assert (a == array([0, 1, -10, -1, -15])).all()
+        raises(TypeError, "arange(5).put(22, -5, mode='zzzz')")  # unrecognized mode

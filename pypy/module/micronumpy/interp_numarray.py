@@ -1,4 +1,3 @@
-
 from pypy.interpreter.error import operationerrfmt, OperationError
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, make_weakref_descr
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
@@ -14,7 +13,7 @@ from pypy.module.micronumpy.interp_support import unwrap_axis_arg
 from pypy.module.micronumpy.appbridge import get_appbridge_cache
 from pypy.module.micronumpy import loop
 from pypy.module.micronumpy.dot import match_dot_shapes
-from pypy.module.micronumpy.interp_arrayops import repeat, choose
+from pypy.module.micronumpy.interp_arrayops import repeat, choose, put
 from pypy.module.micronumpy.arrayimpl import scalar
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rlib import jit
@@ -509,9 +508,8 @@ class __extend__(W_NDimArray):
             loop.byteswap(self.implementation, w_res.implementation)
             return w_res
 
-    @unwrap_spec(mode=str)
-    def descr_choose(self, space, w_choices, w_out=None, mode='raise'):
-        return choose(space, self, w_choices, w_out, mode)
+    def descr_choose(self, space, w_choices, w_out=None, w_mode=None):
+        return choose(space, self, w_choices, w_out, w_mode)
 
     def descr_clip(self, space, w_min, w_max, w_out=None):
         if space.is_none(w_out):
@@ -590,10 +588,8 @@ class __extend__(W_NDimArray):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "ptp (peak to peak) not implemented yet"))
 
-    @unwrap_spec(mode=str)
-    def descr_put(self, space, w_indices, w_values, mode='raise'):
-        from pypy.module.micronumpy.interp_arrayops import put
-        put(space, self, w_indices, w_values, mode)
+    def descr_put(self, space, w_indices, w_values, w_mode=None):
+        put(space, self, w_indices, w_values, w_mode)
 
     def descr_resize(self, space, w_new_shape, w_refcheck=True):
         raise OperationError(space.w_NotImplementedError, space.wrap(
