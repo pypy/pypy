@@ -89,7 +89,10 @@ class RPyType(Command):
             obj = self.gdb.parse_and_eval(arg)
             hdr = lookup(obj, '_gcheader')
             tid = hdr['h_tid']
-            offset = tid & 0xFFFFFFFF # 64bit only
+            if sys.maxint < 2**32:
+                offset = tid & 0xFFFF     # 32bit
+            else:
+                offset = tid & 0xFFFFFFFF # 64bit
             offset = int(offset) # convert from gdb.Value to python int
 
         typeids = self.get_typeids()
@@ -99,7 +102,10 @@ class RPyType(Command):
             return 'Cannot find the type with offset %d' % offset
 
     def get_typeids(self):
-        progspace = self.gdb.current_progspace()
+        try:
+            progspace = self.gdb.current_progspace()
+        except AttributeError:
+            progspace = None
         try:
             return self.prog2typeids[progspace]
         except KeyError:
@@ -111,7 +117,7 @@ class RPyType(Command):
         """
         Returns a mapping offset --> description
         """
-        exename = progspace.filename
+        exename = getattr(progspace, 'filename', '')
         root = os.path.dirname(exename)
         # XXX The same information is found in
         # XXX   pypy_g_rpython_memory_gctypelayout_GCData.gcd_inst_typeids_z
@@ -156,6 +162,7 @@ class TypeIdsMap(object):
         offset = int(self.gdb.parse_and_eval(expr))
         self.line2offset[linenum] = offset
         self.offset2descr[offset] = descr
+        #print '%r -> %r -> %r' % (linenum, offset, descr)
         return offset
 
     def get(self, offset, default=None):
