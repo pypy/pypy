@@ -1981,12 +1981,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
     def visit_all_objects_step(self, size_to_track):
         # Objects can be added to pending by visit
         pending = self.objects_to_trace
-        size_gc_header = self.gcheaderbuilder.size_gc_header
         while size_to_track > 0 and pending.non_empty():
             obj = pending.pop()
-            self.visit(obj)
-            totalsize = size_gc_header + self.get_size(obj)
-            size_to_track -= raw_malloc_usage(totalsize)
+            size_to_track = self.visit(obj)
 
     def visit(self, obj):
         #
@@ -2001,19 +1998,21 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # collection.
         hdr = self.header(obj)
         if hdr.tid & (GCFLAG_VISITED | GCFLAG_NO_HEAP_PTRS):
-            return
+            return 0
         #
         # It's the first time.  We set the flag VISITED.  The trick is
         # to also set TRACK_YOUNG_PTRS here, for the write barrier.
         hdr.tid |= GCFLAG_VISITED | GCFLAG_TRACK_YOUNG_PTRS
 
-        if not self.has_gcptr(llop.extract_ushort(llgroup.HALFWORD, hdr.tid)):
-            return
-        #
-        # Trace the content of the object and put all objects it references
-        # into the 'objects_to_trace' list.
-        self.trace(obj, self._collect_ref_rec, None)
+        if self.has_gcptr(llop.extract_ushort(llgroup.HALFWORD, hdr.tid)):
+            #
+            # Trace the content of the object and put all objects it references
+            # into the 'objects_to_trace' list.
+            self.trace(obj, self._collect_ref_rec, None)
 
+        size_gc_header = self.gcheaderbuilder.size_gc_header
+        totalsize = size_gc_header + self.get_size(obj)
+        return raw_malloc_usage(totalsize)
 
     # ----------
     # id() and identityhash() support
