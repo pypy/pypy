@@ -113,22 +113,18 @@ class RPyType(Command):
             self.prog2typeids[progspace] = typeids
             return typeids
 
-    def load_typeids(self, progspace):
+    def load_typeids(self, progspace=None):
         """
         Returns a mapping offset --> description
         """
-        exename = getattr(progspace, 'filename', '')
-        root = os.path.dirname(exename)
-        # XXX The same information is found in
-        # XXX   pypy_g_rpython_memory_gctypelayout_GCData.gcd_inst_typeids_z
-        # XXX Find out how to read it
-        typeids_txt = os.path.join(root, 'typeids.txt')
-        if not os.path.exists(typeids_txt):
-            newroot = os.path.dirname(root)
-            typeids_txt = os.path.join(newroot, 'typeids.txt')
-        print 'loading', typeids_txt
-        with open(typeids_txt) as f:
-            typeids = TypeIdsMap(f.readlines(), self.gdb)
+        vname = 'pypy_g_rpython_memory_gctypelayout_GCData.gcd_inst_typeids_z'
+        length = int(self.gdb.parse_and_eval('*(long*)%s' % vname))
+        vstart = '(char*)(((long*)%s)+1)' % vname
+        self.gdb.execute('dump binary memory /tmp/typeids.txt.z %s %s+%d'
+                         % (vstart, vstart, length))
+        s = open('/tmp/typeids.txt.z', 'rb').read()
+        import zlib; typeids_txt = zlib.decompress(s)
+        typeids = TypeIdsMap(typeids_txt.splitlines(True), self.gdb)
         return typeids
 
 
