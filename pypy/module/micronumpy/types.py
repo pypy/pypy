@@ -1673,7 +1673,6 @@ elif interp_boxes.long_double_size in (12, 16):
 
         T = rffi.LONGDOUBLE
         BoxType = interp_boxes.W_FloatLongBox
-        format_code = "q"
 
         def runpack_str(self, s):
             assert len(s) == interp_boxes.long_double_size
