@@ -20,14 +20,11 @@ from rpython.rlib.rstring import StringBuilder
 MIXIN_32 = (int_typedef,) if LONG_BIT == 32 else ()
 MIXIN_64 = (int_typedef,) if LONG_BIT == 64 else ()
 
-#long_double_size = rffi.sizeof_c_type('long double', ignore_errors=True)
-#import os
-#if long_double_size == 8 and os.name == 'nt':
-#    # this is a lie, or maybe a wish, MS fakes longdouble math with double
-#    long_double_size = 12
-
-# hardcode to 8 for now (simulate using normal double) until long double works
-long_double_size = 8
+long_double_size = rffi.sizeof_c_type('long double', ignore_errors=True)
+import os
+if long_double_size == 8 and os.name == 'nt':
+    # this is a lie, or maybe a wish, MS fakes longdouble math with double
+    long_double_size = 12
 
 
 def new_dtype_getter(name):
