@@ -1450,7 +1450,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a[1] == b[1]
         b[1] = 'xyz'
         assert a[1] == 'xyz'
-        assert a.imag[0] == 'abc'
+        assert a.imag[0] == ''
         raises(TypeError, 'a.imag = "qop"')
         a=array([[1+1j, 2-3j, 4+5j],[-6+7j, 8-9j, -2-1j]])
         assert a.real[0,1] == 2

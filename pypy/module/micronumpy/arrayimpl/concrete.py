@@ -102,13 +102,10 @@ class BaseConcreteArray(base.BaseArrayImplementation):
             dtype =  self.dtype.float_type
             return SliceArray(self.start + dtype.get_size(), strides,
                     backstrides, self.get_shape(), self, orig_array, dtype=dtype)
-        if self.dtype.is_flexible_type():
-            # numpy returns self for self.imag
-            return SliceArray(self.start, strides, backstrides,
-                    self.get_shape(), self, orig_array)
         impl = NonWritableArray(self.get_shape(), self.dtype, self.order, strides,
                              backstrides)
-        impl.fill(self.dtype.box(0))
+        if not self.dtype.is_flexible_type():
+            impl.fill(self.dtype.box(0))
         return impl
 
     def set_imag(self, space, orig_array, w_value):
