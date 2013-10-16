@@ -380,8 +380,8 @@ class ConcreteArray(ConcreteArrayNotOwning):
 
 class NonWritableArray(ConcreteArray):
     def descr_setitem(self, space, orig_array, w_index, w_value):
-        raise OperationError(space.w_RuntimeError, space.wrap(
-            "array is not writable"))
+        raise OperationError(space.w_ValueError, space.wrap(
+            "assignment destination is read-only"))
 
 
 class SliceArray(BaseConcreteArray):

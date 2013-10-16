@@ -1442,7 +1442,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a[5] == 50
         b = a.imag
         assert b[7] == 0
-        raises(RuntimeError, 'b[7] = -2')
+        raises(ValueError, 'b[7] = -2')
         raises(TypeError, 'a.imag = -2')
         a = array(['abc','def'],dtype='S3')
         b = a.real
