@@ -58,7 +58,6 @@ def lookup(val, suffix):
 class RPyType(Command):
     """
     Prints the RPython type of the expression (remember to dereference it!)
-    It assumes to find ``typeids.txt`` in the current directory.
     E.g.:
 
     (gdb) rpy_type *l_v123
