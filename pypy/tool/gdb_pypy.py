@@ -208,11 +208,16 @@ class RPyStringPrinter(object):
         items = chars['items']
         res = []
         for i in range(min(length, MAX_DISPLAY_LENGTH)):
+            c = items[i]
             try:
-                res.append(chr(items[i]))
+                res.append(chr(c))
             except ValueError:
                 # it's a gdb.Value so it has "121 'y'" as repr
-                res.append(chr(int(str(items[0]).split(" ")[0])))
+                try:
+                    res.append(chr(int(str(c).split(" ")[0])))
+                except ValueError:
+                    # meh?
+                    res.append(repr(c))
         if length > MAX_DISPLAY_LENGTH:
             res.append('...')
         string = ''.join(res)
