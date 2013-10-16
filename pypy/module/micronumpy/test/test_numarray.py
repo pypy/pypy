@@ -2932,6 +2932,27 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         assert (a[0, 0, 0] == 500).all()
         assert a[0, 0, 0].shape == (10,)
 
+    def test_subarray_multiple_rows(self):
+        import numpypy as np
+        descr = [
+            ('x', 'i4', (2,)),
+            ('y', 'f8', (2, 2)),
+            ('z', 'u1')]
+        buf = [
+            # x     y                  z
+            ([3,2], [[6.,4.],[6.,4.]], 8),
+            ([4,3], [[7.,5.],[7.,5.]], 9),
+            ]
+        h = np.array(buf, dtype=descr)
+        assert len(h) == 2
+        skip('broken')  # XXX
+        assert np.array_equal(h['x'], np.array([buf[0][0],
+                                                buf[1][0]], dtype='i4'))
+        assert np.array_equal(h['y'], np.array([buf[0][1],
+                                                buf[1][1]], dtype='f8'))
+        assert np.array_equal(h['z'], np.array([buf[0][2],
+                                                buf[1][2]], dtype='u1'))
+
     def test_multidim_subarray(self):
         from numpypy import dtype, array
 
