@@ -737,19 +737,38 @@ class AppTestTypes(BaseAppTestDtypes):
         assert dtype('i4').isnative == True
         assert dtype('>i8').isnative == False
 
-    def test_any_all(self):
+    def test_any_all_nonzero(self):
         import numpypy as numpy
         x = numpy.bool_(True)
         assert x.any()
         assert x.all()
+        assert x.__nonzero__()
+        assert isinstance(x.any(), numpy.bool_)
+        assert isinstance(x.__nonzero__(), bool)
         x = numpy.bool_(False)
         assert not x.any()
         assert not x.all()
+        assert not x.__nonzero__()
         assert isinstance(x.any(), numpy.bool_)
+        assert isinstance(x.__nonzero__(), bool)
         x = numpy.float64(0)
         assert not x.any()
         assert not x.all()
+        assert not x.__nonzero__()
         assert isinstance(x.any(), numpy.float64)
+        assert isinstance(x.__nonzero__(), bool)
+        x = numpy.complex128(0)
+        assert not x.any()
+        assert not x.all()
+        assert not x.__nonzero__()
+        assert isinstance(x.any(), numpy.complex128)
+        assert isinstance(x.__nonzero__(), bool)
+        x = numpy.complex128(0+1j)
+        assert x.any()
+        assert x.all()
+        assert x.__nonzero__()
+        assert isinstance(x.any(), numpy.complex128)
+        assert isinstance(x.__nonzero__(), bool)
 
     def test_ravel(self):
         from numpypy import float64, int8, array
@@ -760,7 +779,6 @@ class AppTestTypes(BaseAppTestDtypes):
         x = int8(42).ravel()
         assert x.dtype == int8
         assert (x == array(42)).all()
-
 
 
 class AppTestStrUnicodeDtypes(BaseNumpyAppTest):

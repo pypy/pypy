@@ -1148,8 +1148,12 @@ class ComplexFloating(object):
         return v
 
     def to_builtin_type(self, space, box):
-        real,imag = self.for_computation(self.unbox(box))
+        real, imag = self.for_computation(self.unbox(box))
         return space.newcomplex(real, imag)
+
+    def bool(self, v):
+        real, imag = self.for_computation(self.unbox(v))
+        return bool(real) or bool(imag)
 
     def read_bool(self, arr, i, offset):
         v = self.for_computation(self._read(arr.storage, i, offset))
