@@ -181,9 +181,6 @@ class SmallFunctionSetPBCRepr(Repr):
         funcdesc = self.rtyper.annotator.bookkeeper.getdesc(value)
         return self.convert_desc(funcdesc)
 
-##     def convert_to_concrete_llfn(self, v, shape, index, llop):
-##         return v
-
     def rtype_simple_call(self, hop):
         return self.call('simple_call', hop)
 
@@ -244,7 +241,7 @@ class SmallFunctionSetPBCRepr(Repr):
                              resulttype=rresult)
         return hop.llops.convertvar(v_result, rresult, hop.r_result)
 
-    def rtype_is_true(self, hop):
+    def rtype_bool(self, hop):
         if not self.s_pbc.can_be_None:
             return inputconst(Bool, True)
         else:
@@ -321,15 +318,6 @@ class __extend__(pairtype(SmallFunctionSetPBCRepr, SmallFunctionSetPBCRepr)):
         c_table = conversion_table(r_from, r_to)
         if c_table:
             assert v.concretetype is Char
-##             from rpython.rtyper.lltypesystem.rstr import string_repr
-##             s = repr(llops.rtyper.annotator.annotated.get(llops.originalblock))
-##             if 'LOAD_GLOBAL' in s:
-##                 import pdb; pdb.set_trace()
-##             print >> myf, 'static small conv', s
-##             print 'static small conv', s
-##             llops.genop('debug_print',
-##                         [Constant(string_repr.convert_const("dynamic small conv" + s),
-##                                   string_repr.lowleveltype)])
             v_int = llops.genop('cast_char_to_int', [v],
                                 resulttype=Signed)
             return llops.genop('getarrayitem', [c_table, v_int],
@@ -389,11 +377,20 @@ class ClassesPBCRepr(AbstractClassesPBCRepr):
     # no __init__ here, AbstractClassesPBCRepr.__init__ is good enough
 
     def _instantiate_runtime_class(self, hop, vtypeptr, r_instance):
-        v_instantiate = hop.genop('getfield', [vtypeptr, hop.inputconst(Void, "instantiate")], resulttype=vtypeptr.concretetype.TO.instantiate)
-        possible_graphs = hop.inputconst(Void,
-            [desc.getclassdef(None).my_instantiate_graph for desc in self.s_pbc.descriptions]
-        )
-        v_inst = hop.genop('indirect_call', [v_instantiate, possible_graphs], resulttype=vtypeptr.concretetype.TO.instantiate.TO.RESULT)
+        graphs = []
+        for desc in self.s_pbc.descriptions:
+            classdef = desc.getclassdef(None)
+            assert hasattr(classdef, 'my_instantiate_graph')
+            graphs.append(classdef.my_instantiate_graph)
+        c_graphs = hop.inputconst(Void, graphs)
+        #
+        # "my_instantiate = typeptr.instantiate"
+        c_name = hop.inputconst(Void, 'instantiate')
+        v_instantiate = hop.genop('getfield', [vtypeptr, c_name],
+                                 resulttype = rclass.OBJECT_VTABLE.instantiate)
+        # "my_instantiate()"
+        v_inst = hop.genop('indirect_call', [v_instantiate, c_graphs],
+                           resulttype = rclass.OBJECTPTR)
         return hop.genop('cast_pointer', [v_inst], resulttype=r_instance)
 
     def getlowleveltype(self):

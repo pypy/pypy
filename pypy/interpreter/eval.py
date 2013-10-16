@@ -107,9 +107,15 @@ class Frame(W_Root):
         for i in range(min(len(varnames), self.getfastscopelength())):
             name = varnames[i]
             w_value = fastscope_w[i]
+            w_name = self.space.wrap(name)
             if w_value is not None:
-                w_name = self.space.wrap(name)
                 self.space.setitem(self.w_locals, w_name, w_value)
+            else:
+                try:
+                    self.space.delitem(self.w_locals, w_name)
+                except OperationError as e:
+                    if not e.match(self.space, self.space.w_KeyError):
+                        raise
 
     def locals2fast(self):
         # Copy values from self.w_locals to the fastlocals

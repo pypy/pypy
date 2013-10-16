@@ -33,6 +33,8 @@ mark where overflow checking is required.
 import sys, struct
 from rpython.rtyper import extregistry
 from rpython.rlib import objectmodel
+from rpython.flowspace.model import Constant, const
+from rpython.flowspace.specialcase import register_flow_sc
 
 """
 Long-term target:
@@ -512,6 +514,15 @@ class BaseIntTypeEntry(extregistry.ExtRegistryEntry):
 
 r_int = build_int('r_int', True, LONG_BIT)
 r_uint = build_int('r_uint', False, LONG_BIT)
+
+@register_flow_sc(r_uint)
+def sc_r_uint(space, w_value):
+    # (normally, the 32-bit constant is a long, and is not allowed to
+    # show up in the flow graphs at all)
+    if isinstance(w_value, Constant):
+        return Constant(r_uint(w_value.value))
+    return space.frame.do_operation('simple_call', const(r_uint), w_value)
+
 
 r_longlong = build_int('r_longlong', True, 64)
 r_ulonglong = build_int('r_ulonglong', False, 64)

@@ -12,18 +12,18 @@ import pypy.interpreter.pyopcode   # for side-effects
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.pycode import PyCode, CO_GENERATOR
 from pypy.interpreter.pyframe import PyFrame
-from pypy.interpreter.pyopcode import ExitFrame
+from pypy.interpreter.pyopcode import ExitFrame, Yield
 from opcode import opmap
 
-PyFrame._virtualizable2_ = ['last_instr', 'pycode',
-                            'valuestackdepth', 'locals_stack_w[*]',
-                            'cells[*]',
-                            'last_exception',
-                            'lastblock',
-                            'is_being_profiled',
-                            'w_globals',
-                            'w_f_trace',
-                            ]
+PyFrame._virtualizable_ = ['last_instr', 'pycode',
+                           'valuestackdepth', 'locals_stack_w[*]',
+                           'cells[*]',
+                           'last_exception',
+                           'lastblock',
+                           'is_being_profiled',
+                           'w_globals',
+                           'w_f_trace',
+                           ]
 
 JUMP_ABSOLUTE = opmap['JUMP_ABSOLUTE']
 
@@ -73,7 +73,13 @@ class __extend__(PyFrame):
                 self.valuestackdepth = hint(self.valuestackdepth, promote=True)
                 next_instr = self.handle_bytecode(co_code, next_instr, ec)
                 is_being_profiled = self.is_being_profiled
+        except Yield:
+            self.last_exception = None
+            w_result = self.popvalue()
+            jit.hint(self, force_virtualizable=True)
+            return w_result
         except ExitFrame:
+            self.last_exception = None
             return self.popvalue()
 
     def jump_absolute(self, jumpto, ec):

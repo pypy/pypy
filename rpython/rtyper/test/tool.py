@@ -1,17 +1,16 @@
 import py
-from rpython.rtyper.ootypesystem import ootype
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.test.test_llinterp import gengraph, interpret, interpret_raises
 
 class BaseRtypingTest(object):
-
+    type_system = 'lltype'
     FLOAT_PRECISION = 8
 
     def gengraph(self, func, argtypes=[], viewbefore='auto', policy=None,
              backendopt=False, config=None):
-        return gengraph(func, argtypes, viewbefore, policy, type_system=self.type_system,
+        return gengraph(func, argtypes, viewbefore, policy,
                         backendopt=backendopt, config=config)
-    
+
     def interpret(self, fn, args, **kwds):
         return interpret(fn, args, type_system=self.type_system, **kwds)
 
@@ -36,14 +35,8 @@ class BaseRtypingTest(object):
     def is_of_type(self, x, type_):
         return type(x) is type_
 
-    def _skip_llinterpreter(self, reason, skipLL=True, skipOO=True):
-        if skipLL and self.type_system == 'lltype':
-            py.test.skip("lltypesystem doesn't support %s, yet" % reason)        
-        if skipOO and self.type_system == 'ootype':
-            py.test.skip("ootypesystem doesn't support %s, yet" % reason)    
-
-class LLRtypeMixin(object):
-    type_system = 'lltype'
+    def _skip_llinterpreter(self, reason):
+        py.test.skip("lltypesystem doesn't support %s, yet" % reason)
 
     def ll_to_string(self, s):
         if not s:
@@ -54,11 +47,11 @@ class LLRtypeMixin(object):
         return u''.join(s.chars)
 
     def string_to_ll(self, s):
-        from rpython.rtyper.module.support import LLSupport        
+        from rpython.rtyper.module.support import LLSupport
         return LLSupport.to_rstr(s)
 
     def unicode_to_ll(self, s):
-        from rpython.rtyper.module.support import LLSupport        
+        from rpython.rtyper.module.support import LLSupport
         return LLSupport.to_runicode(s)
 
     def ll_to_list(self, l):
@@ -90,42 +83,3 @@ class LLRtypeMixin(object):
     def is_of_instance_type(self, val):
         T = lltype.typeOf(val)
         return isinstance(T, lltype.Ptr) and isinstance(T.TO, lltype.GcStruct)
-
-
-class OORtypeMixin(object):
-    type_system = 'ootype'
-
-    def ll_to_string(self, s):
-        return s._str
-
-    ll_to_unicode = ll_to_string
-
-    def string_to_ll(self, s):
-        from rpython.rtyper.module.support import OOSupport        
-        return OOSupport.to_rstr(s)
-
-    def unicode_to_ll(self, u):
-        from rpython.rtyper.module.support import OOSupport
-        return OOSupport.to_runicode(u)
-
-    def ll_to_list(self, l):
-        if hasattr(l, '_list'):
-            return l._list[:]
-        return l._array[:]
-
-    def ll_unpack_tuple(self, t, length):
-        return tuple([getattr(t, 'item%d' % i) for i in range(length)])
-
-    def get_callable(self, sm):
-        return sm._callable
-
-    def class_name(self, value):
-        return ootype.dynamicType(value)._name.split(".")[-1] 
-
-    def read_attr(self, value, attr):
-        value = ootype.oodowncast(ootype.dynamicType(value), value)
-        return getattr(value, "o" + attr)
-
-    def is_of_instance_type(self, val):
-        T = lltype.typeOf(val)
-        return isinstance(T, ootype.Instance)

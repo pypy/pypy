@@ -58,11 +58,11 @@ class RecordChunk(BaseChunk):
     def __init__(self, name):
         self.name = name
 
-    def apply(self, orig_arr):
+    def apply(self, space, orig_arr):
         arr = orig_arr.implementation
         ofs, subdtype = arr.dtype.fields[self.name]
         # strides backstrides are identical, ofs only changes start
-        return W_NDimArray.new_slice(arr.start + ofs, arr.get_strides(),
+        return W_NDimArray.new_slice(space, arr.start + ofs, arr.get_strides(),
                                      arr.get_backstrides(),
                                      arr.shape, arr, orig_arr, subdtype)
 
@@ -81,13 +81,13 @@ class Chunks(BaseChunk):
         assert s >= 0
         return shape[:] + old_shape[s:]
 
-    def apply(self, orig_arr):
+    def apply(self, space, orig_arr):
         arr = orig_arr.implementation
         shape = self.extend_shape(arr.shape)
         r = calculate_slice_strides(arr.shape, arr.start, arr.get_strides(),
                                     arr.get_backstrides(), self.l)
         _, start, strides, backstrides = r
-        return W_NDimArray.new_slice(start, strides[:], backstrides[:],
+        return W_NDimArray.new_slice(space, start, strides[:], backstrides[:],
                                      shape[:], arr, orig_arr)
 
 
@@ -215,6 +215,9 @@ class OneDimViewIterator(ConcreteArrayIterator):
     def reset(self):
         self.offset %= self.size
 
+    def get_index(self, d):
+        return self.index
+
 class MultiDimViewIterator(ConcreteArrayIterator):
     ''' The view iterator dtype can be different from the
     array.dtype, this is what makes it a View
@@ -267,6 +270,9 @@ class MultiDimViewIterator(ConcreteArrayIterator):
 
     def reset(self):
         self.offset %= self.size
+
+    def get_index(self, d):
+        return self.indexes[d]
 
 class AxisIterator(base.BaseArrayIterator):
     def __init__(self, array, shape, dim, cumultative):

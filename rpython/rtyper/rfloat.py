@@ -1,6 +1,9 @@
 from rpython.annotator import model as annmodel
 from rpython.rlib.objectmodel import _hash_float
 from rpython.rlib.rarithmetic import base_int
+from rpython.rlib.rfloat import formatd
+from rpython.rlib import jit
+from rpython.rtyper.annlowlevel import llstr
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.lltypesystem.lltype import (Signed, Unsigned,
     SignedLongLong, UnsignedLongLong, Bool, Float)
@@ -74,8 +77,8 @@ class __extend__(pairtype(FloatRepr, FloatRepr)):
 
 class __extend__(pairtype(AbstractStringRepr, FloatRepr)):
     def rtype_mod(_, hop):
-        rstr = hop.rtyper.type_system.rstr
-        return rstr.do_stringformat(hop, [(hop.args_v[1], hop.args_r[1])])
+        from rpython.rtyper.lltypesystem.rstr import do_stringformat
+        return do_stringformat(hop, [(hop.args_v[1], hop.args_r[1])])
 
 #Helpers FloatRepr,FloatRepr
 
@@ -87,7 +90,6 @@ def _rtype_compare_template(hop, func):
     vlist = hop.inputargs(Float, Float)
     return hop.genop('float_'+func, vlist, resulttype=Bool)
 
-#
 
 class __extend__(FloatRepr):
 
@@ -106,7 +108,7 @@ class __extend__(FloatRepr):
     def get_ll_hash_function(self):
         return _hash_float
 
-    def rtype_is_true(_, hop):
+    def rtype_bool(_, hop):
         vlist = hop.inputargs(Float)
         return hop.genop('float_is_true', vlist, resulttype=Bool)
 
@@ -134,11 +136,9 @@ class __extend__(FloatRepr):
         hop.exception_cannot_occur()
         return vlist[0]
 
-    # version picked by specialisation based on which
-    # type system rtyping is using, from <type_system>.ll_str module
+    @jit.elidable
     def ll_str(self, f):
-        pass
-    ll_str._annspecialcase_ = "specialize:ts('ll_str.ll_float_str')"
+        return llstr(formatd(f, 'f', 6))
 
 #
 # _________________________ Conversions _________________________

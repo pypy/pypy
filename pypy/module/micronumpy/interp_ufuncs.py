@@ -75,6 +75,20 @@ class W_Ufunc(W_Root):
                                             'output must be an array'))
         return self.call(space, args_w)
 
+    def descr_accumulate(self, space, w_obj, w_axis=None, w_dtype=None, w_out=None):
+        if space.is_none(w_axis):
+            w_axis = space.wrap(0)
+        if space.is_none(w_out):
+            out = None
+        elif not isinstance(w_out, W_NDimArray):
+            raise OperationError(space.w_TypeError, space.wrap(
+                                                'output must be an array'))
+        else:
+            out = w_out
+        return self.reduce(space, w_obj, False, #do not promote_to_largest
+                    w_axis, True, #keepdims must be true
+                    out, w_dtype, cumultative=True)
+
     @unwrap_spec(skipna=bool, keepdims=bool)
     def descr_reduce(self, space, w_obj, w_axis=None, w_dtype=None,
                      skipna=False, keepdims=False, w_out=None):
@@ -140,10 +154,11 @@ class W_Ufunc(W_Root):
                                                 'output must be an array'))
         else:
             out = w_out
-        return self.reduce(space, w_obj, False, False, w_axis, keepdims, out,
+        promote_to_largest = False
+        return self.reduce(space, w_obj, promote_to_largest, w_axis, keepdims, out,
                            w_dtype)
 
-    def reduce(self, space, w_obj, multidim, promote_to_largest, w_axis,
+    def reduce(self, space, w_obj, promote_to_largest, w_axis,
                keepdims=False, out=None, dtype=None, cumultative=False):
         if self.argcount != 2:
             raise OperationError(space.w_ValueError, space.wrap("reduce only "
@@ -171,9 +186,12 @@ class W_Ufunc(W_Root):
                     promote_to_largest=promote_to_largest,
                     promote_bools=True
                 )
-        if self.identity is None and size == 0:
-            raise operationerrfmt(space.w_ValueError, "zero-size array to "
-                    "%s.reduce without identity", self.name)
+        if self.identity is None:
+            for i in range(shapelen):
+                if space.is_none(w_axis) or i == axis:
+                    if obj_shape[i] == 0:
+                        raise operationerrfmt(space.w_ValueError, "zero-size array to "
+                                "%s.reduce without identity", self.name)
         if shapelen > 1 and axis < shapelen:
             temp = None
             if cumultative:
@@ -181,7 +199,8 @@ class W_Ufunc(W_Root):
                 temp_shape = obj_shape[:axis] + obj_shape[axis + 1:]
                 if out:
                     dtype = out.get_dtype()
-                temp = W_NDimArray.from_shape(temp_shape, dtype)
+                temp = W_NDimArray.from_shape(space, temp_shape, dtype,
+                                                w_instance=obj)
             elif keepdims:
                 shape = obj_shape[:axis] + [1] + obj_shape[axis + 1:]
             else:
@@ -207,7 +226,7 @@ class W_Ufunc(W_Root):
                         )
                 dtype = out.get_dtype()
             else:
-                out = W_NDimArray.from_shape(shape, dtype)
+                out = W_NDimArray.from_shape(space, shape, dtype, w_instance=obj)
             return loop.do_axis_reduce(shape, self.func, obj, dtype, axis, out,
                                        self.identity, cumultative, temp)
         if cumultative:
@@ -216,7 +235,7 @@ class W_Ufunc(W_Root):
                     raise OperationError(space.w_ValueError, space.wrap(
                         "out of incompatible size"))
             else:
-                out = W_NDimArray.from_shape([obj.get_size()], dtype)
+                out = W_NDimArray.from_shape(space, [obj.get_size()], dtype, w_instance=obj)
             loop.compute_reduce_cumultative(obj, out, dtype, self.func,
                                             self.identity)
             return out
@@ -295,7 +314,7 @@ class W_Ufunc1(W_Ufunc):
             return out
         shape = shape_agreement(space, w_obj.get_shape(), out,
                                 broadcast_down=False)
-        return loop.call1(shape, self.func, calc_dtype, res_dtype,
+        return loop.call1(space, shape, self.func, calc_dtype, res_dtype,
                           w_obj, out)
 
 
@@ -318,6 +337,15 @@ class W_Ufunc2(W_Ufunc):
         else:
             self.done_func = None
 
+    def are_common_types(self, dtype1, dtype2):
+        if dtype1.is_complex_type() and dtype2.is_complex_type():
+            return True
+        elif not (dtype1.is_complex_type() or dtype2.is_complex_type()) and \
+                (dtype1.is_int_type() and dtype2.is_int_type() or dtype1.is_float_type() and dtype2.is_float_type()) and \
+                not (dtype1.is_bool_type() or dtype2.is_bool_type()):
+            return True
+        return False
+
     @jit.unroll_safe
     def call(self, space, args_w):
         if len(args_w) > 2:
@@ -327,14 +355,28 @@ class W_Ufunc2(W_Ufunc):
             w_out = None
         w_lhs = convert_to_array(space, w_lhs)
         w_rhs = convert_to_array(space, w_rhs)
-        if (w_lhs.get_dtype().is_flexible_type() or \
-                w_rhs.get_dtype().is_flexible_type()):
+        w_ldtype = w_lhs.get_dtype()
+        w_rdtype = w_rhs.get_dtype()
+        if w_ldtype.is_str_type() and w_rdtype.is_str_type() and \
+           self.comparison_func:
+            pass
+        elif (w_ldtype.is_str_type() or w_rdtype.is_str_type()) and \
+            self.comparison_func and w_out is None:
+            return space.wrap(False)
+        elif (w_ldtype.is_flexible_type() or \
+                w_rdtype.is_flexible_type()):
             raise OperationError(space.w_TypeError, space.wrap(
                  'unsupported operand dtypes %s and %s for "%s"' % \
-                 (w_rhs.get_dtype().get_name(), w_lhs.get_dtype().get_name(),
+                 (w_rdtype.get_name(), w_ldtype.get_name(),
                   self.name)))
+
+        if self.are_common_types(w_ldtype, w_rdtype):
+            if not w_lhs.is_scalar() and w_rhs.is_scalar():
+                w_rdtype = w_ldtype
+            elif w_lhs.is_scalar() and not w_rhs.is_scalar():
+                w_ldtype = w_rdtype
         calc_dtype = find_binop_result_dtype(space,
-            w_lhs.get_dtype(), w_rhs.get_dtype(),
+            w_ldtype, w_rdtype,
             int_only=self.int_only,
             promote_to_float=self.promote_to_float,
             promote_bools=self.promote_bools,
@@ -370,7 +412,7 @@ class W_Ufunc2(W_Ufunc):
             return out
         new_shape = shape_agreement(space, w_lhs.get_shape(), w_rhs)
         new_shape = shape_agreement(space, new_shape, out, broadcast_down=False)
-        return loop.call2(new_shape, self.func, calc_dtype,
+        return loop.call2(space, new_shape, self.func, calc_dtype,
                           res_dtype, w_lhs, w_rhs, out)
 
 
@@ -381,6 +423,7 @@ W_Ufunc.typedef = TypeDef("ufunc",
     __repr__ = interp2app(W_Ufunc.descr_repr),
 
     identity = GetSetProperty(W_Ufunc.descr_get_identity),
+    accumulate = interp2app(W_Ufunc.descr_accumulate),
     nin = interp_attrproperty("argcount", cls=W_Ufunc),
 
     reduce = interp2app(W_Ufunc.descr_reduce),
@@ -450,7 +493,7 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
                 return dt2
             return dt1
         return dt2
-    else:    
+    else:
         # increase to the next signed type
         dtypenum = dt2.num + 1
     newdtype = interp_dtype.get_dtype_cache(space).dtypes_by_num[dtypenum]
@@ -537,7 +580,13 @@ def find_dtype_for_scalar(space, w_obj, current_guess=None):
         return current_guess
     if current_guess is complex_type:
         return complex_type
-    return interp_dtype.get_dtype_cache(space).w_float64dtype
+    if space.isinstance_w(w_obj, space.w_float):
+        return float_type
+    elif space.isinstance_w(w_obj, space.w_slice):
+        return long_dtype
+    raise operationerrfmt(space.w_NotImplementedError,
+        'unable to create dtype from objects, ' '"%T" instance not supported',
+        w_obj)
 
 
 def ufunc_dtype_caller(space, ufunc_name, op_name, argcount, comparison_func,
@@ -608,6 +657,7 @@ class UfuncState(object):
             ("positive", "pos", 1),
             ("negative", "neg", 1),
             ("absolute", "abs", 1, {"complex_to_float": True}),
+            ("rint", "rint", 1),
             ("sign", "sign", 1, {"promote_bools": True}),
             ("signbit", "signbit", 1, {"bool_result": True,
                                        "allow_complex": False}),
@@ -663,6 +713,8 @@ class UfuncState(object):
                                        "allow_complex": False}),
             ("logaddexp2", "logaddexp2", 2, {"promote_to_float": True,
                                        "allow_complex": False}),
+            ("ones_like", "ones_like", 1),
+            ("zeros_like", "zeros_like", 1),
         ]:
             self.add_ufunc(space, *ufunc_def)
 

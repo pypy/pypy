@@ -433,6 +433,8 @@ class DictStrategy(object):
     def get_empty_storage(self):
         raise NotImplementedError
 
+    @jit.look_inside_iff(lambda self, w_dict:
+                         w_dict_unrolling_heuristic(w_dict))
     def w_keys(self, w_dict):
         iterator = self.iterkeys(w_dict)
         result = newlist_hint(self.length(w_dict))
@@ -1276,10 +1278,7 @@ class SetLikeDictView(object):
             return _all_contained_in(space, self, w_other)
         return space.w_False
 
-    def descr_ne(self, space, w_other):
-        if not _is_set_like(w_other):
-            return space.w_NotImplemented
-        return space.not_(space.eq(self, w_other))
+    descr_ne = negate(descr_eq)
 
     def descr_lt(self, space, w_other):
         if not _is_set_like(w_other):

@@ -7,8 +7,6 @@ from rpython.rlib.objectmodel import we_are_translated
 def get_mutate_field_name(fieldname):
     if fieldname.startswith('inst_'):    # lltype
         return 'mutate_' + fieldname[5:]
-    elif fieldname.startswith('o'):      # ootype
-        return 'mutate_' + fieldname[1:]
     else:
         raise AssertionError(fieldname)
 

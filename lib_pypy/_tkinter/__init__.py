@@ -22,6 +22,7 @@ TCL_VERSION = tkffi.string(tklib.get_tcl_version())
 READABLE = tklib.TCL_READABLE
 WRITABLE = tklib.TCL_WRITABLE
 EXCEPTION = tklib.TCL_EXCEPTION
+DONT_WAIT = tklib.TCL_DONT_WAIT
 
 def create(screenName=None, baseName=None, className=None,
            interactive=False, wantobjects=False, wantTk=True,

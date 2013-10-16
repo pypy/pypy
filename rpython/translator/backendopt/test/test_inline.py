@@ -1,19 +1,14 @@
 # XXX clean up these tests to use more uniform helpers
 import py
-import os
-from rpython.flowspace.model import Block, Link, Variable, Constant
-from rpython.flowspace.model import last_exception, checkgraph
+from rpython.flowspace.model import Variable, Constant, checkgraph
 from rpython.translator.backendopt import canraise
-from rpython.translator.backendopt.inline import simple_inline_function, CannotInline
-from rpython.translator.backendopt.inline import auto_inlining, Inliner
-from rpython.translator.backendopt.inline import collect_called_graphs
-from rpython.translator.backendopt.inline import measure_median_execution_cost
-from rpython.translator.backendopt.inline import instrument_inline_candidates
-from rpython.translator.backendopt.inline import auto_inline_graphs
-from rpython.translator.backendopt.checkvirtual import check_virtual_methods
+from rpython.translator.backendopt.inline import (simple_inline_function,
+    CannotInline, auto_inlining, Inliner, collect_called_graphs,
+    measure_median_execution_cost, instrument_inline_candidates,
+    auto_inline_graphs)
 from rpython.translator.translator import TranslationContext, graphof
 from rpython.rtyper.llinterp import LLInterpreter
-from rpython.rtyper.test.tool import LLRtypeMixin, OORtypeMixin
+from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.translator.test.snippet import is_perfect_number
 from rpython.translator.backendopt.all import INLINE_THRESHOLD_FOR_TEST
@@ -51,17 +46,13 @@ class CustomError2(Exception):
     def __init__(self):
         self.data2 = 456
 
-class BaseTestInline:
-    type_system = None
-
-    def _skip_oo(self, reason):
-        if self.type_system == 'ootype':
-            py.test.skip("ootypesystem doesn't support %s, yet" % reason)
+class TestInline(BaseRtypingTest):
+    type_system = 'lltype'
 
     def translate(self, func, argtypes):
         t = TranslationContext()
         t.buildannotator().build_types(func, argtypes)
-        t.buildrtyper(type_system=self.type_system).specialize()
+        t.buildrtyper().specialize()
         return t
 
     def check_inline(self, func, in_func, sig, entry=None,
@@ -91,11 +82,8 @@ class BaseTestInline:
         return eval_func
 
     def check_auto_inlining(self, func, sig, multiplier=None, call_count_check=False,
-                            checkvirtual=False, remove_same_as=False, heuristic=None,
-                            const_fold_first=False):
+                            remove_same_as=False, heuristic=None, const_fold_first=False):
         t = self.translate(func, sig)
-        if checkvirtual:
-            check_virtual_methods()
         if const_fold_first:
             from rpython.translator.backendopt.constfold import constant_fold_graph
             from rpython.translator.simplify import eliminate_empty_blocks
@@ -119,7 +107,7 @@ class BaseTestInline:
         if remove_same_as:
             for graph in t.graphs:
                 removenoops.remove_same_as(graph)
-            
+
         if heuristic is not None:
             kwargs = {"heuristic": heuristic}
         else:
@@ -192,7 +180,7 @@ class BaseTestInline:
         result = eval_func([1])
         assert result == 1
         result = eval_func([2])
-        assert result == 2    
+        assert result == 2
 
     def test_inline_several_times(self):
         def f(x):
@@ -560,9 +548,9 @@ class BaseTestInline:
                 tot += item
             return tot
 
-        eval_func, t = self.check_auto_inlining(f, [], checkvirtual=True)
+        eval_func, t = self.check_auto_inlining(f, [])
         f_graph = graphof(t, f)
-        called_graphs = collect_called_graphs(f_graph, t, include_oosend=False)
+        called_graphs = collect_called_graphs(f_graph, t)
         assert len(called_graphs) == 0
 
         result = eval_func([])
@@ -586,9 +574,6 @@ class BaseTestInline:
                                                 const_fold_first=True)
         eval_func([-66])
         eval_func([282])
-
-
-class TestInlineLLType(LLRtypeMixin, BaseTestInline):
 
     def test_correct_keepalive_placement(self):
         def h(x):
@@ -638,158 +623,3 @@ class TestInlineLLType(LLRtypeMixin, BaseTestInline):
         assert len(collect_called_graphs(f_graph, t)) == 1
         auto_inline_graphs(t, [f_graph], 32, inline_graph_from_anywhere=True)
         assert len(collect_called_graphs(f_graph, t)) == 0
-
-
-class TestInlineOOType(OORtypeMixin, BaseTestInline):
-
-    def test_rtype_r_dict_exceptions(self):
-        from rpython.rlib.objectmodel import r_dict
-        def raising_hash(obj):
-            if obj.startswith("bla"):
-                raise TypeError
-            return 1
-        def eq(obj1, obj2):
-            return obj1 is obj2
-        def f():
-            d1 = r_dict(eq, raising_hash)
-            d1['xxx'] = 1
-            try:
-                x = d1["blabla"]
-            except Exception:
-                return 42
-            return x
-
-        eval_func, t = self.check_auto_inlining(f, [])
-        res = eval_func([])
-        assert res == 42
-
-    def test_float(self):
-        ex = ['', '    ']
-        def fn(i):
-            s = ex[i]
-            try:
-                return float(s)
-            except ValueError:
-                return -999.0
-
-        eval_func, t = self.check_auto_inlining(fn, [int])
-        expected = fn(0)
-        res = eval_func([0])
-        assert res == expected
-
-    def test_oosend(self):
-        class A:
-            def foo(self, x):
-                return x
-        def fn(x):
-            a = A()
-            return a.foo(x)
-
-        eval_func, t = self.check_auto_inlining(fn, [int], checkvirtual=True)
-        expected = fn(42)
-        res = eval_func([42])
-        assert res == expected
-
-    def test_not_inline_oosend(self):
-        class A:
-            def foo(self, x):
-                return x
-        class B(A):
-            def foo(self, x):
-                return x+1
-
-        def fn(flag, x):
-            if flag:
-                obj = A()
-            else:
-                obj = B()
-            return obj.foo(x)
-
-        eval_func, t = self.check_auto_inlining(fn, [bool, int], checkvirtual=True)
-        expected = fn(True, 42)
-        res = eval_func([True, 42])
-        assert res == expected
-
-    def test_oosend_inherited(self):
-        class BaseStringFormatter:
-            def __init__(self):
-                self.fmtpos = 0
-            def forward(self):
-                self.fmtpos += 1
-
-        class StringFormatter(BaseStringFormatter):
-            def __init__(self, fmt):
-                BaseStringFormatter.__init__(self)
-                self.fmt = fmt
-            def peekchr(self):
-                return self.fmt[self.fmtpos]
-            def peel_num(self):
-                while True:
-                    self.forward()
-                    c = self.peekchr()
-                    if self.fmtpos == 2: break
-                return 0
-
-        class UnicodeStringFormatter(BaseStringFormatter):
-            pass
-        
-        def fn(x):
-            if x:
-                fmt = StringFormatter('foo')
-                return fmt.peel_num()
-            else:
-                dummy = UnicodeStringFormatter()
-                dummy.forward()
-                return 0
-
-        eval_func, t = self.check_auto_inlining(fn, [int], checkvirtual=True,
-                                                remove_same_as=True)
-        expected = fn(1)
-        res = eval_func([1])
-        assert res == expected
-
-    def test_classattr(self):
-        class A:
-            attr = 666
-        class B(A):
-            attr = 42
-        def fn5():
-            b = B()
-            return b.attr
-
-        eval_func, t = self.check_auto_inlining(fn5, [], checkvirtual=True)
-        res = eval_func([])
-        assert res == 42
-
-    def test_indirect_call_becomes_direct(self):
-        def h1(n):
-            return n+1
-        def h2(n):
-            return n+2
-        def g(myfunc, n):
-            return myfunc(n*5)
-        def f(x, y):
-            return g(h1, x) + g(h2, y)
-        eval_func = self.check_inline(g, f, [int, int])
-        res = eval_func([10, 173])
-        assert res == f(10, 173)
-
-    def test_cannot_inline_1(self):
-        from rpython.rtyper.lltypesystem import lltype, rffi
-        for attr in [None, 'try', True]:
-            def h1(n):
-                return lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
-            if attr is not None:
-                h1._always_inline_ = attr
-            def f(x):
-                try:
-                    return h1(x)
-                except Exception:
-                    return lltype.nullptr(rffi.INTP.TO)
-            #
-            def compile():
-                self.check_auto_inlining(f, [int])
-            if attr is True:
-                py.test.raises(CannotInline, compile)
-            else:
-                compile()    # assert does not raise

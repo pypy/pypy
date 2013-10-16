@@ -14,7 +14,6 @@ from rpython.rlib.jit import _we_are_jitted
 from rpython.rlib.rgc import lltype_is_gc
 from rpython.rtyper.lltypesystem import lltype, llmemory, rstr, rclass, rffi
 from rpython.rtyper.rclass import IR_QUASIIMMUTABLE, IR_QUASIIMMUTABLE_ARRAY
-from rpython.translator.simplify import get_funcobj
 from rpython.translator.unsimplify import varoftype
 
 class UnsupportedMallocFlags(Exception):
@@ -359,11 +358,12 @@ class Transformer(object):
         else: raise AssertionError(kind)
         lst.append(v)
 
-    def handle_residual_call(self, op, extraargs=[], may_call_jitcodes=False):
+    def handle_residual_call(self, op, extraargs=[], may_call_jitcodes=False,
+                             oopspecindex=EffectInfo.OS_NONE):
         """A direct_call turns into the operation 'residual_call_xxx' if it
         is calling a function that we don't want to JIT.  The initial args
         of 'residual_call_xxx' are the function to call, and its calldescr."""
-        calldescr = self.callcontrol.getcalldescr(op)
+        calldescr = self.callcontrol.getcalldescr(op, oopspecindex=oopspecindex)
         op1 = self.rewrite_call(op, 'residual_call',
                                 [op.args[0]] + extraargs, calldescr=calldescr)
         if may_call_jitcodes or self.callcontrol.calldescr_canraise(calldescr):
@@ -521,6 +521,8 @@ class Transformer(object):
             op1 = SpaceOperation('str_guard_value', [op.args[0], c, descr],
                                  op.result)
             return [SpaceOperation('-live-', [], None), op1, None]
+        if hints.get('force_virtualizable'):
+            return SpaceOperation('hint_force_virtualizable', [op.args[0]], None)
         else:
             log.WARNING('ignoring hint %r at %r' % (hints, self.graph))
 
@@ -640,9 +642,6 @@ class Transformer(object):
                               op.result)
 
     def _array_of_voids(self, ARRAY):
-        #if isinstance(ARRAY, ootype.Array):
-        #    return ARRAY.ITEM == ootype.Void
-        #else:
         return ARRAY.OF == lltype.Void
 
     def rewrite_op_getfield(self, op):
@@ -689,6 +688,10 @@ class Transformer(object):
         kind = getkind(RESULT)[0]
         op1 = SpaceOperation('getfield_%s_%s%s' % (argname, kind, pure),
                              [v_inst, descr], op.result)
+        if op1.opname == 'getfield_raw_r':
+            # note: 'getfield_raw_r_pure' is used e.g. to load class
+            # attributes that are GC objects, so that one is supported.
+            raise Exception("getfield_raw_r (without _pure) not supported")
         #
         if immut in (IR_QUASIIMMUTABLE, IR_QUASIIMMUTABLE_ARRAY):
             descr1 = self.cpu.fielddescrof(
@@ -721,6 +724,8 @@ class Transformer(object):
         descr = self.cpu.fielddescrof(v_inst.concretetype.TO,
                                       c_fieldname.value)
         kind = getkind(RESULT)[0]
+        if argname == 'raw' and kind == 'r':
+            raise Exception("setfield_raw_r not supported")
         return SpaceOperation('setfield_%s_%s' % (argname, kind),
                               [v_inst, v_value, descr],
                               None)
@@ -1343,6 +1348,24 @@ class Transformer(object):
             return []
         return getattr(self, 'handle_jit_marker__%s' % key)(op, jitdriver)
 
+    def rewrite_op_jit_conditional_call(self, op):
+        have_floats = False
+        for arg in op.args:
+            if getkind(arg.concretetype) == 'float':
+                have_floats = True
+                break
+        if len(op.args) > 4 + 2 or have_floats:
+            raise Exception("Conditional call does not support floats or more than 4 arguments")
+        callop = SpaceOperation('direct_call', op.args[1:], op.result)
+        calldescr = self.callcontrol.getcalldescr(callop)
+        assert not calldescr.get_extra_info().check_forces_virtual_or_virtualizable()
+        op1 = self.rewrite_call(op, 'conditional_call',
+                                op.args[:2], args=op.args[2:],
+                                calldescr=calldescr)
+        if self.callcontrol.calldescr_canraise(calldescr):
+            op1 = [op1, SpaceOperation('-live-', [], None)]
+        return op1
+
     def handle_jit_marker__jit_merge_point(self, op, jitdriver):
         assert self.portal_jd is not None, (
             "'jit_merge_point' in non-portal graph!")
@@ -1447,7 +1470,7 @@ class Transformer(object):
         # because functions that are neither nonneg nor fast don't have an
         # oopspec any more
         # xxx break of abstraction:
-        func = get_funcobj(op.args[0].value)._callable
+        func = op.args[0].value._obj._callable
         # base hints on the name of the ll function, which is a bit xxx-ish
         # but which is safe for now
         assert func.func_name.startswith('ll_')

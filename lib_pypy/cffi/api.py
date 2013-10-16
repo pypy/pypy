@@ -54,7 +54,8 @@ class FFI(object):
             # _cffi_backend.so compiled.
             import _cffi_backend as backend
             from . import __version__
-            assert backend.__version__ == __version__
+            assert (backend.__version__ == __version__ or
+                    backend.__version__ == __version__[:3])
             # (If you insist you can also try to pass the option
             # 'backend=backend_ctypes.CTypesBackend()', but don't
             # rely on it!  It's probably not going to work well.)

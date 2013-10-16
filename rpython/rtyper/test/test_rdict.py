@@ -2,7 +2,7 @@ from rpython.translator.translator import TranslationContext
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper import rint
 from rpython.rtyper.lltypesystem import rdict, rstr
-from rpython.rtyper.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
+from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rlib.objectmodel import r_dict
 from rpython.rlib.rarithmetic import r_int, r_uint, r_longlong, r_ulonglong
 
@@ -22,7 +22,7 @@ def not_really_random():
         yield x
 
 
-class BaseTestRdict(BaseRtypingTest):
+class TestRdict(BaseRtypingTest):
 
     def test_dict_creation(self):
         def createdict(i):
@@ -91,7 +91,7 @@ class BaseTestRdict(BaseRtypingTest):
         res = self.interpret(func, [6])
         assert res == 1
 
-    def test_dict_is_true(self):
+    def test_dict_bool(self):
         def func(i):
             if i:
                 d = {}
@@ -732,7 +732,6 @@ class BaseTestRdict(BaseRtypingTest):
         res = self.interpret(f, [700])
         assert res == 12
 
-class TestLLtype(BaseTestRdict, LLRtypeMixin):
     def test_dict_but_not_with_char_keys(self):
         def func(i):
             d = {'h': i}
@@ -1000,6 +999,26 @@ class TestLLtype(BaseTestRdict, LLRtypeMixin):
         res = f()
         assert res == 1
 
+    def test_dict_with_SHORT_keys(self):
+        def func(x):
+            d = {}
+            d[rffi.cast(rffi.SHORT, 42)] = 123
+            d[rffi.cast(rffi.SHORT, -43)] = 321
+            return d[rffi.cast(rffi.SHORT, x)]
+
+        assert self.interpret(func, [42]) == 123
+        assert self.interpret(func, [2**16 - 43]) == 321
+
+    def test_dict_with_bool_keys(self):
+        def func(x):
+            d = {}
+            d[False] = 123
+            d[True] = 321
+            return d[x == 42]
+
+        assert self.interpret(func, [5]) == 123
+        assert self.interpret(func, [42]) == 321
+
     def test_nonnull_hint(self):
         def eq(a, b):
             return a == b
@@ -1052,21 +1071,13 @@ class TestLLtype(BaseTestRdict, LLRtypeMixin):
         finally:
             lltype._array._check_range = original_check_range
 
-    # ____________________________________________________________
-
-
-
-class TestOOtype(BaseTestRdict, OORtypeMixin):
-
-    def test_recursive(self):
+    def test_dict_with_none_key(self):
         def func(i):
-            dic = {i: {}}
-            dic[i] = dic
-            return dic[i]
-        res = self.interpret(func, [5])
-        assert res.ll_get(5) is res
+            d = {None: i}
+            return d[None]
+        res = self.interpret(func, [42])
+        assert res == 42
 
-    # ____________________________________________________________
 
 class TestStress:
 

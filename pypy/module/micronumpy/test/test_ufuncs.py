@@ -255,6 +255,25 @@ class AppTestUfuncs(BaseNumpyAppTest):
         for i in range(3):
             assert c[i] == a[i] * b[i]
 
+    def test_rint(self):
+        from numpypy import array, complex, rint, isnan
+        import sys
+
+        nnan, nan, inf, ninf = float('-nan'), float('nan'), float('inf'), float('-inf')
+
+        reference = array([ninf, -2., -1., -0., 0., 0., 0., 1., 2., inf])
+        a = array([ninf, -1.5, -1., -0.5, -0., 0., 0.5, 1., 1.5, inf])
+        b = rint(a)
+        for i in range(len(a)):
+            assert b[i] == reference[i]
+        assert isnan(rint(nan))
+        assert isnan(rint(nnan))
+
+        assert rint(complex(inf, 1.5)) == complex(inf, 2.)
+        assert rint(complex(0.5, inf)) == complex(0., inf)
+
+        assert rint(sys.maxint) > 0.0
+
     def test_sign(self):
         from numpypy import array, sign, dtype
 
@@ -638,10 +657,14 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert b[i] == math.degrees(a[i])
 
     def test_reduce_errors(self):
-        from numpypy import sin, add
+        from numpypy import sin, add, maximum, zeros
 
         raises(ValueError, sin.reduce, [1, 2, 3])
         assert add.reduce(1) == 1
+
+        assert list(maximum.reduce(zeros((2, 0)), axis=0)) == []
+        raises(ValueError, maximum.reduce, zeros((2, 0)), axis=None)
+        raises(ValueError, maximum.reduce, zeros((2, 0)), axis=1)
 
     def test_reduce_1d(self):
         from numpypy import add, maximum, less
@@ -693,7 +716,8 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
     def test_comparisons(self):
         import operator
-        from numpypy import equal, not_equal, less, less_equal, greater, greater_equal
+        from numpypy import (equal, not_equal, less, less_equal, greater,
+                            greater_equal, arange)
 
         for ufunc, func in [
             (equal, operator.eq),
@@ -716,7 +740,9 @@ class AppTestUfuncs(BaseNumpyAppTest):
                 (3, 3.5),
             ]:
                 assert ufunc(a, b) == func(a, b)
-
+        c = arange(10)
+        val = c == 'abcdefg'
+        assert val == False
 
     def test_count_nonzero(self):
         from numpypy import count_nonzero
@@ -939,4 +965,36 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert logaddexp2(float('inf'), float('-inf')) == float('inf')
         assert logaddexp2(float('inf'), float('inf')) == float('inf')
 
+    def test_ones_like(self):
+        from numpypy import array, ones_like
 
+        assert ones_like(False) == array(True)
+        assert ones_like(2) == array(1)
+        assert ones_like(2.) == array(1.)
+        assert ones_like(complex(2)) == array(complex(1))
+
+    def test_zeros_like(self):
+        from numpypy import array, zeros_like
+
+        assert zeros_like(True) == array(False)
+        assert zeros_like(2) == array(0)
+        assert zeros_like(2.) == array(0.)
+        assert zeros_like(complex(2)) == array(complex(0))
+
+    def test_accumulate(self):
+        from numpypy import add, multiply, arange
+        assert (add.accumulate([2, 3, 5]) == [2, 5, 10]).all()
+        assert (multiply.accumulate([2, 3, 5]) == [2, 6, 30]).all()
+        a = arange(4).reshape(2,2)
+        b = add.accumulate(a, axis=0)
+        assert (b == [[0, 1], [2, 4]]).all()
+        b = add.accumulate(a, 1)
+        assert (b == [[0, 1], [2, 5]]).all()
+        b = add.accumulate(a) #default axis is 0
+        assert (b == [[0, 1], [2, 4]]).all()
+        # dtype
+        a = arange(0, 3, 0.5).reshape(2, 3)
+        b = add.accumulate(a, dtype=int, axis=1)
+        print b
+        assert (b == [[0, 0, 1], [1, 3, 5]]).all()
+        assert b.dtype == int

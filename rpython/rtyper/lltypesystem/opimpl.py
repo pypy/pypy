@@ -12,7 +12,7 @@ from rpython.tool.sourcetools import func_with_new_name
 ops_returning_a_bool = {'gt': True, 'ge': True,
                         'lt': True, 'le': True,
                         'eq': True, 'ne': True,
-                        'is_true': True}
+                        'bool': True, 'is_true':True}
 
 # global synonyms for some types
 from rpython.rlib.rarithmetic import intmask
@@ -452,10 +452,6 @@ op_cast_adr_to_ptr.need_result_type = True
 def op_cast_int_to_adr(int):
     return llmemory.cast_int_to_adr(int)
 
-##def op_cast_int_to_adr(x):
-##    assert type(x) is int
-##    return llmemory.cast_int_to_adr(x)
-
 def op_convert_float_bytes_to_longlong(a):
     from rpython.rlib.longlong2float import float2longlong
     return float2longlong(a)
@@ -553,8 +549,7 @@ def op_getarrayitem(p, index):
 def _normalize(x):
     if not isinstance(x, str):
         TYPE = lltype.typeOf(x)
-        if (isinstance(TYPE, lltype.Ptr) and TYPE.TO._name == 'rpy_string'
-            or getattr(TYPE, '_name', '') == 'String'):    # ootype
+        if isinstance(TYPE, lltype.Ptr) and TYPE.TO._name == 'rpy_string':
             from rpython.rtyper.annlowlevel import hlstr
             return hlstr(x)
     return x
@@ -648,7 +643,7 @@ op_gc_gettypeptr_group.need_result_type = True
 def op_get_member_index(memberoffset):
     raise NotImplementedError
 
-def op_gc_assume_young_pointers(addr):
+def op_gc_writebarrier(addr):
     pass
 
 def op_shrink_array(array, smallersize):
@@ -664,6 +659,20 @@ def op_debug_fatalerror(ll_msg):
     assert lltype.typeOf(ll_msg) == lltype.Ptr(rstr.STR)
     msg = ''.join(ll_msg.chars)
     raise LLFatalError(msg)
+
+def op_raw_store(p, ofs, newvalue):
+    from rpython.rtyper.lltypesystem import rffi
+    p = rffi.cast(llmemory.Address, p)
+    TVAL = lltype.typeOf(newvalue)
+    p = rffi.cast(rffi.CArrayPtr(TVAL), p + ofs)
+    p[0] = newvalue
+
+def op_raw_load(TVAL, p, ofs):
+    from rpython.rtyper.lltypesystem import rffi
+    p = rffi.cast(llmemory.Address, p)
+    p = rffi.cast(rffi.CArrayPtr(TVAL), p + ofs)
+    return p[0]
+op_raw_load.need_result_type = True
 
 # ____________________________________________________________
 

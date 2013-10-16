@@ -369,13 +369,12 @@ class TestUsingBoehm(AbstractGCTestClass):
         run = self.getcompiled(f)
         assert run() == 0x62024230
 
-    def test_assume_young_pointers_nop(self):
+    def test_write_barrier_nop(self):
         S = lltype.GcStruct('S', ('x', lltype.Signed))
         s = lltype.malloc(S)
         s.x = 0
         def f():
-            llop.gc_assume_young_pointers(lltype.Void,
-                                          llmemory.cast_ptr_to_adr(s))
+            llop.gc_writebarrier(lltype.Void, llmemory.cast_ptr_to_adr(s))
             return True
         run = self.getcompiled(f)
         assert run() == True

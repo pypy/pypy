@@ -24,8 +24,8 @@ class MockDtype(object):
     def get_size(self):
         return 1
 
-def create_slice(a, chunks):
-    return Chunks(chunks).apply(W_NDimArray(a)).implementation
+def create_slice(space, a, chunks):
+    return Chunks(chunks).apply(space, W_NDimArray(a)).implementation
 
 
 def create_array(*args, **kwargs):
@@ -46,100 +46,100 @@ class TestNumArrayDirect(object):
         return self.space.newtuple(args_w)
 
     def test_strides_f(self):
-        a = create_array([10, 5, 3], MockDtype(), order='F')
+        a = create_array(self.space, [10, 5, 3], MockDtype(), order='F')
         assert a.strides == [1, 10, 50]
         assert a.backstrides == [9, 40, 100]
 
     def test_strides_c(self):
-        a = create_array([10, 5, 3], MockDtype(), order='C')
+        a = create_array(self.space, [10, 5, 3], MockDtype(), order='C')
         assert a.strides == [15, 3, 1]
         assert a.backstrides == [135, 12, 2]
-        a = create_array([1, 0, 7], MockDtype(), order='C')
+        a = create_array(self.space, [1, 0, 7], MockDtype(), order='C')
         assert a.strides == [7, 7, 1]
         assert a.backstrides == [0, 0, 6]
 
     def test_create_slice_f(self):
-        a = create_array([10, 5, 3], MockDtype(), order='F')
-        s = create_slice(a, [Chunk(3, 0, 0, 1)])
+        a = create_array(self.space, [10, 5, 3], MockDtype(), order='F')
+        s = create_slice(self.space, a, [Chunk(3, 0, 0, 1)])
         assert s.start == 3
         assert s.strides == [10, 50]
         assert s.backstrides == [40, 100]
-        s = create_slice(a, [Chunk(1, 9, 2, 4)])
+        s = create_slice(self.space, a, [Chunk(1, 9, 2, 4)])
         assert s.start == 1
         assert s.strides == [2, 10, 50]
         assert s.backstrides == [6, 40, 100]
-        s = create_slice(a, [Chunk(1, 5, 3, 2), Chunk(1, 2, 1, 1), Chunk(1, 0, 0, 1)])
+        s = create_slice(self.space, a, [Chunk(1, 5, 3, 2), Chunk(1, 2, 1, 1), Chunk(1, 0, 0, 1)])
         assert s.shape == [2, 1]
         assert s.strides == [3, 10]
         assert s.backstrides == [3, 0]
-        s = create_slice(a, [Chunk(0, 10, 1, 10), Chunk(2, 0, 0, 1)])
+        s = create_slice(self.space, a, [Chunk(0, 10, 1, 10), Chunk(2, 0, 0, 1)])
         assert s.start == 20
         assert s.shape == [10, 3]
 
     def test_create_slice_c(self):
-        a = create_array([10, 5, 3], MockDtype(), order='C')
-        s = create_slice(a, [Chunk(3, 0, 0, 1)])
+        a = create_array(self.space, [10, 5, 3], MockDtype(), order='C')
+        s = create_slice(self.space, a, [Chunk(3, 0, 0, 1)])
         assert s.start == 45
         assert s.strides == [3, 1]
         assert s.backstrides == [12, 2]
-        s = create_slice(a, [Chunk(1, 9, 2, 4)])
+        s = create_slice(self.space, a, [Chunk(1, 9, 2, 4)])
         assert s.start == 15
         assert s.strides == [30, 3, 1]
         assert s.backstrides == [90, 12, 2]
-        s = create_slice(a, [Chunk(1, 5, 3, 2), Chunk(1, 2, 1, 1),
+        s = create_slice(self.space, a, [Chunk(1, 5, 3, 2), Chunk(1, 2, 1, 1),
                             Chunk(1, 0, 0, 1)])
         assert s.start == 19
         assert s.shape == [2, 1]
         assert s.strides == [45, 3]
         assert s.backstrides == [45, 0]
-        s = create_slice(a, [Chunk(0, 10, 1, 10), Chunk(2, 0, 0, 1)])
+        s = create_slice(self.space, a, [Chunk(0, 10, 1, 10), Chunk(2, 0, 0, 1)])
         assert s.start == 6
         assert s.shape == [10, 3]
 
     def test_slice_of_slice_f(self):
-        a = create_array([10, 5, 3], MockDtype(), order='F')
-        s = create_slice(a, [Chunk(5, 0, 0, 1)])
+        a = create_array(self.space, [10, 5, 3], MockDtype(), order='F')
+        s = create_slice(self.space, a, [Chunk(5, 0, 0, 1)])
         assert s.start == 5
-        s2 = create_slice(s, [Chunk(3, 0, 0, 1)])
+        s2 = create_slice(self.space, s, [Chunk(3, 0, 0, 1)])
         assert s2.shape == [3]
         assert s2.strides == [50]
         assert s2.parent is a
         assert s2.backstrides == [100]
         assert s2.start == 35
-        s = create_slice(a, [Chunk(1, 5, 3, 2)])
-        s2 = create_slice(s, [Chunk(0, 2, 1, 2), Chunk(2, 0, 0, 1)])
+        s = create_slice(self.space, a, [Chunk(1, 5, 3, 2)])
+        s2 = create_slice(self.space, s, [Chunk(0, 2, 1, 2), Chunk(2, 0, 0, 1)])
         assert s2.shape == [2, 3]
         assert s2.strides == [3, 50]
         assert s2.backstrides == [3, 100]
         assert s2.start == 1 * 15 + 2 * 3
 
     def test_slice_of_slice_c(self):
-        a = create_array([10, 5, 3], MockDtype(), order='C')
-        s = create_slice(a, [Chunk(5, 0, 0, 1)])
+        a = create_array(self.space, [10, 5, 3], MockDtype(), order='C')
+        s = create_slice(self.space, a, [Chunk(5, 0, 0, 1)])
         assert s.start == 15 * 5
-        s2 = create_slice(s, [Chunk(3, 0, 0, 1)])
+        s2 = create_slice(self.space, s, [Chunk(3, 0, 0, 1)])
         assert s2.shape == [3]
         assert s2.strides == [1]
         assert s2.parent is a
         assert s2.backstrides == [2]
         assert s2.start == 5 * 15 + 3 * 3
-        s = create_slice(a, [Chunk(1, 5, 3, 2)])
-        s2 = create_slice(s, [Chunk(0, 2, 1, 2), Chunk(2, 0, 0, 1)])
+        s = create_slice(self.space, a, [Chunk(1, 5, 3, 2)])
+        s2 = create_slice(self.space, s, [Chunk(0, 2, 1, 2), Chunk(2, 0, 0, 1)])
         assert s2.shape == [2, 3]
         assert s2.strides == [45, 1]
         assert s2.backstrides == [45, 2]
         assert s2.start == 1 * 15 + 2 * 3
 
     def test_negative_step_f(self):
-        a = create_array([10, 5, 3], MockDtype(), order='F')
-        s = create_slice(a, [Chunk(9, -1, -2, 5)])
+        a = create_array(self.space, [10, 5, 3], MockDtype(), order='F')
+        s = create_slice(self.space, a, [Chunk(9, -1, -2, 5)])
         assert s.start == 9
         assert s.strides == [-2, 10, 50]
         assert s.backstrides == [-8, 40, 100]
 
     def test_negative_step_c(self):
-        a = create_array([10, 5, 3], MockDtype(), order='C')
-        s = create_slice(a, [Chunk(9, -1, -2, 5)])
+        a = create_array(self.space, [10, 5, 3], MockDtype(), order='C')
+        s = create_slice(self.space, a, [Chunk(9, -1, -2, 5)])
         assert s.start == 135
         assert s.strides == [-30, 3, 1]
         assert s.backstrides == [-120, 12, 2]
@@ -207,7 +207,8 @@ class TestNumArrayDirect(object):
             raw_storage_setitem(storage, i, rffi.cast(rffi.UCHAR, i))
         #
         dtypes = get_dtype_cache(self.space)
-        w_array = W_NDimArray.from_shape_and_storage([2, 2], storage, dtypes.w_int8dtype)
+        w_array = W_NDimArray.from_shape_and_storage(self.space, [2, 2],
+                                                storage, dtypes.w_int8dtype)
         def get(i, j):
             return w_array.getitem(self.space, [i, j]).value
         assert get(0, 0) == 0
@@ -263,6 +264,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a.dtype is dtype(int)
         a = ndarray([], dtype=float)
         assert a.shape == ()
+        # test uninitialized value crash?
+        assert len(str(a)) > 0
 
     def test_ndmin(self):
         from numpypy import array
@@ -785,6 +788,49 @@ class AppTestNumArray(BaseNumpyAppTest):
             assert r[i] == i + 3
         r = [1, 2] + array([1, 2])
         assert (r == [2, 4]).all()
+
+    def test_inline_op_scalar(self):
+        from numpypy import array
+        for op in [
+                '__iadd__',
+                '__isub__',
+                '__imul__',
+                '__idiv__',
+                '__ifloordiv__',
+                '__imod__',
+                '__ipow__',
+                '__ilshift__',
+                '__irshift__',
+                '__iand__',
+                '__ior__',
+                '__ixor__']:
+            a = b = array(range(3))
+            getattr(a, op).__call__(2)
+            assert id(a) == id(b)
+
+    def test_inline_op_array(self):
+        from numpypy import array
+        for op in [
+                '__iadd__',
+                '__isub__',
+                '__imul__',
+                '__idiv__',
+                '__ifloordiv__',
+                '__imod__',
+                '__ipow__',
+                '__ilshift__',
+                '__irshift__',
+                '__iand__',
+                '__ior__',
+                '__ixor__']:
+            a = b = array(range(5))
+            c = array(range(5))
+            d = array(5 * [2])
+            getattr(a, op).__call__(d)
+            assert id(a) == id(b)
+            reg_op = op.replace('__i', '__')
+            for i in range(5):
+                assert a[i] == getattr(c[i], reg_op).__call__(d[i])
 
     def test_add_list(self):
         from numpypy import array, ndarray
@@ -1345,7 +1391,7 @@ class AppTestNumArray(BaseNumpyAppTest):
             for i in xrange(5):
                 assert c[i] == func(b[i], 3)
 
-    def test_nonzero(self):
+    def test___nonzero__(self):
         from numpypy import array
         a = array([1, 2])
         raises(ValueError, bool, a)
@@ -1419,6 +1465,14 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a[3].imag == -10
         assert a[2].imag == -5
 
+    def test_trace(self):
+        import numpypy as np
+        assert np.trace(np.eye(3)) == 3.0
+        a = np.arange(8).reshape((2,2,2))
+        assert np.array_equal(np.trace(a), [6, 8])
+        a = np.arange(24).reshape((2,2,2,3))
+        assert np.trace(a).shape == (2, 3)
+
     def test_view(self):
         from numpypy import array, int8, int16, dtype
         x = array((1, 2), dtype=int8)
@@ -1442,7 +1496,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert x.view('int8').shape == (10, 3)
 
     def test_ndarray_view_empty(self):
-        from numpypy import array, int8, int16, dtype
+        from numpypy import array, int8, int16
         x = array([], dtype=[('a', int8), ('b', int8)])
         y = x.view(dtype=int16)
 
@@ -1850,6 +1904,15 @@ class AppTestNumArray(BaseNumpyAppTest):
         b = array([1, 2, 3, 4])
         assert (a == b) == False
 
+    def test__long__(self):
+        from numpypy import array
+        assert long(array(1)) == 1
+        assert long(array([1])) == 1
+        assert isinstance(long(array([1])), long)
+        assert isinstance(long(array([1, 2][0])), long)
+        assert raises(TypeError, "long(array([1, 2]))")
+        assert long(array([1.5])) == 1
+
     def test__int__(self):
         from numpypy import array
         assert int(array(1)) == 1
@@ -1875,6 +1938,29 @@ class AppTestNumArray(BaseNumpyAppTest):
 
         a = numpy.arange(10.).reshape((5, 2))[::2]
         assert (loads(dumps(a)) == a).all()
+
+    def test_string_filling(self):
+        import numpypy as numpy
+        a = numpy.empty((10,10), dtype='c1')
+        a.fill(12)
+        assert (a == '1').all()
+
+    def test_boolean_indexing(self):
+        import numpypy as np
+        a = np.zeros((1, 3))
+        b = np.array([True])
+
+        assert (a[b] == a).all()
+
+        a[b] = 1.
+
+        assert (a == [[1., 1., 1.]]).all()
+
+    @py.test.mark.xfail
+    def test_boolean_array(self):
+        import numpypy as np
+        a = np.ndarray([1], dtype=bool)
+        assert a[0] == True
 
 class AppTestMultiDim(BaseNumpyAppTest):
     def test_init(self):
@@ -2070,6 +2156,7 @@ class AppTestMultiDim(BaseNumpyAppTest):
         c = b + b
         assert c.sum() == (6 + 8 + 10 + 12) * 2
         assert isinstance(c.sum(dtype='f8'), float)
+        assert isinstance(c.sum(None, 'f8'), float)
 
     def test_transpose(self):
         from numpypy import array
@@ -2195,6 +2282,24 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert len(arange(10)[:2].flat) == 2
         assert len((arange(2) + arange(2)).flat) == 2
 
+    def test_flatiter_setter(self):
+        from numpypy import arange, array
+        a = arange(24).reshape(2, 3, 4)
+        a.flat = [4, 5]
+        assert (a.flatten() == [4, 5]*12).all()
+        a.flat = [[4, 5, 6, 7, 8], [4, 5, 6, 7, 8]]
+        assert (a.flatten() == ([4, 5, 6, 7, 8]*5)[:24]).all()
+        exc = raises(ValueError, 'a.flat = [[4, 5, 6, 7, 8], [4, 5, 6]]')
+        assert str(exc.value).find("sequence") > 0
+        b = a[::-1, :, ::-1]
+        b.flat = range(24)
+        assert (a.flatten() == [15, 14 ,13, 12, 19, 18, 17, 16, 23, 22,
+                                21, 20, 3, 2, 1, 0, 7, 6, 5, 4,
+                                11, 10, 9, 8]).all()
+        c = array(['abc'] * 10).reshape(2, 5)
+        c.flat = ['defgh', 'ijklmnop']
+        assert (c.flatten() == ['def', 'ijk']*5).all()
+
     def test_slice_copy(self):
         from numpypy import zeros
         a = zeros((10, 10))
@@ -2283,6 +2388,26 @@ class AppTestMultiDim(BaseNumpyAppTest):
         a[a & 1 == 0] = 15
         assert (a == [[15, 1], [15, 5], [15, 9]]).all()
 
+    def test_array_indexing_bool_specialcases(self):
+        from numpypy import arange, array
+        a = arange(6)
+        exc = raises(ValueError,'a[a < 3] = [1, 2]')
+        assert exc.value[0].find('cannot assign') >= 0
+        b = arange(4).reshape(2, 2) + 10
+        a[a < 4] = b
+        assert (a == [10, 11, 12, 13, 4, 5]).all()
+        b += 10
+        c = arange(8).reshape(2, 2, 2)
+        a[a > 9] = c[:, :, 1]
+        assert (c[:, :, 1] == [[1, 3], [5, 7]]).all()
+        assert (a == [1, 3, 5, 7, 4, 5]).all()
+        a = arange(6)
+        a[a > 3] = array([15])
+        assert (a == [0, 1, 2, 3, 15, 15]).all()
+        a = arange(6).reshape(3, 2)
+        a[a & 1 == 1] = []  # here, Numpy sticks garbage into the array
+        assert a.shape == (3, 2)
+
     def test_copy_kwarg(self):
         from numpypy import array
         x = array([1, 2, 3])
@@ -2296,6 +2421,21 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert (arange(3).ravel() == arange(3)).all()
         assert (arange(6).reshape(2, 3).ravel() == arange(6)).all()
         assert (arange(6).reshape(2, 3).T.ravel() == [0, 3, 1, 4, 2, 5]).all()
+
+    def test_nonzero(self):
+        from numpypy import array
+        nz = array(0).nonzero()
+        assert nz[0].size == 0
+
+        nz = array(2).nonzero()
+        assert (nz[0] == [0]).all()
+
+        nz = array([1, 0, 3]).nonzero()
+        assert (nz[0] == [0, 2]).all()
+
+        nz = array([[1, 0, 3], [2, 0, 4]]).nonzero()
+        assert (nz[0] == [0, 0, 1, 1]).all()
+        assert (nz[1] == [0, 2, 0, 2]).all()
 
     def test_take(self):
         from numpypy import arange
@@ -2548,55 +2688,6 @@ class AppTestSupport(BaseNumpyAppTest):
         assert array([1, 2, 3], '>i2')[::2].tostring() == '\x00\x01\x00\x03'
         assert array(0, dtype='i2').tostring() == '\x00\x00'
 
-    def test_argsort_dtypes(self):
-        from numpypy import array, arange
-        assert array(2.0).argsort() == 0
-        nnp = self.non_native_prefix
-        for dtype in ['int', 'float', 'int16', 'float32', 'uint64',
-                        nnp + 'i2', complex]:
-            a = array([6, 4, -1, 3, 8, 3, 256+20, 100, 101], dtype=dtype)
-            c = a.copy()
-            res = a.argsort()
-            assert (res == [2, 3, 5, 1, 0, 4, 7, 8, 6]).all(), \
-                'a,res,dtype %r,%r,%r' % (a,res,dtype)
-            assert (a == c).all() # not modified
-            a = arange(100)
-            assert (a.argsort() == a).all()
-        raises(NotImplementedError, 'arange(10,dtype="float16").argsort()')
-
-    def test_argsort_nd(self):
-        from numpypy import array
-        a = array([[4, 2], [1, 3]])
-        assert (a.argsort() == [[1, 0], [0, 1]]).all()
-        a = array(range(10) + range(10) + range(10))
-        b = a.argsort()
-        assert (b[:3] == [0, 10, 20]).all()
-        #trigger timsort 'run' mode which calls arg_getitem_slice
-        a = array(range(100) + range(100) + range(100))
-        b = a.argsort()
-        assert (b[:3] == [0, 100, 200]).all()
-        a = array([[[]]]).reshape(3,4,0)
-        b = a.argsort()
-        assert b.size == 0
-
-    def test_argsort_random(self):
-        from numpypy import array
-        from _random import Random
-        rnd = Random(1)
-        a = array([rnd.random() for i in range(512*2)]).reshape(512,2)
-        a.argsort()
-
-    def test_argsort_axis(self):
-        from numpypy import array
-        a = array([[4, 2], [1, 3]])
-        assert (a.argsort(axis=None) == [2, 1, 3, 0]).all()
-        assert (a.argsort(axis=-1) == [[1, 0], [0, 1]]).all()
-        assert (a.argsort(axis=0) == [[1, 0], [0, 1]]).all()
-        assert (a.argsort(axis=1) == [[1, 0], [0, 1]]).all()
-        a = array([[3, 2, 1], [1, 2, 3]])
-        assert (a.argsort(axis=0) == [[1, 0, 0], [0, 1, 1]]).all()
-        assert (a.argsort(axis=1) == [[2, 1, 0], [0, 1, 2]]).all()
-
 
 class AppTestRanges(BaseNumpyAppTest):
     def test_arange(self):
@@ -2752,6 +2843,19 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         assert a[2] == 'ab'
         raises(TypeError, a, 'sum')
         raises(TypeError, 'a+a')
+        b = array(['abcdefg', 'ab', 'cd'])
+        assert a[2] == b[1]
+        assert bool(a[1])
+        c = array(['ab','cdefg','hi','jk'])
+        # not implemented yet
+        #c[0] += c[3]
+        #assert c[0] == 'abjk'
+
+    def test_to_str(self):
+        from numpypy import array
+        a = array(['abc','abc', 'def', 'ab'], 'S3')
+        b = array(['mnopqr','abcdef', 'ab', 'cd'])
+        assert b[1] != a[1]
 
     def test_string_scalar(self):
         from numpypy import array
@@ -2763,8 +2867,7 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         assert str(a.dtype) == '|S1'
         a = array('x', dtype='c')
         assert str(a.dtype) == '|S1'
-        # XXX can sort flexible types, why not comparison?
-        #assert a == 'x'
+        assert a == 'x'
 
     def test_flexible_repr(self):
         from numpypy import array
@@ -2849,6 +2952,17 @@ class AppTestRecordDtype(BaseNumpyAppTest):
 
         assert len(list(a[0])) == 2
 
+    def test_issue_1589(self):
+        import numpypy as numpy
+        c = numpy.array([[(1, 2, 'a'), (3, 4, 'b')], [(5, 6, 'c'), (7, 8, 'd')]],
+                        dtype=[('bg', 'i8'), ('fg', 'i8'), ('char', 'S1')])
+        assert c[0][0]["char"] == 'a'
+
+    def test_scalar_coercion(self):
+        import numpypy as np
+        a = np.array([1,2,3], dtype=np.int16)
+        assert (a * 2).dtype == np.int16
+
 class AppTestPyPy(BaseNumpyAppTest):
     def setup_class(cls):
         if option.runappdirect and '__pypy__' not in sys.builtin_module_names:
@@ -2876,6 +2990,12 @@ class AppTestPyPy(BaseNumpyAppTest):
         assert y[0, 1] == 2
         y[0, 1] = 42
         assert x[1] == 42
+        class C(ndarray):
+            pass
+        z = ndarray._from_shape_and_storage([4, 1], addr, x.dtype, C)
+        assert isinstance(z, C)
+        assert z.shape == (4, 1)
+        assert z[1, 0] == 42
 
     def test___pypy_data__(self):
         from numpypy import array
@@ -2890,7 +3010,7 @@ class AppTestPyPy(BaseNumpyAppTest):
 class AppTestLongDoubleDtypes(BaseNumpyAppTest):
     def setup_class(cls):
         from pypy.module.micronumpy import Module
-        print dir(Module.interpleveldefs)
+        #print dir(Module.interpleveldefs)
         if not Module.interpleveldefs.get('longfloat', None):
             py.test.skip('no longdouble types yet')
         BaseNumpyAppTest.setup_class.im_func(cls)

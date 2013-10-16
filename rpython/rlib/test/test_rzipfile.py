@@ -3,7 +3,7 @@ import py
 from rpython.rlib.rzipfile import RZipFile
 from rpython.tool.udir import udir
 from zipfile import ZIP_STORED, ZIP_DEFLATED, ZipInfo, ZipFile
-from rpython.rtyper.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
+from rpython.rtyper.test.tool import BaseRtypingTest
 import os
 import time
 
@@ -25,9 +25,9 @@ class BaseTestRZipFile(BaseRtypingTest):
         # Value selected to produce a CRC32 which is negative if
         # interpreted as a signed 32 bit integer.  This exercises the
         # masking behavior necessary on 64 bit platforms.
-        zipfile.writestr("three", "hello, world") 
+        zipfile.writestr("three", "hello, world")
         zipfile.close()
-    
+
     def test_rzipfile(self):
         zipname = self.zipname
         year = self.year
@@ -42,8 +42,8 @@ class BaseTestRZipFile(BaseRtypingTest):
         assert one()
         assert self.interpret(one, [])
 
-class TestRZipFile(BaseTestRZipFile, LLRtypeMixin):
+class TestRZipFile(BaseTestRZipFile):
     compression = ZIP_STORED
 
-class TestRZipFileCompressed(BaseTestRZipFile, LLRtypeMixin):
+class TestRZipFileCompressed(BaseTestRZipFile):
     compression = ZIP_DEFLATED

@@ -136,6 +136,11 @@ class W_GenericBox(W_Root):
         assert isinstance(box, W_LongBox)
         return space.wrap(box.value)
 
+    def descr_long(self, space):
+        box = self.convert_to(W_Int64Box._get_dtype(space))
+        assert isinstance(box, W_Int64Box)
+        return space.wrap(box.value)
+
     def descr_float(self, space):
         box = self.convert_to(W_Float64Box._get_dtype(space))
         assert isinstance(box, W_Float64Box)
@@ -205,6 +210,7 @@ class W_GenericBox(W_Root):
     descr_neg = _unaryop_impl("negative")
     descr_abs = _unaryop_impl("absolute")
     descr_invert = _unaryop_impl("invert")
+    descr_conjugate = _unaryop_impl("conjugate")
 
     def descr_divmod(self, space, w_other):
         w_quotient = self.descr_div(space, w_other)
@@ -378,12 +384,14 @@ class W_VoidBox(W_FlexibleBox):
         return self
 
 class W_CharacterBox(W_FlexibleBox):
-    pass
+    def convert_to(self, dtype):
+        # XXX assert dtype is str type
+        return self
+
 
 class W_StringBox(W_CharacterBox):
     def descr__new__string_box(space, w_subtype, w_arg):
         from pypy.module.micronumpy.interp_dtype import new_string_dtype
-
         arg = space.str_w(space.str(w_arg))
         arr = VoidBoxStorage(len(arg), new_string_dtype(space, len(arg)))
         for i in range(len(arg)):
@@ -393,6 +401,8 @@ class W_StringBox(W_CharacterBox):
 
 class W_UnicodeBox(W_CharacterBox):
     def descr__new__unicode_box(space, w_subtype, w_arg):
+        raise OperationError(space.w_NotImplementedError, space.wrap("Unicode is not supported yet"))
+
         from pypy.module.micronumpy.interp_dtype import new_unicode_dtype
 
         arg = space.unicode_w(unicode_from_object(space, w_arg))
@@ -465,6 +475,7 @@ W_GenericBox.typedef = TypeDef("generic",
     __repr__ = interp2app(W_GenericBox.descr_str),
     __format__ = interp2app(W_GenericBox.descr_format),
     __int__ = interp2app(W_GenericBox.descr_int),
+    __long__ = interp2app(W_GenericBox.descr_long),
     __float__ = interp2app(W_GenericBox.descr_float),
     __nonzero__ = interp2app(W_GenericBox.descr_nonzero),
 
@@ -517,6 +528,7 @@ W_GenericBox.typedef = TypeDef("generic",
     all = interp2app(W_GenericBox.descr_all),
     ravel = interp2app(W_GenericBox.descr_ravel),
     round = interp2app(W_GenericBox.descr_round),
+    conjugate = interp2app(W_GenericBox.descr_conjugate),
     view = interp2app(W_GenericBox.descr_view),
 )
 
@@ -682,12 +694,12 @@ W_CharacterBox.typedef = TypeDef("character", W_FlexibleBox.typedef,
     __module__ = "numpypy",
 )
 
-W_StringBox.typedef = TypeDef("string_", (str_typedef, W_CharacterBox.typedef),
+W_StringBox.typedef = TypeDef("string_", (W_CharacterBox.typedef, str_typedef),
     __module__ = "numpypy",
     __new__ = interp2app(W_StringBox.descr__new__string_box.im_func),
 )
 
-W_UnicodeBox.typedef = TypeDef("unicode_", (unicode_typedef, W_CharacterBox.typedef),
+W_UnicodeBox.typedef = TypeDef("unicode_", (W_CharacterBox.typedef, unicode_typedef),
     __module__ = "numpypy",
     __new__ = interp2app(W_UnicodeBox.descr__new__unicode_box.im_func),
 )

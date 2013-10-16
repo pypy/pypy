@@ -45,7 +45,7 @@ class Scalar(base.BaseArrayImplementation):
     def get_backstrides(self):
         return []
 
-    def create_iter(self, shape=None, backward_broadcast=False):
+    def create_iter(self, shape=None, backward_broadcast=False, require_index=False):
         return ScalarIterator(self)
 
     def get_scalar_value(self):
@@ -139,7 +139,7 @@ class Scalar(base.BaseArrayImplementation):
         if not new_shape:
             return self
         if support.product(new_shape) == 1:
-            arr = W_NDimArray.from_shape(new_shape, self.dtype)
+            arr = W_NDimArray.from_shape(space, new_shape, self.dtype)
             arr_iter = arr.create_iter(new_shape)
             arr_iter.setitem(self.value)
             return arr.implementation
@@ -152,8 +152,15 @@ class Scalar(base.BaseArrayImplementation):
     def create_axis_iter(self, shape, dim, cum):
         raise Exception("axis iter should not happen on scalar")
 
-    def swapaxes(self, orig_array, axis1, axis2):
+    def swapaxes(self, space, orig_array, axis1, axis2):
         raise Exception("should not be called")
+
+    def nonzero(self, space, index_type):
+        s = self.dtype.itemtype.bool(self.value)
+        w_res = W_NDimArray.from_shape(space, [s], index_type)
+        if s == 1:
+            w_res.implementation.setitem(0, index_type.itemtype.box(0)) 
+        return space.newtuple([w_res])
 
     def fill(self, w_value):
         self.value = w_value
@@ -166,7 +173,7 @@ class Scalar(base.BaseArrayImplementation):
         return space.wrap(0)
 
     def astype(self, space, dtype):
-        return W_NDimArray.new_scalar(space, dtype, self.value)
+        raise Exception("should not be called")
 
     def base(self):
         return None

@@ -3,11 +3,12 @@ import random
 import py
 
 from rpython.flowspace.model import summary
+from rpython.annotator.model import AnnotatorError
 from rpython.rtyper.lltypesystem.lltype import typeOf, Signed, malloc
 from rpython.rtyper.lltypesystem.rstr import LLHelpers, STR
 from rpython.rtyper.rstr import AbstractLLHelpers
 from rpython.rtyper.rtyper import TyperError
-from rpython.rtyper.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
+from rpython.rtyper.test.tool import BaseRtypingTest
 
 
 def test_parse_fmt():
@@ -361,16 +362,16 @@ class AbstractTestRstr(BaseRtypingTest):
             res = self.interpret(fn, [i, j])
             assert res == fn(i, j)
 
-    def test_find_TyperError(self):
+    def test_find_AnnotatorError(self):
         const = self.const
         def f():
             s = const('abc')
             s.find(s, 0, -10)
-        py.test.raises(TyperError, self.interpret, f, ())
+        py.test.raises(AnnotatorError, self.interpret, f, ())
         def f():
             s = const('abc')
             s.find(s, -10)
-        py.test.raises(TyperError, self.interpret, f, ())
+        py.test.raises(AnnotatorError, self.interpret, f, ())
 
     def test_find_empty_string(self):
         const = self.const
@@ -415,6 +416,13 @@ class AbstractTestRstr(BaseRtypingTest):
         for i, expected in enumerate([1033, 2133, 3233, 3333, 3-1110, 3-1110]):
             res = self.interpret(f, [i])
             assert res == expected
+
+    def test_rfind_error_message(self):
+        const = self.const
+        def f(i):
+            return const("abc").rfind(const(''), i)
+        e = py.test.raises(AnnotatorError, self.interpret, f, [-5])
+        assert "rfind: not proven to have non-negative start" in str(e.value)
 
     def test_find_char(self):
         const = self.const
@@ -892,16 +900,16 @@ class AbstractTestRstr(BaseRtypingTest):
         res = self.interpret(fn, [])
         assert res == 1
 
-    def test_count_TyperError(self):
+    def test_count_AnnotatorError(self):
         const = self.const
         def f():
             s = const('abc')
             s.count(s, 0, -10)
-        py.test.raises(TyperError, self.interpret, f, ())
+        py.test.raises(AnnotatorError, self.interpret, f, ())
         def f():
             s = const('abc')
             s.count(s, -10)
-        py.test.raises(TyperError, self.interpret, f, ())
+        py.test.raises(AnnotatorError, self.interpret, f, ())
 
     def test_getitem_exc(self):
         const = self.const
@@ -1073,7 +1081,7 @@ def FIXME_test_str_to_pystringobj():
     res = interpret(g, [-2])
     assert res._obj.value == 42
 
-class BaseTestRstr(AbstractTestRstr):
+class TestRstr(AbstractTestRstr):
     const = str
     constchar = chr
 
@@ -1088,9 +1096,6 @@ class BaseTestRstr(AbstractTestRstr):
             return chr(i).upper()
         for c in ["a", "A", "1"]:
             assert self.interpret(fn, [ord(c)]) == c.upper()
-
-
-class TestLLtype(BaseTestRstr, LLRtypeMixin):
 
     def test_ll_find_rfind(self):
         llstr = self.string_to_ll
@@ -1138,6 +1143,3 @@ class TestLLtype(BaseTestRstr, LLRtypeMixin):
         self.interpret(f, [array, 4])
         assert list(array) == list('abc'*4)
         lltype.free(array, flavor='raw')
-
-class TestOOtype(BaseTestRstr, OORtypeMixin):
-    pass

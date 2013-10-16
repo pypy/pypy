@@ -478,7 +478,7 @@ class FunctionGcRootTracker(object):
         'rep', 'movs', 'movhp', 'lods', 'stos', 'scas', 'cwde', 'prefetch',
         # floating-point operations cannot produce GC pointers
         'f',
-        'cvt', 'ucomi', 'comi', 'subs', 'subp' , 'adds', 'addp', 'xorp',
+        'cvt', 'ucomi', 'comi', 'subs', 'subp', 'adds', 'addp', 'xorp',
         'movap', 'movd', 'movlp', 'movup', 'sqrt', 'rsqrt', 'movhlp', 'movlhp',
         'mins', 'minp', 'maxs', 'maxp', 'unpck', 'pxor', 'por', # sse2
         'shufps', 'shufpd',
@@ -489,19 +489,21 @@ class FunctionGcRootTracker(object):
         'pabs', 'pack', 'padd', 'palign', 'pand', 'pavg', 'pcmp', 'pextr',
         'phadd', 'phsub', 'pinsr', 'pmadd', 'pmax', 'pmin', 'pmovmsk',
         'pmul', 'por', 'psadb', 'pshuf', 'psign', 'psll', 'psra', 'psrl',
-        'psub', 'punpck', 'pxor',
+        'psub', 'punpck', 'pxor', 'pmovzx', 'pmovsx', 'pblend',
         # all vectors don't produce pointers
         'v',
         # sign-extending moves should not produce GC pointers
         'cbtw', 'cwtl', 'cwtd', 'cltd', 'cltq', 'cqto',
         # zero-extending moves should not produce GC pointers
-        'movz', 
+        'movz',
         # locked operations should not move GC pointers, at least so far
         'lock', 'pause',
         # non-temporal moves should be reserved for areas containing
         # raw data, not GC pointers
         'movnt', 'mfence', 'lfence', 'sfence',
-        ])
+        # bit manipulations
+        'bextr',
+    ])
 
     # a partial list is hopefully good enough for now; it's all to support
     # only one corner case, tested in elf64/track_zero.s
@@ -741,7 +743,7 @@ class FunctionGcRootTracker(object):
             # tail-calls are equivalent to RET for us
             return InsnRet(self.CALLEE_SAVE_REGISTERS)
         return InsnStop("jump")
-    
+
     def register_jump_to(self, label, lastinsn=None):
         if lastinsn is None:
             lastinsn = self.insns[-1]
@@ -1020,7 +1022,7 @@ class FunctionGcRootTracker64(FunctionGcRootTracker):
     visit_movl = visit_mov
 
     visit_xorl = _maybe_32bit_dest(FunctionGcRootTracker.binary_insn)
-    
+
     visit_pushq = FunctionGcRootTracker._visit_push
 
     visit_addq = FunctionGcRootTracker._visit_add

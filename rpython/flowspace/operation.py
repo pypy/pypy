@@ -7,53 +7,101 @@ import __builtin__
 import __future__
 import operator
 from rpython.tool.sourcetools import compile2
-from rpython.rlib.rarithmetic import ovfcheck
-from rpython.flowspace.model import Constant
+from rpython.flowspace.model import (Constant, WrapException, const, Variable,
+                                     SpaceOperation)
+from rpython.flowspace.specialcase import register_flow_sc
 
 class _OpHolder(object): pass
 op = _OpHolder()
 
 func2op = {}
 
-class SpaceOperator(object):
-    def __init__(self, name, arity, symbol, pyfunc, pure=False,
-            can_overflow=False):
-        self.name = name
-        self.arity = arity
-        self.symbol = symbol
-        self.pyfunc = pyfunc
-        self.pure = pure
-        self.can_overflow = can_overflow
-        self.canraise = []
+class HLOperation(SpaceOperation):
+    pure = False
+    def __init__(self, *args):
+        if len(args) != self.arity:
+            raise TypeError(self.opname + " got the wrong number of arguments")
+        self.args = list(args)
+        self.result = Variable()
+        self.offset = -1
 
-    def make_sc(self):
-        def sc_operator(space, args_w):
-            if len(args_w) != self.arity:
-                if self is op.pow and len(args_w) == 2:
-                    args_w = args_w + [Constant(None)]
-                elif self is op.getattr and len(args_w) == 3:
+    @classmethod
+    def make_sc(cls):
+        def sc_operator(space, *args_w):
+            if len(args_w) != cls.arity:
+                if cls is op.pow and len(args_w) == 2:
+                    args_w = list(args_w) + [Constant(None)]
+                elif cls is op.getattr and len(args_w) == 3:
                     return space.frame.do_operation('simple_call', Constant(getattr), *args_w)
                 else:
                     raise Exception("should call %r with exactly %d arguments" % (
-                        self.name, self.arity))
+                        cls.opname, cls.arity))
             # completely replace the call with the underlying
             # operation and its limited implicit exceptions semantic
-            return getattr(space, self.name)(*args_w)
+            return getattr(space, cls.opname)(*args_w)
         return sc_operator
+
+    def eval(self, frame):
+        result = self.constfold()
+        if result is not None:
+            return result
+        return frame.do_op(self)
+
+    def constfold(self):
+        return None
+
+class PureOperation(HLOperation):
+    pure = True
+
+    def constfold(self):
+        args = []
+        if all(w_arg.foldable() for w_arg in self.args):
+            args = [w_arg.value for w_arg in self.args]
+            # All arguments are constants: call the operator now
+            try:
+                result = self.pyfunc(*args)
+            except Exception as e:
+                from rpython.flowspace.flowcontext import FlowingError
+                msg = "%s%r always raises %s: %s" % (
+                    self.opname, tuple(args), type(e), e)
+                raise FlowingError(msg)
+            else:
+                # don't try to constant-fold operations giving a 'long'
+                # result.  The result is probably meant to be sent to
+                # an intmask(), but the 'long' constant confuses the
+                # annotator a lot.
+                if self.can_overflow and type(result) is long:
+                    pass
+                # don't constant-fold getslice on lists, either
+                elif self.opname == 'getslice' and type(result) is list:
+                    pass
+                # otherwise, fine
+                else:
+                    try:
+                        return const(result)
+                    except WrapException:
+                        # type cannot sanely appear in flow graph,
+                        # store operation with variable result instead
+                        pass
 
 
 def add_operator(name, arity, symbol, pyfunc=None, pure=False, ovf=False):
     operator_func = getattr(operator, name, None)
-    oper = SpaceOperator(name, arity, symbol, pyfunc, pure, can_overflow=ovf)
-    setattr(op, name, oper)
+    base_cls = PureOperation if pure else HLOperation
+    cls = type(name, (base_cls,), {'opname': name, 'arity': arity,
+                                   'can_overflow': ovf, 'canraise': []})
+    setattr(op, name, cls)
     if pyfunc is not None:
-        func2op[pyfunc] = oper
+        func2op[pyfunc] = cls
     if operator_func:
-        func2op[operator_func] = oper
-        if pyfunc is None:
-            oper.pyfunc = operator_func
+        func2op[operator_func] = cls
+    if pyfunc is not None:
+        cls.pyfunc = staticmethod(pyfunc)
+    elif operator_func is not None:
+        cls.pyfunc = staticmethod(operator_func)
     if ovf:
-        ovf_func = lambda *args: ovfcheck(oper.pyfunc(*args))
+        from rpython.rlib.rarithmetic import ovfcheck
+        ovf_func = lambda *args: ovfcheck(cls.pyfunc(*args))
         add_operator(name + '_ovf', arity, symbol, pyfunc=ovf_func)
 
 # ____________________________________________________________
@@ -163,7 +211,6 @@ def unsupported(*args):
 add_operator('is_', 2, 'is', pure=True)
 add_operator('id', 1, 'id', pyfunc=id)
 add_operator('type', 1, 'type', pyfunc=new_style_type, pure=True)
-add_operator('isinstance', 2, 'isinstance', pyfunc=isinstance, pure=True)
 add_operator('issubtype', 2, 'issubtype', pyfunc=issubclass, pure=True)  # not for old-style classes
 add_operator('repr', 1, 'repr', pyfunc=repr, pure=True)
 add_operator('str', 1, 'str', pyfunc=str, pure=True)
@@ -182,9 +229,9 @@ add_operator('delslice', 3, 'delslice', pyfunc=do_delslice)
 add_operator('trunc', 1, 'trunc', pyfunc=unsupported)
 add_operator('pos', 1, 'pos', pure=True)
 add_operator('neg', 1, 'neg', pure=True, ovf=True)
-add_operator('nonzero', 1, 'truth', pyfunc=bool, pure=True)
-op.is_true = op.nonzero
-add_operator('abs' , 1, 'abs', pyfunc=abs, pure=True, ovf=True)
+add_operator('bool', 1, 'truth', pyfunc=bool, pure=True)
+op.is_true = op.nonzero = op.bool  # for llinterp
+add_operator('abs', 1, 'abs', pyfunc=abs, pure=True, ovf=True)
 add_operator('hex', 1, 'hex', pyfunc=hex, pure=True)
 add_operator('oct', 1, 'oct', pyfunc=oct, pure=True)
 add_operator('ord', 1, 'ord', pyfunc=ord, pure=True)
@@ -240,9 +287,12 @@ add_operator('buffer', 1, 'buffer', pyfunc=buffer, pure=True)   # see buffer.py
 
 # Other functions that get directly translated to SpaceOperators
 func2op[type] = op.type
-func2op[operator.truth] = op.nonzero
+func2op[operator.truth] = op.bool
 if hasattr(__builtin__, 'next'):
     func2op[__builtin__.next] = op.next
+
+for fn, oper in func2op.items():
+    register_flow_sc(fn)(oper.make_sc())
 
 
 op_appendices = {
@@ -266,7 +316,7 @@ def _add_exceptions(names, exc):
         oper = getattr(op, name)
         lis = oper.canraise
         if exc in lis:
-            raise ValueError, "your list is causing duplication!"
+            raise ValueError("your list is causing duplication!")
         lis.append(exc)
         assert exc in op_appendices
 

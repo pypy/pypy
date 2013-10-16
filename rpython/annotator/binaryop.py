@@ -20,7 +20,7 @@ from rpython.annotator.model import add_knowntypedata, merge_knowntypedata
 from rpython.annotator.bookkeeper import getbookkeeper
 from rpython.flowspace.model import Variable, Constant
 from rpython.rlib import rarithmetic
-from rpython.tool.error import AnnotatorError
+from rpython.annotator.model import AnnotatorError
 
 # convenience only!
 def immutablevalue(x):
@@ -243,14 +243,16 @@ class __extend__(pairtype(SomeInteger, SomeInteger)):
 
             if t2 is int:
                 if int2.nonneg == False:
-                    raise UnionError, "Merging %s and a possibly negative int is not allowed" % t1
+                    raise UnionError(int1, int2, "RPython cannot prove that these " + \
+                            "integers are of the same signedness")
                 knowntype = t1
             elif t1 is int:
                 if int1.nonneg == False:
-                    raise UnionError, "Merging %s and a possibly negative int is not allowed" % t2
+                    raise UnionError(int1, int2, "RPython cannot prove that these " + \
+                            "integers are of the same signedness")
                 knowntype = t2
             else:
-                raise UnionError, "Merging these types (%s, %s) is not supported" % (t1, t2)
+                raise UnionError(int1, int2)
         return SomeInteger(nonneg=int1.nonneg and int2.nonneg,
                            knowntype=knowntype)
 
@@ -455,7 +457,7 @@ class __extend__(pairtype(SomeUnicodeCodePoint, SomeUnicodeCodePoint)):
 class __extend__(pairtype(SomeString, SomeUnicodeString),
                  pairtype(SomeUnicodeString, SomeString)):
     def mod((str, unistring)):
-        raise NotImplementedError(
+        raise AnnotatorError(
             "string formatting mixing strings and unicode not supported")
 
 
@@ -469,7 +471,7 @@ class __extend__(pairtype(SomeString, SomeTuple),
             if (is_unicode and isinstance(s_item, (SomeChar, SomeString)) or
                 is_string and isinstance(s_item, (SomeUnicodeCodePoint,
                                                   SomeUnicodeString))):
-                raise NotImplementedError(
+                raise AnnotatorError(
                     "string formatting mixing strings and unicode not supported")
         getbookkeeper().count('strformat', s_string, s_tuple)
         no_nul = s_string.no_nul
@@ -551,9 +553,9 @@ class __extend__(pairtype(SomeTuple, SomeTuple)):
 
     def union((tup1, tup2)):
         if len(tup1.items) != len(tup2.items):
-            raise UnionError("cannot take the union of a tuple of length %d "
-                             "and a tuple of length %d" % (len(tup1.items),
-                                                           len(tup2.items)))
+            raise UnionError(tup1, tup2, "RPython cannot unify tuples of "
+                    "different length: %d versus %d" % \
+                    (len(tup1.items), len(tup2.items)))
         else:
             unions = [unionof(x,y) for x,y in zip(tup1.items, tup2.items)]
             return SomeTuple(items = unions)
@@ -726,7 +728,8 @@ class __extend__(pairtype(SomeInstance, SomeInstance)):
         else:
             basedef = ins1.classdef.commonbase(ins2.classdef)
             if basedef is None:
-                raise UnionError(ins1, ins2)
+                raise UnionError(ins1, ins2, "RPython cannot unify instances "
+                        "with no common base class")
         flags = ins1.flags
         if flags:
             flags = flags.copy()
@@ -768,7 +771,8 @@ class __extend__(pairtype(SomeIterator, SomeIterator)):
     def union((iter1, iter2)):
         s_cont = unionof(iter1.s_container, iter2.s_container)
         if iter1.variant != iter2.variant:
-            raise UnionError("merging incompatible iterators variants")
+            raise UnionError(iter1, iter2,
+                    "RPython cannot unify incompatible iterator variants")
         return SomeIterator(s_cont, *iter1.variant)
 
 
@@ -778,8 +782,7 @@ class __extend__(pairtype(SomeBuiltin, SomeBuiltin)):
         if (bltn1.analyser != bltn2.analyser or
             bltn1.methodname != bltn2.methodname or
             bltn1.s_self is None or bltn2.s_self is None):
-            raise UnionError("cannot merge two different builtin functions "
-                             "or methods:\n  %r\n  %r" % (bltn1, bltn2))
+            raise UnionError(bltn1, bltn2)
         s_self = unionof(bltn1.s_self, bltn2.s_self)
         return SomeBuiltin(bltn1.analyser, s_self, methodname=bltn1.methodname)
 
@@ -822,14 +825,14 @@ def _make_none_union(classname, constructor_args='', glob=None):
                 if pbc.isNone():
                     return %(classname)s(%(constructor_args)s)
                 else:
-                    return SomeObject()
+                    raise UnionError(pbc, obj)
 
         class __extend__(pairtype(SomePBC, %(classname)s)):
             def union((pbc, obj)):
                 if pbc.isNone():
                     return %(classname)s(%(constructor_args)s)
                 else:
-                    return SomeObject()
+                    raise UnionError(pbc, obj)
     """ % loc)
     exec source.compile() in glob
 
@@ -866,12 +869,8 @@ class __extend__(pairtype(SomeString, SomePBC)):
 
 # ____________________________________________________________
 # annotation of low-level types
-from rpython.annotator.model import SomePtr, SomeOOInstance, SomeOOClass
-from rpython.annotator.model import SomeOOObject
+from rpython.annotator.model import SomePtr
 from rpython.annotator.model import ll_to_annotation, annotation_to_lltype
-from rpython.rtyper.ootypesystem import ootype
-
-_make_none_union('SomeOOInstance', 'ootype=obj.ootype, can_be_None=True')
 
 class __extend__(pairtype(SomePtr, SomePtr)):
     def union((p1, p2)):
@@ -911,41 +910,6 @@ class __extend__(pairtype(SomeObject, SomePtr)):
     def union((obj, p2)):
         return pair(p2, obj).union()
 
-
-class __extend__(pairtype(SomeOOInstance, SomeOOInstance)):
-    def union((r1, r2)):
-        common = ootype.commonBaseclass(r1.ootype, r2.ootype)
-        assert common is not None, 'Mixing of incompatible instances %r, %r' %(r1.ootype, r2.ootype)
-        return SomeOOInstance(common, can_be_None=r1.can_be_None or r2.can_be_None)
-
-class __extend__(pairtype(SomeOOClass, SomeOOClass)):
-    def union((r1, r2)):
-        if r1.ootype is None:
-            common = r2.ootype
-        elif r2.ootype is None:
-            common = r1.ootype
-        elif r1.ootype == r2.ootype:
-            common = r1.ootype
-        elif isinstance(r1.ootype, ootype.Instance) and isinstance(r2.ootype, ootype.Instance):
-            common = ootype.commonBaseclass(r1.ootype, r2.ootype)
-            assert common is not None, ('Mixing of incompatible classes %r, %r'
-                                        % (r1.ootype, r2.ootype))
-        else:
-            common = ootype.Object
-        return SomeOOClass(common)
-
-class __extend__(pairtype(SomeOOInstance, SomeObject)):
-    def union((r, obj)):
-        assert False, ("mixing reference type %r with something else %r" % (r.ootype, obj))
-
-class __extend__(pairtype(SomeObject, SomeOOInstance)):
-    def union((obj, r2)):
-        return pair(r2, obj).union()
-
-class __extend__(pairtype(SomeOOObject, SomeOOObject)):
-    def union((r1, r2)):
-        assert r1.ootype is ootype.Object and r2.ootype is ootype.Object
-        return SomeOOObject()
 
 #_________________________________________
 # weakrefs
@@ -1015,8 +979,8 @@ class __extend__(pairtype(SomeImpossibleValue, SomeAddress)):
 
 class __extend__(pairtype(SomeAddress, SomeObject)):
     def union((s_addr, s_obj)):
-        raise UnionError, "union of address and anything else makes no sense"
+        raise UnionError(s_addr, s_obj)
 
 class __extend__(pairtype(SomeObject, SomeAddress)):
     def union((s_obj, s_addr)):
-        raise UnionError, "union of address and anything else makes no sense"
+        raise UnionError(s_obj, s_addr)

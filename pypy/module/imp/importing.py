@@ -833,21 +833,15 @@ def getimportlock(space):
 """
 
 # picking a magic number is a mess.  So far it works because we
-# have only one extra opcode, which bumps the magic number by +2, and CPython
-# leaves a gap of 10 when it increases
-# its own magic number.  To avoid assigning exactly the same numbers
-# as CPython we always add a +2.  We'll have to think again when we
-# get three more new opcodes
+# have only one extra opcode which might or might not be present.
+# CPython leaves a gap of 10 when it increases its own magic number.
+# To avoid assigning exactly the same numbers as CPython, we can pick
+# any number between CPython + 2 and CPython + 9.  Right now,
+# default_magic = CPython + 6.
 #
-#  * CALL_METHOD            +2
-#
-# In other words:
-#
-#     default_magic        -- used by CPython without the -U option
-#     default_magic + 1    -- used by CPython with the -U option
-#     default_magic + 2    -- used by PyPy without any extra opcode
-#     ...
-#     default_magic + 5    -- used by PyPy with both extra opcodes
+#     default_magic - 6    -- used by CPython without the -U option
+#     default_magic - 5    -- used by CPython with the -U option
+#     default_magic        -- used by PyPy [because of CALL_METHOD]
 #
 from pypy.interpreter.pycode import default_magic
 MARSHAL_VERSION_FOR_PYC = 2
@@ -860,10 +854,7 @@ def get_pyc_magic(space):
             magic = __import__('imp').get_magic()
             return struct.unpack('<i', magic)[0]
 
-    result = default_magic
-    if space.config.objspace.opcodes.CALL_METHOD:
-        result += 2
-    return result
+    return default_magic
 
 
 def parse_source_module(space, pathname, source):

@@ -105,7 +105,7 @@ class BaseGCTransformer(object):
             self.minimalgctransformer = None
 
     def get_lltype_of_exception_value(self):
-        exceptiondata = self.translator.rtyper.getexceptiondata()
+        exceptiondata = self.translator.rtyper.exceptiondata
         return exceptiondata.lltype_of_exception_value
 
     def need_minimal_transform(self, graph):
@@ -330,6 +330,7 @@ class BaseGCTransformer(object):
             hop.rename('bare_' + hop.spaceop.opname)
     gct_setarrayitem = gct_setfield
     gct_setinteriorfield = gct_setfield
+    gct_raw_store = gct_setfield
 
     gct_getfield = default
 
@@ -479,11 +480,11 @@ class GCTransformer(BaseGCTransformer):
         flags = hop.spaceop.args[1].value
         flavor = flags['flavor']
         meth = getattr(self, 'gct_fv_%s_malloc' % flavor, None)
-        assert meth, "%s has no support for malloc with flavor %r" % (self, flavor) 
+        assert meth, "%s has no support for malloc with flavor %r" % (self, flavor)
         c_size = rmodel.inputconst(lltype.Signed, llmemory.sizeof(TYPE))
         v_raw = meth(hop, flags, TYPE, c_size)
         hop.cast_result(v_raw)
- 
+
     def gct_fv_raw_malloc(self, hop, flags, TYPE, c_size):
         v_raw = hop.genop("direct_call", [self.raw_malloc_fixedsize_ptr, c_size],
                           resulttype=llmemory.Address)
@@ -506,7 +507,7 @@ class GCTransformer(BaseGCTransformer):
             flags.update(add_flags)
         flavor = flags['flavor']
         meth = getattr(self, 'gct_fv_%s_malloc_varsize' % flavor, None)
-        assert meth, "%s has no support for malloc_varsize with flavor %r" % (self, flavor) 
+        assert meth, "%s has no support for malloc_varsize with flavor %r" % (self, flavor)
         return self.varsize_malloc_helper(hop, flags, meth, [])
 
     def gct_malloc_nonmovable(self, *args, **kwds):

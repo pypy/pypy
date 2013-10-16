@@ -1,5 +1,5 @@
 import math, sys
-from rpython.jit.metainterp.test.support import LLJitMixin, OOJitMixin
+from rpython.jit.metainterp.test.support import LLJitMixin
 from rpython.rlib.rarithmetic import intmask, r_uint
 
 
@@ -74,9 +74,6 @@ class FloatTests:
         res = self.interp_operations(g, [-12345])
         assert type(res) is float and res == float(long(r_uint(-12345)))
 
-
-class TestOOtype(FloatTests, OOJitMixin):
-    pass
 
 class TestLLtype(FloatTests, LLJitMixin):
     pass

@@ -299,10 +299,6 @@ class BaseFrameworkGCTransformer(GCTransformer):
         else:
             malloc_fixedsize_meth = None
             self.malloc_fixedsize_ptr = self.malloc_fixedsize_clear_ptr
-##         self.malloc_varsize_ptr = getfn(
-##             GCClass.malloc_varsize.im_func,
-##             [s_gc] + [annmodel.SomeInteger(nonneg=True) for i in range(5)]
-##             + [annmodel.SomeBool()], s_gcref)
         self.malloc_varsize_clear_ptr = getfn(
             GCClass.malloc_varsize_clear.im_func,
             [s_gc, s_typeid16]
@@ -320,13 +316,6 @@ class BaseFrameworkGCTransformer(GCTransformer):
                  annmodel.SomeInteger(nonneg=True)], annmodel.s_Bool)
         else:
             self.shrink_array_ptr = None
-
-        if hasattr(GCClass, 'assume_young_pointers'):
-            # xxx should really be a noop for gcs without generations
-            self.assume_young_pointers_ptr = getfn(
-                GCClass.assume_young_pointers.im_func,
-                [s_gc, annmodel.SomeAddress()],
-                annmodel.s_None)
 
         if hasattr(GCClass, 'heap_stats'):
             self.heap_stats_ptr = getfn(GCClass.heap_stats.im_func,
@@ -478,11 +467,10 @@ class BaseFrameworkGCTransformer(GCTransformer):
         if GCClass.needs_write_barrier:
             self.write_barrier_ptr = getfn(GCClass.write_barrier.im_func,
                                            [s_gc,
-                                            annmodel.SomeAddress(),
                                             annmodel.SomeAddress()],
                                            annmodel.s_None,
                                            inline=True)
-            func = getattr(gcdata.gc, 'jit_remember_young_pointer', None)
+            func = getattr(gcdata.gc, 'remember_young_pointer', None)
             if func is not None:
                 # func should not be a bound method, but a real function
                 assert isinstance(func, types.FunctionType)
@@ -493,7 +481,6 @@ class BaseFrameworkGCTransformer(GCTransformer):
             if func is not None:
                 self.write_barrier_from_array_ptr = getfn(func.im_func,
                                            [s_gc,
-                                            annmodel.SomeAddress(),
                                             annmodel.SomeAddress(),
                                             annmodel.SomeInteger()],
                                            annmodel.s_None,
@@ -744,15 +731,15 @@ class BaseFrameworkGCTransformer(GCTransformer):
                                   v_addr, v_length],
                   resultvar=op.result)
 
-    def gct_gc_assume_young_pointers(self, hop):
-        if not hasattr(self, 'assume_young_pointers_ptr'):
+    def gct_gc_writebarrier(self, hop):
+        if self.write_barrier_ptr is None:
             return
         op = hop.spaceop
         v_addr = op.args[0]
         if v_addr.concretetype != llmemory.Address:
             v_addr = hop.genop('cast_ptr_to_adr',
                                [v_addr], resulttype=llmemory.Address)
-        hop.genop("direct_call", [self.assume_young_pointers_ptr,
+        hop.genop("direct_call", [self.write_barrier_ptr,
                                   self.c_const_gc, v_addr])
 
     def gct_gc_heap_stats(self, hop):
@@ -884,8 +871,9 @@ class BaseFrameworkGCTransformer(GCTransformer):
 
     def gct_get_write_barrier_from_array_failing_case(self, hop):
         op = hop.spaceop
-        v = getattr(self, 'write_barrier_from_array_failing_case_ptr',
-                    lltype.nullptr(op.result.concretetype.TO))
+        null = lltype.nullptr(op.result.concretetype.TO)
+        c_null = rmodel.inputconst(op.result.concretetype, null)
+        v = getattr(self, 'write_barrier_from_array_failing_case_ptr', c_null)
         hop.genop("same_as", [v], resultvar=op.result)
 
     def gct_zero_gc_pointers_inside(self, hop):
@@ -986,9 +974,6 @@ class BaseFrameworkGCTransformer(GCTransformer):
         hop.genop("direct_call", [self.set_max_heap_size_ptr,
                                   self.c_const_gc,
                                   v_size])
-
-    def gct_gc_thread_prepare(self, hop):
-        pass   # no effect any more
 
     def gct_gc_thread_run(self, hop):
         assert self.translator.config.translation.thread
@@ -1116,7 +1101,8 @@ class BaseFrameworkGCTransformer(GCTransformer):
         opname = hop.spaceop.opname
         v_struct = hop.spaceop.args[0]
         v_newvalue = hop.spaceop.args[-1]
-        assert opname in ('setfield', 'setarrayitem', 'setinteriorfield')
+        assert opname in ('setfield', 'setarrayitem', 'setinteriorfield',
+                          'raw_store')
         assert isinstance(v_newvalue.concretetype, lltype.Ptr)
         # XXX for some GCs the skipping if the newvalue is a constant won't be
         # ok
@@ -1124,8 +1110,6 @@ class BaseFrameworkGCTransformer(GCTransformer):
             and not isinstance(v_newvalue, Constant)
             and v_struct.concretetype.TO._gckind == "gc"
             and hop.spaceop not in self.clean_sets):
-            v_newvalue = hop.genop("cast_ptr_to_adr", [v_newvalue],
-                                   resulttype = llmemory.Address)
             v_structaddr = hop.genop("cast_ptr_to_adr", [v_struct],
                                      resulttype = llmemory.Address)
             if (self.write_barrier_from_array_ptr is not None and
@@ -1135,14 +1119,12 @@ class BaseFrameworkGCTransformer(GCTransformer):
                 assert v_index.concretetype == lltype.Signed
                 hop.genop("direct_call", [self.write_barrier_from_array_ptr,
                                           self.c_const_gc,
-                                          v_newvalue,
                                           v_structaddr,
                                           v_index])
             else:
                 self.write_barrier_calls += 1
                 hop.genop("direct_call", [self.write_barrier_ptr,
                                           self.c_const_gc,
-                                          v_newvalue,
                                           v_structaddr])
         hop.rename('bare_' + opname)
 

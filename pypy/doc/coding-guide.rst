@@ -339,9 +339,10 @@ We are using
 
 + methods and other class attributes do not change after startup
 + single inheritance is fully supported
-+ simple mixins somewhat work too, but the mixed in class needs a
-  ``_mixin_ = True`` class attribute. isinstance checks against the
-  mixin type will fail when translated.
++ use `rpython.rlib.objectmodel.import_from_mixin(M)` in a class
+  body to copy the whole content of a class `M`.  This can be used
+  to implement mixins: functions and staticmethods are duplicated
+  (the other class attributes are just copied unmodified).
 
 + classes are first-class objects too
 
@@ -626,7 +627,7 @@ Module directories / Import order
 
 Here is the order in which PyPy looks up Python modules:
 
-*pypy/modules*
+*pypy/module*
 
     mixed interpreter/app-level builtin modules, such as
     the ``sys`` and ``__builtin__`` module.
@@ -657,7 +658,7 @@ by default and CPython has a number of places where it relies
 on some classes being old-style.
 
 We just maintain those changes in place,
-to see what is changed we have a branch called `vendot/stdlib`
+to see what is changed we have a branch called `vendor/stdlib`
 wich contains the unmodified cpython stdlib
 
 .. _`mixed module mechanism`:

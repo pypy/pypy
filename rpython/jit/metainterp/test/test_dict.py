@@ -1,5 +1,5 @@
 import py
-from rpython.jit.metainterp.test.support import LLJitMixin, OOJitMixin
+from rpython.jit.metainterp.test.support import LLJitMixin
 from rpython.rlib.jit import JitDriver
 from rpython.rlib import objectmodel
 
@@ -163,7 +163,7 @@ class DictTests:
 
     def test_unrolling_of_dict_iter(self):
         driver = JitDriver(greens = [], reds = ['n'])
-        
+
         def f(n):
             while n > 0:
                 driver.jit_merge_point(n=n)
@@ -177,9 +177,6 @@ class DictTests:
         self.check_simple_loop({'int_sub': 1, 'int_gt': 1, 'guard_true': 1,
                                 'jump': 1})
 
-
-class TestOOtype(DictTests, OOJitMixin):
-    pass
 
 class TestLLtype(DictTests, LLJitMixin):
     pass

@@ -56,6 +56,7 @@ int PyArg_UnpackTuple(PyObject *args, const char *name, Py_ssize_t min, Py_ssize
 #define PyMODINIT_FUNC void
 #endif
 
+PyAPI_DATA(char *) _Py_PackageContext;
 
 #ifdef __cplusplus
 }

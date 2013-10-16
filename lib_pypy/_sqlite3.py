@@ -363,9 +363,11 @@ class NotSupportedError(DatabaseError):
     pass
 
 
-def connect(database, **kwargs):
-    factory = kwargs.get("factory", Connection)
-    return factory(database, **kwargs)
+def connect(database, timeout=5.0, detect_types=0, isolation_level="",
+                 check_same_thread=True, factory=None, cached_statements=100):
+    factory = Connection if not factory else factory
+    return factory(database, timeout, detect_types, isolation_level,
+                    check_same_thread, factory, cached_statements)
 
 
 def _unicode_text_factory(x):
@@ -1229,7 +1231,10 @@ class Statement(object):
         if cvt is not None:
             param = cvt(param)
 
-        param = adapt(param)
+        try:
+            param = adapt(param)
+        except:
+            pass  # And use previous value
 
         if param is None:
             rc = _lib.sqlite3_bind_null(self._statement, idx)
@@ -1305,7 +1310,7 @@ class Statement(object):
         for i in xrange(_lib.sqlite3_column_count(self._statement)):
             name = _lib.sqlite3_column_name(self._statement, i)
             if name:
-                name = _ffi.string(name).decode('utf-8').split("[")[0].strip()
+                name = _ffi.string(name).split("[")[0].strip()
             desc.append((name, None, None, None, None, None, None))
         return desc
 

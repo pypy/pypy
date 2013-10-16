@@ -2,7 +2,7 @@ import sys
 
 from rpython.annotator import model as annmodel
 from rpython.flowspace.operation import op_appendices
-from rpython.rlib import objectmodel
+from rpython.rlib import objectmodel, jit
 from rpython.rlib.rarithmetic import intmask, r_int, r_longlong
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.lltypesystem.lltype import (Signed, Unsigned, Bool, Float,
@@ -251,14 +251,15 @@ class __extend__(IntegerRepr):
         raise TyperError("not an integer: %r" % (value,))
 
     def get_ll_eq_function(self):
+        if getattr(self, '_opprefix', '?') is None:
+            return ll_eq_shortint
         return None
-    get_ll_gt_function = get_ll_eq_function
-    get_ll_lt_function = get_ll_eq_function
-    get_ll_ge_function = get_ll_eq_function
-    get_ll_le_function = get_ll_eq_function
 
     def get_ll_ge_function(self):
         return None
+    get_ll_gt_function = get_ll_ge_function
+    get_ll_lt_function = get_ll_ge_function
+    get_ll_le_function = get_ll_ge_function
 
     def get_ll_hash_function(self):
         if (sys.maxint == 2147483647 and
@@ -295,7 +296,7 @@ class __extend__(IntegerRepr):
             hop.exception_cannot_occur()
         return hop.genop('cast_int_to_unichar', vlist, resulttype=UniChar)
 
-    def rtype_is_true(self, hop):
+    def rtype_bool(self, hop):
         assert self is self.as_int   # rtype_is_true() is overridden in BoolRepr
         vlist = hop.inputargs(self)
         return hop.genop(self.opprefix + 'is_true', vlist, resulttype=Bool)
@@ -365,31 +366,34 @@ class __extend__(IntegerRepr):
         hop.exception_cannot_occur()
         return vlist[0]
 
-    # version picked by specialisation based on which
-    # type system rtyping is using, from <type_system>.ll_str module
+    @jit.elidable
     def ll_str(self, i):
-        raise NotImplementedError
-    ll_str._annspecialcase_ = "specialize:ts('ll_str.ll_int_str')"
+        from rpython.rtyper.lltypesystem.ll_str import ll_int2dec
+        return ll_int2dec(i)
 
     def rtype_hex(self, hop):
+        from rpython.rtyper.lltypesystem.ll_str import ll_int2hex
         self = self.as_int
         varg = hop.inputarg(self, 0)
         true = inputconst(Bool, True)
-        fn = hop.rtyper.type_system.ll_str.ll_int2hex
-        return hop.gendirectcall(fn, varg, true)
+        return hop.gendirectcall(ll_int2hex, varg, true)
 
     def rtype_oct(self, hop):
+        from rpython.rtyper.lltypesystem.ll_str import ll_int2oct
         self = self.as_int
         varg = hop.inputarg(self, 0)
         true = inputconst(Bool, True)
-        fn = hop.rtyper.type_system.ll_str.ll_int2oct
-        return hop.gendirectcall(fn, varg, true)
+        return hop.gendirectcall(ll_int2oct, varg, true)
 
 def ll_hash_int(n):
     return intmask(n)
 
 def ll_hash_long_long(n):
     return intmask(intmask(n) + 9 * intmask(n >> 32))
+
+def ll_eq_shortint(n, m):
+    return intmask(n) == intmask(m)
+ll_eq_shortint.no_direct_compare = True
 
 def ll_check_chr(n):
     if 0 <= n <= 255:

@@ -60,10 +60,10 @@ class _IsLLPtrEntry(ExtRegistryEntry):
 
 def llexternal(name, args, result, _callable=None,
                compilation_info=ExternalCompilationInfo(),
-               sandboxsafe=False, threadsafe='auto',
+               sandboxsafe=False, releasegil='auto',
                _nowrapper=False, calling_conv='c',
-               oo_primitive=None, elidable_function=False,
-               macro=None, random_effects_on_gcobjs='auto'):
+               elidable_function=False, macro=None,
+               random_effects_on_gcobjs='auto'):
     """Build an external function that will invoke the C function 'name'
     with the given 'args' types and 'result' type.
 
@@ -77,7 +77,7 @@ def llexternal(name, args, result, _callable=None,
     as constant RPython functions.  We don't support yet C functions that
     invoke callbacks passed otherwise (e.g. set by a previous C call).
 
-    threadsafe: whether it's ok to release the GIL around the call.
+    releasegil: whether it's ok to release the GIL around the call.
                 Default is yes, unless sandboxsafe is set, in which case
                 we consider that the function is really short-running and
                 don't bother releasing the GIL.  An explicit True or False
@@ -97,8 +97,6 @@ def llexternal(name, args, result, _callable=None,
     if elidable_function:
         _callable._elidable_function_ = True
     kwds = {}
-    if oo_primitive:
-        kwds['oo_primitive'] = oo_primitive
 
     has_callback = False
     for ARG in args:
@@ -109,10 +107,10 @@ def llexternal(name, args, result, _callable=None,
     else:
         callbackholder = None
 
-    if threadsafe in (False, True):
+    if releasegil in (False, True):
         # invoke the around-handlers, which release the GIL, if and only if
         # the C function is thread-safe.
-        invoke_around_handlers = threadsafe
+        invoke_around_handlers = releasegil
     else:
         # default case:
         # invoke the around-handlers only for "not too small" external calls;
@@ -651,6 +649,10 @@ VOIDPP = CArrayPtr(VOIDP)
 # char *
 CCHARP = lltype.Ptr(lltype.Array(lltype.Char, hints={'nolength': True}))
 
+# const char *
+CONST_CCHARP = lltype.Ptr(lltype.Array(lltype.Char, hints={'nolength': True,
+                                       'render_as_const': True}))
+
 # wchar_t *
 CWCHARP = lltype.Ptr(lltype.Array(lltype.UniChar, hints={'nolength': True}))
 
@@ -1134,7 +1136,7 @@ class scoped_alloc_unicodebuffer:
 # You would have to have a *huge* amount of data for this to block long enough
 # to be worth it to release the GIL.
 c_memcpy = llexternal("memcpy",
-    [VOIDP, VOIDP, SIZE_T],
-    lltype.Void,
-    threadsafe=False
-)
+            [VOIDP, VOIDP, SIZE_T],
+            lltype.Void,
+            releasegil=False
+        )

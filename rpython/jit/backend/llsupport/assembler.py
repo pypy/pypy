@@ -2,7 +2,7 @@ from rpython.jit.backend.llsupport import jitframe
 from rpython.jit.backend.llsupport.memcpy import memcpy_fn
 from rpython.jit.backend.llsupport.symbolic import WORD
 from rpython.jit.metainterp.history import (INT, REF, FLOAT, JitCellToken,
-    ConstInt, BoxInt)
+    ConstInt, BoxInt, AbstractFailDescr)
 from rpython.jit.metainterp.resoperation import ResOperation, rop
 from rpython.rlib import rgc
 from rpython.rlib.debug import (debug_start, debug_stop, have_debug_prints,
@@ -24,6 +24,7 @@ DEBUG_COUNTER = lltype.Struct('DEBUG_COUNTER',
 class GuardToken(object):
     def __init__(self, cpu, gcmap, faildescr, failargs, fail_locs, exc,
                  frame_depth, is_guard_not_invalidated, is_guard_not_forced):
+        assert isinstance(faildescr, AbstractFailDescr)
         self.cpu = cpu
         self.faildescr = faildescr
         self.failargs = failargs
@@ -106,6 +107,10 @@ class BaseAssembler(object):
                 kind='unicode')
         else:
             self.malloc_slowpath_unicode = None
+        self.cond_call_slowpath = [self._build_cond_call_slowpath(False, False),
+                                   self._build_cond_call_slowpath(False, True),
+                                   self._build_cond_call_slowpath(True, False),
+                                   self._build_cond_call_slowpath(True, True)]
 
         self._build_stack_check_slowpath()
         self._build_release_gil(gc_ll_descr.gcrootmap)
@@ -228,11 +233,8 @@ class BaseAssembler(object):
 
         jmp_location = self._call_assembler_patch_je(result_loc, je_location)
 
-        # Path B: fast path.  Must load the return value, and reset the token
+        # Path B: fast path.  Must load the return value
 
-        # Reset the vable token --- XXX really too much special logic here:-(
-        if jd.index_of_virtualizable >= 0:
-            self._call_assembler_reset_vtoken(jd, vloc)
         #
         self._call_assembler_load_result(op, result_loc)
         #

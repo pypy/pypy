@@ -41,7 +41,7 @@ def dtype_agreement(space, w_arr_list, shape, out=None):
     dtype = w_arr_list[0].get_dtype()
     for w_arr in w_arr_list[1:]:
         dtype = find_binop_result_dtype(space, dtype, w_arr.get_dtype())
-    out = base.W_NDimArray.from_shape(shape, dtype)
+    out = base.W_NDimArray.from_shape(space, shape, dtype)
     return out
 
 
@@ -233,6 +233,9 @@ class W_Dtype(W_Root):
 
     def is_record_type(self):
         return self.fields is not None
+
+    def is_str_type(self):
+        return self.num == 18
 
     def is_str_or_unicode(self):
         return (self.num == 18 or self.num == 19)
@@ -682,7 +685,7 @@ class DtypeCache(object):
             name='string',
             char='S',
             w_box_type = space.gettypefor(interp_boxes.W_StringBox),
-            alternate_constructors=[space.w_str],
+            alternate_constructors=[space.w_str, space.gettypefor(interp_boxes.W_CharacterBox)],
             aliases=["str"],
         )
         self.w_unicodedtype = W_Dtype(
@@ -801,11 +804,6 @@ class DtypeCache(object):
                 self.dtypes_by_name[alias] = dtype
             self.dtypes_by_name[dtype.char] = dtype
 
-        self.dtypes_by_num = [dtype for dtype in
-                sorted(self.dtypes_by_num.values(), key=lambda dtype: dtype.num)
-                if dtype.num <= self.w_float64dtype.num]
-        assert len(self.dtypes_by_num) == self.w_float64dtype.num + 1
-
         typeinfo_full = {
             'LONGLONG': self.w_int64dtype,
             'SHORT': self.w_int16dtype,
@@ -818,14 +816,14 @@ class DtypeCache(object):
             #'OBJECT',
             'ULONGLONG': self.w_uint64dtype,
             'STRING': self.w_stringdtype,
-            'CDOUBLE': self.w_complex64dtype,
+            'CFLOAT': self.w_complex64dtype,
+            'CDOUBLE': self.w_complex128dtype,
             #'DATETIME',
             'UINT': self.w_uint32dtype,
             'INTP': self.w_intpdtype,
             'UINTP': self.w_uintpdtype,
-            #'HALF',
+            'HALF': self.w_float16dtype,
             'BYTE': self.w_int8dtype,
-            #'CFLOAT': ,
             #'TIMEDELTA',
             'INT': self.w_int32dtype,
             'DOUBLE': self.w_float64dtype,
@@ -858,7 +856,7 @@ class DtypeCache(object):
                        space.wrap(dtype.num),
                        space.wrap(itemsize * 8), # in case of changing
                        # number of bits per byte in the future
-                       space.wrap(itemsize or 1)]
+                       space.wrap(itemsize / (2 if dtype.kind == COMPLEXLTR else 1) or 1)]
             if dtype.is_int_type():
                 if dtype.kind == BOOLLTR:
                     w_maxobj = space.wrap(1)

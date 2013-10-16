@@ -10,20 +10,20 @@ from rpython.annotator.model import (SomeObject, SomeInteger, SomeBool,
     SomeUnicodeCodePoint, SomeInstance, SomeBuiltin, SomeFloat, SomeIterator,
     SomePBC, SomeTypedAddressAccess, SomeAddress, SomeType, s_ImpossibleValue,
     s_Bool, s_None, unionof, missing_operation, add_knowntypedata,
-    HarmlesslyBlocked, SomeWeakRef, SomeUnicodeString)
+    HarmlesslyBlocked, SomeWeakRef, SomeUnicodeString, SomeByteArray)
 from rpython.annotator.bookkeeper import getbookkeeper
 from rpython.annotator import builtin
 from rpython.annotator.binaryop import _clone ## XXX where to put this?
-from rpython.tool.error import AnnotatorError
+from rpython.annotator.model import AnnotatorError
 
 # convenience only!
 def immutablevalue(x):
     return getbookkeeper().immutablevalue(x)
 
-UNARY_OPERATIONS = set(['len', 'is_true', 'getattr', 'setattr', 'delattr',
+UNARY_OPERATIONS = set(['len', 'bool', 'getattr', 'setattr', 'delattr',
                         'simple_call', 'call_args', 'str', 'repr',
                         'iter', 'next', 'invert', 'type', 'issubtype',
-                        'pos', 'neg', 'nonzero', 'abs', 'hex', 'oct',
+                        'pos', 'neg', 'abs', 'hex', 'oct',
                         'ord', 'int', 'float', 'long',
                         'hash', 'id',    # <== not supported any more
                         'getslice', 'setslice', 'delslice',
@@ -57,7 +57,7 @@ class __extend__(SomeObject):
     def len(obj):
         return SomeInteger(nonneg=True)
 
-    def is_true_behavior(obj, s):
+    def bool_behavior(obj, s):
         if obj.is_immutable_constant():
             s.const = bool(obj.const)
         else:
@@ -65,13 +65,13 @@ class __extend__(SomeObject):
             if s_len.is_immutable_constant():
                 s.const = s_len.const > 0
 
-    def is_true(s_obj):
+    def bool(s_obj):
         r = SomeBool()
-        s_obj.is_true_behavior(r)
+        s_obj.bool_behavior(r)
 
         bk = getbookkeeper()
         knowntypedata = {}
-        op = bk._find_current_op(opname=("is_true", "nonzero"), arity=1)
+        op = bk._find_current_op(opname="bool", arity=1)
         arg = op.args[0]
         s_nonnone_obj = s_obj
         if s_obj.can_be_none():
@@ -80,12 +80,8 @@ class __extend__(SomeObject):
         r.set_knowntypedata(knowntypedata)
         return r
 
-    def nonzero(obj):
-        return obj.is_true()
-
     def hash(obj):
-        raise TypeError, ("cannot use hash() in RPython; "
-                          "see objectmodel.compute_xxx()")
+        raise AnnotatorError("cannot use hash() in RPython")
 
     def str(obj):
         getbookkeeper().count('str', obj)
@@ -158,9 +154,7 @@ class __extend__(SomeObject):
         return obj.call(getbookkeeper().build_args("call_args", args_s))
 
     def call(obj, args, implicit_init=False):
-        #raise Exception, "cannot follow call_args%r" % ((obj, args),)
-        getbookkeeper().warning("cannot follow call(%r, %r)" % (obj, args))
-        return SomeObject()
+        raise AnnotatorError("Cannot prove that the object is callable")
 
     def op_contains(obj, s_element):
         return s_Bool
@@ -179,7 +173,7 @@ class __extend__(SomeFloat):
 
     abs = neg
 
-    def is_true(self):
+    def bool(self):
         if self.is_immutable_constant():
             return getbookkeeper().immutablevalue(bool(self.const))
         return s_Bool
@@ -211,7 +205,7 @@ class __extend__(SomeInteger):
     abs_ovf = _clone(abs, [OverflowError])
 
 class __extend__(SomeBool):
-    def is_true(self):
+    def bool(self):
         return self
 
     def invert(self):
@@ -317,7 +311,6 @@ class __extend__(SomeList):
             s_iterable = args_s[0]
             if isinstance(s_iterable, (SomeList, SomeDict)):
                 lst = SomeList(lst.listdef) # create a fresh copy
-                lst.known_maxlength = True
                 lst.listdef.resize()
                 lst.listdef.listitem.hint_maxlength = True
         elif 'fence' in hints:
@@ -340,12 +333,13 @@ class __extend__(SomeList):
         check_negative_slice(s_start, s_stop)
         lst.listdef.resize()
 
-def check_negative_slice(s_start, s_stop):
+def check_negative_slice(s_start, s_stop, error="slicing"):
     if isinstance(s_start, SomeInteger) and not s_start.nonneg:
-        raise TypeError("slicing: not proven to have non-negative start")
+        raise AnnotatorError("%s: not proven to have non-negative start" %
+                             error)
     if isinstance(s_stop, SomeInteger) and not s_stop.nonneg and \
            getattr(s_stop, 'const', 0) != -1:
-        raise TypeError("slicing: not proven to have non-negative stop")
+        raise AnnotatorError("%s: not proven to have non-negative stop" % error)
 
 
 class __extend__(SomeDict):
@@ -455,12 +449,15 @@ class __extend__(SomeString,
         return s_Bool
 
     def method_find(str, frag, start=None, end=None):
+        check_negative_slice(start, end, "find")
         return SomeInteger()
 
     def method_rfind(str, frag, start=None, end=None):
+        check_negative_slice(start, end, "rfind")
         return SomeInteger()
 
     def method_count(str, frag, start=None, end=None):
+        check_negative_slice(start, end, "count")
         return SomeInteger(nonneg=True)
 
     def method_strip(str, chr):
@@ -527,13 +524,18 @@ class __extend__(SomeString,
     op_contains.can_only_throw = []
 
 
+class __extend__(SomeByteArray):
+    def getslice(ba, s_start, s_stop):
+        check_negative_slice(s_start, s_stop)
+        return SomeByteArray()
+
 class __extend__(SomeUnicodeString):
     def method_encode(uni, s_enc):
         if not s_enc.is_constant():
-            raise TypeError("Non-constant encoding not supported")
+            raise AnnotatorError("Non-constant encoding not supported")
         enc = s_enc.const
         if enc not in ('ascii', 'latin-1', 'utf-8'):
-            raise TypeError("Encoding %s not supported for unicode" % (enc,))
+            raise AnnotatorError("Encoding %s not supported for unicode" % (enc,))
         return SomeString()
     method_encode.can_only_throw = [UnicodeEncodeError]
 
@@ -563,10 +565,10 @@ class __extend__(SomeString):
 
     def method_decode(str, s_enc):
         if not s_enc.is_constant():
-            raise TypeError("Non-constant encoding not supported")
+            raise AnnotatorError("Non-constant encoding not supported")
         enc = s_enc.const
         if enc not in ('ascii', 'latin-1', 'utf-8'):
-            raise TypeError("Encoding %s not supported for strings" % (enc,))
+            raise AnnotatorError("Encoding %s not supported for strings" % (enc,))
         return SomeUnicodeString()
     method_decode.can_only_throw = [UnicodeDecodeError]
 
@@ -654,7 +656,7 @@ class __extend__(SomeInstance):
         if s_attr.is_constant() and isinstance(s_attr.const, str):
             attr = s_attr.const
             return ins._true_getattr(attr)
-        return SomeObject()
+        raise AnnotatorError("A variable argument to getattr is not RPython")
     getattr.can_only_throw = []
 
     def setattr(ins, s_attr, s_value):
@@ -671,7 +673,7 @@ class __extend__(SomeInstance):
             # create or update the attribute in clsdef
             clsdef.generalize_attr(attr, s_value)
 
-    def is_true_behavior(ins, s):
+    def bool_behavior(ins, s):
         if not ins.can_be_None:
             s.const = True
 
@@ -730,7 +732,7 @@ class __extend__(SomePBC):
 
     def setattr(pbc, s_attr, s_value):
         if not pbc.isNone():
-            raise AnnotatorError("setattr on %r" % pbc)
+            raise AnnotatorError("Cannot modify attribute of a pre-built constant")
 
     def call(pbc, args):
         bookkeeper = getbookkeeper()
@@ -740,7 +742,7 @@ class __extend__(SomePBC):
         d = [desc.bind_under(classdef, name) for desc in pbc.descriptions]
         return SomePBC(d, can_be_None=pbc.can_be_None)
 
-    def is_true_behavior(pbc, s):
+    def bool_behavior(pbc, s):
         if pbc.isNone():
             s.const = False
         elif not pbc.can_be_None:
@@ -752,11 +754,11 @@ class __extend__(SomePBC):
             # whose length is the constant 0; so let's tentatively answer 0.
             return immutablevalue(0)
         else:
-            return SomeObject()    # len() on a pbc? no chance
+            # This should probably never happen
+            raise AnnotatorError("Cannot call len on a pbc")
 
 # annotation of low-level types
 from rpython.annotator.model import SomePtr, SomeLLADTMeth
-from rpython.annotator.model import SomeOOInstance, SomeOOBoundMeth, SomeOOStaticMeth
 from rpython.annotator.model import ll_to_annotation, lltype_to_annotation, annotation_to_lltype
 
 class __extend__(SomePtr):
@@ -801,7 +803,7 @@ class __extend__(SomePtr):
         v = p.ll_ptrtype._example()(*llargs)
         return ll_to_annotation(v)
 
-    def is_true(p):
+    def bool(p):
         return s_Bool
 
 class __extend__(SomeLLADTMeth):
@@ -810,56 +812,6 @@ class __extend__(SomeLLADTMeth):
         bookkeeper = getbookkeeper()
         s_func = bookkeeper.immutablevalue(adtmeth.func)
         return s_func.call(args.prepend(lltype_to_annotation(adtmeth.ll_ptrtype)))
-
-from rpython.rtyper.ootypesystem import ootype
-class __extend__(SomeOOInstance):
-    def getattr(r, s_attr):
-        assert s_attr.is_constant(), "getattr on ref %r with non-constant field-name" % r.ootype
-        v = getattr(r.ootype._example(), s_attr.const)
-        if isinstance(v, ootype._bound_meth):
-            return SomeOOBoundMeth(r.ootype, s_attr.const)
-        return ll_to_annotation(v)
-
-    def setattr(r, s_attr, s_value):
-        assert s_attr.is_constant(), "setattr on ref %r with non-constant field-name" % r.ootype
-        v = annotation_to_lltype(s_value)
-        example = r.ootype._example()
-        if example is not None:
-            setattr(r.ootype._example(), s_attr.const, v._example())
-
-    def is_true(p):
-        return s_Bool
-
-class __extend__(SomeOOBoundMeth):
-    def simple_call(m, *args_s):
-        _, meth = m.ootype._lookup(m.name)
-        if isinstance(meth, ootype._overloaded_meth):
-            return meth._resolver.annotate(args_s)
-        else:
-            METH = ootype.typeOf(meth)
-            return lltype_to_annotation(METH.RESULT)
-
-    def call(m, args):
-        args_s, kwds_s = args.unpack()
-        if kwds_s:
-            raise Exception("keyword arguments to call to a low-level bound method")
-        inst = m.ootype._example()
-        _, meth = ootype.typeOf(inst)._lookup(m.name)
-        METH = ootype.typeOf(meth)
-        return lltype_to_annotation(METH.RESULT)
-
-
-class __extend__(SomeOOStaticMeth):
-
-    def call(m, args):
-        args_s, kwds_s = args.unpack()
-        if kwds_s:
-            raise Exception("keyword arguments to call to a low-level static method")
-        info = 'argument to ll static method call'
-        llargs = [annotation_to_lltype(s_arg, info)._defl() for s_arg in args_s]
-        v = m.method._example()(*llargs)
-        return ll_to_annotation(v)
-
 
 #_________________________________________
 # weakrefs
@@ -885,5 +837,5 @@ class __extend__(SomeAddress):
             llmemory.supported_access_types[s_attr.const])
     getattr.can_only_throw = []
 
-    def is_true(s_addr):
+    def bool(s_addr):
         return s_Bool

@@ -25,12 +25,13 @@ Release Steps
   necessary; also update the version number in pypy/doc/conf.py,
   and in pypy/doc/index.rst
 * update pypy/doc/contributor.rst (and possibly LICENSE)
+  pypy/doc/tool/makecontributor.py generates the list of contributors
 * rename pypy/doc/whatsnew_head.rst to whatsnew_VERSION.rst
   and create a fresh whatsnew_head.rst after the release
 * update README
 * change the tracker to have a new release tag to file bugs against
 * go to pypy/tool/release and run:
-  force-builds.py /release/<release branch>
+  force-builds.py <release branch>
 * wait for builds to complete, make sure there are no failures
 * upload binaries to https://bitbucket.org/pypy/pypy/downloads
 

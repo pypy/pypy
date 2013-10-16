@@ -24,9 +24,6 @@ def shrink_array(p, smallersize):
     return False
 
 
-def thread_prepare():
-    pass
-
 def thread_run():
     pass
 

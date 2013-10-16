@@ -1,3 +1,4 @@
+import sys
 import _continuation
 
 __version__ = "0.4.0"
@@ -5,7 +6,7 @@ __version__ = "0.4.0"
 # ____________________________________________________________
 # Exceptions
 
-class GreenletExit(Exception):
+class GreenletExit(BaseException):
     """This special exception does not propagate to the parent greenlet; it
 can be used to kill a single greenlet."""
 
@@ -75,6 +76,15 @@ class greenlet(_continulet):
             # up the 'parent' explicitly.  Good enough, because a Ctrl-C
             # will show that the program is caught in this loop here.)
             target = target.parent
+            # convert a "raise GreenletExit" into "return GreenletExit"
+            if methodname == 'throw':
+                try:
+                    raise baseargs[0], baseargs[1]
+                except GreenletExit, e:
+                    methodname = 'switch'
+                    baseargs = (((e,), {}),)
+                except:
+                    baseargs = sys.exc_info()[:2] + baseargs[2:]
         #
         try:
             unbound_method = getattr(_continulet, methodname)
@@ -147,5 +157,8 @@ def _greenlet_throw(greenlet, exc, value, tb):
     _tls.current = greenlet
     try:
         raise exc, value, tb
+    except GreenletExit, e:
+        res = e
     finally:
         _continuation.permute(greenlet, greenlet.parent)
+    return ((res,), None)
