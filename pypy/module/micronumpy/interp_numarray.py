@@ -421,8 +421,8 @@ class __extend__(W_NDimArray):
                                      [0] * len(self.get_shape()))
                 assert isinstance(w_obj, interp_boxes.W_GenericBox)
                 return w_obj.item(space)
-            raise OperationError(space.w_IndexError,
-                                 space.wrap("index out of bounds"))
+            raise OperationError(space.w_ValueError,
+                                 space.wrap("can only convert an array of size 1 to a Python scalar"))
         if space.isinstance_w(w_arg, space.w_int):
             if self.is_scalar():
                 raise OperationError(space.w_IndexError,
