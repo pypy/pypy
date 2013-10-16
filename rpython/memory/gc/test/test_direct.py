@@ -10,6 +10,7 @@ import py
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.memory.gctypelayout import TypeLayoutBuilder
 from rpython.rlib.rarithmetic import LONG_BIT, is_valid_int
+from rpython.memory.gc import incminimark
 
 WORD = LONG_BIT // 8
 
@@ -513,7 +514,6 @@ class TestMiniMarkGCSimple(DirectGCTest):
     test_card_marker.GC_PARAMS = {"card_page_indices": 4}
 
     def test_writebarrier_before_copy(self):
-        from rpython.memory.gc import minimark
         largeobj_size =  self.gc.nonlarge_max + 1
         self.gc.next_major_collection_threshold = 99999.0
         p_src = self.malloc(VAR, largeobj_size)
@@ -552,7 +552,6 @@ class TestMiniMarkGCSimple(DirectGCTest):
 
     def test_writebarrier_before_copy_preserving_cards(self):
         from rpython.rtyper.lltypesystem import llarena
-        from rpython.memory.gc import minimark
         tid = self.get_type_id(VAR)
         largeobj_size =  self.gc.nonlarge_max + 1
         self.gc.next_major_collection_threshold = 99999.0
@@ -625,8 +624,6 @@ class TestIncrementalMiniMarkGCSimple(TestMiniMarkGCSimple):
         self.gc.debug_check_consistency()
 
     def test_sweeping_simple(self):
-        from rpython.memory.gc import incminimark
-
         assert self.gc.gc_state == incminimark.STATE_SCANNING
 
         for i in range(2):
@@ -648,6 +645,19 @@ class TestIncrementalMiniMarkGCSimple(TestMiniMarkGCSimple):
         #should not be cleared even though it was allocated while sweeping
         newobj1 = oldobj.next
         assert newobj1.x == 1337
+
+    def test_obj_on_escapes_on_stack(self):
+        obj0 = self.malloc(S)
+
+        self.stackroots.append(obj0)
+        obj0.next = self.malloc(S)
+        self.gc.debug_gc_step_until(incminimark.STATE_MARKING)
+        obj1 = obj0.next
+        obj1.x = 13
+        obj0.next = lltype.nullptr(S)
+        self.stackroots.append(obj1)
+        self.gc.debug_gc_step_until(incminimark.STATE_SCANNING)
+        assert self.stackroots[0].x == 13
 
 class TestIncrementalMiniMarkGCFull(DirectGCTest):
     from rpython.memory.gc.incminimark import IncrementalMiniMarkGC as GCClass
