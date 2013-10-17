@@ -292,10 +292,13 @@ class AppTestCNumber(AppTestCpythonExtensionBase):
                 #prove it works for ints
                 ("test_int", "METH_NOARGS",
                 """
-                PyIntObject * obj = PyInt_FromLong(42);
-                if ( PyInt_Check(obj))
-                    return obj;
-                PyObject * val = PyInt_FromLong(obj->ob_ival);
+                PyObject * obj = PyInt_FromLong(42);
+                if (!PyInt_Check(obj)) {
+                    Py_DECREF(obj);
+                    PyErr_SetNone(PyExc_ValueError);
+                    return NULL;
+                }
+                PyObject * val = PyInt_FromLong(((PyIntObject *)obj)->ob_ival);
                 Py_DECREF(obj);
                 return val;
                 """

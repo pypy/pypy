@@ -21,7 +21,16 @@ def init_intobject(space):
     "Type description of PyIntObject"
     make_typedescr(space.w_int.instancetypedef,
                    basestruct=PyIntObject.TO,
+                   attach=int_attach,
                    realize=int_realize)
+
+def int_attach(space, py_obj, w_obj):
+    """
+    Fills a newly allocated PyIntObject with the given int object. The
+    value must not be modified.
+    """
+    py_int = rffi.cast(PyIntObject, py_obj)
+    py_int.c_ob_ival = space.int_w(w_obj)
 
 def int_realize(space, obj):
     intval = rffi.cast(lltype.Signed, rffi.cast(PyIntObject, obj).c_ob_ival)
@@ -41,10 +50,10 @@ def PyInt_GetMax(space):
     as defined in the system header files)."""
     return sys.maxint
 
-@cpython_api([lltype.Signed], PyIntObject)
+@cpython_api([lltype.Signed], PyObject)
 def PyInt_FromLong(space, ival):
     """Create a new integer object with a value of ival.
-
+    
     """
     return space.wrap(ival)
 
@@ -117,7 +126,7 @@ def PyInt_AsSsize_t(space, w_obj):
 
 LONG_MAX = int(LONG_TEST - 1)
 
-@cpython_api([rffi.SIZE_T], PyIntObject)
+@cpython_api([rffi.SIZE_T], PyObject)
 def PyInt_FromSize_t(space, ival):
     """Create a new integer object with a value of ival. If the value exceeds
     LONG_MAX, a long integer object is returned.
@@ -126,7 +135,7 @@ def PyInt_FromSize_t(space, ival):
         return space.wrap(intmask(ival))
     return space.wrap(ival)
 
-@cpython_api([Py_ssize_t], PyIntObject)
+@cpython_api([Py_ssize_t], PyObject)
 def PyInt_FromSsize_t(space, ival):
     """Create a new integer object with a value of ival. If the value is larger
     than LONG_MAX or smaller than LONG_MIN, a long integer object is
@@ -134,7 +143,7 @@ def PyInt_FromSsize_t(space, ival):
     """
     return space.wrap(ival)
 
-@cpython_api([CONST_STRING, rffi.CCHARPP, rffi.INT_real], PyIntObject)
+@cpython_api([CONST_STRING, rffi.CCHARPP, rffi.INT_real], PyObject)
 def PyInt_FromString(space, str, pend, base):
     """Return a new PyIntObject or PyLongObject based on the string
     value in str, which is interpreted according to the radix in base.  If
