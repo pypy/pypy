@@ -1,4 +1,4 @@
-import py, sys
+import py, sys, zlib, re
 from pypy.tool import gdb_pypy
 
 class FakeGdb(object):
@@ -9,17 +9,30 @@ class FakeGdb(object):
     TYPE_CODE_ARRAY = 2
     TYPE_CODE_STRUCT = 3
 
-    def __init__(self, exprs, progspace=None):
+    def __init__(self, typeids, exprs):
+        self.typeids_z = zlib.compress(typeids)
+        exprs['*(long*)pypy_g_rpython_memory_gctypelayout_GCData'
+              '.gcd_inst_typeids_z'] = len(self.typeids_z)
         self.exprs = exprs
-        self.progspace = progspace
         self._parsed = []
 
     def parse_and_eval(self, expr):
         self._parsed.append(expr)
         return self.exprs[expr]
 
-    def current_progspace(self):
-        return self.progspace
+    def execute(self, command):
+        r = re.compile(r"dump binary memory (\S+) (\S+) (\S+)$")
+        match = r.match(command)
+        assert match
+        fn, start, stop = match.groups()
+        assert start == (
+            '(char*)(((long*)pypy_g_rpython_memory_gctypelayout_GCData'
+            '.gcd_inst_typeids_z)+1)')
+        assert stop == (
+            '(char*)(((long*)pypy_g_rpython_memory_gctypelayout_GCData'
+            '.gcd_inst_typeids_z)+1)+%d' % (len(self.typeids_z),))
+        with open(fn, 'wb') as f:
+            f.write(self.typeids_z)
 
 
 class Mock(object):
@@ -111,33 +124,27 @@ def exprmember(n):
             % (TIDT, n, TIDT))
 
 def test_load_typeids(tmpdir):
-    exe = tmpdir.join('testing_1').join('pypy-c')
-    typeids = tmpdir.join('typeids.txt')
-    typeids.write("""
+    typeids = """
 member0    ?
 member1    GcStruct xxx {}
-""".strip())
-    progspace = Mock(filename=str(exe))
+""".lstrip()
     exprs = {exprmember(1): 111}
-    gdb = FakeGdb(exprs, progspace)
+    gdb = FakeGdb(typeids, exprs)
     cmd = gdb_pypy.RPyType(gdb)
-    typeids = cmd.load_typeids(progspace)
+    typeids = cmd.load_typeids()
     assert typeids[0] == '(null typeid)'
     assert typeids[111] == 'GcStruct xxx {}'
     py.test.raises(KeyError, "typeids[50]")
     py.test.raises(KeyError, "typeids[150]")
 
 def test_RPyType(tmpdir):
-    exe = tmpdir.join('pypy-c')
-    typeids = tmpdir.join('typeids.txt')
-    typeids.write("""
+    typeids = """
 member0    ?
 member1    GcStruct xxx {}
 member2    GcStruct yyy {}
 member3    GcStruct zzz {}
-""".strip())
+""".lstrip()
     #
-    progspace = Mock(filename=str(exe))
     d = {'r_super': {
             '_gcheader': {
                 'h_tid': 123,
@@ -152,7 +159,7 @@ member3    GcStruct zzz {}
         exprmember(2): 123,
         exprmember(3): 456,
         }
-    gdb = FakeGdb(exprs, progspace)
+    gdb = FakeGdb(typeids, exprs)
     cmd = gdb_pypy.RPyType(gdb)
     assert cmd.do_invoke('*myvar', True) == 'GcStruct yyy {}'
 
@@ -198,9 +205,9 @@ def test_pprint_list():
     assert gdb_pypy.RPyListPrinter.lookup(mylist, FakeGdb) is None
 
 def test_typeidsmap():
-    gdb = FakeGdb({exprmember(1): 111,
-                   exprmember(2): 222,
-                   exprmember(3): 333})
+    gdb = FakeGdb('', {exprmember(1): 111,
+                       exprmember(2): 222,
+                       exprmember(3): 333})
     typeids = gdb_pypy.TypeIdsMap(["member0  ?\n",
                                    "member1  FooBar\n",
                                    "member2  Baz\n",
