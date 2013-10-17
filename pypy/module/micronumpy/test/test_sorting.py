@@ -1,16 +1,6 @@
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
-class AppTestSupport(BaseNumpyAppTest):
-    def setup_class(cls):
-        import struct
-        BaseNumpyAppTest.setup_class.im_func(cls)
-        cls.w_data = cls.space.wrap(struct.pack('dddd', 1, 2, 3, 4))
-        cls.w_fdata = cls.space.wrap(struct.pack('f', 2.3))
-        cls.w_float16val = cls.space.wrap('\x00E') # 5.0 in float16
-        cls.w_float32val = cls.space.wrap(struct.pack('f', 5.2))
-        cls.w_float64val = cls.space.wrap(struct.pack('d', 300.4))
-        cls.w_ulongval = cls.space.wrap(struct.pack('L', 12))
-
+class AppTestSorting(BaseNumpyAppTest):
     def test_argsort_dtypes(self):
         from numpypy import array, arange
         assert array(2.0).argsort() == 0
@@ -30,7 +20,7 @@ class AppTestSupport(BaseNumpyAppTest):
             assert (a.argsort() == a).all()
         raises(NotImplementedError, 'arange(10,dtype="float16").argsort()')
 
-    def test_argsort_nd(self):
+    def test_argsort_ndim(self):
         from numpypy import array
         a = array([[4, 2], [1, 3]])
         assert (a.argsort() == [[1, 0], [0, 1]]).all()
@@ -79,7 +69,7 @@ class AppTestSupport(BaseNumpyAppTest):
             a.sort()
             assert (a == c).all()
 
-    def test_sort_dtypesi_nonnative(self):
+    def test_sort_nonnative(self):
         from numpypy import array
         nnp = self.non_native_prefix
         for dtype in [ nnp + 'i2']:
