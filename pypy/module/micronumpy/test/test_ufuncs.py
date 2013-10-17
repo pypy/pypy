@@ -91,14 +91,14 @@ class AppTestUfuncs(BaseNumpyAppTest):
                         uncallable.add(s)
             return uncallable
         assert find_uncallable_ufuncs('int') == set()
-        assert find_uncallable_ufuncs('bool') == set()
+        assert find_uncallable_ufuncs('bool') == set(['sign'])
         assert find_uncallable_ufuncs('float') == set(
                 ['bitwise_and', 'bitwise_not', 'bitwise_or', 'bitwise_xor',
-                 'left_shift', 'right_shift', 'invert'])
+                 'left_shift', 'right_shift', 'invert', 'ldexp'])
         assert find_uncallable_ufuncs('complex') == set(
                 ['bitwise_and', 'bitwise_not', 'bitwise_or', 'bitwise_xor',
                  'arctan2', 'deg2rad', 'degrees', 'rad2deg', 'radians',
-                 'fabs', 'fmod', 'invert', 'isneginf', 'isposinf',
+                 'fabs', 'fmod', 'invert', 'ldexp', 'mod',
                  'logaddexp', 'logaddexp2', 'left_shift', 'right_shift',
                  'copysign', 'signbit', 'ceil', 'floor', 'trunc'])
 
@@ -174,7 +174,6 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert fabs(float('-inf')) == float('inf')
         assert isnan(fabs(float('nan')))
 
-
     def test_fmax(self):
         from numpypy import fmax, array
         import math
@@ -194,7 +193,6 @@ class AppTestUfuncs(BaseNumpyAppTest):
         # on Microsoft win32
         assert math.copysign(1., fmax(nnan, nan)) == math.copysign(1., nnan)
 
-
     def test_fmin(self):
         from numpypy import fmin, array
         import math
@@ -212,7 +210,6 @@ class AppTestUfuncs(BaseNumpyAppTest):
         # use copysign on both sides to sidestep bug in nan representaion
         # on Microsoft win32
         assert math.copysign(1., fmin(nnan, nan)) == math.copysign(1., nnan)
-
 
     def test_fmod(self):
         from numpypy import fmod
@@ -368,7 +365,6 @@ class AppTestUfuncs(BaseNumpyAppTest):
         c = array([10.5+11.5j, -15.2-100.3456j, 0.2343+11.123456j])
         assert (c.round(0) == [10.+12.j, -15-100j, 0+11j]).all()
 
-
     def test_copysign(self):
         from numpypy import array, copysign
 
@@ -435,7 +431,6 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert b[i] == res
 
         assert expm1(1e-50) == 1e-50
-
 
     def test_sin(self):
         import math
@@ -704,6 +699,8 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert (~a == [-2, -3, -4, -5]).all()
         assert (bitwise_not(a) == ~a).all()
         assert (invert(a) == ~a).all()
+        assert invert(True) == False
+        assert invert(False) == True
 
     def test_shift(self):
         from numpypy import left_shift, right_shift, bool
@@ -963,6 +960,11 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert logaddexp2(float('-inf'), float('inf')) == float('inf')
         assert logaddexp2(float('inf'), float('-inf')) == float('inf')
         assert logaddexp2(float('inf'), float('inf')) == float('inf')
+
+    def test_ldexp(self):
+        import numpypy as np
+        a = np.ldexp(2, 3)
+        assert type(a) is np.float64 and a == 16.0
 
     def test_ones_like(self):
         from numpypy import array, ones_like

@@ -16,22 +16,23 @@ def done_if_true(dtype, val):
 def done_if_false(dtype, val):
     return not dtype.itemtype.bool(val)
 
+
 class W_Ufunc(W_Root):
     _attrs_ = ["name", "promote_to_float", "promote_bools", "identity",
-               "allow_complex", "complex_to_float"]
+               "allow_bool", "allow_complex", "complex_to_float"]
     _immutable_fields_ = ["promote_to_float", "promote_bools", "name",
-            "allow_complex", "complex_to_float"]
+            "allow_bool", "allow_complex", "complex_to_float"]
 
     def __init__(self, name, promote_to_float, promote_bools, identity,
-                 int_only, allow_complex, complex_to_float):
+                 int_only, allow_bool, allow_complex, complex_to_float):
         self.name = name
         self.promote_to_float = promote_to_float
         self.promote_bools = promote_bools
-        self.allow_complex = allow_complex
-        self.complex_to_float = complex_to_float
-
         self.identity = identity
         self.int_only = int_only
+        self.allow_bool = allow_bool
+        self.allow_complex = allow_complex
+        self.complex_to_float = complex_to_float
 
     def descr_repr(self, space):
         return space.wrap("<ufunc '%s'>" % self.name)
@@ -259,10 +260,10 @@ class W_Ufunc1(W_Ufunc):
 
     def __init__(self, func, name, promote_to_float=False, promote_bools=False,
         identity=None, bool_result=False, int_only=False,
-        allow_complex=True, complex_to_float=False):
+        allow_bool=True, allow_complex=True, complex_to_float=False):
 
         W_Ufunc.__init__(self, name, promote_to_float, promote_bools, identity,
-                         int_only, allow_complex, complex_to_float)
+                         int_only, allow_bool, allow_complex, complex_to_float)
         self.func = func
         self.bool_result = bool_result
 
@@ -274,17 +275,19 @@ class W_Ufunc1(W_Ufunc):
             if space.is_w(out, space.w_None):
                 out = None
         w_obj = convert_to_array(space, w_obj)
-        if w_obj.get_dtype().is_flexible_type():
+        dtype = w_obj.get_dtype()
+        if dtype.is_flexible_type():
             raise OperationError(space.w_TypeError,
                       space.wrap('Not implemented for this type'))
-        if self.int_only and not w_obj.get_dtype().is_int_type():
+        if (self.int_only and not dtype.is_int_type() or
+                not self.allow_bool and dtype.is_bool_type() or
+                not self.allow_complex and dtype.is_complex_type()):
             raise OperationError(space.w_TypeError, space.wrap(
                 "ufunc %s not supported for the input type" % self.name))
         calc_dtype = find_unaryop_result_dtype(space,
                                   w_obj.get_dtype(),
                                   promote_to_float=self.promote_to_float,
-                                  promote_bools=self.promote_bools,
-                                  allow_complex=self.allow_complex)
+                                  promote_bools=self.promote_bools)
         if out is not None:
             if not isinstance(out, W_NDimArray):
                 raise OperationError(space.w_TypeError, space.wrap(
@@ -324,10 +327,10 @@ class W_Ufunc2(W_Ufunc):
 
     def __init__(self, func, name, promote_to_float=False, promote_bools=False,
         identity=None, comparison_func=False, int_only=False,
-        allow_complex=True, complex_to_float=False):
+        allow_bool=True, allow_complex=True, complex_to_float=False):
 
         W_Ufunc.__init__(self, name, promote_to_float, promote_bools, identity,
-                         int_only, allow_complex, complex_to_float)
+                         int_only, allow_bool, allow_complex, complex_to_float)
         self.func = func
         self.comparison_func = comparison_func
         if name == 'logical_and':
@@ -375,16 +378,14 @@ class W_Ufunc2(W_Ufunc):
                 w_rdtype = w_ldtype
             elif w_lhs.is_scalar() and not w_rhs.is_scalar():
                 w_ldtype = w_rdtype
+        if (self.int_only and (not w_ldtype.is_int_type() or not w_rdtype.is_int_type()) or
+                not self.allow_bool and (w_ldtype.is_bool_type() or w_rdtype.is_bool_type()) or
+                not self.allow_complex and (w_ldtype.is_complex_type() or w_rdtype.is_complex_type())):
+            raise OperationError(space.w_TypeError, space.wrap("Unsupported types"))
         calc_dtype = find_binop_result_dtype(space,
             w_ldtype, w_rdtype,
-            int_only=self.int_only,
             promote_to_float=self.promote_to_float,
-            promote_bools=self.promote_bools,
-            allow_complex=self.allow_complex,
-            )
-        if self.int_only and not calc_dtype.is_int_type():
-            raise OperationError(space.w_TypeError, space.wrap(
-                "ufunc '%s' not supported for the input types" % self.name))
+            promote_bools=self.promote_bools)
         if space.is_none(w_out):
             out = None
         elif not isinstance(w_out, W_NDimArray):
@@ -431,14 +432,10 @@ W_Ufunc.typedef = TypeDef("ufunc",
 
 
 def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
-    promote_bools=False, int_only=False, allow_complex=True):
+        promote_bools=False):
     # dt1.num should be <= dt2.num
     if dt1.num > dt2.num:
         dt1, dt2 = dt2, dt1
-    if int_only and (not dt1.is_int_type() or not dt2.is_int_type()):
-        raise OperationError(space.w_TypeError, space.wrap("Unsupported types"))
-    if not allow_complex and (dt1.is_complex_type() or dt2.is_complex_type()):
-        raise OperationError(space.w_TypeError, space.wrap("Unsupported types"))
     # Some operations promote op(bool, bool) to return int8, rather than bool
     if promote_bools and (dt1.kind == dt2.kind == interp_dtype.BOOLLTR):
         return interp_dtype.get_dtype_cache(space).w_int8dtype
@@ -507,14 +504,11 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
         dtypenum += 2
         return interp_dtype.get_dtype_cache(space).dtypes_by_num[dtypenum]
 
-
 @jit.unroll_safe
 def find_unaryop_result_dtype(space, dt, promote_to_float=False,
-    promote_bools=False, promote_to_largest=False, allow_complex=True):
+        promote_bools=False, promote_to_largest=False):
     if promote_bools and (dt.kind == interp_dtype.BOOLLTR):
         return interp_dtype.get_dtype_cache(space).w_int8dtype
-    if not allow_complex and (dt.is_complex_type()):
-        raise OperationError(space.w_TypeError, space.wrap("Unsupported types"))
     if promote_to_float:
         if dt.kind == interp_dtype.FLOATINGLTR or dt.kind==interp_dtype.COMPLEXLTR:
             return dt
@@ -534,7 +528,6 @@ def find_unaryop_result_dtype(space, dt, promote_to_float=False,
         else:
             assert False
     return dt
-
 
 def find_dtype_for_scalar(space, w_obj, current_guess=None):
     bool_dtype = interp_dtype.get_dtype_cache(space).w_booldtype
@@ -588,7 +581,6 @@ def find_dtype_for_scalar(space, w_obj, current_guess=None):
         'unable to create dtype from objects, ' '"%T" instance not supported',
         w_obj)
 
-
 def ufunc_dtype_caller(space, ufunc_name, op_name, argcount, comparison_func,
                        bool_result):
     dtype_cache = interp_dtype.get_dtype_cache(space)
@@ -605,6 +597,7 @@ def ufunc_dtype_caller(space, ufunc_name, op_name, argcount, comparison_func,
                 return dtype_cache.w_booldtype.box(res)
             return res
     return func_with_new_name(impl, ufunc_name)
+
 
 class UfuncState(object):
     def __init__(self, space):
@@ -635,10 +628,6 @@ class UfuncState(object):
             ("greater_equal", "ge", 2, {"comparison_func": True}),
             ("isnan", "isnan", 1, {"bool_result": True}),
             ("isinf", "isinf", 1, {"bool_result": True}),
-            ("isneginf", "isneginf", 1, {"bool_result": True,
-                                         "allow_complex": False}),
-            ("isposinf", "isposinf", 1, {"bool_result": True,
-                                         "allow_complex": False}),
             ("isfinite", "isfinite", 1, {"bool_result": True}),
 
             ('logical_and', 'logical_and', 2, {'comparison_func': True,
@@ -658,7 +647,7 @@ class UfuncState(object):
             ("negative", "neg", 1),
             ("absolute", "abs", 1, {"complex_to_float": True}),
             ("rint", "rint", 1),
-            ("sign", "sign", 1, {"promote_bools": True}),
+            ("sign", "sign", 1, {"allow_bool": False}),
             ("signbit", "signbit", 1, {"bool_result": True,
                                        "allow_complex": False}),
             ("reciprocal", "reciprocal", 1),
@@ -713,6 +702,8 @@ class UfuncState(object):
                                        "allow_complex": False}),
             ("logaddexp2", "logaddexp2", 2, {"promote_to_float": True,
                                        "allow_complex": False}),
+            ("ldexp", "ldexp", 2, {"int_only": True}),
+
             ("ones_like", "ones_like", 1),
             ("zeros_like", "zeros_like", 1),
         ]:

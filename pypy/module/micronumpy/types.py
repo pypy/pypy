@@ -248,14 +248,6 @@ class Primitive(object):
     def isinf(self, v):
         return False
 
-    @raw_unary_op
-    def isneginf(self, v):
-        return False
-
-    @raw_unary_op
-    def isposinf(self, v):
-        return False
-
     @raw_binary_op
     def eq(self, v1, v2):
         return v1 == v2
@@ -319,6 +311,10 @@ class Primitive(object):
     def rint(self, v):
         float64 = Float64()
         return float64.rint(float64.box(v))
+
+    @raw_binary_op
+    def ldexp(self, v1, v2):
+        return Float64().box(v1 * 2**v2)
 
 class NonNativePrimitive(Primitive):
     _mixin_ = True
@@ -401,7 +397,7 @@ class Bool(BaseType, Primitive):
 
     @simple_unary_op
     def invert(self, v):
-        return ~v
+        return not v
 
     @raw_unary_op
     def isfinite(self, v):
@@ -495,14 +491,6 @@ class Integer(Primitive):
 
     @raw_unary_op
     def isinf(self, v):
-        return False
-
-    @raw_unary_op
-    def isposinf(self, v):
-        return False
-
-    @raw_unary_op
-    def isneginf(self, v):
         return False
 
     @simple_binary_op
@@ -945,14 +933,6 @@ class Float(Primitive):
     @raw_unary_op
     def isinf(self, v):
         return rfloat.isinf(v)
-
-    @raw_unary_op
-    def isneginf(self, v):
-        return rfloat.isinf(v) and v < 0
-
-    @raw_unary_op
-    def isposinf(self, v):
-        return rfloat.isinf(v) and v > 0
 
     @raw_unary_op
     def isfinite(self, v):
