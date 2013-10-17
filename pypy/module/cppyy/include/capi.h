@@ -89,11 +89,11 @@ extern "C" {
     cppyy_index_t cppyy_get_global_operator(
         cppyy_scope_t scope, cppyy_scope_t lc, cppyy_scope_t rc, const char* op);
 
-    /* method properties -----------------------------------------------------  */
+    /* method properties ------------------------------------------------------ */
     int cppyy_is_constructor(cppyy_type_t type, cppyy_index_t idx);
     int cppyy_is_staticmethod(cppyy_type_t type, cppyy_index_t idx);
 
-    /* data member reflection information ------------------------------------  */
+    /* data member reflection information ------------------------------------- */
     int cppyy_num_datamembers(cppyy_scope_t scope);
     char* cppyy_datamember_name(cppyy_scope_t scope, int datamember_index);
     char* cppyy_datamember_type(cppyy_scope_t scope, int datamember_index);
@@ -101,7 +101,7 @@ extern "C" {
 
     int cppyy_datamember_index(cppyy_scope_t scope, const char* name);
 
-    /* data member properties ------------------------------------------------  */
+    /* data member properties ------------------------------------------------- */
     int cppyy_is_publicdata(cppyy_type_t type, int datamember_index);
     int cppyy_is_staticdata(cppyy_type_t type, int datamember_index);
 
