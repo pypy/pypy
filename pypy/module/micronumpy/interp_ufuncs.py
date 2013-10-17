@@ -357,7 +357,7 @@ class W_Ufunc2(W_Ufunc):
         elif name == 'logical_or':
             self.done_func = done_if_true
         else:
-            self.done_func = Non
+            self.done_func = None
 
     def are_common_types(self, dtype1, dtype2):
         if dtype1.is_complex_type() and dtype2.is_complex_type():
