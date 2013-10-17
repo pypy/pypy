@@ -10,7 +10,7 @@ import py
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.memory.gctypelayout import TypeLayoutBuilder
 from rpython.rlib.rarithmetic import LONG_BIT, is_valid_int
-from rpython.memory.gc import incminimark
+from rpython.memory.gc import minimark, incminimark
 
 WORD = LONG_BIT // 8
 
@@ -591,8 +591,6 @@ class TestIncrementalMiniMarkGCSimple(TestMiniMarkGCSimple):
     from rpython.memory.gc.incminimark import IncrementalMiniMarkGC as GCClass
 
     def test_write_barrier_marking_simple(self):
-        from rpython.memory.gc import incminimark
-
         for i in range(2):
             curobj = self.malloc(S)
             curobj.x = i
