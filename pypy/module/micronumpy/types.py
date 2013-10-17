@@ -510,7 +510,7 @@ class Integer(Primitive):
         ans = 0
         if raw == 0:
             # XXX good place to warn
-            if self.T is rffi.INT or self.T is rffi.LONG:
+            if self.T is rffi.INT or self.T is rffi.LONG or self.T is rffi.LONGLONG:
                 ans = most_neg_value_of(self.T)
         elif abs(raw) == 1:
             ans = raw
