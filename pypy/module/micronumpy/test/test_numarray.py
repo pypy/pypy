@@ -1639,7 +1639,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         exc = raises(TypeError, concatenate,
                             (zeros((2,), dtype=[('x', int), ('y', float)]),
                             (zeros((2,), dtype=[('x', float), ('y', float)]))))
-        assert str(exc.value).startswith('record type mismatch')
+        assert str(exc.value).startswith('invalid type promotion')
         exc = raises(TypeError, concatenate, ([1], zeros((2,),
                                             dtype=[('x', int), ('y', float)])))
         assert str(exc.value).startswith('invalid type promotion')
