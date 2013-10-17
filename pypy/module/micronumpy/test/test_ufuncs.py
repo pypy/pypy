@@ -323,11 +323,10 @@ class AppTestUfuncs(BaseNumpyAppTest):
             reference = [0, -1, 0, 1, 0]
             if dtype[0] == 'u':
                 reference[1] = 0
-            # XXX need to fix specialization issue in types.py first
-            #elif dtype == 'int32':
-            #        reference[2] = -2147483648
-            #elif dtype == 'int64':
-            #        reference[2] = -9223372036854775808
+            elif dtype == 'int32':
+                    reference[2] = -2147483648
+            elif dtype == 'int64':
+                    reference[2] = -9223372036854775808
             a = array([-2, -1, 0, 1, 2], dtype)
             b = reciprocal(a)
             assert (b == reference).all()

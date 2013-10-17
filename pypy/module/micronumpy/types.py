@@ -12,7 +12,7 @@ from rpython.rlib import rfloat, clibffi, rcomplex
 from rpython.rlib.rawstorage import (alloc_raw_storage, raw_storage_setitem,
                                   raw_storage_getitem)
 from rpython.rlib.objectmodel import specialize
-from rpython.rlib.rarithmetic import widen, byteswap, r_ulonglong
+from rpython.rlib.rarithmetic import widen, byteswap, r_ulonglong, most_neg_value_of
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.rstruct.runpack import runpack
 from rpython.rlib.rstruct.nativefmttable import native_is_bigendian
@@ -521,18 +521,17 @@ class Integer(Primitive):
     def invert(self, v):
         return ~v
 
-    @simple_unary_op
+    @specialize.argtype(1)
     def reciprocal(self, v):
-        if v == 0:
+        raw = self.for_computation(self.unbox(v))
+        ans = 0
+        if raw == 0:
             # XXX good place to warn
-            # XXX can't do the following, func is specialized only on argtype(v)
-            # (which is the same for all int classes)
-            #if self.T in (rffi.INT, rffi.LONG):
-            #    return most_neg_value_of(self.T)
-            return 0
-        if abs(v) == 1:
-            return v
-        return 0
+            if self.T is rffi.INT or self.T is rffi.LONG:
+                ans = most_neg_value_of(self.T)
+        elif abs(raw) == 1:
+            ans = raw
+        return self.box(ans)
 
     @specialize.argtype(1)
     def round(self, v, decimals=0):
