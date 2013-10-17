@@ -1,5 +1,4 @@
 from pypy.interpreter.mixedmodule import MixedModule
-from pypy.module.micronumpy.interp_boxes import long_double_size, ENABLED_LONG_DOUBLE
 
 
 class MultiArrayModule(MixedModule):
@@ -64,6 +63,7 @@ class UMathModule(MixedModule):
         ("less_equal", "less_equal"),
         ("maximum", "maximum"),
         ("minimum", "minimum"),
+        ("mod", "mod"),
         ("multiply", "multiply"),
         ("negative", "negative"),
         ("not_equal", "not_equal"),
@@ -91,8 +91,6 @@ class UMathModule(MixedModule):
         ('invert', 'invert'),
         ('isnan', 'isnan'),
         ('isinf', 'isinf'),
-        ('isneginf', 'isneginf'),
-        ('isposinf', 'isposinf'),
         ('isfinite', 'isfinite'),
         ('logical_and', 'logical_and'),
         ('logical_xor', 'logical_xor'),

@@ -12,7 +12,7 @@ from rpython.rlib import rfloat, clibffi, rcomplex
 from rpython.rlib.rawstorage import (alloc_raw_storage, raw_storage_setitem,
                                   raw_storage_getitem)
 from rpython.rlib.objectmodel import specialize
-from rpython.rlib.rarithmetic import widen, byteswap, r_ulonglong
+from rpython.rlib.rarithmetic import widen, byteswap, r_ulonglong, most_neg_value_of
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.rstruct.runpack import runpack
 from rpython.rlib.rstruct.nativefmttable import native_is_bigendian
@@ -248,14 +248,6 @@ class Primitive(object):
     def isinf(self, v):
         return False
 
-    @raw_unary_op
-    def isneginf(self, v):
-        return False
-
-    @raw_unary_op
-    def isposinf(self, v):
-        return False
-
     @raw_binary_op
     def eq(self, v1, v2):
         return v1 == v2
@@ -401,7 +393,7 @@ class Bool(BaseType, Primitive):
 
     @simple_unary_op
     def invert(self, v):
-        return ~v
+        return not v
 
     @raw_unary_op
     def isfinite(self, v):
@@ -497,14 +489,6 @@ class Integer(Primitive):
     def isinf(self, v):
         return False
 
-    @raw_unary_op
-    def isposinf(self, v):
-        return False
-
-    @raw_unary_op
-    def isneginf(self, v):
-        return False
-
     @simple_binary_op
     def bitwise_and(self, v1, v2):
         return v1 & v2
@@ -521,18 +505,17 @@ class Integer(Primitive):
     def invert(self, v):
         return ~v
 
-    @simple_unary_op
+    @specialize.argtype(1)
     def reciprocal(self, v):
-        if v == 0:
+        raw = self.for_computation(self.unbox(v))
+        ans = 0
+        if raw == 0:
             # XXX good place to warn
-            # XXX can't do the following, func is specialized only on argtype(v)
-            # (which is the same for all int classes)
-            #if self.T in (rffi.INT, rffi.LONG):
-            #    return most_neg_value_of(self.T)
-            return 0
-        if abs(v) == 1:
-            return v
-        return 0
+            if self.T is rffi.INT or self.T is rffi.LONG:
+                ans = most_neg_value_of(self.T)
+        elif abs(raw) == 1:
+            ans = raw
+        return self.box(ans)
 
     @specialize.argtype(1)
     def round(self, v, decimals=0):
@@ -948,14 +931,6 @@ class Float(Primitive):
         return rfloat.isinf(v)
 
     @raw_unary_op
-    def isneginf(self, v):
-        return rfloat.isinf(v) and v < 0
-
-    @raw_unary_op
-    def isposinf(self, v):
-        return rfloat.isinf(v) and v > 0
-
-    @raw_unary_op
     def isfinite(self, v):
         return not (rfloat.isinf(v) or rfloat.isnan(v))
 
@@ -1148,8 +1123,12 @@ class ComplexFloating(object):
         return v
 
     def to_builtin_type(self, space, box):
-        real,imag = self.for_computation(self.unbox(box))
+        real, imag = self.for_computation(self.unbox(box))
         return space.newcomplex(real, imag)
+
+    def bool(self, v):
+        real, imag = self.for_computation(self.unbox(v))
+        return bool(real) or bool(imag)
 
     def read_bool(self, arr, i, offset):
         v = self.for_computation(self._read(arr.storage, i, offset))
@@ -1661,16 +1640,21 @@ class Complex128(ComplexFloating, BaseType):
 
 NonNativeComplex128 = Complex128
 
-if interp_boxes.ENABLED_LONG_DOUBLE and interp_boxes.long_double_size == 12:
-    class Float96(BaseType, Float):
+if interp_boxes.long_double_size == 8:
+    FloatLong = Float64
+    NonNativeFloatLong = NonNativeFloat64
+    ComplexLong = Complex128
+    NonNativeComplexLong = NonNativeComplex128
+
+elif interp_boxes.long_double_size in (12, 16):
+    class FloatLong(BaseType, Float):
         _attrs_ = ()
 
         T = rffi.LONGDOUBLE
-        BoxType = interp_boxes.W_Float96Box
-        format_code = "q"
+        BoxType = interp_boxes.W_FloatLongBox
 
         def runpack_str(self, s):
-            assert len(s) == 12
+            assert len(s) == interp_boxes.long_double_size
             fval = unpack_float80(s, native_is_bigendian)
             return self.box(fval)
 
@@ -1680,46 +1664,17 @@ if interp_boxes.ENABLED_LONG_DOUBLE and interp_boxes.long_double_size == 12:
             pack_float80(result, value, 10, not native_is_bigendian)
             return self.box(unpack_float80(result.build(), native_is_bigendian))
 
-    NonNativeFloat96 = Float96
+    NonNativeFloatLong = FloatLong
 
-    class Complex192(ComplexFloating, BaseType):
+    class ComplexLong(ComplexFloating, BaseType):
         _attrs_ = ()
 
         T = rffi.LONGDOUBLE
-        BoxType = interp_boxes.W_Complex192Box
-        ComponentBoxType = interp_boxes.W_Float96Box
+        BoxType = interp_boxes.W_ComplexLongBox
+        ComponentBoxType = interp_boxes.W_FloatLongBox
 
-    NonNativeComplex192 = Complex192
+    NonNativeComplexLong = ComplexLong
 
-elif interp_boxes.ENABLED_LONG_DOUBLE and interp_boxes.long_double_size == 16:
-    class Float128(BaseType, Float):
-        _attrs_ = ()
-
-        T = rffi.LONGDOUBLE
-        BoxType = interp_boxes.W_Float128Box
-        format_code = "q"
-
-        def runpack_str(self, s):
-            assert len(s) == 16
-            fval = unpack_float80(s, native_is_bigendian)
-            return self.box(fval)
-
-        def byteswap(self, w_v):
-            value = self.unbox(w_v)
-            result = StringBuilder(10)
-            pack_float80(result, value, 10, not native_is_bigendian)
-            return self.box(unpack_float80(result.build(), native_is_bigendian))
-
-    NonNativeFloat128 = Float128
-
-    class Complex256(ComplexFloating, BaseType):
-        _attrs_ = ()
-
-        T = rffi.LONGDOUBLE
-        BoxType = interp_boxes.W_Complex256Box
-        ComponentBoxType = interp_boxes.W_Float128Box
-
-    NonNativeComplex256 = Complex256
 
 class BaseStringType(object):
     _mixin_ = True

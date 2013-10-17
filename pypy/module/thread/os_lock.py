@@ -19,20 +19,6 @@ TIMEOUT_MAX = LONGLONG_MAX
 
 RPY_LOCK_FAILURE, RPY_LOCK_ACQUIRED, RPY_LOCK_INTR = range(3)
 
-##import sys
-##def debug(msg, n):
-##    return
-##    tb = []
-##    try:
-##        for i in range(1, 8):
-##            tb.append(sys._getframe(i).f_code.co_name)
-##    except:
-##        pass
-##    tb = ' '.join(tb)
-##    msg = '| %6d | %d %s | %s\n' % (rthread.get_ident(), n, msg, tb)
-##    sys.stderr.write(msg)
-
-
 def parse_acquire_args(space, blocking, timeout):
     if not blocking and timeout != -1.0:
         raise OperationError(space.w_ValueError, space.wrap(

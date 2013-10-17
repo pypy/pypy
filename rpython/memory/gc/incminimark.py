@@ -1040,10 +1040,13 @@ class IncrementalMiniMarkGC(MovingGCBase):
                       "raw_malloc_might_sweep must be empty outside SWEEPING")
 
             if self.gc_state == STATE_MARKING:
-                self._debug_objects_to_trace_dict = \
+                self._debug_objects_to_trace_dict1 = \
                                             self.objects_to_trace.stack2dict()
+                self._debug_objects_to_trace_dict2 = \
+                                       self.more_objects_to_trace.stack2dict()
                 MovingGCBase.debug_check_consistency(self)
-                self._debug_objects_to_trace_dict.delete()
+                self._debug_objects_to_trace_dict2.delete()
+                self._debug_objects_to_trace_dict1.delete()
             else:
                 MovingGCBase.debug_check_consistency(self)
 
@@ -1084,7 +1087,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
         obj = root.address[0]
         if self.header(obj).tid & GCFLAG_VISITED != 0:
             pass    # black -> black
-        elif self._debug_objects_to_trace_dict.contains(obj):
+        elif (self._debug_objects_to_trace_dict1.contains(obj) or
+              self._debug_objects_to_trace_dict2.contains(obj)):
             pass    # black -> gray
         elif self.header(obj).tid & GCFLAG_NO_HEAP_PTRS != 0:
             pass    # black -> white-but-prebuilt-so-dont-care
@@ -1522,7 +1526,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 # fully traced very soon.
                 if self.gc_state == STATE_MARKING:
                     self.header(obj).tid &= ~GCFLAG_VISITED
-                    self.objects_to_trace.append(obj)
+                    self.more_objects_to_trace.append(obj)
 
 
     def collect_oldrefs_to_nursery(self):
@@ -1556,7 +1560,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # makes sure that we see otherwise-white objects.
             if state_is_marking:
                 self.header(obj).tid &= ~GCFLAG_VISITED
-                self.objects_to_trace.append(obj)
+                self.more_objects_to_trace.append(obj)
             #
             # Trace the 'obj' to replace pointers to nursery with pointers
             # outside the nursery, possibly forcing nursery objects out
@@ -1580,6 +1584,14 @@ class IncrementalMiniMarkGC(MovingGCBase):
 
 
     def _trace_drag_out1(self, root):
+        # In the MARKING state, we must also record this old object,
+        # if it is not VISITED yet.
+        if self.gc_state == STATE_MARKING:
+            obj = root.address[0]
+            if not self.is_in_nursery(obj):
+                if not self.header(obj).tid & GCFLAG_VISITED:
+                    self.more_objects_to_trace.append(obj)
+        #
         self._trace_drag_out(root, None)
 
     def _trace_drag_out(self, root, ignored):
@@ -1661,7 +1673,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # but in the STATE_MARKING phase we still need this bit...
             if self.gc_state == STATE_MARKING:
                 self.header(newobj).tid &= ~GCFLAG_VISITED
-                self.objects_to_trace.append(newobj)
+                self.more_objects_to_trace.append(newobj)
 
     _trace_drag_out._always_inline_ = True
 
@@ -1783,25 +1795,48 @@ class IncrementalMiniMarkGC(MovingGCBase):
             self.objects_to_trace = self.AddressStack()
             self.collect_roots()
             self.gc_state = STATE_MARKING
+            self.more_objects_to_trace = self.AddressStack()
             #END SCANNING
         elif self.gc_state == STATE_MARKING:
             debug_print("number of objects to mark",
-                        self.objects_to_trace.length())
+                        self.objects_to_trace.length(),
+                        "plus",
+                        self.more_objects_to_trace.length())
             estimate = self.gc_increment_step
             estimate_from_nursery = self.nursery_surviving_size * 2
             if estimate_from_nursery > estimate:
                 estimate = estimate_from_nursery
-            self.visit_all_objects_step(intmask(estimate))
+            estimate = intmask(estimate)
+            remaining = self.visit_all_objects_step(estimate)
+            #
+            if remaining >= estimate // 2:
+                if self.more_objects_to_trace.non_empty():
+                    # We consumed less than 1/2 of our step's time, and
+                    # there are more objects added during the marking steps
+                    # of this major collection.  Visit them all now.
+                    # The idea is to ensure termination at the cost of some
+                    # incrementality, in theory.
+                    swap = self.objects_to_trace
+                    self.objects_to_trace = self.more_objects_to_trace
+                    self.more_objects_to_trace = swap
+                    self.visit_all_objects()
 
             # XXX A simplifying assumption that should be checked,
             # finalizers/weak references are rare and short which means that
             # they do not need a seperate state and do not need to be
             # made incremental.
-            if not self.objects_to_trace.non_empty():
+            if (not self.objects_to_trace.non_empty() and
+                not self.more_objects_to_trace.non_empty()):
+                #
                 if self.objects_with_finalizers.non_empty():
                     self.deal_with_objects_with_finalizers()
 
+                ll_assert(not self.objects_to_trace.non_empty(),
+                          "objects_to_trace should be empty")
+                ll_assert(not self.more_objects_to_trace.non_empty(),
+                          "more_objects_to_trace should be empty")
                 self.objects_to_trace.delete()
+                self.more_objects_to_trace.delete()
 
                 #
                 # Weakref support: clear the weak pointers to dying objects
@@ -1925,8 +1960,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
     def start_free_rawmalloc_objects(self):
         ll_assert(not self.raw_malloc_might_sweep.non_empty(),
                   "raw_malloc_might_sweep must be empty")
-        (self.raw_malloc_might_sweep, self.old_rawmalloced_objects) = (
-            self.old_rawmalloced_objects, self.raw_malloc_might_sweep)
+        swap = self.raw_malloc_might_sweep
+        self.raw_malloc_might_sweep = self.old_rawmalloced_objects
+        self.old_rawmalloced_objects = swap
 
     # Returns true when finished processing objects
     def free_unvisited_rawmalloc_objects_step(self, nobjects):
@@ -1973,17 +2009,18 @@ class IncrementalMiniMarkGC(MovingGCBase):
         self.objects_to_trace.append(root.address[0])
 
     def visit_all_objects(self):
-        self.visit_all_objects_step(sys.maxint)
+        while self.objects_to_trace.non_empty():
+            self.visit_all_objects_step(sys.maxint)
 
     def visit_all_objects_step(self, size_to_track):
         # Objects can be added to pending by visit
         pending = self.objects_to_trace
-        size_gc_header = self.gcheaderbuilder.size_gc_header
-        while size_to_track > 0 and pending.non_empty():
+        while pending.non_empty():
             obj = pending.pop()
-            self.visit(obj)
-            totalsize = size_gc_header + self.get_size(obj)
-            size_to_track -= raw_malloc_usage(totalsize)
+            size_to_track -= self.visit(obj)
+            if size_to_track < 0:
+                return 0
+        return size_to_track
 
     def visit(self, obj):
         #
@@ -1998,19 +2035,21 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # collection.
         hdr = self.header(obj)
         if hdr.tid & (GCFLAG_VISITED | GCFLAG_NO_HEAP_PTRS):
-            return
+            return 0
         #
         # It's the first time.  We set the flag VISITED.  The trick is
         # to also set TRACK_YOUNG_PTRS here, for the write barrier.
         hdr.tid |= GCFLAG_VISITED | GCFLAG_TRACK_YOUNG_PTRS
 
-        if not self.has_gcptr(llop.extract_ushort(llgroup.HALFWORD, hdr.tid)):
-            return
-        #
-        # Trace the content of the object and put all objects it references
-        # into the 'objects_to_trace' list.
-        self.trace(obj, self._collect_ref_rec, None)
+        if self.has_gcptr(llop.extract_ushort(llgroup.HALFWORD, hdr.tid)):
+            #
+            # Trace the content of the object and put all objects it references
+            # into the 'objects_to_trace' list.
+            self.trace(obj, self._collect_ref_rec, None)
 
+        size_gc_header = self.gcheaderbuilder.size_gc_header
+        totalsize = size_gc_header + self.get_size(obj)
+        return raw_malloc_usage(totalsize)
 
     # ----------
     # id() and identityhash() support
