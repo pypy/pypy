@@ -8,7 +8,7 @@ from rpython.rlib.listsort import make_timsort_class
 from rpython.rlib.rawstorage import raw_storage_getitem, raw_storage_setitem, \
         free_raw_storage, alloc_raw_storage
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.rarithmetic import widen
 from rpython.rlib.objectmodel import specialize
 from pypy.interpreter.error import OperationError
 from pypy.module.micronumpy.base import W_NDimArray
@@ -43,7 +43,7 @@ def make_argsort_function(space, itemtype, comp_type, count=1):
                                     + self.start + step * i)
                     v.append(_v)
             if comp_type == 'int':
-                v = intmask(v)
+                v = widen(v)
             elif comp_type == 'float':
                 v = float(v)
             elif comp_type == 'complex':
@@ -200,7 +200,7 @@ def make_sort_function(space, itemtype, comp_type, count=1):
                                     + self.start + step * i)
                     v.append(_v)
             if comp_type == 'int':
-                v = intmask(v)
+                v = widen(v)
             elif comp_type == 'float':
                 v = float(v)
             elif comp_type == 'complex':

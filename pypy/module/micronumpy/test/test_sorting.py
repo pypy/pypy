@@ -16,14 +16,17 @@ class AppTestSupport(BaseNumpyAppTest):
         assert array(2.0).argsort() == 0
         nnp = self.non_native_prefix
         for dtype in ['int', 'float', 'int16', 'float32', 'uint64',
-                        nnp + 'i2', complex]:
+                      nnp + 'i2', complex]:
             a = array([6, 4, -1, 3, 8, 3, 256+20, 100, 101], dtype=dtype)
+            exp = list(a)
+            exp = sorted(range(len(exp)), key=exp.__getitem__)
             c = a.copy()
             res = a.argsort()
-            assert (res == [2, 3, 5, 1, 0, 4, 7, 8, 6]).all(), \
+            assert (res == exp).all(), \
                 'a,res,dtype %r,%r,%r' % (a,res,dtype)
             assert (a == c).all() # not modified
-            a = arange(100)
+
+            a = arange(100, dtype=dtype)
             assert (a.argsort() == a).all()
         raises(NotImplementedError, 'arange(10,dtype="float16").argsort()')
 
@@ -63,17 +66,18 @@ class AppTestSupport(BaseNumpyAppTest):
     def test_sort_dtypes(self):
         from numpypy import array, arange
         for dtype in ['int', 'float', 'int16', 'float32', 'uint64',
-                        'i2', complex]:
+                      'i2', complex]:
             a = array([6, 4, -1, 3, 8, 3, 256+20, 100, 101], dtype=dtype)
-            b = array([-1, 3, 3, 4, 6, 8, 100, 101, 256+20], dtype=dtype)
+            b = sorted(list(a))
             c = a.copy()
             a.sort()
             assert (a == b).all(), \
                 'a,orig,dtype %r,%r,%r' % (a,c,dtype)
-        a = arange(100)
-        c = a.copy()
-        a.sort()
-        assert (a == c).all()
+
+            a = arange(100, dtype=dtype)
+            c = a.copy()
+            a.sort()
+            assert (a == c).all()
 
     def test_sort_dtypesi_nonnative(self):
         from numpypy import array
