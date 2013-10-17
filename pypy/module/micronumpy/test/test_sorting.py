@@ -108,6 +108,9 @@ class AppTestSupport(BaseNumpyAppTest):
         assert [isnan(bb) for bb in b] == [isnan(aa) for aa in a[::-1]]
         assert (b[:2] == a[::-1][:2]).all()
 
+        b = a.argsort()
+        assert (b == [2, 1, 0]).all()
+
         # check complex
         a = zeros(9, dtype=complex128)
         a.real += [nan, nan, nan, 1, 0, 1, 1, 0, 0]
@@ -116,6 +119,9 @@ class AppTestSupport(BaseNumpyAppTest):
         b.sort()
         assert [isnan(bb) for bb in b] == [isnan(aa) for aa in a[::-1]]
         assert (b[:4] == a[::-1][:4]).all()
+
+        b = a.argsort()
+        assert (b == [8, 7, 6, 5, 4, 3, 2, 1, 0]).all()
 
         # all c scalar sorts use the same code with different types
         # so it suffices to run a quick check with one type. The number

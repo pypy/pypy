@@ -100,9 +100,14 @@ def make_argsort_function(space, itemtype, comp_type, count=1):
     if count < 2:
         def arg_lt(a, b):
             # Does numpy do <= ?
-            return a[0] < b[0]
+            return a[0] < b[0] or b[0] != b[0] and a[0] == a[0]
     else:
         def arg_lt(a, b):
+            for i in range(count):
+                if b[0][i] != b[0][i] and a[0][i] == a[0][i]:
+                    return True
+                elif b[0][i] == b[0][i] and a[0][i] != a[0][i]:
+                    return False
             for i in range(count):
                 if a[0][i] < b[0][i]:
                     return True
