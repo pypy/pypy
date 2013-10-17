@@ -225,6 +225,15 @@ class TestW_ListStrategies(TestW_ListObject):
         l.setslice(0, 1, 2, W_ListObject(space, [w('a'), w(2), w(3)]))
         assert isinstance(l.strategy, ObjectListStrategy)
 
+    def test_setslice_int_range(self):
+        space = self.space
+        w = space.wrap
+        l = W_ListObject(space, [w(1), w(2), w(3)])
+        assert isinstance(l.strategy, IntegerListStrategy)
+        l.setslice(0, 1, 2, make_range_list(space, 5, 1, 4))
+        assert isinstance(l.strategy, IntegerListStrategy)
+
+
     def test_setslice_List(self):
         space = self.space
 
@@ -466,6 +475,12 @@ class TestW_ListStrategies(TestW_ListObject):
         l3 = self.space.add(l1, l2)
         l4 = W_ListObject(self.space, [self.space.wrap(1), self.space.wrap(2), self.space.wrap(3), self.space.wrap(1), self.space.wrap(2), self.space.wrap(3)])
         assert self.space.eq_w(l3, l4)
+
+    def test_add_of_range_and_int(self):
+        l1 = make_range_list(self.space, 0, 1, 100)
+        l2 = W_ListObject(self.space, [self.space.wrap(1), self.space.wrap(2), self.space.wrap(3)])
+        l3 = self.space.add(l2, l1)
+        assert l3.strategy is l2.strategy
 
     def test_mul(self):
         l1 = W_ListObject(self.space, [self.space.wrap(1), self.space.wrap(2), self.space.wrap(3)])

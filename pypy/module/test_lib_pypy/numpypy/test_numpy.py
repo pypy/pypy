@@ -96,10 +96,13 @@ class AppTestNumpy(BaseNumpyAppTest):
 
     def test___all__(self):
         import numpy
-        assert '__all__' in numpy
+        assert '__all__' in dir(numpy)
         assert 'numpypy' not in dir(numpy)
 
     def test_get_include(self):
+        import sys
+        if not hasattr(sys, 'pypy_translation_info'):
+            skip("pypy white-box test")
         import numpy, os
         assert 'get_include' in dir(numpy)
         path = numpy.get_include()

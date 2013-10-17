@@ -399,7 +399,7 @@ class SSLObject(W_Root):
 
         proto = libssl_SSL_CIPHER_get_version(current)
         if proto:
-            w_proto = space.wrap(rffi.charp2str(name))
+            w_proto = space.wrap(rffi.charp2str(proto))
         else:
             w_proto = space.w_None
 
@@ -476,15 +476,15 @@ def _decode_certificate(space, certificate, verbose=False):
                 w_serial = space.wrap(rffi.charpsize2str(buf, length))
             space.setitem(w_retval, space.wrap("serialNumber"), w_serial)
 
-            libssl_BIO_reset(biobuf)
-            notBefore = libssl_X509_get_notBefore(certificate)
-            libssl_ASN1_TIME_print(biobuf, notBefore)
-            with lltype.scoped_alloc(rffi.CCHARP.TO, 100) as buf:
-                length = libssl_BIO_gets(biobuf, buf, 99)
-                if length < 0:
-                    raise _ssl_seterror(space, None, length)
-                w_date = space.wrap(rffi.charpsize2str(buf, length))
-            space.setitem(w_retval, space.wrap("notBefore"), w_date)
+        libssl_BIO_reset(biobuf)
+        notBefore = libssl_X509_get_notBefore(certificate)
+        libssl_ASN1_TIME_print(biobuf, notBefore)
+        with lltype.scoped_alloc(rffi.CCHARP.TO, 100) as buf:
+            length = libssl_BIO_gets(biobuf, buf, 99)
+            if length < 0:
+                raise _ssl_seterror(space, None, length)
+            w_date = space.wrap(rffi.charpsize2str(buf, length))
+        space.setitem(w_retval, space.wrap("notBefore"), w_date)
 
         libssl_BIO_reset(biobuf)
         notAfter = libssl_X509_get_notAfter(certificate)
@@ -733,7 +733,6 @@ def new_sslobject(space, w_sock, side, w_key_file, w_cert_file,
         # Set both the read and write BIO's to non-blocking mode
         libssl_BIO_set_nbio(libssl_SSL_get_rbio(ss.ssl), 1)
         libssl_BIO_set_nbio(libssl_SSL_get_wbio(ss.ssl), 1)
-    libssl_SSL_set_connect_state(ss.ssl)
 
     if side == PY_SSL_CLIENT:
         libssl_SSL_set_connect_state(ss.ssl)

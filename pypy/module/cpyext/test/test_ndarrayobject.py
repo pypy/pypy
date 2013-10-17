@@ -90,16 +90,16 @@ class TestNDArrayObject(BaseApiTest):
     def test_FromAny(self, space, api):
         a = array(space, [10, 5, 3])
         assert api._PyArray_FromAny(a, NULL, 0, 0, 0, NULL) is a
-        self.raises(space, api, NotImplementedError, api._PyArray_FromAny,
-                    space.wrap(a), space.w_None, space.wrap(0),
-                    space.wrap(3), space.wrap(0), space.w_None)
+        assert api._PyArray_FromAny(a, NULL, 1, 4, 0, NULL) is a
+        self.raises(space, api, ValueError, api._PyArray_FromAny,
+                    a, NULL, 4, 5, 0, NULL)
 
     def test_FromObject(self, space, api):
         a = array(space, [10, 5, 3])
-        assert api._PyArray_FromObject(a, NULL, 0, 0, 0, NULL) is a
-        self.raises(space, api, NotImplementedError, api._PyArray_FromObject,
-                    space.wrap(a), space.w_None, space.wrap(0),
-                    space.wrap(3), space.wrap(0), space.w_None)
+        assert api._PyArray_FromObject(a, a.get_dtype().num, 0, 0) is a
+        exc = self.raises(space, api, ValueError, api._PyArray_FromObject,
+                    a, 11, 4, 5)
+        assert exc.errorstr(space).find('desired') >= 0
 
     def test_list_from_fixedptr(self, space, api):
         A = lltype.GcArray(lltype.Float)
@@ -241,6 +241,27 @@ class AppTestCNumber(AppTestCpythonExtensionBase):
                 PyObject * obj2 = PyArray_ZEROS(2, dims2, 11, 0);
                 PyArray_FILLWBYTE(obj2, 42);
                 PyArray_CopyInto(obj2, obj1);
+                Py_DECREF(obj1);
+                return obj2;
+                '''
+                ),
+                ("test_FromAny", "METH_NOARGS",
+                '''
+                npy_intp dims[2] ={2, 3};
+                PyObject * obj1 = PyArray_SimpleNew(2, dims, 1);
+                PyArray_FILLWBYTE(obj1, 42);
+                PyObject * obj2 = _PyArray_FromAny(obj1, NULL, 0, 0, 0, NULL);
+                Py_DECREF(obj1);
+                return obj2;
+                '''
+                ),
+                 ("test_FromObject", "METH_NOARGS",
+                '''
+                npy_intp dims[2] ={2, 3};
+                PyObject * obj1 = PyArray_SimpleNew(2, dims, 1);
+                PyArray_FILLWBYTE(obj1, 42);
+                PyObject * obj2 = _PyArray_FromObject(obj1, 12, 0, 0);
+                Py_DECREF(obj1);
                 return obj2;
                 '''
                 ),
@@ -254,3 +275,6 @@ class AppTestCNumber(AppTestCpythonExtensionBase):
         assert (arr == 42).all()
         arr = mod.test_copy()
         assert (arr == 0).all()
+        #Make sure these work without errors
+        arr = mod.test_FromAny()
+        arr = mod.test_FromObject()
