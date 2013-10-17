@@ -885,7 +885,7 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
         from cPickle import loads, dumps
 
         d = dtype([("x", "int32"), ("y", "int32"), ("z", "int32"), ("value", float)])
-        assert d.__reduce__() == (dtype, ('V20', 0, 1), (3, '<', None, ('x', 'y', 'z', 'value'), {'y': (dtype('int32'), 4), 'x': (dtype('int32'), 0), 'z': (dtype('int32'), 8), 'value': (dtype('float64'), 12)}, 20, 1, 0))
+        assert d.__reduce__() == (dtype, ('V20', 0, 1), (3, '|', None, ('x', 'y', 'z', 'value'), {'y': (dtype('int32'), 4), 'x': (dtype('int32'), 0), 'z': (dtype('int32'), 8), 'value': (dtype('float64'), 12)}, 20, 1, 0))
 
         new_d = loads(dumps(d))
 

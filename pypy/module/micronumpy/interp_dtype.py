@@ -259,21 +259,22 @@ class W_Dtype(W_Root):
         builder_args = space.newtuple([space.wrap("%s%d" % (kind, elemsize)), space.wrap(0), space.wrap(1)])
 
         version = space.wrap(3)
-        order = space.wrap(byteorder_prefix if self.native else nonnative_byteorder_prefix)
         names = self.descr_get_names(space)
         values = self.descr_get_fields(space)
         if self.fields:
+            order = space.wrap('|')
             #TODO: Implement this when subarrays are implemented
             subdescr = space.w_None
-            #TODO: Change this when alignment is implemented :
             size = 0
             for key in self.fields:
                 dtype = self.fields[key][1]
                 assert isinstance(dtype, W_Dtype)
                 size += dtype.get_size()
             w_size = space.wrap(size)
+            #TODO: Change this when alignment is implemented
             alignment = space.wrap(1)
         else:
+            order = space.wrap(byteorder_prefix if self.native else nonnative_byteorder_prefix)
             subdescr = space.w_None
             w_size = space.wrap(-1)
             alignment = space.wrap(-1)
