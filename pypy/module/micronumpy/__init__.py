@@ -104,7 +104,6 @@ class UMathModule(MixedModule):
         ('floor_divide', 'floor_divide'),
         ('logaddexp', 'logaddexp'),
         ('logaddexp2', 'logaddexp2'),
-        ('ldexp', 'ldexp'),
         ('real', 'real'),
         ('imag', 'imag'),
         ('ones_like', 'ones_like'),

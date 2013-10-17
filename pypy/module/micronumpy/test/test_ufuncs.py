@@ -94,11 +94,11 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert find_uncallable_ufuncs('bool') == set(['sign'])
         assert find_uncallable_ufuncs('float') == set(
                 ['bitwise_and', 'bitwise_not', 'bitwise_or', 'bitwise_xor',
-                 'left_shift', 'right_shift', 'invert', 'ldexp'])
+                 'left_shift', 'right_shift', 'invert'])
         assert find_uncallable_ufuncs('complex') == set(
                 ['bitwise_and', 'bitwise_not', 'bitwise_or', 'bitwise_xor',
                  'arctan2', 'deg2rad', 'degrees', 'rad2deg', 'radians',
-                 'fabs', 'fmod', 'invert', 'ldexp', 'mod',
+                 'fabs', 'fmod', 'invert', 'mod',
                  'logaddexp', 'logaddexp2', 'left_shift', 'right_shift',
                  'copysign', 'signbit', 'ceil', 'floor', 'trunc'])
 
@@ -960,11 +960,6 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert logaddexp2(float('-inf'), float('inf')) == float('inf')
         assert logaddexp2(float('inf'), float('-inf')) == float('inf')
         assert logaddexp2(float('inf'), float('inf')) == float('inf')
-
-    def test_ldexp(self):
-        import numpypy as np
-        a = np.ldexp(2, 3)
-        assert type(a) is np.float64 and a == 16.0
 
     def test_ones_like(self):
         from numpypy import array, ones_like

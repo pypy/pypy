@@ -702,7 +702,6 @@ class UfuncState(object):
                                        "allow_complex": False}),
             ("logaddexp2", "logaddexp2", 2, {"promote_to_float": True,
                                        "allow_complex": False}),
-            ("ldexp", "ldexp", 2, {"int_only": True}),
 
             ("ones_like", "ones_like", 1),
             ("zeros_like", "zeros_like", 1),

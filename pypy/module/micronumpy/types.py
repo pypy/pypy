@@ -312,10 +312,6 @@ class Primitive(object):
         float64 = Float64()
         return float64.rint(float64.box(v))
 
-    @raw_binary_op
-    def ldexp(self, v1, v2):
-        return Float64().box(v1 * 2**v2)
-
 class NonNativePrimitive(Primitive):
     _mixin_ = True
 
