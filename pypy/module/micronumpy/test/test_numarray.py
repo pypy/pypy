@@ -1295,9 +1295,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a.max() == 5.7
         b = array([])
         raises(ValueError, "b.max()")
-
-        if 0: # XXX too pedantic
-            assert list(zeros((0, 2)).max(axis=1)) == []
+        assert list(zeros((0, 2)).max(axis=1)) == []
 
     def test_max_add(self):
         from numpypy import array
@@ -1310,9 +1308,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a.min() == -3.0
         b = array([])
         raises(ValueError, "b.min()")
-
-        if 0: # XXX too pedantic
-            assert list(zeros((0, 2)).min(axis=1)) == []
+        assert list(zeros((0, 2)).min(axis=1)) == []
 
     def test_argmax(self):
         from numpypy import array
