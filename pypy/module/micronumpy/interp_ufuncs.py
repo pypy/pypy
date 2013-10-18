@@ -18,10 +18,8 @@ def done_if_false(dtype, val):
 
 
 class W_Ufunc(W_Root):
-    _attrs_ = ["name", "promote_to_float", "promote_bools", "identity",
-               "allow_bool", "allow_complex", "complex_to_float"]
-    _immutable_fields_ = ["promote_to_float", "promote_bools", "name",
-            "allow_bool", "allow_complex", "complex_to_float"]
+    _immutable_fields_ = ["name", "promote_to_float", "promote_bools", "identity",
+            "int_only", "allow_bool", "allow_complex", "complex_to_float"]
 
     def __init__(self, name, promote_to_float, promote_bools, identity,
                  int_only, allow_bool, allow_complex, complex_to_float):
@@ -254,14 +252,12 @@ class W_Ufunc(W_Root):
         return res
 
 class W_Ufunc1(W_Ufunc):
+    _immutable_fields_ = ["func", "bool_result"]
     argcount = 1
 
-    _immutable_fields_ = ["func", "name"]
-
     def __init__(self, func, name, promote_to_float=False, promote_bools=False,
-        identity=None, bool_result=False, int_only=False,
-        allow_bool=True, allow_complex=True, complex_to_float=False):
-
+            identity=None, bool_result=False, int_only=False,
+            allow_bool=True, allow_complex=True, complex_to_float=False):
         W_Ufunc.__init__(self, name, promote_to_float, promote_bools, identity,
                          int_only, allow_bool, allow_complex, complex_to_float)
         self.func = func
@@ -322,13 +318,12 @@ class W_Ufunc1(W_Ufunc):
 
 
 class W_Ufunc2(W_Ufunc):
-    _immutable_fields_ = ["comparison_func", "func", "name", "int_only"]
+    _immutable_fields_ = ["func", "comparison_func", "done_func"]
     argcount = 2
 
     def __init__(self, func, name, promote_to_float=False, promote_bools=False,
-        identity=None, comparison_func=False, int_only=False,
-        allow_bool=True, allow_complex=True, complex_to_float=False):
-
+            identity=None, comparison_func=False, int_only=False,
+            allow_bool=True, allow_complex=True, complex_to_float=False):
         W_Ufunc.__init__(self, name, promote_to_float, promote_bools, identity,
                          int_only, allow_bool, allow_complex, complex_to_float)
         self.func = func

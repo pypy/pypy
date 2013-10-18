@@ -115,8 +115,6 @@ def raw_binary_op(func):
     return dispatcher
 
 class BaseType(object):
-    _attrs_ = ()
-
     SortRepr = None # placeholders for sorting classes, overloaded in sort.py
     Sort = None
 
@@ -323,8 +321,6 @@ class NonNativePrimitive(Primitive):
         raw_storage_setitem(storage, i + offset, value)
 
 class Bool(BaseType, Primitive):
-    _attrs_ = ()
-
     T = lltype.Bool
     BoxType = interp_boxes.W_BoolBox
     format_code = "?"
@@ -541,101 +537,75 @@ class NonNativeInteger(NonNativePrimitive, Integer):
     _mixin_ = True
 
 class Int8(BaseType, Integer):
-    _attrs_ = ()
-
     T = rffi.SIGNEDCHAR
     BoxType = interp_boxes.W_Int8Box
     format_code = "b"
+
 NonNativeInt8 = Int8
 
 class UInt8(BaseType, Integer):
-    _attrs_ = ()
-
     T = rffi.UCHAR
     BoxType = interp_boxes.W_UInt8Box
     format_code = "B"
+
 NonNativeUInt8 = UInt8
 
 class Int16(BaseType, Integer):
-    _attrs_ = ()
-
     T = rffi.SHORT
     BoxType = interp_boxes.W_Int16Box
     format_code = "h"
 
 class NonNativeInt16(BaseType, NonNativeInteger):
-    _attrs_ = ()
-
     T = rffi.SHORT
     BoxType = interp_boxes.W_Int16Box
     format_code = "h"
 
 class UInt16(BaseType, Integer):
-    _attrs_ = ()
-
     T = rffi.USHORT
     BoxType = interp_boxes.W_UInt16Box
     format_code = "H"
 
 class NonNativeUInt16(BaseType, NonNativeInteger):
-    _attrs_ = ()
-
     T = rffi.USHORT
     BoxType = interp_boxes.W_UInt16Box
     format_code = "H"
 
 class Int32(BaseType, Integer):
-    _attrs_ = ()
-
     T = rffi.INT
     BoxType = interp_boxes.W_Int32Box
     format_code = "i"
 
 class NonNativeInt32(BaseType, NonNativeInteger):
-    _attrs_ = ()
-
     T = rffi.INT
     BoxType = interp_boxes.W_Int32Box
     format_code = "i"
 
 class UInt32(BaseType, Integer):
-    _attrs_ = ()
-
     T = rffi.UINT
     BoxType = interp_boxes.W_UInt32Box
     format_code = "I"
 
 class NonNativeUInt32(BaseType, NonNativeInteger):
-    _attrs_ = ()
-
     T = rffi.UINT
     BoxType = interp_boxes.W_UInt32Box
     format_code = "I"
 
 class Long(BaseType, Integer):
-    _attrs_ = ()
-
     T = rffi.LONG
     BoxType = interp_boxes.W_LongBox
     format_code = "l"
 
 class NonNativeLong(BaseType, NonNativeInteger):
-    _attrs_ = ()
-
     T = rffi.LONG
     BoxType = interp_boxes.W_LongBox
     format_code = "l"
 
 class ULong(BaseType, Integer):
-    _attrs_ = ()
-
     T = rffi.ULONG
     BoxType = interp_boxes.W_ULongBox
     format_code = "L"
 
 class NonNativeULong(BaseType, NonNativeInteger):
-    _attrs_ = ()
-
     T = rffi.ULONG
     BoxType = interp_boxes.W_ULongBox
     format_code = "L"
@@ -654,8 +624,6 @@ def _int64_coerce(self, space, w_item):
     return self.box(value)
 
 class Int64(BaseType, Integer):
-    _attrs_ = ()
-
     T = rffi.LONGLONG
     BoxType = interp_boxes.W_Int64Box
     format_code = "q"
@@ -663,8 +631,6 @@ class Int64(BaseType, Integer):
     _coerce = func_with_new_name(_int64_coerce, '_coerce')
 
 class NonNativeInt64(BaseType, NonNativeInteger):
-    _attrs_ = ()
-
     T = rffi.LONGLONG
     BoxType = interp_boxes.W_Int64Box
     format_code = "q"
@@ -685,8 +651,6 @@ def _uint64_coerce(self, space, w_item):
     return self.box(value)
 
 class UInt64(BaseType, Integer):
-    _attrs_ = ()
-
     T = rffi.ULONGLONG
     BoxType = interp_boxes.W_UInt64Box
     format_code = "Q"
@@ -694,8 +658,6 @@ class UInt64(BaseType, Integer):
     _coerce = func_with_new_name(_uint64_coerce, '_coerce')
 
 class NonNativeUInt64(BaseType, NonNativeInteger):
-    _attrs_ = ()
-
     T = rffi.ULONGLONG
     BoxType = interp_boxes.W_UInt64Box
     format_code = "Q"
@@ -1040,10 +1002,8 @@ class NonNativeFloat(NonNativePrimitive, Float):
 class BaseFloat16(Float):
     _mixin_ = True
 
-    _attrs_ = ()
     _STORAGE_T = rffi.USHORT
     T = rffi.SHORT
-
     BoxType = interp_boxes.W_Float16Box
 
     @specialize.argtype(1)
@@ -1085,15 +1045,11 @@ class NonNativeFloat16(BaseType, BaseFloat16):
                 byteswap(rffi.cast(self._STORAGE_T, hbits)))
 
 class Float32(BaseType, Float):
-    _attrs_ = ()
-
     T = rffi.FLOAT
     BoxType = interp_boxes.W_Float32Box
     format_code = "f"
 
 class NonNativeFloat32(BaseType, NonNativeFloat):
-    _attrs_ = ()
-
     T = rffi.FLOAT
     BoxType = interp_boxes.W_Float32Box
     format_code = "f"
@@ -1107,22 +1063,17 @@ class NonNativeFloat32(BaseType, NonNativeFloat):
         return bool(v)
 
 class Float64(BaseType, Float):
-    _attrs_ = ()
-
     T = rffi.DOUBLE
     BoxType = interp_boxes.W_Float64Box
     format_code = "d"
 
 class NonNativeFloat64(BaseType, NonNativeFloat):
-    _attrs_ = ()
-
     T = rffi.DOUBLE
     BoxType = interp_boxes.W_Float64Box
     format_code = "d"
 
 class ComplexFloating(object):
     _mixin_ = True
-    _attrs_ = ()
 
     def _coerce(self, space, w_item):
         w_item = space.call_function(space.w_complex, w_item)
@@ -1668,8 +1619,6 @@ class ComplexFloating(object):
         return 0, 0
 
 class Complex64(ComplexFloating, BaseType):
-    _attrs_ = ()
-
     T = rffi.FLOAT
     BoxType = interp_boxes.W_Complex64Box
     ComponentBoxType = interp_boxes.W_Float32Box
@@ -1677,8 +1626,6 @@ class Complex64(ComplexFloating, BaseType):
 NonNativeComplex64 = Complex64
 
 class Complex128(ComplexFloating, BaseType):
-    _attrs_ = ()
-
     T = rffi.DOUBLE
     BoxType = interp_boxes.W_Complex128Box
     ComponentBoxType = interp_boxes.W_Float64Box
@@ -1688,13 +1635,12 @@ NonNativeComplex128 = Complex128
 if interp_boxes.long_double_size == 8:
     FloatLong = Float64
     NonNativeFloatLong = NonNativeFloat64
+
     ComplexLong = Complex128
     NonNativeComplexLong = NonNativeComplex128
 
 elif interp_boxes.long_double_size in (12, 16):
     class FloatLong(BaseType, Float):
-        _attrs_ = ()
-
         T = rffi.LONGDOUBLE
         BoxType = interp_boxes.W_FloatLongBox
 
@@ -1712,8 +1658,6 @@ elif interp_boxes.long_double_size in (12, 16):
     NonNativeFloatLong = FloatLong
 
     class ComplexLong(ComplexFloating, BaseType):
-        _attrs_ = ()
-
         T = rffi.LONGDOUBLE
         BoxType = interp_boxes.W_ComplexLongBox
         ComponentBoxType = interp_boxes.W_FloatLongBox
