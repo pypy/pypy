@@ -872,31 +872,31 @@ class TestStm(RewriteTests):
             p0 = new(descr=sdescr)
             p1 = new(descr=tdescr)
             p2 = new(descr=sdescr)
-            jump()
         """, """
             []
             p0 = call_malloc_nursery(   \
                                %(sdescr.size + tdescr.size + sdescr.size)d)
             setfield_gc(p0, 1234, descr=tiddescr)
+            stm_set_revision_gc(p0, descr=revdescr)
             p1 = int_add(p0, %(sdescr.size)d)
             setfield_gc(p1, 5678, descr=tiddescr)
+            stm_set_revision_gc(p1, descr=revdescr)
             p2 = int_add(p1, %(tdescr.size)d)
             setfield_gc(p2, 1234, descr=tiddescr)
-            jump()
+            stm_set_revision_gc(p2, descr=revdescr)
         """)
 
     def test_rewrite_assembler_new_array_fixed_to_malloc(self):
         self.check_rewrite("""
             []
             p0 = new_array(10, descr=adescr)
-            jump()
         """, """
             []
             p0 = call_malloc_nursery(    \
                                 %(adescr.basesize + 10 * adescr.itemsize)d)
             setfield_gc(p0, 4321, descr=tiddescr)
+            stm_set_revision_gc(p0, descr=revdescr)
             setfield_gc(p0, 10, descr=alendescr)
-            jump()
         """)
 
     def test_rewrite_assembler_new_and_new_array_fixed_to_malloc(self):
@@ -904,30 +904,29 @@ class TestStm(RewriteTests):
             []
             p0 = new(descr=sdescr)
             p1 = new_array(10, descr=adescr)
-            jump()
         """, """
             []
             p0 = call_malloc_nursery(                                  \
                                 %(sdescr.size +                        \
                                   adescr.basesize + 10 * adescr.itemsize)d)
             setfield_gc(p0, 1234, descr=tiddescr)
+            stm_set_revision_gc(p0, descr=revdescr)
             p1 = int_add(p0, %(sdescr.size)d)
             setfield_gc(p1, 4321, descr=tiddescr)
+            stm_set_revision_gc(p1, descr=revdescr)
             setfield_gc(p1, 10, descr=alendescr)
-            jump()
         """)
 
     def test_rewrite_assembler_round_up(self):
         self.check_rewrite("""
             []
             p0 = new_array(6, descr=bdescr)
-            jump()
         """, """
             []
             p0 = call_malloc_nursery(%(bdescr.basesize + 8)d)
             setfield_gc(p0, 8765, descr=tiddescr)
+            stm_set_revision_gc(p0, descr=revdescr)
             setfield_gc(p0, 6, descr=blendescr)
-            jump()
         """)
 
     def test_rewrite_assembler_round_up_always(self):
@@ -937,22 +936,24 @@ class TestStm(RewriteTests):
             p1 = new_array(5, descr=bdescr)
             p2 = new_array(5, descr=bdescr)
             p3 = new_array(5, descr=bdescr)
-            jump()
         """, """
             []
             p0 = call_malloc_nursery(%(4 * (bdescr.basesize + 8))d)
             setfield_gc(p0, 8765, descr=tiddescr)
+            stm_set_revision_gc(p0, descr=revdescr)
             setfield_gc(p0, 5, descr=blendescr)
             p1 = int_add(p0, %(bdescr.basesize + 8)d)
             setfield_gc(p1, 8765, descr=tiddescr)
+            stm_set_revision_gc(p1, descr=revdescr)
             setfield_gc(p1, 5, descr=blendescr)
             p2 = int_add(p1, %(bdescr.basesize + 8)d)
             setfield_gc(p2, 8765, descr=tiddescr)
+            stm_set_revision_gc(p2, descr=revdescr)
             setfield_gc(p2, 5, descr=blendescr)
             p3 = int_add(p2, %(bdescr.basesize + 8)d)
             setfield_gc(p3, 8765, descr=tiddescr)
+            stm_set_revision_gc(p3, descr=revdescr)
             setfield_gc(p3, 5, descr=blendescr)
-            jump()
         """)
 
     def test_rewrite_assembler_minimal_size(self):
@@ -960,14 +961,14 @@ class TestStm(RewriteTests):
             []
             p0 = new(descr=edescr)
             p1 = new(descr=edescr)
-            jump()
         """, """
             []
             p0 = call_malloc_nursery(%(4*WORD)d)
             setfield_gc(p0, 9000, descr=tiddescr)
+            stm_set_revision_gc(p0, descr=revdescr)
             p1 = int_add(p0, %(2*WORD)d)
             setfield_gc(p1, 9000, descr=tiddescr)
-            jump()
+            stm_set_revision_gc(p1, descr=revdescr)
         """)
 
     def test_rewrite_assembler_variable_size(self):
@@ -979,6 +980,7 @@ class TestStm(RewriteTests):
             [i0]
             p0 = call_malloc_nursery_varsize(0, 1, i0, descr=bdescr)
             setfield_gc(p0, i0, descr=blendescr)
+            stm_transaction_break()
             jump(i0)
         """)
 
@@ -991,6 +993,7 @@ class TestStm(RewriteTests):
         [i0]
         p0 = call_malloc_nursery_varsize(1, 1, i0, descr=strdescr)
         setfield_gc(p0, i0, descr=strlendescr)
+        stm_transaction_break()
         jump(i0)
         """)
 
@@ -1014,6 +1017,7 @@ class TestStm(RewriteTests):
                                 %(nonstd_descr.lendescr.offset)d,     \
                                 6464, i0,                             \
                                 descr=malloc_array_nonstandard_descr)
+            stm_transaction_break()
             jump(i0)
         """, nonstd_descr=nonstd_descr)
 
@@ -1028,6 +1032,7 @@ class TestStm(RewriteTests):
             p0 = call_malloc_gc(ConstClass(malloc_array), 1,  \
                                 %(bdescr.tid)d, 103,          \
                                 descr=malloc_array_descr)
+            stm_transaction_break()
             jump()
         """)
 
@@ -1038,21 +1043,22 @@ class TestStm(RewriteTests):
             p0 = new_array(101, descr=bdescr)
             p1 = new_array(102, descr=bdescr)  # two new_arrays can be combined
             p2 = new_array(103, descr=bdescr)  # but not all three
-            jump()
         """, """
             []
             p0 = call_malloc_nursery(    \
                               %(2 * (bdescr.basesize + 104))d)
             setfield_gc(p0, 8765, descr=tiddescr)
+            stm_set_revision_gc(p0, descr=revdescr)
             setfield_gc(p0, 101, descr=blendescr)
             p1 = int_add(p0, %(bdescr.basesize + 104)d)
             setfield_gc(p1, 8765, descr=tiddescr)
+            stm_set_revision_gc(p1, descr=revdescr)
             setfield_gc(p1, 102, descr=blendescr)
             p2 = call_malloc_nursery(    \
                               %(bdescr.basesize + 104)d)
             setfield_gc(p2, 8765, descr=tiddescr)
+            stm_set_revision_gc(p2, descr=revdescr)
             setfield_gc(p2, 103, descr=blendescr)
-            jump()
         """)
 
     def test_rewrite_assembler_huge_size(self):
@@ -1066,6 +1072,7 @@ class TestStm(RewriteTests):
             p0 = call_malloc_gc(ConstClass(malloc_array), 1, \
                                 %(bdescr.tid)d, 20000000,    \
                                 descr=malloc_array_descr)
+            stm_transaction_break()
             jump()
         """)
 
@@ -1073,13 +1080,12 @@ class TestStm(RewriteTests):
         self.check_rewrite("""
             []
             p0 = new_with_vtable(ConstClass(o_vtable))
-            jump()
         """, """
             [p1]
             p0 = call_malloc_nursery(104)      # rounded up
             setfield_gc(p0, 9315, descr=tiddescr)
+            stm_set_revision_gc(p0, descr=revdescr)
             setfield_gc(p0, ConstClass(o_vtable), descr=vtable_descr)
-            jump()
         """)
 
     def test_new_with_vtable_too_big(self):
@@ -1087,13 +1093,11 @@ class TestStm(RewriteTests):
         self.check_rewrite("""
             []
             p0 = new_with_vtable(ConstClass(o_vtable))
-            jump()
         """, """
             [p1]
             p0 = call_malloc_gc(ConstClass(malloc_big_fixedsize), 104, 9315, \
                                 descr=malloc_big_fixedsize_descr)
             setfield_gc(p0, ConstClass(o_vtable), descr=vtable_descr)
-            jump()
         """)
 
     def test_rewrite_assembler_newstr_newunicode(self):
@@ -1103,16 +1107,17 @@ class TestStm(RewriteTests):
             p1 = newunicode(10)
             p2 = newunicode(i2)
             p3 = newstr(i2)
-            jump()
         """, """
             [i2]
             p0 = call_malloc_nursery(                                \
                       %(strdescr.basesize + 16 * strdescr.itemsize + \
                         unicodedescr.basesize + 10 * unicodedescr.itemsize)d)
             setfield_gc(p0, %(strdescr.tid)d, descr=tiddescr)
+            stm_set_revision_gc(p0, descr=revdescr)
             setfield_gc(p0, 14, descr=strlendescr)
             p1 = int_add(p0, %(strdescr.basesize + 16 * strdescr.itemsize)d)
             setfield_gc(p1, %(unicodedescr.tid)d, descr=tiddescr)
+            stm_set_revision_gc(p1, descr=revdescr)
             setfield_gc(p1, 10, descr=unicodelendescr)
             p2 = call_malloc_nursery_varsize(2, 4, i2, \
                                 descr=unicodedescr)
@@ -1120,6 +1125,64 @@ class TestStm(RewriteTests):
             p3 = call_malloc_nursery_varsize(1, 1, i2, \
                                 descr=strdescr)
             setfield_gc(p3, i2, descr=strlendescr)
-            jump()
         """)
+
+    def test_label_makes_size_unknown(self):
+        self.check_rewrite("""
+            [i2, p3]
+            p1 = new_array(5, descr=cdescr)
+            label(p1, i2, p3)
+            setarrayitem_gc(p1, i2, p3, descr=cdescr)
+        """, """
+            [i2, p3]
+            p1 = call_malloc_nursery(    \
+                                %(cdescr.basesize + 5 * cdescr.itemsize)d)
+            setfield_gc(p1, 8111, descr=tiddescr)
+            stm_set_revision_gc(p1, descr=revdescr)
+            setfield_gc(p1, 5, descr=clendescr)
+            label(p1, i2, p3)
+            cond_call_stm_b(p1, descr=P2Wdescr)
+            setarrayitem_gc(p1, i2, p3, descr=cdescr)
+        """)
+
+    def test_transaction_break_makes_size_unknown(self):
+        class fakeextrainfo:
+            def call_needs_inevitable(self):
+                return False
+        T = rffi.CArrayPtr(rffi.TIME_T)
+        calldescr2 = get_call_descr(self.gc_ll_descr, [T], rffi.TIME_T,
+                                    fakeextrainfo())
+
+        self.gc_ll_descr.max_size_of_young_obj = 300
+        self.check_rewrite("""
+            [i0, f0]
+            p0 = new_array(5, descr=bdescr)
+            p1 = new_array(5, descr=bdescr)
+            call_may_force(123, descr=calldescr2)
+            guard_not_forced() []
+            p2 = new_array(5, descr=bdescr)
+        """, """
+            [i0, f0]
+            p0 = call_malloc_nursery(    \
+                              %(2 * (bdescr.basesize + 8))d)
+            setfield_gc(p0, 8765, descr=tiddescr)
+            stm_set_revision_gc(p0, descr=revdescr)
+            setfield_gc(p0, 5, descr=blendescr)
+            p1 = int_add(p0, %(bdescr.basesize + 8)d)
+            setfield_gc(p1, 8765, descr=tiddescr)
+            stm_set_revision_gc(p1, descr=revdescr)
+            setfield_gc(p1, 5, descr=blendescr)
+            
+            call_may_force(123, descr=calldescr2)
+            guard_not_forced() []
+            stm_transaction_break()
+            
+            p2 = call_malloc_nursery(    \
+                              %(bdescr.basesize + 8)d)
+            setfield_gc(p2, 8765, descr=tiddescr)
+            stm_set_revision_gc(p2, descr=revdescr)
+            setfield_gc(p2, 5, descr=blendescr)
+        """, calldescr2=calldescr2)
+        
+
 
