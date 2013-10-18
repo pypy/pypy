@@ -116,6 +116,8 @@ class ComplexBox(Box):
 
 
 class W_GenericBox(W_Root):
+    _attrs_ = []
+
     def descr__new__(space, w_subtype, __args__):
         raise operationerrfmt(space.w_TypeError,
                               "cannot create '%N' instances",
@@ -359,6 +361,7 @@ elif long_double_size in (12, 16):
         _COMPONENTS_BOX = W_FloatLongBox
 
 class W_FlexibleBox(W_GenericBox):
+    _attrs_ = ['arr', 'ofs', 'dtype']
     _immutable_fields_ = ['arr', 'ofs', 'dtype']
 
     def __init__(self, arr, ofs, dtype):
