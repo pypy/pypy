@@ -800,6 +800,14 @@ class AppTestStrUnicodeDtypes(BaseNumpyAppTest):
         assert d.type is str_
         assert d.name == "string64"
         assert d.num == 18
+        for i in [1, 2, 3]:
+            d = dtype('c%d' % i)
+            assert d.itemsize == 1
+            assert d.kind == 'S'
+            assert d.type is str_
+            assert d.name == 'string8'
+            assert d.num == 18
+            assert d.str == '|S1'
 
     def test_unicode_dtype(self):
         from numpypy import dtype, unicode_

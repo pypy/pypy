@@ -432,7 +432,10 @@ def variable_dtype(space, name):
             size = int(name[1:])
         except ValueError:
             raise OperationError(space.w_TypeError, space.wrap("data type not understood"))
-    if char == 'S' or char == 'c':
+    if char == 'c':
+        char = 'S'
+        size = 1
+    if char == 'S':
         itemtype = types.StringType(size)
         basename = 'string'
         num = 18
