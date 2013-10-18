@@ -43,6 +43,14 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
            }
 
     def rewrite(self, operations):
+        # try to find a loop body:
+        last_label = None
+        in_loop_body = False
+        if operations[-1].getopnum() == rop.JUMP:
+            for op in operations:
+                if op.getopnum() == rop.LABEL:
+                    last_label = op
+        
         # overridden method from parent class
         #
         insert_transaction_break = False
@@ -93,6 +101,7 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
                         ResOperation(rop.STM_TRANSACTION_BREAK, [], None))
                     insert_transaction_break = False
                     self.emitting_an_operation_that_can_collect()
+                    self.next_op_may_be_in_new_transaction()
                 else:
                     assert insert_transaction_break is False
 
@@ -120,9 +129,12 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
             # ----------  calls  ----------
             if op.is_call():
                 self.emitting_an_operation_that_can_collect()
-                if (op.getopnum() == rop.CALL_MAY_FORCE or
-                    op.getopnum() == rop.CALL_ASSEMBLER or
-                    op.getopnum() == rop.CALL_RELEASE_GIL):
+                self.next_op_may_be_in_new_transaction()
+
+                if (not in_loop_body and (
+                        op.getopnum() == rop.CALL_MAY_FORCE or
+                        op.getopnum() == rop.CALL_ASSEMBLER or
+                        op.getopnum() == rop.CALL_RELEASE_GIL)):
                     # insert more transaction breaks after function
                     # calls since they are likely to return as
                     # inevitable transactions
@@ -157,9 +169,13 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
             # ----------  labels  ----------
             if op.getopnum() == rop.LABEL:
                 self.emitting_an_operation_that_can_collect()
+                self.next_op_may_be_in_new_transaction()
+                
                 self.known_lengths.clear()
                 self.always_inevitable = False
                 self.newops.append(op)
+                if op is last_label:
+                    in_loop_body = True
                 continue
             # ----------  jumps  ----------
             if op.getopnum() == rop.JUMP:
@@ -188,10 +204,9 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
         assert not insert_transaction_break
         return self.newops
 
-    def emitting_an_operation_that_can_collect(self):
-        GcRewriterAssembler.emitting_an_operation_that_can_collect(self)
+    def next_op_may_be_in_new_transaction(self):
         self.known_category.clear()
-
+        
     def write_to_read_categories(self):
         for v, c in self.known_category.items():
             if c == 'W':

@@ -227,9 +227,9 @@ class TestStm(RewriteTests):
             [p1, p3]
             cond_call_stm_b(p3, descr=P2Wdescr)
             setfield_gc(p3, p1, descr=tzdescr)
-            p2 = call_malloc_gc(ConstClass(malloc_big_fixedsize),    \
-                                %(tdescr.size)d, %(tdescr.tid)d, \
-                                descr=malloc_big_fixedsize_descr)
+            p2 = call_malloc_nursery(%(tdescr.size)d)
+            setfield_gc(p2, %(tdescr.tid)d, descr=tiddescr)
+            stm_set_revision_gc(p2, descr=revdescr)
             cond_call_stm_b(p3, descr=P2Wdescr)
             setfield_gc(p3, p1, descr=tzdescr)
             stm_transaction_break()
@@ -247,9 +247,9 @@ class TestStm(RewriteTests):
             [p1]
             cond_call_stm_b(p1, descr=P2Rdescr)
             p2 = getfield_gc(p1, descr=tzdescr)
-            p3 = call_malloc_gc(ConstClass(malloc_big_fixedsize),    \
-                                %(tdescr.size)d, %(tdescr.tid)d, \
-                                descr=malloc_big_fixedsize_descr)
+            p3 = call_malloc_nursery(%(tdescr.size)d)
+            setfield_gc(p3, %(tdescr.tid)d, descr=tiddescr)
+            stm_set_revision_gc(p3, descr=revdescr)
             p4 = getfield_gc(p1, descr=tzdescr)
             stm_transaction_break()
             jump(p2)
@@ -263,9 +263,9 @@ class TestStm(RewriteTests):
             jump(p2)
         """, """
             [p1]
-            p2 = call_malloc_gc(ConstClass(malloc_big_fixedsize),    \
-                                %(tdescr.size)d, %(tdescr.tid)d, \
-                                descr=malloc_big_fixedsize_descr)
+            p2 = call_malloc_nursery(%(tdescr.size)d)
+            setfield_gc(p2, %(tdescr.tid)d, descr=tiddescr)
+            stm_set_revision_gc(p2, descr=revdescr)
             setfield_gc(p2, p1, descr=tzdescr)
             stm_transaction_break()
             jump(p2)
@@ -481,9 +481,9 @@ class TestStm(RewriteTests):
             jump(p2)
         """, """
             [p0]
-            p1 = call_malloc_gc(ConstClass(malloc_big_fixedsize),    \
-                                %(tdescr.size)d, %(tdescr.tid)d, \
-                                descr=malloc_big_fixedsize_descr)
+            p1 = call_malloc_nursery(%(tdescr.size)d)
+            setfield_gc(p1, %(tdescr.tid)d, descr=tiddescr)
+            stm_set_revision_gc(p1, descr=revdescr)
             p2 = getfield_gc(p1, descr=tzdescr)
             stm_transaction_break()
             jump(p2)
@@ -1183,6 +1183,45 @@ class TestStm(RewriteTests):
             stm_set_revision_gc(p2, descr=revdescr)
             setfield_gc(p2, 5, descr=blendescr)
         """, calldescr2=calldescr2)
+
+    def test_no_transactionbreak_in_loop_body(self):
+        class fakeextrainfo:
+            def call_needs_inevitable(self):
+                return False
+        T = rffi.CArrayPtr(rffi.TIME_T)
+        calldescr2 = get_call_descr(self.gc_ll_descr, [T], rffi.TIME_T,
+                                    fakeextrainfo())
+
+        self.check_rewrite("""
+            []
+            call_may_force(123, descr=calldescr2)
+            guard_not_forced() []
+            
+            label()
+            
+            call_may_force(123, descr=calldescr2)
+            guard_not_forced() []
+
+            i0 = int_add(1, 2)
+            
+            jump()
+        """, """
+            []
+            call_may_force(123, descr=calldescr2)
+            guard_not_forced() []
+            stm_transaction_break()
+            
+            label()
+            
+            call_may_force(123, descr=calldescr2)
+            guard_not_forced() []
+
+            i0 = int_add(1, 2)
+            
+            stm_transaction_break()
+            jump()
+        """, calldescr2=calldescr2)
+
         
 
 
