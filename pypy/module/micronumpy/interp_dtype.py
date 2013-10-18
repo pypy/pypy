@@ -457,22 +457,24 @@ def variable_dtype(space, name):
                    char, w_box_type)
 
 def new_string_dtype(space, size):
+    itemtype = types.StringType(size)
     return W_Dtype(
-        types.StringType(size),
+        itemtype,
         num=18,
         kind=STRINGLTR,
-        name='string',
-        char='S' + str(size),
+        name='string' + str(8 * itemtype.get_element_size()),
+        char='S',
         w_box_type = space.gettypefor(interp_boxes.W_StringBox),
     )
 
 def new_unicode_dtype(space, size):
+    itemtype = types.UnicodeType(size)
     return W_Dtype(
-        types.UnicodeType(size),
+        itemtype,
         num=19,
         kind=UNICODELTR,
-        name='unicode',
-        char='U' + str(size),
+        name='unicode' + str(8 * itemtype.get_element_size()),
+        char='U',
         w_box_type = space.gettypefor(interp_boxes.W_UnicodeBox),
     )
 
