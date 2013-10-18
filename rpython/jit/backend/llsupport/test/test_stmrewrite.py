@@ -1185,6 +1185,8 @@ class TestStm(RewriteTests):
         """, calldescr2=calldescr2)
 
     def test_no_transactionbreak_in_loop_body(self):
+        py.test.skip("actually not good")
+
         class fakeextrainfo:
             def call_needs_inevitable(self):
                 return False

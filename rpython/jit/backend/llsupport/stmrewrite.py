@@ -43,14 +43,6 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
            }
 
     def rewrite(self, operations):
-        # try to find a loop body:
-        last_label = None
-        in_loop_body = False
-        if operations[-1].getopnum() == rop.JUMP:
-            for op in operations:
-                if op.getopnum() == rop.LABEL:
-                    last_label = op
-        
         # overridden method from parent class
         #
         insert_transaction_break = False
@@ -131,10 +123,9 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
                 self.emitting_an_operation_that_can_collect()
                 self.next_op_may_be_in_new_transaction()
 
-                if (not in_loop_body and (
-                        op.getopnum() == rop.CALL_MAY_FORCE or
-                        op.getopnum() == rop.CALL_ASSEMBLER or
-                        op.getopnum() == rop.CALL_RELEASE_GIL)):
+                if (op.getopnum() == rop.CALL_MAY_FORCE or
+                    op.getopnum() == rop.CALL_ASSEMBLER or
+                    op.getopnum() == rop.CALL_RELEASE_GIL):
                     # insert more transaction breaks after function
                     # calls since they are likely to return as
                     # inevitable transactions
@@ -174,8 +165,6 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
                 self.known_lengths.clear()
                 self.always_inevitable = False
                 self.newops.append(op)
-                if op is last_label:
-                    in_loop_body = True
                 continue
             # ----------  jumps  ----------
             if op.getopnum() == rop.JUMP:
