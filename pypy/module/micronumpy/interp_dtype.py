@@ -148,7 +148,11 @@ class W_Dtype(W_Root):
 
     def eq(self, space, w_other):
         w_other = space.call_function(space.gettypefor(W_Dtype), w_other)
-        return space.is_w(self, w_other)
+        if space.is_w(self, w_other):
+            return True
+        if isinstance(w_other, W_Dtype):
+            return space.eq_w(self.descr_reduce(space), w_other.descr_reduce(space))
+        return False
 
     def descr_eq(self, space, w_other):
         return space.wrap(self.eq(space, w_other))

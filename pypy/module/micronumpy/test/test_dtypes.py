@@ -703,7 +703,7 @@ class AppTestTypes(BaseAppTestDtypes):
         from numpypy import dtype
         nnp = self.non_native_prefix
         byteorder = self.native_prefix
-        assert dtype('i8') == dtype(byteorder + 'i8') == dtype('=i8') # XXX should be equal == dtype(long)
+        assert dtype('i8') == dtype(byteorder + 'i8') == dtype('=i8') == dtype(long)
         assert dtype(nnp + 'i8') != dtype('i8')
         assert dtype(nnp + 'i8').byteorder == nnp
         assert dtype('=i8').byteorder == '='
