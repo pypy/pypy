@@ -8,7 +8,7 @@ import py
 
 from rpython.flowspace.model import (SpaceOperation, Variable, Constant,
                                      c_last_exception, checkgraph, mkentrymap)
-from rpython.flowspace.operation import OverflowingOperation
+from rpython.flowspace.operation import OverflowingOperation, op
 from rpython.rlib import rarithmetic
 from rpython.translator import unsimplify
 from rpython.translator.backendopt import ssa
@@ -204,7 +204,10 @@ def transform_xxxitem(graph):
                     elif exit.exitcase is KeyError:
                         postfx.append('key')
                 if postfx:
-                    last_op.opname = last_op.opname + '_' + '_'.join(postfx)
+                    Op = getattr(op, '_'.join(['getitem'] + postfx))
+                    newop = Op(*last_op.args)
+                    newop.result = last_op.result
+                    block.operations[-1] = newop
 
 
 def remove_dead_exceptions(graph):
