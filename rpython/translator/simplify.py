@@ -6,9 +6,9 @@ simplify_graph() applies all simplifications defined in this file.
 """
 import py
 
-from rpython.flowspace import operation
 from rpython.flowspace.model import (SpaceOperation, Variable, Constant,
                                      c_last_exception, checkgraph, mkentrymap)
+from rpython.flowspace.operation import OverflowingOperation
 from rpython.rlib import rarithmetic
 from rpython.translator import unsimplify
 from rpython.translator.backendopt import ssa
@@ -92,13 +92,6 @@ def transform_ovfcheck(graph):
     """
     covf = Constant(rarithmetic.ovfcheck)
 
-    def check_syntax(opname):
-        oper = getattr(operation.op, opname + "_ovf")
-        exlis = oper.canraise
-        if OverflowError not in exlis:
-            raise Exception("ovfcheck in %s: Operation %s has no"
-                            " overflow variant" % (graph.name, opname))
-
     for block in graph.iterblocks():
         for i in range(len(block.operations)-1, -1, -1):
             op = block.operations[i]
@@ -120,11 +113,14 @@ def transform_ovfcheck(graph):
                     join_blocks(graph)         # merge the two blocks together
                     transform_ovfcheck(graph)  # ...and try again
                     return
-                op1 = block.operations[i-1]
-                check_syntax(op1.opname)
-                op1.opname += '_ovf'
+                op1 = block.operations[i - 1]
+                if not isinstance(op1, OverflowingOperation):
+                    raise Exception("ovfcheck in %s: Operation %s has no "
+                                    "overflow variant" % (graph.name, op1.opname))
+                op1_ovf = op1.ovfchecked()
+                block.operations[i - 1] = op1_ovf
                 del block.operations[i]
-                block.renamevariables({op.result: op1.result})
+                block.renamevariables({op.result: op1_ovf.result})
 
 def simplify_exceptions(graph):
     """The exception handling caused by non-implicit exceptions

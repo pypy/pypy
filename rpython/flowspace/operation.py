@@ -53,6 +53,7 @@ class HLOperationMeta(type):
 class HLOperation(SpaceOperation):
     __metaclass__ = HLOperationMeta
     pure = False
+    can_overflow = False
 
     def __init__(self, *args):
         self.args = list(args)
@@ -116,12 +117,25 @@ class PureOperation(HLOperation):
                         # store operation with variable result instead
                         pass
 
+class OverflowingOperation(PureOperation):
+    can_overflow = True
+    def ovfchecked(self):
+        ovf = self.ovf_variant(*self.args)
+        ovf.offset = self.offset
+        return ovf
+
 
 def add_operator(name, arity, pyfunc=None, pure=False, ovf=False):
     operator_func = getattr(operator, name, None)
-    base_cls = PureOperation if pure else HLOperation
+    if ovf:
+        assert pure
+        base_cls = OverflowingOperation
+    elif pure:
+        base_cls = PureOperation
+    else:
+        base_cls = HLOperation
     cls = HLOperationMeta(name, (base_cls,), {'opname': name, 'arity': arity,
-                                   'can_overflow': ovf, 'canraise': []})
+                                              'canraise': []})
     if pyfunc is not None:
         func2op[pyfunc] = cls
     if operator_func:
@@ -134,6 +148,7 @@ def add_operator(name, arity, pyfunc=None, pure=False, ovf=False):
         from rpython.rlib.rarithmetic import ovfcheck
         ovf_func = lambda *args: ovfcheck(cls.pyfunc(*args))
         add_operator(name + '_ovf', arity, pyfunc=ovf_func)
+        cls.ovf_variant = getattr(op, name + '_ovf')
 
 # ____________________________________________________________
 
