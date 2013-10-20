@@ -1,7 +1,7 @@
 """
 Arguments objects.
 """
-from rpython.annotator.model import SomeTuple, SomeObject
+from rpython.annotator.model import SomeTuple
 
 # for parsing call arguments
 class RPythonCallsSpace(object):
@@ -10,28 +10,11 @@ class RPythonCallsSpace(object):
     that the call pattern is too complex for R-Python.
     """
     def newtuple(self, items_s):
-        if len(items_s) == 1 and items_s[0] is Ellipsis:
-            res = SomeObject()   # hack to get a SomeObject as the *arg
-            res.from_ellipsis = True
-            return res
-        else:
-            return SomeTuple(items_s)
+        return SomeTuple(items_s)
 
-    def unpackiterable(self, s_obj, expected_length=None):
-        if isinstance(s_obj, SomeTuple):
-            return list(s_obj.items)
-        if (s_obj.__class__ is SomeObject and
-            getattr(s_obj, 'from_ellipsis', False)):    # see newtuple()
-            return [Ellipsis]
-        raise CallPatternTooComplex("'*' argument must be SomeTuple")
-
-    def bool(self, s_tup):
-        assert isinstance(s_tup, SomeTuple)
-        return bool(s_tup.items)
-
-
-class CallPatternTooComplex(Exception):
-    pass
+    def unpackiterable(self, s_obj):
+        assert isinstance(s_obj, SomeTuple)
+        return list(s_obj.items)
 
 
 class ArgumentsForTranslation(object):

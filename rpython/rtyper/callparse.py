@@ -4,9 +4,6 @@ from rpython.rtyper import rtuple
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.lltypesystem import lltype
 
-class CallPatternTooComplex(TyperError):
-    pass
-
 
 def getrinputs(rtyper, graph):
     """Return the list of reprs of the input arguments to the 'graph'."""
@@ -163,27 +160,10 @@ class RPythonCallsSpace:
     For the Arguments class: if it really needs other operations, it means
     that the call pattern is too complex for R-Python.
     """
-    w_tuple = NewTupleHolder
     def newtuple(self, items):
         return NewTupleHolder(items)
 
-    def newdict(self):
-        raise CallPatternTooComplex, "'**' argument"
-
-    def unpackiterable(self, it, expected_length=None):
-        if it.is_tuple():
-            items = it.items()
-            if (expected_length is not None and
-                expected_length != len(items)):
-                raise ValueError
-            return list(items)
-        raise CallPatternTooComplex, "'*' argument must be a tuple"
-    fixedview = unpackiterable
-    listview = unpackiterable
-
-    def is_w(self, one, other):
-        return one is other
-
-    def type(self, item):
-        return type(item)
-
+    def unpackiterable(self, it):
+        assert it.is_tuple()
+        items = it.items()
+        return list(items)
