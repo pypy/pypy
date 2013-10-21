@@ -81,11 +81,13 @@ class W_CoreSolutionIterator(W_Root):
             self.w_goal_term = None # allow GC
         try:
             if first_iteration:
-                r = self.p_engine.run_query_in_current(p_goal_term, cont)
+                module = self.p_engine.modulewrapper.current_module
+                args = self.p_engine._make_conts(p_goal_term, module, cont)
+                r = continuation.unroll_driver(*args)
             else:
                 fcont = self.continuation_holder.fcont
                 heap = self.continuation_holder.heap
-                continuation.driver(*fcont.fail(heap))
+                continuation.unroll_driver(*fcont.fail(heap))
         except error.UnificationFailed:
             # contradiction - no solutions
             raise OperationError(self.space.w_StopIteration, self.space.w_None)
