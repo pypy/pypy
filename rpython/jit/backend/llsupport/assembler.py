@@ -95,6 +95,7 @@ class BaseAssembler(object):
         if gc_ll_descr.stm:
             self._build_ptr_eq_slowpath()
             self._build_stm_longjmp_callback()
+            self.stm_transaction_break_path = self._build_stm_transaction_break_path()
         else:
             self.ptr_eq_slowpath = None
         # only one of those

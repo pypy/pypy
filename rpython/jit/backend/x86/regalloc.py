@@ -1284,13 +1284,18 @@ class RegAlloc(BaseRegalloc):
         self.perform_discard(op, [base_loc, ofs_loc, size_loc])
         
     def consider_stm_transaction_break(self, op):
+        check_type_box = op.getarg(0)
+        assert isinstance(check_type_box, ConstInt)
+        check_type = check_type_box.getint()
+        #
         # XXX use the extra 3 words in the stm resume buffer to save
         # up to 3 registers, too.  For now we just flush them all.
-        check_type = op.getarg(0)
-        assert isinstance(check_type, ConstInt)
         self.xrm.before_call(save_all_regs=1)
         self.rm.before_call(save_all_regs=1)
-        self.perform(op, [self.rm.convert_to_imm(check_type)], None)
+        gcmap = self.get_gcmap() # allocate the gcmap *before*
+        #
+        self.assembler.stm_transaction_break(check_type, gcmap)
+        
 
     def consider_jump(self, op):
         assembler = self.assembler

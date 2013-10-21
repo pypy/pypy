@@ -188,6 +188,50 @@ class Assembler386(BaseAssembler):
         mc.RET()
         return mc.materialize(self.cpu.asmmemmgr, [])
 
+    def _build_stm_transaction_break_path(self):
+        """ While arriving on slowpath, we have a gcpattern on stack 0.
+        This function must preserve all registers
+        """
+        mc = codebuf.MachineCodeBlockWrapper()
+        # store the gc pattern
+        ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
+        mc.MOV_rs(ecx.value, WORD)
+        mc.MOV_br(ofs, ecx.value)
+        #
+        # align on 16b boundary (there is a retaddr on the stack)
+        mc.SUB_ri(esp.value, 16 - WORD)
+        #
+        # call stm_transaction_break() with the address of the
+        # STM_RESUME_BUF and the custom longjmp function
+        # (rsp + FRAME_FIXED_SIZE + RET_ADDR + ALIGNMENT)
+        mc.LEA_rs(edi.value, (FRAME_FIXED_SIZE+2) * WORD)
+        mc.MOV(esi, imm(self.stm_longjmp_callback_addr))
+        fn = stmtlocal.stm_transaction_break_fn
+        mc.CALL(imm(self.cpu.cast_ptr_to_int(fn)))
+        #
+        mc.ADD_ri(esp.value, 16 - WORD)
+        #
+        self._reload_frame_if_necessary(mc, align_stack=True)
+        # clear the gc pattern
+        mc.MOV_bi(ofs, 0)
+        #
+        # Fill the stm resume buffer.  Don't do it before the call!
+        # The previous transaction may still be aborted during the call
+        # above, so we need the old content of the buffer!
+        # The buffer contains the address of the resume point which
+        # is the RET_ADDR of this called piece of code. This will be
+        # put at offset 0 of the buffer, at offset WORD, there is a
+        # copy of the current shadowstack pointer.
+        mc.POP_r(eax.value) # get ret addr
+        self._load_shadowstack_top_in_ebx(mc, self.cpu.gc_ll_descr.gcrootmap)
+        mc.MOV_sr((FRAME_FIXED_SIZE + 1) * WORD, ebx.value)
+        mc.MOV_sr((FRAME_FIXED_SIZE + 0) * WORD, eax.value)
+        mc.JMP_r(eax.value)
+        #
+        rawstart = mc.materialize(self.cpu.asmmemmgr, [])
+        return rawstart
+
+    
     def _build_malloc_slowpath(self, kind):
         """ While arriving on slowpath, we have a gcpattern on stack 0.
         The arguments are passed in eax and edi, as follows:
@@ -3061,54 +3105,46 @@ class Assembler386(BaseAssembler):
         mc.MOV(dest_addr, X86_64_SCRATCH_REG)
 
         
-    def genop_stm_transaction_break(self, op, arglocs, result_loc):
+    def stm_transaction_break(self, check_type, gcmap):
         assert self.cpu.gc_ll_descr.stm
         if not we_are_translated():
             return     # tests only
 
-        # argument is check_type, 0 being a check for inevitable,
-        # 1 being a check with stm_should_break_transaction()
-        assert isinstance(arglocs[0], ImmedLoc)
-        check_type = arglocs[0].getint()
-        
+        # check_type: 0 do a check for inevitable before
+        # doing a check of stm_should_break_transaction().
+        # else, just do stm_should_break_transaction()
         mc = self.mc
         if check_type == 0:
-            # if stm_active == 2
+            # only check stm_should_break_transaction()
+            # if we are inevitable:
             nc = self._get_stm_tl(rstm.get_active_adr())
             self._tl_segment_if_stm(mc)
-            mc.CMP_ji(nc, 2)
-        elif check_type == 1:
-            # "if stm_should_break_transaction()"
-            fn = stmtlocal.stm_should_break_transaction_fn
-            mc.CALL(imm(self.cpu.cast_ptr_to_int(fn)))
-            mc.TEST8(eax.lowest8bits(), eax.lowest8bits())
+            mc.CMP_ji(nc, 1)
+            mc.J_il(rx86.Conditions['Z'], 0xfffff)    # patched later
+            jz_location = mc.get_relative_pos()
+        else:
+            jz_location = 0
+        
+        # if stm_should_break_transaction()
+        fn = stmtlocal.stm_should_break_transaction_fn
+        mc.CALL(imm(self.cpu.cast_ptr_to_int(fn)))
+        mc.TEST8(eax.lowest8bits(), eax.lowest8bits())
         mc.J_il(rx86.Conditions['Z'], 0xfffff)    # patched later
-        jz_location = mc.get_relative_pos()
+        jz_location2 = mc.get_relative_pos()
         #
         # call stm_transaction_break() with the address of the
         # STM_RESUME_BUF and the custom longjmp function
-        mc.LEA_rs(edi.value, FRAME_FIXED_SIZE * WORD)
-        fn = stmtlocal.stm_transaction_break_fn
-        self.simple_call(imm(self.cpu.cast_ptr_to_int(fn)),
-                         [edi, imm(self.stm_longjmp_callback_addr)],
-                         None)
-        #
-        # Fill the stm resume buffer.  Don't do it before the call!
-        # The previous transaction may still be aborted during the call
-        # above, so we need the old content of the buffer!
-        # The buffer contains the address of the resume point in this
-        # piece of code (at "HERE") at offset 0, and at offset WORD it
-        # contains a copy of the current shadowstack pointer.
-        self._load_shadowstack_top_in_ebx(mc, self.cpu.gc_ll_descr.gcrootmap)
-        mc.MOV_sr((FRAME_FIXED_SIZE + 1) * WORD, ebx.value)
-        mc.CALL_l(0)
-        # "HERE"
-        mc.POP_r(eax.value)
-        mc.MOV_sr((FRAME_FIXED_SIZE + 0) * WORD, eax.value)
+        self.push_gcmap(mc, gcmap, mov=True)
+        fn = self.stm_transaction_break_path
+        mc.CALL(imm(fn))
         #
         # patch the JZ above
-        offset = mc.get_relative_pos() - jz_location
-        mc.overwrite32(jz_location-4, offset)
+        if jz_location:
+            offset = mc.get_relative_pos() - jz_location
+            mc.overwrite32(jz_location-4, offset)
+        offset = mc.get_relative_pos() - jz_location2
+        mc.overwrite32(jz_location2-4, offset)
+
 
 
 genop_discard_list = [Assembler386.not_implemented_op_discard] * rop._LAST
