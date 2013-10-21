@@ -1,5 +1,8 @@
 
-/* NDArray object interface - S. H. Muller, 2013/07/26 */
+/* NDArray object interface - S. H. Muller, 2013/07/26 
+ * It will be copied by numpy/core/setup.py by install_data to
+ * site-packages/numpy/core/includes/numpy  
+*/
 
 #ifndef Py_NDARRAYOBJECT_H
 #define Py_NDARRAYOBJECT_H
@@ -9,7 +12,6 @@ extern "C" {
 
 #include "old_defines.h"
 
-#define NPY_INLINE
 #define NPY_UNUSED(x) x
 #define PyArray_MAX(a,b) (((a)>(b))?(a):(b))
 #define PyArray_MIN(a,b) (((a)<(b))?(a):(b))
@@ -22,11 +24,12 @@ extern PyTypeObject PyArray_Type;
 
 typedef unsigned char npy_bool;
 typedef unsigned char npy_uint8;
+typedef unsigned short npy_uint16;
+typedef signed short npy_int16;
+typedef signed char npy_int8;
 typedef int npy_int;
 
-#ifndef npy_intp
-#define npy_intp long
-#endif
+typedef long npy_intp;
 #ifndef NPY_INTP_FMT
 #define NPY_INTP_FMT "ld"
 #endif

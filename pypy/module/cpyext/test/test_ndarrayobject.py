@@ -265,6 +265,12 @@ class AppTestCNumber(AppTestCpythonExtensionBase):
                 return obj2;
                 '''
                 ),
+                ("test_DescrFromType", "METH_O",
+                """
+                    Signed typenum = PyInt_AsLong(args);
+                    return _PyArray_DescrFromType(typenum);
+                """
+                ),
                 ], prologue='#include <numpy/arrayobject.h>')
         arr = mod.test_simplenew()
         assert arr.shape == (2, 3)
@@ -278,3 +284,5 @@ class AppTestCNumber(AppTestCpythonExtensionBase):
         #Make sure these work without errors
         arr = mod.test_FromAny()
         arr = mod.test_FromObject()
+        dt = mod.test_DescrFromType(11)
+        assert dt.num == 11

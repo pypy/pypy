@@ -871,8 +871,9 @@ class BaseFrameworkGCTransformer(GCTransformer):
 
     def gct_get_write_barrier_from_array_failing_case(self, hop):
         op = hop.spaceop
-        v = getattr(self, 'write_barrier_from_array_failing_case_ptr',
-                    lltype.nullptr(op.result.concretetype.TO))
+        null = lltype.nullptr(op.result.concretetype.TO)
+        c_null = rmodel.inputconst(op.result.concretetype, null)
+        v = getattr(self, 'write_barrier_from_array_failing_case_ptr', c_null)
         hop.genop("same_as", [v], resultvar=op.result)
 
     def gct_zero_gc_pointers_inside(self, hop):

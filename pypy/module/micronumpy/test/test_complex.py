@@ -10,7 +10,7 @@ from rpython.rlib.rfloat import isnan, isinf, copysign
 from rpython.rlib.rcomplex import c_pow
 
 
-def rAlmostEqual(a, b, rel_err=2e-15, abs_err=5e-323, msg='', isnumpy=False):
+def rAlmostEqual(a, b, rel_err=2e-15, abs_err=5e-323, msg=''):
     """Fail if the two floating-point numbers are not almost equal.
 
     Determine whether floating-point values a and b are equal to within
@@ -36,7 +36,7 @@ def rAlmostEqual(a, b, rel_err=2e-15, abs_err=5e-323, msg='', isnumpy=False):
     # (in theory there are examples where it would be legitimate for a
     # and b to have opposite signs; in practice these hardly ever
     # occur).
-    if not a and not b and not isnumpy:
+    if not a and not b:
         # only check it if we are running on top of CPython >= 2.6
         if sys.version_info >= (2, 6) and copysign(1., a) != copysign(1., b):
             raise AssertionError( msg + \
@@ -112,8 +112,6 @@ class AppTestUfuncs(BaseNumpyAppTest):
                     (k, space.unwrap(v))
                     for k, v in kwargs.iteritems()
                 ])
-                if '__pypy__' not in sys.builtin_module_names:
-                    kwargs['isnumpy'] = True
                 return space.wrap(rAlmostEqual(*args, **kwargs))
             cls.w_rAlmostEqual = cls.space.wrap(interp2app(cls_rAlmostEqual))
             def cls_c_pow(space, args_w):
@@ -196,13 +194,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         raises(TypeError, signbit, complex(1,1))
 
     def test_reciprocal(self):
-        from numpypy import array, reciprocal, complex64, complex128
-        c_and_relerr = [(complex64, 2e-7), (complex128, 2e-15)]
-        try:
-            from numpypy import clongdouble
-            c_and_relerr.append((clongdouble, 2e-30))
-        except:
-            pass # no longdouble yet
+        from numpypy import array, reciprocal, complex64, complex128, clongdouble
         inf = float('inf')
         nan = float('nan')
         #complex
@@ -217,7 +209,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
                     complex(-r, i),
                     -0j, 0j, cnan,
                     cnan, cnan, cnan]
-        for c, rel_err in c_and_relerr:
+        for c, rel_err in ((complex64, 2e-7), (complex128, 2e-15), (clongdouble, 2e-15)):
             actual = reciprocal(array([orig], dtype=c))
             for b, a, e in zip(orig, actual, expected):
                 assert (a[0].real - e.real) < rel_err
@@ -237,18 +229,12 @@ class AppTestUfuncs(BaseNumpyAppTest):
         raises(TypeError, copysign, a, b)
 
     def test_exp2(self):
-        from numpypy import array, exp2, complex128, complex64
-        c_and_relerr = [(complex64, 2e-7), (complex128, 2e-15)]
-        try:
-            from numpypy import clongdouble
-            c_and_relerr.append((clongdouble, 2e-30))
-        except:
-            pass # no longdouble yet
+        from numpypy import array, exp2, complex128, complex64, clongdouble
         inf = float('inf')
         ninf = -float('inf')
         nan = float('nan')
         cmpl = complex
-        for c,rel_err in c_and_relerr:
+        for c, rel_err in ((complex64, 2e-7), (complex128, 2e-15), (clongdouble, 2e-15)):
             a = [cmpl(-5., 0), cmpl(-5., -5.), cmpl(-5., 5.),
                        cmpl(0., -5.), cmpl(0., 0.), cmpl(0., 5.),
                        cmpl(-0., -5.), cmpl(-0., 0.), cmpl(-0., 5.),
@@ -279,12 +265,12 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
     def test_expm1(self):
         import math, cmath
-        from numpypy import array, expm1, complex128, complex64
+        from numpypy import array, expm1, complex128, complex64, clongdouble
         inf = float('inf')
         ninf = -float('inf')
         nan = float('nan')
         cmpl = complex
-        for c,rel_err in ((complex128, 2e-15), (complex64, 1e-7)):
+        for c, rel_err in ((complex64, 2e-7), (complex128, 2e-15), (clongdouble, 2e-15)):
             a = [cmpl(-5., 0), cmpl(-5., -5.), cmpl(-5., 5.),
                        cmpl(0., -5.), cmpl(0., 0.), cmpl(0., 5.),
                        cmpl(-0., -5.), cmpl(-0., 0.), cmpl(-0., 5.),
@@ -508,15 +494,9 @@ class AppTestUfuncs(BaseNumpyAppTest):
     def test_basic(self):
         from numpypy import (complex128, complex64, add, array, dtype,
             subtract as sub, multiply, divide, negative, absolute as abs,
-            floor_divide, real, imag, sign)
+            floor_divide, real, imag, sign, clongdouble)
         from numpypy import (equal, not_equal, greater, greater_equal, less,
                 less_equal, isnan)
-        complex_dtypes = [complex64, complex128]
-        try:
-            from numpypy import clongfloat
-            complex_dtypes.append(clongfloat)
-        except:
-            pass
         assert real(4.0) == 4.0
         assert imag(0.0) == 0.0
         a = array([complex(3.0, 4.0)])
@@ -545,8 +525,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert str(a.real) == 'abc'
         # numpy imag for flexible types returns self
         assert str(a.imag) == 'abc'
-        for complex_ in complex_dtypes:
-
+        for complex_ in complex64, complex128, clongdouble:
             O = complex(0, 0)
             c0 = complex_(complex(2.5, 0))
             c1 = complex_(complex(1, 2))
@@ -576,7 +555,6 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert sub(c1, c2) == complex(-2, -2)
             assert negative(complex(1,1)) == complex(-1, -1)
             assert negative(complex(0, 0)) == 0
-
 
             assert multiply(1, c1) == c1
             assert multiply(2, c2) == complex(6, 8)
@@ -636,9 +614,9 @@ class AppTestUfuncs(BaseNumpyAppTest):
         import numpypy as np
         rAlmostEqual = self.rAlmostEqual
 
-        for complex_, abs_err, testcases in (\
-                 (np.complex128, 5e-323, self.testcases128),
-                 # (np.complex64,  5e-32,  self.testcases64),
+        for complex_, testcases in (
+                 (np.complex128, self.testcases128),
+                 #(np.complex64, self.testcases64),
                 ):
             for id, fn, ar, ai, er, ei, flags in testcases:
                 arg = complex_(complex(ar, ai))
@@ -667,7 +645,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
                 if fn in ('log', 'log10'):
                     real_abs_err = 2e-15
                 else:
-                    real_abs_err = abs_err
+                    real_abs_err = 5e-323
 
                 error_message = (
                     '%s: %s(%r(%r, %r))\n'
@@ -680,9 +658,9 @@ class AppTestUfuncs(BaseNumpyAppTest):
                 # since rAlmostEqual is a wrapped function,
                 # convert arguments to avoid boxed values
                 rAlmostEqual(float(expected[0]), float(actual[0]),
-                               abs_err=real_abs_err, msg=error_message)
+                             abs_err=real_abs_err, msg=error_message)
                 rAlmostEqual(float(expected[1]), float(actual[1]),
-                                   msg=error_message)
+                             msg=error_message)
                 sys.stderr.write('.')
             sys.stderr.write('\n')
 

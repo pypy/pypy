@@ -1,4 +1,3 @@
-
 from pypy.interpreter.error import operationerrfmt, OperationError
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, make_weakref_descr
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
@@ -14,7 +13,7 @@ from pypy.module.micronumpy.interp_support import unwrap_axis_arg
 from pypy.module.micronumpy.appbridge import get_appbridge_cache
 from pypy.module.micronumpy import loop
 from pypy.module.micronumpy.dot import match_dot_shapes
-from pypy.module.micronumpy.interp_arrayops import repeat, choose
+from pypy.module.micronumpy.interp_arrayops import repeat, choose, put
 from pypy.module.micronumpy.arrayimpl import scalar
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rlib import jit
@@ -399,6 +398,10 @@ class __extend__(W_NDimArray):
     def descr_repeat(self, space, repeats, w_axis=None):
         return repeat(space, self, repeats, w_axis)
 
+    def descr_set_flatiter(self, space, w_obj):
+        arr = convert_to_array(space, w_obj)
+        loop.flatiter_setitem(space, self, arr, 0, 1, self.get_size())
+
     def descr_get_flatiter(self, space):
         return space.wrap(W_FlatIterator(self))
 
@@ -417,8 +420,8 @@ class __extend__(W_NDimArray):
                                      [0] * len(self.get_shape()))
                 assert isinstance(w_obj, interp_boxes.W_GenericBox)
                 return w_obj.item(space)
-            raise OperationError(space.w_IndexError,
-                                 space.wrap("index out of bounds"))
+            raise OperationError(space.w_ValueError,
+                                 space.wrap("can only convert an array of size 1 to a Python scalar"))
         if space.isinstance_w(w_arg, space.w_int):
             if self.is_scalar():
                 raise OperationError(space.w_IndexError,
@@ -505,9 +508,8 @@ class __extend__(W_NDimArray):
             loop.byteswap(self.implementation, w_res.implementation)
             return w_res
 
-    @unwrap_spec(mode=str)
-    def descr_choose(self, space, w_choices, w_out=None, mode='raise'):
-        return choose(space, self, w_choices, w_out, mode)
+    def descr_choose(self, space, w_choices, w_out=None, w_mode=None):
+        return choose(space, self, w_choices, w_out, w_mode)
 
     def descr_clip(self, space, w_min, w_max, w_out=None):
         if space.is_none(w_out):
@@ -546,6 +548,12 @@ class __extend__(W_NDimArray):
         return interp_arrayops.diagonal(space, self.implementation, offset,
                                         axis1, axis2)
 
+    @unwrap_spec(offset=int, axis1=int, axis2=int)
+    def descr_trace(self, space, offset=0, axis1=0, axis2=1,
+                    w_dtype=None, w_out=None):
+        diag = self.descr_diagonal(space, offset, axis1, axis2)
+        return diag.descr_sum(space, w_axis=space.wrap(-1), w_dtype=w_dtype, w_out=w_out)
+
     def descr_dump(self, space, w_file):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "dump not implemented yet"))
@@ -580,10 +588,8 @@ class __extend__(W_NDimArray):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "ptp (peak to peak) not implemented yet"))
 
-    @unwrap_spec(mode=str)
-    def descr_put(self, space, w_indices, w_values, mode='raise'):
-        from pypy.module.micronumpy.interp_arrayops import put
-        put(space, self, w_indices, w_values, mode)
+    def descr_put(self, space, w_indices, w_values, w_mode=None):
+        put(space, self, w_indices, w_values, w_mode)
 
     def descr_resize(self, space, w_new_shape, w_refcheck=True):
         raise OperationError(space.w_NotImplementedError, space.wrap(
@@ -629,9 +635,13 @@ class __extend__(W_NDimArray):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "setflags not implemented yet"))
 
-    def descr_sort(self, space, w_axis=-1, w_kind='quicksort', w_order=None):
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            "sort not implemented yet"))
+    @unwrap_spec(kind=str)
+    def descr_sort(self, space, w_axis=None, kind='quicksort', w_order=None):
+        # happily ignore the kind
+        # modify the array in-place
+        if self.is_scalar():
+            return
+        return self.implementation.sort(space, w_axis, w_order)
 
     def descr_squeeze(self, space):
         raise OperationError(space.w_NotImplementedError, space.wrap(
@@ -644,11 +654,6 @@ class __extend__(W_NDimArray):
     def descr_tofile(self, space, w_fid, w_sep="", w_format="%s"):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "tofile not implemented yet"))
-
-    def descr_trace(self, space, w_offset=0, w_axis1=0, w_axis2=1,
-                    w_dtype=None, w_out=None):
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            "trace not implemented yet"))
 
     def descr_view(self, space, w_dtype=None, w_type=None) :
         if not w_type and w_dtype:
@@ -837,7 +842,7 @@ class __extend__(W_NDimArray):
 
     def _reduce_ufunc_impl(ufunc_name, promote_to_largest=False,
                            cumultative=False):
-        def impl(self, space, w_axis=None, w_out=None, w_dtype=None):
+        def impl(self, space, w_axis=None, w_dtype=None, w_out=None):
             if space.is_none(w_out):
                 out = None
             elif not isinstance(w_out, W_NDimArray):
@@ -846,7 +851,7 @@ class __extend__(W_NDimArray):
             else:
                 out = w_out
             return getattr(interp_ufuncs.get(space), ufunc_name).reduce(
-                space, self, True, promote_to_largest, w_axis,
+                space, self, promote_to_largest, w_axis,
                 False, out, w_dtype, cumultative=cumultative)
         return func_with_new_name(impl, "reduce_%s_impl_%d_%d" % (ufunc_name,
                     promote_to_largest, cumultative))
@@ -886,6 +891,15 @@ class __extend__(W_NDimArray):
         if len(shape) == 0:
             assert isinstance(self.implementation, scalar.Scalar)
             return space.int(space.wrap(self.implementation.get_scalar_value()))
+        if shape == [1]:
+            return space.int(self.descr_getitem(space, space.wrap(0)))
+        raise OperationError(space.w_TypeError, space.wrap("only length-1 arrays can be converted to Python scalars"))
+
+    def descr_long(self, space):
+        shape = self.get_shape()
+        if len(shape) == 0:
+            assert isinstance(self.implementation, scalar.Scalar)
+            return space.long(space.wrap(self.implementation.get_scalar_value()))
         if shape == [1]:
             return space.int(self.descr_getitem(space, space.wrap(0)))
         raise OperationError(space.w_TypeError, space.wrap("only length-1 arrays can be converted to Python scalars"))
@@ -950,6 +964,13 @@ class __extend__(W_NDimArray):
     def descr___array_finalize__(self, space, w_obj):
         pass
 
+    def descr___array_wrap__(self, space, w_obj, w_context=None):
+        return w_obj
+
+    def descr___array_prepare__(self, space, w_obj, w_context=None):
+        return w_obj
+        pass
+
 @unwrap_spec(offset=int, order=str)
 def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
                     offset=0, w_strides=None, order='C'):
@@ -1009,6 +1030,7 @@ W_NDimArray.typedef = TypeDef(
     __repr__ = interp2app(W_NDimArray.descr_repr),
     __str__ = interp2app(W_NDimArray.descr_str),
     __int__ = interp2app(W_NDimArray.descr_int),
+    __long__ = interp2app(W_NDimArray.descr_long),
     __float__ = interp2app(W_NDimArray.descr_float),
 
     __pos__ = interp2app(W_NDimArray.descr_pos),
@@ -1109,7 +1131,8 @@ W_NDimArray.typedef = TypeDef(
     repeat = interp2app(W_NDimArray.descr_repeat),
     swapaxes = interp2app(W_NDimArray.descr_swapaxes),
     nonzero = interp2app(W_NDimArray.descr_nonzero),
-    flat = GetSetProperty(W_NDimArray.descr_get_flatiter),
+    flat = GetSetProperty(W_NDimArray.descr_get_flatiter,
+                          W_NDimArray.descr_set_flatiter),
     item = interp2app(W_NDimArray.descr_item),
     real = GetSetProperty(W_NDimArray.descr_get_real,
                           W_NDimArray.descr_set_real),
@@ -1118,6 +1141,7 @@ W_NDimArray.typedef = TypeDef(
     conj = interp2app(W_NDimArray.descr_conj),
 
     argsort  = interp2app(W_NDimArray.descr_argsort),
+    sort  = interp2app(W_NDimArray.descr_sort),
     astype   = interp2app(W_NDimArray.descr_astype),
     base     = GetSetProperty(W_NDimArray.descr_get_base),
     byteswap = interp2app(W_NDimArray.descr_byteswap),
@@ -1126,6 +1150,7 @@ W_NDimArray.typedef = TypeDef(
     round    = interp2app(W_NDimArray.descr_round),
     data     = GetSetProperty(W_NDimArray.descr_get_data),
     diagonal = interp2app(W_NDimArray.descr_diagonal),
+    trace = interp2app(W_NDimArray.descr_trace),
     view = interp2app(W_NDimArray.descr_view),
 
     ctypes = GetSetProperty(W_NDimArray.descr_get_ctypes), # XXX unimplemented
@@ -1139,7 +1164,8 @@ W_NDimArray.typedef = TypeDef(
     __reduce__ = interp2app(W_NDimArray.descr_reduce),
     __setstate__ = interp2app(W_NDimArray.descr_setstate),
     __array_finalize__ = interp2app(W_NDimArray.descr___array_finalize__),
-
+    __array_prepare__ = interp2app(W_NDimArray.descr___array_prepare__),
+    __array_wrap__ = interp2app(W_NDimArray.descr___array_wrap__),
     __array__         = interp2app(W_NDimArray.descr___array__),
 )
 

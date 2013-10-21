@@ -156,7 +156,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
             def __init__(self):
                 self.foobar = 32
                 super(UnicodeSubclass2, self).__init__()
-        
+
         newobj = UnicodeSubclass2()
         assert newobj.get_val() == 42
         assert newobj.foobar == 32
@@ -358,6 +358,13 @@ class TestTypes(BaseApiTest):
         assert w_obj is None
         assert api.PyErr_Occurred() is None
 
+    def test_ndarray_ref(self, space, api):
+        w_obj = space.appexec([], """():
+            import numpypy as np
+            return np.int64(2)""")
+        ref = make_ref(space, w_obj)
+        api.Py_DecRef(ref)
+
 class AppTestSlots(AppTestCpythonExtensionBase):
     def test_some_slots(self):
         module = self.import_extension('foo', [
@@ -525,7 +532,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         assert type(it) is type(iter([]))
         assert module.tp_iternext(it) == 1
         raises(StopIteration, module.tp_iternext, it)
-        
+
     def test_bool(self):
         module = self.import_extension('foo', [
             ("newInt", "METH_VARARGS",

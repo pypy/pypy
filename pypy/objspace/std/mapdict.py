@@ -556,7 +556,7 @@ def _make_subclass_size_n(supercls, n):
 
         def _mapdict_storage_length(self):
             if self._has_storage_list():
-                return len(self._mapdict_get_storage_list()) + n - 1
+                return len(self._mapdict_get_storage_list()) + (n - 1)
             return n
 
         def _set_mapdict_storage_and_map(self, storage, map):

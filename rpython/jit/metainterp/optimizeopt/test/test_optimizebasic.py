@@ -3670,6 +3670,20 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_int_add_commutative(self):
+        ops = """
+        [i0, i1]
+        i2 = int_add(i0, i1)
+        i3 = int_add(i1, i0)
+        jump(i2, i3)
+        """
+        expected = """
+        [i0, i1]
+        i2 = int_add(i0, i1)
+        jump(i2, i2)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_framestackdepth_overhead(self):
         ops = """
         [p0, i22]
