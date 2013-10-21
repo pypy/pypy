@@ -197,12 +197,14 @@ void stm_register_integer_address(intptr_t);
 /* macro functionality */
 
 extern __thread gcptr *stm_shadowstack;
+extern __thread int stm_active;
+extern __thread char *stm_nursery_current;
+extern __thread char *stm_nursery_nextlimit;
 
 #define stm_push_root(obj)  (*stm_shadowstack++ = (obj))
 #define stm_pop_root()      (*--stm_shadowstack)
 
 extern __thread revision_t stm_private_rev_num;
-extern __thread struct tx_descriptor *thread_descriptor; /* XXX: stm_ prefix */
 gcptr stm_DirectReadBarrier(gcptr);
 gcptr stm_WriteBarrier(gcptr);
 gcptr stm_RepeatReadBarrier(gcptr);

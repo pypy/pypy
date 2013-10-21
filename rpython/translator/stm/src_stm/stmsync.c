@@ -43,7 +43,7 @@ _Bool stm_should_break_transaction(void)
                                    d->reads_size_limit_nonatomic));
     /* if is_inevitable(), reads_size_limit_nonatomic should be 0
        (and thus reads_size_limit too, if !d->atomic.) */
-    if (d->active == 2)
+    if (*d->active_ref == 2)
         assert(d->reads_size_limit_nonatomic == 0);
 #endif
 
@@ -168,7 +168,7 @@ void stm_perform_transaction(gcptr arg, int (*callback)(gcptr, int))
            has configured 'reads_size_limit_nonatomic' to a smaller value.
            When such a shortened transaction succeeds, the next one will
            see its length limit doubled, up to the maximum. */
-        if (counter == 0 && d->active != 2) {
+        if (counter == 0 && *d->active_ref != 2) {
             unsigned long limit = d->reads_size_limit_nonatomic;
             if (limit != 0 && limit < (stm_regular_length_limit >> 1))
                 limit = (limit << 1) | 1;
@@ -183,7 +183,7 @@ void stm_perform_transaction(gcptr arg, int (*callback)(gcptr, int))
             /* atomic transaction: a common case is that callback() returned
                even though we are atomic because we need a major GC.  For
                that case, release and reaquire the rw lock here. */
-            assert(d->active >= 1);
+            assert(*d->active_ref >= 1);
             stm_possible_safe_point();
         }
 
@@ -218,7 +218,7 @@ void stm_transaction_break(void *buf, void (*longjmp_callback)(void *))
 {   /* must save roots around this call */
     struct tx_descriptor *d = thread_descriptor;
     if (d->atomic) {
-        assert(d->active >= 1);
+        assert(*d->active_ref >= 1);
         stm_possible_safe_point();
     }
     else {
@@ -267,7 +267,7 @@ void stm_become_inevitable(const char *reason)
 int stm_in_transaction(void)
 {
     struct tx_descriptor *d = thread_descriptor;
-    return d && d->active;
+    return d && *d->active_ref;
 }
 
 /************************************************************/
@@ -354,7 +354,7 @@ void stm_possible_safe_point(void)
 
     /* Warning, may block waiting for rwlock_in_transaction while another
        thread runs a major GC */
-    assert(thread_descriptor->active);
+    assert(*thread_descriptor->active_ref);
     assert(in_single_thread != thread_descriptor);
 
     stm_stop_sharedlock();

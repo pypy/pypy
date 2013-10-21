@@ -650,7 +650,7 @@ static void cleanup_for_thread(struct tx_descriptor *d)
     /* If we're aborting this transaction anyway, we don't need to do
      * more here.
      */
-    if (d->active < 0) {
+    if (*d->active_ref < 0) {
         /* already "aborted" during forced minor collection
            clear list of read objects so that a possible minor collection 
            before the abort doesn't trip 
@@ -660,7 +660,7 @@ static void cleanup_for_thread(struct tx_descriptor *d)
         return;
     }
 
-    if (d->active == 2) {
+    if (*d->active_ref == 2) {
         /* inevitable transaction: clear the list of read objects */
         gcptrlist_clear(&d->list_of_read_objects);
     }

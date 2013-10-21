@@ -175,8 +175,8 @@ struct tx_descriptor {
   unsigned long count_reads;
   unsigned long reads_size_limit;        /* see should_break_tr. */
   unsigned long reads_size_limit_nonatomic;
-  int active;    /* 0 = inactive, 1 = regular, 2 = inevitable,
-                    negative = killed by collection */
+  int *active_ref;    /* 0 = inactive, 1 = regular, 2 = inevitable,
+                         negative = killed by collection */
   struct timespec start_real_time;
   int max_aborts;
   unsigned int num_commits;
@@ -201,6 +201,7 @@ struct tx_descriptor {
 
 extern __thread struct tx_descriptor *thread_descriptor;
 extern __thread revision_t stm_private_rev_num;
+extern __thread int stm_active;
 extern struct tx_public_descriptor *stm_descriptor_array[];
 extern struct tx_descriptor *stm_tx_head;
 

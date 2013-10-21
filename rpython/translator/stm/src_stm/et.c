@@ -57,7 +57,7 @@ void stm_dump_dbg(void)
 }
 
 
-
+__thread int stm_active;
 __thread struct tx_descriptor *thread_descriptor = NULL;
 
 /* 'global_cur_time' is normally a multiple of 2, except when we turn
@@ -104,8 +104,8 @@ static _Bool is_inevitable(struct tx_descriptor *d)
 {
   /* Assert that we are running a transaction.
    *      Returns True if this transaction is inevitable. */
-  assert(d->active == 1 + !d->setjmp_buf);
-  return d->active == 2;
+  assert(*d->active_ref == 1 + !d->setjmp_buf);
+  return *d->active_ref == 2;
 }
 
 static pthread_mutex_t mutex_inevitable = PTHREAD_MUTEX_INITIALIZER;
@@ -121,7 +121,7 @@ static void inev_mutex_acquire(struct tx_descriptor *d)
   pthread_mutex_lock(&mutex_inevitable);
   stm_start_sharedlock();
 
-  if (d->active < 0)
+  if (*d->active_ref < 0)
     {
       inev_mutex_release();
       AbortNowIfDelayed();
@@ -706,7 +706,7 @@ gcptr stm_WriteBarrier(gcptr P)
     }
 
   struct tx_descriptor *d = thread_descriptor;
-  assert(d->active >= 1);
+  assert(*d->active_ref >= 1);
 
   /* We need the collection_lock for the sequel; this is required notably
      because we're about to edit flags on a protected object.
@@ -890,7 +890,7 @@ static void ValidateNow(struct tx_descriptor *d)
 void SpinLoop(int num)
 {
   struct tx_descriptor *d = thread_descriptor;
-  assert(d->active >= 1);
+  assert(*d->active_ref >= 1);
   assert(num < SPINLOOP_REASONS);
   d->num_spinloops[num]++;
   smp_spinloop();
@@ -925,7 +925,7 @@ void AbortTransaction(int num)
       assert(!stm_has_got_any_lock(d));
     }
 
-  assert(d->active != 0);
+  assert(*d->active_ref != 0);
   assert(!is_inevitable(d));
   assert(num < ABORT_REASONS);
   d->num_aborts[num]++;
@@ -990,7 +990,7 @@ void AbortTransaction(int num)
   SpinLoop(SPLP_ABORT);
 
   /* make the transaction no longer active */
-  d->active = 0;
+  *d->active_ref = 0;
   d->atomic = 0;
 
   /* release the lock */
@@ -1032,22 +1032,22 @@ void AbortTransaction(int num)
 
 void AbortTransactionAfterCollect(struct tx_descriptor *d, int reason)
 {
-  if (d->active >= 0)
+  if (*d->active_ref >= 0)
     {
       dprintf(("abort %d after collect!\n", reason));
-      assert(d->active == 1);   /* not 2, which means inevitable */
-      d->active = -reason;
+      assert(*d->active_ref == 1);   /* not 2, which means inevitable */
+      *d->active_ref = -reason;
     }
-  assert(d->active < 0);
+  assert(*d->active_ref < 0);
 }
 
 void AbortNowIfDelayed(void)
 {
   struct tx_descriptor *d = thread_descriptor;
-  if (d->active < 0)
+  if (*d->active_ref < 0)
     {
-      int reason = -d->active;
-      d->active = 1;
+      int reason = -*d->active_ref;
+      *d->active_ref = 1;
       AbortTransaction(reason);
     }
 }
@@ -1075,9 +1075,9 @@ long stm_atomic(long delta)
 static void init_transaction(struct tx_descriptor *d)
 {
   assert(d->atomic == 0);
-  assert(d->active == 0);
+  assert(*d->active_ref == 0);
   stm_start_sharedlock();
-  assert(d->active == 0);
+  assert(*d->active_ref == 0);
 
   if (clock_gettime(CLOCK_MONOTONIC, &d->start_real_time) < 0) {
     d->start_real_time.tv_nsec = -1;
@@ -1098,7 +1098,7 @@ void stm_begin_transaction(void *buf, void (*longjmp_callback)(void *))
 {
   struct tx_descriptor *d = thread_descriptor;
   init_transaction(d);
-  d->active = 1;
+  *d->active_ref = 1;
   d->setjmp_buf = buf;
   d->longjmp_callback = longjmp_callback;
   d->old_thread_local_obj = stm_thread_local_obj;
@@ -1430,7 +1430,7 @@ void CommitTransaction(void)
 {   /* must save roots around this call */
   revision_t cur_time;
   struct tx_descriptor *d = thread_descriptor;
-  assert(d->active >= 1);
+  assert(*d->active_ref >= 1);
   assert(d->atomic == 0);
   dprintf(("CommitTransaction(%p)\n", d));
   spinlock_acquire(d->public_descriptor->collection_lock, 'C');  /*committing*/
@@ -1503,7 +1503,7 @@ void CommitTransaction(void)
 
   spinlock_release(d->public_descriptor->collection_lock);
   d->num_commits++;
-  d->active = 0;
+  *d->active_ref = 0;
   stm_stop_sharedlock();
 
   /* clear the list of callbacks that would have been called
@@ -1517,7 +1517,7 @@ static void make_inevitable(struct tx_descriptor *d)
 {
   d->setjmp_buf = NULL;
   d->old_thread_local_obj = NULL;
-  d->active = 2;
+  *d->active_ref = 2;
   d->reads_size_limit_nonatomic = 0;
   update_reads_size_limit(d);
   dprintf(("make_inevitable(%p)\n", d));
@@ -1544,7 +1544,7 @@ void BecomeInevitable(const char *why)
 {   /* must save roots around this call */
   revision_t cur_time;
   struct tx_descriptor *d = thread_descriptor;
-  if (d == NULL || d->active != 1)
+  if (d == NULL || *d->active_ref != 1)
     return;  /* I am already inevitable, or not in a transaction at all
                 (XXX statically we should know when we're outside
                 a transaction) */
@@ -1743,6 +1743,9 @@ void DescriptorInit(void)
       assert(d->my_lock & 1);
       assert(d->my_lock >= LOCKED);
       stm_private_rev_num = -d->my_lock;
+      d->active_ref = &stm_active;
+      d->nursery_current_ref = &stm_nursery_current;
+      d->nursery_nextlimit_ref = &stm_nursery_nextlimit;
       d->private_revision_ref = &stm_private_rev_num;
       d->read_barrier_cache_ref = &stm_read_barrier_cache;
       stm_thread_local_obj = NULL;
@@ -1769,7 +1772,7 @@ void DescriptorDone(void)
     revision_t i;
     struct tx_descriptor *d = thread_descriptor;
     assert(d != NULL);
-    assert(d->active == 0);
+    assert(*d->active_ref == 0);
 
     /* our nursery is empty at this point.  The list 'stolen_objects'
        should have been emptied at the previous minor collection and

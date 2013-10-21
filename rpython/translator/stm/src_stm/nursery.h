@@ -25,8 +25,8 @@
 
 #define NURSERY_FIELDS_DECL                                             \
     /* the nursery */                                                   \
-    char *nursery_current;                                              \
-    char *nursery_nextlimit;                                            \
+    char **nursery_current_ref;                                         \
+    char **nursery_nextlimit_ref;                                       \
     char *nursery_end;                                                  \
     char *nursery_base;                                                 \
     enum { NC_REGULAR, NC_ALREADY_CLEARED } nursery_cleared;            \
@@ -58,6 +58,9 @@
 
 
 struct tx_descriptor;  /* from et.h */
+extern __thread char *stm_nursery_current;
+extern __thread char *stm_nursery_nextlimit;
+
 
 void stmgc_init_nursery(void);
 void stmgc_done_nursery(void);

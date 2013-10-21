@@ -26,7 +26,7 @@ void stm_clear_on_abort(void *start, size_t bytes)
 void stm_call_on_abort(void *key, void callback(void *))
 {
     struct tx_descriptor *d = thread_descriptor;
-    if (d == NULL || d->active != 1)
+    if (d == NULL || *d->active_ref != 1)
         return;   /* ignore callbacks if we're outside a transaction or
                      in an inevitable transaction (which cannot abort) */
     if (callback == NULL) {
@@ -49,7 +49,7 @@ void stm_clear_callbacks_on_abort(struct tx_descriptor *d)
 void stm_invoke_callbacks_on_abort(struct tx_descriptor *d)
 {
     wlog_t *item;
-    assert(d->active == 0);
+    assert(*d->active_ref == 0);
 
     G2L_LOOP_FORWARD(d->callbacks_on_abort, item) {
         void *key = (void *)item->addr;
@@ -287,7 +287,7 @@ size_t stm_decode_abort_info(struct tx_descriptor *d, long long elapsed_time,
         output->signature_packed = 127;
         output->elapsed_time = elapsed_time;
         output->abort_reason = abort_reason;
-        output->active = d->active;
+        output->active = *d->active_ref;
         output->atomic = d->atomic;
         output->count_reads = d->count_reads;
         output->reads_size_limit_nonatomic = d->reads_size_limit_nonatomic;
