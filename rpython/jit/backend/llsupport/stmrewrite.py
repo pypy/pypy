@@ -90,7 +90,8 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
                     and insert_transaction_break):
                     # insert transaction_break after GUARD after calls
                     self.newops.append(
-                        ResOperation(rop.STM_TRANSACTION_BREAK, [], None))
+                        ResOperation(rop.STM_TRANSACTION_BREAK,
+                                     [ConstInt(0)], None))
                     insert_transaction_break = False
                     self.emitting_an_operation_that_can_collect()
                     self.next_op_may_be_in_new_transaction()
@@ -169,7 +170,8 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
             # ----------  jumps  ----------
             if op.getopnum() == rop.JUMP:
                 self.newops.append(
-                    ResOperation(rop.STM_TRANSACTION_BREAK, [], None))
+                    ResOperation(rop.STM_TRANSACTION_BREAK,
+                                 [ConstInt(1)], None))
                 # self.emitting_an_operation_that_can_collect()
                 self.newops.append(op)
                 continue

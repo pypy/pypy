@@ -1286,9 +1286,11 @@ class RegAlloc(BaseRegalloc):
     def consider_stm_transaction_break(self, op):
         # XXX use the extra 3 words in the stm resume buffer to save
         # up to 3 registers, too.  For now we just flush them all.
+        check_type = op.getarg(0)
+        assert isinstance(check_type, ConstInt)
         self.xrm.before_call(save_all_regs=1)
         self.rm.before_call(save_all_regs=1)
-        self.perform(op, [], None)
+        self.perform(op, [self.rm.convert_to_imm(check_type)], None)
 
     def consider_jump(self, op):
         assembler = self.assembler

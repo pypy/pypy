@@ -3065,11 +3065,23 @@ class Assembler386(BaseAssembler):
         assert self.cpu.gc_ll_descr.stm
         if not we_are_translated():
             return     # tests only
-        # "if stm_should_break_transaction()"
+
+        # argument is check_type, 0 being a check for inevitable,
+        # 1 being a check with stm_should_break_transaction()
+        assert isinstance(arglocs[0], ImmedLoc)
+        check_type = arglocs[0].getint()
+        
         mc = self.mc
-        fn = stmtlocal.stm_should_break_transaction_fn
-        mc.CALL(imm(self.cpu.cast_ptr_to_int(fn)))
-        mc.TEST8(eax.lowest8bits(), eax.lowest8bits())
+        if check_type == 0:
+            # if stm_active == 2
+            nc = self._get_stm_tl(rstm.get_active_adr())
+            self._tl_segment_if_stm(mc)
+            mc.CMP_ji(nc, 2)
+        elif check_type == 1:
+            # "if stm_should_break_transaction()"
+            fn = stmtlocal.stm_should_break_transaction_fn
+            mc.CALL(imm(self.cpu.cast_ptr_to_int(fn)))
+            mc.TEST8(eax.lowest8bits(), eax.lowest8bits())
         mc.J_il(rx86.Conditions['Z'], 0xfffff)    # patched later
         jz_location = mc.get_relative_pos()
         #

@@ -82,7 +82,7 @@ class TestStm(RewriteTests):
                 []
                 %s
                 call(123, descr=cd)
-                stm_transaction_break()
+                stm_transaction_break(1)
                 jump()
             """ % ("$INEV" if inev else "",), cd=calldescr)
     
@@ -95,7 +95,7 @@ class TestStm(RewriteTests):
             [p1, p2]
             cond_call_stm_b(p1, descr=P2Wdescr)
             setfield_gc(p1, p2, descr=tzdescr)
-            stm_transaction_break()
+            stm_transaction_break(1)
             jump()
         """)
 
@@ -111,7 +111,7 @@ class TestStm(RewriteTests):
             p3 = same_as(ConstPtr(t))
             cond_call_stm_b(p3, descr=P2Wdescr)
             setfield_gc(p3, p2, descr=tzdescr)
-            stm_transaction_break()
+            stm_transaction_break(1)
             jump()
             """, t=NULL)
 
@@ -136,7 +136,7 @@ class TestStm(RewriteTests):
             setfield_gc(p2, p0, descr=tzdescr)
             cond_call_stm_b(p1, descr=P2Rdescr)
             p4 = getfield_gc(p1, descr=tzdescr)
-            stm_transaction_break()
+            stm_transaction_break(1)
             jump()
             """, t=NULL)
 
@@ -159,7 +159,7 @@ class TestStm(RewriteTests):
             setfield_gc(p2, p0, descr=tzdescr)
             cond_call_stm_b(p1, descr=P2Rdescr)
             p5 = getfield_gc(p1, descr=tzdescr)
-            stm_transaction_break()
+            stm_transaction_break(1)
             jump()
         """)
 
@@ -183,7 +183,7 @@ class TestStm(RewriteTests):
             setfield_gc(p2, p0, descr=tzdescr)
             cond_call_stm_b(p1, descr=P2Rdescr)
             p4 = getfield_gc(p1, descr=tzdescr)
-            stm_transaction_break()
+            stm_transaction_break(1)
             jump()
         """)
 
@@ -209,7 +209,7 @@ class TestStm(RewriteTests):
             setfield_gc(p2, p0, descr=tzdescr)
             cond_call_stm_b(p1, descr=P2Rdescr)
             p4 = getfield_gc(p1, descr=tzdescr)
-            stm_transaction_break()
+            stm_transaction_break(1)
             jump()
         """
         for op in ops:
@@ -232,7 +232,7 @@ class TestStm(RewriteTests):
             stm_set_revision_gc(p2, descr=revdescr)
             cond_call_stm_b(p3, descr=P2Wdescr)
             setfield_gc(p3, p1, descr=tzdescr)
-            stm_transaction_break()
+            stm_transaction_break(1)
             jump(p2)
         """)
 
@@ -251,7 +251,7 @@ class TestStm(RewriteTests):
             setfield_gc(p3, %(tdescr.tid)d, descr=tiddescr)
             stm_set_revision_gc(p3, descr=revdescr)
             p4 = getfield_gc(p1, descr=tzdescr)
-            stm_transaction_break()
+            stm_transaction_break(1)
             jump(p2)
         """)
             
@@ -267,7 +267,7 @@ class TestStm(RewriteTests):
             setfield_gc(p2, %(tdescr.tid)d, descr=tiddescr)
             stm_set_revision_gc(p2, descr=revdescr)
             setfield_gc(p2, p1, descr=tzdescr)
-            stm_transaction_break()
+            stm_transaction_break(1)
             jump(p2)
         """)
 
@@ -283,7 +283,7 @@ class TestStm(RewriteTests):
             setfield_gc(p1, p2, descr=tzdescr)
             cond_call_stm_b(p3, descr=P2Wdescr)
             setfield_gc(p3, p4, descr=tzdescr)
-            stm_transaction_break()
+            stm_transaction_break(1)
             jump()
         """)
 
@@ -298,7 +298,7 @@ class TestStm(RewriteTests):
             cond_call_stm_b(p1, descr=P2Wdescr)
             setfield_gc(p1, p2, descr=tzdescr)
             setfield_gc(p1, i3, descr=tydescr)
-            stm_transaction_break()
+            stm_transaction_break(1)
             jump()
         """)
 
@@ -316,7 +316,7 @@ class TestStm(RewriteTests):
             label(p1, i3)
             cond_call_stm_b(p1, descr=P2Wdescr)
             setfield_gc(p1, i3, descr=tydescr)
-            stm_transaction_break()
+            stm_transaction_break(1)
             jump(p1)
         """)
 
@@ -327,7 +327,7 @@ class TestStm(RewriteTests):
             jump()
         """, """
             [i1, i2]
-            stm_transaction_break()
+            stm_transaction_break(1)
             jump()
         """)
 
@@ -360,7 +360,7 @@ class TestStm(RewriteTests):
             [p1]
             cond_call_stm_b(p1, descr=P2Rdescr)
             p2 = getfield_gc(p1, descr=tzdescr)
-            stm_transaction_break()
+            stm_transaction_break(1)
             jump(p2)
         """)
 
@@ -376,7 +376,7 @@ class TestStm(RewriteTests):
             p3 = same_as(ConstPtr(t))
             cond_call_stm_b(p3, descr=P2Rdescr)
             p2 = getfield_gc(p3, descr=tzdescr)
-            stm_transaction_break()
+            stm_transaction_break(1)
             jump(p2)
         """, t=NULL)
         # XXX could do better: G2Rdescr
@@ -390,7 +390,7 @@ class TestStm(RewriteTests):
             [p1, i2]
             cond_call_stm_b(p1, descr=P2Rdescr)
             i3 = getarrayitem_gc(p1, i2, descr=adescr)
-            stm_transaction_break()
+            stm_transaction_break(1)
             jump(i3)
         """)
 
@@ -403,7 +403,7 @@ class TestStm(RewriteTests):
             [p1, i2]
             cond_call_stm_b(p1, descr=P2Rdescr)
             i3 = getinteriorfield_gc(p1, i2, descr=adescr)
-            stm_transaction_break()
+            stm_transaction_break(1)
             jump(i3)
         """)
 
@@ -418,7 +418,7 @@ class TestStm(RewriteTests):
             cond_call_stm_b(p1, descr=P2Rdescr)
             p2 = getfield_gc(p1, descr=tzdescr)
             i2 = getfield_gc(p1, descr=tydescr)
-            stm_transaction_break()
+            stm_transaction_break(1)
             jump(p2, i2)
         """)
 
@@ -434,7 +434,7 @@ class TestStm(RewriteTests):
             p2 = getfield_gc(p1, descr=tzdescr)
             cond_call_stm_b(p2, descr=P2Rdescr)
             i2 = getfield_gc(p2, descr=tydescr)
-            stm_transaction_break()
+            stm_transaction_break(1)
             jump(p2, i2)
         """)
 
@@ -454,7 +454,7 @@ class TestStm(RewriteTests):
             i2 = int_add(i1, 1)
             cond_call_stm_b(p1, descr=P2Wdescr)
             setfield_gc(p1, i2, descr=tydescr)
-            stm_transaction_break()
+            stm_transaction_break(1)
             jump(p1)
         """)
 
@@ -469,7 +469,7 @@ class TestStm(RewriteTests):
             cond_call_stm_b(p1, descr=P2Wdescr)
             setfield_gc(p1, 123, descr=tydescr)
             p2 = getfield_gc(p1, descr=tzdescr)
-            stm_transaction_break()
+            stm_transaction_break(1)
             jump(p2)
         """)
 
@@ -485,7 +485,7 @@ class TestStm(RewriteTests):
             setfield_gc(p1, %(tdescr.tid)d, descr=tiddescr)
             stm_set_revision_gc(p1, descr=revdescr)
             p2 = getfield_gc(p1, descr=tzdescr)
-            stm_transaction_break()
+            stm_transaction_break(1)
             jump(p2)
         """)
 
@@ -511,7 +511,7 @@ class TestStm(RewriteTests):
             call(p2, descr=calldescr1)
             cond_call_stm_b(p1, descr=P2Wdescr)
             setfield_gc(p1, 5, descr=tydescr)
-            stm_transaction_break()
+            stm_transaction_break(1)
             jump(p2)
         """, calldescr1=calldescr1)
 
@@ -528,7 +528,7 @@ class TestStm(RewriteTests):
             i3 = getfield_raw(i1, descr=tydescr)
             keepalive(i3)
             i4 = getfield_raw(i2, descr=tydescr)
-            stm_transaction_break()
+            stm_transaction_break(1)
             jump(i3, i4)
         """)
 
@@ -544,7 +544,7 @@ class TestStm(RewriteTests):
         """, """
             [i1]
             i2 = getfield_raw(i1, descr=fdescr)
-            stm_transaction_break()
+            stm_transaction_break(1)
             jump(i2)
         """, fdescr=fdescr)
 
@@ -562,7 +562,7 @@ class TestStm(RewriteTests):
             label(i1, i2, i3)
             $INEV
             i4 = getfield_raw(i2, descr=tydescr)
-            stm_transaction_break()
+            stm_transaction_break(1)
             jump(i3, i4)
         """)
 
@@ -577,7 +577,7 @@ class TestStm(RewriteTests):
             $INEV
             i3 = getarrayitem_raw(i1, 5, descr=adescr)
             i4 = getarrayitem_raw(i2, i3, descr=adescr)
-            stm_transaction_break()
+            stm_transaction_break(1)
             jump(i3, i4)
         """)
 
@@ -593,7 +593,7 @@ class TestStm(RewriteTests):
             setarrayitem_gc(p1, i1, p2, descr=adescr)
             cond_call_stm_b(p3, descr=P2Wdescr)
             setarrayitem_gc(p3, i3, p4, descr=adescr)
-            stm_transaction_break()
+            stm_transaction_break(1)
             jump()
         """)
 
@@ -610,7 +610,7 @@ class TestStm(RewriteTests):
             setarrayitem_gc(p1, i2, p2, descr=adescr)
             i4 = read_timestamp()
             setarrayitem_gc(p1, i3, p3, descr=adescr)
-            stm_transaction_break()
+            stm_transaction_break(1)
             jump()
         """)
 
@@ -627,7 +627,7 @@ class TestStm(RewriteTests):
             setinteriorfield_gc(p1, i2, p2, descr=adescr)
             i4 = read_timestamp()
             setinteriorfield_gc(p1, i3, p3, descr=adescr)
-            stm_transaction_break()
+            stm_transaction_break(1)
             jump()
         """)
 
@@ -642,7 +642,7 @@ class TestStm(RewriteTests):
             cond_call_stm_b(p1, descr=P2Wdescr)
             strsetitem(p1, i2, i3)
             unicodesetitem(p1, i2, i3)
-            stm_transaction_break()
+            stm_transaction_break(1)
             jump()
         """)
         py.test.skip("XXX not really right: should instead be an assert "
@@ -664,10 +664,10 @@ class TestStm(RewriteTests):
             setfield_gc(p7, 10, descr=tydescr)
             call_release_gil(123, descr=calldescr2)
             guard_not_forced() []
-            stm_transaction_break()
+            stm_transaction_break(0)
             cond_call_stm_b(p7, descr=P2Wdescr)
             setfield_gc(p7, 20, descr=tydescr)
-            stm_transaction_break()
+            stm_transaction_break(1)
             jump(i2, p7)
         """, calldescr2=calldescr2)
         
@@ -695,7 +695,7 @@ class TestStm(RewriteTests):
                 %s
                 cond_call_stm_b(p7, descr=P2Wdescr)
                 setfield_gc(p7, 20, descr=tydescr)
-                stm_transaction_break()
+                stm_transaction_break(1)
                 jump(i2, p7)
             """ % op, calldescr2=calldescr2)
 
@@ -709,7 +709,7 @@ class TestStm(RewriteTests):
             cond_call_stm_b(p2, descr=P2Wdescr)
             cond_call_stm_b(p1, descr=P2Rdescr)
             copystrcontent(p1, p2, i1, i2, i3)
-            stm_transaction_break()
+            stm_transaction_break(1)
             jump()
         """)
 
@@ -731,7 +731,7 @@ class TestStm(RewriteTests):
                 setfield_gc(p1, 10, descr=tydescr)
                 %s
                 setfield_gc(p1, 20, descr=tydescr)
-                stm_transaction_break()
+                stm_transaction_break(1)
                 jump(p1)
             """ % op)
 
@@ -748,7 +748,7 @@ class TestStm(RewriteTests):
                 ("call_loopinvariant(123, descr=calldescr2)", False),
                 ]:
             guard = "guard_not_forced() []" if guarded else ""
-            tr_break = "stm_transaction_break()" if guarded else ""
+            tr_break = "stm_transaction_break(0)" if guarded else ""
             self.check_rewrite("""
                 [p1]
                 setfield_gc(p1, 10, descr=tydescr)
@@ -765,7 +765,7 @@ class TestStm(RewriteTests):
                 %s
                 cond_call_stm_b(p1, descr=P2Wdescr)
                 setfield_gc(p1, 20, descr=tydescr)
-                stm_transaction_break()
+                stm_transaction_break(1)
                 jump(p1)
             """ % (op, guard, tr_break), calldescr2=calldescr2)
 
@@ -787,7 +787,7 @@ class TestStm(RewriteTests):
         setarrayitem_gc(p1, 1, f0, descr=floatframedescr)
         i3 = call_assembler(p1, descr=casmdescr)
         guard_not_forced() []
-        stm_transaction_break()
+        stm_transaction_break(0)
         """)
 
     def test_ptr_eq_null(self):
@@ -798,7 +798,7 @@ class TestStm(RewriteTests):
         """, """
             [p1, p2]
             i1 = ptr_eq(p1, NULL)
-            stm_transaction_break()
+            stm_transaction_break(1)
             jump(i1)
         """)
 
@@ -810,7 +810,7 @@ class TestStm(RewriteTests):
         """, """
             [p1, p2]
             i1 = ptr_eq(p1, p2)
-            stm_transaction_break()
+            stm_transaction_break(1)
             jump(i1)
         """)
 
@@ -822,7 +822,7 @@ class TestStm(RewriteTests):
         """, """
             [p1, p2]
             i1 = instance_ptr_eq(p1, p2)
-            stm_transaction_break()
+            stm_transaction_break(1)
             jump(i1)
         """)
 
@@ -834,7 +834,7 @@ class TestStm(RewriteTests):
         """, """
             [p1, p2]
             i1 = ptr_ne(p1, p2)
-            stm_transaction_break()
+            stm_transaction_break(1)
             jump(i1)
         """)
 
@@ -846,7 +846,7 @@ class TestStm(RewriteTests):
         """, """
             [p1, p2]
             i1 = instance_ptr_ne(p1, p2)
-            stm_transaction_break()
+            stm_transaction_break(1)
             jump(i1)
         """)
 
@@ -980,7 +980,7 @@ class TestStm(RewriteTests):
             [i0]
             p0 = call_malloc_nursery_varsize(0, 1, i0, descr=bdescr)
             setfield_gc(p0, i0, descr=blendescr)
-            stm_transaction_break()
+            stm_transaction_break(1)
             jump(i0)
         """)
 
@@ -993,7 +993,7 @@ class TestStm(RewriteTests):
         [i0]
         p0 = call_malloc_nursery_varsize(1, 1, i0, descr=strdescr)
         setfield_gc(p0, i0, descr=strlendescr)
-        stm_transaction_break()
+        stm_transaction_break(1)
         jump(i0)
         """)
 
@@ -1017,7 +1017,7 @@ class TestStm(RewriteTests):
                                 %(nonstd_descr.lendescr.offset)d,     \
                                 6464, i0,                             \
                                 descr=malloc_array_nonstandard_descr)
-            stm_transaction_break()
+            stm_transaction_break(1)
             jump(i0)
         """, nonstd_descr=nonstd_descr)
 
@@ -1032,7 +1032,7 @@ class TestStm(RewriteTests):
             p0 = call_malloc_gc(ConstClass(malloc_array), 1,  \
                                 %(bdescr.tid)d, 103,          \
                                 descr=malloc_array_descr)
-            stm_transaction_break()
+            stm_transaction_break(1)
             jump()
         """)
 
@@ -1072,7 +1072,7 @@ class TestStm(RewriteTests):
             p0 = call_malloc_gc(ConstClass(malloc_array), 1, \
                                 %(bdescr.tid)d, 20000000,    \
                                 descr=malloc_array_descr)
-            stm_transaction_break()
+            stm_transaction_break(1)
             jump()
         """)
 
@@ -1175,7 +1175,7 @@ class TestStm(RewriteTests):
             
             call_may_force(123, descr=calldescr2)
             guard_not_forced() []
-            stm_transaction_break()
+            stm_transaction_break(0)
             
             p2 = call_malloc_nursery(    \
                               %(bdescr.basesize + 8)d)
@@ -1211,7 +1211,7 @@ class TestStm(RewriteTests):
             []
             call_may_force(123, descr=calldescr2)
             guard_not_forced() []
-            stm_transaction_break()
+            stm_transaction_break(0)
             
             label()
             
@@ -1220,7 +1220,7 @@ class TestStm(RewriteTests):
 
             i0 = int_add(1, 2)
             
-            stm_transaction_break()
+            stm_transaction_break(1)
             jump()
         """, calldescr2=calldescr2)
 
