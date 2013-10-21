@@ -37,10 +37,6 @@ class StmGC(MovingGCBase):
     malloc_zero_filled = True
     #gcflag_extra = GCFLAG_EXTRA
 
-    # SYNC with et.h
-    TD_NURSERY_CURRENT = 80
-    TD_NURSERY_NEXTLIMIT = 88
-    
     GCHDR = lltype.Struct(
         'GCPTR',
         ('h_tid', lltype.Unsigned),

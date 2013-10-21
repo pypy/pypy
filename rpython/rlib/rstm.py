@@ -5,8 +5,18 @@ from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rlib.jit import dont_look_inside
 
 @dont_look_inside
-def get_thread_descriptor_adr():
-    addr = llop.stm_get_adr_of_thread_descriptor(llmemory.Address)
+def get_nursery_current_adr():
+    addr = llop.stm_get_adr_of_nursery_current(llmemory.Address)
+    return rffi.cast(lltype.Signed, addr)
+
+@dont_look_inside
+def get_nursery_nextlimit_adr():
+    addr = llop.stm_get_adr_of_nursery_nextlimit(llmemory.Address)
+    return rffi.cast(lltype.Signed, addr)
+
+@dont_look_inside
+def get_active_adr():
+    addr = llop.stm_get_adr_of_active(llmemory.Address)
     return rffi.cast(lltype.Signed, addr)
 
 @dont_look_inside

@@ -259,10 +259,9 @@ class Assembler386(BaseAssembler):
         self._pop_all_regs_from_frame(mc, [eax, edi], self.cpu.supports_floats)
         if self.cpu.gc_ll_descr.stm:
             # load nursery_current into EDI
-            self._load_stm_thread_descriptor(mc, X86_64_SCRATCH_REG)
-            mc.MOV_rm(edi.value, 
-                      (X86_64_SCRATCH_REG.value, 
-                       StmGC.TD_NURSERY_CURRENT))
+            nc = self._get_stm_tl(rstm.get_nursery_current_adr())
+            self._tl_segment_if_stm(mc)
+            mc.MOV_rj(edi.value, nc)
         else:
             nursery_free_adr = self.cpu.gc_ll_descr.get_nursery_free_addr()
             mc.MOV(edi, heap(nursery_free_adr))   # load this in EDI
@@ -2755,25 +2754,16 @@ class Assembler386(BaseAssembler):
         # XXX if the next operation is a GUARD_NO_EXCEPTION, we should
         # somehow jump over it too in the fast path
 
-    def _load_stm_thread_descriptor(self, mc, loc):
-        assert self.cpu.gc_ll_descr.stm
-        assert isinstance(loc, RegLoc)
-        
-        td = self._get_stm_tl(rstm.get_thread_descriptor_adr())
-        self._tl_segment_if_stm(mc)
-        mc.MOV(loc, heap(td))
-        mc.MOV_rm(loc.value, (loc.value, 0))
-
+    
     def _cond_allocate_in_nursery_or_slowpath(self, mc, gcmap):
         # needed for slowpath:
         # eax = nursery_current
         # edi = nursery_current + size
-        # needed here:
-        # X86_64_SCRATCH_REG = thread_descriptor
         #
         # cmp nursery_current+size > nursery_nextlimit
-        mc.CMP_rm(edi.value, (X86_64_SCRATCH_REG.value, 
-                              StmGC.TD_NURSERY_NEXTLIMIT))
+        nnl = self._get_stm_tl(rstm.get_nursery_nextlimit_adr())
+        self._tl_segment_if_stm(mc)
+        mc.CMP_rj(edi.value, nnl)
         mc.J_il8(rx86.Conditions['NA'], 0) # patched later
         jmp_adr = mc.get_relative_pos()
         #
@@ -2781,7 +2771,7 @@ class Assembler386(BaseAssembler):
         # save the gcmap
         self.push_gcmap(mc, gcmap, mov=True)
         mc.CALL(imm(self.malloc_slowpath))
-        mc.JMP_l8(0)
+        mc.JMP_l8(0) # XXX: is JMP over 1 instr good?
         jmp2_adr = mc.get_relative_pos()
         #
         # == FASTPATH ==
@@ -2789,10 +2779,10 @@ class Assembler386(BaseAssembler):
         assert 0 < offset <= 127
         mc.overwrite(jmp_adr-1, chr(offset))
         #
-        # thread_descriptor->nursery_current = nursery_current+size
-        mc.MOV_mr((X86_64_SCRATCH_REG.value,
-                   StmGC.TD_NURSERY_CURRENT),
-                   edi.value)
+        # stm_nursery_current = stm_nursery_current+size
+        nc = self._get_stm_tl(rstm.get_nursery_current_adr())
+        self._tl_segment_if_stm(mc)
+        mc.MOV_jr(nc, edi.value)
         #
         # END
         offset = mc.get_relative_pos() - jmp2_adr
@@ -2804,10 +2794,10 @@ class Assembler386(BaseAssembler):
         assert size & (WORD-1) == 0     # must be correctly aligned
         mc = self.mc
         # load nursery_current and nursery_nextlimit
-        self._load_stm_thread_descriptor(mc, X86_64_SCRATCH_REG)
-        mc.MOV_rm(eax.value, 
-                  (X86_64_SCRATCH_REG.value,
-                   StmGC.TD_NURSERY_CURRENT))
+        nc = self._get_stm_tl(rstm.get_nursery_current_adr())
+        self._tl_segment_if_stm(mc)
+        mc.MOV_rj(eax.value, nc)
+        #
         mc.LEA_rm(edi.value, (eax.value, size))
         #
         # eax=nursery_current, edi=nursery_current+size
@@ -2816,12 +2806,14 @@ class Assembler386(BaseAssembler):
     def malloc_cond_varsize_frame_stm(self, sizeloc, gcmap):
         assert self.cpu.gc_ll_descr.stm
         mc = self.mc
-        self._load_stm_thread_descriptor(mc, X86_64_SCRATCH_REG)
         if sizeloc is eax:
             self.mc.MOV(edi, sizeloc)
             sizeloc = edi
-        self.mc.MOV_rm(eax.value, (X86_64_SCRATCH_REG.value, 
-                                   StmGC.TD_NURSERY_CURRENT))
+
+        nc = self._get_stm_tl(rstm.get_nursery_current_adr())
+        self._tl_segment_if_stm(mc)
+        mc.MOV_rj(eax.value, nc)
+        
         if sizeloc is edi:
             self.mc.ADD_rr(edi.value, eax.value)
         else:
@@ -2837,6 +2829,9 @@ class Assembler386(BaseAssembler):
         assert isinstance(arraydescr, ArrayDescr)
 
         mc = self.mc
+        nc = self._get_stm_tl(rstm.get_nursery_current_adr())
+        nnl = self._get_stm_tl(rstm.get_nursery_nextlimit_adr())
+            
         # lengthloc is the length of the array, which we must not modify!
         assert lengthloc is not eax and lengthloc is not edi
         if isinstance(lengthloc, RegLoc):
@@ -2849,10 +2844,8 @@ class Assembler386(BaseAssembler):
         mc.J_il8(rx86.Conditions['A'], 0) # patched later
         jmp_adr0 = mc.get_relative_pos()
 
-        self._load_stm_thread_descriptor(mc, X86_64_SCRATCH_REG)
-        mc.MOV_rm(eax.value, 
-                  (X86_64_SCRATCH_REG.value, 
-                   StmGC.TD_NURSERY_CURRENT))
+        self._tl_segment_if_stm(mc)
+        mc.MOV_rj(eax.value, nc)
 
         if valid_addressing_size(itemsize):
             shift = get_scale(itemsize)
@@ -2873,8 +2866,8 @@ class Assembler386(BaseAssembler):
             mc.AND_ri(edi.value, ~(WORD - 1))
         # now edi contains the total size in bytes, rounded up to a multiple
         # of WORD, plus nursery_free_adr
-        mc.CMP_rm(edi.value, (X86_64_SCRATCH_REG.value, 
-                              StmGC.TD_NURSERY_NEXTLIMIT))
+        self._tl_segment_if_stm(mc)
+        mc.CMP_rj(edi.value, nnl)
         mc.J_il8(rx86.Conditions['NA'], 0) # patched later
         jmp_adr1 = mc.get_relative_pos()
         #
@@ -2905,10 +2898,9 @@ class Assembler386(BaseAssembler):
         assert 0 < offset <= 127
         mc.overwrite(jmp_adr1-1, chr(offset))
         #
-        # set thread_descriptor->nursery_current
-        mc.MOV_mr((X86_64_SCRATCH_REG.value,
-                   StmGC.TD_NURSERY_CURRENT),
-                   edi.value)
+        # set stm_nursery_current
+        self._tl_segment_if_stm(mc)
+        mc.MOV_jr(nc, edi.value)
         #
         # write down the tid
         mc.MOV(mem(eax, 0), imm(arraydescr.tid))

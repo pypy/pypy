@@ -114,9 +114,19 @@ def stm_pop_root_into(funcgen, op):
     return '%s = (%s)stm_pop_root();' % (
         arg0, cdecl(funcgen.lltypename(op.args[0]), ''))
 
-def stm_get_adr_of_thread_descriptor(funcgen, op):
+def stm_get_adr_of_nursery_current(funcgen, op):
     result = funcgen.expr(op.result)
-    return '%s = (%s)&thread_descriptor;' % (
+    return '%s = (%s)&stm_nursery_current;' % (
+        result, cdecl(funcgen.lltypename(op.result), ''))
+
+def stm_get_adr_of_nursery_nextlimit(funcgen, op):
+    result = funcgen.expr(op.result)
+    return '%s = (%s)&stm_nursery_nextlimit;' % (
+        result, cdecl(funcgen.lltypename(op.result), ''))
+
+def stm_get_adr_of_active(funcgen, op):
+    result = funcgen.expr(op.result)
+    return '%s = (%s)&stm_active;' % (
         result, cdecl(funcgen.lltypename(op.result), ''))
     
 def stm_get_root_stack_top(funcgen, op):

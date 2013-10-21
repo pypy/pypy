@@ -161,7 +161,7 @@ class GcRewriterAssembler(object):
     def gen_malloc_frame(self, frame_info, frame):
         size_box = history.BoxInt()
         descrs = self.gc_ll_descr.getframedescrs(self.cpu)
-        if self.gc_ll_descr.kind == 'boehm' or self.gc_ll_descr.stm:
+        if self.gc_ll_descr.kind == 'boehm':
             op0 = ResOperation(rop.GETFIELD_GC, [history.ConstInt(frame_info)],
                                size_box,
                                descr=descrs.jfi_frame_depth)
@@ -171,7 +171,6 @@ class GcRewriterAssembler(object):
             self.handle_new_array(descrs.arraydescr, op1)
         else:
             # we read size in bytes here, not the length
-            # (this path is only used in non-STM mode)
             op0 = ResOperation(rop.GETFIELD_GC, [history.ConstInt(frame_info)],
                                size_box,
                                descr=descrs.jfi_frame_size)
