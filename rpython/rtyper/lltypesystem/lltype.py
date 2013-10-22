@@ -1192,13 +1192,7 @@ class _abstract_ptr(object):
                 return
         if self._T._is_overallocated_array():
             if field_name == 'used_length':
-                if val > self._obj.getlength():
-                    raise ValueError("overallocated array size is %s, trying "
-                                     "to set used size to %s" %
-                                     (self._obj.getlength(), val))
-                for i in range(val, self._obj.used_len):
-                    self._obj.items[i] = self._T.OF._allocate('malloc')
-                self._obj.used_len = val
+                self._obj.set_used_length(val)
                 return
         raise AttributeError("%r instance has no field %r" % (self._T,
                                                               field_name))
@@ -1755,6 +1749,16 @@ class _array(_parentable):
         assert typeOf(value) == self._TYPE.OF
         self.items[index] = value
 
+    def set_used_length(self, val):
+        assert self._TYPE._is_overallocated_array()
+        if val > self.getlength():
+            raise ValueError("overallocated array size is %s, trying "
+                             "to set used size to %s" %
+                             (self.getlength(), val))
+        for i in range(val, self.used_len):
+            self.items[i] = self._TYPE.OF._allocate('malloc')
+        self.used_len = val
+
 assert not '__dict__' in dir(_struct)
 
 
@@ -1868,12 +1872,18 @@ class _arraylenref(_parentable):
     Only used internally by llmemory to implement ArrayLengthOffset.
     """
     _kind = "arraylenptr"
-    _cache = weakref.WeakKeyDictionary()  # array -> _arraylenref
+    _cache = {
+        "length": weakref.WeakKeyDictionary(),  # array -> _arraylenref
+        "allocated_length": weakref.WeakKeyDictionary(),
+        "used_length": weakref.WeakKeyDictionary(),
+        }
 
-    def __init__(self, array):
+    def __init__(self, array, attrkind):
         TYPE = FixedSizeArray(Signed, 1)
         _parentable.__init__(self, TYPE)
         self.array = array
+        self.attrkind = attrkind
+        assert attrkind in self._cache
 
     def getlength(self):
         return 1
@@ -1883,23 +1893,34 @@ class _arraylenref(_parentable):
 
     def getitem(self, index, uninitialized_ok=False):
         assert index == 0
-        return self.array.getlength()
+        if self.attrkind == "length":
+            return self.array.getlength()
+        elif self.attrkind == "allocated_length":
+            return len(self.array.items)
+        elif self.attrkind == "used_length":
+            return self.array.used_len
 
     def setitem(self, index, value):
         assert index == 0
-        if value != self.array.getlength():
-            if value > self.array.getlength():
-                raise Exception("can't grow an array in-place")
-            self.array.shrinklength(value)
+        if self.attrkind == "length":
+            if value != self.array.getlength():
+                if value > self.array.getlength():
+                    raise Exception("can't grow an array in-place")
+                self.array.shrinklength(value)
+        elif self.attrkind == "allocated_length":
+            raise Exception("can't set allocated_length")
+        elif self.attrkind == "used_length":
+            self.array.set_used_length(value)
 
-    def _makeptr(array, solid=False):
+    @staticmethod
+    def _makeptr(array, solid=False, attrkind="length"):
+        cache = _arraylenref._cache[attrkind]
         try:
-            lenref = _arraylenref._cache[array]
+            lenref = cache[array]
         except KeyError:
-            lenref = _arraylenref(array)
-            _arraylenref._cache[array] = lenref
+            lenref = _arraylenref(array, attrkind)
+            cache[array] = lenref
         return _ptr(Ptr(lenref._TYPE), lenref, solid)
-    _makeptr = staticmethod(_makeptr)
 
     def _getid(self):
         raise NotImplementedError('_arraylenref._getid()')

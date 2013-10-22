@@ -649,3 +649,16 @@ def test_cast_adr_to_int():
     #assert cast_int_to_adr(i) == adr -- depends on ll2ctypes details
     i = cast_adr_to_int(NULL, mode="forced")
     assert is_valid_int(i) and i == 0
+
+def test_overallocated_array():
+    A = lltype.GcArray(lltype.Signed, hints={'overallocated': True})
+    a = lltype.malloc(A, 10)
+    adr = cast_ptr_to_adr(a)
+    py.test.raises(AssertionError, ArrayLengthOffset, A)
+    length_adr = adr + ArrayLengthOffset(A, "allocated_length")
+    assert length_adr.signed[0] == 10
+    length_adr = adr + ArrayLengthOffset(A, "used_length")
+    assert length_adr.signed[0] == 0
+    #
+    length_adr.signed[0] = 2
+    assert a.used_length == 2

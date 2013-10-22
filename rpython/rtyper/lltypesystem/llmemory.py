@@ -306,8 +306,15 @@ class ArrayItemsOffset(AddressOffset):
 
 class ArrayLengthOffset(AddressOffset):
 
-    def __init__(self, TYPE):
+    def __init__(self, TYPE, attrkind="length"):
+        assert isinstance(TYPE, lltype.Array)
+        assert not TYPE._hints.get('nolength', False)
+        if attrkind == "length":
+            assert not TYPE._is_overallocated_array()
+        else:
+            assert TYPE._is_overallocated_array()
         self.TYPE = TYPE
+        self.attrkind = attrkind
 
     def __repr__(self):
         return '< ArrayLengthOffset %r >' % (self.TYPE,)
@@ -317,7 +324,8 @@ class ArrayLengthOffset(AddressOffset):
 
     def ref(self, arrayptr):
         assert array_type_match(lltype.typeOf(arrayptr).TO, self.TYPE)
-        return lltype._arraylenref._makeptr(arrayptr._obj, arrayptr._solid)
+        return lltype._arraylenref._makeptr(arrayptr._obj, arrayptr._solid,
+                                            self.attrkind)
 
 
 class GCHeaderOffset(AddressOffset):
