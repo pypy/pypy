@@ -1,5 +1,9 @@
 ------------------------------------------------------------
 
+stm-jitdriver with autoreds
+
+------------------------------------------------------------
+
 try to let non-atomic inevitable transactions run for longer, until
 another thread starts waiting for the mutex
 
@@ -59,8 +63,4 @@ JIT
 * maybe GUARD_NOT_INEVITABLE after call_may_force, call_assembler
   which is a small check if we are inevitable and does a transaction_break
   if we are.
-** do not access thread-locals through thread_descriptor, but directly
-** have two versions of stm_transaction_break(1/2). One for after calls
-   which simply checks if the transaction is inevitable, and one to place
-   before JUMPs which calls stm_should_break_transaction()
 * look at XXXs for STM everywhere

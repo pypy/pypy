@@ -258,7 +258,7 @@ class TestGcStm(BaseTestRegalloc):
         self.a2wd = cpu.gc_ll_descr.A2Wdescr
         self.v2wd = cpu.gc_ll_descr.V2Wdescr
         self.a2rd = cpu.gc_ll_descr.A2Rdescr
-        self.Q2rd = cpu.gc_ll_descr.Q2Rdescr
+        self.q2rd = cpu.gc_ll_descr.Q2Rdescr
 
         TP = rffi.CArray(lltype.Signed)
         self.priv_rev_num = lltype.malloc(TP, 1, flavor='raw')
@@ -358,6 +358,40 @@ class TestGcStm(BaseTestRegalloc):
             descr.llop1.set_cache_item(sgcref, 0)
 
 
+    def test_gc_repeat_read_barrier_fastpath(self):
+        from rpython.jit.backend.llsupport.gc import STMReadBarrierDescr
+        descr = STMReadBarrierDescr(self.cpu.gc_ll_descr, 'Q2R')
+
+        called = []
+        def read(obj):
+            called.append(obj)
+            return obj
+
+        functype = lltype.Ptr(lltype.FuncType(
+            [llmemory.Address], llmemory.Address))
+        funcptr = llhelper(functype, read)
+        descr.b_failing_case_ptr = funcptr
+        descr.llop1 = fakellop()
+
+        # -------- TEST --------
+        for flags in [StmGC.GCFLAG_PUBLIC_TO_PRIVATE|StmGC.GCFLAG_MOVED, 0]:
+            called[:] = []
+            
+            s = self.allocate_prebuilt_s()
+            sgcref = lltype.cast_opaque_ptr(llmemory.GCREF, s)
+            s.h_tid |= flags
+
+            descr._do_barrier(sgcref,
+                              returns_modified_object=True)
+                        
+            # check if rev-fastpath worked
+            if not flags:
+                # fastpath
+                self.assert_not_in(called, [sgcref])
+            else:
+                self.assert_in(called, [sgcref])
+
+
     def test_gc_write_barrier_fastpath(self):
         from rpython.jit.backend.llsupport.gc import STMWriteBarrierDescr
         descr = STMWriteBarrierDescr(self.cpu.gc_ll_descr, 'A2W')
@@ -384,7 +418,7 @@ class TestGcStm(BaseTestRegalloc):
             descr._do_barrier(sgcref,
                               returns_modified_object=True)
                         
-            # check if rev-fastpath worked
+            # check if fastpath worked
             if rev == fakellop.PRIV_REV:
                 # fastpath
                 self.assert_not_in(called, [sgcref])
@@ -398,6 +432,36 @@ class TestGcStm(BaseTestRegalloc):
                               returns_modified_object=True)
             self.assert_in(called, [sgcref])
 
+    def test_gc_repeat_write_barrier_fastpath(self):
+        from rpython.jit.backend.llsupport.gc import STMWriteBarrierDescr
+        descr = STMWriteBarrierDescr(self.cpu.gc_ll_descr, 'V2W')
+
+        called = []
+        def write(obj):
+            called.append(obj)
+            return obj
+
+        functype = lltype.Ptr(lltype.FuncType(
+            [llmemory.Address], llmemory.Address))
+        funcptr = llhelper(functype, write)
+        descr.b_failing_case_ptr = funcptr
+        descr.llop1 = fakellop()
+
+        # -------- TEST --------
+        s = self.allocate_prebuilt_s()
+        sgcref = lltype.cast_opaque_ptr(llmemory.GCREF, s)
+
+        descr._do_barrier(sgcref,
+                          returns_modified_object=True)
+                        
+        # fastpath (WRITE_BARRIER not set)
+        self.assert_not_in(called, [sgcref])
+
+        # now set WRITE_BARRIER -> always call slowpath
+        s.h_tid |= StmGC.GCFLAG_WRITE_BARRIER
+        descr._do_barrier(sgcref, 
+            returns_modified_object=True)
+        self.assert_in(called, [sgcref])
         
         
         
@@ -445,6 +509,40 @@ class TestGcStm(BaseTestRegalloc):
             # not called:
             assert not called_on
 
+    def test_repeat_read_barrier_fastpath(self):
+        cpu = self.cpu
+        cpu.gc_ll_descr.init_nursery(100)
+        cpu.setup_once()
+
+        called_on = cpu.gc_ll_descr.rb_called_on
+        for flags in [StmGC.GCFLAG_PUBLIC_TO_PRIVATE|StmGC.GCFLAG_MOVED, 0]:
+            cpu.gc_ll_descr.clear_lists()
+            self.clear_read_cache()
+            
+            s = self.allocate_prebuilt_s()
+            sgcref = lltype.cast_opaque_ptr(llmemory.GCREF, s)
+            s.h_tid |= flags
+            
+            p0 = BoxPtr()
+            operations = [
+                ResOperation(rop.COND_CALL_STM_B, [p0], None,
+                             descr=self.q2rd),
+                ResOperation(rop.FINISH, [p0], None, 
+                             descr=BasicFinalDescr(0)),
+                ]
+            inputargs = [p0]
+            looptoken = JitCellToken()
+            cpu.compile_loop(None, inputargs, operations, looptoken)
+            self.cpu.execute_token(looptoken, sgcref)
+            
+            # check if rev-fastpath worked
+            if not flags:
+                # fastpath
+                self.assert_not_in(called_on, [sgcref])
+            else:
+                self.assert_in(called_on, [sgcref])
+
+
     def test_write_barrier_fastpath(self):
         cpu = self.cpu
         cpu.gc_ll_descr.init_nursery(100)
@@ -484,6 +582,39 @@ class TestGcStm(BaseTestRegalloc):
             s.h_tid |= StmGC.GCFLAG_WRITE_BARRIER
             self.cpu.execute_token(looptoken, sgcref)
             self.assert_in(called_on, [sgcref])
+
+    def test_repeat_write_barrier_fastpath(self):
+        cpu = self.cpu
+        cpu.gc_ll_descr.init_nursery(100)
+        cpu.setup_once()
+
+        called_on = cpu.gc_ll_descr.wb_called_on
+        cpu.gc_ll_descr.clear_lists()
+            
+        s = self.allocate_prebuilt_s()
+        sgcref = lltype.cast_opaque_ptr(llmemory.GCREF, s)
+
+        p0 = BoxPtr()
+        operations = [
+            ResOperation(rop.COND_CALL_STM_B, [p0], None,
+                         descr=self.v2wd),
+            ResOperation(rop.FINISH, [p0], None, 
+                        descr=BasicFinalDescr(0)),
+            ]
+        
+        inputargs = [p0]
+        looptoken = JitCellToken()
+        cpu.compile_loop(None, inputargs, operations, looptoken)
+        self.cpu.execute_token(looptoken, sgcref)
+            
+        # fastpath and WRITE_BARRIER not set
+        self.assert_not_in(called_on, [sgcref])
+
+        # now set WRITE_BARRIER -> always call slowpath
+        cpu.gc_ll_descr.clear_lists()
+        s.h_tid |= StmGC.GCFLAG_WRITE_BARRIER
+        self.cpu.execute_token(looptoken, sgcref)
+        self.assert_in(called_on, [sgcref])
 
             
     def test_ptr_eq_fastpath(self):

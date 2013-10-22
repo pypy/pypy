@@ -2555,6 +2555,7 @@ class Assembler386(BaseAssembler):
         #
         # check flags:
         if descr.stmcat in ['A2W', 'V2W', 'Q2R']:
+            flags = 0
             if descr.stmcat in ['A2W', 'V2W']:
                 # obj->h_tid & GCFLAG_WRITE_BARRIER) != 0
                 assert IS_X86_64 and (StmGC.GCFLAG_WRITE_BARRIER >> 32) > 0
@@ -2576,7 +2577,8 @@ class Assembler386(BaseAssembler):
             mc.J_il8(rx86.Conditions['Z'], 0) # patched below
             jz_location = mc.get_relative_pos()
             # if flags not set, jump to end
-            # jump target slowpath:
+        # jump target slowpath:
+        if jnz_location:
             offset = mc.get_relative_pos() - jnz_location
             assert 0 < offset <= 127
             mc.overwrite(jnz_location - 1, chr(offset))
