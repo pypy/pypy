@@ -32,7 +32,7 @@ Switch into the unipycation branch::
 
 And begin translation::
 
-    $ rpython/bin/rpython -Ojit pypy/goal/targetpypystandalone.py --withmod-unipycation
+    $ rpython/bin/rpython -Ojit pypy/goal/targetpypystandalone.py
 
 On a 64-bit architecture this process will consume about 8GB of memory at peak.
 
