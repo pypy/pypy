@@ -1715,6 +1715,10 @@ class _array(_parentable):
 
     def __str__(self):
         items = self.items
+        extra = ''
+        if self._TYPE._is_overallocated_array():
+            extra = ' allocated=%d' % len(items)
+            items = items[:self.used_len]
         if len(items) > 20:
             items = items[:12] + items[-5:]
             skipped_at = 12
@@ -1723,7 +1727,7 @@ class _array(_parentable):
         items = [self._str_item(item) for item in items]
         if skipped_at:
             items.insert(skipped_at, '(...)')
-        return 'array [ %s ]' % (', '.join(items),)
+        return 'array%s [ %s ]' % (extra, ', '.join(items))
 
     def getlength(self):
         return len(self.items)
