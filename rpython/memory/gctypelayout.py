@@ -113,6 +113,9 @@ class GCData(object):
     def q_varsize_offset_to_length(self, typeid):
         return self.get_varsize(typeid).ofstolength
 
+    def q_varsize_offset_to_used_length(self, typeid):
+        return self.get_varsize(typeid).ofstousedlength
+
     def q_varsize_offsets_to_gcpointers_in_var_part(self, typeid):
         return self.get_varsize(typeid).varofstoptrs
 
@@ -241,13 +244,15 @@ def encode_type_shape(builder, info, TYPE, index):
         else:
             assert isinstance(TYPE, lltype.GcArray)
             ARRAY = TYPE
-            if ARRAY._is_overallocated_array():
+            if not ARRAY._is_overallocated_array():
                 if (isinstance(ARRAY.OF, lltype.Ptr)
                     and ARRAY.OF.TO._gckind == 'gc'):
                     infobits |= T_IS_GCARRAY_OF_GCPTR
                 varinfo.ofstolength = llmemory.ArrayLengthOffset(ARRAY)
             else:
-                ...
+                ALO = llmemory.ArrayLengthOffset
+                varinfo.ofstolength = ALO(ARRAY, attrkind="allocated_length")
+                varinfo.ofstousedlength = ALO(ARRAY, attrkind="used_length")
             varinfo.ofstovar = llmemory.itemoffsetof(TYPE, 0)
         assert isinstance(ARRAY, lltype.Array)
         if ARRAY.OF != lltype.Void:

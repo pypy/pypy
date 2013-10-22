@@ -127,4 +127,12 @@ def test_overallocated_array():
     
     layoutbuilder = TypeLayoutBuilder(FakeGC)
     tid = layoutbuilder.get_type_id(A)
-    xxx
+    gcdata = GCData(layoutbuilder.type_info_group)
+    assert gcdata.q_is_varsize(tid)
+    assert not gcdata.q_is_gcarrayofgcptr(tid)   # XXX for now
+    ofs = gcdata.q_varsize_offset_to_length(tid)
+    assert isinstance(ofs, llmemory.ArrayLengthOffset)
+    assert ofs.attrkind == "allocated_length"
+    ofs = gcdata.q_varsize_offset_to_used_length(tid)
+    assert isinstance(ofs, llmemory.ArrayLengthOffset)
+    assert ofs.attrkind == "used_length"
