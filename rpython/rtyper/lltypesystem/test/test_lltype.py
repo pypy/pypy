@@ -235,7 +235,7 @@ def test_best_effort_gced_parent_for_arrays():
     del p1
     import gc
     gc.collect()
-    py.test.raises(RuntimeError, "p1_5.v")        
+    py.test.raises(RuntimeError, "p1_5.v")
 
 def test_examples():
     A1 = GcArray(('v', Signed))
@@ -388,11 +388,11 @@ def test_getRuntimeTypeInfo_destrpointer():
         s.x = 1
     def type_info_S(p):
         return getRuntimeTypeInfo(S)
-    qp = functionptr(FuncType([Ptr(S)], Ptr(RuntimeTypeInfo)), 
-                     "type_info_S", 
+    qp = functionptr(FuncType([Ptr(S)], Ptr(RuntimeTypeInfo)),
+                     "type_info_S",
                      _callable=type_info_S)
-    dp = functionptr(FuncType([Ptr(S)], Void), 
-                     "destructor_funcptr", 
+    dp = functionptr(FuncType([Ptr(S)], Void),
+                     "destructor_funcptr",
                      _callable=f)
     pinf0 = attachRuntimeTypeInfo(S, qp, destrptr=dp)
     assert pinf0._obj.about == S
@@ -422,8 +422,8 @@ def test_runtime_type_info():
             return getRuntimeTypeInfo(S)
         else:
             return getRuntimeTypeInfo(S1)
-    fp = functionptr(FuncType([Ptr(S)], Ptr(RuntimeTypeInfo)), 
-                     "dynamic_type_info_S", 
+    fp = functionptr(FuncType([Ptr(S)], Ptr(RuntimeTypeInfo)),
+                     "dynamic_type_info_S",
                      _callable=dynamic_type_info_S)
     attachRuntimeTypeInfo(S, fp)
     assert s.x == 0
@@ -434,7 +434,7 @@ def test_runtime_type_info():
     py.test.raises(RuntimeError, "runtime_type_info(s1.sub)")
     s1.sub.x = 1
     assert runtime_type_info(s1.sub) == getRuntimeTypeInfo(S1)
-    
+
 def test_flavor_malloc():
     def isweak(p, T):
         return p._weak and typeOf(p).TO == T
@@ -450,7 +450,7 @@ def test_flavor_malloc():
     p = malloc(T, flavor="gc")
     assert typeOf(p).TO == T
     assert not isweak(p, T)
-    
+
 def test_opaque():
     O = OpaqueType('O')
     p1 = opaqueptr(O, 'p1', hello="world")
@@ -520,8 +520,8 @@ def test_is_atomic():
 def test_adtmeths():
     def h_newstruct():
         return malloc(S)
-    
-    S = GcStruct('s', ('x', Signed), 
+
+    S = GcStruct('s', ('x', Signed),
                  adtmeths={"h_newstruct": h_newstruct})
 
     s = S.h_newstruct()
@@ -553,15 +553,15 @@ def test_adt_typemethod():
     def h_newstruct(S):
         return malloc(S)
     h_newstruct = typeMethod(h_newstruct)
-    
-    S = GcStruct('s', ('x', Signed), 
+
+    S = GcStruct('s', ('x', Signed),
                  adtmeths={"h_newstruct": h_newstruct})
 
     s = S.h_newstruct()
 
     assert typeOf(s) == Ptr(S)
 
-    Sprime = GcStruct('s', ('x', Signed), 
+    Sprime = GcStruct('s', ('x', Signed),
                       adtmeths={"h_newstruct": h_newstruct})
 
     assert S == Sprime
@@ -592,7 +592,7 @@ def test_cast_identical_array_ptr_types():
     PA = Ptr(A)
     a = malloc(A, 2)
     assert cast_pointer(PA, a) == a
-        
+
 def test_array_with_no_length():
     A = GcArray(Signed, hints={'nolength': True})
     a = malloc(A, 10)
@@ -604,7 +604,7 @@ def test_dissect_ll_instance():
     s = malloc(GcS)
     s.x = 1
     assert list(dissect_ll_instance(s)) == [(Ptr(GcS), s), (GcS, s._obj), (Signed, 1)]
-    
+
     A = GcArray(('x', Signed))
     a = malloc(A, 10)
     for i in range(10):
@@ -807,6 +807,21 @@ def test_typedef():
     F = FuncType((T,), T)
     assert F.RESULT == Signed
     assert F.ARGS == (Signed,)
+
+def test_overallocated_array():
+    A = GcArray(lltype.Signed, hints={'overallocated': True})
+    a = lltype.malloc(A, 10)
+    py.test.raises(IndexError, "a[1]")
+    py.test.raises(TypeError, len, a)
+    assert a.allocated_length == 10
+    assert a.used_length == 0
+    a.used_length = 5
+    py.test.raises(ValueError, "a.used_length = 13")
+    a[3] = 42
+    assert a[3] == 42
+    a.used_length = 1
+    py.test.raises(IndexError, "a[3]")
+    py.test.raises(IndexError, "a[3] = 43")
 
 class TestTrackAllocation:
     def test_automatic_tracking(self):

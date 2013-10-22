@@ -1,6 +1,6 @@
 from rpython.rlib.rarithmetic import (r_int, r_uint, intmask, r_singlefloat,
-                                   r_ulonglong, r_longlong, r_longfloat, r_longlonglong,
-                                   base_int, normalizedinttype, longlongmask, longlonglongmask)
+     r_ulonglong, r_longlong, r_longfloat, r_longlonglong, base_int,
+     normalizedinttype, longlongmask, longlonglongmask)
 from rpython.rlib.objectmodel import Symbolic
 from rpython.tool.identity_dict import identity_dict
 from rpython.tool import leakfinder
@@ -192,6 +192,9 @@ class ContainerType(LowLevelType):
 
     def _inline_is_varsize(self, last):
         raise TypeError, "%r cannot be inlined in structure" % self
+
+    def _is_overallocated_array(self):
+        return False
 
     def _install_extras(self, adtmeths={}, hints={}):
         self._adtmeths = frozendict(adtmeths)
@@ -435,6 +438,11 @@ class Array(ContainerType):
         self.OF._inline_is_varsize(False)
 
         self._install_extras(**kwds)
+        if self._is_overallocated_array():
+            assert self._gckind == 'gc', "no support for raw overallocated arrays"
+
+    def _is_overallocated_array(self):
+        return self._hints.get('overallocated', False)
 
     def _inline_is_varsize(self, last):
         if not last:
@@ -480,7 +488,6 @@ class GcArray(Array):
     _gckind = 'gc'
     def _inline_is_varsize(self, last):
         raise TypeError("cannot inline a GC array inside a structure")
-
 
 class FixedSizeArray(Struct):
     # behaves more or less like a Struct with fields item0, item1, ...
@@ -1160,6 +1167,11 @@ class _abstract_ptr(object):
             if field_name in self._T._flds:
                 o = self._obj._getattr(field_name)
                 return self._expose(field_name, o)
+        if self._T._is_overallocated_array():
+            if field_name == 'allocated_length':
+                return self._obj.getlength()
+            elif field_name == 'used_length':
+                return self._obj.used_len
         try:
             return self._lookup_adtmeth(field_name)
         except AttributeError:
@@ -1177,6 +1189,16 @@ class _abstract_ptr(object):
                     raise TypeError("%r instance field %r:\n"
                                     "expects %r\n"
                                     "    got %r" % (self._T, field_name, T1, T2))
+                return
+        if self._T._is_overallocated_array():
+            if field_name == 'used_length':
+                if val > self._obj.getlength():
+                    raise ValueError("overallocated array size is %s, trying "
+                                     "to set used size to %s" %
+                                     (self._obj.getlength(), val))
+                for i in range(val, self._obj.used_len):
+                    self._obj.items[i] = self._T.OF._allocate('malloc')
+                self._obj.used_len = val
                 return
         raise AttributeError("%r instance has no field %r" % (self._T,
                                                               field_name))
@@ -1218,7 +1240,8 @@ class _abstract_ptr(object):
 
     def __len__(self):
         if isinstance(self._T, (Array, FixedSizeArray)):
-            if self._T._hints.get('nolength', False):
+            if (self._T._hints.get('nolength', False) or
+                self._T._hints.get('overallocated', False)):
                 raise TypeError("%r instance has no length attribute" %
                                     (self._T,))
             return self._obj.getlength()
@@ -1652,14 +1675,14 @@ class _struct(_parentable):
 class _array(_parentable):
     _kind = "array"
 
-    __slots__ = ('items',)
-
     def __init__(self, TYPE, n, initialization=None, parent=None, parentindex=None):
         if not is_valid_int(n):
             raise TypeError, "array length must be an int"
         if n < 0:
             raise ValueError, "negative array length"
         _parentable.__init__(self, TYPE)
+        if TYPE._is_overallocated_array():
+            self.used_len = 0
         myrange = self._check_range(n)
         self.items = [TYPE.OF._allocate(initialization=initialization,
                                         parent=self, parentindex=j)
@@ -1709,7 +1732,10 @@ class _array(_parentable):
         del self.items[newlength:]
 
     def getbounds(self):
-        stop = len(self.items)
+        if self._TYPE._is_overallocated_array():
+            stop = self.used_len
+        else:
+            stop = len(self.items)
         return 0, stop
 
     def getitem(self, index, uninitialized_ok=False):
@@ -1722,7 +1748,6 @@ class _array(_parentable):
         assert typeOf(value) == self._TYPE.OF
         self.items[index] = value
 
-assert not '__dict__' in dir(_array)
 assert not '__dict__' in dir(_struct)
 
 
