@@ -37,6 +37,14 @@ class RewriteTests(object):
         tzdescr = get_field_descr(self.gc_ll_descr, T, 'z')
         tydescr = get_field_descr(self.gc_ll_descr, T, 'y')
         #
+        Q = lltype.GcStruct('Q')
+        INTERIOR = lltype.GcArray(('z', lltype.Ptr(Q)))
+        intdescr = get_array_descr(self.gc_ll_descr, INTERIOR)
+        intdescr.tid = 1291
+        intlendescr = intdescr.lendescr
+        intzdescr = get_interiorfield_descr(self.gc_ll_descr,
+                                            INTERIOR, 'z')
+        #
         A = lltype.GcArray(lltype.Signed)
         adescr = get_array_descr(self.gc_ll_descr, A)
         adescr.tid = 4321
@@ -87,7 +95,6 @@ class RewriteTests(object):
         signedframedescr = self.cpu.signedframedescr
         floatframedescr = self.cpu.floatframedescr
         casmdescr.compiled_loop_token = clt
-        tzdescr = None # noone cares
         #
         namespace.update(locals())
         #

@@ -596,8 +596,10 @@ class GcLLDescr_framework(GcLLDescription):
     def _setup_write_barrier(self):
         if self.stm:
             self.A2Rdescr = STMReadBarrierDescr(self, 'A2R')
+            self.A2Idescr = STMReadBarrierDescr(self, 'A2R') # XXX
             self.Q2Rdescr = STMReadBarrierDescr(self, 'Q2R')
             self.A2Wdescr = STMWriteBarrierDescr(self, 'A2W')
+            self.A2Vdescr = STMWriteBarrierDescr(self, 'A2W') # XXX
             self.V2Wdescr = STMWriteBarrierDescr(self, 'V2W')
             self.write_barrier_descr = "wbdescr: do not use"
         else:

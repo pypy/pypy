@@ -1,10 +1,10 @@
 from rpython.jit.backend.llsupport.rewrite import GcRewriterAssembler
-from rpython.jit.backend.llsupport.descr import CallDescr
+from rpython.jit.backend.llsupport.descr import (
+    CallDescr, FieldDescr, InteriorFieldDescr, ArrayDescr)
 from rpython.jit.metainterp.resoperation import ResOperation, rop
 from rpython.jit.metainterp.history import BoxPtr, ConstPtr, ConstInt
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.objectmodel import we_are_translated
-from rpython.jit.metainterp import history
 
 #
 # STM Support
@@ -42,37 +42,38 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
         #
         insert_transaction_break = False
         for op in operations:
+            opnum = op.getopnum()
             if not we_are_translated():
                 # only possible in tests:
-                if op.getopnum() in (rop.COND_CALL_STM_B, 
+                if opnum in (rop.COND_CALL_STM_B, 
                                      -124): # FORCE_SPILL
                     self.newops.append(op)
                     continue
-            if op.getopnum() == rop.DEBUG_MERGE_POINT:
+            if opnum == rop.DEBUG_MERGE_POINT:
                 continue
-            if op.getopnum() == rop.INCREMENT_DEBUG_COUNTER:
+            if opnum == rop.INCREMENT_DEBUG_COUNTER:
                 self.newops.append(op)
                 continue
             # ----------  ptr_eq  ----------
-            if op.getopnum() in (rop.PTR_EQ, rop.INSTANCE_PTR_EQ,
-                                 rop.PTR_NE, rop.INSTANCE_PTR_NE):
+            if opnum in (rop.PTR_EQ, rop.INSTANCE_PTR_EQ,
+                         rop.PTR_NE, rop.INSTANCE_PTR_NE):
                 self.handle_ptr_eq(op)
                 continue
             # ----------  guard_class  ----------
-            if op.getopnum() == rop.GUARD_CLASS:
+            if opnum == rop.GUARD_CLASS:
                 assert self.cpu.vtable_offset is None
                 # requires gcremovetypeptr translation option
                 # uses h_tid which doesn't need a read-barrier
                 self.newops.append(op)
                 continue
             # ----------  pure operations needing read-barrier  ----------
-            if op.getopnum() in (rop.GETFIELD_GC_PURE,
-                                 rop.GETARRAYITEM_GC_PURE,
-                                 rop.ARRAYLEN_GC,):
+            if opnum in (rop.GETFIELD_GC_PURE,
+                        rop.GETARRAYITEM_GC_PURE,
+                        rop.ARRAYLEN_GC,):
                 # e.g. getting inst_intval of a W_IntObject that is
                 # currently only a stub needs to first resolve to a 
                 # real object
-                self.handle_category_operations(op, 'R')
+                self.handle_category_operations(op, 'I')
                 continue
             # ----------  pure operations, guards  ----------
             if op.is_always_pure() or op.is_guard() or op.is_ovf():
@@ -81,7 +82,7 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
                 # insert a transaction break after call_release_gil
                 # in order to commit the inevitable transaction following
                 # it immediately
-                if (op.getopnum() == rop.GUARD_NOT_FORCED
+                if (opnum == rop.GUARD_NOT_FORCED
                     and insert_transaction_break):
                     # insert transaction_break after GUARD after calls
                     self.newops.append(
@@ -95,18 +96,15 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
 
                 continue
             # ----------  getfields  ----------
-            if op.getopnum() in (rop.GETFIELD_GC,
-                                 rop.GETARRAYITEM_GC,
-                                 rop.GETINTERIORFIELD_GC):
-                self.handle_category_operations(op, 'R')
+            if opnum in (rop.GETFIELD_GC, rop.GETARRAYITEM_GC,
+                        rop.GETINTERIORFIELD_GC):
+                self.handle_getfields(op)
                 continue
             # ----------  setfields  ----------
-            if op.getopnum() in (rop.SETFIELD_GC,
-                                 rop.SETARRAYITEM_GC,
-                                 rop.SETINTERIORFIELD_GC,
-                                 rop.STRSETITEM,
-                                 rop.UNICODESETITEM):
-                self.handle_category_operations(op, 'W')
+            if opnum in (rop.SETFIELD_GC, rop.SETINTERIORFIELD_GC,
+                         rop.SETARRAYITEM_GC, rop.STRSETITEM,
+                         rop.UNICODESETITEM):
+                self.handle_setfields(op)
                 continue
             # ----------  mallocs  ----------
             if op.is_malloc():
@@ -117,19 +115,18 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
                 self.emitting_an_operation_that_can_collect()
                 self.next_op_may_be_in_new_transaction()
 
-                if (op.getopnum() == rop.CALL_MAY_FORCE or
-                    op.getopnum() == rop.CALL_ASSEMBLER or
-                    op.getopnum() == rop.CALL_RELEASE_GIL):
+                if opnum in (rop.CALL_MAY_FORCE, rop.CALL_ASSEMBLER,
+                             rop.CALL_RELEASE_GIL):
                     # insert more transaction breaks after function
                     # calls since they are likely to return as
                     # inevitable transactions
                     insert_transaction_break = True
                     
-                if op.getopnum() == rop.CALL_RELEASE_GIL:
+                if opnum == rop.CALL_RELEASE_GIL:
                     # self.fallback_inevitable(op)
                     # is done by assembler._release_gil_shadowstack()
                     self.newops.append(op)
-                elif op.getopnum() == rop.CALL_ASSEMBLER:
+                elif opnum == rop.CALL_ASSEMBLER:
                     self.handle_call_assembler(op)
                 else:
                     # only insert become_inevitable if calling a
@@ -143,16 +140,15 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
                         self.newops.append(op)
                 continue
             # ----------  copystrcontent  ----------
-            if op.getopnum() in (rop.COPYSTRCONTENT,
-                                 rop.COPYUNICODECONTENT):
+            if opnum in (rop.COPYSTRCONTENT, rop.COPYUNICODECONTENT):
                 self.handle_copystrcontent(op)
                 continue
             # ----------  raw getfields and setfields  ----------
-            if op.getopnum() in (rop.GETFIELD_RAW, rop.SETFIELD_RAW):
+            if opnum in (rop.GETFIELD_RAW, rop.SETFIELD_RAW):
                 if self.maybe_handle_raw_accesses(op):
                     continue
             # ----------  labels  ----------
-            if op.getopnum() == rop.LABEL:
+            if opnum == rop.LABEL:
                 self.emitting_an_operation_that_can_collect()
                 self.next_op_may_be_in_new_transaction()
                 
@@ -161,7 +157,7 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
                 self.newops.append(op)
                 continue
             # ----------  jumps  ----------
-            if op.getopnum() == rop.JUMP:
+            if opnum == rop.JUMP:
                 self.newops.append(
                     ResOperation(rop.STM_TRANSACTION_BREAK,
                                  [ConstInt(1)], None))
@@ -169,15 +165,11 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
                 self.newops.append(op)
                 continue
             # ----------  finish, other ignored ops  ----------
-            if op.getopnum() in (rop.FINISH,
-                                 rop.FORCE_TOKEN,
-                                 rop.READ_TIMESTAMP,
-                                 rop.MARK_OPAQUE_PTR,
-                                 rop.JIT_DEBUG,
-                                 rop.KEEPALIVE,
-                                 rop.QUASIIMMUT_FIELD,
-                                 rop.RECORD_KNOWN_CLASS,
-                                 ):
+            if opnum in (rop.FINISH, rop.FORCE_TOKEN,
+                        rop.READ_TIMESTAMP, rop.MARK_OPAQUE_PTR,
+                        rop.JIT_DEBUG, rop.KEEPALIVE,
+                        rop.QUASIIMMUT_FIELD, rop.RECORD_KNOWN_CLASS,
+                        ):
                 self.newops.append(op)
                 continue
             # ----------  fall-back  ----------
@@ -220,13 +212,13 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
                 return gc.V2Wdescr
             return gc.A2Wdescr
         elif to_cat == 'V':
-            return gc.A2Wdescr
+            return gc.A2Vdescr
         elif to_cat == 'R':
             if from_cat >= 'Q':
                 return gc.Q2Rdescr
             return gc.A2Rdescr
         elif to_cat == 'I':
-            return gc.A2Rdescr
+            return gc.A2Idescr
 
     def gen_initialize_tid(self, v_newgcobj, tid):
         GcRewriterAssembler.gen_initialize_tid(self, v_newgcobj, tid)
@@ -269,6 +261,48 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
         assert isinstance(v, BoxPtr)
         return v
 
+    def handle_getfields(self, op):
+        opnum = op.getopnum()
+        descr = op.getdescr()
+        target_category = 'R'
+        if opnum == rop.GETFIELD_GC:
+            assert isinstance(descr, FieldDescr)
+            if descr.is_immutable():
+                target_category = 'I'
+        elif opnum == rop.GETINTERIORFIELD_GC:
+            assert isinstance(descr, InteriorFieldDescr)
+            if descr.is_immutable():
+                target_category = 'I'
+        elif opnum == rop.GETARRAYITEM_GC:
+            assert isinstance(descr, ArrayDescr)
+            if descr.is_immutable():
+                target_category = 'I'
+                
+        self.handle_category_operations(op, target_category)
+
+    
+    def handle_setfields(self, op):
+        opnum = op.getopnum()
+        descr = op.getdescr()
+        target_category = 'W'
+        if opnum == rop.SETFIELD_GC:
+            assert isinstance(descr, FieldDescr)
+            if not descr.is_pointer_field():
+                target_category = 'V'
+        elif opnum == rop.SETINTERIORFIELD_GC:
+            assert isinstance(descr, InteriorFieldDescr)
+            if not descr.is_pointer_field():
+                target_category = 'V'
+        elif opnum == rop.SETARRAYITEM_GC:
+            assert isinstance(descr, ArrayDescr)
+            if not descr.is_array_of_pointers():
+                target_category = 'V'
+        elif opnum in (rop.STRSETITEM, rop.UNICODESETITEM):
+            target_category = 'V'
+            
+        self.handle_category_operations(op, target_category)
+
+    
     def handle_category_operations(self, op, target_category):
         lst = op.getarglist()
         lst[0] = self.gen_barrier(lst[0], target_category)

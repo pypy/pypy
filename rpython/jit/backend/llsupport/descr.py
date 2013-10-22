@@ -88,15 +88,21 @@ class FieldDescr(ArrayOrFieldDescr):
     field_size = 0
     flag = '\x00'
     stm_dont_track_raw_accesses = False
+    immutable = False
 
     def __init__(self, name, offset, field_size, flag,
-                 stm_dont_track_raw_accesses=False):
+                 stm_dont_track_raw_accesses=False,
+                 immutable=False):
         self.name = name
         self.offset = offset
         self.field_size = field_size
         self.flag = flag
         self.stm_dont_track_raw_accesses = stm_dont_track_raw_accesses
+        self.immutable = immutable
 
+    def is_immutable(self):
+        return self.immutable
+    
     def is_pointer_field(self):
         return self.flag == FLAG_POINTER
 
@@ -125,8 +131,10 @@ def get_field_descr(gccache, STRUCT, fieldname):
         name = '%s.%s' % (STRUCT._name, fieldname)
         stm_dont_track_raw_accesses = STRUCT._hints.get(
             'stm_dont_track_raw_accesses', False)
+        immutable = STRUCT._immutable_field(fieldname)
         fielddescr = FieldDescr(name, offset, size, flag,
-                                stm_dont_track_raw_accesses)
+                                stm_dont_track_raw_accesses,
+                                immutable)
         cachedict = cache.setdefault(STRUCT, {})
         cachedict[fieldname] = fielddescr
         return fielddescr
@@ -169,13 +177,19 @@ class ArrayDescr(ArrayOrFieldDescr):
     lendescr = None
     flag = '\x00'
     vinfo = None
+    immutable = False
 
-    def __init__(self, basesize, itemsize, lendescr, flag):
+    def __init__(self, basesize, itemsize, lendescr, flag,
+                 immutable=False):
         self.basesize = basesize
         self.itemsize = itemsize
         self.lendescr = lendescr    # or None, if no length
         self.flag = flag
+        self.immutable = immutable
 
+    def is_immutable(self):
+        return self.immutable
+    
     def is_array_of_pointers(self):
         return self.flag == FLAG_POINTER
 
@@ -208,7 +222,9 @@ def get_array_descr(gccache, ARRAY_OR_STRUCT):
         else:
             lendescr = get_field_arraylen_descr(gccache, ARRAY_OR_STRUCT)
         flag = get_type_flag(ARRAY_INSIDE.OF)
-        arraydescr = ArrayDescr(basesize, itemsize, lendescr, flag)
+        immutable = ARRAY_INSIDE._immutable_field()
+        arraydescr = ArrayDescr(basesize, itemsize, lendescr, flag,
+                                immutable)
         if ARRAY_OR_STRUCT._gckind == 'gc':
             gccache.init_array_descr(ARRAY_OR_STRUCT, arraydescr)
         cache[ARRAY_OR_STRUCT] = arraydescr
@@ -221,12 +237,17 @@ def get_array_descr(gccache, ARRAY_OR_STRUCT):
 class InteriorFieldDescr(AbstractDescr):
     arraydescr = ArrayDescr(0, 0, None, '\x00')  # workaround for the annotator
     fielddescr = FieldDescr('', 0, 0, '\x00')
+    immutable = False
 
-    def __init__(self, arraydescr, fielddescr):
+    def __init__(self, arraydescr, fielddescr, immutable=False):
         assert arraydescr.flag == FLAG_STRUCT
         self.arraydescr = arraydescr
         self.fielddescr = fielddescr
+        self.immutable = immutable
 
+    def is_immutable(self):
+        return self.immutable
+    
     def sort_key(self):
         return self.fielddescr.sort_key()
 
@@ -252,7 +273,8 @@ def get_interiorfield_descr(gc_ll_descr, ARRAY, name, arrayfieldname=None):
         else:
             REALARRAY = getattr(ARRAY, arrayfieldname)
         fielddescr = get_field_descr(gc_ll_descr, REALARRAY.OF, name)
-        descr = InteriorFieldDescr(arraydescr, fielddescr)
+        immutable = arraydescr.is_immutable() or fielddescr.is_immutable()
+        descr = InteriorFieldDescr(arraydescr, fielddescr, immutable)
         cache[(ARRAY, name, arrayfieldname)] = descr
         return descr
 
