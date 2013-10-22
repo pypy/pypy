@@ -12,7 +12,7 @@ from rpython.jit.metainterp import history
 #
 # Any SETFIELD_GC, SETARRAYITEM_GC, SETINTERIORFIELD_GC must be done on a
 # W object.  The operation that forces an object p1 to be W is
-# COND_CALL_STM_B(p1, descr=x2Wdescr), for x in 'PGORL'.  This
+# COND_CALL_STM_B(p1, descr=x2Wdescr), for x in 'AIQRVWZ'.  This
 # COND_CALL_STM_B is a bit special because if p1 is not W, it *replaces*
 # its value with the W copy (by changing the register's value and
 # patching the stack location if any).  It's still conceptually the same
@@ -25,6 +25,8 @@ from rpython.jit.metainterp import history
 #
 
 
+
+
 class GcStmRewriterAssembler(GcRewriterAssembler):
     # This class performs the same rewrites as its base class,
     # plus the rewrites described above.
@@ -33,14 +35,7 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
         GcRewriterAssembler.__init__(self, *args)
         self.known_category = {}    # variable: letter (R, W, ...)
         self.always_inevitable = False
-        self.more_precise_categories = {
-            'P': {'R': self.gc_ll_descr.P2Rdescr,
-                  'W': self.gc_ll_descr.P2Wdescr,
-                 },
-            'R': {'W': self.gc_ll_descr.P2Wdescr,
-                 },
-            'W': {},
-           }
+        
 
     def rewrite(self, operations):
         # overridden method from parent class
@@ -115,8 +110,6 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
                 continue
             # ----------  mallocs  ----------
             if op.is_malloc():
-                # write barriers not valid after possible collection
-                self.write_to_read_categories()
                 self.handle_malloc_operation(op)
                 continue
             # ----------  calls  ----------
@@ -195,20 +188,45 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
         assert not insert_transaction_break
         return self.newops
 
+    def emitting_an_operation_that_can_collect(self):
+        GcRewriterAssembler.emitting_an_operation_that_can_collect(self)
+        self.invalidate_write_categories()
+    
     def next_op_may_be_in_new_transaction(self):
         self.known_category.clear()
-        
-    def write_to_read_categories(self):
+
+    def invalidate_write_categories(self):
         for v, c in self.known_category.items():
             if c == 'W':
-                self.known_category[v] = 'R'
+                self.known_category[v] = 'V'
 
-    def clear_readable_statuses(self, reason):
+    def invalidate_read_categories(self, reason):
         # XXX: needs aliasing info to be better
         # XXX: move to optimizeopt to only invalidate same typed vars?
         for v, c in self.known_category.items():
             if c == 'R':
-                self.known_category[v] = 'P'
+                self.known_category[v] = 'Q'
+
+    
+    def get_barrier_descr(self, from_cat, to_cat):
+        # compare with translator.stm.funcgen.stm_barrier
+        # XXX: specialize more with info of IMMUTABLE and NOPTR
+        if from_cat >= to_cat:
+            return None
+        
+        gc = self.gc_ll_descr
+        if to_cat == 'W':
+            if from_cat >= 'V':
+                return gc.V2Wdescr
+            return gc.A2Wdescr
+        elif to_cat == 'V':
+            return gc.A2Wdescr
+        elif to_cat == 'R':
+            if from_cat >= 'Q':
+                return gc.Q2Rdescr
+            return gc.A2Rdescr
+        elif to_cat == 'I':
+            return gc.A2Rdescr
 
     def gen_initialize_tid(self, v_newgcobj, tid):
         GcRewriterAssembler.gen_initialize_tid(self, v_newgcobj, tid)
@@ -217,24 +235,23 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
                               descr=self.gc_ll_descr.fielddescr_rev)
             self.newops.append(op)
             
-
-                
     def gen_write_barrier(self, v):
         raise NotImplementedError
 
     def gen_barrier(self, v_base, target_category):
         v_base = self.unconstifyptr(v_base)
         assert isinstance(v_base, BoxPtr)
-        source_category = self.known_category.get(v_base, 'P')
+        source_category = self.known_category.get(v_base, 'A')
+        write_barrier_descr = self.get_barrier_descr(source_category,
+                                                     target_category)
+        if write_barrier_descr is None:
+            return v_base    # no barrier needed
+
         if target_category == 'W':
             # if *any* of the readable vars is the same object,
             # it must repeat the read_barrier now
-            self.clear_readable_statuses(v_base)
-        mpcat = self.more_precise_categories[source_category]
-        try:
-            write_barrier_descr = mpcat[target_category]
-        except KeyError:
-            return v_base    # no barrier needed
+            self.invalidate_read_categories(v_base)
+
         args = [v_base,]
         op = rop.COND_CALL_STM_B
         self.newops.append(ResOperation(op, args, None,

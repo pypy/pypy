@@ -428,10 +428,13 @@ class STMBarrierDescr(BarrierDescr):
 
 class STMReadBarrierDescr(STMBarrierDescr):
     def __init__(self, gc_ll_descr, stmcat):
-        assert stmcat == 'P2R'
-        STMBarrierDescr.__init__(self, gc_ll_descr, stmcat,
-                                 'stm_DirectReadBarrier') 
-        # XXX: implement fastpath then change to stm_DirectReadBarrier
+        assert stmcat in ['A2R', 'Q2R']
+        if stmcat == 'A2R':
+            STMBarrierDescr.__init__(self, gc_ll_descr, stmcat,
+                                     'stm_DirectReadBarrier')
+        else:
+            STMBarrierDescr.__init__(self, gc_ll_descr, stmcat,
+                                     'stm_RepeatReadBarrier')
 
     @specialize.arg(2)
     def _do_barrier(self, gcref_struct, returns_modified_object):
@@ -440,20 +443,27 @@ class STMReadBarrierDescr(STMBarrierDescr):
         objadr = llmemory.cast_ptr_to_adr(gcref_struct)
         objhdr = rffi.cast(StmGC.GCHDRP, gcref_struct)
 
-        # if h_revision == privat_rev of transaction
-        priv_rev = self.llop1.stm_get_adr_of_private_rev_num(rffi.SIGNEDP)
-        if objhdr.h_revision == priv_rev[0]:
-            return gcref_struct
+        if self.stmcat == 'A2R':
+            # if h_revision == privat_rev of transaction
+            priv_rev = self.llop1.stm_get_adr_of_private_rev_num(rffi.SIGNEDP)
+            if objhdr.h_revision == priv_rev[0]:
+                return gcref_struct
 
-        # readcache[obj] == obj
-        read_cache = self.llop1.stm_get_adr_of_read_barrier_cache(rffi.SIGNEDP)
-        objint = llmemory.cast_adr_to_int(objadr)
-        assert WORD == 8, "check for 32bit compatibility"
-        index = (objint & StmGC.FX_MASK) / WORD
-        CP = lltype.Ptr(rffi.CArray(lltype.Signed))
-        rcp = rffi.cast(CP, read_cache[0])
-        if rcp[index] == objint:
-            return gcref_struct
+            # readcache[obj] == obj
+            read_cache = self.llop1.stm_get_adr_of_read_barrier_cache(rffi.SIGNEDP)
+            objint = llmemory.cast_adr_to_int(objadr)
+            assert WORD == 8, "check for 32bit compatibility"
+            index = (objint & StmGC.FX_MASK) / WORD
+            CP = lltype.Ptr(rffi.CArray(lltype.Signed))
+            rcp = rffi.cast(CP, read_cache[0])
+            if rcp[index] == objint:
+                return gcref_struct
+        else: # 'Q2R'
+            # is GCFLAG_PUBLIC_TO_PRIVATE or GCFLAG_MOVED set?
+            if not (objhdr.h_tid &
+                    (StmGC.GCFLAG_PUBLIC_TO_PRIVATE | StmGC.GCFLAG_MOVED)):
+                # no.
+                return gcref_struct
         
         funcptr = self.get_barrier_funcptr(returns_modified_object)
         res = funcptr(objadr)
@@ -462,9 +472,14 @@ class STMReadBarrierDescr(STMBarrierDescr):
         
 class STMWriteBarrierDescr(STMBarrierDescr):
     def __init__(self, gc_ll_descr, stmcat):
-        assert stmcat in ['P2W']
-        STMBarrierDescr.__init__(self, gc_ll_descr, stmcat,
-                                 'stm_WriteBarrier')
+        assert stmcat in ['A2W', 'V2W']
+        if stmcat == 'A2W':
+            STMBarrierDescr.__init__(self, gc_ll_descr, stmcat,
+                                     'stm_WriteBarrier')
+        else:
+            STMBarrierDescr.__init__(self, gc_ll_descr, stmcat,
+                                     'stm_RepeatWriteBarrier')
+
 
     @specialize.arg(2)
     def _do_barrier(self, gcref_struct, returns_modified_object):
@@ -473,9 +488,9 @@ class STMWriteBarrierDescr(STMBarrierDescr):
         objadr = llmemory.cast_ptr_to_adr(gcref_struct)
         objhdr = rffi.cast(StmGC.GCHDRP, gcref_struct)
         
-        # if h_revision == privat_rev of transaction
+        # if it is a repeated WB or h_revision == privat_rev of transaction
         priv_rev = self.llop1.stm_get_adr_of_private_rev_num(rffi.SIGNEDP)
-        if objhdr.h_revision == priv_rev[0]:
+        if self.stmcat == 'V2W' or objhdr.h_revision == priv_rev[0]:
             # also WRITE_BARRIER not set?
             if not (objhdr.h_tid & StmGC.GCFLAG_WRITE_BARRIER):
                 return gcref_struct
@@ -580,8 +595,10 @@ class GcLLDescr_framework(GcLLDescription):
 
     def _setup_write_barrier(self):
         if self.stm:
-            self.P2Rdescr = STMReadBarrierDescr(self, 'P2R')
-            self.P2Wdescr = STMWriteBarrierDescr(self, 'P2W')
+            self.A2Rdescr = STMReadBarrierDescr(self, 'A2R')
+            self.Q2Rdescr = STMReadBarrierDescr(self, 'Q2R')
+            self.A2Wdescr = STMWriteBarrierDescr(self, 'A2W')
+            self.V2Wdescr = STMWriteBarrierDescr(self, 'V2W')
             self.write_barrier_descr = "wbdescr: do not use"
         else:
             self.write_barrier_descr = WriteBarrierDescr(self)
