@@ -251,6 +251,9 @@ class W_GenericBox(W_Root):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "view not implelemnted yet"))
 
+    def descr_dtype(self, space):
+        return self._get_dtype(space)
+
 class W_BoolBox(W_GenericBox, PrimitiveBox):
     descr__new__, _get_dtype, descr_reduce = new_dtype_getter("bool")
 
@@ -524,6 +527,7 @@ W_GenericBox.typedef = TypeDef("generic",
     round = interp2app(W_GenericBox.descr_round),
     conjugate = interp2app(W_GenericBox.descr_conjugate),
     view = interp2app(W_GenericBox.descr_view),
+    dtype = GetSetProperty(W_GenericBox.descr_dtype)
 )
 
 W_BoolBox.typedef = TypeDef("bool_", W_GenericBox.typedef,
