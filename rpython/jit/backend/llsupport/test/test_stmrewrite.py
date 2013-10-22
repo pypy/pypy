@@ -1227,6 +1227,76 @@ class TestStm(RewriteTests):
             jump()
         """, calldescr2=calldescr2)
 
-        
+    def test_immutable_getfields(self):
+        for imm_hint in [{}, {'immutable':True}]:
+            S = lltype.GcStruct('S')
+            U = lltype.GcStruct('U',
+                ('x', lltype.Signed),
+                ('y', lltype.Ptr(S)),
+                hints=imm_hint)
+            udescr = get_size_descr(self.gc_ll_descr, U)
+            udescr.tid = 2123
+            uxdescr = get_field_descr(self.gc_ll_descr, U, 'x')
+            #uydescr = get_field_descr(self.gc_ll_descr, U, 'y')
+
+            V = lltype.GcArray(('z', lltype.Ptr(S)), hints=imm_hint)
+            vdescr = get_array_descr(self.gc_ll_descr, V)
+            vdescr.tid = 1233
+            vzdescr = get_interiorfield_descr(self.gc_ll_descr, V, 'z')
+
+            barr = "A2Idescr" if imm_hint else "A2Rdescr"
+            self.check_rewrite("""
+                [p1, p3, i1, p4]
+                p2 = getfield_gc(p1, descr=uxdescr)
+                i3 = getinteriorfield_gc(p3, i1, descr=vzdescr)
+                i4 = getarrayitem_gc(p4, i3, descr=vdescr)
+                jump(p2)
+            """, """
+                [p1, p3, i1, p4]
+                cond_call_stm_b(p1, descr=%s)
+                p2 = getfield_gc(p1, descr=uxdescr)
+                cond_call_stm_b(p3, descr=%s)
+                i3 = getinteriorfield_gc(p3, i1, descr=vzdescr)
+                cond_call_stm_b(p4, descr=%s)
+                i4 = getarrayitem_gc(p4, i3, descr=vdescr)
+                stm_transaction_break(1)
+                jump(p2)
+            """ % (barr, barr, barr), uxdescr=uxdescr,
+            vzdescr=vzdescr, vdescr=vdescr)
+
+    def test_noptr_setfields(self):
+        S = lltype.GcStruct('S')
+        U = lltype.GcStruct('U',
+                ('x', lltype.Signed),
+                ('y', lltype.Ptr(S)))
+        udescr = get_size_descr(self.gc_ll_descr, U)
+        udescr.tid = 2123
+        uxdescr = get_field_descr(self.gc_ll_descr, U, 'x')
+        #uydescr = get_field_descr(self.gc_ll_descr, U, 'y')
+
+        V = lltype.GcArray(('z', lltype.Signed))
+        vdescr = get_array_descr(self.gc_ll_descr, V)
+        vdescr.tid = 1233
+        vzdescr = get_interiorfield_descr(self.gc_ll_descr, V, 'z')
+
+        self.check_rewrite("""
+                [p1, p3, i1, p4]
+                setfield_gc(p1, 1, descr=uxdescr)
+                setinteriorfield_gc(p3, i1, 1, descr=vzdescr)
+                setarrayitem_gc(p4, i1, 1, descr=vdescr)
+                jump(p3)
+            """, """
+                [p1, p3, i1, p4]
+                cond_call_stm_b(p1, descr=A2Vdescr)
+                setfield_gc(p1, 1, descr=uxdescr)
+                cond_call_stm_b(p3, descr=A2Vdescr)
+                setinteriorfield_gc(p3, i1, 1, descr=vzdescr)
+                cond_call_stm_b(p4, descr=A2Vdescr)
+                setarrayitem_gc(p4, i1, 1, descr=vdescr)
+                stm_transaction_break(1)
+                jump(p3)
+            """, uxdescr=uxdescr, vzdescr=vzdescr, vdescr=vdescr)
+
+    
 
 
