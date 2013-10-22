@@ -208,8 +208,7 @@ class FakeSpace(object):
             return self.w_None
 
     def lookup(self, w_obj, name):
-        w_type = self.type(w_obj)
-        return w_type.lookup(name)
+        return w_obj.getdictvalue(self, name)
 
     def gettypefor(self, w_obj):
         return None
