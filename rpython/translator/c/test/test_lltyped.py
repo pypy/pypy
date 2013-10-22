@@ -960,3 +960,33 @@ class TestLowLevelType(object):
 
         fn = self.getcompiled(f, [int])
         assert fn(0) == 9
+
+    def test_overallocated_array(self):
+        A = GcArray(Signed, hints={'overallocated': True})
+
+        def f():
+            a = malloc(A, 10)
+            a.used_length = 5
+            a[3] = 42
+            assert a[3] == 42
+            return a.used_length + (a.allocated_length * 100)
+
+        fn = self.getcompiled(f, [])
+        assert fn() == 1005
+
+    def test_overallocated_array_prebuilt(self):
+        A = GcArray(Signed, hints={'overallocated': True})
+        a = malloc(A, 10)
+        a.used_length = 2
+        a[0] = 42
+        a[1] = 421
+
+        def f():
+            assert a.used_length == 2
+            assert a.allocated_length == 2  # reduced to its min by translation
+            assert a[0] == 42
+            assert a[1] == 421
+            return 1
+
+        fn = self.getcompiled(f, [])
+        assert fn() == 1

@@ -52,6 +52,9 @@ void RPyAbort(void);
 #  define RPyItem(array, index)                                             \
      ((RPyCHECK((index) >= 0 && (index) < (array)->length),                 \
       (array))->items[index])
+#  define RPyOAItem(array, index)                                           \
+     ((RPyCHECK((index) >= 0 && (index) < (array)->used_length),            \
+      (array))->items[index])
 #  define RPyFxItem(ptr, index, fixedsize)                                  \
      ((RPyCHECK((ptr) && (index) >= 0 && (index) < (fixedsize)),            \
       (ptr))[index])
@@ -59,11 +62,17 @@ void RPyAbort(void);
      ((RPyCHECK((array) && (index) >= 0), (array))->items[index])
 #  define RPyBareItem(array, index)                                         \
      ((RPyCHECK((array) && (index) >= 0), (array))[index])
+#  define RPySetUsedLength(array, nlength)                                  \
+     ((RPyCHECK((array) && (nlength) >= 0                                   \
+                        && (nlength) <= (array)->allocated_length),         \
+       (array))->used_length = (nlength))
 
 #else
 #  define RPyField(ptr, name)                ((ptr)->name)
 #  define RPyItem(array, index)              ((array)->items[index])
+#  define RPyOAItem(array, index)            ((array)->items[index])
 #  define RPyFxItem(ptr, index, fixedsize)   ((ptr)[index])
 #  define RPyNLenItem(array, index)          ((array)->items[index])
 #  define RPyBareItem(array, index)          ((array)[index])
+#  define RPySetUsedLength(array, nlength)   ((array)->used_length = (nlength))
 #endif

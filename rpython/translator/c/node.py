@@ -254,6 +254,8 @@ class ArrayDefNode(NodeWithDependencies):
     def itemindex_access_expr(self, baseexpr, indexexpr):
         if self.ARRAY._hints.get('nolength', False):
             return 'RPyNLenItem(%s, %s)' % (baseexpr, indexexpr)
+        elif self.ARRAY._hints.get('overallocated', False):
+            return 'RPyOAItem(%s, %s)' % (baseexpr, indexexpr)
         else:
             return 'RPyItem(%s, %s)' % (baseexpr, indexexpr)
 
@@ -261,7 +263,12 @@ class ArrayDefNode(NodeWithDependencies):
         yield 'struct %s {' % self.name
         for fname, typename in self.gcfields:
             yield '\t' + cdecl(typename, fname) + ';'
-        if not self.ARRAY._hints.get('nolength', False):
+        if self.ARRAY._hints.get('nolength', False):
+            pass
+        elif self.ARRAY._hints.get('overallocated', False):
+            yield '\tlong used_length;'
+            yield '\tlong allocated_length;'
+        else:
             yield '\tlong length;'
         line = '%s;' % cdecl(self.itemtypename,
                              'items[%s]' % deflength(self.varlength))
@@ -684,6 +691,8 @@ class ArrayNode(ContainerNode):
                 yield line
         if T._hints.get('nolength', False):
             length = ''
+        elif T._hints.get('overallocated', False):
+            xxxxxxxxxxx
         else:
             length = '%d, ' % len(self.obj.items)
         if T.OF is Void or len(self.obj.items) == 0:

@@ -59,8 +59,9 @@ def name_signed(value, db):
             else:
                 return 'sizeof(%s)' % (cdecl(db.gettype(value.TYPE), ''),)
         elif isinstance(value, ArrayLengthOffset):
-            return 'offsetof(%s, length)' % (
-                cdecl(db.gettype(value.TYPE), ''))
+            return 'offsetof(%s, %s)' % (
+                cdecl(db.gettype(value.TYPE), ''),
+                value.attrkind)   # "length", "allocated_length", "used_length"
         elif isinstance(value, CompositeOffset):
             names = [name_signed(item, db) for item in value.offsets]
             return '(%s)' % (' + '.join(names),)

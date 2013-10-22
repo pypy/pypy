@@ -543,6 +543,9 @@ class GCTransformer(BaseGCTransformer):
             if isinstance(TYPE, lltype.Struct):
                 offset_to_length = llmemory.FieldOffset(TYPE, TYPE._arrayfld) + \
                                    llmemory.ArrayLengthOffset(ARRAY)
+            elif TYPE._is_overallocated_array():
+                offset_to_length = llmemory.ArrayLengthOffset(ARRAY,
+                                         attrkind="allocated_length")
             else:
                 offset_to_length = llmemory.ArrayLengthOffset(ARRAY)
             c_offset_to_length = intconst(offset_to_length)

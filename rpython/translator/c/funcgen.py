@@ -508,8 +508,27 @@ class FunctionCodeGenerator(object):
             return '%s = %d;' % (self.expr(op.result),
                                  ARRAY.length)
         else:
+            assert not ARRAY._is_overallocated_array()
             return '%s = %s->length;' % (self.expr(op.result),
                                          self.expr(op.args[0]))
+
+    def OP_GETARRAYALLOCATEDLENGTH(self, op):
+        ARRAY = self.lltypemap(op.args[0]).TO
+        assert ARRAY._is_overallocated_array()
+        return '%s = %s->allocated_length;' % (self.expr(op.result),
+                                               self.expr(op.args[0]))
+
+    def OP_GETARRAYUSEDLENGTH(self, op):
+        ARRAY = self.lltypemap(op.args[0]).TO
+        assert ARRAY._is_overallocated_array()
+        return '%s = %s->used_length;' % (self.expr(op.result),
+                                          self.expr(op.args[0]))
+
+    def OP_SETARRAYUSEDLENGTH(self, op):
+        ARRAY = self.lltypemap(op.args[0]).TO
+        assert ARRAY._is_overallocated_array()
+        return 'RPySetUsedLength(%s, %s);' % (self.expr(op.args[0]),
+                                              self.expr(op.args[1]))
 
     def OP_GETARRAYITEM(self, op):
         ARRAY = self.lltypemap(op.args[0]).TO
