@@ -240,7 +240,6 @@ class W_Ufunc(W_Root):
         return res
 
     def call_prepare(self, space, w_out, w_obj, w_result):
-        assert isinstance(w_result, W_NDimArray)
         if isinstance(w_out, W_NDimArray):
             w_array = space.lookup(w_out, "__array_prepare__")
             w_caller = w_out
