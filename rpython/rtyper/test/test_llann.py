@@ -532,3 +532,13 @@ def test_overallocated_array():
     assert f() == 1005
     res = interpret(f, [])
     assert res == 1005
+
+def test_check_used_length_not_too_big():
+    A = GcArray(Signed, hints={'overallocated': True})
+
+    def f(n):
+        a = malloc(A, n)
+        a.used_length = 10
+
+    py.test.raises(ValueError, f, 5)
+    py.test.raises(ValueError, interpret, f, [5])
