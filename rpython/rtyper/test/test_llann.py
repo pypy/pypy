@@ -509,3 +509,18 @@ def test_cast_base_ptr_to_instance():
     assert res is True
     res = interpret(f, [25, 10])
     assert res is True
+
+
+def test_overallocated_array():
+    A = GcArray(Signed, hints={'overallocated': True})
+
+    def f():
+        a = malloc(A, 10)
+        a.used_length = 5
+        a[3] = 42
+        assert a[3] == 42
+        return a.used_length + (a.allocated_length * 100)
+
+    assert f() == 1005
+    res = interpret(f, [])
+    assert res == 1005

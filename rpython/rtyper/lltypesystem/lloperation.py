@@ -386,6 +386,9 @@ LL_OPERATIONS = {
     'bare_setfield':        LLOp(),
     'setarrayitem':         LLOp(),
     'bare_setarrayitem':    LLOp(),
+    'getarrayallocatedlength': LLOp(sideeffects=False), # over-allocated arrays
+    'getarrayusedlength':   LLOp(sideeffects=False),    # over-allocated arrays
+    'setarrayusedlength':   LLOp(),                     # over-allocated arrays
     'cast_pointer':         LLOp(canfold=True),
     'ptr_eq':               LLOp(canfold=True),
     'ptr_ne':               LLOp(canfold=True),

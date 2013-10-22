@@ -47,6 +47,16 @@ class PtrRepr(Repr):
         else:
             assert hop.s_result.is_constant()
             return hop.inputconst(hop.r_result, hop.s_result.const)
+        if self.lowleveltype.TO._is_overallocated_array():
+            v_self = hop.inputarg(self, arg=0)
+            if attr == 'allocated_length':
+                return hop.genop('getarrayallocatedlength', [v_self],
+                                 resulttype = lltype.Signed)
+            elif attr == 'used_length':
+                return hop.genop('getarrayusedlength', [v_self],
+                                 resulttype = lltype.Signed)
+            else:
+                raise TyperError("getattr(overallocated_array, %r)" % (attr,))
         assert attr in self.lowleveltype.TO._flds # check that the field exists
         FIELD_TYPE = getattr(self.lowleveltype.TO, attr)
         if isinstance(FIELD_TYPE, lltype.ContainerType):
@@ -65,6 +75,14 @@ class PtrRepr(Repr):
 
     def rtype_setattr(self, hop):
         attr = hop.args_s[1].const
+        if self.lowleveltype.TO._is_overallocated_array():
+            if attr == 'used_length':
+                v_self = hop.inputarg(self, arg=0)
+                v_length = hop.inputarg(lltype.Signed, arg=2)
+                hop.genop('setarrayusedlength', [v_self, v_length])
+                return
+            else:
+                raise TyperError("setattr(overallocated_array, %r)" % (attr,))
         FIELD_TYPE = getattr(self.lowleveltype.TO, attr)
         assert not isinstance(FIELD_TYPE, lltype.ContainerType)
         vlist = hop.inputargs(self, lltype.Void, hop.args_r[2])

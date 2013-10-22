@@ -624,6 +624,19 @@ class LLFrame(object):
         if ITEMTYPE is not lltype.Void:
             array[index] = item
 
+    def op_getarrayallocatedlength(self, obj):
+        checkptr(obj)
+        return obj.allocated_length
+
+    def op_getarrayusedlength(self, obj):
+        checkptr(obj)
+        return obj.used_length
+
+    def op_setarrayusedlength(self, obj, nlen):
+        checkptr(obj)
+        assert isinstance(nlen, int)
+        obj.used_length = nlen
+
     def perform_call(self, f, ARGS, args):
         fobj = self.llinterpreter.typer.type_system.deref(f)
         has_callable = getattr(fobj, '_callable', None) is not None
