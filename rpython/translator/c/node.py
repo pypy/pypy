@@ -675,6 +675,8 @@ class ArrayNode(ContainerNode):
         return 'array'
 
     def enum_dependencies(self):
+        if self.getTYPE()._hints.get('overallocated', False):
+            return self.obj.items[:self.obj.used_len]
         return self.obj.items
 
     def getvarlength(self):
@@ -689,14 +691,18 @@ class ArrayNode(ContainerNode):
                                                '%sgcheader' % (decoration,))
             for line in lines:
                 yield line
+        length = len(self.obj.items)
         if T._hints.get('nolength', False):
-            length = ''
+            slength = ''
         elif T._hints.get('overallocated', False):
-            xxxxxxxxxxx
+            # during translation, we reduce the over-allocated arrays
+            # to their used_len
+            length = self.obj.used_len
+            slength = '%d, %d, ' % (length, length)
         else:
-            length = '%d, ' % len(self.obj.items)
+            slength = '%d, ' % length
         if T.OF is Void or len(self.obj.items) == 0:
-            yield '\t%s' % length.rstrip(', ')
+            yield '\t%s' % slength.rstrip(', ')
             yield '}'
         elif T.OF == Char:
             if len(self.obj.items) and self.obj.items[0] is None:
@@ -707,13 +713,13 @@ class ArrayNode(ContainerNode):
             if array_constant.startswith('{') and barebonearray(T):
                 assert array_constant.endswith('}')
                 array_constant = array_constant[1:-1].strip()
-            yield '\t%s%s' % (length, array_constant)
+            yield '\t%s%s' % (slength, array_constant)
             yield '}'
         else:
             barebone = barebonearray(T)
             if not barebone:
-                yield '\t%s{' % length
-            for j in range(len(self.obj.items)):
+                yield '\t%s{' % slength
+            for j in range(length):
                 value = self.obj.items[j]
                 basename = self.name
                 if basename.endswith('.b'):
