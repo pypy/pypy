@@ -1682,7 +1682,10 @@ class _array(_parentable):
             raise ValueError, "negative array length"
         _parentable.__init__(self, TYPE)
         if TYPE._is_overallocated_array():
-            self.used_len = 0
+            if initialization == 'example':
+                self.used_len = n
+            else:
+                self.used_len = 0
         myrange = self._check_range(n)
         self.items = [TYPE.OF._allocate(initialization=initialization,
                                         parent=self, parentindex=j)

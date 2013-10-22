@@ -827,6 +827,9 @@ def test_overallocated_array():
     a[0] = 100
     a[3] = 200
     assert repr(a) == '<* array allocated=10 [ 100, #, #, 200, # ]>'
+    #
+    b = Ptr(A)._example()
+    assert repr(b) == '<* array allocated=1 [ 0 ]>'
 
 class TestTrackAllocation:
     def test_automatic_tracking(self):
