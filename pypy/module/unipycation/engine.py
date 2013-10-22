@@ -25,6 +25,13 @@ def _typecheck_list_of_vars(space, list_w, unroll):
 
 colonsignature = Signature.getsignature(":", 2)
 
+def convert_uncaught_error(exception, space, p_engine):
+    w_PrologError = util.get_from_module(space, "unipycation", "PrologError")
+    w_term = conversion.w_of_p(space, exception.term)
+    w_str = space.wrap("PROLOG: %s" % exception.format_traceback(p_engine))
+    w_exception = space.call_function(w_PrologError, w_str, w_term)
+    return OperationError(w_PrologError, w_exception)
+
 class ContinuationHolder(object):
     def __init__(self):
         # The state of the prolog interpreter continuation.
@@ -92,11 +99,7 @@ class W_CoreSolutionIterator(W_Root):
             # contradiction - no solutions
             raise OperationError(self.space.w_StopIteration, self.space.w_None)
         except error.UncaughtError as ex:
-            w_PrologError = util.get_from_module(self.space, "unipycation", "PrologError")
-            w_term = conversion.w_of_p(self.space, ex.term)
-            w_str = self.space.wrap("PROLOG: %s" % ex.format_traceback(self.p_engine))
-            w_ex = self.space.call_function(w_PrologError, w_str, w_term)
-            raise OperationError(w_PrologError, w_ex)
+            raise convert_uncaught_error(ex, self.space, self.p_engine)
 
         return self._create_result()
 
@@ -181,6 +184,9 @@ class W_CoreEngine(W_Root):
         except error.PrologParseError as e:
             w_ParseError = util.get_from_module(self.space, "unipycation", "ParseError")
             raise OperationError(w_ParseError, self.space.wrap(e.message))
+        except error.UncaughtError as ex:
+            raise convert_uncaught_error(ex, space, self.engine)
+
 
     @staticmethod
     def from_file(space, w_cls, w_filename):

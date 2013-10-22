@@ -222,3 +222,8 @@ class AppTestCoreEngine(object):
         assert type(sol[X] == u.CoreTerm)
         assert len(sol[X].args) == 1
         assert type(sol[X].args[0] == u.Var)
+
+    def test_error_in_database(self):
+        import unipycation
+        raises(unipycation.PrologError, 'unipycation.CoreEngine(":- foo, !.")')
+
