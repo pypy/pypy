@@ -2058,7 +2058,7 @@ class MetaInterp(object):
                 duplicates[box] = None
 
     def reached_loop_header(self, greenboxes, redboxes, resumedescr):
-        self.heapcache.reset()
+        self.heapcache.reset(reset_virtuals=False)
 
         duplicates = {}
         self.remove_consts_and_duplicates(redboxes, len(redboxes),
