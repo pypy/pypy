@@ -152,8 +152,10 @@ class GCDescrStm(GCDescrShadowstackDirect):
             self.wb_called_on.append(obj)
             return obj
 
-        self.P2Rdescr = FakeSTMBarrier(self, 'P2R', read_barrier)
-        self.P2Wdescr = FakeSTMBarrier(self, 'P2W', write_barrier)
+        self.A2Rdescr = FakeSTMBarrier(self, 'A2R', read_barrier)
+        self.Q2Rdescr = FakeSTMBarrier(self, 'Q2R', read_barrier)
+        self.A2Wdescr = FakeSTMBarrier(self, 'A2W', write_barrier)
+        self.V2Wdescr = FakeSTMBarrier(self, 'V2W', write_barrier)
         
         self.do_write_barrier = None
         self.get_nursery_top_addr = None
@@ -253,8 +255,10 @@ class TestGcStm(BaseTestRegalloc):
                                                 cpu.__class__)
         
 
-        self.p2wd = cpu.gc_ll_descr.P2Wdescr
-        self.p2rd = cpu.gc_ll_descr.P2Rdescr
+        self.a2wd = cpu.gc_ll_descr.A2Wdescr
+        self.v2wd = cpu.gc_ll_descr.V2Wdescr
+        self.a2rd = cpu.gc_ll_descr.A2Rdescr
+        self.Q2rd = cpu.gc_ll_descr.Q2Rdescr
 
         TP = rffi.CArray(lltype.Signed)
         self.priv_rev_num = lltype.malloc(TP, 1, flavor='raw')
@@ -314,7 +318,7 @@ class TestGcStm(BaseTestRegalloc):
         
     def test_gc_read_barrier_fastpath(self):
         from rpython.jit.backend.llsupport.gc import STMReadBarrierDescr
-        descr = STMReadBarrierDescr(self.cpu.gc_ll_descr, 'P2R')
+        descr = STMReadBarrierDescr(self.cpu.gc_ll_descr, 'A2R')
 
         called = []
         def read(obj):
@@ -356,7 +360,7 @@ class TestGcStm(BaseTestRegalloc):
 
     def test_gc_write_barrier_fastpath(self):
         from rpython.jit.backend.llsupport.gc import STMWriteBarrierDescr
-        descr = STMWriteBarrierDescr(self.cpu.gc_ll_descr, 'P2W')
+        descr = STMWriteBarrierDescr(self.cpu.gc_ll_descr, 'A2W')
 
         called = []
         def write(obj):
@@ -416,7 +420,7 @@ class TestGcStm(BaseTestRegalloc):
             p0 = BoxPtr()
             operations = [
                 ResOperation(rop.COND_CALL_STM_B, [p0], None,
-                             descr=self.p2rd),
+                             descr=self.a2rd),
                 ResOperation(rop.FINISH, [p0], None, 
                              descr=BasicFinalDescr(0)),
                 ]
@@ -459,7 +463,7 @@ class TestGcStm(BaseTestRegalloc):
             p0 = BoxPtr()
             operations = [
                 ResOperation(rop.COND_CALL_STM_B, [p0], None,
-                             descr=self.p2wd),
+                             descr=self.a2wd),
                 ResOperation(rop.FINISH, [p0], None, 
                              descr=BasicFinalDescr(0)),
                 ]
@@ -787,9 +791,9 @@ class TestGcStm(BaseTestRegalloc):
             if llmemory.cast_ptr_to_adr(sgcref) == obj:
                 return rffi.cast(llmemory.Address, other_sgcref)
             return obj
-        P2W = FakeSTMBarrier(cpu.gc_ll_descr, 'P2W', write_barrier)
-        old_p2w = cpu.gc_ll_descr.P2Wdescr
-        cpu.gc_ll_descr.P2Wdescr = P2W
+        A2W = FakeSTMBarrier(cpu.gc_ll_descr, 'A2W', write_barrier)
+        old_a2w = cpu.gc_ll_descr.A2Wdescr
+        cpu.gc_ll_descr.A2Wdescr = A2W
 
         cpu.gc_ll_descr.init_nursery(100)
         cpu.setup_once()
@@ -801,10 +805,10 @@ class TestGcStm(BaseTestRegalloc):
         spill.initarglist([p0])
         operations = [
             ResOperation(rop.COND_CALL_STM_B, [p0], None,
-                         descr=P2W),
+                         descr=A2W),
             spill,
             ResOperation(rop.COND_CALL_STM_B, [p0], None,
-                         descr=P2W),
+                         descr=A2W),
             ResOperation(rop.FINISH, [p0], None, 
                              descr=BasicFinalDescr(0)),
             ]
@@ -818,7 +822,7 @@ class TestGcStm(BaseTestRegalloc):
         self.assert_in(called_on, [sgcref, other_sgcref])
 
         # for other tests:
-        cpu.gc_ll_descr.P2Wdescr = old_p2w
+        cpu.gc_ll_descr.A2Wdescr = old_a2w
 
     
         

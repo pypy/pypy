@@ -189,6 +189,10 @@ class Assembler386(BaseAssembler):
         return mc.materialize(self.cpu.asmmemmgr, [])
 
     def _build_stm_transaction_break_path(self):
+        assert self.cpu.gc_ll_descr.stm
+        if not we_are_translated():
+            return    # tests only
+
         """ While arriving on slowpath, we have a gcpattern on stack 0.
         This function must preserve all registers
         """
@@ -1357,9 +1361,9 @@ class Assembler386(BaseAssembler):
             mc.MOV(ebp, mem(ecx, -WORD))
         #
         if gcrootmap and gcrootmap.is_stm:
-            if not hasattr(gc_ll_descr, 'P2Wdescr'):
+            if not hasattr(gc_ll_descr, 'A2Wdescr'):
                 raise Exception("unreachable code")
-            wbdescr = gc_ll_descr.P2Wdescr
+            wbdescr = gc_ll_descr.A2Wdescr
             self._stm_barrier_fastpath(mc, wbdescr, [ebp], is_frame=True,
                                        align_stack=align_stack)
             return
@@ -2486,43 +2490,48 @@ class Assembler386(BaseAssembler):
         #
         # FASTPATH:
         #
-        # write_barrier:
+        # A2W:
         # (obj->h_revision != stm_private_rev_num)
         #     || (obj->h_tid & GCFLAG_WRITE_BARRIER) != 0)
-        # read_barrier:
+        # V2W:
+        # (obj->h_tid & GCFLAG_WRITE_BARRIER) != 0)
+        # A2R:
         # (obj->h_revision != stm_private_rev_num)
         #     && (FXCACHE_AT(obj) != obj)))
+        # Q2R:
+        # (obj->h_tid & (GCFLAG_PUBLIC_TO_PRIVATE | GCFLAG_MOVED) != 0)
         if IS_X86_32:   # XXX: todo
             todo()
         jz_location = 0
         jz_location2 = 0
         jnz_location = 0
-        # compare h_revision with stm_private_rev_num (XXX: may be slow)
-        rn = self._get_stm_private_rev_num_addr()
-        if we_are_translated():
-            # during tests, _get_stm_private_rev_num_addr returns
-            # an absolute address, not a tl-offset
-            self._tl_segment_if_stm(mc)
-            mc.MOV_rj(X86_64_SCRATCH_REG.value, rn)
-        else: # testing:
-            mc.MOV(X86_64_SCRATCH_REG, heap(rn))
-            
-        if loc_base == ebp:
-            mc.CMP_rb(X86_64_SCRATCH_REG.value, StmGC.H_REVISION)
-        else:
-            mc.CMP(X86_64_SCRATCH_REG, mem(loc_base, StmGC.H_REVISION))
-        #
-        if descr.stmcat == 'P2R':#isinstance(descr, STMReadBarrierDescr):
-            # jump to end if h_rev==priv_rev
-            mc.J_il8(rx86.Conditions['Z'], 0) # patched below
-            jz_location = mc.get_relative_pos()
-        else: # write_barrier
-            # jump to slowpath if h_rev!=priv_rev
-            mc.J_il8(rx86.Conditions['NZ'], 0) # patched below
-            jnz_location = mc.get_relative_pos()
+        # compare h_revision with stm_private_rev_num
+        if descr.stmcat in ['A2W', 'A2R']:
+            rn = self._get_stm_private_rev_num_addr()
+            if we_are_translated():
+                # during tests, _get_stm_private_rev_num_addr returns
+                # an absolute address, not a tl-offset
+                self._tl_segment_if_stm(mc)
+                mc.MOV_rj(X86_64_SCRATCH_REG.value, rn)
+            else: # testing:
+                mc.MOV(X86_64_SCRATCH_REG, heap(rn))
 
+            if loc_base == ebp:
+                mc.CMP_rb(X86_64_SCRATCH_REG.value, StmGC.H_REVISION)
+            else:
+                mc.CMP(X86_64_SCRATCH_REG, mem(loc_base, StmGC.H_REVISION))
+            #
+            if descr.stmcat == 'A2R':
+                # jump to end if h_rev==priv_rev
+                mc.J_il8(rx86.Conditions['Z'], 0) # patched below
+                jz_location = mc.get_relative_pos()
+            else: # write_barrier
+                # jump to slowpath if h_rev!=priv_rev
+                mc.J_il8(rx86.Conditions['NZ'], 0) # patched below
+                jnz_location = mc.get_relative_pos()
+        #
         # FXCACHE_AT(obj) != obj
-        if descr.stmcat == 'P2R':#isinstance(descr, STMReadBarrierDescr):
+        if descr.stmcat == 'A2R':
             # calculate: temp = obj & FX_MASK
             assert StmGC.FX_MASK == 65535
             assert not is_frame
@@ -2543,22 +2552,30 @@ class Assembler386(BaseAssembler):
             mc.CMP_rm(loc_base.value, (X86_64_SCRATCH_REG.value, 0))
             mc.J_il8(rx86.Conditions['Z'], 0) # patched below
             jz_location2 = mc.get_relative_pos()
+        #
+        # check flags:
+        if descr.stmcat in ['A2W', 'V2W', 'Q2R']:
+            if descr.stmcat in ['A2W', 'V2W']:
+                # obj->h_tid & GCFLAG_WRITE_BARRIER) != 0
+                assert IS_X86_64 and (StmGC.GCFLAG_WRITE_BARRIER >> 32) > 0
+                assert (StmGC.GCFLAG_WRITE_BARRIER >> 40) == 0
+                flags = StmGC.GCFLAG_WRITE_BARRIER >> 32
+            elif descr.stmcat == 'Q2R':
+                # obj->h_tid & PUBLIC_TO_PRIVATE|MOVED
+                flags = StmGC.GCFLAG_PUBLIC_TO_PRIVATE | StmGC.GCFLAG_MOVED
+                assert IS_X86_64 and (flags >> 32) > 0
+                assert (flags >> 40) == 0
+                flags = flags >> 32
 
-        # obj->h_tid & GCFLAG_WRITE_BARRIER) != 0
-        if descr.stmcat == 'P2W':#isinstance(descr, STMWriteBarrierDescr):
-            assert IS_X86_64 and (StmGC.GCFLAG_WRITE_BARRIER >> 32) > 0
-            assert (StmGC.GCFLAG_WRITE_BARRIER >> 40) == 0
             off = 4
-            flag = StmGC.GCFLAG_WRITE_BARRIER >> 32
             if loc_base == ebp:
-                mc.TEST8_bi(StmGC.H_TID + off, flag)
+                mc.TEST8_bi(StmGC.H_TID + off, flags)
             else:
-                mc.TEST8_mi((loc_base.value, StmGC.H_TID + off), flag)
+                mc.TEST8_mi((loc_base.value, StmGC.H_TID + off), flags)
 
             mc.J_il8(rx86.Conditions['Z'], 0) # patched below
             jz_location = mc.get_relative_pos()
-            # both conditions succeeded, jump to end
-            
+            # if flags not set, jump to end
             # jump target slowpath:
             offset = mc.get_relative_pos() - jnz_location
             assert 0 < offset <= 127
@@ -2592,7 +2609,7 @@ class Assembler386(BaseAssembler):
         offset = mc.get_relative_pos() - jz_location
         assert 0 < offset <= 127
         mc.overwrite(jz_location - 1, chr(offset))
-        if descr.stmcat == 'P2R':#isinstance(descr, STMReadBarrierDescr):
+        if descr.stmcat == 'A2R':#isinstance(descr, STMReadBarrierDescr):
             offset = mc.get_relative_pos() - jz_location2
             assert 0 < offset <= 127
             mc.overwrite(jz_location2 - 1, chr(offset))
