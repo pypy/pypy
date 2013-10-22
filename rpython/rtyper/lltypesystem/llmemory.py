@@ -593,7 +593,8 @@ def array_type_match(A1, A2):
     return A1 == A2 or (A2 == GCARRAY_OF_PTR and
                         isinstance(A1, lltype.GcArray) and
                         isinstance(A1.OF, lltype.Ptr) and
-                        not A1._hints.get('nolength'))
+                        not A1._hints.get('nolength') and
+        not A1._hints.get('overallocated'))
 def array_item_type_match(T1, T2):
     return T1 == T2 or (T2 == GCREF and isinstance(T1, lltype.Ptr))
 
@@ -911,7 +912,7 @@ class RawMemmoveEntry(ExtRegistryEntry):
         assert isinstance(s_from, SomeAddress)
         assert isinstance(s_to, SomeAddress)
         assert isinstance(s_size, SomeInteger)
-    
+
     def specialize_call(self, hop):
         hop.exception_cannot_occur()
         v_list = hop.inputargs(Address, Address, lltype.Signed)
