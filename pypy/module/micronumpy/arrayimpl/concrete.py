@@ -102,13 +102,10 @@ class BaseConcreteArray(base.BaseArrayImplementation):
             dtype =  self.dtype.float_type
             return SliceArray(self.start + dtype.get_size(), strides,
                     backstrides, self.get_shape(), self, orig_array, dtype=dtype)
-        if self.dtype.is_flexible_type():
-            # numpy returns self for self.imag
-            return SliceArray(self.start, strides, backstrides,
-                    self.get_shape(), self, orig_array)
         impl = NonWritableArray(self.get_shape(), self.dtype, self.order, strides,
                              backstrides)
-        impl.fill(self.dtype.box(0))
+        if not self.dtype.is_flexible_type():
+            impl.fill(self.dtype.box(0))
         return impl
 
     def set_imag(self, space, orig_array, w_value):
@@ -129,7 +126,8 @@ class BaseConcreteArray(base.BaseArrayImplementation):
                 idx = self.get_shape()[i] + idx
             if idx < 0 or idx >= self.get_shape()[i]:
                 raise operationerrfmt(space.w_IndexError,
-                      "index (%d) out of range (0<=index<%d", i, self.get_shape()[i],
+                      "index %d is out of bounds for axis %d with size %d",
+                      idx, i, self.get_shape()[i],
                 )
             item += idx * strides[i]
         return item
@@ -145,7 +143,8 @@ class BaseConcreteArray(base.BaseArrayImplementation):
                 idx = shape[i] + idx
             if idx < 0 or idx >= shape[i]:
                 raise operationerrfmt(space.w_IndexError,
-                      "index (%d) out of range (0<=index<%d", i, shape[i],
+                      "index %d is out of bounds for axis %d with size %d",
+                      idx, i, self.get_shape()[i],
                 )
             item += idx * strides[i]
         return item
@@ -380,8 +379,8 @@ class ConcreteArray(ConcreteArrayNotOwning):
 
 class NonWritableArray(ConcreteArray):
     def descr_setitem(self, space, orig_array, w_index, w_value):
-        raise OperationError(space.w_RuntimeError, space.wrap(
-            "array is not writable"))
+        raise OperationError(space.w_ValueError, space.wrap(
+            "assignment destination is read-only"))
 
 
 class SliceArray(BaseConcreteArray):

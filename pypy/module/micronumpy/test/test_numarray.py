@@ -365,6 +365,26 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert b[0] == 1+0j
         assert b.dtype is dtype(complex)
 
+    def test_arange(self):
+        from numpypy import arange, dtype
+        a = arange(3)
+        assert (a == [0, 1, 2]).all()
+        assert a.dtype is dtype(int)
+        a = arange(3.0)
+        assert (a == [0., 1., 2.]).all()
+        assert a.dtype is dtype(float)
+        a = arange(3, 7)
+        assert (a == [3, 4, 5, 6]).all()
+        assert a.dtype is dtype(int)
+        a = arange(3, 7, 2)
+        assert (a == [3, 5]).all()
+        a = arange(3, dtype=float)
+        assert (a == [0., 1., 2.]).all()
+        assert a.dtype is dtype(float)
+        a = arange(0, 0.8, 0.1)
+        assert len(a) == 8
+        assert arange(False, True, True).dtype is dtype(int)
+
     def test_copy(self):
         from numpypy import arange, array
         a = arange(5)
@@ -430,24 +450,17 @@ class AppTestNumArray(BaseNumpyAppTest):
 
     def test_getitem_obj_index(self):
         from numpypy import arange
-
         a = arange(10)
-
         assert a[self.CustomIndexObject(1)] == 1
 
     def test_getitem_obj_prefer_index_to_int(self):
         from numpypy import arange
-
         a = arange(10)
-
-
         assert a[self.CustomIndexIntObject(0, 1)] == 0
 
     def test_getitem_obj_int(self):
         from numpypy import arange
-
         a = arange(10)
-
         assert a[self.CustomIntObject(1)] == 1
 
     def test_setitem(self):
@@ -469,7 +482,6 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a[1] == -0.005
         assert a[2] == -0.005
 
-
     def test_setitem_tuple(self):
         from numpypy import array
         a = array(range(5))
@@ -483,27 +495,20 @@ class AppTestNumArray(BaseNumpyAppTest):
 
     def test_setitem_obj_index(self):
         from numpypy import arange
-
         a = arange(10)
-
         a[self.CustomIndexObject(1)] = 100
         assert a[1] == 100
 
     def test_setitem_obj_prefer_index_to_int(self):
         from numpypy import arange
-
         a = arange(10)
-
         a[self.CustomIndexIntObject(0, 1)] = 100
         assert a[0] == 100
 
     def test_setitem_obj_int(self):
         from numpypy import arange
-
         a = arange(10)
-
         a[self.CustomIntObject(1)] = 100
-
         assert a[1] == 100
 
     def test_access_swallow_exception(self):
@@ -1290,9 +1295,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a.max() == 5.7
         b = array([])
         raises(ValueError, "b.max()")
-
-        if 0: # XXX too pedantic
-            assert list(zeros((0, 2)).max(axis=1)) == []
+        assert list(zeros((0, 2)).max(axis=1)) == []
 
     def test_max_add(self):
         from numpypy import array
@@ -1305,9 +1308,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a.min() == -3.0
         b = array([])
         raises(ValueError, "b.min()")
-
-        if 0: # XXX too pedantic
-            assert list(zeros((0, 2)).min(axis=1)) == []
+        assert list(zeros((0, 2)).min(axis=1)) == []
 
     def test_argmax(self):
         from numpypy import array
@@ -1437,7 +1438,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a[5] == 50
         b = a.imag
         assert b[7] == 0
-        raises(RuntimeError, 'b[7] = -2')
+        raises(ValueError, 'b[7] = -2')
         raises(TypeError, 'a.imag = -2')
         a = array(['abc','def'],dtype='S3')
         b = a.real
@@ -1445,7 +1446,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a[1] == b[1]
         b[1] = 'xyz'
         assert a[1] == 'xyz'
-        assert a.imag[0] == 'abc'
+        assert a.imag[0] == ''
         raises(TypeError, 'a.imag = "qop"')
         a=array([[1+1j, 2-3j, 4+5j],[-6+7j, 8-9j, -2-1j]])
         assert a.real[0,1] == 2
@@ -1464,6 +1465,14 @@ class AppTestNumArray(BaseNumpyAppTest):
         a.imag[3] = -10
         assert a[3].imag == -10
         assert a[2].imag == -5
+
+    def test_trace(self):
+        import numpypy as np
+        assert np.trace(np.eye(3)) == 3.0
+        a = np.arange(8).reshape((2,2,2))
+        assert np.array_equal(np.trace(a), [6, 8])
+        a = np.arange(24).reshape((2,2,2,3))
+        assert np.trace(a).shape == (2, 3)
 
     def test_view(self):
         from numpypy import array, int8, int16, dtype
@@ -1626,7 +1635,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         exc = raises(TypeError, concatenate,
                             (zeros((2,), dtype=[('x', int), ('y', float)]),
                             (zeros((2,), dtype=[('x', float), ('y', float)]))))
-        assert str(exc.value).startswith('record type mismatch')
+        assert str(exc.value).startswith('invalid type promotion')
         exc = raises(TypeError, concatenate, ([1], zeros((2,),
                                             dtype=[('x', int), ('y', float)])))
         assert str(exc.value).startswith('invalid type promotion')
@@ -1859,6 +1868,15 @@ class AppTestNumArray(BaseNumpyAppTest):
         s1 = map(ord, a.tostring())
         s2 = map(ord, a.byteswap().tostring())
         assert a.dtype.itemsize == 2
+        for i in range(a.size):
+            i1 = i * a.dtype.itemsize
+            i2 = (i+1) * a.dtype.itemsize
+            assert list(reversed(s1[i1:i2])) == s2[i1:i2]
+
+        a = array([1, -1, 10000], dtype='longfloat')
+        s1 = map(ord, a.tostring())
+        s2 = map(ord, a.byteswap().tostring())
+        assert a.dtype.itemsize >= 8
         for i in range(a.size):
             i1 = i * a.dtype.itemsize
             i2 = (i+1) * a.dtype.itemsize
@@ -2148,6 +2166,7 @@ class AppTestMultiDim(BaseNumpyAppTest):
         c = b + b
         assert c.sum() == (6 + 8 + 10 + 12) * 2
         assert isinstance(c.sum(dtype='f8'), float)
+        assert isinstance(c.sum(None, 'f8'), float)
 
     def test_transpose(self):
         from numpypy import array
@@ -2463,7 +2482,7 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert type(array(True).item()) is bool
         assert type(array(3.5).item()) is float
         raises(IndexError, "array(3).item(15)")
-        raises(IndexError, "array([1, 2, 3]).item()")
+        raises(ValueError, "array([1, 2, 3]).item()")
         assert array([3]).item(0) == 3
         assert type(array([3]).item(0)) is int
         assert array([1, 2, 3]).item(-1) == 3
@@ -2638,7 +2657,7 @@ class AppTestSupport(BaseNumpyAppTest):
 
     def test_fromstring_types(self):
         from numpypy import (fromstring, int8, int16, int32, int64, uint8,
-            uint16, uint32, float16, float32, float64, array)
+            uint16, uint32, float16, float32, float64, longfloat, array)
         a = fromstring('\xFF', dtype=int8)
         assert a[0] == -1
         b = fromstring('\xFF', dtype=uint8)
@@ -2661,6 +2680,18 @@ class AppTestSupport(BaseNumpyAppTest):
         assert j[0] == 12
         k = fromstring(self.float16val, dtype=float16)
         assert k[0] == float16(5.)
+        dt =  array([5],dtype=longfloat).dtype
+        if dt.itemsize == 12:
+            from numpypy import float96
+            m = fromstring('\x00\x00\x00\x00\x00\x00\x00\xa0\x01@\x00\x00', dtype=float96)
+        elif dt.itemsize == 16:
+            from numpypy import float128
+            m = fromstring('\x00\x00\x00\x00\x00\x00\x00\xa0\x01@\x00\x00\x00\x00\x00\x00', dtype=float128)
+        elif dt.itemsize == 8:
+            skip('longfloat is float64')
+        else:
+            skip('unknown itemsize for longfloat')
+        assert m[0] == longfloat(5.)
 
     def test_fromstring_invalid(self):
         from numpypy import fromstring, uint16, uint8
@@ -2678,28 +2709,6 @@ class AppTestSupport(BaseNumpyAppTest):
         assert array([1, 2, 3], '<i2')[::2].tostring() == '\x01\x00\x03\x00'
         assert array([1, 2, 3], '>i2')[::2].tostring() == '\x00\x01\x00\x03'
         assert array(0, dtype='i2').tostring() == '\x00\x00'
-
-
-class AppTestRanges(BaseNumpyAppTest):
-    def test_arange(self):
-        from numpypy import arange, dtype
-        a = arange(3)
-        assert (a == [0, 1, 2]).all()
-        assert a.dtype is dtype(int)
-        a = arange(3.0)
-        assert (a == [0., 1., 2.]).all()
-        assert a.dtype is dtype(float)
-        a = arange(3, 7)
-        assert (a == [3, 4, 5, 6]).all()
-        assert a.dtype is dtype(int)
-        a = arange(3, 7, 2)
-        assert (a == [3, 5]).all()
-        a = arange(3, dtype=float)
-        assert (a == [0., 1., 2.]).all()
-        assert a.dtype is dtype(float)
-        a = arange(0, 0.8, 0.1)
-        assert len(a) == 8
-        assert arange(False, True, True).dtype is dtype(int)
 
 
 class AppTestRepr(BaseNumpyAppTest):
@@ -2923,6 +2932,27 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         assert (a[0, 0, 0] == 500).all()
         assert a[0, 0, 0].shape == (10,)
 
+    def test_subarray_multiple_rows(self):
+        import numpypy as np
+        descr = [
+            ('x', 'i4', (2,)),
+            ('y', 'f8', (2, 2)),
+            ('z', 'u1')]
+        buf = [
+            # x     y                  z
+            ([3,2], [[6.,4.],[6.,4.]], 8),
+            ([4,3], [[7.,5.],[7.,5.]], 9),
+            ]
+        h = np.array(buf, dtype=descr)
+        assert len(h) == 2
+        skip('broken')  # XXX
+        assert np.array_equal(h['x'], np.array([buf[0][0],
+                                                buf[1][0]], dtype='i4'))
+        assert np.array_equal(h['y'], np.array([buf[0][1],
+                                                buf[1][1]], dtype='f8'))
+        assert np.array_equal(h['z'], np.array([buf[0][2],
+                                                buf[1][2]], dtype='u1'))
+
     def test_multidim_subarray(self):
         from numpypy import dtype, array
 
@@ -2997,40 +3027,3 @@ class AppTestPyPy(BaseNumpyAppTest):
         assert x.__pypy_data__ is obj
         del x.__pypy_data__
         assert x.__pypy_data__ is None
-
-class AppTestLongDoubleDtypes(BaseNumpyAppTest):
-    def setup_class(cls):
-        from pypy.module.micronumpy import Module
-        #print dir(Module.interpleveldefs)
-        if not Module.interpleveldefs.get('longfloat', None):
-            py.test.skip('no longdouble types yet')
-        BaseNumpyAppTest.setup_class.im_func(cls)
-
-    def test_byteswap(self):
-        from numpypy import array
-
-        a = array([1, -1, 10000], dtype='longfloat')
-        s1 = map(ord, a.tostring())
-        s2 = map(ord, a.byteswap().tostring())
-        assert a.dtype.itemsize >= 8
-        for i in range(a.size):
-            i1 = i * a.dtype.itemsize
-            i2 = (i+1) * a.dtype.itemsize
-            assert list(reversed(s1[i1:i2])) == s2[i1:i2]
-
-    def test_fromstring_types(self):
-        from numpypy import (fromstring, longfloat, array)
-        dt =  array([5],dtype=longfloat).dtype
-        if dt.itemsize == 12:
-            from numpypy import float96
-            m = fromstring('\x00\x00\x00\x00\x00\x00\x00\xa0\x01@\x00\x00', dtype=float96)
-        elif dt.itemsize==16:
-            from numpypy import float128
-            m = fromstring('\x00\x00\x00\x00\x00\x00\x00\xa0\x01@\x00\x00\x00\x00\x00\x00', dtype=float128)
-        elif dt.itemsize == 8:
-            skip('longfloat is float64')
-        else:
-            skip('unknown itemsize for longfloat')
-        assert m[0] == longfloat(5.)
-
-

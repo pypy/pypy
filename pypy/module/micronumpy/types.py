@@ -12,7 +12,7 @@ from rpython.rlib import rfloat, clibffi, rcomplex
 from rpython.rlib.rawstorage import (alloc_raw_storage, raw_storage_setitem,
                                   raw_storage_getitem)
 from rpython.rlib.objectmodel import specialize
-from rpython.rlib.rarithmetic import widen, byteswap, r_ulonglong
+from rpython.rlib.rarithmetic import widen, byteswap, r_ulonglong, most_neg_value_of
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.rstruct.runpack import runpack
 from rpython.rlib.rstruct.nativefmttable import native_is_bigendian
@@ -68,7 +68,6 @@ def complex_to_real_unary_op(func):
         )
     return dispatcher
 
-
 def raw_unary_op(func):
     specialize.argtype(1)(func)
     @functools.wraps(func)
@@ -116,8 +115,6 @@ def raw_binary_op(func):
     return dispatcher
 
 class BaseType(object):
-    _attrs_ = ()
-
     SortRepr = None # placeholders for sorting classes, overloaded in sort.py
     Sort = None
 
@@ -248,14 +245,6 @@ class Primitive(object):
     def isinf(self, v):
         return False
 
-    @raw_unary_op
-    def isneginf(self, v):
-        return False
-
-    @raw_unary_op
-    def isposinf(self, v):
-        return False
-
     @raw_binary_op
     def eq(self, v1, v2):
         return v1 == v2
@@ -332,8 +321,6 @@ class NonNativePrimitive(Primitive):
         raw_storage_setitem(storage, i + offset, value)
 
 class Bool(BaseType, Primitive):
-    _attrs_ = ()
-
     T = lltype.Bool
     BoxType = interp_boxes.W_BoolBox
     format_code = "?"
@@ -401,7 +388,7 @@ class Bool(BaseType, Primitive):
 
     @simple_unary_op
     def invert(self, v):
-        return ~v
+        return not v
 
     @raw_unary_op
     def isfinite(self, v):
@@ -497,14 +484,6 @@ class Integer(Primitive):
     def isinf(self, v):
         return False
 
-    @raw_unary_op
-    def isposinf(self, v):
-        return False
-
-    @raw_unary_op
-    def isneginf(self, v):
-        return False
-
     @simple_binary_op
     def bitwise_and(self, v1, v2):
         return v1 & v2
@@ -521,18 +500,17 @@ class Integer(Primitive):
     def invert(self, v):
         return ~v
 
-    @simple_unary_op
+    @specialize.argtype(1)
     def reciprocal(self, v):
-        if v == 0:
+        raw = self.for_computation(self.unbox(v))
+        ans = 0
+        if raw == 0:
             # XXX good place to warn
-            # XXX can't do the following, func is specialized only on argtype(v)
-            # (which is the same for all int classes)
-            #if self.T in (rffi.INT, rffi.LONG):
-            #    return most_neg_value_of(self.T)
-            return 0
-        if abs(v) == 1:
-            return v
-        return 0
+            if self.T is rffi.INT or self.T is rffi.LONG or self.T is rffi.LONGLONG:
+                ans = most_neg_value_of(self.T)
+        elif abs(raw) == 1:
+            ans = raw
+        return self.box(ans)
 
     @specialize.argtype(1)
     def round(self, v, decimals=0):
@@ -559,101 +537,75 @@ class NonNativeInteger(NonNativePrimitive, Integer):
     _mixin_ = True
 
 class Int8(BaseType, Integer):
-    _attrs_ = ()
-
     T = rffi.SIGNEDCHAR
     BoxType = interp_boxes.W_Int8Box
     format_code = "b"
+
 NonNativeInt8 = Int8
 
 class UInt8(BaseType, Integer):
-    _attrs_ = ()
-
     T = rffi.UCHAR
     BoxType = interp_boxes.W_UInt8Box
     format_code = "B"
+
 NonNativeUInt8 = UInt8
 
 class Int16(BaseType, Integer):
-    _attrs_ = ()
-
     T = rffi.SHORT
     BoxType = interp_boxes.W_Int16Box
     format_code = "h"
 
 class NonNativeInt16(BaseType, NonNativeInteger):
-    _attrs_ = ()
-
     T = rffi.SHORT
     BoxType = interp_boxes.W_Int16Box
     format_code = "h"
 
 class UInt16(BaseType, Integer):
-    _attrs_ = ()
-
     T = rffi.USHORT
     BoxType = interp_boxes.W_UInt16Box
     format_code = "H"
 
 class NonNativeUInt16(BaseType, NonNativeInteger):
-    _attrs_ = ()
-
     T = rffi.USHORT
     BoxType = interp_boxes.W_UInt16Box
     format_code = "H"
 
 class Int32(BaseType, Integer):
-    _attrs_ = ()
-
     T = rffi.INT
     BoxType = interp_boxes.W_Int32Box
     format_code = "i"
 
 class NonNativeInt32(BaseType, NonNativeInteger):
-    _attrs_ = ()
-
     T = rffi.INT
     BoxType = interp_boxes.W_Int32Box
     format_code = "i"
 
 class UInt32(BaseType, Integer):
-    _attrs_ = ()
-
     T = rffi.UINT
     BoxType = interp_boxes.W_UInt32Box
     format_code = "I"
 
 class NonNativeUInt32(BaseType, NonNativeInteger):
-    _attrs_ = ()
-
     T = rffi.UINT
     BoxType = interp_boxes.W_UInt32Box
     format_code = "I"
 
 class Long(BaseType, Integer):
-    _attrs_ = ()
-
     T = rffi.LONG
     BoxType = interp_boxes.W_LongBox
     format_code = "l"
 
 class NonNativeLong(BaseType, NonNativeInteger):
-    _attrs_ = ()
-
     T = rffi.LONG
     BoxType = interp_boxes.W_LongBox
     format_code = "l"
 
 class ULong(BaseType, Integer):
-    _attrs_ = ()
-
     T = rffi.ULONG
     BoxType = interp_boxes.W_ULongBox
     format_code = "L"
 
 class NonNativeULong(BaseType, NonNativeInteger):
-    _attrs_ = ()
-
     T = rffi.ULONG
     BoxType = interp_boxes.W_ULongBox
     format_code = "L"
@@ -672,8 +624,6 @@ def _int64_coerce(self, space, w_item):
     return self.box(value)
 
 class Int64(BaseType, Integer):
-    _attrs_ = ()
-
     T = rffi.LONGLONG
     BoxType = interp_boxes.W_Int64Box
     format_code = "q"
@@ -681,8 +631,6 @@ class Int64(BaseType, Integer):
     _coerce = func_with_new_name(_int64_coerce, '_coerce')
 
 class NonNativeInt64(BaseType, NonNativeInteger):
-    _attrs_ = ()
-
     T = rffi.LONGLONG
     BoxType = interp_boxes.W_Int64Box
     format_code = "q"
@@ -703,8 +651,6 @@ def _uint64_coerce(self, space, w_item):
     return self.box(value)
 
 class UInt64(BaseType, Integer):
-    _attrs_ = ()
-
     T = rffi.ULONGLONG
     BoxType = interp_boxes.W_UInt64Box
     format_code = "Q"
@@ -712,8 +658,6 @@ class UInt64(BaseType, Integer):
     _coerce = func_with_new_name(_uint64_coerce, '_coerce')
 
 class NonNativeUInt64(BaseType, NonNativeInteger):
-    _attrs_ = ()
-
     T = rffi.ULONGLONG
     BoxType = interp_boxes.W_UInt64Box
     format_code = "Q"
@@ -948,14 +892,6 @@ class Float(Primitive):
         return rfloat.isinf(v)
 
     @raw_unary_op
-    def isneginf(self, v):
-        return rfloat.isinf(v) and v < 0
-
-    @raw_unary_op
-    def isposinf(self, v):
-        return rfloat.isinf(v) and v > 0
-
-    @raw_unary_op
     def isfinite(self, v):
         return not (rfloat.isinf(v) or rfloat.isnan(v))
 
@@ -1063,16 +999,57 @@ class NonNativeFloat(NonNativePrimitive, Float):
         swapped_value = byteswap(rffi.cast(self.T, value))
         raw_storage_setitem(storage, i + offset, swapped_value)
 
-class Float32(BaseType, Float):
-    _attrs_ = ()
+class BaseFloat16(Float):
+    _mixin_ = True
 
+    _STORAGE_T = rffi.USHORT
+    T = rffi.SHORT
+    BoxType = interp_boxes.W_Float16Box
+
+    @specialize.argtype(1)
+    def box(self, value):
+        return self.BoxType(rffi.cast(rffi.DOUBLE, value))
+
+    def runpack_str(self, s):
+        assert len(s) == 2
+        fval = unpack_float(s, native_is_bigendian)
+        return self.box(fval)
+
+    def default_fromstring(self, space):
+        return self.box(-1.0)
+
+    def byteswap(self, w_v):
+        value = self.unbox(w_v)
+        hbits = float_pack(value,2)
+        swapped = byteswap(rffi.cast(self._STORAGE_T, hbits))
+        return self.box(float_unpack(r_ulonglong(swapped), 2))
+
+class Float16(BaseType, BaseFloat16):
+    def _read(self, storage, i, offset):
+        hbits = raw_storage_getitem(self._STORAGE_T, storage, i + offset)
+        return float_unpack(r_ulonglong(hbits), 2)
+
+    def _write(self, storage, i, offset, value):
+        hbits = float_pack(value,2)
+        raw_storage_setitem(storage, i + offset,
+                rffi.cast(self._STORAGE_T, hbits))
+
+class NonNativeFloat16(BaseType, BaseFloat16):
+    def _read(self, storage, i, offset):
+        hbits = raw_storage_getitem(self._STORAGE_T, storage, i + offset)
+        return float_unpack(r_ulonglong(byteswap(hbits)), 2)
+
+    def _write(self, storage, i, offset, value):
+        hbits = float_pack(value,2)
+        raw_storage_setitem(storage, i + offset,
+                byteswap(rffi.cast(self._STORAGE_T, hbits)))
+
+class Float32(BaseType, Float):
     T = rffi.FLOAT
     BoxType = interp_boxes.W_Float32Box
     format_code = "f"
 
 class NonNativeFloat32(BaseType, NonNativeFloat):
-    _attrs_ = ()
-
     T = rffi.FLOAT
     BoxType = interp_boxes.W_Float32Box
     format_code = "f"
@@ -1086,22 +1063,17 @@ class NonNativeFloat32(BaseType, NonNativeFloat):
         return bool(v)
 
 class Float64(BaseType, Float):
-    _attrs_ = ()
-
     T = rffi.DOUBLE
     BoxType = interp_boxes.W_Float64Box
     format_code = "d"
 
 class NonNativeFloat64(BaseType, NonNativeFloat):
-    _attrs_ = ()
-
     T = rffi.DOUBLE
     BoxType = interp_boxes.W_Float64Box
     format_code = "d"
 
 class ComplexFloating(object):
     _mixin_ = True
-    _attrs_ = ()
 
     def _coerce(self, space, w_item):
         w_item = space.call_function(space.w_complex, w_item)
@@ -1148,8 +1120,12 @@ class ComplexFloating(object):
         return v
 
     def to_builtin_type(self, space, box):
-        real,imag = self.for_computation(self.unbox(box))
+        real, imag = self.for_computation(self.unbox(box))
         return space.newcomplex(real, imag)
+
+    def bool(self, v):
+        real, imag = self.for_computation(self.unbox(v))
+        return bool(real) or bool(imag)
 
     def read_bool(self, arr, i, offset):
         v = self.for_computation(self._read(arr.storage, i, offset))
@@ -1190,21 +1166,21 @@ class ComplexFloating(object):
         real, imag = box.real, box.imag
         return real, imag
 
-    def store(self, arr, i, offset, box):
-        real, imag = self.unbox(box)
-        raw_storage_setitem(arr.storage, i+offset, real)
-        raw_storage_setitem(arr.storage,
-                i+offset+rffi.sizeof(self.T), imag)
-
     def _read(self, storage, i, offset):
         real = raw_storage_getitem(self.T, storage, i + offset)
-        imag = raw_storage_getitem(self.T, storage,
-                              i + offset + rffi.sizeof(self.T))
+        imag = raw_storage_getitem(self.T, storage, i + offset + rffi.sizeof(self.T))
         return real, imag
 
     def read(self, arr, i, offset, dtype=None):
         real, imag = self._read(arr.storage, i, offset)
         return self.box_complex(real, imag)
+
+    def _write(self, storage, i, offset, value):
+        raw_storage_setitem(storage, i + offset, value[0])
+        raw_storage_setitem(storage, i + offset + rffi.sizeof(self.T), value[1])
+
+    def store(self, arr, i, offset, box):
+        self._write(arr.storage, i, offset, self.unbox(box))
 
     @complex_binary_op
     def add(self, v1, v2):
@@ -1642,10 +1618,7 @@ class ComplexFloating(object):
     def zeros_like(self, v):
         return 0, 0
 
-
 class Complex64(ComplexFloating, BaseType):
-    _attrs_ = ()
-
     T = rffi.FLOAT
     BoxType = interp_boxes.W_Complex64Box
     ComponentBoxType = interp_boxes.W_Float32Box
@@ -1653,24 +1626,26 @@ class Complex64(ComplexFloating, BaseType):
 NonNativeComplex64 = Complex64
 
 class Complex128(ComplexFloating, BaseType):
-    _attrs_ = ()
-
     T = rffi.DOUBLE
     BoxType = interp_boxes.W_Complex128Box
     ComponentBoxType = interp_boxes.W_Float64Box
 
 NonNativeComplex128 = Complex128
 
-if interp_boxes.ENABLED_LONG_DOUBLE and interp_boxes.long_double_size == 12:
-    class Float96(BaseType, Float):
-        _attrs_ = ()
+if interp_boxes.long_double_size == 8:
+    FloatLong = Float64
+    NonNativeFloatLong = NonNativeFloat64
 
+    ComplexLong = Complex128
+    NonNativeComplexLong = NonNativeComplex128
+
+elif interp_boxes.long_double_size in (12, 16):
+    class FloatLong(BaseType, Float):
         T = rffi.LONGDOUBLE
-        BoxType = interp_boxes.W_Float96Box
-        format_code = "q"
+        BoxType = interp_boxes.W_FloatLongBox
 
         def runpack_str(self, s):
-            assert len(s) == 12
+            assert len(s) == interp_boxes.long_double_size
             fval = unpack_float80(s, native_is_bigendian)
             return self.box(fval)
 
@@ -1680,46 +1655,14 @@ if interp_boxes.ENABLED_LONG_DOUBLE and interp_boxes.long_double_size == 12:
             pack_float80(result, value, 10, not native_is_bigendian)
             return self.box(unpack_float80(result.build(), native_is_bigendian))
 
-    NonNativeFloat96 = Float96
+    NonNativeFloatLong = FloatLong
 
-    class Complex192(ComplexFloating, BaseType):
-        _attrs_ = ()
-
+    class ComplexLong(ComplexFloating, BaseType):
         T = rffi.LONGDOUBLE
-        BoxType = interp_boxes.W_Complex192Box
-        ComponentBoxType = interp_boxes.W_Float96Box
+        BoxType = interp_boxes.W_ComplexLongBox
+        ComponentBoxType = interp_boxes.W_FloatLongBox
 
-    NonNativeComplex192 = Complex192
-
-elif interp_boxes.ENABLED_LONG_DOUBLE and interp_boxes.long_double_size == 16:
-    class Float128(BaseType, Float):
-        _attrs_ = ()
-
-        T = rffi.LONGDOUBLE
-        BoxType = interp_boxes.W_Float128Box
-        format_code = "q"
-
-        def runpack_str(self, s):
-            assert len(s) == 16
-            fval = unpack_float80(s, native_is_bigendian)
-            return self.box(fval)
-
-        def byteswap(self, w_v):
-            value = self.unbox(w_v)
-            result = StringBuilder(10)
-            pack_float80(result, value, 10, not native_is_bigendian)
-            return self.box(unpack_float80(result.build(), native_is_bigendian))
-
-    NonNativeFloat128 = Float128
-
-    class Complex256(ComplexFloating, BaseType):
-        _attrs_ = ()
-
-        T = rffi.LONGDOUBLE
-        BoxType = interp_boxes.W_Complex256Box
-        ComponentBoxType = interp_boxes.W_Float128Box
-
-    NonNativeComplex256 = Complex256
+    NonNativeComplexLong = ComplexLong
 
 class BaseStringType(object):
     _mixin_ = True
@@ -1928,7 +1871,6 @@ class VoidType(BaseType, BaseStringType):
 NonNativeVoidType = VoidType
 
 class RecordType(BaseType):
-
     T = lltype.Char
 
     def __init__(self, offsets_and_fields, size):
@@ -2012,50 +1954,3 @@ def _setup():
                 all_complex_types.append((tp, 'complex'))
 _setup()
 del _setup
-
-class BaseFloat16(Float):
-    _mixin_ = True
-
-    _attrs_ = ()
-    _STORAGE_T = rffi.USHORT
-    T = rffi.SHORT
-
-    BoxType = interp_boxes.W_Float16Box
-
-    @specialize.argtype(1)
-    def box(self, value):
-        return self.BoxType(rffi.cast(rffi.DOUBLE, value))
-
-    def runpack_str(self, s):
-        assert len(s) == 2
-        fval = unpack_float(s, native_is_bigendian)
-        return self.box(fval)
-
-    def default_fromstring(self, space):
-        return self.box(-1.0)
-
-    def byteswap(self, w_v):
-        value = self.unbox(w_v)
-        hbits = float_pack(value,2)
-        swapped = byteswap(rffi.cast(self._STORAGE_T, hbits))
-        return self.box(float_unpack(r_ulonglong(swapped), 2))
-
-class Float16(BaseType, BaseFloat16):
-    def _read(self, storage, i, offset):
-        hbits = raw_storage_getitem(self._STORAGE_T, storage, i + offset)
-        return float_unpack(r_ulonglong(hbits), 2)
-
-    def _write(self, storage, i, offset, value):
-        hbits = float_pack(value,2)
-        raw_storage_setitem(storage, i + offset,
-                rffi.cast(self._STORAGE_T, hbits))
-
-class NonNativeFloat16(BaseType, BaseFloat16):
-    def _read(self, storage, i, offset):
-        hbits = raw_storage_getitem(self._STORAGE_T, storage, i + offset)
-        return float_unpack(r_ulonglong(byteswap(hbits)), 2)
-
-    def _write(self, storage, i, offset, value):
-        hbits = float_pack(value,2)
-        raw_storage_setitem(storage, i + offset,
-                byteswap(rffi.cast(self._STORAGE_T, hbits)))

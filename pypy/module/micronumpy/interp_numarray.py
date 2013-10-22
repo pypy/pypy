@@ -1,4 +1,3 @@
-
 from pypy.interpreter.error import operationerrfmt, OperationError
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, make_weakref_descr
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
@@ -14,7 +13,7 @@ from pypy.module.micronumpy.interp_support import unwrap_axis_arg
 from pypy.module.micronumpy.appbridge import get_appbridge_cache
 from pypy.module.micronumpy import loop
 from pypy.module.micronumpy.dot import match_dot_shapes
-from pypy.module.micronumpy.interp_arrayops import repeat, choose
+from pypy.module.micronumpy.interp_arrayops import repeat, choose, put
 from pypy.module.micronumpy.arrayimpl import scalar
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rlib import jit
@@ -421,8 +420,8 @@ class __extend__(W_NDimArray):
                                      [0] * len(self.get_shape()))
                 assert isinstance(w_obj, interp_boxes.W_GenericBox)
                 return w_obj.item(space)
-            raise OperationError(space.w_IndexError,
-                                 space.wrap("index out of bounds"))
+            raise OperationError(space.w_ValueError,
+                                 space.wrap("can only convert an array of size 1 to a Python scalar"))
         if space.isinstance_w(w_arg, space.w_int):
             if self.is_scalar():
                 raise OperationError(space.w_IndexError,
@@ -509,9 +508,8 @@ class __extend__(W_NDimArray):
             loop.byteswap(self.implementation, w_res.implementation)
             return w_res
 
-    @unwrap_spec(mode=str)
-    def descr_choose(self, space, w_choices, w_out=None, mode='raise'):
-        return choose(space, self, w_choices, w_out, mode)
+    def descr_choose(self, space, w_choices, w_out=None, w_mode=None):
+        return choose(space, self, w_choices, w_out, w_mode)
 
     def descr_clip(self, space, w_min, w_max, w_out=None):
         if space.is_none(w_out):
@@ -550,6 +548,12 @@ class __extend__(W_NDimArray):
         return interp_arrayops.diagonal(space, self.implementation, offset,
                                         axis1, axis2)
 
+    @unwrap_spec(offset=int, axis1=int, axis2=int)
+    def descr_trace(self, space, offset=0, axis1=0, axis2=1,
+                    w_dtype=None, w_out=None):
+        diag = self.descr_diagonal(space, offset, axis1, axis2)
+        return diag.descr_sum(space, w_axis=space.wrap(-1), w_dtype=w_dtype, w_out=w_out)
+
     def descr_dump(self, space, w_file):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "dump not implemented yet"))
@@ -584,10 +588,8 @@ class __extend__(W_NDimArray):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "ptp (peak to peak) not implemented yet"))
 
-    @unwrap_spec(mode=str)
-    def descr_put(self, space, w_indices, w_values, mode='raise'):
-        from pypy.module.micronumpy.interp_arrayops import put
-        put(space, self, w_indices, w_values, mode)
+    def descr_put(self, space, w_indices, w_values, w_mode=None):
+        put(space, self, w_indices, w_values, w_mode)
 
     def descr_resize(self, space, w_new_shape, w_refcheck=True):
         raise OperationError(space.w_NotImplementedError, space.wrap(
@@ -652,11 +654,6 @@ class __extend__(W_NDimArray):
     def descr_tofile(self, space, w_fid, w_sep="", w_format="%s"):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "tofile not implemented yet"))
-
-    def descr_trace(self, space, w_offset=0, w_axis1=0, w_axis2=1,
-                    w_dtype=None, w_out=None):
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            "trace not implemented yet"))
 
     def descr_view(self, space, w_dtype=None, w_type=None) :
         if not w_type and w_dtype:
@@ -845,7 +842,7 @@ class __extend__(W_NDimArray):
 
     def _reduce_ufunc_impl(ufunc_name, promote_to_largest=False,
                            cumultative=False):
-        def impl(self, space, w_axis=None, w_out=None, w_dtype=None):
+        def impl(self, space, w_axis=None, w_dtype=None, w_out=None):
             if space.is_none(w_out):
                 out = None
             elif not isinstance(w_out, W_NDimArray):
@@ -1153,6 +1150,7 @@ W_NDimArray.typedef = TypeDef(
     round    = interp2app(W_NDimArray.descr_round),
     data     = GetSetProperty(W_NDimArray.descr_get_data),
     diagonal = interp2app(W_NDimArray.descr_diagonal),
+    trace = interp2app(W_NDimArray.descr_trace),
     view = interp2app(W_NDimArray.descr_view),
 
     ctypes = GetSetProperty(W_NDimArray.descr_get_ctypes), # XXX unimplemented

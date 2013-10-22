@@ -356,7 +356,8 @@ else:
         getattr(WindowsError.__init__, 'im_func', WindowsError.__init__)] = (
         rtype_WindowsError__init__)
 
-BUILTIN_TYPER[object.__init__] = rtype_object__init__
+BUILTIN_TYPER[getattr(object.__init__, 'im_func', object.__init__)] = (
+    rtype_object__init__)
 # annotation of low-level types
 
 def rtype_malloc(hop, i_flavor=None, i_zero=None, i_track_allocation=None,

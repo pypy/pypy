@@ -9,20 +9,6 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
 
 
-##import sys
-##def debug(msg, n):
-##    return
-##    tb = []
-##    try:
-##        for i in range(1, 8):
-##            tb.append(sys._getframe(i).f_code.co_name)
-##    except:
-##        pass
-##    tb = ' '.join(tb)
-##    msg = '| %6d | %d %s | %s\n' % (rthread.get_ident(), n, msg, tb)
-##    sys.stderr.write(msg)
-
-
 class Lock(W_Root):
     "A box around an interp-level lock object."
 
