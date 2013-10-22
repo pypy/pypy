@@ -24,6 +24,13 @@ class AppTestFromNumeric(BaseNumpyAppTest):
         b[1] = 0
         assert argmin(b) == 0
 
+    def test_ravel(self):
+        import numpypy as np
+        a = np.ravel(np.float64(1))
+        assert np.array_equal(a, [1.])
+        a = np.ravel(np.array([[1, 2, 3], [4, 5, 6]]))
+        assert np.array_equal(a, [1, 2, 3, 4, 5, 6])
+
     def test_shape(self):
         # tests taken from numpy/core/fromnumeric.py docstring
         from numpypy import identity, shape

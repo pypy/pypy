@@ -395,6 +395,9 @@ def _set_up_aliases():
                   ('int_', 'long'),
                   ('uint', 'ulong'),
                   ('cfloat', 'cdouble'),
+                  ('longfloat', 'longdouble'),
+                  ('clongfloat', 'clongdouble'),
+                  ('longcomplex', 'clongdouble'),
                   ('bool_', 'bool'),
                   ('unicode_', 'unicode'),
                   ]

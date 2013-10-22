@@ -109,4 +109,5 @@ Random cleanups in flowspace.
 .. branch: file-support-in-rpython
 make open() and friends rpython
 
-
+.. branch: incremental-gc
+Added the new incminimark GC which performs GC in incremental steps

@@ -1,33 +1,26 @@
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
-class AppTestSupport(BaseNumpyAppTest):
-    def setup_class(cls):
-        import struct
-        BaseNumpyAppTest.setup_class.im_func(cls)
-        cls.w_data = cls.space.wrap(struct.pack('dddd', 1, 2, 3, 4))
-        cls.w_fdata = cls.space.wrap(struct.pack('f', 2.3))
-        cls.w_float16val = cls.space.wrap('\x00E') # 5.0 in float16
-        cls.w_float32val = cls.space.wrap(struct.pack('f', 5.2))
-        cls.w_float64val = cls.space.wrap(struct.pack('d', 300.4))
-        cls.w_ulongval = cls.space.wrap(struct.pack('L', 12))
-
+class AppTestSorting(BaseNumpyAppTest):
     def test_argsort_dtypes(self):
         from numpypy import array, arange
         assert array(2.0).argsort() == 0
         nnp = self.non_native_prefix
         for dtype in ['int', 'float', 'int16', 'float32', 'uint64',
-                        nnp + 'i2', complex]:
+                      nnp + 'i2', complex]:
             a = array([6, 4, -1, 3, 8, 3, 256+20, 100, 101], dtype=dtype)
+            exp = list(a)
+            exp = sorted(range(len(exp)), key=exp.__getitem__)
             c = a.copy()
             res = a.argsort()
-            assert (res == [2, 3, 5, 1, 0, 4, 7, 8, 6]).all(), \
+            assert (res == exp).all(), \
                 'a,res,dtype %r,%r,%r' % (a,res,dtype)
             assert (a == c).all() # not modified
-            a = arange(100)
+
+            a = arange(100, dtype=dtype)
             assert (a.argsort() == a).all()
         raises(NotImplementedError, 'arange(10,dtype="float16").argsort()')
 
-    def test_argsort_nd(self):
+    def test_argsort_ndim(self):
         from numpypy import array
         a = array([[4, 2], [1, 3]])
         assert (a.argsort() == [[1, 0], [0, 1]]).all()
@@ -63,19 +56,20 @@ class AppTestSupport(BaseNumpyAppTest):
     def test_sort_dtypes(self):
         from numpypy import array, arange
         for dtype in ['int', 'float', 'int16', 'float32', 'uint64',
-                        'i2', complex]:
+                      'i2', complex]:
             a = array([6, 4, -1, 3, 8, 3, 256+20, 100, 101], dtype=dtype)
-            b = array([-1, 3, 3, 4, 6, 8, 100, 101, 256+20], dtype=dtype)
+            b = sorted(list(a))
             c = a.copy()
             a.sort()
             assert (a == b).all(), \
                 'a,orig,dtype %r,%r,%r' % (a,c,dtype)
-        a = arange(100)
-        c = a.copy()
-        a.sort()
-        assert (a == c).all()
 
-    def test_sort_dtypesi_nonnative(self):
+            a = arange(100, dtype=dtype)
+            c = a.copy()
+            a.sort()
+            assert (a == c).all()
+
+    def test_sort_nonnative(self):
         from numpypy import array
         nnp = self.non_native_prefix
         for dtype in [ nnp + 'i2']:
@@ -104,6 +98,9 @@ class AppTestSupport(BaseNumpyAppTest):
         assert [isnan(bb) for bb in b] == [isnan(aa) for aa in a[::-1]]
         assert (b[:2] == a[::-1][:2]).all()
 
+        b = a.argsort()
+        assert (b == [2, 1, 0]).all()
+
         # check complex
         a = zeros(9, dtype=complex128)
         a.real += [nan, nan, nan, 1, 0, 1, 1, 0, 0]
@@ -112,6 +109,9 @@ class AppTestSupport(BaseNumpyAppTest):
         b.sort()
         assert [isnan(bb) for bb in b] == [isnan(aa) for aa in a[::-1]]
         assert (b[:4] == a[::-1][:4]).all()
+
+        b = a.argsort()
+        assert (b == [8, 7, 6, 5, 4, 3, 2, 1, 0]).all()
 
         # all c scalar sorts use the same code with different types
         # so it suffices to run a quick check with one type. The number

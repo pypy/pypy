@@ -188,6 +188,23 @@ class AppTestRepr(BaseNumpyAppTest):
 
 
 class AppTestNumeric(BaseNumpyAppTest):
+    def test_argwhere(self):
+        import numpypy as np
+        x = np.arange(6).reshape(2,3)
+        a = np.argwhere(x>1)
+        assert np.array_equal(a,
+            [[0, 2],
+            [1, 0],
+            [1, 1],
+            [1, 2]]
+        )
+
+    def test_flatnonzero(self):
+        import numpypy as np
+        x = np.arange(-2, 3)
+        a = np.flatnonzero(x)
+        assert np.array_equal(a, [0, 1, 3, 4])
+
     def test_outer(self):
         from numpypy import array, outer
         a = [1, 2, 3]
