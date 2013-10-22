@@ -1,4 +1,4 @@
-""" MiniMark GC.
+"""Incremental version of the MiniMark GC.
 
 Environment variables can be used to fine-tune the following parameters:
 
@@ -9,6 +9,12 @@ Environment variables can be used to fine-tune the following parameters:
  PYPY_GC_NURSERY_CLEANUP The interval at which nursery is cleaned up. Must
                          be smaller than the nursery size and bigger than the
                          biggest object we can allotate in the nursery.
+
+ PYPY_GC_INCREMENT_STEP  The size of memory marked during the marking step.
+                         Default is size of nursery * 2. If you mark it too high
+                         your GC is not incremental at all. The minimum is set
+                         to size that survives minor collection * 1.5 so we
+                         reclaim anything all the time.
 
  PYPY_GC_MAJOR_COLLECT   Major collection memory factor.  Default is '1.82',
                          which means trigger a major collection when the
@@ -85,7 +91,7 @@ first_gcflag = 1 << (LONG_BIT//2)
 # on young objects (unless they are large arrays, see below), and we
 # simply assume that any young object can point to any other young object.
 # For old and prebuilt objects, the flag is usually set, and is cleared
-# when we write a young pointer to it.  For large arrays with
+# when we write any pointer to it.  For large arrays with
 # GCFLAG_HAS_CARDS, we rely on card marking to track where the
 # young pointers are; the flag GCFLAG_TRACK_YOUNG_PTRS is set in this
 # case too, to speed up the write barrier.
@@ -98,8 +104,7 @@ GCFLAG_TRACK_YOUNG_PTRS = first_gcflag << 0
 # 'prebuilt_root_objects'.
 GCFLAG_NO_HEAP_PTRS = first_gcflag << 1
 
-# The following flag is set on surviving objects during a major collection,
-# and on surviving raw-malloced young objects during a minor collection.
+# The following flag is set on surviving objects during a major collection.
 GCFLAG_VISITED      = first_gcflag << 2
 
 # The following flag is set on nursery objects of which we asked the id
@@ -124,7 +129,31 @@ GCFLAG_CARDS_SET    = first_gcflag << 7     # <- at least one card bit is set
 # note that GCFLAG_CARDS_SET is the most significant bit of a byte:
 # this is required for the JIT (x86)
 
-_GCFLAG_FIRST_UNUSED = first_gcflag << 8    # the first unused bit
+# The following flag is set on surviving raw-malloced young objects during
+# a minor collection.
+GCFLAG_VISITED_RMY   = first_gcflag << 8
+
+_GCFLAG_FIRST_UNUSED = first_gcflag << 9    # the first unused bit
+
+
+# States for the incremental GC
+
+# The scanning phase, next step call will scan the current roots
+# This state must complete in a single step
+STATE_SCANNING = 0
+
+# The marking phase. We walk the list 'objects_to_trace' of all gray objects
+# and mark all of the things they point to gray. This step lasts until there
+# are no more gray objects.
+STATE_MARKING = 1
+
+# here we kill all the unvisited objects
+STATE_SWEEPING = 2
+
+# here we call all the finalizers
+STATE_FINALIZING = 3
+
+GC_STATES = ['SCANNING', 'MARKING', 'SWEEPING', 'FINALIZING']
 
 
 FORWARDSTUB = lltype.GcStruct('forwarding_stub',
@@ -134,7 +163,7 @@ NURSARRAY = lltype.Array(llmemory.Address)
 
 # ____________________________________________________________
 
-class MiniMarkGC(MovingGCBase):
+class IncrementalMiniMarkGC(MovingGCBase):
     _alloc_flavor_ = "raw"
     inline_simple_malloc = True
     inline_simple_malloc_varsize = True
@@ -307,7 +336,10 @@ class MiniMarkGC(MovingGCBase):
         # Two lists of all raw_malloced objects (the objects too large)
         self.young_rawmalloced_objects = self.null_address_dict()
         self.old_rawmalloced_objects = self.AddressStack()
+        self.raw_malloc_might_sweep = self.AddressStack()
         self.rawmalloced_total_size = r_uint(0)
+
+        self.gc_state = STATE_SCANNING
         #
         # A list of all objects with finalizers (these are never young).
         self.objects_with_finalizers = self.AddressDeque()
@@ -332,6 +364,7 @@ class MiniMarkGC(MovingGCBase):
         # allocate the nursery of the final size.
         if not self.read_from_env:
             self.allocate_nursery()
+            self.gc_increment_step = self.nursery_size * 4
         else:
             #
             defaultsize = self.nursery_size
@@ -385,6 +418,12 @@ class MiniMarkGC(MovingGCBase):
                 self.max_delta = float(max_delta)
             else:
                 self.max_delta = 0.125 * env.get_total_memory()
+
+            gc_increment_step = env.read_uint_from_env('PYPY_GC_INCREMENT_STEP')
+            if gc_increment_step > 0:
+                self.gc_increment_step = gc_increment_step
+            else:
+                self.gc_increment_step = newsize * 4
             #
             self.minor_collection()    # to empty the nursery
             llarena.arena_free(self.nursery)
@@ -614,11 +653,15 @@ class MiniMarkGC(MovingGCBase):
         return llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
 
 
-    def collect(self, gen=1):
-        """Do a minor (gen=0) or major (gen>0) collection."""
-        self.minor_collection()
-        if gen > 0:
-            self.major_collection()
+    def collect(self, gen=2):
+        """Do a minor (gen=0), start a major (gen=1), or do a full
+        major (gen>=2) collection."""
+        if gen <= 1:
+            self.minor_collection()
+            if gen == 1 or self.gc_state != STATE_SCANNING:
+                self.major_collection_step()
+        else:
+            self.minor_and_major_collection()
 
     def move_nursery_top(self, totalsize):
         size = self.nursery_cleanup
@@ -644,8 +687,14 @@ class MiniMarkGC(MovingGCBase):
             return prev_result
         self.minor_collection()
         #
-        if self.get_total_memory_used() > self.next_major_collection_threshold:
-            self.major_collection()
+        # If the gc_state is not STATE_SCANNING, we're in the middle of
+        # an incremental major collection.  In this case, always progress
+        # one step.  If the gc_state is STATE_SCANNING, wait until there
+        # is too much garbage before starting the next major collection.
+        if (self.gc_state != STATE_SCANNING or
+                    self.get_total_memory_used() >
+                    self.next_major_collection_threshold):
+            self.major_collection_step()
             #
             # The nursery might not be empty now, because of
             # execute_finalizers().  If it is almost full again,
@@ -704,11 +753,11 @@ class MiniMarkGC(MovingGCBase):
             raise MemoryError
         #
         # If somebody calls this function a lot, we must eventually
-        # force a full collection.
+        # force a full collection.  XXX make this more incremental!
         if (float(self.get_total_memory_used()) + raw_malloc_usage(totalsize) >
                 self.next_major_collection_threshold):
-            self.minor_collection()
-            self.major_collection(raw_malloc_usage(totalsize))
+            self.gc_step_until(STATE_SWEEPING)
+            self.gc_step_until(STATE_FINALIZING, raw_malloc_usage(totalsize))
         #
         # Check if the object would fit in the ArenaCollection.
         if raw_malloc_usage(totalsize) <= self.small_request_threshold:
@@ -985,21 +1034,77 @@ class MiniMarkGC(MovingGCBase):
                       "young raw-malloced objects in a major collection")
             ll_assert(not self.young_objects_with_weakrefs.non_empty(),
                       "young objects with weakrefs in a major collection")
-            MovingGCBase.debug_check_consistency(self)
+
+            if self.raw_malloc_might_sweep.non_empty():
+                ll_assert(self.gc_state == STATE_SWEEPING,
+                      "raw_malloc_might_sweep must be empty outside SWEEPING")
+
+            if self.gc_state == STATE_MARKING:
+                self._debug_objects_to_trace_dict1 = \
+                                            self.objects_to_trace.stack2dict()
+                self._debug_objects_to_trace_dict2 = \
+                                       self.more_objects_to_trace.stack2dict()
+                MovingGCBase.debug_check_consistency(self)
+                self._debug_objects_to_trace_dict2.delete()
+                self._debug_objects_to_trace_dict1.delete()
+            else:
+                MovingGCBase.debug_check_consistency(self)
 
     def debug_check_object(self, obj):
-        # after a minor or major collection, no object should be in the nursery
+        # We are after a minor collection, and possibly after a major
+        # collection step.  No object should be in the nursery
         ll_assert(not self.is_in_nursery(obj),
                   "object in nursery after collection")
-        # similarily, all objects should have this flag, except if they
+        ll_assert(self.header(obj).tid & GCFLAG_VISITED_RMY == 0,
+                  "GCFLAG_VISITED_RMY after collection")
+
+        if self.gc_state == STATE_SCANNING:
+            self._debug_check_object_scanning(obj)
+        elif self.gc_state == STATE_MARKING:
+            self._debug_check_object_marking(obj)
+        elif self.gc_state == STATE_SWEEPING:
+            self._debug_check_object_sweeping(obj)
+        elif self.gc_state == STATE_FINALIZING:
+            self._debug_check_object_finalizing(obj)
+        else:
+            ll_assert(False, "unknown gc_state value")
+
+    def _debug_check_object_marking(self, obj):
+        if self.header(obj).tid & GCFLAG_VISITED != 0:
+            # A black object.  Should NEVER point to a white object.
+            self.trace(obj, self._debug_check_not_white, None)
+            # During marking, all visited (black) objects should always have
+            # the GCFLAG_TRACK_YOUNG_PTRS flag set, for the write barrier to
+            # trigger --- at least if they contain any gc ptr.  We are just
+            # after a minor or major collection here, so we can't see the
+            # object state VISITED & ~WRITE_BARRIER.
+            typeid = self.get_type_id(obj)
+            if self.has_gcptr(typeid):
+                ll_assert(self.header(obj).tid & GCFLAG_TRACK_YOUNG_PTRS != 0,
+                          "black object without GCFLAG_TRACK_YOUNG_PTRS")
+
+    def _debug_check_not_white(self, root, ignored):
+        obj = root.address[0]
+        if self.header(obj).tid & GCFLAG_VISITED != 0:
+            pass    # black -> black
+        elif (self._debug_objects_to_trace_dict1.contains(obj) or
+              self._debug_objects_to_trace_dict2.contains(obj)):
+            pass    # black -> gray
+        elif self.header(obj).tid & GCFLAG_NO_HEAP_PTRS != 0:
+            pass    # black -> white-but-prebuilt-so-dont-care
+        else:
+            ll_assert(False, "black -> white pointer found")
+
+    def _debug_check_object_sweeping(self, obj):
+        # We see only reachable objects here.  They all start as VISITED
+        # but this flag is progressively removed in the sweeping phase.
+
+        # All objects should have this flag, except if they
         # don't have any GC pointer
         typeid = self.get_type_id(obj)
         if self.has_gcptr(typeid):
             ll_assert(self.header(obj).tid & GCFLAG_TRACK_YOUNG_PTRS != 0,
                       "missing GCFLAG_TRACK_YOUNG_PTRS")
-        # the GCFLAG_VISITED should not be set between collections
-        ll_assert(self.header(obj).tid & GCFLAG_VISITED == 0,
-                  "unexpected GCFLAG_VISITED")
         # the GCFLAG_FINALIZATION_ORDERING should not be set between coll.
         ll_assert(self.header(obj).tid & GCFLAG_FINALIZATION_ORDERING == 0,
                   "unexpected GCFLAG_FINALIZATION_ORDERING")
@@ -1028,6 +1133,22 @@ class MiniMarkGC(MovingGCBase):
                 ll_assert(p.char[0] == '\x00',
                           "the card marker bits are not cleared")
                 i -= 1
+
+    def _debug_check_object_finalizing(self, obj):
+        # Same invariants as STATE_SCANNING.
+        self._debug_check_object_scanning(obj)
+
+    def _debug_check_object_scanning(self, obj):
+        # This check is called before scanning starts.
+        # Scanning is done in a single step.
+        # the GCFLAG_VISITED should not be set between collections
+        ll_assert(self.header(obj).tid & GCFLAG_VISITED == 0,
+                  "unexpected GCFLAG_VISITED")
+
+        # All other invariants from the sweeping phase should still be
+        # satisfied.
+        self._debug_check_object_sweeping(obj)
+
 
     # ----------
     # Write barrier
@@ -1065,7 +1186,7 @@ class MiniMarkGC(MovingGCBase):
 
     def write_barrier_from_array(self, addr_array, index):
         if self.header(addr_array).tid & GCFLAG_TRACK_YOUNG_PTRS:
-            if self.card_page_indices > 0:     # <- constant-folded
+            if self.card_page_indices > 0:
                 self.remember_young_pointer_from_array2(addr_array, index)
             else:
                 self.remember_young_pointer(addr_array)
@@ -1096,7 +1217,8 @@ class MiniMarkGC(MovingGCBase):
             # we're going to call this function a lot of times for the
             # same object; moreover we'd need to pass the 'newvalue' as
             # an argument here.  The JIT has always called a
-            # 'newvalue'-less version, too.
+            # 'newvalue'-less version, too.  Moreover, the incremental
+            # GC nowadays relies on this fact.
             self.old_objects_pointing_to_young.append(addr_struct)
             objhdr = self.header(addr_struct)
             objhdr.tid &= ~GCFLAG_TRACK_YOUNG_PTRS
@@ -1270,11 +1392,12 @@ class MiniMarkGC(MovingGCBase):
         #
         # First, find the roots that point to young objects.  All nursery
         # objects found are copied out of the nursery, and the occasional
-        # young raw-malloced object is flagged with GCFLAG_VISITED.
+        # young raw-malloced object is flagged with GCFLAG_VISITED_RMY.
         # Note that during this step, we ignore references to further
         # young objects; only objects directly referenced by roots
         # are copied out or flagged.  They are also added to the list
         # 'old_objects_pointing_to_young'.
+        self.nursery_surviving_size = 0
         self.collect_roots_in_nursery()
         #
         while True:
@@ -1286,7 +1409,8 @@ class MiniMarkGC(MovingGCBase):
             # Now trace objects from 'old_objects_pointing_to_young'.
             # All nursery objects they reference are copied out of the
             # nursery, and again added to 'old_objects_pointing_to_young'.
-            # All young raw-malloced object found are flagged GCFLAG_VISITED.
+            # All young raw-malloced object found are flagged
+            # GCFLAG_VISITED_RMY.
             # We proceed until 'old_objects_pointing_to_young' is empty.
             self.collect_oldrefs_to_nursery()
             #
@@ -1336,8 +1460,8 @@ class MiniMarkGC(MovingGCBase):
         # GcStruct is in the list self.old_objects_pointing_to_young.
         debug_start("gc-minor-walkroots")
         self.root_walker.walk_roots(
-            MiniMarkGC._trace_drag_out1,  # stack roots
-            MiniMarkGC._trace_drag_out1,  # static in prebuilt non-gc
+            IncrementalMiniMarkGC._trace_drag_out1,  # stack roots
+            IncrementalMiniMarkGC._trace_drag_out1,  # static in prebuilt non-gc
             None)                         # static in prebuilt gc
         debug_stop("gc-minor-walkroots")
 
@@ -1396,9 +1520,23 @@ class MiniMarkGC(MovingGCBase):
                         interval_start = interval_stop
                         cardbyte >>= 1
                     interval_start = next_byte_start
+                #
+                # If we're incrementally marking right now, sorry, we also
+                # need to add the object to 'objects_to_trace' and have it
+                # fully traced very soon.
+                if self.gc_state == STATE_MARKING:
+                    self.header(obj).tid &= ~GCFLAG_VISITED
+                    self.more_objects_to_trace.append(obj)
 
 
     def collect_oldrefs_to_nursery(self):
+        if self.gc_state == STATE_MARKING:
+            self._collect_oldrefs_to_nursery(True)
+        else:
+            self._collect_oldrefs_to_nursery(False)
+
+    @specialize.arg(1)
+    def _collect_oldrefs_to_nursery(self, state_is_marking):
         # Follow the old_objects_pointing_to_young list and move the
         # young objects they point to out of the nursery.
         oldlist = self.old_objects_pointing_to_young
@@ -1414,6 +1552,15 @@ class MiniMarkGC(MovingGCBase):
             # Add the flag GCFLAG_TRACK_YOUNG_PTRS.  All live objects should
             # have this flag set after a nursery collection.
             self.header(obj).tid |= GCFLAG_TRACK_YOUNG_PTRS
+            #
+            # If the incremental major collection is currently at
+            # STATE_MARKING, then we must add to 'objects_to_trace' all
+            # objects that go through 'old_objects_pointing_to_young'.
+            # This basically turns black objects gray again, but also
+            # makes sure that we see otherwise-white objects.
+            if state_is_marking:
+                self.header(obj).tid &= ~GCFLAG_VISITED
+                self.more_objects_to_trace.append(obj)
             #
             # Trace the 'obj' to replace pointers to nursery with pointers
             # outside the nursery, possibly forcing nursery objects out
@@ -1437,6 +1584,14 @@ class MiniMarkGC(MovingGCBase):
 
 
     def _trace_drag_out1(self, root):
+        # In the MARKING state, we must also record this old object,
+        # if it is not VISITED yet.
+        if self.gc_state == STATE_MARKING:
+            obj = root.address[0]
+            if not self.is_in_nursery(obj):
+                if not self.header(obj).tid & GCFLAG_VISITED:
+                    self.more_objects_to_trace.append(obj)
+        #
         self._trace_drag_out(root, None)
 
     def _trace_drag_out(self, root, ignored):
@@ -1444,7 +1599,7 @@ class MiniMarkGC(MovingGCBase):
         #print '_trace_drag_out(%x: %r)' % (hash(obj.ptr._obj), obj)
         #
         # If 'obj' is not in the nursery, nothing to change -- expect
-        # that we must set GCFLAG_VISITED on young raw-malloced objects.
+        # that we must set GCFLAG_VISITED_RMY on young raw-malloced objects.
         if not self.is_in_nursery(obj):
             # cache usage trade-off: I think that it is a better idea to
             # check if 'obj' is in young_rawmalloced_objects with an access
@@ -1464,6 +1619,7 @@ class MiniMarkGC(MovingGCBase):
             # HAS_SHADOW flag either.  We must move it out of the nursery,
             # into a new nonmovable location.
             totalsize = size_gc_header + self.get_size(obj)
+            self.nursery_surviving_size += raw_malloc_usage(totalsize)
             newhdr = self._malloc_out_of_nursery(totalsize)
             #
         elif self.is_forwarded(obj):
@@ -1512,20 +1668,27 @@ class MiniMarkGC(MovingGCBase):
         if self.has_gcptr(typeid):
             # we only have to do it if we have any gcptrs
             self.old_objects_pointing_to_young.append(newobj)
+        else:
+            # we don't need to add this to 'old_objects_pointing_to_young',
+            # but in the STATE_MARKING phase we still need this bit...
+            if self.gc_state == STATE_MARKING:
+                self.header(newobj).tid &= ~GCFLAG_VISITED
+                self.more_objects_to_trace.append(newobj)
+
     _trace_drag_out._always_inline_ = True
 
     def _visit_young_rawmalloced_object(self, obj):
         # 'obj' points to a young, raw-malloced object.
         # Any young rawmalloced object never seen by the code here
-        # will end up without GCFLAG_VISITED, and be freed at the
+        # will end up without GCFLAG_VISITED_RMY, and be freed at the
         # end of the current minor collection.  Note that there was
         # a bug in which dying young arrays with card marks would
         # still be scanned before being freed, keeping a lot of
         # objects unnecessarily alive.
         hdr = self.header(obj)
-        if hdr.tid & GCFLAG_VISITED:
+        if hdr.tid & GCFLAG_VISITED_RMY:
             return
-        hdr.tid |= GCFLAG_VISITED
+        hdr.tid |= GCFLAG_VISITED_RMY
         #
         # we just made 'obj' old, so we need to add it to the correct lists
         added_somewhere = False
@@ -1576,9 +1739,9 @@ class MiniMarkGC(MovingGCBase):
         self.young_rawmalloced_objects = self.null_address_dict()
 
     def _free_young_rawmalloced_obj(self, obj, ignored1, ignored2):
-        # If 'obj' has GCFLAG_VISITED, it was seen by _trace_drag_out
+        # If 'obj' has GCFLAG_VISITED_RMY, it was seen by _trace_drag_out
         # and survives.  Otherwise, it dies.
-        self.free_rawmalloced_object_if_unvisited(obj)
+        self.free_rawmalloced_object_if_unvisited(obj, GCFLAG_VISITED_RMY)
 
     def remove_young_arrays_from_old_objects_pointing_to_young(self):
         old = self.old_objects_pointing_to_young
@@ -1593,107 +1756,168 @@ class MiniMarkGC(MovingGCBase):
             old.append(new.pop())
         new.delete()
 
-    # ----------
-    # Full collection
+    def minor_and_major_collection(self):
+        # First, finish the current major gc, if there is one in progress.
+        # This is a no-op if the gc_state is already STATE_SCANNING.
+        self.gc_step_until(STATE_SCANNING)
+        #
+        # Then do a complete collection again.
+        self.gc_step_until(STATE_MARKING)
+        self.gc_step_until(STATE_SCANNING)
 
-    def major_collection(self, reserving_size=0):
-        """Do a major collection.  Only for when the nursery is empty."""
-        #
-        debug_start("gc-collect")
-        debug_print()
-        debug_print(".----------- Full collection ------------------")
-        debug_print("| used before collection:")
-        debug_print("|          in ArenaCollection:     ",
-                    self.ac.total_memory_used, "bytes")
-        debug_print("|          raw_malloced:           ",
-                    self.rawmalloced_total_size, "bytes")
-        #
+    def gc_step_until(self, state, reserving_size=0):
+        while self.gc_state != state:
+            self.minor_collection()
+            self.major_collection_step(reserving_size)
+
+    debug_gc_step_until = gc_step_until   # xxx
+
+    def debug_gc_step(self, n=1):
+        while n > 0:
+            self.minor_collection()
+            self.major_collection_step()
+            n -= 1
+
+    # Note - minor collections seem fast enough so that one
+    # is done before every major collection step
+    def major_collection_step(self, reserving_size=0):
+        debug_start("gc-collect-step")
+        debug_print("starting gc state: ", GC_STATES[self.gc_state])
         # Debugging checks
         ll_assert(self.nursery_free == self.nursery,
-                  "nursery not empty in major_collection()")
+                  "nursery not empty in major_collection_step()")
         self.debug_check_consistency()
-        #
-        # Note that a major collection is non-moving.  The goal is only to
-        # find and free some of the objects allocated by the ArenaCollection.
-        # We first visit all objects and toggle the flag GCFLAG_VISITED on
-        # them, starting from the roots.
-        self.objects_to_trace = self.AddressStack()
-        self.collect_roots()
-        self.visit_all_objects()
-        #
-        # Finalizer support: adds the flag GCFLAG_VISITED to all objects
-        # with a finalizer and all objects reachable from there (and also
-        # moves some objects from 'objects_with_finalizers' to
-        # 'run_finalizers').
-        if self.objects_with_finalizers.non_empty():
-            self.deal_with_objects_with_finalizers()
-        #
-        self.objects_to_trace.delete()
-        #
-        # Weakref support: clear the weak pointers to dying objects
-        if self.old_objects_with_weakrefs.non_empty():
-            self.invalidate_old_weakrefs()
-        if self.old_objects_with_light_finalizers.non_empty():
-            self.deal_with_old_objects_with_finalizers()
 
-        #
-        # Walk all rawmalloced objects and free the ones that don't
-        # have the GCFLAG_VISITED flag.
-        self.free_unvisited_rawmalloc_objects()
-        #
-        # Ask the ArenaCollection to visit all objects.  Free the ones
-        # that have not been visited above, and reset GCFLAG_VISITED on
-        # the others.
-        self.ac.mass_free(self._free_if_unvisited)
-        #
-        # We also need to reset the GCFLAG_VISITED on prebuilt GC objects.
-        self.prebuilt_root_objects.foreach(self._reset_gcflag_visited, None)
-        #
-        self.debug_check_consistency()
-        #
-        self.num_major_collects += 1
-        debug_print("| used after collection:")
-        debug_print("|          in ArenaCollection:     ",
-                    self.ac.total_memory_used, "bytes")
-        debug_print("|          raw_malloced:           ",
-                    self.rawmalloced_total_size, "bytes")
-        debug_print("| number of major collects:        ",
-                    self.num_major_collects)
-        debug_print("`----------------------------------------------")
-        debug_stop("gc-collect")
-        #
-        # Set the threshold for the next major collection to be when we
-        # have allocated 'major_collection_threshold' times more than
-        # we currently have -- but no more than 'max_delta' more than
-        # we currently have.
-        total_memory_used = float(self.get_total_memory_used())
-        bounded = self.set_major_threshold_from(
-            min(total_memory_used * self.major_collection_threshold,
-                total_memory_used + self.max_delta),
-            reserving_size)
-        #
-        # Max heap size: gives an upper bound on the threshold.  If we
-        # already have at least this much allocated, raise MemoryError.
-        if bounded and (float(self.get_total_memory_used()) + reserving_size >=
-                        self.next_major_collection_initial):
+
+        # XXX currently very course increments, get this working then split
+        # to smaller increments using stacks for resuming
+        if self.gc_state == STATE_SCANNING:
+            self.objects_to_trace = self.AddressStack()
+            self.collect_roots()
+            self.gc_state = STATE_MARKING
+            self.more_objects_to_trace = self.AddressStack()
+            #END SCANNING
+        elif self.gc_state == STATE_MARKING:
+            debug_print("number of objects to mark",
+                        self.objects_to_trace.length(),
+                        "plus",
+                        self.more_objects_to_trace.length())
+            estimate = self.gc_increment_step
+            estimate_from_nursery = self.nursery_surviving_size * 2
+            if estimate_from_nursery > estimate:
+                estimate = estimate_from_nursery
+            estimate = intmask(estimate)
+            remaining = self.visit_all_objects_step(estimate)
             #
-            # First raise MemoryError, giving the program a chance to
-            # quit cleanly.  It might still allocate in the nursery,
-            # which might eventually be emptied, triggering another
-            # major collect and (possibly) reaching here again with an
-            # even higher memory consumption.  To prevent it, if it's
-            # the second time we are here, then abort the program.
-            if self.max_heap_size_already_raised:
-                llop.debug_fatalerror(lltype.Void,
-                                      "Using too much memory, aborting")
-            self.max_heap_size_already_raised = True
-            raise MemoryError
-        #
-        # At the end, we can execute the finalizers of the objects
-        # listed in 'run_finalizers'.  Note that this will typically do
-        # more allocations.
-        self.execute_finalizers()
+            if remaining >= estimate // 2:
+                if self.more_objects_to_trace.non_empty():
+                    # We consumed less than 1/2 of our step's time, and
+                    # there are more objects added during the marking steps
+                    # of this major collection.  Visit them all now.
+                    # The idea is to ensure termination at the cost of some
+                    # incrementality, in theory.
+                    swap = self.objects_to_trace
+                    self.objects_to_trace = self.more_objects_to_trace
+                    self.more_objects_to_trace = swap
+                    self.visit_all_objects()
 
+            # XXX A simplifying assumption that should be checked,
+            # finalizers/weak references are rare and short which means that
+            # they do not need a seperate state and do not need to be
+            # made incremental.
+            if (not self.objects_to_trace.non_empty() and
+                not self.more_objects_to_trace.non_empty()):
+                #
+                if self.objects_with_finalizers.non_empty():
+                    self.deal_with_objects_with_finalizers()
+
+                ll_assert(not self.objects_to_trace.non_empty(),
+                          "objects_to_trace should be empty")
+                ll_assert(not self.more_objects_to_trace.non_empty(),
+                          "more_objects_to_trace should be empty")
+                self.objects_to_trace.delete()
+                self.more_objects_to_trace.delete()
+
+                #
+                # Weakref support: clear the weak pointers to dying objects
+                if self.old_objects_with_weakrefs.non_empty():
+                    self.invalidate_old_weakrefs()
+                if self.old_objects_with_light_finalizers.non_empty():
+                    self.deal_with_old_objects_with_finalizers()
+                #objects_to_trace processed fully, can move on to sweeping
+                self.ac.mass_free_prepare()
+                self.start_free_rawmalloc_objects()
+                self.gc_state = STATE_SWEEPING
+            #END MARKING
+        elif self.gc_state == STATE_SWEEPING:
+            #
+            # Walk all rawmalloced objects and free the ones that don't
+            # have the GCFLAG_VISITED flag.  Visit at most 'limit' objects.
+            limit = self.nursery_size // self.ac.page_size
+            remaining = self.free_unvisited_rawmalloc_objects_step(limit)
+            #
+            # Ask the ArenaCollection to visit a fraction of the objects.
+            # Free the ones that have not been visited above, and reset
+            # GCFLAG_VISITED on the others.  Visit at most '3 * limit'
+            # pages minus the number of objects already visited above.
+            done = self.ac.mass_free_incremental(self._free_if_unvisited,
+                                                 2 * limit + remaining)
+            # XXX tweak the limits above
+            #
+            if remaining > 0 and done:
+                self.num_major_collects += 1
+                #
+                # We also need to reset the GCFLAG_VISITED on prebuilt GC objects.
+                self.prebuilt_root_objects.foreach(self._reset_gcflag_visited, None)
+                #
+                # Set the threshold for the next major collection to be when we
+                # have allocated 'major_collection_threshold' times more than
+                # we currently have -- but no more than 'max_delta' more than
+                # we currently have.
+                total_memory_used = float(self.get_total_memory_used())
+                bounded = self.set_major_threshold_from(
+                    min(total_memory_used * self.major_collection_threshold,
+                        total_memory_used + self.max_delta),
+                    reserving_size)
+                #
+                # Max heap size: gives an upper bound on the threshold.  If we
+                # already have at least this much allocated, raise MemoryError.
+                if bounded and (float(self.get_total_memory_used()) + reserving_size >=
+                                self.next_major_collection_initial):
+                    #
+                    # First raise MemoryError, giving the program a chance to
+                    # quit cleanly.  It might still allocate in the nursery,
+                    # which might eventually be emptied, triggering another
+                    # major collect and (possibly) reaching here again with an
+                    # even higher memory consumption.  To prevent it, if it's
+                    # the second time we are here, then abort the program.
+                    if self.max_heap_size_already_raised:
+                        llop.debug_fatalerror(lltype.Void,
+                                              "Using too much memory, aborting")
+                    self.max_heap_size_already_raised = True
+                    raise MemoryError
+
+                self.gc_state = STATE_FINALIZING
+            # FINALIZING not yet incrementalised
+            # but it seems safe to allow mutator to run after sweeping and
+            # before finalizers are called. This is because run_finalizers
+            # is a different list to objects_with_finalizers.
+            # END SWEEPING
+        elif self.gc_state == STATE_FINALIZING:
+            # XXX This is considered rare,
+            # so should we make the calling incremental? or leave as is
+
+            # Must be ready to start another scan
+            # just in case finalizer calls collect again.
+            self.gc_state = STATE_SCANNING
+
+            self.execute_finalizers()
+            #END FINALIZING
+        else:
+            pass #XXX which exception to raise here. Should be unreachable.
+
+        debug_print("stopping, now in gc state: ", GC_STATES[self.gc_state])
+        debug_stop("gc-collect-step")
 
     def _free_if_unvisited(self, hdr):
         size_gc_header = self.gcheaderbuilder.size_gc_header
@@ -1706,9 +1930,9 @@ class MiniMarkGC(MovingGCBase):
     def _reset_gcflag_visited(self, obj, ignored):
         self.header(obj).tid &= ~GCFLAG_VISITED
 
-    def free_rawmalloced_object_if_unvisited(self, obj):
-        if self.header(obj).tid & GCFLAG_VISITED:
-            self.header(obj).tid &= ~GCFLAG_VISITED   # survives
+    def free_rawmalloced_object_if_unvisited(self, obj, check_flag):
+        if self.header(obj).tid & check_flag:
+            self.header(obj).tid &= ~check_flag   # survives
             self.old_rawmalloced_objects.append(obj)
         else:
             size_gc_header = self.gcheaderbuilder.size_gc_header
@@ -1733,14 +1957,21 @@ class MiniMarkGC(MovingGCBase):
             llarena.arena_free(arena)
             self.rawmalloced_total_size -= r_uint(allocsize)
 
-    def free_unvisited_rawmalloc_objects(self):
-        list = self.old_rawmalloced_objects
-        self.old_rawmalloced_objects = self.AddressStack()
-        #
-        while list.non_empty():
-            self.free_rawmalloced_object_if_unvisited(list.pop())
-        #
-        list.delete()
+    def start_free_rawmalloc_objects(self):
+        ll_assert(not self.raw_malloc_might_sweep.non_empty(),
+                  "raw_malloc_might_sweep must be empty")
+        swap = self.raw_malloc_might_sweep
+        self.raw_malloc_might_sweep = self.old_rawmalloced_objects
+        self.old_rawmalloced_objects = swap
+
+    # Returns true when finished processing objects
+    def free_unvisited_rawmalloc_objects_step(self, nobjects):
+        while self.raw_malloc_might_sweep.non_empty() and nobjects > 0:
+            obj = self.raw_malloc_might_sweep.pop()
+            self.free_rawmalloced_object_if_unvisited(obj, GCFLAG_VISITED)
+            nobjects -= 1
+
+        return nobjects
 
 
     def collect_roots(self):
@@ -1751,8 +1982,8 @@ class MiniMarkGC(MovingGCBase):
         #
         # Add the roots from the other sources.
         self.root_walker.walk_roots(
-            MiniMarkGC._collect_ref_stk, # stack roots
-            MiniMarkGC._collect_ref_stk, # static in prebuilt non-gc structures
+            IncrementalMiniMarkGC._collect_ref_stk, # stack roots
+            IncrementalMiniMarkGC._collect_ref_stk, # static in prebuilt non-gc structures
             None)   # we don't need the static in all prebuilt gc objects
         #
         # If we are in an inner collection caused by a call to a finalizer,
@@ -1778,10 +2009,18 @@ class MiniMarkGC(MovingGCBase):
         self.objects_to_trace.append(root.address[0])
 
     def visit_all_objects(self):
+        while self.objects_to_trace.non_empty():
+            self.visit_all_objects_step(sys.maxint)
+
+    def visit_all_objects_step(self, size_to_track):
+        # Objects can be added to pending by visit
         pending = self.objects_to_trace
         while pending.non_empty():
             obj = pending.pop()
-            self.visit(obj)
+            size_to_track -= self.visit(obj)
+            if size_to_track < 0:
+                return 0
+        return size_to_track
 
     def visit(self, obj):
         #
@@ -1796,17 +2035,21 @@ class MiniMarkGC(MovingGCBase):
         # collection.
         hdr = self.header(obj)
         if hdr.tid & (GCFLAG_VISITED | GCFLAG_NO_HEAP_PTRS):
-            return
+            return 0
         #
-        # It's the first time.  We set the flag.
-        hdr.tid |= GCFLAG_VISITED
-        if not self.has_gcptr(llop.extract_ushort(llgroup.HALFWORD, hdr.tid)):
-            return
-        #
-        # Trace the content of the object and put all objects it references
-        # into the 'objects_to_trace' list.
-        self.trace(obj, self._collect_ref_rec, None)
+        # It's the first time.  We set the flag VISITED.  The trick is
+        # to also set TRACK_YOUNG_PTRS here, for the write barrier.
+        hdr.tid |= GCFLAG_VISITED | GCFLAG_TRACK_YOUNG_PTRS
 
+        if self.has_gcptr(llop.extract_ushort(llgroup.HALFWORD, hdr.tid)):
+            #
+            # Trace the content of the object and put all objects it references
+            # into the 'objects_to_trace' list.
+            self.trace(obj, self._collect_ref_rec, None)
+
+        size_gc_header = self.gcheaderbuilder.size_gc_header
+        totalsize = size_gc_header + self.get_size(obj)
+        return raw_malloc_usage(totalsize)
 
     # ----------
     # id() and identityhash() support
@@ -2050,7 +2293,7 @@ class MiniMarkGC(MovingGCBase):
             elif (bool(self.young_rawmalloced_objects) and
                   self.young_rawmalloced_objects.contains(pointing_to)):
                 # young weakref to a young raw-malloced object
-                if self.header(pointing_to).tid & GCFLAG_VISITED:
+                if self.header(pointing_to).tid & GCFLAG_VISITED_RMY:
                     pass    # survives, but does not move
                 else:
                     (obj + offset).address[0] = llmemory.NULL

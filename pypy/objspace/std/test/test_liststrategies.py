@@ -645,6 +645,20 @@ class TestW_ListStrategies(TestW_ListObject):
         w_l = W_ListObject(space, [space.wrap(1), space.wrap(2), space.wrap(3)])
         assert self.space.listview_int(w_l) == [1, 2, 3]
 
+    def test_listview_float_list(self):
+        space = self.space
+        w_l = W_ListObject(space, [space.wrap(1.1), space.wrap(2.2), space.wrap(3.3)])
+        assert self.space.listview_float(w_l) == [1.1, 2.2, 3.3]
+
+    def test_unpackiterable_int_list(self):
+        space = self.space
+        w_l = W_ListObject(space, [space.wrap(1), space.wrap(2), space.wrap(3)])
+        list_orig = self.space.listview_int(w_l)
+        list_copy = self.space.unpackiterable_int(w_l)
+        assert list_orig == list_copy == [1, 2, 3]
+        list_copy[0] = 42
+        assert list_orig == [1, 2, 3]
+
 
 class TestW_ListStrategiesDisabled:
     spaceconfig = {"objspace.std.withliststrategies": False}
