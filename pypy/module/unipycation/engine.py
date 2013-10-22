@@ -184,6 +184,11 @@ class W_CoreEngine(W_Root):
         except error.PrologParseError as e:
             w_ParseError = util.get_from_module(self.space, "unipycation", "ParseError")
             raise OperationError(w_ParseError, self.space.wrap(e.message))
+        except error.UnificationFailed:
+            w_PrologError = util.get_from_module(space, "unipycation", "PrologError")
+            w_exception = space.call_function(
+                w_PrologError, self.space.wrap("fail"), self.space.w_None)
+            raise OperationError(w_PrologError, w_exception)
         except error.UncaughtError as ex:
             raise convert_uncaught_error(ex, space, self.engine)
 

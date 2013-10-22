@@ -227,3 +227,7 @@ class AppTestCoreEngine(object):
         import unipycation
         raises(unipycation.PrologError, 'unipycation.CoreEngine(":- foo, !.")')
 
+    def test_fail_in_database(self):
+        import unipycation
+        raises(unipycation.PrologError, 'unipycation.CoreEngine(":- a = b.")')
+
