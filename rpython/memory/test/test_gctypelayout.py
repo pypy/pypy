@@ -136,3 +136,4 @@ def test_overallocated_array():
     ofs = gcdata.q_varsize_offset_to_used_length(tid)
     assert isinstance(ofs, llmemory.ArrayLengthOffset)
     assert ofs.attrkind == "used_length"
+    assert gcdata.q_is_overallocated_array(tid)

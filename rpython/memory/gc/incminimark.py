@@ -1618,7 +1618,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # tid == -42, containing all flags), and it doesn't have the
             # HAS_SHADOW flag either.  We must move it out of the nursery,
             # into a new nonmovable location.
-            totalsize = size_gc_header + self.get_size(obj)
+            totalsize = size_gc_header + self.shrink_and_get_size(obj)
             self.nursery_surviving_size += raw_malloc_usage(totalsize)
             newhdr = self._malloc_out_of_nursery(totalsize)
             #

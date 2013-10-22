@@ -790,10 +790,10 @@ class GCTest(object):
         if self.SUPPORTS_OVERALLOCATED_ARRAYS:
             EXPECTED_LENGTH = 2
         else:
-            EXPECTED_LENGTH = 10
+            EXPECTED_LENGTH = 3
 
         def fn():
-            a = lltype.malloc(A, 10)
+            a = lltype.malloc(A, 3)
             a.used_length = 2
             s1 = lltype.malloc(S)
             s2 = lltype.malloc(S)
@@ -806,7 +806,6 @@ class GCTest(object):
             assert a.allocated_length == EXPECTED_LENGTH
 
         self.interpret(fn, [])
-
 from rpython.rlib.objectmodel import UnboxedValue
 
 class TaggedBase(object):

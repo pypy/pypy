@@ -1909,7 +1909,9 @@ class _arraylenref(_parentable):
                 self.array.shrinklength(value)
         elif self.attrkind == "allocated_length":
             if value != len(self.array.items):
-                raise Exception("can't set allocated_length")
+                if value > len(self.array.items):
+                    raise Exception("can't grow allocated_length in-place")
+                self.array.shrinklength(value)
         elif self.attrkind == "used_length":
             self.array.set_used_length(value)
 

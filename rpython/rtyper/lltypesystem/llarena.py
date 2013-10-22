@@ -35,6 +35,8 @@ class Arena(object):
         return '<Arena #%d [%d bytes]>' % (self._arena_index, self.nbytes)
 
     def reset(self, zero, start=0, size=None):
+        from rpython.rtyper.lltypesystem import lltype
+        WORD = llmemory.raw_malloc_usage(llmemory.sizeof(lltype.Signed))
         self.check()
         if size is None:
             stop = self.nbytes
@@ -43,11 +45,19 @@ class Arena(object):
         assert 0 <= start <= stop <= self.nbytes
         for offset, ptr in self.objectptrs.items():
             size = self.objectsizes[offset]
+            clearme = False
             if offset < start:   # object is before the cleared area
                 assert offset + size <= start, "object overlaps cleared area"
             elif offset + size > stop:  # object is after the cleared area
-                assert offset >= stop, "object overlaps cleared area"
+                if offset in (start, start+WORD) and not zero:
+                    # accept non-zeroing reset() with a length that is
+                    # shorter than the actual length, for the gc
+                    clearme = True
+                else:
+                    assert offset >= stop, "object overlaps cleared area"
             else:
+                clearme = True
+            if clearme:
                 obj = ptr._obj
                 _dictdel(Arena.object_arena_location, obj)
                 del self.objectptrs[offset]

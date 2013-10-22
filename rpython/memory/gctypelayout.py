@@ -241,6 +241,7 @@ def encode_type_shape(builder, info, TYPE, index):
             ARRAY = TYPE._flds[TYPE._arrayfld]
             ofs1 = llmemory.offsetof(TYPE, TYPE._arrayfld)
             varinfo.ofstolength = ofs1 + llmemory.ArrayLengthOffset(ARRAY)
+            varinfo.ofstousedlength = varinfo.ofstolength
             varinfo.ofstovar = ofs1 + llmemory.itemoffsetof(ARRAY, 0)
         else:
             assert isinstance(TYPE, lltype.GcArray)
@@ -249,12 +250,12 @@ def encode_type_shape(builder, info, TYPE, index):
                 if (isinstance(ARRAY.OF, lltype.Ptr)
                     and ARRAY.OF.TO._gckind == 'gc'):
                     infobits |= T_IS_GCARRAY_OF_GCPTR
-                attrkinds = "length", "length"
+                varinfo.ofstolength = llmemory.ArrayLengthOffset(ARRAY)
+                varinfo.ofstousedlength = varinfo.ofstolength
             else:
-                attrkinds = "allocated_length", "used_length"
-            ALO = llmemory.ArrayLengthOffset
-            varinfo.ofstolength = ALO(ARRAY, attrkind=attrkinds[0])
-            varinfo.ofstousedlength = ALO(ARRAY, attrkind=attrkinds[1])
+                ALO = llmemory.ArrayLengthOffset
+                varinfo.ofstolength = ALO(ARRAY, attrkind="allocated_length")
+                varinfo.ofstousedlength = ALO(ARRAY, attrkind="used_length")
             varinfo.ofstovar = llmemory.itemoffsetof(TYPE, 0)
         assert isinstance(ARRAY, lltype.Array)
         if ARRAY.OF != lltype.Void:

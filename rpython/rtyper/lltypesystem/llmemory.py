@@ -300,8 +300,10 @@ class ArrayItemsOffset(AddressOffset):
         return cast_ptr_to_adr(p)
 
     def raw_memcopy(self, srcadr, dstadr):
-        # should really copy the length field, but we can't
-        pass
+        # should really copy the length field, but we can't.  But still
+        # we need it for the used_length field of overallocated arrays...
+        if self.TYPE._is_overallocated_array():
+            dstadr.ptr.used_length = srcadr.ptr.used_length
 
 
 class ArrayLengthOffset(AddressOffset):
@@ -315,6 +317,16 @@ class ArrayLengthOffset(AddressOffset):
             assert TYPE._is_overallocated_array()
         self.TYPE = TYPE
         self.attrkind = attrkind
+
+    # special-casing: only for one check in the GC
+    def __eq__(self, other):
+        if self is other:
+            return True
+        if not isinstance(other, ArrayLengthOffset):
+            return False
+        if self.attrkind != other.attrkind:
+            return False
+        raise NotImplementedError
 
     def __repr__(self):
         return '< ArrayLengthOffset %r >' % (self.TYPE,)

@@ -131,6 +131,28 @@ class GCBase(object):
     def get_size_incl_hash(self, obj):
         return self.get_size(obj)
 
+    def _shrink_and_get_size_for_typeid(self, obj, typeid):
+        # Get the size of the object; but for overallocated arrays, we
+        # first fix the allocated length in-place to reduce it to the
+        # used length.
+        size = self.fixed_size(typeid)
+        if self.is_varsize(typeid):
+            ofslen = self.varsize_offset_to_length(typeid)
+            ofsusedlen = self.varsize_offset_to_used_length(typeid)
+            lenaddr = obj + ofsusedlen
+            length = lenaddr.signed[0]
+            if not (ofsusedlen == ofslen):
+                (obj + ofslen).signed[0] = length
+            size += length * self.varsize_item_sizes(typeid)
+            size = llarena.round_up_for_allocation(size)
+            # XXX maybe we should parametrize round_up_for_allocation()
+            # per GC; if we do, we also need to fix the call in
+            # gctypelayout.encode_type_shape()
+        return size
+
+    def shrink_and_get_size(self, obj):
+        return self._shrink_and_get_size_for_typeid(obj, self.get_type_id(obj))
+
     def malloc(self, typeid, length=0, zero=False):
         """For testing.  The interface used by the gctransformer is
         the four malloc_[fixed,var]size[_clear]() functions.
