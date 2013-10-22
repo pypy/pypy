@@ -13,20 +13,15 @@ from rpython.tool.pairtype import pairtype, pair
 
 # ____________________________________________________________
 #
-#  Concrete implementation of RPython lists:
+#  The concrete implementation of resized RPython lists is as a GcStruct
+#  with only one field: a pointer to an overallocated array of items.
+#  This overallocated array is a C-like array in memory preceded by
+#  three fields: the GC header, 'allocated_length', and 'used_length'.
+#  In the array part, each item contains a primitive value or pointer
+#  to the actual list item.
 #
-#    struct list {
-#        int length;
-#        items_array *items;
-#    }
-#
-#    'items' points to a C-like array in memory preceded by a 'length' header,
-#    where each item contains a primitive value or pointer to the actual list
-#    item.
-#
-#    or for fixed-size lists an array is directly used:
-#
-#    item_t list_items[]
+#  For fixed-size lists, we just use a GcArray, which has only one
+#  'length' after the GC header.
 #
 
 class BaseListRepr(AbstractBaseListRepr):
