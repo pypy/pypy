@@ -404,6 +404,14 @@ class TestLowLevelAnnotateTestCase:
         s = self.annotate(llf, [])
         assert s.is_constant() and s.const == 12
 
+    def test_cannot_use_len_on_overallocated_array(self):
+        A = GcArray(Signed, hints={'overallocated': True})
+        def llf():
+            a = malloc(A, 10)
+            return len(a)
+        e = py.test.raises(TypeError, self.annotate, llf, [])
+        assert str(e.value).endswith('has no length attribute')
+
 
 def test_pseudohighlevelcallable():
     t = TranslationContext()
