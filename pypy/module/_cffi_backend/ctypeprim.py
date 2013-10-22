@@ -85,7 +85,6 @@ class W_CTypePrimitive(W_CType):
             return self.space.wrap(s)
         return W_CType.string(self, cdataobj, maxlen)
 
-
 class W_CTypePrimitiveCharOrUniChar(W_CTypePrimitive):
     _attrs_ = []
     is_primitive_integer = True
@@ -170,6 +169,9 @@ class W_CTypePrimitiveSigned(W_CTypePrimitive):
             sh = self.size * 8
             self.vmin = r_uint(-1) << (sh - 1)
             self.vrangemax = (r_uint(1) << sh) - 1
+
+    def is_long(self):
+        return self.size == rffi.sizeof(lltype.Signed)
 
     def cast_to_int(self, cdata):
         return self.convert_to_object(cdata)
@@ -273,6 +275,9 @@ class W_CTypePrimitiveBool(W_CTypePrimitiveUnsigned):
 
 class W_CTypePrimitiveFloat(W_CTypePrimitive):
     _attrs_ = []
+
+    def is_double(self):
+        return self.size == rffi.sizeof(lltype.Float)
 
     def cast(self, w_ob):
         space = self.space

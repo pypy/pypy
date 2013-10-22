@@ -239,6 +239,18 @@ class W_Root(object):
         # _____ this code is here to support testing only _____
         return self
 
+    def unpackiterable_int(self, space):
+        lst = space.listview_int(self)
+        if lst:
+            return lst[:]
+        return None
+
+    def unpackiterable_float(self, space):
+        lst = space.listview_float(self)
+        if lst:
+            return lst[:]
+        return None
+
 
 class W_InterpIterable(W_Root):
     def __init__(self, space, w_iterable):
@@ -838,6 +850,22 @@ class ObjSpace(object):
         return self._unpackiterable_known_length_jitlook(w_iterator,
                                                          expected_length)
 
+
+    def unpackiterable_int(self, w_obj):
+        """
+        Return a RPython list of unwrapped ints out of w_obj. The list is
+        guaranteed to be acopy of the actual data contained in w_obj, so you
+        can freely modify it. It might return None if not supported.
+        """
+        return w_obj.unpackiterable_int(self)
+
+    def unpackiterable_float(self, w_obj):
+        """
+        Same as unpackiterable_int, but for floats.
+        """
+        return w_obj.unpackiterable_float(self)
+
+
     def length_hint(self, w_obj, default):
         """Return the length of an object, consulting its __length_hint__
         method if necessary.
@@ -891,6 +919,20 @@ class ObjSpace(object):
     def listview_unicode(self, w_list):
         """ Return a list of unwrapped unicode out of a list of unicode. If the
         argument is not a list or does not contain only unicode, return None.
+        May return None anyway.
+        """
+        return None
+
+    def listview_int(self, w_list):
+        """ Return a list of unwrapped int out of a list of int. If the
+        argument is not a list or does not contain only int, return None.
+        May return None anyway.
+        """
+        return None
+
+    def listview_float(self, w_list):
+        """ Return a list of unwrapped float out of a list of float. If the
+        argument is not a list or does not contain only float, return None.
         May return None anyway.
         """
         return None

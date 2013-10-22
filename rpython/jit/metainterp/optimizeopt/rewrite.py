@@ -129,6 +129,7 @@ class OptRewrite(Optimization):
             self.make_equal_to(op.result, v1)
         else:
             self.emit_operation(op)
+            self.pure(rop.INT_ADD, [op.getarg(1), op.getarg(0)], op.result)
             # Synthesize the reverse op for optimize_default to reuse
             self.pure(rop.INT_SUB, [op.result, op.getarg(1)], op.getarg(0))
             self.pure(rop.INT_SUB, [op.result, op.getarg(0)], op.getarg(1))

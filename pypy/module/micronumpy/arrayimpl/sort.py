@@ -8,7 +8,7 @@ from rpython.rlib.listsort import make_timsort_class
 from rpython.rlib.rawstorage import raw_storage_getitem, raw_storage_setitem, \
         free_raw_storage, alloc_raw_storage
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.rarithmetic import widen
 from rpython.rlib.objectmodel import specialize
 from pypy.interpreter.error import OperationError
 from pypy.module.micronumpy.base import W_NDimArray
@@ -43,7 +43,7 @@ def make_argsort_function(space, itemtype, comp_type, count=1):
                                     + self.start + step * i)
                     v.append(_v)
             if comp_type == 'int':
-                v = intmask(v)
+                v = widen(v)
             elif comp_type == 'float':
                 v = float(v)
             elif comp_type == 'complex':
@@ -100,9 +100,14 @@ def make_argsort_function(space, itemtype, comp_type, count=1):
     if count < 2:
         def arg_lt(a, b):
             # Does numpy do <= ?
-            return a[0] < b[0]
+            return a[0] < b[0] or b[0] != b[0] and a[0] == a[0]
     else:
         def arg_lt(a, b):
+            for i in range(count):
+                if b[0][i] != b[0][i] and a[0][i] == a[0][i]:
+                    return True
+                elif b[0][i] == b[0][i] and a[0][i] != a[0][i]:
+                    return False
             for i in range(count):
                 if a[0][i] < b[0][i]:
                     return True
@@ -200,7 +205,7 @@ def make_sort_function(space, itemtype, comp_type, count=1):
                                     + self.start + step * i)
                     v.append(_v)
             if comp_type == 'int':
-                v = intmask(v)
+                v = widen(v)
             elif comp_type == 'float':
                 v = float(v)
             elif comp_type == 'complex':
@@ -318,7 +323,8 @@ def sort_array(arr, space, w_axis, w_order):
 
 all_types = (types.all_float_types + types.all_complex_types +
              types.all_int_types)
-all_types = [i for i in all_types if not '_mixin_' in i[0].__dict__]
+all_types = [i for i in all_types if not '_mixin_' in i[0].__dict__ and
+                                     not issubclass(i[0], types.BaseFloat16)]
 all_types = unrolling_iterable(all_types)
 
 class ArgSortCache(object):

@@ -290,9 +290,6 @@ class MMapBuffer(RWBuffer):
         self.space = space
         self.mmap = mmap
 
-    def get_raw_address(self):
-        return self.mmap.data
-
     def getlength(self):
         return self.mmap.size
 

@@ -1258,6 +1258,10 @@ class TestMiniMarkGC(TestHybridGC):
         res = run([])
         assert res == 123
 
+class TestIncrementalMiniMarkGC(TestMiniMarkGC):
+    gcname = "incminimark"
+
+
 # ________________________________________________________________
 # tagged pointers
 
