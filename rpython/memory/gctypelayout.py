@@ -164,6 +164,7 @@ class GCData(object):
             self.q_varsize_item_sizes,
             self.q_varsize_offset_to_variable_part,
             self.q_varsize_offset_to_length,
+            self.q_varsize_offset_to_used_length,
             self.q_varsize_offsets_to_gcpointers_in_var_part,
             self.q_weakpointer_offset,
             self.q_member_index,
@@ -248,11 +249,12 @@ def encode_type_shape(builder, info, TYPE, index):
                 if (isinstance(ARRAY.OF, lltype.Ptr)
                     and ARRAY.OF.TO._gckind == 'gc'):
                     infobits |= T_IS_GCARRAY_OF_GCPTR
-                varinfo.ofstolength = llmemory.ArrayLengthOffset(ARRAY)
+                attrkinds = "length", "length"
             else:
-                ALO = llmemory.ArrayLengthOffset
-                varinfo.ofstolength = ALO(ARRAY, attrkind="allocated_length")
-                varinfo.ofstousedlength = ALO(ARRAY, attrkind="used_length")
+                attrkinds = "allocated_length", "used_length"
+            ALO = llmemory.ArrayLengthOffset
+            varinfo.ofstolength = ALO(ARRAY, attrkind=attrkinds[0])
+            varinfo.ofstousedlength = ALO(ARRAY, attrkind=attrkinds[1])
             varinfo.ofstovar = llmemory.itemoffsetof(TYPE, 0)
         assert isinstance(ARRAY, lltype.Array)
         if ARRAY.OF != lltype.Void:

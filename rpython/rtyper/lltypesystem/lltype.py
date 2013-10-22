@@ -1908,7 +1908,8 @@ class _arraylenref(_parentable):
                     raise Exception("can't grow an array in-place")
                 self.array.shrinklength(value)
         elif self.attrkind == "allocated_length":
-            raise Exception("can't set allocated_length")
+            if value != len(self.array.items):
+                raise Exception("can't set allocated_length")
         elif self.attrkind == "used_length":
             self.array.set_used_length(value)
 

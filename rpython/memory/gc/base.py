@@ -68,6 +68,7 @@ class GCBase(object):
                             fixed_size, varsize_item_sizes,
                             varsize_offset_to_variable_part,
                             varsize_offset_to_length,
+                            varsize_offset_to_used_length,
                             varsize_offsets_to_gcpointers_in_var_part,
                             weakpointer_offset,
                             member_index,
@@ -86,6 +87,7 @@ class GCBase(object):
         self.varsize_item_sizes = varsize_item_sizes
         self.varsize_offset_to_variable_part = varsize_offset_to_variable_part
         self.varsize_offset_to_length = varsize_offset_to_length
+        self.varsize_offset_to_used_length = varsize_offset_to_used_length
         self.varsize_offsets_to_gcpointers_in_var_part = varsize_offsets_to_gcpointers_in_var_part
         self.weakpointer_offset = weakpointer_offset
         self.member_index = member_index
@@ -217,7 +219,8 @@ class GCBase(object):
         typeid = self.get_type_id(obj)
         if self.has_gcptr_in_varsize(typeid):
             item = obj + self.varsize_offset_to_variable_part(typeid)
-            length = (obj + self.varsize_offset_to_length(typeid)).signed[0]
+            length_adr = (obj + self.varsize_offset_to_used_length(typeid))
+            length = length_adr.signed[0]
             offsets = self.varsize_offsets_to_gcpointers_in_var_part(typeid)
             itemlength = self.varsize_item_sizes(typeid)
             while length > 0:

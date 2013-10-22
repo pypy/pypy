@@ -785,7 +785,7 @@ class GCTest(object):
         self.interpret(fn, [])
 
     def test_overallocated_array(self):
-        S = lltype.GcStruct('S')
+        S = lltype.GcStruct('S', ('n', lltype.Signed))
         A = lltype.GcArray(lltype.Ptr(S), hints={'overallocated': True})
         if self.SUPPORTS_OVERALLOCATED_ARRAYS:
             EXPECTED_LENGTH = 2
