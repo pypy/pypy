@@ -701,7 +701,7 @@ class ArrayNode(ContainerNode):
             slength = '%d, %d, ' % (length, length)
         else:
             slength = '%d, ' % length
-        if T.OF is Void or len(self.obj.items) == 0:
+        if T.OF is Void or length == 0:
             yield '\t%s' % slength.rstrip(', ')
             yield '}'
         elif T.OF == Char:
