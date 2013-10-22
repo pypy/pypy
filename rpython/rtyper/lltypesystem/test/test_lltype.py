@@ -822,6 +822,8 @@ def test_overallocated_array():
     a.used_length = 1
     py.test.raises(IndexError, "a[3]")
     py.test.raises(IndexError, "a[3] = 43")
+    a.used_length = 5
+    py.test.raises(UninitializedMemoryAccess, "a[3]")
 
 class TestTrackAllocation:
     def test_automatic_tracking(self):
