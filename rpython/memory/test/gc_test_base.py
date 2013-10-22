@@ -29,6 +29,7 @@ class GCTest(object):
     GC_CAN_SHRINK_ARRAY = False
     GC_CAN_SHRINK_BIG_ARRAY = False
     BUT_HOW_BIG_IS_A_BIG_STRING = 3*WORD
+    SUPPORTS_OVERALLOCATED_ARRAYS = False
 
     def setup_class(cls):
         cls._saved_logstate = py.log._getstate()
@@ -86,7 +87,7 @@ class GCTest(object):
         for i in range(1, 15):
             res = self.interpret(append_to_list, [i, i - 1])
             assert res == i - 1 # crashes if constants are not considered roots
-            
+
     def test_string_concatenation(self):
         #curr = simulator.current_size
         def concat(j):
@@ -781,6 +782,29 @@ class GCTest(object):
             rgc.toggle_gcflag_extra(a2)
             assert rgc.get_gcflag_extra(a1) == False
             assert rgc.get_gcflag_extra(a2) == False
+        self.interpret(fn, [])
+
+    def test_overallocated_array(self):
+        S = lltype.GcStruct('S')
+        A = lltype.GcArray(lltype.Ptr(S), hints={'overallocated': True})
+        if self.SUPPORTS_OVERALLOCATED_ARRAYS:
+            EXPECTED_LENGTH = 2
+        else:
+            EXPECTED_LENGTH = 10
+
+        def fn():
+            a = lltype.malloc(A, 10)
+            a.used_length = 2
+            s1 = lltype.malloc(S)
+            s2 = lltype.malloc(S)
+            a[0] = s1
+            a[1] = s2
+            rgc.collect()
+            assert a[0] == s1
+            assert a[1] == s2
+            assert a.used_length == 2
+            assert a.allocated_length == EXPECTED_LENGTH
+
         self.interpret(fn, [])
 
 from rpython.rlib.objectmodel import UnboxedValue

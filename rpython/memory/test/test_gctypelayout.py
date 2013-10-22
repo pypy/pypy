@@ -23,7 +23,7 @@ A = lltype.Array(S)
 GC_A = lltype.GcArray(S)
 
 S2 = lltype.Struct('SPTRS',
-                   *[(getname(TYPE), lltype.Ptr(TYPE)) for TYPE in (GC_S, GC_A)])  
+                   *[(getname(TYPE), lltype.Ptr(TYPE)) for TYPE in (GC_S, GC_A)])
 GC_S2 = lltype.GcStruct('GC_S2', ('S2', S2))
 
 A2 = lltype.Array(S2)
@@ -120,3 +120,11 @@ def test_gc_pointers_inside():
     adr = llmemory.cast_ptr_to_adr(s3)
     lst = list(gc_pointers_inside(s3._obj, adr, mutable_only=True))
     assert lst == [adr + llmemory.offsetof(S3, 'y')]
+
+def test_overallocated_array():
+    S = lltype.GcStruct('S')
+    A = lltype.GcArray(lltype.Ptr(S), hints={'overallocated': True})
+    
+    layoutbuilder = TypeLayoutBuilder(FakeGC)
+    tid = layoutbuilder.get_type_id(A)
+    xxx

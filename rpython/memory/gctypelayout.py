@@ -38,11 +38,12 @@ class GCData(object):
         hints={'immutable': True},
         )
     VARSIZE_TYPE_INFO = lltype.Struct("varsize_type_info",
-        ("header",         TYPE_INFO),
-        ("varitemsize",    lltype.Signed),
-        ("ofstovar",       lltype.Signed),
-        ("ofstolength",    lltype.Signed),
-        ("varofstoptrs",   lltype.Ptr(OFFSETS_TO_GC_PTR)),
+        ("header",          TYPE_INFO),
+        ("varitemsize",     lltype.Signed),
+        ("ofstovar",        lltype.Signed),
+        ("ofstolength",     lltype.Signed), # either length or allocated_length
+        ("ofstousedlength", lltype.Signed),
+        ("varofstoptrs",    lltype.Ptr(OFFSETS_TO_GC_PTR)),
         hints={'immutable': True},
         )
     TYPE_INFO_PTR = lltype.Ptr(TYPE_INFO)
@@ -240,10 +241,13 @@ def encode_type_shape(builder, info, TYPE, index):
         else:
             assert isinstance(TYPE, lltype.GcArray)
             ARRAY = TYPE
-            if (isinstance(ARRAY.OF, lltype.Ptr)
-                and ARRAY.OF.TO._gckind == 'gc'):
-                infobits |= T_IS_GCARRAY_OF_GCPTR
-            varinfo.ofstolength = llmemory.ArrayLengthOffset(ARRAY)
+            if ARRAY._is_overallocated_array():
+                if (isinstance(ARRAY.OF, lltype.Ptr)
+                    and ARRAY.OF.TO._gckind == 'gc'):
+                    infobits |= T_IS_GCARRAY_OF_GCPTR
+                varinfo.ofstolength = llmemory.ArrayLengthOffset(ARRAY)
+            else:
+                ...
             varinfo.ofstovar = llmemory.itemoffsetof(TYPE, 0)
         assert isinstance(ARRAY, lltype.Array)
         if ARRAY.OF != lltype.Void:
