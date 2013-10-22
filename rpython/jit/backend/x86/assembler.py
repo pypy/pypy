@@ -204,14 +204,14 @@ class Assembler386(BaseAssembler):
         # call stm_transaction_break() with the address of the
         # STM_RESUME_BUF and the custom longjmp function
         # (rsp + FRAME_FIXED_SIZE + RET_ADDR + ALIGNMENT)
-        mc.LEA_rs(edi.value, (FRAME_FIXED_SIZE+2) * WORD)
+        mc.LEA_rs(edi.value, FRAME_FIXED_SIZE * WORD + WORD + (16-WORD))
         mc.MOV(esi, imm(self.stm_longjmp_callback_addr))
         fn = stmtlocal.stm_transaction_break_fn
         mc.CALL(imm(self.cpu.cast_ptr_to_int(fn)))
         #
-        mc.ADD_ri(esp.value, 16 - WORD)
+        self._reload_frame_if_necessary(mc)
         #
-        self._reload_frame_if_necessary(mc, align_stack=True)
+        mc.ADD_ri(esp.value, 16 - WORD)
         # clear the gc pattern
         mc.MOV_bi(ofs, 0)
         #
@@ -632,7 +632,6 @@ class Assembler386(BaseAssembler):
         # jump to the place saved in stm_resume_buffer[0]
         # (to "HERE" in genop_stm_transaction_break())
         mc.MOV_rs(eax.value, (FRAME_FIXED_SIZE + 0) * WORD)
-        mc.PUSH_r(eax.value)
         mc.JMP_r(eax.value)
         self.stm_longjmp_callback_addr = mc.materialize(self.cpu.asmmemmgr, [])
 
