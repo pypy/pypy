@@ -328,7 +328,6 @@ class W_CTypePrimitiveLongDouble(W_CTypePrimitiveFloat):
         return misc.longdouble2str(lvalue)
 
     def cast(self, w_ob):
-        space = self.space
         if (isinstance(w_ob, cdataobj.W_CData) and
                 isinstance(w_ob.ctype, W_CTypePrimitiveLongDouble)):
             w_cdata = self.convert_to_object(w_ob._cdata)
