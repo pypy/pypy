@@ -1,9 +1,9 @@
 # Array methods which are called by the both the C-code for the method
 # and the Python code for the NumPy-namespace function
 
-import multiarray as mu
-import umath as um
-from numeric import asanyarray
+from . import multiarray as mu
+from . import umath as um
+from .numeric import asanyarray
 
 def _amax(a, axis=None, out=None, keepdims=False):
     return um.maximum.reduce(a, axis=axis,
@@ -31,7 +31,7 @@ def _all(a, axis=None, dtype=None, out=None, keepdims=False):
 
 def _count_reduce_items(arr, axis):
     if axis is None:
-        axis = tuple(xrange(arr.ndim))
+        axis = tuple(range(arr.ndim))
     if not isinstance(axis, tuple):
         axis = (axis,)
     items = 1

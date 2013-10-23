@@ -51,4 +51,4 @@ def dstack(tup):
            [[3, 4]]])
 
     """
-    return _nx.concatenate(map(atleast_3d,tup),2)
+    return _nx.concatenate(list(map(atleast_3d,tup)),2)

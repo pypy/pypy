@@ -1,4 +1,4 @@
-from __future__ import division, absolute_import, print_function
+
 
 __all__ = [
            'newaxis', 'ufunc', 'argwhere',
@@ -27,7 +27,7 @@ def extend_all(module):
     try:
         mall = getattr(module, '__all__')
     except AttributeError:
-        mall = [k for k in module.__dict__.keys() if not k.startswith('_')]
+        mall = [k for k in list(module.__dict__.keys()) if not k.startswith('_')]
     for a in mall:
         if a not in adict:
             __all__.append(a)

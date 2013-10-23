@@ -13,10 +13,10 @@ __docformat__ = 'restructuredtext'
 # and by Travis Oliphant  2005-8-22 for numpy
 
 import sys
-import numerictypes as _nt
-from umath import maximum, minimum, absolute, not_equal, isnan, isinf
+from . import numerictypes as _nt
+from .umath import maximum, minimum, absolute, not_equal, isnan, isinf
 #from multiarray import format_longfloat, datetime_as_string, datetime_data
-from fromnumeric import ravel
+from .fromnumeric import ravel
 
 
 def product(x, y): return x*y
@@ -194,7 +194,7 @@ def get_printoptions():
     return d
 
 def _leading_trailing(a):
-    import numeric as _nc
+    from . import numeric as _nc
     if a.ndim == 1:
         if len(a) > 2*_summaryEdgeItems:
             b = _nc.concatenate((a[:_summaryEdgeItems],
@@ -258,9 +258,9 @@ def _array2string(a, max_line_width, precision, suppress_small, separator=' ',
                   'str' : str}
 
     if formatter is not None:
-        fkeys = [k for k in formatter.keys() if formatter[k] is not None]
+        fkeys = [k for k in list(formatter.keys()) if formatter[k] is not None]
         if 'all' in fkeys:
-            for key in formatdict.keys():
+            for key in list(formatdict.keys()):
                 formatdict[key] = formatter['all']
         if 'int_kind' in fkeys:
             for key in ['int']:
@@ -274,7 +274,7 @@ def _array2string(a, max_line_width, precision, suppress_small, separator=' ',
         if 'str_kind' in fkeys:
             for key in ['numpystr', 'str']:
                 formatdict[key] = formatter['str_kind']
-        for key in formatdict.keys():
+        for key in list(formatdict.keys()):
             if key in fkeys:
                 formatdict[key] = formatter[key]
 
@@ -322,7 +322,7 @@ def _array2string(a, max_line_width, precision, suppress_small, separator=' ',
     return lst
 
 def _convert_arrays(obj):
-    import numeric as _nc
+    from . import numeric as _nc
     newtup = []
     for k in obj:
         if isinstance(k, _nc.ndarray):
@@ -478,14 +478,14 @@ def _formatArray(a, format_function, rank, max_line_len,
     if rank == 1:
         s = ""
         line = next_line_prefix
-        for i in xrange(leading_items):
+        for i in range(leading_items):
             word = format_function(a[i]) + separator
             s, line = _extendLine(s, line, word, max_line_len, next_line_prefix)
 
         if summary_insert1:
             s, line = _extendLine(s, line, summary_insert1, max_line_len, next_line_prefix)
 
-        for i in xrange(trailing_items, 1, -1):
+        for i in range(trailing_items, 1, -1):
             word = format_function(a[-i]) + separator
             s, line = _extendLine(s, line, word, max_line_len, next_line_prefix)
 
@@ -496,7 +496,7 @@ def _formatArray(a, format_function, rank, max_line_len,
     else:
         s = '['
         sep = separator.rstrip()
-        for i in xrange(leading_items):
+        for i in range(leading_items):
             if i > 0:
                 s += next_line_prefix
             s += _formatArray(a[i], format_function, rank-1, max_line_len,
@@ -507,7 +507,7 @@ def _formatArray(a, format_function, rank, max_line_len,
         if summary_insert1:
             s += next_line_prefix + summary_insert1 + "\n"
 
-        for i in xrange(trailing_items, 1, -1):
+        for i in range(trailing_items, 1, -1):
             if leading_items or i != trailing_items:
                 s += next_line_prefix
             s += _formatArray(a[-i], format_function, rank-1, max_line_len,
@@ -537,7 +537,7 @@ class FloatFormat(object):
             pass
 
     def fillFormat(self, data):
-        import numeric as _nc
+        from . import numeric as _nc
         errstate = _nc.seterr(all='ignore')
         try:
             special = isnan(data) | isinf(data)
@@ -590,7 +590,7 @@ class FloatFormat(object):
         self.format = format
 
     def __call__(self, x, strip_zeros=True):
-        import numeric as _nc
+        from . import numeric as _nc
         err = _nc.seterr(invalid='ignore')
         try:
             if isnan(x):

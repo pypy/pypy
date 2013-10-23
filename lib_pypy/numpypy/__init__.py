@@ -3,7 +3,7 @@ from .core import *
 from . import lib
 from .lib import *
 
-from __builtin__ import bool, int, long, float, complex, object, unicode, str
+from builtins import bool, int, int, float, complex, object, str, str
 
 from .core import round, abs, max, min
 
