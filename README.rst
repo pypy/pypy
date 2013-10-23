@@ -18,6 +18,12 @@ Check out pyrolog somewhere::
 
     $ hg clone https://bitbucket.org/cfbolz/pyrolog-unipycation
 
+Note, the above repo is a fork of the official pyrolog sources.
+
+Switch into the unipycation branch::
+
+    $ hg update -C unipycation
+
 Add pyrolog to the PYTHONPATH::
 
     $ export PYTHONPATH=/path/to/pyrolog/checkout
