@@ -680,12 +680,12 @@ W_CharacterBox.typedef = TypeDef("character", W_FlexibleBox.typedef,
     __module__ = "numpypy",
 )
 
-W_StringBox.typedef = TypeDef("string_", (W_CharacterBox.typedef, str_typedef),
+W_StringBox.typedef = TypeDef("bytes_", (W_CharacterBox.typedef, str_typedef),
     __module__ = "numpypy",
     __new__ = interp2app(W_StringBox.descr__new__string_box.im_func),
 )
 
-W_UnicodeBox.typedef = TypeDef("unicode_", (W_CharacterBox.typedef, unicode_typedef),
+W_UnicodeBox.typedef = TypeDef("str_", (W_CharacterBox.typedef, unicode_typedef),
     __module__ = "numpypy",
     __new__ = interp2app(W_UnicodeBox.descr__new__unicode_box.im_func),
 )
