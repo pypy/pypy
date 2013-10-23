@@ -138,7 +138,8 @@ void stm_steal_stub(gcptr P)
         assert(IMPLIES(!(L->h_tid & GCFLAG_OLD), L->h_original));
         assert(IMPLIES(L->h_tid & GCFLAG_OLD,
                        (B->h_original == (revision_t)L) 
-                       || (B->h_original == L->h_original)));
+                       || (B->h_original == L->h_original)
+                       || (L->h_original == (revision_t)B)));
         if (!L->h_original && L->h_tid & GCFLAG_OLD) {
             /* If old, L must be the original */
             B->h_original = (revision_t)L;
