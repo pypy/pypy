@@ -428,13 +428,14 @@ class STMBarrierDescr(BarrierDescr):
 
 class STMReadBarrierDescr(STMBarrierDescr):
     def __init__(self, gc_ll_descr, stmcat):
-        assert stmcat in ['A2R', 'Q2R']
-        if stmcat == 'A2R':
-            STMBarrierDescr.__init__(self, gc_ll_descr, stmcat,
-                                     'stm_DirectReadBarrier')
-        else:
-            STMBarrierDescr.__init__(self, gc_ll_descr, stmcat,
-                                     'stm_RepeatReadBarrier')
+        assert stmcat in ['A2R', 'Q2R', 'A2I']
+        func = {'A2R': 'stm_DirectReadBarrier',
+                'Q2R': 'stm_RepeatReadBarrier',
+                'A2I': 'stm_ImmutReadBarrier',
+                }
+        
+        STMBarrierDescr.__init__(self, gc_ll_descr, stmcat,
+                                 func[stmcat])
 
     @specialize.arg(2)
     def _do_barrier(self, gcref_struct, returns_modified_object):
@@ -458,11 +459,15 @@ class STMReadBarrierDescr(STMBarrierDescr):
             rcp = rffi.cast(CP, read_cache[0])
             if rcp[index] == objint:
                 return gcref_struct
-        else: # 'Q2R'
+        elif self.stmcat == 'Q2R':
             # is GCFLAG_PUBLIC_TO_PRIVATE or GCFLAG_MOVED set?
             if not (objhdr.h_tid &
                     (StmGC.GCFLAG_PUBLIC_TO_PRIVATE | StmGC.GCFLAG_MOVED)):
                 # no.
+                return gcref_struct
+        else: # A2I
+            # GCFLAG_STUB set?
+            if not (objhdr.h_tid & StmGC.GCFLAG_STUB):
                 return gcref_struct
         
         funcptr = self.get_barrier_funcptr(returns_modified_object)
@@ -472,13 +477,14 @@ class STMReadBarrierDescr(STMBarrierDescr):
         
 class STMWriteBarrierDescr(STMBarrierDescr):
     def __init__(self, gc_ll_descr, stmcat):
-        assert stmcat in ['A2W', 'V2W']
-        if stmcat == 'A2W':
-            STMBarrierDescr.__init__(self, gc_ll_descr, stmcat,
-                                     'stm_WriteBarrier')
-        else:
-            STMBarrierDescr.__init__(self, gc_ll_descr, stmcat,
-                                     'stm_RepeatWriteBarrier')
+        assert stmcat in ['A2W', 'V2W', 'A2V']
+        func = {'A2W':'stm_WriteBarrier',
+                'V2W':'stm_RepeatWriteBarrier',
+                'A2V':'stm_WriteBarrier',
+                }
+
+        STMBarrierDescr.__init__(self, gc_ll_descr, stmcat,
+                                 func[stmcat])
 
 
     @specialize.arg(2)
@@ -487,12 +493,17 @@ class STMWriteBarrierDescr(STMBarrierDescr):
         from rpython.memory.gc.stmgc import StmGC
         objadr = llmemory.cast_ptr_to_adr(gcref_struct)
         objhdr = rffi.cast(StmGC.GCHDRP, gcref_struct)
+
+        # for A2W, we check h_revision and WRITE_BARRIER
+        # for V2W, we only check WRITE_BARRIER
+        # for A2V, we only check h_revision
         
         # if it is a repeated WB or h_revision == privat_rev of transaction
         priv_rev = self.llop1.stm_get_adr_of_private_rev_num(rffi.SIGNEDP)
         if self.stmcat == 'V2W' or objhdr.h_revision == priv_rev[0]:
             # also WRITE_BARRIER not set?
-            if not (objhdr.h_tid & StmGC.GCFLAG_WRITE_BARRIER):
+            if (self.stmcat == 'A2V'
+                or not (objhdr.h_tid & StmGC.GCFLAG_WRITE_BARRIER)):
                 return gcref_struct
         
         funcptr = self.get_barrier_funcptr(returns_modified_object)
@@ -596,10 +607,10 @@ class GcLLDescr_framework(GcLLDescription):
     def _setup_write_barrier(self):
         if self.stm:
             self.A2Rdescr = STMReadBarrierDescr(self, 'A2R')
-            self.A2Idescr = STMReadBarrierDescr(self, 'A2R') # XXX
+            self.A2Idescr = STMReadBarrierDescr(self, 'A2I')
             self.Q2Rdescr = STMReadBarrierDescr(self, 'Q2R')
             self.A2Wdescr = STMWriteBarrierDescr(self, 'A2W')
-            self.A2Vdescr = STMWriteBarrierDescr(self, 'A2W') # XXX
+            self.A2Vdescr = STMWriteBarrierDescr(self, 'A2V')
             self.V2Wdescr = STMWriteBarrierDescr(self, 'V2W')
             self.write_barrier_descr = "wbdescr: do not use"
         else:

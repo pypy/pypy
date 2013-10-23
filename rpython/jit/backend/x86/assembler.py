@@ -2489,24 +2489,28 @@ class Assembler386(BaseAssembler):
             helper_num += 2
         #
         # FASTPATH:
-        #
+        # do slowpath IF:
         # A2W:
         # (obj->h_revision != stm_private_rev_num)
         #     || (obj->h_tid & GCFLAG_WRITE_BARRIER) != 0)
         # V2W:
         # (obj->h_tid & GCFLAG_WRITE_BARRIER) != 0)
+        # A2V:
+        # (obj->h_revision != stm_private_rev_num)
         # A2R:
         # (obj->h_revision != stm_private_rev_num)
         #     && (FXCACHE_AT(obj) != obj)))
         # Q2R:
         # (obj->h_tid & (GCFLAG_PUBLIC_TO_PRIVATE | GCFLAG_MOVED) != 0)
+        # A2I:
+        # (obj->h_tid & GCFLAG_STUB)
         if IS_X86_32:   # XXX: todo
             todo()
         jz_location = 0
         jz_location2 = 0
         jnz_location = 0
         # compare h_revision with stm_private_rev_num
-        if descr.stmcat in ['A2W', 'A2R']:
+        if descr.stmcat in ['A2W', 'A2R', 'A2V']:
             rn = self._get_stm_private_rev_num_addr()
             if we_are_translated():
                 # during tests, _get_stm_private_rev_num_addr returns
@@ -2521,11 +2525,11 @@ class Assembler386(BaseAssembler):
             else:
                 mc.CMP(X86_64_SCRATCH_REG, mem(loc_base, StmGC.H_REVISION))
             #
-            if descr.stmcat == 'A2R':
+            if descr.stmcat in ('A2R', 'A2V'):
                 # jump to end if h_rev==priv_rev
                 mc.J_il8(rx86.Conditions['Z'], 0) # patched below
                 jz_location = mc.get_relative_pos()
-            else: # write_barrier
+            else: # A2W
                 # jump to slowpath if h_rev!=priv_rev
                 mc.J_il8(rx86.Conditions['NZ'], 0) # patched below
                 jnz_location = mc.get_relative_pos()
@@ -2554,21 +2558,27 @@ class Assembler386(BaseAssembler):
             jz_location2 = mc.get_relative_pos()
         #
         # check flags:
-        if descr.stmcat in ['A2W', 'V2W', 'Q2R']:
+        if descr.stmcat in ['A2W', 'V2W', 'Q2R', 'A2I']:
             flags = 0
+            off = 0
             if descr.stmcat in ['A2W', 'V2W']:
                 # obj->h_tid & GCFLAG_WRITE_BARRIER) != 0
-                assert IS_X86_64 and (StmGC.GCFLAG_WRITE_BARRIER >> 32) > 0
-                assert (StmGC.GCFLAG_WRITE_BARRIER >> 40) == 0
-                flags = StmGC.GCFLAG_WRITE_BARRIER >> 32
+                flags = StmGC.GCFLAG_WRITE_BARRIER
             elif descr.stmcat == 'Q2R':
                 # obj->h_tid & PUBLIC_TO_PRIVATE|MOVED
                 flags = StmGC.GCFLAG_PUBLIC_TO_PRIVATE | StmGC.GCFLAG_MOVED
-                assert IS_X86_64 and (flags >> 32) > 0
-                assert (flags >> 40) == 0
-                flags = flags >> 32
+            elif descr.stmcat == 'A2I':
+                # obj->h_tid & STUB
+                flags = StmGC.GCFLAG_STUB
 
-            off = 4
+            assert IS_X86_64
+            if (flags >> 32) > 0 and (flags >> 40) == 0:
+                flags = flags >> 32
+                off = 4
+            elif (flags >> 40) > 0 and (flags >> 48) == 0:
+                flags = flags >> 40
+                off = 5
+            #
             if loc_base == ebp:
                 mc.TEST8_bi(StmGC.H_TID + off, flags)
             else:

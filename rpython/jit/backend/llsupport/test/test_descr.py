@@ -45,6 +45,25 @@ def test_get_size_descr_immut():
             descr_s = get_size_descr(c0, STRUCT)
             assert descr_s.count_fields_if_immutable() == expected
 
+def test_is_immutable():
+    U = lltype.Struct('U', ('x', lltype.Char),
+                      hints={'immutable':True})
+    V = lltype.Struct('V', ('x', lltype.Char))
+    gc = GcCache(False)
+    assert get_field_descr(gc, U, 'x').is_immutable()
+    assert not get_field_descr(gc, V, 'x').is_immutable()
+
+    A1 = lltype.GcArray(lltype.Char, hints={'immutable':True})
+    A2 = lltype.GcArray(lltype.Char)
+    assert get_array_descr(gc, A1).is_immutable()
+    assert not get_array_descr(gc, A2).is_immutable()
+
+    I1 = lltype.GcArray(('z', lltype.Char), hints={'immutable':True})
+    I2 = lltype.GcArray(('z', lltype.Char))
+    assert get_interiorfield_descr(gc, I1, 'z').is_immutable()
+    assert not get_interiorfield_descr(gc, I2, 'z').is_immutable()
+    
+    
 def test_get_field_descr():
     U = lltype.Struct('U')
     T = lltype.GcStruct('T')

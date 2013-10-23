@@ -82,6 +82,7 @@ class BaseAssembler(object):
         self.memcpy_addr = self.cpu.cast_ptr_to_int(memcpy_fn)
         if gc_ll_descr.stm:
             descrs = [gc_ll_descr.A2Rdescr, gc_ll_descr.Q2Rdescr,
+                      gc_ll_descr.A2Idescr, gc_ll_descr.A2Vdescr,
                       gc_ll_descr.A2Wdescr, gc_ll_descr.V2Wdescr]
         else:
             descrs = [gc_ll_descr.write_barrier_descr]
