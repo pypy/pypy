@@ -51,9 +51,10 @@ For the moment, the languages are composed without any adjustments to
 syntax. In other words, communication between Python and Prolog is in
 the form of an API. Better syntactic composition will come later.
 
-The interface is described in a paper which will (hopefully) appear in
-VMIL'13. Until then, the source code is the documentation. A good place to
-start is the unit tests in ``pypy/module/unipycation/test/``.
+The interface is described in the paper `Unipycation: A Case Study in
+Cross-Language Tracing
+<http://soft-dev.org/pubs/pdf/barrett_bolz_tratt__unipycation_a_study_in_cross_language_tracing.pdf>`_
+which appeared in VMIL'13.
 
 Authors
 =======
