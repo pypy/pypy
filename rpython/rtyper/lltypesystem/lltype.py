@@ -100,8 +100,11 @@ class LowLevelType(object):
         if self.__class__ is other.__class__:
             if self is other:
                 return True
-            if hash(self) != hash(other):
-                return False
+            try:
+                if hash(self) != hash(other):
+                    return False
+            except TypeError:
+                pass # too bad, we can't use a fastpath here
             return safe_equal(self.__dict__, other.__dict__)
         return False
 
