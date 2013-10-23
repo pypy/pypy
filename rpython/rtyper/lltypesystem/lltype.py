@@ -97,8 +97,13 @@ class LowLevelType(object):
     def __eq__(self, other):
         if isinstance(other, Typedef):
             return other.__eq__(self)
-        return self.__class__ is other.__class__ and (
-            self is other or safe_equal(self.__dict__, other.__dict__))
+        if self.__class__ is other.__class__:
+            if self is other:
+                return True
+            if hash(self) != hash(other):
+                return False
+            return safe_equal(self.__dict__, other.__dict__)
+        return False
 
     def __ne__(self, other):
         return not (self == other)
@@ -226,6 +231,9 @@ class Typedef(LowLevelType):
             OF = OF.OF # haha
         self.OF = OF
         self.c_name = c_name
+
+    def __hash__(self):
+        return hash(self.OF)
 
     def __repr__(self):
         return '<Typedef "%s" of %r>' % (self.c_name, self.OF)
