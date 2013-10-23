@@ -1922,7 +1922,7 @@ class MetaInterp(object):
 
     def aborted_tracing(self, reason):
         self.staticdata.profiler.count(reason)
-        debug_print('~~~ ABORTING TRACING inside: %s' % self.framestack[-1].jitcode.name)
+        debug_print('~~~ ABORTING TRACING')
         jd_sd = self.jitdriver_sd
         if not self.current_merge_points:
             greenkey = None # we're in the bridge
@@ -2445,6 +2445,7 @@ class MetaInterp(object):
             if vinfo.tracing_after_residual_call(virtualizable):
                 # the virtualizable escaped during CALL_MAY_FORCE.
                 self.load_fields_from_virtualizable()
+                debug_print('vable escaped during a call in: %s' % self.framestack[-1].jitcode.name)
                 raise SwitchToBlackhole(Counters.ABORT_ESCAPE,
                                         raising_exception=True)
                 # ^^^ we set 'raising_exception' to True because we must still
