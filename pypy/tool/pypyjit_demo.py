@@ -1,27 +1,20 @@
-import pypyjit
-pypyjit.set_param(threshold=200)
 
-kwargs = {"z": 1}
+def g(i):
+    k = 0
+    while k < 3:
+        k += 1
+    return i + 1
 
-def f(*args, **kwargs):
-    result = g(1, *args, **kwargs)
-    return result + 2
+def f(x):
+    for i in range(10000):
+        t = (1, 2, i)
+        i = g(i)
+        x == t
 
-def g(x, y, z=2):
-    return x - y + z
-
-def main():
-    res = 0
-    i = 0
-    while i < 10000:
-        res = f(res, z=i)
-        g(1, res, **kwargs)
-        i += 1
-    return res
 
 
 try:
-    print main()
+    f((1, 2, 3))
 
 except Exception, e:
     print "Exception: ", type(e)

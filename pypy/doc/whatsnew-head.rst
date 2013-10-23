@@ -111,3 +111,6 @@ make open() and friends rpython
 
 .. branch: incremental-gc
 Added the new incminimark GC which performs GC in incremental steps
+
+.. branch: fast_cffi_list_init
+fastpath for cffi.new("long[]")
