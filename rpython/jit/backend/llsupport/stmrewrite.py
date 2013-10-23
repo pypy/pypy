@@ -239,7 +239,7 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
         if write_barrier_descr is None:
             return v_base    # no barrier needed
 
-        if target_category == 'W':
+        if target_category in ('W', 'V'):
             # if *any* of the readable vars is the same object,
             # it must repeat the read_barrier now
             self.invalidate_read_categories(v_base)
