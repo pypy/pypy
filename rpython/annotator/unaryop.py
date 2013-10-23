@@ -303,20 +303,6 @@ class __extend__(SomeList):
         return s_Bool
     op_contains.can_only_throw = []
 
-    def hint(lst, *args_s):
-        hints = args_s[-1].const
-        if 'maxlength' in hints:
-            # only for iteration over lists or dicts at the moment,
-            # not over an iterator object (because it has no known length)
-            s_iterable = args_s[0]
-            if isinstance(s_iterable, (SomeList, SomeDict)):
-                lst = SomeList(lst.listdef) # create a fresh copy
-                lst.listdef.resize()
-                lst.listdef.listitem.hint_maxlength = True
-        elif 'fence' in hints:
-            lst = lst.listdef.offspring()
-        return lst
-
     def getslice(lst, s_start, s_stop):
         check_negative_slice(s_start, s_stop)
         return lst.listdef.offspring()

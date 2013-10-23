@@ -375,6 +375,47 @@ class Entry(ExtRegistryEntry):
         hop.exception_is_here()
         hop.gendirectcall(r_list.LIST._ll_resize_hint, v_list, v_sizehint)
 
+def newlist_fixed(length):
+    """Create a new fixed-size list of the given length.  The elements
+    are initialized with 0/None/whatever."""
+    return [None] * length    # xxx when not translated, assume list of objects
+
+class Entry(ExtRegistryEntry):
+    _about_ = newlist_fixed
+
+    def compute_result_annotation(self, s_length):
+        from rpython.annotator import model as annmodel
+        assert isinstance(s_length, annmodel.SomeInteger)
+        return self.bookkeeper.newlist()
+
+    def specialize_call(self, hop):
+        from rpython.rtyper.lltypesystem import lltype
+        from rpython.rtyper.rlist import ll_newlist_fixed
+        r_list = hop.r_result
+        v_count, = hop.inputargs(lltype.Signed)
+        cLIST = hop.inputconst(lltype.Void, r_list.LIST)
+        hop.exception_cannot_occur()
+        return hop.gendirectcall(ll_newlist_fixed, cLIST, v_count)
+
+def _is_list_or_dict(x):
+    return isinstance(x, (list, dict))
+
+class Entry(ExtRegistryEntry):
+    _about_ = _is_list_or_dict
+
+    def compute_result_annotation(self, s_x):
+        from rpython.annotator import model as annmodel
+        if annmodel.s_None.contains(s_x):
+            return annmodel.s_ImpossibleValue
+        s = annmodel.SomeBool()
+        s.const = (isinstance(s_x, annmodel.SomeList) or
+                   isinstance(s_x, annmodel.SomeDict))
+        return s
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        return hop.inputconst(hop.r_result.lowleveltype, hop.s_result.const)
+
 # ____________________________________________________________
 #
 # id-like functions.  The idea is that calling hash() or id() is not

@@ -617,16 +617,18 @@ def coalesce_bool(graph):
 # ____________________________________________________________
 
 def detect_list_comprehension(graph):
-    """Look for the pattern:            Replace it with marker operations:
+    """Look for the pattern:            Replace it with these operations:
 
-                                         v0 = newlist()
-        v2 = newlist()                   v1 = hint(v0, iterable, {'maxlength'})
+        v2 = newlist()                   v1 = simple_call(RListCompr)
+        ...                              ...
+        v4 = iter(v3)                    v4 = iter(v3)
+                                         v1.setup(v3)   # initialize
         loop start                       loop start
         ...                              ...
         exactly one append per loop      v1.append(..)
         and nothing else done with v2
         ...                              ...
-        loop end                         v2 = hint(v1, {'fence'})
+        loop end                         v2 = v1.fence() or .fence_exact()
     """
     # NB. this assumes RPythonicity: we can only iterate over something
     # that has a len(), and this len() cannot change as long as we are
@@ -672,7 +674,7 @@ def detect_list_comprehension(graph):
     if not newlist_v or not loops:
         return
 
-    # XXX works with Python >= 2.4 only: find calls to append encoded as
+    # find calls to append encoded as
     # getattr/simple_call pairs, as produced by the LIST_APPEND bytecode.
     for block in graph.iterblocks():
         for i in range(len(block.operations)-1):
@@ -805,6 +807,9 @@ class ListComprehensionDetector(object):
         else:
             return None
 
+    def returns_vlist(self, v_result):
+        return self.variable_families.find_rep(v_result) is self.vlistfamily
+
     def remove_vlist(self, args):
         removed = 0
         for i in range(len(args)-1, -1, -1):
@@ -813,6 +818,56 @@ class ListComprehensionDetector(object):
                 del args[i]
                 removed += 1
         assert removed == 1
+
+    def make_RListCompr_class(self):
+
+        class RListCompr(object):
+            """Class used temporarily for list comprehension, when the
+            list is being built.  In all cases, the instance should be
+            later killed by malloc removal."""
+
+            def setup(self, iterable):
+                # Only optimize iteration over lists or dicts, not over
+                # an iterator object (because it has no known length).
+                # In all cases, 'self.optimize' is an annotation-time
+                # constant.
+                from rpython.rlib import objectmodel
+                self.optimize = objectmodel._is_list_or_dict(iterable)
+                if self.optimize:
+                    self.fixed_list = objectmodel.newlist_fixed(len(iterable))
+                    self.position = 0
+                else:
+                    self.fallback_list = []
+            setup._always_inline_ = True
+
+            def append(self, item):
+                if self.optimize:
+                    p = self.position
+                    self.position = p + 1
+                    self.fixed_list[p] = item
+                else:
+                    self.fallback_list.append(item)
+            append._always_inline_ = True
+
+            def fence_exact(self):
+                if self.optimize:
+                    assert self.position == len(self.fixed_list)
+                    return self.fixed_list
+                else:
+                    return self.fallback_list[:]
+            fence_exact._always_inline_ = True
+
+            def fence(self):
+                if self.optimize:
+                    if self.position == len(self.fixed_list):
+                        return self.fixed_list
+                    else:
+                        return self.fixed_list[:self.position]
+                else:
+                    return self.fallback_list[:]
+            fence._always_inline_ = True
+
+        return RListCompr
 
     def run(self, vlist, vmeth, appendblock):
         # first check that the 'append' method object doesn't escape
@@ -912,6 +967,19 @@ class ListComprehensionDetector(object):
         for stopblock1 in stopblocks:
             assert stopblock1 not in loopbody
 
+        # Get a fresh copy of the RListCompr class
+        RListCompr = self.make_RListCompr_class()
+
+        # Replace the original newlist() with simple_call(RListCompr)
+        for op in newlistblock.operations:
+            if self.returns_vlist(op.result):
+                assert op.opname == 'newlist'
+                op.opname = 'simple_call'
+                op.args[:] = [Constant(RListCompr)]
+                break
+        else:
+            raise AssertionError("lost 'newlist' operation")
+
         # at StopIteration, the new list is exactly of the same length as
         # the one we iterate over if it's not possible to skip the appendblock
         # in the body:
@@ -919,8 +987,8 @@ class ListComprehensionDetector(object):
                                                 avoid = appendblock,
                                                 stay_within = loopbody)
 
-        # - add a hint(vlist, iterable, {'maxlength'}) in the iterblock,
-        #   where we can compute the known maximum length
+        # - add a 'v2 = getattr(v, 'setup'); simple_call(v2, iterable)'
+        #   in the iterblock, where we can compute the known maximum length
         link = iterblock.exits[0]
         vlist = self.contains_vlist(link.args)
         assert vlist
@@ -930,34 +998,33 @@ class ListComprehensionDetector(object):
                 break
         else:
             raise AssertionError("lost 'iter' operation")
-        vlist2 = Variable(vlist)
-        chint = Constant({'maxlength': True})
+        v_method = Variable()
+        v_none = Variable()
         iterblock.operations += [
-            SpaceOperation('hint', [vlist, op.args[0], chint], vlist2)]
-        link.args = list(link.args)
-        for i in range(len(link.args)):
-            if link.args[i] is vlist:
-                link.args[i] = vlist2
+            SpaceOperation('getattr', [vlist, Constant('setup')], v_method),
+            SpaceOperation('simple_call', [v_method, op.args[0]], v_none)]
 
-        # - wherever the list exits the loop body, add a 'hint({fence})'
+        # - wherever the list exits the loop body, add a '.fence()'
         for block in loopbody:
             for link in block.exits:
                 if link.target not in loopbody:
                     vlist = self.contains_vlist(link.args)
                     if vlist is None:
                         continue  # list not passed along this link anyway
-                    hints = {'fence': True}
+                    name = 'fence'
                     if (exactlength and block is loopnextblock and
                         link.target in stopblocks):
-                        hints['exactlength'] = True
-                    chints = Constant(hints)
+                        name = 'fence_exact'
+                    c_name = Constant(name)
                     newblock = unsimplify.insert_empty_block(None, link)
                     index = link.args.index(vlist)
                     vlist2 = newblock.inputargs[index]
                     vlist3 = Variable(vlist2)
                     newblock.inputargs[index] = vlist3
-                    newblock.operations.append(
-                        SpaceOperation('hint', [vlist3, chints], vlist2))
+                    v_method = Variable()
+                    newblock.operations.extend([
+                        SpaceOperation('getattr', [vlist3, c_name], v_method),
+                        SpaceOperation('simple_call', [v_method], vlist2)])
         # done!
 
 

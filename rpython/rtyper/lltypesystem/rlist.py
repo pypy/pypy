@@ -116,34 +116,6 @@ class ListRepr(AbstractListRepr, BaseListRepr):
         result.items = malloc(self.LIST.items.TO, n)
         return result
 
-    def rtype_method_append(self, hop):
-        if getattr(self.listitem, 'hint_maxlength', False):
-            v_lst, v_value = hop.inputargs(self, self.item_repr)
-            hop.exception_cannot_occur()
-            hop.gendirectcall(ll_append_noresize, v_lst, v_value)
-        else:
-            AbstractListRepr.rtype_method_append(self, hop)
-
-    def rtype_hint(self, hop):
-        optimized = getattr(self.listitem, 'hint_maxlength', False)
-        hints = hop.args_s[-1].const
-        if 'maxlength' in hints:
-            if optimized:
-                v_list = hop.inputarg(self, arg=0)
-                v_maxlength = self._get_v_maxlength(hop)
-                hop.llops.gendirectcall(ll_set_maxlength, v_list, v_maxlength)
-                return v_list
-        if 'fence' in hints:
-            v_list = hop.inputarg(self, arg=0)
-            if isinstance(hop.r_result, FixedSizeListRepr):
-                if optimized and 'exactlength' in hints:
-                    llfn = ll_list2fixed_exact
-                else:
-                    llfn = ll_list2fixed
-                v_list = hop.llops.gendirectcall(llfn, v_list)
-            return v_list
-        return AbstractListRepr.rtype_hint(self, hop)
-
 
 class FixedSizeListRepr(AbstractFixedSizeListRepr, BaseListRepr):
 
@@ -400,26 +372,6 @@ def newlist(llops, r_list, items_v, v_sizehint=None):
         ci = inputconst(Signed, i)
         llops.gendirectcall(ll_setitem_nonneg, v_func, v_result, ci, v_item)
     return v_result
-
-# special operations for list comprehension optimization
-def ll_set_maxlength(l, n):
-    LIST = typeOf(l).TO
-    l.items = malloc(LIST.items.TO, n)
-
-def ll_list2fixed(l):
-    n = l.length
-    olditems = l.items
-    if n == len(olditems):
-        return olditems
-    else:
-        LIST = typeOf(l).TO
-        newitems = malloc(LIST.items.TO, n)
-        rgc.ll_arraycopy(olditems, newitems, 0, 0, n)
-        return newitems
-
-def ll_list2fixed_exact(l):
-    ll_assert(l.length == len(l.items), "ll_list2fixed_exact: bad length")
-    return l.items
 
 # ____________________________________________________________
 #

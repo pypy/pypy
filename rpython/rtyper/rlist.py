@@ -489,6 +489,11 @@ def ll_alloc_and_set(LIST, count, item):
             i += 1
     return l
 
+@jit.oopspec("newlist(count)")
+def ll_newlist_fixed(LIST, count):
+    # called by rtyping of objectmodel.newlist_fixed()
+    return LIST.ll_newlist(count)
+
 
 # return a nullptr() if lst is a list of pointers it, else None.
 def ll_null_item(lst):

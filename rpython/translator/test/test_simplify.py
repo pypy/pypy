@@ -244,13 +244,11 @@ class TestDetectListComprehension:
         def f1(l):
             return [x*17 for x in l]
         self.check(f1, {
-            'newlist': 1,
             'iter': 1,
             'next': 1,
             'mul':  1,
-            'getattr': 1,
-            'simple_call': 1,
-            'hint': 2,
+            'getattr': 3,       # setup, append, fence_exact
+            'simple_call': 4,   # RListCompr, setup, append, fence_exact
             })
 
     def test_with_exc(self):
@@ -264,12 +262,10 @@ class TestDetectListComprehension:
             finally:
                 free_some_stuff()
         self.check(f1, {
-            'newlist': 1,
             'iter': 1,
             'next': 1,
-            'getattr': 1,
-            'simple_call': 4,
-            'hint': 2,
+            'getattr': 3,
+            'simple_call': 7,
             })
 
     def test_canraise_before_iter(self):
@@ -281,13 +277,12 @@ class TestDetectListComprehension:
             except ValueError:
                 return []
         self.check(f1, {
-            'newlist': 2,
+            'newlist': 1,
             'iter': 1,
             'next': 1,
             'mul':  1,
-            'getattr': 1,
-            'simple_call': 2,
-            'hint': 2,
+            'getattr': 3,
+            'simple_call': 5,
             })
 
     def test_iterate_over_list(self):
@@ -302,12 +297,10 @@ class TestDetectListComprehension:
             return new_l
 
         self.check(f, {
-            'hint': 2,
-            'newlist': 1,
             'iter': 1,
             'next': 1,
-            'getattr': 1,
-            'simple_call': 3,
+            'getattr': 3,
+            'simple_call': 6,
             })
 
 

@@ -549,6 +549,27 @@ def test_resizelist_hint_len():
     r = interpret(f, [29])
     assert r == 1
 
+def test_newlist_fixed():
+    def f(i):
+        l = newlist_fixed(i)
+        return len(l)
+
+    r = interpret(f, [5])
+    assert r == 5
+
+def test_is_list_or_dict():
+    from rpython.rlib.objectmodel import _is_list_or_dict
+    #
+    def f(x):
+        return _is_list_or_dict(x)
+    r = interpret(f, [5])
+    assert r is False
+    #
+    def f(x):
+        return _is_list_or_dict([x])
+    r = interpret(f, [5])
+    assert r is True
+
 def test_import_from_mixin():
     class M:    # old-style
         def f(self): pass
