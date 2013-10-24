@@ -11,6 +11,7 @@ from rpython.jit.codewriter.effectinfo import (VirtualizableAnalyzer,
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.translator.backendopt.canraise import RaiseAnalyzer
 from rpython.translator.backendopt.writeanalyze import ReadWriteAnalyzer
+from rpython.translator.backendopt.graphanalyze import DependencyTracker
 
 
 class CallControl(object):
@@ -38,6 +39,7 @@ class CallControl(object):
         #
         for index, jd in enumerate(jitdrivers_sd):
             jd.index = index
+        self.seen = DependencyTracker(self.readwrite_analyzer)
 
     def find_all_graphs(self, policy):
         try:
@@ -234,8 +236,8 @@ class CallControl(object):
                 extraeffect = EffectInfo.EF_CANNOT_RAISE
         #
         effectinfo = effectinfo_from_writeanalyze(
-            self.readwrite_analyzer.analyze(op), self.cpu, extraeffect,
-            oopspecindex, can_invalidate, call_release_gil_target,
+            self.readwrite_analyzer.analyze(op, self.seen), self.cpu,
+            extraeffect, oopspecindex, can_invalidate, call_release_gil_target,
         )
         #
         assert effectinfo is not None

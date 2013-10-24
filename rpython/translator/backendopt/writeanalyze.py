@@ -4,6 +4,7 @@ from rpython.translator.backendopt import graphanalyze
 top_set = object()
 empty_set = frozenset()
 
+CUTOFF = 1000
 
 class WriteAnalyzer(graphanalyze.GraphAnalyzer):
     def bottom_result(self):
@@ -20,6 +21,8 @@ class WriteAnalyzer(graphanalyze.GraphAnalyzer):
 
     def add_to_result(self, result, other):
         if other is top_set:
+            return top_set
+        if len(other) + len(result) > CUTOFF:
             return top_set
         result.update(other)
         return result

@@ -3360,21 +3360,28 @@ class BaseLLtypeTests(BasicTests):
         self.check_resops(call=0, getfield_gc=0)
 
     def test_isvirtual_call_assembler(self):
-        driver = JitDriver(greens = ['code'], reds = ['n'])
+        driver = JitDriver(greens = ['code'], reds = ['n', 's'])
 
         @look_inside_iff(lambda t1, t2: isvirtual(t1))
         def g(t1, t2):
             return t1[0] == t2[0]
 
+        def create(n):
+            return (1, 2, n)
+        create._dont_inline_ = True
+
         def f(code, n):
+            s = 0
             while n > 0:
-                driver.can_enter_jit(code=code, n=n)
-                driver.jit_merge_point(code=code, n=n)
-                t = (1, 2, n)
+                driver.can_enter_jit(code=code, n=n, s=s)
+                driver.jit_merge_point(code=code, n=n, s=s)
+                t = create(n)
                 if code:
                     f(0, 3)
+                s += t[2]
                 g(t, (1, 2, n))
                 n -= 1
+            return s
 
         self.meta_interp(f, [1, 10], inline=True)
         self.check_resops(call=0, call_may_force=0, call_assembler=2)
