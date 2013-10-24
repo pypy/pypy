@@ -153,6 +153,14 @@ class AppTest_fast_path_to_list(object):
         misc.unpack_cfloat_list_from_raw_array = (
             unpack_cfloat_list_from_raw_array)
         #
+        original4 = misc.unpack_unsigned_list_from_raw_array
+        def unpack_unsigned_list_from_raw_array(*args):
+            self.count += 1
+            return original4(*args)
+        self._original4 = original4
+        misc.unpack_unsigned_list_from_raw_array = (
+            unpack_unsigned_list_from_raw_array)
+        #
         self.w_runappdirect = self.space.wrap(self.runappdirect)
 
 
@@ -161,6 +169,7 @@ class AppTest_fast_path_to_list(object):
         rarray.populate_list_from_raw_array = self._original
         misc.unpack_list_from_raw_array = self._original2
         misc.unpack_cfloat_list_from_raw_array = self._original3
+        misc.unpack_unsigned_list_from_raw_array = self._original4
 
     def test_list_int(self):
         import _cffi_backend
@@ -230,9 +239,9 @@ class AppTest_fast_path_to_list(object):
         buf = _cffi_backend.newp(USHORT_ARRAY)
         buf[0] = 1
         buf[1] = 2
-        buf[2] = 3
+        buf[2] = 50505
         lst = list(buf)
-        assert lst == [1, 2, 3]
+        assert lst == [1, 2, 50505]
         if not self.runappdirect:
             assert self.get_count() == 1
 

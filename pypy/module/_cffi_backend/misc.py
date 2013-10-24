@@ -346,6 +346,15 @@ def unpack_list_from_raw_array(int_list, source, size):
             return
     raise NotImplementedError("bad integer size")
 
+def unpack_unsigned_list_from_raw_array(int_list, source, size):
+    for TP, TPP in _prim_unsigned_types:
+        if size == rffi.sizeof(TP):
+            ptr = rffi.cast(TPP, source)
+            for i in range(len(int_list)):
+                int_list[i] = rffi.cast(lltype.Signed, ptr[i])
+            return
+    raise NotImplementedError("bad integer size")
+
 def unpack_cfloat_list_from_raw_array(float_list, source):
     ptr = rffi.cast(rffi.FLOATP, source)
     for i in range(len(float_list)):

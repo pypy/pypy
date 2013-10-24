@@ -291,7 +291,8 @@ class W_CTypePrimitiveUnsigned(W_CTypePrimitive):
     def unpack_list_of_int_items(self, w_cdata):
         if self.value_fits_long:
             res = [0] * w_cdata.get_array_length()
-            misc.unpack_list_from_raw_array(res, w_cdata._cdata, self.size)
+            misc.unpack_unsigned_list_from_raw_array(res, w_cdata._cdata,
+                                                     self.size)
             return res
         return None
 
