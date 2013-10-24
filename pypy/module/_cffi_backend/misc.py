@@ -329,3 +329,10 @@ def pack_list_to_raw_array_bounds(int_list, target, size, vmin, vrangemax):
                 ptr[i] = rffi.cast(TP, x)
             return 0
     raise NotImplementedError("bad integer size")
+
+@specialize.arg(2)
+def pack_float_list_to_raw_array(float_list, target, TP, TPP):
+    target = rffi.cast(TPP, target)
+    for i in range(len(float_list)):
+        x = float_list[i]
+        target[i] = rffi.cast(TP, x)

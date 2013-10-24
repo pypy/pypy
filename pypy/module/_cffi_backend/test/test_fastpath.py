@@ -87,6 +87,24 @@ class AppTest_fast_path_from_list(object):
         raises(OverflowError, _cffi_backend.newp, ULONG_ARRAY, [-1])
         raises(OverflowError, _cffi_backend.newp, ULONG_ARRAY, [-sys.maxint])
 
+    def test_fast_init_cfloat_from_list(self):
+        import _cffi_backend
+        FLOAT = _cffi_backend.new_primitive_type('float')
+        P_FLOAT = _cffi_backend.new_pointer_type(FLOAT)
+        FLOAT_ARRAY = _cffi_backend.new_array_type(P_FLOAT, None)
+        buf = _cffi_backend.newp(FLOAT_ARRAY, [1.25, -3.5])
+        assert buf[0] == 1.25
+        assert buf[1] == -3.5
+
+    def test_fast_init_clongdouble_from_list(self):
+        import _cffi_backend
+        LONGDOUBLE = _cffi_backend.new_primitive_type('long double')
+        P_LONGDOUBLE = _cffi_backend.new_pointer_type(LONGDOUBLE)
+        LONGDOUBLE_ARRAY = _cffi_backend.new_array_type(P_LONGDOUBLE, None)
+        buf = _cffi_backend.newp(LONGDOUBLE_ARRAY, [1.25, -3.5])
+        assert float(buf[0]) == 1.25
+        assert float(buf[1]) == -3.5
+
 
 class AppTest_fast_path_bug(object):
     spaceconfig = dict(usemodules=('_cffi_backend', 'cStringIO'))

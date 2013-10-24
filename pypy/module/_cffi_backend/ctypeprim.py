@@ -369,12 +369,16 @@ class W_CTypePrimitiveFloat(W_CTypePrimitive):
         return None
 
     def pack_list_of_items(self, cdata, w_ob):
-        if self.size == rffi.sizeof(rffi.DOUBLE): # XXX
-            float_list = self.space.listview_float(w_ob)
-            if float_list is not None:
+        float_list = self.space.listview_float(w_ob)
+        if float_list is not None:
+            if self.size == rffi.sizeof(rffi.DOUBLE):   # fastest path
                 from rpython.rlib.rarray import copy_list_to_raw_array
                 cdata = rffi.cast(rffi.DOUBLEP, cdata)
                 copy_list_to_raw_array(float_list, cdata)
+                return True
+            elif self.size == rffi.sizeof(rffi.FLOAT):
+                misc.pack_float_list_to_raw_array(float_list, cdata,
+                                                  rffi.FLOAT, rffi.FLOATP)
                 return True
         return W_CTypePrimitive.pack_list_of_items(self, cdata, w_ob)
 
@@ -431,3 +435,11 @@ class W_CTypePrimitiveLongDouble(W_CTypePrimitiveFloat):
         else:
             value = space.float_w(space.float(w_ob))
             self._to_longdouble_and_write(value, cdata)
+
+    def pack_list_of_items(self, cdata, w_ob):
+        float_list = self.space.listview_float(w_ob)
+        if float_list is not None:
+            misc.pack_float_list_to_raw_array(float_list, cdata,
+                                             rffi.LONGDOUBLE, rffi.LONGDOUBLEP)
+            return True
+        return W_CTypePrimitive.pack_list_of_items(self, cdata, w_ob)
