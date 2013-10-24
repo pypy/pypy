@@ -2,6 +2,8 @@
 This module defines the abstract base classes that support execution:
 Code and Frame.
 """
+from rpython.rlib import jit
+
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import W_Root
 
@@ -85,28 +87,15 @@ class Frame(W_Root):
         self.w_locals = w_locals
         self.locals2fast()
 
-    def getfastscope(self):
-        "Abstract. Get the fast locals as a list."
-        raise TypeError("abstract")
-
-    def setfastscope(self, scope_w):
-        """Abstract. Initialize the fast locals from a list of values,
-        where the order is according to self.getcode().signature()."""
-        raise TypeError("abstract")
-
-    def getfastscopelength(self):
-        "Abstract. Get the expected number of locals."
-        raise TypeError("abstract")
-
+    @jit.look_inside_iff(lambda self: jit.isvirtual(self))
     def fast2locals(self):
         # Copy values from the fastlocals to self.w_locals
         if self.w_locals is None:
             self.w_locals = self.space.newdict()
         varnames = self.getcode().getvarnames()
-        fastscope_w = self.getfastscope()
-        for i in range(min(len(varnames), self.getfastscopelength())):
+        for i in range(min(len(varnames), self.pycode.co_nlocals)):
             name = varnames[i]
-            w_value = fastscope_w[i]
+            w_value = self.locals_stack_w[i]
             w_name = self.space.wrap(name)
             if w_value is not None:
                 self.space.setitem(self.w_locals, w_name, w_value)
@@ -117,11 +106,12 @@ class Frame(W_Root):
                     if not e.match(self.space, self.space.w_KeyError):
                         raise
 
+    @jit.look_inside_iff(lambda self: jit.isvirtual(self))
     def locals2fast(self):
         # Copy values from self.w_locals to the fastlocals
         assert self.w_locals is not None
         varnames = self.getcode().getvarnames()
-        numlocals = self.getfastscopelength()
+        numlocals = self.pycode.co_nlocals
 
         new_fastlocals_w = [None] * numlocals
 

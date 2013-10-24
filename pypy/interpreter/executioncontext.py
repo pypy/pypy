@@ -76,7 +76,7 @@ class ExecutionContext(object):
                 frame_vref()
             jit.virtual_ref_finish(frame_vref, frame)
 
-        if self.w_tracefunc is not None and not frame.hide():
+        if self.gettrace() is not None and not frame.hide():
             self.space.frame_trace_action.fire()
 
     # ________________________________________________________________
@@ -115,14 +115,14 @@ class ExecutionContext(object):
 
     def call_trace(self, frame):
         "Trace the call of a function"
-        if self.w_tracefunc is not None or self.profilefunc is not None:
+        if self.gettrace() is not None or self.profilefunc is not None:
             self._trace(frame, 'call', self.space.w_None)
             if self.profilefunc:
                 frame.is_being_profiled = True
 
     def return_trace(self, frame, w_retval):
         "Trace the return from a function"
-        if self.w_tracefunc is not None:
+        if self.gettrace() is not None:
             return_from_hidden = self._trace(frame, 'return', w_retval)
             # special case: if we are returning from a hidden function,
             # then maybe we have to fire() the action again; otherwise
@@ -152,7 +152,7 @@ class ExecutionContext(object):
     def exception_trace(self, frame, operationerr):
         "Trace function called upon OperationError."
         operationerr.record_interpreter_traceback()
-        if self.w_tracefunc is not None:
+        if self.gettrace() is not None:
             self._trace(frame, 'exception', None, operationerr)
         #operationerr.print_detailed_traceback(self.space)
 
@@ -181,7 +181,7 @@ class ExecutionContext(object):
             self.space.frame_trace_action.fire()
 
     def gettrace(self):
-        return self.w_tracefunc
+        return jit.promote(self.w_tracefunc)
 
     def setprofile(self, w_func):
         """Set the global trace function."""
@@ -234,7 +234,7 @@ class ExecutionContext(object):
 
         # Tracing cases
         if event == 'call':
-            w_callback = self.w_tracefunc
+            w_callback = self.gettrace()
         else:
             w_callback = frame.w_f_trace
 
@@ -367,7 +367,7 @@ class AbstractActionFlag(object):
     def _rebuild_action_dispatcher(self):
         periodic_actions = unrolling_iterable(self._periodic_actions)
 
-        @jit.dont_look_inside
+        @jit.unroll_safe
         def action_dispatcher(ec, frame):
             # periodic actions (first reset the bytecode counter)
             self.reset_ticker(self.checkinterval_scaled)
@@ -454,6 +454,9 @@ class UserDelAction(AsyncAction):
     def perform(self, executioncontext, frame):
         if self.finalizers_lock_count > 0:
             return
+        self._run_finalizers()
+
+    def _run_finalizers(self):
         # Each call to perform() first grabs the self.dying_objects
         # and replaces it with an empty list.  We do this to try to
         # avoid too deep recursions of the kind of __del__ being called
@@ -473,9 +476,10 @@ class UserDelAction(AsyncAction):
 class FrameTraceAction(AsyncAction):
     """An action that calls the local trace functions (w_f_trace)."""
 
+    @jit.unroll_safe
     def perform(self, executioncontext, frame):
         if (frame.w_f_trace is None or executioncontext.is_tracing or
-            executioncontext.w_tracefunc is None):
+            executioncontext.gettrace() is None):
             return
         code = frame.pycode
         if frame.instr_lb <= frame.last_instr < frame.instr_ub:

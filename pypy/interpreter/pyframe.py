@@ -440,12 +440,7 @@ class PyFrame(eval.Frame):
     def getcode(self):
         return hint(self.pycode, promote=True)
 
-    @jit.dont_look_inside
-    def getfastscope(self):
-        "Get the fast locals as a list."
-        return self.locals_stack_w
-
-    @jit.dont_look_inside
+    @jit.look_inside_iff(lambda self, scope_w: jit.isvirtual(scope_w))
     def setfastscope(self, scope_w):
         """Initialize the fast locals from a list of values,
         where the order is according to self.pycode.signature()."""
@@ -462,9 +457,6 @@ class PyFrame(eval.Frame):
         """Initialize cellvars from self.locals_stack_w.
         This is overridden in nestedscope.py"""
         pass
-
-    def getfastscopelength(self):
-        return self.pycode.co_nlocals
 
     def getclosure(self):
         return None
