@@ -213,10 +213,6 @@ def insert_ll_stackcheck(translator):
     insert_in = set()
     block2graph = {}
     for caller in translator.graphs:
-        pyobj = getattr(caller, 'func', None)
-        if pyobj is not None:
-            if getattr(pyobj, '_dont_insert_stackcheck_', False):
-                continue
         for block, callee in find_calls_from(translator, caller):
             if getattr(getattr(callee, 'func', None),
                        'insert_stack_check_here', False):
@@ -273,4 +269,4 @@ def transform_graph(ann, extra_passes=None, block_subset=None):
     transform_dead_op_vars(ann, block_subset)
     if ann.translator:
         checkgraphs(ann, block_subset)
-
+ 

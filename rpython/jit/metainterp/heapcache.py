@@ -82,7 +82,6 @@ class HeapCache(object):
         # GETFIELD_GC, MARK_OPAQUE_PTR, PTR_EQ, and PTR_NE don't escape their
         # arguments
         elif (opnum != rop.GETFIELD_GC and
-              opnum != rop.GETFIELD_GC_PURE and
               opnum != rop.MARK_OPAQUE_PTR and
               opnum != rop.PTR_EQ and
               opnum != rop.PTR_NE and

@@ -1078,13 +1078,6 @@ class TestRdict(BaseRtypingTest):
         res = self.interpret(func, [42])
         assert res == 42
 
-    def test_dict_with_empty_tuple_key(self):
-        def func(i):
-            d = {(): i}
-            return d[()]
-        res = self.interpret(func, [42])
-        assert res == 42
-
 
 class TestStress:
 

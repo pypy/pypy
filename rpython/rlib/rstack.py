@@ -67,7 +67,6 @@ def stack_check():
     # Else call the slow path
     stack_check_slowpath(current)
 stack_check._always_inline_ = True
-stack_check._dont_insert_stackcheck_ = True
 
 @rgc.no_collect
 def stack_check_slowpath(current):
@@ -75,4 +74,3 @@ def stack_check_slowpath(current):
         from rpython.rlib.rstackovf import _StackOverflow
         raise _StackOverflow
 stack_check_slowpath._dont_inline_ = True
-stack_check_slowpath._dont_insert_stackcheck_ = True
