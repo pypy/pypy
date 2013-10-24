@@ -105,6 +105,18 @@ class AppTest_fast_path_from_list(object):
         assert float(buf[0]) == 1.25
         assert float(buf[1]) == -3.5
 
+    def test_fast_init_bool_from_list(self):
+        import _cffi_backend
+        BOOL = _cffi_backend.new_primitive_type('_Bool')
+        P_BOOL = _cffi_backend.new_pointer_type(BOOL)
+        BOOL_ARRAY = _cffi_backend.new_array_type(P_BOOL, None)
+        buf = _cffi_backend.newp(BOOL_ARRAY, [1, 0])
+        assert buf[0] == 1
+        assert buf[1] == 0
+        assert type(buf[1]) is int
+        raises(OverflowError, _cffi_backend.newp, BOOL_ARRAY, [2])
+        raises(OverflowError, _cffi_backend.newp, BOOL_ARRAY, [-1])
+
 
 class AppTest_fast_path_bug(object):
     spaceconfig = dict(usemodules=('_cffi_backend', 'cStringIO'))
