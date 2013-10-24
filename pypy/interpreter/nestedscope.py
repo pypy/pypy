@@ -125,8 +125,7 @@ class __extend__(pyframe.PyFrame):
         if len(cellvars) != ncellvars:
             raise OperationError(self.space.w_TypeError,
                                  self.space.wrap("bad cellvars"))
-        if self.cells is not None:
-            self.cells[:ncellvars] = cellvars
+        self.cells[:ncellvars] = cellvars
 
     @jit.look_inside_iff(lambda self: jit.isvirtual(self))
     def fast2locals(self):
@@ -165,8 +164,6 @@ class __extend__(pyframe.PyFrame):
 
     @jit.unroll_safe
     def init_cells(self):
-        if not self.cells:
-            return
         args_to_copy = self.pycode._args_as_cellvars
         for i in range(len(args_to_copy)):
             argnum = args_to_copy[i]
