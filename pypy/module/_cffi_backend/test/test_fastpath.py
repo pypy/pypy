@@ -34,6 +34,15 @@ class AppTest_fast_path_from_list(object):
         assert buf[1] == 2.2
         assert buf[2] == 3.3
 
+    def test_bug(self):
+        import _cffi_backend
+        LONG = _cffi_backend.new_primitive_type('long')
+        five = _cffi_backend.cast(LONG, 5)
+        raises(TypeError, list, five)
+        DOUBLE = _cffi_backend.new_primitive_type('double')
+        five_and_a_half = _cffi_backend.cast(DOUBLE, 5.5)
+        raises(TypeError, list, five_and_a_half)
+
 
 class AppTest_fast_path_to_list(object):
     spaceconfig = dict(usemodules=('_cffi_backend', 'cStringIO'))

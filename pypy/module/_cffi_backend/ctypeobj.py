@@ -49,6 +49,12 @@ class W_CType(W_Root):
     def is_double(self):
         return False
 
+    def aslist_int(self, w_ob):
+        return None
+
+    def aslist_float(self, w_ob):
+        return None
+
     def newp(self, w_init):
         space = self.space
         raise operationerrfmt(space.w_TypeError,
