@@ -95,14 +95,13 @@ class W_CTypePtrOrArray(W_CType):
 
     def convert_array_from_object(self, cdata, w_ob):
         space = self.space
-        if self._convert_array_from_list_strategy_maybe(cdata, w_ob):
-            # the fast path worked, we are done now
-            return
-        #
-        # continue with the slow path
         if (space.isinstance_w(w_ob, space.w_list) or
             space.isinstance_w(w_ob, space.w_tuple)):
-            self._convert_array_from_listview(cdata, w_ob)
+            #
+            if not self._convert_array_from_list_strategy_maybe(cdata, w_ob):
+                # continue with the slow path
+                self._convert_array_from_listview(cdata, w_ob)
+            #
         elif (self.can_cast_anything or
               (self.ctitem.is_primitive_integer and
                self.ctitem.size == rffi.sizeof(lltype.Char))):

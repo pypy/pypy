@@ -35,6 +35,19 @@ class AppTest_fast_path_from_list(object):
         assert buf[2] == 3.3
 
 
+class AppTest_fast_path_bug(object):
+    spaceconfig = dict(usemodules=('_cffi_backend', 'cStringIO'))
+
+    def test_bug_not_list_or_tuple(self):
+        import _cffi_backend
+        LONG = _cffi_backend.new_primitive_type('long')
+        P_LONG = _cffi_backend.new_pointer_type(LONG)
+        LONG_ARRAY_2 = _cffi_backend.new_array_type(P_LONG, 2)
+        P_LONG_ARRAY_2 = _cffi_backend.new_pointer_type(LONG_ARRAY_2)
+        LONG_ARRAY_ARRAY = _cffi_backend.new_array_type(P_LONG_ARRAY_2, None)
+        raises(TypeError, _cffi_backend.newp, LONG_ARRAY_ARRAY, [set([4, 5])])
+
+
 class AppTest_fast_path_to_list(object):
     spaceconfig = dict(usemodules=('_cffi_backend', 'cStringIO'))
 
