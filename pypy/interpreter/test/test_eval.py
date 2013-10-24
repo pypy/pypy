@@ -27,7 +27,6 @@ class TestFrame:
 
         self.f = ConcreteFastscopeFrame(self.space, code, numlocals=5)
 
-
     def test_fast2locals(self):
         space = self.space
         w = space.wrap

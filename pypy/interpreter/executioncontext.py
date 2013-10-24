@@ -310,6 +310,9 @@ class AbstractActionFlag(object):
     the GIL.  And whether we have threads or not, it is forced to zero
     whenever we fire any of the asynchronous actions.
     """
+
+    _immutable_fields_ = ["checkinterval_scaled?"]
+
     def __init__(self):
         self._periodic_actions = []
         self._nonperiodic_actions = []
