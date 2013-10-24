@@ -33,10 +33,12 @@ class CallControl(object):
             self.virtualizable_analyzer = VirtualizableAnalyzer(translator)
             self.quasiimmut_analyzer = QuasiImmutAnalyzer(translator)
             self.randomeffects_analyzer = RandomEffectsAnalyzer(translator)
+            self.seen = DependencyTracker(self.readwrite_analyzer)
+        else:
+            self.seen = None
         #
         for index, jd in enumerate(jitdrivers_sd):
             jd.index = index
-        self.seen = DependencyTracker(self.readwrite_analyzer)
 
     def find_all_graphs(self, policy):
         try:
