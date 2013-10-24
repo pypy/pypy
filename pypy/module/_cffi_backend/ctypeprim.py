@@ -2,6 +2,7 @@
 Primitives.
 """
 
+import sys
 from pypy.interpreter.error import operationerrfmt
 
 from rpython.rlib.rarithmetic import r_uint, r_ulonglong, intmask
@@ -212,14 +213,25 @@ class W_CTypePrimitiveSigned(W_CTypePrimitive):
         return None
 
     def pack_list_of_items(self, cdata, w_ob):
-        if self.size == rffi.sizeof(rffi.LONG): # XXX
-            int_list = self.space.listview_int(w_ob)
-            if int_list is not None:
+        int_list = self.space.listview_int(w_ob)
+        if int_list is not None:
+            if self.size == rffi.sizeof(rffi.LONG): # fastest path
                 from rpython.rlib.rarray import copy_list_to_raw_array
                 cdata = rffi.cast(rffi.LONGP, cdata)
                 copy_list_to_raw_array(int_list, cdata)
-                return True
-        return False
+            else:
+                if self.value_fits_long:
+                    vmin = self.vmin
+                    vrangemax = self.vrangemax
+                else:
+                    vmin = r_uint(0)
+                    vrangemax = r_uint(-1)
+                overflowed = misc.pack_list_to_raw_array_bounds(
+                    int_list, cdata, self.size, vmin, vrangemax)
+                if overflowed != 0:
+                    self._overflow(self.space.wrap(overflowed))
+            return True
+        return W_CTypePrimitive.pack_list_of_items(self, cdata, w_ob)
 
 
 class W_CTypePrimitiveUnsigned(W_CTypePrimitive):
@@ -271,6 +283,20 @@ class W_CTypePrimitiveUnsigned(W_CTypePrimitive):
 
     def write_raw_integer_data(self, w_cdata, value):
         w_cdata.write_raw_unsigned_data(value)
+
+    def pack_list_of_items(self, cdata, w_ob):
+        int_list = self.space.listview_int(w_ob)
+        if int_list is not None:
+            if self.value_fits_long:
+                vrangemax = self.vrangemax
+            else:
+                vrangemax = r_uint(sys.maxint)
+            overflowed = misc.pack_list_to_raw_array_bounds(
+                int_list, cdata, self.size, r_uint(0), vrangemax)
+            if overflowed != 0:
+                self._overflow(self.space.wrap(overflowed))
+            return True
+        return W_CTypePrimitive.pack_list_of_items(self, cdata, w_ob)
 
 
 class W_CTypePrimitiveBool(W_CTypePrimitiveUnsigned):
@@ -350,7 +376,7 @@ class W_CTypePrimitiveFloat(W_CTypePrimitive):
                 cdata = rffi.cast(rffi.DOUBLEP, cdata)
                 copy_list_to_raw_array(float_list, cdata)
                 return True
-        return False
+        return W_CTypePrimitive.pack_list_of_items(self, cdata, w_ob)
 
 
 class W_CTypePrimitiveLongDouble(W_CTypePrimitiveFloat):

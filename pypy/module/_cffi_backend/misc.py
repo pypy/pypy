@@ -315,3 +315,17 @@ def _raw_memclear(dest, size):
             _raw_memclear_tp(TP, TPP, dest)
             return
     raise NotImplementedError("bad clear size")
+
+# ____________________________________________________________
+
+def pack_list_to_raw_array_bounds(int_list, target, size, vmin, vrangemax):
+    for TP, TPP in _prim_signed_types:
+        if size == rffi.sizeof(TP):
+            ptr = rffi.cast(TPP, target)
+            for i in range(len(int_list)):
+                x = int_list[i]
+                if r_uint(x) - vmin > vrangemax:
+                    return x      # overflow
+                ptr[i] = rffi.cast(TP, x)
+            return 0
+    raise NotImplementedError("bad integer size")

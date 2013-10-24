@@ -1,5 +1,6 @@
 # side-effect: FORMAT_LONGDOUBLE must be built before the first test
 from pypy.module._cffi_backend import misc
+from pypy.module._cffi_backend.ctypeobj import W_CType
 
 
 class AppTest_fast_path_from_list(object):
@@ -8,11 +9,11 @@ class AppTest_fast_path_from_list(object):
     def setup_method(self, meth):
         def forbidden(*args):
             assert False, 'The slow path is forbidden'
-        self._original = self.space.listview
-        self.space.listview = forbidden
+        self._original = W_CType.pack_list_of_items.im_func
+        W_CType.pack_list_of_items = forbidden
 
     def teardown_method(self, meth):
-        self.space.listview = self._original
+        W_CType.pack_list_of_items = self._original
 
     def test_fast_init_from_list(self):
         import _cffi_backend
@@ -33,6 +34,58 @@ class AppTest_fast_path_from_list(object):
         assert buf[0] == 1.1
         assert buf[1] == 2.2
         assert buf[2] == 3.3
+
+    def test_fast_init_short_from_list(self):
+        import _cffi_backend
+        SHORT = _cffi_backend.new_primitive_type('short')
+        P_SHORT = _cffi_backend.new_pointer_type(SHORT)
+        SHORT_ARRAY = _cffi_backend.new_array_type(P_SHORT, None)
+        buf = _cffi_backend.newp(SHORT_ARRAY, [1, -2, 3])
+        assert buf[0] == 1
+        assert buf[1] == -2
+        assert buf[2] == 3
+        raises(OverflowError, _cffi_backend.newp, SHORT_ARRAY, [40000])
+        raises(OverflowError, _cffi_backend.newp, SHORT_ARRAY, [-40000])
+
+    def test_fast_init_longlong_from_list(self):
+        if type(2 ** 50) is long:
+            large_int = 2 ** 30
+        else:
+            large_int = 2 ** 50
+        import _cffi_backend
+        LONGLONG = _cffi_backend.new_primitive_type('long long')
+        P_LONGLONG = _cffi_backend.new_pointer_type(LONGLONG)
+        LONGLONG_ARRAY = _cffi_backend.new_array_type(P_LONGLONG, None)
+        buf = _cffi_backend.newp(LONGLONG_ARRAY, [1, -2, 3, large_int])
+        assert buf[0] == 1
+        assert buf[1] == -2
+        assert buf[2] == 3
+        assert buf[3] == large_int
+
+    def test_fast_init_ushort_from_list(self):
+        import _cffi_backend
+        USHORT = _cffi_backend.new_primitive_type('unsigned short')
+        P_USHORT = _cffi_backend.new_pointer_type(USHORT)
+        USHORT_ARRAY = _cffi_backend.new_array_type(P_USHORT, None)
+        buf = _cffi_backend.newp(USHORT_ARRAY, [1, 2, 40000])
+        assert buf[0] == 1
+        assert buf[1] == 2
+        assert buf[2] == 40000
+        raises(OverflowError, _cffi_backend.newp, USHORT_ARRAY, [70000])
+        raises(OverflowError, _cffi_backend.newp, USHORT_ARRAY, [-1])
+
+    def test_fast_init_ulong_from_list(self):
+        import sys
+        import _cffi_backend
+        ULONG = _cffi_backend.new_primitive_type('unsigned long')
+        P_ULONG = _cffi_backend.new_pointer_type(ULONG)
+        ULONG_ARRAY = _cffi_backend.new_array_type(P_ULONG, None)
+        buf = _cffi_backend.newp(ULONG_ARRAY, [1, 2, sys.maxint])
+        assert buf[0] == 1
+        assert buf[1] == 2
+        assert buf[2] == sys.maxint
+        raises(OverflowError, _cffi_backend.newp, ULONG_ARRAY, [-1])
+        raises(OverflowError, _cffi_backend.newp, ULONG_ARRAY, [-sys.maxint])
 
 
 class AppTest_fast_path_bug(object):
