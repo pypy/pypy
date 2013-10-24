@@ -170,6 +170,9 @@ class W_CTypePrimitiveSigned(W_CTypePrimitive):
             sh = self.size * 8
             self.vmin = r_uint(-1) << (sh - 1)
             self.vrangemax = (r_uint(1) << sh) - 1
+        else:
+            self.vmin = r_uint(0)
+            self.vrangemax = r_uint(-1)
 
     def cast_to_int(self, cdata):
         return self.convert_to_object(cdata)
@@ -224,14 +227,8 @@ class W_CTypePrimitiveSigned(W_CTypePrimitive):
                 cdata = rffi.cast(rffi.LONGP, cdata)
                 copy_list_to_raw_array(int_list, cdata)
             else:
-                if self.value_fits_long:
-                    vmin = self.vmin
-                    vrangemax = self.vrangemax
-                else:
-                    vmin = r_uint(0)
-                    vrangemax = r_uint(-1)
                 overflowed = misc.pack_list_to_raw_array_bounds(
-                    int_list, cdata, self.size, vmin, vrangemax)
+                    int_list, cdata, self.size, self.vmin, self.vrangemax)
                 if overflowed != 0:
                     self._overflow(self.space.wrap(overflowed))
             return True
@@ -249,6 +246,8 @@ class W_CTypePrimitiveUnsigned(W_CTypePrimitive):
         self.value_fits_ulong = self.size <= rffi.sizeof(lltype.Unsigned)
         if self.value_fits_long:
             self.vrangemax = self._compute_vrange_max()
+        else:
+            self.vrangemax = r_uint(sys.maxint)
 
     def _compute_vrange_max(self):
         sh = self.size * 8
@@ -299,12 +298,8 @@ class W_CTypePrimitiveUnsigned(W_CTypePrimitive):
     def pack_list_of_items(self, cdata, w_ob):
         int_list = self.space.listview_int(w_ob)
         if int_list is not None:
-            if self.value_fits_long:
-                vrangemax = self.vrangemax
-            else:
-                vrangemax = r_uint(sys.maxint)
             overflowed = misc.pack_list_to_raw_array_bounds(
-                int_list, cdata, self.size, r_uint(0), vrangemax)
+                int_list, cdata, self.size, r_uint(0), self.vrangemax)
             if overflowed != 0:
                 self._overflow(self.space.wrap(overflowed))
             return True
