@@ -345,3 +345,8 @@ def unpack_list_from_raw_array(int_list, source, size):
                 int_list[i] = rffi.cast(lltype.Signed, ptr[i])
             return
     raise NotImplementedError("bad integer size")
+
+def unpack_cfloat_list_from_raw_array(float_list, source):
+    ptr = rffi.cast(rffi.FLOATP, source)
+    for i in range(len(float_list)):
+        float_list[i] = rffi.cast(lltype.Float, ptr[i])

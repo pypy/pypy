@@ -145,6 +145,14 @@ class AppTest_fast_path_to_list(object):
         self._original2 = original2
         misc.unpack_list_from_raw_array = unpack_list_from_raw_array
         #
+        original3 = misc.unpack_cfloat_list_from_raw_array
+        def unpack_cfloat_list_from_raw_array(*args):
+            self.count += 1
+            return original3(*args)
+        self._original3 = original3
+        misc.unpack_cfloat_list_from_raw_array = (
+            unpack_cfloat_list_from_raw_array)
+        #
         self.w_runappdirect = self.space.wrap(self.runappdirect)
 
 
@@ -152,6 +160,7 @@ class AppTest_fast_path_to_list(object):
         from rpython.rlib import rarray
         rarray.populate_list_from_raw_array = self._original
         misc.unpack_list_from_raw_array = self._original2
+        misc.unpack_cfloat_list_from_raw_array = self._original3
 
     def test_list_int(self):
         import _cffi_backend
@@ -224,5 +233,19 @@ class AppTest_fast_path_to_list(object):
         buf[2] = 3
         lst = list(buf)
         assert lst == [1, 2, 3]
+        if not self.runappdirect:
+            assert self.get_count() == 1
+
+    def test_list_cfloat(self):
+        import _cffi_backend
+        FLOAT = _cffi_backend.new_primitive_type('float')
+        P_FLOAT = _cffi_backend.new_pointer_type(FLOAT)
+        FLOAT_ARRAY = _cffi_backend.new_array_type(P_FLOAT, 3)
+        buf = _cffi_backend.newp(FLOAT_ARRAY)
+        buf[0] = 1.25
+        buf[1] = -2.5
+        buf[2] = 3.75
+        lst = list(buf)
+        assert lst == [1.25, -2.5, 3.75]
         if not self.runappdirect:
             assert self.get_count() == 1

@@ -370,12 +370,16 @@ class W_CTypePrimitiveFloat(W_CTypePrimitive):
         misc.write_raw_float_data(cdata, value, self.size)
 
     def unpack_list_of_float_items(self, w_cdata):
-        if self.size == rffi.sizeof(rffi.DOUBLE): # XXX
+        if self.size == rffi.sizeof(rffi.DOUBLE):
             from rpython.rlib.rarray import populate_list_from_raw_array
             res = []
             buf = rffi.cast(rffi.DOUBLEP, w_cdata._cdata)
             length = w_cdata.get_array_length()
             populate_list_from_raw_array(res, buf, length)
+            return res
+        elif self.size == rffi.sizeof(rffi.FLOAT):
+            res = [0.0] * w_cdata.get_array_length()
+            misc.unpack_cfloat_list_from_raw_array(res, w_cdata._cdata)
             return res
         return None
 
@@ -446,6 +450,10 @@ class W_CTypePrimitiveLongDouble(W_CTypePrimitiveFloat):
         else:
             value = space.float_w(space.float(w_ob))
             self._to_longdouble_and_write(value, cdata)
+
+    # Cannot have unpack_list_of_float_items() here:
+    # 'list(array-of-longdouble)' returns a list of cdata objects,
+    # not a list of floats.
 
     def pack_list_of_items(self, cdata, w_ob):
         float_list = self.space.listview_float(w_ob)
