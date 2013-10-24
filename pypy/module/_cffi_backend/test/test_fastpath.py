@@ -138,12 +138,20 @@ class AppTest_fast_path_to_list(object):
         self._original = original
         rarray.populate_list_from_raw_array = populate_list_from_raw_array
         #
+        original2 = misc.unpack_list_from_raw_array
+        def unpack_list_from_raw_array(*args):
+            self.count += 1
+            return original2(*args)
+        self._original2 = original2
+        misc.unpack_list_from_raw_array = unpack_list_from_raw_array
+        #
         self.w_runappdirect = self.space.wrap(self.runappdirect)
 
 
     def teardown_method(self, meth):
         from rpython.rlib import rarray
         rarray.populate_list_from_raw_array = self._original
+        misc.unpack_list_from_raw_array = self._original2
 
     def test_list_int(self):
         import _cffi_backend
@@ -188,5 +196,33 @@ class AppTest_fast_path_to_list(object):
         buf[2] = 3.3
         lst = list(buf)
         assert lst == [1.1, 2.2, 3.3]
+        if not self.runappdirect:
+            assert self.get_count() == 1
+
+    def test_list_short(self):
+        import _cffi_backend
+        SHORT = _cffi_backend.new_primitive_type('short')
+        P_SHORT = _cffi_backend.new_pointer_type(SHORT)
+        SHORT_ARRAY = _cffi_backend.new_array_type(P_SHORT, 3)
+        buf = _cffi_backend.newp(SHORT_ARRAY)
+        buf[0] = 1
+        buf[1] = 2
+        buf[2] = 3
+        lst = list(buf)
+        assert lst == [1, 2, 3]
+        if not self.runappdirect:
+            assert self.get_count() == 1
+
+    def test_list_ushort(self):
+        import _cffi_backend
+        USHORT = _cffi_backend.new_primitive_type('unsigned short')
+        P_USHORT = _cffi_backend.new_pointer_type(USHORT)
+        USHORT_ARRAY = _cffi_backend.new_array_type(P_USHORT, 3)
+        buf = _cffi_backend.newp(USHORT_ARRAY)
+        buf[0] = 1
+        buf[1] = 2
+        buf[2] = 3
+        lst = list(buf)
+        assert lst == [1, 2, 3]
         if not self.runappdirect:
             assert self.get_count() == 1

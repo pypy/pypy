@@ -203,12 +203,16 @@ class W_CTypePrimitiveSigned(W_CTypePrimitive):
         w_cdata.write_raw_signed_data(value)
 
     def unpack_list_of_int_items(self, w_cdata):
-        if self.size == rffi.sizeof(rffi.LONG): # XXX
+        if self.size == rffi.sizeof(rffi.LONG):
             from rpython.rlib.rarray import populate_list_from_raw_array
             res = []
             buf = rffi.cast(rffi.LONGP, w_cdata._cdata)
             length = w_cdata.get_array_length()
             populate_list_from_raw_array(res, buf, length)
+            return res
+        elif self.value_fits_long:
+            res = [0] * w_cdata.get_array_length()
+            misc.unpack_list_from_raw_array(res, w_cdata._cdata, self.size)
             return res
         return None
 
@@ -283,6 +287,13 @@ class W_CTypePrimitiveUnsigned(W_CTypePrimitive):
 
     def write_raw_integer_data(self, w_cdata, value):
         w_cdata.write_raw_unsigned_data(value)
+
+    def unpack_list_of_int_items(self, w_cdata):
+        if self.value_fits_long:
+            res = [0] * w_cdata.get_array_length()
+            misc.unpack_list_from_raw_array(res, w_cdata._cdata, self.size)
+            return res
+        return None
 
     def pack_list_of_items(self, cdata, w_ob):
         int_list = self.space.listview_int(w_ob)

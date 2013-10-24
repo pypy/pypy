@@ -336,3 +336,12 @@ def pack_float_list_to_raw_array(float_list, target, TP, TPP):
     for i in range(len(float_list)):
         x = float_list[i]
         target[i] = rffi.cast(TP, x)
+
+def unpack_list_from_raw_array(int_list, source, size):
+    for TP, TPP in _prim_signed_types:
+        if size == rffi.sizeof(TP):
+            ptr = rffi.cast(TPP, source)
+            for i in range(len(int_list)):
+                int_list[i] = rffi.cast(lltype.Signed, ptr[i])
+            return
+    raise NotImplementedError("bad integer size")
