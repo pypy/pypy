@@ -315,3 +315,47 @@ def _raw_memclear(dest, size):
             _raw_memclear_tp(TP, TPP, dest)
             return
     raise NotImplementedError("bad clear size")
+
+# ____________________________________________________________
+
+def pack_list_to_raw_array_bounds(int_list, target, size, vmin, vrangemax):
+    for TP, TPP in _prim_signed_types:
+        if size == rffi.sizeof(TP):
+            ptr = rffi.cast(TPP, target)
+            for i in range(len(int_list)):
+                x = int_list[i]
+                if r_uint(x) - vmin > vrangemax:
+                    return x      # overflow
+                ptr[i] = rffi.cast(TP, x)
+            return 0
+    raise NotImplementedError("bad integer size")
+
+@specialize.arg(2)
+def pack_float_list_to_raw_array(float_list, target, TP, TPP):
+    target = rffi.cast(TPP, target)
+    for i in range(len(float_list)):
+        x = float_list[i]
+        target[i] = rffi.cast(TP, x)
+
+def unpack_list_from_raw_array(int_list, source, size):
+    for TP, TPP in _prim_signed_types:
+        if size == rffi.sizeof(TP):
+            ptr = rffi.cast(TPP, source)
+            for i in range(len(int_list)):
+                int_list[i] = rffi.cast(lltype.Signed, ptr[i])
+            return
+    raise NotImplementedError("bad integer size")
+
+def unpack_unsigned_list_from_raw_array(int_list, source, size):
+    for TP, TPP in _prim_unsigned_types:
+        if size == rffi.sizeof(TP):
+            ptr = rffi.cast(TPP, source)
+            for i in range(len(int_list)):
+                int_list[i] = rffi.cast(lltype.Signed, ptr[i])
+            return
+    raise NotImplementedError("bad integer size")
+
+def unpack_cfloat_list_from_raw_array(float_list, source):
+    ptr = rffi.cast(rffi.FLOATP, source)
+    for i in range(len(float_list)):
+        float_list[i] = rffi.cast(lltype.Float, ptr[i])
