@@ -93,7 +93,7 @@ class Frame(W_Root):
         if self.w_locals is None:
             self.w_locals = self.space.newdict()
         varnames = self.getcode().getvarnames()
-        for i in range(min(len(varnames), self.pycode.co_nlocals)):
+        for i in range(min(len(varnames), self.getcode().co_nlocals)):
             name = varnames[i]
             w_value = self.locals_stack_w[i]
             w_name = self.space.wrap(name)
@@ -111,7 +111,7 @@ class Frame(W_Root):
         # Copy values from self.w_locals to the fastlocals
         assert self.w_locals is not None
         varnames = self.getcode().getvarnames()
-        numlocals = self.pycode.co_nlocals
+        numlocals = self.getcode().co_nlocals
 
         new_fastlocals_w = [None] * numlocals
 
