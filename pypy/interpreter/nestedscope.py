@@ -165,7 +165,7 @@ class __extend__(pyframe.PyFrame):
 
     @jit.unroll_safe
     def init_cells(self):
-        if self.cells is None:
+        if not self.cells:
             return
         args_to_copy = self.pycode._args_as_cellvars
         for i in range(len(args_to_copy)):
