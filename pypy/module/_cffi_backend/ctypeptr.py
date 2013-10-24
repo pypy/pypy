@@ -42,12 +42,6 @@ class W_CTypePtrOrArray(W_CType):
     def is_char_or_unichar_ptr_or_array(self):
         return isinstance(self.ctitem, ctypeprim.W_CTypePrimitiveCharOrUniChar)
 
-    def aslist_int(self, cdata):
-        return None
-
-    def aslist_float(self, cdata):
-        return None
-
     def cast(self, w_ob):
         # cast to a pointer, to a funcptr, or to an array.
         # Note that casting to an array is an extension to the C language,
@@ -64,24 +58,10 @@ class W_CTypePtrOrArray(W_CType):
             value = rffi.cast(rffi.CCHARP, value)
         return cdataobj.W_CData(space, value, self)
 
-    def _convert_array_from_list_strategy_maybe(self, cdata, w_ob):
-        from rpython.rlib.rarray import copy_list_to_raw_array
-        int_list = self.space.listview_int(w_ob)
-        float_list = self.space.listview_float(w_ob)
-        #
-        if self.ctitem.is_long() and int_list is not None:
-            cdata = rffi.cast(rffi.LONGP, cdata)
-            copy_list_to_raw_array(int_list, cdata)
-            return True
-        #
-        if self.ctitem.is_double() and float_list is not None:
-            cdata = rffi.cast(rffi.DOUBLEP, cdata)
-            copy_list_to_raw_array(float_list, cdata)
-            return True
-        #
-        return False
-
     def _convert_array_from_listview(self, cdata, w_ob):
+        if self.ctitem.pack_list_of_items(cdata, w_ob):   # fast path
+            return
+        #
         space = self.space
         lst_w = space.listview(w_ob)
         if self.length >= 0 and len(lst_w) > self.length:
@@ -95,11 +75,6 @@ class W_CTypePtrOrArray(W_CType):
 
     def convert_array_from_object(self, cdata, w_ob):
         space = self.space
-        if self._convert_array_from_list_strategy_maybe(cdata, w_ob):
-            # the fast path worked, we are done now
-            return
-        #
-        # continue with the slow path
         if (space.isinstance_w(w_ob, space.w_list) or
             space.isinstance_w(w_ob, space.w_tuple)):
             self._convert_array_from_listview(cdata, w_ob)

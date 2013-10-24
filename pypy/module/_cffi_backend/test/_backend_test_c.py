@@ -2949,8 +2949,6 @@ def test_bitfield_as_arm_gcc():
     _test_bitfield_details(flag=2)
 
 def test_bitfield_as_big_endian():
-    if '__pypy__' in sys.builtin_module_names:
-        py.test.skip("no big endian machine supported on pypy for now")
     _test_bitfield_details(flag=4)
 
 

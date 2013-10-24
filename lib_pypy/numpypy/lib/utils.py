@@ -21,14 +21,4 @@ def get_include():
         ...
 
     """
-    try:
-        import numpy
-    except:
-        # running from pypy source directory
-        head, tail = os.path.split(os.path.dirname(os.path.abspath(__file__)))
-        return os.path.join(head, '../include')
-    else:
-        # using installed numpy core headers
-        import numpy.core as core
-        d = os.path.join(os.path.dirname(core.__file__), 'include')
-    return d
+    return os.path.join(os.path.dirname(__file__), '../../../include')
