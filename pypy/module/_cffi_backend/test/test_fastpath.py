@@ -1,18 +1,18 @@
-# side-effect: FORMAT_LONGDOUBLE must be built before test_checkmodule()
+# side-effect: FORMAT_LONGDOUBLE must be built before the first test
 from pypy.module._cffi_backend import misc
-from pypy.module._cffi_backend.ctypeptr import W_CTypePtrOrArray
+
 
 class AppTest_fast_path_from_list(object):
     spaceconfig = dict(usemodules=('_cffi_backend', 'cStringIO'))
 
     def setup_method(self, meth):
-        def forbidden(self, *args):
+        def forbidden(*args):
             assert False, 'The slow path is forbidden'
-        self._original = W_CTypePtrOrArray._convert_array_from_listview.im_func
-        W_CTypePtrOrArray._convert_array_from_listview = forbidden
+        self._original = self.space.listview
+        self.space.listview = forbidden
 
     def teardown_method(self, meth):
-        W_CTypePtrOrArray._convert_array_from_listview = self._original
+        self.space.listview = self._original
 
     def test_fast_init_from_list(self):
         import _cffi_backend

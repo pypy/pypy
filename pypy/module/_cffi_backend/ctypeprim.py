@@ -170,9 +170,6 @@ class W_CTypePrimitiveSigned(W_CTypePrimitive):
             self.vmin = r_uint(-1) << (sh - 1)
             self.vrangemax = (r_uint(1) << sh) - 1
 
-    def is_long(self):
-        return self.size == rffi.sizeof(lltype.Signed)
-
     def cast_to_int(self, cdata):
         return self.convert_to_object(cdata)
 
@@ -203,6 +200,26 @@ class W_CTypePrimitiveSigned(W_CTypePrimitive):
 
     def write_raw_integer_data(self, w_cdata, value):
         w_cdata.write_raw_signed_data(value)
+
+    def unpack_list_of_int_items(self, w_cdata):
+        if self.size == rffi.sizeof(rffi.LONG): # XXX
+            from rpython.rlib.rarray import populate_list_from_raw_array
+            res = []
+            buf = rffi.cast(rffi.LONGP, w_cdata._cdata)
+            length = w_cdata.get_array_length()
+            populate_list_from_raw_array(res, buf, length)
+            return res
+        return None
+
+    def pack_list_of_items(self, cdata, w_ob):
+        if self.size == rffi.sizeof(rffi.LONG): # XXX
+            int_list = self.space.listview_int(w_ob)
+            if int_list is not None:
+                from rpython.rlib.rarray import copy_list_to_raw_array
+                cdata = rffi.cast(rffi.LONGP, cdata)
+                copy_list_to_raw_array(int_list, cdata)
+                return True
+        return False
 
 
 class W_CTypePrimitiveUnsigned(W_CTypePrimitive):
@@ -276,9 +293,6 @@ class W_CTypePrimitiveBool(W_CTypePrimitiveUnsigned):
 class W_CTypePrimitiveFloat(W_CTypePrimitive):
     _attrs_ = []
 
-    def is_double(self):
-        return self.size == rffi.sizeof(lltype.Float)
-
     def cast(self, w_ob):
         space = self.space
         if isinstance(w_ob, cdataobj.W_CData):
@@ -317,6 +331,26 @@ class W_CTypePrimitiveFloat(W_CTypePrimitive):
         space = self.space
         value = space.float_w(space.float(w_ob))
         misc.write_raw_float_data(cdata, value, self.size)
+
+    def unpack_list_of_float_items(self, w_cdata):
+        if self.size == rffi.sizeof(rffi.DOUBLE): # XXX
+            from rpython.rlib.rarray import populate_list_from_raw_array
+            res = []
+            buf = rffi.cast(rffi.DOUBLEP, w_cdata._cdata)
+            length = w_cdata.get_array_length()
+            populate_list_from_raw_array(res, buf, length)
+            return res
+        return None
+
+    def pack_list_of_items(self, cdata, w_ob):
+        if self.size == rffi.sizeof(rffi.DOUBLE): # XXX
+            float_list = self.space.listview_float(w_ob)
+            if float_list is not None:
+                from rpython.rlib.rarray import copy_list_to_raw_array
+                cdata = rffi.cast(rffi.DOUBLEP, cdata)
+                copy_list_to_raw_array(float_list, cdata)
+                return True
+        return False
 
 
 class W_CTypePrimitiveLongDouble(W_CTypePrimitiveFloat):
