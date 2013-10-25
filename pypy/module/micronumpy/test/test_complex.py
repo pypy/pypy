@@ -10,7 +10,7 @@ from rpython.rlib.rfloat import isnan, isinf, copysign
 from rpython.rlib.rcomplex import c_pow
 
 
-def rAlmostEqual(a, b, rel_err=2e-15, abs_err=5e-323, msg='', isnumpy=False):
+def rAlmostEqual(a, b, rel_err=2e-15, abs_err=5e-323, msg=''):
     """Fail if the two floating-point numbers are not almost equal.
 
     Determine whether floating-point values a and b are equal to within
@@ -36,7 +36,7 @@ def rAlmostEqual(a, b, rel_err=2e-15, abs_err=5e-323, msg='', isnumpy=False):
     # (in theory there are examples where it would be legitimate for a
     # and b to have opposite signs; in practice these hardly ever
     # occur).
-    if not a and not b and not isnumpy:
+    if not a and not b:
         # only check it if we are running on top of CPython >= 2.6
         if sys.version_info >= (2, 6) and copysign(1., a) != copysign(1., b):
             raise AssertionError( msg + \
@@ -112,8 +112,6 @@ class AppTestUfuncs(BaseNumpyAppTest):
                     (k, space.unwrap(v))
                     for k, v in kwargs.iteritems()
                 ])
-                if '__pypy__' not in sys.builtin_module_names:
-                    kwargs['isnumpy'] = True
                 return space.wrap(rAlmostEqual(*args, **kwargs))
             cls.w_rAlmostEqual = cls.space.wrap(interp2app(cls_rAlmostEqual))
             def cls_c_pow(space, args_w):
@@ -616,9 +614,9 @@ class AppTestUfuncs(BaseNumpyAppTest):
         import numpypy as np
         rAlmostEqual = self.rAlmostEqual
 
-        for complex_, abs_err, testcases in (\
-                 (np.complex128, 5e-323, self.testcases128),
-                 # (np.complex64,  5e-32,  self.testcases64),
+        for complex_, testcases in (
+                 (np.complex128, self.testcases128),
+                 #(np.complex64, self.testcases64),
                 ):
             for id, fn, ar, ai, er, ei, flags in testcases:
                 arg = complex_(complex(ar, ai))
@@ -647,7 +645,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
                 if fn in ('log', 'log10'):
                     real_abs_err = 2e-15
                 else:
-                    real_abs_err = abs_err
+                    real_abs_err = 5e-323
 
                 error_message = (
                     '%s: %s(%r(%r, %r))\n'
@@ -660,9 +658,9 @@ class AppTestUfuncs(BaseNumpyAppTest):
                 # since rAlmostEqual is a wrapped function,
                 # convert arguments to avoid boxed values
                 rAlmostEqual(float(expected[0]), float(actual[0]),
-                               abs_err=real_abs_err, msg=error_message)
+                             abs_err=real_abs_err, msg=error_message)
                 rAlmostEqual(float(expected[1]), float(actual[1]),
-                                   msg=error_message)
+                             msg=error_message)
                 sys.stderr.write('.')
             sys.stderr.write('\n')
 

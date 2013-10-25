@@ -315,16 +315,16 @@ class AppTestUfuncs(BaseNumpyAppTest):
         for i in range(4):
             assert b[i] == reference[i]
 
-        for dtype in ['int8', 'int16', 'int32', 'int64',
-                      'uint8', 'uint16', 'uint32', 'uint64']:
+        for dtype in 'bBhHiIlLqQ':
+            a = array([-2, -1, 0, 1, 2], dtype)
             reference = [0, -1, 0, 1, 0]
+            dtype = a.dtype.name
             if dtype[0] == 'u':
                 reference[1] = 0
             elif dtype == 'int32':
                     reference[2] = -2147483648
             elif dtype == 'int64':
                     reference[2] = -9223372036854775808
-            a = array([-2, -1, 0, 1, 2], dtype)
             b = reciprocal(a)
             assert (b == reference).all()
 
