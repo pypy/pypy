@@ -431,7 +431,6 @@ class TestCall(BaseTestPyPyC):
             i15 = getfield_gc_pure(p8, descr=<FieldS pypy.objspace.std.intobject.W_IntObject.inst_intval .*>)
             i17 = int_lt(i15, 5000)
             guard_true(i17, descr=...)
-            p18 = getfield_gc(p0, descr=<FieldP pypy.interpreter.eval.Frame.inst_w_globals .*>)
             guard_value(p18, ConstPtr(ptr19), descr=...)
             p20 = getfield_gc(p18, descr=<FieldP pypy.objspace.std.dictmultiobject.W_DictMultiObject.inst_strategy .*>)
             guard_value(p20, ConstPtr(ptr21), descr=...)
