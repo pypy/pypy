@@ -39,7 +39,6 @@ class CallControl(object):
         #
         for index, jd in enumerate(jitdrivers_sd):
             jd.index = index
-        self.seen = DependencyTracker(self.readwrite_analyzer)
 
     def find_all_graphs(self, policy):
         try:
