@@ -55,7 +55,7 @@ def should_unroll_one_iteration(next_instr, is_being_profiled, bytecode, is_trac
 
 class PyPyJitDriver(JitDriver):
     reds = ['frame', 'ec']
-    greens = ['next_instr', 'is_being_profiled', 'pycode', 'is_tracefunc']
+    greens = ['next_instr', 'is_being_profiled', 'is_tracefunc', 'pycode']
     virtualizables = ['frame']
 
 pypyjitdriver = PyPyJitDriver(get_printable_location = get_printable_location,
