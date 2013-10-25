@@ -140,7 +140,7 @@ class AppTestRCTime:
         ltime = rctime.localtime()
         assert rctime.asctime(tuple(ltime)) == rctime.asctime(ltime)
         try:
-            assert rctime.asctime((12345,) + (0,) * 8).split()[-1] == '12345'
+            rctime.asctime((12345,) + (0,) * 8)  # assert this doesn't crash
         except ValueError:
             pass  # some OS (ie POSIXes besides Linux) reject year > 9999
 
