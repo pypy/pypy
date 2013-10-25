@@ -605,7 +605,7 @@ def generic_new_descr(W_Type):
 #
 # Definition of the type's descriptors for all the internal types
 
-from pypy.interpreter.eval import Code, Frame
+from pypy.interpreter.eval import Code
 from pypy.interpreter.pycode import PyCode, CO_VARARGS, CO_VARKEYWORDS
 from pypy.interpreter.pyframe import PyFrame
 from pypy.interpreter.pyopcode import SuspendedUnroller
@@ -711,13 +711,6 @@ BuiltinCode.typedef = TypeDef('builtin-code',
 BuiltinCode.typedef.acceptable_as_base_class = False
 
 
-Frame.typedef = TypeDef('internal-frame',
-    f_code = GetSetProperty(Frame.fget_code),
-    f_locals = GetSetProperty(Frame.fget_getdictscope),
-    f_globals = interp_attrproperty_w('w_globals', cls=Frame),
-    )
-Frame.typedef.acceptable_as_base_class = False
-
 PyCode.typedef = TypeDef('code',
     __new__ = interp2app(PyCode.descr_code__new__.im_func),
     __eq__ = interp2app(PyCode.descr_code__eq__),
@@ -756,7 +749,10 @@ PyFrame.typedef = TypeDef('frame',
     f_exc_value = GetSetProperty(PyFrame.fget_f_exc_value),
     f_exc_traceback = GetSetProperty(PyFrame.fget_f_exc_traceback),
     f_restricted = GetSetProperty(PyFrame.fget_f_restricted),
-    **Frame.typedef.rawdict)
+    f_code = GetSetProperty(PyFrame.fget_code),
+    f_locals = GetSetProperty(PyFrame.fget_getdictscope),
+    f_globals = interp_attrproperty_w('w_globals', cls=PyFrame),
+)
 PyFrame.typedef.acceptable_as_base_class = False
 
 Module.typedef = TypeDef("module",
