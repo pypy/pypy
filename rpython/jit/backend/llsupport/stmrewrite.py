@@ -69,7 +69,9 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
             # ----------  pure operations needing read-barrier  ----------
             if opnum in (rop.GETFIELD_GC_PURE,
                         rop.GETARRAYITEM_GC_PURE,
-                        rop.ARRAYLEN_GC,):
+                        rop.ARRAYLEN_GC, rop.STRGETITEM,
+                        rop.UNICODEGETITEM, rop.STRLEN,
+                        rop.UNICODELEN):
                 # e.g. getting inst_intval of a W_IntObject that is
                 # currently only a stub needs to first resolve to a 
                 # real object

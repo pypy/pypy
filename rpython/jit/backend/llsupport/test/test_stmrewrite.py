@@ -646,8 +646,24 @@ class TestStm(RewriteTests):
             stm_transaction_break(1)
             jump()
         """)
-        py.test.skip("XXX not really right: should instead be an assert "
-                     "that p1 is already a W")
+        # py.test.skip("XXX not really right: should instead be an assert "
+        #              "that p1 is already a W")
+
+    def test_rewrite_strgetitem_unicodegetitem(self):
+        self.check_rewrite("""
+            [p1, i2, i3]
+            i4=strgetitem(p1, i2)
+            i5=unicodegetitem(p1, i2)
+            jump()
+        """, """
+            [p1, i2, i3]
+            cond_call_stm_b(p1, descr=A2Idescr)
+            i4=strgetitem(p1, i2)
+            i5=unicodegetitem(p1, i2)
+            stm_transaction_break(1)
+            jump()
+        """)
+    
 
     def test_call_release_gil(self):
         T = rffi.CArrayPtr(rffi.TIME_T)

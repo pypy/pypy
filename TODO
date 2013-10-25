@@ -1,5 +1,20 @@
 ------------------------------------------------------------
 
+constptrs always require slowpath of read_barrier if they
+point to a stub
+they also always require the slowpath of a write-barrier
+because there is always one indirection to the current version
+
+------------------------------------------------------------
+
+we may have too many transaction breaks in jitted code.
+
+------------------------------------------------------------
+
+unregister constptrs in stmgc when freeing traces
+
+------------------------------------------------------------
+
 stm-jitdriver with autoreds
 
 ------------------------------------------------------------
