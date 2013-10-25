@@ -87,7 +87,7 @@ class Frame(W_Root):
         self.w_locals = w_locals
         self.locals2fast()
 
-    @jit.look_inside_iff(lambda self: jit.isvirtual(self))
+    @jit.unroll_safe
     def fast2locals(self):
         # Copy values from the fastlocals to self.w_locals
         if self.w_locals is None:
@@ -106,7 +106,7 @@ class Frame(W_Root):
                     if not e.match(self.space, self.space.w_KeyError):
                         raise
 
-    @jit.look_inside_iff(lambda self: jit.isvirtual(self))
+    @jit.unroll_safe
     def locals2fast(self):
         # Copy values from self.w_locals to the fastlocals
         assert self.w_locals is not None
