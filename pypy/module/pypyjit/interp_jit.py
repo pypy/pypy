@@ -27,7 +27,7 @@ PyFrame._virtualizable_ = ['last_instr', 'pycode',
 
 JUMP_ABSOLUTE = opmap['JUMP_ABSOLUTE']
 
-def get_printable_location(next_instr, is_being_profiled, bytecode, is_tracefunc):
+def get_printable_location(next_instr, is_being_profiled, is_tracefunc, bytecode):
     from pypy.tool.stdlib_opcode import opcode_method_names
     name = opcode_method_names[ord(bytecode.co_code[next_instr])]
     return '%s #%d %s' % (bytecode.get_repr(), next_instr, name)
@@ -41,16 +41,16 @@ def make_greenkey_dict_key(next_instr, is_being_profiled, is_tracefunc):
         r_uint(intmask(is_tracefunc))
     )
 
-def get_jitcell_at(next_instr, is_being_profiled, bytecode, is_tracefunc):
+def get_jitcell_at(next_instr, is_being_profiled, is_tracefunc, bytecode):
     key = make_greenkey_dict_key(next_instr, is_being_profiled, is_tracefunc)
     return bytecode.jit_cells.get(key, None)
 
-def set_jitcell_at(newcell, next_instr, is_being_profiled, bytecode, is_tracefunc):
+def set_jitcell_at(newcell, next_instr, is_being_profiled, is_tracefunc, bytecode):
     key = make_greenkey_dict_key(next_instr, is_being_profiled, is_tracefunc)
     bytecode.jit_cells[key] = newcell
 
 
-def should_unroll_one_iteration(next_instr, is_being_profiled, bytecode, is_tracefunc):
+def should_unroll_one_iteration(next_instr, is_being_profiled, is_tracefunc, bytecode):
     return (bytecode.co_flags & CO_GENERATOR) != 0
 
 class PyPyJitDriver(JitDriver):
