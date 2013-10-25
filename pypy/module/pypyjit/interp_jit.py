@@ -27,28 +27,35 @@ PyFrame._virtualizable_ = ['last_instr', 'pycode',
 
 JUMP_ABSOLUTE = opmap['JUMP_ABSOLUTE']
 
-def get_printable_location(next_instr, is_being_profiled, bytecode):
+def get_printable_location(next_instr, is_being_profiled, bytecode, is_tracefunc):
     from pypy.tool.stdlib_opcode import opcode_method_names
     name = opcode_method_names[ord(bytecode.co_code[next_instr])]
     return '%s #%d %s' % (bytecode.get_repr(), next_instr, name)
 
-def get_jitcell_at(next_instr, is_being_profiled, bytecode):
+def make_greenkey_dict_key(next_instr, is_being_profiled, is_tracefunc):
     # use only uints as keys in the jit_cells dict, rather than
     # a tuple (next_instr, is_being_profiled)
-    key = (next_instr << 1) | r_uint(intmask(is_being_profiled))
+    return (
+        (next_instr << 2) |
+        (r_uint(intmask(is_being_profiled)) << 1) |
+        r_uint(intmask(is_tracefunc))
+    )
+
+def get_jitcell_at(next_instr, is_being_profiled, bytecode, is_tracefunc):
+    key = make_greenkey_dict_key(next_instr, is_being_profiled, is_tracefunc)
     return bytecode.jit_cells.get(key, None)
 
-def set_jitcell_at(newcell, next_instr, is_being_profiled, bytecode):
-    key = (next_instr << 1) | r_uint(intmask(is_being_profiled))
+def set_jitcell_at(newcell, next_instr, is_being_profiled, bytecode, is_tracefunc):
+    key = make_greenkey_dict_key(next_instr, is_being_profiled, is_tracefunc)
     bytecode.jit_cells[key] = newcell
 
 
-def should_unroll_one_iteration(next_instr, is_being_profiled, bytecode):
+def should_unroll_one_iteration(next_instr, is_being_profiled, bytecode, is_tracefunc):
     return (bytecode.co_flags & CO_GENERATOR) != 0
 
 class PyPyJitDriver(JitDriver):
     reds = ['frame', 'ec']
-    greens = ['next_instr', 'is_being_profiled', 'pycode']
+    greens = ['next_instr', 'is_being_profiled', 'pycode', 'is_tracefunc']
     virtualizables = ['frame']
 
 pypyjitdriver = PyPyJitDriver(get_printable_location = get_printable_location,
@@ -68,7 +75,8 @@ class __extend__(PyFrame):
             while True:
                 pypyjitdriver.jit_merge_point(ec=ec,
                     frame=self, next_instr=next_instr, pycode=pycode,
-                    is_being_profiled=is_being_profiled)
+                    is_being_profiled=is_being_profiled,
+                    is_tracefunc=ec.gettrace() is not None)
                 co_code = pycode.co_code
                 self.valuestackdepth = hint(self.valuestackdepth, promote=True)
                 next_instr = self.handle_bytecode(co_code, next_instr, ec)
@@ -97,7 +105,8 @@ class __extend__(PyFrame):
         #
         pypyjitdriver.can_enter_jit(frame=self, ec=ec, next_instr=jumpto,
                                     pycode=self.getcode(),
-                                    is_being_profiled=self.is_being_profiled)
+                                    is_being_profiled=self.is_being_profiled,
+                                    is_tracefunc=ec.gettrace() is not None)
         return jumpto
 
 def _get_adapted_tick_counter():
