@@ -8,7 +8,7 @@ from rpython.rlib.objectmodel import we_are_translated, instantiate
 from rpython.rlib.rarithmetic import intmask, r_uint
 from rpython.tool.pairtype import extendabletype
 
-from pypy.interpreter import eval, pycode, pytraceback
+from pypy.interpreter import pycode, pytraceback
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, operationerrfmt
@@ -443,12 +443,7 @@ class PyFrame(W_Root):
     def getcode(self):
         return hint(self.pycode, promote=True)
 
-    @jit.dont_look_inside
-    def getfastscope(self):
-        "Get the fast locals as a list."
-        return self.locals_stack_w
-
-    @jit.dont_look_inside
+    @jit.look_inside_iff(lambda self, scope_w: jit.isvirtual(scope_w))
     def setfastscope(self, scope_w):
         """Initialize the fast locals from a list of values,
         where the order is according to self.pycode.signature()."""
@@ -475,15 +470,15 @@ class PyFrame(W_Root):
         self.w_locals = w_locals
         self.locals2fast()
 
+    @jit.unroll_safe
     def fast2locals(self):
         # Copy values from the fastlocals to self.w_locals
         if self.w_locals is None:
             self.w_locals = self.space.newdict()
         varnames = self.getcode().getvarnames()
-        fastscope_w = self.getfastscope()
-        for i in range(min(len(varnames), self.getfastscopelength())):
+        for i in range(min(len(varnames), self.getcode().co_nlocals)):
             name = varnames[i]
-            w_value = fastscope_w[i]
+            w_value = self.locals_stack_w[i]
             w_name = self.space.wrap(name)
             if w_value is not None:
                 self.space.setitem(self.w_locals, w_name, w_value)
@@ -494,11 +489,12 @@ class PyFrame(W_Root):
                     if not e.match(self.space, self.space.w_KeyError):
                         raise
 
+    @jit.unroll_safe
     def locals2fast(self):
         # Copy values from self.w_locals to the fastlocals
         assert self.w_locals is not None
         varnames = self.getcode().getvarnames()
-        numlocals = self.getfastscopelength()
+        numlocals = self.getcode().co_nlocals
 
         new_fastlocals_w = [None] * numlocals
 
@@ -518,9 +514,6 @@ class PyFrame(W_Root):
         """Initialize cellvars from self.locals_stack_w.
         This is overridden in nestedscope.py"""
         pass
-
-    def getfastscopelength(self):
-        return self.pycode.co_nlocals
 
     def getclosure(self):
         return None

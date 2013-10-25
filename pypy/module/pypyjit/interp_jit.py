@@ -32,14 +32,20 @@ def get_printable_location(next_instr, is_being_profiled, bytecode):
     name = opcode_method_names[ord(bytecode.co_code[next_instr])]
     return '%s #%d %s' % (bytecode.get_repr(), next_instr, name)
 
-def get_jitcell_at(next_instr, is_being_profiled, bytecode):
+def make_greenkey_dict_key(next_instr, is_being_profiled):
     # use only uints as keys in the jit_cells dict, rather than
     # a tuple (next_instr, is_being_profiled)
-    key = (next_instr << 1) | r_uint(intmask(is_being_profiled))
+    return (
+        (next_instr << 1) |
+        r_uint(intmask(is_being_profiled))
+    )
+
+def get_jitcell_at(next_instr, is_being_profiled, bytecode):
+    key = make_greenkey_dict_key(next_instr, is_being_profiled)
     return bytecode.jit_cells.get(key, None)
 
 def set_jitcell_at(newcell, next_instr, is_being_profiled, bytecode):
-    key = (next_instr << 1) | r_uint(intmask(is_being_profiled))
+    key = make_greenkey_dict_key(next_instr, is_being_profiled)
     bytecode.jit_cells[key] = newcell
 
 

@@ -127,7 +127,7 @@ class __extend__(pyframe.PyFrame):
                                  self.space.wrap("bad cellvars"))
         self.cells[:ncellvars] = cellvars
 
-    @jit.dont_look_inside
+    @jit.unroll_safe
     def fast2locals(self):
         super_fast2locals(self)
         # cellvars are values exported to inner scopes
@@ -146,7 +146,7 @@ class __extend__(pyframe.PyFrame):
                 w_name = self.space.wrap(name)
                 self.space.setitem(self.w_locals, w_name, w_value)
 
-    @jit.dont_look_inside
+    @jit.unroll_safe
     def locals2fast(self):
         super_locals2fast(self)
         freevarnames = self.pycode.co_cellvars + self.pycode.co_freevars
