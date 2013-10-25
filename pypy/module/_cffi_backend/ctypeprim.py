@@ -207,7 +207,7 @@ class W_CTypePrimitiveSigned(W_CTypePrimitive):
 
     def unpack_list_of_int_items(self, w_cdata):
         if self.size == rffi.sizeof(rffi.LONG):
-            from rpython.rlib.rarray import populate_list_from_raw_array
+            from rpython.rlib.rrawarray import populate_list_from_raw_array
             res = []
             buf = rffi.cast(rffi.LONGP, w_cdata._cdata)
             length = w_cdata.get_array_length()
@@ -223,7 +223,7 @@ class W_CTypePrimitiveSigned(W_CTypePrimitive):
         int_list = self.space.listview_int(w_ob)
         if int_list is not None:
             if self.size == rffi.sizeof(rffi.LONG): # fastest path
-                from rpython.rlib.rarray import copy_list_to_raw_array
+                from rpython.rlib.rrawarray import copy_list_to_raw_array
                 cdata = rffi.cast(rffi.LONGP, cdata)
                 copy_list_to_raw_array(int_list, cdata)
             else:
@@ -367,7 +367,7 @@ class W_CTypePrimitiveFloat(W_CTypePrimitive):
 
     def unpack_list_of_float_items(self, w_cdata):
         if self.size == rffi.sizeof(rffi.DOUBLE):
-            from rpython.rlib.rarray import populate_list_from_raw_array
+            from rpython.rlib.rrawarray import populate_list_from_raw_array
             res = []
             buf = rffi.cast(rffi.DOUBLEP, w_cdata._cdata)
             length = w_cdata.get_array_length()
@@ -383,7 +383,7 @@ class W_CTypePrimitiveFloat(W_CTypePrimitive):
         float_list = self.space.listview_float(w_ob)
         if float_list is not None:
             if self.size == rffi.sizeof(rffi.DOUBLE):   # fastest path
-                from rpython.rlib.rarray import copy_list_to_raw_array
+                from rpython.rlib.rrawarray import copy_list_to_raw_array
                 cdata = rffi.cast(rffi.DOUBLEP, cdata)
                 copy_list_to_raw_array(float_list, cdata)
                 return True

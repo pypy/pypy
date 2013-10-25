@@ -136,19 +136,19 @@ class AppTest_fast_path_to_list(object):
 
     def setup_method(self, meth):
         from pypy.interpreter import gateway
-        from rpython.rlib import rarray
+        from rpython.rlib import rrawarray
         #
         self.count = 0
         def get_count(*args):
             return self.space.wrap(self.count)
         self.w_get_count = self.space.wrap(gateway.interp2app(get_count))
         #
-        original = rarray.populate_list_from_raw_array
+        original = rrawarray.populate_list_from_raw_array
         def populate_list_from_raw_array(*args):
             self.count += 1
             return original(*args)
         self._original = original
-        rarray.populate_list_from_raw_array = populate_list_from_raw_array
+        rrawarray.populate_list_from_raw_array = populate_list_from_raw_array
         #
         original2 = misc.unpack_list_from_raw_array
         def unpack_list_from_raw_array(*args):
@@ -177,8 +177,8 @@ class AppTest_fast_path_to_list(object):
 
 
     def teardown_method(self, meth):
-        from rpython.rlib import rarray
-        rarray.populate_list_from_raw_array = self._original
+        from rpython.rlib import rrawarray
+        rrawarray.populate_list_from_raw_array = self._original
         misc.unpack_list_from_raw_array = self._original2
         misc.unpack_cfloat_list_from_raw_array = self._original3
         misc.unpack_unsigned_list_from_raw_array = self._original4

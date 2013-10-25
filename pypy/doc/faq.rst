@@ -266,6 +266,7 @@ use of reflection capabilities (e.g. ``__dict__``).
 You cannot use most existing standard library modules from RPython.  The
 exceptions are
 some functions in ``os``, ``math`` and ``time`` that have native support.
+We have our own "RPython standard library" in ``rpython.rlib.*``.
 
 To read more about the RPython limitations read the `RPython description`_.
 

@@ -1,19 +1,19 @@
 """ PyFrame class implementation with the interpreter main loop.
 """
 
+from rpython.rlib import jit
+from rpython.rlib.debug import make_sure_not_resized, check_nonneg
+from rpython.rlib.jit import hint
+from rpython.rlib.objectmodel import we_are_translated, instantiate
+from rpython.rlib.rarithmetic import intmask, r_uint
 from rpython.tool.pairtype import extendabletype
-from pypy.interpreter import eval, pycode
+
+from pypy.interpreter import eval, pycode, pytraceback
 from pypy.interpreter.argument import Arguments
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.executioncontext import ExecutionContext
-from pypy.interpreter import pytraceback
-from rpython.rlib.objectmodel import we_are_translated, instantiate
-from rpython.rlib.jit import hint
-from rpython.rlib.debug import make_sure_not_resized, check_nonneg
-from rpython.rlib.rarithmetic import intmask, r_uint
-from rpython.rlib import jit
 from pypy.tool import stdlib_opcode
-from rpython.tool.stdlib_opcode import host_bytecode_spec
 
 # Define some opcodes used
 for op in '''DUP_TOP POP_TOP SETUP_LOOP SETUP_EXCEPT SETUP_FINALLY
@@ -21,7 +21,8 @@ POP_BLOCK END_FINALLY'''.split():
     globals()[op] = stdlib_opcode.opmap[op]
 HAVE_ARGUMENT = stdlib_opcode.HAVE_ARGUMENT
 
-class PyFrame(eval.Frame):
+
+class PyFrame(W_Root):
     """Represents a frame for a regular Python function
     that needs to be interpreted.
 
@@ -56,8 +57,10 @@ class PyFrame(eval.Frame):
                 "use space.FrameClass(), not directly PyFrame()")
         self = hint(self, access_directly=True, fresh_virtualizable=True)
         assert isinstance(code, pycode.PyCode)
+        self.space = space
+        self.w_globals = w_globals
+        self.w_locals = None
         self.pycode = code
-        eval.Frame.__init__(self, space, w_globals)
         self.locals_stack_w = [None] * (code.co_nlocals + code.co_stacksize)
         self.valuestackdepth = code.co_nlocals
         self.lastblock = None
@@ -453,6 +456,59 @@ class PyFrame(eval.Frame):
             self.locals_stack_w[i] = scope_w[i]
         self.init_cells()
 
+    def getdictscope(self):
+        """
+        Get the locals as a dictionary
+        """
+        self.fast2locals()
+        return self.w_locals
+
+    def setdictscope(self, w_locals):
+        """
+        Initialize the locals from a dictionary.
+        """
+        self.w_locals = w_locals
+        self.locals2fast()
+
+    def fast2locals(self):
+        # Copy values from the fastlocals to self.w_locals
+        if self.w_locals is None:
+            self.w_locals = self.space.newdict()
+        varnames = self.getcode().getvarnames()
+        fastscope_w = self.getfastscope()
+        for i in range(min(len(varnames), self.getfastscopelength())):
+            name = varnames[i]
+            w_value = fastscope_w[i]
+            w_name = self.space.wrap(name)
+            if w_value is not None:
+                self.space.setitem(self.w_locals, w_name, w_value)
+            else:
+                try:
+                    self.space.delitem(self.w_locals, w_name)
+                except OperationError as e:
+                    if not e.match(self.space, self.space.w_KeyError):
+                        raise
+
+    def locals2fast(self):
+        # Copy values from self.w_locals to the fastlocals
+        assert self.w_locals is not None
+        varnames = self.getcode().getvarnames()
+        numlocals = self.getfastscopelength()
+
+        new_fastlocals_w = [None] * numlocals
+
+        for i in range(min(len(varnames), numlocals)):
+            w_name = self.space.wrap(varnames[i])
+            try:
+                w_value = self.space.getitem(self.w_locals, w_name)
+            except OperationError, e:
+                if not e.match(self.space, self.space.w_KeyError):
+                    raise
+            else:
+                new_fastlocals_w[i] = w_value
+
+        self.setfastscope(new_fastlocals_w)
+
     def init_cells(self):
         """Initialize cellvars from self.locals_stack_w.
         This is overridden in nestedscope.py"""
@@ -467,6 +523,12 @@ class PyFrame(eval.Frame):
     def _setcellvars(self, cellvars):
         pass
 
+    def fget_code(self, space):
+        return space.wrap(self.getcode())
+
+    def fget_getdictscope(self, space):
+        return self.getdictscope()
+
     ### line numbers ###
 
     def fget_f_lineno(self, space):
@@ -480,7 +542,7 @@ class PyFrame(eval.Frame):
         "Returns the line number of the instruction currently being executed."
         try:
             new_lineno = space.int_w(w_new_lineno)
-        except OperationError, e:
+        except OperationError:
             raise OperationError(space.w_ValueError,
                                  space.wrap("lineno must be an integer"))
 
