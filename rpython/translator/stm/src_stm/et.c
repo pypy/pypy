@@ -1550,8 +1550,8 @@ void BecomeInevitable(const char *why)
                 a transaction) */
 
   /* XXX */
-  fprintf(stderr, "[%lx] inevitable: %s\n",
-           (long)d->public_descriptor_index, why);
+  /* fprintf(stderr, "[%lx] inevitable: %s\n", */
+  /*          (long)d->public_descriptor_index, why); */
   dprintf(("[%lx] inevitable: %s\n",
            (long)d->public_descriptor_index, why));
 

@@ -86,24 +86,39 @@ intptr_t stm_allocate_public_integer_address(gcptr obj)
 
     spinlock_acquire(d->public_descriptor->collection_lock, 'P');
 
-    stub = stm_stub_malloc(d->public_descriptor, 0);
-    stub->h_tid = (obj->h_tid & STM_USER_TID_MASK)
-        | GCFLAG_PUBLIC | GCFLAG_STUB | GCFLAG_SMALLSTUB
-        | GCFLAG_OLD;
-
-    stub->h_revision = ((revision_t)obj) | 2;
-    if (!(obj->h_tid & GCFLAG_PREBUILT_ORIGINAL) && obj->h_original) {
-        stub->h_original = obj->h_original;
+    /* it must have a h_original */
+    gcptr orig;
+    if (obj->h_original == 0 || obj->h_tid & GCFLAG_PREBUILT_ORIGINAL) {
+        orig = obj;
+    } else {
+        orig = (gcptr)obj->h_original;
+    }
+    
+    if (orig->h_tid & GCFLAG_PUBLIC) {
+        /* the original is public, so we can take that as a non-movable
+         object to register */
+        result = (intptr_t)orig;
     }
     else {
-        stub->h_original = (revision_t)obj;
-    }
+        stub = stm_stub_malloc(d->public_descriptor, 0);
+        stub->h_tid = (obj->h_tid & STM_USER_TID_MASK)
+            | GCFLAG_PUBLIC | GCFLAG_STUB | GCFLAG_SMALLSTUB
+            | GCFLAG_OLD;
 
-    result = (intptr_t)stub;
+        stub->h_revision = ((revision_t)obj) | 2;
+        if (!(obj->h_tid & GCFLAG_PREBUILT_ORIGINAL) && obj->h_original) {
+            stub->h_original = obj->h_original;
+        }
+        else {
+            stub->h_original = (revision_t)obj;
+        }
+
+        result = (intptr_t)stub;
+    }
     spinlock_release(d->public_descriptor->collection_lock);
     stm_register_integer_address(result);
 
-    dprintf(("allocate_public_int_adr(%p): %p", obj, stub));
+    dprintf(("allocate_public_int_adr(%p): %p", obj, (void*)result));
     return result;
 }
 

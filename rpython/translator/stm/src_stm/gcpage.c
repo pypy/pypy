@@ -23,8 +23,9 @@ static size_t count_global_pages;
 /* Only computed during a major collection */
 static size_t mc_total_in_use, mc_total_reserved;
 
-/* keeps track of registered smallstubs that will survive unless unregistered */
-static struct G2L registered_stubs;
+/* keeps track of registered *public* objects that will survive
+unless unregistered. For now, only smallstubs and h_originals allowed */
+static struct G2L registered_objs;
 
 /* For tests */
 long stmgcpage_count(int quantity)
@@ -67,7 +68,7 @@ static void init_global_data(void)
             (GC_PAGE_SIZE - sizeof(page_header_t)) / (WORD * i);
     }
 
-    memset(&registered_stubs, 0, sizeof(registered_stubs));
+    memset(&registered_objs, 0, sizeof(registered_objs));
 }
 
 void stmgcpage_init_tls(void)
@@ -219,27 +220,50 @@ void stmgcpage_free(gcptr obj)
 
 void stm_register_integer_address(intptr_t adr)
 {
+    wlog_t *found;
     gcptr obj = (gcptr)adr;
-    assert(obj->h_tid & GCFLAG_SMALLSTUB);
+    /* current limitations for 'adr': smallstub or h_original */
+    assert((obj->h_tid & GCFLAG_SMALLSTUB)
+           || (obj->h_original == 0 || obj->h_tid & GCFLAG_PREBUILT_ORIGINAL));
     assert(obj->h_tid & GCFLAG_PUBLIC);
 
     stmgcpage_acquire_global_lock();
-    g2l_insert(&registered_stubs, obj, NULL);
+
+    /* find and increment refcount; or insert */
+    G2L_FIND(registered_objs, obj, found, goto not_found);
+    found->val = (gcptr)(((revision_t)found->val) + 1);
+    goto finish;
+ not_found:
+    g2l_insert(&registered_objs, obj, (gcptr)1);
+
+ finish:
     stmgcpage_release_global_lock();
     dprintf(("registered %p\n", obj));
 }
 
 void stm_unregister_integer_address(intptr_t adr)
 {
+    wlog_t *found;
     gcptr obj = (gcptr)adr;
-    assert(obj->h_tid & GCFLAG_SMALLSTUB);
+
+    assert((obj->h_tid & GCFLAG_SMALLSTUB)
+           || (obj->h_original == 0 || obj->h_tid & GCFLAG_PREBUILT_ORIGINAL));
     assert(obj->h_tid & GCFLAG_PUBLIC);
 
     stmgcpage_acquire_global_lock();
-    int deleted = g2l_delete_item(&registered_stubs, obj);
-    assert(deleted);
+
+    /* find and decrement refcount */
+    G2L_FIND(registered_objs, obj, found, goto not_found);
+    found->val = (gcptr)(((revision_t)found->val) - 1);
+    if (found->val == NULL)
+        found->addr = NULL;     /* delete it */
+
     stmgcpage_release_global_lock();
     dprintf(("unregistered %p\n", obj));
+    return;
+
+ not_found:
+    assert(0);                  /* unmatched unregister */
 }
 
 
@@ -496,34 +520,40 @@ static void mark_prebuilt_roots(void)
     }
 }
 
-static void mark_registered_stubs(void)
+static void mark_registered_objs(void)
 {
     wlog_t *item;
     gcptr L;
 
-    G2L_LOOP_FORWARD(registered_stubs, item) {
+    G2L_LOOP_FORWARD(registered_objs, item) {
         gcptr R = item->addr;
-        assert(R->h_tid & GCFLAG_SMALLSTUB);
-        /* The following assert can fail if we have a stub pointing to
-           a stub and both are registered_stubs.  This case is benign. */
-        //assert(!(R->h_tid & (GCFLAG_VISITED | GCFLAG_MARKED)));
+        assert(R->h_tid & GCFLAG_PUBLIC);
 
-        R->h_tid |= (GCFLAG_MARKED | GCFLAG_VISITED);
-
-        if (R->h_revision & 2) {
-            L = (gcptr)(R->h_revision - 2);
-            L = stmgcpage_visit(L);
-            R->h_revision = ((revision_t)L) | 2;
+        if ((R->h_original == 0) || (R->h_tid & GCFLAG_PREBUILT_ORIGINAL)) {
+            /* the obj is an original and will therefore survive: */
+            gcptr V = stmgcpage_visit(R);
+            assert(V == R);
         }
         else {
-            L = (gcptr)R->h_revision;
-            L = stmgcpage_visit(L);
-            R->h_revision = (revision_t)L;
-        }
+            assert(R->h_tid & GCFLAG_SMALLSTUB); /* only case for now */
+            /* make sure R stays valid: */
+            R->h_tid |= (GCFLAG_MARKED | GCFLAG_VISITED);
 
-        /* h_original will be kept up-to-date because
-           it is either == L or L's h_original. And
-           h_originals don't move */
+            if (R->h_revision & 2) {
+                L = (gcptr)(R->h_revision - 2);
+                L = stmgcpage_visit(L);
+                R->h_revision = ((revision_t)L) | 2;
+            }
+            else {
+                L = (gcptr)R->h_revision;
+                L = stmgcpage_visit(L);
+                R->h_revision = (revision_t)L;
+            }
+
+            /* h_original will be kept up-to-date because
+               it is either == L or L's h_original. And
+               h_originals don't move */
+        }
     } G2L_LOOP_END;
 
 }
@@ -962,7 +992,7 @@ static void major_collect(void)
 
     assert(gcptrlist_size(&objects_to_trace) == 0);
     mark_prebuilt_roots();
-    mark_registered_stubs();
+    mark_registered_objs();
     mark_all_stack_roots();
     
     /* weakrefs: */
