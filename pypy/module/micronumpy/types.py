@@ -58,8 +58,6 @@ def complex_to_real_unary_op(func):
     specialize.argtype(1)(func)
     @functools.wraps(func)
     def dispatcher(self, v):
-        from pypy.module.micronumpy.interp_boxes import W_GenericBox
-        assert isinstance(v, W_GenericBox)
         return self.box_component(
             func(
                 self,
