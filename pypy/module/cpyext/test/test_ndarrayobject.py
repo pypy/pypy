@@ -267,7 +267,7 @@ class AppTestCNumber(AppTestCpythonExtensionBase):
                 ),
                 ("test_DescrFromType", "METH_O",
                 """
-                    Signed typenum = PyInt_AsLong(args);
+                    Signed typenum = PyLong_AsLong(args);
                     return _PyArray_DescrFromType(typenum);
                 """
                 ),
