@@ -67,7 +67,7 @@ class TestCall(BaseTestPyPyC):
         # LOAD_GLOBAL of OFFSET
         ops = entry_bridge.ops_by_id('cond', opcode='LOAD_GLOBAL')
         assert log.opnames(ops) == ["guard_value",
-                                    "getfield_gc", "guard_value",
+                                    "guard_value",
                                     "getfield_gc", "guard_value",
                                     "guard_not_invalidated"]
         ops = entry_bridge.ops_by_id('add', opcode='LOAD_GLOBAL')
@@ -81,7 +81,7 @@ class TestCall(BaseTestPyPyC):
             p39 = getfield_gc(p38, descr=<FieldP pypy.interpreter.executioncontext.ExecutionContext.inst_topframeref .*>)
             i40 = force_token()
             p41 = getfield_gc(p38, descr=<FieldP pypy.interpreter.executioncontext.ExecutionContext.inst_w_tracefunc .*>)
-            guard_isnull(p41, descr=...)
+            guard_value(p41, ConstPtr(ptr42), descr=...)
             i42 = getfield_gc(p38, descr=<FieldU pypy.interpreter.executioncontext.ExecutionContext.inst_profilefunc .*>)
             i43 = int_is_zero(i42)
             guard_true(i43, descr=...)
@@ -424,33 +424,34 @@ class TestCall(BaseTestPyPyC):
             """, [])
         loop, = log.loops_by_id('call', is_entry_bridge=True)
         assert loop.match("""
-            guard_value(i6, 1, descr=...)
-            guard_nonnull_class(p8, ConstClass(W_IntObject), descr=...)
-            guard_value(i4, 0, descr=...)
-            guard_value(p3, ConstPtr(ptr14), descr=...)
-            i15 = getfield_gc_pure(p8, descr=<FieldS pypy.objspace.std.intobject.W_IntObject.inst_intval .*>)
-            i17 = int_lt(i15, 5000)
-            guard_true(i17, descr=...)
-            guard_value(p18, ConstPtr(ptr19), descr=...)
-            p20 = getfield_gc(p18, descr=<FieldP pypy.objspace.std.dictmultiobject.W_DictMultiObject.inst_strategy .*>)
+            guard_value(i4, 1, descr=...)
+            guard_nonnull_class(p12, ConstClass(W_IntObject), descr=...)
+            p20 = getfield_gc(p1, descr=<FieldP pypy.interpreter.executioncontext.ExecutionContext.inst_w_tracefunc .*>)
             guard_value(p20, ConstPtr(ptr21), descr=...)
+            guard_value(i8, 0, descr=...)
+            guard_value(p2, ConstPtr(ptr23), descr=...)
+            i24 = getfield_gc_pure(p12, descr=<FieldS pypy.objspace.std.intobject.W_IntObject.inst_intval .*>)
+            i26 = int_lt(i24, 5000)
+            guard_true(i26, descr=...)
+            guard_value(p7, ConstPtr(ptr27), descr=...)
+            p28 = getfield_gc(p7, descr=<FieldP pypy.objspace.std.dictmultiobject.W_DictMultiObject.inst_strategy .*>)
+            guard_value(p28, ConstPtr(ptr29), descr=...)
             guard_not_invalidated(descr=...)
-            # most importantly, there is no getarrayitem_gc here
-            p23 = call(ConstClass(getexecutioncontext), descr=<Callr . EF=1>)
-            p24 = getfield_gc(p23, descr=<FieldP pypy.interpreter.executioncontext.ExecutionContext.inst_topframeref .*>)
-            i25 = force_token()
-            p26 = getfield_gc(p23, descr=<FieldP pypy.interpreter.executioncontext.ExecutionContext.inst_w_tracefunc .*>)
-            guard_isnull(p26, descr=...)
-            i27 = getfield_gc(p23, descr=<FieldU pypy.interpreter.executioncontext.ExecutionContext.inst_profilefunc .*>)
-            i28 = int_is_zero(i27)
-            guard_true(i28, descr=...)
-            p30 = getfield_gc(ConstPtr(ptr29), descr=<FieldP pypy.interpreter.nestedscope.Cell.inst_w_value .*>)
-            guard_nonnull_class(p30, ConstClass(W_IntObject), descr=...)
-            i32 = getfield_gc_pure(p30, descr=<FieldS pypy.objspace.std.intobject.W_IntObject.inst_intval .*>)
-            i33 = int_add_ovf(i15, i32)
+            p31 = call(ConstClass(getexecutioncontext), descr=<Callr 8 EF=1>)
+            p32 = getfield_gc(p31, descr=<FieldP pypy.interpreter.executioncontext.ExecutionContext.inst_topframeref .*>)
+            p33 = force_token()
+            p34 = getfield_gc(p31, descr=<FieldP pypy.interpreter.executioncontext.ExecutionContext.inst_w_tracefunc .*>)
+            guard_value(p34, ConstPtr(ptr35), descr=...)
+            i36 = getfield_gc(p31, descr=<FieldU pypy.interpreter.executioncontext.ExecutionContext.inst_profilefunc .*>)
+            i37 = int_is_zero(i36)
+            guard_true(i37, descr=...)
+            p39 = getfield_gc(ConstPtr(ptr38), descr=<FieldP pypy.interpreter.nestedscope.Cell.inst_w_value .*>)
+            guard_nonnull_class(p39, ConstClass(W_IntObject), descr=...)
+            i41 = getfield_gc_pure(p39, descr=<FieldS pypy.objspace.std.intobject.W_IntObject.inst_intval .*>)
+            i42 = int_add_ovf(i24, i41)
             guard_no_overflow(descr=...)
+            guard_not_invalidated(descr=...)
             --TICK--
-            p39 = same_as(...) # Should be killed by backend
         """)
 
     def test_local_closure_is_virtual(self):
