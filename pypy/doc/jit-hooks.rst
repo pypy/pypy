@@ -11,7 +11,7 @@ are three functions related to that coming from the ``pypyjit`` module:
     but before assembler compilation. This allows adding additional
     optimizations on Python level.
 
-    The callable will be called with the pypyjit.JitLoopInfo object.
+    The callable will be called with the ``pypyjit.JitLoopInfo`` object.
     Refer to it's documentation for details.
 
     Result value will be the resulting list of operations, or None
@@ -21,7 +21,7 @@ are three functions related to that coming from the ``pypyjit`` module:
 
     Set a compiling hook that will be called each time a loop is compiled.
 
-    The callable will be called with the pypyjit.JitLoopInfo object.
+    The callable will be called with the ``pypyjit.JitLoopInfo`` object.
     Refer to it's documentation for details.
 
     Note that jit hook is not reentrant. It means that if the code
@@ -33,7 +33,8 @@ are three functions related to that coming from the ``pypyjit`` module:
     Set a hook (callable) that will be called each time there is tracing
     aborted due to some reason.
 
-    The hook will be called as in: hook(jitdriver_name, greenkey, reason)
+    The hook will be invoked with the siagnture:
+    ``hook(jitdriver_name, greenkey, reason)``
 
     Reason is a string, the meaning of other arguments is the same
     as attributes on JitLoopInfo object
