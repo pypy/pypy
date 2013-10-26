@@ -435,7 +435,7 @@ class TestCall(BaseTestPyPyC):
             p26 = getfield_gc(p7, descr=<FieldP pypy.objspace.std.dictmultiobject.W_DictMultiObject.inst_strategy .*>)
             guard_value(p26, ConstPtr(ptr27), descr=...)
             guard_not_invalidated(descr=...)
-            p29 = call(ConstClass(getexecutioncontext), descr=<Callr 8 EF=1>)
+            p29 = call(ConstClass(getexecutioncontext), descr=<Callr . EF=1>)
             p30 = getfield_gc(p29, descr=<FieldP pypy.interpreter.executioncontext.ExecutionContext.inst_topframeref .*>)
             p31 = force_token()
             p32 = getfield_gc(p29, descr=<FieldP pypy.interpreter.executioncontext.ExecutionContext.inst_w_tracefunc .*>)
