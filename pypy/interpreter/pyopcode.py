@@ -5,9 +5,9 @@ The rest, dealing with variables in optimized ways, is in nestedscope.py.
 """
 
 from rpython.rlib import jit, rstackovf
+from rpython.rlib.debug import check_nonneg
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import r_uint, intmask
-from rpython.rlib.debug import check_nonneg
 from rpython.tool.sourcetools import func_with_new_name
 
 from pypy.interpreter import (
@@ -142,7 +142,6 @@ class __extend__(pyframe.PyFrame):
 
     @jit.unroll_safe
     def dispatch_bytecode(self, co_code, next_instr, ec):
-        space = self.space
         while True:
             self.last_instr = intmask(next_instr)
             if not jit.we_are_jitted():
@@ -735,7 +734,6 @@ class __extend__(pyframe.PyFrame):
         space = self.space
         if nbargs == 0:
             frame = self
-            ec = self.space.getexecutioncontext()
             while frame:
                 if frame.last_exception is not None:
                     operror = frame.last_exception
