@@ -114,3 +114,6 @@ Added the new incminimark GC which performs GC in incremental steps
 
 .. branch: fast_cffi_list_init
 fastpath for cffi.new("long[]")
+
+.. branch: remove-eval-frame
+remove a pointless abstraction
