@@ -10,9 +10,11 @@ from rpython.tool.pairtype import extendabletype
 
 from pypy.interpreter import pycode, pytraceback
 from pypy.interpreter.argument import Arguments
+from pypy.interpreter.astcompiler import consts
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.executioncontext import ExecutionContext
+from pypy.interpreter.nestedscope import Cell
 from pypy.tool import stdlib_opcode
 
 # Define some opcodes used
@@ -26,8 +28,6 @@ class PyFrame(W_Root):
     """Represents a frame for a regular Python function
     that needs to be interpreted.
 
-    See also pyopcode.PyStandardFrame and nestedscope.PyNestedScopeFrame.
-
     Public fields:
      * 'space' is the object space this frame is running in
      * 'code' is the PyCode object this frame runs
@@ -35,6 +35,12 @@ class PyFrame(W_Root):
      * 'w_globals' is the attached globals dictionary
      * 'builtin' is the attached built-in module
      * 'valuestack_w', 'blockstack', control the interpretation
+
+    Cell Vars:
+        my local variables that are exposed to my inner functions
+    Free Vars:
+        variables coming from a parent function in which i'm nested
+    'closure' is a list of Cell instances: the received free vars.
     """
 
     __metaclass__ = extendabletype
@@ -119,6 +125,7 @@ class PyFrame(W_Root):
         else:
             return self.space.builtin
 
+    @jit.unroll_safe
     def initialize_frame_scopes(self, outer_func, code):
         # regular functions always have CO_OPTIMIZED and CO_NEWLOCALS.
         # class bodies only have CO_NEWLOCALS.
@@ -126,13 +133,36 @@ class PyFrame(W_Root):
         # CO_OPTIMIZED: no locals dict needed at all
         # NB: this method is overridden in nestedscope.py
         flags = code.co_flags
-        if flags & pycode.CO_OPTIMIZED:
-            return
-        if flags & pycode.CO_NEWLOCALS:
-            self.w_locals = self.space.newdict(module=True)
+        if not (flags & pycode.CO_OPTIMIZED):
+            if flags & pycode.CO_NEWLOCALS:
+                self.w_locals = self.space.newdict(module=True)
+            else:
+                assert self.w_globals is not None
+                self.w_locals = self.w_globals
+
+        ncellvars = len(code.co_cellvars)
+        nfreevars = len(code.co_freevars)
+        if not nfreevars:
+            if not ncellvars:
+                self.cells = []
+                return            # no self.cells needed - fast path
+        elif outer_func is None:
+            space = self.space
+            raise OperationError(space.w_TypeError,
+                                 space.wrap("directly executed code object "
+                                            "may not contain free variables"))
+        if outer_func and outer_func.closure:
+            closure_size = len(outer_func.closure)
         else:
-            assert self.w_globals is not None
-            self.w_locals = self.w_globals
+            closure_size = 0
+        if closure_size != nfreevars:
+            raise ValueError("code object received a closure with "
+                                 "an unexpected number of free variables")
+        self.cells = [None] * (ncellvars + nfreevars)
+        for i in range(ncellvars):
+            self.cells[i] = Cell()
+        for i in range(nfreevars):
+            self.cells[i + ncellvars] = outer_func.closure[i]
 
     def run(self):
         """Start this frame's execution."""
@@ -320,7 +350,7 @@ class PyFrame(W_Root):
         w = space.wrap
         nt = space.newtuple
 
-        cells = self._getcells()
+        cells = self.cells
         if cells is None:
             w_cells = space.w_None
         else:
@@ -489,6 +519,23 @@ class PyFrame(W_Root):
                     if not e.match(self.space, self.space.w_KeyError):
                         raise
 
+        # cellvars are values exported to inner scopes
+        # freevars are values coming from outer scopes
+        freevarnames = list(self.pycode.co_cellvars)
+        if self.pycode.co_flags & consts.CO_OPTIMIZED:
+            freevarnames.extend(self.pycode.co_freevars)
+        for i in range(len(freevarnames)):
+            name = freevarnames[i]
+            cell = self.cells[i]
+            try:
+                w_value = cell.get()
+            except ValueError:
+                pass
+            else:
+                w_name = self.space.wrap(name)
+                self.space.setitem(self.w_locals, w_name, w_value)
+
+
     @jit.unroll_safe
     def locals2fast(self):
         # Copy values from self.w_locals to the fastlocals
@@ -510,19 +557,39 @@ class PyFrame(W_Root):
 
         self.setfastscope(new_fastlocals_w)
 
+        freevarnames = self.pycode.co_cellvars + self.pycode.co_freevars
+        for i in range(len(freevarnames)):
+            name = freevarnames[i]
+            cell = self.cells[i]
+            w_name = self.space.wrap(name)
+            try:
+                w_value = self.space.getitem(self.w_locals, w_name)
+            except OperationError, e:
+                if not e.match(self.space, self.space.w_KeyError):
+                    raise
+            else:
+                cell.set(w_value)
+
+    @jit.unroll_safe
     def init_cells(self):
-        """Initialize cellvars from self.locals_stack_w.
-        This is overridden in nestedscope.py"""
-        pass
+        """
+        Initialize cellvars from self.locals_stack_w.
+        """
+        args_to_copy = self.pycode._args_as_cellvars
+        for i in range(len(args_to_copy)):
+            argnum = args_to_copy[i]
+            if argnum >= 0:
+                self.cells[i].set(self.locals_stack_w[argnum])
 
     def getclosure(self):
         return None
 
-    def _getcells(self):
-        return None
-
     def _setcellvars(self, cellvars):
-        pass
+        ncellvars = len(self.pycode.co_cellvars)
+        if len(cellvars) != ncellvars:
+            raise OperationError(self.space.w_TypeError,
+                                 self.space.wrap("bad cellvars"))
+        self.cells[:ncellvars] = cellvars
 
     def fget_code(self, space):
         return space.wrap(self.getcode())

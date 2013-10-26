@@ -4,16 +4,19 @@ Implementation of a part of the standard Python opcodes.
 The rest, dealing with variables in optimized ways, is in nestedscope.py.
 """
 
-import sys
-from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter import gateway, function, eval, pyframe, pytraceback
-from pypy.interpreter.pycode import PyCode, BytecodeCorruption
-from rpython.tool.sourcetools import func_with_new_name
-from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib import jit, rstackovf
+from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rlib.debug import check_nonneg
+from rpython.tool.sourcetools import func_with_new_name
+
+from pypy.interpreter import (
+    gateway, function, eval, pyframe, pytraceback, pycode
+)
+from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.nestedscope import Cell
+from pypy.interpreter.pycode import PyCode, BytecodeCorruption
 from pypy.tool.stdlib_opcode import bytecode_spec
 
 def unaryoperation(operationname):
@@ -500,6 +503,44 @@ class __extend__(pyframe.PyFrame):
         w_newvalue = self.popvalue()
         assert w_newvalue is not None
         self.locals_stack_w[varindex] = w_newvalue
+
+    def getfreevarname(self, index):
+        freevarnames = self.pycode.co_cellvars + self.pycode.co_freevars
+        return freevarnames[index]
+
+    def iscellvar(self, index):
+        # is the variable given by index a cell or a free var?
+        return index < len(self.pycode.co_cellvars)
+
+    def LOAD_DEREF(self, varindex, next_instr):
+        # nested scopes: access a variable through its cell object
+        cell = self.cells[varindex]
+        try:
+            w_value = cell.get()
+        except ValueError:
+            varname = self.getfreevarname(varindex)
+            if self.iscellvar(varindex):
+                message = "local variable '%s' referenced before assignment" % varname
+                w_exc_type = self.space.w_UnboundLocalError
+            else:
+                message = ("free variable '%s' referenced before assignment"
+                           " in enclosing scope" % varname)
+                w_exc_type = self.space.w_NameError
+            raise OperationError(w_exc_type, self.space.wrap(message))
+        else:
+            self.pushvalue(w_value)
+
+    def STORE_DEREF(self, varindex, next_instr):
+        # nested scopes: access a variable through its cell object
+        w_newvalue = self.popvalue()
+        cell = self.cells[varindex]
+        cell.set(w_newvalue)
+
+    def LOAD_CLOSURE(self, varindex, next_instr):
+        # nested scopes: access the cell object
+        cell = self.cells[varindex]
+        w_value = self.space.wrap(cell)
+        self.pushvalue(w_value)
 
     def POP_TOP(self, oparg, next_instr):
         self.popvalue()
@@ -1183,6 +1224,18 @@ class __extend__(pyframe.PyFrame):
         defaultarguments = self.popvalues(numdefaults)
         fn = function.Function(self.space, codeobj, self.w_globals,
                                defaultarguments)
+        self.pushvalue(self.space.wrap(fn))
+
+    @jit.unroll_safe
+    def MAKE_CLOSURE(self, numdefaults, next_instr):
+        w_codeobj = self.popvalue()
+        codeobj = self.space.interp_w(pycode.PyCode, w_codeobj)
+        w_freevarstuple = self.popvalue()
+        freevars = [self.space.interp_w(Cell, cell)
+                    for cell in self.space.fixedview(w_freevarstuple)]
+        defaultarguments = self.popvalues(numdefaults)
+        fn = function.Function(self.space, codeobj, self.w_globals,
+                               defaultarguments, freevars)
         self.pushvalue(self.space.wrap(fn))
 
     def BUILD_SLICE(self, numargs, next_instr):

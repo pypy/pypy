@@ -326,9 +326,6 @@ class ObjSpace(object):
         self.builtin_modules = {}
         self.reloading_modules = {}
 
-        # import extra modules for side-effects
-        import pypy.interpreter.nestedscope     # register *_DEREF bytecodes
-
         self.interned_strings = {}
         self.actionflag = ActionFlag()    # changed by the signal module
         self.check_signal_action = None   # changed by the signal module
