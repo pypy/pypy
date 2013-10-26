@@ -211,7 +211,9 @@ On Linux, if SELinux is enabled, you may get errors along the lines of
 "OSError: externmod.so: cannot restore segment prot after reloc: Permission
 denied." This is caused by a slight abuse of the C compiler during
 configuration, and can be disabled by running the following command with root
-privileges::
+privileges:
+
+.. code-block:: console
 
     # setenforce 0
 
