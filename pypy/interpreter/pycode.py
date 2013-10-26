@@ -251,7 +251,6 @@ class PyCode(eval.Code):
     def exec_host_bytecode(self, w_globals, w_locals):
         if sys.version_info < (2, 7):
             raise Exception("PyPy no longer supports Python 2.6 or lower")
-        from pypy.interpreter.pyframe import PyFrame
         frame = self.space.FrameClass(self.space, self, w_globals, None)
         frame.setdictscope(w_locals)
         return frame.run()
