@@ -117,3 +117,7 @@ fastpath for cffi.new("long[]")
 
 .. branch: remove-eval-frame
 remove a pointless abstraction
+
+.. branch: jit-settrace
+Allow the jit to continue running when sys.settrace() is active, necessary to
+make coverage.py fast
