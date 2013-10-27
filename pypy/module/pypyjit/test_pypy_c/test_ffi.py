@@ -269,7 +269,8 @@ class Test__ffi(BaseTestPyPyC):
                 n += 1
             return n
 
-        log = self.run(main, [], import_site=True)
+        log = self.run(main, [], import_site=True,
+                       discard_stdout_before_last_line=True)  # <- for Win32
         assert log.result == 10000
         loop, = log.loops_by_id('cfficall')
         assert loop.match_by_id('cfficall', """
