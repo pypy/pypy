@@ -86,6 +86,12 @@ On Fedora::
     yum install gcc make libffi-devel pkgconfig zlib-devel bzip2-devel \
     lib-sqlite3-devel ncurses-devel expat-devel openssl-devel
 
+On Mac OS X, most of these build-time dependencies are installed alongside
+the Developer Tools. However, note that in order for the installation to
+find them you may need to run::
+
+    xcode-select --install
+
 
 Run the translation
 -------------------
