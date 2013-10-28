@@ -1,5 +1,10 @@
 ------------------------------------------------------------
 
+make stm_transaction_break use cond_call (or other ways to not
+spill all registers)
+
+------------------------------------------------------------
+
 constptrs always require slowpath of read_barrier if they
 point to a stub
 they also always require the slowpath of a write-barrier

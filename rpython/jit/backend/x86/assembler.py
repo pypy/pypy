@@ -425,16 +425,12 @@ class Assembler386(BaseAssembler):
 
     def _build_ptr_eq_slowpath(self):
         cpu = self.cpu
-        is_stm = cpu.gc_ll_descr.stm
-        assert is_stm
-
-        func = cpu.gc_ll_descr.get_malloc_fn_addr('stm_ptr_eq')
+        assert cpu.gc_ll_descr.stm
         #
         # This builds a helper function called from the slow path of
         # ptr_eq/ne.  It must save all registers, and optionally
-        # all XMM registers.  It takes a single argument just pushed
-        # on the stack even on X86_64.  It must restore stack alignment
-        # accordingly.
+        # all XMM registers. It takes two values pushed on the stack,
+        # even on X86_64.  It must restore stack alignment accordingly.
         mc = codebuf.MachineCodeBlockWrapper()
         #
         self._push_all_regs_to_frame(mc, [], withfloats=False,
@@ -457,7 +453,12 @@ class Assembler386(BaseAssembler):
             mc.MOV_rs(edi.value, 2 * WORD)
             mc.MOV_rs(esi.value, 3 * WORD)
         #
-        mc.CALL(imm(func))
+        if not we_are_translated(): # for tests
+            fn = cpu.gc_ll_descr.get_malloc_fn_addr('stm_ptr_eq')
+            mc.CALL(imm(fn))
+        else:
+            fn = stmtlocal.stm_pointer_equal_fn
+            mc.CALL(imm(self.cpu.cast_ptr_to_int(fn)))
         # eax has result
         if IS_X86_32:
             # ||val2|val1|retaddr|x||x|x|val2|val1|
@@ -2367,12 +2368,16 @@ class Assembler386(BaseAssembler):
         self.mc.overwrite(jmp_location - 1, chr(offset))
 
     # ------------------- END CALL ASSEMBLER -----------------------
-    def _stm_ptr_eq_fastpath(self, mc, arglocs, result_loc):
+    def _stm_ptr_eq_fastpath(self, mc, arglocs):
         assert self.cpu.gc_ll_descr.stm
         assert self.ptr_eq_slowpath is not None
         a_base = arglocs[0]
         b_base = arglocs[1]
-
+        if isinstance(a_base, ImmedLoc):
+            # make sure there is a non-immed as the first
+            # argument to mc.CMP(). (2 immeds are caught below)
+            a_base, b_base = b_base, a_base
+        
         #
         # FASTPATH
         #
@@ -2386,25 +2391,11 @@ class Assembler386(BaseAssembler):
             else:
                 j_ok1 = 0
         else:
-            # do the dance, even if a or b is an Immed
-            # XXX: figure out if CMP() is able to handle it without
-            #      the explicit MOV before it (CMP(a_base, b_base))
-            sl = X86_64_SCRATCH_REG.lowest8bits()
-            mc.MOV(X86_64_SCRATCH_REG, a_base)
-            if isinstance(b_base, ImmedLoc) \
-              and rx86.fits_in_32bits(b_base.value):
-                mc.CMP_ri(X86_64_SCRATCH_REG.value, b_base.value)
-            elif not isinstance(b_base, ImmedLoc):
-                mc.CMP(X86_64_SCRATCH_REG, b_base)
-            else:
-                # imm64, need another temporary reg :(
-                mc.PUSH_r(eax.value)
-                mc.MOV_ri64(eax.value, b_base.value)
-                mc.CMP_rr(X86_64_SCRATCH_REG.value, eax.value)
-                mc.POP_r(eax.value)
+            mc.CMP(a_base, b_base)
             # reverse flags: if p1==p2, set NZ
+            sl = X86_64_SCRATCH_REG.lowest8bits()
             mc.SET_ir(rx86.Conditions['Z'], sl.value)
-            mc.AND8_rr(sl.value, sl.value)
+            mc.TEST8_rr(sl.value, sl.value)
             mc.J_il8(rx86.Conditions['NZ'], 0)
             j_ok1 = mc.get_relative_pos()
 
@@ -3163,8 +3154,37 @@ class Assembler386(BaseAssembler):
         # call stm_transaction_break() with the address of the
         # STM_RESUME_BUF and the custom longjmp function
         self.push_gcmap(mc, gcmap, mov=True)
+        #
+        # save all registers
+        base_ofs = self.cpu.get_baseofs_of_frame_field()
+        for gpr in self._regalloc.rm.reg_bindings.values():
+            v = gpr_reg_mgr_cls.all_reg_indexes[gpr.value]
+            mc.MOV_br(v * WORD + base_ofs, gpr.value)
+        if IS_X86_64:
+            coeff = 1
+        else:
+            coeff = 2
+        ofs = len(gpr_reg_mgr_cls.all_regs)
+        for xr in self._regalloc.xrm.reg_bindings.values():
+            mc.MOVSD_bx((ofs + xr.value * coeff) * WORD + base_ofs, xr.value)
+        #
+        # CALL break function
         fn = self.stm_transaction_break_path
         mc.CALL(imm(fn))
+        # HERE is the place an aborted transaction retries
+        #
+        # restore regs
+        base_ofs = self.cpu.get_baseofs_of_frame_field()
+        for gpr in self._regalloc.rm.reg_bindings.values():
+            v = gpr_reg_mgr_cls.all_reg_indexes[gpr.value]
+            mc.MOV_rb(gpr.value, v * WORD + base_ofs)
+        if IS_X86_64:
+            coeff = 1
+        else:
+            coeff = 2
+        ofs = len(gpr_reg_mgr_cls.all_regs)
+        for xr in self._regalloc.xrm.reg_bindings.values():
+            mc.MOVSD_xb(xr.value, (ofs + xr.value * coeff) * WORD + base_ofs)
         #
         # patch the JZ above
         if jz_location:

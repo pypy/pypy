@@ -835,8 +835,8 @@ class TestGcStm(BaseTestRegalloc):
                     args = [s for i, s in enumerate((s1, s2))
                             if not isinstance((p1, p2)[i], Const)] + [7]
                                         
-                    frame = self.cpu.execute_token(looptoken, *args)
-                    frame = rffi.cast(JITFRAMEPTR, frame)
+                    deadframe = self.cpu.execute_token(looptoken, *args)
+                    frame = rffi.cast(JITFRAMEPTR, deadframe)
                     frame_adr = rffi.cast(lltype.Signed, frame.jf_descr)
                     guard_failed = frame_adr != id(finaldescr)
 
@@ -849,8 +849,10 @@ class TestGcStm(BaseTestRegalloc):
                         
                     if a == b or a == 0 or b == 0:
                         assert (a, b) not in called_on
+                        assert (b, a) not in called_on
                     else:
-                        assert [(a, b)] == called_on
+                        assert ([(a, b)] == called_on
+                                or [(b, a)] == called_on)
 
                     if guard is not None:
                         if a == b:

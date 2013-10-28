@@ -412,11 +412,9 @@ class RegAlloc(BaseRegalloc):
         args = op.getarglist()
         if args[0].type == REF:
             assert args[1].type == REF
-            # XXX: this is certainly not wanted.
-            # We force immed64 into registers here.
-            x = self.make_sure_var_in_reg(args[0], args, selected_reg=ecx)
-            y = self.make_sure_var_in_reg(args[1], args, selected_reg=eax)
-            self.rm.possibly_free_var(args[1])
+            # move both args to reg or immed
+            x = self.make_sure_var_in_reg(args[0], args)
+            y = self.make_sure_var_in_reg(args[1], args)
         else:
             x = self.make_sure_var_in_reg(args[0], args)
             y = self.loc(args[1])
@@ -1288,10 +1286,9 @@ class RegAlloc(BaseRegalloc):
         assert isinstance(check_type_box, ConstInt)
         check_type = check_type_box.getint()
         #
-        # XXX use the extra 3 words in the stm resume buffer to save
-        # up to 3 registers, too.  For now we just flush them all.
-        self.xrm.before_call(save_all_regs=1)
-        self.rm.before_call(save_all_regs=1)
+        # only save regs for the should_break_transaction call
+        self.xrm.before_call()
+        self.rm.before_call()
         gcmap = self.get_gcmap() # allocate the gcmap *before*
         #
         self.assembler.stm_transaction_break(check_type, gcmap)

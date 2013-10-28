@@ -319,8 +319,8 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
         lst = op.getarglist()
         lst[1] = self.gen_barrier(lst[1], 'W')
         op = op.copy_and_change(op.getopnum(), args=lst)
-        # then a read barrier the source string
-        self.handle_category_operations(op, 'R')
+        # then an immutable read barrier the source string
+        self.handle_category_operations(op, 'I')
 
     @specialize.arg(1)
     def _do_stm_call(self, funcname, args, result):

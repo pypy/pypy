@@ -47,3 +47,9 @@ stm_invalidate_jmp_buf_fn = rffi.llexternal(
     'stm_invalidate_jmp_buf',
     [llmemory.Address], lltype.Void,
     sandboxsafe=True, _nowrapper=True, transactionsafe=True)
+stm_pointer_equal_fn = rffi.llexternal(
+    'stm_pointer_equal',
+    [llmemory.Address, llmemory.Address], lltype.Bool,
+    sandboxsafe=True, _nowrapper=True, transactionsafe=True)
+
+
