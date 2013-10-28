@@ -827,15 +827,11 @@ class __extend__(W_NDimArray):
         return loop.multidim_dot(space, self, other,  w_res, dtype,
                                  other_critical_dim)
 
-    @unwrap_spec(w_axis = WrappedDefault(None))
-    def descr_var(self, space, w_axis):
-        return get_appbridge_cache(space).call_method(space, '_var', self,
-                                                      w_axis)
+    def descr_var(self, space, __args__):
+        return get_appbridge_cache(space).call_method(space, '_var', self, __args__)
 
-    @unwrap_spec(w_axis = WrappedDefault(None))
-    def descr_std(self, space, w_axis):
-        return get_appbridge_cache(space).call_method(space, '_std', self,
-                                                      w_axis)
+    def descr_std(self, space, __args__):
+        return get_appbridge_cache(space).call_method(space, '_std', self, __args__)
 
     # ----------------------- reduce -------------------------------
 
