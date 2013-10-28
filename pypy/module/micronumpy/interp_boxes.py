@@ -260,6 +260,9 @@ class W_GenericBox(W_Root):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "view not implelemnted yet"))
 
+    def descr_get_itemsize(self, space):
+        return self.get_dtype(space).descr_get_itemsize(space)
+
 class W_BoolBox(W_GenericBox, PrimitiveBox):
     descr__new__, _get_dtype, descr_reduce = new_dtype_getter("bool")
 
@@ -508,6 +511,7 @@ W_GenericBox.typedef = TypeDef("generic",
     round = interp2app(W_GenericBox.descr_round),
     conjugate = interp2app(W_GenericBox.descr_conjugate),
     view = interp2app(W_GenericBox.descr_view),
+    itemsize = GetSetProperty(W_GenericBox.descr_get_itemsize),
 )
 
 W_BoolBox.typedef = TypeDef("bool_", W_GenericBox.typedef,
@@ -630,7 +634,7 @@ W_Complex64Box.typedef = TypeDef("complex64", (W_ComplexFloatingBox.typedef),
     __module__ = "numpypy",
     __new__ = interp2app(W_Complex64Box.descr__new__.im_func),
     __reduce__ = interp2app(W_Complex64Box.descr_reduce),
-    real = GetSetProperty(W_ComplexFloatingBox .descr_get_real),
+    real = GetSetProperty(W_ComplexFloatingBox.descr_get_real),
     imag = GetSetProperty(W_ComplexFloatingBox.descr_get_imag),
 )
 
