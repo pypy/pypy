@@ -17,7 +17,8 @@ class BaseAppTestDtypes(BaseNumpyAppTest):
 
 class AppTestDtypes(BaseAppTestDtypes):
     spaceconfig = dict(usemodules=["micronumpy", "struct", "binascii"])
-    def test_dtype(self):
+
+    def test_dtype_basic(self):
         from numpypy import dtype
 
         d = dtype('?')
@@ -190,36 +191,17 @@ class AppTestDtypes(BaseAppTestDtypes):
             d3 = (array([1], d1) + array([1], d2)).dtype
             assert (d1, d2) == (d1, d2) and d3 is dtype(dout)
 
-    def test_add_int8(self):
-        from numpypy import array, dtype
-
-        a = array(range(5), dtype="int8")
-        b = a + a
-        assert b.dtype is dtype("int8")
-        for i in range(5):
-            assert b[i] == i * 2
-
-    def test_add_int16(self):
-        from numpypy import array, dtype
-
-        a = array(range(5), dtype="int16")
-        b = a + a
-        assert b.dtype is dtype("int16")
-        for i in range(5):
-            assert b[i] == i * 2
-
-    def test_add_uint32(self):
-        from numpypy import array, dtype
-
-        a = array(range(5), dtype="I")
-        b = a + a
-        assert b.dtype is dtype("I")
-        for i in range(5):
-            assert b[i] == i * 2
+    def test_add(self):
+        import numpypy as np
+        for dtype in ["int8", "int16", "I"]:
+            a = np.array(range(5), dtype=dtype)
+            b = a + a
+            assert b.dtype is np.dtype(dtype)
+            for i in range(5):
+                assert b[i] == i * 2
 
     def test_shape(self):
         from numpypy import dtype
-
         assert dtype(long).shape == ()
 
     def test_cant_subclass(self):
@@ -235,37 +217,15 @@ class AppTestDtypes(BaseAppTestDtypes):
 
     def test_aliases(self):
         from numpypy import dtype
-
         assert dtype("float") is dtype(float)
 
-    def test_index_int8(self):
-        from numpypy import array, int8
-
-        a = array(range(10), dtype=int8)
-        b = array([0] * 10, dtype=int8)
-        for idx in b: a[idx] += 1
-
-    def test_index_int16(self):
-        from numpypy import array, int16
-
-        a = array(range(10), dtype=int16)
-        b = array([0] * 10, dtype=int16)
-        for idx in b: a[idx] += 1
-
-    def test_index_int32(self):
-        from numpypy import array, int32
-
-        a = array(range(10), dtype=int32)
-        b = array([0] * 10, dtype=int32)
-        for idx in b: a[idx] += 1
-
-    def test_index_int64(self):
-        from numpypy import array, int64
-
-        a = array(range(10), dtype=int64)
-        b = array([0] * 10, dtype=int64)
-        for idx in b:
-            a[idx] += 1
+    def test_index(self):
+        import numpypy as np
+        for dtype in [np.int8, np.int16, np.int32, np.int64]:
+            a = np.array(range(10), dtype=dtype)
+            b = np.array([0] * 10, dtype=dtype)
+            for idx in b:
+                a[idx] += 1
 
     def test_hash(self):
         import numpypy as numpy
@@ -770,7 +730,6 @@ class AppTestTypes(BaseAppTestDtypes):
         assert x.dtype == int8
         assert (x == array(42)).all()
 
-
 class AppTestStrUnicodeDtypes(BaseNumpyAppTest):
     def test_str_unicode(self):
         skip('numpypy differs from numpy')
@@ -971,5 +930,3 @@ class AppTestObjectDtypes(BaseNumpyAppTest):
         except NotImplementedError, e:
             if e.message.find('unable to create dtype from objects')>=0:
                 skip('creating ojbect dtype not supported yet')
-
-
