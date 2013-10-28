@@ -173,7 +173,6 @@ class W_Ufunc(W_Root):
         shapelen = len(obj_shape)
         axis = unwrap_axis_arg(space, shapelen, w_axis)
         assert axis >= 0
-        size = obj.get_size()
         dtype = interp_dtype.decode_w_dtype(space, dtype)
         if dtype is None:
             if self.comparison_func:
@@ -530,7 +529,6 @@ def find_dtype_for_scalar(space, w_obj, current_guess=None):
     int64_dtype = interp_dtype.get_dtype_cache(space).w_int64dtype
     complex_type = interp_dtype.get_dtype_cache(space).w_complex128dtype
     float_type = interp_dtype.get_dtype_cache(space).w_float64dtype
-    str_dtype = interp_dtype.get_dtype_cache(space).w_stringdtype
     if isinstance(w_obj, interp_boxes.W_GenericBox):
         dtype = w_obj.get_dtype(space)
         if current_guess is None:

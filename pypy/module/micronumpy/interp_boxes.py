@@ -11,7 +11,6 @@ from rpython.rlib.rarithmetic import LONG_BIT
 from rpython.rtyper.lltypesystem import rffi
 from rpython.tool.sourcetools import func_with_new_name
 from pypy.module.micronumpy.arrayimpl.voidbox import VoidBoxStorage
-from rpython.rlib.objectmodel import specialize
 from pypy.interpreter.mixedmodule import MixedModule
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.rstring import StringBuilder
@@ -49,9 +48,6 @@ class Box(object):
     _mixin_ = True
 
     def reduce(self, space):
-        from rpython.rlib.rstring import StringBuilder
-        from rpython.rtyper.lltypesystem import rffi, lltype
-
         numpypy = space.getbuiltinmodule("_numpypy")
         assert isinstance(numpypy, MixedModule)
         multiarray = numpypy.get("multiarray")
