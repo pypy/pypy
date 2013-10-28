@@ -27,13 +27,10 @@ class ExecutionContext(object):
     def __init__(self, space):
         self.space = space
         self.topframeref = jit.vref_None
-        # tracing: space.frame_trace_action.fire() must be called to ensure
-        # that tracing occurs whenever self.w_tracefunc or self.is_tracing
-        # is modified.
-        self.w_tracefunc = None        # if not None, no JIT
+        self.w_tracefunc = None
         self.is_tracing = 0
         self.compiler = space.createcompiler()
-        self.profilefunc = None        # if not None, no JIT
+        self.profilefunc = None
         self.w_profilefuncarg = None
 
     def gettopframe(self):
@@ -75,9 +72,6 @@ class ExecutionContext(object):
                 # be accessed also later
                 frame_vref()
             jit.virtual_ref_finish(frame_vref, frame)
-
-        if self.gettrace() is not None and not frame.hide():
-            self.space.frame_trace_action.fire()
 
     # ________________________________________________________________
 
@@ -123,25 +117,77 @@ class ExecutionContext(object):
     def return_trace(self, frame, w_retval):
         "Trace the return from a function"
         if self.gettrace() is not None:
-            return_from_hidden = self._trace(frame, 'return', w_retval)
-            # special case: if we are returning from a hidden function,
-            # then maybe we have to fire() the action again; otherwise
-            # it will not be called.  See test_trace_hidden_prints.
-            if return_from_hidden:
-                self.space.frame_trace_action.fire()
+            self._trace(frame, 'return', w_retval)
 
     def bytecode_trace(self, frame, decr_by=TICK_COUNTER_STEP):
         "Trace function called before each bytecode."
         # this is split into a fast path and a slower path that is
         # not invoked every time bytecode_trace() is.
+        self.bytecode_only_trace(frame)
         actionflag = self.space.actionflag
         if actionflag.decrement_ticker(decr_by) < 0:
             actionflag.action_dispatcher(self, frame)     # slow path
     bytecode_trace._always_inline_ = True
 
+    def bytecode_only_trace(self, frame):
+        """
+        Like bytecode_trace() but doesn't invoke any other events besides the
+        trace function.
+        """
+        if (frame.w_f_trace is None or self.is_tracing or
+            self.gettrace() is None):
+            return
+        self.run_trace_func(frame)
+    bytecode_only_trace._always_inline_ = True
+
+    @jit.unroll_safe
+    def run_trace_func(self, frame):
+        code = frame.pycode
+        if frame.instr_lb <= frame.last_instr < frame.instr_ub:
+            if frame.last_instr < frame.instr_prev_plus_one:
+                # We jumped backwards in the same line.
+                self._trace(frame, 'line', self.space.w_None)
+        else:
+            size = len(code.co_lnotab) / 2
+            addr = 0
+            line = code.co_firstlineno
+            p = 0
+            lineno = code.co_lnotab
+            while size > 0:
+                c = ord(lineno[p])
+                if (addr + c) > frame.last_instr:
+                    break
+                addr += c
+                if c:
+                    frame.instr_lb = addr
+
+                line += ord(lineno[p + 1])
+                p += 2
+                size -= 1
+
+            if size > 0:
+                while True:
+                    size -= 1
+                    if size < 0:
+                        break
+                    addr += ord(lineno[p])
+                    if ord(lineno[p + 1]):
+                        break
+                    p += 2
+                frame.instr_ub = addr
+            else:
+                frame.instr_ub = sys.maxint
+
+            if frame.instr_lb == frame.last_instr: # At start of line!
+                frame.f_lineno = line
+                self._trace(frame, 'line', self.space.w_None)
+
+        frame.instr_prev_plus_one = frame.last_instr + 1
+
     def bytecode_trace_after_exception(self, frame):
         "Like bytecode_trace(), but without increasing the ticker."
         actionflag = self.space.actionflag
+        self.bytecode_only_trace(frame)
         if actionflag.get_ticker() < 0:
             actionflag.action_dispatcher(self, frame)     # slow path
     bytecode_trace_after_exception._always_inline_ = 'try'
@@ -178,7 +224,6 @@ class ExecutionContext(object):
         else:
             self.force_all_frames()
             self.w_tracefunc = w_func
-            self.space.frame_trace_action.fire()
 
     def gettrace(self):
         return jit.promote(self.w_tracefunc)
@@ -221,7 +266,6 @@ class ExecutionContext(object):
         is_tracing = self.is_tracing
         self.is_tracing = 0
         try:
-            self.space.frame_trace_action.fire()
             return self.space.call(w_func, w_args)
         finally:
             self.is_tracing = is_tracing
@@ -260,7 +304,6 @@ class ExecutionContext(object):
             finally:
                 self.is_tracing -= 1
                 frame.locals2fast()
-                space.frame_trace_action.fire()
 
         # Profile cases
         if self.profilefunc is not None:
@@ -475,54 +518,3 @@ class UserDelAction(AsyncAction):
             except OperationError, e:
                 e.write_unraisable(space, descrname, w_obj)
                 e.clear(space)   # break up reference cycles
-
-class FrameTraceAction(AsyncAction):
-    """An action that calls the local trace functions (w_f_trace)."""
-
-    @jit.unroll_safe
-    def perform(self, executioncontext, frame):
-        if (frame.w_f_trace is None or executioncontext.is_tracing or
-            executioncontext.gettrace() is None):
-            return
-        code = frame.pycode
-        if frame.instr_lb <= frame.last_instr < frame.instr_ub:
-            if frame.last_instr < frame.instr_prev_plus_one:
-                # We jumped backwards in the same line.
-                executioncontext._trace(frame, 'line', self.space.w_None)
-        else:
-            size = len(code.co_lnotab) / 2
-            addr = 0
-            line = code.co_firstlineno
-            p = 0
-            lineno = code.co_lnotab
-            while size > 0:
-                c = ord(lineno[p])
-                if (addr + c) > frame.last_instr:
-                    break
-                addr += c
-                if c:
-                    frame.instr_lb = addr
-
-                line += ord(lineno[p + 1])
-                p += 2
-                size -= 1
-
-            if size > 0:
-                while True:
-                    size -= 1
-                    if size < 0:
-                        break
-                    addr += ord(lineno[p])
-                    if ord(lineno[p + 1]):
-                        break
-                    p += 2
-                frame.instr_ub = addr
-            else:
-                frame.instr_ub = sys.maxint
-
-            if frame.instr_lb == frame.last_instr: # At start of line!
-                frame.f_lineno = line
-                executioncontext._trace(frame, 'line', self.space.w_None)
-
-        frame.instr_prev_plus_one = frame.last_instr + 1
-        self.space.frame_trace_action.fire()     # continue tracing
