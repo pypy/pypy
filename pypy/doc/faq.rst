@@ -74,13 +74,19 @@ with PyPy see the `compatibility wiki`_.
 On which platforms does PyPy run?
 ---------------------------------
 
-PyPy is regularly and extensively tested on Linux machines and on Mac
-OS X and mostly works under Windows too (but is tested there less
-extensively). PyPy needs a CPython running on the target platform to
-bootstrap, as cross compilation is not really meant to work yet.
-At the moment you need CPython 2.5 - 2.7
-for the translation process. PyPy's JIT requires an x86 or x86_64 CPU.
-(There has also been good progress on getting the JIT working for ARMv7.)
+PyPy is regularly and extensively tested on Linux machines. It mostly
+works on Mac and Windows: it is tested there, but most of us are running
+Linux so fixes may depend on 3rd-party contributions.  PyPy's JIT
+works on x86 (32-bit or 64-bit) and on ARM (ARMv6 or ARMv7).
+Support for POWER (64-bit) is stalled at the moment.
+
+To bootstrap from sources, PyPy can use either CPython (2.6 or 2.7) or
+another (e.g. older) PyPy.  Cross-translation is not really supported:
+e.g. to build a 32-bit PyPy, you need to have a 32-bit environment.
+Cross-translation is only explicitly supported between a 32-bit Intel
+Linux and ARM Linux (see here__).
+
+.. __: arm.html
 
 ------------------------------------------------
 Which Python version (2.x?) does PyPy implement?
@@ -125,7 +131,7 @@ How fast is PyPy?
 -----------------
 This really depends on your code.
 For pure Python algorithmic code, it is very fast.  For more typical
-Python programs we generally are 3 times the speed of Cpython 2.6 .
+Python programs we generally are 3 times the speed of CPython 2.7.
 You might be interested in our `benchmarking site`_ and our 
 `jit documentation`_.
 
