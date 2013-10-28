@@ -3,27 +3,12 @@ Arguments objects.
 """
 from rpython.annotator.model import SomeTuple
 
-# for parsing call arguments
-class RPythonCallsSpace(object):
-    """Pseudo Object Space providing almost no real operation.
-    For the Arguments class: if it really needs other operations, it means
-    that the call pattern is too complex for R-Python.
-    """
-    def newtuple(self, items_s):
-        return SomeTuple(items_s)
-
-    def unpackiterable(self, s_obj):
-        assert isinstance(s_obj, SomeTuple)
-        return list(s_obj.items)
-
-
 class ArgumentsForTranslation(object):
     w_starstararg = None
-    def __init__(self, space, args_w, keywords=None, keywords_w=None,
+    def __init__(self, args_w, keywords=None, keywords_w=None,
                  w_stararg=None, w_starstararg=None):
         self.w_stararg = w_stararg
         assert w_starstararg is None
-        self.space = space
         assert isinstance(args_w, list)
         self.arguments_w = args_w
         self.keywords = keywords
@@ -42,10 +27,17 @@ class ArgumentsForTranslation(object):
     @property
     def positional_args(self):
         if self.w_stararg is not None:
-            args_w = self.space.unpackiterable(self.w_stararg)
+            args_w = self.unpackiterable(self.w_stararg)
             return self.arguments_w + args_w
         else:
             return self.arguments_w
+
+    def newtuple(self, items_s):
+        return SomeTuple(items_s)
+
+    def unpackiterable(self, s_obj):
+        assert isinstance(s_obj, SomeTuple)
+        return list(s_obj.items)
 
     def fixedunpack(self, argcount):
         """The simplest argument parsing: get the 'argcount' arguments,
@@ -60,14 +52,13 @@ class ArgumentsForTranslation(object):
 
     def prepend(self, w_firstarg): # used often
         "Return a new Arguments with a new argument inserted first."
-        return ArgumentsForTranslation(self.space, [w_firstarg] + self.arguments_w,
+        return ArgumentsForTranslation([w_firstarg] + self.arguments_w,
                                        self.keywords, self.keywords_w, self.w_stararg,
                                        self.w_starstararg)
 
     def copy(self):
-        return ArgumentsForTranslation(self.space, self.arguments_w,
-                                       self.keywords, self.keywords_w, self.w_stararg,
-                                       self.w_starstararg)
+        return ArgumentsForTranslation(self.arguments_w, self.keywords,
+                self.keywords_w, self.w_stararg, self.w_starstararg)
 
     def _match_signature(self, scope_w, signature, defaults_w=None):
         """Parse args and kwargs according to the signature of a code object,
@@ -94,7 +85,7 @@ class ArgumentsForTranslation(object):
                 starargs_w = args_w[co_argcount:]
             else:
                 starargs_w = []
-            scope_w[co_argcount] = self.space.newtuple(starargs_w)
+            scope_w[co_argcount] = self.newtuple(starargs_w)
         elif num_args > co_argcount:
             raise ArgErrCount(num_args, num_kwds, signature, defaults_w, 0)
 
@@ -178,12 +169,12 @@ class ArgumentsForTranslation(object):
         need_cnt = len(self.positional_args)
         if varargname:
             assert len(data_w) == cnt + 1
-            stararg_w = self.space.unpackiterable(data_w[cnt])
+            stararg_w = self.unpackiterable(data_w[cnt])
             if stararg_w:
                 args_w = data_w[:cnt] + stararg_w
                 assert len(args_w) == need_cnt
                 assert not self.keywords
-                return ArgumentsForTranslation(self.space, args_w, [], [])
+                return ArgumentsForTranslation(args_w, [], [])
             else:
                 data_w = data_w[:-1]
         assert len(data_w) == cnt
@@ -192,10 +183,10 @@ class ArgumentsForTranslation(object):
         _kwds_w = dict(zip(argnames[need_cnt:], data_w[need_cnt:]))
         keywords = self.keywords or []
         keywords_w = [_kwds_w[key] for key in keywords]
-        return ArgumentsForTranslation(self.space, args_w, keywords, keywords_w)
+        return ArgumentsForTranslation(args_w, keywords, keywords_w)
 
-    @staticmethod
-    def fromshape(space, (shape_cnt, shape_keys, shape_star, shape_stst), data_w):
+    @classmethod
+    def fromshape(cls, (shape_cnt, shape_keys, shape_star, shape_stst), data_w):
         args_w = data_w[:shape_cnt]
         p = end_keys = shape_cnt + len(shape_keys)
         if shape_star:
@@ -208,9 +199,8 @@ class ArgumentsForTranslation(object):
             p += 1
         else:
             w_starstar = None
-        return ArgumentsForTranslation(space, args_w, list(shape_keys),
-                                       data_w[shape_cnt:end_keys], w_star,
-                                       w_starstar)
+        return cls(args_w, list(shape_keys), data_w[shape_cnt:end_keys],
+                w_star, w_starstar)
 
     def flatten(self):
         """ Argument <-> list of w_objects together with "shape" information """

@@ -18,7 +18,7 @@ from rpython.annotator.listdef import ListDef, ListItem
 from rpython.annotator.dictdef import DictDef
 from rpython.annotator import description
 from rpython.annotator.signature import annotationoftype
-from rpython.annotator.argument import ArgumentsForTranslation, RPythonCallsSpace
+from rpython.annotator.argument import ArgumentsForTranslation
 from rpython.rlib.objectmodel import r_dict, Symbolic
 from rpython.tool.algo.unionfind import UnionFind
 from rpython.rtyper.lltypesystem import lltype, llmemory
@@ -692,12 +692,11 @@ class Bookkeeper(object):
         return op
 
     def build_args(self, op, args_s):
-        space = RPythonCallsSpace()
         if op == "simple_call":
-            return ArgumentsForTranslation(space, list(args_s))
+            return ArgumentsForTranslation(list(args_s))
         elif op == "call_args":
             return ArgumentsForTranslation.fromshape(
-                    space, args_s[0].const, # shape
+                    args_s[0].const, # shape
                     list(args_s[1:]))
 
     def ondegenerated(self, what, s_value, where=None, called_from_graph=None):

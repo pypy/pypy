@@ -47,7 +47,7 @@ def call_args_expand(hop, takes_kwds = True):
     hop = hop.copy()
     from rpython.annotator.argument import ArgumentsForTranslation
     arguments = ArgumentsForTranslation.fromshape(
-            None, hop.args_s[1].const, # shape
+            hop.args_s[1].const, # shape
             range(hop.nb_args-2))
     if arguments.w_starstararg is not None:
         raise TyperError("**kwds call not implemented")
