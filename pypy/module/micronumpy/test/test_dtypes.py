@@ -740,35 +740,25 @@ class AppTestTypes(BaseAppTestDtypes):
     def test_any_all_nonzero(self):
         import numpypy as numpy
         x = numpy.bool_(True)
-        assert x.any()
-        assert x.all()
-        assert x.__nonzero__()
-        assert isinstance(x.any(), numpy.bool_)
-        assert isinstance(x.__nonzero__(), bool)
+        assert x.any() is numpy.True_
+        assert x.all() is numpy.True_
+        assert x.__nonzero__() is True
         x = numpy.bool_(False)
-        assert not x.any()
-        assert not x.all()
-        assert not x.__nonzero__()
-        assert isinstance(x.any(), numpy.bool_)
-        assert isinstance(x.__nonzero__(), bool)
+        assert x.any() is numpy.False_
+        assert x.all() is numpy.False_
+        assert x.__nonzero__() is False
         x = numpy.float64(0)
-        assert not x.any()
-        assert not x.all()
-        assert not x.__nonzero__()
-        assert isinstance(x.any(), numpy.float64)
-        assert isinstance(x.__nonzero__(), bool)
+        assert x.any() is numpy.False_
+        assert x.all() is numpy.False_
+        assert x.__nonzero__() is False
         x = numpy.complex128(0)
-        assert not x.any()
-        assert not x.all()
-        assert not x.__nonzero__()
-        assert isinstance(x.any(), numpy.complex128)
-        assert isinstance(x.__nonzero__(), bool)
+        assert x.any() is numpy.False_
+        assert x.all() is numpy.False_
+        assert x.__nonzero__() is False
         x = numpy.complex128(0+1j)
-        assert x.any()
-        assert x.all()
-        assert x.__nonzero__()
-        assert isinstance(x.any(), numpy.complex128)
-        assert isinstance(x.__nonzero__(), bool)
+        assert x.any() is numpy.True_
+        assert x.all() is numpy.True_
+        assert x.__nonzero__() is True
 
     def test_ravel(self):
         from numpypy import float64, int8, array

@@ -229,12 +229,14 @@ class W_GenericBox(W_Root):
         return space.newtuple([w_quotient, w_remainder])
 
     def descr_any(self, space):
+        from pypy.module.micronumpy.interp_dtype import get_dtype_cache
         value = space.is_true(self)
-        return self.get_dtype(space).box(value)
+        return get_dtype_cache(space).w_booldtype.box(value)
 
     def descr_all(self, space):
+        from pypy.module.micronumpy.interp_dtype import get_dtype_cache
         value = space.is_true(self)
-        return self.get_dtype(space).box(value)
+        return get_dtype_cache(space).w_booldtype.box(value)
 
     def descr_ravel(self, space):
         from pypy.module.micronumpy.base import convert_to_array
