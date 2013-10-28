@@ -46,11 +46,9 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
             if not we_are_translated():
                 # only possible in tests:
                 if opnum in (rop.COND_CALL_STM_B, 
-                                     -124): # FORCE_SPILL
+                            -124): # FORCE_SPILL
                     self.newops.append(op)
                     continue
-            if opnum == rop.DEBUG_MERGE_POINT:
-                continue
             if opnum == rop.INCREMENT_DEBUG_COUNTER:
                 self.newops.append(op)
                 continue
