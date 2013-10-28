@@ -189,37 +189,26 @@ class ArgumentsForTranslation(object):
 
     def unmatch_signature(self, signature, data_w):
         """kind of inverse of match_signature"""
-        need_cnt = len(self.positional_args)
-        need_kwds = self.keywords or []
-        space = self.space
         argnames, varargname, kwargname = signature
         assert kwargname is None
         cnt = len(argnames)
-        data_args_w = data_w[:cnt]
+        need_cnt = len(self.positional_args)
         if varargname:
-            data_w_stararg = data_w[cnt]
-            cnt += 1
-        else:
-            data_w_stararg = space.newtuple([])
+            assert len(data_w) == cnt + 1
+            stararg_w = self.space.unpackiterable(data_w[cnt])
+            if stararg_w:
+                args_w = data_w[:cnt] + stararg_w
+                assert len(args_w) == need_cnt
+                assert not self.keywords
+                return ArgumentsForTranslation(self.space, args_w, [], [])
+            else:
+                data_w = data_w[:-1]
         assert len(data_w) == cnt
-
-        unfiltered_kwds_w = {}
-        if len(data_args_w) >= need_cnt:
-            args_w = data_args_w[:need_cnt]
-            for argname, w_arg in zip(argnames[need_cnt:], data_args_w[need_cnt:]):
-                unfiltered_kwds_w[argname] = w_arg
-            assert not space.bool(data_w_stararg)
-        else:
-            stararg_w = space.unpackiterable(data_w_stararg)
-            args_w = data_args_w + stararg_w
-            assert len(args_w) == need_cnt
-
-        keywords = []
-        keywords_w = []
-        for key in need_kwds:
-            keywords.append(key)
-            keywords_w.append(unfiltered_kwds_w[key])
-
+        assert len(data_w) >= need_cnt
+        args_w = data_w[:need_cnt]
+        _kwds_w = dict(zip(argnames[need_cnt:], data_w[need_cnt:]))
+        keywords = self.keywords or []
+        keywords_w = [_kwds_w[key] for key in keywords]
         return ArgumentsForTranslation(self.space, args_w, keywords, keywords_w)
 
     @staticmethod
