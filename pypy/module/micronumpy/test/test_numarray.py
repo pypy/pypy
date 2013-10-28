@@ -1230,8 +1230,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (a.mean(2) == array(range(0, 15), dtype=float).reshape(3, 5) * 7 + 3).all()
         assert (arange(10).reshape(5, 2).mean(axis=1) == [0.5, 2.5, 4.5, 6.5, 8.5]).all()
         assert (a.mean(axis=-1) == a.mean(axis=2)).all()
-        raises(ValueError, a.mean, -4)
-        raises(ValueError, a.mean, 3)
+        raises(IndexError, a.mean, -4)
+        raises(IndexError, a.mean, 3)
         a = arange(10).reshape(5, 2)
         assert (a.mean(1) == [0.5, 2.5, 4.5, 6.5, 8.5]).all()
 
