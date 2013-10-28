@@ -260,6 +260,9 @@ class W_GenericBox(W_Root):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "view not implelemnted yet"))
 
+    def descr_get_dtype(self, space):
+        return self.get_dtype(space)
+
     def descr_get_itemsize(self, space):
         return self.get_dtype(space).descr_get_itemsize(space)
 
@@ -511,6 +514,8 @@ W_GenericBox.typedef = TypeDef("generic",
     round = interp2app(W_GenericBox.descr_round),
     conjugate = interp2app(W_GenericBox.descr_conjugate),
     view = interp2app(W_GenericBox.descr_view),
+
+    dtype = GetSetProperty(W_GenericBox.descr_get_dtype),
     itemsize = GetSetProperty(W_GenericBox.descr_get_itemsize),
 )
 

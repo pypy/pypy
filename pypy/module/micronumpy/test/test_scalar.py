@@ -37,6 +37,7 @@ class AppTestScalar(BaseNumpyAppTest):
         exc = raises(AttributeError, 'b.round()')
         assert exc.value[0] == "'bool' object has no attribute 'round'"
 
-    def test_itemsize(self):
+    def test_attributes(self):
         import numpypy as np
+        assert np.int64(0).dtype == np.dtype('int64')
         assert np.int64(0).itemsize == 8
