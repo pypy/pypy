@@ -2368,7 +2368,7 @@ class Assembler386(BaseAssembler):
         self.mc.overwrite(jmp_location - 1, chr(offset))
 
     # ------------------- END CALL ASSEMBLER -----------------------
-    def _stm_ptr_eq_fastpath(self, mc, arglocs):
+    def _stm_ptr_eq_fastpath(self, mc, arglocs, result_loc):
         assert self.cpu.gc_ll_descr.stm
         assert self.ptr_eq_slowpath is not None
         a_base = arglocs[0]
