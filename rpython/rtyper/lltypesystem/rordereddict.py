@@ -194,10 +194,11 @@ class LookupFamily:
         return True
 
 
-class DictRepr(AbstractDictRepr):
+class OrderedDictRepr(AbstractDictRepr):
 
     def __init__(self, rtyper, key_repr, value_repr, dictkey, dictvalue,
-                 custom_eq_hash=None):
+                 custom_eq_hash=None, force_non_null=False):
+        assert not force_non_null
         self.rtyper = rtyper
         self.finalized = False
         self.DICT = lltype.GcForwardReference()
@@ -389,7 +390,7 @@ class DictRepr(AbstractDictRepr):
         v_res = hop.gendirectcall(target, *v_args)
         return self.recast_value(hop.llops, v_res)
 
-class __extend__(pairtype(DictRepr, rmodel.Repr)):
+class __extend__(pairtype(OrderedDictRepr, rmodel.Repr)):
 
     def rtype_getitem((r_dict, r_key), hop):
         v_dict, v_key = hop.inputargs(r_dict, r_dict.key_repr)
@@ -419,7 +420,7 @@ class __extend__(pairtype(DictRepr, rmodel.Repr)):
         hop.exception_is_here()
         return hop.gendirectcall(ll_dict_contains, v_dict, v_key)
 
-class __extend__(pairtype(DictRepr, DictRepr)):
+class __extend__(pairtype(OrderedDictRepr, OrderedDictRepr)):
     def convert_from_to((r_dict1, r_dict2), v, llops):
         # check that we don't convert from Dicts with
         # different key/value types

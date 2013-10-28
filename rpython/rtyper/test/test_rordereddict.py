@@ -1,9 +1,11 @@
 
 import py
+from collections import OrderedDict
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem import rordereddict, rstr
 from rpython.rlib.rarithmetic import intmask
 from rpython.rtyper.annlowlevel import llstr, hlstr
+from rpython.rtyper.test.test_rdict import BaseTestRDict
 
 
 def get_indexes(ll_d):
@@ -21,7 +23,7 @@ def count_items(ll_d, ITEM):
             c += 1
     return c
 
-    
+
 class TestRDictDirect(object):
     dummykeyobj = None
     dummyvalueobj = None
@@ -252,3 +254,24 @@ class TestRDictDirectDummyKey(TestRDictDirect):
 class TestRDictDirectDummyValue(TestRDictDirect):
     class dummyvalueobj:
         ll_dummy_value = -42
+
+class TestOrderedRDict(BaseTestRDict):
+    @staticmethod
+    def newdict():
+        return OrderedDict()
+
+    def test_two_dicts_with_different_value_types(self):
+        def func(i):
+            d1 = OrderedDict()
+            d1['hello'] = i + 1
+            d2 = OrderedDict()
+            d2['world'] = d1
+            return d2['world']['hello']
+        res = self.interpret(func, [5])
+        assert res == 6
+
+    def test_dict_with_SHORT_keys(self):
+        py.test.skip("I don't want to edit this file on two branches")
+
+    def test_memoryerror_should_not_insert(self):
+        py.test.skip("I don't want to edit this file on two branches")

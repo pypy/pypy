@@ -1,3 +1,5 @@
+from collections import OrderedDict
+
 from rpython.annotator import model as annmodel
 from rpython.flowspace.model import Constant
 from rpython.rlib import rarithmetic, objectmodel
@@ -726,10 +728,19 @@ def rtype_builtin_hasattr(hop):
 
     raise TyperError("hasattr is only suported on a constant")
 
+def rtype_ordered_dict(hop):
+    from rpython.rtyper.lltypesystem.rordereddict import ll_newdict
+
+    hop.exception_cannot_occur()
+    r_dict = hop.r_result
+    cDICT = hop.inputconst(lltype.Void, r_dict.DICT)
+    return hop.gendirectcall(ll_newdict, cDICT)
+
 BUILTIN_TYPER[objectmodel.instantiate] = rtype_instantiate
 BUILTIN_TYPER[isinstance] = rtype_builtin_isinstance
 BUILTIN_TYPER[hasattr] = rtype_builtin_hasattr
 BUILTIN_TYPER[objectmodel.r_dict] = rtype_r_dict
+BUILTIN_TYPER[OrderedDict] = rtype_ordered_dict
 
 # _________________________________________________________________
 # weakrefs

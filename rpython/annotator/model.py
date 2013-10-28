@@ -32,6 +32,7 @@ from __future__ import absolute_import
 import inspect
 import weakref
 from types import BuiltinFunctionType, MethodType
+from collections import OrderedDict
 
 import rpython
 from rpython.tool import descriptor
@@ -354,6 +355,18 @@ class SomeDict(SomeObject):
             return repr(const)
         else:
             return '{...%s...}' % (len(const),)
+
+class SomeOrderedDict(SomeDict):
+    knowntype = OrderedDict
+
+    def method_copy(dct):
+        return SomeOrderedDict(dct.dictdef)
+
+    def method_update(dct1, dct2):
+        if s_None.contains(dct2):
+            return SomeImpossibleValue()
+        assert isinstance(dct2, SomeOrderedDict), "OrderedDict.update(dict) not allowed"
+        dct1.dictdef.union(dct2.dictdef)
 
 
 class SomeIterator(SomeObject):
