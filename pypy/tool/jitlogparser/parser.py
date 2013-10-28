@@ -87,7 +87,7 @@ class SimpleParser(OpParser):
                     continue
                 e = elem.split("\t")
                 adr = e[0]
-                v = elem   # --- more compactly:  " ".join(e[2:])
+                v = " ".join(e[2:])
                 if not start:
                     start = int(adr.strip(":"), 16)
                 ofs = int(adr.strip(":"), 16)
@@ -102,7 +102,6 @@ class SimpleParser(OpParser):
                 if ofs >= 0:
                     asm.append((ofs, v.strip("\n")))
             #
-            prefix = hex(dump_start)[:-9]
             asm_index = 0
             for i, op in enumerate(loop.operations):
                 end = 0
@@ -122,7 +121,7 @@ class SimpleParser(OpParser):
                     while asm[end_index][0] - start < end and end_index < len(asm) - 1:
                         end_index += 1
                     op.asm = '\n'.join([
-                        prefix+hex(asm[i][0])[2:] + ": " + asm[i][1] 
+                        hex(asm[i][0]) + ": " + asm[i][1] 
                         for i in range(asm_index, end_index)])
         return loop
 
