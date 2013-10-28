@@ -827,6 +827,9 @@ class __extend__(W_NDimArray):
         return loop.multidim_dot(space, self, other,  w_res, dtype,
                                  other_critical_dim)
 
+    def descr_mean(self, space, __args__):
+        return get_appbridge_cache(space).call_method(space, '_mean', self, __args__)
+
     def descr_var(self, space, __args__):
         return get_appbridge_cache(space).call_method(space, '_var', self, __args__)
 
@@ -861,14 +864,6 @@ class __extend__(W_NDimArray):
 
     descr_cumsum = _reduce_ufunc_impl('add', cumultative=True)
     descr_cumprod = _reduce_ufunc_impl('multiply', cumultative=True)
-
-    def descr_mean(self, space, w_axis=None, w_out=None):
-        if space.is_none(w_axis):
-            w_denom = space.wrap(self.get_size())
-        else:
-            axis = unwrap_axis_arg(space, len(self.get_shape()), w_axis)
-            w_denom = space.wrap(self.get_shape()[axis])
-        return space.div(self.descr_sum_promote(space, w_axis, w_out), w_denom)
 
     def _reduce_argmax_argmin_impl(op_name):
         def impl(self, space):

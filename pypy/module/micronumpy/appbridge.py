@@ -1,6 +1,7 @@
 from rpython.rlib.objectmodel import specialize
 
 class AppBridgeCache(object):
+    w__mean = None
     w__var = None
     w__std = None
     w_module = None
