@@ -427,52 +427,69 @@ class Assembler386(BaseAssembler):
         cpu = self.cpu
         assert cpu.gc_ll_descr.stm
         #
+        # SYNCHRONIZE WITH extra.c'S IMPLEMENTATION!
+        #
         # This builds a helper function called from the slow path of
         # ptr_eq/ne.  It must save all registers, and optionally
         # all XMM registers. It takes two values pushed on the stack,
         # even on X86_64.  It must restore stack alignment accordingly.
         mc = codebuf.MachineCodeBlockWrapper()
         #
-        self._push_all_regs_to_frame(mc, [], withfloats=False,
-                                     callee_only=True)
+        # we want 2 registers:
+        mc.PUSH_r(esi.value)
+        mc.PUSH_r(edi.value)
         #
-        if IS_X86_32:
-            # ||val2|val1|retaddr|  growing->, || aligned 
-            mc.SUB_ri(esp.value, 5 * WORD)
-            # ||val2|val1|retaddr|x||x|x|x|x|
-            mc.MOV_rs(eax.value, 6 * WORD)
-            mc.MOV_rs(ecx.value, 7 * WORD)
-            # eax=val1, ecx=val2
-            mc.MOV_sr(0, eax.value)
-            mc.MOV_sr(WORD, ecx.value)
-            # ||val2|val1|retaddr|x||x|x|val2|val1|
-        else:
-            # ||val2|val1||retaddr|
-            mc.SUB_ri(esp.value, WORD)
-            # ||val2|val1||retaddr|x||
-            mc.MOV_rs(edi.value, 2 * WORD)
-            mc.MOV_rs(esi.value, 3 * WORD)
+        # get arguments: ||val2|val1||retaddr|esi||edi|
+        mc.MOV_rs(esi.value, 3 * WORD)
+        mc.MOV_rs(edi.value, 4 * WORD)
         #
-        if not we_are_translated(): # for tests
-            fn = cpu.gc_ll_descr.get_malloc_fn_addr('stm_ptr_eq')
-            mc.CALL(imm(fn))
-        else:
-            fn = stmtlocal.stm_pointer_equal_fn
-            mc.CALL(imm(self.cpu.cast_ptr_to_int(fn)))
-        # eax has result
-        if IS_X86_32:
-            # ||val2|val1|retaddr|x||x|x|val2|val1|
-            mc.ADD_ri(esp.value, 5 * WORD)
-            # ||val2|val1|retaddr|
-        else:
-            # ||val2|val1||retaddr|x||
-            mc.ADD_ri(esp.value, WORD)
-            # ||val2|val1||retaddr|
-        mc.MOV_sr(2 * WORD, eax.value)
+        # the fastpath checks if val1==val2 or any of them is NULL
+        # thus, we only have to get to their h_original
+        # if they are *not* PREBUILT_ORIGINALS
+        #
+        flag = StmGC.GCFLAG_PREBUILT_ORIGINAL
+        assert (flag >> 32) > 0 and (flag >> 40) == 0
+        flag = flag >> 32
+        off = 4
+        # if !(val1->h_original), leave EDI as is
+        mc.MOV_rm(X86_64_SCRATCH_REG.value, (edi.value, StmGC.H_ORIGINAL))
+        mc.TEST_rr(X86_64_SCRATCH_REG.value, X86_64_SCRATCH_REG.value)
+        mc.J_il8(rx86.Conditions['Z'], 0)
+        z1_location = mc.get_relative_pos()
+        # if val1->h_tid & PREBUILT_ORIGINAL, take h_original
+        mc.TEST8_mi((edi.value, StmGC.H_TID + off), flag)
+        mc.CMOVE_rr(edi.value, X86_64_SCRATCH_REG.value)
+        #
+        # Do the same for val2=ESI
+        offset = mc.get_relative_pos() - z1_location
+        assert 0 < offset <= 127
+        mc.overwrite(z1_location - 1, chr(offset))
+        # if !(val2->h_original), leave ESI as is
+        mc.MOV_rm(X86_64_SCRATCH_REG.value, (esi.value, StmGC.H_ORIGINAL))
+        mc.TEST_rr(X86_64_SCRATCH_REG.value, X86_64_SCRATCH_REG.value)
+        mc.J_il8(rx86.Conditions['Z'], 0)
+        z2_location = mc.get_relative_pos()
+        # if val2->h_tid & PREBUILT_ORIGINAL, take h_original
+        mc.TEST8_mi((esi.value, StmGC.H_TID + off), flag)
+        mc.CMOVE_rr(esi.value, X86_64_SCRATCH_REG.value)
+        #
+        # COMPARE
+        offset = mc.get_relative_pos() - z2_location
+        assert 0 < offset <= 127
+        mc.overwrite(z2_location - 1, chr(offset))
+        #
+        mc.CMP_rr(edi.value, esi.value)
+        sl = X86_64_SCRATCH_REG.lowest8bits()
+        mc.SET_ir(rx86.Conditions['Z'], sl.value)
+        # mov result to val2 on stack
+        # ||val2|val1||retaddr|esi||edi|
+        mc.MOV_sr(4 * WORD, X86_64_SCRATCH_REG.value)
+        #
+        # Restore everything:
+        mc.POP_r(edi.value)
+        mc.POP_r(esi.value)
         # ||result|val1|retaddr|
         #
-        self._pop_all_regs_from_frame(mc, [], withfloats=False,
-                                      callee_only=True)
         #
         # only remove one arg:
         mc.RET16_i(1 * WORD)

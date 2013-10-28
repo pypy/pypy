@@ -530,6 +530,7 @@ class AbstractX86CodeBuilder(object):
     NOT_b = insn(rex_w, '\xF7', orbyte(2<<3), stack_bp(1))
 
     CMOVNS_rr = insn(rex_w, '\x0F\x49', register(1, 8), register(2), '\xC0')
+    CMOVE_rr = insn(rex_w, '\x0F\x44', register(1, 8), register(2), '\xC0')
 
     # ------------------------------ Misc stuff ------------------------------
 

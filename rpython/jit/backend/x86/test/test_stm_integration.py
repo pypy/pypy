@@ -847,12 +847,16 @@ class TestGcStm(BaseTestRegalloc):
                     if isinstance(p2, Const):
                         b = cast_to_int(p2.value)
                         
-                    if a == b or a == 0 or b == 0:
-                        assert (a, b) not in called_on
-                        assert (b, a) not in called_on
-                    else:
-                        assert ([(a, b)] == called_on
-                                or [(b, a)] == called_on)
+                    # XXX: there is now no function being called in the
+                    # slowpath, so we can't check if fast- vs. slowpath
+                    # works :/
+                    
+                    # if a == b or a == 0 or b == 0:
+                    #     assert (a, b) not in called_on
+                    #     assert (b, a) not in called_on
+                    # else:
+                    #     assert ([(a, b)] == called_on
+                    #             or [(b, a)] == called_on)
 
                     if guard is not None:
                         if a == b:
