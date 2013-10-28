@@ -1,8 +1,7 @@
 from pypy.module.micronumpy.interp_dtype import get_dtype_cache
 from pypy.module.micronumpy.interp_ufuncs import (find_binop_result_dtype,
         find_unaryop_result_dtype)
-from pypy.module.micronumpy.interp_dtype import nonnative_byteorder_prefix,\
-     byteorder_prefix
+from pypy.module.micronumpy.interp_dtype import NATBYTE, OPPBYTE
 from pypy.conftest import option
 import sys
 
@@ -18,8 +17,8 @@ class BaseNumpyAppTest(object):
                 sys.modules['numpypy'] = numpy
                 isNumpy = True
         cls.w_isNumpy = cls.space.wrap(isNumpy)
-        cls.w_non_native_prefix = cls.space.wrap(nonnative_byteorder_prefix)
-        cls.w_native_prefix = cls.space.wrap(byteorder_prefix)
+        cls.w_non_native_prefix = cls.space.wrap(OPPBYTE)
+        cls.w_native_prefix = cls.space.wrap(NATBYTE)
 
 class TestUfuncCoerscion(object):
     def test_binops(self, space):

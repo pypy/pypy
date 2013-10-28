@@ -472,7 +472,7 @@ class __extend__(W_NDimArray):
         if self.is_scalar():
             return space.wrap(0)
         s = self.get_dtype().name
-        if not self.get_dtype().native:
+        if not self.get_dtype().is_native():
             s = s[1:]
         dtype = interp_dtype.get_dtype_cache(space).dtypes_by_name[s]
         contig = self.implementation.astype(space, dtype)

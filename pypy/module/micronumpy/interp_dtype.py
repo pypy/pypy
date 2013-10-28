@@ -11,11 +11,11 @@ from rpython.rtyper.lltypesystem import rffi
 from rpython.rlib import jit
 
 if sys.byteorder == 'little':
-    byteorder_prefix = '<'
-    nonnative_byteorder_prefix = '>'
+    NATBYTE = '<'
+    OPPBYTE = '>'
 else:
-    byteorder_prefix = '>'
-    nonnative_byteorder_prefix = '<'
+    NATBYTE = '>'
+    OPPBYTE = '<'
 
 UNSIGNEDLTR = "u"
 SIGNEDLTR = "i"
@@ -50,29 +50,34 @@ def dtype_agreement(space, w_arr_list, shape, out=None):
     return out
 
 class W_Dtype(W_Root):
-    _immutable_fields_ = ["itemtype", "num", "kind", "shape"]
+    _immutable_fields_ = ["itemtype?", "num", "kind", "name?", "char", "w_box_type", "byteorder"]
 
-    def __init__(self, itemtype, num, kind, name, char, w_box_type,
+    def __init__(self, itemtype, num, kind, name, char, w_box_type, byteorder='=',
                  alternate_constructors=[], aliases=[], float_type=None,
-                 fields=None, fieldnames=None, native=True, shape=[], subdtype=None):
+                 fields=None, fieldnames=None, shape=[], subdtype=None):
         self.itemtype = itemtype
         self.num = num
         self.kind = kind
         self.name = name
         self.char = char
         self.w_box_type = w_box_type
+        self.byteorder = byteorder
         self.alternate_constructors = alternate_constructors
         self.aliases = aliases
         self.float_type = float_type
         self.fields = fields
         self.fieldnames = fieldnames
-        self.native = native
         self.shape = list(shape)
         self.subdtype = subdtype
         if not subdtype:
             self.base = self
         else:
             self.base = subdtype.base
+
+    def __repr__(self):
+        if self.fields is not None:
+            return '<DType %r>' % self.fields
+        return '<DType %r>' % self.itemtype
 
     @specialize.argtype(1)
     def box(self, value):
@@ -101,6 +106,40 @@ class W_Dtype(W_Root):
     def fill(self, storage, box, start, stop):
         self.itemtype.fill(storage, self.get_size(), box, start, stop, 0)
 
+    def is_int_type(self):
+        return (self.kind == SIGNEDLTR or self.kind == UNSIGNEDLTR or
+                self.kind == BOOLLTR)
+
+    def is_signed(self):
+        return self.kind == SIGNEDLTR
+
+    def is_complex_type(self):
+        return self.kind == COMPLEXLTR
+
+    def is_float_type(self):
+        return (self.kind == FLOATINGLTR or self.float_type is not None)
+
+    def is_bool_type(self):
+        return self.kind == BOOLLTR
+
+    def is_record_type(self):
+        return self.fields is not None
+
+    def is_str_type(self):
+        return self.num == 18
+
+    def is_str_or_unicode(self):
+        return (self.num == 18 or self.num == 19)
+
+    def is_flexible_type(self):
+        return (self.is_str_or_unicode() or self.is_record_type())
+
+    def is_native(self):
+        return self.byteorder in ('=', NATBYTE)
+
+    def get_size(self):
+        return self.itemtype.get_element_size()
+
     def get_name(self):
         if self.char == 'S':
             return '|S' + str(self.get_size())
@@ -115,37 +154,31 @@ class W_Dtype(W_Root):
     def descr_get_itemsize(self, space):
         return space.wrap(self.itemtype.get_element_size())
 
-    def descr_get_byteorder(self, space):
-        if self.native:
-            return space.wrap('=')
-        return space.wrap(nonnative_byteorder_prefix)
+    def descr_get_alignment(self, space):
+        return space.wrap(self.itemtype.alignment)
+
+    def descr_get_subdtype(self, space):
+        return space.newtuple([space.wrap(self.subdtype), self.descr_get_shape(space)])
 
     def descr_get_str(self, space):
         size = self.get_size()
         basic = self.kind
         if basic == UNICODELTR:
             size >>= 2
-            endian = byteorder_prefix
+            endian = NATBYTE
         elif size <= 1:
             endian = '|'  # ignore
-        elif self.native:
-            endian = byteorder_prefix
         else:
-            endian = nonnative_byteorder_prefix
-
+            endian = self.byteorder
+            if endian == '=':
+                endian = NATBYTE
         return space.wrap("%s%s%s" % (endian, basic, size))
-
-    def descr_get_alignment(self, space):
-        return space.wrap(self.itemtype.alignment)
-
-    def descr_get_isnative(self, space):
-        return space.wrap(self.native)
 
     def descr_get_base(self, space):
         return space.wrap(self.base)
 
-    def descr_get_subdtype(self, space):
-        return space.newtuple([space.wrap(self.subdtype), self.descr_get_shape(space)])
+    def descr_get_isnative(self, space):
+        return space.wrap(self.is_native())
 
     def descr_get_shape(self, space):
         w_shape = [space.wrap(dim) for dim in self.shape]
@@ -224,42 +257,6 @@ class W_Dtype(W_Root):
         except KeyError:
             raise OperationError(space.w_KeyError, space.wrap("Field named %s not found" % item))
 
-    def is_int_type(self):
-        return (self.kind == SIGNEDLTR or self.kind == UNSIGNEDLTR or
-                self.kind == BOOLLTR)
-
-    def is_signed(self):
-        return self.kind == SIGNEDLTR
-
-    def is_complex_type(self):
-        return self.kind == COMPLEXLTR
-
-    def is_float_type(self):
-        return (self.kind == FLOATINGLTR or self.float_type is not None)
-
-    def is_bool_type(self):
-        return self.kind == BOOLLTR
-
-    def is_record_type(self):
-        return self.fields is not None
-
-    def is_str_type(self):
-        return self.num == 18
-
-    def is_str_or_unicode(self):
-        return (self.num == 18 or self.num == 19)
-
-    def is_flexible_type(self):
-        return (self.is_str_or_unicode() or self.is_record_type())
-
-    def __repr__(self):
-        if self.fields is not None:
-            return '<DType %r>' % self.fields
-        return '<DType %r>' % self.itemtype
-
-    def get_size(self):
-        return self.itemtype.get_element_size()
-
     def descr_reduce(self, space):
         w_class = space.type(self)
 
@@ -271,7 +268,7 @@ class W_Dtype(W_Root):
         names = self.descr_get_names(space)
         values = self.descr_get_fields(space)
         if self.fields:
-            order = space.wrap('|')
+            endian = '|'
             #TODO: Implement this when subarrays are implemented
             subdescr = space.w_None
             size = 0
@@ -283,21 +280,25 @@ class W_Dtype(W_Root):
             #TODO: Change this when alignment is implemented
             alignment = space.wrap(1)
         else:
-            order = space.wrap(byteorder_prefix if self.native else nonnative_byteorder_prefix)
+            endian = self.byteorder
+            if endian == '=':
+                endian = NATBYTE
             subdescr = space.w_None
             w_size = space.wrap(-1)
             alignment = space.wrap(-1)
         flags = space.wrap(0)
 
-        data = space.newtuple([version, order, subdescr, names, values, w_size, alignment, flags])
-
+        data = space.newtuple([version, space.wrap(endian), subdescr, names, values, w_size, alignment, flags])
         return space.newtuple([w_class, builder_args, data])
 
     def descr_setstate(self, space, w_data):
         if space.int_w(space.getitem(w_data, space.wrap(0))) != 3:
             raise OperationError(space.w_NotImplementedError, space.wrap("Pickling protocol version not supported"))
 
-        self.native = space.str_w(space.getitem(w_data, space.wrap(1))) == byteorder_prefix
+        endian = space.str_w(space.getitem(w_data, space.wrap(1)))
+        if endian == NATBYTE:
+            endian = '='
+        self.byteorder = endian
 
         fieldnames = space.getitem(w_data, space.wrap(3))
         self.set_names(space, fieldnames)
@@ -403,21 +404,22 @@ W_Dtype.typedef = TypeDef("dtype",
     __reduce__ = interp2app(W_Dtype.descr_reduce),
     __setstate__ = interp2app(W_Dtype.descr_setstate),
 
-    num = interp_attrproperty("num", cls=W_Dtype),
+    type = interp_attrproperty_w("w_box_type", cls=W_Dtype),
     kind = interp_attrproperty("kind", cls=W_Dtype),
     char = interp_attrproperty("char", cls=W_Dtype),
-    type = interp_attrproperty_w("w_box_type", cls=W_Dtype),
-    byteorder = GetSetProperty(W_Dtype.descr_get_byteorder),
-    str = GetSetProperty(W_Dtype.descr_get_str),
+    num = interp_attrproperty("num", cls=W_Dtype),
+    byteorder = interp_attrproperty("byteorder", cls=W_Dtype),
     itemsize = GetSetProperty(W_Dtype.descr_get_itemsize),
     alignment = GetSetProperty(W_Dtype.descr_get_alignment),
-    isnative = GetSetProperty(W_Dtype.descr_get_isnative),
+
+    subdtype = GetSetProperty(W_Dtype.descr_get_subdtype),
+    str = GetSetProperty(W_Dtype.descr_get_str),
+    name = interp_attrproperty("name", cls=W_Dtype),
+    base = GetSetProperty(W_Dtype.descr_get_base),
     shape = GetSetProperty(W_Dtype.descr_get_shape),
-    name = interp_attrproperty('name', cls=W_Dtype),
+    isnative = GetSetProperty(W_Dtype.descr_get_isnative),
     fields = GetSetProperty(W_Dtype.descr_get_fields),
     names = GetSetProperty(W_Dtype.descr_get_names),
-    subdtype = GetSetProperty(W_Dtype.descr_get_subdtype),
-    base = GetSetProperty(W_Dtype.descr_get_base),
 )
 W_Dtype.typedef.acceptable_as_base_class = False
 
@@ -739,24 +741,24 @@ class DtypeCache(object):
             self.dtypes_by_name[dtype.name] = dtype
             can_name = dtype.kind + str(dtype.itemtype.get_element_size())
             self.dtypes_by_name[can_name] = dtype
-            self.dtypes_by_name[byteorder_prefix + can_name] = dtype
+            self.dtypes_by_name[NATBYTE + can_name] = dtype
             self.dtypes_by_name['=' + can_name] = dtype
-            new_name = nonnative_byteorder_prefix + can_name
+            new_name = OPPBYTE + can_name
             itemtypename = dtype.itemtype.__class__.__name__
             itemtype = getattr(types, 'NonNative' + itemtypename)()
             self.dtypes_by_name[new_name] = W_Dtype(
                 itemtype,
                 dtype.num, dtype.kind, new_name, dtype.char, dtype.w_box_type,
-                native=False)
+                byteorder=OPPBYTE)
             if dtype.kind != dtype.char:
                 can_name = dtype.char
-                self.dtypes_by_name[byteorder_prefix + can_name] = dtype
+                self.dtypes_by_name[NATBYTE + can_name] = dtype
                 self.dtypes_by_name['=' + can_name] = dtype
-                new_name = nonnative_byteorder_prefix + can_name
+                new_name = OPPBYTE + can_name
                 self.dtypes_by_name[new_name] = W_Dtype(
                     itemtype,
                     dtype.num, dtype.kind, new_name, dtype.char, dtype.w_box_type,
-                    native=False)
+                    byteorder=OPPBYTE)
 
             for alias in dtype.aliases:
                 self.dtypes_by_name[alias] = dtype

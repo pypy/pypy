@@ -309,7 +309,7 @@ def make_sort_function(space, itemtype, comp_type, count=1):
 def sort_array(arr, space, w_axis, w_order):
     cache = space.fromcache(SortCache) # that populates SortClasses
     itemtype = arr.dtype.itemtype
-    if not arr.dtype.native:
+    if not arr.dtype.is_native():
         raise OperationError(space.w_NotImplementedError,
            space.wrap("sorting of non-native btyeorder not supported yet"))
     for tp in all_types:
