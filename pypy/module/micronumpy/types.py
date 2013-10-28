@@ -991,7 +991,7 @@ class NonNativeFloat(NonNativePrimitive, Float):
 
     def _read(self, storage, i, offset):
         res = raw_storage_getitem(self.T, storage, i + offset)
-        return rffi.cast(lltype.Float, byteswap(res))
+        return byteswap(res)
 
     def _write(self, storage, i, offset, value):
         swapped_value = byteswap(rffi.cast(self.T, value))
@@ -1051,14 +1051,6 @@ class NonNativeFloat32(BaseType, NonNativeFloat):
     T = rffi.FLOAT
     BoxType = interp_boxes.W_Float32Box
     format_code = "f"
-
-    def read_bool(self, arr, i, offset):
-        # it's not clear to me why this is needed
-        # but a hint might be that calling for_computation(v)
-        # causes translation to fail, and the assert is necessary
-        v = self._read(arr.storage, i, offset)
-        assert isinstance(v, float)
-        return bool(v)
 
 class Float64(BaseType, Float):
     T = rffi.DOUBLE
