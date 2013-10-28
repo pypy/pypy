@@ -94,12 +94,11 @@ class __extend__(W_NDimArray):
             raise OperationError(space.w_ValueError,
                                  space.wrap("index out of range for array"))
         size = loop.count_all_true(idx)
-        if size > val.get_size() and val.get_size() > 1:
+        if size > val.get_size() and val.get_size() != 1:
             raise OperationError(space.w_ValueError, space.wrap("NumPy boolean array indexing assignment "
                                                                 "cannot assign %d input values to "
-                                                                "the %d output values where the mask is true" % (val.get_size(), size)))
-        if val.get_shape() == [0]:
-            val.implementation.dtype = self.implementation.dtype
+                                                                "the %d output values where the mask is true" %
+                                                                (val.get_size(), size)))
         loop.setitem_filter(self, idx, val, size)
 
     def _prepare_array_index(self, space, w_index):

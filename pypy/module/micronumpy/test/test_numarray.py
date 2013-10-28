@@ -2401,7 +2401,7 @@ class AppTestMultiDim(BaseNumpyAppTest):
     def test_array_indexing_bool_specialcases(self):
         from numpypy import arange, array
         a = arange(6)
-        exc = raises(ValueError,'a[a < 3] = [1, 2]')
+        exc = raises(ValueError, 'a[a < 3] = [1, 2]')
         assert exc.value[0].find('cannot assign') >= 0
         b = arange(4).reshape(2, 2) + 10
         a[a < 4] = b
@@ -2415,8 +2415,9 @@ class AppTestMultiDim(BaseNumpyAppTest):
         a[a > 3] = array([15])
         assert (a == [0, 1, 2, 3, 15, 15]).all()
         a = arange(6).reshape(3, 2)
-        a[a & 1 == 1] = []  # here, Numpy sticks garbage into the array
-        assert a.shape == (3, 2)
+        exc = raises(ValueError, 'a[a & 1 == 1] = []')
+        assert exc.value[0].find('cannot assign') >= 0
+        assert (a == [[0, 1], [2, 3], [4, 5]]).all()
 
     def test_copy_kwarg(self):
         from numpypy import array
