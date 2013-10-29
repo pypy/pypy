@@ -410,14 +410,8 @@ class RegAlloc(BaseRegalloc):
 
     def consider_guard_value(self, op):
         args = op.getarglist()
-        if args[0].type == REF:
-            assert args[1].type == REF
-            # move both args to reg or immed
-            x = self.make_sure_var_in_reg(args[0], args)
-            y = self.make_sure_var_in_reg(args[1], args)
-        else:
-            x = self.make_sure_var_in_reg(args[0], args)
-            y = self.loc(args[1])
+        x = self.make_sure_var_in_reg(args[0], args)
+        y = self.loc(args[1])
         self.perform_guard(op, [x, y], None)
 
     def consider_guard_class(self, op):

@@ -49,13 +49,14 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
                             -124): # FORCE_SPILL
                     self.newops.append(op)
                     continue
-            if opnum == rop.INCREMENT_DEBUG_COUNTER:
+            if opnum in (rop.INCREMENT_DEBUG_COUNTER,
+                         rop.DEBUG_MERGE_POINT):
                 self.newops.append(op)
                 continue
             # ----------  ptr_eq  ----------
             if opnum in (rop.PTR_EQ, rop.INSTANCE_PTR_EQ,
                          rop.PTR_NE, rop.INSTANCE_PTR_NE):
-                self.handle_ptr_eq(op)
+                self.newops.append(op)
                 continue
             # ----------  guard_class  ----------
             if opnum == rop.GUARD_CLASS:
@@ -337,9 +338,6 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
 
     def _is_null(self, box):
         return isinstance(box, ConstPtr) and not box.value
-
-    def handle_ptr_eq(self, op):
-        self.newops.append(op)
 
     def maybe_handle_raw_accesses(self, op):
         from rpython.jit.backend.llsupport.descr import FieldDescr
