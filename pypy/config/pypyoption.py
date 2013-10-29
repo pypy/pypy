@@ -329,8 +329,8 @@ def set_pypy_opt_level(config, level):
     # extra optimizations with the JIT
     if level == 'jit':
         config.objspace.std.suggest(withcelldict=True)
-        if not config.translation.stm:
-            config.objspace.std.suggest(withmapdict=True)
+        #if not config.translation.stm:
+        config.objspace.std.suggest(withmapdict=True)
 
     # tweaks some parameters with STM
     if config.translation.stm:
