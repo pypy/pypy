@@ -1350,7 +1350,9 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a.argmax() == 5
         assert a.argmax(axis=None, out=None) == 5
         assert a[:2, ].argmax() == 3
-        raises(NotImplementedError, a.argmax, axis=0)
+        import sys
+        if '__pypy__' in sys.builtin_module_names:
+            raises(NotImplementedError, a.argmax, axis=0)
 
     def test_argmin(self):
         from numpypy import array
@@ -1359,7 +1361,9 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a.argmin(axis=None, out=None) == 3
         b = array([])
         raises(ValueError, "b.argmin()")
-        raises(NotImplementedError, a.argmin, axis=0)
+        import sys
+        if '__pypy__' in sys.builtin_module_names:
+            raises(NotImplementedError, a.argmin, axis=0)
 
     def test_all(self):
         from numpypy import array
@@ -2214,7 +2218,9 @@ class AppTestMultiDim(BaseNumpyAppTest):
         b = a.T
         assert(b[:, 0] == a[0, :]).all()
         assert (a.transpose() == b).all()
-        raises(NotImplementedError, a.transpose, (1, 0, 2))
+        import sys
+        if '__pypy__' in sys.builtin_module_names:
+            raises(NotImplementedError, a.transpose, (1, 0, 2))
 
     def test_flatiter(self):
         from numpypy import array, flatiter, arange, zeros
