@@ -525,8 +525,10 @@ class AppTestNumArray(BaseNumpyAppTest):
 
         from numpypy import arange
         a = arange(10)
-        raises(IndexError, "a[ErrorIndex()] == 0")
-        raises(IndexError, "a[ErrorInt()] == 0")
+        exc = raises(IndexError, "a[ErrorIndex()] == 0")
+        assert exc.value.message == 'cannot convert index to integer'
+        exc = raises(IndexError, "a[ErrorInt()] == 0")
+        assert exc.value.message == 'cannot convert index to integer'
 
     def test_setslice_array(self):
         from numpypy import array
@@ -2960,6 +2962,8 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         a[0, 0] = 500
         assert (a[0, 0, 0] == 500).all()
         assert a[0, 0, 0].shape == (10,)
+        exc = raises(ValueError, "a[0, 0]['z']")
+        assert exc.value.message == 'field named z not found'
 
     def test_subarray_multiple_rows(self):
         import numpypy as np

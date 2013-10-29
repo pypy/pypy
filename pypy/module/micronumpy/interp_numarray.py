@@ -201,8 +201,6 @@ class __extend__(W_NDimArray):
             return self.implementation.descr_getitem(space, self, w_idx)
         except ArrayArgumentException:
             return self.getitem_array_int(space, w_idx)
-        except OperationError:
-            raise OperationError(space.w_IndexError, space.wrap("wrong index"))
 
     def getitem(self, space, index_list):
         return self.implementation.getitem_index(space, index_list)

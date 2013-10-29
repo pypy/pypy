@@ -203,7 +203,7 @@ class BaseConcreteArray(base.BaseArrayImplementation):
             dtype = self.dtype
             if not dtype.is_record_type() or idx not in dtype.fields:
                 raise OperationError(space.w_ValueError, space.wrap(
-                    "field named %s not defined" % idx))
+                    "field named %s not found" % idx))
             return RecordChunk(idx)
         if (space.isinstance_w(w_idx, space.w_int) or
             space.isinstance_w(w_idx, space.w_slice)):
