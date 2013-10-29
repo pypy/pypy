@@ -122,6 +122,10 @@ class AppTestUfuncs(BaseNumpyAppTest):
         a = array(range(30))
         assert negative(a + a)[3] == -6
 
+        a = array([[1, 2], [3, 4]])
+        b = negative(a + a)
+        assert (b == [[-2, -4], [-6, -8]]).all()
+
     def test_abs(self):
         from numpypy import array, absolute
 
@@ -244,13 +248,16 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert isinstance(x, (int, long))
 
     def test_multiply(self):
-        from numpypy import array, multiply
+        from numpypy import array, multiply, arange
 
         a = array([-5.0, -0.0, 1.0])
         b = array([ 3.0, -2.0,-3.0])
         c = multiply(a, b)
         for i in range(3):
             assert c[i] == a[i] * b[i]
+
+        a = arange(15).reshape(5, 3)
+        assert(multiply.reduce(a) == array([0, 3640, 12320])).all()
 
     def test_rint(self):
         from numpypy import array, complex, rint, isnan

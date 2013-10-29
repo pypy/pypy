@@ -869,7 +869,8 @@ class AppTestNumArray(BaseNumpyAppTest):
             assert b[i] == i - 5
 
     def test_scalar_subtract(self):
-        from numpypy import int32
+        from numpypy import dtype
+        int32 = dtype('int32').type
         assert int32(2) - 1 == 1
         assert 1 - int32(2) == -1
 
@@ -885,9 +886,10 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = numpypy.array(range(5), dtype=bool)
         b = a * a
         assert b.dtype is numpypy.dtype(bool)
-        assert b[0] is numpypy.False_
+        bool_ = numpypy.dtype(bool).type
+        assert b[0] is bool_(False)
         for i in range(1, 5):
-            assert b[i] is numpypy.True_
+            assert b[i] is bool_(True)
 
     def test_mul_constant(self):
         from numpypy import array
@@ -1254,7 +1256,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert list(zeros((0, 2)).sum(axis=1)) == []
 
     def test_reduce_nd(self):
-        from numpypy import arange, array, multiply
+        from numpypy import arange, array
         a = arange(15).reshape(5, 3)
         assert a.sum() == 105
         assert a.max() == 14
@@ -1272,7 +1274,6 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert ((a + a).max() == 28)
         assert ((a + a).max(0) == [24, 26, 28]).all()
         assert ((a + a).sum(1) == [6, 24, 42, 60, 78]).all()
-        assert (multiply.reduce(a) == array([0, 3640, 12320])).all()
         a = array(range(105)).reshape(3, 5, 7)
         assert (a[:, 1, :].sum(0) == [126, 129, 132, 135, 138, 141, 144]).all()
         assert (a[:, 1, :].sum(1) == [70, 315, 560]).all()
@@ -1365,7 +1366,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert c.any() == False
 
     def test_dtype_guessing(self):
-        from numpypy import array, dtype, float64, int8, bool_
+        from numpypy import array, dtype
 
         assert array([True]).dtype is dtype(bool)
         assert array([True, False]).dtype is dtype(bool)
@@ -1375,6 +1376,9 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert array([1.2, True]).dtype is dtype(float)
         assert array([1.2, 5]).dtype is dtype(float)
         assert array([]).dtype is dtype(float)
+        float64 = dtype('float64').type
+        int8 = dtype('int8').type
+        bool_ = dtype('bool').type
         assert array([float64(2)]).dtype is dtype(float)
         assert array([int8(3)]).dtype is dtype("int8")
         assert array([bool_(True)]).dtype is dtype(bool)
@@ -1479,19 +1483,11 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert arange(4, dtype='>c8').real.max() == 3.0
         assert arange(4, dtype='<c8').real.max() == 3.0
 
-    def test_trace(self):
-        import numpypy as np
-        assert np.trace(np.eye(3)) == 3.0
-        a = np.arange(8).reshape((2,2,2))
-        assert np.array_equal(np.trace(a), [6, 8])
-        a = np.arange(24).reshape((2,2,2,3))
-        assert np.trace(a).shape == (2, 3)
-
     def test_view(self):
-        from numpypy import array, int8, int16, dtype
-        x = array((1, 2), dtype=int8)
+        from numpypy import array, dtype
+        x = array((1, 2), dtype='int8')
         assert x.shape == (2,)
-        y = x.view(dtype=int16)
+        y = x.view(dtype='int16')
         assert x.shape == (2,)
         assert y[0] == 513
         assert y.dtype == dtype('int16')
@@ -1510,24 +1506,26 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert x.view('int8').shape == (10, 3)
 
     def test_ndarray_view_empty(self):
-        from numpypy import array, int8, int16
-        x = array([], dtype=[('a', int8), ('b', int8)])
-        y = x.view(dtype=int16)
+        from numpypy import array, dtype
+        x = array([], dtype=[('a', 'int8'), ('b', 'int8')])
+        y = x.view(dtype='int16')
 
     def test_scalar_view(self):
-        from numpypy import int64, array
+        from numpypy import dtype, array
         a = array(0, dtype='int32')
         b = a.view(dtype='float32')
         assert b.shape == ()
         assert b == 0
-        s = int64(12)
+        s = dtype('int64').type(12)
         exc = raises(ValueError, s.view, 'int8')
         assert exc.value[0] == "new type not compatible with array."
         skip('not implemented yet')
         assert s.view('double') < 7e-323
 
     def test_tolist_scalar(self):
-        from numpypy import int32, bool_
+        from numpypy import dtype
+        int32 = dtype('int32').type
+        bool_ = dtype('bool').type
         x = int32(23)
         assert x.tolist() == 23
         assert type(x.tolist()) is int
@@ -1705,12 +1703,13 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert array(3.0).nbytes == 8
 
     def test_repeat(self):
-        from numpypy import repeat, array
-        assert (repeat([[1, 2], [3, 4]], 3) == [1, 1, 1, 2, 2, 2,
-                                                3, 3, 3, 4, 4, 4]).all()
-        assert (repeat([[1, 2], [3, 4]], 2, axis=0) == [[1, 2], [1, 2], [3, 4],
-                                                        [3, 4]]).all()
-        assert (repeat([[1, 2], [3, 4]], 2, axis=1) == [[1, 1, 2, 2], [3, 3,
+        from numpypy import array
+        a = array([[1, 2], [3, 4]])
+        assert (a.repeat(3) == [1, 1, 1, 2, 2, 2,
+                                 3, 3, 3, 4, 4, 4]).all()
+        assert (a.repeat(2, axis=0) == [[1, 2], [1, 2], [3, 4],
+                                         [3, 4]]).all()
+        assert (a.repeat(2, axis=1) == [[1, 1, 2, 2], [3, 3,
                                                         4, 4]]).all()
         assert (array([1, 2]).repeat(2) == array([1, 1, 2, 2])).all()
 
@@ -2068,12 +2067,6 @@ class AppTestMultiDim(BaseNumpyAppTest):
         from numpypy import array
         a = array([[1, 2], [3, 4], [5, 6], [7, 8], [9, 10]])
         assert (a + a)[1, 1] == 8
-
-    def test_ufunc_negative(self):
-        from numpypy import array, negative
-        a = array([[1, 2], [3, 4]])
-        b = negative(a + a)
-        assert (b == [[-2, -4], [-6, -8]]).all()
 
     def test_getitem_3(self):
         from numpypy import array
@@ -2600,50 +2593,50 @@ class AppTestSupport(BaseNumpyAppTest):
 
     def test_fromstring(self):
         import sys
-        from numpypy import fromstring, uint8, float32, int32
+        from numpypy import fromstring, dtype
 
         a = fromstring(self.data)
         for i in range(4):
             assert a[i] == i + 1
-        b = fromstring('\x01\x02', dtype=uint8)
+        b = fromstring('\x01\x02', dtype='uint8')
         assert a[0] == 1
         assert a[1] == 2
-        c = fromstring(self.fdata, dtype=float32)
-        assert c[0] == float32(2.3)
-        d = fromstring("1 2", sep=' ', count=2, dtype=uint8)
+        c = fromstring(self.fdata, dtype='float32')
+        assert c[0] == dtype('float32').type(2.3)
+        d = fromstring("1 2", sep=' ', count=2, dtype='uint8')
         assert len(d) == 2
         assert d[0] == 1
         assert d[1] == 2
-        e = fromstring('3, 4,5', dtype=uint8, sep=',')
+        e = fromstring('3, 4,5', dtype='uint8', sep=',')
         assert len(e) == 3
         assert e[0] == 3
         assert e[1] == 4
         assert e[2] == 5
-        f = fromstring('\x01\x02\x03\x04\x05', dtype=uint8, count=3)
+        f = fromstring('\x01\x02\x03\x04\x05', dtype='uint8', count=3)
         assert len(f) == 3
         assert f[0] == 1
         assert f[1] == 2
         assert f[2] == 3
-        g = fromstring("1  2    3 ", dtype=uint8, sep=" ")
+        g = fromstring("1  2    3 ", dtype='uint8', sep=" ")
         assert len(g) == 3
         assert g[0] == 1
         assert g[1] == 2
         assert g[2] == 3
-        h = fromstring("1, , 2, 3", dtype=uint8, sep=",")
+        h = fromstring("1, , 2, 3", dtype='uint8', sep=",")
         assert (h == [1, 0, 2, 3]).all()
-        i = fromstring("1    2 3", dtype=uint8, sep=" ")
+        i = fromstring("1    2 3", dtype='uint8', sep=" ")
         assert (i == [1, 2, 3]).all()
-        j = fromstring("1\t\t\t\t2\t3", dtype=uint8, sep="\t")
+        j = fromstring("1\t\t\t\t2\t3", dtype='uint8', sep="\t")
         assert (j == [1, 2, 3]).all()
-        k = fromstring("1,x,2,3", dtype=uint8, sep=",")
+        k = fromstring("1,x,2,3", dtype='uint8', sep=",")
         assert (k == [1, 0]).all()
         l = fromstring("1,x,2,3", dtype='float32', sep=",")
         assert (l == [1.0, -1.0]).all()
         m = fromstring("1,,2,3", sep=",")
         assert (m == [1.0, -1.0, 2.0, 3.0]).all()
-        n = fromstring("3.4 2.0 3.8 2.2", dtype=int32, sep=" ")
+        n = fromstring("3.4 2.0 3.8 2.2", dtype='int32', sep=" ")
         assert (n == [3]).all()
-        o = fromstring("1.0 2f.0f 3.8 2.2", dtype=float32, sep=" ")
+        o = fromstring("1.0 2f.0f 3.8 2.2", dtype='float32', sep=" ")
         assert len(o) == 2
         assert o[0] == 1.0
         assert o[1] == 2.0
@@ -2664,51 +2657,48 @@ class AppTestSupport(BaseNumpyAppTest):
             assert (u == [1, 0]).all()
 
     def test_fromstring_types(self):
-        from numpypy import (fromstring, int8, int16, int32, int64, uint8,
-            uint16, uint32, float16, float32, float64, longfloat, array)
-        a = fromstring('\xFF', dtype=int8)
+        from numpypy import fromstring, array, dtype
+        a = fromstring('\xFF', dtype='int8')
         assert a[0] == -1
-        b = fromstring('\xFF', dtype=uint8)
+        b = fromstring('\xFF', dtype='uint8')
         assert b[0] == 255
-        c = fromstring('\xFF\xFF', dtype=int16)
+        c = fromstring('\xFF\xFF', dtype='int16')
         assert c[0] == -1
-        d = fromstring('\xFF\xFF', dtype=uint16)
+        d = fromstring('\xFF\xFF', dtype='uint16')
         assert d[0] == 65535
-        e = fromstring('\xFF\xFF\xFF\xFF', dtype=int32)
+        e = fromstring('\xFF\xFF\xFF\xFF', dtype='int32')
         assert e[0] == -1
-        f = fromstring('\xFF\xFF\xFF\xFF', dtype=uint32)
+        f = fromstring('\xFF\xFF\xFF\xFF', dtype='uint32')
         assert repr(f[0]) == '4294967295'
-        g = fromstring('\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF', dtype=int64)
+        g = fromstring('\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF', dtype='int64')
         assert g[0] == -1
-        h = fromstring(self.float32val, dtype=float32)
-        assert h[0] == float32(5.2)
-        i = fromstring(self.float64val, dtype=float64)
-        assert i[0] == float64(300.4)
+        h = fromstring(self.float32val, dtype='float32')
+        assert h[0] == dtype('float32').type(5.2)
+        i = fromstring(self.float64val, dtype='float64')
+        assert i[0] == dtype('float64').type(300.4)
         j = fromstring(self.ulongval, dtype='L')
         assert j[0] == 12
-        k = fromstring(self.float16val, dtype=float16)
-        assert k[0] == float16(5.)
-        dt =  array([5],dtype=longfloat).dtype
+        k = fromstring(self.float16val, dtype='float16')
+        assert k[0] == dtype('float16').type(5.)
+        dt =  array([5],dtype='longfloat').dtype
         if dt.itemsize == 12:
-            from numpypy import float96
-            m = fromstring('\x00\x00\x00\x00\x00\x00\x00\xa0\x01@\x00\x00', dtype=float96)
+            m = fromstring('\x00\x00\x00\x00\x00\x00\x00\xa0\x01@\x00\x00', dtype='float96')
         elif dt.itemsize == 16:
-            from numpypy import float128
-            m = fromstring('\x00\x00\x00\x00\x00\x00\x00\xa0\x01@\x00\x00\x00\x00\x00\x00', dtype=float128)
+            m = fromstring('\x00\x00\x00\x00\x00\x00\x00\xa0\x01@\x00\x00\x00\x00\x00\x00', dtype='float128')
         elif dt.itemsize == 8:
             skip('longfloat is float64')
         else:
             skip('unknown itemsize for longfloat')
-        assert m[0] == longfloat(5.)
+        assert m[0] == dtype('longfloat').type(5.)
 
     def test_fromstring_invalid(self):
-        from numpypy import fromstring, uint16, uint8
+        from numpypy import fromstring
         #default dtype is 64-bit float, so 3 bytes should fail
         raises(ValueError, fromstring, "\x01\x02\x03")
         #3 bytes is not modulo 2 bytes (int16)
-        raises(ValueError, fromstring, "\x01\x03\x03", dtype=uint16)
+        raises(ValueError, fromstring, "\x01\x03\x03", dtype='uint16')
         #5 bytes is larger than 3 bytes
-        raises(ValueError, fromstring, "\x01\x02\x03", count=5, dtype=uint8)
+        raises(ValueError, fromstring, "\x01\x02\x03", count=5, dtype='uint8')
 
     def test_tostring(self):
         from numpypy import array
@@ -2747,7 +2737,7 @@ class AppTestRecordDtype(BaseNumpyAppTest):
     spaceconfig = dict(usemodules=["micronumpy", "struct", "binascii"])
 
     def test_zeros(self):
-        from numpypy import zeros, integer
+        from numpypy import zeros
         a = zeros(2, dtype=[('x', int), ('y', float)])
         raises(IndexError, 'a[0]["xyz"]')
         assert a[0]['x'] == 0
@@ -2989,8 +2979,8 @@ class AppTestRecordDtype(BaseNumpyAppTest):
 
     def test_scalar_coercion(self):
         import numpypy as np
-        a = np.array([1,2,3], dtype=np.int16)
-        assert (a * 2).dtype == np.int16
+        a = np.array([1,2,3], dtype='int16')
+        assert (a * 2).dtype == np.dtype('int16')
 
 class AppTestPyPy(BaseNumpyAppTest):
     def setup_class(cls):
