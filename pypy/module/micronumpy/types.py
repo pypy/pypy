@@ -400,6 +400,12 @@ class Bool(BaseType, Primitive):
             return 1
         return 0
 
+    @specialize.argtype(1)
+    def round(self, v, decimals=0):
+        if decimals != 0:
+            return v
+        return Float64().box(self.unbox(v))
+
 class Integer(Primitive):
     _mixin_ = True
 
