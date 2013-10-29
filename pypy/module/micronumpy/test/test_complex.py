@@ -522,9 +522,9 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert str(exc.value) == \
             "could not broadcast input array from shape (2) into shape ()"
         a = array('abc')
-        assert str(a.real) == 'abc'
+        assert str(a.real) == str(a)
         # numpy imag for flexible types returns self
-        assert str(a.imag) == 'abc'
+        assert str(a.imag) == str(a)
         for t in 'complex64', 'complex128', 'clongdouble':
             complex_ = dtype(t).type
             O = complex(0, 0)
