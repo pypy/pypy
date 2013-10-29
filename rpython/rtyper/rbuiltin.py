@@ -735,14 +735,15 @@ def rtype_ordered_dict(hop):
     r_dict = hop.r_result
     cDICT = hop.inputconst(lltype.Void, r_dict.DICT)
     v_result = hop.gendirectcall(ll_newdict, cDICT)
-    v_eqfn = hop.inputarg(r_dict.r_rdict_eqfn, arg=0)
-    v_hashfn = hop.inputarg(r_dict.r_rdict_hashfn, arg=1)
-    if r_dict.r_rdict_eqfn.lowleveltype != lltype.Void:
-        cname = hop.inputconst(lltype.Void, 'fnkeyeq')
-        hop.genop('setfield', [v_result, cname, v_eqfn])
-    if r_dict.r_rdict_hashfn.lowleveltype != lltype.Void:
-        cname = hop.inputconst(lltype.Void, 'fnkeyhash')
-        hop.genop('setfield', [v_result, cname, v_hashfn])
+    if hasattr(r_dict, 'r_dict_eqfn'):
+        v_eqfn = hop.inputarg(r_dict.r_rdict_eqfn, arg=0)
+        v_hashfn = hop.inputarg(r_dict.r_rdict_hashfn, arg=1)
+        if r_dict.r_rdict_eqfn.lowleveltype != lltype.Void:
+            cname = hop.inputconst(lltype.Void, 'fnkeyeq')
+            hop.genop('setfield', [v_result, cname, v_eqfn])
+        if r_dict.r_rdict_hashfn.lowleveltype != lltype.Void:
+            cname = hop.inputconst(lltype.Void, 'fnkeyhash')
+            hop.genop('setfield', [v_result, cname, v_hashfn])
     return v_result
 
 BUILTIN_TYPER[objectmodel.instantiate] = rtype_instantiate
