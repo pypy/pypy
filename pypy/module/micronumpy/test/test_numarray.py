@@ -1648,8 +1648,6 @@ class AppTestNumArray(BaseNumpyAppTest):
                                             dtype=[('x', int), ('y', float)])))
         assert str(exc.value).startswith('invalid type promotion')
 
-
-
     def test_std(self):
         from numpypy import array
         a = array(range(10))
@@ -1966,9 +1964,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         b = np.array([True])
 
         assert (a[b] == a).all()
-
         a[b] = 1.
-
         assert (a == [[1., 1., 1.]]).all()
 
     @py.test.mark.xfail

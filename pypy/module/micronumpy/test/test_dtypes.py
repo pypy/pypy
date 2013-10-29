@@ -680,8 +680,8 @@ class AppTestTypes(BaseAppTestDtypes):
         # strange
         assert dtype('string').str == '|S0'
         assert dtype('unicode').str == byteorder + 'U0'
-        # assert dtype(('string', 7)).str == '|S7'
-        # assert dtype(('unicode', 7)).str == '<U7'
+        assert dtype(('string', 7)).str == '|S7'
+        assert dtype(('unicode', 7)).str == '<U7'
 
     def test_intp(self):
         from numpypy import dtype
