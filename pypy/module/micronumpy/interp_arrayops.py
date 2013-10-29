@@ -1,11 +1,12 @@
 from pypy.module.micronumpy.base import convert_to_array, W_NDimArray
-from pypy.module.micronumpy import loop, interp_dtype, interp_ufuncs, constants
+from pypy.module.micronumpy import loop, interp_dtype, interp_ufuncs
 from pypy.module.micronumpy.iter import Chunk, Chunks
 from pypy.module.micronumpy.strides import shape_agreement,\
      shape_agreement_multiple
-from pypy.module.micronumpy.constants import clipmode_converter
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import unwrap_spec
+from pypy.module.micronumpy.conversion_utils import clipmode_converter
+from pypy.module.micronumpy.constants import *
 
 def where(space, w_arr, w_x=None, w_y=None):
     """where(condition, [x, y])
@@ -219,17 +220,18 @@ def put(space, w_arr, w_indices, w_values, w_mode):
         index = int_w(space, idx)
 
         if index < 0 or index >= arr.get_size():
-            if mode == constants.MODE_RAISE:
+            if mode == NPY_RAISE:
                 raise OperationError(space.w_IndexError, space.wrap(
                     "index %d is out of bounds for axis 0 with size %d" % (index, arr.get_size())))
-            elif mode == constants.MODE_WRAP:
+            elif mode == NPY_WRAP:
                 index = index % arr.get_size()
-            else:
-                assert mode == constants.MODE_CLIP
+            elif mode == NPY_CLIP:
                 if index < 0:
                     index = 0
                 else:
                     index = arr.get_size() - 1
+            else:
+                assert False
 
         value = values[v_idx]
 
