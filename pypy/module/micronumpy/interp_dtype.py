@@ -232,14 +232,27 @@ class W_Dtype(W_Root):
                         raise
                     break
 
-    @unwrap_spec(item=str)
-    def descr_getitem(self, space, item):
+    def descr_getitem(self, space, w_item):
         if self.fields is None:
-            raise OperationError(space.w_KeyError, space.wrap("There are no keys in dtypes %s" % self.name))
+            raise OperationError(space.w_KeyError, space.wrap(
+                "There are no fields in dtype %s." % self.name))
+        if space.isinstance_w(w_item, space.w_basestring):
+            item = space.str_w(w_item)
+        elif space.isinstance_w(w_item, space.w_int):
+            indx = space.int_w(w_item)
+            try:
+                item = self.fieldnames[indx]
+            except IndexError:
+                raise OperationError(space.w_IndexError, space.wrap(
+                    "Field index %d out of range." % indx))
+        else:
+            raise OperationError(space.w_ValueError, space.wrap(
+                "Field key must be an integer, string, or unicode."))
         try:
             return self.fields[item][1]
         except KeyError:
-            raise OperationError(space.w_KeyError, space.wrap("Field named %s not found" % item))
+            raise OperationError(space.w_KeyError, space.wrap(
+                "Field named '%s' not found." % item))
 
     def descr_reduce(self, space):
         w_class = space.type(self)
