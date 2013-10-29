@@ -1002,6 +1002,13 @@ class AppTestNumArray(BaseNumpyAppTest):
         b = a // 2
         assert (b == [0, 0, 1, 1, 2]).all()
 
+    def test_signed_integer_division_overflow(self):
+        import numpypy as np
+        for s in (8, 16, 32, 64):
+            for o in ['__div__', '__floordiv__']:
+                a = np.array([-2**(s-1)], dtype='int%d' % s)
+                assert getattr(a, o)(-1) == 0
+
     def test_truediv(self):
         from operator import truediv
         from numpypy import arange

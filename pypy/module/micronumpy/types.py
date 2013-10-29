@@ -422,17 +422,29 @@ class Integer(Primitive):
     def default_fromstring(self, space):
         return self.box(0)
 
-    @simple_binary_op
-    def div(self, v1, v2):
+    @specialize.argtype(1, 2)
+    def div(self, b1, b2):
+        v1 = self.for_computation(self.unbox(b1))
+        v2 = self.for_computation(self.unbox(b2))
         if v2 == 0:
-            return 0
-        return v1 / v2
+            return self.box(0)
+        if (self.T is rffi.SIGNEDCHAR or self.T is rffi.SHORT or self.T is rffi.INT or
+                self.T is rffi.LONG or self.T is rffi.LONGLONG):
+            if v2 == -1 and v1 == self.for_computation(most_neg_value_of(self.T)):
+                return self.box(0)
+        return self.box(v1 / v2)
 
-    @simple_binary_op
-    def floordiv(self, v1, v2):
+    @specialize.argtype(1, 2)
+    def floordiv(self, b1, b2):
+        v1 = self.for_computation(self.unbox(b1))
+        v2 = self.for_computation(self.unbox(b2))
         if v2 == 0:
-            return 0
-        return v1 // v2
+            return self.box(0)
+        if (self.T is rffi.SIGNEDCHAR or self.T is rffi.SHORT or self.T is rffi.INT or
+                self.T is rffi.LONG or self.T is rffi.LONGLONG):
+            if v2 == -1 and v1 == self.for_computation(most_neg_value_of(self.T)):
+                return self.box(0)
+        return self.box(v1 // v2)
 
     @simple_binary_op
     def mod(self, v1, v2):
