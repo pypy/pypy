@@ -73,7 +73,7 @@
 static const revision_t GCFLAG_OLD                    = STM_FIRST_GCFLAG << 0;
 static const revision_t GCFLAG_VISITED                = STM_FIRST_GCFLAG << 1;
 static const revision_t GCFLAG_PUBLIC                 = STM_FIRST_GCFLAG << 2;
-static const revision_t GCFLAG_PREBUILT_ORIGINAL      = STM_FIRST_GCFLAG << 3;
+// in stmgc.h:          GCFLAG_PREBUILT_ORIGINAL      = STM_FIRST_GCFLAG << 3;
 // in stmgc.h:          GCFLAG_PUBLIC_TO_PRIVATE      = STM_FIRST_GCFLAG << 4;
 // in stmgc.h:          GCFLAG_WRITE_BARRIER          = STM_FIRST_GCFLAG << 5;
 // in stmgc.h:          GCFLAG_MOVED                  = STM_FIRST_GCFLAG << 6;

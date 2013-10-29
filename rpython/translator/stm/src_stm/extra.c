@@ -247,9 +247,10 @@ revision_t stm_id(gcptr p)
     return result;
 }
 
-_Bool stm_pointer_equal(gcptr p1, gcptr p2)
+_Bool stm_direct_pointer_equal(gcptr p1, gcptr p2)
 {
-    if (p1 != NULL && p2 != NULL) {
+    /* commented lines are in the fastpath in stmgc.h */
+    /* if (p1 != NULL && p2 != NULL) { */
         /* resolve h_original, but only if !PREBUILT_ORIGINAL */
         if (p1->h_original && !(p1->h_tid & GCFLAG_PREBUILT_ORIGINAL)) {
             p1 = (gcptr)p1->h_original;
@@ -257,22 +258,23 @@ _Bool stm_pointer_equal(gcptr p1, gcptr p2)
         if (p2->h_original && !(p2->h_tid & GCFLAG_PREBUILT_ORIGINAL)) {
             p2 = (gcptr)p2->h_original;
         }
-    }
+    /* } */
     return (p1 == p2);
 }
 
-_Bool stm_pointer_equal_prebuilt(gcptr p1, gcptr p2)
-{
-    assert(p2 != NULL);
-    assert(p2->h_tid & GCFLAG_PREBUILT_ORIGINAL);
+/* FULLY IMPLEMENTED AS MACRO IN stmgc.h */
+/* _Bool stm_pointer_equal_prebuilt(gcptr p1, gcptr p2) */
+/* { */
+/*     assert(p2 != NULL); */
+/*     assert(p2->h_tid & GCFLAG_PREBUILT_ORIGINAL); */
 
-    if (p1 == p2)
-        return 1;
+/*     if (p1 == p2) */
+/*         return 1; */
 
-    /* the only possible case to still get True is if p2 == p1->h_original */
-    return (p1 != NULL) && (p1->h_original == (revision_t)p2) &&
-        !(p1->h_tid & GCFLAG_PREBUILT_ORIGINAL);
-}
+/*     /\* the only possible case to still get True is if p2 == p1->h_original *\/ */
+/*     return (p1 != NULL) && (p1->h_original == (revision_t)p2) && */
+/*         !(p1->h_tid & GCFLAG_PREBUILT_ORIGINAL); */
+/* } */
 
 /************************************************************/
 

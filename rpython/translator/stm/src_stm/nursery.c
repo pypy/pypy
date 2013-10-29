@@ -95,7 +95,7 @@ inline static gcptr allocate_nursery(size_t size, revision_t tid)
     return P;
 }
 
-gcptr stm_allocate(size_t size, unsigned long tid)
+inline gcptr stm_allocate(size_t size, unsigned long tid)
 {
     /* XXX inline the fast path */
     assert(tid == (tid & STM_USER_TID_MASK));

@@ -32,7 +32,7 @@ typedef struct stm_object_s {
 /* push roots around allocating functions! */
 
 /* allocate an object out of the local nursery */
-gcptr stm_allocate(size_t size, unsigned long tid);
+inline gcptr stm_allocate(size_t size, unsigned long tid);
 /* allocate an object that is be immutable. it cannot be changed with
    a stm_write_barrier() or after the next commit */
 gcptr stm_allocate_immutable(size_t size, unsigned long tid);
@@ -50,8 +50,10 @@ revision_t stm_hash(gcptr);
 revision_t stm_id(gcptr);
 /* returns nonzero if the two object-copy pointers belong to the
 same original object */
+#if 0 // (optimized version below)
 _Bool stm_pointer_equal(gcptr, gcptr);
 _Bool stm_pointer_equal_prebuilt(gcptr, gcptr); /* 2nd arg is known prebuilt */
+#endif
 
 /* to push/pop objects into the local shadowstack */
 #if 0     // (optimized version below)
@@ -210,6 +212,7 @@ gcptr stm_WriteBarrier(gcptr);
 gcptr stm_RepeatReadBarrier(gcptr);
 gcptr stm_ImmutReadBarrier(gcptr);
 gcptr stm_RepeatWriteBarrier(gcptr);
+static const revision_t GCFLAG_PREBUILT_ORIGINAL = STM_FIRST_GCFLAG << 3;
 static const revision_t GCFLAG_PUBLIC_TO_PRIVATE = STM_FIRST_GCFLAG << 4;
 static const revision_t GCFLAG_WRITE_BARRIER = STM_FIRST_GCFLAG << 5;
 static const revision_t GCFLAG_MOVED = STM_FIRST_GCFLAG << 6;
@@ -220,6 +223,16 @@ extern __thread char *stm_read_barrier_cache;
     (*(gcptr *)(stm_read_barrier_cache + ((revision_t)(obj) & FX_MASK)))
 
 #define UNLIKELY(test)  __builtin_expect(test, 0)
+
+_Bool stm_direct_pointer_equal(gcptr, gcptr);
+#define stm_pointer_equal(p1, p2)                    \
+    (((p1) == (p2))                                  \
+    || ((p1) != NULL && (p2) != NULL                 \
+        && stm_direct_pointer_equal(p1, p2)))
+#define stm_pointer_equal_prebuilt(p1, p2)           \
+    (((p1) == (p2))                                  \
+     || (((p1) != NULL) && ((p1)->h_original == (revision_t)(p2)) &&    \
+         !((p1)->h_tid & GCFLAG_PREBUILT_ORIGINAL)))
 
 #ifdef STM_BARRIER_COUNT
 # define STM_BARRIER_NUMBERS  12
