@@ -2706,6 +2706,8 @@ class AppTestRepr(BaseNumpyAppTest):
         from numpypy import array
         assert repr(array([1, 2, 3])) == 'array([1, 2, 3])'
         assert str(array([1, 2, 3])) == 'array([1, 2, 3])'
+        assert repr(array(['abc'], 'S3')) == "array(['abc'])"
+        assert str(array(['abc'], 'S3')) == "array(['abc'])"
 
     def teardown_class(cls):
         if option.runappdirect:
@@ -2848,19 +2850,6 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         a = array('x', dtype='c')
         assert str(a.dtype) == '|S1'
         assert a == 'x'
-
-    def test_flexible_repr(self):
-        from numpypy import array
-        a = array(['abc'],'S3')
-        s = repr(a)
-        # simplify test for \n in repr
-        assert s.replace('\n', '') == "array(['abc'],       dtype='|S3')"
-        # but make sure it exists
-        assert s.find('\n') == 15
-        a = array(['abc','defg','ab'])
-        s = repr(a)
-        assert s.replace('\n', '') == \
-                      "array(['abc', 'defg', 'ab'],       dtype='|S4')"
 
     def test_pickle(self):
         from numpypy import dtype, array
