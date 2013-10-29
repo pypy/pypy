@@ -222,6 +222,7 @@ class AppTestSupport(BaseNumpyAppTest):
         assert b.called_finalize == True
 
     def test___array__(self):
+        import sys
         from numpypy import ndarray, array, dtype
         class D(ndarray):
             def __new__(subtype, shape, dtype):
@@ -239,7 +240,7 @@ class AppTestSupport(BaseNumpyAppTest):
         a = C([2, 2], int)
         b = array(a)
         assert b.shape == (2, 2)
-        if not self.isNumpy:
+        if '__pypy__' in sys.builtin_module_names:
             assert b.id == 'subtype'
             assert isinstance(b, D)
         c = array(a, float)
