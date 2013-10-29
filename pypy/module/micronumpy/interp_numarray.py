@@ -321,6 +321,12 @@ class __extend__(W_NDimArray):
     def descr_get_transpose(self, space):
         return W_NDimArray(self.implementation.transpose(self))
 
+    def descr_transpose(self, space, args_w):
+        if len(args_w) != 0:
+            raise OperationError(space.w_NotImplementedError, space.wrap(
+                "axes unsupported for transpose"))
+        return self.descr_get_transpose(space)
+
     @unwrap_spec(axis1=int, axis2=int)
     def descr_swapaxes(self, space, axis1, axis2):
         """a.swapaxes(axis1, axis2)
@@ -859,7 +865,13 @@ class __extend__(W_NDimArray):
     descr_cumprod = _reduce_ufunc_impl('multiply', cumultative=True)
 
     def _reduce_argmax_argmin_impl(op_name):
-        def impl(self, space):
+        def impl(self, space, w_axis=None, w_out=None):
+            if not space.is_none(w_axis):
+                raise OperationError(space.w_NotImplementedError, space.wrap(
+                    "axis unsupported for %s" % op_name))
+            if not space.is_none(w_out):
+                raise OperationError(space.w_NotImplementedError, space.wrap(
+                    "out unsupported for %s" % op_name))
             if self.get_size() == 0:
                 raise OperationError(space.w_ValueError,
                     space.wrap("Can't call %s on zero-size arrays" % op_name))
@@ -1130,7 +1142,7 @@ W_NDimArray.typedef = TypeDef(
     copy = interp2app(W_NDimArray.descr_copy),
     reshape = interp2app(W_NDimArray.descr_reshape),
     T = GetSetProperty(W_NDimArray.descr_get_transpose),
-    transpose = interp2app(W_NDimArray.descr_get_transpose),
+    transpose = interp2app(W_NDimArray.descr_transpose),
     tolist = interp2app(W_NDimArray.descr_tolist),
     flatten = interp2app(W_NDimArray.descr_flatten),
     ravel = interp2app(W_NDimArray.descr_ravel),
