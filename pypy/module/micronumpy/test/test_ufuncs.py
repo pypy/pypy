@@ -239,7 +239,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert math.isnan(true_divide(0, 0))
 
     def test_fabs(self):
-        from numpypy import array, fabs, complex128
+        from numpypy import array, fabs
         from math import fabs as math_fabs, isnan
 
         a = array([-5.0, -0.0, 1.0])
@@ -332,7 +332,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert(multiply.reduce(a) == array([0, 3640, 12320])).all()
 
     def test_rint(self):
-        from numpypy import array, complex, rint, isnan
+        from numpypy import array, dtype, rint, isnan
         import sys
 
         nnan, nan, inf, ninf = float('-nan'), float('nan'), float('inf'), float('-inf')
@@ -384,7 +384,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
             [False, True, True]).all()
 
     def test_reciprocal(self):
-        from numpypy import array, reciprocal, complex64, complex128
+        from numpypy import array, reciprocal
 
         inf = float('inf')
         nan = float('nan')
@@ -417,7 +417,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert c[i] == a[i] - b[i]
 
     def test_floorceiltrunc(self):
-        from numpypy import array, floor, ceil, trunc, complex128
+        from numpypy import array, floor, ceil, trunc
         import math
         ninf, inf = float("-inf"), float("inf")
         a = array([ninf, -1.4, -1.5, -1.0, 0.0, 1.0, 1.4, 0.5, inf])
@@ -782,10 +782,11 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert invert(False) == True
 
     def test_shift(self):
-        from numpypy import left_shift, right_shift, bool
+        from numpypy import left_shift, right_shift, dtype
 
         assert (left_shift([5, 1], [2, 13]) == [20, 2**13]).all()
         assert (right_shift(10, range(5)) == [10, 5, 2, 1, 0]).all()
+        bool_ = dtype('bool').type
         assert left_shift(bool(1), 3) == left_shift(1, 3)
         assert right_shift(bool(1), 3) == right_shift(1, 3)
 
@@ -832,11 +833,11 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert (true_divide(arange(3), array([2, 2, 2])) == array([0, 0.5, 1])).all()
 
     def test_isnan_isinf(self):
-        from numpypy import isnan, isinf, float64, array
+        from numpypy import isnan, isinf, array, dtype
         assert isnan(float('nan'))
         assert not isnan(3)
         assert not isinf(3)
-        assert isnan(float64(float('nan')))
+        assert isnan(dtype('float64').type(float('nan')))
         assert not isnan(3)
         assert isinf(float('inf'))
         assert not isnan(3.5)
@@ -846,39 +847,6 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert (isnan(array([0.2, float('inf'), float('nan')])) == [False, False, True]).all()
         assert (isinf(array([0.2, float('inf'), float('nan')])) == [False, True, False]).all()
         assert isinf(array([0.2])).dtype.kind == 'b'
-
-    def test_isposinf_isneginf(self):
-        from numpypy import isneginf, isposinf
-        assert isposinf(float('inf'))
-        assert not isposinf(3)
-        assert not isneginf(3)
-        assert not isposinf(float('-inf'))
-        assert not isposinf(float('nan'))
-        assert not isposinf(0)
-        assert not isposinf(0.0)
-        assert isneginf(float('-inf'))
-        assert not isneginf(float('inf'))
-        assert not isneginf(float('nan'))
-        assert not isneginf(0)
-        assert not isneginf(0.0)
-
-    def test_isfinite(self):
-        from numpypy import isfinite
-        inf = float('inf')
-        ninf = -float('inf')
-        nan = float('nan')
-        assert (isfinite([0, 0.0, 1e50, -1e-50]) ==
-            [True, True, True, True]).all()
-        assert (isfinite([ninf, inf, -nan, nan]) ==
-            [False, False, False, False]).all()
-        assert (isfinite([1, 2, 3]) == [True, True, True]).all()
-
-        a = [complex(0, 0), complex(1e50, -1e-50), complex(inf, 0),
-             complex(inf, inf), complex(inf, ninf), complex(0, inf),
-             complex(ninf, ninf), complex(nan, 0), complex(0, nan),
-             complex(nan, nan)]
-        assert (isfinite(a) == [True, True, False, False, False,
-                        False, False, False, False, False]).all()
 
     def test_logical_ops(self):
         from numpypy import logical_and, logical_or, logical_xor, logical_not
