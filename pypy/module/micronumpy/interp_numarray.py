@@ -218,6 +218,10 @@ class __extend__(W_NDimArray):
         except ArrayArgumentException:
             self.setitem_array_int(space, w_idx, w_value)
 
+    def descr_delitem(self, space, w_idx):
+        raise OperationError(space.w_ValueError, space.wrap(
+            "cannot delete array elements"))
+
     def descr_len(self, space):
         shape = self.get_shape()
         if len(shape):
@@ -1065,6 +1069,7 @@ W_NDimArray.typedef = TypeDef(
     __len__ = interp2app(W_NDimArray.descr_len),
     __getitem__ = interp2app(W_NDimArray.descr_getitem),
     __setitem__ = interp2app(W_NDimArray.descr_setitem),
+    __delitem__ = interp2app(W_NDimArray.descr_delitem),
 
     __repr__ = interp2app(W_NDimArray.descr_repr),
     __str__ = interp2app(W_NDimArray.descr_str),

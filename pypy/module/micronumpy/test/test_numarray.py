@@ -511,6 +511,12 @@ class AppTestNumArray(BaseNumpyAppTest):
         a[self.CustomIntObject(1)] = 100
         assert a[1] == 100
 
+    def test_delitem(self):
+        import numpypy as np
+        a = np.arange(10)
+        exc = raises(ValueError, 'del a[2]')
+        assert exc.value.message == 'cannot delete array elements'
+
     def test_access_swallow_exception(self):
         class ErrorIndex(object):
             def __index__(self):
