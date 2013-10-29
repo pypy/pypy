@@ -1073,3 +1073,14 @@ class AppTestUfuncs(BaseNumpyAppTest):
         print b
         assert (b == [[0, 0, 1], [1, 3, 5]]).all()
         assert b.dtype == int
+
+    def test_noncommutative_reduce_accumulate(self):
+        import numpypy as np
+        tosubtract = np.arange(5)
+        todivide = np.array([2.0, 0.5, 0.25])
+        assert np.subtract.reduce(tosubtract) == -10
+        assert np.divide.reduce(todivide) == 16.0
+        assert (np.subtract.accumulate(tosubtract) ==
+                np.array([0, -1, -3, -6, -10])).all()
+        assert (np.divide.accumulate(todivide) ==
+                np.array([2., 4., 16.])).all()

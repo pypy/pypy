@@ -12,7 +12,6 @@ from pypy.module.micronumpy.strides import find_shape_and_elems,\
 from pypy.module.micronumpy.interp_flatiter import W_FlatIterator
 from pypy.module.micronumpy.appbridge import get_appbridge_cache
 from pypy.module.micronumpy import loop
-from pypy.module.micronumpy.dot import match_dot_shapes
 from pypy.module.micronumpy.interp_arrayops import repeat, choose, put
 from pypy.module.micronumpy.arrayimpl import scalar
 from rpython.tool.sourcetools import func_with_new_name
@@ -30,6 +29,28 @@ def _find_shape(space, w_size, dtype):
         shape.append(space.int_w(w_item))
     shape += dtype.shape
     return shape[:]
+
+def _match_dot_shapes(space, left, right):
+    left_shape = left.get_shape()
+    right_shape = right.get_shape()
+    my_critical_dim_size = left_shape[-1]
+    right_critical_dim_size = right_shape[0]
+    right_critical_dim = 0
+    out_shape = []
+    if len(right_shape) > 1:
+        right_critical_dim = len(right_shape) - 2
+        right_critical_dim_size = right_shape[right_critical_dim]
+        assert right_critical_dim >= 0
+        out_shape = out_shape + left_shape[:-1] + \
+                    right_shape[0:right_critical_dim] + \
+                    right_shape[right_critical_dim + 1:]
+    elif len(right_shape) > 0:
+        #dot does not reduce for scalars
+        out_shape = out_shape + left_shape[:-1]
+    if my_critical_dim_size != right_critical_dim_size:
+        raise OperationError(space.w_ValueError, space.wrap(
+                                        "objects are not aligned"))
+    return out_shape, right_critical_dim
 
 class __extend__(W_NDimArray):
     @jit.unroll_safe
@@ -180,8 +201,6 @@ class __extend__(W_NDimArray):
             return self.implementation.descr_getitem(space, self, w_idx)
         except ArrayArgumentException:
             return self.getitem_array_int(space, w_idx)
-        except OperationError:
-            raise OperationError(space.w_IndexError, space.wrap("wrong index"))
 
     def getitem(self, space, index_list):
         return self.implementation.getitem_index(space, index_list)
@@ -198,6 +217,10 @@ class __extend__(W_NDimArray):
             self.implementation.descr_setitem(space, self, w_idx, w_value)
         except ArrayArgumentException:
             self.setitem_array_int(space, w_idx, w_value)
+
+    def descr_delitem(self, space, w_idx):
+        raise OperationError(space.w_ValueError, space.wrap(
+            "cannot delete array elements"))
 
     def descr_len(self, space):
         shape = self.get_shape()
@@ -820,7 +843,7 @@ class __extend__(W_NDimArray):
             # numpy compatability
             return W_NDimArray.new_scalar(space, dtype, space.wrap(0))
         # Do the dims match?
-        out_shape, other_critical_dim = match_dot_shapes(space, self, other)
+        out_shape, other_critical_dim = _match_dot_shapes(space, self, other)
         w_res = W_NDimArray.from_shape(space, out_shape, dtype, w_instance=self)
         # This is the place to add fpypy and blas
         return loop.multidim_dot(space, self, other,  w_res, dtype,
@@ -838,7 +861,7 @@ class __extend__(W_NDimArray):
     # ----------------------- reduce -------------------------------
 
     def _reduce_ufunc_impl(ufunc_name, promote_to_largest=False,
-                           cumultative=False):
+                           cumulative=False):
         def impl(self, space, w_axis=None, w_dtype=None, w_out=None):
             if space.is_none(w_out):
                 out = None
@@ -849,9 +872,9 @@ class __extend__(W_NDimArray):
                 out = w_out
             return getattr(interp_ufuncs.get(space), ufunc_name).reduce(
                 space, self, promote_to_largest, w_axis,
-                False, out, w_dtype, cumultative=cumultative)
+                False, out, w_dtype, cumulative=cumulative)
         return func_with_new_name(impl, "reduce_%s_impl_%d_%d" % (ufunc_name,
-                    promote_to_largest, cumultative))
+                    promote_to_largest, cumulative))
 
     descr_sum = _reduce_ufunc_impl("add")
     descr_sum_promote = _reduce_ufunc_impl("add", True)
@@ -861,8 +884,8 @@ class __extend__(W_NDimArray):
     descr_all = _reduce_ufunc_impl('logical_and')
     descr_any = _reduce_ufunc_impl('logical_or')
 
-    descr_cumsum = _reduce_ufunc_impl('add', cumultative=True)
-    descr_cumprod = _reduce_ufunc_impl('multiply', cumultative=True)
+    descr_cumsum = _reduce_ufunc_impl('add', cumulative=True)
+    descr_cumprod = _reduce_ufunc_impl('multiply', cumulative=True)
 
     def _reduce_argmax_argmin_impl(op_name):
         def impl(self, space, w_axis=None, w_out=None):
@@ -1046,6 +1069,7 @@ W_NDimArray.typedef = TypeDef(
     __len__ = interp2app(W_NDimArray.descr_len),
     __getitem__ = interp2app(W_NDimArray.descr_getitem),
     __setitem__ = interp2app(W_NDimArray.descr_setitem),
+    __delitem__ = interp2app(W_NDimArray.descr_delitem),
 
     __repr__ = interp2app(W_NDimArray.descr_repr),
     __str__ = interp2app(W_NDimArray.descr_str),

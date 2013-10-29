@@ -1,4 +1,3 @@
-
 from pypy.module.micronumpy.arrayimpl import base
 from pypy.module.micronumpy.base import W_NDimArray, convert_to_array
 from pypy.module.micronumpy import support
@@ -18,6 +17,9 @@ class ScalarIterator(base.BaseArrayIterator):
 
     def getitem(self):
         return self.v.get_scalar_value()
+
+    def getitem_bool(self):
+        return self.v.dtype.itemtype.bool(self.v.value)
 
     def setitem(self, v):
         self.v.set_scalar_value(v)
@@ -181,4 +183,3 @@ class Scalar(base.BaseArrayImplementation):
     def get_buffer(self, space):
         raise OperationError(space.w_ValueError, space.wrap(
             "cannot point buffer to a scalar"))
-

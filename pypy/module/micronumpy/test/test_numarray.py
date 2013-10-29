@@ -511,6 +511,12 @@ class AppTestNumArray(BaseNumpyAppTest):
         a[self.CustomIntObject(1)] = 100
         assert a[1] == 100
 
+    def test_delitem(self):
+        import numpypy as np
+        a = np.arange(10)
+        exc = raises(ValueError, 'del a[2]')
+        assert exc.value.message == 'cannot delete array elements'
+
     def test_access_swallow_exception(self):
         class ErrorIndex(object):
             def __index__(self):
@@ -525,8 +531,10 @@ class AppTestNumArray(BaseNumpyAppTest):
 
         from numpypy import arange
         a = arange(10)
-        raises(IndexError, "a[ErrorIndex()] == 0")
-        raises(IndexError, "a[ErrorInt()] == 0")
+        exc = raises(IndexError, "a[ErrorIndex()] == 0")
+        assert exc.value.message == 'cannot convert index to integer'
+        exc = raises(IndexError, "a[ErrorInt()] == 0")
+        assert exc.value.message == 'cannot convert index to integer'
 
     def test_setslice_array(self):
         from numpypy import array
@@ -995,6 +1003,13 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = array(range(5))
         b = a // 2
         assert (b == [0, 0, 1, 1, 2]).all()
+
+    def test_signed_integer_division_overflow(self):
+        import numpypy as np
+        for s in (8, 16, 32, 64):
+            for o in ['__div__', '__floordiv__']:
+                a = np.array([-2**(s-1)], dtype='int%d' % s)
+                assert getattr(a, o)(-1) == 0
 
     def test_truediv(self):
         from operator import truediv
@@ -1777,6 +1792,15 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (a == [0, 1, 1, 0, 4, 0, 6, 7, 8, 9]).all()
         raises(IndexError, "arange(10)[array([10])] = 3")
         raises(IndexError, "arange(10)[[-11]] = 3")
+
+    def test_bool_single_index(self):
+        import numpypy as np
+        a = np.array([[1, 2, 3],
+                      [4, 5, 6],
+                      [7, 8, 9]])
+        a[np.array(True)]; skip("broken")  # check for crash but skip rest of test until correct
+        assert (a[np.array(True)] == a[1]).all()
+        assert (a[np.array(False)] == a[0]).all()
 
     def test_bool_array_index(self):
         from numpypy import arange, array
@@ -2905,10 +2929,22 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         d = dtype([("x", "int", 3), ("y", "float", 5)])
         a = array([([1, 2, 3], [0.5, 1.5, 2.5, 3.5, 4.5]), ([4, 5, 6], [5.5, 6.5, 7.5, 8.5, 9.5])], dtype=d)
 
-        assert (a[0]["x"] == [1, 2, 3]).all()
-        assert (a[0]["y"] == [0.5, 1.5, 2.5, 3.5, 4.5]).all()
-        assert (a[1]["x"] == [4, 5, 6]).all()
-        assert (a[1]["y"] == [5.5, 6.5, 7.5, 8.5, 9.5]).all()
+        for v in ['x', u'x', 0, -2]:
+            assert (a[0][v] == [1, 2, 3]).all()
+            assert (a[1][v] == [4, 5, 6]).all()
+        for v in ['y', u'y', -1, 1]:
+            assert (a[0][v] == [0.5, 1.5, 2.5, 3.5, 4.5]).all()
+            assert (a[1][v] == [5.5, 6.5, 7.5, 8.5, 9.5]).all()
+        for v in [-3, 2]:
+            exc = raises(IndexError, "a[0][%d]" % v)
+            assert exc.value.message == "invalid index (%d)" % (v + 2 if v < 0 else v)
+        exc = raises(IndexError, "a[0]['z']")
+        assert exc.value.message == "invalid index"
+        exc = raises(IndexError, "a[0][None]")
+        assert exc.value.message == "invalid index"
+
+        exc = raises(IndexError, "a[0][None]")
+        assert exc.value.message == 'invalid index'
 
         a[0]["x"][0] = 200
         assert a[0]["x"][0] == 200
@@ -2929,6 +2965,8 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         a[0, 0] = 500
         assert (a[0, 0, 0] == 500).all()
         assert a[0, 0, 0].shape == (10,)
+        exc = raises(ValueError, "a[0, 0]['z']")
+        assert exc.value.message == 'field named z not found'
 
     def test_subarray_multiple_rows(self):
         import numpypy as np

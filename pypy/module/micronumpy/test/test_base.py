@@ -1,4 +1,4 @@
-from pypy.module.micronumpy.interp_dtype import NATBYTE, OPPBYTE
+from pypy.module.micronumpy.interp_dtype import NPY_NATBYTE, NPY_OPPBYTE
 from pypy.conftest import option
 
 class BaseNumpyAppTest(object):
@@ -22,5 +22,5 @@ class BaseNumpyAppTest(object):
             import sys
             sys.modules['numpypy'] = numpy
             """)
-        cls.w_non_native_prefix = cls.space.wrap(OPPBYTE)
-        cls.w_native_prefix = cls.space.wrap(NATBYTE)
+        cls.w_non_native_prefix = cls.space.wrap(NPY_OPPBYTE)
+        cls.w_native_prefix = cls.space.wrap(NPY_NATBYTE)

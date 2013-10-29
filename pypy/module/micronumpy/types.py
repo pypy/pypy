@@ -115,6 +115,10 @@ def raw_binary_op(func):
 class BaseType(object):
     SortRepr = None # placeholders for sorting classes, overloaded in sort.py
     Sort = None
+    _immutable_fields_ = ['native']
+
+    def __init__(self, native=True):
+        self.native = native
 
     def _unimplemented_ufunc(self, *args):
         raise NotImplementedError
@@ -172,16 +176,21 @@ class Primitive(object):
         raise NotImplementedError
 
     def _read(self, storage, i, offset):
-        return raw_storage_getitem(self.T, storage, i + offset)
+        res = raw_storage_getitem(self.T, storage, i + offset)
+        if not self.native:
+            res = byteswap(res)
+        return res
+
+    def _write(self, storage, i, offset, value):
+        if not self.native:
+            value = byteswap(value)
+        raw_storage_setitem(storage, i + offset, value)
 
     def read(self, arr, i, offset, dtype=None):
         return self.box(self._read(arr.storage, i, offset))
 
     def read_bool(self, arr, i, offset):
         return bool(self.for_computation(self._read(arr.storage, i, offset)))
-
-    def _write(self, storage, i, offset, value):
-        raw_storage_setitem(storage, i + offset, value)
 
     def store(self, arr, i, offset, box):
         self._write(arr.storage, i, offset, self.unbox(box))
@@ -307,17 +316,6 @@ class Primitive(object):
         float64 = Float64()
         return float64.rint(float64.box(v))
 
-class NonNativePrimitive(Primitive):
-    _mixin_ = True
-
-    def _read(self, storage, i, offset):
-        res = raw_storage_getitem(self.T, storage, i + offset)
-        return byteswap(res)
-
-    def _write(self, storage, i, offset, value):
-        value = byteswap(value)
-        raw_storage_setitem(storage, i + offset, value)
-
 class Bool(BaseType, Primitive):
     T = lltype.Bool
     BoxType = interp_boxes.W_BoolBox
@@ -402,8 +400,6 @@ class Bool(BaseType, Primitive):
             return 1
         return 0
 
-NonNativeBool = Bool
-
 class Integer(Primitive):
     _mixin_ = True
 
@@ -422,17 +418,29 @@ class Integer(Primitive):
     def default_fromstring(self, space):
         return self.box(0)
 
-    @simple_binary_op
-    def div(self, v1, v2):
+    @specialize.argtype(1, 2)
+    def div(self, b1, b2):
+        v1 = self.for_computation(self.unbox(b1))
+        v2 = self.for_computation(self.unbox(b2))
         if v2 == 0:
-            return 0
-        return v1 / v2
+            return self.box(0)
+        if (self.T is rffi.SIGNEDCHAR or self.T is rffi.SHORT or self.T is rffi.INT or
+                self.T is rffi.LONG or self.T is rffi.LONGLONG):
+            if v2 == -1 and v1 == self.for_computation(most_neg_value_of(self.T)):
+                return self.box(0)
+        return self.box(v1 / v2)
 
-    @simple_binary_op
-    def floordiv(self, v1, v2):
+    @specialize.argtype(1, 2)
+    def floordiv(self, b1, b2):
+        v1 = self.for_computation(self.unbox(b1))
+        v2 = self.for_computation(self.unbox(b2))
         if v2 == 0:
-            return 0
-        return v1 // v2
+            return self.box(0)
+        if (self.T is rffi.SIGNEDCHAR or self.T is rffi.SHORT or self.T is rffi.INT or
+                self.T is rffi.LONG or self.T is rffi.LONGLONG):
+            if v2 == -1 and v1 == self.for_computation(most_neg_value_of(self.T)):
+                return self.box(0)
+        return self.box(v1 // v2)
 
     @simple_binary_op
     def mod(self, v1, v2):
@@ -531,29 +539,17 @@ class Integer(Primitive):
     def signbit(self, v):
         return v < 0
 
-class NonNativeInteger(NonNativePrimitive, Integer):
-    _mixin_ = True
-
 class Int8(BaseType, Integer):
     T = rffi.SIGNEDCHAR
     BoxType = interp_boxes.W_Int8Box
     format_code = "b"
-
-NonNativeInt8 = Int8
 
 class UInt8(BaseType, Integer):
     T = rffi.UCHAR
     BoxType = interp_boxes.W_UInt8Box
     format_code = "B"
 
-NonNativeUInt8 = UInt8
-
 class Int16(BaseType, Integer):
-    T = rffi.SHORT
-    BoxType = interp_boxes.W_Int16Box
-    format_code = "h"
-
-class NonNativeInt16(BaseType, NonNativeInteger):
     T = rffi.SHORT
     BoxType = interp_boxes.W_Int16Box
     format_code = "h"
@@ -563,17 +559,7 @@ class UInt16(BaseType, Integer):
     BoxType = interp_boxes.W_UInt16Box
     format_code = "H"
 
-class NonNativeUInt16(BaseType, NonNativeInteger):
-    T = rffi.USHORT
-    BoxType = interp_boxes.W_UInt16Box
-    format_code = "H"
-
 class Int32(BaseType, Integer):
-    T = rffi.INT
-    BoxType = interp_boxes.W_Int32Box
-    format_code = "i"
-
-class NonNativeInt32(BaseType, NonNativeInteger):
     T = rffi.INT
     BoxType = interp_boxes.W_Int32Box
     format_code = "i"
@@ -583,27 +569,12 @@ class UInt32(BaseType, Integer):
     BoxType = interp_boxes.W_UInt32Box
     format_code = "I"
 
-class NonNativeUInt32(BaseType, NonNativeInteger):
-    T = rffi.UINT
-    BoxType = interp_boxes.W_UInt32Box
-    format_code = "I"
-
 class Long(BaseType, Integer):
     T = rffi.LONG
     BoxType = interp_boxes.W_LongBox
     format_code = "l"
 
-class NonNativeLong(BaseType, NonNativeInteger):
-    T = rffi.LONG
-    BoxType = interp_boxes.W_LongBox
-    format_code = "l"
-
 class ULong(BaseType, Integer):
-    T = rffi.ULONG
-    BoxType = interp_boxes.W_ULongBox
-    format_code = "L"
-
-class NonNativeULong(BaseType, NonNativeInteger):
     T = rffi.ULONG
     BoxType = interp_boxes.W_ULongBox
     format_code = "L"
@@ -628,13 +599,6 @@ class Int64(BaseType, Integer):
 
     _coerce = func_with_new_name(_int64_coerce, '_coerce')
 
-class NonNativeInt64(BaseType, NonNativeInteger):
-    T = rffi.LONGLONG
-    BoxType = interp_boxes.W_Int64Box
-    format_code = "q"
-
-    _coerce = func_with_new_name(_int64_coerce, '_coerce')
-
 def _uint64_coerce(self, space, w_item):
     try:
         return self._base_coerce(space, w_item)
@@ -649,13 +613,6 @@ def _uint64_coerce(self, space, w_item):
     return self.box(value)
 
 class UInt64(BaseType, Integer):
-    T = rffi.ULONGLONG
-    BoxType = interp_boxes.W_UInt64Box
-    format_code = "Q"
-
-    _coerce = func_with_new_name(_uint64_coerce, '_coerce')
-
-class NonNativeUInt64(BaseType, NonNativeInteger):
     T = rffi.ULONGLONG
     BoxType = interp_boxes.W_UInt64Box
     format_code = "Q"
@@ -986,20 +943,7 @@ class Float(Primitive):
         else:
             return x
 
-class NonNativeFloat(NonNativePrimitive, Float):
-    _mixin_ = True
-
-    def _read(self, storage, i, offset):
-        res = raw_storage_getitem(self.T, storage, i + offset)
-        return byteswap(res)
-
-    def _write(self, storage, i, offset, value):
-        swapped_value = byteswap(rffi.cast(self.T, value))
-        raw_storage_setitem(storage, i + offset, swapped_value)
-
-class BaseFloat16(Float):
-    _mixin_ = True
-
+class Float16(BaseType, Float):
     _STORAGE_T = rffi.USHORT
     T = rffi.SHORT
     BoxType = interp_boxes.W_Float16Box
@@ -1022,42 +966,25 @@ class BaseFloat16(Float):
         swapped = byteswap(rffi.cast(self._STORAGE_T, hbits))
         return self.box(float_unpack(r_ulonglong(swapped), 2))
 
-class Float16(BaseType, BaseFloat16):
     def _read(self, storage, i, offset):
         hbits = raw_storage_getitem(self._STORAGE_T, storage, i + offset)
+        if not self.native:
+            hbits = byteswap(hbits)
         return float_unpack(r_ulonglong(hbits), 2)
 
     def _write(self, storage, i, offset, value):
-        hbits = float_pack(value,2)
+        hbits = rffi.cast(self._STORAGE_T, float_pack(value, 2))
+        if not self.native:
+            hbits = byteswap(hbits)
         raw_storage_setitem(storage, i + offset,
                 rffi.cast(self._STORAGE_T, hbits))
-
-class NonNativeFloat16(BaseType, BaseFloat16):
-    def _read(self, storage, i, offset):
-        hbits = raw_storage_getitem(self._STORAGE_T, storage, i + offset)
-        return float_unpack(r_ulonglong(byteswap(hbits)), 2)
-
-    def _write(self, storage, i, offset, value):
-        hbits = float_pack(value,2)
-        raw_storage_setitem(storage, i + offset,
-                byteswap(rffi.cast(self._STORAGE_T, hbits)))
 
 class Float32(BaseType, Float):
     T = rffi.FLOAT
     BoxType = interp_boxes.W_Float32Box
     format_code = "f"
 
-class NonNativeFloat32(BaseType, NonNativeFloat):
-    T = rffi.FLOAT
-    BoxType = interp_boxes.W_Float32Box
-    format_code = "f"
-
 class Float64(BaseType, Float):
-    T = rffi.DOUBLE
-    BoxType = interp_boxes.W_Float64Box
-    format_code = "d"
-
-class NonNativeFloat64(BaseType, NonNativeFloat):
     T = rffi.DOUBLE
     BoxType = interp_boxes.W_Float64Box
     format_code = "d"
@@ -1613,21 +1540,14 @@ class Complex64(ComplexFloating, BaseType):
     BoxType = interp_boxes.W_Complex64Box
     ComponentBoxType = interp_boxes.W_Float32Box
 
-NonNativeComplex64 = Complex64
-
 class Complex128(ComplexFloating, BaseType):
     T = rffi.DOUBLE
     BoxType = interp_boxes.W_Complex128Box
     ComponentBoxType = interp_boxes.W_Float64Box
 
-NonNativeComplex128 = Complex128
-
 if interp_boxes.long_double_size == 8:
     FloatLong = Float64
-    NonNativeFloatLong = NonNativeFloat64
-
     ComplexLong = Complex128
-    NonNativeComplexLong = NonNativeComplex128
 
 elif interp_boxes.long_double_size in (12, 16):
     class FloatLong(BaseType, Float):
@@ -1645,19 +1565,16 @@ elif interp_boxes.long_double_size in (12, 16):
             pack_float80(result, value, 10, not native_is_bigendian)
             return self.box(unpack_float80(result.build(), native_is_bigendian))
 
-    NonNativeFloatLong = FloatLong
-
     class ComplexLong(ComplexFloating, BaseType):
         T = rffi.LONGDOUBLE
         BoxType = interp_boxes.W_ComplexLongBox
         ComponentBoxType = interp_boxes.W_FloatLongBox
 
-    NonNativeComplexLong = ComplexLong
-
-class BaseStringType(object):
-    _mixin_ = True
+class BaseStringType(BaseType):
+    _immutable_fields = ['size']
 
     def __init__(self, size=0):
+        BaseType.__init__(self)
         self.size = size
 
     def get_element_size(self):
@@ -1683,7 +1600,7 @@ def str_binary_op(func):
         )
     return dispatcher
 
-class StringType(BaseType, BaseStringType):
+class StringType(BaseStringType):
     T = lltype.Char
 
     @jit.unroll_safe
@@ -1800,9 +1717,7 @@ class StringType(BaseType, BaseStringType):
         for i in xrange(start, stop, width):
             self._store(storage, i, offset, box)
 
-NonNativeStringType = StringType
-
-class UnicodeType(BaseType, BaseStringType):
+class UnicodeType(BaseStringType):
     T = lltype.UniChar
 
     @jit.unroll_safe
@@ -1812,9 +1727,7 @@ class UnicodeType(BaseType, BaseStringType):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "coerce (probably from set_item) not implemented for unicode type"))
 
-NonNativeUnicodeType = UnicodeType
-
-class VoidType(BaseType, BaseStringType):
+class VoidType(BaseStringType):
     T = lltype.Char
 
     def _coerce(self, space, arr, ofs, dtype, w_items, shape):
@@ -1858,12 +1771,12 @@ class VoidType(BaseType, BaseStringType):
                              dtype.shape, arr, W_NDimArray(arr), dtype.subdtype)
         return W_NDimArray(implementation)
 
-NonNativeVoidType = VoidType
-
 class RecordType(BaseType):
     T = lltype.Char
+    _immutable_fields_ = ['offsets_and_fields', 'size']
 
     def __init__(self, offsets_and_fields, size):
+        BaseType.__init__(self)
         self.offsets_and_fields = offsets_and_fields
         self.size = size
 

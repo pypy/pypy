@@ -34,6 +34,14 @@ class AppTestDtypes(BaseAppTestDtypes):
 
         assert dtype(None) is dtype(float)
 
+        e = dtype('int8')
+        exc = raises(KeyError, "e[2]")
+        assert exc.value.message == "There are no fields in dtype int8."
+        exc = raises(KeyError, "e['z']")
+        assert exc.value.message == "There are no fields in dtype int8."
+        exc = raises(KeyError, "e[None]")
+        assert exc.value.message == "There are no fields in dtype int8."
+
         exc = raises(TypeError, dtype, (1, 2))
         assert 'data type not understood' in str(exc.value)
         raises(KeyError, 'dtype(int)["asdasd"]')
@@ -828,7 +836,17 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
         assert d["x"].itemsize == 16
         e = dtype([("x", "float", 2), ("y", "int", 2)])
         assert e.fields.keys() == keys
-        assert e['x'].shape == (2,)
+        for v in ['x', u'x', 0, -2]:
+            assert e[v] == (dtype('float'), (2,))
+        for v in ['y', u'y', 1, -1]:
+            assert e[v] == (dtype('int'), (2,))
+        for v in [-3, 2]:
+            exc = raises(IndexError, "e[%d]" % v)
+            assert exc.value.message == "Field index %d out of range." % v
+        exc = raises(KeyError, "e['z']")
+        assert exc.value.message == "Field named 'z' not found."
+        exc = raises(ValueError, "e[None]")
+        assert exc.value.message == 'Field key must be an integer, string, or unicode.'
 
         dt = dtype((float, 10))
         assert dt.shape == (10,)
