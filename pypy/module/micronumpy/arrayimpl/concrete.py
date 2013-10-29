@@ -121,7 +121,7 @@ class BaseConcreteArray(base.BaseArrayImplementation):
         for i, w_index in enumerate(view_w):
             if space.isinstance_w(w_index, space.w_slice):
                 raise IndexError
-            idx = support.int_w(space, w_index)
+            idx = support.index_w(space, w_index)
             if idx < 0:
                 idx = self.get_shape()[i] + idx
             if idx < 0 or idx >= self.get_shape()[i]:
@@ -193,7 +193,7 @@ class BaseConcreteArray(base.BaseArrayImplementation):
             return self._lookup_by_index(space, view_w)
         if shape_len > 1:
             raise IndexError
-        idx = support.int_w(space, w_idx)
+        idx = support.index_w(space, w_idx)
         return self._lookup_by_index(space, [space.wrap(idx)])
 
     @jit.unroll_safe

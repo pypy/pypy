@@ -191,7 +191,7 @@ def choose(space, w_arr, w_choices, w_out, w_mode):
     return out
 
 def put(space, w_arr, w_indices, w_values, w_mode):
-    from pypy.module.micronumpy.support import int_w
+    from pypy.module.micronumpy.support import index_w
 
     arr = convert_to_array(space, w_arr)
     mode = clipmode_converter(space, w_mode)
@@ -217,7 +217,7 @@ def put(space, w_arr, w_indices, w_values, w_mode):
 
     v_idx = 0
     for idx in indices:
-        index = int_w(space, idx)
+        index = index_w(space, idx)
 
         if index < 0 or index >= arr.get_size():
             if mode == NPY_RAISE:
