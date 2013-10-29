@@ -2450,10 +2450,6 @@ class AppTestMultiDim(BaseNumpyAppTest):
 
     def test_take(self):
         from numpypy import arange
-        try:
-            arange(10).take([0])
-        except NotImplementedError:
-            skip("we wait for int-based indexing")
         assert (arange(10).take([1, 2, 1, 1]) == [1, 2, 1, 1]).all()
         raises(IndexError, "arange(3).take([15])")
         a = arange(6).reshape(2, 3)
@@ -2461,6 +2457,13 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert ((a + a).take([3]) == [6]).all()
         a = arange(12).reshape(2, 6)
         assert (a[:,::2].take([3, 2, 1]) == [6, 4, 2]).all()
+
+    def test_ptp(self):
+        import numpypy as np
+        x = np.arange(4).reshape((2,2))
+        assert x.ptp() == 3
+        assert (x.ptp(axis=0) == [2, 2]).all()
+        assert (x.ptp(axis=1) == [1, 1]).all()
 
     def test_compress(self):
         from numpypy import arange, array

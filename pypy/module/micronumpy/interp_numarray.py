@@ -1,6 +1,7 @@
 from pypy.interpreter.error import operationerrfmt, OperationError
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, make_weakref_descr
-from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.gateway import interp2app, unwrap_spec, applevel, \
+                                     WrappedDefault
 from pypy.module.micronumpy.base import W_NDimArray, convert_to_array,\
      ArrayArgumentException, issequence_w, wrap_impl
 from pypy.module.micronumpy import interp_dtype, interp_ufuncs, interp_boxes,\
@@ -359,18 +360,11 @@ class __extend__(W_NDimArray):
                 "order not implemented"))
         return self.descr_reshape(space, [space.wrap(-1)])
 
-    def descr_take(self, space, w_obj, w_axis=None, w_out=None):
-        # if w_axis is None and w_out is Nont this is an equivalent to
-        # fancy indexing
-        raise OperationError(space.w_NotImplementedError,
-                             space.wrap("unsupported for now"))
-        if not space.is_none(w_axis):
-            raise OperationError(space.w_NotImplementedError,
-                                 space.wrap("axis unsupported for take"))
-        if not space.is_none(w_out):
-            raise OperationError(space.w_NotImplementedError,
-                                 space.wrap("out unsupported for take"))
-        return self.getitem_int(space, convert_to_array(space, w_obj))
+    @unwrap_spec(w_axis=WrappedDefault(None),
+                 w_out=WrappedDefault(None),
+                 w_mode=WrappedDefault('raise'))
+    def descr_take(self, space, w_obj, w_axis, w_out, w_mode):
+        return app_take(space, self, w_obj, w_axis, w_out, w_mode)
 
     def descr_compress(self, space, w_obj, w_axis=None):
         if not space.is_none(w_axis):
@@ -581,9 +575,10 @@ class __extend__(W_NDimArray):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "newbyteorder not implemented yet"))
 
-    def descr_ptp(self, space, w_axis=None, w_out=None):
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            "ptp (peak to peak) not implemented yet"))
+    @unwrap_spec(w_axis=WrappedDefault(None),
+                 w_out=WrappedDefault(None))
+    def descr_ptp(self, space, w_axis, w_out):
+        return app_ptp(space, self, w_axis, w_out)
 
     def descr_put(self, space, w_indices, w_values, w_mode=None):
         put(space, self, w_indices, w_values, w_mode)
@@ -1005,6 +1000,32 @@ def descr__from_shape_and_storage(space, w_cls, w_shape, addr, w_dtype, w_subtyp
     else:
         return W_NDimArray.from_shape_and_storage(space, shape, storage, dtype)
 
+app_take = applevel(r"""
+    def take(a, indices, axis, out, mode):
+        assert mode == 'raise'
+        if axis is None:
+            res = a.ravel()[indices]
+        else:
+            if axis < 0: axis += len(a.shape)
+            s0, s1 = a.shape[:axis], a.shape[axis+1:]
+            l0 = prod(s0) if s0 else 1
+            l1 = prod(s1) if s1 else 1
+            res = a.reshape((l0, -1, l1))[:,indices,:].reshape(s0 + (-1,) + s1)
+        if out is not None:
+            out[:] = res
+            return out
+        return res
+""", filename=__file__).interphook('take')
+
+app_ptp = applevel(r"""
+    def ptp(a, axis, out):
+        res = a.max(axis) - a.min(axis)
+        if out is not None:
+            out[:] = res
+            return out
+        return res
+""", filename=__file__).interphook('ptp')
+
 W_NDimArray.typedef = TypeDef(
     "ndarray",
     __module__ = "numpypy",
@@ -1114,6 +1135,7 @@ W_NDimArray.typedef = TypeDef(
     flatten = interp2app(W_NDimArray.descr_flatten),
     ravel = interp2app(W_NDimArray.descr_ravel),
     take = interp2app(W_NDimArray.descr_take),
+    ptp = interp2app(W_NDimArray.descr_ptp),
     compress = interp2app(W_NDimArray.descr_compress),
     repeat = interp2app(W_NDimArray.descr_repeat),
     swapaxes = interp2app(W_NDimArray.descr_swapaxes),
