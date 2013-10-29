@@ -162,7 +162,13 @@ reduce_cum_driver = jit.JitDriver(name='numpy_reduce_cum_driver',
 def compute_reduce_cumulative(obj, out, calc_dtype, func, identity):
     obj_iter = obj.create_iter()
     out_iter = out.create_iter()
-    cur_value = identity.convert_to(calc_dtype)
+    if identity is None:
+        cur_value = obj_iter.getitem().convert_to(calc_dtype)
+        out_iter.setitem(cur_value)
+        out_iter.next()
+        obj_iter.next()
+    else:
+        cur_value = identity.convert_to(calc_dtype)
     shapelen = len(obj.get_shape())
     while not obj_iter.done():
         reduce_cum_driver.jit_merge_point(shapelen=shapelen, func=func,
