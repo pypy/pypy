@@ -1466,6 +1466,11 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a[3].imag == -10
         assert a[2].imag == -5
 
+        assert arange(4, dtype='>c8').imag.max() == 0.0
+        assert arange(4, dtype='<c8').imag.max() == 0.0
+        assert arange(4, dtype='>c8').real.max() == 3.0
+        assert arange(4, dtype='<c8').real.max() == 3.0
+
     def test_trace(self):
         import numpypy as np
         assert np.trace(np.eye(3)) == 3.0

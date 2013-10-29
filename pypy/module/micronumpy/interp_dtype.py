@@ -50,7 +50,7 @@ def dtype_agreement(space, w_arr_list, shape, out=None):
     return out
 
 class W_Dtype(W_Root):
-    _immutable_fields_ = ["itemtype?", "num", "kind", "name?", "char", "w_box_type", "byteorder"]
+    _immutable_fields_ = ["itemtype?", "num", "kind", "name?", "char", "w_box_type", "byteorder", "float_type"]
 
     def __init__(self, itemtype, num, kind, name, char, w_box_type, byteorder='=',
                  alternate_constructors=[], aliases=[], float_type=None,
@@ -749,7 +749,7 @@ class DtypeCache(object):
             self.dtypes_by_name[new_name] = W_Dtype(
                 itemtype,
                 dtype.num, dtype.kind, new_name, dtype.char, dtype.w_box_type,
-                byteorder=OPPBYTE)
+                byteorder=OPPBYTE, float_type=dtype.float_type)
             if dtype.kind != dtype.char:
                 can_name = dtype.char
                 self.dtypes_by_name[NATBYTE + can_name] = dtype
@@ -758,7 +758,7 @@ class DtypeCache(object):
                 self.dtypes_by_name[new_name] = W_Dtype(
                     itemtype,
                     dtype.num, dtype.kind, new_name, dtype.char, dtype.w_box_type,
-                    byteorder=OPPBYTE)
+                    byteorder=OPPBYTE, float_type=dtype.float_type)
 
             for alias in dtype.aliases:
                 self.dtypes_by_name[alias] = dtype
