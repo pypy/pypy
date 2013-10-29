@@ -12,7 +12,6 @@ from pypy.module.micronumpy.strides import find_shape_and_elems,\
 from pypy.module.micronumpy.interp_flatiter import W_FlatIterator
 from pypy.module.micronumpy.appbridge import get_appbridge_cache
 from pypy.module.micronumpy import loop
-from pypy.module.micronumpy.dot import match_dot_shapes
 from pypy.module.micronumpy.interp_arrayops import repeat, choose, put
 from pypy.module.micronumpy.arrayimpl import scalar
 from rpython.tool.sourcetools import func_with_new_name
@@ -30,6 +29,28 @@ def _find_shape(space, w_size, dtype):
         shape.append(space.int_w(w_item))
     shape += dtype.shape
     return shape[:]
+
+def _match_dot_shapes(space, left, right):
+    left_shape = left.get_shape()
+    right_shape = right.get_shape()
+    my_critical_dim_size = left_shape[-1]
+    right_critical_dim_size = right_shape[0]
+    right_critical_dim = 0
+    out_shape = []
+    if len(right_shape) > 1:
+        right_critical_dim = len(right_shape) - 2
+        right_critical_dim_size = right_shape[right_critical_dim]
+        assert right_critical_dim >= 0
+        out_shape = out_shape + left_shape[:-1] + \
+                    right_shape[0:right_critical_dim] + \
+                    right_shape[right_critical_dim + 1:]
+    elif len(right_shape) > 0:
+        #dot does not reduce for scalars
+        out_shape = out_shape + left_shape[:-1]
+    if my_critical_dim_size != right_critical_dim_size:
+        raise OperationError(space.w_ValueError, space.wrap(
+                                        "objects are not aligned"))
+    return out_shape, right_critical_dim
 
 class __extend__(W_NDimArray):
     @jit.unroll_safe
@@ -820,7 +841,7 @@ class __extend__(W_NDimArray):
             # numpy compatability
             return W_NDimArray.new_scalar(space, dtype, space.wrap(0))
         # Do the dims match?
-        out_shape, other_critical_dim = match_dot_shapes(space, self, other)
+        out_shape, other_critical_dim = _match_dot_shapes(space, self, other)
         w_res = W_NDimArray.from_shape(space, out_shape, dtype, w_instance=self)
         # This is the place to add fpypy and blas
         return loop.multidim_dot(space, self, other,  w_res, dtype,
