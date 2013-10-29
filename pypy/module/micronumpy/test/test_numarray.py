@@ -1228,24 +1228,6 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert d[0] == 110
         assert d[1] == 12
 
-    def test_mean(self):
-        from numpypy import array, arange
-        a = array(range(5))
-        assert a.mean() == 2.0
-        assert a[:4].mean() == 1.5
-        a = array(range(105)).reshape(3, 5, 7)
-        b = a.mean(axis=0)
-        assert b[0, 0] == 35.
-        assert a.mean(axis=0)[0, 0] == 35
-        assert (b == array(range(35, 70), dtype=float).reshape(5, 7)).all()
-        assert (a.mean(2) == array(range(0, 15), dtype=float).reshape(3, 5) * 7 + 3).all()
-        assert (arange(10).reshape(5, 2).mean(axis=1) == [0.5, 2.5, 4.5, 6.5, 8.5]).all()
-        assert (a.mean(axis=-1) == a.mean(axis=2)).all()
-        raises(IndexError, a.mean, -4)
-        raises(IndexError, a.mean, 3)
-        a = arange(10).reshape(5, 2)
-        assert (a.mean(1) == [0.5, 2.5, 4.5, 6.5, 8.5]).all()
-
     def test_sum(self):
         from numpypy import array, zeros
         a = array(range(5))
@@ -1571,17 +1553,6 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a[:, 0].tolist() == [17.1, 40.3]
         assert a[0].tolist() == [17.1, 27.2]
 
-    def test_var(self):
-        from numpypy import array, arange
-        a = array(range(10))
-        assert a.var() == 8.25
-        a = array([5.0])
-        assert a.var() == 0.0
-        a = arange(10).reshape(5, 2)
-        assert a.var() == 8.25
-        assert (a.var(0) == [8, 8]).all()
-        assert (a.var(1) == [.25] * 5).all()
-
     def test_concatenate(self):
         from numpypy import array, concatenate, dtype
         a1 = array([0,1,2])
@@ -1662,13 +1633,6 @@ class AppTestNumArray(BaseNumpyAppTest):
         exc = raises(TypeError, concatenate, (['abc'], zeros((2,),
                                             dtype=[('x', int), ('y', float)])))
         assert str(exc.value).startswith('invalid type promotion')
-
-    def test_std(self):
-        from numpypy import array
-        a = array(range(10))
-        assert a.std() == 2.8722813232690143
-        a = array([5.0])
-        assert a.std() == 0.0
 
     def test_flatten(self):
         from numpypy import array
