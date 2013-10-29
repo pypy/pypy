@@ -1779,6 +1779,15 @@ class AppTestNumArray(BaseNumpyAppTest):
         raises(IndexError, "arange(10)[array([10])] = 3")
         raises(IndexError, "arange(10)[[-11]] = 3")
 
+    def test_bool_single_index(self):
+        import numpypy as np
+        a = np.array([[1, 2, 3],
+                      [4, 5, 6],
+                      [7, 8, 9]])
+        a[np.array(True)]; skip("broken")  # check for crash but skip rest of test until correct
+        assert (a[np.array(True)] == a[1]).all()
+        assert (a[np.array(False)] == a[0]).all()
+
     def test_bool_array_index(self):
         from numpypy import arange, array
         b = arange(10)
