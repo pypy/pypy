@@ -363,7 +363,7 @@ class __extend__(W_NDimArray):
     @unwrap_spec(w_axis=WrappedDefault(None),
                  w_out=WrappedDefault(None),
                  w_mode=WrappedDefault('raise'))
-    def descr_take(self, space, w_obj, w_axis, w_out, w_mode):
+    def descr_take(self, space, w_obj, w_axis=None, w_out=None, w_mode=None):
         return app_take(space, self, w_obj, w_axis, w_out, w_mode)
 
     def descr_compress(self, space, w_obj, w_axis=None):
@@ -577,7 +577,7 @@ class __extend__(W_NDimArray):
 
     @unwrap_spec(w_axis=WrappedDefault(None),
                  w_out=WrappedDefault(None))
-    def descr_ptp(self, space, w_axis, w_out):
+    def descr_ptp(self, space, w_axis=None, w_out=None):
         return app_ptp(space, self, w_axis, w_out)
 
     def descr_put(self, space, w_indices, w_values, w_mode=None):
