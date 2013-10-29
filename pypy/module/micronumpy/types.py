@@ -115,6 +115,7 @@ def raw_binary_op(func):
 class BaseType(object):
     SortRepr = None # placeholders for sorting classes, overloaded in sort.py
     Sort = None
+    _immutable_fields_ = ['native']
 
     def __init__(self, native=True):
         self.native = native
@@ -1570,6 +1571,8 @@ elif interp_boxes.long_double_size in (12, 16):
         ComponentBoxType = interp_boxes.W_FloatLongBox
 
 class BaseStringType(BaseType):
+    _immutable_fields = ['size']
+
     def __init__(self, size=0):
         BaseType.__init__(self)
         self.size = size
@@ -1770,6 +1773,7 @@ class VoidType(BaseStringType):
 
 class RecordType(BaseType):
     T = lltype.Char
+    _immutable_fields_ = ['offsets_and_fields', 'size']
 
     def __init__(self, offsets_and_fields, size):
         BaseType.__init__(self)
