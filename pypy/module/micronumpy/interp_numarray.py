@@ -861,7 +861,7 @@ class __extend__(W_NDimArray):
     # ----------------------- reduce -------------------------------
 
     def _reduce_ufunc_impl(ufunc_name, promote_to_largest=False,
-                           cumultative=False):
+                           cumulative=False):
         def impl(self, space, w_axis=None, w_dtype=None, w_out=None):
             if space.is_none(w_out):
                 out = None
@@ -872,9 +872,9 @@ class __extend__(W_NDimArray):
                 out = w_out
             return getattr(interp_ufuncs.get(space), ufunc_name).reduce(
                 space, self, promote_to_largest, w_axis,
-                False, out, w_dtype, cumultative=cumultative)
+                False, out, w_dtype, cumulative=cumulative)
         return func_with_new_name(impl, "reduce_%s_impl_%d_%d" % (ufunc_name,
-                    promote_to_largest, cumultative))
+                    promote_to_largest, cumulative))
 
     descr_sum = _reduce_ufunc_impl("add")
     descr_sum_promote = _reduce_ufunc_impl("add", True)
@@ -884,8 +884,8 @@ class __extend__(W_NDimArray):
     descr_all = _reduce_ufunc_impl('logical_and')
     descr_any = _reduce_ufunc_impl('logical_or')
 
-    descr_cumsum = _reduce_ufunc_impl('add', cumultative=True)
-    descr_cumprod = _reduce_ufunc_impl('multiply', cumultative=True)
+    descr_cumsum = _reduce_ufunc_impl('add', cumulative=True)
+    descr_cumprod = _reduce_ufunc_impl('multiply', cumulative=True)
 
     def _reduce_argmax_argmin_impl(op_name):
         def impl(self, space, w_axis=None, w_out=None):

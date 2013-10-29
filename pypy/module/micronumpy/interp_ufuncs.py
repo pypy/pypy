@@ -87,7 +87,7 @@ class W_Ufunc(W_Root):
             out = w_out
         return self.reduce(space, w_obj, False, #do not promote_to_largest
                     w_axis, True, #keepdims must be true
-                    out, w_dtype, cumultative=True)
+                    out, w_dtype, cumulative=True)
 
     @unwrap_spec(skipna=bool, keepdims=bool)
     def descr_reduce(self, space, w_obj, w_axis=None, w_dtype=None,
@@ -159,7 +159,7 @@ class W_Ufunc(W_Root):
                            w_dtype)
 
     def reduce(self, space, w_obj, promote_to_largest, w_axis,
-               keepdims=False, out=None, dtype=None, cumultative=False):
+               keepdims=False, out=None, dtype=None, cumulative=False):
         if self.argcount != 2:
             raise OperationError(space.w_ValueError, space.wrap("reduce only "
                 "supported for binary functions"))
@@ -193,7 +193,7 @@ class W_Ufunc(W_Root):
                                 "%s.reduce without identity", self.name)
         if shapelen > 1 and axis < shapelen:
             temp = None
-            if cumultative:
+            if cumulative:
                 shape = obj_shape[:]
                 temp_shape = obj_shape[:axis] + obj_shape[axis + 1:]
                 if out:
@@ -227,15 +227,15 @@ class W_Ufunc(W_Root):
             else:
                 out = W_NDimArray.from_shape(space, shape, dtype, w_instance=obj)
             return loop.do_axis_reduce(shape, self.func, obj, dtype, axis, out,
-                                       self.identity, cumultative, temp)
-        if cumultative:
+                                       self.identity, cumulative, temp)
+        if cumulative:
             if out:
                 if out.get_shape() != [obj.get_size()]:
                     raise OperationError(space.w_ValueError, space.wrap(
                         "out of incompatible size"))
             else:
                 out = W_NDimArray.from_shape(space, [obj.get_size()], dtype, w_instance=obj)
-            loop.compute_reduce_cumultative(obj, out, dtype, self.func,
+            loop.compute_reduce_cumulative(obj, out, dtype, self.func,
                                             self.identity)
             return out
         if out:

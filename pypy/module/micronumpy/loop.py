@@ -159,7 +159,7 @@ reduce_cum_driver = jit.JitDriver(name='numpy_reduce_cum_driver',
                                   greens = ['shapelen', 'func', 'dtype'],
                                   reds = 'auto')
 
-def compute_reduce_cumultative(obj, out, calc_dtype, func, identity):
+def compute_reduce_cumulative(obj, out, calc_dtype, func, identity):
     obj_iter = obj.create_iter()
     out_iter = out.create_iter()
     cur_value = identity.convert_to(calc_dtype)
@@ -218,10 +218,10 @@ axis_reduce__driver = jit.JitDriver(name='numpy_axis_reduce',
                                             'func', 'dtype'],
                                     reds='auto')
 
-def do_axis_reduce(shape, func, arr, dtype, axis, out, identity, cumultative,
+def do_axis_reduce(shape, func, arr, dtype, axis, out, identity, cumulative,
                    temp):
-    out_iter = out.create_axis_iter(arr.get_shape(), axis, cumultative)
-    if cumultative:
+    out_iter = out.create_axis_iter(arr.get_shape(), axis, cumulative)
+    if cumulative:
         temp_iter = temp.create_axis_iter(arr.get_shape(), axis, False)
     else:
         temp_iter = out_iter # hack
@@ -240,7 +240,7 @@ def do_axis_reduce(shape, func, arr, dtype, axis, out, identity, cumultative,
             cur = temp_iter.getitem()
             w_val = func(dtype, cur, w_val)
         out_iter.setitem(w_val)
-        if cumultative:
+        if cumulative:
             temp_iter.setitem(w_val)
             temp_iter.next()
         arr_iter.next()
