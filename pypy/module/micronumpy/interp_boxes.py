@@ -378,25 +378,27 @@ class W_FlexibleBox(W_GenericBox):
 
 class W_VoidBox(W_FlexibleBox):
     def descr_getitem(self, space, w_item):
-        from pypy.module.micronumpy.types import VoidType
-        if space.isinstance_w(w_item, space.w_str):
+        if space.isinstance_w(w_item, space.w_basestring):
             item = space.str_w(w_item)
         elif space.isinstance_w(w_item, space.w_int):
-            #Called by iterator protocol
             indx = space.int_w(w_item)
             try:
                 item = self.dtype.fieldnames[indx]
             except IndexError:
-                raise OperationError(space.w_IndexError,
-                     space.wrap("Iterated over too many fields %d" % indx))
+                if indx < 0:
+                    indx += len(self.dtype.fieldnames)
+                raise OperationError(space.w_IndexError, space.wrap(
+                    "invalid index (%d)" % indx))
         else:
             raise OperationError(space.w_IndexError, space.wrap(
-                    "Can only access fields of record with int or str"))
+                "invalid index"))
         try:
             ofs, dtype = self.dtype.fields[item]
         except KeyError:
-            raise OperationError(space.w_IndexError,
-                                 space.wrap("Field %s does not exist" % item))
+            raise OperationError(space.w_IndexError, space.wrap(
+                "invalid index"))
+
+        from pypy.module.micronumpy.types import VoidType
         if isinstance(dtype.itemtype, VoidType):
             read_val = dtype.itemtype.readarray(self.arr, self.ofs, ofs, dtype)
         else:

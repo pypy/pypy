@@ -2924,10 +2924,22 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         d = dtype([("x", "int", 3), ("y", "float", 5)])
         a = array([([1, 2, 3], [0.5, 1.5, 2.5, 3.5, 4.5]), ([4, 5, 6], [5.5, 6.5, 7.5, 8.5, 9.5])], dtype=d)
 
-        assert (a[0]["x"] == [1, 2, 3]).all()
-        assert (a[0]["y"] == [0.5, 1.5, 2.5, 3.5, 4.5]).all()
-        assert (a[1]["x"] == [4, 5, 6]).all()
-        assert (a[1]["y"] == [5.5, 6.5, 7.5, 8.5, 9.5]).all()
+        for v in ['x', u'x', 0, -2]:
+            assert (a[0][v] == [1, 2, 3]).all()
+            assert (a[1][v] == [4, 5, 6]).all()
+        for v in ['y', u'y', -1, 1]:
+            assert (a[0][v] == [0.5, 1.5, 2.5, 3.5, 4.5]).all()
+            assert (a[1][v] == [5.5, 6.5, 7.5, 8.5, 9.5]).all()
+        for v in [-3, 2]:
+            exc = raises(IndexError, "a[0][%d]" % v)
+            assert exc.value.message == "invalid index (%d)" % (v + 2 if v < 0 else v)
+        exc = raises(IndexError, "a[0]['z']")
+        assert exc.value.message == "invalid index"
+        exc = raises(IndexError, "a[0][None]")
+        assert exc.value.message == "invalid index"
+
+        exc = raises(IndexError, "a[0][None]")
+        assert exc.value.message == 'invalid index'
 
         a[0]["x"][0] = 200
         assert a[0]["x"][0] == 200
