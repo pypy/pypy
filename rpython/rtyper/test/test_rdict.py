@@ -594,42 +594,6 @@ class BaseTestRDict(BaseRtypingTest):
         res = self.interpret(g, [3])
         assert res == 77
 
-    def test_r_dict(self):
-        class FooError(Exception):
-            pass
-        def myeq(n, m):
-            return n == m
-        def myhash(n):
-            if n < 0:
-                raise FooError
-            return -n
-        def f(n):
-            d = r_dict(myeq, myhash)
-            for i in range(10):
-                d[i] = i*i
-            try:
-                value1 = d[n]
-            except FooError:
-                value1 = 99
-            try:
-                value2 = n in d
-            except FooError:
-                value2 = 99
-            try:
-                value3 = d[-n]
-            except FooError:
-                value3 = 99
-            try:
-                value4 = (-n) in d
-            except FooError:
-                value4 = 99
-            return (value1 * 1000000 +
-                    value2 * 10000 +
-                    value3 * 100 +
-                    value4)
-        res = self.interpret(f, [5])
-        assert res == 25019999
-
     def test_resize_during_iteration(self):
         def func():
             d = self.newdict()
@@ -706,30 +670,6 @@ class BaseTestRDict(BaseRtypingTest):
         res = self.interpret(func, [])
         assert res in [5263, 6352]
 
-    def test_dict_popitem_hash(self):
-        def deq(n, m):
-            return n == m
-        def dhash(n):
-            return ~n
-        def func():
-            d = r_dict(deq, dhash)
-            d[5] = 2
-            d[6] = 3
-            k1, v1 = d.popitem()
-            assert len(d) == 1
-            k2, v2 = d.popitem()
-            try:
-                d.popitem()
-            except KeyError:
-                pass
-            else:
-                assert 0, "should have raised KeyError"
-            assert len(d) == 0
-            return k1*1000 + v1*100 + k2*10 + v2
-
-        res = self.interpret(func, [])
-        assert res in [5263, 6352]
-
     def test_dict_pop(self):
         def f(n, default):
             d = self.newdict()
@@ -777,74 +717,10 @@ class BaseTestRDict(BaseRtypingTest):
         res = self.interpret(func, [6])
         assert res == 0
 
-    def test_deleted_entry_reusage_with_colliding_hashes(self):
-        def lowlevelhash(value):
-            p = rstr.mallocstr(len(value))
-            for i in range(len(value)):
-                p.chars[i] = value[i]
-            return rstr.LLHelpers.ll_strhash(p)
-
-        def func(c1, c2):
-            c1 = chr(c1)
-            c2 = chr(c2)
-            d = self.newdict()
-            d[c1] = 1
-            d[c2] = 2
-            del d[c1]
-            return d[c2]
-
-        char_by_hash = {}
-        base = rdict.DICT_INITSIZE
-        for y in range(0, 256):
-            y = chr(y)
-            y_hash = lowlevelhash(y) % base
-            char_by_hash.setdefault(y_hash, []).append(y)
-
-        x, y = char_by_hash[0][:2]   # find a collision
-
-        res = self.interpret(func, [ord(x), ord(y)])
-        assert res == 2
-
-        def func2(c1, c2):
-            c1 = chr(c1)
-            c2 = chr(c2)
-            d = {}
-            d[c1] = 1
-            d[c2] = 2
-            del d[c1]
-            d[c1] = 3
-            return d
-
-        res = self.interpret(func2, [ord(x), ord(y)])
-        for i in range(len(res.entries)):
-            assert not (res.entries.everused(i) and not res.entries.valid(i))
-
-        def func3(c0, c1, c2, c3, c4, c5, c6, c7):
-            d = {}
-            c0 = chr(c0) ; d[c0] = 1; del d[c0]
-            c1 = chr(c1) ; d[c1] = 1; del d[c1]
-            c2 = chr(c2) ; d[c2] = 1; del d[c2]
-            c3 = chr(c3) ; d[c3] = 1; del d[c3]
-            c4 = chr(c4) ; d[c4] = 1; del d[c4]
-            c5 = chr(c5) ; d[c5] = 1; del d[c5]
-            c6 = chr(c6) ; d[c6] = 1; del d[c6]
-            c7 = chr(c7) ; d[c7] = 1; del d[c7]
-            return d
-
-        if rdict.DICT_INITSIZE != 8:
-            py.test.skip("make dict tests more indepdent from initsize")
-        res = self.interpret(func3, [ord(char_by_hash[i][0])
-                                   for i in range(rdict.DICT_INITSIZE)])
-        count_frees = 0
-        for i in range(len(res.entries)):
-            if not res.entries.everused(i):
-                count_frees += 1
-        assert count_frees >= 3
-
     def test_dict_valid_resize(self):
         # see if we find our keys after resize
         def func():
-            d = {}
+            d = self.newdict()
             # fill it up
             for i in range(10):
                 d[str(i)] = 0
@@ -938,25 +814,6 @@ class BaseTestRDict(BaseRtypingTest):
 
         assert self.interpret(func, [5]) == 123
         assert self.interpret(func, [42]) == 321
-
-    def test_nonnull_hint(self):
-        def eq(a, b):
-            return a == b
-        def rhash(a):
-            return 3
-
-        def func(i):
-            d = r_dict(eq, rhash, force_non_null=True)
-            if not i:
-                d[None] = i
-            else:
-                d[str(i)] = i
-            return "12" in d, d
-
-        llres = self.interpret(func, [12])
-        assert llres.item0 == 1
-        DICT = lltype.typeOf(llres.item1)
-        assert sorted(DICT.TO.entries.TO.OF._flds) == ['f_hash', 'key', 'value']
 
     def test_memoryerror_should_not_insert(self):
         # This shows a misbehaviour that also exists in CPython 2.7, but not
@@ -1159,6 +1016,149 @@ class TestRDict(BaseTestRDict):
         # all three dicts should use the same low-level type
         assert lltype.typeOf(res.item1) == lltype.typeOf(res.item2)
         assert lltype.typeOf(res.item1) == lltype.typeOf(res.item3)
+
+    def test_r_dict(self):
+        class FooError(Exception):
+            pass
+        def myeq(n, m):
+            return n == m
+        def myhash(n):
+            if n < 0:
+                raise FooError
+            return -n
+        def f(n):
+            d = r_dict(myeq, myhash)
+            for i in range(10):
+                d[i] = i*i
+            try:
+                value1 = d[n]
+            except FooError:
+                value1 = 99
+            try:
+                value2 = n in d
+            except FooError:
+                value2 = 99
+            try:
+                value3 = d[-n]
+            except FooError:
+                value3 = 99
+            try:
+                value4 = (-n) in d
+            except FooError:
+                value4 = 99
+            return (value1 * 1000000 +
+                    value2 * 10000 +
+                    value3 * 100 +
+                    value4)
+        res = self.interpret(f, [5])
+        assert res == 25019999
+
+    def test_dict_popitem_hash(self):
+        def deq(n, m):
+            return n == m
+        def dhash(n):
+            return ~n
+        def func():
+            d = r_dict(deq, dhash)
+            d[5] = 2
+            d[6] = 3
+            k1, v1 = d.popitem()
+            assert len(d) == 1
+            k2, v2 = d.popitem()
+            try:
+                d.popitem()
+            except KeyError:
+                pass
+            else:
+                assert 0, "should have raised KeyError"
+            assert len(d) == 0
+            return k1*1000 + v1*100 + k2*10 + v2
+
+        res = self.interpret(func, [])
+        assert res in [5263, 6352]
+
+    def test_nonnull_hint(self):
+        def eq(a, b):
+            return a == b
+        def rhash(a):
+            return 3
+
+        def func(i):
+            d = r_dict(eq, rhash, force_non_null=True)
+            if not i:
+                d[None] = i
+            else:
+                d[str(i)] = i
+            return "12" in d, d
+
+        llres = self.interpret(func, [12])
+        assert llres.item0 == 1
+        DICT = lltype.typeOf(llres.item1)
+        assert sorted(DICT.TO.entries.TO.OF._flds) == ['f_hash', 'key', 'value']
+
+    def test_deleted_entry_reusage_with_colliding_hashes(self):
+        def lowlevelhash(value):
+            p = rstr.mallocstr(len(value))
+            for i in range(len(value)):
+                p.chars[i] = value[i]
+            return rstr.LLHelpers.ll_strhash(p)
+
+        def func(c1, c2):
+            c1 = chr(c1)
+            c2 = chr(c2)
+            d = self.newdict()
+            d[c1] = 1
+            d[c2] = 2
+            del d[c1]
+            return d[c2]
+
+        char_by_hash = {}
+        base = rdict.DICT_INITSIZE
+        for y in range(0, 256):
+            y = chr(y)
+            y_hash = lowlevelhash(y) % base
+            char_by_hash.setdefault(y_hash, []).append(y)
+
+        x, y = char_by_hash[0][:2]   # find a collision
+
+        res = self.interpret(func, [ord(x), ord(y)])
+        assert res == 2
+
+        def func2(c1, c2):
+            c1 = chr(c1)
+            c2 = chr(c2)
+            d = self.newdict()
+            d[c1] = 1
+            d[c2] = 2
+            del d[c1]
+            d[c1] = 3
+            return d
+
+        res = self.interpret(func2, [ord(x), ord(y)])
+        for i in range(len(res.entries)):
+            assert not (res.entries.everused(i) and not res.entries.valid(i))
+
+        def func3(c0, c1, c2, c3, c4, c5, c6, c7):
+            d = self.newdict()
+            c0 = chr(c0) ; d[c0] = 1; del d[c0]
+            c1 = chr(c1) ; d[c1] = 1; del d[c1]
+            c2 = chr(c2) ; d[c2] = 1; del d[c2]
+            c3 = chr(c3) ; d[c3] = 1; del d[c3]
+            c4 = chr(c4) ; d[c4] = 1; del d[c4]
+            c5 = chr(c5) ; d[c5] = 1; del d[c5]
+            c6 = chr(c6) ; d[c6] = 1; del d[c6]
+            c7 = chr(c7) ; d[c7] = 1; del d[c7]
+            return d
+
+        if rdict.DICT_INITSIZE != 8:
+            py.test.skip("make dict tests more indepdent from initsize")
+        res = self.interpret(func3, [ord(char_by_hash[i][0])
+                                   for i in range(rdict.DICT_INITSIZE)])
+        count_frees = 0
+        for i in range(len(res.entries)):
+            if not res.entries.everused(i):
+                count_frees += 1
+        assert count_frees >= 3
 
 class TestStress:
 

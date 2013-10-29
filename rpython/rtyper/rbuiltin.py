@@ -734,13 +734,23 @@ def rtype_ordered_dict(hop):
     hop.exception_cannot_occur()
     r_dict = hop.r_result
     cDICT = hop.inputconst(lltype.Void, r_dict.DICT)
-    return hop.gendirectcall(ll_newdict, cDICT)
+    v_result = hop.gendirectcall(ll_newdict, cDICT)
+    v_eqfn = hop.inputarg(r_dict.r_rdict_eqfn, arg=0)
+    v_hashfn = hop.inputarg(r_dict.r_rdict_hashfn, arg=1)
+    if r_dict.r_rdict_eqfn.lowleveltype != lltype.Void:
+        cname = hop.inputconst(lltype.Void, 'fnkeyeq')
+        hop.genop('setfield', [v_result, cname, v_eqfn])
+    if r_dict.r_rdict_hashfn.lowleveltype != lltype.Void:
+        cname = hop.inputconst(lltype.Void, 'fnkeyhash')
+        hop.genop('setfield', [v_result, cname, v_hashfn])
+    return v_result
 
 BUILTIN_TYPER[objectmodel.instantiate] = rtype_instantiate
 BUILTIN_TYPER[isinstance] = rtype_builtin_isinstance
 BUILTIN_TYPER[hasattr] = rtype_builtin_hasattr
 BUILTIN_TYPER[objectmodel.r_dict] = rtype_r_dict
 BUILTIN_TYPER[OrderedDict] = rtype_ordered_dict
+BUILTIN_TYPER[objectmodel.r_ordereddict] = rtype_ordered_dict
 
 # _________________________________________________________________
 # weakrefs

@@ -6,6 +6,7 @@ from rpython.rtyper.lltypesystem import rordereddict, rstr
 from rpython.rlib.rarithmetic import intmask
 from rpython.rtyper.annlowlevel import llstr, hlstr
 from rpython.rtyper.test.test_rdict import BaseTestRDict
+from rpython.rlib import objectmodel
 
 
 def get_indexes(ll_d):
@@ -275,3 +276,64 @@ class TestOrderedRDict(BaseTestRDict):
 
     def test_memoryerror_should_not_insert(self):
         py.test.skip("I don't want to edit this file on two branches")
+
+
+    def test_r_dict(self):
+        class FooError(Exception):
+            pass
+        def myeq(n, m):
+            return n == m
+        def myhash(n):
+            if n < 0:
+                raise FooError
+            return -n
+        def f(n):
+            d = objectmodel.r_ordereddict(myeq, myhash)
+            for i in range(10):
+                d[i] = i*i
+            try:
+                value1 = d[n]
+            except FooError:
+                value1 = 99
+            try:
+                value2 = n in d
+            except FooError:
+                value2 = 99
+            try:
+                value3 = d[-n]
+            except FooError:
+                value3 = 99
+            try:
+                value4 = (-n) in d
+            except FooError:
+                value4 = 99
+            return (value1 * 1000000 +
+                    value2 * 10000 +
+                    value3 * 100 +
+                    value4)
+        res = self.interpret(f, [5])
+        assert res == 25019999
+
+    def test_dict_popitem_hash(self):
+        def deq(n, m):
+            return n == m
+        def dhash(n):
+            return ~n
+        def func():
+            d = objectmodel.r_ordereddict(deq, dhash)
+            d[5] = 2
+            d[6] = 3
+            k1, v1 = d.popitem()
+            assert len(d) == 1
+            k2, v2 = d.popitem()
+            try:
+                d.popitem()
+            except KeyError:
+                pass
+            else:
+                assert 0, "should have raised KeyError"
+            assert len(d) == 0
+            return k1*1000 + v1*100 + k2*10 + v2
+
+        res = self.interpret(func, [])
+        assert res in [5263, 6352]
