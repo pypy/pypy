@@ -583,8 +583,7 @@ class AppTestNumArray(BaseNumpyAppTest):
 
     def test_newaxis(self):
         import math
-        from numpypy import array, cos, zeros
-        from numpypy.core.numeric import newaxis
+        from numpypy import array, cos, zeros, newaxis
         a = array(range(5))
         b = array([range(5)])
         assert (a[newaxis] == b).all()
@@ -597,8 +596,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert ((cos(a)[:,newaxis] * cos(b).T) == expected).all()
 
     def test_newaxis_slice(self):
-        from numpypy import array
-        from numpypy.core.numeric import newaxis
+        from numpypy import array, newaxis
 
         a = array(range(5))
         b = array(range(1,5))
@@ -610,16 +608,14 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (a[newaxis,1:] == c).all()
 
     def test_newaxis_assign(self):
-        from numpypy import array
-        from numpypy.core.numeric import newaxis
+        from numpypy import array, newaxis
 
         a = array(range(5))
         a[newaxis,1] = [2]
         assert a[1] == 2
 
     def test_newaxis_virtual(self):
-        from numpypy import array
-        from numpypy.core.numeric import newaxis
+        from numpypy import array, newaxis
 
         a = array(range(5))
         b = (a + a)[newaxis]
@@ -627,16 +623,14 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (b == c).all()
 
     def test_newaxis_then_slice(self):
-        from numpypy import array
-        from numpypy.core.numeric import newaxis
+        from numpypy import array, newaxis
         a = array(range(5))
         b = a[newaxis]
         assert b.shape == (1, 5)
         assert (b[0,1:] == a[1:]).all()
 
     def test_slice_then_newaxis(self):
-        from numpypy import array
-        from numpypy.core.numeric import newaxis
+        from numpypy import array, newaxis
         a = array(range(5))
         b = a[2:]
         assert (b[newaxis] == [[2, 3, 4]]).all()
