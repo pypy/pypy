@@ -1,5 +1,21 @@
 ------------------------------------------------------------
 
+we have crashes when setting trace_eagerness very low
+-> many guards generated.
+It may be because patching the assembler code is not atomic.
+Maybe solve by new stmgc library function that synchronizes
+all threads so only the caller is running.
+
+------------------------------------------------------------
+
+stmgc-library: since we copy back over h_originals, it may
+make sense to treat them differently during allocation and
+collection.
+E.g. have a separate space to allocate h_originals from.
+Thus, we have a more compact layout in memory (fragmentation).
+
+------------------------------------------------------------
+
 make stm_transaction_break use cond_call (or other ways to not
 spill all registers)
 
