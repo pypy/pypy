@@ -3,6 +3,21 @@ from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 class AppTestScalar(BaseNumpyAppTest):
     spaceconfig = dict(usemodules=["micronumpy", "binascii", "struct"])
 
+    def test_init(self):
+        import numpypy as np
+        import math
+        assert np.intp() == np.intp(0)
+        assert np.intp('123') == np.intp(123)
+        raises(TypeError, np.intp, None)
+        assert np.float64() == np.float64(0)
+        assert math.isnan(np.float64(None))
+        assert np.bool_() == np.bool_(False)
+        assert np.bool_('abc') == np.bool_(True)
+        assert np.bool_(None) == np.bool_(False)
+        assert np.complex_() == np.complex_(0)
+        #raises(TypeError, np.complex_, '1+2j')
+        assert math.isnan(np.complex_(None))
+
     def test_pickle(self):
         from numpypy import dtype, int32, float64, complex128, zeros, sum
         from numpypy.core.multiarray import scalar

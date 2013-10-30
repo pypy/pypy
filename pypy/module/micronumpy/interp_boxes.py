@@ -34,7 +34,7 @@ def new_dtype_getter(name):
         from pypy.module.micronumpy.interp_dtype import get_dtype_cache
         return get_dtype_cache(space).dtypes_by_name[name]
 
-    def new(space, w_subtype, w_value):
+    def new(space, w_subtype, w_value=None):
         dtype = _get_dtype(space)
         return dtype.itemtype.coerce_subtype(space, w_subtype, w_value)
 
