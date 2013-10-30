@@ -105,10 +105,6 @@ class ArgumentsForTranslation(object):
             # escape
             num_remainingkwds = len(keywords)
             for i, name in enumerate(keywords):
-                # If name was not encoded as a string, it could be None. In that
-                # case, it's definitely not going to be in the signature.
-                if name is None:
-                    continue
                 j = signature.find_argname(name)
                 # if j == -1 nothing happens
                 if j < input_argcount:
@@ -122,8 +118,8 @@ class ArgumentsForTranslation(object):
             if num_remainingkwds:
                 if co_argcount == 0:
                     raise ArgErrCount(num_args, num_kwds, signature, defaults_w, 0)
-                raise ArgErrUnknownKwds(self.space, num_remainingkwds, keywords,
-                                        kwds_mapping, self.keyword_names_w)
+                raise ArgErrUnknownKwds(num_remainingkwds, keywords,
+                                        kwds_mapping)
 
         # check for missing arguments and fill them from the kwds,
         # or with defaults, if available
@@ -298,31 +294,12 @@ class ArgErrMultipleValues(ArgErr):
 
 
 class ArgErrUnknownKwds(ArgErr):
-    def __init__(self, space, num_remainingkwds, keywords, kwds_mapping,
-                 keyword_names_w):
+    def __init__(self, num_remainingkwds, keywords, kwds_mapping):
         name = ''
         self.num_kwds = num_remainingkwds
         if num_remainingkwds == 1:
-            for i in range(len(keywords)):
-                if i not in kwds_mapping:
-                    name = keywords[i]
-                    if name is None:
-                        # We'll assume it's unicode. Encode it.
-                        # Careful, I *think* it should not be possible to
-                        # get an IndexError here but you never know.
-                        try:
-                            if keyword_names_w is None:
-                                raise IndexError
-                            # note: negative-based indexing from the end
-                            w_name = keyword_names_w[i - len(keywords)]
-                        except IndexError:
-                            name = '?'
-                        else:
-                            w_enc = space.wrap(space.sys.defaultencoding)
-                            w_err = space.wrap("replace")
-                            w_name = space.call_method(w_name, "encode", w_enc,
-                                                       w_err)
-                            name = space.str_w(w_name)
+            for name in keywords:
+                if name not in kwds_mapping:
                     break
         self.kwd_name = name
 
