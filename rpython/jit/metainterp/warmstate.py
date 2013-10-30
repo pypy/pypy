@@ -512,7 +512,7 @@ class WarmEnterState(object):
         redargtypes = ''.join([kind[0] for kind in jd.red_args_types])
 
         def get_assembler_token(greenkey):
-            cell = self.ensure_jit_cell_at_key(greenkey)
+            cell = JitCell.ensure_jit_cell_at_key(greenkey)
             procedure_token = cell.get_procedure_token()
             if procedure_token is None:
                 from rpython.jit.metainterp.compile import compile_tmp_callback

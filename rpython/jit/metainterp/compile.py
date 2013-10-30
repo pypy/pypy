@@ -581,10 +581,10 @@ class ResumeGuardDescr(ResumeDescr):
             # it to an integer
             if typetag == self.TY_INT:
                 intval = metainterp_sd.cpu.get_int_value(deadframe, index)
-            elif typetag == self.CNT_REF:
+            elif typetag == self.TY_REF:
                 refval = metainterp_sd.cpu.get_ref_value(deadframe, index)
                 intval = current_object_addr_as_int(refval)
-            elif typetag == self.CNT_FLOAT:
+            elif typetag == self.TY_FLOAT:
                 floatval = metainterp_sd.cpu.get_float_value(deadframe, index)
                 intval = longlong.gethash_fast(floatval)
             else:
