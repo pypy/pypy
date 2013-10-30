@@ -1,4 +1,4 @@
-from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
+from pypy.module.test_lib_pypy.numpypy.test_base import BaseNumpyAppTest
 
 
 class AppTestFromNumeric(BaseNumpyAppTest):
@@ -187,7 +187,9 @@ class AppTestFromNumeric(BaseNumpyAppTest):
         x = arange(4).reshape((2,2))
         assert (transpose(x) == array([[0, 2],[1, 3]])).all()
         # Once axes argument is implemented, add more tests
-        raises(NotImplementedError, "transpose(x, axes=(1, 0, 2))")
+        import sys
+        if '__pypy__' in sys.builtin_module_names:
+            raises(NotImplementedError, "transpose(x, axes=(1, 0, 2))")
         # x = ones((1, 2, 3))
         # assert transpose(x, (1, 0, 2)).shape == (2, 1, 3)
 
