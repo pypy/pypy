@@ -49,6 +49,18 @@ class Darwin(posix.BasePosix):
             response_file = relto.bestrelpath(response_file)
         return ["-Wl,-exported_symbols_list,%s" % (response_file,)]
 
+    def gen_makefile(self, cfiles, eci, exe_name=None, path=None,
+                     shared=False):
+        # ensure frameworks are passed in the Makefile
+        fs = self._frameworks(eci.frameworks)
+        if len(fs) > 0:
+            # concat (-framework, FrameworkName) pairs
+            self.extra_libs += tuple(map(" ".join, zip(fs[::2], fs[1::2])))
+        mk = super(Darwin, self).gen_makefile(cfiles, eci, exe_name, path,
+                                              shared)
+        return mk
+
+
 class Darwin_i386(Darwin):
     name = "darwin_i386"
     link_flags = ('-arch', 'i386', '-mmacosx-version-min=10.4')
