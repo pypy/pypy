@@ -8,6 +8,11 @@ def test_get_index():
         index = jc.get_index(hash)
         assert index == (hash >> (32 - 7))
 
+def test_fetch_next_index():
+    jc = JitCounter(size=4)
+    lst = [jc.fetch_next_index() for i in range(10)]
+    assert lst == [0, 1, 2, 3, 0, 1, 2, 3, 0, 1]
+
 def test_tick():
     jc = JitCounter()
     incr = jc.compute_threshold(4)

@@ -312,7 +312,7 @@ class Storage(compile.ResumeGuardDescr):
     def __init__(self, metainterp_sd=None, original_greenkey=None):
         self.metainterp_sd = metainterp_sd
         self.original_greenkey = original_greenkey
-    def store_final_boxes(self, op, boxes):
+    def store_final_boxes(self, op, boxes, metainterp_sd):
         op.setfailargs(boxes)
     def __eq__(self, other):
         return type(self) is type(other)      # xxx obscure

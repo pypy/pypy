@@ -22,6 +22,7 @@ class JitCounter:
                                        flavor='raw', zero=True,
                                        track_allocation=False)
         self.celltable = [None] * size
+        self._nextindex = 0
 
     def compute_threshold(self, threshold):
         """Return the 'increment' value corresponding to the given number."""
@@ -36,6 +37,11 @@ class JitCounter:
         the *high* bits of hash!  Be sure that hash is computed correctly."""
         return intmask(r_uint32(hash) >> self.shift)
     get_index._always_inline_ = True
+
+    def fetch_next_index(self):
+        result = self._nextindex
+        self._nextindex = (result + 1) & self.get_index(-1)
+        return result
 
     def tick(self, index, increment):
         counter = float(self.timetable[index]) + increment
