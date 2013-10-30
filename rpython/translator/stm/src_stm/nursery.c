@@ -634,7 +634,7 @@ static gcptr allocate_next_section(size_t allocate_size, revision_t tid)
     *d->nursery_nextlimit_ref += GC_NURSERY_SECTION;
 
     /* Return the object from there */
-    gcptr P = (gcptr)*d->nursery_current_ref;
+    gcptr P = (gcptr)(*d->nursery_current_ref);
     *d->nursery_current_ref += allocate_size;
     assert(*d->nursery_current_ref <= *d->nursery_nextlimit_ref);
 

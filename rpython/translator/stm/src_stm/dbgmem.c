@@ -143,6 +143,7 @@ void stm_clear_large_memory_chunk(void *base, size_t size,
     char *baseaddr = base;
     assert(already_cleared <= size);
 
+#if !defined(_USE_VALGRIND)
     if (size > 2 * PAGE_SIZE) {
         int lowbits = ((intptr_t)baseaddr) & (PAGE_SIZE-1);
         if (lowbits) {   /*  clear the initial misaligned part, if any */
@@ -169,6 +170,7 @@ void stm_clear_large_memory_chunk(void *base, size_t size,
             size -= length;
         }
     }
+#endif
     if (size > already_cleared) { /* clear the final misaligned part, if any */
         memset(baseaddr, 0, size - already_cleared);
     }
