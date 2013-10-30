@@ -205,8 +205,11 @@ class WarmRunnerDesc(object):
         vrefinfo = VirtualRefInfo(self)
         self.codewriter.setup_vrefinfo(vrefinfo)
         #
-        from rpython.jit.metainterp.counter import JitCounter
-        self.jitcounter = JitCounter()
+        from rpython.jit.metainterp import counter
+        if self.cpu.translate_support_code:
+            self.jitcounter = counter.JitCounter()
+        else:
+            self.jitcounter = counter.DeterministicJitCounter()
         #
         self.hooks = policy.jithookiface
         self.make_virtualizable_infos()

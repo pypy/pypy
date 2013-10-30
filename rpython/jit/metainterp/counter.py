@@ -30,7 +30,7 @@ class JitCounter:
             return 0.0   # no increment, never reach 1.0
         if threshold < 2:
             threshold = 2
-        return 1.0 / threshold   # the number is at most 0.5
+        return 1.0 / (threshold - 0.001)   # the number is at most 0.500xx
 
     def get_index(self, hash):
         """Return the index (< self.size) from a hash value.  This keeps
@@ -110,3 +110,21 @@ static void pypy__decay_jit_counters(float table[], double f1, long size1) {
 pypy__decay_jit_counters = rffi.llexternal(
     "pypy__decay_jit_counters", [rffi.FLOATP, lltype.Float, lltype.Signed],
     lltype.Void, compilation_info=eci, _nowrapper=True, sandboxsafe=True)
+
+
+# ____________________________________________________________
+#
+# A non-RPython version that avoids issues with rare random collisions,
+# which make all tests brittle
+
+class DeterministicJitCounter(JitCounter):
+    def __init__(self):
+        from collections import defaultdict
+        JitCounter.__init__(self, size=8)
+        zero = r_singlefloat(0.0)
+        self.timetable = defaultdict(lambda: zero)
+        self.celltable = defaultdict(lambda: None)
+
+    def get_index(self, hash):
+        "NOT_RPYTHON"
+        return hash
