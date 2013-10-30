@@ -12,8 +12,8 @@ class AppBridgeCache(object):
         self.w_import = space.appexec([], """():
         def f():
             import sys
-            __import__('numpypy.core._methods')
-            return sys.modules['numpypy.core._methods']
+            __import__('numpy.core._methods')
+            return sys.modules['numpy.core._methods']
         return f
         """)
 

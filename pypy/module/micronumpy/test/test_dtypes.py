@@ -942,7 +942,11 @@ class AppTestPyPyOnly(BaseNumpyAppTest):
 
     def test_typeinfo(self):
         from numpypy import void, number, int64, bool_, complex64, complex128, float16
-        from numpypy.core.multiarray import typeinfo
+        try:
+            from numpy.core.multiarray import typeinfo
+        except ImportError:
+            # running on dummy module
+            from numpypy import typeinfo
         assert typeinfo['Number'] == number
         assert typeinfo['LONGLONG'] == ('q', 9, 64, 8, 9223372036854775807L, -9223372036854775808L, int64)
         assert typeinfo['VOID'] == ('V', 20, 0, 1, void)

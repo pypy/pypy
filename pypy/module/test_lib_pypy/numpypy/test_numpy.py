@@ -1,6 +1,6 @@
 from pypy.conftest import option
 import py, sys
-from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
+from pypy.module.test_lib_pypy.numpypy.test_base import BaseNumpyAppTest
 
 class AppTestNumpy(BaseNumpyAppTest):
     def test_min_max_after_import(self):
