@@ -272,7 +272,7 @@ class ExecutionContext(object):
 
     def _trace(self, frame, event, w_arg, operr=None):
         if self.is_tracing or frame.hide():
-            return True
+            return
 
         space = self.space
 
@@ -312,7 +312,7 @@ class ExecutionContext(object):
                     event == 'c_call' or
                     event == 'c_return' or
                     event == 'c_exception'):
-                return False
+                return
 
             last_exception = frame.last_exception
             if event == 'leaveframe':
@@ -332,7 +332,6 @@ class ExecutionContext(object):
             finally:
                 frame.last_exception = last_exception
                 self.is_tracing -= 1
-        return False
 
     def checksignals(self):
         """Similar to PyErr_CheckSignals().  If called in the main thread,
