@@ -2,7 +2,10 @@ class BaseNumpyAppTest(object):
     @classmethod
     def setup_class(cls):
         if cls.runappdirect:
-            import numpy
+            try:
+                import numpy
+            except ImportError:
+                skip("no numpy found")
             import sys
             sys.modules['numpypy'] = numpy
         else:
