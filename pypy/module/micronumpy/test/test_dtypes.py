@@ -56,8 +56,21 @@ class AppTestDtypes(BaseAppTestDtypes):
 
     def test_dtype_aliases(self):
         from numpypy import dtype
+        assert dtype('bool8') is dtype('bool')
+        assert dtype('byte') is dtype('int8')
+        assert dtype('ubyte') is dtype('uint8')
+        assert dtype('short') is dtype('int16')
+        assert dtype('ushort') is dtype('uint16')
+        assert dtype('longlong') is dtype('q')
+        assert dtype('ulonglong') is dtype('Q')
+        assert dtype("float") is dtype(float)
+        assert dtype('single') is dtype('float32')
+        assert dtype('double') is dtype('float64')
         assert dtype('longfloat').num in (12, 13)
         assert dtype('longdouble').num in (12, 13)
+        assert dtype('csingle') is dtype('complex64')
+        assert dtype('cfloat') is dtype('complex128')
+        assert dtype('cdouble') is dtype('complex128')
         assert dtype('clongfloat').num in (15, 16)
         assert dtype('clongdouble').num in (15, 16)
 
@@ -222,10 +235,6 @@ class AppTestDtypes(BaseAppTestDtypes):
         class xyz(numpypy.void):
             pass
         assert True
-
-    def test_aliases(self):
-        from numpypy import dtype
-        assert dtype("float") is dtype(float)
 
     def test_index(self):
         import numpypy as np
