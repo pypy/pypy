@@ -413,6 +413,7 @@ class WarmEnterState(object):
         green_args_spec = unrolling_iterable([('g%d' % i, TYPE)
                      for i, TYPE in enumerate(jitdriver_sd._green_args_spec)])
         unwrap_greenkey = self.make_unwrap_greenkey()
+        random_initial_value = hash(self)
         #
         class JitCell(BaseJitCell):
             def __init__(self, *greenargs):
@@ -432,7 +433,7 @@ class WarmEnterState(object):
 
             @staticmethod
             def get_index(*greenargs):
-                x = 0
+                x = random_initial_value
                 i = 0
                 for TYPE in green_args_spec:
                     item = greenargs[i]
