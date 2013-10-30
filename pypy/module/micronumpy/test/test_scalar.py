@@ -3,6 +3,21 @@ from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 class AppTestScalar(BaseNumpyAppTest):
     spaceconfig = dict(usemodules=["micronumpy", "binascii", "struct"])
 
+    def test_init(self):
+        import numpypy as np
+        import math
+        assert np.intp() == np.intp(0)
+        assert np.intp('123') == np.intp(123)
+        raises(TypeError, np.intp, None)
+        assert np.float64() == np.float64(0)
+        assert math.isnan(np.float64(None))
+        assert np.bool_() == np.bool_(False)
+        assert np.bool_('abc') == np.bool_(True)
+        assert np.bool_(None) == np.bool_(False)
+        assert np.complex_() == np.complex_(0)
+        #raises(TypeError, np.complex_, '1+2j')
+        assert math.isnan(np.complex_(None))
+
     def test_pickle(self):
         from numpypy import dtype, int32, float64, complex128, zeros, sum
         from numpypy.core.multiarray import scalar
@@ -23,19 +38,19 @@ class AppTestScalar(BaseNumpyAppTest):
         assert loads(dumps(sum(a))) == sum(a)
 
     def test_round(self):
-        from numpypy import int32, float64, complex128, bool
+        from numpypy import int32, float64, complex128, bool_
         i = int32(1337)
         f = float64(13.37)
         c = complex128(13 + 37.j)
-        b = bool(0)
+        b = bool_(1)
         assert i.round(decimals=-2) == 1300
         assert i.round(decimals=1) == 1337
         assert c.round() == c
         assert f.round() == 13.
         assert f.round(decimals=-1) == 10.
         assert f.round(decimals=1) == 13.4
-        exc = raises(AttributeError, 'b.round()')
-        assert exc.value[0] == "'bool' object has no attribute 'round'"
+        assert b.round() == 1.0
+        assert b.round(decimals=5) is b
 
     def test_attributes(self):
         import numpypy as np
