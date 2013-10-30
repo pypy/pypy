@@ -515,8 +515,8 @@ class JitDriver(object):
                                   if '.' not in name])
         self._heuristic_order = {}   # check if 'reds' and 'greens' are ordered
         self._make_extregistryentries()
-        self.get_jitcell_at = get_jitcell_at
-        self.set_jitcell_at = set_jitcell_at
+        assert get_jitcell_at is None, "get_jitcell_at no longer used"
+        assert set_jitcell_at is None, "set_jitcell_at no longer used"
         self.get_printable_location = get_printable_location
         self.confirm_enter_jit = confirm_enter_jit
         self.can_never_inline = can_never_inline
@@ -696,9 +696,6 @@ set_user_param._annspecialcase_ = 'specialize:arg(0)'
 #
 # Annotation and rtyping of some of the JitDriver methods
 
-class BaseJitCell(object):
-    __slots__ = ()
-
 
 class ExtEnterLeaveMarker(ExtRegistryEntry):
     # Replace a call to myjitdriver.jit_merge_point(**livevars)
@@ -746,10 +743,7 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
 
     def annotate_hooks(self, **kwds_s):
         driver = self.instance.im_self
-        s_jitcell = self.bookkeeper.valueoftype(BaseJitCell)
         h = self.annotate_hook
-        h(driver.get_jitcell_at, driver.greens, **kwds_s)
-        h(driver.set_jitcell_at, driver.greens, [s_jitcell], **kwds_s)
         h(driver.get_printable_location, driver.greens, **kwds_s)
 
     def annotate_hook(self, func, variables, args_s=[], **kwds_s):

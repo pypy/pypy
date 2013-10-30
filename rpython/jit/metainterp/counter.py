@@ -1,14 +1,23 @@
-from rpython.rlib.rarithmetic import r_singlefloat
+from rpython.rlib.rarithmetic import r_singlefloat, intmask
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
+
+
+r_uint32 = rffi.r_uint
+assert r_uint32.BITS == 32
+UINT32MAX = 2 ** 32 - 1
 
 
 class JitCounter:
     DEFAULT_SIZE = 4096
 
     def __init__(self, size=DEFAULT_SIZE):
-        assert size >= 1 and (size & (size - 1)) == 0     # a power of two
-        self.mask = size - 1
+        "NOT_RPYTHON"
+        self.size = size
+        self.shift = 1
+        while (UINT32MAX >> self.shift) != size - 1:
+            self.shift += 1
+            assert self.shift < 999, "size is not a power of two <= 2**31"
         self.timetable = lltype.malloc(rffi.CArray(rffi.FLOAT), size,
                                        flavor='raw', zero=True,
                                        track_allocation=False)
@@ -22,30 +31,33 @@ class JitCounter:
             threshold = 2
         return 1.0 / threshold   # the number is at most 0.5
 
-    def tick(self, hash, increment):
-        hash &= self.mask
-        counter = float(self.timetable[hash]) + increment
+    def get_index(self, hash):
+        """Return the index (< self.size) from a hash value.  This keeps
+        the *high* bits of hash!  Be sure that hash is computed correctly."""
+        return intmask(r_uint32(hash) >> self.shift)
+    get_index._always_inline_ = True
+
+    def tick(self, index, increment):
+        counter = float(self.timetable[index]) + increment
         if counter < 1.0:
-            self.timetable[hash] = r_singlefloat(counter)
+            self.timetable[index] = r_singlefloat(counter)
             return False
         else:
             return True
     tick._always_inline_ = True
 
-    def reset(self, hash):
-        hash &= self.mask
-        self.timetable[hash] = r_singlefloat(0.0)
+    def reset(self, index):
+        self.timetable[index] = r_singlefloat(0.0)
 
-    def lookup_chain(self, hash):
-        hash &= self.mask
-        return self.celltable[hash]
+    def lookup_chain(self, index):
+        return self.celltable[index]
 
-    def cleanup_chain(self, hash):
-        self.install_new_cell(hash, None)
+    def cleanup_chain(self, index):
+        self.reset(index)
+        self.install_new_cell(index, None)
 
-    def install_new_cell(self, hash, newcell):
-        hash &= self.mask
-        cell = self.celltable[hash]
+    def install_new_cell(self, index, newcell):
+        cell = self.celltable[index]
         keep = newcell
         while cell is not None:
             remove_me = cell.should_remove_jitcell()
@@ -54,7 +66,7 @@ class JitCounter:
                 cell.next = keep
                 keep = cell
             cell = nextcell
-        self.celltable[hash] = keep
+        self.celltable[index] = keep
 
     def set_decay(self, decay):
         """Set the decay, from 0 (none) to 1000 (max)."""
@@ -75,7 +87,7 @@ class JitCounter:
         # important in corner cases where we would suddenly compile more
         # than one loop because all counters reach the bound at the same
         # time, but where compiling all but the first one is pointless.
-        size = self.mask + 1
+        size = self.size
         pypy__decay_jit_counters(self.timetable, self.decay_by_mult, size)
 
 

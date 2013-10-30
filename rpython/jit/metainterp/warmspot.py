@@ -522,11 +522,6 @@ class WarmRunnerDesc(object):
         #
         annhelper = MixLevelHelperAnnotator(self.translator.rtyper)
         for jd in self.jitdrivers_sd:
-            jd._set_jitcell_at_ptr = self._make_hook_graph(jd,
-                annhelper, jd.jitdriver.set_jitcell_at, annmodel.s_None,
-                s_BaseJitCell_not_None)
-            jd._get_jitcell_at_ptr = self._make_hook_graph(jd,
-                annhelper, jd.jitdriver.get_jitcell_at, s_BaseJitCell_or_None)
             jd._get_printable_location_ptr = self._make_hook_graph(jd,
                 annhelper, jd.jitdriver.get_printable_location, s_Str)
             jd._confirm_enter_jit_ptr = self._make_hook_graph(jd,
