@@ -1,8 +1,18 @@
 ------------------------------------------------------------
 
+looking at trace of fibo.tlc (targettlc.py), there are a lot
+of read-barriers followed by write-barriers. Merging them
+and making the first a write-barrier is important!
+(attention: changing A2R->A2W after having placed the barrier
+must still invalidate all A2R at the point of the new A2W)
+
+------------------------------------------------------------
+
 we have crashes when setting trace_eagerness very low
 -> many guards generated.
 It may be because patching the assembler code is not atomic.
+(unlikely after trying to (badly) synchronize code around
+places that patch assembler)
 Maybe solve by new stmgc library function that synchronizes
 all threads so only the caller is running.
 
