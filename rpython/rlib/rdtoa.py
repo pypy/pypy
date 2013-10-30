@@ -44,7 +44,7 @@ dg_strtod = rffi.llexternal(
 
 dg_dtoa = rffi.llexternal(
     '_PyPy_dg_dtoa', [rffi.DOUBLE, rffi.INT, rffi.INT,
-                    rffi.INTP, rffi.INTP, rffi.CCHARPP], rffi.CCHARP,
+                    rffi.SIGNEDP, rffi.SIGNEDP, rffi.CCHARPP], rffi.CCHARP,
     compilation_info=eci, sandboxsafe=True, transactionsafe=True)
 
 dg_freedtoa = rffi.llexternal(
@@ -233,9 +233,9 @@ def format_number(digits, buflen, sign, decpt, code, precision, flags, upper):
 
 def dtoa(value, code='r', mode=0, precision=0, flags=0,
          special_strings=lower_special_strings, upper=False):
-    decpt_ptr = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
+    decpt_ptr = lltype.malloc(rffi.SIGNEDP.TO, 1, flavor='raw')
     try:
-        sign_ptr = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
+        sign_ptr = lltype.malloc(rffi.SIGNEDP.TO, 1, flavor='raw')
         try:
             end_ptr = lltype.malloc(rffi.CCHARPP.TO, 1, flavor='raw')
             try:
