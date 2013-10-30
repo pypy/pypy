@@ -311,22 +311,7 @@ class __extend__(W_NDimArray):
                     space.wrap('array does not have imaginary part to set'))
         self.implementation.set_imag(space, self, w_value)
 
-    def descr_reshape(self, space, args_w):
-        """reshape(...)
-        a.reshape(shape)
-
-        Returns an array containing the same data with a new shape.
-
-        Refer to `numpypy.reshape` for full documentation.
-
-        See Also
-        --------
-        numpypy.reshape : equivalent function
-        """
-        if len(args_w) == 1:
-            w_shape = args_w[0]
-        else:
-            w_shape = space.newtuple(args_w)
+    def reshape(self, space, w_shape):
         new_shape = get_shape_from_iterable(space, self.get_size(), w_shape)
         new_impl = self.implementation.reshape(space, self, new_shape)
         if new_impl is not None:
@@ -340,6 +325,36 @@ class __extend__(W_NDimArray):
         else:
             arr.implementation.shape = new_shape
         return arr
+
+    def descr_reshape(self, space, __args__):
+        """reshape(...)
+        a.reshape(shape)
+
+        Returns an array containing the same data with a new shape.
+
+        Refer to `numpypy.reshape` for full documentation.
+
+        See Also
+        --------
+        numpypy.reshape : equivalent function
+        """
+        args_w, kw_w = __args__.unpack()
+        order = 'C'
+        if kw_w:
+            if "order" in kw_w:
+                order = space.str_w(kw_w["order"])
+                del kw_w["order"]
+            if kw_w:
+                raise OperationError(space.w_TypeError, space.wrap(
+                    "reshape() got unexpected keyword argument(s)"))
+        if order != 'C':
+            raise OperationError(space.w_NotImplementedError, space.wrap(
+                "order not implemented"))
+        if len(args_w) == 1:
+            w_shape = args_w[0]
+        else:
+            w_shape = space.newtuple(args_w)
+        return self.reshape(space, w_shape)
 
     def descr_get_transpose(self, space):
         return W_NDimArray(self.implementation.transpose(self))
@@ -388,7 +403,7 @@ class __extend__(W_NDimArray):
         if order != 'C':
             raise OperationError(space.w_NotImplementedError, space.wrap(
                 "order not implemented"))
-        return self.descr_reshape(space, [space.wrap(-1)])
+        return self.reshape(space, space.wrap(-1))
 
     @unwrap_spec(w_axis=WrappedDefault(None),
                  w_out=WrappedDefault(None),
@@ -402,14 +417,14 @@ class __extend__(W_NDimArray):
                                  space.wrap("axis unsupported for compress"))
             arr = self
         else:
-            arr = self.descr_reshape(space, [space.wrap(-1)])
+            arr = self.reshape(space, space.wrap(-1))
         index = convert_to_array(space, w_obj)
         return arr.getitem_filter(space, index)
 
     def descr_flatten(self, space, w_order=None):
         if self.is_scalar():
             # scalars have no storage
-            return self.descr_reshape(space, [space.wrap(1)])
+            return self.reshape(space, space.wrap(1))
         w_res = self.descr_ravel(space, w_order)
         if w_res.implementation.storage == self.implementation.storage:
             return w_res.descr_copy(space)
