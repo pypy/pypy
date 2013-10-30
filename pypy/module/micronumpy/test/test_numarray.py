@@ -704,6 +704,11 @@ class AppTestNumArray(BaseNumpyAppTest):
         (a + a).reshape(2, 12) # assert did not explode
         a = array([[[[]]]])
         assert a.reshape((0,)).shape == (0,)
+        assert a.reshape((0,), order='C').shape == (0,)
+        raises(TypeError, a.reshape, (0,), badarg="C")
+        import sys
+        if '__pypy__' in sys.builtin_module_names:
+            raises(NotImplementedError, a.reshape, (0,), order='F')
 
     def test_slice_reshape(self):
         from numpypy import zeros, arange
