@@ -455,7 +455,7 @@ PARAMETER_DOCS = {
 PARAMETERS = {'threshold': 1039, # just above 1024, prime
               'function_threshold': 1619, # slightly more than one above, also prime
               'trace_eagerness': 200,
-              'trace_limit': 8000,
+              'trace_limit': 6000,
               'inlining': 1,
               'loop_longevity': 1000,
               'retrace_limit': 5,

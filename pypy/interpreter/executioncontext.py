@@ -224,6 +224,7 @@ class ExecutionContext(object):
         else:
             self.force_all_frames()
             self.w_tracefunc = w_func
+            jit.set_param(None, 'trace_limit', 10000)
 
     def gettrace(self):
         return jit.promote(self.w_tracefunc)
