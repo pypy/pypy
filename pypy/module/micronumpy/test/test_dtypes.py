@@ -642,6 +642,11 @@ class AppTestTypes(BaseAppTestDtypes):
             assert numpy.intp is numpy.int64
             assert numpy.uintp is numpy.uint64
 
+        assert issubclass(numpy.float64, numpy.floating)
+        assert issubclass(numpy.longfloat, numpy.floating)
+        assert not issubclass(numpy.float64, numpy.longfloat)
+        assert not issubclass(numpy.longfloat, numpy.float64)
+
     def test_mro(self):
         import numpypy as numpy
 

@@ -14,6 +14,7 @@ from pypy.module.micronumpy.arrayimpl.voidbox import VoidBoxStorage
 from pypy.interpreter.mixedmodule import MixedModule
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.rstring import StringBuilder
+from pypy.module.micronumpy.constants import *
 
 
 MIXIN_32 = (int_typedef,) if LONG_BIT == 32 else ()
@@ -352,16 +353,12 @@ class W_Complex128Box(ComplexBox, W_ComplexFloatingBox):
     descr__new__, _get_dtype, descr_reduce = new_dtype_getter("complex128")
     _COMPONENTS_BOX = W_Float64Box
 
-if long_double_size == 8:
-    W_FloatLongBox = W_Float64Box
-    W_ComplexLongBox = W_Complex128Box
-
-elif long_double_size in (12, 16):
+if long_double_size in (8, 12, 16):
     class W_FloatLongBox(W_FloatingBox, PrimitiveBox):
-        descr__new__, _get_dtype, descr_reduce = new_dtype_getter("float%d" % (long_double_size * 8))
+        descr__new__, _get_dtype, descr_reduce = new_dtype_getter(NPY_LONGDOUBLELTR)
 
     class W_ComplexLongBox(ComplexBox, W_ComplexFloatingBox):
-        descr__new__, _get_dtype, descr_reduce = new_dtype_getter("complex%d" % (long_double_size * 16))
+        descr__new__, _get_dtype, descr_reduce = new_dtype_getter(NPY_CLONGDOUBLELTR)
         _COMPONENTS_BOX = W_FloatLongBox
 
 class W_FlexibleBox(W_GenericBox):
@@ -651,7 +648,7 @@ W_Complex128Box.typedef = TypeDef("complex128", (W_ComplexFloatingBox.typedef, c
     imag = GetSetProperty(W_ComplexFloatingBox.descr_get_imag),
 )
 
-if long_double_size in (12, 16):
+if long_double_size in (8, 12, 16):
     W_FloatLongBox.typedef = TypeDef("float%d" % (long_double_size * 8), (W_FloatingBox.typedef),
         __module__ = "numpypy",
         __new__ = interp2app(W_FloatLongBox.descr__new__.im_func),
