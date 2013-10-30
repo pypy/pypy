@@ -12,6 +12,7 @@ class BaseNumpyAppTest(object):
                 import numpy
             else:
                 from . import dummy_module as numpy
+                sys.modules['numpy'] = numpy
             sys.modules['numpypy'] = numpy
         else:
             import os
