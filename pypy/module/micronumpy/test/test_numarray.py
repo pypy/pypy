@@ -2169,6 +2169,7 @@ class AppTestMultiDim(BaseNumpyAppTest):
         b = a.T
         assert(b[:, 0] == a[0, :]).all()
         assert (a.transpose() == b).all()
+        assert (a.transpose(None) == b).all()
         import sys
         if '__pypy__' in sys.builtin_module_names:
             raises(NotImplementedError, a.transpose, (1, 0, 2))

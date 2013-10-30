@@ -1562,8 +1562,15 @@ class Complex128(ComplexFloating, BaseType):
     ComponentBoxType = interp_boxes.W_Float64Box
 
 if interp_boxes.long_double_size == 8:
-    FloatLong = Float64
-    ComplexLong = Complex128
+    class FloatLong(BaseType, Float):
+        T = rffi.DOUBLE
+        BoxType = interp_boxes.W_FloatLongBox
+        format_code = "d"
+
+    class ComplexLong(ComplexFloating, BaseType):
+        T = rffi.DOUBLE
+        BoxType = interp_boxes.W_ComplexLongBox
+        ComponentBoxType = interp_boxes.W_Float64Box
 
 elif interp_boxes.long_double_size in (12, 16):
     class FloatLong(BaseType, Float):
