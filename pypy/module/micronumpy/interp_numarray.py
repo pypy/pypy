@@ -345,7 +345,8 @@ class __extend__(W_NDimArray):
         return W_NDimArray(self.implementation.transpose(self))
 
     def descr_transpose(self, space, args_w):
-        if len(args_w) != 0:
+        if not (len(args_w) == 0 or
+                len(args_w) == 1 and space.is_none(args_w[0])):
             raise OperationError(space.w_NotImplementedError, space.wrap(
                 "axes unsupported for transpose"))
         return self.descr_get_transpose(space)
